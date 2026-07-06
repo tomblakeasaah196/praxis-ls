@@ -1,0 +1,250 @@
+SMART LS  ·  PRAXIS-LS
+Enterprise Logistics Platform
+Super-Admin User Journey
+& the full “who does what / who sees what” access map
+A practical walk through the whole system as the person who runs it — written to be read and pictured, with the role each person plays shown at every stop.
+
+How to read this
+This is a walk-through, not a manual. We follow the Super Admin from the login screen, through setting up the company, building the team, and into every working area of the platform — finance, operations, warehouse, fleet, sales, HR, the portals and the AI. 
+At each stop you get two things: a short, plain description of what happens, and a small panel showing who does what and who sees what in that area. Sensitive numbers — margins, salaries, supplier costs — are called out wherever they appear, because not everyone is allowed to see them.
+A complete one-page access matrix, the field-confidentiality rules, the external-portal access and the document-authority model (Issuer / Validator / Approver) are gathered at the end for reference.
+The cast — who is in the system
+Access is built from three things working together: a role (your job area), a capability (your authority on documents), and a scope (the entity/branch you belong to). Here is the cast, in plain language.
+Platform tier (Praxis side — above any single company)
+Tenant tier (inside one company, e.g. SmartLS)
+External tier (portals — outside people, tightly scoped)
+
+The journey — through the whole platform
+STOP 1   Signing in, and staying secure
+You open the company’s own address — smartls.praxisls.com — and sign in. The system offers two-factor authentication (a one-time code); it is optional but strongly advised for you and for Finance. After thirty minutes of inactivity it logs you out automatically, and from your security screen you can see every active session and remotely sign out a lost or suspicious device.
+STOP 2   Two control rooms — platform vs company
+Because this is a multi-tenant platform, there are two separate admin areas. The Platform Root Admin (Praxis) works in a console that lives apart from any company — that is where a new tenant is created, given its subdomain, branding and starting capacity. You, the Tenant Super Admin, work inside one company and never see another company’s data. As you take on more tenants, the server steps up with you (today’s 12 GB box → 24 GB / 8-core at the next tenant, and so on).
+STOP 3   Landing — the Dashboard & ‘My Workspace’
+After login you land on a two-tab home: a Dashboard of KPIs and graphs, and My Workspace — your personal to-dos, approvals waiting on you, and alerts pushed by the Event Engine. What each person sees here is already filtered by role: a salesperson sees pipeline and targets; finance sees cash and receivables; you see the whole house.
+STOP 4   Standing up the company
+First-run setup is a guided wizard: the company’s brand (logos, colours, fonts), legal identity (TIN and RCCM), document-numbering prefixes (SLAS / SLS), default language, and the treasury accounts. You then draw the organigramme — departments, who approves what — and map workflows as simple Trigger → Act → Approve chains. The Smart Compliance Layer is switched on here, ready to flag broken segregation-of-duties, missing approvals and ISO/ESG gaps.
+STOP 5   Building the team — roles, rights, and what stays hidden
+This is where access is born. You create each user and give them a role (their area), a capability (Issuer / Validator / Approver), a scope (which entity/branch), and — module by module — explicit Create, Read, Update and Delete rights. The same screen lets you decide field-level visibility: a salesperson can open a costing but the margin is masked; HR sees salaries, operations never does.
+STOP 6   Master data — the shared backbone
+Now the reference data everything else leans on: corporate entities, clients, suppliers, the Financial Dictionary (main and sub-accounts), the OHADA Chart of Accounts, the tax jurisdiction (TVA 19.25%, withholding 2.2% / 5.5%), currencies wired to the live exchange-rate feed, treasury accounts including mobile-money wallets, and expense-rate tables per shipping line. Every create or edit here writes to the immutable audit log automatically.
+STOP 7   Human Capital — hiring to payslip
+The HR suite runs the people lifecycle: post vacancies straight to the website, issue offer letters and contracts, set and rate monthly KPIs, track attendance and clock-in, manage leave / salary advances / mission allowances, hold SOPs and onboarding, run trainings, and plan succession. Payroll generates Tax/CNPS-compliant payslips and links them to a cash request — and posts the payroll journal to the books automatically. An employee self-service portal lets staff see their own payslips and request leave.
+STOP 8   Sales & CRM — from lead to signed project
+Leads arrive from the website (or are entered by hand), meetings and minutes are logged, campaigns are tracked, and the AI Proposal Generator drafts a proposal — which a human always reviews before it goes out. Deals move along a visual Kanban pipeline, and won projects are pushed into the project portfolio. Costs and margins behind a quote are visible to the people pricing it, not to the whole sales floor.
+STOP 9   Commercial & pricing — the quick simulators
+For fast quotes that don’t need a full proposal, the Margin Simulator and Extra-Charges Simulator turn cost inputs into a price in seconds, drawing on the expense-rate tables. This is exactly where margin confidentiality bites: the price is shareable, the margin is not.
+STOP 10   Operations — running the job
+An operation file is opened (container numbers, MBL, codes), transit orders are raised with notifications, and milestones are tracked — each milestone update pushes straight to the client’s portal. Delivery notes are issued and QA tickets resolved. Operations enter the costs they incur; what those costs do to the margin is a finance view.
+STOP 11   Warehouse (WMS) — full from day one
+Goods arrive (GRN), go on QA/QC hold and inspection (with a certificate), then directed putaway places them by zone / aisle / rack / bin / yard. Inventory is tracked live; outbound runs pick, pack and dispatch; equipment is allocated; and blind cycle counts produce a certified Rapport d’Audit. (You chose full WMS — important, since some tenants will run full warehouses.)
+STOP 12   Fleet — vehicles that keep moving
+Vehicles and assets are registered; compliance and renewals (insurance, visite technique) raise alerts before they lapse; maintenance and work orders are scheduled; dispatch logs check-out/check-in; fuel and odometer readings flag variance; and driver licences/certifications are tracked, with incidents/claims as a fast-follow.
+STOP 13   Ops costing — what the job really cost
+Per operation file, a project costing is built and pushed to the ledger; costs are tracked by category; budget-vs-actual reconciliation shows the truth; and disbursals (cash/payment requests) carry the approved costing with them. This is the heart of margin — so it is firmly a finance-and-management view.
+STOP 14   Finance & treasury — billing and money in/out
+Proforma and advance invoices, final invoices, the smart receivables ledger, payments and allocations, asset management with automatic OHADA depreciation, and project financing all live here. Treasury covers bank, cash and mobile-money, and the accountant can import a bank statement to reconcile. Invoices and payments follow the Issuer → Validator → Approver path.
+STOP 15   The books — accounting that actually balances
+Everything above posts, once and at source, into double-entry OHADA journals and the general ledger. At month-end a guided close produces the full Système Normal: Bilan, Compte de résultat, Tableau des flux de trésorerie and Notes annexes. Posted entries are immutable — corrections are made by reversing entries, never by editing history.
+STOP 16   Tax & statutory — filing without fear
+From the same ledger, the jurisdiction engine computes TVA (19.25%), withholding (2.2% / 5.5%), CIT / minimum tax and CNPS, and assembles the DSF dataset ready to file by the 15 April / 15 May deadline. Nothing is re-keyed; the numbers trace straight back to the entries that made them.
+STOP 17   Procurement — controlled spending
+A purchase request is raised, approved, turned into a purchase order, and matched against goods received and the supplier invoice — a three-way match — before anything posts. No PO, no payment.
+STOP 18   Document vault, compliance checker & QR
+Every file lands in a central vault. The Compliance Checker automatically flags missing evidence (e.g. a job without its bill of lading), and verified documents carry a QR code for instant public or internal verification.
+STOP 19   The AI assistant, agentic actions & the Event Engine
+A floating assistant runs on Gemini (drafting), DeepSeek (reasoning) and Groq (voice-to-text). Ask it in plain language — “raise a PO for 10 laptops at 250k each” — and it prepares the action by calling whitelisted Node functions, then waits for your explicit confirmation before committing; every AI action is logged and sensitive fields are redacted before anything leaves the system. The Universal Event Engine ties it together: standardized events drive workflows, approvals and the print → sign → mail → WhatsApp execution cards with secure approval links. There is no RAG / vector store — the AI fetches the exact record it needs.
+STOP 20   The portals — clients, board, auditors
+Three front doors for outsiders, each tightly scoped. The Client Portal shows a client only their own projects, milestones, documents, messaging (with a certified PDF of the chat) and onboarding — with self-service quoting/booking. The Investor / Board Terminal is read-only KPIs and financials (with an optional IFRS view). The Audit Terminal gives an external auditor scoped, time-boxed read access plus a data room.
+STOP 21   Communications — corporate, WhatsApp-style
+Messaging feels like WhatsApp built for the company: real-time chat over sockets, working groups per department or project, and media sharing under 10 MB. There is no in-app calling — instead, a contact’s number opens wa.me or a tel: dialler, and their email opens mailto:. Client-facing chats can be exported as a certified PDF.
+STOP 22   Security, the immutable ledger & God Mode
+Everything anyone does is written to an immutable ledger — user, action, date, IP, module — filterable for audit. Normal deletes are soft-deletes that can be restored by a second admin. The one exception is God Mode: a true purge engine reserved for the CEO alone, unlocked with a personal PIN, and even then the full payload of whatever was purged is written to the immutable record. No one else — not even the Super Admin — can hard-delete.
+
+Who sees the sensitive numbers
+Field-level confidentiality is applied to the same screens, so the data — not the page — decides who sees what. The headline rules:
+The authority overlay — segregation of duties
+Independent of role, these document types must pass through different hands. The Smart Compliance Layer blocks one person from holding two conflicting hats on the same document.
+
+“If we get 10 tenants, what happens?”
+A fair question, since you chose full multi-tenant now and step the server up per tenant. In short:
+Isolation holds: each tenant’s data stays separate (own schema/row-isolation in PostgreSQL), so more tenants never means leakage.
+Capacity is the variable, not correctness: one 12 GB box comfortably serves the first tenant. As tenants and load grow, you step up (24 GB / 8-core, then more), and — because the app is containerized — heavy parts (AI worker, reporting, WMS) can move to their own machine without a rewrite.
+Around 8–10 active tenants, the sensible move is to split services across two or three servers (app, database, jobs/AI) behind a load balancer — the Docker/k3s design already anticipates this, which is why we kept microservice boundaries even inside the early monolith.
+The watch-points: the shared PostgreSQL and the document store. Plan a read-replica for the database and move the vault to object storage (you chose local-for-now — revisit this before the 75 GB fills or the third tenant lands).
+What happens next
+This journey is the human-readable contract for how the system behaves and who is trusted with what. From here we:
+Turn each stop into screen-level designs (the new UI/UX you’re building from scratch), keeping the access rules exactly as drawn here.
+Encode this RBAC — roles, capabilities, scopes, explicit CRUD and field rules — as the central policy every service checks.
+Sequence the build around the accounting core first, then operations, WMS/fleet, portals and AI, with your data migration to PostgreSQL run after the build, by you.
+
+Tell me where a role should do or see more (or less) than shown, and I’ll adjust the map before it becomes design.
+
+The full access matrix — at a glance
+Legend:  ● Full (create/edit/delete)   ◑ Create / edit   ○ View only   ▲ Approve   – none
+Key: SA Super Admin · CEO · MGT Management · FIN Finance/Treasury · ACC Accountant · SAL Sales · OPS Operations · WH Warehouse · FLT Fleet · PRC Procurement · HR Human Resources. Platform Root Admin sits above this grid (tenant provisioning only). Clients, Investors/Board and External Auditors are external — see the portal table.
+
+External portals — scoped read access
+Field | Detail
+Audience | The Super Admin (and anyone who needs to see how access works)
+Built from | Your 50 discovery answers + the PRD (70 modules, portals, AI & event engine)
+Model | Multi-tenant SaaS · Node.js services · PostgreSQL · React/Vite PWA · bilingual EN/FR
+Reads as | A journey: each stop = what you do + who else does what + who sees what
+Date | 30 June 2026
+The two lenses, at every stop
+DO — the actions a role can take (create, edit, approve, delete).
+SEE — what a role can view — and, just as important, what is hidden or masked from them.
+Role | In one line
+Platform Root Admin | Praxis-side owner of the whole SaaS. Creates and configures each tenant (company) in a separate admin console, manages subdomains and server capacity. Does not work inside a tenant’s daily books.
+Role | In one line
+Tenant Super Admin | Runs one company’s instance end-to-end: setup, users, roles, configuration. The main character of this journey.
+CEO / Executive | Top visibility and final approvals. Holds the God-Mode purge PIN (the only person who can permanently delete).
+Management | Oversight and approvals across departments; reads everything, including margins and financials.
+Finance / Treasury | Invoices, receivables, payments, cash, mobile-money and bank — usually a Validator/Approver.
+Accountant | Journals, general ledger, OHADA statements, tax/DSF, bank reconciliation.
+Sales / CRM | Leads, proposals, pipeline, campaigns, client relationships.
+Operations | Operation files, transit orders, milestones, delivery notes, QA.
+Warehouse (WMS) | Inbound/outbound, putaway, inventory, cycle counts.
+Fleet | Vehicles, maintenance, dispatch, fuel, drivers.
+Procurement | Purchase requests, purchase orders, goods received.
+HR | Employees, contracts, payroll, leave, appraisals, training.
+Line Manager | Approves for their own team (leave, appraisals, requests). A capability layered on any role.
+Role | In one line
+Client | Sees only their own projects, milestones, documents and messages through the Client Portal.
+Investor / Board | Read-only dashboards and financial oversight via the Investor Terminal.
+External Auditor | Scoped, time-boxed read access to records and the audit trail via the Audit Terminal.
+The authority overlay — Issuer · Validator · Approver
+On top of the role, key documents (costings, invoices, payments, journals, purchase orders) move through three hands: Issuer creates it, Validator checks it, Approver authorises it. One person cannot do all three on the same document — that is the segregation-of-duties rule the Smart Compliance Layer enforces.
+Role | What they DO here | What they SEE here
+Super Admin | Sets the 2FA policy; sees and kills any session | All sessions, all devices, the full login history
+Everyone | Signs in; turns on 2FA; manages own devices | Only their own sessions
+CEO | Same, plus holds the purge PIN (Stop 22) | Their own sessions; full audit on request
+Role | What they DO here | What they SEE here
+Platform Root Admin | Creates/suspends tenants; assigns subdomain & capacity | Tenant list & health — never a tenant’s working data
+Tenant Super Admin | Everything inside one company | Only their own company
+Why this separation matters
+A client’s data is fully isolated. Even Praxis’s platform team sees that a tenant exists and is healthy — not its invoices, salaries or clients. That is the promise that lets you sell the same system to competitors.
+Role | What they DO here | What they SEE here
+Super Admin / CEO / Mgmt | Configure tiles; act on alerts | Company-wide KPIs incl. revenue, margin, cash
+Finance / Accountant | Act on finance alerts & approvals | Cash, receivables, payables, tax due — not sales commissions
+Sales / Ops / WMS / Fleet | Act on their tasks | Only their own department’s KPIs; margins hidden
+Role | What they DO here | What they SEE here
+Super Admin | Runs the whole wizard; defines departments, workflows, approvers | All settings
+Platform Root Admin | Pre-loads brand & legal IDs at onboarding | Setup only, not operations
+Management | Reviews the organigramme & approval chains | Structure & policies (read)
+Role | What they DO here | What they SEE here
+Super Admin | Creates users; assigns role + capability + scope + CRUD; sets field visibility | Every permission in the system
+CEO / Management | Request or approve elevated access | Who-has-what access reports
+Everyone else | Nothing here | Their own profile only
+This is the single source of truth for access
+Every later ‘who can do/see what’ in this journey is decided here, once, and enforced on the server — not hidden in separate copies of screens like the old system.
+Role | What they DO here | What they SEE here
+Super Admin / Accountant | Maintain chart of accounts, dictionary, tax, currencies, rates | All financial reference data
+Finance / Treasury | Maintain treasury accounts & wallets | Bank, cash, mobile-money balances
+Sales / Ops | Create clients/suppliers (if permitted) | Names & contacts — not cost rates or account balances
+Role | What they DO here | What they SEE here
+HR | Runs all HR; processes payroll | All employee data & salaries
+Line Manager | Sets KPIs; approves own team’s leave | Their team’s records — not other teams’ pay
+Finance | Funds the payroll cash request; posts to ledger | Payroll totals — not individual HR notes
+Employee (self-service) | Views own payslip; requests leave | Only their own record
+Role | What they DO here | What they SEE here
+Sales | Works leads, proposals, pipeline, campaigns | Their clients & deals; sell prices — margins masked unless authorised
+Management | Reviews pipeline & approves big deals | All deals, full margins
+Finance | Confirms commercial terms feed billing | Approved prices & terms
+Role | What they DO here | What they SEE here
+Sales / Commercial | Runs simulations; issues a quick quote | Inputs & final price; margin shown only if authorised
+Finance / Management | Reviews & approves pricing | Full cost build-up and margin
+Role | What they DO here | What they SEE here
+Operations | Runs files, transit orders, milestones, delivery, QA | Their operations & costs incurred — not overall job profit
+Client (portal) | Watches progress; raises QA feedback | Only their own shipments’ milestones & documents
+Finance | Bills against the operation | Operation costs and resulting margin
+Role | What they DO here | What they SEE here
+Warehouse | GRN, putaway, picks, counts, dispatch | Stock, locations, movements
+Operations | Links warehouse activity to the job | Stock status for their shipments
+Finance | Values inventory to the ledger | Stock valuation — not bin-level detail
+Role | What they DO here | What they SEE here
+Fleet | Registry, maintenance, dispatch, fuel, drivers | All vehicle & driver data
+Operations | Requests a vehicle for a job | Availability & assignment
+Finance | Posts fuel/maintenance cost & depreciation | Fleet costs — not driver personal data
+Role | What they DO here | What they SEE here
+Operations | Enters costs; raises disbursal requests | Their file’s costs and budget
+Finance / Management | Reconciles budget vs actual; approves disbursal | Full margin and profitability
+Approver (capability) | Authorises the disbursal | The request, costing and budget
+Role | What they DO here | What they SEE here
+Finance / Treasury | Issues invoices; records & allocates payments | Receivables, payables, balances
+Accountant | Reconciles bank/mobile-money; posts entries | Ledger, statements, reconciliations
+Validator / Approver | Checks then authorises invoices & payments | The document and its backup
+Sales / Ops | See their client’s invoice status | Status & amount — not the whole ledger
+Role | What they DO here | What they SEE here
+Accountant | Posts/reverses journals; runs the close; produces statements | The entire ledger & all statements
+Finance / Management / CEO | Review and sign off | Statements and drill-down
+Everyone else | Nothing | No ledger access
+Role | What they DO here | What they SEE here
+Accountant | Generates tax returns & the DSF pack | All tax workings
+External Auditor (portal) | Inspects the basis of the figures | Read-only records & trail, time-boxed
+Management / CEO | Approve filings | Summaries & liabilities
+Role | What they DO here | What they SEE here
+Procurement | Raises PR/PO; records goods received | Suppliers, orders, receipts
+Approver | Approves the PR/PO within limits | Request & budget impact
+Finance | Three-way matches & pays | Matched documents & ledger effect
+Role | What they DO here | What they SEE here
+Super Admin / Compliance | Set required-document rules | All documents & flags
+Each department | Uploads & retrieves their files | Their area’s documents
+Client / Auditor (portal) | View shared/verified documents | Only what’s shared with them
+Role | What they DO here | What they SEE here
+Super Admin | Defines events, whitelisted AI actions, usage caps | All AI logs & event flows
+Each role | Uses AI within their own permissions | AI can only touch what the user already can
+CEO / Management | Approve via secure tokenized links | The action awaiting approval
+The AI never exceeds the person using it
+An agentic action runs with your permissions, needs your confirmation, and is fully logged. The AI cannot see or do anything you couldn’t — and sensitive figures are redacted before any external model is called.
+Role | What they DO here | What they SEE here
+Client | Tracks own jobs; messages; requests quotes | Only their own data
+Investor / Board | Reviews performance | Read-only KPIs & financials — no operational detail
+External Auditor | Inspects records & trail | Time-boxed, read-only, logged
+Role | What they DO here | What they SEE here
+All internal users | Chat, form groups, share media | Their groups & direct messages
+Client (portal) | Messages their account team | Only their own thread
+Super Admin | Sets group policy; exports certified chat | Channel list & compliance exports
+Role | What they DO here | What they SEE here
+CEO | God-Mode purge via PIN (only role that can hard-delete) | Full immutable ledger incl. purge payloads
+Super Admin | Soft-delete; restore; read the trail; kill sessions | The whole audit trail — but cannot purge
+Second Admin | Co-approves restores | The action being restored
+External Auditor | Reads the trail | Time-boxed, read-only
+The deletion rule, in one breath
+Soft-delete (reversible, two admins) is the everyday norm. Hard purge is CEO-only, PIN-gated, and itself permanently logged with everything it removed. Power is concentrated and accountable — never silent.
+Sensitive data | Can see | Hidden / masked from
+Job margins & profitability | CEO, Management, Finance, Accountant | Sales, Operations, Warehouse, Fleet, Procurement, all portals
+Salaries & payroll detail | HR, CEO, (Finance: totals only) | Everyone else, including Management line detail
+Supplier cost rates | Finance, Accountant, Procurement, Management | Sales, Operations, clients
+Full general ledger | Accountant, Finance, CEO, Auditor (read) | All operational roles
+Other tenants’ data | No one across the boundary | Every role — enforced by isolation
+Document | Issuer (creates) | Validator (checks) | Approver (authorises)
+Costing | Operations / Commercial | Finance | Management
+Invoice | Finance | Finance (2nd) | Management / CEO (by value)
+Payment / disbursal | Finance | Accountant | Approver by limit / CEO
+Purchase order | Procurement | Finance | Approver by limit
+Journal entry | Accountant | Accountant (2nd) | Finance / CEO
+Rule of thumb
+1 tenant: the current box. 2–4 tenants: step RAM/cores up as planned. 5–10 tenants: separate the database and the AI/jobs worker onto their own servers. Beyond that: replicate the database and externalize the document store. Nothing here requires re-architecting — only adding hardware to a design that already expects it.
+Module group | SA | CEO | MGT | FIN | ACC | SAL | OPS | WH | FLT | PRC | HR
+Tenant / company setup | ● | ○ | ○ | – | – | – | – | – | – | – | –
+IAM & user access | ● | ▲ | ○ | – | – | – | – | – | – | – | –
+Master data & dictionary | ● | ○ | ○ | ◑ | ● | ○ | ○ | – | – | – | –
+Chart of accounts / tax | ● | ○ | ○ | ◑ | ● | – | – | – | – | – | –
+HR & payroll | ○ | ○ | ○ | ○ | – | – | – | – | – | – | ●
+Sales & CRM | ○ | ○ | ▲ | ○ | – | ● | – | – | – | – | –
+Commercial / pricing | ○ | ○ | ▲ | ▲ | – | ◑ | – | – | – | – | –
+Operations | ○ | ○ | ○ | ○ | – | – | ● | ○ | ○ | – | –
+Warehouse (WMS) | ○ | ○ | ○ | – | – | – | ○ | ● | – | – | –
+Fleet | ○ | ○ | ○ | ○ | – | – | ○ | – | ● | – | –
+Ops costing | ○ | ○ | ▲ | ● | ○ | – | ◑ | – | – | – | –
+Finance & treasury | ○ | ▲ | ▲ | ● | ● | – | – | – | – | – | –
+Accounting / GL / statements | ○ | ○ | ○ | ○ | ● | – | – | – | – | – | –
+Procurement | ○ | ○ | ▲ | ▲ | – | – | ○ | ○ | – | ● | –
+Document vault & compliance | ● | ○ | ○ | ○ | ○ | ◑ | ◑ | ◑ | ◑ | ◑ | ◑
+AI & event engine | ● | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○
+Comms & portals admin | ● | ○ | ○ | – | – | – | – | – | – | – | –
+Security / God Mode purge | ○ | ● | – | – | – | – | – | – | – | – | –
+External role | Can do | Can see | Cannot see
+Client | Track own jobs, message, request quotes, view shared docs | Own projects, milestones, invoices status, shared documents | Other clients, margins, internal costs, the ledger
+Investor / Board | Review performance (read-only) | Company KPIs, financial statements, optional IFRS view | Operational detail, client lists, salaries
+External Auditor | Inspect records & audit trail (time-boxed) | Ledger, statements, supporting docs, immutable trail | Edit anything; data beyond the audit scope/window

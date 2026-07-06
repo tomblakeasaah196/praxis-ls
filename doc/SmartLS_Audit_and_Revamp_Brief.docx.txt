@@ -1,0 +1,145 @@
+SMART LS
+Logistics & Freight Management Platform
+Codebase Audit, Gap Analysis & Revamp Brief
+A plain-language review of the current system, a full catalogue of its flaws, the operational gaps it already closes, and what the new product must put right.
+
+Contents
+1.  Executive summary
+2.  How we examined the system
+3.  What SmartLS is today
+4.  What it does well — the gaps it already closes
+5.  The flaws — full audit
+6.  The headline gap — OHADA accounting & tax
+7.  How the revamp closes the gaps
+8.  Operating context & constraints
+9.  Recommended next steps
+
+1.  Executive summary
+SmartLS is a genuinely capable first-generation system. It already digitises the core of a freight and logistics business — turning a quote into a costing, a costing into a proforma, an operation into milestones, and a delivery into an invoice and a receivable — and it layers on modern touches that most local competitors do not have: optical character recognition (OCR) for document intake, an AI assist desk, a margin/pricing engine, and a document vault.
+It is also, in its current form, fragile and non-compliant. The review found database credentials written in plain text inside the source code, a hidden “God Mode” screen built for hard deletions, server error logs sitting inside web-reachable folders, the same screens copy-pasted five times (once per department), and several duplicated database tables that quietly split the same data into two places.
+Two gaps matter most. First, there is no accounting layer at all — no chart of accounts, no general ledger, no journals, no tax engine. The system records invoices and payroll, but it cannot produce the OHADA / SYSCOHADA financial statements that Cameroon law requires, which means the company cannot properly file its taxes (DSF, TVA, CNPS) from its own system. Second, the back-office ERP is English only, while Cameroon is officially bilingual and statutory accounting output is in French.
+2.  How we examined the system
+We reviewed the materials you provided as a static read-through — no live system was altered. Specifically:
+The full MySQL database dump — 84 tables — to understand the data model, what is captured, and where it is duplicated.
+The Administration ERP — 714 PHP files across api/ (server logic) and view/ (screens), grouped into five role areas: Sales, Operations, Finance, Admin and Management.
+The public website (smartls) — the bilingual marketing site, quote-request intake, partner portal and shipment-tracking pages.
+Security & access plumbing — the login, session, role-guard and department-context files that decide who can do what.
+Where the report states a fact about Cameroon tax or OHADA accounting, it was checked against current public sources (PwC tax summaries, the DGI, OHADA/SYSCOHADA references) as of June 2026.
+3.  What SmartLS is today
+SmartLS is really two applications sharing one database:
+3.1  The public website (smartls)
+A marketing and intake site that is already bilingual (English and French translation files are present). It carries the company story and services, a smart quote-request form that feeds the ERP, a partnership portal, and a public shipment-tracking page. This is the front door for customers.
+3.2  The Administration ERP (the operational core)
+The back office where the business is actually run. It is organised into five role areas, each a folder of screens. The same operational modules are reachable across roles, with the work itself spanning the full commercial cycle:
+3.3  The data model in one glance
+The 84 tables cluster cleanly into recognisable business domains — clients & suppliers, employees & payroll, quotes & sales, costing & pricing, invoicing & receipts, operations & milestones, cash & debt, documents & OCR, and security & audit. The structure shows real domain thinking. The weaknesses, covered in Section 5, are about duplication, the way permissions are modelled, and what is missing — not a lack of ambition.
+4.  What it does well — the gaps it already closes
+It would be wrong to read this as “throw it away.” The current system, flaws and all, already closes gaps that many logistics SMEs in the region still handle on paper or in spreadsheets. These are the assets worth preserving and re-implementing well:
+
+5.  The flaws — full audit
+Findings are grouped by theme and rated Critical, High or Medium. Critical items are security or compliance exposures that should be addressed regardless of the revamp timeline.
+5.1  Security & data protection
+5.2  Architecture & maintainability
+5.3  Data-model integrity
+5.4  Access control (RBAC) & governance
+5.5  Localisation
+5.6  Operability & resilience
+
+6.  The headline gap — OHADA accounting & tax
+This deserves its own section because it is the single biggest risk and the main reason for the revamp. The current system has financial records but no accounting. It stores invoices, receipts, purchase orders and payroll, but there is no chart of accounts, no double-entry general ledger, no journals, no fiscal-period close and no tax engine. Money movements are tracked as operational documents, never posted to accounts.
+In Cameroon that is not a nice-to-have. Companies keep their books under the revised SYSCOHADA framework (AUDCIF) and must produce, file and defend statutory financial statements and tax declarations:
+Figures (CIT 33% / 27.5%, minimum tax 2.2% / 5.5%, TVA 19.25%, CNPS rates, DSF deadlines) are current as of June 2026 and should be confirmed against the DGI Code Général des Impôts at build time, since Finance Acts adjust them yearly.
+7.  How the revamp closes the gaps
+The proposed stack — a Node.js API with a React/Vite Progressive Web App, bilingual throughout, on top of a cleaned data model — maps directly onto the findings above. Each flaw has a corresponding fix:
+8.  Operating context & constraints
+Jurisdiction: Cameroon — bilingual (EN/FR), OHADA/SYSCOHADA accounting, DGI tax administration (DSF, TVA, CIT, CNPS).
+Target platform: Node.js back end, React + Vite front end, delivered as an installable PWA, fully bilingual.
+Hardware budget: A single server with 12 GB RAM, 6 CPU cores and 75 GB SSD. Generous for a well-built Node + MySQL app at SME scale, but it forces discipline: lean services, off-box file storage and backups, and a clear scaling path.
+Data: An existing 84-table database with real operational history that must be migrated, not discarded.
+9.  Recommended next steps
+Work through the 30 discovery questions (separate document). They turn each finding above into a concrete decision and are grouped exactly as you asked: findings, ideal structure & flexibility, and sustainability.
+From your answers, lock the target architecture, the OHADA accounting scope, the RBAC model and the bilingual approach.
+Then we draft the practical, picture-it user journey — written for the Super Admin, with the full “who does what / who sees what” RBAC matrix beneath it.
+Finally, sequence the build into phases that fit the server budget and let you keep operating while the new system comes up.
+
+Field | Detail
+Prepared for | Tom Blake — SmartLS
+Scope | Public website (smartls) + Administration ERP + full database (84 tables)
+Current stack | PHP + Bootstrap, MySQL (server-rendered monolith)
+Target stack | Node.js + React/Vite, Progressive Web App (PWA), bilingual EN/FR
+Jurisdiction | Cameroon — OHADA / SYSCOHADA accounting, DGI tax filing
+Date | 30 June 2026
+Status | Confidential — Draft for discovery
+The one-line verdict
+A strong operational skeleton that has outgrown its foundations. The revamp to Node.js + React (PWA), with a native OHADA accounting core and full English/French bilingualism, is the right correction — provided we fix the security and structural debt rather than carry it across.
+Domain | What it covers in the system today
+Sales / CRM | Smart quote intake, lead capture, sales pipeline, opportunities, proposals, success stories, marketing campaigns, partnership intake.
+Pricing | Costing module, margin simulator, extra-charges simulator, cost-tracking ledger and reconciliation — the pricing engine.
+Operations | Operations registry (files/jobs), milestone tracking, transit orders, delivery notes, supplier records, purchase orders.
+Finance (AR) | Proforma invoices, final invoices, payment receipts and allocations, receivables ledger, debt management, cash & funds requests, working-capital recovery.
+HR & Payroll | Employee master, contracts, attendance logs, payroll runs and payslips, with CNPS fields for social security.
+Documents & AI | Document vault with sequence numbering, OCR ingestion, and a “Praxis” AI command desk; in-app chat and a notification queue.
+Admin & Security | User & role management, IAM/security (audit log, active sessions) and a hidden “God Mode” deletion console.
+Strength | Why it matters | Status
+End-to-end commercial cycle | Quote → costing → proforma → operation → invoice → receipt → receivable all live in one system. | Strength
+Segregation of duties concept | An Issuer / Validator / Approver authority model already exists alongside roles — the seed of proper financial controls. | Strength
+Margin & costing engine | Pricing logic, extra-charges simulation and cost-tracking reconciliation are codified, not tribal knowledge. | Strength
+Operations milestone tracking | Jobs are tracked through defined milestones with evidence documents — real operational visibility. | Strength
+OCR + AI assist (Praxis) | Modern document data-extraction and an AI desk put SmartLS ahead of typical local tooling. | Strength
+Document vault + sequencing | Central document storage with controlled numbering and a deletion ledger — good instincts for auditability. | Strength
+Audit log & session monitor | Logins (including failures) and active sessions are recorded — the basis of a security trail. | Strength
+CNPS-aware payroll | Payroll already carries Cameroon social-security fields — local compliance awareness is built in. | Strength
+Bilingual public website | The customer-facing site already ships English and French — half the bilingual job is done. | Strength
+Read this as a foundation, not a write-off
+The revamp keeps these capabilities and the data behind them. The job is to re-home them on a stronger, secure, compliant and bilingual platform — not to reinvent the business logic from zero.
+Finding | What we saw | Severity
+Hard-coded database password | The live DB username and password sit in plain text inside config/db.php, travelling with the code. Anyone with the files has the database. | Critical
+“God Mode” hard-delete console | A hidden admin screen performs permanent deletions, gated only by a role check and a secondary password table. Powerful, destructive, lightly governed. | Critical
+Error logs in web folders | PHP error_log files sit inside served api/ directories. These can leak file paths, queries and internal logic to anyone who guesses the URL. | Critical
+No brute-force protection | Failed logins are recorded but not throttled or locked out, and there is no multi-factor authentication. Passwords can be attacked at will. | High
+Mixed database access | Of ~674 query calls, ~197 are raw (un-parameterised) and a handful build queries with inline variables — an SQL-injection surface, even if many are integer-cast. | High
+No secrets / environment config | Credentials and settings are baked into source rather than environment variables or a secrets store, so they cannot be rotated cleanly. | High
+Finding | What we saw | Severity
+Screens copy-pasted per role | The same screen (e.g. client-master-registry) is duplicated across admin/, sales/, finance/, operations/ and management/. One change must be made up to five times, and copies drift apart. | High
+Old code generations kept live | Multiple superseded versions remain (marginpricingold, marginpricing-old, financial-dictionary vs financial_dictionary). Dead code is a security and confusion liability. | High
+Duplicated, nested folders | Deeply repeated trees (administration/administration/administration, a second copy under smart-logistics/) blur which code is actually deployed. | High
+Server-rendered monolith | PHP renders HTML directly with no separation between back end and front end and no defined API contract, so the UI cannot be modernised independently. | Medium
+No tests or CI/CD; test files in views | No automated tests or release pipeline were found, and test.php / test_smtp_mail.php sit among live screens. | Medium
+Finding | What we saw | Severity
+Duplicate / twin tables | contact_enquires vs contact_enquiries, marketing_campaign vs marketing_campaigns, doc_sequence vs doc_sequences, document_vault vs document_vault_master — the same idea stored two ways, risking split or lost data. | High
+Permissions modelled three ways | Access depends on user_auth.role, employee_master.department and an authority_capabilities set at once. These can drift out of sync and disagree. | High
+Rigid enums for org structure | Roles and departments are fixed database enums, so adding a unit (Accounting, HR, Customs) is a schema change rather than a configuration. | Medium
+Finding | What we saw | Severity
+Authorisation by folder + string | Who-can-do-what is decided by which role folder a file lives in plus a department-name mapping, not a single, central permission policy. “Who sees what” is implicit and scattered. | High
+No field-level confidentiality | Controls are per page, not per field. Sensitive numbers (margins, salaries, supplier costs) are governed by which screen you open, not by a rule about the data itself. | High
+Destructive power concentrated | God Mode aside, there is no maker-checker workflow on irreversible actions and no tamper-evident audit of them. | High
+Finding | What we saw | Severity
+ERP is English-only | The back office has no internationalisation layer (the only language files are inside a mail library). In a bilingual country, French-speaking staff and auditors are under-served. | High
+No bilingual documents | Invoices, payslips, POs and statements are generated in one language, whereas statutory OHADA output is French and clients may need either. | High
+Finding | What we saw | Severity
+Single modest server, no DR seen | One 12 GB / 6-core / 75 GB box with no evident backup, restore or monitoring strategy. A disk failure or ransomware event could be terminal. | High
+Files stored on the app server | The document vault and uploads live on local disk, competing with the app for the 75 GB and tying data to one machine. | Medium
+No offline capability | Despite the PWA ambition, the current ERP needs a live connection — a problem where connectivity is intermittent. | Medium
+Obligation | What it requires | Current system
+SYSCOHADA financial statements | Bilan (balance sheet), Compte de résultat (income statement), Tableau des flux de trésorerie (cash-flow) and Notes annexes, from a 9-class chart of accounts. | Cannot produce
+DSF annual return | Déclaration Statistique et Fiscale filed with the DGI by 15 April (CIME/CSI) or 15 May (CDI), built directly on the statements. | Cannot produce
+TVA (VAT) | Monthly VAT at 19.25%, with input/output tracking and a return. | No VAT engine
+Corporate income tax | CIT at 33% (turnover ≥ XAF 3bn) or 27.5%, with a 2.2% / 5.5% minimum tax on turnover. | No computation
+CNPS & payroll taxes | Social security (≈ 4.2% employee, 7%+ employer, capped) and PAYE, declared periodically. | Fields only, no posting
+Why this is existential
+You cannot file taxes you cannot account for. Without a SYSCOHADA-compliant ledger feeding the DSF, TVA and CNPS declarations from one source of truth, filings are manual, late-prone and hard to defend in an audit. Re-introducing OHADA accounting and reporting is the central requirement of the revamp, not an add-on.
+Today's flaw | What the revamp introduces
+No accounting / cannot file taxes | A native double-entry OHADA/SYSCOHADA core: chart of accounts, general ledger, journals, period close, and a tax engine that produces TVA, CIT/minimum-tax and the DSF pack — plus CNPS — from one ledger.
+ERP English-only | A single internationalisation layer so every screen, document and notification renders in English or French, per user and per document, reusing the website's existing translations.
+Hard-coded secrets | Configuration and secrets moved to environment variables / a secrets store, rotatable without code changes.
+God Mode hard deletes | Replaced by maker-checker approvals, soft-delete with retention, and a tamper-evident audit trail.
+Screens copied per role | One screen, one code path, with a central permission policy deciding visibility and actions — built once, governed centrally.
+Permissions in three places | A single RBAC policy engine (roles + capabilities + field-level rules) as the one source of truth for who does what and who sees what.
+Duplicate / twin tables | A consolidated, normalised schema migrated cleanly from the current 84 tables, with duplicates merged and de-duplicated.
+Server-rendered monolith | A clean API/front-end split: the React PWA talks to a documented Node API, so UI and logic evolve independently.
+No offline use | PWA caching and a sync model so key field tasks keep working through patchy connectivity.
+Single server, no DR | An explicit hosting, backup and disaster-recovery design sized to the 12 GB / 6-core / 75 GB budget, with a documented path to scale.
+Immediate, do-regardless actions
+1.  Rotate the database password and move it out of source code.
+2.  Block web access to all error_log files and the God Mode console; take a verified off-box backup of the database and the document vault today.
+3.  Treat these as urgent regardless of the revamp timeline.
