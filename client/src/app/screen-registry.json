@@ -1,0 +1,156 @@
+{
+  "$comment": "Canonical UI screen registry — the AI's map of the app's screens. Each screen maps to its route, the module it belongs to (module_key), a one-line purpose, and the AI action_keys reachable from it. Keep this in sync when adding a route (see doc/AI_READINESS.md). Ingested into the AI global corpus by src/services/ai/knowledge/codebase.js; also usable by the frontend for nav/breadcrumbs.",
+  "version": 1,
+  "screens": [
+    {
+      "id": "login",
+      "title": "Login",
+      "route": "/login",
+      "public": true,
+      "area": "auth",
+      "module_key": null,
+      "purpose": "White-label sign-in with 2FA challenge.",
+      "actions": []
+    },
+    {
+      "id": "dashboard",
+      "title": "Dashboard",
+      "route": "/",
+      "area": "home",
+      "module_key": "MOD-00A",
+      "purpose": "Landing overview / KPIs for the signed-in user.",
+      "actions": []
+    },
+    {
+      "id": "security_users",
+      "title": "Users",
+      "route": "/security/users",
+      "area": "security",
+      "module_key": "MOD-67",
+      "purpose": "List and manage application users.",
+      "actions": []
+    },
+    {
+      "id": "security_roles",
+      "title": "Roles",
+      "route": "/security/roles",
+      "area": "security",
+      "module_key": "MOD-67",
+      "purpose": "Define roles in the RBAC engine.",
+      "actions": []
+    },
+    {
+      "id": "security_permissions",
+      "title": "Permission matrix",
+      "route": "/security/permissions",
+      "area": "security",
+      "module_key": "MOD-67",
+      "purpose": "Grant matrix editor: roles x modules x R/C/U/D/A.",
+      "actions": []
+    },
+    {
+      "id": "security_capabilities",
+      "title": "Capabilities",
+      "route": "/security/capabilities",
+      "area": "security",
+      "module_key": "MOD-67",
+      "purpose": "Authority overlay (ISSUER/VALIDATOR/APPROVER/LINE_MANAGER).",
+      "actions": []
+    },
+    {
+      "id": "security_scopes",
+      "title": "Scopes",
+      "route": "/security/scopes",
+      "area": "security",
+      "module_key": "MOD-67",
+      "purpose": "Entity/branch record-level scope tree.",
+      "actions": []
+    },
+    {
+      "id": "security_field_visibility",
+      "title": "Field visibility",
+      "route": "/security/field-visibility",
+      "area": "security",
+      "module_key": "MOD-67",
+      "purpose": "Per-field confidentiality rules.",
+      "actions": []
+    },
+    {
+      "id": "security_sessions",
+      "title": "Sessions",
+      "route": "/security/sessions",
+      "area": "security",
+      "module_key": "MOD-68",
+      "purpose": "Active sessions with remote kill.",
+      "actions": []
+    },
+    {
+      "id": "audit",
+      "title": "Audit ledger",
+      "route": "/audit",
+      "area": "governance",
+      "module_key": "MOD-69",
+      "purpose": "Immutable audit trail + soft-delete restore.",
+      "actions": []
+    },
+    {
+      "id": "notifications",
+      "title": "Notifications",
+      "route": "/notifications",
+      "area": "governance",
+      "module_key": "MOD-67",
+      "purpose": "In-app notifications incl. Watch-the-Watcher alerts.",
+      "actions": []
+    },
+    {
+      "id": "workflows",
+      "title": "Workflows",
+      "route": "/workflows",
+      "area": "governance",
+      "module_key": "MOD-67",
+      "purpose": "Universal Event Engine: event types, workflows, steps.",
+      "actions": []
+    },
+    {
+      "id": "approvals",
+      "title": "Approvals",
+      "route": "/approvals",
+      "area": "governance",
+      "module_key": "MOD-67",
+      "purpose": "Runtime approval queue for approvable events.",
+      "actions": [
+        "act_approval"
+      ]
+    },
+    {
+      "id": "appearance",
+      "title": "Appearance",
+      "route": "/appearance",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "White-label theming: colour, logo, display name.",
+      "actions": []
+    },
+    {
+      "id": "settings",
+      "title": "Settings",
+      "route": "/settings",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "Tenant configuration hub.",
+      "actions": []
+    },
+    {
+      "id": "settings_numbering",
+      "title": "Numbering schemes",
+      "route": "/settings/numbering",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "Configure per-document numbering (prefix, padding, reset).",
+      "actions": [
+        "get_numbering_scheme",
+        "set_numbering_scheme"
+      ]
+    }
+  ]
+}

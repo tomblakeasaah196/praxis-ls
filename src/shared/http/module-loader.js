@@ -56,7 +56,7 @@ function mountTenantModules(tenantRouter) {
   for (const m of discover()) {
     let def;
     try {
-      // eslint-disable-next-line global-require, import/no-dynamic-require
+      // dynamic require: module path is discovered at runtime (trusted, local)
       def = require(m.routesFile);
     } catch (err) {
       logger.warn({ module: `${m.group}/${m.module}`, err: err.message }, "skipped module (load error)");

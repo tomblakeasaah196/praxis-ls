@@ -3,6 +3,24 @@
 const js = require("@eslint/js");
 
 module.exports = [
+  // Global ignores — vendored, generated, reference, and frontend trees are not
+  // part of the backend lint gate. (`client/` has its own tsc/vite tooling; the
+  // legacy PHP/JS under doc/reference is kept for reference only.)
+  {
+    ignores: [
+      "node_modules/**",
+      ".cache/**",
+      "coverage/**",
+      "data/**",
+      "doc/**",
+      "client/**",
+      "assets/**",
+      "media/**",
+      "packages/**",
+      "postman/**",
+      "**/*.min.js",
+    ],
+  },
   js.configs.recommended,
   {
     languageOptions: {
@@ -21,11 +39,10 @@ module.exports = [
         setInterval: "readonly",
         clearTimeout: "readonly",
         clearInterval: "readonly",
-        // Node 18+ web-platform globals (fetch, AbortController, URL) used
-        // by the geo-welcome lookup and URL allow-listing.
+        setImmediate: "readonly",
+        URL: "readonly",
         fetch: "readonly",
         AbortController: "readonly",
-        URL: "readonly",
       },
     },
     rules: {
