@@ -1,9 +1,13 @@
 /**
  * HTTP entrypoint. Lean Express app serving the platform (company dashboard) API
- * and the subdomain-resolved tenant API. Redis/Socket.IO/worker wiring is added
- * as those land.
+ * and the subdomain-resolved tenant API.
  */
 "use strict";
+
+// MUST be first: makes Express 4 route async rejections to the error handler
+// instead of crashing the process. See shared/http/async-safe.js and
+// doc/PHASE0_PRODUCTION_AUDIT.md.
+require("./shared/http/async-safe");
 
 const express = require("express");
 const helmet = require("helmet");
@@ -14,38 +18,61 @@ const { config } = require("./config/env");
 const { logger } = require("./config/logger");
 const { initRedis } = require("./config/redis");
 const routes = require("./routes");
-const { AppError } = require("./utils/errors");
+const { requestIdMiddleware } = require("./middleware/request-id");
+const { errorHandler, notFoundHandler } = require("./middleware/error-handler");
+
+/**
+ * CORS origin allowlist. Single-origin is the production model (Express serves
+ * the SPA), so cross-origin is mostly the Vite dev host. We reflect any origin
+ * on the tenant/platform base domain (*.APP_BASE_DOMAIN + the apex) plus any
+ * exact origins in CORS_ORIGINS, and — only in development — localhost on any
+ * port. A wildcard cors() on a credentialed multi-tenant auth API was the prior
+ * state (see doc/PHASE0_PRODUCTION_AUDIT.md).
+ */
+function buildCorsOptions() {
+  const base = config.APP_BASE_DOMAIN.toLowerCase();
+  const extra = new Set(
+    config.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean),
+  );
+  const isDev = config.NODE_ENV !== "production";
+  return {
+    credentials: true,
+    origin(origin, cb) {
+      if (!origin) return cb(null, true);
+      let host;
+      try {
+        host = new URL(origin).hostname.toLowerCase();
+      } catch {
+        return cb(new Error("Bad origin"), false);
+      }
+      const onBaseDomain = host === base || host.endsWith("." + base);
+      const devLocalhost = isDev && (host === "localhost" || host === "127.0.0.1");
+      if (onBaseDomain || devLocalhost || extra.has(origin)) return cb(null, true);
+      return cb(new Error("Not allowed by CORS"), false);
+    },
+  };
+}
 
 function buildApp() {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", true);
   app.use(helmet());
-  app.use(cors());
+  app.use(cors(buildCorsOptions()));
+  app.use(requestIdMiddleware);
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
 
   app.use("/api", routes);
 
-  // Stored files (STORAGE_DRIVER=local) are served here at /media/<key> — the
-  // public URL scheme storage.service.js's publicUrl() builds. Only mounted for
-  // the local driver (s3 serves from the bucket/CDN). In dev the Vite server
-  // proxies /media here too (client/vite.config.ts). NOTE: this is a flat static
-  // mount — fine for public assets like tenant logos (keys are tenant-namespaced
-  // by callers); sensitive documents will need an auth-gated download route
-  // instead, not this.
+  // Local storage driver serves stored files at /media/<key>. Flat static mount
+  // — fine for public assets (tenant logos); sensitive documents need an
+  // auth-gated download route instead (tracked for Phase 1).
   if (config.STORAGE_DRIVER === "local") {
     app.use("/media", express.static(path.resolve(config.STORAGE_LOCAL_PATH), { maxAge: "1h" }));
   }
 
-  // Single-origin model (tech-lead decision): when the frontend has been built
-  // (`npm --prefix client run build` → client/dist), this same Express process
-  // serves the PWA alongside /api — so the tenant subdomain serves both, the
-  // PWA is same-origin with its API (installable/offline, no CORS), and there's
-  // one thing to deploy. In dev you instead run the Vite dev server, which
-  // proxies /api back here (see client/vite.config.ts) — client/dist won't
-  // exist, so this block stays inert. Any unknown /api/* still falls through to
-  // the JSON 404 below; every other path returns index.html for client routing.
+  // Single-origin: when client/dist exists, serve the built PWA alongside /api.
   const clientDist = path.resolve(__dirname, "../client/dist");
   if (fs.existsSync(path.join(clientDist, "index.html"))) {
     app.use(express.static(clientDist, { index: false, maxAge: "1h" }));
@@ -56,38 +83,28 @@ function buildApp() {
     logger.info({ clientDist }, "serving built SPA (single-origin)");
   }
 
-  app.use((req, res) =>
-    res.status(404).json({
-      error: {
-        code: "NOT_FOUND",
-        message: `No route for ${req.method} ${req.path}`,
-      },
-    }),
-  );
-
-  // eslint-disable-next-line no-unused-vars
-  app.use((err, req, res, _next) => {
-    const status = err instanceof AppError ? err.status : err.status || 500;
-    if (status >= 500) logger.error({ err }, "unhandled error");
-    res.status(status).json({
-      error: {
-        code: err.code || "INTERNAL",
-        message: err.message || "Internal error",
-        details: err.details || undefined,
-      },
-    });
-  });
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   return app;
 }
 
+function installProcessGuards() {
+  // Defense-in-depth: the async-safe shim routes handler rejections to Express,
+  // but a stray rejection outside the request lifecycle must not silently kill
+  // the process without a log line. A process manager still restarts on a real
+  // fatal.
+  process.on("unhandledRejection", (reason) => {
+    logger.error({ err: reason }, "unhandledRejection (kept alive)");
+  });
+  process.on("uncaughtException", (err) => {
+    logger.error({ err }, "uncaughtException (kept alive)");
+  });
+}
+
 function start() {
+  installProcessGuards();
   const app = buildApp();
-  // Best-effort — identity-cache/session-store already tolerate a missing
-  // Redis client (see shared/cache/identity-cache.js's safeRedis()), so a
-  // Redis outage at boot degrades caching/session-kill rather than crashing
-  // the API. initRedis() was never called anywhere before this; getClient()
-  // would throw "redis not initialised" on every lookup until now.
   initRedis().catch((err) => logger.warn({ err: err.message }, "redis unavailable at boot — continuing without it"));
   const server = app.listen(config.PORT, () =>
     logger.info({ port: config.PORT, env: config.NODE_ENV }, "praxis-ls api listening"),

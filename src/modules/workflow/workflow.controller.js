@@ -60,4 +60,12 @@ module.exports = {
   listApprovals: asyncHandler(async (req, res) =>
     res.json({ data: await req.tenantDb((c) => service.listApprovals(c, req.query)) }),
   ),
+
+  actApproval: asyncHandler(async (req, res) => {
+    const result = await req.tenantDb((c) => service.actApproval(c, {
+      approvalTaskId: req.params.id, action: req.body.action, note: req.body.note,
+      actor: req.user || { user_id: null },
+    }));
+    res.json({ data: result });
+  }),
 };
