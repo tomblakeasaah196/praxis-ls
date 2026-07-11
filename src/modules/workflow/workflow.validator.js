@@ -40,9 +40,15 @@ const addStep = z.object({
   max_amount_xaf: z.number().nonnegative().optional(),
 });
 
+const actApproval = z.object({
+  action: z.enum(["validate", "approve", "reject", "skip"]),
+  note: z.string().optional(),
+});
+
 module.exports = {
   registerEventType: check(registerEventType),
   createWorkflow: check(createWorkflow),
   updateWorkflow: check(updateWorkflow),
   addStep: check(addStep),
+  actApproval: check(actApproval),
 };

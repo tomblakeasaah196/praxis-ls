@@ -15,7 +15,7 @@ const isDev =
 const baseConfig = {
   level: process.env.LOG_LEVEL || "info",
   base: {
-    app: process.env.APP_NAME || "pixiegirl-hub-backend",
+    app: process.env.APP_NAME || "praxis-ls-api",
     env: process.env.NODE_ENV || "development",
   },
   redact: {

@@ -43,5 +43,6 @@ router.delete("/workflows/:id/steps/:stepId", requirePermission(M, "edit"), cont
 
 // approval_task runtime queue (read-only)
 router.get("/approvals", requirePermission(M, "view"), controller.listApprovals);
+router.post("/approvals/:id/act", requirePermission(M, "approve"), validator.actApproval, controller.actApproval);
 
 module.exports = { basePath: "/", feature: null, router };

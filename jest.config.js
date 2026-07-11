@@ -4,7 +4,7 @@ module.exports = {
   testEnvironment: "node",
   rootDir: ".",
   testMatch: ["<rootDir>/tests/**/*.test.js"],
-  collectCoverageFrom: ["src/**/*.js", "!src/server.js", "!src/jobs/worker.js"],
+  collectCoverageFrom: ["src/**/*.js", "!src/server.js", "!src/jobs/workers.js"],
   coverageDirectory: "coverage",
   setupFilesAfterEnv: ["<rootDir>/tests/jest.setup.js"],
   testTimeout: 15000,
