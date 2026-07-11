@@ -13,6 +13,9 @@ const events = require("./workflow.events");
 
 const M = events.MODULE;
 
+const executor = require("../../services/workflow/executor");
+const onApproved = require("../../services/workflow/on-approved");
+
 module.exports = {
   // ---- event_type registration ----
   listEventTypes: (client, q) => repo.listEventTypes(client, q),
@@ -140,4 +143,11 @@ module.exports = {
 
   // ---- approvals (read-only runtime) ----
   listApprovals: (client, q) => repo.listApprovals(client, q),
+  actApproval: async (client, opts) => {
+    const result = await executor.act(client, opts);
+    if (result.completed && result.approved && result.entityRef) {
+      result.dispatch = await onApproved.dispatch(client, result.entityRef, opts.actor || {});
+    }
+    return result;
+  },
 };

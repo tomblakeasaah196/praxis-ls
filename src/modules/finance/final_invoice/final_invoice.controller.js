@@ -1,3 +1,33 @@
 "use strict";
-const { makeController } = require("../../../shared/crud/resource");
-module.exports = makeController(require("./final_invoice.service"), "Final invoice");
+const service = require("./final_invoice.service");
+const { asyncHandler, AppError } = require("../../../utils/errors");
+const actor = (req) => req.user || { user_id: null };
+module.exports = {
+  list: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.list(c, req.query)) })),
+  get: asyncHandler(async (req, res) => {
+    const row = await req.tenantDb((c) => service.get(c, req.params.id));
+    if (!row) throw new AppError("NOT_FOUND", "Invoice not found", 404);
+    res.json({ data: row });
+  }),
+  create: asyncHandler(async (req, res) => {
+    const b = req.body;
+    const data = await req.tenantDb((c) => service.createDraft(c, {
+      entityId: b.entity_id, clientId: b.client_id, dossierId: b.dossier_id, lines: b.lines || [], actor: actor(req),
+    }));
+    res.status(201).json({ data });
+  }),
+  update: asyncHandler(async (req, res) => {
+    const b = req.body;
+    const data = await req.tenantDb((c) => service.updateDraft(c, {
+      invoiceId: req.params.id, patch: { client_id: b.client_id, dossier_id: b.dossier_id }, lines: b.lines || null, actor: actor(req),
+    }));
+    res.json({ data });
+  }),
+  submit: asyncHandler(async (req, res) => {
+    const b = req.body;
+    const data = await req.tenantDb((c) => service.submit(c, {
+      invoiceId: req.params.id, entryDate: b.entry_date, sourceDocRef: b.source_doc_ref, actor: actor(req), ip: req.ip,
+    }));
+    res.json({ data });
+  }),
+};

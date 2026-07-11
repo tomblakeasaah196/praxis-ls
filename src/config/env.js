@@ -1,14 +1,8 @@
 /**
  * Environment configuration — loaded once, validated with Zod, frozen.
- *
- * Import as: const { config } = require("./env");
- *
- * Design (doc/DB_ARCHITECTURE.md): the app boots against the PLATFORM database
- * (tenant registry). Per-tenant database connections are resolved at request
- * time from platform.tenant_database via the connection registry — their creds
- * are NOT in this file. The DB_* block below is the platform/default connection.
+ * The app boots against the PLATFORM database; per-tenant DB creds are resolved
+ * at request time and are NOT in this file. See doc/DB_ARCHITECTURE.md.
  */
-
 "use strict";
 
 require("dotenv").config();
@@ -40,8 +34,9 @@ const Schema = z.object({
   PORT: int(8080),
   APP_BASE_DOMAIN: z.string().default("praxisls.com"),
   LOG_LEVEL: z.string().default("info"),
+  APP_NAME: z.string().default("praxis-ls-api"),
+  CORS_ORIGINS: z.string().default(""),
 
-  // Platform / default Postgres connection (the app boots against this).
   DB_HOST: z.string().default(urlParts.host || "localhost"),
   DB_PORT: int(urlParts.port || 5432),
   DB_NAME: z.string().default(urlParts.database || "praxis_platform"),
@@ -54,7 +49,6 @@ const Schema = z.object({
   DB_PLATFORM_SCHEMA: z.string().default("platform"),
   RLS_READ_ENFORCE: bool(false),
 
-  // Per-tenant DB registry — how the connection manager reaches tenant DBs.
   TENANT_DB_HOST_DEFAULT: z.string().default(urlParts.host || "localhost"),
   TENANT_DB_PORT_DEFAULT: int(urlParts.port || 5432),
   TENANT_DB_SUPERUSER: z.string().default("postgres"),
@@ -70,21 +64,11 @@ const Schema = z.object({
   JWT_REFRESH_TTL: z.string().default("30d"),
   SESSION_INACTIVITY_MIN: int(30),
 
-  // AES-256-GCM key for credentials-at-rest (services/encryption.service.js:
-  // vendor API keys, social tokens, bank creds, TOTP secrets). Must be 32
-  // bytes hex-encoded (64 hex chars). This var didn't exist in the Zod
-  // schema at all before — encryption.service.js read config.ENCRYPTION_KEY
-  // unconditionally, which was `undefined`; Buffer.from(undefined, "hex")
-  // would throw at first use. The default below is a fixed dev-only value
-  // (NOT random per boot, so encrypted values stay decryptable across
-  // restarts in dev) — MUST be overridden with a real random key in
-  // production, same as the JWT secrets above.
   ENCRYPTION_KEY: z
     .string()
     .regex(/^[0-9a-f]{64}$/i, "must be 64 hex chars (32 bytes)")
     .default("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
 
-  // AI providers (DeepSeek primary, Gemini fallback, Groq voice) — see §0400.
   AI_ENABLED_DEFAULT: bool(false),
   DEEPSEEK_API_KEY: z.string().default(""),
   DEEPSEEK_BASE_URL: z.string().default("https://api.deepseek.com"),
@@ -95,7 +79,6 @@ const Schema = z.object({
   WHISPER_BASE_URL: z.string().default(""),
   AI_MONTHLY_CAP_XAF: int(0),
 
-  // Embeddings (pgvector) — dimension MUST match ai_chunk.embedding column.
   EMBEDDINGS_PROVIDER: z.string().default("openai"),
   EMBEDDINGS_MODEL: z.string().default("text-embedding-3-small"),
   EMBEDDINGS_DIM: int(1536),
@@ -113,8 +96,6 @@ const Schema = z.object({
 
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   STORAGE_LOCAL_PATH: z.string().default("./data/vault"),
-  // Optional CDN/host prefix for stored files' public URLs. Empty = serve them
-  // from this app at /media/<key> (see server.js). storage.service.js reads this.
   CDN_BASE_URL: z.string().default(""),
   S3_ENDPOINT: z.string().default(""),
   S3_BUCKET: z.string().default(""),
@@ -130,6 +111,30 @@ if (!parsed.success) {
   // eslint-disable-next-line no-console
   console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
   throw new Error("Environment validation failed — see errors above.");
+}
+
+// Production safety guard: the schema ships dev-safe defaults so the app boots
+// without a .env. Those published defaults are a full auth-bypass in production,
+// so refuse to boot in production unless real values are set.
+const INSECURE_DEFAULTS = {
+  JWT_ACCESS_SECRET: "__dev_access__",
+  JWT_REFRESH_SECRET: "__dev_refresh__",
+  ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+};
+if (parsed.data.NODE_ENV === "production") {
+  const offenders = [];
+  for (const [key, insecure] of Object.entries(INSECURE_DEFAULTS)) {
+    if (parsed.data[key] === insecure) offenders.push(key);
+  }
+  if (parsed.data.JWT_ACCESS_SECRET === parsed.data.JWT_REFRESH_SECRET) {
+    offenders.push("JWT_ACCESS_SECRET_and_REFRESH_must_differ");
+  }
+  if (!parsed.data.DB_PASSWORD) offenders.push("DB_PASSWORD_empty");
+  if (offenders.length) {
+    // eslint-disable-next-line no-console
+    console.error("Refusing to boot in production with insecure/default secrets:", offenders.join(", "));
+    throw new Error("Insecure production configuration — set real values for: " + offenders.join(", "));
+  }
 }
 
 const config = Object.freeze(parsed.data);

@@ -46,7 +46,7 @@ function build() {
   for (const file of findServiceFiles(MODULES_DIR)) {
     let mod;
     try {
-      // eslint-disable-next-line global-require, import/no-dynamic-require
+      // dynamic require: module path is discovered at runtime (trusted, local)
       mod = require(file);
     } catch (err) {
       logger.warn({ file, err: err.message }, "entity-registry: skipped module (load error)");

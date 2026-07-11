@@ -35,10 +35,8 @@ jobs:
         run: npm run lint
 
       - name: Test
-        # --passWithNoTests keeps the pipeline green until the first real specs
-        # land (jest exits non-zero on an empty suite otherwise). Remove the flag
-        # once src/**/*.test.js exists.
-        run: npx jest --runInBand --passWithNoTests
+        # Real specs now live under tests/unit; the empty-suite flag is gone.
+        run: npx jest --runInBand
 
   docker-build:
     runs-on: ubuntu-latest
