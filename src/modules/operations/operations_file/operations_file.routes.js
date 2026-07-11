@@ -10,6 +10,7 @@ const router = express.Router();
 router.use(authMiddleware);
 router.get("/", requirePermission(MODULE, "view"), controller.list);
 router.get("/:id", requirePermission(MODULE, "view"), controller.get);
+router.get("/:id/360", requirePermission(MODULE, "view"), controller.overview);
 router.post("/", requirePermission(MODULE, "create"), validator.create, controller.create);
 router.patch("/:id", requirePermission(MODULE, "edit"), validator.update, controller.update);
 router.post("/:id/transition", requirePermission(MODULE, "edit"), validator.transition, controller.transition);

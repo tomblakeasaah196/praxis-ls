@@ -4,7 +4,8 @@ Every MOD-xx from the platform catalogue, mapped to the phase(s) it belongs to.
 Modules that legitimately span phases are **listed in each** (marked ↔). Status:
 ✅ built real · 🟡 partial/real-but-thin · ⬜ generic CRUD stub · 🧩 schema only.
 (Derived from `WORK_TO_BE_DONE.md` phases + the KB + the MOD catalogue. Group in
-parentheses.)
+parentheses.) Last refresh: after Phase-1/2 gap-closure sprint (see
+`PHASE1_2_REAUDIT.md`).
 
 ---
 
@@ -12,7 +13,7 @@ parentheses.)
 - MOD-67 IAM / RBAC engine (security) ✅
 - MOD-68 Session Management (security) ✅
 - MOD-69 Immutable Ledger / audit (security) ✅
-- MOD-70 Settings (security) 🟡  ↔ P2 (numbering/business rules), P4 (full hub)
+- MOD-70 Settings (security) ✅  ↔ P2 (numbering/business rules), P4 (full hub)
 - MOD-00A Dashboard & My Workspace (dashboard) ⬜  ↔ P4 (chat-on-dashboards)
 - MOD-00B God Mode CEO purge console (dashboard) ✅  ↔ P5 (hardening)
 - Universal Event Engine / workflow (workflow) ✅  — event types, workflows, steps, executor, approvals
@@ -21,50 +22,50 @@ parentheses.)
 - Module catalogue / feature projection (catalogue, platform) ✅
 - Shared infra: numbering, document capture, storage, worker runtime ✅ (built during P1)
 
-## Phase 1 — Accounting spine
-- MOD-06 Chart of Accounts (master) ⬜ **seed done, module still generic — GAP**
+## Phase 1 — Accounting spine  — ✅ COMPLETE
+- MOD-06 Chart of Accounts (master) ✅  — hierarchical, postable-leaf, no-delete-if-referenced
 - MOD-05 Financial Dictionary (master) ✅  (+ posting_rule / account determination)
 - MOD-07 Tax Jurisdiction + Tax Center outputs (master/finance) ✅ (tax_declaration)
-- MOD-09 Treasury Accounts (master) ⬜  ↔ P2 (treasury used by invoicing/costing)
+- MOD-09 Treasury Accounts (master) ✅  — class-5 mapping + MoMo, activate/deactivate
 - MOD-55 Journal Entries (OHADA) (finance) ✅  — posting engine + reversal
-- MOD-56 General Ledger (finance) 🟡  (trial balance built; grand-livre view pending)
+- MOD-56 General Ledger (finance) ✅  (trial balance + grand livre per-account movements)
 - MOD-57 Income Statement (finance) ✅  (statements service)
 - MOD-58 Profit & Loss (finance) ✅  (= Compte de résultat, incl. class 8)
-- MOD-59 Cash-Flow / TAFIRE (finance) ⬜ **TAFIRE not built — GAP** (statements module = MOD-59 key but TAFIRE pending)
+- MOD-59 Cash-Flow / TAFIRE (finance) ✅  — OHADA operating/investing/financing sectioning
 - MOD-50 Proforma & Advance Invoices (finance) ✅  ↔ P2 (bind to dossier)
 - MOD-51 Final Invoice (finance) ✅  ↔ P2 (bind to dossier/costing)
-- MOD-49 Project Disbursal / régie d'avance (costing) ✅  ↔ P2 (project cycle)
+- MOD-49 Project Disbursal / régie d'avance (costing) ✅  ↔ P2 (cash_request document)
 - MOD-64 File Repository Vault (vault) ✅  ↔ P4 (data room)
-- MOD-66 Document Verification / QR (vault) 🟡 (hash+token built; scan endpoint pending)
-- PDF worker + Email/SMTP (services) 🟡 (services built; runtime needs Chromium/SMTP)
+- MOD-66 Document Verification / QR (vault) ✅  — hash+token, gated /verify + public /scan
+- PDF worker + Email/SMTP (services) 🟡 (code built; runtime needs Chromium/SMTP — infra)
 
-## Phase 2 — Commercial cycle
-- MOD-01 Corporate Entities (master) ⬜
+## Phase 2 — Commercial cycle  — ✅ COMPLETE
+- MOD-01 Corporate Entities (master) ✅  — unique code, NIU/RCCM, fiscal year, doc prefix
 - MOD-02 Human Capital / Employees (master) ⬜  ↔ P3 (HR)
 - MOD-03 Client Master (master) ✅  (KYC, credit limit, withholding)
 - MOD-04 Supplier / Partner Master (master) ✅  (mobile money, non-resident SIT)
 - MOD-08 Currency & Live FX (master) ✅  (resolver + fx-sync worker)
-- MOD-10 Expense Rates (master) ⬜
-- MOD-29 Operations File Registry / dossier (operations) ✅
-- MOD-30 Transit Order (operations) ⬜
+- MOD-10 Expense Rates (master) ✅  — effective-dated rate cards + resolver
+- MOD-29 Operations File Registry / dossier (operations) ✅  (+ 360° aggregation view)
+- MOD-30 Transit Order (operations) ✅  — numbered + captured
 - MOD-31 Operational Milestone Tracking (operations) ✅
-- MOD-32 Delivery Note (operations) ⬜
+- MOD-32 Delivery Note (operations) ✅  — numbered + captured
 - MOD-46 Project Costing (costing) ✅
 - MOD-47 Cost Tracking (costing) ✅
 - MOD-48 Project Cost Reconciliation (costing) ✅ (in cost_tracking)
-- MOD-49 Project Disbursal (costing) ✅  ↔ P1
-- MOD-27 Margin Simulator (commercial) ⬜  ↔ P4 (Pricing Variance Index)
-- MOD-28 Extra-Charges Engine Simulator (commercial) ⬜
+- MOD-49 Project Disbursal / cash request (costing) ✅  ↔ P1  — lifecycle wires to régie
+- MOD-27 Margin Simulator (commercial) ✅  ↔ P4 (Pricing Variance Index)
+- MOD-28 Extra-Charges / Demurrage Simulator (commercial) ✅
 - MOD-50 Proforma & Advance Invoices (finance) ✅  ↔ P1
 - MOD-51 Final Invoice (finance) ✅  ↔ P1
-- MOD-52 Smart Receivables Ledger (finance) ⬜
-- MOD-53 Project Financing / debt (finance) ⬜ (optional, finance.debt off by default)
-- MOD-60 Purchase Orders (procurement) ⬜
-- MOD-61 Goods Received (procurement) ⬜
-- MOD-62 Purchase Requests (procurement) ⬜
-- Sales cycle feeding operations (may be P2 or P4): MOD-20 Leads, MOD-21 Meetings,
+- MOD-52 Smart Receivables Ledger (finance) ✅  — receipt→FIFO alloc, ageing, dunning
+- MOD-53 Project Financing / debt (finance) ✅  — drawdown/repay→GL (feature finance.debt, off by default)
+- MOD-60 Purchase Orders (procurement) ✅  — items, lock, numbering
+- MOD-61 Goods Received + Supplier Invoice (procurement) ✅  — 3-way match → GL
+- MOD-62 Purchase Requests (procurement) ✅  — requisition lifecycle
+- Sales cycle feeding operations (deferred to P4): MOD-20 Leads, MOD-21 Meetings,
   MOD-22 Marketing Campaigns, MOD-23 Proposal Generator, MOD-24 Sales Pipeline,
-  MOD-25 Inbound Intake, MOD-26 Project Portfolio (sales) ⬜
+  MOD-25 Inbound Intake, MOD-26 Project Portfolio (sales) ⬜  — scaffolds; not P1/P2 blocking
 
 ## Phase 3 — People & assets
 - MOD-02 Employees (master) ⬜  ↔ P2
@@ -90,14 +91,14 @@ parentheses.)
 - MOD-43 Fuel & Usage Tracking (fleet) ⬜  (fuel posts to dossier cost, KB §8.7)
 - MOD-44 Driver Management (fleet) ⬜
 - MOD-45 Incident & Claim Management (fleet) ⬜
-- MOD-54 Asset Management (finance) ⬜  (acquisition→depreciation auto-post→disposal, KB §11)
+- MOD-54 Asset Management (finance) 🧩  (acquisition→depreciation auto-post→disposal, KB §11 — tables exist, module pending)
 
-## Phase 4 — Intelligence & reach
-- AI service layer (ai): assistant, governance, insights + orchestrator/RAG/actions 🟡 (scaffolds; AI-readiness rules in place)
-- MOD-63 Reporting & Insights (vault) ⬜
-- MOD-27 Pricing Variance Index — Sales R/Y/G view (commercial) ⬜  ↔ P2
+## Phase 4 — Intelligence & reach  (kickoff: see PHASE4_KICKOFF.md)
+- AI service layer (ai): orchestrator/retrieval/ingest/llm/embeddings/redact ✅ scaffolded; `assistant` ✅ thin surface; `governance` ✅ **rebuilt real** (EMV toggle, grants, spend caps, encrypted vendor keys, canUseFeature guard). Foreign `insights` removed — MOD-63 to rebuild real. All 32 modules ship `.ai.js` manifests.
+- MOD-63 Reporting & Insights (vault) ⬜ (foreign scaffold removed; rebuild against Praxis tables)
+- MOD-27 Pricing Variance Index — Sales R/Y/G view (commercial) 🧩  ↔ P2 (pricing_variance table exists; index compute pending)
 - MOD-65 Compliance Checker (vault) ⬜
-- MOD-66 Document Verification / QR — public scan (vault) 🟡  ↔ P1
+- MOD-66 Document Verification / QR — public scan (vault) ✅  ↔ P1
 - MOD-70 Settings — full config hub (security) 🟡  ↔ P0/P2
 - Portals (new): Client Portal (↔ MOD-29), Investor/Board terminal (↔ MOD-56),
   Audit Terminal / data room (↔ MOD-64) ⬜
@@ -126,11 +127,16 @@ parentheses.)
 - MOD-02 Employees — P2, P3
 - MOD-27 Margin Simulator / Pricing Variance — P2, P4
 
-## Known Phase-1 gaps surfaced by this map (to close)
-- **MOD-06 Chart of Accounts** — seeded but module is generic CRUD; build the real
-  hierarchical, is_postable-aware module (no-delete-if-referenced).
-- **MOD-59 TAFIRE** — statutory cash-flow statement not built (only trial
-  balance/Bilan/CR).
-- **MOD-56 grand livre** (per-account movement listing) — only trial balance today.
-- **MOD-66 public QR scan/verify endpoint** — hash+token exist; the resolve-and-
-  re-check endpoint is pending.
+## Phase-1 & Phase-2 status — all module gaps CLOSED
+Every module belonging to Phase 1 and Phase 2 is now a real module (custom
+service + repo + pure rules + gated routes + validator), not a generic CRUD
+stub. The gap-closure sprint upgraded: MOD-06, MOD-09, MOD-01, MOD-10, MOD-27,
+MOD-28, MOD-30, MOD-32, MOD-49, MOD-52, MOD-53, MOD-56 (grand livre), MOD-59
+(TAFIRE), MOD-60/61/62, MOD-66 (scan) and added the dossier 360° view.
+
+Remaining non-blocking items that touch P1/P2 surfaces (tracked to later phases):
+- PDF/Email runtime (Chromium + SMTP) — code complete, infra provisioning is P5.
+- MOD-54 Asset Management — schema present, module is Phase 3.
+- MOD-27 Pricing Variance Index (Sales R/Y/G) — the *simulator* is done (P2);
+  the sales-facing variance index is Phase 4.
+- Sales cycle MOD-20..26 — Phase 4.

@@ -4,7 +4,12 @@
  */
 "use strict";
 const orchestrator = require("../../../services/ai/orchestrator.service");
-const { registry } = require("../../../services/ai/action-registry");
+const { buildExecutorMap } = require("../../../services/ai/action-registrar");
+
+// Executor map is auto-derived from every module manifest (reads) + the vetted
+// write registry. Built once at load; a manifest change requires a restart, same
+// as the catalogue sync.
+const registry = buildExecutorMap();
 
 const ask = (client, { user, message, conversationId, allowed }) =>
   orchestrator.ask({ client, user, message, conversationId, allowed });

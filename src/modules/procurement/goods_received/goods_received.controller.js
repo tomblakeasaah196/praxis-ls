@@ -1,3 +1,17 @@
 "use strict";
-const { makeController } = require("../../../shared/crud/resource");
-module.exports = makeController(require("./goods_received.service"), "Goods received");
+const service = require("./goods_received.service");
+const { asyncHandler, AppError } = require("../../../utils/errors");
+const actor = (req) => req.user || { user_id: null };
+module.exports = {
+  list: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.list(c, req.query)) })),
+  get: asyncHandler(async (req, res) => {
+    const row = await req.tenantDb((c) => service.get(c, req.params.id));
+    if (!row) throw new AppError("NOT_FOUND", "GRN not found", 404);
+    res.json({ data: row });
+  }),
+  create: asyncHandler(async (req, res) => {
+    const b = req.body;
+    const data = await req.tenantDb((c) => service.record(c, { poId: b.po_id, receivedBy: b.received_by, supplierInvoiceRef: b.supplier_invoice_ref, entityId: b.entity_id, date: b.date, actor: actor(req) }));
+    res.status(201).json({ data });
+  }),
+};

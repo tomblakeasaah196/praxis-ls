@@ -1,2 +1,19 @@
 "use strict";
-module.exports = require("../../../shared/http/validate").passthrough;
+const { z } = require("zod");
+const { AppError } = require("../../../utils/errors");
+const line = z.object({ dictionary_item_id: z.string().uuid().optional().nullable(), label: z.string().optional(), qty: z.number().positive().optional(), unit_price: z.number().nonnegative(), tax_code_id: z.string().uuid().optional().nullable(), expense_account: z.string().min(1) });
+const schemas = {
+  create: z.object({
+    entity_id: z.string().uuid(), supplier_id: z.string().uuid().optional().nullable(), po_id: z.string().uuid().optional().nullable(), grn_id: z.string().uuid().optional().nullable(),
+    dossier_id: z.string().uuid().optional().nullable(), supplier_ref: z.string().optional(), currency: z.string().length(3).optional(),
+    vat_total: z.number().nonnegative().optional(), wht_total: z.number().nonnegative().optional(), due_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), lines: z.array(line).min(1),
+  }),
+  post: z.object({ entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), source_doc_ref: z.string().min(1).optional(), supplier_account: z.string().optional() }),
+  match: z.object({}).strict(),
+};
+const mw = (k) => (req, _res, next) => {
+  const p = schemas[k].safeParse(req.body);
+  if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors));
+  req.body = p.data; return next();
+};
+module.exports = { create: mw("create"), post: mw("post"), match: mw("match"), schemas };

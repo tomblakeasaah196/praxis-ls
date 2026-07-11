@@ -44,10 +44,39 @@ async function transition(client, { id, to, actor = {} }) {
   if (!canTransition(before.status, to)) throw new AppError("BAD_TRANSITION", "Cannot move dossier from " + before.status + " to " + to, 422);
   const row = await repo.update(client, id, { status: to });
   await emitEvent(client, { eventTypeKey: events.UPDATED, moduleKey: events.MODULE, entityRef: "dossier:" + id, actorUserId: actor.user_id || null });
-  await audit(client, { actorUserId: actor.user_id || null, action: "dossier.status." + to, moduleKey: events.MODULE, entityRef: "dossier:" + id, before, after: row });
+  await audit(client, { actorUserId: actor.user_id || null, action: events.statusChange(to), moduleKey: events.MODULE, entityRef: "dossier:" + id, before, after: row });
   return row;
+}
+
+
+const round2 = (n) => Math.round(n * 100) / 100;
+
+/**
+ * 360° view of a dossier: header + downstream rollups, plus derived economics
+ * (billed vs planned/actual cost, gross margin, receivable outstanding).
+ */
+async function overview(client, id) {
+  const dossier = await repo.get(client, id);
+  if (!dossier) throw new AppError("NOT_FOUND", "Dossier not found", 404);
+  const agg = await repo.overview(client, id);
+  const billed = Number(agg.invoices.billed_ttc || 0);
+  const plannedCost = Number(agg.costing.planned_cost || 0);
+  const actualCost = Number(agg.actual.actual_cost || 0);
+  const grossMargin = round2(billed - actualCost);
+  const marginPercent = billed > 0 ? round2((grossMargin / billed) * 100) : 0;
+  const milestones = agg.milestones.reduce((acc, m) => { acc[m.status] = m.n; return acc; }, {});
+  return {
+    dossier: { dossier_id: dossier.dossier_id, ref: dossier.ref, status: dossier.status, client_id: dossier.client_id, service_type_id: dossier.service_type_id },
+    costing: { count: agg.costing.count, planned_cost: plannedCost },
+    costs: { actual_cost: actualCost, gl_entries: agg.actual.entries },
+    invoicing: { count: agg.invoices.count, invoiced_ttc: Number(agg.invoices.invoiced_ttc || 0), billed_ttc: billed, outstanding: Number(agg.outstanding.outstanding || 0) },
+    economics: { billed_ttc: billed, actual_cost: actualCost, gross_margin: grossMargin, margin_percent: marginPercent },
+    milestones,
+    procurement: { po_count: agg.procurement.po_count, po_total: Number(agg.procurement.po_total || 0) },
+    documents: { transit_orders: agg.transit.count, delivery_notes: agg.delivery.count },
+  };
 }
 
 const get = (client, id) => repo.get(client, id);
 const list = (client, q) => repo.list(client, q);
-module.exports = { create, update, transition, get, list };
+module.exports = { create, update, transition, get, list, overview };

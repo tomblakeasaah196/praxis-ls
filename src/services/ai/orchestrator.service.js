@@ -9,6 +9,7 @@
 const llm = require("./llm.service");
 const { retrieve, toContextBlock } = require("./retrieval.service");
 const { redact } = require("./redact");
+const governance = require("../../modules/ai/governance/governance.service");
 const { logger } = require("../../config/logger");
 
 // Actions the AI may propose come from ai_action_catalogue (ai_enabled=true).
@@ -48,7 +49,13 @@ function validatePayload(schema, payload) {
  * payload, requires_confirmation}] }. Does NOT execute writes — that needs an
  * explicit confirm (see confirmAction).
  */
-async function ask({ client, user, conversationId, message, allowed }) {
+async function ask({ client, user, conversationId, message, allowed, feature = "assistant" }) {
+  // Governance gate (AI_ARCHITECTURE §6): feature enabled + user granted + budget
+  // not hard-capped. Nothing hits a model when the gate is closed.
+  const gate = await governance.canUseFeature(client, { userId: user.user_id, featureKey: feature });
+  if (!gate.allowed) {
+    return { answer: `The AI assistant is unavailable: ${gate.reason}.`, actions: [], blocked: true, gate };
+  }
   const hits = await retrieve({ query: message, tenantClient: client, allowed, k: 6 });
   const tools = await loadTools(client);
 
@@ -64,7 +71,7 @@ async function ask({ client, user, conversationId, message, allowed }) {
   ];
 
   const res = await llm.chat({ messages, tools: tools.map(toOpenAiTool) });
-  await recordUsage(client, { user, conversationId, res, feature: "assistant" });
+  await recordUsage(client, { user, conversationId, res, feature });
 
   const actions = [];
   for (const call of res.toolCalls) {
@@ -108,6 +115,11 @@ async function confirmAction({ client, user, actionRunId, registry }) {
   if (!run) throw new Error("action run not found");
   if (run.status !== "AWAITING_CONFIRM") throw new Error(`cannot confirm in state ${run.status}`);
 
+  // Re-check the governance gate at execution time (feature may have been turned
+  // off or the budget hard-capped between propose and confirm).
+  const gate = await governance.canUseFeature(client, { userId: user.user_id, featureKey: "assistant" });
+  if (!gate.allowed) throw new Error(`AI action blocked: ${gate.reason}`);
+
   const fn = registry && registry[run.action_key];
   if (!fn) throw new Error(`no executor registered for ${run.action_key}`);
 
@@ -127,13 +139,14 @@ async function confirmAction({ client, user, actionRunId, registry }) {
 async function recordUsage(client, { user, conversationId, res, feature }) {
   try {
     const u = res.usage || {};
-    await client.query(
-      `INSERT INTO ai_usage_ledger (user_id, feature_key, conversation_id, provider, model, call_type,
-         input_tokens, output_tokens, total_tokens, was_successful)
-       VALUES ($1,$2,$3,$4,$5,'chat',$6,$7,$8,true)`,
-      [user.user_id, feature, conversationId || null, res.provider, null,
-        u.prompt_tokens || 0, u.completion_tokens || 0, u.total_tokens || 0],
-    );
+    // Route through governance so the row is tied to the active budget period and
+    // its XAF cost is derived from the vendor's per-token rate (spend caps).
+    await governance.recordUsage(client, {
+      userId: user.user_id, featureKey: feature, conversationId: conversationId || null,
+      provider: res.provider, callType: "chat",
+      inputTokens: u.prompt_tokens || 0, outputTokens: u.completion_tokens || 0,
+      wasSuccessful: true,
+    });
   } catch (err) {
     logger.warn({ err: err.message }, "ai usage log failed");
   }

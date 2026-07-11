@@ -17,3 +17,21 @@ describe("cashFlowSummary (TAFIRE foundation)", () => {
     expect(s.closing_cash).toBe(2800000);
   });
 });
+
+const { tafire } = require("../../src/modules/finance/financial_statement/financial_statement.rules");
+
+describe("TAFIRE OHADA sectioning", () => {
+  test("opening + operating/investing/financing = closing", () => {
+    const t = tafire({ opening_cash: 1000, operating: 500, investing: -300, financing: 200 });
+    expect(t.net_change).toBe(400);
+    expect(t.closing_cash).toBe(1400);
+    expect(t.operating).toBe(500);
+    expect(t.investing).toBe(-300);
+    expect(t.financing).toBe(200);
+  });
+  test("handles missing/zero sections and rounds", () => {
+    const t = tafire({ opening_cash: 0 });
+    expect(t.closing_cash).toBe(0);
+    expect(t.net_change).toBe(0);
+  });
+});

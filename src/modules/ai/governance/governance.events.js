@@ -1,19 +1,16 @@
-/**
- * AI Control & Governance (V2.2 §6.31)
- * Domain events emitted by the service layer.
- *
- * These feed:
- *   - Socket.io real-time updates (via realtime/handlers)
- *   - Audit log (already written separately, but events get extra context)
- *   - AI Insights triggers
- *   - Workflow engine (some events open workflow instances)
- *
- * Use a simple emitter — keep payloads small (just IDs + brand), let
- * subscribers re-query if they need the full record.
- */
-
 "use strict";
-
-const { createModuleEvents } = require("../../shared/events/module-events");
-
-module.exports = createModuleEvents("ai_governance");
+/**
+ * AI Governance (AI control surface) — event keys. Governs the per-tenant EMV
+ * toggle (ai_feature_flag), user access grants, spend caps (ai_budget_period /
+ * ai_usage_ledger) and vendor credentials (ai_vendor_credential, keys encrypted).
+ */
+module.exports = {
+  MODULE: "MOD-70",
+  FEATURE_CHANGED: "ai.feature.changed",
+  ACCESS_GRANTED: "ai.access.granted",
+  ACCESS_REVOKED: "ai.access.revoked",
+  BUDGET_SET: "ai.budget.set",
+  VENDOR_SET: "ai.vendor.set",
+  VENDOR_ROTATED: "ai.vendor.rotated",
+  USAGE_RECORDED: "ai.usage.recorded",
+};

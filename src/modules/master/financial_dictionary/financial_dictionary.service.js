@@ -22,9 +22,26 @@ async function create(c, { data, actor }) {
 async function update(c, { id, patch, actor }) {
   const before = await repo.getItem(c, id); if (!before) return null;
   const { posting_rules, ...itemPatch } = patch;
-  const row = await repo.updateItem(c, id, itemPatch);
-  await emitEvent(c, { eventTypeKey: events.UPDATED, moduleKey: events.MODULE, entityRef: `dict:${before.code}`, actorUserId: actor.user_id });
-  await audit(c, { actorUserId: actor.user_id, action: events.UPDATED, moduleKey: events.MODULE, entityRef: `dict:${before.code}`, before, after: row });
-  return row;
+  // A dictionary item may never end up with zero posting rules (KB §4).
+  if (Array.isArray(posting_rules) && posting_rules.length === 0) {
+    const e = new Error("a dictionary item requires at least one posting rule (KB §4)"); e.status = 422; throw e;
+  }
+  await c.query("BEGIN");
+  try {
+    const row = await repo.updateItem(c, id, itemPatch);
+    if (Array.isArray(posting_rules)) {
+      // Capture-once/update-in-sync: replace the rule set atomically with the edit.
+      await repo.deleteRules(c, id);
+      for (const r of posting_rules) {
+        // eslint-disable-next-line no-await-in-loop
+        await repo.createRule(c, { ...r, dictionary_item_id: id, is_debours: r.is_debours ?? (row ? row.is_debours : before.is_debours) });
+      }
+    }
+    await emitEvent(c, { eventTypeKey: events.UPDATED, moduleKey: events.MODULE, entityRef: `dict:${before.code}`, actorUserId: actor.user_id });
+    await audit(c, { actorUserId: actor.user_id, action: events.UPDATED, moduleKey: events.MODULE, entityRef: `dict:${before.code}`, before, after: row });
+    await c.query("COMMIT");
+    if (row) row.posting_rules = await repo.listRules(c, id);
+    return row;
+  } catch (err) { await c.query("ROLLBACK"); throw err; }
 }
 module.exports = { listItems, get, create, update };

@@ -1,94 +1,32 @@
 /**
- * AI Governance (V2.2 §6.31) — routes. Mounted at /api/v1/ai-governance.
- * Permission key: ai_governance. The "AI Control" admin surface: feature
- * flags, per-user access grants, encrypted vendor credentials, monthly budget
- * periods, the usage ledger + live spend meter, and the action catalogue.
+ * AI Governance / AI Control (AI_ARCHITECTURE §6). Admin surface for the AI
+ * subsystem: feature toggles, access grants, spend caps, vendor keys. Gated by
+ * auth + the ai.assistant.backend feature; writes need MOD-70 (Settings) edit.
  */
-
 "use strict";
-
 const express = require("express");
-const c = require("./governance.controller");
-const v = require("./governance.validator");
-const { requirePermission } = require("../../middleware/rbac");
+const { authMiddleware } = require("../../../middleware/auth");
+const { requirePermission } = require("../../../middleware/rbac");
+const controller = require("./governance.controller");
+const validator = require("./governance.validator");
 
+const MODULE = "MOD-70";
 const router = express.Router();
-const can = (action) => requirePermission("ai_governance", action);
+router.use(authMiddleware);
 
-// ── Feature flags ──────────────────────────────────────────
-router.get("/flags", can("view"), c.listFlags);
-router.post("/flags", can("create"), v.validateFlagUpsert, c.upsertFlag);
-router.post(
-  "/flags/:feature_key/toggle",
-  can("edit"),
-  v.validateFlagToggle,
-  c.toggleFlag,
-);
+router.get("/features", requirePermission(MODULE, "view"), controller.listFeatures);
+router.patch("/features/:key", requirePermission(MODULE, "edit"), validator.setFeature, controller.setFeature);
 
-// ── Access grants ──────────────────────────────────────────
-router.get("/grants", can("view"), c.listGrants);
-router.post("/grants", can("create"), v.validateGrantCreate, c.grant);
-router.delete(
-  "/grants/:grant_id",
-  can("delete"),
-  v.validateReason,
-  c.revokeGrant,
-);
+router.get("/grants", requirePermission(MODULE, "view"), controller.listGrants);
+router.post("/grants", requirePermission(MODULE, "edit"), validator.grant, controller.grant);
+router.post("/grants/revoke", requirePermission(MODULE, "edit"), validator.revoke, controller.revoke);
 
-// ── Vendor credentials ─────────────────────────────────────
-router.get("/vendors", can("view"), c.listVendors);
-router.post("/vendors", can("create"), v.validateVendorUpsert, c.upsertVendor);
-router.post(
-  "/vendors/:vendor/rotate",
-  can("edit"),
-  v.validateVendorRotate,
-  c.rotateVendor,
-);
-router.post(
-  "/vendors/:vendor/active",
-  can("edit"),
-  v.validateVendorActive,
-  c.setVendorActive,
-);
+router.get("/budget", requirePermission(MODULE, "view"), controller.budget);
+router.post("/budget", requirePermission(MODULE, "edit"), validator.setBudget, controller.setBudget);
+router.get("/can-use", requirePermission(MODULE, "view"), controller.canUse);
+router.get("/usage", requirePermission(MODULE, "view"), controller.usage);
 
-// ── Budget periods ─────────────────────────────────────────
-router.get("/budget/active", can("view"), c.activeBudget);
-router.get("/budget", can("view"), c.listBudgets);
-router.post("/budget", can("create"), v.validateBudgetOpen, c.openBudget);
-router.post(
-  "/budget/:period_id/caps",
-  can("edit"),
-  v.validateBudgetCaps,
-  c.setBudgetCaps,
-);
+router.get("/vendors", requirePermission(MODULE, "view"), controller.listVendors);
+router.put("/vendors/:vendor", requirePermission(MODULE, "edit"), validator.setVendor, controller.setVendor);
 
-// ── Usage meter ────────────────────────────────────────────
-router.get("/usage", can("view"), c.listUsage);
-router.get("/usage/meter", can("view"), c.spendMeter);
-
-// ── Brand Voice (per-brand Praxis personality) ─────────────
-router.get("/brand-voice", can("view"), c.getBrandVoice);
-router.put(
-  "/brand-voice",
-  can("edit"),
-  v.validateBrandVoiceUpsert,
-  c.upsertBrandVoice,
-);
-
-// ── Model catalogue (PR 5) ─────────────────────────────────
-// Read-everyone-with-view (so they can see what's configured);
-// upsert/edit gated by ai_governance.edit (CEO + AI Control admins).
-router.get("/models", can("view"), c.listModels);
-router.post("/models", can("edit"), v.validateModelUpsert, c.upsertModel);
-
-// ── Action catalogue ───────────────────────────────────────
-router.get("/actions", can("view"), c.listActions);
-router.post("/actions", can("create"), v.validateActionUpsert, c.upsertAction);
-router.post(
-  "/actions/:action_key/toggle",
-  can("edit"),
-  v.validateActionToggle,
-  c.toggleAction,
-);
-
-module.exports = router;
+module.exports = { basePath: "/ai/governance", feature: "ai.assistant.backend", router };
