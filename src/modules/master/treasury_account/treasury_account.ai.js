@@ -1,0 +1,15 @@
+"use strict";
+const service = require("./treasury_account.service");
+const validator = require("./treasury_account.validator");
+module.exports = {
+  entity: "treasury_account", module_key: "MOD-09", screens: [],
+  reads: [
+    { key: "list_treasury_accounts", service: service.list, describe: "List treasury accounts (bank/cash/MoMo)." },
+    { key: "get_treasury_account", service: service.get, describe: "Get a treasury account by id." },
+  ],
+  writes: [
+    { key: "create_treasury_account", service: service.create, schema: validator.schemas.create, permission: { module: "MOD-09", action: "create" }, confirm: true, describe: "Add a treasury account mapped to a class-5 GL account." },
+    { key: "update_treasury_account", service: service.update, schema: validator.schemas.update, permission: { module: "MOD-09", action: "edit" }, confirm: true, describe: "Edit a treasury account." },
+    { key: "set_treasury_account_active", service: service.setActive, schema: validator.schemas.setActive, permission: { module: "MOD-09", action: "edit" }, confirm: true, describe: "Activate/deactivate a treasury account." },
+  ],
+};

@@ -1,5 +1,17 @@
+/** Extra-charge / demurrage simulator (MOD-28) — rapid quote, no GL. */
 "use strict";
-const { makeRouter } = require("../../../shared/crud/resource");
+const express = require("express");
+const { authMiddleware } = require("../../../middleware/auth");
+const { requirePermission } = require("../../../middleware/rbac");
 const controller = require("./extra_charge_simulation.controller");
 const validator = require("./extra_charge_simulation.validator");
-module.exports = { basePath: "/demurrage", feature: "commercial.simulators", router: makeRouter({ controller, validator }) };
+
+const MODULE = "MOD-28";
+const router = express.Router();
+router.use(authMiddleware);
+router.get("/", requirePermission(MODULE, "view"), controller.list);
+router.get("/:id", requirePermission(MODULE, "view"), controller.get);
+router.post("/preview", requirePermission(MODULE, "view"), validator.compute, controller.preview);
+router.post("/", requirePermission(MODULE, "create"), validator.compute, controller.create);
+
+module.exports = { basePath: "/extra-charge-simulations", feature: null, router };

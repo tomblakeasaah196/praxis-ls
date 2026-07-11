@@ -48,7 +48,7 @@ async function createDraft(client, opts) {
       status: "DRAFT", issued_by: actor.user_id || null,
     });
     if (lines.length) await replaceLines(client, invoice.invoice_id, lines);
-    await audit(client, { actorUserId: actor.user_id || null, action: "invoice.drafted", moduleKey: events.MODULE, entityRef: ref(invoice.invoice_id), after: invoice });
+    await audit(client, { actorUserId: actor.user_id || null, action: events.DRAFTED, moduleKey: events.MODULE, entityRef: ref(invoice.invoice_id), after: invoice });
     await client.query("COMMIT");
     return get(client, invoice.invoice_id);
   } catch (err) { await client.query("ROLLBACK"); throw err; }
@@ -81,8 +81,8 @@ async function submit(client, { invoiceId, entryDate, sourceDocRef, actor = {}, 
   try {
     await repo.updateInvoice(client, invoiceId, { status: "SUBMITTED_FOR_APPROVAL" });
     const determined = await determination.resolve(client, { context: "sale", counterpartAccount: "4111", entryDate, lines: econLines });
-    const started = await executor.start(client, { eventTypeKey: "invoice.issued", entityRef: ref(invoiceId), amountXaf: determined.totals.total });
-    await emitEvent(client, { eventTypeKey: "invoice.issued", moduleKey: events.MODULE, entityRef: ref(invoiceId), actorUserId: actor.user_id || null });
+    const started = await executor.start(client, { eventTypeKey: events.ISSUED, entityRef: ref(invoiceId), amountXaf: determined.totals.total });
+    await emitEvent(client, { eventTypeKey: events.ISSUED, moduleKey: events.MODULE, entityRef: ref(invoiceId), actorUserId: actor.user_id || null });
     let posted = null;
     if (started.autoApproved) posted = await postCore(client, { invoice: inv, econLines, entryDate, sourceDocRef, actor, ip });
     await client.query("COMMIT");

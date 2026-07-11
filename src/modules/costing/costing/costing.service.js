@@ -63,7 +63,7 @@ async function setStatus(client, { id, to, actor = {} }) {
   if (!status) throw new AppError("BAD_ACTION", "unknown transition", 422);
   const row = await repo.update(client, id, { status });
   if (status === "APPROVED_LOCKED") await emitEvent(client, { eventTypeKey: events.APPROVED, moduleKey: events.MODULE, entityRef: "costing:" + id, actorUserId: actor.user_id || null });
-  await audit(client, { actorUserId: actor.user_id || null, action: "costing." + status, moduleKey: events.MODULE, entityRef: "costing:" + id, before, after: row });
+  await audit(client, { actorUserId: actor.user_id || null, action: events.statusChange(status), moduleKey: events.MODULE, entityRef: "costing:" + id, before, after: row });
   return row;
 }
 
