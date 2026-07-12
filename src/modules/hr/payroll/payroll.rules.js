@@ -54,7 +54,7 @@ function progressive(base, brackets) {
  */
 function computePayslip(employee = {}, opts = {}) {
   const c = { ...DEFAULTS, ...(opts.config || {}) };
-  const gross = round(opts.gross != null ? opts.gross : employee.base_salary || 0);
+  const gross = round(opts.gross ?? (employee.base_salary || 0));
 
   // --- Employee withholdings ---
   const cnpsBase = Math.min(gross, c.cnps_ceiling);

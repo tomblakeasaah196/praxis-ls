@@ -48,7 +48,7 @@ const insertItem = (client, item) => insertOne(client, "payroll_run_item", item)
 
 async function listItems(client, runId) {
   const { rows } = await client.query(
-    `SELECT pri.*, e.full_name AS employee_name
+    `SELECT pri.*, e.full_name AS employee_name, e.cnps_number AS cnps_number
        FROM payroll_run_item pri
        LEFT JOIN employee e ON e.employee_id = pri.employee_id
       WHERE pri.payroll_run_id = $1

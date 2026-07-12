@@ -19,6 +19,8 @@ const events = require("./payroll.events");
 const { computePayslip, DEFAULTS } = require("./payroll.rules");
 const employeeService = require("../../master/employees/employees.service");
 const journal = require("../../finance/journal_entry/journal_entry.service");
+const executor = require("../../../services/workflow/executor");
+const onApproved = require("../../../services/workflow/on-approved");
 const { emitEvent, audit } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
 
@@ -93,6 +95,12 @@ async function setStatus(client, { id, status, actor = {} }) {
   const patch = { status };
   if (entry_id) patch.entry_id = entry_id;
   const row = await repo.updateRun(client, id, patch);
+  // On submit-for-approval, open the tenant's configurable approval chain (bound
+  // to payroll.status_changed). No workflow bound → autoApproved; the manual
+  // APPROVED transition path is unchanged (BUILD_CONVENTIONS §2).
+  if (status === "SUBMITTED") {
+    await executor.start(client, { eventTypeKey: "payroll.status_changed", entityRef: ref(id), amountXaf: row.net_total === null || row.net_total === undefined ? null : Number(row.net_total) });
+  }
   await emitEvent(client, { eventTypeKey: events.STATUS_CHANGED, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null, payload: { from: before.status, to: status } });
   await audit(client, { actorUserId: actor.user_id || null, action: events.STATUS_CHANGED, moduleKey: events.MODULE, entityRef: ref(id), before, after: row });
   return row;
@@ -152,5 +160,8 @@ function periodEnd(periodCode) {
   const [y, m] = String(periodCode).split("-").map(Number);
   return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); // last day of month
 }
+
+// A cleared approval chain advances the run SUBMITTED → APPROVED (BUILD_CONVENTIONS §2/§5).
+onApproved.register("payroll_run", (client, { id, actor }) => setStatus(client, { id, status: "APPROVED", actor: actor || {} }));
 
 module.exports = { createRun, compute, setStatus, get, list };
