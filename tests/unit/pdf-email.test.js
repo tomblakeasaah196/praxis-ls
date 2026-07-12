@@ -45,13 +45,15 @@ describe("renderAndStore", () => {
 });
 
 describe("email send", () => {
+  // Signature is send(client, payload, tx) — per-purpose identity (BUILD_CONVENTIONS §7).
+  // A null client resolves the env/default sender (no DB lookup).
   it("sends via an injected transport with a default from", async () => {
     const tx = { sendMail: jest.fn().mockResolvedValue({ messageId: "m1" }) };
-    const r = await email.send({ to: "a@b.com", subject: "Hi", html: "<p>x</p>" }, tx);
+    const r = await email.send(null, { to: "a@b.com", subject: "Hi", html: "<p>x</p>" }, tx);
     expect(tx.sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: "a@b.com", from: expect.stringContaining("no-reply@") }));
     expect(r.messageId).toBe("m1");
   });
   it("rejects without a recipient", async () => {
-    await expect(email.send({ subject: "x" }, { sendMail: jest.fn() })).rejects.toThrow(/to/);
+    await expect(email.send(null, { subject: "x" }, { sendMail: jest.fn() })).rejects.toThrow(/to/);
   });
 });

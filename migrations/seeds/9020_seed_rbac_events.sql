@@ -48,6 +48,7 @@ INSERT INTO event_type (key, module_key, name, is_security_critical, is_approvab
  ('disbursal.requested','MOD-49','Disbursal / cash request',false,true),
  ('po.issued','MOD-60','Purchase order issued',false,true),
  ('grn.received','MOD-61','Goods received (3-way match)',false,false),
+ ('supplier_invoice.matched','MOD-61','Supplier invoice three-way matched',false,true),
  ('journal.posted','MOD-55','Journal entry posted',false,false),
  ('journal.reversed','MOD-55','Journal entry reversed',false,false),
  ('employee.created','MOD-02','Employee registered',false,false),
@@ -72,4 +73,5 @@ INSERT INTO event_type (key, module_key, name, is_security_critical, is_approvab
  ('role.changed','MOD-67','Role or capability edited',true,false),
  ('field_visibility.changed','MOD-67','Field visibility changed',true,false),
  ('godmode.purge','MOD-00B','God-Mode purge executed',true,false),
+ ('period.closed','MOD-59','Accounting period frozen/closed (guided close)',false,false),
  ('ai.action.executed','MOD-67','AI agentic action executed',false,false);
