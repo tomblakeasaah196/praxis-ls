@@ -21,7 +21,7 @@ type AuthState = {
   user: User | null;
   status: "loading" | "authed" | "anon";
   pendingToken: string | null;
-  login: (email: string, password: string) => Promise<LoginResult>;
+  login: (email: string, password: string, keepSignedIn?: boolean) => Promise<LoginResult>;
   verify2fa: (code: string) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -81,7 +81,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStatus("authed");
   }
 
-  const login: AuthState["login"] = async (email, password) => {
+  const login: AuthState["login"] = async (email, password, keepSignedIn = true) => {
+    // Record the persistence choice before any tokens land. It also carries the
+    // 2FA path: acceptTokens() runs later in verify2fa() and reads this flag.
+    tokenStore.setPersist(keepSignedIn);
     const r = await tenant<LoginResponse>("/auth/login", { method: "POST", auth: false, body: { email, password } });
     if ("pending_2fa" in r) {
       setPendingToken(r.pending_token);

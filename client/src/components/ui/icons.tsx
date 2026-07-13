@@ -62,3 +62,38 @@ export const MonitorIcon = (p: P) => (
     <path d="M8 20h8M12 16v4" />
   </svg>
 );
+export const XIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </svg>
+);
+export const KeyIcon = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="7.5" cy="15.5" r="4.5" />
+    <path d="m10.7 12.3 8.3-8.3M16 5l3 3M14 7l2 2" />
+  </svg>
+);
+export const HashIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18" />
+  </svg>
+);
+export const CheckIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
+export const ShieldIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" />
+  </svg>
+);
+/** The tenant brand glyph — a soft "X" mark echoing the hub logo. Uses currentColor. */
+export const BrandGlyph = (p: P) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden width={22} height={22} {...p}>
+    <path
+      d="M5 4c3 1.8 5 4.4 7 8 2-3.6 4-6.2 7-8-1.8 3-2.8 5.7-3 8 .2 2.3 1.2 5 3 8-3-1.8-5-4.4-7-8-2 3.6-4 6.2-7 8 1.8-3 2.8-5.7 3-8-.2-2.3-1.2-5-3-8Z"
+      fill="currentColor"
+    />
+  </svg>
+);

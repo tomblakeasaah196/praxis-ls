@@ -1,12 +1,14 @@
 /**
- * Appearance (white-label) settings. Set the tenant's brand colour, logo, and
- * display name; Save writes to the `setting` table (MOD-70) via PUT /branding
- * and applies live to the whole app through the branding context — so you see
- * the change the instant you save, and every tenant screen re-tints.
+ * Appearance (white-label) settings. Set the tenant's brand colour, logo,
+ * display name, and the pre-auth landing hero (eyebrow, headline, subheadline,
+ * body, background image, and brand chips). Save writes to the `setting` table
+ * (MOD-70) via PUT /branding and applies live through the branding context — so
+ * every tenant screen (and the landing page) re-tints/re-copies the instant you
+ * save.
  */
 import * as React from "react";
 import { useBranding } from "@/app/branding/branding-context";
-import { saveBranding, uploadLogo, type Branding } from "@/lib/branding";
+import { saveBranding, uploadImage, type Branding, type BrandPill } from "@/lib/branding";
 import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +16,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 const PRESETS = ["#0f766e", "#1d4ed8", "#b91c1c", "#7c3aed", "#c2410c", "#0891b2"];
+
+const TEXTAREA_CLASS =
+  "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
 
 export function AppearancePage() {
   const { branding, setBranding } = useBranding();
@@ -24,11 +29,32 @@ export function AppearancePage() {
   const [uploading, setUploading] = React.useState(false);
   const [msg, setMsg] = React.useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
-  async function onSave(e: React.FormEvent) {
-    e.preventDefault();
+  // Landing/hero content.
+  const [eyebrow, setEyebrow] = React.useState(branding.hero?.eyebrow || "");
+  const [headline, setHeadline] = React.useState(branding.hero?.headline || "");
+  const [subheadline, setSubheadline] = React.useState(branding.hero?.subheadline || "");
+  const [heroBody, setHeroBody] = React.useState(branding.hero?.body || "");
+  const [heroImageUrl, setHeroImageUrl] = React.useState(branding.hero?.imageUrl || "");
+  const [pills, setPills] = React.useState<BrandPill[]>(branding.hero?.pills || []);
+  const [heroUploading, setHeroUploading] = React.useState(false);
+
+  async function onSave(e?: React.FormEvent) {
+    e?.preventDefault();
     setBusy(true);
     setMsg(null);
-    const patch: Partial<Branding> = { primary, logoUrl: logoUrl || null, name: name || null };
+    const patch: Partial<Branding> = {
+      primary,
+      logoUrl: logoUrl || null,
+      name: name || null,
+      hero: {
+        eyebrow: eyebrow || null,
+        headline: headline || null,
+        subheadline: subheadline || null,
+        body: heroBody || null,
+        imageUrl: heroImageUrl || null,
+        pills: pills.filter((p) => p.label.trim()),
+      },
+    };
     try {
       const saved = await saveBranding(patch);
       setBranding(saved); // re-tints the whole app immediately
@@ -46,6 +72,15 @@ export function AppearancePage() {
     }
   }
 
+  async function readAsDataUrl(file: File): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(new Error("Could not read the file"));
+      r.readAsDataURL(file);
+    });
+  }
+
   async function onFile(file?: File | null) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -59,14 +94,8 @@ export function AppearancePage() {
     setUploading(true);
     setMsg(null);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(String(r.result));
-        r.onerror = () => reject(new Error("Could not read the file"));
-        r.readAsDataURL(file);
-      });
-      // Upload through the storage service → returns a hosted /media URL.
-      const { logoUrl: url } = await uploadLogo(dataUrl);
+      const dataUrl = await readAsDataUrl(file);
+      const { logoUrl: url } = await uploadImage(dataUrl);
       setLogoUrl(url);
       setMsg({ kind: "ok", text: "Logo uploaded — click Save to apply it." });
     } catch (err) {
@@ -80,6 +109,40 @@ export function AppearancePage() {
     } finally {
       setUploading(false);
     }
+  }
+
+  async function onHeroFile(file?: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setMsg({ kind: "err", text: "That's not an image file." });
+      return;
+    }
+    if (file.size > 2_000_000) {
+      setMsg({ kind: "err", text: "Hero image must be 2 MB or smaller, or paste a hosted URL instead." });
+      return;
+    }
+    setHeroUploading(true);
+    setMsg(null);
+    try {
+      const dataUrl = await readAsDataUrl(file);
+      const { logoUrl: url } = await uploadImage(dataUrl);
+      setHeroImageUrl(url);
+      setMsg({ kind: "ok", text: "Hero image uploaded — click Save to apply it." });
+    } catch (err) {
+      const text =
+        err instanceof ApiError && err.status === 403
+          ? "You need the Settings (MOD-70) edit permission to upload."
+          : err instanceof ApiError
+            ? err.message
+            : "Upload failed. Try a smaller image or paste a URL.";
+      setMsg({ kind: "err", text });
+    } finally {
+      setHeroUploading(false);
+    }
+  }
+
+  function updatePill(i: number, patch: Partial<BrandPill>) {
+    setPills((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
   }
 
   return (
@@ -216,6 +279,156 @@ export function AppearancePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Landing page (pre-auth hero) */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-base">Landing page</CardTitle>
+          <CardDescription>
+            The cinematic hero shown before sign-in. Every field is optional — anything left blank falls back to clean
+            defaults derived from your brand name.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="eyebrow">Eyebrow</Label>
+              <Input
+                id="eyebrow"
+                value={eyebrow}
+                onChange={(e) => setEyebrow(e.target.value)}
+                placeholder="Welcome from Africa, The Operational Heartbeat"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="headline">Headline</Label>
+              <textarea
+                id="headline"
+                value={headline}
+                onChange={(e) => setHeadline(e.target.value)}
+                rows={2}
+                placeholder="The Home of the Perfect Pixie; where beauty becomes an operation."
+                className={TEXTAREA_CLASS}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="subheadline">Subheadline</Label>
+              <textarea
+                id="subheadline"
+                value={subheadline}
+                onChange={(e) => setSubheadline(e.target.value)}
+                rows={2}
+                placeholder="Behind the scenes of the world's first premium pixie factory…"
+                className={TEXTAREA_CLASS}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="heroBody">Body paragraph</Label>
+              <textarea
+                id="heroBody"
+                value={heroBody}
+                onChange={(e) => setHeroBody(e.target.value)}
+                rows={3}
+                placeholder="From our Lagos fulfillment center to doorsteps worldwide…"
+                className={TEXTAREA_CLASS}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Background image</Label>
+              <label
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  onHeroFile(e.dataTransfer.files?.[0]);
+                }}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed p-3 text-sm text-muted-foreground hover:bg-accent/40"
+              >
+                {heroImageUrl ? (
+                  <img src={heroImageUrl} alt="" className="h-12 w-20 rounded object-cover" />
+                ) : (
+                  <span className="flex h-12 w-20 items-center justify-center rounded bg-muted">🖼</span>
+                )}
+                <span>
+                  {heroUploading ? "Uploading…" : heroImageUrl ? "Replace image" : "Drop an image or click to upload"} ·
+                  JPG/PNG, ≤2 MB
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => onHeroFile(e.target.files?.[0])}
+                />
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={heroImageUrl.startsWith("data:") ? "" : heroImageUrl}
+                  onChange={(e) => setHeroImageUrl(e.target.value)}
+                  placeholder="…or paste a hosted image URL"
+                />
+                {heroImageUrl && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setHeroImageUrl("")}>
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label>Brand chips</Label>
+              <p className="-mt-1 text-xs text-muted-foreground">
+                Small partner/sub-brand pills shown on the hero (e.g. the lines you operate).
+              </p>
+              <div className="flex flex-col gap-2">
+                {pills.map((p, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      value={p.label}
+                      onChange={(e) => updatePill(i, { label: e.target.value })}
+                      placeholder="Faitlyn Hair"
+                      className="max-w-[220px]"
+                    />
+                    <Input
+                      value={p.iconUrl || ""}
+                      onChange={(e) => updatePill(i, { iconUrl: e.target.value || null })}
+                      placeholder="Icon URL (optional)"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPills((prev) => prev.filter((_, idx) => idx !== i))}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+                {pills.length < 6 && (
+                  <div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPills((prev) => [...prev, { label: "", iconUrl: null }])}
+                    >
+                      + Add chip
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <Button type="button" loading={busy} onClick={() => onSave()}>
+                {busy ? "Saving…" : "Save landing page"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </section>
   );
 }
