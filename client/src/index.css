@@ -251,3 +251,417 @@
     radial-gradient(44% 46% at 6% 110%, rgb(var(--brand-blue-bright) / 0.26), transparent 72%),
     var(--background);
 }
+
+/* ============================================================================
+ * Landing (pre-auth marketing hero) — a cinematic, intentionally dark entry
+ * point. The accent is fully token-driven: everything highlighted resolves to
+ * --primary (the tenant's brand colour, set at runtime by applyBrand). Swap the
+ * tenant colour and the whole hero re-tints. Kept self-contained (own dark
+ * surface) so it reads the same regardless of the app's light/dark mode.
+ * ==========================================================================*/
+.landing {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #0a0507;
+  color: #f4eef0;
+  isolation: isolate;
+}
+.landing-bg {
+  position: absolute;
+  inset: -6%;
+  z-index: -3;
+  background-size: cover;
+  background-position: center 28%;
+  background-repeat: no-repeat;
+  animation: landing-kenburns 26s ease-in-out infinite alternate;
+}
+.landing-veil {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(120% 90% at 88% 10%, color-mix(in srgb, var(--primary) 40%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 22%, #0a0507) 0%, rgb(10 5 7 / 0.72) 46%, #0a0507 100%);
+}
+.landing::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  box-shadow: inset 0 0 220px 60px rgb(6 3 4 / 0.9);
+}
+.landing-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.4rem clamp(1.25rem, 4vw, 3.25rem);
+}
+.landing-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+}
+.landing-brand .accent { color: var(--primary); }
+.landing-brand-glyph {
+  color: var(--primary);
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--primary) 70%, transparent));
+}
+.landing-ghost-btn {
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.7rem;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  background: rgb(255 255 255 / 0.04);
+  color: #e9dfe2;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.landing-ghost-btn:hover { background: rgb(255 255 255 / 0.1); color: #fff; }
+.landing-content {
+  position: relative;
+  height: calc(100% - 5.4rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.15rem;
+  max-width: 62rem;
+  padding: 0 clamp(1.25rem, 6vw, 5rem) 4rem;
+}
+.landing-content > * { animation: landing-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.landing-content > :nth-child(2) { animation-delay: 0.06s; }
+.landing-content > :nth-child(3) { animation-delay: 0.12s; }
+.landing-content > :nth-child(4) { animation-delay: 0.18s; }
+.landing-content > :nth-child(5) { animation-delay: 0.24s; }
+.landing-content > :nth-child(6) { animation-delay: 0.3s; }
+.landing-content > :nth-child(7) { animation-delay: 0.36s; }
+.landing-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+  padding: 0.32rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.05);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: #e7dade;
+}
+.landing-eyebrow::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 80%, transparent);
+}
+.landing-kicker {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--primary) 55%, #cbb7bc);
+}
+.landing-headline {
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  font-size: clamp(2.4rem, 6vw, 4.6rem);
+  color: #fbf6f7;
+  max-width: 20ch;
+  text-shadow: 0 2px 30px rgb(0 0 0 / 0.35);
+}
+.landing-sub {
+  font-size: clamp(0.98rem, 1.4vw, 1.18rem);
+  line-height: 1.55;
+  color: #e3d6da;
+  max-width: 46ch;
+}
+.landing-body {
+  font-style: italic;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: rgb(232 220 224 / 0.66);
+  max-width: 54ch;
+}
+.landing-pills { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.landing-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.42rem 0.95rem 0.42rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  background: rgb(255 255 255 / 0.05);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ece1e4;
+}
+.landing-pill img,
+.landing-pill .landing-pill-dot {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  object-fit: cover;
+}
+.landing-pill .landing-pill-dot {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--primary) 30%, transparent);
+  color: var(--primary);
+}
+.landing-enter {
+  align-self: flex-start;
+  margin-top: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.9rem 1.6rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary-foreground);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 88%, #fff 4%), color-mix(in srgb, var(--primary) 78%, #000 12%));
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--primary) 45%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.25);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.landing-enter:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 42px color-mix(in srgb, var(--primary) 55%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.3);
+}
+.landing-enter .arrow {
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.22);
+}
+
+/* --- Login modal (dark, on the dimmed hero) ------------------------------- */
+.login-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(6 3 4 / 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade-in 0.25s ease-out both;
+}
+.login-card {
+  position: relative;
+  width: 100%;
+  max-width: 25rem;
+  border-radius: 1.15rem;
+  padding: 1.75rem;
+  color: #f2e9ec;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 12%, #140a0d) 0%, #100708 100%);
+  border: 1px solid color-mix(in srgb, var(--primary) 26%, rgb(255 255 255 / 0.08));
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.05);
+  animation: landing-rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.login-card-kicker {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--primary) 60%, #b9a4a9);
+}
+.login-card-title {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  line-height: 1.1;
+  margin-top: 0.35rem;
+  color: #fbf6f7;
+}
+.login-card-sub {
+  font-size: 0.85rem;
+  color: rgb(232 220 224 / 0.62);
+  margin-top: 0.15rem;
+}
+.login-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  color: rgb(232 220 224 / 0.55);
+}
+.login-close:hover { color: #fff; }
+.seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  border-radius: 0.8rem;
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+.seg-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem;
+  border-radius: 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(232 220 224 / 0.7);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.seg-tab:hover { color: #fff; }
+.seg-tab[data-active="true"] {
+  color: var(--primary-foreground);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 86%, #fff 4%), color-mix(in srgb, var(--primary) 76%, #000 12%));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+.login-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(232 220 224 / 0.6);
+}
+.login-field {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: 2.9rem;
+  padding: 0 0.85rem;
+  border-radius: 0.7rem;
+  background: rgb(255 255 255 / 0.045);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.login-field:focus-within {
+  border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.login-field svg { color: rgb(232 220 224 / 0.5); flex: none; }
+.login-field input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: #f6eef1;
+  font-size: 0.9rem;
+}
+.login-field input::placeholder { color: rgb(232 220 224 / 0.4); }
+.login-field button { color: rgb(232 220 224 / 0.55); }
+.login-field button:hover { color: #fff; }
+.login-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: rgb(232 220 224 / 0.78);
+  cursor: pointer;
+  user-select: none;
+}
+.login-check-box {
+  display: grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  color: var(--primary-foreground);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.login-check input:checked + .login-check-box { background: var(--primary); border-color: var(--primary); }
+.login-link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--primary) 70%, #d8b3bb);
+}
+.login-link:hover { color: var(--primary); }
+.login-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  height: 2.9rem;
+  border-radius: 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--primary-foreground);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 88%, #fff 4%), color-mix(in srgb, var(--primary) 76%, #000 12%));
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--primary) 42%, transparent);
+  transition: transform 0.16s ease, opacity 0.16s ease;
+}
+.login-submit:hover:not(:disabled) { transform: translateY(-1px); }
+.login-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+.login-note {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: rgb(232 220 224 / 0.6);
+  text-align: center;
+}
+.login-error {
+  border-radius: 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--bad, 210 68 58) 50%, transparent);
+  background: rgb(210 68 58 / 0.12);
+  color: #ffb9b3;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+}
+.login-card [role="group"] input {
+  background: rgb(255 255 255 / 0.05);
+  border-color: rgb(255 255 255 / 0.16);
+  color: #f6eef1;
+}
+.login-card [role="group"] input:focus {
+  border-color: color-mix(in srgb, var(--primary) 65%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+  outline: none;
+}
+
+@keyframes landing-kenburns {
+  from { transform: scale(1) translate3d(0, 0, 0); }
+  to { transform: scale(1.09) translate3d(-1.5%, -1%, 0); }
+}
+@keyframes landing-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 640px) {
+  .landing-content { height: calc(100% - 5rem); padding-bottom: 2.5rem; }
+  .landing-body { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-bg { animation: none; }
+  .landing-content > *,
+  .login-card { animation: none; }
+}
+
+/* Top-bar nav dropdown shadow + More overlay sidebar slide-in */
+.shadow-l { box-shadow: var(--shadow-l); }
+@keyframes lux-slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.lux-sidebar-in { animation: lux-slide-in-left 0.24s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .lux-sidebar-in { animation: none; }
+}
