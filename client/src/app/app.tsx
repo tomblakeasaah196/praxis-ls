@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { RequireAuth } from "@/app/auth/require-auth";
 import { AppShell } from "@/app/layout/app-shell";
-import { LoginPage } from "@/features/auth/login-page";
+import { LandingPage } from "@/features/landing/landing-page";
 import { DashboardPage } from "@/features/dashboard";
 import {
   UsersPage,
@@ -59,7 +59,7 @@ export function App() {
   return (
     <BootGate>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login" element={<LandingPage />} />
 
       <Route
         element={
