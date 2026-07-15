@@ -17,6 +17,7 @@ import { AuditPage, NotificationsPage, WorkflowsPage, ApprovalsPage } from "@/fe
 import { AppearancePage } from "@/features/settings/appearance-page";
 import { SettingsHub } from "@/features/settings/settings-hub";
 import { LoginEditor } from "@/features/settings/login-editor";
+import { CurrenciesPage, TaxJurisdictionsPage } from "@/features/settings/master-data-pages";
 import {
   VehiclesPage,
   VehicleCompliancePage,
@@ -50,6 +51,7 @@ import {
   AssetsPage,
   JournalsPage,
   InvoicesPage,
+  CreditNotesPage,
   ProformasPage,
   ReceivablesPage,
   ChartOfAccountsPage,
@@ -100,6 +102,7 @@ export function App() {
         <Route path="finance/journals" element={<JournalsPage />} />
         <Route path="finance/proformas" element={<ProformasPage />} />
         <Route path="finance/invoices" element={<InvoicesPage />} />
+        <Route path="finance/credit-notes" element={<CreditNotesPage />} />
         <Route path="finance/receivables" element={<ReceivablesPage />} />
         <Route path="finance/statements" element={<StatementsPage />} />
         <Route path="finance/tax" element={<TaxCenterPage />} />
@@ -158,10 +161,10 @@ export function App() {
         <Route path="master/suppliers" element={<ComingSoon />} />
         <Route path="master/corporate-entities" element={<ComingSoon />} />
         <Route path="master/treasury-accounts" element={<ComingSoon />} />
-        <Route path="master/currencies" element={<ComingSoon />} />
+        <Route path="master/currencies" element={<CurrenciesPage />} />
         <Route path="master/expense-rates" element={<ComingSoon />} />
         <Route path="master/financial-dictionary" element={<ComingSoon />} />
-        <Route path="master/tax-jurisdictions" element={<ComingSoon />} />
+        <Route path="master/tax-jurisdictions" element={<TaxJurisdictionsPage />} />
         {/* Vault */}
         <Route path="vault/documents" element={<ComingSoon />} />
         <Route path="vault/signatures" element={<ComingSoon />} />

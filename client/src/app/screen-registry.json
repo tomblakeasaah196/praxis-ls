@@ -537,6 +537,15 @@
       "actions": []
     },
     {
+      "id": "fin_credit_notes",
+      "title": "Credit notes",
+      "route": "/finance/credit-notes",
+      "area": "finance",
+      "module_key": "MOD-51",
+      "purpose": "Reverse a finalised invoice — draft then post the contra entry.",
+      "actions": []
+    },
+    {
       "id": "fin_financing",
       "title": "Financing & debt",
       "route": "/finance/financing",
