@@ -9,4 +9,6 @@ const router = express.Router();
 router.use(authMiddleware);
 router.get("/", requirePermission(MODULE, "view"), c.kpis);
 router.get("/kpis", requirePermission(MODULE, "view"), c.kpis);
+// Control Tower home aggregate — operation files, live shipments, approvals.
+router.get("/control-tower", requirePermission(MODULE, "view"), c.controlTower);
 module.exports = { basePath: "/dashboard", feature: null, router };

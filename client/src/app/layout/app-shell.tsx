@@ -381,18 +381,17 @@ function SidebarLinks({ onNavigate }: { onNavigate: () => void }) {
   );
 }
 
+// Logo/mark only — the "<name> / Control Tower" text block was removed so the
+// Control Tower nav (with its hover menu) can sit right beside the logo and the
+// rest of the top bar has room to breathe.
 function Brand({ name, logoUrl }: { name: string; logoUrl?: string | null }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-none items-center">
       {logoUrl ? (
-        <img src={logoUrl} alt="" className="h-9 w-auto" />
+        <img src={logoUrl} alt={name} className="h-9 w-auto" />
       ) : (
-        <span className="lux-mark">{name.charAt(0)}</span>
+        <span className="lux-mark" title={name}>{name.charAt(0)}</span>
       )}
-      <div className="leading-tight">
-        <div className="font-display text-[17px] tracking-tight">{name}</div>
-        <div className="micro mt-0.5">Control Tower</div>
-      </div>
     </div>
   );
 }
@@ -494,8 +493,10 @@ export function AppShell() {
         </button>
         <Brand name={brandName} logoUrl={branding.logoUrl} />
 
-        {/* Inline primary nav (desktop) */}
-        <nav className="ml-4 hidden items-center gap-1 md:flex">
+        {/* Inline primary nav (desktop) — Control Tower now sits directly beside
+            the logo (the brand text block was removed), so it starts tight to the
+            mark and the rest of the bar has room to align. */}
+        <nav className="ml-2 hidden items-center gap-1 md:flex">
           {topbarGroups.map((g) => (
             <NavArea
               key={g.heading}
@@ -554,7 +555,9 @@ export function AppShell() {
         </div>
       )}
 
-      <main className="min-h-0 flex-1 overflow-auto p-6">
+      {/* The single custom scroll container: vertical scrolls, horizontal is
+          clipped (pages that need it wrap their own overflow-x-auto region). */}
+      <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-6">
         <Outlet />
       </main>
 
