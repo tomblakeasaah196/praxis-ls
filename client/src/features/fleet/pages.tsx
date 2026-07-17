@@ -4,7 +4,7 @@ import { ResourceList } from "@/components/resource-list";
 export const VehiclesPage = () => (
   <ResourceList
     title="Vehicles"
-    description="Fleet registry (MOD-39). Trucks, low-beds, company cars."
+    description="Fleet registry. Trucks, low-beds, company cars."
     endpoint="/vehicles"
     columns={[
       { key: "registration", label: "Registration" },
@@ -19,7 +19,7 @@ export const VehiclesPage = () => (
 export const VehicleCompliancePage = () => (
   <ResourceList
     title="Vehicle compliance"
-    description="Insurance & visite-technique expiry (MOD-40). Renewal alerts fire off the expiry date."
+    description="Insurance & visite-technique expiry. Renewal alerts fire off the expiry date."
     endpoint="/vehicle-compliance"
     columns={[
       { key: "vehicle_id", label: "Vehicle" },
@@ -33,7 +33,7 @@ export const VehicleCompliancePage = () => (
 export const WorkOrdersPage = () => (
   <ResourceList
     title="Work orders"
-    description="Preventive & corrective maintenance (MOD-41)."
+    description="Preventive & corrective maintenance."
     endpoint="/work-orders"
     columns={[
       { key: "kind", label: "Kind" },
@@ -48,7 +48,7 @@ export const WorkOrdersPage = () => (
 export const DispatchPage = () => (
   <ResourceList
     title="Dispatch"
-    description="Vehicle assignments & check-in/out (MOD-42)."
+    description="Vehicle assignments & check-in/out."
     endpoint="/dispatch"
     columns={[
       { key: "vehicle_id", label: "Vehicle" },
@@ -63,7 +63,7 @@ export const DispatchPage = () => (
 export const FuelLogPage = () => (
   <ResourceList
     title="Fuel log"
-    description="Fuel purchases per vehicle (MOD-43)."
+    description="Fuel purchases per vehicle."
     endpoint="/fuel"
     columns={[
       { key: "vehicle_id", label: "Vehicle" },
@@ -78,7 +78,7 @@ export const FuelLogPage = () => (
 export const DriversPage = () => (
   <ResourceList
     title="Driver licences"
-    description="Driver licences & expiry (MOD-44)."
+    description="Driver licences & expiry."
     endpoint="/drivers"
     columns={[
       { key: "employee_id", label: "Employee" },
@@ -92,7 +92,7 @@ export const DriversPage = () => (
 export const IncidentsPage = () => (
   <ResourceList
     title="Incidents"
-    description="Fleet incidents & claims (MOD-45)."
+    description="Fleet incidents & claims."
     endpoint="/incidents"
     columns={[
       { key: "vehicle_id", label: "Vehicle" },

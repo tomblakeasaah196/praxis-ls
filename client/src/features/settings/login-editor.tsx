@@ -63,7 +63,7 @@ export function LoginEditor() {
         kind: "err",
         text:
           err instanceof ApiError && err.status === 403
-            ? "You need the Settings (MOD-70) edit permission."
+            ? "You need the Settings edit permission."
             : err instanceof ApiError
               ? err.message
               : "Couldn't save. Try again.",

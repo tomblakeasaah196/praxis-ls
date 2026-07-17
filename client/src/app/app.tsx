@@ -67,6 +67,13 @@ import {
   TaxCenterPage,
 } from "@/features/finance/pages";
 import { Planned } from "@/features/scaffold/screen-scaffold";
+import {
+  ClientsPage,
+  SuppliersPage,
+  CorporateEntitiesPage,
+  ExpenseRatesPage,
+  FinancialDictionaryPage,
+} from "@/features/masterdata/pages";
 import { BootGate } from "@/app/boot-gate";
 
 export function App() {
@@ -165,13 +172,13 @@ export function App() {
         {/* Finance (new) */}
         <Route path="finance/debt" element={<Planned />} />
         {/* Master data */}
-        <Route path="master/clients" element={<Planned />} />
-        <Route path="master/suppliers" element={<Planned />} />
-        <Route path="master/corporate-entities" element={<Planned />} />
+        <Route path="master/clients" element={<ClientsPage />} />
+        <Route path="master/suppliers" element={<SuppliersPage />} />
+        <Route path="master/corporate-entities" element={<CorporateEntitiesPage />} />
         <Route path="master/treasury-accounts" element={<BankAccountsPage />} />
         <Route path="master/currencies" element={<CurrenciesPage />} />
-        <Route path="master/expense-rates" element={<Planned />} />
-        <Route path="master/financial-dictionary" element={<Planned />} />
+        <Route path="master/expense-rates" element={<ExpenseRatesPage />} />
+        <Route path="master/financial-dictionary" element={<FinancialDictionaryPage />} />
         <Route path="master/tax-jurisdictions" element={<TaxJurisdictionsPage />} />
         {/* Vault */}
         <Route path="vault/documents" element={<Planned />} />

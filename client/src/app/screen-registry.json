@@ -166,6 +166,51 @@
       ]
     },
     {
+      "id": "master_clients",
+      "title": "Clients",
+      "route": "/master/clients",
+      "area": "master",
+      "module_key": "MOD-03",
+      "purpose": "Customer master — terms, credit limit and withholding status.",
+      "actions": []
+    },
+    {
+      "id": "master_suppliers",
+      "title": "Suppliers",
+      "route": "/master/suppliers",
+      "area": "master",
+      "module_key": "MOD-04",
+      "purpose": "Vendor master — payment method, tax residency and rating.",
+      "actions": []
+    },
+    {
+      "id": "master_corporate_entities",
+      "title": "Corporate entities",
+      "route": "/master/corporate-entities",
+      "area": "master",
+      "module_key": "MOD-01",
+      "purpose": "The legal entities we bill and report from.",
+      "actions": []
+    },
+    {
+      "id": "master_expense_rates",
+      "title": "Expense rates",
+      "route": "/master/expense-rates",
+      "area": "master",
+      "module_key": "MOD-10",
+      "purpose": "Per-shipping-line rates that feed costing.",
+      "actions": []
+    },
+    {
+      "id": "master_financial_dictionary",
+      "title": "Financial dictionary",
+      "route": "/master/financial-dictionary",
+      "area": "master",
+      "module_key": "MOD-05",
+      "purpose": "Billable/cost lines with their OHADA posting rules.",
+      "actions": []
+    },
+    {
       "id": "settings_payment_gateways",
       "title": "Payment gateways",
       "route": "/settings/payment-gateways",

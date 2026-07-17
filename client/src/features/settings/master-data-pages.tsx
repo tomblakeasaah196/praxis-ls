@@ -50,7 +50,7 @@ function useList(path: string, nonce: number) {
   return { rows, error };
 }
 
-/* ─────────────────────────── Currencies (MOD-08) ─────────────────────────── */
+/* ─────────────────────────── Currencies ─────────────────────────── */
 
 function SetRateForm({ open, onClose, onSaved, codes }: { open: boolean; onClose: () => void; onSaved: () => void; codes: string[] }) {
   const [base, setBase] = React.useState("");
@@ -144,7 +144,7 @@ export function CurrenciesPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Currencies & FX</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Active currencies and exchange rates. Manual overrides are as-of dated (MOD-08).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Active currencies and exchange rates. Manual overrides are as-of dated.</p>
         </div>
         <Button onClick={() => setRateOpen(true)} disabled={codes.length < 2}>
           Set rate
@@ -220,7 +220,7 @@ export function CurrenciesPage() {
   );
 }
 
-/* ───────────────────── Tax jurisdictions + codes (MOD-07) ───────────────────── */
+/* ───────────────────── Tax jurisdictions + codes ───────────────────── */
 
 function NewJurisdictionForm({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
   const [country, setCountry] = React.useState("CM");
@@ -462,7 +462,7 @@ export function TaxJurisdictionsPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Tax rates & jurisdictions</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Jurisdictions and their effective-dated tax codes (TVA/WHT/IS…) read by account determination (MOD-07).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Jurisdictions and their effective-dated tax codes (TVA/WHT/IS…) read by account determination.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>New jurisdiction</Button>
       </header>

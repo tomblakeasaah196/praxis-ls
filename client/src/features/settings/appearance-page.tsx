@@ -75,7 +75,7 @@ export function AppearancePage() {
         kind: "err",
         text:
           err instanceof ApiError && err.status === 403
-            ? "You need the Settings (MOD-70) edit permission to change branding."
+            ? "You need the Settings edit permission to change branding."
             : err instanceof ApiError
               ? err.message
               : "Couldn't save. Try again.",

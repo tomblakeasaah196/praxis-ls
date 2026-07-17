@@ -9,7 +9,7 @@ import { ResourceList } from "@/components/resource-list";
 export const UsersPage = () => (
   <ResourceList
     title="Users"
-    description="Tenant users. Now gated (MOD-67) — you'll see this only with the grant or as CEO."
+    description="Tenant users. Now gated — you'll see this only with the grant or as CEO."
     endpoint="/users"
     columns={[
       { key: "email", label: "Email" },

@@ -73,7 +73,7 @@ function PageError({ message }: { message: string | null }) {
   );
 }
 
-/* ───────────────────────── Bank accounts (MOD-09) ───────────────────────── */
+/* ───────────────────────── Bank accounts ───────────────────────── */
 
 const TREASURY_KINDS = ["BANK", "CASH", "MOMO"];
 
@@ -128,7 +128,7 @@ function NewAccountForm({ open, onClose, onCreated, entities }: { open: boolean;
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="New bank account" description="A bank, cash or mobile-money account tied to a corporate entity and a chart-of-accounts code (MOD-09).">
+    <Modal open={open} onClose={onClose} title="New bank account" description="A bank, cash or mobile-money account tied to a corporate entity and a chart-of-accounts code.">
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Corporate entity" required className="sm:col-span-2">
@@ -221,7 +221,7 @@ export function BankAccountsPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Bank accounts</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Company bank, cash and mobile-money accounts, each mapped to a chart-of-accounts code (MOD-09).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Company bank, cash and mobile-money accounts, each mapped to a chart-of-accounts code.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>New account</Button>
       </header>
@@ -278,7 +278,7 @@ export function BankAccountsPage() {
   );
 }
 
-/* ─────────────────────── Payment gateways (MOD-09) ─────────────────────── */
+/* ─────────────────────── Payment gateways ─────────────────────── */
 
 function GatewayForm({ open, onClose, onSaved, editing }: { open: boolean; onClose: () => void; onSaved: () => void; editing: Row | null }) {
   const isEdit = !!editing;
@@ -414,7 +414,7 @@ export function PaymentGatewaysPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Payment gateways</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Per-tenant gateway providers and their encrypted credentials (MOD-09). Keys are write-only and never returned.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Per-tenant gateway providers and their encrypted credentials. Keys are write-only and never returned.</p>
         </div>
         <Button onClick={openNew}>Add gateway</Button>
       </header>
@@ -477,7 +477,7 @@ export function PaymentGatewaysPage() {
   );
 }
 
-/* ─────────────────────── Scheduled reports (MOD-63) ─────────────────────── */
+/* ─────────────────────── Scheduled reports ─────────────────────── */
 
 const CADENCES = ["daily", "weekly", "monthly", "quarterly", "on_event"];
 const REPORT_FORMATS = ["pdf", "csv", "xlsx"];
@@ -539,7 +539,7 @@ function ScheduleForm({ open, onClose, onCreated, catalogue }: { open: boolean; 
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Schedule a report" description="Automated report delivery on a cadence (MOD-63). Recipients receive the generated file by email." size="lg">
+    <Modal open={open} onClose={onClose} title="Schedule a report" description="Automated report delivery on a cadence. Recipients receive the generated file by email." size="lg">
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name" required>
@@ -641,7 +641,7 @@ export function ScheduledReportsPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Scheduled reports</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Automated report delivery — pick a report, a cadence and recipients (MOD-63).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Automated report delivery — pick a report, a cadence and recipients.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>Schedule report</Button>
       </header>
@@ -705,7 +705,7 @@ export function ScheduledReportsPage() {
   );
 }
 
-/* ─────────────────────── API keys / AI vendors (MOD-70) ─────────────────────── */
+/* ─────────────────────── API keys / AI vendors ─────────────────────── */
 
 function VendorForm({ open, onClose, onSaved, editing }: { open: boolean; onClose: () => void; onSaved: () => void; editing: Row | null }) {
   const isEdit = !!editing;
@@ -762,7 +762,7 @@ function VendorForm({ open, onClose, onSaved, editing }: { open: boolean; onClos
       open={open}
       onClose={onClose}
       title={isEdit ? `Configure ${cell(editing?.vendor)}` : "Add vendor key"}
-      description="Third-party AI provider credentials (MOD-70). The API key is encrypted and write-only — leave blank to keep the current key."
+      description="Third-party AI provider credentials. The API key is encrypted and write-only — leave blank to keep the current key."
       size="lg"
     >
       <div className="space-y-4">
@@ -846,7 +846,7 @@ export function ApiKeysPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">API keys &amp; secrets</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Encrypted, write-only third-party AI provider keys (MOD-70). Keys are never returned — only their status.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Encrypted, write-only third-party AI provider keys. Keys are never returned — only their status.</p>
         </div>
         <Button onClick={openNew}>Add vendor key</Button>
       </header>
@@ -913,7 +913,7 @@ export function ApiKeysPage() {
   );
 }
 
-/* ─────────────────────── Pipeline stages (MOD-24, read-only) ─────────────────────── */
+/* ─────────────────────── Pipeline stages ─────────────────────── */
 
 export function PipelineStagesPage() {
   const { rows, error } = useList("/opportunities/stages", 0);
@@ -922,7 +922,7 @@ export function PipelineStagesPage() {
     <section className="mx-auto max-w-6xl animate-fade-in">
       <header className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight">Pipeline stages</h1>
-        <p className="mt-1 text-sm text-muted-foreground">The CRM opportunity pipeline stages (MOD-24). Read-only — stage editing is not yet exposed by the backend.</p>
+        <p className="mt-1 text-sm text-muted-foreground">The CRM opportunity pipeline stages. Read-only — stage editing is not yet exposed by the backend.</p>
       </header>
 
       {error ? (
@@ -957,7 +957,7 @@ export function PipelineStagesPage() {
   );
 }
 
-/* ─────────────────────── Document numbering (MOD-70) ─────────────────────── */
+/* ─────────────────────── Document numbering ─────────────────────── */
 
 const RESET_OPTIONS = ["yearly", "never"];
 
@@ -1094,7 +1094,7 @@ export function NumberingPage() {
     <section className="mx-auto max-w-4xl animate-fade-in">
       <header className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight">Document numbering</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Per-document numbering schemes — prefix, padding, reset cadence and separator (MOD-70).</p>
+        <p className="mt-1 text-sm text-muted-foreground">Per-document numbering schemes — prefix, padding, reset cadence and separator.</p>
       </header>
 
       {error ? (
