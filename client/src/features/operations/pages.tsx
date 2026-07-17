@@ -22,6 +22,22 @@ const TONES: Record<string, Tone> = {
   PENDING: "warn", DONE: "ok", DRAFT: "mute", SUBMITTED: "blue", CLEARED: "ok", DELIVERED: "ok",
 };
 const tone = (s?: string | null): Tone => TONES[String(s || "").toUpperCase()] || "mute";
+const SERVICE_FAMILIES: { key: string; label: string; match: (k: string) => boolean }[] = [
+  { key: "SEA", label: "Sea freight", match: (k) => k.includes("SEA") },
+  { key: "AIR", label: "Air freight", match: (k) => k.includes("AIR") },
+  { key: "HINTERLAND", label: "Hinterland transit", match: (k) => k.includes("HINTERLAND") || k.includes("TRANSIT") },
+  { key: "WAREHOUSING", label: "Warehousing", match: (k) => k.includes("WAREHOUS") || k.includes("STORAGE") },
+];
+const humanizeKey = (k?: string | null): string => {
+  if (!k) return "—";
+  const s = String(k).replace(/_/g, " ").toLowerCase();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+const familyOf = (d: api.Dossier): string => {
+  const k = String(d.service_key || d.service_name_en || "").toUpperCase();
+  const fam = SERVICE_FAMILIES.find((x) => x.match(k));
+  return fam ? fam.key : "OTHER";
+};
 const nameMap = <T extends Record<string, unknown>>(rows: T[] | null, idKey: string, nameKey: string) => {
   const m: Record<string, string> = {};
   (rows || []).forEach((r) => { m[String(r[idKey])] = String(r[nameKey] ?? ""); });
@@ -93,13 +109,103 @@ function DossierForm({ row, onClose, onSaved }: { row: api.Dossier | null; onClo
   );
 }
 
+function Stat({ label, value, tone: t }: { label: string; value: React.ReactNode; tone?: "warn" | "ok" | "default" }) {
+  const color = t === "warn" ? "text-amber-500" : t === "ok" ? "text-emerald-500" : "text-foreground";
+  return (
+    <div className="rounded-lg border border-border bg-card/40 px-3.5 py-2.5">
+      <div className="micro mb-1">{label}</div>
+      <div className={`num text-lg font-medium ${color}`}>{value}</div>
+    </div>
+  );
+}
+
+/** 360° drawer: the per-file rollup (costing vs actual, invoicing, margin, docs, milestone chain). */
+function Dossier360Modal({ dossier, clientLabel, onClose }: { dossier: api.Dossier; clientLabel: string; onClose: () => void }) {
+  const ov = useResource(() => api.getOverview(dossier.dossier_id), [dossier.dossier_id]);
+  const chain = useResource(() => api.milestonesByDossier(dossier.dossier_id), [dossier.dossier_id]);
+  const d = ov.data;
+  const svc = dossier.service_name_en || dossier.service_name_fr || humanizeKey(dossier.service_key);
+  return (
+    <Modal open onClose={onClose} size="xl" title={`Operation file · ${dossier.ref}`} description={`${clientLabel}${svc && svc !== "—" ? " · " + svc : ""}`}>
+      {ov.loading ? (
+        <div className="py-10 text-center micro">Loading 360…</div>
+      ) : ov.error ? (
+        <ErrorState message={errMsg(ov.error)} />
+      ) : d ? (
+        <div className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Stat label="Planned cost" value={money(d.costing.planned_cost)} />
+            <Stat label="Actual cost" value={money(d.costs.actual_cost)} />
+            <Stat label="Billed" value={money(d.invoicing.billed_ttc)} tone="ok" />
+            <Stat label="Outstanding" value={money(d.invoicing.outstanding)} tone="warn" />
+          </div>
+          {d.economics && d.economics.gross_margin != null && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Stat label="Gross margin" value={money(d.economics.gross_margin)} tone={Number(d.economics.gross_margin) < 0 ? "warn" : "ok"} />
+              <Stat label="Margin %" value={d.economics.margin_percent != null ? `${num(d.economics.margin_percent)}%` : "—"} />
+            </div>
+          )}
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Stat label="Invoices" value={num(d.invoicing.count)} />
+            <Stat label="Purchase orders" value={`${num(d.procurement.po_count)} · ${money(d.procurement.po_total)}`} />
+            <Stat label="Transit orders" value={num(d.documents.transit_orders)} />
+            <Stat label="Delivery notes" value={num(d.documents.delivery_notes)} />
+          </div>
+          <div>
+            <div className="micro mb-2">Milestone chain</div>
+            {chain.loading ? (
+              <div className="py-3 text-center micro">Loading…</div>
+            ) : (chain.data || []).length ? (
+              <ol className="space-y-1.5">
+                {(chain.data || []).map((m) => (
+                  <li key={m.milestone_instance_id} className="flex items-center justify-between rounded-md border border-border px-3 py-1.5">
+                    <span className="text-sm text-foreground">{m.label_fr || m.code}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="micro">{dateFmt(m.due_date)}</span>
+                      <Pill tone={tone(m.status)}>{m.status}</Pill>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <span className="micro">No milestone chain seeded for this file yet.</span>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </Modal>
+  );
+}
+
 export function OperationsFilesPage() {
   const { rows, error, loading, reload } = useList<api.Dossier>("/operations");
   const { rows: clients } = useList<Client>("/clients");
   const [editing, setEditing] = React.useState<api.Dossier | "new" | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [view, setView] = React.useState<api.Dossier | null>(null);
+  const [q, setQ] = React.useState("");
+  const [family, setFamily] = React.useState("ALL");
   const files = rows || [];
   const clientName = nameMap(clients, "client_id", "name");
+
+  const clientOf = (r: api.Dossier) => r.client_name || (r.client_id ? clientName[r.client_id] : "") || "—";
+  const routeOf = (r: api.Dossier) => (r.pol || r.pod ? `${r.pol || "?"} → ${r.pod || "?"}` : "—");
+  const svcLabel = (r: api.Dossier) => r.service_name_en || r.service_name_fr || humanizeKey(r.service_key);
+  const pctOf = (r: api.Dossier) => (r.milestone_total ? Math.round((100 * (r.milestone_done || 0)) / r.milestone_total) : 0);
+
+  const famCounts = React.useMemo(() => {
+    const m: Record<string, number> = { ALL: files.length };
+    SERVICE_FAMILIES.forEach((fam) => { m[fam.key] = 0; });
+    files.forEach((r) => { const k = familyOf(r); if (m[k] != null) m[k] += 1; });
+    return m;
+  }, [files]);
+
+  const filtered = files.filter((r) => {
+    if (family !== "ALL" && familyOf(r) !== family) return false;
+    if (!q.trim()) return true;
+    const hay = `${r.ref} ${clientOf(r)} ${routeOf(r)} ${svcLabel(r)}`.toLowerCase();
+    return hay.includes(q.trim().toLowerCase());
+  });
 
   async function advance(d: api.Dossier) {
     const next = d.status === "OPEN" ? "IN_PROGRESS" : d.status === "IN_PROGRESS" ? "COMPLETED" : null;
@@ -109,10 +215,27 @@ export function OperationsFilesPage() {
   }
 
   const columns: Column<api.Dossier>[] = [
-    { key: "ref", label: "Ref", render: (r) => <span className="num font-medium text-foreground">{r.ref}</span> },
-    { key: "client_id", label: "Client", render: (r) => (r.client_id ? clientName[r.client_id] || "—" : "—") },
-    { key: "route", label: "Route", render: (r) => (r.pol || r.pod ? `${r.pol || "?"} → ${r.pod || "?"}` : "—") },
-    { key: "eta", label: "ETA", render: (r) => dateFmt(r.eta) },
+    { key: "ref", label: "Reference", render: (r) => <span className="num font-medium text-foreground">{r.ref}</span> },
+    { key: "client", label: "Client", render: (r) => clientOf(r) },
+    { key: "service", label: "Service", render: (r) => (r.service_key || r.service_name_en ? <Pill tone="blue">{svcLabel(r)}</Pill> : <span className="text-muted-foreground">—</span>) },
+    { key: "route", label: "Route", render: (r) => <span className="text-muted-foreground">{routeOf(r)}</span> },
+    {
+      key: "milestone", label: "Milestone", render: (r) => {
+        const pct = pctOf(r);
+        return (
+          <div className="min-w-[9rem] max-w-[12rem]">
+            <div className="micro mb-1 truncate">{r.current_milestone || (pct >= 100 ? "All milestones done" : "—")}</div>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 flex-1 rounded-full bg-[rgb(var(--ink-3)/0.15)]">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="num text-[11px] text-muted-foreground">{pct}%</span>
+            </div>
+          </div>
+        );
+      },
+    },
+    { key: "costing", label: "Costing · XAF", className: "num text-right", render: (r) => money(r.costing_total) },
     { key: "status", label: "Status", render: (r) => <Pill tone={tone(r.status)}>{r.status}</Pill> },
     {
       key: "_a", label: "", render: (r) => (
@@ -128,6 +251,8 @@ export function OperationsFilesPage() {
     },
   ];
 
+  const chips = [{ key: "ALL", label: "All" }, ...SERVICE_FAMILIES.filter((fam) => (famCounts[fam.key] || 0) > 0)];
+
   return (
     <section className={shell}>
       <PageHeader title="Operation files" description="Dossiers — the anchor for costing, transit, invoicing." action={<Button onClick={() => setEditing("new")}>New file</Button>} />
@@ -137,8 +262,26 @@ export function OperationsFilesPage() {
         <KpiTile label="In progress" value={num(files.filter((d) => d.status === "IN_PROGRESS").length)} />
         <KpiTile label="Completed" value={num(files.filter((d) => d.status === "COMPLETED").length)} />
       </KpiRow>
-      <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.dossier_id} empty={{ title: "No operation files yet", hint: "Open a dossier to start moving a shipment." }} />
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-1.5">
+          {chips.map((c) => {
+            const on = family === c.key;
+            return (
+              <button
+                key={c.key}
+                onClick={() => setFamily(c.key)}
+                className={`rounded-full border px-3 py-1 text-[13px] transition-colors ${on ? "border-transparent bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+              >
+                {c.label} <span className="num opacity-70">{famCounts[c.key] ?? 0}</span>
+              </button>
+            );
+          })}
+        </div>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search reference, client, route…" className="w-full max-w-xs" />
+      </div>
+      <DataList columns={columns} rows={filtered} error={error} loading={loading} rowKey={(r) => r.dossier_id} onRowClick={(r) => setView(r)} empty={{ title: "No operation files yet", hint: "Open a dossier to start moving a shipment." }} />
       {editing !== null && <DossierForm row={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={reload} />}
+      {view && <Dossier360Modal dossier={view} clientLabel={clientOf(view)} onClose={() => setView(null)} />}
     </section>
   );
 }

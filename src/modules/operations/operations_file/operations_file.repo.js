@@ -19,18 +19,29 @@ async function update(client, id, fields) {
 async function list(client, q = {}) {
   const { limit, offset } = page(q);
   const params = [limit, offset]; const wh = [];
-  if (q.entity_id) { params.push(q.entity_id); wh.push("entity_id = $" + params.length); }
-  if (q.client_id) { params.push(q.client_id); wh.push("client_id = $" + params.length); }
-  if (q.status) { params.push(q.status); wh.push("status = $" + params.length); }
-  if (q.service_type_id) { params.push(q.service_type_id); wh.push("service_type_id = $" + params.length); }
+  if (q.entity_id) { params.push(q.entity_id); wh.push("d.entity_id = $" + params.length); }
+  if (q.client_id) { params.push(q.client_id); wh.push("d.client_id = $" + params.length); }
+  if (q.status) { params.push(q.status); wh.push("d.status = $" + params.length); }
+  if (q.service_type_id) { params.push(q.service_type_id); wh.push("d.service_type_id = $" + params.length); }
   const where = wh.length ? "WHERE " + wh.join(" AND ") : "";
-  const { rows } = await client.query("SELECT * FROM dossier " + where + " ORDER BY created_at DESC LIMIT $1 OFFSET $2", params);
+  const sql =
+    "SELECT d.*, cm.name AS client_name, " +
+    "st.key AS service_key, st.name_en AS service_name_en, st.name_fr AS service_name_fr, st.territory AS service_territory, " +
+    "(SELECT COALESCE(SUM(cl.qty * cl.unit_cost), 0) FROM costing_line cl JOIN costing c ON c.costing_id = cl.costing_id WHERE c.dossier_id = d.dossier_id) AS costing_total, " +
+    "(SELECT COUNT(*)::int FROM milestone_instance mi WHERE mi.dossier_id = d.dossier_id) AS milestone_total, " +
+    "(SELECT COUNT(*)::int FROM milestone_instance mi WHERE mi.dossier_id = d.dossier_id AND mi.status = 'DONE') AS milestone_done, " +
+    "(SELECT mi.label FROM milestone_instance mi WHERE mi.dossier_id = d.dossier_id AND mi.status IN ('IN_PROGRESS','PENDING') ORDER BY (mi.status = 'IN_PROGRESS') DESC, mi.stage_seq ASC LIMIT 1) AS current_milestone " +
+    "FROM dossier d " +
+    "LEFT JOIN client_master cm ON cm.client_id = d.client_id " +
+    "LEFT JOIN service_type st ON st.service_type_id = d.service_type_id " +
+    where + " ORDER BY d.created_at DESC LIMIT $1 OFFSET $2";
+  const { rows } = await client.query(sql, params);
   return rows;
 }
 
 
 /**
- * 360° aggregation for a dossier — a set of read-only rollups joining the
+ * 360 aggregation for a dossier - a set of read-only rollups joining the
  * downstream modules that tag dossier_id (costing, invoices, receivables,
  * actual GL costs, milestones, procurement, transit & delivery docs).
  */
