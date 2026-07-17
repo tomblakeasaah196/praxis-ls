@@ -66,6 +66,9 @@ import {
 } from "@/features/finance/pages";
 import { Planned } from "@/features/scaffold/screen-scaffold";
 import { MasterDataPage } from "@/features/masterdata/master-data-page";
+import { OperationsHub } from "@/features/operations/hub";
+import { CostingHub } from "@/features/costing/hub";
+import { ProcurementHub } from "@/features/procurement/hub";
 import { BootGate } from "@/app/boot-gate";
 
 export function App() {
@@ -146,21 +149,15 @@ export function App() {
         <Route path="sales/meetings" element={<Planned />} />
         <Route path="sales/campaigns" element={<Planned />} />
         <Route path="sales/success-stories" element={<Planned />} />
-        {/* Operations */}
-        <Route path="operations/files" element={<Planned />} />
-        <Route path="operations/milestones" element={<Planned />} />
-        <Route path="operations/transit-orders" element={<Planned />} />
-        <Route path="operations/delivery-notes" element={<Planned />} />
-        {/* Procurement */}
-        <Route path="procurement/purchase-requests" element={<Planned />} />
-        <Route path="procurement/purchase-orders" element={<Planned />} />
-        <Route path="procurement/goods-received" element={<Planned />} />
-        <Route path="procurement/supplier-invoices" element={<Planned />} />
-        {/* Costing */}
-        <Route path="costing/costing" element={<Planned />} />
-        <Route path="costing/cost-tracking" element={<Planned />} />
-        <Route path="costing/cash-requests" element={<Planned />} />
-        <Route path="costing/regie" element={<Planned />} />
+        {/* Operations — hub */}
+        <Route path="operations" element={<OperationsHub />} />
+        <Route path="operations/:section" element={<OperationsHub />} />
+        {/* Procurement — hub */}
+        <Route path="procurement" element={<ProcurementHub />} />
+        <Route path="procurement/:section" element={<ProcurementHub />} />
+        {/* Costing — hub */}
+        <Route path="costing" element={<CostingHub />} />
+        <Route path="costing/:section" element={<CostingHub />} />
         {/* Finance (new) */}
         <Route path="finance/debt" element={<Planned />} />
         {/* Master data — one hub, deep-linkable tabs (per-section routes still resolve) */}
