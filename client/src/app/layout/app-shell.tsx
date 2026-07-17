@@ -62,30 +62,21 @@ const NAV: NavGroup[] = [
     heading: "Operations",
     prefix: "/operations",
     items: [
-      { to: "/operations/files", label: "Operations files" },
-      { to: "/operations/milestones", label: "Milestones" },
-      { to: "/operations/transit-orders", label: "Transit orders" },
-      { to: "/operations/delivery-notes", label: "Delivery notes" },
+      { to: "/operations", label: "Operations" },
     ],
   },
   {
     heading: "Procurement",
     prefix: "/procurement",
     items: [
-      { to: "/procurement/purchase-requests", label: "Purchase requests" },
-      { to: "/procurement/purchase-orders", label: "Purchase orders" },
-      { to: "/procurement/goods-received", label: "Goods received (GRN)" },
-      { to: "/procurement/supplier-invoices", label: "Supplier invoices" },
+      { to: "/procurement", label: "Procurement" },
     ],
   },
   {
     heading: "Costing",
     prefix: "/costing",
     items: [
-      { to: "/costing/costing", label: "Costing" },
-      { to: "/costing/cost-tracking", label: "Cost tracking" },
-      { to: "/costing/cash-requests", label: "Cash requests" },
-      { to: "/costing/regie", label: "Régie" },
+      { to: "/costing", label: "Costing" },
     ],
   },
   {
