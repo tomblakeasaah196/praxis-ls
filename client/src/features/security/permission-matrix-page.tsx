@@ -53,7 +53,7 @@ export function PermissionMatrixPage() {
       .catch((e) =>
         setLoadErr(
           e instanceof ApiError && e.status === 403
-            ? "You need the IAM (MOD-67) view permission to see the matrix."
+            ? "You need the IAM view permission to see the matrix."
             : e instanceof ApiError
               ? e.message
               : "Failed to load the permission matrix.",
@@ -92,7 +92,7 @@ export function PermissionMatrixPage() {
         kind: "err",
         text:
           e instanceof ApiError && e.status === 403
-            ? "You need the IAM (MOD-67) approve permission to edit grants."
+            ? "You need the IAM approve permission to edit grants."
             : e instanceof ApiError
               ? e.message
               : "Couldn't save. Try again.",

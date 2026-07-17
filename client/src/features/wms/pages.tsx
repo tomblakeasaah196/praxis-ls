@@ -4,7 +4,7 @@ import { ResourceList } from "@/components/resource-list";
 export const LocationsPage = () => (
   <ResourceList
     title="Locations"
-    description="Warehouse slotting: zone / aisle / rack / bin / yard (MOD-34)."
+    description="Warehouse slotting: zone / aisle / rack / bin / yard."
     endpoint="/locations"
     columns={[
       { key: "zone", label: "Zone" },
@@ -19,7 +19,7 @@ export const LocationsPage = () => (
 export const InventoryPage = () => (
   <ResourceList
     title="Inventory"
-    description="Stock on hand & state (MOD-35). Movements journal per item."
+    description="Stock on hand & state. Movements journal per item."
     endpoint="/inventory"
     columns={[
       { key: "sku", label: "SKU" },
@@ -35,7 +35,7 @@ export const InventoryPage = () => (
 export const InboundPage = () => (
   <ResourceList
     title="Inbound / GRN"
-    description="Goods received & QA gate (MOD-33)."
+    description="Goods received & QA gate."
     endpoint="/inbound"
     columns={[
       { key: "dossier_id", label: "Dossier" },
@@ -49,7 +49,7 @@ export const InboundPage = () => (
 export const OutboundPage = () => (
   <ResourceList
     title="Outbound"
-    description="Pick / pack / dispatch orders (MOD-36)."
+    description="Pick / pack / dispatch orders."
     endpoint="/outbound"
     columns={[
       { key: "client_id", label: "Client" },
@@ -63,7 +63,7 @@ export const OutboundPage = () => (
 export const EquipmentPage = () => (
   <ResourceList
     title="Equipment"
-    description="Handling equipment: forklifts, reach-stackers (MOD-37)."
+    description="Handling equipment: forklifts, reach-stackers."
     endpoint="/equipment"
     columns={[
       { key: "label", label: "Label" },
@@ -77,7 +77,7 @@ export const EquipmentPage = () => (
 export const CycleCountsPage = () => (
   <ResourceList
     title="Cycle counts"
-    description="Physical counts & discrepancies (MOD-38)."
+    description="Physical counts & discrepancies."
     endpoint="/cycle-counts"
     columns={[
       { key: "location_id", label: "Location" },

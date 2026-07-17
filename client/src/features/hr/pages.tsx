@@ -4,7 +4,7 @@ import { ResourceList } from "@/components/resource-list";
 export const EmployeesPage = () => (
   <ResourceList
     title="Employees"
-    description="Human capital master: staff, CNPS, salary, bank details — the record HR, payroll and fleet build on (MOD-02)."
+    description="Human capital master: staff, CNPS, salary, bank details — the record HR, payroll and fleet build on."
     endpoint="/employees"
     columns={[
       { key: "full_name", label: "Name" },
@@ -20,7 +20,7 @@ export const EmployeesPage = () => (
 export const PayrollPage = () => (
   <ResourceList
     title="Payroll"
-    description="Monthly payroll runs — compute CNPS/IRPP/CAC/CFC/FNE, approve, post to the ledger (MOD-17)."
+    description="Monthly payroll runs — compute CNPS/IRPP/CAC/CFC/FNE, approve, post to the ledger."
     endpoint="/payroll"
     columns={[
       { key: "period_code", label: "Period" },
@@ -34,7 +34,7 @@ export const PayrollPage = () => (
 export const VacanciesPage = () => (
   <ResourceList
     title="Vacancies"
-    description="Recruitment: job vacancies and applicant pipeline (MOD-11)."
+    description="Recruitment: job vacancies and applicant pipeline."
     endpoint="/vacancies"
     columns={[
       { key: "title", label: "Title" },
@@ -49,7 +49,7 @@ export const VacanciesPage = () => (
 export const ContractsPage = () => (
   <ResourceList
     title="Contracts"
-    description="HR contracts: offer, employment, confirmation, termination (MOD-12)."
+    description="HR contracts: offer, employment, confirmation, termination."
     endpoint="/contracts"
     columns={[
       { key: "employee_id", label: "Employee" },
@@ -64,7 +64,7 @@ export const ContractsPage = () => (
 export const AppraisalsPage = () => (
   <ResourceList
     title="Appraisals"
-    description="Performance appraisals against KPI targets (MOD-13)."
+    description="Performance appraisals against KPI targets."
     endpoint="/appraisals"
     columns={[
       { key: "employee_id", label: "Employee" },
@@ -78,7 +78,7 @@ export const AppraisalsPage = () => (
 export const AttendancePage = () => (
   <ResourceList
     title="Attendance"
-    description="Clock-in / clock-out logs with optional GPS (MOD-14)."
+    description="Clock-in / clock-out logs with optional GPS."
     endpoint="/attendance"
     columns={[
       { key: "employee_id", label: "Employee" },
@@ -91,7 +91,7 @@ export const AttendancePage = () => (
 export const LeavePage = () => (
   <ResourceList
     title="Leave & allowances"
-    description="Leave, salary-advance and mission requests (MOD-15)."
+    description="Leave, salary-advance and mission requests."
     endpoint="/leave"
     columns={[
       { key: "employee_id", label: "Employee" },
@@ -106,7 +106,7 @@ export const LeavePage = () => (
 export const SopsPage = () => (
   <ResourceList
     title="SOPs"
-    description="Standard operating procedure documents with versioning (MOD-16)."
+    description="Standard operating procedure documents with versioning."
     endpoint="/sops"
     columns={[
       { key: "title", label: "Title" },
@@ -120,7 +120,7 @@ export const SopsPage = () => (
 export const TrainingsPage = () => (
   <ResourceList
     title="Trainings"
-    description="Training sessions and attendance roster (MOD-18)."
+    description="Training sessions and attendance roster."
     endpoint="/trainings"
     columns={[
       { key: "title", label: "Title" },
@@ -134,7 +134,7 @@ export const TrainingsPage = () => (
 export const TalentPoolPage = () => (
   <ResourceList
     title="Talent pool"
-    description="Candidate talent pool (MOD-19)."
+    description="Candidate talent pool."
     endpoint="/talent-pool"
     columns={[
       { key: "full_name", label: "Name" },
