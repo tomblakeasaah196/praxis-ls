@@ -21,6 +21,16 @@ export type Dossier = {
   eta?: string | null;
   ata?: string | null;
   created_at?: string;
+  // enriched by list() join (read-only display fields)
+  client_name?: string | null;
+  service_key?: string | null;
+  service_name_en?: string | null;
+  service_name_fr?: string | null;
+  service_territory?: string | null;
+  costing_total?: number | string | null;
+  milestone_total?: number | null;
+  milestone_done?: number | null;
+  current_milestone?: string | null;
 };
 export type DossierInput = {
   entity_id: string;
@@ -111,3 +121,16 @@ export const listMilestoneTemplates = () => tenant<MilestoneTemplate[]>("/milest
 export const milestonesByDossier = (dossierId: string) => tenant<MilestoneInstance[]>(`/milestones/dossier/${dossierId}`);
 export const advanceMilestone = (id: string, body: { evidence_vault_id?: string } = {}) =>
   tenant<MilestoneInstance>(`/milestones/${id}/advance`, { method: "POST", body });
+
+export type DossierOverview = {
+  dossier: { dossier_id: string; ref: string; status: string; client_id?: string | null; service_type_id?: string | null };
+  costing: { count: number; planned_cost?: number | null };
+  costs: { actual_cost?: number | null; gl_entries: number };
+  invoicing: { count: number; invoiced_ttc?: number | null; billed_ttc?: number | null; outstanding?: number | null };
+  economics?: { billed_ttc?: number | null; actual_cost?: number | null; gross_margin?: number | null; margin_percent?: number | null } | null;
+  milestones: Record<string, number>;
+  procurement: { po_count: number; po_total?: number | null };
+  documents: { transit_orders: number; delivery_notes: number };
+};
+/** 360° rollup for one operation file; money fields are role-masked server-side. */
+export const getOverview = (id: string) => tenant<DossierOverview>(`/operations/${id}/360`);
