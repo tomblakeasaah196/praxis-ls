@@ -149,4 +149,23 @@ async function get(client, id) {
 
 onApproved.register("invoice", (client, { id, actor }) => postApproved(client, { id, actor }));
 
-module.exports = { createDraft, updateDraft, submit, postApproved, list, get };
+/**
+ * Read-only VAT/total preview for a DRAFT invoice. Runs determination WITHOUT
+ * posting so the UI can show HT / debours / TVA / TTC (and any customer advance
+ * that will net) before the user records the invoice.
+ */
+async function previewTotals(client, { invoiceId, entryDate = null }) {
+  const inv = await repo.getInvoice(client, invoiceId);
+  if (!inv) throw new AppError("NOT_FOUND", "Invoice not found", 404);
+  const lineRows = await repo.listLines(client, invoiceId);
+  const at = entryDate || new Date().toISOString().slice(0, 10);
+  const econLines = econLinesFrom(lineRows, inv.dossier_id);
+  const determined = econLines.length
+    ? await determination.resolve(client, { context: "sale", counterpartAccount: "4111", entryDate: at, lines: econLines })
+    : { totals: { subtotal_ht: 0, debours_total: 0, tax_total: 0, total: 0 } };
+  const advances = await repo.openAdvances(client, { clientId: inv.client_id, dossierId: inv.dossier_id });
+  const advanceOpen = (advances || []).reduce((acc, a) => acc + (Number(a.amount || 0) - Number(a.applied_amount || 0)), 0);
+  return { totals: determined.totals, advance_open: advanceOpen, line_count: lineRows.length };
+}
+
+module.exports = { createDraft, updateDraft, submit, postApproved, previewTotals, list, get };

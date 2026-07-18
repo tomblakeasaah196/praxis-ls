@@ -6,6 +6,7 @@
  * Currencies & Tax jurisdictions in features/settings/master-data-pages.tsx.
  */
 import * as React from "react";
+import { ScreenAi } from "@/components/screen-ai";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
@@ -139,6 +140,7 @@ export function ClientsPage() {
       </KpiRow>
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.client_id} onRowClick={(r) => setEditing(r)} empty={{ title: "No clients yet", hint: "Add your first customer to start quoting and invoicing." }} />
       {editing !== null && <ClientForm row={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={reload} />}
+      <ScreenAi path="master/clients" />
     </section>
   );
 }
@@ -230,6 +232,7 @@ export function SuppliersPage() {
       </KpiRow>
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.supplier_id} onRowClick={(r) => setEditing(r)} empty={{ title: "No suppliers yet", hint: "Add vendors to raise POs and supplier invoices." }} />
       {editing !== null && <SupplierForm row={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={reload} />}
+      <ScreenAi path="master/suppliers" />
     </section>
   );
 }
@@ -346,6 +349,7 @@ export function CorporateEntitiesPage() {
       </KpiRow>
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.entity_id} empty={{ title: "No entities yet", hint: "Add the legal entity that issues your documents." }} />
       {editing !== null && <EntityForm row={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={reload} />}
+      <ScreenAi path="master/corporate-entities" />
     </section>
   );
 }
@@ -438,6 +442,7 @@ export function ExpenseRatesPage() {
       <PageHeader title="Expense rates" description="Per-shipping-line rates that feed costing." action={<Button onClick={() => setEditing("new")}>New rate</Button>} />
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.expense_rate_id} empty={{ title: "No expense rates", hint: "Add a rate per shipping line and dictionary item." }} />
       {editing !== null && <ExpenseRateForm row={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={reload} />}
+      <ScreenAi path="master/expense-rates" />
     </section>
   );
 }
@@ -576,6 +581,7 @@ export function FinancialDictionaryPage() {
       </KpiRow>
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.dictionary_item_id} onRowClick={(r) => setEditing(r)} empty={{ title: "Dictionary is empty", hint: "Add billable/cost items so quotes and costing can reference them." }} />
       {editing !== null && <DictForm row={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={reload} />}
+      <ScreenAi path="master/financial-dictionary" />
     </section>
   );
 }

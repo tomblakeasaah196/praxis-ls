@@ -236,3 +236,100 @@ export const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
+
+/* ══════════════ Smart Receivables (MOD-52) — ageing, receipts, dunning ══════════════ */
+export type Ageing = { current: number; d1_30: number; d31_60: number; d61_90: number; d90_plus: number; open_count: number };
+export type Receipt = {
+  receipt_id: string; client_id?: string | null; method: string; treasury_account_id?: string | null;
+  amount: number | string; received_on: string; status: string; doc_number?: string | null;
+};
+export type ReceiptDetail = Receipt & { allocations?: { allocation_id?: string; invoice_id?: string; amount: number | string }[] };
+export type Reminder = { invoice_id: string; doc_number?: string | null; client_id?: string | null; outstanding: number | string; days_overdue: number; level?: number | null; label?: string | null };
+export type ReminderPlan = { as_of: string; count: number; reminders: Reminder[] };
+
+export const getAgeing = () => tenant<Ageing>("/receivables/ageing");
+export const getReminders = () => tenant<ReminderPlan>("/receivables/reminders");
+export const listReceipts = () => tenant<Receipt[]>("/receivables");
+export const getReceipt = (id: string) => tenant<ReceiptDetail>(`/receivables/${id}`);
+export const createReceipt = (body: { client_id?: string; method: string; treasury_account_id?: string; amount: number; received_on?: string }) =>
+  tenant<Receipt>("/receivables", { method: "POST", body });
+export const postReceipt = (id: string, body: { entity_id?: string; entry_date: string; source_doc_ref?: string; customer_account?: string }) =>
+  tenant<Receipt>(`/receivables/${id}/post`, { method: "POST", body });
+
+/* ══════════════ Debt / financing (MOD-53) — engagements, drawdown, repay ══════════════ */
+export type DebtEngagement = {
+  debt_engagement_id: string; entity_id?: string | null; dossier_id?: string | null;
+  lender_kind?: string | null; lender_name?: string | null; principal: number | string; currency?: string | null;
+  interest_rate?: number | null; coa_code?: string | null; status: string; started_on?: string | null; due_on?: string | null;
+};
+export type DebtRepayment = { debt_repayment_id: string; principal_part: number | string; interest_part: number | string; paid_on: string };
+export type DebtDetail = DebtEngagement & { repayments?: DebtRepayment[]; repaid?: { principal: number; interest: number }; outstanding_principal?: number };
+export type DebtInput = {
+  entity_id: string; dossier_id?: string; lender_kind: string; lender_name?: string; principal: number;
+  currency?: string; interest_rate?: number; coa_code?: string; started_on?: string; due_on?: string;
+};
+
+export const listDebt = () => tenant<DebtEngagement[]>("/financing");
+export const getDebt = (id: string) => tenant<DebtDetail>(`/financing/${id}`);
+export const createDebt = (body: DebtInput) => tenant<DebtEngagement>("/financing", { method: "POST", body });
+export const updateDebt = (id: string, body: Partial<Pick<DebtInput, "lender_name" | "interest_rate" | "due_on" | "started_on" | "dossier_id">>) =>
+  tenant<DebtEngagement>(`/financing/${id}`, { method: "PATCH", body });
+export const deleteDebt = (id: string) => tenant<{ ok: boolean }>(`/financing/${id}`, { method: "DELETE" });
+export const drawdownDebt = (id: string, body: { entity_id?: string; entry_date: string; source_doc_ref?: string; treasury_coa?: string }) =>
+  tenant<DebtEngagement>(`/financing/${id}/drawdown`, { method: "POST", body });
+export const repayDebt = (id: string, body: { entity_id?: string; entry_date: string; principal_part?: number; interest_part?: number; treasury_coa?: string; interest_coa?: string; source_doc_ref?: string }) =>
+  tenant<DebtEngagement>(`/financing/${id}/repay`, { method: "POST", body });
+
+/* ══════════════ Chart of accounts (MOD-58) — SYSCOHADA/OHADA ══════════════ */
+export type Account = {
+  code: string; parent_code?: string | null; label_fr: string; label_en?: string | null;
+  class: number; normal_balance: "D" | "C"; is_postable: boolean; requires_analytic: boolean;
+  is_active: boolean; is_system?: boolean; entity_id?: string | null;
+};
+export type AccountInput = {
+  code: string; parent_code?: string; label_fr: string; label_en?: string; class: number;
+  normal_balance: "D" | "C"; is_postable?: boolean; requires_analytic?: boolean;
+};
+export const listAccounts = () => tenant<Account[]>("/chart-of-accounts");
+export const createAccount = (body: AccountInput) => tenant<Account>("/chart-of-accounts", { method: "POST", body });
+export const updateAccount = (code: string, body: Partial<Omit<AccountInput, "code" | "class">> & { is_active?: boolean }) =>
+  tenant<Account>(`/chart-of-accounts/${code}`, { method: "PATCH", body });
+
+/* ══════════════ Finance command-center feeds (trial balance + the 4 chip lists) ══════════════ */
+export type TrialBalanceRow = { account_code: string; debit: number | string; credit: number | string };
+export type TrialBalance = { rows: TrialBalanceRow[]; totals: { debit: number; credit: number; balanced: boolean } };
+export const getTrialBalance = () => tenant<TrialBalance>("/statements/trial-balance");
+
+export type InvoiceRow = { invoice_id: string; doc_number?: string | null; client_id?: string | null; dossier_id?: string | null; total_ttc?: number | string | null; payment_due_on?: string | null; status: string };
+export const listInvoices = () => tenant<InvoiceRow[]>("/final-invoices");
+export type ProformaRow = { advance_id: string; client_id?: string | null; amount?: number | string | null; applied_amount?: number | string | null; status?: string | null; created_at?: string };
+export const listProformas = () => tenant<ProformaRow[]>("/proformas/advances");
+export type JournalRow = { entry_id: string; entry_date?: string | null; source_doc_ref?: string | null; status: string; source?: string | null };
+export const listJournals = () => tenant<JournalRow[]>("/journal-entries");
+
+/* treasury accounts — for the cash-position donut (kind → coa_code → balance) */
+export type TreasuryAccount = { treasury_account_id: string; kind: string; label: string; coa_code: string };
+export const listTreasuryAccounts = () => tenant<TreasuryAccount[]>("/treasury-accounts");
+
+/* dossier option loader (ref + service key) — for tagging advances / invoices to an operation */
+export async function loadDossiers(): Promise<Option[]> {
+  const rows = await tenant<Record<string, unknown>[]>("/operations");
+  return (rows || []).map((r) => ({
+    id: String(r.dossier_id),
+    label: String(r.ref || r.dossier_id),
+    extra: r.service_name_en || r.service_key ? String(r.service_name_en || r.service_key) : undefined,
+  }));
+}
+
+/* read-only VAT/total preview for a draft invoice (HT / débours / TVA / TTC + open advance) */
+export type InvoiceTotals = {
+  totals: { subtotal_ht: number; debours_total: number; tax_total: number; total: number };
+  advance_open: number;
+  line_count: number;
+};
+export const getInvoiceTotals = (id: string, entryDate?: string) =>
+  tenant<InvoiceTotals>(`/final-invoices/${id}/totals${entryDate ? `?entry_date=${entryDate}` : ""}`);
+
+/* attach a scanned slip / reference document to a receipt (vault upload, base64 data-url) */
+export const uploadReceiptSlip = (receiptId: string, dataUrl: string) =>
+  tenant<{ vault_id?: string }>("/documents", { method: "POST", body: { data_url: dataUrl, doc_type: "RECEIPT_SLIP", entity_ref: `payment_receipt:${receiptId}` } });

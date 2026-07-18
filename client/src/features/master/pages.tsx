@@ -136,7 +136,7 @@ function ClientForm({ open, editing, entities, onClose, onSaved }: { open: boole
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={editing ? "Edit client" : "New client"} description="Customer registry entry — referenced across sales, operations and receivables (MOD-03)." size="lg">
+    <Modal open={open} onClose={onClose} title={editing ? "Edit client" : "New client"} description="Customer registry entry — referenced across sales, operations and receivables." size="lg">
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name" required className="sm:col-span-2">
@@ -203,7 +203,7 @@ function CreditModal({ client, onClose }: { client: Row | null; onClose: () => v
   const money = (v: unknown) => (v === null || v === undefined ? "no limit" : `${Number(v).toLocaleString()} XAF`);
 
   return (
-    <Modal open={open} onClose={onClose} title={`Credit status — ${client ? cell(client.name) : ""}`} description="Live credit availability from the client master (MOD-03).">
+    <Modal open={open} onClose={onClose} title={`Credit status — ${client ? cell(client.name) : ""}`} description="Live credit availability from the client master.">
       <div className="space-y-4">
         {error ? (
           <ErrorState message={error} />
@@ -260,7 +260,7 @@ export function ClientsPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl tracking-tight">Clients</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Customer registry referenced across sales, operations and receivables (MOD-03).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Customer registry referenced across sales, operations and receivables.</p>
         </div>
         <Button onClick={openNew}>New client</Button>
       </header>
@@ -391,7 +391,7 @@ function SupplierForm({ open, editing, entities, onClose, onSaved }: { open: boo
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={editing ? "Edit supplier" : "New supplier"} description="Vendor registry entry — referenced across procurement and payables (MOD-04)." size="lg">
+    <Modal open={open} onClose={onClose} title={editing ? "Edit supplier" : "New supplier"} description="Vendor registry entry — referenced across procurement and payables." size="lg">
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name" required className="sm:col-span-2">
@@ -478,7 +478,7 @@ export function SuppliersPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl tracking-tight">Suppliers</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Vendor registry referenced across procurement and payables (MOD-04).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Vendor registry referenced across procurement and payables.</p>
         </div>
         <Button onClick={openNew}>New supplier</Button>
       </header>
@@ -591,7 +591,7 @@ function EntityForm({ open, editing, onClose, onSaved }: { open: boolean; editin
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={editing ? "Edit corporate entity" : "New corporate entity"} description="A legal entity you operate — used by treasury, tax and document numbering (MOD-01)." size="lg">
+    <Modal open={open} onClose={onClose} title={editing ? "Edit corporate entity" : "New corporate entity"} description="A legal entity you operate — used by treasury, tax and document numbering." size="lg">
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Code" hint={editing ? "Immutable" : "Short unique key"} required={!editing}>
@@ -681,7 +681,7 @@ export function CorporateEntitiesPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl tracking-tight">Corporate entities</h1>
-          <p className="mt-1 text-sm text-muted-foreground">The legal entities you operate — used by treasury, tax and document numbering (MOD-01).</p>
+          <p className="mt-1 text-sm text-muted-foreground">The legal entities you operate — used by treasury, tax and document numbering.</p>
         </div>
         <Button onClick={openNew}>New entity</Button>
       </header>

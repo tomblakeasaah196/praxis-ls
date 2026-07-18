@@ -110,7 +110,7 @@ function QuotationForm({ open, editing, entities, clients, opportunities, onClos
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={editing ? "Edit quotation" : "New quotation"} description="A priced offer — lines, VAT model and validity; sent then accepted (MOD-27)." size="xl">
+    <Modal open={open} onClose={onClose} title={editing ? "Edit quotation" : "New quotation"} description="A priced offer — lines, VAT model and validity; sent then accepted." size="xl">
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           {!editing && (
@@ -242,7 +242,7 @@ function QuotationDetail({ quotation, entities, clientName, onClose, onChanged, 
   const doAccept = () => run(() => tenant(`/quotations/${id}/accept`, { method: "POST", body: { convert } }));
 
   return (
-    <Modal open={open} onClose={onClose} title={quotation && quotation.doc_number ? `Quotation ${cell(quotation.doc_number)}` : "Quotation (draft)"} description="Review, then move it through its lifecycle (MOD-27)." size="xl">
+    <Modal open={open} onClose={onClose} title={quotation && quotation.doc_number ? `Quotation ${cell(quotation.doc_number)}` : "Quotation (draft)"} description="Review, then move it through its lifecycle." size="xl">
       <div className="space-y-4">
         {error && <ErrorState message={error} />}
         {data === null && !error ? (
@@ -375,7 +375,7 @@ export function QuotationsPage() {
       <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl tracking-tight">Quotations</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Priced offers between opportunity and invoice — draft, send, accept (MOD-27).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Priced offers between opportunity and invoice — draft, send, accept.</p>
         </div>
         <Button
           onClick={() => {
@@ -493,7 +493,7 @@ function MarginSimForm({ open, onClose, onSaved }: { open: boolean; onClose: () 
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Margin simulation" description="Rapid quote maths — margin on services only, débours pass-through. No GL (MOD-27, KB §6.7)." size="xl">
+    <Modal open={open} onClose={onClose} title="Margin simulation" description="Rapid quote maths — margin on services only, débours pass-through. No GL." size="xl">
       <div className="space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -567,7 +567,7 @@ export function MarginSimulationsPage() {
       <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl tracking-tight">Margin simulation</h1>
-          <p className="mt-1 text-sm text-muted-foreground">What-if quote maths — margin on services only, no accounting entries (MOD-27).</p>
+          <p className="mt-1 text-sm text-muted-foreground">What-if quote maths — margin on services only, no accounting entries.</p>
         </div>
         <Button onClick={() => setFormOpen(true)}>New simulation</Button>
       </header>
@@ -674,7 +674,7 @@ function ExtraSimForm({ open, onClose, onSaved }: { open: boolean; onClose: () =
   const breakdown = (computed?.breakdown as Row[] | undefined) || [];
 
   return (
-    <Modal open={open} onClose={onClose} title="Demurrage / extra-charge simulation" description="Per-day charge beyond the free period, from a tiered tariff. No GL (MOD-28)." size="xl">
+    <Modal open={open} onClose={onClose} title="Demurrage / extra-charge simulation" description="Per-day charge beyond the free period, from a tiered tariff. No GL." size="xl">
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Shipping line">
@@ -770,7 +770,7 @@ export function ExtraChargeSimulationsPage() {
       <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl tracking-tight">Extra-charge simulation</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Demurrage / detention estimates from a tiered tariff — no accounting entries (MOD-28).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Demurrage / detention estimates from a tiered tariff — no accounting entries.</p>
         </div>
         <Button onClick={() => setFormOpen(true)}>New simulation</Button>
       </header>
@@ -863,7 +863,7 @@ function ComputeVarianceModal({ open, dossiers, quotations, onClose, onDone }: {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Compute pricing variance" description="Quote vs actual cost → a R/Y/G flag. Actual cost stays finance-only (MOD-27).">
+    <Modal open={open} onClose={onClose} title="Compute pricing variance" description="Quote vs actual cost → a R/Y/G flag. Actual cost stays finance-only.">
       <div className="space-y-4">
         <Field label="Dossier" required>
           <Select value={dossierId} onChange={(e) => setDossierId(e.target.value)}>
@@ -924,7 +924,7 @@ export function PricingVariancePage() {
       <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl tracking-tight">Pricing variance</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Quote vs actual cost as a red/yellow/green flag. Raw cost stays finance-only (MOD-27).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Quote vs actual cost as a red/yellow/green flag. Raw cost stays finance-only.</p>
         </div>
         <Button onClick={() => setComputeOpen(true)}>Compute variance</Button>
       </header>

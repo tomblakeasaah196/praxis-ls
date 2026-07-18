@@ -15,6 +15,11 @@ import { useList, useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt } from "@/lib/format";
 import type { Entity, Client } from "@/lib/masterdata-api";
 import * as api from "@/lib/operations-api";
+import { AiActions } from "@/components/ai-actions";
+import { ScreenAi } from "@/components/screen-ai";
+import { HubTabs, HubCrumb } from "@/components/tabbed-hub";
+import { Link } from "react-router-dom";
+import type { AiAction } from "@/features/scaffold/screen-specs";
 
 const shell = "mx-auto max-w-6xl animate-fade-in";
 const TONES: Record<string, Tone> = {
@@ -110,7 +115,7 @@ function DossierForm({ row, onClose, onSaved }: { row: api.Dossier | null; onClo
 }
 
 function Stat({ label, value, tone: t }: { label: string; value: React.ReactNode; tone?: "warn" | "ok" | "default" }) {
-  const color = t === "warn" ? "text-amber-500" : t === "ok" ? "text-emerald-500" : "text-foreground";
+  const color = t === "warn" ? "text-[rgb(var(--warn))]" : t === "ok" ? "text-[rgb(var(--primary))]" : "text-foreground";
   return (
     <div className="rounded-lg border border-border bg-card/40 px-3.5 py-2.5">
       <div className="micro mb-1">{label}</div>
@@ -177,6 +182,11 @@ function Dossier360Modal({ dossier, clientLabel, onClose }: { dossier: api.Dossi
   );
 }
 
+const OPS_FILES_AI: AiAction[] = [
+  { label: "List / get dossiers", kind: "read", describe: "List operation files (dossiers) or fetch one." },
+  { label: "Open / advance dossier", kind: "write", describe: "Open a dossier, update it, or advance its status." },
+];
+
 export function OperationsFilesPage() {
   const { rows, error, loading, reload } = useList<api.Dossier>("/operations");
   const { rows: clients } = useList<Client>("/clients");
@@ -203,7 +213,7 @@ export function OperationsFilesPage() {
   const filtered = files.filter((r) => {
     if (family !== "ALL" && familyOf(r) !== family) return false;
     if (!q.trim()) return true;
-    const hay = `${r.ref} ${clientOf(r)} ${routeOf(r)} ${svcLabel(r)}`.toLowerCase();
+    const hay = `${r.ref} ${clientOf(r)} ${routeOf(r)} ${svcLabel(r)} ${r.bl_mawb || ""} ${r.vessel_flight || ""}`.toLowerCase();
     return hay.includes(q.trim().toLowerCase());
   });
 
@@ -217,7 +227,7 @@ export function OperationsFilesPage() {
   const columns: Column<api.Dossier>[] = [
     { key: "ref", label: "Reference", render: (r) => <span className="num font-medium text-foreground">{r.ref}</span> },
     { key: "client", label: "Client", render: (r) => clientOf(r) },
-    { key: "service", label: "Service", render: (r) => (r.service_key || r.service_name_en ? <Pill tone="blue">{svcLabel(r)}</Pill> : <span className="text-muted-foreground">—</span>) },
+    { key: "service", label: "Service", render: (r) => (r.service_key || r.service_name_en ? <Pill tone="mute">{svcLabel(r)}</Pill> : <span className="text-muted-foreground">—</span>) },
     { key: "route", label: "Route", render: (r) => <span className="text-muted-foreground">{routeOf(r)}</span> },
     {
       key: "milestone", label: "Milestone", render: (r) => {
@@ -255,7 +265,17 @@ export function OperationsFilesPage() {
 
   return (
     <section className={shell}>
-      <PageHeader title="Operation files" description="Dossiers — the anchor for costing, transit, invoicing." action={<Button onClick={() => setEditing("new")}>New file</Button>} />
+      <header className="mb-4 border-b border-border pb-4">
+        <div className="micro mb-1 uppercase tracking-wide"><Link to="/" className="transition-colors hover:text-primary">Hub</Link> › Operations</div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">Operation files</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">The dossier is the centre of gravity — route, milestones, costing, money and documents in one 360° view.</p>
+          </div>
+          <Button onClick={() => setEditing("new")}>New file</Button>
+        </div>
+      </header>
+      <HubTabs />
       <KpiRow>
         <KpiTile label="Files" value={num(files.length)} />
         <KpiTile label="Open" value={num(files.filter((d) => d.status === "OPEN").length)} />
@@ -277,11 +297,12 @@ export function OperationsFilesPage() {
             );
           })}
         </div>
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search reference, client, route…" className="w-full max-w-xs" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by ref, client, BL/MAWB, vessel…" className="w-full max-w-xs" />
       </div>
       <DataList columns={columns} rows={filtered} error={error} loading={loading} rowKey={(r) => r.dossier_id} onRowClick={(r) => setView(r)} empty={{ title: "No operation files yet", hint: "Open a dossier to start moving a shipment." }} />
       {editing !== null && <DossierForm row={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={reload} />}
       {view && <Dossier360Modal dossier={view} clientLabel={clientOf(view)} onClose={() => setView(null)} />}
+      <AiActions actions={OPS_FILES_AI} />
     </section>
   );
 }
@@ -369,7 +390,8 @@ export function TransitOrdersPage() {
   ];
   return (
     <section className={shell}>
-      <PageHeader title="Transit orders" description="Customs transit declarations." action={<Button onClick={() => setEditing("new")}>New order</Button>} />
+      <PageHeader eyebrow={<HubCrumb area="Operations" />} title="Transit orders" description="Customs transit declarations." action={<Button onClick={() => setEditing("new")}>New order</Button>} />
+      <HubTabs />
       <KpiRow>
         <KpiTile label="Orders" value={num(list.length)} />
         <KpiTile label="Import" value={num(list.filter((t) => t.service_direction === "IMPORT").length)} />
@@ -377,6 +399,7 @@ export function TransitOrdersPage() {
       </KpiRow>
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.transit_order_id} onRowClick={(r) => setEditing(r)} empty={{ title: "No transit orders", hint: "Raise a transit declaration against a dossier." }} />
       {editing !== null && <TransitForm row={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={reload} />}
+      <ScreenAi path="operations/transit-orders" />
     </section>
   );
 }
@@ -441,12 +464,14 @@ export function DeliveryNotesPage() {
   ];
   return (
     <section className={shell}>
-      <PageHeader title="Delivery notes" description="Proof-of-delivery documents." action={<Button onClick={() => setOpen(true)}>New note</Button>} />
+      <PageHeader eyebrow={<HubCrumb area="Operations" />} title="Delivery notes" description="Proof-of-delivery documents." action={<Button onClick={() => setOpen(true)}>New note</Button>} />
+      <HubTabs />
       <KpiRow>
         <KpiTile label="Notes" value={num((rows || []).length)} />
       </KpiRow>
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.delivery_note_id} empty={{ title: "No delivery notes", hint: "Issue a delivery note when goods reach the consignee." }} />
       {open && <DeliveryForm onClose={() => setOpen(false)} onSaved={reload} />}
+      <ScreenAi path="operations/delivery-notes" />
     </section>
   );
 }
@@ -488,7 +513,8 @@ export function MilestonesPage() {
 
   return (
     <section className={shell}>
-      <PageHeader title="Milestones" description="Track a dossier's milestone chain; manage the templates that seed them." />
+      <PageHeader eyebrow={<HubCrumb area="Operations" />} title="Milestones" description="Track a dossier's milestone chain; manage the templates that seed them." />
+      <HubTabs />
       <div className="mb-4 flex items-center gap-3">
         <span className="micro">Dossier</span>
         <Select value={dossierId} onChange={(e) => setDossierId(e.target.value)} className="max-w-xs">
@@ -503,6 +529,7 @@ export function MilestonesPage() {
       ) : null}
       <div className="micro mb-2">Templates</div>
       <DataList columns={tplCols} rows={templates.rows} error={templates.error} loading={templates.loading} rowKey={(r, i) => r.milestone_template_id || String(i)} empty={{ title: "No templates", hint: "Milestone templates seed each dossier's chain." }} />
+      <ScreenAi path="operations/milestones" />
     </section>
   );
 }

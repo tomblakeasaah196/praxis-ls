@@ -17,6 +17,7 @@ import { tokenStore } from "@/lib/token-store";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
+import { PraxisCopilot } from "@/components/praxis-copilot";
 import { cn } from "@/lib/cn";
 
 type NavItem = { to: string; label: string };
@@ -83,16 +84,7 @@ const NAV: NavGroup[] = [
     heading: "Finance",
     prefix: "/finance",
     items: [
-      { to: "/finance/chart-of-accounts", label: "Chart of accounts" },
-      { to: "/finance/journals", label: "Journals" },
-      { to: "/finance/proformas", label: "Proforma & advances" },
-      { to: "/finance/invoices", label: "Invoices" },
-      { to: "/finance/credit-notes", label: "Credit notes" },
-      { to: "/finance/receivables", label: "Receivables" },
-      { to: "/finance/statements", label: "Statements" },
-      { to: "/finance/tax", label: "Tax center" },
-      { to: "/finance/assets", label: "Assets" },
-      { to: "/finance/debt", label: "Debt" },
+      { to: "/finance", label: "Finance" },
     ],
   },
   {
@@ -184,6 +176,7 @@ const NAV: NavGroup[] = [
     heading: "Settings & Admin",
     items: [
       { to: "/settings", label: "Settings" },
+      { to: "/ai-control", label: "AI Control" },
       { to: "/appearance", label: "Appearance" },
       { to: "/settings/numbering", label: "Numbering schemes" },
       { to: "/settings/catalogue", label: "Catalogue" },
@@ -401,7 +394,7 @@ function Brand({ name, logoUrl }: { name: string; logoUrl?: string | null }) {
 const BOTTOM_NAV: { to: string; label: string; Icon: (p: IP) => React.JSX.Element; active: (p: string) => boolean }[] = [
   { to: "/", label: "Tower", Icon: TowerIcon, active: (p) => p === "/" },
   { to: "/operations/files", label: "Files", Icon: FilesIcon, active: (p) => p.startsWith("/operations") },
-  { to: "/finance/journals", label: "Finance", Icon: FinanceIcon, active: (p) => p.startsWith("/finance") },
+  { to: "/finance", label: "Finance", Icon: FinanceIcon, active: (p) => p.startsWith("/finance") },
 ];
 
 function BottomNav({ pathname, onSearch }: { pathname: string; onSearch: () => void }) {
@@ -625,6 +618,7 @@ export function AppShell() {
       <BottomNav pathname={location.pathname} onSearch={() => setPaletteOpen(true)} />
 
       <CommandPalette open={paletteOpen} groups={NAV} onClose={() => setPaletteOpen(false)} />
+      <PraxisCopilot />
     </div>
   );
 }

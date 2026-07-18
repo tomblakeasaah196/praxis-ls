@@ -3,6 +3,8 @@
  * received (GRN), supplier invoices. Locked shared kit; line editors minimal.
  */
 import * as React from "react";
+import { HubTabs, HubCrumb } from "@/components/tabbed-hub";
+import { ScreenAi } from "@/components/screen-ai";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
@@ -84,7 +86,8 @@ export function PurchaseRequestsPage() {
   ];
   return (
     <section className={shell}>
-      <PageHeader title="Purchase requests" description="Requests to buy, before a PO is raised." action={<Button onClick={() => setOpen(true)}>New request</Button>} />
+      <PageHeader eyebrow={<HubCrumb area="Procurement" />} title="Purchase requests" description="Requests to buy, before a PO is raised." action={<Button onClick={() => setOpen(true)}>New request</Button>} />
+      <HubTabs />
       <KpiRow>
         <KpiTile label="Requests" value={num(list.length)} />
         <KpiTile label="Approved" value={num(list.filter((p) => p.status === "APPROVED").length)} />
@@ -92,6 +95,7 @@ export function PurchaseRequestsPage() {
       </KpiRow>
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.pr_id} empty={{ title: "No purchase requests", hint: "Raise a request to start procurement." }} />
       {open && <PrForm onClose={() => setOpen(false)} onSaved={reload} />}
+      <ScreenAi path="procurement/purchase-requests" />
     </section>
   );
 }
@@ -193,7 +197,8 @@ export function PurchaseOrdersPage() {
   ];
   return (
     <section className={shell}>
-      <PageHeader title="Purchase orders" description="Orders raised to suppliers." action={<Button onClick={() => setOpen(true)}>New PO</Button>} />
+      <PageHeader eyebrow={<HubCrumb area="Procurement" />} title="Purchase orders" description="Orders raised to suppliers." action={<Button onClick={() => setOpen(true)}>New PO</Button>} />
+      <HubTabs />
       <KpiRow>
         <KpiTile label="POs" value={num(list.length)} />
         <KpiTile label="Approved" value={num(list.filter((p) => String(p.status).includes("APPROVED")).length)} />
@@ -201,6 +206,7 @@ export function PurchaseOrdersPage() {
       </KpiRow>
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.po_id} empty={{ title: "No purchase orders", hint: "Raise a PO to a supplier." }} />
       {open && <PoForm onClose={() => setOpen(false)} onSaved={reload} />}
+      <ScreenAi path="procurement/purchase-orders" />
     </section>
   );
 }
@@ -258,12 +264,14 @@ export function GoodsReceivedPage() {
   ];
   return (
     <section className={shell}>
-      <PageHeader title="Goods received" description="Receipt notes (GRN) against purchase orders." action={<Button onClick={() => setOpen(true)}>New GRN</Button>} />
+      <PageHeader eyebrow={<HubCrumb area="Procurement" />} title="Goods received" description="Receipt notes (GRN) against purchase orders." action={<Button onClick={() => setOpen(true)}>New GRN</Button>} />
+      <HubTabs />
       <KpiRow>
         <KpiTile label="Receipts" value={num((rows || []).length)} />
       </KpiRow>
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.grn_id} empty={{ title: "No goods received", hint: "Record receipt when a PO is delivered." }} />
       {open && <GrnForm onClose={() => setOpen(false)} onSaved={reload} />}
+      <ScreenAi path="procurement/goods-received" />
     </section>
   );
 }
@@ -364,7 +372,8 @@ export function SupplierInvoicesPage() {
   ];
   return (
     <section className={shell}>
-      <PageHeader title="Supplier invoices" description="Vendor invoices — capture, match, post to the GL." action={<Button onClick={() => setOpen(true)}>New invoice</Button>} />
+      <PageHeader eyebrow={<HubCrumb area="Procurement" />} title="Supplier invoices" description="Vendor invoices — capture, match, post to the GL." action={<Button onClick={() => setOpen(true)}>New invoice</Button>} />
+      <HubTabs />
       <KpiRow>
         <KpiTile label="Invoices" value={num(list.length)} />
         <KpiTile label="Posted" value={num(list.filter((i) => String(i.status).includes("POSTED")).length)} />
@@ -372,6 +381,7 @@ export function SupplierInvoicesPage() {
       </KpiRow>
       <DataList columns={columns} rows={rows} error={error} loading={loading} rowKey={(r) => r.supplier_invoice_id} empty={{ title: "No supplier invoices", hint: "Capture a vendor invoice to pay." }} />
       {open && <SupplierInvoiceForm onClose={() => setOpen(false)} onSaved={reload} />}
+      <ScreenAi path="procurement/supplier-invoices" />
     </section>
   );
 }

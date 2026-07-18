@@ -23,6 +23,8 @@ module.exports = {
     }));
     res.json({ data });
   }),
+  totals: asyncHandler(async (req, res) =>
+    res.json({ data: await req.tenantDb((c) => service.previewTotals(c, { invoiceId: req.params.id, entryDate: req.query.entry_date })) })),
   submit: asyncHandler(async (req, res) => {
     const b = req.body;
     const data = await req.tenantDb((c) => service.submit(c, {

@@ -2,6 +2,7 @@
  *  (lists + computed statement/tax reports) plus the write forms that post to the
  *  ledger: journal entries, customer advances, and the final-invoice lifecycle. */
 import * as React from "react";
+import { Link } from "react-router-dom";
 import { tenant, ApiError } from "@/lib/api-client";
 import { ResourceList } from "@/components/resource-list";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -13,12 +14,14 @@ import { Modal, Field, Select } from "@/components/ui/modal";
 import {
   loadEntities,
   loadClients,
+  loadDossiers,
   loadDictionaryItems,
   loadPostableAccounts,
   postJournalEntry,
   payAdvance,
   createInvoiceDraft,
   submitInvoice,
+  getInvoiceTotals,
   getInvoice,
   updateInvoiceDraft,
   reverseJournalEntry,
@@ -378,7 +381,7 @@ export function JournalsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Journals</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            General ledger journal entries — balanced-or-rejected, reversal-not-edit (MOD-05).
+            General ledger journal entries — balanced-or-rejected, reversal-not-edit.
           </p>
         </div>
         <Button onClick={() => setPostOpen(true)}>Post entry</Button>
@@ -438,9 +441,11 @@ function AdvancePaymentForm({ open, onClose, onPaid }: { open: boolean; onClose:
   const { opts: entities } = useOptions(loadEntities, open);
   const { opts: clients } = useOptions(loadClients, open);
   const { opts: accounts } = useOptions(loadPostableAccounts, open);
+  const { opts: dossiers } = useOptions(loadDossiers, open);
 
   const [entityId, setEntityId] = React.useState("");
   const [clientId, setClientId] = React.useState("");
+  const [dossierId, setDossierId] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [treasuryCoa, setTreasuryCoa] = React.useState("");
   const [entryDate, setEntryDate] = React.useState(today());
@@ -452,6 +457,7 @@ function AdvancePaymentForm({ open, onClose, onPaid }: { open: boolean; onClose:
     if (!open) return;
     setEntityId("");
     setClientId("");
+    setDossierId("");
     setAmount("");
     setTreasuryCoa("");
     setEntryDate(today());
@@ -469,6 +475,7 @@ function AdvancePaymentForm({ open, onClose, onPaid }: { open: boolean; onClose:
       await payAdvance({
         entity_id: entityId,
         client_id: clientId || undefined,
+        dossier_id: dossierId || undefined,
         amount: amt,
         treasury_coa: treasuryCoa || undefined,
         entry_date: entryDate,
@@ -501,6 +508,16 @@ function AdvancePaymentForm({ open, onClose, onPaid }: { open: boolean; onClose:
             <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
               <option value="">Select client…</option>
               {clients.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {optionLabel(o)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Dossier" hint="Links this to an operation file — sets service type and matches advances.">
+            <Select value={dossierId} onChange={(e) => setDossierId(e.target.value)}>
+              <option value="">No dossier</option>
+              {dossiers.map((o) => (
                 <option key={o.id} value={o.id}>
                   {optionLabel(o)}
                 </option>
@@ -548,13 +565,14 @@ export const ProformasPage = () => {
   return (
     <ResourceList
       title="Proforma & advances"
-      description="Proforma and advance-payment invoices — advance posts to 4191, not revenue (MOD-52)."
+      description="Advance payments received against a proforma — posts to 4191 (customer advances), not revenue. Priced offers with line items live in Quotations."
       endpoint="/proformas/advances"
       action={(reload) => (
-        <>
+        <div className="flex items-center gap-3">
+          <Link to="/commercial/quotations" className="text-sm text-muted-foreground transition-colors hover:text-primary">View quotations →</Link>
           <Button onClick={() => setOpen(true)}>Record advance</Button>
           <AdvancePaymentForm open={open} onClose={() => setOpen(false)} onPaid={reload} />
-        </>
+        </div>
       )}
     />
   );
@@ -570,8 +588,10 @@ function InvoiceDraftForm({ open, onClose, onCreated }: { open: boolean; onClose
   const { opts: clients } = useOptions(loadClients, open);
   const { opts: items } = useOptions(loadDictionaryItems, open);
 
+  const { opts: dossiers } = useOptions(loadDossiers, open);
   const [entityId, setEntityId] = React.useState("");
   const [clientId, setClientId] = React.useState("");
+  const [dossierId, setDossierId] = React.useState("");
   const [lines, setLines] = React.useState<InvLine[]>([blankInvLine()]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -580,6 +600,7 @@ function InvoiceDraftForm({ open, onClose, onCreated }: { open: boolean; onClose
     if (!open) return;
     setEntityId("");
     setClientId("");
+    setDossierId("");
     setLines([blankInvLine()]);
     setError(null);
   }, [open]);
@@ -602,6 +623,7 @@ function InvoiceDraftForm({ open, onClose, onCreated }: { open: boolean; onClose
       await createInvoiceDraft({
         entity_id: entityId,
         client_id: clientId || undefined,
+        dossier_id: dossierId || undefined,
         lines: payloadLines.length ? payloadLines : undefined,
       });
       onCreated();
@@ -631,6 +653,16 @@ function InvoiceDraftForm({ open, onClose, onCreated }: { open: boolean; onClose
             <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
               <option value="">Select client…</option>
               {clients.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {optionLabel(o)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Dossier" hint="Links this to an operation file — sets service type and matches advances.">
+            <Select value={dossierId} onChange={(e) => setDossierId(e.target.value)}>
+              <option value="">No dossier</option>
+              {dossiers.map((o) => (
                 <option key={o.id} value={o.id}>
                   {optionLabel(o)}
                 </option>
@@ -721,6 +753,13 @@ function InvoiceSubmitForm({
 
   const id = invoice ? String(invoice.invoice_id ?? invoice.final_invoice_id ?? invoice.id ?? "") : "";
   const canSubmit = !!id && !!entryDate && !!sourceRef && !busy;
+  const [totals, setTotals] = React.useState<Awaited<ReturnType<typeof getInvoiceTotals>> | null>(null);
+  React.useEffect(() => {
+    if (!id) { setTotals(null); return; }
+    let live = true;
+    getInvoiceTotals(id, entryDate).then((tt) => { if (live) setTotals(tt); }).catch(() => { if (live) setTotals(null); });
+    return () => { live = false; };
+  }, [id, entryDate]);
 
   async function submit() {
     setBusy(true);
@@ -747,6 +786,18 @@ function InvoiceSubmitForm({
             <Input value={sourceRef} onChange={(e) => setSourceRef(e.target.value)} placeholder="INV-2026-0001" />
           </Field>
         </div>
+        {totals && (
+          <div className="rounded-lg border border-border bg-card/40 p-3 text-sm">
+            <div className="micro mb-2 uppercase tracking-wide">Computed before posting</div>
+            <div className="grid grid-cols-2 gap-y-1">
+              <span className="text-muted-foreground">Service (HT)</span><span className="num text-right">{money(totals.totals.subtotal_ht)}</span>
+              <span className="text-muted-foreground">Débours (pass-through)</span><span className="num text-right">{money(totals.totals.debours_total)}</span>
+              <span className="text-muted-foreground">TVA</span><span className="num text-right">{money(totals.totals.tax_total)}</span>
+              <span className="font-medium text-foreground">Total TTC</span><span className="num text-right font-medium text-[rgb(var(--primary))]">{money(totals.totals.total)}</span>
+              {totals.advance_open > 0 && (<><span className="text-muted-foreground">Customer advance to apply</span><span className="num text-right">−{money(totals.advance_open)}</span></>)}
+            </div>
+          </div>
+        )}
         {error && <ErrorState message={error} />}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={busy}>
@@ -964,7 +1015,7 @@ export function InvoicesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Invoices</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Final invoices — revenue recognition, clears advance + débours (MOD-51).
+            Final invoices — revenue recognition, clears advance + débours.
           </p>
         </div>
         <Button onClick={() => setDraftOpen(true)}>New draft</Button>
@@ -1030,7 +1081,7 @@ export function InvoicesPage() {
 export const ReceivablesPage = () => (
   <ResourceList
     title="Receivables"
-    description="Smart receivables ledger — open items, ageing and reminders (MOD-56)."
+    description="Smart receivables ledger — open items, ageing and reminders."
     endpoint="/receivables"
   />
 );
@@ -1038,7 +1089,7 @@ export const ReceivablesPage = () => (
 export const ChartOfAccountsPage = () => (
   <ResourceList
     title="Chart of accounts"
-    description="SYSCOHADA/OHADA chart — hierarchical, is_postable / requires_analytic (MOD-58)."
+    description="SYSCOHADA/OHADA chart — hierarchical, is_postable / requires_analytic."
     endpoint="/chart-of-accounts"
   />
 );
@@ -1046,7 +1097,7 @@ export const ChartOfAccountsPage = () => (
 export const AssetsPage = () => (
   <ResourceList
     title="Assets"
-    description="Fixed-asset register with depreciation schedule, period posting and disposal (MOD-54)."
+    description="Fixed-asset register with depreciation schedule, period posting and disposal."
     endpoint="/assets"
     columns={[
       { key: "label", label: "Asset" },
@@ -1130,7 +1181,7 @@ function PeriodStatusPill({ status }: { status: string }) {
     s === "OPEN"
       ? "bg-primary/10 text-primary"
       : s === "FROZEN"
-        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+        ? "bg-[rgb(var(--warn)/0.15)] text-[rgb(var(--warn))]"
         : "bg-muted text-muted-foreground";
   return <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", tone)}>{s}</span>;
 }
@@ -1413,7 +1464,7 @@ function ReportTabs({
 export const StatementsPage = () => (
   <ReportTabs
     title="Statements"
-    description="SYSCOHADA financial statements, general ledger and the guided monthly close (MOD-59)."
+    description="SYSCOHADA financial statements, general ledger and the guided monthly close."
     periodMode="period_id"
     tabs={[
       { key: "tb", label: "Trial balance", path: "/statements/trial-balance" },
@@ -1434,9 +1485,9 @@ function DeclStatusPill({ status }: { status: string }) {
     s === "FILED"
       ? "bg-primary/10 text-primary"
       : s === "APPROVED"
-        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+        ? "bg-[rgb(var(--ok)/0.15)] text-[rgb(var(--ok))]"
         : s === "COMPUTED"
-          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+          ? "bg-[rgb(var(--warn)/0.15)] text-[rgb(var(--warn))]"
           : "bg-muted text-muted-foreground";
   return <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", tone)}>{s || "DRAFT"}</span>;
 }
@@ -1698,7 +1749,7 @@ function DeclarationsPanel() {
 export const TaxCenterPage = () => (
   <ReportTabs
     title="Tax center"
-    description="OHADA/Cameroon tax outputs (MOD-07)."
+    description="OHADA/Cameroon tax outputs."
     tabs={[
       { key: "vat", label: "TVA return", path: "/tax/vat-return" },
       { key: "is", label: "Corporate tax", path: "/tax/corporate-tax" },
@@ -2046,7 +2097,7 @@ export function CreditNotesPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Credit notes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Reverse a finalised invoice — draft, then post the contra entry (MOD-51).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Reverse a finalised invoice — draft, then post the contra entry.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>New credit note</Button>
       </header>
