@@ -55,12 +55,21 @@ async function createSession(client, { userId, deviceLabel, ip, userAgent, envir
 
 async function getActiveSession(client, sessionId) {
   const { rows } = await client.query(
-    `SELECT session_id, user_id, killed_at, last_seen_at,
+    `SELECT session_id, user_id, killed_at, last_seen_at, refresh_jti,
             EXTRACT(EPOCH FROM (now() - last_seen_at)) AS idle_seconds
        FROM user_session WHERE session_id = $1`,
     [sessionId],
   );
   return rows[0] || null;
+}
+
+/** Record the jti of the session's current (latest-issued) refresh token, for
+ *  rotation reuse-detection. */
+async function setRefreshJti(client, sessionId, jti) {
+  await client.query(
+    `UPDATE user_session SET refresh_jti = $2 WHERE session_id = $1`,
+    [sessionId, jti || null],
+  );
 }
 
 async function touchSession(client, sessionId) {
@@ -228,6 +237,7 @@ module.exports = {
   recordLoginFailure,
   createSession,
   getActiveSession,
+  setRefreshJti,
   touchSession,
   killSession,
   getTotpSecret,

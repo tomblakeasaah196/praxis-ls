@@ -176,6 +176,7 @@ export function SearchSelect({
   onFreeText,
   onCreate,
   createLabel,
+  filter,
   queryParam = "q",
   limit = 20,
 }: {
@@ -190,6 +191,7 @@ export function SearchSelect({
   onFreeText?: (text: string) => void;
   onCreate?: (term: string) => void;
   createLabel?: (term: string) => string;
+  filter?: (row: Row) => boolean;
   queryParam?: string;
   limit?: number;
 }) {
@@ -209,7 +211,8 @@ export function SearchSelect({
       tenant<Row[]>(`${path}${qs}`)
         .then((d) => {
           if (!live) return;
-          const list = Array.isArray(d) ? d : [];
+          const raw = Array.isArray(d) ? d : [];
+          const list = filter ? raw.filter(filter) : raw;
           const t = term.trim().toLowerCase();
           // Client-side narrowing safety net for endpoints that ignore ?q=.
           setRows(t ? list.filter((r) => getLabel(r).toLowerCase().includes(t)) : list);
@@ -221,7 +224,7 @@ export function SearchSelect({
       live = false;
       clearTimeout(h);
     };
-  }, [term, open, path, queryParam, limit, getLabel]);
+  }, [term, open, path, queryParam, limit, getLabel, filter]);
 
   React.useEffect(() => {
     if (!open) return;

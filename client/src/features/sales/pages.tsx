@@ -611,6 +611,10 @@ function MeetingForm({ open, leads, clients, onClose, onSaved }: { open: boolean
     }
   }
 
+  const selLead = (leads || []).find((l) => String(l.lead_id) === withId);
+  const selClient = (clients || []).find((c) => String(c.client_id) === withId);
+  const withLabel = !withId ? null : withKind === "lead" ? String(selLead?.company_name ?? "") : String(selClient?.name ?? selClient?.legal_name ?? "");
+
   return (
     <Modal open={open} onClose={onClose} title="Schedule meeting" description="Log a meeting against a lead or client — the CRM activity trail." size="lg">
       <div className="space-y-4">
@@ -633,20 +637,14 @@ function MeetingForm({ open, leads, clients, onClose, onSaved }: { open: boolean
           </Field>
           {withKind !== "none" && (
             <Field label={withKind === "lead" ? "Lead" : "Client"}>
-              <Select value={withId} onChange={(e) => setWithId(e.target.value)}>
-                <option value="">— select —</option>
-                {withKind === "lead"
-                  ? (leads || []).map((l) => (
-                      <option key={String(l.lead_id)} value={String(l.lead_id)}>
-                        {cell(l.company_name)}
-                      </option>
-                    ))
-                  : (clients || []).map((c) => (
-                      <option key={String(c.client_id)} value={String(c.client_id)}>
-                        {cell(c.name ?? c.legal_name)}
-                      </option>
-                    ))}
-              </Select>
+              <SearchSelect
+                path={withKind === "lead" ? "/leads" : "/clients"}
+                value={withLabel}
+                placeholder={withKind === "lead" ? "Search leads…" : "Search clients…"}
+                getLabel={(r) => (withKind === "lead" ? String(r.company_name ?? "") : String(r.name ?? r.legal_name ?? ""))}
+                getKey={(r) => String(withKind === "lead" ? r.lead_id : r.client_id)}
+                onSelect={(r) => setWithId(String(withKind === "lead" ? r.lead_id : r.client_id))}
+              />
             </Field>
           )}
           <Field label="Scheduled at" className={withKind === "none" ? "sm:col-span-2" : undefined}>
@@ -894,6 +892,10 @@ function OpportunityForm({ open, editing, stages, leads, clients, onClose, onSav
     }
   }
 
+  const selLead = (leads || []).find((l) => String(l.lead_id) === withId);
+  const selClient = (clients || []).find((c) => String(c.client_id) === withId);
+  const withLabel = !withId ? null : withKind === "lead" ? String(selLead?.company_name ?? "") : String(selClient?.name ?? selClient?.legal_name ?? "");
+
   return (
     <Modal open={open} onClose={onClose} title={editing ? "Edit opportunity" : "New opportunity"} description="A deal in the sales pipeline — value × probability drives the weighted forecast." size="lg">
       <div className="space-y-4">
@@ -917,20 +919,14 @@ function OpportunityForm({ open, editing, stages, leads, clients, onClose, onSav
             </Field>
             {withKind !== "none" ? (
               <Field label={withKind === "lead" ? "Lead" : "Client"}>
-                <Select value={withId} onChange={(e) => setWithId(e.target.value)}>
-                  <option value="">— select —</option>
-                  {withKind === "lead"
-                    ? (leads || []).map((l) => (
-                        <option key={String(l.lead_id)} value={String(l.lead_id)}>
-                          {cell(l.company_name)}
-                        </option>
-                      ))
-                    : (clients || []).map((c) => (
-                        <option key={String(c.client_id)} value={String(c.client_id)}>
-                          {cell(c.name ?? c.legal_name)}
-                        </option>
-                      ))}
-                </Select>
+                <SearchSelect
+                  path={withKind === "lead" ? "/leads" : "/clients"}
+                  value={withLabel}
+                  placeholder={withKind === "lead" ? "Search leads…" : "Search clients…"}
+                  getLabel={(r) => (withKind === "lead" ? String(r.company_name ?? "") : String(r.name ?? r.legal_name ?? ""))}
+                  getKey={(r) => String(withKind === "lead" ? r.lead_id : r.client_id)}
+                  onSelect={(r) => setWithId(String(withKind === "lead" ? r.lead_id : r.client_id))}
+                />
               </Field>
             ) : (
               <Field label="Stage">
@@ -1014,6 +1010,9 @@ function WinModal({ opp, entities, onClose, onDone }: { opp: Row | null; entitie
     }
   }
 
+  const winEntity = (entities || []).find((e) => String(e.entity_id) === entityId);
+  const entityLabel = winEntity ? (winEntity.code ? `${cell(winEntity.code)} · ${cell(winEntity.legal_name)}` : cell(winEntity.legal_name)) : null;
+
   return (
     <Modal open={open} onClose={onClose} title="Mark opportunity won" description="Settle this deal — optionally open the delivery dossier and link it(→).">
       <div className="space-y-4">
@@ -1029,14 +1028,14 @@ function WinModal({ opp, entities, onClose, onDone }: { opp: Row | null; entitie
         </label>
         {createDossier && (
           <Field label="Entity" hint="Which legal entity delivers this" required>
-            <Select value={entityId} onChange={(e) => setEntityId(e.target.value)}>
-              <option value="">— select —</option>
-              {(entities || []).map((en) => (
-                <option key={String(en.entity_id)} value={String(en.entity_id)}>
-                  {en.code ? `${cell(en.code)} · ${cell(en.legal_name)}` : cell(en.legal_name)}
-                </option>
-              ))}
-            </Select>
+            <SearchSelect
+              path="/entities"
+              value={entityLabel}
+              placeholder="Search entities…"
+              getLabel={(en) => (en.code ? `${cell(en.code)} · ${cell(en.legal_name)}` : cell(en.legal_name))}
+              getKey={(en) => String(en.entity_id)}
+              onSelect={(en) => setEntityId(String(en.entity_id))}
+            />
           </Field>
         )}
         {error && <ErrorState message={error} />}
@@ -1402,6 +1401,10 @@ function ProposalForm({ open, editing, leads, clients, opportunities, onClose, o
     }
   }
 
+  const selLead = (leads || []).find((l) => String(l.lead_id) === withId);
+  const selClient = (clients || []).find((c) => String(c.client_id) === withId);
+  const withLabel = !withId ? null : withKind === "lead" ? String(selLead?.company_name ?? "") : String(selClient?.name ?? selClient?.legal_name ?? "");
+
   return (
     <Modal open={open} onClose={onClose} title={editing ? "Edit proposal" : "New proposal"} description="Narrative sections + priced line items — drafted, reviewed, then sent." size="xl">
       <div className="space-y-4">
@@ -1430,20 +1433,14 @@ function ProposalForm({ open, editing, leads, clients, opportunities, onClose, o
               </Field>
               {withKind !== "none" && (
                 <Field label={withKind === "lead" ? "Lead" : "Client"}>
-                  <Select value={withId} onChange={(e) => setWithId(e.target.value)}>
-                    <option value="">— select —</option>
-                    {withKind === "lead"
-                      ? (leads || []).map((l) => (
-                          <option key={String(l.lead_id)} value={String(l.lead_id)}>
-                            {cell(l.company_name)}
-                          </option>
-                        ))
-                      : (clients || []).map((c) => (
-                          <option key={String(c.client_id)} value={String(c.client_id)}>
-                            {cell(c.name ?? c.legal_name)}
-                          </option>
-                        ))}
-                  </Select>
+                  <SearchSelect
+                    path={withKind === "lead" ? "/leads" : "/clients"}
+                    value={withLabel}
+                    placeholder={withKind === "lead" ? "Search leads…" : "Search clients…"}
+                    getLabel={(r) => (withKind === "lead" ? String(r.company_name ?? "") : String(r.name ?? r.legal_name ?? ""))}
+                    getKey={(r) => String(withKind === "lead" ? r.lead_id : r.client_id)}
+                    onSelect={(r) => setWithId(String(withKind === "lead" ? r.lead_id : r.client_id))}
+                  />
                 </Field>
               )}
             </>
@@ -1558,6 +1555,10 @@ function ProposalDetail({ proposal, entities, onClose, onChanged, onEdit }: { pr
   const lines = (data?.lines as Row[] | undefined) || [];
   const narratives = (data?.narratives as Row[] | undefined) || [];
   const total = lines.reduce((a, l) => a + lineTotal(l), 0);
+  const entityLabel = (() => {
+    const en = (entities || []).find((e) => String(e.entity_id) === entityId);
+    return en ? (en.code ? `${cell(en.code)} · ${cell(en.legal_name)}` : cell(en.legal_name)) : null;
+  })();
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -1624,14 +1625,14 @@ function ProposalDetail({ proposal, entities, onClose, onChanged, onEdit }: { pr
             {action === "send" && (
               <div className="rounded-lg border bg-muted/30 p-3">
                 <Field label="Entity" hint="Numbers the proposal on send" required>
-                  <Select value={entityId} onChange={(e) => setEntityId(e.target.value)}>
-                    <option value="">— select —</option>
-                    {(entities || []).map((en) => (
-                      <option key={String(en.entity_id)} value={String(en.entity_id)}>
-                        {en.code ? `${cell(en.code)} · ${cell(en.legal_name)}` : cell(en.legal_name)}
-                      </option>
-                    ))}
-                  </Select>
+                  <SearchSelect
+                    path="/entities"
+                    value={entityLabel}
+                    placeholder="Search entities…"
+                    getLabel={(en) => (en.code ? `${String(en.code)} · ${String(en.legal_name ?? "")}` : String(en.legal_name ?? ""))}
+                    getKey={(en) => String(en.entity_id)}
+                    onSelect={(en) => setEntityId(String(en.entity_id))}
+                  />
                 </Field>
                 <div className="mt-2 flex justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => setAction(null)} disabled={busy}>
@@ -1651,14 +1652,14 @@ function ProposalDetail({ proposal, entities, onClose, onChanged, onEdit }: { pr
                 </label>
                 {createQuotation && (
                   <Field label="Entity" required>
-                    <Select value={entityId} onChange={(e) => setEntityId(e.target.value)}>
-                      <option value="">— select —</option>
-                      {(entities || []).map((en) => (
-                        <option key={String(en.entity_id)} value={String(en.entity_id)}>
-                          {en.code ? `${cell(en.code)} · ${cell(en.legal_name)}` : cell(en.legal_name)}
-                        </option>
-                      ))}
-                    </Select>
+                    <SearchSelect
+                      path="/entities"
+                      value={entityLabel}
+                      placeholder="Search entities…"
+                      getLabel={(en) => (en.code ? `${String(en.code)} · ${String(en.legal_name ?? "")}` : String(en.legal_name ?? ""))}
+                      getKey={(en) => String(en.entity_id)}
+                      onSelect={(en) => setEntityId(String(en.entity_id))}
+                    />
                   </Field>
                 )}
                 <div className="flex justify-end gap-2">
@@ -1959,42 +1960,97 @@ function SubscriberForm({ open, onClose, onSaved }: { open: boolean; onClose: ()
   );
 }
 
-/* Campaign email templates persist in the generic tenant settings store under the
- * `campaign_template` section (one key per template; value carries the template's
- * own sender identity). This needs Settings (MOD-70) permission today — see the BE
- * handoff note for the proposed dedicated marketing-template + send endpoints. */
-const CAMPAIGN_TPL_SECTION = "/settings/campaign_template";
-const tplSlug = (s: string) =>
-  s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || `tpl-${Date.now()}`;
+/* Campaign email templates + sending identities are now a first-class MOD-22
+ * module (GET/POST/PATCH/DELETE /campaigns/templates + /campaigns/senders), so a
+ * marketing role can manage them without settings-admin. A template references a
+ * configured sender identity rather than embedding a raw From address. */
+const CAMPAIGN_TEMPLATES = "/campaigns/templates";
+const CAMPAIGN_SENDERS = "/campaigns/senders";
 
-function TemplateForm({ open, editing, onClose, onSaved }: { open: boolean; editing: { key: string; value: Row } | null; onClose: () => void; onSaved: () => void }) {
-  const [name, setName] = React.useState("");
-  const [subject, setSubject] = React.useState("");
+function senderLabel(s: Row): string {
+  const name = cell(s.from_name);
+  const addr = cell(s.from_address);
+  return name !== "—" ? `${name} · ${addr}` : addr;
+}
+
+function SenderForm({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (row: Row) => void }) {
   const [fromName, setFromName] = React.useState("");
   const [fromAddress, setFromAddress] = React.useState("");
-  const [body, setBody] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
-    const v = (editing?.value || {}) as Row;
-    setName(v.name ? String(v.name) : "");
-    setSubject(v.subject ? String(v.subject) : "");
-    setFromName(v.from_name ? String(v.from_name) : "");
-    setFromAddress(v.from_address ? String(v.from_address) : "");
-    setBody(v.body_html ? String(v.body_html) : "");
+    setFromName("");
+    setFromAddress("");
     setError(null);
-  }, [open, editing]);
+  }, [open]);
 
-  const canSubmit = !!name.trim() && !!fromAddress.trim() && !busy;
   async function submit() {
     setBusy(true);
     setError(null);
-    const key = editing?.key || tplSlug(name);
-    const value = { name: name.trim(), subject: subject.trim(), from_name: fromName.trim(), from_address: fromAddress.trim(), body_html: body };
     try {
-      await tenant(`${CAMPAIGN_TPL_SECTION}/${encodeURIComponent(key)}`, { method: "PUT", body: { value } });
+      const row = await tenant<Row>(CAMPAIGN_SENDERS, { method: "POST", body: { from_name: fromName.trim(), from_address: fromAddress.trim() } });
+      onCreated(row);
+      onClose();
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="New sender" description="A sending identity a template can use. Verification is a manual admin stamp for now." size="lg">
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Sender name" required>
+            <Input value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="Praxis LS" />
+          </Field>
+          <Field label="Sender address" required>
+            <Input type="email" value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} placeholder="news@tenant.cm" />
+          </Field>
+        </div>
+        {error && <ErrorState message={error} />}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={submit} loading={busy} disabled={!fromName.trim() || !fromAddress.trim() || busy}>
+            Add sender
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function TemplateForm({ open, editing, senders, onClose, onSaved, onReloadSenders }: { open: boolean; editing: Row | null; senders: Row[] | null; onClose: () => void; onSaved: () => void; onReloadSenders: () => void }) {
+  const [name, setName] = React.useState("");
+  const [subject, setSubject] = React.useState("");
+  const [senderId, setSenderId] = React.useState("");
+  const [body, setBody] = React.useState("");
+  const [senderOpen, setSenderOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setName(editing?.name ? String(editing.name) : "");
+    setSubject(editing?.subject ? String(editing.subject) : "");
+    setSenderId(editing?.from_sender_id ? String(editing.from_sender_id) : "");
+    setBody(editing?.body_html ? String(editing.body_html) : "");
+    setError(null);
+  }, [open, editing]);
+
+  const canSubmit = !!name.trim() && !busy;
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    const payload = { name: name.trim(), subject: subject.trim() || null, body_html: body, from_sender_id: senderId || null };
+    try {
+      if (editing) await tenant(`${CAMPAIGN_TEMPLATES}/${String(editing.template_id)}`, { method: "PATCH", body: payload });
+      else await tenant(CAMPAIGN_TEMPLATES, { method: "POST", body: payload });
       onSaved();
       onClose();
     } catch (e) {
@@ -2005,7 +2061,7 @@ function TemplateForm({ open, editing, onClose, onSaved }: { open: boolean; edit
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={editing ? "Edit template" : "New email template"} description="A reusable campaign email with its own sender identity." size="lg">
+    <Modal open={open} onClose={onClose} title={editing ? "Edit template" : "New email template"} description="A reusable campaign email that sends from a chosen sender identity." size="lg">
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Template name" required className="sm:col-span-2">
@@ -2014,11 +2070,23 @@ function TemplateForm({ open, editing, onClose, onSaved }: { open: boolean; edit
           <Field label="Subject" className="sm:col-span-2">
             <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="What's new this month" />
           </Field>
-          <Field label="Sender name" hint="Shown as the From name">
-            <Input value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="Praxis LS" />
-          </Field>
-          <Field label="Sender address" required hint="This template's own From address">
-            <Input type="email" value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} placeholder="news@tenant.cm" />
+          <Field label="Sender" hint="The verified sending identity" className="sm:col-span-2">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Select value={senderId} onChange={(e) => setSenderId(e.target.value)}>
+                  <option value="">— none —</option>
+                  {(senders || []).map((s) => (
+                    <option key={String(s.sender_id)} value={String(s.sender_id)}>
+                      {senderLabel(s)}
+                      {s.verified_at ? "" : " (unverified)"}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setSenderOpen(true)}>
+                New sender
+              </Button>
+            </div>
           </Field>
           <Field label="Body" className="sm:col-span-2" hint="HTML or plain text">
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} placeholder="<p>Hello…</p>" className="w-full rounded-lg border bg-background px-3 py-2 text-sm" />
@@ -2034,6 +2102,69 @@ function TemplateForm({ open, editing, onClose, onSaved }: { open: boolean; edit
           </Button>
         </div>
       </div>
+      <SenderForm
+        open={senderOpen}
+        onClose={() => setSenderOpen(false)}
+        onCreated={(row) => {
+          onReloadSenders();
+          if (row && row.sender_id) setSenderId(String(row.sender_id));
+        }}
+      />
+    </Modal>
+  );
+}
+
+function SendCampaignModal({ campaign, templates, onClose, onSent }: { campaign: Row | null; templates: Row[] | null; onClose: () => void; onSent: (queued: number) => void }) {
+  const open = !!campaign;
+  const [templateId, setTemplateId] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setTemplateId("");
+    setError(null);
+  }, [open]);
+
+  async function submit() {
+    if (!campaign) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await tenant<{ queued?: number }>(`/campaigns/${String(campaign.campaign_id)}/send`, { method: "POST", body: { template_id: templateId } });
+      onSent(Number(r?.queued ?? 0));
+      onClose();
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Send campaign" description="Queue this template to every active subscriber, sent from the template's sender identity." size="lg">
+      <div className="space-y-4">
+        <Field label="Template" required>
+          <Select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+            <option value="">— select a template —</option>
+            {(templates || []).map((t) => (
+              <option key={String(t.template_id)} value={String(t.template_id)}>
+                {cell(t.name)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {(templates || []).length === 0 && <p className="text-xs text-muted-foreground">No templates yet — create one on the Templates tab first.</p>}
+        {error && <ErrorState message={error} />}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={submit} loading={busy} disabled={!templateId || busy}>
+            Send now
+          </Button>
+        </div>
+      </div>
     </Modal>
   );
 }
@@ -2044,11 +2175,14 @@ export function CampaignsPage() {
   const reload = () => setNonce((n) => n + 1);
   const { rows: campaigns, error } = useList("/campaigns", nonce);
   const { rows: subscribers } = useList("/campaigns/subscribers", nonce);
-  const { rows: templates } = useList(CAMPAIGN_TPL_SECTION, nonce);
+  const { rows: templates } = useList(CAMPAIGN_TEMPLATES, nonce);
+  const { rows: senders } = useList(CAMPAIGN_SENDERS, nonce);
   const [formOpen, setFormOpen] = React.useState(false);
   const [subOpen, setSubOpen] = React.useState(false);
-  const [tplEditing, setTplEditing] = React.useState<{ key: string; value: Row } | null>(null);
+  const [tplEditing, setTplEditing] = React.useState<Row | null>(null);
   const [tplOpen, setTplOpen] = React.useState(false);
+  const [sendFor, setSendFor] = React.useState<Row | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
   const [rowBusy, setRowBusy] = React.useState<string | null>(null);
   const [rowError, setRowError] = React.useState<string | null>(null);
 
@@ -2066,11 +2200,12 @@ export function CampaignsPage() {
   }
   const transition = (id: string, to: string) => act(id, () => tenant(`/campaigns/${id}/transition`, { method: "POST", body: { to } }));
   const unsubscribe = (email: string) => act(email, () => tenant("/campaigns/subscribers/unsubscribe", { method: "POST", body: { email } }));
-  const deleteTemplate = (key: string) => act(key, () => tenant(`${CAMPAIGN_TPL_SECTION}/${encodeURIComponent(key)}`, { method: "DELETE" }));
-  const openTemplate = (t: { key: string; value: Row } | null) => {
+  const deleteTemplate = (id: string) => act(id, () => tenant(`${CAMPAIGN_TEMPLATES}/${id}`, { method: "DELETE" }));
+  const openTemplate = (t: Row | null) => {
     setTplEditing(t);
     setTplOpen(true);
   };
+  const senderName = React.useMemo(() => new Map((senders || []).map((s) => [String(s.sender_id), senderLabel(s)])), [senders]);
 
   const counts = React.useMemo(() => {
     const cs = campaigns || [];
@@ -2115,6 +2250,9 @@ export function CampaignsPage() {
         <MetricTile label="Subscribers" value={subscribers === null ? "…" : String(subscribers.length)} />
       </div>
 
+      {notice && (
+        <div className="mb-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">{notice}</div>
+      )}
       {rowError && (
         <div className="mb-3">
           <ErrorState message={rowError} />
@@ -2151,6 +2289,13 @@ export function CampaignsPage() {
                           {a.label}
                         </Button>
                       ))}
+                    </div>
+                  )}
+                  {status !== "ENDED" && (
+                    <div className="mt-2">
+                      <Button size="sm" variant="ghost" onClick={() => setSendFor(c)}>
+                        Send…
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -2191,21 +2336,19 @@ export function CampaignsPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {(templates || []).map((t) => {
-            const key = String(t.key);
-            const v = (t.value || {}) as Row;
+            const id = String(t.template_id);
             return (
-              <div key={key} className="lux-card flex flex-col p-4">
-                <p className="text-sm font-semibold text-foreground">{cell(v.name) === "—" ? key : cell(v.name)}</p>
-                <p className="mt-1 truncate text-xs text-muted-foreground">{cell(v.subject)}</p>
+              <div key={id} className="lux-card flex flex-col p-4">
+                <p className="text-sm font-semibold text-foreground">{cell(t.name)}</p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">{cell(t.subject)}</p>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  From: {cell(v.from_name) === "—" ? "" : `${cell(v.from_name)} · `}
-                  {cell(v.from_address)}
+                  From: {t.from_sender_id ? senderName.get(String(t.from_sender_id)) ?? "—" : "No sender"}
                 </p>
                 <div className="mt-3 flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => openTemplate({ key, value: v })}>
+                  <Button size="sm" variant="outline" onClick={() => openTemplate(t)}>
                     Edit
                   </Button>
-                  <Button size="sm" variant="ghost" loading={rowBusy === key} onClick={() => deleteTemplate(key)}>
+                  <Button size="sm" variant="ghost" loading={rowBusy === id} onClick={() => deleteTemplate(id)}>
                     Delete
                   </Button>
                 </div>
@@ -2219,7 +2362,16 @@ export function CampaignsPage() {
 
       <CampaignForm open={formOpen} onClose={() => setFormOpen(false)} onSaved={reload} />
       <SubscriberForm open={subOpen} onClose={() => setSubOpen(false)} onSaved={reload} />
-      <TemplateForm open={tplOpen} editing={tplEditing} onClose={() => setTplOpen(false)} onSaved={reload} />
+      <TemplateForm open={tplOpen} editing={tplEditing} senders={senders} onClose={() => setTplOpen(false)} onSaved={reload} onReloadSenders={reload} />
+      <SendCampaignModal
+        campaign={sendFor}
+        templates={templates}
+        onClose={() => setSendFor(null)}
+        onSent={(queued) => {
+          setNotice(`Queued to ${queued} subscriber${queued === 1 ? "" : "s"}.`);
+          reload();
+        }}
+      />
     </section>
   );
 }

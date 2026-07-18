@@ -2,6 +2,32 @@
 
 _Written 2026-07-17 (FE stream). Companion to `doc/SESSION_HANDOFF.md`._
 
+## ✅ IMPLEMENTED (2026-07-18) — templates + senders
+
+The dedicated module below was **built** and the FE moved off `/settings`:
+
+- Migration `migrations/tenant/0450_campaign_templates.sql` adds `campaign_sender`
+  (`sender_id, from_name, from_address citext, domain, verified_at, created_at`) and
+  `campaign_template` (`template_id, name, subject, body_html, from_sender_id → campaign_sender, timestamps`).
+- Endpoints added to the existing `sales/marketing_campaign` module (MOD-22, basePath `/campaigns`),
+  registered **before** `/:id`: `GET/POST /campaigns/senders`, `POST /campaigns/senders/:id/verify`,
+  `DELETE /campaigns/senders/:id`; `GET/POST /campaigns/templates`, `GET/PATCH/DELETE /campaigns/templates/:id`.
+  Reuses MOD-22 RBAC (view/create/edit/delete) — a marketing role manages these without settings-admin.
+- FE (`features/sales/pages.tsx`): `TemplateForm` now POST/PATCHes `/campaigns/templates` with a **sender
+  picker** (Select over `/campaigns/senders`) + inline **New sender** modal (`SenderForm`); the old
+  `/settings/campaign_template` calls are gone. `campaign_sender.verified_at` is a manual admin stamp
+  (no SPF/DKIM yet).
+- **Send fan-out — DONE (2026-07-18).** `POST /campaigns/:id/send` (body `{ template_id }`, MOD-22 edit)
+  renders the template to every active `newsletter_subscriber` and enqueues one durable **"email" queue**
+  job per recipient (delivered by `jobs/handlers/email-send.js` → `email.service.send`); the template's
+  sender identity is passed as the `from` override (`"Name" <addr>`), transport still resolves per-tenant.
+  Blocks a send on `status = ENDED`. FE: a **Send…** button on each campaign card opens `SendCampaignModal`
+  (template picker) → shows "Queued to N subscribers". No per-recipient merge/personalisation yet (straight
+  `body_html`). `npm test` + Windows lint/build authoritative; **apply migrations 0450 + 0451**.
+
+---
+_Original proposal (for reference):_
+
 ## What the FE now does (interim, working)
 
 Marketing campaigns gained a **Templates** tab (`client/src/features/sales/pages.tsx`,
