@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
 import { Modal, Field, Select } from "@/components/ui/modal";
+import { SearchSelect } from "@/features/sales/ui";
 import {
   loadEntities,
   loadClients,
@@ -378,7 +379,7 @@ export function JournalsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Journals</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            General ledger journal entries — balanced-or-rejected, reversal-not-edit (MOD-05).
+            General ledger journal entries — balanced-or-rejected, reversal-not-edit.
           </p>
         </div>
         <Button onClick={() => setPostOpen(true)}>Post entry</Button>
@@ -548,7 +549,7 @@ export const ProformasPage = () => {
   return (
     <ResourceList
       title="Proforma & advances"
-      description="Proforma and advance-payment invoices — advance posts to 4191, not revenue (MOD-52)."
+      description="Proforma and advance-payment invoices — advance posts to 4191, not revenue."
       endpoint="/proformas/advances"
       action={(reload) => (
         <>
@@ -964,7 +965,7 @@ export function InvoicesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Invoices</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Final invoices — revenue recognition, clears advance + débours (MOD-51).
+            Final invoices — revenue recognition, clears advance + débours.
           </p>
         </div>
         <Button onClick={() => setDraftOpen(true)}>New draft</Button>
@@ -1030,7 +1031,7 @@ export function InvoicesPage() {
 export const ReceivablesPage = () => (
   <ResourceList
     title="Receivables"
-    description="Smart receivables ledger — open items, ageing and reminders (MOD-56)."
+    description="Smart receivables ledger — open items, ageing and reminders."
     endpoint="/receivables"
   />
 );
@@ -1038,7 +1039,7 @@ export const ReceivablesPage = () => (
 export const ChartOfAccountsPage = () => (
   <ResourceList
     title="Chart of accounts"
-    description="SYSCOHADA/OHADA chart — hierarchical, is_postable / requires_analytic (MOD-58)."
+    description="SYSCOHADA/OHADA chart — hierarchical, is_postable / requires_analytic."
     endpoint="/chart-of-accounts"
   />
 );
@@ -1046,7 +1047,7 @@ export const ChartOfAccountsPage = () => (
 export const AssetsPage = () => (
   <ResourceList
     title="Assets"
-    description="Fixed-asset register with depreciation schedule, period posting and disposal (MOD-54)."
+    description="Fixed-asset register with depreciation schedule, period posting and disposal."
     endpoint="/assets"
     columns={[
       { key: "label", label: "Asset" },
@@ -1413,7 +1414,7 @@ function ReportTabs({
 export const StatementsPage = () => (
   <ReportTabs
     title="Statements"
-    description="SYSCOHADA financial statements, general ledger and the guided monthly close (MOD-59)."
+    description="SYSCOHADA financial statements, general ledger and the guided monthly close."
     periodMode="period_id"
     tabs={[
       { key: "tb", label: "Trial balance", path: "/statements/trial-balance" },
@@ -1698,7 +1699,7 @@ function DeclarationsPanel() {
 export const TaxCenterPage = () => (
   <ReportTabs
     title="Tax center"
-    description="OHADA/Cameroon tax outputs (MOD-07)."
+    description="OHADA/Cameroon tax outputs."
     tabs={[
       { key: "vat", label: "TVA return", path: "/tax/vat-return" },
       { key: "is", label: "Corporate tax", path: "/tax/corporate-tax" },
@@ -1707,7 +1708,7 @@ export const TaxCenterPage = () => (
   />
 );
 
-/* ── credit notes (MOD-51): create → edit → post ─────────────────── */
+/* ── credit notes: create → edit → post ─────────────────── */
 function cnPayloadLines(lines: InvLine[]): CreditNoteLineInput[] {
   return lines
     .filter((l) => l.label.trim() && Number(l.amount) >= 0 && l.amount !== "")
@@ -1798,39 +1799,44 @@ function CreditNoteCreateForm({ open, onClose, onCreated }: { open: boolean; onC
     }
   }
 
+  const entityLabel = (() => { const o = entities.find((x) => x.id === entityId); return o ? optionLabel(o) : null; })();
+  const clientLabel = (() => { const o = clients.find((x) => x.id === clientId); return o ? optionLabel(o) : null; })();
+  const invoiceLabel = (() => { const o = invoices.find((x) => x.id === reversesInvoiceId); return o ? optionLabel(o) : null; })();
+
   return (
     <Modal open={open} onClose={onClose} title="New credit note" description="Reverses a finalised invoice; create a draft, then post to the ledger." size="xl">
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Entity" required>
-            <Select value={entityId} onChange={(e) => setEntityId(e.target.value)}>
-              <option value="">Select entity…</option>
-              {entities.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {optionLabel(o)}
-                </option>
-              ))}
-            </Select>
+            <SearchSelect
+              path="/entities"
+              value={entityLabel}
+              placeholder="Search entities…"
+              getLabel={(r) => (r.code ? `${String(r.code)} — ${String(r.legal_name ?? r.entity_id)}` : String(r.legal_name ?? r.entity_id))}
+              getKey={(r) => String(r.entity_id)}
+              onSelect={(r) => setEntityId(String(r.entity_id))}
+            />
           </Field>
           <Field label="Client">
-            <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
-              <option value="">Select client…</option>
-              {clients.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {optionLabel(o)}
-                </option>
-              ))}
-            </Select>
+            <SearchSelect
+              path="/clients"
+              value={clientLabel}
+              placeholder="Search clients…"
+              getLabel={(r) => (r.ref ? `${String(r.ref)} — ${String(r.name ?? r.client_id)}` : String(r.name ?? r.client_id))}
+              getKey={(r) => String(r.client_id)}
+              onSelect={(r) => setClientId(String(r.client_id))}
+            />
           </Field>
           <Field label="Reverses invoice" hint="Finalised invoice this note credits" className="sm:col-span-2">
-            <Select value={reversesInvoiceId} onChange={(e) => setReversesInvoiceId(e.target.value)}>
-              <option value="">None</option>
-              {invoices.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {optionLabel(o)}
-                </option>
-              ))}
-            </Select>
+            <SearchSelect
+              path="/final-invoices"
+              value={invoiceLabel}
+              placeholder="Search finalised invoices…"
+              filter={(r) => String(r.status ?? r.state ?? "").toUpperCase() === "FINAL"}
+              getLabel={(r) => String(r.doc_number ?? r.ref ?? r.invoice_id ?? r.final_invoice_id ?? "")}
+              getKey={(r) => String(r.invoice_id ?? r.final_invoice_id ?? r.id)}
+              onSelect={(r) => setReversesInvoiceId(String(r.invoice_id ?? r.final_invoice_id ?? r.id))}
+            />
           </Field>
         </div>
 
@@ -1908,6 +1914,9 @@ function CreditNoteEditForm({ creditNoteId, onClose, onSaved }: { creditNoteId: 
     }
   }
 
+  const clientLabel = (() => { const o = clients.find((x) => x.id === clientId); return o ? optionLabel(o) : null; })();
+  const invoiceLabel = (() => { const o = invoices.find((x) => x.id === reversesInvoiceId); return o ? optionLabel(o) : null; })();
+
   return (
     <Modal open={open} onClose={onClose} title="Edit credit note" description="Update the client, reversed invoice and lines. Only drafts can be edited." size="xl">
       {loading ? (
@@ -1916,24 +1925,25 @@ function CreditNoteEditForm({ creditNoteId, onClose, onSaved }: { creditNoteId: 
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Client">
-              <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                <option value="">No client</option>
-                {clients.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {optionLabel(o)}
-                  </option>
-                ))}
-              </Select>
+              <SearchSelect
+                path="/clients"
+                value={clientLabel}
+                placeholder="Search clients…"
+                getLabel={(r) => (r.ref ? `${String(r.ref)} — ${String(r.name ?? r.client_id)}` : String(r.name ?? r.client_id))}
+                getKey={(r) => String(r.client_id)}
+                onSelect={(r) => setClientId(String(r.client_id))}
+              />
             </Field>
             <Field label="Reverses invoice">
-              <Select value={reversesInvoiceId} onChange={(e) => setReversesInvoiceId(e.target.value)}>
-                <option value="">None</option>
-                {invoices.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {optionLabel(o)}
-                  </option>
-                ))}
-              </Select>
+              <SearchSelect
+                path="/final-invoices"
+                value={invoiceLabel}
+                placeholder="Search finalised invoices…"
+                filter={(r) => String(r.status ?? r.state ?? "").toUpperCase() === "FINAL"}
+                getLabel={(r) => String(r.doc_number ?? r.ref ?? r.invoice_id ?? r.final_invoice_id ?? "")}
+                getKey={(r) => String(r.invoice_id ?? r.final_invoice_id ?? r.id)}
+                onSelect={(r) => setReversesInvoiceId(String(r.invoice_id ?? r.final_invoice_id ?? r.id))}
+              />
             </Field>
           </div>
 
@@ -2046,7 +2056,7 @@ export function CreditNotesPage() {
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Credit notes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Reverse a finalised invoice — draft, then post the contra entry (MOD-51).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Reverse a finalised invoice — draft, then post the contra entry.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>New credit note</Button>
       </header>
