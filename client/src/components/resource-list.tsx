@@ -9,6 +9,7 @@ import { tenant } from "@/lib/api-client";
 import { ApiError } from "@/lib/api-client";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { LoadingRow, EmptyState, ErrorState } from "@/components/ui/states";
+import { PageHeader } from "@/components/data-list";
 
 export type Column = { key: string; label: string };
 
@@ -62,13 +63,7 @@ export function ResourceList({
 
   return (
     <section className="mx-auto max-w-6xl animate-fade-in">
-      <header className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
-        </div>
-        {action && <div className="shrink-0">{action(reload)}</div>}
-      </header>
+      <PageHeader title={title} description={description} action={action ? action(reload) : undefined} />
 
       {error ? (
         <ErrorState message={error} />

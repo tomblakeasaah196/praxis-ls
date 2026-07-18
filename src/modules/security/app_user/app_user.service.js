@@ -57,6 +57,13 @@ async function resolveAiEnabled(client) {
   }
 }
 
+/** Resolve which comms channels are switched on for the tenant. WhatsApp /
+ *  Instagram stay hidden in the UI until enabled (like AI). Never throws. */
+async function resolveChannels(client) {
+  const read = async (k) => { try { return await governance.isFeatureEnabled(client, k); } catch { return false; } };
+  return { comms: await read("comms"), whatsapp: await read("whatsapp"), instagram: await read("instagram") };
+}
+
 function signAccessToken({ userId, jti }) {
   return jwt.sign({ sub: userId, jti, typ: "access" }, config.JWT_ACCESS_SECRET, {
     expiresIn: config.JWT_ACCESS_TTL,
@@ -109,13 +116,14 @@ async function issueSessionTokens(client, user, { ip, userAgent, environment }) 
   });
 
   const aiEnabled = await resolveAiEnabled(client);
+  const channels = await resolveChannels(client);
 
   return {
     access_token: accessToken,
     refresh_token: refreshToken,
     token_type: "Bearer",
     expires_in: config.JWT_ACCESS_TTL,
-    user: { user_id: user.user_id, email: user.email, display_name: user.full_name, ai_enabled: aiEnabled },
+    user: { user_id: user.user_id, email: user.email, display_name: user.full_name, ai_enabled: aiEnabled, channels },
   };
 }
 

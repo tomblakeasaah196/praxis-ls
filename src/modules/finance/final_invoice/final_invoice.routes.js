@@ -11,6 +11,7 @@ const router = express.Router();
 router.use(authMiddleware);
 router.get("/", requirePermission(MODULE, "view"), controller.list);
 router.get("/:id", requirePermission(MODULE, "view"), controller.get);
+router.get("/:id/totals", requirePermission(MODULE, "view"), controller.totals);
 router.post("/", requirePermission(MODULE, "create"), validator.createDraft, controller.create);
 router.patch("/:id", requirePermission(MODULE, "edit"), validator.updateDraft, controller.update);
 router.post("/:id/submit", requirePermission(MODULE, "approve"), validator.submit, controller.submit);

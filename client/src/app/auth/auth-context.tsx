@@ -22,6 +22,9 @@ export type User = {
    *  and returned by the auth endpoints. Absent ⇒ AI off (opt-in). Drives the
    *  global AI gate — see components/ai-actions.tsx. */
   ai_enabled?: boolean;
+  /** Comms channels switched on for the tenant (WhatsApp/Instagram hidden until
+   *  enabled, like AI). Absent ⇒ off. */
+  channels?: { comms?: boolean; whatsapp?: boolean; instagram?: boolean };
 };
 
 type LoginResult = { pending2fa: boolean };

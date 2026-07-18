@@ -33,7 +33,7 @@ export function PageHeader({
   title: string;
   description?: string;
   action?: React.ReactNode;
-  eyebrow?: string;
+  eyebrow?: React.ReactNode;
 }) {
   return (
     <header className="mb-4 flex items-start justify-between gap-4 border-b pb-3">

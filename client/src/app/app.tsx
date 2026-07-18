@@ -53,17 +53,7 @@ import {
   TrainingsPage,
   TalentPoolPage,
 } from "@/features/hr/pages";
-import {
-  AssetsPage,
-  JournalsPage,
-  InvoicesPage,
-  CreditNotesPage,
-  ProformasPage,
-  ReceivablesPage,
-  ChartOfAccountsPage,
-  StatementsPage,
-  TaxCenterPage,
-} from "@/features/finance/pages";
+import { FinanceHub } from "@/features/finance/hub";
 import { Planned } from "@/features/scaffold/screen-scaffold";
 import { LeadsPage, MeetingsPage, OpportunitiesPage, ProposalsPage, CampaignsPage, SuccessStoriesPage } from "@/features/sales/pages";
 import { QuotationsPage, MarginSimulationsPage, ExtraChargeSimulationsPage, PricingVariancePage } from "@/features/commercial/pages";
@@ -73,6 +63,10 @@ import { MasterDataPage } from "@/features/masterdata/master-data-page";
 import { OperationsHub } from "@/features/operations/hub";
 import { CostingHub } from "@/features/costing/hub";
 import { ProcurementHub } from "@/features/procurement/hub";
+import { AiControlHub } from "@/features/ai-control/hub";
+import { WorkspacePage } from "@/features/workspace/workspace-page";
+import { GodModePage } from "@/features/godmode/godmode-page";
+import { CommsHub } from "@/features/comms/hub";
 import { BootGate } from "@/app/boot-gate";
 
 export function App() {
@@ -112,15 +106,9 @@ export function App() {
         <Route path="wms/cycle-counts" element={<CycleCountsPage />} />
         <Route path="hr/employees" element={<EmployeesPage />} />
         <Route path="hr/payroll" element={<PayrollPage />} />
-        <Route path="finance/chart-of-accounts" element={<ChartOfAccountsPage />} />
-        <Route path="finance/journals" element={<JournalsPage />} />
-        <Route path="finance/proformas" element={<ProformasPage />} />
-        <Route path="finance/invoices" element={<InvoicesPage />} />
-        <Route path="finance/credit-notes" element={<CreditNotesPage />} />
-        <Route path="finance/receivables" element={<ReceivablesPage />} />
-        <Route path="finance/statements" element={<StatementsPage />} />
-        <Route path="finance/tax" element={<TaxCenterPage />} />
-        <Route path="finance/assets" element={<AssetsPage />} />
+        {/* Finance — one hub, deep-linkable tabs (per-section routes still resolve) */}
+        <Route path="finance" element={<FinanceHub />} />
+        <Route path="finance/:section" element={<FinanceHub />} />
         <Route path="hr/vacancies" element={<VacanciesPage />} />
         <Route path="hr/contracts" element={<ContractsPage />} />
         <Route path="hr/appraisals" element={<AppraisalsPage />} />
@@ -138,8 +126,11 @@ export function App() {
 
         {/* --- IA-map screens not yet built → shared placeholder (see doc/FE_IA_HANDOFF.md) --- */}
         {/* Overview */}
-        <Route path="workspace" element={<Planned />} />
-        <Route path="godmode" element={<Planned />} />
+        <Route path="workspace" element={<WorkspacePage />} />
+        <Route path="godmode" element={<GodModePage />} />
+        {/* AI Control — governance admin hub */}
+        <Route path="ai-control" element={<AiControlHub />} />
+        <Route path="ai-control/:section" element={<AiControlHub />} />
         {/* Commercial */}
         <Route path="commercial/quotations" element={<QuotationsPage />} />
         <Route path="commercial/margin-simulation" element={<MarginSimulationsPage />} />
@@ -163,7 +154,6 @@ export function App() {
         <Route path="costing" element={<CostingHub />} />
         <Route path="costing/:section" element={<CostingHub />} />
         {/* Finance (new) */}
-        <Route path="finance/debt" element={<Planned />} />
         {/* Master data — one hub, deep-linkable tabs (per-section routes still resolve) */}
         <Route path="master" element={<MasterDataPage />} />
         <Route path="master/:section" element={<MasterDataPage />} />
@@ -174,7 +164,9 @@ export function App() {
         <Route path="vault/compliance-flags" element={<ComplianceFlagsPage />} />
         <Route path="vault/reports" element={<ReportsPage />} />
         {/* Comms */}
-        <Route path="comms" element={<Planned />} />
+        {/* Comms — Smart Comms hub */}
+        <Route path="comms" element={<CommsHub />} />
+        <Route path="comms/:section" element={<CommsHub />} />
         {/* Settings & Admin (new) */}
         <Route path="settings/numbering" element={<NumberingPage />} />
         <Route path="settings/catalogue" element={<Planned />} />

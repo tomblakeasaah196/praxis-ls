@@ -3,6 +3,7 @@
  * requests, régie d'avance. Locked shared kit; line editors kept minimal.
  */
 import * as React from "react";
+import { HubTabs, HubCrumb } from "@/components/tabbed-hub";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
@@ -116,7 +117,8 @@ export function CostingPage() {
   ];
   return (
     <section className={shell}>
-      <PageHeader title="Costing" description="Planned cost sheets and margin per dossier." action={<Button onClick={() => setOpen(true)}>New costing</Button>} />
+      <PageHeader eyebrow={<HubCrumb area="Costing" />} title="Costing" description="Planned cost sheets and margin per dossier." action={<Button onClick={() => setOpen(true)}>New costing</Button>} />
+      <HubTabs />
       <KpiRow>
         <KpiTile label="Costings" value={num(list.length)} />
         <KpiTile label="Approved" value={num(list.filter((c) => c.status === "APPROVED").length)} />
@@ -146,7 +148,8 @@ export function CostTrackingPage() {
 
   return (
     <section className={shell}>
-      <PageHeader title="Cost tracking" description="Actual costs booked against a dossier, vs the plan." />
+      <PageHeader eyebrow={<HubCrumb area="Costing" />} title="Cost tracking" description="Actual costs booked against a dossier, vs the plan." />
+      <HubTabs />
       <div className="mb-4 flex items-center gap-3">
         <span className="micro">Dossier</span>
         <Select value={dossierId} onChange={(e) => setDossierId(e.target.value)} className="max-w-xs">
@@ -245,7 +248,8 @@ export function CashRequestsPage() {
   ];
   return (
     <section className={shell}>
-      <PageHeader title="Cash requests" description="Advances requested against dossier budgets." action={<Button onClick={() => setOpen(true)}>New request</Button>} />
+      <PageHeader eyebrow={<HubCrumb area="Costing" />} title="Cash requests" description="Advances requested against dossier budgets." action={<Button onClick={() => setOpen(true)}>New request</Button>} />
+      <HubTabs />
       <KpiRow>
         <KpiTile label="Requests" value={num(list.length)} />
         <KpiTile label="Approved" value={num(list.filter((c) => c.status === "APPROVED").length)} />
@@ -307,7 +311,8 @@ export function RegiePage() {
   ];
   return (
     <section className={shell}>
-      <PageHeader title="Régie d'avance" description="Cash advances (floats) and their ageing." action={<Button onClick={() => setOpen(true)}>Issue advance</Button>} />
+      <PageHeader eyebrow={<HubCrumb area="Costing" />} title="Régie d'avance" description="Cash advances (floats) and their ageing." action={<Button onClick={() => setOpen(true)}>Issue advance</Button>} />
+      <HubTabs />
       <KpiRow>
         <KpiTile label="Advances" value={num(list.length)} />
         <KpiTile label="Total float" value={money(list.reduce((s, r) => s + (Number(r.amount) || 0), 0))} />
