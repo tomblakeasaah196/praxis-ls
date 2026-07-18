@@ -42,17 +42,12 @@ const qLineTotal = (l: { qty?: unknown; unit_price?: unknown }) => (Number(l.qty
 const blankLine = (): QLine => ({ dictionary_item_id: null, label: "", qty: "1", unit_price: "0", is_debours: false, tax_code_id: null });
 const taxCodeLabel = (c: TaxCode) => `${c.code}${c.rate_percent != null ? ` · ${c.rate_percent}%` : ""}`;
 
-function EntityOptions({ entities }: { entities: Row[] | null }) {
-  return (
-    <>
-      <option value="">— select —</option>
-      {(entities || []).map((en) => (
-        <option key={String(en.entity_id)} value={String(en.entity_id)}>
-          {en.code ? `${cell(en.code)} · ${cell(en.legal_name)}` : cell(en.legal_name)}
-        </option>
-      ))}
-    </>
-  );
+function entityText(en: Row): string {
+  return en.code ? `${cell(en.code)} · ${cell(en.legal_name)}` : cell(en.legal_name);
+}
+function entityLabelOf(entities: Row[] | null, id: string): string | null {
+  const en = (entities || []).find((e) => String(e.entity_id) === id);
+  return en ? entityText(en) : null;
 }
 
 function QuotationForm({ open, editing, entities, clients, opportunities, onClose, onSaved }: { open: boolean; editing: Row | null; entities: Row[] | null; clients: Row[] | null; opportunities: Row[] | null; onClose: () => void; onSaved: () => void }) {
@@ -131,9 +126,14 @@ function QuotationForm({ open, editing, entities, clients, opportunities, onClos
         <div className="grid gap-4 sm:grid-cols-2">
           {!editing && (
             <Field label="Entity" hint="Numbers the quote on send">
-              <Select value={entityId} onChange={(e) => setEntityId(e.target.value)}>
-                <EntityOptions entities={entities} />
-              </Select>
+              <SearchSelect
+                path="/entities"
+                value={entityLabelOf(entities, entityId)}
+                placeholder="Search entities…"
+                getLabel={entityText}
+                getKey={(en) => String(en.entity_id)}
+                onSelect={(en) => setEntityId(String(en.entity_id))}
+              />
             </Field>
           )}
           <Field label="Client">
@@ -341,9 +341,14 @@ function QuotationDetail({ quotation, entities, clientName, onClose, onChanged, 
             {action === "send" && (
               <div className="rounded-lg border bg-muted/30 p-3">
                 <Field label="Entity" hint="Numbers the quotation on send" required>
-                  <Select value={entityId} onChange={(e) => setEntityId(e.target.value)}>
-                    <EntityOptions entities={entities} />
-                  </Select>
+                  <SearchSelect
+                    path="/entities"
+                    value={entityLabelOf(entities, entityId)}
+                    placeholder="Search entities…"
+                    getLabel={entityText}
+                    getKey={(en) => String(en.entity_id)}
+                    onSelect={(en) => setEntityId(String(en.entity_id))}
+                  />
                 </Field>
                 <div className="mt-2 flex justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => setAction(null)} disabled={busy}>
@@ -919,28 +924,37 @@ function ComputeVarianceModal({ open, dossiers, quotations, onClose, onDone }: {
     }
   }
 
+  const dossierLabel = (() => {
+    const d = (dossiers || []).find((x) => String(x.dossier_id) === dossierId);
+    return d ? cell(d.reference ?? d.title ?? d.dossier_id) : null;
+  })();
+  const quotationLabel = (() => {
+    const q = (quotations || []).find((x) => String(x.quotation_id) === quotationId);
+    return q ? (q.doc_number ? `№ ${cell(q.doc_number)}` : `Draft · ${fmtMoney(q.total_ht, q.currency)}`) : null;
+  })();
+
   return (
     <Modal open={open} onClose={onClose} title="Compute pricing variance" description="Quote vs actual cost → a R/Y/G flag. Actual cost stays finance-only.">
       <div className="space-y-4">
         <Field label="Dossier" required>
-          <Select value={dossierId} onChange={(e) => setDossierId(e.target.value)}>
-            <option value="">— select —</option>
-            {(dossiers || []).map((d) => (
-              <option key={String(d.dossier_id)} value={String(d.dossier_id)}>
-                {cell(d.reference ?? d.title ?? d.dossier_id)}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            path="/operations"
+            value={dossierLabel}
+            placeholder="Search dossiers…"
+            getLabel={(d) => cell(d.reference ?? d.title ?? d.dossier_id)}
+            getKey={(d) => String(d.dossier_id)}
+            onSelect={(d) => setDossierId(String(d.dossier_id))}
+          />
         </Field>
         <Field label="Quotation" hint="Supplies the quoted price (or enter one below)">
-          <Select value={quotationId} onChange={(e) => setQuotationId(e.target.value)}>
-            <option value="">— none —</option>
-            {(quotations || []).map((q) => (
-              <option key={String(q.quotation_id)} value={String(q.quotation_id)}>
-                {q.doc_number ? `№ ${cell(q.doc_number)}` : `Draft · ${fmtMoney(q.total_ht, q.currency)}`}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            path="/quotations"
+            value={quotationLabel}
+            placeholder="Search quotations…"
+            getLabel={(q) => (q.doc_number ? `№ ${cell(q.doc_number)}` : `Draft · ${fmtMoney(q.total_ht, q.currency)}`)}
+            getKey={(q) => String(q.quotation_id)}
+            onSelect={(q) => setQuotationId(String(q.quotation_id))}
+          />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Quoted price" hint="Override">

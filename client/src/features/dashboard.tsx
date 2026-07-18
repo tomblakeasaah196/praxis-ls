@@ -21,6 +21,7 @@ import mockScript from "./dashboard-mock/script.js.txt?raw";
 type Row = Record<string, unknown>;
 
 const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+const numOrNull = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
 /** Derive the mock status-pill class from a free-text status. */
 function statusClass(status: string): string {
@@ -61,6 +62,13 @@ type LiveData = {
   activeCount: number;
   heroSub: string;
   briefing: string;
+  kpi: {
+    revenue: number | null;
+    revenueCur: string;
+    sla: number | null;
+    fleetActive: number | null;
+    fleetTotal: number | null;
+  };
 };
 
 /** Build the live-data injection script that runs after the mock's own script. */
@@ -69,6 +77,7 @@ function liveInjectionScript(live: LiveData): string {
 (function(){
   var LIVE = ${JSON.stringify(live)};
   function esc(s){ return String(s==null?"":s).replace(/[&<>]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]; }); }
+  function fmtM(v){ var n = Number(v) || 0; return (n/1e6).toFixed(1); }
   function icon(mode){
     if(mode==='sea') return '<svg viewBox="0 0 24 24"><path d="M3 14l9-4 9 4-9 5z"/><path d="M12 10V4"/></svg>';
     if(mode==='air') return '<svg viewBox="0 0 24 24"><path d="M2 12l20-7-7 20-3-8z"/></svg>';
@@ -97,6 +106,16 @@ function liveInjectionScript(live: LiveData): string {
     if(hsub && LIVE.heroSub) hsub.textContent = LIVE.heroSub;
     var brief = document.querySelector('.praxis .pt p');
     if(brief && LIVE.briefing) brief.innerHTML = LIVE.briefing;
+    // KPI strip: feed the three cards we have live data for (revenue / SLA /
+    // fleet). Order in the mock is [revenue, sla, overdue, fleet]; 'overdue'
+    // (index 2) has no aggregate yet so it stays as the mock sample.
+    var cards = document.querySelectorAll('.kpis .kpi');
+    function setKpi(i, kv, kd){ var c = cards[i]; if(!c) return; var a = c.querySelector('.kv'); if(a) a.innerHTML = kv; var b = c.querySelector('.kd'); if(b){ b.textContent = kd || ''; b.className = 'kd'; } }
+    function hideKpi(i){ var c = cards[i]; if(c) c.style.display = 'none'; }
+    var K = LIVE.kpi || {};
+    if(K.revenue == null) hideKpi(0); else setKpi(0, fmtM(K.revenue) + '<small> M ' + esc(K.revenueCur || 'XAF') + '</small>', 'Locked FINAL invoices');
+    if(K.sla == null) hideKpi(1); else setKpi(1, esc(K.sla) + '<small> %</small>', 'On-time delivery');
+    if(K.fleetTotal == null || Number(K.fleetTotal) === 0) hideKpi(3); else setKpi(3, esc(K.fleetActive || 0) + '<small> / ' + esc(K.fleetTotal) + ' vehicles</small>', 'Active now');
   } catch(e){ /* keep the mock visible even if injection fails */ }
 
   // Track the app's light/dark theme (parent uses a .dark class; mock uses data-theme).
@@ -161,7 +180,19 @@ export function DashboardPage() {
           (flags ? `, <b>${flags}</b> open compliance flag${flags === 1 ? "" : "s"}` : "") +
           (unposted ? `, <b>${unposted}</b> unposted journal${unposted === 1 ? "" : "s"}` : "") +
           ". Live from the Control Tower.";
-        setLive({ shipments, activeCount: active, heroSub, briefing });
+        setLive({
+          shipments,
+          activeCount: active,
+          heroSub,
+          briefing,
+          kpi: {
+            revenue: numOrNull(kpis.revenue_final_ttc),
+            revenueCur: str(kpis.revenue_currency || "XAF"),
+            sla: numOrNull(kpis.sla_on_time_pct),
+            fleetActive: numOrNull(kpis.fleet_active),
+            fleetTotal: numOrNull(kpis.fleet_total),
+          },
+        });
       })
       .catch((e) => alive && setError(errMsg(e)))
       .finally(() => alive && setLoading(false));
