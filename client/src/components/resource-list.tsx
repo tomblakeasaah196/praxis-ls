@@ -10,6 +10,7 @@ import { ApiError } from "@/lib/api-client";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { LoadingRow, EmptyState, ErrorState } from "@/components/ui/states";
 import { PageHeader } from "@/components/data-list";
+import { HubTabs } from "@/components/tabbed-hub";
 
 export type Column = { key: string; label: string };
 
@@ -26,6 +27,7 @@ export function ResourceList({
   endpoint,
   columns,
   action,
+  eyebrow,
 }: {
   title: string;
   description?: string;
@@ -33,6 +35,8 @@ export function ResourceList({
   columns?: Column[];
   /** Optional header toolbar (e.g. a "New" button). `reload` re-fetches the list. */
   action?: (reload: () => void) => React.ReactNode;
+  /** Optional breadcrumb/eyebrow (e.g. <HubCrumb area="Fleet" />). */
+  eyebrow?: React.ReactNode;
 }) {
   const [rows, setRows] = React.useState<Record<string, unknown>[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -63,7 +67,8 @@ export function ResourceList({
 
   return (
     <section className="mx-auto max-w-6xl animate-fade-in">
-      <PageHeader title={title} description={description} action={action ? action(reload) : undefined} />
+      <PageHeader title={title} description={description} action={action ? action(reload) : undefined} eyebrow={eyebrow} />
+      <HubTabs />
 
       {error ? (
         <ErrorState message={error} />

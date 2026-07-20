@@ -1,8 +1,9 @@
 /** Fleet (Phase 3) screens — read skeletons over the fleet endpoints. */
 import { ResourceList } from "@/components/resource-list";
+import { HubCrumb } from "@/components/tabbed-hub";
 
 export const VehiclesPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Fleet" />}
     title="Vehicles"
     description="Fleet registry. Trucks, low-beds, company cars."
     endpoint="/vehicles"
@@ -17,7 +18,7 @@ export const VehiclesPage = () => (
 );
 
 export const VehicleCompliancePage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Fleet" />}
     title="Vehicle compliance"
     description="Insurance & visite-technique expiry. Renewal alerts fire off the expiry date."
     endpoint="/vehicle-compliance"
@@ -31,7 +32,7 @@ export const VehicleCompliancePage = () => (
 );
 
 export const WorkOrdersPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Fleet" />}
     title="Work orders"
     description="Preventive & corrective maintenance."
     endpoint="/work-orders"
@@ -46,7 +47,7 @@ export const WorkOrdersPage = () => (
 );
 
 export const DispatchPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Fleet" />}
     title="Dispatch"
     description="Vehicle assignments & check-in/out."
     endpoint="/dispatch"
@@ -61,7 +62,7 @@ export const DispatchPage = () => (
 );
 
 export const FuelLogPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Fleet" />}
     title="Fuel log"
     description="Fuel purchases per vehicle."
     endpoint="/fuel"
@@ -76,7 +77,7 @@ export const FuelLogPage = () => (
 );
 
 export const DriversPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Fleet" />}
     title="Driver licences"
     description="Driver licences & expiry."
     endpoint="/drivers"
@@ -90,7 +91,7 @@ export const DriversPage = () => (
 );
 
 export const IncidentsPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Fleet" />}
     title="Incidents"
     description="Fleet incidents & claims."
     endpoint="/incidents"

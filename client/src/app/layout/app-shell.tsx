@@ -91,25 +91,14 @@ const NAV: NavGroup[] = [
     heading: "Warehouse",
     prefix: "/wms",
     items: [
-      { to: "/wms/locations", label: "Locations" },
-      { to: "/wms/inventory", label: "Inventory" },
-      { to: "/wms/inbound", label: "Inbound / GRN" },
-      { to: "/wms/outbound", label: "Outbound" },
-      { to: "/wms/equipment", label: "Equipment" },
-      { to: "/wms/cycle-counts", label: "Cycle counts" },
+      { to: "/wms", label: "Warehouse" },
     ],
   },
   {
     heading: "Fleet",
     prefix: "/fleet",
     items: [
-      { to: "/fleet/vehicles", label: "Vehicles" },
-      { to: "/fleet/compliance", label: "Compliance" },
-      { to: "/fleet/work-orders", label: "Work orders" },
-      { to: "/fleet/dispatch", label: "Dispatch" },
-      { to: "/fleet/fuel", label: "Fuel log" },
-      { to: "/fleet/drivers", label: "Drivers" },
-      { to: "/fleet/incidents", label: "Incidents" },
+      { to: "/fleet", label: "Fleet" },
     ],
   },
   {

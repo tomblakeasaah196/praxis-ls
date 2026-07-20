@@ -1,8 +1,9 @@
 /** WMS (Phase 3) screens — read skeletons over the warehouse endpoints. */
 import { ResourceList } from "@/components/resource-list";
+import { HubCrumb } from "@/components/tabbed-hub";
 
 export const LocationsPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Warehouse" />}
     title="Locations"
     description="Warehouse slotting: zone / aisle / rack / bin / yard."
     endpoint="/locations"
@@ -17,7 +18,7 @@ export const LocationsPage = () => (
 );
 
 export const InventoryPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Warehouse" />}
     title="Inventory"
     description="Stock on hand & state. Movements journal per item."
     endpoint="/inventory"
@@ -33,7 +34,7 @@ export const InventoryPage = () => (
 );
 
 export const InboundPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Warehouse" />}
     title="Inbound / GRN"
     description="Goods received & QA gate."
     endpoint="/inbound"
@@ -47,7 +48,7 @@ export const InboundPage = () => (
 );
 
 export const OutboundPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Warehouse" />}
     title="Outbound"
     description="Pick / pack / dispatch orders."
     endpoint="/outbound"
@@ -61,7 +62,7 @@ export const OutboundPage = () => (
 );
 
 export const EquipmentPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Warehouse" />}
     title="Equipment"
     description="Handling equipment: forklifts, reach-stackers."
     endpoint="/equipment"
@@ -75,7 +76,7 @@ export const EquipmentPage = () => (
 );
 
 export const CycleCountsPage = () => (
-  <ResourceList
+  <ResourceList eyebrow={<HubCrumb area="Warehouse" />}
     title="Cycle counts"
     description="Physical counts & discrepancies."
     endpoint="/cycle-counts"
