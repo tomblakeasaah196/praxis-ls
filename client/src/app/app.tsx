@@ -17,23 +17,8 @@ import {
 } from "@/features/settings/config-pages";
 import { DocumentTemplatesPage, CustomFieldsPage, EmailSignaturesPage, BusinessPoliciesPage } from "@/features/settings/store-pages";
 import { ModuleCataloguePage } from "@/features/settings/catalogue-page";
-import {
-  VehiclesPage,
-  VehicleCompliancePage,
-  WorkOrdersPage,
-  DispatchPage,
-  FuelLogPage,
-  DriversPage,
-  IncidentsPage,
-} from "@/features/fleet/pages";
-import {
-  LocationsPage,
-  InventoryPage,
-  InboundPage,
-  OutboundPage,
-  EquipmentPage,
-  CycleCountsPage,
-} from "@/features/wms/pages";
+import { FleetHub } from "@/features/fleet/hub";
+import { WarehouseHub } from "@/features/wms/hub";
 import {
   EmployeesPage,
   PayrollPage,
@@ -80,19 +65,12 @@ export function App() {
             sections, so nav entries, bookmarks and ⌘K hits keep working. */}
         <Route path="security" element={<SecurityHub />} />
         <Route path="security/:section" element={<SecurityHub />} />
-        <Route path="fleet/vehicles" element={<VehiclesPage />} />
-        <Route path="fleet/compliance" element={<VehicleCompliancePage />} />
-        <Route path="fleet/work-orders" element={<WorkOrdersPage />} />
-        <Route path="fleet/dispatch" element={<DispatchPage />} />
-        <Route path="fleet/fuel" element={<FuelLogPage />} />
-        <Route path="fleet/drivers" element={<DriversPage />} />
-        <Route path="fleet/incidents" element={<IncidentsPage />} />
-        <Route path="wms/locations" element={<LocationsPage />} />
-        <Route path="wms/inventory" element={<InventoryPage />} />
-        <Route path="wms/inbound" element={<InboundPage />} />
-        <Route path="wms/outbound" element={<OutboundPage />} />
-        <Route path="wms/equipment" element={<EquipmentPage />} />
-        <Route path="wms/cycle-counts" element={<CycleCountsPage />} />
+        {/* Fleet — one hub, deep-linkable tabs */}
+        <Route path="fleet" element={<FleetHub />} />
+        <Route path="fleet/:section" element={<FleetHub />} />
+        {/* Warehouse — one hub, deep-linkable tabs */}
+        <Route path="wms" element={<WarehouseHub />} />
+        <Route path="wms/:section" element={<WarehouseHub />} />
         <Route path="hr/employees" element={<EmployeesPage />} />
         <Route path="hr/payroll" element={<PayrollPage />} />
         {/* Finance — one hub, deep-linkable tabs (per-section routes still resolve) */}
