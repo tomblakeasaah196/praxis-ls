@@ -2,7 +2,6 @@
  * Help center (example). A simple in-app guide + FAQ + shortcuts + contact.
  * Reachable from the floating action cluster's Help button and /help.
  */
-import * as React from "react";
 import { Link } from "react-router-dom";
 
 const GUIDES: { title: string; body: string; to?: string }[] = [
