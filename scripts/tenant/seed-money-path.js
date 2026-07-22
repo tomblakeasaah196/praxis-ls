@@ -88,6 +88,26 @@ async function call(method, path, body) {
 }
 const unwrap = (r) => (Array.isArray(r) ? r : r && Array.isArray(r.data) ? r.data : r && Array.isArray(r.rows) ? r.rows : []);
 
+// Idempotency marker in the sandbox settings store — so a re-run doesn't
+// duplicate the advance/invoice/receipt. Cleared by a sandbox wipe. Keyed by
+// period, so running in a later month seeds that month afresh.
+const MARKER = "/settings/seed/money-path";
+async function readMarker() {
+  try {
+    const v = await call("GET", MARKER);
+    return v && (v.value !== undefined ? v.value : v);
+  } catch {
+    return null;
+  }
+}
+async function writeMarker() {
+  try {
+    await call("PUT", MARKER, { value: { period, seeded_at: new Date().toISOString() } });
+  } catch {
+    /* non-fatal — marker is a convenience, not a correctness requirement */
+  }
+}
+
 /** Refuse to run against a live tenant — the sandbox header is ignored there. */
 async function assertSandboxable() {
   const pool = new Pool({
@@ -135,6 +155,14 @@ async function main() {
     throw new Error("login did not return an access_token");
   }
   ok(`logged in as ${email}`);
+
+  // Idempotency: bail if this period was already seeded (avoids duplicate posts).
+  const marker = await readMarker();
+  if (marker && marker.period === period) {
+    skip(`money-path already seeded for ${period} — wipe the sandbox to reseed`);
+    console.log("\nNothing to do. (Ledger was populated on a previous run.)");
+    return;
+  }
 
   // 2. Discover the SQL-seeded records
   const entities = unwrap(await call("GET", "/entities"));
@@ -236,23 +264,33 @@ async function main() {
 
   // 7. Asset depreciation (Dr 6813 / Cr 2845)
   try {
+    // Find an asset that actually has an un-posted schedule row (the SQL seed only
+    // schedules a couple of months, and only on one asset). Assets created via the
+    // API get a full schedule; seeded ones may not.
     const assets = unwrap(await call("GET", "/assets"));
-    const asset = assets.find((a) => a.coa_depr_code) || assets[0];
-    if (asset) {
-      // Depreciate a period that actually has a schedule row (the SQL seed only
-      // schedules a couple of months); prefer the first un-posted one.
-      const detail = await call("GET", `/assets/${asset.asset_id}`);
-      const sched = (detail.schedule || []).find((s) => !s.posted) || (detail.schedule || [])[0];
-      const pc = sched ? sched.period_code : period;
-      await call("POST", `/assets/${asset.asset_id}/depreciate`, { period_code: pc });
-      ok(`depreciated asset ${asset.tag || asset.label} for ${pc}`);
+    let target = null;
+    let pc = null;
+    for (const a of assets) {
+      // eslint-disable-next-line no-await-in-loop
+      const detail = await call("GET", `/assets/${a.asset_id}`);
+      const sched = (detail.schedule || []).find((s) => !s.posted);
+      if (sched) {
+        target = a;
+        pc = sched.period_code;
+        break;
+      }
+    }
+    if (target) {
+      await call("POST", `/assets/${target.asset_id}/depreciate`, { period_code: pc });
+      ok(`depreciated asset ${target.tag || target.label} for ${pc}`);
     } else {
-      skip("asset depreciation: no asset found");
+      skip("asset depreciation: no asset with an un-posted schedule");
     }
   } catch (e) {
     fail(`asset depreciation: ${e.message}`);
   }
 
+  await writeMarker();
   console.log("\nMoney-path seed complete. Open Statements / General Ledger (TEST mode) to see the posted entries.");
 }
 

@@ -27,17 +27,6 @@ const STARTERS = [
   "Draft a proforma advance",
 ];
 
-function BubbleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.4A8 8 0 1121 12z" />
-      <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 export function PraxisCopilot() {
   const aiEnabled = useAiEnabled();
   const [open, setOpen] = React.useState(false);
@@ -103,16 +92,8 @@ export function PraxisCopilot() {
 
   return (
     <>
-      {/* floating launcher */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Chat with Praxis AI"
-        className="fixed bottom-24 right-5 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-lg transition-transform hover:scale-105 md:bottom-6"
-      >
-        <BubbleIcon />
-        <span className="hidden text-sm font-medium sm:inline">Chat with Praxis AI</span>
-      </button>
-
+      {/* Launcher lives in the floating action cluster (components/floating-actions);
+          it opens this panel via the `praxis:open-copilot` event. */}
       {open && (
         <div className="lux-card fixed bottom-40 right-5 z-50 flex h-[min(70vh,560px)] w-[min(92vw,380px)] flex-col overflow-hidden rounded-2xl border border-border shadow-2xl md:bottom-24">
           {/* header */}

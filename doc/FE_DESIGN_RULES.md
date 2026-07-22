@@ -113,6 +113,13 @@ export const VehiclesPage = () => (
 );
 ```
 
+**Write-capable lists use `<CrudResource>`** (`components/crud-resource.tsx`) — the
+create / edit / delete sibling of `ResourceList`, driven by a declarative `fields` spec.
+It matches the BE zod validators (numbers coerced, empty optional UUIDs omitted, FK
+`<select>` pickers loaded from an `optionsEndpoint`), and **resolves FK columns to human
+names** in the table automatically (see §5). Reach for it when a screen needs forms, not
+just a read list — the fleet / WMS / HR grids are all thin field-specs on top of it.
+
 **Data access.** Use `lib/api-client.ts`: `tenant(path)` (prefixes `/api/tenant`) and `api(path)`.
 Errors throw `ApiError` with `.status` — treat `403` as a permission message, not a crash. Keep
 fetch/mutation calls in a `lib/<area>-api.ts` module of typed helpers (see `lib/finance-api.ts`,
@@ -146,14 +153,44 @@ the single parent entry.
 
 ---
 
-## 5. Conventions checklist (before PR)
+## 5. Human-readable data (never surface raw machine values)
+
+Anything a person reads must be formatted for a person, not dumped as a database value.
+Helpers live in `lib/format.ts`.
+
+- **Dates & times** — never render raw ISO (`2026-07-21T23:00:00.000Z`). Use `dateFmt`
+  (→ "21 Jul 2026") or `dateTimeFmt` (→ "21 Jul 2026, 23:00").
+- **Foreign-key IDs → names** — never show a bare UUID in a column. Resolve it: client
+  name, dossier `ref`, warehouse slotting, employee name, vehicle registration, etc.
+  `CrudResource` does this automatically (any column whose key matches a picker field is
+  resolved via that field's `optionLabel`). For hand-built tables, build an id→label map
+  (see `nameMap` in `features/operations/pages.tsx`) and render the label.
+- **Event & entity refs** — humanize with `humanizeEvent` ("payroll.status_changed" →
+  "Payroll status changed") and `humanizeRef` ("asset:ab1b7b30-…" → "Asset ab1b7b30";
+  UUIDs shorten to 8 chars, readable ids stay whole).
+- **Enums** — prefer a friendly label over the raw token (a `<Select>` with `{value,label}`
+  options, or a `.status` pill), not `SCREAMING_SNAKE`.
+- **Money / quantities** — `money()` / `num()` with the `.num` tabular class.
+
+Rule of thumb: if a value is a UUID, an ISO timestamp, a dotted event key, or a
+SCREAMING_ENUM, it needs a formatter before it reaches the DOM.
+
+> **Dark-mode `<select>`:** always use the shared `Select` from `components/ui/modal.tsx`
+> (it sets a solid background + explicit option colours so the native dropdown list is
+> legible in dark mode — a transparent select renders its options with the browser default
+> and becomes unreadable).
+
+---
+
+## 6. Conventions checklist (before PR)
 
 - [ ] Only tokens / `lux-*` classes for colour — no raw hex in the screen.
 - [ ] Accents use `--primary` (verify by switching tenant colour — the screen should re-tint).
-- [ ] Light **and** dark both look right.
-- [ ] Loading / empty / error states present (free via `ResourceList` / `states.tsx`).
+- [ ] Light **and** dark both look right (incl. native `<select>` option lists — use the shared `Select`).
+- [ ] Loading / empty / error states present (free via `ResourceList` / `CrudResource` / `states.tsx`).
 - [ ] `403` renders a permission message, not a blank/error screen.
 - [ ] Headings `.font-display`, money/qty `.num`, statuses via `.status` variants.
+- [ ] **Human-readable data** (§5): no raw UUIDs, ISO dates, dotted event keys or SCREAMING_ENUMs in the UI.
 - [ ] No extra outer padding (the shell owns `p-6`).
 - [ ] RBAC action is **`edit`**, not `update` (matches the backend).
 - [ ] Route added in `app.tsx` + `NAV`; `screen-registry.json` updated only when the page is real.

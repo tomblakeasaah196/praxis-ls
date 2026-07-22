@@ -90,7 +90,7 @@ export function LoginEditor() {
           <SettingsCard title="Copy" desc="Headline and supporting line shown on the sign-in screen.">
             <div className="flex flex-col gap-4">
               <Field label="Headline">
-                <TextArea rows={2} value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="The Home of the Perfect Pixie" />
+                <TextArea rows={2} value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="Your logistics command center" />
               </Field>
               <Field label="Subtext">
                 <TextArea rows={2} value={subtext} onChange={(e) => setSubtext(e.target.value)} placeholder="Sign in to your command center." />

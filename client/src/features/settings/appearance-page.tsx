@@ -144,23 +144,91 @@ export function AppearancePage() {
           </div>
         </SettingsCard>
 
-        <SettingsCard title="Preview" desc="Reflects name, primary colour and logo.">
-          <div className="flex items-center gap-4 rounded-lg border p-4">
-            {logoUrl ? (
-              <img src={logoUrl} alt="" className="h-10 w-auto" />
-            ) : (
+        <SettingsCard title="Preview" desc="Live — reflects name, colours, logos, typography, corner radius and theme mode.">
+          {(() => {
+            const c = (k: string, fb: string) => colors[k] || fb;
+            const radiusVal = radius || "12px";
+            const isDark = theme === "dark";
+            const pv = {
+              "--pv-primary": primary,
+              "--pv-primary-fg": c("primaryForeground", "#ffffff"),
+              "--pv-secondary": c("secondary", "#1c9bd7"),
+              "--pv-accent": c("accent", "#f5821f"),
+              "--pv-info": c("info", "#2f6feb"),
+              "--pv-success": c("success", "#16a34a"),
+              "--pv-warn": c("warn", "#d97706"),
+              "--pv-danger": c("danger", "#dc2626"),
+              borderRadius: radiusVal,
+              fontFamily: fontBody || "inherit",
+              color: isDark ? "#e5e7eb" : "#0f172a",
+              background: isDark ? "#0b1220" : "#ffffff",
+              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
+            } as React.CSSProperties;
+            const pill = (label: string, v: string) => (
               <span
-                className="flex h-10 w-10 items-center justify-center rounded-xl font-display text-lg text-white"
-                style={{ background: primary }}
+                key={label}
+                className="px-2 py-0.5 text-[11px] font-semibold"
+                style={{ borderRadius: 999, background: `${v}22`, color: v }}
               >
-                {(name || "P").charAt(0)}
+                {label}
               </span>
-            )}
-            <div className="flex-1 font-display text-lg">{name || "Praxis LS"}</div>
-            <button className="rounded-md px-4 py-2 text-sm font-semibold text-white" style={{ background: primary }}>
-              Primary action
-            </button>
-          </div>
+            );
+            return (
+              <div className="space-y-4 border p-4" style={pv}>
+                {/* Top bar: logo/avatar + name + primary/secondary actions */}
+                <div className="flex items-center gap-3">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="" className="h-10 w-auto" style={{ borderRadius: radiusVal }} />
+                  ) : (
+                    <span
+                      className="flex h-10 w-10 items-center justify-center text-lg font-semibold"
+                      style={{ background: primary, color: "var(--pv-primary-fg)" as string, borderRadius: radiusVal, fontFamily: fontDisplay || "inherit" }}
+                    >
+                      {(name || "P").charAt(0)}
+                    </span>
+                  )}
+                  <div className="flex-1 text-lg font-semibold" style={{ fontFamily: fontDisplay || "inherit" }}>
+                    {name || "Praxis LS"}
+                  </div>
+                  <button className="px-3 py-1.5 text-sm font-semibold" style={{ background: primary, color: "var(--pv-primary-fg)" as string, borderRadius: radiusVal }}>
+                    Primary
+                  </button>
+                  <button className="px-3 py-1.5 text-sm font-semibold" style={{ background: "var(--pv-secondary)" as string, color: "#fff", borderRadius: radiusVal }}>
+                    Secondary
+                  </button>
+                </div>
+
+                {/* Typography samples */}
+                <div className="space-y-1">
+                  <div className="text-base font-semibold" style={{ fontFamily: fontDisplay || "inherit" }}>
+                    Display heading — {fontDisplay || "default"}
+                  </div>
+                  <p className="text-sm opacity-80" style={{ fontFamily: fontBody || "inherit" }}>
+                    Body text in {fontBody || "the default font"}. The quick brown fox clears customs at Douala.
+                  </p>
+                  <code className="text-xs opacity-80" style={{ fontFamily: fontMono || "monospace" }}>
+                    SLAS-2026-0142 · 12,000,000 XAF
+                  </code>
+                </div>
+
+                {/* Status tokens */}
+                <div className="flex flex-wrap gap-1.5">
+                  {pill("Info", c("info", "#2f6feb"))}
+                  {pill("Success", c("success", "#16a34a"))}
+                  {pill("Warning", c("warn", "#d97706"))}
+                  {pill("Danger", c("danger", "#dc2626"))}
+                  <span className="px-2 py-0.5 text-[11px] font-semibold" style={{ borderRadius: 999, background: "var(--pv-accent)" as string, color: "#fff" }}>
+                    Accent
+                  </span>
+                </div>
+
+                {/* A card using the radius + accent edge */}
+                <div className="p-3 text-sm" style={{ borderRadius: radiusVal, borderLeft: `3px solid ${c("accent", "#f5821f")}`, background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)" }}>
+                  Card surface · {radiusVal} radius · {isDark ? "dark" : "light"} theme
+                </div>
+              </div>
+            );
+          })()}
         </SettingsCard>
 
         {msg && (
