@@ -122,15 +122,41 @@ export const milestonesByDossier = (dossierId: string) => tenant<MilestoneInstan
 export const advanceMilestone = (id: string, body: { evidence_vault_id?: string } = {}) =>
   tenant<MilestoneInstance>(`/milestones/${id}/advance`, { method: "POST", body });
 
+export type OverviewPerson = { user_id: string; name?: string | null } | null;
 export type DossierOverview = {
   dossier: { dossier_id: string; ref: string; status: string; client_id?: string | null; service_type_id?: string | null };
   costing: { count: number; planned_cost?: number | null };
   costs: { actual_cost?: number | null; gl_entries: number };
   invoicing: { count: number; invoiced_ttc?: number | null; billed_ttc?: number | null; outstanding?: number | null };
   economics?: { billed_ttc?: number | null; actual_cost?: number | null; gross_margin?: number | null; margin_percent?: number | null } | null;
+  /** Money breakdown; margin keys arrive nulled for roles masked on dossier.margin. */
+  money?: {
+    service_ht?: number | null;
+    debours_total?: number | null;
+    vat_total?: number | null;
+    revenue_ht?: number | null;
+    billed_ttc?: number | null;
+    planned_service_cost?: number | null;
+    planned_debours?: number | null;
+    planned_cost?: number | null;
+    actual_cost?: number | null;
+    dossier_margin?: number | null;
+    margin_percent?: number | null;
+    budget?: { budget?: number | null; actual?: number | null; variance?: number | null; variance_percent?: number | null; over_budget?: boolean | null } | null;
+  } | null;
+  /** SoD chain on the latest costing + latest locked final invoice. */
+  people?: {
+    costing?: { doc_number?: string | null; status?: string | null; validator: OverviewPerson; approver: OverviewPerson } | null;
+    invoice?: { doc_number?: string | null; status?: string | null; issuer: OverviewPerson; validator: OverviewPerson; approver: OverviewPerson } | null;
+  } | null;
   milestones: Record<string, number>;
   procurement: { po_count: number; po_total?: number | null };
   documents: { transit_orders: number; delivery_notes: number };
+  document_rows?: {
+    transit: { transit_order_id: string; ref?: string | null; customs_regime?: string | null; service_direction?: string | null; declared_value?: number | null; created_at?: string }[];
+    delivery: { delivery_note_id: string; ref?: string | null; consignee?: string | null; city_zone?: string | null; created_at?: string }[];
+    vault: { doc_id: string; doc_type?: string | null; status?: string | null; entity_ref?: string | null; version_no?: number | null; created_at?: string }[];
+  } | null;
 };
 /** 360° rollup for one operation file; money fields are role-masked server-side. */
 export const getOverview = (id: string) => tenant<DossierOverview>(`/operations/${id}/360`);

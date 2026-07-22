@@ -12,15 +12,9 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/data-list";
 import { HubTabs } from "@/components/tabbed-hub";
+import { smartCell as fmt } from "@/lib/format";
 
 export type Column = { key: string; label: string };
-
-function fmt(v: unknown): string {
-  if (v === null || v === undefined) return "—";
-  if (typeof v === "boolean") return v ? "yes" : "no";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
-}
 
 export function ResourceList({
   title,

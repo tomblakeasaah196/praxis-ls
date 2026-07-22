@@ -1,15 +1,22 @@
-node_modules/
+**/node_modules
 .git/
 .env
 .env.*
+!.env.example
 logs/
 media/originals/
 media/processed/
 media/posters/
 uploads/temp/
 uploads/staging/
+data/
 coverage/
 tests/
+# doc/ carries the legacy-codebase reference tree (hundreds of MB of sample
+# uploads/PDFs) plus internal handoffs — never ship it in the image.
+doc/
 docs/
+postman/
+client/dist/
 *.md
 !README.md

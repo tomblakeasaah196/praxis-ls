@@ -9,7 +9,8 @@ services:
       POSTGRES_USER: ${DB_USER:-praxis-admin}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
     ports:
-      - "5432:5432"
+      # loopback only — never expose Postgres to the public interface
+      - "127.0.0.1:5432:5432"
     volumes:
       - praxis_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +23,8 @@ services:
     image: redis:7-alpine
     container_name: praxis_redis
     ports:
-      - "6379:6379"
+      # loopback only — never expose Redis to the public interface
+      - "127.0.0.1:6379:6379"
     volumes:
       - praxis_redisdata:/data
     healthcheck:
@@ -31,12 +33,31 @@ services:
       timeout: 5s
       retries: 5
 
+  # One-shot: runs platform + all-tenant migrations, then exits. api/worker wait
+  # for it, so a plain `docker compose up -d` is always schema-current — on the
+  # first boot AND on every update. Migrations are tracked per file (re-running
+  # is a no-op) and `db:migrate:tenants` with zero tenants is a no-op too.
+  migrate:
+    build:
+      context: .
+      target: runtime
+    depends_on:
+      postgres: { condition: service_healthy }
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      REDIS_URL: redis://redis:6379
+    command: sh -c "npm run db:migrate:platform && npm run db:migrate:tenants"
+    restart: "no"
+
   api:
     build:
       context: .
       target: runtime
     container_name: praxis-ls
     depends_on:
+      migrate: { condition: service_completed_successfully }
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
     env_file: .env
@@ -55,6 +76,9 @@ services:
       - ./media:/app/media
       - ./uploads:/app/uploads
       - ./logs:/app/logs
+      # STORAGE_LOCAL_PATH=./data/vault — the document vault MUST persist across
+      # container rebuilds or every uploaded/rendered document is lost.
+      - ./data:/app/data
 
   worker:
     build:
@@ -62,6 +86,7 @@ services:
       target: worker
     container_name: praxis_worker
     depends_on:
+      migrate: { condition: service_completed_successfully }
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
     env_file: .env
@@ -73,6 +98,7 @@ services:
       - ./media:/app/media
       - ./uploads:/app/uploads
       - ./logs:/app/logs
+      - ./data:/app/data
 
 volumes:
   praxis_pgdata:

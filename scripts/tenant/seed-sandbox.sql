@@ -37,7 +37,25 @@ SET search_path = sandbox, public;
 -- otherwise empty — so any TEST-mode write that stamps the acting user would hit a
 -- foreign-key violation. Copy the same rows (same user_ids) so those FKs resolve.
 -- Runs every time (outside the idempotency guard) and is safe to repeat.
-INSERT INTO app_user SELECT * FROM live.app_user ON CONFLICT DO NOTHING;
+--
+-- Stale-identity handling (bit us on a machine switch, 2026-07-22): app_user has
+-- UNIQUE email + username. If a user was re-created in live with a NEW user_id
+-- (new PC, wiped live, re-provisioned admin), the sandbox may still hold the OLD
+-- row for the same email — the bare ON CONFLICT DO NOTHING then silently drops
+-- the new row, and every TEST-mode write 23503s ("Referenced record not found").
+-- We can't delete the stale row (old seeded documents may reference its user_id),
+-- so tombstone its unique keys first, then mirror. Tombstoned rows keep their
+-- user_id (old FKs stay valid) but can never collide or log in here again.
+UPDATE app_user u SET
+  email = (u.user_id || '.stale@sandbox.invalid')::citext,
+  username = NULL,
+  status = 'SUSPENDED'
+WHERE EXISTS (
+  SELECT 1 FROM live.app_user l
+  WHERE (l.email = u.email OR (u.username IS NOT NULL AND l.username = u.username))
+    AND l.user_id <> u.user_id
+);
+INSERT INTO app_user SELECT * FROM live.app_user ON CONFLICT (user_id) DO NOTHING;
 
 DO $seed$
 DECLARE

@@ -51,13 +51,18 @@ async function overview(client, dossierId) {
 
   const [costing] = await q(
     "SELECT COUNT(DISTINCT c.costing_id)::int AS count, " +
-      "COALESCE(SUM(cl.qty * cl.unit_cost), 0) AS planned_cost " +
+      "COALESCE(SUM(cl.qty * cl.unit_cost), 0) AS planned_cost, " +
+      "COALESCE(SUM(cl.qty * cl.unit_cost) FILTER (WHERE NOT cl.is_debours), 0) AS planned_service_cost, " +
+      "COALESCE(SUM(cl.qty * cl.unit_cost) FILTER (WHERE cl.is_debours), 0) AS planned_debours " +
       "FROM costing c LEFT JOIN costing_line cl ON cl.costing_id = c.costing_id WHERE c.dossier_id = $1",
   );
   const [actual] = await q("SELECT COUNT(*)::int AS entries, COALESCE(SUM(amount), 0) AS actual_cost FROM cost_entry WHERE dossier_id = $1");
   const [invoices] = await q(
     "SELECT COUNT(*)::int AS count, COALESCE(SUM(total_ttc), 0) AS invoiced_ttc, " +
-      "COALESCE(SUM(total_ttc) FILTER (WHERE status IN ('POSTED_LOCKED','APPROVED_LOCKED','ISSUED_LOCKED')), 0) AS billed_ttc " +
+      "COALESCE(SUM(total_ttc) FILTER (WHERE status IN ('POSTED_LOCKED','APPROVED_LOCKED','ISSUED_LOCKED')), 0) AS billed_ttc, " +
+      "COALESCE(SUM(service_ht) FILTER (WHERE status IN ('POSTED_LOCKED','APPROVED_LOCKED','ISSUED_LOCKED')), 0) AS billed_service_ht, " +
+      "COALESCE(SUM(debours_total) FILTER (WHERE status IN ('POSTED_LOCKED','APPROVED_LOCKED','ISSUED_LOCKED')), 0) AS billed_debours, " +
+      "COALESCE(SUM(vat_total) FILTER (WHERE status IN ('POSTED_LOCKED','APPROVED_LOCKED','ISSUED_LOCKED')), 0) AS billed_vat " +
       "FROM invoice WHERE dossier_id = $1 AND type = 'FINAL'",
   );
   const [outstanding] = await q(
@@ -74,7 +79,51 @@ async function overview(client, dossierId) {
   const [transit] = await q("SELECT COUNT(*)::int AS count FROM transit_order WHERE dossier_id = $1");
   const [delivery] = await q("SELECT COUNT(*)::int AS count FROM delivery_note WHERE dossier_id = $1");
 
-  return { costing, actual, invoices, outstanding, milestones, procurement, transit, delivery };
+  // People (SoD): who issued/validated/approved on the money documents. Names are
+  // joined in the SAME (env) schema — business rows FK app_user per schema, and the
+  // sandbox seed mirrors identity users, so a missing mirror just yields null names.
+  const [costingPeople] = await q(
+    "SELECT c.status, c.doc_number, " +
+      "uv.user_id AS validator_id, uv.full_name AS validator_name, " +
+      "ua.user_id AS approver_id, ua.full_name AS approver_name " +
+      "FROM costing c " +
+      "LEFT JOIN app_user uv ON uv.user_id = c.validator_id " +
+      "LEFT JOIN app_user ua ON ua.user_id = c.approver_id " +
+      "WHERE c.dossier_id = $1 " +
+      "ORDER BY (c.status = 'APPROVED_LOCKED') DESC, c.updated_at DESC LIMIT 1",
+  );
+  const [invoicePeople] = await q(
+    "SELECT i.status, i.doc_number, " +
+      "ui.user_id AS issuer_id, ui.full_name AS issuer_name, " +
+      "uv.user_id AS validator_id, uv.full_name AS validator_name, " +
+      "ua.user_id AS approver_id, ua.full_name AS approver_name " +
+      "FROM invoice i " +
+      "LEFT JOIN app_user ui ON ui.user_id = i.issued_by " +
+      "LEFT JOIN app_user uv ON uv.user_id = i.validated_by " +
+      "LEFT JOIN app_user ua ON ua.user_id = i.approved_by " +
+      "WHERE i.dossier_id = $1 AND i.type = 'FINAL' " +
+      "ORDER BY (i.status IN ('POSTED_LOCKED','APPROVED_LOCKED','ISSUED_LOCKED')) DESC, i.updated_at DESC LIMIT 1",
+  );
+
+  // Document rows for the 360° Documents tab (counts above stay for back-compat).
+  const transitRows = await q(
+    "SELECT transit_order_id, ot_number AS ref, customs_regime, service_direction, declared_value, created_at " +
+      "FROM transit_order WHERE dossier_id = $1 ORDER BY created_at DESC LIMIT 20",
+  );
+  const deliveryRows = await q(
+    "SELECT delivery_note_id, doc_number AS ref, consignee, city_zone, created_at " +
+      "FROM delivery_note WHERE dossier_id = $1 ORDER BY created_at DESC LIMIT 20",
+  );
+  const vaultRows = await q(
+    "SELECT doc_id, doc_type, status, entity_ref, version_no, created_at " +
+      "FROM document_vault WHERE dossier_id = $1 AND status <> 'ARCHIVED' ORDER BY created_at DESC LIMIT 20",
+  );
+
+  return {
+    costing, actual, invoices, outstanding, milestones, procurement, transit, delivery,
+    people: { costing: costingPeople || null, invoice: invoicePeople || null },
+    documentRows: { transit: transitRows, delivery: deliveryRows, vault: vaultRows },
+  };
 }
 
 module.exports = { insert, get, update, list, overview };

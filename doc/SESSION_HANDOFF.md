@@ -3,7 +3,16 @@
 Paste-in context for a fresh session, plus a running record of the FE reskin work.
 Companion to `doc/WORK_DONE.md` (full history) and `doc/WORK_TO_BE_DONE.md` (backlog).
 
-_Last updated: 2026-07-22 (session 11). **Session 11 = a large FE + tooling batch.** Headline:
+_Last updated: 2026-07-22 (session 12). **Session 12 = operations 360° modal full-match (BE+FE)** —
+the session-11 "owed" item. `repo/service.overview()` now return the Money breakdown (billed
+service HT / débours / TVA off locked FINAL invoices, planned service/débours split, actual,
+`dossier_margin` + `margin_percent` named to ride the existing `dossier.margin` field-mask, budget
+via costing `reconcile`), the SoD People (costing validator/approver + invoice issuer/validator/
+approver with names) and document rows; `Dossier360Modal` rebuilt into **Milestones / Money /
+People / Documents** tabs with a masked-margin "Restricted" state. Additive payload — old keys
+untouched. **Unverified in-sandbox (shell would not start — disk space); Windows lint/test/build +
+a visual pass owed.** Detail: the session-12 block inside the session-11 log's "Next (owed)" item.
+Prior: **Session 11 = a large FE + tooling batch.** Headline:
 verified most "pending" modules were **already built** (tax filing, asset depreciation/disposal,
 portals, Smart Comms, payroll compute+auto-post); built the **sandbox data tooling**
 (`scripts/tenant/seed-sandbox.sql` + `.js` for a full business dataset into the *sandbox* schema,
@@ -391,14 +400,78 @@ de-dup is per-tab) — offer a cross-tab lock or a one-generation BE grace if it
 `WORK_TO_BE_DONE.md` (S3 done; portal external-user auth done + apply 0460; Support & Feedback held),
 `SANDBOX_TESTING.md` (money-path seeder), and this handoff.
 
-**⭐ Next (owed):** the **operations 360° modal full-match** (user approved BE+FE): extend
-`operations_file.service.overview()` + `.repo.overview()` to return the **Money breakdown**
-(service HT / débours / TVA / own direct costs / dossier margin / budget-vs-actual — from invoice
-`service_ht`/`debours_total`/`vat_total` sums + costing) and the **People** (issuer/validator/
-approver, from the costing SoD, with names), then rebuild `Dossier360Modal` in
-`features/operations/pages.tsx` into **Milestones / Money / People / Documents** tabs matching the
-user's recording. The list + a single-scroll 360° drawer already exist. Also still owed: Windows
-lint/test/build, the two `npm install`s, apply migration 0460, and the session-10 `git rm` list.
+**⭐ ~~Next (owed)~~ — DONE (2026-07-22, session 12): operations 360° modal full-match.**
+- **BE** — `operations_file.repo.overview()` extended: costing rollup now splits
+  `planned_service_cost` / `planned_debours` (FILTER on `cl.is_debours`); the FINAL-invoice rollup
+  adds `billed_service_ht` / `billed_debours` / `billed_vat` (locked statuses only, same filter as
+  `billed_ttc`); new **people** queries (latest costing preferring `APPROVED_LOCKED` → validator +
+  approver; latest locked FINAL invoice → issuer + validator + approver, names via `app_user`
+  LEFT-joined **in the env schema** — sandbox relies on the identity mirror, missing mirror just
+  yields null names); new **documentRows** (transit `ot_number AS ref` / delivery `doc_number AS
+  ref` / non-archived vault docs, 20 each). `service.overview()` composes a **`money`** block
+  (billed service HT / débours / TVA / `revenue_ht` / TTC, planned split, actual, **`dossier_margin`
+  = HT revenue − actual costs** + `margin_percent`, `budget` via costing.rules `reconcile`) and a
+  **`people`** block. ⚠️ **Margin keys deliberately named `dossier_margin`/`margin_percent`** so the
+  existing `dossier.margin` field-mask nulls them for Sales/Ops with zero new mask code. Old
+  payload keys all preserved (additive).
+- **FE** — `lib/operations-api.ts` `DossierOverview` extended (money / people / document_rows);
+  `Dossier360Modal` in `features/operations/pages.tsx` rebuilt into **Milestones / Money / People /
+  Documents** tabs (`Segmented` from `features/sales/ui`), stat strip kept above the tabs. Money tab
+  shows **"Restricted for your role."** when `dossier_margin` arrives null (masked). People tab =
+  Costing (validator/approver) + Final invoice (issuer/validator/approver) cards with doc number +
+  status pill + initials avatars. Documents tab = count tiles + vault/transit/delivery row lists.
+- **Not verified in-sandbox** — the workspace shell would not start this session (disk space), so
+  no `node --check`/`tsc`. Code reviewed by hand. **Windows `npm run lint` + `npm test` +
+  `npm run build --prefix client` + a visual pass of the modal (all four tabs, and once as a
+  margin-masked role) are owed.**
+
+**Also session 12 — Finance hub human-readable pass (§5) + sandbox seed stale-identity fix.**
+- **Seed fix (BE tooling):** on a machine switch, a re-created live admin (same email, NEW
+  user_id) collided with the stale sandbox `app_user` row on the UNIQUE email — the mirror's bare
+  `ON CONFLICT DO NOTHING` silently dropped it, so every TEST-mode write 409'd ("Referenced record
+  not found", FK 23503 on the actor). `seed-sandbox.sql` now **tombstones** the stale row's unique
+  keys (email → `<uuid>.stale@sandbox.invalid`, username NULL, SUSPENDED — can't delete, old
+  documents reference it) before mirroring `ON CONFLICT (user_id)`. Re-running the seed is the fix;
+  no wipe needed. `SANDBOX_TESTING.md` updated (its "sandbox has no app_user rows" line was stale).
+- **New `lib/format.ts` helpers:** `enumLabel()` (SCREAMING_SNAKE → "Sentence case"; tokens without
+  underscores keep case so "DRAFT"/"XAF" survive) and `smartCell()` (generic §5 cell: ISO datetime/
+  date → dateTimeFmt/dateFmt, UUID → 8 chars, decimal strings ONLY → grouped — integer strings stay
+  raw, they may be account codes/years — arrays → "N items", objects → "k: v" pairs, never raw JSON).
+- **Applied:** shared `ResourceList` fmt → `smartCell` (helps every remaining stub screen incl.
+  AssetsPage); finance `pages.tsx` `fmtCell`/`fmt` → `smartCell` (imported `money as moneyFmt` —
+  a local fr-FR `money` at :93 would collide); InvoicesPage gained a **Client** column (loadClients
+  map) + money/dateFmt/enumLabel cells; CreditNotesPage + Tax declarations cells (money/dateFmt);
+  `hub.tsx` invoice **Dossier** column resolves `dossier_id → ref` via `/operations` (was `…last4`),
+  proforma lead column is now Created date (was a bare advance UUID), all status/method/source pills
+  → `enumLabel`; `receivables.tsx` ReceiptDrawer allocations resolve `invoice_id → doc_number`
+  (falls back to "Invoice ab1b7b30"), drawer/list pills → `enumLabel`.
+- Verified by hand only (sandbox shell still down); Windows validators + a visual pass owed.
+
+**Session 12 (cont.) — user visual-pass feedback fixed + Docker deployment made real.**
+- **Statements `Report` viewer rebuilt** (`finance/pages.tsx`): payloads like the trial balance
+  (`{rows, totals}`) now render the rows array as a real table + a titled totals card (was
+  "rows: 5 items"); nested figure groups like the notes' `class_balances` render as their own
+  card with "Class 1…9" labels (single-digit keys = SYSCOHADA classes). Split into
+  `ReportTable`/`KVCard`, generic over arrays/objects/scalars.
+- **ProformasPage rebuilt off `ResourceList`** — the deep page showed raw inferred columns
+  (ADVANCE_ID/CLIENT_ID/DOSSIER_ID). Now: Received (dateFmt), Client (name), Dossier (ref),
+  Amount/Applied/**Open** (computed amount−applied) via `money()`. Kept the Record-advance
+  modal + quotations link.
+- **Docker deployment (new `doc/DEPLOYMENT.md` + fixes):** the existing image had **no SPA**
+  (server serves `client/dist`, but no stage built it) → new `clientbuild` stage; **`npm ci`
+  swapped for `npm install`** in both stages — the Windows-generated lockfiles omit
+  linux-musl platform binaries (sharp/argon2/rollup), `ci` would ship a crashing image;
+  `.dockerignore` now excludes `doc/` (the legacy-codebase sample uploads are huge),
+  `**/node_modules`, `postman/`, `data/`; compose mounts **`./data` (document vault)** in
+  api+worker (was silently ephemeral) and binds Postgres/Redis to **127.0.0.1** only.
+  DEPLOYMENT.md = full server runbook: wildcard DNS + Host-passthrough + WebSocket-upgrade
+  nginx config (both non-negotiable), .env table, migrate/provision/create-admin commands,
+  update procedure, backups, troubleshooting. ⚠️ Image build not verifiable in-sandbox —
+  **first `docker compose build` on the server is the test**; blank page at `/` = clientbuild
+  stage didn't run.
+
+**Still owed (unchanged):** Windows lint/test/build, the two `npm install`s (root: AWS SDK;
+client: socket.io-client), apply migration 0460, and the session-10 `git rm` list.
 
 ## Session log — 2026-07-20 (session 10: feature-gate root cause, merge audit, Pixie matrix, Control Tower de-mock)
 

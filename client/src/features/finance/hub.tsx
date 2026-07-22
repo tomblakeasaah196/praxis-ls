@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { DataList, type Column } from "@/components/data-list";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { useList, useResource } from "@/lib/use-resource";
-import { money, dateFmt } from "@/lib/format";
+import { money, dateFmt, enumLabel } from "@/lib/format";
 import type { Client } from "@/lib/masterdata-api";
 import * as api from "@/lib/finance-api";
 import { InvoicesPage, ProformasPage, CreditNotesPage, JournalsPage, StatementsPage, TaxCenterPage, AssetsPage } from "./pages";
@@ -144,6 +144,13 @@ function CommandCenter() {
   const navigate = useNavigate();
   const { rows: clients } = useList<Client>("/clients");
   const clientName = nameMap(clients);
+  // dossier_id → ref, so the invoice table shows "SBX-2026-0002", not "…af31" (§5)
+  const { rows: dossiers } = useList<{ dossier_id: string; ref?: string | null }>("/operations");
+  const dossierRef = React.useMemo(() => {
+    const m: Record<string, string> = {};
+    (dossiers || []).forEach((d) => { if (d.ref) m[d.dossier_id] = d.ref; });
+    return m;
+  }, [dossiers]);
   const tb = useResource(() => api.getTrialBalance(), []);
   const ageing = useResource(() => api.getAgeing(), []);
   const treasury = useList<api.TreasuryAccount>("/treasury-accounts");
@@ -166,30 +173,30 @@ function CommandCenter() {
   const invCols: Column<api.InvoiceRow>[] = [
     { key: "doc", label: "Invoice", render: (r) => <span className="num font-medium text-[rgb(var(--primary))]">{r.doc_number || r.invoice_id.slice(0, 8)}</span> },
     { key: "client", label: "Client", render: (r) => <span className="font-medium text-foreground">{clientOf(r.client_id)}</span> },
-    { key: "dossier", label: "Dossier", render: (r) => (r.dossier_id ? <span className="num text-muted-foreground">…{r.dossier_id.slice(-4)}</span> : "—") },
+    { key: "dossier", label: "Dossier", render: (r) => (r.dossier_id ? <span className="num text-muted-foreground">{dossierRef[r.dossier_id] || r.dossier_id.slice(0, 8)}</span> : "—") },
     { key: "amt", label: "Amount · XAF", className: "num text-right", render: (r) => money(r.total_ttc) },
     { key: "due", label: "Due", render: (r) => dateFmt(r.payment_due_on) },
-    { key: "status", label: "Status", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> },
+    { key: "status", label: "Status", render: (r) => <Pill tone={statusTone(r.status)}>{enumLabel(r.status)}</Pill> },
   ];
   const pfCols: Column<api.ProformaRow>[] = [
-    { key: "ref", label: "Advance", render: (r) => <span className="num font-medium text-[rgb(var(--primary))]">{r.advance_id.slice(0, 8)}</span> },
+    { key: "created", label: "Created", render: (r) => <span className="num font-medium text-[rgb(var(--primary))]">{r.created_at ? dateFmt(r.created_at) : `Advance ${r.advance_id.slice(0, 8)}`}</span> },
     { key: "client", label: "Client", render: (r) => clientOf(r.client_id) },
     { key: "amt", label: "Amount · XAF", className: "num text-right", render: (r) => money(r.amount) },
     { key: "applied", label: "Applied", className: "num text-right", render: (r) => money(r.applied_amount) },
-    { key: "status", label: "Status", render: (r) => <Pill tone={statusTone(r.status)}>{r.status || "OPEN"}</Pill> },
+    { key: "status", label: "Status", render: (r) => <Pill tone={statusTone(r.status)}>{enumLabel(r.status || "OPEN")}</Pill> },
   ];
   const rcCols: Column<api.Receipt>[] = [
     { key: "received", label: "Received", render: (r) => <span className="num">{dateFmt(r.received_on)}</span> },
     { key: "client", label: "Client", render: (r) => clientOf(r.client_id) },
-    { key: "method", label: "Method", render: (r) => <Pill tone="mute">{r.method.replace(/_/g, " ")}</Pill> },
+    { key: "method", label: "Method", render: (r) => <Pill tone="mute">{enumLabel(r.method)}</Pill> },
     { key: "amt", label: "Amount · XAF", className: "num text-right", render: (r) => money(r.amount) },
-    { key: "status", label: "Status", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> },
+    { key: "status", label: "Status", render: (r) => <Pill tone={statusTone(r.status)}>{enumLabel(r.status)}</Pill> },
   ];
   const jnCols: Column<api.JournalRow>[] = [
     { key: "date", label: "Date", render: (r) => <span className="num">{dateFmt(r.entry_date)}</span> },
     { key: "ref", label: "Source ref", render: (r) => r.source_doc_ref || "—" },
-    { key: "source", label: "Source", render: (r) => <Pill tone="mute">{(r.source || "—").replace(/_/g, " ")}</Pill> },
-    { key: "status", label: "Status", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> },
+    { key: "source", label: "Source", render: (r) => <Pill tone="mute">{enumLabel(r.source || "—")}</Pill> },
+    { key: "status", label: "Status", render: (r) => <Pill tone={statusTone(r.status)}>{enumLabel(r.status)}</Pill> },
   ];
 
   const t = tb.data?.totals;
@@ -250,7 +257,7 @@ function CommandCenter() {
       </div>
 
       {chip === "invoices" && (
-        <DataList columns={invCols} rows={(invoices.rows || []).filter((r) => hit(`${r.doc_number || ""} ${clientOf(r.client_id)} ${r.dossier_id || ""}`))} error={invoices.error} loading={invoices.loading} rowKey={(r) => r.invoice_id} onRowClick={() => navigate("/finance/invoices")} empty={{ title: "No invoices", hint: "Issue a final invoice from an approved costing." }} />
+        <DataList columns={invCols} rows={(invoices.rows || []).filter((r) => hit(`${r.doc_number || ""} ${clientOf(r.client_id)} ${(r.dossier_id && dossierRef[r.dossier_id]) || r.dossier_id || ""}`))} error={invoices.error} loading={invoices.loading} rowKey={(r) => r.invoice_id} onRowClick={() => navigate("/finance/invoices")} empty={{ title: "No invoices", hint: "Issue a final invoice from an approved costing." }} />
       )}
       {chip === "proformas" && (
         <DataList columns={pfCols} rows={(proformas.rows || []).filter((r) => hit(clientOf(r.client_id)))} error={proformas.error} loading={proformas.loading} rowKey={(r) => r.advance_id} onRowClick={() => navigate("/finance/proformas")} empty={{ title: "No proformas", hint: "Raise a proforma / advance request." }} />

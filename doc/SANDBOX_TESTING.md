@@ -32,8 +32,18 @@ test through the app (Section 3, step F). The seed sets `cached_receivables` /
 `cached_overdue` on clients so the receivables list and dashboard tiles still show
 numbers before you post anything.
 
-User FKs (`owner_user_id`, `organiser_id`, …) are left NULL — sandbox has no
-`app_user` rows (auth runs off the live/identity schema). Employee links are real.
+User FKs (`owner_user_id`, `organiser_id`, …) are left NULL in the seeded rows.
+Identity users ARE mirrored into `sandbox.app_user` (same user_ids) every time the
+seed runs — business writes stamp the acting user, and those FKs must resolve.
+Employee links are real.
+
+**⚠️ Machine/DB switch gotcha (2026-07-22):** if a login user was *re-created* in
+live with a new `user_id` (new PC, re-provisioned admin) while the sandbox still
+holds the old row for the same email, every TEST-mode write fails with
+`409 Referenced record not found` (FK 23503 on the actor user). The seed now
+handles this: it tombstones the stale sandbox row's unique email/username, then
+mirrors the new row — so the fix is simply to **re-run the seed** (no wipe needed).
+The old seeded documents keep pointing at the tombstoned user_id, which stays valid.
 
 ## 1. Prerequisites
 

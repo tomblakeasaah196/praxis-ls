@@ -18,6 +18,7 @@ import * as api from "@/lib/operations-api";
 import { AiActions } from "@/components/ai-actions";
 import { ScreenAi } from "@/components/screen-ai";
 import { HubTabs, HubCrumb } from "@/components/tabbed-hub";
+import { Segmented } from "@/features/sales/ui";
 import { Link, useSearchParams } from "react-router-dom";
 import type { AiAction } from "@/features/scaffold/screen-specs";
 
@@ -124,12 +125,67 @@ function Stat({ label, value, tone: t }: { label: string; value: React.ReactNode
   );
 }
 
-/** 360° drawer: the per-file rollup (costing vs actual, invoicing, margin, docs, milestone chain). */
+/* ── 360° modal (Milestones / Money / People / Documents tabs) ── */
+
+type Tab360 = "milestones" | "money" | "people" | "documents";
+const TABS_360: { value: Tab360; label: string }[] = [
+  { value: "milestones", label: "Milestones" },
+  { value: "money", label: "Money" },
+  { value: "people", label: "People" },
+  { value: "documents", label: "Documents" },
+];
+
+function MoneyRow({ label, value, strong, toneCls }: { label: string; value: React.ReactNode; strong?: boolean; toneCls?: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-md border border-border px-3 py-1.5">
+      <span className={`text-sm ${strong ? "font-medium text-foreground" : "text-muted-foreground"}`}>{label}</span>
+      <span className={`num text-sm ${toneCls || (strong ? "font-medium text-foreground" : "text-foreground")}`}>{value}</span>
+    </div>
+  );
+}
+
+function PersonRow({ role, p }: { role: string; p: api.OverviewPerson | undefined }) {
+  const initials = (p?.name || "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  return (
+    <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+      <span className="micro uppercase tracking-wide">{role}</span>
+      {p ? (
+        <span className="flex items-center gap-2">
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">{initials}</span>
+          <span className="text-sm text-foreground">{p.name || p.user_id.slice(0, 8)}</span>
+        </span>
+      ) : (
+        <span className="micro">—</span>
+      )}
+    </div>
+  );
+}
+
+function DocGroup<T>({ title, rows, empty, render, keyOf }: { title: string; rows: T[]; empty: string; render: (r: T) => React.ReactNode; keyOf: (r: T) => string }) {
+  return (
+    <div>
+      <div className="micro mb-2">{title}</div>
+      {rows.length ? (
+        <ul className="space-y-1.5">{rows.map((r) => <li key={keyOf(r)}>{render(r)}</li>)}</ul>
+      ) : (
+        <span className="micro">{empty}</span>
+      )}
+    </div>
+  );
+}
+
+/** 360° modal: per-file rollup in Milestones / Money / People / Documents tabs.
+ *  Margin figures arrive nulled for roles masked on `dossier.margin` (server-side);
+ *  the Money tab shows a "restricted" note instead of a number in that case. */
 function Dossier360Modal({ dossier, clientLabel, onClose }: { dossier: api.Dossier; clientLabel: string; onClose: () => void }) {
   const ov = useResource(() => api.getOverview(dossier.dossier_id), [dossier.dossier_id]);
   const chain = useResource(() => api.milestonesByDossier(dossier.dossier_id), [dossier.dossier_id]);
+  const [tab, setTab] = React.useState<Tab360>("milestones");
   const d = ov.data;
   const svc = dossier.service_name_en || dossier.service_name_fr || humanizeKey(dossier.service_key);
+  const m = d?.money;
+  const marginMasked = !!m && m.dossier_margin == null;
+  const docs = d?.document_rows;
   return (
     <Modal open onClose={onClose} size="xl" title={`Operation file · ${dossier.ref}`} description={`${clientLabel}${svc && svc !== "—" ? " · " + svc : ""}`}>
       {ov.loading ? (
@@ -144,38 +200,164 @@ function Dossier360Modal({ dossier, clientLabel, onClose }: { dossier: api.Dossi
             <Stat label="Billed" value={money(d.invoicing.billed_ttc)} tone="ok" />
             <Stat label="Outstanding" value={money(d.invoicing.outstanding)} tone="warn" />
           </div>
-          {d.economics && d.economics.gross_margin != null && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Stat label="Gross margin" value={money(d.economics.gross_margin)} tone={Number(d.economics.gross_margin) < 0 ? "warn" : "ok"} />
-              <Stat label="Margin %" value={d.economics.margin_percent != null ? `${num(d.economics.margin_percent)}%` : "—"} />
-            </div>
-          )}
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Stat label="Invoices" value={num(d.invoicing.count)} />
-            <Stat label="Purchase orders" value={`${num(d.procurement.po_count)} · ${money(d.procurement.po_total)}`} />
-            <Stat label="Transit orders" value={num(d.documents.transit_orders)} />
-            <Stat label="Delivery notes" value={num(d.documents.delivery_notes)} />
-          </div>
-          <div>
-            <div className="micro mb-2">Milestone chain</div>
-            {chain.loading ? (
+          <Segmented value={tab} options={TABS_360} onChange={setTab} />
+
+          {tab === "milestones" && (
+            chain.loading ? (
               <div className="py-3 text-center micro">Loading…</div>
             ) : (chain.data || []).length ? (
               <ol className="space-y-1.5">
-                {(chain.data || []).map((m) => (
-                  <li key={m.milestone_instance_id} className="flex items-center justify-between rounded-md border border-border px-3 py-1.5">
-                    <span className="text-sm text-foreground">{m.label_fr || m.code}</span>
+                {(chain.data || []).map((ms) => (
+                  <li key={ms.milestone_instance_id} className="flex items-center justify-between rounded-md border border-border px-3 py-1.5">
+                    <span className="text-sm text-foreground">{ms.label_fr || ms.code}</span>
                     <div className="flex items-center gap-3">
-                      <span className="micro">{dateFmt(m.due_date)}</span>
-                      <Pill tone={tone(m.status)}>{m.status}</Pill>
+                      <span className="micro">{dateFmt(ms.due_date)}</span>
+                      <Pill tone={tone(ms.status)}>{ms.status}</Pill>
                     </div>
                   </li>
                 ))}
               </ol>
             ) : (
               <span className="micro">No milestone chain seeded for this file yet.</span>
-            )}
-          </div>
+            )
+          )}
+
+          {tab === "money" && (m ? (
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <div className="micro mb-2">Billed (locked final invoices)</div>
+                <MoneyRow label="Service HT" value={money(m.service_ht)} />
+                <MoneyRow label="Débours (pass-through)" value={money(m.debours_total)} />
+                <MoneyRow label="TVA" value={money(m.vat_total)} />
+                <MoneyRow label="Revenue HT" value={money(m.revenue_ht)} />
+                <MoneyRow label="Total TTC" value={money(m.billed_ttc)} strong />
+              </div>
+              <div className="space-y-1.5">
+                <div className="micro mb-2">Costs</div>
+                <MoneyRow label="Planned service cost" value={money(m.planned_service_cost)} />
+                <MoneyRow label="Planned débours" value={money(m.planned_debours)} />
+                <MoneyRow label="Planned total" value={money(m.planned_cost)} />
+                <MoneyRow label="Actual (GL)" value={money(m.actual_cost)} strong />
+              </div>
+              <div className="space-y-1.5">
+                <div className="micro mb-2">Dossier margin</div>
+                {marginMasked ? (
+                  <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">Restricted for your role.</div>
+                ) : (
+                  <>
+                    <MoneyRow label="Margin (HT revenue − actual costs)" value={money(m.dossier_margin)} strong toneCls={Number(m.dossier_margin) < 0 ? "font-medium text-[rgb(var(--warn))]" : "font-medium text-[rgb(var(--primary))]"} />
+                    <MoneyRow label="Margin %" value={m.margin_percent != null ? `${num(m.margin_percent)}%` : "—"} />
+                  </>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <div className="micro mb-2">Budget vs actual</div>
+                <MoneyRow label="Budget (costing)" value={money(m.budget?.budget)} />
+                <MoneyRow label="Actual" value={money(m.budget?.actual)} />
+                <MoneyRow
+                  label={`Variance${m.budget?.variance_percent != null ? ` (${num(m.budget.variance_percent)}%)` : ""}`}
+                  value={money(m.budget?.variance)}
+                  strong
+                  toneCls={m.budget?.over_budget ? "font-medium text-[rgb(var(--warn))]" : "font-medium text-foreground"}
+                />
+              </div>
+            </div>
+          ) : (
+            <span className="micro">No money data on this file yet.</span>
+          ))}
+
+          {tab === "people" && (
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="micro">Costing</span>
+                  {d.people?.costing?.doc_number && <span className="num micro">{d.people.costing.doc_number}</span>}
+                  {d.people?.costing?.status && <Pill tone={tone(d.people.costing.status)}>{d.people.costing.status}</Pill>}
+                </div>
+                {d.people?.costing ? (
+                  <>
+                    <PersonRow role="Validator" p={d.people.costing.validator} />
+                    <PersonRow role="Approver" p={d.people.costing.approver} />
+                  </>
+                ) : (
+                  <span className="micro">No costing sheet on this file yet.</span>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="micro">Final invoice</span>
+                  {d.people?.invoice?.doc_number && <span className="num micro">{d.people.invoice.doc_number}</span>}
+                  {d.people?.invoice?.status && <Pill tone={tone(d.people.invoice.status)}>{d.people.invoice.status}</Pill>}
+                </div>
+                {d.people?.invoice ? (
+                  <>
+                    <PersonRow role="Issuer" p={d.people.invoice.issuer} />
+                    <PersonRow role="Validator" p={d.people.invoice.validator} />
+                    <PersonRow role="Approver" p={d.people.invoice.approver} />
+                  </>
+                ) : (
+                  <span className="micro">No final invoice on this file yet.</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === "documents" && (
+            <div className="space-y-5">
+              <div className="grid gap-3 sm:grid-cols-4">
+                <Stat label="Invoices" value={num(d.invoicing.count)} />
+                <Stat label="Purchase orders" value={`${num(d.procurement.po_count)} · ${money(d.procurement.po_total)}`} />
+                <Stat label="Transit orders" value={num(d.documents.transit_orders)} />
+                <Stat label="Delivery notes" value={num(d.documents.delivery_notes)} />
+              </div>
+              <DocGroup
+                title="Vault documents"
+                rows={docs?.vault || []}
+                empty="No documents in the vault for this file."
+                keyOf={(r) => r.doc_id}
+                render={(r) => (
+                  <div className="flex items-center justify-between rounded-md border border-border px-3 py-1.5">
+                    <span className="text-sm text-foreground">{r.doc_type ? humanizeKey(r.doc_type) : "Document"}{r.version_no && r.version_no > 1 ? ` · v${r.version_no}` : ""}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="micro">{dateFmt(r.created_at)}</span>
+                      <Pill tone={tone(r.status)}>{r.status || "—"}</Pill>
+                    </div>
+                  </div>
+                )}
+              />
+              <DocGroup
+                title="Transit orders"
+                rows={docs?.transit || []}
+                empty="No transit orders on this file."
+                keyOf={(r) => r.transit_order_id}
+                render={(r) => (
+                  <div className="flex items-center justify-between rounded-md border border-border px-3 py-1.5">
+                    <span className="num text-sm text-foreground">{r.ref || r.transit_order_id.slice(0, 8)}</span>
+                    <div className="flex items-center gap-3">
+                      {r.customs_regime && <Pill tone="mute">{r.customs_regime}</Pill>}
+                      <span className="micro">{r.service_direction || "—"}</span>
+                      <span className="num micro">{money(r.declared_value)}</span>
+                    </div>
+                  </div>
+                )}
+              />
+              <DocGroup
+                title="Delivery notes"
+                rows={docs?.delivery || []}
+                empty="No delivery notes on this file."
+                keyOf={(r) => r.delivery_note_id}
+                render={(r) => (
+                  <div className="flex items-center justify-between rounded-md border border-border px-3 py-1.5">
+                    <span className="num text-sm text-foreground">{r.ref || r.delivery_note_id.slice(0, 8)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground">{r.consignee || "—"}</span>
+                      <span className="micro">{dateFmt(r.created_at)}</span>
+                    </div>
+                  </div>
+                )}
+              />
+            </div>
+          )}
         </div>
       ) : null}
     </Modal>
