@@ -14,9 +14,11 @@ import { Link, NavLink, Outlet, useNavigate, useLocation } from "react-router-do
 import { useAuth } from "@/app/auth/auth-context";
 import { useBranding } from "@/app/branding/branding-context";
 import { tokenStore } from "@/lib/token-store";
+import { tenant } from "@/lib/api-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
 import { PraxisCopilot } from "@/components/praxis-copilot";
+import { FloatingActions } from "@/components/floating-actions";
 import { cn } from "@/lib/cn";
 
 type NavItem = { to: string; label: string };
@@ -272,16 +274,58 @@ function initialsOf(nameOrEmail?: string | null): string {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
 }
 
-/** Round icon Link used for the messages + notification affordances. */
-function IconLink({ to, label, children }: { to: string; label: string; children: React.ReactNode }) {
+/** Unread counts for the messages + notifications badges. Polls gently and
+ *  refetches when the data environment flips. Failures (feature off, 403) → 0. */
+function useUnreadCounts(env: string): { messages: number; notifications: number } {
+  const [counts, setCounts] = React.useState({ messages: 0, notifications: 0 });
+  React.useEffect(() => {
+    let live = true;
+    const num = (v: unknown): number => {
+      if (typeof v === "number") return v;
+      if (v && typeof v === "object") {
+        const o = v as Record<string, unknown>;
+        const n = o.count ?? o.unread ?? o.total ?? o.n;
+        return typeof n === "number" ? n : 0;
+      }
+      return 0;
+    };
+    // /smartcomm/unread returns per-channel rows [{group_id, unread}] → sum them;
+    // /notifications/unread-count returns { unread: N }.
+    const sumUnread = (v: unknown): number =>
+      Array.isArray(v) ? v.reduce((s, r) => s + (Number((r as { unread?: unknown })?.unread) || 0), 0) : num(v);
+    async function load() {
+      const [m, n] = await Promise.allSettled([tenant("/smartcomm/unread"), tenant("/notifications/unread-count")]);
+      if (!live) return;
+      setCounts({
+        messages: m.status === "fulfilled" ? sumUnread(m.value) : 0,
+        notifications: n.status === "fulfilled" ? num(n.value) : 0,
+      });
+    }
+    load();
+    const id = setInterval(load, 60000);
+    return () => {
+      live = false;
+      clearInterval(id);
+    };
+  }, [env]);
+  return counts;
+}
+
+/** Round icon Link (messages / notifications) with an optional unread badge. */
+function IconLink({ to, label, count = 0, children }: { to: string; label: string; count?: number; children: React.ReactNode }) {
   return (
     <Link
       to={to}
-      aria-label={label}
+      aria-label={count > 0 ? `${label} (${count} unread)` : label}
       title={label}
       className="relative hidden h-9 w-9 place-items-center rounded-xl border text-muted-foreground transition-colors hover:text-foreground sm:grid"
     >
       {children}
+      {count > 0 && (
+        <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-primary px-1 text-[9px] font-bold leading-none text-primary-foreground">
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
     </Link>
   );
 }
@@ -512,6 +556,7 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [openArea, setOpenArea] = React.useState<string | null>(null);
   const [env, setEnvState] = React.useState<string>(tokenStore.getEnv());
+  const unread = useUnreadCounts(env);
 
   // Hover open/close with a grace delay so moving from the button into the
   // menu (across the small gap) doesn't snap it shut.
@@ -661,8 +706,8 @@ export function AppShell() {
             </button>
           </div>
           <ThemeToggle />
-          <IconLink to="/comms" label="Messages"><ChatIcon /></IconLink>
-          <IconLink to="/notifications" label="Notifications"><BellIcon /></IconLink>
+          <IconLink to="/comms" label="Messages" count={unread.messages}><ChatIcon /></IconLink>
+          <IconLink to="/notifications" label="Notifications" count={unread.notifications}><BellIcon /></IconLink>
           <UserMenu user={user as { email?: string; display_name?: string; full_name?: string } | null} onLogout={onLogout} />
         </div>
       </header>
@@ -706,6 +751,7 @@ export function AppShell() {
 
       <CommandPalette open={paletteOpen} groups={NAV} onClose={() => setPaletteOpen(false)} />
       <PraxisCopilot />
+      <FloatingActions badge={unread.messages + unread.notifications} />
     </div>
   );
 }
