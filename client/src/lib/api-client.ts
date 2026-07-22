@@ -27,7 +27,16 @@ type Opts = Omit<RequestInit, "body"> & { body?: unknown; auth?: boolean; retry?
 
 let refreshing: Promise<boolean> | null = null;
 
-async function tryRefresh(): Promise<boolean> {
+/**
+ * Exchange the refresh token for a fresh access token, de-duped so concurrent
+ * callers (the 401-retry path here AND the boot restore in auth-context) share a
+ * SINGLE network refresh. This matters because the BE rotates the refresh token
+ * on every refresh and revokes the session if a rotated-away token is ever
+ * presented again (reuse-detection) — two independent refreshes with the same
+ * token would otherwise trip that and log the user out early. Persists the
+ * rotated refresh token so the next refresh presents the current one.
+ */
+export async function tryRefresh(): Promise<boolean> {
   const refresh_token = tokenStore.getRefresh();
   if (!refresh_token) return false;
   // De-dupe concurrent refreshes.

@@ -4,6 +4,7 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { tenant, ApiError } from "@/lib/api-client";
+import { dateFmt } from "@/lib/format";
 import { ResourceList } from "@/components/resource-list";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { LoadingRow, EmptyState, ErrorState } from "@/components/ui/states";
@@ -411,7 +412,7 @@ export function JournalsPage() {
               <TR key={i}>
                 {JOURNAL_COLS.map((c) => (
                   <TD key={c.key} className="text-sm">
-                    {fmtCell(r[c.key])}
+                    {c.key === "entry_date" ? dateFmt(r[c.key] as string) : fmtCell(r[c.key])}
                     {c.key === "description" && isReversal(r) && (
                       <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">reversal</span>
                     )}
