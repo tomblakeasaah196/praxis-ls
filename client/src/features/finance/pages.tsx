@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { tenant, ApiError } from "@/lib/api-client";
-import { dateFmt } from "@/lib/format";
+import { dateFmt, money as moneyFmt, enumLabel, smartCell } from "@/lib/format";
 import { ResourceList } from "@/components/resource-list";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { LoadingRow, EmptyState, ErrorState } from "@/components/ui/states";
@@ -566,19 +566,88 @@ function AdvancePaymentForm({ open, onClose, onPaid }: { open: boolean; onClose:
 
 export const ProformasPage = () => {
   const [open, setOpen] = React.useState(false);
+  const [rows, setRows] = React.useState<Record<string, unknown>[] | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [nonce, setNonce] = React.useState(0);
+  const reload = () => setNonce((n) => n + 1);
+  // id → name maps so the table shows people-readable values, not UUIDs (§5)
+  const [clientName, setClientName] = React.useState<Record<string, string>>({});
+  const [dossierRef, setDossierRef] = React.useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    let live = true;
+    setRows(null);
+    setError(null);
+    tenant<Record<string, unknown>[]>("/proformas/advances")
+      .then((d) => live && setRows(Array.isArray(d) ? d : []))
+      .catch((e) => {
+        if (!live) return;
+        if (e instanceof ApiError && e.status === 403) setError("You don't have permission to view this.");
+        else setError(e instanceof ApiError ? e.message : "Failed to load.");
+      });
+    return () => { live = false; };
+  }, [nonce]);
+  React.useEffect(() => {
+    loadClients().then((o) => setClientName(Object.fromEntries(o.map((x) => [x.id, x.label])))).catch(() => {});
+    loadDossiers().then((o) => setDossierRef(Object.fromEntries(o.map((x) => [x.id, x.label])))).catch(() => {});
+  }, []);
+
+  const str = (r: Record<string, unknown>, k: string) => (r[k] == null ? "" : String(r[k]));
+
   return (
-    <ResourceList
-      title="Proforma & advances"
-      description="Advance payments received against a proforma — posts to 4191 (customer advances), not revenue. Priced offers with line items live in Quotations."
-      endpoint="/proformas/advances"
-      action={(reload) => (
+    <section className="mx-auto max-w-6xl animate-fade-in">
+      <header className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Proforma &amp; advances</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Advance payments received against a proforma — posts to 4191 (customer advances), not revenue. Priced offers with line items live in Quotations.
+          </p>
+        </div>
         <div className="flex items-center gap-3">
           <Link to="/commercial/quotations" className="text-sm text-muted-foreground transition-colors hover:text-primary">View quotations →</Link>
           <Button onClick={() => setOpen(true)}>Record advance</Button>
-          <AdvancePaymentForm open={open} onClose={() => setOpen(false)} onPaid={reload} />
         </div>
+      </header>
+
+      {error ? (
+        <ErrorState message={error} />
+      ) : rows === null ? (
+        <SkeletonTable />
+      ) : rows.length === 0 ? (
+        <EmptyState title="No advances yet" hint="Record a customer advance to get started." />
+      ) : (
+        <Table>
+          <THead>
+            <TR>
+              <TH>Received</TH>
+              <TH>Client</TH>
+              <TH>Dossier</TH>
+              <TH>Amount</TH>
+              <TH>Applied</TH>
+              <TH>Open</TH>
+            </TR>
+          </THead>
+          <TBody>
+            {rows.map((r, i) => {
+              const amount = Number(r.amount ?? 0);
+              const applied = Number(r.applied_amount ?? 0);
+              return (
+                <TR key={str(r, "advance_id") || i}>
+                  <TD className="text-sm">{dateFmt(str(r, "received_on") || str(r, "created_at") || null)}</TD>
+                  <TD className="text-sm font-medium">{clientName[str(r, "client_id")] || "—"}</TD>
+                  <TD className="num text-sm text-muted-foreground">{dossierRef[str(r, "dossier_id")] || (r.dossier_id ? str(r, "dossier_id").slice(0, 8) : "—")}</TD>
+                  <TD className="num text-sm">{moneyFmt(amount)}</TD>
+                  <TD className="num text-sm">{moneyFmt(applied)}</TD>
+                  <TD className="num text-sm font-medium">{moneyFmt(Math.max(0, amount - applied))}</TD>
+                </TR>
+              );
+            })}
+          </TBody>
+        </Table>
       )}
-    />
+
+      <AdvancePaymentForm open={open} onClose={() => setOpen(false)} onPaid={reload} />
+    </section>
   );
 };
 
@@ -966,6 +1035,7 @@ function InvoiceEditForm({
 
 const INVOICE_COLS = [
   { key: "doc_number", label: "Number" },
+  { key: "client", label: "Client" },
   { key: "type", label: "Type" },
   { key: "status", label: "Status" },
   { key: "total_ttc", label: "Total TTC" },
@@ -977,11 +1047,8 @@ function invField(r: Record<string, unknown>, keys: string[]): unknown {
   return null;
 }
 
-function fmtCell(v: unknown): string {
-  if (v === null || v === undefined) return "—";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
-}
+/** Generic cell — dates, UUIDs, enums and objects render human-readable (§5). */
+const fmtCell = smartCell;
 
 export function InvoicesPage() {
   const [rows, setRows] = React.useState<Record<string, unknown>[] | null>(null);
@@ -990,7 +1057,14 @@ export function InvoicesPage() {
   const [draftOpen, setDraftOpen] = React.useState(false);
   const [submitTarget, setSubmitTarget] = React.useState<Record<string, unknown> | null>(null);
   const [editId, setEditId] = React.useState<string | null>(null);
+  const [clientName, setClientName] = React.useState<Record<string, string>>({});
   const reload = () => setNonce((n) => n + 1);
+
+  React.useEffect(() => {
+    loadClients()
+      .then((opts) => setClientName(Object.fromEntries(opts.map((o) => [o.id, o.label]))))
+      .catch(() => {}); // name resolution is best-effort — the table still renders
+  }, []);
 
   React.useEffect(() => {
     let live = true;
@@ -1045,10 +1119,11 @@ export function InvoicesPage() {
             {rows.map((r, i) => (
               <TR key={i}>
                 <TD className="text-sm">{fmtCell(invField(r, ["doc_number", "ref"]) ?? "— (draft)")}</TD>
+                <TD className="text-sm">{clientName[String(invField(r, ["client_id"]) ?? "")] || "—"}</TD>
                 <TD className="text-sm">{fmtCell(invField(r, ["type"]))}</TD>
-                <TD className="text-sm">{fmtCell(invField(r, ["status", "state"]))}</TD>
-                <TD className="num text-sm">{fmtCell(invField(r, ["total_ttc", "total", "amount_ttc"]))}</TD>
-                <TD className="text-sm">{fmtCell(invField(r, ["created_at", "issued_on"]))}</TD>
+                <TD className="text-sm">{enumLabel(String(invField(r, ["status", "state"]) ?? "") || null)}</TD>
+                <TD className="num text-sm">{moneyFmt(invField(r, ["total_ttc", "total", "amount_ttc"]) as number | string | null)}</TD>
+                <TD className="text-sm">{dateFmt(invField(r, ["created_at", "issued_on"]) as string | null)}</TD>
                 <TD>
                   {isDraft(r) ? (
                     <div className="flex gap-2">
@@ -1103,49 +1178,87 @@ export const AssetsPage = () => (
 );
 
 /* ── report viewer with period filters ──────────────────────────── */
-function fmt(v: unknown): string {
-  if (v === null || v === undefined) return "—";
-  if (typeof v === "boolean") return v ? "yes" : "no";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
-}
+/** Report cells are dynamic — smartCell formats ISO dates, groups the ledger's
+ *  "1200000.00" decimal strings, spaces enums and never dumps raw JSON (§5). */
+const fmt = smartCell;
 
-function Report({ data }: { data: unknown }) {
-  if (Array.isArray(data)) {
-    if (data.length === 0) return <EmptyState title="Nothing to show" hint="The report returned no rows." />;
-    const cols = Object.keys(data[0] as Record<string, unknown>).slice(0, 8);
-    return (
-      <Table>
-        <THead>
-          <TR>
+const keyLabel = (k: string): string => {
+  // single-digit keys in statements are SYSCOHADA account classes
+  if (/^[1-9]$/.test(k)) return `Class ${k}`;
+  const s = k.replace(/_/g, " ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+function ReportTable({ rows }: { rows: Record<string, unknown>[] }) {
+  if (rows.length === 0) return <EmptyState title="Nothing to show" hint="The report returned no rows." />;
+  const cols = Object.keys(rows[0]).slice(0, 8);
+  return (
+    <Table>
+      <THead>
+        <TR>
+          {cols.map((c) => (
+            <TH key={c}>{keyLabel(c)}</TH>
+          ))}
+        </TR>
+      </THead>
+      <TBody>
+        {rows.map((r, i) => (
+          <TR key={i}>
             {cols.map((c) => (
-              <TH key={c}>{c.replace(/_/g, " ")}</TH>
+              <TD key={c} className="num text-sm">
+                {fmt(r[c])}
+              </TD>
             ))}
           </TR>
-        </THead>
-        <TBody>
-          {(data as Record<string, unknown>[]).map((r, i) => (
-            <TR key={i}>
-              {cols.map((c) => (
-                <TD key={c} className="num text-sm">
-                  {fmt(r[c])}
-                </TD>
-              ))}
-            </TR>
-          ))}
-        </TBody>
-      </Table>
-    );
-  }
-  const entries = data && typeof data === "object" ? Object.entries(data as Record<string, unknown>) : [];
-  if (entries.length === 0) return <EmptyState title="No data" hint="The report returned nothing for this period." />;
+        ))}
+      </TBody>
+    </Table>
+  );
+}
+
+function KVCard({ title, entries }: { title?: string; entries: [string, unknown][] }) {
   return (
     <div className="lux-card divide-y">
+      {title && <div className="px-5 py-2.5 text-sm font-semibold">{title}</div>}
       {entries.map(([k, v]) => (
         <div key={k} className="flex items-center justify-between gap-4 px-5 py-3">
-          <span className="text-sm text-muted-foreground">{k.replace(/_/g, " ")}</span>
+          <span className="text-sm text-muted-foreground">{keyLabel(k)}</span>
           <span className="num text-sm font-medium">{fmt(v)}</span>
         </div>
+      ))}
+    </div>
+  );
+}
+
+/** Statement/report payloads come in three shapes: a plain array of rows, an
+ *  object wrapping a rows array + totals (trial balance, grand livre), or an
+ *  object of figures with nested groups (notes: class_balances). Render each
+ *  part properly — line items as tables, nested groups as their own card —
+ *  instead of collapsing them to "5 items" / truncated pairs. */
+function Report({ data }: { data: unknown }) {
+  if (Array.isArray(data)) return <ReportTable rows={data as Record<string, unknown>[]} />;
+  const entries = data && typeof data === "object" ? Object.entries(data as Record<string, unknown>) : [];
+  if (entries.length === 0) return <EmptyState title="No data" hint="The report returned nothing for this period." />;
+
+  const arrays = entries.filter((e): e is [string, Record<string, unknown>[]] => Array.isArray(e[1]));
+  const objects = entries.filter((e): e is [string, Record<string, unknown>] => !!e[1] && typeof e[1] === "object" && !Array.isArray(e[1]));
+  const scalars = entries.filter(([, v]) => !v || typeof v !== "object");
+
+  return (
+    <div className="space-y-4">
+      {arrays.map(([k, rows]) => (
+        <div key={k}>
+          {arrays.length + objects.length + scalars.length > 1 && <div className="micro mb-2 uppercase tracking-wide">{keyLabel(k)}</div>}
+          {rows.length && typeof rows[0] === "object" && !Array.isArray(rows[0]) ? (
+            <ReportTable rows={rows} />
+          ) : (
+            <span className="micro">{rows.length ? rows.map((x) => fmt(x)).join(" · ") : "No rows."}</span>
+          )}
+        </div>
+      ))}
+      {scalars.length > 0 && <KVCard entries={scalars} />}
+      {objects.map(([k, obj]) => (
+        <KVCard key={k} title={keyLabel(k)} entries={Object.entries(obj)} />
       ))}
     </div>
   );
@@ -1703,8 +1816,8 @@ function DeclarationsPanel() {
                 <TR key={id}>
                   <TD className="text-sm font-medium">{String(r.kind ?? "—")}</TD>
                   <TD className="text-sm">{String(r.period_code ?? "—")}</TD>
-                  <TD className="num text-sm">{fmt(r.amount)}</TD>
-                  <TD className="text-sm">{r.due_on ?? "—"}</TD>
+                  <TD className="num text-sm">{moneyFmt(r.amount as number | string | null)}</TD>
+                  <TD className="text-sm">{dateFmt(r.due_on as string | null)}</TD>
                   <TD>
                     <DeclStatusPill status={s} />
                   </TD>
@@ -2124,9 +2237,9 @@ export function CreditNotesPage() {
             {rows.map((r) => (
               <TR key={String(r.credit_note_id)}>
                 <TD className="text-sm">{fmtCell(r.doc_number ?? "— (draft)")}</TD>
-                <TD className="text-sm">{fmtCell(r.status)}</TD>
-                <TD className="num text-sm">{fmtCell(r.total_ttc)}</TD>
-                <TD className="text-sm">{fmtCell(r.created_at)}</TD>
+                <TD className="text-sm">{enumLabel(r.status ? String(r.status) : null)}</TD>
+                <TD className="num text-sm">{moneyFmt(r.total_ttc as number | string | null)}</TD>
+                <TD className="text-sm">{dateFmt(r.created_at as string | null)}</TD>
                 <TD>
                   {isDraft(r) ? (
                     <div className="flex gap-2">

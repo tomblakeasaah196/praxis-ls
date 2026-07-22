@@ -55,6 +55,53 @@ export function todayISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Humanize a SCREAMING_SNAKE enum token: "SUBMITTED_FOR_VALIDATION" →
+ *  "Submitted for validation". Tokens without underscores keep their case
+ *  ("DRAFT", "XAF") so codes and currencies aren't mangled. */
+export function enumLabel(v?: string | null): string {
+  if (!v) return "—";
+  const s = String(v);
+  if (!s.includes("_")) return s;
+  const spaced = s.replace(/_/g, " ").toLowerCase();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Generic human-readable cell (FE_DESIGN_RULES §5) for tables that render
+ * unknown/dynamic values (report viewers, ResourceList, raw-record tables).
+ * ISO timestamps → dateTimeFmt, plain dates → dateFmt, UUIDs → first 8 chars,
+ * numeric strings → grouped, SCREAMING_SNAKE → spaced, objects → "k: v" pairs
+ * instead of raw JSON. Known-shape tables should still use the specific
+ * formatters (money/dateFmt/…) directly.
+ */
+export function smartCell(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "number") return Number.isInteger(v) ? v.toLocaleString("en-US") : v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (Array.isArray(v)) return v.length ? `${v.length} item${v.length === 1 ? "" : "s"}` : "—";
+  if (typeof v === "object") {
+    const pairs = Object.entries(v as Record<string, unknown>).filter(([, x]) => x !== null && x !== undefined && x !== "");
+    if (!pairs.length) return "—";
+    return pairs.slice(0, 4).map(([k, x]) => `${k.replace(/_/g, " ")}: ${typeof x === "object" ? "…" : String(x)}`).join(" · ") + (pairs.length > 4 ? " · …" : "");
+  }
+  const s = String(v);
+  if (ISO_DATETIME_RE.test(s)) return dateTimeFmt(s);
+  if (ISO_DATE_RE.test(s)) return dateFmt(s);
+  if (UUID_RE.test(s)) return s.slice(0, 8);
+  // Group ONLY decimal strings (the ledger's "1200000.00" money shape) — integer
+  // strings stay raw: they may be account codes, period years or doc numbers.
+  if (/^-?\d+\.\d+$/.test(s)) {
+    const n = Number(s);
+    if (Number.isFinite(n)) return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  if (/^[A-Z][A-Z0-9_]*_[A-Z0-9_]+$/.test(s)) return enumLabel(s);
+  return s;
+}
+
 /**
  * Render any value as table/detail cell text. Empty → em dash.
  *

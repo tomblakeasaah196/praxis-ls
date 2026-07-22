@@ -50,10 +50,17 @@ async function transition(client, { id, to, actor = {} }) {
 
 
 const round2 = (n) => Math.round(n * 100) / 100;
+const { reconcile } = require("../../costing/costing/costing.rules");
+
+const person = (id, name) => (id ? { user_id: id, name: name || null } : null);
 
 /**
  * 360° view of a dossier: header + downstream rollups, plus derived economics
- * (billed vs planned/actual cost, gross margin, receivable outstanding).
+ * (billed vs planned/actual cost, gross margin, receivable outstanding), the
+ * Money breakdown (service HT / débours / TVA / margin / budget-vs-actual), the
+ * SoD People (issuer/validator/approver with names) and document rows.
+ * Margin keys are named so the `dossier.margin` field-mask catches them
+ * (`dossier_margin`, `margin_percent`) — Sales/Ops receive them nulled.
  */
 async function overview(client, id) {
   const dossier = await repo.get(client, id);
@@ -65,15 +72,50 @@ async function overview(client, id) {
   const grossMargin = round2(billed - actualCost);
   const marginPercent = billed > 0 ? round2((grossMargin / billed) * 100) : 0;
   const milestones = agg.milestones.reduce((acc, m) => { acc[m.status] = m.n; return acc; }, {});
+
+  // Money breakdown. Revenue side is the LOCKED final invoices (what was actually
+  // billed); dossier margin = HT revenue (service + débours, VAT excluded) minus
+  // ALL actual direct costs — débours are billed at cost so they net out of the
+  // margin when re-invoiced 1:1 (KB §6.7).
+  const serviceHt = Number(agg.invoices.billed_service_ht || 0);
+  const deboursBilled = Number(agg.invoices.billed_debours || 0);
+  const vatTotal = Number(agg.invoices.billed_vat || 0);
+  const revenueHt = round2(serviceHt + deboursBilled);
+  const dossierMargin = round2(revenueHt - actualCost);
+  const money = {
+    service_ht: serviceHt,
+    debours_total: deboursBilled,
+    vat_total: vatTotal,
+    revenue_ht: revenueHt,
+    billed_ttc: billed,
+    planned_service_cost: Number(agg.costing.planned_service_cost || 0),
+    planned_debours: Number(agg.costing.planned_debours || 0),
+    planned_cost: plannedCost,
+    actual_cost: actualCost,
+    dossier_margin: dossierMargin,
+    margin_percent: revenueHt > 0 ? round2((dossierMargin / revenueHt) * 100) : 0,
+    budget: reconcile(plannedCost, actualCost),
+  };
+
+  const cp = agg.people.costing;
+  const ip = agg.people.invoice;
+  const people = {
+    costing: cp ? { doc_number: cp.doc_number, status: cp.status, validator: person(cp.validator_id, cp.validator_name), approver: person(cp.approver_id, cp.approver_name) } : null,
+    invoice: ip ? { doc_number: ip.doc_number, status: ip.status, issuer: person(ip.issuer_id, ip.issuer_name), validator: person(ip.validator_id, ip.validator_name), approver: person(ip.approver_id, ip.approver_name) } : null,
+  };
+
   return {
     dossier: { dossier_id: dossier.dossier_id, ref: dossier.ref, status: dossier.status, client_id: dossier.client_id, service_type_id: dossier.service_type_id },
     costing: { count: agg.costing.count, planned_cost: plannedCost },
     costs: { actual_cost: actualCost, gl_entries: agg.actual.entries },
     invoicing: { count: agg.invoices.count, invoiced_ttc: Number(agg.invoices.invoiced_ttc || 0), billed_ttc: billed, outstanding: Number(agg.outstanding.outstanding || 0) },
     economics: { billed_ttc: billed, actual_cost: actualCost, gross_margin: grossMargin, margin_percent: marginPercent },
+    money,
+    people,
     milestones,
     procurement: { po_count: agg.procurement.po_count, po_total: Number(agg.procurement.po_total || 0) },
     documents: { transit_orders: agg.transit.count, delivery_notes: agg.delivery.count },
+    document_rows: agg.documentRows,
   };
 }
 

@@ -12,7 +12,7 @@ import { PageHeader, DataList, type Column } from "@/components/data-list";
 import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { useList, useResource, errMsg } from "@/lib/use-resource";
-import { money, dateFmt, todayISO } from "@/lib/format";
+import { money, dateFmt, todayISO, enumLabel } from "@/lib/format";
 import type { Client, Entity } from "@/lib/masterdata-api";
 import * as api from "@/lib/finance-api";
 
@@ -132,14 +132,21 @@ function PostForm({ receipt, onClose, onSaved }: { receipt: api.Receipt; onClose
 function ReceiptDrawer({ receipt, clientLabel, onClose }: { receipt: api.Receipt; clientLabel: string; onClose: () => void }) {
   const d = useResource(() => api.getReceipt(receipt.receipt_id), [receipt.receipt_id]);
   const rec = d.data;
+  // allocation rows carry invoice_id only — resolve to doc numbers (§5)
+  const { rows: invoices } = useList<api.InvoiceRow>("/final-invoices");
+  const invoiceNo = React.useMemo(() => {
+    const m: Record<string, string> = {};
+    (invoices || []).forEach((iv) => { if (iv.doc_number) m[iv.invoice_id] = iv.doc_number; });
+    return m;
+  }, [invoices]);
   return (
-    <Modal open onClose={onClose} size="lg" title={`Receipt · ${money(receipt.amount)}`} description={`${clientLabel} · ${receipt.method.replace(/_/g, " ")}`}>
+    <Modal open onClose={onClose} size="lg" title={`Receipt · ${money(receipt.amount)}`} description={`${clientLabel} · ${enumLabel(receipt.method)}`}>
       {d.loading ? <div className="py-8 text-center micro">Loading…</div> : d.error ? <ErrorState message={errMsg(d.error)} /> : rec ? (
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-border bg-card/40 px-3.5 py-2.5"><div className="micro mb-1">Amount</div><div className="num text-lg font-medium text-[rgb(var(--primary))]">{money(rec.amount)}</div></div>
             <div className="rounded-lg border border-border bg-card/40 px-3.5 py-2.5"><div className="micro mb-1">Received</div><div className="num text-lg font-medium">{dateFmt(rec.received_on)}</div></div>
-            <div className="rounded-lg border border-border bg-card/40 px-3.5 py-2.5"><div className="micro mb-1">Status</div><div className="mt-1"><Pill tone={tone(rec.status)}>{rec.status}</Pill></div></div>
+            <div className="rounded-lg border border-border bg-card/40 px-3.5 py-2.5"><div className="micro mb-1">Status</div><div className="mt-1"><Pill tone={tone(rec.status)}>{enumLabel(rec.status)}</Pill></div></div>
           </div>
           <div>
             <div className="micro mb-2">Allocations (FIFO)</div>
@@ -147,7 +154,7 @@ function ReceiptDrawer({ receipt, clientLabel, onClose }: { receipt: api.Receipt
               <ol className="space-y-1.5">
                 {(rec.allocations || []).map((a, i) => (
                   <li key={a.allocation_id || i} className="flex items-center justify-between rounded-md border border-border px-3 py-1.5">
-                    <span className="num text-sm">{a.invoice_id ? a.invoice_id.slice(0, 8) : "—"}</span>
+                    <span className="num text-sm">{a.invoice_id ? invoiceNo[a.invoice_id] || `Invoice ${a.invoice_id.slice(0, 8)}` : "—"}</span>
                     <span className="num text-sm text-[rgb(var(--primary))]">{money(a.amount)}</span>
                   </li>
                 ))}
@@ -174,9 +181,9 @@ export function ReceivablesPage() {
   const columns: Column<api.Receipt>[] = [
     { key: "received_on", label: "Received", render: (r) => <span className="num">{dateFmt(r.received_on)}</span> },
     { key: "client_id", label: "Client", render: (r) => (r.client_id ? clientName[r.client_id] || "—" : "—") },
-    { key: "method", label: "Method", render: (r) => <Pill tone="mute">{r.method.replace(/_/g, " ")}</Pill> },
+    { key: "method", label: "Method", render: (r) => <Pill tone="mute">{enumLabel(r.method)}</Pill> },
     { key: "amount", label: "Amount", className: "num text-right", render: (r) => money(r.amount) },
-    { key: "status", label: "Status", render: (r) => <Pill tone={tone(r.status)}>{r.status}</Pill> },
+    { key: "status", label: "Status", render: (r) => <Pill tone={tone(r.status)}>{enumLabel(r.status)}</Pill> },
     {
       key: "_a", label: "", render: (r) => (
         <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>

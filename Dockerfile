@@ -21,13 +21,27 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+# `npm install`, NOT `npm ci`: the lockfile is Windows-generated, so `ci` would
+# omit the Linux/musl platform binaries (sharp, argon2, …) and the app would
+# crash at require-time. install re-resolves platform-specific optional deps.
+RUN npm install --omit=dev --no-audit --no-fund
+
+# ---- SPA build ------------------------------------------------------------
+# server.js serves client/dist as the single-origin PWA when it exists — the
+# deployed container must ship it or users get a bare API. The client declares
+# "praxis-ls": "file:.." so the whole repo is the build context here. Same
+# Windows-lockfile caveat → npm install (vite/rollup need linux-musl binaries).
+FROM base AS clientbuild
+COPY . .
+RUN npm install --prefix client --no-audit --no-fund \
+ && npm run build --prefix client
 
 FROM base AS runtime
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+COPY --from=clientbuild /app/client/dist ./client/dist
 ENV NODE_ENV=production
-EXPOSE 3000
+EXPOSE 8080
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "src/server.js"]
 
