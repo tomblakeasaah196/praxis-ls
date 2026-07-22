@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { RequireAuth } from "@/app/auth/require-auth";
 import { AppShell } from "@/app/layout/app-shell";
 import { LandingPage } from "@/features/landing/landing-page";
+import { HelpPage } from "@/features/help/help-page";
 import { DashboardPage } from "@/features/dashboard";
 import { SecurityHub } from "@/features/security/hub";
 import { AuditPage, NotificationsPage, WorkflowsPage, ApprovalsPage } from "@/features/governance/pages";
@@ -94,6 +95,7 @@ export function App() {
         {/* --- IA-map screens not yet built → shared placeholder (see doc/FE_IA_HANDOFF.md) --- */}
         {/* Overview */}
         <Route path="workspace" element={<WorkspacePage />} />
+        <Route path="help" element={<HelpPage />} />
         <Route path="godmode" element={<GodModePage />} />
         {/* AI Control — governance admin hub */}
         <Route path="ai-control" element={<AiControlHub />} />

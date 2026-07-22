@@ -53,6 +53,48 @@ function fmt(v: unknown): string {
   return String(v);
 }
 
+/**
+ * Build id→label maps for every picker field, so table columns whose key matches
+ * a picker field name render a human name instead of a raw UUID (e.g. location_id
+ * → "A · 01 · R1 · B1", client_id → "Dangote Cement", dossier_id → "SBX-2026-…").
+ * Fetches each FK endpoint once; static-option fields resolve from their options.
+ */
+function useLabelMaps(fields: FieldSpec[]): Record<string, Record<string, string>> {
+  const [maps, setMaps] = React.useState<Record<string, Record<string, string>>>({});
+  const sig = fields.map((f) => `${f.name}:${f.optionsEndpoint ?? ""}:${f.options ? "s" : ""}`).join("|");
+  React.useEffect(() => {
+    let live = true;
+    const pickers = fields.filter((f) => f.type === "select" && (f.optionsEndpoint || f.options));
+    Promise.all(
+      pickers.map(async (f) => {
+        const m: Record<string, string> = {};
+        if (f.options) {
+          for (const o of f.options) m[String(o.value)] = o.label;
+        } else if (f.optionsEndpoint) {
+          try {
+            const rows = await tenant<Record<string, unknown>[]>(f.optionsEndpoint);
+            const vKey = f.optionValue || "id";
+            for (const r of Array.isArray(rows) ? rows : []) {
+              const val = String(r[vKey] ?? "");
+              if (!val) continue;
+              m[val] = typeof f.optionLabel === "function" ? f.optionLabel(r) : String(r[(f.optionLabel as string) || vKey] ?? val);
+            }
+          } catch {
+            /* leave empty — falls back to the raw value */
+          }
+        }
+        return [f.name, m] as const;
+      }),
+    ).then((entries) => {
+      if (live) setMaps(Object.fromEntries(entries));
+    });
+    return () => {
+      live = false;
+    };
+  }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
+  return maps;
+}
+
 /** Load + cache FK options for a single field. */
 function useOptions(field: FieldSpec): { value: string; label: string }[] {
   const [opts, setOpts] = React.useState<{ value: string; label: string }[]>(field.options ?? []);
@@ -191,6 +233,7 @@ export function CrudResource({
   const [editing, setEditing] = React.useState<Record<string, unknown> | null>(null);
   const [creating, setCreating] = React.useState(false);
   const reload = React.useCallback(() => setNonce((n) => n + 1), []);
+  const labelMaps = useLabelMaps(fields);
 
   React.useEffect(() => {
     let live = true;
@@ -243,7 +286,7 @@ export function CrudResource({
               <TR key={String(r[idKey] ?? i)}>
                 {columns.map((c) => (
                   <TD key={c.key} className="text-sm">
-                    {c.render ? c.render(r) : fmt(r[c.key])}
+                    {c.render ? c.render(r) : (labelMaps[c.key]?.[String(r[c.key])] ?? fmt(r[c.key]))}
                   </TD>
                 ))}
                 {(canEdit || canDelete) && (

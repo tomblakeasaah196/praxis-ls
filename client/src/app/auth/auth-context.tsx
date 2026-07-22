@@ -10,7 +10,7 @@
  * a code and calls verify2fa().
  */
 import * as React from "react";
-import { tenant, ApiError } from "@/lib/api-client";
+import { tenant, ApiError, tryRefresh } from "@/lib/api-client";
 import { tokenStore } from "@/lib/token-store";
 import { pinStore } from "@/lib/pin-store";
 
@@ -68,18 +68,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Boot: if we have a refresh token, exchange it for an access token and
   // restore the cached user. Otherwise we're anonymous.
   React.useEffect(() => {
-    const refresh_token = tokenStore.getRefresh();
-    if (!refresh_token) {
+    if (!tokenStore.getRefresh()) {
       setStatus("anon");
       return;
     }
-    tenant<{ access_token: string; refresh_token?: string }>("/auth/refresh", { method: "POST", auth: false, body: { refresh_token } })
-      .then((r) => {
-        tokenStore.setAccess(r.access_token);
-        // Support refresh-token rotation if the BE returns a new one on refresh.
-        if (r.refresh_token) tokenStore.setRefresh(r.refresh_token);
-        setUser(readUser());
-        setStatus("authed");
+    // Go through the SHARED, de-duped refresh (api-client) rather than a separate
+    // fetch. The BE rotates the refresh token every time and revokes the session
+    // if a rotated-away token is replayed; a standalone boot refresh racing the
+    // first screen requests' 401-retries would present the same token twice and
+    // trip that reuse-detection, logging the user out well before the 30-min
+    // idle window. Sharing the de-dupe collapses them into one rotation.
+    tryRefresh()
+      .then((ok) => {
+        if (ok) {
+          setUser(readUser());
+          setStatus("authed");
+        } else {
+          tokenStore.clear();
+          persistUser(null);
+          setStatus("anon");
+        }
       })
       .catch(() => {
         tokenStore.clear();

@@ -11,7 +11,7 @@ import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { ErrorState } from "@/components/ui/states";
 import { useResource, errMsg } from "@/lib/use-resource";
-import { money, num, dateFmt } from "@/lib/format";
+import { money, num, dateFmt, humanizeEvent, humanizeRef } from "@/lib/format";
 import { tenant } from "@/lib/api-client";
 
 type Approval = { approval_task_id?: string; id?: string; entity_ref?: string | null; step_kind?: string | null; amount_xaf?: number | string | null; status?: string | null; created_at?: string | null };
@@ -68,7 +68,7 @@ export function WorkspacePage() {
                     <li key={a.approval_task_id || a.id || i} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
                       <span className="flex items-center gap-2">
                         {a.step_kind && <Pill tone="blue">{a.step_kind}</Pill>}
-                        <span className="num">{a.entity_ref || "—"}</span>
+                        <span>{humanizeRef(a.entity_ref) || "—"}</span>
                       </span>
                       <span className="num text-muted-foreground">{money(a.amount_xaf)}</span>
                     </li>
@@ -100,7 +100,7 @@ export function WorkspacePage() {
                 <ol className="space-y-1.5">
                   {activity.slice(0, 12).map((e, i) => (
                     <li key={e.event_id || e.id || i} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="truncate"><span className="font-medium text-foreground">{e.action || e.event_type_key || "event"}</span>{e.entity_ref ? <span className="num text-muted-foreground"> · {e.entity_ref}</span> : null}</span>
+                      <span className="truncate"><span className="font-medium text-foreground">{humanizeEvent(e.action || e.event_type_key)}</span>{e.entity_ref ? <span className="text-muted-foreground"> · {humanizeRef(e.entity_ref)}</span> : null}</span>
                       <span className="micro shrink-0">{dateFmt(e.created_at)}</span>
                     </li>
                   ))}

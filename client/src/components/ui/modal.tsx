@@ -97,7 +97,11 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
     <select
       ref={ref}
       className={cn(
-        "flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm",
+        // Solid bg + explicit option colours so the native dropdown list is
+        // legible in dark mode (a transparent select renders its option popup
+        // with the browser default — light bg + light text = unreadable).
+        "flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm",
+        "[&>option]:bg-background [&>option]:text-foreground",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,

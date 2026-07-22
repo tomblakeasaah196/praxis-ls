@@ -15,6 +15,7 @@
 import * as React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/auth/auth-context";
+import { useBranding } from "@/app/branding/branding-context";
 import { ApiError } from "@/lib/api-client";
 import { OtpInput } from "@/components/ui/otp-input";
 import {
@@ -34,6 +35,8 @@ type Stage = "credentials" | "twofa";
 
 export function LoginModal({ onClose }: { onClose: () => void }) {
   const { login, verify2fa, pinLogin } = useAuth();
+  const { branding } = useBranding();
+  const brandName = branding.name || "Praxis LS";
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from || "/";
@@ -135,7 +138,7 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
           <XIcon />
         </button>
 
-        <p className="login-card-kicker">The Pixie Hub</p>
+        <p className="login-card-kicker">{brandName}</p>
         <h2 className="login-card-title">Welcome back</h2>
         <p className="login-card-sub">
           {stage === "twofa" ? "Two-factor authentication" : "Sign in to your command center."}

@@ -3,7 +3,26 @@
 Paste-in context for a fresh session, plus a running record of the FE reskin work.
 Companion to `doc/WORK_DONE.md` (full history) and `doc/WORK_TO_BE_DONE.md` (backlog).
 
-_Last updated: 2026-07-20 (session 10). **Session 10 = the CEO "access denied" root cause (it was never
+_Last updated: 2026-07-22 (session 11). **Session 11 = a large FE + tooling batch.** Headline:
+verified most "pending" modules were **already built** (tax filing, asset depreciation/disposal,
+portals, Smart Comms, payroll compute+auto-post); built the **sandbox data tooling**
+(`scripts/tenant/seed-sandbox.sql` + `.js` for a full business dataset into the *sandbox* schema,
+and `scripts/tenant/seed-money-path.js` — API-driven, posts advance→invoice→receipt→payroll→
+depreciation so Statements/GL populate; idempotent per period; doc `SANDBOX_TESTING.md`); added the
+**S3 storage driver** (`STORAGE_DRIVER=s3`); built **Fleet/WMS/HR FE CRUD** on a new shared
+`CrudResource` (FK columns resolve to human names); **Smart Comms real-time** (`src/realtime/`
+socket.io + service emit hooks + FE `useCommsChannel`); **portal external-user auth**
+(`src/modules/portal_auth/` + migration `0460_portal_user.sql`); fixed **early logout** (refresh
+de-dup — the boot restore now shares api-client's de-duped `tryRefresh`, so refresh-token
+reuse-detection stops revoking the session, worse under React StrictMode); and a **FE polish pass**
+(command palette redesign, header Messages/Notifications icons with unread badges + user avatar
+menu, floating Comms/AI action cluster, dark-mode `<select>` fix, login brand → **Praxis LS**,
+Light/Dark-only theme toggle, full Appearance preview, Help center page, human-readable activity
+feed + dates). Docs: `FE_DESIGN_RULES` §5 (human-readable data) + `CrudResource`. **Owed:** the
+operations **360° modal full-match** (BE overview extension for débours/TVA/margin + issuer/
+validator/approver, then tabbed modal) — next; Windows `npm run lint`/`npm test`/`npm run build
+--prefix client`; `npm install` (root: AWS SDK; client: socket.io-client); apply migration `0460`.
+Full detail in the session-11 log below. Prior: **Session 10 = the CEO "access denied" root cause (it was never
 RBAC), a merge audit, the Pixie permission matrix, Control Tower de-mocking, and skeleton loading.**
 Headline: **19 built modules were dark for every user in the tenant, CEO included** — `requireFeature`
 (`middleware/feature-gate.js`) is mounted in front of the whole router by `module-loader.js` and has **no
@@ -268,6 +287,118 @@ revert that file; nothing depends on it. Note it improves caching/parallel downl
 bytes** — routes are still eagerly imported; route-level `React.lazy` is the deferred follow-up.
 
 **Remaining FE:** only **Factory languages** and **Help center**, both genuinely BE-blocked (no endpoint).
+
+## Session log — 2026-07-22 (session 11: verification, sandbox tooling, FE CRUD, real-time comms, portal auth, FE polish)
+
+A large batch. **In-sandbox validation was not possible for most of it** (the workspace shell was
+flaky and the DB/API run on the user's Windows box), so **treat the first Windows `npm run build
+--prefix client` + `npm run lint` + `npm test` + a server boot as authoritative.**
+
+**0. Verification first — most "pending" work was already built.** Read the code rather than the
+stale docs: **tax filing** (`tax_declaration.routes.js` has `POST /declarations` + `/approve` +
+`/submit`, and the FE `DeclarationsPanel`/`FileDeclarationForm`/`SubmitDeclarationForm` in
+`finance/pages.tsx`), **asset depreciation/disposal** (`asset` MOD-54 `/depreciate` + `/dispose`),
+**portals** (client/investor/auditor scoped views), **Smart Comms** (channels/messages/reactions/
+certify), and **payroll depth** (`hr/payroll/payroll.rules.js` is the full CNPS/IRPP/CAC/CFC/FNE
+engine with compute-over-roster + a balanced auto-posted journal) are all present. Net: the FS
+colleague's lane is further along than `WORK_TO_BE_DONE_NEXT.md` implies; that doc is stale.
+**Support & Feedback dashboard (PRD §11.2) is genuinely not built** and is **held until the
+platform/dev console exists** — it's a tenant→Praxis channel whose triage half lives on that console.
+
+**1. Sandbox data tooling (new).** `scripts/tenant/seed-sandbox.sql` (+ thin `seed-sandbox.js`
+runner) seeds a full Cameroon freight-forwarder dataset into the **sandbox schema only**
+(`SET search_path = sandbox`), idempotent (guards on entity `SBX`). Two non-obvious things it must
+do, discovered by running it: (a) **mirror identity users into sandbox** —
+`INSERT INTO app_user SELECT * FROM live.app_user ON CONFLICT DO NOTHING` — because business tables
+carry per-schema FKs to `app_user` (`invoice.issued_by`, the audit ledger actor, …) and
+`sandbox.app_user` is otherwise empty, so any TEST-mode write 23503s. **⚠️ This is a real latent gap
+for TEST mode generally — the app should replicate identity into sandbox at provision / sandbox-wipe,
+not just in the seed.** (b) **seed accounting journals (VT/AC/BQ/PAIE/OD) + an OPEN
+`accounting_period` per entity** — posting looks both up by entity, and a raw-SQL entity insert
+skips whatever normally creates them. Finance docs are seeded pre-posting (no journal rows), so the
+GL stays clean.
+`scripts/tenant/seed-money-path.js` is the **API-driven** complement: logs in, runs against sandbox
+(`X-Praxis-Env: sandbox`, refuses if the tenant `is_live`), and drives the real endpoints —
+advance → invoice draft/submit(auto-post) → receipt post → payroll compute→SUBMITTED→APPROVED→
+VALIDATED → asset depreciate — so trial balance / statements / true ageing populate. **Idempotent
+per period** via a marker in the settings store (`/settings/seed/money-path`). Target host defaults
+to `localhost:<PORT>` (Windows binds Node on IPv6 `::1`; `127.0.0.1` may be another service); it
+does a `/api/health` preflight. Doc: `doc/SANDBOX_TESTING.md`.
+
+**2. S3 storage driver.** `services/storage.service.js` now ships `local` (default) + `s3` behind
+`STORAGE_DRIVER`. The `s3` driver targets any S3-compatible store (AWS/MinIO/Wasabi/B2/R2) via
+`S3_ENDPOINT/BUCKET/REGION/ACCESS_KEY/SECRET_KEY/FORCE_PATH_STYLE` (all in `env.js`) + optional
+`CDN_BASE_URL`, adds `signedUrl(key, ttl)` (presigned GET), and **lazily requires** the AWS SDK so
+local installs don't need it. `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` added to
+`package.json` — **`npm install` at the repo root** before `STORAGE_DRIVER=s3`. Supersedes the PRD
+§8 "no S3" line (S3 is now opt-in; local stays default).
+
+**3. Fleet / WMS / HR FE — full CRUD.** New shared **`client/src/components/crud-resource.tsx`**
+(`CrudResource`): list + create/edit/delete from a declarative `fields` spec that matches the BE
+zod validators (numbers coerced, empty optional UUIDs omitted, FK `<select>` pickers from an
+`optionsEndpoint`), and **resolves FK columns to human names** in the table. All three lanes
+(`features/fleet|wms|hr/pages.tsx`) are now thin field-specs on it — converted from read-only
+`ResourceList` skeletons. Field bodies were written against each module's actual validator.
+
+**4. Smart Comms real-time.** New **`src/realtime/index.js`** (socket.io on the same HTTP server;
+`initSocket` wired in `server.js`). Authenticated exactly like HTTP (JWT + host→tenant + active-user
+check), **membership re-checked on every `channel:join`**, tenant-namespaced rooms
+(`t:<slug>:c:<groupId>`). `smartcomm.service` publishes after each committed write (post/edit/delete/
+react/read) + a typing indicator. FE: `client/src/lib/comms-socket.ts` (`useCommsChannel`) wired
+into `features/comms/team-chat.tsx` (live messages + typing; the 8s poll stays as a fallback).
+`socket.io-client` added to `client/package.json` — **`npm install` in `client/`.**
+
+**5. Portal external-user auth.** New **`src/modules/portal_auth/`** + migration
+**`0460_portal_user.sql`**. Public `POST /portal/auth/login` issues a portal-scoped JWT
+(`typ:"portal"`, off the RBAC path); `portalAuth(type)` re-checks the existing `portal_access` grant
+per request (revoke is immediate) and injects the scope; `GET /portal/{me,client,investor,auditor}`
+reuse `portal.service`'s scoped views; staff invite/manage via `MOD-67`-gated `/portal/users`.
+Auto-mounts at `/portal` (feature null → login ungated). **Apply migration 0460 to each tenant
+(live+sandbox).** FE portal *pages* still pending.
+
+**6. Early-logout fix (auth).** Access TTL is 15m; on refresh the BE **rotates** the refresh token
+and **revokes the session on reuse** (any stale refresh presented after rotation). `auth-context`'s
+boot restore did its **own** `/auth/refresh` that raced `api-client`'s de-duped one — and React
+**StrictMode double-invokes** the boot effect in dev — so two refreshes fired with the same token →
+the second looked like reuse → session revoked well before the 30-min idle window. Fix: exported
+`tryRefresh` from `api-client` and the boot restore now uses it, so **every** refresh in the tab
+(boot, StrictMode, 401-retries) collapses into one rotation. Remaining edge: **multiple tabs** (the
+de-dup is per-tab) — offer a cross-tab lock or a one-generation BE grace if it recurs.
+
+**7. FE polish pass.**
+   - **Command palette** (`components/command-palette.tsx`) rebuilt to the Pixie design: **JUMP TO**
+     (areas w/ icons) + **ACTIONS** (New file / New invoice / File a tax return / Open Messages /
+     **Ask Praxis AI…**). "Ask Praxis AI…" opens the copilot via a `praxis:open-copilot` window event.
+   - **Header** (`app-shell.tsx`): inline nav Control Tower · Operations · Fleet · Finance · More;
+     right cluster = Search · Live/Test · theme · **Messages** + **Notifications** icon links (with
+     **unread badges** from `/smartcomm/unread` [summed] + `/notifications/unread-count`) · **user
+     avatar menu** (name/email · My security · Appearance · Sign out), replacing the email+Sign-out.
+   - **Floating action cluster** (`components/floating-actions.tsx`): Pixie floatbar — primary FAB
+     (unread badge) that **opens on hover**, expanding to Praxis AI (gated on `useAiEnabled`),
+     Messages, Help. The copilot's standalone launcher was removed; the cluster opens it. **Help →
+     new `/help` Help center page** (`features/help/help-page.tsx`).
+   - **Dark-mode `<select>`** fixed in the shared `Select` (solid bg + explicit `[&>option]` colours).
+   - **Login brand** "The Pixie Hub" → tenant brand name, fallback **Praxis LS** (`login-modal.tsx`).
+   - **Theme toggle** is Light/Dark only now; "system" is just the silent initial default.
+   - **Appearance preview** now reflects **all** settings live (name, logos, all colour tokens, the
+     status tokens, display/body/mono fonts, radius, light/dark).
+   - **Human-readable data**: `lib/format.ts` gained `dateTimeFmt`, `humanizeEvent`, `humanizeRef`;
+     the workspace activity feed (`workspace-page.tsx`) and the journal-entries date
+     (`finance/pages.tsx`) now render readable values instead of raw event keys / `type:uuid` / ISO.
+     Rule written into **`doc/FE_DESIGN_RULES.md` §5**.
+
+**8. Docs updated:** `FE_DESIGN_RULES.md` (§5 human-readable data, `CrudResource`, dark-mode select),
+`WORK_TO_BE_DONE.md` (S3 done; portal external-user auth done + apply 0460; Support & Feedback held),
+`SANDBOX_TESTING.md` (money-path seeder), and this handoff.
+
+**⭐ Next (owed):** the **operations 360° modal full-match** (user approved BE+FE): extend
+`operations_file.service.overview()` + `.repo.overview()` to return the **Money breakdown**
+(service HT / débours / TVA / own direct costs / dossier margin / budget-vs-actual — from invoice
+`service_ht`/`debours_total`/`vat_total` sums + costing) and the **People** (issuer/validator/
+approver, from the costing SoD, with names), then rebuild `Dossier360Modal` in
+`features/operations/pages.tsx` into **Milestones / Money / People / Documents** tabs matching the
+user's recording. The list + a single-scroll 360° drawer already exist. Also still owed: Windows
+lint/test/build, the two `npm install`s, apply migration 0460, and the session-10 `git rm` list.
 
 ## Session log — 2026-07-20 (session 10: feature-gate root cause, merge audit, Pixie matrix, Control Tower de-mock)
 
