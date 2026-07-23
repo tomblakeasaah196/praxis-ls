@@ -495,6 +495,21 @@ because Vite serves without helmet. `server.js` now sets an explicit CSP: defaul
 directives with `script-src`/`script-src-attr` `'unsafe-inline'` and `img-src` + https:/
 blob:/data: (tenant-authored image URLs). **Tightening owed:** per-route CSP for the mock
 or convert its handlers to addEventListener, then restore defaults.
+**Lovable-fidelity polish (user compared prod side-by-side with the Lovable app):** the gap
+was detail-level, fixed in the shared kit so every screen benefits: (i) **`Pill` now
+humanizes string children** via `enumLabel` ("POSTED_LOCKED" → "Posted locked"; enumLabel
+also sentence-cases bare ALL-CAPS words ≥4 chars — "OPEN" → "Open"; ≤3-char codes XAF/TVA
+keep case); (ii) **`TH` is whitespace-nowrap** (headers never wrap); (iii) new
+**`money0()`** (grouped, 0dp, no suffix, 0/null → "—") for columns whose header carries the
+currency; (iv) operations list: nowrap on ref/client/service/route/costing columns,
+costing → money0, milestone cell shows "No milestones yet" instead of an empty bar + "0%".
+Seeded branding also now covers the **login hero** (section='login': headline/subtext/
+split/show_logo + a self-contained SVG navy-mesh background) — a fresh tenant's landing no
+longer falls back to bare generic copy. **Deeper per-screen fidelity vs the reference mock
+(doc/reference/reference-mock-lovable, read the v-<area> section first) remains available
+as a proper design wave — the full audited plan for it is in
+`doc/LOVABLE_FIDELITY_PLAN.md`** (exact reference values per component, per-file
+workstreams, execution order, constraints; audit done, kit restyle not started).
 
 ## Session log — 2026-07-20 (session 10: feature-gate root cause, merge audit, Pixie matrix, Control Tower de-mock)
 

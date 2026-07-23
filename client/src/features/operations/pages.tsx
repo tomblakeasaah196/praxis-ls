@@ -12,7 +12,7 @@ import { PageHeader, DataList, type Column } from "@/components/data-list";
 import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { useList, useResource, errMsg } from "@/lib/use-resource";
-import { money, num, dateFmt } from "@/lib/format";
+import { money, money0, num, dateFmt } from "@/lib/format";
 import type { Entity, Client } from "@/lib/masterdata-api";
 import * as api from "@/lib/operations-api";
 import { AiActions } from "@/components/ai-actions";
@@ -411,12 +411,14 @@ export function OperationsFilesPage() {
   }
 
   const columns: Column<api.Dossier>[] = [
-    { key: "ref", label: "Reference", render: (r) => <span className="num font-medium text-foreground">{r.ref}</span> },
-    { key: "client", label: "Client", render: (r) => clientOf(r) },
-    { key: "service", label: "Service", render: (r) => (r.service_key || r.service_name_en ? <Pill tone="mute">{svcLabel(r)}</Pill> : <span className="text-muted-foreground">—</span>) },
-    { key: "route", label: "Route", render: (r) => <span className="text-muted-foreground">{routeOf(r)}</span> },
+    { key: "ref", label: "Reference", className: "whitespace-nowrap", render: (r) => <span className="num font-medium text-foreground">{r.ref}</span> },
+    { key: "client", label: "Client", className: "whitespace-nowrap", render: (r) => clientOf(r) },
+    { key: "service", label: "Service", className: "whitespace-nowrap", render: (r) => (r.service_key || r.service_name_en ? <Pill tone="mute">{svcLabel(r)}</Pill> : <span className="text-muted-foreground">—</span>) },
+    { key: "route", label: "Route", className: "whitespace-nowrap", render: (r) => <span className="text-muted-foreground">{routeOf(r)}</span> },
     {
       key: "milestone", label: "Milestone", render: (r) => {
+        // no chain seeded → say so quietly; an empty bar with "0%" reads broken
+        if (!r.milestone_total) return <span className="micro">No milestones yet</span>;
         const pct = pctOf(r);
         return (
           <div className="min-w-[9rem] max-w-[12rem]">
@@ -431,7 +433,7 @@ export function OperationsFilesPage() {
         );
       },
     },
-    { key: "costing", label: "Costing · XAF", className: "num text-right", render: (r) => money(r.costing_total) },
+    { key: "costing", label: "Costing · XAF", className: "num whitespace-nowrap text-right", render: (r) => money0(r.costing_total) },
     { key: "status", label: "Status", render: (r) => <Pill tone={tone(r.status)}>{r.status}</Pill> },
     {
       key: "_a", label: "", render: (r) => (

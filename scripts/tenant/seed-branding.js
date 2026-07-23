@@ -49,6 +49,30 @@ const APPEARANCE = {
   brand_theme: "light",
 };
 
+// Login/landing hero (section='login'). The Lovable reference's cinematic
+// landing is tenant-authored content — a fresh tenant has NONE, so it falls
+// back to bare generic copy and looks nothing like the reference. Seed a
+// presentable default: dark navy mesh with orange+blue glows as an inline SVG
+// (self-contained — no asset upload, replace any time in Settings → Appearance).
+const HERO_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'>" +
+  "<defs>" +
+  "<linearGradient id='base' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='#071324'/><stop offset='100%' stop-color='#0D1F38'/></linearGradient>" +
+  "<radialGradient id='glow1' cx='82%' cy='-4%' r='70%'><stop offset='0%' stop-color='#F5821F' stop-opacity='0.38'/><stop offset='100%' stop-color='#071324' stop-opacity='0'/></radialGradient>" +
+  "<radialGradient id='glow2' cx='8%' cy='95%' r='80%'><stop offset='0%' stop-color='#1C9BD7' stop-opacity='0.30'/><stop offset='100%' stop-color='#071324' stop-opacity='0'/></radialGradient>" +
+  "</defs>" +
+  "<rect width='1600' height='900' fill='url(#base)'/>" +
+  "<rect width='1600' height='900' fill='url(#glow1)'/>" +
+  "<rect width='1600' height='900' fill='url(#glow2)'/>" +
+  "</svg>";
+const LOGIN = {
+  headline: "Your operations, one command center",
+  subtext: "Dossiers, finance, fleet and compliance — orchestrated in a single OHADA-ready workspace.",
+  layout: "split",
+  show_logo: true,
+  background_url: "data:image/svg+xml;base64," + Buffer.from(HERO_SVG).toString("base64"),
+};
+
 (async () => {
   const cli = m.client(m.tenantDbName(slug), { superuser: true });
   await cli.connect();
@@ -64,22 +88,26 @@ const APPEARANCE = {
       if (!rows.length) { console.warn(`[praxis-db] schema '${schema}' missing — skipped`); continue; }
       await cli.query(`SET search_path = ${schema}, public`);
       let wrote = 0;
-      for (const [key, value] of Object.entries(entries)) {
-        // eslint-disable-next-line no-await-in-loop
-        const res = await cli.query(
-          force
-            ? `INSERT INTO setting (section, key, value)
-                 VALUES ('appearance', $1, $2::jsonb)
-               ON CONFLICT (section, key) DO UPDATE
-                 SET value = EXCLUDED.value, updated_at = now(), version = setting.version + 1`
-            : `INSERT INTO setting (section, key, value)
-                 VALUES ('appearance', $1, $2::jsonb)
-               ON CONFLICT (section, key) DO NOTHING`,
-          [key, JSON.stringify(value)],
-        );
-        wrote += res.rowCount || 0;
+      const sections = [["appearance", entries], ["login", LOGIN]];
+      const total = Object.keys(entries).length + Object.keys(LOGIN).length;
+      for (const [section, kv] of sections) {
+        for (const [key, value] of Object.entries(kv)) {
+          // eslint-disable-next-line no-await-in-loop
+          const res = await cli.query(
+            force
+              ? `INSERT INTO setting (section, key, value)
+                   VALUES ($1, $2, $3::jsonb)
+                 ON CONFLICT (section, key) DO UPDATE
+                   SET value = EXCLUDED.value, updated_at = now(), version = setting.version + 1`
+              : `INSERT INTO setting (section, key, value)
+                   VALUES ($1, $2, $3::jsonb)
+                 ON CONFLICT (section, key) DO NOTHING`,
+            [section, key, JSON.stringify(value)],
+          );
+          wrote += res.rowCount || 0;
+        }
       }
-      console.warn(`[praxis-db] ${schema}: ${wrote}/${Object.keys(entries).length} appearance keys ${force ? "written" : "written (existing kept)"}`);
+      console.warn(`[praxis-db] ${schema}: ${wrote}/${total} appearance+login keys ${force ? "written" : "written (existing kept)"}`);
     }
     console.warn(`[praxis-db] Lovable branding seeded for tenant '${slug}' ✓ (users see it on next page load)`);
   } finally {
