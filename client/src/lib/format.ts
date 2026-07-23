@@ -8,6 +8,17 @@ export function money(amount: number | string | null | undefined, currency = "XA
   return `${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
+/** Money for table columns whose HEADER carries the currency ("Costing · XAF"):
+ *  grouped, no decimals, no suffix — "50,400,000". Zero/empty → "—" (in a list,
+ *  0 almost always means "not costed/priced yet", and a column of 0.00s reads
+ *  as noise — the Lovable reference leaves these blank). */
+export function money0(amount: number | string | null | undefined): string {
+  if (amount === null || amount === undefined || amount === "") return "—";
+  const n = typeof amount === "string" ? Number(amount) : amount;
+  if (!Number.isFinite(n) || n === 0) return "—";
+  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
 export function num(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === "") return "—";
   const n = typeof value === "string" ? Number(value) : value;
@@ -56,14 +67,17 @@ export function todayISO(): string {
 }
 
 /** Humanize a SCREAMING_SNAKE enum token: "SUBMITTED_FOR_VALIDATION" →
- *  "Submitted for validation". Tokens without underscores keep their case
- *  ("DRAFT", "XAF") so codes and currencies aren't mangled. */
+ *  "Submitted for validation", "OPEN" → "Open". Short all-caps tokens (≤3
+ *  chars: XAF, TVA, RED…) keep their case — they're codes, not words. */
 export function enumLabel(v?: string | null): string {
   if (!v) return "—";
   const s = String(v);
-  if (!s.includes("_")) return s;
-  const spaced = s.replace(/_/g, " ").toLowerCase();
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+  if (s.includes("_")) {
+    const spaced = s.replace(/_/g, " ").toLowerCase();
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+  }
+  if (/^[A-Z][A-Z0-9]{3,}$/.test(s)) return s.charAt(0) + s.slice(1).toLowerCase();
+  return s;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
