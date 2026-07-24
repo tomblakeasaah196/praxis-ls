@@ -15,6 +15,7 @@
 
 const { config } = require("../config/env");
 const { getSetting } = require("../shared/config/settings");
+const settingService = require("../modules/security/setting/setting.service");
 const emailRepo = require("./email.repo");
 
 const fmtFrom = (id) => (id.from_name ? `"${id.from_name}" <${id.from_address}>` : id.from_address);
@@ -23,9 +24,13 @@ const fmtFrom = (id) => (id.from_name ? `"${id.from_name}" <${id.from_address}>`
 async function resolveMail(client, { purpose = "NOTIFICATIONS", moduleKey = null } = {}) {
   let identity = null;
   let settings = {};
+  let encPass = null;
   if (client) {
     identity = purpose ? await emailRepo.identityFor(client, purpose) : null;
     settings = (await getSetting(client, "email", "default", {})) || {};
+    // SMTP password now lives ENCRYPTED in the integration_secret vault; the
+    // legacy plaintext settings.smtp_pass is kept only as a back-compat fallback.
+    encPass = await settingService.readSecret(client, "email_smtp_pass");
   }
   return {
     from: (identity && fmtFrom(identity)) || settings.from || config.MAIL_DEFAULT_FROM || ("no-reply@" + (config.MAIL_FALLBACK_DOMAIN || "praxisls.com")),
@@ -33,7 +38,7 @@ async function resolveMail(client, { purpose = "NOTIFICATIONS", moduleKey = null
     smtp_host: (identity && identity.smtp_host) || settings.smtp_host || config.SMTP_HOST || null,
     smtp_port: Number((identity && identity.smtp_port) || settings.smtp_port || config.SMTP_PORT || 587),
     smtp_user: settings.smtp_user || config.SMTP_USER || null,
-    smtp_pass: settings.smtp_pass || config.SMTP_PASS || null,
+    smtp_pass: encPass || settings.smtp_pass || config.SMTP_PASS || null,
     identity_purpose: identity ? identity.purpose : null,
     module_key: moduleKey,
   };
@@ -63,4 +68,20 @@ async function send(client, { to, subject, html, text, from, replyTo, purpose = 
   return mailer.sendMail({ from: from || cfg.from, replyTo: replyTo || cfg.reply_to || undefined, to, subject, html, text });
 }
 
-module.exports = { send, resolveMail };
+/**
+ * Live SMTP connectivity + auth check for a purpose's resolved transport
+ * (nodemailer verify() — opens the connection, runs EHLO/AUTH, sends nothing).
+ * Returns { ok, ... }; never throws, so Smart Comms can render a clean result.
+ */
+async function verifyTransport(client, { purpose = "NOTIFICATIONS" } = {}) {
+  const cfg = await resolveMail(client, { purpose });
+  if (!cfg.smtp_host) return { ok: false, error: "no SMTP host configured (add an email_identity or SMTP settings)" };
+  try {
+    await transportFrom(cfg).verify();
+    return { ok: true, smtp_host: cfg.smtp_host, smtp_port: cfg.smtp_port, from: cfg.from };
+  } catch (err) {
+    return { ok: false, smtp_host: cfg.smtp_host, smtp_port: cfg.smtp_port, error: err.message };
+  }
+}
+
+module.exports = { send, resolveMail, verifyTransport };
