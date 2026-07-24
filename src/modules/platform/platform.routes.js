@@ -70,4 +70,12 @@ router.get("/support/tickets", requireCap("support.read"), c.supportList);
 router.get("/support/tickets/:id", requireCap("support.read"), c.supportGet);
 router.patch("/support/tickets/:id", requireCap("support.write"), validate("ticketStatus"), c.supportSetStatus);
 
+// Deploy-wide integrations (S3 / Geoapify / VAPID) — set + live test. Secrets
+// are encrypted at rest; reads return presence + last4 only.
+router.get("/settings", c.settingsList);
+router.post("/settings/push/vapid/generate", validate("vapidGenerate"), c.vapidGenerate);
+router.get("/settings/:section/:key", c.settingGet);
+router.put("/settings/:section/:key", validate("platformSetting"), c.settingPut);
+router.post("/settings/:section/:key/test", c.settingTest);
+
 module.exports = router;

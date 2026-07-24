@@ -12,6 +12,7 @@ const TABS: { to: string; label: string; cap?: string }[] = [
   { to: "/users", label: "Users", cap: "users.read" },
   { to: "/roles", label: "Roles", cap: "roles.read" },
   { to: "/catalogue", label: "Catalogue" },
+  { to: "/integrations", label: "Integrations" },
   { to: "/audit", label: "Audit" },
   { to: "/support", label: "Support" },
 ];

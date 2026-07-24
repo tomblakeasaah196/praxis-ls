@@ -72,6 +72,11 @@ const schemas = {
     capabilities: z.array(z.string()).optional(),
   }),
   rolePerms: z.object({ capabilities: z.array(z.string()) }),
+  platformSetting: z.object({
+    value: z.record(z.any()).optional(),
+    secret: z.string().min(1).max(4000).optional(),
+  }),
+  vapidGenerate: z.object({ subject: z.string().min(3).optional() }),
 };
 
 const validate = (schemaKey) => (req, _res, next) => {
