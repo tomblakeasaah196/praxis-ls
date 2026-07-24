@@ -15,5 +15,8 @@ router.get("/:section", requirePermission(MODULE, "view"), controller.section);
 router.get("/:section/:key", requirePermission(MODULE, "view"), controller.get);
 router.put("/:section/:key", requirePermission(MODULE, "edit"), validator.put, controller.put);
 router.delete("/:section/:key", requirePermission(MODULE, "delete"), controller.remove);
+// Live connectivity test for an encrypted integration secret (no writes; the
+// plaintext never leaves the service). Edit-gated since it decrypts + calls out.
+router.post("/integration_secret/:key/test", requirePermission(MODULE, "edit"), controller.testSecret);
 
 module.exports = { basePath: "/settings", feature: null, router };

@@ -9,4 +9,5 @@ module.exports = {
   get: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.get(c, req.params.section, req.params.key)) })),
   put: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.put(c, { section: req.params.section, key: req.params.key, value: req.body.value, actor: actor(req) })) })),
   remove: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.remove(c, { section: req.params.section, key: req.params.key, actor: actor(req) })) })),
+  testSecret: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.testSecret(c, req.params.key)) })),
 };

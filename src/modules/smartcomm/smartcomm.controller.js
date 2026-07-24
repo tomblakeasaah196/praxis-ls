@@ -1,10 +1,17 @@
 "use strict";
 const service = require("./smartcomm.service");
+const cfg = require("./smartcomm.config.service");
 const { asyncHandler } = require("../../utils/errors");
 const actor = (req) => req.user || { user_id: null };
 const A = (fn) => asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => fn(c, req)) }));
 const C = (fn) => asyncHandler(async (req, res) => res.status(201).json({ data: await req.tenantDb((c) => fn(c, req)) }));
 module.exports = {
+  // ── Channel provider config (WhatsApp / email) ──
+  getCommsConfig: A((c) => cfg.getConfig(c)),
+  setWhatsapp: A((c, req) => cfg.setWhatsapp(c, { ...req.body, actor: actor(req) })),
+  setEmail: A((c, req) => cfg.setEmail(c, { ...req.body, actor: actor(req) })),
+  testWhatsapp: A((c) => cfg.testWhatsapp(c)),
+  testEmail: A((c, req) => cfg.testEmail(c, { purpose: req.body && req.body.purpose })),
   listChannels: A((c, req) => service.listChannels(c, actor(req), req.query)),
   createChannel: C((c, req) => service.createChannel(c, { data: req.body, actor: actor(req) })),
   getChannel: A((c, req) => service.getChannel(c, { id: req.params.id, actor: actor(req) })),

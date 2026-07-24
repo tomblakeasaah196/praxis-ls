@@ -10,6 +10,8 @@ const schemas = {
   react: z.object({ emoji: z.string().min(1).max(16) }),
   draft: z.object({ body: z.string() }),
   quickReply: z.object({ label: z.string().min(1), body: z.string().min(1), shared: z.boolean().optional() }),
+  whatsappConfig: z.object({ phone_id: z.string().min(1).optional(), api_version: z.string().min(1).optional(), token: z.string().min(1).max(4000).optional() }),
+  emailConfig: z.object({ smtp_host: z.string().min(1).optional(), smtp_port: z.coerce.number().int().positive().optional(), smtp_user: z.string().optional(), smtp_pass: z.string().min(1).max(4000).optional(), from: z.string().optional(), reply_to: z.string().optional() }),
 };
 const mw = (k) => (req, _res, next) => { const p = schemas[k].safeParse(req.body); if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors)); req.body = p.data; return next(); };
-module.exports = { channel: mw("channel"), member: mw("member"), message: mw("message"), editMessage: mw("editMessage"), react: mw("react"), draft: mw("draft"), quickReply: mw("quickReply"), schemas };
+module.exports = { channel: mw("channel"), member: mw("member"), message: mw("message"), editMessage: mw("editMessage"), react: mw("react"), draft: mw("draft"), quickReply: mw("quickReply"), whatsappConfig: mw("whatsappConfig"), emailConfig: mw("emailConfig"), schemas };

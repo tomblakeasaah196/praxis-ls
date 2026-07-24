@@ -10,6 +10,7 @@ import { Plans } from "@/features/Plans";
 import { Catalogue } from "@/features/Catalogue";
 import { Audit } from "@/features/Audit";
 import { Support } from "@/features/Support";
+import { Integrations } from "@/features/Integrations";
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const loc = useLocation();
@@ -26,6 +27,7 @@ export default function App() {
       <Route path="/tenants/:slug" element={<RequireAuth><TenantDetail /></RequireAuth>} />
       <Route path="/plans" element={<RequireAuth><Plans /></RequireAuth>} />
       <Route path="/catalogue" element={<RequireAuth><Catalogue /></RequireAuth>} />
+      <Route path="/integrations" element={<RequireAuth><Integrations /></RequireAuth>} />
       <Route path="/audit" element={<RequireAuth><Audit /></RequireAuth>} />
       <Route path="/support" element={<RequireAuth><Support /></RequireAuth>} />
       <Route path="*" element={<Navigate to={session.token ? "/overview" : "/login"} replace />} />

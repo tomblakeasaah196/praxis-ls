@@ -10,8 +10,9 @@
  * can't break clock-in. Callers must invoke it OUTSIDE any DB transaction so
  * the HTTP wait never holds a connection open.
  *
- * Env: GEOAPIFY_API_KEY (blank = coords + map pin still work, no label).
- * Free tier is 3,000 requests/day — ample for clock-ins.
+ * Key resolution (DEPLOY-WIDE): platform_setting 'geocoding'/'geoapify' (set +
+ * tested in the Platform Console) → env GEOAPIFY_API_KEY. Blank = coords + map
+ * pin still work, no label. Free tier is 3,000 requests/day — ample for clock-ins.
  */
 
 "use strict";
@@ -22,8 +23,26 @@ const { logger } = require("../config/logger");
 const REVERSE_URL = "https://api.geoapify.com/v1/geocode/reverse";
 const TIMEOUT_MS = 3000;
 
+let _key; // undefined = unresolved; null/string = resolved
+function resetCache() { _key = undefined; }
+
+async function resolveKey() {
+  if (_key !== undefined) return _key;
+  let key = null;
+  try {
+    // eslint-disable-next-line global-require
+    const platformSettings = require("./platform/settings.service");
+    const r = await platformSettings.resolve("geocoding", "geoapify");
+    key = (r && r.secret) || null;
+  } catch {
+    // platform store unavailable → env fallback
+  }
+  _key = key || process.env.GEOAPIFY_API_KEY || null;
+  return _key;
+}
+
 async function reverseGeocode(lat, lng) {
-  const apiKey = process.env.GEOAPIFY_API_KEY;
+  const apiKey = await resolveKey();
   if (!apiKey) return null;
   const latNum = Number(lat);
   const lngNum = Number(lng);
@@ -52,4 +71,4 @@ async function reverseGeocode(lat, lng) {
   }
 }
 
-module.exports = { reverseGeocode };
+module.exports = { reverseGeocode, resetCache };
