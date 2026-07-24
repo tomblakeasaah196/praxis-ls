@@ -7,6 +7,8 @@ const tenants = require("../../services/platform/tenants.service");
 const provisioning = require("../../services/platform/provisioning.service");
 const platformAuthService = require("../../services/platform/auth.service");
 const support = require("../../services/platform/support.service");
+const platformSettings = require("../../services/platform/settings.service");
+const storage = require("../../services/storage.service");
 const { asyncHandler } = require("../../utils/errors");
 
 const actor = (req) =>
@@ -121,6 +123,33 @@ const supportSetStatus = asyncHandler(async (req, res) =>
   res.json({ data: await support.setStatus(req.params.id, req.body.status, actor(req)) }),
 );
 
+// ── Deploy-wide integration settings (S3 / Geoapify / VAPID) ──
+const settingsList = asyncHandler(async (_req, res) =>
+  res.json({ data: await platformSettings.list() }),
+);
+const settingGet = asyncHandler(async (req, res) =>
+  res.json({ data: await platformSettings.get(req.params.section, req.params.key) }),
+);
+const settingPut = asyncHandler(async (req, res) => {
+  const data = await platformSettings.put({
+    section: req.params.section,
+    key: req.params.key,
+    value: req.body.value || {},
+    secret: req.body.secret,
+    actor: actor(req),
+  });
+  // Storage creds are cached in the storage singleton — drop it so the new
+  // values take effect without a restart.
+  if (req.params.section === "storage" && typeof storage.resetCache === "function") storage.resetCache();
+  res.json({ data });
+});
+const settingTest = asyncHandler(async (req, res) =>
+  res.json({ data: await platformSettings.test(req.params.section, req.params.key) }),
+);
+const vapidGenerate = asyncHandler(async (req, res) =>
+  res.json({ data: await platformSettings.generateVapid({ subject: req.body.subject, actor: actor(req) }) }),
+);
+
 module.exports = {
   login,
   listModules,
@@ -143,4 +172,9 @@ module.exports = {
   supportList,
   supportGet,
   supportSetStatus,
+  settingsList,
+  settingGet,
+  settingPut,
+  settingTest,
+  vapidGenerate,
 };

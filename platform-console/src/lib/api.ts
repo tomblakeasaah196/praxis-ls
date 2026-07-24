@@ -136,4 +136,25 @@ export const platform = {
   },
   setTicketStatus: (id: string, status: string) =>
     api(`/support/tickets/${encodeURIComponent(id)}`, { method: "PATCH", body: { status } }),
+
+  // Deploy-wide integrations (S3 / Geoapify / VAPID). Secrets are write-only:
+  // reads return presence + last4, writes send { value?, secret? }.
+  settings: () => api<PlatformSetting[]>("/settings"),
+  putSetting: (section: string, key: string, body: { value?: Record<string, unknown>; secret?: string }) =>
+    api<PlatformSetting>(`/settings/${encodeURIComponent(section)}/${encodeURIComponent(key)}`, { method: "PUT", body }),
+  testSetting: (section: string, key: string) =>
+    api<SettingTestResult>(`/settings/${encodeURIComponent(section)}/${encodeURIComponent(key)}/test`, { method: "POST" }),
+  generateVapid: (subject?: string) =>
+    api<{ public_key: string; subject: string }>("/settings/push/vapid/generate", { method: "POST", body: { subject } }),
 };
+
+export type PlatformSetting = {
+  section: string;
+  key: string;
+  value: Record<string, unknown>;
+  secret_set: boolean;
+  last4: string | null;
+  version: number;
+  updated_at: string;
+};
+export type SettingTestResult = { ok: boolean; error?: string; status?: number } & Record<string, unknown>;

@@ -103,6 +103,13 @@ const Schema = z.object({
   SMTP_PASS: z.string().default(""),
   MAIL_FALLBACK_DOMAIN: z.string().default("nmail.praxisls.com"),
 
+  // Meta WhatsApp Cloud API (MOD-64 Smart Comms). Deploy-wide fallback only —
+  // per-tenant creds are set + tested in Smart Comms (token encrypted in the
+  // integration_secret vault, phone_id in the plain `comms` setting).
+  META_WA_TOKEN: z.string().default(""),
+  META_WA_PHONE_ID: z.string().default(""),
+  META_WA_API_VERSION: z.string().default("v18.0"),
+
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   STORAGE_LOCAL_PATH: z.string().default("./data/vault"),
   CDN_BASE_URL: z.string().default(""),
@@ -117,6 +124,13 @@ const Schema = z.object({
 
   PUPPETEER_EXECUTABLE_PATH: z.string().default(""),
   SANDBOX_WIPE_DAYS: int(14),
+
+  // Web-Push (VAPID) — deploy-wide identity, one keypair per deployment. Set +
+  // tested in the Platform Console (private key encrypted in platform_setting);
+  // these env vars are a fallback only. Generate via the console or web-push.
+  VAPID_PUBLIC_KEY: z.string().default(""),
+  VAPID_PRIVATE_KEY: z.string().default(""),
+  VAPID_SUBJECT: z.string().default("mailto:admin@praxisls.com"),
 });
 
 const parsed = Schema.safeParse(process.env);

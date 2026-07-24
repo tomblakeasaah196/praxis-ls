@@ -1,0 +1,98 @@
+/**
+ * Web-Push sender (imported by notifications.service). VAPID identity is
+ * DEPLOY-WIDE: resolved from platform_setting 'push'/'vapid' (generated + stored
+ * in the Platform Console, private key encrypted) → env VAPID_* fallback.
+ *
+ * NOTE: the push DELIVERY pipeline is only partially built. This sends to rows in
+ * shared.push_subscription, but that table + the client registration flow +
+ * service worker are NOT yet implemented — so sendToUser degrades cleanly
+ * (returns { sent: 0, reason }) until they exist. `web-push` is lazily required
+ * and must be installed (`npm i web-push`).
+ */
+"use strict";
+
+const { config } = require("../../config/env");
+const { logger } = require("../../config/logger");
+
+let query = null;
+try {
+  // eslint-disable-next-line global-require
+  ({ query } = require("../../config/database"));
+} catch {
+  query = null;
+}
+
+/** Deploy-wide VAPID keypair + subject (platform store first, env fallback). */
+async function resolveVapid() {
+  let publicKey = null;
+  let privateKey = null;
+  let subject = null;
+  try {
+    // eslint-disable-next-line global-require
+    const platformSettings = require("../../services/platform/settings.service");
+    const r = await platformSettings.resolve("push", "vapid");
+    if (r) {
+      publicKey = r.value && r.value.public_key;
+      privateKey = r.secret;
+      subject = r.value && r.value.subject;
+    }
+  } catch {
+    // platform store unavailable → env fallback
+  }
+  return {
+    publicKey: publicKey || config.VAPID_PUBLIC_KEY || null,
+    privateKey: privateKey || config.VAPID_PRIVATE_KEY || null,
+    subject: subject || config.VAPID_SUBJECT || "mailto:admin@praxisls.com",
+  };
+}
+
+/** Public VAPID key for the browser subscribe() call, or null if unset. */
+async function getPublicKey() {
+  return (await resolveVapid()).publicKey;
+}
+
+async function configuredClient() {
+  const v = await resolveVapid();
+  if (!v.publicKey || !v.privateKey) return null;
+  // eslint-disable-next-line global-require
+  const webpush = require("web-push");
+  webpush.setVapidDetails(v.subject, v.publicKey, v.privateKey);
+  return webpush;
+}
+
+/** Push to all of a user's registered subscriptions. Never throws. */
+async function sendToUser({ user_id, title, body, url, tag }) {
+  const webpush = await configuredClient();
+  if (!webpush || !query) return { sent: 0, reason: "push not configured" };
+  let subs;
+  try {
+    const res = await query(
+      "SELECT endpoint, p256dh, auth FROM shared.push_subscription WHERE user_id = $1",
+      [user_id],
+    );
+    subs = res.rows;
+  } catch {
+    // subscription table not provisioned yet — registration pipeline pending
+    return { sent: 0, reason: "no push_subscription table" };
+  }
+  const payload = JSON.stringify({ title, body, url, tag });
+  let sent = 0;
+  for (const s of subs) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+      sent += 1;
+    } catch (err) {
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        // expired/gone subscription — prune it
+        // eslint-disable-next-line no-await-in-loop
+        await query("DELETE FROM shared.push_subscription WHERE endpoint = $1", [s.endpoint]).catch(() => {});
+      } else {
+        logger.warn({ err: err.message }, "[push] send failed");
+      }
+    }
+  }
+  return { sent };
+}
+
+module.exports = { sendToUser, getPublicKey, resolveVapid };

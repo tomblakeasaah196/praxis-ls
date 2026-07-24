@@ -9,6 +9,7 @@
 
 const repo = require("./setting.repo");
 const events = require("./setting.events");
+const probes = require("./setting.probes");
 const { assertValue } = require("./setting.rules");
 const encryption = require("../../../services/encryption.service");
 const { emitEvent, audit } = require("../../../shared/events/emit");
@@ -98,4 +99,35 @@ async function readSecret(client, key) {
   return encryption.decrypt(row.value.secret_enc);
 }
 
-module.exports = { all, sections, section, get, put, remove, readSecret, SECRET_SECTION };
+/**
+ * Verify a stored integration secret with a live, read-only upstream call.
+ * The plaintext is decrypted in-process for the probe and NEVER returned; the
+ * HTTP surface only ever sees { ok, provider, status?, error? } + probe meta.
+ * Mirrors AI Governance's testVendor. Returns ok:false (never throws) so the
+ * UI can render a clean pass/fail.
+ */
+async function testSecret(client, key) {
+  const row = await repo.getByKey(client, SECRET_SECTION, key);
+  if (!row || !row.value || !row.value.secret_enc) {
+    return { ok: false, error: "no integration secret set for '" + key + "'" };
+  }
+  const provider = row.value.provider || null;
+  if (!probes.hasProbe(provider)) {
+    return { ok: false, provider, error: "no connectivity test available for provider '" + provider + "'" };
+  }
+  const secret = encryption.decrypt(row.value.secret_enc);
+  try {
+    const meta = await probes.PROBES[provider](secret);
+    return { ok: true, provider, ...meta };
+  } catch (err) {
+    const r = err.response;
+    return {
+      ok: false,
+      provider,
+      status: r && r.status,
+      error: (r && r.data && ((r.data.error && r.data.error.message) || r.data["error-type"] || r.data.message)) || err.message,
+    };
+  }
+}
+
+module.exports = { all, sections, section, get, put, remove, readSecret, testSecret, SECRET_SECTION };

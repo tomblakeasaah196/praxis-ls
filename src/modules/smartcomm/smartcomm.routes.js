@@ -13,6 +13,14 @@ const create = requirePermission(M, "create");
 const router = express.Router();
 router.use(authMiddleware);
 
+// outbound provider config (WhatsApp / email) — set + live test. Writes/tests
+// decrypt + call out, so they are gated on create; the read is redacted.
+router.get("/config", view, c.getCommsConfig);
+router.put("/config/whatsapp", create, v.whatsappConfig, c.setWhatsapp);
+router.put("/config/email", create, v.emailConfig, c.setEmail);
+router.post("/config/whatsapp/test", create, c.testWhatsapp);
+router.post("/config/email/test", create, c.testEmail);
+
 // directory + cross-channel reads
 router.get("/colleagues", view, c.colleagues);
 router.get("/unread", view, c.unread);
