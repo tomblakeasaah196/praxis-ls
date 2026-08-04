@@ -720,3 +720,188 @@ before any other refactor is attempted.
 
 **Coverage statement:** every file under `client/src/features/` and
 `client/src/components/` has now been read. `platform-console/` remains out of scope.
+
+---
+
+# Addendum 2 — Aesthetics (the section the first pass avoided)
+
+The original audit said the blockers were "specific rather than aesthetic."
+That was a hedge, and it was the wrong call. Aesthetics is not a softer
+category than accessibility — it is the one a buyer judges **first**, in the
+first fifteen seconds of a demo, before anyone opens a VPAT or asks about test
+coverage. It deserved a finding of its own. Here it is.
+
+## F17 — The visual language is a well-executed template, and it reads as one
+
+**Severity: High (commercially: Critical) · Structural, but the cheapest fix in this audit**
+
+### The core diagnosis
+
+`index.css:6-12` and `doc/LOVABLE_FIDELITY_PLAN.md` name the source honestly:
+the look is the **"Lovable Control Tower"** mock, ported. That provenance is
+legible in the output, and it is the whole problem. AI app-builders (Lovable,
+v0, bolt) share a recognisable house style, and this codebase implements it
+faithfully:
+
+| Trait | Where | What it signals |
+|---|---|---|
+| Full-page gradient mesh | `index.css:154-166` — fixed, `blur(30px)`, opacity 0.5/0.7 | Marketing page |
+| Glassmorphic bars | `.lux-topbar`, `.lux-botnav` — `blur(20px) saturate(150%)` | 2020–21 Big Sur trend |
+| Large radii | `--radius: 0.9rem` = **14.4px** cards | Consumer app |
+| Coloured glow shadows | `.btn-primary` — `0 8px 20px color-mix(--primary 35%)` | Dribbble shot |
+| Hover lift micro-interactions | `translateY(-1px)` on chips/buttons ×5, `hover:scale-105` ×3 | Landing page |
+| Display serif + geometric sans | Playfair Display + Montserrat | Boutique / editorial |
+| 500ms entrance animation | `.animate-fade-up` on every card and table | Portfolio site |
+
+Individually each is defensible. Together they are a **coherent aesthetic
+aimed at the wrong category.** Every one of these choices optimises for *how
+the product photographs* rather than *how it feels on the 300th use*. That is
+exactly the trade a system of record must not make.
+
+### The typography is the single worst call
+
+`--font-display: "Playfair Display"` is a **high-contrast Didone** — an
+editorial and fashion display face. It is applied at 35 sites: every page
+`<h1>`, every modal title, every card `<h3>`… **and on money figures.**
+
+```
+client/src/features/finance/hub.tsx:232-233
+  <div className="num font-display text-lg">{money(t?.debit)}</div>   // Total débit
+  <div className="num font-display text-lg">{money(t?.credit)}</div>  // Total crédit
+```
+
+Setting a trial-balance total in a Didone serif is not a stylistic preference
+I disagree with — it is wrong for the job. Didone hairlines break up at small
+sizes, and the face carries luxury/editorial connotations. An audited ledger
+figure should read as *precise*, not *elegant*.
+
+Compounding it: **Playfair Display + Montserrat is arguably the most-used
+Google Fonts pairing on the internet** — the default Canva/Squarespace/
+wedding-invitation combination. To anyone who evaluates interfaces for a
+living, it is an instant tell.
+
+What the benchmark actually ships:
+
+| Product | UI typeface |
+|---|---|
+| Palantir (Blueprint) | Inter |
+| Microsoft (Fluent) | Segoe UI |
+| Google (Material 3) | Roboto / Google Sans |
+| Stripe Dashboard | Söhne (custom) |
+| Linear | Inter Display |
+| Vercel | Geist |
+
+**Not one serious enterprise data product uses a display serif for UI.** There
+is no counter-example to point at.
+
+### Density: you are showing 40% less data than the category standard
+
+`ui/table.tsx:755` sets `TD` to `px-4 py-3.5` — 14px top + 14px bottom against
+a 13px/18px line, giving **~46px rows**. Palantir-, Bloomberg- and
+Retool-class grids run **28–32px**.
+
+For a logistics operator scanning 200 open shipments, that is the difference
+between one screen and three. Density is not austerity in this category — it
+is the product. And there is no compact variant to switch to (F9).
+
+Meanwhile the *labels* are too small in the other direction: `TH` at **9.5px**
+and `.micro` at **10px**, both uppercase with 0.14–0.19em tracking. Heavy
+tracking on tiny uppercase is an editorial device; here it costs legibility
+and drives the contrast failures measured in F13. The type is simultaneously
+too large where data lives and too small where labels live.
+
+### Motion is tuned for a portfolio, not a workstation
+
+`.animate-fade-up` — `translateY(12px) → 0` over **0.5s** — fires on every
+card, table and view mount (`ui/table.tsx:728`, `data-list.tsx:116`). A
+dispatcher who opens the shipments table forty times a day waits half a second,
+forty times, for a decoration.
+
+Linear's entire brand proposition is sub-100ms response. The enterprise
+convention is 120–180ms for entrances, or none at all. 500ms reads as slow
+software even when the data arrived instantly — it actively disguises good
+backend performance as bad.
+
+### Colour: a semantic collision and a dated dark mode
+
+- **Orange as primary is a semantic conflict.** `--primary` is `#F5821F`;
+  `--warn` is amber `rgb(176 128 24)`. The colour that means "confirm this
+  action" and the colour that means "something is wrong" sit ~30° apart on the
+  wheel. In a ledger application that is a genuine comprehension risk, not a
+  taste question. It is also unusable as text at **2.59:1** (F13).
+- **Dark mode is navy, not neutral.** `--background: rgb(7 19 36)` is a
+  strongly blue-tinted dark. The category standard is near-neutral
+  (Linear `#08090a`, Vercel `#000`, Palantir near-black). Navy darks read
+  "crypto dashboard / gamer" rather than "instrument."
+- **The mesh gradient sits behind every data screen**, lowering effective
+  contrast everywhere — measurably so: `.micro` is 3.01:1 on `--card` but
+  **2.78:1** on the meshed `--background`. Stripe uses mesh gradients on
+  marketing pages and never behind a table.
+
+### NEW — the PWA loses its typography offline
+
+`index.html:19-24` loads both families from `fonts.googleapis.com`.
+`vite.config.ts:36` globs `**/*.{js,css,html,svg,woff2}` — **local** assets
+only — and there is no `runtimeCaching` rule for the font CDN.
+
+So the offline mode this product advertises (logistics, ports, thin
+connectivity) falls back to **Georgia + system sans**. Offline, the app is
+visually a different product. It also blocks first render on a third-party
+request, and pulls **11 weights** (4 Playfair + 7 Montserrat) when far fewer
+are used.
+
+### What is genuinely good — and it is not nothing
+
+The *information design* instincts here are better than the styling, which is
+the far better problem to have:
+
+- **Token architecture is properly semantic** and tenant-overridable at
+  runtime. Most teams never get this right.
+- **`.num` tabular figures on all money** (`index.css:175`) — correct,
+  and frequently missed even by good teams.
+- **Enum humanisation** — `POSTED_LOCKED` → "Posted locked" (`ui/pill.tsx:605`).
+  Real polish; the reference mock did not do this.
+- **The status-pill system** (dot + tinted ground) is clean and scales.
+- **Light and dark are both genuinely designed**, not a filter.
+- **The Control Tower's information design** — KPI band, live shipments with
+  progress, route map, drill-downs — is a legitimately good dashboard concept.
+  It is housed badly (F1); the thinking is sound.
+- **The permission matrix** (`security/permission-matrix-page.tsx`) is the best
+  *design* work in the repo, not just the best code.
+
+### Honest verdict
+
+Against Palantir / Microsoft / Google / Oracle: **the aesthetics would not
+stand.** Not because they are ugly — they are attractive — but because they are
+*generic and mis-categorised*. It looks like a beautiful template, and
+enterprise buyers have been trained by a decade of SaaS to distrust exactly
+that surface. The gap is not craft; it is that the whole visual system points
+at "premium consumer app" when the product is an instrument.
+
+### The remedy is a token pass — the cheapest item in this audit
+
+Nothing here requires re-architecture. Every change is confined to
+`index.css`, `tailwind.config.ts`, `index.html` and `ui/table.tsx`:
+
+| Change | From | To |
+|---|---|---|
+| Display face | Playfair Display | Inter Display / Geist — **self-hosted** |
+| Body face | Montserrat (7 weights, CDN) | Inter — self-hosted, 3–4 weights |
+| Card radius | 14.4px | 8px (controls 6px) |
+| Button shadow | Coloured glow | 1px border + near-flat |
+| Hover lift | `translateY(-1px)` / `scale(1.05)` | Background/border state change |
+| Top bar | `blur(20px) saturate(150%)` | Solid, 1px bottom border |
+| Page background | Fixed mesh gradient | Flat surface token |
+| Entrance motion | 500ms fade-up | 120ms opacity, or none |
+| Table row | ~46px | 32px default, 28px compact |
+| Label type | 9.5–10px, 0.19em tracking | 11–12px, ~0.02em |
+| Dark base | `rgb(7 19 36)` navy | Near-neutral `rgb(10 11 13)`-class |
+| Primary accent | Orange (collides with `--warn`) | Blue-family primary; retain orange as brand mark only |
+
+**Estimated 1–2 weeks**, and it moves perceived tier further than any other
+item on the five-phase roadmap. It should run **inside Phase 1**, alongside the
+contrast retune it partly resolves anyway — the two touch the same tokens.
+
+One caveat worth stating plainly: the orange is presumably a brand asset, and
+demoting it from UI primary to brand-mark-only is a business decision, not an
+engineering one. That is question 2 in §5, and it needs an owner's answer.
