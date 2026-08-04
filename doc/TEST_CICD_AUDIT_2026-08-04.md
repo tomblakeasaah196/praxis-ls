@@ -28,6 +28,11 @@ Nothing below is estimated. Sources:
 | Releases / tags | GitHub releases API (`[]`), `git tag` (empty) |
 | Determinism | Suite run in-band and in parallel, results compared |
 
+Measured against `main` at `3e913c1`. `main` advanced 11 commits during the audit; the suite was
+re-run on the rebased tree and the backend numbers are unchanged (the new commits touch the
+frontend and docs). One finding — C11 — was materially affected and has been revised, with the
+change recorded in place rather than silently rewritten.
+
 ---
 
 ## 1. Baseline
@@ -58,7 +63,7 @@ is gamed automatically by this repo's structure.
 | Source under test | 857 JS files, 42,497 LOC |
 | Test code | 5,382 LOC (**12.7%** of source) |
 | Services with *any* test reference | **37 of 135** (27%) — reference, not exercise |
-| Frontend tests | **0** across 41,398 LOC of TS/TSX |
+| Frontend tests | **22** across 3 files / 235 LOC, all in `client`; `platform-console` has **0** |
 | E2E tests | **0** |
 
 ### Coverage by module, sorted by function coverage
@@ -284,13 +289,26 @@ standing between the public internet and that power.
 at 0% functions; `portal_auth.middleware.js` at 25%. This is authentication for external client
 users — the least-trusted population that reaches the system.
 
-#### C11 · Zero frontend tests — **MEDIUM** · Deeper
+#### C11 · Frontend testing has just started, and not on the risky surfaces — **MEDIUM** · Deeper
 
-41,398 LOC of TypeScript (`client` 38,818 + `platform-console` 2,580), **0 test files, no test
-runner in either `devDependencies`**. Rated MEDIUM rather than HIGH only because `build` runs
-`tsc -b` and CI builds both apps, so type errors and broken imports do fail the pipeline. What
-is unverified is behaviour: money formatting and rounding on display, permission-conditional
-rendering, and the Live/Test toggle — the last being the user-facing half of C1.
+41,941 LOC of TypeScript (`client` 39,361 + `platform-console` 2,580).
+
+**This finding was revised during the audit.** An earlier draft recorded zero frontend tests;
+`main` advanced 11 commits mid-audit and `a686019` (*"Phase 1 PR2 — page containers, desktop
+widths, a11y + test gates"*) introduced a frontend suite. Current measured state:
+
+- `client` — Vitest 4.1.10 + React Testing Library 16.3.2, **22 tests across 3 files** (235 LOC):
+  `data-list.test.tsx` (9), `page-container.test.tsx` (8), `lib/theme.test.ts` (5). Wired into
+  CI as a `Test` step, plus a `check:contrast` step asserting WCAG AA on design tokens.
+- `platform-console` — **still zero**: no `test` script, no runner. The CI step uses
+  `npm run test --if-present`, so its absence passes silently rather than failing the matrix.
+
+The direction is right and the CI wiring is correct. The gap is *what* is covered: all three
+files test presentational and layout concerns. **Nothing tests money formatting or rounding on
+display, permission-conditional rendering, or the Live/Test toggle** — the last being the
+user-facing half of C1, on a frontend that drives journal entries, payroll runs and God-Mode
+purges. Rated MEDIUM rather than HIGH because `build` runs `tsc -b` on both apps, so type errors
+and broken imports still fail the pipeline.
 
 #### C12 · No end-to-end or API-level tests — **HIGH** · Deeper
 
@@ -438,7 +456,9 @@ people to skim past red text in CI output.
 
 `.github/workflows/ci.yaml` runs four parallel jobs — `build-test` (syntax → lint → jest →
 migration-numbering), `security` (audit → secret scan), `frontend` (matrix: client,
-platform-console — lint + build), `docker-build`. It is well organised and every non-obvious
+platform-console — lint → design-token contrast → test → build), `docker-build`. The frontend
+job's contrast and test steps arrived with `7267f3e`/`a686019` during this audit (see C11).
+It is well organised and every non-obvious
 decision carries a written justification. The gaps below are about what is missing, not about
 what is there.
 
@@ -841,7 +861,7 @@ into one.
 | E1 | Prod `.env` hand-maintained; validated only at boot, post-migration | HIGH | Quick |
 | R2 | Deployed build cannot be identified from the running system | HIGH | Quick |
 | CI2 | `main` red 15% of runs; no always-deployable branch | HIGH | Quick |
-| C11 | Zero frontend tests across 41,398 LOC | MEDIUM | Deeper |
+| C11 | Frontend suite is 22 presentational tests; money/permissions/Live-Test untested, `platform-console` at zero | MEDIUM | Deeper |
 | Q1 | Line coverage inflated by import-time execution | MEDIUM | Quick |
 | Q3 | Regex SQL fakes absorb query changes silently | MEDIUM | Deeper |
 | Q6 | `auth-coverage` matches by function name; floor of 50 vs 100 modules | MEDIUM | Quick |
@@ -864,7 +884,8 @@ into one.
 **What is working and should be protected:** the pure-rules test layer (real OHADA assertions,
 exact figures); `auth-coverage.test.js` as a structural anti-regression guard; the deterministic
 suite (zero re-runs in 90 runs); `tests/jest.setup.js` environment isolation; the `node --check`
-gate; the migration-numbering guard; the deploy script's ordering and the standby-first roll;
+gate; the migration-numbering guard; the new `check:contrast` WCAG gate and the frontend test
+step that landed mid-audit; the deploy script's ordering and the standby-first roll;
 the production env guard in `env.js`; the deploy concurrency group; the honesty of the CI
 comments — nearly every non-obvious decision in this pipeline is documented with its reasoning,
 which is rarer than good coverage and made this audit possible.
@@ -1103,9 +1124,12 @@ that trade is only honest once the checks being waited on actually test somethin
 8. **Release identity (R1, R3, R4)** — tag every deploy `v0.1.<n>+<sha>`; generate release notes
    from conventional commits; create a GitHub release per production deploy. Ask for
    descriptive PR titles — "Lots of changes" is the input a generated changelog gets.
-9. **Frontend tests (C11)** — Vitest + React Testing Library in both apps, seeded on the highest
-   risk surfaces: money formatting and rounding, permission-conditional rendering, the Live/Test
-   toggle. **Not a coverage mandate** — a floor of meaningful tests plus the existing `tsc -b`.
+9. **Frontend tests (C11)** — the runner now exists in `client` (Vitest + RTL, wired into CI),
+   so this is **extension, not introduction**: point the existing suite at the highest-risk
+   surfaces — money formatting and rounding, permission-conditional rendering, the Live/Test
+   toggle — and stand up the same setup in `platform-console`, which still has none and whose
+   `--if-present` step passes silently. **Not a coverage mandate** — a floor of meaningful tests
+   plus the existing `tsc -b`.
 10. **E2E smoke (C12)** — Playwright, **three journeys only**: login → dossier → costing →
     invoice; a tenant-isolation check (user A cannot see tenant B); and a permission-denial
     check. Run against the CI-booted container from Phase 1, not against production.
