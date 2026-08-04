@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Praxis LS frontend — React 18 + Vite + TypeScript (PWA). Tenant white-label app + (proposed) platform console.",
+  "//engines": "Mirrors the root package.json and .nvmrc. The client is linted, tested and built on Node 20 in CI and in the Docker image, so a dev tree on a newer Node can silently accept a dependency that CI cannot run — exactly how jsdom@30 (which needs undici@8 / Node >=22.19) got in and broke the frontend job. Declaring it here makes npm emit EBADENGINE locally instead.",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -45,7 +49,7 @@
     "eslint-plugin-react-refresh": "^0.4.12",
     "globals": "^15.9.0",
     "jest-axe": "^11.0.0",
-    "jsdom": "^30.0.1",
+    "jsdom": "^26.1.0",
     "postcss": "^8.4.47",
     "prettier": "^3.3.3",
     "tailwindcss": "^3.4.13",
