@@ -585,3 +585,138 @@ Answers change Phase 1 scope, so these are worth settling before implementation 
 ---
 
 **Status: Phase 0 complete. Awaiting review and approval before any implementation.**
+
+---
+
+# Addendum — full per-screen read (2026-08-04, same day)
+
+The findings above were produced from ~15 files read in full plus tree-wide
+measurement. That is sound for counts and contrast, but it is not the
+exhaustive per-screen review the brief asked for. Every remaining feature file
+has now been read. **Four conclusions changed. Nothing above is retracted, but
+two findings were materially wrong in emphasis.**
+
+## A1 — CORRECTION: the codebase is bimodal, not uniformly inconsistent
+
+This is the most important correction in the audit, because it changes the
+remediation cost by roughly an order of magnitude.
+
+There are **two parallel frontend architectures**, and they split cleanly:
+
+**Branch A — canonical (46 files).** Built on `lib/use-resource` + `Pill`
+(tokens) + `DataList` + `Modal`/`Field`. Covers **all of HR (12), WMS (7),
+Fleet (7), Procurement, Governance, Security, Masterdata, Costing, AI Control,
+Comms, Godmode, Support, Workspace**, and the Finance sub-pages
+(`receivables`, `debt`, `chart-of-accounts`, `hub`).
+
+**Branch B — shadow (11 files).** Built on `features/sales/ui.tsx`. Covers
+**Sales, Commercial, Vault pages, Settings (×3), Portal pages,
+`finance/pages.tsx`, and `dashboard.tsx`**.
+
+`features/operations/pages.tsx` imports from **both** — it is the seam.
+
+Branch A is genuinely good work: purpose-built workstations (payroll run,
+recruitment kanban, vehicle 360, inventory ledger, contract lifecycle) rather
+than CRUD tables, with consistent states and token-based status. `Pill` is
+imported by **45** files; the raw-hex `Badge` by **4**. The token system won.
+The shadow branch is a minority holdout.
+
+**Implication:** the remediation is not "rewrite the frontend." It is
+"finish migrating 11 files off `features/sales/ui.tsx` and delete it."
+
+## A2 — NEW (Critical): `features/sales/ui.tsx` is a shadow design system
+
+332 lines in a *feature folder*, imported by **10 other feature areas**
+(`finance/pages`, `vault/pages`, `commercial/pages`, `settings/store-pages`,
+`settings/catalogue-page`, `settings/config-pages`, `operations/pages`,
+`dashboard`, `portal/pages`, `sales/pages`). It ships competing copies of the
+app's core abstractions:
+
+| Export | Conflicts with | Nature of conflict |
+|---|---|---|
+| `useList(path, nonce, enabled)` | `lib/use-resource.useList(path)` | **Incompatible signature.** Two data hooks, no `loading` flag on this one. |
+| `errMsg` | `lib/use-resource.errMsg` | Duplicate #2 of 6 |
+| `fmtMoney` | `lib/format.money` | Different locale + currency defaults |
+| `Badge` | `ui/pill.Pill` | **A complete parallel status system** — a 27-entry hardcoded raw-Tailwind map (`bg-sky-500/10 text-sky-600 dark:text-sky-400`, …) at `ui.tsx:63-90` |
+| `Segmented`, `Chips`, `Avatar`, `MetricTile`, `SearchSelect` | — | Only implementations, but wrongly located |
+
+`Badge`'s colour map is **the single largest source of the 122 raw-palette
+violations in F14** — it is not scatter, it is one table. Deleting this file
+resolves, in one move: the second data hook, the second error helper, the
+second money formatter, the second status system, most raw-colour violations,
+and all cross-feature coupling (F7).
+
+`features/settings/config-pages.tsx:23-45` inlines a **fourth** copy of the
+same mini-library (`errMsg`, `cell`, `fmtDate`, `useList`) while *also*
+importing `SearchSelect` from the shadow lib.
+
+## A3 — NEW (High): local re-implementations found only by reading
+
+grep found the duplication counts; reading found what they are.
+
+| Component | Copies | Locations |
+|---|---|---|
+| `Segmented` | **4** | `components/settings/controls.tsx:121` (exported, unused), `features/sales/ui.tsx:98`, `features/governance/pages.tsx:27`, `features/security/pages.tsx:93` |
+| `Panel` | **5** | `workspace-page.tsx:29`, `vault/hub.tsx:44`, `security/hub.tsx:52`, `portal-app.tsx:233`, + `finance/hub.tsx` (`AgeingPanel`/`CashPanel`) |
+| `Stat` | **3** | `master/pages.tsx:234`, `operations/pages.tsx:188`, `fleet/fuel.tsx:21` |
+| `FormButtons` | **3** | `operations/pages.tsx:56`, `procurement/pages.tsx:36`, `masterdata/pages.tsx:25` |
+| Table impl | **4** | `ui/table.tsx`, `ui/workflow.tsx:888` (`LineTable`), `fleet/vehicle.tsx:40` (`MiniTable` + local `Th`/`Td`), 12 raw `<table>` |
+
+`features/security/pages.tsx:92` carries the comment *"Small local segmented
+control (sales/ui.tsx's is scoped to that feature)"* — the duplication is
+known and was accepted rather than resolved, because there was no shared home
+to put it in (F5 again).
+
+## A4 — NEW (High): raw JSON shown to end users
+
+Three screens dump unformatted JSON into the UI when a payload does not match
+an expected shape:
+
+- `features/vault/pages.tsx:61` — `<pre>{JSON.stringify(data, null, 2)}</pre>`
+  is the **fallback renderer for every catalogue report**. A report returning
+  a non-array shape shows the customer raw JSON.
+- `features/portal/pages.tsx:200` — same, on the **external client portal**.
+  This is the surface a tenant's own customers see.
+- `features/governance/pages.tsx:118` — audit-ledger values.
+
+`vault/pages.tsx:32-60` also infers report table columns via `Object.keys()`,
+so column headers are raw database field names (`total_ttc`, `client_id`).
+
+## A5 — Credit where it is due
+
+Reading changed my view of the engineering, and the audit above was unfair on
+this point by omission.
+
+- **Branch A screens are well-designed products**, not scaffolds. `hr/payroll.tsx`
+  models a real segregation-of-duties ladder (OPEN → Compute → Submit → Approve →
+  Validate/post-GL → Disburse) with the Cameroon statutory breakdown. `wms/inventory.tsx`
+  is a proper stock ledger with an append-only movement journal.
+- **`features/security/permission-matrix-page.tsx:1-35`** is the best file in the
+  codebase. Its header documents why the matrix was transposed (density: 70 modules ×
+  5 letter-buttons = 350+ hit targets), why the popover is `fixed` not `absolute`
+  (sticky columns in a scroll container would clip it), and **two features
+  deliberately not built** because they would imply grants that don't exist. That is
+  senior-level design reasoning.
+- **Comment quality throughout is unusually high** — `dashboard.tsx:60-78` documents
+  three specific defects it fixed and why each was wrong; `app.tsx:56-68` explains an
+  auth-boundary routing decision rather than trusting route-ranking. Most codebases at
+  this stage have no such record.
+
+The problem here is **not** engineering judgment. It is that good judgment was
+applied without a shared foundation to apply it to — so it produced 24 locally
+sound solutions to the same problems (F5).
+
+## A6 — Revised remediation impact
+
+Phase 2 gains one high-leverage, well-bounded task that should run first:
+
+> **Delete `features/sales/ui.tsx`.** Migrate its 11 consumers to `lib/use-resource`,
+> `Pill`, `lib/format`, and relocate `SearchSelect`/`Chips`/`Avatar`/`MetricTile`
+> into `components/ui/`. Resolves A2 entirely and the bulk of F6, F14 and the
+> cross-feature coupling in F7.
+
+Estimated at 3–5 days, and it converts the codebase from two architectures to one
+before any other refactor is attempted.
+
+**Coverage statement:** every file under `client/src/features/` and
+`client/src/components/` has now been read. `platform-console/` remains out of scope.
