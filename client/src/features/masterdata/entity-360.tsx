@@ -35,6 +35,7 @@ import { SmartCountryPicker } from "@/components/smart-country-picker";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt, enumLabel } from "@/lib/format";
 import { reportActionError } from "@/lib/action-error";
+import { pageShell } from "@/lib/layout";
 import { entityCommon } from "@shared";
 import * as api from "@/lib/masterdata-api";
 
@@ -89,7 +90,7 @@ function Detail({ label, children }: { label: string; children?: React.ReactNode
 
 function Section({ title, description, action, children }: { title: string; description?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="space-y-3 rounded-lg border p-4">
+    <section className="space-y-3 rounded-xl border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
@@ -311,7 +312,7 @@ export function EntityDossierPage() {
   const officers = people.filter((p) => p.role !== "SHAREHOLDER");
 
   return (
-    <section className="mx-auto w-full max-w-6xl space-y-4 p-4 sm:p-6">
+    <section className={`${pageShell.full} space-y-4`}>
       <PageHeader
         eyebrow={<Link to="/master/corporate-entities" className="micro text-muted-foreground hover:text-foreground">← Corporate entities</Link>}
         title={e.legal_name}
@@ -383,7 +384,7 @@ export function EntityDossierPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Section title="About" description="Shown on the entity picker and internal directories.">
             <p className="text-sm text-muted-foreground">{e.description || "No description yet."}</p>
-            <dl className="grid gap-3 sm:grid-cols-2">
+            <dl className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
               <Detail label="Trading name">{e.trading_name}</Detail>
               <Detail label="Industry">{e.industry}</Detail>
               <Detail label="Website">{e.website}</Detail>
@@ -394,7 +395,7 @@ export function EntityDossierPage() {
           </Section>
 
           <Section title="Incorporation" description="The statutory facts printed on documents.">
-            <dl className="grid gap-3 sm:grid-cols-2">
+            <dl className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
               <Detail label="Legal form">{e.legal_form}</Detail>
               <Detail label="Incorporated">{e.incorporation_date ? dateFmt(e.incorporation_date) : null}</Detail>
               <Detail label="Place">{e.incorporation_place}</Detail>
@@ -409,7 +410,7 @@ export function EntityDossierPage() {
             title="Defaults carried into other modules"
             description="What HR, payroll and billing inherit when someone picks this entity."
           >
-            <dl className="grid gap-3 sm:grid-cols-2">
+            <dl className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
               <Detail label="Accounting framework">{e.accounting_framework ? enumLabel(e.accounting_framework) : null}</Detail>
               <Detail label="Default currency">{e.default_currency}</Detail>
               <Detail label="Payroll country">{e.payroll_country}</Detail>
@@ -725,7 +726,7 @@ export function EntityDossierPage() {
       {tab === "Structure" && (
         <div className="space-y-4">
           <Section title="Position in the group" description="A subsidiary is its own entity with its own books — this records how it relates to the parent.">
-            <dl className="grid gap-3 sm:grid-cols-3">
+            <dl className="grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
               <Detail label="Parent">
                 {structure.ancestors.length
                   ? <Link className="underline" to={`/master/corporate-entities/${structure.ancestors[0].entity_id}`}>{structure.ancestors[0].code} — {structure.ancestors[0].legal_name}</Link>
