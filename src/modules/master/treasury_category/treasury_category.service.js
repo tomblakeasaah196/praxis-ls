@@ -6,7 +6,7 @@
 const repo = require("./treasury_category.repo");
 const events = require("./treasury_category.events");
 const rules = require("./treasury_category.rules");
-const { emitEvent, audit } = require("../../../shared/events/emit");
+const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
 
 const ref = (id) => "treasury_category:" + id;
@@ -27,6 +27,11 @@ async function create(client, {
 
   await client.query("BEGIN");
   try {
+    // `created_by` FKs to app_user(user_id) which lives in LIVE. In SANDBOX
+    // a raw actor.user_id 23503-fails; resolveActorId returns null so the
+    // row lands (attribution is lost but the operation stands). DATA 2.4
+    // — enforced by scripts/check-actor-fk-guard.js.
+    const createdBy = await resolveActorId(client, actor.user_id);
     const row = await repo.insert(client, {
       code: normalised,
       label: String(label || normalised).trim(),
@@ -37,7 +42,7 @@ async function create(client, {
       is_momo_identity:   isMomoIdentity === true,
       is_system: false,
       is_active: true,
-      created_by: actor.user_id || null,
+      created_by: createdBy,
     });
     await emitEvent(client, {
       eventTypeKey: events.CREATED, moduleKey: events.MODULE,
