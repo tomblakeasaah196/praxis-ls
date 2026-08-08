@@ -26,7 +26,11 @@ import { SmartCountryPicker } from "@/components/smart-country-picker";
 import * as api from "@/lib/masterdata-api";
 
 // Deep-link targets (§3.1) — the real hub-section routes confirmed in
-// src/app/app.tsx. A `focus` query hints the record to the destination list.
+// src/app/app.tsx. A `focus` query hints the record to the destination list,
+// which reads it via `useSearchParams` and selects/opens/highlights the row.
+// Operations still honours the older `?ref=` query the Control Tower uses, so
+// deep-linking a dossier prefers the ref (a human number the search matches)
+// and falls back to `?focus=<id>` when only the id is on hand.
 const MODULE_ROUTE = {
   dossier: "/operations/files",
   invoice: "/finance/invoices",
@@ -35,12 +39,15 @@ const MODULE_ROUTE = {
   supplier_invoice: "/procurement/supplier-invoices",
 } as const;
 const focusHref = (route: string, id?: string | null) => (id ? `${route}?focus=${encodeURIComponent(id)}` : route);
+const dossierHref = (ref?: string | null, id?: string | null) =>
+  ref ? `/operations/files?ref=${encodeURIComponent(ref)}` : focusHref(MODULE_ROUTE.dossier, id);
 
 const STATE_TONE: Record<string, Tone> = { OK: "ok", ONBOARDING: "blue", WARN: "warn", ESCALATED: "bad", SOFT_BLOCK_RECOMMENDATION: "orange", HARD_BLOCK: "bad" };
 const SEVERITY_TONE: Record<string, Tone> = { INFO: "mute", WARN: "warn", ESCALATED: "bad", SOFT_BLOCK_RECOMMENDATION: "orange", RED: "bad", HARD_BLOCK: "bad" };
 const REG_TONE: Record<string, Tone> = { DRAFT: "mute", PENDING_REVIEW: "blue", ACTIVE: "ok", SUSPENDED: "orange", DEACTIVATED: "mute", ARCHIVED: "mute" };
 const AVL_TONE: Record<string, Tone> = { PROSPECT: "mute", PENDING_KYC: "warn", APPROVED: "ok", CONDITIONAL: "orange", SUSPENDED: "orange", BLOCKED: "bad", ARCHIVED: "mute" };
 const SCAN_TONE: Record<string, Tone> = { PENDING: "warn", SCANNED: "blue", VERIFIED: "ok", REJECTED: "bad", EXPIRED: "bad" };
+const DOSSIER_TONE: Record<string, Tone> = { OPEN: "blue", IN_PROGRESS: "warn", COMPLETED: "ok", CANCELLED: "mute" };
 const ADDRESS_TYPES = ["REGISTERED", "BILLING", "DELIVERY", "PICKUP", "WAREHOUSE", "REMITTANCE", "NOTIFY"];
 
 /* ── Small building blocks ─────────────────────────────────────────────────── */
@@ -107,8 +114,11 @@ function AddModal({ title, fields, onClose, onSubmit }: { title: string; fields:
 
 /* ── The dossier ───────────────────────────────────────────────────────────── */
 
-const CLIENT_TABS = ["Overview", "Documents", "Contacts", "Addresses", "Banks", "Registrations", "Owners", "Financial"] as const;
+const CLIENT_TABS = ["Overview", "Documents", "Contacts", "Addresses", "Banks", "Registrations", "Owners", "Operations", "Financial"] as const;
 type Tab = (typeof CLIENT_TABS)[number];
+// "Operations" lists the client's dossiers; suppliers have none, so the tab is
+// dropped on that side.
+const SUPPLIER_TABS = CLIENT_TABS.filter((t) => t !== "Operations");
 
 /* ── PR3-C: duplicates, governed merge, scorecard, pending changes ─────────── */
 
@@ -204,6 +214,65 @@ function MergeModal({ kind, survivorId, survivorRef, loser, onClose, onDone }: {
   );
 }
 
+const CONVERT_CARRIED_OVER = [
+  "Legal name, trading name, and registrations (NIU, RCCM…)",
+  "Email, address, city, country",
+  "Industry, website, notes, tax residency, default currency, risk tier",
+];
+const CONVERT_TODO = ["Bank accounts", "Contacts", "Addresses", "KYC / compliance documents", "Verification"];
+
+/** Smart Copy conversion confirm modal (Hard Rule 2): shows what carries over to
+ *  the new draft automatically and what does not, requires an explicit
+ *  acknowledgement, then creates the draft — never a bare click-to-create. */
+function ConvertModal({ kind, partyId, partyName, onClose, onDone }: {
+  kind: api.PartyKind; partyId: string; partyName: string; onClose: () => void; onDone: (msg: string) => void;
+}) {
+  const targetLabel = kind === "client" ? "supplier" : "client";
+  const [ack, setAck] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  async function run() {
+    setBusy(true); setError(null);
+    try {
+      await (kind === "client" ? api.convertFromClient(partyId) : api.convertFromSupplier(partyId));
+      onDone(`Draft ${targetLabel} created`);
+      onClose();
+    } catch (e) { setError(errMsg(e)); } finally { setBusy(false); }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Convert to ${targetLabel}`}
+      description={`Creates a new draft ${targetLabel} linked to "${partyName}" (Smart Copy).`}>
+      <div className="space-y-3 text-sm">
+        <div>
+          <p className="mb-1 font-medium text-foreground">Carried over automatically</p>
+          <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+            {CONVERT_CARRIED_OVER.map((c) => <li key={c}>{c}</li>)}
+          </ul>
+        </div>
+        <div className="rounded-lg border border-warn/40 bg-warn-fill/30 p-3">
+          <p className="mb-1 font-medium text-foreground">You&apos;ll need to complete before the draft can trade</p>
+          <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+            {CONVERT_TODO.map((t) => <li key={t}>{t}</li>)}
+          </ul>
+          <p className="mt-2 micro">
+            Nothing here copies automatically (Hard Rule 2) — once created, use &quot;Copy from origin&quot; on each
+            section of the new record if you want to reuse the same details.
+          </p>
+        </div>
+        <Checkbox checked={ack} onCheckedChange={setAck}
+          label={`I understand a new draft ${targetLabel} will be created and confirm this conversion.`} />
+        {error && <ErrorState message={error} />}
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button variant="default" loading={busy} disabled={!ack} onClick={run}>Create draft {targetLabel}</Button>
+      </div>
+    </Modal>
+  );
+}
+
 /** Lightweight inline-SVG horizontal bar chart (§3.2) — no chart library, so the
  *  single `vendor` bundle chunk stays acyclic. Colours come from ink tokens via
  *  currentColor (never a fill token used as type — the F13 contrast rule). */
@@ -221,6 +290,75 @@ function SvgBars({ data, ariaLabel, fmt }: { data: { label: string; value: numbe
         </g>
       ))}
     </svg>
+  );
+}
+
+const AGING_COLUMNS: { key: api.AgingBucket; label: string }[] = [
+  { key: "current", label: "Current" },
+  { key: "d1_30", label: "1–30" },
+  { key: "d31_60", label: "31–60" },
+  { key: "d61_90", label: "61–90" },
+  { key: "d90_plus", label: "90+" },
+];
+
+/** Aging card (§3.2) — receivables for a client, payables for a supplier. Same
+ *  shape both sides now that the API buckets supplier payables too. Each bucket
+ *  is a button: click it to drill into the invoices behind that figure. */
+function AgingCard({ title, aging, onOpen }: { title: string; aging: api.Aging; onOpen: (bucket: api.AgingBucket, label: string) => void }) {
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <h4 className="mb-3 text-sm font-semibold text-foreground">{title}</h4>
+      <div className="grid grid-cols-5 gap-2 text-center">
+        {AGING_COLUMNS.map(({ key, label }) => (
+          <button key={key} type="button" onClick={() => onOpen(key, label)}
+            className="rounded-lg border p-2 transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            <div className="num text-sm font-semibold text-foreground">{money(aging[key])}</div>
+            <div className="micro">{label}</div>
+          </button>
+        ))}
+      </div>
+      {/* Inline-SVG aging chart (§3.2) — no chart library (bundle stays acyclic). */}
+      <div className="mt-3">
+        <SvgBars ariaLabel={title} fmt={money} data={AGING_COLUMNS.map(({ key, label }) => ({ label, value: aging[key] }))} />
+      </div>
+    </div>
+  );
+}
+
+/** Aging drill-down (spec follow-up): the invoice list behind one Aging bucket,
+ *  with days overdue for a past-due bucket or days remaining for Current. */
+function AgingDetailModal({ kind, partyId, bucket, label, onClose }: { kind: api.PartyKind; partyId: string; bucket: api.AgingBucket; label: string; onClose: () => void }) {
+  const detail = useResource(() => api.agingDetail(kind, partyId, bucket), [kind, partyId, bucket]);
+  const isCurrent = bucket === "current";
+  return (
+    <Modal open onClose={onClose} title={`Aging — ${label}`}
+      description={kind === "client" ? "Open receivables in this bucket." : "Open payables in this bucket."} size="lg">
+      {detail.loading ? <LoadingRow label="Loading…" /> : detail.error ? <ErrorState message={detail.error} /> : !detail.data || detail.data.invoices.length === 0 ? (
+        <Empty />
+      ) : (
+        <div className="space-y-3">
+          <p className="micro">
+            {detail.data.count} invoice{detail.data.count === 1 ? "" : "s"} · {money(detail.data.total)} as of {dateFmt(detail.data.as_of)}
+          </p>
+          <MiniTable empty={false} head={<><Th>Invoice</Th><Th>Due date</Th><Th>{isCurrent ? "Due in" : "Overdue by"}</Th><Th r>Amount</Th></>}>
+            {detail.data.invoices.map((i) => (
+              <tr key={i.id}>
+                <Td>{i.doc_number || i.id.slice(0, 8)}</Td>
+                <Td>{dateFmt(i.due_on)}</Td>
+                <Td>
+                  {i.days_overdue > 0
+                    ? `${i.days_overdue} day${i.days_overdue === 1 ? "" : "s"} overdue`
+                    : i.days_until_due
+                      ? `Due in ${i.days_until_due} day${i.days_until_due === 1 ? "" : "s"}`
+                      : i.due_on ? "Due today" : "No due date"}
+                </Td>
+                <Td r>{money(i.amount)}</Td>
+              </tr>
+            ))}
+          </MiniTable>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -280,6 +418,315 @@ function PendingChangesCard({ items, kind, partyId, onAct }: {
   );
 }
 
+/* ── KPI drill-in modal (spec §3.1 second half — "click a number, see the rows") ──
+ *
+ * A KPI tile summarises rows that already ride on the 360 payload; the drill-in
+ * turns each tile into a browsable list of those rows without a second request.
+ * The list is paginated at 20 client-side — the underlying 360 collections are
+ * capped at 25 by the API, so at most a second page appears; when the user
+ * needs the full list the deep-link on any row jumps to that module's page.
+ *
+ * Each row is a plain button that navigates to the target module with a focus
+ * hint (either `?focus=<id>` or, for dossiers, the friendlier `?ref=<ref>` the
+ * operations list already honours). The modal closes on navigation so the user
+ * lands on the destination page rather than the drill-in stacked over it. */
+type KpiDetailRow = { id: string; href: string; cells: React.ReactNode[] };
+type KpiDetailHeader = { label: string; right?: boolean };
+const KPI_PAGE_SIZE = 20;
+
+function KpiDetailsModal({
+  open, onClose, title, description, headers, rows, emptyLabel, moreHint,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description?: string;
+  headers: KpiDetailHeader[];
+  rows: KpiDetailRow[];
+  emptyLabel: string;
+  /** Optional note under the header — used to say "showing most recent 25". */
+  moreHint?: string;
+}) {
+  const navigate = useNavigate();
+  const [page, setPage] = React.useState(0);
+  // Reset the page cursor whenever the row set changes underneath — otherwise a
+  // filter that shortens the list would leave the modal stranded on page 3.
+  React.useEffect(() => { setPage(0); }, [rows.length, title]);
+
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / KPI_PAGE_SIZE));
+  const start = page * KPI_PAGE_SIZE;
+  const pageRows = rows.slice(start, start + KPI_PAGE_SIZE);
+
+  function open_(href: string) {
+    onClose();
+    navigate(href);
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} size="xl" title={title} description={description}>
+      {moreHint && <p className="mb-2 micro">{moreHint}</p>}
+      {total === 0 ? (
+        <div className="rounded-lg border px-3 py-6 text-center micro">{emptyLabel}</div>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-muted-foreground">
+                <tr>{headers.map((h, i) => <Th key={i} r={h.right}>{h.label}</Th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pageRows.map((r) => (
+                  // The row itself carries the pointer click (a `<tr onClick>`
+                  // is fine — it isn't one of the static elements the a11y rule
+                  // guards against). Keyboard reaches the row via the first
+                  // cell's `<button>`, the same row-activator pattern
+                  // data-list.tsx uses so a screen-reader user has one focus
+                  // stop per row rather than one per cell.
+                  <tr
+                    key={r.id}
+                    className="cursor-pointer transition-colors hover:bg-muted/60 focus-within:bg-muted/60"
+                    onClick={() => open_(r.href)}
+                  >
+                    {r.cells.map((c, i) => (
+                      <Td key={i} r={headers[i]?.right}>
+                        {i === 0 ? (
+                          <button
+                            type="button"
+                            className="text-left text-primary-ink underline underline-offset-2 hover:opacity-80 focus-visible:outline-none"
+                            onClick={(e) => { e.stopPropagation(); open_(r.href); }}
+                          >
+                            {c}
+                          </button>
+                        ) : c}
+                      </Td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {total > KPI_PAGE_SIZE && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="micro">
+                Showing {start + 1}–{Math.min(start + KPI_PAGE_SIZE, total)} of {total}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Previous</Button>
+                <span className="micro">Page {page + 1} / {totalPages}</span>
+                <Button size="sm" variant="outline" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>Next</Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </Modal>
+  );
+}
+
+/** Which KPI a click opened — one of the four tiles per party kind. The
+ *  "Credit available" tile deliberately has no drill-in (there are no rows to
+ *  list — the number is a limit minus a balance). */
+type ClientKpiKind = "outstanding" | "overdue" | "ytd_revenue" | "dossiers";
+type SupplierKpiKind = "payables" | "overdue" | "ytd_spend" | "open_pos";
+
+/** Convert an invoice `status` string to an "is this row still open" flag. The
+ *  KPI figures come from GL SQL server-side; we don't have that here, so use
+ *  status conventions consistent with the finance modules (§3.1). */
+function isOpenInvoiceStatus(s: unknown): boolean {
+  const t = String(s || "").toUpperCase();
+  if (!t) return true;
+  return !/PAID|CANCEL|REVERS/.test(t);
+}
+function currentYear(iso?: string | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getUTCFullYear() === new Date().getUTCFullYear();
+}
+function isOverdueDue(iso?: string | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return d.getTime() < today.getTime();
+}
+
+/** The recent-25 cap the 360 endpoint applies means the modal cannot always
+ *  render every underlying row — the KPI number itself is authoritative and
+ *  computed in SQL. This hint is shown when the list is at the cap so the user
+ *  knows to jump into the module for the full history. */
+const RECENT_CAP_HINT = "Showing the 25 most recent — open the module for the full list.";
+
+/** The single component that reads the dossier data + selected KPI, derives
+ *  the row set, and renders `KpiDetailsModal`. Kept out of `PartyDossier` so
+ *  it can be replaced or tested independently. */
+function KpiDetails({
+  kind, data, open, onClose,
+}: {
+  kind: api.PartyKind;
+  data: api.Client360 & api.Supplier360;
+  open: ClientKpiKind | SupplierKpiKind | null;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+  const isClient = kind === "client";
+
+  // Route the selected KPI to a { title, headers, rows, empty } shape. The
+  // rows carry a target href — the modal navigates on click and closes.
+  let title = "";
+  let description: string | undefined;
+  let headers: KpiDetailHeader[] = [];
+  let rows: KpiDetailRow[] = [];
+  let empty = "Nothing to show.";
+  const partyLabel = data.party.legal_name || data.party.name || "";
+
+  if (isClient) {
+    const invoices = data.invoices || [];
+    const dossiers = data.dossiers || [];
+    const key = open as ClientKpiKind;
+    headers = [
+      { label: "Number" }, { label: "Type" }, { label: "Status" },
+      { label: "Due" }, { label: "Total", right: true },
+    ];
+    const toInvoiceRow = (i: api.Client360["invoices"][number]): KpiDetailRow => ({
+      id: i.invoice_id,
+      href: focusHref(MODULE_ROUTE.invoice, i.invoice_id),
+      cells: [
+        i.doc_number || i.invoice_id.slice(0, 8),
+        i.type ? enumLabel(i.type) : "—",
+        i.status ? enumLabel(i.status) : "—",
+        dateFmt(i.payment_due_on),
+        money(i.total_ttc),
+      ],
+    });
+
+    if (key === "outstanding") {
+      title = `Outstanding · ${partyLabel}`;
+      description = "Invoices with an open balance — click a row to open the invoice.";
+      rows = invoices.filter((i) => isOpenInvoiceStatus(i.status)).map(toInvoiceRow);
+      empty = "No open invoices on the recent list.";
+    } else if (key === "overdue") {
+      title = `Overdue · ${partyLabel}`;
+      description = "Invoices past their payment due date with an open balance.";
+      rows = invoices.filter((i) => isOpenInvoiceStatus(i.status) && isOverdueDue(i.payment_due_on)).map(toInvoiceRow);
+      empty = "No overdue invoices on the recent list.";
+    } else if (key === "ytd_revenue") {
+      title = `YTD revenue · ${partyLabel}`;
+      description = "Invoices issued this calendar year (recent list).";
+      // YTD is by issue date server-side; the 360 payload gives us created_at
+      // via `payment_due_on` fallback isn't safe, so rely on the recent set.
+      const yearInv = invoices.filter((i) => {
+        const anyI = i as unknown as { created_at?: string | null };
+        return currentYear(anyI.created_at) || currentYear(i.payment_due_on);
+      });
+      rows = yearInv.map(toInvoiceRow);
+      empty = "No invoices this year on the recent list.";
+    } else if (key === "dossiers") {
+      title = `Dossiers in progress · ${partyLabel}`;
+      description = "Open operation files for this client — click a row to open the dossier.";
+      headers = [
+        { label: "Reference" }, { label: "Title" }, { label: "Status" }, { label: "Created" },
+      ];
+      rows = dossiers
+        .filter((ds) => {
+          const s = String(ds.status || "").toUpperCase();
+          return s !== "CLOSED" && s !== "CANCELLED" && s !== "ARCHIVED" && s !== "COMPLETED";
+        })
+        .map((ds) => ({
+          id: ds.dossier_id,
+          href: dossierHref(ds.ref, ds.dossier_id),
+          cells: [
+            ds.ref || ds.dossier_id.slice(0, 8),
+            ds.title || "—",
+            ds.status ? enumLabel(ds.status) : "—",
+            dateFmt(ds.created_at),
+          ],
+        }));
+      empty = "No in-progress dossiers.";
+    }
+  } else {
+    const supInvoices = data.supplier_invoices || [];
+    const pos = data.purchase_orders || [];
+    const key = open as SupplierKpiKind;
+    headers = [
+      { label: "Number" }, { label: "Status" }, { label: "Due" },
+      { label: "WHT", right: true }, { label: "Total", right: true },
+    ];
+    const toBillRow = (i: api.Supplier360["supplier_invoices"][number]): KpiDetailRow => ({
+      id: i.supplier_invoice_id,
+      href: focusHref(MODULE_ROUTE.supplier_invoice, i.supplier_invoice_id),
+      cells: [
+        i.doc_number || i.supplier_invoice_id.slice(0, 8),
+        i.status ? enumLabel(i.status) : "—",
+        dateFmt(i.due_on),
+        money(i.wht_total),
+        money(i.amount_ttc),
+      ],
+    });
+    if (key === "payables") {
+      title = `Payables · ${partyLabel}`;
+      description = "Posted supplier invoices with an open balance.";
+      rows = supInvoices.filter((i) => isOpenInvoiceStatus(i.status)).map(toBillRow);
+      empty = "No open supplier invoices on the recent list.";
+    } else if (key === "overdue") {
+      title = `Overdue payables · ${partyLabel}`;
+      description = "Supplier invoices past their due date.";
+      rows = supInvoices.filter((i) => isOpenInvoiceStatus(i.status) && isOverdueDue(i.due_on)).map(toBillRow);
+      empty = "No overdue payables on the recent list.";
+    } else if (key === "ytd_spend") {
+      title = `YTD spend · ${partyLabel}`;
+      description = "Supplier invoices from this calendar year (recent list).";
+      const yearInv = supInvoices.filter((i) => {
+        const anyI = i as unknown as { created_at?: string | null };
+        return currentYear(anyI.created_at) || currentYear(i.due_on);
+      });
+      rows = yearInv.map(toBillRow);
+      empty = "No supplier invoices this year on the recent list.";
+    } else if (key === "open_pos") {
+      title = `Open purchase orders · ${partyLabel}`;
+      description = "POs that are not yet closed or cancelled.";
+      headers = [
+        { label: "Number" }, { label: "Status" }, { label: "Created" }, { label: "Total", right: true },
+      ];
+      rows = pos
+        .filter((p) => {
+          const s = String(p.status || "").toUpperCase();
+          return s !== "CLOSED" && s !== "CANCELLED";
+        })
+        .map((p) => ({
+          id: p.po_id,
+          href: focusHref(MODULE_ROUTE.po, p.po_id),
+          cells: [
+            p.doc_number || p.po_id.slice(0, 8),
+            p.status ? enumLabel(p.status) : "—",
+            dateFmt(p.created_at),
+            money(p.total_ttc),
+          ],
+        }));
+      empty = "No open POs on the recent list.";
+    }
+  }
+
+  // The 360 caps at 25 recent rows per collection; when the modal actually
+  // holds that many, remind the user the KPI figure includes older records.
+  const moreHint = rows.length >= 25 ? RECENT_CAP_HINT : undefined;
+
+  return (
+    <KpiDetailsModal
+      open onClose={onClose}
+      title={title}
+      description={description}
+      headers={headers}
+      rows={rows}
+      emptyLabel={empty}
+      moreHint={moreHint}
+    />
+  );
+}
+
+
 export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.PartyKind; partyId: string; onEdit: () => void; onChanged?: () => void }) {
   const toast = useToast();
   const navigate = useNavigate();
@@ -291,10 +738,13 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
   const [tab, setTab] = React.useState<Tab>("Overview");
   const [adding, setAdding] = React.useState<null | "contact" | "address" | "bank" | "document" | "registration" | "owner">(null);
   const [blocking, setBlocking] = React.useState(false);
+  const [converting, setConverting] = React.useState(false);
   const [merging, setMerging] = React.useState<api.DedupeCandidate | null>(null);
   const [revealed, setRevealed] = React.useState<Record<string, string>>({});
+  const [aging, setAging] = React.useState<{ bucket: api.AgingBucket; label: string } | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [kpiOpen, setKpiOpen] = React.useState<ClientKpiKind | SupplierKpiKind | null>(null);
 
   const reload = () => { dossier.reload(); onChanged?.(); };
   async function act(fn: () => Promise<unknown>, ok: string) {
@@ -354,6 +804,16 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
             {comp.can_verify && p.verification_status !== "VERIFIED" && (
               <Button size="sm" variant="outline" loading={busy} onClick={() => act(() => api.verifyParty(kind, partyId), "Verified")}>Verify</Button>
             )}
+            {/* Lifecycle on/off (registration_status), independent of the hard block below. */}
+            {p.registration_status === "ACTIVE"
+              ? <Button size="sm" variant="outline" loading={busy}
+                  onClick={() => act(() => api.setRegistrationStatus(kind, partyId, "DEACTIVATED"), isClient ? "Client deactivated" : "Supplier deactivated")}>
+                  Deactivate
+                </Button>
+              : <Button size="sm" variant="outline" loading={busy}
+                  onClick={() => act(() => api.setRegistrationStatus(kind, partyId, "ACTIVE"), isClient ? "Client activated" : "Supplier activated")}>
+                  Activate
+                </Button>}
             {blocked
               ? <Button size="sm" variant="outline" loading={busy} onClick={() => act(() => api.unblockParty(kind, partyId), "Unblocked")}>Unblock</Button>
               : <Button size="sm" variant="outline" onClick={() => setBlocking(true)}>Block</Button>}
@@ -362,8 +822,7 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
               ? <Button size="sm" variant="ghost" onClick={() => openParty(isClient ? "supplier" : "client", linkedId)}>
                   {isClient ? "View supplier" : "View client"}
                 </Button>
-              : <Button size="sm" variant="ghost" loading={busy}
-                  onClick={() => act(() => (isClient ? api.convertFromClient(partyId) : api.convertFromSupplier(partyId)), isClient ? "Draft supplier created" : "Draft client created")}>
+              : <Button size="sm" variant="ghost" onClick={() => setConverting(true)}>
                   {isClient ? "→ Supplier" : "→ Client"}
                 </Button>}
           </div>
@@ -382,30 +841,35 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
         onOpen={(id) => openParty(kind, id)} onMerge={(c) => setMerging(c)} canMerge />
       <PendingChangesCard items={d.pending_changes || []} kind={kind} partyId={partyId} onAct={act} />
 
-      {/* KPI strip */}
+      {/* KPI strip — every tile except "Credit available" is a drill-in. The
+          list of rows opens over the dossier and each row deep-links into the
+          module that owns it. */}
       {isClient ? (
         <KpiRow>
-          <KpiTile label="Outstanding" value={money(d.kpis.outstanding)} />
-          <KpiTile label="Overdue" value={money(d.kpis.overdue)} hint={d.kpis.oldest_due_date ? `oldest ${dateFmt(d.kpis.oldest_due_date)}` : undefined} />
+          <KpiTile label="Outstanding" value={money(d.kpis.outstanding)} onClick={() => setKpiOpen("outstanding")} />
+          <KpiTile label="Overdue" value={money(d.kpis.overdue)} hint={d.kpis.oldest_due_date ? `oldest ${dateFmt(d.kpis.oldest_due_date)}` : undefined} onClick={() => setKpiOpen("overdue")} />
+          {/* No drill-in — the number is a limit minus a balance, not a list. */}
           <KpiTile label="Credit available" value={d.kpis.credit_available != null ? money(d.kpis.credit_available) : "—"} />
-          <KpiTile label="YTD revenue" value={money(d.kpis.ytd_revenue)} />
-          <KpiTile label="Dossiers in progress" value={num(d.kpis.dossiers_in_progress)} />
+          <KpiTile label="YTD revenue" value={money(d.kpis.ytd_revenue)} onClick={() => setKpiOpen("ytd_revenue")} />
+          <KpiTile label="Dossiers in progress" value={num(d.kpis.dossiers_in_progress)} onClick={() => setKpiOpen("dossiers")} />
         </KpiRow>
       ) : (
         <KpiRow>
-          <KpiTile label="Payables" value={money(d.kpis.payables)} />
-          <KpiTile label="Overdue" value={money(d.kpis.overdue_payables)} hint={d.kpis.oldest_due_date ? `oldest ${dateFmt(d.kpis.oldest_due_date)}` : undefined} />
-          <KpiTile label="YTD spend" value={money(d.kpis.ytd_spend)} />
-          <KpiTile label="Open POs" value={num(d.kpis.open_purchase_orders)} />
+          <KpiTile label="Payables" value={money(d.kpis.payables)} onClick={() => setKpiOpen("payables")} />
+          <KpiTile label="Overdue" value={money(d.kpis.overdue_payables)} hint={d.kpis.oldest_due_date ? `oldest ${dateFmt(d.kpis.oldest_due_date)}` : undefined} onClick={() => setKpiOpen("overdue")} />
+          <KpiTile label="YTD spend" value={money(d.kpis.ytd_spend)} onClick={() => setKpiOpen("ytd_spend")} />
+          <KpiTile label="Open POs" value={num(d.kpis.open_purchase_orders)} onClick={() => setKpiOpen("open_pos")} />
         </KpiRow>
       )}
+      <KpiDetails kind={kind} data={d} open={kpiOpen} onClose={() => setKpiOpen(null)} />
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-1 border-b">
-        {CLIENT_TABS.map((t) => {
+        {(isClient ? CLIENT_TABS : SUPPLIER_TABS).map((t) => {
           const counts: Partial<Record<Tab, number>> = {
             Documents: d.documents.length, Contacts: d.contacts.length, Addresses: d.addresses.length,
             Banks: d.banks.length, Registrations: d.registrations.length, Owners: d.beneficial_owners.length,
+            Operations: d.dossiers.length,
           };
           return (
             <button key={t} onClick={() => setTab(t)}
@@ -464,29 +928,7 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
               GL parity: {d.gl_parity.flagged ? <span className="text-bad">mismatch {money(d.gl_parity.mismatch)}</span> : "clean"} · docs {money(d.gl_parity.docTotal)} vs GL {money(d.gl_parity.gl)}
             </p>
           </div>
-          {isClient && (
-            <div className="rounded-xl border bg-card p-4">
-              <h4 className="mb-3 text-sm font-semibold text-foreground">Aging</h4>
-              <div className="grid grid-cols-5 gap-2 text-center">
-                {([["Current", d.kpis.aging.current], ["1–30", d.kpis.aging.d1_30], ["31–60", d.kpis.aging.d31_60], ["61–90", d.kpis.aging.d61_90], ["90+", d.kpis.aging.d90_plus]] as const).map(([lbl, v]) => (
-                  <div key={lbl} className="rounded-lg border p-2">
-                    <div className="num text-sm font-semibold text-foreground">{money(v)}</div>
-                    <div className="micro">{lbl}</div>
-                  </div>
-                ))}
-              </div>
-              {/* Inline-SVG aging chart (§3.2) — no chart library (bundle stays acyclic). */}
-              <div className="mt-3">
-                <SvgBars ariaLabel="Receivables aging" fmt={money} data={[
-                  { label: "Current", value: d.kpis.aging.current },
-                  { label: "1–30", value: d.kpis.aging.d1_30 },
-                  { label: "31–60", value: d.kpis.aging.d31_60 },
-                  { label: "61–90", value: d.kpis.aging.d61_90 },
-                  { label: "90+", value: d.kpis.aging.d90_plus },
-                ]} />
-              </div>
-            </div>
-          )}
+          <AgingCard title={isClient ? "Aging" : "Aging (payables)"} aging={d.kpis.aging} onOpen={(bucket, label) => setAging({ bucket, label })} />
           {!isClient && d.scorecard && <ScorecardCard s={d.scorecard} />}
           {!isClient && (
             <div className="rounded-xl border bg-card p-4">
@@ -602,6 +1044,51 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
         </Section>
       )}
 
+      {tab === "Operations" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-foreground">Operations files</h4>
+            <span className="micro">Dossiers for this client — status, milestone progress and billed value.</span>
+          </div>
+          <MiniTable empty={d.dossiers.length === 0}
+            head={<><Th>Reference</Th><Th>Service / title</Th><Th>Status</Th><Th>Milestone</Th><Th r>Value</Th><Th>Created</Th></>}>
+            {d.dossiers.map((ds) => {
+              const total = ds.milestone_total ?? 0;
+              const done = ds.milestone_done ?? 0;
+              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+              return (
+                <tr key={ds.dossier_id}>
+                  <Td>
+                    <button type="button" className="text-primary-ink underline underline-offset-2 hover:opacity-80"
+                      onClick={() => navigate(dossierHref(ds.ref, ds.dossier_id))}>
+                      {ds.ref || ds.dossier_id.slice(0, 8)}
+                    </button>
+                  </Td>
+                  <Td>{ds.title || ds.service_name || "—"}</Td>
+                  <Td>{ds.status ? <Pill tone={DOSSIER_TONE[ds.status] || "mute"}>{enumLabel(ds.status)}</Pill> : "—"}</Td>
+                  <Td>
+                    {total > 0 ? (
+                      <div className="min-w-[8rem] space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="micro">{ds.current_milestone || "—"}</span>
+                          <span className="micro">{done}/{total}</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded bg-muted">
+                          <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    ) : <span className="micro">No milestones</span>}
+                  </Td>
+                  <Td r>{ds.value != null ? money(Number(ds.value)) : "—"}</Td>
+                  <Td>{dateFmt(ds.created_at)}</Td>
+                </tr>
+              );
+            })}
+          </MiniTable>
+          {d.dossiers.length >= 25 && <p className="micro">Showing the 25 most recent — open Operations for the full list.</p>}
+        </div>
+      )}
+
       {tab === "Financial" && (
         isClient ? (
           <div className="space-y-4">
@@ -642,6 +1129,9 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
 
       {blocking && <BlockModal onClose={() => setBlocking(false)} onSubmit={async (reason) => { await act(() => api.blockParty(kind, partyId, reason), "Party blocked"); }} />}
       {merging && <MergeModal kind={kind} survivorId={partyId} survivorRef={p.ref || ""} loser={merging} onClose={() => setMerging(null)} onDone={(msg) => { toast.success(msg); reload(); }} />}
+      {converting && <ConvertModal kind={kind} partyId={partyId} partyName={p.legal_name || p.name}
+        onClose={() => setConverting(false)} onDone={(msg) => { toast.success(msg); reload(); }} />}
+      {aging && <AgingDetailModal kind={kind} partyId={partyId} bucket={aging.bucket} label={aging.label} onClose={() => setAging(null)} />}
     </div>
   );
 }
