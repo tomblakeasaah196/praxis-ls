@@ -20,6 +20,16 @@
 -- tax_jurisdiction FK. Same fix: a new seed file that sorts AFTER 9000, so
 -- the parents already exist by the time these inserts run.
 --
+-- WHY THIS FILE STARTS WITH 90, NOT 91.
+-- src/services/platform/migrator.js scopes seeds by filename prefix:
+--     tenantSeeds:   /^90/.test(f)      ← this file
+--     platformSeeds: /^91/.test(f)      ← platform-DB only
+-- The first version of this file was 9101, which routed it to the platform
+-- migrator; the platform DB has no chart_of_accounts / treasury_category
+-- tables, so it failed with "relation \"chart_of_accounts\" does not exist"
+-- during `migrate-platform.js`. 90xx sits it correctly on the tenant path
+-- (and after 9000_seed_coa.sql so the FK parents already exist).
+--
 -- ADDITIVE ONLY. ON CONFLICT DO NOTHING everywhere; safe to re-run.
 -- SCHEMA-DUAL. Applied unqualified once per schema (live, then sandbox).
 -- ============================================================================
