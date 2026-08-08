@@ -78,3 +78,22 @@ UPDATE treasury_account a
      OR (a.kind = 'MOMO' AND c.code = 'MTN_MOMO'     AND UPPER(a.momo_network) LIKE 'MTN%')
      OR (a.kind = 'MOMO' AND c.code = 'ORANGE_MONEY' AND UPPER(a.momo_network) LIKE 'ORANGE%')
    );
+
+-- DOWN
+-- Seed data only. Reversal is safe IF no treasury_account has been created
+-- against these categories yet; if any exist, delete or reclassify them first
+-- (a treasury_account with a null category_id is a legal state — the backfill
+-- itself is a no-op for such rows).
+--
+--   -- Un-backfill (nothing hard-breaks — category_id is nullable):
+--   UPDATE treasury_account SET category_id = NULL
+--    WHERE category_id IN (
+--      SELECT treasury_category_id FROM treasury_category
+--       WHERE code IN ('BANK','CASH','PETTY_CASH','MTN_MOMO','ORANGE_MONEY'));
+--
+--   -- Remove the seeded categories:
+--   DELETE FROM treasury_category
+--    WHERE code IN ('BANK','CASH','PETTY_CASH','MTN_MOMO','ORANGE_MONEY');
+--
+--   -- Remove the petty-cash CoA leaf (IF no journal_line references it):
+--   DELETE FROM chart_of_accounts WHERE code = '5711';
