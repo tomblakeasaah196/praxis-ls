@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 2× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (247)
+## All codes (249)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -88,6 +88,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_TRANSITION` | 422 | 3× | — |
 | `BAD_VALUE` | 422 | 1× | — |
 | `BAD_WINDOW` | 422 | 2× | — |
+| `BASE_CURRENCY` | 409, 422 | 2× | — |
 | `BREACHED_PASSWORD` | 422 | 1× | — |
 | `CAMPAIGN_ENDED` | 422 | 1× | — |
 | `CAPABILITY_REQUIRED` | 403 | 1× | — |
@@ -98,6 +99,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `COA_IS_MANAGED` | 422 | 1× | — |
 | `CODE_TAKEN` | 409 | 2× | — |
 | `COMPLIANCE_BLOCKED` | 409 | 3× | — |
+| `CURRENCY_IN_USE` | 409 | 1× | — |
 | `CYCLIC_PARENT` | 422 | 2× | — |
 | `DATE_REQUIRED` | 422 | 1× | — |
 | `DOSSIER_REQUIRED` | 422 | 1× | — |
@@ -156,7 +158,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_CONNECTED` | 409 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 1× | — |
-| `NOT_FOUND` | 404 | 262× | — |
+| `NOT_FOUND` | 404 | 266× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_QUALIFIED` | 422 | 1× | — |
 | `NOT_READY` | 409 | 1× | — |
@@ -266,7 +268,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `UNSUPPORTED_FORMAT` | 422 | 1× | — |
 | `UNSUPPORTED_IMAGE` | 400, 415 | 5× | — |
 | `USER_INACTIVE` | 401 | 3× | — |
-| `VALIDATION_ERROR` | 422 | 108× | — |
+| `VALIDATION_ERROR` | 422 | 109× | — |
 | `VEHICLE_COMMITTED` | — | 1× | — |
 | `VEHICLE_NOT_FOUND` | 404 | 1× | — |
 | `VEHICLE_UNAVAILABLE` | 422 | 1× | — |

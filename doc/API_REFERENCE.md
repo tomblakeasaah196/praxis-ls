@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 886 |
+| Routes | 894 |
 | Modules mounted | 106 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 886 mounted routes, grouped by path prefix.
+All 894 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -376,6 +376,7 @@ All 886 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/clients/:id/addresses` | — |
 | DELETE | `/api/tenant/clients/:id/addresses/:childId` | — |
 | PATCH | `/api/tenant/clients/:id/addresses/:childId` | — |
+| GET | `/api/tenant/clients/:id/aging` | — |
 | GET | `/api/tenant/clients/:id/banks` | — |
 | POST | `/api/tenant/clients/:id/banks` | — |
 | POST | `/api/tenant/clients/:id/banks/:bankId/reveal` | — |
@@ -470,10 +471,16 @@ All 886 mounted routes, grouped by path prefix.
 | Method | Path | Body validated |
 |---|---|---|
 | GET | `/api/tenant/currencies/` | — |
+| POST | `/api/tenant/currencies/` | — |
+| DELETE | `/api/tenant/currencies/:code` | — |
+| PATCH | `/api/tenant/currencies/:code` | — |
+| GET | `/api/tenant/currencies/:code/360` | — |
+| POST | `/api/tenant/currencies/base` | — |
 | GET | `/api/tenant/currencies/convert` | — |
 | GET | `/api/tenant/currencies/rate` | — |
 | GET | `/api/tenant/currencies/rates` | — |
 | POST | `/api/tenant/currencies/rates` | — |
+| POST | `/api/tenant/currencies/sync` | — |
 
 ### `tenant/cycle-counts`
 
@@ -1338,6 +1345,7 @@ All 886 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/suppliers/:id/addresses` | — |
 | DELETE | `/api/tenant/suppliers/:id/addresses/:childId` | — |
 | PATCH | `/api/tenant/suppliers/:id/addresses/:childId` | — |
+| GET | `/api/tenant/suppliers/:id/aging` | — |
 | GET | `/api/tenant/suppliers/:id/banks` | — |
 | POST | `/api/tenant/suppliers/:id/banks` | — |
 | POST | `/api/tenant/suppliers/:id/banks/:bankId/reveal` | — |
