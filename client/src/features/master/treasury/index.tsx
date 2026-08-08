@@ -22,8 +22,8 @@ import { SplitPane } from "@/components/ui/split-pane";
 import { PageHeader } from "@/components/data-list";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { pageShell } from "@/lib/layout";
-import { useList, useRefresh, errMsg, type Row } from "@/lib/use-resource";
-import { cell, money } from "@/lib/format";
+import { useList, useRefresh, errMsg } from "@/lib/use-resource";
+import { cell } from "@/lib/format";
 import * as api from "@/lib/treasury-api";
 import { TreasuryDossier } from "./dossier";
 import { NewAccountModal } from "./new-account-modal";
@@ -32,12 +32,6 @@ import { NewCategoryModal } from "./new-category-modal";
 const KIND_TONE: Record<string, Tone> = {
   BANK: "blue", CASH: "ok", MOMO: "orange",
 };
-
-function categoryTone(code?: string | null): Tone {
-  if (!code) return "mute";
-  if (code === "PETTY_CASH") return "warn";
-  return "mute";
-}
 
 export function TreasuryMasterPage() {
   const reload = useRefresh();

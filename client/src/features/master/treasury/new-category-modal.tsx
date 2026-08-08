@@ -104,18 +104,22 @@ export function NewCategoryModal({
         </div>
         <div className="space-y-2 rounded-lg border p-3">
           <div className="micro text-muted-foreground">Field groups the create form shows</div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={bankIdentity} onCheckedChange={(v) => setBankIdentity(v === true)} />
-            Bank identity (bank name, branch, account number, IBAN, SWIFT)
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={momoIdentity} onCheckedChange={(v) => setMomoIdentity(v === true)} />
-            Mobile-money identity (number, till, agent)
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={reqCust} onCheckedChange={(v) => setReqCust(v === true)} disabled={legacyKind !== "CASH"} />
-            Requires a custodian (petty cash floats)
-          </label>
+          <Checkbox
+            checked={bankIdentity}
+            onCheckedChange={(v) => setBankIdentity(v === true)}
+            label="Bank identity (bank name, branch, account number, IBAN, SWIFT)"
+          />
+          <Checkbox
+            checked={momoIdentity}
+            onCheckedChange={(v) => setMomoIdentity(v === true)}
+            label="Mobile-money identity (number, till, agent)"
+          />
+          <Checkbox
+            checked={reqCust}
+            onCheckedChange={(v) => setReqCust(v === true)}
+            disabled={legacyKind !== "CASH"}
+            label="Requires a custodian (petty cash floats)"
+          />
         </div>
         {error && <ErrorState message={error} />}
         <div className="flex justify-end gap-2 pt-2">

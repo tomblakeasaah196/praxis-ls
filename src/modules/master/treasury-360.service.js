@@ -18,7 +18,9 @@
  * through the treasury_account service.
  */
 "use strict";
-const { AppError } = require("../../utils/errors");
+// treasury_account.repo is loaded lazily from load() so that the require graph
+// stays a DAG (this file lives in master/, its consumer is treasury_account/
+// two levels down, and pre-loading would circle).
 
 /** Return the raw balance metric: SUM(debit) - SUM(credit). For a class-5
  *  account (normal balance D), this IS the balance. */
