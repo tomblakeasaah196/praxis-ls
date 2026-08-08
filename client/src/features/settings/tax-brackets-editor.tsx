@@ -20,7 +20,6 @@
  * with a `cap_xaf` (e.g. CNPS pension 4.2% capped at 750,000) — the parts are
  * independent, so each is behind its own toggle.
  */
-import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { num } from "@/lib/format";
@@ -152,13 +151,13 @@ export function parseBrackets(value: unknown): BracketsState {
 /** Small labelled toggle header for each optional sub-editor. */
 function Toggle({ on, onChange, title, hint }: { on: boolean; onChange: (v: boolean) => void; title: string; hint: string }) {
   return (
-    <label className="flex cursor-pointer items-start gap-2">
-      <input type="checkbox" className="mt-1" checked={on} onChange={(e) => onChange(e.target.checked)} />
-      <span>
+    <div>
+      <label className="flex cursor-pointer items-center gap-2">
+        <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} />
         <span className="text-sm font-medium">{title}</span>
-        <span className="block micro text-muted-foreground">{hint}</span>
-      </span>
-    </label>
+      </label>
+      <p className="pl-6 micro text-muted-foreground">{hint}</p>
+    </div>
   );
 }
 
