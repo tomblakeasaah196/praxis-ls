@@ -1,5 +1,8 @@
 -- ============================================================================
--- TENANT DB — 0519 treasury master data revamp (MOD-09).
+-- TENANT DB — 0520 treasury master data revamp (MOD-09).
+-- (Originally drafted as 0519; renumbered to 0520 because 0519_currency_rich.sql
+--  landed on main while this PR was open. Per scripts/db/check-migration-numbers.js
+--  we never renumber a migration that has already been applied — this one had not.)
 --
 -- WHAT THIS DOES
 --

@@ -1,7 +1,7 @@
 /**
  * Treasury categories (MOD-09) — the user-editable registry of treasury
  * account types (Bank, Cash, Petty Cash, MTN MoMo, Orange Money, Airtel
- * SmartCash …). See migrations/tenant/0519_treasury_master_rich.sql.
+ * SmartCash …). See migrations/tenant/0520_treasury_master_rich.sql.
  */
 "use strict";
 const express = require("express");

@@ -1,6 +1,6 @@
 /**
  * treasury_category service (MOD-09) — the user-editable registry of
- * treasury account types. See migrations/tenant/0519_treasury_master_rich.sql.
+ * treasury account types. See migrations/tenant/0520_treasury_master_rich.sql.
  */
 "use strict";
 const repo = require("./treasury_category.repo");

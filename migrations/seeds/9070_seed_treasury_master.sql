@@ -3,15 +3,15 @@
 -- CoA parent (5711), plus a best-effort backfill of category_id on any
 -- pre-revamp treasury_account rows.
 --
--- WHY A SEED FILE INSTEAD OF DOING THIS IN 0519.
+-- WHY A SEED FILE INSTEAD OF DOING THIS IN 0520.
 -- The category rows and the 5711 CoA leaf reference SYSCOHADA parents 521 /
 -- 571 / 5381 / 5382 via FK to `chart_of_accounts(code)`. Those codes are
--- populated by seeds/9000_seed_coa.sql. Tenant migrations (0001..0519) apply
+-- populated by seeds/9000_seed_coa.sql. Tenant migrations (0001..0520) apply
 -- BEFORE seeds — the migrator applies all tenant SQL first, then all seeds in
 -- filename order — so INSERTing here from the migration file fails on a
 -- fresh-provisioned tenant with:
 --
---   Failed applying migrations/tenant/0519_treasury_master_rich.sql [live]:
+--   Failed applying migrations/tenant/0520_treasury_master_rich.sql [live]:
 --   insert or update on table "chart_of_accounts" violates foreign key
 --   constraint "chart_of_accounts_parent_code_fkey"
 --   DETAIL: Key (parent_code)=(571) is not present in table
