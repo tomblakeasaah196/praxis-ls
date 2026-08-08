@@ -30,7 +30,7 @@ const repo = require("./treasury_account.repo");
 const events = require("./treasury_account.events");
 const rules = require("./treasury_account.rules");
 const encryption = require("../../../services/encryption.service");
-const { emitEvent, audit } = require("../../../shared/events/emit");
+const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
 
 const ref = (id) => "treasury_account:" + id;
@@ -87,7 +87,11 @@ async function create(client, { entityId, categoryId, actor = {}, ...body }) {
     // Build the row from the allow-list; drop anything else the body carried.
     const data = { entity_id: entityId, category_id: categoryId, kind: category.legacy_kind, coa_code: leafCode };
     for (const k of CREATE_FIELDS) if (body[k] !== undefined) data[k] = body[k];
-    if (actor.user_id) data.created_by = actor.user_id;
+    // `created_by` FKs to app_user(user_id), which lives in the LIVE schema.
+    // In SANDBOX a raw actor.user_id 23503-fails; resolveActorId returns null
+    // instead so the row lands (attribution is lost but the operation stands).
+    // DATA 2.4 — enforced by scripts/check-actor-fk-guard.js.
+    data.created_by = await resolveActorId(client, actor.user_id);
 
     const row = await repo.insert(client, data);
     await emitEvent(client, {
@@ -132,7 +136,9 @@ async function update(client, { id, patch = {}, actor = {} }) {
     }
   }
 
-  if (actor.user_id) fields.updated_by = actor.user_id;
+  // `updated_by` FKs to app_user(user_id) — same LIVE-vs-SANDBOX story as
+  // `created_by` in create(). DATA 2.4.
+  fields.updated_by = await resolveActorId(client, actor.user_id);
 
   const row = await repo.update(client, id, fields);
   if (patch.label && patch.label !== before.label && before.coa_code) {
@@ -203,9 +209,12 @@ async function setPrimary(client, { id, actor = {} }) {
 async function verify(client, { id, actor = {} }) {
   const row = await repo.get(client, id);
   if (!row) throw new AppError("NOT_FOUND", "Treasury account not found", 404);
+  // `verified_by` FKs to app_user(user_id) — LIVE only. Resolve through the
+  // sandbox guard rather than storing a raw actor id; DATA 2.4.
+  const verifiedBy = await resolveActorId(client, actor.user_id);
   const next = await repo.update(client, id, {
     is_verified: true,
-    verified_by: actor.user_id || null,
+    verified_by: verifiedBy,
     verified_at: new Date(),
   });
   await audit(client, {
