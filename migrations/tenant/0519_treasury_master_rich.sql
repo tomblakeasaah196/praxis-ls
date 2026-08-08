@@ -63,18 +63,18 @@
 -- doc/DB_ARCHITECTURE.md.
 -- ============================================================================
 
--- ── §0  A dedicated 5711 CoA leaf for petty cash ──────────────────────────
+-- ── §0  Seed rows live in seeds/9101_seed_treasury_master.sql ─────────────
 --
--- Seed 9000 gives us 571 (Caisse siège, non-postable parent) and 5211/5381/5382
--- as postable leaves. There is no parent for petty cash sub-accounts to hang
--- off. Create a 4-digit `5711` "Petty cash" node under 571 — non-postable
--- itself (parents are not postable), so treasury_account's petty-cash leaves
--- (5711nn) are what get posted to.
-INSERT INTO chart_of_accounts
-  (code, parent_code, label_fr, label_en, class, normal_balance, is_postable, requires_analytic)
-VALUES
-  ('5711', '571', 'Caisses régies (petites caisses)', 'Petty cash floats', 5, 'D', false, false)
-ON CONFLICT (code) DO NOTHING;
+-- The 5711 "Petty cash" CoA leaf and the five default treasury_category rows
+-- (BANK/CASH/PETTY_CASH/MTN_MOMO/ORANGE_MONEY) reference the SYSCOHADA parents
+-- 521/571/5381/5382, which are populated by seeds/9000_seed_coa.sql. Tenant
+-- migrations run BEFORE seeds, so inserting them here would fail on a
+-- fresh-provisioned tenant with "Key (parent_code)=(571) is not present in
+-- table chart_of_accounts" (audit DATA 1.3-shaped: fixed by moving the seed
+-- to a filename that sorts after 9000, exactly as 9005_seed_currency.sql did
+-- for currency vs tax_jurisdiction).
+--
+-- This file holds ONLY the schema. All data inserts are in the seed.
 
 -- ── §1  treasury_category — the user-editable registry ────────────────────
 CREATE TABLE IF NOT EXISTS treasury_category (
@@ -105,16 +105,8 @@ CREATE TRIGGER trg_treasury_category_updated
   BEFORE UPDATE ON treasury_category
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Seed the five categories every tenant starts with.
-INSERT INTO treasury_category
-  (code, label, legacy_kind, coa_parent_code, requires_custodian, is_bank_identity, is_momo_identity, is_system)
-VALUES
-  ('BANK',         'Bank',              'BANK', '521',  false, true,  false, true),
-  ('CASH',         'Cash',              'CASH', '571',  false, false, false, true),
-  ('PETTY_CASH',   'Petty Cash',        'CASH', '5711', true,  false, false, true),
-  ('MTN_MOMO',     'MTN Mobile Money',  'MOMO', '5381', false, false, true,  true),
-  ('ORANGE_MONEY', 'Orange Money',      'MOMO', '5382', false, false, true,  true)
-ON CONFLICT (code) DO NOTHING;
+-- Category seed rows: see seeds/9101_seed_treasury_master.sql (deferred so
+-- the FKs onto chart_of_accounts.code resolve — see §0 note).
 
 -- ── §2  Extend treasury_account ───────────────────────────────────────────
 --
@@ -204,23 +196,5 @@ CREATE INDEX IF NOT EXISTS ix_treasury_kind_active ON treasury_account(kind, is_
 CREATE INDEX IF NOT EXISTS ix_treasury_custodian  ON treasury_account(custodian_user_id) WHERE custodian_user_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_treasury_primary    ON treasury_account(entity_id, category_id, is_primary) WHERE is_primary = true;
 
--- ── §3  Backfill category_id on existing rows ─────────────────────────────
---
--- The old model only distinguished BANK/CASH/MOMO. Best-effort mapping:
---   kind=BANK              → BANK
---   kind=CASH              → CASH   (existing CASH rows are Caisse Siège by
---                                    default — no custodian was ever collected,
---                                    so we cannot promote them to PETTY_CASH)
---   kind=MOMO, momo_network~'MTN'    → MTN_MOMO
---   kind=MOMO, momo_network~'ORANGE' → ORANGE_MONEY
---   kind=MOMO, network unknown       → left NULL; the treasurer sets it in the UI
-UPDATE treasury_account a
-   SET category_id = c.treasury_category_id
-  FROM treasury_category c
- WHERE a.category_id IS NULL
-   AND (
-        (a.kind = 'BANK' AND c.code = 'BANK')
-     OR (a.kind = 'CASH' AND c.code = 'CASH')
-     OR (a.kind = 'MOMO' AND c.code = 'MTN_MOMO'     AND UPPER(a.momo_network) LIKE 'MTN%')
-     OR (a.kind = 'MOMO' AND c.code = 'ORANGE_MONEY' AND UPPER(a.momo_network) LIKE 'ORANGE%')
-   );
+-- Backfill of category_id on existing rows moves with the seed — it can only
+-- run once the category rows exist. See seeds/9101_seed_treasury_master.sql.

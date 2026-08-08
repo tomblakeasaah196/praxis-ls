@@ -13,7 +13,7 @@
  * from. That was the whole point of the audit.
  */
 import * as React from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
 import { Button } from "@/components/ui/button";
@@ -312,9 +312,18 @@ export function TreasuryDossier({ id, onChanged }: { id: string; onChanged?: () 
   );
 }
 
-/** The route-level page — wraps the dossier with a breadcrumb link back. */
+/**
+ * The route-level page — wraps the dossier with a breadcrumb link back.
+ *
+ * Reads the id from `useParams`, not `window.location.pathname`. React Router
+ * already parsed the URL for us; going back to `window.location` treats the
+ * path as untrusted user-controlled data (CodeQL flags it as a taint source)
+ * and would misbehave on any nested route (`/master/treasury-accounts/:id/edit`
+ * would give us `edit`, not the id). Same pattern entity-360 uses.
+ */
 export function TreasuryDossierPage() {
-  const id = window.location.pathname.split("/").pop() as string;
+  const { id } = useParams<{ id: string }>();
+  if (!id) return null;
   return (
     <div className="space-y-4">
       <div>

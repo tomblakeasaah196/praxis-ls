@@ -230,10 +230,11 @@ export function NewAccountModal({
             <Field label="Statement day" hint="Day of the month the bank issues a statement (1–31)"><Input type="number" min={1} max={31} value={stmtDay} onChange={(e) => setStmtDay(e.target.value)} /></Field>
           </fieldset>
 
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={markPrimary} onCheckedChange={(v) => setMarkPrimary(v === true)} />
-            Mark as primary for this entity + category
-          </label>
+          <Checkbox
+            checked={markPrimary}
+            onCheckedChange={(v) => setMarkPrimary(v === true)}
+            label="Mark as primary for this entity + category"
+          />
 
           {(entities || []).length === 0 && <p className="text-xs text-muted-foreground">No corporate entities found — create one under Master data → Corporate entities first.</p>}
           {error && <ErrorState message={error} />}
