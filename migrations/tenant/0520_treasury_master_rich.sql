@@ -201,3 +201,60 @@ CREATE INDEX IF NOT EXISTS ix_treasury_primary    ON treasury_account(entity_id,
 
 -- Backfill of category_id on existing rows moves with the seed — it can only
 -- run once the category rows exist. See seeds/9070_seed_treasury_master.sql.
+
+-- DOWN
+-- Additive DDL only; every column and object added above can be dropped
+-- individually and no business data is lost by doing so (the seeded rows and
+-- the tenant-created rows would have to be exported first if anything hangs
+-- off treasury_category.treasury_category_id). Drop in reverse dependency
+-- order: triggers, indexes, constraints, columns, then the table itself.
+--
+--   -- indexes on treasury_account.category_id and friends
+--   DROP INDEX IF EXISTS ix_treasury_primary;
+--   DROP INDEX IF EXISTS ix_treasury_custodian;
+--   DROP INDEX IF EXISTS ix_treasury_kind_active;
+--   DROP INDEX IF EXISTS ix_treasury_entity_cat;
+--   DROP INDEX IF EXISTS ix_treasury_category;
+--
+--   -- constraints + updated_at trigger this migration installed
+--   DROP TRIGGER IF EXISTS trg_treasury_account_updated ON treasury_account;
+--   ALTER TABLE treasury_account DROP CONSTRAINT IF EXISTS chk_treasury_verified_stamped;
+--
+--   -- treasury_account columns added by this migration
+--   ALTER TABLE treasury_account
+--     DROP COLUMN IF EXISTS created_by,
+--     DROP COLUMN IF EXISTS updated_by,
+--     DROP COLUMN IF EXISTS updated_at,
+--     DROP COLUMN IF EXISTS momo_agent,
+--     DROP COLUMN IF EXISTS momo_till,
+--     DROP COLUMN IF EXISTS momo_number,
+--     DROP COLUMN IF EXISTS float_limit,
+--     DROP COLUMN IF EXISTS location,
+--     DROP COLUMN IF EXISTS custodian_user_id,
+--     DROP COLUMN IF EXISTS verified_at,
+--     DROP COLUMN IF EXISTS verified_by,
+--     DROP COLUMN IF EXISTS is_verified,
+--     DROP COLUMN IF EXISTS is_primary,
+--     DROP COLUMN IF EXISTS statement_day,
+--     DROP COLUMN IF EXISTS opening_date,
+--     DROP COLUMN IF EXISTS opening_balance,
+--     DROP COLUMN IF EXISTS holder_name,
+--     DROP COLUMN IF EXISTS routing_code,
+--     DROP COLUMN IF EXISTS swift_bic,
+--     DROP COLUMN IF EXISTS iban,
+--     DROP COLUMN IF EXISTS account_number,
+--     DROP COLUMN IF EXISTS branch,
+--     DROP COLUMN IF EXISTS bank_name,
+--     DROP COLUMN IF EXISTS category_id;
+--
+--   -- restore the pre-revamp kind CHECK (which was identical text to what
+--   -- this migration re-added, but the constraint name has to be re-declared
+--   -- so the DOWN leaves the schema exactly as it was found).
+--   ALTER TABLE treasury_account DROP CONSTRAINT IF EXISTS treasury_account_kind_check;
+--   -- If the pre-revamp CHECK constraint was named differently in your dump,
+--   -- restore it from that dump rather than re-adding it here.
+--
+--   -- treasury_category table + its trigger
+--   DROP TRIGGER IF EXISTS trg_treasury_category_updated ON treasury_category;
+--   DROP INDEX IF EXISTS ix_treasury_category_active;
+--   DROP TABLE IF EXISTS treasury_category;
