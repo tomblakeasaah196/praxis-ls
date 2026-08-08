@@ -58,8 +58,10 @@ export type AuditLedgerEntry = {
   after_json?: unknown;
   /** Which schema this row's ledger lives in — see AuditFeedRow. Only present
    *  on rows sourced from /audit/my-feed; Governance's full-row list doesn't
-   *  need it (never triggers the GET /audit/:id fetch this drives). */
-  ledger_scope?: "identity" | "tenant" | null;
+   *  need it (never triggers the GET /audit/:id fetch this drives). No `null`
+   *  here — must match AuditFeedRow's type exactly, since `full` gets cast
+   *  through this type on its way into humanize(row: AuditFeedRow) below. */
+  ledger_scope?: "identity" | "tenant";
   /** UUID -> human label for `entity_ref` (e.g. "corporate_entity:fc3f680f-…"
    *  -> "SLAS Cameroun"), resolved server-side by GET /audit/:id. Only
    *  populated after that fetch — absent on the initial thin my-feed row and
