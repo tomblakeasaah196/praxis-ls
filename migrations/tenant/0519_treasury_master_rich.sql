@@ -63,7 +63,7 @@
 -- doc/DB_ARCHITECTURE.md.
 -- ============================================================================
 
--- ── §0  Seed rows live in seeds/9101_seed_treasury_master.sql ─────────────
+-- ── §0  Seed rows live in seeds/9070_seed_treasury_master.sql ─────────────
 --
 -- The 5711 "Petty cash" CoA leaf and the five default treasury_category rows
 -- (BANK/CASH/PETTY_CASH/MTN_MOMO/ORANGE_MONEY) reference the SYSCOHADA parents
@@ -105,7 +105,7 @@ CREATE TRIGGER trg_treasury_category_updated
   BEFORE UPDATE ON treasury_category
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Category seed rows: see seeds/9101_seed_treasury_master.sql (deferred so
+-- Category seed rows: see seeds/9070_seed_treasury_master.sql (deferred so
 -- the FKs onto chart_of_accounts.code resolve — see §0 note).
 
 -- ── §2  Extend treasury_account ───────────────────────────────────────────
@@ -197,4 +197,4 @@ CREATE INDEX IF NOT EXISTS ix_treasury_custodian  ON treasury_account(custodian_
 CREATE INDEX IF NOT EXISTS ix_treasury_primary    ON treasury_account(entity_id, category_id, is_primary) WHERE is_primary = true;
 
 -- Backfill of category_id on existing rows moves with the seed — it can only
--- run once the category rows exist. See seeds/9101_seed_treasury_master.sql.
+-- run once the category rows exist. See seeds/9070_seed_treasury_master.sql.
