@@ -19,11 +19,12 @@
 -- implicit transaction, and a column that already exists must not wedge the
 -- tenant behind this file. ADD COLUMN ... DEFAULT now() backfills existing rows
 -- in the same statement, so the five seeded currencies get a sane timestamp.
---
--- ROLLBACK:
---   ALTER TABLE currency DROP COLUMN IF EXISTS created_at;
---   ALTER TABLE currency DROP COLUMN IF EXISTS updated_at;
 -- ============================================================================
 
 ALTER TABLE currency ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 ALTER TABLE currency ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+-- DOWN
+-- Additive audit columns; dropping them loses only the timestamps, no business data.
+--   ALTER TABLE currency DROP COLUMN IF EXISTS updated_at;
+--   ALTER TABLE currency DROP COLUMN IF EXISTS created_at;
