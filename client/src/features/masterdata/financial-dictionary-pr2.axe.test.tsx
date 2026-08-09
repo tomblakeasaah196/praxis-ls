@@ -98,6 +98,30 @@ describe("Financial dictionary — Spend tab", () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 
+  it("an unrecognised doc_type degrades to plain text instead of crashing the tab", async () => {
+    // `doc_type` crosses a trust boundary — the TS union is a compile-time
+    // claim, not a runtime guarantee. Indexing a plain object with it meant an
+    // unknown value called `undefined(...)` and took down the whole tab, and
+    // "constructor" resolved through the prototype chain to `Object`.
+    const odd = {
+      ...SPEND,
+      documents: [
+        { ...SPEND.documents[0], doc_type: "constructor", doc_id: "x1", doc_number: null },
+        { ...SPEND.documents[0], doc_type: "supplier_invoice", doc_id: "x2", doc_number: "SI-9" },
+      ],
+    };
+    const { container } = renderScreen(<SpendTab id="di1" />, { routes: { "/financial-dictionary/di1/spend": odd } });
+    // Renders, with a generic label and no link, rather than throwing.
+    await waitFor(() => expect(screen.getByText("SI-9")).toBeTruthy());
+    expect(screen.getByText("SI-9").closest("a")).toBeNull();
+    // The "constructor" row is present too — as a generic label, not an
+    // invocation of Object and not a blank row. (Scoped to cells: the column
+    // header is also the word "Document".)
+    const cells = screen.getAllByRole("cell").map((c) => c.textContent ?? "");
+    expect(cells.some((t) => t.startsWith("Document"))).toBe(true);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
   it("a period with no movement says so instead of drawing an empty chart", async () => {
     const empty = { ...SPEND, months: [{ month: "2026-08", estimated: 0, estimated_count: 0, committed: 0, committed_count: 0, actual: 0, actual_count: 0 }], totals: { ...SPEND.totals, estimated: 0, committed: 0, actual: 0, headline: 0 }, documents: [] };
     const { container } = renderScreen(<SpendTab id="di1" />, { routes: { "/financial-dictionary/di1/spend": empty } });
