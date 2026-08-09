@@ -169,15 +169,40 @@ function Legend() {
 
 /* ── Spend tab ────────────────────────────────────────────────────────────── */
 
-const DOC_ROUTE: Record<api.SpendDocument["doc_type"], (d: api.SpendDocument) => string> = {
-  costing: (d) => `/costing/sheets?focus=${d.doc_id}`,
-  purchase_order: (d) => `/procurement/purchase-orders?focus=${d.doc_id}`,
-  cash_request: (d) => `/costing/cash-requests?focus=${d.doc_id}`,
-  cost_entry: (d) => (d.dossier_id ? `/operations/files?focus=${d.dossier_id}` : "/costing/cost-tracking"),
-};
-const DOC_LABEL: Record<api.SpendDocument["doc_type"], string> = {
-  costing: "Costing", purchase_order: "Purchase order", cash_request: "Cash request", cost_entry: "Cost entry",
-};
+/**
+ * Deep-link + label per document type — `Map`s, not object literals, and looked
+ * up with an explicit fallback.
+ *
+ * `doc_type` arrives from the server, and TypeScript's union type is a
+ * compile-time claim about it, not a runtime guarantee. Two things follow from
+ * indexing a plain object with it:
+ *
+ *   - a value outside the four keys yields `undefined`, and `DOC_ROUTE[t](doc)`
+ *     then throws "is not a function", taking down the whole tab over one
+ *     unrecognised row — a new document type added server-side would do it;
+ *   - the lookup walks the prototype chain, so `doc_type: "constructor"`
+ *     resolves to `Object` and CALLS it. That is the dynamic-method-call class
+ *     CodeQL's security-extended pack flags, and it is a real hole rather than
+ *     a theoretical one: this value crosses a trust boundary.
+ *
+ * A `Map` has no prototype chain to walk into, and `?? fallback` degrades an
+ * unknown type to an inert link instead of an exception.
+ */
+const DOC_ROUTE = new Map<string, (d: api.SpendDocument) => string>([
+  ["costing", (d) => `/costing/sheets?focus=${d.doc_id}`],
+  ["purchase_order", (d) => `/procurement/purchase-orders?focus=${d.doc_id}`],
+  ["cash_request", (d) => `/costing/cash-requests?focus=${d.doc_id}`],
+  ["cost_entry", (d) => (d.dossier_id ? `/operations/files?focus=${d.dossier_id}` : "/costing/cost-tracking")],
+]);
+const DOC_LABEL = new Map<string, string>([
+  ["costing", "Costing"],
+  ["purchase_order", "Purchase order"],
+  ["cash_request", "Cash request"],
+  ["cost_entry", "Cost entry"],
+]);
+/** Where a drill-in row points. An unknown type gets no link target, not a crash. */
+const docHref = (d: api.SpendDocument) => DOC_ROUTE.get(String(d.doc_type))?.(d);
+const docLabel = (d: api.SpendDocument) => DOC_LABEL.get(String(d.doc_type)) ?? "Document";
 
 export function SpendTab({ id }: { id: string }) {
   const [preset, setPreset] = React.useState<PeriodPreset>("year");
@@ -279,20 +304,27 @@ export function SpendTab({ id }: { id: string }) {
                 <th scope="col" className="px-3 py-2 text-right">Amount</th>
               </tr></thead>
               <tbody className="divide-y divide-border">
-                {docs.map((doc, i) => (
+                {docs.map((doc, i) => {
+                  const href = docHref(doc);
+                  const name = doc.doc_number || docLabel(doc);
+                  return (
                   <tr key={`${doc.doc_type}-${doc.doc_id}-${i}`}>
                     <td className="px-3 py-1.5 num text-xs">{dateFmt(doc.doc_date)}</td>
                     <td className="px-3 py-1.5 text-xs">
-                      <a href={DOC_ROUTE[doc.doc_type](doc)} className="font-medium text-primary-ink underline-offset-2 hover:underline">
-                        {doc.doc_number || DOC_LABEL[doc.doc_type]}
-                      </a>
+                      {/* Plain text when the type has no known route — an <a>
+                          with no href is not a link, and announcing one to a
+                          screen reader that goes nowhere is worse than a label. */}
+                      {href
+                        ? <a href={href} className="font-medium text-primary-ink underline-offset-2 hover:underline">{name}</a>
+                        : <span className="font-medium">{name}</span>}
                       {doc.label ? <span className="block text-muted-foreground">{doc.label}</span> : null}
                     </td>
                     <td className="px-3 py-1.5 num text-xs">{doc.dossier_ref || "—"}</td>
                     <td className="px-3 py-1.5"><Pill tone={doc.lens === "actual" ? "ok" : doc.lens === "committed" ? "warn" : "mute"}>{doc.status || doc.lens}</Pill></td>
                     <td className="px-3 py-1.5 num text-right text-xs">{money(doc.amount, doc.currency || cur)}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -18,16 +18,21 @@ const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
  * A bare base64 string is accepted as well as a full data URL, because the two
  * browser paths (FileReader.readAsDataURL vs a manual btoa) produce different
  * shapes and rejecting one of them is a bug report, not a security control.
+ *
+ * 400, not 422 — matching document_vault, which raises BAD_FILE/400 for this
+ * exact condition. The transport was malformed, so there is nothing to process;
+ * the 422s live one level down in the parser, where the bytes decoded fine and
+ * the WORKBOOK is what is wrong (unreadable as .xlsx, no recognised headers).
  */
 function decodeUpload(file) {
   const s = String(file || "");
   const m = /^data:([^;]*);base64,(.+)$/s.exec(s);
   const b64 = m ? m[2] : s;
   if (!/^[A-Za-z0-9+/\r\n]+={0,2}$/.test(b64.slice(0, 4096))) {
-    throw new AppError("BAD_FILE", "Expected a base64-encoded .xlsx workbook", 422);
+    throw new AppError("BAD_FILE", "Expected a base64-encoded .xlsx workbook", 400);
   }
   const buffer = Buffer.from(b64, "base64");
-  if (buffer.length === 0) throw new AppError("BAD_FILE", "The uploaded file is empty", 422);
+  if (buffer.length === 0) throw new AppError("BAD_FILE", "The uploaded file is empty", 400);
   return buffer;
 }
 
