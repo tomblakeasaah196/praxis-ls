@@ -69,7 +69,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
                   <td className="px-3 py-1.5 num font-medium text-foreground">{r.code}</td>
                   <td className="px-3 py-1.5 text-muted-foreground">{r.name_fr}{r.name_en ? ` · ${r.name_en}` : ""}</td>
                   <td className="px-3 py-1.5">{r.is_system && <Pill tone="mute">System</Pill>}</td>
-                  <td className="px-3 py-1.5 text-right"><button onClick={() => toggle(r)} className="text-sm text-primary underline">{(r.is_active ?? true) ? "Deactivate" : "Activate"}</button></td>
+                  <td className="px-3 py-1.5 text-right"><button onClick={() => toggle(r)} className="text-sm text-primary-ink underline">{(r.is_active ?? true) ? "Deactivate" : "Activate"}</button></td>
                 </tr>
               ))}
             </tbody>

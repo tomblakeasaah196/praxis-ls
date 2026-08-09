@@ -252,8 +252,7 @@ INSERT INTO chart_of_accounts (code,parent_code,label_fr,label_en,class,normal_b
   ('701','70','Ventes de marchandises','Sales of goods',7,'C',false,false),
   ('706','70','Services vendus','Services rendered',7,'C',false,true),
   ('707','70','Produits accessoires','Ancillary income',7,'C',false,true),
-  ('708','70','Produits des activités annexes','Income from ancillary activities',7,'C',false,false),
-  ('781','78','Reprises d''amortissements','Depreciation write-backs',7,'C',false,false)
+  ('708','70','Produits des activités annexes','Income from ancillary activities',7,'C',false,false)
 ON CONFLICT (code) DO NOTHING;
 
 -- 4-digit postable leaves (parent = 3-digit above) ----------------------------
