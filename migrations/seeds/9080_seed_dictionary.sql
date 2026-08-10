@@ -1,7 +1,7 @@
 -- ============================================================================
 -- SEED (per tenant schema) — MOD-05 FINANCIAL DICTIONARY: service types, the
--- equipment/load registries, and the curated catalogue of operational lines
--- with their OHADA posting rules and Basic/Advanced/Full service tiers.
+-- equipment/load registries, and the company's curated catalogue of operational
+-- lines with their OHADA posting rules and Basic/Advanced/Full service tiers.
 --
 -- ── WHY A SEED AND NOT A MIGRATION ──────────────────────────────────────────
 --
@@ -15,44 +15,59 @@
 -- this file after 9001 (accounts) and 9010 (tax) in the same /^90/ tenant-seed
 -- glob, which is the ordering the FKs need.
 --
--- ── WHAT THIS SEEDS ─────────────────────────────────────────────────────────
+-- ── PROVENANCE ──────────────────────────────────────────────────────────────
 --
---   1. The chart-of-accounts leaves this catalogue needs and 9000/9001 lack —
---      275 for refundable deposits, plus postable children under the 605/622/
---      628/638 groupings (see the note on postability below).
---   2. dictionary_ref kinds CONTAINER_TYPE and LOAD_MODE — the equipment
---      registry the collapsed variant-bearing lines are priced against.
---   3. 12 system service types (MOD-29 taxonomy), the anchor for tiers.
---   4. 165 curated dictionary lines, each with a re-minted `#<L><NNN>` code.
---   5. Their posting rules, generated set-based by direction.
---   6. Their Basic/Advanced/Full membership per service type.
+-- The source is the live legacy MariaDB `financial_dictionary` table: 184 rows,
+-- all ACTIVE, codes #-1001 to #-1184. Every line below carries its originating
+-- legacy code(s) in `description`, so any row can be traced back to what the
+-- company was actually using. 27 legacy rows are collapsed or merged away and
+-- one is deleted outright, leaving 157; 19 lines are added for the families the
+-- legacy set never had (warehousing, own-fleet inland, project cargo). 176
+-- lines land.
 --
 -- ── THE TRANSFORMATION THIS ENCODES ─────────────────────────────────────────
---
--- The source is the legacy MariaDB `financial_dictionary` table (~195 rows).
--- Three rules did most of the work.
 --
 -- BILLABLE IS NOT REVENUE. The legacy `cost_nature` enum called anything the
 -- client pays for a CHARGEABLE_SERVICE, and the old UI read that as income.
 -- It is not: a customs duty you advance and re-bill at cost is a DÉBOURS —
--- money through the business, never yours, and never in class 7. Only the
--- lines that are your own fee or commission are REVENUE here (file opening,
--- documentation, the commission on disbursements, extra legal work, service
--- charges, and the warehousing services actually performed in your own shed).
--- Everything else that the client pays for is DEBOURS: Dr 4731 / Cr 4011 on
+-- money through the business, never yours, and never in class 7. Of the 36
+-- CHARGEABLE_SERVICE rows only seven are your own fee or commission (file
+-- opening, documentation, commission on disbursements, import declaration fee,
+-- extra legal work, service charges, lashing); the other 29 — customs
+-- clearance, formalities, liquidation, evaluation, transit title T1, import and
+-- export formalities, origin charges — become DEBOURS. Dr 4731 / Cr 4011 on
 -- the way in, Dr 4111 / Cr 4731 on the way out, no VAT on either leg.
 --
 -- DÉBOURS CARRY NO TAX CODE. Not "usually" — the ledger rejects it (§23.5,
 -- assert_line_valid) and so does invoice_line (chk_debours_no_tax). The client
--- is shown the upstream supplier's VAT as paid on their behalf, which is what
+-- is shown the upstream supplier VAT as paid on their behalf, which is what
 -- `debours_vat_transparent` records, and the forwarder retains none of it.
 --
--- EQUIPMENT IS A RATE DIMENSION, NOT A LINE. ~30 legacy rows were the same
--- charge duplicated per box size ("Port Charges 20'", "Port Charges 40'",
--- Open Top, Flat Rack…). Each family collapses to ONE line flagged
--- `varies_by_equipment` (0632), priced per variant on the Expense-Rate tab
--- against the CONTAINER_TYPE registry seeded below. Rates themselves are NOT
--- seeded here — that is the Expense-Rate build.
+-- EQUIPMENT IS A RATE DIMENSION, NOT A LINE. Twelve legacy families were the
+-- same charge duplicated per box size — Port Charges 20 and 40, THC,
+-- Stevedoring, Yard Occupancy, Security Fees, Full and Empty Container
+-- Handling, Container Maintenance, Customs Inspection, PAD, PAK, Scanning —
+-- plus Ocean Freight, which was split three ways (base, Open Top, Flat Rack).
+-- Each collapses to ONE line flagged `varies_by_equipment` (0632) and priced
+-- per variant against the CONTAINER_TYPE registry seeded below. Rates
+-- themselves are NOT seeded here — that is the Expense-Rate build.
+--
+-- WHAT IS PORTED VERSUS DERIVED. `is_billable`, `receipt_required`,
+-- `receipt_source`, `justification_required` and `vat_treatment` are the
+-- company's own answers and are carried across as written. `category`,
+-- `is_debours`, `provider_kind`, `debours_vat_transparent` and the code are
+-- derived, so they cannot drift from the direction a line was authored with.
+-- `service_applicability` and `territory` are NOT ported as columns:
+-- applicability now lives in service_type_dictionary_item, and the legacy JSON
+-- is used to derive WHICH services each line belongs to, which is the only
+-- record of that fact that exists. `is_negotiable` is dropped — negotiation
+-- belongs to the Expense-Rate tab.
+--
+-- Three answers are deliberately NOT ported on the lines whose direction became
+-- REVENUE: proof_source (your own fee is proven by your own invoice, not the
+-- carrier's), is_billable, and an exempt/out-of-scope vat_treatment. Those were
+-- recorded when the line was considered a pass-through and do not survive the
+-- reclassification.
 --
 -- ── A NOTE ON POSTABILITY (why this file adds accounts) ─────────────────────
 --
@@ -99,7 +114,9 @@ ON CONFLICT (code) DO NOTHING;
 -- Feet, not "GP". The people typing these say "un 40 pieds" and "un 40 HC" —
 -- naming the registry after the carrier's own jargon is how a dropdown stops
 -- being read twice. `extra` carries the machine-readable size so a future rate
--- import can match "40HC" without parsing a display label.
+-- import can match "40HC" without parsing a display label. Open Top and Flat
+-- Rack are here because the legacy Ocean Freight (OT) and (FR) rows were
+-- exactly that: an equipment variant smuggled into a line name.
 INSERT INTO dictionary_ref (kind, code, name_fr, name_en, extra, sort_order, is_system) VALUES
   ('CONTAINER_TYPE','FT20','20''','20''','{"teu":1,"size":"20"}'::jsonb,10,true),
   ('CONTAINER_TYPE','FT40','40''','40''','{"teu":2,"size":"40"}'::jsonb,20,true),
@@ -127,7 +144,9 @@ ON CONFLICT (kind, code) DO NOTHING;
 -- ── 3. Service types (MOD-29 taxonomy) ──────────────────────────────────────
 -- `territory` is where the service happens, which is why it lives here and not
 -- on the dictionary line: the same THC charge is import territory on Monday and
--- export territory on Tuesday, and only the SERVICE knows which.
+-- export territory on Tuesday, and only the SERVICE knows which. The values are
+-- the legacy `territory` enum, which is why TRANSIT_HINTERLAND and
+-- PORT_AIRPORT_ZONE appear — they came from the company's own data.
 INSERT INTO service_type (key, name_fr, name_en, territory, is_system) VALUES
   ('SEA_FREIGHT_IMPORT','Fret Maritime Import','Sea Freight Import','INTERNATIONAL_IMPORT',true),
   ('SEA_FREIGHT_EXPORT','Fret Maritime Export','Sea Freight Export','INTERNATIONAL_EXPORT',true),
@@ -145,43 +164,41 @@ ON CONFLICT (key) DO NOTHING;
 
 -- ── 4. Staging ──────────────────────────────────────────────────────────────
 -- The catalogue is authored ONCE into a staging table and everything else is
--- derived from it: the code, the category, the posting rules, the tiers. That
--- is what keeps 165 lines reviewable — a reviewer reads one row per charge and
--- checks a handful of set-based rules, instead of 165 hand-written triples.
+-- derived from it: the code, the category, the posting rules, the tiers. That is
+-- what keeps 176 lines reviewable — a reviewer reads one row per charge and
+-- checks a handful of set-based rules, instead of 176 hand-written triples.
 --
 -- ON COMMIT DROP because the migrator runs each seed file inside one explicit
 -- transaction (migrator.js applyTracked) and reuses the connection for the next
--- file. The whole file therefore commits atomically, which is also what lets
--- the DEFERRABLE `trg_dict_needs_rule` see the rules: items are inserted first
--- and rules second, and the "every item has ≥1 rule" check runs at COMMIT.
-CREATE TEMP TABLE _svc_group (
-  token       text NOT NULL,
-  service_key text NOT NULL,
-  PRIMARY KEY (token, service_key)
-) ON COMMIT DROP;
-
+-- file. The whole file therefore commits atomically, which is also what lets the
+-- DEFERRABLE `trg_dict_needs_rule` see the rules: items are inserted first and
+-- rules second, and the check that every item has at least one rule runs at
+-- COMMIT.
 CREATE TEMP TABLE _tax_ref (
   name        text PRIMARY KEY,
   tax_code_id uuid NOT NULL
 ) ON COMMIT DROP;
 
 CREATE TEMP TABLE _dict_seed (
-  key                text PRIMARY KEY,
-  label_fr           text NOT NULL,
-  label_en           text NOT NULL,
-  direction          text NOT NULL,   -- REVENUE | EXPENSE | DEBOURS | ASSET
-  subcategory        text NOT NULL,   -- dictionary_ref kind SUBCATEGORY
-  applicability_mode text NOT NULL,   -- SERVICE_SCOPED | ANY_OPERATIONS | NON_OPERATIONAL
-  unit_of_measure    text,            -- dictionary_ref kind UNIT (NULL when the variant carries it)
-  is_billable        boolean NOT NULL,
-  proof_source       text,            -- dictionary_ref kind PROOF_SOURCE
-  vat                text NOT NULL,   -- STD | STD_T (transport input) | ZERO (export) | NONE
-  account            text,            -- debit for EXPENSE/ASSET, credit for REVENUE, NULL for DEBOURS
-  svc                text[] NOT NULL DEFAULT '{}'::text[],  -- _svc_group tokens
-  tier_default       text NOT NULL DEFAULT 'ADVANCED',
-  varies             boolean NOT NULL DEFAULT false,
-  description        text,
-  code               text
+  key                    text PRIMARY KEY,
+  label_fr               text NOT NULL,
+  label_en               text NOT NULL,
+  direction              text NOT NULL,   -- REVENUE | EXPENSE | DEBOURS | ASSET
+  subcategory            text NOT NULL,   -- dictionary_ref kind SUBCATEGORY
+  applicability_mode     text NOT NULL,   -- SERVICE_SCOPED | ANY_OPERATIONS | NON_OPERATIONAL
+  unit_of_measure        text,            -- dictionary_ref kind UNIT (NULL when the variant carries it)
+  is_billable            boolean NOT NULL,
+  proof_source           text,            -- dictionary_ref kind PROOF_SOURCE
+  receipt_requirement    text NOT NULL,
+  requires_justification boolean NOT NULL,
+  vat                    text NOT NULL,   -- STD | STD_T (transport input) | ZERO (export) | NONE
+  account                text,            -- debit for EXPENSE/ASSET, credit for REVENUE, NULL for DEBOURS
+  svc                    text[] NOT NULL, -- service_type.key list this line applies to
+  tier_default           text NOT NULL,   -- tier when the line is not in a BASIC set
+  legacy_codes           text,            -- originating legacy row(s), NULL for a new line
+  varies                 boolean NOT NULL DEFAULT false,
+  description            text,
+  code                   text
 ) ON COMMIT DROP;
 
 CREATE TEMP TABLE _dict_basic (
@@ -189,41 +206,6 @@ CREATE TEMP TABLE _dict_basic (
   item_key    text NOT NULL,
   PRIMARY KEY (service_key, item_key)
 ) ON COMMIT DROP;
-
--- Token → service key. Identity rows plus the three combos that carry most of
--- the catalogue, so a line that applies to "any sea service" says so once.
-INSERT INTO _svc_group (token, service_key) VALUES
-  ('SEA_IMP','SEA_FREIGHT_IMPORT'),
-  ('SEA_EXP','SEA_FREIGHT_EXPORT'),
-  ('AIR_IMP','AIR_FREIGHT_IMPORT'),
-  ('AIR_EXP','AIR_FREIGHT_EXPORT'),
-  ('HINT','HINTERLAND_TRANSIT'),
-  ('INLAND','INLAND_TRANSPORTATION'),
-  ('WHS','WAREHOUSING'),
-  ('E2E_AIR','END_TO_END_AIR_FREIGHT'),
-  ('E2E_SEA','END_TO_END_SEA_FREIGHT'),
-  ('BIZREP','BUSINESS_REPRESENTATION'),
-  ('CUSTOMS','CUSTOMS_BROKERAGE'),
-  ('PROJECT','PROJECT_CARGO'),
-  ('ALL_SEA','SEA_FREIGHT_IMPORT'),
-  ('ALL_SEA','SEA_FREIGHT_EXPORT'),
-  ('ALL_SEA','END_TO_END_SEA_FREIGHT'),
-  ('ALL_AIR','AIR_FREIGHT_IMPORT'),
-  ('ALL_AIR','AIR_FREIGHT_EXPORT'),
-  ('ALL_AIR','END_TO_END_AIR_FREIGHT'),
-  ('ALL_OPS','SEA_FREIGHT_IMPORT'),
-  ('ALL_OPS','SEA_FREIGHT_EXPORT'),
-  ('ALL_OPS','AIR_FREIGHT_IMPORT'),
-  ('ALL_OPS','AIR_FREIGHT_EXPORT'),
-  ('ALL_OPS','HINTERLAND_TRANSIT'),
-  ('ALL_OPS','INLAND_TRANSPORTATION'),
-  ('ALL_OPS','WAREHOUSING'),
-  ('ALL_OPS','END_TO_END_AIR_FREIGHT'),
-  ('ALL_OPS','END_TO_END_SEA_FREIGHT'),
-  ('ALL_OPS','BUSINESS_REPRESENTATION'),
-  ('ALL_OPS','CUSTOMS_BROKERAGE'),
-  ('ALL_OPS','PROJECT_CARGO')
-ON CONFLICT (token, service_key) DO NOTHING;
 
 -- Tax codes are REFERENCED, never seeded here (9010 owns them, effective-dated).
 -- DISTINCT ON takes the current version per code, which is what a posting rule
@@ -238,277 +220,235 @@ SELECT DISTINCT ON (tc.code::text) tc.code::text, tc.tax_code_id
 ON CONFLICT (name) DO NOTHING;
 
 -- ── 5. The catalogue ────────────────────────────────────────────────────────
--- Columns: key, label_fr, label_en, direction, subcategory, applicability_mode,
---          unit, is_billable, proof_source, vat, account, svc tokens.
--- Everything else (category, is_debours, provider_kind, receipt obligations,
--- debours_vat_transparent, the code) is derived below.
+-- One row per charge, grouped by direction. `legacy_codes` is the audit trail:
+-- one code is a straight carry-across, several codes mean that many legacy rows
+-- collapsed into this one, and NULL marks a line the legacy set never had.
 
--- REVENUE — the only lines that are genuinely yours. Your fee, your commission,
--- and the warehousing work performed in your own building. 7061 transit
--- commission, 7071 re-billed ancillaries, 7063 logistics services sold.
-INSERT INTO _dict_seed (key,label_fr,label_en,direction,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,vat,account,svc) VALUES
- ('FILE_OPENING','Ouverture de dossier','File Opening','REVENUE','AGENCY_FEE','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','STD','7061','{ALL_OPS}'),
- ('DOCUMENTATION_FEE','Frais de dossier','Documentation Fee','REVENUE','AGENCY_FEE','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','STD','7061','{ALL_OPS}'),
- ('IMPORT_DECLARATION_FEE','Frais de déclaration d''importation (DI)','Import Declaration Fee','REVENUE','AGENCY_FEE','SERVICE_SCOPED','DOSSIER',true,'INTERNAL_SERVICE','STD','7061','{SEA_IMP,AIR_IMP,CUSTOMS,E2E_SEA,E2E_AIR}'),
- ('DISBURSEMENT_COMMISSION','Commission sur débours','Commission on Disbursements','REVENUE','AGENCY_FEE','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','STD','7061','{ALL_OPS}'),
- ('EXTRA_LEGAL_WORK','Travaux juridiques supplémentaires','Extra Legal Work','REVENUE','AGENCY_FEE','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','STD','7061','{ALL_OPS}'),
- ('EXPORT_TRANSIT_COMMISSION','Commission de transit export','Export Transit Commission','REVENUE','AGENCY_FEE','SERVICE_SCOPED','DOSSIER',true,'INTERNAL_SERVICE','ZERO','7061','{SEA_EXP,AIR_EXP}'),
- ('SERVICE_CHARGES','Frais de service','Service Charges','REVENUE','AGENCY_FEE','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','STD','7071','{ALL_OPS}'),
- ('LASHING','Saisissage et arrimage','Lashing and Securing','REVENUE','HANDLING','SERVICE_SCOPED','UNIT',true,'INTERNAL_SERVICE','STD','7063','{ALL_SEA,PROJECT,INLAND}'),
- ('WAREHOUSE_STORAGE_DAY','Magasinage par jour','Storage per Day','REVENUE','STORAGE','SERVICE_SCOPED','DAY',true,'INTERNAL_SERVICE','STD','7063','{WHS}'),
- ('WAREHOUSE_HANDLING_IN','Manutention entrée entrepôt','Warehouse Handling In','REVENUE','HANDLING','SERVICE_SCOPED','TON',true,'INTERNAL_SERVICE','STD','7063','{WHS}'),
- ('WAREHOUSE_HANDLING_OUT','Manutention sortie entrepôt','Warehouse Handling Out','REVENUE','HANDLING','SERVICE_SCOPED','TON',true,'INTERNAL_SERVICE','STD','7063','{WHS}'),
- ('INVENTORY_MANAGEMENT','Gestion des stocks','Inventory Management','REVENUE','STORAGE','SERVICE_SCOPED','DOSSIER',true,'INTERNAL_SERVICE','STD','7063','{WHS}'),
- ('ORDER_PICKING','Préparation de commandes','Order Picking','REVENUE','HANDLING','SERVICE_SCOPED','UNIT',true,'INTERNAL_SERVICE','STD','7063','{WHS}'),
- ('REPACKAGING','Reconditionnement','Repackaging','REVENUE','HANDLING','SERVICE_SCOPED','UNIT',true,'INTERNAL_SERVICE','STD','7063','{WHS}')
+INSERT INTO _dict_seed (direction,key,label_fr,label_en,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,receipt_requirement,requires_justification,vat,account,svc,tier_default,legacy_codes) SELECT 'REVENUE', * FROM (VALUES
+ ('DISBURSEMENT_COMMISSION','Commissions sur Débours','Commissions on Disbursement','AGENCY_FEE','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','ALWAYS_REQUIRED',true,'STD','7061','{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1094'),
+ ('DOCUMENTATION_FEE','Frais de dossier','Documentation Fee','DOCUMENTATION','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','ALWAYS_REQUIRED',true,'STD','7061','{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1153,#-1020'),
+ ('EXTRA_LEGAL_WORK','Travail Extra-Légal','Extra Legal Work','AGENCY_FEE','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','ALWAYS_REQUIRED',true,'STD','7061','{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1057'),
+ ('FILE_OPENING','Ouverture de dossier','File Opening','AGENCY_FEE','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','CONDITIONALLY_REQUIRED',true,'STD','7061','{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1088'),
+ ('IMPORT_DECLARATION_FEE','Frais de DI','Import Declaration Fee','AGENCY_FEE','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','CONDITIONALLY_REQUIRED',false,'STD','7061','{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1167'),
+ ('INVENTORY_MANAGEMENT','Gestion des stocks','Inventory Management','STORAGE','SERVICE_SCOPED','DOSSIER',true,'INTERNAL_SERVICE','NOT_REQUIRED',false,'STD','7063','{WAREHOUSING}'::text[],'ADVANCED',NULL),
+ ('LASHING','Arrimage','Lashing','HANDLING','SERVICE_SCOPED',NULL,true,'INTERNAL_SERVICE','CONDITIONALLY_REQUIRED',false,'STD','7063','{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1130'),
+ ('ORDER_PICKING','Préparation de commandes','Order Picking','HANDLING','SERVICE_SCOPED','UNIT',true,'INTERNAL_SERVICE','NOT_REQUIRED',false,'STD','7063','{WAREHOUSING}'::text[],'FULL',NULL),
+ ('REPACKAGING','Reconditionnement','Repackaging','HANDLING','SERVICE_SCOPED','UNIT',true,'INTERNAL_SERVICE','NOT_REQUIRED',false,'STD','7063','{WAREHOUSING}'::text[],'FULL',NULL),
+ ('SERVICE_CHARGES','Frais de service','Service Charges','AGENCY_FEE','ANY_OPERATIONS','DOSSIER',true,'INTERNAL_SERVICE','ALWAYS_REQUIRED',true,'STD','7071','{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1108'),
+ ('WAREHOUSE_STORAGE_DAY','Magasinage par jour','Storage per Day','STORAGE','SERVICE_SCOPED','DAY',true,'INTERNAL_SERVICE','CONDITIONALLY_REQUIRED',false,'STD','7063','{WAREHOUSING}'::text[],'ADVANCED',NULL),
+ ('WAREHOUSE_HANDLING_IN','Manutention entrée entrepôt','Warehouse Handling In','HANDLING','SERVICE_SCOPED','TON',true,'INTERNAL_SERVICE','CONDITIONALLY_REQUIRED',false,'STD','7063','{WAREHOUSING}'::text[],'ADVANCED',NULL),
+ ('WAREHOUSE_HANDLING_OUT','Manutention sortie entrepôt','Warehouse Handling Out','HANDLING','SERVICE_SCOPED','TON',true,'INTERNAL_SERVICE','CONDITIONALLY_REQUIRED',false,'STD','7063','{WAREHOUSING}'::text[],'ADVANCED',NULL)
+) AS v(key,label_fr,label_en,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,receipt_requirement,requires_justification,vat,account,svc,tier_default,legacy_codes)
 ON CONFLICT (key) DO NOTHING;
 
--- ASSET — refundable. A caution comes back, so it is a class-2 deposit on 275,
--- not a cost of the period. Getting this wrong understates the balance sheet by
--- the whole standing caution and overstates the year's charges.
-INSERT INTO _dict_seed (key,label_fr,label_en,direction,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,vat,account,svc) VALUES
- ('BANK_CAUTION','Caution bancaire','Bank Caution (refundable)','ASSET','BANK_FINANCE','ANY_OPERATIONS','DOSSIER',false,'THIRD_PARTY_VENDOR','NONE','275','{ALL_OPS}'),
- ('PERMANENT_DEPOSIT_FEES','Frais de dépôt permanent (PDF)','Permanent Deposit Fees (PDF)','ASSET','BANK_FINANCE','ANY_OPERATIONS','DOSSIER',false,'GOVERNMENT_AUTHORITY','NONE','275','{SEA_IMP,SEA_EXP,CUSTOMS,HINT,E2E_SEA}')
+INSERT INTO _dict_seed (direction,key,label_fr,label_en,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,receipt_requirement,requires_justification,vat,account,svc,tier_default,legacy_codes) SELECT 'ASSET', * FROM (VALUES
+ ('BANK_CAUTION','Caution Bancaire','Bank Caution','BANK_FINANCE','ANY_OPERATIONS',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE','275','{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1090'),
+ ('PERMANENT_DEPOSIT_FEES','Frais sur Caution Permanente','Permanent Deposit Fees (PDF)','BANK_FINANCE','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'NONE','275','{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1033')
+) AS v(key,label_fr,label_en,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,receipt_requirement,requires_justification,vat,account,svc,tier_default,legacy_codes)
 ON CONFLICT (key) DO NOTHING;
 
--- EXPENSE — your own cost. Overheads are NON_OPERATIONAL (no dossier, no
--- service tier); the fleet, project-cargo and warehousing costs below are
--- operational costs you incur in your own name and may or may not re-bill.
-INSERT INTO _dict_seed (key,label_fr,label_en,direction,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,vat,account,svc) VALUES
- ('SALARIES','Salaires et rémunérations','Salaries and Wages','EXPENSE','SALARIES','NON_OPERATIONAL','UNIT',false,'INTERNAL_SERVICE','NONE','661','{}'),
- ('OFFICE_RENT','Loyer des bureaux','Office Rent','EXPENSE','RENT','NON_OPERATIONAL','UNIT',false,'THIRD_PARTY_VENDOR','STD','6221','{}'),
- ('UTILITIES_WATER_POWER','Eau et électricité','Water and Electricity','EXPENSE','UTILITIES','NON_OPERATIONAL','UNIT',false,'THIRD_PARTY_VENDOR','STD','6282','{}'),
- ('TELECOM_INTERNET','Télécommunications et internet','Telecom and Internet','EXPENSE','UTILITIES','NON_OPERATIONAL','UNIT',false,'THIRD_PARTY_VENDOR','STD','6281','{}'),
- ('OFFICE_SUPPLIES','Fournitures de bureau','Office Supplies','EXPENSE','OTHER','NON_OPERATIONAL','UNIT',false,'THIRD_PARTY_VENDOR','STD','6051','{}'),
- ('OFFICE_EQUIPMENT_MAINTENANCE','Entretien du matériel de bureau','Office Equipment Maintenance','EXPENSE','OTHER','NON_OPERATIONAL','UNIT',false,'THIRD_PARTY_VENDOR','STD','624','{}'),
- ('GENERAL_INSURANCE','Assurances générales','General Insurance','EXPENSE','OTHER','NON_OPERATIONAL','UNIT',false,'THIRD_PARTY_VENDOR','NONE','625','{}'),
- ('MISSION_ALLOWANCE','Frais de mission','Mission Allowance','EXPENSE','OTHER','NON_OPERATIONAL','DOSSIER',false,'INTERNAL_SERVICE','NONE','6381','{}'),
- ('MARKETING','Marketing et publicité','Marketing and Advertising','EXPENSE','OTHER','NON_OPERATIONAL','UNIT',false,'THIRD_PARTY_VENDOR','STD','6382','{}'),
- ('VEHICLE_MAINTENANCE','Entretien des véhicules','Vehicle Maintenance','EXPENSE','TRUCKING','NON_OPERATIONAL','UNIT',false,'THIRD_PARTY_VENDOR','STD','624','{}'),
- ('FACILITY_PAYMENT','Frais de facilitation (négociation douane)','Facility Payment (customs negotiation)','EXPENSE','CUSTOMS_DUTIES','ANY_OPERATIONS','DOSSIER',false,'INTERNAL_SERVICE','NONE','6383','{ALL_OPS}'),
- ('BANK_CHARGES','Frais bancaires','Bank Charges','EXPENSE','BANK_FINANCE','ANY_OPERATIONS','UNIT',false,'THIRD_PARTY_VENDOR','NONE','6311','{ALL_OPS}'),
- ('WIRE_TRANSFER_FEES','Frais de virement','Wire Transfer Fees','EXPENSE','BANK_FINANCE','ANY_OPERATIONS','UNIT',false,'THIRD_PARTY_VENDOR','NONE','6311','{ALL_OPS}'),
- ('FX_COMMISSION','Commission de change','FX Commission','EXPENSE','BANK_FINANCE','ANY_OPERATIONS','UNIT',false,'THIRD_PARTY_VENDOR','NONE','6311','{ALL_OPS}'),
- ('STOCK_INSURANCE','Assurance des stocks','Stock Insurance','EXPENSE','OTHER','SERVICE_SCOPED','DAY',true,'THIRD_PARTY_VENDOR','NONE','625','{WHS}'),
- ('FUEL','Carburant','Fuel','EXPENSE','TRUCKING','SERVICE_SCOPED','UNIT',false,'THIRD_PARTY_VENDOR','STD','6053','{INLAND,HINT,E2E_SEA,E2E_AIR}'),
- ('DRIVER_ALLOWANCE','Indemnité de route chauffeur','Driver Allowance','EXPENSE','TRUCKING','SERVICE_SCOPED','UNIT',false,'INTERNAL_SERVICE','NONE','6381','{INLAND,HINT}'),
- ('TOLLS_ROAD_FEES','Péages et taxes routières','Tolls and Road Fees','EXPENSE','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE','6131','{INLAND,HINT,E2E_SEA,E2E_AIR}'),
- ('GPS_TRACKING','Suivi GPS et télématique','GPS and Tracking','EXPENSE','TRUCKING','SERVICE_SCOPED','UNIT',false,'THIRD_PARTY_VENDOR','STD','6281','{INLAND,HINT}'),
- ('TRUCK_RENTAL','Location de camion','Truck Rental','EXPENSE','TRUCKING','SERVICE_SCOPED','DAY',true,'THIRD_PARTY_VENDOR','STD','6222','{INLAND,HINT,PROJECT}'),
- ('HAULAGE_PER_KM','Transport routier au kilomètre','Per-km Haulage','EXPENSE','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','STD_T','6131','{INLAND,HINT}'),
- ('CRANE_LIFTING','Grutage et levage','Crane and Lifting','EXPENSE','HANDLING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','STD','6211','{PROJECT}'),
- ('HEAVY_LIFT_ESCORT','Escorte de colis lourds','Heavy-lift Escort','EXPENSE','ESCORT','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','STD','6271','{PROJECT}'),
- ('MARINE_CARGO_SURVEY','Expertise maritime et marchandise','Marine and Cargo Survey','EXPENSE','SURVEY','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','STD','6321','{PROJECT,ALL_SEA}'),
- ('CONVOY_SECURITY','Sécurité du convoi','Convoy Security','EXPENSE','ESCORT','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','STD','6271','{PROJECT,HINT}'),
- ('OOG_SURCHARGE','Surcharge hors gabarit (OOG)','Out-of-Gauge (OOG) Surcharge','EXPENSE','OCEAN_FREIGHT','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','STD_T','6111','{PROJECT,ALL_SEA}')
+INSERT INTO _dict_seed (direction,key,label_fr,label_en,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,receipt_requirement,requires_justification,vat,account,svc,tier_default,legacy_codes) SELECT 'EXPENSE', * FROM (VALUES
+ ('ACCOUNT_OPENING','Ouverture de Compte','Account Opening','BANK_FINANCE','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'NONE','6311','{HINTERLAND_TRANSIT}'::text[],'FULL','#-1091'),
+ ('BANK_CHARGES','Frais de Banque','Bank Charges','BANK_FINANCE','ANY_OPERATIONS',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6311','{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1089'),
+ ('CLEANING_AGENT','Agent d''entretien','Cleaning Services','OTHER','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD','6383','{}'::text[],'ADVANCED','#-1015'),
+ ('COMPUTER','Ordinateurs','Computers','OTHER','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6051','{}'::text[],'ADVANCED','#-1009'),
+ ('CONVOY_SECURITY','Sécurité du convoi','Convoy Security','ESCORT','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6271','{PROJECT_CARGO,HINTERLAND_TRANSIT}'::text[],'ADVANCED',NULL),
+ ('CRANE_LIFTING','Grutage et levage','Crane and Lifting','HANDLING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6211','{PROJECT_CARGO}'::text[],'ADVANCED',NULL),
+ ('DRIVER_ALLOWANCE','Indemnité de route chauffeur','Driver Allowance','TRUCKING','SERVICE_SCOPED','UNIT',false,'INTERNAL_SERVICE','ALWAYS_REQUIRED',true,'NONE','6381','{INLAND_TRANSPORTATION,HINTERLAND_TRANSIT}'::text[],'ADVANCED',NULL),
+ ('ELECTRICITY','Facture Electricité','Electricity','UTILITIES','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6282','{}'::text[],'ADVANCED','#-1002'),
+ ('FACILITY_PAYMENT','Négociation Douane','Facility Payment (Customs)','CUSTOMS_DUTIES','ANY_OPERATIONS','DOSSIER',false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6383','{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1110'),
+ ('FINANCIAL_CONSULTANT','Consultant Financier','Financial Consultant','OTHER','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6321','{}'::text[],'ADVANCED','#-1011'),
+ ('FUEL','Carburant','Fuel','TRUCKING','SERVICE_SCOPED','UNIT',false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6053','{INLAND_TRANSPORTATION,HINTERLAND_TRANSIT}'::text[],'ADVANCED',NULL),
+ ('GPS_TRACKING','Suivi GPS et télématique','GPS and Tracking','TRUCKING','SERVICE_SCOPED','UNIT',false,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',false,'STD','6281','{INLAND_TRANSPORTATION,HINTERLAND_TRANSIT}'::text[],'ADVANCED',NULL),
+ ('GATE_PASS_FEE','Saisie du ticket de livraison','Gate-Pass Fee','OTHER','SERVICE_SCOPED',NULL,false,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',false,'STD','6383','{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1165'),
+ ('HEAVY_LIFT_ESCORT','Escorte de colis lourds','Heavy-lift Escort','ESCORT','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6271','{PROJECT_CARGO}'::text[],'ADVANCED',NULL),
+ ('INK','Achat d''encre','Ink','OTHER','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6051','{}'::text[],'ADVANCED','#-1006'),
+ ('INTERNET','Facture internet','Internet','UTILITIES','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6281','{}'::text[],'ADVANCED','#-1004'),
+ ('MARKETING','Campagnes Marketing / Frais de Publicité','Marketing Campaign / Promotional Expenses','OTHER','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6382','{}'::text[],'ADVANCED','#-1133'),
+ ('MISCELLANEOUS_EXPENSES','Autres Dépenses','Miscellaneous Expenses','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD','6383','{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1102'),
+ ('MISSION_ALLOWANCE','Frais de mission','Mission Allowance','OTHER','NON_OPERATIONAL',NULL,false,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD','6381','{}'::text[],'ADVANCED','#-1132,#-1159'),
+ ('OFFICE_EQUIPMENT_MAINTENANCE','Réparation des appareils de bureau','Office Equipment Maintenance','OTHER','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','624','{}'::text[],'ADVANCED','#-1013'),
+ ('OFFICE_MAINTENANCE','Travaux de maintenance des bureaux','Office Maintenance','OTHER','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD','624','{}'::text[],'ADVANCED','#-1014'),
+ ('OFFICE_SUPPLIES','Fournitures Matériel de Bureau','Office Supplies and Furniture','HANDLING','NON_OPERATIONAL',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD','6051','{}'::text[],'ADVANCED','#-1103'),
+ ('OOG_SURCHARGE','Surcharge hors gabarit (OOG)','Out-of-Gauge (OOG) Surcharge','OCEAN_FREIGHT','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'STD_T','6111','{PROJECT_CARGO,SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,END_TO_END_SEA_FREIGHT}'::text[],'ADVANCED',NULL),
+ ('PAPER','Achat de papier','Paper','OTHER','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6051','{}'::text[],'ADVANCED','#-1005'),
+ ('HAULAGE_PER_KM','Transport routier au kilomètre','Per-km Haulage','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD_T','6131','{INLAND_TRANSPORTATION,HINTERLAND_TRANSIT}'::text[],'ADVANCED',NULL),
+ ('PRINTER','Imprimantes','Printers','OTHER','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD','6051','{}'::text[],'ADVANCED','#-1012'),
+ ('OFFICE_RENT','Loyer','Rent','RENT','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE','6221','{}'::text[],'ADVANCED','#-1008'),
+ ('SALARIES','Salaires','Salaries','SALARIES','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','661','{}'::text[],'ADVANCED','#-1007'),
+ ('STAFF_EXPENSES','Dépenses sur personnel','Staff Expenses','SALARIES','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','NOT_REQUIRED',false,'STD','661','{}'::text[],'ADVANCED','#-1001'),
+ ('STAFF_TRANSPORTATION','Transport Employés','Staff Transportation','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD','6383','{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1092'),
+ ('STOCK_INSURANCE','Assurance des stocks','Stock Insurance','OTHER','SERVICE_SCOPED','DAY',true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE','625','{WAREHOUSING}'::text[],'ADVANCED',NULL),
+ ('PHONE','Téléphonie','Telephony','UTILITIES','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6281','{}'::text[],'ADVANCED','#-1010'),
+ ('TOLLS_ROAD_FEES','Péages et taxes routières','Tolls and Road Fees','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'NONE','6131','{INLAND_TRANSPORTATION,HINTERLAND_TRANSIT}'::text[],'ADVANCED',NULL),
+ ('TRUCK_RENTAL','Location de camion','Truck Rental','TRUCKING','SERVICE_SCOPED','DAY',true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6222','{INLAND_TRANSPORTATION,HINTERLAND_TRANSIT,PROJECT_CARGO}'::text[],'ADVANCED',NULL),
+ ('VEHICLE_MAINTENANCE','Entretien des véhicules','Vehicle Maintenance','TRUCKING','NON_OPERATIONAL','UNIT',false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','624','{}'::text[],'ADVANCED',NULL),
+ ('WATER','Facture Eau','Water','UTILITIES','NON_OPERATIONAL',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD','6282','{}'::text[],'ADVANCED','#-1003')
+) AS v(key,label_fr,label_en,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,receipt_requirement,requires_justification,vat,account,svc,tier_default,legacy_codes)
 ON CONFLICT (key) DO NOTHING;
 
--- DEBOURS — carrier, port, customs and third-party charges advanced for the
--- client and re-billed at cost. Dr 4731 / Cr 4011 in, Dr 4111 / Cr 4731 out,
--- no tax code on either leg.
-
--- Carrier and freight.
-INSERT INTO _dict_seed (key,label_fr,label_en,direction,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,vat,account,svc) VALUES
- ('OCEAN_FREIGHT','Fret maritime','Ocean Freight','DEBOURS','OCEAN_FREIGHT','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA,PROJECT}'),
- ('AIR_FREIGHT','Fret aérien','Air Freight','DEBOURS','AIR_FREIGHT','SERVICE_SCOPED','KG',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_AIR}'),
- ('SHIPPING_LINE_CHARGES','Frais compagnie maritime','Shipping Line Charges','DEBOURS','OCEAN_FREIGHT','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('BAF_SURCHARGE','Surcharge carburant (BAF)','Bunker Adjustment Factor (BAF)','DEBOURS','SURCHARGES','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('CAF_SURCHARGE','Surcharge de change (CAF)','Currency Adjustment Factor (CAF)','DEBOURS','SURCHARGES','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('WAR_RISK_SURCHARGE','Surcharge risque de guerre','War Risk Surcharge','DEBOURS','SURCHARGES','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA,ALL_AIR}'),
- ('CONGESTION_SURCHARGE','Surcharge de congestion portuaire','Port Congestion Surcharge','DEBOURS','SURCHARGES','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('EQUIPMENT_IMBALANCE_SURCHARGE','Surcharge de repositionnement (EIS)','Equipment Imbalance Surcharge','DEBOURS','SURCHARGES','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('PEAK_SEASON_SURCHARGE','Surcharge de haute saison','Peak Season Surcharge','DEBOURS','SURCHARGES','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('LOW_SULPHUR_SURCHARGE','Surcharge soufre (LSS)','Low Sulphur Surcharge (LSS)','DEBOURS','SURCHARGES','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('BL_ISSUANCE','Émission du connaissement (BL)','Bill of Lading Issuance','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','BL',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('SWITCH_BL','Connaissement switch','Switch Bill of Lading','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','BL',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('TELEX_RELEASE','Mainlevée télex','Telex Release','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','BL',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('CARRIER_ADMIN_FEE','Frais administratifs compagnie','Carrier Administration Fee','DEBOURS','OCEAN_FREIGHT','SERVICE_SCOPED','BL',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('DOCUMENTATION_AMENDMENT','Frais de modification documentaire','Documentation Amendment Fee','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','BL',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA,ALL_AIR}'),
- ('CHANGE_OF_DESTINATION','Changement de destination','Change of Destination Fee','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','BL',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('SHIPPING_GUARANTEE','Lettre de garantie d''enlèvement','Shipping Guarantee','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','BL',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('CONTAINER_LEASING','Location de conteneur','Container Leasing','DEBOURS','OCEAN_FREIGHT','SERVICE_SCOPED','DAY',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA,PROJECT}'),
- ('CONTAINER_SEAL','Plomb de conteneur','Container Seal','DEBOURS','OCEAN_FREIGHT','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('AWB_FEE','Frais de lettre de transport aérien (LTA)','Air Waybill (AWB) Fee','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','BL',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_AIR}'),
- ('AIR_CARGO_HANDLING','Manutention fret aérien','Air Cargo Handling','DEBOURS','HANDLING','SERVICE_SCOPED','KG',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_AIR}'),
- ('AIRPORT_STORAGE','Magasinage aéroport','Airport Storage','DEBOURS','STORAGE','SERVICE_SCOPED','DAY',true,'PORT_TERMINAL','NONE',NULL,'{ALL_AIR}'),
- ('AIRPORT_SECURITY_SCREENING','Contrôle de sûreté aéroportuaire','Airport Security Screening','DEBOURS','SCANNING','SERVICE_SCOPED','KG',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_AIR}')
+INSERT INTO _dict_seed (direction,key,label_fr,label_en,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,receipt_requirement,requires_justification,vat,account,svc,tier_default,legacy_codes) SELECT 'DEBOURS', * FROM (VALUES
+ ('ADDITIONAL_CODE_APEC','Code additionnel / APEC','Additional Code / APEC','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',false,'STD',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'FULL','#-1161'),
+ ('ADDITIONAL_CODE_END','Code additionnel / END','Additional Code / END','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',false,'STD',NULL,'{AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1162'),
+ ('AGENCY_DOCS_FEE','Frais d''agence et de documentation','Agency & Documentation Fee','DOCUMENTATION','SERVICE_SCOPED','BL',true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT}'::text[],'ADVANCED','#-1024'),
+ ('AWB_FEE','Frais de lettre de transport aérien (LTA)','Air Waybill (AWB) Fee','AIR_FREIGHT','SERVICE_SCOPED','BL',true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT}'::text[],'ADVANCED','#-1026'),
+ ('ANCILLARY_CHARGES','Frais Supplémentaires','Ancillary Charges','HANDLING','ANY_OPERATIONS',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'FULL','#-1170'),
+ ('MANUAL_EVALUATION_REQUEST','Demande d''Evaluation Manuelle','Application for Manual Evaluation','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT}'::text[],'FULL','#-1036'),
+ ('STUFFING_REQUEST','Demande d''Empotage','Application for Stuffing','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT}'::text[],'FULL','#-1037'),
+ ('CORRIDOR_AUTHORISATION','Autorisation de Circuler','Authorisation on corridor','TRUCKING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',false,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1168'),
+ ('BARC_EXEMPTION','Dérogation BARC','BARC Exemption','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'FULL','#-1157'),
+ ('BORDER_CROSSING_FORMALITIES','Formalités à la Frontière','Border Crossing Formalities','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{CUSTOMS_BROKERAGE,HINTERLAND_TRANSIT}'::text[],'ADVANCED','#-1076'),
+ ('CAR_CUSTOMS_DECLARATION','Déclaration Centrafricaine','CAR Customs Declaration','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1038'),
+ ('CHAD_CUSTOMS_DECLARATION','Déclaration Tchadienne','CHAD Customs Declaration','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'ADVANCED','#-1039'),
+ ('CMR_CUSTOMS_TAX','Quittance Douane Camerounaise','CMR Customs Tax','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1041'),
+ ('CAMEROON_CUSTOMS_FORMALITIES','Formalités Douane Cameroun','Cameroon Customs Formalities','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'ADVANCED','#-1152'),
+ ('CARGO_PICKUP','Frais d''enlèvement','Cargo Pick-Up','TRUCKING','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1105'),
+ ('CARGO_SURVEY','Inspection Cargaison','Cargo Survey','SURVEY','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1169'),
+ ('CERTIFICATE_OF_CONFORMITY','Certificat de Conformité','Certificate of Conformity','CUSTOMS_INSPECTION','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{CUSTOMS_BROKERAGE,HINTERLAND_TRANSIT}'::text[],'ADVANCED','#-1040,#-1172'),
+ ('COMMERCIAL_IMPORT_DECLARATION','Déclaration d''importation commerciale (DIC)','Commercial Import Declaration (DIC)','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'ADVANCED','#-1145'),
+ ('COMPUTER_TAX','Taxe Informatique','Computer Tax','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1042'),
+ ('CONTAINER_CSC_CERTIFICATION','Certification CSC du Conteneur','Container CSC Certification','CUSTOMS_INSPECTION','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1043'),
+ ('CONTAINER_CLEANING','Nettoyage du Conteneur','Container Cleaning','THC','SERVICE_SCOPED',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'FULL','#-1016'),
+ ('CONTAINER_DETENTION','Détention Conteneur','Container Detention','DEMURRAGE','SERVICE_SCOPED','DAY',true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1134'),
+ ('CONTAINER_DOUBLE_HANDLING','Double Relevage','Container Double Handling','HANDLING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1044'),
+ ('CONTAINER_ENDORSEMENT','Endossement de Conteneur','Container Endorsement','THC','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1017'),
+ ('CONTAINER_MAINTENANCE','Maintenance de conteneur','Container Maintenance','THC','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1018,#-1019'),
+ ('CONTAINER_REGISTRATION','Enregistrement Conteneur','Container Registration','THC','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',false,'NONE',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1160'),
+ ('CUSTOMS_BOARDING_ECOR','Autorisation d''Embarquement des Douanes - ECOR','Customs Boarding Authorization - ECOR','CUSTOMS_INSPECTION','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1045'),
+ ('CUSTOMS_CLEARANCE','Frais de Dédouanement','Customs Clearance','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1046'),
+ ('DECLARATION_PROCESSING','Validation Déclaration','Customs Declaration Processing','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1083'),
+ ('CUSTOMS_DUTIES_TAXES','Droits et Taxes Douanières','Customs Duties & Taxes','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1047'),
+ ('CUSTOMS_DUTIES_AT_DESTINATION','Droits de Douane à Destination','Customs Duties at Destination','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1080'),
+ ('CUSTOMS_EVALUATION','Evaluation Manuelle','Customs Evaluation','CUSTOMS_INSPECTION','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1048'),
+ ('CUSTOMS_FORMALITIES','Formalités Douanières','Customs Formalities','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1049'),
+ ('CUSTOMS_INSPECTION','Frais d''inspection douanière','Customs Inspection','CUSTOMS_INSPECTION','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1113,#-1114'),
+ ('CUSTOMS_LIQUIDATION','Liquidation Douanière','Customs Liquidation','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1050'),
+ ('MANIFEST_AMENDMENT','Correction/Modification du Manifeste','Customs Manifest Amendment','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1051'),
+ ('MANIFEST_REACTIVATION','Réactivation du Manifeste','Customs Manifest Reactivation','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1052'),
+ ('CUSTOMS_PENALTY','Pénalités Douanières','Customs Penalty','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1053'),
+ ('CUSTOMS_TEL','TEL douanes','Customs TEL','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1066'),
+ ('DELIVERY_AT_DESTINATION','Livraison à Destination','Delivery at Destination','TRUCKING','SERVICE_SCOPED',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_IMPORT,BUSINESS_REPRESENTATION,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1093'),
+ ('DEMURRAGE','Surestaries','Demurrage','DEMURRAGE','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1021'),
+ ('DOCUMENT_AUTHENTICATION','Légalisation Document','Document Authentication','DOCUMENTATION','ANY_OPERATIONS','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'NONE',NULL,'{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'FULL','#-1164'),
+ ('DROP_OFF_SESSION','Frais de restitution (drop-off)','Drop-Off Fee','OCEAN_FREIGHT','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1025'),
+ ('ECTN_BESC','Frais de création du BESC / ECTN','ECTN/BESC Processing Fee','HANDLING','SERVICE_SCOPED','BL',true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'NONE',NULL,'{BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1096'),
+ ('EMBASSY_CAUTION','Caution Ambassade','Embassy Caution','BANK_FINANCE','SERVICE_SCOPED',NULL,false,NULL,'NOT_REQUIRED',false,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'FULL','#-1131'),
+ ('EMPTY_CONTAINER_HANDLING','Retour de conteneur vide','Empty Container Handling','HANDLING','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1022,#-1023'),
+ ('EMPTY_CONTAINER_PICKUP','Relevage Conteneur Vide','Empty Container Pick-up','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT}'::text[],'ADVANCED','#-1142'),
+ ('EMPTY_TRANSFER_TO_STUFFING','Transfert du Vide vers Site d''Empotage','Empty Transfer to Stuffing Site','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT}'::text[],'FULL','#-1112'),
+ ('CARGO_HANDLING','Manutention (équipement / marchandise)','Equipment & Cargo Handling','HANDLING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT}'::text[],'ADVANCED','#-1115'),
+ ('ESCORT','Escorte','Escort','ESCORT','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1067'),
+ ('EXONERATION_CERTIFICATE','Certificat d''exonération','Exemption Certificate','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1097'),
+ ('EXONERATION_PROCESSING','Traitement Exonération','Exoneration Processing','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'FULL','#-1148'),
+ ('EXPORT_DECLARATION','Déclaration Export','Export Declaration','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT}'::text[],'ADVANCED','#-1138'),
+ ('EXPORT_FORMALITIES','Formalités Export','Export Formalities','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT}'::text[],'ADVANCED','#-1179'),
+ ('FINAL_DESTINATION_CHARGES','Frais à destination finale','Final Destination Charges','OCEAN_FREIGHT','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE',NULL,'{SEA_FREIGHT_IMPORT,AIR_FREIGHT_IMPORT,END_TO_END_SEA_FREIGHT,END_TO_END_AIR_FREIGHT,HINTERLAND_TRANSIT,PROJECT_CARGO}'::text[],'ADVANCED',NULL),
+ ('FINAL_DESTINATION_CLEARANCE','Formalités Douanes à Destination','Final Destination Clearance','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1054'),
+ ('FORMALITIES_IN_CHAD','Formalités au Tchad','Formalities in Chad','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1178'),
+ ('FORMULA_1','Formule 1 (déclaration de change)','Formula 1 (exchange declaration)','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT}'::text[],'FULL','#-1058'),
+ ('FULL_CONTAINER_HANDLING','Manutention de conteneur plein','Full Container Handling','HANDLING','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1116,#-1117'),
+ ('GPS_FEES_INSTALLATION','Frais GPS + Installation','GPS Fees + Installation','ESCORT','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'ADVANCED','#-1059'),
+ ('GUCE_FEES','Frais GUCE (guichet unique)','GUCE Single-Window Fees','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{CUSTOMS_BROKERAGE,HINTERLAND_TRANSIT}'::text[],'ADVANCED','#-1055'),
+ ('GOODS_EXIT_FEES','Droit de Sortie Marchandise','Goods Exit Fees','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE',NULL,'{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT}'::text[],'FULL','#-1180'),
+ ('GOODS_IMPORT_TAXES','Redevance Marchandise Import','Goods Import Taxes','OCEAN_FREIGHT','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'FULL','#-1149'),
+ ('GUARANTEE_ACCOUNT_FEES','Frais Compte Garant','Guarantee Account Fees','BANK_FINANCE','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1174'),
+ ('GUARANTEE_LETTER_AUTH','Lettre de Garantie Authentification','Guarantee Letter Authentification','HANDLING','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1099'),
+ ('TRANSPORT_ABECHE_ALGENEINA','Transport Abéché – Al Geneina','Haulage Abéché – Al Geneina','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1177'),
+ ('TRANSPORT_DOUALA_ABECHE','Transport Douala – Abéché','Haulage Douala – Abéché','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1176'),
+ ('HINTERLAND_TRANSPORT_DOCS','Documents de Transport Hinterland','Hinterland Transportation Documents','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'NONE',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1086'),
+ ('ICD_EXIT_FORMALITIES','Formalités Sortie Port Sec','ICD Exit Formalities','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{CUSTOMS_BROKERAGE,HINTERLAND_TRANSIT}'::text[],'FULL','#-1078'),
+ ('LICENCE_RENEWAL','Renouvellement Licence d''Emportation / Exportation','Import / Export License Renewal','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1061'),
+ ('IMPORT_DECLARATION','Déclaration d''Importation','Import Declaration','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{CUSTOMS_BROKERAGE,HINTERLAND_TRANSIT}'::text[],'ADVANCED','#-1060'),
+ ('IMPORT_FORMALITIES','Formalites Import','Import Formalities','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1100'),
+ ('INLAND_FREIGHT','Transport terrestre','Inland Freight','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1139,#-1140,#-1141'),
+ ('INSPECTION_FEES','Frais de Visite','Inspection Fees','CUSTOMS_INSPECTION','SERVICE_SCOPED',NULL,true,NULL,'NOT_REQUIRED',false,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1171'),
+ ('LATE_DO_RELEASE','Retrait Tardif du BAD','Late Delivery Order Release','OCEAN_FREIGHT','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1028'),
+ ('LOADING_AUTHORIZATION','Demande de Chargement','Loading Authorization','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'FULL','#-1175'),
+ ('LOADING_ON_TRUCK','Chargement sur Camion','Loading on truck','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1155'),
+ ('LOCAL_INSURANCE','Assurance','Local Insurance','DECLARATION','ANY_OPERATIONS','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1062'),
+ ('MARITIME_EXPERT_FEES','Frais d''Expertise Maritime','Maritime Expert Fees','SURVEY','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,PROJECT_CARGO,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1101'),
+ ('NEXUS_FEES','Frais NEXUS','NEXUS Fees','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{CUSTOMS_BROKERAGE,HINTERLAND_TRANSIT}'::text[],'FULL','#-1074'),
+ ('OCEAN_FREIGHT','Fret maritime','Ocean Freight','OCEAN_FREIGHT','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1027,#-1182,#-1183'),
+ ('OFFLOADING','Déchargement','Offloading','TRUCKING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{CUSTOMS_BROKERAGE,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION}'::text[],'ADVANCED','#-1081'),
+ ('OFFLOADING_AT_DESTINATION','Déchargement à Destination','Offloading at Destination','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'FULL','#-1095'),
+ ('ORIGIN_CHARGES','Charges à l''origine','Origin Charges','HANDLING','SERVICE_SCOPED',NULL,false,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{BUSINESS_REPRESENTATION,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1104,#-1184'),
+ ('OTHER_CUSTOMS_CHARGES','Autres Frais Douaniers','Other Customs Charges','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'FULL','#-1063'),
+ ('OVERWEIGHT_PENALTY','Pénalité Pont Bascule','Overweight Penalty','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1085'),
+ ('OWN_WHEEL_TRANSPORT','Transport sur roues','Own Wheel Transportation','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT,PROJECT_CARGO}'::text[],'ADVANCED','#-1087,#-1154'),
+ ('PAD_FEES','Frais PAD (Port Autonome de Douala)','PAD Fees (Douala Port Authority)','THC','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1029,#-1030'),
+ ('PAK_FEES','Frais PAK (Port Autonome de Kribi)','PAK Fees (Kribi Port Authority)','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1031,#-1032'),
+ ('PK26_DRY_PORT_FEES','Passage Port Sec PK26','PK 26 Dry Port Fees','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'FULL','#-1144'),
+ ('PK26_TERMINAL_FEES','Frais Port Sec PK26','PK 26 Terminal Fees','THC','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1181'),
+ ('PENALTY_MISSING_COC','Pénalité Défaut Certificat de Conformité','Penalty for Missing COC','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1064'),
+ ('PENALTY_MISSING_RVC','Pénalité défaut de RVC','Penalty for Missing RVC','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1071'),
+ ('PHYTOSANITARY_INSPECTION','Inspection Phytosanitaire','Phyto-sanitary Inspection','CUSTOMS_INSPECTION','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1065'),
+ ('PORT_ACCESS','Accès portuaire','Port Access','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1118'),
+ ('PORT_CHARGES','Charges portuaires','Port Charges','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1119,#-1120'),
+ ('PORT_EXIT_FORMALITIES','Formalités de Sortie Portuaires','Port Exit Formalities','HANDLING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',true,'NONE',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1098'),
+ ('PORT_STORAGE','Stationnement (magasinage portuaire)','Port Storage','STORAGE','SERVICE_SCOPED','DAY',true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1121'),
+ ('POA_AUTHENTICATION','Authentification Procuration','Power of Attorney Authentification','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'NONE',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1106'),
+ ('DPIV_DECLARATION','Déclaration préalable d''importation de valeurs (DPIV)','Prior Import Value Declaration (DPIV)','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'FULL','#-1146'),
+ ('RECEPTION_HANDLING_TRANSFER','Réception, Manutention et Transfert au Terminal','Reception, Handling & Transfer to Terminal','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT}'::text[],'ADVANCED','#-1107'),
+ ('SMADE_LEVY','Redevance SMADE','SMADE Levy','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',false,'STD',NULL,'{AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1163'),
+ ('SCANNING_FEES','Frais de scanner','Scanning Fees','SCANNING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1072,#-1135,#-1136'),
+ ('SECURITY_FEES','Frais de sécurité','Security Fees','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1128,#-1129'),
+ ('SHIPPING_LINE_CHARGES','Frais de la ligne maritime','Shipping Line Charges','OCEAN_FREIGHT','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','ALWAYS_REQUIRED',true,'NONE',NULL,'{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1034,#-1035,#-1150'),
+ ('STAMP','Timbre','Stamp','OTHER','ANY_OPERATIONS',NULL,false,'GOVERNMENT_AUTHORITY','CONDITIONALLY_REQUIRED',false,'STD',NULL,'{SEA_FREIGHT_IMPORT,SEA_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,AIR_FREIGHT_EXPORT,HINTERLAND_TRANSIT,INLAND_TRANSPORTATION,WAREHOUSING,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,BUSINESS_REPRESENTATION,CUSTOMS_BROKERAGE,PROJECT_CARGO}'::text[],'ADVANCED','#-1166'),
+ ('STEVEDORING','Manutention portuaire (acconage)','Stevedoring','HANDLING','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1126,#-1127,#-1079'),
+ ('STUFFING_CERTIFICATE','Certificat d''Empotage','Stuffing Certificate','CUSTOMS_INSPECTION','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'NONE',NULL,'{CUSTOMS_BROKERAGE,HINTERLAND_TRANSIT}'::text[],'FULL','#-1068'),
+ ('STUFFING_OPERATIONS','Opérations d''Empotage','Stuffing Operations','HANDLING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1069'),
+ ('STUFFING_REPORT','Rapport d''empotage','Stuffing Report','CUSTOMS_INSPECTION','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT}'::text[],'FULL','#-1056'),
+ ('TEL_TRANSIT','Titre TEL de transit','TEL Transit','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{HINTERLAND_TRANSIT}'::text[],'ADVANCED','#-1073'),
+ ('TECHNICAL_VISA','Visa Technique','Technical Visa','HANDLING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1070'),
+ ('TEMPORAL_ADMISSION','Admission Temporaire','Temporal Admission','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{HINTERLAND_TRANSIT}'::text[],'FULL','#-1147'),
+ ('THC','Charges terminal à conteneur (THC)','Terminal Handling Charges (THC)','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1122,#-1123'),
+ ('TRANSPORTATION','Transport terrestre (tiers)','Third-party Trucking','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1082'),
+ ('TRANSFER_TO_ICD','Transfert Port Sec','Transfer to ICD','TRUCKING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{CUSTOMS_BROKERAGE,HINTERLAND_TRANSIT}'::text[],'FULL','#-1077'),
+ ('TRANSFER_TO_PORT','Transfert au Port','Transfer to Port','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1111'),
+ ('TRANSIT_TITLE_T1','Titre de Transit (T1)','Transit Title (T1)','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{CUSTOMS_BROKERAGE,HINTERLAND_TRANSIT}'::text[],'ADVANCED','#-1075'),
+ ('TRANSPORT_AUTHORISATION','Autorisation de Transport (Ministère de Transport)','Transport Authorisation (Ministry of Transport)','TRUCKING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,PROJECT_CARGO,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1158'),
+ ('TRANSPORT_TO_STUFFING_SITE','Tranfert vers le site d''empotage','Transport to Stuffing Site','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'FULL','#-1109'),
+ ('TRANSSHIPMENT','Transbordement','Transshipment','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',true,'STD',NULL,'{BUSINESS_REPRESENTATION,INLAND_TRANSPORTATION,WAREHOUSING}'::text[],'ADVANCED','#-1143'),
+ ('TRUCK_IMMOBILISATION','Immobilisation Camion','Truck Immobilisation','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','CONDITIONALLY_REQUIRED',false,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1173'),
+ ('WEIGHBRIDGE_FINE','Pénalités Pont Bascule','Weighbridge Fine','HANDLING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1156'),
+ ('WEIGHING_CHARGES','Station de Pesage','Weighing Charges','TRUCKING','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','ALWAYS_REQUIRED',true,'STD',NULL,'{END_TO_END_SEA_FREIGHT,INLAND_TRANSPORTATION,SEA_FREIGHT_EXPORT}'::text[],'ADVANCED','#-1084'),
+ ('YARD_MANAGEMENT_FEE','Prestation Gestion du Parc','Yard Management Fee','STORAGE','SERVICE_SCOPED','DAY',true,'GOVERNMENT_AUTHORITY','ALWAYS_REQUIRED',true,'NONE',NULL,'{END_TO_END_SEA_FREIGHT,HINTERLAND_TRANSIT,SEA_FREIGHT_IMPORT}'::text[],'FULL','#-1151'),
+ ('YARD_OCCUPANCY','Encombrement (occupation de terre-plein)','Yard Occupancy','STORAGE','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','ALWAYS_REQUIRED',true,'STD',NULL,'{AIR_FREIGHT_EXPORT,AIR_FREIGHT_IMPORT,CUSTOMS_BROKERAGE,END_TO_END_AIR_FREIGHT,END_TO_END_SEA_FREIGHT,SEA_FREIGHT_EXPORT,SEA_FREIGHT_IMPORT}'::text[],'ADVANCED','#-1124,#-1125')
+) AS v(key,label_fr,label_en,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,receipt_requirement,requires_justification,vat,account,svc,tier_default,legacy_codes)
 ON CONFLICT (key) DO NOTHING;
 
--- Port and terminal.
-INSERT INTO _dict_seed (key,label_fr,label_en,direction,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,vat,account,svc) VALUES
- ('PORT_CHARGES','Frais portuaires','Port Charges','DEBOURS','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA,CUSTOMS}'),
- ('THC','Manutention terminal (THC)','Terminal Handling Charges (THC)','DEBOURS','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('STEVEDORING','Acconage','Stevedoring','DEBOURS','HANDLING','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA,PROJECT}'),
- ('YARD_OCCUPANCY','Occupation de terre-plein','Yard Occupancy','DEBOURS','STORAGE','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('SECURITY_FEES','Frais de sûreté (ISPS)','Security Fees (ISPS)','DEBOURS','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('FULL_CONTAINER_HANDLING','Manutention conteneur plein','Full Container Handling','DEBOURS','HANDLING','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('EMPTY_CONTAINER_HANDLING','Manutention conteneur vide','Empty Container Handling','DEBOURS','HANDLING','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('CONTAINER_MAINTENANCE','Entretien de conteneur','Container Maintenance','DEBOURS','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('PAD_FEES','Redevances PAD (Port Autonome de Douala)','PAD Fees (Douala Port Authority)','DEBOURS','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA,CUSTOMS}'),
- ('PAK_FEES','Redevances PAK (Port Autonome de Kribi)','PAK Fees (Kribi Port Authority)','DEBOURS','THC','SERVICE_SCOPED',NULL,true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA,CUSTOMS}'),
- ('SCANNING_FEES','Frais de scanner','Scanning Fees','DEBOURS','SCANNING','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,CUSTOMS,HINT}'),
- ('DEMURRAGE','Surestaries','Demurrage','DEBOURS','DEMURRAGE','SERVICE_SCOPED',NULL,true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('CONTAINER_DETENTION','Détention de conteneur','Container Detention','DEBOURS','DEMURRAGE','SERVICE_SCOPED','DAY',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('PORT_STORAGE','Magasinage portuaire','Port Storage','DEBOURS','STORAGE','SERVICE_SCOPED','DAY',true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('WHARFAGE','Redevance de quai','Wharfage','DEBOURS','THC','SERVICE_SCOPED','TON',true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('PORT_EXIT_FORMALITIES','Formalités de sortie du port','Port Exit Formalities','DEBOURS','THC','SERVICE_SCOPED','DOSSIER',true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA,CUSTOMS}'),
- ('PORT_ACCESS_BADGE','Badge d''accès au port','Port Access Badge','DEBOURS','THC','SERVICE_SCOPED','UNIT',true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA,CUSTOMS}'),
- ('WEIGHING','Pesage','Weighing','DEBOURS','THC','SERVICE_SCOPED','UNIT',true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA,INLAND,CUSTOMS}'),
- ('VGM_CERTIFICATE','Certificat de masse brute vérifiée (VGM)','VGM Certificate','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','UNIT',true,'PORT_TERMINAL','NONE',NULL,'{SEA_EXP,E2E_SEA}'),
- ('STUFFING','Empotage','Stuffing Operations','DEBOURS','HANDLING','SERVICE_SCOPED','UNIT',true,'PORT_TERMINAL','NONE',NULL,'{SEA_EXP,E2E_SEA,WHS}'),
- ('UNSTUFFING','Dépotage','Unstuffing Operations','DEBOURS','HANDLING','SERVICE_SCOPED','UNIT',true,'PORT_TERMINAL','NONE',NULL,'{SEA_IMP,E2E_SEA,WHS}'),
- ('REEFER_PLUG_IN','Branchement conteneur frigorifique','Reefer Plug-in','DEBOURS','STORAGE','SERVICE_SCOPED','DAY',true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('REEFER_MONITORING','Surveillance frigorifique','Reefer Monitoring','DEBOURS','STORAGE','SERVICE_SCOPED','DAY',true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('TALLY_SERVICES','Pointage (tally)','Tally Services','DEBOURS','HANDLING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA,PROJECT}'),
- ('TERMINAL_GATE_FEES','Frais d''entrée et de sortie terminal','Terminal Gate In-Out Fees','DEBOURS','THC','SERVICE_SCOPED','UNIT',true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('CONTAINER_CLEANING','Nettoyage de conteneur','Container Cleaning','DEBOURS','THC','SERVICE_SCOPED','UNIT',true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA}'),
- ('CONTAINER_REPAIR','Réparation de conteneur','Container Repair','DEBOURS','THC','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('DEPOT_HANDLING','Manutention au dépôt','Depot Handling','DEBOURS','HANDLING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA}'),
- ('EMPTY_CONTAINER_RETURN','Restitution du conteneur vide','Empty Container Return','DEBOURS','TRUCKING','SERVICE_SCOPED','UNIT',true,'CARRIER_AIRLINE','NONE',NULL,'{ALL_SEA}'),
- ('PORT_SECURITY_ESCORT','Escorte de sécurité portuaire','Port Security Escort','DEBOURS','ESCORT','SERVICE_SCOPED','UNIT',true,'PORT_TERMINAL','NONE',NULL,'{ALL_SEA,PROJECT}')
-ON CONFLICT (key) DO NOTHING;
-
--- Customs, statutory and documentary.
-INSERT INTO _dict_seed (key,label_fr,label_en,direction,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,vat,account,svc) VALUES
- ('CUSTOMS_DUTIES_TAXES','Droits et taxes de douane','Customs Duties and Taxes','DEBOURS','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS,HINT}'),
- ('EXCISE_DUTY','Droit d''accise','Excise Duty','DEBOURS','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('CUSTOMS_CLEARANCE','Dédouanement','Customs Clearance','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS,HINT}'),
- ('CUSTOMS_FORMALITIES','Formalités douanières','Customs Formalities','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS,HINT}'),
- ('CUSTOMS_LIQUIDATION','Liquidation douanière','Customs Liquidation','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('CUSTOMS_VALUATION','Évaluation en douane','Customs Valuation','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('DECLARATION_PROCESSING','Traitement de la déclaration','Declaration Processing','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('IMPORT_DECLARATION','Déclaration d''importation','Import Declaration','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{SEA_IMP,AIR_IMP,CUSTOMS,E2E_SEA,E2E_AIR}'),
- ('EXPORT_DECLARATION','Déclaration d''exportation','Export Declaration','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{SEA_EXP,AIR_EXP,CUSTOMS,E2E_SEA,E2E_AIR}'),
- ('TRANSIT_TITLE_T1','Titre de transit (T1)','Transit Title (T1)','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{HINT,CUSTOMS}'),
- ('TEL_TRANSIT','Transit TEL','TEL Transit','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{HINT}'),
- ('CAR_CHAD_DECLARATION','Déclaration RCA / Tchad','CAR and Chad Declaration','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{HINT}'),
- ('FINAL_DESTINATION_CLEARANCE','Dédouanement à destination finale','Final Destination Clearance','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{HINT,E2E_SEA,E2E_AIR}'),
- ('HINTERLAND_TRANSPORT_DOCS','Documents de transport hinterland','Hinterland Transport Documents','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{HINT}'),
- ('BORDER_CROSSING_FORMALITIES','Formalités de passage frontalier','Border Crossing Formalities','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{HINT}'),
- ('TRANSIT_GUARANTEE','Garantie de transit','Transit Guarantee','DEBOURS','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{HINT,CUSTOMS}'),
- ('GPS_ESCORT_TRANSIT','GPS et escorte de transit','Transit GPS and Escort','DEBOURS','ESCORT','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{HINT}'),
- ('CUSTOMS_ESCORT','Escorte douanière','Customs Escort','DEBOURS','ESCORT','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{HINT,CUSTOMS,PROJECT}'),
- ('CORRIDOR_TRANSPORT','Transport corridor','Corridor Transport','DEBOURS','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{HINT}'),
- ('POA_AUTHENTICATION','Authentification de la procuration','Power-of-Attorney Authentication','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('GUARANTEE_LETTER_AUTH','Authentification de la lettre de garantie','Guarantee Letter Authentication','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('IMPORT_FORMALITIES','Formalités d''importation','Import Formalities','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{SEA_IMP,AIR_IMP,CUSTOMS,E2E_SEA,E2E_AIR}'),
- ('EXPORT_FORMALITIES','Formalités d''exportation','Export Formalities','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{SEA_EXP,AIR_EXP,CUSTOMS,E2E_SEA,E2E_AIR}'),
- ('STAMP_DUTY','Timbre fiscal','Stamp Duty','DEBOURS','CUSTOMS_DUTIES','ANY_OPERATIONS','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_OPS}'),
- ('GUCE_FEES','Frais GUCE (guichet unique)','GUCE Single-Window Fees','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('ECTN_BESC','BESC / ECTN','Electronic Cargo Tracking Note (ECTN/BESC)','DEBOURS','DECLARATION','SERVICE_SCOPED','BL',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,CUSTOMS}'),
- ('TRANSSHIPMENT_FORMALITIES','Formalités de transbordement','Transshipment Formalities','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS,HINT}'),
- ('CERTIFICATE_OF_CONFORMITY','Certificat de conformité','Certificate of Conformity','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('CERTIFICATE_OF_ORIGIN','Certificat d''origine','Certificate of Origin','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('PHYTOSANITARY_CERTIFICATE','Certificat phytosanitaire','Phytosanitary Certificate','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('SANITARY_CERTIFICATE','Certificat sanitaire et vétérinaire','Sanitary and Veterinary Certificate','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('EXEMPTION_CERTIFICATE','Certificat d''exonération','Exemption Certificate','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('IMPORT_LICENCE','Licence d''importation','Import Licence','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{SEA_IMP,AIR_IMP,CUSTOMS}'),
- ('DANGEROUS_GOODS_DECLARATION','Déclaration de marchandises dangereuses','Dangerous Goods Declaration','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,PROJECT}'),
- ('CONSULAR_FEES','Frais consulaires','Consular Fees','DEBOURS','DOCUMENTATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR}'),
- ('CUSTOMS_INSPECTION','Inspection douanière','Customs Inspection','DEBOURS','CUSTOMS_INSPECTION','SERVICE_SCOPED',NULL,true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS,HINT}'),
- ('QUALITY_INSPECTION','Inspection qualité (SGS)','Quality Inspection (SGS)','DEBOURS','CUSTOMS_INSPECTION','SERVICE_SCOPED','DOSSIER',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('RADIATION_CONTROL','Contrôle de radioactivité','Radiation Control','DEBOURS','CUSTOMS_INSPECTION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,CUSTOMS}'),
- ('LABORATORY_ANALYSIS','Analyse en laboratoire','Laboratory Analysis','DEBOURS','CUSTOMS_INSPECTION','SERVICE_SCOPED','DOSSIER',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}'),
- ('FUMIGATION','Fumigation','Fumigation','DEBOURS','CUSTOMS_INSPECTION','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA,WHS,CUSTOMS}'),
- ('CUSTOMS_BOND','Caution douanière','Customs Bond','DEBOURS','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS,HINT}'),
- ('GUARANTEE_ACCOUNT_FEES','Frais de compte de garantie','Guarantee Account Fees','DEBOURS','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS,HINT}'),
- ('LATE_MANIFEST_PENALTY','Pénalité de manifeste tardif','Late Manifest Penalty','DEBOURS','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR}'),
- ('CUSTOMS_PENALTY','Amende douanière','Customs Penalty','DEBOURS','CUSTOMS_DUTIES','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS,HINT}'),
- ('CUSTOMS_DISPUTE_HANDLING','Traitement du contentieux douanier','Customs Dispute Handling','DEBOURS','DECLARATION','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS,HINT}'),
- ('DOMICILIATION_FEES','Frais de domiciliation bancaire','Bank Domiciliation Fees','DEBOURS','BANK_FINANCE','SERVICE_SCOPED','DOSSIER',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA,ALL_AIR,CUSTOMS}')
-ON CONFLICT (key) DO NOTHING;
-
--- Inland, delivery, warehousing pass-throughs and the origin/destination pair.
-INSERT INTO _dict_seed (key,label_fr,label_en,direction,subcategory,applicability_mode,unit_of_measure,is_billable,proof_source,vat,account,svc) VALUES
- ('ORIGIN_CHARGES','Frais à l''origine','Origin Charges','DEBOURS','OCEAN_FREIGHT','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA,ALL_AIR,PROJECT}'),
- ('FINAL_DESTINATION_CHARGES','Frais à destination finale','Final Destination Charges','DEBOURS','OCEAN_FREIGHT','SERVICE_SCOPED',NULL,true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA,ALL_AIR,HINT,PROJECT}'),
- ('INLAND_FREIGHT','Transport terrestre','Inland Freight','DEBOURS','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA,ALL_AIR,INLAND,HINT}'),
- ('LOCAL_TRUCKING','Camionnage local','Local Trucking','DEBOURS','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA,ALL_AIR,INLAND}'),
- ('LOADING_ON_TRUCK','Chargement sur camion','Loading on Truck','DEBOURS','HANDLING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{INLAND,ALL_SEA,WHS,PROJECT}'),
- ('OFFLOADING','Déchargement','Offloading','DEBOURS','HANDLING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{INLAND,ALL_SEA,WHS,PROJECT}'),
- ('DELIVERY_AT_DESTINATION','Livraison à destination','Delivery at Destination','DEBOURS','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_AIR,ALL_SEA,INLAND}'),
- ('CARGO_PICKUP','Enlèvement de la marchandise','Cargo Pick-Up','DEBOURS','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_AIR,ALL_SEA,INLAND}'),
- ('OWN_WHEEL_TRANSPORT','Transport par roulage (own wheel)','Own Wheel Transportation','DEBOURS','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{PROJECT,INLAND}'),
- ('TRUCK_WAITING_TIME','Temps d''attente camion','Truck Waiting Time','DEBOURS','TRUCKING','SERVICE_SCOPED','DAY',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{INLAND,HINT,ALL_SEA}'),
- ('WEIGHBRIDGE_FEES','Frais de pont-bascule','Weighbridge Fees','DEBOURS','TRUCKING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{INLAND,HINT}'),
- ('PARKING_YARD_FEES','Frais de stationnement et de parc','Parking and Yard Fees','DEBOURS','TRUCKING','SERVICE_SCOPED','DAY',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{INLAND,HINT}'),
- ('RAIL_TRANSPORT','Transport ferroviaire','Rail Transport','DEBOURS','RAIL','SERVICE_SCOPED','TON',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{HINT,INLAND,ALL_SEA}'),
- ('SPECIAL_ROUTE_PERMIT','Autorisation de transport exceptionnel','Special Route Permit','DEBOURS','ESCORT','SERVICE_SCOPED','DOSSIER',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{PROJECT,INLAND,HINT}'),
- ('LOCAL_INSURANCE','Assurance locale','Local Insurance','DEBOURS','OTHER','ANY_OPERATIONS','DOSSIER',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_OPS}'),
- ('CARGO_INSURANCE_PREMIUM','Prime d''assurance marchandise','Cargo Insurance Premium','DEBOURS','OTHER','ANY_OPERATIONS','DOSSIER',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_OPS}'),
- ('DRAFT_SURVEY','Expertise de tirant d''eau','Draft Survey','DEBOURS','SURVEY','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_SEA,PROJECT}'),
- ('BONDED_WAREHOUSE_ENTRY','Frais d''entrée en entrepôt sous douane','Bonded Warehouse Entry Fees','DEBOURS','STORAGE','SERVICE_SCOPED','UNIT',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{WHS,CUSTOMS,ALL_SEA}'),
- ('BONDED_WAREHOUSE_STORAGE','Magasinage sous douane','Bonded Warehouse Storage','DEBOURS','STORAGE','SERVICE_SCOPED','DAY',true,'GOVERNMENT_AUTHORITY','NONE',NULL,'{WHS,CUSTOMS,ALL_SEA}'),
- ('PALLETISATION','Palettisation','Palletisation','DEBOURS','HANDLING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{WHS,ALL_AIR}'),
- ('SHRINK_WRAPPING','Filmage','Shrink Wrapping','DEBOURS','HANDLING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{WHS}'),
- ('LABELLING_MARKING','Étiquetage et marquage','Labelling and Marking','DEBOURS','HANDLING','SERVICE_SCOPED','UNIT',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{WHS,ALL_AIR}'),
- ('DOCUMENT_COURIER','Envoi de documents (courrier express)','Document Courier','DEBOURS','DOCUMENTATION','ANY_OPERATIONS','DOSSIER',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_OPS}'),
- ('DOCUMENT_TRANSLATION','Traduction et légalisation de documents','Document Translation and Legalisation','DEBOURS','DOCUMENTATION','ANY_OPERATIONS','DOSSIER',true,'THIRD_PARTY_VENDOR','NONE',NULL,'{ALL_OPS}')
-ON CONFLICT (key) DO NOTHING;
 
 -- ── 6. Derived attributes on the staging set ────────────────────────────────
 
--- Variant-bearing lines: the families the legacy set duplicated per box size.
--- One line each, priced per CONTAINER_TYPE on the Expense-Rate tab.
-UPDATE _dict_seed SET varies = true, description =
-  'Ligne à variantes : le tarif dépend du type d''équipement (voir registre CONTAINER_TYPE). '
-  || 'Variant-bearing line: the rate depends on the equipment type, priced per variant on the Expense-Rate tab. '
-  || 'Remplace les anciennes lignes 20 pieds / 40 pieds / Open Top / Flat Rack.'
- WHERE key IN (
-   'PORT_CHARGES','THC','STEVEDORING','DEMURRAGE','YARD_OCCUPANCY','SECURITY_FEES',
-   'CONTAINER_MAINTENANCE','EMPTY_CONTAINER_HANDLING','FULL_CONTAINER_HANDLING',
-   'PAD_FEES','PAK_FEES','SCANNING_FEES','CUSTOMS_INSPECTION','SHIPPING_LINE_CHARGES',
-   'OCEAN_FREIGHT','ORIGIN_CHARGES','FINAL_DESTINATION_CHARGES');
+-- The families the legacy catalogue duplicated per box size, plus the
+-- three-way Ocean Freight split. One line each, priced per CONTAINER_TYPE.
+UPDATE _dict_seed SET varies = true WHERE key IN (
+  'PORT_CHARGES','THC','STEVEDORING','DEMURRAGE','YARD_OCCUPANCY','SECURITY_FEES',
+  'CONTAINER_MAINTENANCE','EMPTY_CONTAINER_HANDLING','FULL_CONTAINER_HANDLING',
+  'PAD_FEES','PAK_FEES','SCANNING_FEES','CUSTOMS_INSPECTION','SHIPPING_LINE_CHARGES',
+  'OCEAN_FREIGHT','ORIGIN_CHARGES','FINAL_DESTINATION_CHARGES');
 
--- Merge provenance, recorded where the next person will look for it: the legacy
--- name they remember has to lead them to the surviving line.
-UPDATE _dict_seed SET description =
-  'Fusion des anciennes lignes "BL Fees & Stamp" et "Documentation Fee" (toutes deux "Frais de dossier"). '
-  || 'Merged from the legacy BL Fees and Stamp / Documentation Fee pair.'
- WHERE key = 'DOCUMENTATION_FEE';
-UPDATE _dict_seed SET description =
-  'Fusion de "Inland Freight", "Inland Freight Origin" et "Local Charges Origin" — l''origine est une variante du tarif, pas une ligne distincte. '
-  || 'Merged from Inland Freight / Inland Freight Origin / Local Charges Origin — origin is a rate variant, not a separate line.'
- WHERE key = 'INLAND_FREIGHT';
-UPDATE _dict_seed SET description =
-  'Fusion des trois anciennes lignes de formalités de transbordement. Merged from the three legacy transshipment rows.'
- WHERE key = 'TRANSSHIPMENT_FORMALITIES';
-UPDATE _dict_seed SET description =
-  'Inclut l''ancienne ligne "XCMG Crane" (transport par roulage sur cargaison spéciale). Includes the legacy XCMG Crane row.'
- WHERE key = 'OWN_WHEEL_TRANSPORT';
-UPDATE _dict_seed SET description =
-  'Paiement de facilitation lors de la négociation douanière : charge interne, jamais refacturée au client. '
-  || 'Facilitation payment during customs negotiation: an internal cost, never re-billed.'
- WHERE key = 'FACILITY_PAYMENT';
-UPDATE _dict_seed SET description =
-  'Remboursable : comptabilisée en dépôt (classe 2), pas en charge. Refundable, carried as a deposit and not as a period cost.'
- WHERE key IN ('BANK_CAUTION','PERMANENT_DEPOSIT_FEES');
-
--- The long tail. Everything not named in a BASIC set defaults to ADVANCED;
--- these are the lines that only appear on an unusual file, so FULL.
-UPDATE _dict_seed SET tier_default = 'FULL' WHERE key IN (
-  'WAR_RISK_SURCHARGE','CONGESTION_SURCHARGE','EQUIPMENT_IMBALANCE_SURCHARGE',
-  'PEAK_SEASON_SURCHARGE','LOW_SULPHUR_SURCHARGE','SWITCH_BL','TELEX_RELEASE',
-  'CHANGE_OF_DESTINATION','SHIPPING_GUARANTEE','DOCUMENTATION_AMENDMENT',
-  'CONTAINER_LEASING','CONTAINER_SEAL','CONTAINER_CLEANING','CONTAINER_REPAIR',
-  'REEFER_PLUG_IN','REEFER_MONITORING','TALLY_SERVICES','DEPOT_HANDLING',
-  'PORT_ACCESS_BADGE','PORT_SECURITY_ESCORT','TERMINAL_GATE_FEES','WHARFAGE',
-  'EXCISE_DUTY','CUSTOMS_LIQUIDATION','CUSTOMS_VALUATION','LATE_MANIFEST_PENALTY',
-  'CUSTOMS_PENALTY','CUSTOMS_DISPUTE_HANDLING','CONSULAR_FEES','IMPORT_LICENCE',
-  'DANGEROUS_GOODS_DECLARATION','LABORATORY_ANALYSIS','RADIATION_CONTROL',
-  'FUMIGATION','PHYTOSANITARY_CERTIFICATE','SANITARY_CERTIFICATE',
-  'EXEMPTION_CERTIFICATE','CERTIFICATE_OF_ORIGIN','POA_AUTHENTICATION',
-  'GUARANTEE_LETTER_AUTH','DOMICILIATION_FEES','DOCUMENT_COURIER',
-  'DOCUMENT_TRANSLATION','TRUCK_WAITING_TIME','WEIGHBRIDGE_FEES',
-  'PARKING_YARD_FEES','RAIL_TRANSPORT','DRAFT_SURVEY','PALLETISATION',
-  'SHRINK_WRAPPING','LABELLING_MARKING','EMPTY_CONTAINER_RETURN',
-  'AIRPORT_SECURITY_SCREENING','CARRIER_ADMIN_FEE','FX_COMMISSION',
-  'WIRE_TRANSFER_FEES','EXTRA_LEGAL_WORK','REPACKAGING','ORDER_PICKING');
+-- Provenance, recorded where the next person will look for it: the legacy code
+-- or name they remember has to lead them to the surviving line.
+UPDATE _dict_seed SET description = concat_ws(' ',
+  CASE WHEN varies THEN
+    'Ligne à variantes : le tarif dépend du type équipement (registre CONTAINER_TYPE). '
+    || 'Variant-bearing line, priced per equipment variant on the Expense-Rate tab.'
+  END,
+  CASE
+    WHEN legacy_codes IS NULL THEN
+      'Nouvelle ligne, famille absente du dictionnaire hérité. New line, family absent from the legacy catalogue.'
+    WHEN strpos(legacy_codes, ',') > 0 THEN
+      'Fusion des anciennes lignes ' || legacy_codes || '. Merged from legacy rows ' || legacy_codes || '.'
+    ELSE 'Ancienne ligne ' || legacy_codes || '. Legacy row ' || legacy_codes || '.'
+  END);
 
 -- ── 7. Mint the codes ───────────────────────────────────────────────────────
 -- "#<L><NNN>", L from direction, serial per letter — the same format
 -- financial_dictionary.rules.formatCode mints at runtime, so the service layer
--- picks up numbering after the seed instead of colliding with it.
+-- carries on numbering after the seed instead of colliding with it. The legacy
+-- #-#### codes are dropped: they encoded nothing and ran across all four
+-- natures in one sequence.
 UPDATE _dict_seed s SET code = m.new_code
   FROM (
     SELECT key,
@@ -521,14 +461,11 @@ UPDATE _dict_seed s SET code = m.new_code
  WHERE m.key = s.key;
 
 -- ── 8. The catalogue rows ───────────────────────────────────────────────────
--- category, is_debours, provider_kind and the proof obligations are DERIVED, so
--- they cannot drift from the direction the line was authored with.
---
---   provider_kind ← proof_source (a carrier proves a carrier charge)
---   receipt/justification ← direction: money advanced for a client (DEBOURS) or
---     parked as a deposit (ASSET) always needs its supporting document, because
---     it is the only evidence the amount was not yours to keep. An overhead is
---     conditional, your own fee needs none.
+-- category, is_debours, provider_kind and debours_vat_transparent are DERIVED
+-- from direction and proof_source, so they cannot drift from the nature the
+-- line was authored with. The compliance answers (receipt_requirement,
+-- requires_justification) and is_billable are the company's own and are carried
+-- across as written.
 INSERT INTO dictionary_item (
   code, label_fr, label_en, description, category, direction, subcategory,
   unit_of_measure, applicability_mode, is_debours, is_billable, currency,
@@ -545,12 +482,7 @@ SELECT
     WHEN 'PORT_TERMINAL' THEN 'PORT_TERMINAL'
     WHEN 'GOVERNMENT_AUTHORITY' THEN 'CUSTOMS_AUTHORITY'
     ELSE 'OTHER' END,
-  s.proof_source,
-  s.direction IN ('DEBOURS','ASSET') OR s.key IN ('MISSION_ALLOWANCE','DRIVER_ALLOWANCE','FACILITY_PAYMENT'),
-  CASE
-    WHEN s.direction IN ('DEBOURS','ASSET') THEN 'ALWAYS_REQUIRED'
-    WHEN s.direction = 'EXPENSE' THEN 'CONDITIONALLY_REQUIRED'
-    ELSE 'NOT_REQUIRED' END,
+  s.proof_source, s.requires_justification, s.receipt_requirement,
   s.direction = 'DEBOURS', s.varies, true
   FROM _dict_seed s
 ON CONFLICT (code) DO NOTHING;
@@ -627,51 +559,27 @@ ON CONFLICT DO NOTHING;
 -- BASIC is the everyday file: the lines that appear on almost every dossier of
 -- that service, so a quote built at BASIC is already a usable quote. ADVANCED
 -- adds what the same service needs when the file is not routine, FULL is the
--- long tail. The sets NEST (0630): pulling ADVANCED yields BASIC + ADVANCED.
+-- long tail — penalties, manifest amendments and reactivations, one-off
+-- certificates. The sets NEST (0630): pulling ADVANCED yields BASIC + ADVANCED.
+--
+-- Which services a line applies to comes from the legacy `service_applicability`
+-- JSON where the company filled it in, and from the legacy `territory` where it
+-- did not (104 of 184 rows left it empty). Those are the only two records of
+-- that fact that exist.
 INSERT INTO _dict_basic (service_key, item_key) VALUES
- ('SEA_FREIGHT_IMPORT','OCEAN_FREIGHT'),('SEA_FREIGHT_IMPORT','THC'),
- ('SEA_FREIGHT_IMPORT','PORT_CHARGES'),('SEA_FREIGHT_IMPORT','CUSTOMS_DUTIES_TAXES'),
- ('SEA_FREIGHT_IMPORT','CUSTOMS_CLEARANCE'),('SEA_FREIGHT_IMPORT','DOCUMENTATION_FEE'),
- ('SEA_FREIGHT_IMPORT','INLAND_FREIGHT'),('SEA_FREIGHT_IMPORT','FILE_OPENING'),
- ('SEA_FREIGHT_EXPORT','OCEAN_FREIGHT'),('SEA_FREIGHT_EXPORT','THC'),
- ('SEA_FREIGHT_EXPORT','PORT_CHARGES'),('SEA_FREIGHT_EXPORT','STUFFING'),
- ('SEA_FREIGHT_EXPORT','WEIGHING'),('SEA_FREIGHT_EXPORT','CUSTOMS_FORMALITIES'),
- ('SEA_FREIGHT_EXPORT','DOCUMENTATION_FEE'),('SEA_FREIGHT_EXPORT','FILE_OPENING'),
- ('AIR_FREIGHT_IMPORT','AWB_FEE'),('AIR_FREIGHT_IMPORT','AIR_CARGO_HANDLING'),
- ('AIR_FREIGHT_IMPORT','CUSTOMS_DUTIES_TAXES'),('AIR_FREIGHT_IMPORT','CUSTOMS_CLEARANCE'),
- ('AIR_FREIGHT_IMPORT','DELIVERY_AT_DESTINATION'),('AIR_FREIGHT_IMPORT','FILE_OPENING'),
- ('AIR_FREIGHT_EXPORT','AWB_FEE'),('AIR_FREIGHT_EXPORT','AIR_CARGO_HANDLING'),
- ('AIR_FREIGHT_EXPORT','CUSTOMS_FORMALITIES'),('AIR_FREIGHT_EXPORT','DOCUMENTATION_FEE'),
- ('AIR_FREIGHT_EXPORT','CARGO_PICKUP'),('AIR_FREIGHT_EXPORT','FILE_OPENING'),
- ('HINTERLAND_TRANSIT','TRANSIT_TITLE_T1'),('HINTERLAND_TRANSIT','TEL_TRANSIT'),
- ('HINTERLAND_TRANSIT','GPS_ESCORT_TRANSIT'),('HINTERLAND_TRANSIT','BORDER_CROSSING_FORMALITIES'),
- ('HINTERLAND_TRANSIT','CORRIDOR_TRANSPORT'),('HINTERLAND_TRANSIT','CUSTOMS_FORMALITIES'),
- ('INLAND_TRANSPORTATION','HAULAGE_PER_KM'),('INLAND_TRANSPORTATION','LOADING_ON_TRUCK'),
- ('INLAND_TRANSPORTATION','OFFLOADING'),('INLAND_TRANSPORTATION','TOLLS_ROAD_FEES'),
- ('INLAND_TRANSPORTATION','WEIGHING'),
- ('WAREHOUSING','WAREHOUSE_STORAGE_DAY'),('WAREHOUSING','WAREHOUSE_HANDLING_IN'),
- ('WAREHOUSING','WAREHOUSE_HANDLING_OUT'),('WAREHOUSING','INVENTORY_MANAGEMENT'),
- ('WAREHOUSING','STOCK_INSURANCE'),
- ('CUSTOMS_BROKERAGE','CUSTOMS_CLEARANCE'),('CUSTOMS_BROKERAGE','CUSTOMS_FORMALITIES'),
- ('CUSTOMS_BROKERAGE','CUSTOMS_DUTIES_TAXES'),('CUSTOMS_BROKERAGE','GUCE_FEES'),
- ('CUSTOMS_BROKERAGE','ECTN_BESC'),('CUSTOMS_BROKERAGE','IMPORT_DECLARATION'),
- ('PROJECT_CARGO','CRANE_LIFTING'),('PROJECT_CARGO','HEAVY_LIFT_ESCORT'),
- ('PROJECT_CARGO','MARINE_CARGO_SURVEY'),('PROJECT_CARGO','SPECIAL_ROUTE_PERMIT'),
- ('PROJECT_CARGO','OOG_SURCHARGE'),('PROJECT_CARGO','OWN_WHEEL_TRANSPORT'),
- ('END_TO_END_SEA_FREIGHT','ORIGIN_CHARGES'),('END_TO_END_SEA_FREIGHT','OCEAN_FREIGHT'),
- ('END_TO_END_SEA_FREIGHT','THC'),('END_TO_END_SEA_FREIGHT','PORT_CHARGES'),
- ('END_TO_END_SEA_FREIGHT','CUSTOMS_DUTIES_TAXES'),('END_TO_END_SEA_FREIGHT','CUSTOMS_CLEARANCE'),
- ('END_TO_END_SEA_FREIGHT','FINAL_DESTINATION_CHARGES'),('END_TO_END_SEA_FREIGHT','FINAL_DESTINATION_CLEARANCE'),
- ('END_TO_END_SEA_FREIGHT','INLAND_FREIGHT'),('END_TO_END_SEA_FREIGHT','DELIVERY_AT_DESTINATION'),
- ('END_TO_END_SEA_FREIGHT','DOCUMENTATION_FEE'),('END_TO_END_SEA_FREIGHT','FILE_OPENING'),
- ('END_TO_END_AIR_FREIGHT','ORIGIN_CHARGES'),('END_TO_END_AIR_FREIGHT','AIR_FREIGHT'),
- ('END_TO_END_AIR_FREIGHT','AWB_FEE'),('END_TO_END_AIR_FREIGHT','AIR_CARGO_HANDLING'),
- ('END_TO_END_AIR_FREIGHT','CUSTOMS_DUTIES_TAXES'),('END_TO_END_AIR_FREIGHT','CUSTOMS_CLEARANCE'),
- ('END_TO_END_AIR_FREIGHT','FINAL_DESTINATION_CHARGES'),('END_TO_END_AIR_FREIGHT','DELIVERY_AT_DESTINATION'),
- ('END_TO_END_AIR_FREIGHT','DOCUMENTATION_FEE'),('END_TO_END_AIR_FREIGHT','FILE_OPENING'),
- ('BUSINESS_REPRESENTATION','FILE_OPENING'),('BUSINESS_REPRESENTATION','SERVICE_CHARGES'),
- ('BUSINESS_REPRESENTATION','DOCUMENTATION_FEE'),('BUSINESS_REPRESENTATION','EXTRA_LEGAL_WORK'),
- ('BUSINESS_REPRESENTATION','DISBURSEMENT_COMMISSION')
+ ('AIR_FREIGHT_EXPORT','AWB_FEE'),('AIR_FREIGHT_EXPORT','CARGO_HANDLING'),('AIR_FREIGHT_EXPORT','CUSTOMS_FORMALITIES'),('AIR_FREIGHT_EXPORT','DOCUMENTATION_FEE'),('AIR_FREIGHT_EXPORT','CARGO_PICKUP'),('AIR_FREIGHT_EXPORT','FILE_OPENING'),
+ ('AIR_FREIGHT_IMPORT','AWB_FEE'),('AIR_FREIGHT_IMPORT','CARGO_HANDLING'),('AIR_FREIGHT_IMPORT','CUSTOMS_DUTIES_TAXES'),('AIR_FREIGHT_IMPORT','CUSTOMS_CLEARANCE'),('AIR_FREIGHT_IMPORT','DELIVERY_AT_DESTINATION'),('AIR_FREIGHT_IMPORT','FILE_OPENING'),
+ ('BUSINESS_REPRESENTATION','FILE_OPENING'),('BUSINESS_REPRESENTATION','SERVICE_CHARGES'),('BUSINESS_REPRESENTATION','DOCUMENTATION_FEE'),('BUSINESS_REPRESENTATION','EXTRA_LEGAL_WORK'),('BUSINESS_REPRESENTATION','DISBURSEMENT_COMMISSION'),
+ ('CUSTOMS_BROKERAGE','CUSTOMS_CLEARANCE'),('CUSTOMS_BROKERAGE','CUSTOMS_FORMALITIES'),('CUSTOMS_BROKERAGE','CUSTOMS_DUTIES_TAXES'),('CUSTOMS_BROKERAGE','GUCE_FEES'),('CUSTOMS_BROKERAGE','ECTN_BESC'),('CUSTOMS_BROKERAGE','IMPORT_DECLARATION'),
+ ('END_TO_END_AIR_FREIGHT','ORIGIN_CHARGES'),('END_TO_END_AIR_FREIGHT','AWB_FEE'),('END_TO_END_AIR_FREIGHT','CARGO_HANDLING'),('END_TO_END_AIR_FREIGHT','CUSTOMS_DUTIES_TAXES'),('END_TO_END_AIR_FREIGHT','CUSTOMS_CLEARANCE'),('END_TO_END_AIR_FREIGHT','FINAL_DESTINATION_CHARGES'),('END_TO_END_AIR_FREIGHT','DELIVERY_AT_DESTINATION'),('END_TO_END_AIR_FREIGHT','DOCUMENTATION_FEE'),('END_TO_END_AIR_FREIGHT','FILE_OPENING'),
+ ('END_TO_END_SEA_FREIGHT','ORIGIN_CHARGES'),('END_TO_END_SEA_FREIGHT','OCEAN_FREIGHT'),('END_TO_END_SEA_FREIGHT','THC'),('END_TO_END_SEA_FREIGHT','PORT_CHARGES'),('END_TO_END_SEA_FREIGHT','CUSTOMS_DUTIES_TAXES'),('END_TO_END_SEA_FREIGHT','CUSTOMS_CLEARANCE'),('END_TO_END_SEA_FREIGHT','FINAL_DESTINATION_CHARGES'),('END_TO_END_SEA_FREIGHT','FINAL_DESTINATION_CLEARANCE'),('END_TO_END_SEA_FREIGHT','INLAND_FREIGHT'),('END_TO_END_SEA_FREIGHT','DELIVERY_AT_DESTINATION'),('END_TO_END_SEA_FREIGHT','DOCUMENTATION_FEE'),('END_TO_END_SEA_FREIGHT','FILE_OPENING'),
+ ('HINTERLAND_TRANSIT','TRANSIT_TITLE_T1'),('HINTERLAND_TRANSIT','TEL_TRANSIT'),('HINTERLAND_TRANSIT','GPS_FEES_INSTALLATION'),('HINTERLAND_TRANSIT','BORDER_CROSSING_FORMALITIES'),('HINTERLAND_TRANSIT','TRANSPORTATION'),('HINTERLAND_TRANSIT','CUSTOMS_FORMALITIES'),
+ ('INLAND_TRANSPORTATION','HAULAGE_PER_KM'),('INLAND_TRANSPORTATION','LOADING_ON_TRUCK'),('INLAND_TRANSPORTATION','OFFLOADING'),('INLAND_TRANSPORTATION','TOLLS_ROAD_FEES'),('INLAND_TRANSPORTATION','WEIGHING_CHARGES'),
+ ('PROJECT_CARGO','CRANE_LIFTING'),('PROJECT_CARGO','HEAVY_LIFT_ESCORT'),('PROJECT_CARGO','MARITIME_EXPERT_FEES'),('PROJECT_CARGO','TRANSPORT_AUTHORISATION'),('PROJECT_CARGO','OOG_SURCHARGE'),('PROJECT_CARGO','OWN_WHEEL_TRANSPORT'),
+ ('SEA_FREIGHT_EXPORT','OCEAN_FREIGHT'),('SEA_FREIGHT_EXPORT','THC'),('SEA_FREIGHT_EXPORT','PORT_CHARGES'),('SEA_FREIGHT_EXPORT','STUFFING_OPERATIONS'),('SEA_FREIGHT_EXPORT','WEIGHING_CHARGES'),('SEA_FREIGHT_EXPORT','CUSTOMS_FORMALITIES'),('SEA_FREIGHT_EXPORT','DOCUMENTATION_FEE'),('SEA_FREIGHT_EXPORT','FILE_OPENING'),
+ ('SEA_FREIGHT_IMPORT','OCEAN_FREIGHT'),('SEA_FREIGHT_IMPORT','THC'),('SEA_FREIGHT_IMPORT','PORT_CHARGES'),('SEA_FREIGHT_IMPORT','CUSTOMS_DUTIES_TAXES'),('SEA_FREIGHT_IMPORT','CUSTOMS_CLEARANCE'),('SEA_FREIGHT_IMPORT','DOCUMENTATION_FEE'),('SEA_FREIGHT_IMPORT','INLAND_FREIGHT'),('SEA_FREIGHT_IMPORT','FILE_OPENING'),
+ ('WAREHOUSING','WAREHOUSE_STORAGE_DAY'),('WAREHOUSING','WAREHOUSE_HANDLING_IN'),('WAREHOUSING','WAREHOUSE_HANDLING_OUT'),('WAREHOUSING','INVENTORY_MANAGEMENT'),('WAREHOUSING','STOCK_INSURANCE')
+
 ON CONFLICT (service_key, item_key) DO NOTHING;
 
 INSERT INTO service_type_dictionary_item (service_type_id, dictionary_item_id, tier, sort_order)
@@ -679,18 +587,14 @@ SELECT st.service_type_id, di.dictionary_item_id, x.tier,
        CASE x.tier WHEN 'BASIC' THEN 100 WHEN 'ADVANCED' THEN 300 ELSE 500 END
          + row_number() OVER (PARTITION BY x.service_key, x.tier ORDER BY x.label_en)
   FROM (
-    SELECT DISTINCT g.service_key,
-           s.key AS item_key,
-           s.label_en,
+    SELECT g.service_key, s.key AS item_key, s.label_en, s.code,
            CASE WHEN b.item_key IS NOT NULL THEN 'BASIC' ELSE s.tier_default END AS tier
       FROM _dict_seed s
-      CROSS JOIN LATERAL unnest(s.svc) AS tok(token)
-      JOIN _svc_group g ON g.token = tok.token
+      CROSS JOIN LATERAL unnest(s.svc) AS g(service_key)
       LEFT JOIN _dict_basic b ON b.service_key = g.service_key AND b.item_key = s.key
   ) x
   JOIN service_type st ON st.key = x.service_key
-  JOIN _dict_seed s2 ON s2.key = x.item_key
-  JOIN dictionary_item di ON di.code = s2.code
+  JOIN dictionary_item di ON di.code = x.code
 ON CONFLICT (service_type_id, dictionary_item_id) DO NOTHING;
 
 -- service_type_key is the denormalised single-value hint 0630 kept alive for the
@@ -712,23 +616,34 @@ UPDATE dictionary_item di SET service_type_key = p.service_key
    AND di.service_type_key IS NULL
    AND di.code IN (SELECT code FROM _dict_seed);
 
--- ── 11. Guard rail ──────────────────────────────────────────────────────────
+-- ── 11. Guard rails ─────────────────────────────────────────────────────────
 -- The §23.14 invariant is a DEFERRABLE trigger that fires at COMMIT, which is
 -- correct but reports one item at a time and only once the whole file has run.
--- This says the same thing immediately, naming the line, so a mis-typed account
+-- These say the same thing immediately, naming the line, so a mis-typed account
 -- family in a future edit fails here with something a reader can act on.
 DO $$
-DECLARE missing text;
+DECLARE bad text;
 BEGIN
-  SELECT string_agg(s.code || ' ' || s.label_en, ', ' ORDER BY s.code) INTO missing
+  SELECT string_agg(s.code || ' ' || s.label_en, ', ' ORDER BY s.code) INTO bad
     FROM _dict_seed s
     JOIN dictionary_item di ON di.code = s.code
    WHERE NOT EXISTS (SELECT 1 FROM posting_rule pr
                       WHERE pr.dictionary_item_id = di.dictionary_item_id
                         AND pr.debit_account IS NOT NULL
                         AND pr.credit_account IS NOT NULL);
-  IF missing IS NOT NULL THEN
-    RAISE EXCEPTION 'seed 9080: dictionary lines left without a complete posting rule: %', missing;
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed 9080: dictionary lines left without a complete posting rule: %', bad;
+  END IF;
+
+  -- §23.3: an account that is not postable makes every rule naming it a
+  -- time-bomb that only goes off when someone posts. Fail here instead.
+  SELECT string_agg(DISTINCT a.code, ', ') INTO bad
+    FROM posting_rule pr
+    JOIN dictionary_item di ON di.dictionary_item_id = pr.dictionary_item_id
+    JOIN chart_of_accounts a ON a.code IN (pr.debit_account, pr.credit_account)
+   WHERE di.code IN (SELECT code FROM _dict_seed) AND NOT a.is_postable;
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed 9080: posting rules reference non-postable accounts: %', bad;
   END IF;
 END $$;
 
