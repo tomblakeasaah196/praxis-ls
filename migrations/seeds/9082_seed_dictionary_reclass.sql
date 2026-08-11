@@ -127,7 +127,7 @@ INSERT INTO _rc_rename (code, old_en, new_fr, new_en, descr) VALUES
  -- The transportation line the catalogue always had, under a name that
  -- advertised the sourcing and hid it from anyone searching "transportation".
  ('#D115','Third-party Trucking','Transport — Pour compte client','Transportation — Client Account',
-  'Transport routier exécuté par un tiers ou par la compagnie maritime (dernier kilomètre), avancé puis refacturé au client à l''identique. Road movement performed by a carrier or vendor, advanced and re-billed to the client at cost. Sibling rows: revenue when our own fleet moves it, own-cost when we buy the movement in on our own PO.'
+  'Transport routier exécuté par un tiers ou par la compagnie maritime (dernier kilomètre), avancé puis refacturé au client à l''identique. Road movement performed by a carrier or vendor, advanced and re-billed to the client at cost. Sibling rows: revenue when our own fleet moves it, own-cost when we buy the movement in on our own PO.')
 ON CONFLICT (code) DO NOTHING;
 
 UPDATE dictionary_item d
@@ -163,8 +163,8 @@ INSERT INTO _rc_move (old_code, new_code, direction, account) VALUES
  ('#R020','#D138','DISBURSEMENT',NULL),   -- Final Destination Clearance
  -- Expense -> disbursement. Opening an account for a client's file is the
  -- client's cost advanced, never ours.
- ('#E001','#D146','DISBURSEMENT',NULL
-ON CONFLICT (old_code) DO NOTHING;   -- Account Opening
+ ('#E001','#D146','DISBURSEMENT',NULL)   -- Account Opening
+ON CONFLICT (old_code) DO NOTHING;
 
 UPDATE dictionary_item d
    SET code        = m.new_code,
@@ -216,7 +216,7 @@ INSERT INTO _rc_new VALUES
  ('#D128','#A002','DISBURSEMENT','Frais sur caution permanente (PDF) — Pour compte client','Permanent Deposit Fees (PDF) — Client Account',NULL,'NONE',
   'Frais payés pour bénéficier d''une caution permanente détenue par un tiers, avancés puis refacturés. Fee paid to use a third party''s standing deposit, advanced and re-billed at cost.'),
  ('#D129','#A003','DISBURSEMENT','Caution ambassade — Pour compte client','Embassy Caution — Client Account',NULL,'NONE',
-  'Frais réglés pour utiliser une caution ambassade déjà déposée par un tiers. Fee paid to use an embassy caution already lodged by a third party.'
+  'Frais réglés pour utiliser une caution ambassade déjà déposée par un tiers. Fee paid to use an embassy caution already lodged by a third party.')
 ON CONFLICT (new_code) DO NOTHING;
 
 -- 3b. Warehousing, three ways. Our warehouse (revenue), somebody else's
@@ -250,7 +250,7 @@ INSERT INTO _rc_new VALUES
  ('#D145','#R013','DISBURSEMENT','Manutention sortie entrepôt — Pour compte client','Warehouse Handling Out — Client Account',NULL,'NONE',
   'Manutention à l''expédition exécutée par un tiers, avancée et refacturée. Outbound handling performed by a vendor, advanced and re-billed at cost.'),
  ('#E043','#R013','EXPENSE','Manutention sortie entrepôt — Charge propre','Warehouse Handling Out — Own Cost','6211','STD',
-  'Manutention à l''expédition achetée sur notre propre bon de commande. Outbound handling bought in on our own PO.'
+  'Manutention à l''expédition achetée sur notre propre bon de commande. Outbound handling bought in on our own PO.')
 ON CONFLICT (new_code) DO NOTHING;
 
 -- 3c. Transportation, completed. #D115 already held the disbursement mode
@@ -259,7 +259,7 @@ INSERT INTO _rc_new VALUES
  ('#R021','#D115','REVENUE','Transport','Transportation','7063','STD',
   'Transport routier exécuté par NOTRE flotte : prestation vendue, revenu à part entière. Road movement performed by OUR OWN fleet — a service sold, and revenue in full. Also the line to invoice the client on when the movement was bought in on the "Own Cost" sibling, so the margin lands here.'),
  ('#E044','#D115','EXPENSE','Transport — Charge propre','Transportation — Own Cost','6131','STD_T',
-  'Transport acheté sur notre propre bon de commande auprès d''un prestataire, puis facturé au client sur la ligne de revenu avec marge. Movement bought in on our own PO and invoiced to the client on the revenue sibling with our margin. Input VAT on transport is recoverable on 4453.'
+  'Transport acheté sur notre propre bon de commande auprès d''un prestataire, puis facturé au client sur la ligne de revenu avec marge. Movement bought in on our own PO and invoiced to the client on the revenue sibling with our margin. Input VAT on transport is recoverable on 4453.')
 ON CONFLICT (new_code) DO NOTHING;
 
 -- 3d. The fourteen lines that are ours on one file and the client's on the
@@ -292,7 +292,7 @@ INSERT INTO _rc_new VALUES
  ('#D159','#E033','DISBURSEMENT','Péages et taxes routières — Pour compte client','Tolls and Road Fees — Client Account',NULL,'NONE',
   'Péages réglés en route pour le compte du client et refacturés à l''identique. Tolls settled en route on the client''s behalf and re-billed at cost.'),
  ('#D160','#E034','DISBURSEMENT','Location de camion — Pour compte client','Truck Rental — Client Account',NULL,'NONE',
-  'Camion loué auprès d''un tiers pour le dossier du client, avancé et refacturé. Truck hired from a vendor against the client''s file, advanced and re-billed at cost.'
+  'Camion loué auprès d''un tiers pour le dossier du client, avancé et refacturé. Truck hired from a vendor against the client''s file, advanced and re-billed at cost.')
 ON CONFLICT (new_code) DO NOTHING;
 
 -- ── Materialise the siblings ────────────────────────────────────────────────
