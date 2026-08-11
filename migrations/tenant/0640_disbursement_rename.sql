@@ -21,7 +21,10 @@
 --
 --   is_debours  ->  is_disbursement    dictionary_item, posting_rule,
 --                                      journal_line, invoice_line,
---                                      quotation_line, cash_request_line
+--                                      quotation_line, cash_request_line,
+--                                      costing_line, margin_simulation_line
+--                                      (discovered from information_schema, not
+--                                       from a hand-written list — see §2)
 --   invoice.debours_total            -> disbursement_total
 --   dictionary_item.debours_vat_transparent
 --                                    -> disbursement_vat_transparent
@@ -64,19 +67,24 @@ EXCEPTION WHEN OTHERS THEN NULL;   -- nothing matched: already migrated
 END $$;
 
 -- ── 2. Rename the columns ───────────────────────────────────────────────────
--- Each guarded on the OLD name still existing, so the migration is re-runnable.
+-- Driven off information_schema rather than a hand-written table list. The
+-- first draft of this migration DID hand-write the list, built by grepping the
+-- migration files, and missed costing_line and margin_simulation_line because
+-- both declare the column with a trailing comment:
+--
+--     is_debours  boolean NOT NULL DEFAULT false,   -- excluded from margin (§6.7)
+--
+-- The schema is the only authority on which tables carry the column, so ask it.
+-- This also means a tenant carrying a column some migration added out-of-band
+-- is caught rather than silently left on the old name.
 DO $$
-DECLARE
-  t text;
-  tables text[] := ARRAY['dictionary_item','posting_rule','journal_line',
-                         'invoice_line','quotation_line','cash_request_line'];
+DECLARE r record;
 BEGIN
-  FOREACH t IN ARRAY tables LOOP
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-                WHERE table_schema = current_schema()
-                  AND table_name = t AND column_name = 'is_debours') THEN
-      EXECUTE format('ALTER TABLE %I RENAME COLUMN is_debours TO is_disbursement', t);
-    END IF;
+  FOR r IN SELECT table_name FROM information_schema.columns
+            WHERE table_schema = current_schema() AND column_name = 'is_debours'
+  LOOP
+    EXECUTE format('ALTER TABLE %I RENAME COLUMN is_debours TO is_disbursement', r.table_name);
+    RAISE NOTICE '0640: renamed %.is_debours', r.table_name;
   END LOOP;
 END $$;
 
@@ -194,6 +202,8 @@ UPDATE chart_of_accounts SET label_en = replace(label_en, 'débours', 'disbursem
 -- ALTER TABLE invoice_line      RENAME COLUMN is_disbursement TO is_debours;
 -- ALTER TABLE quotation_line    RENAME COLUMN is_disbursement TO is_debours;
 -- ALTER TABLE cash_request_line RENAME COLUMN is_disbursement TO is_debours;
+-- ALTER TABLE costing_line      RENAME COLUMN is_disbursement TO is_debours;
+-- ALTER TABLE margin_simulation_line RENAME COLUMN is_disbursement TO is_debours;
 -- ALTER TABLE invoice           RENAME COLUMN disbursement_total TO debours_total;
 -- ALTER TABLE dictionary_item   RENAME COLUMN disbursement_vat_transparent TO debours_vat_transparent;
 -- ALTER TABLE invoice_line RENAME CONSTRAINT chk_disbursement_no_tax TO chk_debours_no_tax;
