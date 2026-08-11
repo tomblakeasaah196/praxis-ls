@@ -138,9 +138,15 @@ UPDATE expense_rate er SET container_type_ref_id = dr.ref_id
                    ELSE NULL
                  END;
 
-ALTER TABLE expense_rate
-  DROP COLUMN IF EXISTS shipping_line,
-  DROP COLUMN IF EXISTS variant;
+-- Both columns below are fully superseded by rate_provider_id/
+-- container_type_ref_id (backfilled immediately above). expense_rate has no
+-- seeded rows (9080's own comment: rates are not seeded there) and nothing in
+-- the client ever wrote to this table before this feature, so no production
+-- data is lost.
+-- DESTRUCTIVE: drops the shipping_line free-text column, superseded above.
+ALTER TABLE expense_rate DROP COLUMN IF EXISTS shipping_line;
+-- DESTRUCTIVE: drops the variant free-text column, superseded above.
+ALTER TABLE expense_rate DROP COLUMN IF EXISTS variant;
 
 CREATE INDEX IF NOT EXISTS ix_exprate_provider       ON expense_rate(rate_provider_id);
 CREATE INDEX IF NOT EXISTS ix_exprate_container_type ON expense_rate(container_type_ref_id);
