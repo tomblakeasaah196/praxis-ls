@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 932 |
+| Routes | 936 |
 | Modules mounted | 108 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 932 mounted routes, grouped by path prefix.
+All 936 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -941,7 +941,11 @@ All 932 mounted routes, grouped by path prefix.
 | Method | Path | Body validated |
 |---|---|---|
 | POST | `/api/tenant/milestones/:id/advance` | — |
+| POST | `/api/tenant/milestones/:id/reopen` | — |
+| GET | `/api/tenant/milestones/assumptions/:serviceTypeId` | — |
 | GET | `/api/tenant/milestones/dossier/:dossierId` | — |
+| POST | `/api/tenant/milestones/dossier/:dossierId/recalculate` | — |
+| POST | `/api/tenant/milestones/dossier/:dossierId/stages` | — |
 | POST | `/api/tenant/milestones/instantiate` | — |
 | GET | `/api/tenant/milestones/templates` | — |
 | POST | `/api/tenant/milestones/templates` | — |
