@@ -85,17 +85,17 @@ ALTER TABLE milestone_template_stage
   ADD COLUMN IF NOT EXISTS source_version             integer;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_stage_owner_tier_chk') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_stage_owner_tier_chk' AND conrelid = 'milestone_template_stage'::regclass) THEN
     ALTER TABLE milestone_template_stage
       ADD CONSTRAINT milestone_stage_owner_tier_chk
       CHECK (owner_tier IS NULL OR owner_tier IN ('INTERNAL','CARRIER','TERMINAL','AUTHORITY','CLIENT'));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_stage_cadence_chk') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_stage_cadence_chk' AND conrelid = 'milestone_template_stage'::regclass) THEN
     ALTER TABLE milestone_template_stage
       ADD CONSTRAINT milestone_stage_cadence_chk
       CHECK (cadence IS NULL OR cadence IN ('DAILY','WEEKLY','MONTHLY','QUARTERLY','ANNUAL'));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_stage_weight_chk') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_stage_weight_chk' AND conrelid = 'milestone_template_stage'::regclass) THEN
     ALTER TABLE milestone_template_stage
       ADD CONSTRAINT milestone_stage_weight_chk
       CHECK (weight >= 0 AND weight <= 100 AND min_duration_hours >= 0);
@@ -104,7 +104,7 @@ DO $$ BEGIN
   -- a stable key. `code` is unique within a template by operational logic
   -- already; nothing enforced it, so a double-run of a seed produced a template
   -- with two BOOKING stages and a chain that could never be advanced cleanly.
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_stage_code_uq') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_stage_code_uq' AND conrelid = 'milestone_template_stage'::regclass) THEN
     ALTER TABLE milestone_template_stage
       ADD CONSTRAINT milestone_stage_code_uq UNIQUE (milestone_template_id, code);
   END IF;
@@ -152,17 +152,17 @@ ALTER TABLE milestone_instance
   ADD COLUMN IF NOT EXISTS last_rebaselined_at        timestamptz;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_instance_health_chk') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_instance_health_chk' AND conrelid = 'milestone_instance'::regclass) THEN
     ALTER TABLE milestone_instance
       ADD CONSTRAINT milestone_instance_health_chk
       CHECK (health IN ('OK','DUE','AT_RISK','DELAYED','BREACH_FORECAST','DONE','BLOCKED'));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_instance_owner_tier_chk') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_instance_owner_tier_chk' AND conrelid = 'milestone_instance'::regclass) THEN
     ALTER TABLE milestone_instance
       ADD CONSTRAINT milestone_instance_owner_tier_chk
       CHECK (owner_tier IS NULL OR owner_tier IN ('INTERNAL','CARRIER','TERMINAL','AUTHORITY','CLIENT'));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_instance_attributed_chk') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'milestone_instance_attributed_chk' AND conrelid = 'milestone_instance'::regclass) THEN
     ALTER TABLE milestone_instance
       ADD CONSTRAINT milestone_instance_attributed_chk
       CHECK (attributed_to IS NULL OR attributed_to IN ('INTERNAL','CARRIER','TERMINAL','AUTHORITY','CLIENT'));
@@ -223,7 +223,7 @@ ALTER TABLE service_type
   ADD COLUMN IF NOT EXISTS is_open_ended         boolean NOT NULL DEFAULT false;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'service_type_duration_basis_chk') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'service_type_duration_basis_chk' AND conrelid = 'service_type'::regclass) THEN
     ALTER TABLE service_type
       ADD CONSTRAINT service_type_duration_basis_chk
       CHECK (duration_basis IN ('WORKING_DAYS','CALENDAR_DAYS','MONTHS'));
