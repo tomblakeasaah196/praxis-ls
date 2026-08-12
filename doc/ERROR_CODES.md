@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 2× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (271)
+## All codes (272)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -78,6 +78,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_SECRET` | 422 | 2× | — |
 | `BAD_SENDER` | 422 | 1× | — |
 | `BAD_SIGNATURE` | 422 | 1× | — |
+| `BAD_SNAPSHOT_TARGET` | 500 | 1× | — |
 | `BAD_STAGE` | 422 | 1× | — |
 | `BAD_STATE` | 400, 409, 422 | 15× | `BAD_STATUS` |
 | `BAD_STATUS` | 422 | 4× | — |

@@ -30,6 +30,7 @@
 const repo = require("./shipment_details.repo");
 const rules = require("./shipment_details.rules");
 const { AppError } = require("../../../utils/errors");
+const { logger } = require("../../../config/logger");
 
 /* ── Write side ────────────────────────────────────────────────────────────── */
 
@@ -372,4 +373,50 @@ async function formFor(client, serviceTypeId, { lang = "en" } = {}) {
   };
 }
 
-module.exports = { applyValues, partition, coerce, forDossier, formFor, summariseContainers };
+/**
+ * Freeze a file's shipment details onto a document that is locking (0661).
+ *
+ * WHY. `forDossier` is computed live, which is right for every screen asking
+ * "what do we know now" and wrong for a document that has been approved,
+ * issued or posted. A costing approved citing MSC ARUSHI must still cite MSC
+ * ARUSHI after the carrier rolls the booking — otherwise an approved record
+ * silently rewrites itself, which under OHADA it may not.
+ *
+ * BEST-EFFORT, AND DELIBERATELY SO. Called from inside a lock transition. A
+ * document that FAILED TO BE APPROVED because its details could not be
+ * snapshotted would be a worse outcome than one whose snapshot is NULL — and
+ * NULL is already a supported state (every pre-0661 document has one, and the
+ * readers fall back to the live projection). So this never throws.
+ *
+ * `table` is code-provided, never request-provided: it is validated against the
+ * five documents 0661 actually added the column to, so it can never become an
+ * identifier from a payload.
+ */
+const SNAPSHOTTABLE = {
+  costing: "costing_id",
+  invoice: "invoice_id",
+  quotation: "quotation_id",
+  transit_order: "transit_order_id",
+  delivery_note: "delivery_note_id",
+};
+
+async function snapshotOnto(client, { table, id, dossierId }) {
+  const pk = SNAPSHOTTABLE[table];
+  if (!pk) throw new AppError("BAD_SNAPSHOT_TARGET", `${table} does not carry a shipment-details snapshot`, 500);
+  if (!dossierId || !id) return null;
+  try {
+    const projection = await forDossier(client, dossierId);
+    const { rows } = await client.query(
+      `UPDATE ${table} SET shipment_details_snapshot = $2 WHERE ${pk} = $1
+        AND shipment_details_snapshot IS NULL
+        RETURNING ${pk}`,
+      [id, JSON.stringify({ ...projection, snapshot_at: new Date().toISOString() })],
+    );
+    return rows[0] || null;
+  } catch (err) {
+    logger.warn({ err, table, id }, "[operations] shipment-details snapshot skipped (document locked regardless)");
+    return null;
+  }
+}
+
+module.exports = { applyValues, partition, coerce, forDossier, formFor, summariseContainers, snapshotOnto, SNAPSHOTTABLE };
