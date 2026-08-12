@@ -104,6 +104,26 @@ async function assumptions(client, serviceTypeId, { clientVisibleOnly = false } 
   return rows;
 }
 
+/**
+ * The stages of the SHIPPED system default for a service type (9091's v1).
+ *
+ * Two jobs, both in the editor: show a tenant what they have changed away from,
+ * and give "restore the default" something to restore FROM. The seeded v1
+ * template is never deleted when a tenant publishes their own version — it is
+ * just deactivated — so the shipped chain remains available indefinitely
+ * without storing a second copy of it anywhere.
+ */
+async function systemDefaultStages(client, serviceTypeId) {
+  const { rows } = await client.query(
+    "SELECT s.* FROM milestone_template_stage s " +
+      "  JOIN milestone_template t ON t.milestone_template_id = s.milestone_template_id " +
+      " WHERE t.service_type_id = $1 AND t.is_system AND s.is_system " +
+      " ORDER BY t.version ASC, s.stage_seq ASC",
+    [serviceTypeId],
+  );
+  return rows;
+}
+
 function logRebaseline(client, data) { return insertOne(client, "milestone_rebaseline_log", data); }
 
 /**
@@ -138,4 +158,5 @@ module.exports = {
   insertTemplate, insertStage, nextVersion, activeTemplate, stages, deactivateOthers, getTemplate,
   insertInstance, getInstance, updateInstance, listByDossier, existingInstances, listTemplates,
   scheduleContext, workingCalendar, assumptions, logRebaseline, openInstances, seqBetween,
+  systemDefaultStages,
 };

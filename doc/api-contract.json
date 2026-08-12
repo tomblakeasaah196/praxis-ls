@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 108,
-  "route_count": 967,
+  "route_count": 968,
   "tiers": {
     "public": 19,
     "self-scoped": 64,
-    "gated": 884
+    "gated": 885
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -1930,6 +1930,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/milestones/dossier/:dossierId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/milestones/system-default/:serviceTypeId": {
       "auth": true,
       "rbac": true,
       "validated": false,

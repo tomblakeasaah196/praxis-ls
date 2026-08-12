@@ -430,10 +430,12 @@ const getTemplate = (client, id) => repo.getTemplate(client, id);
 const listTemplates = (client, q) => repo.listTemplates(client, q);
 const listByDossier = (client, dossierId) => repo.listByDossier(client, dossierId);
 const listAssumptions = (client, serviceTypeId) => repo.assumptions(client, serviceTypeId);
+/** The shipped default chain for a service type — drift comparison + restore. */
+const listSystemDefault = (client, serviceTypeId) => repo.systemDefaultStages(client, serviceTypeId);
 
 module.exports = {
   publishTemplate, instantiate, advance, reopen, addStage, recalculate,
-  getTemplate, listTemplates, listByDossier, listAssumptions,
+  getTemplate, listTemplates, listByDossier, listAssumptions, listSystemDefault,
   resolveTarget, resolveCalendar, resolvePolicy,
   MIN_STAGES, MAX_STAGES,
 };
