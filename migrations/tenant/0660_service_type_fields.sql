@@ -159,8 +159,11 @@ CREATE TABLE IF NOT EXISTS service_type_field (
   -- For data_type REF: which dictionary_ref.kind the picker reads
   -- (CONTAINER_TYPE, LOAD_MODE, …). Ignored for every other type.
   ref_kind         text,
-  -- { min, max, min_length, max_length, pattern } — enforced server-side on
-  -- write, not just in the browser.
+  -- { min, max, min_length, max_length, format } — enforced server-side on
+  -- write, not just in the browser. `format` names one of a fixed list of
+  -- expressions owned in code (EMAIL, CONTAINER_NO, …); a definition may NOT
+  -- carry a raw regular expression, because one authored through the API is
+  -- regex injection and Node cannot time a regex out.
   validation_json  jsonb NOT NULL DEFAULT '{}'::jsonb,
   default_value    jsonb,
 

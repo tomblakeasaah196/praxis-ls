@@ -252,3 +252,43 @@ describe("SSDC — groups drive the form and the panel from one definition", () 
     expect(keys).not.toContain("gone");
   });
 });
+
+describe("SSDC — a field definition names a format, never a regex", () => {
+  /**
+   * The first version let a definition carry its own `pattern` and did
+   * `new RegExp(pattern).test(value)`. The pattern is authored by a tenant admin
+   * through the API, so that is regex injection: `(a+)+$` against a long value
+   * hangs the save path for everyone on the tenant, and Node cannot time a regex
+   * out. CodeQL flagged it (js/regex-injection) and was right to.
+   */
+  const f = (validation) => ({
+    key: "x", label_en: "X", data_type: "TEXT", is_active: true,
+    options_json: [], validation_json: validation,
+  });
+
+  it("accepts a value matching a named format", () => {
+    expect(service.coerce(f({ format: "EMAIL" }), "ops@example.com")).toBe("ops@example.com");
+    expect(service.coerce(f({ format: "CONTAINER_NO" }), "MSKU1234567")).toBe("MSKU1234567");
+  });
+
+  it("rejects one that does not, naming the format in plain words", () => {
+    expect(() => service.coerce(f({ format: "EMAIL" }), "not-an-email")).toThrow(/must be an email address/);
+    expect(() => service.coerce(f({ format: "CONTAINER_NO" }), "1234")).toThrow(/container number/);
+  });
+
+  it("ignores an unknown format rather than failing the save", () => {
+    // A definition written against a format this build does not know is the
+    // thing to fix; refusing the user's save is not.
+    expect(service.coerce(f({ format: "NOT_A_FORMAT" }), "anything")).toBe("anything");
+  });
+
+  it("never treats a raw pattern as an expression", () => {
+    // The catastrophic-backtracking payload that made this exploitable. It must
+    // be inert: `pattern` is not a key the validator accepts and not one the
+    // coercer reads.
+    const evil = f({ pattern: "^(a+)+$" });
+    const start = Date.now();
+    expect(service.coerce(evil, "a".repeat(60) + "!")).toBe("a".repeat(60) + "!");
+    expect(Date.now() - start).toBeLessThan(200);
+  });
+});
