@@ -212,9 +212,11 @@ function Header({
 function MilestonesTab({
   templates,
   onPublish,
+  onEditPolicy,
 }: {
   templates: api.ServiceTypeDossier["templates"];
   onPublish: () => void;
+  onEditPolicy: () => void;
 }) {
   const navigate = useNavigate();
   return (
@@ -227,6 +229,9 @@ function MilestonesTab({
         </p>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => navigate("/operations/milestones")}>Open in Milestones</Button>
+          {/* The stages say WHAT happens; the policy says how the schedule
+              behaves when reality does not cooperate. They belong together. */}
+          <Button size="sm" variant="outline" onClick={onEditPolicy}>Scheduling policy</Button>
           <Button size="sm" onClick={onPublish}>
             {templates.some((t) => t.is_active) ? "Publish new version" : "Publish first template"}
           </Button>
@@ -819,11 +824,14 @@ export function ServiceTypeDossier({
   serviceTypeId,
   onEdit,
   onPublishTemplate,
+  onEditPolicy,
   onChanged,
 }: {
   serviceTypeId: string;
   onEdit: () => void;
   onPublishTemplate: () => void;
+  /** Opens the scheduling / SLA policy for THIS service type (⚙ on the tab). */
+  onEditPolicy: () => void;
   onChanged?: () => void;
 }) {
   const dossier = useResource(() => api.getServiceTypeDossier(serviceTypeId), [serviceTypeId]);
@@ -921,7 +929,7 @@ export function ServiceTypeDossier({
       </div>
 
       {tab === "Overview" && <OverviewTab d={d} onEditName={saveName} />}
-      {tab === "Milestones" && <MilestonesTab templates={d.templates} onPublish={onPublishTemplate} />}
+      {tab === "Milestones" && <MilestonesTab templates={d.templates} onPublish={onPublishTemplate} onEditPolicy={onEditPolicy} />}
       {tab === "Dictionary" && (
         <DictionaryTab
           scoped={d.dictionary_items}
