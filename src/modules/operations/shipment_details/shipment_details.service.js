@@ -392,26 +392,44 @@ async function formFor(client, serviceTypeId, { lang = "en" } = {}) {
  * five documents 0661 actually added the column to, so it can never become an
  * identifier from a payload.
  */
-const SNAPSHOTTABLE = {
-  costing: "costing_id",
-  invoice: "invoice_id",
-  quotation: "quotation_id",
-  transit_order: "transit_order_id",
-  delivery_note: "delivery_note_id",
+/**
+ * The five documents 0661 added the column to, each as a COMPLETE statement
+ * rather than a table name to interpolate.
+ *
+ * Written this way on purpose. A `UPDATE ${table} SET … WHERE ${pk} = $1` is
+ * safe here — `table` is code-provided and checked against this map — but it is
+ * the same construction `query-helpers` exists to keep out of module code, and
+ * it reads as a SQL-injection sink to a human reviewer and a static analyser
+ * alike. A lookup of finished statements cannot be got wrong by a later caller,
+ * and needs no argument about whether the input is trusted.
+ *
+ * `AND shipment_details_snapshot IS NULL` makes every one idempotent: a
+ * document that has already been frozen is never re-frozen, so a retried
+ * transition cannot overwrite what the document said when it first locked.
+ */
+const SNAPSHOT_SQL = {
+  costing:
+    "UPDATE costing SET shipment_details_snapshot = $2 WHERE costing_id = $1 AND shipment_details_snapshot IS NULL RETURNING costing_id",
+  invoice:
+    "UPDATE invoice SET shipment_details_snapshot = $2 WHERE invoice_id = $1 AND shipment_details_snapshot IS NULL RETURNING invoice_id",
+  quotation:
+    "UPDATE quotation SET shipment_details_snapshot = $2 WHERE quotation_id = $1 AND shipment_details_snapshot IS NULL RETURNING quotation_id",
+  transit_order:
+    "UPDATE transit_order SET shipment_details_snapshot = $2 WHERE transit_order_id = $1 AND shipment_details_snapshot IS NULL RETURNING transit_order_id",
+  delivery_note:
+    "UPDATE delivery_note SET shipment_details_snapshot = $2 WHERE delivery_note_id = $1 AND shipment_details_snapshot IS NULL RETURNING delivery_note_id",
 };
 
 async function snapshotOnto(client, { table, id, dossierId }) {
-  const pk = SNAPSHOTTABLE[table];
-  if (!pk) throw new AppError("BAD_SNAPSHOT_TARGET", `${table} does not carry a shipment-details snapshot`, 500);
+  const sql = Object.prototype.hasOwnProperty.call(SNAPSHOT_SQL, table) ? SNAPSHOT_SQL[table] : null;
+  if (!sql) throw new AppError("BAD_SNAPSHOT_TARGET", `${table} does not carry a shipment-details snapshot`, 500);
   if (!dossierId || !id) return null;
   try {
     const projection = await forDossier(client, dossierId);
-    const { rows } = await client.query(
-      `UPDATE ${table} SET shipment_details_snapshot = $2 WHERE ${pk} = $1
-        AND shipment_details_snapshot IS NULL
-        RETURNING ${pk}`,
-      [id, JSON.stringify({ ...projection, snapshot_at: new Date().toISOString() })],
-    );
+    const { rows } = await client.query(sql, [
+      id,
+      JSON.stringify({ ...projection, snapshot_at: new Date().toISOString() }),
+    ]);
     return rows[0] || null;
   } catch (err) {
     logger.warn({ err, table, id }, "[operations] shipment-details snapshot skipped (document locked regardless)");
@@ -419,4 +437,4 @@ async function snapshotOnto(client, { table, id, dossierId }) {
   }
 }
 
-module.exports = { applyValues, partition, coerce, forDossier, formFor, summariseContainers, snapshotOnto, SNAPSHOTTABLE };
+module.exports = { applyValues, partition, coerce, forDossier, formFor, summariseContainers, snapshotOnto, SNAPSHOT_SQL };

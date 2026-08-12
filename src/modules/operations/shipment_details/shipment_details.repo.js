@@ -7,6 +7,8 @@
  */
 "use strict";
 
+const { insertOne, updateOne } = require("../../../shared/db/query-helpers");
+
 /**
  * Column list for a field. `service_type_field.*` would work, but naming them
  * keeps the projection's contract visible at the point the data is fetched —
@@ -212,6 +214,10 @@ async function copyFields(client, fromSetId, toSetId) {
   return rowCount;
 }
 
+/** Plus the parent key, which `insertField` supplies itself — it is never taken
+ *  from a caller's payload. */
+const INSERT_WRITABLE = new Set(["service_type_field_set_id"]);
+
 const FIELD_WRITABLE = new Set([
   "group_code", "group_label_fr", "group_label_en", "group_seq", "seq", "key",
   "label_fr", "label_en", "help_text_fr", "help_text_en", "placeholder",
@@ -220,37 +226,36 @@ const FIELD_WRITABLE = new Set([
 ]);
 
 async function insertField(client, fieldSetId, data) {
-  const cols = ["service_type_field_set_id"];
-  const vals = [fieldSetId];
+  // Through the shared helper, not a hand-rolled column list.
+  //
+  // WHY. `insertOne`/`updateOne` are the ONE place that validates every
+  // identifier against a strict pattern and double-quotes it (SEC H3), and they
+  // take the allow-list as an argument so mass assignment is closed too. The
+  // first version of this file built `INSERT INTO … (${cols})` itself from
+  // Object.entries — allow-listed, so safe in fact, but it re-created by hand
+  // exactly the construction query-helpers exists to centralise, and a static
+  // analyser cannot tell the two apart. A shared helper that some repos bypass
+  // is a helper that protects nothing.
+  const clean = {};
   for (const [k, v] of Object.entries(data)) {
-    if (!FIELD_WRITABLE.has(k)) continue;
-    cols.push(k);
-    vals.push(v);
+    if (FIELD_WRITABLE.has(k)) clean[k] = v;
   }
-  const { rows } = await client.query(
-    `INSERT INTO service_type_field (${cols.map((c) => `"${c}"`).join(", ")})
-     VALUES (${cols.map((_, i) => `$${i + 1}`).join(", ")}) RETURNING *`,
-    vals,
+  return insertOne(
+    client,
+    "service_type_field",
+    { service_type_field_set_id: fieldSetId, ...clean },
+    "*",
+    INSERT_WRITABLE,
   );
-  return rows[0];
 }
 
 async function updateField(client, fieldId, patch) {
-  const sets = [];
-  const vals = [];
+  const clean = {};
   for (const [k, v] of Object.entries(patch)) {
-    if (!FIELD_WRITABLE.has(k)) continue;
-    vals.push(v);
-    sets.push(`"${k}" = $${vals.length}`);
+    if (FIELD_WRITABLE.has(k)) clean[k] = v;
   }
-  if (!sets.length) return getField(client, fieldId);
-  vals.push(fieldId);
-  const { rows } = await client.query(
-    `UPDATE service_type_field SET ${sets.join(", ")}
-      WHERE service_type_field_id = $${vals.length} RETURNING *`,
-    vals,
-  );
-  return rows[0] || null;
+  if (!Object.keys(clean).length) return getField(client, fieldId);
+  return updateOne(client, "service_type_field", "service_type_field_id", fieldId, clean, "*", FIELD_WRITABLE);
 }
 
 async function getField(client, fieldId) {
