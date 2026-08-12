@@ -56,7 +56,10 @@ const VALIDATION = z.object({
   max: z.number().optional(),
   min_length: z.number().int().nonnegative().optional(),
   max_length: z.number().int().positive().optional(),
-  pattern: z.string().max(200).optional(),
+  // A NAMED format, never a raw regular expression — see the FORMATS table in
+  // shipment_details.service.js for why letting a definition carry its own
+  // pattern is regex injection rather than a feature.
+  format: z.enum(["EMAIL", "PHONE", "ALPHANUMERIC", "UPPER_CODE", "CONTAINER_NO", "URL"]).optional(),
 }).strict();
 
 const fieldBase = {
