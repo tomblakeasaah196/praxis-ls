@@ -21,7 +21,7 @@ import { Pill } from "@/components/ui/pill";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { dateFmt } from "@/lib/format";
-import { portalClientChain, type PortalChain } from "@/lib/portal-api";
+import { portalClientChain, portalRaiseTicket, type PortalChain } from "@/lib/portal-api";
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
 
@@ -44,6 +44,10 @@ const statusTone = (s: string): "ok" | "warn" | "mute" | "blue" => {
 export function PortalShipment({ dossierId, onBack }: { dossierId: string; onBack?: () => void }) {
   const [chain, setChain] = React.useState<PortalChain | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [asking, setAsking] = React.useState<string | null>(null);
+  const [subject, setSubject] = React.useState("");
+  const [sent, setSent] = React.useState(false);
+  const [sending, setSending] = React.useState(false);
 
   React.useEffect(() => {
     let alive = true;
@@ -97,12 +101,77 @@ export function PortalShipment({ dossierId, onBack }: { dossierId: string; onBac
                       : ""}
                   </p>
                 </div>
-                <Pill tone={statusTone(m.status)}>{STATUS_LABEL[m.status] || m.status}</Pill>
+                <div className="flex items-center gap-2">
+                  {/* Raising the query HERE rather than by email is the whole
+                      reason Q tickets exist — it stays on the file, visible to
+                      everyone working it. */}
+                  <button
+                    type="button"
+                    onClick={() => setAsking(m.code)}
+                    className="text-xs text-muted-foreground underline hover:text-foreground"
+                  >
+                    Ask about this
+                  </button>
+                  <Pill tone={statusTone(m.status)}>{STATUS_LABEL[m.status] || m.status}</Pill>
+                </div>
               </li>
             ))}
           </ol>
         )}
       </Panel>
+
+      {asking && (
+        <Panel title="Ask about this step">
+          <p className="mb-2 text-xs text-muted-foreground">
+            Your query goes to the team handling this shipment and stays attached to the file.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="What's holding this up?"
+              aria-label="Your question"
+              className="min-w-0 flex-1 rounded-md border border-border bg-transparent px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              disabled={!subject.trim() || sending}
+              onClick={async () => {
+                setSending(true);
+                try {
+                  const stage = chain.milestones.find((x) => x.code === asking);
+                  await portalRaiseTicket({
+                    dossier_id: chain.dossier.dossier_id,
+                    subject: subject.trim(),
+                    body: stage ? `About: ${stage.label_en || stage.label}` : undefined,
+                  });
+                  setSent(true);
+                  setSubject("");
+                  setAsking(null);
+                } catch (e) {
+                  setError(msg(e));
+                } finally {
+                  setSending(false);
+                }
+              }}
+              className="rounded-md border border-border px-3 py-2 text-sm hover:opacity-80 disabled:opacity-40"
+            >
+              Send
+            </button>
+            <button type="button" onClick={() => setAsking(null)} className="px-2 text-sm text-muted-foreground">
+              Cancel
+            </button>
+          </div>
+        </Panel>
+      )}
+
+      {sent && (
+        <Panel title="Query sent">
+          <p className="text-sm text-muted-foreground">
+            Thank you — the team handling this shipment has it, and you will see the reply here.
+          </p>
+        </Panel>
+      )}
 
       {chain.assumptions.length > 0 && (
         <Panel title="What these dates assume">

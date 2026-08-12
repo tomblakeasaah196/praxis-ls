@@ -184,6 +184,24 @@ export type PortalChain = {
 };
 export const portalClientChain = (dossierId: string) =>
   portalApi<PortalChain>(`/client/dossier/${dossierId}`);
+
+/** Q tickets — a client's queries, raised against a milestone and kept in-system. */
+export type PortalTicket = {
+  q_ticket_id: string;
+  subject: string;
+  body?: string | null;
+  status: string;
+  created_at: string;
+  dossier_ref?: string | null;
+  milestone_label?: string | null;
+};
+export const portalTickets = () => portalApi<PortalTicket[]>("/client/tickets");
+export const portalRaiseTicket = (body: {
+  dossier_id: string;
+  milestone_instance_id?: string;
+  subject: string;
+  body?: string;
+}) => portalApi<PortalTicket>("/client/tickets", { method: "POST", body });
 const periodQs = (q?: { from?: string; to?: string }) =>
   new URLSearchParams(Object.entries(q || {}).filter(([, v]) => !!v) as [string, string][]).toString();
 export const portalInvestorView = (q?: { from?: string; to?: string }) => {

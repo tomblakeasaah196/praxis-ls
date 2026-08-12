@@ -18,6 +18,8 @@ import { HubTabs, HubCrumb } from "@/components/tabbed-hub";
 import { useList } from "@/lib/use-resource";
 import * as api from "@/lib/operations-api";
 import { MilestoneChain } from "./milestone-chain";
+import { MilestoneAttribution } from "./milestone-attribution";
+import { QTickets } from "./q-tickets";
 
 export function MilestonesPage() {
   const { rows: dossiers } = useList<api.Dossier>("/operations");
@@ -61,6 +63,18 @@ export function MilestonesPage() {
           <MilestoneChain dossierId={dossierId} />
         </div>
       )}
+
+      <h2 className="micro mb-2">Client queries</h2>
+      <div className="mb-8">
+        <QTickets dossierId={dossierId || undefined} />
+      </div>
+
+      {/* Fleet-wide, not per-file: the question "who is costing us time" is
+          only answerable across many dossiers. */}
+      <h2 className="micro mb-2">Delay attribution</h2>
+      <div className="mb-8">
+        <MilestoneAttribution />
+      </div>
 
       <h2 className="micro mb-2">Templates</h2>
       <DataList
