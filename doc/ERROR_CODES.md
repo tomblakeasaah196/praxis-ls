@@ -281,7 +281,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `UNKNOWN_DOC` | 404 | 6× | — |
 | `UNKNOWN_DOC_TYPE` | 422 | 1× | — |
 | `UNKNOWN_EVENT_TYPE` | 400 | 1× | — |
-| `UNKNOWN_FIELD` | 422 | 1× | — |
+| `UNKNOWN_FIELD` | — | 1× | — |
 | `UNKNOWN_FILTER` | — | 1× | — |
 | `UNKNOWN_JOURNAL` | 422 | 1× | — |
 | `UNKNOWN_LOAD_MODE` | 422 | 1× | — |
