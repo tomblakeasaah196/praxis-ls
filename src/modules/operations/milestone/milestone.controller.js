@@ -11,5 +11,6 @@ module.exports = {
   reopen: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.reopen(c, { instanceId: req.params.id, reason: req.body.reason, actor: actor(req) })) })),
   addStage: asyncHandler(async (req, res) => res.status(201).json({ data: await req.tenantDb((c) => service.addStage(c, { dossierId: req.params.dossierId, afterSeq: req.body.after_seq, code: req.body.code, label: req.body.label, labelEn: req.body.label_en, weight: req.body.weight, minDurationHours: req.body.min_duration_hours, ownerTier: req.body.owner_tier, isClientVisible: req.body.is_client_visible, actor: actor(req) })) })),
   recalculate: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.recalculate(c, { dossierId: req.params.dossierId, trigger: req.body.trigger || "MANUAL", actor: actor(req) })) })),
+  systemDefault: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.listSystemDefault(c, req.params.serviceTypeId)) })),
   assumptions: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.listAssumptions(c, req.params.serviceTypeId)) })),
 };

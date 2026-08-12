@@ -320,9 +320,16 @@ export const removeServiceTypeDictionaryTier = (serviceTypeId: string, itemId: s
  * seed. Publishing supersedes the previous version (`deactivateOthers`) — it
  * does not edit in place, so dossiers already instantiated keep their stages.
  */
+/**
+ * Publish a new ACTIVE template version.
+ *
+ * The body carries the whole scheduling shape, not just labels — the backend
+ * validator (milestone.validator.js) bounds it at 3..15 stages, weight 0..100
+ * and a known owner tier, and the DB caps the count at 15 as well.
+ */
 export const publishMilestoneTemplate = (body: {
   service_type_id: string;
-  stages: { code: string; label_fr: string; label_en?: string; default_offset_days?: number; stage_seq?: number }[];
+  stages: MilestoneStage[];
 }) => tenant<MilestoneTemplate[]>("/milestones/templates", { method: "POST", body });
 
 /* ── Places (/geo-places) — POL/POD reference data for the route pickers ── */
@@ -346,6 +353,52 @@ export const createGeoPlace = (body: {
 }) => tenant<GeoPlace>("/geo-places", { method: "POST", body });
 
 /* ── Milestones(/milestones) — templates + per-dossier instances ── */
+
+/** Who a stage's delay is charged to when it slips (0650). */
+export type OwnerTier = "INTERNAL" | "CARRIER" | "TERMINAL" | "AUTHORITY" | "CLIENT";
+export const OWNER_TIERS: OwnerTier[] = ["INTERNAL", "CARRIER", "TERMINAL", "AUTHORITY", "CLIENT"];
+
+/** Human labels — never render the SCREAMING_ENUM (FRONTEND_GUIDE §5). */
+export const OWNER_TIER_LABEL: Record<OwnerTier, string> = {
+  INTERNAL: "Internal ops",
+  CARRIER: "Carrier",
+  TERMINAL: "Terminal / port",
+  AUTHORITY: "Customs / authority",
+  CLIENT: "Client",
+};
+
+export const CADENCES = ["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "ANNUAL"] as const;
+export type Cadence = (typeof CADENCES)[number];
+
+/**
+ * One stage of a milestone template.
+ *
+ * `weight` and `min_duration_hours` are the scheduling half: weight is the
+ * stage's share of the chain's horizon (summing to 100 per segment), and the
+ * floor is what stops a locked SLA compressing it into an impossible schedule.
+ */
+export type MilestoneStage = {
+  stage_id?: string;
+  stage_seq?: number;
+  code: string;
+  label_fr: string;
+  label_en?: string | null;
+  default_offset_days?: number | null;
+  weight?: number | null;
+  min_duration_hours?: number | null;
+  owner_tier?: OwnerTier | null;
+  is_anchor?: boolean;
+  is_target_lock?: boolean;
+  is_client_visible?: boolean;
+  is_optional?: boolean;
+  chain_segment?: string | null;
+  cadence?: Cadence | null;
+  required_evidence_doc_type?: string | null;
+  auto_advance_on_event?: string | null;
+  is_system?: boolean;
+  system_code?: string | null;
+};
+
 export type MilestoneTemplate = {
   milestone_template_id?: string;
   code?: string;
@@ -355,6 +408,10 @@ export type MilestoneTemplate = {
   default_offset_days?: number | null;
   service_type_id?: string | null;
 };
+
+/** The shipped default chain — drift comparison and "restore the default". */
+export const milestoneSystemDefault = (serviceTypeId: string) =>
+  tenant<MilestoneStage[]>(`/milestones/system-default/${serviceTypeId}`);
 export type MilestoneInstance = {
   milestone_instance_id: string;
   dossier_id: string;

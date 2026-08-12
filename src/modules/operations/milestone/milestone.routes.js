@@ -17,6 +17,9 @@ router.get("/dossier/:dossierId", requirePermission(MODULE, "view"), controller.
 router.post("/dossier/:dossierId/stages", requirePermission(MODULE, "edit"), validator.addStage, controller.addStage);
 // Force a re-baseline: used after a promised date changes, and by the SLA scan.
 router.post("/dossier/:dossierId/recalculate", requirePermission(MODULE, "edit"), validator.recalculate, controller.recalculate);
+// The shipped default chain, for the editor's drift indicator and its
+// "restore the default" action.
+router.get("/system-default/:serviceTypeId", requirePermission(MODULE, "view"), controller.systemDefault);
 router.get("/assumptions/:serviceTypeId", requirePermission(MODULE, "view"), controller.assumptions);
 router.post("/:id/advance", requirePermission(MODULE, "edit"), validator.advance, controller.advance);
 // Un-completing is not an ordinary transition (frozen DONE is what makes
