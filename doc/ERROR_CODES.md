@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 2× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (271)
+## All codes (272)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -78,6 +78,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_SECRET` | 422 | 2× | — |
 | `BAD_SENDER` | 422 | 1× | — |
 | `BAD_SIGNATURE` | 422 | 1× | — |
+| `BAD_SNAPSHOT_TARGET` | 500 | 1× | — |
 | `BAD_STAGE` | 422 | 1× | — |
 | `BAD_STATE` | 400, 409, 422 | 15× | `BAD_STATUS` |
 | `BAD_STATUS` | 422 | 4× | — |
@@ -280,7 +281,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `UNKNOWN_DOC` | 404 | 6× | — |
 | `UNKNOWN_DOC_TYPE` | 422 | 1× | — |
 | `UNKNOWN_EVENT_TYPE` | 400 | 1× | — |
-| `UNKNOWN_FIELD` | 422 | 1× | — |
+| `UNKNOWN_FIELD` | — | 1× | — |
 | `UNKNOWN_FILTER` | — | 1× | — |
 | `UNKNOWN_JOURNAL` | 422 | 1× | — |
 | `UNKNOWN_LOAD_MODE` | 422 | 1× | — |
