@@ -141,7 +141,13 @@ type FieldSpec = {
   defaultValue?: unknown;
 };
 
-/** A checkbox list. `role_tags` is the only array column in these collections. */
+/**
+ * A checkbox list. `role_tags` is the only array column in these collections.
+ *
+ * A fieldset with a visible legend rather than a labelled control: the group has
+ * a name and each box has its own, which is what a screen reader needs to say
+ * "Departments, Billing, checked" instead of reading ten unrelated checkboxes.
+ */
 function MultiSelect({ label, value, options, onChange }: {
   label: string;
   value: string[];
@@ -150,11 +156,13 @@ function MultiSelect({ label, value, options, onChange }: {
 }) {
   const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
   return (
-    <fieldset className="flex flex-wrap gap-x-4 gap-y-1.5 rounded-lg border p-2">
-      <legend className="sr-only">{label}</legend>
-      {options.map((o) => (
-        <Checkbox key={o.value} checked={value.includes(o.value)} onCheckedChange={() => toggle(o.value)} label={<span className="text-sm">{o.label}</span>} />
-      ))}
+    <fieldset className="rounded-lg border p-2">
+      <legend className="px-1 text-sm font-medium text-foreground">{label}</legend>
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+        {options.map((o) => (
+          <Checkbox key={o.value} checked={value.includes(o.value)} onCheckedChange={() => toggle(o.value)} label={<span className="text-sm">{o.label}</span>} />
+        ))}
+      </div>
     </fieldset>
   );
 }
@@ -195,24 +203,53 @@ function ChildModal({ title, fields, initial, onClose, onSubmit }: {
           const heading = f.group && !seenGroups.has(f.group) ? f.group : null;
           if (heading) seenGroups.add(f.group as string);
           const wide = f.type === "textarea" || f.type === "multiselect";
+          const cls = `space-y-1 text-sm ${wide ? "sm:col-span-2" : ""} ${f.type === "checkbox" ? "flex items-center gap-2 space-y-0" : ""}`;
+
+          /*
+           * Checkboxes and multiselects bring their OWN labels, so neither may
+           * sit inside this grid's generic `<label>`.
+           *
+           * `Checkbox` renders a `<label htmlFor>` internally. Nesting that in
+           * another label is invalid, and the accessible name computed from the
+           * pair is not the field's: `getByRole("checkbox", { name: "Active" })`
+           * could not find the control at all. It went unnoticed because the axe
+           * register never opens a modal and the only checkboxes here used to be
+           * two optional flags. `MultiSelect` is the same fault with a
+           * `<fieldset>`, where the outer label would additionally have toggled
+           * whichever box happened to be first.
+           */
+          if (f.type === "checkbox" || f.type === "multiselect") {
+            return (
+              <React.Fragment key={f.key}>
+                {heading && <h4 className="mt-1 border-b pb-1 text-sm font-semibold text-foreground sm:col-span-2">{heading}</h4>}
+                <div className={cls}>
+                  {f.type === "checkbox" ? (
+                    <Checkbox checked={!!values[f.key]} onCheckedChange={(v) => set(f.key, v)} label={f.label} hint={f.hint} />
+                  ) : (
+                    <>
+                      <MultiSelect
+                        label={f.label}
+                        value={Array.isArray(values[f.key]) ? (values[f.key] as string[]) : []}
+                        options={f.options || []}
+                        onChange={(next) => set(f.key, next)}
+                      />
+                      {f.hint && <span className="micro text-muted-foreground">{f.hint}</span>}
+                    </>
+                  )}
+                </div>
+              </React.Fragment>
+            );
+          }
+
           return (
             <React.Fragment key={f.key}>
               {heading && (
                 <h4 className="mt-1 border-b pb-1 text-sm font-semibold text-foreground sm:col-span-2">{heading}</h4>
               )}
-              <label className={`space-y-1 text-sm ${wide ? "sm:col-span-2" : ""} ${f.type === "checkbox" ? "flex items-center gap-2 space-y-0" : ""}`}>
+              <label className={cls}>
                 <span className="font-medium text-foreground">{f.label}</span>
                 {f.type === "country" ? (
                   <SmartCountryPicker value={(values[f.key] as string) || ""} onChange={(c) => set(f.key, c)} label={f.label} />
-                ) : f.type === "checkbox" ? (
-                  <Checkbox checked={!!values[f.key]} onCheckedChange={(v) => set(f.key, v)} label={<span className="sr-only">{f.label}</span>} />
-                ) : f.type === "multiselect" ? (
-                  <MultiSelect
-                    label={f.label}
-                    value={Array.isArray(values[f.key]) ? (values[f.key] as string[]) : []}
-                    options={f.options || []}
-                    onChange={(next) => set(f.key, next)}
-                  />
                 ) : f.type === "select" ? (
                   <Select value={(values[f.key] as string) || ""} onChange={(e) => set(f.key, e.target.value)}>
                     <option value="">—</option>
@@ -1335,7 +1372,7 @@ function DocumentsTab({ entityId, documents, establishments, onRemove, onSaved }
               {!doc.vault_id && doc.physical_ref ? <> <Pill tone="mute">Paper</Pill></> : null}
             </Td>
             <Td r>
-              <label className="cursor-pointer text-sm text-primary underline hover:opacity-80">
+              <label className="cursor-pointer text-sm text-primary-ink underline hover:opacity-80">
                 {attaching === doc.document_id ? "Uploading…" : doc.vault_id ? "Replace scan" : "Attach scan"}
                 <input
                   type="file"
