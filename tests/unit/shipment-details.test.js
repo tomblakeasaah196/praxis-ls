@@ -292,3 +292,68 @@ describe("SSDC — a field definition names a format, never a regex", () => {
     expect(Date.now() - start).toBeLessThan(200);
   });
 });
+
+describe("SSDC — a request key is never used as a property name", () => {
+  /**
+   * CodeQL raised four high-severity `js/remote-property-injection` alerts on
+   * the first version of `partition`, which iterated the REQUEST body and did
+   * `details[key] = value`. A property name taken from a request and used as a
+   * write target reaches `Object.prototype` through `__proto__`, and the
+   * "is this a known field?" guard sitting above it is not something a dataflow
+   * analyser can see through — nor should it have to.
+   *
+   * The loop is now driven by the field DEFINITIONS, so every name written comes
+   * from a database row. These tests pin the behaviour that change has to keep.
+   */
+  const FIELDS = [
+    f({ key: "voyage_no", label_en: "Voyage No" }),
+    f({ key: "pol", label_en: "POL", column_name: "pol" }),
+  ];
+
+  it("leaves Object.prototype alone when a payload tries to reach it", () => {
+    // Built with JSON.parse, not an object literal, because that is what express
+    // hands the route — and the two differ exactly here: a literal's `__proto__`
+    // SETS the prototype and never becomes an own property, while JSON.parse
+    // creates a real own key called "__proto__". A test written as a literal
+    // would pass against code that is still vulnerable.
+    const payload = JSON.parse(String.raw`{"__proto__":{"polluted":true},"voyage_no":"128W"}`);
+    expect(() => service.partition(FIELDS, payload)).toThrow(/not a field/);
+    expect({}.polluted).toBeUndefined();
+    expect(Object.prototype.polluted).toBeUndefined();
+  });
+
+  it("writes nothing at all from a payload that is only an attack", () => {
+    const payload = JSON.parse(String.raw`{"__proto__":{"polluted":true}}`);
+    expect(() => service.partition(FIELDS, payload)).toThrow(/not a field/);
+    expect(Object.prototype.polluted).toBeUndefined();
+    // And the prototype of a fresh details object is untouched.
+    const { details } = service.partition(FIELDS, { voyage_no: "1" });
+    expect(Object.getPrototypeOf(details)).toBe(Object.prototype);
+  });
+
+  it("does not let a payload shadow a built-in via a defined-looking key", () => {
+    const { details } = service.partition(FIELDS, { voyage_no: "128W" });
+    expect(Object.prototype.hasOwnProperty.call(details, "voyage_no")).toBe(true);
+    expect(Object.getPrototypeOf(details)).toBe(Object.prototype);
+    expect(details.constructor).toBe(Object);
+  });
+
+  it("still names every unknown key it refused", () => {
+    let caught;
+    try {
+      service.partition(FIELDS, { sea_pol: "x", air_mawb: "y" });
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught.message).toMatch(/"sea_pol"/);
+    expect(caught.message).toMatch(/"air_mawb"/);
+    // Reported as VALUES under a fixed key — never as property names.
+    expect(Object.keys(caught.details || {})).toEqual(["details"]);
+  });
+
+  it("ignores a definition the payload did not mention", () => {
+    const { details, columns } = service.partition(FIELDS, { pol: "Shanghai" });
+    expect(columns).toEqual({ pol: "Shanghai" });
+    expect(details).toEqual({});
+  });
+});
