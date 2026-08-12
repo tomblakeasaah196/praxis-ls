@@ -36,10 +36,30 @@ const isoDate = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null);
 
 /* ── Input resolution ───────────────────────────────────────────────────── */
 
-/** The tenant's scheduling policy (Settings → operations.milestone_policy). */
-async function resolvePolicy(client) {
+/**
+ * The scheduling policy in force, resolved in three layers.
+ *
+ *   engine defaults  →  the tenant's setting  →  this service type's override
+ *
+ * Per-service override matters because the answers genuinely differ by service:
+ * a sea import wants the delivery date held and the breach shouted about, while
+ * a warehousing retainer would rather auto-release and re-plan. Storing the
+ * overrides INSIDE the one setting (`by_service`) rather than as a second
+ * settings key keeps "what is my scheduling policy" a single read, and a single
+ * thing to edit.
+ */
+async function resolvePolicy(client, serviceTypeId = null) {
   const raw = await getSetting(client, "operations", "milestone_policy", null);
-  return { ...scheduler.DEFAULT_POLICY, ...(raw && typeof raw === "object" ? raw : {}) };
+  const stored = raw && typeof raw === "object" ? raw : {};
+  const { by_service: byService, ...tenantWide } = stored;
+  const override = serviceTypeId && byService && typeof byService === "object"
+    ? byService[serviceTypeId]
+    : null;
+  return {
+    ...scheduler.DEFAULT_POLICY,
+    ...tenantWide,
+    ...(override && typeof override === "object" ? override : {}),
+  };
 }
 
 /** The calendar governing this dossier, compiled into a spec. */
@@ -160,7 +180,7 @@ async function instantiate(client, { dossierId, serviceTypeId, baseDate, actor =
 
   const ctx = await repo.scheduleContext(client, dossierId);
   const calendar = await resolveCalendar(client, ctx && ctx.entity_id);
-  const policy = await resolvePolicy(client);
+  const policy = await resolvePolicy(client, serviceTypeId);
   const base = baseDate || isoDate((ctx && ctx.created_at) || new Date());
   const openedAt = new Date(`${base}T08:00:00Z`);
   const target = resolveTarget(ctx, calendar, openedAt);
@@ -245,7 +265,7 @@ async function recalculate(client, { dossierId, trigger = "SCAN", actor = {} }) 
 
   const ctx = await repo.scheduleContext(client, dossierId);
   const calendar = await resolveCalendar(client, ctx && ctx.entity_id);
-  const policy = await resolvePolicy(client);
+  const policy = await resolvePolicy(client, ctx && ctx.service_type_id);
   const openedAt = new Date((ctx && ctx.created_at) || Date.now());
   const target = resolveTarget(ctx, calendar, openedAt);
 
