@@ -272,6 +272,8 @@ export type EntityRegistration = {
   registration_id: string; country_code?: string | null; kind: string; number?: string | null;
   issuing_authority?: string | null; issued_on?: string | null; expires_on?: string | null;
   is_primary?: boolean; verified?: boolean; notes?: string | null;
+  /** The certificate the identifier was issued on (migration 0662). */
+  vault_id?: string | null;
 };
 export type EntityEstablishment = {
   establishment_id: string; code?: string | null; name: string;
@@ -1050,8 +1052,10 @@ export type Contact = { contact_id: string; name: string; title?: string | null;
 export type Address = { address_id: string; line1?: string | null; line2?: string | null; city?: string | null; region?: string | null; postal_code?: string | null; country_code?: string | null; type?: string | null; is_primary?: boolean; is_active?: boolean };
 export type BankAccount = { bank_account_id: string; beneficiary_name?: string | null; bank_name?: string | null; branch?: string | null; account_number?: string | null; iban?: string | null; swift_bic?: string | null; currency?: string | null; momo_network?: string | null; momo_number?: string | null; is_primary?: boolean; is_verified?: boolean; is_active?: boolean; masked?: boolean };
 export type PartyDocument = { document_id: string; document_type_id?: string | null; document_type_name?: string | null; document_number?: string | null; issuing_authority?: string | null; issued_on?: string | null; expires_on?: string | null; vault_id?: string | null; scan_status?: string; physical_ref?: string | null; scan_due_on?: string | null; verification_status?: string; default_severity?: string };
-export type Registration = { registration_id: string; country_code?: string | null; kind: string; number?: string | null; issuing_authority?: string | null; issued_on?: string | null; expires_on?: string | null; verified?: boolean };
-export type BeneficialOwner = { owner_id: string; full_name: string; date_of_birth?: string | null; nationality?: string | null; id_type?: string | null; id_number?: string | null; ownership_percent?: number | null; is_pep?: boolean; notes?: string | null };
+export type Registration = { registration_id: string; country_code?: string | null; kind: string; number?: string | null; issuing_authority?: string | null; issued_on?: string | null; expires_on?: string | null; verified?: boolean; vault_id?: string | null };
+/** `vault_id` is the owner's identity document — the AML evidence. The column
+ *  and its write allow-list have existed since 0511; only the UI was missing. */
+export type BeneficialOwner = { owner_id: string; full_name: string; date_of_birth?: string | null; nationality?: string | null; id_type?: string | null; id_number?: string | null; ownership_percent?: number | null; is_pep?: boolean; notes?: string | null; vault_id?: string | null };
 
 /** Generic nested-resource CRUD — one set of helpers for every child collection,
  *  keyed by the URL segment. The parent id is always in the path. */

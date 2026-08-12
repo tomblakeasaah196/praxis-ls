@@ -17,6 +17,7 @@
  */
 import { tokenStore } from "./token-store";
 import { ApiError } from "./api-client";
+import { uploadVaultDocument } from "./masterdata-api";
 
 /**
  * What the file picker offers for a scan.
@@ -66,6 +67,29 @@ export function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new ApiError("FILE_READ_FAILED", "Could not read that file.", 0));
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Put a file in the vault and return the id the owning record should point at.
+ *
+ * The half of the two-step that is identical everywhere. What the CALLER does
+ * with the id is not: an entity document patches `vault_id` on itself, a
+ * registration patches its own, and a record being created has to exist before
+ * it has an id to be referenced by — which is why this returns the id rather
+ * than doing the patch itself.
+ *
+ * Throws with a message worth showing: the size guard first (instant, no
+ * upload), then whatever the API says.
+ */
+export async function uploadScan(file: File, opts: { docType: string; entityRef: string }): Promise<string> {
+  const problem = scanFileProblem(file);
+  if (problem) throw new ApiError("BAD_SCAN", problem, 422);
+  const { doc_id } = await uploadVaultDocument({
+    data_url: await readFileAsDataUrl(file),
+    doc_type: opts.docType,
+    entity_ref: opts.entityRef,
+  });
+  return doc_id;
 }
 
 /**

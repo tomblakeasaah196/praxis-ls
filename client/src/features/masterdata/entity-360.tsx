@@ -36,8 +36,9 @@ import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { SmartCountryPicker } from "@/components/smart-country-picker";
-import { ScanAttachment } from "@/components/scan-attachment";
+import { ScanAttachment, ScanFileField } from "@/components/scan-attachment";
 import { WorkingCalendarTab } from "./working-calendar-tab";
+import { uploadScan } from "@/lib/vault-file";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt, enumLabel } from "@/lib/format";
 import { reportActionError } from "@/lib/action-error";
@@ -123,9 +124,34 @@ function Section({ title, description, action, children }: { title: string; desc
   );
 }
 
+/**
+ * The key a picked file travels under, and where it ends up.
+ *
+ * A file is not a column. It goes to the vault and comes back as a `vault_id`
+ * the record then points at, which cannot happen until the record has an id —
+ * so a create is really create, upload, patch. `SCAN_FIELD` is how the form
+ * carries the file through `values` without it ever reaching the request body,
+ * and `SCAN_REF` names the row the vault should record as the file's owner.
+ *
+ * Underscored because it is the one key in a field spec that is NOT a column on
+ * the table being written; if that ever stops being obvious, the filter in
+ * `saveChild` is the thing to read.
+ */
+const SCAN_FIELD = "__scan";
+const SCAN_REF: Partial<Record<api.EntityCollection, string>> = {
+  documents: "entity_document",
+  registrations: "entity_registration",
+};
+/** The primary key each collection's rows come back under. */
+const PK_BY_SEG: Record<api.EntityCollection, string> = {
+  people: "person_id", contacts: "contact_id", addresses: "address_id",
+  registrations: "registration_id", establishments: "establishment_id",
+  documents: "document_id", "tax-registrations": "tax_registration_id",
+};
+
 type FieldSpec = {
   key: string; label: string;
-  type?: "text" | "number" | "date" | "email" | "country" | "checkbox" | "select" | "textarea" | "multiselect";
+  type?: "text" | "number" | "date" | "email" | "country" | "checkbox" | "select" | "textarea" | "multiselect" | "file";
   options?: { value: string; label: string }[]; placeholder?: string; hint?: string;
   /**
    * Heading this field sits under. The person modal carries close to thirty
@@ -262,6 +288,11 @@ function ChildModal({ title, fields, initial, onClose, onSubmit }: {
                     value={(values[f.key] as string) ?? ""} placeholder={f.placeholder}
                     onChange={(e) => set(f.key, e.target.value)}
                   />
+                ) : f.type === "file" ? (
+                  // The picked File is carried in `values` like any other field
+                  // and pulled back out by `saveChild` — it takes a different
+                  // road to the database (the vault) than its neighbours do.
+                  <ScanFileField value={(values[f.key] as File | null) ?? null} onChange={(file) => set(f.key, file)} />
                 ) : (
                   <Input
                     type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "email" ? "email" : "text"}
@@ -418,6 +449,10 @@ const registrationFields = (): FieldSpec[] => [
   { key: "issued_on", label: "Issued on", type: "date" },
   { key: "expires_on", label: "Expires on", type: "date" },
   { key: "is_primary", label: "Primary for this country", type: "checkbox" },
+  {
+    key: SCAN_FIELD, label: "Certificate", type: "file",
+    hint: "The RCCM extract, the NIU attestation — PDF or photo. Optional, and attachable later from the row.",
+  },
   { key: "notes", label: "Notes", type: "textarea", hint: "Where the original is filed, what the renewal needs." },
 ];
 
@@ -556,6 +591,9 @@ export function EntityDossier({ entityId, onEdit, onChanged, titleAs: Title = "h
   const [editing, setEditing] = React.useState<null | { seg: api.EntityCollection; title: string; row?: Record<string, unknown> | null }>(null);
   const [statusOpen, setStatusOpen] = React.useState(false);
   const [structureOpen, setStructureOpen] = React.useState(false);
+  // Failures from the row-level attach control, which has no modal to report
+  // into — it lives in a table cell.
+  const [childError, setChildError] = React.useState<string | null>(null);
   // Blank means "today", which is what the /360 bundle already carries — so the
   // common case costs no extra request and only a deliberate date fetches.
   const [capAsOf, setCapAsOf] = React.useState("");
@@ -571,12 +609,42 @@ export function EntityDossier({ entityId, onEdit, onChanged, titleAs: Title = "h
 
   const reload = () => { d.reload(); onChanged?.(); };
 
+  /**
+   * Save a nested row, and file the scan that came with it.
+   *
+   * The upload is deliberately AFTER the write and not part of it. A vault row
+   * records which record it belongs to (`entity_ref`), and a record being
+   * created does not have an id until the API gives it one — so the order is
+   * fixed by the data model, not by preference.
+   *
+   * If the upload then fails, the RECORD STILL EXISTS and the error is a toast
+   * rather than a thrown rejection. Two reasons. Rolling the record back
+   * because its attachment did not land throws away the part that worked, and a
+   * registration is perfectly valid without its certificate. And throwing would
+   * hold the modal open on a form whose record has already been created —
+   * pressing Save again would file a second one.
+   */
   async function saveChild(seg: api.EntityCollection, values: Record<string, unknown>, childId?: string) {
+    const { [SCAN_FIELD]: scan, ...rest } = values;
     // Empty strings mean "not filled in", not "set to empty" — the API's shared
     // schemas normalise them away, and sending them would write blanks.
-    const body = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== "" && v !== undefined));
-    if (childId) await api.updateEntityChild(entityId, seg, childId, body);
-    else await api.addEntityChild(entityId, seg, body);
+    const body = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== "" && v !== undefined));
+    const saved = childId
+      ? await api.updateEntityChild<Record<string, unknown>>(entityId, seg, childId, body)
+      : await api.addEntityChild<Record<string, unknown>>(entityId, seg, body);
+
+    const id = childId || (saved?.[PK_BY_SEG[seg]] as string | undefined);
+    const table = SCAN_REF[seg];
+    if (scan instanceof File && id && table) {
+      try {
+        const vaultId = await uploadScan(scan, { docType: "ENTITY_DOCUMENT", entityRef: `${table}:${id}` });
+        await api.updateEntityChild(entityId, seg, id, { vault_id: vaultId });
+      } catch (e) {
+        toast.error(`Saved, but the file was not attached: ${errMsg(e)} Attach it from the row.`);
+        reload();
+        return;
+      }
+    }
     toast.success("Saved.");
     reload();
   }
@@ -747,9 +815,10 @@ export function EntityDossier({ entityId, onEdit, onChanged, titleAs: Title = "h
       {tab === "Identity & registrations" && (
         <Section
           title="Registrations"
-          description="Tax and trade identifiers, one row per country. This is what keeps a multi-country group compliant in each system."
+          description="Tax and trade identifiers, one row per country. This is what keeps a multi-country group compliant in each system. Each row can hold the certificate it was issued on."
           action={<Button size="sm" onClick={() => setEditing({ seg: "registrations", title: "Add registration" })}>Add registration</Button>}
         >
+          {childError && <ErrorState message={childError} />}
           <MiniTable
             empty={registrations.length === 0}
             head={<><Th>Country</Th><Th>Type</Th><Th>Number</Th><Th>Authority</Th><Th>Issued</Th><Th>Expires</Th><Th /></>}
@@ -763,6 +832,14 @@ export function EntityDossier({ entityId, onEdit, onChanged, titleAs: Title = "h
                 <Td>{r.issued_on ? dateFmt(r.issued_on) : "—"}</Td>
                 <Td>{r.expires_on ? dateFmt(r.expires_on) : "—"}</Td>
                 <Td r>
+                  <ScanAttachment
+                    vaultId={r.vault_id}
+                    docType="ENTITY_DOCUMENT"
+                    entityRef={`entity_registration:${r.registration_id}`}
+                    labelWhenEmpty="Attach certificate"
+                    onAttached={(vaultId) => saveChild("registrations", { vault_id: vaultId }, r.registration_id)}
+                    onError={setChildError}
+                  />
                   <Button size="sm" variant="ghost" onClick={() => setEditing({ seg: "registrations", title: "Edit registration", row: r as unknown as Record<string, unknown> })}>Edit</Button>
                   <Button size="sm" variant="ghost" onClick={() => removeChild("registrations", r.registration_id)}>Remove</Button>
                 </Td>
@@ -1194,12 +1271,7 @@ export function EntityDossier({ entityId, onEdit, onChanged, titleAs: Title = "h
           establishments={establishments}
           onClose={() => setEditing(null)}
           onSubmit={(values) => {
-            const pkBySeg: Record<api.EntityCollection, string> = {
-              people: "person_id", contacts: "contact_id", addresses: "address_id",
-              registrations: "registration_id", establishments: "establishment_id",
-              documents: "document_id", "tax-registrations": "tax_registration_id",
-            };
-            const childId = editing.row ? (editing.row[pkBySeg[editing.seg]] as string | undefined) : undefined;
+            const childId = editing.row ? (editing.row[PK_BY_SEG[editing.seg]] as string | undefined) : undefined;
             return saveChild(editing.seg, values, childId);
           }}
         />
@@ -1295,16 +1367,37 @@ function DocumentsTab({ entityId, documents, establishments, onRemove, onSaved }
     { key: "issued_on", label: "Issued on", type: "date" },
     { key: "expires_on", label: "Expires on", type: "date", hint: "Drives the renewals list." },
     { key: "renewal_lead_days", label: "Warn this many days ahead", type: "number", hint: "Blank uses the document type's own lead time." },
-    { key: "physical_ref", label: "Paper original filed at", placeholder: "Box A-12", hint: "A document can be recorded before it is scanned." },
+    { key: SCAN_FIELD, label: "Scan", type: "file", hint: "Attach the PDF or photo now, or later from the row. A document can be recorded before it is scanned." },
+    { key: "physical_ref", label: "Paper original filed at", placeholder: "Box A-12", hint: "Where the paper original lives." },
     { key: "scan_due_on", label: "Scan due by", type: "date" },
     { key: "is_active", label: "Active", type: "checkbox", defaultValue: true, hint: "A superseded certificate stays on file rather than being deleted." },
     { key: "notes", label: "Notes", type: "textarea" },
   ], [typeList, establishments]);
 
+  /**
+   * Save the record, then file the scan that came with it — same order and same
+   * partial-failure rule as `saveChild`: the document survives an upload that
+   * does not, because a certificate on file with no scan yet is the normal
+   * state of this register, not an error.
+   */
   async function save(values: Record<string, unknown>, id?: string) {
-    const body = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== "" && v !== undefined));
-    if (id) await api.updateEntityChild(entityId, "documents", id, body);
-    else await api.addEntityChild(entityId, "documents", body);
+    const { [SCAN_FIELD]: scan, ...rest } = values;
+    const body = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== "" && v !== undefined));
+    const saved = id
+      ? await api.updateEntityChild<api.EntityDocument>(entityId, "documents", id, body)
+      : await api.addEntityChild<api.EntityDocument>(entityId, "documents", body);
+
+    const documentId = id || saved?.document_id;
+    if (scan instanceof File && documentId) {
+      try {
+        const vaultId = await uploadScan(scan, { docType: "ENTITY_DOCUMENT", entityRef: `entity_document:${documentId}` });
+        await api.updateEntityChild(entityId, "documents", documentId, { vault_id: vaultId });
+      } catch (e) {
+        toast.error(`Saved, but the scan was not attached: ${errMsg(e)} Attach it from the row.`);
+        onSaved();
+        return;
+      }
+    }
     onSaved();
   }
 

@@ -23,7 +23,8 @@ import { useToast } from "@/components/ui/toast";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt, enumLabel } from "@/lib/format";
 import { SmartCountryPicker } from "@/components/smart-country-picker";
-import { ScanAttachment } from "@/components/scan-attachment";
+import { ScanAttachment, ScanFileField } from "@/components/scan-attachment";
+import { uploadScan } from "@/lib/vault-file";
 import * as api from "@/lib/masterdata-api";
 
 // Deep-link targets (§3.1) — the real hub-section routes confirmed in
@@ -67,7 +68,40 @@ function MiniTable({ head, children, empty }: { head: React.ReactNode; children:
 const Th = ({ children, r }: { children?: React.ReactNode; r?: boolean }) => <th className={`px-3 py-2 font-medium ${r ? "text-right" : "text-left"}`}>{children}</th>;
 const Td = ({ children, r }: { children?: React.ReactNode; r?: boolean }) => <td className={`px-3 py-1.5 ${r ? "text-right num" : ""}`}>{children}</td>;
 
-type FieldSpec = { key: string; label: string; type?: "text" | "number" | "date" | "email" | "country" | "checkbox" | "select"; options?: { value: string; label: string }[]; placeholder?: string };
+type FieldSpec = { key: string; label: string; type?: "text" | "number" | "date" | "email" | "country" | "checkbox" | "select" | "file"; options?: { value: string; label: string }[]; placeholder?: string; hint?: string };
+
+/**
+ * The key a picked file travels under in a form's values.
+ *
+ * Not a column on anything. The bytes go to the vault and come back as a
+ * `vault_id`, which cannot be written until the record it belongs to exists —
+ * so `addWithScan` pulls this key out before the body is sent, and does the
+ * upload afterwards. Mirrors `SCAN_FIELD` in entity-360.
+ */
+const SCAN_FIELD = "__scan";
+
+/**
+ * The nested collections that can hold a file, and where the vault should
+ * record each one as living.
+ *
+ * `table` is the real table name, because `entity_ref` is what traces a vault
+ * row back to its owner — `party_registration` is one table for both party
+ * kinds (its CHECK constraint decides which id is set), while documents and
+ * beneficial owners are per-kind tables.
+ *
+ * The signatures are erased to `Record<string, unknown>` on purpose: the three
+ * `nested<T>()` helpers are structurally identical and only their row type
+ * differs, which is precisely what this code does not care about.
+ */
+type NestedApi = {
+  create: (kind: api.PartyKind, id: string, body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  update: (kind: api.PartyKind, id: string, childId: string, body: Record<string, unknown>) => Promise<unknown>;
+};
+const SCAN_COLLECTIONS = {
+  documents: { api: api.documents as unknown as NestedApi, pk: "document_id", table: (k: api.PartyKind) => `${k}_document` },
+  registrations: { api: api.registrations as unknown as NestedApi, pk: "registration_id", table: () => "party_registration" },
+  owners: { api: api.beneficialOwners as unknown as NestedApi, pk: "owner_id", table: (k: api.PartyKind) => `${k}_beneficial_owner` },
+};
 
 /** Generic "add a nested item" modal — one implementation for every collection. */
 function AddModal({ title, fields, onClose, onSubmit }: { title: string; fields: FieldSpec[]; onClose: () => void; onSubmit: (values: Record<string, unknown>) => Promise<void> }) {
@@ -97,10 +131,13 @@ function AddModal({ title, fields, onClose, onSubmit }: { title: string; fields:
                 <option value="">—</option>
                 {(f.options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
+            ) : f.type === "file" ? (
+              <ScanFileField value={(values[f.key] as File | null) ?? null} onChange={(file) => set(f.key, file)} />
             ) : (
               <Input type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "email" ? "email" : "text"}
                 value={(values[f.key] as string) ?? ""} placeholder={f.placeholder} onChange={(e) => set(f.key, e.target.value)} />
             )}
+            {f.hint && <span className="micro text-muted-foreground">{f.hint}</span>}
           </label>
         ))}
       </div>
@@ -773,18 +810,44 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
   // Explicit copy-from-origin (§6) — only offered on a converted party.
   const copySection = (section: api.CloneSection) =>
     act(async () => { const r = await api.cloneFromOrigin(kind, partyId, [section]); return r; }, "Copied from origin");
+  /** The vault doc type for anything filed under this register — it decides
+   *  which grant may READ the file back (MOD-03 / MOD-04, not Settings). */
+  const scanDocType = isClient ? "CLIENT_DOCUMENT" : "SUPPLIER_DOCUMENT";
+
   /**
-   * Point a KYC document at the file the vault just took.
+   * Create a nested row, then file the scan the form carried with it.
    *
-   * The upload itself is `<ScanAttachment>`'s; this second call is what turns a
-   * paper-only record into a scanned one. `_shared/nested.js` reads the new
-   * `vault_id` and advances scan_status PENDING → SCANNED by itself — the human
-   * step that follows (SCANNED → VERIFIED) stays human, which is Hard Rule 9's
-   * digital-scan gate on verifying the party at all.
+   * Create-then-upload-then-patch, in that order, because the vault records
+   * WHICH RECORD a file belongs to and a record has no id until the API issues
+   * one. If the upload fails the row survives and the toast says what to do —
+   * a KYC document with no scan yet is the ordinary state of this register, and
+   * discarding the typed details because the file did not land would be worse
+   * than the failure itself.
    */
-  async function linkScan(doc: api.PartyDocument, vaultId: string) {
-    await api.documents.update(kind, partyId, doc.document_id, { vault_id: vaultId });
-    toast.success("Scan attached — the document is now marked scanned.");
+  async function addWithScan(target: keyof typeof SCAN_COLLECTIONS, values: Record<string, unknown>, ok: string) {
+    const { [SCAN_FIELD]: scan, ...body } = values;
+    const spec = SCAN_COLLECTIONS[target];
+    const created = await spec.api.create(kind, partyId, body);
+    const childId = created?.[spec.pk] as string | undefined;
+
+    if (scan instanceof File && childId) {
+      try {
+        const vaultId = await uploadScan(scan, { docType: scanDocType, entityRef: `${spec.table(kind)}:${childId}` });
+        await spec.api.update(kind, partyId, childId, { vault_id: vaultId });
+      } catch (e) {
+        toast.error(`${ok}, but the file was not attached: ${errMsg(e)} Attach it from the row.`);
+        reload();
+        return;
+      }
+    }
+    toast.success(ok);
+    reload();
+  }
+
+  /** Attach a file to a row that already exists — the table-cell path. */
+  async function attachToRow(target: keyof typeof SCAN_COLLECTIONS, childId: string, vaultId: string) {
+    await SCAN_COLLECTIONS[target].api.update(kind, partyId, childId, { vault_id: vaultId });
+    toast.success("File attached.");
     reload();
   }
 
@@ -985,7 +1048,7 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
                     vaultId={doc.vault_id}
                     docType={isClient ? "CLIENT_DOCUMENT" : "SUPPLIER_DOCUMENT"}
                     entityRef={`${kind}_document:${doc.document_id}`}
-                    onAttached={(vaultId) => linkScan(doc, vaultId)}
+                    onAttached={(vaultId) => attachToRow("documents", doc.document_id, vaultId)}
                     onError={setError}
                   />
                 </Td>
@@ -1062,9 +1125,21 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
 
       {tab === "Registrations" && (
         <Section title="Registrations / tax IDs" onAdd={() => setAdding("registration")}>
-          <MiniTable empty={d.registrations.length === 0} head={<><Th>Kind</Th><Th>Number</Th><Th>Country</Th><Th>Expires</Th></>}>
+          <MiniTable empty={d.registrations.length === 0} head={<><Th>Kind</Th><Th>Number</Th><Th>Country</Th><Th>Expires</Th><Th r>Certificate</Th></>}>
             {d.registrations.map((r: api.Registration) => (
-              <tr key={r.registration_id}><Td>{r.kind}</Td><Td>{r.number || "—"}</Td><Td>{r.country_code || "—"}</Td><Td>{dateFmt(r.expires_on)}</Td></tr>
+              <tr key={r.registration_id}>
+                <Td>{r.kind}</Td><Td>{r.number || "—"}</Td><Td>{r.country_code || "—"}</Td><Td>{dateFmt(r.expires_on)}</Td>
+                <Td r>
+                  <ScanAttachment
+                    vaultId={r.vault_id}
+                    docType={scanDocType}
+                    entityRef={`party_registration:${r.registration_id}`}
+                    labelWhenEmpty="Attach certificate"
+                    onAttached={(vaultId) => attachToRow("registrations", r.registration_id, vaultId)}
+                    onError={setError}
+                  />
+                </Td>
+              </tr>
             ))}
           </MiniTable>
         </Section>
@@ -1072,9 +1147,24 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
 
       {tab === "Owners" && (
         <Section title="Beneficial owners" onAdd={() => setAdding("owner")}>
-          <MiniTable empty={d.beneficial_owners.length === 0} head={<><Th>Name</Th><Th>Nationality</Th><Th r>Ownership</Th><Th>PEP</Th></>}>
+          <MiniTable empty={d.beneficial_owners.length === 0} head={<><Th>Name</Th><Th>Nationality</Th><Th r>Ownership</Th><Th>PEP</Th><Th r>ID document</Th></>}>
             {d.beneficial_owners.map((o: api.BeneficialOwner) => (
-              <tr key={o.owner_id}><Td>{o.full_name}</Td><Td>{o.nationality || "—"}</Td><Td r>{o.ownership_percent != null ? `${o.ownership_percent}%` : "—"}</Td><Td>{o.is_pep ? <Pill tone="orange">PEP</Pill> : "—"}</Td></tr>
+              <tr key={o.owner_id}>
+                <Td>{o.full_name}</Td><Td>{o.nationality || "—"}</Td><Td r>{o.ownership_percent != null ? `${o.ownership_percent}%` : "—"}</Td><Td>{o.is_pep ? <Pill tone="orange">PEP</Pill> : "—"}</Td>
+                <Td r>
+                  {/* `vault_id` has been on this table and its write allow-list
+                      since 0511 — an AML file's whole point is the identity
+                      document, and nothing could ever attach one. */}
+                  <ScanAttachment
+                    vaultId={o.vault_id}
+                    docType={scanDocType}
+                    entityRef={`${kind}_beneficial_owner:${o.owner_id}`}
+                    labelWhenEmpty="Attach ID"
+                    onAttached={(vaultId) => attachToRow("owners", o.owner_id, vaultId)}
+                    onError={setError}
+                  />
+                </Td>
+              </tr>
             ))}
           </MiniTable>
         </Section>
@@ -1154,14 +1244,14 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
         fields={[{ key: "beneficiary_name", label: "Beneficiary" }, { key: "bank_name", label: "Bank" }, { key: "account_number", label: "Account number" }, { key: "iban", label: "IBAN" }, { key: "swift_bic", label: "SWIFT/BIC" }, { key: "currency", label: "Currency", placeholder: "XAF" }]}
         onSubmit={async (v) => { await api.banks.create(kind, partyId, v as Partial<api.BankAccount>); toast.success("Bank account added"); reload(); }} />}
       {adding === "document" && <AddModal title="Add document" onClose={() => setAdding(null)}
-        fields={[{ key: "document_type_id", label: "Type", type: "select", options: docTypeOptions }, { key: "document_number", label: "Number" }, { key: "issued_on", label: "Issued", type: "date" }, { key: "expires_on", label: "Expires", type: "date" }, { key: "physical_ref", label: "Physical archive ref", placeholder: "Box A-12 (if paper only)" }, { key: "scan_due_on", label: "Scan due", type: "date" }]}
-        onSubmit={async (v) => { await api.documents.create(kind, partyId, v as Partial<api.PartyDocument>); toast.success("Document added"); reload(); }} />}
+        fields={[{ key: "document_type_id", label: "Type", type: "select", options: docTypeOptions }, { key: "document_number", label: "Number" }, { key: "issued_on", label: "Issued", type: "date" }, { key: "expires_on", label: "Expires", type: "date" }, { key: SCAN_FIELD, label: "Scan", type: "file", hint: "PDF or photo. Optional — attachable later from the row." }, { key: "physical_ref", label: "Physical archive ref", placeholder: "Box A-12 (if paper only)" }, { key: "scan_due_on", label: "Scan due", type: "date" }]}
+        onSubmit={(v) => addWithScan("documents", v, "Document added")} />}
       {adding === "registration" && <AddModal title="Add registration" onClose={() => setAdding(null)}
-        fields={[{ key: "kind", label: "Kind", placeholder: "NIU, RCCM, VAT, EORI…" }, { key: "number", label: "Number" }, { key: "country_code", label: "Country", type: "country" }, { key: "issuing_authority", label: "Issuing authority" }, { key: "expires_on", label: "Expires", type: "date" }]}
-        onSubmit={async (v) => { await api.registrations.create(kind, partyId, v as Partial<api.Registration>); toast.success("Registration added"); reload(); }} />}
+        fields={[{ key: "kind", label: "Kind", placeholder: "NIU, RCCM, VAT, EORI…" }, { key: "number", label: "Number" }, { key: "country_code", label: "Country", type: "country" }, { key: "issuing_authority", label: "Issuing authority" }, { key: "expires_on", label: "Expires", type: "date" }, { key: SCAN_FIELD, label: "Certificate", type: "file", hint: "The certificate this identifier was issued on." }]}
+        onSubmit={(v) => addWithScan("registrations", v, "Registration added")} />}
       {adding === "owner" && <AddModal title="Add beneficial owner" onClose={() => setAdding(null)}
-        fields={[{ key: "full_name", label: "Full legal name" }, { key: "nationality", label: "Nationality", type: "country" }, { key: "ownership_percent", label: "Ownership %", type: "number" }, { key: "id_number", label: "ID number" }, { key: "is_pep", label: "Politically exposed", type: "checkbox" }]}
-        onSubmit={async (v) => { await api.beneficialOwners.create(kind, partyId, v as Partial<api.BeneficialOwner>); toast.success("Owner added"); reload(); }} />}
+        fields={[{ key: "full_name", label: "Full legal name" }, { key: "nationality", label: "Nationality", type: "country" }, { key: "ownership_percent", label: "Ownership %", type: "number" }, { key: "id_number", label: "ID number" }, { key: "is_pep", label: "Politically exposed", type: "checkbox" }, { key: SCAN_FIELD, label: "Identity document", type: "file", hint: "Passport or ID card — the AML evidence for this owner." }]}
+        onSubmit={(v) => addWithScan("owners", v, "Owner added")} />}
 
       {blocking && <BlockModal onClose={() => setBlocking(false)} onSubmit={async (reason) => { await act(() => api.blockParty(kind, partyId, reason), "Party blocked"); }} />}
       {merging && <MergeModal kind={kind} survivorId={partyId} survivorRef={p.ref || ""} loser={merging} onClose={() => setMerging(null)} onDone={(msg) => { toast.success(msg); reload(); }} />}

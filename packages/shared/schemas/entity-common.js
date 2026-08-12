@@ -179,6 +179,9 @@ const registrationShape = {
   expires_on: optionalDate,
   is_primary: z.boolean().optional(),
   notes: optionalText,
+  // The certificate the identifier was issued on (0662). Optional: the number
+  // is usable on an invoice whether or not the paper has been filed.
+  vault_id: blankToUndefined(z.string().uuid("Must be a valid document id.")),
 };
 const withRegistrationRules = (schema) =>
   schema.refine(
