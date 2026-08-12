@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 968 |
+| Routes | 971 |
 | Modules mounted | 108 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 968 mounted routes, grouped by path prefix.
+All 971 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -676,6 +676,9 @@ All 968 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/entities/:id/tax-registrations` | — |
 | DELETE | `/api/tenant/entities/:id/tax-registrations/:childId` | — |
 | PATCH | `/api/tenant/entities/:id/tax-registrations/:childId` | — |
+| GET | `/api/tenant/entities/:id/working-calendar` | — |
+| PUT | `/api/tenant/entities/:id/working-calendar` | — |
+| POST | `/api/tenant/entities/:id/working-calendar/reset` | — |
 
 ### `tenant/equipment`
 

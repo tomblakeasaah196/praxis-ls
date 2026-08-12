@@ -412,15 +412,91 @@ export type MilestoneTemplate = {
 /** The shipped default chain — drift comparison and "restore the default". */
 export const milestoneSystemDefault = (serviceTypeId: string) =>
   tenant<MilestoneStage[]>(`/milestones/system-default/${serviceTypeId}`);
+/**
+ * One milestone on a dossier.
+ *
+ * THE THREE DATES are the shape everything else here follows: `baseline_due` is
+ * frozen at instantiation and is the yardstick variance is measured against;
+ * `planned_due` is the commitment the client was given; `forecast_due` is what
+ * we actually believe. They diverge on purpose — a delay moves the commitment,
+ * an early finish moves only the forecast.
+ */
 export type MilestoneInstance = {
   milestone_instance_id: string;
   dossier_id: string;
   code?: string;
+  label?: string;
   label_fr?: string;
+  label_en?: string | null;
   status: string;
+  stage_seq?: number;
   due_date?: string | null;
+  baseline_due?: string | null;
+  planned_due?: string | null;
+  forecast_due?: string | null;
   completed_at?: string | null;
+  health?: string | null;
+  owner_tier?: OwnerTier | null;
+  weight?: number | null;
+  is_anchor?: boolean;
+  is_target_lock?: boolean;
+  is_client_visible?: boolean;
+  is_ad_hoc?: boolean;
+  variance_hours?: number | null;
+  attributed_to?: OwnerTier | null;
+  cause_reason_code?: string | null;
+  required_evidence_doc_type?: string | null;
+  reopen_reason?: string | null;
 };
+
+/** Health of an open milestone against its commitment (milestone.schedule). */
+export const MILESTONE_HEALTH_LABEL: Record<string, string> = {
+  OK: "On plan",
+  DUE: "Due soon",
+  AT_RISK: "At risk",
+  DELAYED: "Late",
+  BREACH_FORECAST: "Will miss the SLA",
+  DONE: "Done",
+  BLOCKED: "Blocked",
+};
+
+export const milestoneHealthTone = (health?: string | null): "ok" | "warn" | "bad" | "orange" | "mute" => {
+  switch (String(health || "").toUpperCase()) {
+    case "DONE": return "ok";
+    case "DUE": return "warn";
+    case "AT_RISK": return "orange";
+    case "DELAYED":
+    case "BREACH_FORECAST": return "bad";
+    case "BLOCKED": return "mute";
+    default: return "ok";
+  }
+};
+
+/** Un-complete a milestone marked DONE in error. The reason is the point. */
+export const reopenMilestone = (id: string, reason: string) =>
+  tenant<MilestoneInstance>(`/milestones/${id}/reopen`, { method: "POST", body: { reason } });
+
+/** Insert a stage into a LIVE chain, between two existing ones. */
+export const addDossierMilestone = (
+  dossierId: string,
+  body: {
+    after_seq: number;
+    code: string;
+    label: string;
+    label_en?: string;
+    weight?: number;
+    min_duration_hours?: number;
+    owner_tier?: OwnerTier;
+    is_client_visible?: boolean;
+  },
+) => tenant<MilestoneInstance>(`/milestones/dossier/${dossierId}/stages`, { method: "POST", body });
+
+/** Force a re-baseline — used after a promised date changes. */
+export const recalculateMilestones = (dossierId: string) =>
+  tenant<{ changed: number; meta: unknown }>(`/milestones/dossier/${dossierId}/recalculate`, {
+    method: "POST",
+    body: { trigger: "MANUAL" },
+  });
 export const listMilestoneTemplates = () => tenant<MilestoneTemplate[]>("/milestones/templates");
 export const milestonesByDossier = (dossierId: string) => tenant<MilestoneInstance[]>(`/milestones/dossier/${dossierId}`);
 export type MilestoneStatus = "PENDING" | "IN_PROGRESS" | "DONE" | "BLOCKED";

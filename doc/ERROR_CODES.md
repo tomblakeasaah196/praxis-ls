@@ -95,7 +95,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `CAPABILITY_REQUIRED` | 403 | 1× | — |
 | `CATEGORY_INACTIVE` | 422 | 1× | — |
 | `CLASS_MISMATCH` | 422 | 1× | — |
-| `CLIENT_REQUIRED` | 422 | 2× | — |
+| `CLIENT_REQUIRED` | 422 | 3× | — |
 | `CLOSE_BLOCKED` | 422 | 1× | — |
 | `COA_IS_MANAGED` | 422 | 1× | — |
 | `CODE_TAKEN` | 409 | 2× | — |
@@ -162,7 +162,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_DONE` | 422 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 1× | — |
-| `NOT_FOUND` | 404 | 285× | — |
+| `NOT_FOUND` | 404 | 286× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_OPERATIONAL` | 422 | 1× | — |
 | `NOT_QUALIFIED` | 422 | 1× | — |

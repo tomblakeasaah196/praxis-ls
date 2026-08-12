@@ -47,6 +47,11 @@ module.exports = {
 
   // ── Scoped data views (grant enforced by portalAuth) ──
   client: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => portal.clientView(c, { clientId: req.portal.clientId })) })),
+  // A client opening one of their own files: the visible stages, the committed
+  // dates, and the assumptions those dates depend on. `clientId` comes from the
+  // PORTAL SESSION, never the query string — a client must not be able to ask
+  // for another client's file by changing a parameter.
+  clientChain: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => portal.clientChain(c, { clientId: req.portal.clientId, dossierId: req.params.dossierId })) })),
   investor: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => portal.investorView(c, { params: req.query })) })),
   auditor: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => portal.auditorView(c, { params: req.query })) })),
 
