@@ -31,6 +31,34 @@ const repo = require("./shipment_details.repo");
 const rules = require("./shipment_details.rules");
 const { AppError } = require("../../../utils/errors");
 
+/**
+ * The formats a field definition may require, BY NAME.
+ *
+ * WHY NOT A REGEX ON THE DEFINITION. The first version let a field carry its own
+ * `pattern` string and did `new RegExp(pattern).test(value)`. That is regular
+ * expression injection (CodeQL js/regex-injection, and it flagged it): the
+ * pattern is authored by a tenant admin through the API, so a catastrophically
+ * backtracking one — `(a+)+$` against a long value — would hang the save path
+ * for everybody on that tenant. Node has no way to time a regex out.
+ *
+ * It also was not a feature anyone asked for. A named list is what an admin
+ * actually wants ("this field is an email"), it cannot be weaponised, every
+ * expression is owned and reviewed here, and adding a format is a one-line
+ * change with a test rather than a support call.
+ *
+ * Each is anchored and linear — no nested quantifiers, nothing that can
+ * backtrack super-linearly.
+ */
+const FORMATS = {
+  EMAIL: { re: /^[^\s@]{1,64}@[^\s@]{1,190}\.[A-Za-z]{2,24}$/, hint: "an email address" },
+  PHONE: { re: /^\+?[0-9 ()-]{6,25}$/, hint: "a phone number" },
+  ALPHANUMERIC: { re: /^[A-Za-z0-9]{1,64}$/, hint: "letters and digits only" },
+  UPPER_CODE: { re: /^[A-Z0-9_-]{1,40}$/, hint: "an uppercase code (A-Z, 0-9, _ or -)" },
+  // ISO 6346, the same shape dossier_container_unit validates a box number by.
+  CONTAINER_NO: { re: /^[A-Z]{4}[0-9]{6,7}$/, hint: "a container number like MSKU1234567" },
+  URL: { re: /^https?:\/\/[^\s]{3,300}$/, hint: "a URL starting http:// or https://" },
+};
+
 /* ── Write side ────────────────────────────────────────────────────────────── */
 
 const isBlank = rules.isBlank;
@@ -97,13 +125,12 @@ function coerce(field, value) {
       if (v.min_length !== undefined && s.length < v.min_length) {
         fail(`must be at least ${v.min_length} characters`);
       }
-      if (v.pattern) {
-        let re = null;
-        // A bad pattern in a definition must not take the save down with it —
-        // the field is validated as free text and the definition is the bug to
-        // fix, not this request.
-        try { re = new RegExp(v.pattern); } catch { re = null; }
-        if (re && !re.test(s)) fail("is not in the expected format");
+      if (v.format) {
+        const fmt = FORMATS[v.format];
+        // An unknown format is a definition that predates this list (or a typo).
+        // Validating as free text is the safe direction to be wrong in: the save
+        // succeeds and the definition is the thing to fix.
+        if (fmt && !fmt.re.test(s)) fail(`must be ${fmt.hint}`);
       }
       return s;
     }
