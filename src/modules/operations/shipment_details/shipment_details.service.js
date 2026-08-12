@@ -151,32 +151,59 @@ function coerce(field, value) {
  *                              completeness reports it instead
  */
 function partition(fields, values, { existingDetails = {}, enforceRequired = false } = {}) {
-  const byKey = new Map(fields.map((f) => [f.key, f]));
+  const incoming = values || {};
   const columns = {};
   const details = { ...existingDetails };
 
-  for (const [key, value] of Object.entries(values || {})) {
-    const field = byKey.get(key);
-    if (!field) {
-      throw new AppError(
-        "UNKNOWN_FIELD",
-        `"${key}" is not a field on this service type`,
-        422,
-        { [key]: ["not defined for this service type"] },
-      );
-    }
+  /*
+   * THE LOOP IS DRIVEN BY THE DEFINITIONS, NOT BY THE REQUEST — and that is a
+   * correctness property, not a style choice.
+   *
+   * The first version iterated `Object.entries(values)` and wrote
+   * `details[key] = clean`, where `key` came straight off the request body.
+   * CodeQL called that remote property injection (js/remote-property-injection,
+   * four high-severity alerts) and it was right: a property NAME taken from a
+   * request and used as a write target reaches `Object.prototype` through
+   * `__proto__`, and the `byKey.get(key)` guard above it is not something a
+   * dataflow analyser can see through — nor should it have to.
+   *
+   * Iterating the fields instead means every property name written below comes
+   * from a `service_type_field` row. An unknown key in the request is still
+   * refused (see the check after the loop), but it is only ever reported as a
+   * VALUE in a message — never used to index anything.
+   */
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(incoming, field.key)) continue;
     if (field.is_active === false) {
       throw new AppError(
         "RETIRED_FIELD",
-        `"${key}" has been retired on this service type`,
+        `"${field.key}" has been retired on this service type`,
         422,
-        { [key]: ["retired — it can no longer be written"] },
+        // `field.key` comes from a service_type_field ROW, not from the
+        // request, so keying the detail map by it is safe and keeps the form
+        // able to show the error against the control it belongs to.
+        { [field.key]: ["retired — it can no longer be written"] },
       );
     }
-    const clean = coerce(field, value);
+    const clean = coerce(field, incoming[field.key]);
     if (field.column_name) columns[field.column_name] = clean;
-    else if (clean === null) delete details[key];
-    else details[key] = clean;
+    else if (clean === null) delete details[field.key];
+    else details[field.key] = clean;
+  }
+
+  // Anything sent that this service type does not define. Refused rather than
+  // silently dropped — a caller that sends `sea_pol` to a warehousing file has
+  // a bug, and a save that looks successful while discarding half the payload
+  // is the worst way to find that out.
+  const known = new Set(fields.map((f) => f.key));
+  const unknown = Object.keys(incoming).filter((k) => !known.has(k));
+  if (unknown.length) {
+    throw new AppError(
+      "UNKNOWN_FIELD",
+      `${unknown.map((k) => `"${k}"`).join(", ")} ${unknown.length === 1 ? "is not a field" : "are not fields"} on this service type`,
+      422,
+      { details: unknown.map((k) => `"${k}" is not defined for this service type`) },
+    );
   }
 
   if (enforceRequired) {
@@ -192,6 +219,7 @@ function partition(fields, values, { existingDetails = {}, enforceRequired = fal
         "MISSING_REQUIRED_FIELDS",
         `This service type requires: ${missing.join(", ")}`,
         422,
+        // Definition keys again, so the form can mark each missing control.
         missing.reduce((a, k) => ({ ...a, [k]: ["required for this service type"] }), {}),
       );
     }
