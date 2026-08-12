@@ -30,6 +30,7 @@
 const repo = require("./shipment_details.repo");
 const rules = require("./shipment_details.rules");
 const { AppError } = require("../../../utils/errors");
+const { logger } = require("../../../config/logger");
 
 /**
  * The formats a field definition may require, BY NAME.
@@ -150,32 +151,59 @@ function coerce(field, value) {
  *                              completeness reports it instead
  */
 function partition(fields, values, { existingDetails = {}, enforceRequired = false } = {}) {
-  const byKey = new Map(fields.map((f) => [f.key, f]));
+  const incoming = values || {};
   const columns = {};
   const details = { ...existingDetails };
 
-  for (const [key, value] of Object.entries(values || {})) {
-    const field = byKey.get(key);
-    if (!field) {
-      throw new AppError(
-        "UNKNOWN_FIELD",
-        `"${key}" is not a field on this service type`,
-        422,
-        { [key]: ["not defined for this service type"] },
-      );
-    }
+  /*
+   * THE LOOP IS DRIVEN BY THE DEFINITIONS, NOT BY THE REQUEST — and that is a
+   * correctness property, not a style choice.
+   *
+   * The first version iterated `Object.entries(values)` and wrote
+   * `details[key] = clean`, where `key` came straight off the request body.
+   * CodeQL called that remote property injection (js/remote-property-injection,
+   * four high-severity alerts) and it was right: a property NAME taken from a
+   * request and used as a write target reaches `Object.prototype` through
+   * `__proto__`, and the `byKey.get(key)` guard above it is not something a
+   * dataflow analyser can see through — nor should it have to.
+   *
+   * Iterating the fields instead means every property name written below comes
+   * from a `service_type_field` row. An unknown key in the request is still
+   * refused (see the check after the loop), but it is only ever reported as a
+   * VALUE in a message — never used to index anything.
+   */
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(incoming, field.key)) continue;
     if (field.is_active === false) {
       throw new AppError(
         "RETIRED_FIELD",
-        `"${key}" has been retired on this service type`,
+        `"${field.key}" has been retired on this service type`,
         422,
-        { [key]: ["retired — it can no longer be written"] },
+        // `field.key` comes from a service_type_field ROW, not from the
+        // request, so keying the detail map by it is safe and keeps the form
+        // able to show the error against the control it belongs to.
+        { [field.key]: ["retired — it can no longer be written"] },
       );
     }
-    const clean = coerce(field, value);
+    const clean = coerce(field, incoming[field.key]);
     if (field.column_name) columns[field.column_name] = clean;
-    else if (clean === null) delete details[key];
-    else details[key] = clean;
+    else if (clean === null) delete details[field.key];
+    else details[field.key] = clean;
+  }
+
+  // Anything sent that this service type does not define. Refused rather than
+  // silently dropped — a caller that sends `sea_pol` to a warehousing file has
+  // a bug, and a save that looks successful while discarding half the payload
+  // is the worst way to find that out.
+  const known = new Set(fields.map((f) => f.key));
+  const unknown = Object.keys(incoming).filter((k) => !known.has(k));
+  if (unknown.length) {
+    throw new AppError(
+      "UNKNOWN_FIELD",
+      `${unknown.map((k) => `"${k}"`).join(", ")} ${unknown.length === 1 ? "is not a field" : "are not fields"} on this service type`,
+      422,
+      { details: unknown.map((k) => `"${k}" is not defined for this service type`) },
+    );
   }
 
   if (enforceRequired) {
@@ -191,6 +219,7 @@ function partition(fields, values, { existingDetails = {}, enforceRequired = fal
         "MISSING_REQUIRED_FIELDS",
         `This service type requires: ${missing.join(", ")}`,
         422,
+        // Definition keys again, so the form can mark each missing control.
         missing.reduce((a, k) => ({ ...a, [k]: ["required for this service type"] }), {}),
       );
     }
@@ -399,4 +428,68 @@ async function formFor(client, serviceTypeId, { lang = "en" } = {}) {
   };
 }
 
-module.exports = { applyValues, partition, coerce, forDossier, formFor, summariseContainers };
+/**
+ * Freeze a file's shipment details onto a document that is locking (0661).
+ *
+ * WHY. `forDossier` is computed live, which is right for every screen asking
+ * "what do we know now" and wrong for a document that has been approved,
+ * issued or posted. A costing approved citing MSC ARUSHI must still cite MSC
+ * ARUSHI after the carrier rolls the booking — otherwise an approved record
+ * silently rewrites itself, which under OHADA it may not.
+ *
+ * BEST-EFFORT, AND DELIBERATELY SO. Called from inside a lock transition. A
+ * document that FAILED TO BE APPROVED because its details could not be
+ * snapshotted would be a worse outcome than one whose snapshot is NULL — and
+ * NULL is already a supported state (every pre-0661 document has one, and the
+ * readers fall back to the live projection). So this never throws.
+ *
+ * `table` is code-provided, never request-provided: it is validated against the
+ * five documents 0661 actually added the column to, so it can never become an
+ * identifier from a payload.
+ */
+/**
+ * The five documents 0661 added the column to, each as a COMPLETE statement
+ * rather than a table name to interpolate.
+ *
+ * Written this way on purpose. A `UPDATE ${table} SET … WHERE ${pk} = $1` is
+ * safe here — `table` is code-provided and checked against this map — but it is
+ * the same construction `query-helpers` exists to keep out of module code, and
+ * it reads as a SQL-injection sink to a human reviewer and a static analyser
+ * alike. A lookup of finished statements cannot be got wrong by a later caller,
+ * and needs no argument about whether the input is trusted.
+ *
+ * `AND shipment_details_snapshot IS NULL` makes every one idempotent: a
+ * document that has already been frozen is never re-frozen, so a retried
+ * transition cannot overwrite what the document said when it first locked.
+ */
+const SNAPSHOT_SQL = {
+  costing:
+    "UPDATE costing SET shipment_details_snapshot = $2 WHERE costing_id = $1 AND shipment_details_snapshot IS NULL RETURNING costing_id",
+  invoice:
+    "UPDATE invoice SET shipment_details_snapshot = $2 WHERE invoice_id = $1 AND shipment_details_snapshot IS NULL RETURNING invoice_id",
+  quotation:
+    "UPDATE quotation SET shipment_details_snapshot = $2 WHERE quotation_id = $1 AND shipment_details_snapshot IS NULL RETURNING quotation_id",
+  transit_order:
+    "UPDATE transit_order SET shipment_details_snapshot = $2 WHERE transit_order_id = $1 AND shipment_details_snapshot IS NULL RETURNING transit_order_id",
+  delivery_note:
+    "UPDATE delivery_note SET shipment_details_snapshot = $2 WHERE delivery_note_id = $1 AND shipment_details_snapshot IS NULL RETURNING delivery_note_id",
+};
+
+async function snapshotOnto(client, { table, id, dossierId }) {
+  const sql = Object.prototype.hasOwnProperty.call(SNAPSHOT_SQL, table) ? SNAPSHOT_SQL[table] : null;
+  if (!sql) throw new AppError("BAD_SNAPSHOT_TARGET", `${table} does not carry a shipment-details snapshot`, 500);
+  if (!dossierId || !id) return null;
+  try {
+    const projection = await forDossier(client, dossierId);
+    const { rows } = await client.query(sql, [
+      id,
+      JSON.stringify({ ...projection, snapshot_at: new Date().toISOString() }),
+    ]);
+    return rows[0] || null;
+  } catch (err) {
+    logger.warn({ err, table, id }, "[operations] shipment-details snapshot skipped (document locked regardless)");
+    return null;
+  }
+}
+
+module.exports = { applyValues, partition, coerce, forDossier, formFor, summariseContainers, snapshotOnto, SNAPSHOT_SQL };
