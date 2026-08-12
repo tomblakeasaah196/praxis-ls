@@ -119,6 +119,10 @@ const registrationShape = {
   issuing_authority: optionalText,
   issued_on: optionalDate,
   expires_on: optionalDate,
+  // The certificate the identifier was issued on (0662). Optional, like the
+  // document register's scan: evidence is a verification gate, not a creation
+  // gate.
+  vault_id: blankToUndefined(uuid),
 };
 exports.registrationCreate = z.object(registrationShape);
 exports.registrationUpdate = patchOf(registrationShape);

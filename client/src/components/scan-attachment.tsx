@@ -22,11 +22,53 @@
  * onto its own record, because only the caller knows what that record is.
  */
 import * as React from "react";
-import * as api from "@/lib/masterdata-api";
-import { SCAN_ACCEPT, openVaultDoc, readFileAsDataUrl, scanFileProblem } from "@/lib/vault-file";
+import { SCAN_ACCEPT, openVaultDoc, uploadScan } from "@/lib/vault-file";
 import { errMsg } from "@/lib/use-resource";
 
 const linkCls = "text-sm text-primary-ink underline underline-offset-2 hover:opacity-80 disabled:opacity-50";
+
+/**
+ * The same file picker as a FORM FIELD, for attaching during creation.
+ *
+ * `ScanAttachment` cannot serve this case: it uploads the moment a file is
+ * picked, and a record being created has no id yet for the vault row to
+ * reference or for the `vault_id` patch to land on. So this control only HOLDS
+ * the file; the form uploads it after the record exists.
+ *
+ * It reads as a plain field on purpose. The modal is where an operator expects
+ * to hand over everything they have about a document — the fact that the bytes
+ * take a different path to the database than the expiry date does is our
+ * problem, not theirs.
+ */
+export function ScanFileField({ value, onChange }: {
+  value: File | null;
+  onChange: (file: File | null) => void;
+}) {
+  const ref = React.useRef<HTMLInputElement>(null);
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <input
+        ref={ref}
+        type="file"
+        accept={SCAN_ACCEPT}
+        className="min-w-0 flex-1 rounded-lg border bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-sm file:text-foreground"
+        onChange={(ev) => onChange(ev.target.files?.[0] ?? null)}
+      />
+      {value && (
+        <button
+          type="button"
+          className={linkCls}
+          // The DOM input owns the filename it displays, and a file input cannot
+          // be a controlled component — clearing the state without clearing the
+          // element would leave the form saying it has a file it no longer has.
+          onClick={() => { if (ref.current) ref.current.value = ""; onChange(null); }}
+        >
+          Clear
+        </button>
+      )}
+    </span>
+  );
+}
 
 export function ScanAttachment({
   vaultId, docType, entityRef, onAttached, onError, disabled, labelWhenEmpty = "Attach scan",
@@ -62,17 +104,10 @@ export function ScanAttachment({
 
   async function attach(file: File | null) {
     if (!file) return;
-    const problem = scanFileProblem(file);
-    if (problem) return onError?.(problem);
     setBusy("upload");
     onError?.(null);
     try {
-      const vaulted = await api.uploadVaultDocument({
-        data_url: await readFileAsDataUrl(file),
-        doc_type: docType,
-        entity_ref: entityRef,
-      });
-      await onAttached(vaulted.doc_id);
+      await onAttached(await uploadScan(file, { docType, entityRef }));
     } catch (e) {
       onError?.(errMsg(e));
     } finally {

@@ -235,6 +235,11 @@ const CHILD_WRITTEN_ELSEWHERE = {
   // to MOD-64 and patches back the id it is given. A uuid text box would satisfy
   // this gate and help nobody.
   "documents.vault_id": "the Attach scan control — POST /documents, then a PATCH with the returned id",
+  // Same shape one collection over (0662): the certificate a registration was
+  // issued on. Written by the row's Attach certificate control, and by the
+  // create form's file field — which carries a File under `__scan`, never under
+  // this column's name, precisely because the value is issued by the vault.
+  "registrations.vault_id": "the Attach certificate control, and the create form's file field — POST /documents, then a PATCH with the returned id",
 };
 
 /** `{ key: "x", … }` — the one form every FieldSpec is written in. */

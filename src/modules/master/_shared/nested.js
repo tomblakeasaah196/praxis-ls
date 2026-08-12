@@ -171,7 +171,7 @@ function resourceSpecs(kind) {
     { seg: "addresses", table: `${kind}_address`, pk: "address_id", create: partyCommon.addressCreate, update: partyCommon.addressUpdate, touch: true, writable: ["line1", "line2", "city", "region", "postal_code", "country_code", "type", "is_primary", "is_active"] },
     { seg: "banks", table: `${kind}_bank_account`, pk: "bank_account_id", create: partyCommon.bankCreate, update: partyCommon.bankUpdate, touch: true, isBank: true, governed: { create: "BANK_CREATE", update: "BANK_UPDATE" }, writable: ["beneficiary_name", "bank_name", "branch", "account_number", "iban", "swift_bic", "routing_code", "currency", "momo_network", "momo_number", "is_primary", "is_active"] },
     { seg: "documents", table: `${kind}_document`, pk: "document_id", create: partyCommon.documentCreate, update: partyCommon.documentUpdate, touch: true, isDocument: true, writable: ["document_type_id", "document_number", "issuing_authority", "issued_on", "expires_on", "vault_id", "physical_ref", "scan_due_on"] },
-    { seg: "registrations", table: "party_registration", pk: "registration_id", parentCol: `${kind}_id`, create: partyCommon.registrationCreate, update: partyCommon.registrationUpdate, touch: false, governed: { create: "TAX_REGISTRATION", update: "TAX_REGISTRATION" }, writable: ["country_code", "kind", "number", "issuing_authority", "issued_on", "expires_on"] },
+    { seg: "registrations", table: "party_registration", pk: "registration_id", parentCol: `${kind}_id`, create: partyCommon.registrationCreate, update: partyCommon.registrationUpdate, touch: false, governed: { create: "TAX_REGISTRATION", update: "TAX_REGISTRATION" }, writable: ["country_code", "kind", "number", "issuing_authority", "issued_on", "expires_on", "vault_id"] },
     { seg: "beneficial-owners", table: `${kind}_beneficial_owner`, pk: "owner_id", create: partyCommon.beneficialOwnerCreate, update: partyCommon.beneficialOwnerUpdate, touch: false, writable: ["full_name", "date_of_birth", "nationality", "id_type", "id_number", "ownership_percent", "is_pep", "notes", "vault_id"] },
   ];
 }
@@ -252,7 +252,10 @@ function entityResourceSpecs() {
     {
       seg: "registrations", table: "entity_registration", pk: "registration_id",
       create: entityCommon.registrationCreate, update: entityCommon.registrationUpdate, touch: true,
-      writable: ["country_code", "kind", "number", "issuing_authority", "issued_on", "expires_on", "is_primary", "notes"],
+      // `vault_id` (0662) is the certificate the identifier was issued on. NOT
+      // `isDocument`: a registration has no scan_status to advance — it carries
+      // `verified`/`verified_by` instead, and that stays a human decision.
+      writable: ["country_code", "kind", "number", "issuing_authority", "issued_on", "expires_on", "is_primary", "notes", "vault_id"],
     },
     {
       seg: "establishments", table: "entity_establishment", pk: "establishment_id",
