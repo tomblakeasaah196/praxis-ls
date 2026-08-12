@@ -450,6 +450,15 @@ const getTemplate = (client, id) => repo.getTemplate(client, id);
 const listTemplates = (client, q) => repo.listTemplates(client, q);
 const listByDossier = (client, dossierId) => repo.listByDossier(client, dossierId);
 const listAssumptions = (client, serviceTypeId) => repo.assumptions(client, serviceTypeId);
+
+/** Delay attribution: by owner tier, and the stages behind each tier's number. */
+async function attribution(client, q = {}) {
+  const [byTier, byStage] = await Promise.all([
+    repo.attributionSummary(client, q),
+    repo.attributionByStage(client, q),
+  ]);
+  return { by_tier: byTier, by_stage: byStage };
+}
 /**
  * Replace the published assumptions for a service type.
  *
@@ -478,7 +487,7 @@ const listSystemDefault = (client, serviceTypeId) => repo.systemDefaultStages(cl
 
 module.exports = {
   publishTemplate, instantiate, advance, reopen, addStage, recalculate,
-  getTemplate, listTemplates, listByDossier, listAssumptions, listSystemDefault, saveAssumptions,
+  getTemplate, listTemplates, listByDossier, listAssumptions, listSystemDefault, saveAssumptions, attribution,
   resolveTarget, resolveCalendar, resolvePolicy,
   MIN_STAGES, MAX_STAGES,
 };

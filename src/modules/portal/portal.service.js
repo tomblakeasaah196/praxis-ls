@@ -15,6 +15,7 @@ const { isGrantUsable } = require("./portal.rules");
 const report = require("../vault/report/report.service");
 const receivables = require("../finance/smart_receivables/smart_receivables.service");
 const milestone = require("../operations/milestone/milestone.service");
+const qTicket = require("../operations/q_ticket/q_ticket.service");
 const { emitEvent, audit } = require("../../shared/events/emit");
 const { AppError } = require("../../utils/errors");
 
@@ -210,4 +211,21 @@ async function auditorView(client, { params = {} }) {
   };
 }
 
-module.exports = { grantAccess, revokeAccess, listAccess, checkAccess, clientView, clientChain, investorView, auditorView };
+/**
+ * Q tickets from the client's side. Every call carries the clientId from the
+ * PORTAL SESSION and the service re-checks the dossier belongs to them, so a
+ * client cannot raise a query against — or read — someone else's file.
+ */
+const clientTickets = (client, { clientId }) => qTicket.listForClient(client, clientId);
+const clientRaiseTicket = (client, { clientId, dossierId, milestoneInstanceId, subject, body, raisedBy }) =>
+  qTicket.raise(client, { clientId, dossierId, milestoneInstanceId, subject, body, raisedBy, raisedByEmail: raisedBy });
+const clientTicketDetail = (client, { clientId, ticketId }) =>
+  qTicket.detail(client, { ticketId, clientId, forClient: true });
+const clientReplyTicket = (client, { clientId, ticketId, body }) =>
+  qTicket.reply(client, { ticketId, body, fromClient: true, clientId });
+
+module.exports = {
+  grantAccess, revokeAccess, listAccess, checkAccess,
+  clientView, clientChain, investorView, auditorView,
+  clientTickets, clientRaiseTicket, clientTicketDetail, clientReplyTicket,
+};

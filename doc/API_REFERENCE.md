@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 971 |
-| Modules mounted | 108 |
+| Routes | 984 |
+| Modules mounted | 109 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 971 mounted routes, grouped by path prefix.
+All 984 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -982,6 +982,8 @@ All 971 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/milestones/:id/advance` | — |
 | POST | `/api/tenant/milestones/:id/reopen` | — |
 | GET | `/api/tenant/milestones/assumptions/:serviceTypeId` | — |
+| PUT | `/api/tenant/milestones/assumptions/:serviceTypeId` | — |
+| GET | `/api/tenant/milestones/attribution` | — |
 | GET | `/api/tenant/milestones/dossier/:dossierId` | — |
 | POST | `/api/tenant/milestones/dossier/:dossierId/recalculate` | — |
 | POST | `/api/tenant/milestones/dossier/:dossierId/stages` | — |
@@ -1116,6 +1118,11 @@ All 971 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/auth/forgot` | — |
 | POST | `/api/tenant/portal/auth/login` | — |
 | GET | `/api/tenant/portal/client` | — |
+| GET | `/api/tenant/portal/client/dossier/:dossierId` | — |
+| GET | `/api/tenant/portal/client/tickets` | — |
+| POST | `/api/tenant/portal/client/tickets` | — |
+| GET | `/api/tenant/portal/client/tickets/:id` | — |
+| POST | `/api/tenant/portal/client/tickets/:id/replies` | — |
 | GET | `/api/tenant/portal/investor` | — |
 | GET | `/api/tenant/portal/me` | — |
 | GET | `/api/tenant/portal/users` | — |
@@ -1134,6 +1141,7 @@ All 971 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/portals/access/check` | — |
 | GET | `/api/tenant/portals/auditor` | — |
 | GET | `/api/tenant/portals/client` | — |
+| GET | `/api/tenant/portals/client/dossier/:dossierId` | — |
 | GET | `/api/tenant/portals/investor` | — |
 
 ### `tenant/pricing-variance`
@@ -1182,6 +1190,16 @@ All 971 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/purchase-requests/` | — |
 | GET | `/api/tenant/purchase-requests/:id` | — |
 | POST | `/api/tenant/purchase-requests/:id/transition` | — |
+
+### `tenant/q-tickets`
+
+| Method | Path | Body validated |
+|---|---|---|
+| GET | `/api/tenant/q-tickets/` | — |
+| POST | `/api/tenant/q-tickets/` | — |
+| GET | `/api/tenant/q-tickets/:id` | — |
+| POST | `/api/tenant/q-tickets/:id/replies` | — |
+| POST | `/api/tenant/q-tickets/:id/resolve` | — |
 
 ### `tenant/quotations`
 

@@ -19,6 +19,8 @@ router.post("/dossier/:dossierId/stages", requirePermission(MODULE, "edit"), val
 router.post("/dossier/:dossierId/recalculate", requirePermission(MODULE, "edit"), validator.recalculate, controller.recalculate);
 // The shipped default chain, for the editor's drift indicator and its
 // "restore the default" action.
+// "Who is costing us time" — attribution rolled up by owner tier.
+router.get("/attribution", requirePermission(MODULE, "view"), controller.attribution);
 router.get("/system-default/:serviceTypeId", requirePermission(MODULE, "view"), controller.systemDefault);
 router.get("/assumptions/:serviceTypeId", requirePermission(MODULE, "view"), controller.assumptions);
 // The published register is part of what a client was promised, so writing it

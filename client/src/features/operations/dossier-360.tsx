@@ -22,12 +22,14 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/operations-api";
 import { MilestoneChain } from "./milestone-chain";
+import { QTickets } from "./q-tickets";
 import { humanizeKey, serviceLabel, tone } from "./shared";
 import { DocGroup, DocRow, MoneyRow, PersonRow } from "./components";
 
-type Tab360 = "milestones" | "money" | "people" | "documents";
+type Tab360 = "milestones" | "queries" | "money" | "people" | "documents";
 const TABS_360: { value: Tab360; label: string }[] = [
   { value: "milestones", label: "Milestones" },
+  { value: "queries", label: "Queries" },
   { value: "money", label: "Money" },
   { value: "people", label: "People" },
   { value: "documents", label: "Documents" },
@@ -327,6 +329,7 @@ export function Dossier360Modal({
           <Segmented label="Dossier 360 section" value={tab} options={TABS_360} onChange={setTab} />
 
           {tab === "milestones" && <MilestonesTab dossierId={dossier.dossier_id} />}
+          {tab === "queries" && <QTickets dossierId={dossier.dossier_id} />}
           {tab === "money" && <MoneyTab m={d.money} />}
           {tab === "people" && <PeopleTab people={d.people} />}
           {tab === "documents" && <DocumentsTab d={d} />}

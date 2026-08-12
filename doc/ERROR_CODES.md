@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 2× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (257)
+## All codes (258)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -151,6 +151,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `MAINTENANCE_READ_ONLY` | 423 | 1× | — |
 | `MERGE_SAME_RECORD` | 422 | 1× | — |
 | `METHOD_NOT_ALLOWED` | — | 1× | — |
+| `MILESTONE_MISMATCH` | 422 | 1× | — |
 | `MISSING_FIELDS` | 422 | 1× | — |
 | `NEGATIVE_STOCK` | 422 | 1× | — |
 | `NOT_ACTIVE` | 422 | 2× | — |
@@ -162,7 +163,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_DONE` | 422 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 1× | — |
-| `NOT_FOUND` | 404 | 286× | — |
+| `NOT_FOUND` | 404 | 292× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_OPERATIONAL` | 422 | 1× | — |
 | `NOT_QUALIFIED` | 422 | 1× | — |
@@ -276,7 +277,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `UNSUPPORTED_FORMAT` | 422 | 1× | — |
 | `UNSUPPORTED_IMAGE` | 400, 415 | 5× | — |
 | `USER_INACTIVE` | 401 | 3× | — |
-| `VALIDATION_ERROR` | 422 | 113× | — |
+| `VALIDATION_ERROR` | 422 | 114× | — |
 | `VEHICLE_COMMITTED` | — | 1× | — |
 | `VEHICLE_NOT_FOUND` | 404 | 1× | — |
 | `VEHICLE_UNAVAILABLE` | 422 | 1× | — |
