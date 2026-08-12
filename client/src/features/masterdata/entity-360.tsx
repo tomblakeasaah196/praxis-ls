@@ -36,6 +36,7 @@ import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { SmartCountryPicker } from "@/components/smart-country-picker";
+import { WorkingCalendarTab } from "./working-calendar-tab";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt, enumLabel } from "@/lib/format";
 import { reportActionError } from "@/lib/action-error";
@@ -56,7 +57,7 @@ const ROLE_TONE: Record<string, Tone> = {
 const TABS = [
   "Overview", "Identity & registrations", "Documents", "Tax & jurisdiction",
   "People & shareholding", "Contacts & addresses", "Structure",
-  "Banking & treasury", "Letterhead", "Renewals",
+  "Banking & treasury", "Letterhead", "Renewals", "Working calendar",
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -566,6 +567,9 @@ export function EntityDossier({ entityId, onEdit, onChanged }: {
       {tab === "Letterhead" && (
         <LetterheadTab entityId={entityId} onSaved={reload} />
       )}
+
+      {tab === "Working calendar" && <WorkingCalendarTab entityId={entityId} />}
+
 
       {tab === "Renewals" && (
         <Section

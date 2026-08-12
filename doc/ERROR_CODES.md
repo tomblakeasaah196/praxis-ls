@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 2× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (256)
+## All codes (257)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -208,6 +208,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NO_TEMPLATE` | 422 | 1× | — |
 | `NO_TENANT_CONTEXT` | 500 | 5× | — |
 | `NO_VAT_ACCOUNT` | 422 | 2× | — |
+| `NO_WORKING_DAYS` | 422 | 1× | — |
 | `OAUTH_PROBE_FAILED` | 502 | 1× | — |
 | `ODOMETER_BACKWARDS` | 422 | 1× | — |
 | `ORDER_LOCKED` | 422 | 1× | — |
