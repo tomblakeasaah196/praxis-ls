@@ -450,12 +450,35 @@ const getTemplate = (client, id) => repo.getTemplate(client, id);
 const listTemplates = (client, q) => repo.listTemplates(client, q);
 const listByDossier = (client, dossierId) => repo.listByDossier(client, dossierId);
 const listAssumptions = (client, serviceTypeId) => repo.assumptions(client, serviceTypeId);
+/**
+ * Replace the published assumptions for a service type.
+ *
+ * These are shown to the CLIENT beside the chain, so they are audited: what we
+ * told a client the schedule depends on is part of the record of what we
+ * promised them.
+ */
+async function saveAssumptions(client, { serviceTypeId, assumptions = [], actor = {} }) {
+  await client.query("BEGIN");
+  try {
+    const rows = await repo.replaceAssumptions(client, serviceTypeId, assumptions);
+    await audit(client, {
+      actorUserId: actor.user_id || null,
+      action: "service_type.assumptions_saved",
+      moduleKey: events.MODULE,
+      entityRef: "service_type:" + serviceTypeId,
+      after: { count: rows.length },
+    });
+    await client.query("COMMIT");
+    return rows;
+  } catch (err) { await client.query("ROLLBACK"); throw err; }
+}
+
 /** The shipped default chain for a service type — drift comparison + restore. */
 const listSystemDefault = (client, serviceTypeId) => repo.systemDefaultStages(client, serviceTypeId);
 
 module.exports = {
   publishTemplate, instantiate, advance, reopen, addStage, recalculate,
-  getTemplate, listTemplates, listByDossier, listAssumptions, listSystemDefault,
+  getTemplate, listTemplates, listByDossier, listAssumptions, listSystemDefault, saveAssumptions,
   resolveTarget, resolveCalendar, resolvePolicy,
   MIN_STAGES, MAX_STAGES,
 };

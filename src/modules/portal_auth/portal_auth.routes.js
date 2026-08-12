@@ -43,6 +43,7 @@ router.post("/auth/accept", resetLimiter, v.accept, c.accept);
 // Portal user (external, token-scoped)
 router.get("/me", portalAuth(), c.me);
 router.get("/client", portalAuth("CLIENT"), c.client);
+router.get("/client/dossier/:dossierId", portalAuth("CLIENT"), c.clientChain);
 router.get("/investor", portalAuth("INVESTOR"), c.investor);
 router.get("/auditor", portalAuth("AUDITOR"), c.auditor);
 

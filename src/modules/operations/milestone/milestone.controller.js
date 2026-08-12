@@ -13,4 +13,5 @@ module.exports = {
   recalculate: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.recalculate(c, { dossierId: req.params.dossierId, trigger: req.body.trigger || "MANUAL", actor: actor(req) })) })),
   systemDefault: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.listSystemDefault(c, req.params.serviceTypeId)) })),
   assumptions: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.listAssumptions(c, req.params.serviceTypeId)) })),
+  saveAssumptions: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.saveAssumptions(c, { serviceTypeId: req.params.serviceTypeId, assumptions: req.body.assumptions, actor: actor(req) })) })),
 };

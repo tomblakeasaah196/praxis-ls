@@ -21,6 +21,9 @@ router.post("/dossier/:dossierId/recalculate", requirePermission(MODULE, "edit")
 // "restore the default" action.
 router.get("/system-default/:serviceTypeId", requirePermission(MODULE, "view"), controller.systemDefault);
 router.get("/assumptions/:serviceTypeId", requirePermission(MODULE, "view"), controller.assumptions);
+// The published register is part of what a client was promised, so writing it
+// needs the same permission as changing the chain itself.
+router.put("/assumptions/:serviceTypeId", requirePermission(MODULE, "edit"), validator.saveAssumptions, controller.saveAssumptions);
 router.post("/:id/advance", requirePermission(MODULE, "edit"), validator.advance, controller.advance);
 // Un-completing is not an ordinary transition (frozen DONE is what makes
 // variance measurable), so it has its own route, permission and reason.

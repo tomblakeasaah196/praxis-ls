@@ -124,6 +124,27 @@ async function systemDefaultStages(client, serviceTypeId) {
   return rows;
 }
 
+/**
+ * Replace a service type's assumptions register.
+ *
+ * Wholesale, like the working calendar and for the same reason: it is a short
+ * ordered list edited as one thing, and diffing rows would buy nothing. The
+ * caller wraps this in its own transaction so a half-written register can never
+ * be what a client reads.
+ */
+async function replaceAssumptions(client, serviceTypeId, rows) {
+  await client.query("DELETE FROM service_type_assumption WHERE service_type_id = $1", [serviceTypeId]);
+  for (let i = 0; i < rows.length; i += 1) {
+    const a = rows[i];
+    await client.query(
+      "INSERT INTO service_type_assumption (service_type_id, seq, code, text_fr, text_en, is_client_visible, is_system) " +
+        " VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (service_type_id, code) DO NOTHING",
+      [serviceTypeId, i + 1, a.code, a.text_fr, a.text_en || null, a.is_client_visible !== false, !!a.is_system],
+    );
+  }
+  return assumptions(client, serviceTypeId);
+}
+
 function logRebaseline(client, data) { return insertOne(client, "milestone_rebaseline_log", data); }
 
 /**
@@ -157,6 +178,6 @@ async function seqBetween(client, dossierId, afterSeq) {
 module.exports = {
   insertTemplate, insertStage, nextVersion, activeTemplate, stages, deactivateOthers, getTemplate,
   insertInstance, getInstance, updateInstance, listByDossier, existingInstances, listTemplates,
-  scheduleContext, workingCalendar, assumptions, logRebaseline, openInstances, seqBetween,
+  scheduleContext, workingCalendar, assumptions, replaceAssumptions, logRebaseline, openInstances, seqBetween,
   systemDefaultStages,
 };

@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 108,
-  "route_count": 971,
+  "route_count": 974,
   "tiers": {
     "public": 19,
     "self-scoped": 64,
-    "gated": 888
+    "gated": 891
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -2139,6 +2139,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/portal/client/dossier/:dossierId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/portal/investor": {
       "auth": true,
       "rbac": true,
@@ -2176,6 +2182,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/portals/client": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portals/client/dossier/:dossierId": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -5774,6 +5786,12 @@
       "rbac": false,
       "validated": true,
       "tier": "self-scoped"
+    },
+    "PUT /api/tenant/milestones/assumptions/:serviceTypeId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
     },
     "PUT /api/tenant/notifications/preferences": {
       "auth": true,
