@@ -265,7 +265,7 @@ test("records the error on the connection and does not throw", async () => {
   expect(repo.setError).toHaveBeenCalledWith({}, "conn-1", "IMAP auth failed");
 });
 
-test("send maps a '550 Sender verify failed' SMTP rejection to a clean 502 AppError", async () => {
+test("send maps a '550 Sender verify failed' SMTP rejection to a clean 422 AppError", async () => {
   const smtpErr = Object.assign(new Error("Can't send mail - all recipients were rejected: 550 Sender verify failed"), {
     responseCode: 550,
     response: "550 Sender verify failed",
@@ -274,7 +274,7 @@ test("send maps a '550 Sender verify failed' SMTP rejection to a clean 502 AppEr
   mockSendEmail.mockRejectedValueOnce(smtpErr);
 
   await expect(service.send({}, { connectionId: "conn-1", to: "x@y.cm", subject: "hi" }))
-    .rejects.toMatchObject({ name: "AppError", code: "SMTP_SENDER_REJECTED", status: 502 });
+    .rejects.toMatchObject({ name: "AppError", code: "SENDER_NOT_AUTHORIZED", status: 422 });
   // The failed send must not be recorded as an outbound thread copy.
   expect(repo.insertInbound).not.toHaveBeenCalled();
 });

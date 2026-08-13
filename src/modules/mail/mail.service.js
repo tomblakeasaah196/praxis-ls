@@ -60,23 +60,30 @@ const secretKeyFor = (id) => `mail_conn:${id}`;
 
 /**
  * Turn a raw nodemailer/SMTP rejection into a clean, actionable AppError so an
- * outbound-mail failure surfaces as a 502 the UI can show — not an unhandled 500
- * that floods the error monitor. `550 Sender verify failed` in particular is a
- * remote-server verdict on the FROM address (its domain needs a real mailbox +
- * MX/SPF/DKIM, and the From must match the authenticated account); we say so
- * rather than leaking a nodemailer stack.
+ * outbound-mail failure surfaces as a classified 4xx/5xx the UI can show — not
+ * an unhandled 500 that floods the error monitor. `550 Sender verify failed` in
+ * particular is a remote-server verdict on the FROM address (its domain needs a
+ * real mailbox + MX/SPF/DKIM, and the From must match the authenticated
+ * account); it is a mailbox-config fault on the sender's own server — not a
+ * Praxis server/code fault — so it maps to a 4xx (422 SENDER_NOT_AUTHORIZED)
+ * that the error monitor classifies as a config issue rather than a 5xx.
  */
 function mapSmtpError(err) {
   if (err instanceof AppError) return err;
   const code = err && err.responseCode; // SMTP reply code, e.g. 550, 535
   const raw = String((err && err.response) || (err && err.message) || err || "");
-  if (/sender verify failed/i.test(raw) || (code === 550 && /verif/i.test(raw))) {
+  const lc = raw.toLowerCase();
+  if (
+    code === 550 || code === 553 || code === 554 ||
+    /sender verif|valid sender|not allowed to send|not authori[sz]ed|relay(ing)? denied|relay access denied|from address|must be authenticated|authentication required/.test(lc)
+  ) {
     return new AppError(
-      "SMTP_SENDER_REJECTED",
-      "The mail server rejected the sender address (550 Sender verify failed). "
-        + "Check that the From address is a real mailbox on a domain with valid "
-        + "MX/SPF/DKIM records and that it matches the authenticated SMTP account.",
-      502,
+      "SENDER_NOT_AUTHORIZED",
+      "The mail server rejected the sender address. "
+        + "The \"From\" address must be a real mailbox on a domain with valid "
+        + "MX/SPF/DKIM records and usually has to match the login you connected with. "
+        + "This is the mailbox's SMTP setup — not Praxis.",
+      422,
       { smtp_code: code || null, smtp_response: raw.slice(0, 300) },
     );
   }
