@@ -2,6 +2,11 @@
  * Security — live sessions, and revoking them.
  *
  * Split out of `features/security/pages.tsx` in Phase 4 (audit F7).
+ *
+ * Reference adoption for `useAction` + the mutation envelope. The two handlers
+ * that used to `try/catch/setError` and stay silent on success or on a no-op
+ * are now three-line wrappers that get every branch — real revoke, already
+ * revoked, and 4xx/5xx — right. See doc/ERROR_HANDLING.md.
  */
 
 import * as React from "react";
@@ -11,9 +16,10 @@ import { ErrorState } from "@/components/ui/states";
 import { PageHeader, DataList, type Column } from "@/components/data-list";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { Pill } from "@/components/ui/pill";
-import { useList, errMsg } from "@/lib/use-resource";
+import { useList } from "@/lib/use-resource";
 import { dateFmt } from "@/lib/format";
 import { tenant } from "@/lib/api-client";
+import { useAction } from "@/lib/use-action";
 import { RowActions } from "@/components/ui/row-actions";
 import { type Session, shell } from "./shared";
 
@@ -21,32 +27,30 @@ export function SessionsPage() {
   const [tab, setTab] = React.useState<"mine" | "all">("mine");
   const mine = useList<Session>("/sessions/mine");
   const all = useList<Session>(tab === "all" ? "/sessions" : null);
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
 
-  async function killAllMine() {
-    setBusy(true);
-    setError(null);
-    try {
-      await tenant("/sessions/mine/revoke-all", { method: "POST" });
-      mine.reload();
-    } catch (e) {
-      setError(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const killAllMine = useAction(
+    () => tenant("/sessions/mine/revoke-all", { method: "POST" }),
+    {
+      success: "All other sessions revoked",
+      idle: "No other sessions to revoke.",
+      onSuccess: () => mine.reload(),
+    },
+  );
 
-  async function kill(id: string) {
-    setError(null);
-    try {
-      await tenant(`/sessions/${id}/kill`, { method: "POST" });
-      mine.reload();
-      all.reload();
-    } catch (e) {
-      setError(errMsg(e));
-    }
-  }
+  const kill = useAction(
+    (id: string) => tenant(`/sessions/${id}/kill`, { method: "POST" }),
+    {
+      success: "Session revoked",
+      idle: "That session was already revoked.",
+      onSuccess: () => { mine.reload(); all.reload(); },
+    },
+  );
+
+  // A single row-level error surface: whichever action failed most recently.
+  // Kept for parity with the previous behaviour — the toast is the primary
+  // channel now, but the inline banner is what a screen-reader user hears
+  // if the toast times out before they reach it.
+  const error = kill.error || killAllMine.error;
 
   const baseCols: Column<Session>[] = [
     { key: "created_at", label: "Started", render: (r) => <span className="num">{dateFmt(r.created_at)}</span> },
@@ -58,7 +62,7 @@ export function SessionsPage() {
 
   const withKill: Column<Session>[] = [
     ...baseCols,
-    { key: "_a", label: "", render: (r) => <RowActions><Button size="sm" variant="outline" disabled={!!r.killed_at} onClick={() => kill(r.session_id)}>Revoke</Button></RowActions> },
+    { key: "_a", label: "", render: (r) => <RowActions><Button size="sm" variant="outline" disabled={!!r.killed_at || kill.busy} onClick={() => kill.run(r.session_id)}>Revoke</Button></RowActions> },
   ];
 
   const adminCols: Column<Session>[] = [
@@ -72,7 +76,7 @@ export function SessionsPage() {
         eyebrow={<HubCrumb area="Security & access" to="/security" />}
         title="Sessions"
         description="Active sign-ins. Revoking a session invalidates its refresh token immediately — the next refresh is rejected as reuse."
-        action={tab === "mine" ? <Button variant="outline" onClick={killAllMine} loading={busy}>Revoke all mine</Button> : undefined}
+        action={tab === "mine" ? <Button variant="outline" onClick={() => killAllMine.run()} loading={killAllMine.busy}>Revoke all mine</Button> : undefined}
       />
       <HubTabs />
       <Segmented
