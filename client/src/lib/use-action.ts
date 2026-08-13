@@ -147,7 +147,6 @@ export function useAction<A extends unknown[], R = unknown>(
   // it in dev — the ESLint rule catches it in code review; this catches
   // programmatic mistakes that route around the lint (dynamic opts objects).
   if (opts.onError === "silent" && !opts.silentReason && process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
     console.warn(
       "[useAction] onError:\"silent\" requires silentReason (storage|parse|teardown). See doc/ERROR_HANDLING.md.",
     );

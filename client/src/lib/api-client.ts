@@ -348,7 +348,7 @@ export async function download(path: string, filename: string): Promise<void> {
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     let message = res.statusText;
-    try { const j = body ? JSON.parse(body) : null; message = (j && j.error && j.error.message) || message; } catch { /* non-JSON body */ }
+    try { const j = body ? JSON.parse(body) : null; message = (j && j.error && j.error.message) || message; } catch { /* @silent:parse — non-JSON body */ }
     throw new ApiError("DOWNLOAD_FAILED", message, res.status);
   }
   const blob = await res.blob();
@@ -389,7 +389,7 @@ export async function downloadPost(path: string, body: unknown, filename: string
       const j = raw ? JSON.parse(raw) : null;
       message = (j && j.error && j.error.message) || message;
     } catch {
-      /* non-JSON body — keep the status text */
+      /* @silent:parse — non-JSON body; keep the status text */
     }
     throw new ApiError("DOWNLOAD_FAILED", message, res.status);
   }
