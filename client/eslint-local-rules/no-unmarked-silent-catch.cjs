@@ -2,9 +2,10 @@
  * R1 — no-unmarked-silent-catch.
  *
  * Every `catch` block whose body is empty or comment-only MUST carry a
- * taxonomy marker of the form `/* @silent:storage|parse|teardown *​/`.
- * Same rule for `.catch(() => { … })` / `.catch(() => …)` shapes with a
- * constant no-op body.
+ * taxonomy marker inside a block comment in the catch body — one of
+ * `@silent:storage`, `@silent:parse`, or `@silent:teardown`. Same rule for
+ * `.catch(() => { ... })` / `.catch(() => value)` shapes with a constant
+ * no-op body.
  *
  * See doc/ERROR_HANDLING.md — silent handling is class A / B / C, and each
  * has a marker string. Everything else must either produce a toast (class F,
