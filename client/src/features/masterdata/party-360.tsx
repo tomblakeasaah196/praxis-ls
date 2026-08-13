@@ -16,8 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, Select, Field } from "@/components/ui/modal";
 import { DateField } from "@/components/ui/date-field";
+import { FileDrop } from "@/components/ui/file-drop";
 import { FormButtons } from "@/components/ui/form-buttons";
-import { UploadIcon } from "@/components/ui/icons";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { Checkbox } from "@/components/ui/checkbox";
 import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
@@ -25,7 +25,6 @@ import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt, enumLabel } from "@/lib/format";
-import { cn } from "@/lib/cn";
 import { SmartCountryPicker } from "@/components/smart-country-picker";
 import { ScanAttachment } from "@/components/scan-attachment";
 import { SCAN_ACCEPT, scanFileProblem, readFileAsDataUrl } from "@/lib/vault-file";
@@ -121,13 +120,6 @@ function AddModal({ title, fields, onClose, onSubmit }: { title: string; fields:
   );
 }
 
-/** Compact human file size for the chosen-file chip. */
-function fileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 /**
  * Add a KYC / compliance document, and attach its file in the SAME step.
  *
@@ -220,50 +212,15 @@ function AddDocumentModal({ kind, partyId, isClient, typeOptions, onClose, onAdd
           </Field>
         </div>
 
-        <div className="space-y-1.5">
-          <span className="block text-sm font-medium text-foreground">Document file</span>
-          {/* Drag-and-drop layered over a real <label>+<input type="file">, which
-              is what keyboard and AT users activate. The drop target is a pointer
-              shortcut; it does not replace the control. */}
-          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
-          <label
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files?.[0] ?? null); }}
-            className={cn(
-              "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-input px-4 py-6 text-center transition-colors hover:border-[color-mix(in_srgb,var(--primary)_50%,transparent)] hover:bg-accent/40",
-              busy && "pointer-events-none opacity-60",
-            )}
-          >
-            {file ? (
-              <span className="flex flex-wrap items-center justify-center gap-2 text-sm">
-                <span className="font-medium text-foreground">{file.name}</span>
-                <span className="micro text-muted-foreground">{fileSize(file.size)}</span>
-              </span>
-            ) : (
-              <>
-                <UploadIcon width={22} height={22} className="text-muted-foreground" />
-                <span className="text-sm text-foreground">
-                  Drop a file here, or <span className="text-primary-ink underline">browse</span>
-                </span>
-              </>
-            )}
-            <span className="micro text-muted-foreground">PDF or image (PNG, JPEG, WebP), up to 25 MB</span>
-            <input
-              type="file"
-              className="sr-only"
-              accept={SCAN_ACCEPT}
-              disabled={busy}
-              aria-label="Document file"
-              onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ""; pick(f); }}
-            />
-          </label>
-          {file && (
-            <button type="button" className="micro text-primary-ink underline" onClick={() => pick(null)}>
-              Remove file
-            </button>
-          )}
-          {fileError && <p className="text-xs text-destructive">{fileError}</p>}
-        </div>
+        <FileDrop
+          label="Document file"
+          file={file}
+          onPick={pick}
+          accept={SCAN_ACCEPT}
+          disabled={busy}
+          error={fileError}
+          hint="PDF or image (PNG, JPEG, WebP), up to 25 MB. Optional — you can attach it from the row later."
+        />
 
         {error && <ErrorState message={error} />}
         <FormButtons busy={busy} onCancel={onClose} saveLabel="Add document" />
@@ -1129,9 +1086,8 @@ export function PartyDossier({ kind, partyId, onEdit, onChanged }: { kind: api.P
       {tab === "Documents" && (
         <Section title="KYC / compliance documents" onAdd={() => setAdding("document")}>
           <p className="mb-2 micro text-muted-foreground">
-            Record the document and upload its PDF or photo in the same step — up to 25 MB. You can also
-            attach or replace the file later from its row. Verifying the party needs the scan, not just the
-            reference.
+            Add each compliance document and upload its file — a PDF or a clear photo. No file yet? Add the
+            details now and attach it later from the row.
           </p>
           <MiniTable empty={d.documents.length === 0} head={<><Th>Type</Th><Th>Number</Th><Th>Expires</Th><Th>Scan</Th><Th>Verification</Th><Th r>File</Th></>}>
             {d.documents.map((doc: api.PartyDocument) => (
