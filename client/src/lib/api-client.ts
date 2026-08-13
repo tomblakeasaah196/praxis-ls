@@ -282,7 +282,21 @@ export async function apiPaged<T = unknown>(path: string, opts: Opts = {}): Prom
     throw new ApiError(err.code || "ERROR", err.message || res.statusText, res.status, err.fields ?? err.details);
   }
   // Endpoints wrap payloads as { data: ... }; unwrap when present.
-  const data = (json && "data" in json ? json.data : json) as T;
+  //
+  // Envelope-aware: the ~25 action endpoints wrapped with withResult() speak
+  // { ok, changed, data?, message? } — for those, hand the envelope back
+  // WHOLE so useAction can distinguish changed:true from changed:false. Any
+  // response with an `ok` AND a `changed` key is such an envelope; that pair
+  // was not a shape any pre-envelope endpoint returned, so this is safe.
+  // useAction (client/src/lib/use-action.ts) does its own envelope unwrapping
+  // downstream.
+  const isEnvelope =
+    json && typeof json === "object" && "ok" in json && "changed" in json;
+  const data = (isEnvelope
+    ? (json as unknown)
+    : json && "data" in json
+      ? json.data
+      : json) as T;
 
   // API F-26: `meta` in the body is the primary source now. The header is kept
   // as a fallback because it is absent CROSS-ORIGIN unless the API lists it in
