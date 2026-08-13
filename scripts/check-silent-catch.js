@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * The backend R1 — every `catch` block whose body is empty or comment-only
- * must carry `/* @silent:storage|parse|teardown *​/` to identify which class
+ * must carry a `@silent:storage`, `@silent:parse`, or `@silent:teardown`
+ * marker (in a block comment inside the catch body) to identify which class
  * from doc/ERROR_HANDLING.md sanctions the swallow.
  *
  * WHAT THIS IS AND ISN'T
@@ -9,12 +10,16 @@
  * It is a scanner, not a parser. The vast majority of swallow sites are one
  * of two shapes:
  *
- *   try { … } catch { }                            // silent, body empty
- *   try { … } catch (e) { /* comment only *​/ }    // silent, body a comment
+ *   try { ... } catch { }                        // silent, body empty
+ *   try { ... } catch (e) { <block comment> }    // silent, body a comment
  *
- * The scanner requires those to carry a taxonomy marker in one of two forms:
- *   catch (e) { /* @silent:teardown *​/ }
- *   catch { /* @silent:parse — bad cache entry *​/ }
+ * The scanner requires the body's block comment to contain the marker —
+ * `@silent:teardown` inside `catch (e) { ... }`, or `@silent:parse -- bad
+ * cache entry` inside `catch { ... }`. See doc/ERROR_HANDLING.md for the
+ * fully-worked syntax; embedding a literal `/* ... *&#47;` in this docstring
+ * would either close the outer comment or need zero-width-space escapes that
+ * `no-irregular-whitespace` correctly rejects, so it's described rather than
+ * quoted here.
  *
  * It doesn't try to understand richer swallow shapes ("logs to a NEVER-checked
  * variable then throws away", etc.). Those are R2/R3's territory.
