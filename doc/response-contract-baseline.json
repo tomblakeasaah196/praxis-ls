@@ -3,6 +3,7 @@
   "tables": [
     "ageing",
     "app_role",
+    "dossier_visible",
     "false",
     "finals",
     "grant",
@@ -14,6 +15,7 @@
   "allow": [
     "actor_email_snapshot",
     "advance_open",
+    "client_visible",
     "coa_aux_account",
     "container_type_label",
     "credit_note_id",
@@ -50,6 +52,7 @@
     "line_count",
     "linked_client_id",
     "linked_supplier_id",
+    "marks_token",
     "minutes_late",
     "numbering_reset",
     "oauth_hint",
