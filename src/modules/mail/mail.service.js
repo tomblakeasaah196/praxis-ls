@@ -58,43 +58,6 @@ const archiveIdentity = (client, id) => repo.archiveIdentity(client, id);
 // ── Engine helpers ──
 const secretKeyFor = (id) => `mail_conn:${id}`;
 
-/**
- * Turn a raw nodemailer/SMTP rejection into a clean, actionable AppError so an
- * outbound-mail failure surfaces as a classified 4xx/5xx the UI can show — not
- * an unhandled 500 that floods the error monitor. `550 Sender verify failed` in
- * particular is a remote-server verdict on the FROM address (its domain needs a
- * real mailbox + MX/SPF/DKIM, and the From must match the authenticated
- * account); it is a mailbox-config fault on the sender's own server — not a
- * Praxis server/code fault — so it maps to a 4xx (422 SENDER_NOT_AUTHORIZED)
- * that the error monitor classifies as a config issue rather than a 5xx.
- */
-function mapSmtpError(err) {
-  if (err instanceof AppError) return err;
-  const code = err && err.responseCode; // SMTP reply code, e.g. 550, 535
-  const raw = String((err && err.response) || (err && err.message) || err || "");
-  const lc = raw.toLowerCase();
-  if (
-    code === 550 || code === 553 || code === 554 ||
-    /sender verif|valid sender|not allowed to send|not authori[sz]ed|relay(ing)? denied|relay access denied|from address|must be authenticated|authentication required/.test(lc)
-  ) {
-    return new AppError(
-      "SENDER_NOT_AUTHORIZED",
-      "The mail server rejected the sender address. "
-        + "The \"From\" address must be a real mailbox on a domain with valid "
-        + "MX/SPF/DKIM records and usually has to match the login you connected with. "
-        + "This is the mailbox's SMTP setup — not Praxis.",
-      422,
-      { smtp_code: code || null, smtp_response: raw.slice(0, 300) },
-    );
-  }
-  if (err && err.code === "EAUTH") {
-    return new AppError("SMTP_AUTH_FAILED", "The mail server rejected the SMTP credentials for this mailbox.", 502, { smtp_code: code || null });
-  }
-  if (code >= 500 || (err && err.code === "EENVELOPE")) {
-    return new AppError("SMTP_SEND_REJECTED", `The mail server rejected the message${code ? ` (${code})` : ""}.`, 502, { smtp_code: code || null, smtp_response: raw.slice(0, 300) });
-  }
-  return new AppError("SMTP_SEND_FAILED", "Could not send the message through the mail server.", 502, { reason: raw.slice(0, 300) });
-}
 const fmtFrom = (conn) => (conn.display_name ? `"${conn.display_name}" <${conn.email_address}>` : conn.email_address);
 
 /** Build the right provider adapter for a connection, with its decrypted secret. */
@@ -174,6 +137,34 @@ async function connect(client, input = {}) {
   const test = await testConnection(client, conn.email_connection_id);
   await repo.ensureDefaultConnection(client, actor.user_id);
   return { ...conn, secret_key, status: test.ok ? "CONNECTED" : "ERROR", test };
+}
+
+/** Edit an IMAP/SMTP connection's transport/credentials, then re-test. OAuth
+ *  mailboxes are provider-managed and not editable here. Owner-scoped. */
+async function updateImapConnection(client, id, input = {}) {
+  const conn = await repo.getConnection(client, id);
+  if (!conn) throw new AppError("NOT_FOUND", "connection not found", 404);
+  if (conn.provider !== "imap_smtp") throw new AppError("NOT_EDITABLE", "Only IMAP/SMTP mailboxes can be edited; Microsoft/Google mailboxes are managed by the provider.", 400);
+  if (input.ownerUserId && conn.owner_user_id && conn.owner_user_id !== input.ownerUserId) {
+    throw new AppError("FORBIDDEN", "You can only edit your own mailboxes", 403);
+  }
+  const patch = {};
+  for (const k of ["email_address", "display_name", "imap_host", "imap_port", "imap_secure", "smtp_host", "smtp_port", "smtp_secure", "auth_user"]) {
+    if (input[k] !== undefined) patch[k] = input[k];
+  }
+  if (Object.keys(patch).length) await repo.updateConnection(client, id, patch);
+  if (input.password) {
+    const secret_key = conn.secret_key || secretKeyFor(id);
+    await settings.put(client, {
+      section: settings.SECRET_SECTION, key: secret_key,
+      value: { provider: "imap_smtp", key_name: "MAIL_CONN", secret: input.password },
+      actor: input.actor || {},
+    });
+    if (!conn.secret_key) await repo.updateConnection(client, id, { secret_key });
+  }
+  const test = await testConnection(client, id);
+  const updated = await repo.getConnection(client, id);
+  return { ...updated, status: test.ok ? "CONNECTED" : "ERROR", test };
 }
 
 /** Live connectivity/auth check; updates status. Never throws. */
@@ -271,6 +262,33 @@ async function persistAttachments(client, inboundId, list, ctx = {}) {
 }
 
 /** Send from a connected mailbox; records the OUT copy for the thread view. */
+/** Translate a raw SMTP/provider send failure into a message that puts the blame
+ *  where it belongs — the connected mailbox's OWN server/config, not Praxis. It
+ *  returns a 4xx AppError so the error monitor classifies it as a mailbox-config
+ *  issue rather than a server/code fault, and the compose UI shows the user why. */
+function explainSendError(err, conn) {
+  const raw = String((err && (err.response || err.message)) || "").trim();
+  const code = err && err.responseCode;
+  const addr = (conn && conn.email_address) || "this mailbox";
+  const lc = raw.toLowerCase();
+  if (
+    code === 550 || code === 553 || code === 554 ||
+    /sender verif|valid sender|not allowed to send|not authori[sz]ed|relay(ing)? denied|relay access denied|from address|must be authenticated|authentication required/.test(lc)
+  ) {
+    return new AppError(
+      "SENDER_NOT_AUTHORIZED",
+      `Your mailbox ${addr} isn't an authorised sender on its own mail server, so the server refused the message`
+        + (raw ? ` (${raw})` : "")
+        + `. This is the mailbox's SMTP setup — not Praxis. The "From" address must be a real mailbox on that server and usually has to match the login you connected with. Open Comms → Mailbox → Edit on this mailbox to fix the address, login or password, then Test.`,
+      422,
+    );
+  }
+  if ((err && err.code) === "EAUTH") {
+    return new AppError("MAILBOX_AUTH_FAILED", `Login to ${addr} was rejected by its mail server${raw ? ` (${raw})` : ""}. Edit this mailbox to correct the username or password, then Test.`, 422);
+  }
+  return new AppError("MAIL_SEND_FAILED", `${addr}'s mail server rejected the message${raw ? `: ${raw}` : ""}. This came from the mailbox's server, not Praxis.`, 502);
+}
+
 async function send(client, input = {}) {
   const { connectionId, to, cc, subject, html, text, actor = {} } = input;
   const conn = await repo.getConnection(client, connectionId);
@@ -280,7 +298,7 @@ async function send(client, input = {}) {
   try {
     res = await adapter.sendEmail({ to, cc, subject, bodyHtml: html, bodyText: text });
   } catch (err) {
-    throw mapSmtpError(err);
+    throw explainSendError(err, conn);
   }
   await recordOutbound(client, conn, { ...res, to, subject, html, text });
   await emitEvent(client, {
@@ -307,7 +325,7 @@ async function reply(client, input = {}) {
       references: original.thread_key ? [original.thread_key] : [],
     });
   } catch (err) {
-    throw mapSmtpError(err);
+    throw explainSendError(err, conn);
   }
   await recordOutbound(client, conn, { ...res, to: original.from_address, subject, html, text });
   await emitEvent(client, {
@@ -349,18 +367,7 @@ const OAUTH = {
 function startOAuth(_client, provider, { slug, redirectUri, display_name = null, actor = {} }) {
   const o = OAUTH[provider];
   if (!o) throw new AppError("PROVIDER_UNSUPPORTED", `Unknown OAuth provider '${provider}'`, 400);
-  if (!o.idp.isConfigured()) {
-    // 424 Failed Dependency + CONFIG_MISSING = "the request was valid, a
-    // prerequisite isn't set up". Distinct from a 400 code error so the UI
-    // can render a "finish your setup" callout with a link to the exact
-    // settings page instead of the generic error toast a 400 would produce.
-    // See doc/ERROR_HANDLING.md class G.
-    throw new AppError("CONFIG_MISSING", `${provider} OAuth is not configured for this tenant.`, 424, {
-      setting_key: `oauth.${provider}`,
-      settings_route: "/settings/email",
-      feature: `${provider} sign-in for email connections`,
-    });
-  }
+  if (!o.idp.isConfigured()) throw new AppError("NOT_CONFIGURED", `${provider} OAuth is not configured`, 400);
   if (!slug || !redirectUri) throw new AppError("VALIDATION_ERROR", "slug and redirectUri are required", 422);
   const state = jwt.sign(
     { purpose: o.purpose, provider, slug, user_id: actor.user_id || null, display_name, redirectUri },
@@ -546,7 +553,7 @@ async function linkEntity(client, { inboundId, entity_ref }) {
 
 module.exports = {
   listIdentities, listSent, listInbox, updateIdentity, upsertIdentity, archiveIdentity,
-  listConnections, setDefaultMailbox, connect, testConnection, syncConnection, send, reply, listThread, getMessage, markRead, listAttachments,
+  listConnections, setDefaultMailbox, connect, updateImapConnection, testConnection, syncConnection, send, reply, listThread, getMessage, markRead, listAttachments,
   clientTimeline, linkEntity, autodiscover, searchRecipients,
   startMicrosoftOAuth, completeMicrosoftOAuth, handleGraphNotification,
   startGoogleOAuth, completeGoogleOAuth, handleGmailNotification, renewSubscriptions,
