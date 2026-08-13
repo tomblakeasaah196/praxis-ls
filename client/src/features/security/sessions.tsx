@@ -53,12 +53,12 @@ export function SessionsPage() {
     { key: "last_seen_at", label: "Last seen", render: (r) => <span className="num">{dateFmt(r.last_seen_at)}</span> },
     { key: "ip", label: "IP", render: (r) => <span className="num text-muted-foreground">{r.ip || "—"}</span> },
     { key: "user_agent", label: "Device", render: (r) => <span className="text-muted-foreground">{(r.user_agent || "—").slice(0, 48)}</span> },
-    { key: "state", label: "State", render: (r) => (r.revoked_at ? <Pill tone="bad">Revoked</Pill> : <Pill tone="ok">Active</Pill>) },
+    { key: "state", label: "State", render: (r) => (r.killed_at ? <Pill tone="bad">Revoked</Pill> : <Pill tone="ok">Active</Pill>) },
   ];
 
   const withKill: Column<Session>[] = [
     ...baseCols,
-    { key: "_a", label: "", render: (r) => <RowActions><Button size="sm" variant="outline" disabled={!!r.revoked_at} onClick={() => kill(r.session_id)}>Revoke</Button></RowActions> },
+    { key: "_a", label: "", render: (r) => <RowActions><Button size="sm" variant="outline" disabled={!!r.killed_at} onClick={() => kill(r.session_id)}>Revoke</Button></RowActions> },
   ];
 
   const adminCols: Column<Session>[] = [
