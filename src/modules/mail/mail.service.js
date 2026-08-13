@@ -342,7 +342,18 @@ const OAUTH = {
 function startOAuth(_client, provider, { slug, redirectUri, display_name = null, actor = {} }) {
   const o = OAUTH[provider];
   if (!o) throw new AppError("PROVIDER_UNSUPPORTED", `Unknown OAuth provider '${provider}'`, 400);
-  if (!o.idp.isConfigured()) throw new AppError("NOT_CONFIGURED", `${provider} OAuth is not configured`, 400);
+  if (!o.idp.isConfigured()) {
+    // 424 Failed Dependency + CONFIG_MISSING = "the request was valid, a
+    // prerequisite isn't set up". Distinct from a 400 code error so the UI
+    // can render a "finish your setup" callout with a link to the exact
+    // settings page instead of the generic error toast a 400 would produce.
+    // See doc/ERROR_HANDLING.md class G.
+    throw new AppError("CONFIG_MISSING", `${provider} OAuth is not configured for this tenant.`, 424, {
+      setting_key: `oauth.${provider}`,
+      settings_route: "/settings/email",
+      feature: `${provider} sign-in for email connections`,
+    });
+  }
   if (!slug || !redirectUri) throw new AppError("VALIDATION_ERROR", "slug and redirectUri are required", 422);
   const state = jwt.sign(
     { purpose: o.purpose, provider, slug, user_id: actor.user_id || null, display_name, redirectUri },
