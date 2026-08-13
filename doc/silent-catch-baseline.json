@@ -63,15 +63,15 @@
     },
     {
       "file": "src/modules/mail/mail.service.js",
-      "line": 512
+      "line": 501
     },
     {
       "file": "src/modules/mail/mail.service.js",
-      "line": 532
+      "line": 521
     },
     {
       "file": "src/modules/mail/mail.service.js",
-      "line": 555
+      "line": 544
     },
     {
       "file": "src/modules/mail/providers/gmail.provider.js",
