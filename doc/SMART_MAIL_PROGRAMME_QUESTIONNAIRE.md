@@ -169,7 +169,7 @@ merge wars in `mail.service.js` and `mail.tsx`, which are the two hottest files 
 > in files, and PR-4/PR-5 sit on top of PR-3's bindings. Option C guarantees a painful merge on
 > `mail.service.js`; option A is safe but slow if you have more than one engineer.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -190,7 +190,7 @@ folders, assignment, snooze, telemetry, visibility — wants somewhere to live.
 > over-engineering for a single-tenant-per-DB system where the table is small and downtime for a
 > migration is a few seconds.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -210,7 +210,7 @@ has folders, Gmail has labels, Graph has mailFolders.
 > stays in the user's native client. Option C can follow later without a data-model change if the
 > folder is stored as a canonical enum plus a raw provider path.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -230,8 +230,8 @@ the richest provider, IMAP tenants get a broken product, and vice versa.
 > providers get the faster path. Please still tell me **which provider Smart Logistics itself
 > uses** — that decides what we test against first.
 
-**Decision:** **********************\_\_**********************
-**Smart Logistics' own mail provider:** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Smart Logistics' own mail provider:** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -250,7 +250,7 @@ switch.
 > defined as bundles of these flags without another migration. Telemetry and shared inbox in
 > particular need to be off by default for legal reasons (Q32) and operational reasons (Q30).
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -273,7 +273,7 @@ visibility" both need a different model.
 > a real logistics-office need (an assistant covering a manager's inbox) but it needs the audited
 > visibility model from PR-5 to be safe.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -291,7 +291,7 @@ text lives in Postgres; the corpus per tenant is small by web standards but larg
 > AI layer exists. Option C adds a service to operate, back up and secure per tenant — a real cost
 > on a self-managed VPS for a benefit you do not need at this corpus size.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -313,7 +313,7 @@ Gmail strips `<style>` blocks, and dark mode inverts colours unpredictably.
 > images. This is the one place where "richest possible" and "renders correctly at the client" pull
 > against each other, and the serializer is where we resolve it.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -331,7 +331,7 @@ exist at all; inbound ones are capped at 25 MB and stored in `document_vault`.
 > file that went to a client is content-hashed and auditable — which the immutable-archive
 > requirement (Q34) needs anyway. Please confirm the **threshold** and the **hard cap**.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 **Offload threshold / hard cap:** **\_\_** MB / **\_\_** MB
 
 ---
@@ -355,8 +355,8 @@ a user who cannot read finance.
 > `/bank-details` (from `treasury_account`, masked per visibility) · `/document` (vault picker) ·
 > `/snippet` · `/signature` · `/availability` (meeting slots) · `/secure-link`.
 
-**Decision:** **********************\_\_**********************
-**Commands to add or remove:** **************\_\_**************
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Commands to add or remove:** ******\*\*******\_\_******\*\*******
 
 ---
 
@@ -375,7 +375,7 @@ connection is the fastest way to make people go back to Outlook.
 > it capability-flagged (Q4) keeps it optional. Undo-send is implemented as a delayed BullMQ job,
 > not a fake client-side timer, so it survives a page close.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 **Undo-send window:** **\_\_** seconds
 
 ---
@@ -399,8 +399,8 @@ not splitting at all.
 > For **VIP**: a flag on the party record (`is_vip`, plus automatic VIP for accounts above a
 > configurable revenue or receivables threshold) that pins their threads and bypasses other sorting.
 
-**Decision:** **********************\_\_**********************
-**VIP definition (manual flag / revenue threshold / both):** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**VIP definition (manual flag / revenue threshold / both):** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -431,7 +431,7 @@ HTML signatures are selectable and clickable but render differently across clien
 > standalone tool serves today. Building it as one template with two renderers is barely more work
 > than either alone and removes the "which one is current?" problem permanently.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -452,8 +452,8 @@ email. So some fields exist, some must be added, and some must be user-entered.
 > signatures is how you end up with four versions of it. Adding the two phone columns to `employee`
 > also fixes a real master-data gap (HR cannot currently record a staff phone number at all).
 
-**Decision:** **********************\_\_**********************
-**Fields you want user-editable beyond desk/mobile phone:** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Fields you want user-editable beyond desk/mobile phone:** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -471,8 +471,8 @@ configure everything, including logo upload and slogan.
 > booking link. A curated set handles that without letting anyone invent a new brand. The admin
 > screen lives under Settings → Company → Signatures, alongside branding.
 
-**Decision:** **********************\_\_**********************
-**Template variants you want seeded:** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Template variants you want seeded:** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -492,7 +492,7 @@ the entire platform." The word _entire_ hides a question: does history change to
 > **Option C is a trap**: rewriting what a past email said is an integrity problem, and it directly
 > contradicts the immutable-archive requirement in Q34.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -513,7 +513,7 @@ an invoice email should not look the same, and neither should carry a person's m
 > This distinction needs to be explicit in the guide because it is the sort of thing that otherwise
 > gets decided accidentally by whoever writes the first template.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -540,8 +540,8 @@ matching. A wrong binding puts a competitor's email on a client's timeline.
 > invoice/proforma number, PO number, container number (ISO 6346, checksum-validatable), BL/AWB
 > number, quote reference, sender address, sender domain.
 
-**Decision:** **********************\_\_**********************
-**Additional reference formats we must parse:** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Additional reference formats we must parse:** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -567,8 +567,8 @@ moving right now._
 > client, the pane should flip to the supplier view (open POs, three-way-match exceptions, scorecard)
 > — `supplier_scorecard.service.js` already exists.
 
-**Decision:** **********************\_\_**********************
-**Sections to add / remove / reorder:** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Sections to add / remove / reorder:** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -593,8 +593,8 @@ back-door". An action card is the same question in a different wrapper.
 > _Request a missing document_ · _Create task / assign_ · _Convert to Lead / Ticket_ (see Q23) ·
 > _Send quote PDF_.
 
-**Decision:** **********************\_\_**********************
-**Cards to add or remove:** **************\_\_**************
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Cards to add or remove:** ******\*\*******\_\_******\*\*******
 
 ---
 
@@ -618,7 +618,7 @@ mention primitive today** — this builds one.
 > outward. Different table, different render path, a visible internal-only treatment in the UI, and
 > a test that asserts a note can never be included in an outbound message body.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -644,8 +644,8 @@ client link — so they are stored and invisible.
 > what is outstanding. Please confirm you want the checklist to be **tenant-configurable** rather
 > than hard-coded — I recommend configurable, seeded with a sensible Cameroon/CEMAC default.
 
-**Decision:** **********************\_\_**********************
-**Checklist: tenant-configurable (rec) / hard-coded / other:** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Checklist: tenant-configurable (rec) / hard-coded / other:** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -667,8 +667,8 @@ from the Sales CRM work.
 > your list**: _Quote Request_ and _Contact Enquiry_, since the Sales CRM already models those and
 > they are the two most common inbound shapes for a freight forwarder.
 
-**Decision:** **********************\_\_**********************
-**Conversion targets to include:** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Conversion targets to include:** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -693,7 +693,7 @@ this question just makes that binding, and defines the edges.
 > existing propose→confirm architecture rather than carving an exception into it. The productivity
 > claim is preserved: the draft is already written when the operator opens the thread.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -714,8 +714,8 @@ At a keystroke-debounced cadence, a busy operator can generate hundreds of compl
 > perceived effect for almost nothing. Please confirm you accept a **style profile** rather than a
 > fine-tuned per-user model.
 
-**Decision:** **********************\_\_**********************
-**Style profile (rec) / fine-tuned model / neither:** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Style profile (rec) / fine-tuned model / neither:** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -735,8 +735,8 @@ it should reflect what a Douala freight-forwarding office actually writes.
 > the kind of error that reaches a customs broker. Note the codebase already carries FR/EN i18n
 > throughout, so bilingual output is consistent with the product, not an add-on.
 
-**Decision:** **********************\_\_**********************
-**Presets to add or remove:** **************\_\_**************
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Presets to add or remove:** ******\*\*******\_\_******\*\*******
 
 ---
 
@@ -762,8 +762,8 @@ invents a delivery time, a client plans around a fiction.
 > from drafting context entirely, since those must never appear in a client-facing draft even by
 > accident.
 
-**Decision:** **********************\_\_**********************
-**Data explicitly out of bounds for drafting:** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Data explicitly out of bounds for drafting:** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -787,8 +787,8 @@ where errors are expensive and auditable.
 > invoice, receipt, and bill of lading**, deferring packing lists and customs declarations to a
 > follow-up.
 
-**Decision:** **********************\_\_**********************
-**v1 OCR document types:** **************\_\_**************
+**Decision:** **********\*\***********\_\_**********\*\***********
+**v1 OCR document types:** ******\*\*******\_\_******\*\*******
 
 ---
 
@@ -812,7 +812,7 @@ content client.
 >
 > Summaries: I recommend triggering at **5+ messages** in a thread, cached, invalidated on new mail.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 **Summary trigger threshold:** **\_\_** messages
 
 ---
@@ -836,8 +836,8 @@ is whether they warn or block.
 > transcription service already handles that container), audio is transient and **not** retained
 > after transcription unless you want it kept. I recommend **not retaining audio**.
 
-**Decision:** **********************\_\_**********************
-**Retain voice recordings? yes / no (rec: no):** ******\_\_******
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Retain voice recordings? yes / no (rec: no):** **\*\***\_\_**\*\***
 
 ---
 
@@ -865,8 +865,8 @@ inside the system.
 > resolution 2 business days, computed against tenant business hours and public holidays, with
 > breach escalation to the team lead.
 
-**Decision:** **********************\_\_**********************
-**SLA tiers:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
+**SLA tiers:** **********\*\***********\_\_**********\*\***********
 
 ---
 
@@ -890,8 +890,8 @@ manufacturing "opens" that never happened, and image-blocking clients hide real 
 > systematically wrong and carries the compliance overhead. If you serve or plan to serve EU
 > counterparties, this is worth a lawyer's five minutes before we build it.
 
-**Decision:** **********************\_\_**********************
-**Do you have EU/UK counterparties? yes / no:** ******\_\_******
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Do you have EU/UK counterparties? yes / no:** **\*\***\_\_**\*\***
 
 ---
 
@@ -912,7 +912,7 @@ public route. It generalises cleanly.
 > create an account. Delivering the PIN through WhatsApp is a genuinely good fit for the Cameroonian
 > market and reuses a service you already have.
 
-**Decision:** **********************\_\_**********************
+**Decision:** **********\*\***********\_\_**********\*\***********
 **Default expiry / max views:** **\_\_** days / **\_\_** views
 
 ---
@@ -940,8 +940,8 @@ verifiable hash chain_, not _physically impossible to delete_.
 > the CEO/God-Mode role that always writes an `immutable_ledger` entry naming who looked at what and
 > why. Finance and executive mailboxes default to Private.
 
-**Decision:** **********************\_\_**********************
-**Default visibility for personal / shared mailboxes:** **********\_\_**********
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Default visibility for personal / shared mailboxes:** ****\*\*****\_\_****\*\*****
 
 ---
 
@@ -966,8 +966,8 @@ verdicts.
 > alerts on regression. **IP reputation** beyond public blocklists needs a paid feed — please
 > confirm whether you want that scoped or left out.
 
-**Decision:** **********************\_\_**********************
-**Scope a paid IP-reputation feed? yes / no:** ******\_\_******
+**Decision:** **********\*\***********\_\_**********\*\***********
+**Scope a paid IP-reputation feed? yes / no:** **\*\***\_\_**\*\***
 
 ---
 
@@ -1067,3 +1067,9 @@ each containing:
 
 Written so that a competent engineer, Claude, or another capable model can execute a chapter without
 needing to re-derive any of the decisions above.
+
+---
+
+**Answered.** The completed decision sheet has been turned into the build-ready spec:
+**`doc/SMART_MAIL_ENGINEERING_GUIDE.md`**. This questionnaire is retained as the record of what was
+asked and why each option was recommended; §1 of the guide carries the answers that were given.
