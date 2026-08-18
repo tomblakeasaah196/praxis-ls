@@ -111,14 +111,14 @@ function ChannelConfig() {
   const em = cfg.data?.email;
 
   // SMTP
-  const [emF, setEmF] = React.useState({ smtp_host: "", smtp_port: "", smtp_user: "", smtp_pass: "" });
+  const [emF, setEmF] = React.useState({ smtp_host: "", smtp_port: "", smtp_user: "", smtp_pass: "", from: "" });
   const [emBusy, setEmBusy] = React.useState(false);
   const [emTest, setEmTest] = React.useState<scapi.TestResult | null>(null);
   const [emErr, setEmErr] = React.useState<unknown>(null);
-  React.useEffect(() => { if (em) setEmF((s) => ({ ...s, smtp_host: em.smtp_host || "", smtp_port: em.smtp_port ? String(em.smtp_port) : "", smtp_user: em.smtp_user || "" })); }, [em]);
+  React.useEffect(() => { if (em) setEmF((s) => ({ ...s, smtp_host: em.smtp_host || "", smtp_port: em.smtp_port ? String(em.smtp_port) : "", smtp_user: em.smtp_user || "", from: em.from || "" })); }, [em]);
   async function saveEm(e: React.FormEvent) {
     e.preventDefault(); setEmBusy(true); setEmErr(null); setEmTest(null);
-    try { await scapi.setEmailConfig({ smtp_host: emF.smtp_host || undefined, smtp_port: emF.smtp_port === "" ? undefined : Number(emF.smtp_port), smtp_user: emF.smtp_user || undefined, smtp_pass: emF.smtp_pass || undefined }); setEmF((s) => ({ ...s, smtp_pass: "" })); cfg.reload(); }
+    try { await scapi.setEmailConfig({ smtp_host: emF.smtp_host || undefined, smtp_port: emF.smtp_port === "" ? undefined : Number(emF.smtp_port), smtp_user: emF.smtp_user || undefined, smtp_pass: emF.smtp_pass || undefined, from: emF.from || undefined }); setEmF((s) => ({ ...s, smtp_pass: "" })); cfg.reload(); }
     catch (err) { setEmErr(err); } finally { setEmBusy(false); }
   }
   async function testEm() { setEmTest(null); setEmErr(null); try { setEmTest(await scapi.testEmail()); } catch (err) { setEmErr(err); } }
@@ -139,6 +139,8 @@ function ChannelConfig() {
           <span className="num">Comms → Mailbox</span>.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="From address" hint="Used when a section has no sender of its own. Must match the SMTP login below or mail bounces / spam-files."><Input value={emF.from} onChange={(e) => setEmF((s) => ({ ...s, from: e.target.value }))} placeholder="no-reply@yourco.cm" /></Field>
+          <div />
           <Field label="SMTP host"><Input value={emF.smtp_host} onChange={(e) => setEmF((s) => ({ ...s, smtp_host: e.target.value }))} placeholder="smtp.provider.com" /></Field>
           <Field label="SMTP port"><Input type="number" className="num" value={emF.smtp_port} onChange={(e) => setEmF((s) => ({ ...s, smtp_port: e.target.value }))} placeholder="587" /></Field>
           <Field label="SMTP user"><Input value={emF.smtp_user} onChange={(e) => setEmF((s) => ({ ...s, smtp_user: e.target.value }))} placeholder="apikey / user" /></Field>
