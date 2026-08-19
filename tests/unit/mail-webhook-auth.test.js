@@ -16,9 +16,12 @@ jest.mock("../../src/modules/mail/mail/providers/imapSmtp.provider", () => ({
     markAsRead: jest.fn(),
   })),
 }));
-jest.mock("../../src/modules/mail/mail/providers/microsoftGraph.provider", () => ({
-  MicrosoftGraphProvider: jest.fn(),
-}));
+jest.mock(
+  "../../src/modules/mail/mail/providers/microsoftGraph.provider",
+  () => ({
+    MicrosoftGraphProvider: jest.fn(),
+  }),
+);
 jest.mock("../../src/modules/mail/mail/providers/gmail.provider", () => ({
   GmailProvider: jest.fn(),
 }));
@@ -67,10 +70,16 @@ jest.mock("sanitize-html", () => {
 // on failure) and asks the mailbox layer for a send allowance. Mocked here for
 // the same reason mail.repo is — these are hermetic tests with no database.
 jest.mock("../../src/modules/mail/mail/mailbox.repo", () => ({
-  getConnection: jest.fn(async () => ({ email_connection_id: "conn-1", kind: "PERSONAL" })),
+  getConnection: jest.fn(async () => ({
+    email_connection_id: "conn-1",
+    kind: "PERSONAL",
+  })),
   updateConnection: jest.fn(async () => ({})),
   clearFailures: jest.fn(async () => ({})),
-  bumpFailure: jest.fn(async () => ({ consecutive_failures: 1, status: "CONNECTED" })),
+  bumpFailure: jest.fn(async () => ({
+    consecutive_failures: 1,
+    status: "CONNECTED",
+  })),
   sendCounts: jest.fn(async () => ({ hourly: 0, daily: 0 })),
   bumpSendWindow: jest.fn(async () => ({ sent_count: 1 })),
   recordAccessAudit: jest.fn(async () => ({})),
