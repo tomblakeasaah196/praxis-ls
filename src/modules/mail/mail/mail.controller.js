@@ -1,5 +1,9 @@
 "use strict";
 const service = require("./mail.service");
+const mailbox = require("./mailbox.service");
+const access = require("./access");
+const sendPoints = require("./sendpoint.service");
+const { cpanelPreset } = require("./autodiscover");
 const { asyncHandler } = require("../../../utils/errors");
 const { config } = require("../../../config/env");
 const actor = (req) => req.user || { user_id: null };
@@ -70,6 +74,49 @@ module.exports = {
   markRead: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.markRead(c, req.params.id)) })),
   send: asyncHandler(async (req, res) => res.status(201).json({ data: await req.identityDb((c) => service.send(c, { ...req.body, actor: actor(req) })) })),
   reply: asyncHandler(async (req, res) => res.status(201).json({ data: await req.identityDb((c) => service.reply(c, { ...req.body, connectionId: req.body.connectionId, inboundId: req.params.id, actor: actor(req) })) })),
+
+  // ── PR-0: mailbox administration ──
+  // Every handler runs on req.identityDb for the same reason the engine does:
+  // mail is LIVE-only, and a mailbox configured in TEST mode that the live app
+  // cannot see is a footgun, not a sandbox.
+  myMailboxes: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => mailbox.listForUser(c, actor(req).user_id)) })),
+  allMailboxes: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => mailbox.listAll(c, req.query)) })),
+  catalogue: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => mailbox.listCatalogue(c, { includeDisabled: req.query.include_disabled === "true" })) })),
+  addCatalogueEntry: asyncHandler(async (req, res) => res.status(201).json({ data: await req.identityDb((c) => mailbox.addCatalogueEntry(c, req.body || {}, actor(req))) })),
+  toggleCatalogueEntry: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => mailbox.setCatalogueEnabled(c, req.params.key, req.body.is_enabled, actor(req))) })),
+  createShared: asyncHandler(async (req, res) => res.status(201).json({ data: await req.identityDb((c) => service.connect(c, { ...req.body, kind: "SHARED", actor: actor(req) })) })),
+  archiveMailbox: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => mailbox.archive(c, req.params.id, actor(req))) })),
+  handoverMailbox: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => mailbox.handover(c, req.params.id, { catalogueKey: req.body.catalogue_key || null, department: req.body.department || null, actor: actor(req) })) })),
+  setMailboxLimits: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => mailbox.setLimits(c, req.params.id, req.body || {}, actor(req))) })),
+  sendAllowance: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => mailbox.checkSendAllowance(c, req.params.id, Number(req.query.count) || 1)) })),
+  cpanel: asyncHandler(async (req, res) => res.json({ data: cpanelPreset(req.query.email) })),
+
+  // ── PR-0: access grants ──
+  members: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => access.listMembers(c, req.params.id, { includeRevoked: req.query.include_revoked === "true" })) })),
+  grantMember: asyncHandler(async (req, res) => res.status(201).json({
+    data: await req.identityDb(async (c) => {
+      await access.assertCanManage(c, req.params.id, actor(req).user_id);
+      return access.grant(c, { connectionId: req.params.id, userId: req.body.user_id, role: req.body.member_role, actor: actor(req) });
+    }),
+  })),
+  revokeMember: asyncHandler(async (req, res) => res.json({
+    data: await req.identityDb(async (c) => {
+      await access.assertCanManage(c, req.params.id, actor(req).user_id);
+      return access.revoke(c, { connectionId: req.params.id, userId: req.params.userId, actor: actor(req) });
+    }),
+  })),
+  accessAudit: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => access.listAudit(c, { connectionId: req.query.connection_id || null, limit: req.query.limit })) })),
+
+  // ── PR-0: send points ──
+  sendPoints: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => sendPoints.listResolved(c, { entityId: req.query.entity_id || null })) })),
+  bindSendPoint: asyncHandler(async (req, res) => res.json({
+    data: await req.identityDb((c) => sendPoints.bind(c, {
+      sendPointKey: req.params.key, entityId: req.body.entity_id || null,
+      identityId: req.body.email_identity_id || null, connectionId: req.body.email_connection_id || null,
+      actor: actor(req),
+    })),
+  })),
+  unbindSendPoint: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => sendPoints.unbind(c, { sendPointKey: req.params.key, entityId: req.query.entity_id || null, actor: actor(req) })) })),
 
   // ── Microsoft 365 OAuth (start is authed; callback + webhook are pre-auth) ──
   msOAuthStart: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.startMicrosoftOAuth(c, { slug: slugOf(req), redirectUri: msRedirect(req), display_name: req.query.display_name, actor: actor(req) })) })),

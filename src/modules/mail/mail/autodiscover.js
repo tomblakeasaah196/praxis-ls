@@ -27,6 +27,33 @@ const KNOWN = {
   "zoho.com": zoho, "zohomail.com": zoho,
 };
 
+/**
+ * The cPanel preset.
+ *
+ * The first tenant runs cPanel, and this programme deliberately does one provider
+ * properly rather than four adequately — so the single most common setup in the
+ * target market gets a one-click answer instead of five fields to guess at.
+ *
+ * cPanel mail is predictable to the point of being boring, which is exactly why
+ * a preset works: `mail.<domain>`, IMAP 993 over SSL, SMTP 465 over SSL, and the
+ * username is the FULL email address, not the local part. That last one is the
+ * single most common reason a cPanel mailbox fails to authenticate, so it is
+ * returned explicitly rather than left for the user to work out from a rejection.
+ */
+function cpanelPreset(email) {
+  const domain = String(email || "").split("@").pop().trim().toLowerCase();
+  if (!domain || !domain.includes(".")) {
+    throw new AppError("VALIDATION_ERROR", "A full email address is needed to work out the cPanel settings.", 422);
+  }
+  return {
+    email, domain, source: "cpanel-preset",
+    imap_host: `mail.${domain}`, imap_port: 993, imap_secure: true,
+    smtp_host: `mail.${domain}`, smtp_port: 465, smtp_secure: true,
+    auth_user: email,
+    note: "cPanel mailboxes authenticate with the full email address as the username, not just the part before the @.",
+  };
+}
+
 /** TLS-connect probe: true if host:port accepts a TLS handshake within `ms`. */
 function probe(host, port, ms = 2500) {
   return new Promise((resolve) => {
@@ -70,4 +97,4 @@ async function autodiscover({ email } = {}) {
   };
 }
 
-module.exports = { autodiscover };
+module.exports = { autodiscover, cpanelPreset };

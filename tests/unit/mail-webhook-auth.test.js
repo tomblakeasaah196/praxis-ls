@@ -63,6 +63,24 @@ jest.mock("sanitize-html", () => {
   return fn;
 });
 
+// PR-0: the sync loop now writes health book-keeping (clear on success, count
+// on failure) and asks the mailbox layer for a send allowance. Mocked here for
+// the same reason mail.repo is — these are hermetic tests with no database.
+jest.mock("../../src/modules/mail/mail/mailbox.repo", () => ({
+  getConnection: jest.fn(async () => ({ email_connection_id: "conn-1", kind: "PERSONAL" })),
+  updateConnection: jest.fn(async () => ({})),
+  clearFailures: jest.fn(async () => ({})),
+  bumpFailure: jest.fn(async () => ({ consecutive_failures: 1, status: "CONNECTED" })),
+  sendCounts: jest.fn(async () => ({ hourly: 0, daily: 0 })),
+  bumpSendWindow: jest.fn(async () => ({ sent_count: 1 })),
+  recordAccessAudit: jest.fn(async () => ({})),
+  listMembers: jest.fn(async () => []),
+  liveMember: jest.fn(async () => null),
+  personalFor: jest.fn(async () => null),
+}));
+jest.mock("../../src/shared/config/settings", () => ({
+  getSetting: jest.fn(async () => ({})),
+}));
 jest.mock("../../src/modules/mail/mail/mail.repo", () => ({
   getConnection: jest.fn(),
   findByAddress: jest.fn(),

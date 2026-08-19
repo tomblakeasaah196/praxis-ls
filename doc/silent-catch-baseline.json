@@ -47,11 +47,11 @@
     },
     {
       "file": "src/modules/mail/mail/autodiscover.js",
-      "line": 34
+      "line": 61
     },
     {
       "file": "src/modules/mail/mail/autodiscover.js",
-      "line": 56
+      "line": 83
     },
     {
       "file": "src/modules/mail/mail/dns-check.js",
@@ -59,19 +59,19 @@
     },
     {
       "file": "src/modules/mail/mail/mail.service.js",
-      "line": 272
+      "line": 348
     },
     {
       "file": "src/modules/mail/mail/mail.service.js",
-      "line": 509
+      "line": 657
     },
     {
       "file": "src/modules/mail/mail/mail.service.js",
-      "line": 529
+      "line": 677
     },
     {
       "file": "src/modules/mail/mail/mail.service.js",
-      "line": 552
+      "line": 700
     },
     {
       "file": "src/modules/mail/mail/providers/gmail.provider.js",
@@ -83,7 +83,7 @@
     },
     {
       "file": "src/modules/mail/mail/providers/imapSmtp.provider.js",
-      "line": 157
+      "line": 163
     },
     {
       "file": "src/modules/mail/mail/providers/imapSmtp.provider.js",
