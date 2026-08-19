@@ -75,6 +75,35 @@ module.exports = {
   send: asyncHandler(async (req, res) => res.status(201).json({ data: await req.identityDb((c) => service.send(c, { ...req.body, actor: actor(req) })) })),
   reply: asyncHandler(async (req, res) => res.status(201).json({ data: await req.identityDb((c) => service.reply(c, { ...req.body, connectionId: req.body.connectionId, inboundId: req.params.id, actor: actor(req) })) })),
 
+  /**
+   * What THIS caller may do with mail, answered by the server.
+   *
+   * The client needs it to decide which Setup sub-tabs to draw. It could guess
+   * from the modules it can read, but read-visibility is not the same right as
+   * edit, and a tab that always 403s teaches people to distrust the ones that
+   * work. So the grant is resolved here, from the same identity cache the route
+   * gate uses, and the UI renders what the answer says.
+   *
+   * The server remains the authority either way — this only decides what is
+   * OFFERED. Every endpoint behind those tabs is still gated on its own.
+   */
+  me: asyncHandler(async (req, res) => {
+    const u = req.user || {};
+    if (u.is_ceo === true) {
+      return res.json({ data: { can_view: true, can_create: true, can_edit: true, can_administer: true, is_ceo: true } });
+    }
+    const identityCache = require("../../../shared/cache/identity-cache");
+    const grants = await req.identityDb((c) => identityCache.getGrants(c, { role_ids: u.role_ids, module: "MOD-72" }));
+    const has = (col) => grants.some((g) => g[col] === true);
+    const canEdit = has("can_update");
+    return res.json({
+      data: {
+        can_view: has("can_read"), can_create: has("can_create"),
+        can_edit: canEdit, can_administer: canEdit, is_ceo: false,
+      },
+    });
+  }),
+
   // ── PR-0: mailbox administration ──
   // Every handler runs on req.identityDb for the same reason the engine does:
   // mail is LIVE-only, and a mailbox configured in TEST mode that the live app

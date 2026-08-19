@@ -97,6 +97,9 @@ router.get("/recipients", requirePermission(M, "view"), c.recipients);
  * MOD-72 decides whether you may touch mail at all, access.js decides which
  * mailboxes. Both apply; the route gate runs first. */
 
+// What the caller may do — drives which Setup sub-tabs the client draws.
+router.get("/me", requirePermission(M, "view"), c.me);
+
 // Mailbox inventory
 router.get("/mailboxes/mine", requirePermission(M, "view"), c.myMailboxes);
 router.get("/mailboxes", requirePermission(M, "view"), c.allMailboxes);
