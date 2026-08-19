@@ -19,12 +19,12 @@ acceptance criteria, tests, rollout, ordered task list.
 - **§2** states what we are building and — just as importantly — what we are **not**, and why.
 - **§3** is cross-cutting: flags, RBAC, provider policy, performance budgets, testing gates,
   migration numbering. Read it once before starting any chapter.
-- **§4–§8** are the five PRs. Work them in the order given in §3.1.
-- **§9** is the index set (migrations, endpoints, flags, env, events) and the v2 backlog.
+- **§5–§9** are the five PRs. Work them in the order given in §3.1.
+- **§10** is the index set (migrations, endpoints, flags, env, events) and the v2 backlog.
 
 Conventions used below: `→` marks a deliverable file. **MUST** / **MUST NOT** are hard rules that a
 reviewer should reject a PR over. Anything marked _(v2)_ is explicitly out of scope for this
-programme and is listed in §9.6.
+programme and is listed in §10.6.
 
 ---
 
@@ -43,7 +43,7 @@ programme and is listed in §9.6.
 | 7   | Search                | **A + B** — Postgres FTS in PR-1, semantic recall in PR-4                                                                                                  | No new infrastructure.                                                                         |
 | 8   | Editor                | **A** — TipTap + a dedicated outbound email-HTML serializer                                                                                                | The serializer is the real deliverable, not the toolbar.                                       |
 | 9   | Attachments           | **B**, hard cap **25 MB**                                                                                                                                  | Offload threshold 10 MB → secure link (PR-5). Vault-first always.                              |
-| 10  | Slash commands        | **B** — declarative registry, seeded with costing, quotation, proforma, invoice, PO + more                                                                 | `mail.commands.js` manifest, permission-filtered. §4.6.4 documents how to add one.             |
+| 10  | Slash commands        | **B** — declarative registry, seeded with costing, quotation, proforma, invoice, PO + more                                                                 | `mail.commands.js` manifest, permission-filtered. §5.6.4 documents how to add one.             |
 | 11  | Drafts / undo-send    | **B**, and **IMAP/SMTP only — no Gmail/Outlook work in this programme**                                                                                    | Server drafts + undo-send + offline queue. No provider draft sync.                             |
 | 12  | Split inbox + VIP     | **B** — deterministic rules, AI only on the residue                                                                                                        | A known party never lands in the System stream. VIP = manual flag **or** threshold.            |
 | 13  | Signature format      | **C** — HTML on every system email, downloadable PNG for Outlook/webmail/Gmail                                                                             | One template, two renderers (HTML + Puppeteer PNG).                                            |
@@ -74,25 +74,43 @@ programme and is listed in §9.6.
 
 |     | Addition                                 | Answer                | Where it lands                                             |
 | --- | ---------------------------------------- | --------------------- | ---------------------------------------------------------- |
-| a   | Undo-send and a send queue               | **Yes**               | PR-1 §4.5.5                                                |
+| a   | Undo-send and a send queue               | **Yes**               | PR-1 §5.5.5                                                |
 | b   | "This thread is bound to nothing" nudge  | **No**                | Not built                                                  |
-| c   | Bounce / delivery-failure (DSN) handling | **Yes**               | PR-5 §8.8                                                  |
-| d   | Per-party preferred language             | **Yes**               | PR-2 §5.4 (one column + resolution helper)                 |
-| e   | `mail-context` performance budget        | **Yes, emphatically** | PR-3 §6.5 — its own aggregator, cache, and a hard p95 gate |
-| f   | Notification dedup + push wired properly | **Yes**               | PR-3 §6.7                                                  |
-| g   | Keyboard-first inbox flow                | **v2**                | §9.6                                                       |
+| c   | Bounce / delivery-failure (DSN) handling | **Yes**               | PR-5 §9.8                                                  |
+| d   | Per-party preferred language             | **Yes**               | PR-2 §6.4 (one column + resolution helper)                 |
+| e   | `mail-context` performance budget        | **Yes, emphatically** | PR-3 §7.5 — its own aggregator, cache, and a hard p95 gate |
+| f   | Notification dedup + push wired properly | **Yes**               | PR-3 §7.7                                                  |
+| g   | Keyboard-first inbox flow                | **v2**                | §10.6                                                      |
 | h   | Mail-specific CI tests                   | **Yes**               | §3.7 and every chapter's test plan                         |
 
-### 1.3 Unasked questions resolved by judgment
+### 1.3 PR-0 decisions (a later round, all built)
+
+A tenth-question round settled the foundation the 35 above assumed. Full detail in §4.2; the ones
+that change what the later chapters may take for granted:
+
+| #   | Decision                                                                                                                                                                                |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | One personal mailbox per user, enforced by a unique index, with a deliberate handover action.                                                                                           |
+| P2  | Seven seeded shared mailboxes, not twelve — documents, customs, fleet and warehouse fold into Operations; careers folds into HR; accounts folds into Procurement; Claims is not seeded. |
+| P3  | Access is VIEWER / AGENT / MANAGER, not one membership flag.                                                                                                                            |
+| P4  | Gmail and Microsoft are kept and tested but gated off — server-side, not only in the UI.                                                                                                |
+| P5  | Send-point routing carries **per-corporate-entity** overrides.                                                                                                                          |
+| P6  | Origin tagging by `X-Praxis-*` header plus our own Message-ID; historical mail is `UNKNOWN`, never guessed.                                                                             |
+| P7  | Every configuration surface lives **in Comms**, in sub-tabs. Nothing moved to Settings.                                                                                                 |
+| P8  | Two setup flows from one engine, with a cPanel preset.                                                                                                                                  |
+| P9  | Per-mailbox send throttles with spillover, 90-day default sync depth, visible health.                                                                                                   |
+| P10 | No requirements register — the final audit is read by a human.                                                                                                                          |
+
+### 1.4 Unasked questions resolved by judgment
 
 Three capabilities from the original brief did not get their own question. Decided here, and flagged
 so nobody thinks they were forgotten:
 
-1. **Follow-up boomerang / snooze-and-return — BUILT** (PR-5 §8.5). BullMQ delayed jobs, auto-cancelled
+1. **Follow-up boomerang / snooze-and-return — BUILT** (PR-5 §9.5). BullMQ delayed jobs, auto-cancelled
    when the client replies. No consent or provider issues; high value; reuses the send-queue machinery.
-2. **Scheduled send — BUILT** (PR-5 §8.5). Same machinery as undo-send, so it is nearly free once the
+2. **Scheduled send — BUILT** (PR-5 §9.5). Same machinery as undo-send, so it is nearly free once the
    send queue exists.
-3. **Client-timezone delivery — PARTIALLY BUILT** (PR-5 §8.5). "Send at 09:00 in the recipient's local
+3. **Client-timezone delivery — PARTIALLY BUILT** (PR-5 §9.5). "Send at 09:00 in the recipient's local
    time" is built, driven by a `timezone` column on the party. **"Peak open-rate hours" is not built**
    and cannot be: Q32 removed open tracking, so the data it would need does not exist. This is stated
    in the UI rather than faked.
@@ -104,6 +122,12 @@ so nobody thinks they were forgotten:
 ### 2.1 What we are building
 
 Twenty-four capabilities, across five PRs, all behind `mail.*` flags:
+
+**PR-0 — Foundation** _(delivered)_. Mailbox kind, one personal mailbox per person enforced in the
+database, the seven-slot shared-mailbox catalogue, VIEWER/AGENT/MANAGER grants with an audit trail,
+the send-point registry with per-corporate-entity routing that explains itself, origin tagging and
+the external-send echo, per-mailbox send throttles and health, the SMTP-only lockdown, and the
+Comms → Setup surface. See §4.
 
 **PR-1 — Mail Core & Master Composer.** Thread/message model · six canonical folders with real IMAP
 multi-folder sync · full-text search with filters · bulk actions · thread grouping · split inbox
@@ -148,10 +172,10 @@ Each of these was a live idea in the brief and is out of scope by decision, not 
 | Auto-routing by intent; auto-forwarding to departments or external addresses | Q31 = A      | Auto-forwarding is how confidential correspondence leaves a company by accident. Manual claim + SLA delivers the operational outcome.                               |
 | Inline "as-you-type" autocomplete                                            | Q25 = A      | Cost per keystroke; on-demand generation delivers most of the value. Revisit with usage data.                                                                       |
 | Auto-send of any AI-generated mail                                           | Q24 = A      | No undo exists for a wrong email to a customs broker.                                                                                                               |
-| Any AI write to a business table without human review                        | Q28          | Explicit instruction; also the standing rule in `BUILD_CONVENTIONS.md` §4.                                                                                          |
+| Any AI write to a business table without human review                        | Q28          | Explicit instruction; also the standing rule in `BUILD_CONVENTIONS.md` §5.                                                                                          |
 | Posting OCR output to the ledger                                             | Q28          | Nothing from OCR reaches the GL in this programme.                                                                                                                  |
 | Gmail / Microsoft 365 feature work                                           | Q4 = A, Q11  | Existing adapters keep working untouched; no new provider-specific paths.                                                                                           |
-| Peak-open-hour send optimisation                                             | §1.3         | The data source was removed with telemetry.                                                                                                                         |
+| Peak-open-hour send optimisation                                             | §1.4         | The data source was removed with telemetry.                                                                                                                         |
 | PIN-protected links                                                          | Q33 = A      | Expiry + revocation only; PIN is a v2 extension point already shaped for.                                                                                           |
 | Provider-side draft sync                                                     | Q11          | IMAP-only programme.                                                                                                                                                |
 | Unbound-thread nudge                                                         | Addition (b) | Declined.                                                                                                                                                           |
@@ -164,6 +188,8 @@ Each of these was a live idea in the brief and is out of scope by decision, not 
 ### 3.1 Sequencing and merge order
 
 ```
+PR-0  Foundation (DELIVERED)                 ── mailbox identity, access, routing, origin tagging
+        │
 PR-1  Mail Core & Master Composer            ── must merge to main before anything else starts
         │
         ├── PR-2  Identity, Signatures & Deliverability   ┐  parallel, near-zero file overlap
@@ -182,7 +208,7 @@ PR-1  Mail Core & Master Composer            ── must merge to main before an
 | `client/src/features/comms/mail/thread-view.tsx` | —                       | dossier drawer, notes tab | summary strip | verdict banner                |
 
 Rule: each PR adds its own component into a declared slot rather than editing the other's markup.
-The composer and thread view expose named slots in PR-1 for exactly this reason (§4.6.6).
+The composer and thread view expose named slots in PR-1 for exactly this reason (§5.6.6).
 
 ### 3.2 ⚠ The module-loader landmine — read before writing a single file
 
@@ -198,7 +224,12 @@ it, and `providers/` does not count because there is no `providers/providers.rou
 `src/modules/mail/mail.routes.js` is silently ignored — the entire mailbox API 404s with no error at
 boot.** This is the single most likely way to lose a day on this programme.
 
-**Therefore PR-1 Task 0 is a mechanical restructure**, done first, alone, in its own commit:
+**PR-0 has already done this**, as its own commit, verified contract-neutral before any sub-module
+was added. It is kept here because the RULE still applies to every later chapter: anything adding a
+directory under `src/modules/mail/` must give it a matching `<name>.routes.js`, and nothing may put a
+loose `*.routes.js` back at the group root.
+
+The move that was performed:
 
 ```
 src/modules/mail/                       src/modules/mail/                  ← now a GROUP
@@ -289,7 +320,7 @@ Mail is **MOD-72**. Team chat is **MOD-64**. They are separate rights and must s
 
 **MUST:** a slash command, an action card and an AI read each execute the target module's own service
 with the caller's connection and the caller's RBAC. There is no mail-side bypass. (`AI_ARCHITECTURE`
-§1, `BUILD_CONVENTIONS` §4.)
+§1, `BUILD_CONVENTIONS` §5.)
 
 ### 3.5 Provider policy — IMAP-first (Q4, Q11)
 
@@ -335,7 +366,7 @@ Rules:
 
 The `mail-context` endpoint is the one users feel on every single click. It **MUST NOT** call
 `party-360.service.js` — that service computes far more than the drawer shows. It gets its own
-aggregator with its own SQL (§6.5).
+aggregator with its own SQL (§7.5).
 
 ### 3.7 Testing and CI gates
 
@@ -369,13 +400,14 @@ programme. It **MUST** be lazy-loaded with the composer (`React.lazy`), never in
 Forward-only, idempotent (`IF NOT EXISTS` / guarded `DO $$`), numbered above the current maximum
 (`10720`). Reserved ranges, so parallel PRs never collide:
 
-| PR   | Range           |
-| ---- | --------------- |
-| PR-1 | `10721`–`10729` |
-| PR-2 | `10730`–`10734` |
-| PR-3 | `10735`–`10739` |
-| PR-4 | `10740`–`10744` |
-| PR-5 | `10745`–`10754` |
+| PR   | Range                                   |
+| ---- | --------------------------------------- |
+| PR-0 | `10721`–`10730` (used: `10721`–`10728`) |
+| PR-1 | `10731`–`10739`                         |
+| PR-2 | `10740`–`10744`                         |
+| PR-3 | `10745`–`10749`                         |
+| PR-4 | `10750`–`10754`                         |
+| PR-5 | `10755`–`10764`                         |
 
 Every migration ends with a commented-out rollback block, as the existing files do.
 
@@ -391,7 +423,103 @@ axes, and they must not be conflated:
 
 ---
 
-## 4. PR-1 — Mail Core & the Master Composer
+## 4. PR-0 — Foundation: mailbox identity, access and routing · **DELIVERED**
+
+> **Goal.** Establish what a mailbox IS before anything is built on it: whose it is, which team
+> address it fulfils, who may work it, which part of the product sends from it, how hard it may be
+> pushed, and whether a message in the Sent folder was sent from here or from somebody's phone.
+
+**Status:** built, tested and merged. This chapter records what shipped, because PR-1 through PR-5
+are written against it. **Flags:** all fourteen `mail.*` keys, seeded off.
+**Migrations:** `10721`–`10728`. **Depends on:** nothing.
+
+### 4.1 Why PR-0 exists
+
+The original plan started at PR-1 and assumed a mailbox model rather than establishing one. Three
+things made that untenable:
+
+1. **`email_connection` had no notion of what a mailbox is for.** It carried an owner and a "default"
+   flag, so one person could own any number of mailboxes and nothing said whether an address was a
+   person's or a team's. Every later chapter — shared inboxes, visibility, delegation, routing —
+   needed that distinction, and retrofitting it after PR-1's thread/message rework would have meant
+   two migrations over the same rows.
+2. **Origin tagging cannot be added late.** Whether a message was sent from Praxis is stamped into
+   the message at send time or it is never known. Every week that waited was a week of mail that
+   could only ever be `UNKNOWN`.
+3. **The module-loader landmine** (§3.2) had to be cleared before any sub-module could be added.
+
+### 4.2 The ten decisions
+
+| #   | Question                      | Decision                                                                                                                                                                                                                               |
+| --- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | One personal mailbox per user | Database constraint plus a UI handover action. Offboarding archives; converting a personal mailbox to shared is deliberate, never automatic.                                                                                           |
+| 2   | The shared-mailbox catalogue  | **Seven** seeded slots: Operations (with documents, customs, fleet and warehouse folded in), Billing, Sales, Support, Procurement & Accounts, Human Resources (with careers), General Enquiries. Free-form entries allowed. No Claims. |
+| 3   | Access model                  | VIEWER / AGENT / MANAGER, granted through the employee picker, audited, auto-revoked on deactivation.                                                                                                                                  |
+| 4   | Gmail and Microsoft           | Kept, tested, and gated off behind `mail.provider.oauth`. Hidden in the UI **and** refused server-side.                                                                                                                                |
+| 5   | Send-point routing            | A full registry with **per-corporate-entity overrides**, and a resolution that explains itself.                                                                                                                                        |
+| 6   | Origin tagging                | `X-Praxis-*` headers plus our own Message-ID; `PRAXIS` / `EXTERNAL` / `UNKNOWN`.                                                                                                                                                       |
+| 7   | Where the setup lives         | **All of it in Comms**, in sub-tabs. Nothing moved to Settings.                                                                                                                                                                        |
+| 8   | Setup experience              | Two flows from one engine, with a cPanel preset.                                                                                                                                                                                       |
+| 9   | Limits                        | Per-mailbox hourly and daily send caps with spillover, 90-day default sync depth, visible health.                                                                                                                                      |
+| 10  | Requirements register         | Not built — the audit is read by a human.                                                                                                                                                                                              |
+
+### 4.3 What shipped
+
+**Schema (`10721`–`10728`).** Connection `kind` (PERSONAL / SHARED / DELEGATED), `visibility`,
+`entity_id`, `catalogue_key`, `department`, ARCHIVED status and health counters, with
+`ux_email_connection_one_personal` as the actual rule. The seven-entry catalogue. Membership with
+roles, revocation-as-a-row, and an access audit table. The send-point registry: 22 declared send
+points, 9 of them wired to real callers today, bindable per entity, with the existing
+`email_section_binding` rows carried across so no routing changed. Origin columns on `email_inbound`.
+Throttle columns and the hourly counter table. Eight event types. The `mail` settings section and all
+fourteen flags.
+
+**Backend.** Three pure modules — `origin.js`, `limits.js` and the health rollup — plus `access.js`
+(the predicates the engine calls before it sends, in their own file so mail.service and
+mailbox.service cannot form a require cycle), `mailbox.service.js` (lifecycle) and
+`sendpoint.service.js` (routing that returns a sentence explaining itself). 19 endpoints under
+`/mail`, all MOD-72.
+
+**Engine changes.** `connect()` enforces the one-personal rule and the provider lockdown.
+`send()`/`reply()` check access, then the rate limit, then stamp the origin headers; sending as a
+shared mailbox writes a `SENT_AS` row naming the human. `syncConnection()` reads direction off the
+message rather than assuming inbound, so a Sent-folder copy is classified by its stamp — this is the
+echo. `email.service.resolveMail` gained send-point resolution as the most specific tier, above the
+existing section and purpose tiers and below nothing, so it can re-route nothing that already worked.
+
+**Frontend.** Comms → Setup with four sub-tabs, gated by a server-computed capability rather than by
+guessing from readable modules.
+
+### 4.4 What PR-1 through PR-5 must now assume
+
+- **A mailbox has a kind.** Do not add one. `PERSONAL` mailboxes have no members; the owner is the
+  access. Shared and delegated ones go through `access.js`.
+- **Binding suggestions in PR-3 write to a new table, not to `entity_ref` on ingest.** PR-0 left
+  `mail.service.autoLink` as it was; PR-3 replaces it (§7.2).
+- **PR-1's thread/message backfill MUST carry the four origin columns across.** Losing
+  `origin_user_id` would make every shared-mailbox send anonymous retroactively.
+- **PR-1's send queue must call `mailbox.checkSendAllowance` before it flushes,** or the throttle is
+  bypassed by the very path that most needs it — a bulk run.
+- **PR-5's visibility work extends a column that already exists.** `email_connection.visibility` is
+  on the row with the right defaults; PR-5 adds the thread-level column, the predicate and
+  break-glass, not the concept.
+- **PR-2's signature engine resolves the sender through the send-point registry,** not through
+  `email_identity` directly.
+
+### 4.5 Verification performed
+
+Against PostgreSQL 16: the platform database migrated, a tenant provisioned from nothing, and all
+sixteen files (live + sandbox) force-re-applied against the already-populated database with no error
+and no duplicated seed rows. A scripted end-to-end pass proved the database refuses a second personal
+mailbox and the service refuses it first with a sentence; a VIEWER may read and may not send; a
+personal mailbox cannot be granted to anyone; an entity binding beats a tenant binding without
+disturbing it; the hourly cap holds a send and reports when it resumes; handover converts and
+re-grants; offboarding revokes. 3904 backend tests and 1529 client tests pass, and every static gate
+is green.
+
+---
+
+## 5. PR-1 — Mail Core & the Master Composer
 
 > **Goal.** Turn `/comms/mail` from a message list into a mail client an operator would choose over
 > Outlook: real threads, six folders, search, bulk actions, a split inbox, shared mailboxes, and a
@@ -399,9 +527,9 @@ axes, and they must not be conflated:
 > undo-send and an offline queue so nothing is ever lost.
 
 **Flags:** `mail.core`, `mail.composer`, `mail.shared_inbox` (surface only), `mail.provider.oauth` (off).
-**Migrations:** `10721`–`10729`. **Depends on:** nothing. **Blocks:** everything else.
+**Migrations:** `10731`–`10738`. **Depends on:** nothing. **Blocks:** everything else.
 
-### 4.1 Scope
+### 5.1 Scope
 
 **In.** Task 0 restructure · thread/message model with backfill · six canonical folders + multi-folder
 IMAP sync · per-user message state · labels/stars · Postgres FTS search with filters · bulk actions ·
@@ -412,9 +540,9 @@ undo-send · offline send queue · composer and thread-view extension slots.
 **Out.** Signatures (PR-2) · binding UI and the dossier drawer (PR-3) · any AI (PR-4) · assignment,
 SLA, scheduling, secure links (PR-5) · provider draft sync · Gmail/Graph feature work.
 
-### 4.2 Migrations
+### 5.2 Migrations
 
-#### `10721_mail_thread_message.sql` — the model cut-over
+#### `10731_mail_thread_message.sql` — the model cut-over
 
 Creates the new spine and backfills from `email_inbound`, which becomes a compatibility **view** so
 `mail.ai.js`, `clientTimeline`, the 360 pages and any external reader keep working unchanged.
@@ -517,7 +645,7 @@ carried across in the backfill), and the FK re-targeted.
 > **MUST:** run `npm run db:check:columns` after this migration. It is the gate that catches any
 > query still selecting a column the view does not expose.
 
-#### `10722_mail_folders_labels.sql`
+#### `10732_mail_folders_labels.sql`
 
 Per-connection folder map (canonical → provider path + per-folder UIDVALIDITY cursor), user labels,
 and the message↔label join.
@@ -552,7 +680,7 @@ CREATE TABLE IF NOT EXISTS email_thread_label (
 > across six folders means a reset on Spam triggers a full re-scan of Inbox. This is the correctness
 > heart of multi-folder sync.
 
-#### `10723_mail_search.sql`
+#### `10733_mail_search.sql`
 
 ```sql
 ALTER TABLE email_message ADD COLUMN IF NOT EXISTS search_tsv tsvector;
@@ -565,12 +693,12 @@ Trigger builds `setweight(to_tsvector('simple', subject),'A') || setweight(from/
 setweight(body_text,'C')`. Dictionary is `'simple'`, not `'english'` — the corpus is bilingual and
 stemming French with an English dictionary is worse than not stemming.
 
-#### `10724_mail_outbound_attachment.sql`
+#### `10734_mail_outbound_attachment.sql`
 
 Generalises `email_attachment` to both directions, adds inline/`cid:` support and content-disposition,
 and adds a composed-attachment staging table used before a draft is sent.
 
-#### `10725_mail_draft_and_queue.sql`
+#### `10735_mail_draft_and_queue.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS email_draft (
@@ -607,26 +735,22 @@ CREATE INDEX IF NOT EXISTS ix_email_send_queue_due
   ON email_send_queue(release_at) WHERE status IN ('HELD','QUEUED');
 ```
 
-#### `10726_mail_connection_kind.sql`
+#### ~~Connection kind and membership~~ — **delivered by PR-0**
 
-```sql
-ALTER TABLE email_connection ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'PERSONAL'
-  CHECK (kind IN ('PERSONAL','SHARED','DELEGATED'));
-ALTER TABLE email_connection ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'PRIVATE'
-  CHECK (visibility IN ('PRIVATE','TEAM','COMPANY'));   -- enforced in PR-5, declared now
-CREATE TABLE IF NOT EXISTS email_connection_member (
-  email_connection_id uuid NOT NULL REFERENCES email_connection(email_connection_id) ON DELETE CASCADE,
-  user_id             uuid NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
-  member_role         text NOT NULL DEFAULT 'MEMBER' CHECK (member_role IN ('OWNER','MEMBER','VIEWER')),
-  added_at            timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (email_connection_id, user_id)
-);
-```
+This was to be PR-1's migration. **PR-0 shipped it** as `10721` (kind, visibility, owning entity,
+ARCHIVED status, and the one-live-personal-mailbox unique index) plus `10723` (membership with
+VIEWER / AGENT / MANAGER and an access audit trail). Two differences from the sketch that was
+planned here, both deliberate:
 
-All three kinds are declared now (Q6) so PR-5 adds delegation behaviour, not a migration.
-`visibility` defaults: `PERSONAL → PRIVATE`, `SHARED → TEAM` (Q34).
+- the member roles are **VIEWER / AGENT / MANAGER**, not OWNER / MEMBER / VIEWER, because reading a
+  team's mail and sending as it are different rights and "member" collapsed them;
+- revocation is a `revoked_at` column rather than a `DELETE`, so "who could see billing@ in March"
+  stays answerable — which PR-5's compliance work needs.
 
-#### `10727_mail_stream_rules.sql`
+PR-1 therefore adds no migration here. `visibility` is already on the row and defaults
+`PERSONAL → PRIVATE`, `SHARED → TEAM`; PR-5 adds the enforcement (§9.5), not the column.
+
+#### `10736_mail_stream_rules.sql`
 
 Tenant-editable classification rules for the split inbox, plus the VIP source.
 
@@ -650,18 +774,18 @@ presence of `List-Unsubscribe`, `X-Auto-Response-Suppress`, `Content-Type: multi
 `Return-Path: <>`, and the address patterns `no-?reply@`, `mailer-daemon@`, `postmaster@`,
 `bounce*@`, `cron@`, `root@`.
 
-#### `10728_mail_events.sql`
+#### `10737_mail_events.sql`
 
 New `event_type` rows: `email.thread.created`, `email.message.moved`, `email.send.queued`,
 `email.send.cancelled`, `email.send.failed`, `email.attachment.stored`.
 
-#### `10729_mail_feature_flags.sql`
+#### ~~Feature flags~~ — **delivered by PR-0**
 
-Seeds every `mail.*` key into `feature_state` with `state='off'`, and registers them in the platform
-module catalogue so the Console can project them. A companion platform seed sets the `smartls`
-tenant's rows to `on` (Q5).
+All fourteen `mail.*` keys are seeded off by PR-0's `10728`, along with the `mail` settings section
+that holds the tenant-wide defaults. PR-1 turns `mail.core` and `mail.composer` on for the pilot
+tenant from the Platform Console; it does not add a migration.
 
-### 4.3 Backend layout
+### 5.3 Backend layout
 
 ```
 src/modules/mail/                     ← now a GROUP (see §3.2)
@@ -677,7 +801,7 @@ src/modules/mail/                     ← now a GROUP (see §3.2)
     mail.threading.js     NEW — pure: message headers → thread_key + participants
     mail.stream.js        NEW — pure: headers + party lookup → HUMAN | SYSTEM + reason
     mail.search.js        NEW — query parsing (from:, has:attachment, folder:, before:) → SQL
-    mail.commands.js      NEW — the slash-command manifest (§4.6.4)
+    mail.commands.js      NEW — the slash-command manifest (§5.6.4)
     mail.compose.js       NEW — TipTap JSON → email HTML + text serializer (server-side truth)
     autodiscover.js  dns-check.js  smtp-error.map.js  providers/
 src/jobs/handlers/
@@ -688,44 +812,44 @@ src/jobs/handlers/
 
 **Why `mail.threading.js`, `mail.stream.js` and `mail.compose.js` are pure modules.** They are the
 three places where a subtle bug is expensive and a unit test is cheap. Keeping them free of I/O means
-the tests in §4.9 run in milliseconds and cover the real logic rather than a mock of it — the same
+the tests in §5.9 run in milliseconds and cover the real logic rather than a mock of it — the same
 reasoning `entity-letterhead.service.js` documents for itself.
 
-### 4.4 Endpoints
+### 5.4 Endpoints
 
 All under `/api/tenant/mail`, all behind `authMiddleware` + `requirePermission("MOD-72", …)` +
 `requireFeature("mail.core"|"mail.composer")`.
 
-| Method | Path                                                | Action        | Purpose                                                                                                                                        |
+| Method | Path | Action | Purpose |
 | ------ | --------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---- | ---- | ----- | -------- |
-| GET    | `/folders?connection_id=`                           | view          | Canonical + user folders with unread counts                                                                                                    |
-| POST   | `/folders/refresh`                                  | edit          | Re-discover the provider's folder list                                                                                                         |
-| GET    | `/threads`                                          | view          | Paged thread list. Filters: `connection_id`, `folder`, `stream`, `label`, `starred`, `unread`, `has_attachment`, `vip`, `q`, `before`, `limit` |
-| GET    | `/threads/:id`                                      | view          | Thread with all messages, attachments, participants                                                                                            |
-| POST   | `/threads/:id/read`                                 | edit          | Mark thread read/unread for the caller                                                                                                         |
-| POST   | `/threads/:id/star`                                 | edit          | Star/unstar for the caller                                                                                                                     |
-| POST   | `/threads/:id/move`                                 | edit          | Move to a canonical folder (server + local)                                                                                                    |
-| POST   | `/threads/bulk`                                     | edit / delete | `{ids[], op: read                                                                                                                              | unread | star | move | label | delete}` |
-| GET    | `/search?q=`                                        | view          | FTS with the same filters as `/threads`                                                                                                        |
-| GET    | `/labels` · POST · PATCH · DELETE `/labels/:id`     | view / edit   | Personal labels                                                                                                                                |
-| GET    | `/drafts` · GET `/drafts/:id`                       | view          | The caller's drafts                                                                                                                            |
-| PUT    | `/drafts/:id`                                       | create        | Autosave (idempotent upsert)                                                                                                                   |
-| DELETE | `/drafts/:id`                                       | edit          | Discard                                                                                                                                        |
-| POST   | `/send`                                             | create        | Compose → queue. Returns `{queue_id, release_at}`                                                                                              |
-| POST   | `/send/:queueId/cancel`                             | create        | Undo-send within the window                                                                                                                    |
-| GET    | `/send/pending`                                     | view          | The caller's held/queued messages                                                                                                              |
-| POST   | `/threads/:id/reply` · `/reply-all` · `/forward`    | create        | Same queue path                                                                                                                                |
-| POST   | `/attachments`                                      | create        | Upload → vault → returns an attachment id for a draft                                                                                          |
-| GET    | `/attachments/:id/download`                         | view          | Auth-gated bytes                                                                                                                               |
-| POST   | `/attachments/from-vault`                           | create        | Attach an existing vault document by id                                                                                                        |
-| GET    | `/commands`                                         | view          | Slash commands **visible to this caller** after RBAC filtering                                                                                 |
-| POST   | `/commands/:key/resolve`                            | view          | Runs the command's resolver, returns the block to insert                                                                                       |
-| GET    | `/connections/:id/members` · POST · DELETE          | view / edit   | Shared-mailbox membership                                                                                                                      |
-| GET    | `/stream-rules` · POST · DELETE `/stream-rules/:id` | view / edit   | Split-inbox rules                                                                                                                              |
+| GET | `/folders?connection_id=` | view | Canonical + user folders with unread counts |
+| POST | `/folders/refresh` | edit | Re-discover the provider's folder list |
+| GET | `/threads` | view | Paged thread list. Filters: `connection_id`, `folder`, `stream`, `label`, `starred`, `unread`, `has_attachment`, `vip`, `q`, `before`, `limit` |
+| GET | `/threads/:id` | view | Thread with all messages, attachments, participants |
+| POST | `/threads/:id/read` | edit | Mark thread read/unread for the caller |
+| POST | `/threads/:id/star` | edit | Star/unstar for the caller |
+| POST | `/threads/:id/move` | edit | Move to a canonical folder (server + local) |
+| POST | `/threads/bulk` | edit / delete | `{ids[], op: read                                                                                                                              | unread | star | move | label | delete}` |
+| GET | `/search?q=` | view | FTS with the same filters as `/threads` |
+| GET | `/labels` · POST · PATCH · DELETE `/labels/:id` | view / edit | Personal labels |
+| GET | `/drafts` · GET `/drafts/:id` | view | The caller's drafts |
+| PUT | `/drafts/:id` | create | Autosave (idempotent upsert) |
+| DELETE | `/drafts/:id` | edit | Discard |
+| POST | `/send` | create | Compose → queue. Returns `{queue_id, release_at}` |
+| POST | `/send/:queueId/cancel` | create | Undo-send within the window |
+| GET | `/send/pending` | view | The caller's held/queued messages |
+| POST | `/threads/:id/reply` · `/reply-all` · `/forward` | create | Same queue path |
+| POST | `/attachments` | create | Upload → vault → returns an attachment id for a draft |
+| GET | `/attachments/:id/download` | view | Auth-gated bytes |
+| POST | `/attachments/from-vault` | create | Attach an existing vault document by id |
+| GET | `/commands` | view | Slash commands **visible to this caller** after RBAC filtering |
+| POST | `/commands/:key/resolve` | view | Runs the command's resolver, returns the block to insert |
+| GET | `/connections/:id/members` · POST · DELETE | view / edit | Shared-mailbox membership |
+| GET | `/stream-rules` · POST · DELETE `/stream-rules/:id` | view / edit | Split-inbox rules |
 
-### 4.5 Backend behaviour
+### 5.5 Backend behaviour
 
-#### 4.5.1 Multi-folder sync (closes G-5)
+#### 5.5.1 Multi-folder sync (closes G-5)
 
 `mail-sync` per connection:
 
@@ -746,14 +870,14 @@ All under `/api/tenant/mail`, all behind `authMiddleware` + `requirePermission("
 Folder budget: cap at 25 syncable folders per connection, newest-first, to stop a mailbox with 400
 archive folders from starving the queue.
 
-#### 4.5.2 Threading (`mail.threading.js`)
+#### 5.5.2 Threading (`mail.threading.js`)
 
 `threadKeyFor({messageIdHeader, inReplyTo, references, subject, provider, providerThreadId})`:
 provider thread id when `capabilities().serverThreads`; else `references[0]`; else `inReplyTo`; else
 `messageIdHeader`. Subject-based grouping is **not** used as a primary key (it merges unrelated
 `Re: Invoice` threads) — only as a tiebreak within one connection and one participant set.
 
-#### 4.5.3 Split inbox (`mail.stream.js`)
+#### 5.5.3 Split inbox (`mail.stream.js`)
 
 ```
 classify(message, { knownParties }) → { stream, reason, rule_id? }
@@ -771,18 +895,18 @@ The residue — nothing matched and the sender is unknown — is where PR-4 may 
 PR-1 it defaults to `HUMAN` and the reason is `default`. Every classification stores its `reason`, so
 "why is this in System?" is answerable from the row.
 
-#### 4.5.4 Search (`mail.search.js`)
+#### 5.5.4 Search (`mail.search.js`)
 
 Parses a Gmail-ish mini-language into structured filters plus a free-text remainder:
 `from:`, `to:`, `subject:`, `has:attachment`, `is:unread`, `is:starred`, `folder:`, `label:`,
 `before:`, `after:`, `client:`. The remainder becomes `plainto_tsquery('simple', …)` against
 `search_tsv`. Results are always filtered by the caller's accessible connections.
 
-#### 4.5.5 Send queue, undo-send and offline (addition a)
+#### 5.5.5 Send queue, undo-send and offline (addition a)
 
 `POST /mail/send` **never** talks to SMTP inline. It:
 
-1. Validates, serializes the body (§4.6.2), resolves attachments.
+1. Validates, serializes the body (§5.6.2), resolves attachments.
 2. Writes `email_send_queue` with `status='HELD'`, `release_at = now() + undo_window`.
 3. Returns `{queue_id, release_at}`. The UI shows _"Sending in 20s — Undo"_.
 
@@ -800,7 +924,7 @@ the database, not by a timer.
 
 Undo window default **20 s**, user-configurable (off / 10 / 20 / 30) via `preference`.
 
-#### 4.5.6 Attachments
+#### 5.5.6 Attachments
 
 - Upload → sniffed (`document_vault.sniffContentType`) → stored in the vault with
   `entityRef = 'email_draft:<id>'`, then re-pointed to `email_message:<id>` on send.
@@ -812,7 +936,7 @@ Undo window default **20 s**, user-configurable (off / 10 / 20 / 30) via `prefer
 - `POST /attachments/from-vault` is the **internal document picker**: pick by document type
   (`dictionary_ref` kind `DOCUMENT_TYPE`), client, or dossier; the file is referenced, never re-uploaded.
 
-### 4.6 Frontend
+### 5.6 Frontend
 
 ```
 client/src/features/comms/mail/
@@ -834,7 +958,7 @@ client/src/features/comms/mail/
   mailboxes.tsx              existing Mailboxes tab + shared-mailbox members UI
 ```
 
-#### 4.6.1 The editor
+#### 5.6.1 The editor
 
 TipTap with `StarterKit`, `Underline`, `Link`, `Image`, `Table`, `TextStyle`, `Color`, `Highlight`,
 `FontFamily`, `TextAlign`, `Placeholder`, `CharacterCount`, plus two custom nodes:
@@ -846,7 +970,7 @@ Verdana, Tahoma, Trebuchet, Courier New — with a note in the UI. The codebase 
 the hard way: see the comment in `notification.service.js` about Outlook stripping `@font-face`.
 Offering Montserrat here would render as Times New Roman at the recipient and nobody would know why.
 
-#### 4.6.2 The serializer — the actual deliverable
+#### 5.6.2 The serializer — the actual deliverable
 
 `mail.compose.js` (server, authoritative) converts TipTap JSON → email HTML:
 
@@ -866,14 +990,14 @@ Offering Montserrat here would render as Times New Roman at the recipient and no
 The client's `serializer.ts` is for live preview only. **The server's output is what is sent**, so a
 client-side bug can never produce mail nobody reviewed.
 
-#### 4.6.3 Reading pane
+#### 5.6.3 Reading pane
 
 Threads render newest-last with collapsed quoted history (detected by `>` prefixes, `<blockquote>`,
 and the `On … wrote:` / `Le … a écrit :` patterns — both languages). Remote images are **blocked by
 default** with a per-sender "always show" that is stored per user. Blocking remote images is also the
 only privacy control we have left after Q32 removed telemetry — it stops _other people's_ pixels too.
 
-#### 4.6.4 Slash commands — and how to add one later (Q10)
+#### 5.6.4 Slash commands — and how to add one later (Q10)
 
 `src/modules/mail/mail/mail.commands.js`:
 
@@ -920,7 +1044,7 @@ picker you asked for), `bank` (payment details, masked by the existing `confiden
 **Snippets** get a tiny admin screen under Settings → Company → Mail snippets: label, body, language,
 optional department scope. No data access, so no permission beyond being signed in.
 
-#### 4.6.5 Shared mailbox UX (Q6 — "best UI/UX possible")
+#### 5.6.5 Shared mailbox UX (Q6 — "best UI/UX possible")
 
 - The folder rail groups mailboxes: _Mine_ then _Shared_, each collapsible, each with its own unread
   badge; a single "All mail" pseudo-folder merges them.
@@ -930,7 +1054,7 @@ optional department scope. No data access, so no permission beyond being signed 
 - Read state is per user and the UI says so on hover — _"Read by you · Unread for 2 others"_ — because
   the single most confusing thing about shared inboxes is not knowing whether a colleague has seen it.
 
-#### 4.6.6 Extension slots (the merge-conflict prophylactic)
+#### 5.6.6 Extension slots (the merge-conflict prophylactic)
 
 `thread-view.tsx` and `composer.tsx` each export a slot registry:
 
@@ -949,14 +1073,14 @@ export type MailSlot =
 **MUST:** PR-2 through PR-5 add UI by registering into a slot. Editing another PR's JSX is what makes
 parallel work fail.
 
-### 4.7 Contracts
+### 5.7 Contracts
 
 Shared Zod schemas go in `packages/shared/src/mail/` so client and server agree:
 `ThreadSummary`, `ThreadDetail`, `MessageDetail`, `Attachment`, `DraftPayload`, `SendPayload`,
 `QueueEntry`, `FolderSummary`, `CommandDescriptor`, `SearchQuery`. The client's `mail-api.ts` is
 regenerated against them; `npm run check:schemas --prefix client` is the existing gate.
 
-### 4.8 Acceptance criteria
+### 5.8 Acceptance criteria
 
 1. Connecting a cPanel IMAP mailbox discovers and syncs Inbox, Sent, Drafts, Spam, Archive and Trash;
    each folder keeps its own UIDVALIDITY cursor, and a reset on one re-scans only that one.
@@ -983,7 +1107,7 @@ regenerated against them; `npm run check:schemas --prefix client` is the existin
     pages are unchanged and untouched.
 14. `npm run ci` green, including `db:check:idempotency`, `db:check:columns` and `check:bundle`.
 
-### 4.9 Tests
+### 5.9 Tests
 
 `tests/unit/`: `mail-threading.test.js` · `mail-stream.test.js` · `mail-search-parse.test.js` ·
 `mail-html-serializer.test.js` · `mail-capabilities.test.js` · `mail-folder-sync.test.js` ·
@@ -993,7 +1117,7 @@ regenerated against them; `npm run check:schemas --prefix client` is the existin
 `client/src/features/comms/mail/*.test.tsx`: composer serialization, slash menu, bulk selection,
 folder rail; plus the existing `screens.axe.test.tsx` a11y sweep must cover the new screens.
 
-### 4.10 Rollout
+### 5.10 Rollout
 
 1. Merge Task 0 (restructure) alone; confirm green.
 2. Ship migrations; run `db:migrate:tenants`; verify the `email_inbound` view with `db:check:columns`.
@@ -1003,41 +1127,41 @@ folder rail; plus the existing `screens.axe.test.tsx` a11y sweep must cover the 
 5. **Rollback:** flags off restores the previous UI immediately. The data migration is additive —
    `email_inbound_legacy` is retained for one release, and the view can be swapped back to the table.
 
-### 4.11 Task list
+### 5.11 Task list
 
 ```
-T0   Restructure src/modules/mail → group layout; update 12 external requires; green tests
-T1   10721 model + backfill + compatibility view; db:check:columns
-T2   10722 folders/labels; adapter.listFolders() on all three providers (IMAP real, others per capability)
+T0   (done in PR-0 — the group restructure is already on main)
+T1   10731 model + backfill + compatibility view; db:check:columns
+T2   10732 folders/labels; adapter.listFolders() on all three providers (IMAP real, others per capability)
 T3   Rework mail-sync for per-folder cursors; mail.folders.js special-use mapping
 T4   mail.threading.js + thread assembly on ingest
-T5   10723 FTS + trigger; mail.search.js; GET /search
-T6   10727 + mail.stream.js; seeded rules; known-party override; stream rules admin endpoints
-T7   10726 connection kind + members; shared-mailbox endpoints
+T5   10733 FTS + trigger; mail.search.js; GET /search
+T6   10736 + mail.stream.js; seeded rules; known-party override; stream rules admin endpoints
+T7   10739 connection kind + members; shared-mailbox endpoints
 T8   Thread/folder/bulk endpoints + repo SQL + validators
-T9   10724 attachments both directions; upload, vault picker, download
-T10  10725 drafts + send queue; mail-send-flush worker; undo + cancel; idempotency
+T9   10734 attachments both directions; upload, vault picker, download
+T10  10735 drafts + send queue; mail-send-flush worker; undo + cancel; idempotency
 T11  mail.compose.js serializer + 102 KB guard + plain-text part
 T12  mail.commands.js registry + /commands endpoints + the ten seeded commands
 T13  FE: shell, folder rail, thread list (virtualised), thread view, slots
 T14  FE: composer + TipTap (lazy) + toolbar + slash menu + attachment bar + Cc/Bcc
 T15  FE: search bar, bulk actions, split-inbox toggle, VIP filter, shared-mailbox grouping + presence
-T16  10728 events, 10729 flags + platform seed for smartls
-T17  Tests per §4.9; i18n EN/FR; screen-registry entries; API docs regeneration
+T16  10737 events, 10738 flags + platform seed for smartls
+T17  Tests per §5.9; i18n EN/FR; screen-registry entries; API docs regeneration
 ```
 
 ---
 
-## 5. PR-2 — Identity, Signatures & Deliverability
+## 6. PR-2 — Identity, Signatures & Deliverability
 
 > **Goal.** Every message the product sends — from a person or from the system — carries the right
 > identity, derived from ERP data, governed by the company, updated the moment HR posts a promotion,
 > and demonstrably deliverable.
 
-**Flags:** `mail.signatures`, `mail.deliverability`. **Migrations:** `10730`–`10734`.
+**Flags:** `mail.signatures`, `mail.deliverability`. **Migrations:** `10740`–`10744`.
 **Depends on:** PR-1 (composer slots, serializer). **Parallel with:** PR-3.
 
-### 5.1 Scope
+### 6.1 Scope
 
 **In.** One signature template definition rendered two ways (HTML + PNG) · ERP-derived fields with a
 governed override list · three seeded templates with department defaults · send-time resolution with
@@ -1047,9 +1171,9 @@ preferred language · outbound deliverability dashboard with scheduled re-checks
 **Out.** Inbound anti-spoofing (PR-5 — it needs the visibility and audit machinery) · paid IP
 reputation feeds · per-recipient signature variants.
 
-### 5.2 The signature model
+### 6.2 The signature model
 
-#### `10730_signature_engine.sql`
+#### `10740_signature_engine.sql`
 
 ```sql
 -- The template: a layout spec plus authored (non-derivable) wording, per language.
@@ -1106,7 +1230,7 @@ CREATE TABLE IF NOT EXISTS signature_render (
 );
 ```
 
-#### `10731_signature_seed.sql`
+#### `10741_signature_seed.sql`
 
 Seeds three templates, `is_system = true`:
 
@@ -1119,7 +1243,7 @@ Seeds three templates, `is_system = true`:
 Department defaults (`scope_kind='DEPARTMENT'`) are seeded for Operations, Commercial/Sales, Finance,
 HR and Customer Support, all pointing at `smartls_classic` except Finance → `formal_legal`.
 
-#### `10732_party_language.sql` (addition d)
+#### `10742_party_language.sql` (addition d)
 
 ```sql
 ALTER TABLE client_master   ADD COLUMN IF NOT EXISTS preferred_language text CHECK (preferred_language IN ('en','fr'));
@@ -1134,7 +1258,7 @@ One helper, `resolveLanguage(ctx)`, in `src/modules/mail/signature/language.js`,
 templates and (in PR-4) AI translation. **MUST** be one function — three copies of this rule is how
 a French client starts receiving English invoices.
 
-#### `10733_mail_domain_health.sql`
+#### `10743_mail_domain_health.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS domain_health_check (
@@ -1150,12 +1274,12 @@ CREATE TABLE IF NOT EXISTS domain_health_check (
 CREATE INDEX IF NOT EXISTS ix_domain_health_latest ON domain_health_check(domain, record, checked_at DESC);
 ```
 
-#### `10734_signature_events.sql`
+#### `10744_signature_events.sql`
 
 `signature.template.changed`, `signature.profile.changed`, `signature.cache.invalidated`,
 `deliverability.regressed`.
 
-### 5.3 Signature resolution and rendering
+### 6.3 Signature resolution and rendering
 
 ```
 src/modules/mail/signature/
@@ -1199,7 +1323,7 @@ Field sources (Q14):
 **Rendering.**
 
 - `signature.html.js` emits the same email-safe HTML the composer serializer must produce
-  (§4.6.2): tables, inline styles, web-safe font stack, logo as an absolute HTTPS URL from the
+  (§5.6.2): tables, inline styles, web-safe font stack, logo as an absolute HTTPS URL from the
   tenant's branding assets with `alt`, explicit width and `display:block`.
 - `signature.png.js` renders the _same_ HTML in headless Chromium (`puppeteer`, already a dependency
   and already used by `pdf.service.js`) at 650 × 325 CSS px, at scale 1×, 2× or 3× — matching the
@@ -1228,7 +1352,7 @@ Both **MUST** be idempotent (at-least-once delivery, per `src/orchestration/regi
 `body_html` at send time and stays there. Option C in Q16 was explicitly rejected, and it also
 contradicts PR-5's archive.
 
-### 5.4 System-email identity (Q17)
+### 6.4 System-email identity (Q17)
 
 `email_identity` already has a free-text `purpose` (the CHECK was dropped in `0521`). We use it as
 the **department label**:
@@ -1256,7 +1380,7 @@ Praxis fallback sender is used and the _sender_ falls back with the transport �
 (`email.service.js`, gap G-4) exists so a tenant-domain From never goes out through the deploy relay
 and fails SPF. Signatures are a body concern and must not touch it.
 
-### 5.5 Deliverability dashboard
+### 6.5 Deliverability dashboard
 
 `src/modules/mail/deliverability/` — a thin module over the existing `dns-check.js`, which already
 does MX/SPF/DKIM with relay-specific fix hints. Adds:
@@ -1279,7 +1403,7 @@ Endpoints: `GET /mail/deliverability` (latest verdict per domain per record),
 UI: Settings → Company → Deliverability. A traffic-light row per domain, each expandable to the exact
 DNS record to add, with a copy button — reusing the presentation `mail-setup-wizard.tsx` already has.
 
-### 5.6 Frontend
+### 6.6 Frontend
 
 ```
 client/src/features/settings/signatures/
@@ -1295,11 +1419,11 @@ The user-facing screen sits under **Settings → My profile → Email signature*
 capability the standalone tool had that people will miss: **Download PNG** at 1×, 2× and 3×, so it can
 be pasted into Outlook desktop, webmail or Gmail (Q13).
 
-Composer integration is a **slot registration** into `composer.footer.left` (§4.6.6): a signature
+Composer integration is a **slot registration** into `composer.footer.left` (§5.6.6): a signature
 selector when the user has more than one available template, showing the block inline in the editor
 as a non-editable node so what they see is what sends.
 
-### 5.7 Acceptance criteria
+### 6.7 Acceptance criteria
 
 1. A user with no profile still gets a correct signature — every derived field present, typed fields
    simply absent, no dangling separators or empty lines.
@@ -1315,41 +1439,41 @@ as a non-editable node so what they see is what sends.
 9. The signature HTML renders correctly in Outlook 2016+, Gmail web and Apple Mail (snapshot test).
 10. A non-admin cannot edit a template; an admin cannot delete a seeded one.
 
-### 5.8 Tests
+### 6.8 Tests
 
 `tests/unit/mail-signature.test.js` (resolution precedence, blank-safety, HTML/PNG parity,
 promotion invalidation, history immutability) · `signature-language.test.js` (the five-step
 resolution order) · `mail-deliverability.test.js` (DMARC parsing, RBL verdicts, regression detection)
 · `client/.../signature-profile.test.tsx`.
 
-### 5.9 Task list
+### 6.9 Task list
 
 ```
-S1  10730 schema; signature.resolve.js (pure) + unit tests first
+S1  10740 schema; signature.resolve.js (pure) + unit tests first
 S2  signature.html.js + snapshot tests against the four target clients
 S3  signature.png.js via puppeteer; vault storage; 1x/2x/3x
 S4  Cache + source_hash + the two orchestration invalidation handlers
-S5  10731 seed the three templates (classic must match the standalone tool pixel-for-intent)
-S6  10732 party language + language.js resolver, wired into signature + template selection
+S5  10741 seed the three templates (classic must match the standalone tool pixel-for-intent)
+S6  10742 party language + language.js resolver, wired into signature + template selection
 S7  email.service.send({signature}) — machine vs named-user paths; guard the fallback rule
 S8  Admin UI (templates, department defaults) + profile UI + PNG download
 S9  Composer slot registration
-S10 10733 + deliverability module, PTR/DMARC/RBL, scheduler, regression alert, panel
-S11 10734 events; i18n; screen-registry; tests per §5.8
+S10 10743 + deliverability module, PTR/DMARC/RBL, scheduler, regression alert, panel
+S11 10744 events; i18n; screen-registry; tests per §6.8
 ```
 
 ---
 
-## 6. PR-3 — ERP Binding, Smart Dossier & Collaboration
+## 7. PR-3 — ERP Binding, Smart Dossier & Collaboration
 
 > **Goal.** The inbox stops being a separate application. Every thread knows which client, dossier or
 > invoice it belongs to (once a human agrees), shows that record's live state beside it, lets the team
 > argue about it privately, and turns an email into an ERP record without retyping anything.
 
-**Flags:** `mail.binding`, `mail.notes`, `mail.doc_intake`. **Migrations:** `10735`–`10739`.
+**Flags:** `mail.binding`, `mail.notes`, `mail.doc_intake`. **Migrations:** `10745`–`10749`.
 **Depends on:** PR-1. **Parallel with:** PR-2. **Blocks:** PR-4 (grounding), PR-5 (visibility).
 
-### 6.1 Scope
+### 7.1 Scope
 
 **In.** Reference extraction and confidence-scored **suggestions** · accept/reject with audit ·
 `mail-context` aggregator and the right-pane dossier · read-only ERP action cards with explicit
@@ -1361,9 +1485,9 @@ chase composer · one-click entity conversion with duplicate detection.
 **Out.** Any automatic binding (Q18) · writes from action cards (Q20) · AI drafting (PR-4) · sentiment
 (not built at all) · assignment and SLA (PR-5).
 
-### 6.2 Binding — suggestions, never assumptions
+### 7.2 Binding — suggestions, never assumptions
 
-#### `10735_mail_binding_suggestion.sql`
+#### `10745_mail_binding_suggestion.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS email_binding_suggestion (
@@ -1440,13 +1564,13 @@ Accepting writes `email_thread.entity_ref`, marks siblings `SUPERSEDED`, emits `
 and writes an `audit` row. Unbinding is equally audited — a thread that silently detaches from a
 dossier is a support call nobody can answer.
 
-### 6.3 Action cards — read-only, and honest (Q20)
+### 7.3 Action cards — read-only, and honest (Q20)
 
 `email_thread.entity_ref` resolves to a card in the reading pane. **v1 cards read; they do not write.**
 
 Each card shows live ERP state and offers actions that **deep-link into the owning module's screen with
 prefilled query parameters** — the record is created in its own module, under its own lifecycle,
-numbering, approval chain and audit, exactly as `BUILD_CONVENTIONS.md` §1–§4 requires.
+numbering, approval chain and audit, exactly as `BUILD_CONVENTIONS.md` §1–§5 requires.
 
 **The missing-data rule (this is the part you asked for explicitly).** Before offering an action, the
 card calls a _prefill readiness_ check that returns:
@@ -1485,9 +1609,9 @@ v1 card set: **Client**, **Dossier/Shipment**, **Invoice**, **Proforma**, **Quot
 **Purchase Order**, **Document request**. Each declares its readiness rule in
 `src/modules/mail/binding/cards/<card>.js` — one file per card, so adding a card is a file.
 
-### 6.4 Internal notes and mentions (Q21)
+### 7.4 Internal notes and mentions (Q21)
 
-#### `10736_mail_thread_note_mention.sql`
+#### `10746_mail_thread_note_mention.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS email_thread_note (
@@ -1571,7 +1695,7 @@ On note save, for each mention: write the `mention` row, then notify **once**:
 suppression window, so a note that mentions someone already watching the thread does not also fire the
 thread-activity notification. **MUST** be applied in the service, not per caller.
 
-### 6.5 The Smart Dossier drawer (Q19 + addition e)
+### 7.5 The Smart Dossier drawer (Q19 + addition e)
 
 #### The aggregator — and what it must not do
 
@@ -1622,9 +1746,9 @@ decision, not an optimisation.
 scorecard (`supplier_scorecard.service.js` already computes it). Dossier-bound threads show the
 dossier first with its client behind it.
 
-### 6.6 Inbound documents (Q22)
+### 7.6 Inbound documents (Q22)
 
-#### `10737_party_document_checklist.sql`
+#### `10747_party_document_checklist.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS document_requirement (
@@ -1671,7 +1795,7 @@ _"Looks like a Bill of Lading for SLAS-2026-0042 — File it?"_ → the user con
 **Chase composer.** _"Chase missing documents"_ opens the composer prefilled with a bilingual list of
 exactly the outstanding items, in the client's `preferred_language`, from a tenant-editable snippet.
 
-### 6.7 Entity conversion (Q23)
+### 7.7 Entity conversion (Q23)
 
 `POST /mail/threads/:id/convert` → `{ target, prefill, duplicates }`, then the user reviews a form and
 saves through the **target module's own service and validator**.
@@ -1689,7 +1813,7 @@ email to it?"_ and makes _Create new_ the secondary action.
 Conversion is bidirectional in the record: the created entity gets the thread's `entity_ref`, and the
 thread shows what it became.
 
-### 6.8 Frontend
+### 7.8 Frontend
 
 ```
 client/src/features/comms/mail/
@@ -1708,7 +1832,7 @@ client/src/features/comms/mail/
     convert-menu.tsx  convert-form.tsx  duplicate-warning.tsx
 ```
 
-### 6.9 Acceptance criteria
+### 7.9 Acceptance criteria
 
 1. An inbound message quoting `SLAS-2026-0042` produces a **suggestion** at 0.97 and **does not** set
    `entity_ref`. The thread list shows it as unbound.
@@ -1729,7 +1853,7 @@ client/src/features/comms/mail/
 13. Converting a repeat enquirer offers to attach to the existing lead rather than creating a duplicate.
 14. Every accept, reject, bind, unbind and filing is on the audit trail with the actor.
 
-### 6.10 Tests
+### 7.10 Tests
 
 `tests/unit/`: `mail-binding-extract.test.js` (every signal, ISO 6346 checksum, quoted-history
 downgrade) · `mail-binding-suggest-only.test.js` (**ingest never writes `entity_ref`**) ·
@@ -1740,38 +1864,38 @@ downgrade) · `mail-binding-suggest-only.test.js` (**ingest never writes `entity
 `tests/security/`: `mail-notes-containment.test.js`.
 Client: `dossier-drawer.test.tsx`, `notes-tab.test.tsx`, `mention-picker.test.tsx`.
 
-### 6.11 Task list
+### 7.11 Task list
 
 ```
-B1  10735 + binding.extract.js (pure) with the full signal table + checksum validation — tests first
+B1  10745 + binding.extract.js (pure) with the full signal table + checksum validation — tests first
 B2  Rework ingest: suggestions instead of entity_ref writes; preserve existing bindings; setting stub
 B3  Suggestion endpoints + accept/reject/bind/unbind/batch + audit
 B4  mail-context.service.js: Overview query set, ≤6 statements, Redis cache + invalidation events
 B5  Lazy tab endpoints (money, operations, commercial, documents, interactions, compliance) + supplier flip
 B6  Card readiness framework + the seven v1 cards
-B7  10736 notes + mention primitive; notes service; containment test BEFORE the UI
+B7  10746 notes + mention primitive; notes service; containment test BEFORE the UI
 B8  employee-picker variant="mention"; app_user resolution; no-account handling
 B9  Mention fan-out: notification + chat card + push; dedupe_key in notification.service
 B10 Push: fix the stale comment, Console VAPID panel, Settings opt-in, e2e test
-B11 10737 requirements + Cameroon/CEMAC seed + checklist computation + chase composer
+B11 10747 requirements + Cameroon/CEMAC seed + checklist computation + chase composer
 B12 Attachment classification job (Gemini vision) + suggestion UI + filing into vault/360
-B13 10738 conversion targets + prefill extractors + dedup + review forms
+B13 10748 conversion targets + prefill extractors + dedup + review forms
 B14 FE: chips, drawer, cards, notes tab, intake prompts, convert flow
-B15 10739 events; i18n; screen-registry; tests per §6.10
+B15 10749 events; i18n; screen-registry; tests per §7.10
 ```
 
 ---
 
-## 7. PR-4 — The AI Layer
+## 8. PR-4 — The AI Layer
 
 > **Goal.** The operator opens a thread and the reply is already written, factually correct, in the
 > right language and the right tone — and a human still presses Send, every single time.
 
-**Flags:** `mail.ai` (under the `ai.assistant.backend` ceiling). **Migrations:** `10740`–`10744`.
+**Flags:** `mail.ai` (under the `ai.assistant.backend` ceiling). **Migrations:** `10750`–`10744`.
 **Depends on:** PR-1 (composer), PR-3 (bindings — grounding needs to know who the thread is about).
 **Parallel with:** PR-5.
 
-### 7.1 Scope
+### 8.1 Scope
 
 **In.** On-demand generation and rewrite · 10 tone presets + 5 one-click actions · EN↔FR translation
 with a protected-terms glossary · fact-fenced ERP-grounded drafting with a visible sources strip ·
@@ -1780,17 +1904,17 @@ executive thread summaries · attachment OCR extraction into a review form · vo
 
 **Out — and these are decisions, not omissions.**
 
-| Not built                                 | Why                                                                                                             |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Inline as-you-type autocomplete           | Q25 = A. Cost per keystroke. On-demand covers it.                                                               |
-| Any auto-send                             | Q24 = A.                                                                                                        |
-| Sentiment badges, churn radar, escalation | Q29 = A. Not built at all.                                                                                      |
-| Auto-routing by intent                    | Q31 = A.                                                                                                        |
-| Any AI write to a business table          | Q28. Everything lands in the composer or a review form.                                                         |
-| OCR → ledger posting                      | Q28. Nothing from OCR reaches the GL.                                                                           |
-| Per-user fine-tuned models                | Not proposed; a style profile is the substitute and it is **deferred to v2** (§9.6) since autocomplete is gone. |
+| Not built                                 | Why                                                                                                              |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Inline as-you-type autocomplete           | Q25 = A. Cost per keystroke. On-demand covers it.                                                                |
+| Any auto-send                             | Q24 = A.                                                                                                         |
+| Sentiment badges, churn radar, escalation | Q29 = A. Not built at all.                                                                                       |
+| Auto-routing by intent                    | Q31 = A.                                                                                                         |
+| Any AI write to a business table          | Q28. Everything lands in the composer or a review form.                                                          |
+| OCR → ledger posting                      | Q28. Nothing from OCR reaches the GL.                                                                            |
+| Per-user fine-tuned models                | Not proposed; a style profile is the substitute and it is **deferred to v2** (§10.6) since autocomplete is gone. |
 
-### 7.2 Architecture
+### 8.2 Architecture
 
 Everything runs through the existing AI stack. **No new provider integration, no parallel gate.**
 
@@ -1803,7 +1927,7 @@ src/modules/mail/assist/           NEW module (a subfolder of the mail GROUP —
   assist.controller.js
   assist.service.js       orchestrates: gather → ground → prompt → fence → return
   assist.prompts.js       every prompt, versioned, in one file, EN+FR
-  assist.grounding.js     the whitelisted read set (§7.4) — HEAVILY COMMENTED
+  assist.grounding.js     the whitelisted read set (§8.4) — HEAVILY COMMENTED
   assist.factfence.js     PURE: draft + facts → { ok, violations[] }
   assist.glossary.js      protected terms that must survive rewriting/translation
   assist.guardrails.js    PURE: pre-send checks → { warnings[], blocks[] }
@@ -1824,7 +1948,7 @@ src/modules/ai/governance/            spend caps, EMV ceiling, per-feature budge
 bill predictable instead of a surprise (§3 risk 3). A soft cap warns the tenant; a hard cap degrades
 every AI surface to a disabled state with an honest message — never a silent no-op.
 
-### 7.3 Compose assistance (Q26)
+### 8.3 Compose assistance (Q26)
 
 `POST /mail/assist/compose` · `{ mode, tone?, thread_id?, draft?, language }`
 
@@ -1849,7 +1973,7 @@ _Expand_ · _Translate → Français_ · _Translate → English_.
 **Protected terms glossary** (`assist.glossary.js`). A term in this list **MUST** survive rewriting and
 translation byte-for-byte: Incoterms (`FOB`, `CIF`, `DDP`, `EXW`, `CFR`, `DAP`…), HS codes, container
 type codes (`20GP`, `40HC`, `40RF`), port and airport codes, OHADA/SYSCOHADA account numbers and names,
-document references (anything matching the reference patterns in §6.2), currency codes and amounts,
+document references (anything matching the reference patterns in §7.2), currency codes and amounts,
 vessel and voyage numbers, carrier names. The check runs after generation; a violation is repaired by
 a targeted second pass, and if it still fails the original term is restored programmatically.
 
@@ -1857,9 +1981,9 @@ a targeted second pass, and if it still fails the original term is restored prog
 > 411_, is the class of error that reaches a customs broker and costs money. This is why the glossary
 > is enforced mechanically rather than requested in a prompt.
 
-**Language.** EN and FR only (Q26), resolved by the single `resolveLanguage()` helper from PR-2 §5.2.
+**Language.** EN and FR only (Q26), resolved by the single `resolveLanguage()` helper from PR-2 §6.2.
 
-### 7.4 Zero-prompt grounded drafting (Q27)
+### 8.4 Zero-prompt grounded drafting (Q27)
 
 `POST /mail/assist/draft` · `{ thread_id }` → a draft, plus the facts it used.
 
@@ -1868,14 +1992,14 @@ Pipeline:
 ```
 thread + accepted binding (PR-3)
   → classify the incoming ask         (where is my container / what do I owe / send me the invoice / …)
-  → run ONLY whitelisted reads        (§7.4.1) on the caller's connection with the caller's RBAC
+  → run ONLY whitelisted reads        (§8.4.1) on the caller's connection with the caller's RBAC
   → redact.js                          before anything leaves the building
   → generate with the fact list pinned in the prompt
   → assist.factfence.js                reject any date / reference / amount not in the facts
   → return { draft_html, draft_text, facts[], confidence, language }
 ```
 
-#### 7.4.1 The grounding whitelist
+#### 8.4.1 The grounding whitelist
 
 `assist.grounding.js`. This file is the security boundary for drafting, and it is written to be read
 by whoever extends it:
@@ -1922,7 +2046,7 @@ module.exports = [
 ];
 ```
 
-#### 7.4.2 The fact fence (`assist.factfence.js`, pure)
+#### 8.4.2 The fact fence (`assist.factfence.js`, pure)
 
 Extracts every **date**, **reference-shaped token**, **money amount**, **percentage** and **time** from
 the generated draft and asserts each appears in the fact list (dates normalised across formats and
@@ -1937,9 +2061,9 @@ The composer shows a **sources strip** beneath the draft:
 Four facts an operator confirms in two seconds. That is the actual time saving; without it they must
 re-verify the whole message and the feature is worthless.
 
-### 7.5 Thread summaries (Q29 = A)
+### 8.5 Thread summaries (Q29 = A)
 
-`10740` adds `email_thread_summary (email_thread_id PK, language, summary, message_count_at_generation,
+`10750` adds `email_thread_summary (email_thread_id PK, language, summary, message_count_at_generation,
 generated_at, model)`. Generated on demand when a thread reaches **5+ messages**, cached, invalidated
 when `message_count` changes. Rendered into slot `thread.summary`: 2–3 sentences covering the latest
 position, open blockers and explicit next steps, in the reader's UI language.
@@ -1947,12 +2071,12 @@ position, open blockers and explicit next steps, in the reader's UI language.
 **No sentiment is computed, stored or displayed anywhere** (Q29). If a future PR wants it, it is a new
 decision, not an extension of this one.
 
-### 7.6 Attachment OCR (Q28)
+### 8.6 Attachment OCR (Q28)
 
 **The rule, stated once and enforced everywhere: extraction produces a staging row and a review form.
 Nothing from OCR writes a business record, and nothing from OCR touches the ledger.**
 
-#### `10741_mail_ocr_extraction.sql`
+#### `10751_mail_ocr_extraction.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS attachment_extraction (
@@ -1984,14 +2108,14 @@ Document kinds, exactly as you scoped them:
 
 The review UI shows the document page beside the extracted fields, each field editable, each with its
 confidence, and a **"Create draft in <module>"** button that deep-links exactly as the PR-3 action
-cards do (§6.3). Provenance (`provider`, `model`, `page_count`) is stamped the way
+cards do (§7.3). Provenance (`provider`, `model`, `page_count`) is stamped the way
 `bank_statement.ocr_*` already does — an auditor asking "where did this number come from" must be able
 to tell OCR from a machine-readable source.
 
 Worker: `src/jobs/handlers/mail-ocr-extract.js`, triggered on `email.attachment.stored` for PDFs and
 images under the vault cap, rate-limited per tenant, budget-metered.
 
-### 7.7 Voice-to-professional-text (Q30)
+### 8.7 Voice-to-professional-text (Q30)
 
 Composer button → `MediaRecorder` (`audio/webm;codecs=opus`, already handled by
 `transcription.service.extFor`) → `POST /mail/assist/voice` → Groq/Whisper → a cleanup pass that strips
@@ -2003,7 +2127,7 @@ the raw transcript is shown once beside the cleaned version so the user can see 
 Recording is explicit press-and-hold or click-to-toggle with a visible level meter and elapsed time —
 never ambient capture.
 
-### 7.8 Pre-send guardrails (Q30)
+### 8.8 Pre-send guardrails (Q30)
 
 `assist.guardrails.js` — pure, runs on the composed message before it is queued.
 
@@ -2026,10 +2150,10 @@ details) to a domain the anti-spoofing check rates **Suspicious** or **Likely im
 Overridable only by typing a reason, which is written to `immutable_ledger`.
 
 In PR-4 the block's verdict source is a stub returning `Verified` until PR-5 lands the real check
-(§8.7); the wiring, the override and the ledger entry are all built and tested here so PR-5 only
+(§9.7); the wiring, the override and the ledger entry are all built and tested here so PR-5 only
 supplies the verdict.
 
-### 7.9 Semantic search (Q7, second half)
+### 8.9 Semantic search (Q7, second half)
 
 The FTS search from PR-1 gains a _"Search by meaning"_ toggle: the query is embedded and matched
 against mail chunks in the existing `ai_chunk` corpus (ingested by `ingest.service` on
@@ -2037,13 +2161,13 @@ against mail chunks in the existing `ai_chunk` corpus (ingested by `ingest.servi
 results and de-duplicated. Keyword remains the default; semantic is opt-in per search, because it
 costs an embedding call and keyword is right most of the time.
 
-### 7.10 AI action catalogue
+### 8.10 AI action catalogue
 
 Extend `src/modules/mail/mail/mail.ai.js` with **reads only** — the copilot may read a thread, a
 summary or a client timeline, and it may draft. It **MUST NOT** gain a new write beyond the existing
 confirmed `send_mail` / `reply_mail`, and those keep `confirm: true`.
 
-### 7.11 Acceptance criteria
+### 8.11 Acceptance criteria
 
 1. Selecting _Firm — payment chase_ on an empty composer, for a thread bound to a client with an
    overdue invoice, produces a bilingual-correct draft naming the real invoice number and amount.
@@ -2062,7 +2186,7 @@ confirmed `send_mail` / `reply_mail`, and those keep `confirm: true`.
 10. With `ai.assistant.backend` off, every AI surface is absent — not present-and-erroring.
 11. Hitting the tenant's hard budget cap disables the AI surfaces with an explicit message.
 
-### 7.12 Tests
+### 8.12 Tests
 
 `tests/unit/`: `mail-ai-factfence.test.js` · `mail-ai-grounding.test.js` (**deny-list enforcement**) ·
 `mail-ai-glossary.test.js` · `mail-ai-prompts.test.js` (all 10 presets × EN/FR resolve) ·
@@ -2070,7 +2194,7 @@ confirmed `send_mail` / `reply_mail`, and those keep `confirm: true`.
 `mail-ai-nowrite.test.js` (**no AI path calls a create/update service**) · `mail-ai-budget.test.js`.
 `tests/integration/`: `mail-ai-draft.test.js` end-to-end against a stubbed LLM.
 
-### 7.13 Task list
+### 8.13 Task list
 
 ```
 A1  assist module skeleton, routes behind mail.ai + the ai.assistant.backend ceiling + metering
@@ -2078,28 +2202,28 @@ A2  assist.prompts.js — 10 presets × EN/FR + 5 actions; assist.glossary.js + 
 A3  Compose/rewrite/translate endpoints + composer AI menu (slot composer.toolbar.right)
 A4  assist.grounding.js (whitelist + the comment block verbatim) + the deny-list test
 A5  assist.factfence.js (pure) + tests; draft endpoint; sources strip UI
-A6  10740 summaries + generation + cache invalidation + thread.summary slot
-A7  10741 + mail-ocr-extract worker + the four doc kinds + matching + review UI
+A6  10750 summaries + generation + cache invalidation + thread.summary slot
+A7  10751 + mail-ocr-extract worker + the four doc kinds + matching + review UI
 A8  Voice capture UI + /assist/voice + cleanup pass; assert no audio retention
 A9  assist.guardrails.js + presend slot + hard-block wiring with the PR-5 stub + ledger override
 A10 Semantic search toggle; ai_chunk ingestion on email.received
 A11 mail.ai.js reads; scripts/ai/sync-actions.js run; screen-registry actions[] updated
-A12 i18n; tests per §7.12
+A12 i18n; tests per §8.12
 ```
 
 ---
 
-## 8. PR-5 — Workflow, Security & Compliance
+## 9. PR-5 — Workflow, Security & Compliance
 
 > **Goal.** A team can run `support@` and `billing@` without stepping on each other, nothing gets
 > forgotten, sensitive correspondence stays sensitive, an auditor can be satisfied in an afternoon,
 > and a lookalike-domain invoice fraud gets stopped at the banner.
 
 **Flags:** `mail.shared_inbox` (assignment/SLA), `mail.followup`, `mail.secure_links`, `mail.archive`,
-`mail.antispoof`. **Migrations:** `10745`–`10754`. **Depends on:** PR-1, PR-3.
+`mail.antispoof`. **Migrations:** `10755`–`10764`. **Depends on:** PR-1, PR-3.
 **Parallel with:** PR-4.
 
-### 8.1 Scope
+### 9.1 Scope
 
 **In.** Shared-inbox claim, assignment and soft locks · status flags · SLA timers on tenant business
 hours · delegated mailboxes · follow-up boomerang · scheduled send and recipient-local-time delivery ·
@@ -2107,11 +2231,11 @@ secure expiring links · hash-chained immutable archive · Private/Team/Company 
 break-glass · ERP-validated anti-spoofing with lookalike detection · DSN/bounce handling.
 
 **Out.** Telemetry of any kind (Q32) · auto-routing and auto-forwarding (Q31) · PIN-protected links
-(Q33) · peak-open-hour optimisation (§1.3) · true WORM object storage (documented upgrade path, §8.6).
+(Q33) · peak-open-hour optimisation (§1.4) · true WORM object storage (documented upgrade path, §9.6).
 
-### 8.2 Shared inbox — claim, not routing (Q31)
+### 9.2 Shared inbox — claim, not routing (Q31)
 
-#### `10745_mail_assignment_sla.sql`
+#### `10755_mail_assignment_sla.sql`
 
 ```sql
 ALTER TABLE email_thread ADD COLUMN IF NOT EXISTS assigned_user_id uuid REFERENCES app_user(user_id);
@@ -2177,9 +2301,9 @@ a named user access to another user's mailbox. Every read and send on a delegate
 `immutable_ledger` row naming the delegate and the owner, and outbound mail carries a
 `Sender:` header distinct from `From:` — which is both correct RFC 5322 and the honest thing to do.
 
-### 8.3 Follow-up boomerang and scheduled send (§1.3)
+### 9.3 Follow-up boomerang and scheduled send (§1.4)
 
-#### `10746_mail_followup.sql`
+#### `10756_mail_followup.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS email_followup (
@@ -2210,15 +2334,15 @@ CREATE INDEX IF NOT EXISTS ix_email_followup_due ON email_followup(due_at) WHERE
 
 **Scheduled send and recipient-local time.** `POST /mail/send` accepts `{ send_at }` or
 `{ send_in_recipient_morning: true }`, writing `email_send_queue.release_at` accordingly. Recipient
-timezone comes from a new `party.timezone` column (`10747`), defaulted from the party's country. The
+timezone comes from a new `party.timezone` column (`10757`), defaulted from the party's country. The
 UI states plainly: _"Delivers at 09:00 Tuesday, Paris time."_
 
 **MUST NOT** offer or imply "best time to send" optimisation. Open data does not exist (Q32) and the
 UI must not pretend otherwise.
 
-### 8.4 Secure ephemeral links (Q33)
+### 9.4 Secure ephemeral links (Q33)
 
-#### `10748_secure_link.sql`
+#### `10758_secure_link.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS secure_link (
@@ -2249,7 +2373,7 @@ generated PDF can be shared.
 Defaults: **7-day expiry**, unlimited views, revocable at any moment from the thread. Public route
 `GET /public/secure/:token` (no auth, rate-limited, no directory listing, `X-Robots-Tag: noindex`).
 
-**Composer integration:** attachments over 10 MB (§4.5.6) offer _"Send as a secure link instead"_, and
+**Composer integration:** attachments over 10 MB (§5.5.6) offer _"Send as a secure link instead"_, and
 any attachment can be converted to one manually. The link's views land on the client's CRM timeline —
 this is the **only** open signal in the product, and it is precise, first-party and unaffected by
 image blocking. It is the reason Q32's answer costs you nothing commercially.
@@ -2257,9 +2381,9 @@ image blocking. It is the reason Q32's answer costs you nothing commercially.
 **PIN is not built** (Q33 = A). `secure_link` has room for it and the service has a documented
 extension point; adding it later is a column and a form field, not a redesign.
 
-### 8.5 Visibility (Q34)
+### 9.5 Visibility (Q34)
 
-#### `10749_mail_visibility.sql`
+#### `10759_mail_visibility.sql`
 
 ```sql
 ALTER TABLE email_thread ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'PRIVATE'
@@ -2273,7 +2397,7 @@ CREATE TABLE IF NOT EXISTS email_thread_share (
 );
 ```
 
-Defaults inherited from the connection (`10726`): **Personal → Private**, **Shared → Team**.
+Defaults inherited from the connection (`10739`): **Personal → Private**, **Shared → Team**.
 Threads on a mailbox belonging to Finance or an executive default to Private regardless.
 
 Enforcement is a **single repo-level predicate** applied to every thread and message read:
@@ -2299,9 +2423,9 @@ attributed.
 **MUST:** the AI grounding layer (PR-4) and the search index respect the same predicate. An assistant
 that summarises a thread the caller cannot open is the same leak by another route.
 
-### 8.6 Immutable archive (Q34)
+### 9.6 Immutable archive (Q34)
 
-#### `10750_mail_archive_chain.sql`
+#### `10760_mail_archive_chain.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS email_archive (
@@ -2329,9 +2453,9 @@ CREATE TABLE IF NOT EXISTS email_archive (
 > local disk (the README's plan). At that point it is a `storage.service` configuration change, not a
 > code change. Say this to an auditor in these words; do not overclaim.
 
-### 8.7 ERP-validated anti-spoofing (Q35)
+### 9.7 ERP-validated anti-spoofing (Q35)
 
-#### `10751_mail_antispoof.sql`
+#### `10761_mail_antispoof.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS party_verified_domain (
@@ -2366,7 +2490,7 @@ ALTER TABLE email_message ADD COLUMN IF NOT EXISTS auth_detail jsonb NOT NULL DE
 | `VERIFIED`             | Quiet — a small tick on the sender                                                                           |
 | `UNVERIFIED`           | Subtle grey note; offer _"Mark this domain as belonging to <party>"_ (writes `ADMIN_VERIFIED`)               |
 | `SUSPICIOUS`           | Amber banner naming the specific reason                                                                      |
-| `LIKELY_IMPERSONATION` | Full-width red interstitial hiding the body until acknowledged; blocks the financial-document send from §7.8 |
+| `LIKELY_IMPERSONATION` | Full-width red interstitial hiding the body until acknowledged; blocks the financial-document send from §8.8 |
 
 **Bank-detail-change escalation.** A message whose body matches bank-change language (account number,
 IBAN, _"new bank details"_, _"nouvelles coordonnées bancaires"_, _"updated remittance"_) from anything
@@ -2377,9 +2501,9 @@ attack that takes money out of freight forwarders.
 `OBSERVED` domains accrue automatically from correspondence history but **never** confer `VERIFIED` on
 their own — that requires a human, in the UI, once.
 
-### 8.8 Bounce and DSN handling (addition c)
+### 9.8 Bounce and DSN handling (addition c)
 
-#### `10752_mail_bounce.sql`
+#### `10762_mail_bounce.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS email_bounce (
@@ -2404,10 +2528,10 @@ code, mark the recipient, and surface it on the original thread as _"Delivery fa
 x@y.cm — mailbox does not exist"_. A `HARD_FAILED` address is warned about in the composer before the
 next send. This ends the "we emailed the invoice three times" failure permanently.
 
-DSNs are also routed to the **System stream** by the seeded rules from PR-1 (§4.5.3), so they do not
+DSNs are also routed to the **System stream** by the seeded rules from PR-1 (§5.5.3), so they do not
 clutter the human inbox while still being visible on the thread they belong to.
 
-### 8.9 Endpoints
+### 9.9 Endpoints
 
 | Method          | Path                                                                     | Action                              |
 | --------------- | ------------------------------------------------------------------------ | ----------------------------------- |
@@ -2424,7 +2548,7 @@ clutter the human inbox while still being visible on the thread they belong to.
 | GET/POST/DELETE | `/mail/verified-domains`                                                 | view / edit                         |
 | GET             | `/mail/bounces`                                                          | view                                |
 
-### 8.10 Acceptance criteria
+### 9.10 Acceptance criteria
 
 1. Two agents opening the same shared thread: the second sees the first is replying, and can proceed.
 2. A thread arriving Friday 16:30 with a 4-business-hour SLA is due Monday 10:30, not Saturday.
@@ -2443,7 +2567,7 @@ clutter the human inbox while still being visible on the thread they belong to.
 12. A hard bounce marks the contact and warns before the next send to it.
 13. **No tracking pixel and no rewritten link exists anywhere in an outbound message.** Asserted by test.
 
-### 8.11 Tests
+### 9.11 Tests
 
 `tests/unit/`: `mail-sla-clock.test.js` (business hours, holidays, DST, pause/resume) ·
 `mail-followup.test.js` (cancel-on-reply) · `mail-antispoof.test.js` (Levenshtein, homoglyph, TLD swap,
@@ -2454,68 +2578,74 @@ never stores the token) · `mail-bounce-parse.test.js` (RFC 3464 fixtures).
 `tests/integration/`: `mail-shared-inbox.test.js` (claim race under concurrency) ·
 `mail-scheduled-send.test.js`.
 
-### 8.12 Task list
+### 9.12 Task list
 
 ```
-W1  10745 assignment/SLA/business hours/locks + seed policy and Cameroon holidays
+W1  10755 assignment/SLA/business hours/locks + seed policy and Cameroon holidays
 W2  Claim/assign/status endpoints; soft lock + heartbeat; presence integration with PR-1
 W3  mail-sla-sweep worker; pause/resume; breach notification to team leads
 W4  Delegated mailbox kind: access rules, Sender: header, per-access ledger row
-W5  10746 + 10747 party timezone; followup service; snooze/boomerang/sequence; cancel-on-reply on ingest
+W5  10756 + 10757 party timezone; followup service; snooze/boomerang/sequence; cancel-on-reply on ingest
 W6  Scheduled send via email_send_queue.release_at; recipient-local-time UI (no "best time" claims)
-W7  10748 secure_link generalised from proposal.share; public route; revoke; timeline events
+W7  10758 secure_link generalised from proposal.share; public route; revoke; timeline events
 W8  Composer integration for >10 MB offload and manual conversion
-W9  10749 visibility + the SINGLE visibilityClause predicate applied to every read path
+W9  10759 visibility + the SINGLE visibilityClause predicate applied to every read path
 W10 Break-glass flow + ledger + confirmation UI
-W11 10750 archive chain, ingest/send hooks, delete block, /archive/verify
-W12 10751 verified domains + antispoof.evaluate + lookalike + bank-change rule + verdict UI
+W11 10760 archive chain, ingest/send hooks, delete block, /archive/verify
+W12 10761 verified domains + antispoof.evaluate + lookalike + bank-change rule + verdict UI
 W13 Wire PR-4's hard block to the real verdict; remove the stub
-W14 10752 bounce parsing, contact status, composer warning
-W15 10753 events, 10754 flags; i18n; screen-registry; tests per §8.11
+W14 10762 bounce parsing, contact status, composer warning
+W15 10763 events, 10764 flags; i18n; screen-registry; tests per §9.11
 ```
 
 ---
 
-## 9. Appendices
+## 10. Appendices
 
-### 9.1 Migration index
+### 10.1 Migration index
 
-| File                                 | PR  | What it does                                                                             |
-| ------------------------------------ | --- | ---------------------------------------------------------------------------------------- |
-| `10721_mail_thread_message.sql`      | 1   | `email_thread`, `email_message`, `email_message_state`; backfill; `email_inbound` → view |
-| `10722_mail_folders_labels.sql`      | 1   | `email_folder` (per-folder cursors), `email_label`, `email_thread_label`                 |
-| `10723_mail_search.sql`              | 1   | `search_tsv` + GIN + weighting trigger                                                   |
-| `10724_mail_outbound_attachment.sql` | 1   | Attachments both directions, inline `cid:`, disposition                                  |
-| `10725_mail_draft_and_queue.sql`     | 1   | `email_draft`, `email_send_queue`                                                        |
-| `10726_mail_connection_kind.sql`     | 1   | Connection `kind` + `visibility` + `email_connection_member`                             |
-| `10727_mail_stream_rules.sql`        | 1   | `email_stream_rule` + seeds; `is_vip` on client/supplier                                 |
-| `10728_mail_events.sql`              | 1   | New `event_type` rows                                                                    |
-| `10729_mail_feature_flags.sql`       | 1   | `mail.*` flags (+ platform seed: on for `smartls`)                                       |
-| `10730_signature_engine.sql`         | 2   | `signature_template`, `user_signature_profile`, `signature_render`                       |
-| `10731_signature_seed.sql`           | 2   | Three templates + department defaults                                                    |
-| `10732_party_language.sql`           | 2   | `preferred_language` on client/supplier/lead                                             |
-| `10733_mail_domain_health.sql`       | 2   | `domain_health_check`                                                                    |
-| `10734_signature_events.sql`         | 2   | Signature + deliverability event types                                                   |
-| `10735_mail_binding_suggestion.sql`  | 3   | `email_binding_suggestion`                                                               |
-| `10736_mail_thread_note_mention.sql` | 3   | `email_thread_note`, `mention`                                                           |
-| `10737_party_document_checklist.sql` | 3   | `document_requirement`, `email_attachment_classification`                                |
-| `10738_mail_conversion.sql`          | 3   | Conversion link-back columns + indexes                                                   |
-| `10739_mail_binding_events.sql`      | 3   | Binding, note, mention, filing event types                                               |
-| `10740_mail_thread_summary.sql`      | 4   | `email_thread_summary`                                                                   |
-| `10741_mail_ocr_extraction.sql`      | 4   | `attachment_extraction`                                                                  |
-| `10742_mail_ai_events.sql`           | 4   | AI-surface event types                                                                   |
-| `10745_mail_assignment_sla.sql`      | 5   | Assignment, work status, SLA, business hours, locks                                      |
-| `10746_mail_followup.sql`            | 5   | `email_followup`                                                                         |
-| `10747_party_timezone.sql`           | 5   | `timezone` on client/supplier/lead                                                       |
-| `10748_secure_link.sql`              | 5   | `secure_link`, `secure_link_view`                                                        |
-| `10749_mail_visibility.sql`          | 5   | Thread `visibility`, `email_thread_share`                                                |
-| `10750_mail_archive_chain.sql`       | 5   | `email_archive` hash chain                                                               |
-| `10751_mail_antispoof.sql`           | 5   | `party_verified_domain`, `auth_verdict`                                                  |
-| `10752_mail_bounce.sql`              | 5   | `email_bounce`, contact `email_status`                                                   |
-| `10753_mail_workflow_events.sql`     | 5   | SLA, follow-up, secure link, break-glass event types                                     |
-| `10754_mail_workflow_flags.sql`      | 5   | PR-5 feature flags                                                                       |
+| File                                   | PR    | What it does                                                                                                       |
+| -------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
+| `10721_mail_connection_foundation.sql` | **0** | Connection `kind` / `visibility` / `entity_id` / ARCHIVED / health, and the one-live-personal-mailbox unique index |
+| `10722_mail_shared_catalogue.sql`      | **0** | `mail_shared_catalogue` + the seven seeded team addresses                                                          |
+| `10723_mail_access_grant.sql`          | **0** | `email_connection_member` (VIEWER/AGENT/MANAGER) + `email_access_audit`                                            |
+| `10724_mail_send_point.sql`            | **0** | `mail_send_point` + `mail_send_point_binding` (per-entity) + 22 seeded send points                                 |
+| `10725_mail_origin_tag.sql`            | **0** | `sent_via`, `message_id_header`, `origin_user_id`, `origin_send_point` on `email_inbound`                          |
+| `10726_mail_limits.sql`                | **0** | Per-mailbox send throttles, sync depth, `email_send_window`                                                        |
+| `10727_mail_foundation_events.sql`     | **0** | Eight mailbox / access / routing event types                                                                       |
+| `10728_mail_defaults_and_flags.sql`    | **0** | The `mail` settings section and all fourteen `mail.*` flags                                                        |
+| `10731_mail_thread_message.sql`        | 1     | `email_thread`, `email_message`, `email_message_state`; backfill; `email_inbound` → view                           |
+| `10732_mail_folders_labels.sql`        | 1     | `email_folder` (per-folder cursors), `email_label`, `email_thread_label`                                           |
+| `10733_mail_search.sql`                | 1     | `search_tsv` + GIN + weighting trigger                                                                             |
+| `10734_mail_outbound_attachment.sql`   | 1     | Attachments both directions, inline `cid:`, disposition                                                            |
+| `10735_mail_draft_and_queue.sql`       | 1     | `email_draft`, `email_send_queue`                                                                                  |
+| `10736_mail_stream_rules.sql`          | 1     | `email_stream_rule` + seeds; `is_vip` on client/supplier                                                           |
+| `10737_mail_events.sql`                | 1     | New `event_type` rows                                                                                              |
+| `10740_signature_engine.sql`           | 2     | `signature_template`, `user_signature_profile`, `signature_render`                                                 |
+| `10741_signature_seed.sql`             | 2     | Three templates + department defaults                                                                              |
+| `10742_party_language.sql`             | 2     | `preferred_language` on client/supplier/lead                                                                       |
+| `10743_mail_domain_health.sql`         | 2     | `domain_health_check`                                                                                              |
+| `10744_signature_events.sql`           | 2     | Signature + deliverability event types                                                                             |
+| `10745_mail_binding_suggestion.sql`    | 3     | `email_binding_suggestion`                                                                                         |
+| `10746_mail_thread_note_mention.sql`   | 3     | `email_thread_note`, `mention`                                                                                     |
+| `10747_party_document_checklist.sql`   | 3     | `document_requirement`, `email_attachment_classification`                                                          |
+| `10748_mail_conversion.sql`            | 3     | Conversion link-back columns + indexes                                                                             |
+| `10749_mail_binding_events.sql`        | 3     | Binding, note, mention, filing event types                                                                         |
+| `10750_mail_thread_summary.sql`        | 4     | `email_thread_summary`                                                                                             |
+| `10751_mail_ocr_extraction.sql`        | 4     | `attachment_extraction`                                                                                            |
+| `10752_mail_ai_events.sql`             | 4     | AI-surface event types                                                                                             |
+| `10755_mail_assignment_sla.sql`        | 5     | Assignment, work status, SLA, business hours, locks                                                                |
+| `10756_mail_followup.sql`              | 5     | `email_followup`                                                                                                   |
+| `10757_party_timezone.sql`             | 5     | `timezone` on client/supplier/lead                                                                                 |
+| `10758_secure_link.sql`                | 5     | `secure_link`, `secure_link_view`                                                                                  |
+| `10759_mail_visibility.sql`            | 5     | Thread `visibility`, `email_thread_share`                                                                          |
+| `10760_mail_archive_chain.sql`         | 5     | `email_archive` hash chain                                                                                         |
+| `10761_mail_antispoof.sql`             | 5     | `party_verified_domain`, `auth_verdict`                                                                            |
+| `10762_mail_bounce.sql`                | 5     | `email_bounce`, contact `email_status`                                                                             |
+| `10763_mail_workflow_events.sql`       | 5     | SLA, follow-up, secure link, break-glass event types                                                               |
+| `10764_mail_workflow_flags.sql`        | 5     | PR-5 feature flags                                                                                                 |
 
-### 9.2 Feature flag index
+### 10.2 Feature flag index
 
 `mail.core` · `mail.composer` · `mail.shared_inbox` · `mail.provider.oauth` _(off)_ ·
 `mail.signatures` · `mail.deliverability` · `mail.binding` · `mail.notes` · `mail.doc_intake` ·
@@ -2524,7 +2654,7 @@ W15 10753 events, 10754 flags; i18n; screen-registry; tests per §8.11
 All default **off**; all seeded **on for the `smartls` tenant** (Q5). `mail.ai` additionally requires
 `ai.assistant.backend`.
 
-### 9.3 New environment variables
+### 10.3 New environment variables
 
 | Var                               | Default                                                  | Purpose                                  |
 | --------------------------------- | -------------------------------------------------------- | ---------------------------------------- |
@@ -2542,7 +2672,7 @@ All default **off**; all seeded **on for the `smartls` tenant** (Q5). `mail.ai` 
 
 Everything else reuses existing configuration. No new third-party service, no new paid dependency.
 
-### 9.4 New npm dependencies
+### 10.4 New npm dependencies
 
 | Package                                             | Where  | Why                                         |
 | --------------------------------------------------- | ------ | ------------------------------------------- |
@@ -2554,7 +2684,7 @@ Everything else reuses existing configuration. No new third-party service, no ne
 No new backend service, no new database, no new queue. That is deliberate: this deployment is a
 self-managed VPS and every added daemon is someone's weekend.
 
-### 9.5 Definition of done, per PR
+### 10.5 Definition of done, per PR
 
 A PR is done when **all** of the following hold:
 
@@ -2573,7 +2703,7 @@ A PR is done when **all** of the following hold:
 8. Migrations carry a commented-out rollback block.
 9. Flags default off, and the PR states which tenant is enabled for the pilot.
 
-### 9.6 Deferred to v2 (recorded, not forgotten)
+### 10.6 Deferred to v2 (recorded, not forgotten)
 
 | Item                                                     | Why deferred                                                                           |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------- |
@@ -2593,7 +2723,7 @@ A PR is done when **all** of the following hold:
 | Multi-step automated send sequences                      | Q24 forbids auto-send; reminders only for now                                          |
 | "Unbound thread" nudge                                   | Addition (b) — declined                                                                |
 
-### 9.7 The three things most likely to go wrong
+### 10.7 The three things most likely to go wrong
 
 Written down so the person hitting them recognises the symptom.
 
@@ -2604,12 +2734,12 @@ Written down so the person hitting them recognises the symptom.
    not expose fails at runtime, not at migration time. `npm run db:check:columns` is the gate — run it
    after every migration in PR-1, not just at the end.
 3. **The dossier drawer quietly gets slow.** It opens on every thread click, so a regression is felt
-   immediately and blamed on "the inbox". The ≤ 6-statement CI assertion in §6.5 is what keeps a
+   immediately and blamed on "the inbox". The ≤ 6-statement CI assertion in §7.5 is what keeps a
    well-meaning `party-360` call from being added later.
 
 ---
 
-## 10. Closing note on scope
+## 11. Closing note on scope
 
 Twenty-four capabilities across five PRs is a substantial programme — comfortably three to four months
 of focused full-stack work at the standard this codebase already holds itself to (migrations,
