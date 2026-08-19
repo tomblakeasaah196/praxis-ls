@@ -11,7 +11,7 @@
 
 const dns = require("dns").promises;
 const tls = require("tls");
-const { AppError } = require("../../utils/errors");
+const { AppError } = require("../../../utils/errors");
 
 const gmail = { imap_host: "imap.gmail.com", imap_port: 993, imap_secure: true, smtp_host: "smtp.gmail.com", smtp_port: 465, smtp_secure: true, oauth_hint: "google_gmail" };
 const o365 = { imap_host: "outlook.office365.com", imap_port: 993, imap_secure: true, smtp_host: "smtp.office365.com", smtp_port: 587, smtp_secure: false, oauth_hint: "microsoft_graph" };

@@ -1,6 +1,6 @@
 "use strict";
 const { z } = require("zod");
-const { AppError } = require("../../utils/errors");
+const { AppError } = require("../../../utils/errors");
 
 const schemas = {
   // SEC H3 guard. The two provider webhooks passed req.body straight into the

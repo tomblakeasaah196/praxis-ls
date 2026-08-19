@@ -9,26 +9,26 @@
  */
 
 const mockFetchSince = jest.fn();
-jest.mock("../../src/modules/mail/providers/imapSmtp.provider", () => ({
+jest.mock("../../src/modules/mail/mail/providers/imapSmtp.provider", () => ({
   ImapSmtpProvider: jest.fn().mockImplementation(() => ({
     fetchSince: mockFetchSince,
     verify: jest.fn(),
     markAsRead: jest.fn(),
   })),
 }));
-jest.mock("../../src/modules/mail/providers/microsoftGraph.provider", () => ({
+jest.mock("../../src/modules/mail/mail/providers/microsoftGraph.provider", () => ({
   MicrosoftGraphProvider: jest.fn(),
 }));
-jest.mock("../../src/modules/mail/providers/gmail.provider", () => ({
+jest.mock("../../src/modules/mail/mail/providers/gmail.provider", () => ({
   GmailProvider: jest.fn(),
 }));
-jest.mock("../../src/modules/mail/providers/microsoftOAuth", () => ({
+jest.mock("../../src/modules/mail/mail/providers/microsoftOAuth", () => ({
   authorizeUrl: jest.fn(),
   isConfigured: () => true,
   exchangeCode: jest.fn(),
   refresh: jest.fn(),
 }));
-jest.mock("../../src/modules/mail/providers/googleOAuth", () => ({
+jest.mock("../../src/modules/mail/mail/providers/googleOAuth", () => ({
   authorizeUrl: jest.fn(),
   isConfigured: () => true,
   exchangeCode: jest.fn(),
@@ -54,7 +54,7 @@ jest.mock(
 jest.mock("../../src/realtime/mail-bus", () => ({
   publishMailEvent: jest.fn(),
 }));
-jest.mock("../../src/modules/mail/autodiscover", () => ({
+jest.mock("../../src/modules/mail/mail/autodiscover", () => ({
   autodiscover: jest.fn(),
 }));
 jest.mock("sanitize-html", () => {
@@ -63,7 +63,7 @@ jest.mock("sanitize-html", () => {
   return fn;
 });
 
-jest.mock("../../src/modules/mail/mail.repo", () => ({
+jest.mock("../../src/modules/mail/mail/mail.repo", () => ({
   getConnection: jest.fn(),
   findByAddress: jest.fn(),
   insertInbound: jest.fn(),
@@ -75,8 +75,8 @@ jest.mock("../../src/modules/mail/mail.repo", () => ({
   setEntityRef: jest.fn(async () => {}),
 }));
 
-const repo = require("../../src/modules/mail/mail.repo");
-const service = require("../../src/modules/mail/mail.service");
+const repo = require("../../src/modules/mail/mail/mail.repo");
+const service = require("../../src/modules/mail/mail/mail.service");
 
 const CONN = {
   email_connection_id: "conn-1",

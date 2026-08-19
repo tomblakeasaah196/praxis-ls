@@ -11,22 +11,22 @@
 "use strict";
 const repo = require("./mail.repo");
 const events = require("./mail.events");
-const settings = require("../security/setting/setting.service");
+const settings = require("../../security/setting/setting.service");
 const jwt = require("jsonwebtoken");
-const { emitEvent } = require("../../shared/events/emit");
-const { AppError } = require("../../utils/errors");
+const { emitEvent } = require("../../../shared/events/emit");
+const { AppError } = require("../../../utils/errors");
 // Shared SMTP-error classifier — the connection-test path and the system-email
 // paths (email.service, platform probes) share one map so the UI's fix guides
 // key off the same codes everywhere. See smtp-error.map.js.
 const { mapSmtpError, isSmtpError } = require("./smtp-error.map");
-const { config } = require("../../config/env");
+const { config } = require("../../../config/env");
 const { ImapSmtpProvider } = require("./providers/imapSmtp.provider");
 const { MicrosoftGraphProvider } = require("./providers/microsoftGraph.provider");
 const { GmailProvider } = require("./providers/gmail.provider");
 const msOAuth = require("./providers/microsoftOAuth");
 const googleOAuth = require("./providers/googleOAuth");
-const documentVault = require("../vault/document_vault/document_vault.service");
-const { publishMailEvent } = require("../../realtime/mail-bus");
+const documentVault = require("../../vault/document_vault/document_vault.service");
+const { publishMailEvent } = require("../../../realtime/mail-bus");
 const { autodiscover } = require("./autodiscover");
 
 const ATTACH_MAX_BYTES = 25 * 1024 * 1024; // matches document_vault.createDocument
@@ -547,7 +547,7 @@ async function markRead(client, id) {
     } catch (err) {
       // server mark is best-effort; still record the local read state
       try {
-        const { logger } = require("../../config/logger");
+        const { logger } = require("../../../config/logger");
         logger.warn({ err, id }, "[mail] markAsRead propagation skipped");
       } catch { /* noop */ }
     }

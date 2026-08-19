@@ -1,7 +1,7 @@
 "use strict";
 const service = require("./mail.service");
-const { asyncHandler } = require("../../utils/errors");
-const { config } = require("../../config/env");
+const { asyncHandler } = require("../../../utils/errors");
+const { config } = require("../../../config/env");
 const actor = (req) => req.user || { user_id: null };
 // Mail is LIVE-ONLY, on purpose. A mailbox connection holds real credentials and
 // real fetched mail — there is no meaningful "sandbox mailbox," exactly like the

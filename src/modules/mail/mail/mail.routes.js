@@ -23,8 +23,8 @@
  *  redirects the company's mail. */
 "use strict";
 const express = require("express");
-const { authMiddleware } = require("../../middleware/auth");
-const { requirePermission } = require("../../middleware/rbac");
+const { authMiddleware } = require("../../../middleware/auth");
+const { requirePermission } = require("../../../middleware/rbac");
 const c = require("./mail.controller");
 const v = require("./mail.validator");
 

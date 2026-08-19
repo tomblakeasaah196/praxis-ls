@@ -15,7 +15,7 @@ const mockMarkAsRead = jest.fn();
 const mockSendEmail = jest.fn();
 const mockEmitEvent = jest.fn(async () => {});
 
-jest.mock("../../src/modules/mail/providers/imapSmtp.provider", () => ({
+jest.mock("../../src/modules/mail/mail/providers/imapSmtp.provider", () => ({
   ImapSmtpProvider: jest.fn().mockImplementation(() => ({
     fetchSince: mockFetchSince,
     verify: mockVerify,
@@ -45,7 +45,7 @@ jest.mock("sanitize-html", () => {
   fn.defaults = { allowedTags: ["p", "a"], allowedAttributes: { a: ["href"] } };
   return fn;
 });
-jest.mock("../../src/modules/mail/mail.repo", () => ({
+jest.mock("../../src/modules/mail/mail/mail.repo", () => ({
   getConnection: jest.fn(),
   getInbound: jest.fn(),
   markInboundRead: jest.fn(),
@@ -58,9 +58,9 @@ jest.mock("../../src/modules/mail/mail.repo", () => ({
   setEntityRef: jest.fn(async () => {}),
 }));
 
-const repo = require("../../src/modules/mail/mail.repo");
+const repo = require("../../src/modules/mail/mail/mail.repo");
 const vault = require("../../src/modules/vault/document_vault/document_vault.service");
-const service = require("../../src/modules/mail/mail.service");
+const service = require("../../src/modules/mail/mail/mail.service");
 
 const CONN = {
   email_connection_id: "conn-1",
