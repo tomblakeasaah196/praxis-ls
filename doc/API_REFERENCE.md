@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1278 |
+| Routes | 1266 |
 | Modules mounted | 119 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1278 mounted routes, grouped by path prefix.
+All 1266 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -425,6 +425,7 @@ All 1278 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/cash-requests/:id` | — |
 | PATCH | `/api/tenant/cash-requests/:id` | — |
 | POST | `/api/tenant/cash-requests/:id/disburse` | — |
+| POST | `/api/tenant/cash-requests/:id/import-costing` | — |
 | POST | `/api/tenant/cash-requests/:id/justify` | — |
 | POST | `/api/tenant/cash-requests/:id/transition` | — |
 
@@ -886,6 +887,7 @@ All 1278 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/goods-received/` | — |
 | POST | `/api/tenant/goods-received/` | — |
 | GET | `/api/tenant/goods-received/:id` | — |
+| POST | `/api/tenant/goods-received/:id/send-to-warehouse` | — |
 
 ### `tenant/hr`
 
@@ -1015,11 +1017,7 @@ All 1278 mounted routes, grouped by path prefix.
 
 | Method | Path | Body validated |
 |---|---|---|
-| GET | `/api/tenant/mail/access-log` | — |
 | GET | `/api/tenant/mail/autodiscover` | — |
-| GET | `/api/tenant/mail/catalogue` | — |
-| POST | `/api/tenant/mail/catalogue` | — |
-| PATCH | `/api/tenant/mail/catalogue/:key` | — |
 | GET | `/api/tenant/mail/client/:id/timeline` | — |
 | GET | `/api/tenant/mail/connections` | — |
 | POST | `/api/tenant/mail/connections` | — |
@@ -1027,27 +1025,13 @@ All 1278 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/mail/connections/:id/default` | — |
 | POST | `/api/tenant/mail/connections/:id/sync` | — |
 | POST | `/api/tenant/mail/connections/:id/test` | — |
-| GET | `/api/tenant/mail/cpanel-preset` | — |
 | GET | `/api/tenant/mail/inbox` | — |
-| GET | `/api/tenant/mail/mailboxes` | — |
-| GET | `/api/tenant/mail/mailboxes/:id/allowance` | — |
-| POST | `/api/tenant/mail/mailboxes/:id/archive` | — |
-| POST | `/api/tenant/mail/mailboxes/:id/handover` | — |
-| PATCH | `/api/tenant/mail/mailboxes/:id/limits` | — |
-| GET | `/api/tenant/mail/mailboxes/:id/members` | — |
-| POST | `/api/tenant/mail/mailboxes/:id/members` | — |
-| DELETE | `/api/tenant/mail/mailboxes/:id/members/:userId` | — |
-| GET | `/api/tenant/mail/mailboxes/mine` | — |
-| POST | `/api/tenant/mail/mailboxes/shared` | — |
 | GET | `/api/tenant/mail/oauth/google/callback` | — |
 | GET | `/api/tenant/mail/oauth/google/start` | — |
 | GET | `/api/tenant/mail/oauth/microsoft/callback` | — |
 | GET | `/api/tenant/mail/oauth/microsoft/start` | — |
 | GET | `/api/tenant/mail/recipients` | — |
 | POST | `/api/tenant/mail/send` | — |
-| GET | `/api/tenant/mail/send-points` | — |
-| DELETE | `/api/tenant/mail/send-points/:key` | — |
-| PUT | `/api/tenant/mail/send-points/:key` | — |
 | GET | `/api/tenant/mail/senders` | — |
 | POST | `/api/tenant/mail/senders` | — |
 | PATCH | `/api/tenant/mail/senders/:id` | — |
@@ -1395,7 +1379,9 @@ All 1278 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/purchase-orders/` | — |
 | GET | `/api/tenant/purchase-orders/:id` | — |
 | PATCH | `/api/tenant/purchase-orders/:id` | — |
+| POST | `/api/tenant/purchase-orders/:id/pay` | — |
 | POST | `/api/tenant/purchase-orders/:id/transition` | — |
+| POST | `/api/tenant/purchase-orders/:id/unlock` | — |
 
 ### `tenant/purchase-requests`
 
@@ -1711,7 +1697,9 @@ All 1278 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/supplier-invoices/` | — |
 | GET | `/api/tenant/supplier-invoices/:id` | — |
 | POST | `/api/tenant/supplier-invoices/:id/match` | — |
+| POST | `/api/tenant/supplier-invoices/:id/pay` | — |
 | POST | `/api/tenant/supplier-invoices/:id/post` | — |
+| POST | `/api/tenant/supplier-invoices/:id/reverse` | — |
 
 ### `tenant/supplier-types`
 

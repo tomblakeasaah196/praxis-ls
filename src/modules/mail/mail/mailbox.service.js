@@ -9,7 +9,7 @@
  *
  * ── THE ONE-PERSONAL-MAILBOX RULE ───────────────────────────────────────────
  *
- * Enforced by a partial unique index in 10721, not by this file. The check here
+ * Enforced by a partial unique index in 10723, not by this file. The check here
  * exists to turn a 23505 into a sentence a person can act on; if it is ever
  * skipped the database still refuses. That order matters — a rule that lives only
  * in a service is a convention, and conventions lose to a direct write.
@@ -34,7 +34,7 @@ const { getSetting } = require("../../../shared/config/settings");
 const MODULE = "MOD-72";
 const ref = (id) => `email_connection:${id}`;
 
-/** Tenant-wide mailbox defaults (10728, section `mail`). NULL on a row inherits these. */
+/** Tenant-wide mailbox defaults (10730, section `mail`). NULL on a row inherits these. */
 const tenantLimits = (client) => getSetting(client, "mail", "limits", {});
 const tenantPolicy = (client) => getSetting(client, "mail", "policy", {});
 

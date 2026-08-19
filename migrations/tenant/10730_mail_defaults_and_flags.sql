@@ -1,11 +1,11 @@
 -- ============================================================================
--- TENANT DB — 10728 Mail defaults and the mail.* feature flags.
+-- TENANT DB — 10730 Mail defaults and the mail.* feature flags.
 --
 -- ── THE DEFAULTS ────────────────────────────────────────────────────────────
 --
 -- One `mail` settings section holds every tenant-wide mailbox default, so a
 -- limit has one home instead of being scattered across columns that each need
--- their own migration to change. Per-connection columns (10726) override these;
+-- their own migration to change. Per-connection columns (10728) override these;
 -- NULL there means inherit from here.
 --
 -- The throttle defaults are deliberately conservative. Shared cPanel hosting

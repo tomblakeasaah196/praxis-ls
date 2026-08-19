@@ -1,5 +1,5 @@
 -- ============================================================================
--- TENANT DB — 10727 Event types for the mailbox foundation.
+-- TENANT DB — 10729 Event types for the mailbox foundation.
 --
 -- These join `email.received` / `email.sent` (0483) on MOD-64. They exist so the
 -- orchestration engine and the notification fan-out have something to subscribe

@@ -53,7 +53,7 @@ async function roleFor(client, connectionId, userId) {
   if (conn.status === "ARCHIVED") return null;
   if (conn.kind === "PERSONAL") return conn.owner_user_id === userId ? "OWNER" : null;
   // The owner of a shared mailbox administers it even without a grant row — the
-  // backfill in 10723 writes one, but a mailbox created before that, or one whose
+  // backfill in 10725 writes one, but a mailbox created before that, or one whose
   // grant was revoked by mistake, must not lock its own creator out.
   if (conn.owner_user_id === userId) return "MANAGER";
   const m = await repo.liveMember(client, connectionId, userId);

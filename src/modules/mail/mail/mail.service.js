@@ -161,7 +161,7 @@ async function connect(client, input = {}) {
   const { email_address, provider = "imap_smtp", display_name, password, actor = {} } = input;
   if (!email_address) throw new AppError("VALIDATION_ERROR", "email_address is required", 422);
   await assertProviderEnabled(client, provider);
-  // One personal mailbox per person (PR-0 Q1). The partial unique index in 10721
+  // One personal mailbox per person (PR-0 Q1). The partial unique index in 10723
   // is the enforcement; this turns a 23505 into a sentence naming the mailbox
   // they already have and what to do instead.
   const kind = input.kind === "SHARED" ? "SHARED" : "PERSONAL";

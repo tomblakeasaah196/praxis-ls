@@ -99,7 +99,7 @@ describe("originFieldsFor", () => {
       },
       messageIdHeader: "<a@b.cm>",
     });
-    // The 10725 CHECK constraint forbids it; refusing here is the other half.
+    // The 10727 CHECK constraint forbids it; refusing here is the other half.
     expect(f).toEqual({
       sent_via: null,
       origin_user_id: null,

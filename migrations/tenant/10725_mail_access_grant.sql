@@ -1,5 +1,5 @@
 -- ============================================================================
--- TENANT DB — 10723 Who may work a mailbox, and what they may do with it.
+-- TENANT DB — 10725 Who may work a mailbox, and what they may do with it.
 --
 -- Reading a team's mail and sending AS that team are different rights. A junior
 -- clerk should be able to read billing@ and answer a question about an invoice
@@ -65,7 +65,7 @@ CREATE INDEX IF NOT EXISTS ix_email_access_audit_created
   ON email_access_audit (created_at DESC);
 
 -- ── Backfill ────────────────────────────────────────────────────────────────
--- 10721 reclassified any surplus PERSONAL connections to SHARED. Their owners
+-- 10723 reclassified any surplus PERSONAL connections to SHARED. Their owners
 -- must keep working them, so record each as MANAGER of their own mailbox. Owners
 -- of genuinely shared mailboxes get the same, since until now "owner" was the
 -- only access concept there was.

@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 119,
-  "route_count": 1278,
+  "route_count": 1285,
   "tiers": {
     "public": 32,
     "self-scoped": 74,
-    "gated": 1172
+    "gated": 1179
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -2134,6 +2134,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/mail/mailboxes/mine": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/mail/me": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -5157,6 +5163,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/cash-requests/:id/import-costing": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/cash-requests/:id/justify": {
       "auth": true,
       "rbac": true,
@@ -5764,6 +5776,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/goods-received/": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/goods-received/:id/send-to-warehouse": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -6513,7 +6531,19 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/purchase-orders/:id/pay": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/purchase-orders/:id/transition": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/purchase-orders/:id/unlock": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -7005,7 +7035,19 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/supplier-invoices/:id/pay": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/supplier-invoices/:id/post": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/supplier-invoices/:id/reverse": {
       "auth": true,
       "rbac": true,
       "validated": false,

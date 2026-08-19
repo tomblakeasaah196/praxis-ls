@@ -116,7 +116,7 @@ function generateMessageId(fromAddress) {
  * Was this outbound message sent by us?
  *
  * Only ever called for `direction === 'OUT'`. An inbound message has no origin
- * to attribute — the 10725 CHECK constraint enforces that, and this function
+ * to attribute — the 10727 CHECK constraint enforces that, and this function
  * refusing to guess is the other half of it.
  */
 function classifyOutbound(headers) {

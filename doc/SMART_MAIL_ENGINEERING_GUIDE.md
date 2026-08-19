@@ -398,11 +398,12 @@ programme. It **MUST** be lazy-loaded with the composer (`React.lazy`), never in
 ### 3.8 Migrations
 
 Forward-only, idempotent (`IF NOT EXISTS` / guarded `DO $$`), numbered above the current maximum
-(`10720`). Reserved ranges, so parallel PRs never collide:
+(`10722` — PR-0 was renumbered from `10721` when procurement's own `10721`/`10722` landed on
+`main` first; see the note below). Reserved ranges, so parallel PRs never collide:
 
 | PR   | Range                                   |
 | ---- | --------------------------------------- |
-| PR-0 | `10721`–`10730` (used: `10721`–`10728`) |
+| PR-0 | `10723`–`10730` (all eight used)      |
 | PR-1 | `10731`–`10739`                         |
 | PR-2 | `10740`–`10744`                         |
 | PR-3 | `10745`–`10749`                         |
@@ -410,6 +411,13 @@ Forward-only, idempotent (`IF NOT EXISTS` / guarded `DO $$`), numbered above the
 | PR-5 | `10755`–`10764`                         |
 
 Every migration ends with a commented-out rollback block, as the existing files do.
+
+**Reserving a range does not reserve it on `main`.** PR-0 was written against `10721`–`10728` and had
+to be renumbered to `10723`–`10730` before it merged, because a procurement PR landed `10721` and
+`10722` while it was in flight. `check-migration-numbers.js` catches the collision, but only once
+both are on the same branch — so **rebase or merge `main` before the final push and re-check the
+numbering**, rather than trusting the range table. The table says which range a PR should *aim* at;
+`main` says what is actually free.
 
 ### 3.9 Internationalisation
 
@@ -431,7 +439,7 @@ axes, and they must not be conflated:
 
 **Status:** built, tested and merged. This chapter records what shipped, because PR-1 through PR-5
 are written against it. **Flags:** all fourteen `mail.*` keys, seeded off.
-**Migrations:** `10721`–`10728`. **Depends on:** nothing.
+**Migrations:** `10723`–`10730`. **Depends on:** nothing.
 
 ### 4.1 Why PR-0 exists
 
@@ -465,7 +473,7 @@ things made that untenable:
 
 ### 4.3 What shipped
 
-**Schema (`10721`–`10728`).** Connection `kind` (PERSONAL / SHARED / DELEGATED), `visibility`,
+**Schema (`10723`–`10730`).** Connection `kind` (PERSONAL / SHARED / DELEGATED), `visibility`,
 `entity_id`, `catalogue_key`, `department`, ARCHIVED status and health counters, with
 `ux_email_connection_one_personal` as the actual rule. The seven-entry catalogue. Membership with
 roles, revocation-as-a-row, and an access audit table. The send-point registry: 22 declared send
@@ -737,8 +745,8 @@ CREATE INDEX IF NOT EXISTS ix_email_send_queue_due
 
 #### ~~Connection kind and membership~~ — **delivered by PR-0**
 
-This was to be PR-1's migration. **PR-0 shipped it** as `10721` (kind, visibility, owning entity,
-ARCHIVED status, and the one-live-personal-mailbox unique index) plus `10723` (membership with
+This was to be PR-1's migration. **PR-0 shipped it** as `10723` (kind, visibility, owning entity,
+ARCHIVED status, and the one-live-personal-mailbox unique index) plus `10725` (membership with
 VIEWER / AGENT / MANAGER and an access audit trail). Two differences from the sketch that was
 planned here, both deliberate:
 
@@ -781,7 +789,7 @@ New `event_type` rows: `email.thread.created`, `email.message.moved`, `email.sen
 
 #### ~~Feature flags~~ — **delivered by PR-0**
 
-All fourteen `mail.*` keys are seeded off by PR-0's `10728`, along with the `mail` settings section
+All fourteen `mail.*` keys are seeded off by PR-0's `10730`, along with the `mail` settings section
 that holds the tenant-wide defaults. PR-1 turns `mail.core` and `mail.composer` on for the pilot
 tenant from the Platform Console; it does not add a migration.
 
@@ -2606,14 +2614,14 @@ W15 10763 events, 10764 flags; i18n; screen-registry; tests per §9.11
 
 | File                                   | PR    | What it does                                                                                                       |
 | -------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
-| `10721_mail_connection_foundation.sql` | **0** | Connection `kind` / `visibility` / `entity_id` / ARCHIVED / health, and the one-live-personal-mailbox unique index |
-| `10722_mail_shared_catalogue.sql`      | **0** | `mail_shared_catalogue` + the seven seeded team addresses                                                          |
-| `10723_mail_access_grant.sql`          | **0** | `email_connection_member` (VIEWER/AGENT/MANAGER) + `email_access_audit`                                            |
-| `10724_mail_send_point.sql`            | **0** | `mail_send_point` + `mail_send_point_binding` (per-entity) + 22 seeded send points                                 |
-| `10725_mail_origin_tag.sql`            | **0** | `sent_via`, `message_id_header`, `origin_user_id`, `origin_send_point` on `email_inbound`                          |
-| `10726_mail_limits.sql`                | **0** | Per-mailbox send throttles, sync depth, `email_send_window`                                                        |
-| `10727_mail_foundation_events.sql`     | **0** | Eight mailbox / access / routing event types                                                                       |
-| `10728_mail_defaults_and_flags.sql`    | **0** | The `mail` settings section and all fourteen `mail.*` flags                                                        |
+| `10723_mail_connection_foundation.sql` | **0** | Connection `kind` / `visibility` / `entity_id` / ARCHIVED / health, and the one-live-personal-mailbox unique index |
+| `10724_mail_shared_catalogue.sql`      | **0** | `mail_shared_catalogue` + the seven seeded team addresses                                                          |
+| `10725_mail_access_grant.sql`          | **0** | `email_connection_member` (VIEWER/AGENT/MANAGER) + `email_access_audit`                                            |
+| `10726_mail_send_point.sql`            | **0** | `mail_send_point` + `mail_send_point_binding` (per-entity) + 22 seeded send points                                 |
+| `10727_mail_origin_tag.sql`            | **0** | `sent_via`, `message_id_header`, `origin_user_id`, `origin_send_point` on `email_inbound`                          |
+| `10728_mail_limits.sql`                | **0** | Per-mailbox send throttles, sync depth, `email_send_window`                                                        |
+| `10729_mail_foundation_events.sql`     | **0** | Eight mailbox / access / routing event types                                                                       |
+| `10730_mail_defaults_and_flags.sql`    | **0** | The `mail` settings section and all fourteen `mail.*` flags                                                        |
 | `10731_mail_thread_message.sql`        | 1     | `email_thread`, `email_message`, `email_message_state`; backfill; `email_inbound` → view                           |
 | `10732_mail_folders_labels.sql`        | 1     | `email_folder` (per-folder cursors), `email_label`, `email_thread_label`                                           |
 | `10733_mail_search.sql`                | 1     | `search_tsv` + GIN + weighting trigger                                                                             |

@@ -1,5 +1,5 @@
 -- ============================================================================
--- TENANT DB — 10722 The shared-mailbox catalogue.
+-- TENANT DB — 10724 The shared-mailbox catalogue.
 --
 -- A tenant does not invent its team addresses from nothing. A freight forwarder
 -- runs on a known set, and several of them already have ERP modules waiting to
@@ -105,7 +105,7 @@ DO $$ BEGIN
 END $$;
 
 -- One live mailbox may fulfil a given catalogue slot. Two operations@ addresses
--- is a configuration mistake, not a feature — the send-point router in 10724
+-- is a configuration mistake, not a feature — the send-point router in 10726
 -- would have no way to choose between them.
 CREATE UNIQUE INDEX IF NOT EXISTS ux_email_connection_catalogue_live
   ON email_connection (catalogue_key)
@@ -117,5 +117,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_email_connection_catalogue_live
 --   DROP TRIGGER IF EXISTS trg_mail_shared_catalogue_updated ON mail_shared_catalogue;
 --   -- DESTRUCTIVE: drops the catalogue and therefore every tenant-authored entry
 --   -- added beyond the seven seeded ones. email_connection.catalogue_key values
---   -- survive as free text until 10721's down runs.
+--   -- survive as free text until 10723's down runs.
 --   DROP TABLE IF EXISTS mail_shared_catalogue;

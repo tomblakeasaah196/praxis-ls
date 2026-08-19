@@ -1,5 +1,5 @@
 -- ============================================================================
--- TENANT DB — 10721 Mailbox foundation: what a mailbox IS.
+-- TENANT DB — 10723 Mailbox foundation: what a mailbox IS.
 --
 -- `email_connection` (0483) was built for one shape: a person connects their own
 -- mailbox. `owner_user_id` + a partial unique index on `is_default` (0522) let
@@ -35,7 +35,7 @@
 -- silently take a working mailbox away — the backfill keeps the user's DEFAULT
 -- connection (or, with no default, the oldest) as PERSONAL and reclassifies the
 -- others as SHARED, PRIVATE, with the original owner recorded as their MANAGER
--- in 10723. Access is therefore unchanged: still exactly one person can see
+-- in 10725. Access is therefore unchanged: still exactly one person can see
 -- them. An admin reclassifies from the UI if the guess was wrong.
 -- ============================================================================
 
@@ -88,7 +88,7 @@ END $$;
 
 -- ── Backfill: make today's rows fit before the constraint lands ─────────────
 -- Keep one PERSONAL per owner (the default, else the oldest); everything else
--- that owner holds becomes a PRIVATE SHARED mailbox. 10723 grants them MANAGER
+-- that owner holds becomes a PRIVATE SHARED mailbox. 10725 grants them MANAGER
 -- on it, so nobody loses access to a mailbox they are using right now.
 WITH ranked AS (
   SELECT email_connection_id, owner_user_id,

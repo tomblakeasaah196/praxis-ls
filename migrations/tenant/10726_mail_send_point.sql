@@ -1,5 +1,5 @@
 -- ============================================================================
--- TENANT DB — 10724 The send-point registry: every place the product sends mail,
+-- TENANT DB — 10726 The send-point registry: every place the product sends mail,
 -- and which address each one goes out from.
 --
 -- ── WHAT WAS THERE, AND WHY IT WAS NOT ENOUGH ───────────────────────────────

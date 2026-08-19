@@ -1,5 +1,5 @@
 -- ============================================================================
--- TENANT DB — 10726 Send throttling, sync depth, and the counters behind them.
+-- TENANT DB — 10728 Send throttling, sync depth, and the counters behind them.
 --
 -- ── WHY A THROTTLE IS NOT OPTIONAL ON cPanel ────────────────────────────────
 --
