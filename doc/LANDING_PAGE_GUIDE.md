@@ -467,10 +467,23 @@ untouched by all of this.
 
 ### Repo
 
-A sibling repository, not a folder in this one. A marketing copy edit must never
-be able to fail the ERP's build, and the marketing site should deploy without a
-backend release. `packages/brand` is the only shared surface; publish it or
-consume it as a git dependency.
+**A sibling repository — `praxis-ls-web` — not a folder in this one.** This is
+not a matter of taste; the existing CI decides it:
+
+- `.github/workflows/ci.yaml` runs on **every** PR to `main` with **no path
+  filter**. A one-word copy fix would run backend lint, the Jest suite and a
+  Docker image build.
+- `.github/workflows/deploy.yaml` triggers on `workflow_run` when CI succeeds on
+  `main`, and SSH-deploys the production VPS. **Merging a marketing change to
+  `main` would roll the production ERP.**
+
+Path filters could be added, but that means putting the ERP's deployment safety
+in the hands of a `paths:` expression that a future marketing PR can slip past.
+A separate repository makes the mistake impossible instead of unlikely.
+
+`packages/brand` is the only shared surface. Consume it as a git dependency
+pinned to a tag, or vendor `tokens.css` with a CI check that diffs it against
+upstream — never fork the values.
 
 ---
 
