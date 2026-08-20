@@ -28,6 +28,7 @@ vi.mock("@/lib/hr-api", () => ({
   downloadAttendanceExport: vi.fn(),
   justifyDay: vi.fn(),
   runReconcile: vi.fn(),
+  listEmployees: vi.fn(),
 }));
 
 import * as api from "@/lib/hr-api";
@@ -65,6 +66,11 @@ beforeEach(() => {
   vi.mocked(api.attendanceDays).mockResolvedValue([]);
   vi.mocked(api.downloadMyAttendanceExport).mockResolvedValue(undefined);
   vi.mocked(api.downloadAttendanceExport).mockResolvedValue(undefined);
+  vi.mocked(api.listEmployees).mockResolvedValue([
+    { employee_id: "emp-1", full_name: "Ada Mbeki", department: "Operations" },
+    { employee_id: "emp-2", full_name: "Bala Njoya", department: "Operations" },
+    { employee_id: "emp-3", full_name: "Chi Fon", department: "Finance" },
+  ] as api.Employee[]);
 });
 afterEach(() => vi.useRealTimers());
 
@@ -190,5 +196,52 @@ describe("waiving", () => {
     await screen.findByText("1,500.00 XAF");
     expect(screen.queryByRole("button", { name: "Waive" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Uphold" })).toBeNull();
+  });
+});
+
+describe("employee multi-select", () => {
+  it("narrows analytics, the day table and the export to the chosen people", async () => {
+    const user = userEvent.setup();
+    view(<AttendanceHistory scope={{ kind: "hr" }} />);
+    await waitFor(() => expect(api.attendanceAnalytics).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: "Everyone" }));
+    await user.click(await screen.findByLabelText(/Ada Mbeki/));
+    await user.click(screen.getByLabelText(/Chi Fon/));
+
+    await waitFor(() => {
+      const calls = vi.mocked(api.attendanceAnalytics).mock.calls;
+      expect(calls[calls.length - 1][0].employee_ids).toEqual(["emp-1", "emp-3"]);
+    });
+    // The table must honour the same filter, or the totals describe a different
+    // set from the rows underneath them.
+    const dayCalls = vi.mocked(api.attendanceDays).mock.calls;
+    expect(dayCalls[dayCalls.length - 1][0].employee_ids).toEqual(["emp-1", "emp-3"]);
+
+    await user.click(screen.getByRole("button", { name: "CSV" }));
+    await waitFor(() => expect(api.downloadAttendanceExport).toHaveBeenCalled());
+    expect(vi.mocked(api.downloadAttendanceExport).mock.calls[0][0].employee_ids).toEqual(["emp-1", "emp-3"]);
+  });
+
+  it("clearing the selection goes back to everyone", async () => {
+    const user = userEvent.setup();
+    view(<AttendanceHistory scope={{ kind: "hr" }} />);
+    await waitFor(() => expect(api.attendanceAnalytics).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: "Everyone" }));
+    await user.click(await screen.findByLabelText(/Ada Mbeki/));
+    await waitFor(() => expect(screen.getByRole("button", { name: /1 selected/ })).toBeTruthy());
+
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    await waitFor(() => {
+      const calls = vi.mocked(api.attendanceAnalytics).mock.calls;
+      expect(calls[calls.length - 1][0].employee_ids).toBeUndefined();
+    });
+  });
+
+  it("is not offered on your own record", async () => {
+    view(<AttendanceHistory scope={{ kind: "mine" }} />);
+    await waitFor(() => expect(api.myAttendanceAnalytics).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Everyone" })).toBeNull();
   });
 });

@@ -215,7 +215,7 @@ export type HrRule = {
   is_system: boolean;
 };
 
-export const attendanceDays = (p: { from: string; to: string; employee_id?: string }) =>
+export const attendanceDays = (p: AttendanceScopeQuery) =>
   tenant<AttendanceDay[]>("/attendance/days" + qs(p));
 export const myAttendanceDays = (p: { from: string; to: string }) =>
   tenant<AttendanceDay[]>("/attendance/days/mine" + qs(p));
