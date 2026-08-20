@@ -20,12 +20,13 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { PageHeader } from "@/components/data-list";
 import { ScreenAi } from "@/components/screen-ai";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
+import { AttendanceHistory } from "./attendance-history";
 import {
   DepartmentSelect,
   type DepartmentValue,
 } from "@/components/department-select";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
-import { money, dateFmt, dateTimeFmt, enumLabel } from "@/lib/format";
+import { money, dateFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/hr-api";
 
 const shell = pageShell.wide;
@@ -723,31 +724,16 @@ function EmployeeDetail({
           ))}
         </MiniTable>
       )}
+      {/*
+        * The SAME widget My HR and the HR command centre render, scoped to this
+        * employee (§5 PR2). It replaces the raw punch list that used to sit
+        * here: a manager opening this tab is asking "what does this person's
+        * attendance look like", and a list of clock-ins with no window, no
+        * punctuality and no absences could not answer it. The punches are still
+        * reachable — they are the Punches sheet of the export.
+        */}
       {tab === "Attendance" && (
-        <MiniTable
-          empty={aRows.length === 0}
-          head={
-            <>
-              <Th>{tr("Clock in")}</Th>
-              <Th>{tr("Clock out")}</Th>
-              <Th r>Lateness</Th>
-            </>
-          }
-        >
-          {aRows.map((a) => (
-            <tr key={a.attendance_id}>
-              <Td>{a.clock_in_at ? dateTimeFmt(a.clock_in_at) : "—"}</Td>
-              <Td>{a.clock_out_at ? dateTimeFmt(a.clock_out_at) : "—"}</Td>
-              <td className="px-3 py-1.5 text-right">
-                {a.is_late ? (
-                  <Pill tone="warn">{a.minutes_late}m late</Pill>
-                ) : (
-                  <span className="micro">On time</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </MiniTable>
+        <AttendanceHistory scope={{ kind: "employee", employeeId: eid }} />
       )}
       {tab === "Sanctions" && (
         <MiniTable
