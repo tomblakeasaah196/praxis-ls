@@ -2,7 +2,7 @@
  * HR API helpers (typed) — attendance time-clock + worksite geofences.
  * Routes mirror src/modules/hr/attendance.
  */
-import { tenant } from "./api-client";
+import { tenant, tenantDownload } from "./api-client";
 import { tokenStore } from "./token-store";
 import { deviceId } from "./device-id";
 
@@ -61,11 +61,20 @@ export type AbsenceResult = {
 
 export type Fix = { latitude: number; longitude: number; accuracy?: number };
 
-function qs(params?: Record<string, string | undefined>) {
+/**
+ * Query string builder.
+ *
+ * Arrays are APPENDED, not joined: `employee_ids=a&employee_ids=b` is what
+ * express parses back into an array. Joining them into "a,b" would arrive as a
+ * single malformed uuid and the multi-select would 422 the moment it held two
+ * people.
+ */
+function qs(params?: Record<string, string | string[] | undefined>) {
   if (!params) return "";
   const q = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
-    if (v) q.set(k, v);
+    if (Array.isArray(v)) v.filter(Boolean).forEach((one) => q.append(k, one));
+    else if (v) q.set(k, v);
   });
   const s = q.toString();
   return s ? "?" + s : "";
@@ -210,6 +219,86 @@ export const attendanceDays = (p: { from: string; to: string; employee_id?: stri
   tenant<AttendanceDay[]>("/attendance/days" + qs(p));
 export const myAttendanceDays = (p: { from: string; to: string }) =>
   tenant<AttendanceDay[]>("/attendance/days/mine" + qs(p));
+/* ── Analytics + export (PR2) ──────────────────────────────────────────────
+ *
+ * One summarizer serves My HR, the HR command centre and Employee 360, so these
+ * types mirror `attendance.analytics.js` exactly. `punctuality_pct` and
+ * `on_site_pct` are NULLABLE on purpose: null means "no basis to judge" — nobody
+ * attended, or no punch was judged against a worksite — and rendering that as
+ * 0% is how a screen tells a confident lie. Show a dash.
+ */
+export type AttendanceTotals = {
+  expected_days: number;
+  attended_days: number;
+  present_days: number;
+  late_days: number;
+  absent_days: number;
+  on_leave_days: number;
+  holiday_days: number;
+  off_days: number;
+  days_off: number;
+  minutes_late: number;
+  hours_worked: number;
+  days_missing_clock_out: number;
+  deduction_charged: number;
+  deduction_waived: number;
+  waived_days: number;
+  punctuality_pct: number | null;
+  on_site_pct: number | null;
+  on_site_punches: number;
+  judged_punches: number;
+};
+
+export type AttendanceHeatCell = AttendanceTotals & { date: string };
+
+export type AttendanceEmployeeTotals = AttendanceTotals & {
+  employee_id: string;
+  employee_name: string | null;
+  department: string | null;
+  entity_name: string | null;
+};
+
+export type AttendanceDepartmentTotals = AttendanceTotals & {
+  department: string;
+  employees: number;
+};
+
+export type AttendanceAnalytics = {
+  window: { from: string | null; to: string | null };
+  totals: AttendanceTotals;
+  by_employee: AttendanceEmployeeTotals[];
+  by_department: AttendanceDepartmentTotals[];
+  heatmap: AttendanceHeatCell[];
+  timeZone: string;
+};
+
+export type AttendanceScopeQuery = {
+  from: string;
+  to: string;
+  employee_id?: string;
+  employee_ids?: string[];
+  department?: string;
+};
+
+export const attendanceAnalytics = (p: AttendanceScopeQuery) =>
+  tenant<AttendanceAnalytics>("/attendance/analytics" + qs(p));
+export const myAttendanceAnalytics = (p: { from: string; to: string }) =>
+  tenant<AttendanceAnalytics>("/attendance/analytics/mine" + qs(p));
+export const myAttendancePunches = (p: { from: string; to: string }) =>
+  tenant<AttendanceRow[]>("/attendance/punches/mine" + qs(p));
+
+/** `attendance-{from}-{to}.{ext}` — the server names it the same way. */
+export const attendanceExportName = (from: string, to: string, format: "xlsx" | "csv") =>
+  `attendance-${from}-${to}.${format}`;
+
+export const downloadAttendanceExport = (
+  p: AttendanceScopeQuery & { format: "xlsx" | "csv"; sheet?: "days" | "punches" },
+) => tenantDownload("/attendance/export" + qs(p), attendanceExportName(p.from, p.to, p.format));
+
+export const downloadMyAttendanceExport = (
+  p: { from: string; to: string; format: "xlsx" | "csv"; sheet?: "days" | "punches" },
+) => tenantDownload("/attendance/export/mine" + qs(p), attendanceExportName(p.from, p.to, p.format));
+
 export const justifyDay = (dayId: string, body: { justified: boolean; justification?: string }) =>
   tenant<AttendanceDay>(`/attendance/days/${dayId}/justify`, { method: "POST", body });
 export const runReconcile = (date?: string) =>

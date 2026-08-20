@@ -15,7 +15,7 @@ import { ErrorState } from "@/components/ui/states";
 import { PageHeader, DataList, type Column } from "@/components/data-list";
 import { ScreenAi } from "@/components/screen-ai";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
-import { AttendanceDaysView } from "./attendance-days";
+import { AttendanceHistory } from "./attendance-history";
 import { SitePill } from "./attendance-site-pill";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { dateFmt } from "@/lib/format";
@@ -743,6 +743,9 @@ export function AttendancePage() {
   // The log answers "who badged in today"; the reconciled month answers "what
   // did this cost, and is any of it wrong". Different questions, different
   // windows — so they are separate views rather than one crowded page.
+  // "Today" is the live log; "History" is the reconciled record over a window,
+  // with the KPI strip, heatmap and export. Different questions, different
+  // windows — so they stay separate views rather than one crowded page.
   const [view, setView] = React.useState<"day" | "month">("day");
   return (
     <section className={shell}>
@@ -763,7 +766,7 @@ export function AttendancePage() {
           className={`chip ${view === "month" ? "on" : ""}`}
           onClick={() => setView("month")}
         >
-          Reconciled days
+          History &amp; analytics
         </button>
       </div>
       {view === "day" ? (
@@ -789,7 +792,7 @@ export function AttendancePage() {
           </div>
         </>
       ) : (
-        <AttendanceDaysView />
+        <AttendanceHistory scope={{ kind: "hr" }} />
       )}
       <ScreenAi path="hr/attendance" />
     </section>

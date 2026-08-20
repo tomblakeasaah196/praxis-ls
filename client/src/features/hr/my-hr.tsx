@@ -17,6 +17,7 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { money, dateFmt } from "@/lib/format";
 import * as hrApi from "@/lib/hr-api";
 import { MyReviewCard } from "./appraisal-review";
+import { AttendanceHistory } from "./attendance-history";
 
 type Query = {
   hr_query_id: string;
@@ -231,6 +232,18 @@ export function MyHrPage() {
       />
 
       <div className="flex flex-col gap-8">
+        {/*
+          * FIRST, above the queries (§3.2). Your own attendance is the thing you
+          * came to check, and it is also the evidence behind most of the queries
+          * below — reading the query before the record it refers to is the wrong
+          * way round. Same widget HR sees, scoped to you and without the waive
+          * controls: waiving moves money off a payslip and is never your own
+          * call.
+          */}
+        <Section title={tr("My attendance")}>
+          <AttendanceHistory scope={{ kind: "mine" }} />
+        </Section>
+
         <Section title={tr("Queries")} count={qs.length}>
           {queries.error ? (
             <ErrorState message={queries.error} />
