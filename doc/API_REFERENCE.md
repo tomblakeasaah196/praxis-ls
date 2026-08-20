@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1322 |
+| Routes | 1327 |
 | Modules mounted | 119 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1322 mounted routes, grouped by path prefix.
+All 1327 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -301,6 +301,8 @@ All 1322 mounted routes, grouped by path prefix.
 | PATCH | `/api/tenant/attendance/:id` | — |
 | POST | `/api/tenant/attendance/:id/clock-out` | — |
 | GET | `/api/tenant/attendance/absence` | — |
+| GET | `/api/tenant/attendance/analytics` | — |
+| GET | `/api/tenant/attendance/analytics/mine` | — |
 | POST | `/api/tenant/attendance/clock-in` | — |
 | POST | `/api/tenant/attendance/clock-out` | — |
 | GET | `/api/tenant/attendance/days` | — |
@@ -310,8 +312,11 @@ All 1322 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/attendance/devices` | — |
 | PATCH | `/api/tenant/attendance/devices/:deviceId` | — |
 | PATCH | `/api/tenant/attendance/devices/:deviceId/name` | — |
+| GET | `/api/tenant/attendance/export` | — |
+| GET | `/api/tenant/attendance/export/mine` | — |
 | GET | `/api/tenant/attendance/open` | — |
 | GET | `/api/tenant/attendance/place-search` | — |
+| GET | `/api/tenant/attendance/punches/mine` | — |
 | POST | `/api/tenant/attendance/reconcile` | — |
 | GET | `/api/tenant/attendance/work-sites` | — |
 | POST | `/api/tenant/attendance/work-sites` | — |

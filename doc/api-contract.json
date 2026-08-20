@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 119,
-  "route_count": 1322,
+  "route_count": 1327,
   "tiers": {
     "public": 32,
-    "self-scoped": 74,
-    "gated": 1216
+    "self-scoped": 77,
+    "gated": 1218
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -999,6 +999,18 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/attendance/analytics": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/attendance/analytics/mine": {
+      "auth": true,
+      "rbac": false,
+      "validated": false,
+      "tier": "self-scoped"
+    },
     "GET /api/tenant/attendance/days": {
       "auth": true,
       "rbac": true,
@@ -1017,6 +1029,18 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/attendance/export": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/attendance/export/mine": {
+      "auth": true,
+      "rbac": false,
+      "validated": false,
+      "tier": "self-scoped"
+    },
     "GET /api/tenant/attendance/open": {
       "auth": true,
       "rbac": true,
@@ -1028,6 +1052,12 @@
       "rbac": true,
       "validated": false,
       "tier": "gated"
+    },
+    "GET /api/tenant/attendance/punches/mine": {
+      "auth": true,
+      "rbac": false,
+      "validated": false,
+      "tier": "self-scoped"
     },
     "GET /api/tenant/attendance/work-sites": {
       "auth": true,

@@ -3,9 +3,28 @@ const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");
 const service = require("./attendance.service");
 const reconcile = require("./attendance.reconcile");
+const xport = require("./attendance.export");
+const analytics = require("./attendance.analytics");
 
 const base = makeController(service, "Attendance");
 const actor = (req) => req.user || { user_id: null };
+
+/** A user with no employee record has an empty window, not a 404. */
+const emptyAnalytics = (from, to) => analytics.summarize({ days: [], punches: [], from, to });
+
+/**
+ * Hand a built file to the browser.
+ *
+ * `X-Export-Truncated` rather than silence: the row cap is real (§6.7) and a
+ * client that asked for thirteen months of a 300-person roster deserves to be
+ * told its file stops early, not left to discover it in a payroll run.
+ */
+function sendExport(res, built) {
+  res.setHeader("Content-Type", built.contentType);
+  res.setHeader("Content-Disposition", `attachment; filename="${built.filename}"`);
+  if (built.truncated) res.setHeader("X-Export-Truncated", "1");
+  return res.send(built.buffer);
+}
 
 module.exports = {
   ...base,
@@ -91,6 +110,59 @@ module.exports = {
     if (!eid) return res.json({ data: [] });
     const { from, to } = req.validatedQuery;
     return res.json({ data: await req.tenantDb((c) => reconcile.daysFor(c, { employeeId: eid, from, to })) });
+  }),
+
+  /* ── Analytics + export (PR2) ─────────────────────────────────────────────
+   *
+   * The `/mine` twins take NO MOD-14 grant, matching `/days/mine`: a person is
+   * always entitled to their own attendance. They are separate endpoints rather
+   * than a `scope=mine` flag on the HR one precisely so the grant is decided by
+   * the ROUTE — a query parameter that widens what you can see is one typo away
+   * from being the whole authorization story.
+   *
+   * On each `/mine` handler the employee id comes from the session and the
+   * caller's own filters are dropped, so no `employee_id` in a query string can
+   * point them at somebody else's rows.
+   */
+  analytics: asyncHandler(async (req, res) => {
+    const { from, to, employee_id: employeeId, employee_ids: employeeIds, department } = req.validatedQuery;
+    res.json({
+      data: await req.tenantDb((c) => service.analytics(c, {
+        employeeId: employeeId || null, employeeIds: employeeIds || null, department: department || null, from, to,
+      })),
+    });
+  }),
+
+  myAnalytics: asyncHandler(async (req, res) => {
+    const eid = req.user.employee_id;
+    const { from, to } = req.validatedQuery;
+    // An unlinked user is not an error — they simply have no attendance yet.
+    if (!eid) return res.json({ data: emptyAnalytics(from, to) });
+    return res.json({ data: await req.tenantDb((c) => service.analytics(c, { employeeId: eid, from, to })) });
+  }),
+
+  exportDays: asyncHandler(async (req, res) => {
+    const { from, to, employee_id: employeeId, employee_ids: employeeIds, department, format, sheet } = req.validatedQuery;
+    const rows = await req.tenantDb((c) => service.exportData(c, {
+      employeeId: employeeId || null, employeeIds: employeeIds || null, department: department || null, from, to,
+    }));
+    return sendExport(res, await xport.build({ ...rows, from, to, format, sheet }));
+  }),
+
+  myExport: asyncHandler(async (req, res) => {
+    const eid = req.user.employee_id;
+    const { from, to, format, sheet } = req.validatedQuery;
+    const rows = eid
+      ? await req.tenantDb((c) => service.exportData(c, { employeeId: eid, from, to }))
+      : { days: [], punches: [], timeZone: "UTC" };
+    return sendExport(res, await xport.build({ ...rows, from, to, format, sheet }));
+  }),
+
+  myPunches: asyncHandler(async (req, res) => {
+    const eid = req.user.employee_id;
+    if (!eid) return res.json({ data: [] });
+    const { from, to } = req.validatedQuery;
+    return res.json({ data: await req.tenantDb((c) => service.punchesForEmployee(c, { employeeId: eid, from, to })) });
   }),
   justifyDay: asyncHandler(async (req, res) => {
     const row = await req.tenantDb((c) => reconcile.setJustified(c, {

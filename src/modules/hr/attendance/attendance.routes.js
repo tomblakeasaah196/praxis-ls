@@ -39,6 +39,22 @@ router.get("/absence", view, controller.absence);
  * only ever recomputes what the rules already say — and it must be reachable
  * by whoever corrected the punch that made it wrong, not only by an approver.
  */
+/* ── Analytics + export (PR2) ──────────────────────────────────────────────
+ *
+ * `/mine` takes no MOD-14 grant, exactly as `/days/mine` does not: your own
+ * attendance is yours to read. The split is by ROUTE rather than by a `scope`
+ * parameter so the grant is a property of the path — a flag that widens what
+ * you can see is one typo away from being the whole authorization story.
+ *
+ * Declared BEFORE `/:id` for the usual reason, and `/analytics/mine` before
+ * `/analytics` so the more specific path is not shadowed.
+ */
+router.get("/analytics/mine", validator.analyticsWindow, controller.myAnalytics);
+router.get("/analytics", view, validator.analyticsWindow, controller.analytics);
+router.get("/export/mine", validator.exportWindow, controller.myExport);
+router.get("/export", view, validator.exportWindow, controller.exportDays);
+router.get("/punches/mine", validator.dayWindow, controller.myPunches);
+
 router.get("/days/mine", validator.dayWindow, controller.myDays);
 router.get("/days", view, validator.dayWindow, controller.days);
 router.post("/days/:dayId/justify", requirePermission(M, "approve"), validator.justify, controller.justifyDay);
