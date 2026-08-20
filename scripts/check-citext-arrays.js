@@ -44,8 +44,31 @@ const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
 
+/**
+ * Every `citext[]` column declared in one .sql file, as `[table, column]` pairs.
+ *
+ * The schema qualifier is matched but not kept: `platform.feature_catalogue` is
+ * stored as `feature_catalogue`, because that is what a query's alias resolves
+ * to. Skipping qualified declarations outright — which the first draft did, by
+ * requiring `(` straight after the table name — hid every `platform.*` table
+ * from the gate, `feature_catalogue.depends_on` among them.
+ */
+function columnsInSql(sql) {
+  const pairs = [];
+  // CREATE TABLE … ( … col citext[] … )
+  for (const m of sql.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)\s*\(([\s\S]*?)\n\s*\);/gi)) {
+    const [, table, body] = m;
+    for (const c of body.matchAll(/^\s*([a-z_][a-z0-9_]*)\s+citext\s*\[\s*\]/gim)) pairs.push([table, c[1]]);
+  }
+  // ALTER TABLE x ADD COLUMN y citext[]
+  for (const m of sql.matchAll(/ALTER\s+TABLE\s+(?:[a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)[\s\S]{0,80}?ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_][a-z0-9_]*)\s+citext\s*\[\s*\]/gi)) {
+    pairs.push([m[1], m[2]]);
+  }
+  return pairs;
+}
+
 /** `{ table => Set(column) }` for every column declared `citext[]`. */
-function citextArrayColumns() {
+function citextArrayColumns(root = path.join(ROOT, "migrations")) {
   const byTable = new Map();
   const add = (table, column) => {
     if (!byTable.has(table)) byTable.set(table, new Set());
@@ -57,20 +80,10 @@ function citextArrayColumns() {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) { walk(full); continue; }
       if (!entry.name.endsWith(".sql")) continue;
-      const sql = fs.readFileSync(full, "utf8");
-
-      // CREATE TABLE … ( … col citext[] … )
-      for (const m of sql.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_][a-z0-9_]*)\s*\(([\s\S]*?)\n\s*\);/gi)) {
-        const [, table, body] = m;
-        for (const c of body.matchAll(/^\s*([a-z_][a-z0-9_]*)\s+citext\s*\[\s*\]/gim)) add(table, c[1]);
-      }
-      // ALTER TABLE x ADD COLUMN y citext[]
-      for (const m of sql.matchAll(/ALTER\s+TABLE\s+([a-z_][a-z0-9_]*)[\s\S]{0,80}?ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_][a-z0-9_]*)\s+citext\s*\[\s*\]/gi)) {
-        add(m[1], m[2]);
-      }
+      for (const [table, column] of columnsInSql(fs.readFileSync(full, "utf8"))) add(table, column);
     }
   };
-  walk(path.join(ROOT, "migrations"));
+  walk(root);
   return byTable;
 }
 
@@ -125,13 +138,16 @@ function projections(sql) {
 }
 
 function scan(file, byTable) {
-  const source = fs.readFileSync(file, "utf8");
   const rel = path.relative(ROOT, file).replace(/\\/g, "/");
+  return scanSource(fs.readFileSync(file, "utf8"), rel, byTable);
+}
+
+function scanSource(source, rel, byTable) {
   const hits = [];
 
   for (const { sql, at } of sqlBlobs(source)) {
     const tables = [...byTable.keys()].filter((t) =>
-      new RegExp(`\\b(FROM|JOIN|INTO|UPDATE)\\s+${t}\\b`, "i").test(sql));
+      new RegExp(`\\b(?:FROM|JOIN|INTO|UPDATE)\\s+(?:[a-z_][a-z0-9_]*\\.)?${t}\\b`, "i").test(sql));
     if (!tables.length) continue;
     const columns = new Set(tables.flatMap((t) => [...byTable.get(t)]));
 
@@ -139,7 +155,7 @@ function scan(file, byTable) {
     // the right table. Without this, a star on a table that has no citext[]
     // column is flagged because some subquery mentioned one that does.
     const aliasOf = new Map();
-    for (const m of sql.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+([a-z_][a-z0-9_]*)\s+(?:AS\s+)?([a-z][a-z0-9_]*)\b/gi)) {
+    for (const m of sql.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+(?:[a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)\s+(?:AS\s+)?([a-z][a-z0-9_]*)\b/gi)) {
       if (!/^(on|where|set|using|values|select|returning|group|order|limit|left|right|inner|outer|join)$/i.test(m[2])) {
         aliasOf.set(m[2].toLowerCase(), m[1].toLowerCase());
       }
@@ -212,4 +228,6 @@ function main() {
   return 1;
 }
 
-process.exit(main());
+if (require.main === module) process.exit(main());
+
+module.exports = { columnsInSql, citextArrayColumns, sqlBlobs, projections, scanSource };

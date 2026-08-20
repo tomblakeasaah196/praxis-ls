@@ -67,6 +67,31 @@ conversation. Participants was the one exception, and it is the field that most
 obviously has to accumulate: the upsert runs with only *this* message's
 addresses, so a thread ended up listing whoever spoke last. It now unions.
 
+### This had already happened once, in another module
+
+Widening the new gate to see schema-qualified tables (`CREATE TABLE platform.x`,
+which its first draft skipped) turned up a fifth `citext[]` column —
+`platform.feature_catalogue.depends_on` — and, at its only read site, this:
+
+> `depends_on` is a `citext[]`. citext is an extension type with no array parser
+> registered in node-postgres, so the driver returns the raw Postgres array
+> literal as a STRING … iterating that string character-by-character once turned
+> **EVERY feature off**, including no-dependency ones, because `"{"` is not a key.
+>
+> — `src/services/platform/provisioning.service.js`
+
+Same driver, same type, same failure mode, a different module and an earlier
+session. It was diagnosed correctly, fixed correctly with a cast plus a
+belt-and-braces normaliser, and the explanation was written down **as a comment
+at the fix site** — where only someone already reading that function would ever
+find it. Nothing generalised the finding, so mail rediscovered it from scratch
+at the cost of a broken tab and a silently stalled ingest.
+
+That is the real argument for the gate over the fix. A comment records what
+happened here; a gate records what must not happen anywhere. The three sites now
+known (`provisioning`, `orchestrator`, mail) are all cast, and the gate is what
+keeps the fourth from being found by a user.
+
 ### Why every gate was green
 
 This is the part worth internalising, because the same shape will recur.
@@ -96,9 +121,10 @@ on the shape the driver really returns.
    `build-test` job. It discovers the `(table, column)` pairs from the
    migrations — so a column added later is covered without editing the script,
    and a *scalar* `citext` that shares a name is not confused for an array — and
-   fails the build on a read that is not cast to `::text[]`. Writes are
-   deliberately not checked: pg coerces a JS array going in, and a gate that
-   cries wolf gets switched off. Verified by reintroducing both original bugs
+   fails the build on a read that is not cast to `::text[]`. It covers
+   schema-qualified declarations, which is how the `platform.*` pairs surface.
+   Writes are deliberately not checked: pg coerces a JS array going in, and a
+   gate that cries wolf gets switched off. Verified by reintroducing both original bugs
    and watching it fail on each.
 2. **A real-database assertion on the shape**, not just the value.
 3. **The client normalises at the API boundary** and the renderers use
@@ -106,7 +132,8 @@ on the shape the driver really returns.
    then throws. The worst case is now one odd-looking row.
 4. It also found **a pre-existing instance outside mail**:
    `ai_answer_feedback.action_keys` in `services/ai/orchestrator.service.js`,
-   fixed in the same pass.
+   fixed in the same pass, and it now stands guard over the two platform sites
+   that had been fixed by hand.
 
 ### One more thing this exposed
 
