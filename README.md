@@ -94,6 +94,7 @@ Brand & go-to-market (added 2026-08):
 - `BRAND_GUIDELINES.md` — the Praxis brand system. `packages/brand/` is its executable half.
 - `LANDING_PAGE_GUIDE.md` — praxisls.com: IA, bilingual copy deck, budgets, build plan
 - `BRAND_GLOSSARY_FR_EN.md` — every customer-facing term in both languages, plus the French style rules
+- `WEB_BUILD_BRIEF.md` — the implementation brief for the marketing site, built in a separate repo
 
 ## 7. Team & working agreement
 
