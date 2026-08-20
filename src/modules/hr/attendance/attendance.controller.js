@@ -101,9 +101,19 @@ module.exports = {
    * by both the query inbox and the payroll review sheet so the two can never
    * show different answers.
    */
+  /*
+   * The day table honours the SAME filters as the analytics strip above it.
+   * If it did not, an HR user narrowing to one department would read totals for
+   * that department over a table of everybody — two answers to one question on
+   * one screen.
+   */
   days: asyncHandler(async (req, res) => {
-    const { from, to, employee_id: employeeId } = req.validatedQuery;
-    res.json({ data: await req.tenantDb((c) => reconcile.daysFor(c, { employeeId: employeeId || null, from, to })) });
+    const { from, to, employee_id: employeeId, employee_ids: employeeIds, department } = req.validatedQuery;
+    res.json({
+      data: await req.tenantDb((c) => reconcile.daysFor(c, {
+        employeeId: employeeId || null, employeeIds: employeeIds || null, department: department || null, from, to,
+      })),
+    });
   }),
   myDays: asyncHandler(async (req, res) => {
     const eid = req.user.employee_id;

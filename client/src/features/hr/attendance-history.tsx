@@ -162,6 +162,89 @@ function Compare({ rows }: { rows: api.AttendanceEmployeeTotals[] }) {
   );
 }
 
+/* ── Employee multi-select (HR only) ──────────────────────────────────────
+ *
+ * A popover of checkboxes rather than a tag input: HR is choosing from a roster
+ * they already know by name, and the common actions are "these four people" and
+ * "clear it again". The cap matches the server's so the picker cannot compose a
+ * request that will be refused.
+ */
+const MAX_PICKED = 50;
+
+function EmployeePicker({
+  picked,
+  onChange,
+  open,
+  setOpen,
+}: {
+  picked: string[];
+  onChange: (ids: string[]) => void;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+}) {
+  const roster = useResource(() => (open ? api.listEmployees() : Promise.resolve([])), [open]);
+  const [term, setTerm] = React.useState("");
+
+  const all = roster.data || [];
+  const shown = term.trim()
+    ? all.filter((e) => (e.full_name || "").toLowerCase().includes(term.trim().toLowerCase()))
+    : all;
+  const atCap = picked.length >= MAX_PICKED;
+
+  function toggle(id: string) {
+    if (picked.includes(id)) onChange(picked.filter((x) => x !== id));
+    else if (!atCap) onChange([...picked, id]);
+  }
+
+  return (
+    <div className="relative">
+      <span className="micro block text-muted-foreground">{tr("Employees")}</span>
+      <Button variant="outline" onClick={() => setOpen(!open)} aria-expanded={open}>
+        {picked.length ? `${picked.length} ${tr("selected")}` : tr("Everyone")}
+      </Button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-72 rounded-[10px] border bg-card p-2 shadow-[var(--shadow-m)]">
+          <Input
+            autoFocus
+            value={term}
+            placeholder={tr("Search employees")}
+            aria-label={tr("Search employees")}
+            onChange={(e) => setTerm(e.target.value)}
+          />
+          {atCap && (
+            <p className="micro mt-1 text-[rgb(var(--warn))]">
+              {tr("That is the most you can compare at once.")}
+            </p>
+          )}
+          <div className="mt-2 max-h-64 overflow-y-auto">
+            {roster.loading && <LoadingRow label={tr("Loading…")} />}
+            {shown.map((e) => (
+              <label key={e.employee_id} className="flex items-center gap-2 px-1 py-1 text-sm">
+                <input
+                  type="checkbox"
+                  checked={picked.includes(e.employee_id)}
+                  disabled={atCap && !picked.includes(e.employee_id)}
+                  onChange={() => toggle(e.employee_id)}
+                />
+                <span className="truncate">{e.full_name || e.employee_id}</span>
+                {e.department && <span className="micro ml-auto text-muted-foreground">{e.department}</span>}
+              </label>
+            ))}
+          </div>
+          <div className="mt-2 flex justify-between gap-2 border-t pt-2">
+            <Button variant="ghost" onClick={() => onChange([])} disabled={!picked.length}>
+              {tr("Clear")}
+            </Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              {tr("Done")}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── The widget ────────────────────────────────────────────────────────── */
 export function AttendanceHistory({
   scope,
@@ -173,6 +256,8 @@ export function AttendanceHistory({
   const [periodKey, setPeriodKey] = React.useState<PeriodKey>("month");
   const [win, setWin] = React.useState<Period>(() => periodFor("month"));
   const [department, setDepartment] = React.useState("");
+  const [picked, setPicked] = React.useState<string[]>([]);
+  const [pickerOpen, setPickerOpen] = React.useState(false);
   const [waiving, setWaiving] = React.useState<api.AttendanceDay | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [downloading, setDownloading] = React.useState(false);
@@ -182,6 +267,16 @@ export function AttendanceHistory({
   const canWaive = scope.kind !== "mine";
   const employeeId = scope.kind === "employee" ? scope.employeeId : undefined;
   const dept = scope.kind === "hr" && department.trim() ? department.trim() : undefined;
+  /*
+   * The multi-select (§3.3). Capped at MAX_EMPLOYEE_IDS to match the validator:
+   * the server refuses a longer list, and a picker that lets you build one only
+   * to be 422'd is a worse experience than one that stops you at the limit.
+   *
+   * Sent as a stable, sorted key so the query does not refetch when the same
+   * people are chosen in a different order.
+   */
+  const ids = scope.kind === "hr" && picked.length ? picked : undefined;
+  const idsKey = ids ? [...ids].sort().join(",") : "";
 
   function choose(key: PeriodKey) {
     setPeriodKey(key);
@@ -196,8 +291,8 @@ export function AttendanceHistory({
         ? Promise.resolve(null)
         : isMine
           ? api.myAttendanceAnalytics(win)
-          : api.attendanceAnalytics({ ...win, employee_id: employeeId, department: dept }),
-    [win.from, win.to, employeeId, dept, isMine, invalid],
+          : api.attendanceAnalytics({ ...win, employee_id: employeeId, employee_ids: ids, department: dept }),
+    [win.from, win.to, employeeId, dept, idsKey, isMine, invalid],
   );
 
   const days = useResource(
@@ -206,15 +301,15 @@ export function AttendanceHistory({
         ? Promise.resolve([])
         : isMine
           ? api.myAttendanceDays(win)
-          : api.attendanceDays({ ...win, employee_id: employeeId }),
-    [win.from, win.to, employeeId, isMine, invalid],
+          : api.attendanceDays({ ...win, employee_id: employeeId, employee_ids: ids, department: dept }),
+    [win.from, win.to, employeeId, dept, idsKey, isMine, invalid],
   );
 
   async function download(format: "xlsx" | "csv") {
     setDownloading(true);
     try {
       if (isMine) await api.downloadMyAttendanceExport({ ...win, format });
-      else await api.downloadAttendanceExport({ ...win, employee_id: employeeId, department: dept, format });
+      else await api.downloadAttendanceExport({ ...win, employee_id: employeeId, employee_ids: ids, department: dept, format });
     } catch (e) {
       reportActionError(e);
     } finally {
@@ -280,6 +375,9 @@ export function AttendanceHistory({
               <Input type="date" value={win.to} onChange={(e) => setWin((w) => ({ ...w, to: e.target.value }))} />
             </label>
           </div>
+        )}
+        {scope.kind === "hr" && (
+          <EmployeePicker picked={picked} onChange={setPicked} open={pickerOpen} setOpen={setPickerOpen} />
         )}
         {scope.kind === "hr" && (
           <label className="micro text-muted-foreground">
