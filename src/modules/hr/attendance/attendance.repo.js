@@ -12,8 +12,73 @@ const base = makeRepo({ table: "attendance_log", pk: "attendance_id", activeColu
   sortable: ["created_at"],
 });
 
+/**
+ * At most this many employees in one `employee_ids` filter.
+ *
+ * The validator enforces the same number (§5 PR2: "cap 50"). It is repeated
+ * here deliberately: the repo is reachable from the reconciler and from jobs
+ * that never pass through a request validator, and an unbounded `= ANY($1)`
+ * against a 366-day window is the shape of query that takes a tenant's
+ * database down at month end.
+ */
+const MAX_EMPLOYEE_IDS = 50;
+
+/** Hard ceiling on a report read. An export is a report, not a page (§6.7). */
+const MAX_REPORT_ROWS = 20000;
+
+const rowCap = (v) => {
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_REPORT_ROWS) : MAX_REPORT_ROWS;
+};
+
+/** Clean, de-duplicate and cap a list of employee ids. */
+function employeeIdList(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = [...new Set(value.filter((v) => typeof v === "string" && v.trim()).map((v) => v.trim()))];
+  return seen.slice(0, MAX_EMPLOYEE_IDS);
+}
+
+/**
+ * The punch window — the ONE place this predicate lives.
+ *
+ * Shared by the paged `list` and the capped `punchesInRange` so a fix to the
+ * timezone maths lands on both. Pushes onto `params` and returns WHERE
+ * fragments; the caller decides the SELECT, the order and the limit.
+ *
+ * Local-zone bounds, never `clock_in_at::date`: that is the UTC date, so a
+ * 00:30 Douala punch lands on the previous day and disappears from Today.
+ */
+function punchWhere(q, params) {
+  const wh = [];
+  if (q.employee_id) { params.push(q.employee_id); wh.push("al.employee_id = $" + params.length); }
+  const ids = employeeIdList(q.employee_ids);
+  if (ids.length) { params.push(ids); wh.push("al.employee_id = ANY($" + params.length + "::uuid[])"); }
+  if (q.department) { params.push(q.department); wh.push("e.department = $" + params.length); }
+  if (q.open === "true" || q.open === true) wh.push("al.clock_out_at IS NULL");
+
+  const tz = typeof q.timeZone === "string" && q.timeZone.trim() ? q.timeZone.trim() : "Africa/Douala";
+  if (q.date) {
+    params.push(q.date, tz);
+    wh.push("al.clock_in_at >= ($" + (params.length - 1) + "::timestamp AT TIME ZONE $" + params.length + ")");
+    wh.push("al.clock_in_at <  (($" + (params.length - 1) + "::date + 1)::timestamp AT TIME ZONE $" + params.length + ")");
+  } else if (q.from || q.to) {
+    if (q.from) {
+      params.push(q.from, tz);
+      wh.push("al.clock_in_at >= ($" + (params.length - 1) + "::timestamp AT TIME ZONE $" + params.length + ")");
+    }
+    if (q.to) {
+      params.push(q.to, tz);
+      wh.push("al.clock_in_at <  (($" + (params.length - 1) + "::date + 1)::timestamp AT TIME ZONE $" + params.length + ")");
+    }
+  }
+  return wh;
+}
+
 module.exports = {
   ...base,
+  MAX_EMPLOYEE_IDS,
+  MAX_REPORT_ROWS,
+  employeeIdList,
 
   // ── Self-service resolution ──
   async employeeIdForUser(client, userId) {
@@ -127,34 +192,46 @@ module.exports = {
   async list(client, q = {}) {
     const { limit, offset } = page(q);
     const params = [limit, offset];
-    const wh = [];
-    if (q.employee_id) { params.push(q.employee_id); wh.push("al.employee_id = $" + params.length); }
-    if (q.open === "true" || q.open === true) wh.push("al.clock_out_at IS NULL");
-    // Local-zone window, never `clock_in_at::date`. That is the UTC date, so a
-    // 00:30 Douala punch lands on the previous day and disappears from Today.
-    const tz = typeof q.timeZone === "string" && q.timeZone.trim() ? q.timeZone.trim() : "Africa/Douala";
-    if (q.date) {
-      params.push(q.date, tz);
-      wh.push("al.clock_in_at >= ($" + (params.length - 1) + "::timestamp AT TIME ZONE $" + params.length + ")");
-      wh.push("al.clock_in_at <  (($" + (params.length - 1) + "::date + 1)::timestamp AT TIME ZONE $" + params.length + ")");
-    } else if (q.from || q.to) {
-      if (q.from) {
-        params.push(q.from, tz);
-        wh.push("al.clock_in_at >= ($" + (params.length - 1) + "::timestamp AT TIME ZONE $" + params.length + ")");
-      }
-      if (q.to) {
-        params.push(q.to, tz);
-        wh.push("al.clock_in_at <  (($" + (params.length - 1) + "::date + 1)::timestamp AT TIME ZONE $" + params.length + ")");
-      }
-    }
+    const wh = punchWhere(q, params);
     const where = wh.length ? "WHERE " + wh.join(" AND ") : "";
     const { rows } = await client.query(
-      `SELECT al.*, e.full_name AS employee_name
+      `SELECT al.*, e.full_name AS employee_name, e.department,
+              dv.label AS device_label, dv.status AS device_status
          FROM attendance_log al
          LEFT JOIN employee e ON e.employee_id = al.employee_id
+         LEFT JOIN hr_device dv ON dv.hr_device_id = al.hr_device_id
          ${where}
         ORDER BY al.clock_in_at DESC NULLS LAST
         LIMIT $1 OFFSET $2`,
+      params,
+    );
+    return rows;
+  },
+
+  /**
+   * Punches for a report — the same window as `list`, without its page.
+   *
+   * `page()` clamps every list to 200 rows, which is the right answer for a
+   * screen and the wrong one for a 366-day export: the file would silently be
+   * a prefix of the truth, which is worse than refusing. So this is a separate
+   * read with its own hard cap, and it shares `punchWhere` with `list` so the
+   * two can never disagree about which local day a punch fell on — the drift
+   * 10740/PR1 existed to remove.
+   */
+  async punchesInRange(client, q = {}) {
+    const params = [];
+    const wh = punchWhere(q, params);
+    const where = wh.length ? "WHERE " + wh.join(" AND ") : "";
+    params.push(rowCap(q.cap));
+    const { rows } = await client.query(
+      `SELECT al.*, e.full_name AS employee_name, e.department,
+              dv.label AS device_label, dv.status AS device_status
+         FROM attendance_log al
+         LEFT JOIN employee e ON e.employee_id = al.employee_id
+         LEFT JOIN hr_device dv ON dv.hr_device_id = al.hr_device_id
+         ${where}
+        ORDER BY al.clock_in_at ASC NULLS LAST
+        LIMIT $${params.length}`,
       params,
     );
     return rows;
