@@ -43,6 +43,8 @@ const { logger } = require("../../../config/logger");
 // 0704: the shared query writer. The punch raises it; this adopts it.
 const hrQuery = require("./attendance.query");
 const calendar = require("./attendance.calendar");
+// For employeeIdList / the report row cap — one definition of both (see repo).
+const repo = require("./attendance.repo");
 
 const MODULE = "MOD-14";
 
@@ -337,25 +339,54 @@ async function setJustified(client, { id, justified, justification = null, actor
 }
 
 /** One employee's reconciled month, for My HR and the payroll review sheet. */
-async function daysFor(client, { employeeId = null, from, to }) {
+/**
+ * Reconciled days for a window.
+ *
+ * One row shape for every consumer — the interactive table, the analytics
+ * summarizer and the payroll export all read THIS, so a number in the file and
+ * the same number on the screen cannot come from different joins. The extra
+ * joins (entity, punch, device, leave) exist for the export contract in §3.5;
+ * callers that do not need them simply ignore the columns.
+ *
+ * `employeeId` is the single-employee read (My HR, Employee 360). `employeeIds`
+ * is the HR multi-select, capped by the repo at MAX_EMPLOYEE_IDS.
+ */
+async function daysFor(client, { employeeId = null, employeeIds = null, department = null, from, to, cap = null } = {}) {
   const params = [from, to];
-  let where = "d.work_date BETWEEN $1 AND $2";
-  if (employeeId) { params.push(employeeId); where += ` AND d.employee_id = $${params.length}`; }
+  const wh = ["d.work_date BETWEEN $1 AND $2"];
+  if (employeeId) { params.push(employeeId); wh.push(`d.employee_id = $${params.length}`); }
+  const ids = repo.employeeIdList(employeeIds);
+  if (ids.length) { params.push(ids); wh.push(`d.employee_id = ANY($${params.length}::uuid[])`); }
+  if (department) { params.push(department); wh.push(`e.department = $${params.length}`); }
+
+  const limit = Number.isFinite(Number(cap)) && Number(cap) > 0
+    ? Math.min(Number(cap), repo.MAX_REPORT_ROWS)
+    : repo.MAX_REPORT_ROWS;
+  params.push(limit);
+
   const { rows } = await client.query(
-    `SELECT d.*, e.full_name AS employee_name, r.name AS rule_name, r.code AS rule_code,
-            r.sop_document_id, s.title AS sop_title
+    `SELECT d.*, e.full_name AS employee_name, e.department, ce.legal_name AS entity_name,
+            r.name AS rule_name, r.code AS rule_code,
+            r.sop_document_id, s.title AS sop_title,
+            al.geo_label, al.within_geofence, al.location_source,
+            al.latitude, al.longitude, al.distance_m, al.device_trusted,
+            dv.label AS device_label, dv.status AS device_status,
+            lr.kind AS leave_type
        FROM attendance_day d
        LEFT JOIN employee e ON e.employee_id = d.employee_id
+       LEFT JOIN corporate_entity ce ON ce.entity_id = e.entity_id
        LEFT JOIN hr_rule r ON r.hr_rule_id = d.hr_rule_id
        LEFT JOIN sop_document s ON s.sop_document_id = r.sop_document_id
-      WHERE ${where}
-      ORDER BY d.work_date DESC, e.full_name`,
+       LEFT JOIN attendance_log al ON al.attendance_id = d.attendance_id
+       LEFT JOIN hr_device dv ON dv.hr_device_id = al.hr_device_id
+       LEFT JOIN leave_request lr ON lr.leave_request_id = d.leave_request_id
+      WHERE ${wh.join(" AND ")}
+      ORDER BY d.work_date DESC, e.full_name
+      LIMIT $${params.length}`,
     params,
   );
   return rows;
 }
-
-/** What a period owes per employee — payroll's input (0698). */
 async function chargesFor(client, { from, to }) {
   const { rows } = await client.query(
     `SELECT employee_id,
