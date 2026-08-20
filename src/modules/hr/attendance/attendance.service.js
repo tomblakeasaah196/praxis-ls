@@ -24,6 +24,7 @@ const geoapify = require("../../../services/geoapify.service");
 const rules = require("./attendance.rules");
 const reconcile = require("./attendance.reconcile");
 const { locationStatus, locationSourceFromFix } = require("./attendance.location");
+const analytics = require("./attendance.analytics");
 
 const base = makeService({ repo, moduleKey: events.MODULE, entity: "attendance", events });
 
@@ -254,6 +255,68 @@ module.exports = {
       ...lateness(r.clock_in_at, policy),
       location_status: locationStatus(r),
     }));
+  },
+
+  /**
+   * One employee's punches over a range, decorated like the manager log.
+   *
+   * Backs `/attendance/punches/mine` and the map pins a person sees of their
+   * own movement. Same decoration as `list` — lateness and `location_status` —
+   * so My HR and the HR log describe an identical punch identically.
+   */
+  async punchesForEmployee(client, { employeeId, from, to } = {}) {
+    const policy = await attendancePolicy(client);
+    const rows = await repo.punchesInRange(client, {
+      employee_id: employeeId, from, to, timeZone: policy.timeZone,
+    });
+    return rows.map((r) => ({ ...r, ...lateness(r.clock_in_at, policy), location_status: locationStatus(r) }));
+  },
+
+  /**
+   * Analytics for a window (PR2, §3.2/§3.3).
+   *
+   * Days AND punches, because the two answer different questions and a screen
+   * shows both: `attendance_day` is the reconciled truth about a date, and it
+   * does not exist for today until tonight's pass runs. On-site % is read off
+   * the punches so "were people where they said they were" does not wait on
+   * reconciliation.
+   *
+   * The summarizer is pure; everything database-shaped stops here.
+   */
+  async analytics(client, { employeeId = null, employeeIds = null, department = null, from, to } = {}) {
+    const { timeZone } = await attendancePolicy(client);
+    const [days, punches] = await Promise.all([
+      reconcile.daysFor(client, { employeeId, employeeIds, department, from, to }),
+      repo.punchesInRange(client, {
+        employee_id: employeeId, employee_ids: employeeIds, department, from, to, timeZone,
+      }),
+    ]);
+    return { ...analytics.summarize({ days, punches, from, to }), timeZone };
+  },
+
+  /**
+   * The rows behind an export.
+   *
+   * Separate from `analytics` because the file is not the summary: it carries
+   * every row, decorated with the lateness flag the Punches sheet prints. Both
+   * read the same two sources through the same filters, so the totals on a
+   * downloaded file reconcile with the KPI strip the user was looking at when
+   * they pressed the button.
+   */
+  async exportData(client, { employeeId = null, employeeIds = null, department = null, from, to } = {}) {
+    const policy = await attendancePolicy(client);
+    const { timeZone } = policy;
+    const [days, rawPunches] = await Promise.all([
+      reconcile.daysFor(client, { employeeId, employeeIds, department, from, to }),
+      repo.punchesInRange(client, {
+        employee_id: employeeId, employee_ids: employeeIds, department, from, to, timeZone,
+      }),
+    ]);
+    return {
+      days,
+      punches: rawPunches.map((p) => ({ ...p, ...lateness(p.clock_in_at, policy) })),
+      timeZone,
+    };
   },
 
   /**

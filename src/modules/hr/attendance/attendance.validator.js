@@ -93,13 +93,64 @@ const placeSearch = z.object({
  * for — and asking for more is a report, not a page.
  */
 const d = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date in the form YYYY-MM-DD");
-const dayWindow = z
-  .object({ from: d, to: d, employee_id: z.string().uuid().optional() })
-  .refine((v) => v.to >= v.from, { path: ["to"], message: "The end of the window must not precede its start." })
-  .refine(
-    (v) => (Date.parse(v.to) - Date.parse(v.from)) / 86400000 <= 92,
-    { path: ["to"], message: "Ask for at most a quarter at a time." },
-  );
+/**
+ * The reporting window.
+ *
+ * 366 days, raised from 92 (§4). A quarter was the right ceiling while the only
+ * consumer was a table somebody scrolled; My HR offers a "year" chip, and 366
+ * rather than 365 so a leap year — and an inclusive from/to on both ends of it
+ * — still fits instead of failing every fourth February.
+ */
+const WINDOW_MAX_DAYS = 366;
+
+/** At most this many employees in one multi-select (§5 PR2). Mirrored in the repo. */
+const MAX_EMPLOYEE_IDS = 50;
+
+/**
+ * `employee_ids` arrives from a query string, where one value is a bare string
+ * and several are an array. Both are accepted and normalised to an array, or
+ * the HR multi-select silently filters to nothing the moment it holds one
+ * employee.
+ */
+const employeeIds = z
+  .union([z.string().uuid(), z.array(z.string().uuid())])
+  .transform((v) => (Array.isArray(v) ? v : [v]))
+  .refine((v) => v.length <= MAX_EMPLOYEE_IDS, {
+    message: `Choose at most ${MAX_EMPLOYEE_IDS} employees at a time.`,
+  })
+  .optional();
+
+const windowShape = {
+  from: d,
+  to: d,
+  employee_id: z.string().uuid().optional(),
+  employee_ids: employeeIds,
+  department: z.string().trim().min(1).max(120).optional(),
+};
+
+const withWindowRules = (schema) =>
+  schema
+    .refine((v) => v.to >= v.from, { path: ["to"], message: "The end of the window must not precede its start." })
+    .refine(
+      (v) => (Date.parse(v.to) - Date.parse(v.from)) / 86400000 <= WINDOW_MAX_DAYS,
+      { path: ["to"], message: "Ask for at most a year at a time." },
+    );
+
+const dayWindow = withWindowRules(z.object(windowShape));
+
+const analyticsWindow = dayWindow;
+
+/**
+ * Export adds the shape of the file. `sheet` is CSV-only — an XLSX carries both
+ * sheets, so asking which one you wanted is a question with no meaning there.
+ */
+const exportWindow = withWindowRules(
+  z.object({
+    ...windowShape,
+    format: z.enum(["xlsx", "csv"]).default("xlsx"),
+    sheet: z.enum(["days", "punches"]).default("days"),
+  }),
+);
 
 /** Waiving keeps the deduction figure (see 0697) — this only decides whether
  *  payroll counts it. A waiver takes a reason; upholding does not need one. */
@@ -116,7 +167,7 @@ const reconcileRun = z.object({ date: d.optional() });
  *  the employee-facing grant this rides on can never approve a device. */
 const deviceRename = z.object({ label: z.string().trim().min(1).max(80) });
 
-const schemas = { create, update: create.partial(), clockIn, clockOut, workSite, workSiteUpdate: workSite.partial(), placeSearch, deviceRegister, deviceUpdate, deviceRename, dayWindow, justify, reconcileRun };
+const schemas = { create, update: create.partial(), clockIn, clockOut, workSite, workSiteUpdate: workSite.partial(), placeSearch, deviceRegister, deviceUpdate, deviceRename, dayWindow, analyticsWindow, exportWindow, justify, reconcileRun };
 
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);
@@ -145,6 +196,10 @@ module.exports = {
   deviceUpdate: mw("deviceUpdate"),
   deviceRename: mw("deviceRename"),
   dayWindow: qmw("dayWindow"),
+  analyticsWindow: qmw("analyticsWindow"),
+  exportWindow: qmw("exportWindow"),
+  WINDOW_MAX_DAYS,
+  MAX_EMPLOYEE_IDS,
   justify: mw("justify"),
   reconcileRun: mw("reconcileRun"),
   schemas,

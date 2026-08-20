@@ -143,14 +143,17 @@ describe("build", () => {
     expect(parsed.Punches[0]["Within geofence"]).toBe("Yes");
   });
 
+  // The BOM is written \uFEFF rather than pasted: buildCsv prepends one so Excel
+  // renders accented names, and a literal BOM here is invisible to the next
+  // reader and trips no-irregular-whitespace.
   it("csv defaults to Days and switches to Punches on request", async () => {
     const days = await xport.build({ ...input, format: "csv" });
     const head = days.buffer.toString("utf8").split("\r\n")[0];
     expect(days.filename).toMatch(/\.csv$/);
-    expect(head).toMatch(/^﻿Employee,Department,Entity,Work date/);
+    expect(head).toMatch(/^\uFEFFEmployee,Department,Entity,Work date/);
 
     const punches = await xport.build({ ...input, format: "csv", sheet: "punches" });
-    expect(punches.buffer.toString("utf8").split("\r\n")[0]).toMatch(/^﻿Employee,Clock in,Clock out/);
+    expect(punches.buffer.toString("utf8").split("\r\n")[0]).toMatch(/^\uFEFFEmployee,Clock in,Clock out/);
   });
 
   it("reports truncation rather than handing over a silent prefix", async () => {
