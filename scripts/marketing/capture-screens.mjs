@@ -114,7 +114,21 @@ if (/\/\/(admin|console|api)\./.test(BASE)) {
   fail(`${BASE} is a platform host, not a tenant workspace. Use a demo tenant.`);
 }
 
-/** Seed theme + language before any app code runs, so the first paint is right. */
+/**
+ * Seed theme + language before any app code runs, so the first paint is right.
+ *
+ * The callback below is SERIALISED AND RUN IN THE BROWSER, not in Node — which
+ * is why `localStorage` is legitimate here and why eslint, configured for this
+ * repo's Node sources, cannot know that. The `global` directive says so rather
+ * than disabling the rule: `no-undef` stays live for the rest of this file, so
+ * a genuine typo in Node code is still caught.
+ *
+ * It also has to stay self-contained. Puppeteer serialises the function and
+ * evaluates it in a fresh context, so it closes over NOTHING from this
+ * module — every value it needs arrives as an argument. That is why the keys
+ * are passed in rather than read from the constants a few lines up.
+ */
+/* global localStorage */
 async function seedPreferences(page, theme, lang) {
   await page.evaluateOnNewDocument(
     (themeKey, themeValue, langKey, langValue) => {
