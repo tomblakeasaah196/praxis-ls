@@ -25,6 +25,7 @@ const rules = require("./attendance.rules");
 const reconcile = require("./attendance.reconcile");
 const { locationStatus, locationSourceFromFix } = require("./attendance.location");
 const analytics = require("./attendance.analytics");
+const { resolveContext } = require("../../../services/spreadsheet");
 
 const base = makeService({ repo, moduleKey: events.MODULE, entity: "attendance", events });
 
@@ -294,6 +295,12 @@ module.exports = {
     return { ...analytics.summarize({ days, punches, from, to }), timeZone };
   },
 
+  /** The tenant's workbook brand/currency context. Exposed so the empty-file
+   *  path can be branded too, without pulling the service into the controller. */
+  workbookContext(client) {
+    return resolveContext(client);
+  },
+
   /**
    * The rows behind an export.
    *
@@ -312,10 +319,19 @@ module.exports = {
         employee_id: employeeId, employee_ids: employeeIds, department, from, to, timeZone,
       }),
     ]);
+    /*
+     * The WorkbookContext is resolved HERE, on the tenant connection, because
+     * that is the service's contract: the brand tokens, the currency catalogue
+     * and the entity timezone are all tenant reads. A caller that skipped it
+     * would silently ship an unbranded, XAF-assuming file — which is the bug
+     * the spreadsheet consolidation existed to remove, so it must not be
+     * reintroduced by the first module built on top of it.
+     */
     return {
       days,
       punches: rawPunches.map((p) => ({ ...p, ...lateness(p.clock_in_at, policy) })),
       timeZone,
+      context: await resolveContext(client),
     };
   },
 
