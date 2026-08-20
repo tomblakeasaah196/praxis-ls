@@ -162,9 +162,11 @@ module.exports = {
   myExport: asyncHandler(async (req, res) => {
     const eid = req.user.employee_id;
     const { from, to, format, sheet } = req.validatedQuery;
+    // An unlinked user still gets a real, branded (empty) file — the context is
+    // a tenant read, not an employee one, so it resolves either way.
     const rows = eid
       ? await req.tenantDb((c) => service.exportData(c, { employeeId: eid, from, to }))
-      : { days: [], punches: [], timeZone: "UTC" };
+      : await req.tenantDb(async (c) => ({ days: [], punches: [], context: await service.workbookContext(c) }));
     return sendExport(res, await xport.build({ ...rows, from, to, format, sheet }));
   }),
 

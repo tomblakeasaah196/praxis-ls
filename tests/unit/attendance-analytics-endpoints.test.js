@@ -12,6 +12,7 @@
 const validator = require("../../src/modules/hr/attendance/attendance.validator");
 const service = require("../../src/modules/hr/attendance/attendance.service");
 const controller = require("../../src/modules/hr/attendance/attendance.controller");
+const { neutralContext } = require("../../src/services/spreadsheet");
 
 const { analyticsWindow, exportWindow, dayWindow } = validator.schemas;
 
@@ -135,6 +136,9 @@ describe("/mine self-scoping", () => {
 
   it("export/mine still returns a valid empty file for an unlinked user", async () => {
     const spy = jest.spyOn(service, "exportData");
+    // The empty file is still BRANDED — the workbook context is a tenant read,
+    // not an employee one, so it resolves even with nobody linked.
+    jest.spyOn(service, "workbookContext").mockResolvedValue(neutralContext());
     const r = await run(controller.myExport, {
       user: { user_id: "u1", employee_id: null },
       validatedQuery: { from: "2026-08-01", to: "2026-08-31", format: "csv", sheet: "days" },

@@ -7,10 +7,23 @@
  * it is to add the new column at the end and leave the existing keys alone.
  */
 
-const { parseWorkbook } = require("../../src/services/spreadsheet.service");
+const { parseWorkbook, neutralContext } = require("../../src/services/spreadsheet");
 const xport = require("../../src/modules/hr/attendance/attendance.export");
 
 const TZ = "Africa/Douala"; // UTC+1, no DST
+
+/**
+ * A tenant fixture. Rows are RAW now — the spreadsheet service coerces them
+ * against this, which is why the timezone, the bool wording and the currency
+ * are asserted on the BUILT file rather than on dayRow's return value. That is
+ * the output a payroll clerk actually opens.
+ */
+const ctx = () =>
+  neutralContext({
+    timezone: TZ,
+    baseCurrency: "XAF",
+    currencies: { XAF: { code: "XAF", symbol: "FCFA", name: "CFA franc", decimals: 0, is_base: true } },
+  });
 
 function day(over = {}) {
   return {
@@ -64,46 +77,44 @@ describe("column contract", () => {
   });
 });
 
-describe("dayRow", () => {
-  it("writes stamps in the workplace zone, not UTC", () => {
-    const r = xport.dayRow(day(), TZ);
-    // 08:30Z is 09:30 in Douala — payroll reads the local clock.
-    expect(r.first_in).toBe("2026-08-03 09:30");
-    expect(r.last_out).toBe("2026-08-03 18:00");
+describe("dayRow — raw values in, service formats out", () => {
+  it("passes instants through untouched for the service to place in the tenant zone", () => {
+    const r = xport.dayRow(day());
+    expect(r.first_in).toBe("2026-08-03T08:30:00Z");
+    expect(r.last_out).toBe("2026-08-03T17:00:00Z");
   });
 
-  it("computes hours from the pair and leaves them blank when incomplete", () => {
-    expect(xport.dayRow(day(), TZ).hours).toBe(8.5);
-    expect(xport.dayRow(day({ last_clock_out_at: null }), TZ).hours).toBe("");
+  it("computes hours from the pair and leaves them null when incomplete", () => {
+    expect(xport.dayRow(day()).hours).toBe(8.5);
+    expect(xport.dayRow(day({ last_clock_out_at: null })).hours).toBeNull();
   });
 
   it("names the weekday and marks whether the day was expected", () => {
-    const r = xport.dayRow(day(), TZ);
+    const r = xport.dayRow(day());
     expect(r.weekday).toBe("Monday");
-    expect(r.expected).toBe("Yes");
-    expect(xport.dayRow(day({ status: "WEEKEND" }), TZ).expected).toBe("No");
+    expect(r.expected).toBe(true);
+    expect(xport.dayRow(day({ status: "WEEKEND" })).expected).toBe(false);
   });
 
   it("distinguishes no-GPS from off-site in the on_site column", () => {
-    expect(xport.dayRow(day({ within_geofence: true }), TZ).on_site).toBe("Yes");
-    expect(xport.dayRow(day({ within_geofence: false }), TZ).on_site).toBe("No");
-    expect(xport.dayRow(day({ location_source: "none", latitude: null, longitude: null, within_geofence: null }), TZ).on_site).toBe("No GPS");
-    expect(xport.dayRow(day({ within_geofence: null }), TZ).on_site).toBe("No worksite");
+    expect(xport.dayRow(day({ within_geofence: true })).on_site).toBe("Yes");
+    expect(xport.dayRow(day({ within_geofence: false })).on_site).toBe("No");
+    expect(xport.dayRow(day({ location_source: "none", latitude: null, longitude: null, within_geofence: null })).on_site).toBe("No GPS");
+    expect(xport.dayRow(day({ within_geofence: null })).on_site).toBe("No worksite");
   });
 
-  it("reports the deduction and whether it was waived", () => {
-    expect(xport.dayRow(day(), TZ).deduction).toBe(1500);
-    expect(xport.dayRow(day(), TZ).waived).toBe("No");
-    const waived = xport.dayRow(day({ justified: true, justification: "Approved by HR" }), TZ);
-    expect(waived.waived).toBe("Yes");
+  it("reports the deduction as a number and the waiver as a boolean", () => {
+    expect(xport.dayRow(day()).deduction).toBe(1500);
+    expect(xport.dayRow(day()).waived).toBe(false);
+    const waived = xport.dayRow(day({ justified: true, justification: "Approved by HR" }));
+    expect(waived.waived).toBe(true);
     expect(waived.justification).toBe("Approved by HR");
   });
 
-  it("never emits null — a spreadsheet cell is blank, not 'null'", () => {
-    const r = xport.dayRow({ work_date: "2026-08-03", status: "ABSENT" }, TZ);
-    for (const [key, v] of Object.entries(r)) {
-      expect(`${key}=${v}`).not.toMatch(/null|undefined/);
-    }
+  it("keeps a tri-state device_trusted tri-state — null is 'never judged'", () => {
+    expect(xport.dayRow(day({ device_trusted: true })).device_trusted).toBe(true);
+    expect(xport.dayRow(day({ device_trusted: false })).device_trusted).toBe(false);
+    expect(xport.dayRow(day({ device_trusted: null })).device_trusted).toBeNull();
   });
 });
 
@@ -131,7 +142,7 @@ describe("build", () => {
   };
 
   it("produces a real workbook with both sheets and readable rows", async () => {
-    const out = await xport.build({ ...input, format: "xlsx" });
+    const out = await xport.build({ ...input, format: "xlsx", context: ctx() });
     expect(out.filename).toBe("attendance-2026-08-01-2026-08-31.xlsx");
     expect(out.contentType).toMatch(/spreadsheetml/);
 
@@ -140,29 +151,51 @@ describe("build", () => {
     expect(parsed.Days).toHaveLength(1);
     expect(parsed.Days[0].Employee).toBe("Ada Mbeki");
     expect(parsed.Days[0]["Minutes late"]).toBe(30);
-    expect(parsed.Punches[0]["Within geofence"]).toBe("Yes");
   });
 
-  // The BOM is written \uFEFF rather than pasted: buildCsv prepends one so Excel
-  // renders accented names, and a literal BOM here is invisible to the next
-  // reader and trips no-irregular-whitespace.
+  it("writes stamps in the tenant timezone, not UTC", async () => {
+    const out = await xport.build({ ...input, format: "csv", context: ctx() });
+    const body = out.buffer.toString("utf8");
+    // 08:30Z is 09:30 in Douala — payroll reads the local clock.
+    expect(body).toContain("2026-08-03 09:30");
+    expect(body).not.toContain("2026-08-03 08:30");
+  });
+
+  it("names the tenant's currency in the money header", async () => {
+    const out = await xport.build({ ...input, format: "csv", context: ctx() });
+    // The service's own header convention: "<label> · <ISO code>".
+    expect(out.buffer.toString("utf8").split("\r\n")[0]).toMatch(/Deduction · XAF/);
+  });
+
+  it("renders booleans as words, never as true/false or null", async () => {
+    const out = await xport.build({
+      ...input,
+      days: [day({ device_trusted: null })],
+      format: "csv",
+      context: ctx(),
+    });
+    const row = out.buffer.toString("utf8").split("\r\n")[1];
+    expect(row).toContain("Yes");
+    expect(row).not.toMatch(/\btrue\b|\bfalse\b|\bnull\b|\bundefined\b/);
+  });
+
   it("csv defaults to Days and switches to Punches on request", async () => {
-    const days = await xport.build({ ...input, format: "csv" });
+    const days = await xport.build({ ...input, format: "csv", context: ctx() });
     const head = days.buffer.toString("utf8").split("\r\n")[0];
     expect(days.filename).toMatch(/\.csv$/);
     expect(head).toMatch(/^\uFEFFEmployee,Department,Entity,Work date/);
 
-    const punches = await xport.build({ ...input, format: "csv", sheet: "punches" });
+    const punches = await xport.build({ ...input, format: "csv", sheet: "punches", context: ctx() });
     expect(punches.buffer.toString("utf8").split("\r\n")[0]).toMatch(/^\uFEFFEmployee,Clock in,Clock out/);
   });
 
   it("reports truncation rather than handing over a silent prefix", async () => {
-    const small = await xport.build({ ...input, format: "csv" });
+    const small = await xport.build({ ...input, format: "csv", context: ctx() });
     expect(small.truncated).toBe(false);
   });
 
   it("builds an empty window without throwing", async () => {
-    const out = await xport.build({ days: [], punches: [], from: "2026-08-01", to: "2026-08-31", format: "xlsx" });
+    const out = await xport.build({ days: [], punches: [], from: "2026-08-01", to: "2026-08-31", format: "xlsx", context: ctx() });
     const parsed = await parseWorkbook(out.buffer);
     expect(parsed.Days).toEqual([]);
   });
