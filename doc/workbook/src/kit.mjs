@@ -87,12 +87,22 @@ export const ex = (title, time, bodyHtml, placeholder) =>
     `<div class="ans" contenteditable="true" data-ph="${placeholder || "Your answer…"}"></div>`) +
   `</div>`;
 
+/* Self-checks are numbered per chapter — SELF-CHECK 3.2 is the second one in
+   chapter 3. Chapter-relative rather than a running total, so inserting a
+   question in chapter 4 does not renumber every question after it, and so a
+   reviewer can say "you missed 10.4" and both people can find it. Front matter
+   is chapter 0. Call setChapter() at the top of each chapter module. */
+let qChapter = 0;
+let qSeq = 0;
+export const setChapter = (n) => { qChapter = n; qSeq = 0; };
+
 /** Self-check MCQ. correct = 0-based index. */
 let qid = 0;
 export const quiz = (question, options, correct, why) => {
   const id = `q${++qid}`;
+  const label = `${qChapter}.${++qSeq}`;
   return `<div class="selfcheck" data-q="${id}" data-a="${correct}">` +
-    `<div class="sq"><b>?</b> ${question}</div>` +
+    `<div class="sq"><span class="sqh">SELF-CHECK ${label}</span>${question}</div>` +
     options.map((o, i) =>
       `<label class="opt"><input type="radio" name="${id}" value="${i}">${o}</label>`).join("") +
     `<div class="why"><b>Why:</b> ${why}</div></div>`;

@@ -1,11 +1,13 @@
 import {
   page, band, h1, h2, lead, callout, val, bl, req, dod, chips, lete,
   rgroup, cards, flow, table, stack, liaison, cmd, ex, quiz,
+  setChapter,
 } from "./kit.mjs";
 
 const F = (s) => `CHAPTER 6 &mdash; TESTING &amp; QA &nbsp;&middot;&nbsp; ${s}`;
 
 export function chapter() {
+  setChapter(6);
   const out = [];
 
   out.push(page("", F("375 TESTS, FIVE KINDS"), [
@@ -239,6 +241,14 @@ npm run ci                          # all 33 gates`),
       "<b>Defend one decision</b> your lead disagrees with &mdash; or concede it, with a reason.",
       "Show the QA note, including what you deliberately did not test.",
     ]),
+
+    quiz("Your module works locally, but <code>npm run ci</code> fails on a gate you have never seen before and do not understand. What is the correct move?",
+      ["Skip the hook with <code>--no-verify</code> and fix it after the merge",
+       "Comment out the failing test and open a ticket",
+       "Read that gate's own script in <code>scripts/</code> to learn which invariant it protects, then fix the cause it is pointing at",
+       "Ask your lead to lower the threshold so the branch goes green"],
+      2,
+      "Every one of the 33 gates exists because something broke once, and the gate's source is the shortest honest explanation of what it protects &mdash; usually a few dozen readable lines. <code>--no-verify</code> is forbidden by house rules. Lowering a threshold to go green is worse than it looks: it converts a ratchet into a suggestion, and it does so silently, for everyone who comes after you."),
 
     dod(["Migration through all five gates", "Module green", "Tests at four layers", "QA note written", "Lead signed off"]),
 

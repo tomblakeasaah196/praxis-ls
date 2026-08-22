@@ -1,11 +1,13 @@
 import {
   page, band, h1, h2, lead, callout, val, bl, req, dod, chips, lete,
   rgroup, cards, flow, table, stack, liaison, cmd, ex, quiz,
+  setChapter,
 } from "./kit.mjs";
 
 const F = (s) => `CHAPTER 3 &mdash; READING A MODULE &nbsp;&middot;&nbsp; ${s}`;
 
 export function chapter() {
+  setChapter(3);
   const out = [];
 
   out.push(page("", F("THE EIGHT FILES"), [

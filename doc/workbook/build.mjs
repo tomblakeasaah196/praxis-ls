@@ -9,7 +9,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { CSS, LOGO_CSS_SLOT } from "./src/brand.mjs";
+import { CSS, LOGO_CSS_SLOT, LOGO_FULL_URL, LOGO_GREY_URL } from "./src/brand.mjs";
 import { RUNTIME } from "./src/runtime.mjs";
 import { VENDOR_JS, FONT_CSS } from "./src/vendor.mjs";
 import { resetPages, currentCount, nextPageNo } from "./src/kit.mjs";
@@ -97,6 +97,11 @@ const html = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JBS Praxis — Engineering Workbook</title>
 <meta name="description" content="The JBS Praxis engineering onboarding workbook: React + Vite, Node/Express, PostgreSQL, and agentic prompting. Self-contained; works offline.">
+<link rel="icon" type="image/png" href="${LOGO_FULL_URL}">
+<link rel="apple-touch-icon" href="${LOGO_FULL_URL}">
+<!-- Fonts, html2canvas and jsPDF are inlined below. The only thing loaded from
+     the network is the brand mark (favicon + logos), which needs a connection
+     the first time; everything else works with the wifi off. -->
 <!-- No CDN, no webfont host, no analytics. Every asset this page needs is
      inside this file, because a new engineer's first day is often the day the
      network is least cooperative. -->
