@@ -1,11 +1,13 @@
 import {
   page, cover, band, h1, h2, lead, callout, val, bl, req, dod, chips, lete,
   rgroup, cards, flow, table, stack, liaison, cmd, ex, quiz,
+  setChapter,
 } from "./kit.mjs";
 
 const F = (s) => `JBS PRAXIS ENGINEERING WORKBOOK &mdash; ${s}`;
 
 export function frontMatter() {
+  setChapter(0);
   const out = [];
 
   out.push(cover({
@@ -151,13 +153,13 @@ export function frontMatter() {
       "<b>The experienced engineer joining JBS Praxis</b> who needs the house conventions fast. Read chapters 1, 4, 7 and 11, run the labs, skip the rest.",
     ]),
 
-    quiz("You have finished Chapter 5 and your module works locally, but <code>npm run ci</code> fails on a gate you do not understand. What is the correct move?",
-      ["Skip the gate with <code>--no-verify</code> and fix it later",
-       "Read the gate's script in <code>scripts/</code> to learn what invariant it protects, then fix the cause",
-       "Comment out the failing test",
-       "Ask your lead to lower the threshold"],
-      1,
-      "Every gate in this repo exists because something broke in production once. The gate's own source is the shortest explanation of what it protects. <code>--no-verify</code> is explicitly forbidden by house rules, and lowering a threshold to go green converts a ratchet into a suggestion."),
+    quiz("Read the nine points above once more. Which statement is the most accurate description of what this workbook is asking of you?",
+      ["Read all thirteen chapters carefully and take notes as you go",
+       "Do the labs on a copy of the code, so nothing you write is ever seen by anyone else",
+       "Build a working vertical slice — backend, database, frontend, tests, deploy — and open a real pull request that a colleague reviews",
+       "Memorise the architecture well enough to describe it in an interview"],
+      2,
+      "Every one of the nine points ends in something that exists after you have finished: a module, a migration, a screen, a deploy, a trained client. None of them ends in <i>having read</i>. The proof at the end of the month is a pull request against a real repository, reviewed by somebody who did not write it &mdash; which is also why the labs are not optional and not done on a private copy."),
   ].join("\n")));
 
   // ---------------------------------------------------------------- the map

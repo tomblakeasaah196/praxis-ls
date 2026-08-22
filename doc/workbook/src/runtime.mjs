@@ -5,6 +5,7 @@
 // the gated final examination, and certificate generation.
 
 import { EXAM, EXAM_DRAW, PASS_MARK } from "./exam.mjs";
+import { LOGO_FULL_URL, LOGO_GREY_URL } from "./brand.mjs";
 
 export const RUNTIME = `
 window.jsPDF = window.jspdf.jsPDF;
@@ -13,6 +14,8 @@ var KEY = 'jbs-praxis-workbook-v1';
 var EXAM = ${JSON.stringify(EXAM)};
 var EXAM_DRAW = ${EXAM_DRAW};
 var PASS_MARK = ${PASS_MARK};
+var LOGO_FULL_URL = ${JSON.stringify(LOGO_FULL_URL)};
+var LOGO_GREY_URL = ${JSON.stringify(LOGO_GREY_URL)};
 
 /* ---------- persistence ---------- */
 function store(){ try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ return {}; } }
@@ -475,8 +478,27 @@ function downloadCertificate(){
   });
 }
 
+/* ---------- brand marks ----------
+   The logos are hosted, not inlined, so they need a connection. Each is drawn
+   as a CSS background over a text wordmark. We probe the image once: if it
+   loads we add .ok, which hides the wordmark underneath; if it fails — offline,
+   host down, corporate proxy — we leave the wordmark visible. The reader gets
+   brand type instead of a broken-image box, and never a blank space. */
+function markLogos(){
+  [['.logo-full', LOGO_FULL_URL], ['.logo-grey', LOGO_GREY_URL]].forEach(function(pair){
+    var probe = new Image();
+    probe.crossOrigin = 'anonymous';   // lets html2canvas reuse it untainted
+    probe.onload = function(){
+      var els = document.querySelectorAll(pair[0]);
+      for (var i = 0; i < els.length; i++) els[i].classList.add('ok');
+    };
+    probe.src = pair[1];
+  });
+}
+
 /* ---------- boot ---------- */
 restore();
+markLogos();
 enrol();
 paintIdentity();
 trackVisits();

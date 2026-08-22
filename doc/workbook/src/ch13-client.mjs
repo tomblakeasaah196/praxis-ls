@@ -1,11 +1,13 @@
 import {
   page, band, h1, h2, lead, callout, val, bl, req, dod, chips, lete,
   rgroup, cards, flow, table, stack, liaison, cmd, ex, quiz,
+  setChapter,
 } from "./kit.mjs";
 
 const F = (s) => `CHAPTER 13 &mdash; SHIPPING TO A CLIENT &nbsp;&middot;&nbsp; ${s}`;
 
 export function chapter() {
+  setChapter(13);
   const out = [];
 
   out.push(page("", F("THE LAST MILE"), [

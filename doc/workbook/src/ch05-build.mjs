@@ -1,11 +1,13 @@
 import {
   page, band, h1, h2, lead, callout, val, bl, req, dod, chips, lete,
   rgroup, cards, flow, table, stack, liaison, cmd, ex, quiz,
+  setChapter,
 } from "./kit.mjs";
 
 const F = (s) => `CHAPTER 5 &mdash; BUILD A MODULE &nbsp;&middot;&nbsp; ${s}`;
 
 export function chapter() {
+  setChapter(5);
   const out = [];
 
   out.push(page("", F("THE BRIEF"), [

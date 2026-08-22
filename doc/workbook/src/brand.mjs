@@ -5,20 +5,35 @@
 // LOGOS: the Bible embeds two base64 PNGs (.logo-full, .logo-grey). They are not
 // reproduced here — see assets/LOGOS.md for the one-step paste-in.
 
+/* Hosted brand marks. Public URLs, so the logo appears whenever the reader is
+   online. They are NOT inlined, which has one consequence worth knowing:
+   html2canvas draws the PDF onto a <canvas>, and an image from another origin
+   can taint that canvas. If it does, Chrome refuses to export it. To keep the
+   PDF working no matter what, the marks are painted as CSS backgrounds over a
+   text wordmark that is always present underneath — offline, or if the host is
+   unreachable, the reader still sees "JBS" set in the brand face rather than a
+   broken-image icon. Swap these for base64 data URIs to make the file fully
+   self-contained again. */
+export const LOGO_FULL_URL = "https://i.ibb.co/kZJNFD4/JBS-LOGO-FULL-COLOUR.png";
+export const LOGO_GREY_URL = "https://i.ibb.co/9mX9TgfJ/JBS-LOGO-ON-GREY.png";
+
 export const LOGO_CSS_SLOT = `
 /* ============================================================================
-   BRAND LOGOS — PASTE-IN SLOT
-   Open the Fidson Bible HTML, copy the two rules ".logo-full{...}" and
-   ".logo-grey{...}" (the long base64 ones) and paste them directly below this
-   comment, replacing the fallback rules. Everything else already matches.
+   BRAND LOGOS
+   .logo-full — full-colour mark, for light backgrounds
+   .logo-grey — reversed mark, for the navy/dark bands
    ========================================================================== */
 .lg{display:inline-block;background-repeat:no-repeat;background-position:center;background-size:contain;}
-/* --- fallback wordmark (delete these two rules once you paste the real logos) --- */
+/* Fallback wordmark, sits underneath the image so nothing is ever blank. */
 .logo-full,.logo-grey{position:relative;}
 .logo-full::after,.logo-grey::after{content:"JBS";position:absolute;inset:0;display:flex;
   align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:900;
   font-size:7pt;letter-spacing:.5px;color:var(--midnight-navy);border:1.5px solid var(--midnight-navy);border-radius:2px;}
 .logo-grey::after{color:rgba(255,255,255,.55);border-color:rgba(255,255,255,.35);}
+/* The real marks, layered on top. When they load they cover the wordmark. */
+.logo-full{background-image:url("${LOGO_FULL_URL}");}
+.logo-grey{background-image:url("${LOGO_GREY_URL}");}
+.logo-full.ok::after,.logo-grey.ok::after{display:none;}
 `;
 
 export const CSS = `
@@ -186,7 +201,12 @@ pre.cmd .c{color:#7FA6B8;} pre.cmd .k{color:var(--luminous-teal);} pre.cmd .s{co
   background:#fff;font-family:'Fira Code',monospace;font-size:8pt;color:var(--text-body);}
 .ans:empty::before{content:attr(data-ph);color:#B6BDC6;}
 .ans:focus{outline:2px solid rgba(0,229,255,.45);outline-offset:1px;}
-.selfcheck{margin:5px 0 2px;}
+.selfcheck{margin:4px 0 2px;}
+/* The number sits inline at the head of the question rather than on its own
+   line, so numbering all 38 self-checks costs no vertical space on an A4 page. */
+.selfcheck .sqh{font-family:'Fira Code',monospace;font-size:6.3pt;letter-spacing:.09em;
+  color:var(--fin);font-weight:600;background:#E8FAFD;border:1px solid #B8ECF5;
+  border-radius:3px;padding:0.5px 4px;margin-right:5px;white-space:nowrap;vertical-align:1.5px;}
 .selfcheck .sq{font-size:8.2pt;line-height:1.38;margin-bottom:3px;}
 .selfcheck .sq b{color:var(--midnight-navy);}
 .opt{display:block;font-size:7.9pt;line-height:1.36;padding:2.4px 7px;margin:1.6px 0;border:1px solid var(--border-light);

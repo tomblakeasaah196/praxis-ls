@@ -1,11 +1,13 @@
 import {
   page, band, h1, h2, lead, callout, val, bl, req, dod, chips, lete,
   rgroup, cards, flow, table, stack, liaison, cmd, ex, quiz,
+  setChapter,
 } from "./kit.mjs";
 
 const F = (s) => `CHAPTER 10 &mdash; NOTIFICATIONS, EMAIL &amp; PUSH &nbsp;&middot;&nbsp; ${s}`;
 
 export function chapter() {
+  setChapter(10);
   const out = [];
 
   // ------------------------------------------------------------------ opener
