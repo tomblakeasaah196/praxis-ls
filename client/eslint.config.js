@@ -175,6 +175,24 @@ export default tseslint.config(
        * uses.
        */
       "praxis/no-unmarked-silent-catch": "warn",
+
+      /**
+       * NO BROWSER-DRAWN POPUPS. Error from the day it lands, not "warn" —
+       * see client/eslint-local-rules/no-native-dialogs.cjs for why.
+       *
+       * The usual ratchet in this file is: land a rule at "warn", clear the
+       * backlog, then flip to "error". That is the right shape for a rule with
+       * a backlog someone still has to work through. This one has no backlog —
+       * the sweep that introduced the rule converted all 14 `window.confirm`
+       * sites in the same change — so landing it at "warn" would only create
+       * the possibility of a regression it exists to prevent.
+       *
+       * It is also, unlike most lint rules, USER-VISIBLE. A native confirm is
+       * not a style preference; it is the tenant's white-label branding being
+       * replaced by "app.praxis-ls.com says" at the exact moment the product
+       * asks them to destroy something.
+       */
+      "praxis/no-native-dialogs": "error",
     },
   },
   // Test files run under Vitest globals and legitimately use non-null assertions.
