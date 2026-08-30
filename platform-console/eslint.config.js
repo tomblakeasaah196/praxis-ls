@@ -51,4 +51,25 @@ export default tseslint.config(
       "praxis/no-native-dialogs": "error",
     },
   },
+  // THE BAN IS NOT TYPESCRIPT-ONLY.
+  //
+  // Every other block in this file is scoped to TS and TSX files, which is right
+  // for rules about types and hooks — but it means the dialog gate stops at a
+  // file extension. Nothing in this repo forbids a .jsx component, a .js helper
+  // or a .mjs build script that touches the DOM, and the gate would have had
+  // nothing to say about any of them. A ban a rename defeats is not a ban.
+  //
+  // Deliberately ONE rule and no `extends`. Pulling the recommended sets over
+  // these files would report a backlog that has nothing to do with dialogs, and
+  // the pressure to make THAT green is how the whole block gets deleted.
+  {
+    files: ["**/*.{js,jsx,mjs,cjs,mts,cts}"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: { ...globals.browser, ...globals.node },
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+    plugins: { praxis },
+    rules: { "praxis/no-native-dialogs": "error" },
+  },
 );

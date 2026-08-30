@@ -63,8 +63,10 @@ test("no-native-dialogs", () => {
       // The design-system replacements must never trip the rule.
       { code: `const x = <ConfirmDialog onConfirm={() => {}} />;` },
       { code: `const x = <Dialog onClose={close} title="Discard draft?" />;` },
-      // A property access that is not a call.
-      { code: `const fn = window.confirm;` },
+      // Destructuring something that is NOT a host object stays clean.
+      { code: `const { confirm } = api;\nconfirm();` },
+      // A computed access with a non-banned key.
+      { code: `window["scrollTo"](0, 0);` },
     ],
 
     invalid: [
@@ -102,6 +104,43 @@ test("no-native-dialogs", () => {
         code: `const a = prompt("a"); const b = prompt("b");`,
         errors: [{ messageId: "banned" }, { messageId: "banned" }],
       },
+
+      /* ── the three bypasses, each of which USED TO PASS ──────────────────
+       *
+       * These are not defensive padding. Every one of them opens the same
+       * browser dialog the rule exists to remove, and every one of them was
+       * green against the first version of the rule. The alias was even pinned
+       * as a VALID case ("a property access that is not a call"), which is how
+       * a gate ends up documenting its own hole: the access is not the dialog,
+       * but it is the only part of the dialog a rule can still see.
+       */
+
+      // ALIAS. `ask` is a local binding, so the bare-identifier branch skips
+      // it by design; the member access is where this has to be caught.
+      {
+        code: `const ask = window.confirm;\nif (ask("Archive?")) go();`,
+        errors: [{ messageId: "banned" }],
+      },
+      // COMPUTED. The first rewrite anyone tries once the dotted form is red.
+      {
+        code: `window["confirm"]("Archive?");`,
+        errors: [{ messageId: "banned" }],
+      },
+      { code: `globalThis["alert"](msg);`, errors: [{ messageId: "banned" }] },
+      // DESTRUCTURING. Turns a banned member into an innocent identifier.
+      {
+        code: `const { confirm } = window;\nconfirm("x");`,
+        errors: [{ messageId: "banned" }],
+      },
+      {
+        code: `const { alert, prompt } = window;`,
+        errors: [{ messageId: "banned" }, { messageId: "banned" }],
+      },
+      // MONKEY-PATCHING the global is not "removing the popup" either.
+      {
+        code: `window.confirm = myBrandedConfirm;`,
+        errors: [{ messageId: "banned" }],
+      },
     ],
   });
 
@@ -129,6 +168,11 @@ test("the message names a concrete replacement per dialog kind", () => {
   // The remedy has to be in the message. A rule that says "don't" without
   // saying "do this instead" gets disabled rather than obeyed.
   assert.match(msg(`confirm("x");`), /ConfirmDialog/);
-  assert.match(msg(`alert("x");`), /Callout|Toast/);
+  assert.match(msg(`alert("x");`), /Callout|useToast/);
+  // The remedy must name something that EXISTS. `<Toast>` was in this message
+  // and is not an export — the API is the `useToast()` hook — which is the same
+  // class of defect (a doc naming a component that isn't there) that
+  // client/scripts/check-docs.mjs exists to make impossible.
+  assert.doesNotMatch(msg(`alert("x");`), /<Toast>/);
   assert.match(msg(`prompt("x");`), /Dialog.*Field|Field.*Input/);
 });
