@@ -10,7 +10,8 @@
  *   - It has no type scale, spacing, shadow or colour from index.css, so a
  *     WARNING cannot be red and a destructive action cannot look destructive.
  *   - Its buttons are "OK" and "Cancel". They never name the action, which is
- *     precisely the property doc/UX_WRITING.md requires of a confirmation.
+ *     precisely the property doc/FRONTEND_GUIDE.md §3.10 requires of a
+ *     confirmation.
  *   - `alert` and `confirm` BLOCK THE EVENT LOOP. Timers, autosave flushes and
  *     in-flight fetches stall until a human clicks, which has produced real
  *     defects here (a draft autosave landing after a discard).
@@ -30,8 +31,9 @@
  *   window.prompt   →  a <Dialog> with a real <Field> + <Input>. A prompt has
  *                      no label, no validation, no hint and no i18n.
  *   window.alert    →  <Callout> for an outcome the user is reading now, or
- *                      <Toast> for one they do not need to read to continue.
- *                      An alert for an error is almost always a Callout.
+ *                      useToast() for one they do not need to read to
+ *                      continue. An alert for an error is almost always a
+ *                      Callout.
  *
  * ESCAPE HATCH, deliberately narrow. `eslint-disable-next-line
  * praxis/no-native-dialogs` still works and requires a written reason next to
@@ -39,11 +41,20 @@
  * exactly one defensible case in the tree — `window.print()` adjacent flows and
  * `beforeunload`, neither of which this rule matches anyway.
  *
- * DETECTION. Matches the bare globals (`confirm(…)`) and the explicit member
- * forms (`window.confirm(…)`, `globalThis.alert(…)`, `self.prompt(…)`). It does
- * NOT match a method on any other object, so `api.confirm()`, `stage.confirm()`
- * and a locally-declared `function confirm()` are all left alone — that
- * false-positive class is what would otherwise teach people to disable the rule.
+ * DETECTION. Four shapes, because a ban that one rewrite defeats is a ban that
+ * teaches the rewrite:
+ *
+ *   1. bare globals                 `confirm(…)`
+ *   2. member access on a host      `window.confirm`, `globalThis.alert`
+ *      — the ACCESS, not just the call, so `const ask = window.confirm` is
+ *        caught at the alias rather than slipping through as a local binding
+ *   3. computed access              `window["confirm"](…)`
+ *   4. destructuring off a host     `const { confirm } = window`
+ *
+ * It does NOT match a method on any other object, so `api.confirm()`,
+ * `stage.confirm()` and a locally-declared `function confirm()` are all left
+ * alone — that false-positive class is what would otherwise teach people to
+ * disable the rule.
  */
 "use strict";
 
@@ -75,7 +86,7 @@ module.exports = {
     type: "problem",
     docs: {
       description:
-        "Native browser dialogs (confirm/alert/prompt) are banned — use ConfirmDialog, Dialog or Callout so the popup is branded.",
+        "Native browser dialogs (confirm/alert/prompt) are banned — use useConfirm, usePrompt, ConfirmDialog, Dialog or Callout so the popup is branded.",
     },
     schema: [],
     messages: {
@@ -90,7 +101,7 @@ module.exports = {
     const REMEDY = {
       confirm:
         "<ConfirmDialog destructive dismissible={false}> from components/ui/dialog",
-      alert: "<Callout> for a result the user is reading, or <Toast>",
+      alert: "<Callout> for a result the user is reading, or useToast()",
       prompt: "a <Dialog> with a labelled <Field> + <Input>",
     };
 
@@ -102,22 +113,76 @@ module.exports = {
       });
     }
 
-    return {
-      CallExpression(node) {
-        const callee = node.callee;
+    /**
+     * The banned name behind a member access on a host object, or null.
+     *
+     * Handles BOTH `window.confirm` and `window["confirm"]`. The computed form
+     * is not a hypothetical: it is the first thing anyone reaches for once a
+     * lint rule stops the dotted one, and a gate that a bracket defeats teaches
+     * people the bracket rather than the dialog.
+     */
+    function bannedHostMember(node) {
+      if (node.type !== "MemberExpression") return null;
+      if (node.object.type !== "Identifier" || !HOSTS.has(node.object.name)) {
+        return null;
+      }
+      const key = node.computed
+        ? node.property.type === "Literal" && typeof node.property.value === "string"
+          ? node.property.value
+          : null
+        : node.property.type === "Identifier"
+          ? node.property.name
+          : null;
+      return key && BANNED.has(key) ? key : null;
+    }
 
-        // window.confirm(…) / globalThis.alert(…) / self.prompt(…)
+    return {
+      /**
+       * Any REFERENCE to `window.confirm`, not only a call of it.
+       *
+       * The first version of this rule matched `CallExpression` alone, which
+       * left `const ask = window.confirm; ask(x)` green — the alias is a local
+       * binding, so the bare-identifier branch below deliberately skips it. The
+       * dialog still opens. Matching the member access itself closes that
+       * without needing to chase the alias, and it also covers the assignment
+       * form (`window.confirm = …`), which is monkey-patching the global rather
+       * than deleting the popup.
+       *
+       * Nothing in this tree feature-detects these (`typeof window.confirm`) or
+       * stubs them in a test, so there is no shape this makes noisy.
+       */
+      MemberExpression(node) {
+        const name = bannedHostMember(node);
+        if (name) report(node, name);
+      },
+
+      /**
+       * `const { confirm } = window` — destructuring is the other way to turn a
+       * banned member into an innocent-looking local identifier.
+       */
+      VariableDeclarator(node) {
         if (
-          callee.type === "MemberExpression" &&
-          !callee.computed &&
-          callee.object.type === "Identifier" &&
-          HOSTS.has(callee.object.name) &&
-          callee.property.type === "Identifier" &&
-          BANNED.has(callee.property.name)
+          !node.init ||
+          node.init.type !== "Identifier" ||
+          !HOSTS.has(node.init.name) ||
+          node.id.type !== "ObjectPattern"
         ) {
-          report(node, callee.property.name);
           return;
         }
+        for (const prop of node.id.properties) {
+          if (
+            prop.type === "Property" &&
+            !prop.computed &&
+            prop.key.type === "Identifier" &&
+            BANNED.has(prop.key.name)
+          ) {
+            report(prop, prop.key.name);
+          }
+        }
+      },
+
+      CallExpression(node) {
+        const callee = node.callee;
 
         // Bare `confirm(…)` — but only when it resolves to the global. A
         // module-scoped `async function confirm()` (operations/place-picker,
