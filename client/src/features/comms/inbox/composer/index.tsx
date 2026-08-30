@@ -421,13 +421,29 @@ export function Composer({
    * Throw this draft away.
    *
    * Asked before, not undone after: `DELETE /mail/drafts/:id` takes the row and
-   * its attachments with it, and there is no restore. The autosave timer is
-   * cleared first — a pending flush landing after the delete would recreate the
-   * draft the person just discarded, which is the sort of thing that only shows
-   * up once somebody types fast and then changes their mind.
+   * its attachments with it, and there is no restore. A pending flush landing
+   * after the delete would recreate the draft the person just discarded, which
+   * is the sort of thing that only shows up once somebody types fast and then
+   * changes their mind.
+   *
+   * THE TIMER IS CLEARED BEFORE THE QUESTION, NOT AFTER IT. That ordering is
+   * load-bearing and it is the one thing the move off `window.confirm` had to
+   * get right here. The native confirm BLOCKED THE EVENT LOOP, so no autosave
+   * could fire while the question was on screen and clearing the timer
+   * afterwards was sufficient. An awaited dialog does not block anything: the
+   * 1500ms timer keeps running behind it, and a person who reads the sentence
+   * before answering is exactly the person who outlasts it. The flush that then
+   * fires is an UPSERT — `saveDraft` with no `email_draft_id` creates a row —
+   * so once `discard()` has nulled the id, a retry of that flush writes back a
+   * brand-new copy of the draft that was just thrown away.
+   *
+   * Clearing first closes the window. If they say "Keep editing", `touch()`
+   * re-arms it; a flush with nothing dirty returns immediately, so re-arming
+   * unconditionally is safe.
    */
   async function discard() {
     if (!draftId) { onClose?.(); return; }
+    if (timer.current) clearTimeout(timer.current);
     const ok = await confirm({
       title: tr("Discard this draft?"),
       body: tr("It is deleted, along with anything attached to it. This cannot be undone."),
@@ -435,8 +451,7 @@ export function Composer({
       cancelLabel: tr("Keep editing"),
       destructive: true,
     });
-    if (!ok) return;
-    if (timer.current) clearTimeout(timer.current);
+    if (!ok) { touch(); return; }
     dirtyRef.current = {};
     setBusy(true);
     try {
