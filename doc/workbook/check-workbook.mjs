@@ -42,11 +42,10 @@
  *
  * Exit 0 = the workbook everyone reads is the workbook this source builds.
  */
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { tmpdir } from "node:os";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..");
@@ -59,32 +58,56 @@ const fail = (msg) => {
 
 /* ── 1. the committed HTML is what the source builds ──────────────────────── */
 
-if (!existsSync(BUILT)) {
-  fail(
-    "doc/PRAXIS_ENGINEERING_WORKBOOK.html is missing.\n" +
-      "  Build it:  node doc/workbook/build.mjs",
-  );
+/*
+ * No `existsSync` before the read, and no temp-file copy of the committed
+ * bytes. Both were in the first version of this script and CodeQL was right
+ * about both:
+ *
+ *   · The backup file did nothing. `committed` is already the whole file in
+ *     memory and the restore below reads from that variable — the temp copy
+ *     was written, never read, then deleted. It bought a predictable name in a
+ *     directory every process on the box can write to, plus an
+ *     existsSync/unlink race, in exchange for nothing at all.
+ *   · `existsSync(x)` followed by reading x is a check the read already makes,
+ *     and makes atomically. Asking twice only adds a window where the answer
+ *     changes between the two.
+ *
+ * So: read and let the failure tell us it is missing, and restore in a
+ * `finally` so there is exactly one place that puts the tracked file back.
+ */
+let committed;
+try {
+  committed = readFileSync(BUILT, "utf8");
+} catch (err) {
+  if (err.code === "ENOENT") {
+    fail(
+      "doc/PRAXIS_ENGINEERING_WORKBOOK.html is missing.\n" +
+        "  Build it:  node doc/workbook/build.mjs",
+    );
+  }
+  throw err;
 }
 
-const committed = readFileSync(BUILT, "utf8");
-const backup = join(tmpdir(), `workbook-committed-${process.pid}.html`);
-writeFileSync(backup, committed, "utf8");
-
 let rebuilt;
+let buildError;
 try {
   execFileSync("node", [join(HERE, "build.mjs")], { cwd: REPO, stdio: "pipe" });
   rebuilt = readFileSync(BUILT, "utf8");
 } catch (err) {
-  writeFileSync(BUILT, committed, "utf8"); // never leave the tree edited
-  fail(`the workbook build itself failed:\n${err.stderr?.toString() || err.message}`);
+  buildError = err;
 } finally {
-  if (existsSync(backup)) unlinkSync(backup);
+  // Whatever happened, the tracked file goes back exactly as committed. This is
+  // a check, not a build step, and a gate that quietly rewrites the artefact it
+  // is inspecting hides the very drift it exists to report.
+  writeFileSync(BUILT, committed, "utf8");
 }
 
-// Restore the committed bytes either way — this is a check, not a build step,
-// and a gate that quietly rewrites a tracked file is a gate that hides the drift
-// it was meant to report.
-writeFileSync(BUILT, committed, "utf8");
+if (buildError) {
+  fail(
+    "the workbook build itself failed:\n" +
+      (buildError.stderr?.toString() || buildError.message),
+  );
+}
 
 if (rebuilt !== committed) {
   const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
