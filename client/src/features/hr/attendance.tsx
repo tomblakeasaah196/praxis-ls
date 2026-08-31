@@ -16,11 +16,15 @@ import { PageHeader, DataList, type Column } from "@/components/data-list";
 import { ScreenAi } from "@/components/screen-ai";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { AttendanceDaysView } from "./attendance-days";
+import { AttendanceHistory, PeriodChips } from "./attendance-history";
+import { AttendanceMapTab } from "./attendance-map";
+import { periodRange, type Period } from "./attendance-period";
 import { SitePill } from "./attendance-site-pill";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { dateFmt } from "@/lib/format";
 import * as api from "@/lib/hr-api";
 import { reportActionError } from "@/lib/action-error";
+import { useConfirm } from "@/components/ui/use-confirm";
 
 const shell = pageShell.wide;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -597,15 +601,19 @@ function EditableLabel({
 function Devices() {
   const devices = useResource(() => api.listDevices(), []);
   const [busy, setBusy] = React.useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   async function decide(d: api.HrDevice, status: "TRUSTED" | "REVOKED") {
-    if (
-      status === "REVOKED" &&
-      !window.confirm(
-        `Block "${d.label}"?\n\nIt won't be able to clock ${d.employee_name || "this employee"} in, and it can't be re-approved — it has to be removed and registered again.`,
-      )
-    )
-      return;
+    if (status === "REVOKED") {
+      const ok = await confirm({
+        title: `Block “${d.label}”?`,
+        body: `It won't be able to clock ${d.employee_name || "this employee"} in, and it can't be re-approved — it has to be removed and registered again.`,
+        confirmLabel: "Block this device",
+        cancelLabel: "Leave it trusted",
+        destructive: true,
+      });
+      if (!ok) return;
+    }
     setBusy(d.hr_device_id);
     try {
       await api.setDeviceStatus(d.hr_device_id, { status });
@@ -662,9 +670,25 @@ function Devices() {
     {
       key: "seen",
       label: "Last used",
+      /*
+       * The PLACE under the time (PR3). Approving a device means deciding
+       * whether a machine you have never touched belongs to somebody, and the
+       * generated label cannot help with that — "Windows · Chrome · 7f3a" is
+       * true of every laptop in the company. Where it last clocked in from can:
+       * a device that only ever appears at the yard is almost certainly the
+       * yard's, and one that appears somewhere nobody works is the row this
+       * queue exists to surface.
+       */
       render: (d) => (
-        <span className="num text-muted-foreground">
-          {dateFmt(d.last_seen_at)}
+        <span>
+          <span className="num block text-muted-foreground">
+            {dateFmt(d.last_seen_at)}
+          </span>
+          {d.last_geo_label && (
+            <span className="block micro normal-case text-muted-foreground">
+              {d.last_geo_label}
+            </span>
+          )}
         </span>
       ),
     },
@@ -708,6 +732,7 @@ function Devices() {
 
   return (
     <div>
+      {confirmDialog}
       <div className="mb-2">
         <h2 className="text-sm font-semibold text-muted-foreground">
           Registered devices
@@ -738,12 +763,56 @@ function Devices() {
   );
 }
 
+type AttendanceView = "day" | "history" | "map" | "month";
+
+const VIEWS: { key: AttendanceView; label: string }[] = [
+  { key: "day", label: "Today" },
+  { key: "history", label: "History & analytics" },
+  { key: "map", label: "Map" },
+  { key: "month", label: "Reconciled days" },
+];
+
+/**
+ * The Map tab (PR3).
+ *
+ * Its own window state rather than the day picker above: a map of one calendar
+ * day is almost always one pin per person and answers nothing, while the
+ * question people actually bring to it — "where has this shift been clocking
+ * in from" — is a period. It reuses the history widget's chips so the two tabs
+ * cannot end up with different ideas of what "this quarter" means.
+ */
+function MapView() {
+  const [period, setPeriod] = React.useState<Period>("7d");
+  const [win, setWin] = React.useState(() => periodRange("7d"));
+  return (
+    <div className="space-y-4">
+      <PeriodChips
+        period={period}
+        window={win}
+        onPeriod={(p) => {
+          setPeriod(p);
+          if (p !== "custom") setWin(periodRange(p));
+        }}
+        onWindow={setWin}
+      />
+      <AttendanceMapTab from={win.from} to={win.to} />
+    </div>
+  );
+}
+
 export function AttendancePage() {
   const [date, setDate] = React.useState(today);
-  // The log answers "who badged in today"; the reconciled month answers "what
-  // did this cost, and is any of it wrong". Different questions, different
-  // windows — so they are separate views rather than one crowded page.
-  const [view, setView] = React.useState<"day" | "month">("day");
+  /*
+   * The log answers "who badged in today"; the reconciled month answers "what
+   * did this cost, and is any of it wrong"; History & analytics (PR2) answers
+   * the one neither could — "what does this look like over a period, for the
+   * people I pick". Different questions, different windows, so they stay
+   * separate views rather than one crowded page.
+   *
+   * History is the SAME widget My HR and the employee 360 mount, at a wider
+   * scope. Three copies of this screen would be three answers to one question.
+   */
+  const [view, setView] = React.useState<AttendanceView>("day");
   return (
     <section className={shell}>
       <PageHeader
@@ -753,18 +822,17 @@ export function AttendancePage() {
       />
       <HubTabs />{" "}
       <div className="chips mb-4">
-        <button
-          className={`chip ${view === "day" ? "on" : ""}`}
-          onClick={() => setView("day")}
-        >
-          Today
-        </button>
-        <button
-          className={`chip ${view === "month" ? "on" : ""}`}
-          onClick={() => setView("month")}
-        >
-          Reconciled days
-        </button>
+        {VIEWS.map((v) => (
+          <button
+            key={v.key}
+            type="button"
+            className={`chip ${view === v.key ? "on" : ""}`}
+            aria-pressed={view === v.key}
+            onClick={() => setView(v.key)}
+          >
+            {tr(v.label)}
+          </button>
+        ))}
       </div>
       {view === "day" ? (
         <>
@@ -788,6 +856,10 @@ export function AttendancePage() {
             <Devices />
           </div>
         </>
+      ) : view === "history" ? (
+        <AttendanceHistory scope="hr" />
+      ) : view === "map" ? (
+        <MapView />
       ) : (
         <AttendanceDaysView />
       )}

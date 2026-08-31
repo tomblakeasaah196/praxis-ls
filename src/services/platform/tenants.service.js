@@ -9,6 +9,12 @@ const { config } = require("../../config/env");
 const { logger } = require("../../config/logger");
 const m = require("./migrator");
 const provisioning = require("./provisioning.service");
+const registry = require("../tenant/registry.service");
+const publicHead = require("../../shared/http/public-head");
+const publicWebPaths = require("../../shared/http/public-web-paths");
+const dnsTarget = require("../../shared/net/dns-target");
+const dnsPromises = require("dns").promises;
+const { AppError } = require("../../utils/errors");
 
 async function withPlatform(fn) {
   const pf = m.client(config.DB_NAME);
@@ -80,6 +86,45 @@ function get(slug) {
   });
 }
 
+/**
+ * Has each of this tenant's hosts actually been pointed at us?
+ *
+ * Registering a domain writes the row that makes it serve the public site; it
+ * does NOT make the domain resolve. That half lives at the client's registrar,
+ * and it is the step most likely to be half-done — added to the wrong zone,
+ * added as a CNAME on an apex that cannot take one, or simply not added yet.
+ * Until now the only way to find out was to load the site and interpret a TLS
+ * error, which is a bad instrument: it cannot tell "not pointed yet" from
+ * "pointed at the old host", and those need different replies.
+ *
+ * Read-only and computed live. Nothing is stored, so there is no cached verdict
+ * to go stale the moment somebody edits a zone — the answer is always as fresh
+ * as the lookup, which is the whole point of a Check button.
+ *
+ * Every host is resolved, not just custom ones: a workspace host that stopped
+ * resolving is worth seeing in the same list, and special-casing it would mean
+ * the one row you most want explained is the row that is missing.
+ */
+function checkDomainDns(slug, { resolveA } = {}) {
+  const lookup = resolveA || ((host) => dnsPromises.resolve4(host));
+  return withPlatform(async (pf) => {
+    const { rows } = await pf.query(
+      "SELECT s.host, s.surface, s.is_custom_domain, s.is_primary FROM platform.subdomain s " +
+        "JOIN platform.tenant t ON t.tenant_id=s.tenant_id WHERE t.slug=$1 ORDER BY s.host",
+      [slug],
+    );
+    const expected = config.PUBLIC_INGRESS_IP;
+    return Promise.all(
+      rows.map(async (row) => ({
+        ...(await dnsTarget.checkHost(row.host, expected, lookup)),
+        surface: row.surface,
+        is_custom_domain: row.is_custom_domain,
+        is_primary: row.is_primary,
+      })),
+    );
+  });
+}
+
 function setStatus(slug, status, action, actorId) {
   return withPlatform(async (pf) => {
     const id = await tenantIdOf(pf, slug);
@@ -146,6 +191,139 @@ function setCapacity(slug, tier, actorId) {
     );
     await audit(pf, actorId, id, "tenant.capacity_set", slug, { tier });
     return { slug, capacity_tier: tier };
+  });
+}
+
+/**
+ * Hosts a tenant must never be able to claim.
+ *
+ * `platform.subdomain.host` is UNIQUE, so one host can only ever mean one
+ * tenant — that part was always safe. What was not guarded is that a row could
+ * be written for `admin.`, `console.`, `api.` or the apex, which
+ * `hostTenantResolver` short-circuits into `req.isPlatform` before it ever looks
+ * for a tenant. The row would then sit in the table doing nothing, and the
+ * person who added it would be left wondering why their customer's domain
+ * resolves to a login screen for the platform. Refusing is a better answer than
+ * a silent no-op.
+ */
+function reservedHosts() {
+  const base = String(config.APP_BASE_DOMAIN || "").toLowerCase();
+  return new Set([base, `admin.${base}`, `console.${base}`, `api.${base}`, "localhost"]);
+}
+
+/** A hostname, not a URL: no scheme, no path, no port, no trailing dot. */
+function normaliseHost(input) {
+  const host = String(input || "").trim().toLowerCase().replace(/\.$/, "");
+  if (!host) throw new AppError("BAD_HOST", "A hostname is required.", 400);
+  if (/[/\\:?#\s]/.test(host)) {
+    throw new AppError("BAD_HOST", "Enter a hostname on its own — no scheme, port or path.", 400);
+  }
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(host)) {
+    throw new AppError("BAD_HOST", `'${host}' is not a valid hostname.`, 400);
+  }
+  if (reservedHosts().has(host)) {
+    throw new AppError("RESERVED_HOST", `'${host}' is a platform host and cannot be given to a tenant.`, 409);
+  }
+  return host;
+}
+
+/**
+ * Register another host for a tenant, and say what it serves.
+ *
+ * `surface` is the whole point: 'public' means this host serves the marketing
+ * site and external portal at its ROOT and never the staff workspace, which is
+ * what a tenant wants for a domain their own clients visit. See
+ * migrations/platform/0103_subdomain_surface.sql.
+ *
+ * Not primary. `is_primary` drives the uptime probe and the console's tenant
+ * list, and both mean "where this tenant's workspace lives" — a marketing domain
+ * is a second address, not a replacement for the first.
+ */
+function addDomain(slug, { host, surface }, actorId) {
+  const h = normaliseHost(host);
+  const sf = surface === "public" ? "public" : "erp";
+  return withPlatform(async (pf) => {
+    const id = await tenantIdOf(pf, slug);
+    const { rows } = await pf.query(
+      `INSERT INTO platform.subdomain (tenant_id, host, is_primary, is_custom_domain, surface)
+       VALUES ($1, $2, false, true, $3)
+       ON CONFLICT (host) DO NOTHING
+       RETURNING host, surface, public_base, is_primary, is_custom_domain`,
+      [id, h, sf],
+    );
+    if (!rows[0]) {
+      // UNIQUE on host, so a conflict means some tenant already has it — and
+      // which tenant is not this caller's business to learn.
+      throw new AppError("HOST_TAKEN", `'${h}' is already registered.`, 409);
+    }
+    await audit(pf, actorId, id, "tenant.domain_added", slug, { host: h, surface: sf });
+    registry.invalidateHost(h);
+    // The head cache keys off the host too: without this a domain that just
+    // changed what it serves keeps describing itself the old way for 5 minutes.
+    publicHead.invalidateHost(h);
+    return rows[0];
+  });
+}
+
+/**
+ * Flip what an existing host serves.
+ *
+ * The registry caches a resolved host for a minute, so without the
+ * invalidation below this would appear not to have worked for up to 60 seconds —
+ * long enough for someone to press it again and assume it is broken.
+ */
+/**
+ * Where this host serves the marketing site.
+ *
+ * The word ends up in every URL the tenant prints, emails or gives to a search
+ * engine, so it is theirs to choose — but not from an unbounded set. The refusal
+ * list lives in `shared/http/public-web-paths.js` next to the route table it has
+ * to agree with: a tenant mounted at `/settings` would shadow the staff screen of
+ * the same name on the same origin, and whoever typed it would have no idea that
+ * was what they had done.
+ *
+ * `/portal` is refused too, and is not settable anywhere: invitation emails
+ * already in circulation point at it.
+ */
+function setDomainBase(slug, { host, base }, actorId) {
+  const h = String(host || "").trim().toLowerCase();
+  const problem = publicWebPaths.baseProblem(base);
+  if (problem) throw new AppError("BAD_BASE", problem, 400);
+  const b = publicWebPaths.normaliseBase(base);
+  return withPlatform(async (pf) => {
+    const id = await tenantIdOf(pf, slug);
+    const { rows } = await pf.query(
+      `UPDATE platform.subdomain SET public_base=$3
+        WHERE tenant_id=$1 AND host=$2
+        RETURNING host, surface, public_base, is_primary, is_custom_domain`,
+      [id, h, b],
+    );
+    if (!rows[0]) throw new AppError("NOT_FOUND", `'${h}' is not a host of this tenant.`, 404);
+    await audit(pf, actorId, id, "tenant.domain_base_set", slug, { host: h, base: b });
+    registry.invalidateHost(h);
+    publicHead.invalidateHost(h);
+    return rows[0];
+  });
+}
+
+function setDomainSurface(slug, { host, surface }, actorId) {
+  const h = String(host || "").trim().toLowerCase();
+  const sf = surface === "public" ? "public" : "erp";
+  return withPlatform(async (pf) => {
+    const id = await tenantIdOf(pf, slug);
+    const { rows } = await pf.query(
+      `UPDATE platform.subdomain SET surface=$3
+        WHERE tenant_id=$1 AND host=$2
+        RETURNING host, surface, public_base, is_primary, is_custom_domain`,
+      [id, h, sf],
+    );
+    if (!rows[0]) throw new AppError("NOT_FOUND", `'${h}' is not a host of this tenant.`, 404);
+    await audit(pf, actorId, id, "tenant.domain_surface_set", slug, { host: h, surface: sf });
+    registry.invalidateHost(h);
+    // The head cache keys off the host too: without this a domain that just
+    // changed what it serves keeps describing itself the old way for 5 minutes.
+    publicHead.invalidateHost(h);
+    return rows[0];
   });
 }
 
@@ -277,6 +455,10 @@ const listPlans = () =>
   );
 
 module.exports = {
+  checkDomainDns,
+  addDomain,
+  setDomainSurface,
+  setDomainBase,
   list,
   get,
   suspend,

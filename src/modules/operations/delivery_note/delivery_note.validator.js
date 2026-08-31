@@ -13,6 +13,11 @@ const lineSchema = z.object({
   inventory_item_id: z.string().uuid().optional().nullable(),
   label: z.string().min(1).optional(),
   qty: z.number().nonnegative().optional(),
+  /* 12749 — what a note says about PACKAGES, which is the whole document on a
+     file that hands goods over in cartons rather than in boxes. Kilogrammes
+     flat: the file stores a unit, a receipt should not need a conversion. */
+  gross_weight_kg: z.number().nonnegative().optional().nullable(),
+  marks: z.string().max(200).optional().nullable(),
 });
 
 /**
@@ -32,6 +37,10 @@ const containerSchema = z.object({
   seal_no: z.string().max(40).optional().nullable(),
   gross_weight_kg: z.number().nonnegative().optional().nullable(),
   notes: z.string().max(500).optional().nullable(),
+  /* Why this box is going out again when a signed note already covers it. The
+     service REQUIRES it in that case and refuses it by container number; here
+     it is merely allowed, because only the database knows what was delivered. */
+  redelivery_reason: z.string().max(500).optional().nullable(),
 });
 
 const headerFields = {

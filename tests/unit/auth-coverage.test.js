@@ -39,8 +39,24 @@ const PUBLIC_BY_DESIGN = new Map([
     "sales/portfolio_public",
     "Published marketing stories are intentionally public; responses are allow-listed, consent-aware and every route is limited.",
   ],
+  [
+    "operations/service_type_web_public",
+    "The /public/services tenant website. Anonymous by design (the public website is the feature); every route is pinned to LIVE, rate-limited 120/15min, the media route re-checks the allowlist before streaming, and the flag is FEATURE_DISABLED (403) when the website package is off. See SERVICE_TYPE_WEB_PROFILE_ENGINEERING_GUIDE §3.2 / §6.",
+  ],
   ["sales/public_intake", "Marketing website forms submit bounded, rate-limited CRM intake without accounts."],
   ["operations/tracking_public", "Exact-reference shipment tracking is public, allow-listed and rate-limited against guessing."],
+  [
+    "operations/geo_place_public",
+    "The quote wizard's place picker (WS2). Anonymous by design and rate-limited 60/15min. It opens NO tenant connection: answers come from Geoapify, never from the tenant's geo_place catalogue, which holds customer doors and would otherwise be enumerable three letters at a time.",
+  ],
+  [
+    "content/insight_public",
+    "The tenant website's Insights (12757). Anonymous by design — a knowledge hub nobody can read is not one. Every route is pinned to LIVE so an internet caller cannot select sandbox, rate-limited (120/15min for JSON, 600 for covers), and gated on the `website` package; an unpublished article and an unknown slug are the same 404, and the cover route re-checks the allowlist so a draft's image cannot be fetched at a guessed URL before its date.",
+  ],
+  [
+    "site/site_public",
+    "The tenant website's own pages (12753). Anonymous by design — the public site IS the feature. Every route is pinned to LIVE so an internet caller cannot select sandbox, rate-limited 240/15min, and gated on the `website` package; unpublished and unknown pages are the same 404, so nothing unreleased is enumerable.",
+  ],
   [
     "mail/public_secure",
     "Secure download links are intentionally reachable without an account; lookup is by minted token only, every refusal is a uniform 404, and the route is rate-limited.",
@@ -52,6 +68,10 @@ const PUBLIC_BY_DESIGN = new Map([
   [
     "vault/document_verification",
     "The verification portal a printed QR resolves to. A stranger holding a document checking it WITHOUT an account is the entire feature; lookup is by the printed code only, every refusal is a uniform 404 that cannot distinguish malformed from never-existed, the read is pinned to live, and the route is rate-limited — which, since the code is 2^60 and stored in plaintext, is the sole defence against enumeration (SIGNATURE_ENGINEERING_GUIDE §3.7, §5.4).",
+  ],
+  [
+    "vault/qes_public",
+    "The certified-signature provider webhook. The caller is the provider itself, and the credential is the signature on the event — verified on the raw body before any field is trusted, a failure answers 401 with nothing from the body logged, the lookup is tenant-scoped by host, the read is pinned to live, and the route is rate-limited. Not feature-gated on purpose: the flag gates the action (the handoff), not the receipt of an event about an envelope started when the flag was on (SIGNATURE_ENGINEERING_GUIDE §7.4 step 5, §7.6 criterion 4).",
   ],
 ]);
 

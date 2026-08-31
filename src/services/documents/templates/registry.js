@@ -281,117 +281,342 @@ const TEMPLATES = {
   },
 
   /**
-   * BORDEREAU DE LIVRAISON — the proof of delivery.
+   * BON DE LIVRAISON — the sheet the client signs at the gate, and the only
+   * thing that turns a printout into proof that goods changed hands.
    *
-   * Three things the rebuild's version was missing, all of which the legacy
-   * layout (`view/operations/delivery-note.php`) had and which are what make
-   * this document worth printing:
+   * ══ THE SAME THREE CONTRACTS AS THE TRANSIT ORDER ════════════════════════
+   * One page, one language, and a signatory box the signature engine fills.
+   * See TRANSIT_ORDER's header for what each of those means and why; this is
+   * the second adopter of the instrument sheet, and the kit primitives it uses
+   * were built to be exactly that.
    *
-   *   · the CONTAINER MANIFEST grid. Legacy rendered 18 fixed slots so the
-   *     unused ones printed as ruled lines to be filled in by hand at the gate.
-   *     That is not a quirk to clean up — a driver arriving with a box that was
-   *     added at the last minute needs somewhere to write it, and the printed
-   *     form is the only artefact present at the handover.
+   * ── What is different here, and it is the whole point ─────────────────────
+   * A sea file's containers do not all clear at once. Twelve boxes come out of
+   * the port over three weeks, and each run produces its OWN note carrying the
+   * boxes that actually went — because a note is evidence of one handover at
+   * one moment, and a document amended after it is signed stops being evidence
+   * (the signature engine would correctly flag it AMENDED).
+   *
+   * So this sheet answers a question the old one could not: WHERE IN THE FILE
+   * ARE WE. `data.position` — delivery n of m, so many delivered, so many
+   * still to come — is derived from the other notes on the same dossier by the
+   * same rollup the operations screen reads. The client's gatekeeper learns
+   * that more is coming; the driver learns this is not the last run; and
+   * nobody has to reconcile three signed sheets by hand to find out.
+   *
+   * ── The manifest keeps its ruled slots ───────────────────────────────────
+   * Padded to a minimum, because an empty slot prints as a line and a box
+   * added on the quay can be written in and still be part of what was signed.
+   * The legacy hard cap of 18 silently TRUNCATED anything beyond it, which on
+   * a proof-of-delivery is data loss wearing a layout bug's clothes.
+   *
+   * ── Carried over from `view/operations/delivery-note.php`, because it was
+   *    right ────────────────────────────────────────────────────────────────
    *   · the RESERVATIONS box, where the client writes "carton 3 crushed". It is
    *     the single most valuable thing on the page in a dispute, because it is
-   *     the client's own words at the moment of acceptance.
+   *     the client's own words at the moment of acceptance — so it prints as a
+   *     fillable well even on a note that has none.
    *   · a RECEIVED BY box that names the person, rather than an anonymous
    *     signature line.
+   *
+   * MEASURED CEILING: 195 containers on one A4 sheet, with a logo, a cachet and
+   * a seal (`DOC=DELIVERY_NOTE node scripts/dev/measure-instrument.js`, 2026-08);
+   * it spills at 210. The largest real file in the data carries twelve boxes.
+   * Re-measure after any change to the sheet or to HEIGHT_MM — the number is a
+   * measurement, not an aspiration, and the manifest is the axis that drives
+   * this page, not the cargo table.
    */
   DELIVERY_NOTE: {
     docType: "DELIVERY_NOTE", title: { fr: "Bon de livraison", en: "Delivery note" }, module: "operations/delivery_note",
-    fields: ["hide prices toggle", "container manifest", "reservations", "received by"],
+    fields: ["container manifest", "partial-delivery position", "reservations", "received by", "signatory box"],
+    /*
+     * The covering note. It asks for the ONE thing this document exists to get
+     * back — a signed copy with the client's reserves on it — because a
+     * delivery note that comes back unsigned is stationery, and an email that
+     * does not say what to do with the attachment is how that happens.
+     */
+    email: {
+      subject: {
+        fr: "Bon de livraison {number}[[ — dossier {dossier_ref}]]",
+        en: "Delivery note {number}[[ — file {dossier_ref}]]",
+      },
+      body: {
+        fr: "Bonjour,\n\n"
+          + "Veuillez trouver ci-joint le bon de livraison {number}[[ relatif au dossier {dossier_ref}]].\n\n"
+          + "Nous vous remercions de bien vouloir contrôler la marchandise à la réception, puis de nous "
+          + "retourner un exemplaire signé et cacheté en y portant vos éventuelles réserves.\n\n"
+          + "Cordialement,\n{entity_name}",
+        en: "Hello,\n\n"
+          + "Please find attached delivery note {number}[[ for file {dossier_ref}]].\n\n"
+          + "Kindly check the goods on receipt, then return a signed and stamped copy to us, noting any "
+          + "reservations on it.\n\n"
+          + "Kind regards,\n{entity_name}",
+      },
+    },
+    /** Measured off the render — see scripts/dev/measure-instrument.js. */
+    HEIGHT_MM: {
+      head: 17,        // letterhead + accent rule
+      name: 12,        // centred document name + the reference under it
+      ident: 11,       // date / delivery date / status row
+      consignee: 24,   // who it is going to, and where
+      cargoHead: 5.5,
+      cargoRow: 6.4,
+      cargoWrap: 4.6,
+      cargoMin: 26,    // .cargo's ruled minimum, whatever it holds
+      manifestHead: 5.5,
+      manifestRow: 6.7, // one row of THREE manifest cells
+      position: 13,    // the "delivery 2 of 3" band, when there is one
+      reserves: 20,    // the client's own words, always a fillable box
+      /* The strip LESS the seal, which is in FIXED_MM: at k=1 the whole block
+         measures ~58mm, of which the seal's own 29 do not scale. */
+      strip: 17,       // the two signatory boxes, ruled well only
+      stampExtra: 12,
+      foot: 9,
+      gap: 2.2,
+    },
+    FIXED_MM: { seal: 29, footVfy: 24 },
     build: (data, cfg, entity, verify) => {
       const lang = cfg.language;
-      const cols = [
-        { key: "label", label: { fr: "Désignation", en: "Description" } },
-        { key: "marks", label: { fr: "Marques", en: "Marks" } },
-        { key: "qty", label: { fr: "Quantité", en: "Quantity" }, num: true },
-      ];
-      const rows = (data.lines || []).map((l) => ({
-        label: l.label, marks: l.marks || "", qty: String(l.qty),
-      }));
+      const H = TEMPLATES.DELIVERY_NOTE.HEIGHT_MM;
+      const F = TEMPLATES.DELIVERY_NOTE.FIXED_MM;
 
-      /**
-       * The manifest, padded to a minimum of 18 slots.
+      const lines = Array.isArray(data.lines) ? data.lines : [];
+      const tcs = Array.isArray(data.containers) ? data.containers : [];
+      const seals = Array.isArray(data.seals) ? data.seals : [];
+      const hasStamp = Boolean(cfg.signature && cfg.signature.image_url);
+      const pos = data.position || null;
+      /*
+       * DOES THIS FILE MOVE CONTAINERS?
        *
-       * Padding is what makes the paper usable: an empty slot prints as a ruled
-       * line, so a box added on the quay can be written in and still be part of
-       * the signed document. A note with 20 containers prints all 20 — the
-       * legacy hard cap of 18 silently truncated the rest, which on a document
-       * that proves what was handed over is a data-loss bug, not a layout one.
+       * Every delivery note used to print twelve ruled manifest slots, so an
+       * AIR FREIGHT note carried a container manifest — a third of the page
+       * given to boxes that do not exist on that shipment. The projection asks
+       * the file's service type (`template.service.deliveryNoteData`), and a
+       * note whose file cannot be resolved prints as packages: that shape loses
+       * nothing, where the other prints twelve empty rows.
+       *
+       * A note that HOLDS containers keeps its manifest whatever the flag says
+       * — the boxes on the note are the fact, and hiding them because a service
+       * type was reconfigured afterwards would shorten a signed document.
+       */
+      const containerised = data.containerised === true || tcs.length > 0;
+
+      /*
+       * The manifest's ruled slots. A minimum of twelve so a short delivery
+       * still looks like a form somebody can write on, and every container
+       * beyond that printed rather than truncated.
+       *
+       * Rounded up to a whole row of three. The grid is three columns wide, so
+       * thirty-one boxes would otherwise leave the last row two-thirds empty —
+       * white space rather than the ruled lines a box added on the quay gets
+       * written on. Costs nothing: the row is already there.
+       */
+      const manifestRows = Math.ceil(Math.max(12, tcs.length) / 3);
+      const slots = manifestRows * 3;
+      // The elastic block, and the block that decides the page's shape. A
+      // package note has no manifest, so the CARGO table takes the slack — it
+      // is that note's substance, and ruled space to write another carton on is
+      // worth exactly what a ruled container slot is worth on a sea note.
+      const showManifest = containerised;
+
+      const wraps = lines.reduce((n, l) => n + Math.max(0, Math.ceil(String(l.label || "").length / 46) - 1), 0);
+      // Every direct child of .sheet carries a top margin, and there are ten of
+      // them (head, rule, name, ident, consignee, cargo, manifest, reserves,
+      // strip, foot) plus the optional progress band. Counting seven of them
+      // was worth 6mm of a page that has none to spare.
+      const blocks = 10 + (pos ? 1 : 0) - (showManifest ? 0 : 1);
+      /*
+       * THE MARK'S HEIGHT DOES NOT SCALE, so it is not in the scaling total.
+       *
+       * `instrumentHead` sizes the logo with an explicit `height: Nmm` taken
+       * from the tenant's Studio config — deliberately, because an <img>
+       * constrained only by max-height contributes zero width to a flex item in
+       * Chrome and the letterhead rendered invisible. The side effect is that a
+       * 17mm mark is 17mm at every fit, and counting it as shrinkable made the
+       * solver think it had ~6mm more to give than it did. Same class of error
+       * as folding the seal into the scaling total.
+       */
+      const markMm = k.headFixedMm(cfg);
+      const scalingMm = (markMm ? 0 : H.head)
+        + H.name + H.ident + H.consignee
+        /*
+         * `.cargo` reserves a 26mm minimum whatever it holds — the ruled area
+         * that makes the table writable on paper. A one-line cargo table is
+         * therefore 26mm, not 12, and estimating it by its rows alone told the
+         * solver the page was 14mm shorter than it is.
+         */
+        + (lines.length
+          ? Math.max(H.cargoMin, H.cargoHead + lines.length * H.cargoRow + wraps * H.cargoWrap)
+          : 0)
+        + (showManifest ? H.manifestHead + manifestRows * H.manifestRow : 0)
+        + (pos ? H.position : 0)
+        + H.reserves + H.strip + (hasStamp ? H.stampExtra : 0)
+        + H.foot + blocks * H.gap;
+      const fixedMm = markMm + seals.length * F.seal + (seals.length ? 0 : F.footVfy);
+      const cfgFit = { ...cfg, fit: k.fitScale(scalingMm, k.fitBudgetMm(cfg), fixedMm) };
+
+      const ident = k.factsGrid([
+        [{ fr: "Date", en: "Date" }, k.dateFmt(data.date)],
+        [{ fr: "Date de livraison", en: "Delivery date" }, k.dateFmt(data.delivery_date)],
+        [{ fr: "Statut", en: "Status" }, k.t(data.status_words || { fr: "", en: "" }, lang)],
+        [{ fr: "Dossier", en: "File" }, data.dossier_ref],
+      ], cfgFit, { cols: 4 });
+
+      const party = (data.party && data.party.name) || "—";
+      const partyLines = ((data.party && data.party.lines) || []).filter(Boolean);
+      const consignee = k.ruledBlock({ fr: "Destinataire", en: "Consignee" },
+        `<div style="font-weight:700;font-size:calc(10pt * var(--k));">${k.esc(party)}</div>`
+        + (partyLines.length ? `<div class="muted">${partyLines.map(k.esc).join("<br>")}</div>` : ""),
+        cfgFit);
+
+      /*
+       * WHERE THIS DELIVERY SITS IN THE FILE.
+       *
+       * Only for a containerised file that has more than one box — on a single
+       * -container file it would say "delivery 1 of 1, 0 remaining", which is
+       * noise. Omitted entirely rather than printed empty.
+       */
+      const positionBand = pos && pos.total > 1
+        ? k.ruledBlock({ fr: "Avancement de la livraison", en: "Delivery progress" },
+          `<div class="cols3">`
+          + `<div><span class="muted">${k.t({ fr: "Livraison", en: "Delivery" }, lang)}:</span> <b>${k.esc(pos.sequence || "—")}${pos.of_notes ? ` / ${k.esc(pos.of_notes)}` : ""}</b></div>`
+          + `<div><span class="muted">${k.t({ fr: "Conteneurs livrés", en: "Containers delivered" }, lang)}:</span> <b>${k.esc(pos.delivered)} / ${k.esc(pos.total)}</b></div>`
+          /*
+           * IN TRANSIT IS ITS OWN FIGURE, and it is why "still to come" alone
+           * would mislead. A box on another issued note is neither delivered
+           * nor waiting to be sent — reading "0 still to come" while four are
+           * on a truck is how a second truck gets dispatched for them.
+           */
+          + `<div><span class="muted">${
+            pos.in_transit
+              ? k.t({ fr: "En cours de livraison", en: "Out for delivery" }, lang)
+              : k.t({ fr: "Restant à livrer", en: "Still to come" }, lang)
+          }:</span> <b>${k.esc(pos.in_transit || pos.outstanding)}</b>${
+            pos.in_transit && pos.outstanding
+              ? `<span class="muted"> · ${k.t({ fr: "restant", en: "to come" }, lang)} ${k.esc(pos.outstanding)}</span>`
+              : ""
+          }</div>`
+          + `</div>`, cfgFit)
+        : "";
+
+      /*
+       * The cargo table carries the WEIGHT on a package note.
+       *
+       * On a container file the manifest below identifies the goods, so the
+       * table stays three columns and the page keeps the width for the
+       * description. On an air or road file there is no manifest: the weight is
+       * what the consignee checks at the counter, and it has to be on the sheet
+       * they sign or the note says less than the file it came from.
+       */
+      const cols = containerised
+        ? [
+          { key: "label", label: { fr: "Désignation", en: "Description" } },
+          { key: "marks", label: { fr: "Marques", en: "Marks" } },
+          { key: "qty", label: { fr: "Quantité", en: "Quantity" }, num: true },
+        ]
+        : [
+          { key: "label", label: { fr: "Désignation", en: "Description" } },
+          { key: "marks", label: { fr: "Marques", en: "Marks" } },
+          { key: "qty", label: { fr: "Colis", en: "Packages" }, num: true },
+          { key: "weight", label: { fr: "Poids (kg)", en: "Weight (kg)" }, num: true },
+        ];
+      const cargo = lines.length
+        ? k.cargoTable(cols, lines.map((l) => ({
+          label: l.label,
+          marks: l.marks || "",
+          qty: String(l.qty),
+          weight: l.gross_weight_kg === null || l.gross_weight_kg === undefined
+            ? "" : String(l.gross_weight_kg),
+        })), cfgFit)
+        : "";
+
+      /*
+       * The container manifest. A grouped row (10708) prints as the file states
+       * it — "3 × 40HC" — rather than a dash that reads as an unnamed box.
+       * A box going out again carries the reason it is, because the note is the
+       * only place anyone will look for it.
        */
       const manifest = () => {
-        const tcs = data.containers || [];
-        if (!tcs.length && cfg.hide_empty_manifest) return "";
-        const slots = Math.max(18, tcs.length);
         let cells = "";
         for (let i = 0; i < slots; i += 1) {
           const c = tcs[i];
-          const n = `<span class="muted" style="margin-right:4px;">${i + 1}.</span>`;
-          // A grouped line (10708) prints as the file states it — "3 × 40HC" —
-          // rather than a "—" that reads as an unnamed box.
+          const n = `<span class="muted" style="margin-right:1mm;">${i + 1}.</span>`;
           const body = c
             ? c.container_type_code
               ? `<b>${k.esc(String(c.qty || 1))} × ${k.esc(c.container_type_code)}</b>`
-              : `<b>${k.esc(c.container_no || "—")}</b>${c.seal_no ? `<span class="muted" style="font-size:9px;"> / ${k.esc(c.seal_no)}</span>` : ""}`
-            : "<span style=\"color:#bbb;\">______________</span>";
-          cells += `<div style="border-right:1px solid #ddd;border-bottom:1px solid #ddd;padding:3px 5px;font-size:10px;">${n}${body}</div>`;
+              : `<b>${k.esc(c.container_no || "—")}</b>${c.seal_no ? `<span class="muted"> / ${k.esc(c.seal_no)}</span>` : ""}`
+            : '<span style="color:#c3c9d2;">______________</span>';
+          const again = c && c.redelivery_reason
+            ? `<div class="muted" style="font-size:calc(6.4pt * var(--k));">↻ ${k.esc(c.redelivery_reason)}</div>`
+            : "";
+          cells += `<div class="mcell">${n}${body}${again}</div>`;
         }
-        return k.section(
-          { fr: "Liste des conteneurs (TCs)", en: "Container manifest (TCs)" },
-          `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid #ddd;border-left:1px solid #ddd;">${cells}</div>`,
-          cfg,
-        );
+        return k.ruledBlock({ fr: "Liste des conteneurs", en: "Container manifest" },
+          `<div class="manifest">${cells}</div>`, cfgFit, { bare: true });
       };
 
-      /**
-       * The client's reservations. Prints whatever was recorded, and an empty
-       * ruled box when nothing was — because it has to be fillable at the gate.
-       */
-      const reservations = k.section(
-        { fr: "Observations / Réserves du client", en: "Comments / Reservations (client)" },
+      // Always a box, filled or ruled: the client's own words are written at
+      // the gate, and that is precisely when they are worth something.
+      const reserves = k.ruledBlock({ fr: "Observations / réserves du client", en: "Comments / reservations (client)" },
         data.reservations
-          ? `<div class="box">${k.esc(data.reservations)}</div>`
-          : `<div class="box" style="min-height:42px;"></div>`,
-        cfg,
-      );
+          ? k.esc(data.reservations).replace(/\n/g, "<br>")
+          : '<div style="min-height:calc(11mm * var(--k));"></div>',
+        cfgFit);
 
-      // Named, dated receipt — not an anonymous signature line.
-      const received = `<div class="sig"><div class="b"><div class="ln">${k.t({ fr: "Livré par", en: "Issued by" }, lang)}${data.issued_by_name ? ` — ${k.esc(data.issued_by_name)}` : ""}</div></div>`
-        + `<div class="b"><div class="ln">${k.t({ fr: "Reçu par (nom, signature, cachet)", en: "Received by (name, signature, stamp)" }, lang)}</div>`
-        + (data.received_by_name
-          ? `<div style="font-weight:600;margin-top:3px;">${k.esc(data.received_by_name)}</div>`
-            + (data.received_at ? `<div class="muted" style="font-size:9px;">${k.dateFmt(data.received_at)}</div>` : "")
-          : "")
-        + "</div></div>";
+      const stamp = hasStamp ? `<img class="stamp" src="${k.esc(cfg.signature.image_url)}" alt="">` : "";
+      const sealHtml = seals.map((sig) => k.sealBlock(sig, cfgFit, { titled: true })).join("");
+      const co = entity.legal_name || "";
+      const strip = k.signStrip([
+        {
+          title: lang === "en" ? `Issued by ${k.esc(co)}` : `Livré par ${k.esc(co)}`,
+          html: `${stamp}${sealHtml}`,
+          line: k.esc(data.issued_by_name || "") || `${k.t({ fr: "Nom", en: "Name" }, lang)}: ______________________`,
+        },
+        {
+          title: { fr: "Reçu par (nom, signature, cachet)", en: "Received by (name, signature, stamp)" },
+          hint: k.t({ fr: "Vérifié et accepté", en: "Checked and accepted" }, lang),
+          line: data.received_by_name
+            ? `${k.esc(data.received_by_name)}${data.received_at ? ` · ${k.esc(k.dateFmt(data.received_at))}` : ""}`
+            : `${k.t({ fr: "Nom et date", en: "Name and date" }, lang)}: ______________________`,
+        },
+      ], cfgFit);
 
-      const body = [
-        k.head(entity, { fr: "Bon de livraison", en: "Delivery note" }, data.number, [
-          [{ fr: "Date", en: "Date" }, k.dateFmt(data.date)],
-          [{ fr: "Date de livraison", en: "Delivery date" }, k.dateFmt(data.delivery_date)],
-          [{ fr: "Dossier", en: "File" }, data.dossier_ref],
-        ], cfg),
-        k.parties([{
-          label: { fr: "Destinataire", en: "Consignee" },
-          name: data.party && data.party.name,
-          lines: (data.party && data.party.lines) || [],
-        }], cfg),
-        k.lineTable(cols, rows, cfg),
-        manifest(),
-        reservations,
-        received,
-        k.footer(entity, cfg, verify),
-      ].join("");
-      return k.shell("Delivery note " + (data.number || ""), body, cfg);
+      const body = `<div class="sheet">`
+        + k.instrumentHead(entity, cfgFit)
+        + k.docName({ fr: "Bon de livraison", en: "Delivery note" }, data.number, cfgFit, { ref: true })
+        + k.ruledBlock(null, ident, cfgFit, { bare: true })
+        + consignee
+        + positionBand
+        + (showManifest
+          ? cargo + `<div class="grow">${manifest()}</div>`
+          // No manifest: the cargo table is the elastic block, so the ruled
+          // space a driver writes an extra carton into is where it is useful.
+          : `<div class="grow">${cargo}</div>`)
+        + reserves
+        + strip
+        + k.instrumentFoot(entity, cfgFit, seals.length ? null : verify, {
+          pageLabel: `${k.t({ fr: "Page", en: "Page" }, lang)} 1 / 1`,
+          provenance: k.t({ fr: "Bon de livraison", en: "Delivery note" }, lang),
+        })
+        + `</div>`;
+      return k.shell(k.t({ fr: "Bon de livraison", en: "Delivery note" }, lang === "bilingual" ? "en" : lang)
+        + " " + (data.number || ""), body, cfgFit);
     },
     sampleData: {
       number: "DN-2026-0052", date: "2026-07-27", delivery_date: "2026-07-28", dossier_ref: "SBX-2026-0001",
+      status: "DELIVERED", status_words: { fr: "Livré", en: "Delivered" },
       party: sampleParty,
+      position: { sequence: 2, of_notes: 3, total: 12, delivered: 8, in_transit: 4, outstanding: 0 },
       lines: [{ label: "Palettes ciment", marks: "SLS/001", qty: 24 }],
-      containers: [{ container_no: "TCLU1234567", seal_no: "SL889231" }, { container_no: "MSKU7654321", seal_no: "SL889232" }],
+      containers: [
+        { container_no: "TCLU1234567", seal_no: "SL889231" },
+        { container_no: "MSKU7654321", seal_no: "SL889232" },
+        { container_no: "CMAU4419087", seal_no: "SL889233", redelivery_reason: "Retour: porte endommagée, réexpédié" },
+      ],
       reservations: "Conteneur 2 : joint de porte endommagé, marchandise intacte.",
       received_by_name: "Jean Mballa", received_at: "2026-07-28",
+      issued_by_name: "Paul Fotso",
+      seals: [],
       currency: "XAF",
     },
   },
@@ -402,26 +627,51 @@ const TEMPLATES = {
    * declaration is built on, states who carries the insurance risk and who
    * calls the surveyor, and it comes back stamped.
    *
-   * THIS IS A REBUILD OF THE LEGACY PRINT VIEW, NOT A GENERIC DOCUMENT. The
-   * previous version here printed a carrier block and a route — plausible for
-   * "a transit order" in the abstract, and not the form Cameroonian customs and
-   * the client's own filing expect. The legacy `transit-order.php` print area
-   * has a specific anatomy, every part of which carries meaning:
+   * ══ THREE THINGS THIS DOCUMENT IS CONTRACTUALLY REQUIRED TO DO ═══════════
    *
-   *   · an Import/Export tick-pair in the header
-   *   · client + file reference, vessel + BL, origin + arrival, destination +
-   *     departure, as four two-up boxed rows
-   *   · a five-column cargo table (marks / packages / description / weight /
-   *     value) — the rebuild had three columns and no value
-   *   · the requested customs regime as a tick-row with a write-in line
-   *   · the place of delivery
-   *   · the insurance clause and the damage-surveyor election
-   *   · the attached-documents checklist
-   *   · two signature blocks: client stamp, and ours
+   * 1. IT IS ONE PAGE. Always, whatever the cargo. It is signed and stamped by
+   *    hand and filed as a single sheet, and the version before this one ran to
+   *    two — putting the signature boxes alone on page 2, so the copy that came
+   *    back stamped carried no cargo, no declared value and no regime on it.
+   *    The sheet is exactly one page tall (kit `.sheet`), the cargo table is
+   *    the elastic block that absorbs the slack, and `fit` scales the whole
+   *    page down as the cargo grows. NOTHING IS EVER DROPPED OR SUMMARISED to
+   *    make it fit — a fuller order is set smaller, because a cargo list that
+   *    silently stops short of the cargo is worse than a small one.
    *
-   * Rendered bilingually through `k.t`, so a tenant configured `fr` gets the
-   * French line and one configured `en` gets English, rather than the legacy's
-   * hard-coded French-with-English-slashes.
+   *    MEASURED CEILING: 50 cargo lines on one A4 sheet, with a logo, a company
+   *    cachet and a seal (`scripts/dev/measure-instrument.js`, 2026-08). Past
+   *    that the blocks that cannot shrink — the verification QR has a physical
+   *    floor, §3.7 — dominate the page and it spills. Real orders carry one to
+   *    three lines. Re-measure after any change to the sheet or to HEIGHT_MM;
+   *    the number above is a measurement, not an aspiration.
+   *
+   * 2. IT IS MONOLINGUAL. A French client receives a French document; an
+   *    English client an English one. Never "Ordre de transit / Transit order",
+   *    which is what the last version printed on every line of the page — the
+   *    title, the status, the eight attached-document labels — because the
+   *    projection pre-joined the two languages into single strings before the
+   *    template could pick one. Every label on this page now arrives as a
+   *    {fr,en} pair and goes through `k.t`, so `cfg.language` genuinely decides.
+   *
+   * 3. IT CARRIES A SIGNATORY BOX, AND THE SIGNATURE ENGINE FILLS IT. The
+   *    client's side is a ruled stamp well; ours carries the tenant's company
+   *    cachet and, once the order has actually been signed through MOD-64, the
+   *    electronic seal beneath it — signer, role, attestation, date, method and
+   *    the QR that verifies the document (SIGNATURE_ENGINEERING_GUIDE §3.12).
+   *    An UNSIGNED order gets no seal and no QR, which is the honest answer:
+   *    there is nothing to verify.
+   *
+   * ── The anatomy, and why it is the legacy's ────────────────────────────────
+   * `transit-order.php`'s print area has a specific shape, and every part of it
+   * carries meaning to a Cameroonian customs clerk who reads dozens a week:
+   * the Import/Export pair, the boxed shipment facts, a five-column cargo table
+   * (marks / packages / description / weight / value), the requested regime as
+   * a tick-row with a write-in line, the place of delivery, the insurance
+   * clause and the surveyor election, the attached-documents checklist, and two
+   * signature boxes. It is kept, block for block, set in our own type and
+   * colour — plus the letterhead and foot the legacy sheet never had, which is
+   * the thing clients actually complained about.
    *
    * The shipment facts (client, vessel, BL, ports, dates, marks) come from the
    * shipment-details projection and are FROZEN onto the order when it issues
@@ -429,39 +679,156 @@ const TEMPLATES = {
    */
   TRANSIT_ORDER: {
     docType: "TRANSIT_ORDER", title: { fr: "Ordre de transit", en: "Transit order" }, module: "operations/transit_order",
-    fields: ["shipment facts", "customs regime", "insurance & surveyor", "attached documents"],
+    fields: ["shipment facts", "customs regime", "insurance & surveyor", "attached documents", "signatory box"],
+    /*
+     * The covering note. This document is an AUTHORISATION — nothing can be
+     * declared until it comes back signed — so the email says that plainly and
+     * names the consequence, rather than "please find attached". The clerk
+     * reading it is deciding whether to action it today or on Monday.
+     */
+    email: {
+      subject: {
+        fr: "Ordre de transit {number}[[ — dossier {dossier_ref}]] — signature requise",
+        en: "Transit order {number}[[ — file {dossier_ref}]] — signature required",
+      },
+      body: {
+        fr: "Bonjour,\n\n"
+          + "Veuillez trouver ci-joint l'ordre de transit {number}[[ relatif au dossier {dossier_ref}]].\n\n"
+          + "Nous vous prions de bien vouloir nous le retourner signé et cacheté : il constitue notre "
+          + "autorisation d'engager les formalités de dédouanement pour votre compte, qui ne peuvent "
+          + "commencer sans lui.\n\n"
+          + "Nous restons à votre disposition pour toute précision.\n\n"
+          + "Cordialement,\n{entity_name}",
+        en: "Hello,\n\n"
+          + "Please find attached transit order {number}[[ for file {dossier_ref}]].\n\n"
+          + "Please return it to us signed and stamped: it is our authority to begin the customs "
+          + "formalities on your behalf, and they cannot start without it.\n\n"
+          + "Do let us know if anything needs clarifying.\n\n"
+          + "Kind regards,\n{entity_name}",
+      },
+    },
+    /**
+     * Height model, in millimetres at fit = 1.
+     *
+     * Every constant is a measured block of the rendered sheet, not a guess:
+     * change one of them and `tests/unit/transit-order-document.test.js` will
+     * tell you whether the page still lands on one sheet at 1, 8, 20 and 40
+     * cargo lines. It over-estimates slightly on purpose — a page that comes
+     * out 3% smaller than it needed to is invisible, and one that comes out 3%
+     * too big is a second sheet.
+     */
+    HEIGHT_MM: {
+      head: 17,        // letterhead + accent rule
+      name: 12,        // centred document name + the reference under it
+      ident: 11,       // reference / date / status / direction row
+      facts: 30,       // shipment facts: header band + two four-column rows
+      cargoHead: 5.5,  // cargo header band
+      cargoRow: 6.4,   // one cargo line
+      cargoWrap: 4.6,  // one further wrapped line of a long description
+      cargoFoot: 11,   // declared value + equivalent
+      regime: 19,      // regime + place of delivery, abreast
+      liability: 27,   // insurance + surveyor, two columns
+      docs: 25,        // attached documents, eight rows over three columns
+      note: 14,        // special instructions, when present
+      lodged: 11,      // customs declaration, when present
+      strip: 24,       // the two signatory boxes, ruled well only
+      stampExtra: 17,  // the company cachet above the seal, when one is set
+      foot: 9,         // RCCM + NIU + the page claim
+      gap: 2.2,        // between blocks
+    },
+    /**
+     * The blocks that KEEP THEIR MILLIMETRES however far the page tightens.
+     *
+     * A seal's evidence rows have a legibility floor of their own (§3.12) and a
+     * QR has a physical one (§3.7 — below ~0.5mm per module no camera resolves
+     * it), so neither is wired to `--k`. They are solved for separately by
+     * `kit.fitScale`; folding them into the scaling total under-shrinks the page
+     * by a couple of millimetres, which is a second sheet.
+     */
+    FIXED_MM: {
+      seal: 29,        // one seal: attestation, signer, evidence rows, QR
+      footVfy: 24,     // the foot's verification block, when no seal holds one
+    },
     build: (data, cfg, entity, verify) => {
       const lang = cfg.language;
-      const tick = (on) => `<span style="display:inline-block;width:10px;height:10px;border:1px solid currentColor;margin-right:4px;vertical-align:-1px;text-align:center;line-height:9px;font-size:9px;">${on ? "&#10005;" : ""}</span>`;
-      const row2 = (a, b) => `<div style="display:flex;gap:10px;margin-bottom:6px;">${[a, b].filter(Boolean).join("")}</div>`;
-      const cell = (label, value) =>
-        `<div class="box" style="flex:1;min-width:0;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;" class="muted">${k.t(label, lang)}</div><div style="font-weight:600;">${k.esc(value || "—")}</div></div>`;
+      const H = TEMPLATES.TRANSIT_ORDER.HEIGHT_MM;
 
+      const lines = Array.isArray(data.lines) ? data.lines : [];
+      const docs = Array.isArray(data.documents) ? data.documents : [];
+      const seals = Array.isArray(data.seals) ? data.seals : [];
       const isImport = String(data.direction || "").toUpperCase() === "IMPORT";
       const isExport = String(data.direction || "").toUpperCase() === "EXPORT";
+      const hasNote = Boolean(data.instructions);
+      const hasLodged = Boolean(data.declaration_ref);
+      const hasStamp = Boolean(cfg.signature && cfg.signature.image_url);
 
-      // Header tick-pair, appended to the standard meta block.
-      const dirLine = `<div style="margin-top:4px;">${tick(isImport)} ${k.t({ fr: "Import", en: "Import" }, lang)} &nbsp; ${tick(isExport)} ${k.t({ fr: "Export", en: "Export" }, lang)}</div>`;
+      /* ── The fit ────────────────────────────────────────────────────────
+       * Add up what is about to be rendered and ask the kit how far the sheet
+       * has to tighten to hold it. A long cargo description wraps, so a line's
+       * height is not a constant: 46 characters is what the description column
+       * holds at fit 1, and every further 46 costs another wrapped line.
+       */
+      const wraps = lines.reduce((n, l) => n + Math.max(0, Math.ceil(String(l.label || "").length / 46) - 1), 0);
+      const blocks = 8 + (hasNote ? 1 : 0) + (hasLodged ? 1 : 0);
+      const F = TEMPLATES.TRANSIT_ORDER.FIXED_MM;
+      /*
+       * The mark's height is Studio config and does NOT follow the fit — see
+       * `kit.headFixedMm`. It belongs in the FIXED total, not the scaling one:
+       * counting it as shrinkable tells the solver it has millimetres to give
+       * that it does not have, and the page comes out over.
+       */
+      const markMm = k.headFixedMm(cfg);
+      const scalingMm = (markMm ? 0 : H.head) + H.name + H.ident + H.facts
+        + H.cargoHead + lines.length * H.cargoRow + wraps * H.cargoWrap + (data.declared_value_text ? H.cargoFoot : 0)
+        + H.regime + H.liability + H.docs
+        + (hasNote ? H.note : 0) + (hasLodged ? H.lodged : 0)
+        + H.strip + (hasStamp ? H.stampExtra : 0)
+        + H.foot + blocks * H.gap;
+      const fixedMm = markMm + seals.length * F.seal + (seals.length ? 0 : F.footVfy);
+      const cfgFit = { ...cfg, fit: k.fitScale(scalingMm, k.fitBudgetMm(cfg), fixedMm) };
 
-      const facts = [
-        row2(
-          cell({ fr: "Client", en: "Client" }, data.client),
-          cell({ fr: "Référence dossier", en: "File reference" }, data.dossier_ref),
-        ),
-        row2(
-          cell({ fr: "Navire", en: "Vessel" }, data.conveyance),
-          cell({ fr: "Connaissement", en: "Bill of lading" }, data.transport_ref),
-        ),
-        row2(
-          cell({ fr: "Provenance", en: "Origin" }, data.origin),
-          cell({ fr: "Date d'arrivée", en: "Arrival date" }, k.dateFmt(data.arrival_date)),
-        ),
-        row2(
-          cell({ fr: "Destination", en: "Destination" }, data.destination),
-          cell({ fr: "Date de départ", en: "Departure date" }, k.dateFmt(data.departure_date)),
-        ),
-      ].join("");
+      /* ── Identity row ───────────────────────────────────────────────────
+       * Reference, date, status and direction. The Import/Export pair is a
+       * tick-pair rather than a word because that is what the form it stands in
+       * for uses, and because a clerk finds a ticked box faster than they read
+       * a label — the one thing they check before anything else on the page.
+       */
+      const dirPair = `<span style="white-space:nowrap;">${k.tick(isImport)}${k.t({ fr: "Import", en: "Import" }, lang)}</span>`
+        + `&nbsp;&nbsp;<span style="white-space:nowrap;">${k.tick(isExport)}${k.t({ fr: "Export", en: "Export" }, lang)}</span>`;
+      /*
+       * NO "N° d'ordre" CELL. The reference now sits under the document's own
+       * name, where everyone looks for it and where the proforma puts it —
+       * printing it again 6mm below would be the same duplication the head and
+       * foot were just cleaned of.
+       */
+      const ident = k.factsGrid([
+        [{ fr: "Date", en: "Date" }, k.dateFmt(data.date)],
+        [{ fr: "Statut", en: "Status" }, k.t(data.status_words || { fr: "", en: "" }, lang)],
+        [{ fr: "Sens", en: "Direction" }, dirPair, { html: true, plain: true }],
+      ], cfgFit, { cols: 3 });
 
+      /*
+       * FOUR COLUMNS, NOT TWO. The same eight facts down two columns is four
+       * rows and ~46mm; across four columns it is two rows and ~29mm, on a
+       * page whose whole problem is height. The pairing survives the change —
+       * each row still reads left to right as one leg of the journey.
+       */
+      const facts = k.factsGrid([
+        [{ fr: "Client", en: "Client" }, (data.party && data.party.name) || data.client],
+        [{ fr: "Référence dossier", en: "File reference" }, data.dossier_ref],
+        [{ fr: "Navire", en: "Vessel" }, data.conveyance],
+        [{ fr: "Connaissement", en: "Bill of lading" }, data.transport_ref],
+        [{ fr: "Provenance", en: "Origin" }, data.origin],
+        [{ fr: "Date d'arrivée", en: "Arrival date" }, k.dateFmt(data.arrival_date)],
+        [{ fr: "Destination", en: "Destination" }, data.destination],
+        [{ fr: "Date de départ", en: "Departure date" }, k.dateFmt(data.departure_date)],
+      ], cfgFit, { cols: 4 });
+
+      /* ── Cargo ──────────────────────────────────────────────────────────
+       * The declared value closes the table it is the total of. It is almost
+       * never in XAF — it is the base of duty — so it prints in the currency it
+       * was declared in, with the XAF equivalent beneath it when the two differ.
+       */
       const cols = [
         { key: "marks", label: { fr: "Marques", en: "Marks" } },
         { key: "packages", label: { fr: "Colis", en: "Packages" }, num: true },
@@ -469,105 +836,141 @@ const TEMPLATES = {
         { key: "weight", label: { fr: "Poids", en: "Weight" }, num: true },
         { key: "value", label: { fr: "Valeur", en: "Value" }, num: true },
       ];
+      const cargo = k.cargoTable(cols, lines, cfgFit, [
+        data.declared_value_text ? [{ fr: "Valeur déclarée", en: "Declared value" }, data.declared_value_text] : null,
+        data.declared_value_xaf_text ? [{ fr: "Contre-valeur", en: "Equivalent" }, data.declared_value_xaf_text, { sub: true }] : null,
+      ]);
 
-      // The declared value is the base of duty and is almost never in XAF, so
-      // it prints in the currency it was declared in, with the XAF equivalent
-      // beside it when the two differ.
-      const declared = data.declared_value_text
-        ? `<tr class="grand"><td>${k.t({ fr: "Valeur déclarée", en: "Declared value" }, lang)}</td><td class="num">${k.esc(data.declared_value_text)}</td></tr>`
-        : "";
-      const declaredXaf = data.declared_value_xaf_text
-        ? `<tr><td class="muted">${k.t({ fr: "Contre-valeur", en: "Equivalent" }, lang)}</td><td class="num muted">${k.esc(data.declared_value_xaf_text)}</td></tr>`
-        : "";
-      const valueTable = declared ? `<table class="totals">${declared}${declaredXaf}</table>` : "";
-
-      const regimes = (data.regimes || []).map((r) => `<span style="margin-right:14px;white-space:nowrap;">${tick(r.on)} <b>${k.esc(r.code)}</b></span>`).join("");
+      /* ── Regime and delivery, abreast ───────────────────────────────────
+       * The write-in line prints whether or not it is filled: the clerk who
+       * receives this may need to name a regime the tick-row does not carry,
+       * and a form with nowhere to write it is how that ends up in the margin.
+       */
+      const regimes = (data.regimes || []).map((r) =>
+        `<span style="margin-right:calc(3mm * var(--k));white-space:nowrap;">${k.tick(r.on)}<b>${k.esc(r.code)}</b></span>`).join("");
       const otherRegime = data.customs_regime_other
-        ? `<div style="margin-top:5px;">${k.t({ fr: "Autre régime", en: "Other regime" }, lang)}: <b>${k.esc(data.customs_regime_other)}</b></div>`
-        : `<div style="margin-top:5px;" class="muted">${k.t({ fr: "Autre régime", en: "Other regime" }, lang)}: ______________________</div>`;
-      const regimeBlock = k.section({ fr: "Régime douanier sollicité", en: "Requested customs regime" },
-        `<div class="box">${regimes}${otherRegime}</div>`, cfg);
+        ? `<div style="margin-top:calc(1mm * var(--k));">${k.t({ fr: "Autre régime", en: "Other regime" }, lang)}: <b>${k.esc(data.customs_regime_other)}</b></div>`
+        : `<div style="margin-top:calc(1mm * var(--k));" class="muted">${k.t({ fr: "Autre régime", en: "Other regime" }, lang)}: ______________________</div>`;
+      const regimeRow = k.pairRow([
+        k.ruledBlock({ fr: "Régime douanier sollicité", en: "Requested customs regime" }, `${regimes}${otherRegime}`, cfgFit, { wide: true }),
+        k.ruledBlock({ fr: "Lieu de livraison", en: "Place of delivery" },
+          `<b>${k.esc(data.place_of_delivery || "—")}</b>`, cfgFit),
+      ]);
 
-      const deliveryBlock = data.place_of_delivery
-        ? k.section({ fr: "Lieu de livraison", en: "Place of delivery" }, `<div class="box">${k.esc(data.place_of_delivery)}</div>`, cfg)
-        : "";
-
-      // The insurance clause and the surveyor election. Legacy printed the
-      // insurance line as fixed text and the surveyor as two boxes it never
-      // stored; both are now driven by the stored election.
+      /* ── Liability ──────────────────────────────────────────────────────
+       * The insurance clause and the surveyor election, both driven by the
+       * stored election rather than printed as fixed text with two boxes
+       * nobody filled in. The company name is RAW here — every use below goes
+       * through `k.clause`, and pre-escaping would double-encode an "&" in a
+       * legal name, which several of these have.
+       */
+      const co = entity.legal_name || "";
       const insuredByUs = String(data.insurance_type || "CLIENT").toUpperCase() === "COMPANY";
       const surveyorUs = String(data.surveyor_party || "CLIENT").toUpperCase() === "COMPANY";
-      // RAW, not escaped — every use below goes through `k.t` or `k.esc`, and
-      // pre-escaping here would double-encode an "&" in the legal name.
-      const co = entity.legal_name || "";
-      /**
-       * A full sentence, stacked rather than slash-joined.
+      const liability = k.ruledBlock({ fr: "Assurance et avaries", en: "Insurance and damage" },
+        `<div class="cols2"><div>`
+        + `<div class="subh">${k.t({ fr: "Couverture d'assurance", en: "Insurance cover" }, lang)}</div>`
+        + k.clause(!insuredByUs, { fr: `NON couverte par ${co} — à la charge du client`, en: `NOT covered by ${co} — carried by the client` }, cfgFit)
+        + k.clause(insuredByUs, { fr: `Couverte par ${co}`, en: `Covered by ${co}` }, cfgFit)
+        + `</div><div>`
+        + `<div class="subh">${k.t({ fr: "En cas d'avaries, le constat d'expert", en: "In case of damage, the surveyor" }, lang)}</div>`
+        + k.clause(!surveyorUs, { fr: "Sera demandé par NOUS (le client)", en: "Is applied for by US (the client)" }, cfgFit)
+        + k.clause(surveyorUs, { fr: `Sera demandé par ${co}`, en: `Is applied for by ${co}` }, cfgFit)
+        + `</div></div>`,
+        cfgFit);
+
+      const docsBlock = k.ruledBlock({ fr: "Pièces jointes", en: "Attached documents" },
+        `<div class="cols3">${docs.map((d) => `<div class="clause">${k.tick(d.on)}<span class="tx">${k.t(d.label || { fr: d.code, en: d.code }, lang)}</span></div>`).join("")}</div>`,
+        cfgFit);
+
+      const note = hasNote
+        ? k.ruledBlock({ fr: "Instructions particulières", en: "Special instructions" },
+          k.esc(data.instructions).replace(/\n/g, "<br>"), cfgFit)
+        : "";
+
+      // The declaration reference, once the order has been lodged. The legacy
+      // had nowhere to put this and it was tracked in a spreadsheet.
+      const lodged = hasLodged
+        ? k.ruledBlock({ fr: "Déclaration en douane", en: "Customs declaration" },
+          `<b>${k.esc(data.declaration_ref)}</b>${data.lodged_date ? ` · ${k.esc(k.dateFmt(data.lodged_date))}` : ""}`, cfgFit)
+        : "";
+
+      /* ── The signatory boxes ────────────────────────────────────────────
+       * Client on the left, ours on the right — the legacy layout, and the one
+       * the filing clerk looks for.
        *
-       * `k.t` renders "fr / en" on one line, which reads fine for a two-word
-       * label and badly for a legal clause — especially this one, where both
-       * halves contain the company name, so the bilingual form repeats it four
-       * times in a row. A clause the client is agreeing to has to be legible,
-       * so in bilingual mode the two languages sit on two lines, with the
-       * second in the muted tone. Single-language mode is unaffected.
+       * OUR SIDE CARRIES TWO DIFFERENT THINGS AND THEY MUST NOT BE CONFLATED.
+       * The cachet is the company's rubber stamp: a commercial convention, and
+       * what the client expects to see. It is NOT an identity claim, and the
+       * signature engine is explicit that an uploaded image proves nothing
+       * about who applied it (§3.4 — there is no `UPLOAD` visual mark, on
+       * purpose). The evidentiary claim comes only from the seal below it,
+       * which exists only when somebody actually signed through MOD-64.
        */
-      const clause = (fr, en) => (lang === "fr" || lang === "en"
-        ? k.t({ fr, en }, lang)
-        : `${k.esc(fr)}<div class="muted" style="font-size:10px;">${k.esc(en)}</div>`);
+      const stamp = hasStamp ? `<img class="stamp" src="${k.esc(cfg.signature.image_url)}" alt="">` : "";
+      const sealHtml = seals.map((sig) => k.sealBlock(sig, cfgFit, { titled: true })).join("");
+      const signedOn = data.signed_date
+        ? `${k.t({ fr: "Reçu le", en: "Received on" }, lang)}: ${k.esc(k.dateFmt(data.signed_date))}${data.signed_by_name ? ` · ${k.esc(data.signed_by_name)}` : ""}`
+        : `${k.t({ fr: "Reçu le", en: "Received on" }, lang)}: ______________________`;
+      const ourLine = [
+        entity.city ? `${k.esc(entity.city)}, ${k.t({ fr: "le", en: "on" }, lang)} ${k.esc(k.dateFmt(data.issued_date || data.date))}` : k.esc(k.dateFmt(data.issued_date || data.date)),
+        cfg.signature && cfg.signature.name ? k.esc([cfg.signature.name, cfg.signature.title].filter(Boolean).join(" · ")) : "",
+      ].filter(Boolean).join(" &nbsp;·&nbsp; ");
+      const strip = k.signStrip([
+        {
+          title: { fr: "Visa / cachet du client", en: "Client signature / stamp" },
+          hint: k.t({ fr: "Bon pour accord — signature et cachet", en: "Agreed — signature and company stamp" }, lang),
+          line: signedOn,
+        },
+        {
+          title: lang === "en" ? `For ${k.esc(co)}` : `Pour ${k.esc(co)}`,
+          html: `${stamp}${sealHtml}`,
+          line: ourLine,
+        },
+      ], cfgFit);
 
-      const liability = k.section({ fr: "Assurance et avaries", en: "Insurance and damage" }, `<div class="box">
-        <div style="display:flex;gap:4px;">${tick(!insuredByUs)}<div>${clause(`Assurance NON couverte par ${co} — à la charge du client`, `Insurance NOT covered by ${co} — carried by the client`)}</div></div>
-        <div style="display:flex;gap:4px;margin-top:5px;">${tick(insuredByUs)}<div>${clause(`Assurance couverte par ${co}`, `Insurance covered by ${co}`)}</div></div>
-        <div style="margin-top:9px;">${k.t({ fr: "En cas d'avaries, le constat d'expert :", en: "In case of damage, the surveyor:" }, lang)}</div>
-        <div style="display:flex;gap:4px;margin-top:4px;">${tick(!surveyorUs)}<div>${clause("Sera demandé par NOUS (le client)", "Is applied for by US (the client)")}</div></div>
-        <div style="display:flex;gap:4px;margin-top:5px;">${tick(surveyorUs)}<div>${clause(`Sera demandé par ${co}`, `Is applied for by ${co}`)}</div></div>
-      </div>`, cfg);
-
-      const docsBlock = k.section({ fr: "Pièces jointes", en: "Attached documents" },
-        `<div class="box" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;">${
-          (data.documents || []).map((d) => `<span>${tick(d.on)} ${k.esc(d.label)}</span>`).join("")
-        }</div>`, cfg);
-
-      const instructions = data.instructions
-        ? k.section({ fr: "Instructions particulières", en: "Special instructions" }, `<div class="box">${k.esc(data.instructions).replace(/\n/g, "<br>")}</div>`, cfg)
-        : "";
-
-      // The declaration reference, once the order has been lodged. Legacy had
-      // nowhere to put this and it was tracked in a spreadsheet.
-      const lodged = data.declaration_ref
-        ? k.section({ fr: "Déclaration en douane", en: "Customs declaration" }, `<div class="box"><b>${k.esc(data.declaration_ref)}</b>${data.lodged_date ? ` · ${k.esc(k.dateFmt(data.lodged_date))}` : ""}</div>`, cfg)
-        : "";
-
-      // Client stamp on the left, ours on the right — the legacy layout, and
-      // the one the filing clerk looks for.
-      const signatures = `<div class="sig">
-        <div class="b"><div style="font-weight:700;text-decoration:underline;">${k.t({ fr: "Visa / Cachet du client", en: "Client signature / stamp" }, lang)}</div>
-          <div class="ln">${k.t({ fr: "Reçu le", en: "Received on" }, lang)}: ${k.esc(data.signed_date ? k.dateFmt(data.signed_date) : "____________")}${data.signed_by_name ? ` · ${k.esc(data.signed_by_name)}` : ""}</div></div>
-        <div class="b"><div style="font-weight:700;text-decoration:underline;">${k.esc(lang === "en" ? `For ${co}` : `Visa ${co}`)}</div>
-          <div class="ln">${k.esc(data.issued_date ? k.dateFmt(data.issued_date) : "")}</div></div>
-      </div>`;
-
-      const body = [
-        k.head(entity, { fr: "Ordre de transit", en: "Transit order" }, data.number, [
-          [{ fr: "Date", en: "Date" }, k.dateFmt(data.date)],
-          [{ fr: "Statut", en: "Status" }, data.status_label],
-        ], cfg).replace("</div></div>", `${dirLine}</div></div>`),
-        facts,
-        k.lineTable(cols, data.lines || [], cfg),
-        valueTable,
-        regimeBlock,
-        deliveryBlock,
-        liability,
-        docsBlock,
-        instructions,
-        lodged,
-        signatures,
-        k.footer(entity, cfg, verify),
-      ].join("");
-      return k.shell("Transit order " + (data.number || ""), body, cfg);
+      /*
+       * `Page 1 / 1` is printed as a literal, and it is a CLAIM this template
+       * is entitled to make: the sheet is one page by construction. If that
+       * ever stops being true the label is wrong on the page as well as in the
+       * layout, which is exactly the kind of loud failure a silent second sheet
+       * did not give anybody.
+       */
+      const body = `<div class="sheet">`
+        + k.instrumentHead(entity, cfgFit)
+        + k.docName({ fr: "Ordre de transit", en: "Transit order" }, data.number, cfgFit, { ref: true })
+        + k.ruledBlock(null, ident, cfgFit, { bare: true })
+        + k.ruledBlock({ fr: "Détails de l'expédition", en: "Shipment details" }, facts, cfgFit, { bare: true })
+        + `<div class="grow">${cargo}</div>`
+        + regimeRow + liability + docsBlock + note + lodged
+        + strip
+        /*
+         * THE VERIFICATION QR IS PRINTED ONCE, and where a reader will look
+         * for it: inside the signatory box, as part of the seal.
+         *
+         * `kit.instrumentFoot` will print one too, and on most documents that
+         * is right — the foot is the only place a doc type with no seal can
+         * carry one. Here it would be the SAME code, at the same size, twice
+         * on one page, for ~15mm of the height this whole rebuild is trying to
+         * find. So the foot gets the verification block only when the sheet
+         * carries no seal to hold it.
+         */
+        + k.instrumentFoot(entity, cfgFit, seals.length ? null : verify, {
+          pageLabel: `${k.t({ fr: "Page", en: "Page" }, lang)} 1 / 1`,
+          // What this document IS, said once, where a reader needs it: at the
+          // end. It was under the title, which is the position of greatest
+          // emphasis on the page and belongs to the reference.
+          provenance: k.t({ fr: "Autorisation de transit", en: "Transit authorisation" }, lang),
+        })
+        + `</div>`;
+      return k.shell(k.t({ fr: "Ordre de transit", en: "Transit order" }, lang === "bilingual" ? "en" : lang) + " " + (data.number || ""), body, cfgFit);
     },
     sampleData: {
-      number: "SLAS-TRO-2026-0019", date: "2026-07-27", status_label: "Issued", direction: "IMPORT",
-      client: "SOCIÉTÉ CAMEROUNAISE DE CIMENT", dossier_ref: "SL6721864SM",
+      number: "SLAS-TRO-2026-0019", date: "2026-07-27", direction: "IMPORT",
+      status: "ISSUED", status_words: { fr: "Émis", en: "Issued" },
+      client: "SOCIÉTÉ CAMEROUNAISE DE CIMENT",
+      party: { name: "SOCIÉTÉ CAMEROUNAISE DE CIMENT", lines: ["NIU M071500000001X"] },
+      dossier_ref: "SL6721864SM",
       conveyance: "MSC ARUSHI / 128W", transport_ref: "MEDUDL4471820",
       origin: "Anvers (BEANR)", arrival_date: "2026-07-24",
       destination: "Douala (CMDLA)", departure_date: "2026-07-28",
@@ -580,17 +983,27 @@ const TEMPLATES = {
       regimes: [{ code: "IM4", on: true }, { code: "IM7", on: false }, { code: "IM8", on: false }, { code: "EX1", on: false }, { code: "EX2", on: false }],
       customs_regime_other: null,
       insurance_type: "CLIENT", surveyor_party: "COMPANY",
+      /*
+       * ALL EIGHT, in the order `transit_order.rules.SUBMITTED_DOC_TYPES`
+       * declares them — the sample must show the same checklist the real
+       * projection builds, or the Studio preview quietly under-reports the form
+       * an operator is about to hand a client. (The legacy form offered five
+       * and its print template checked a sixth it could never tick.)
+       */
       documents: [
-        { code: "INVOICE", label: "Facture / Invoice", on: true },
-        { code: "PACKING_LIST", label: "Liste de colisage / Packing list", on: true },
-        { code: "BL_AWB", label: "Original BL/LTA", on: true },
-        { code: "EXONERATION", label: "Lettre d'exonération", on: false },
-        { code: "CERTIFICATE_OF_ORIGIN", label: "Certificat d'origine", on: true },
-        { code: "OTHER", label: "Autres / Other", on: false },
+        { code: "INVOICE", label: { fr: "Facture", en: "Invoice" }, on: true },
+        { code: "PACKING_LIST", label: { fr: "Liste de colisage", en: "Packing list" }, on: true },
+        { code: "BL_AWB", label: { fr: "Original BL/LTA", en: "Original BL/AWB" }, on: true },
+        { code: "EXONERATION", label: { fr: "Lettre d'exonération", en: "Exoneration letter" }, on: false },
+        { code: "CERTIFICATE_OF_ORIGIN", label: { fr: "Certificat d'origine", en: "Certificate of origin" }, on: true },
+        { code: "PHYTOSANITARY", label: { fr: "Certificat phytosanitaire", en: "Phytosanitary certificate" }, on: false },
+        { code: "INSURANCE_CERTIFICATE", label: { fr: "Attestation d'assurance", en: "Insurance certificate" }, on: true },
+        { code: "OTHER", label: { fr: "Autres", en: "Other" }, on: false },
       ],
       instructions: "Livraison directe sous escorte douanière. Prévenir le client 24h avant.",
       declaration_ref: null, lodged_date: null,
       issued_date: "2026-07-27", signed_date: null, signed_by_name: null,
+      seals: [],
       currency: "XAF",
     },
   },
@@ -1280,4 +1693,73 @@ TEMPLATES.DSF.fields = ["SYSCOHADA structured layout"];
 const list = () => Object.values(TEMPLATES).map((t) => ({ docType: t.docType, title: t.title, module: t.module, fields: t.fields || [], report: !!t.report }));
 const get = (docType) => TEMPLATES[docType] || null;
 
-module.exports = { TEMPLATES, list, get };
+/* ── The covering email ──────────────────────────────────────────────────── */
+
+/**
+ * The subject and body a document is emailed under.
+ *
+ * ── Why it lives beside the template ───────────────────────────────────────
+ * Because it is the same document. The sheet and the note that carries it say
+ * the same thing to the same person on the same day, and the one way to
+ * guarantee they never contradict each other is to write them in one place.
+ * The alternative — wording typed into a screen — drifts from the document the
+ * first time a doc type changes shape, and nobody notices until a client is
+ * told to sign something the attachment does not ask for.
+ *
+ * ── Monolingual, by the same rule as the sheet ─────────────────────────────
+ * {fr,en} pairs resolved through `k.t`. A French document must not arrive under
+ * an English subject line: that is the same defect as "Ordre de transit /
+ * Transit order" on the page, wearing an envelope.
+ *
+ * ── The optional segment ───────────────────────────────────────────────────
+ * `[[ … {token} … ]]` drops entirely when a token inside it is empty. A note
+ * raised outside a file has no reference, and "concerne le dossier " with
+ * nothing after it is worse than a sentence that never mentions one.
+ */
+const EMAIL_TOKENS = (data = {}, entity = {}) => ({
+  number: data.number || "",
+  dossier_ref: data.dossier_ref || "",
+  date: k.dateFmt(data.date) || "",
+  delivery_date: k.dateFmt(data.delivery_date) || "",
+  party_name: (data.party && data.party.name) || "",
+  entity_name: entity.legal_name || "",
+});
+
+/**
+ * Fill one template string. Unknown tokens resolve to empty rather than
+ * printing their own braces at a client — a typo in the wording above should
+ * read as a missing word, not as machinery showing through.
+ */
+function fillCopy(text, tokens) {
+  return String(text || "")
+    // Optional segments first: the whole segment goes if any token in it is empty.
+    .replace(/\[\[([\s\S]*?)\]\]/g, (_m, seg) => {
+      const names = [...String(seg).matchAll(/\{(\w+)\}/g)].map((x) => x[1]);
+      if (names.some((n) => !tokens[n])) return "";
+      return seg;
+    })
+    .replace(/\{(\w+)\}/g, (_m, name) => tokens[name] || "")
+    // Interpolation can leave doubled spaces where a token was empty.
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+/**
+ * The subject and body for one document, in one language.
+ *
+ * Returns null for a doc type with no wording of its own — the caller then
+ * opens an empty composer, which is honest. Inventing a generic "Please find
+ * attached" for a payslip would put our words on a document nobody wrote them
+ * for.
+ */
+function emailCopy(docType, data = {}, { language = "fr", entity = {} } = {}) {
+  const tpl = get(docType);
+  if (!tpl || !tpl.email) return null;
+  const tokens = EMAIL_TOKENS(data, entity);
+  return {
+    subject: fillCopy(k.t(tpl.email.subject, language), tokens),
+    body: fillCopy(k.t(tpl.email.body, language), tokens),
+  };
+}
+
+module.exports = { TEMPLATES, list, get, emailCopy, fillCopy };

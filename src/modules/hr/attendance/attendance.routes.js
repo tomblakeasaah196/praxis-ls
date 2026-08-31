@@ -68,6 +68,48 @@ router.get("/work-sites", view, controller.listSites);
 router.post("/work-sites", edit, validator.workSite, controller.createSite);
 router.patch("/work-sites/:siteId", edit, validator.workSiteUpdate, controller.updateSite);
 
+/* ── History, analytics and the download (PR2) ─────────────────────────────
+ *
+ * DECLARED BEFORE `/:id`, like every specific path in this file. `/analytics`
+ * and `/export` are not uuids, but Express does not know that — `/:id` has no
+ * pattern on it, so whichever route is declared first wins and a later
+ * `/analytics` would be swallowed as `get(id = "analytics")`. The file already
+ * makes this point about `/devices/:deviceId/name`; this is the same rule.
+ *
+ * The `/mine` variants take NO grant, deliberately. An employee is entitled to
+ * their own attendance — the same reasoning `/days/mine` records above — and
+ * they reach service functions that resolve the employee from the token rather
+ * than from the query string, so there is nothing on them to point at somebody
+ * else.
+ *
+ * The `/mine` route of each pair is declared FIRST for the same shadowing
+ * reason as everything else here.
+ */
+router.get("/analytics/mine", validator.punchWindow, controller.myAnalytics);
+router.get("/analytics", view, validator.analyticsWindow, controller.analytics);
+router.get("/export/mine", validator.exportWindow, controller.myExport);
+router.get("/export", view, validator.exportWindow, controller.exportWindow);
+router.get("/punches/mine", validator.punchWindow, controller.myPunches);
+
+/* ── The map, and the weekly summariser (PR3) ──────────────────────────────
+ *
+ * `/map` carries NO `requirePermission`, and that is the design rather than an
+ * omission. The guide's matrix (§3.6) is five outcomes from two grants, not a
+ * yes/no: an employee with no HR grant still sees their OWN pins, and a Control
+ * Tower user with no MOD-14 grant sees the commercial lanes and none of HR's.
+ * A `view` gate in front of this would 403 both of them; the controller resolves
+ * MOD-14 and MOD-00A itself and narrows the ANSWER, which is what "strips
+ * subjects the actor cannot see" means. Same reasoning as the `/mine` routes
+ * above — the scope comes from the token and the grants, never from the query
+ * string, and `mapWindow` has no employee selector on it to forget to check.
+ *
+ * `/weekly-summaries` IS gated, at `edit`: it writes queries. Not `approve` —
+ * it raises a question, it does not waive a deduction or decide anything, which
+ * is the same line `/reconcile` sits on.
+ */
+router.get("/map", validator.mapWindow, controller.map);
+router.post("/weekly-summaries", edit, validator.weeklyRun, controller.runWeekly);
+
 // Admin log + corrections
 router.get("/", view, controller.list);
 router.post("/", create, validator.create, controller.create);

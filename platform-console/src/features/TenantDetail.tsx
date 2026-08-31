@@ -1,7 +1,7 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { platform } from "@/lib/api";
-import type { AuditRow, FeatureRow, Plan, TenantDatabase, TenantDetail as TDetail } from "@/lib/types";
+import type { AuditRow, DomainDnsRow, FeatureRow, Plan, TenantDatabase, TenantDetail as TDetail } from "@/lib/types";
 import { useAsync, type AsyncState } from "@/lib/useAsync";
 import { fmtDateTime, humanizeAction } from "@/lib/format";
 import { Button, Card, ConfirmModal, Empty, Field, Loading, Modal, Pill, SourcePill, StatusPill } from "@/components/ui";
@@ -112,23 +112,7 @@ export function TenantDetail() {
         <SandboxCard slug={slug} t={t} onSaved={reloadAll} />
       </div>
 
-      {t.subdomains && t.subdomains.length > 0 && (
-        <Card title="Subdomains" className="" >
-          <div style={{ margin: -16 }}>
-            <table>
-              <thead><tr><th>Host</th><th>Primary</th></tr></thead>
-              <tbody>
-                {t.subdomains.map((s, i) => (
-                  <tr key={i}>
-                    <td className="mono">{s.host}</td>
-                    <td>{s.is_primary ? <Pill tone="ok">Primary</Pill> : <Pill tone="mute">—</Pill>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      <DomainsCard slug={slug} t={t} onSaved={reloadAll} />
 
       <div style={{ marginTop: 16 }}>
         <FeaturesCard slug={slug} state={features} />
@@ -256,6 +240,270 @@ function CapacityCard({ slug, db, onSaved }: { slug: string; db: TenantDatabase;
             {CAP_TIERS.map((x) => <option key={x}>{x}</option>)}
           </select>
           <Button size="sm" onClick={save} loading={busy}>Set</Button>
+        </dd>
+      </dl>
+    </Card>
+  );
+}
+
+/**
+ * The tenant's hosts, and what each one serves.
+ *
+ * A tenant has two stranger-facing addresses. The workspace subdomain
+ * (`smartls.praxisls.com`) is where their staff sign in, and where their public
+ * site also lives — under /public — until they bring a domain of their own. That
+ * domain (`smartls.cm`) is the second, and on it the staff workspace must not be
+ * served at all: it is an address their clients visit, and a staff sign-in has
+ * no business answering there.
+ *
+ * That is what `surface` records, per host, and why this card is editable rather
+ * than the read-only list it replaced. Before it existed the only way to give a
+ * client their own domain was an environment variable on the server — which took
+ * a deploy, held exactly one value for the whole platform, and therefore worked
+ * for exactly one tenant.
+ *
+ * What this card does NOT do is DNS or certificates. Marking a host 'public'
+ * tells this application what to serve there; the domain still has to point at
+ * the server and carry its own certificate, because the *.praxisls.com wildcard
+ * covers one label of that domain and nothing of any other.
+ */
+/**
+ * The prefix one host serves the marketing site at.
+ *
+ * Editable in place rather than behind a modal, because it is one short word and
+ * the row it belongs to is the context — a dialog would hide which host it
+ * applies to. Saves on blur or Enter, and only when the value actually changed:
+ * a click into the field and back out should not write an audit row.
+ *
+ * Refusals come from the server, which owns the list of prefixes the workspace
+ * already answers. Repeating it here would be a second copy, and the one that
+ * silently falls behind when a new ERP section is added.
+ */
+function BaseCell({
+  slug, host, value, onSaved,
+}: { slug: string; host: string; value: string; onSaved: () => void }) {
+  const { toast, fail } = useToast();
+  const [draft, setDraft] = useState(value);
+  const [busy, setBusy] = useState(false);
+
+  const save = () => {
+    const next = draft.trim().toLowerCase();
+    if (!next || next === value) { setDraft(value); return; }
+    setBusy(true);
+    platform.setDomainBase(slug, host, next)
+      .then(() => { toast(`${host} serves its site at ${next.startsWith("/") ? next : "/" + next}`); onSaved(); })
+      .catch((e) => { setDraft(value); fail(e); })
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <input
+      className="mono"
+      style={{ width: 110 }}
+      value={draft}
+      disabled={busy}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={save}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        // Escape abandons the edit — the only way back to the stored value once
+        // you have typed over it, since there is no cancel button on a bare input.
+        if (e.key === "Escape") { setDraft(value); (e.target as HTMLInputElement).blur(); }
+      }}
+      aria-label={`Path prefix for ${host}`}
+    />
+  );
+}
+
+function DomainsCard({ slug, t, onSaved }: { slug: string; t: TDetail; onSaved: () => void }) {
+  const { toast, fail } = useToast();
+  const [host, setHost] = useState("");
+  const [surface, setSurface] = useState<"public" | "erp">("public");
+  const [busy, setBusy] = useState<string | null>(null);
+  const rows = t.subdomains || [];
+
+  /**
+   * Registering a domain does not make it resolve — that half is at the client's
+   * registrar, and it is the step most likely to be half-done. Without this the
+   * only instrument was loading the site and reading a TLS error, which cannot
+   * tell "not pointed yet" from "pointed at the old host".
+   *
+   * Loaded on open and re-runnable from the button: nothing is stored, so the
+   * answer is always as fresh as the lookup.
+   */
+  const [dns, setDns] = useState<Record<string, DomainDnsRow>>({});
+  const [checking, setChecking] = useState(false);
+  const checkDns = useCallback(() => {
+    setChecking(true);
+    platform.domainDns(slug)
+      .then((list) => setDns(Object.fromEntries((list || []).map((r) => [r.host, r]))))
+      .catch(() => setDns({}))   // a failed check is not a reason to break the card
+      .finally(() => setChecking(false));
+  }, [slug]);
+  useEffect(() => { checkDns(); }, [checkDns, rows.length]);
+
+  const add = () => {
+    const h = host.trim().toLowerCase();
+    if (!h) { toast("Enter the hostname the client will use", "bad"); return; }
+    setBusy("add");
+    platform.addDomain(slug, h, surface)
+      .then(() => {
+        toast(
+          surface === "public"
+            ? `${h} added — it serves the public site, not the workspace`
+            : `${h} added — it serves the workspace`,
+        );
+        setHost("");
+        onSaved();
+      })
+      .catch(fail)
+      .finally(() => setBusy(null));
+  };
+
+  const flip = (h: string, next: "public" | "erp") => {
+    setBusy(h);
+    platform.setDomainSurface(slug, h, next)
+      .then(() => { toast(`${h} now serves the ${next === "public" ? "public site" : "workspace"}`); onSaved(); })
+      .catch(fail)
+      .finally(() => setBusy(null));
+  };
+
+  const DNS_PILL: Record<DomainDnsRow["state"], { tone: "ok" | "warn" | "bad" | "mute"; label: string }> = {
+    ok: { tone: "ok", label: "DNS OK" },
+    wrong_target: { tone: "bad", label: "Points elsewhere" },
+    unresolved: { tone: "warn", label: "Awaiting DNS" },
+    unconfigured: { tone: "mute", label: "No ingress IP set" },
+  };
+
+  return (
+    <Card
+      title="Domains"
+      actions={
+        <Button onClick={checkDns} disabled={checking}>
+          {checking ? "Checking…" : "Check DNS"}
+        </Button>
+      }
+    >
+      <div style={{ margin: "-16px -16px 0" }}>
+        <table>
+          <thead>
+            <tr><th>Host</th><th>DNS</th><th>Serves</th><th>Site lives at</th><th>Primary</th><th /></tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={6}><span className="muted">No hosts registered.</span></td></tr>
+            )}
+            {rows.map((sd, i) => {
+              const isPublic = sd.surface === "public";
+              return (
+                <tr key={i}>
+                  <td className="mono">{sd.host}</td>
+                  <td>
+                    {(() => {
+                      const d = dns[sd.host];
+                      if (!d) return <span className="muted">—</span>;
+                      const p = DNS_PILL[d.state];
+                      // The records actually found, on hover: "points elsewhere"
+                      // is only actionable if you can see WHERE.
+                      const title =
+                        d.state === "unconfigured"
+                          ? "Set PUBLIC_INGRESS_IP so this can be checked"
+                          : `expected ${d.expected || "—"} · found ${d.resolved.join(", ") || "nothing"}`;
+                      return <span title={title}><Pill tone={p.tone}>{p.label}</Pill></span>;
+                    })()}
+                  </td>
+                  <td>
+                    {isPublic
+                      ? <Pill tone="info">Public site</Pill>
+                      : <Pill tone="mute">Workspace</Pill>}
+                  </td>
+                  <td>
+                    {/* A prefix exists to keep the marketing site out of the
+                        workspace's way on a shared origin. A host that serves the
+                        PUBLIC site has no workspace on it, so the site takes the
+                        root and there is nothing to choose — showing an editable
+                        `/public` there would offer a setting the server ignores,
+                        and put a word in the client's URLs that means nothing to
+                        their customers.
+
+                        On a workspace host it is theirs to choose, from a bounded
+                        set: the server refuses anything the ERP already answers
+                        (/settings, /login, every section) and /portal, which
+                        invitation emails point at and which never moves. */}
+                    {isPublic ? (
+                      <span className="mono muted" title="This host serves the site at its root — the prefix applies to workspace hosts only.">
+                        /
+                      </span>
+                    ) : (
+                      <BaseCell
+                        slug={slug}
+                        host={sd.host}
+                        value={sd.public_base || "/public"}
+                        onSaved={onSaved}
+                      />
+                    )}
+                  </td>
+                  <td>{sd.is_primary ? <Pill tone="ok">Primary</Pill> : <span className="muted">—</span>}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {/* The primary host is where staff sign in. Flipping it to the
+                        public site would take the workspace off the only address
+                        anyone has for it, so it is not offered here — and it says
+                        so, because a bare dash in an actions column reads as
+                        "nothing here yet" rather than "deliberately not offered". */}
+                    {sd.is_primary ? (
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        Sign-in host
+                      </span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        loading={busy === sd.host}
+                        onClick={() => flip(sd.host, isPublic ? "erp" : "public")}
+                      >
+                        {isPublic ? "Serve workspace" : "Serve public site"}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <dl className="kv" style={{ marginTop: 16 }}>
+        <dt>Add a domain</dt>
+        <dd className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <input
+            placeholder="smartls.cm"
+            value={host}
+            onChange={(e) => setHost(e.target.value)}
+            style={{ width: 220 }}
+            className="mono"
+          />
+          {/* `width: auto` like every other select on this screen. Without it the
+              flex row stretches it across the whole card, next to a 220px host
+              box, and the eye reads the widest control as the important one. */}
+          <select
+            value={surface}
+            onChange={(e) => setSurface(e.target.value as "public" | "erp")}
+            style={{ width: "auto" }}
+          >
+            <option value="public">serves the public site</option>
+            <option value="erp">serves the workspace</option>
+          </select>
+          <Button size="sm" onClick={add} loading={busy === "add"}>Add</Button>
+        </dd>
+        <dt>Site lives at</dt>
+        <dd className="muted">
+          The prefix saves when you press Enter or leave the box; Escape puts it
+          back. A host that serves the public site uses its root, so there is
+          nothing to set on that row.
+        </dd>
+        <dt>Still needed</dt>
+        <dd className="muted">
+          DNS pointing at this server, and a TLS certificate for the domain — the
+          wildcard does not cover it.
         </dd>
       </dl>
     </Card>

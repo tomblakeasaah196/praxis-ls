@@ -29,6 +29,10 @@ const { router: metricsRouter } = require("./routes/metrics");
 const { initRateLimitStore, apiLimiter } = require("./shared/http/rate-limit");
 const { isPublicMediaPath } = require("./shared/http/media-guard");
 const storage = require("./services/storage.service");
+const registry = require("./services/tenant/registry.service");
+const publicHead = require("./shared/http/public-head");
+const publicWebPaths = require("./shared/http/public-web-paths");
+const inlineScriptHashes = require("./shared/http/inline-script-hashes");
 
 /**
  * Lifetime of a presigned /media URL (s3 driver). Short on purpose: these are
@@ -88,7 +92,14 @@ function buildCorsOptions() {
     // browser JS cross-origin unless it is advertised here — without this the
     // client reads null and silently falls back to "one page", which is the
     // very bug the header exists to fix.
-    exposedHeaders: ["X-Total-Count"],
+    //
+    // X-Request-Id for the same reason, one surface further out: middleware/
+    // request-id.js stamps every response with it, and public-web prints it in
+    // the error state so a visitor who reports "the tracking page failed" hands
+    // over the one string that finds their request in the logs. A tenant on a
+    // custom domain calling the API on another origin would otherwise read null
+    // and show an error with nothing to quote.
+    exposedHeaders: ["X-Total-Count", "X-Request-Id"],
     origin(origin, cb) {
       if (!origin) return cb(null, true);
       let host;
@@ -100,7 +111,33 @@ function buildCorsOptions() {
       const onBaseDomain = host === base || host.endsWith("." + base);
       const devLocalhost = isDev && (host === "localhost" || host === "127.0.0.1");
       if (onBaseDomain || devLocalhost || extra.has(origin)) return cb(null, true);
-      return cb(rejected("Not allowed by CORS"), false);
+      // A tenant's own domain is DATA, not configuration.
+      //
+      // `platform.subdomain.surface = 'public'` is what makes a host serve the
+      // marketing site, and it is set in the platform console — no deploy, no
+      // restart. This allowlist was reading APP_BASE_DOMAIN and CORS_ORIGINS
+      // only, so a domain registered that way resolved, served its shell, and
+      // then 403'd every asset: Vite tags the module script and the stylesheet
+      // `crossorigin`, so both send an Origin, and both were refused. The page
+      // loaded and the app never started — the same failure mode as the
+      // /public-assets prefix, one layer up.
+      //
+      // That is the mistake the mount comment already names: an env var copied
+      // where a per-tenant fact belongs. So ask the registry the question the
+      // request path asks, and let registration be the whole of registration.
+      //
+      // Unknown origins are attacker-controlled input reaching a lookup, which
+      // is why resolveByHost caches MISSES too (HOST_MISS_TTL_MS) under an LRU
+      // bounded by HOST_CACHE_MAX — see the note on that cache. The cheap checks
+      // above still answer every first-party request without touching it.
+      return registry
+        .resolveByHost(host)
+        .then((meta) =>
+          meta && meta.surface === "public"
+            ? cb(null, true)
+            : cb(rejected("Not allowed by CORS"), false),
+        )
+        .catch(() => cb(rejected("Not allowed by CORS"), false));
     },
   };
 }
@@ -149,12 +186,31 @@ function buildApp() {
    * legitimately points at external https URLs, and `blob:`/`data:` are used by
    * generated previews. That is a real requirement, not a leftover.
    */
+  /**
+   * public-web ships ONE inline script — the no-flash theme block in its shell,
+   * which must write `data-theme` before first paint or a dark-OS visitor gets a
+   * frame of light tokens. `'self'` does not cover an inline block, so without
+   * this the browser refuses it and the site renders unstyled on the tenant's
+   * own domain. The allowance is a HASH OF THE BUILT FILE, not `'unsafe-inline'`
+   * and not a literal pasted from a console: the mitigation stays on for every
+   * other page, and editing the theme block moves the hash with it instead of
+   * failing silently in production. See shared/http/inline-script-hashes.js.
+   */
+  const cspDefaults = helmet.contentSecurityPolicy.getDefaultDirectives();
+  const publicWebShellHashes = inlineScriptHashes.hashesForFile(
+    path.resolve(__dirname, "../public-web/dist/index.html"),
+  );
+  const scriptSrc = [
+    ...(cspDefaults["script-src"] || ["'self'"]),
+    ...publicWebShellHashes,
+  ];
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
-          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          ...cspDefaults,
           "img-src": ["'self'", "data:", "blob:", "https:"],
+          "script-src": scriptSrc,
         },
       },
     }),
@@ -194,7 +250,43 @@ function buildApp() {
   // status, or how long it took — and no log line anywhere carried a tenant.
   // Mounted after requestIdMiddleware so every line shares that correlation id.
   app.use(buildAccessLog());
-  app.use(express.json({ limit: "2mb" }));
+  /**
+   * The `verify` callback stashes the UNTOUCHED bytes before body-parser
+   * parses them. Some routes need the raw text rather than the object:
+   * provider webhooks verify a signature over the delivered bytes, and a
+   * parser that normalises key order or encodings first would change what
+   * the signature covers — so the raw form must be captured HERE, where the
+   * global parser runs, because a route-level `express.text` behind it never
+   * runs: body-parser sets `req._body` once it has parsed, and every
+   * downstream body parser bails on that flag. (The QES webhook audit found
+   * exactly this: every genuine delivery was rejected 401 because the route
+   * only ever saw a parsed object.) `req.rawBody` is read by
+   * qes_public.controller and is null for non-JSON bodies.
+   */
+  /**
+   * ONE route gets a bigger body, and only this one.
+   *
+   * A job applicant's CV is base64-encoded into the JSON body
+   * (`careers-api.ts` → `fileToDataUrl`), and base64 inflates by a third — so
+   * the 8 MB the form advertises, and which `careers.service.CV_MAX_BYTES`
+   * enforces, is about 10.7 MB on the wire. Against the 2 MB global limit below
+   * that meant anything over roughly 1.4 MB was refused with a 413 AFTER the
+   * applicant had waited through the whole upload, which is most phone-scanned
+   * CVs. The form promised 8 MB and the server had never been able to take it.
+   *
+   * Mounted BEFORE the global parser rather than after, because body-parser sets
+   * `req._body` once it has parsed and every downstream parser bails on that
+   * flag — a larger parser registered later would never run. Raising the global
+   * limit instead would hand 12 MB bodies to all ~600 routes to fix one; this
+   * gives it to the single public path that needs it.
+   */
+  const CV_APPLY_PATH = /^\/api\/(v\d+\/)?tenant\/careers\/[^/]+\/apply\/?$/;
+  app.use(
+    CV_APPLY_PATH,
+    express.json({ limit: "12mb", verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } }),
+  );
+
+  app.use(express.json({ limit: "2mb", verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } }));
   app.use(express.urlencoded({ extended: true }));
 
   // OBS-E2: browser crash reports. Mounted before the tenant router so it needs
@@ -318,14 +410,201 @@ function buildApp() {
     logger.info({ consoleHost }, "serving platform console at admin host root");
   }
 
+  // The public web app — marketing site (/public/*) and external portal
+  // (/portal/*). Same tenant origin as the ERP, and deliberately so: a client who
+  // is emailed a tracking link must not be sent to a second domain whose cookies,
+  // CSP and tenant Host resolution the ERP knows nothing about.
+  //
+  // It is mounted BEFORE the client block below, which is the part that matters:
+  // `client/dist` answers `app.get("*")`, so anything registered after it is
+  // unreachable for page requests. Three rules follow from that, and all three are
+  // enforced in tests/unit/public-web-mount.test.js:
+  //
+  //   · Only this app's own prefixes and the legacy paths it replaces are claimed
+  //     — everything else, including /login and /reset-password, still goes to the
+  //     ERP. The portal's sign-in lives at /portal/login; the staff sign-in stays
+  //     where every bookmark in the company points.
+  //   · /api and /media are never handled here, so a mistyped deep link under
+  //     /public returns the API's 404 JSON rather than an HTML body an SDK will
+  //     try to parse.
+  //   · /public-assets is claimed too, because it is where this app's build puts
+  //     its JS, CSS and fonts (public-web/vite.config.ts sets `build.assetsDir`
+  //     to exactly that name). Unclaimed, those requests fall through to
+  //     client/dist and then to the ERP's catch-all, which answers index.html
+  //     with 200 text/html — so the shell loads and the app never starts. The
+  //     name is deliberately NOT /assets: that one belongs to the ERP's build,
+  //     and claiming it here would break the ERP instead.
+  //   · the MARKETING prefix is a per-host setting now
+  //     (`platform.subdomain.public_base`, edited in the platform console), so the
+  //     matcher is built per request from the resolved value rather than being a
+  //     constant. `/portal` never moves — invitation emails point at it with a
+  //     seven-day expiry. shared/http/public-web-paths.js is the single
+  //     definition; this mount and its test both read it, so they cannot drift.
+  //
+  // `index: false` on the static handler keeps /public resolving to the SPA
+  // route rather than to a dist/index.html the browser would otherwise fetch
+  // directly, and the fallback sendFile is what makes a forwarded
+  // /public/proposals/<token> load at all — a 404 on a deep link is a broken
+  // sales document, not a missing page.
+  const publicWebDir = path.resolve(__dirname, "../public-web/dist");
+  //
+  // TWO MOUNTS, and which one answers is a fact about the HOST, read from the
+  // tenant registry rather than from configuration:
+  //
+  //   · a host whose `platform.subdomain.surface` is 'public' — the tenant's own
+  //     domain — serves this app at its ROOT, and the ERP not at all. A freight
+  //     forwarder does not print `smartls.praxisls.com/public` on an invoice,
+  //     and the staff sign-in has no business answering on a domain their
+  //     clients visit.
+  //   · every other host is a workspace host, and SERVE_PUBLIC_WEB decides
+  //     whether it also answers the /public and /portal prefixes. That is what
+  //     every tenant gets on day one, at no infrastructure cost: the host
+  //     already resolves and the wildcard certificate already covers it.
+  //
+  // The first version of this was an env var, PUBLIC_WEB_HOST, copied from
+  // PLATFORM_CONSOLE_HOST. The copy was the bug. There is one console for the
+  // whole platform, so one value fits it; there is one public site PER TENANT,
+  // so one value names exactly one tenant's domain and every other tenant's
+  // falls through to the staff app. See migrations/platform/0103.
+  const hasPublicWeb = fs.existsSync(path.join(publicWebDir, "index.html"));
+
+  if (hasPublicWeb) {
+    const publicWebStatic = express.static(publicWebDir, { index: false, maxAge: "1h" });
+    // A navigation gets a head that describes the page — title, description,
+    // canonical and Open Graph — so a forwarded link renders as a card rather
+    // than a blank grey rectangle, and a crawler that does not run JavaScript
+    // reads something. See shared/http/public-head.js; it falls back to this
+    // file, unmodified, on any failure.
+    const sendHtml = publicHead.makeHtmlSender(publicWebDir);
+    const sendShell = (req, res) => res.sendFile(path.join(publicWebDir, "index.html"));
+    const serveApp = (req, res) =>
+      publicWebStatic(req, res, () => sendHtml(req, res, () => sendShell(req, res)));
+    const isPublicSurface = (req) => req.hostSurface === "public";
+
+    // The canonical prefix for THIS request's host, for robots/sitemap below.
+    // "/" on a host the site owns, the configured prefix on a workspace host —
+    // see the surface middleware immediately below, which is what decides.
+    const baseOf = (req) => req.publicBase || publicWebPaths.DEFAULT_BASE;
+
+    /**
+     * robots.txt and sitemap.xml, per host.
+     *
+     * Ahead of the mounts, because on a WORKSPACE host neither prefix claims
+     * `/robots.txt` — and a workspace host is precisely the one that needs to say
+     * "do not index me". Serving nothing there means a crawler decides for itself.
+     */
+    app.get("/robots.txt", (req, res) => {
+      const origin = `${req.protocol}://${req.headers.host}`;
+      res
+        .type("text/plain")
+        .set("Cache-Control", "public, max-age=3600")
+        .send(
+          publicHead.robots(
+            origin,
+            isPublicSurface(req) || config.SERVE_PUBLIC_WEB,
+            baseOf(req),
+            // SEO_NOINDEX_HOSTS — a staging host refuses the whole crawl,
+            // whatever surface it serves.
+            String(req.headers.host || "").toLowerCase().split(":")[0],
+          ),
+        );
+    });
+
+    app.get("/sitemap.xml", async (req, res, next) => {
+      if (!isPublicSurface(req) && !config.SERVE_PUBLIC_WEB) return next();
+      const host = String(req.headers.host || "").toLowerCase().split(":")[0];
+      const origin = `${req.protocol}://${req.headers.host}`;
+      try {
+        const xml = await publicHead.sitemap(host, origin, baseOf(req));
+        res.type("application/xml").set("Cache-Control", "public, max-age=3600").send(xml);
+      } catch (err) {
+        // A sitemap that 500s is worse than one that is briefly absent: a crawler
+        // retries a 404 and gives up on repeated errors.
+        logger.warn({ err, host }, "sitemap failed");
+        next();
+      }
+    });
+
+    /**
+     * Resolve the host's surface once, before either mount reads it.
+     *
+     * The host string is derived exactly as `hostTenantResolver` derives it —
+     * raw `Host`, lowercased, port stripped — and deliberately not via
+     * `req.hostname`, which prefers `X-Forwarded-Host` under `trust proxy`. If
+     * the two disagreed, the app a visitor is served and the tenant its data
+     * comes from could be decided by different strings, which is a bug nobody
+     * would find twice.
+     *
+     * `resolveByHost` is cached per host (60s hit, 10s miss), so this costs a
+     * Map lookup on all but the first request — which matters, because every
+     * asset on every page passes through here.
+     *
+     * A failed lookup falls back to 'erp', i.e. exactly today's behaviour. The
+     * alternative — failing closed — would take a tenant's workspace offline
+     * because their registry row could not be read, which is worse than showing
+     * the workspace on a marketing domain during an outage in which nothing else
+     * works either.
+     */
+    app.use(async (req, res, next) => {
+      if (onConsoleHost(req)) return next();
+      if (req.path.startsWith("/api") || req.path.startsWith("/media")) return next();
+      const host = String(req.headers.host || "").toLowerCase().split(":")[0];
+      try {
+        const meta = await registry.resolveByHost(host);
+        req.hostSurface = meta && meta.surface === "public" ? "public" : "erp";
+        // A host the site OWNS serves it at the root. `public_base` is the
+        // prefix that keeps the marketing site out of the ERP's way on a shared
+        // origin, and on a domain the client brought there is no ERP to avoid —
+        // so honouring the column there would put a meaningless `/public` in
+        // front of every URL that client prints. The column still applies the
+        // moment the host is flipped back to serving the workspace.
+        req.publicBase =
+          req.hostSurface === "public"
+            ? publicWebPaths.ROOT_BASE
+            : publicWebPaths.normaliseBase(meta && meta.public_base) ||
+              publicWebPaths.DEFAULT_BASE;
+      } catch (err) {
+        logger.warn({ err, host }, "host surface lookup failed — serving the workspace");
+        req.hostSurface = "erp";
+        req.publicBase = publicWebPaths.DEFAULT_BASE;
+      }
+      return next();
+    });
+
+    // (a) the tenant's own domain, at its root.
+    app.use((req, res, next) => {
+      if (!isPublicSurface(req)) return next();
+      if (req.path.startsWith("/api") || req.path.startsWith("/media")) return next();
+      return serveApp(req, res);
+    });
+
+    // (b) the path prefix, on workspace hosts.
+    if (config.SERVE_PUBLIC_WEB) {
+      app.use((req, res, next) => {
+        if (isPublicSurface(req)) return next(); // (a) already answered it
+        if (!publicWebPaths.matcherFor(req.publicBase).test(req.path)) return next();
+        if (req.path.startsWith("/api") || req.path.startsWith("/media")) return next();
+        return serveApp(req, res);
+      });
+      logger.info({ publicWebDir }, "serving public web at /public and /portal on workspace hosts");
+    }
+    logger.info("public web built; hosts with surface='public' serve it at their root");
+  }
+
   // Single-origin: when client/dist exists, serve the built PWA alongside /api.
   // Skipped on the admin console host so the tenant app never renders there.
   const clientDist = path.resolve(__dirname, "../client/dist");
   if (fs.existsSync(path.join(clientDist, "index.html"))) {
     const clientStatic = express.static(clientDist, { index: false, maxAge: "1h" });
-    app.use((req, res, next) => (onConsoleHost(req) ? next() : clientStatic(req, res, next)));
+    // The surface check alongside the console check, and this is the whole point
+    // of recording a surface: without it every host that is not the admin console
+    // — a tenant's own domain included — is answered here with the staff PWA, and
+    // `theirdomain.com/login` becomes a working staff sign-in against whatever
+    // tenant that domain resolves to.
+    const notThisApp = (req) => onConsoleHost(req) || req.hostSurface === "public";
+    app.use((req, res, next) => (notThisApp(req) ? next() : clientStatic(req, res, next)));
     app.get("*", (req, res, next) => {
-      if (onConsoleHost(req)) return next();
+      if (notThisApp(req)) return next();
       if (req.path.startsWith("/api") || req.path.startsWith("/media")) return next();
       res.sendFile(path.join(clientDist, "index.html"));
     });
@@ -516,4 +795,4 @@ function start() {
 
 if (require.main === module) start();
 
-module.exports = { buildApp, start };
+module.exports = { buildApp, start, buildCorsOptions };

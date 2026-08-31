@@ -15,11 +15,16 @@ Source of truth for all product decisions: the **PRD (Master Functional Spec v2)
 ## 1. Monorepo layout
 
 ```layout
-src             # NestJS backend.
-client          # React + Vite frontend (PWA)
-scripts         # Migration scripts, startup scripts and any other needed in the product
-doc/            # PRD, OHADA KB, RBAC/User-Journey, kickoff transcript
-packages/shared # Zod schemas, types, posting-rules & tax libraries, i18n dictionaries (shared FE/BE)
+src              # Node/Express backend.
+client           # The tenant ERP — React + Vite (PWA). Served at the root of <tenant>.praxisls.com
+platform-console # Praxis-side admin console. Served only at the root of PLATFORM_CONSOLE_HOST
+public-web       # The stranger-facing app: marketing site + external portal.
+                 #   Served on the tenant host at /public/* and /portal/* when
+                 #   SERVE_PUBLIC_WEB=true. Off by default — see .env.example.
+scripts          # Migration scripts, startup scripts and any other needed in the product
+doc/             # PRD, OHADA KB, RBAC/User-Journey, kickoff transcript
+packages/shared  # Zod schemas, types, posting-rules & tax libraries, i18n dictionaries (shared FE/BE)
+packages/brand   # Brand tokens (tokens.css), consumed by every surface
 ```
 
 Package manager: **pnpm** with **Turborepo**. Shared TypeScript types live in `packages/shared` so there is one definition of every entity across API and web.
@@ -95,6 +100,28 @@ Brand & go-to-market (added 2026-08):
 - `LANDING_PAGE_GUIDE.md` — praxisls.com: IA, bilingual copy deck, budgets, build plan
 - `BRAND_GLOSSARY_FR_EN.md` — every customer-facing term in both languages, plus the French style rules
 - `WEB_BUILD_BRIEF.md` — the implementation brief for the marketing site, built in a separate repo
+
+## 6a. Frontend non-negotiables
+
+Before writing a line of frontend code, read `doc/FRONTEND_GUIDE.md` — it is the
+one frontend document, and CI fails if it describes components that do not
+exist. The rules below are enforced by gates rather than by review, so a PR that
+breaks one does not merge:
+
+| Rule | Enforced by |
+| ---- | ----------- |
+| **No native browser dialogs.** `window.confirm`, `window.alert` and `window.prompt` are banned in `client/`, `platform-console/` and `public-web/`. Use `useConfirm()`, `usePrompt()`, `<Callout>` or `useToast()` — see FRONTEND_GUIDE §3.10. | `praxis/no-native-dialogs` (ESLint, **error**) |
+| No raw palette colours — tokens only, or tenant white-labelling breaks | `npm run check:palette` |
+| Every text-on-surface token pair clears WCAG AA | `npm run check:contrast` |
+| The frontend guide may not name a component that does not exist | `npm run check:docs` |
+| Motion budget | `npm run check:motion` |
+
+The dialog ban is the one most likely to surprise you, so to say it plainly: a
+native dialog is drawn by the **browser**, not by us. It renders as
+"app.praxis-ls.com says", ignores the tenant's white-label branding entirely,
+cannot be translated, and blocks the event loop while it is open. There is no
+version of this product where that is acceptable, which is why it is a lint
+error rather than a convention.
 
 ## 7. Team & working agreement
 

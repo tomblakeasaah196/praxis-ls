@@ -58,6 +58,17 @@ export interface TenantDatabase {
 export interface Subdomain {
   host: string;
   is_primary?: boolean | null;
+  is_custom_domain?: boolean | null;
+  /**
+   * What this host serves. 'erp' is the tenant workspace — the default, and what
+   * every host meant before 0103. 'public' is the marketing site and external
+   * portal at that host's ROOT, with the staff workspace not served there at
+   * all: the shape a tenant wants for a domain their own clients visit.
+   */
+  surface?: "erp" | "public" | null;
+  /** Path prefix the marketing site is served at on this host — `/public`,
+   *  `/site`. The portal is always `/portal` and is not settable. */
+  public_base?: string | null;
   [k: string]: unknown;
 }
 
@@ -149,3 +160,17 @@ export interface AuditRow {
   tenant_slug: string | null;
   tenant_name: string | null;
 }
+
+/** One host's DNS verdict — see src/shared/net/dns-target.js. `expected` is
+ *  null when PUBLIC_INGRESS_IP is unset, in which case state is "unconfigured"
+ *  and the console says so rather than blaming the client's zone. */
+export type DomainDnsRow = {
+  host: string;
+  resolved: string[];
+  expected: string | null;
+  state: "ok" | "wrong_target" | "unresolved" | "unconfigured";
+  ok: boolean;
+  surface: "erp" | "public";
+  is_custom_domain: boolean;
+  is_primary: boolean;
+};

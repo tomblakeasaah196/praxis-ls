@@ -165,7 +165,87 @@ async function assertRoomFor(client, draftId, bytes) {
   return { total_bytes: total, offer_secure_link: total > SECURE_LINK_HINT_BYTES };
 }
 
-/* ── Sending ──────────────────────────────────────────────────────────────── */
+/* ── Sending ─────────────────────────────────────────────────────────────── */
+
+/**
+ * Remove `<style>…</style>` blocks from a serialized body, so the
+ * "is there visible content" check cannot read a page of CSS as a body.
+ *
+ * A hand scan, deliberately NOT the obvious `/<style[\s\S]*?<\/style>/gi`.
+ * That pattern is polynomial in the input: every unmatched `<style` makes the
+ * engine rescan the whole remainder, so a body of many unclosed `<style`
+ * tokens — perfectly ordinary user input, up to the message-size limit — turns
+ * a few hundred KB into a multi-second hang on the send path. That is the
+ * ReDoS CodeQL flags here (high). The scan below is one linear pass with the
+ * old regex's leftmost-match semantics preserved exactly:
+ *
+ *   - a block is the first `<style` and the first `</style>` at or after the
+ *     end of that opening token (case-insensitive), and the scan resumes after
+ *     the removed block;
+ *   - an unclosed `<style` matches nothing and is kept as-is — and since no
+ *     `</style>` follows it, no later start position can close one either, so
+ *     the scan simply stops and the remainder is returned untouched.
+ *
+ * Each character of the input is scanned at most twice (once by the open
+ * search, once when thrown away with a matched block), so the cost is O(n).
+ */
+function stripStyleBlocks(src) {
+  const text = String(src);
+  if (text.indexOf("<") === -1) return text;
+  const open = /<style/gi;
+  const close = /<\/style>/gi;
+  let out = "";
+  let cursor = 0;
+  let m;
+  while ((m = open.exec(text)) !== null) {
+    close.lastIndex = m.index + m[0].length;
+    const end = close.exec(text);
+    if (!end) break;
+    const stop = end.index + end[0].length;
+    out += text.slice(cursor, m.index) + " ";
+    cursor = stop;
+    open.lastIndex = stop;
+  }
+  return out + text.slice(cursor);
+}
+
+/**
+ * Replace HTML tags with single spaces — the second half of the visible-
+ * content check.
+ *
+ * Again a hand scan, not `/<[^>]+>/g`: that pattern has the same polynomial
+ * trap as the style one above, a notch down the food chain — every `<` with
+ * no `>` after it makes the engine scan to the end of the body, and a body of
+ * many bare `<` (CodeQL's next alert after the style one was fixed) is O(n²).
+ * One pass, the old regex's semantics preserved exactly:
+ *
+ *   - a tag is a `<`, at least one non-`>` character, and a `>`; a second `<`
+ *     before the first `>` is just content of the FIRST tag, so `<<>>` is
+ *     `<<>` (replaced) plus a leftover `>`;
+ *   - `<>` is not a tag (nothing between the brackets) and stays;
+ *   - a `<` with no closing `>` is not a tag and stays — it is plain text to
+ *     the check, which is what the old regex also concluded.
+ */
+function stripTags(src) {
+  const text = String(src);
+  if (text.indexOf("<") === -1) return text;
+  let out = "";
+  let last = 0;
+  let tagStart = -1;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === "<") {
+      if (tagStart === -1) tagStart = i;
+    } else if (ch === ">" && tagStart !== -1) {
+      if (i - tagStart >= 2) {
+        out += text.slice(last, tagStart) + " ";
+        last = i + 1;
+      }
+      tagStart = -1;
+    }
+  }
+  return out + text.slice(last);
+}
 
 /**
  * Everything that has to be true before a message may be queued.
@@ -222,7 +302,24 @@ async function send(client, actor, input = {}) {
     });
     html = out.html; text = out.text; warnings = out.warnings; cids = out.cids;
   }
-  if (!html && !text) throw new AppError("VALIDATION_ERROR", "a message needs a body", 422);
+  // A rendered shell is not a body. serialize() wraps ANY document — even an
+  // empty one — in a full HTML shell, so `html` is truthy with nothing visible
+  // in it, and a truthiness check reads the shell as content: the enqueued
+  // message carried a subject and an empty HTML part (the provider drops the
+  // empty text part via `||`), and the recipient saw "sent, subject and all,
+  // but no content" (2026-08-25, cPanel mailbox, sent from the new inbox
+  // composer, whose Send button checked sender and recipient but not the
+  // body). Check VISIBLE content instead. A quote counts — a reply that only
+  // carries the quoted mail still says something — and an image counts,
+  // because its text projection is a `[image: …]` placeholder; the img test
+  // is the belt for any media that renders without one.
+  const visible = stripTags(stripStyleBlocks(String(html || "")))
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!String(text || "").trim() && !visible && !/<img\b/.test(String(html || ""))) {
+    throw new AppError("VALIDATION_ERROR", "a message needs a body", 422);
+  }
 
   // Signature is baked into the FROZEN payload here, not at flush. A promotion
   // that lands in the undo window must not rewrite a message the sender already
@@ -347,17 +444,52 @@ async function cancel(client, actor, id) {
 const listQueued = (client, actor, q = {}) => repo.listQueued(client, actor.user_id, q);
 
 /**
+ * Codes that are never worth a second attempt.
+ *
+ * Every one of these is emitted by something — which is the property the list
+ * it replaced did not have. That one named `AUTH_FAILED`, which nothing has
+ * ever thrown: `mail.service.explainSendError` emits `MAILBOX_AUTH_FAILED`, and
+ * a rejected login survived as permanent only because it also happens to carry
+ * a 422. A dead name in a list that reads as authoritative is worse than a
+ * short list, because it looks like the case is covered.
+ *
+ * `SMTP_SEND_REJECTED` is the one that actually changed behaviour. It is the
+ * classifier's verdict for a hard 5xx with no other evidence — a message over
+ * the size limit, a recipient mailbox that is full — and RFC 5321 §4.2.1 is
+ * explicit that a 5yz means the client SHOULD NOT repeat the request. It used
+ * to be retried three times because `explainSendError` flattened it into the
+ * same code as a greylisting.
+ *
+ * Kept beside `retryPlan` rather than imported from the map, because the
+ * question here is operational (do we try again?) and the map's question is
+ * diagnostic (what went wrong?). `tests/unit/mail-send-classifier.test.js`
+ * walks every code the map can produce through both and asserts they agree, so
+ * a new verdict cannot land in one and not the other.
+ */
+const PERMANENT_CODES = new Set([
+  "SENDER_NOT_AUTHORIZED",   // the From address is not ours to send from
+  "RECIPIENT_REJECTED",      // the address does not exist
+  "MAILBOX_ARCHIVED",        // our own mailbox was retired mid-queue
+  "MAILBOX_AUTH_FAILED",     // explainSendError's name for a rejected login
+  "SMTP_AUTH_FAILED",        // the map's name for the same thing
+  "SMTP_SEND_REJECTED",      // a hard 5xx refusal — see above
+]);
+
+/**
  * Should this failure be retried, and when?
  *
  * A permanent refusal is not retried at all. Trying a rejected sender address
  * three times does not make it work; it just delays telling the person something
  * only they can fix, and burns three more entries in the mail host's abuse log.
+ *
+ * Retrying a rejected LOGIN is worse than useless: three failed authentications
+ * in ten minutes is what a shared host's brute-force protection is watching
+ * for, and it suspends the mailbox.
  */
 function retryPlan(err, attempts) {
   const status = err && err.status;
   const code = (err && err.code) || null;
-  const permanent = status === 422 || status === 413
-    || ["SENDER_NOT_AUTHORIZED", "RECIPIENT_REJECTED", "MAILBOX_ARCHIVED", "AUTH_FAILED"].includes(code);
+  const permanent = status === 422 || status === 413 || PERMANENT_CODES.has(code);
   if (permanent || attempts >= MAX_ATTEMPTS) return { retryAt: null, code };
   // 30s, 2min, 8min. Long enough for a mail host's transient limit to clear,
   // short enough that a message still arrives while it is relevant.
@@ -491,5 +623,5 @@ module.exports = {
   MODULE, ATTACH_MAX_BYTES, SECURE_LINK_HINT_BYTES, UNDO_CHOICES, DEFAULT_UNDO_SECONDS, MAX_ATTEMPTS,
   undoSeconds, saveDraft, getDraft, listDrafts, discardDraft,
   assertRoomFor, validateSend, send, cancel, listQueued,
-  retryPlan, flushOne, flush,
+  retryPlan, PERMANENT_CODES, flushOne, flush, stripStyleBlocks, stripTags,
 };

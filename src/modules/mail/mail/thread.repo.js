@@ -363,7 +363,7 @@ const insertMessage = (client, row) =>
         size_bytes, has_attachment, sent_via, origin_user_id, origin_send_point, received_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
      ON CONFLICT (email_connection_id, external_message_id) WHERE external_message_id IS NOT NULL DO NOTHING
-     RETURNING email_message_id, email_thread_id`,
+     RETURNING email_message_id, email_thread_id, received_at`,
     [row.email_thread_id, row.email_connection_id, row.email_identity_id || null,
      row.external_message_id || null, row.message_id_header || null,
      row.direction || "IN", row.folder || "INBOX", row.provider_folder || null,
@@ -437,6 +437,40 @@ const seedStateForMembers = (client, messageId, connectionId) =>
   );
 
 /* ── Folders ──────────────────────────────────────────────────────────────── */
+
+/**
+ * The mailbox a person means when they have not said which.
+ *
+ * The rail is mailbox-scoped — `listFolders` fails closed on a missing
+ * connection id — so "no mailbox chosen" used to render as "no folders yet",
+ * which reads as a broken sync rather than as an unmade choice. Nobody with one
+ * mailbox should ever see that: their one mailbox IS the answer.
+ *
+ * The order is the order a person would give it:
+ *   1. the one they marked default (`is_default`),
+ *   2. their own personal address, which is the mailbox they own rather than
+ *      one they were granted,
+ *   3. a mailbox that is actually connected, over one that is broken or
+ *      pending — a rail on a dead mailbox helps nobody,
+ *   4. the oldest, so the answer is stable across calls.
+ *
+ * Scoped by the same `accessible` predicate as everything else here: this can
+ * only ever resolve to a mailbox the caller may already open.
+ */
+const defaultConnectionFor = (client, userId) => {
+  if (!userId) return Promise.resolve(null);
+  return client.query(
+    `SELECT c.email_connection_id
+       FROM email_connection c
+      WHERE c.email_connection_id IN ${accessible(1)}
+      ORDER BY COALESCE(c.is_default, false) DESC,
+               (c.kind = 'PERSONAL' AND c.owner_user_id = $1) DESC,
+               (c.status = 'CONNECTED') DESC,
+               c.created_at
+      LIMIT 1`,
+    [userId],
+  ).then((r) => (r.rows[0] ? r.rows[0].email_connection_id : null));
+};
 
 const listFolders = (client, connectionId, userId = null) => {
   // P1A-2. A connection_id with no accessible-connection check enumerated
@@ -675,12 +709,25 @@ const timelineByEntity = (client, entityRef, { limit = 100, userId = null } = {}
  * they hold no grant on.
  */
 
-/** Thread head if this caller may see it; null if it is invisible OR absent —
- *  deliberately the same answer, see the 404 note in `./visible.js`. */
+/**
+ * Thread head if this caller may see it; null if it is invisible OR absent —
+ * deliberately the same answer, see the 404 note in `./visible.js`.
+ *
+ * DELIBERATELY MINIMAL. It briefly also selected `assigned_user_id` and
+ * `work_status`, as a convenience for handlers. That is the wrong shape for a
+ * gate, and `mail-shared-inbox.test.js` says so: it asserts that nothing on the
+ * claim path selects `assigned_user_id`, because a claim that pre-reads the
+ * assignment is one refactor from read-then-write, and read-then-write is how
+ * two agents both win the race and both answer one customer.
+ *
+ * (That assertion did not actually fire on the wider version — its regex cannot
+ * span the newline the column list wrapped on. A tripwire that misses by an
+ * accident of formatting is worth removing the hazard for anyway.)
+ */
 const headIfVisible = (client, userId, threadId) =>
   client.query(
     `SELECT t.email_thread_id, t.email_connection_id, t.subject, t.visibility,
-            t.entity_ref, t.work_status, t.assigned_user_id, c.owner_user_id
+            t.entity_ref, c.owner_user_id
        FROM email_thread t
        JOIN email_connection c ON c.email_connection_id = t.email_connection_id
       WHERE t.email_thread_id = $2
@@ -811,7 +858,7 @@ module.exports = {
   listThreads, getThread, getThreadUnrestricted, getThreadById, updateThread, upsertThread, refreshThreadCounts,
   insertMessage, getMessage, moveThread,
   setThreadRead, setThreadStarred, seedStateForMembers,
-  listFolders, streamUnread, upsertFolder, ensureCanonicalFolder, syncableFolders, setFolderCursor, setFolderError,
+  listFolders, defaultConnectionFor, streamUnread, upsertFolder, ensureCanonicalFolder, syncableFolders, setFolderCursor, setFolderError,
   listLabels, createLabel, deleteLabel, applyLabel,
   streamRules, knownParty, timelineByEntity,
   headIfVisible, messageIfVisible, attachmentIfVisible, filterVisibleThreadIds,
