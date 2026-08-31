@@ -13,7 +13,8 @@
  * ticket. So every byte the page needs is carried inside the page.
  *
  * Inputs are npm tarballs, not scraped URLs, so the versions are pinned and the
- * regeneration is reproducible.
+ * regeneration is reproducible. The JS pins come from the root package.json, so
+ * Dependabot can see them — see `pinned()` below.
  *
  * Fonts are the VARIABLE (wght axis) cuts, latin subset only. One file per
  * family covers every weight the stylesheet asks for, which is why three fonts
@@ -31,9 +32,44 @@ const ROOT = resolve(HERE, "..");
 const OUT = join(ROOT, "src", "vendor.mjs");
 const WORK = join(tmpdir(), "jbs-workbook-vendor");
 
+/**
+ * The pinned versions live in the ROOT package.json's devDependencies, not here.
+ *
+ * They are the only executable third party code this workbook carries, and the
+ * copy that ships is the inlined one in src/vendor.mjs — a build output nobody
+ * re-reads. Hardcoding the versions in this file put them somewhere Dependabot
+ * cannot see and `npm audit` never visits, so a CVE in either library would have
+ * gone unnoticed for as long as nobody happened to regenerate.
+ *
+ * Reading them from the manifest gives one source of truth: Dependabot raises a
+ * bump against package.json, and `npm run check:workbook` fails until the
+ * inlined copy is regenerated to match. The two cannot drift apart quietly.
+ */
+const ROOT_PKG = JSON.parse(
+  readFileSync(resolve(HERE, "..", "..", "..", "package.json"), "utf8"),
+);
+
+function pinned(pkg) {
+  const v = ROOT_PKG.devDependencies?.[pkg];
+  if (!v) {
+    throw new Error(
+      `${pkg} is not in the root package.json devDependencies. Add it with an ` +
+        `EXACT version (no caret) — see the "//workbook-vendor" note there.`,
+    );
+  }
+  if (!/^\d+\.\d+\.\d+$/.test(v)) {
+    throw new Error(
+      `${pkg} is pinned as "${v}" in the root package.json. It must be an exact ` +
+        `version: the inlined copy in src/vendor.mjs is a build output, and a ` +
+        `floating range lets it drift from what is declared.`,
+    );
+  }
+  return v;
+}
+
 const JS_LIBS = [
-  { pkg: "html2canvas", version: "1.4.1", file: "dist/html2canvas.min.js" },
-  { pkg: "jspdf", version: "2.5.1", file: "dist/jspdf.umd.min.js" },
+  { pkg: "html2canvas", version: pinned("html2canvas"), file: "dist/html2canvas.min.js" },
+  { pkg: "jspdf", version: pinned("jspdf"), file: "dist/jspdf.umd.min.js" },
 ];
 
 // family → { pkg, file, cssFamily, weights }
