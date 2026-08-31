@@ -103,6 +103,12 @@ const Schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: int(8080),
   APP_BASE_DOMAIN: z.string().default("praxisls.com"),
+  // The A record we tell a client to point their own domain at. Used ONLY to
+  // answer "has this domain been pointed at us yet?" in the platform console —
+  // the DNS itself lives at the client's registrar and is not ours to change.
+  // Empty means we cannot judge, and the check says so rather than reporting a
+  // correctly-configured domain as broken. See shared/net/dns-target.js.
+  PUBLIC_INGRESS_IP: z.string().trim().default(""),
   // Dev-only convenience: when NODE_ENV=development, resolve a tenant on
   // localhost without a hosts-file entry. A request may still override per-call
   // with the `X-Praxis-Tenant: <slug>` header (see host-tenent-resolver.js).
@@ -110,6 +116,26 @@ const Schema = z.object({
   LOG_LEVEL: z.string().default("info"),
   APP_NAME: z.string().default("praxis-ls-api"),
   CORS_ORIGINS: z.string().default(""),
+
+  /**
+   * Hosts whose public pages must never be indexed. Comma-separated.
+   *
+   * `doc/PUBLIC_WEB_PLAN.md` §3.7: "a staging copy competing with production is
+   * worse than no staging at all". A staging host serves the same content under
+   * a different name, so a crawler that finds it treats it as a duplicate and
+   * may rank it INSTEAD of the real site — and the tenant discovers this from a
+   * customer who booked against a test database.
+   *
+   * Environment rather than a registry column on purpose: which host is the
+   * rehearsal is a deployment fact, not a tenant's content decision, and the
+   * people who stand up a staging host are the people who edit this file. It
+   * also means a host can be marked before any tenant row exists for it.
+   *
+   * Matching is on the bare hostname, lowercased, port excluded. Empty (the
+   * default) means every LIVE host is indexable, which is the right default for
+   * a fresh deployment that has no staging yet.
+   */
+  SEO_NOINDEX_HOSTS: z.string().default(""),
 
   /**
    * How many reverse-proxy hops sit in front of this process (audit SEC-H5).
@@ -163,6 +189,20 @@ const Schema = z.object({
   // the root of that host; tenant hosts never serve it. Empty (default) = the
   // console is not served by the API at all (use its Vite dev server locally).
   PLATFORM_CONSOLE_HOST: z.string().default(""),
+
+  /**
+   * Serve the public web app (public-web/dist) on the TENANT host, at /public/*
+   * and /portal/* only. Default off, like PLATFORM_CONSOLE_HOST's "not served".
+   *
+   * Off by default rather than on-if-dist-exists because this mount takes over
+   * paths the tenant app already answers — /track, /portfolio, /careers and
+   * /client-portal/* — and redirects them to the new prefixes. A deployment that
+   * builds public-web by accident must not silently move those entry points out
+   * from under the ERP in the same release that was supposed to be a schema
+   * migration. One variable, deliberately set, is the switch.
+   */
+  SERVE_PUBLIC_WEB: bool(false),
+
 
   DB_HOST: z.string().default(urlParts.host || "localhost"),
   DB_PORT: int(urlParts.port || 5432),
@@ -380,6 +420,19 @@ const Schema = z.object({
    * cron here.
    */
   SIGNATURE_REMINDER_CRON: z.string().default("20 * * * *"),
+  /*
+   * QES poll backstop (SIGNATURE_ENGINEERING_GUIDE §7.4 step 6). Every
+   * thirty minutes, asking the provider where each tenant's open envelopes
+   * are. The interval is the worst-case lateness of a completion whose
+   * webhook was lost. Empty disables it — which means a lost webhook stalls
+   * a chain until a human looks, so the worker warns when it is.
+   */
+  QES_POLL_CRON: z.string().default("*/30 * * * *"),
+  // QES quota watch (§7.5): daily at 06:00 UTC, counting the fleet's issued
+  // envelopes against the platform's monthly allowance. Wall-clock cron for
+  // the reason the FX sync uses one — the monthly allowance is a calendar
+  // fact, and an interval-based repeat drifts off it after every restart.
+  QES_QUOTA_CRON: z.string().default("0 6 * * *"),
   /*
    * Sandbox auto-wipe (G3, PRD §5.5): daily tick that enqueues a rebuild per
    * tenant honouring each tenant's sandbox_wipe_days.

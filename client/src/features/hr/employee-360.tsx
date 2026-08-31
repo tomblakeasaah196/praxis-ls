@@ -10,9 +10,11 @@ import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { useRecordParam, useTrailTitle } from "@/app/layout/nav-trail-context";
 import { Button } from "@/components/ui/button";
-import { ComposeIconButton } from "@/features/comms/mail";
+import { ComposeIconButton as MailIconButton } from "@/features/comms/inbox/composer/compose-icon-button";
 import { DocButton } from "@/components/doc-button";
 import { UploadSigned } from "@/features/hr/contracts";
+import { AttendanceHistory } from "./attendance-history";
+import { groupContracts } from "@/features/hr/contracts-grouping";
 import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
 import { Pill, type Tone } from "@/components/ui/pill";
@@ -25,7 +27,7 @@ import {
   type DepartmentValue,
 } from "@/components/department-select";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
-import { money, dateFmt, dateTimeFmt, enumLabel } from "@/lib/format";
+import { money, dateFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/hr-api";
 
 const shell = pageShell.wide;
@@ -419,6 +421,9 @@ function EmployeeDetail({
     [eid],
   );
   const leave = useResource(() => api.listLeave({ employee_id: eid }), [eid]);
+  // Kept for the tab's count badge only: the Attendance tab itself now mounts
+  // the shared history widget, which fetches its own window. This is "is there
+  // anything in here", not the tab's data.
   const attendance = useResource(
     () => api.listAttendance({ employee_id: eid }),
     [eid],
@@ -433,6 +438,19 @@ function EmployeeDetail({
   );
   // What one contract row is being renewed, so the button can say so.
   const [renewing, setRenewing] = React.useState<string | null>(null);
+  /** Which engagements have their superseded terms showing. Same rule as the
+   *  Contracts list: a renewal is a new contract row against the same person,
+   *  so successive terms collapse into the current one rather than stacking up
+   *  as what looks like the same contract listed twice. */
+  const [openTerms, setOpenTerms] = React.useState<Set<string>>(
+    () => new Set(),
+  );
+  const toggleTerms = (key: string) =>
+    setOpenTerms((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
 
   async function toggleActive() {
     setBusy(true);
@@ -462,6 +480,7 @@ function EmployeeDetail({
     }
   }
 
+  const cGroups = groupContracts(contracts.data);
   const cRows = contracts.data || [],
     pRows = payroll.data || [],
     adRows = advances.data || [],
@@ -509,7 +528,7 @@ function EmployeeDetail({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <ComposeIconButton
+            <MailIconButton
               to={employee.email || undefined}
               className="grid h-8 w-8 place-items-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             />
@@ -573,44 +592,81 @@ function EmployeeDetail({
             </>
           }
         >
-          {cRows.map((c) => (
-            <tr key={c.hr_contract_id}>
-              <Td>{enumLabel(c.kind)}</Td>
-              <Td>
-                <Pill tone={CONTRACT_TONE[c.status] || "mute"}>
-                  {enumLabel(c.status)}
-                </Pill>
-              </Td>
-              <Td>{dateFmt(c.effective_on)}</Td>
-              <Td>{dateFmt(c.end_on)}</Td>
-              <Td>
-                <div className="flex items-center justify-end gap-2">
-                  {c.pdf_vault_id && <Pill tone="ok">{tr("Signed")}</Pill>}
-                  <DocButton
-                    docType="EMPLOYMENT_CONTRACT"
-                    id={c.hr_contract_id}
-                    title={`Contract ${enumLabel(c.kind)}`}
-                    label={tr("View")}
-                  />
-                  <UploadSigned contract={c} onDone={contracts.reload} />
-                  {/* Renewal (10708): a new DRAFT that supersedes this one,
-                      terms carried, dates continuing where the term ends. A
-                      draft has no agreed term to renew. */}
-                  {c.status !== "DRAFT" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      loading={renewing === c.hr_contract_id}
-                      disabled={!!renewing}
-                      onClick={() => renewContract(c)}
-                    >
-                      Renew
-                    </Button>
+          {cGroups.flatMap((g) => {
+            const isOpen = openTerms.has(g.key);
+            const row = (c: api.Contract, earlier: boolean) => (
+              <tr
+                key={c.hr_contract_id}
+                className={earlier ? "opacity-80" : undefined}
+              >
+                <Td>
+                  {earlier ? (
+                    <span className="flex items-center gap-2 pl-4 text-muted-foreground">
+                      <span aria-hidden>↳</span>
+                      <span>{tr("Earlier term")}</span>
+                      {c.doc_number && (
+                        <span className="num text-xs">{c.doc_number}</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="flex flex-col items-start gap-0.5">
+                      <span>{enumLabel(c.kind)}</span>
+                      {g.history.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => toggleTerms(g.key)}
+                          aria-expanded={isOpen}
+                          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                        >
+                          {isOpen ? tr("Hide") : tr("Show")} {g.history.length}{" "}
+                          {g.history.length === 1
+                            ? tr("earlier term")
+                            : tr("earlier terms")}
+                        </button>
+                      )}
+                    </span>
                   )}
-                </div>
-              </Td>
-            </tr>
-          ))}
+                </Td>
+                <Td>
+                  <Pill tone={CONTRACT_TONE[c.status] || "mute"}>
+                    {enumLabel(c.status)}
+                  </Pill>
+                </Td>
+                <Td>{dateFmt(c.effective_on)}</Td>
+                <Td>{dateFmt(c.end_on)}</Td>
+                <Td>
+                  <div className="flex items-center justify-end gap-2">
+                    {c.pdf_vault_id && <Pill tone="ok">{tr("Signed")}</Pill>}
+                    <DocButton
+                      docType="EMPLOYMENT_CONTRACT"
+                      id={c.hr_contract_id}
+                      title={`Contract ${enumLabel(c.kind)}`}
+                      label={tr("View")}
+                    />
+                    <UploadSigned contract={c} onDone={contracts.reload} />
+                    {/* Renewal (10708): a new DRAFT that supersedes this one,
+                        terms carried, dates continuing where the term ends. A
+                        draft has no agreed term to renew. */}
+                    {c.status !== "DRAFT" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        loading={renewing === c.hr_contract_id}
+                        disabled={!!renewing}
+                        onClick={() => renewContract(c)}
+                      >
+                        Renew
+                      </Button>
+                    )}
+                  </div>
+                </Td>
+              </tr>
+            );
+            return [
+              row(g.head, false),
+              ...(isOpen ? g.history.map((h) => row(h, true)) : []),
+            ];
+          })}
         </MiniTable>
       )}
       {tab === "Payroll" && (
@@ -723,32 +779,15 @@ function EmployeeDetail({
           ))}
         </MiniTable>
       )}
-      {tab === "Attendance" && (
-        <MiniTable
-          empty={aRows.length === 0}
-          head={
-            <>
-              <Th>{tr("Clock in")}</Th>
-              <Th>{tr("Clock out")}</Th>
-              <Th r>Lateness</Th>
-            </>
-          }
-        >
-          {aRows.map((a) => (
-            <tr key={a.attendance_id}>
-              <Td>{a.clock_in_at ? dateTimeFmt(a.clock_in_at) : "—"}</Td>
-              <Td>{a.clock_out_at ? dateTimeFmt(a.clock_out_at) : "—"}</Td>
-              <td className="px-3 py-1.5 text-right">
-                {a.is_late ? (
-                  <Pill tone="warn">{a.minutes_late}m late</Pill>
-                ) : (
-                  <span className="micro">On time</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </MiniTable>
-      )}
+      {/*
+        * The raw punch list this replaces could only ever say "here are the
+        * clock-ins". A day of approved leave and a day somebody simply did not
+        * come looked identical in it — both absent from the list — and there
+        * was no window, no KPI and no download. This is the SAME widget My HR
+        * and the HR history tab mount, pinned to this person: leave, holidays
+        * and days off are rows, and the numbers are the ones payroll reads.
+        */}
+      {tab === "Attendance" && <AttendanceHistory scope="hr" employeeId={eid} />}
       {tab === "Sanctions" && (
         <MiniTable
           empty={sRows.length === 0}

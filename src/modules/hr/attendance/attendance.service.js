@@ -24,8 +24,23 @@ const geoapify = require("../../../services/geoapify.service");
 const rules = require("./attendance.rules");
 const reconcile = require("./attendance.reconcile");
 const { locationStatus, locationSourceFromFix } = require("./attendance.location");
+// PR2: the pure summarizer and the payroll-shaped export. Both are pure — the
+// I/O to feed them lives in `reportScope` below.
+const analytics = require("./attendance.analytics");
+const attendanceExport = require("./attendance.export");
+const calendar = require("./attendance.calendar");
 
 const base = makeService({ repo, moduleKey: events.MODULE, entity: "attendance", events });
+
+/**
+ * How many punches the map will plot.
+ *
+ * Lower than the export's 20k on purpose: this is a picture, and ten thousand
+ * pins is not a denser picture but an opaque one — the browser renders every
+ * marker and the reader sees a solid block. The cap is the point past which the
+ * map has stopped answering its question, and the payload reports when it bit.
+ */
+const MAP_PIN_LIMIT = 5000;
 
 /** Great-circle distance in metres between two WGS-84 points. */
 function haversineMeters(lat1, lon1, lat2, lon2) {
@@ -239,6 +254,285 @@ function lateness(clockInAt, policy) {
     timeZone: policy.timeZone,
   });
   return { is_late: minutes > 0, minutes_late: minutes };
+}
+
+/**
+ * Everything a report over a window needs, read ONCE: the roster, the
+ * reconciled days, the punches, and the calendar resolver bound to both.
+ *
+ * ── WHY ANALYTICS AND EXPORT SHARE THIS ────────────────────────────────────
+ *
+ * They are the same report in two renderings. If the export gathered its own
+ * rows, a manager could read 96% punctuality on the screen and hand payroll a
+ * file that says something else, and neither number would be checkable. One
+ * gatherer, two consumers.
+ *
+ * ── SELF SCOPING IS ENFORCED HERE, NOT ONLY AT THE ROUTE ───────────────────
+ *
+ * When `employeeId` is set the caller is asking about ONE person — the `/mine`
+ * endpoints resolve it from the authenticated user. Any `employeeIds` or
+ * `department` that arrived alongside it is DROPPED rather than merged: a query
+ * string must not be able to widen a self-scoped request into somebody else's
+ * rows. The route already refuses to pass them; this is the second lock, and
+ * the one a future route cannot forget to apply.
+ */
+async function reportScope(client, { from, to, employeeId = null, employeeIds = null, department = null } = {}) {
+  const selfOnly = !!employeeId;
+  const ids = selfOnly ? null : employeeIds;
+  const dept = selfOnly ? null : department;
+
+  const policy = await attendancePolicy(client);
+  const roster = await repo.rosterForReport(client, { employeeId, employeeIds: ids, department: dept });
+  const ctx = await calendar.loadContext(client, { entityIds: roster.map((e) => e.entity_id) });
+  const byId = new Map(roster.map((e) => [e.employee_id, e]));
+
+  /** The calendar resolver, per employee per date. THE only source of "was this
+   *  a working day" in analytics and in the export (see their headers). */
+  const expectedFor = (id, isoDate) => {
+    const emp = byId.get(id);
+    if (!emp) return null;
+    return calendar.forEmployee(ctx, emp, isoDate);
+  };
+
+  // The workplace ZONE is a property of the calendar itself, not of the date,
+  // so it is resolved once per employee. The expected START is not — see below.
+  const zoneById = new Map();
+  for (const emp of roster) {
+    zoneById.set(emp.employee_id, calendar.forEmployee(ctx, emp, from).timezone || policy.timeZone);
+  }
+
+  const [dayRows, punches] = await Promise.all([
+    reconcile.daysFor(client, { employeeId, employeeIds: ids, department: dept, from, to }),
+    repo.punchesForRange(client, { from, to, employeeId, employeeIds: ids, department: dept, timeZone: policy.timeZone }),
+  ]);
+
+  /*
+   * Decorate the day with the punch's location word, the same way `list` does
+   * for the log. GUARDED ON `attendance_id`: a day with no punch never
+   * presented a location to have failed, and `locationStatus` on an empty row
+   * would answer "no_gps" — which would put a red No-GPS pill on every
+   * approved leave day and every weekend. That is the conflation 10740 exists
+   * to end, reintroduced one layer up.
+   */
+  const days = dayRows.map((d) => (d.attendance_id ? { ...d, location_status: locationStatus(d) } : d));
+
+  /*
+   * Decorate each punch with the LOCAL date it belongs to and whether it was
+   * late. `rules.localDate` in the employee's own zone — never
+   * `clock_in_at::date`, which is the UTC date and drops a 00:30 Douala punch
+   * onto the day before.
+   *
+   * Lateness is measured against the employee's OWN expected start from the
+   * resolver (their override, else the entity calendar's opens_at, else the
+   * tenant policy), which is the same figure the reconciler charged on. Using
+   * the tenant policy here instead would make the punches sheet disagree with
+   * the days sheet in the same workbook.
+   */
+  const decorated = punches.map((p) => {
+    const emp = byId.get(p.employee_id);
+    const zone = zoneById.get(p.employee_id) || policy.timeZone;
+    const workDate = rules.localDate(p.clock_in_at, zone);
+    /*
+     * Resolved for THE PUNCH'S OWN DATE, not once per employee. A working
+     * calendar carries `opens_at` per weekday, so a yard that opens at 07:30 on
+     * weekdays and 08:00 on Saturday would otherwise judge every Saturday punch
+     * against the weekday time and report half the Saturday shift as late.
+     * `decideExpected` is pure and does no I/O, so this costs a lookup.
+     */
+    const exp = emp && workDate ? calendar.forEmployee(ctx, emp, workDate) : null;
+    const minutes = exp
+      ? rules.minutesLate({
+        clock_in_at: p.clock_in_at,
+        expected_start_time: exp.expectedStart,
+        grace_minutes: exp.graceMinutes,
+        timeZone: zone,
+      })
+      : lateness(p.clock_in_at, policy).minutes_late;
+    return {
+      ...p,
+      work_date: workDate,
+      location_status: locationStatus(p),
+      is_late: minutes > 0,
+      minutes_late: minutes,
+    };
+  });
+
+  return { from, to, roster, days, punches: decorated, expectedFor, policy };
+}
+
+/**
+ * KPIs, heatmap, department rollup and per-employee compare rows for a window.
+ *
+ * Returns the summary PLUS the day rows, because the widget that draws the KPIs
+ * also draws the table under them: two round trips for one screen would be two
+ * chances for the halves to disagree about the same window.
+ */
+async function analyticsFor(client, { from, to, employeeId = null, employeeIds = null, department = null } = {}) {
+  const scope = await reportScope(client, { from, to, employeeId, employeeIds, department });
+  const summary = analytics.summarize({
+    from,
+    to,
+    days: scope.days,
+    punches: scope.punches,
+    employees: scope.roster,
+    expectedFor: scope.expectedFor,
+  });
+  return {
+    ...summary,
+    days: scope.days,
+    // The window was cut short — say so rather than reporting a confident total
+    // over half the month.
+    truncated: scope.days.length >= reconcile.DAYS_LIMIT,
+    timezone: scope.policy.timeZone,
+  };
+}
+
+/** The same window as a downloadable file. `context` is the tenant
+ *  WorkbookContext, resolved by the CONTROLLER inside its tenant connection —
+ *  the contract `services/spreadsheet` states, so the builder stays pure. */
+async function exportFor(client, { from, to, employeeId = null, employeeIds = null, department = null, format = "xlsx", sheet = "days", context = null, env = null } = {}) {
+  const scope = await reportScope(client, { from, to, employeeId, employeeIds, department });
+  return attendanceExport.toExport({
+    days: scope.days,
+    punches: scope.punches,
+    from,
+    to,
+    format,
+    sheet,
+    context,
+    env,
+    expectedFor: scope.expectedFor,
+  });
+}
+
+/**
+ * The map layer (PR3, guide §3.6): punches that can be PINNED, plus the
+ * worksite geofences to judge them against.
+ *
+ * ── SCOPE IS A PARAMETER, AND IT IS NOT OPTIONAL ───────────────────────────
+ *
+ * `scope` is one of `team` | `self` | `none`, decided by the CONTROLLER from
+ * the actor's grants, and there is no default. A map is the one attendance
+ * surface where a leak is not a row in a table somebody has to read — it is a
+ * pin on a picture showing where a named colleague physically was, which is a
+ * different order of disclosure. So the caller must state what it resolved,
+ * and `self` without an `employeeId` returns nothing rather than falling
+ * through to everybody (the failure mode `myAnalytics` records).
+ *
+ * ── ONLY PUNCHES THAT HAVE A POINT ─────────────────────────────────────────
+ *
+ * A no-GPS punch cannot be a pin — there is no coordinate, and inventing one
+ * from the worksite or a last-known fix is exactly the spoofing rule 8 forbids.
+ * They are COUNTED instead (`no_gps_count`), so the map can say "4 punches had
+ * no location" rather than quietly showing fewer pins than the day had punches,
+ * which reads as "everybody was here" and is the opposite of the truth.
+ */
+async function mapLayer(client, { from, to, scope = "none", actor = {} } = {}) {
+  const empty = { from, to, scope, punches: [], worksites: [], no_gps_count: 0, truncated: false, timezone: null };
+  if (scope === "none") return empty;
+  // Resolved from the TOKEN, never from the query string — the same reason the
+  // `/mine` endpoints resolve it rather than accepting it, and the reason an
+  // unlinked user gets an empty map instead of an unscoped one.
+  const employeeId = scope === "self"
+    ? (actor && actor.user_id ? await repo.employeeIdForUser(client, actor.user_id) : null)
+    : null;
+  if (scope === "self" && !employeeId) return empty;
+
+  const policy = await attendancePolicy(client);
+  const rows = await repo.punchesForRange(client, {
+    from,
+    to,
+    // The self lock, again at the data layer: `punchesForRange` builds
+    // `al.employee_id = $n` from this, so a self-scoped call cannot widen.
+    employeeId: scope === "self" ? employeeId : null,
+    timeZone: policy.timeZone,
+    limit: MAP_PIN_LIMIT,
+  });
+
+  /*
+   * `Number(null)` is 0, not NaN — so a finite-check alone would place every
+   * no-GPS punch at 0°N 0°E, in the Gulf of Guinea, as a confident pin. That is
+   * the invented location rule 8 forbids, arrived at by arithmetic rather than
+   * by intent, and on a Douala tenant it lands 500km offshore of real ones
+   * where it reads as a plausible outlier rather than as an obvious null.
+   * Presence is therefore tested BEFORE the coercion.
+   */
+  const num = (v) => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const pinnable = [];
+  let noGps = 0;
+  for (const p of rows) {
+    const status = locationStatus(p);
+    const lat = num(p.latitude);
+    const lng = num(p.longitude);
+    if (lat === null || lng === null) {
+      noGps += 1;
+      continue;
+    }
+    pinnable.push({
+      attendance_id: p.attendance_id,
+      employee_id: p.employee_id,
+      employee_name: p.employee_name || null,
+      department: p.department || null,
+      clock_in_at: p.clock_in_at,
+      clock_out_at: p.clock_out_at,
+      latitude: lat,
+      longitude: lng,
+      accuracy_m: num(p.accuracy_m),
+      distance_m: num(p.distance_m),
+      within_geofence: p.within_geofence,
+      geo_label: p.geo_label || null,
+      work_site_id: p.work_site_id || null,
+      device_label: p.device_label || null,
+      location_status: status,
+    });
+  }
+
+  // Worksites are the frame the pins are read against — an off-site pin means
+  // nothing without the fence it is outside of — so they are drawn for anyone
+  // who may see other people's pins at all. A self-scoped caller gets none:
+  // the register of every company site is not part of "my own attendance".
+  const worksites = scope === "team"
+    ? (await repo.listSites(client))
+      .filter((w) => w.is_active)
+      .map((w) => ({
+        work_site_id: w.work_site_id,
+        entity_id: w.entity_id || null,
+        name: w.name,
+        latitude: num(w.latitude),
+        longitude: num(w.longitude),
+        radius_m: num(w.radius_m) || 150,
+      }))
+      // A fence with no centre cannot be drawn as a circle. Same rule as the
+      // pins: nothing is placed at a coordinate nobody recorded.
+      .filter((w) => w.latitude !== null && w.longitude !== null)
+    : [];
+
+  return {
+    from,
+    to,
+    scope,
+    punches: pinnable,
+    worksites,
+    no_gps_count: noGps,
+    truncated: rows.length >= MAP_PIN_LIMIT,
+    timezone: policy.timeZone,
+  };
+}
+
+/** What a user with no linked employee record sees: a real, empty report. Not
+ *  an error — they are not broken, they simply have no attendance. */
+function emptyAnalytics(from, to) {
+  return {
+    ...analytics.summarize({ from, to }),
+    days: [],
+    truncated: false,
+    timezone: null,
+  };
 }
 
 module.exports = {
@@ -608,5 +902,48 @@ module.exports = {
     const row = await repo.updateSite(client, id, fields);
     await audit(client, { actorUserId: actor.user_id || null, action: events.SITE_CHANGED, moduleKey: events.MODULE, entityRef: `work_site:${id}`, before, after: row });
     return row;
+  },
+
+  /* ── History & analytics (PR2) ──────────────────────────────────────────── */
+
+  analytics: (client, opts = {}) => analyticsFor(client, opts),
+  exportWindow: (client, opts = {}) => exportFor(client, opts),
+
+  /**
+   * The SELF variants. They resolve the employee from the authenticated user
+   * and pass it as `employeeId`, which is what makes `reportScope` drop every
+   * other selector.
+   *
+   * An unlinked user gets the EMPTY report, never the unscoped one. That is the
+   * whole reason these are separate functions rather than a null default on the
+   * ones above: `employeeId: null` means "everybody" to `reportScope`, so a
+   * self endpoint that forwarded an unresolved id would hand a director with no
+   * employee record the entire company's attendance. Failing closed here costs
+   * one branch; getting it wrong is a data breach.
+   */
+  async myAnalytics(client, { from, to, actor = {} } = {}) {
+    const empId = actor && actor.user_id ? await repo.employeeIdForUser(client, actor.user_id) : null;
+    if (!empId) return emptyAnalytics(from, to);
+    return analyticsFor(client, { from, to, employeeId: empId });
+  },
+  async myExport(client, { from, to, format = "xlsx", sheet = "days", context = null, env = null, actor = {} } = {}) {
+    const empId = actor && actor.user_id ? await repo.employeeIdForUser(client, actor.user_id) : null;
+    if (!empId) {
+      return attendanceExport.toExport({ days: [], punches: [], from, to, format, sheet, context, env });
+    }
+    return exportFor(client, { from, to, employeeId: empId, format, sheet, context, env });
+  },
+
+  /** The map layer. See `mapLayer` — `scope` is the controller's decision. */
+  mapLayer: (client, opts = {}) => mapLayer(client, opts),
+
+  /** The caller's own punches over a range — My HR's punch list and map pins. */
+  async myPunches(client, { from, to, actor = {} } = {}) {
+    const empId = actor && actor.user_id ? await repo.employeeIdForUser(client, actor.user_id) : null;
+    // No linked employee is not an error, the same way `open` returns null: a
+    // director with no employee record has no punches, not a broken screen.
+    if (!empId) return [];
+    const scope = await reportScope(client, { from, to, employeeId: empId });
+    return scope.punches;
   },
 };

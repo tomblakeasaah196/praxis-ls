@@ -21,6 +21,7 @@ import { useBaseCurrency } from "@/lib/use-base-currency";
 import { money, num, dateFmt, todayISO } from "@/lib/format";
 import * as api from "@/lib/ai-governance-api";
 import { reportActionError } from "@/lib/action-error";
+import { Callout } from "@/components/ui/callout";
 
 type GovUser = { user_id: string; full_name?: string | null; email: string };
 
@@ -520,6 +521,15 @@ function BudgetForm({
 }
 
 /* ═══════════════════════ Vendors / keys ═══════════════════════ */
+/** Numeric field → string for a controlled input; 0 and null both render "". */
+const numStr = (v: number | string | null | undefined) =>
+  v === null || v === undefined || Number(v) === 0 ? "" : String(v);
+/** Controlled rate input → the number the API wants; blank leaves it at 0. */
+const rate = (v: string) => {
+  const n = Number(String(v).trim());
+  return String(v).trim() === "" || !Number.isFinite(n) || n < 0 ? 0 : n;
+};
+
 function VendorKeyForm({
   vendor,
   onClose,
@@ -533,6 +543,12 @@ function VendorKeyForm({
     api_key: "",
     default_model: vendor.default_model || "",
     endpoint_url: vendor.endpoint_url || "",
+    // Pricing: without it every metered call costs 0 and the Usage screen
+    // reports 0.00 no matter how many tokens it counted.
+    cost_per_1k_input_tokens: numStr(vendor.cost_per_1k_input_tokens),
+    cost_per_1k_output_tokens: numStr(vendor.cost_per_1k_output_tokens),
+    cost_per_audio_minute: numStr(vendor.cost_per_audio_minute),
+    cost_native_currency: vendor.cost_native_currency || "USD",
   });
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
   const [busy, setBusy] = React.useState(false);
@@ -546,6 +562,11 @@ function VendorKeyForm({
         api_key: f.api_key || undefined,
         default_model: f.default_model || undefined,
         endpoint_url: f.endpoint_url || undefined,
+        cost_per_1k_input_tokens: rate(f.cost_per_1k_input_tokens),
+        cost_per_1k_output_tokens: rate(f.cost_per_1k_output_tokens),
+        cost_per_audio_minute: rate(f.cost_per_audio_minute),
+        cost_native_currency:
+          f.cost_native_currency.trim().toUpperCase() || undefined,
       });
       onSaved();
       onClose();
@@ -591,6 +612,57 @@ function VendorKeyForm({
               value={f.endpoint_url}
               onChange={(e) => set("endpoint_url", e.target.value)}
               placeholder="https://…"
+            />
+          </Field>
+        </div>
+        <div className="space-y-1 pt-2">
+          <div className="text-sm font-medium">{tr("Pricing")}</div>
+          <p className="text-xs text-muted-foreground">
+            {tr(
+              "The provider's list price, in the currency below. Leave a rate at 0 and every call metered against this vendor costs 0 — which is what makes AI Control → Usage read 0.00.",
+            )}
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label={tr("Cost per 1k input tokens")}
+            hint="e.g. 0.00027 for DeepSeek chat ($0.27 per 1M)."
+          >
+            <Input
+              inputMode="decimal"
+              value={f.cost_per_1k_input_tokens}
+              onChange={(e) => set("cost_per_1k_input_tokens", e.target.value)}
+              placeholder="0.000000"
+            />
+          </Field>
+          <Field label={tr("Cost per 1k output tokens")}>
+            <Input
+              inputMode="decimal"
+              value={f.cost_per_1k_output_tokens}
+              onChange={(e) => set("cost_per_1k_output_tokens", e.target.value)}
+              placeholder="0.000000"
+            />
+          </Field>
+          <Field
+            label={tr("Cost per audio minute")}
+            hint="Transcription vendors only (Whisper/Groq)."
+          >
+            <Input
+              inputMode="decimal"
+              value={f.cost_per_audio_minute}
+              onChange={(e) => set("cost_per_audio_minute", e.target.value)}
+              placeholder="0.000000"
+            />
+          </Field>
+          <Field
+            label={tr("Price currency")}
+            hint="Converted to your base currency with the FX rate of the day."
+          >
+            <Input
+              value={f.cost_native_currency}
+              onChange={(e) => set("cost_native_currency", e.target.value)}
+              placeholder="USD"
+              maxLength={3}
             />
           </Field>
         </div>
@@ -807,6 +879,12 @@ function AddVendorForm({
   );
 }
 
+/** Any non-zero rate = this vendor's calls will cost something. */
+const isPriced = (v: api.Vendor) =>
+  Number(v.cost_per_1k_input_tokens || 0) > 0 ||
+  Number(v.cost_per_1k_output_tokens || 0) > 0 ||
+  Number(v.cost_per_audio_minute || 0) > 0;
+
 export function AiVendorsPage() {
   const { rows, error, loading, reload } = useList<api.Vendor>(
     "/ai/governance/vendors",
@@ -814,6 +892,10 @@ export function AiVendorsPage() {
   const [editing, setEditing] = React.useState<api.Vendor | null>(null);
   const [adding, setAdding] = React.useState(false);
   const [testing, setTesting] = React.useState<string | null>(null);
+  /** The verdict from `test()` — rendered as a Callout, not an OS alert. */
+  const [vendorTest, setVendorTest] = React.useState<
+    { vendor: string; ok: boolean; message: string } | null
+  >(null);
   const [busy, setBusy] = React.useState<string | null>(null);
 
   async function toggleActive(v: api.Vendor) {
@@ -827,13 +909,29 @@ export function AiVendorsPage() {
       setBusy(null);
     }
   }
+  /**
+   * Test a vendor's credentials.
+   *
+   * The RESULT is the whole point of pressing this, so it belongs on the page —
+   * next to the row it describes — rather than in a box that has to be
+   * dismissed before the row can be looked at. Both branches used to be
+   * `alert()`, which meant a successful test and a network failure produced the
+   * identical OS dialog, neither of them branded and neither translatable.
+   */
   async function test(v: api.Vendor) {
     setTesting(v.vendor);
+    setVendorTest(null);
     try {
       const r = await api.testVendor(v.vendor);
-      alert(r.ok ? "Connection OK" : `Failed: ${r.message || "unknown"}`);
+      setVendorTest({
+        vendor: v.vendor,
+        ok: r.ok,
+        message: r.ok
+          ? tr("Connection OK")
+          : `${tr("Failed")}: ${r.message || tr("unknown")}`,
+      });
     } catch (e) {
-      alert(errMsg(e));
+      reportActionError(e);
     } finally {
       setTesting(null);
     }
@@ -866,6 +964,19 @@ export function AiVendorsPage() {
           {v.has_key ? "Set" : "Missing"}
         </Pill>
       ),
+    },
+    {
+      // An unpriced vendor meters every call at 0, so Usage reports 0.00 spend
+      // however many tokens it counted. Surfaced here because it is invisible
+      // otherwise — the token counts look perfectly healthy.
+      key: "priced",
+      label: "Pricing",
+      render: (v) =>
+        isPriced(v) ? (
+          <Pill tone="ok">{v.cost_native_currency || "set"}</Pill>
+        ) : (
+          <Pill tone="warn">Not priced</Pill>
+        ),
     },
     {
       key: "active",
@@ -908,6 +1019,21 @@ export function AiVendorsPage() {
         action={<Button onClick={() => setAdding(true)}>Add vendor</Button>}
       />
       <HubTabs />
+      {vendorTest && (
+        <div className="mb-3">
+          <Callout
+            tone={vendorTest.ok ? "ok" : "bad"}
+            title={vendorTest.vendor}
+            action={
+              <Button size="sm" variant="ghost" onClick={() => setVendorTest(null)}>
+                {tr("Dismiss")}
+              </Button>
+            }
+          >
+            {vendorTest.message}
+          </Callout>
+        </div>
+      )}
       <DataList
         columns={columns}
         rows={rows}
@@ -945,11 +1071,21 @@ export function AiUsagePage() {
   );
   const list = rows || [];
   const total = list.reduce((s, r) => s + Number(r.cost_xaf || 0), 0);
+  // Calls that were metered but priced at nothing. Either the vendor carries no
+  // rates, or no FX rate resolved its currency into ours — both end as a 0.00
+  // row beside a healthy token count, which reads as "the meter is broken".
+  const unpriced = list.filter(
+    (r) => Number(r.cost_xaf || 0) === 0 && Number(r.total_tokens || r.input_tokens || 0) > 0,
+  ).length;
   const columns: Column<api.UsageRow>[] = [
     {
-      key: "created_at",
+      key: "occurred_at",
       label: "When",
-      render: (r) => <span className="num">{dateFmt(r.created_at)}</span>,
+      // The ledger column is occurred_at; created_at is a fallback for any
+      // caller that ever shaped a row itself.
+      render: (r) => (
+        <span className="num">{dateFmt(r.occurred_at || r.created_at)}</span>
+      ),
     },
     {
       key: "feature_key",
@@ -978,7 +1114,19 @@ export function AiUsagePage() {
       key: "cost",
       label: `Cost · ${ccy}`,
       className: "num text-right",
-      render: (r) => money(r.cost_xaf),
+      render: (r) => {
+        const cost = Number(r.cost_xaf || 0);
+        const native = Number(r.cost_native || 0);
+        // Priced by the vendor but not convertible — show the vendor-currency
+        // figure rather than a 0.00 that claims the call was free.
+        if (cost === 0 && native > 0)
+          return (
+            <span title="No FX rate for this vendor's currency — set one under Currencies.">
+              {native.toFixed(6)} {r.cost_native_currency || ""}
+            </span>
+          );
+        return money(r.cost_xaf);
+      },
     },
     {
       key: "ok",
@@ -999,6 +1147,15 @@ export function AiUsagePage() {
         <KpiTile label="Calls" value={num(list.length)} />
         <KpiTile label={tr("Total cost")} value={money(total)} />
       </KpiRow>
+      {unpriced > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {unpriced} {tr("of these calls priced at zero.")}{" "}
+          {tr(
+            "A call costs nothing when its vendor has no token rates (AI Control → Vendors → Key) or when no FX rate converts the vendor's currency into",
+          )}{" "}
+          {ccy}.
+        </p>
+      )}
       <DataList
         columns={columns}
         rows={rows}

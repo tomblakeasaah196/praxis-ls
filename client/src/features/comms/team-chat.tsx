@@ -6,7 +6,7 @@
  */
 import * as React from "react";
 import { tr } from "@/lib/i18n";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
@@ -14,9 +14,10 @@ import { ErrorState } from "@/components/ui/states";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { useAuth } from "@/app/auth/auth-context";
 import { cn } from "@/lib/cn";
+import { PlusIcon } from "@/components/ui/icons";
 import * as api from "@/lib/smartcomm-api";
 import { useCommsChannel } from "@/lib/comms-socket";
-import { ComposeModal } from "./mail";
+import { NewMessageDialog } from "./inbox/composer/new-message";
 
 /* avatar colouring — a fixed per-person palette (pixie parity), not the brand accent */
 const AVATAR_COLOURS = [
@@ -101,15 +102,33 @@ function fmtRelative(iso?: string | null) {
   });
 }
 
-type Filter = "all" | "unread" | "inhouse" | "groups" | "email";
+/**
+ * ── THE "EMAIL" CHIP IS GONE, AND WHY ───────────────────────────────────────
+ *
+ * There used to be a fifth filter here labelled "Email", and selecting it ran
+ * `if (EXTERNAL.includes(filter)) return false` over every channel — which is
+ * to say it filtered out everything, always, and drew "No conversations match."
+ * It could never do anything else: this list is `comms_channel` rows, in-house
+ * chat, and there has never been an email conversation in it to show.
+ *
+ * It was not a bug so much as a wrong answer to a real question. Somebody
+ * arriving at Comms sees "Inbox" with an "Email" tab under it and reasonably
+ * concludes this is where their email is; then it is empty, and now the product
+ * appears to have two email sections, one of which is broken. Email lives one
+ * tab over, in Mailbox, and the empty state below says so with a link rather
+ * than a chip that leads nowhere.
+ *
+ * The "Email" option in the New (+) chooser stays — that one always worked. It
+ * opens the mail composer, which is a genuinely useful thing to reach from a
+ * chat about a client.
+ */
+type Filter = "all" | "unread" | "inhouse" | "groups";
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "unread", label: "Unread" },
   { key: "inhouse", label: "In-house" },
   { key: "groups", label: "Groups" },
-  { key: "email", label: "Email" },
 ];
-const EXTERNAL: Filter[] = ["email"];
 
 /* The New (+) chooser: in-house message, group channel, or email. */
 function NewChoiceModal({
@@ -125,26 +144,26 @@ function NewChoiceModal({
     <Modal
       open
       onClose={onClose}
-      title="New"
-      description="Start an in-house message, a group channel, or an email."
+      title={tr("New")}
+      description={tr("Start an in-house message, a group channel, or an email.")}
     >
       <div className="space-y-2">
         <button type="button" className={opt} onClick={() => onPick("direct")}>
           <span className="block font-medium text-foreground">
-            In-house message
+            {tr("In-house message")}
           </span>
-          <span className="micro">Direct message a colleague</span>
+          <span className="micro">{tr("Direct message a colleague")}</span>
         </button>
         <button type="button" className={opt} onClick={() => onPick("group")}>
           <span className="block font-medium text-foreground">
-            Group channel
+            {tr("Group channel")}
           </span>
-          <span className="micro">A shared channel with your team</span>
+          <span className="micro">{tr("A shared channel with your team")}</span>
         </button>
         <button type="button" className={opt} onClick={() => onPick("email")}>
           <span className="block font-medium text-foreground">{tr("Email")}</span>
           <span className="micro">
-            Email a client, supplier, colleague or lead — from your mailbox
+            {tr("Email a client, supplier, colleague or lead — from your mailbox")}
           </span>
         </button>
       </div>
@@ -460,7 +479,6 @@ export function TeamChatPage() {
     if (filter === "unread" && !c.unread) return false;
     if (filter === "inhouse" && c.kind !== "DIRECT") return false;
     if (filter === "groups" && c.kind === "DIRECT") return false;
-    if (EXTERNAL.includes(filter)) return false;
     if (q.trim()) {
       const hay = `${c.name} ${c.last_message?.body || ""}`.toLowerCase();
       if (!hay.includes(q.trim().toLowerCase())) return false;
@@ -486,36 +504,31 @@ export function TeamChatPage() {
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
-              <h2 className="font-display text-[15px] font-medium">Inbox</h2>
+              <h2 className="font-display text-[15px] font-medium">{tr("Chats")}</h2>
               {unreadTotal > 0 && (
                 <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                   {unreadTotal > 99 ? "99+" : unreadTotal}
                 </span>
               )}
             </div>
-            <button
+            {/* Labeled, not a bare glyph: the previous 16px "+" read as a
+                generic "add" control and the compose entry was invisible to
+                new users. Text at md+, icon-only below (WS feedback). */}
+            <Button
+              size="sm"
               onClick={() => setNewKind("menu")}
-              className="text-muted-foreground hover:text-foreground"
               title={tr("New conversation")}
               aria-label={tr("New conversation")}
+              icon={<PlusIcon width={16} height={16} />}
             >
-              <svg
-                viewBox="0 0 24 24"
-                width={16}
-                height={16}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </button>
+              <span className="hidden md:inline">{tr("New")}</span>
+            </Button>
           </div>
           <div className="px-3 py-2">
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search conversations…"
+              placeholder={tr("Search conversations…")}
             />
           </div>
           <div className="flex gap-1 overflow-x-auto px-3 pb-2">
@@ -530,7 +543,7 @@ export function TeamChatPage() {
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
-                {f.label}
+                {tr(f.label)}
               </button>
             ))}
           </div>
@@ -560,10 +573,23 @@ export function TeamChatPage() {
                 ))}
               </div>
             ) : (
-              <div className="px-4 py-12 text-center micro">
-                {q || filter !== "all"
-                  ? "No conversations match."
-                  : "No conversations yet"}
+              <div className="space-y-2 px-4 py-12 text-center micro">
+                <p>
+                  {q || filter !== "all"
+                    ? tr("No conversations match.")
+                    : tr("No conversations yet")}
+                </p>
+                {/* The question this answers is "where is my email?", and it is
+                    asked here because the header says Inbox. One sentence and a
+                    link beats the chip that used to sit above and go nowhere. */}
+                {!q && filter === "all" && (
+                  <p>
+                    {tr("This is in-house chat.")}{" "}
+                    <Link to="/comms/mail" className="font-medium text-foreground underline underline-offset-2">
+                      {tr("Your email is in Mailbox.")}
+                    </Link>
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -591,7 +617,7 @@ export function TeamChatPage() {
             />
           ) : (
             <div className="flex flex-1 items-center justify-center p-6 text-center micro">
-              Pick a conversation to start.
+              {tr("Pick a conversation to start.")}
             </div>
           )}
         </div>
@@ -622,7 +648,8 @@ export function TeamChatPage() {
         />
       )}
       {newKind === "email" && (
-        <ComposeModal
+        <NewMessageDialog
+          open
           onClose={() => setNewKind("")}
           onSent={() => setNewKind("")}
         />

@@ -4,7 +4,7 @@
 // access token (POST /auth/refresh) and retries; only if THAT fails does it
 // clear the session and bounce to login. Keeps an admin signed in past the short
 // access TTL instead of getting kicked out on the next request.
-import type { LoginResult, PlatformUser } from "./types";
+import type { DomainDnsRow, LoginResult, PlatformUser } from "./types";
 
 const LS = { base: "praxis_pc_apibase", token: "praxis_pc_token", refresh: "praxis_pc_refresh", user: "praxis_pc_user" };
 
@@ -166,6 +166,19 @@ export const platform = {
     api(`/tenants/${encodeURIComponent(slug)}/capacity`, { method: "PATCH", body: { tier } }),
   setSandbox: (slug: string, days: number) =>
     api(`/tenants/${encodeURIComponent(slug)}/sandbox`, { method: "PATCH", body: { days } }),
+
+  // The host travels in the body, not the path: a hostname is full of dots, and
+  // a half-encoded path parameter is a 404 nobody can read.
+  addDomain: (slug: string, host: string, surface: "erp" | "public") =>
+    api(`/tenants/${encodeURIComponent(slug)}/domains`, { method: "POST", body: { host, surface } }),
+  setDomainSurface: (slug: string, host: string, surface: "erp" | "public") =>
+    api(`/tenants/${encodeURIComponent(slug)}/domains`, { method: "PATCH", body: { host, surface } }),
+  setDomainBase: (slug: string, host: string, base: string) =>
+    api(`/tenants/${encodeURIComponent(slug)}/domains/base`, { method: "PATCH", body: { host, base } }),
+  // Read-only, safe to repeat: resolves each registered host and reports
+  // whether it points at PUBLIC_INGRESS_IP yet.
+  domainDns: (slug: string) =>
+    api<DomainDnsRow[]>(`/tenants/${encodeURIComponent(slug)}/domains/dns`),
 
   features: (slug: string) => api(`/tenants/${encodeURIComponent(slug)}/features`),
   setFeature: (slug: string, key: string, state: "on" | "off") =>

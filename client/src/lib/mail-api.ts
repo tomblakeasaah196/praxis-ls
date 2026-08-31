@@ -201,6 +201,22 @@ export const syncConnection = (id: string) =>
     { method: "POST" },
   );
 
+/**
+ * Stop the sync and forget the credential.
+ *
+ * A POST, not a DELETE, because nothing is deleted: the mailbox is archived and
+ * the stored password or token bundle is removed, and every message stays
+ * exactly where it was. `archiveMailbox` below is the weaker half of this — it
+ * stops the sync and leaves the credential on disk — and stays for the admin
+ * "Retire" action, which is about the mailbox's place in the company rather
+ * than about a password.
+ */
+export const disconnectMailbox = (id: string) =>
+  tenant<Connection & { disconnected: boolean }>(
+    `/mail/connections/${id}/disconnect`,
+    { method: "POST" },
+  );
+
 // OAuth — start returns the provider consent URL to redirect the browser to.
 export const microsoftStartUrl = () => "/api/tenant/mail/oauth/microsoft/start";
 export const googleStartUrl = () => "/api/tenant/mail/oauth/google/start";
@@ -209,13 +225,7 @@ export const startMicrosoft = () =>
 export const startGoogle = () =>
   tenant<{ url: string }>("/mail/oauth/google/start");
 
-// Threads / messages
-export const listThread = (connectionId?: string) =>
-  tenant<ThreadMsg[]>(
-    `/mail/thread${connectionId ? `?connection_id=${connectionId}` : ""}`,
-  );
-export const getMessage = (id: string) =>
-  tenant<ThreadMsg>(`/mail/thread/${id}`);
+// Messages
 export const listMsgAttachments = (id: string) =>
   tenant<Attachment[]>(`/mail/thread/${id}/attachments`);
 
@@ -239,10 +249,6 @@ export async function downloadAttachment(attachmentId: string, filename?: string
     filename || "attachment",
   );
 }
-export const markThreadRead = (id: string) =>
-  tenant<{ email_inbound_id: string }>(`/mail/thread/${id}/read`, {
-    method: "POST",
-  });
 export const linkThread = (id: string, entity_ref: string) =>
   tenant<{ entity_ref: string }>(`/mail/thread/${id}/link`, {
     method: "POST",
@@ -268,28 +274,6 @@ export const updateImapConnection = (
 ) =>
   tenant<Connection & { test?: TestResult }>(`/mail/connections/${id}`, {
     method: "PATCH",
-    body,
-  });
-
-// Send / reply
-export const sendMail = (body: {
-  connectionId: string;
-  to: string | string[];
-  subject?: string;
-  html?: string;
-  text?: string;
-  cc?: string[];
-}) =>
-  tenant<{ externalMessageId?: string }>("/mail/send", {
-    method: "POST",
-    body,
-  });
-export const replyMail = (
-  inboundId: string,
-  body: { connectionId: string; html?: string; text?: string },
-) =>
-  tenant<{ externalMessageId?: string }>(`/mail/thread/${inboundId}/reply`, {
-    method: "POST",
     body,
   });
 
@@ -466,6 +450,35 @@ export type CpanelPreset = {
 /* Capabilities + inventory */
 export const mailCapabilities = () => tenant<MailCapabilities>("/mail/me");
 export const myMailboxes = () => tenant<Mailbox[]>("/mail/mailboxes/mine");
+
+/**
+ * The mailbox a screen should open on when the person has not chosen one.
+ *
+ * The inbox is mailbox-scoped — folders, folder counts and the two stream
+ * totals all belong to one connection — so "nothing selected" is not a neutral
+ * state, it is an empty rail. The rail must therefore always be pointed at a
+ * mailbox, and this is the one to point it at:
+ *
+ *   1. the mailbox the person marked as their default,
+ *   2. their PERSONAL address — the one that is theirs rather than a shared
+ *      mailbox they hold a grant on,
+ *   3. one that is actually connected, over one that is broken or still
+ *      pending,
+ *   4. the first the server returned, which already orders personal first.
+ *
+ * The same order as `defaultConnectionFor` on the server, so the mailbox the
+ * client opens on and the mailbox an unqualified API call answers for are the
+ * same mailbox.
+ */
+export function primaryMailbox(mailboxes: Mailbox[]): Mailbox | null {
+  if (!mailboxes.length) return null;
+  return (
+    mailboxes.find((m) => m.is_default) ??
+    mailboxes.find((m) => m.kind === "PERSONAL") ??
+    mailboxes.find((m) => m.status === "CONNECTED") ??
+    mailboxes[0]
+  );
+}
 export const allMailboxes = (q: { kind?: MailboxKind; include_archived?: boolean } = {}) => {
   const p = new URLSearchParams();
   if (q.kind) p.set("kind", q.kind);
@@ -666,7 +679,16 @@ export type BulkOp =
   | "unstar"
   | "move"
   | "label"
-  | "unlabel";
+  | "unlabel"
+  /**
+   * Permanent, retention-aware deletion.
+   *
+   * `mail.validator.threadBulk` has accepted `"delete"` and `threads.bulk` has
+   * routed it to `remove()` since H-1; this type left it out, so no screen
+   * could ask for it. A message sealed into the compliance archive is retained
+   * and REPORTED rather than silently skipped — see `deleteThreads` below.
+   */
+  | "delete";
 export type BulkResult = {
   op: BulkOp;
   succeeded: number;
@@ -783,6 +805,41 @@ export const bulkThreads = (body: {
     body: body,
   });
 
+/* ── Deletion (H-1) ────────────────────────────────────────────────────────
+ *
+ * Both endpoints were built — retention-aware, ledgered, and told to the mail
+ * server so a deleted message does not come back on the next sync — and neither
+ * had a wrapper here. Which is also why `mail-client-api-wiring.test.js` never
+ * flagged them: that gate walks the wrappers in this file and asks who calls
+ * them, so an endpoint with no wrapper at all is invisible to it. The whole
+ * feature was unreachable and nothing said so.
+ *
+ * `retained_archived` is the field that must never be dropped on the floor. A
+ * message sealed into `email_archive` is under retention and stays; reporting
+ * "deleted" over a partial result would tell somebody their correspondence is
+ * gone when it is not, which is the opposite of what a retention control is
+ * for.
+ */
+export type ThreadDeletion = {
+  email_thread_id: string;
+  deleted: number;
+  retained_archived: number;
+  thread_removed: boolean;
+};
+export const deleteThread = (id: string) =>
+  tenant<ThreadDeletion>(`/mail/threads/${id}`, { method: "DELETE" });
+
+export type FolderEmptied = {
+  folder: MailFolder;
+  threads: number;
+  deleted: number;
+  retained_archived: number;
+  failed: { email_thread_id: string; error: string }[];
+};
+/** TRASH and SPAM only — the server refuses anything else by name. */
+export const emptyFolder = (folder: "TRASH" | "SPAM") =>
+  tenant<FolderEmptied>("/mail/folders/empty", { method: "POST", body: { folder } });
+
 /**
  * The rail, in one call: folders with the CALLER's unread counts, plus the two
  * stream totals. One request rather than two, because the halves are drawn as
@@ -792,6 +849,12 @@ export const bulkThreads = (body: {
 export type FolderRailData = {
   folders: Folder[];
   streams: { HUMAN: number; SYSTEM: number };
+  /**
+   * Which mailbox the rail is describing. Echoed back because a call that names
+   * no mailbox is answered for the caller's default one rather than with
+   * nothing, and the caller has to be able to show which that was.
+   */
+  connection_id?: string | null;
 };
 export const listFolders = (connectionId?: string) =>
   tenant<FolderRailData>(`/mail/folders${qs({ connection_id: connectionId })}`);

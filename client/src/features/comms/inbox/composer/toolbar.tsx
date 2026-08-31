@@ -22,6 +22,10 @@ import { Select } from "@/components/ui/modal";
 import { tr } from "@/lib/i18n";
 import { FONTS } from "./fonts";
 import { type Editor } from "./use-editor";
+import { usePrompt } from "@/components/ui/use-prompt";
+import { Modal, Field } from "@/components/ui/modal";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 function Tool({
   label,
@@ -59,6 +63,77 @@ function Tool({
 
 const Divider = () => <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />;
 
+/**
+ * The colours on offer, and why it is a short list rather than a picker.
+ *
+ * `compose.js` accepts a colour only as `#rgb`, `#rrggbb` or `rgb()` — anything
+ * else is dropped on the way out, silently, because a mark it cannot parse
+ * contributes no style rather than an error. A native `<input type="color">`
+ * would satisfy that, and would also let somebody set 14pt #f2f4f5 body text
+ * that is unreadable in every dark-mode client and invisible on a printout.
+ * These are the colours that survive both: dark enough to read on white, and
+ * distinguishable from one another for the ~8% of men with a colour deficiency.
+ *
+ * The palette is deliberately NOT the app's theme tokens. These values are
+ * baked into the recipient's mail, where our CSS variables do not exist.
+ */
+const TEXT_COLOURS: { value: string; label: string }[] = [
+  { value: "", label: "Default" },
+  { value: "#111827", label: "Black" },
+  { value: "#4b5563", label: "Grey" },
+  { value: "#b91c1c", label: "Red" },
+  { value: "#c2410c", label: "Orange" },
+  { value: "#a16207", label: "Amber" },
+  { value: "#15803d", label: "Green" },
+  { value: "#1a56db", label: "Blue" },
+  { value: "#6d28d9", label: "Purple" },
+];
+
+/** Highlights are backgrounds, so they run the other way: pale enough that the
+ *  text on top of them stays legible when a client ignores our text colour. */
+const HIGHLIGHTS: { value: string; label: string }[] = [
+  { value: "", label: "None" },
+  { value: "#fff3a3", label: "Yellow" },
+  { value: "#c7f5d9", label: "Green" },
+  { value: "#cfe3ff", label: "Blue" },
+  { value: "#ffd6d6", label: "Red" },
+];
+
+/** A swatch menu: a `<select>` whose options carry their colour, so the choice
+ *  is visible before it is made and reachable from the keyboard. */
+function ColourMenu({
+  id,
+  label,
+  options,
+  value,
+  onPick,
+}: {
+  id: string;
+  label: string;
+  options: { value: string; label: string }[];
+  value: string;
+  onPick: (value: string) => void;
+}) {
+  return (
+    <>
+      <label className="sr-only" htmlFor={id}>{label}</label>
+      <Select
+        id={id}
+        title={label}
+        className="h-7 w-auto text-xs"
+        value={value}
+        onChange={(e) => onPick(e.target.value)}
+      >
+        {options.map((o) => (
+          <option key={o.value || "none"} value={o.value} style={o.value ? { color: o.value } : undefined}>
+            {tr(o.label)}
+          </option>
+        ))}
+      </Select>
+    </>
+  );
+}
+
 export function ComposerToolbar({
   editor,
   slotRight,
@@ -69,6 +144,9 @@ export function ComposerToolbar({
 }) {
   // TipTap mutates the editor in place, so React has nothing to re-render on.
   // Subscribing to its transactions is what keeps aria-pressed honest.
+  const [prompt, promptDialog] = usePrompt();
+  const [imageOpen, setImageOpen] = React.useState(false);
+  const [image, setImage] = React.useState({ src: "", alt: "" });
   const [, force] = React.useReducer((n: number) => n + 1, 0);
   React.useEffect(() => {
     if (!editor) return undefined;
@@ -79,7 +157,64 @@ export function ComposerToolbar({
   if (!editor) return null;
   const chain = () => editor.chain().focus();
 
+  const insertImage = () => {
+    const src = image.src.trim();
+    if (!/^https:\/\//i.test(src)) return;
+    chain().setImage({ src, alt: image.alt.trim() }).run();
+    setImageOpen(false);
+    setImage({ src: "", alt: "" });
+  };
+
   return (
+    <>
+    {promptDialog}
+    <Modal
+      open={imageOpen}
+      onClose={() => setImageOpen(false)}
+      title={tr("Insert an image")}
+      footer={
+        <>
+          <Button variant="outline" onClick={() => setImageOpen(false)}>
+            {tr("Cancel")}
+          </Button>
+          <Button
+            disabled={!/^https:\/\//i.test(image.src.trim())}
+            onClick={insertImage}
+          >
+            {tr("Insert image")}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <Field
+          label={tr("Image address")}
+          hint={tr("https only — mail clients strip anything else as mixed content.")}
+          error={
+            image.src && !/^https:\/\//i.test(image.src.trim())
+              ? tr("Must start with https://")
+              : undefined
+          }
+          required
+        >
+          <Input
+            type="url"
+            placeholder="https://"
+            value={image.src}
+            onChange={(e) => setImage((v) => ({ ...v, src: e.target.value }))}
+          />
+        </Field>
+        <Field
+          label={tr("Describe the image")}
+          hint={tr("Recipients who block images see this instead.")}
+        >
+          <Input
+            value={image.alt}
+            onChange={(e) => setImage((v) => ({ ...v, alt: e.target.value }))}
+          />
+        </Field>
+      </div>
+    </Modal>
     <div
       role="toolbar"
       aria-label={tr("Formatting")}
@@ -124,11 +259,34 @@ export function ComposerToolbar({
         active={editor.isActive("link")}
         onClick={() => {
           if (editor.isActive("link")) { chain().unsetLink().run(); return; }
-          // window.prompt rather than a modal: the caret and the selection have
-          // to survive, and every dialog in this app moves focus. Replaced with
-          // an inline popover when one exists that does not steal focus.
-          const url = window.prompt(tr("Link to:"));
-          if (url) chain().setLink({ href: url }).run();
+          /*
+           * This was a `window.prompt`, with a comment explaining that the caret
+           * and selection had to survive and that every dialog in the app moves
+           * focus.
+           *
+           * The concern was right; the conclusion no longer holds. `chain()` is
+           * `editor.chain().focus()`, and TipTap re-applies the STORED selection
+           * when focus returns — which is why every other control on this
+           * toolbar works, since clicking any toolbar button already blurs the
+           * editor. The dialog additionally restores focus to its opener (this
+           * button) on close, so the editor is refocused from the same place
+           * Bold refocuses it from.
+           */
+          void (async () => {
+            const url = await prompt({
+              title: tr("Add a link"),
+              label: tr("Link to"),
+              type: "url",
+              placeholder: "https://",
+              hint: tr("The selected text becomes the link."),
+              confirmLabel: tr("Add link"),
+              validate: (v) =>
+                /^(https?:\/\/|mailto:)/i.test(v.trim())
+                  ? null
+                  : tr("Start with https:// or mailto:"),
+            });
+            if (url) chain().setLink({ href: url }).run();
+          })();
         }}
       >
         🔗
@@ -139,6 +297,67 @@ export function ComposerToolbar({
       <Tool label={tr("Horizontal rule")} onClick={() => chain().setHorizontalRule().run()}>
         —
       </Tool>
+
+      <Tool
+        label={tr("Insert an image")}
+        onClick={() => {
+          // https only, and the serializer enforces it again: `safeSrc` accepts
+          // an https URL or a `cid:` part and nothing else. An http image is
+          // stripped by most mail clients as mixed content anyway, so accepting
+          // one here would only move the disappointment to the recipient.
+          //
+          // Two prompts became one dialog with two fields. The address and its
+          // alt text are a single decision, and asking for the description in a
+          // SECOND box — after the first had already been accepted — is how it
+          // came to be skipped nearly every time, which is an accessibility
+          // failure delivered to the recipient.
+          setImageOpen(true);
+        }}
+      >
+        ▣
+      </Tool>
+
+      <Divider />
+
+      {/* Alignment. TextAlign has been in the extension set and rendered by
+          `compose.js` (`align()`) since PR-1B; there was simply no control, so
+          a centred heading was reachable only by pasting one in. */}
+      {([
+        { v: "left", glyph: "⯇", label: "Align left" },
+        { v: "center", glyph: "≡", label: "Centre" },
+        { v: "right", glyph: "⯈", label: "Align right" },
+      ] as const).map((a) => (
+        <Tool
+          key={a.v}
+          label={tr(a.label)}
+          active={editor.isActive({ textAlign: a.v })}
+          onClick={() => (editor.isActive({ textAlign: a.v })
+            ? chain().unsetTextAlign().run()
+            : chain().setTextAlign(a.v).run())}
+        >
+          {a.glyph}
+        </Tool>
+      ))}
+
+      <Divider />
+
+      {/* Text colour and highlight — both marks the serializer emits as inline
+          hex (`textStyle`, `highlight`), both loaded in `use-editor.ts`, and
+          neither previously reachable from this bar. */}
+      <ColourMenu
+        id="composer-colour"
+        label={tr("Text colour")}
+        options={TEXT_COLOURS}
+        value={String(editor.getAttributes("textStyle").color || "")}
+        onPick={(v) => (v ? chain().setColor(v).run() : chain().unsetColor().run())}
+      />
+      <ColourMenu
+        id="composer-highlight"
+        label={tr("Highlight")}
+        options={HIGHLIGHTS}
+        value={String(editor.getAttributes("highlight").color || "")}
+        onPick={(v) => (v ? chain().setHighlight({ color: v }).run() : chain().unsetHighlight().run())}
+      />
 
       <Divider />
 
@@ -164,6 +383,7 @@ export function ComposerToolbar({
 
       <span className="ml-auto flex items-center gap-1">{slotRight}</span>
     </div>
+    </>
   );
 }
 

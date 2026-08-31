@@ -140,6 +140,35 @@ const setCapacity = asyncHandler(async (req, res) =>
     data: await tenants.setCapacity(req.params.slug, req.body.tier, actor(req)),
   }),
 );
+const addDomain = asyncHandler(async (req, res) =>
+  res.status(201).json({
+    data: await tenants.addDomain(req.params.slug, req.body, actor(req)),
+  }),
+);
+
+const setDomainSurface = asyncHandler(async (req, res) =>
+  res.json({
+    data: await tenants.setDomainSurface(req.params.slug, req.body, actor(req)),
+  }),
+);
+
+const setDomainBase = asyncHandler(async (req, res) =>
+  res.json({
+    data: await tenants.setDomainBase(req.params.slug, req.body, actor(req)),
+  }),
+);
+
+/**
+ * Read-only: is each registered host actually pointing at us?
+ *
+ * A GET because it changes nothing — the console calls it on open and behind a
+ * Check button, and a re-check must be as cheap and as safe to repeat as a
+ * refresh.
+ */
+const domainDns = asyncHandler(async (req, res) =>
+  res.json({ data: await tenants.checkDomainDns(req.params.slug) }),
+);
+
 const setSandbox = asyncHandler(async (req, res) =>
   res.json({
     data: await tenants.setSandboxInterval(
@@ -259,6 +288,7 @@ module.exports = {
   refresh,
   listModules,
   listFeatures,
+  domainDns,
   listPlans,
   list,
   audit,
@@ -270,6 +300,9 @@ module.exports = {
   goLive,
   setPlan,
   setCapacity,
+  addDomain,
+  setDomainSurface,
+  setDomainBase,
   setSandbox,
   wipeSandbox,
   seedSandboxDemo,

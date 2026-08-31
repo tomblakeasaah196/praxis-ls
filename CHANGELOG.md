@@ -24,6 +24,255 @@ Dates are ISO-8601, UTC.
 
 ### Added
 
+- **The stranger-facing app (`public-web/`), behind `SERVE_PUBLIC_WEB`.** A third Vite app beside
+  `client/` and `platform-console/`, carrying the tenant marketing site (`/public/*`) and the
+  external portal (`/portal/*`) on the tenant's own origin — a client emailed a tracking link must
+  not be sent to a second domain whose cookies, CSP and Host resolution the ERP knows nothing about.
+  Bilingual, gated in CI by `check:i18n` (457 keys, both languages) and `check:bundle` (110.8 kB gzip
+  first paint against a 128 kB budget, acyclic chunk graph). `SERVE_PUBLIC_WEB` is **off by default**:
+  the mount also claims `/track`, `/portfolio`, `/careers` and `/client-portal`, which the ERP
+  already answers, so the switch is a deliberate act rather than a side effect of building the image.
+  Turning it off restores the ERP's own versions of those pages; no schema or data is involved.
+
+### Fixed
+
+- **The marketing prefix is a per-host setting.** `/public` was typed into ninety-odd places, which made
+  it a decision the whole fleet shared and nobody could revisit — and it is one a tenant has an opinion
+  about, since the word is in every URL they print, email or hand to a search engine. Migration `0104` adds
+  `public_base` to `platform.subdomain`; the server builds its path matcher per request from the resolved
+  value, and `src/shared/http/public-web-paths.js` is the single definition the mount, the console
+  validation and the test all read. The browser learns it from a `<meta>` tag the head injector already
+  rewrites per request — no build-time constant, so one image serves every prefix. `/portal` deliberately
+  does not move: invitation emails point at it with a seven-day expiry. `/public` stays claimed whatever
+  the base is and redirects to it, so renaming cannot strand a URL already in circulation. Prefixes the
+  workspace answers — every ERP section, `/login`, `/api`, `/portal` — are refused with a reason.
+- **A domain the client brings serves the site at its ROOT, not under the prefix.** The prefix exists to
+  keep the marketing site out of the workspace's way on a shared origin; on `smartls.cm`, where
+  `surface = 'public'` and the ERP is not served at all, there is nothing to stay out of the way of. The
+  first cut honoured `public_base` there anyway, so the client's homepage was `smartls.cm/public` with `/`
+  redirecting into it, and every URL they printed carried a word that means nothing to their customers.
+  The surface now decides the base and the column applies to workspace hosts, which took three latent
+  self-redirects with it: `/` → `/`, each legacy alias → itself, and `LegacySplat` joining `"/"` with a
+  tail to make `//track` — a protocol-relative URL a browser reads as the host `track`. Two things that
+  were already wrong on a RENAMED prefix are fixed by the same change: the head injector's route table
+  matched a literal `/public/…`, so a `/site` tenant silently lost every link preview, and `robots.txt`
+  disallowed `/public/proposals/` on hosts that serve proposals somewhere else — a rule that reads as
+  covered and protects nothing. `public-web/src/app/root-mount.test.tsx` pins all of it.
+- **A CV over about 1.4 MB was refused after the applicant had waited for the upload.** The form
+  advertises 8 MB and `careers.service.CV_MAX_BYTES` enforces 8 MB, but the file is base64-encoded into a
+  JSON body — a third larger on the wire — against a 2 MB global limit, so most phone-scanned CVs were
+  impossible to send and the promise had never been keepable. A 12 MB parser now covers that one public
+  path, mounted BEFORE the global one because body-parser sets `req._body` and every later parser bails on
+  it. No other route's limit changes.
+- **The tenant's marketing hero had no home of its own.** It rendered whatever had been uploaded as the
+  LOGIN background — one file doing two unrelated jobs, configured in Settings → Login, which is not where
+  anyone looks for the photograph on their public website. `POST /branding/site/hero` now stores it under
+  its own `site/` segment (added to the public media allow-list) with a 1 MB cap, and the hero prefers it
+  while still falling back to the login background so no existing tenant's hero goes blank on deploy.
+  Service-type covers already had an upload; only this one was missing.
+- **The portal sign-in read "Client portal CLIENT PORTAL".** With no tenant name and no logo the wordmark
+  falls back to the portal's own noun, and the eyebrow beside it repeated the same two words — which is
+  what every unconfigured workspace showed its clients. The eyebrow now renders only when the wordmark is
+  the tenant. The screen also states what the account is for and offers the two ways out it lacked: the
+  invitation route for someone with a link but no password, and tracking for someone with no account at
+  all. It is one of the two screens a paying client opens every week and was a bare pair of inputs on white.
+- **Twenty-two user-facing sentences were English on the French site**, and the gate said both languages
+  were complete. `check-i18n` rule 5 reads text between JSX tags in `.tsx` files, so a sentence that is a
+  STRING — a `.ts` module's error message, a `hint=` prop, an argument to `tr()` — was structurally
+  invisible to it: the quote form's failure message, every portal session-expiry and download error, the
+  CV size limit, six portal empty states. All now carry dotted keys. Rule 6 fails the build on any
+  sentence outside the dictionary anywhere in `src/` — punctuation is the signal, and run against the app
+  before it was wired in it found twenty-two real strings and no false ones.
+- **`tr()` could never translate a sentence.** It looks a label up as `strings.<label>` and i18next's
+  default `keySeparator` is `.`, which this app does not disable because every other key is dotted. So a
+  label containing a full stop is parsed as a path with an empty final segment, never resolves, and
+  silently returns English. That is why all 41 `strings` entries are period-free column headings. Now
+  documented on the function, and enforced by rule 6.
+- **Marketing images were served as if they were a JSON list.** Case-study and service covers stream from
+  the Node process with `Cache-Control: max-age=300`, so every visitor re-fetched every image twice an
+  hour, and they counted against the same 120/15min budget as the page's data — meaning the page with the
+  most images was the one most likely to have them refused. The id in the URL is the vault document's, so
+  the bytes behind a URL never change: now a year, `immutable`, with an ETag, and images have their own
+  budget.
+- **Forwarded links previewed as a blank grey card.** The pages are assembled in the browser, so Slack,
+  WhatsApp, LinkedIn and Bing received the shell — one generic title, no description. `shared/http/public-head.js`
+  now injects a real title, description, canonical and Open Graph tags per page, reading the record for
+  proposals, vacancies and case notes; and the host serves `robots.txt` and `sitemap.xml`, with a
+  workspace host asking not to be indexed and tokenised documents kept out of the index. It is the head,
+  not the body — not SSR, and it does not pretend to be — but a preview card and a search result are built
+  from the head. Any failure serves the untouched shell.
+- **`public-web` served a blank page in production.** Vite's default `assetsDir` put the app's own
+  bundle at `/assets/*`, which `PUBLIC_WEB_PATH` did not claim — so every chunk, stylesheet and font
+  fell through to `client/dist` (a miss: different hashes) and then to the ERP's `app.get("*")`,
+  which answered `index.html` with `200 text/html`. The browser refuses to execute HTML as a module,
+  so the shell loaded and the app never started. Neither `vite dev` nor `vite preview` goes through
+  that mount, which is why it was invisible in development. The app now builds into `public-assets/`
+  and the mount claims it; `tests/unit/public-web-mount.test.js` reads the directory name out of
+  `vite.config.ts` and the matcher out of `server.js` and pins the two together, which is the test
+  the comment above the mount had been claiming existed.
+- **The ERP's service worker shadowed the new pages with its own older copies of them.**
+  `navigateFallbackDenylist` listed only `/api`, `/media`, the manifest and the icons, so for anyone
+  who had ever loaded the ERP the cached shell answered `/public/*` and `/portal/*` before the
+  request reached the server — and because `client/` still routes those paths itself, the visitor
+  saw not an error but a plausible older implementation at the same URL.
+- **Raw server messages reached public pages.** `lib/api.ts` exported `messageFor()` to keep driver
+  errors and status text away from strangers, and nothing called it: a job applicant hitting a 500
+  read "Internal Server Error". All seven read handlers now route through it with a translated
+  fallback (`common.loadFailed`), read via a new module-level `tStatic` so `t` does not become an
+  effect dependency and a language switch does not re-run a rate-limited tracking lookup.
+- **The home page discarded the service covers the API returns.** `ServicesBand` built its cards
+  without `cover_url` while the band eleven lines below passed the same field to the same component,
+  so the home page showed four text boxes for services that `/public/services` renders as image cards.
+- **The hero's scrim hid the tenant's artwork.** A flat carbon 95%→72% wash kept copy safe and made
+  any photograph invisible. Measured against the worst case a tenant can upload, the binding
+  constraint is the orange eyebrow at α ≥ 0.87 (not the headline, at 0.48), so the scrim now holds
+  ≥ 0.90 wherever copy sits and falls away where it does not — radially at `lg`, downward below it.
+- **A brand-token flash on dark-OS first paint.** The pre-paint script wrote only `.dark` and never
+  `data-theme`, so `@praxis/brand/tokens.css` followed `prefers-color-scheme` and painted dark brand
+  values under light app tokens until `main.tsx` ran — the exact mismatch `theme-mode.ts` says the
+  attribute exists to prevent.
+- **Disabled buttons read as broken.** `disabled:opacity-55` over a brand fill produced a washed-out
+  orange on the first two controls a visitor meets. Disabled now uses neutral tokens; a submitting
+  button keeps its fill via `aria-busy`.
+- **The footer listed "Client portal" twice** (two keys rendering the same words at two paths) and
+  "Track a shipment" in two columns. `check:i18n` cannot catch that: both keys exist in both
+  languages, and it looks for missing text rather than for two keys that agree.
+- **`check:bundle` hardcoded `dist/assets`** and would have reported "not found" on a correct build
+  the moment the output directory was renamed. It reads `assetsDir` from the config now.
+
+- **Weekly lateness queries and the authorised attendance map (clock-in revamp PR 3 — the last of
+  the three).** After a week closes, an employee who was late on one or more EXPECTED WORKING
+  DAYS is asked once about the pattern rather than five times about five mornings: `attendance.weekly`
+  composes and upserts exactly one `WARNING` query per person per completed Mon–Sun week, employee
+  only (managers and HR have analytics; a batch job must not raise a disciplinary document against
+  somebody on their behalf). Expected days come from PR1's calendar resolver, never from the
+  reconciled status, so a Mon–Sat yard and a Mon–Fri office are counted differently; waived days are
+  excluded from the count and stated rather than dropped. Migration `12746` adds `WEEKLY` to
+  `hr_query.source` and a dedicated partial unique index `(employee_id, work_date) WHERE source =
+  'WEEKLY'` — the weekly row carries `hr_rule_id = NULL` so it stays OUT of 0704's daily index (where
+  a week-end date would collide with that day's own lateness query), and because a NULL is distinct
+  from every other NULL in a unique index, that dedicated index is the entire deduplication story.
+  The nightly reconcile job gained the step, gated on Monday in the workplace zone, running on its
+  OWN tenant connection AFTER the reconcile has committed: sharing one would have let a failed
+  weekly INSERT abort the transaction and silently roll back every row the reconciler wrote.
+  `POST /attendance/weekly-summaries` (`edit`) is the idempotent backfill and sandbox rehearsal.
+- **`GET /attendance/map`** returns pinnable punches plus worksite geofences, with the guide's
+  five-row permission matrix resolved in the CONTROLLER rather than by a single middleware — MOD-14
+  view gets team pins and fences, a Control Tower grant unlocks the order-lane overlay, an employee
+  with neither still gets their own pins, and an unlinked caller gets nothing. Punches with no fix
+  are COUNTED, never placed: `Number(null)` is 0, so a finite check alone would have pinned every
+  no-GPS punch at 0°N 0°E as a confident outlier. Preview tiles need a platform Geoapify key
+  (resolved outside the tenant connection); without one the map degrades to coastline, fences, pins
+  and an OSM link per pin.
+- **Map tab on HR Attendance, and own pins on My HR.** The tab reuses the Control Tower's projection
+  rather than restating it — `buildMapModel` gained one additive `points` option so an
+  attendance-only user with no lanes still gets a fitted map — and draws order legs in the operations
+  map's own per-mode colours only when the server says the caller may see them. My HR reads
+  `/attendance/punches/mine`, closing the last unfinished PR2 contract item (guide §3.2): the
+  endpoint is the boundary, so an HR manager on their own My HR page sees themselves, not their team.
+  The devices queue (still pending-first) now shows where each device last punched from, which is the
+  one fact that makes an unfamiliar auto-generated device name decidable.
+
+### Fixed
+
+- **The desktop layout gate no longer measures a page a service worker is racing it for.** The built
+  app registers one (`registerType: "prompt"`, `clientsClaim: true`), so in every one of the gate's
+  thirty browser contexts it installed, took control of the page, and precached 153 entries — 4.7 MB
+  — into `workbox-precache-v2`. Probed directly: `navigator.serviceWorker.controller` is non-null by
+  the time a spec measures anything. Three consequences, all of them nondeterminism a measurement
+  gate cannot afford: a navigation answered from the precache via `navigateFallback` rather than by
+  the preview server, at a moment that varies with machine load; requests issued by a service worker
+  bypassing `page.route`, which is what the fixture's API mock is built on, so a screen can render
+  with no data through no fault of the app; and 4.7 MB of precache per context, two workers, two
+  cores. It surfaced as two chart-of-accounts specs failing on CI — an `<h1>` that never appeared and
+  a selection bar that stayed empty — then failing their retry with "Target page, context or browser
+  has been closed", while all thirty passed locally and on the previous commit of the same branch.
+  `serviceWorkers: "block"` weakens no assertion: the gate measures layout numbers, the app lays out
+  identically, and what goes away is a PWA cache being rebuilt thirty times in a throwaway profile.
+
+- **The Error Centre's AI explanations are about this codebase now.** The explanation prompt was
+  taken verbatim from `PROMPT_ErrorMonitor_Module.md` §7.4, which opens "specializing in
+  Node.js/NestJS debugging" — the spec's assumed stack, and the one place §0's divergence table had
+  not reached. So a production 422 on `POST /api/tenant/mail/send` was explained in terms of a
+  `SendMailDto`, a `MailModule`, class-validator decorators and a NestJS `ValidationPipe`: fluent,
+  authoritative, and about somebody else's system, with nothing on the page to tell an ops lead
+  otherwise. `src/services/ai/codebase-brief.js` now states what this repo actually is — Node 20 +
+  Express + CommonJS, Zod validators, `AppError` through one error handler, `src/modules/<area>/<module>/`
+  with its five conventional files, the tenant/platform DB split — names the frameworks that are
+  absent so the model stops reaching for them, and explains that a `ValidationError: VALIDATION_ERROR:
+  <fields>` report is SYNTHETIC (its only frame is the route, and the failing values are not in it).
+  It also resolves the failing route to the directory that serves it, read from the module tree at
+  runtime rather than from a hand-kept map — `POST /api/tenant/mail/send` →
+  `src/modules/mail/mail/ — mail.routes.js, mail.controller.js, mail.validator.js, …`, with 95% of
+  the mounted surface resolving and silence, never a guess, for the rest. Every claim in the brief is
+  pinned against the tree by `tests/unit/error-explain-grounding.test.js` (no `@nestjs`/class-validator/
+  ORM in any manifest, the helpers and paths it names exist, each file it offers can be opened),
+  because a description of the stack that nobody re-reads is the same failure with a different accent.
+  And `prompt_version` — written to `platform.error_explanation` since day one and never read — is now
+  part of the Redis key and the stored lookup, so improving the prompt actually reaches the signatures
+  someone has already asked about instead of only the ones nobody has.
+
+- **A copy field you can put two people in, and a send that says which address is wrong.** Cc and
+  Bcc were one plain text input holding a comma-separated string, and the comma was the entire
+  mechanism — nothing on screen said a second recipient was possible ("no plus button, nothing"), so
+  a row typed the way anyone would type one (`ops@camrail.cm billing@camrail.cm`, or an address
+  pasted with its display name) reached `POST /mail/send`, where `cc` and `bcc` accepted an array of
+  already-bare addresses and nothing else. The answer was a 422 whose whole text was `Invalid body`,
+  reported as `VALIDATION_ERROR: bcc, cc` — the offending address appeared in neither. Each address
+  is now a CHIP, added by Enter, Tab, comma, semicolon or leaving the field, removed by its × or by
+  Backspace (which puts it back in the field, because a mistyped address is corrected more often
+  than retyped); the server parses the row the same way the composer does — separators outside `"…"`
+  and `<…>`, a space between two addresses, `Jean Dupont <jean@acme.cm>` reduced to what SMTP needs,
+  a cleared row read as "copy nobody", the same person twice read as once — and what is still
+  refused is refused BY NAME, in the composer before the send and in `error.message` after it:
+  `Cc: "jean dupont" is not an email address`. The mail module's other 28 schemas gained the same named
+  message in place of `Invalid body`.
+
+- **Two adjacent attendance screens no longer shout a status at different volumes.** The reconciled-
+  days table pre-split `ON_LEAVE` into `"ON LEAVE"` before handing it to `Pill`, which defeated the
+  shared `enumLabel` (it only recognises the underscored form) — so it printed `ON LEAVE` where the
+  history table, one tab away and reading the same rows, printed `On leave`. Same slip in the
+  heatmap tooltip. Both now pass the raw enum through the one humaniser, and the two hard-coded
+  strings beside them go through `tr`.
+
+- **Attendance history, analytics and payroll-ready export (clock-in revamp PR 2).** Every user
+  can now see their own attendance and download it, and HR can do the same for the set they pick.
+  `GET /attendance/analytics` (+ `/mine`), `GET /attendance/export` (+ `/mine`) and
+  `GET /attendance/punches/mine` are new; the log list gains `employee_ids` and `department`, and
+  `daysFor` takes a compare set of up to 50. The summarizer (`attendance.analytics`) is pure —
+  punctuality, hours from in/out, lateness, absences, on-site %, leave/holiday/off counts,
+  department rollup, per-employee compare rows and heatmap cells — and takes expected working days
+  ONLY from PR1's calendar resolver, never from the reconciled status (a punch on a non-working day
+  reconciles as `PRESENT`, so the status cannot answer "was this owed as work"). Waived days are
+  reported apart from charged ones. The export (`attendance.export`) renders Days + Punches through
+  the house spreadsheet toolkit — branded, currency-aware, injection-safe — with the guide's exact
+  column keys frozen and pinned by a test, because payroll parses them; CSV honours `?sheet=`,
+  the file is `attendance-{from}-{to}.{ext}` (SANDBOX-suffixed in Test), and rows are hard-capped
+  at 20k with the truncation reported rather than silently applied. One shared `AttendanceHistory`
+  widget — period chips (7d/month/quarter/year/custom), KPI row, heatmap over expected working
+  days, a day table where leave, holidays and days off are first-class rows, and CSV/XLSX download
+  — is mounted on My HR (self, `/mine`), Human capital → Attendance as a new "History & analytics"
+  tab, and the employee 360 Attendance tab, which it replaces the raw punch list on. Waive/uphold
+  stays on the HR rows that carry a deduction, raising the same dialog the reconciled-days view
+  uses. The day-window validator moves from 92 days to 366 so the year view and the past-year
+  download stop being a 422; the cost argument the day cap used to carry alone now sits on the row
+  ceiling, where the cost actually is.
+
+- **Certified signatures (Signature Programme PR-4, Tier 3).** The `CERTIFIED` card is live end
+  to end: a counterparty who picks it is handed to the provider (SignWell, the only V1 adapter,
+  behind a provider-agnostic interface) which verifies their identity and emails them its own
+  secure link; on the provider's completion — webhook or the 30-minute poll backstop — the signed
+  PDF and the provider's audit certificate are mirrored into the vault, one `QES`/`PROVIDER`
+  signature is written with the provider's bytes as the artifact hash, and the chain advances with
+  the next link emailed. Envelopes are metered in `signature_usage_ledger` (migrations
+  `10785`–`10787`), charged in the same transaction as the provider reference so a provider
+  failure is never billable, and the platform quota watch alerts at 80% / 95% of the monthly
+  allowance, once per threshold per month. The webhook is signature-verified on the raw body
+  (constant-time, replay-windowed) and idempotent — a replayed event writes one signature, not
+  two. Platform Console → Integrations gains the SignWell account + pricing; Settings →
+  Signatures gains the read-only "Certified signatures" panel (provider state, this tenant's
+  monthly count, no figure). A request being voided cancels its in-flight envelopes; the ledger
+  row stays, because the provider consumed the quota whatever we do.
 - **Attendance now follows the entity's working calendar, and says what it
   actually knows about a punch's location.** Expected working days resolve
   employee override → the entity's working calendar (its own, or the inherited
@@ -255,6 +504,110 @@ Dates are ISO-8601, UTC.
 
 ### Fixed
 
+- **The deliverability and signature surfaces no longer gate the whole `/mail` namespace.** Both routers mounted at `/mail` — the same base path as every mail module — carried a router-level `router.use(requireFeature("mail.<surface>"))`, and the module loader mounts them in alphabetical discovery order (deliverability third, signature sixth). A router-level gate runs for EVERY `/mail/*` request that falls through to that router, including paths it does not own: a tenant that switched `mail.deliverability` off got `403 FEATURE_DISABLED` for `GET /mail/threads`, `GET /mail/folders`, `GET /mail/mailboxes/mine` and every module mounted after deliverability (signature, triage) before they reached the router that owns them; with `mail.deliverability` on and `mail.signatures` off it was triage's shared-inbox claim/assign instead. Both flags ship ON (migration `9114`), so the outage was latent — the same inverted pattern as the `mail.ai` gate fix in this list, armed for the first operator to switch one off. The gate is now a per-route middleware on each `/deliverability*` route and each `/signature*` route — the pattern triage already uses for `mail.shared_inbox` / `mail.followup` / `mail.secure_links`. Pinned by `tests/security/mail-gate-scope-deliverability-signature.test.js` (written first, watched fail — six failures on the broken code: three inbox reads behind deliverability-off, a triage claim behind signature-off, and the both-off worst case, plus the per-own-flag refusal assertions; 20/20 green after the fix).
+- **The compose entry points are discoverable.** The Comms hub (`/comms`) was
+  the only surface with a compose entry — a bare 16px `+` glyph behind a
+  tooltip — and the new Mail Inbox (`/comms/mail`) had none at all (reply-only;
+  only the legacy "Message log" tab had one). The hub header now renders a real
+  button (icon + "New" label on `md` and up, icon-only on narrow screens) that
+  opens the existing new-message chooser (in-house message / group channel /
+  email), and the Inbox header gains a Compose button (icon + label on `sm`
+  and up, icon-only on narrow screens; disabled while the user has no
+  `CONNECTED` mailbox) that opens the existing `ComposeModal`. The resulting
+  `InboxPage ↔ mail.tsx` module cycle is safe — `ComposeModal` is a hoisted
+  function declaration — and is documented in the commit message.
+- **An empty mail can no longer reach a recipient.** The inbox composer could
+  send a message whose body serialized to an 823-byte empty HTML shell
+  (`compose.serialize` wraps any doc — even an empty paragraph — in a full
+  HTML document), and the outbox's `if (!html && !text) throw` guard saw the
+  shell and let it through; the IMAP/SMTP provider then dropped the empty
+  `text` part (`""` collapses to `undefined` via `||`), so the recipient got a
+  subject with no content. The outbox now checks *visible* content (strip
+  `<style>` blocks, strip tags, collapse whitespace, allow a real `<img>`):
+  a message with no visible text and no image is refused with 422 "a message
+  needs a body" before it is queued. Quote-only replies and image-only
+  messages still pass. Client-side, the inbox Send button now requires a
+  non-empty editor (a quote counts as content) and the legacy ComposeModal
+  disables Send on a blank body. Pinned by new `mail-outbox.test.js` cases:
+  empty and whitespace-only docs refused, quote-only and image-only enqueued.
+- **The mailbox no longer disappears when Mail AI is off.** The `mail.ai` feature
+  gate was applied router-wide (`router.use(...)`) on the `mail/assist` router,
+  which is mounted at `/mail` — the same base path as every other mail module,
+  and the first of them the module loader mounts (alphabetical discovery). The
+  gate therefore ran for EVERY `/mail/*` request that fell through to that
+  router: with AI off (this flag's default), `GET /mail/threads`,
+  `GET /mail/folders` and `GET /mail/mailboxes/mine` answered
+  `403 FEATURE_DISABLED` before they reached `mail.routes.js` — the whole inbox
+  was unreachable for every tenant that had not opted into AI, while the
+  Platform Console correctly showed "Mail AI: off". The gate is now a per-route
+  middleware on each `/assist/*` route: the AI surface keeps its protection,
+  OCR extraction keeps BOTH (the `mail.ai` floor and its own `mail.ocr` gate),
+  and the rest of `/mail` is left to the module that owns the path. The one
+  route outside `/assist` (`GET /mail/messages/:id/extractions`) is gated by
+  `mail.ocr` alone — not a loss of the floor, because the catalogue row for
+  `mail.ocr` depends on `mail.ai` (migration `9114`). Pinned by
+  `tests/security/mail-ai-gate-scope.test.js` (written first, watched fail —
+  three 403s on the broken code) and the re-scoped gate assertions in
+  `tests/unit/mail-ai-routes.test.js`.
+- **The certified-signature webhook now receives genuine deliveries (PR-4 remediation).** The
+  global `express.json()` in `server.js` parsed every JSON body before the webhook's route-level
+  text parser could run (body-parser sets `req._body`, and downstream parsers bail on it), so
+  `verifyWebhook` only ever saw a parsed object and rejected every real SignWell delivery with
+  401 — certified signatures could only settle through the poll backstop, at best an hour late.
+  The global parser now stashes the untouched bytes on `req.rawBody` (its `verify` callback),
+  the controller reads the raw form first and refuses re-serialisation (a re-serialised body is
+  not the body the signature covers), and the route header describes the plumbing that actually
+  exists. Proven by a new stack-level test that POSTs a genuinely signed payload through
+  `buildApp()` with `Content-Type: application/json` — written first and watched fail (401)
+  against the broken code — including the 401 for a forged hash and the idempotent replay.
+- **Credential resolution is tenant-named on every path (PR-4 remediation).** The QES
+  credential cache keyed on the ambient request context with a shared `"_"` fallback — and
+  workers have no request context, so the poll backstop let the first tenant polled in a
+  5-minute window populate a slot every other tenant then read: one tenant's SignWell key
+  answering another tenant's question, `credential_source` wrong on the audit rows, and other
+  tenants' envelopes unable to advance at all. `providerConfig` now takes the tenant
+  explicitly (the poll and completion paths name their slug), the ambient context is a
+  request-path convenience, and a call that names no tenant computes its answer and does not
+  cache it — a slot that cannot identify its tenant is a miss, never a shared seat.
+- **A failed envelope charge no longer strands the retry (PR-4 remediation).** On a handoff
+  charge failure the envelope row (inserted before the `BEGIN`) survived the rollback as
+  `CREATING` — an in-flight state that `uq_qes_active_party` and `getActiveForParty` both
+  cover — so the "please try again" advice threw `ENVELOPE_IN_FLIGHT` for the next hour. The
+  row now transitions to `FAILED` with the reason in the rollback path, so the retry is
+  possible immediately and the poll has nothing to clean up. The ledger-on-cancel decision
+  (provider document cancelled, no ledger row for an envelope nobody can use) is recorded in
+  the guide's §7.0 deviation table.
+- **The webhook timestamp window is asymmetric and the shape is defensive
+  (PR-4 remediation).** `Math.abs` accepted an event stamped 15 minutes in the future exactly
+  as readily as a replay 15 minutes old; backward is now the 15-minute replay window and
+  forward a 2-minute clock-skew allowance. A numeric-string `event.time` is coerced and logged
+  once, so a provider payload-shape change cannot fail every webhook closed with no signal
+  distinguishing it from a forgery.
+- **The QES poll no longer strands envelopes invisibly when the provider key is missing
+  (PR-4 remediation).** A tenant that removes its key previously left every in-flight envelope
+  open behind a per-envelope `logger.warn` — the shape that gets scrolled past. The key is
+  now read once per sweep; when it is missing each affected envelope carries the reason in
+  `last_error` (the durable record) and one alert goes out per tenant per sweep through the
+  platform alert channels. The envelopes stay open: the poll advances them the moment the key
+  is back.
+- **The migration-scoping gate now covers the programme's `qes` files and
+  `pg_trigger` lookups (PR-4 remediation).** `10785_qes_envelope.sql` and
+  `10787_qes_events.sql` did not match the gate's file pattern, so they were outside the net
+  for every future edit. The pattern now covers `qes` (applied files are not renamed — the
+  ledger keys on filename), and the gate reads `pg_trigger` lookups as well as
+  `pg_constraint`: the same database-wide catalog class, and it found a real one — 10781's
+  name-only trigger check (PR-3) skipped the sandbox trigger on every provisioned tenant,
+  leaving `signature_request.updated_at` dead in the sandbox. 10781 is applied and immutable,
+  so the scoped repair lands in 10787 (the 10779 pattern), and the test grandfathering 10781's
+  line asserts the repair exists, so the exemption cannot outlive the fix.
+- **The external signing chain no longer stops silently at the second signature.** The public
+  `/complete` passed no mailer to the chain advance, so after a counterparty signed, the next
+  party was marked `SENT` with a token minted and nowhere delivered — and the tenant's "send next
+  link" button could not find them, because it looks for `PENDING` parties. The chain advanced and
+  stopped, silently, at the second signature. `signature_public.controller` now injects the same
+  dispatcher the internal dispatch uses, so the next link goes out by email on every external
+  completion (and it must, for the QES path, where a webhook has no operator to press the button).
+  Found and closed on the way during PR-4; the QES wiring tests pin it.
 - **Silent-catch ratchet after #228.** Adding lines to `explainSendError` moved
   three grandfathered empty catches in `mail.service.js` off
   `doc/silent-catch-baseline.json` (`file:line`), so `build-test` failed on

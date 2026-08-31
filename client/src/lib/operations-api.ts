@@ -8,6 +8,9 @@ import { tenant } from "./api-client";
 export type Dossier = {
   dossier_id: string;
   ref: string;
+  /** The short name the file was opened with ("Export of Beer"). Optional, and
+   *  the reason it exists: a reference is not recognisable, a title is. */
+  title?: string | null;
   entity_id?: string | null;
   client_id?: string | null;
   service_type_id?: string | null;
@@ -24,6 +27,11 @@ export type Dossier = {
   customs_regime?: string | null;
   eta?: string | null;
   ata?: string | null;
+  /** Where the cargo is delivered after the port or airport. A verified place
+   *  name since 12748 — which is what lets a delivery note inherit it. */
+  place_delivery?: string | null;
+  place_receipt?: string | null;
+  promised_delivery_date?: string | null;
   created_at?: string;
   // The carrier this job moves on (MOD-10 rate_provider) — scopes every
   // costing line's expense-rate lookup. NULL until confirmed.
@@ -182,7 +190,9 @@ export type TransitOrderInput = {
   service_direction?: string | null;
   declared_value?: number | null;
   declared_currency?: string;
-  declared_fx_to_xaf?: number;
+  /* No declared_fx_to_xaf. It is DERIVED from the currency master and the API
+     refuses it by name — sending one used to return 201 and be ignored. The
+     rate is on the READ type above, where it is a derived read-out. */
   insurance_type?: string;
   surveyor_party?: string;
   departure_date?: string | null;
@@ -247,6 +257,37 @@ export const transitOrderCurrencies = () =>
  */
 export type Prefill<T> = { body: Partial<T>; inferred: string[]; from: string[] };
 
+/**
+ * The facts a file states about itself, for a form to show back read-only.
+ *
+ * Distinct from the prefill `body`, which is what the form lets somebody EDIT.
+ * Conflating the two is how the delivery note ended up asking for an Entity the
+ * file already carried: every fact was either an input or invisible, with
+ * nothing in between.
+ */
+export type PrefillFile = {
+  dossier_id: string;
+  ref: string | null;
+  title: string | null;
+  client_name: string | null;
+  entity_name: string | null;
+  service_key: string | null;
+  service_name_en: string | null;
+  service_name_fr: string | null;
+  /** Does this service move containers? Decides whether a manifest is asked for. */
+  captures_containers: boolean;
+  /** Does it describe cargo at all? False for a representation or brokerage
+   *  retainer, where there is nothing to hand over and nothing to list. */
+  captures_cargo: boolean;
+  bl_mawb: string | null;
+  vessel_flight: string | null;
+  pol: string | null;
+  pod: string | null;
+  eta: string | null;
+  ata: string | null;
+  opened_at: string | null;
+};
+
 export const transitOrderPrefill = (dossierId: string) =>
   tenant<Prefill<TransitOrderInput>>(
     `/transit-orders/prefill?${new URLSearchParams({ dossier_id: dossierId })}`,
@@ -304,6 +345,17 @@ export type DeliveryNoteLine = {
   inventory_item_id?: string | null;
   label?: string | null;
   qty?: number | null;
+  /**
+   * Weight and marks (12749) — the substance of a note for a shipment handed
+   * over as PACKAGES rather than as containers.
+   *
+   * On a sea file the manifest carries the identity of the goods and these stay
+   * empty. On an air file they are the whole document: the weight is what the
+   * consignee checks at the counter, and the marks identify the cartons the way
+   * a number identifies a box.
+   */
+  gross_weight_kg?: number | null;
+  marks?: string | null;
 };
 
 /**
@@ -324,6 +376,9 @@ export type DeliveryNoteContainer = {
   seal_no?: string | null;
   gross_weight_kg?: number | null;
   notes?: string | null;
+  /** Why this box is going out again when a signed note already covers it. The
+   *  API REQUIRES it in that case and refuses the save by container number. */
+  redelivery_reason?: string | null;
 };
 
 /** A container on the FILE, as offered by the picker (10708: grouped lines
@@ -340,8 +395,52 @@ export type AvailableContainer = {
   container_type_fr?: string | null;
   /** Line rows only: the un-numbered remainder of the line ("3" of 3 × 40HC). */
   qty?: number | null;
-  /** Note numbers this box is already on — a split load, not necessarily wrong. */
+  /** Note numbers this box is already on. The UNION of the two below; kept
+   *  because it is what this field has always meant. */
   already_on?: string[];
+  /** Notes that have been SIGNED FOR. Putting the box on another note is a
+   *  re-delivery and needs a reason — almost always it is a mis-click. */
+  delivered_on?: string[];
+  /** Notes that are out with a driver. A split load: normal, no reason needed. */
+  issued_on?: string[];
+};
+
+/**
+ * How much of a file has been delivered — derived from its notes, never stored.
+ *
+ * `outstanding` is NOT `total - delivered`: a box on an issued note is neither
+ * delivered nor still to be sent, and counting it as outstanding is what puts a
+ * second truck on the road for a container already on the first.
+ */
+export type DeliveryProgress = {
+  total: number;
+  delivered: number;
+  in_transit: number;
+  outstanding: number;
+  complete: boolean;
+  /** False for a service type that does not capture containers at all. */
+  containerised: boolean;
+  captures_containers: boolean;
+  boxes: {
+    kind: "unit";
+    id: string;
+    container_no: string | null;
+    seal_no: string | null;
+    container_type_code: string | null;
+    state: "DELIVERED" | "IN_TRANSIT" | "OUTSTANDING";
+    delivered_on_note: string | null;
+    delivered_at: string | null;
+    issued_on_note: string | null;
+  }[];
+  groups: {
+    kind: "line";
+    id: string;
+    container_type_code: string | null;
+    qty: number;
+    delivered_qty: number;
+    in_transit_qty: number;
+    outstanding_qty: number;
+  }[];
 };
 
 export type DeliveryNote = {
@@ -393,7 +492,15 @@ export type DeliveryNoteInput = {
    * present, and the server returns a field-keyed 422 naming the row if neither
    * is.
    */
-  lines?: { inventory_item_id?: string | null; label?: string; qty?: number }[];
+  /* Weight and marks (12749) ride on the line, so a note for goods handed over
+     as packages says what a container manifest would have said. */
+  lines?: {
+    inventory_item_id?: string | null;
+    label?: string;
+    qty?: number;
+    gross_weight_kg?: number | null;
+    marks?: string | null;
+  }[];
   containers?: DeliveryNoteContainer[];
 };
 
@@ -416,6 +523,11 @@ export const availableContainers = (dossierId: string, excludeNoteId?: string) =
       ...(excludeNoteId ? { exclude_note_id: excludeNoteId } : {}),
     })}`,
   );
+/** How much of a file has been delivered. Derived from the notes on it. */
+export const deliveryProgress = (dossierId: string) =>
+  tenant<DeliveryProgress>(
+    `/delivery-notes/progress?${new URLSearchParams({ dossier_id: dossierId })}`,
+  );
 /**
  * A create body prefilled from the file — same contract as
  * `transitOrderPrefill`, and the containers are why it earns its keep.
@@ -424,16 +536,18 @@ export const availableContainers = (dossierId: string, excludeNoteId?: string) =
  * container and seal numbers, picked BY ID so the note stays pointed at the box
  * on the file rather than at a copy of its number.
  *
- * `inferred` is normally EMPTY here — everything this one offers is copied.
+ * `inferred` names the two the file ANSWERS BUT DOES NOT STATE: the consignee
+ * and the gate contact both come from the client on the file, which is right on
+ * nine notes in ten and has to be checked on the tenth. The form shows those as
+ * "suggested — check it" rather than as facts.
  *
- * Two blocks are deliberately not prefilled. The consignee block, because the
- * file does not record one and a client is not a consignee. And `city_zone`,
- * because it is a `PlacePicker`: the file's `place_delivery` is free text, and
- * putting free text into a control that only accepts verified places produces a
- * box that looks filled and is flagged wrong.
+ * `file` is what the form displays read-only above the inputs — the entity, the
+ * service, the transport reference, the route. It also decides the SHAPE of the
+ * form: `captures_containers` for the manifest, `captures_cargo` for packages,
+ * neither for a retainer that hands nothing over.
  */
 export const deliveryNotePrefill = (dossierId: string) =>
-  tenant<Prefill<DeliveryNoteInput>>(
+  tenant<Prefill<DeliveryNoteInput> & { file: PrefillFile }>(
     `/delivery-notes/prefill?${new URLSearchParams({ dossier_id: dossierId })}`,
   );
 
@@ -1735,3 +1849,200 @@ export const configureServiceTypeContainers = (
  * exposed by `masterdata-api.listDictRefs` and already priced against by expense
  * rates (0634). It is NOT re-declared here: one reader means a file's equipment
  * and its rate card can never disagree about what a 40' HC is. */
+
+/* ── Service-type web profile (Website tab — PR2) ───────────────────────────
+ *
+ * Admin surface for the tenant website package (guide §3.1 / §4.5). GET always
+ * answers 200 for an existing service type (`profile: null` before creation);
+ * one upsert covers create + edit with omitted-keys-unchanged semantics.
+ * Publish/unpublish, media, FAQ and related are separate verbs. The server is
+ * the readiness authority — the checklist renders `readiness` exactly as
+ * returned.
+ */
+export type ServiceTypeWebCover = {
+  present: boolean;
+  /** Allowlist truth (VERIFIED + scoped + image). Publish requires this. */
+  allowed: boolean;
+};
+
+export type ServiceTypeWebReadiness = {
+  name_en_present: boolean;
+  short_fr: boolean;
+  short_en: boolean;
+  long_fr: boolean;
+  long_en: boolean;
+  slug_fr: boolean;
+  slug_en: boolean;
+  cover: ServiceTypeWebCover;
+  publishable: boolean;
+  missing: string[];
+};
+
+export type ServiceTypeWebProfile = {
+  service_type_id: string;
+  short_description_fr?: string | null;
+  short_description_en?: string | null;
+  long_description_fr?: string | null;
+  long_description_en?: string | null;
+  highlights_fr?: string[];
+  highlights_en?: string[];
+  coverage_fr?: string | null;
+  coverage_en?: string | null;
+  slug_fr?: string | null;
+  slug_en?: string | null;
+  meta_title_fr?: string | null;
+  meta_title_en?: string | null;
+  meta_description_fr?: string | null;
+  meta_description_en?: string | null;
+  cover_vault_id?: string | null;
+  icon_vault_id?: string | null;
+  gallery_vault_ids?: string[];
+  video_url?: string | null;
+  is_published: boolean;
+  published_at?: string | null;
+  published_by?: string | null;
+  sort_order?: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+  /** Server-side allowlist check, recomputed on every GET. */
+  cover_allowed?: boolean;
+};
+
+export type ServiceTypeWebFaqRow = {
+  faq_id?: string;
+  question_fr: string;
+  question_en: string;
+  answer_fr: string;
+  answer_en: string;
+  sort_order?: number;
+};
+
+export type ServiceTypeWebRelated = {
+  related_service_type_id: string;
+  name_fr?: string | null;
+  name_en?: string | null;
+  key?: string | null;
+};
+
+export type ServiceTypeWebTab = {
+  /** Null before the first upsert — the empty state. */
+  profile: ServiceTypeWebProfile | null;
+  faq: ServiceTypeWebFaqRow[];
+  related: ServiceTypeWebRelated[] | string[];
+  readiness: ServiceTypeWebReadiness;
+  service_type: {
+    is_active: boolean;
+    name_fr?: string | null;
+    name_en?: string | null;
+  };
+};
+
+/** Caps mirror `service_type_web.validator.js` LIMITS — client-side only. */
+export const SERVICE_TYPE_WEB_LIMITS = {
+  SHORT_DESCRIPTION_MAX: 500,
+  LONG_DESCRIPTION_MAX: 20000,
+  META_TITLE_MAX: 70,
+  META_DESCRIPTION_MAX: 200,
+  COVERAGE_MAX: 1000,
+  QUESTION_MAX: 300,
+  ANSWER_MAX: 4000,
+  HIGHLIGHTS_MAX: 8,
+  HIGHLIGHTS_GUIDED_MIN: 4,
+  GALLERY_MAX: 12,
+  FAQ_MAX: 12,
+} as const;
+
+/**
+ * Profile patch for the one upsert. Omitted keys are left unchanged on the
+ * server; explicit `null` clears a nullable field. Send only dirty keys.
+ */
+export type ServiceTypeWebProfilePatch = {
+  short_description_fr?: string | null;
+  short_description_en?: string | null;
+  long_description_fr?: string | null;
+  long_description_en?: string | null;
+  highlights_fr?: string[];
+  highlights_en?: string[];
+  coverage_fr?: string | null;
+  coverage_en?: string | null;
+  slug_fr?: string | null;
+  slug_en?: string | null;
+  meta_title_fr?: string | null;
+  meta_title_en?: string | null;
+  meta_description_fr?: string | null;
+  meta_description_en?: string | null;
+  cover_vault_id?: string | null;
+  icon_vault_id?: string | null;
+  gallery_vault_ids?: string[];
+  video_url?: string | null;
+  sort_order?: number;
+};
+
+/** GET always 200 for an existing service type (`profile: null` when absent). */
+export const getServiceTypeWeb = (serviceTypeId: string) =>
+  tenant<ServiceTypeWebTab>(`/service-types/${serviceTypeId}/web`);
+
+/** One upsert — create-when-absent, update-when-present. Returns the full tab. */
+export const upsertServiceTypeWeb = (
+  serviceTypeId: string,
+  patch: ServiceTypeWebProfilePatch,
+) =>
+  tenant<ServiceTypeWebTab>(`/service-types/${serviceTypeId}/web`, {
+    method: "PUT",
+    body: patch,
+  });
+
+export const publishServiceTypeWeb = (serviceTypeId: string) =>
+  tenant<ServiceTypeWebTab>(`/service-types/${serviceTypeId}/web/publish`, {
+    method: "POST",
+    body: {},
+  });
+
+export const unpublishServiceTypeWeb = (serviceTypeId: string) =>
+  tenant<ServiceTypeWebTab>(`/service-types/${serviceTypeId}/web/unpublish`, {
+    method: "POST",
+    body: {},
+  });
+
+export const uploadServiceTypeWebMedia = (
+  serviceTypeId: string,
+  body: {
+    role: "COVER" | "ICON" | "GALLERY";
+    data_url: string;
+    original_name?: string;
+  },
+) =>
+  tenant<ServiceTypeWebTab>(`/service-types/${serviceTypeId}/web/media`, {
+    method: "POST",
+    body,
+  });
+
+export const removeServiceTypeWebMedia = (
+  serviceTypeId: string,
+  documentId: string,
+) =>
+  tenant<ServiceTypeWebTab>(
+    `/service-types/${serviceTypeId}/web/media/${documentId}`,
+    { method: "DELETE" },
+  );
+
+export const replaceServiceTypeWebFaq = (
+  serviceTypeId: string,
+  rows: ServiceTypeWebFaqRow[],
+) =>
+  tenant<{ faq: ServiceTypeWebFaqRow[]; tab: ServiceTypeWebTab }>(
+    `/service-types/${serviceTypeId}/web/faq`,
+    { method: "PUT", body: { rows } },
+  );
+
+export const replaceServiceTypeWebRelated = (
+  serviceTypeId: string,
+  relatedServiceTypeIds: string[],
+) =>
+  tenant<{ related: string[]; tab: ServiceTypeWebTab }>(
+    `/service-types/${serviceTypeId}/web/related`,
+    {
+      method: "PUT",
+      body: { related_service_type_ids: relatedServiceTypeIds },
+    },
+  );

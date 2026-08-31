@@ -147,6 +147,72 @@ describe("send() queues rather than sending", () => {
     expect(repo.enqueue).not.toHaveBeenCalled();
   });
 
+  describe("the body must be real content, not a wrapper", () => {
+    const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
+
+    test("an EMPTY document is refused — the serialized shell is not a body", async () => {
+      // serialize() wraps ANY document in a full HTML shell, so `html` is
+      // truthy with nothing visible in it. The old truthiness check enqueued
+      // that shell, the provider dropped the empty text part, and the
+      // recipient got a subject with nothing under it — "sent, subject and
+      // all, but no content" (2026-08-25, cPanel mailbox, new inbox
+      // composer: canSend checked sender + recipient but not the body).
+      await expect(outbox.send({}, ME, { ...BASE, body_json: EMPTY_DOC }))
+        .rejects.toMatchObject({ status: 422, message: expect.stringMatching(/body/i) });
+      expect(repo.enqueue).not.toHaveBeenCalled();
+    });
+
+    test("whitespace-only text is refused the same way", async () => {
+      await expect(outbox.send({}, ME, {
+        connectionId: "conn-1", to: ["x@y.cm"], text: "   \n\t  ",
+      })).rejects.toMatchObject({ status: 422, message: expect.stringMatching(/body/i) });
+      expect(repo.enqueue).not.toHaveBeenCalled();
+    });
+
+    test("a reply that only carries the quote still says something", async () => {
+      // The quoted history is content the recipient will read — a reply that
+      // adds no new words must not be refused just because the editor is
+      // empty.
+      await outbox.send({}, ME, {
+        ...BASE, body_json: EMPTY_DOC,
+        quoted_html: "<p>the original</p>", quoted_text: "the original",
+      });
+      const p = repo.enqueue.mock.calls[0][1].payload;
+      expect(p.text).toMatch(/the original/);
+    });
+
+    test("a body of ONLY a style block is refused — CSS is not content", async () => {
+      await expect(outbox.send({}, ME, {
+        connectionId: "conn-1", to: ["x@y.cm"], html: "<style>body{margin:0}</style>",
+      })).rejects.toMatchObject({ status: 422, message: expect.stringMatching(/body/i) });
+      expect(repo.enqueue).not.toHaveBeenCalled();
+    });
+
+    test("a style block next to real text does not count as the content", async () => {
+      await outbox.send({}, ME, {
+        connectionId: "conn-1", to: ["x@y.cm"],
+        html: "<style>p{color:red}</style><p>real words</p>",
+      });
+      const p = repo.enqueue.mock.calls[0][1].payload;
+      expect(p.html).toMatch(/real words/);
+    });
+
+    test("an image-only body is not empty", async () => {
+      const IMG_DOC = {
+        type: "doc",
+        content: [
+          { type: "paragraph" },
+          { type: "image", attrs: { src: "cid:att-1", alt: "invoice" } },
+        ],
+      };
+      await outbox.send({}, ME, { ...BASE, body_json: IMG_DOC });
+      const p = repo.enqueue.mock.calls[0][1].payload;
+      expect(p.html).toMatch(/<img/);
+      expect(p.text).toMatch(/\[image: invoice\]/);
+    });
+  });
+
+
   test("an archived mailbox cannot send", async () => {
     mailRepo.getConnection.mockResolvedValue({ ...CONN, status: "ARCHIVED" });
     await expect(outbox.send({}, ME, BASE)).rejects.toMatchObject({ code: "MAILBOX_ARCHIVED" });
@@ -177,6 +243,81 @@ describe("send() queues rather than sending", () => {
   test("an idempotency key rides along so an offline replay enqueues once", async () => {
     await outbox.send({}, ME, { ...BASE, idempotency_key: "abc-123" });
     expect(repo.enqueue.mock.calls[0][1].idempotency_key).toBe("abc-123");
+  });
+});
+
+/* ── Style stripping (the visible-content check's front end) ─────────────── */
+
+describe("stripStyleBlocks", () => {
+  test("removes whole style blocks, case-insensitively, and keeps the rest", () => {
+    expect(outbox.stripStyleBlocks("a <style>x</style> b <STYLE>y</STYLE> c"))
+      .toBe("a   b   c");
+    expect(outbox.stripStyleBlocks("plain text")).toBe("plain text");
+    expect(outbox.stripStyleBlocks("")).toBe("");
+  });
+
+  test("a block ends at the FIRST closing tag — later content survives", () => {
+    // The old regex's leftmost-match order: `<style<styleB</style>tail` is one
+    // block (first open, first close), so `tail` is what the visibility check
+    // still sees.
+    expect(outbox.stripStyleBlocks("<styleA<styleB</style>tail")).toBe(" tail");
+  });
+
+  test("an unclosed <style matches nothing and is kept as-is", () => {
+    // Same as the old regex: with no `</style>` after it there is no match at
+    // all, so the fragment stays in the text the rest of the pipeline sees.
+    expect(outbox.stripStyleBlocks("hi<style")).toBe("hi<style");
+    expect(outbox.stripStyleBlocks("<styleA<styleB")).toBe("<styleA<styleB");
+  });
+
+  test("runs in linear time on an adversarial run of unclosed <style tokens", () => {
+    // The pattern this used to be — `/<style[\s\S]*?<\/style>/gi` — rescanned
+    // the whole tail for every unmatched token (quadratic). A body of this
+    // shape is ordinary user input, and it used to hang the send path for
+    // minutes (CodeQL: ReDoS, high). 1.8 MB must return in milliseconds.
+    const evil = "<style".repeat(300000);
+    const t0 = process.hrtime.bigint();
+    const out = outbox.stripStyleBlocks(evil);
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    expect(out).toBe(evil);
+    expect(ms).toBeLessThan(2000);
+  });
+});
+
+describe("stripTags", () => {
+  test("replaces tags with spaces and keeps the text between them", () => {
+    expect(outbox.stripTags("a <b> c <i>x</i> d")).toBe("a   c  x  d");
+    expect(outbox.stripTags("plain text")).toBe("plain text");
+    expect(outbox.stripTags("")).toBe("");
+  });
+
+  test("a tag needs at least one character between the brackets", () => {
+    // `<>` is not a tag to the old regex either — `[^>]+` cannot match empty.
+    expect(outbox.stripTags("a<>b")).toBe("a<>b");
+  });
+
+  test("a second < before the first > is content of the FIRST tag", () => {
+    // Leftmost-match order: `<<>>` is `<<>` (one tag, replaced) plus a
+    // leftover `>`.
+    expect(outbox.stripTags("<<>>")).toBe(" >");
+  });
+
+  test("a < with no closing > is plain text, not a tag", () => {
+    expect(outbox.stripTags("a<b")).toBe("a<b");
+    expect(outbox.stripTags("<unclosed>mid<another")).toBe(" mid<another");
+  });
+
+  test("runs in linear time on an adversarial run of bare <", () => {
+    // The next alert after the style one: `/<[^>]+>/g` rescanned the whole
+    // tail for every unclosed < — 39 KB already took 1.4 s, and a 2.5 MB body
+    // would have taken minutes (CodeQL: ReDoS, high). 1.6 MB must return in
+    // milliseconds.
+    const evil = "<".repeat(400000);
+    const t0 = process.hrtime.bigint();
+    const out = outbox.stripTags(evil);
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    expect(out).toBe(evil);
+    expect(ms).toBeLessThan(2000);
   });
 });
 
@@ -327,16 +468,42 @@ describe("what is retried and what is not", () => {
     expect(at(1)).toBeLessThan(at(2));
   });
 
+  /*
+   * `AUTH_FAILED` used to be one of these rows, with a made-up 401.
+   *
+   * Nothing has ever thrown it — `mail.service.explainSendError` emits
+   * `MAILBOX_AUTH_FAILED` — so the row asserted that a string in a list matched
+   * the same string in another list. It passed for as long as both were wrong
+   * together, which is exactly what made the dead name look covered. FN-1
+   * spotted it in the source; this test was the reason nobody spotted it here.
+   *
+   * The codes below are now the ones the send path actually produces, and
+   * `mail-send-classifier.test.js` reaches each of them from a real SMTP
+   * rejection rather than by writing the code on an Error by hand.
+   */
   test.each([
     ["SENDER_NOT_AUTHORIZED", 422],
     ["RECIPIENT_REJECTED", 422],
-    ["AUTH_FAILED", 401],
+    ["MAILBOX_AUTH_FAILED", 422],
     ["MAILBOX_ARCHIVED", 422],
+    // The one that changed behaviour: a hard 5xx refusal carries a 502, so
+    // before it was named here the status check let it through and it was
+    // retried three times.
+    ["SMTP_SEND_REJECTED", 502],
   ])("A PERMANENT REFUSAL (%s) IS NOT RETRIED", (code, status) => {
     // Trying a rejected sender three times does not make it work; it delays
     // telling the person something only they can fix, and burns three more
     // entries in the mail host's abuse log.
     expect(outbox.retryPlan(Object.assign(new Error("no"), { code, status }), 0).retryAt).toBeNull();
+  });
+
+  test("A TRANSIENT DEFERRAL IS STILL RETRIED — the case that must not be lost", () => {
+    // Same 502 as the row above, opposite meaning. Making the hard refusal
+    // permanent must not sweep greylisting in with it.
+    const grey = Object.assign(new Error("451 greylisted"), {
+      code: "SMTP_SEND_FAILED", status: 502,
+    });
+    expect(outbox.retryPlan(grey, 0).retryAt).toBeInstanceOf(Date);
   });
 
   test("retries stop after the third attempt", () => {
