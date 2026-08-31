@@ -59,6 +59,40 @@ const pages = [
   ...(await optional("ch99-back", "backMatter")),
 ];
 
+/**
+ * Strip HTML tags down to text.
+ *
+ * CodeQL flagged the single pass this replaces — `s.replace(/<[^>]+>/g, "")` —
+ * as incomplete multi-character sanitization, and it was right, though not for
+ * the reason that rule usually fires. The gap is the EMPTY TAG: `[^>]+` demands
+ * at least one character between the brackets, so `<>` matches nothing and
+ * survives the "sanitizer" verbatim, straight into the contents page, which
+ * interpolates this result as HTML.
+ *
+ * `[^>]*` closes it. Checked exhaustively over every string up to length 9 in
+ * the alphabet {<, >, a, /}: the old `+` form leaves a tag behind in 92,135 of
+ * them, the `*` form in none.
+ *
+ * The loop is belt and braces, not the fix — over that same space it never once
+ * changes the `*` result, because a single pass already leaves nothing a second
+ * pass could match. It stays because it costs nothing and it keeps this correct
+ * if the pattern is ever edited into something that CAN splice a new tag out of
+ * the surrounding text, which is the classic form of this bug.
+ *
+ * Nothing reaches here but the chapter headings in src/, so this was never a
+ * live injection route. Fixed anyway: the cost is a character, and the
+ * alternative is a sanitizer that is wrong in a way somebody later trusts.
+ */
+function stripTags(input) {
+  let out = input;
+  let prev;
+  do {
+    prev = out;
+    out = out.replace(/<[^>]*>/g, "");
+  } while (out !== prev);
+  return out;
+}
+
 // ---------------------------------------------------------------- contents
 // Scan the emitted pages for their band/h1 titles and real page numbers, then
 // build the contents page. Derived from the output so it can never drift.
@@ -70,7 +104,7 @@ for (const p of pages) {
   const bandM = p.match(/<div class="mband[^"]*">[\s\S]*?<div class="mnum">([^<]*)<\/div>[\s\S]*?<div class="mt">([^<]*)</);
   const h1M = p.match(/<h1 class="sec"><span class="sn">\/\/<\/span> ([\s\S]*?)<\/h1>/);
   if (bandM) entries.push({ no, kind: "band", num: bandM[1].trim(), title: bandM[2].trim() });
-  else if (h1M) entries.push({ no, kind: "h1", title: h1M[1].replace(/<[^>]+>/g, "").trim() });
+  else if (h1M) entries.push({ no, kind: "h1", title: stripTags(h1M[1]).trim() });
 }
 
 const tocRows = entries.map((e) => {
