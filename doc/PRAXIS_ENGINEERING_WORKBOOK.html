@@ -3209,10 +3209,10 @@ function submitExam(){
     + '</p>'
     + (wrongs.length
         ? '<div class="review">' + wrongs.map(function(r){
-            return '<div><b>Ch ' + r.ch + ' &mdash; ' + stripTags(r.q) + '</b><br>'
-                 + 'Your answer: ' + stripTags(r.yours) + '<br>'
-                 + 'Correct: <b>' + stripTags(r.right) + '</b><br>'
-                 + '<span style="color:#5A6675">' + stripTags(r.why) + '</span></div>';
+            return '<div><b>Ch ' + r.ch + ' &mdash; ' + esc(r.q) + '</b><br>'
+                 + 'Your answer: ' + esc(r.yours) + '<br>'
+                 + 'Correct: <b>' + esc(r.right) + '</b><br>'
+                 + '<span style="color:#5A6675">' + esc(r.why) + '</span></div>';
           }).join('') + '</div>'
         : '<div class="review"><div class="ok"><b>A clean sweep.</b> Every question correct.</div></div>')
     + '<div class="exam-foot"><button class="mbtn" onclick="closeExam()">Close</button>'
@@ -3222,7 +3222,38 @@ function submitExam(){
   refreshGate();
 }
 
-function stripTags(h){ var d = document.createElement('div'); d.innerHTML = h; return d.textContent; }
+/* Render authored markup as plain text, safely.
+ *
+ * The old one-liner set d.innerHTML on a scratch div and handed back its
+ * textContent. CodeQL called that DOM text reinterpreted as HTML and it is
+ * right, because the text does not stay text: it is concatenated straight back
+ * into res.innerHTML below. The round trip DECODES entities, so an authored
+ * &amp;lt;img src=x onerror=...&amp;gt; comes back as a live tag and is then
+ * re-parsed as one. A sanitiser that hands its output to an HTML sink has not
+ * sanitised anything.
+ *
+ * Two steps now, and the order is the point. STRIP, so authored <code> and <b>
+ * in a question still read as plain text in the review list — the exam bank
+ * genuinely contains them, so escaping alone would print the tags. Then ESCAPE,
+ * so whatever survives cannot be markup when it reaches innerHTML.
+ *
+ * The strip loops to a fixpoint and uses * not +, same as build.mjs: an empty
+ * tag is one that [^>]+ cannot match.
+ *
+ * NOTE FOR EDITORS: this whole block is emitted inside a JS template literal,
+ * so it must contain no backtick and no dollar-brace. */
+function stripTags(h){
+  var out = String(h), prev;
+  do { prev = out; out = out.replace(/<[^>]*>/g, ''); } while (out !== prev);
+  return out;
+}
+function esc(h){
+  return stripTags(h)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 function closeExam(){ document.getElementById('examMask').classList.remove('on'); }
 
 /* ======================================================================
