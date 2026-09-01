@@ -94,9 +94,30 @@ function resolve(input = {}, lang = "en") {
     [entity.address_line, entity.po_box, join([entity.postal_code, entity.city], " "), entity.country],
     ", ",
   ) || null;
+  // The card gives the street and the P.O. Box their own rows with their own
+  // icons, so it needs them apart. `address_line` above stays the single joined
+  // string the email table has always rendered — two consumers, two shapes, one
+  // set of inputs.
+  const streetLine = entity.street_line || entity.address_line || null;
+  const poBoxLine = join(
+    [entity.po_box, join([entity.postal_code, entity.city], " "), entity.country],
+    ", ",
+  ) || null;
   const companyPhone = entity.phone || null;
   const website = entity.website || null;
+
+  // TWO logo values, deliberately.
+  //
+  // `logo_url` is what the EMAIL table embeds, and must stay an absolute HTTPS
+  // URL: a data URI in an <img src> is stripped by Gmail and blocked by Outlook
+  // on the web, so inlining bytes there would replace a working logo with a
+  // broken-image icon. `logo_data` is what the CARD renders, where the opposite
+  // is true — headless Chromium has no page origin, so only inlined bytes load.
+  //
+  // The caller resolves the bytes (signature.service, via brand-logo.service)
+  // because this module is pure and must not touch storage.
   const logoUrl = httpsUrl(entity.logo_url || entity.logo_light_ref);
+  const logoData = input.logo || logoUrl || null;
 
   const legalLine = layout.show_legal
     ? join([
@@ -130,7 +151,10 @@ function resolve(input = {}, lang = "en") {
     height_px: Number(layout.height_px) || 325,
     brand_color: hex(layout.brand_color) || CLASSIC_LAYOUT.brand_color,
     accent_color: hex(layout.accent_color) || CLASSIC_LAYOUT.accent_color,
-    show_logo: layout.show_logo !== false && Boolean(logoUrl),
+    // Either representation counts: the card can show a logo the email table
+    // cannot, and gating both on the HTTPS-only value is what made `show_logo`
+    // false for every tenant whose logo is a storage key — which is all of them.
+    show_logo: layout.show_logo !== false && Boolean(logoData || logoUrl),
     show_motto_bar: layout.show_motto_bar !== false && Boolean(motto),
     show_legal: Boolean(layout.show_legal) && Boolean(legalLine),
     person: {
@@ -155,6 +179,9 @@ function resolve(input = {}, lang = "en") {
       phone: companyPhone,
       website,
       logo_url: logoUrl,
+      logo_data: logoData,
+      street_line: streetLine,
+      po_box_line: poBoxLine,
       legal_line: legalLine,
       motto: motto || null,
       confidentiality: confidentiality || null,
