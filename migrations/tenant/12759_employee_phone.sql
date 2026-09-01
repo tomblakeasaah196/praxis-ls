@@ -39,11 +39,17 @@ COMMENT ON COLUMN employee.phone_desk IS
 COMMENT ON COLUMN employee.phone_mobile IS
   'Work mobile. HR-owned; user_signature_profile.phone_mobile overrides it on signatures.';
 
--- A stored number that changes what a signature renders is a signature input,
--- so an edit has to invalidate the cache the same way a job-title change does.
--- The orchestration handler already listens for employee.updated and deletes
--- the renders for the linked user; nothing new is needed there. Existing rows
--- are dropped once here because the phone precedence itself is new.
+-- Clearing the render cache, for the same reason and at
+-- the same cost as 12758 — it is a cache keyed by a hash over its inputs, and
+-- the phone PRECEDENCE is itself a new input. A cached render made before this
+-- migration resolved its number from the profile alone; leaving it in place
+-- would keep serving that answer to anyone whose staff record now carries a
+-- number, until something unrelated moved their hash.
+--
+-- Ongoing invalidation needs nothing new: `service.update` emits
+-- `employee.updated`, and the orchestration handler already listening for it
+-- deletes the renders for the linked user. This clears the backlog once.
+-- DESTRUCTIVE: signature_render is a cache — every cached render is stale (phone precedence is a new input), sent mail untouched.
 DELETE FROM signature_render;
 
 -- DOWN

@@ -83,11 +83,20 @@ UPDATE signature_template
  WHERE key = 'signature_card'
    AND NOT is_default;
 
--- Every cached render predates the card and predates signatures carrying a
--- logo at all (loadEntity never joined entity_address, and a storage-key logo
--- failed the https-only check, so `show_logo` was false for everyone). There is
--- no row here that is still correct, and the cost of clearing it is one
--- re-render per person on their next send.
+-- Clearing the render cache. Nothing of value is lost —
+-- `signature_render` is a CACHE, keyed by a `source_hash` over the inputs, and
+-- every row in it predates both the card and signatures carrying a logo at all
+-- (loadEntity never joined entity_address, and a storage-key logo failed the
+-- https-only check, so `show_logo` computed false for every tenant). There is
+-- no row here that is still correct. The cost of clearing it is one re-render
+-- per person on their next send; the cost of NOT clearing it is that the
+-- default template changes and nobody sees it until something unrelated
+-- happens to move their hash.
+--
+-- Sent mail is untouched: a signature is baked into email_message.body_html at
+-- send time and stays there, which is the rule §6.3 of the mail guide sets out
+-- and the reason this table can be cleared without rewriting history.
+-- DESTRUCTIVE: signature_render is a cache — every cached render is stale (new default template, first-ever logo), sent mail untouched.
 DELETE FROM signature_render;
 
 -- DOWN

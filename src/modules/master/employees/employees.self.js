@@ -95,7 +95,10 @@ async function getMine(client, { actor = {} } = {}) {
 async function updateMine(client, { patch = {}, actor = {} } = {}) {
   const employeeId = await employeeIdForUser(client, actor.user_id);
   if (!employeeId) {
-    throw new AppError("NO_EMPLOYEE_RECORD", "Your account is not linked to a staff record.", 422);
+    // `NO_EMPLOYEE`, not a new code. Attendance, payroll, leave and hr_query all
+    // already raise this exact condition under this exact name — a synonym would
+    // be a 507th code for a client to switch on for something it already handles.
+    throw new AppError("NO_EMPLOYEE", "No employee record on this account", 422);
   }
 
   // Belt and braces: the validator already rejects unknown keys, but the

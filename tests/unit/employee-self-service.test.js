@@ -161,6 +161,6 @@ describe("what a person may WRITE about themselves", () => {
     const c = fakeClient({ linkedEmployeeId: null });
     await expect(
       self.updateMine(c, { patch: { phone_desk: "1" }, actor: { user_id: "u" } }),
-    ).rejects.toMatchObject({ status: 422, code: "NO_EMPLOYEE_RECORD" });
+    ).rejects.toMatchObject({ status: 422, code: "NO_EMPLOYEE" });
   });
 });
