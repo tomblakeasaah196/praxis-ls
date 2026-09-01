@@ -106,9 +106,12 @@ async function upsertProfile(client, userId, fields) {
 
 async function loadPerson(client, userId) {
   const { rows } = await client.query(
-    `SELECT u.user_id, u.full_name AS user_full_name, u.email,
+    `SELECT u.user_id, u.full_name AS user_full_name, u.email AS user_email,
             e.employee_id, e.full_name AS employee_full_name, e.job_title, e.department,
-            e.entity_id, e.avatar_ref
+            e.entity_id, e.avatar_ref,
+            e.email        AS employee_email,
+            e.phone_desk   AS employee_phone_desk,
+            e.phone_mobile AS employee_phone_mobile
        FROM app_user u
        LEFT JOIN employee e ON e.employee_id = u.employee_id
       WHERE u.user_id = $1`,

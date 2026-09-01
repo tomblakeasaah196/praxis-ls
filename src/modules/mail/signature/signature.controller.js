@@ -1,6 +1,7 @@
 "use strict";
 const service = require("./signature.service");
 const { asyncHandler } = require("../../../utils/errors");
+const { readPermissions } = require("../../../middleware/rbac");
 
 const actor = (req) => req.user || { user_id: null };
 
@@ -28,12 +29,24 @@ module.exports = {
     res.setHeader("Content-Disposition", `attachment; filename="signature-${scale}x.png"`);
     return res.send(png.buffer);
   }),
-  card: asyncHandler(async (req, res) => res.json({
-    data: await req.identityDb((c) => service.cardPreview(c, {
-      userId: actor(req).user_id,
-      language: req.query.lang || req.query.language || "en",
-    })),
-  })),
+  card: asyncHandler(async (req, res) => {
+    // Which gaps get a LINK rather than an "ask an administrator" note. Read,
+    // never enforced — the destination screens do their own gating. See
+    // readPermissions in middleware/rbac.js.
+    const [hr, entity, brand, template] = await readPermissions(req, [
+      ["MOD-02", "edit"],   // staff records — name, title, email
+      ["MOD-01", "edit"],   // corporate entity — address, P.O. Box, website
+      ["MOD-70", "edit"],   // branding and signature templates
+      ["MOD-70", "edit"],
+    ]);
+    return res.json({
+      data: await req.identityDb((c) => service.cardPreview(c, {
+        userId: actor(req).user_id,
+        language: req.query.lang || req.query.language || "en",
+        can: { hr, entity, brand, template },
+      })),
+    });
+  }),
   staff: asyncHandler(async (req, res) => res.json({
     data: await req.identityDb((c) => service.listStaff(c, {
       search: req.query.q || null,

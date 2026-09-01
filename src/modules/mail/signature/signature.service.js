@@ -11,6 +11,7 @@
 const repo = require("./signature.repo");
 const resolveMod = require("./signature.resolve");
 const paletteMod = require("./signature.palette");
+const gapsMod = require("./signature.gaps");
 const zipMod = require("./signature.zip");
 const htmlMod = require("./signature.html");
 const pngMod = require("./signature.png");
@@ -22,14 +23,31 @@ const brandLogo = require("../../../services/brand-logo.service");
 const storage = require("../../../services/storage.service");
 const { config } = require("../../../config/env");
 
+/**
+ * The employee fields the renderer reads, projected out of `loadPerson`'s row.
+ *
+ * Shared by `inputsFor` and `modelFrom` because they must agree: a field the
+ * model renders but the hash does not cover is a field whose change never
+ * invalidates the cache, so the signature keeps showing the old value until
+ * something unrelated happens to move. They were two separate object literals
+ * and the phone columns would have been added to one of them.
+ */
+function employeeOf(person) {
+  if (!person) return null;
+  return {
+    full_name: person.employee_full_name || person.user_full_name,
+    job_title: person.job_title,
+    department: person.department,
+    email: person.employee_email || person.user_email || null,
+    phone_desk: person.employee_phone_desk || null,
+    phone_mobile: person.employee_phone_mobile || null,
+  };
+}
+
 function inputsFor(person, entity, profile, template, mailbox, language, identity, system, branding) {
   return {
     employee_updated: person && (person.employee_id || person.job_title || person.department),
-    employee: person && {
-      full_name: person.employee_full_name || person.user_full_name,
-      job_title: person.job_title,
-      department: person.department,
-    },
+    employee: employeeOf(person),
     entity_id: entity && entity.entity_id,
     entity_updated: entity && entity.updated_at,
     profile_updated: profile && profile.updated_at,
@@ -50,11 +68,7 @@ function inputsFor(person, entity, profile, template, mailbox, language, identit
 
 function modelFrom(person, entity, profile, template, mailbox, language, identity, system, extras = {}) {
   const model = resolveMod.resolve({
-    employee: person && {
-      full_name: person.employee_full_name || person.user_full_name,
-      job_title: person.job_title,
-      department: person.department,
-    },
+    employee: employeeOf(person),
     user: person && { full_name: person.user_full_name },
     entity,
     profile,
@@ -309,11 +323,15 @@ async function renderBatch(client, { userIds = [], language = "en", scale = 2, s
  * the user explicitly opened, and it buys the one guarantee the screen exists
  * to give: what you approve is what is sent.
  */
-async function cardPreview(client, { userId, language = "en" } = {}) {
+async function cardPreview(client, { userId, language = "en", can = {} } = {}) {
   const r = await resolveFor(client, { userId, language, format: "PREVIEW" });
   if (!r.model) throw new AppError("NOT_FOUND", "No signature to preview", 404);
   if (r.model.kind !== "card") {
-    return { kind: r.model.kind, document: null, html: r.html, width: r.model.width_px, height: r.model.height_px };
+    return {
+      kind: r.model.kind, document: null, html: r.html,
+      width: r.model.width_px, height: r.model.height_px,
+      gaps: gapsMod.gaps(r.model, can),
+    };
   }
   const fontsCss = require("./signature.fonts").fontFaceCss();
   const cardMod = require("./signature.card");
@@ -325,6 +343,7 @@ async function cardPreview(client, { userId, language = "en" } = {}) {
     palette: r.model.palette,
     fonts: r.model.fonts,
     language: r.language,
+    gaps: gapsMod.gaps(r.model, can),
   };
 }
 

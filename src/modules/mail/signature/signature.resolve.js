@@ -6,10 +6,19 @@
  * separator, which is why every join goes through `join()` rather than
  * interpolating fields into a template string.
  *
- * Desk and mobile phone are typed by the user because `employee` has no phone
- * columns today (Q14). That is a real master-data gap: HR cannot record a
- * staff phone number anywhere. If it is ever fixed, prefer `employee.phone_*`
- * and fall back to the profile — one change, nothing else.
+ * PHONE PRECEDENCE (Q14, resolved). This file used to carry a note saying desk
+ * and mobile were typed by the user because `employee` had no phone columns,
+ * and that if the gap were ever closed the fix was to prefer `employee.phone_*`
+ * and fall back to the profile. `12759` added the columns; this is that fix.
+ *
+ * The order is PROFILE first, then employee — the opposite of what that note
+ * said, and deliberately. The employee row is the master record, but the
+ * profile value is an explicit personal override someone typed for their
+ * signature specifically: a person whose desk number is the switchboard and
+ * whose signature should show their direct line has no other way to say so.
+ * Reading employee first would silently overwrite that the moment HR filled a
+ * number in. Blank is not an override, so anyone who never typed one simply
+ * gets HR's.
  */
 "use strict";
 
@@ -79,11 +88,23 @@ function resolve(input = {}, lang = "en") {
     ? departmentLabel(identity.purpose, language)
     : (employee.department || null);
 
-  const email = mailbox.email_address || identity.from_address || null;
+  // The SENDING MAILBOX wins, and that ordering is load-bearing rather than
+  // incidental. `employee.email` is the address HR holds; the mailbox is the
+  // address the message is actually going out from. When they differ — someone
+  // sending from a shared ops@ or billing@ box — a signature that printed the
+  // HR address would contradict the From header the recipient can see, and
+  // "reply to the address in the signature" would land somewhere nobody reads.
+  // So the employee address is the fallback, not the source: it fills the line
+  // in a preview or a batch render, where there is no mailbox to speak of.
+  const email = mailbox.email_address
+    || employee.email
+    || identity.from_address
+    || null;
 
-  // Typed fields. A SYSTEM render never carries a person's mobile.
-  const phoneDesk = system ? null : (profile.phone_desk || null);
-  const phoneMobile = system ? null : (profile.phone_mobile || null);
+  // A SYSTEM render never carries a person's mobile.
+  // Override → master → blank; see PHONE PRECEDENCE in the header.
+  const phoneDesk = system ? null : (profile.phone_desk || employee.phone_desk || null);
+  const phoneMobile = system ? null : (profile.phone_mobile || employee.phone_mobile || null);
   const whatsapp = system ? null : (profile.whatsapp || null);
   const pronouns = system ? null : (profile.pronouns || null);
   const credentials = system ? null : (profile.credentials || null);
@@ -146,6 +167,9 @@ function resolve(input = {}, lang = "en") {
   return {
     language,
     system,
+    // Carried so a "missing P.O. Box" gap can link to THIS entity's dossier
+    // rather than to the entity list for the reader to find it again.
+    entity_id: entity.entity_id || null,
     kind: layout.kind || "classic",
     width_px: Number(layout.width_px) || 650,
     height_px: Number(layout.height_px) || 325,
