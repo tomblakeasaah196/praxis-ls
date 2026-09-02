@@ -16,7 +16,13 @@ module.exports = {
 
   /** One contract with everything a draft needs: the employee, their entity,
    *  and the vacancy it came from. One query, because the drafter is called
-   *  outside a transaction and should not hold a connection across three. */
+   *  outside a transaction and should not hold a connection across three.
+   *
+   *  Deliberately NARROW. This is what the AI refiner is shown, and a model
+   *  that is rephrasing one clause about a job has no business being handed a
+   *  date of birth, a parent's name and a national identity number. The full
+   *  civil identity is loaded by `composition()` below, which never leaves the
+   *  process. */
   async context(client, id) {
     const { rows } = await client.query(
       `SELECT hc.*, e.full_name AS employee_name, e.department, e.job_title AS employee_job_title,
@@ -36,6 +42,103 @@ module.exports = {
       [id],
     );
     return rows[0] || null;
+  },
+
+  /**
+   * Everything a composed contract states, in one read.
+   *
+   * ── WHY THIS IS NOT `context()` WITH MORE COLUMNS ─────────────────────────
+   *
+   * `context()` feeds the model. This feeds the composer. Widening the first
+   * into the second would have put an employee's parents, birthplace and CNI
+   * number into an outbound prompt to satisfy a clause the model never sees —
+   * the composer fills the identification paragraph itself, deterministically,
+   * and the model only ever rephrases the duties clause. Two callers with two
+   * appetites, so two queries.
+   *
+   * ── THE REPRESENTATIVE ────────────────────────────────────────────────────
+   *
+   * The employer is bound by a named person acting in a stated capacity, and
+   * that person is a row in the entity's own register of directors, officers
+   * and signatories. Picked by `employer_person_id` when the contract names
+   * one; otherwise the register's own precedence — the legal representative
+   * first, then an authorised signatory, then a director or officer — and only
+   * among rows that are ACTIVE and whose mandate covers today. A resigned
+   * director must not be offered as the person who signs.
+   */
+  async composition(client, id) {
+    const { rows } = await client.query(
+      `SELECT hc.*,
+              to_jsonb(e.*)  AS employee,
+              to_jsonb(ce.*) AS entity,
+              to_jsonb(rep.*) AS representative,
+              v.title AS vacancy_title,
+              COALESCE(al.lines, '[]'::jsonb) AS allowances
+         FROM hr_contract hc
+         LEFT JOIN employee e ON e.employee_id = hc.employee_id
+         LEFT JOIN corporate_entity ce ON ce.entity_id = COALESCE(hc.entity_id, e.entity_id)
+         LEFT JOIN LATERAL (
+           SELECT p.*
+             FROM entity_person p
+            WHERE p.entity_id = ce.entity_id
+              AND p.holder_type = 'PERSON'
+              AND p.is_active
+              AND (p.effective_from IS NULL OR p.effective_from <= CURRENT_DATE)
+              AND (p.effective_to   IS NULL OR p.effective_to   >= CURRENT_DATE)
+              AND (hc.employer_person_id IS NULL
+                   OR p.person_id = hc.employer_person_id)
+              AND p.role IN ('LEGAL_REPRESENTATIVE','AUTHORISED_SIGNATORY','DIRECTOR','OFFICER')
+            ORDER BY
+              -- An explicit choice always wins; the precedence below only
+              -- decides who is offered when the contract named nobody.
+              (p.person_id = hc.employer_person_id) DESC NULLS LAST,
+              CASE p.role WHEN 'LEGAL_REPRESENTATIVE' THEN 1
+                          WHEN 'AUTHORISED_SIGNATORY' THEN 2
+                          WHEN 'DIRECTOR' THEN 3 ELSE 4 END,
+              p.created_at
+            LIMIT 1
+         ) rep ON true
+         LEFT JOIN LATERAL (
+           SELECT jsonb_agg(to_jsonb(a.*) ORDER BY a.created_at) AS lines
+             FROM employee_allowance a
+            WHERE a.employee_id = e.employee_id
+              -- Live on the day the contract takes effect, not today: a
+              -- contract effective next month states the pay that will then
+              -- apply, and a backdated one states the pay that did.
+              AND (a.effective_on IS NULL
+                   OR a.effective_on <= COALESCE(hc.effective_on, CURRENT_DATE))
+              AND (a.ends_on IS NULL
+                   OR a.ends_on >= COALESCE(hc.effective_on, CURRENT_DATE))
+              AND a.periodicity = 'MONTHLY'
+         ) al ON true
+         LEFT JOIN vacancy v ON v.vacancy_id = hc.vacancy_id
+        WHERE hc.hr_contract_id = $1`,
+      [id],
+    );
+    return rows[0] || null;
+  },
+
+  /**
+   * Who this entity can put a contract in front of, for the wizard's picker.
+   * Same filter as the LATERAL above, so what the wizard offers is exactly what
+   * composition would resolve.
+   */
+  async signatories(client, entityId) {
+    const { rows } = await client.query(
+      `SELECT person_id, full_name, title, role
+         FROM entity_person
+        WHERE entity_id = $1
+          AND holder_type = 'PERSON'
+          AND is_active
+          AND (effective_from IS NULL OR effective_from <= CURRENT_DATE)
+          AND (effective_to   IS NULL OR effective_to   >= CURRENT_DATE)
+          AND role IN ('LEGAL_REPRESENTATIVE','AUTHORISED_SIGNATORY','DIRECTOR','OFFICER')
+        ORDER BY CASE role WHEN 'LEGAL_REPRESENTATIVE' THEN 1
+                           WHEN 'AUTHORISED_SIGNATORY' THEN 2
+                           WHEN 'DIRECTOR' THEN 3 ELSE 4 END, full_name`,
+      [entityId],
+    );
+    return rows;
   },
 
   /** The handbook, by title. Titles only — see hr_contract.draft for why. */

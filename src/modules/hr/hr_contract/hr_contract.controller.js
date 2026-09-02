@@ -3,7 +3,9 @@ const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");
 const service = require("./hr_contract.service");
 const repo = require("./hr_contract.repo");
-const drafter = require("./hr_contract.draft");
+const refiner = require("./hr_contract.draft");
+const composer = require("./hr_contract.compose");
+const libraries = require("../../../services/contracts/libraries");
 
 const base = makeController(service, "Contract");
 
@@ -15,63 +17,105 @@ module.exports = {
     return res.json({ data: await req.tenantDb((c) => service.list(c, { employee_id: eid })) });
   }),
   /**
-   * Draft the contract text with the model.
+   * Compose the contract from its clause library, then let a model finish the
+   * one clause it is allowed to touch.
    *
    * ── WHY THIS IS THREE db CALLS AND NOT ONE ──────────────────────────────
    *
-   * The model call takes seconds, and this deployment runs a
-   * 12-connection-per-tenant ceiling — holding a pooled connection across it is
-   * how one slow provider takes the whole tenant's pool. So: read the context
-   * and release, call the model with no connection held, then write.
+   * The refinement is a model call of several seconds, and this deployment runs
+   * a 12-connection-per-tenant ceiling — holding a pooled connection across it
+   * is how one slow provider takes the whole tenant's pool. So: read the
+   * composition and release, refine with no connection held, then compose and
+   * write.
    *
-   * `llm.chat` is given the client only to resolve the tenant's configured
-   * vendor, which is why that read is its own short-lived call rather than
-   * being folded into the write below.
+   * Composed BEFORE and AFTER the model, deliberately. The first pass is what
+   * decides whether this contract can exist at all — it refuses, naming every
+   * missing fact, before a token of AI budget is spent on a document that
+   * cannot be produced.
    */
-  draftFor: asyncHandler(async (req, res) => {
+  composeFor: asyncHandler(async (req, res) => {
     const id = req.params.id;
-    const context = await req.tenantDb(async (c) => ({
-      row: await repo.context(c, id),
+    const body = req.body || {};
+    const { row, sopTitles } = await req.tenantDb(async (c) => ({
+      row: await repo.composition(c, id),
       sopTitles: await repo.sopTitles(c),
     }));
-    if (!context.row) throw new AppError("NOT_FOUND", "Contract not found", 404);
-    const row = context.row;
-    const body = req.body || {};
+    if (!row) throw new AppError("NOT_FOUND", "Contract not found", 404);
 
-    // What the model is told. The employee's current job title and salary are
-    // OFFERED as defaults where the caller stated nothing — an HR officer
-    // drafting a confirmation letter for somebody already employed should not
-    // have to retype what the system knows. Anything the caller did state wins.
-    const terms = {
-      title: body.title,
-      entity_id: body.entity_id ?? row.entity_id ?? null,
-      job_title: body.job_title ?? row.employee_job_title ?? row.vacancy_title ?? null,
-      effective_on: body.effective_on ?? row.effective_on ?? null,
-      end_on: body.end_on ?? row.end_on ?? null,
-      gross_salary: body.gross_salary ?? (row.base_salary === null ? null : Number(row.base_salary)),
-      salary_currency: body.salary_currency || "XAF",
-      probation_months: body.probation_months ?? null,
-      notice_days: body.notice_days ?? drafter.DEFAULT_NOTICE_DAYS,
-      working_hours: body.working_hours ?? null,
-      place_of_work: body.place_of_work ?? null,
-      vacancy_id: body.vacancy_id ?? row.vacancy_id ?? null,
-    };
+    // What the wizard is holding but has not saved. `build` reads only the keys
+    // it knows, so an unexpected one in the body cannot become a term.
+    const overrides = body;
+    // Throws CONTRACT_FACT_MISSING (422, every missing fact named) rather than
+    // producing a document with a hole in it.
+    const first = composer.build(row, { overrides });
 
-    const draft = await req.tenantDb((c) =>
-      drafter.draft(c, {
-        ...terms,
-        kind: row.kind,
-        employee_name: row.employee_name,
-        department: row.department,
-        entity_name: row.entity_name,
-        entity_country: row.entity_country,
-        sop_titles: context.sopTitles,
+    const refinement = body.refine === false
+      ? { overrides: {}, ai_generated: false, ai_model: null, rejected: [] }
+      : await req.tenantDb((c) => refiner.refine(c, {
+        libraryKey: first.columns.clause_library_key,
+        language: first.columns.language,
+        jobTitle: first.facts.terms.job_title,
+        department: first.facts.terms.department,
+        sopTitles,
       }));
 
+    const built = Object.keys(refinement.overrides).length
+      ? composer.build(row, { overrides, clauseOverrides: refinement.overrides })
+      : first;
+
     const saved = await req.tenantDb((c) =>
-      service.applyDraft(c, { id, draft, terms, actor: req.user || { user_id: null } }));
+      service.applyComposition(c, { id, built, refinement, actor: req.user || { user_id: null } }));
     if (!saved) throw new AppError("NOT_FOUND", "Contract not found", 404);
-    res.json({ data: saved });
+    res.json({
+      data: saved,
+      meta: {
+        library: built.composed.library_key,
+        version: built.composed.library_version,
+        language: built.composed.language,
+        articles: built.composed.articles.length,
+        omitted: built.composed.omitted,
+        ai_rejected: refinement.rejected,
+      },
+    });
+  }),
+
+  /**
+   * What this contract still needs, and what it would be composed from.
+   *
+   * Never throws on a missing fact — this is what the wizard asks as the
+   * operator types, and an endpoint that 422s on an incomplete form cannot be
+   * used to tell somebody what is incomplete about it.
+   */
+  readinessFor: asyncHandler(async (req, res) => {
+    const row = await req.tenantDb((c) => repo.composition(c, req.params.id));
+    if (!row) throw new AppError("NOT_FOUND", "Contract not found", 404);
+    const overrides = req.query || {};
+    const state = composer.readiness(row, { overrides });
+    const signatories = row.entity && row.entity.entity_id
+      ? await req.tenantDb((c) => repo.signatories(c, row.entity.entity_id))
+      : [];
+    res.json({
+      data: {
+        ...state,
+        // Who the employer would be bound by, and who it could be bound by —
+        // so the wizard can show the choice rather than a resolved name the
+        // operator cannot question.
+        representative: row.representative && row.representative.person_id
+          ? { person_id: row.representative.person_id, full_name: row.representative.full_name, title: row.representative.title, role: row.representative.role }
+          : null,
+        signatories,
+      },
+    });
+  }),
+
+  /** The clause libraries this deployment carries, for the wizard's picker. */
+  libraries: asyncHandler(async (_req, res) => {
+    res.json({
+      data: libraries.all().map((l) => ({
+        key: l.key, language: l.language, jurisdiction: l.jurisdiction,
+        version: l.version, title: l.title, articles: l.articles.length,
+      })),
+    });
   }),
 
   /**

@@ -52,23 +52,28 @@ module.exports = {
   },
 
   /**
-   * Draft (or re-draft) the contract text.
+   * Write a composed contract onto the row.
    *
-   * ── WHY THE TERMS ARE WRITTEN FROM THE INPUT, NOT FROM THE DRAFT ────────
+   * ── WHAT THE COMPOSER DECIDED AND WHAT THIS DECIDES ─────────────────────
    *
-   * The model writes prose; it does not decide terms. Salary, dates, probation
-   * and notice are taken from what the caller passed and written to their own
-   * columns — so even a model that "helpfully" adjusted a figure in the text
-   * cannot make that the recorded agreement, and `probation_ends_on` is
-   * computed here rather than parsed back out of a paragraph.
+   * Nothing here reads the prose. The body and the columns both come out of
+   * `hr_contract.compose.build`, which derived them from the same facts in the
+   * same pass — so the salary in Article 3 and the salary in `gross_salary`
+   * cannot disagree, which they could when one was parsed from a paragraph a
+   * model had written and the other from a form.
+   *
+   * `probation_ends_on` is the exception, computed here because it is the date
+   * the expiry watcher reads and this module owns the calendar arithmetic
+   * (short-month clamping included) that every other route into that column
+   * already goes through.
    *
    * ── AND WHY THE MODEL CALL IS NOT IN THE TRANSACTION ────────────────────
    *
    * It is several seconds against a 12-connection-per-tenant ceiling. The
-   * controller reads the context, releases, calls this, and writes — see
-   * `draftFor` in the controller.
+   * controller reads the composition, releases, refines, and writes — see
+   * `composeFor` in the controller.
    */
-  async applyDraft(client, { id, draft, terms, actor = {} }) {
+  async applyComposition(client, { id, built, refinement = {}, actor = {} }) {
     const before = await repo.findById(client, id);
     if (!before) return null;
     if (before.status !== "DRAFT") {
@@ -76,30 +81,37 @@ module.exports = {
       // is not an edit. Supersede it with a renewal instead.
       throw new AppError("INVALID_TRANSITION", `A ${before.status.toLowerCase()} contract can no longer be redrafted`, 422);
     }
-    const probationEnds =
-      terms.effective_on && terms.probation_months
-        ? addMonths(terms.effective_on, terms.probation_months)
-        : null;
+    const c = built.columns;
     const row = await repo.update(client, id, {
-      title: terms.title || before.title || null,
-      body_md: draft.body_md,
-      ai_generated: draft.ai_generated,
-      ai_model: draft.ai_model,
-      entity_id: terms.entity_id ?? before.entity_id ?? null,
-      job_title: terms.job_title ?? null,
-      gross_salary: terms.gross_salary ?? null,
-      salary_currency: terms.salary_currency || "XAF",
-      probation_months: terms.probation_months ?? null,
-      probation_ends_on: probationEnds,
-      notice_days: terms.notice_days ?? null,
-      working_hours: terms.working_hours ?? null,
-      place_of_work: terms.place_of_work ?? null,
-      effective_on: terms.effective_on ?? before.effective_on ?? null,
-      end_on: terms.end_on ?? before.end_on ?? null,
-      vacancy_id: terms.vacancy_id ?? before.vacancy_id ?? null,
+      ...c,
+      body_md: built.body_md,
+      // Composed, then finished: `ai_generated` says a model touched a clause,
+      // not that it wrote the contract. Nobody should read a true here and
+      // believe the terms came from a model — they cannot.
+      ai_generated: Boolean(refinement.ai_generated),
+      ai_model: refinement.ai_model || null,
+      entity_id: before.entity_id ?? (built.facts.entity && built.facts.entity.entity_id) ?? null,
+      employer_person_id:
+        before.employer_person_id
+        ?? (built.facts.representative && built.facts.representative.person_id)
+        ?? null,
+      probation_ends_on:
+        c.effective_on && c.probation_months ? addMonths(c.effective_on, c.probation_months) : null,
     });
     const entityRef = `hr_contract:${id}`;
-    await emitEvent(client, { eventTypeKey: events.DRAFTED, moduleKey: events.MODULE, entityRef, actorUserId: actor.user_id || null, payload: { ai: draft.ai_generated, model: draft.ai_model } });
+    await emitEvent(client, {
+      eventTypeKey: events.DRAFTED, moduleKey: events.MODULE, entityRef,
+      actorUserId: actor.user_id || null,
+      payload: {
+        library: c.clause_library_key, version: c.clause_library_version, language: c.language,
+        ai: Boolean(refinement.ai_generated), model: refinement.ai_model || null,
+        // Which clauses were left out, and which facts left them out. On the
+        // event rather than only in the response, because "why does this
+        // contract have no probation article" is asked months later.
+        omitted: (built.composed.omitted || []).map((o) => o.key),
+        rejected: (refinement.rejected || []).map((r) => r.article),
+      },
+    });
     await audit(client, { actorUserId: actor.user_id || null, action: events.DRAFTED, moduleKey: events.MODULE, entityRef, before, after: row });
     return row;
   },

@@ -1,231 +1,187 @@
 /**
- * Drafting an employment contract (MOD-12 / 0700).
+ * The one thing a model is allowed to do to a contract.
  *
- * ── WHAT THE MODEL IS AND IS NOT ASKED TO DO ───────────────────────────────
+ * ── WHAT THIS USED TO BE ───────────────────────────────────────────────────
  *
- * It is asked to WRITE, not to DECIDE. Every term that binds either party —
- * the salary, the start date, the probation length, the notice period, the
- * job title, the entity — is passed in and echoed back verbatim. The model's
- * job is the prose around them: the clauses, the ordering, the register.
+ * Thirteen facts and "draft the body of this document". The model wrote every
+ * clause, so two hires on identical terms got different contracts, the wording
+ * could not be diffed between two employees or two months, a vendor outage
+ * meant a template fallback that was a different document again, and the whole
+ * thing was written in English against Cameroonian labour law.
  *
- * That split is the whole design. A model that "adjusts" a salary band or
- * rounds a notice period has invented a term the employer never agreed, on a
- * document the employer will sign. So the terms go into the prompt as facts,
- * `shape()` overwrites whatever came back with the same facts, and the caller
- * stores those columns from its own input rather than from the draft.
+ * The eighteen clause libraries are the document now. What is left for a model
+ * is the single thing it is genuinely better at than a template: saying what
+ * THIS person will actually do, in the duties clause, in prose that reads like
+ * it was written for the job rather than for a form.
  *
- * ── GROUNDED IN THE TENANT'S OWN HANDBOOK ──────────────────────────────────
+ * ── THE LEASH IS STRUCTURAL, NOT A PROMPT ──────────────────────────────────
  *
- * The SOP titles are passed in so the contract can refer to the documents the
- * employee is actually given ("as set out in the Staff Handbook"), rather than
- * inventing policies. Titles only — the bodies live in the vault as PDFs and
- * feeding them in would cost a great deal of context to produce a contract that
- * restates the handbook instead of referring to it.
+ * The model is given the AUTHORED clause — tokens and all, `{{term.job_title}}`
+ * unresolved — and asked to rephrase it. It never sees a salary, a date, a
+ * national identity number or a parent's name, because the clause it is
+ * rewriting contains none of them. What comes back is then checked against the
+ * original before it is accepted:
+ *
+ *   · every token in the authored text is still present, exactly once, and no
+ *     token has been invented — so the FACTS are still filled by the composer,
+ *     from the record, after the model has finished;
+ *   · every number in the authored text survives — a model that turned "six
+ *     (06) months" into "6 months" has changed a legal figure's form, and one
+ *     that turned it into twelve has changed the agreement;
+ *   · the result is prose of a plausible length, with no headings, no markdown
+ *     furniture and no new clause bolted on the end.
+ *
+ * A rewrite that fails any of those is DISCARDED and the authored clause stands.
+ * There is no partial acceptance and no repair pass: the authored text is a
+ * good clause, so the cost of refusing a rewrite is nil and the cost of
+ * accepting a bad one is a defective contract.
  *
  * ── IT NEVER THROWS ────────────────────────────────────────────────────────
  *
- * A template draft is a real, editable contract that no model saw. An HR
- * manager with no AI vendor configured must still get a document to edit —
- * failing here would mean the feature simply does not exist for them — and the
- * caller records WHICH produced it so nobody signs a template believing a model
- * reviewed it.
+ * A tenant with no AI vendor configured gets the authored clause, which is the
+ * clause counsel reviewed. Refinement is a finish, never a dependency.
  */
 "use strict";
 
 const llm = require("../../../services/ai/llm.service");
 const { logger } = require("../../../config/logger");
+const { tokensIn } = require("../../../services/contracts/clause-tokens");
+const libraries = require("../../../services/contracts/libraries");
 
-/** Cameroon's statutory default. A tenant's own figure always wins. */
-const DEFAULT_NOTICE_DAYS = 30;
+/** A rewrite may not shrink a clause to a sentence or double its length. */
+const MIN_RATIO = 0.6;
+const MAX_RATIO = 2.0;
 
-const money = (v) =>
-  v === null || v === undefined || v === "" || Number.isNaN(Number(v)) ? null : Number(v);
+/** Every digit run in the text — "six (06) months" carries 06. */
+const numbersIn = (text) => (String(text || "").match(/\d+/g) || []).sort();
 
-const KIND_LABEL = {
-  OFFER_LETTER: "offer letter",
-  EMPLOYMENT: "employment contract",
-  CONFIRMATION: "confirmation of employment letter",
-  TERMINATION: "termination letter",
-};
-
-/** The facts, in one place, so the prompt and the fallback cannot disagree. */
-function terms(input = {}) {
-  return {
-    kind: input.kind || "EMPLOYMENT",
-    employee_name: input.employee_name || "the employee",
-    job_title: input.job_title || null,
-    department: input.department || null,
-    entity_name: input.entity_name || null,
-    entity_country: input.entity_country || null,
-    effective_on: input.effective_on || null,
-    end_on: input.end_on || null,
-    gross_salary: money(input.gross_salary),
-    salary_currency: input.salary_currency || "XAF",
-    probation_months: input.probation_months ?? null,
-    notice_days: input.notice_days ?? DEFAULT_NOTICE_DAYS,
-    working_hours: input.working_hours || null,
-    place_of_work: input.place_of_work || null,
-    sop_titles: (input.sop_titles || []).filter(Boolean).slice(0, 12),
-  };
+/** Same multiset of tokens, each still used exactly as often. */
+function sameTokens(before, after) {
+  const a = tokensIn(before).sort();
+  const b = tokensIn(after).sort();
+  return a.length === b.length && a.every((t, i) => t === b[i]);
 }
 
-function promptMessages(t) {
-  const facts = [
-    `Document type: ${KIND_LABEL[t.kind] || "employment contract"}`,
-    `Employer: ${t.entity_name || "the employer"}${t.entity_country ? ` (${t.entity_country})` : ""}`,
-    `Employee: ${t.employee_name}`,
-    t.job_title ? `Job title: ${t.job_title}` : null,
-    t.department ? `Department: ${t.department}` : null,
-    t.effective_on ? `Start date: ${t.effective_on}` : null,
-    t.end_on ? `Fixed term ending: ${t.end_on}` : "Term: indefinite",
-    t.gross_salary !== null ? `Gross monthly salary: ${t.gross_salary} ${t.salary_currency}` : null,
-    t.probation_months ? `Probation: ${t.probation_months} month(s)` : null,
-    `Notice period: ${t.notice_days} days`,
-    t.working_hours ? `Working hours: ${t.working_hours}` : null,
-    t.place_of_work ? `Place of work: ${t.place_of_work}` : null,
-    t.sop_titles.length ? `Company policies the employee is bound by: ${t.sop_titles.join("; ")}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
+/**
+ * Accept the rewrite, or say why not.
+ *
+ * Returns null when it is fine, otherwise the reason — logged, so a tenant
+ * whose model keeps failing one check can be told which, rather than being left
+ * to wonder why refinement silently does nothing.
+ */
+function rejectionReason(authored, rewritten) {
+  if (!rewritten) return "empty";
+  if (/^#{1,6}\s|\n#{1,6}\s/.test(rewritten)) return "heading";
+  if (/```/.test(rewritten)) return "code fence";
+  if (!sameTokens(authored, rewritten)) return "tokens changed";
+  const a = numbersIn(authored);
+  const b = numbersIn(rewritten);
+  if (a.length !== b.length || a.some((n, i) => n !== b[i])) return "figures changed";
+  const ratio = rewritten.length / Math.max(authored.length, 1);
+  if (ratio < MIN_RATIO) return `too short (${ratio.toFixed(2)}×)`;
+  if (ratio > MAX_RATIO) return `too long (${ratio.toFixed(2)}×)`;
+  return null;
+}
+
+/** Strip the furniture a model adds however firmly it is asked not to. */
+function tidy(text) {
+  if (!text) return null;
+  let out = String(text).trim();
+  const fence = /^```(?:markdown|md|text)?\s*\n([\s\S]*?)\n```$/i.exec(out);
+  if (fence) out = fence[1].trim();
+  // A restated heading above the clause — the composer prints the heading.
+  out = out.replace(/^#{1,6}\s+.*\n+/, "");
+  // "Here is the rewritten clause:" and friends.
+  out = out.replace(/^(?:here(?:'s| is)|voici)\b[^\n]*:\s*\n+/i, "");
+  return out.trim() || null;
+}
+
+function promptMessages({ clause, language, jobTitle, department, sopTitles }) {
+  const lang = language === "en" ? "English" : "French";
+  const about = [
+    jobTitle ? `Job title: ${jobTitle}` : null,
+    department ? `Department: ${department}` : null,
+    sopTitles && sopTitles.length ? `Company policies this employee is bound by: ${sopTitles.join("; ")}` : null,
+  ].filter(Boolean).join("\n");
 
   return [
     {
       role: "system",
       content: [
-        "You draft employment documents for an employer in the OHADA/CEMAC region (Cameroon labour law).",
+        `You edit one clause of an employment contract governed by the Cameroon Labour Code. You write in ${lang} and you return ${lang} only.`,
         "",
-        "Write the document body as MARKDOWN. Use `##` for clause headings and numbered or plain paragraphs beneath them.",
+        "You are given a clause and some context about the job. Rewrite the clause so it describes THIS role concretely instead of generically. Keep it to the duties and the standard of performance expected.",
         "",
-        "RULES, in order of importance:",
-        "1. Every figure, date and name given to you is a term the parties have agreed. Reproduce them EXACTLY. Never round, adjust, convert or omit one, and never introduce a term that was not given to you.",
-        "2. Where a fact was not given, do not invent it and do not leave a blank line — omit the clause entirely. A contract with a fabricated clause is worse than one that is short.",
-        "3. Refer to the company policies by the names given; do not restate or summarise their contents.",
-        "4. No preamble, no commentary, no signature block, no letterhead, no date line — those are added by the template that renders this. Start at the first clause heading.",
-        "5. Plain professional English. No placeholders like [NAME] or TBD.",
+        "ABSOLUTE RULES:",
+        `1. Placeholders of the form {{something.something}} are filled in later from the employer's records. Reproduce every one of them EXACTLY as written, the same number of times. Do not add new ones, do not remove one, do not translate what is inside the braces.`,
+        "2. Reproduce every number and figure exactly as it is written, including the bracketed form — « six (06) mois » stays « six (06) mois ».",
+        "3. Do not add an obligation, a benefit, a restriction or a duration that is not already in the clause. You are rewriting one clause, not negotiating it.",
+        "4. Return the clause text and nothing else. No heading, no title, no numbering, no preamble, no commentary, no markdown fences. Paragraphs separated by a blank line.",
+        "5. Stay close to the original length — between about the same and half as long again.",
       ].join("\n"),
     },
     {
       role: "user",
-      content: `Draft the body of this document.\n\n${facts}`,
+      content: `${about ? `${about}\n\n` : ""}Rewrite this clause:\n\n${clause}`,
     },
   ];
 }
 
 /**
- * Strip what the model was told not to produce.
+ * Rephrase the clauses a library marks `aiEditable`, for one contract.
  *
- * Models reliably add a title line and a signature block however firmly they
- * are asked not to, and both are supplied by the letterhead template — leaving
- * them in produces a document with the company name twice and two places to
- * sign, which is precisely the sort of thing nobody notices until it is printed.
+ * Call OUTSIDE a transaction: it is a model call of several seconds against a
+ * 12-connection-per-tenant ceiling. `client` is passed only so `llm.chat` can
+ * resolve the tenant's configured vendor.
+ *
+ * @returns {Promise<{overrides: object, ai_generated: boolean, ai_model: string|null, rejected: object[]}>}
+ *          `overrides` is keyed by article key — exactly the shape
+ *          `hr_contract.compose.build` takes as `clauseOverrides`.
  */
-function tidy(text) {
-  if (!text) return null;
-  let out = String(text).trim();
-  // A fenced block around the whole answer.
-  const fence = /^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i.exec(out);
-  if (fence) out = fence[1].trim();
-  // A leading H1 title — the template prints the title.
-  out = out.replace(/^#\s+.*\n+/, "");
-  /* Everything from a signature block onwards.
-   *
-   * Two things this has to get right and an obvious pattern gets wrong: the
-   * leading `\s*` (the heading sits after a BLANK line, so a pattern anchored
-   * to one newline never reaches the `##`), and `signatures?` rather than
-   * `signature\b` — the heading models actually write is the plural, and `\b`
-   * between "signature" and "s" is not a boundary, so the whole block survived. */
-  const sig = out.search(/\n\s*#{0,3}\s*(signatures?|signed by|signed:|for and on behalf|in witness whereof)/i);
-  if (sig > 0) out = out.slice(0, sig).trim();
-  return out || null;
-}
+async function refine(client, { libraryKey, language, jobTitle, department, sopTitles = [] } = {}) {
+  const overrides = {};
+  const rejected = [];
+  let model = null;
 
-/**
- * A real contract, written without a model.
- *
- * Deliberately complete rather than a stub: this is what a tenant with no AI
- * vendor gets, and it has to be signable after editing. It is short because
- * every clause here is one the facts support — the same rule the model is held
- * to.
- */
-function templateDraft(t) {
-  const s = [];
-  const p = (heading, body) => {
-    if (body) s.push(`## ${heading}\n\n${body}`);
-  };
-
-  p(
-    "Parties",
-    `This ${KIND_LABEL[t.kind] || "agreement"} is made between ${t.entity_name || "the Employer"} ("the Employer") and ${t.employee_name} ("the Employee").`,
-  );
-  p(
-    "Position",
-    t.job_title
-      ? `The Employee is engaged as ${t.job_title}${t.department ? ` in the ${t.department} department` : ""}, and shall carry out the duties reasonably associated with that role.`
-      : null,
-  );
-  p(
-    "Term",
-    t.effective_on
-      ? t.end_on
-        ? `Employment begins on ${t.effective_on} and ends on ${t.end_on} unless renewed in writing.`
-        : `Employment begins on ${t.effective_on} and continues for an indefinite period.`
-      : null,
-  );
-  p(
-    "Probation",
-    t.probation_months
-      ? `The first ${t.probation_months} month(s) are a probationary period, during which either party may end this agreement on shorter notice as permitted by law. Confirmation in the role is by written notice from the Employer.`
-      : null,
-  );
-  p(
-    "Remuneration",
-    t.gross_salary !== null
-      ? `The Employee's gross monthly salary is ${t.gross_salary} ${t.salary_currency}, payable monthly in arrears, subject to the statutory deductions the Employer is required to make.`
-      : null,
-  );
-  p("Hours of work", t.working_hours ? `Normal working hours are ${t.working_hours}.` : null);
-  p("Place of work", t.place_of_work ? `The Employee's place of work is ${t.place_of_work}.` : null);
-  p(
-    "Notice",
-    `Either party may end this agreement by giving ${t.notice_days} days' written notice, or such longer period as the law requires.`,
-  );
-  p(
-    "Company policies",
-    t.sop_titles.length
-      ? `The Employee is bound by the Employer's policies and procedures, including: ${t.sop_titles.join("; ")}. These are provided to the Employee and may be amended from time to time.`
-      : null,
-  );
-
-  return s.join("\n\n");
-}
-
-/**
- * Draft a contract body. NEVER throws.
- *
- * Call OUTSIDE a transaction — it is a model call of several seconds, and this
- * deployment runs a 12-connection-per-tenant ceiling.
- *
- * @returns { body_md, ai_generated, ai_model }
- */
-async function draft(client, input = {}) {
-  const t = terms(input);
+  let library;
   try {
-    const { text, provider } = await llm.chat({
-      client,
-      messages: promptMessages(t),
-      temperature: 0.3, // A contract is not a place for invention.
-    });
-    const body = tidy(text);
-    // A model that returned three lines has not written a contract. Falling
-    // back beats handing somebody a document that looks finished and is not.
-    if (body && body.length > 200) {
-      return { body_md: body, ai_generated: true, ai_model: provider || "ai" };
-    }
-    logger.warn({ provider, length: body ? body.length : 0 }, "[hr_contract] draft too short — falling back to the template");
+    library = libraries.get(libraryKey, language);
   } catch (err) {
-    logger.warn({ err }, "[hr_contract] AI drafting failed — falling back to the template");
+    logger.warn({ err, libraryKey, language }, "[hr_contract] no library to refine");
+    return { overrides, ai_generated: false, ai_model: null, rejected };
   }
-  return { body_md: templateDraft(t), ai_generated: false, ai_model: "template" };
+
+  const editable = library.articles.filter((a) => a.aiEditable);
+  for (const article of editable) {
+    try {
+      const { text, provider } = await llm.chat({
+        client,
+        messages: promptMessages({ clause: article.body, language, jobTitle, department, sopTitles }),
+        temperature: 0.3, // A contract is not a place for invention.
+      });
+      const candidate = tidy(text);
+      const reason = rejectionReason(article.body, candidate);
+      if (reason) {
+        // Named, not silent. A vendor that keeps failing one check is a fact
+        // somebody can act on; "the AI did nothing again" is not.
+        logger.warn({ article: article.key, reason, provider }, "[hr_contract] clause rewrite rejected — keeping the authored clause");
+        rejected.push({ article: article.key, reason });
+        continue;
+      }
+      overrides[article.key] = candidate;
+      model = provider || "ai";
+    } catch (err) {
+      logger.warn({ err, article: article.key }, "[hr_contract] clause refinement failed — keeping the authored clause");
+      rejected.push({ article: article.key, reason: "provider error" });
+    }
+  }
+
+  return {
+    overrides,
+    ai_generated: Object.keys(overrides).length > 0,
+    ai_model: model,
+    rejected,
+  };
 }
 
-module.exports = { draft, templateDraft, terms, tidy, promptMessages, DEFAULT_NOTICE_DAYS, KIND_LABEL };
+module.exports = { refine, rejectionReason, tidy, sameTokens, numbersIn, promptMessages, MIN_RATIO, MAX_RATIO };
