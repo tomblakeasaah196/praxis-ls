@@ -332,6 +332,14 @@ function compose({ libraryKey, language, bundle, overrides = {} }) {
  * body at `##` into the sections the PDF renders — the renderer did not need to
  * learn a new shape, and a contract edited by hand afterwards stays editable in
  * exactly the way it was before.
+ *
+ * ── THE CLOSING IS NOT IN HERE ─────────────────────────────────────────────
+ *
+ * « Fait à Douala, le … » carries no heading, so a renderer that cuts at `##`
+ * has nowhere to put it but inside the last article — the contract would print
+ * "in two original copies" as the final paragraph of the disputes clause. It is
+ * returned on the composed document and stored in its own column, and the
+ * template lays it above the signatures where it belongs.
  */
 function toMarkdown(composed) {
   const out = [];
@@ -341,7 +349,6 @@ function toMarkdown(composed) {
     out.push(`## ${a.printed_heading || a.heading || ""}`.trimEnd());
     out.push(a.body);
   }
-  if (composed.closing) out.push(composed.closing);
   return out.filter((s) => clean(s) !== "").join("\n\n");
 }
 

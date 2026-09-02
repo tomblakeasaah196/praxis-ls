@@ -192,6 +192,14 @@ function build(row, { overrides = {}, clauseOverrides = {} } = {}) {
       end_on: facts.terms.end_on,
       place_signed: facts.doc.place_signed,
       jurisdiction_city: facts.doc.jurisdiction_city,
+      /* « Fait à Douala, le … » and the two signature panels, resolved. Stored
+       * rather than recomposed at print time: the library may be revised, and a
+       * contract must print the closing it was composed with — the same reason
+       * `clause_library_version` is pinned. Out of `body_md` because it carries
+       * no heading, and a renderer that cuts at `##` would otherwise print it
+       * as the last paragraph of the disputes clause. */
+      closing_md: composed.closing,
+      signature_labels: composed.signatures,
       // Frozen: the document renders from these, never from the live rows. A
       // correction typed next year must not rewrite a contract signed this one.
       employee_snapshot: facts.employee,

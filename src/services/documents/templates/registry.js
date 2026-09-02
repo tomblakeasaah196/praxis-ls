@@ -74,6 +74,46 @@ const sampleLines = [
 ];
 const sampleTotals = { service_ht: 1080000, disbursement_total: 320000, vat_total: 207900, total_ttc: 1607900 };
 
+/**
+ * The two panels an employment contract is signed in.
+ *
+ * ── WHY NOT `k.signatureBlock` ─────────────────────────────────────────────
+ *
+ * That block is written for a commercial document: it prints "Pour le client /
+ * For the client" on the left and the company on the right. On an employment
+ * contract that labels the EMPLOYEE "the client" — in the document that defines
+ * the relationship, which is precisely the relationship it is not.
+ *
+ * The labels here come from the clause library the contract was composed from
+ * (`signature_labels`, frozen on the row), so they are in the contract's own
+ * language and carry the mentions Cameroonian practice requires: the employee's
+ * panel says « Précédé de la mention "Lu et approuvé" », the employer's names
+ * the company and asks for the cachet. A contract composed before those columns
+ * existed falls back to labels that are at least the right two parties.
+ */
+function contractSignatures(d, cfg, entity) {
+  const labels = (d.signature_labels && d.signature_labels.length)
+    ? d.signature_labels
+    : [
+      { party: "EMPLOYEE", label: k.t({ fr: "L'EMPLOYÉ(E)", en: "THE EMPLOYEE" }, cfg.language), mention: "" },
+      { party: "EMPLOYER", label: k.t({ fr: "L'EMPLOYEUR", en: "THE EMPLOYER" }, cfg.language), mention: entity.legal_name || "" },
+    ];
+  const who = (s) => {
+    if (s.party !== "EMPLOYER") return d.employee_name || "";
+    // The named person who binds the employer, and the capacity they bind it
+    // in — the preamble says « représentée par X, agissant en qualité de Y »,
+    // and the panel they sign must be the same person.
+    const rep = d.representative;
+    return rep ? [rep.name, rep.title].filter(Boolean).join(" · ") : "";
+  };
+  const panel = (s) => `<div class="b">`
+    + `<div class="ln">${k.esc(s.label || "")}</div>`
+    + (who(s) ? `<div class="muted">${k.esc(who(s))}</div>` : "")
+    + (s.mention ? `<div class="muted">${k.esc(s.mention)}</div>` : "")
+    + `</div>`;
+  return `<div class="sig">${labels.map(panel).join("")}</div>`;
+}
+
 /* ── the six templates ───────────────────────────────────────────────────── */
 const TEMPLATES = {
   FINAL_INVOICE: {
@@ -1172,21 +1212,61 @@ const TEMPLATES = {
 
   EMPLOYMENT_CONTRACT: {
     docType: "EMPLOYMENT_CONTRACT", title: { fr: "Contrat de travail", en: "Employment contract" }, module: "hr/hr_contract", fields: ["clauses", "replace-with-signed"],
+    /*
+     * ── THE ARTICLES ARE ALREADY NUMBERED ────────────────────────────────
+     *
+     * This used to wrap every section in `Article ${i + 1} — ${a.title}`. Once
+     * the body is composed from a clause library that heading is already
+     * "ARTICLE 1 : ENGAGEMENT ET DURÉE", so the page printed "Article 1 —
+     * ARTICLE 1 : ENGAGEMENT ET DURÉE" — and the preamble, which is not an
+     * article at all, came out as "Article 1 — ENTRE LES SOUSSIGNÉS :". The
+     * composer numbers what it actually emitted (so an omitted clause does not
+     * leave a gap); the template prints the heading it was given.
+     *
+     * The old numbering is kept for a body with no headings of its own — a
+     * contract typed in by hand, or one drafted before the libraries existed.
+     *
+     * ── AND THERE IS NO SEPARATE PARTIES BLOCK ───────────────────────────
+     *
+     * « ENTRE LES SOUSSIGNÉS » IS the parties block, in the document's own
+     * words, naming both parties with the identification a contract requires.
+     * A second one above it said the same thing less completely, in a different
+     * format, with its own chance of disagreeing — and cost a fifth of the
+     * first page on a document that has to fit in three or four.
+     */
     build: (d, cfg, entity, verify) => {
-      const arts = (d.articles || []).map((a, i) => k.section({ fr: `Article ${i + 1} — ${a.title}`, en: `Article ${i + 1} — ${a.title}` }, `<div class="box">${k.esc(a.body).replace(/\n/g, "<br>")}</div>`, cfg)).join("");
+      const numbered = (d.articles || []).some((a) => /^ARTICLE\s/i.test(a.title || ""));
+      const heading = (a, i) => (numbered || !a.title
+        ? a.title || ""
+        : `Article ${i + 1} — ${a.title}`);
+      const arts = (d.articles || [])
+        .map((a, i) => k.section({ fr: heading(a, i), en: heading(a, i) }, `<div class="box">${k.esc(a.body).replace(/\n/g, "<br>")}</div>`, cfg))
+        .join("");
+      // « Fait à Douala, le … » — below the clauses, above the signatures.
+      const closing = d.closing
+        ? `<div class="box" style="margin-top:6mm">${k.esc(d.closing).replace(/\n/g, "<br>")}</div>`
+        : "";
       const body = [
-        k.standardHead(entity, cfg, { title: { fr: "Contrat de travail", en: "Employment contract" }, number: d.number, meta: [[{ fr: "Type", en: "Type" }, d.kind], [{ fr: "Date d'effet", en: "Effective" }, k.dateFmt(d.effective_on)]] }),
-        k.parties([
-          { label: { fr: "Employeur", en: "Employer" }, name: entity.legal_name, lines: [entity.address, entity.rccm && `RCCM ${entity.rccm}`].filter(Boolean) },
-          { label: { fr: "Salarié", en: "Employee" }, name: d.employee_name, lines: [d.job_title].filter(Boolean) },
-        ], cfg),
+        k.standardHead(entity, cfg, {
+          // The library's own title. A CDD that prints the generic "Contrat de
+          // travail" understates what it is — and what it is, is the thing art.
+          // 25 and art. 26 attach to.
+          title: d.doc_title ? { fr: d.doc_title, en: d.doc_title } : { fr: "Contrat de travail", en: "Employment contract" },
+          number: d.number,
+          meta: [
+            [{ fr: "Type", en: "Type" }, d.library || d.kind],
+            [{ fr: "Matricule", en: "Staff no." }, d.staff_no],
+            [{ fr: "Date d'effet", en: "Effective" }, k.dateFmt(d.effective_on)],
+          ],
+        }),
         arts,
-        k.signatureBlock({ ...cfg, show: { ...cfg.show, signature: true } }),
+        closing,
+        contractSignatures(d, cfg, entity),
         k.standardFoot(entity, cfg, verify),
       ].join("");
       return k.shell("Contract " + (d.number || ""), body, cfg);
     },
-    sampleData: { number: "CT-2026-0007", kind: "CDI", effective_on: "2026-08-01", employee_name: "Jean Mballa", job_title: "Chef de quai", articles: [{ title: "Fonctions / Duties", body: "Le salarié est engagé en qualité de Chef de quai et exercera ses fonctions au port de Douala." }, { title: "Rémunération / Pay", body: "Le salaire brut mensuel est fixé à 850 000 XAF, payable en fin de mois." }, { title: "Durée / Term", body: "Le présent contrat est conclu pour une durée indéterminée (CDI)." }], currency: "XAF" },
+    sampleData: { number: "CT-2026-0007", kind: "EMPLOYMENT", library: "CDI", doc_title: "CONTRAT DE TRAVAIL À DURÉE INDÉTERMINÉE", effective_on: "2026-08-01", employee_name: "Jean Mballa", staff_no: "SLAS-007", job_title: "Chef de quai", representative: { name: "Marc-Aurèle Ngassa", title: "Gérant" }, articles: [{ title: "ENTRE LES SOUSSIGNÉS :", body: "1. La Société Smart Logistics SARL, société à responsabilité limitée, dont le siège social est situé au Boulevard de la Liberté, Akwa, représentée par Marc-Aurèle Ngassa, agissant en qualité de Gérant,\nCi-après désignée « L'Employeur »,\n\nET :\n\n2. M. Jean Mballa, demeurant à Douala,\nCi-après désigné « L'Employé »." }, { title: "ARTICLE 1 : ENGAGEMENT ET DURÉE", body: "La Société engage M. Jean Mballa à compter du 1er août 2026. Le présent contrat est conclu pour une durée indéterminée." }, { title: "ARTICLE 2 : FONCTIONS ET ATTRIBUTIONS", body: "L'Employé est recruté en qualité de Chef de quai et exercera ses fonctions au port de Douala." }, { title: "ARTICLE 3 : RÉMUNÉRATION", body: "Total brut mensuel : 850 000 XAF, payé par virement bancaire." }], closing: "Fait à Douala, le ……………………, en deux (02) exemplaires originaux dont un remis à chacune des Parties.", signature_labels: [{ party: "EMPLOYEE", label: "L'EMPLOYÉ(E)", mention: "(Précédé de la mention « Lu et approuvé »)" }, { party: "EMPLOYER", label: "L'EMPLOYEUR", mention: "Pour Smart Logistics SARL — (Signature et cachet)" }], currency: "XAF" },
   },
 
   SOP_DOCUMENT: {
