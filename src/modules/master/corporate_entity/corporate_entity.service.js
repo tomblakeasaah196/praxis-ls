@@ -423,7 +423,11 @@ async function saveLetterheadLine(client, { id, lineId = null, patch = {}, remov
   const before = await repo.letterheadLines(client, id);
 
   if (remove) {
-    if (!lineId) throw new AppError("BAD_REQUEST", "A line id is required to remove a line", 400);
+    // `LINE_REQUIRED`, not a generic `BAD_REQUEST`: doc/ERROR_CODES.md is
+    // generated from these and a code a client already switches on cannot be
+    // renamed, so a new one is worth naming for what it means. 422 is the
+    // repo's status for every other `*_REQUIRED`.
+    if (!lineId) throw new AppError("LINE_REQUIRED", "A line id is required to remove a line", 422);
     const gone = await repo.deleteLetterheadLine(client, id, lineId);
     if (!gone) throw new AppError("NOT_FOUND", "That letterhead line does not belong to this entity", 404);
   } else if (lineId) {
