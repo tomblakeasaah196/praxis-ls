@@ -103,14 +103,33 @@ COMMENT ON COLUMN hr_contract.pay_snapshot IS
   'Base salary and the standing allowance lines as at composition, so Article 3''s decomposition still adds up years later.';
 
 -- ── The signing cards an employment contract offers ────────────────────────
--- 10773 seeded every signable doc type with STAMP and DRAWN only, because
--- CERTIFIED and PRINT_SIGN had not shipped. They have. An employment contract
--- is signed by hand with a company stamp in this market, and it is exactly the
--- document a qualified signature exists for — so all four are offered, and the
--- tenant narrows them on the Signatures settings screen if it wants to.
+-- 10773 seeded every signable doc type with exactly
+-- {"allowed":["STAMP","DRAWN"],"default":"STAMP"}, because CERTIFIED and
+-- PRINT_SIGN had not shipped. They have. An employment contract is signed by
+-- hand with a company cachet in this market, and it is also the document a
+-- qualified signature exists for — so all four are offered, and the tenant
+-- narrows them on the Signatures settings screen if it wants to.
 --
--- `jsonb_set` on the existing row rather than an INSERT: a tenant that has
--- already tuned its policy keeps its default card.
+-- ── AND THE DEFAULT CARD BECOMES DRAWN ─────────────────────────────────────
+--
+-- A STAMP is the COMPANY's mark. On every other document the signer is acting
+-- for a business and a stamp is the right thing to pre-select; on an employment
+-- contract the counterparty is a person signing for themselves, and an employee
+-- has no cachet. Pre-selecting one asks them to produce something they do not
+-- have, on the first screen they ever see of this product.
+--
+-- Guarded on the row STILL BEING 10773's seed, byte for byte. That is the only
+-- way to tell an untouched default from one a tenant chose, and a migration
+-- that overwrites a deliberate choice is worse than one that leaves a poor
+-- default standing. A tenant that has tuned its policy gets the wider `allowed`
+-- and keeps its own default.
+UPDATE setting
+   SET value = '{"allowed":["STAMP","DRAWN","CERTIFIED","PRINT_SIGN"],"default":"DRAWN"}'::jsonb
+ WHERE section = 'signature_policy'
+   AND key = 'EMPLOYMENT_CONTRACT'
+   AND value = '{"allowed":["STAMP","DRAWN"],"default":"STAMP"}'::jsonb;
+
+-- Anything else: widen the menu, leave the tenant's chosen default alone.
 UPDATE setting
    SET value = jsonb_set(value, '{allowed}', '["STAMP","DRAWN","CERTIFIED","PRINT_SIGN"]'::jsonb, true)
  WHERE section = 'signature_policy'

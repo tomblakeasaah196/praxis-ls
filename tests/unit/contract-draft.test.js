@@ -509,6 +509,60 @@ describe("the clauses that reach the PDF", () => {
   });
 });
 
+describe("where the employer's address comes from", () => {
+  const repo = require("../../src/modules/hr/hr_contract/hr_contract.repo");
+
+  it("reads the structured address, not just the entity's own columns", () => {
+    /*
+     * THE DEFECT THIS PINS. The preamble prints the registered office, the PO
+     * box and the country — and `corporate_entity` HAS NO `po_box` column.
+     * 0515 moved the structured address to `entity_address` and left
+     * `corporate_entity.address` as a legacy free-text line, so a composition
+     * query reading the entity row alone can never resolve `entity.po_box`:
+     * EVERY contract refuses, naming a fact the operator has no field to fill.
+     *
+     * Found by composing against a real database. Nothing static could see it
+     * — `to_jsonb(ce.*)` names no columns, so even the query-columns gate has
+     * nothing to check — which is exactly why this test asserts on the SQL
+     * rather than on a result nobody can produce without Postgres.
+     */
+    const sql = String(repo.composition);
+    expect(sql).toMatch(/FROM entity_address/);
+    expect(sql).toMatch(/po_box/);
+    // The letterhead's precedence, not a second one invented here: a contract
+    // naming a different office from the letterhead at the top of the same
+    // page would be its own kind of defect.
+    expect(sql).toMatch(/type = 'REGISTERED'\) DESC, a\.is_primary DESC/);
+    // …and the legacy column still answers for a tenant with no structured row.
+    expect(sql).toMatch(/ce\.address/);
+  });
+
+  it("only offers a signatory whose mandate covers today", () => {
+    // A resigned director must never be offered as the person who binds the
+    // company, and the picker the wizard reads must use the same filter the
+    // composition resolves with — otherwise the screen offers somebody the
+    // server would then decline to use.
+    for (const fn of [String(repo.composition), String(repo.signatories)]) {
+      expect(fn).toMatch(/effective_to\s+IS NULL OR/);
+      expect(fn).toMatch(/effective_to\s+>= CURRENT_DATE/);
+      expect(fn).toMatch(/effective_from\s+<= CURRENT_DATE/);
+      expect(fn).toMatch(/is_active/);
+      expect(fn).toMatch(/LEGAL_REPRESENTATIVE'\s*,\s*'AUTHORISED_SIGNATORY'/);
+    }
+  });
+
+  it("reads the pay lines live on the day the contract takes effect", () => {
+    // Not today's. A contract effective next month states the pay that will
+    // then apply, and a backdated one states the pay that did — reading
+    // CURRENT_DATE would put next month's raise into a contract signed last
+    // year. Monthly lines only: a thirteenth month is not part of a monthly
+    // gross.
+    const sql = String(repo.composition);
+    expect(sql).toMatch(/COALESCE\(hc\.effective_on, CURRENT_DATE\)/);
+    expect(sql).toMatch(/periodicity = 'MONTHLY'/);
+  });
+});
+
 describe("the language a contract prints in", () => {
   const { resolveDocLanguage } = require("../../src/modules/documents/template/template.service");
 
