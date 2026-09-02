@@ -71,6 +71,31 @@ function basePt(b: api.LetterheadBlock): number {
 
 const PAPER = { A4: { w: 210, h: 297 }, LETTER: { w: 215.9, h: 279.4 } };
 
+/**
+ * THE PRINT PALETTE — and the one place in this product that deliberately does
+ * not follow the tenant's theme.
+ *
+ * Everything else in the app takes its colour from semantic tokens so that dark
+ * mode and white-labelling work. This canvas must not: it is a picture of a
+ * PIECE OF PAPER, and paper is white in both themes. Painted with `bg-card` the
+ * sheet came out dark-on-light in dark mode while the PDF it depicts is
+ * black-on-white — a WYSIWYG editor showing the opposite of what prints, which
+ * is the exact failure the old hand-drawn preview was replaced for.
+ *
+ * So these are the SERVER's own values, mirrored: `kit.defaults()` sets
+ * ink #101E34, muted #6B7A90 and rule #B7C4D6, and renders on white. A drift
+ * between the two makes the canvas lie, so `tests/unit/letterhead-blocks.test.js`
+ * reads both files and fails if they disagree.
+ *
+ * The chrome AROUND the sheet stays themed — it is app, not document.
+ */
+const PRINT = {
+  paper: "#FFFFFF",
+  ink: "#101E34",
+  muted: "#6B7A90",
+  rule: "#B7C4D6",
+};
+
 /* ────────────────────────────────────────────────────────────────────────────
  * One block on the canvas.
  *
@@ -108,7 +133,7 @@ function CanvasBlock({
     }
     if (block.empty) {
       return (
-        <span className="micro text-muted-foreground italic">
+        <span className="micro italic" style={{ color: PRINT.muted }}>
           {label} — {tr("nothing to print")}
         </span>
       );
@@ -135,9 +160,9 @@ function CanvasBlock({
           fontWeight: block.weight === "bold" ? 800 : 400,
           textTransform: block.transform === "upper" ? "uppercase" : "none",
           letterSpacing: block.transform === "upper" ? "0.03em" : undefined,
-          color: block.tone === "accent" ? accent : undefined,
+          color:
+            block.tone === "accent" ? accent : block.tone === "muted" ? PRINT.muted : PRINT.ink,
         }}
-        className={block.tone === "muted" ? "text-muted-foreground" : "text-foreground"}
       >
         {block.lines.map((l, i) => (
           <div key={i} className="break-words">
@@ -175,11 +200,12 @@ function CanvasBlock({
       data-lh-block={block.id}
       className={[
         "cursor-grab rounded-sm outline-offset-2 transition-[background-color,outline-color]",
-        "hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring",
-        selected ? "outline outline-2 outline-ring bg-muted/30" : "outline-none",
-        block.empty ? "border border-dashed border-border px-1" : "",
+        "hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-ring",
+        selected ? "outline outline-2 outline-ring bg-primary/10" : "outline-none",
+        block.empty ? "border border-dashed px-1" : "",
       ].join(" ")}
       style={{
+        borderColor: block.empty ? PRINT.rule : undefined,
         textAlign: block.align,
         gridColumn: `${(block.col || 0) + 1} / span ${block.span || COLS}`,
       }}
@@ -800,9 +826,11 @@ export function LetterheadStudio({
            * included — is the millimetre the server measured, scaled once.
            */}
           <div
-            className="mx-auto bg-card p-[calc(16*var(--mm))] text-foreground"
+            className="mx-auto p-[calc(16*var(--mm))]"
             style={
               {
+                background: PRINT.paper,
+                color: PRINT.ink,
                 "--mm": `${100 / paper.w}cqw`,
                 containerType: "inline-size",
                 aspectRatio: `${paper.w} / ${paper.h}`,
@@ -812,12 +840,17 @@ export function LetterheadStudio({
             }
           >
             {zoneCard("header", comp.header)}
-            <div className="my-[calc(4*var(--mm))] flex flex-1 items-center justify-center rounded border border-dashed border-border">
-              <span className="micro text-muted-foreground">{tr("Document body")}</span>
+            <div
+              className="my-[calc(4*var(--mm))] flex flex-1 items-center justify-center rounded border border-dashed"
+              style={{ borderColor: PRINT.rule }}
+            >
+              <span className="micro" style={{ color: PRINT.muted }}>
+                {tr("Document body")}
+              </span>
             </div>
             <div
               className="border-t pt-[calc(1.4*var(--mm))]"
-              style={{ borderTopColor: cfg.accent_color || undefined }}
+              style={{ borderTopColor: cfg.accent_color || PRINT.rule }}
             >
               {zoneCard("footer", comp.footer)}
             </div>

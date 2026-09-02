@@ -309,3 +309,53 @@ describe("deep links resolve to something that exists", () => {
     expect([...anchors]).toContain(b.source.field);
   });
 });
+
+/**
+ * THE CANVAS PAINTS PAPER, AND IT HAS TO BE THE SAME PAPER.
+ *
+ * The studio deliberately steps outside the app's semantic tokens for the sheet
+ * itself: a document preview is a picture of a piece of paper, and paper is
+ * white in dark mode too. Painted with the app's surface tokens the sheet came
+ * out light-on-dark while the PDF it depicts is black-on-white — a WYSIWYG
+ * editor showing the opposite of what prints.
+ *
+ * The consequence is a hand-mirrored copy of `kit.defaults()` in a React file,
+ * which is exactly the kind of duplicate that drifts silently. So it is gated:
+ * change the print ink on the server and this fails until the canvas follows.
+ */
+describe("the studio's print palette matches the renderer's", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const root = path.join(__dirname, "../..");
+  const kitSrc = fs.readFileSync(
+    path.join(root, "src/services/documents/templates/kit.js"),
+    "utf8",
+  );
+  const studioSrc = fs.readFileSync(
+    path.join(root, "client/src/features/masterdata/letterhead-studio.tsx"),
+    "utf8",
+  );
+
+  /** `ink: brand.ink || "#101E34"` and `muted: "#6B7A90"` in kit.defaults(). */
+  const kitColour = (key) => {
+    const m = kitSrc.match(new RegExp(`\\n\\s*${key}:[^,\\n]*"(#[0-9A-Fa-f]{6})"`));
+    return m && m[1].toUpperCase();
+  };
+  /** `ink: "#101E34"` inside the studio's PRINT constant. */
+  const studioColour = (key) => {
+    const block = studioSrc.slice(studioSrc.indexOf("const PRINT = {"));
+    const m = block.match(new RegExp(`${key}:\\s*"(#[0-9A-Fa-f]{6})"`));
+    return m && m[1].toUpperCase();
+  };
+
+  test.each(["ink", "muted", "rule"])("%s is the same colour on both sides", (key) => {
+    const server = kitColour(key);
+    // Guards the test: a regex that stops matching would pass vacuously.
+    expect(server).toMatch(/^#[0-9A-F]{6}$/);
+    expect(studioColour(key)).toBe(server);
+  });
+
+  test("the sheet is painted white, not with an app surface token", () => {
+    expect(studioColour("paper")).toBe("#FFFFFF");
+  });
+});
