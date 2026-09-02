@@ -65,18 +65,48 @@ module.exports = {
    * first, then an authorised signatory, then a director or officer — and only
    * among rows that are ACTIVE and whose mandate covers today. A resigned
    * director must not be offered as the person who signs.
+   *
+   * ── THE ADDRESS COMES FROM entity_address, NOT FROM corporate_entity ──────
+   *
+   * The preamble names the registered office, the PO box and the country, and
+   * `corporate_entity` HAS NO `po_box` COLUMN — 0515 moved the structured
+   * address to `entity_address`, leaving `corporate_entity.address` as a legacy
+   * free-text line. Read off the entity row alone, `entity.po_box` could never
+   * resolve for anybody, and every contract would have refused naming a fact
+   * the operator had no field to fill. Found by composing against a real
+   * database; nothing static could see it.
+   *
+   * The precedence is the letterhead's, deliberately — REGISTERED, then the
+   * primary row, then whatever is active, then the legacy column (see
+   * `entity-letterhead.service.addressLines`). A contract naming a different
+   * office from the letterhead at the top of the same page would be its own
+   * kind of defect.
    */
   async composition(client, id) {
     const { rows } = await client.query(
       `SELECT hc.*,
               to_jsonb(e.*)  AS employee,
-              to_jsonb(ce.*) AS entity,
+              -- The structured address, merged over the entity's own columns:
+              -- only entity_address carries a PO box, and the preamble prints
+              -- one. See the header.
+              to_jsonb(ce.*) || jsonb_strip_nulls(jsonb_build_object(
+                'address', COALESCE(NULLIF(btrim(concat_ws(', ', addr.line1, addr.line2)), ''), ce.address),
+                'po_box',  addr.po_box,
+                'city',    addr.city
+              )) AS entity,
               to_jsonb(rep.*) AS representative,
               v.title AS vacancy_title,
               COALESCE(al.lines, '[]'::jsonb) AS allowances
          FROM hr_contract hc
          LEFT JOIN employee e ON e.employee_id = hc.employee_id
          LEFT JOIN corporate_entity ce ON ce.entity_id = COALESCE(hc.entity_id, e.entity_id)
+         LEFT JOIN LATERAL (
+           SELECT a.line1, a.line2, a.city, a.po_box
+             FROM entity_address a
+            WHERE a.entity_id = ce.entity_id AND a.is_active
+            ORDER BY (a.type = 'REGISTERED') DESC, a.is_primary DESC, a.created_at
+            LIMIT 1
+         ) addr ON true
          LEFT JOIN LATERAL (
            SELECT p.*
              FROM entity_person p
