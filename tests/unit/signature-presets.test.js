@@ -35,17 +35,17 @@ describe("the eligibility funnel — §3.4", () => {
   });
 
   test("level 1: a doc type's ceiling beats the tenant's setting", async () => {
-    // An employment contract may not be wet-signed: it would put a salary on
-    // paper travelling through an office. Even a tenant that enables the card
-    // does not get it.
-    const client = makeClient({ allowed: ["STAMP", "PRINT_SIGN"], flagsOn: ["signatures.wet"] });
-    const menu = await presets.resolveMenu(client, { docType: "EMPLOYMENT_CONTRACT" });
+    // A delivery note may not be certified: it is a high-volume operational
+    // document and a per-signature provider fee on every one of them is not a
+    // cost anybody chose. Even a tenant that enables the card does not get it.
+    const client = makeClient({ allowed: ["STAMP", "CERTIFIED"], flagsOn: ["signatures.qes"] });
+    const menu = await presets.resolveMenu(client, { docType: "DELIVERY_NOTE" });
     expect(menu.cards.map((c) => c.preset_code)).toEqual(["STAMP"]);
     // `objectContaining`, because a blocked entry also carries the tenant's own
     // label and the reason IN WORDS — resolved server-side so the public signing
     // page can explain itself in the reader's language (§3.14).
     expect(menu.blocked).toContainEqual(expect.objectContaining({
-      preset_code: "PRINT_SIGN", reason: "NOT_AVAILABLE_FOR_DOC_TYPE",
+      preset_code: "CERTIFIED", reason: "NOT_AVAILABLE_FOR_DOC_TYPE",
     }));
   });
 
@@ -144,9 +144,20 @@ describe("the doc-type ceiling", () => {
     },
   );
 
-  test("the employment contract is the one type that may not be wet-signed", () => {
-    expect(signaturePolicyFor("EMPLOYMENT_CONTRACT").allowsWet).toBe(false);
+  test("an employment contract may be signed in ink, because that is how they are signed", () => {
+    // This asserted the opposite, on the reasoning that the wet path puts a
+    // salary on paper travelling through an office. The risk is real and it is
+    // not what the flag controls: refusing the card never stopped anybody
+    // printing the PDF, it only stopped the SYSTEM recording that an ink
+    // signature exists — no counter-party panel, no as-signed snapshot, no
+    // verify footer. Signed on paper and recorded as unsigned is the worse of
+    // the two outcomes. The choice now lives where every other choice in the
+    // funnel lives: the tenant's menu, and `allowPaper` at dispatch.
+    expect(signaturePolicyFor("EMPLOYMENT_CONTRACT").allowsWet).toBe(true);
     expect(signaturePolicyFor("DELIVERY_NOTE").allowsWet).toBe(true);
+    // The ceiling itself still bites — a tenant cannot turn on what the doc
+    // type forbids, which is what the funnel test above proves.
+    expect(signaturePolicyFor("DELIVERY_NOTE").allowsQes).toBe(false);
   });
 
   test("QES is off for the high-volume operational documents that would rack up fees", () => {

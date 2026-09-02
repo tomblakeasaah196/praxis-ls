@@ -185,13 +185,31 @@ const SIGNATURE_CEILING = Object.assign(Object.create(null), {
   DELIVERY_NOTE:       { signable: true, allowsQes: false, allowsWet: true },
   TRANSIT_ORDER:       { signable: true, allowsQes: false, allowsWet: true },
   /*
-   * The one type that may NOT be wet-signed. An employment contract carries a
-   * salary, and the wet path prints it, hands it to a courier and posts the
-   * scan back through a shared mailbox. It is also the type most likely to be
-   * disputed years later, which is why it is the only one where certification
-   * is worth its cost.
+   * ── WET WAS FORBIDDEN HERE, AND THAT WAS WRONG ────────────────────────────
+   *
+   * The argument for `allowsWet: false` was that the wet path prints a document
+   * carrying a salary, hands it to a courier and posts the scan back through a
+   * shared mailbox. That risk is real and it is not what the flag controls.
+   *
+   * In this market an employment contract IS signed in ink, with the company
+   * cachet, and the reference contracts this product was built from are
+   * wet-signed scans. Refusing the card never stopped anybody printing the PDF
+   * — the Download button is right there. All it did was stop the SYSTEM
+   * recording that an ink signature exists: no counter-party panel, no
+   * as-signed snapshot, no verify footer, no artifact hash. The contract was
+   * signed on paper and the record said it was unsigned, which is the worse of
+   * the two outcomes by a distance.
+   *
+   * So all four cards are offered, and the choice moves to where the funnel
+   * puts every other choice: the tenant's `signature_policy` menu (12766 seeds
+   * all four with DRAWN as the default), and the sender's `allowPaper` at
+   * dispatch. A tenant that wants employment contracts signed digitally turns
+   * PRINT_SIGN off once, on the Signatures screen, and it stays off.
+   *
+   * `allowsQes` was already true and stays true: this is the type most likely
+   * to be disputed years later, and the one where certification earns its cost.
    */
-  EMPLOYMENT_CONTRACT: { signable: true, allowsQes: true,  allowsWet: false },
+  EMPLOYMENT_CONTRACT: { signable: true, allowsQes: true,  allowsWet: true },
 });
 
 const NOT_SIGNABLE = Object.freeze({ signable: false, allowsQes: false, allowsWet: false });

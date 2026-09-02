@@ -1266,6 +1266,52 @@ export type Contract = {
   doc_number?: string | null;
   /** Set on a renewal: the contract this one supersedes. */
   renews_contract_id?: string | null;
+  /* ── Composition (12766) ───────────────────────────────────────────────
+   *
+   * A contract is no longer written by a model from thirteen facts. It is
+   * composed from one of eighteen authored clause libraries — six contract
+   * types and three letters, each in French and in English — and these
+   * columns are how it remembers which wording it came from.
+   */
+  language?: "fr" | "en" | null;
+  clause_library_key?: string | null;
+  clause_library_version?: string | null;
+  employment_type?: string | null;
+  /** The entity_person who binds the employer — a director or signatory. */
+  employer_person_id?: string | null;
+  base_salary?: number | string | null;
+  place_signed?: string | null;
+  jurisdiction_city?: string | null;
+  /** « Fait à Douala, le … ». Kept out of `body_md`: it carries no heading, so
+   *  the renderer would print it inside the last article. */
+  closing_md?: string | null;
+};
+
+/** Somebody on the entity's register of directors, officers and signatories. */
+export type Signatory = {
+  person_id: string;
+  full_name: string;
+  title?: string | null;
+  role: string;
+};
+
+/**
+ * What a contract still needs before it can be composed.
+ *
+ * `missing` is token names — "employee.father_name", "term.end_date" — because
+ * that is what the composer refuses on, and translating them into field labels
+ * on the server would put the wording of a form in the API. The screen maps
+ * them; see MISSING_LABEL in contract-editor.
+ */
+export type ContractReadiness = {
+  ready: boolean;
+  missing: string[];
+  library_key: string;
+  language: "fr" | "en";
+  employment_type?: string | null;
+  error?: string;
+  representative: Signatory | null;
+  signatories: Signatory[];
 };
 
 /** A contract whose term or probation runs out soon — the question nothing
@@ -1307,23 +1353,74 @@ export const renewContract = (
   body: { effective_on?: string; end_on?: string } = {},
 ) =>
   tenant<Contract>(`/contracts/${id}/renew`, { method: "POST", body });
-/** Draft (or re-draft) the contract text. The terms passed here are FACTS the
- *  model must reproduce, not suggestions — see hr_contract.draft. */
-export const draftContract = (
-  id: string,
-  body: {
-    title?: string;
-    job_title?: string;
-    effective_on?: string;
-    end_on?: string;
-    gross_salary?: number;
-    salary_currency?: string;
-    probation_months?: number;
-    notice_days?: number;
-    working_hours?: string;
-    place_of_work?: string;
-  },
-) => tenant<Contract>(`/contracts/${id}/draft`, { method: "POST", body });
+/** The terms a contract is composed from. Every one is a fact the parties
+ *  agreed; none of them is prose. The clause text comes from the library. */
+export type ContractTerms = {
+  language?: "fr" | "en";
+  employment_type?: string;
+  employer_person_id?: string;
+  job_title?: string;
+  effective_on?: string;
+  end_on?: string;
+  probation_ends_on?: string;
+  base_salary?: number;
+  salary_currency?: string;
+  duration_months?: number;
+  probation_months?: number;
+  notice_days?: number;
+  weekly_hours?: number;
+  working_hours?: string;
+  place_of_work?: string;
+  payment_method?: string;
+  place_signed?: string;
+  jurisdiction_city?: string;
+  /** Compose without calling the model — the same contract, minus the finish. */
+  refine?: boolean;
+};
+
+/** What the composer did: which library, which clauses it left out, and which
+ *  AI rewrites it threw away. Returned ON the composed contract. */
+export type ComposeReport = {
+  library: string;
+  version: string;
+  language: string;
+  articles: number;
+  omitted: { key: string; heading: string; because: string[] }[];
+  ai_rejected: { article: string; reason: string }[];
+};
+
+/**
+ * Compose the contract from its clause library.
+ *
+ * Replaces `draftContract`. The terms sent here are facts, and they are filled
+ * into an AUTHORED document — a model, where one is configured, only rephrases
+ * the single clause the library marks editable, and a rewrite that moved a
+ * placeholder or changed a figure is discarded server-side.
+ *
+ * Rejects with CONTRACT_FACT_MISSING (422) naming every missing fact when the
+ * record cannot yet produce a contract without a hole in it.
+ */
+export const composeContract = (id: string, body: ContractTerms) =>
+  tenant<Contract & { composition: ComposeReport }>(`/contracts/${id}/compose`, {
+    method: "POST",
+    body,
+  });
+
+/**
+ * What this contract still needs, and who could sign it for the employer.
+ *
+ * A GET, because it changes nothing and the editor polls it as somebody types.
+ * The terms go in the query string, so numbers and booleans are stringified —
+ * the server coerces them back, and `qs` drops anything empty, so an unfilled
+ * field is absent rather than sent as the string "undefined".
+ */
+export const contractReadiness = (id: string, params?: ContractTerms) => {
+  const q: Record<string, string | undefined> = {};
+  Object.entries(params || {}).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") q[k] = String(v);
+  });
+  return tenant<ContractReadiness>(`/contracts/${id}/readiness` + qs(q));
+};
 
 export const updateContract = (id: string, body: Partial<Contract>) =>
   tenant<Contract>(`/contracts/${id}`, { method: "PATCH", body });
