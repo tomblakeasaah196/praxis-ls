@@ -79,6 +79,7 @@ const GATES = [
   { group: "backend", name: "Response-contract drift", cmd: node("scripts/check-response-contract.js") },
   { group: "backend", name: "No new silent catches", cmd: node("scripts/check-silent-catch.js") },
   { group: "backend", name: "citext[] reads are cast", cmd: node("scripts/check-citext-arrays.js") },
+  { group: "backend", name: "Contract clause libraries", cmd: node("scripts/check-contract-libraries.js") },
 
   // ── Frontend job ────────────────────────────────────────────────────────
   { group: "frontend", name: "Lint (client)", cmd: npm("run", "lint", "--prefix", "client") },

@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1490 |
-| Modules mounted | 138 |
+| Routes | 1519 |
+| Modules mounted | 139 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1490 mounted routes, grouped by path prefix.
+All 1519 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -543,10 +543,13 @@ All 1490 mounted routes, grouped by path prefix.
 | DELETE | `/api/tenant/contracts/:id` | — |
 | GET | `/api/tenant/contracts/:id` | — |
 | PATCH | `/api/tenant/contracts/:id` | — |
-| POST | `/api/tenant/contracts/:id/draft` | — |
+| POST | `/api/tenant/contracts/:id/compose` | — |
+| POST | `/api/tenant/contracts/:id/draft` | yes |
+| GET | `/api/tenant/contracts/:id/readiness` | — |
 | POST | `/api/tenant/contracts/:id/renew` | — |
 | POST | `/api/tenant/contracts/:id/status` | — |
 | GET | `/api/tenant/contracts/lapsing` | — |
+| GET | `/api/tenant/contracts/libraries` | — |
 | GET | `/api/tenant/contracts/mine` | — |
 
 ### `tenant/cost-tracking`
@@ -711,12 +714,28 @@ All 1490 mounted routes, grouped by path prefix.
 | DELETE | `/api/tenant/employees/:id` | — |
 | GET | `/api/tenant/employees/:id` | — |
 | PATCH | `/api/tenant/employees/:id` | — |
+| GET | `/api/tenant/employees/:id/account` | — |
 | POST | `/api/tenant/employees/:id/active` | — |
+| GET | `/api/tenant/employees/:id/allowances` | — |
+| POST | `/api/tenant/employees/:id/allowances` | — |
+| DELETE | `/api/tenant/employees/:id/allowances/:allowanceId` | — |
+| PATCH | `/api/tenant/employees/:id/allowances/:allowanceId` | — |
+| GET | `/api/tenant/employees/:id/documents` | — |
+| POST | `/api/tenant/employees/:id/documents` | — |
+| DELETE | `/api/tenant/employees/:id/documents/:documentId` | — |
+| PATCH | `/api/tenant/employees/:id/documents/:documentId` | — |
 | GET | `/api/tenant/employees/:id/managers` | — |
+| GET | `/api/tenant/employees/:id/pay` | — |
+| GET | `/api/tenant/employees/:id/readiness` | — |
 | GET | `/api/tenant/employees/:id/references` | — |
 | GET | `/api/tenant/employees/:id/reports` | — |
+| POST | `/api/tenant/employees/:id/status` | — |
 | GET | `/api/tenant/employees/:id/team` | — |
+| GET | `/api/tenant/employees/document-types` | — |
 | GET | `/api/tenant/employees/drivers` | — |
+| GET | `/api/tenant/employees/mine` | — |
+| PATCH | `/api/tenant/employees/mine` | — |
+| GET | `/api/tenant/employees/readiness-requirements` | — |
 | GET | `/api/tenant/employees/roster` | — |
 
 ### `tenant/entities`
@@ -749,6 +768,9 @@ All 1490 mounted routes, grouped by path prefix.
 | PATCH | `/api/tenant/entities/:id/establishments/:childId` | — |
 | GET | `/api/tenant/entities/:id/letterhead` | — |
 | PUT | `/api/tenant/entities/:id/letterhead` | — |
+| POST | `/api/tenant/entities/:id/letterhead/lines` | — |
+| DELETE | `/api/tenant/entities/:id/letterhead/lines/:lineId` | — |
+| PUT | `/api/tenant/entities/:id/letterhead/lines/:lineId` | — |
 | POST | `/api/tenant/entities/:id/logo` | — |
 | POST | `/api/tenant/entities/:id/ops-reference-prefix` | — |
 | GET | `/api/tenant/entities/:id/people` | — |
@@ -1146,9 +1168,13 @@ All 1490 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/mail/sent` | — |
 | GET | `/api/tenant/mail/signature` | — |
 | PUT | `/api/tenant/mail/signature` | — |
+| POST | `/api/tenant/mail/signature/batch` | — |
+| GET | `/api/tenant/mail/signature/card` | — |
+| GET | `/api/tenant/mail/signature/diagnose` | — |
 | GET | `/api/tenant/mail/signature/png` | — |
 | POST | `/api/tenant/mail/signature/png` | — |
 | GET | `/api/tenant/mail/signature/preview` | — |
+| GET | `/api/tenant/mail/signature/staff` | — |
 | GET | `/api/tenant/mail/signature/templates` | — |
 | PATCH | `/api/tenant/mail/signature/templates/:id` | — |
 | GET | `/api/tenant/mail/sla-policies` | — |
@@ -1521,6 +1547,7 @@ All 1490 mounted routes, grouped by path prefix.
 
 | Method | Path | Body validated |
 |---|---|---|
+| GET | `/api/tenant/public/corridors/` | — |
 | GET | `/api/tenant/public/insights/` | — |
 | GET | `/api/tenant/public/insights/:slug` | — |
 | GET | `/api/tenant/public/insights/media/:id` | — |
@@ -1819,6 +1846,7 @@ All 1490 mounted routes, grouped by path prefix.
 |---|---|---|
 | DELETE | `/api/tenant/site/blocks/:blockId` | yes |
 | PATCH | `/api/tenant/site/blocks/:blockId` | — |
+| GET | `/api/tenant/site/meta` | — |
 | GET | `/api/tenant/site/pages` | — |
 | POST | `/api/tenant/site/pages` | — |
 | DELETE | `/api/tenant/site/pages/:pageId` | yes |
@@ -2127,6 +2155,7 @@ All 1490 mounted routes, grouped by path prefix.
 | PATCH | `/api/tenant/users/:id` | — |
 | GET | `/api/tenant/users/:id/email-signature` | — |
 | PUT | `/api/tenant/users/:id/email-signature` | — |
+| POST | `/api/tenant/users/:id/invite` | — |
 | POST | `/api/tenant/users/:id/password` | — |
 | POST | `/api/tenant/users/:id/status` | — |
 | GET | `/api/tenant/users/employees` | — |

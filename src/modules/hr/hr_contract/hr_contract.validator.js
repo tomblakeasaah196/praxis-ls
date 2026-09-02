@@ -76,6 +76,37 @@ const compose = z.object({
   refine: z.boolean().optional(),
 });
 
+/**
+ * The old `POST /:id/draft` body, for the deprecation window (API F-18).
+ *
+ * Most of it maps straight onto `compose`. Two fields cannot, and are REFUSED
+ * rather than quietly dropped — a caller who sent a salary and got a contract
+ * back has every reason to believe the salary in it is the one they sent:
+ *
+ *   gross_salary  is no longer a term anybody sets. Article 3 states a
+ *                 DECOMPOSITION — a base plus each standing allowance — and the
+ *                 gross is their sum. Accepting a gross would mean printing a
+ *                 total that the lines above it do not add up to.
+ *   title         belongs to the clause library now. A CDD is titled "CONTRAT
+ *                 DE TRAVAIL À DURÉE DÉTERMINÉE" because that is what it is,
+ *                 and a caller-supplied heading could disagree with the body.
+ */
+const legacyDraft = compose
+  .extend({
+    gross_salary: z.number().optional(),
+    title: z.string().optional(),
+    entity_id: z.string().uuid().optional(),
+    vacancy_id: z.string().uuid().optional(),
+  })
+  .refine((v) => v.gross_salary === undefined, {
+    message: "A contract states a base salary and its standing allowances, and totals them — send base_salary instead. See POST /contracts/:id/compose.",
+    path: ["gross_salary"],
+  })
+  .refine((v) => v.title === undefined, {
+    message: "The title comes from the clause library the contract is composed from. See POST /contracts/:id/compose.",
+    path: ["title"],
+  });
+
 /** A renewal (10708). Only the two dates a caller may override — everything
  *  else is carried from the contract being renewed, by design: a renewal
  *  continues what was agreed, it does not re-negotiate it. */
@@ -84,7 +115,7 @@ const renew = z.object({
   end_on: d.optional(),
 });
 
-const schemas = { create, update: create.partial(), status, compose, renew };
+const schemas = { create, update: create.partial(), status, compose, legacyDraft, renew };
 
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);
@@ -93,4 +124,7 @@ const mw = (k) => (req, _res, next) => {
   return next();
 };
 
-module.exports = { create: mw("create"), update: mw("update"), status: mw("status"), compose: mw("compose"), renew: mw("renew"), schemas };
+module.exports = {
+  create: mw("create"), update: mw("update"), status: mw("status"),
+  compose: mw("compose"), legacyDraft: mw("legacyDraft"), renew: mw("renew"), schemas,
+};

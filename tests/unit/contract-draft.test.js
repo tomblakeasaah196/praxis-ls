@@ -202,6 +202,44 @@ describe("the eighteen libraries", () => {
     }
   });
 
+  it("lets only a letter carry a section with no heading", () => {
+    // A letter's sign-off — « Veuillez agréer … » — has no heading, and the
+    // composer marks it with a bare `##`. `contractArticles` required a title
+    // after the hashes, so that line did not match: the printed contract
+    // carried a literal "##" and the sign-off was glued onto the end of the
+    // clause above it. An ARTICLE with no heading would print "ARTICLE 7 : ".
+    for (const lib of libraries.all()) {
+      for (const a of lib.articles) {
+        if (!a.heading) expect(lib.sectionStyle).toBe("letter");
+      }
+    }
+  });
+
+  it("declares the leash on every article rather than defaulting it", () => {
+    for (const lib of libraries.all()) {
+      for (const a of lib.articles) expect(typeof a.aiEditable).toBe("boolean");
+    }
+  });
+
+  it("only names optional tokens in requires and omitWhenMissing", () => {
+    // Naming a token that is already required is a no-op the author believed
+    // did something — the article can never be dropped, the document can never
+    // relax it. Naming one that does not exist is a silent no-op too.
+    const { TOKENS } = require("../../src/services/contracts/clause-tokens");
+    for (const lib of libraries.all()) {
+      for (const t of lib.requires || []) {
+        expect(TOKENS[t]).toBeDefined();
+        expect(TOKENS[t].optional).toBe(true);
+      }
+      for (const a of lib.articles) {
+        for (const t of a.omitWhenMissing || []) {
+          expect(TOKENS[t]).toBeDefined();
+          expect(TOKENS[t].optional).toBe(true);
+        }
+      }
+    }
+  });
+
   it("refuses a combination nobody authored rather than returning undefined", () => {
     expect(() => libraries.get("CDI", "de")).toThrow(
       expect.objectContaining({ code: "NO_CLAUSE_LIBRARY", status: 422 }),
@@ -379,6 +417,17 @@ describe("the clauses that reach the PDF", () => {
     const printed = arts.map((a) => a.body).join("\n");
     expect(printed).toContain("Ada Mbarga");
     expect(printed).toMatch(/500[\s\u202f\u00a0]000 XAF/);
+  });
+
+  it("cuts a section that has no heading, instead of printing the hashes", () => {
+    const arts = contractArticles("## A\n\nFirst.\n\n##\n\nSign-off.");
+    expect(arts).toEqual([
+      { title: "A", body: "First." },
+      { title: "", body: "Sign-off." },
+    ]);
+    // The failure this replaced: the sign-off stayed inside the clause above
+    // it, carrying a literal "##" into the printed contract.
+    expect(arts.some((a) => a.body.includes("##"))).toBe(false);
   });
 
   it("keeps text written above the first heading", () => {

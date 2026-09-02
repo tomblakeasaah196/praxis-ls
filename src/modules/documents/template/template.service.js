@@ -1714,7 +1714,16 @@ function contractArticles(bodyMd) {
     buf = [];
   };
   for (const line of String(bodyMd).split(/\r?\n/)) {
-    const h = /^\s*#{2,3}\s+(.*\S)\s*$/.exec(line);
+    /*
+     * `\s*` after the hashes, not `\s+`, and the title may be empty.
+     *
+     * A letter's sign-off — « Veuillez agréer … » — is a section with no
+     * heading, and the composer marks it with a bare `##`. Requiring a title
+     * meant that line did not match, so it stayed in the buffer: the printed
+     * contract carried a literal "##" and the sign-off was glued onto the end
+     * of the clause above it.
+     */
+    const h = /^\s*#{2,3}\s*(.*?)\s*$/.exec(line);
     if (h) {
       flush();
       title = h[1];
