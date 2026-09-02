@@ -62,6 +62,25 @@ function redactSensitive(row) {
 }
 
 /**
+ * Property names that must never be written from caller-supplied input.
+ *
+ * `out[k] = v` with k = "__proto__" does not add a property: it invokes the
+ * prototype setter, and `out` silently starts INHERITING whatever the caller
+ * put there. Measured, not assumed — a body of
+ * `{"__proto__": {"is_active": true, "base_salary": 99999999}}` produces an
+ * object with no own keys whose `.is_active` reads true.
+ *
+ * Global `Object.prototype` is NOT affected, and today's callers are not
+ * exploitable through it either: Zod strips unknown keys first, and both
+ * `insertOne` (Object.keys) and the spread in `create` copy own properties
+ * only, so nothing inherited reaches SQL. The guard is here because the helper
+ * is general — a future reader using `in`, `for…in` or a destructuring default
+ * WOULD see them — and because it costs one filter. Same stance
+ * `normaliseBankBlock` takes with its allow-list.
+ */
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/**
  * `""` is what an HTML form sends for "I did not fill this in", and it is not
  * the same thing as a value. Left alone it becomes an empty string in the
  * column, which then prints as an empty string in a contract — "Né le  à " —
@@ -73,11 +92,16 @@ function redactSensitive(row) {
  */
 function blankToNull(obj) {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return obj;
-  const out = {};
-  for (const [k, v] of Object.entries(obj)) {
-    out[k] = typeof v === "string" && v.trim() === "" ? null : v;
-  }
-  return out;
+  // `Object.fromEntries`, not `out[k] = …` (CodeQL, remote property injection).
+  // fromEntries DEFINES each property rather than assigning it, so no setter is
+  // invoked; the three names in UNSAFE_KEYS are dropped as well, so the result
+  // cannot carry them even as own keys. See UNSAFE_KEYS for what the old form
+  // actually did and why it was not exploitable here.
+  return Object.fromEntries(
+    Object.entries(obj)
+      .filter(([k]) => !UNSAFE_KEYS.has(k))
+      .map(([k, v]) => [k, typeof v === "string" && v.trim() === "" ? null : v]),
+  );
 }
 
 /**
@@ -223,5 +247,6 @@ function contractReadiness(employee = {}, documents = []) {
 module.exports = {
   suggestRiskClass, normaliseBankBlock, redactSensitive, SENSITIVE_FIELDS,
   RISK_OFFICE, RISK_OPERATIONAL, blankToNull, isPresent, omit, withAllowanceDefaults,
+  UNSAFE_KEYS,
   CONTRACT_REQUIREMENTS, REQUIRED_DOCUMENT_CODES, contractReadiness,
 };

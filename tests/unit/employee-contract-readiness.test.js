@@ -215,6 +215,35 @@ describe("a benefit in kind is remuneration, but it is not cash", () => {
   });
 });
 
+describe("a crafted key cannot become a property write", () => {
+  // CodeQL, remote property injection. `out[k] = v` with k = "__proto__" does
+  // not add a property — it invokes the prototype setter, and the result then
+  // INHERITS whatever the caller put there. Not exploitable through today's
+  // callers (Zod strips unknown keys; insertOne and the spread in `create` read
+  // own properties only), but the helper is general and the guard is one filter.
+  const EVIL = () =>
+    JSON.parse('{"__proto__": {"is_active": true, "base_salary": 99999999}, "place_of_birth": "  ", "city": "Douala"}');
+
+  test("blankToNull drops it, and still does its actual job", () => {
+    const out = blankToNull(EVIL());
+    expect(Object.keys(out).sort()).toEqual(["city", "place_of_birth"]);
+    expect(out.place_of_birth).toBeNull();   // the blank became null
+    expect(out.city).toBe("Douala");         // a real value survived
+  });
+
+  test("nothing is inherited from the payload", () => {
+    const out = blankToNull(EVIL());
+    expect(out.is_active).toBeUndefined();
+    expect(out.base_salary).toBeUndefined();
+    expect(Object.getPrototypeOf(out)).toBe(Object.prototype);
+  });
+
+  test("the global prototype is left alone either way", () => {
+    blankToNull(EVIL());
+    expect({}.is_active).toBeUndefined();
+  });
+});
+
 describe("omit", () => {
   test("drops the named keys and keeps the rest", () => {
     expect(omit({ a: 1, b: 2, c: 3 }, ["b"])).toEqual({ a: 1, c: 3 });

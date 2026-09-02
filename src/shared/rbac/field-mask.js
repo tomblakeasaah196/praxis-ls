@@ -49,15 +49,27 @@ function maskedPropsFor(maskedKeys = []) {
   return props;
 }
 
-/** Deep-null any property in `propSet`, recursing through arrays/objects. */
+/**
+ * Names that must never be written from data we did not author. `out[k] = v`
+ * with k = "__proto__" invokes the prototype setter instead of adding a
+ * property, and the masked copy then inherits whatever was there.
+ */
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/** Deep-null any property in `propSet`, recursing through arrays/objects.
+ *
+ *  Built with `Object.fromEntries` rather than bracket assignment: the keys
+ *  walked here are row keys, and a row carries jsonb blobs (`bank_block`) whose
+ *  contents a caller supplied. fromEntries defines rather than sets, so no
+ *  prototype setter can fire on the way out. */
 function applyMask(value, propSet) {
   if (Array.isArray(value)) return value.map((v) => applyMask(v, propSet));
   if (value && typeof value === "object") {
-    const out = {};
-    for (const [k, v] of Object.entries(value)) {
-      out[k] = propSet.has(k) ? null : applyMask(v, propSet);
-    }
-    return out;
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([k]) => !UNSAFE_KEYS.has(k))
+        .map(([k, v]) => [k, propSet.has(k) ? null : applyMask(v, propSet)]),
+    );
   }
   return value;
 }
