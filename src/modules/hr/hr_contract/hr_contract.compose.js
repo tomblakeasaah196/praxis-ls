@@ -119,7 +119,9 @@ function factsFor(row, overrides = {}) {
     department: employee.department || null,
     effective_on: effectiveOn,
     end_on: endOn,
-    duration_months: pick("duration_months", monthsBetween(effectiveOn, endOn)),
+    // num(): readiness is a GET, so an override arrives as the STRING "12" and
+    // would be frozen into the pay snapshot as one.
+    duration_months: num(pick("duration_months", monthsBetween(effectiveOn, endOn))),
     probation_months: num(pick("probation_months", row.probation_months, employee.probation_months)),
     probation_ends_on: iso(pick("probation_ends_on", row.probation_ends_on)),
     notice_days: num(pick("notice_days", row.notice_days)),
