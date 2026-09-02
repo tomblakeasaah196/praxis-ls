@@ -48,12 +48,26 @@ const KIND_LABEL: Record<string, string> = {
   TERMINATION: "Termination",
 };
 
+/**
+ * Raise a contract.
+ *
+ * ── WHY THERE IS NO LONGER AN "EMAIL IT TO" FIELD ─────────────────────────
+ *
+ * There was one, and it sent the rendered document the moment the row was
+ * created — before the contract had any text at all. What landed in the
+ * employee's inbox was a letterhead, their name, a signature block and no
+ * clauses between them, which is exactly the defect this whole feature exists
+ * to close. A contract has to be COMPOSED before it can be sent, so creating
+ * one now opens the editor on it, and sending happens from there once there is
+ * a document to send.
+ */
 function NewContractForm({
   onClose,
-  onSaved,
+  onCreated,
 }: {
   onClose: () => void;
-  onSaved: () => void;
+  /** Opens the editor on the row that was just created. */
+  onCreated: (c: api.Contract) => void;
 }) {
   const { rows: employees } = useList<{
     employee_id: string;
@@ -64,17 +78,14 @@ function NewContractForm({
     kind: "EMPLOYMENT",
     effective_on: "",
     end_on: "",
-    email: "",
   });
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [note, setNote] = React.useState<string | null>(null);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    setNote(null);
     try {
       const created = await api.createContract({
         employee_id: f.employee_id || undefined,
@@ -82,16 +93,10 @@ function NewContractForm({
         effective_on: f.effective_on || undefined,
         end_on: f.end_on || undefined,
       });
-      // Draft the contract from the template and email it to the employee.
-      if (f.email.trim() && created.hr_contract_id) {
-        try {
-          await api.sendContract(created.hr_contract_id, f.email.trim());
-        } catch (sendErr) {
-          setNote(`Contract created, but the email failed: ${errMsg(sendErr)}`);
-        }
-      }
-      onSaved();
       onClose();
+      // Straight into the editor: a contract row with no text is not yet a
+      // contract, and the composition is the next thing anybody wants to do.
+      onCreated(created);
     } catch (err) {
       setError(errMsg(err));
     } finally {
@@ -103,7 +108,7 @@ function NewContractForm({
       open
       onClose={onClose}
       title="New contract"
-      description="Draft a contract for an employee. It starts in draft."
+      description="Raise a contract for an employee. It starts as a draft, and opens for composing."
     >
       <form className="space-y-4" onSubmit={submit}>
         <Field label={tr("Employee")} required>
@@ -143,19 +148,6 @@ function NewContractForm({
             />
           </Field>
         </div>
-        <Field label="Email contract to (optional)">
-          <Input
-            type="email"
-            placeholder="employee@company.cm"
-            value={f.email}
-            onChange={(e) => set("email", e.target.value)}
-          />
-        </Field>
-        {note && (
-          <div className="rounded-lg border border-[rgb(var(--warn))]/40 bg-[rgb(var(--warn)/0.08)] px-3 py-2 text-sm">
-            {note}
-          </div>
-        )}
         {error && <ErrorState message={error} />}
         <div className="flex justify-end gap-2 pt-2">
           <Button
@@ -171,7 +163,7 @@ function NewContractForm({
             loading={busy}
             disabled={!f.employee_id || busy}
           >
-            {f.email.trim() ? "Create & send" : "Create draft"}
+            {tr("Create & compose")}
           </Button>
         </div>
       </form>
@@ -535,7 +527,10 @@ export function ContractsPage() {
       {creating && (
         <NewContractForm
           onClose={() => setCreating(false)}
-          onSaved={rows.reload}
+          onCreated={(c) => {
+            rows.reload();
+            setEditing(c);
+          }}
         />
       )}
       {editing && (
