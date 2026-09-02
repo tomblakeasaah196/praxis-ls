@@ -12,3 +12,11 @@ dist-ssr
 /playwright-report/
 /test-results/
 /blob-report/
+
+# The screen generator's own test fixture (src/test/new-screen.test.ts). It
+# creates `src/features/__scaffold_check__/widget-orders.tsx`, asserts on it and
+# deletes it — but a worker killed mid-suite, or two suites running at once,
+# leaves it on disk. A `git add -A` in that window commits it, and from then on
+# `client-api-paths` fails for everybody on a `/widget-orders` route that does
+# not exist. Ignoring it makes that window harmless.
+/src/features/__scaffold_check__/
