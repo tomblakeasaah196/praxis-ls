@@ -458,6 +458,21 @@ jobs:
         # actually returns, so the defect lived exactly in the gap between them.
         run: node scripts/check-citext-arrays.js
 
+      - name: Contract clause libraries are intact
+        # The eighteen clause libraries ARE the employment contracts this
+        # product issues, and they are data rather than code — the whole point
+        # is that a lawyer can read a clause beside the article it implements
+        # and edit it. Which means the usual protections do not apply: a typo
+        # in a token name is not a syntax error, a clause added to the French
+        # and forgotten in the English is not a type error, and an article that
+        # lost its `basis` renders perfectly. Each of those produces a contract
+        # that looks entirely correct and is not.
+        #
+        # It found one on the commit that introduced it: a letter's sign-off
+        # printed a literal "##" in the body and was glued onto the clause
+        # above it.
+        run: node scripts/check-contract-libraries.js
+
   # ---------------------------------------------------------------------------
   # TC-CI6 — migrations are never executed in CI; the first run is production.
   #

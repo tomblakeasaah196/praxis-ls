@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 2× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (510)
+## All codes (513)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -141,6 +141,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `COMPLIANCE_BLOCKED` | 409 | 4× | — |
 | `CONFIG_MISSING` | 424 | 1× | — |
 | `CONTAINERS_DISABLED` | 422 | 1× | — |
+| `CONTRACT_FACT_MISSING` | 422 | 1× | — |
 | `CONTRACT_TEXT_FROZEN` | 422 | 1× | — |
 | `COSTING_NOT_APPROVED` | 403 | 1× | — |
 | `COST_CENTER_REQUIRED` | 422 | 1× | — |
@@ -286,7 +287,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 3× | — |
-| `NOT_FOUND` | 404, 422 | 600× | — |
+| `NOT_FOUND` | 404, 422 | 601× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_OPEN` | 409, 422 | 3× | — |
 | `NOT_OPERATIONAL` | 422 | 1× | — |
@@ -313,6 +314,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NO_CANONICAL_PAYLOAD` | 422 | 1× | — |
 | `NO_CATEGORY` | 422 | 2× | — |
 | `NO_CHANGES` | 400 | 1× | — |
+| `NO_CLAUSE_LIBRARY` | 422 | 1× | — |
 | `NO_COA` | 422 | 1× | — |
 | `NO_CONTENT_HASH` | 422 | 1× | — |
 | `NO_CONTROL_ACCOUNT` | 500 | 2× | — |
@@ -502,6 +504,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `UNKNOWN_CLIENT_TYPE` | 422 | 1× | — |
 | `UNKNOWN_CONTAINER` | 422 | 1× | — |
 | `UNKNOWN_CONTAINER_TYPE` | 422 | 1× | — |
+| `UNKNOWN_CONTRACT_TOKEN` | 500 | 1× | — |
 | `UNKNOWN_CURRENCY` | 422 | 2× | — |
 | `UNKNOWN_DECLINE_REASON` | 422 | 1× | — |
 | `UNKNOWN_DEPARTMENT` | 422 | 1× | — |

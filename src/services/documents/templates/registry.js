@@ -1240,7 +1240,13 @@ const TEMPLATES = {
         ? a.title || ""
         : `Article ${i + 1} — ${a.title}`);
       const arts = (d.articles || [])
-        .map((a, i) => k.section({ fr: heading(a, i), en: heading(a, i) }, `<div class="box">${k.esc(a.body).replace(/\n/g, "<br>")}</div>`, cfg))
+        .map((a, i) => {
+          const box = `<div class="box">${k.esc(a.body).replace(/\n/g, "<br>")}</div>`;
+          const h = heading(a, i);
+          // A letter's sign-off is a section with no heading. `k.section` would
+          // print an empty title bar above it.
+          return h ? k.section({ fr: h, en: h }, box, cfg) : box;
+        })
         .join("");
       // « Fait à Douala, le … » — below the clauses, above the signatures.
       const closing = d.closing

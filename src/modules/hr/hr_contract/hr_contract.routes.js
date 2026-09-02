@@ -5,6 +5,7 @@ const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const { requireTransitionPermission, requireLifecyclePermissionOnPatch } = require("../../../shared/http/transition-permission");
+const { deprecate } = require("../../../middleware/api-version");
 const controller = require("./hr_contract.controller");
 const validator = require("./hr_contract.validator");
 
@@ -62,6 +63,27 @@ router.post("/:id/status", validator.status, requireTransitionPermission(M, TRAN
  * signature block and the verify footer every other issued document gets. A
  * second renderer in this module would be a second letterhead to keep in step. */
 router.post("/:id/compose", requirePermission(M, "edit"), validator.compose, controller.composeFor);
+
+/* `POST /:id/draft`, kept for its deprecation window (API F-18).
+ *
+ * It is the same act under its old name — the contract is composed from its
+ * clause library rather than written by a model, which is the whole change —
+ * so it forwards to the same handler rather than keeping a second
+ * implementation alive to rot. Its validator refuses the two fields that no
+ * longer mean anything (`gross_salary`, `title`) instead of dropping them: a
+ * caller who sent a salary and got a contract back would reasonably believe
+ * the salary in it was theirs. */
+router.post(
+  "/:id/draft",
+  requirePermission(M, "edit"),
+  deprecate({
+    sunset: "2027-03-01",
+    replacement: "/api/tenant/contracts/:id/compose",
+    reason: "A contract is composed from a versioned clause library now, not drafted by a model.",
+  }),
+  validator.legacyDraft,
+  controller.composeFor,
+);
 
 /* What the contract still needs. `view`, and a GET: it changes nothing, it is
  * polled by the wizard as somebody types, and telling a clerk which fields are
