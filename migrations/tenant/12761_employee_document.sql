@@ -42,20 +42,24 @@
 -- ============================================================================
 
 -- ── 1. Teach the registry about employees ──────────────────────────────────
+--
+-- THE FULL SET, RESTATED. `applies_to` has been widened once already: 0511
+-- created it as CLIENT/SUPPLIER/BOTH and 0516 added ENTITY and ALL, and 28
+-- seeded rows use ENTITY today. Adding EMPLOYEE by re-creating the constraint
+-- from the ORIGINAL three values drops those on the floor, and the ALTER then
+-- fails against any real database with `is violated by some row` — which is
+-- exactly what a replay against Postgres caught before this shipped.
+--
+-- So the list here is the whole current set plus one, and the drop names the
+-- constraint rather than searching for it — same shape as 0516's own widening,
+-- which is what makes both of them re-runnable. Anyone widening it again should
+-- copy this block and add to the list, not restate a remembered subset.
 DO $$
-DECLARE cname text;
 BEGIN
-  SELECT conname INTO cname
-    FROM pg_constraint
-   WHERE conrelid = 'party_document_type'::regclass
-     AND contype = 'c'
-     AND pg_get_constraintdef(oid) ILIKE '%applies_to%';
-  IF cname IS NOT NULL THEN
-    EXECUTE format('ALTER TABLE party_document_type DROP CONSTRAINT %I', cname);
-  END IF;
+  ALTER TABLE party_document_type DROP CONSTRAINT IF EXISTS party_document_type_applies_to_check;
   ALTER TABLE party_document_type
     ADD CONSTRAINT party_document_type_applies_to_check
-    CHECK (applies_to IN ('CLIENT','SUPPLIER','BOTH','EMPLOYEE'));
+    CHECK (applies_to IN ('CLIENT','SUPPLIER','BOTH','ENTITY','ALL','EMPLOYEE'));
 END $$;
 
 -- The staff file. `requires_expiry` is what drives the renewals warning, so it
@@ -126,4 +130,4 @@ COMMENT ON TABLE employee_document IS
 --   DELETE FROM party_document_type WHERE applies_to = 'EMPLOYEE';
 --   ALTER TABLE party_document_type DROP CONSTRAINT IF EXISTS party_document_type_applies_to_check;
 --   ALTER TABLE party_document_type ADD CONSTRAINT party_document_type_applies_to_check
---     CHECK (applies_to IN ('CLIENT','SUPPLIER','BOTH'));
+--     CHECK (applies_to IN ('CLIENT','SUPPLIER','BOTH','ENTITY','ALL'));   -- 0516's set
