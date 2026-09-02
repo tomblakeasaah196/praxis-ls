@@ -218,6 +218,34 @@ read the clause and the provision beside it.
 
 ---
 
+## How long they actually are
+
+Measured, not estimated: each library composed from a real employee record and
+rendered through the product's own template with the same
+`page.pdf({ format: "A4" })` the PDF service uses.
+
+| Library | Sections | A4 pages |
+| --- | --- | --- |
+| CDI (fr / en) | 13 | 3 |
+| CDD (fr / en) | 13 | 3 |
+| CONSULTANT | 10 | 3 |
+| STAGE | 10 | 2 |
+| INTERIM | 9 | 2 |
+| TEMPORARY | 9 | 2 |
+| TERMINATION | 6 | 2 |
+| OFFER\_LETTER | 5 | 2 |
+
+Three pages is the worst case, on the longest contract in the longest language,
+with a probation clause and two pay lines. A clause added to CDI or CDD is
+worth re-measuring — the reproduction is in the commit that added this table.
+
+Two things bought that. The composer's articles are the whole document, so
+there is no second parties block above a preamble that already names both
+parties; and the closing lives in its own column rather than as a trailing
+paragraph of the last clause.
+
+---
+
 ## Open questions for counsel
 
 Every **[VERIFY]** above, plus these, which are design decisions rather than
