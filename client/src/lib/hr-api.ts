@@ -1430,12 +1430,20 @@ export const lapsingContracts = (days?: number) =>
     "/contracts/lapsing" + qs({ days: days ? String(days) : undefined }),
   );
 
-/** Email the drafted contract (rendered from the template) to a recipient. */
-export const sendContract = (id: string, to: string) =>
-  tenant(`/document-templates/EMPLOYMENT_CONTRACT/${id}/send`, {
-    method: "POST",
-    body: { to },
-  });
+/*
+ * There is deliberately no `sendContract` here any more.
+ *
+ * It wrapped the document-template send route and had exactly one caller: the
+ * "email contract to" field on the create form, which fired the moment the row
+ * was created — before the contract had a single clause. What arrived was a
+ * letterhead, the employee's name, a signature block and nothing in between.
+ *
+ * Sending a contract is done from the document page (`DocButton`), which is the
+ * same surface every other document uses and which renders what is actually on
+ * the row; asking for a signature is `SendForSignatureModal` on the editor. A
+ * convenience wrapper whose whole purpose was to skip the composing step is an
+ * invitation to send a blank form again.
+ */
 /** Upload an already-signed contract PDF (base64 data URL): vault it and tie the
  *  vault doc to the contract row via pdf_vault_id. */
 export const uploadContractSigned = async (id: string, dataUrl: string) => {

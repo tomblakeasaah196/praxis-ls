@@ -199,7 +199,20 @@ function build(row, { overrides = {}, clauseOverrides = {} } = {}) {
        * no heading, and a renderer that cuts at `##` would otherwise print it
        * as the last paragraph of the disputes clause. */
       closing_md: composed.closing,
-      signature_labels: composed.signatures,
+      /*
+       * STRINGIFIED, and it has to be.
+       *
+       * node-postgres binds a JS ARRAY as a Postgres array literal — `{…,…}` —
+       * which a `jsonb` column rejects outright with 22P02, "invalid input
+       * syntax for type json". A plain object is fine (it serialises to JSON),
+       * which is why `employee_snapshot` and `pay_snapshot` below need nothing:
+       * the two panels are the only top-level array here. Caught by writing a
+       * composed contract to a real database — every save would have failed.
+       *
+       * The column reads back parsed, so `Array.isArray(signature_labels)` in
+       * the document template is still the right check on the way out.
+       */
+      signature_labels: JSON.stringify(composed.signatures),
       // Frozen: the document renders from these, never from the live rows. A
       // correction typed next year must not rewrite a contract signed this one.
       employee_snapshot: facts.employee,

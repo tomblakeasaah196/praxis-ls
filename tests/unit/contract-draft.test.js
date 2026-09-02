@@ -78,6 +78,29 @@ describe("composing a contract", () => {
     expect(built.body_md).not.toMatch(/\{\{|\}\}/);
   });
 
+  it("hands the signature panels to the database as JSON, not as an array", () => {
+    /*
+     * node-postgres binds a JS ARRAY as a Postgres array literal — `{…,…}` —
+     * and a `jsonb` column rejects that outright with 22P02, "invalid input
+     * syntax for type json". `signature_labels` is the only top-level array
+     * among the composed columns, so it is the only one that has to be
+     * stringified; `employee_snapshot` and `pay_snapshot` are objects and
+     * serialise to JSON on their own, arrays nested inside them included.
+     *
+     * Caught by writing a composed contract to a real Postgres: EVERY save
+     * would have failed, and nothing in the unit suite could see it because
+     * every repo here is faked.
+     */
+    const c = composer.build(ROW).columns;
+    expect(typeof c.signature_labels).toBe("string");
+    expect(JSON.parse(c.signature_labels).map((s) => s.party)).toEqual(["EMPLOYEE", "EMPLOYER"]);
+    // The two that must NOT be stringified — pg serialises them correctly, and
+    // a string here would be stored as a JSON string rather than an object.
+    expect(typeof c.employee_snapshot).toBe("object");
+    expect(typeof c.pay_snapshot).toBe("object");
+    expect(Array.isArray(c.pay_snapshot.lines)).toBe(true);
+  });
+
   it("freezes the employee and the pay as at composition", () => {
     // A correction typed next year must not rewrite the identification clause
     // of a contract signed this one.
@@ -450,7 +473,8 @@ describe("the clauses that reach the PDF", () => {
     const built = composer.build(ROW);
     expect(built.body_md).not.toMatch(/Fait à|in two \(02\) original/i);
     expect(built.columns.closing_md).toMatch(/two \(02\) original counterparts|deux \(02\) exemplaires/);
-    expect(built.columns.signature_labels.map((s) => s.party)).toEqual(["EMPLOYEE", "EMPLOYER"]);
+    // Stringified on the way to a jsonb column — see the test above.
+    expect(JSON.parse(built.columns.signature_labels).map((s) => s.party)).toEqual(["EMPLOYEE", "EMPLOYER"]);
   });
 
   it("renders through the real template with no double numbering and no commercial furniture", () => {
@@ -474,7 +498,11 @@ describe("the clauses that reach the PDF", () => {
       job_title: c.job_title, doc_title: c.title, library: c.clause_library_key,
       representative: { name: ROW.representative.full_name, title: ROW.representative.title },
       articles: contractArticles(built.body_md),
-      closing: c.closing_md, signature_labels: c.signature_labels, currency: c.salary_currency,
+      closing: c.closing_md,
+      // Parsed, because that is what a jsonb column reads back as — the
+      // template gets an array, the database gets the string.
+      signature_labels: JSON.parse(c.signature_labels),
+      currency: c.salary_currency,
     };
     const cfg = kit.mergeCfg({}, { language: c.language, show: { signature: true } });
     const html = registry.get("EMPLOYMENT_CONTRACT").build(
