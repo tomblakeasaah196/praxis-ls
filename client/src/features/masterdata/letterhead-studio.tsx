@@ -72,6 +72,39 @@ function basePt(b: api.LetterheadBlock): number {
 const PAPER = { A4: { w: 210, h: 297 }, LETTER: { w: 215.9, h: 279.4 } };
 
 /**
+ * The `entity_letterhead.show_*` columns the visibility control may write.
+ *
+ * A block arrives carrying `toggle` — the column(s) that govern it — resolved
+ * by the server catalogue, and `place()` writes them alongside the layout so one
+ * checkbox does not contradict a column the tenant already set.
+ *
+ * WHY AN ALLOW-LIST AND NOT JUST `body[col] = value`. Two reasons, and the
+ * second is the one that bites.
+ *
+ * 1. It is a column name from a response being used as a key in a write
+ *    payload. The server validates the body against `letterheadUpdate` and the
+ *    repo keeps its own allow-list, so an unexpected name is rejected rather
+ *    than stored — but narrowing it here means the request is never malformed
+ *    in the first place.
+ *
+ * 2. `check-schemas.mjs` rule 6 requires every saveable letterhead column to be
+ *    NAMED where a person can reach it, because six columns once existed that
+ *    the API happily saved and the designer never mentioned. Listing them here
+ *    is how that rule stays true now the toggles are driven by block selection
+ *    rather than by a checkbox list — and it keeps them greppable for the next
+ *    person, which a `toggle` array resolved at runtime does not.
+ */
+const TOGGLE_COLUMNS = [
+  "show_legal_form",
+  "show_share_capital",
+  "show_registered_address",
+  "show_registrations",
+  "show_contact",
+  "show_bank_block",
+  "show_establishment",
+] as const;
+
+/**
  * THE PRINT PALETTE — and the one place in this product that deliberately does
  * not follow the tenant's theme.
  *
@@ -682,7 +715,11 @@ export function LetterheadStudio({
       const body: Record<string, unknown> = { layout };
       const target = comp.header.concat(comp.footer).find((b) => b.id === id);
       if (patch.visible !== undefined && target && target.toggle) {
-        for (const col of target.toggle) body[col] = patch.visible;
+        for (const col of target.toggle) {
+          if ((TOGGLE_COLUMNS as readonly string[]).includes(col)) {
+            body[col] = patch.visible;
+          }
+        }
       }
       await api.saveEntityLetterhead(entityId, body);
       onReload();
