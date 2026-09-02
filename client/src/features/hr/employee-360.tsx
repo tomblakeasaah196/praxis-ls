@@ -679,7 +679,15 @@ function PayPanel({
               />
             </Field>
             <Field label={tr("Kind")}>
-              <Select value={kind} onChange={(e) => setKind(e.target.value)}>
+              <Select
+                value={kind}
+                onChange={(e) => {
+                  setKind(e.target.value);
+                  // Same rule as the wizard: a benefit in kind is taxed but not
+                  // paid in cash, so it must not inflate the printed gross.
+                  setInGross(e.target.value !== "BENEFIT_IN_KIND");
+                }}
+              >
                 {ALLOWANCE_KINDS.map((k) => (
                   <option key={k.value} value={k.value}>
                     {tr(k.label)}

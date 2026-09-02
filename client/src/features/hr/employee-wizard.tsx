@@ -704,7 +704,16 @@ function EmploymentStep({
                   <Field label={tr("Kind")} className="sm:col-span-3">
                     <Select
                       value={row.kind}
-                      onChange={(e) => setRow(i, { kind: e.target.value })}
+                      onChange={(e) =>
+                        setRow(i, {
+                          kind: e.target.value,
+                          // A benefit in kind is remuneration and it is taxed,
+                          // but nobody is handed the money — so it leaves the
+                          // cash gross the moment the kind is chosen, rather
+                          // than after somebody notices the total is wrong.
+                          in_gross: e.target.value !== "BENEFIT_IN_KIND",
+                        })
+                      }
                     >
                       {ALLOWANCE_KINDS.map((k) => (
                         <option key={k.value} value={k.value}>

@@ -11,7 +11,7 @@ const repo = require("./employees.repo");
 const events = require("./employees.events");
 const {
   suggestRiskClass, normaliseBankBlock, blankToNull, contractReadiness, omit,
-  CONTRACT_REQUIREMENTS, REQUIRED_DOCUMENT_CODES,
+  withAllowanceDefaults, CONTRACT_REQUIREMENTS, REQUIRED_DOCUMENT_CODES,
 } = require("./employees.rules");
 const vault = require("../../vault/document_vault/document_vault.service");
 const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emit");
@@ -266,7 +266,7 @@ async function removeDocument(client, { id, documentId, actor = {} }) {
 
 async function addAllowanceRow(client, { employeeId, body, actor = {} }) {
   return repo.insertAllowance(client, {
-    ...blankToNull(body),
+    ...blankToNull(withAllowanceDefaults(body)),
     employee_id: employeeId,
     // Resolved, not passed through — same reason as the document row above.
     created_by: await resolveActorId(client, actor.user_id),

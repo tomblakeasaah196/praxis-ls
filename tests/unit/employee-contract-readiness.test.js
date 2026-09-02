@@ -178,6 +178,43 @@ describe("blankToNull", () => {
   });
 });
 
+describe("a benefit in kind is remuneration, but it is not cash", () => {
+  const { withAllowanceDefaults } = require("../../src/modules/master/employees/employees.rules");
+
+  test("it leaves the cash gross by default", () => {
+    // Found against a real database: `in_gross` defaults to true on the column,
+    // so a company car turned a 650,000 contract into a 730,000 one — a monthly
+    // figure the payslip could never match.
+    const row = withAllowanceDefaults({ label: "Voiture de fonction", kind: "BENEFIT_IN_KIND", amount: 80000 });
+    expect(row.in_gross).toBe(false);
+  });
+
+  test("it stays taxable and in the CNPS base — those are not this rule's business", () => {
+    const row = withAllowanceDefaults({ kind: "BENEFIT_IN_KIND", amount: 1 });
+    expect(row.is_taxable).toBeUndefined();   // the column default (true) stands
+    expect(row.in_cnps_base).toBeUndefined();
+  });
+
+  test("an explicit choice is never overridden", () => {
+    // A car ALLOWANCE paid as cash is unusual and legitimate. Overriding what
+    // the caller actually said would make the field a lie.
+    const row = withAllowanceDefaults({ kind: "BENEFIT_IN_KIND", amount: 1, in_gross: true });
+    expect(row.in_gross).toBe(true);
+  });
+
+  test("every other kind is untouched", () => {
+    for (const kind of ["ALLOWANCE", "BONUS", "INDEMNITY", "DEDUCTION"]) {
+      expect(withAllowanceDefaults({ kind, amount: 1 }).in_gross).toBeUndefined();
+    }
+  });
+
+  test("it does not mutate what it was given", () => {
+    const input = { kind: "BENEFIT_IN_KIND", amount: 1 };
+    withAllowanceDefaults(input);
+    expect(input.in_gross).toBeUndefined();
+  });
+});
+
 describe("omit", () => {
   test("drops the named keys and keeps the rest", () => {
     expect(omit({ a: 1, b: 2, c: 3 }, ["b"])).toEqual({ a: 1, c: 3 });

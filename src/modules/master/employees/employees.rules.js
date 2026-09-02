@@ -80,6 +80,33 @@ function blankToNull(obj) {
   return out;
 }
 
+/**
+ * A standing pay line, with the defaults its KIND implies.
+ *
+ * ── WHY THIS IS NOT JUST THE COLUMN DEFAULT ───────────────────────────────
+ *
+ * `employee_allowance.in_gross` defaults to true, which is right for a prime
+ * and wrong for the one kind whose whole definition is that it is NOT paid in
+ * cash. A company car is remuneration and it is taxed — so `is_taxable` and
+ * `in_cnps_base` stay true — but nobody is handed 80,000 francs, and counting
+ * it toward the gross makes the contract state a monthly figure the payslip can
+ * never match.
+ *
+ * Caught by inserting one against a real database and watching a 650,000 gross
+ * come back as 730,000. A per-kind default cannot be expressed as a column
+ * DEFAULT, so it is applied here, where both the wizard's bulk create and the
+ * single-allowance endpoint go through it.
+ *
+ * Only when the caller said NOTHING: an explicit `in_gross: true` on a benefit
+ * in kind is a deliberate, unusual choice (a car allowance paid as cash), and
+ * overriding it would make the field a lie.
+ */
+function withAllowanceDefaults(body = {}) {
+  const out = { ...body };
+  if (out.kind === "BENEFIT_IN_KIND" && out.in_gross === undefined) out.in_gross = false;
+  return out;
+}
+
 /** A copy of `obj` without `keys`. Named rather than done with a rest-destructure
  *  so the discarded keys do not become unused variables the linter has to be
  *  told to ignore — and so the call site says WHY they are being dropped. */
@@ -195,6 +222,6 @@ function contractReadiness(employee = {}, documents = []) {
 
 module.exports = {
   suggestRiskClass, normaliseBankBlock, redactSensitive, SENSITIVE_FIELDS,
-  RISK_OFFICE, RISK_OPERATIONAL, blankToNull, isPresent, omit,
+  RISK_OFFICE, RISK_OPERATIONAL, blankToNull, isPresent, omit, withAllowanceDefaults,
   CONTRACT_REQUIREMENTS, REQUIRED_DOCUMENT_CODES, contractReadiness,
 };
