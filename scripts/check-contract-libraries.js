@@ -127,6 +127,13 @@ for (const [id, lib] of loaded) {
         fail(at, `omitWhenMissing names "${token}", which is already required — the article can never be dropped, so the entry does nothing`);
       } else if (!tokensIn(a.body).includes(token)) {
         fail(at, `omitWhenMissing names "${token}", which this article's body never uses`);
+      } else if ((lib.requires || []).includes(token)) {
+        /* The two contradict. `requires` upgrades the token to required for
+         * the whole document, so it lands in `missing` rather than `empty` —
+         * the article is never dropped, and generation refuses instead. Safe,
+         * but it silently defeats what the author asked for, and the next
+         * person to read it cannot tell which of the two was meant. */
+        fail(at, `omitWhenMissing names "${token}", which this library also requires — the article can never be dropped, and generation refuses instead`);
       }
     }
   }
