@@ -92,7 +92,7 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: PR title is usable as a changelog line
         # Runs FIRST, before install/lint/tests, so a bad title fails in ~2s
@@ -511,7 +511,7 @@ jobs:
       TENANT_DB_SUPERUSER: praxis-admin
       TENANT_DB_SUPERUSER_PASSWORD: ci-only-not-a-secret
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -824,7 +824,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Use Node 20
         uses: actions/setup-node@v4
@@ -988,7 +988,7 @@ jobs:
       matrix:
         app: [client, platform-console, public-web]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Use Node 20
         uses: actions/setup-node@v4
@@ -1190,7 +1190,7 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build image (no push)
         # Catches Dockerfile breakage without needing a registry. Builds the
         # runtime stage; the worker stage shares the same base.
