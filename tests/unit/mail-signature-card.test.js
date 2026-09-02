@@ -235,14 +235,51 @@ describe("the card and the email fallback agree", () => {
     expect(htmlMod.render(m)).not.toContain("Going Beyond");
   });
 
-  /** The fine print must not compete with the card it sits under. */
-  test("the fallback is set smaller than the card's own type", () => {
+  /**
+   * The fallback carries the TENANT'S colours, not a literal.
+   *
+   * It read `model.brand_color || "#0f4c81"` and the card template sets no
+   * `brand_color` — its colours resolve from branding — so every fallback ever
+   * rendered used that hard-coded blue. On a white-label product that is the
+   * one colour on the page belonging to nobody.
+   */
+  test("the fallback is painted in the tenant's brand, not a literal", () => {
     const m = model();
+    m.palette = palette.resolve(SMART_LS, SEEDED_LAYOUT);
     m.card_png_url = "https://smartls.praxisls.com/media/x.png";
     const email = htmlMod.render(m);
-    const sizes = [...email.matchAll(/font-size:(\d+)px/g)].map((x) => Number(x[1]));
-    expect(sizes.length).toBeGreaterThan(0);
-    expect(Math.max(...sizes)).toBeLessThanOrEqual(11);
+    expect(email).toContain(m.palette.ink);   // rule, name, website
+    expect(email).toContain(m.palette.warm);  // the title dash
+    expect(email).not.toContain("#0f4c81");
+  });
+
+  test("a tenant with different branding gets a different fallback", () => {
+    const a = model();
+    const b = model();
+    a.palette = palette.resolve({ accentDeep: "#0D5C8A" }, {});
+    b.palette = palette.resolve({ accentDeep: "#14532D" }, {});
+    expect(htmlMod.render(a)).not.toBe(htmlMod.render(b));
+    expect(htmlMod.render(b)).toContain("#14532d");
+  });
+
+  /** A phone number nobody can tap is a phone number nobody rings. */
+  test("the fallback's contact details are clickable", () => {
+    const m = model();
+    m.palette = palette.resolve(SMART_LS, SEEDED_LAYOUT);
+    const email = htmlMod.render(m);
+    expect(email).toContain('href="tel:+237233420281"');
+    expect(email).toContain('href="mailto:line.happy@smartls.cm"');
+    // A bare domain is not a link until it has a scheme.
+    expect(email).toContain('href="https://www.smartls.cm"');
+  });
+
+  /** Outlook's Word engine drops a CSS border on a <td>; a filled cell survives. */
+  test("the brand rule is a filled cell, not a CSS border", () => {
+    const m = model();
+    m.palette = palette.resolve(SMART_LS, SEEDED_LAYOUT);
+    const email = htmlMod.render(m);
+    expect(email).toContain(`bgcolor="${m.palette.ink}"`);
+    expect(email).not.toMatch(/border-left:/);
   });
 
   test("the email half stays email-safe", () => {
