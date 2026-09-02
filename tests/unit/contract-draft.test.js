@@ -393,6 +393,92 @@ describe("the clauses that reach the PDF", () => {
     expect(contractArticles(null)).toEqual([]);
     expect(contractArticles("   ")).toEqual([]);
   });
+
+  it("keeps the closing out of the body, so it is not the last paragraph of the disputes clause", () => {
+    // « Fait à Douala, le … » carries no `##` heading, so inside `body_md` the
+    // renderer has nowhere to put it but inside the article above it — the
+    // contract would print "in two original copies" as part of ARTICLE 12.
+    const built = composer.build(ROW);
+    expect(built.body_md).not.toMatch(/Fait à|in two \(02\) original/i);
+    expect(built.columns.closing_md).toMatch(/two \(02\) original counterparts|deux \(02\) exemplaires/);
+    expect(built.columns.signature_labels.map((s) => s.party)).toEqual(["EMPLOYEE", "EMPLOYER"]);
+  });
+
+  it("renders through the real template with no double numbering and no commercial furniture", () => {
+    // Four defects at once, all of them invisible until somebody read the PDF:
+    //   · every section was wrapped in "Article N — …", so a composed body
+    //     printed "Article 1 — ARTICLE 1 : ENGAGEMENT ET DURÉE", and the
+    //     preamble came out as "Article 1 — ENTRE LES SOUSSIGNÉS :";
+    //   · a second parties block above a preamble that already names both
+    //     parties, less completely and in a different format;
+    //   · `k.signatureBlock` labels the counterparty "Pour le client" — on the
+    //     document that defines an employment relationship;
+    //   · the heading said "Contrat de travail" for a CDD.
+    const registry = require("../../src/services/documents/templates/registry");
+    const kit = require("../../src/services/documents/templates/kit");
+
+    const built = composer.build({ ...ROW, language: "fr" });
+    const c = built.columns;
+    const data = {
+      number: "CTR-2026-0014", kind: ROW.kind, effective_on: c.effective_on,
+      employee_name: c.employee_snapshot.full_name, staff_no: c.employee_snapshot.staff_no,
+      job_title: c.job_title, doc_title: c.title, library: c.clause_library_key,
+      representative: { name: ROW.representative.full_name, title: ROW.representative.title },
+      articles: contractArticles(built.body_md),
+      closing: c.closing_md, signature_labels: c.signature_labels, currency: c.salary_currency,
+    };
+    const cfg = kit.mergeCfg({}, { language: c.language, show: { signature: true } });
+    const html = registry.get("EMPLOYMENT_CONTRACT").build(
+      data, cfg, { legal_name: "SLAS LOGISTICS SARL", address: "Akwa, Douala" }, null,
+    );
+    const text = html.slice(html.indexOf("<body")).replace(/<[^>]+>/g, " ");
+
+    expect(text).not.toMatch(/Article \d+ — ARTICLE/i);
+    expect(text).not.toMatch(/Pour le client|For the client|Pour la soci/i);
+    expect(text).toContain("CONTRAT DE TRAVAIL À DURÉE INDÉTERMINÉE");
+    // The two parties are named once, in the contract's own words.
+    expect(text.match(/ENTRE LES SOUSSIGN/g)).toHaveLength(1);
+    // …and the panel the employer signs names the person who binds it.
+    expect(text).toMatch(/Marc-Aur.le Ngassa/);
+    expect(text).toMatch(/G.rant/);
+    // The closing sits below the clauses, not inside the last one.
+    expect(text).toMatch(/exemplaires originaux/);
+  });
+
+  it("still numbers a body that was typed in by hand", () => {
+    // A contract written before the libraries existed, or edited from scratch,
+    // has plain headings and must keep the numbering the template used to add.
+    const registry = require("../../src/services/documents/templates/registry");
+    const kit = require("../../src/services/documents/templates/kit");
+    const html = registry.get("EMPLOYMENT_CONTRACT").build(
+      { number: "X", articles: [{ title: "Parties", body: "A and B." }, { title: "Notice", body: "30 days." }] },
+      kit.mergeCfg({}, { language: "en" }), { legal_name: "X" }, null,
+    );
+    const text = html.slice(html.indexOf("<body")).replace(/<[^>]+>/g, " ");
+    expect(text).toMatch(/Article 1 — Parties/);
+    expect(text).toMatch(/Article 2 — Notice/);
+  });
+});
+
+describe("the language a contract prints in", () => {
+  const { resolveDocLanguage } = require("../../src/modules/documents/template/template.service");
+
+  it("takes the contract's own language over the operator's pick", () => {
+    // An invoice is a projection: the figures are the same whichever language
+    // the labels are in, so the operator may fairly choose. A contract's
+    // clauses ARE the document. Printing English furniture over a French body
+    // produces the bilingual instrument 12766 exists to prevent.
+    expect(resolveDocLanguage("en", { language: "bilingual" }, "fr")).toBe("fr");
+    expect(resolveDocLanguage(null, { language: "bilingual" }, "en")).toBe("en");
+  });
+
+  it("leaves every other document exactly as it was", () => {
+    expect(resolveDocLanguage("en", { language: "fr" }, null)).toBe("en");
+    expect(resolveDocLanguage(null, { language: "fr" }, null)).toBe("fr");
+    expect(resolveDocLanguage(null, {}, null)).toBeUndefined();
+    // A record that states nonsense does not get to render in nothing.
+    expect(resolveDocLanguage("en", { language: "fr" }, "de")).toBe("en");
+  });
 });
 
 describe("recording the terms of a contract signed on paper", () => {

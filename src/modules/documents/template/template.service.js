@@ -230,27 +230,42 @@ async function savedConfig(client, docType, entityId) {
  * The language ONE render comes out in.
  *
  * Resolution order, and it is deliberately short:
- *   1. what the operator picked at print time (`language`, from the request)
- *   2. what the tenant configured for this doc type in the Document Studio
+ *   1. the language the RECORD IS WRITTEN IN, where the record has one
+ *   2. what the operator picked at print time (`language`, from the request)
+ *   3. what the tenant configured for this doc type in the Document Studio
  *
- * The operator's pick wins because they are the one looking at the client's
- * file while they press Download — a tenant-wide default cannot know that this
- * particular consignee reads English. `asLang` drops anything that is not a
- * supported code, so an unrecognised value falls through to the tenant setting
- * rather than rendering a document in nothing.
+ * The operator's pick beats the tenant default because they are the one looking
+ * at the client's file while they press Download — a tenant-wide default cannot
+ * know that this particular consignee reads English. `asLang` drops anything
+ * that is not a supported code, so an unrecognised value falls through rather
+ * than rendering a document in nothing.
+ *
+ * ── WHY THE RECORD BEATS BOTH ──────────────────────────────────────────────
+ *
+ * Almost every document here is a PROJECTION: an invoice's figures are the same
+ * figures whichever language the labels are printed in, so the operator may
+ * fairly choose. An employment contract is not. Its clauses ARE the document,
+ * they were composed in one language and signed in that language (12766), and
+ * printing English headings and a French preamble over them produces a
+ * bilingual instrument — the exact thing that raises which-version-governs, and
+ * the reason the contract carries a language column at all. So a record that
+ * states its own language is not offering a preference; it is stating a fact
+ * about itself, and it wins.
  *
  * "bilingual" is a legitimate configured value and is passed through untouched;
- * it is only ever chosen deliberately.
+ * it is only ever chosen deliberately, and never by a record.
  */
-function resolveDocLanguage(picked, saved) {
+function resolveDocLanguage(picked, saved, recordLanguage = null) {
+  const own = asLang(recordLanguage);
+  if (own) return own;
   const explicit = asLang(picked);
   if (explicit) return explicit;
   return (saved && saved.language) || undefined;
 }
 
-async function resolveCfg(client, docType, entityId, override, { language = null } = {}) {
+async function resolveCfg(client, docType, entityId, override, { language = null, recordLanguage = null } = {}) {
   const saved = await savedConfig(client, docType, entityId);
-  const picked = resolveDocLanguage(language, saved);
+  const picked = resolveDocLanguage(language, saved, recordLanguage);
   // Resolved BEFORE the entity, because the entity's own derived lines are
   // language-dependent — a French document says "Cameroun", an English one
   // "Cameroon", and both come from the same country_code.
@@ -1071,8 +1086,11 @@ async function loadRecord(client, docType, recordId) {
 
   if (docType === "EMPLOYMENT_CONTRACT") {
     const { rows } = await client.query(
-      `SELECT c.*, e.full_name, e.job_title AS employee_job_title, coalesce(c.entity_id, e.entity_id) AS entity_id
-         FROM hr_contract c LEFT JOIN employee e ON e.employee_id = c.employee_id
+      `SELECT c.*, e.full_name, e.job_title AS employee_job_title, coalesce(c.entity_id, e.entity_id) AS entity_id,
+              p.full_name AS rep_name, p.title AS rep_title
+         FROM hr_contract c
+         LEFT JOIN employee e ON e.employee_id = c.employee_id
+         LEFT JOIN entity_person p ON p.person_id = c.employer_person_id
         WHERE c.hr_contract_id = $1`,
       [recordId],
     );
@@ -1091,8 +1109,23 @@ async function loadRecord(client, docType, recordId) {
      * template and then edited by a human. `contractArticles` cuts it at its
      * `##` headings, which is exactly the shape the renderer wants.
      */
+    /*
+     * The employee's name AS THE CONTRACT NAMES THEM.
+     *
+     * `employee_snapshot` is the civil identity frozen at composition (12766),
+     * and it is what the identification clause in the body was filled from.
+     * Reading `employee.full_name` live here would let a correction typed a
+     * year later put one name in the signature panel and a different one three
+     * paragraphs above it, in the same PDF.
+     */
+    const snap = c.employee_snapshot || {};
     return {
       entity_id: c.entity_id,
+      /* The language the contract is WRITTEN in, not one preferred at print
+       * time. A composed body carries French clauses; rendering the furniture
+       * around them in English produces a document in two languages, which is
+       * the one thing 12766 exists to prevent. */
+      language: c.language || null,
       data: {
         // The tenant's allocated CTR number (11743). The id fragment stays as
         // the fallback ONLY for contracts issued before numbering existed —
@@ -1102,10 +1135,25 @@ async function loadRecord(client, docType, recordId) {
         kind: c.kind,
         effective_on: c.effective_on,
         end_on: c.end_on,
-        employee_name: c.full_name || "—",
+        employee_name: snap.full_name || c.full_name || "—",
+        staff_no: snap.staff_no || null,
         job_title: c.job_title || c.employee_job_title,
-        party: { name: c.full_name || "—", lines: [c.job_title || c.employee_job_title].filter(Boolean) },
+        party: { name: snap.full_name || c.full_name || "—", lines: [c.job_title || c.employee_job_title].filter(Boolean) },
+        // Who signs for the employer, and in what capacity (12766).
+        representative: c.rep_name ? { name: c.rep_name, title: c.rep_title } : null,
+        // The document's own title, from the library it was composed from —
+        // "CONTRAT DE TRAVAIL À DURÉE DÉTERMINÉE" is not "Contrat de travail",
+        // and a CDD that prints the generic heading understates what it is.
+        doc_title: c.title || null,
+        library: c.clause_library_key || null,
+        library_version: c.clause_library_version || null,
         articles: contractArticles(c.body_md),
+        /* Laid out below the clauses and above the signatures. It is out of
+         * `body_md` because it carries no `##` heading, so `contractArticles`
+         * would otherwise append « Fait à Douala, le … » to the disputes
+         * clause as its closing paragraph. */
+        closing: c.closing_md || null,
+        signature_labels: Array.isArray(c.signature_labels) ? c.signature_labels : null,
         // The terms, so a template that wants them beside the clauses has them
         // rather than having to parse the prose back out.
         gross_salary: c.gross_salary === null || c.gross_salary === undefined ? null : Number(c.gross_salary),
@@ -1390,16 +1438,21 @@ async function preview(client, { docType, entityId, recordId, config, origin = n
    * figures on the page would not be the figures that were signed.
    */
   let signedRef = null;
+  // Set in the same place and for the same reason as `signedRef`: it is a
+  // property OF THE LOADED RECORD, so it is read off a database result rather
+  // than derived from anything the request supplied.
+  let recordLanguage = null;
   if (recordId) {
     const rec = await loadRecord(client, docType, recordId);
     if (rec) {
       data = rec.data;
       ent = ent || rec.entity_id;
       real = true;
+      recordLanguage = rec.language || null;
       signedRef = `${docType.toLowerCase()}:${recordId}`;
     }
   }
-  const { cfg, entity } = await resolveCfg(client, docType, ent, config, { language });
+  const { cfg, entity } = await resolveCfg(client, docType, ent, config, { language, recordLanguage });
   cfg.wet_print = await wetPrintBlockFor(client, { entityRef: signedRef });
   const verify = await verifyBlockFor(client, { entityRef: signedRef, origin });
   // The preview must show the seal the PDF will carry, or the operator checks
@@ -1443,7 +1496,7 @@ async function generate(client, { docType, entityId, recordId, actor, origin = n
   const rec = recordId ? await loadRecord(client, docType, recordId) : null;
   const data = rec ? rec.data : tpl.sampleData;
   const ent = entityId || (rec && rec.entity_id);
-  const { cfg, entity } = await resolveCfg(client, docType, ent, null, { language });
+  const { cfg, entity } = await resolveCfg(client, docType, ent, null, { language, recordLanguage: rec && rec.language });
   const entityRef = `${docType.toLowerCase()}:${recordId || "adhoc"}`;
   const key = `documents/${docType}/${recordId || "adhoc"}-${Date.now()}.pdf`;
   // G2 — sandbox renders are watermarked TEST SANDBOX regardless of config.
@@ -1585,7 +1638,10 @@ async function composePrefill(client, { docType, recordId, entityId = null, acto
   if (!rec) throw new AppError("NOT_FOUND", `No ${docType} ${recordId}`, 404);
   const data = rec.data;
   const ent = entityId || rec.entity_id;
-  const { cfg, entity } = await resolveCfg(client, docType, ent, null, { language });
+  // `recordLanguage` here too, so the covering email and the sheet it carries
+  // come out in the same language — a French contract under an English subject
+  // line is the same defect, one layer out.
+  const { cfg, entity } = await resolveCfg(client, docType, ent, null, { language, recordLanguage: rec.language });
 
   // The artifact, vaulted. Not best-effort: a compose window that opens with
   // nothing attached is worse than an error, because the operator will write
@@ -1671,8 +1727,9 @@ function contractArticles(bodyMd) {
 }
 
 module.exports = {
-  // Exported for the test that pins it — see tests/unit/contract-draft.
-  contractArticles, list, getConfig, setConfig, records, preview, generate, renderPdfFromData, send, composePrefill,
+  // Exported for the tests that pin them — see tests/unit/contract-draft.
+  contractArticles, resolveDocLanguage,
+  list, getConfig, setConfig, records, preview, generate, renderPdfFromData, send, composePrefill,
   // Exported for document_signature.service, which needs the SAME record shape
   // the templates render from — hashing anything else would attest to a
   // projection of the document rather than the document (guide §3.6).

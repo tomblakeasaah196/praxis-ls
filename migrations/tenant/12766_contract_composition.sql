@@ -58,7 +58,18 @@ ALTER TABLE hr_contract
   -- Where it was signed, and whose courts hear a dispute about it. Both are
   -- printed in the closing and the disputes clause; neither was derivable.
   ADD COLUMN IF NOT EXISTS place_signed      text,
-  ADD COLUMN IF NOT EXISTS jurisdiction_city text;
+  ADD COLUMN IF NOT EXISTS jurisdiction_city text,
+  -- « Fait à Douala, le …, en deux (02) exemplaires originaux », and the two
+  -- signature panels beneath it.
+  --
+  -- NOT part of `body_md`, and that is a rendering fact rather than a taste:
+  -- the PDF cuts the body at its `##` headings, the closing carries none, so
+  -- inside `body_md` it would print as the final paragraph of the disputes
+  -- clause. Stored rather than recomposed at print time for the same reason
+  -- `clause_library_version` is pinned — a revised library must not restate
+  -- the closing of a contract already signed.
+  ADD COLUMN IF NOT EXISTS closing_md        text,
+  ADD COLUMN IF NOT EXISTS signature_labels  jsonb;
 
 DO $$
 BEGIN
@@ -122,6 +133,7 @@ ON CONFLICT (section, key) DO NOTHING;
 --     DROP COLUMN IF EXISTS clause_library_version, DROP COLUMN IF EXISTS employment_type,
 --     DROP COLUMN IF EXISTS employer_person_id, DROP COLUMN IF EXISTS employee_snapshot,
 --     DROP COLUMN IF EXISTS pay_snapshot, DROP COLUMN IF EXISTS base_salary,
---     DROP COLUMN IF EXISTS place_signed, DROP COLUMN IF EXISTS jurisdiction_city;
+--     DROP COLUMN IF EXISTS place_signed, DROP COLUMN IF EXISTS jurisdiction_city,
+--     DROP COLUMN IF EXISTS closing_md, DROP COLUMN IF EXISTS signature_labels;
 --   UPDATE setting SET value = jsonb_set(value, '{allowed}', '["STAMP","DRAWN"]'::jsonb, true)
 --    WHERE section = 'signature_policy' AND key = 'EMPLOYMENT_CONTRACT';
