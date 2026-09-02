@@ -37,7 +37,9 @@ module.exports = {
     const id = req.params.id;
     const body = req.body || {};
     const { row, sopTitles } = await req.tenantDb(async (c) => ({
-      row: await repo.composition(c, id),
+      // The signatory the operator picked but has not saved — otherwise
+      // choosing a different director and pressing Compose names the old one.
+      row: await repo.composition(c, id, { employerPersonId: body.employer_person_id }),
       sopTitles: await repo.sopTitles(c),
     }));
     if (!row) throw new AppError("NOT_FOUND", "Contract not found", 404);
@@ -98,9 +100,10 @@ module.exports = {
    * used to tell somebody what is incomplete about it.
    */
   readinessFor: asyncHandler(async (req, res) => {
-    const row = await req.tenantDb((c) => repo.composition(c, req.params.id));
-    if (!row) throw new AppError("NOT_FOUND", "Contract not found", 404);
     const overrides = req.query || {};
+    const row = await req.tenantDb((c) =>
+      repo.composition(c, req.params.id, { employerPersonId: overrides.employer_person_id }));
+    if (!row) throw new AppError("NOT_FOUND", "Contract not found", 404);
     const state = composer.readiness(row, { overrides });
     const signatories = row.entity && row.entity.entity_id
       ? await req.tenantDb((c) => repo.signatories(c, row.entity.entity_id))

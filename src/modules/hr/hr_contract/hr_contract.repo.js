@@ -82,7 +82,7 @@ module.exports = {
    * office from the letterhead at the top of the same page would be its own
    * kind of defect.
    */
-  async composition(client, id) {
+  async composition(client, id, { employerPersonId = null } = {}) {
     const { rows } = await client.query(
       `SELECT hc.*,
               to_jsonb(e.*)  AS employee,
@@ -115,13 +115,17 @@ module.exports = {
               AND p.is_active
               AND (p.effective_from IS NULL OR p.effective_from <= CURRENT_DATE)
               AND (p.effective_to   IS NULL OR p.effective_to   >= CURRENT_DATE)
-              AND (hc.employer_person_id IS NULL
-                   OR p.person_id = hc.employer_person_id)
+              -- $2 is the signatory the WIZARD is holding but has not saved.
+              -- Without it, choosing a different director and pressing Compose
+              -- produced a contract naming the old one: the picker changed
+              -- nothing until after the composition it was meant to change.
+              AND (COALESCE($2::uuid, hc.employer_person_id) IS NULL
+                   OR p.person_id = COALESCE($2::uuid, hc.employer_person_id))
               AND p.role IN ('LEGAL_REPRESENTATIVE','AUTHORISED_SIGNATORY','DIRECTOR','OFFICER')
             ORDER BY
               -- An explicit choice always wins; the precedence below only
               -- decides who is offered when the contract named nobody.
-              (p.person_id = hc.employer_person_id) DESC NULLS LAST,
+              (p.person_id = COALESCE($2::uuid, hc.employer_person_id)) DESC NULLS LAST,
               CASE p.role WHEN 'LEGAL_REPRESENTATIVE' THEN 1
                           WHEN 'AUTHORISED_SIGNATORY' THEN 2
                           WHEN 'DIRECTOR' THEN 3 ELSE 4 END,
@@ -143,7 +147,7 @@ module.exports = {
          ) al ON true
          LEFT JOIN vacancy v ON v.vacancy_id = hc.vacancy_id
         WHERE hc.hr_contract_id = $1`,
-      [id],
+      [id, employerPersonId || null],
     );
     return rows[0] || null;
   },

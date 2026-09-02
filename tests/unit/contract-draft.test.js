@@ -565,6 +565,39 @@ describe("where the employer's address comes from", () => {
     expect(sql).toMatch(/ce\.address/);
   });
 
+  it("lets the wizard's unsaved choice of signatory reach the composition", () => {
+    /*
+     * THE GAP THIS CLOSES. The composition resolved the employer's signatory
+     * from `hc.employer_person_id` — the STORED value — so picking a different
+     * director in the editor and pressing Compose produced a contract naming
+     * the old one. The picker changed nothing until after the composition it
+     * existed to change.
+     *
+     * The parameter is COALESCEd over the stored column rather than replacing
+     * the WHERE clause, so an unsaved choice wins, a stored one still applies
+     * when nothing is being picked, and the register's own precedence decides
+     * when neither is set.
+     */
+    const sql = String(repo.composition);
+    expect(sql).toMatch(/COALESCE\(\$2::uuid, hc\.employer_person_id\)/);
+    // …and it is still filtered by the mandate, so an explicit id cannot
+    // resurrect a resigned director. Verified against Postgres: picking one
+    // resolves to nobody and the composition then refuses on rep.name.
+    expect(sql).toMatch(/effective_to\s+>= CURRENT_DATE/);
+  });
+
+  it("records the signatory the document actually names", () => {
+    // Not whoever was on the row before. The preamble says « représentée par
+    // X » and the panel X signs is printed beneath it; storing somebody else
+    // would make the column disagree with the document it describes.
+    const svc = String(require("fs").readFileSync(
+      require("path").join(__dirname, "../../src/modules/hr/hr_contract/hr_contract.service.js"), "utf8",
+    ));
+    const block = svc.slice(svc.indexOf("employer_person_id:"), svc.indexOf("employer_person_id:") + 220);
+    // The resolved representative comes FIRST in the fallback chain.
+    expect(block.indexOf("built.facts.representative")).toBeLessThan(block.indexOf("before.employer_person_id"));
+  });
+
   it("only offers a signatory whose mandate covers today", () => {
     // A resigned director must never be offered as the person who binds the
     // company, and the picker the wizard reads must use the same filter the

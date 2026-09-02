@@ -91,9 +91,14 @@ module.exports = {
       ai_generated: Boolean(refinement.ai_generated),
       ai_model: refinement.ai_model || null,
       entity_id: before.entity_id ?? (built.facts.entity && built.facts.entity.entity_id) ?? null,
+      /* Whoever the composition ACTUALLY named, not whoever was on the row
+       * before it. The preamble now says « représentée par X » and the panel X
+       * signs is printed beneath it; recording somebody else would make the
+       * column disagree with the document it describes. Falls back to what was
+       * there when nothing resolved. */
       employer_person_id:
-        before.employer_person_id
-        ?? (built.facts.representative && built.facts.representative.person_id)
+        (built.facts.representative && built.facts.representative.person_id)
+        ?? before.employer_person_id
         ?? null,
       probation_ends_on:
         c.effective_on && c.probation_months ? addMonths(c.effective_on, c.probation_months) : null,
