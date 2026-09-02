@@ -89,17 +89,24 @@ function cardHtml({ width, brand, p, c, co, model }) {
     .filter(Boolean).join(" — ");
 
   const image = src
-    ? `<tr><td style="padding:0 0 8px 0"><img src="${esc(src)}" alt="${esc(alt)}" width="${width}" style="display:block;width:${width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none" /></td></tr>`
+    ? `<tr><td style="padding:0 0 6px 0"><img src="${esc(src)}" alt="${esc(alt)}" width="${width}" style="display:block;width:${width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none" /></td></tr>`
     : "";
 
-  const text = line(p.person_line, `font-weight:bold;color:${brand};font-size:14px;line-height:20px`)
-    + line(p.job_title, "color:#111827;font-size:12px;line-height:18px")
-    + line(c.contact_line, "color:#374151;font-size:12px;line-height:18px;margin-top:6px")
-    + line(co.legal_name, "color:#111827;font-size:12px;line-height:18px;margin-top:6px")
-    + line(co.address_line, "color:#6b7280;font-size:12px;line-height:18px")
-    + line(joinPhoneWeb(co), "color:#6b7280;font-size:12px;line-height:18px")
-    + line(co.motto, "color:#6b7280;font-size:11px;line-height:16px;margin-top:6px")
-    + line(co.confidentiality, "color:#9ca3af;font-size:10px;line-height:14px;margin-top:8px");
+  // FINE PRINT, not a second signature.
+  //
+  // The first version set this at the same weight and size as the classic
+  // layout, so when the image was missing the recipient got a full plain-text
+  // signature — and when the image was PRESENT they got the card with a
+  // near-duplicate of its own contents restated underneath. Both readings are
+  // wrong. The card is the signature; this is the machine-readable copy that
+  // keeps the block working when images are blocked, keeps it reachable to a
+  // screen reader, and keeps a text/plain part in the message for spam
+  // scoring. So it is small, grey and quiet, and the card carries the design.
+  const text = line(p.person_line, "font-weight:bold;color:#4b5563;font-size:11px;line-height:16px")
+    + line(joinDot([p.job_title, co.legal_name]), "color:#6b7280;font-size:11px;line-height:16px")
+    + line(joinDot([c.contact_line, co.website]), "color:#6b7280;font-size:11px;line-height:16px")
+    + line(co.address_line, "color:#9ca3af;font-size:10px;line-height:15px")
+    + line(co.confidentiality, "color:#9ca3af;font-size:10px;line-height:14px;margin-top:6px");
 
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${width}" style="width:${width}px;border-collapse:collapse;font-family:${FONT};max-width:${width}px">
   ${image}
@@ -150,6 +157,11 @@ function classicHtml({ width, brand, accent, p, c, co, model }) {
   <tr>${left}${cell(body, "padding:12px 16px;vertical-align:top")}</tr>
   ${motto}
 </table>`;
+}
+
+/** Values on one line, with no dangling separator when one is absent. */
+function joinDot(parts) {
+  return parts.map((v) => (v === null || v === undefined ? "" : String(v).trim())).filter(Boolean).join(" · ");
 }
 
 function joinPhoneWeb(co) {

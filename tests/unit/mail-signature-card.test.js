@@ -193,18 +193,56 @@ describe("the card and the email fallback agree", () => {
    * all, so the two are rendered separately — and this is what stops them
    * saying different things.
    */
-  test("every value on the card appears in the email text fallback", () => {
+  /**
+   * The guard is about CONTACT FACTS, not about every mark on the card.
+   *
+   * The fallback exists for a recipient whose client blocks the image: they must
+   * still be able to tell who wrote to them and how to reply. The motto is
+   * deliberately NOT in it — it is decoration, it is set in a script face the
+   * fallback cannot use anyway, and restating it under the card duplicated the
+   * card's own strapline in plain grey text for every recipient who CAN see
+   * images. Losing a strapline when images are off costs nothing; losing a phone
+   * number costs the reply.
+   */
+  test("every contact fact on the card survives into the text fallback", () => {
     const m = model();
     m.card_png_url = "https://smartls.praxisls.com/media/x.png";
     const email = htmlMod.render(m);
     const f = card.fields(m);
 
-    for (const value of [f.name, f.title, f.email, f.website, f.motto]) {
-      expect(value).toBeTruthy();
-    }
+    // Name, title, company, both numbers, the address and the website — the
+    // things a recipient needs in order to know who wrote and how to reply.
+    //
+    // Compared field by field rather than string by string: the card splits the
+    // street and the P.O. Box into two icon rows, while the fallback joins them
+    // into one line, so the two carry the same FACTS in different shapes. An
+    // assertion on the shape would pin the wrong thing.
+    expect(f.name).toBeTruthy();
+    expect(email).toContain(f.name);
     expect(email).toContain(f.title);
-    expect(email).toContain(f.motto);
-    expect(email).toContain("smartls.cm");
+    expect(email).toContain(m.company.legal_name);
+    expect(email).toContain(m.contact.phone_desk);
+    expect(email).toContain(m.contact.phone_mobile);
+    expect(email).toContain(m.contact.email);
+    expect(email).toContain(f.website);
+    expect(email).toContain(m.company.address_line);
+  });
+
+  test("the motto stays on the card and is not restated as text under it", () => {
+    const m = model();
+    m.card_png_url = "https://smartls.praxisls.com/media/x.png";
+    expect(card.fields(m).motto).toBeTruthy();
+    expect(htmlMod.render(m)).not.toContain("Going Beyond");
+  });
+
+  /** The fine print must not compete with the card it sits under. */
+  test("the fallback is set smaller than the card's own type", () => {
+    const m = model();
+    m.card_png_url = "https://smartls.praxisls.com/media/x.png";
+    const email = htmlMod.render(m);
+    const sizes = [...email.matchAll(/font-size:(\d+)px/g)].map((x) => Number(x[1]));
+    expect(sizes.length).toBeGreaterThan(0);
+    expect(Math.max(...sizes)).toBeLessThanOrEqual(11);
   });
 
   test("the email half stays email-safe", () => {
