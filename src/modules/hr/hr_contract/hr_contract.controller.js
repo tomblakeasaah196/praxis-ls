@@ -7,6 +7,20 @@ const refiner = require("./hr_contract.draft");
 const composer = require("./hr_contract.compose");
 const libraries = require("../../../services/contracts/libraries");
 
+/**
+ * A uuid, or null.
+ *
+ * `readiness` is a GET and its terms arrive as query strings, so nothing has
+ * parsed them — and this one value reaches a `$2::uuid` cast. A caller typing
+ * `?employer_person_id=x` would take a 500 out of Postgres ("invalid input
+ * syntax for type uuid") for what is a malformed request. Dropped rather than
+ * refused: this endpoint's whole job is to answer an INCOMPLETE form, so it
+ * falls back to the register's own precedence and reports what is missing.
+ * `compose` validates the same field properly, because there it is a term.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const asUuid = (v) => (typeof v === "string" && UUID.test(v) ? v : null);
+
 const base = makeController(service, "Contract");
 
 module.exports = {
@@ -102,7 +116,7 @@ module.exports = {
   readinessFor: asyncHandler(async (req, res) => {
     const overrides = req.query || {};
     const row = await req.tenantDb((c) =>
-      repo.composition(c, req.params.id, { employerPersonId: overrides.employer_person_id }));
+      repo.composition(c, req.params.id, { employerPersonId: asUuid(overrides.employer_person_id) }));
     if (!row) throw new AppError("NOT_FOUND", "Contract not found", 404);
     const state = composer.readiness(row, { overrides });
     const signatories = row.entity && row.entity.entity_id
