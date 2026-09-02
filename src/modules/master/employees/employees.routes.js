@@ -24,7 +24,7 @@ router.patch("/mine", validator.updateMine, controller.updateMine);
 
 router.get("/roster", requirePermission(MODULE, "view"), controller.roster);
 router.get("/drivers", requirePermission(MODULE, "view"), controller.drivers);
-// The staff-document registry (12761), and the contract-requirement list the
+// The staff-document registry (12764), and the contract-requirement list the
 // creation wizard scores an unsaved draft against. Both before `/:id`, same
 // reason as `/mine`.
 router.get("/document-types", requirePermission(MODULE, "view"), controller.documentTypes);
@@ -41,7 +41,7 @@ router.get("/:id/managers", requirePermission(MODULE, "view"), controller.manage
 // never a value, and the whole point is to hand the gap to whoever can close it.
 router.get("/:id/readiness", requirePermission(MODULE, "view"), controller.readiness);
 router.get("/:id/account", requirePermission(MODULE, "view"), controller.account);
-// The staff file (12761) and the standing pay lines (12762).
+// The staff file (12764) and the standing pay lines (12765).
 router.get("/:id/documents", requirePermission(MODULE, "view"), controller.documents);
 router.get("/:id/allowances", requirePermission(MODULE, "view"), controller.allowances);
 router.get("/:id/pay", requirePermission(MODULE, "view"), controller.pay);
@@ -49,7 +49,7 @@ router.get("/:id/pay", requirePermission(MODULE, "view"), controller.pay);
 router.post("/", requirePermission(MODULE, "create"), validator.create, controller.create);
 router.patch("/:id", requirePermission(MODULE, "edit"), validator.update, controller.update);
 router.post("/:id/active", requirePermission(MODULE, "edit"), validator.setActive, controller.setActive);
-// The lifecycle transition (12760). `edit`, not `delete`: terminating somebody
+// The lifecycle transition (12763). `edit`, not `delete`: terminating somebody
 // keeps every row they are referenced by — it is a state change, not a removal.
 router.post("/:id/status", requirePermission(MODULE, "edit"), validator.setStatus, controller.setStatus);
 

@@ -87,13 +87,13 @@ documents actually lapse.
 
 | Gap | Fix |
 |---|---|
-| The contract's identification clause | `12760` — civility, gender, maiden name, DOB, birth place, both parents, nationality, marital status, dependants, ID type/number/issued-on/issued-at/expires-on, residence |
-| Contact card | `12760` — WhatsApp, personal email, emergency contact (name / relationship / phone), alongside 12759's two phones |
-| The terms a contract states | `12760` — probation months, place of work, working hours, payment method, salary currency |
-| The matricule | `12760` — `employee.staff_no` + `employee_number_sequence`, allocated per entity from `corporate_entity.code` in one `INSERT … ON CONFLICT DO UPDATE … RETURNING`, never typed |
-| "Hired, no login yet" vs "resigned in March" | `12760` — `employee.status` (PENDING / ACTIVE / SUSPENDED / TERMINATED). `is_active` stays, derived by a trigger, so every existing consumer is untouched |
-| The staff file | `12761` — `employee_document`, the same shape as `entity_document`; `party_document_type.applies_to` learns `EMPLOYEE`, with 13 seeded types |
-| The salary decomposition | `12762` — `employee_allowance`: dated, standing lines with `is_taxable` / `in_cnps_base` / `in_gross` recorded rather than inferred from a label |
+| The contract's identification clause | `12763` — civility, gender, maiden name, DOB, birth place, both parents, nationality, marital status, dependants, ID type/number/issued-on/issued-at/expires-on, residence |
+| Contact card | `12763` — WhatsApp, personal email, emergency contact (name / relationship / phone), alongside 12759's two phones |
+| The terms a contract states | `12763` — probation months, place of work, working hours, payment method, salary currency |
+| The matricule | `12763` — `employee.staff_no` + `employee_number_sequence`, allocated per entity from `corporate_entity.code` in one `INSERT … ON CONFLICT DO UPDATE … RETURNING`, never typed |
+| "Hired, no login yet" vs "resigned in March" | `12763` — `employee.status` (PENDING / ACTIVE / SUSPENDED / TERMINATED). `is_active` stays, derived by a trigger, so every existing consumer is untouched |
+| The staff file | `12764` — `employee_document`, the same shape as `entity_document`; `party_document_type.applies_to` learns `EMPLOYEE`, with 13 seeded types |
+| The salary decomposition | `12765` — `employee_allowance`: dated, standing lines with `is_taxable` / `in_cnps_base` / `in_gross` recorded rather than inferred from a label |
 | The seven-field modal | `employee-wizard.tsx` — three steps, a real `role="progressbar"`, every field present whether or not it can be filled today. Only the name blocks |
 | Editing | `employee-360.tsx` — the same fields as sections, not steps. Both read one model (`employee-form-model.ts`) so they cannot drift |
 | "Is this contract-ready?" | `employees.rules.contractReadiness` — one list, read by the wizard's meter, the dossier's panel, and (next) contract generation. `GET /employees/:id/readiness` and `/readiness-requirements` |

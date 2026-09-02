@@ -86,7 +86,7 @@ async function list(client, q = {}) {
   if (q.employment_type) { params.push(q.employment_type); wh.push("e.employment_type = $" + params.length); }
   if (q.is_driver !== undefined) { params.push(q.is_driver === "true" || q.is_driver === true); wh.push("e.is_driver = $" + params.length); }
   if (q.active !== undefined) { params.push(q.active === "true" || q.active === true); wh.push("e.is_active = $" + params.length); }
-  // Lifecycle (12760). Accepts a comma-separated set so the UI can ask for
+  // Lifecycle (12763). Accepts a comma-separated set so the UI can ask for
   // "PENDING or ACTIVE" — the roster people actually work with — in one call.
   if (q.status) {
     const wanted = String(q.status).split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
@@ -282,7 +282,7 @@ async function wouldCycle(client, employeeId, managerId) {
   return rows.length > 0;
 }
 
-/* ── The matricule (12760) ───────────────────────────────────────────────────
+/* ── The matricule (12763) ───────────────────────────────────────────────────
  * The contract assigns one — "Le matricule SLAS-137 lui est attribué" — so it
  * has to exist before the contract can be written, and it has to be stable
  * afterwards. It is allocated here, never typed: a number a human chooses is a
@@ -342,7 +342,7 @@ async function allocateStaffNo(client, { entity_id = null } = {}) {
   return null;
 }
 
-/* ── Staff file (12761) ─────────────────────────────────────────────────────*/
+/* ── Staff file (12764) ─────────────────────────────────────────────────────*/
 
 /** The EMPLOYEE document registry — what the wizard offers and the checklist reads. */
 async function documentTypes(client) {
@@ -387,7 +387,7 @@ const updateDocument = (client, id, fields) =>
 const archiveDocument = (client, id) =>
   updateOne(client, "employee_document", "document_id", id, { is_active: false }, "*", null, { touch: "updated_at" });
 
-/* ── Standing pay lines (12762) ─────────────────────────────────────────────*/
+/* ── Standing pay lines (12765) ─────────────────────────────────────────────*/
 
 /**
  * Live allowances. `on` defaults to today, so the ordinary read is "what is this

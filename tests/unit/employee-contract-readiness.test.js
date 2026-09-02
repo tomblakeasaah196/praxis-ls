@@ -9,7 +9,7 @@
  * screen is not just wrong, it is actively misleading the person who trusted it.
  *
  * The fixture is the employee from the real CDI this work was specified against
- * (see migration 12760), so "ready" here means ready for THAT document.
+ * (see migration 12763), so "ready" here means ready for THAT document.
  */
 "use strict";
 

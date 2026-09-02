@@ -179,11 +179,11 @@ const team = (client, id, opts) => repo.teamOf(client, id, opts);
 /** Nearest-first chain of managers above someone — the escalation path. */
 const managerChain = (client, id) => repo.managerChain(client, id);
 
-/* ── The staff file (12761) ──────────────────────────────────────────────────
+/* ── The staff file (12764) ──────────────────────────────────────────────────
  *
  * A scan is a verification gate, not a creation gate. Every path below records
  * the row whether or not a file came with it, and says what is outstanding
- * instead of refusing the row. See 12761 for why.
+ * instead of refusing the row. See 12764 for why.
  */
 
 /** Vault the scan if one was sent, then write the document row. Shared by the
@@ -262,7 +262,7 @@ async function removeDocument(client, { id, documentId, actor = {} }) {
   return row;
 }
 
-/* ── Standing pay lines (12762) ─────────────────────────────────────────────*/
+/* ── Standing pay lines (12765) ─────────────────────────────────────────────*/
 
 async function addAllowanceRow(client, { employeeId, body, actor = {} }) {
   return repo.insertAllowance(client, {
@@ -380,7 +380,7 @@ async function account(client, id) {
 }
 
 /**
- * Move an employee through the lifecycle (12760).
+ * Move an employee through the lifecycle (12763).
  *
  * Separate from `update` because it is an event, not a field edit: it emits a
  * distinct audit action and, for a termination, records why and when. `setActive`

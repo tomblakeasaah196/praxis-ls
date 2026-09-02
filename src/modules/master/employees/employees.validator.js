@@ -54,7 +54,7 @@ const base = {
   avatar_ref: z.string().max(400).optional(),
   is_driver: z.boolean().optional(),
 
-  /* ── Civil identity (12760) ─────────────────────────────────────────────
+  /* ── Civil identity (12763) ─────────────────────────────────────────────
    * Everything a work contract names the employee by. See the migration for
    * the paragraph these come from; the short version is that a generator
    * missing any one of them produces a document with a hole in it.
@@ -79,7 +79,7 @@ const base = {
   id_document_issued_at: text(120),
   id_document_expires_on: dateStr,
 
-  /* ── Contact card (12760) ───────────────────────────────────────────────── */
+  /* ── Contact card (12763) ───────────────────────────────────────────────── */
   phone_whatsapp: text(40),
   personal_email: z.string().email().optional().nullable().or(z.literal("")),
   residence_address: text(400),
@@ -88,14 +88,14 @@ const base = {
   emergency_contact_relationship: text(60),
   emergency_contact_phone: text(40),
 
-  /* ── Standing terms a contract is drafted from (12760) ──────────────────── */
+  /* ── Standing terms a contract is drafted from (12763) ──────────────────── */
   probation_months: z.number().int().min(0).max(24).optional().nullable(),
   place_of_work: text(200),
   working_hours: text(200),
   payment_method: z.enum(PAYMENT_METHODS).optional().nullable(),
   salary_currency: z.string().trim().toUpperCase().length(3).optional().nullable().or(z.literal("")),
 
-  /* ── Lifecycle (12760) ──────────────────────────────────────────────────
+  /* ── Lifecycle (12763) ──────────────────────────────────────────────────
    * `is_active` stays writable for every existing caller; the DB trigger keeps
    * the two in step whichever one is written.
    */
@@ -114,7 +114,7 @@ const updateMine = z.object({
   phone_mobile: z.string().trim().max(40).nullable().optional().or(z.literal("")),
 }).strict();
 
-/** One row of `employee_document` (12761), as the wizard and the docs tab post it. */
+/** One row of `employee_document` (12764), as the wizard and the docs tab post it. */
 const documentBody = z.object({
   document_type_id: z.string().uuid().optional().nullable(),
   // Accepted as an alternative to the uuid so a caller can say EMP_ID_CARD
@@ -129,7 +129,7 @@ const documentBody = z.object({
   physical_ref: text(120),
   notes: text(1000),
   // The scan itself: a base64 data URL the service vaults, or an already-vaulted
-  // document id. Both optional — a paper-only row is valid (12761).
+  // document id. Both optional — a paper-only row is valid (12764).
   //
   // 8 MB of base64 is ~6 MB of file, which is a phone photograph of an ID card
   // with room to spare. It sits UNDER the 12 MB body limit these two routes
@@ -141,7 +141,7 @@ const documentBody = z.object({
   vault_id: z.string().uuid().optional().nullable(),
 });
 
-/** One row of `employee_allowance` (12762). */
+/** One row of `employee_allowance` (12765). */
 const allowanceBody = z.object({
   label: z.string().trim().min(1).max(160),
   kind: z.enum(ALLOWANCE_KINDS).optional(),

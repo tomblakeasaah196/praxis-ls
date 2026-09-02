@@ -37,7 +37,7 @@
  * people escape by inventing an answer, and an invented CNI number is worse
  * than a blank one — a blank is visible, and the readiness meter counts it.
  *
- * A scan is a verification gate, not a creation gate (12761): step 3 records
+ * A scan is a verification gate, not a creation gate (12764): step 3 records
  * paper-only documents happily. What refuses to run without the documents is
  * contract generation, which is where the requirement actually bites.
  *
@@ -652,7 +652,7 @@ function EmploymentStep({
         </div>
 
         {/* Standing allowances. The contract states a decomposition, not one
-            number, and until 12762 the middle line of that table had nowhere
+            number, and until 12765 the middle line of that table had nowhere
             to live. */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">

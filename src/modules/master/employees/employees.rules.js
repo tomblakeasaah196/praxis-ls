@@ -119,7 +119,7 @@ function omit(obj, keys) {
 /* ── What a work contract actually needs ────────────────────────────────────
  *
  * This list is not a wish. Every entry is a fact printed in the body of a real
- * Cameroonian CDI (see 12760 for the paragraph), and a contract generated
+ * Cameroonian CDI (see 12763 for the paragraph), and a contract generated
  * without one of them has a visible hole where a legal identification should
  * be. It is stated once, here, so the wizard's progress meter, the 360's
  * readiness panel and the contract module all measure the same thing — three
@@ -164,7 +164,7 @@ const CONTRACT_REQUIREMENTS = [
   { key: "email", label: "Work email", group: "employment", severity: "recommended" },
 ];
 
-/** Documents a complete staff file holds. Codes from 12761's registry seed. */
+/** Documents a complete staff file holds. Codes from 12764's registry seed. */
 const REQUIRED_DOCUMENT_CODES = [
   { code: "EMP_ID_CARD", label: "ID card / passport", severity: "required" },
   { code: "EMP_CV", label: "Curriculum vitae", severity: "recommended" },

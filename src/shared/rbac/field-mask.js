@@ -15,7 +15,7 @@
 const FIELD_MAP = {
   "employee.salary": [
     "base_salary", "salary", "gross", "net_pay", "bank_block", "bank_account", "bank_details",
-    // 12762: a standing allowance IS pay. A role that cannot see a base salary
+    // 12765: a standing allowance IS pay. A role that cannot see a base salary
     // must not read the responsibility allowance instead and add it up.
     // `amount` is deliberately NOT here — it is far too generic a property name
     // to null across every nested object in every response; the allowance
@@ -23,7 +23,7 @@ const FIELD_MAP = {
     "monthly_gross",
   ],
   /*
-   * 12760's civil-identity block. Separate from `employee.salary` because they
+   * 12763's civil-identity block. Separate from `employee.salary` because they
    * are different confidences with different audiences: a payroll clerk needs
    * the salary and has no business with a parent's name or a home address,
    * while a line manager may need neither. Nothing masks this key until an

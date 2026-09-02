@@ -69,7 +69,7 @@ module.exports = {
   })),
   remove: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.remove(c, { id: req.params.id, actor: actor(req) })) })),
 
-  /* ── Staff file (12761) ────────────────────────────────────────────────── */
+  /* ── Staff file (12764) ────────────────────────────────────────────────── */
   // The registry, not a document: no employee id, and it is the same list for
   // everybody, which is why it hangs off /employees/document-types rather than
   // being fetched once per employee.
@@ -87,7 +87,7 @@ module.exports = {
     data: await req.tenantDb((c) => service.removeDocument(c, { id: req.params.id, documentId: req.params.documentId, actor: actor(req) })),
   })),
 
-  /* ── Standing pay lines (12762) ────────────────────────────────────────── */
+  /* ── Standing pay lines (12765) ────────────────────────────────────────── */
   // Masked like every other salary read: an allowance IS pay, and a role that
   // cannot see `base_salary` must not read the responsibility allowance instead.
   // `amount` is redacted here rather than through FIELD_MAP — the name is shared

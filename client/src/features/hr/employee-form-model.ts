@@ -27,7 +27,7 @@ export const STEPS = [
 ] as const;
 export type StepKey = (typeof STEPS)[number]["key"];
 
-/* ── Option lists. Mirror the CHECK constraints in 12760/12762 — a value not
+/* ── Option lists. Mirror the CHECK constraints in 12763/12765 — a value not
  * in these lists is a 422 from the API, so they are a contract, not a taste. */
 export const CIVILITIES = [
   { value: "MR", label: "M." },
@@ -55,7 +55,7 @@ export const PAYMENT_METHODS = [
   { value: "CASH", label: "Cash" },
   { value: "CHEQUE", label: "Cheque" },
 ];
-/** Open text in the column (12760) — a tenant hiring a refugee holds a document
+/** Open text in the column (12763) — a tenant hiring a refugee holds a document
  *  none of these name — so the control offers the common three and accepts more. */
 export const ID_DOCUMENT_TYPES = [
   { value: "CNI", label: "National ID card (CNI)" },
@@ -87,7 +87,7 @@ export const EMPLOYEE_STATUSES = [
 
 /** The document slots step 3 lays out by default. Everything else is added by
  *  hand; these are the four a staff file is expected to open with. Codes are
- *  from 12761's registry seed. */
+ *  from 12764's registry seed. */
 export const WIZARD_DOC_SLOTS = [
   { code: "EMP_ID_CARD", label: "ID card / passport", required: true },
   { code: "EMP_CV", label: "Curriculum vitae", required: false },

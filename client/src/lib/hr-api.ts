@@ -955,7 +955,7 @@ export type Employee = {
   is_active?: boolean | null;
   is_driver?: boolean | null;
 
-  /* ── Civil identity (12760). Everything a work contract names somebody by.
+  /* ── Civil identity (12763). Everything a work contract names somebody by.
    * `maiden_name` is asked for only when gender is FEMALE and the marital
    * status implies a name change — "Née FORMUM Epse FORGHAB" only exists in
    * that case. See employeeUsesMaidenName. */
@@ -976,7 +976,7 @@ export type Employee = {
   id_document_issued_at?: string | null;
   id_document_expires_on?: string | null;
 
-  /* ── Contact card (12760) ── */
+  /* ── Contact card (12763) ── */
   phone_desk?: string | null;
   phone_mobile?: string | null;
   phone_whatsapp?: string | null;
@@ -987,7 +987,7 @@ export type Employee = {
   emergency_contact_relationship?: string | null;
   emergency_contact_phone?: string | null;
 
-  /* ── Standing terms a contract is drafted from (12760) ── */
+  /* ── Standing terms a contract is drafted from (12763) ── */
   hired_on?: string | null;
   probation_months?: number | null;
   place_of_work?: string | null;
@@ -998,7 +998,7 @@ export type Employee = {
   risk_class_rate?: number | string | null;
   signatory_name?: string | null;
 
-  /* ── Lifecycle (12760). `is_active` stays, derived from `status` by a DB
+  /* ── Lifecycle (12763). `is_active` stays, derived from `status` by a DB
    * trigger, so every screen that reads the boolean keeps working. */
   status?: EmployeeStatus | null;
   terminated_on?: string | null;
@@ -1043,7 +1043,7 @@ export type EmployeeInput = Partial<
   >
 > & { full_name?: string };
 
-/* ── Staff file (12761) ──────────────────────────────────────────────────── */
+/* ── Staff file (12764) ──────────────────────────────────────────────────── */
 export type EmployeeDocumentType = {
   document_type_id: string;
   code: string;
@@ -1072,7 +1072,7 @@ export type EmployeeDocument = {
   created_at?: string | null;
 };
 /** What the wizard and the documents tab post. `file_data_url` is optional on
- *  purpose: a scan is a verification gate, not a creation gate (12761), so a
+ *  purpose: a scan is a verification gate, not a creation gate (12764), so a
  *  document held on paper is recorded with a `physical_ref` and no bytes. */
 export type EmployeeDocumentInput = {
   document_type_id?: string | null;
@@ -1088,7 +1088,7 @@ export type EmployeeDocumentInput = {
   file_name?: string | null;
 };
 
-/* ── Standing pay lines (12762) ──────────────────────────────────────────── */
+/* ── Standing pay lines (12765) ──────────────────────────────────────────── */
 export type EmployeeAllowance = {
   employee_allowance_id: string;
   employee_id: string;
@@ -1169,7 +1169,7 @@ export const setEmployeeActive = (id: string, is_active: boolean) =>
   });
 export const updateEmployee = (id: string, body: EmployeeInput) =>
   tenant<Employee>(`/employees/${id}`, { method: "PATCH", body });
-/** The lifecycle transition (12760) — an event, not a field edit, so it has its
+/** The lifecycle transition (12763) — an event, not a field edit, so it has its
  *  own endpoint and its own audit action. */
 export const setEmployeeStatus = (
   id: string,
@@ -1180,7 +1180,7 @@ export const setEmployeeStatus = (
   },
 ) => tenant<Employee>(`/employees/${id}/status`, { method: "POST", body });
 
-/* Staff file (12761) */
+/* Staff file (12764) */
 export const employeeDocumentTypes = () =>
   tenant<EmployeeDocumentType[]>("/employees/document-types");
 export const employeeDocuments = (id: string) =>
@@ -1195,7 +1195,7 @@ export const removeEmployeeDocument = (id: string, documentId: string) =>
     method: "DELETE",
   });
 
-/* Standing pay lines (12762) */
+/* Standing pay lines (12765) */
 export const employeeAllowances = (id: string) =>
   tenant<EmployeeAllowance[]>(`/employees/${id}/allowances`);
 export const addEmployeeAllowance = (

@@ -55,7 +55,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 const shell = pageShell.wide;
-/** The lifecycle (12760). PENDING is `warn` rather than `mute` on purpose: a
+/** The lifecycle (12763). PENDING is `warn` rather than `mute` on purpose: a
  *  record nobody has put into service is a queue item, not a neutral state. */
 const STATUS_TONE: Record<string, Tone> = {
   PENDING: "warn",
@@ -80,7 +80,7 @@ const LEAVE_TONE: Record<string, Tone> = {
  *  payroll, advances and sanctions joined the original four tabs). */
 /** Profile leads, because a record that cannot produce a contract is the first
  *  thing anybody opening this dossier needs to know. Documents and Pay follow —
- *  the staff file (12761) and the standing lines a contract states (12762) —
+ *  the staff file (12764) and the standing lines a contract states (12765) —
  *  then the history tabs that were already here. */
 const TABS = [
   "Profile",
@@ -338,7 +338,7 @@ function ProfilePanel({ e }: { e: api.Employee }) {
   );
 }
 
-/* ── The staff file (12761) ─────────────────────────────────────────────────
+/* ── The staff file (12764) ─────────────────────────────────────────────────
  *
  * A scan is a verification gate, not a creation gate, so this panel records a
  * document whether or not a file came with it — the empty slots are shown as
@@ -538,7 +538,7 @@ function DocumentsPanel({
   );
 }
 
-/* ── Standing pay lines (12762) ─────────────────────────────────────────────
+/* ── Standing pay lines (12765) ─────────────────────────────────────────────
  *
  * Article 3 of a contract is a table that has to add up: base, plus each
  * standing allowance, equals the gross the document prints. This is where that
