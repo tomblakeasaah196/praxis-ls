@@ -33,24 +33,47 @@ const create = z.object({
 });
 const status = z.object({ status: z.enum(["DRAFT", "ISSUED", "SIGNED", "ENDED"]) });
 
-/* What the drafter is TOLD. Every one of these is a term the parties agreed;
- * the model writes the prose around them and never decides one (see
- * hr_contract.draft). They are optional because a first draft is often made
- * before the salary is settled — the clause is then omitted rather than
- * invented. */
-const draft = z.object({
-  title: z.string().max(200).optional(),
-  entity_id: z.string().uuid().optional(),
+/* What the wizard is holding but has not saved.
+ *
+ * Every one of these is a term the parties agreed; none of them is prose. The
+ * composer fills an authored clause library from them, and a model — where one
+ * is configured — only ever rephrases the single clause a library marks
+ * `aiEditable`. Nothing here can reach the text except through a token, which
+ * is why there is no `body_md` on this schema.
+ *
+ * All optional: an unset term either has a default the record already carries
+ * or is a fact the composer will REFUSE on by name, which is a far better
+ * error than a form that will not submit. */
+const compose = z.object({
+  language: z.enum(["fr", "en"]).optional(),
+  /* Which of the eighteen. Only the six full-body keys are settable — the three
+   * letter libraries are chosen by `hr_contract.kind`, not by the caller, so a
+   * termination letter cannot be requested for an EMPLOYMENT contract. */
+  employment_type: z.enum(["CDI", "CDD", "STAGE", "INTERIM", "CONSULTANT", "TEMPORARY"]).optional(),
+  employer_person_id: z.string().uuid().optional(),
   job_title: z.string().max(160).optional(),
   effective_on: d.optional(),
   end_on: d.optional(),
-  gross_salary: z.number().nonnegative().optional(),
+  probation_ends_on: d.optional(),
+  base_salary: z.number().nonnegative().optional(),
   salary_currency: z.string().length(3).optional(),
-  probation_months: z.number().int().min(0).max(24).optional(),
+  /* Art. 25 caps a fixed term at two years, renewable once, so four years is
+   * the outermost figure that can be lawful — and 24 alone would refuse the
+   * renewal the article expressly allows. */
+  duration_months: z.number().int().min(1).max(48).optional(),
+  /* Art. 28: six months including any renewal. The DB does not constrain this
+   * column (an imported record must still be storable); a contract this system
+   * COMPOSES is a different matter — it is being written now, by us. */
+  probation_months: z.number().int().min(0).max(6).optional(),
   notice_days: z.number().int().min(0).max(365).optional(),
+  weekly_hours: z.number().int().min(1).max(60).optional(),
   working_hours: z.string().max(200).optional(),
   place_of_work: z.string().max(200).optional(),
-  vacancy_id: z.string().uuid().optional(),
+  payment_method: z.enum(["BANK_TRANSFER", "MOBILE_MONEY", "CASH", "CHEQUE"]).optional(),
+  place_signed: z.string().max(120).optional(),
+  jurisdiction_city: z.string().max(120).optional(),
+  /* Compose without calling the model — the same contract, minus the finish. */
+  refine: z.boolean().optional(),
 });
 
 /** A renewal (10708). Only the two dates a caller may override — everything
@@ -61,7 +84,7 @@ const renew = z.object({
   end_on: d.optional(),
 });
 
-const schemas = { create, update: create.partial(), status, draft, renew };
+const schemas = { create, update: create.partial(), status, compose, renew };
 
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);
@@ -70,4 +93,4 @@ const mw = (k) => (req, _res, next) => {
   return next();
 };
 
-module.exports = { create: mw("create"), update: mw("update"), status: mw("status"), draft: mw("draft"), renew: mw("renew"), schemas };
+module.exports = { create: mw("create"), update: mw("update"), status: mw("status"), compose: mw("compose"), renew: mw("renew"), schemas };

@@ -35,6 +35,11 @@ router.get("/mine", controller.mine);
  * who has to act on it cannot see it. Declared before `/:id`. */
 router.get("/lapsing", requirePermission(M, "view"), controller.lapsing);
 
+/* The clause libraries this deployment carries. `view`: it is the catalogue the
+ * wizard picks from, it is the same eighteen documents for every tenant, and it
+ * contains no tenant data at all. Declared before `/:id`. */
+router.get("/libraries", requirePermission(M, "view"), controller.libraries);
+
 router.get("/", requirePermission(M, "view"), controller.list);
 router.post("/", requirePermission(M, "create"), validator.create, controller.create);
 router.get("/:id", requirePermission(M, "view"), controller.get);
@@ -46,16 +51,22 @@ router.patch("/:id", requirePermission(M, "edit"), validator.update,
 // Validator FIRST, so the target state is checked against the enum before it
 // selects its own gate.
 router.post("/:id/status", validator.status, requireTransitionPermission(M, TRANSITION_ACTION, { field: "status" }), controller.setStatus);
-/* DRAFTING is `edit`, not `create`: it rewrites an existing DRAFT contract and
+/* COMPOSING is `edit`, not `create`: it rewrites an existing DRAFT contract and
  * the service refuses anything past that state. It does spend a model call
- * against the tenant's AI budget, which is why it is not `view`.
+ * against the tenant's AI budget for the one clause a model may finish, which
+ * is why it is not `view`.
  *
  * There is deliberately no `/render` here. The document-template system already
  * renders and sends EMPLOYMENT_CONTRACT through the tenant's own letterhead
  * (`POST /document-templates/EMPLOYMENT_CONTRACT/:id/{generate,send}`), with the
  * signature block and the verify footer every other issued document gets. A
  * second renderer in this module would be a second letterhead to keep in step. */
-router.post("/:id/draft", requirePermission(M, "edit"), validator.draft, controller.draftFor);
+router.post("/:id/compose", requirePermission(M, "edit"), validator.compose, controller.composeFor);
+
+/* What the contract still needs. `view`, and a GET: it changes nothing, it is
+ * polled by the wizard as somebody types, and telling a clerk which fields are
+ * missing is not a privileged act — they are being asked to fill them in. */
+router.get("/:id/readiness", requirePermission(M, "view"), controller.readinessFor);
 /* Renewal (10708): creates a NEW DRAFT contract that supersedes this one —
  * `create`, not `edit`, because it is the birth of a record, not a change to
  * one. The renewed contract's own lifecycle gates then apply as usual. */
