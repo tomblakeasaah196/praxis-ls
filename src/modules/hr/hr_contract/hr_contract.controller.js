@@ -67,14 +67,25 @@ module.exports = {
       service.applyComposition(c, { id, built, refinement, actor: req.user || { user_id: null } }));
     if (!saved) throw new AppError("NOT_FOUND", "Contract not found", 404);
     res.json({
-      data: saved,
-      meta: {
-        library: built.composed.library_key,
-        version: built.composed.library_version,
-        language: built.composed.language,
-        articles: built.composed.articles.length,
-        omitted: built.composed.omitted,
-        ai_rejected: refinement.rejected,
+      data: {
+        ...saved,
+        /* What the composer actually did, travelling with the row it describes
+         * rather than in a `meta` the client's fetch helper unwraps away.
+         *
+         * `omitted` is the point of it: an article dropped because its subject
+         * does not exist is a deliberate act, and the operator has to be able
+         * to see that their contract has no probation clause BECAUSE nobody
+         * agreed a probation — as against because something went wrong. Same
+         * for `ai_rejected`: a rewrite thrown away for changing a figure is
+         * worth telling somebody about. */
+        composition: {
+          library: built.composed.library_key,
+          version: built.composed.library_version,
+          language: built.composed.language,
+          articles: built.composed.articles.length,
+          omitted: built.composed.omitted,
+          ai_rejected: refinement.rejected,
+        },
       },
     });
   }),

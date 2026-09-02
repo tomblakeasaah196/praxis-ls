@@ -85,6 +85,69 @@ const COUNTERPARTY_SQL = new Map(Object.entries({
 const recordIdOf = (entityRef) => String(entityRef || "").split(":").slice(1).join(":") || null;
 
 /**
+ * The employee an employment contract is about.
+ *
+ * ── WHY THIS IS NOT A ROW IN COUNTERPARTY_SQL ─────────────────────────────
+ *
+ * Every statement in that map resolves to a `client_master`, and the code below
+ * it then lists that party's `client_contact` rows. An employee is a party with
+ * no contacts table and exactly one signatory — themselves — so it needs its
+ * own resolver rather than a seventh statement that the shared half could not
+ * consume.
+ *
+ * ── TWO ADDRESSES, AND THE ORDER MATTERS ──────────────────────────────────
+ *
+ * Both the work address and the personal one are offered, personal FIRST. A
+ * contract is signed by the person, not by the post-holder: an offer letter
+ * goes out before there is a work mailbox, a termination letter goes out to
+ * somebody whose work mailbox is about to be closed, and in both cases the
+ * work address is the wrong one — sometimes catastrophically, since a shared
+ * departmental mailbox would put a colleague on the other end of the OTP for
+ * a document stating a salary.
+ *
+ * Both are ON_FILE with their own `source_ref`, so the Certificate of
+ * Completion says which of the two the tenant recorded and the link was sent
+ * to. An employee with neither resolves to nobody, and the sender takes the
+ * documented override path — typing the address, under their own name, with a
+ * reason the certificate prints.
+ */
+async function employeeCounterparty(client, entityRef) {
+  const recordId = recordIdOf(entityRef);
+  if (!recordId) return null;
+  const { rows } = await client.query(
+    `SELECT e.employee_id, e.full_name, e.email, e.personal_email
+       FROM hr_contract c JOIN employee e ON e.employee_id = c.employee_id
+      WHERE c.hr_contract_id = $1`,
+    [recordId],
+  );
+  const e = rows[0];
+  if (!e) return null;
+
+  const seen = new Set();
+  const signatories = [];
+  const add = (email, ref, isPrimary) => {
+    const key = String(email || "").trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    signatories.push({
+      source: "ON_FILE",
+      source_ref: ref,
+      full_name: e.full_name,
+      party_role: null,
+      email: String(email).trim(),
+      language: null,
+      is_primary: isPrimary,
+    });
+  };
+  add(e.personal_email, `employee:${e.employee_id}:personal`, true);
+  add(e.email, `employee:${e.employee_id}`, signatories.length === 0);
+
+  return signatories.length
+    ? { party_id: e.employee_id, party_name: e.full_name, party_language: null, signatories }
+    : null;
+}
+
+/**
  * The counterparty's contacts, newest-primary first.
  *
  * A contact with no email is DROPPED rather than returned disabled: this list
@@ -94,6 +157,16 @@ const recordIdOf = (entityRef) => String(entityRef || "").split(":").slice(1).jo
  * which is the one thing §6.3 is written to prevent.
  */
 async function counterpartyFor(client, { docType, entityRef }) {
+  // The one doc type whose counterparty is not a client. See above.
+  if (docType === "EMPLOYMENT_CONTRACT") {
+    try {
+      return await employeeCounterparty(client, entityRef);
+    } catch (err) {
+      logger.warn({ err: err && err.message, docType },
+        "signature candidates: employee could not be resolved");
+      return null;
+    }
+  }
   const sql = typeof docType === "string" ? COUNTERPARTY_SQL.get(docType) : undefined;
   const recordId = recordIdOf(entityRef);
   if (!sql || !recordId) return null;
