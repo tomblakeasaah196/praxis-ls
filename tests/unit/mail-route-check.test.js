@@ -149,6 +149,29 @@ describe("assertRoutable", () => {
     ).rejects.toMatchObject({ code: "MAIL_ROUTE_TRAPPED" });
   });
 
+  /* CodeQL flagged the original `/<([^>]+)>/` as a high-severity ReDoS on the
+   * PR that added it, and it was right: unanchored, so on a recipient with no
+   * `>` the engine restarted `[^>]+` at every `<`. 64KB of `<=<=<=…` held the
+   * event loop for 2.6 seconds — on the send path, on a field a user types
+   * into. The parse is index-based now. The bound below is ~1000x the fixed
+   * cost and ~20x under the OLD cost at a sixth of the length, so it cannot
+   * flake, but it still fails loudly if a regex ever creeps back in. */
+  it("parses a pathological recipient in linear time", async () => {
+    const evil = `<${"<=".repeat(200_000)}`;
+    const started = Date.now();
+    await assertRoutable({ smtpHost: null, to: evil });
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  it("takes the LAST bracket, so a display name containing '<' still parses", async () => {
+    // The regex got this wrong — on `a<b" <x@y.cm>` it returned `b" <x@y.cm`,
+    // and the domain lookup then asked DNS about nonsense.
+    trapped();
+    await expect(
+      assertRoutable({ smtpHost: "mail.praxisls.com", to: 'a<b <franco@smartls.cm>' }),
+    ).rejects.toMatchObject({ code: "MAIL_ROUTE_TRAPPED" });
+  });
+
   it("checks every recipient, not just the first", async () => {
     trapped();
     await expect(

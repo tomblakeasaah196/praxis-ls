@@ -212,13 +212,34 @@ async function checkRouteCached({ smtpHost, recipientDomain }) {
   return value;
 }
 
+/**
+ * The address out of `Name <a@b.cm>`, or the string itself when it is bare.
+ *
+ * Deliberately NOT a regex. `/<([^>]+)>/` is unanchored, so on a recipient with
+ * no `>` the engine restarts `[^>]+` at every `<` and scans to the end each
+ * time — quadratic. That matters here and not in general, because this sits on
+ * the send path and `to` is whatever a person typed into a compose box: 64KB of
+ * `<=<=<=…` held the event loop for 2.6 seconds, and four times the input cost
+ * sixteen times the time. CodeQL flagged it as a high-severity ReDoS and was
+ * right. Two index lookups and a slice answer the same question in one pass.
+ *
+ * `lastIndexOf` for the opening bracket, not `indexOf`: a display name may
+ * itself contain `<`, and it is the LAST one that opens the address. The regex
+ * got this wrong too — on `a<b" <x@y.cm>` it returned `b" <x@y.cm`.
+ */
+const addressOf = (raw) => {
+  const s = String(raw || "").trim().toLowerCase();
+  const open = s.lastIndexOf("<");
+  if (open === -1) return s;
+  const close = s.indexOf(">", open + 1);
+  return close === -1 ? s : s.slice(open + 1, close);
+};
+
 const domainsOf = (to) => {
   const list = Array.isArray(to) ? to : String(to || "").split(",");
   return [...new Set(
     list
-      .map((a) => String(a || "").trim().toLowerCase())
-      // Tolerate `Name <a@b.cm>` as well as a bare address.
-      .map((a) => (a.match(/<([^>]+)>/) || [null, a])[1])
+      .map(addressOf)
       .map((a) => a.split("@")[1])
       .filter(Boolean),
   )];
