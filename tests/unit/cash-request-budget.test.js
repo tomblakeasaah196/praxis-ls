@@ -445,6 +445,23 @@ describe("the permission vocabulary", () => {
   const rbac = require("../../src/middleware/rbac");
   const authz = require("../../src/services/ai/action-authz");
 
+  /*
+   * `can_disburse` is backfilled from `can_approve`, so DROPPING the APPROVER
+   * capability from the disburse route would have WIDENED it: a tenant that had
+   * used the authority overlay to take disbursement away from some of its
+   * approvers would silently have got it back. Both gates stand, so
+   * `can_disburse` can only narrow — which is the direction that matters.
+   */
+  test("disbursement still demands the authority overlay on top of its grant", () => {
+    const src = require("fs").readFileSync(
+      require("path").join(__dirname, "../../src/modules/costing/cash_request/cash_request.routes.js"),
+      "utf8",
+    );
+    const line = src.split("\n").find((l) => l.includes('"/:id/disburse"'));
+    expect(line).toContain('requirePermission(MODULE, "disburse")');
+    expect(line).toContain('requireCapability("APPROVER")');
+  });
+
   test("disburse and validate resolve to their own columns, not to approve", () => {
     // Before 12771 both were can_approve, which meant a dedicated cashier had
     // to be given approval authority over every request in order to pay one.

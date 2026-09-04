@@ -97,6 +97,28 @@ function deny(actionKey, reason, required) {
   );
 }
 
+/*
+ * ── KNOWN GAP: THE AUTHORITY OVERLAY IS NOT CHECKED HERE ───────────────────
+ *
+ * `requirePermission` has a sibling — `requireCapability` — and four HTTP
+ * routes demand both: a module grant AND an authority code (ISSUER / VALIDATOR
+ * / APPROVER / LINE_MANAGER, optionally banded by document type and amount).
+ * This path checks only the grant, so an assistant can run an action a person
+ * at a screen would be refused for want of the capability.
+ *
+ * It is PRE-EXISTING and is not widened by 12771: `disburse_cash_request` moved
+ * from `can_approve` to `can_disburse`, and the migration backfills the second
+ * from the first, so exactly the same callers can run it today and an
+ * administrator narrowing `can_disburse` narrows this path too.
+ *
+ * Closing it properly means carrying a required capability through
+ * `action-registrar.buildCatalogue` and the `ai_action_catalogue` table it
+ * persists to — a migration and a schema change, which does not belong in a
+ * change about budgets. Recorded here, in the file that would host the fix,
+ * rather than left for someone to rediscover from a manifest key that quietly
+ * does nothing.
+ */
+
 /**
  * May `user` run `def`?
  *
