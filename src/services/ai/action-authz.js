@@ -62,7 +62,7 @@ const COLUMN = {
   update: "can_update",
   delete: "can_delete",
   approve: "can_approve",
-  // 12770 gave these three real columns. Kept in step with rbac.js on purpose:
+  // 12771 gave these three real columns. Kept in step with rbac.js on purpose:
   // an assistant gated more loosely than a person at a screen is the AI-only
   // capability failure this file exists to prevent.
   export: "can_export",

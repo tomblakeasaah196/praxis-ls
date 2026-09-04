@@ -2,7 +2,7 @@
 
 /**
  * The costing as the operations file's BUDGET, and the cash request as the
- * document that draws it down (migration 12770).
+ * document that draws it down (migration 12771).
  *
  * ── WHAT WAS BROKEN, AND WHY THESE ARE THE TESTS ───────────────────────────
  *
@@ -383,11 +383,11 @@ describe("budgetControl", () => {
  * migration rather than a live database, so they run in unit CI and catch the
  * one failure a pure test cannot: a formula shipped without its storage.
  */
-describe("migration 12770", () => {
+describe("migration 12771", () => {
   const fs = require("fs");
   const path = require("path");
   const sql = fs.readFileSync(
-    path.join(__dirname, "../../migrations/tenant/12770_cash_request_budget.sql"),
+    path.join(__dirname, "../../migrations/tenant/12771_cash_request_budget.sql"),
     "utf8",
   );
 
@@ -446,7 +446,7 @@ describe("the permission vocabulary", () => {
   const authz = require("../../src/services/ai/action-authz");
 
   test("disburse and validate resolve to their own columns, not to approve", () => {
-    // Before 12770 both were can_approve, which meant a dedicated cashier had
+    // Before 12771 both were can_approve, which meant a dedicated cashier had
     // to be given approval authority over every request in order to pay one.
     const routes = require("../../src/modules/costing/cash_request/cash_request.routes");
     expect(routes.basePath).toBe("/cash-requests");
@@ -467,7 +467,7 @@ describe("the permission vocabulary", () => {
 /* ══════════════════ 9. The line shape, end to end ══════════════════ */
 
 /*
- * 12770 gave the line back the qty × unit_cost shape the legacy carried and
+ * 12771 gave the line back the qty × unit_cost shape the legacy carried and
  * `costing_line` still has — our own import was computing the product and
  * throwing both away, so a 2-container THC line at 99 000 became "198 000" and
  * an approver could not see the count change.

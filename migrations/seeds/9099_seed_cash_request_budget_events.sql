@@ -1,5 +1,5 @@
 -- ============================================================================
--- SEED (per tenant schema) — the event types 12770 emits (MOD-49).
+-- SEED (per tenant schema) — the event types 12771 emits (MOD-49).
 --
 -- `closeBalance` emits `cash_request.closed_short` and the reopen path emits
 -- `cash_request.draft`. An event key that is not in this catalogue has nowhere
@@ -23,8 +23,8 @@
 -- ============================================================================
 
 INSERT INTO event_type (key, module_key, name, description, is_security_critical, is_approvable) VALUES
- ('cash_request.closed_short', 'MOD-49', 'Cash request settled short', 'A partly-disbursed request was closed at what was actually paid, returning the unpaid commitment to the file''s budget (12770).', false, false),
- ('cash_request.draft', 'MOD-49', 'Cash request reopened', 'A rejected request was reopened for its author to correct and re-submit, keeping its reference (12770).', false, false)
+ ('cash_request.closed_short', 'MOD-49', 'Cash request settled short', 'A partly-disbursed request was closed at what was actually paid, returning the unpaid commitment to the file''s budget (12771).', false, false),
+ ('cash_request.draft', 'MOD-49', 'Cash request reopened', 'A rejected request was reopened for its author to correct and re-submit, keeping its reference (12771).', false, false)
 ON CONFLICT (key) DO NOTHING;
 
 -- DOWN

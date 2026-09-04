@@ -19,7 +19,7 @@
  * map by dropping an alias turns a gated route into an ungated one, and nothing
  * else in the codebase would notice.
  *
- * 12770 gave `export`, `validate` and `disburse` real columns and they are
+ * 12771 gave `export`, `validate` and `disburse` real columns and they are
  * asserted against those: `export` is a right over DATA that does not follow
  * from read, and validate/disburse are the two decisions maker-checker most
  * wants apart from "approve". Before that, all three resolved to a broader
@@ -163,7 +163,7 @@ describe("RBAC enforcement (TC-C3)", () => {
       ["update", "can_update"],
       ["delete", "can_delete"],
       ["approve", "can_approve"],
-      // 12770 — their own columns now.
+      // 12771 — their own columns now.
       ["export", "can_export"],
       ["validate", "can_validate"],
       ["disburse", "can_disburse"],

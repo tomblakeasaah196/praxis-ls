@@ -41,7 +41,7 @@ module.exports = {
   }),
   justify: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.justify(c, { id: req.params.id, lines: req.body.lines || [], entityId: req.body.entity_id || null, entryDate: req.body.entry_date || null, actor: actor(req), ip: req.ip })) })),
   // Settle a part-paid request at what actually moved, releasing the rest of the
-  // commitment back to the file's budget (12770).
+  // commitment back to the file's budget (12771).
   closeBalance: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.closeBalance(c, { id: req.params.id, reason: req.body.reason, actor: actor(req) })) })),
   // The holder acknowledging one instalment — the third signature on the
   // voucher, recorded per tranche because each is handed over separately.

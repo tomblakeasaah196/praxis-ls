@@ -113,7 +113,7 @@ describe("the lifecycle admits instalments", () => {
   });
 
   /*
-   * 12770 changed this deliberately. REJECTED used to be terminal, which is
+   * 12771 changed this deliberately. REJECTED used to be terminal, which is
    * WORSE than the legacy it replaced: `pr_save` accepted DRAFT and REJECTED,
    * and `pr_transition` SUBMIT accepted `from ∈ {DRAFT, REJECTED}`, so a
    * mistyped MoMo number cost a whole document and its reference. The one way

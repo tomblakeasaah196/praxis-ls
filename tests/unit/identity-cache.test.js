@@ -200,7 +200,7 @@ describe("identity cache (TC-C4)", () => {
   });
 
   /*
-   * 12770 added three columns to the cached grant row and bumped the key's
+   * 12771 added three columns to the cached grant row and bumped the key's
    * SHAPE VERSION so entries written by the previous release are ignored rather
    * than served without them — a stale row would read `undefined` for every
    * export/validate/disburse check and deny for the length of the TTL.

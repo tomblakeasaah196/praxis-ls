@@ -965,7 +965,7 @@ Sequenced so each is independently shippable and nothing is half-built between t
 
 ### PR 1 — The budget ledger (schema + backend)
 
-Migration `12770_cash_request_budget.sql`: `costing_line_id`, `qty`, `unit_cost`, `line_no`,
+Migration `12771_cash_request_budget.sql`: `costing_line_id`, `qty`, `unit_cost`, `line_no`,
 `source` on `cash_request_line`; `currency`, `exchange_rate_to_xaf`, `amount_xaf`,
 `costing_revision`, `approved_at`, `rejected_by/at/reason` on `cash_request`;
 `received_by/at/ack_kind` on `cash_request_payment`; `cash_request_line_id` + `costing_line_id` on
@@ -1172,7 +1172,7 @@ and `COSTING` projections) · `templates/registry.js` (both templates + `LINE_CO
 | `PATCH /cash-requests/:id` has no caller (Q9) | `grep -rn "cash-requests/\${" client/src` → 5 hits, no PATCH |
 | `permission` has five booleans; no `can_export` anywhere (Q19) | `0110_rbac.sql` + `grep -rn "can_export\|can_validate\|can_disburse"` → only the two TODO comments in `rbac.js` |
 | Dictionary compliance columns are in **0630** | `grep -rln "receipt_requirement" migrations/tenant/` → `0630_financial_dictionary_360.sql`, sole hit |
-| Next free migration number is 12770 (§7) | highest existing is `12769_containers_per_box_shipping.sql` |
+| Next free migration number is 12771 (§7) | highest existing is `12769_containers_per_box_shipping.sql` |
 
 ### 9.4 What is still inference, not fact
 

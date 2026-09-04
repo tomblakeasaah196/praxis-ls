@@ -194,7 +194,7 @@ function lineFields(l, lineNo) {
 
 /**
  * A budget line that cash has already been requested against cannot be removed
- * by an amendment (12770).
+ * by an amendment (12771).
  *
  * `cash_request_line.costing_line_id` is RESTRICT, so the delete would fail
  * anyway — with a raw 23503 and a constraint name, from inside a transaction.
@@ -225,7 +225,7 @@ async function assertNoClaims(client, dropping) {
 
 /**
  * Write the payload's lines onto the sheet, KEEPING the id of every line that
- * survives (12770).
+ * survives (12771).
  *
  * ── WHY THIS IS NO LONGER A DELETE-AND-REINSERT ────────────────────────────
  *
@@ -688,7 +688,7 @@ async function get(client, id, { lang = "en" } = {}) {
 }
 
 /**
- * THE BUDGET — what this sheet has authorised, and what is left of it (12770).
+ * THE BUDGET — what this sheet has authorised, and what is left of it (12771).
  *
  * A costing is the operations file's fulfilment budget, and this is the read
  * that makes that true rather than merely said: per line, what was approved,

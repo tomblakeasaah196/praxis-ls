@@ -32,7 +32,7 @@ const grant = z
     can_update: z.boolean().optional(),
     can_delete: z.boolean().optional(),
     can_approve: z.boolean().optional(),
-    // 12770. Optional like the rest, and an OMITTED flag now means "leave it
+    // 12771. Optional like the rest, and an OMITTED flag now means "leave it
     // as it is" rather than "revoke it" — see permission.repo.upsertGrant.
     can_export: z.boolean().optional(),
     can_validate: z.boolean().optional(),

@@ -70,7 +70,7 @@ function computeCosting(lines) {
 
 /**
  * ONE line's TTC — the cash that line commits us to, and therefore the BUDGET a
- * cash request draws down against it (12770).
+ * cash request draws down against it (12771).
  *
  * TTC, not HT, and the reason is `computeCosting`'s own: a costing is a cash
  * budget, so the VAT we hand the carrier is money we will spend. A service
@@ -178,7 +178,7 @@ function lineKey(l = {}) {
  */
 /**
  * Which prior line each payload line IS — the plan an in-place save follows
- * (12770).
+ * (12771).
  *
  * ── WHY LINE IDENTITY SUDDENLY MATTERS ─────────────────────────────────────
  *
@@ -299,7 +299,7 @@ const statusWords = (status) => STATUS_WORDS[String(status || "").toUpperCase()]
 
 /**
  * The budget ledger, derived from the raw rows `costing.repo.budgetForCosting`
- * returns (12770).
+ * returns (12771).
  *
  * The SQL does the aggregation — one query rather than fetching every cash
  * request to add them up — and this does the arithmetic a person reads:

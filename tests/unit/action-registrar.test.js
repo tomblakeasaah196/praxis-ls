@@ -19,7 +19,7 @@ describe("AI action registrar", () => {
     // Every write action names a permission "MOD-xx:action", and the verb has
     // to be one `action-authz` can map to a grant column — a verb it cannot map
     // is denied at execution, so advertising one is advertising a dead action.
-    // `validate` and `disburse` joined the vocabulary in 12770.
+    // `validate` and `disburse` joined the vocabulary in 12771.
     expect(
       writes.every((r) =>
         /^MOD-\d+:(create|edit|approve|view|delete|export|validate|disburse)$/.test(

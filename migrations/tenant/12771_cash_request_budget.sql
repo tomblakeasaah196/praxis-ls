@@ -1,5 +1,5 @@
 -- ============================================================================
--- TENANT DB — 12770 The costing IS the budget: line-level consumption for the
+-- TENANT DB — 12771 The costing IS the budget: line-level consumption for the
 -- cash request, and the permission vocabulary that gates it.
 --
 -- ── THE HOLE THIS FILLS ─────────────────────────────────────────────────────

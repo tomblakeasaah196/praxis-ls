@@ -16,7 +16,7 @@ const NEXT = {
   // happens depends on the amount paid, not on a separate decision.
   APPROVED: ["PARTIALLY_DISBURSED", "DISBURSED", "REJECTED"],
   // Further instalments keep it here until the total closes the request — or
-  // CLOSE_BALANCE settles it short (12770). Without that last exit a part-paid
+  // CLOSE_BALANCE settles it short (12771). Without that last exit a part-paid
   // request holds committed budget for ever against cash that will never move,
   // which is a slow leak under commitment accounting.
   PARTIALLY_DISBURSED: ["PARTIALLY_DISBURSED", "DISBURSED", "CLOSED_SHORT"],
@@ -25,7 +25,7 @@ const NEXT = {
   // request is justified exactly like a fully disbursed one.
   CLOSED_SHORT: ["JUSTIFIED"],
   JUSTIFIED: [],
-  // 12770: REJECTED is no longer terminal. The legacy let a rejected request be
+  // 12771: REJECTED is no longer terminal. The legacy let a rejected request be
   // edited and re-submitted (pr_save accepts DRAFT and REJECTED; pr_transition
   // SUBMIT accepts from ∈ {DRAFT, REJECTED}), and ours did not — so a mistyped
   // MoMo number cost a whole document and its reference. Reopening keeps both,
@@ -127,7 +127,7 @@ function assertMethod(method, details = {}) {
 }
 
 /**
- * What ONE line claims against its budget line — TTC (12770).
+ * What ONE line claims against its budget line — TTC (12771).
  *
  * TTC because the budget is TTC: `costing.rules.lineTtc` counts the supplier's
  * VAT on a débours as budgeted cash, so a claim that ignored its own VAT would
@@ -147,7 +147,7 @@ function lineClaim(l = {}) {
 }
 
 /**
- * Which budget lines this request would overdraw, and by how much (12770).
+ * Which budget lines this request would overdraw, and by how much (12771).
  *
  * `ledger` is `costing.repo.budgetForCosting` for the linked costing, whose
  * `remaining` already excludes this request: a DRAFT, SUBMITTED or VALIDATED
@@ -190,7 +190,7 @@ function budgetBreaches(lines = [], ledger = []) {
 
 /**
  * Split what was ACTUALLY paid across the lines of a request being settled
- * short (12770) — CLOSE_BALANCE's arithmetic.
+ * short (12771) — CLOSE_BALANCE's arithmetic.
  *
  * Instalments are paid against the request, not against its lines (owner
  * decision Q15), so there is no recorded per-line truth to use; pro-rata by

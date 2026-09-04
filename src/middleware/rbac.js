@@ -36,7 +36,7 @@
  * NOT YET HANDLED (flagged, not silently dropped):
  *   - 'publish' has no dedicated DB column yet — mapped to can_update as a
  *     placeholder; revisit if the product needs to grant it independently.
- *     ('export' got one in 12770, alongside 'validate' and 'disburse'.)
+ *     ('export' got one in 12771, alongside 'validate' and 'disburse'.)
  *
  * CEO bypasses checks (role.code = 'CEO', PRD §3).
  */
@@ -51,7 +51,7 @@ const metrics = require("../shared/observability/metrics");
 /**
  * Friendly action → the `permission` column that grants it.
  *
- * 12770 closed two of the three standing TODOs here by giving `export`,
+ * 12771 closed two of the three standing TODOs here by giving `export`,
  * `validate` and `disburse` real columns, backfilled from whatever gated them
  * before, so no role lost access on deploy:
  *

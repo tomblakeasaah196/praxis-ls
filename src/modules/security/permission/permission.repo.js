@@ -8,7 +8,7 @@ const base = makeRepo({
   // (permission.validator), but the generic CRUD create/update on the same
   // table still went through passthrough — a second door to the same rows.
   writable: ["role_id", "module_key", "can_create", "can_read", "can_update", "can_delete", "can_approve",
-    // 12770 — export is a right over data; validate and disburse are the two
+    // 12771 — export is a right over data; validate and disburse are the two
     // decisions maker-checker most wants apart from "approve".
     "can_export", "can_validate", "can_disburse"],
   table: "permission",
@@ -83,9 +83,9 @@ async function visibleModuleKeys(client, roleIds) {
  * edits by role×module, not by permission_id. Relies on the table's
  * UNIQUE(role_id, module_key). Returns the resulting row.
  *
- * AN ABSENT FLAG IS LEFT ALONE, NOT REVOKED (12770). It used to write every
+ * AN ABSENT FLAG IS LEFT ALONE, NOT REVOKED (12771). It used to write every
  * column from EXCLUDED, so a caller that did not send `can_export` set it to
- * false — and since 12770 backfilled the three new flags from what gated them
+ * false — and since 12771 backfilled the three new flags from what gated them
  * before, the first edit of any cell from a client that predates them would
  * have quietly revoked export, validate and disburse across that whole row.
  * `undefined` now means "unchanged" and the flags are coalesced against the

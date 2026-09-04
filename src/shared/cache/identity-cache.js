@@ -45,7 +45,7 @@ function tenantNs() {
 }
 
 const authKey = (userId) => `identity:${tenantNs()}:auth:${userId}`;
-// `grants2` — the SHAPE version, not a tenant namespace. 12770 added three
+// `grants2` — the SHAPE version, not a tenant namespace. 12771 added three
 // columns to the row cached below; an entry written by the previous release
 // would come back without them and every export/validate/disburse check would
 // read undefined and deny for the length of the TTL. Bump this segment whenever

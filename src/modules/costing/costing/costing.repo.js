@@ -13,7 +13,7 @@ async function update(client, id, fields) {
 }
 function insertLine(client, data) { return insertOne(client, "costing_line", data); }
 
-/* ── Line identity, and why it now has to survive an amendment (12770) ────────
+/* ── Line identity, and why it now has to survive an amendment (12771) ────────
  *
  * `replaceLines` used to delete every line and re-insert, so every
  * `costing_line_id` changed on every DRAFT save. Once a cash request claims a
@@ -60,7 +60,7 @@ async function claimsOnLines(client, lineIds = []) {
   return rows;
 }
 
-/* ── The budget ledger (12770) ───────────────────────────────────────────────
+/* ── The budget ledger (12771) ───────────────────────────────────────────────
  *
  * The four numbers a costing line is worth, in one query, with the claim
  * arithmetic done in SQL so the page does not fetch every cash request to add

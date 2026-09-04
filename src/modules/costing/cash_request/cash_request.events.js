@@ -9,10 +9,10 @@ module.exports = {
   ARCHIVED: "cash_request.archived",
   DISBURSED: "cash_request.disbursed",
   PARTIALLY_DISBURSED: "cash_request.partially_disbursed",
-  // 12770 — the treasury settled the request at what it actually paid, which
+  // 12771 — the treasury settled the request at what it actually paid, which
   // releases the unpaid commitment back to the file's budget.
   CLOSED_SHORT: "cash_request.closed_short",
-  // 12770 — the régie holder acknowledged taking one instalment. Audit only:
+  // 12771 — the régie holder acknowledged taking one instalment. Audit only:
   // there is no decision here to route or approve.
   RECEIPT_ACKNOWLEDGED: "cash_request.receipt_acknowledged",
   JUSTIFIED: "cash_request.justified",

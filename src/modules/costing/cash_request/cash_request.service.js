@@ -14,7 +14,7 @@ const {
   lineClaim, budgetBreaches, apportionSettlement, budgetControl,
 } = require("./cash_request.rules");
 const regie = require("../regie/regie.service");
-// The budget this document draws down (12770). The costing owns that read and
+// The budget this document draws down (12771). The costing owns that read and
 // its arithmetic; asking it is one call and keeps the formula in one place.
 // No cycle: costing.service does not know cash requests exist.
 const costingService = require("../costing/costing.service");
@@ -38,7 +38,7 @@ const ref = (id) => "cash_request:" + id;
 const round2 = (n) => Math.round(Number(n || 0) * 100) / 100;
 
 /**
- * One payload line's columns (12770).
+ * One payload line's columns (12771).
  *
  * `qty` × `unit_cost` is the shape the legacy carried and `costing_line` still
  * does; `budget_amount` is DERIVED from them and kept, so every existing reader
@@ -75,7 +75,7 @@ function lineFields(l, lineNo) {
 }
 
 /**
- * Write the request's lines, KEEPING the id of every line that survives (12770).
+ * Write the request's lines, KEEPING the id of every line that survives (12771).
  *
  * ── WHY THIS IS NO LONGER A DELETE-AND-REINSERT ────────────────────────────
  *
@@ -137,7 +137,7 @@ async function replaceLines(client, id, lines) {
 }
 
 /**
- * Record what was actually SPENT against lines that already exist (12770).
+ * Record what was actually SPENT against lines that already exist (12771).
  *
  * ── WHY JUSTIFICATION MUST NOT GO THROUGH `replaceLines` ───────────────────
  *
@@ -184,7 +184,7 @@ async function applySpend(client, id, lines) {
 }
 
 /**
- * The money this request is denominated in, and the rate it converts at (12770).
+ * The money this request is denominated in, and the rate it converts at (12771).
  *
  * AN OPS REQUEST INHERITS THE COSTING'S CURRENCY AND CANNOT DIFFER FROM IT.
  * Comparing a claim in one currency against a budget in another is not
@@ -229,7 +229,7 @@ async function resolveMoney(client, { ledger = null, currency = null, explicitRa
  * The header money columns for a given line set and rate.
  *
  * The lines are NORMALISED through `lineFields` first, because `computeTotals`
- * reads `budget_amount` and 12770 lets a caller send `qty` × `unit_cost`
+ * reads `budget_amount` and 12771 lets a caller send `qty` × `unit_cost`
  * instead — an un-normalised payload of that shape would total to zero.
  * `lineFields` is idempotent, so a row read back from the database and a raw
  * payload both arrive at the same figure.
@@ -297,7 +297,7 @@ async function createDraft(client, { dossierId = null, costingId = null, request
   // §3.5 — the method may be named at draft time (validated per method) or
   // left for later; submission requires it (see transition).
   const method = disbursementMethod ? assertMethod(disbursementMethod, disbursementDetails) : null;
-  // 12770 — an OPS request takes the linked costing's money unit; an overhead
+  // 12771 — an OPS request takes the linked costing's money unit; an overhead
   // one names its own. Resolved before BEGIN: both are plain reads.
   const ledger = costingId ? await costingService.budget(client, costingId) : null;
   const money = await resolveMoney(client, { ledger, currency, explicitRate: exchangeRateToXaf });
@@ -362,7 +362,7 @@ async function updateDraft(client, { id, lines = null, patch = {}, actor: _actor
     if (Array.isArray(lines)) await checkProof(client, cr, await replaceLines(client, id, lines));
 
     /*
-     * 12770 — the money, recomputed whenever anything it depends on moves: the
+     * 12771 — the money, recomputed whenever anything it depends on moves: the
      * lines, the currency, the rate, or the costing the request now draws on.
      *
      * Re-rating on a currency change alone matters as much as on a line change.
@@ -393,7 +393,7 @@ async function updateDraft(client, { id, lines = null, patch = {}, actor: _actor
 }
 
 /**
- * One budget line, turned into the claim a new request should default to (12770).
+ * One budget line, turned into the claim a new request should default to (12771).
  *
  * The default is what is LEFT, not what was budgeted. Claim 100 000 of a
  * 150 000 Port Charges line today and the next request opens showing 50 000 —
@@ -435,7 +435,7 @@ function claimFromBudgetLine(row) {
 
 /**
  * Load this request's lines from the linked APPROVED_LOCKED costing, defaulted
- * to what each budget line has left (12770; legacy `costing_lines_get`).
+ * to what each budget line has left (12771; legacy `costing_lines_get`).
  *
  * Only an approved costing may feed a cash request — the legacy refused
  * anything else and so do we, with the sheet's reference in the error so the
@@ -575,13 +575,13 @@ async function transition(client, { id, to, entityId = null, date = null, reason
   if (to === "SUBMITTED" && !cr.disbursement_method) {
     throw new AppError("METHOD_REQUIRED", "Pick how the money is to be disbursed (cash, bank, cheque or MoMo) before submitting", 422);
   }
-  // 12770 — a rejection with no reason is a status with no explanation, which
+  // 12771 — a rejection with no reason is a status with no explanation, which
   // is the one thing the requester actually needs. The legacy recorded who and
   // when; recording WHY is what makes the reopen below worth having.
   if (to === "REJECTED" && !String(reason || "").trim()) {
     throw new AppError("REJECTION_REASON_REQUIRED", "Say why this request is being rejected — the requester needs to know what to fix", 422);
   }
-  // 12770 — the budget gates. Before BEGIN, so a refusal never opens and rolls
+  // 12771 — the budget gates. Before BEGIN, so a refusal never opens and rolls
   // back a transaction, and re-checked at APPROVE against the ledger as it
   // stands THEN: the sheet may have been amended, or another request approved,
   // in the hours between submission and the decision.
@@ -633,7 +633,7 @@ async function transition(client, { id, to, entityId = null, date = null, reason
       fields.approved_at = null;
     }
     if (to === "DRAFT") {
-      // Reopening a rejected request (12770). The rejection stamp STAYS — it is
+      // Reopening a rejected request (12771). The rejection stamp STAYS — it is
       // why the request is back on the requester's desk — but the over-budget
       // account does not, because the next submission makes its own case.
       fields.over_budget_reason = null;
@@ -851,7 +851,7 @@ async function justify(client, { id, lines = [], entityId = null, entryDate = nu
 
 /**
  * Settle a partly-funded request at what was actually paid, and give the unpaid
- * commitment back to the budget (12770, owner decision Q15).
+ * commitment back to the budget (12771, owner decision Q15).
  *
  * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
  *
@@ -913,7 +913,7 @@ async function closeBalance(client, { id, reason = null, actor = {} }) {
 
 /**
  * The third signature: the holder acknowledging that they took this tranche
- * (12770, owner decision Q13).
+ * (12771, owner decision Q13).
  *
  * ON THE PAYMENT, NOT THE REQUEST, because each tranche is handed over
  * separately — the legacy's single `disbursed_time` on the header is precisely
@@ -961,7 +961,7 @@ async function get(client, id) {
 
 /**
  * The budgetary control block a validator and an approver read before they act
- * (12770, owner decision Q20).
+ * (12771, owner decision Q20).
  *
  * Finance validates against the budget, so "is this file budgeted for, and is
  * this request inside it?" has to be answerable on the screen the decision is

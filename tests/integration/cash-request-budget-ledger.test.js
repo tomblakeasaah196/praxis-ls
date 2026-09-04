@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * The budget ledger against a REAL Postgres (migration 12770).
+ * The budget ledger against a REAL Postgres (migration 12771).
  *
  * ── WHY THIS EXISTS AS AN INTEGRATION TEST ─────────────────────────────────
  *

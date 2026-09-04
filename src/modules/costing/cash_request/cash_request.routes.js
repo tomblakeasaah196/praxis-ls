@@ -33,7 +33,7 @@ router.post("/:id/import-costing", requirePermission(MODULE, "edit"), validator.
 // decisions, so both carry the approve grant + APPROVER capability, exactly
 // like the disbursement that follows them.
 //
-// 12770 — `validate` and `disburse` are now their own grants (permission
+// 12771 — `validate` and `disburse` are now their own grants (permission
 // gained can_validate / can_disburse), because the real policy is "Marie may
 // hand over cash up to 500 000" and a role that can approve is not necessarily
 // a role that holds the till. DRAFT is the reopen of a rejected request: the
@@ -53,7 +53,7 @@ router.post(
   requireTransitionCapability(TRANSITION_CAPABILITY),
   controller.transition,
 );
-// Handing over cash is its own grant (12770). It used to be `approve` +
+// Handing over cash is its own grant (12771). It used to be `approve` +
 // APPROVER, which meant a dedicated cashier had to be given approval authority
 // over every cash request in order to pay one out.
 router.post("/:id/disburse", requirePermission(MODULE, "disburse"), validator.disburse, controller.disburse);

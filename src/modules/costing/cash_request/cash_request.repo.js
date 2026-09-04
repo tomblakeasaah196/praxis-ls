@@ -37,7 +37,7 @@ const updateLine = (client, lineId, fields) =>
 
 /**
  * Just the identity of each line — what the in-place upsert needs to decide
- * whether a payload line is an edit or an insert (12770).
+ * whether a payload line is an edit or an insert (12771).
  *
  * `listLines` is `SELECT *` and runs on every read of the request; this runs on
  * every SAVE of a draft and needs three columns.
@@ -124,7 +124,7 @@ async function list(client, q = {}) {
   return rows;
 }
 /**
- * The KPI strip, aggregated over the SAME filter the page used (12770).
+ * The KPI strip, aggregated over the SAME filter the page used (12771).
  *
  * The list screen counted statuses in the browser, over whichever page it had
  * loaded — so "Approved: 3" meant three on this page, and the number was simply

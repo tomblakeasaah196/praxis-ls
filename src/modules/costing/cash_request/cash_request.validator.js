@@ -2,16 +2,16 @@
 const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 const line = z.object({
-  // 12770 — the worksheet round-trips the line's own id so an edit is
+  // 12771 — the worksheet round-trips the line's own id so an edit is
   // unambiguous even when its label and amount both change; absent means new.
   cash_request_line_id: z.string().uuid().optional(),
-  // 12770 — the BUDGET LINE this claim draws down. Required on every line of an
+  // 12771 — the BUDGET LINE this claim draws down. Required on every line of an
   // OPS request before it can be submitted (enforced in the service, so the AI
   // and the import hit the same wall as the route).
   costing_line_id: z.string().uuid().optional().nullable(),
   dictionary_item_id: z.string().uuid().optional().nullable(),
   label: z.string().optional(),
-  // 12770 — the legacy line shape. `budget_amount` alone still works and is
+  // 12771 — the legacy line shape. `budget_amount` alone still works and is
   // read as 1 x that amount, so every existing caller is unaffected.
   qty: z.number().positive().optional(),
   unit_cost: z.number().nonnegative().optional(),
@@ -38,7 +38,7 @@ const context = {
   // (:505-514) are a service rule so every caller hits the same wall.
   disbursement_method: z.enum(["CASH", "BANK", "CHEQUE", "MOMO"]).optional().nullable(),
   disbursement_details: z.record(z.string(), z.string()).optional().nullable(),
-  // 12770 — an OPS request INHERITS the costing's currency (the service
+  // 12771 — an OPS request INHERITS the costing's currency (the service
   // enforces it); these are for an overhead request, which has no costing.
   currency: z.string().length(3).optional(),
   exchange_rate_to_xaf: z.number().positive().optional(),
@@ -46,7 +46,7 @@ const context = {
 const schemas = {
   create: z.object({ dossier_id: z.string().uuid().optional().nullable(), costing_id: z.string().uuid().optional().nullable(), requested_by: z.string().uuid().optional().nullable(), lines: z.array(line).optional(), ...context }),
   update: z.object({ lines: z.array(line), ...context }),
-  // 12770 — DRAFT reopens a rejected request (the legacy allowed it and we did
+  // 12771 — DRAFT reopens a rejected request (the legacy allowed it and we did
   // not). `reason` is REQUIRED for REJECTED and `over_budget_reason` when a
   // submission claims more than the budget has left; both are enforced in the
   // service, where the ledger is in hand.
