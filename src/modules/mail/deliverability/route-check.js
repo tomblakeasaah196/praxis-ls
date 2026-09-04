@@ -173,4 +173,95 @@ async function checkRoute({ smtpHost, recipientDomain } = {}) {
   };
 }
 
-module.exports = { STATES, classify, checkRoute };
+/* ── THE SEND-PATH GUARD ───────────────────────────────────────────────────
+ *
+ * Detection is only half of it. The whole cost of this incident was that the
+ * system reported SUCCESS: a message was accepted by the relay, written to
+ * `email_send_log` as SENT with a real provider message-id, shown as delivered
+ * on every screen, and silently discarded. Nobody learns anything from a lie
+ * that confident, and a bounce never comes to correct it.
+ *
+ * So on the send path the verdict is not advice. A recipient we can prove is
+ * unreachable through this relay FAILS, loudly, and is logged FAILED. A visible
+ * failure the operator can act on is strictly better than a silent success they
+ * cannot. This is the rule for EVERY recipient domain — Microsoft, Google, Zoho
+ * or a plain mail host — not a special case for the one that caught us.
+ *
+ * CACHING, because this sits in front of every OTP, invite and invoice. The
+ * answer is a property of DNS, not of the message, so it is cached per
+ * relay+domain pair for ten minutes. The steady state costs no lookups at all;
+ * a misconfiguration is still caught within ten minutes of appearing. The cache
+ * is bounded so a spam run against many domains cannot grow it without limit.
+ */
+const TTL_MS = 10 * 60 * 1000;
+const MAX_ENTRIES = 500;
+const cache = new Map();
+
+async function checkRouteCached({ smtpHost, recipientDomain }) {
+  const key = `${smtpHost}|${recipientDomain}`;
+  const hit = cache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.value;
+  const value = await checkRoute({ smtpHost, recipientDomain });
+  // Only a settled verdict is worth caching. UNKNOWN usually means the resolver
+  // was unhappy, and pinning that for ten minutes would suppress the check
+  // exactly when DNS has just come back.
+  if (value.state !== STATES.UNKNOWN) {
+    if (cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value);
+    cache.set(key, { value, expires: Date.now() + TTL_MS });
+  }
+  return value;
+}
+
+const domainsOf = (to) => {
+  const list = Array.isArray(to) ? to : String(to || "").split(",");
+  return [...new Set(
+    list
+      .map((a) => String(a || "").trim().toLowerCase())
+      // Tolerate `Name <a@b.cm>` as well as a bare address.
+      .map((a) => (a.match(/<([^>]+)>/) || [null, a])[1])
+      .map((a) => a.split("@")[1])
+      .filter(Boolean),
+  )];
+};
+
+/**
+ * Throw when this relay would swallow mail for any of `to`.
+ *
+ * Silent on every other outcome, including UNKNOWN — an unproven suspicion must
+ * never stop a message. `err.code` is `MAIL_ROUTE_TRAPPED` so the send log and
+ * the UI can key a fix guide off it.
+ */
+async function assertRoutable({ smtpHost, to }) {
+  if (!smtpHost || !to) return;
+  for (const domain of domainsOf(to)) {
+    let verdict;
+    try {
+      verdict = await checkRouteCached({ smtpHost, recipientDomain: domain });
+    } catch {
+      return; // A failing checker must never block mail.
+    }
+    if (verdict.state !== STATES.LOCAL_TRAP) continue;
+    const err = new Error(
+      `Mail to ${domain} cannot be delivered through ${smtpHost}. That server hosts `
+      + `${domain} and would deliver this message to a local mailbox on itself instead of `
+      + `sending it to the domain's real mail server (${verdict.mx_hosts.join(", ") || "its MX"}). `
+      + "The message has NOT been sent. Set that domain's mail routing on the relay to a remote "
+      + "mail exchanger, or send through a relay that does not host it.",
+    );
+    err.code = "MAIL_ROUTE_TRAPPED";
+    err.details = {
+      domain,
+      smtp_host: smtpHost,
+      relay_ips: verdict.relay_ips,
+      mx_hosts: verdict.mx_hosts,
+    };
+    throw err;
+  }
+}
+
+/** Test seam — the cache is process-wide and would leak between cases. */
+function _resetCache() {
+  cache.clear();
+}
+
+module.exports = { STATES, classify, checkRoute, checkRouteCached, assertRoutable, _resetCache };

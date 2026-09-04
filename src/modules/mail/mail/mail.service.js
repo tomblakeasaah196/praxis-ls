@@ -29,6 +29,7 @@ const googleOAuth = require("./providers/googleOAuth");
 const documentVault = require("../../vault/document_vault/document_vault.service");
 const { publishMailEvent } = require("../../../realtime/mail-bus");
 const { autodiscover, hostedProviderOf } = require("./autodiscover");
+const routeCheck = require("../deliverability/route-check");
 // PR-0 foundation. The engine now asks three questions before it sends: may this
 // person send as this mailbox (access), is the mailbox within its host's rate
 // limit (mailbox.checkSendAllowance), and what stamp goes on the wire (origin).
@@ -188,13 +189,33 @@ async function searchRecipients(client, q, { user = null } = {}) {
  */
 const OAUTH_PROVIDERS = new Set(["microsoft_graph", "google_gmail"]);
 
+/**
+ * Per-provider flags, added in 12772 alongside the original umbrella key.
+ *
+ * The two providers stopped being ready at the same time. Microsoft is now the
+ * ONLY way a Microsoft 365 tenant can connect a mailbox — Exchange Online
+ * removed Basic auth for IMAP/POP in 2022 and retired it for SMTP AUTH in April
+ * 2026 — while Google's restricted mail scopes still need a security assessment
+ * that runs for weeks. One switch for both would hold Microsoft behind Google
+ * for no reason.
+ *
+ * EITHER key answers: a provider is on when its own flag is on, OR when the
+ * umbrella `mail.provider.oauth` is. So a tenant that already has the umbrella
+ * switched on is unaffected, and the console can now enable Microsoft alone.
+ */
+const PROVIDER_FLAGS = {
+  microsoft_graph: "mail.provider.microsoft",
+  google_gmail: "mail.provider.google",
+};
+
 async function assertProviderEnabled(client, provider) {
   if (!OAUTH_PROVIDERS.has(provider)) return;
+  const keys = [PROVIDER_FLAGS[provider], "mail.provider.oauth"].filter(Boolean);
   const { rows } = await client.query(
-    "SELECT state FROM feature_state WHERE feature_key = $1",
-    ["mail.provider.oauth"],
+    "SELECT state FROM feature_state WHERE feature_key = ANY($1)",
+    [keys],
   );
-  if (!rows[0] || rows[0].state !== "on") {
+  if (!rows.some((r) => r && r.state === "on")) {
     throw new AppError(
       "PROVIDER_NOT_ENABLED",
       "Microsoft 365 and Google mailboxes are not switched on for this tenant yet — they connect over "
@@ -869,6 +890,32 @@ async function prepareSend(client, conn, { actor = {}, sendPoint = null, slug = 
       429,
       { retry_at: allowance.retryAt, limit: allowance.limit, reason: allowance.reason },
     );
+  }
+
+  // NEVER LET A USER'S MESSAGE BE SWALLOWED IN SILENCE.
+  //
+  // This is the path the incident actually travelled: a compose from a connected
+  // IMAP/SMTP mailbox, relayed through a shared host that also hosted the
+  // recipient's domain. The relay answered 250, filed the message into a local
+  // mailbox on itself, and generated no bounce — so the product recorded a
+  // successful send for a message nobody would ever receive.
+  //
+  // Only SMTP can be trapped this way. Graph and Gmail hand the message to the
+  // provider's own API, which routes it; there is no relay in between to get
+  // the destination wrong, so they are not checked.
+  //
+  // Placed in prepareSend because `send()` and `reply()` both come through here,
+  // and a guard that covers one of two send paths is not a guard. It runs before
+  // the allowance is spent and before anything is handed to the adapter.
+  if (conn.provider === "imap_smtp" && conn.smtp_host && to) {
+    try {
+      await routeCheck.assertRoutable({ smtpHost: conn.smtp_host, to });
+    } catch (err) {
+      if (err && err.code === "MAIL_ROUTE_TRAPPED") {
+        throw new AppError("MAIL_ROUTE_TRAPPED", err.message, 422, err.details || null);
+      }
+      /* @silent:network a failing checker must never block a send */
+    }
   }
 
   const messageId = origin.generateMessageId(conn.email_address);

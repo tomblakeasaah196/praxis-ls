@@ -14,7 +14,17 @@
  * bounced. RELAY is the relay's IP, ELSEWHERE is Microsoft.
  */
 
-const { STATES, classify } = require("../../src/modules/mail/deliverability/route-check");
+// The guard resolves for real; the resolver is replaced so these stay offline.
+const mockResolve4 = jest.fn();
+const mockResolveMx = jest.fn();
+jest.mock("dns/promises", () => ({
+  resolve4: (...a) => mockResolve4(...a),
+  resolveMx: (...a) => mockResolveMx(...a),
+}));
+
+const {
+  STATES, classify, assertRoutable, _resetCache,
+} = require("../../src/modules/mail/deliverability/route-check");
 
 const RELAY = "37.59.83.88";
 const ELSEWHERE = "104.47.1.33";
@@ -89,5 +99,112 @@ describe("classify", () => {
       expect(typeof classify(args).reason).toBe("string");
       expect(classify(args).reason.length).toBeGreaterThan(0);
     }
+  });
+});
+
+/* ── THE SEND-PATH GUARD ──────────────────────────────────────────────────
+ *
+ * Detection alone would have changed nothing. The entire cost of the incident
+ * was that the system reported SUCCESS for a message it had lost, so on the
+ * send path a proven-unreachable recipient has to FAIL rather than be filed
+ * as SENT. These cases pin that, and pin the two ways it must NOT overreach:
+ * silence on an unproven verdict, and silence when the checker itself breaks.
+ */
+describe("assertRoutable", () => {
+  const RELAY = "37.59.83.88";
+  const MS = "104.47.1.33";
+
+  // The relay hosts the domain; the domain's mail is at Microsoft.
+  const trapped = () => {
+    mockResolve4.mockImplementation(async (host) => {
+      if (host === "mail.praxisls.com" || host === "smartls.cm") return [RELAY];
+      return [MS];
+    });
+    mockResolveMx.mockResolvedValue([{ exchange: "smartls-cm.mail.protection.outlook.com", priority: 0 }]);
+  };
+
+  beforeEach(() => {
+    _resetCache();
+    jest.clearAllMocks();
+  });
+
+  it("throws MAIL_ROUTE_TRAPPED for a recipient the relay would swallow", async () => {
+    trapped();
+    const err = await assertRoutable({
+      smtpHost: "mail.praxisls.com", to: "timothee.massomba@smartls.cm",
+    }).catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.code).toBe("MAIL_ROUTE_TRAPPED");
+    // The operator has to be able to act on it, so the message names the real
+    // destination and says plainly that nothing was sent.
+    expect(err.message).toMatch(/smartls\.cm/);
+    expect(err.message).toMatch(/has NOT been sent/i);
+    expect(err.details.mx_hosts).toContain("smartls-cm.mail.protection.outlook.com");
+  });
+
+  it("reads the address out of a display-name form too", async () => {
+    trapped();
+    await expect(
+      assertRoutable({ smtpHost: "mail.praxisls.com", to: '"Timothee" <timothee@smartls.cm>' }),
+    ).rejects.toMatchObject({ code: "MAIL_ROUTE_TRAPPED" });
+  });
+
+  it("checks every recipient, not just the first", async () => {
+    trapped();
+    await expect(
+      assertRoutable({ smtpHost: "mail.praxisls.com", to: ["ok@example.org", "x@smartls.cm"] }),
+    ).rejects.toMatchObject({ code: "MAIL_ROUTE_TRAPPED" });
+  });
+
+  it("stays silent when the relay does not host the recipient domain", async () => {
+    mockResolve4.mockResolvedValue([MS]);
+    mockResolveMx.mockResolvedValue([{ exchange: "mx.example.org", priority: 10 }]);
+    await expect(
+      assertRoutable({ smtpHost: "mail.praxisls.com", to: "a@example.org" }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("stays silent on an UNPROVEN verdict rather than blocking mail", async () => {
+    // Nothing resolves -> UNKNOWN. A suspicion is not evidence, and refusing a
+    // send on one would turn a DNS wobble into an outage.
+    mockResolve4.mockRejectedValue(Object.assign(new Error("nope"), { code: "ESERVFAIL" }));
+    mockResolveMx.mockRejectedValue(Object.assign(new Error("nope"), { code: "ESERVFAIL" }));
+    await expect(
+      assertRoutable({ smtpHost: "mail.praxisls.com", to: "a@example.org" }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("stays silent when the checker itself throws", async () => {
+    mockResolve4.mockImplementation(() => { throw new Error("boom"); });
+    mockResolveMx.mockImplementation(() => { throw new Error("boom"); });
+    await expect(
+      assertRoutable({ smtpHost: "mail.praxisls.com", to: "a@example.org" }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("does nothing without a relay host or recipients", async () => {
+    await expect(assertRoutable({ smtpHost: null, to: "a@b.cm" })).resolves.toBeUndefined();
+    await expect(assertRoutable({ smtpHost: "mail.praxisls.com", to: null })).resolves.toBeUndefined();
+    expect(mockResolve4).not.toHaveBeenCalled();
+  });
+
+  it("caches a settled verdict so this is not a lookup per message", async () => {
+    // It sits in front of every OTP, invite and invoice; a resolver round trip
+    // on each one would be a latency tax on the hottest path in the product.
+    trapped();
+    for (let i = 0; i < 3; i++) {
+      await assertRoutable({ smtpHost: "mail.praxisls.com", to: "x@smartls.cm" }).catch(() => {});
+    }
+    expect(mockResolveMx).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT cache an unknown verdict", async () => {
+    // Pinning "could not tell" for ten minutes would suppress the check exactly
+    // when DNS has just recovered.
+    mockResolve4.mockRejectedValue(Object.assign(new Error("nope"), { code: "ESERVFAIL" }));
+    mockResolveMx.mockRejectedValue(Object.assign(new Error("nope"), { code: "ESERVFAIL" }));
+    await assertRoutable({ smtpHost: "mail.praxisls.com", to: "a@example.org" });
+    await assertRoutable({ smtpHost: "mail.praxisls.com", to: "a@example.org" });
+    expect(mockResolveMx).toHaveBeenCalledTimes(2);
   });
 });
