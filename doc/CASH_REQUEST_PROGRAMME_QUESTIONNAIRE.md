@@ -1196,7 +1196,62 @@ and `COSTING` projections) · `templates/registry.js` (both templates + `LINE_CO
 
 ---
 
-## 10. Answer summary
+## 10. DECISIONS — answered by the owner, 2026-09-04
+
+Recorded here because the engineering guide, the migrations and the PR
+descriptions all cite them, and a decision that lives only in a chat log is a
+decision the next engineer will re-litigate.
+
+| Q | Topic | Decision |
+| --- | --- | --- |
+| 1 | Line ↔ `costing_line` link | **B** — `costing_line_id` on `cash_request_line`. |
+| 2 | Budget consumed by | **B** — committed (approved and not settled short), with disbursed shown alongside. |
+| 3 | Over-budget gate | **B**, extended: warn on the worksheet; at submission demand a **written reason** and point at the costing (deep link) suggesting an unlock; **refuse at approve**. |
+| 4 | Off-budget lines | **A** — none. **No money leaves without a costing.** A late detention charge is amended into the budget with a logged reason and re-approved; the process has to be seamless, not permissive. |
+| 5 | Approved-costing prerequisite | **A** — at submission. At creation the request declares whether it is against an operations file (then the file is **mandatory**) or an overhead (which behaves like an expense tracker). |
+| 6 | Costing amendment vs in-flight requests | **B**, with the model stated: **one budgetary line per file**. Port Charges 150 000, claimed 100 000 → 50 000 left. Amend to 200 000 → 100 000 left, claimable by another request. Amend to 95 000 → over budget, the reason shows the costing was reduced, and the 5 000 is reallocated or refunded **in reconciliation**. |
+| 7 | Débours in the ledger | **A** — **every line.** The ledger covers the whole sheet; the reconciliation grid is out of scope here (see Q18). |
+| 8 | Money unit and currency | **B** — TTC, currency picked from the costing at the start, rates from the daily FX cron. |
+| 9 | Worksheet route | **B** — mirror the costing sheet. |
+| 10 | Line seeding | **B** — lines arrive on file pick; overheads get the financial-dictionary picker instead. |
+| 11 | Line shape | **B** — qty × unit_cost + VAT, and a justification checkbox defaulted from the financial dictionary but overridable. |
+| 12 | Signature capture | **B** — mirror the costing's seals. The three parties are the **Requestor**, the **Approving Authority** and the **Disbursing Authority**. |
+| 13 | Who receives | **A** — the régie holder. |
+| 14 | Disburse as a bindable chain | **B** — `disbursal.approved`, no chain bound by default. |
+| 15 | Rejection + close-balance | **B** — reason required, `REJECTED → DRAFT`, and `CLOSE_BALANCE`. |
+| 16 | The voucher | **C** — costing parity **plus a separate payment receipt**, signed by **two** (disbursing authority and requestor; the requestor's signature is already on the request itself). The receipt carries the request's details, the approval date, the amount disbursed and the balance still to be disbursed; a request shows every receipt raised against it. |
+| 17 | Justification tick | **B** — catalogue-derived, overridable upward, blocking at close. |
+| 18 | The OCR seam | **B in principle, OUT OF SCOPE for these three PRs.** OCR is a later module; nothing here writes `cost_entry` or touches `costCompare`. |
+| 19 | Permission vocabulary | **A** — real columns: `can_export`, `can_validate`, `can_disburse`. |
+| 20 | Notifications | **B**. And: **validation is a visa, not a signature.** Finance validates against funds and the budget — so the validator and the approver each get a **budgetary control summary** flagging anything unbudgeted or over budget. |
+
+### What these answers changed about the plan
+
+- **Q4 = A removed a whole feature.** There is no `OFF_BUDGET` line kind and no
+  `source` value for one. `assertFundable` refuses to submit an OPS request any
+  of whose lines is not drawn from the costing (`EVERY_LINE_NEEDS_BUDGET`).
+- **Q3's reason + deep link** turned a boolean gate into a two-stage one:
+  `OVER_BUDGET_REASON_REQUIRED` at submission carries `costing_id` and
+  `doc_number` so the screen can offer the unlock in one click, and
+  `OVER_BUDGET` at approval is a flat refusal.
+- **Q6 made the ledger read the LIVE costing line**, never an approval
+  snapshot: amending the budget is how the balance is meant to move.
+  `costing_revision` is stamped on the request for audit only.
+- **Q6 also forced a change to the COSTING module** that was not in the
+  original plan. `replaceLines` deleted and re-inserted every line on every
+  draft save, so `costing_line_id` changed on every amendment — the budget link
+  would have broken at exactly the moment Q6 is about. It upserts in place now,
+  keyed on the logical identity `diffLines` already used.
+- **Q18 being out of scope** means `cost_entry` is untouched and
+  `dossier_reconciliation.costCompare` still excludes débours from its line
+  grid. That remains a known gap, recorded in §2.4, for the OCR module to close.
+- **Q19 = A** added three columns rather than one, and the AI path's action map
+  had to move with `rbac.js` so an assistant is never gated more loosely than a
+  person at a screen.
+
+---
+
+## 11. Answer summary
 
 | Q | Topic | Your answer |
 | --- | --- | --- |

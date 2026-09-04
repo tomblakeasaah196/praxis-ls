@@ -62,7 +62,12 @@ const COLUMN = {
   update: "can_update",
   delete: "can_delete",
   approve: "can_approve",
-  export: "can_read",
+  // 12770 gave these three real columns. Kept in step with rbac.js on purpose:
+  // an assistant gated more loosely than a person at a screen is the AI-only
+  // capability failure this file exists to prevent.
+  export: "can_export",
+  validate: "can_validate",
+  disburse: "can_disburse",
   publish: "can_update",
 };
 
@@ -151,8 +156,19 @@ async function filterAllowed(client, user, defs) {
        
       await assertAllowed(client, user, def);
       out.push(def);
-    } catch {
-      /* not offered */
+    } catch (err) {
+      /*
+       * A DENIAL IS THE ANSWER HERE, not a fault: this loop filters a catalogue
+       * down to what the caller may run, and `assertAllowed` has already logged
+       * and counted the refusal (see `deny` above).
+       *
+       * Anything else is re-raised. The bare catch-all this replaces swallowed
+       * EVERY error — so a database outage inside the grant lookup produced an
+       * empty catalogue, which is indistinguishable from a correct answer of
+       * "you may run nothing" and is exactly the kind of failure that gets
+       * diagnosed as a permissions problem for a day.
+       */
+      if (!(err instanceof AppError) || err.code !== "AI_ACTION_FORBIDDEN") throw err;
     }
   }
   return out;

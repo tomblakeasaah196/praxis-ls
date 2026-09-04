@@ -13,6 +13,8 @@ const MODULE = "MOD-49";
 const router = express.Router();
 router.use(authMiddleware);
 router.get("/", requirePermission(MODULE, "view"), controller.list);
+// Literal segment before "/:id", or "kpis" parses as a cash-request id.
+router.get("/kpis", requirePermission(MODULE, "view"), controller.kpis);
 router.get("/:id", requirePermission(MODULE, "view"), controller.get);
 router.post("/", requirePermission(MODULE, "create"), validator.create, controller.create);
 router.patch("/:id", requirePermission(MODULE, "edit"), validator.update, controller.update);
@@ -30,8 +32,19 @@ router.post("/:id/import-costing", requirePermission(MODULE, "edit"), validator.
 // VALIDATED (finance, 10721) sits between SUBMITTED and APPROVED — both are
 // decisions, so both carry the approve grant + APPROVER capability, exactly
 // like the disbursement that follows them.
-const TRANSITION_ACTION = { SUBMITTED: "edit", JUSTIFIED: "edit", VALIDATED: "approve", APPROVED: "approve", REJECTED: "approve", DISBURSED: "approve" };
-const TRANSITION_CAPABILITY = { VALIDATED: "APPROVER", APPROVED: "APPROVER", REJECTED: "APPROVER", DISBURSED: "APPROVER" };
+//
+// 12770 — `validate` and `disburse` are now their own grants (permission
+// gained can_validate / can_disburse), because the real policy is "Marie may
+// hand over cash up to 500 000" and a role that can approve is not necessarily
+// a role that holds the till. DRAFT is the reopen of a rejected request: the
+// author's own act, so `edit`.
+const TRANSITION_ACTION = { DRAFT: "edit", SUBMITTED: "edit", JUSTIFIED: "edit", VALIDATED: "validate", APPROVED: "approve", REJECTED: "approve", DISBURSED: "disburse" };
+// APPROVER stays on the decisions that authorise money. It is NOT demanded for
+// validation (a finance visa, not a signature — owner decision Q20) nor for
+// disbursement, which now has a grant of its own; requiring both would put the
+// cashier back inside the approver role, which is the pair maker-checker most
+// wants apart.
+const TRANSITION_CAPABILITY = { APPROVED: "APPROVER", REJECTED: "APPROVER" };
 
 router.post(
   "/:id/transition",
@@ -40,9 +53,17 @@ router.post(
   requireTransitionCapability(TRANSITION_CAPABILITY),
   controller.transition,
 );
-// Disbursing money is the canonical APPROVER act — segregation of duties on top
-// of the module grant (requireCapability, MOD-67 authority overlay). CEO bypasses.
-router.post("/:id/disburse", requirePermission(MODULE, "approve"), requireCapability("APPROVER"), validator.disburse, controller.disburse);
+// Handing over cash is its own grant (12770). It used to be `approve` +
+// APPROVER, which meant a dedicated cashier had to be given approval authority
+// over every cash request in order to pay one out.
+router.post("/:id/disburse", requirePermission(MODULE, "disburse"), validator.disburse, controller.disburse);
+// Settling a part-paid request writes off money the treasury will not pay and
+// hands budget back to the file — a decision, so `approve` + APPROVER.
+router.post("/:id/close-balance", requirePermission(MODULE, "approve"), requireCapability("APPROVER"), validator.closeBalance, controller.closeBalance);
+// The holder acknowledging that they took an instalment. Their own act, so
+// `edit` — gating a receipt behind an approval grant is how receipts stop being
+// collected.
+router.post("/:id/payments/:paymentId/receipt", requirePermission(MODULE, "edit"), validator.acknowledge, controller.acknowledge);
 router.post("/:id/justify", requirePermission(MODULE, "edit"), validator.justify, controller.justify);
 
 module.exports = { basePath: "/cash-requests", feature: "costing", router };
