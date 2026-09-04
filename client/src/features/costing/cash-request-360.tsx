@@ -25,7 +25,7 @@
  * offer, and explains a refusal before the person meets it.
  */
 import * as React from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useLocation, Link } from "react-router-dom";
 import { Record360Page, Record360Header } from "@/components/record-360";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -176,10 +176,38 @@ function PaymentsPanel({
   onAcknowledge: (paymentId: string) => void;
   busy: boolean;
 }) {
-  const payments = request.payments || [];
+  // `request.payments`, not a `|| []` fallback held in a local: the fallback is
+  // a fresh array on every render, so the memo below would recompute on each
+  // one (react-hooks/exhaustive-deps, an error in this codebase). The empty
+  // case is handled inside the memo instead.
+  const payments = request.payments;
   const requested = Number(request.amount || 0);
   const paid = Number(request.disbursed_amount || 0);
   const outstanding = Math.round((requested - paid) * 100) / 100;
+
+  /*
+   * The balance after each instalment, and the reference its receipt prints.
+   *
+   * Both are derived from the SAME ordering the server uses to number a receipt
+   * (`paid_on`, then the payment id — see the CASH_PAYMENT_RECEIPT projection),
+   * so the "R2" on this screen and the "R2" on the paper are the same tranche.
+   * Two payments released on one day would otherwise order arbitrarily here and
+   * deterministically there, and the two would disagree.
+   */
+  const rows = React.useMemo(() => {
+    const ordered = [...(payments || [])].sort((a, b) =>
+      String(a.paid_on).localeCompare(String(b.paid_on))
+      || a.cash_request_payment_id.localeCompare(b.cash_request_payment_id));
+    let running = 0;
+    return ordered.map((p, i) => {
+      running = Math.round((running + Number(p.amount || 0)) * 100) / 100;
+      return {
+        ...p,
+        balance: Math.round((requested - running) * 100) / 100,
+        receipt_number: `${request.doc_number || tr("Cash request")} / R${i + 1}`,
+      };
+    });
+  }, [payments, requested, request.doc_number]);
 
   return (
     <Panel title={tr("Disbursement")}>
@@ -200,7 +228,7 @@ function PaymentsPanel({
         ]}
       />
 
-      {payments.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="micro mt-3">{tr("Nothing has been paid out yet.")}</p>
       ) : (
         <div className="mt-3 overflow-x-auto">
@@ -209,15 +237,21 @@ function PaymentsPanel({
               <TR>
                 <TH>{tr("Paid on")}</TH>
                 <TH className="text-right">{tr("Amount")}</TH>
+                <TH className="text-right">{tr("Balance")}</TH>
                 <TH>{tr("Received")}</TH>
                 <TH />
               </TR>
             </THead>
             <TBody>
-              {payments.map((p) => (
+              {rows.map((p) => (
                 <TR key={p.cash_request_payment_id}>
                   <TD className="num">{dateFmt(p.paid_on)}</TD>
                   <TD className="num text-right tabular-nums">{money(p.amount, currency)}</TD>
+                  {/* Running, not final: a request paid in tranches is read to
+                      answer "how much is left", and nobody should have to
+                      subtract down a column to find out. Same figure the
+                      printed receipt for this instalment carries. */}
+                  <TD className="num text-right tabular-nums">{money(p.balance, currency)}</TD>
                   <TD>
                     {p.received_at ? (
                       <span className="micro">
@@ -228,17 +262,29 @@ function PaymentsPanel({
                       <Pill tone="warn">{tr("Not acknowledged")}</Pill>
                     )}
                   </TD>
-                  <TD className="text-right">
-                    {!p.received_at && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        loading={busy}
-                        onClick={() => onAcknowledge(p.cash_request_payment_id)}
-                      >
-                        {tr("Acknowledge receipt")}
-                      </Button>
-                    )}
+                  <TD>
+                    <div className="flex items-center justify-end gap-2">
+                      {!p.received_at && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={busy}
+                          onClick={() => onAcknowledge(p.cash_request_payment_id)}
+                        >
+                          {tr("Acknowledge receipt")}
+                        </Button>
+                      )}
+                      {/* Every instalment has its own receipt (owner Q16 C) —
+                          the request's details, the approval date, what was
+                          paid and what is still to run, signed by the person
+                          who released it and the person who took it. */}
+                      <DocButton
+                        docType="CASH_PAYMENT_RECEIPT"
+                        id={p.cash_request_payment_id}
+                        title={p.receipt_number}
+                        label={tr("Receipt")}
+                      />
+                    </div>
                   </TD>
                 </TR>
               ))}
@@ -406,6 +452,18 @@ export function CashRequest360({
     await act(() => api.importCostingLines(id), tr("Budget lines loaded"));
   }
 
+  /*
+   * Why the budget could not be pulled in when the request was created.
+   *
+   * The register's New-request dialog creates the request and immediately loads
+   * its costing lines, so the sheet normally opens populated. When that load is
+   * refused — an unapproved costing, a fully-claimed one — the reason travels
+   * here in the navigation state rather than being shown on a dialog that is
+   * closing: this is the screen with the "Load from budget" button on it, so
+   * this is where a reader can act on the answer.
+   */
+  const loadFailed = (useLocation().state as { loadFailed?: string } | null)?.loadFailed || null;
+
   async function submit() {
     if (dirty && !(await save())) return;
     if (overBudget) {
@@ -527,6 +585,11 @@ export function CashRequest360({
         </Callout>
       )}
 
+      {loadFailed && (lines || []).length === 0 && (
+        <Callout tone="warn" title={tr("The budget could not be loaded")}>
+          {loadFailed}
+        </Callout>
+      )}
       {control && <BudgetBanner control={control} />}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
