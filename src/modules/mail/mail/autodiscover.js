@@ -102,7 +102,7 @@ function cpanelPreset(email) {
 function probe(host, port, ms = 2500) {
   return new Promise((resolve) => {
     let done = false;
-    const finish = (ok) => { if (!done) { done = true; try { socket.destroy(); } catch { /* noop */ } resolve(ok); } };
+    const finish = (ok) => { if (!done) { done = true; try { socket.destroy(); } catch { /* @silent:teardown the socket may already be gone; the probe verdict is the useful answer */ } resolve(ok); } };
     const socket = tls.connect({ host, port, servername: host, rejectUnauthorized: false }, () => finish(true));
     socket.setTimeout(ms, () => finish(false));
     socket.on("error", () => finish(false));
@@ -124,7 +124,9 @@ async function autodiscover({ email } = {}) {
   if (KNOWN[domain]) return { source: "known", provider: domain, ...KNOWN[domain] };
 
   let mxHosts = "";
-  try { mxHosts = (await dns.resolveMx(domain)).map((m) => m.exchange.toLowerCase()).join(" "); } catch { /* no MX */ }
+  // @silent:parse — a domain with no usable MX answer falls through to the
+  // convention guess below, which is the defined fallback for exactly this case.
+  try { mxHosts = (await dns.resolveMx(domain)).map((m) => m.exchange.toLowerCase()).join(" "); } catch { /* @silent:parse no MX; the convention guess below is the fallback */ }
   const hosted = MX_PROVIDERS.find((p) => p.match.test(mxHosts));
   if (hosted) return { source: `mx:${hosted.key}`, ...hosted.settings };
 

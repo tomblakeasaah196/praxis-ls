@@ -23,3 +23,17 @@ INSERT INTO feature_state (feature_key, state, source) VALUES
   ('mail.provider.microsoft', 'off', 'default'),
   ('mail.provider.google',    'off', 'default')
 ON CONFLICT (feature_key) DO NOTHING;
+
+-- DOWN
+--
+-- Both rows are additive, so the undo is a delete and the umbrella key takes
+-- over again exactly as it did before this ran — assertProviderEnabled accepts
+-- EITHER the per-provider flag or `mail.provider.oauth`, so removing these
+-- leaves the single-switch behaviour intact rather than locking anyone out.
+--
+-- Worth knowing at 3am: if a tenant had switched Microsoft on through the new
+-- key alone, this turns their mailbox connections off until the umbrella key is
+-- set. Check `feature_state` before running it.
+--
+-- DELETE FROM feature_state
+--  WHERE feature_key IN ('mail.provider.microsoft', 'mail.provider.google');

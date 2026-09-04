@@ -914,7 +914,8 @@ async function prepareSend(client, conn, { actor = {}, sendPoint = null, slug = 
       if (err && err.code === "MAIL_ROUTE_TRAPPED") {
         throw new AppError("MAIL_ROUTE_TRAPPED", err.message, 422, err.details || null);
       }
-      /* @silent:network a failing checker must never block a send */
+      /* @silent:parse the checker could not answer; sending as before is the
+         defined fallback, and a broken guard must never block a real send */
     }
   }
 

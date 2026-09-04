@@ -31,3 +31,14 @@ SELECT p.plan_id, f.feature_key, true
   CROSS JOIN (VALUES ('mail.provider.microsoft'), ('mail.provider.google')) AS f(feature_key)
  WHERE p.code IN ('FULL', 'ENTERPRISE')
 ON CONFLICT (plan_id, feature_key) DO NOTHING;
+
+-- DOWN
+--
+-- Purely additive: two catalogue rows and their plan entitlements. Delete the
+-- plan rows FIRST — plan_feature references the catalogue, so the reverse order
+-- fails on the foreign key.
+--
+-- DELETE FROM platform.plan_feature
+--  WHERE feature_key IN ('mail.provider.microsoft', 'mail.provider.google');
+-- DELETE FROM platform.feature_catalogue
+--  WHERE feature_key IN ('mail.provider.microsoft', 'mail.provider.google');
