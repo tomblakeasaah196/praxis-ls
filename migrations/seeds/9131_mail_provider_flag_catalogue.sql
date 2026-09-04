@@ -1,7 +1,7 @@
 -- ============================================================================
--- 9131 — catalogue rows for the split provider flags (tenant migration 12772)
+-- 9131 — catalogue rows for the split provider flags (tenant migration 12775)
 --
--- 12772 seeds `mail.provider.microsoft` and `mail.provider.google` into every
+-- 12775 seeds `mail.provider.microsoft` and `mail.provider.google` into every
 -- tenant's feature_state. A tenant flag with no catalogue row is a flag nobody
 -- can switch: the Platform Console renders the console from this table, so the
 -- row is what turns a seeded key into an operator-visible toggle. The pairing is

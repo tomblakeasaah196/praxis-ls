@@ -784,7 +784,7 @@ export function ConnectionsTab() {
    * works, and `connect()` refuses to pretend otherwise.
    *
    * Google stays out for now: its restricted mail scopes need a security
-   * assessment that runs for weeks, and 12772 split the flags so waiting for
+   * assessment that runs for weeks, and 12775 split the flags so waiting for
    * Google no longer holds Microsoft back. `api.startGoogle` is still exported
    * and the adapter still has its CI tests, so turning it on is this function
    * plus a second button.

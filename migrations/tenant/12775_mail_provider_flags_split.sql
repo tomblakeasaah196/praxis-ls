@@ -1,5 +1,5 @@
 -- ============================================================================
--- 12772 — split the OAuth mailbox flag per provider
+-- 12775 — split the OAuth mailbox flag per provider
 --
 -- `mail.provider.oauth` (10730) gates Microsoft 365 and Google Workspace as one
 -- switch. That was right while both were out of scope together, and is wrong now

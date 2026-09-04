@@ -22,7 +22,7 @@ Phases are ordered by dependency. **Do not skip the verification at the end of e
 The guard added in `ef2dfef` refuses any recipient it can prove the relay would swallow. Deploying it **before** Phase 1 means that if anything is missed, mail fails visibly instead of silently.
 
 1. Merge/deploy `claude/smartls-email-delivery-zou5ax`.
-2. Run the tenant migration `12772` and seed `9131`.
+2. Run the tenant migration `12775` and seed `9131`.
 3. Set on the API host, then restart:
 
 ```bash
@@ -180,7 +180,7 @@ With one tenant, "all tenants" and "smartls only" are the same operation — `fe
 
 **Platform Console → the smartls tenant → Features → `mail.provider.microsoft` → on.**
 
-Leave `mail.provider.google` off. 12772 split them precisely so Google's restricted-scope verification does not hold Microsoft back.
+Leave `mail.provider.google` off. 12775 split them precisely so Google's restricted-scope verification does not hold Microsoft back.
 
 **Verify, end to end:**
 

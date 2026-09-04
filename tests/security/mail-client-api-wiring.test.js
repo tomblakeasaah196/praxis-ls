@@ -67,7 +67,7 @@ const GRANDFATHERED = new Map(Object.entries({
    * mailbox OAuth is the ONLY way in: Exchange Online removed Basic auth for
    * IMAP/POP in 2022 and retired it for SMTP AUTH in April 2026. Google's is
    * not, and this is the honest record of that: its restricted mail scopes
-   * need a security assessment that runs for weeks, and 12772 split the
+   * need a security assessment that runs for weeks, and 12775 split the
    * feature flags so waiting for Google no longer holds Microsoft back. The
    * wrapper and the adapter stay tested; only the button is missing. */
   startGoogle: "Google Workspace is not enabled yet — awaiting restricted-scope verification",

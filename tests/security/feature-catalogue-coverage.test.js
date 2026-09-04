@@ -144,7 +144,7 @@ describe("the mail programme is switchable, and switched on where it is ready", 
   const MAIL = [...CATALOGUE.keys()].filter((k) => k.startsWith("mail."));
 
   test("all seventeen keys are in the catalogue", () => {
-    // 15 -> 17. Tenant migration 12772 split `mail.provider.oauth` into
+    // 15 -> 17. Tenant migration 12775 split `mail.provider.oauth` into
     // `mail.provider.microsoft` and `mail.provider.google`, catalogued in seed
     // 9131. The umbrella key stays and still works, so this is two keys added,
     // none removed: Microsoft became urgent on its own clock (Exchange Online

@@ -190,7 +190,7 @@ async function searchRecipients(client, q, { user = null } = {}) {
 const OAUTH_PROVIDERS = new Set(["microsoft_graph", "google_gmail"]);
 
 /**
- * Per-provider flags, added in 12772 alongside the original umbrella key.
+ * Per-provider flags, added in 12775 alongside the original umbrella key.
  *
  * The two providers stopped being ready at the same time. Microsoft is now the
  * ONLY way a Microsoft 365 tenant can connect a mailbox — Exchange Online
