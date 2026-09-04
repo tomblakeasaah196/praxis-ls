@@ -1,0 +1,93 @@
+"use strict";
+
+/**
+ * The outbound route check, pinned.
+ *
+ * Classification is tested WITHOUT a network, for the same reason the domain DNS
+ * check is: a test that resolves a real name depends on somebody else's zone and
+ * on the runner having DNS, so it fails on a train for reasons unrelated to the
+ * diff.
+ *
+ * The cases below are the real incident. A shared cPanel relay hosted the
+ * tenant's website while their MX pointed at Microsoft 365; mail to that domain
+ * was delivered into a local mailbox on the relay, reported SENT, and never
+ * bounced. RELAY is the relay's IP, ELSEWHERE is Microsoft.
+ */
+
+const { STATES, classify } = require("../../src/modules/mail/deliverability/route-check");
+
+const RELAY = "37.59.83.88";
+const ELSEWHERE = "104.47.1.33";
+
+describe("classify", () => {
+  it("flags the local-domain trap: we host the domain, its mail lives elsewhere", () => {
+    expect(
+      classify({ relayIps: [RELAY], recipientIps: [RELAY], mxIps: [ELSEWHERE] }),
+    ).toMatchObject({ state: STATES.LOCAL_TRAP, ok: false });
+  });
+
+  it("is ok when the relay does not host the recipient domain", () => {
+    // The ordinary case for every domain on the internet we do not host. A
+    // remote MX on its own is not evidence of anything.
+    expect(
+      classify({ relayIps: [RELAY], recipientIps: [ELSEWHERE], mxIps: [ELSEWHERE] }),
+    ).toMatchObject({ state: STATES.OK, ok: true });
+  });
+
+  it("is ok when the relay is legitimately the domain's own mail server", () => {
+    // Co-hosting alone must NOT be reported: here local delivery is correct, and
+    // flagging it would condemn every domain whose site and mail both live with
+    // us — which is most of them.
+    expect(
+      classify({ relayIps: [RELAY], recipientIps: [RELAY], mxIps: [RELAY] }),
+    ).toMatchObject({ state: STATES.OK, ok: true });
+  });
+
+  it("still flags the trap when the relay answers on several addresses", () => {
+    // Membership, not equality: a relay with two A records is co-hosted if
+    // EITHER matches, and demanding an exact match would miss the trap.
+    expect(
+      classify({ relayIps: ["203.0.113.9", RELAY], recipientIps: [RELAY], mxIps: [ELSEWHERE] }),
+    ).toMatchObject({ state: STATES.LOCAL_TRAP, ok: false });
+  });
+
+  it("does not judge when a lookup came back empty", () => {
+    // Absence of evidence is never rendered as a fault — telling an
+    // administrator their mail is being swallowed because a resolver timed out
+    // is worse than saying nothing.
+    for (const args of [
+      { relayIps: [], recipientIps: [RELAY], mxIps: [ELSEWHERE] },
+      { relayIps: [RELAY], recipientIps: [], mxIps: [ELSEWHERE] },
+      { relayIps: [RELAY], recipientIps: [RELAY], mxIps: [] },
+    ]) {
+      const out = classify(args);
+      expect(out.state).toBe(STATES.UNKNOWN);
+      expect(out.ok).toBeNull();
+    }
+  });
+
+  it("does not judge a domain that publishes no MX at all", () => {
+    // Broken or mail-less, but either way local delivery is not what is wrong.
+    expect(
+      classify({ relayIps: [RELAY], recipientIps: [RELAY], mxIps: [], hasMx: false }),
+    ).toMatchObject({ state: STATES.UNKNOWN, ok: null });
+  });
+
+  it("tolerates junk resolver results rather than throwing", () => {
+    expect(classify({}).state).toBe(STATES.UNKNOWN);
+    expect(classify({ relayIps: null, recipientIps: undefined, mxIps: [null] }).state).toBe(STATES.UNKNOWN);
+  });
+
+  it("always explains itself", () => {
+    // The verdict is shown to an administrator who has to act on it, so a
+    // reason is part of the contract, not a nicety.
+    for (const args of [
+      { relayIps: [RELAY], recipientIps: [RELAY], mxIps: [ELSEWHERE] },
+      { relayIps: [RELAY], recipientIps: [ELSEWHERE], mxIps: [ELSEWHERE] },
+      { relayIps: [], recipientIps: [], mxIps: [] },
+    ]) {
+      expect(typeof classify(args).reason).toBe("string");
+      expect(classify(args).reason.length).toBeGreaterThan(0);
+    }
+  });
+});

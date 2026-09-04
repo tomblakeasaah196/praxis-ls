@@ -28,7 +28,7 @@ const msOAuth = require("./providers/microsoftOAuth");
 const googleOAuth = require("./providers/googleOAuth");
 const documentVault = require("../../vault/document_vault/document_vault.service");
 const { publishMailEvent } = require("../../../realtime/mail-bus");
-const { autodiscover } = require("./autodiscover");
+const { autodiscover, hostedProviderOf } = require("./autodiscover");
 // PR-0 foundation. The engine now asks three questions before it sends: may this
 // person send as this mailbox (access), is the mailbox within its host's rate
 // limit (mailbox.checkSendAllowance), and what stamp goes on the wire (origin).
@@ -197,16 +197,76 @@ async function assertProviderEnabled(client, provider) {
   if (!rows[0] || rows[0].state !== "on") {
     throw new AppError(
       "PROVIDER_NOT_ENABLED",
-      "Microsoft 365 and Google mailboxes are not enabled yet. Connect your mailbox with its IMAP/SMTP settings — if your company uses cPanel, the setup wizard fills these in for you.",
+      "Microsoft 365 and Google mailboxes are not switched on for this tenant yet — they connect over "
+        + "OAuth, which an administrator enables. Microsoft and Google no longer accept a password on "
+        + "IMAP or SMTP, so there is no interim setting that would work for one of those mailboxes. A "
+        + "mailbox on your company's own mail server can still be connected with its IMAP/SMTP settings "
+        + "— if that server runs cPanel, the setup wizard fills them in for you.",
       403,
     );
   }
+}
+
+/**
+ * Refuse a PASSWORD for a mailbox whose provider no longer accepts one.
+ *
+ * Microsoft and Google both finished removing Basic authentication from the
+ * legacy mail protocols:
+ *
+ *   • Exchange Online disabled Basic auth for POP and IMAP in 2022, and retired
+ *     it for Client Submission (SMTP AUTH) on 30 April 2026. App Passwords were
+ *     built on Basic auth and went with it.
+ *   • Google removed "less secure app" password sign-in for Gmail and Workspace.
+ *
+ * So for a domain whose MX points at either of them, `imap_smtp` + a password
+ * cannot ever succeed — not with the mailbox password, not with an app password.
+ * Without this guard the attempt is still made, and what comes back is a bare
+ * AUTHENTICATIONFAILED from the provider. That reads as "you typed your password
+ * wrong", so the person retypes it, tries an app password, and eventually asks
+ * their IT team to check the account — none of which can help, because the
+ * protocol itself is closed. Worse, the host they are most likely to enter is
+ * `mail.<their-domain>`, which for a domain whose website we host resolves to
+ * OUR server: they then authenticate against a local mailbox that is not theirs
+ * and see an empty inbox that looks like a working connection.
+ *
+ * Detection is by MX (`hostedProviderOf`), so it covers a custom domain — the
+ * case that matters, since nobody is confused about @outlook.com. It fails OPEN:
+ * a resolver failure returns null and the connection proceeds exactly as before,
+ * because a DNS hiccup must never block a mailbox that would have worked.
+ */
+const OAUTH_ONLY = {
+  microsoft: {
+    label: "Microsoft 365",
+    detail: "Microsoft disabled password sign-in for IMAP and POP in 2022 and for SMTP in April 2026.",
+  },
+  google: {
+    label: "Google Workspace / Gmail",
+    detail: "Google removed password sign-in for external mail apps.",
+  },
+};
+
+async function assertPasswordAuthPossible({ email_address, provider }) {
+  if (provider !== "imap_smtp") return;
+  const hosted = await hostedProviderOf(email_address);
+  const oauthOnly = hosted && OAUTH_ONLY[hosted.key];
+  if (!oauthOnly) return;
+  throw new AppError(
+    "MAILBOX_OAUTH_REQUIRED",
+    `This address is hosted on ${oauthOnly.label}, which cannot be connected with a password. `
+      + `${oauthOnly.detail} It has to be connected by signing in to ${oauthOnly.label} instead — ask an `
+      + "administrator to switch on Microsoft 365 and Google mailboxes for this tenant.",
+    422,
+    { hosted_provider: hosted.key, detected_from: hosted.source },
+  );
 }
 
 async function connect(client, input = {}) {
   const { email_address, provider = "imap_smtp", display_name, password, actor = {} } = input;
   if (!email_address) throw new AppError("VALIDATION_ERROR", "email_address is required", 422);
   await assertProviderEnabled(client, provider);
+  // Before any row is written or any secret is vaulted: a Microsoft/Google
+  // mailbox cannot be reached with a password, whatever was typed into the form.
+  await assertPasswordAuthPossible({ email_address, provider });
   // One personal mailbox per person (PR-0 Q1). The partial unique index in 10723
   // is the enforcement; this turns a 23505 into a sentence naming the mailbox
   // they already have and what to do instead.
