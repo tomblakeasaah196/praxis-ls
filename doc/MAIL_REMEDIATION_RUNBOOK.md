@@ -127,20 +127,44 @@ node -e 'const d=require("dns").promises;(async()=>{
 
 **Praxis LS Mail** · client `9204abca-2794-4ebf-a8f9-94ed81109686` · directory `79026958-5eae-4dcd-8848-ec73ef5e0041`. Registered and Activated — good. Four things to check before it will work.
 
-### 4a. ⚠️ Redirect URIs — the multi-tenant trap
+### 4a. Redirect URI — one canonical apex URI, and the env var that makes it work
 
-`mail.controller.js:23` derives the callback from the **request host**, and `completeOAuth` rejects with `TENANT_MISMATCH` if the host's tenant does not match the one in the state token. Azure requires **exact-match** redirect URIs — wildcards are not allowed on the web platform.
+> **Corrected.** An earlier draft of this runbook said to register the tenant
+> subdomain and leave `MS_GRAPH_REDIRECT_URI` unset, warning about Azure's
+> 256-URI cap as tenants are added. That was wrong, and following it would have
+> produced `AADSTS50011`. The codebase already solves multi-tenant OAuth
+> properly, and the apex URI below is the intended design.
 
-Therefore:
+`host-tenent-resolver.js:36-73` resolves the tenant for an OAuth callback from
+the **signed `state` token**, not from the host — and it does so *before* the
+platform-host short-circuit, with the comment "the canonical redirect URI
+typically lives on the apex / a platform host". So one URI serves every tenant,
+for ever, and Azure's cap never comes into it.
 
-- **Leave `MS_GRAPH_REDIRECT_URI` UNSET.** Setting it pins one fixed URL, which would break every tenant except the one it names.
-- **Register the tenant's own host** under Authentication → Web → Redirect URIs:
+Register exactly this, once:
 
 ```
-https://smartls.praxisls.com/api/tenant/mail/oauth/microsoft/callback
+https://praxisls.com/api/tenant/mail/oauth/microsoft/callback
 ```
 
-> **Known limitation, worth knowing now.** One URI per tenant subdomain must be added at onboarding, and Azure caps an app at 256. Fine for one tenant, awkward at fifty. The durable fix is a single auth host that receives the callback and forwards by slug — worth doing before tenant ~10, not today.
+**And it only works if the env var is SET**, which is the half that is easy to
+miss. `mail.controller.js:23` reads:
+
+```js
+config.MS_GRAPH_REDIRECT_URI || `${req.protocol}://${req.get("host")}${req.baseUrl}/oauth/microsoft/callback`
+```
+
+Left unset, the fallback derives the URI from the *request* host. A user
+connecting from `smartls.praxisls.com` would send that as `redirect_uri`,
+Microsoft would compare it against the registered apex URI, and reject the
+sign-in with **AADSTS50011**. So set it on the API host:
+
+```bash
+MS_GRAPH_REDIRECT_URI=https://praxisls.com/api/tenant/mail/oauth/microsoft/callback
+```
+
+It must match the registered value byte for byte — scheme, host, path, no
+trailing slash.
 
 ### 4b. API permissions — most likely what is missing
 
@@ -168,7 +192,7 @@ Then **Grant admin consent** (Q5 = C). Expect SmartLS's own IT to have to consen
 MS_GRAPH_CLIENT_ID=9204abca-2794-4ebf-a8f9-94ed81109686
 MS_GRAPH_CLIENT_SECRET=<the secret value — never commit this>
 MS_GRAPH_TENANT=common
-# MS_GRAPH_REDIRECT_URI — leave unset, see 4a
+MS_GRAPH_REDIRECT_URI=https://praxisls.com/api/tenant/mail/oauth/microsoft/callback
 # MS_GRAPH_SCOPES — the default already matches 4b
 ```
 
