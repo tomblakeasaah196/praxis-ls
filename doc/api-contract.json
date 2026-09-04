@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 139,
-  "route_count": 1521,
+  "route_count": 1526,
   "tiers": {
     "public": 52,
     "self-scoped": 93,
-    "gated": 1376
+    "gated": 1381
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -1323,6 +1323,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/cash-requests/kpis": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/catalogue/modules": {
       "auth": true,
       "rbac": true,
@@ -1516,6 +1522,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/costings/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/costings/:id/budget": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -5961,6 +5973,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/cash-requests/:id/close-balance": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/cash-requests/:id/disburse": {
       "auth": true,
       "rbac": true,
@@ -5974,6 +5992,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/cash-requests/:id/justify": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/cash-requests/:id/payments/:paymentId/receipt": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -6964,6 +6988,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/mail/deliverability/check": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/mail/deliverability/route": {
       "auth": true,
       "rbac": true,
       "validated": false,
