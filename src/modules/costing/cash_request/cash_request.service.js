@@ -454,7 +454,7 @@ async function importCostingLines(client, { id, actor = {} }) {
   if (cr.status !== "DRAFT") throw new AppError("LOCKED", "Only a DRAFT cash request can import costing lines", 422);
   if (!cr.costing_id) throw new AppError("NO_COSTING", "This cash request has no linked costing", 422);
 
-  const ledger = await costingService.budget(client, cr.costing_id);
+  const ledger = await costingService.budget(client, cr.costing_id, { excludeCashRequestId: id });
   if (!ledger.can_fund) {
     throw new AppError(
       "COSTING_NOT_APPROVED",
@@ -518,7 +518,10 @@ async function assertFundable(client, cr, { stage, overBudgetReason = null } = {
     );
   }
 
-  const ledger = await costingService.budget(client, cr.costing_id);
+  // Excluding THIS request: at APPROVE the request is still VALIDATED and so
+  // commits nothing, but a re-check on an already-committing request would
+  // otherwise measure its claim against a balance it is itself inside.
+  const ledger = await costingService.budget(client, cr.costing_id, { excludeCashRequestId: cr.cash_request_id });
   const where = { costing_id: ledger.costing_id, doc_number: ledger.doc_number, costing_status: ledger.status };
   if (!ledger.can_fund) {
     throw new AppError(
@@ -975,7 +978,7 @@ async function get(client, id) {
 async function budgetControlFor(client, cr) {
   if (String(cr.category || "OPS").toUpperCase() !== "OPS" || !cr.costing_id) return null;
   try {
-    const ledger = await costingService.budget(client, cr.costing_id);
+    const ledger = await costingService.budget(client, cr.costing_id, { excludeCashRequestId: cr.cash_request_id });
     return {
       ...budgetControl({ lines: cr.lines, ledger: ledger.lines, costing: ledger }),
       can_fund: ledger.can_fund,

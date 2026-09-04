@@ -83,6 +83,13 @@ async function claimsOnLines(client, lineIds = []) {
  * against its lines (owner decision Q15), so a line's share is its claim scaled
  * by how much of the request has been paid. It is a display figure and the
  * response names it as such; nothing is gated on it.
+ *
+ * `excludeCashRequestId` leaves ONE request out of every total — the answer to
+ * "what was available to this request", as distinct from "what is left now".
+ * Without it a request counts against itself the moment it is approved: its own
+ * claim lands in `committed`, `remaining` drops by it, and the same claim then
+ * reads as a breach of the budget it was approved against. Every caller that
+ * asks on behalf of a particular request passes its id.
  */
 const COMMITTING_STATUSES = ["APPROVED", "PARTIALLY_DISBURSED", "DISBURSED", "CLOSED_SHORT", "JUSTIFIED"];
 const PENDING_STATUSES = ["SUBMITTED", "VALIDATED"];
@@ -93,7 +100,7 @@ const LINE_VAT_SQL =
   "CASE WHEN cl.is_disbursement THEN COALESCE(cl.upstream_vat_amount, 0) " +
   "ELSE cl.qty * cl.unit_cost * COALESCE(tc.rate_percent, 0) / 100 END";
 
-async function budgetForCosting(client, costingId) {
+async function budgetForCosting(client, costingId, { excludeCashRequestId = null } = {}) {
   const { rows } = await client.query(
     `SELECT cl.costing_line_id, cl.line_no, cl.label, cl.dictionary_item_id,
             cl.is_disbursement, cl.container_type_ref_id, cl.qty, cl.unit_cost,
@@ -129,11 +136,12 @@ async function budgetForCosting(client, costingId) {
                FROM cash_request_line crl
                JOIN cash_request cr ON cr.cash_request_id = crl.cash_request_id
               WHERE crl.costing_line_id = cl.costing_line_id
+                AND ($4::uuid IS NULL OR crl.cash_request_id <> $4::uuid)
            ) k
        ) claims ON TRUE
       WHERE cl.costing_id = $1
       ORDER BY cl.line_no, cl.costing_line_id`,
-    [costingId, COMMITTING_STATUSES, PENDING_STATUSES],
+    [costingId, COMMITTING_STATUSES, PENDING_STATUSES, excludeCashRequestId],
   );
   return rows;
 }

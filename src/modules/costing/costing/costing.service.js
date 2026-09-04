@@ -706,12 +706,20 @@ async function get(client, id, { lang = "en" } = {}) {
  * an APPROVED_LOCKED costing lives on the request's submission, where it can
  * name the costing and offer a way forward. Refusing the read as well would
  * mean an operations officer could not see the budget they are waiting on.
+ *
+ * `excludeCashRequestId` answers the question a WORKSHEET asks — "how much of
+ * this budget was available to me" — rather than the registry's "how much is
+ * left now". They differ by exactly this request's own claim, which is why a
+ * request must never be measured against a balance it is itself inside.
  */
-async function budget(client, costingId) {
+async function budget(client, costingId, { excludeCashRequestId = null } = {}) {
   const costing = await repo.get(client, costingId);
   if (!costing) throw new AppError("NOT_FOUND", "Costing not found", 404);
   const [rows, revision] = await Promise.all([
-    repo.budgetForCosting(client, costingId),
+    // Asked on behalf of a request, the ledger leaves that request out — see
+    // `budgetForCosting`. Otherwise an approved request reads as a breach of
+    // the budget it was approved against.
+    repo.budgetForCosting(client, costingId, { excludeCashRequestId }),
     // How many times this sheet has been approved. A cash request stamps it so
     // an auditor can ask "against which version of the budget?" — the ledger
     // itself never reads it.
