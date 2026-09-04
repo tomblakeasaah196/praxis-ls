@@ -117,7 +117,15 @@ async function budgetForCosting(client, costingId) {
              SELECT cr.status,
                     COALESCE(crl.settled_amount,
                              ROUND(crl.budget_amount * (1 + COALESCE(crl.vat_percent, 0) / 100), 2)) AS claim,
-                    CASE WHEN cr.amount > 0 THEN cr.disbursed_amount / cr.amount ELSE 0 END          AS paid_ratio
+                    CASE
+                      -- A SETTLED line's claim IS its share of the cash that
+                      -- moved (CLOSE_BALANCE wrote it that way), so scaling it
+                      -- by the request's paid ratio would discount it twice and
+                      -- report less cash than the treasury actually issued.
+                      WHEN crl.settled_amount IS NOT NULL THEN 1
+                      WHEN cr.amount > 0 THEN cr.disbursed_amount / cr.amount
+                      ELSE 0
+                    END AS paid_ratio
                FROM cash_request_line crl
                JOIN cash_request cr ON cr.cash_request_id = crl.cash_request_id
               WHERE crl.costing_line_id = cl.costing_line_id
