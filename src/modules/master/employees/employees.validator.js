@@ -17,28 +17,6 @@ const PERIODICITIES = ["MONTHLY", "QUARTERLY", "ANNUAL", "ONE_OFF"];
 /** Marital states in which a birth name differs from the name in use. */
 const NAME_CHANGE_STATUSES = ["MARRIED", "DIVORCED", "WIDOWED", "SEPARATED"];
 
-/**
- * One day of the working week (13775).
- *
- * The day codes and the two modes come from `@praxis/shared` rather than being
- * retyped here: the form draws its checkboxes from the same list, and a
- * vocabulary stated twice is a vocabulary that disagrees the first time either
- * side gains a day type. Times are `HH:MM`; an end before its start is a night
- * shift crossing midnight, not an error, so no ordering refinement.
- */
-const workDay = z.object({
-  day: z.enum(workSchedule.DAY_CODES),
-  worked: z.boolean().optional(),
-  start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time in the form HH:MM").optional(),
-  end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time in the form HH:MM").optional(),
-  mode: z.enum(workSchedule.MODES).optional(),
-});
-/** The week. Nullable so HR can go back to a plain sentence for an odd roster. */
-const workScheduleBody = z
-  .object({ days: z.array(workDay).max(7) })
-  .optional()
-  .nullable();
-
 /** YYYY-MM-DD, nullable so HR can clear a date rather than only replace it. */
 const dateStr = z
   .string()
@@ -120,10 +98,12 @@ const base = {
   probation_months: z.number().int().min(0).max(24).optional().nullable(),
   place_of_work: text(200),
   working_hours: text(200),
-  // The week per day (13775). `working_hours` is DERIVED from this on write
-  // (employees.service), so a caller sending both does not get to have the
-  // printed sentence disagree with the grid.
-  work_schedule: workScheduleBody,
+  // The week per day (13775). The SHAPE comes from @praxis/shared, so the day
+  // vocabulary the form draws its checkboxes from and the one this accepts are
+  // the same list. `working_hours` is DERIVED from it on write
+  // (employees.rules.withDerivedWorkingHours), so a caller sending both does
+  // not get to have the printed sentence disagree with the grid.
+  work_schedule: workSchedule.schema,
   payment_method: z.enum(PAYMENT_METHODS).optional().nullable(),
   salary_currency: z.string().trim().toUpperCase().length(3).optional().nullable().or(z.literal("")),
 
