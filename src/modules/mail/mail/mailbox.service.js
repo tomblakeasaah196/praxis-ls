@@ -224,7 +224,7 @@ async function archive(client, id, actor = {}) {
  *   2. FORGET       delete EVERY row in `integration_secret` this mailbox owns —
  *                   `mail_conn:<id>`, which holds the IMAP password or the OAuth
  *                   bundle, AND `mail_conn_smtp:<id>`, the separate sending
- *                   sign-in a relay-backed mailbox has (13776) — and null the
+ *                   sign-in a relay-backed mailbox has (13777) — and null the
  *                   columns that point at them. This is the step "Retire" never
  *                   did, and "the credential is gone" has to mean BOTH of them:
  *                   a mailbox disconnected with its relay password still on disk

@@ -160,7 +160,7 @@ const updateConnection = (client, id, patch) => updateOne(client, "email_connect
  * leaked by the surface that renders it. Same shape the password field already
  * has — presence, never content.
  *
- * `13776` explains why this, and not a column, is what defines the mode.
+ * `13777` explains why this, and not a column, is what defines the mode.
  */
 const SMTP_SECRET_EXISTS =
   "EXISTS (SELECT 1 FROM setting s WHERE s.section = 'integration_secret' " +
@@ -181,7 +181,7 @@ async function listConnections(client, q = {}) {
       "FROM email_connection c " + where + "ORDER BY c.is_default DESC, c.created_at DESC LIMIT $1 OFFSET $2",
     params,
   );
-  // Derived, not stored: one fact with one home (13776). The client reopens the
+  // Derived, not stored: one fact with one home (13777). The client reopens the
   // form in the right mode from this without the secret ever leaving the server.
   return rows.map((r) => ({ ...r, smtp_auth: r.has_smtp_credentials ? "separate" : "same" }));
 }
