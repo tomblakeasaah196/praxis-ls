@@ -1,6 +1,7 @@
 /** Employee master (MOD-02) Zod validators — full column coverage. */
 "use strict";
 const { z } = require("zod");
+const { workSchedule } = require("@praxis/shared");
 const { AppError } = require("../../../utils/errors");
 
 // Cameroon/OHADA employment categories (soft enum: unknown strings still allowed
@@ -15,6 +16,28 @@ const ALLOWANCE_KINDS = ["ALLOWANCE", "BONUS", "INDEMNITY", "BENEFIT_IN_KIND", "
 const PERIODICITIES = ["MONTHLY", "QUARTERLY", "ANNUAL", "ONE_OFF"];
 /** Marital states in which a birth name differs from the name in use. */
 const NAME_CHANGE_STATUSES = ["MARRIED", "DIVORCED", "WIDOWED", "SEPARATED"];
+
+/**
+ * One day of the working week (13775).
+ *
+ * The day codes and the two modes come from `@praxis/shared` rather than being
+ * retyped here: the form draws its checkboxes from the same list, and a
+ * vocabulary stated twice is a vocabulary that disagrees the first time either
+ * side gains a day type. Times are `HH:MM`; an end before its start is a night
+ * shift crossing midnight, not an error, so no ordering refinement.
+ */
+const workDay = z.object({
+  day: z.enum(workSchedule.DAY_CODES),
+  worked: z.boolean().optional(),
+  start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time in the form HH:MM").optional(),
+  end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time in the form HH:MM").optional(),
+  mode: z.enum(workSchedule.MODES).optional(),
+});
+/** The week. Nullable so HR can go back to a plain sentence for an odd roster. */
+const workScheduleBody = z
+  .object({ days: z.array(workDay).max(7) })
+  .optional()
+  .nullable();
 
 /** YYYY-MM-DD, nullable so HR can clear a date rather than only replace it. */
 const dateStr = z
@@ -39,6 +62,11 @@ const base = {
   email: z.string().email().optional().or(z.literal("")),
   employment_type: z.union([z.enum(EMPLOYMENT_TYPES), z.string().max(40)]).optional(),
   cnps_number: z.string().max(40).optional(),
+  // Numéro d'Identifiant Unique (13775) — the DGI identifier the DIPE return,
+  // the payslip IRPP line and the annual certificate of earnings are filed
+  // against. Uppercased because the card prints it that way and a lowercase
+  // copy would not match a search for the one on the card.
+  niu: z.string().trim().toUpperCase().max(40).optional().nullable().or(z.literal("")),
   // Added in 12759. HR owns these; user_signature_profile overrides them on
   // signatures only. Nullable so HR can clear a number, not just replace it.
   phone_desk: z.string().trim().max(40).optional().nullable(),
@@ -92,6 +120,10 @@ const base = {
   probation_months: z.number().int().min(0).max(24).optional().nullable(),
   place_of_work: text(200),
   working_hours: text(200),
+  // The week per day (13775). `working_hours` is DERIVED from this on write
+  // (employees.service), so a caller sending both does not get to have the
+  // printed sentence disagree with the grid.
+  work_schedule: workScheduleBody,
   payment_method: z.enum(PAYMENT_METHODS).optional().nullable(),
   salary_currency: z.string().trim().toUpperCase().length(3).optional().nullable().or(z.literal("")),
 
