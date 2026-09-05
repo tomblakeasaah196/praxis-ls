@@ -112,7 +112,7 @@ async function resolveAdapter(client, conn) {
   if (conn.provider === "imap_smtp") {
     const password = conn.secret_key ? await settings.readSecret(client, conn.secret_key) : null;
     // Absent for every mailbox that shares one credential, which is every
-    // mailbox connected before 13776. `readSecret` answers null for a key with
+    // mailbox connected before 13777. `readSecret` answers null for a key with
     // no row, so this needs no guard and no column to tell it whether to look.
     const smtpPassword = await settings.readSecret(client, smtpSecretKeyFor(conn.email_connection_id));
     return new ImapSmtpProvider({
@@ -394,8 +394,25 @@ async function connect(client, input = {}) {
   if (kind === "PERSONAL" && actor.user_id) await mailbox.assertNoPersonalMailbox(client, actor.user_id);
   // Before the row exists: on CREATE there is no stored secret to fall back on,
   // so an incomplete separate sign-in is refused here rather than producing a
-  // mailbox that is in "different credentials" mode with no credential.
+  // mailbox that is in "different credentials" mode with no credential. First
+  // because it is the only one of the two that needs no query.
   await assertSmtpCredentialsComplete(client, null, input);
+  // The other way this INSERT can hit a unique index, turned into a sentence for
+  // the same reason `assertNoPersonalMailbox` is one: 23505 reaches the user as
+  // "A record with these values already exists", which names neither the address
+  // nor what to do. `ux_email_connection_address_live` (13776) is the authority;
+  // this only says out loud what it is about to refuse. An ARCHIVED row does not
+  // count — retiring a mailbox releases its address, which is the whole point of
+  // that migration.
+  const taken = await repo.findByAddress(client, email_address, provider);
+  if (taken && taken.status !== "ARCHIVED") {
+    throw new AppError(
+      "MAILBOX_ADDRESS_IN_USE",
+      `${email_address} is already connected to this company. Open it from Comms → Setup to edit or disconnect it, or retire it first if you want to connect it afresh.`,
+      409,
+      { email_address, email_connection_id: taken.email_connection_id },
+    );
+  }
   const conn = await repo.insertConnection(client, {
     email_address, provider, display_name: display_name || null,
     imap_host: input.imap_host || null, imap_port: input.imap_port || null,
@@ -408,6 +425,21 @@ async function connect(client, input = {}) {
     // stored without the password that makes it mean something.
     smtp_user: null,
     owner_user_id: actor.user_id || null,
+    // The row must be BORN with its kind. `classify` below stamps the rest of the
+    // classification (catalogue slot, entity, department, visibility) and can do
+    // that a statement later — but `kind` cannot wait, because
+    // `ux_email_connection_one_personal` is a partial index ON THIS INSERT:
+    //
+    //   UNIQUE (owner_user_id) WHERE kind = 'PERSONAL' AND status <> 'ARCHIVED'
+    //
+    // and `email_connection.kind` DEFAULTS to 'PERSONAL' (10723). Omitting it
+    // therefore made every new row — a team address included — momentarily a
+    // second personal mailbox for its creator, which the index rejects. Anyone
+    // who already had a personal mailbox could not create a SHARED one at all:
+    // the INSERT raised 23505 and the error handler rendered it as "A record
+    // with these values already exists", naming neither the mailbox in the way
+    // nor the rule. The guard above deliberately skips SHARED; the index did not.
+    kind,
     status: "PENDING",
   });
   const secret_key = secretKeyFor(conn.email_connection_id);

@@ -81,6 +81,9 @@ const mockRow = {};
 const CONN_ID = "conn-1";
 jest.mock("../../src/modules/mail/mail/mail.repo", () => ({
   insertConnection: jest.fn(async (_c, d) => { Object.assign(mockRow, d); return { ...mockRow }; }),
+  // `connect()` refuses a duplicate LIVE address by name before it inserts
+  // (13776). Nothing in this file is about a duplicate address, so it is free.
+  findByAddress: jest.fn(async () => null),
   getConnection: jest.fn(async () => ({ ...mockRow })),
   updateConnection: jest.fn(async (_c, _id, patch) => { Object.assign(mockRow, patch); return { ...mockRow }; }),
   setError: jest.fn(async () => {}),
