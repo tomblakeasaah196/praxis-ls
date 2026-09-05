@@ -1,4 +1,6 @@
 "use strict";
+const { z } = require("zod");
+
 /**
  * The working week, as data.
  *
@@ -219,7 +221,36 @@ function summarise(schedule) {
     .join("; ");
 }
 
+/**
+ * The wire shape, so the API and the form agree on what a schedule IS.
+ *
+ * It lives here rather than in `employees.validator.js` for the reason the whole
+ * package exists: a `day` enum written out on the API side is one that gains an
+ * eighth day, or loses SAT, without the control that draws the checkboxes ever
+ * hearing about it. `DAY_CODES` and `MODES` above are the only statement of the
+ * vocabulary, and this is the only statement of the payload.
+ *
+ * Every field but `day` is optional because `normalise()` fills the gaps: a
+ * caller sending `{day:"MON"}` means "Monday, as it comes". No refinement that
+ * `end` follows `start` — 22:00–06:00 is a night shift, not a typo.
+ */
+const time = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time in the form HH:MM");
+const daySchema = z.object({
+  day: z.enum(DAY_CODES),
+  worked: z.boolean().optional(),
+  start: time.optional(),
+  end: time.optional(),
+  mode: z.enum(MODES).optional(),
+});
+/** The week, as `employee.work_schedule` accepts it. Nullable: clearing the
+ *  grid is a real edit, and it takes the derived line with it. */
+const schema = z.object({ days: z.array(daySchema).max(7) }).optional().nullable();
+
 module.exports = {
+  daySchema,
+  schema,
   DAYS,
   DAY_CODES,
   MODES,

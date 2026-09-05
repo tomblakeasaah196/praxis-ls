@@ -729,6 +729,11 @@ export type WorkDay = {
 export type WorkSchedule = { days: WorkDay[] };
 
 export declare namespace workSchedule {
+  /** One day, as the API accepts it. */
+  const daySchema: z.ZodType<WorkDay, z.ZodTypeDef, unknown>;
+  /** The week — `employee.work_schedule`'s wire shape. Nullable: clearing the
+   *  grid is a real edit, and it takes the derived line with it. */
+  const schema: z.ZodType<WorkSchedule | null | undefined, z.ZodTypeDef, unknown>;
   const DAYS: ReadonlyArray<{
     code: WorkDayCode;
     label: string;
