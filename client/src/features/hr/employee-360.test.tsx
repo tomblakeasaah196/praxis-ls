@@ -23,7 +23,7 @@
  * like the bug report.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import {
@@ -35,8 +35,47 @@ import {
 vi.mock("@/lib/api-client", async () => apiClientMock());
 vi.mock("@/app/auth/auth-context", async () => authContextMock());
 
+const updateEmployee = vi.fn();
+const employeeDocuments = vi.fn();
+const addEmployeeDocument = vi.fn();
+const updateEmployeeDocument = vi.fn();
+
+vi.mock("@/lib/hr-api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/hr-api")>("@/lib/hr-api");
+  return {
+    ...actual,
+    updateEmployee: (...a: unknown[]) => updateEmployee(...a),
+    employeeDocuments: (...a: unknown[]) => employeeDocuments(...a),
+    addEmployeeDocument: (...a: unknown[]) => addEmployeeDocument(...a),
+    updateEmployeeDocument: (...a: unknown[]) => updateEmployeeDocument(...a),
+    employeeReadinessRequirements: async () => REQUIREMENTS,
+  };
+});
+
 import * as api from "@/lib/hr-api";
 import { EditEmployeeForm } from "./employee-360";
+
+/**
+ * The server's requirement list, as `GET /employees/readiness-requirements`
+ * serves it. `when` and `needs` are the licence rule, and they live on the
+ * SERVED list rather than in this bundle so the form and the generator cannot
+ * disagree about what a licence is.
+ */
+const REQUIREMENTS = {
+  fields: [
+    { key: "full_name", label: "Full name", group: "identity", severity: "required" },
+  ],
+  documents: [
+    { code: "EMP_ID_CARD", label: "ID card / passport", severity: "required" },
+    {
+      code: "EMP_DRIVING_LICENCE",
+      label: "Driving licence (number and validity)",
+      severity: "required",
+      when: "is_driver",
+      needs: ["document_number", "issued_on", "expires_on"],
+    },
+  ],
+};
 
 /** The minimum a saved record needs — `draftFrom` defaults every other column. */
 const EMPLOYEE = {
@@ -45,10 +84,10 @@ const EMPLOYEE = {
   status: "ACTIVE",
 } as api.Employee;
 
-function openForm() {
+function openForm(employee: api.Employee = EMPLOYEE) {
   return renderScreen(
     <EditEmployeeForm
-      employee={EMPLOYEE}
+      employee={employee}
       onClose={() => {}}
       onSaved={() => {}}
     />,
@@ -57,7 +96,11 @@ function openForm() {
 }
 
 describe("Edit employee — typing", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    employeeDocuments.mockResolvedValue([]);
+    updateEmployee.mockResolvedValue(EMPLOYEE);
+  });
 
   it("keeps the caret in the field after a keystroke", async () => {
     const user = userEvent.setup();
@@ -107,5 +150,152 @@ describe("Edit employee — typing", () => {
 
     expect(document.activeElement).toBe(input);
     expect(input).toHaveValue("Douala");
+  });
+});
+
+/**
+ * THE DRIVING LICENCE — "This person drives" is an assignment, not a note.
+ *
+ * Ticking it puts somebody in the fleet dispatch pool, and the next thing that
+ * happens to a person in that pool is a vehicle being dispatched to them. So
+ * the box cannot be ticked without the licence: its number and the window it is
+ * valid for. The API refuses the same thing with DRIVER_LICENCE_REQUIRED; these
+ * pin that the form refuses it FIRST, with the fields on screen, rather than
+ * letting the operator discover it after a round trip.
+ *
+ * What is NOT required is the scan. That is 12764's rule — a scan is a
+ * verification gate, not a creation gate — and the last test here is the one
+ * that stops somebody "tidying up" by making the upload mandatory too.
+ */
+describe("Edit employee — the driving licence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    employeeDocuments.mockResolvedValue([]);
+    updateEmployee.mockResolvedValue(EMPLOYEE);
+    addEmployeeDocument.mockResolvedValue({ document_id: "doc-1" });
+    updateEmployeeDocument.mockResolvedValue({ document_id: "doc-1" });
+  });
+
+  const drives = () => screen.getByRole("checkbox", { name: /This person drives/ });
+  const save = () => screen.getByRole("button", { name: /Save changes/ });
+
+  it("stays out of the way until the box is ticked", async () => {
+    openForm();
+    await screen.findByRole("textbox", { name: /Full name/ });
+
+    expect(screen.queryByRole("textbox", { name: /Licence number/ })).toBeNull();
+    expect(save()).toBeEnabled();
+  });
+
+  it("blocks the save and names what is still needed", async () => {
+    const user = userEvent.setup();
+    openForm();
+    await screen.findByRole("textbox", { name: /Full name/ });
+
+    await user.click(drives());
+
+    expect(await screen.findByRole("textbox", { name: /Licence number/ })).toBeInTheDocument();
+    expect(save()).toBeDisabled();
+    // A disabled button with no sentence beside it is a dead end.
+    const callout = screen.getByText(/Still needed:/);
+    expect(callout.textContent).toMatch(/licence number/);
+    expect(callout.textContent).toMatch(/valid from/);
+    expect(callout.textContent).toMatch(/valid until/);
+  });
+
+  it("writes the licence BEFORE the flag, so a failure cannot strand a driver", async () => {
+    const user = userEvent.setup();
+    const order: string[] = [];
+    addEmployeeDocument.mockImplementation(async () => {
+      order.push("document");
+      return { document_id: "doc-1" };
+    });
+    updateEmployee.mockImplementation(async () => {
+      order.push("employee");
+      return EMPLOYEE;
+    });
+
+    openForm();
+    await screen.findByRole("textbox", { name: /Full name/ });
+    await user.click(drives());
+
+    await user.type(
+      await screen.findByRole("textbox", { name: /Licence number/ }),
+      "CM-000-123",
+    );
+    // `DateField` is day-first and masks as you type: eight digits, not an ISO
+    // string. It stores the ISO date the API wants — see date-field.tsx.
+    await user.type(screen.getByRole("textbox", { name: /Valid from/ }), "14052021");
+    await user.type(screen.getByRole("textbox", { name: /Valid until/ }), "14052031");
+
+    expect(save()).toBeEnabled();
+    await user.click(save());
+
+    await waitFor(() => expect(updateEmployee).toHaveBeenCalled());
+    // Licence first. The other order leaves a driver in the dispatch pool with
+    // no licence when the second call fails — the exact state being prevented.
+    expect(order).toEqual(["document", "employee"]);
+    expect(addEmployeeDocument.mock.calls[0][1]).toMatchObject({
+      document_type_code: "EMP_DRIVING_LICENCE",
+      document_number: "CM-000-123",
+      issued_on: "2021-05-14",
+      expires_on: "2031-05-14",
+    });
+    expect(updateEmployee.mock.calls[0][1]).toMatchObject({ is_driver: true });
+  });
+
+  it("amends the licence already on file rather than opening a second row", async () => {
+    const user = userEvent.setup();
+    employeeDocuments.mockResolvedValue([
+      {
+        document_id: "doc-existing",
+        document_type_code: "EMP_DRIVING_LICENCE",
+        document_number: "CM-OLD-1",
+        issued_on: "2016-01-04",
+        expires_on: "2026-01-04",
+        has_file: true,
+      },
+    ]);
+
+    openForm({ ...EMPLOYEE, is_driver: true } as api.Employee);
+
+    // Seeded from the row on file, so a renewal is an edit and not a re-type.
+    const number = await screen.findByRole("textbox", { name: /Licence number/ });
+    await waitFor(() => expect(number).toHaveValue("CM-OLD-1"));
+    expect(save()).toBeEnabled();
+
+    await user.clear(number);
+    await user.type(number, "CM-NEW-9");
+    await user.click(save());
+
+    await waitFor(() => expect(updateEmployeeDocument).toHaveBeenCalled());
+    expect(addEmployeeDocument).not.toHaveBeenCalled();
+    expect(updateEmployeeDocument.mock.calls[0][1]).toBe("doc-existing");
+    expect(updateEmployeeDocument.mock.calls[0][2]).toMatchObject({
+      document_number: "CM-NEW-9",
+    });
+  });
+
+  it("does not require the scan — a licence recorded from paper saves", async () => {
+    const user = userEvent.setup();
+    openForm();
+    await screen.findByRole("textbox", { name: /Full name/ });
+    await user.click(drives());
+
+    await user.type(
+      await screen.findByRole("textbox", { name: /Licence number/ }),
+      "CM-000-123",
+    );
+    // `DateField` is day-first and masks as you type: eight digits, not an ISO
+    // string. It stores the ISO date the API wants — see date-field.tsx.
+    await user.type(screen.getByRole("textbox", { name: /Valid from/ }), "14052021");
+    await user.type(screen.getByRole("textbox", { name: /Valid until/ }), "14052031");
+
+    // No file picked, and that is the point: 12764's rule is that a scan is a
+    // verification gate, not a creation gate.
+    expect(save()).toBeEnabled();
+    await user.click(save());
+    await waitFor(() => expect(updateEmployee).toHaveBeenCalled());
+    expect(addEmployeeDocument.mock.calls[0][1].file_data_url).toBeNull();
   });
 });
