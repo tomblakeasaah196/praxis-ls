@@ -763,7 +763,48 @@ function PayPanel({
   );
 }
 
-function EditEmployeeForm({
+/* ── The form's section wrapper ─────────────────────────────────────────────
+ * MODULE SCOPE, AND IT HAS TO STAY THERE.
+ *
+ * This used to be a `const Section = …` inside EditEmployeeForm, and that one
+ * line of nesting made every field in the form unusable: you typed a single
+ * character and the caret left the input.
+ *
+ * A component declared in a render body is a NEW FUNCTION on every render.
+ * React reconciles by element TYPE, so when a keystroke calls `set(...)` and
+ * re-renders the form, the `<Section>` it finds in the new tree has a
+ * different type from the one in the old tree. That is not an update — it is
+ * an unmount and a remount. The whole fieldset, the real <input> DOM node the
+ * caret was in included, is destroyed and rebuilt from scratch, and focus
+ * falls back to <body>. Five <Section>s wrap the entire form, so "every field"
+ * was exactly right: there was no field this did not affect.
+ *
+ * It is not only focus. The remount discards everything the browser keeps on
+ * the live node rather than in React state — selection range, IME composition
+ * (so an accented character typed dead-key-first was being dropped), and the
+ * native scroll position of the modal body.
+ *
+ * Nothing here closes over the form, so module scope costs nothing: `title`
+ * and `children` are props, and `tr` is a module import.
+ */
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <fieldset className="space-y-4 rounded-lg border p-4">
+      <legend className="px-1 text-sm font-medium text-foreground">
+        {tr(title)}
+      </legend>
+      {children}
+    </fieldset>
+  );
+}
+
+export function EditEmployeeForm({
   employee,
   onClose,
   onSaved,
@@ -817,21 +858,6 @@ function EditEmployeeForm({
       setBusy(false);
     }
   }
-
-  const Section = ({
-    title,
-    children,
-  }: {
-    title: string;
-    children: React.ReactNode;
-  }) => (
-    <fieldset className="space-y-4 rounded-lg border p-4">
-      <legend className="px-1 text-sm font-medium text-foreground">
-        {tr(title)}
-      </legend>
-      {children}
-    </fieldset>
-  );
 
   return (
     <Modal
