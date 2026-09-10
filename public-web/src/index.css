@@ -2083,6 +2083,92 @@
     );
   }
 
+  /* ── The quote wizard's step transition (§8.3) ───────────────────────────
+   *
+   * THE RULE THIS IS SHAPED BY: "never animate a field into place under a
+   * cursor". §8.3 states it and it is not a stylistic preference — a control
+   * that is still moving when the pointer arrives is a control that gets
+   * mis-clicked, and on the CTA of the whole site that is a lost enquiry.
+   *
+   * So the step transition is split in two, and only one half moves:
+   *
+   *   · the HEADING and its hint rise and fade. Nothing there is clickable, and
+   *     it is the part that tells the visitor the question changed.
+   *   · the FIELD PANEL fades ONLY. No transform, no height animation. Every
+   *     control lands at its final coordinates on the first frame and merely
+   *     becomes opaque, so a pointer already travelling toward the Next button
+   *     finds it exactly where it was.
+   *
+   * AND IT DOES NOT RUN ON FIRST PAINT. §8.3 asks for "an entrance that does
+   * not delay the form"; an arrival animation on step one would do precisely
+   * that, on the page the whole site's CTA points at. The class is applied from
+   * the second step onward — see `quote-wizard.tsx`. */
+  /* THE RESPONSE BUDGET, NOT THE NARRATIVE ONE — 200ms, and the gate is what
+     settled it. The first draft of these took `--dur-narrative` (600ms) on the
+     reasoning that a new step is an arrival. check:motion refused it, and its
+     rule is right: §5.4 says a selector is RESPONSE unless named in NARRATIVE,
+     and "anything they trigger themselves does not belong here however pretty
+     it is". A step change is what happens when somebody presses Next. It has to
+     feel like the interface reacting, which is a different job from a band
+     revealing as you scroll to it — and on the CTA of the whole site, 600ms
+     between pressing Next and being able to read the next question is exactly
+     the delay §8.3 says the entrance must not introduce. */
+  .step-panel {
+    animation: step-fade var(--dur-response) var(--ease-decelerate) both;
+  }
+
+  .step-head {
+    animation: step-rise var(--dur-response) var(--ease-decelerate) both;
+  }
+
+  @keyframes step-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes step-rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 0.5rem, 0);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* The SETTLED state, which the global umbrella cannot produce on its own: an
+     element whose keyframe starts at `opacity: 0` with a 0.001ms duration is
+     still invisible for that instant and, with `both`, holds the start state
+     until it runs. `.staged-word` carries the same rule for the same reason. */
+  @media (prefers-reduced-motion: reduce) {
+    .step-panel,
+    .step-head {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* ── Progress with real depth (§8.3) ─────────────────────────────────────
+   *
+   * The step strip stated progress in colour alone. These give it the same
+   * three-elevation encoding the track timeline uses, so the two places in this
+   * app that show "how far through are you" read the same way: the step you are
+   * ON is lifted off the page, the ones behind you rest on it, the ones ahead
+   * are flush. It also survives greyscale, which colour alone does not. */
+  .stepper-dot-here {
+    box-shadow: var(--elev-2), var(--catch-1);
+  }
+
+  .stepper-dot-done {
+    box-shadow: var(--elev-1);
+  }
+
   /* A dark band's version of the plate, for the entrance states below the hero
      on the empty and not-found screens. */
   .track-quiet {
