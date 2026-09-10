@@ -565,6 +565,15 @@ export const en = {
       otherTitle: "Faster than a message",
       otherTrack:
         "A reference is enough. The same milestones the desk would read back to you, without waiting for a reply.",
+      /* §8.5's coverage figure. "Where are you" is the second question a
+         contact page is asked, and this one could not answer it. */
+      coverageKicker: "Presence",
+      coverageTitle: "Where we are, and where we deliver",
+      coverageAlt:
+        "A diagram linking each office to the places it covers. The same offices and places are listed as text below.",
+      offices: "Offices",
+      covers: "Delivers to",
+      coverageNone: "Coverage areas are not published for these offices yet.",
       otherPortal:
         "Already a client. Your files, documents and invoices, with nothing to look up.",
       otherQuote:
@@ -600,6 +609,9 @@ export const en = {
     },
     careers: {
       title: "Careers",
+      /* Split for §8.5's entrance, like every other hero title. */
+      titleMain: "Build the",
+      titleAccent: "corridor",
       sub: "Everything we are hiring for right now.",
       list: "Open roles",
       empty: "No open roles right now",
@@ -1388,6 +1400,14 @@ export const fr = {
       otherTitle: "Plus rapide qu’un message",
       otherTrack:
         "Une référence suffit. Les mêmes jalons que le bureau vous lirait, sans attendre de réponse.",
+      coverageKicker: "Présence",
+      coverageTitle: "Où nous sommes, et où nous livrons",
+      coverageAlt:
+        "Un schéma reliant chaque bureau aux zones qu’il dessert. Les mêmes bureaux et zones sont listés en texte ci-dessous.",
+      offices: "Bureaux",
+      covers: "Dessert",
+      coverageNone:
+        "Les zones desservies ne sont pas encore publiées pour ces bureaux.",
       otherPortal:
         "Déjà client. Vos dossiers, documents et factures, sans rien à rechercher.",
       otherQuote:
@@ -1423,6 +1443,8 @@ export const fr = {
     },
     careers: {
       title: "Carrières",
+      titleMain: "Construire le",
+      titleAccent: "corridor",
       sub: "Tous les postes ouverts en ce moment.",
       list: "Postes ouverts",
       empty: "Aucun poste ouvert pour l’instant",

@@ -347,9 +347,40 @@ export type PublicEntity = {
   legal_name: string;
   trading_name: string | null;
   country_code: string | null;
-  /** `[{country_code, label_fr, label_en}]` — migration 13787. */
-  coverage: Array<{ country_code?: string | null }>;
+  /** `[{country_code, label_fr, label_en}]` — migration 13787.
+   *
+   *  The LABELS are read now as well as the codes (§8.5's coverage figure).
+   *  They are the tenant's own words for the place, which is the only naming
+   *  this app is entitled to print: a two-letter code resolved against a
+   *  country table would be OUR name for their market, and the schema requires
+   *  both languages precisely so it does not have to be. */
+  coverage: Array<{
+    country_code?: string | null;
+    label_fr?: string | null;
+    label_en?: string | null;
+  }>;
 };
+
+/** One place a tenant says they cover, named as they named it. Rows without a
+ *  label in either language are dropped rather than falling back to the code —
+ *  "CM" on a public page is not a place name. */
+export function coverageLabels(
+  entity: PublicEntity,
+  lang: Lang,
+): string[] {
+  const seen = new Set<string>();
+  for (const c of entity.coverage || []) {
+    const label = pickBilingual(
+      {
+        fr: String(c.label_fr ?? ""),
+        en: c.label_en == null ? null : String(c.label_en),
+      },
+      lang,
+    );
+    if (label) seen.add(label);
+  }
+  return [...seen];
+}
 
 export const listPublicEntities = (opts: { signal?: AbortSignal } = {}) =>
   publicGet<PublicEntity[]>("/public/site/entities", { signal: opts.signal });

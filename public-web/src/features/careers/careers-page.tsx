@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/icons";
 import { IconTile, type IconComponent } from "@/components/ui/icon-tile";
 import { SectionHead } from "@/components/site/section-head";
+import { BgMap } from "@/components/ui/bg-map";
+import { StagedLines } from "@/components/ui/type";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { Reveal } from "@/components/ui/reveal";
 import { useDocumentMeta } from "@/lib/use-document-meta";
@@ -97,16 +99,32 @@ export function CareersPage() {
   });
 
   return (
-    <PageShell label={t("site.careers.title")}>
-      <Section
-        eyebrow={t("site.careers.list")}
-        eyebrowIcon={BoltIcon}
-        title={t("site.careers.title")}
-        lead={t("site.careers.sub")}
-        // No hero band on the list page: this heading is the page title, so
-        // it is the document h1 (see Section on why titleAs accepts one).
-        titleAs="h1"
-      >
+    <PageShell label={t("site.careers.title")} footer>
+      {/* §8.5's entrance. This page shipped as a bare `<h1>` on white, and it is
+          the page whose EMPTY state is the common one — a company is not always
+          hiring — so the band is most of what a visitor sees on it. The form's
+          ergonomics below are untouched: §8.5 is explicit that "a job applicant
+          on a phone is not an audience to experiment on", so the entrance is the
+          same plate every other route uses and nothing about the vacancy list or
+          the application flow changes. */}
+      <section className="band-hero relative overflow-hidden">
+        <BgMap />
+        <PageContainer className="relative">
+          <BadgePill onDark>{t("site.careers.list")}</BadgePill>
+          <SectionHead
+            className="mt-4"
+            as="h1"
+            titleClass="hero-title"
+            onDark
+            /* F-17: the LCP element here too. */
+            title={<StagedLines paintImmediately text={t("site.careers.titleMain")} />}
+            accent={t("site.careers.titleAccent")}
+            lead={t("site.careers.sub")}
+          />
+        </PageContainer>
+      </section>
+
+      <Section>
         {error ? (
           <ErrorState message={error} />
         ) : rows === null ? (
