@@ -30,6 +30,12 @@ import {
   type LoginConfig,
 } from "@/lib/branding";
 import { applyBrand } from "@/lib/theme";
+import {
+  applySiteTheme,
+  getSiteTheme,
+  readCachedSiteTheme,
+  writeCachedSiteTheme,
+} from "@/lib/site-theme";
 import { getMode } from "@/lib/theme-mode";
 
 type Ctx = {
@@ -105,20 +111,37 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     // fetch can land) so a repeat visit never shows the default dress.
     paintDocumentIdentity(branding);
 
+    // The WEBSITE's own palette, from the cache, painted after the branding
+    // above so it wins on colour for the surface it owns. `GET /branding` is the
+    // ERP's appearance row — the logo, the name, and the colours the tenant's
+    // staff see all day; this is the row for the site strangers judge them by,
+    // and the two are deliberately separate records.
+    const cachedTheme = readCachedSiteTheme();
+    if (cachedTheme) applySiteTheme(cachedTheme);
+
     let alive = true;
     // allSettled, not all: a tenant with no login config (the common case) must
-    // not stop their colours from being applied.
-    void Promise.allSettled([fetchBranding(), fetchLoginConfig()]).then(
-      ([b, l]) => {
-        if (!alive) return;
-        if (b.status === "fulfilled" && b.value) {
-          setState(b.value);
-          paintDocumentIdentity(b.value);
-          writeCachedBranding(b.value);
-        }
-        if (l.status === "fulfilled" && l.value) setLogin(l.value);
-      },
-    );
+    // not stop their colours from being applied, and a website theme that 404s
+    // (the `website` package off) must not stop their branding.
+    void Promise.allSettled([
+      fetchBranding(),
+      fetchLoginConfig(),
+      getSiteTheme(),
+    ]).then(([b, l, t]) => {
+      if (!alive) return;
+      if (b.status === "fulfilled" && b.value) {
+        setState(b.value);
+        paintDocumentIdentity(b.value);
+        writeCachedBranding(b.value);
+      }
+      if (l.status === "fulfilled" && l.value) setLogin(l.value);
+      if (t.status === "fulfilled" && t.value) {
+        // Applied LAST, for the reason above: on this surface the website's
+        // theme is the answer and the ERP's appearance is the floor beneath it.
+        applySiteTheme(t.value);
+        writeCachedSiteTheme(t.value);
+      }
+    });
     return () => {
       alive = false;
     };
