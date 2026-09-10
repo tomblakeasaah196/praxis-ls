@@ -133,6 +133,14 @@ const GATES = [
   { group: "frontend", name: "Lint (public-web)", cmd: npm("run", "lint", "--prefix", "public-web") },
   { group: "frontend", name: "Motion budget (public-web)", cmd: npm("run", "check:motion", "--prefix", "public-web") },
   { group: "frontend", name: "i18n (public-web)", cmd: npm("run", "check:i18n", "--prefix", "public-web") },
+  // The asset register (§1.3 / §5.6). Needs no build — it reads the declaration
+  // in src/assets/manifest.ts, because this repository contains no images and
+  // must not (§4.1).
+  { group: "frontend", name: "Assets (public-web)", cmd: npm("run", "check:assets", "--prefix", "public-web") },
+  // The raw-palette gate, run against public-web's tree by the ONE copy in
+  // client/scripts. Raw palette colours are what break white-labelling, and
+  // this app is the surface a tenant is judged by.
+  { group: "frontend", name: "Palette (public-web)", cmd: npm("run", "check:palette", "--prefix", "public-web") },
   { group: "frontend", name: "Test (public-web)", cmd: npm("run", "test", "--if-present", "--prefix", "public-web") },
   { group: "frontend", name: "Build (public-web)", cmd: npm("run", "build", "--prefix", "public-web") },
   { group: "frontend", name: "Bundle graph (public-web)", cmd: npm("run", "check:bundle", "--prefix", "public-web") },

@@ -11,7 +11,7 @@
  * came to check one shipment reference should not pay for the portal's three
  * terminal screens, and a portal user should not pay for the careers form.
  *
- * That design has exactly two ways to fail, and neither one breaks the build:
+ * That design has three ways to fail, and none of them breaks the build:
  *
  *   1. A CYCLE. On 2026-08-04 the ERP shipped a circular chunk graph; one chunk
  *      read another's export before the binding was assigned, a top-level
@@ -24,6 +24,11 @@
  *   2. BUDGET DRIFT. A route that quietly stops being lazy (a static import of
  *      `portal-app` from the header, say) adds tens of kB to every first paint
  *      and looks identical in review. The number is the only thing that moves.
+ *   3. AN UNBOUNDED DEFERRED PAYLOAD. The opposite mistake, and the one a
+ *      capability-gated set piece invites: move the weight behind a dynamic
+ *      import and the first-paint number stays green while the page grows a
+ *      300 kB scene. Deferred is not free — a visitor who scrolls to the band
+ *      downloads it. See DEFERRED_BUDGET_KB.
  *
  * ── WHAT IS MEASURED ──────────────────────────────────────────────────────
  *
@@ -78,6 +83,28 @@ const KB = (n) => (n / 1024).toFixed(1) + " kB";
  * a budget with room to spare is a budget nobody will ever consult.
  */
 const FIRST_PAINT_BUDGET_KB = 128;
+
+/**
+ * The DEFERRED budget — §5.6, and the thing that keeps a WebGL set piece honest
+ * instead of unbounded.
+ *
+ * ── WHY THIS DID NOT EXIST UNTIL PR 3 ──────────────────────────────────────
+ *
+ * §5.6 specified it as PR 1 work and PR 1 did not ship it (see the guide's
+ * §3.4, F-14). The omission mattered the moment §7.5 arrived: the whole
+ * argument for a deferred, capability-gated scene is that it costs a visitor
+ * who never sees it nothing, and "deferred" without a number is how a marketing
+ * page acquires 300 kB of three.js that only ever loads on somebody else's
+ * laptop.
+ *
+ * WHAT IS COUNTED: every emitted chunk that is NOT in the first-paint set.
+ * That is deliberately the whole of the rest rather than a hand-maintained list
+ * of "homepage" chunks — a list is a thing that goes stale silently, and the
+ * budget is far enough above today's total that counting the portal and the
+ * careers form too costs nothing and closes the loophole where a chunk is
+ * excused by not being named.
+ */
+const DEFERRED_BUDGET_KB = 220;
 
 /**
  * Static `import`/`export ... from` specifiers only. A DYNAMIC import() is not an
@@ -236,6 +263,48 @@ async function main() {
       "  never to raise this number, and if it is, say in the commit message what",
     );
     console.error("  the stranger gets for the extra kilobytes.");
+    process.exit(1);
+  }
+
+  // ── 3. the deferred payload ──
+  const deferred = files.filter((f) => !upFront.has(f));
+  const deferredRows = [];
+  let deferredTotal = 0;
+  for (const name of deferred) {
+    const g = gz(await readFile(path.join(ASSETS, name)));
+    deferredTotal += g;
+    deferredRows.push([name, g]);
+  }
+  deferredRows.sort((a, b) => b[1] - a[1]);
+
+  console.log(`\nDeferred (${deferred.length} chunks, none on the first-paint path):`);
+  for (const [name, g] of deferredRows.slice(0, 8)) {
+    console.log(`    ${name.padEnd(34)} ${KB(g).padStart(9)} gzip`);
+  }
+  if (deferredRows.length > 8) {
+    console.log(`    ${`… and ${deferredRows.length - 8} smaller`.padEnd(34)}`);
+  }
+  console.log(
+    `    ${"TOTAL".padEnd(34)} ${KB(deferredTotal).padStart(9)} gzip  (budget ${DEFERRED_BUDGET_KB} kB)`,
+  );
+
+  if (deferredTotal > DEFERRED_BUDGET_KB * 1024) {
+    console.error(
+      `\n✗ Deferred payload over budget by ${KB(deferredTotal - DEFERRED_BUDGET_KB * 1024)}.`,
+    );
+    console.error(
+      "  A chunk being lazy is not the same as it being free: a visitor who reaches",
+    );
+    console.error(
+      "  the band that loads it still downloads it, usually on the connection this",
+    );
+    console.error(
+      "  app's budget exists for. The usual cause is a rendering or animation",
+    );
+    console.error(
+      "  library pulled in for one set piece — check what the newest dynamic",
+    );
+    console.error("  import() drags with it before raising this number.");
     process.exit(1);
   }
 

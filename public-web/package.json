@@ -21,6 +21,9 @@
     "check:bundle": "node scripts/check-bundle.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:motion": "node scripts/check-motion.mjs",
+    "check:assets": "node scripts/check-assets.mjs",
+    "//check:palette": "The ONE copy lives in client/scripts. A second copy of a gate is a gate that drifts \u2014 the same reason client/eslint-local-rules is re-exported rather than duplicated.",
+    "check:palette": "node ../client/scripts/check-palette.mjs --app public-web",
     "format": "prettier --write ."
   },
   "dependencies": {
