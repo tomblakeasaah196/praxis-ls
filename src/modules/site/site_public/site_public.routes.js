@@ -14,6 +14,8 @@ const { makeLimiter } = require("../../../shared/http/rate-limit");
 const { asyncHandler } = require("../../../utils/errors");
 const service = require("../site_content/site_content.service");
 const settings = require("../site_settings/site_settings.service");
+const insights = require("../../content/insight/insight.service");
+const insightV = require("../../content/insight/insight.validator");
 
 const router = express.Router();
 const limit = makeLimiter({ name: "site-public", max: 240, windowMs: 15 * 60 * 1000 });
@@ -60,6 +62,38 @@ router.get("/pages/:key", limit, asyncHandler(async (req, res) => {
 router.get("/theme", limit, asyncHandler(async (req, res) => {
   res.set("Cache-Control", "public, max-age=300");
   res.json({ data: await req.tenantDbIn("live", (c) => settings.publicTheme(c)) });
+}));
+
+/**
+ * Announcements: the live pins the homepage band draws, and the list behind
+ * them.
+ *
+ * ── WHY IT LIVES HERE AND NOT UNDER /public/insights ───────────────────────
+ *
+ * An announcement IS an article (13784) and its DETAIL page is
+ * `/public/insights/:slug` — that route serves it today with no change, which
+ * is the whole point of the kind column. What is different is this shape: a
+ * capped pinned collection plus a list, assembled for one band on one page.
+ * That is a website read, so it sits with the website's other reads, on their
+ * limiter and their LIVE pin, and the guide's §6.9 endpoint table puts it here.
+ *
+ * ── THE CAP IS NOT NEGOTIABLE BY THE CALLER ────────────────────────────────
+ *
+ * `per_page` narrows the LIST. It has no effect on `pinned`, which the service
+ * caps at five with a SQL `LIMIT`. A cap a query string can raise is not a cap.
+ *
+ * Not cached at the edge, unlike `/theme`: an announcement is the one thing on
+ * this site a tenant publishes because it is URGENT, and five minutes of stale
+ * is the wrong trade for the band that carries a port closure.
+ */
+router.get("/announcements", limit, insightV.listQuery, asyncHandler(async (req, res) => {
+  const { page, per_page: perPage } = req.validatedQuery;
+  res.json({
+    data: await req.tenantDbIn("live", (c) => insights.listPublicAnnouncements(c, {
+      page: page || 1,
+      perPage: perPage || insights.DEFAULT_PER_PAGE,
+    })),
+  });
 }));
 
 /** Active partners by kind, and unexpired credentials. `permission_note` is

@@ -246,3 +246,146 @@ describe("publishing", () => {
     expect(repo.remove).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Announcements (13784, guide §6.4) — the homepage band's read, and the pin
+ * that fills it.
+ *
+ * ── WHY THE REFUSALS ARE THE INTERESTING TESTS ─────────────────────────────
+ *
+ * A pin that is accepted and then never rendered is the failure mode this
+ * feature has, and it is silent: `pinned_until` is written, the settings screen
+ * shows a pin, and the band stays empty because the row is a draft, or an
+ * ordinary article, or its date is already past. The tenant finds out by
+ * looking at their own homepage, which is the one page nobody looks at.
+ *
+ * So each refusal below is asserted for its own code, not merely for throwing.
+ */
+describe("announcements", () => {
+  const ann = (over = {}) => row({ kind: "announcement", ...over });
+  const future = new Date(Date.now() + 86400e3 * 30).toISOString();
+  const past = new Date(Date.now() - 86400e3).toISOString();
+
+  beforeEach(() => {
+    repo.tagsInUse.mockResolvedValue([]);
+    repo.count.mockResolvedValue(0);
+    repo.list.mockResolvedValue([]);
+    repo.listPinned.mockResolvedValue([]);
+  });
+
+  it("puts the kind and the expiry on the public card", () => {
+    // The band SHOWS the expiry. A pin whose date a visitor cannot see is a pin
+    // only the tenant knows is temporary.
+    const card = service.publicCard(ann({ pinned_until: future }));
+    expect(card.kind).toBe("announcement");
+    expect(card.pinned_until).toBe(future);
+  });
+
+  it("calls an article an article even on a row written before 13784", () => {
+    // The column has a DEFAULT, but a row read through a stub, a fixture or an
+    // older cache may not carry it. Undefined must not reach a renderer that
+    // switches on it.
+    expect(service.publicCard(row({ kind: undefined })).kind).toBe("article");
+  });
+
+  it("asks the repo for the pins capped at five, and only announcements", async () => {
+    // The cap is the requirement (§6.4) and it is applied in SQL. Asserting the
+    // ARGUMENT is what catches a later refactor that moves the slice into JS,
+    // where it stops protecting the payload.
+    await service.listPublicAnnouncements(client);
+    expect(repo.listPinned).toHaveBeenCalledWith(client, { limit: 5, kind: "announcement" });
+    expect(service.PINNED_MAX).toBe(5);
+  });
+
+  it("does not let per_page raise the pinned cap", async () => {
+    // `per_page` narrows the LIST. A caller who asks for fifty gets fifty
+    // announcements and five pins.
+    await service.listPublicAnnouncements(client, { perPage: 50 });
+    expect(repo.listPinned).toHaveBeenCalledWith(client, { limit: 5, kind: "announcement" });
+    expect(repo.list).toHaveBeenCalledWith(client, expect.objectContaining({ limit: 50 }));
+  });
+
+  it("narrows the list to announcements, so the band's 'view more' is not the blog", async () => {
+    await service.listPublicAnnouncements(client);
+    expect(repo.list).toHaveBeenCalledWith(client, expect.objectContaining({ kind: "announcement" }));
+    expect(repo.count).toHaveBeenCalledWith(client, expect.objectContaining({ kind: "announcement" }));
+  });
+
+  it("keeps a pinned announcement in the list as well as in the band", async () => {
+    // A visitor who follows "view more" looking for the thing they just saw
+    // should find it, rather than discover that being important removed it.
+    repo.listPinned.mockResolvedValue([ann({ pinned_until: future })]);
+    repo.list.mockResolvedValue([ann({ pinned_until: future })]);
+    repo.count.mockResolvedValue(1);
+    const out = await service.listPublicAnnouncements(client);
+    expect(out.pinned).toHaveLength(1);
+    expect(out.articles).toHaveLength(1);
+  });
+
+  it("carries no body into the band", async () => {
+    repo.listPinned.mockResolvedValue([ann({ pinned_until: future })]);
+    const out = await service.listPublicAnnouncements(client);
+    expect(out.pinned[0]).not.toHaveProperty("body_fr");
+  });
+});
+
+describe("pinning", () => {
+  const ann = (over = {}) => row({ kind: "announcement", ...over });
+  const future = new Date(Date.now() + 86400e3 * 30).toISOString();
+  const past = new Date(Date.now() - 86400e3).toISOString();
+
+  it("refuses to pin an ordinary article", async () => {
+    // The band reads kind='announcement'. Pinning an article writes a timestamp
+    // no renderer will ever read.
+    repo.get.mockResolvedValue(row({ kind: "article" }));
+    await expect(service.setPinned(client, { id: "a1", pinnedUntil: future }))
+      .rejects.toMatchObject({ status: 422, code: "NOT_AN_ANNOUNCEMENT" });
+    expect(repo.setPinned).not.toHaveBeenCalled();
+  });
+
+  it("refuses to pin a draft", async () => {
+    repo.get.mockResolvedValue(ann({ is_published: false }));
+    await expect(service.setPinned(client, { id: "a1", pinnedUntil: future }))
+      .rejects.toMatchObject({ status: 422, code: "NOT_PUBLISHED" });
+    expect(repo.setPinned).not.toHaveBeenCalled();
+  });
+
+  it("refuses an expiry that has already passed", async () => {
+    // `pinned_until > now()` is the whole mechanism, so a date behind us is an
+    // unpin wearing a pin's clothes — and it would look pinned in the settings
+    // list while showing nowhere.
+    repo.get.mockResolvedValue(ann());
+    await expect(service.setPinned(client, { id: "a1", pinnedUntil: past }))
+      .rejects.toMatchObject({ status: 422, code: "PIN_EXPIRED" });
+    expect(repo.setPinned).not.toHaveBeenCalled();
+  });
+
+  it("pins a published announcement until a future date", async () => {
+    repo.get.mockResolvedValue(ann());
+    repo.setPinned.mockResolvedValue(ann({ pinned_until: future }));
+    await service.setPinned(client, { id: "a1", pinnedUntil: future, actor: { user_id: "u9" } });
+    expect(repo.setPinned).toHaveBeenCalledWith(client, "a1", future);
+  });
+
+  it("always allows a pin to be cleared, whatever state the row is in", async () => {
+    // You must be able to take something off the front page without first
+    // repairing it — an unpublished, wrong-kind row still unpins.
+    repo.get.mockResolvedValue(row({ kind: "article", is_published: false }));
+    repo.setPinned.mockResolvedValue(row({ pinned_until: null }));
+    await expect(service.setPinned(client, { id: "a1", pinnedUntil: null })).resolves.toBeTruthy();
+    expect(repo.setPinned).toHaveBeenCalledWith(client, "a1", null);
+  });
+
+  it("refuses an unknown article before it refuses anything else", async () => {
+    repo.get.mockResolvedValue(null);
+    await expect(service.setPinned(client, { id: "nope", pinnedUntil: future }))
+      .rejects.toMatchObject({ status: 404, code: "NOT_FOUND" });
+  });
+
+  it("will not accept a pin through an ordinary field edit", () => {
+    // `pinned_until` is absent from WRITABLE and from the update schema, so the
+    // only way onto the homepage is the endpoint that stamps who and when.
+    expect(repo.WRITABLE).not.toContain("pinned_until");
+    expect(schemas.update.safeParse({ pinned_until: future }).success).toBe(false);
+  });
+});
