@@ -389,3 +389,85 @@ describe("pinning", () => {
     expect(schemas.update.safeParse({ pinned_until: future }).success).toBe(false);
   });
 });
+
+/**
+ * ── THE PUBLIC INDEX'S `?kind=` FILTER (guide §8.6) ────────────────────────
+ *
+ * A parameter that was validated end-to-end and then dropped.
+ *
+ * `insight.validator.js` has accepted `kind` since 13784, `service.listPublic`
+ * takes it, and `repo.list`/`repo.count` both filter on it — the announcements
+ * read has used exactly that path since PR 3. What was missing was one
+ * destructure in `insight_public.routes.js`, so a caller could send
+ * `?kind=announcement`, have it accepted, and receive every article back.
+ *
+ * That is the quietest class of defect there is: nothing throws, nothing logs,
+ * and the response is a plausible list. It was found by building the first UI
+ * that asks for the filter, which is later than a test should have found it.
+ *
+ * The route is asserted through the SERVICE's arguments rather than through the
+ * response body, because the body of a mocked repo proves nothing about
+ * filtering — the same trap §3.3 recorded when three of PR 2's "passes" turned
+ * out to be `UPDATE`s against empty tables.
+ */
+describe("the public insights index passes its kind filter through", () => {
+  const publicRoutes = require("../../src/modules/content/insight_public/insight_public.routes");
+
+  /** Find the GET "/" handler on the module's router. */
+  function indexHandler() {
+    const layer = publicRoutes.router.stack.find(
+      (l) => l.route && l.route.path === "/" && l.route.methods.get,
+    );
+    expect(layer).toBeTruthy();
+    // The last handler in the chain is the asyncHandler-wrapped body; the ones
+    // before it are the limiter and the validator.
+    return layer.route.stack[layer.route.stack.length - 1].handle;
+  }
+
+  async function call(validatedQuery) {
+    const seen = [];
+    const req = {
+      validatedQuery,
+      tenantDbIn: (_scope, fn) =>
+        fn({
+          query: async () => ({ rows: [] }),
+        }),
+    };
+    // Intercept what the service is asked for.
+    const spy = jest
+      .spyOn(service, "listPublic")
+      .mockImplementation(async (_c, opts) => {
+        seen.push(opts);
+        return { articles: [], tags: [], page: 1, per_page: 12, total: 0, has_more: false };
+      });
+    const res = { json: jest.fn() };
+    await indexHandler()(req, res, jest.fn());
+    spy.mockRestore();
+    return seen[0];
+  }
+
+  it("forwards kind=announcement to the service", async () => {
+    const opts = await call({ kind: "announcement" });
+    expect(opts.kind).toBe("announcement");
+  });
+
+  it("forwards kind=article to the service", async () => {
+    const opts = await call({ kind: "article" });
+    expect(opts.kind).toBe("article");
+  });
+
+  it("asks for BOTH kinds when the caller sent none", async () => {
+    // null, not undefined: `listPublic` defaults `kind` to null and the repo
+    // reads null as "no filter". Passing undefined would work by accident of
+    // the default parameter and stop working the day somebody removes it.
+    const opts = await call({});
+    expect(opts.kind).toBeNull();
+  });
+
+  it("still forwards the tag alongside the kind", async () => {
+    // The two filters are independent, and a route that forwards one by
+    // dropping the other is the same defect wearing different clothes.
+    const opts = await call({ kind: "article", tag: "strategy" });
+    expect(opts).toMatchObject({ kind: "article", tag: "strategy" });
+  });
+});

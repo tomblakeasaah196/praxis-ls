@@ -141,6 +141,12 @@ const GATES = [
   // client/scripts. Raw palette colours are what break white-labelling, and
   // this app is the surface a tenant is judged by.
   { group: "frontend", name: "Palette (public-web)", cmd: npm("run", "check:palette", "--prefix", "public-web") },
+  // The contrast gate, likewise the one copy. Ported in PR 4 (guide O-9): it is
+  // the gate that computes F-15's 3.13:1 CTA, and pointing it at this app found
+  // three more live AA failures — `.st-blue`/`.st-info` at 2.81:1 on dark
+  // (a dark `--brand-blue-ink` this app never got) and `.st-orange` at 4.14:1
+  // on light. Every one of them had shipped.
+  { group: "frontend", name: "Contrast (public-web)", cmd: npm("run", "check:contrast", "--prefix", "public-web") },
   { group: "frontend", name: "Test (public-web)", cmd: npm("run", "test", "--if-present", "--prefix", "public-web") },
   { group: "frontend", name: "Build (public-web)", cmd: npm("run", "build", "--prefix", "public-web") },
   { group: "frontend", name: "Bundle graph (public-web)", cmd: npm("run", "check:bundle", "--prefix", "public-web") },

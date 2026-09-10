@@ -245,6 +245,83 @@ export const statChips = (page: SitePage | null): StatChip[] =>
     (i): i is StatChip => !!i && typeof i === "object",
   );
 
+/* ── the group story (§6.9's `/public/site/about`) ─────────────────────────
+ *
+ * PR 5 (§9.1) renders the whole of this as the About page. PR 4 needs one field
+ * from it: `esg`, which §8.4 turns into the programme's worked example of the
+ * 90-word rule.
+ *
+ * THREE FIXED PILLARS, NOT AN OPEN BAG. `packages/shared/schemas/site-settings.js`
+ * says why in as many words: the renderer builds a three-panel interactive and
+ * can only do that if it knows there are exactly three and what they are
+ * called. An open record would mean the renderer guessing at whatever an editor
+ * typed, and a fourth pillar silently breaking the layout.
+ *
+ * The pillar NAMES are ours and come from the dictionary — Environment, Social,
+ * Governance are the standard triad, not a claim about this tenant. Everything
+ * inside a pillar is theirs.
+ */
+export type EsgPillar = {
+  text: string;
+  points: string[];
+};
+
+export type EsgContent = {
+  environment: EsgPillar | null;
+  social: EsgPillar | null;
+  governance: EsgPillar | null;
+};
+
+type RawPillar = {
+  text_fr?: unknown;
+  text_en?: unknown;
+  points?: unknown;
+};
+
+/** One pillar, read in the visitor's language. Null when the tenant has not
+ *  written it — which is the default, and the band draws nothing rather than a
+ *  heading over an empty column. */
+function pillar(raw: unknown, lang: Lang): EsgPillar | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as RawPillar;
+  const text = pickBilingual(
+    { fr: String(r.text_fr ?? ""), en: r.text_en == null ? null : String(r.text_en) },
+    lang,
+  );
+  const points = (Array.isArray(r.points) ? r.points : [])
+    .map((pt) => pickBilingual(pt as Bilingual, lang))
+    .filter((t): t is string => !!t);
+  // A pillar with neither prose nor a single point is not a pillar. Rendering
+  // its heading anyway would put "Environment" over white space on a public
+  // page, which is worse than the section being one column shorter.
+  return text || points.length ? { text, points } : null;
+}
+
+export const getPublicEsg = (opts: { lang: Lang; signal?: AbortSignal }) =>
+  publicGet<{ esg?: unknown }>("/public/site/about", { signal: opts.signal })
+    .then(
+      (about): EsgContent => ({
+        environment: pillar((about?.esg as Record<string, unknown>)?.environment, opts.lang),
+        social: pillar((about?.esg as Record<string, unknown>)?.social, opts.lang),
+        governance: pillar((about?.esg as Record<string, unknown>)?.governance, opts.lang),
+      }),
+    )
+    /* Every failure is the same answer, for the reason `getSitePage` states: an
+       unpublished story, a tenant without the `website` package and a network
+       error are three facts server-side and one fact here — there is nothing to
+       draw. The band renders nothing in all three. */
+    .catch((): EsgContent => ({ environment: null, social: null, governance: null }));
+
+/** Whether any pillar has content. The band mounts nothing at all otherwise —
+ *  no heading, no empty columns, no "coming soon".
+ *
+ *  A TYPE GUARD rather than a boolean, so the null check and the render site
+ *  cannot drift. Guarding with a plain boolean would leave the call site
+ *  needing a non-null assertion — and an assertion is what survives the day
+ *  somebody makes this read optional, silently, with a crash behind it. */
+export const hasEsg = (esg: EsgContent | null): esg is EsgContent =>
+  !!esg && !!(esg.environment || esg.social || esg.governance);
+
 /* ── public-enabled entities (§6.9) ────────────────────────────────────────
  *
  * PR 5 (§9.2) renders these as a network in their own right. PR 3 needs one
@@ -270,9 +347,40 @@ export type PublicEntity = {
   legal_name: string;
   trading_name: string | null;
   country_code: string | null;
-  /** `[{country_code, label_fr, label_en}]` — migration 13787. */
-  coverage: Array<{ country_code?: string | null }>;
+  /** `[{country_code, label_fr, label_en}]` — migration 13787.
+   *
+   *  The LABELS are read now as well as the codes (§8.5's coverage figure).
+   *  They are the tenant's own words for the place, which is the only naming
+   *  this app is entitled to print: a two-letter code resolved against a
+   *  country table would be OUR name for their market, and the schema requires
+   *  both languages precisely so it does not have to be. */
+  coverage: Array<{
+    country_code?: string | null;
+    label_fr?: string | null;
+    label_en?: string | null;
+  }>;
 };
+
+/** One place a tenant says they cover, named as they named it. Rows without a
+ *  label in either language are dropped rather than falling back to the code —
+ *  "CM" on a public page is not a place name. */
+export function coverageLabels(
+  entity: PublicEntity,
+  lang: Lang,
+): string[] {
+  const seen = new Set<string>();
+  for (const c of entity.coverage || []) {
+    const label = pickBilingual(
+      {
+        fr: String(c.label_fr ?? ""),
+        en: c.label_en == null ? null : String(c.label_en),
+      },
+      lang,
+    );
+    if (label) seen.add(label);
+  }
+  return [...seen];
+}
 
 export const listPublicEntities = (opts: { signal?: AbortSignal } = {}) =>
   publicGet<PublicEntity[]>("/public/site/entities", { signal: opts.signal });
