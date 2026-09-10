@@ -131,9 +131,13 @@ describe("the baseline, with no WebGL anywhere", () => {
 });
 
 describe("the keyboard", () => {
-  it("is ONE tab stop, with arrows moving between nodes", async () => {
-    // A roving tabstop. Fifteen nodes as fifteen tabstops is a decoration that
-    // costs a keyboard user fifteen keystrokes to get past.
+  it("is ONE tab stop — the figure — with no node in the tab sequence", async () => {
+    // The WAI-ARIA composite-widget pattern. Fifteen nodes as fifteen tabstops
+    // is a decoration that costs a keyboard user fifteen keystrokes to get
+    // past; and the near-miss version — a roving `tabindex="0"` on the active
+    // node — puts them straight back inside the scene on the first Tab after
+    // Escape. Every node is `-1`, which is programmatically focusable and
+    // untabbable, which is exactly what the arrow keys need and nothing more.
     vi.spyOn(api, "listCorridors").mockResolvedValue([
       lane({ origin: "Douala", destination: "Kribi", files: 9 }),
       lane({ origin: "Kribi", destination: "Yaoundé", files: 4 }),
@@ -142,18 +146,18 @@ describe("the keyboard", () => {
     const group = await screen.findByRole("group");
     await waitFor(() => expect(screen.getAllByRole("button").length).toBe(3));
 
-    const focusable = screen
-      .getAllByRole("button")
-      .filter((el) => el.getAttribute("tabindex") === "0");
-    expect(focusable).toHaveLength(1);
+    expect(group.getAttribute("tabindex")).toBe("0");
+    for (const node of screen.getAllByRole("button")) {
+      expect(node.getAttribute("tabindex")).toBe("-1");
+    }
 
+    // The arrows still move focus, which is the half that has to keep working.
     group.focus();
     await userEvent.keyboard("{ArrowRight}");
-    const after = screen
-      .getAllByRole("button")
-      .filter((el) => el.getAttribute("tabindex") === "0");
-    expect(after).toHaveLength(1);
-    expect(after[0]).not.toBe(focusable[0]);
+    expect(document.activeElement).not.toBe(group);
+    expect(
+      (document.activeElement as Element)?.classList.contains("corridor-node"),
+    ).toBe(true);
   });
 
   it("leaves on Escape rather than trapping anybody", async () => {

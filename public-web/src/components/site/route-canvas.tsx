@@ -2,6 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/cn";
 import { useInView } from "@/components/ui/reveal";
 import { motionReduced } from "@/lib/motion";
+import { afterPaint } from "@/lib/after-paint";
 
 /**
  * The hero's route network, alive.
@@ -143,7 +144,12 @@ export function RouteCanvas({
     if (!ctx) return undefined;
 
     const still = motionReduced();
-    let palette = readPalette(host) ?? ["40 148 94", "28 155 215", "224 122 26", "147 51 234"];
+    /* Seeded with the shipped light-theme values rather than read here: a
+       `getComputedStyle` on mount is a style recalculation on the critical
+       path, and the real tokens are read inside `afterPaint` below before
+       anything is drawn with them. These are only ever used if that read
+       fails. */
+    let palette = ["40 148 94", "28 155 215", "224 122 26", "147 51 234"];
     let raf = 0;
     let last = 0;
     // Seconds of scene time. Under reduced motion it never advances, and the
@@ -236,8 +242,6 @@ export function RouteCanvas({
       raf = requestAnimationFrame(frame);
     };
 
-    resize();
-
     // A theme flip changes every mode colour. Re-read and repaint rather than
     // polling the computed style each frame, which would be a layout read per
     // frame for a value that changes about twice a year.
@@ -256,22 +260,33 @@ export function RouteCanvas({
     };
     window.addEventListener("resize", onResize, { passive: true });
 
-    if (still) {
-      // THE SETTLED STATE. One frame, cargo already distributed, nothing
-      // scheduled. Somebody who asked their system for less motion gets the
-      // finished composition, not a faster version of the animation.
-      clock = 4;
+    // NOTHING HERE TOUCHES LAYOUT UNTIL THE BROWSER HAS PAINTED.
+    //
+    // Every expensive thing this component does is a layout or style read:
+    // `getComputedStyle` for the mode colours, `getBoundingClientRect` for the
+    // backing-store size, then a full canvas draw. Doing them in the mount
+    // effect put 301 ms of FORCED REFLOW on the critical path — measured, and
+    // absent from `main` — behind the very element they decorate. §7.1 names
+    // the hero as the LCP element; this canvas is the thing sitting behind it.
+    //
+    // So the whole sequence waits. The cost is that the network is empty for
+    // one paint, at 42% alpha, behind a headline — which nobody can perceive.
+    // The reduced-motion path waits too and then draws its ONE settled frame:
+    // cargo already distributed, nothing scheduled, ever. Deferring is not
+    // animating, so that promise is untouched.
+    const release = afterPaint(() => {
+      palette = readPalette(host) ?? palette;
+      resize();
+      clock = still ? 4 : 0;
       draw();
-    } else if (visible) {
-      last = performance.now();
-      raf = requestAnimationFrame(frame);
-    } else {
-      // Off screen on mount: paint one frame anyway, so scrolling it into view
-      // reveals a drawn scene rather than a blank rectangle that then starts.
-      draw();
-    }
+      if (!still && visible) {
+        last = performance.now();
+        raf = requestAnimationFrame(frame);
+      }
+    });
 
     return () => {
+      release();
       if (raf) cancelAnimationFrame(raf);
       themeWatch.disconnect();
       window.removeEventListener("resize", onResize);

@@ -727,6 +727,13 @@
     color: rgb(var(--brand-orange));
   }
 
+  /* The height the Suspense fallback holds while the set piece's chunk is in
+     flight. Matched to the band's own minimum so the real scene replaces it
+     without moving anything below. */
+  .corridor-reserve {
+    min-height: 40rem;
+  }
+
   .corridor-stage {
     position: relative;
     margin-inline: auto;
@@ -1736,6 +1743,20 @@
   .staged-word.is-in {
     opacity: 1;
     transform: translateY(0);
+  }
+
+  /* THE LCP VARIANT. Painted from the first frame; only the rise is staggered.
+   *
+   * Text at `opacity: 0` is not painted, and Largest Contentful Paint measures
+   * when the largest element IS painted — so a headline that fades in delays
+   * LCP by its own entrance. On the hero that measured +691 ms against `main`,
+   * for an animation that fires immediately anyway because the hero is always
+   * in view at load. `type.tsx` carries the full note.
+   *
+   * The stagger survives: the words still arrive one after another. They are
+   * legible while they do it. */
+  .staged-word-lit {
+    opacity: 1;
   }
 
   /* Reduced motion renders the settled state, not a faster arrival. The global

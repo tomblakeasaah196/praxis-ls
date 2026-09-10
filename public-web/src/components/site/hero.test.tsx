@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Hero, HERO_SCRIMS, SCRIM_FLOOR } from "./hero";
 import { RouteCanvas } from "./route-canvas";
@@ -112,19 +112,31 @@ describe("the route canvas", () => {
     vi.restoreAllMocks();
   });
 
-  it("schedules no frame loop under reduced motion", () => {
+  it("schedules no frame loop under reduced motion, even after the paint", async () => {
     // The settled state, drawn once. §1.2 rule 1 is not "a shorter animation",
     // and a rAF loop running for somebody who asked their system to stop moving
     // things is the exact thing it forbids.
+    //
+    // Waits for the deferral, because "no loop" has to hold AFTER the work is
+    // released, not merely before it starts — a test that checked only the
+    // synchronous tick would pass on a component that started looping 200 ms
+    // later.
     setMotion(true);
     const raf = vi.spyOn(window, "requestAnimationFrame");
     render(<RouteCanvas />);
+    await new Promise((r) => setTimeout(r, 350));
     expect(raf).not.toHaveBeenCalled();
   });
 
-  it("draws a frame anyway under reduced motion, rather than nothing", () => {
+  it("draws its settled frame after the paint, rather than never", async () => {
     // "Settled" means the finished composition — cargo distributed along the
     // lanes. A blank rectangle would be a fallback, not a designed state.
+    //
+    // It arrives one paint late ON PURPOSE: every call this component makes is
+    // a layout or style read, and doing them on mount put 301 ms of forced
+    // reflow behind the LCP element. Deferring is not animating, so the
+    // reduced-motion promise is untouched — the frame still comes, and it is
+    // still the only one.
     setMotion(true);
     const calls: string[] = [];
     const ctx = new Proxy(
@@ -141,7 +153,8 @@ describe("the route canvas", () => {
       ctx as unknown as CanvasRenderingContext2D,
     );
     render(<RouteCanvas />);
-    expect(calls).toContain("arc");
+    expect(calls).toHaveLength(0);
+    await waitFor(() => expect(calls).toContain("arc"), { timeout: 2000 });
     expect(calls).toContain("stroke");
   });
 

@@ -283,7 +283,16 @@ export function Hero({ copy = null }: { copy?: HeroCopy | null }) {
             )}
             eyebrow={copy ? copy.kicker : t("site.hero.eyebrow")}
             title={
-              <StagedLines text={copy ? copy.title : t("site.hero.titleMain")} />
+              /* `paintImmediately` because this headline IS the LCP element.
+                 Text at zero opacity is not painted, so the default fade-in
+                 delays the page's largest paint by its own entrance — measured
+                 at +691 ms — in exchange for a reveal that fires instantly
+                 anyway, the hero being in view at load. The words still stagger;
+                 they are simply legible while they arrive. */
+              <StagedLines
+                paintImmediately
+                text={copy ? copy.title : t("site.hero.titleMain")}
+              />
             }
             accent={copy ? undefined : t("site.hero.titleAccent")}
             lead={copy ? copy.lead : t("site.hero.sub")}
