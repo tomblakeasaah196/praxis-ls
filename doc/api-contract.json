@@ -1,12 +1,12 @@
 {
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
-  "modules_mounted": 139,
-  "route_count": 1533,
+  "modules_mounted": 140,
+  "route_count": 1561,
   "tiers": {
-    "public": 52,
+    "public": 57,
     "self-scoped": 93,
-    "gated": 1388
+    "gated": 1411
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -514,6 +514,24 @@
       "tier": "gated"
     },
     "DELETE /api/tenant/settings/:section/:key": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/site-settings/credentials/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/site-settings/leaders/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/site-settings/partners/:id": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -2403,6 +2421,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/mail/connect-methods": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/mail/connections": {
       "auth": true,
       "rbac": true,
@@ -2542,6 +2566,12 @@
       "tier": "public"
     },
     "GET /api/tenant/mail/oauth/microsoft/start": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/mail/oauth/microsoft/start/shared": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -3417,6 +3447,18 @@
       "validated": false,
       "tier": "public"
     },
+    "GET /api/tenant/public/site/about": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/site/entities": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
     "GET /api/tenant/public/site/pages": {
       "auth": false,
       "rbac": false,
@@ -3424,6 +3466,24 @@
       "tier": "public"
     },
     "GET /api/tenant/public/site/pages/:key": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/site/partners": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/site/social": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/site/theme": {
       "auth": false,
       "rbac": false,
       "validated": false,
@@ -3886,6 +3946,54 @@
       "tier": "gated"
     },
     "GET /api/tenant/signatures/stats": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/about": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/credentials": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/entities/:id/story": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/leaders": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/partners": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/social": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/theme": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/theme/preview": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -5170,6 +5278,24 @@
       "tier": "gated"
     },
     "PATCH /api/tenant/sessions/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PATCH /api/tenant/site-settings/credentials/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PATCH /api/tenant/site-settings/leaders/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PATCH /api/tenant/site-settings/partners/:id": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8259,6 +8385,24 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/site-settings/credentials": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/site-settings/leaders": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/site-settings/partners": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/site/pages": {
       "auth": true,
       "rbac": true,
@@ -9178,6 +9322,30 @@
       "tier": "gated"
     },
     "PUT /api/tenant/settings/:section/:key": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/site-settings/about": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/site-settings/entities/:id/story": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/site-settings/social": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/site-settings/theme": {
       "auth": true,
       "rbac": true,
       "validated": false,

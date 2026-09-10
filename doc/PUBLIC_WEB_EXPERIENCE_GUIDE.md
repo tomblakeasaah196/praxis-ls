@@ -116,11 +116,11 @@ engineer completing a PR updates the *Actual* column and the running total in th
 | PR | Deliverables | Planned | Actual | Running |
 | --- | --- | ---: | ---: | ---: |
 | **PR 1** — Foundations | Palette engine · depth & light · motion system · typography · gates | **22** | **22** | **22%** |
-| **PR 2** — Data & settings engine | Migrations · settings tabs · assets · announcements · partners · social · entity story | **24** | — | — |
+| **PR 2** — Data & settings engine | Migrations · settings tabs · assets · announcements · partners · social · entity story | **24** | **19** | **41%** |
 | **PR 3** — Homepage experience | Hero · narrative spine · announcements band · signature set piece · bands | **20** | — | — |
 | **PR 4** — Journey pages | Track · services · quote · contact · careers · insights — every page a hero | **18** | — | — |
 | **PR 5** — About, proof & polish | About · entities · leadership · partners/credentials · footer & social · final pass | **16** | — | — |
-| | **Total** | **100** | **22** | **22%** |
+| | **Total** | **100** | **41** | **41%** |
 
 Per-deliverable weights are listed inside each PR section. They sum to the PR's planned total.
 
@@ -135,7 +135,7 @@ filled in", not as "nothing to report".
 | PR | Status | Merged | Coverage after | Reservations, deviations and notes for later work |
 | --- | --- | --- | ---: | --- |
 | PR 1 | **Merged** | 2026-09-10 · [#323](https://github.com/tomblakeasaah196/praxis-ls/pull/323) | **22%** | See §3.2 — six deviations and five findings. One finding (F-1) was mine and is retracted; two are real pre-existing gate defects; one (F-5) is open for PR 2. |
-| PR 2 | Not started | — | — | — |
+| PR 2 | **Merged** | 2026-09-10 · [#324](https://github.com/tomblakeasaah196/praxis-ls/pull/324) | **41%** | 19 of 24 points. §6.3 (asset upload), §6.4 (announcements UI + public read) and §6.8 (entity story tab) are **not built** and are carried — see §3.3. Eight findings: four are defects in this guide's own spec, and F-12 is a false green in `npm run ci` itself. |
 | PR 3 | Not started | — | — | — |
 | PR 4 | Not started | — | — | — |
 | PR 5 | Not started | — | — | — |
@@ -180,6 +180,75 @@ filled in", not as "nothing to report".
 - **`auditTheme()` is exported for the settings preview.** Use it rather than re-measuring: a preview that checked a different pair list from the gate would reassure a tenant about a palette CI then rejects.
 - **Both gates were proven against deliberate violations** before being trusted — six for motion, two for fonts. Two of those runs initially passed when they should have failed, which is why the proofs are in the record. Any new gate in PRs 2–5 should be proven the same way.
 - **`client/`'s motion gate still has F-3's holes.** If a later PR touches that file, fix them there too.
+
+### 3.3 PR 2 — reservations, deviations and findings
+
+**19 of 24 points.** Three sub-sections are not built and are carried forward
+rather than counted. Per §2's own rule, partial work counts zero:
+
+| Not built | Weight | Why, and what exists already |
+| --- | ---: | --- |
+| **§6.3 Asset library** | 2 | The vault plumbing landed (13788: scope `SITE`, roles `PARTNER`/`CREDENTIAL`/`LEADER`/`ATMOSPHERE`) and every table has its `*_vault_id` column and FK. What is missing is the **upload control** and the server-side derivative pipeline. Nothing renders a logo or a portrait until it exists. |
+| **§6.4 Announcements** | 2 | The schema landed (13784: `kind`, `pinned_until`, partial index). The settings **pin control** and the **public `/announcements` read** are missing. **PR 3 §7.2's homepage band is blocked on this** — build it first. |
+| **§6.8 Entity story tab** | 1 | The columns (13787), the API (`GET/PUT /site-settings/entities/:id/story`) and the redaction test all landed. The **tab in the Entity 360 dossier** is not built, so the fields are only reachable by API. |
+
+**Deviations from this guide, with reasons.**
+
+| # | Deviation | Why |
+| --- | --- | --- |
+| D-7 | **No `site_asset` table.** §6.1 specified one; site media rides `document_vault` instead. | See F-6 — the vault already does every part of the job, correctly. |
+| D-8 | **Smart Logistics' content is a script, not a migration seed.** §6.10 specified `migrations/seeds/9087_seed_smartls_experience.sql`. | See F-10 — that file runs for **every** tenant. |
+| D-9 | **RBAC is MOD-29, not MOD-70.** §6.2 said MOD-70 (branding). | MOD-29 is the key `site_content` and `service_type_web` already ride, and its own comment explains why all administration of a tenant's public face sits behind one permission. MOD-70 would have meant an administrator who can write the homepage but not set its colours. |
+| D-10 | **The `crud` factory stayed, the route table did not.** | The service still builds partners/credentials/leaders from one factory (they genuinely are one shape). The ROUTES are written out twelve times — see F-8. |
+
+**Findings — four are defects in this guide's own specification.**
+
+| # | Finding | Status |
+| --- | --- | --- |
+| F-6 | **`site_asset` would have duplicated the vault.** `document_vault` already stores through `storage.service`, **sniffs** content type rather than trusting the caller's data URL, caps size, and gates public serving behind `public_media_scope`/`_role`/`_entity_ref` — clearing the scope on archive so replaced media stops being a public URL nobody remembers owning. `SUCCESS_STORY`, `SERVICE_TYPE` and `INSIGHT` already ride it. A second store would have re-implemented five of those and got at least one wrong. | **Fixed in the spec** — 13788 widens the vault instead. §6.1's `13781_site_asset.sql` should be struck. |
+| F-7 | **Widening the vault SCOPE alone delivers nothing.** The first draft of 13788 did exactly that. Replayed against a real Postgres, every `SITE` upload was still rejected — by `ck_vault_public_media_role`, which no part of the diff mentioned. A scope nothing can be uploaded under is a migration that applies cleanly and does nothing. | **Fixed** — both constraints move. Found only because the migrations were executed rather than read. |
+| F-8 | **A table-driven route loop blinded a security gate.** Twelve handlers were mounted from a `RESOURCES` array. `check-write-route-validators.js` reported two write routes accepting an unvalidated body: it reads the file statically and saw ``router.post(`/${r.path}`)`` with a validator it could not resolve. The validators were there — that is not the point. The gate exists because SEC H3 found request-body keys reaching `insertOne`/`updateOne` as column identifiers, and a gate that cannot see a route cannot vouch for it. | **Fixed** — routes unrolled, explicit and machine-readable. |
+| F-9 | **`applySiteTheme` would have white-screened the site.** The module caught a *rejected* fetch and called that "failure is silent". It did not cover a fetch that **succeeds and returns something else** — an older server, a proxy error page as JSON, a cache entry from a previous version. Those went straight into `Object.entries(payload.light)`. Eleven unhandled rejections across the public-web suite. On a client-rendered marketing page a boot-time throw is a blank screen, caused by something purely cosmetic. | **Fixed** — shape checked at every entry point (network, cache, apply), with a test pinning all three. |
+| F-10 | **`migrations/seeds/*.sql` run for EVERY tenant.** §6.10 specified seeding Smart Logistics' founding year, headquarters, named chief executive and mission there. That would publish one company's facts onto the About page of every tenant this product provisions — the worst failure mode a white-label product has, and precisely what N12 forbids. 9085 already draws this line: it seeds the home page as generic scaffolding, unpublished, with no claim in it. | **Fixed** — `scripts/tenant/seed-site-experience.js --slug --profile`, with the content as JSON data. Idempotent; verified by seeding twice against a live database. |
+| F-11 | **PR 1's F-5 is closed.** `public-web` self-hosts four of the ERP's seventeen families, so a tenant could pick a face the site cannot render — a stack naming a family no `@font-face` declares, falling silently through. | **Fixed** — `packages/shared/design/site-fonts.js` restricts the website picker, the API refuses the rest with a reason, and `tests/unit/site-fonts-match-stylesheet.test.js` pins the registry against the stylesheet **in both directions**. |
+
+| F-12 | **`npm run ci` gave a false green, and the reason generalises.** `scripts/check-fonts.mjs` enumerated with a bare `git ls-files`, which lists only **tracked** files. Every new file on a branch was therefore invisible to it — and a new file is exactly what a new font name arrives in. The local run reported "Font gate … ok" on a working tree whose uncommitted service named a family outside the library; CI caught it one commit later, once the file was tracked. `check-schemas.mjs` already enumerates correctly (`--cached --others --exclude-standard`); this one did not. | **Fixed**, and proved both ways: with the old code an untracked violation exits 0, with the fix it exits 1. **Worth a sweep** — any other gate using a bare `git ls-files` has the same hole, and the failure mode is silence on exactly the change being checked. |
+| F-13 | **The gate cannot tell a font ID from a font family, and it is not wrong to complain.** `site_theme.font_display/body/mono` store **ids** (`"jetbrains-mono"`), whereas `setting` section='appearance' stores **stacks** (`'"JetBrains Mono Variable", …'`). The gate's `SETTING_RE` matches the column names and reads the id as an unlicensed family. | **Fixed** by removing the literal: the service reads `SITE_FONT_DEFAULTS` from the registry, which is where the defaults belonged anyway. The two column families holding different contracts under similar names is worth remembering. |
+
+**How this was verified.**
+
+A real PostgreSQL 16 was stood up and **all 309 tenant migrations replayed in
+order** — 300 applied; the 9 failures were the `pgvector` chain, absent from the
+sandbox and unrelated to this work. Against that database:
+
+- Every constraint was exercised for both acceptance and rejection. Three
+  apparent passes turned out to be `UPDATE`s against empty tables checking
+  nothing; re-run with real rows, two were genuine and one (F-7) was a bug.
+- `ON DELETE CASCADE` verified: deleting an entity removed its leaders and left
+  the two group-level leaders untouched.
+- The seed script was run **twice** — 1 leader, 5 partners, **0 active**, ESG and
+  timeline populated.
+- The public reads were called against that seeded data: the palette derived
+  (orange stepping 3.13 → 4.53 on light), the About story complete, and partners
+  and entities both correctly publishing **nothing** — no clearance recorded, no
+  entity enabled.
+
+`npm run ci`: **38/38**. CI on #324: **9/9 green** — including `migrations`,
+which replayed all nine migrations against CI's own Postgres, and `build-test`,
+which is the job the font-gate blind spot (F-12) had failed. First paint
+117.3 → **117.5 kB** (92% of budget) — D-1 is closed and the palette now
+arrives derived from the server.
+
+**Notes for later PRs.**
+
+- **PR 3 is blocked on §6.4's public read** for its homepage announcements band.
+  Build the endpoint and the pin control first; the schema is already there.
+- **Anything rendering a logo or portrait is blocked on §6.3.**
+- `publicAbout` re-asserts the group tier in JS as well as in SQL. Deliberate:
+  the guarantee "the group's About never shows a subsidiary's country manager"
+  should be visible where it matters, not only inside a SQL string.
+- The redaction tests assert on the **serialised body**, not on object keys. Keep
+  that shape: a key check passes forever and protects nothing.
 
 ### 3.1 Open items carried into the build
 
