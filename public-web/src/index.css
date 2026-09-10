@@ -624,6 +624,101 @@
     letter-spacing: var(--brand-tracking-display);
   }
 
+  /* ── The hero's light, and why it cannot break the scrim's floor ──────────
+   *
+   * `hero.tsx` records the measurement this band is built on: against the worst
+   * case a tenant can upload — a blown-out, NEAR-WHITE photograph — the minimum
+   * scrim opacity is α ≥ 0.48 for the headline, ≥ 0.82 for the sub-line and
+   * ≥ 0.87 for the eyebrow, which binds. Guide §7.1 requires those numbers to
+   * survive any new treatment, so the two-layer scrim is untouched.
+   *
+   * `usePointerLight` then drives a layer UNDERNEATH it (`.hero-light`), which
+   * lightens the photograph toward the pointer. That is safe BY CONSTRUCTION
+   * and not by luck: the floors were derived against white, lightening cannot
+   * take an image past white, so the copy's contrast against scrim-over-image
+   * is bounded below by exactly the case that was measured. A light layer ABOVE
+   * the scrim would have no such guarantee, which is why it is not there.
+   *
+   * `--lx`/`--ly` rest at 0.5 (declared in the token block), so before any
+   * pointer input — and under reduced motion, where the hook attaches nothing —
+   * this is a centred, static glow. A designed state, not a broken one. */
+  .hero-light {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      42% 58% at calc(var(--lx) * 100%) calc(var(--ly) * 100%),
+      color-mix(in srgb, white 26%, transparent) 0%,
+      color-mix(in srgb, white 9%, transparent) 45%,
+      transparent 100%
+    );
+    /* The pointer moves this every frame via a custom property, so the paint is
+       the only work; there is no transition to fight it. Under reduced motion
+       nothing writes the properties at all and this is simply a still glow. */
+    mix-blend-mode: screen;
+  }
+
+  /* Type that catches the light — the §5.3 model applied to a headline.
+   *
+   * The shadow falls AWAY from the light source, which is the whole physical
+   * claim: light at `--lx`/`--ly`, shadow opposite. It is a DARK shadow under
+   * light type on a carbon ground, so it adds separation between the copy and
+   * whatever photograph is behind it — this raises the measured contrast rather
+   * than spending any of it, which is the only kind of effect this band can
+   * afford on its copy. */
+  .hero-lit {
+    text-shadow:
+      calc((0.5 - var(--lx)) * 10px) calc((0.5 - var(--ly)) * 8px) 24px
+        rgb(0 0 0 / 0.42),
+      0 1px 2px rgb(0 0 0 / 0.3);
+  }
+
+  /* ── Depth rung 2: real 3D, shared by the hero plate and the service cards ─
+   *
+   * §7.1 asks the hero for rungs 2 AND 4 — CSS 3D and canvas. The canvas is the
+   * route network; this is the 3D. It is a real `perspective` on the stage and a
+   * real rotation on the plate, not a `translate` pretending: a plate that turns
+   * toward the light has a near edge and a far edge, and that is the difference
+   * between an object in a room and a rectangle with a shadow.
+   *
+   * THE ANGLES ARE TINY ON PURPOSE. Three degrees and two. The track widget is
+   * the functional object on this page — half the audience came to type a
+   * reference into it — and a card that swings under the pointer is a card
+   * whose input is harder to hit. The effect has to be felt at the edge of
+   * attention, not watched.
+   *
+   * AND IT STOPS DEAD WHEN SOMEBODY IS USING IT. `:focus-within` returns the
+   * plate to flat: a field that moves while you are typing in it is worse than
+   * no effect at all, and this is the one place on the site where that risk is
+   * real. Nothing here is load-bearing, so losing it costs nothing.
+   *
+   * Under reduced motion `--lx`/`--ly` are never written and rest at 0.5, so
+   * both rotations evaluate to 0deg — flat, settled, no rule needed.
+   *
+   * NAMED `.tilt-*` RATHER THAN `.hero-*` FOR TWO REASONS. It is reused by the
+   * services band (§7.3), which needs the same real perspective; and
+   * `check-motion.mjs` holds anything matching `^\.hero` to the NARRATIVE
+   * budget, which would be the wrong classification for this. A pointer
+   * response is a response — 200ms, the tighter number — and taking the looser
+   * budget by accident of a class name is how a gate stops meaning anything. */
+  .tilt-stage {
+    perspective: 1400px;
+  }
+
+  .tilt-plate {
+    transform-style: preserve-3d;
+    transform: rotateY(calc((var(--lx) - 0.5) * -3deg))
+      rotateX(calc((var(--ly) - 0.5) * 2deg));
+    /* Damping, not choreography. The properties are rewritten every frame by
+       the pointer, so this smooths a jittery cursor into a glide. Inside the
+       200ms response budget because that is what it is: a response. */
+    transition: transform var(--dur-response) var(--ease-standard);
+  }
+
+  .tilt-plate:focus-within {
+    transform: none;
+  }
+
   .section-title {
     font-family: var(--font-display);
     font-weight: 600;

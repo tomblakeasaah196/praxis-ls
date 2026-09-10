@@ -38,6 +38,7 @@ export function SectionHead({
   align = "left",
   onDark = false,
   titleClass,
+  titleWrapper,
   as: Tag = "h2",
   className,
 }: {
@@ -52,6 +53,20 @@ export function SectionHead({
   onDark?: boolean;
   /** `hero-title` in a hero, `section-title` in a band. */
   titleClass?: string;
+  /**
+   * Wrap the heading's CONTENTS — title and accent together — in something.
+   *
+   * The hero (§7.1) needs its headline inside `<WeightScrub>`, whose weight
+   * response has to cover the accent word too or half the line thickens and
+   * half does not. The alternative was for the hero to build its own `<h1>`,
+   * which is how this component came to exist: the file's own header records
+   * that two implementations of one heading block is the fault a reviewer is
+   * told to catch. An extension point is one implementation; a copy is two.
+   *
+   * It wraps the contents rather than replacing the tag, so the heading level,
+   * the accessible name and the `onDark` colour rules are unaffected.
+   */
+  titleWrapper?: (children: React.ReactNode) => React.ReactNode;
   as?: "h1" | "h2" | "h3";
   className?: string;
 }) {
@@ -84,12 +99,16 @@ export function SectionHead({
             onDark && "text-[var(--hero-foreground)]",
           )}
         >
-          {title}
-          {accent && (
+          {(titleWrapper || ((x: React.ReactNode) => x))(
             <>
-              {" "}
-              <span className="text-[rgb(var(--brand-orange))]">{accent}</span>
-            </>
+              {title}
+              {accent && (
+                <>
+                  {" "}
+                  <span className="text-[rgb(var(--brand-orange))]">{accent}</span>
+                </>
+              )}
+            </>,
           )}
         </Tag>
       )}
