@@ -279,6 +279,93 @@ const socialSet = z.object(
   Object.fromEntries(SOCIAL_IDS.map((id) => [id, z.string().trim().max(500).optional()])),
 );
 
+/* ── website media ──────────────────────────────────────────────────────────*/
+
+/**
+ * The four slots a tenant can put an image into, and the vault role each one
+ * writes.
+ *
+ * SHARED rather than server-side, because the upload control needs the same
+ * list to decide which slots it may offer and what to say about each BEFORE the
+ * file dialog opens (§6.3: "a tenant who learns the constraint after a rejected
+ * upload uploads something wrong twice"). A second copy in the client would be
+ * a second copy of the §1.3 rule, which is the one thing this list exists to
+ * carry.
+ *
+ * `evidence` is §1.3's line. Every slot here is one where a photoreal image
+ * sits beside a factual claim — a named person, a named company, a named legal
+ * entity — so a reasonable visitor reads the picture as evidence for the claim.
+ * That is why `generated` is refused for all four, and why the ATMOSPHERE role
+ * 13788 declares has no slot in this table: nothing on the site renders an
+ * ownerless atmosphere image today, and a slot with no renderer is a plan.
+ *
+ * `transparent` marks the two slots that sit on a dark band. O-3 is the open
+ * item: the supplied logos are screen-resolution rasters with white backgrounds
+ * baked in, and "a white rectangle on a dark band is worse than an absent logo"
+ * (§9.4). The upload refuses a fully-opaque mark for that reason — see
+ * `site_settings.media.js`.
+ */
+const SITE_MEDIA_SLOTS = {
+  "leader-portrait": {
+    role: "LEADER",
+    evidence: true,
+    transparent: false,
+    maxBytes: 6 * 1024 * 1024,
+    minWidth: 600,
+    aspect: "1:1",
+  },
+  "partner-mark": {
+    role: "PARTNER",
+    evidence: true,
+    transparent: true,
+    maxBytes: 2 * 1024 * 1024,
+    minWidth: 320,
+    aspect: "3:2",
+  },
+  "credential-mark": {
+    role: "CREDENTIAL",
+    evidence: true,
+    transparent: true,
+    maxBytes: 2 * 1024 * 1024,
+    minWidth: 320,
+    aspect: "3:2",
+  },
+  "entity-cover": {
+    role: "COVER",
+    evidence: true,
+    transparent: false,
+    maxBytes: 8 * 1024 * 1024,
+    minWidth: 1200,
+    aspect: "16:9",
+  },
+};
+
+const SITE_MEDIA_SLOT_IDS = Object.keys(SITE_MEDIA_SLOTS);
+
+/** Guide §1.3's three values. `generated` is accepted by the schema and refused
+ *  by every slot above — deliberately, so the refusal carries the REASON rather
+ *  than reading as "not a valid provenance", which it is. */
+const SITE_MEDIA_PROVENANCE = ["owned", "licensed", "generated"];
+
+/**
+ * One image, uploaded into one slot.
+ *
+ * The cap is well above every slot's own `maxBytes` so an oversized file is
+ * refused by the slot — with the slot's number in the message — rather than
+ * here with a message about the length of a string. `original_name` is carried
+ * for the vault's records and never used to build a path: the storage key is
+ * derived from the document id.
+ */
+const siteMediaUpload = z
+  .object({
+    slot: z.enum(SITE_MEDIA_SLOT_IDS),
+    owner_id: z.string().uuid(),
+    provenance: z.enum(SITE_MEDIA_PROVENANCE),
+    data_url: z.string().min(1).max(14_000_000),
+    original_name: z.string().trim().max(200).optional(),
+  })
+  .strict();
+
 exports.socialSet = socialSet;
 exports.theme = theme;
 exports.socialLink = socialLink;
@@ -288,3 +375,7 @@ exports.about = about;
 exports.leader = leader;
 exports.entityPublicStory = entityPublicStory;
 exports.HEX = HEX;
+exports.siteMediaUpload = siteMediaUpload;
+exports.SITE_MEDIA_SLOTS = SITE_MEDIA_SLOTS;
+exports.SITE_MEDIA_SLOT_IDS = SITE_MEDIA_SLOT_IDS;
+exports.SITE_MEDIA_PROVENANCE = SITE_MEDIA_PROVENANCE;
