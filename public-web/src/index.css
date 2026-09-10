@@ -85,14 +85,30 @@
     --primary-ink-light: #c74600;
     --primary-ink-dark: #ff5a00;
 
-    /* Text ON the brand fill — referenced by `--primary-foreground` since that
-       token was written, and never defined, so `.btn-primary`'s colour and the
-       selected tile's glyph both resolved to nothing and inherited whatever the
-       surface gave them. White, because that is what a filled brand button in
-       this product has always looked like; it is a FILL foreground, judged
-       against the orange behind it, not body text on a page. A tenant whose
-       brand fill is pale needs to override this rather than inherit it. */
-    --brand-on-orange: #ffffff;
+    /* `--brand-on-orange` IS NOT REDEFINED HERE, AND THAT IS THE FIX.
+       ─────────────────────────────────────────────────────────────────────
+       It used to be, to `#ffffff`, with a comment arguing that a filled brand
+       button "has always looked like" that and is "a FILL foreground … not
+       body text on a page". Three things disagreed with it, and they were all
+       right:
+
+         · the comment EIGHT LINES ABOVE, in this same file: "Text on an orange
+           FILL is carbon, not white (white on #FF5A00 is 3.13:1)";
+         · `@praxis/brand/tokens.css`, imported at the top of this file, which
+           defines it as `#0a0a0a`;
+         · `packages/shared/design/palette.js`, which DERIVES `#0a0a0a` for this
+           pair on every tenant — so the moment the theme read landed the button
+           changed colour anyway, and the local value was only ever what a
+           visitor saw before it did. On the LCP path.
+
+       Measured: white on #FF5A00 is 3.13:1 against the 4.5:1 AA needs for
+       16px text. Carbon is 6.33:1. §1.2 rule 2 admits no exception, and
+       `client/` and `platform-console/` never carried this override — this app,
+       the one a stranger judges the tenant by, was the only one failing.
+
+       Caught by Lighthouse against the built page. `check:contrast`, which §5.6
+       asked PR 1 to port here and which computes exactly this, is still not
+       ported — see F-14. */
     --primary-ink: var(--primary-ink-light);
 
     /* The dark band a hero and the footer are painted on — brand carbon, and
@@ -294,6 +310,13 @@
        renders correctly before any input and under reduced motion. */
     --lx: 0.5;
     --ly: 0.5;
+
+    /* Proximity, written by useProximity. ZERO at rest, and that is what makes
+       the settled state settled: every transform that reads it multiplies by
+       it, so with no pointer on the page — and under reduced motion, where the
+       hook attaches nothing — the whole composition is flat. A resting value of
+       0.5 here would leave a grid of cards permanently askew. */
+    --near: 0;
 
     /* A band's vertical rhythm, as a TOKEN rather than only as a Tailwind
        spacing value, because one thing on the page has to measure against it:
@@ -559,6 +582,392 @@
     color: var(--primary-ink);
   }
 
+  /* ── The how-we-work sequence (§7.4) ────────────────────────────────────
+   *
+   * A rail that fills as the reader scrolls, and three stages that arrive on
+   * it. `--scrub` is written on the list by `useScrollScrub`; `--at` is written
+   * on each stage as its position along that scrub. The comparison between them
+   * is done in CSS, so adding a fourth stage needs no JavaScript to know about
+   * it.
+   *
+   * ── HOW A STAGE KNOWS IT HAS ARRIVED, WITHOUT A MEDIA QUERY OR A CLASS ──
+   *
+   * `clamp((var(--scrub) - var(--at)) * 8, 0, 1)` is a step function with a
+   * soft edge: zero until the scrub reaches the stage, one shortly after. It
+   * drives opacity and a small rise together, so a stage fades UP into place
+   * rather than simply appearing.
+   *
+   * The ×8 is the softness. Larger and the stages snap, which reads as a bug;
+   * smaller and all three are permanently half-lit, which reads as low
+   * contrast — and it would be, because the body copy underneath is real text
+   * that has to meet AA. Which is why the copy's own opacity floor is 1: only
+   * the DECORATION fades. A stage's heading and sentence are fully opaque from
+   * the moment they render, at every scroll position, in every state.
+   *
+   * Under reduced motion `useScrollScrub` sets `--scrub` to 1 once and attaches
+   * nothing: every stage is arrived, the rail is full, and the band is the
+   * finished diagram. */
+  .stage-seq {
+    display: grid;
+    gap: 0;
+  }
+
+  .stage-item {
+    --arrived: clamp((var(--scrub, 1) - var(--at, 0)) * 8, 0, 1);
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: 0 1.25rem;
+    padding-bottom: 2.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .stage-item {
+      grid-template-columns: 2rem minmax(0, 1.1fr) minmax(0, 0.9fr);
+      align-items: start;
+      gap: 0 2rem;
+    }
+  }
+
+  /* The rail. A full-height hairline with the lit portion drawn over it, so the
+     track is always visible and the fill is what moves. */
+  .stage-rail {
+    position: relative;
+    justify-self: center;
+    width: 1px;
+    min-height: 100%;
+    background: var(--border);
+  }
+  .stage-item:last-child .stage-rail {
+    /* The rail stops at the last dot rather than running into the band's
+       padding — a line that continues past the final stage promises a fourth. */
+    background: linear-gradient(var(--border) 0 1.25rem, transparent 1.25rem);
+  }
+
+  .stage-dot {
+    position: absolute;
+    top: 0.9rem;
+    left: 50%;
+    width: 9px;
+    height: 9px;
+    margin-left: -4.5px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    /* Fills with the tenant's primary as its stage arrives. The border stays,
+       so an unarrived dot is still a visible marker rather than a gap. */
+    box-shadow: inset 0 0 0 4px
+      color-mix(in srgb, var(--primary) calc(var(--arrived) * 100%), transparent);
+  }
+
+  /* The copy is NEVER faded — see the note above. This carries the rise only,
+     which is decoration and which the reduced-motion umbrella neutralises. */
+  .stage-body {
+    transform: translateY(calc((1 - var(--arrived)) * 6px));
+  }
+
+  .stage-figure {
+    grid-column: 2;
+    margin-top: 1rem;
+    max-width: 20rem;
+    color: var(--foreground);
+    opacity: calc(0.25 + var(--arrived) * 0.75);
+  }
+
+  @media (min-width: 768px) {
+    .stage-figure {
+      grid-column: 3;
+      grid-row: 1;
+      margin-top: 0;
+    }
+  }
+
+  /* The one moving element inside a diagram: the flow line that draws itself as
+     its stage arrives. `pathLength` is not set, so the dash values are in user
+     units and generous enough to cover the longest path in the set. */
+  .stage-flow {
+    stroke-dasharray: 120;
+    stroke-dashoffset: calc(120 - var(--arrived) * 120);
+  }
+
+  /* ── The corridor set piece (§7.5) ──────────────────────────────────────
+   *
+   * The BASELINE's depth, which is rung 3: layers that parallax by different
+   * amounts from the one `--lx`/`--ly` contract the hero established. The ring
+   * moves least, the nodes more, the readout most — which is what puts them in
+   * front of each other without a single z-index.
+   *
+   * `--depth` is set per layer in the component and multiplied here, so one
+   * rule serves every layer and the numbers that decide the composition live
+   * beside the markup they compose.
+   *
+   * A WebGL canvas may be mounted over this later. It is absolutely positioned
+   * on the stage and the SVG stays exactly where it is underneath — if the
+   * canvas never arrives, or arrives and fails, there is nothing to reveal and
+   * nothing to hide. */
+  .corridor-band {
+    background: var(--hero);
+    color: var(--hero-foreground);
+  }
+
+  /* THE EYEBROW ON A DARK BAND, AND A MEASURED CONTRAST FAILURE THAT WAS REAL.
+   *
+   * `.micro` carries the light-theme muted ink. On this band's carbon ground
+   * that measures 3.37:1 at 11px — a WCAG AA failure on text, and §1.2 rule 2
+   * admits no exception. It was caught by Lighthouse against the built page,
+   * not by eye: at 11px in a dim grey it looks like a deliberate whisper right
+   * up until it is measured.
+   *
+   * The fix is the swap the hero eyebrow and the announcements band already
+   * make, and `hero.tsx` records why it is a property of the colour rather than
+   * an oversight: `--primary-ink` is the AA-corrected orange for type on WHITE
+   * and measures about 3.4:1 here, while the brand fill itself measures 6.33:1
+   * on carbon. A dark band uses the FILL as text; the ink step-down exists to
+   * make that unnecessary on light grounds. */
+  .corridor-band .micro {
+    color: rgb(var(--brand-orange));
+  }
+
+  /* The height the Suspense fallback holds while the set piece's chunk is in
+     flight. Matched to the band's own minimum so the real scene replaces it
+     without moving anything below. */
+  .corridor-reserve {
+    min-height: 40rem;
+  }
+
+  .corridor-stage {
+    position: relative;
+    margin-inline: auto;
+    max-width: 46rem;
+  }
+
+  .corridor-layer {
+    transform: translate(
+      calc((var(--lx) - 0.5) * var(--depth, 8) * 1px),
+      calc((var(--ly) - 0.5) * var(--depth, 8) * 1px)
+    );
+    transition: transform var(--dur-response) var(--ease-standard);
+  }
+
+  .corridor-ring {
+    stroke: color-mix(in srgb, var(--hero-foreground) 16%, transparent);
+  }
+
+  /* The lit edge, from the site's one light source: top-left at 60°. A ring
+     that is uniformly bright is a circle; one that catches light at the top
+     left is an object. */
+  .corridor-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      50% 50% at 32% 26%,
+      color-mix(in srgb, var(--hero-foreground) 8%, transparent) 0%,
+      transparent 70%
+    );
+  }
+
+  .corridor-node-dot {
+    fill: rgb(var(--brand-orange));
+  }
+
+  .corridor-node-halo {
+    fill: none;
+    stroke: rgb(var(--brand-orange));
+    stroke-opacity: 0;
+    stroke-width: 0.75;
+    transition:
+      stroke-opacity var(--dur-response) var(--ease-standard),
+      r var(--dur-response) var(--ease-standard);
+  }
+
+  .corridor-node.is-active .corridor-node-halo {
+    stroke-opacity: 0.75;
+  }
+
+  /* Focus is drawn on the halo rather than as an outline: an SVG outline is
+     clipped by the viewBox at these coordinates and simply does not appear on
+     the outermost nodes, which is the worst possible place for a focus ring to
+     go missing. */
+  .corridor-node:focus {
+    outline: none;
+  }
+  .corridor-node:focus-visible .corridor-node-halo {
+    stroke-opacity: 1;
+    stroke-width: 1.5;
+  }
+  /* The group's own stop, when focus is on the figure rather than a node. */
+  .corridor-svg:focus-visible {
+    outline: 2px solid rgb(var(--brand-orange));
+    outline-offset: 4px;
+    border-radius: var(--radius);
+  }
+
+  /* Under reduced motion the layers do not parallax — `--lx`/`--ly` are never
+     written and rest at 0.5, so every translate evaluates to 0. This is here to
+     say so out loud, and to drop the transitions the umbrella would otherwise
+     have to neutralise one by one. */
+  .corridor-stage.is-still .corridor-layer {
+    transform: none;
+    transition: none;
+  }
+
+  /* The gyroscope opt-in. A real button, on the hero ground, sized for a
+     thumb — this only ever appears on a phone. */
+  .corridor-tilt {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgb(var(--brand-orange));
+    border: 1px solid color-mix(in srgb, var(--hero-foreground) 20%, transparent);
+    border-radius: calc(var(--radius) - 2px);
+    padding: 0.625rem 1rem;
+    min-height: 44px;
+  }
+
+  /* A place the tenant is IN. A ring, not a colour: colour on this scene means
+     transport mode, and a fifth meaning for it would make the palette stop
+     meaning anything. */
+  .corridor-node-present {
+    fill: none;
+    stroke: var(--hero-foreground);
+    stroke-opacity: 0.75;
+    stroke-width: 0.75;
+  }
+
+  .corridor-readout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    min-height: 1.75rem;
+  }
+
+  .corridor-readout-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: var(--brand-tracking-display);
+    color: var(--hero-foreground);
+  }
+
+  .corridor-readout-present {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--brand-orange));
+  }
+
+  .corridor-readout-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8125rem;
+    color: var(--hero-muted);
+  }
+
+  /* ── The announcements band (§7.2) ──────────────────────────────────────
+   *
+   * It sits directly under the hero, on the hero's own ground, so the two read
+   * as one plate rather than as a band and a stripe. That is the same decision
+   * the proof strip below makes and for the same reason: ONE dark region at the
+   * top of the page, punctuated, not striped.
+   *
+   * The track is a REAL SCROLLER, not a transform — see announcements-band.tsx
+   * for why that is the accessible choice. So it needs the things a scroller
+   * needs and a marquee does not: scroll-snap so a drifting band comes to rest
+   * on a card rather than mid-sentence, and a hidden scrollbar, because a
+   * decorative drift with a visible bar reads as a broken widget.
+   *
+   * `scroll-behavior` is deliberately NOT smooth here: the drift writes
+   * `scrollLeft` every frame and smooth scrolling would fight it. The one place
+   * smoothness is wanted — the wrap back to the start — asks for it explicitly.
+   */
+  .announce-band {
+    background: var(--hero);
+    color: var(--hero-foreground);
+    border-top: 1px solid color-mix(in srgb, var(--hero-foreground) 12%, transparent);
+  }
+
+  .announce-band .micro {
+    color: rgb(var(--brand-orange));
+  }
+
+  .announce-rule {
+    width: 2.5rem;
+    height: 1px;
+    background: color-mix(in srgb, var(--hero-foreground) 28%, transparent);
+  }
+
+  .announce-track {
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .announce-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .announce-item {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+    max-width: 22rem;
+  }
+
+  .announce-link {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid color-mix(in srgb, var(--hero-foreground) 14%, transparent);
+    background: color-mix(in srgb, var(--hero-foreground) 5%, transparent);
+    transition:
+      background-color var(--dur-response) var(--ease-standard),
+      border-color var(--dur-response) var(--ease-standard);
+  }
+  @media (hover: hover) {
+    a.announce-link:hover {
+      background: color-mix(in srgb, var(--hero-foreground) 10%, transparent);
+      border-color: color-mix(in srgb, var(--hero-foreground) 26%, transparent);
+    }
+  }
+
+  .announce-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--hero-foreground);
+  }
+
+  /* The excerpt is a second voice, and it is clipped rather than wrapped: a
+     band whose items are two lines tall on one card and one on the next reads
+     as a layout fault. The headline is never clipped — the notice is the
+     headline. */
+  .announce-excerpt {
+    font-size: 0.8125rem;
+    color: var(--hero-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 14rem;
+  }
+
+  /* On the hero's carbon the AA-corrected ink measures about 3.4:1 while the
+     brand fill measures 6.33:1 — the asymmetry hero.tsx records. Same swap the
+     eyebrow and the portal band make. */
+  .announce-more {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgb(var(--brand-orange));
+  }
+  .announce-more:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
   /* ── The proof strip ───────────────────────────────────────────────────
      Figures under the hero, on the hero's own ground. Every value here is a
      token: the strip inherits a tenant's re-brand along with the band it sits
@@ -622,6 +1031,129 @@
     font-size: clamp(2.25rem, 5.4vw, 4.25rem);
     line-height: 1.02;
     letter-spacing: var(--brand-tracking-display);
+  }
+
+  /* ── The hero's light, and why it cannot break the scrim's floor ──────────
+   *
+   * `hero.tsx` records the measurement this band is built on: against the worst
+   * case a tenant can upload — a blown-out, NEAR-WHITE photograph — the minimum
+   * scrim opacity is α ≥ 0.48 for the headline, ≥ 0.82 for the sub-line and
+   * ≥ 0.87 for the eyebrow, which binds. Guide §7.1 requires those numbers to
+   * survive any new treatment, so the two-layer scrim is untouched.
+   *
+   * `usePointerLight` then drives a layer UNDERNEATH it (`.hero-light`), which
+   * lightens the photograph toward the pointer. That is safe BY CONSTRUCTION
+   * and not by luck: the floors were derived against white, lightening cannot
+   * take an image past white, so the copy's contrast against scrim-over-image
+   * is bounded below by exactly the case that was measured. A light layer ABOVE
+   * the scrim would have no such guarantee, which is why it is not there.
+   *
+   * `--lx`/`--ly` rest at 0.5 (declared in the token block), so before any
+   * pointer input — and under reduced motion, where the hook attaches nothing —
+   * this is a centred, static glow. A designed state, not a broken one. */
+  .hero-light {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      42% 58% at calc(var(--lx) * 100%) calc(var(--ly) * 100%),
+      color-mix(in srgb, white 26%, transparent) 0%,
+      color-mix(in srgb, white 9%, transparent) 45%,
+      transparent 100%
+    );
+    /* The pointer moves this every frame via a custom property, so the paint is
+       the only work; there is no transition to fight it. Under reduced motion
+       nothing writes the properties at all and this is simply a still glow. */
+    mix-blend-mode: screen;
+  }
+
+  /* Type that catches the light — the §5.3 model applied to a headline.
+   *
+   * The shadow falls AWAY from the light source, which is the whole physical
+   * claim: light at `--lx`/`--ly`, shadow opposite. It is a DARK shadow under
+   * light type on a carbon ground, so it adds separation between the copy and
+   * whatever photograph is behind it — this raises the measured contrast rather
+   * than spending any of it, which is the only kind of effect this band can
+   * afford on its copy. */
+  .hero-lit {
+    text-shadow:
+      calc((0.5 - var(--lx)) * 10px) calc((0.5 - var(--ly)) * 8px) 24px
+        rgb(0 0 0 / 0.42),
+      0 1px 2px rgb(0 0 0 / 0.3);
+  }
+
+  /* ── Depth rung 2: real 3D, shared by the hero plate and the service cards ─
+   *
+   * §7.1 asks the hero for rungs 2 AND 4 — CSS 3D and canvas. The canvas is the
+   * route network; this is the 3D. It is a real `perspective` on the stage and a
+   * real rotation on the plate, not a `translate` pretending: a plate that turns
+   * toward the light has a near edge and a far edge, and that is the difference
+   * between an object in a room and a rectangle with a shadow.
+   *
+   * THE ANGLES ARE TINY ON PURPOSE. Three degrees and two. The track widget is
+   * the functional object on this page — half the audience came to type a
+   * reference into it — and a card that swings under the pointer is a card
+   * whose input is harder to hit. The effect has to be felt at the edge of
+   * attention, not watched.
+   *
+   * AND IT STOPS DEAD WHEN SOMEBODY IS USING IT. `:focus-within` returns the
+   * plate to flat: a field that moves while you are typing in it is worse than
+   * no effect at all, and this is the one place on the site where that risk is
+   * real. Nothing here is load-bearing, so losing it costs nothing.
+   *
+   * Under reduced motion `--lx`/`--ly` are never written and rest at 0.5, so
+   * both rotations evaluate to 0deg — flat, settled, no rule needed.
+   *
+   * NAMED `.tilt-*` RATHER THAN `.hero-*` FOR TWO REASONS. It is reused by the
+   * services band (§7.3), which needs the same real perspective; and
+   * `check-motion.mjs` holds anything matching `^\.hero` to the NARRATIVE
+   * budget, which would be the wrong classification for this. A pointer
+   * response is a response — 200ms, the tighter number — and taking the looser
+   * budget by accident of a class name is how a gate stops meaning anything. */
+  .tilt-stage {
+    perspective: 1400px;
+  }
+
+  .tilt-plate {
+    transform-style: preserve-3d;
+    transform: rotateY(calc((var(--lx) - 0.5) * -3deg))
+      rotateX(calc((var(--ly) - 0.5) * 2deg));
+    /* Damping, not choreography. The properties are rewritten every frame by
+       the pointer, so this smooths a jittery cursor into a glide. Inside the
+       200ms response budget because that is what it is: a response. */
+    transition: transform var(--dur-response) var(--ease-standard);
+  }
+
+  .tilt-plate:focus-within {
+    transform: none;
+  }
+
+  /* ── A card that turns toward the pointer (§7.3) ─────────────────────────
+   *
+   * Hover is binary and it is LATE — by the time it fires the reader has
+   * already committed. Turning toward attention as it approaches is what makes
+   * a grid feel like it noticed you, and it is most of the difference between a
+   * page that is alive and a document with `:hover` rules.
+   *
+   * THE ARITHMETIC. `--cx` is the card's own centre across the grid, written
+   * once as an inline style; `--lx` is where the pointer is, 0…1 across the same
+   * grid; `--near` is how close the pointer is to the grid at all, and it is
+   * ZERO at rest. So the rotation is (pointer − card) × proximity × 9°: each
+   * card turns toward the cursor, the ones nearest turn most, and with no
+   * pointer anywhere the whole row is flat. One listener on the grid drives all
+   * four cards, rather than four hooks each adding their own.
+   *
+   * WHY NOT A LIFT AS WELL. `.lift` already raises a card on hover and on
+   * focus-within, and it is the affordance that means "this is a link". Adding
+   * a second, continuous lift would make a card that is merely NEAR the pointer
+   * look as pressable as the one under it — and §7.3's rule is that the tenant's
+   * primary is the only thing on this page that looks clickable. */
+  .tilt-card {
+    transform-style: preserve-3d;
+    transform: rotateY(
+      calc((var(--lx) - var(--cx, 0.5)) * var(--near) * 9deg)
+    );
+    transition: transform var(--dur-response) var(--ease-standard);
   }
 
   .section-title {
@@ -1229,6 +1761,20 @@
   .staged-word.is-in {
     opacity: 1;
     transform: translateY(0);
+  }
+
+  /* THE LCP VARIANT. Painted from the first frame; only the rise is staggered.
+   *
+   * Text at `opacity: 0` is not painted, and Largest Contentful Paint measures
+   * when the largest element IS painted — so a headline that fades in delays
+   * LCP by its own entrance. On the hero that measured +691 ms against `main`,
+   * for an animation that fires immediately anyway because the hero is always
+   * in view at load. `type.tsx` carries the full note.
+   *
+   * The stagger survives: the words still arrive one after another. They are
+   * legible while they do it. */
+  .staged-word-lit {
+    opacity: 1;
   }
 
   /* Reduced motion renders the settled state, not a faster arrival. The global

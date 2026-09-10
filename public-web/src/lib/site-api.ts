@@ -244,3 +244,53 @@ export const statChips = (page: SitePage | null): StatChip[] =>
   itemsOf(page, "stat_chips").filter(
     (i): i is StatChip => !!i && typeof i === "object",
   );
+
+/* ── public-enabled entities (§6.9) ────────────────────────────────────────
+ *
+ * PR 5 (§9.2) renders these as a network in their own right. PR 3 needs one
+ * field from them: `coverage`, which is the list of countries each entity
+ * actually operates in.
+ *
+ * WHY THE SET PIECE READS IT. §7.5 says the scene's data comes from
+ * `listCorridors` AND this endpoint, and the two answer different questions: a
+ * corridor is a lane the tenant has RUN, an entity's coverage is ground the
+ * tenant STANDS ON. A network drawing that cannot tell "we deliver here" from
+ * "we are here" is missing the distinction a visitor most wants.
+ *
+ * The join is on `country_code` and nothing else — an exact code-to-code match,
+ * both sides of it authored by the tenant. Matching an entity's ADDRESS against
+ * a corridor's place NAME was the other option and it is inference: "Douala"
+ * against "Douala, Littoral, Cameroun" works until the first tenant who writes
+ * it differently, and a marketing page that quietly mislabels where a company
+ * is, is exactly what N12 exists to prevent.
+ */
+export type PublicEntity = {
+  id: string;
+  code: string | null;
+  legal_name: string;
+  trading_name: string | null;
+  country_code: string | null;
+  /** `[{country_code, label_fr, label_en}]` — migration 13787. */
+  coverage: Array<{ country_code?: string | null }>;
+};
+
+export const listPublicEntities = (opts: { signal?: AbortSignal } = {}) =>
+  publicGet<PublicEntity[]>("/public/site/entities", { signal: opts.signal });
+
+/**
+ * Every ISO country code the tenant's public entities sit in or cover, upper-cased.
+ *
+ * Empty for a tenant with no public entity — which is the default, since
+ * `public_enabled` is off until somebody turns it on deliberately (13787). The
+ * scene then marks nothing, which is correct: no claim is made from an absence.
+ */
+export function coveredCountries(entities: PublicEntity[] | null): Set<string> {
+  const out = new Set<string>();
+  for (const e of entities || []) {
+    if (e.country_code) out.add(e.country_code.toUpperCase());
+    for (const c of e.coverage || []) {
+      if (c && c.country_code) out.add(String(c.country_code).toUpperCase());
+    }
+  }
+  return out;
+}

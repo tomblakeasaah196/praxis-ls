@@ -1183,6 +1183,20 @@ jobs:
         if: matrix.app == 'public-web'
         run: npm run check:i18n --prefix public-web
 
+      - name: Raw palette (public-web)
+        # The one copy of the gate lives in client/scripts and is pointed at
+        # this app's tree. A raw palette colour stays that hue when the tenant's
+        # brand is something else, which is the whole white-label promise.
+        if: matrix.app == 'public-web'
+        run: npm run check:palette --prefix public-web
+
+      - name: Asset register (public-web)
+        # §1.3's placement rule, in a form that fails a build: a generated
+        # photoreal asset may not occupy a slot that sits beside a factual
+        # claim. Also the per-asset byte caps and bilingual alt (N10).
+        if: matrix.app == 'public-web'
+        run: npm run check:assets --prefix public-web
+
       - name: Motion budget (public-web)
         # public-web runs its OWN budget, and a different one: 200ms for
         # anything answering an input, 600ms for an entrance, unbounded only for

@@ -114,17 +114,99 @@ export function useRevealed<T extends HTMLElement>(): readonly [
   return [ref as React.RefObject<T>, shown] as const;
 }
 
+/* ── the second observer, and why there is one ──────────────────────────────
+ *
+ * Everything above unobserves on fire, which is the whole mechanism: an element
+ * that fades every time it is scrolled past reads as broken. A CONTINUOUS set
+ * piece needs the opposite — it must be told when it LEAVES too, so its frame
+ * loop can stop while it is off screen. That is not a flag on the observer
+ * above; it is a different callback contract, and threading a "keep watching"
+ * boolean through `watch` would mean the fire-once path could be switched off
+ * by a caller's typo.
+ *
+ * So: a SECOND shared instance, not a second instance PER ELEMENT. The rule the
+ * header states — "thirty IntersectionObservers is thirty callbacks the browser
+ * schedules on every scroll frame" — is about per-element observers, and it is
+ * still honoured: every continuous element on the page rides this one.
+ *
+ * Created lazily, so a page with no set piece on it pays nothing.
+ */
+let liveObserver: IntersectionObserver | null = null;
+const liveCallbacks = new WeakMap<Element, (visible: boolean) => void>();
+
+function watchLive(el: Element, cb: (visible: boolean) => void): () => void {
+  if (!liveObserver) {
+    liveObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          liveCallbacks.get(entry.target)?.(entry.isIntersecting);
+        }
+      },
+      // Any sliver counts. A tall set piece whose top edge is showing is a set
+      // piece the reader can see moving, and a threshold that waited for 12%
+      // would leave a visibly frozen scene at the bottom of the screen.
+      { threshold: 0 },
+    );
+  }
+  liveCallbacks.set(el, cb);
+  liveObserver.observe(el);
+  return () => {
+    liveCallbacks.delete(el);
+    liveObserver?.unobserve(el);
+  };
+}
+
+/**
+ * Is this element on screen, right now, and continuously?
+ *
+ * For a component that RUNS while visible — a canvas, an ambient scene — rather
+ * than one that animates once on arrival. Reports `false` first and lets the
+ * observer correct it, so nothing starts a frame loop before the browser has
+ * confirmed anybody can see it.
+ *
+ * Under reduced motion, and where there is no `IntersectionObserver`, it
+ * reports `true` and attaches nothing: the caller is expected to draw its
+ * settled state once, which is not something to withhold from a reader who
+ * asked for less motion.
+ */
+export function useInView<T extends HTMLElement>(): readonly [
+  React.RefObject<T>,
+  boolean,
+] {
+  const still = reduced() || typeof IntersectionObserver === "undefined";
+  const ref = React.useRef<T | null>(null);
+  const [visible, setVisible] = React.useState(still);
+
+  React.useEffect(() => {
+    if (still || !ref.current) return undefined;
+    return watchLive(ref.current, setVisible);
+  }, [still]);
+
+  return [ref as React.RefObject<T>, visible] as const;
+}
+
 export function Reveal({
   children,
   /** 0–3. Beyond three the last card arrives after the reader has looked away. */
   delay = 0,
   as: Tag = "div",
   className,
+  style,
 }: {
   children: React.ReactNode;
   delay?: 0 | 1 | 2 | 3;
   as?: "div" | "section" | "li";
   className?: string;
+  /**
+   * Merged UNDER the reveal's own transition-delay, never over it.
+   *
+   * The services grid (§7.3) sets `--cx` here — a card's position across the
+   * row, which the 3D transform reads. It has to live on this element because
+   * this is the grid item; a wrapper inside would be a second box between the
+   * grid and the card. The spread order below is what stops a caller silently
+   * cancelling the stagger by passing a style object.
+   */
+  style?: React.CSSProperties;
 }) {
   // Settled from the start when motion is reduced, or when the browser has no
   // IntersectionObserver — an old browser gets the content, not a blank page.
@@ -147,7 +229,9 @@ export function Reveal({
         shown ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
         className,
       )}
-      style={shown && delay ? { transitionDelay: `${delay * 60}ms` } : undefined}
+      style={
+        shown && delay ? { ...style, transitionDelay: `${delay * 60}ms` } : style
+      }
     >
       {children}
     </Tag>

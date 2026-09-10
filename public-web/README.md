@@ -164,6 +164,39 @@ the *settled* state (never a faster animation), WCAG AA in both themes, full
 keyboard operation, no raw palette colours, no native dialogs, and nothing on
 the page asserts a fact the tenant's own data does not carry.
 
+### The gates that hold that second list up
+
+Run from this directory. `npm run ci` at the repo root runs all of them in CI's
+own order, along with everything else.
+
+```
+npm run lint            # includes the a11y rules and the native-dialog ban
+npm run check:motion    # the two budgets, the exemption list, and the
+                        # reduced-motion umbrella — per-block, brace-matched
+npm run check:i18n      # both languages, French typography, no prose in JSX
+npm run check:assets    # §1.3's provenance/slot rule, byte caps, bilingual alt
+npm run check:palette   # no raw palette colours (the ONE copy, in client/scripts)
+npm run check:bundle    # acyclic chunks · 128 kB first paint · 220 kB deferred
+npm test
+```
+
+`check:contrast` is **missing** and should be here. §5.6 assigned it to PR 1,
+PR 1 did not ship it, and the guide's §3.4 (F-15) records what it would have
+caught: the tenant's primary CTA sitting at 3.13:1 on every page of this app.
+
+### Two things that are easy to get wrong here
+
+**The hero is the LCP element.** Nothing on its path may wait for a lazy import,
+and nothing decorative may paint before it. `StagedLines` takes
+`paintImmediately` for exactly this reason — text at `opacity: 0` is not
+painted, so a headline that fades in delays the page's largest paint by its own
+entrance. PR 4 gives every page a hero, so every page inherits this.
+
+**Anything that reads layout or opens a connection on mount belongs behind
+`lib/after-paint.ts`,** unless the visitor is actually waiting for it. The hero's
+canvas, the announcements read and the corridor read are all deferred; doing
+them eagerly cost 301 ms of forced reflow behind the element they decorate.
+
 **The pieces:**
 
 - `src/lib/motion.ts` — scroll scrub, pointer-as-light, device tilt, proximity.
