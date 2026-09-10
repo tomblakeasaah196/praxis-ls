@@ -733,6 +733,26 @@ export const en = {
         "The desk publishes each stage as it is confirmed. Come back once the first one is marked, or open the portal for the documents already on file.",
       loading: "Looking up that reference…",
       searchAgain: "Try another reference",
+      /* ── §8.1's verdict line ────────────────────────────────────────────
+         Three statuses, written as an ANSWER rather than as a record's state.
+         "IN_PROGRESS" is what the column says; "On the move" is what somebody
+         who asked where their cargo is wants to read. */
+      theAnswer: "Where this shipment is",
+      verdictOpened: "Opened, not yet moving",
+      verdictMoving: "On the move",
+      verdictDone: "Delivered",
+      /* Deliberately NOT "estimated arrival". There is no ETA in this API and no
+         feed behind this page — this is the date the desk scheduled for the last
+         outstanding stage, and it is labelled as exactly that. */
+      scheduled: "Scheduled",
+      noSchedule: "No stage has been scheduled on this file yet.",
+      whereRef:
+        "The reference is on the documents your account manager sent you — the booking confirmation, the transport order or the invoice.",
+      noMatch: "No match",
+      notFoundNotLost:
+        "This says nothing about your cargo. It means no file on this site carries that exact reference — most often a digit read across from a photograph, or a reference from a different provider.",
+      askDesk: "Ask the desk",
+      tooMany: "Too many lookups",
     },
     notFound: {
       title: "That page does not exist",
@@ -1523,6 +1543,19 @@ export const fr = {
         "Le bureau publie chaque étape à mesure qu’elle est confirmée. Revenez une fois la première validée, ou ouvrez le portail pour les documents déjà au dossier.",
       loading: "Recherche de cette référence…",
       searchAgain: "Essayer une autre référence",
+      theAnswer: "Où se trouve cet envoi",
+      verdictOpened: "Ouvert, pas encore en mouvement",
+      verdictMoving: "En mouvement",
+      verdictDone: "Livré",
+      scheduled: "Prévu",
+      noSchedule: "Aucune étape n’est encore planifiée sur ce dossier.",
+      whereRef:
+        "La référence figure sur les documents transmis par votre gestionnaire de compte : la confirmation de réservation, l’ordre de transport ou la facture.",
+      noMatch: "Aucune correspondance",
+      notFoundNotLost:
+        "Cela ne dit rien de votre marchandise. Aucun dossier de ce site ne porte cette référence exacte — le plus souvent un chiffre relevé sur une photo, ou une référence provenant d’un autre prestataire.",
+      askDesk: "Contacter le bureau",
+      tooMany: "Trop de recherches",
     },
     notFound: {
       title: "Cette page n’existe pas",
