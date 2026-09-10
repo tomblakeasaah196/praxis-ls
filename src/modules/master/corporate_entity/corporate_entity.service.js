@@ -445,13 +445,32 @@ async function saveLetterheadLine(client, { id, lineId = null, patch = {}, remov
   return letterhead(client, id);
 }
 
-/** Renewals due across documents, registrations and tax registrations. */
-async function renewals(client, id, asOf = null) {
+/**
+ * Renewals due across documents, registrations and tax registrations.
+ *
+ * Documents are redacted for a caller without the governance grant, for the
+ * same reason the dossier redacts them — and because a renewal LABEL falls back
+ * to `document_number` when a document has neither a title nor a type, which
+ * put a redacted field back on the wire through a route gated only at `view`.
+ * Deriving the two lists from differently-redacted rows would also have made
+ * the dossier's renewals and this route disagree about the same document.
+ *
+ * `governance` defaults to FALSE: a caller that has not established the grant
+ * gets the redacted list, so a new call site fails closed rather than open.
+ */
+async function renewals(client, id, asOf = null, { governance = false } = {}) {
   const entity = await repo.get(client, id);
   if (!entity) throw new AppError("NOT_FOUND", "Entity not found", 404);
   const { registrations } = await repo.collections(client, id);
   const { documents, tax_registrations: taxRegistrations } = await repo.documentsAndTax(client, id);
-  return renewalRules.renewals({ documents, registrations, taxRegistrations }, asOf);
+  return renewalRules.renewals(
+    {
+      documents: governance ? documents : documents.map(dossierService.redactDocument),
+      registrations,
+      taxRegistrations,
+    },
+    asOf,
+  );
 }
 
 /** Cap-table reconciliation for one entity, as of a date. Advisory, never throws. */
