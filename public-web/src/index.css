@@ -559,6 +559,108 @@
     color: var(--primary-ink);
   }
 
+  /* ── The announcements band (§7.2) ──────────────────────────────────────
+   *
+   * It sits directly under the hero, on the hero's own ground, so the two read
+   * as one plate rather than as a band and a stripe. That is the same decision
+   * the proof strip below makes and for the same reason: ONE dark region at the
+   * top of the page, punctuated, not striped.
+   *
+   * The track is a REAL SCROLLER, not a transform — see announcements-band.tsx
+   * for why that is the accessible choice. So it needs the things a scroller
+   * needs and a marquee does not: scroll-snap so a drifting band comes to rest
+   * on a card rather than mid-sentence, and a hidden scrollbar, because a
+   * decorative drift with a visible bar reads as a broken widget.
+   *
+   * `scroll-behavior` is deliberately NOT smooth here: the drift writes
+   * `scrollLeft` every frame and smooth scrolling would fight it. The one place
+   * smoothness is wanted — the wrap back to the start — asks for it explicitly.
+   */
+  .announce-band {
+    background: var(--hero);
+    color: var(--hero-foreground);
+    border-top: 1px solid color-mix(in srgb, var(--hero-foreground) 12%, transparent);
+  }
+
+  .announce-band .micro {
+    color: rgb(var(--brand-orange));
+  }
+
+  .announce-rule {
+    width: 2.5rem;
+    height: 1px;
+    background: color-mix(in srgb, var(--hero-foreground) 28%, transparent);
+  }
+
+  .announce-track {
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .announce-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .announce-item {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+    max-width: 22rem;
+  }
+
+  .announce-link {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid color-mix(in srgb, var(--hero-foreground) 14%, transparent);
+    background: color-mix(in srgb, var(--hero-foreground) 5%, transparent);
+    transition:
+      background-color var(--dur-response) var(--ease-standard),
+      border-color var(--dur-response) var(--ease-standard);
+  }
+  @media (hover: hover) {
+    a.announce-link:hover {
+      background: color-mix(in srgb, var(--hero-foreground) 10%, transparent);
+      border-color: color-mix(in srgb, var(--hero-foreground) 26%, transparent);
+    }
+  }
+
+  .announce-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--hero-foreground);
+  }
+
+  /* The excerpt is a second voice, and it is clipped rather than wrapped: a
+     band whose items are two lines tall on one card and one on the next reads
+     as a layout fault. The headline is never clipped — the notice is the
+     headline. */
+  .announce-excerpt {
+    font-size: 0.8125rem;
+    color: var(--hero-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 14rem;
+  }
+
+  /* On the hero's carbon the AA-corrected ink measures about 3.4:1 while the
+     brand fill measures 6.33:1 — the asymmetry hero.tsx records. Same swap the
+     eyebrow and the portal band make. */
+  .announce-more {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgb(var(--brand-orange));
+  }
+  .announce-more:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
   /* ── The proof strip ───────────────────────────────────────────────────
      Figures under the hero, on the hero's own ground. Every value here is a
      token: the strip inherits a tenant's re-brand along with the band it sits

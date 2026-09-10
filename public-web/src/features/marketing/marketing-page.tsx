@@ -7,6 +7,7 @@ import { pickSlug, pickText } from "@/lib/services-api";
 import { listStories, type PortfolioCard } from "@/lib/portfolio-api";
 import { listCorridors, type Corridor } from "@/lib/corridors-api";
 import { Hero } from "@/components/site/hero";
+import { AnnouncementsBand } from "@/components/site/announcements-band";
 import {
   MediaCard,
   MoreLink,
@@ -110,6 +111,11 @@ export function MarketingPage() {
             : null
         }
       />
+      {/* §7.2. Directly beneath the hero, on the hero's own ground, and
+          ABSENT ENTIRELY when nothing is pinned — which is most tenants, most
+          of the time. It renders null rather than an empty state, so a homepage
+          without announcements looks designed rather than unfinished. */}
+      <AnnouncementsBand />
       {/* Directly under the hero, on the hero's own ground: a visitor who
           scrolls one screen has seen a number, a certification and a network
           name — or, on a tenant who has authored none, nothing at all. */}
