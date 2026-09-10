@@ -145,7 +145,7 @@ filled in", not as "nothing to report".
 | --- | --- | --- | ---: | --- |
 | PR 1 | **Merged** | 2026-09-10 · [#323](https://github.com/tomblakeasaah196/praxis-ls/pull/323) | **22%** | See §3.2 — six deviations and five findings. One finding (F-1) was mine and is retracted; two are real pre-existing gate defects; one (F-5) is open for PR 2. |
 | PR 2 | **Merged** | 2026-09-10 · [#324](https://github.com/tomblakeasaah196/praxis-ls/pull/324) | **41%** | 19 of 24 points. §6.3 (asset upload), §6.4 (announcements UI + public read) and §6.8 (entity story tab) are **not built** and are carried — see §3.3. Eight findings: four are defects in this guide's own spec, and F-12 is a false green in `npm run ci` itself. |
-| PR 3 | **Merged** | 2026-09-10 | **63%** | 20 of 20, **plus 2 of PR 2's carried points** (§6.4). Four deviations and six findings — see §3.4. F-14 is the important one: **PR 1 recorded 22/22 for §5.6 and shipped one of its five gates**, so `check:assets`, `check:palette` and the deferred-chunk budget were built here. F-16 is a Lighthouse target this architecture cannot reach. |
+| PR 3 | **Merged** | 2026-09-10 · [#325](https://github.com/tomblakeasaah196/praxis-ls/pull/325) | **63%** | 20 of 20, **plus 2 of PR 2's carried points** (§6.4). Four deviations and six findings — see §3.4. F-14 is the important one: **PR 1 recorded 22/22 for §5.6 and shipped one of its five gates**, so `check:assets`, `check:palette` and the deferred-chunk budget were built here. F-16 is a Lighthouse target this architecture cannot reach. |
 | PR 4 | Not started | — | — | — |
 | PR 5 | Not started | — | — | — |
 
