@@ -134,7 +134,7 @@ filled in", not as "nothing to report".
 
 | PR | Status | Merged | Coverage after | Reservations, deviations and notes for later work |
 | --- | --- | --- | ---: | --- |
-| PR 1 | **Complete — in review** | on merge of this PR | **22%** | See §3.2 — six deviations and five findings. One finding (F-1) was mine and is retracted; two are real pre-existing gate defects; one (F-5) is open for PR 2. |
+| PR 1 | **Merged** | 2026-09-10 · [#323](https://github.com/tomblakeasaah196/praxis-ls/pull/323) | **22%** | See §3.2 — six deviations and five findings. One finding (F-1) was mine and is retracted; two are real pre-existing gate defects; one (F-5) is open for PR 2. |
 | PR 2 | Not started | — | — | — |
 | PR 3 | Not started | — | — | — |
 | PR 4 | Not started | — | — | — |
@@ -171,6 +171,8 @@ filled in", not as "nothing to report".
 | Emitted font files | 18 files / 454.5 kB | **8 files / 325.4 kB** — *with* a fourth family added |
 | Chunk graph | 26 chunks, acyclic | 26 chunks, acyclic |
 | New tests | — | 30 (palette engine) + 8 (motion) + 8 (typography) = **46** |
+| `npm run ci` | — | **38/38** |
+| CI on #323 | — | **9/9 green** — build-test, migrations, docker-build, security, CodeQL, and all three frontend matrix legs |
 
 **Notes for later PRs.**
 
