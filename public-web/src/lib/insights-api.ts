@@ -87,10 +87,18 @@ export type InsightIndex = {
 };
 
 export const listInsights = (
-  opts: { tag?: string; page?: number; signal?: AbortSignal } = {},
+  opts: {
+    tag?: string;
+    /** `article` | `announcement`, or absent for both (§8.6). Validated by the
+     *  server since 13784; the public route only started READING it in PR 4,
+     *  which is why nothing sent it before. */
+    kind?: InsightKind | "";
+    page?: number;
+    signal?: AbortSignal;
+  } = {},
 ) =>
   publicGet<InsightIndex>("/public/insights", {
-    query: { tag: opts.tag, page: opts.page },
+    query: { tag: opts.tag, kind: opts.kind || undefined, page: opts.page },
     signal: opts.signal,
   });
 

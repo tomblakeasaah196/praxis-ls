@@ -283,6 +283,13 @@ export const en = {
       titleAccent: "learning",
       sub: "Notes from the desk on customs, freight and the corridors we work — written by the people doing the work.",
       filterLabel: "Filter by topic",
+      /* §8.6's kind filter. The COARSER cut, above the topics: "articles or
+         announcements" is a different question from "which subject", and a
+         reader who wants the notices should not hunt for them among essays. */
+      kindLabel: "Filter by kind",
+      kindAll: "Everything",
+      kindArticle: "Articles",
+      kindAnnouncement: "Announcements",
       all: "All",
       loading: "Loading the articles…",
       loadingArticle: "Loading the article…",
@@ -1147,6 +1154,10 @@ export const fr = {
       titleAccent: "apprenons",
       sub: "Les notes du bureau sur la douane, le fret et les corridors où nous opérons — écrites par ceux qui font le travail.",
       filterLabel: "Filtrer par thème",
+      kindLabel: "Filtrer par type",
+      kindAll: "Tout",
+      kindArticle: "Articles",
+      kindAnnouncement: "Annonces",
       all: "Tout",
       loading: "Chargement des articles…",
       loadingArticle: "Chargement de l’article…",

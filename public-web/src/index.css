@@ -2452,6 +2452,53 @@
     }
   }
 
+  /* ── The article page (§8.6) ─────────────────────────────────────────────
+   *
+   * LONG-FORM IS EXEMPT FROM THE 90-WORD RULE (§1.5), so the treatment here is
+   * the opposite of the ESG band's: nothing breaks the prose up, and what the
+   * page owes its reader is a comfortable measure, a clear hierarchy and a
+   * sense of how much is left. */
+  .article {
+    position: relative;
+  }
+
+  /* The rail sits in the gutter beside the measure. At narrow widths there is
+     no gutter, so it moves to the very edge of the viewport rather than
+     stealing width from the text — a reading affordance that narrows the
+     column it describes has made the reading worse. */
+  .article-rail {
+    position: absolute;
+    left: -1.75rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--border);
+  }
+
+  @media (max-width: 47.99em) {
+    .article-rail {
+      left: -0.75rem;
+    }
+  }
+
+  /* `--scrub` is written by `useScrollScrub` over the ARTICLE's own travel, so
+     the fill is how far through this piece the reader is. Under reduced motion
+     the hook writes 1 and the rail is simply full height — which reads as the
+     LENGTH of the piece and claims nothing about position, unlike a top bar
+     showing "100%" on arrival. */
+  .article-rail-fill {
+    display: block;
+    width: 100%;
+    height: calc(var(--scrub, 1) * 100%);
+    border-radius: 1px;
+    background: linear-gradient(
+      180deg,
+      rgb(var(--brand-orange)),
+      rgb(var(--brand-orange) / 0.5)
+    );
+  }
+
   /* A dark band's version of the plate, for the entrance states below the hero
      on the empty and not-found screens. */
   .track-quiet {
