@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1561 |
+| Routes | 1563 |
 | Modules mounted | 140 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1561 mounted routes, grouped by path prefix.
+All 1563 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -987,6 +987,7 @@ All 1561 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/insights/:id/cover` | — |
 | POST | `/api/tenant/insights/:id/gallery` | — |
 | PUT | `/api/tenant/insights/:id/gallery` | — |
+| POST | `/api/tenant/insights/:id/pin` | — |
 | POST | `/api/tenant/insights/:id/publish` | — |
 
 ### `tenant/intake`
@@ -1590,6 +1591,7 @@ All 1561 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/public/sign/:token/otp` | — |
 | POST | `/api/tenant/public/sign/:token/verify` | — |
 | GET | `/api/tenant/public/site/about` | — |
+| GET | `/api/tenant/public/site/announcements` | — |
 | GET | `/api/tenant/public/site/entities` | — |
 | GET | `/api/tenant/public/site/pages` | — |
 | GET | `/api/tenant/public/site/pages/:key` | — |
