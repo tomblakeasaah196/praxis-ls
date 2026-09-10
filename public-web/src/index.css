@@ -2372,6 +2372,86 @@
     }
   }
 
+  /* ── The coverage figure (§8.5) ──────────────────────────────────────────
+   *
+   * A bipartite fan: offices on the left, the places they cover on the right,
+   * one line per relationship the tenant actually recorded. Static — there is
+   * no scrub here and no entrance. The contact page is a page somebody reaches
+   * with a question, and a diagram that assembles while they read it is a
+   * diagram in the way. */
+  .coverage-figure {
+    position: relative;
+    margin: 0;
+  }
+
+  .coverage-art {
+    display: block;
+    width: 100%;
+    height: auto;
+    fill: none;
+  }
+
+  .coverage-link {
+    stroke: rgb(var(--brand-orange) / 0.45);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+
+  .coverage-node {
+    fill: var(--card);
+    stroke: rgb(var(--brand-orange));
+    stroke-width: 2;
+  }
+
+  .coverage-office {
+    fill: rgb(var(--brand-orange));
+  }
+
+  .coverage-labels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+  }
+
+  .coverage-col ul {
+    margin-top: 0.5rem;
+    display: grid;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    list-style: none;
+    padding: 0;
+  }
+
+  .coverage-col-r {
+    text-align: right;
+  }
+
+  /* Wide enough for the labels to sit ON the drawing, which is what makes it a
+     figure rather than a picture with a caption. The drawing's own columns are
+     at x=96 and x=224 of 320, so the text columns stop short of them. */
+  @media (min-width: 720px) {
+    .coverage-labels {
+      position: absolute;
+      inset: 0;
+      margin: 0;
+      align-items: center;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      pointer-events: none;
+    }
+
+    .coverage-col-l {
+      padding-right: 72%;
+      text-align: right;
+    }
+
+    .coverage-col-r {
+      padding-left: 72%;
+      text-align: left;
+    }
+  }
+
   /* A dark band's version of the plate, for the entrance states below the hero
      on the empty and not-found screens. */
   .track-quiet {
