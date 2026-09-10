@@ -49,6 +49,7 @@ import {
   readFileAsDataUrl,
 } from "@/lib/vault-file";
 import { WorkingCalendarTab } from "./working-calendar-tab";
+import { EntityPublicStoryTab } from "./entity-public-story-tab";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money, num, dateDmy, enumLabel, toDateInput } from "@/lib/format";
 import { reportActionError } from "@/lib/action-error";
@@ -87,6 +88,12 @@ const TABS = [
   "Letterhead",
   "Renewals",
   "Working calendar",
+  /* §6.8. Last in the strip on purpose: it is the only tab whose audience is
+     strangers rather than the finance and compliance staff the other ten serve,
+     and it is behind a different permission (MOD-29, the website's, not
+     MOD-01's). Somebody opening this dossier to check a tax jurisdiction should
+     not pass through the marketing copy to get there. */
+  "Public story",
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -1893,6 +1900,8 @@ export function EntityDossier({
       )}
 
       {tab === "Working calendar" && <WorkingCalendarTab entityId={entityId} />}
+
+      {tab === "Public story" && <EntityPublicStoryTab entity={e} onSaved={reload} />}
 
       {tab === "Renewals" && (
         <Section

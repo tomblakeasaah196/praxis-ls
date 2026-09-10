@@ -330,9 +330,58 @@ async function updateEntityStory(client, { entityId, patch, actor = {} }) {
  * licence number presented as current is the single most damaging thing a
  * forwarder can publish, and the filter belongs where it cannot be forgotten.
  */
+/**
+ * The derivative ladder for a set of documents, as `{ docId: {widths, formats} }`.
+ *
+ * ── WHY THE PUBLIC READS CARRY THIS AND NOT A LIST OF URLS ────────────────
+ *
+ * The renderer needs a `srcset`, and a `srcset` naming a width that was never
+ * written is a 404 per visitor per image — the browser has already committed to
+ * the candidate it picked. So the ladder is published as DATA and the URL is
+ * built by the client from the document id, which is the shape the rest of this
+ * app already uses (`/public/site/media/:id`).
+ *
+ * `public_media_variants` is NULL for a document uploaded before 13789 and for
+ * one whose derivatives all failed to encode. Both mean the same thing to a
+ * renderer — serve the original — so both answer `null` here rather than an
+ * empty ladder a `<source>` would be emitted for.
+ *
+ * One query for every id on the page. The alternative is a join inside each of
+ * the three reads, which would put the same LEFT JOIN in three places and make
+ * "does this row still point at that document" a question asked three different
+ * ways.
+ */
+async function mediaVariants(client, ids) {
+  const wanted = [...new Set(ids.filter(Boolean))];
+  if (!wanted.length) return {};
+  const { rows } = await client.query(
+    `SELECT doc_id, public_media_variants
+       FROM document_vault
+      WHERE doc_id = ANY($1::uuid[])
+        AND public_media_scope = 'SITE'
+        AND public_media_variants IS NOT NULL`,
+    [wanted],
+  );
+  return Object.fromEntries(rows.map((r) => [r.doc_id, r.public_media_variants]));
+}
+
 async function publicPartners(client) {
   const partners = (await repo.listPartners(client))
-    .filter((p) => p.is_active)
+    /* TWO CONDITIONS, AND THE SECOND ONE IS DELIBERATELY REDUNDANT.
+ 
+       13782's `ck_site_partner_active_needs_permission` makes an active row
+       without a permission note impossible, so `is_active` alone already
+       carries both facts today. The note is checked anyway, for the reason
+       13782's own header gives about why that constraint exists at all: "three
+       layers because the cost of the check is nil and the cost of publishing
+       an uncleared mark is a letter from someone's counsel".
+ 
+       It also turns §9.7's requirement — "every partner rendered has a
+       permission_note, asserted by a test, not by inspection" — into something
+       a test can actually assert. With only `is_active`, a test would have to
+       construct a row the database forbids and would be proving the
+       constraint, not this read. */
+    .filter((p) => p.is_active && String(p.permission_note || "").trim() !== "")
     .map((p) => ({
       id: p.partner_id,
       name: p.name,
@@ -356,7 +405,16 @@ async function publicPartners(client) {
       url: c.url || null,
     }));
 
-  return { partners, credentials };
+  const variants = await mediaVariants(client, [
+    ...partners.map((p) => p.logo_id),
+    ...credentials.map((c) => c.logo_id),
+  ]);
+  const withLadder = (row) => ({ ...row, logo_variants: variants[row.logo_id] || null });
+
+  return {
+    partners: partners.map(withLadder),
+    credentials: credentials.map(withLadder),
+  };
 }
 
 /** Only platforms with a URL. Absence is the empty state — the footer draws
@@ -364,13 +422,17 @@ async function publicPartners(client) {
 const publicSocial = (client) => repo.listSocial(client);
 
 /** One leadership card. Shared by the group read and the entity read so the two
- *  cannot disagree about what a leader is. */
-const publicLeader = (l) => ({
+ *  cannot disagree about what a leader is.
+ *
+ *  `variants` is the ladder map from `mediaVariants`; it is passed in rather
+ *  than looked up here so one query serves every portrait on a page. */
+const publicLeader = (l, variants = {}) => ({
   id: l.leader_id,
   name: l.full_name,
   role: { fr: l.role_fr, en: l.role_en },
   bio: { fr: l.bio_fr, en: l.bio_en },
   photo_id: l.photo_vault_id || null,
+  photo_variants: variants[l.photo_vault_id] || null,
   linkedin_url: l.linkedin_url || null,
 });
 
@@ -385,6 +447,7 @@ async function publicAbout(client) {
   // invariant testable without a database.
   const leaders = (await repo.listLeaders(client, { entityId: null }))
     .filter((l) => l.is_active && !l.entity_id);
+  const variants = await mediaVariants(client, leaders.map((l) => l.photo_vault_id));
   return {
     headline: { fr: about.headline_fr, en: about.headline_en },
     summary: { fr: about.summary_fr, en: about.summary_en },
@@ -395,7 +458,7 @@ async function publicAbout(client) {
     timeline: about.timeline || [],
     founded_year: about.founded_year ?? null,
     headquarters: about.headquarters ?? null,
-    leaders: leaders.map(publicLeader),
+    leaders: leaders.map((l) => publicLeader(l, variants)),
   };
 }
 
@@ -424,6 +487,10 @@ async function publicEntities(client) {
       ORDER BY legal_name`,
   );
   const leaders = (await repo.listLeaders(client)).filter((l) => l.is_active && l.entity_id);
+  const variants = await mediaVariants(client, [
+    ...rows.map((e) => e.public_cover_vault_id),
+    ...leaders.map((l) => l.photo_vault_id),
+  ]);
   return rows.map((e) => ({
     id: e.entity_id,
     code: e.code,
@@ -434,12 +501,16 @@ async function publicEntities(client) {
     coverage: e.public_coverage || [],
     focus: e.public_focus || [],
     cover_id: e.public_cover_vault_id || null,
-    leaders: leaders.filter((l) => l.entity_id === e.entity_id).map(publicLeader),
+    cover_variants: variants[e.public_cover_vault_id] || null,
+    leaders: leaders
+      .filter((l) => l.entity_id === e.entity_id)
+      .map((l) => publicLeader(l, variants)),
   }));
 }
 
 module.exports = {
   getTheme, updateTheme, publicTheme,
+  mediaVariants,
   listSocial, saveSocial,
   partners, credentials, leaders,
   getAbout, updateAbout,

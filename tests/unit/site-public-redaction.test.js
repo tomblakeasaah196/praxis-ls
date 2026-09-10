@@ -125,6 +125,30 @@ describe("GET /public/site/partners", () => {
     expect(body).not.toMatch(/"permission_note"/);
   });
 
+  /**
+   * §9.7: "Every partner rendered has a `permission_note`. Asserted by a test,
+   * not by inspection."
+   *
+   * The row below is one the DATABASE cannot hold —
+   * `ck_site_partner_active_needs_permission` (13782) refuses an active partner
+   * with no note. That is the point: this test asks what the READ does if the
+   * constraint were ever dropped, relaxed, or bypassed by a repair script, and
+   * the answer has to be "nothing reaches the page" rather than "the database
+   * would have stopped it".
+   */
+  test("never renders a partner whose clearance is not recorded", async () => {
+    const client = stubClient({
+      site_partner: [
+        { ...base, partner_id: "cleared", name: "GIZ" },
+        { ...base, partner_id: "no-note", name: "CMA CGM", permission_note: null },
+        { ...base, partner_id: "blank-note", name: "AGL", permission_note: "   " },
+      ],
+      site_credential: [],
+    });
+    const { partners } = await service.publicPartners(client);
+    expect(partners.map((p) => p.name)).toEqual(["GIZ"]);
+  });
+
   test("omits inactive partners", async () => {
     // Inactive is the default, and it is what an uncleared mark stays.
     const client = stubClient({
