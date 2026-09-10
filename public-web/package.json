@@ -21,6 +21,7 @@
     "check:bundle": "node scripts/check-bundle.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:motion": "node scripts/check-motion.mjs",
+    "check:assets": "node scripts/check-assets.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {

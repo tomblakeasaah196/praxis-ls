@@ -559,6 +559,140 @@
     color: var(--primary-ink);
   }
 
+  /* ── The corridor set piece (§7.5) ──────────────────────────────────────
+   *
+   * The BASELINE's depth, which is rung 3: layers that parallax by different
+   * amounts from the one `--lx`/`--ly` contract the hero established. The ring
+   * moves least, the nodes more, the readout most — which is what puts them in
+   * front of each other without a single z-index.
+   *
+   * `--depth` is set per layer in the component and multiplied here, so one
+   * rule serves every layer and the numbers that decide the composition live
+   * beside the markup they compose.
+   *
+   * A WebGL canvas may be mounted over this later. It is absolutely positioned
+   * on the stage and the SVG stays exactly where it is underneath — if the
+   * canvas never arrives, or arrives and fails, there is nothing to reveal and
+   * nothing to hide. */
+  .corridor-band {
+    background: var(--hero);
+    color: var(--hero-foreground);
+  }
+
+  .corridor-stage {
+    position: relative;
+    margin-inline: auto;
+    max-width: 46rem;
+  }
+
+  .corridor-layer {
+    transform: translate(
+      calc((var(--lx) - 0.5) * var(--depth, 8) * 1px),
+      calc((var(--ly) - 0.5) * var(--depth, 8) * 1px)
+    );
+    transition: transform var(--dur-response) var(--ease-standard);
+  }
+
+  .corridor-ring {
+    stroke: color-mix(in srgb, var(--hero-foreground) 16%, transparent);
+  }
+
+  /* The lit edge, from the site's one light source: top-left at 60°. A ring
+     that is uniformly bright is a circle; one that catches light at the top
+     left is an object. */
+  .corridor-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      50% 50% at 32% 26%,
+      color-mix(in srgb, var(--hero-foreground) 8%, transparent) 0%,
+      transparent 70%
+    );
+  }
+
+  .corridor-node-dot {
+    fill: rgb(var(--brand-orange));
+  }
+
+  .corridor-node-halo {
+    fill: none;
+    stroke: rgb(var(--brand-orange));
+    stroke-opacity: 0;
+    stroke-width: 0.75;
+    transition:
+      stroke-opacity var(--dur-response) var(--ease-standard),
+      r var(--dur-response) var(--ease-standard);
+  }
+
+  .corridor-node.is-active .corridor-node-halo {
+    stroke-opacity: 0.75;
+  }
+
+  /* Focus is drawn on the halo rather than as an outline: an SVG outline is
+     clipped by the viewBox at these coordinates and simply does not appear on
+     the outermost nodes, which is the worst possible place for a focus ring to
+     go missing. */
+  .corridor-node:focus {
+    outline: none;
+  }
+  .corridor-node:focus-visible .corridor-node-halo {
+    stroke-opacity: 1;
+    stroke-width: 1.5;
+  }
+  /* The group's own stop, when focus is on the figure rather than a node. */
+  .corridor-svg:focus-visible {
+    outline: 2px solid rgb(var(--brand-orange));
+    outline-offset: 4px;
+    border-radius: var(--radius);
+  }
+
+  /* Under reduced motion the layers do not parallax — `--lx`/`--ly` are never
+     written and rest at 0.5, so every translate evaluates to 0. This is here to
+     say so out loud, and to drop the transitions the umbrella would otherwise
+     have to neutralise one by one. */
+  .corridor-stage.is-still .corridor-layer {
+    transform: none;
+    transition: none;
+  }
+
+  /* The gyroscope opt-in. A real button, on the hero ground, sized for a
+     thumb — this only ever appears on a phone. */
+  .corridor-tilt {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgb(var(--brand-orange));
+    border: 1px solid color-mix(in srgb, var(--hero-foreground) 20%, transparent);
+    border-radius: calc(var(--radius) - 2px);
+    padding: 0.625rem 1rem;
+    min-height: 44px;
+  }
+
+  .corridor-readout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    min-height: 1.75rem;
+  }
+
+  .corridor-readout-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: var(--brand-tracking-display);
+    color: var(--hero-foreground);
+  }
+
+  .corridor-readout-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8125rem;
+    color: var(--hero-muted);
+  }
+
   /* ── The announcements band (§7.2) ──────────────────────────────────────
    *
    * It sits directly under the hero, on the hero's own ground, so the two read
