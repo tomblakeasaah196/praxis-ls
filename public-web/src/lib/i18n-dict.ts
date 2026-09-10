@@ -254,6 +254,12 @@ export const en = {
      * route and the label a reader sees. The old name was ambiguous in two
      * directions, and a hub nobody can place is a hub nobody opens.
      */
+    announce: {
+      /* The band under the hero. Two strings, and that is the whole surface:
+         everything else in it is the tenant's own announcement. */
+      eyebrow: "Latest",
+      more: "All announcements",
+    },
     insights: {
       kicker: "Insights",
       title: "What we are learning",
@@ -1045,6 +1051,10 @@ export const fr = {
       insights: "Analyses",
       careers: "Carrières",
       contact: "Contact",
+    },
+    announce: {
+      eyebrow: "À la une",
+      more: "Toutes les annonces",
     },
     insights: {
       kicker: "Analyses",
