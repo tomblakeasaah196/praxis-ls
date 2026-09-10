@@ -86,41 +86,92 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
  */
 const OWNERS = {
   "leader-portrait": {
-    table: "site_leader",
-    idColumn: "leader_id",
-    vaultColumn: "photo_vault_id",
     refPrefix: "site_leader",
-    publishable: "o.is_active = true",
     event: events.LEADER_UPDATED,
+    read: `SELECT photo_vault_id AS vault_id FROM site_leader WHERE leader_id = $1`,
+    set: `UPDATE site_leader
+             SET photo_vault_id = $2, updated_at = now(), updated_by = $3
+           WHERE leader_id = $1 RETURNING *`,
+    column: "photo_vault_id",
+    serve: `SELECT v.doc_id, v.public_media_content_type, v.public_media_variants, v.storage_path
+              FROM document_vault v
+              JOIN site_leader o ON o.photo_vault_id = v.doc_id
+             WHERE v.doc_id = $1
+               AND v.status = 'VERIFIED'
+               AND v.public_media_scope = 'SITE'
+               AND v.public_media_role = $2
+               AND v.public_media_content_type = ANY($3::text[])
+               AND o.is_active = true`,
   },
   "partner-mark": {
-    table: "site_partner",
-    idColumn: "partner_id",
-    vaultColumn: "logo_vault_id",
     refPrefix: "site_partner",
-    publishable: "o.is_active = true",
     event: events.PARTNER_UPDATED,
+    read: `SELECT logo_vault_id AS vault_id FROM site_partner WHERE partner_id = $1`,
+    set: `UPDATE site_partner
+             SET logo_vault_id = $2, updated_at = now(), updated_by = $3
+           WHERE partner_id = $1 RETURNING *`,
+    column: "logo_vault_id",
+    /* `o.is_active` IS "cleared": 13782's ck_site_partner_active_needs_permission
+       makes an active row without a permission_note impossible, so there is no
+       state in which an uncleared mark has a live URL. */
+    serve: `SELECT v.doc_id, v.public_media_content_type, v.public_media_variants, v.storage_path
+              FROM document_vault v
+              JOIN site_partner o ON o.logo_vault_id = v.doc_id
+             WHERE v.doc_id = $1
+               AND v.status = 'VERIFIED'
+               AND v.public_media_scope = 'SITE'
+               AND v.public_media_role = $2
+               AND v.public_media_content_type = ANY($3::text[])
+               AND o.is_active = true`,
   },
   "credential-mark": {
-    table: "site_credential",
-    idColumn: "credential_id",
-    vaultColumn: "logo_vault_id",
     refPrefix: "site_credential",
-    // Expiry is applied to the MARK as well as to the row, because a strip that
-    // has dropped an expired credential should not still be serving its logo
-    // from a URL somebody bookmarked.
-    publishable: "o.is_active = true AND (o.expires_on IS NULL OR o.expires_on >= CURRENT_DATE)",
     event: events.CREDENTIAL_UPDATED,
+    read: `SELECT logo_vault_id AS vault_id FROM site_credential WHERE credential_id = $1`,
+    set: `UPDATE site_credential
+             SET logo_vault_id = $2, updated_at = now(), updated_by = $3
+           WHERE credential_id = $1 RETURNING *`,
+    column: "logo_vault_id",
+    /* Expiry is applied to the MARK as well as to the row: a strip that has
+       dropped an expired credential should not still be serving its logo from a
+       URL somebody bookmarked. */
+    serve: `SELECT v.doc_id, v.public_media_content_type, v.public_media_variants, v.storage_path
+              FROM document_vault v
+              JOIN site_credential o ON o.logo_vault_id = v.doc_id
+             WHERE v.doc_id = $1
+               AND v.status = 'VERIFIED'
+               AND v.public_media_scope = 'SITE'
+               AND v.public_media_role = $2
+               AND v.public_media_content_type = ANY($3::text[])
+               AND o.is_active = true
+               AND (o.expires_on IS NULL OR o.expires_on >= CURRENT_DATE)`,
   },
   "entity-cover": {
-    table: "corporate_entity",
-    idColumn: "entity_id",
-    vaultColumn: "public_cover_vault_id",
     refPrefix: "corporate_entity",
-    publishable: "o.public_enabled = true",
     event: events.ENTITY_STORY_UPDATED,
+    read: `SELECT public_cover_vault_id AS vault_id FROM corporate_entity WHERE entity_id = $1`,
+    /* `corporate_entity` has no `updated_by`, so this one takes two parameters
+       where the other three take three. That difference is why each statement is
+       written out rather than assembled: the assembled version needed a ternary
+       to decide the parameter list, and a ternary that changes a query's arity
+       is the kind of thing that is correct until somebody adds a fifth slot. */
+    set: `UPDATE corporate_entity
+             SET public_cover_vault_id = $2
+           WHERE entity_id = $1 RETURNING *`,
+    setParams: 2,
+    column: "public_cover_vault_id",
+    serve: `SELECT v.doc_id, v.public_media_content_type, v.public_media_variants, v.storage_path
+              FROM document_vault v
+              JOIN corporate_entity o ON o.public_cover_vault_id = v.doc_id
+             WHERE v.doc_id = $1
+               AND v.status = 'VERIFIED'
+               AND v.public_media_scope = 'SITE'
+               AND v.public_media_role = $2
+               AND v.public_media_content_type = ANY($3::text[])
+               AND o.public_enabled = true`,
   },
 };
+
 
 /**
  * The derivative ladder.
@@ -336,8 +387,8 @@ async function upload(client, { slot, ownerId, dataUrl, originalName, provenance
       action: owner.event,
       moduleKey: events.MODULE,
       entityRef: ref(owner.refPrefix, ownerId),
-      before: { [owner.vaultColumn]: before.vault_id },
-      after: { [owner.vaultColumn]: created.doc_id, provenance },
+      before: { [owner.column]: before.vault_id },
+      after: { [owner.column]: created.doc_id, provenance },
     });
     return { ...row, doc_id: created.doc_id, provenance, variants };
   });
@@ -361,47 +412,59 @@ async function remove(client, { slot, ownerId, actor = {} }) {
       action: owner.event,
       moduleKey: events.MODULE,
       entityRef: ref(owner.refPrefix, ownerId),
-      before: { [owner.vaultColumn]: before.vault_id },
-      after: { [owner.vaultColumn]: null },
+      before: { [owner.column]: before.vault_id },
+      after: { [owner.column]: null },
     });
     return row;
   });
 }
 
-/* ── the four one-line queries the slot table drives ────────────────────────
+/* ── the queries, and why none of them is built ────────────────────────────
  *
- * Written as functions taking a LOOKED-UP owner descriptor rather than as
- * twelve near-identical queries, and the identifiers in them come from `OWNERS`
- * — a closed object in this file — never from a request. That is the
- * distinction SEC H3 turns on: interpolating a constant chosen by a validated
- * enum is not mass assignment, interpolating a body key is.
+ * EVERY STATEMENT ABOVE IS A LITERAL. The first version of this file assembled
+ * them — `` `SELECT ${owner.vaultColumn} FROM ${owner.table} …` `` — from a
+ * closed table keyed by a validated enum, which is safe and which CodeQL
+ * correctly refused to believe: it traces `req.params.slot` into `OWNERS[slot]`
+ * and out again into a query string, and it cannot know the table has four
+ * hardcoded entries. It reported a high-severity `js/sql-injection`.
+ *
+ * The alert was a false positive and the fix is not a suppression, for the
+ * reason F-8 already recorded about the route loop this module's own routes
+ * file unrolled: a gate that cannot see a statement cannot vouch for it, and
+ * "the validator was there" is not the point. SEC H3 exists because request-body
+ * keys reached `insertOne` as column identifiers; a file that interpolates
+ * identifiers at all is a file where that has to be re-proved by reading.
+ *
+ * So the table carries SQL instead of fragments. Nothing here concatenates,
+ * every identifier is written where a reader can see it, and the only values
+ * that move are bound parameters.
  */
 
 async function currentOwner(client, owner, ownerId) {
-  const { rows } = await client.query(
-    `SELECT ${owner.vaultColumn} AS vault_id FROM ${owner.table} WHERE ${owner.idColumn} = $1`,
-    [ownerId],
-  );
+  const { rows } = await client.query(owner.read, [ownerId]);
   return rows[0] || null;
 }
 
 async function setOwnerVaultId(client, owner, ownerId, docId, actorId) {
-  // `corporate_entity` has no `updated_by`; the two site tables do. Setting it
-  // where it exists keeps the dossier's "last edited by" honest for a change
-  // that is genuinely an edit of that row.
-  const touch = owner.table === "corporate_entity" ? "" : ", updated_at = now(), updated_by = $3";
-  const params = owner.table === "corporate_entity" ? [ownerId, docId] : [ownerId, docId, actorId || null];
-  const { rows } = await client.query(
-    `UPDATE ${owner.table} SET ${owner.vaultColumn} = $2${touch}
-      WHERE ${owner.idColumn} = $1 RETURNING *`,
-    params,
-  );
+  const params = owner.setParams === 2
+    ? [ownerId, docId]
+    : [ownerId, docId, actorId || null];
+  const { rows } = await client.query(owner.set, params);
   return rows[0];
 }
 
-/** Archive and strip what made it publicly servable, scoped to the owning row
- *  in the WHERE clause so a doc id belonging to another owner cannot be
- *  archived through this path. */
+/**
+ * Archive a replaced document and strip what made it publicly servable.
+ *
+ * Scoped to the owning row in the WHERE clause, so a doc id belonging to
+ * another owner cannot be archived through this path. Every identifier here is
+ * a literal — `document_vault`'s own columns — so unlike the four statements in
+ * `OWNERS` this one never needed a per-slot version.
+ *
+ * ARCHIVED rather than deleted, because an audit entry may reference the
+ * document and a hard delete would make that entry a dangling id. The rule
+ * `insight.removeCover` follows, for the same reason.
+ */
 function archive(client, owner, docId, entityRef) {
   return client.query(
     `UPDATE document_vault
@@ -435,18 +498,7 @@ async function publicMediaForServe(client, docId) {
   }
   for (const [slot, owner] of Object.entries(OWNERS)) {
     const spec = SITE_MEDIA_SLOTS[slot];
-    const { rows } = await client.query(
-      `SELECT v.doc_id, v.public_media_content_type, v.public_media_variants, v.storage_path
-         FROM document_vault v
-         JOIN ${owner.table} o ON o.${owner.vaultColumn} = v.doc_id
-        WHERE v.doc_id = $1
-          AND v.status = 'VERIFIED'
-          AND v.public_media_scope = 'SITE'
-          AND v.public_media_role = $2
-          AND v.public_media_content_type = ANY($3::text[])
-          AND ${owner.publishable}`,
-      [docId, spec.role, IMAGE_TYPES],
-    );
+    const { rows } = await client.query(owner.serve, [docId, spec.role, IMAGE_TYPES]);
     if (rows[0]) return rows[0];
   }
   return null;
@@ -463,21 +515,34 @@ async function publicMediaForServe(client, docId) {
 function resolveVariant(doc, width, format) {
   const v = doc.public_media_variants;
   if (!v || !Array.isArray(v.widths) || !Array.isArray(v.formats)) return null;
-  /* DIGITS ONLY, HERE RATHER THAN ONLY IN THE ROUTE.
- 
-     The route's own regex already admits nothing else, so this looks redundant
-     and is not: `Number("960.0")` is 960, and without this line the string
-     "960.0" resolves to the 960 rung. Nothing unsafe follows from it — the key
-     is built from `w`, the NUMBER — but the guarantee this function makes is
-     "no part of the caller's string reaches a storage path", and a guarantee
-     that holds only because of a regex in another file is one refactor away
-     from not holding. A gate that is only correct when called correctly is not
-     a gate. */
+
+  /* ── THE VALUES THAT REACH `variantKey` COME FROM THE ROW, NOT THE URL ───
+   *
+   * `find` rather than `includes`, and that is the whole point of the shape.
+   * `includes` would prove the request's value is ON the list and then pass the
+   * REQUEST's value onward — safe, and impossible for a static analyser to
+   * confirm, because the string that reaches the storage key still originates
+   * at `req.params`. CodeQL read it exactly that way and reported a
+   * path-injection.
+   *
+   * `find` returns the element OF THE LIST. So `w` is the number the upload
+   * recorded and `f` is the format string it recorded; the request's own
+   * characters are used for comparison and then discarded. The guarantee stops
+   * being "we checked" and becomes "the request cannot contribute a byte to a
+   * path", which is the version a reader — and a scanner — can confirm without
+   * following the check backwards.
+   *
+   * The digit test stays for the reason it was added: `Number("960.0")` is 960,
+   * and a guarantee that holds only because of a regex in the route file is one
+   * refactor from not holding. */
   if (!/^\d+$/.test(String(width))) return null;
-  const w = Number(width);
-  if (!v.widths.includes(w) || !v.formats.includes(format)) return null;
-  if (!VARIANT_FORMATS.includes(format)) return null;
-  return { key: variantKey(doc.storage_path, w, format), contentType: `image/${format}` };
+  const asked = Number(width);
+  const w = v.widths.find((known) => known === asked);
+  if (w === undefined) return null;
+  const f = v.formats.find((known) => known === format);
+  if (f === undefined || !VARIANT_FORMATS.includes(f)) return null;
+
+  return { key: variantKey(doc.storage_path, w, f), contentType: `image/${f}` };
 }
 
 module.exports = {

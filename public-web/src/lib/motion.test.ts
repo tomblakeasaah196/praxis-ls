@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
   useScrollScrub,
@@ -224,9 +224,23 @@ describe("every scroll-scrub finishes while its content is on screen", () => {
   function callSites(): Array<{ file: string; options: string }> {
     const out: Array<{ file: string; options: string }> = [];
     const walk = (dir: string) => {
-      for (const name of readdirSync(dir)) {
-        const full = join(dir, name);
-        if (statSync(full).isDirectory()) walk(full);
+      /* `withFileTypes` rather than a `statSync` per entry.
+ 
+         The obvious version — `readdirSync(dir)` then `statSync(full)` then
+         `readFileSync(full)` — asks the file system the same question three
+         times and acts on the first answer, which CodeQL reports as a file
+         system race and is right to: between the stat and the read the path
+         can stop being the thing that was checked. `readdirSync`'s own Dirent
+         carries the type from the single directory read, so there is no
+         second question to disagree with the first. */
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!entry.isFile()) continue;
+        if (!/\.tsx?$/.test(entry.name) || /\.test\.tsx?$/.test(entry.name)) continue;
         /* `lib/motion.ts` DECLARES the hook, and the declaration matches the
            same pattern a call does — `useScrollScrub<T extends HTMLElement>(
            options?: …)`. The first draft of this test reported it as a call
@@ -234,13 +248,13 @@ describe("every scroll-scrub finishes while its content is on screen", () => {
            test that derives its own set gets the derivation wrong before it
            gets the assertion wrong. Excluded by name, not by pattern, so a
            second hook in this file would still be scanned. */
-        else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && full !== HOOK_FILE) {
-          const text = readFileSync(full, "utf8");
-          const re = /useScrollScrub<[^>]*>\(([^)]*)\)/g;
-          let m: RegExpExecArray | null;
-          while ((m = re.exec(text))) {
-            out.push({ file: relative(SRC, full), options: m[1].trim() });
-          }
+        if (full === HOOK_FILE) continue;
+
+        const text = readFileSync(full, "utf8");
+        const re = /useScrollScrub<[^>]*>\(([^)]*)\)/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(text))) {
+          out.push({ file: relative(SRC, full), options: m[1].trim() });
         }
       }
     };
