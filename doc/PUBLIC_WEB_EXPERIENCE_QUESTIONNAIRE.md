@@ -602,3 +602,172 @@ set piece needs corridor data and photography to be honest rather than decorativ
 
 On receipt I write `doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md` — the full specification, every upgrade
 documented, split across the three PRs — and we build from it.
+
+---
+
+## 5. Answers — round 1 (Q1–Q13), recorded 2026-09-10
+
+Recorded verbatim in substance so the guide is built from a written record rather than a chat log.
+
+| # | Answer | What it settles |
+| --- | --- | --- |
+| **Q1** | **B — tiered.** Plus an explicit ruling: **`public-web` gets an express exception from the tenant-app doctrine.** This is the public face by which tenants are judged; it may accept what the ERP rejects. Highest level of design and engineering. | Deferred, capability-gated WebGL is authorised. A `public-web`-specific budget and motion doctrine replaces the ERP's, written down and gated. |
+| **Q2** | **B — flagship then generalise.** Plus: **build a palette engine.** A tenant picks up to 3 colours; the system generates the full, accessible palette. Managed from a settings page that also governs other public-site parameters. Seed Smart Logistics for the perfect first view; every tenant configures their own. | The palette engine is a first-class deliverable, not a token file. Settings surface confirmed. |
+| **Q3** | Deferred to Q14. | See below. |
+| **Q4** | **All proposed rungs, plus anything further deemed necessary. Every page gets a hero / animated header section.** | No page ships without a designed entry moment. Scope covers every route, not just the homepage. |
+| **Q5** | **A only** — the principle, never the camera. Pointer-as-light, gyro parallax, scroll scrubbing, proximity response, full keyboard. | No `getUserMedia`, no WASM tracking, no permission prompts. Closed. |
+| **Q6** | **Seed what we can; omit what we can't.** Everything parametric — replaceable, addable, removable from settings tabs. Generated assets permitted. | Content is seeded-but-editable. The settings surface grows tabs for assets and metrics. |
+| **Q7** | **Both themes fully designed.** Light/dark toggle **always present in the header**. Plus: **an announcements capability** — partnerships, certifications (JCTrans etc.) — parametric from settings, with a strong section on the site. | Theme toggle promoted to permanent header furniture. Announcements added to scope. |
+| **Q8** | **A + C** — the shipment-journey spine, and every band raised. **No long static text blocks**: prioritise dynamic visuals, illustration, graphics, icons and micro-interactions. Text itself must be organised, designed, animated and transitioned. Explore a frame-sequencing pipeline (see Q16). | Copy density becomes a design constraint. Text treatment is a designed system, not a stylesheet default. |
+| **Q9** | **A + B** — exploit the three faces properly *and* add a display face. Font selection exposed in the same settings tab as colour, **restricted to our own font library**. | Brand sheet amended; `check-fonts.mjs` allow-list extended; a curated picker, not a free text field. |
+| **Q10** | **A — in place.** One tenant today (Smart Logistics), so no feature flag needed. | Simplifies rollout. Each PR ships on merge. |
+| **Q11** | Corporate entities carry a **public storytelling section**, generated first from what the system already knows, then extended. **Addresses, locations, coverage areas and service focus are essential.** | Entity data becomes public-facing content. Geography is a first-class part of the story. |
+| **Q12** | **Tenant-authored.** Seed the supplied Smart Logistics copy — refined, corporate, concise — editable from a new **Corporate Entity 360 public-story tab**. Where possible replace static prose with illustration and animation (ESG named specifically). | Real copy supplied and recorded in §6 below. The ESG block becomes a designed interactive, not three columns of text. |
+| **Q13** | **Leadership teams for the global entity and for each entity**, with photographs. A concise per-entity About plus a **global About** editable in settings. Advice requested on structure. | Two-tier About model. My recommendation is written into the guide rather than posed as a question. |
+
+---
+
+## 6. Answers — round 2 (Q14–Q17), asked in chat 2026-09-10
+
+These four were asked interactively once the round-1 answers reshaped the work. Recorded here so
+the guide has a single source.
+
+### Q14 — Should the freight-mode palette be generated from the tenant's brand colours?
+
+*(This is the Q3 clarification.)* The site identifies service lines with a sea/air/road/rail
+palette, and the ERP's Control Tower draws the same modes the same way — so regenerating them per
+tenant risks desyncing marketing from product and destroying the modes' conventional legibility.
+
+**Answer: harmonise, keep hue.** Modes keep their recognisable hues — sea deep-blue, air sky, road
+amber, rail slate-violet — and the engine matches their **chroma and lightness** to the tenant's
+palette so they sit in the same colour world. Meaning survives, coherence is gained, the ERP stays
+in sync.
+
+**Consequence for the build:** the palette engine has two outputs, not one — the tenant's derived
+brand ramp, and a mode set harmonised into it under a bounded hue tolerance. Both need contrast
+assertions in both themes.
+
+### Q15 — What may generated imagery depict?
+
+**Answer: options 1 and 2 — abstract/diagrammatic *and* photoreal non-specific.**
+
+- **Permitted:** non-representational work — cargo networks, light and material studies, isometric
+  containers, vessels, warehouses, corridor topography. And photoreal generated scenes used as
+  **atmosphere** — a port at dusk, container stacks.
+- **Excluded by the choice:** photoreal imagery depicting Smart Logistics' actual sites, fleet or
+  staff.
+
+**The guardrail this implies, which the guide will state as a rule.** Because option 2 is in play,
+photoreal generated imagery must never be captioned, captioned-adjacent, or positioned so a
+reasonable visitor concludes it is a photograph of the tenant's own operations. Concretely: no
+generated photoreal image sits inside a case note, a proof band, an entity profile, or under a place
+name. Atmosphere bands only, and every generated asset is recorded as generated in its manifest so a
+later reader can tell what is documentary and what is not.
+
+### Q16 — Frame sequences, video, or procedural?
+
+The premise was corrected with real numbers: a 24-frame 1600px WebP sequence is ~400–800 kB, while
+the same motion as AV1/WebM is ~80–150 kB. Modern codecs are **lighter** than frame sequences, not
+heavier. Frame sequences win only where scroll position drives the frame, because video seeking is
+janky.
+
+**Answer: 1 and 2 — use both.**
+
+**Reading, for the guide:** frame sequences are a sanctioned technique rather than a last resort, and
+they are the **default where the scroll position is the timeline**. Video carries anything that
+simply plays. Procedural canvas/CSS carries everything that can be generated. All three are governed
+by a **per-sequence byte budget enforced by a gate**, because the failure mode here is not one heavy
+sequence — it is the fourth one nobody measured.
+
+### Q17 — Announcements: one engine or two?
+
+**Answer — requirements given rather than an engine chosen:**
+
+- Announcements need a **homepage presence near the hero**, with a **"view more"**.
+- **Only for the very important announcements** — this is not a news feed.
+- Modern treatment: scrolling / marquee / or equivalent.
+- "More than important" — this is a priority band, not a footnote.
+
+**My reading, to be corrected if wrong.** I will build the recommended shape unless told otherwise:
+announcements become an **Insights `kind`** (they have bodies, dates and detail pages, and the
+`content/insight` + `insight_public` CMS already exists), gaining a **priority/pinned flag** so only
+flagged items reach the homepage band. Certifications and memberships become a **separate
+lightweight credentials list** (logo, name, issued date, link) — because a certification is not an
+article and should not carry article machinery. The homepage band sits directly beneath the hero
+with a "view more" into the full list.
+
+**⚠ OPEN — confirm or correct at the start of PR 1.**
+
+### Also recorded
+
+- **Assets incoming.** Real Smart Logistics assets will be supplied before the guide is written.
+  Every tenant after Smart Logistics uploads their own — which confirms the seed-then-parametric
+  model throughout, and means the asset pipeline must have an upload path from day one rather than
+  a build-time-only one.
+
+---
+
+## 7. Supplied content — Smart Logistics & Services Ltd
+
+Provided by the client for seeding, to be refined into concise corporate copy and, wherever
+possible, replaced by illustration and animation rather than rendered as prose. Recorded raw here;
+the refined bilingual version lives in the guide.
+
+**Positioning.** Your trusted partner in the CEMAC region. Built for compliance, visibility and
+dependable execution — operating from Douala as a gateway to the CEMAC region.
+
+**Facts.** Founded 2021 · Base: Douala · Focus: CEMAC region.
+
+**Overview.** Founded in 2021, Smart Logistics & Services Ltd has expanded rapidly from customs
+brokerage to a full-service 3PL provider. Based in Douala, it serves as the gateway to the CEMAC
+region.
+
+**Mission.** To revolutionise the logistics landscape by delivering solutions that not only meet but
+exceed customers' expectations; to create an environment that ignites passion, fuels creativity and
+inspires the team to provide unparalleled customer experiences; to build a legacy on reliability,
+flexibility and customer satisfaction.
+
+**Vision.** To be the logistics leader of choice, setting the standard for excellence in Cameroon and
+the CEMAC subregion, and the benchmark against which others are measured.
+
+**Operational emphasis.** Disciplined processes and regulatory compliance · visibility and control
+across complex operating environments · dependable last-mile delivery for project-driven operations ·
+systems, expertise and partnerships for seamless cross-border trade · built to support trade
+corridors as regional supply chains expand.
+
+**Guiding principles.** Customer delight · team empowerment · excellence.
+
+**Message from the CEO — Timothée MASSOMBA, Chief Executive Officer.** Logistics as a strategic
+driver of trade, growth and competitiveness; responsibility beyond moving cargo — delivering control,
+visibility and reliable execution in complex operating environments. From headquarters in Douala,
+operating at a critical gateway to the CEMAC region and the wider African market, supporting
+international organisations, multinationals and project-driven operations that require disciplined
+processes, regulatory compliance and dependable last-mile delivery. Africa is entering an enhanced
+phase of economic integration through the African Continental Free Trade Area; as cross-border flows
+increase and supply chains become more regional, the need for efficient freight forwarding, customs
+brokerage, coordinated transport and trusted project execution will intensify. Ambition: to be a
+long-term logistics authority and a preferred gateway for regional and international trade.
+
+**ESG — Environment.** Route optimisation to reduce fuel consumption and emissions · responsible
+handling of hazardous and regulated cargo · waste reduction and recycling within warehouse
+operations · gradual transition toward fuel-efficient fleets and equipment · compliance with local
+and international environmental regulations.
+
+**ESG — Social.** Strict health, safety and security standards across operations · continuous
+training for operational and compliance staff · ethical labour practices and zero tolerance for
+discrimination · support for humanitarian, development and NGO supply chains · local workforce
+engagement within the CEMAC region.
+
+**ESG — Governance.** Governed by a Strategic Planning Committee and an Operational Excellence
+Committee. Clear accountability and decision-making structures · compliance with customs, trade and
+international logistics standards · risk mitigation and internal control procedures · ethical
+business conduct and transparency.
+
+---
+
+## 8. Status
+
+**Round 1 and round 2 answered.** The engineering guide —
+`doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md`, five PRs, with a progress log and a coverage percentage
+updated on every PR completion — is **paused pending the Smart Logistics asset drop**, at the
+client's instruction. It resumes on receipt.
