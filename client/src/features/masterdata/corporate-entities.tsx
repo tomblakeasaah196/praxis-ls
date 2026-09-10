@@ -736,7 +736,13 @@ function EntityForm({
 }
 
 export function CorporateEntitiesPage() {
-  const { rows, error, loading, reload } = useList<api.Entity>("/entities");
+  // `?limit=` because `page()` caps an unparameterised list at 50 and this
+  // screen filters the result IN THE BROWSER — so entity 51 could not be found
+  // by searching for it, which is the truncation `listComplete`'s docblock
+  // describes ("the match sat at row 80 of 300"). 200 is that helper's maximum;
+  // past it the honest fix is to move the search server-side, where LIST_SQL
+  // already has the ILIKE branch waiting.
+  const { rows, error, loading, reload } = useList<api.Entity>(api.ENTITY_LIST);
   const [params, setParams] = useSearchParams();
   const [selId, setSelId] = React.useState<string | null>(null);
   const [q, setQ] = React.useState("");
