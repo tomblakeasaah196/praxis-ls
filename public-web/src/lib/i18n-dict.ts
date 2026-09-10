@@ -254,6 +254,18 @@ export const en = {
      * route and the label a reader sees. The old name was ambiguous in two
      * directions, and a hub nobody can place is a hub nobody opens.
      */
+    corridor: {
+      eyebrow: "The network",
+      title: "The corridors we run",
+      /* Two subtitles, because the scene has two honest states. The second one
+         is shown when the ledger has nothing to publish, and it says so rather
+         than letting an ornament be read as a route map. */
+      sub: "Every lane here is one we have completed files on. Move through it.",
+      subAbstract: "A picture of how a network fits together. Ours fills in as files complete.",
+      figureLabel: "Corridor network — use the arrow keys to move between places",
+      files: "files",
+      tilt: "Move the scene by tilting your phone",
+    },
     announce: {
       /* The band under the hero. Two strings, and that is the whole surface:
          everything else in it is the tenant's own announcement. */
@@ -1051,6 +1063,15 @@ export const fr = {
       insights: "Analyses",
       careers: "Carrières",
       contact: "Contact",
+    },
+    corridor: {
+      eyebrow: "Le réseau",
+      title: "Les corridors que nous opérons",
+      sub: "Chaque ligne ici est une ligne sur laquelle nous avons des dossiers clos. Parcourez-la.",
+      subAbstract: "Une image de la façon dont un réseau s’assemble. Le nôtre se remplit à mesure que les dossiers se clôturent.",
+      figureLabel: "Réseau de corridors — utilisez les flèches pour passer d’un lieu à l’autre",
+      files: "dossiers",
+      tilt: "Inclinez votre téléphone pour parcourir la scène",
     },
     announce: {
       eyebrow: "À la une",

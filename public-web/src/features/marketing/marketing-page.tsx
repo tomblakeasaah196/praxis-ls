@@ -8,6 +8,7 @@ import { listStories, type PortfolioCard } from "@/lib/portfolio-api";
 import { listCorridors, type Corridor } from "@/lib/corridors-api";
 import { Hero } from "@/components/site/hero";
 import { AnnouncementsBand } from "@/components/site/announcements-band";
+import { CorridorScene } from "@/components/site/corridor-scene";
 import {
   MediaCard,
   MoreLink,
@@ -123,6 +124,15 @@ export function MarketingPage() {
       <ServicesBand />
       <HowBand block={how} />
       <ProofBand />
+      {/* §7.5's set piece, between the proof and the portal.
+ 
+          It sits here because the spine (§7) is one shipment moving from origin
+          to delivery, and this is the leg in between: after the reader has been
+          shown what has been carried, before they are shown where their own
+          file would live. It is also the one dark band's neighbour, which is
+          why the portal band below keeps its overlap — the two carbon regions
+          read as one punctuation mark rather than as stripes. */}
+      <CorridorScene />
       <PortalBand />
       <QuoteBand block={cta} />
       <ContactBand />
