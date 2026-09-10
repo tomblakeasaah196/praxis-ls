@@ -57,8 +57,26 @@ import type { EsgPillar } from "@/lib/site-api";
  * commitment; it simply stops carrying the labels. Recorded as a deviation.
  */
 
-/** Where a pillar's points attach to its drawing, in the SVG's own coordinates.
- *  `side` decides which way the leader line and the label run. */
+/**
+ * Where a pillar's points attach to its drawing, in the SVG's own coordinates.
+ *
+ * ── THE ANCHOR IS NOT THE LABEL'S POSITION ────────────────────────────────
+ *
+ * The first version placed each label at its anchor's own height, which reads
+ * correctly and lays out wrongly: several anchors on one drawing sit within a
+ * few units of each other (the environment drawing has three between y=128 and
+ * y=178), and a two-line label at each of them overlaps its neighbours into an
+ * unreadable stack. It was invisible in every unit test and obvious in the
+ * first screenshot — which is the argument for taking one.
+ *
+ * So the anchor marks the PLACE on the drawing, and the label gets an evenly
+ * spaced slot down the side. The leader line runs between the two, which is how
+ * an annotated diagram has always worked: the line exists precisely because the
+ * label cannot sit on top of the thing it names.
+ *
+ * `side` is a hint the slot allocator uses to keep a label near its anchor
+ * where it can.
+ */
 type Anchor = { x: number; y: number; side: "left" | "right" };
 
 /**
@@ -77,7 +95,11 @@ type Anchor = { x: number; y: number; side: "left" | "right" };
  * it the dash arithmetic would need each path's measured length, which is a
  * layout read per path per frame.
  */
-const VIEWBOX = "0 0 300 220";
+const VIEW_W = 300;
+const VIEW_H = 300;
+/** The height each drawing is composed in, centred inside the taller stage. */
+const ART_H = 220;
+const VIEWBOX = `0 0 ${VIEW_W} ${VIEW_H}`;
 
 /** Environment — a route being straightened, which is what route optimisation
  *  IS. The meander is drawn first and fades as the direct line completes. */
@@ -199,6 +221,55 @@ const DRAWINGS: Record<PillarKey, { Art: () => JSX.Element; anchors: Anchor[] }>
  *  a list drawn badly. */
 const ANCHORED = 5;
 
+/**
+ * Place each label in an evenly spaced slot and draw a leader to it.
+ *
+ * ── WHY EVEN SPACING RATHER THAN THE ANCHOR'S OWN HEIGHT ──────────────────
+ *
+ * Because anchors cluster. The environment drawing has three within fifty units
+ * of each other, and labels placed at their heights overlap into a stack that
+ * is not readable — which is what the first screenshot of this band showed, and
+ * what no unit test could have.
+ *
+ * Slots alternate sides so consecutive labels never share a column, and the
+ * leader bends: out from the anchor, across, and in to the label. That is the
+ * ordinary grammar of an annotated diagram, and the bend is what makes the
+ * association legible when the label is nowhere near the mark.
+ */
+function layout(
+  points: string[],
+  anchors: Anchor[],
+): Array<{
+  point: string;
+  anchor: Anchor;
+  side: "left" | "right";
+  labelPercent: number;
+  leader: string;
+}> {
+  const n = points.length;
+  const shift = (VIEW_H - ART_H) / 2;
+  return points.map((point, i) => {
+    // The tables below are written in the DRAWING's coordinates, which is where
+    // they are readable against the paths they mark. The leader is drawn in the
+    // stage's, so the anchor is shifted once here rather than every table being
+    // rewritten with an offset baked in.
+    const anchor = { ...anchors[i], y: anchors[i].y + shift };
+    // Alternating, so two labels are never in the same column in a row. The
+    // anchor's own side wins for the FIRST of each pair, which keeps most
+    // leaders short.
+    const side: "left" | "right" = i % 2 === 0 ? "left" : "right";
+    // Slots down the stage, inset top and bottom so the first and last labels
+    // are not flush against the edge.
+    const top = n === 1 ? 50 : 8 + (84 * i) / (n - 1);
+    const y = (top / 100) * VIEW_H;
+    const edge = side === "left" ? 10 : VIEW_W - 10;
+    // Out from the anchor, then a curve to the label's own height.
+    const midX = (anchor.x + edge) / 2;
+    const leader = `M${anchor.x} ${anchor.y} C ${midX} ${anchor.y}, ${midX} ${y}, ${edge} ${y}`;
+    return { point, anchor, side, labelPercent: top, leader };
+  });
+}
+
 function Pillar({
   which,
   label,
@@ -224,6 +295,7 @@ function Pillar({
 
   const anchored = pillar.points.slice(0, ANCHORED);
   const overflow = pillar.points.slice(ANCHORED);
+  const slots = layout(anchored, anchors);
 
   return (
     <div ref={ref} className="esg-pillar">
@@ -244,44 +316,56 @@ function Pillar({
              content twice. */
           aria-label={t("site.esg.figureAlt", { pillar: label })}
         >
-          <Art />
-          {/* The leader lines, in SVG coordinates so they stay attached to the
-              drawing at any width. Drawn after the art so they sit over it. */}
-          {anchored.map((_, i) => {
-            const a = anchors[i];
-            const toX = a.side === "left" ? 8 : 292;
-            return (
-              <g key={i} className="esg-leader" style={annotationStyle(i, anchored.length)}>
-                <path d={`M${a.x} ${a.y} L${toX} ${a.y}`} pathLength="1" />
-                <circle cx={a.x} cy={a.y} r="3.5" />
-              </g>
-            );
-          })}
+          {/* The drawings are composed in a 300x220 box; the stage is 300x300
+              so the labels have room to spread down the sides without crowding
+              the illustration. Translating rather than redrawing keeps each
+              drawing's own proportions, which were tuned against its subject. */}
+          <g transform={`translate(0 ${(VIEW_H - ART_H) / 2})`}>
+            <Art />
+          </g>
+          {/* The leader lines, in the SVG's own coordinates so they stay
+              attached to the drawing at any width. Drawn after the art so they
+              sit over it. Each runs from its anchor — a real place on the
+              illustration — to its label's slot, which is why the line exists
+              at all: the label cannot sit on top of the thing it names. */}
+          {slots.map((slot, i) => (
+            <g
+              key={i}
+              className="esg-leader"
+              style={annotationStyle(i, slots.length)}
+            >
+              <path d={slot.leader} pathLength="1" />
+              <circle cx={slot.anchor.x} cy={slot.anchor.y} r="3.5" />
+            </g>
+          ))}
         </svg>
 
-        {/* THE ANNOTATIONS THEMSELVES, as HTML rather than as SVG `<text>`.
+        {/* THE ANNOTATIONS, as HTML rather than as SVG `<text>`.
             SVG text does not wrap, does not inherit the type scale and is not
-            selectable in the way a sentence should be. They are positioned in
-            PERCENTAGES of the stage, computed from the same anchor coordinates
-            the leader lines use, so the two cannot drift apart. */}
+            selectable the way a sentence should be. They are positioned from
+            the SAME slot geometry the leader lines use, so the two cannot drift
+            apart, and they overlay the drawing rather than flanking it: at a
+            third of the container's width there is no room either side, and a
+            column that gives half its width to labels is a drawing nobody can
+            read. */}
         <ul className="esg-notes">
-          {anchored.map((point, i) => {
-            const a = anchors[i];
-            return (
-              <li
-                key={point}
-                className={cn("esg-note", a.side === "left" ? "esg-note-l" : "esg-note-r")}
-                style={
-                  {
-                    ...annotationStyle(i, anchored.length),
-                    top: `${(a.y / 220) * 100}%`,
-                  } as React.CSSProperties
-                }
-              >
-                {point}
-              </li>
-            );
-          })}
+          {slots.map((slot, i) => (
+            <li
+              key={slot.point}
+              className={cn(
+                "esg-note",
+                slot.side === "left" ? "esg-note-l" : "esg-note-r",
+              )}
+              style={
+                {
+                  ...annotationStyle(i, slots.length),
+                  top: `${slot.labelPercent}%`,
+                } as React.CSSProperties
+              }
+            >
+              {slot.point}
+            </li>
+          ))}
         </ul>
       </div>
 
@@ -305,15 +389,37 @@ function Pillar({
 /**
  * When one annotation arrives, as a fraction of the panel's scrub.
  *
- * Spread across the back half of the travel (0.35 → 0.9) so the drawing has
- * substantially assembled before the first label appears — a label pointing at
- * a line that is not there yet reads as a mistake. `--at` is compared against
- * `--scrub` in CSS rather than in JS, which is what keeps this off the main
- * thread: the scrub writes one property per frame and the browser recomputes
- * the rest.
+ * Spread across the back half of the travel so the drawing has substantially
+ * assembled before the first label appears — a label pointing at a line that is
+ * not there yet reads as a mistake. `--at` is compared against `--scrub` in CSS
+ * rather than in JS, which is what keeps this off the main thread: the scrub
+ * writes one property per frame and the browser recomputes the rest.
+ *
+ * ── WHY THE RANGE STOPS AT `LAST_AT` AND NOT AT 1 ─────────────────────────
+ *
+ * The opacity is `clamp(0, (--scrub − --at) / FADE, 1)`, so an annotation only
+ * reaches FULL opacity once the scrub has passed its `--at` by `FADE`. The
+ * first version spread to 0.9, which meant that at `--scrub: 1` — the settled
+ * state, and what every reduced-motion visitor sees — the last annotation of
+ * each pillar sat at (1 − 0.9) / 0.12 = **0.83 opacity, permanently**.
+ *
+ * Three of fourteen labels, greyed out forever, on the block §8.4 says must be
+ * "genuinely good" in exactly that state. No test caught it and no screenshot
+ * of the animated version would have: it is only visible when the scrub STOPS
+ * at 1. It was found by driving a real browser with `prefers-reduced-motion`
+ * and reading the computed opacity of every note, which is the pass §8.7 asks
+ * for and the reason it asks for it.
+ *
+ * So the last annotation's threshold is capped at `1 − FADE`, and
+ * `esg-triptych.test.tsx` pins the arithmetic rather than the number.
  */
-function annotationStyle(index: number, total: number): React.CSSProperties {
-  const at = 0.35 + (0.55 * index) / Math.max(total - 1, 1);
+export const ANNOTATION_FADE = 0.12;
+export const ANNOTATION_LAST_AT = 1 - ANNOTATION_FADE;
+
+export function annotationStyle(index: number, total: number): React.CSSProperties {
+  const first = 0.35;
+  const span = ANNOTATION_LAST_AT - first;
+  const at = first + (span * index) / Math.max(total - 1, 1);
   return { "--at": at.toFixed(3) } as React.CSSProperties;
 }
 

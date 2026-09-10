@@ -357,11 +357,41 @@ function TrackError({
     <Outcome
       icon={DocumentIcon}
       eyebrow={t("common.status")}
-      title={t("errors.loadFailed")}
+      /* A SHORT title, and the server's sentence beneath it.
+         It was `errors.loadFailed` — a full sentence — at display size, with
+         `message` under it. `messageFor` falls back to that same string when
+         the server sends no specific one, so the plate read the identical
+         sentence twice at two different sizes. Caught in a screenshot, which is
+         the only place it is visible: both halves are correct on their own. */
+      title={t("site.trackPage.failedTitle")}
       actions={<Button onClick={onRetry}>{t("common.retry")}</Button>}
       announce
     >
-      <p>{message}</p>
+      {/*
+        THE SENTENCE BENEATH THE TITLE, AND WHEN THERE IS ONE.
+
+        This plate used to render `messageFor(...)` under a title that was
+        itself `errors.loadFailed` — the same sentence twice at two sizes, which
+        is what a screenshot of the real page showed. The fix is not to delete
+        the body but to render it only when it ADDS something.
+
+        `PublicApiError.isPublicMessage` passes a server sentence through for
+        exactly three failures: offline, not-found and rate-limited. Two of
+        those have their own screen above, so the one that reaches this plate is
+        OFFLINE — and "you appear to be offline" is precisely the sentence worth
+        printing, because it tells the visitor the problem is not the reference
+        they typed. Everything else, a 500 included, becomes the dictionary's
+        generic sentence: `api.ts` says why, and the detail goes to the console
+        where it helps whoever is debugging and cannot leak a table name onto a
+        public page.
+
+        So the comparison is against the FALLBACK, not against the title. That
+        is what distinguishes "the server explained" from "we filled in a
+        default".
+      */}
+      {message && message !== tStatic("errors.loadFailed") ? (
+        <p>{message}</p>
+      ) : null}
       {requestId ? (
         <p className="text-sm">
           <span className="micro mr-1.5">{t("states.requestRef")}</span>

@@ -547,3 +547,64 @@ describe("the not-found screen (§8.1)", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("the failure plate does not repeat itself", () => {
+  it("shows the server's sentence only when it adds something", async () => {
+    /*
+     * `messageFor` falls back to `errors.loadFailed` when the server sends no
+     * specific message. With that string ALSO as the plate's title, the screen
+     * read the identical sentence twice at two sizes — correct in each half,
+     * wrong as a composition, and invisible to every assertion that checked
+     * only that the message was present. Found in a screenshot.
+     */
+    vi.stubGlobal(
+      "fetch",
+      answer({ error: { code: "ERROR", message: "" } }, 500),
+    );
+    await mount("?ref=SBL-OPS-2026-0142");
+    await screen.findByText(en.site.trackPage.failedTitle);
+    // The generic sentence must not ALSO appear as the body.
+    expect(screen.queryAllByText(en.errors.loadFailed)).toHaveLength(0);
+  });
+
+  it("never prints a 500's server text to a stranger", async () => {
+    /*
+     * `PublicApiError.isPublicMessage` passes a server sentence through only
+     * for offline, not-found and rate-limited — each of which has its own
+     * screen. Everything else gets the dictionary's sentence and the detail
+     * goes to the console. This pins that: a server that leaks a stack trace,
+     * a table name or an internal path into `message` must not have it
+     * rendered on a public page.
+     */
+    vi.stubGlobal(
+      "fetch",
+      answer(
+        { error: { code: "ERROR", message: "relation \"insight_article\" does not exist" } },
+        500,
+      ),
+    );
+    await mount("?ref=SBL-OPS-2026-0142");
+    await screen.findByText(en.site.trackPage.failedTitle);
+    expect(screen.queryByText(/insight_article/)).toBeNull();
+  });
+});
+
+describe("the offline case, which is the one that DOES add a sentence", () => {
+  it("prints the offline message rather than the generic fallback", async () => {
+    /*
+     * `isPublicMessage` is true for status 0, and a network failure lands on
+     * the general failure plate rather than on not-found or rate-limited. It is
+     * the one failure where the body says something the title does not: the
+     * problem is the connection, not the reference the visitor typed.
+     */
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+    await mount("?ref=SBL-OPS-2026-0142");
+    await screen.findByText(en.site.trackPage.failedTitle);
+    expect(screen.getByText(en.errors.network)).toBeInTheDocument();
+  });
+});

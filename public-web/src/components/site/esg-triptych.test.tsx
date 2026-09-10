@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-import { EsgTriptych } from "@/components/site/esg-triptych";
+import {
+  EsgTriptych,
+  annotationStyle,
+  ANNOTATION_FADE,
+  ANNOTATION_LAST_AT,
+} from "@/components/site/esg-triptych";
 /* For its side effect: `lib/i18n` initialises i18next on import, and this is
    the one component test in the tree that renders no provider — so without it
    `t()` returns the raw key and every assertion on a translated string fails
@@ -203,5 +208,52 @@ describe("the points are always real text (§8.4)", () => {
     expect(container.querySelectorAll(".esg-list-extra")).toHaveLength(2);
     // …and the spilled ones are still readable.
     expect(screen.getByText("g")).toBeInTheDocument();
+  });
+});
+
+/**
+ * ── THE DEFECT A REAL BROWSER FOUND, PINNED AS ARITHMETIC ──────────────────
+ *
+ * The annotation opacity is `clamp(0, (--scrub − --at) / FADE, 1)`, so a label
+ * reaches full opacity only once the scrub has passed its threshold by FADE.
+ * The thresholds first spread to 0.9, which meant that at `--scrub: 1` — the
+ * settled state, and what every reduced-motion visitor sees — the LAST label of
+ * each pillar sat at (1 − 0.9) / 0.12 = 0.83 opacity, permanently. Three of
+ * fourteen, greyed out forever, on the block §8.4 says must be genuinely good
+ * in exactly that state.
+ *
+ * jsdom does not compute `clamp()`, so asserting the rendered opacity here
+ * would assert nothing. What CAN be pinned is the arithmetic that decides it,
+ * which is where the defect actually was.
+ */
+describe("every annotation is fully opaque in the settled state (§8.4)", () => {
+  const opacityAtSettled = (at: number) =>
+    Math.min(1, Math.max(0, (1 - at) / ANNOTATION_FADE));
+
+  it("leaves no label part-faded at --scrub: 1, at any pillar length", () => {
+    // One point through the schema's maximum of twelve.
+    for (let total = 1; total <= 12; total++) {
+      for (let i = 0; i < total; i++) {
+        const at = Number(
+          String(
+            (annotationStyle(i, total) as Record<string, string>)["--at"],
+          ),
+        );
+        expect(opacityAtSettled(at)).toBeCloseTo(1, 5);
+      }
+    }
+  });
+
+  it("still staggers — the last label arrives after the first", () => {
+    // The cap must not collapse the range into a single instant, or the
+    // annotations all appear at once and the assembly reads as a flash.
+    const first = Number(
+      (annotationStyle(0, 5) as Record<string, string>)["--at"],
+    );
+    const last = Number(
+      (annotationStyle(4, 5) as Record<string, string>)["--at"],
+    );
+    expect(last).toBeGreaterThan(first + 0.3);
+    expect(last).toBeLessThanOrEqual(ANNOTATION_LAST_AT);
   });
 });

@@ -794,6 +794,9 @@ export const en = {
         "This says nothing about your cargo. It means no file on this site carries that exact reference — most often a digit read across from a photograph, or a reference from a different provider.",
       askDesk: "Ask the desk",
       tooMany: "Too many lookups",
+      /* SHORT, because it sits at display size. `errors.loadFailed` is a full
+         sentence and belongs under a title, not as one. */
+      failedTitle: "The lookup did not go through",
     },
     notFound: {
       kicker: "Wrong turn",
@@ -1623,6 +1626,7 @@ export const fr = {
         "Cela ne dit rien de votre marchandise. Aucun dossier de ce site ne porte cette référence exacte — le plus souvent un chiffre relevé sur une photo, ou une référence provenant d’un autre prestataire.",
       askDesk: "Contacter le bureau",
       tooMany: "Trop de recherches",
+      failedTitle: "La recherche n’a pas abouti",
     },
     notFound: {
       kicker: "Mauvaise adresse",
