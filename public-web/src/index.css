@@ -1881,6 +1881,158 @@
   .elev-4 { box-shadow: var(--elev-4), var(--catch-2); }
   .elev-5 { box-shadow: var(--elev-5), var(--catch-3); }
 
+  /* ── The track result (§8.1) ──────────────────────────────────────────────
+   *
+   * THIS PAGE IS ERGONOMICS, NOT SPECTACLE, AND THE GUIDE SAYS SO. It is opened
+   * on a phone, on data, by somebody who wants one fact: where is my cargo. So
+   * the depth here is rungs 1 and 3 only — elevation, and layers that separate
+   * under the pointer. No CSS 3D on the answer (a plate that swings while you
+   * read a date is worse than a flat one), no canvas, no frame sequence, and
+   * nothing on this page waits for a second chunk.
+   *
+   * ── THE VERDICT PLATE ──────────────────────────────────────────────────
+   *
+   * `--mode` is written per shipment as an inline custom property, so the whole
+   * composition below is lit by the mode of THIS file — sea green, air blue,
+   * road orange, rail violet — from one declaration. Where the file has no
+   * service type the component leaves `--mode` unset and the fallback is the
+   * tenant's own accent, which is the honest answer: an unclassified file is
+   * not secretly a sea file. */
+  .track-verdict {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius);
+    background: var(--card);
+    box-shadow: var(--elev-3), var(--catch-2);
+  }
+
+  /* The mode's light, laid ACROSS the plate from the top-left — which is the
+     site's stated light source (§5.3) and not a decorative choice. It is a
+     gradient rather than a border because a 3px accent stripe is what every
+     dashboard in this category already does. */
+  .track-verdict::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      120% 140% at 0% 0%,
+      rgb(var(--mode, var(--brand-orange)) / 0.16),
+      transparent 62%
+    );
+  }
+
+  /* The hairline that states the mode without spending contrast on it. */
+  .track-verdict::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      rgb(var(--mode, var(--brand-orange))),
+      rgb(var(--mode, var(--brand-orange)) / 0)
+    );
+  }
+
+  /* THE ONE FACT, AT DISPLAY SIZE. §8.1: status and ETA above everything, before
+     the timeline. `clamp` rather than a breakpoint because the longest French
+     status ("Livraison en cours") is half again the English, and a size that
+     fits it on a 360px phone is the size that decides this line. */
+  .track-headline {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    font-size: clamp(1.75rem, 7vw, 2.75rem);
+  }
+
+  /* ── The timeline as a spatial object ───────────────────────────────────
+   *
+   * Three states, three elevations, and the rail between them lit only where
+   * the cargo has actually been. `--lift` is the stage's own elevation and is
+   * set by the state class below, so a row's height off the page IS its state
+   * rather than a colour that happens to correlate with it. */
+  .track-stage {
+    position: relative;
+    border-radius: var(--radius);
+    padding: 0.875rem 1rem 0.875rem 0.875rem;
+    background: var(--card);
+    box-shadow: var(--lift, none);
+    /* Rung 3: the row separates from the rail behind it as attention nears.
+       `--lx`/`--ly` rest at 0.5 and are only written by `usePointerLight`, which
+       declines coarse pointers — so this is inert on the phone the page is
+       designed for and costs it nothing. */
+    transform: translate3d(
+      calc((var(--lx, 0.5) - 0.5) * var(--depth, 0) * 1px),
+      calc((var(--ly, 0.5) - 0.5) * var(--depth, 0) * 0.5px),
+      0
+    );
+    transition:
+      box-shadow var(--dur-response) var(--ease-standard),
+      transform var(--dur-response) var(--ease-standard);
+  }
+
+  .track-stage-done {
+    --lift: var(--elev-1);
+    --depth: 3;
+  }
+
+  /* The current stage is the one the visitor came for: highest off the page,
+     and the only element here with an emissive rim. `--mat-emissive` is the
+     material token from §5.3 rather than a shadow typed in place. */
+  .track-stage-now {
+    --lift: var(--elev-3);
+    --depth: 7;
+    background: linear-gradient(
+        0deg,
+        rgb(var(--mode, var(--brand-orange)) / 0.06),
+        rgb(var(--mode, var(--brand-orange)) / 0.06)
+      ),
+      var(--card);
+    outline: 1px solid rgb(var(--mode, var(--brand-orange)) / 0.45);
+    outline-offset: -1px;
+  }
+
+  /* Flush with the ground and dimmed — a stage that has not happened is not a
+     card, it is a plan. Opacity rather than a lighter ink, so the muted text
+     inside keeps the ratio the contrast gate measured. 0.72 is the floor at
+     which `--muted-foreground` on `--card` (5.86:1) still clears 4.5:1. */
+  .track-stage-next {
+    --lift: none;
+    --depth: 0;
+    background: transparent;
+    opacity: 0.72;
+  }
+
+  /* The rail. Lit in the mode's colour where the leg is complete, and a plain
+     border where it is not — so the drawn line carries how far the cargo has
+     come without a legend explaining it. */
+  .track-rail {
+    position: absolute;
+    left: 1.6875rem;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--border);
+  }
+
+  .track-rail-lit {
+    background: linear-gradient(
+      180deg,
+      rgb(var(--mode, var(--brand-orange))),
+      rgb(var(--mode, var(--brand-orange)) / 0.35)
+    );
+  }
+
+  /* A dark band's version of the plate, for the entrance states below the hero
+     on the empty and not-found screens. */
+  .track-quiet {
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--muted);
+  }
+
 }
 
 @layer utilities {
