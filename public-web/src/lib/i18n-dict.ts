@@ -242,6 +242,7 @@ export const en = {
       home: "Home",
     },
     nav: {
+      about: "About",
       services: "Services",
       track: "Track",
       portfolio: "Our work",
@@ -269,6 +270,94 @@ export const en = {
       present: "We are here",
       files: "files",
       tilt: "Move the scene by tilting your phone",
+    },
+    /**
+     * The About page (§9.1) and everything on it — the entity network (§9.2),
+     * the leadership renderer (§9.3) and the three proof treatments (§9.4).
+     *
+     * ── ALMOST NOTHING HERE IS CONTENT ────────────────────────────────────
+     *
+     * Every fact on that page is the tenant's: their mission, their timeline,
+     * their people, their partners. What lives in this dictionary is the
+     * FURNITURE — the heading over the tenant's own list, the word "Founded"
+     * before their year, the sentence that wraps a person's name into an alt
+     * attribute. That split is why `site.about.sub` is the only sentence with
+     * any prose in it, and why it only ever renders for a tenant who has
+     * written no summary of their own.
+     *
+     * ── THE `{{name}}` STRINGS ARE ALT TEXT, AND THAT IS DELIBERATE ───────
+     *
+     * `portraitAlt`, `entityCoverAlt`, `markAlt` and `linkedinOf` interpolate a
+     * proper noun the tenant typed. The NAME is not translated — a company's
+     * trademark and a person's name are theirs in both languages — and the
+     * sentence around it is. That is the whole reason the asset upload control
+     * has no alt-text field: a second copy of a name, typed into a form, is
+     * the copy a screen-reader user hears after somebody fixes a spelling in
+     * the first.
+     */
+    about: {
+      title: "About us",
+      kicker: "Who we are",
+      titleMain: "The people behind",
+      titleAccent: "the freight",
+      sub: "A logistics group, its companies, and the people who run them.",
+      founded: "Founded",
+      hq: "Head office",
+
+      storyKicker: "Our story",
+      storyTitle: "What we are for",
+      mission: "Our mission",
+      vision: "Where we are going",
+      principles: "How we work",
+
+      messageKicker: "From the desk",
+      messageTitle: "A word from our chief executive",
+
+      timelineKicker: "Our history",
+      timelineTitle: "How we got here",
+      timelineYear: "Year",
+
+      peopleKicker: "Leadership",
+      peopleTitle: "The people accountable",
+      readBio: "Read biography",
+      linkedin: "LinkedIn",
+      linkedinOf: "{{name}} on LinkedIn",
+      portraitAlt: "Portrait of {{name}}",
+
+      networkKicker: "The group",
+      networkTitle: "Our companies",
+      networkLead:
+        "Each one is a registered company with its own licences, its own people and its own ground. Where two of them cover the same country, the ring joins them.",
+      networkLabel:
+        "Our companies as a network — use the arrow keys to move between them",
+      /* A LABEL AND A NUMBER, not a pluralised sentence.
+         i18next resolves `key_one` / `key_other` at runtime, but
+         `check:i18n` reads the dictionary statically and sees only a `t()`
+         call for a key that does not exist — so a plural pair is a dangling
+         call to the gate and a working string to the browser, which is the
+         worst of the two. Recorded as a finding. A label avoids the
+         agreement problem in both languages at every count. */
+      networkPlaces: "Coverage: {{count}}",
+      entityFocus: "What it handles",
+      entityCoverage: "Where it operates",
+      entityPeople: "Who runs it",
+      entityCoverAlt: "{{name}}",
+
+      proofKicker: "Proof",
+      proofTitle: "Accredited, and accountable",
+      credentialsTitle: "Certifications and licences",
+      credentialRef: "Reference",
+      credentialIssued: "Issued",
+      credentialValid: "Valid until",
+      membershipsTitle: "Memberships",
+      /* NOT "Trusted by" (N11). The heading states the relationship; whether
+         it is impressive is the reader's call, and telling them is the
+         sentence a procurement officer discounts. */
+      clientsTitle: "Organisations we work with",
+      carriersTitle: "The lines we move on",
+      carriersLead:
+        "Carriers and networks we book capacity with. Their marks are theirs; we show them with permission.",
+      markAlt: "{{name}}",
     },
     announce: {
       /* The band under the hero. Two strings, and that is the whole surface:
@@ -705,6 +794,13 @@ export const en = {
       newsletterLimited:
         "Too many sign-ups from this connection. Please try again in an hour.",
       newsletterErr: "That address did not work. Please try again.",
+      /* §9.5. `social` names the nav landmark; `socialOn` is the accessible
+         name of one link, because a row of seven links all called "Social" is
+         a row a screen-reader user cannot navigate. */
+      social: "Social",
+      socialOn: "{{platform}}, in a new tab",
+      credentials: "Accredited:",
+      legalEntity: "Legal entity:",
     },
     preview: {
       reference: "SBL-OPS-2026-0142",
@@ -1129,6 +1225,7 @@ export const fr = {
       home: "Accueil",
     },
     nav: {
+      about: "À propos",
       services: "Services",
       track: "Suivi",
       portfolio: "Nos réalisations",
@@ -1146,6 +1243,62 @@ export const fr = {
       present: "Nous y sommes implantés",
       files: "dossiers",
       tilt: "Inclinez votre téléphone pour parcourir la scène",
+    },
+    /** Voir la version anglaise pour la raison d’être de chaque clé : tout ce
+     *  qui est ici est du mobilier, jamais un fait sur le client. */
+    about: {
+      title: "À propos",
+      kicker: "Qui nous sommes",
+      titleMain: "Les femmes et les hommes",
+      titleAccent: "derrière le fret",
+      sub: "Un groupe logistique, ses sociétés, et celles et ceux qui les dirigent.",
+      founded: "Création",
+      hq: "Siège social",
+
+      storyKicker: "Notre histoire",
+      storyTitle: "Notre raison d’être",
+      mission: "Notre mission",
+      vision: "Notre cap",
+      principles: "Nos principes",
+
+      messageKicker: "Le mot du dirigeant",
+      messageTitle: "Message du directeur général",
+
+      timelineKicker: "Notre parcours",
+      timelineTitle: "Les étapes",
+      timelineYear: "Année",
+
+      peopleKicker: "Direction",
+      peopleTitle: "Les responsables",
+      readBio: "Lire la biographie",
+      linkedin: "LinkedIn",
+      linkedinOf: "{{name}} sur LinkedIn",
+      portraitAlt: "Portrait de {{name}}",
+
+      networkKicker: "Le groupe",
+      networkTitle: "Nos sociétés",
+      networkLead:
+        "Chacune est une société immatriculée, avec ses licences, ses équipes et son terrain. Lorsque deux d’entre elles couvrent le même pays, l’anneau les relie.",
+      networkLabel:
+        "Nos sociétés en réseau — utilisez les flèches pour passer de l’une à l’autre",
+      networkPlaces: "Couverture : {{count}}",
+      entityFocus: "Ce qu’elle traite",
+      entityCoverage: "Où elle opère",
+      entityPeople: "Qui la dirige",
+      entityCoverAlt: "{{name}}",
+
+      proofKicker: "Nos garanties",
+      proofTitle: "Agréés, et responsables",
+      credentialsTitle: "Certifications et licences",
+      credentialRef: "Référence",
+      credentialIssued: "Délivrée le",
+      credentialValid: "Valable jusqu’au",
+      membershipsTitle: "Adhésions",
+      clientsTitle: "Les organisations avec lesquelles nous travaillons",
+      carriersTitle: "Les lignes que nous empruntons",
+      carriersLead:
+        "Les transporteurs et réseaux auprès desquels nous réservons de la capacité. Leurs marques leur appartiennent ; nous les affichons avec leur accord.",
+      markAlt: "{{name}}",
     },
     announce: {
       eyebrow: "À la une",
@@ -1546,6 +1699,10 @@ export const fr = {
       newsletterLimited:
         "Trop d’inscriptions depuis cette connexion. Réessayez dans une heure.",
       newsletterErr: "Cette adresse n’a pas fonctionné. Veuillez réessayer.",
+      social: "Réseaux sociaux",
+      socialOn: "{{platform}}, dans un nouvel onglet",
+      credentials: "Agréments :",
+      legalEntity: "Entité juridique :",
     },
     preview: {
       reference: "SBL-OPS-2026-0142",

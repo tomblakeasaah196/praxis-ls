@@ -784,4 +784,29 @@ export declare const siteSettings: {
   leader: z.ZodTypeAny;
   entityPublicStory: z.ZodTypeAny;
   HEX: z.ZodString;
+
+  /**
+   * The website's image slots (§6.3), and what each one accepts.
+   *
+   * Typed concretely for the reason the theme object is: the settings upload
+   * control READS these numbers to state a constraint before the file dialog
+   * opens, and a `Record<string, any>` would let it print a field that does not
+   * exist. `evidence` and `transparent` in particular are rules, not metadata —
+   * §1.3's generated-imagery line and O-3's white-rectangle problem — and both
+   * are decided by a `boolean` the compiler should be checking.
+   */
+  SITE_MEDIA_SLOTS: Record<
+    "leader-portrait" | "partner-mark" | "credential-mark" | "entity-cover",
+    {
+      role: string;
+      evidence: boolean;
+      transparent: boolean;
+      maxBytes: number;
+      minWidth: number;
+      aspect: string;
+    }
+  >;
+  SITE_MEDIA_SLOT_IDS: string[];
+  SITE_MEDIA_PROVENANCE: string[];
+  siteMediaUpload: z.ZodTypeAny;
 };

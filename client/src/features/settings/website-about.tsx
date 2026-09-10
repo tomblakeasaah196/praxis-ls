@@ -22,14 +22,18 @@
  * entity's own people are edited in its dossier. One renderer, one set of
  * rules, and a nullable column doing the work two tables would have done badly.
  *
- * ── PORTRAITS ARE NOT UPLOADED FROM HERE YET ──────────────────────────────
+ * ── PORTRAITS ──────────────────────────────────────────────────────────────
  *
- * Deliberate, and recorded rather than hidden. N12 forbids stock photographs of
- * people and the experience guide extends that to generated ones — a portrait
- * is a real photograph of a real person or it is nothing. The vault plumbing
- * (scope SITE, role LEADER) is in place from migration 13788; the upload
- * control lands with the rest of the asset library. Until then a leader renders
- * as a name, a role and a biography, which is honest.
+ * N12 forbids stock photographs of people and the experience guide extends that
+ * to generated ones — a portrait is a real photograph of a real person or it is
+ * nothing. That is not a note here any more: `AssetSlotField` offers `owned`
+ * and `licensed` and does not offer `generated`, the API refuses it for this
+ * slot with the reason, and 13789's `ck_vault_generated_is_atmosphere_only`
+ * refuses it again at the row.
+ *
+ * A leader with no portrait still renders as a name, a role and a biography.
+ * That is the correct empty state, not a broken card — see the About page's own
+ * `LeaderCard`, which draws a monogram plate rather than a grey silhouette.
  */
 import * as React from "react";
 import { PageHeader } from "@/components/data-list";
@@ -43,6 +47,7 @@ import { tr } from "@/lib/i18n";
 import { errMsg } from "@/lib/use-resource";
 import * as api from "@/lib/site-settings-api";
 import { WebsiteNav } from "./website-nav";
+import { AssetSlotField } from "./website-assets";
 
 /** A bilingual pair. FR is the fallback everywhere in this product, so the
  *  French field leads — a half-translated page falls back to it rather than to
@@ -337,6 +342,16 @@ export function WebsiteAboutPage() {
                     />
                   </Field>
                 </div>
+                <div className="mt-3">
+                  <AssetSlotField
+                    slot="leader-portrait"
+                    ownerId={l.leader_id}
+                    currentId={l.photo_vault_id ?? null}
+                    disabled={busy}
+                    onChange={load}
+                  />
+                </div>
+
                 <div className="mt-3 flex justify-end">
                   <Button
                     size="sm"

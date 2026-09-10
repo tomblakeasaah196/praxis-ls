@@ -17,6 +17,7 @@ const { asyncHandler } = require("../../../utils/errors");
 const service = require("./site_settings.service");
 const events = require("./site_settings.events");
 const v = require("./site_settings.validator");
+const media = require("./site_settings.media");
 
 const MODULE = events.MODULE;
 const router = express.Router();
@@ -147,6 +148,49 @@ router.patch("/leaders/:id", edit, v.updateLeader, asyncHandler(async (req, res)
 
 router.delete("/leaders/:id", edit, asyncHandler(async (req, res) => {
   const data = await req.tenantDb((c) => service.leaders.remove(c, { id: req.params.id, actor: req.user || {} }));
+  res.json({ data });
+}));
+
+/* ── website media ──────────────────────────────────────────────────────────*/
+
+/**
+ * One upload endpoint, four slots (§6.3).
+ *
+ * The SLOT is in the body rather than the path because it is a validated enum
+ * from `@praxis/shared` and the service looks the rest up from it — table,
+ * column, vault role, caps. A path segment would be a request string that has
+ * to be proved safe on the way to a query; an enum has already been proved.
+ * Same rule as SEC H3, one layer earlier.
+ *
+ * `req.tenant.slug` is what the vault names the storage key from; every other
+ * upload path in this codebase passes it the same way.
+ */
+router.post("/media", edit, v.media, asyncHandler(async (req, res) => {
+  const data = await req.tenantDb((c) => media.upload(c, {
+    slot: req.body.slot,
+    ownerId: req.body.owner_id,
+    dataUrl: req.body.data_url,
+    originalName: req.body.original_name,
+    provenance: req.body.provenance,
+    actor: req.user || {},
+    slug: req.tenant && req.tenant.slug,
+  }));
+  res.status(201).json({ data });
+}));
+
+/**
+ * Take an image out of a slot.
+ *
+ * `:slot` here IS a path segment, and it is safe for the reason the service
+ * states: it is looked up in `OWNERS` and answers 422 when it is not a key.
+ * Nothing is interpolated from it.
+ */
+router.delete("/media/:slot/:ownerId", edit, asyncHandler(async (req, res) => {
+  const data = await req.tenantDb((c) => media.remove(c, {
+    slot: req.params.slot,
+    ownerId: req.params.ownerId,
+    actor: req.user || {},
+  }));
   res.json({ data });
 }));
 

@@ -40,6 +40,12 @@ import { p } from "@/lib/base-path";
  * back to being an anchor.
  */
 const NAV = [
+  /* §9.1: "About into the header nav and the footer — it is absent from both
+     today." First in the row, before the services: a visitor deciding whether
+     to trust a forwarder reads who they are before what they sell, and the
+     utility strip above already carries the two things somebody with cargo in
+     transit came for. */
+  { to: p("/about"), labelKey: "site.nav.about" },
   { to: p("/services"), labelKey: "site.nav.services" },
   { to: p("/track"), labelKey: "site.nav.track" },
   { to: p("/portfolio"), labelKey: "site.nav.portfolio" },

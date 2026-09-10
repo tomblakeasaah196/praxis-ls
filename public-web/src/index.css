@@ -2510,6 +2510,683 @@
     );
   }
 
+  /* ══════════════════════════════════════════════════════════════════════
+     THE ABOUT PAGE — guide §9.1–§9.4.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* The two facts under the hero. A definition list rather than two
+     paragraphs, because "Founded / 2021" is a term and its definition and a
+     screen reader should say so. */
+  .about-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2.5rem;
+    margin-top: 2rem;
+  }
+
+  .about-facts dt {
+    font-size: var(--text-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--hero-muted);
+  }
+
+  .about-facts dd {
+    margin-top: 0.25rem;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--hero-foreground);
+  }
+
+  /* ── the principles ────────────────────────────────────────────────── */
+
+  .principle-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 1rem;
+  }
+
+  @media (min-width: 48em) {
+    .principle-grid {
+      grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    }
+  }
+
+  /* A rule on the leading edge rather than a card. Four bordered boxes in a row
+     is the shape §1.5 is arguing against; a hairline says "these are parallel"
+     without drawing four containers. */
+  .principle {
+    border-inline-start: 2px solid rgb(var(--brand-orange));
+    padding-inline-start: 1rem;
+  }
+
+  .principle h3 {
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    font-weight: 600;
+  }
+
+  .principle p {
+    margin-top: 0.375rem;
+    font-size: 0.9375rem;
+    color: var(--muted-foreground);
+  }
+
+  /* ── leadership (§9.3) ─────────────────────────────────────────────── */
+
+  .leader-grid {
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  }
+
+  .leader-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  /* THE FEATURED TREATMENT IS THE SAME COMPONENT, WIDER. §9.1 calls the CEO
+     message "the single most credible asset in the programme", so it gets the
+     room a message needs — but not a second component, which would drift from
+     this one the first time a field is added. */
+  .leader-card.is-featured {
+    gap: 2rem;
+  }
+
+  @media (min-width: 48em) {
+    .leader-card.is-featured {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    .leader-card.is-featured .leader-portrait {
+      flex: 0 0 16rem;
+    }
+  }
+
+  .leader-portrait {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    aspect-ratio: 1;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--muted);
+  }
+
+  .leader-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* THE MONOGRAM, NOT A SILHOUETTE. A silhouette is a picture of a person who
+     is not this person; the initials are this person's, in the tenant's own
+     palette. Nothing is invented (N12) and a row of cards keeps its rhythm
+     instead of reading as three broken images. */
+  .leader-monogram {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 6vw, 3rem);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    /* The brand FILL as type on a muted ground. `--primary-ink` is the
+       AA-corrected step for this pair and is what the contrast gate measures;
+       see the note on `.section-title` and F-23, which is this exact mistake
+       made in the other direction. */
+    color: var(--primary-ink);
+  }
+
+  .leader-name {
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .leader-card.is-featured .leader-name {
+    font-size: clamp(1.375rem, 3vw, 1.75rem);
+  }
+
+  .leader-role {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+  }
+
+  .leader-message {
+    margin-top: 1rem;
+    max-width: 60ch;
+    font-size: 1.0625rem;
+    line-height: 1.7;
+  }
+
+  .leader-bio {
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  /* `<details>`/`<summary>`: keyboard-operable and announced with no ARIA of
+     ours. The marker is removed and replaced by a rotating chevron drawn in
+     `::after`, because the default triangle does not take the brand colour. */
+  .leader-bio > summary {
+    cursor: pointer;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--primary-ink);
+    font-weight: 500;
+  }
+
+  .leader-bio > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .leader-bio > summary::after {
+    content: "";
+    width: 0.4rem;
+    height: 0.4rem;
+    border-inline-end: 1.5px solid currentColor;
+    border-block-end: 1.5px solid currentColor;
+    transform: rotate(45deg) translate(-0.1em, -0.1em);
+    transition: transform var(--dur-response) var(--ease-standard);
+  }
+
+  .leader-bio[open] > summary::after {
+    transform: rotate(-135deg) translate(-0.05em, -0.05em);
+  }
+
+  .leader-bio > summary:focus-visible {
+    outline: 2px solid rgb(var(--brand-orange));
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  .leader-bio-text {
+    margin-top: 0.625rem;
+    line-height: 1.65;
+    color: var(--muted-foreground);
+  }
+
+  .leader-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    transition: color var(--dur-response) var(--ease-standard);
+  }
+
+  .leader-link:hover,
+  .leader-link:focus-visible {
+    color: var(--primary-ink);
+  }
+
+  /* ── the entity network (§9.2) ─────────────────────────────────────── */
+
+  .entity-stage {
+    position: relative;
+    margin-inline: auto;
+    max-width: 34rem;
+    margin-block-end: 3rem;
+  }
+
+  /* Below this the ring is smaller than the labels that would sit on it, and
+     §9.2 asks for a fallback that is "clean, not a squashed map". The cards
+     below the figure are always rendered, so hiding it loses nothing. */
+  @media (max-width: 39.99em) {
+    .entity-stage {
+      display: none;
+    }
+  }
+
+  .entity-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .entity-svg:focus-visible {
+    outline: 2px solid rgb(var(--brand-orange));
+    outline-offset: 4px;
+    border-radius: var(--radius);
+  }
+
+  .entity-link {
+    stroke: color-mix(in srgb, var(--foreground) 26%, transparent);
+  }
+
+  .entity-node-dot {
+    fill: rgb(var(--brand-orange));
+    transition: r var(--dur-response) var(--ease-standard);
+  }
+
+  .entity-node-halo {
+    fill: none;
+    stroke: rgb(var(--brand-orange));
+    stroke-opacity: 0;
+    stroke-width: 0.75;
+    transition: stroke-opacity var(--dur-response) var(--ease-standard);
+  }
+
+  .entity-node.is-active .entity-node-halo {
+    stroke-opacity: 0.7;
+  }
+
+  /* Focus on the halo, not as an outline — an SVG outline is clipped by the
+     viewBox and disappears on exactly the outermost nodes. The corridor scene
+     records this at length. */
+  .entity-node:focus {
+    outline: none;
+  }
+
+  .entity-node:focus-visible .entity-node-halo {
+    stroke-opacity: 1;
+    stroke-width: 1.5;
+  }
+
+  .entity-readout {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.875rem;
+  }
+
+  .entity-readout-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+  }
+
+  .entity-readout-count {
+    margin-inline-start: 0.5rem;
+    color: var(--muted-foreground);
+  }
+
+  .entity-cards {
+    display: grid;
+    gap: 2rem;
+  }
+
+  @media (min-width: 60em) {
+    .entity-cards {
+      grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr));
+    }
+  }
+
+  .entity-card {
+    overflow: hidden;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+    transition:
+      border-color var(--dur-response) var(--ease-standard),
+      box-shadow var(--dur-response) var(--ease-standard);
+  }
+
+  /* Rung 1: a border and a shadow. The card is highlighted from the figure
+     above it, so the response has to be visible without moving — a card that
+     lifted when a node was focused would make the whole grid jitter as somebody
+     arrows around the ring. */
+  .entity-card.is-active {
+    border-color: rgb(var(--brand-orange) / 0.5);
+    box-shadow: var(--shadow-1);
+  }
+
+  .entity-cover {
+    aspect-ratio: 16 / 9;
+    background: var(--muted);
+  }
+
+  .entity-cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .entity-card-body {
+    padding: 1.5rem;
+  }
+
+  .entity-name {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .entity-legal {
+    margin-top: 0.125rem;
+    font-size: 0.8125rem;
+    color: var(--muted-foreground);
+  }
+
+  .entity-summary {
+    margin-top: 0.75rem;
+    line-height: 1.65;
+    color: var(--muted-foreground);
+  }
+
+  .entity-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .entity-chips li {
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    padding: 0.1875rem 0.625rem;
+    font-size: 0.75rem;
+  }
+
+  .entity-places {
+    margin-top: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+  }
+
+  /* An entity's own people, at a smaller rhythm than the group tier — same
+     renderer, same card, narrower track. */
+  .entity-leaders {
+    margin-top: 0.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: 1.25rem;
+  }
+
+  .entity-leaders .leader-name {
+    font-size: 0.9375rem;
+  }
+
+  /* ── the timeline (§9.1) ───────────────────────────────────────────── */
+
+  .timeline {
+    position: relative;
+    padding-inline-start: 2.5rem;
+  }
+
+  .timeline-spine {
+    position: absolute;
+    inset-block: 0.5rem;
+    inset-inline-start: 0.6875rem;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--border);
+  }
+
+  /* TIME AS DEPTH: the fill IS the reader's scroll. `--scrub` falls back to 1
+     so the spine is drawn full height before the hook mounts and for a visitor
+     whose JavaScript fails after paint — finished, not blank. Under reduced
+     motion the hook writes 1 once and attaches no listener, so this is also the
+     settled state §1.2 rule 1 requires. */
+  .timeline-spine-fill {
+    display: block;
+    width: 100%;
+    height: calc(var(--scrub, 1) * 100%);
+    border-radius: 1px;
+    background: linear-gradient(
+      180deg,
+      rgb(var(--brand-orange)),
+      rgb(var(--brand-orange) / 0.45)
+    );
+  }
+
+  .timeline-list {
+    display: grid;
+    gap: 2.5rem;
+  }
+
+  /* Each entry arrives when the scrub passes its own `--at`. The clamp reaches
+     1 at `--at + FADE`, and the last `--at` is capped at `1 − FADE` so that at
+     `--scrub: 1` — the settled state — nothing is left permanently dimmed. PR 4
+     paid for that lesson in the ESG triptych. */
+  .timeline-entry {
+    position: relative;
+    opacity: clamp(0, (var(--scrub, 1) - var(--at)) / 0.14, 1);
+    transform: translateY(
+      calc((1 - clamp(0, (var(--scrub, 1) - var(--at)) / 0.14, 1)) * 8px)
+    );
+    transition: none;
+  }
+
+  /* The dot on the spine. Drawn on the entry rather than in the spine element
+     so it inherits the entry's own arrival — a dot that appeared before its
+     year would be a marker for nothing. */
+  .timeline-entry::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: -2.4375rem;
+    top: 0.4rem;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 999px;
+    background: rgb(var(--brand-orange));
+    box-shadow: 0 0 0 4px var(--background);
+  }
+
+  .timeline-year {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.04em;
+    color: var(--primary-ink);
+  }
+
+  .timeline-label {
+    margin-top: 0.25rem;
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .timeline-text {
+    margin-top: 0.375rem;
+    max-width: 60ch;
+    line-height: 1.65;
+    color: var(--muted-foreground);
+  }
+
+  /* ── the proof bands (§9.4) ────────────────────────────────────────── */
+
+  .proof-band + .proof-band {
+    margin-top: 3rem;
+  }
+
+  .proof-band-dark {
+    background: var(--hero);
+    color: var(--hero-foreground);
+    padding-block: var(--space-band);
+    padding-inline: 1.5rem;
+    border-radius: var(--radius);
+  }
+
+  /* Same swap the corridor band makes, and for the same measured reason:
+     `.micro`'s muted ink on a carbon ground is an AA failure at 11px, and the
+     brand FILL measures 6.33:1 there. */
+  .proof-band-dark .micro {
+    color: rgb(var(--brand-orange));
+  }
+
+  .proof-lead {
+    margin-top: 0.5rem;
+    max-width: 60ch;
+    font-size: 0.9375rem;
+    color: var(--hero-muted);
+  }
+
+  .proof-clients,
+  .proof-carriers {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2rem;
+    margin-top: 1.25rem;
+  }
+
+  .proof-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.5rem;
+    /* QUIET BY DEFAULT, COLOUR ON HOVER **AND FOCUS**. §9.4 says "colour on
+       hover/focus" and the focus half is the one usually forgotten — §1.2
+       rule 3 binds without exception, so a keyboard user gets the same reveal
+       a pointer user does. */
+    filter: grayscale(1);
+    opacity: 0.72;
+    transition:
+      filter var(--dur-entrance) var(--ease-standard),
+      opacity var(--dur-entrance) var(--ease-standard);
+  }
+
+  .proof-mark:hover,
+  .proof-mark:focus-visible,
+  .proof-mark:focus-within {
+    filter: grayscale(0);
+    opacity: 1;
+  }
+
+  .proof-mark:focus-visible {
+    outline: 2px solid rgb(var(--brand-orange));
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+
+  .proof-mark-img {
+    max-height: 2.5rem;
+    width: auto;
+    max-width: 10rem;
+    object-fit: contain;
+  }
+
+  /* THE NAME AS A WORDMARK IS A TREATMENT, NOT A PLACEHOLDER. O-3: the supplied
+     marks are rasters with white backgrounds baked in, and the upload refuses
+     an opaque file for a slot on a dark band. An organisation's name set in the
+     display face states exactly the same fact and reads correctly with no asset
+     at all. */
+  .proof-wordmark {
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  .credential-list {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 1.25rem;
+  }
+
+  @media (min-width: 48em) {
+    .credential-list {
+      grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    }
+  }
+
+  .credential-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    border-inline-start: 2px solid rgb(var(--brand-orange));
+    padding-inline-start: 1rem;
+  }
+
+  .credential-mark {
+    width: 3rem;
+    height: 3rem;
+    object-fit: contain;
+    flex: none;
+  }
+
+  .credential-name {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .credential-issuer {
+    margin-top: 0.125rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+  }
+
+  /* The facts a credential is worth having: an issuer, a number and a date.
+     §9.4 calls this "the most persuasive content on the page", and it is — a
+     number somebody can check outranks any quantity of logos. */
+  .credential-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.625rem;
+  }
+
+  .credential-facts dt {
+    font-size: var(--text-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted-foreground);
+  }
+
+  .credential-facts dd {
+    font-size: 0.8125rem;
+  }
+
+  /* ── the footer's small print and social row (§9.5) ────────────────── */
+
+  /* Rendered only once its chunk lands, so it must not reserve space it may
+     never use: no min-height, no placeholder. An empty block collapses. */
+  .footer-extras {
+    margin-top: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 1.5rem;
+    font-size: 0.75rem;
+    color: var(--hero-muted);
+  }
+
+  .footer-extras-label {
+    font-weight: 500;
+    color: var(--hero-foreground);
+  }
+
+
+  .social-row ul {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .social-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 32px, which is under the 44px pointer-target guidance and deliberate: a
+       footer icon row at 44px each is a 300px block of chrome under the small
+       print. The row is one of several routes to the same destination — the
+       tenant's own name links home, the columns carry every page — so the
+       trade is a dense row rather than an unreachable control. */
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    color: currentColor;
+    opacity: 0.75;
+    transition: opacity var(--dur-response) var(--ease-standard);
+  }
+
+  .social-link:hover,
+  .social-link:focus-visible {
+    opacity: 1;
+  }
+
+  .social-link:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+
   /* A dark band's version of the plate, for the entrance states below the hero
      on the empty and not-found screens. */
   .track-quiet {

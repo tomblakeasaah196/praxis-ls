@@ -45,6 +45,12 @@ const schemas = {
   updateLeader: shared.leader,
   about: shared.about,
   entityStory: shared.entityPublicStory,
+
+  // The image upload. Shared for the reason §6.3 gives: the control has to
+  // state each slot's aspect, minimum width and byte cap BEFORE the file dialog
+  // opens, and it reads them from the same `SITE_MEDIA_SLOTS` this schema's
+  // enum is built from. Two lists would be two answers to "what fits here".
+  media: shared.siteMediaUpload,
 };
 
 const mw = (k) => (req, _res, next) => {
@@ -71,4 +77,5 @@ module.exports = {
   updateLeader: mw("updateLeader"),
   about: mw("about"),
   entityStory: mw("entityStory"),
+  media: mw("media"),
 };

@@ -44,6 +44,7 @@ import { tr } from "@/lib/i18n";
 import { errMsg } from "@/lib/use-resource";
 import * as api from "@/lib/site-settings-api";
 import { WebsiteNav } from "./website-nav";
+import { AssetSlotField } from "./website-assets";
 
 const KIND_HELP: Record<api.PartnerKind, string> = {
   carrier: "We move cargo on these lines — a capability.",
@@ -164,6 +165,16 @@ export function WebsitePartnersPage() {
                 </div>
 
                 <div className="mt-3">
+                  <AssetSlotField
+                    slot="partner-mark"
+                    ownerId={p.partner_id}
+                    currentId={p.logo_vault_id ?? null}
+                    disabled={busy}
+                    onChange={load}
+                  />
+                </div>
+
+                <div className="mt-3">
                   <Field label={tr("Who cleared this mark, and when")}>
                     <Input
                       defaultValue={p.permission_note ?? ""}
@@ -279,6 +290,16 @@ export function WebsitePartnersPage() {
                     />
                   </Field>
                 </div>
+                <div className="mt-3">
+                  <AssetSlotField
+                    slot="credential-mark"
+                    ownerId={c.credential_id}
+                    currentId={c.logo_vault_id ?? null}
+                    disabled={busy}
+                    onChange={load}
+                  />
+                </div>
+
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   {isExpired(c) ? (
                     <Pill tone="bad">{tr("Expired — not shown on the site")}</Pill>
