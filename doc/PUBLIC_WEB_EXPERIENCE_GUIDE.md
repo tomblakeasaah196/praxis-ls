@@ -135,7 +135,7 @@ filled in", not as "nothing to report".
 | PR | Status | Merged | Coverage after | Reservations, deviations and notes for later work |
 | --- | --- | --- | ---: | --- |
 | PR 1 | **Merged** | 2026-09-10 · [#323](https://github.com/tomblakeasaah196/praxis-ls/pull/323) | **22%** | See §3.2 — six deviations and five findings. One finding (F-1) was mine and is retracted; two are real pre-existing gate defects; one (F-5) is open for PR 2. |
-| PR 2 | **Complete — in review** | on merge of this PR | **41%** | 19 of 24 points. §6.3 (asset upload), §6.4 (announcements UI + public read) and §6.8 (entity story tab) are **not built** and are carried — see §3.3. Eight findings: four are defects in this guide's own spec, and F-12 is a false green in `npm run ci` itself. |
+| PR 2 | **Merged** | 2026-09-10 · [#324](https://github.com/tomblakeasaah196/praxis-ls/pull/324) | **41%** | 19 of 24 points. §6.3 (asset upload), §6.4 (announcements UI + public read) and §6.8 (entity story tab) are **not built** and are carried — see §3.3. Eight findings: four are defects in this guide's own spec, and F-12 is a false green in `npm run ci` itself. |
 | PR 3 | Not started | — | — | — |
 | PR 4 | Not started | — | — | — |
 | PR 5 | Not started | — | — | — |
@@ -233,8 +233,11 @@ sandbox and unrelated to this work. Against that database:
   and entities both correctly publishing **nothing** — no clearance recorded, no
   entity enabled.
 
-`npm run ci`: **38/38**. First paint 117.3 → **117.5 kB** (92% of budget) —
-D-1 is closed and the palette now arrives derived from the server.
+`npm run ci`: **38/38**. CI on #324: **9/9 green** — including `migrations`,
+which replayed all nine migrations against CI's own Postgres, and `build-test`,
+which is the job the font-gate blind spot (F-12) had failed. First paint
+117.3 → **117.5 kB** (92% of budget) — D-1 is closed and the palette now
+arrives derived from the server.
 
 **Notes for later PRs.**
 
