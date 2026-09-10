@@ -88,7 +88,11 @@ describe("the hero", () => {
     expect(h1).toBeTruthy();
     expect(h1.textContent?.trim().length).toBeGreaterThan(0);
     const staged = h1.querySelector(".staged");
-    expect(staged?.getAttribute("aria-label")).toBeTruthy();
+    // Named by real text in a visually-hidden span, NOT by `aria-label` — ARIA
+    // prohibits that attribute on a generic element, and with every fragment
+    // aria-hidden the heading would announce as empty.
+    expect(staged?.hasAttribute("aria-label")).toBe(false);
+    expect(staged?.querySelector(".sr-only")?.textContent?.trim()).toBeTruthy();
     // Every animated fragment is hidden from the accessibility tree.
     for (const word of h1.querySelectorAll(".staged-word")) {
       expect(word.getAttribute("aria-hidden")).toBe("true");

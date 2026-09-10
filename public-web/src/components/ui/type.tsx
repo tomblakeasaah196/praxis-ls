@@ -23,10 +23,23 @@ import { useRevealed } from "@/components/ui/reveal";
  *
  * Every technique here fragments a sentence into elements. That is fine for
  * sighted readers and a genuine hazard for assistive technology, which can
- * announce a word-split heading one word at a time. So `StagedLines` puts the
- * whole string on the container as `aria-label` and hides the fragments — the
+ * announce a word-split heading one word at a time. So `StagedLines` hides every
+ * fragment and carries the whole sentence in a visually-hidden span — the
  * heading is announced as one sentence, and what is animated is decoration the
  * screen reader never sees.
+ *
+ * ── WHY THAT IS A HIDDEN SPAN AND NOT `aria-label` ────────────────────────
+ *
+ * It was `aria-label` on the container, which is the obvious solution and is
+ * INVALID: ARIA prohibits `aria-label` on a generic element — a `<span>` or a
+ * `<div>` with no role — because there is no role for the label to name. Chrome
+ * and axe both report it (`aria-prohibited-attr`), and the practical effect is
+ * that some assistive technology ignores the label entirely and announces the
+ * heading as empty, since every fragment inside it is `aria-hidden`.
+ *
+ * Found by running Lighthouse against the built homepage rather than by
+ * reading the component: PR 1 shipped this primitive and nothing rendered it
+ * until PR 3 put it on the hero, so the defect had never been on a page.
  */
 
 /**
@@ -68,11 +81,13 @@ export function StagedLines({
   const realStep = Math.min(step, 420 / Math.max(words.length, 1));
 
   return (
-    <Tag
-      ref={ref as React.Ref<never>}
-      className={cn("staged", className)}
-      aria-label={text}
-    >
+    <Tag ref={ref as React.Ref<never>} className={cn("staged", className)}>
+      {/* The real, readable sentence. Present in the DOM, in the accessibility
+          tree, and clipped to a single pixel — so the heading's accessible name
+          comes from actual text content, which needs no role and no ARIA at
+          all. `sr-only` is Tailwind's own recipe and is already used elsewhere
+          in this app. */}
+      <span className="sr-only">{text}</span>
       {words.map((word, i) =>
         /^\s+$/.test(word) ? (
           // Whitespace is preserved as text rather than as a fragment: wrapping
