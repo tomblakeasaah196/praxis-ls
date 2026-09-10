@@ -69,6 +69,11 @@ const Marketing = lazy(
   () => import("@/features/marketing/marketing-page"),
   "MarketingPage",
 );
+/* §9.1. Lazy like every other route, and it matters more here than most: the
+   About page carries the leadership renderer, the entity network and the three
+   proof bands, and a visitor who came to track a container downloads none of
+   it. */
+const About = lazy(() => import("@/features/about/about-page"), "AboutPage");
 const Track = lazy(() => import("@/features/tracking/track-page"), "TrackPage");
 const ServicesIndex = lazy(
   () => import("@/features/services/services-page"),
@@ -247,6 +252,7 @@ export function AppRouter() {
         {/* ── the public site ── */}
         <Route path={p()} element={<Marketing />} />
         <Route path={p("/track")} element={<Track />} />
+        <Route path={p("/about")} element={<About />} />
         <Route path={p("/services")} element={<ServicesIndex />} />
         <Route path={p("/services/:slug")} element={<ServiceDetail />} />
         <Route path={p("/portfolio")} element={<PortfolioIndex />} />
