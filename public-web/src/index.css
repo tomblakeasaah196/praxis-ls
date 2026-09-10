@@ -2289,10 +2289,10 @@
     stroke: none;
   }
 
-  /* Below `md` the notes are unplaceable — see the component's note. They are
-     hidden here and the same sentences render in `.esg-list`, which is visible
-     at exactly the widths this is not. Never both: the text would be duplicated
-     for a screen reader. */
+  /* Below 900px the notes are unplaceable — a 360px column cannot carry a
+     drawing and five labels over it — so they are hidden and the same sentences
+     render in `.esg-list`, which is visible at exactly the widths this is not.
+     Never both: the text would be duplicated for a screen reader. */
   .esg-notes {
     display: none;
   }
@@ -2324,6 +2324,17 @@
   }
 
   @media (min-width: 900px) {
+    /* ── LABELS OVER THE DRAWING, NOT BESIDE IT ─────────────────────────────
+     *
+     * The first version flanked the illustration: a label column left, a label
+     * column right, the drawing between. That works at full width and this is a
+     * THREE-COLUMN grid — about 360px per pillar — where two 136px label
+     * columns leave 88px for the drawing. The screenshot showed exactly that:
+     * a squeezed illustration under a stack of overlapping text.
+     *
+     * So they overlay it. The drawing is the ground, each label sits at its own
+     * slot with a leader running back to the place it names, and a soft plate
+     * behind the text keeps it readable where a line passes underneath. */
     .esg-notes {
       display: block;
       position: absolute;
@@ -2336,20 +2347,27 @@
 
     .esg-note {
       position: absolute;
-      width: 8.5rem;
+      width: 47%;
       font-size: 0.75rem;
       line-height: 1.35;
       color: var(--foreground);
       transform: translateY(-50%);
+      /* The plate. `color-mix` against the band's own ground rather than a
+         literal, so it follows the surface into dark and under a tenant's
+         palette. Padded and rounded so a two-line label reads as one object. */
+      background: color-mix(in srgb, var(--muted) 88%, transparent);
+      border-radius: calc(var(--radius) - 3px);
+      padding: 0.25rem 0.4rem;
     }
 
     .esg-note-l {
-      right: calc(100% + 0.5rem);
-      text-align: right;
+      left: 0;
+      text-align: left;
     }
 
     .esg-note-r {
-      left: calc(100% + 0.5rem);
+      right: 0;
+      text-align: right;
     }
 
     /* The list below is now redundant with the annotations, EXCEPT for any
@@ -2362,13 +2380,6 @@
 
     .esg-list:not(:has(.esg-list-extra)) {
       display: none;
-    }
-  }
-
-  /* The stage needs room for the labels either side at wide widths. */
-  @media (min-width: 900px) {
-    .esg-stage {
-      margin-inline: 9rem;
     }
   }
 
