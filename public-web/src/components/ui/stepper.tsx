@@ -77,7 +77,15 @@ export function Stepper({
                   className={cn(
                     "grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[11px] font-semibold",
                     done && "border-[rgb(var(--brand-orange))] bg-[rgb(var(--brand-orange))] text-[var(--primary-foreground)]",
-                    here && "border-[rgb(var(--brand-orange))] text-[rgb(var(--brand-orange))]",
+                    /* The NUMBER is 11px type, so it is held to 4.5:1 and the
+                       fill measured 3.13:1 on `--background` — a real AA
+                       failure on the step a visitor is actually looking at.
+                       `--primary-ink` is 4.88:1 light / 5.79:1 dark and is the
+                       same brand colour. The BORDER keeps the fill: a
+                       non-text affordance is held to 3:1 (WCAG 1.4.11), which
+                       3.13:1 clears, and the ring is what carries "you are
+                       here" at a glance. */
+                    here && "border-[rgb(var(--brand-orange))] text-[var(--primary-ink)]",
                     !done && !here && "border-border",
                   )}
                 >
@@ -113,7 +121,13 @@ export function Stepper({
             the line below says which step this is. */}
         {counter && (
           <p className="hidden shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium text-muted-foreground md:inline-flex">
-            <BoltIcon size={14} className="text-[rgb(var(--brand-orange))]" />
+            {/* The glyph sits INSIDE a text run (gap-2, beside the counter),
+                so it reads as type and takes the ink token rather than the
+                fill — 4.91:1 instead of 3.13:1, and the same brand hue. The
+                standalone milestone marker in `shipment-state.tsx` keeps the
+                fill because it is a circular affordance, not text, and WCAG
+                1.4.11 holds that to 3:1. */}
+            <BoltIcon size={14} className="text-[var(--primary-ink)]" />
             {counter}
           </p>
         )}

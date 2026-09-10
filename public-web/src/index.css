@@ -81,8 +81,19 @@
     --primary-foreground: var(--brand-on-orange);
     /* Orange AS TEXT. #FF5A00 on white is 3.13:1 and fails AA, so type uses the
        stepped-down value; `lib/theme.ts` re-derives both per tenant, which is
-       why the split is into -light/-dark sources rather than one value. */
-    --primary-ink-light: #c74600;
+       why the split is into -light/-dark sources rather than one value.
+
+       #C74600 → #B33F00 (PR 4). The old value was derived against bare --card
+       and measured 4.88:1 there — but `.st-orange` puts this ink on the brand
+       colour at 14%, where it measured **4.14:1** and failed AA. That is not a
+       new discovery: `lib/theme.ts` was already deriving against the pill
+       ground as well as the two surfaces, and its own comment says "the static
+       tokens had the identical defect and the contrast gate now catches it
+       there". This is that gate arriving (O-9), and this is the value the
+       runtime derivation produces for #FF5A00 — so the pre-theme paint and the
+       tenant's derived palette finally agree instead of differing by a step.
+       5.79:1 on --card, 5.34:1 on --background, 4.91:1 on the pill ground. */
+    --primary-ink-light: #b33f00;
     --primary-ink-dark: #ff5a00;
 
     /* `--brand-on-orange` IS NOT REDEFINED HERE, AND THAT IS THE FIX.
@@ -397,7 +408,15 @@
     --ink: 237 238 238;
     --ink-3: 158 161 164;
     /* Lifted for dark grounds, exactly as in the ERP: 1.5px of dash carries far
-       less colour than a filled pill, so the light values read as grey. */
+       less colour than a filled pill, so the light values read as grey.
+
+       `--brand-blue-ink` was MISSING from this list, which is a defect rather
+       than a difference: it is the text of `.st-blue` and `.st-info`, so both
+       pills rendered the light ink on a dark ground at **2.81:1** — the worst
+       measurement in either app. `client/src/index.css` has carried the lifted
+       value since Phase 5; this app declared the light value once and never the
+       dark one. Same value, and for the same reason. Found by O-9's port. */
+    --brand-blue-ink: 82 180 233;
     --mode-sea: 74 190 133;
     --mode-air: 98 196 245;
     --mode-road: 247 158 66;

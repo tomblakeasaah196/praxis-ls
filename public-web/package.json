@@ -24,6 +24,8 @@
     "check:assets": "node scripts/check-assets.mjs",
     "//check:palette": "The ONE copy lives in client/scripts. A second copy of a gate is a gate that drifts \u2014 the same reason client/eslint-local-rules is re-exported rather than duplicated.",
     "check:palette": "node ../client/scripts/check-palette.mjs --app public-web",
+    "//check:contrast": "Same single-copy rule as check:palette. Ported here in PR 4 (guide O-9/F-14) \u2014 it is the gate that computes F-15, and it found three more live AA failures the moment it was pointed at this app.",
+    "check:contrast": "node ../client/scripts/check-contrast.mjs --app public-web",
     "format": "prettier --write ."
   },
   "dependencies": {
