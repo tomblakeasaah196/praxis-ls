@@ -76,6 +76,14 @@ export function Stepper({
                   aria-hidden
                   className={cn(
                     "grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[11px] font-semibold",
+                    /* §8.3's "real progress depth". Colour alone stated where
+                       you were; these give the strip the same three-elevation
+                       encoding the track timeline uses — the step you are on is
+                       lifted, the ones behind rest, the ones ahead are flush —
+                       so both places in this app that answer "how far through
+                       am I" read the same way, and both survive greyscale. */
+                    done && "stepper-dot-done",
+                    here && "stepper-dot-here",
                     done && "border-[rgb(var(--brand-orange))] bg-[rgb(var(--brand-orange))] text-[var(--primary-foreground)]",
                     /* The NUMBER is 11px type, so it is held to 4.5:1 and the
                        fill measured 3.13:1 on `--background` — a real AA
