@@ -278,6 +278,22 @@ const WebsiteInsightsPage = lazyNamed(
   () => import("@/features/settings/website-insights"),
   "WebsiteInsightsPage",
 );
+const WebsiteThemePage = lazyNamed(
+  () => import("@/features/settings/website-theme"),
+  "WebsiteThemePage",
+);
+const WebsiteAboutPage = lazyNamed(
+  () => import("@/features/settings/website-about"),
+  "WebsiteAboutPage",
+);
+const WebsitePartnersPage = lazyNamed(
+  () => import("@/features/settings/website-partners"),
+  "WebsitePartnersPage",
+);
+const WebsiteSocialPage = lazyNamed(
+  () => import("@/features/settings/website-social"),
+  "WebsiteSocialPage",
+);
 const WebsiteInsightEditorPage = lazyNamed(
   () => import("@/features/settings/website-insight-editor"),
   "WebsiteInsightEditorPage",
@@ -678,6 +694,10 @@ export function App() {
                   literal "articles" — React Router ranks a static segment
                   higher, so these two win, but the ordering is written this way
                   so a reader sees why the collision is not one. */}
+              <Route path="settings/website/theme" element={<WebsiteThemePage />} />
+              <Route path="settings/website/about" element={<WebsiteAboutPage />} />
+              <Route path="settings/website/partners" element={<WebsitePartnersPage />} />
+              <Route path="settings/website/social" element={<WebsiteSocialPage />} />
               <Route
                 path="settings/website/articles"
                 element={<WebsiteInsightsPage />}

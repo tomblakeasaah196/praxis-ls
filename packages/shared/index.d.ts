@@ -756,3 +756,32 @@ export declare namespace workSchedule {
   function workMode(schedule: unknown): string | null;
   function workedDays(schedule: WorkSchedule | null): WorkDay[];
 }
+
+/**
+ * Website settings payloads. Every one is a FORM the settings screens render
+ * and the API validates — one definition, so a field that accepts a value
+ * cannot hand the API something it refuses.
+ *
+ * Typed as concrete Zod objects rather than `ZodTypeAny` for the reason stated
+ * at the top of this file: the loose form compiles and erases every field into
+ * `any`, which makes the shared package typecheck while proving nothing.
+ */
+export declare const siteSettings: {
+  theme: z.ZodObject<{
+    primary_hex: z.ZodString;
+    secondary_hex: z.ZodTypeAny;
+    tertiary_hex: z.ZodTypeAny;
+    font_display: z.ZodString;
+    font_body: z.ZodString;
+    font_mono: z.ZodString;
+    radius_px: z.ZodTypeAny;
+    default_mode: z.ZodEnum<["light", "dark"]>;
+  }>;
+  socialLink: z.ZodTypeAny;
+  partner: z.ZodTypeAny;
+  credential: z.ZodTypeAny;
+  about: z.ZodTypeAny;
+  leader: z.ZodTypeAny;
+  entityPublicStory: z.ZodTypeAny;
+  HEX: z.ZodString;
+};

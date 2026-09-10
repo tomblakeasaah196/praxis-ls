@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1533 |
-| Modules mounted | 139 |
+| Routes | 1561 |
+| Modules mounted | 140 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1533 mounted routes, grouped by path prefix.
+All 1561 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1112,6 +1112,7 @@ All 1533 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/mail/client/:id/timeline` | — |
 | GET | `/api/tenant/mail/commands` | — |
 | POST | `/api/tenant/mail/commands/:key` | — |
+| GET | `/api/tenant/mail/connect-methods` | — |
 | GET | `/api/tenant/mail/connections` | — |
 | POST | `/api/tenant/mail/connections` | — |
 | PATCH | `/api/tenant/mail/connections/:id` | — |
@@ -1160,6 +1161,7 @@ All 1533 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/mail/oauth/google/start` | — |
 | GET | `/api/tenant/mail/oauth/microsoft/callback` | — |
 | GET | `/api/tenant/mail/oauth/microsoft/start` | — |
+| GET | `/api/tenant/mail/oauth/microsoft/start/shared` | — |
 | GET | `/api/tenant/mail/outbox` | — |
 | GET | `/api/tenant/mail/recipients` | — |
 | GET | `/api/tenant/mail/secure-links` | — |
@@ -1587,8 +1589,13 @@ All 1533 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/public/sign/:token/document` | — |
 | POST | `/api/tenant/public/sign/:token/otp` | — |
 | POST | `/api/tenant/public/sign/:token/verify` | — |
+| GET | `/api/tenant/public/site/about` | — |
+| GET | `/api/tenant/public/site/entities` | — |
 | GET | `/api/tenant/public/site/pages` | — |
 | GET | `/api/tenant/public/site/pages/:key` | — |
+| GET | `/api/tenant/public/site/partners` | — |
+| GET | `/api/tenant/public/site/social` | — |
+| GET | `/api/tenant/public/site/theme` | — |
 | GET | `/api/tenant/public/tracking/:reference` | — |
 
 ### `tenant/purchase-orders`
@@ -1869,6 +1876,32 @@ All 1533 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/site/pages/:pageId/blocks` | — |
 | POST | `/api/tenant/site/pages/:pageId/blocks/reorder` | — |
 | POST | `/api/tenant/site/pages/:pageId/publish` | — |
+
+### `tenant/site-settings`
+
+| Method | Path | Body validated |
+|---|---|---|
+| GET | `/api/tenant/site-settings/about` | — |
+| PUT | `/api/tenant/site-settings/about` | — |
+| GET | `/api/tenant/site-settings/credentials` | — |
+| POST | `/api/tenant/site-settings/credentials` | — |
+| DELETE | `/api/tenant/site-settings/credentials/:id` | — |
+| PATCH | `/api/tenant/site-settings/credentials/:id` | — |
+| GET | `/api/tenant/site-settings/entities/:id/story` | — |
+| PUT | `/api/tenant/site-settings/entities/:id/story` | — |
+| GET | `/api/tenant/site-settings/leaders` | — |
+| POST | `/api/tenant/site-settings/leaders` | — |
+| DELETE | `/api/tenant/site-settings/leaders/:id` | — |
+| PATCH | `/api/tenant/site-settings/leaders/:id` | — |
+| GET | `/api/tenant/site-settings/partners` | — |
+| POST | `/api/tenant/site-settings/partners` | — |
+| DELETE | `/api/tenant/site-settings/partners/:id` | — |
+| PATCH | `/api/tenant/site-settings/partners/:id` | — |
+| GET | `/api/tenant/site-settings/social` | — |
+| PUT | `/api/tenant/site-settings/social` | — |
+| GET | `/api/tenant/site-settings/theme` | — |
+| PUT | `/api/tenant/site-settings/theme` | — |
+| GET | `/api/tenant/site-settings/theme/preview` | — |
 
 ### `tenant/smartcomm`
 
