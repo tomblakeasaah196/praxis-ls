@@ -342,6 +342,12 @@ const PROSE = />([^<>{}]{2,400}?)</gs;
 const OK = /^[\s|·—–\-–+×*•×\d.,%’'"()§©®™/:A-Z-]*$/;
 for (const file of allFiles) {
   if (!file.endsWith(".tsx")) continue;
+  // Test files are fixtures, not copy. Check 6 below already skips them; this
+  // one did not, so the two halves of the same gate disagreed about whether a
+  // sentence in a test is user-facing prose. It is not: nobody translates an
+  // assertion, and a test that must phrase its fixture as a dictionary key
+  // tests the dictionary rather than the component.
+  if (/\.test\.tsx?$/.test(file)) continue;
   const src = stripComments(readFileSync(file, "utf8"));
   const rel = path.relative(ROOT, file);
   const lineOf = (idx) => src.slice(0, idx).split("\n").length;

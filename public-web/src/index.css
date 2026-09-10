@@ -110,11 +110,32 @@
     --brand-blue-ink: 20 108 161;
     --ink: 25 26 27;
     --ink-3: 98 101 105;
-    /* TRANSPORT MODES — sea green, air blue, road orange, rail violet. Ported so
-       the hero's lanes mean the same thing as the Control Tower's lanes: a mode is
-       not decoration and it is not brand, it is what the cargo is ON, which is why
-       these are fixed hues and never derived from --primary (see the long note in
-       client/src/index.css). */
+    /* TRANSPORT MODES — sea green, air blue, road orange, rail violet.
+     *
+     * ── THE RULE, AS AMENDED ────────────────────────────────────────────────
+     *
+     * These used to be described here as "fixed hues, never derived from
+     * --primary". The second half of that is still absolutely true and is the
+     * important half: a mode is not brand, it is what the cargo is ON, and a
+     * mode colour computed from a tenant's accent stops identifying anything.
+     *
+     * What has changed is that the values are now HARMONISED per tenant rather
+     * than frozen. The hue is an anchor constant — the exact values below, which
+     * are also what client/src/index.css ships — and only CHROMA and LIGHTNESS
+     * adapt, so that four saturated modes do not sit like foreign objects on a
+     * desaturated tenant's page, and four muted ones do not look dead beside a
+     * neon one. Hue may be pulled toward the tenant's palette by at most 10
+     * degrees, which is below the threshold at which a hue reads as a different
+     * colour. Sea stays green.
+     *
+     * The engine is packages/shared/design/palette.js and the full reasoning is
+     * doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md §1.4. The ERP calls the same function
+     * with harmoniseModes:false and therefore renders the values below
+     * unchanged — tests/unit/palette-engine.test.js pins that byte for byte, so
+     * the Control Tower cannot drift as a side effect of a marketing change.
+     *
+     * The values here remain the fallback for a tenant who has set no palette
+     * at all, and the source the engine's anchors were measured from. */
     --mode-sea: 40 148 94;
     --mode-air: 28 155 215;
     --mode-road: 224 122 26;
@@ -131,7 +152,14 @@
     --destructive: rgb(179 36 27); /* --brand-danger */
     --destructive-foreground: #ffffff;
 
-    --font-display: var(--brand-font-display);
+    /* Archivo, not the brand sheet's IBM Plex Sans, and this is the TENANT
+       layer so it is ours to set: `--brand-font-display` stays exactly what
+       packages/brand says it is. IBM Plex Sans and Inter are two of the most
+       used faces on the B2B web and nothing set in them is the reason anyone
+       remembers a page; Archivo's 100-900 axis is also what <WeightScrub>
+       animates. PR 2 overrides all three per tenant from the font registry in
+       @praxis/shared. See doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md §5.5. */
+    --font-display: "Archivo Variable", "Archivo", sans-serif;
     --font-body: var(--brand-font-body);
     --font-mono: var(--brand-font-mono);
 
@@ -159,11 +187,113 @@
     --sticky-top: calc(var(--site-header-h) + 1.5rem);
 
     --radius: 10px;
-    --shadow-s: 0 1px 2px rgb(10 10 10 / 0.05);
-    --shadow-m: 0 6px 20px rgb(10 10 10 / 0.07);
-    --shadow-l: 0 18px 50px rgb(10 10 10 / 0.12);
-    --ease: cubic-bezier(0.2, 0, 0.13, 1);
-    --dur: 0.15s;
+
+    /* ── DEPTH: one light source, and an elevation scale derived from it ─────
+     *
+     * THE LIGHT COMES FROM THE TOP-LEFT, at roughly 60 degrees. Every shadow,
+     * every gradient, every bevel and every lit edge on this site derives from
+     * that one decision, and it is written down because the alternative is what
+     * the note further down this file already names: "make it feel richer"
+     * becoming a shadow typed into a component, and then eleven components with
+     * eleven different lights.
+     *
+     * WHY EACH LEVEL IS THREE THINGS AND NOT ONE BLUR. A physical object in a
+     * room casts a TIGHT, dark contact shadow where it meets the surface, an
+     * AMBIENT one that is wide and faint, and catches light on the edge facing
+     * the source. One soft shadow gives you none of that; it gives you a web
+     * page. The three together are what reads as an object, and they cost
+     * nothing extra to paint.
+     *
+     * WHY THE DARK VALUES ARE NOT THE LIGHT ONES WITH MORE ALPHA. On a dark
+     * ground a shadow is nearly invisible — there is no lighter surface for it
+     * to darken. Elevation there is carried by the LIGHT-CATCH instead: the top
+     * hairline gets brighter as the object rises. Same model, opposite
+     * mechanism, which is why the dark block below redefines all of it.
+     *
+     * `--shadow-s/m/l` are kept as aliases onto 1/2/4. Every existing call site
+     * keeps working, and nothing had to be swept to land the scale.
+     */
+    --light-angle: 60deg;
+    --elev-shadow-hue: 10 10 10;
+
+    --elev-0: none;
+    --elev-1:
+      0 1px 2px rgb(var(--elev-shadow-hue) / 0.05),
+      0 1px 1px rgb(var(--elev-shadow-hue) / 0.04);
+    --elev-2:
+      0 2px 4px rgb(var(--elev-shadow-hue) / 0.05),
+      0 6px 20px rgb(var(--elev-shadow-hue) / 0.07);
+    --elev-3:
+      0 4px 8px rgb(var(--elev-shadow-hue) / 0.06),
+      0 12px 32px rgb(var(--elev-shadow-hue) / 0.1);
+    --elev-4:
+      0 8px 16px rgb(var(--elev-shadow-hue) / 0.07),
+      0 18px 50px rgb(var(--elev-shadow-hue) / 0.12);
+    --elev-5:
+      0 12px 24px rgb(var(--elev-shadow-hue) / 0.08),
+      0 32px 80px rgb(var(--elev-shadow-hue) / 0.16);
+
+    /* The hairline on the edge facing the light. On light grounds it is a
+       white highlight; on dark it does the work the shadow cannot. */
+    --catch-1: inset 0 1px 0 rgb(255 255 255 / 0.6);
+    --catch-2: inset 0 1px 0 rgb(255 255 255 / 0.75);
+    --catch-3: inset 0 1px 0 rgb(255 255 255 / 0.9);
+
+    /* Aliases, so nothing in the tree had to change to land the scale. */
+    --shadow-s: var(--elev-1);
+    --shadow-m: var(--elev-2);
+    --shadow-l: var(--elev-4);
+
+    /* ── MATERIAL ───────────────────────────────────────────────────────────
+     * Four surfaces a band may be made of. `--mat-glass` carries a fallback
+     * that is a SOLID tint rather than a transparent one: a browser without
+     * `backdrop-filter` that keeps the transparency renders unreadable text
+     * over whatever is behind it, which is the one failure mode worse than
+     * having no glass at all. */
+    --mat-matte: var(--card);
+    --mat-glass: color-mix(in srgb, var(--card) 82%, transparent);
+    --mat-glass-solid: color-mix(in srgb, var(--card) 96%, var(--foreground));
+    --mat-scrim: rgb(var(--elev-shadow-hue) / 0.55);
+    --mat-emissive: color-mix(in srgb, var(--primary) 18%, transparent);
+
+    /* ── MOTION ─────────────────────────────────────────────────────────────
+     *
+     * Two budgets, because they are two different jobs and conflating them is
+     * how a site ends up feeling either sluggish or frantic:
+     *
+     *   RESPONSE (<= 200ms) is what happens when a person acts — a hover, a
+     *   press, a focus. It must feel like the interface reacting, never like it
+     *   performing. The ERP's 250ms ceiling was always about this.
+     *
+     *   NARRATIVE (<= 600ms) is what happens when a person arrives somewhere —
+     *   a band revealing, text staging in. This is the budget the express
+     *   exception buys (doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md §1.1), and it exists
+     *   only on this surface, where impression is the job.
+     *
+     * Anything continuous or scroll-linked is exempt BY NAME in
+     * scripts/check-motion.mjs, with a written reason. An unnamed infinite
+     * animation fails the gate.
+     */
+    --dur-instant: 0.09s;
+    --dur-response: 0.15s;
+    --dur-response-max: 0.2s;
+    --dur-enter: 0.42s;
+    --dur-narrative: 0.6s;
+
+    --ease-standard: cubic-bezier(0.2, 0, 0.13, 1);
+    --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+    --ease-emphasis: cubic-bezier(0.2, 0, 0, 1.2);
+
+    /* The originals, kept: every existing transition in this file reads them. */
+    --ease: var(--ease-standard);
+    --dur: var(--dur-response);
+
+    /* Pointer-as-light, written by usePointerLight/useTilt. Centre until a
+       pointer or a gyroscope says otherwise, so a component that reads them
+       renders correctly before any input and under reduced motion. */
+    --lx: 0.5;
+    --ly: 0.5;
 
     /* A band's vertical rhythm, as a TOKEN rather than only as a Tailwind
        spacing value, because one thing on the page has to measure against it:
@@ -257,9 +387,31 @@
     --bad-fill: 240 131 123;
     --destructive: rgb(240 131 123);
     --destructive-foreground: #0a0a0a;
-    --shadow-s: 0 1px 2px rgb(0 0 0 / 0.4);
-    --shadow-m: 0 6px 20px rgb(0 0 0 / 0.45);
-    --shadow-l: 0 18px 50px rgb(0 0 0 / 0.55);
+    /* Depth on a dark ground. The shadows deepen, but they are no longer what
+       carries elevation — there is no lighter surface beneath for them to
+       darken. The LIGHT-CATCH does it: the hairline on the lit edge brightens
+       as the object rises, which is how a real object reads in a dark room. */
+    --elev-shadow-hue: 0 0 0;
+    --elev-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --elev-2:
+      0 2px 4px rgb(0 0 0 / 0.4),
+      0 6px 20px rgb(0 0 0 / 0.45);
+    --elev-3:
+      0 4px 8px rgb(0 0 0 / 0.45),
+      0 12px 32px rgb(0 0 0 / 0.5);
+    --elev-4:
+      0 8px 16px rgb(0 0 0 / 0.5),
+      0 18px 50px rgb(0 0 0 / 0.55);
+    --elev-5:
+      0 12px 24px rgb(0 0 0 / 0.55),
+      0 32px 80px rgb(0 0 0 / 0.65);
+    --catch-1: inset 0 1px 0 rgb(237 238 238 / 0.07);
+    --catch-2: inset 0 1px 0 rgb(237 238 238 / 0.11);
+    --catch-3: inset 0 1px 0 rgb(237 238 238 / 0.16);
+    --shadow-s: var(--elev-1);
+    --shadow-m: var(--elev-2);
+    --shadow-l: var(--elev-4);
+    --mat-scrim: rgb(0 0 0 / 0.62);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -1052,6 +1204,118 @@
   .skip-link:focus-visible {
     top: 12px;
   }
+
+  /* ── Type as a material ──────────────────────────────────────────────────
+   *
+   * The recipes behind src/components/ui/type.tsx. They live here rather than
+   * in the component because the stagger and the weight response are pure CSS
+   * — the component only decides WHAT is fragmented, never when each fragment
+   * moves. That split is what keeps the schedule on the browser's compositor
+   * instead of in a React timer.
+   */
+
+  .staged-word {
+    display: inline-block;
+    /* `translateZ(0)` is absent on purpose. A headline of twenty words is twenty
+       promoted layers, which costs more on a mid-range Android than the
+       animation saves — and these settle once and never run again. */
+    opacity: 0;
+    transform: translateY(0.36em);
+    transition:
+      opacity var(--dur-enter) var(--ease-decelerate),
+      transform var(--dur-enter) var(--ease-decelerate);
+  }
+
+  .staged-word.is-in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Reduced motion renders the settled state, not a faster arrival. The global
+     umbrella at the foot of this file already kills the duration; this makes
+     the RESTING state correct too, which the umbrella cannot do — an element
+     whose start state is `opacity: 0` with a 0.001ms transition is still
+     invisible until something triggers it. */
+  @media (prefers-reduced-motion: reduce) {
+    .staged-word {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Weight responds to scroll position. `--scrub` is written by useScrollScrub
+     directly on the element; `--wght-from`/`--wght-to` come from the component.
+     `font-variation-settings` rather than `font-weight` because only the former
+     accepts a computed value on a variable axis in every engine that matters. */
+  .weight-scrub {
+    font-variation-settings: "wght"
+      calc(var(--wght-from, 400) + (var(--wght-to, 700) - var(--wght-from, 400)) * var(--scrub, 1));
+  }
+
+  .pull-quote {
+    margin: 2rem 0;
+    padding-left: 1.25rem;
+    /* The accent as a rule, not as type — this is a fill context, so it reads
+       --primary rather than --primary-ink. */
+    border-left: 3px solid var(--primary);
+  }
+
+  .pull-quote blockquote {
+    /* A DIFFERENT measure, not merely a bigger size. Changing only the size
+       makes a pull-quote read as the same paragraph shouting; changing the
+       column width is what makes the eye register a different kind of object. */
+    max-width: 34rem;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--fs-quote, 1.5rem);
+    line-height: 1.35;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .pull-quote figcaption {
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+  }
+
+  .figure-callout-value {
+    font-family: var(--font-mono);
+    /* Tabular, because these sit in rows: a proportional `1` makes a row of
+       figures look misaligned and the misalignment reads as a bug in the
+       tenant's numbers rather than in our typography. */
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--foreground);
+  }
+
+  .figure-callout-label {
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--primary-ink);
+  }
+
+  .figure-callout-sub {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+  }
+
+  /* ── Elevation, as classes ───────────────────────────────────────────────
+   * The scale from the token block, paired with its light-catch. Applied as a
+   * class rather than typed per component, which is the whole point of having
+   * a scale. */
+  .elev-1 { box-shadow: var(--elev-1), var(--catch-1); }
+  .elev-2 { box-shadow: var(--elev-2), var(--catch-1); }
+  .elev-3 { box-shadow: var(--elev-3), var(--catch-2); }
+  .elev-4 { box-shadow: var(--elev-4), var(--catch-2); }
+  .elev-5 { box-shadow: var(--elev-5), var(--catch-3); }
+
 }
 
 @layer utilities {
