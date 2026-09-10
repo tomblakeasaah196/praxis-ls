@@ -479,6 +479,30 @@ const APP_PAIRS = {
      */
     ["--primary-foreground on --primary (light)", "primary-foreground", "primary", lightBody, AA_NORMAL],
     ["--primary-foreground on --primary (dark)", "primary-foreground", "primary", darkBody, AA_NORMAL],
+    /*
+     * ── THE FOUR MODES ON THE HERO PLATE, AT THE NON-TEXT FLOOR ───────────
+     *
+     * §8.2 lights each service's entrance with its own mode. These pin that the
+     * light is legible as a NON-TEXT affordance — WCAG 1.4.11's 3:1 — and they
+     * are held to 3:1 rather than 4.5:1 because that is what they are: the wash
+     * in `.band-service`'s gradient and the rule under it, never type.
+     *
+     * The distinction is load-bearing and it was nearly got wrong. The first
+     * draft of that band painted the service's identity CODE in its mode
+     * colour, 11px on carbon, which is type and is held to 4.5:1. Measured:
+     * sea 5.17, air 6.33, road 6.57 — and **rail 3.68**, a live AA failure on
+     * exactly one of the four service kinds. Three of the four screenshots
+     * would have looked right. The code is `--hero-foreground` now (17:1) and
+     * these four stay at the floor they actually have to clear.
+     */
+    ["--mode-sea on --hero, non-text (light)", "mode-sea", "hero", lightBody, AA_LARGE],
+    ["--mode-air on --hero, non-text (light)", "mode-air", "hero", lightBody, AA_LARGE],
+    ["--mode-road on --hero, non-text (light)", "mode-road", "hero", lightBody, AA_LARGE],
+    ["--mode-rail on --hero, non-text (light)", "mode-rail", "hero", lightBody, AA_LARGE],
+    ["--mode-sea on --hero, non-text (dark)", "mode-sea", "hero", darkBody, AA_LARGE],
+    ["--mode-air on --hero, non-text (dark)", "mode-air", "hero", darkBody, AA_LARGE],
+    ["--mode-road on --hero, non-text (dark)", "mode-road", "hero", darkBody, AA_LARGE],
+    ["--mode-rail on --hero, non-text (dark)", "mode-rail", "hero", darkBody, AA_LARGE],
   ],
 };
 

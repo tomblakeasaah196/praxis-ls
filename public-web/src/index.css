@@ -2025,6 +2025,64 @@
     );
   }
 
+  /* ── The service entrance (§8.2) ─────────────────────────────────────────
+   *
+   * Every route gets a designed entrance, and a service detail page's entrance
+   * has one job the others do not: it has to be RECOGNISABLY THE CARD THE
+   * VISITOR CLICKED. So the band is lit by the same `--mode` the grid card
+   * carried, full-bleed, rather than by a 6px rule across the top — which was
+   * the previous answer and reads as a tab strip.
+   *
+   * IT WORKS WITH NO IMAGE, AND THAT IS THE NORMAL CASE. §6.3's upload control
+   * is still unbuilt (carried since PR 2), so `cover_url` is null for every
+   * tenant today. The composition below is therefore designed for the absent
+   * image and merely IMPROVED by one: the ground is the mode's own colour laid
+   * over the hero plate, and a cover slots in behind it under the same scrim
+   * the hero uses. A band that only works once somebody uploads a photograph is
+   * a band that does not work. */
+  .band-service {
+    position: relative;
+    overflow: hidden;
+    background: var(--hero);
+    color: var(--hero-foreground);
+  }
+
+  /* The mode's light, from the stated source (top-left, §5.3). Two stops rather
+     than one so the band has a near corner and a far one — the same reason the
+     hero plate has a vignette. */
+  .band-service::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        90% 120% at 8% 0%,
+        rgb(var(--mode, var(--brand-orange)) / 0.34),
+        transparent 60%
+      ),
+      linear-gradient(
+        180deg,
+        transparent 40%,
+        rgb(var(--mode, var(--brand-orange)) / 0.1)
+      );
+  }
+
+  /* The scrim over a tenant's cover. Held at the hero's own binding floor
+     (`SCRIM_FLOOR`, 0.87) everywhere copy sits, because the copy here is the
+     same eyebrow-on-carbon pair the hero derived it for and the worst case is
+     the same: a blown-out, near-white photograph. */
+  .band-service-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--hero) 94%, transparent) 0%,
+      color-mix(in srgb, var(--hero) 89%, transparent) 62%,
+      color-mix(in srgb, var(--hero) 66%, transparent) 100%
+    );
+  }
+
   /* A dark band's version of the plate, for the entrance states below the hero
      on the empty and not-found screens. */
   .track-quiet {

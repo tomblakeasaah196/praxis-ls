@@ -682,6 +682,11 @@ export const en = {
     },
     servicesPage: {
       title: "Services",
+      /* Split for §8.2's entrance, the way every other hero title is: the
+         accent word is the one the eye lands on, and `SectionHead` colours it
+         per ground (`--brand-orange` on the plate, `--primary-ink` on white). */
+      titleMain: "What we",
+      titleAccent: "handle",
       sub: "What we handle, end to end.",
       empty:
         "Service pages are being written. Ask for a quote in the meantime.",
@@ -1491,6 +1496,8 @@ export const fr = {
     },
     servicesPage: {
       title: "Services",
+      titleMain: "Ce que nous",
+      titleAccent: "prenons en charge",
       sub: "Ce que nous prenons en charge, de bout en bout.",
       empty:
         "Les pages de services sont en cours de rédaction. Demandez un devis en attendant.",
