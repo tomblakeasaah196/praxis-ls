@@ -402,6 +402,23 @@ export const en = {
       cta: "Open the client portal",
       invited: "Have an invitation link? Set your password there.",
     },
+    /* ── The ESG interactive (§8.4) ────────────────────────────────────────
+       THE PILLAR NAMES ARE OURS; EVERYTHING INSIDE A PILLAR IS THE TENANT'S.
+       Environment / Social / Governance is the standard triad — naming the
+       three columns is a layout decision, not a claim about this company — and
+       `packages/shared/schemas/site-settings.js` fixes them to exactly three
+       for that reason. The prose and every bullet come from `site_about.esg`,
+       which is why there is no fallback copy here: a tenant who has written no
+       ESG gets no band, not our words under their logo (N12). */
+    esg: {
+      kicker: "Responsibility",
+      title: "How we",
+      titleAccent: "operate",
+      environment: "Environment",
+      social: "Social",
+      governance: "Governance",
+      figureAlt: "{{pillar}} — the commitments listed beside this drawing, drawn",
+    },
     quote: {
       title: "Get a quote",
       sub: "Tell us about your shipment and we'll come back with a price.",
@@ -1232,6 +1249,15 @@ export const fr = {
       cta: "Ouvrir le portail client",
       invited:
         "Vous avez un lien d’invitation ? Choisissez votre mot de passe depuis ce lien.",
+    },
+    esg: {
+      kicker: "Responsabilité",
+      title: "Notre façon",
+      titleAccent: "d’opérer",
+      environment: "Environnement",
+      social: "Social",
+      governance: "Gouvernance",
+      figureAlt: "{{pillar}} — les engagements listés à côté de ce dessin, dessinés",
     },
     quote: {
       title: "Demander un devis",

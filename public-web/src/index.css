@@ -2169,6 +2169,209 @@
     box-shadow: var(--elev-1);
   }
 
+  /* ── The ESG interactive (§8.4) ──────────────────────────────────────────
+   *
+   * THE SETTLED STATE IS THE DESIGN, NOT THE FALLBACK. §8.4 asks for the
+   * reduced-motion rendering to be "genuinely good — it is what a meaningful
+   * share of readers will see", and the way to guarantee that is to make sure
+   * there is only ONE composition. Every rule below is written so that
+   * `--scrub: 1` is the finished picture: paths fully drawn, every annotation
+   * present and at full opacity, leader lines attached. `useScrollScrub` writes
+   * exactly that value, once, under `prefers-reduced-motion`.
+   *
+   * So there is no second layout to maintain and no `@media` block that
+   * recreates the design differently. The only thing the preference changes is
+   * whether the value ARRIVES over a scroll or is there on the first frame.
+   *
+   * `--scrub` is unset before the hook mounts, and the fallbacks in every
+   * `var()` below are 1 for the same reason: a panel that has not been
+   * subscribed yet must render finished rather than blank. A visitor whose
+   * JavaScript fails after paint sees the drawing, not an empty box. */
+  .esg-grid {
+    display: grid;
+    gap: 2.5rem;
+  }
+
+  @media (min-width: 900px) {
+    .esg-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 2rem;
+    }
+  }
+
+  .esg-stage {
+    position: relative;
+  }
+
+  .esg-art {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* THE LINE THAT DRAWS ITSELF. `pathLength="1"` normalises every path to one
+     unit, so the dash arithmetic is the same for a 40px spoke and a 300px
+     curve and needs no measured length — which would be a layout read per path
+     per frame. */
+  .esg-line {
+    stroke: rgb(var(--brand-orange));
+    stroke-width: 2;
+    stroke-dasharray: 1;
+    stroke-dashoffset: calc(1 - var(--scrub, 1));
+  }
+
+  /* The route BEFORE it was optimised. It is drawn first and gives way — the
+     inverse of `--scrub`, which is what makes the improvement legible as a
+     change rather than as two lines on top of each other. */
+  .esg-ghost {
+    stroke: rgb(var(--ink) / 0.28);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 4;
+    opacity: calc(1 - var(--scrub, 1) * 0.75);
+  }
+
+  .esg-node {
+    fill: var(--card);
+    stroke: rgb(var(--brand-orange));
+    stroke-width: 2;
+    opacity: var(--scrub, 1);
+  }
+
+  .esg-core,
+  .esg-plate {
+    fill: rgb(var(--brand-orange) / 0.1);
+    stroke: rgb(var(--brand-orange) / 0.55);
+    stroke-width: 1.5;
+    opacity: var(--scrub, 1);
+  }
+
+  .esg-mark {
+    fill: rgb(var(--brand-orange));
+    opacity: var(--scrub, 1);
+  }
+
+  /* The emissions series. Fades as the line straightens, which is the claim. */
+  .esg-dot {
+    fill: rgb(var(--ink) / 0.35);
+    opacity: calc(1 - var(--scrub, 1) * 0.8);
+  }
+
+  /* ── The annotations ─────────────────────────────────────────────────────
+   *
+   * `--at` is when this one arrives, `--scrub` is where the reader is. The
+   * comparison happens in CSS so the scrub writes ONE property per frame and
+   * the browser recomputes the rest — a JS threshold would mean a React render
+   * per annotation per frame, which is the mistake §5.4 forbids in as many
+   * words ("never React state — a scrub through state re-renders 60 times a
+   * second").
+   *
+   * `clamp` rather than a step, so an annotation fades in over a short travel
+   * instead of appearing. The 0.12 divisor is that travel. */
+  .esg-leader,
+  .esg-note {
+    opacity: clamp(0, (var(--scrub, 1) - var(--at, 0)) / 0.12, 1);
+    transition: opacity var(--dur-response) var(--ease-standard);
+  }
+
+  .esg-leader path {
+    stroke: rgb(var(--ink) / 0.3);
+    stroke-width: 1;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+
+  .esg-leader circle {
+    fill: rgb(var(--brand-orange));
+    stroke: none;
+  }
+
+  /* Below `md` the notes are unplaceable — see the component's note. They are
+     hidden here and the same sentences render in `.esg-list`, which is visible
+     at exactly the widths this is not. Never both: the text would be duplicated
+     for a screen reader. */
+  .esg-notes {
+    display: none;
+  }
+
+  .esg-list {
+    margin-top: 1.25rem;
+    display: grid;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+    list-style: none;
+    padding: 0;
+  }
+
+  .esg-list li {
+    position: relative;
+    padding-left: 1rem;
+  }
+
+  .esg-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.5rem;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgb(var(--brand-orange));
+  }
+
+  @media (min-width: 900px) {
+    .esg-notes {
+      display: block;
+      position: absolute;
+      inset: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      pointer-events: none;
+    }
+
+    .esg-note {
+      position: absolute;
+      width: 8.5rem;
+      font-size: 0.75rem;
+      line-height: 1.35;
+      color: var(--foreground);
+      transform: translateY(-50%);
+    }
+
+    .esg-note-l {
+      right: calc(100% + 0.5rem);
+      text-align: right;
+    }
+
+    .esg-note-r {
+      left: calc(100% + 0.5rem);
+    }
+
+    /* The list below is now redundant with the annotations, EXCEPT for any
+       point past the fifth, which has no anchor at any width. Hiding the
+       anchored ones and keeping the overflow is what stops the same sentence
+       being announced twice. */
+    .esg-list li:not(.esg-list-extra) {
+      display: none;
+    }
+
+    .esg-list:not(:has(.esg-list-extra)) {
+      display: none;
+    }
+  }
+
+  /* The stage needs room for the labels either side at wide widths. */
+  @media (min-width: 900px) {
+    .esg-stage {
+      margin-inline: 9rem;
+    }
+  }
+
   /* A dark band's version of the plate, for the entrance states below the hero
      on the empty and not-found screens. */
   .track-quiet {

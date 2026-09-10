@@ -22,6 +22,7 @@ import { EmptyState, ErrorState } from "@/components/state";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import {
   BoltIcon,
+  ShieldIcon,
   BoxIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -37,6 +38,9 @@ import { BadgePill } from "@/components/ui/badge-pill";
 import { BgMap } from "@/components/ui/bg-map";
 import { StagedLines } from "@/components/ui/type";
 import { usePointerLight, useProximity } from "@/lib/motion";
+import { EsgTriptych } from "@/components/site/esg-triptych";
+import { getPublicEsg, hasEsg, type EsgContent } from "@/lib/site-api";
+import { afterPaint } from "@/lib/after-paint";
 import { Reveal } from "@/components/ui/reveal";
 import { Markdown } from "@/components/ui/markdown";
 import { QuoteWizard } from "@/components/site/quote-wizard";
@@ -65,6 +69,40 @@ import { p } from "@/lib/base-path";
  * fallback — send the unknown one to the homepage — strands a French reader on a
  * page they never asked for. No `alternates`, no switcher.
  */
+/**
+ * The tenant's ESG story, read AFTER paint.
+ *
+ * `lib/after-paint.ts` is the deferral primitive PR 3 left for exactly this: a
+ * read that nobody is waiting for does not belong on the critical path. The
+ * band it feeds is the last thing on the page and renders nothing until the
+ * answer arrives, so a visitor who came to choose a service never waits on a
+ * request about recycling policy.
+ *
+ * Aborted on unmount, and every failure is the empty answer — see
+ * `getPublicEsg`, which folds an unpublished story, a tenant without the
+ * `website` package and a network error into the one fact this component can
+ * act on: there is nothing to draw.
+ */
+function useEsg(): EsgContent | null {
+  const lang = getLang();
+  const [esg, setEsg] = React.useState<EsgContent | null>(null);
+  React.useEffect(() => {
+    const controller = new AbortController();
+    let alive = true;
+    const cancel = afterPaint(() => {
+      getPublicEsg({ lang, signal: controller.signal }).then((next) => {
+        if (alive) setEsg(next);
+      });
+    });
+    return () => {
+      alive = false;
+      cancel();
+      controller.abort();
+    };
+  }, [lang]);
+  return esg;
+}
+
 /**
  * One pillar's grid, at depth rung 2 (§8.2).
  *
@@ -113,6 +151,7 @@ export function ServicesIndexPage() {
   const { t } = useTranslation();
   const lang = getLang();
   const { groups, services, loading } = usePublishedServices();
+  const esg = useEsg();
 
   useDocumentMeta({
     title: `${t("site.servicesPage.title")} · ${t("site.hero.eyebrow")}`,
@@ -288,11 +327,47 @@ export function ServicesIndexPage() {
         )}
       </Section>
 
+      {/* ── §8.4's ESG interactive, and WHY IT IS ON THIS PAGE ──────────────
+          ─────────────────────────────────────────────────────────────────────
+          A DELIBERATE DEVIATION, recorded in the progress log. §8.4 assigns the
+          ESG interactive to PR 4 and §9.1 assigns the About page — where ESG
+          belongs in the group story — to PR 5. So the guide gives PR 4 a piece
+          of About-page content and no About page to put it on.
+
+          Three ways out, and only one of them is honest. Building the component
+          and mounting it nowhere is dead code, and §2's own rule is that
+          partial work counts zero. Creating `/about` here takes PR 5's scope,
+          including the nav and footer entries §9.1 specifies. So it is mounted
+          where it does real work today.
+
+          The services index is that place. ESG on a freight forwarder's site is
+          procurement-facing — tenders in this market ask for it — and a buyer
+          comparing services is exactly who reads it. It sits BELOW the grid, so
+          it never delays the page's actual job, and above the quote band, so
+          the page still ends on the way out.
+
+          `EsgTriptych` takes its content as a prop and knows nothing about this
+          page, so §9.1 mounts the identical component on About with no change
+          to it. It renders nothing at all for a tenant who has written no ESG,
+          which is every tenant until somebody fills in Settings › Website ›
+          About. */}
+      {hasEsg(esg) ? (
+        <Section
+          variant="muted"
+          divided
+          eyebrow={t("site.esg.kicker")}
+          eyebrowIcon={ShieldIcon}
+          title={t("site.esg.title")}
+          accent={t("site.esg.titleAccent")}
+        >
+          <EsgTriptych esg={esg} />
+        </Section>
+      ) : null}
+
       {/* The alternating surface §4 pattern 6 asks for — and the one band this
           page was missing: an index that ends on its own grid ends with no way
           out. The copy is the quote desk's own, not a second version of it. */}
       <Section
-        variant="muted"
         divided
         eyebrow={t("site.quote.kicker")}
         eyebrowIcon={BoltIcon}
