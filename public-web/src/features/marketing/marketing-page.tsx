@@ -9,12 +9,8 @@ import { listCorridors, type Corridor } from "@/lib/corridors-api";
 import { Hero } from "@/components/site/hero";
 import { AnnouncementsBand } from "@/components/site/announcements-band";
 import { CorridorScene } from "@/components/site/corridor-scene";
-import {
-  MediaCard,
-  MoreLink,
-  Section,
-  StepList,
-} from "@/components/site/section";
+import { StageSequence } from "@/components/site/stage-sequence";
+import { MediaCard, MoreLink, Section } from "@/components/site/section";
 import { CorridorPanel } from "@/components/site/corridor-panel";
 import { PortalPreview, RouteGraphic } from "@/components/site/graphics";
 import { ProofStrip } from "@/components/site/proof-strip";
@@ -38,6 +34,7 @@ import {
   serviceIdentity,
 } from "@/lib/service-identity";
 import { Reveal } from "@/components/ui/reveal";
+import { usePointerLight, useProximity } from "@/lib/motion";
 import { p } from "@/lib/base-path";
 
 /**
@@ -169,6 +166,21 @@ function ServicesBand() {
   const { t } = useTranslation();
   const lang = getLang();
   const { services, disabled, failed } = usePublishedServices();
+  /* §7.3's depth rung 2, driven from ONE pair of listeners on the grid rather
+     than a hook per card. `usePointerLight` says where the pointer is across
+     the row; `useProximity` says whether it is anywhere near, and rests at 0 so
+     the settled row is flat. Each card reads both plus its own `--cx`. See
+     `.tilt-card` in index.css for the arithmetic and for why there is no
+     second lift. */
+  const light = usePointerLight<HTMLUListElement>();
+  const near = useProximity<HTMLUListElement>({ radius: 420 });
+  const grid = React.useCallback(
+    (el: HTMLUListElement | null) => {
+      (light as React.MutableRefObject<HTMLUListElement | null>).current = el;
+      (near as React.MutableRefObject<HTMLUListElement | null>).current = el;
+    },
+    [light, near],
+  );
 
   const items = services.length
     ? services.map((s) => ({
@@ -218,7 +230,10 @@ function ServicesBand() {
       }
       divided
     >
-      <ul className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+      <ul
+        ref={grid}
+        className="tilt-stage grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4"
+      >
         {/* Four, and the aside links to the rest. Four is the width of the
             identity palette, so this row is the one place on the site where no
             two cards can share a colour — which is what makes the palette read
@@ -228,7 +243,22 @@ function ServicesBand() {
         {items.slice(0, IDENTITY_COUNT).map((s, i) => {
           const identity = serviceIdentity(i);
           return (
-            <Reveal as="li" key={s.key} delay={(i % 4) as 0 | 1 | 2 | 3}>
+            <Reveal
+              as="li"
+              key={s.key}
+              delay={(i % 4) as 0 | 1 | 2 | 3}
+              className="tilt-card"
+              /* The card's own centre across the row, 0…1. Four columns, so
+                 card 0 sits at 0.125 and card 3 at 0.875. Written here rather
+                 than measured, because a layout this file owns is a layout it
+                 can state — and measuring would mean a resize observer per
+                 card for a number that is a fraction of a known grid. */
+              style={
+                {
+                  "--cx": String((i + 0.5) / IDENTITY_COUNT),
+                } as React.CSSProperties
+              }
+            >
               <MediaCard
                 className="h-full"
                 image={s.image}
@@ -300,13 +330,18 @@ function HowBand({ block }: { block: FeatureListBlock | null }) {
       lead={t("site.how.sub")}
       divided
     >
-      {/* Reveal wraps blocks a reader scrolls TO. It never wraps a form, a
-          control, or the answer to a query somebody just submitted: a field
-          that fades in under a thumb is a field that gets mis-tapped, which is
-          why the contact form below keeps its plain first paint. */}
-      <Reveal>
-        <StepList steps={steps} />
-      </Reveal>
+      {/* §7.4: the journey's middle. `StepList`'s three equal boxes were the
+          flattest thing on the page and are exactly the shape §1.5 names as "a
+          candidate for a diagram, not a list" — so the steps became a
+          scroll-scrubbed sequence with a drawn diagram each. The 90-word rule
+          is met by the diagram carrying what extra sentences would have, rather
+          than by deleting clauses until the count passes.
+ 
+          NOT wrapped in `Reveal`: this band animates its own insides, and
+          fading the whole block in as one object while its stages arrive
+          individually would be two animations over one element — the same
+          reason `PortalPreview` uses `useRevealed` rather than being wrapped. */}
+      <StageSequence stages={steps} />
     </Section>
   );
 }
@@ -527,11 +562,25 @@ function QuoteBand({ block }: { block: CtaBandBlock | null }) {
         and this is where they should land.
       */}
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <Card padded className="flex flex-col justify-center">
+        {/*
+          §7.6: THE HIERARCHY IS THE ARGUMENT.
+
+          Q8 settled two things that pull against each other — "Request a quote"
+          is THE conversion, and tracking is THE service most of this page's
+          audience came for. The hero already gives tracking the best real
+          estate, so this band is where the OTHER half is made visible: one
+          primary, at rung 3, with the lookup beside it as a quiet second door
+          rather than a competing button.
+
+          Two equally-weighted CTAs is the version that fails. A visitor who has
+          read five bands about what this company does and is offered two
+          identical buttons has been handed the decision back.
+        */}
+        <Card padded className="elev-3 flex flex-col justify-center">
           <p className="max-w-measure text-muted-foreground">
             {t("site.quote.bandLead")}
           </p>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
             {/* Same internal-path rule as the hero button: `p()` would prefix
                 the site base onto a mailto or an https URL, which the block
                 schema also admits. */}
@@ -547,6 +596,11 @@ function QuoteBand({ block }: { block: CtaBandBlock | null }) {
                 t("site.quote.bandCta")}
               <ArrowRightIcon size={16} className="ml-2" />
             </ButtonLink>
+            {/* A LINK, not a second button. Subordinate in weight and in
+                colour: `more-link` is the site's one visual language for
+                "there is a page here", and the primary above it stays the only
+                thing in this band that looks pressable. */}
+            <MoreLink to={p("/track")}>{t("site.quote.bandTrack")}</MoreLink>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
             {t("site.quote.privacy")}
@@ -605,8 +659,13 @@ function ContactBand() {
         circulation — the header and the footer both pointed here until Contact
         got its own route — and this is where they should land.
       */}
+      {/* Deliberately FLATTER than the quote band above it (rung 1 against rung
+          3). This is the door for a visitor who is not buying — a supplier, a
+          journalist, someone whose file has gone wrong — and giving it the same
+          elevation as the conversion would make the page end on two equal
+          offers, which is the hierarchy §7.6 exists to prevent. */}
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <Card padded className="flex flex-col justify-center">
+        <Card padded className="elev-1 flex flex-col justify-center">
           <p className="max-w-measure text-muted-foreground">
             {t("site.contact.bandLead")}
           </p>

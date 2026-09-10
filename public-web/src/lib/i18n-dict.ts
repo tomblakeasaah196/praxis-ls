@@ -410,6 +410,9 @@ export const en = {
       bandLead:
         "Four short steps — what you need, the route, the cargo, and where to send the answer. Most take under two minutes.",
       bandCta: "Start a quote",
+      /* The second door, and it is a LINK not a button — §7.6's hierarchy.
+         Tracking is the service; the quote is the conversion. */
+      bandTrack: "Track a shipment",
       name: "Your name",
       company: "Company",
       email: "Email",
@@ -1209,6 +1212,7 @@ export const fr = {
       bandLead:
         "Quatre étapes courtes — votre besoin, le trajet, la marchandise, et où envoyer la réponse. Comptez moins de deux minutes.",
       bandCta: "Demander un devis",
+      bandTrack: "Suivre un envoi",
       name: "Votre nom",
       company: "Société",
       email: "Courriel",
