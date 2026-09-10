@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import {
   useScrollScrub,
   usePointerLight,
@@ -176,5 +178,103 @@ describe("motionReduced", () => {
     expect(motionReduced()).toBe(true);
     setMedia({ reduce: false, fine: true });
     expect(motionReduced()).toBe(false);
+  });
+});
+
+/**
+ * ── EVERY SCRUB MUST FINISH WHILE ITS CONTENT IS STILL ON SCREEN ──────────
+ *
+ * `useScrollScrub`'s default range is `start: 1, end: 0` — "begins when the
+ * element's top touches the bottom of the screen, ends when its bottom leaves
+ * the top". For a band whose last element sits at its own bottom edge, that is
+ * a threshold nobody is ever in a position to see.
+ *
+ * The arithmetic: with range (s, e), `--scrub` reaches 1 when
+ *
+ *     rect.top = vh·e − height          →  rect.bottom = vh·e
+ *
+ * So `end` IS the fraction of the viewport at which the element's bottom sits
+ * when the scrub completes. At `end: 0` the element's bottom is exactly at the
+ * top of the screen — the band has just left. Anything anchored near the end of
+ * the scrub arrives, permanently, out of view.
+ *
+ * §9.1's timeline shipped with the default in its first draft and the 2026 entry
+ * reached full opacity at scrollY 2289 with the band at −400..−62. Measured on
+ * the built page in a real browser; no arithmetic test caught it, because the
+ * arithmetic was right and the GEOMETRY was wrong. This is PR 4's ESG
+ * annotation defect in a new shape, and it is the second time the programme has
+ * paid for it — hence a test over every call site rather than one more fix.
+ *
+ * `{ start: 0, end: 1 }` on the insights reading rail is the deliberate
+ * exception and is listed with its reason: that scrub is reading PROGRESS over
+ * a whole article, where completing as the article's bottom reaches the bottom
+ * of the viewport is exactly the meaning.
+ */
+describe("every scroll-scrub finishes while its content is on screen", () => {
+  // `src/`, the same way `app/route-entrances.test.tsx` resolves it.
+  const SRC = join(__dirname, "..");
+  const HOOK_FILE = join(SRC, "lib", "motion.ts");
+
+  /** Call sites whose `end` is intentionally at a viewport edge, with reasons. */
+  const ALLOW_EDGE: Record<string, string> = {
+    "features/insights/insight-page.tsx":
+      "the reading rail is PROGRESS over an article, not an entrance. `end: 1` completes as the article's bottom reaches the bottom of the viewport, which is what 'you have read it all' means.",
+  };
+
+  function callSites(): Array<{ file: string; options: string }> {
+    const out: Array<{ file: string; options: string }> = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const full = join(dir, name);
+        if (statSync(full).isDirectory()) walk(full);
+        /* `lib/motion.ts` DECLARES the hook, and the declaration matches the
+           same pattern a call does — `useScrollScrub<T extends HTMLElement>(
+           options?: …)`. The first draft of this test reported it as a call
+           site with no range, which is F-24's lesson arriving on schedule: a
+           test that derives its own set gets the derivation wrong before it
+           gets the assertion wrong. Excluded by name, not by pattern, so a
+           second hook in this file would still be scanned. */
+        else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && full !== HOOK_FILE) {
+          const text = readFileSync(full, "utf8");
+          const re = /useScrollScrub<[^>]*>\(([^)]*)\)/g;
+          let m: RegExpExecArray | null;
+          while ((m = re.exec(text))) {
+            out.push({ file: relative(SRC, full), options: m[1].trim() });
+          }
+        }
+      }
+    };
+    walk(SRC);
+    return out;
+  }
+
+  it("finds the call sites, so this test cannot pass by reading nothing", () => {
+    // F-24's lesson: a gate-shaped test reports on a set it DERIVED, and the
+    // derivation is where it goes wrong.
+    const sites = callSites();
+    expect(sites.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("narrows the range at every call site, or says why not", () => {
+    const offenders: string[] = [];
+    for (const { file, options } of callSites()) {
+      if (ALLOW_EDGE[file]) continue;
+      const end = /end:\s*([0-9.]+)/.exec(options)?.[1];
+      // No options at all is the default `end: 0` — the defect.
+      if (end === undefined) {
+        offenders.push(`${file} — no range given, so end defaults to 0`);
+        continue;
+      }
+      if (Number(end) <= 0) offenders.push(`${file} — end: ${end}`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps a written reason for every call site allowed to end at an edge", () => {
+    const files = new Set(callSites().map((s) => s.file));
+    for (const [file, reason] of Object.entries(ALLOW_EDGE)) {
+      expect(`${file}:${files.has(file)}`).toBe(`${file}:true`);
+      expect(reason.length).toBeGreaterThan(40);
+    }
   });
 });

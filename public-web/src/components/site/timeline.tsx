@@ -60,12 +60,27 @@ export function entryAt(index: number, total: number): number {
 
 export function Timeline({ entries }: { entries: TimelineEntry[] }) {
   const { t } = useTranslation();
-  /* The scrub runs over this element's own travel through the viewport:
-     `start: 1` when its top reaches the bottom of the screen, `end: 0` when its
-     bottom reaches the top. So a long history scrubs over a long scroll and a
-     short one over a short scroll, without either needing to know how many
-     entries it has. */
-  const ref = useScrollScrub<HTMLDivElement>();
+  /* ── THE RANGE IS NARROWED, AND THE DEFAULT WAS A REAL DEFECT ──────────
+   *
+   * `useScrollScrub()`'s default is `start: 1, end: 0` — "begins when the
+   * element's top touches the bottom of the screen, ends when its bottom leaves
+   * the top". That reads like the obvious choice for a timeline and it is
+   * wrong, because the LAST entry's threshold is near the end of the scrub: it
+   * only reaches full opacity once the band has scrolled off the top of the
+   * screen. Measured on the built page, the 2026 entry arrived at scrollY 2227
+   * on a band whose bottom left the viewport at 2227. Nobody ever saw it.
+   *
+   * This is PR 4's ESG annotation defect in a new shape — a threshold that is
+   * only satisfied in a state the reader is never in — and, like that one, no
+   * unit test could catch it: the arithmetic is correct, the geometry is not.
+   * It was found by scrolling the real page and reading computed opacity.
+   *
+   * `0.9 → 0.45` is the range `esg-triptych.tsx` already uses, and taking the
+   * same numbers rather than inventing a third is §9.6's "one motion vocabulary
+   * across all routes" doing actual work. It completes when the element's
+   * bottom sits at 45% of the viewport height, so the last entry is fully
+   * arrived while the whole band is still comfortably on screen. */
+  const ref = useScrollScrub<HTMLDivElement>({ start: 0.9, end: 0.45 });
 
   if (!entries.length) return null;
 
