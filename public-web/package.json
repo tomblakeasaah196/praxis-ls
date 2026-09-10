@@ -3,8 +3,8 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Praxis LS public web \u2014 the stranger-facing React 18 + Vite + TS app: the tenant marketing site (/public/*) and the external portal (/portal/*). Standalone app, sibling to client/ and platform-console/.",
-  "//why": "A third app rather than more routes in client/, because the audience is different and so is the payload: a visitor from a search engine must not download the ERP's shell, its Radix kit, its editor or its fifteen fonts. Same toolchain as client/ and platform-console/ on purpose \u2014 one way of building a Vite app in this repo, three surfaces.",
+  "description": "Praxis LS public web — the stranger-facing React 18 + Vite + TS app: the tenant marketing site (/public/*) and the external portal (/portal/*). Standalone app, sibling to client/ and platform-console/.",
+  "//why": "A third app rather than more routes in client/, because the audience is different and so is the payload: a visitor from a search engine must not download the ERP's shell, its Radix kit, its editor or its fifteen fonts. Same toolchain as client/ and platform-console/ on purpose — one way of building a Vite app in this repo, three surfaces.",
   "//engines": "Mirrors the root package.json and .nvmrc, for the reason stated in client/package.json: an undeclared engine range lets a dev tree on a newer Node accept a dependency CI cannot run.",
   "packageManager": "npm@10.8.2",
   "engines": {
@@ -22,11 +22,13 @@
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:motion": "node scripts/check-motion.mjs",
     "check:assets": "node scripts/check-assets.mjs",
-    "//check:palette": "The ONE copy lives in client/scripts. A second copy of a gate is a gate that drifts \u2014 the same reason client/eslint-local-rules is re-exported rather than duplicated.",
+    "//check:palette": "The ONE copy lives in client/scripts. A second copy of a gate is a gate that drifts — the same reason client/eslint-local-rules is re-exported rather than duplicated.",
     "check:palette": "node ../client/scripts/check-palette.mjs --app public-web",
-    "//check:contrast": "Same single-copy rule as check:palette. Ported here in PR 4 (guide O-9/F-14) \u2014 it is the gate that computes F-15, and it found three more live AA failures the moment it was pointed at this app.",
+    "//check:contrast": "Same single-copy rule as check:palette. Ported here in PR 4 (guide O-9/F-14) — it is the gate that computes F-15, and it found three more live AA failures the moment it was pointed at this app.",
     "check:contrast": "node ../client/scripts/check-contrast.mjs --app public-web",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "//check:fonts-fallback": "Metric-matched fallbacks are derived from the real .woff2 files. A @fontsource bump moves them, and a stale file is a reflow nobody sees in review.",
+    "check:fonts-fallback": "node scripts/gen-font-fallbacks.mjs --check"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",

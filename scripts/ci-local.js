@@ -137,6 +137,10 @@ const GATES = [
   // in src/assets/manifest.ts, because this repository contains no images and
   // must not (§4.1).
   { group: "frontend", name: "Assets (public-web)", cmd: npm("run", "check:assets", "--prefix", "public-web") },
+  // The metric-matched fallback faces are DERIVED from the shipped .woff2
+  // files, so a @fontsource bump silently invalidates them — and a stale
+  // fallback is a reflow nobody sees in review. Guide O-12.
+  { group: "frontend", name: "Font fallbacks (public-web)", cmd: npm("run", "check:fonts-fallback", "--prefix", "public-web") },
   // The raw-palette gate, run against public-web's tree by the ONE copy in
   // client/scripts. Raw palette colours are what break white-labelling, and
   // this app is the surface a tenant is judged by.
