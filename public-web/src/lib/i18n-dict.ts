@@ -796,6 +796,7 @@ export const en = {
       tooMany: "Too many lookups",
     },
     notFound: {
+      kicker: "Wrong turn",
       title: "That page does not exist",
       hint: "The link may be old, or mistyped. Start from the homepage, or track a shipment by reference.",
       home: "Back to the homepage",
@@ -1624,6 +1625,7 @@ export const fr = {
       tooMany: "Trop de recherches",
     },
     notFound: {
+      kicker: "Mauvaise adresse",
       title: "Cette page n’existe pas",
       hint: "Le lien est peut-être ancien ou mal recopié. Repartez de l’accueil, ou suivez un envoi par sa référence.",
       home: "Retour à l’accueil",
