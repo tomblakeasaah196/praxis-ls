@@ -18,6 +18,7 @@
  * understands the correction stops fighting it; one who does not keeps
  * re-entering the colour and filing a bug.
  */
+import { siteSettings } from "@praxis/shared";
 import { tenant } from "./api-client";
 
 /* ── theme ──────────────────────────────────────────────────────────────────*/
@@ -197,3 +198,43 @@ export const getEntityStory = (id: string) =>
   tenant<EntityStory>(`/site-settings/entities/${id}/story`);
 export const saveEntityStory = (id: string, body: Partial<EntityStory>) =>
   tenant<EntityStory>(`/site-settings/entities/${id}/story`, { method: "PUT", body });
+
+/* ── website media (§6.3) ───────────────────────────────────────────────────
+ *
+ * ── THE SLOT CONSTRAINTS COME FROM `@praxis/shared`, NOT FROM HERE ─────────
+ *
+ * §6.3: the slot's aspect, minimum width and byte cap must be shown BEFORE the
+ * file dialog opens, because "a tenant who learns the constraint after a
+ * rejected upload uploads something wrong twice". Those numbers are the same
+ * ones the API enforces, so they are read from the shared package rather than
+ * retyped here — a second list would be a second answer to "what fits here",
+ * and the one on this side is the one a tenant would believe.
+ */
+
+export type AssetSlot =
+  | "leader-portrait"
+  | "partner-mark"
+  | "credential-mark"
+  | "entity-cover";
+export type AssetProvenance = "owned" | "licensed" | "generated";
+
+/** What each slot accepts. Re-exported so a caller does not have to know the
+ *  shared package's shape to render a hint. */
+export const ASSET_SLOTS = siteSettings.SITE_MEDIA_SLOTS;
+
+/** The ladder of derivatives a document actually has. `null` where none were
+ *  written — an SVG needs none, and an upload predating 13789 has none. */
+export type AssetVariants = { widths: number[]; formats: string[] } | null;
+
+export const uploadAsset = (body: {
+  slot: AssetSlot;
+  owner_id: string;
+  provenance: AssetProvenance;
+  data_url: string;
+  original_name?: string;
+}) => tenant<{ doc_id: string }>("/site-settings/media", { method: "POST", body });
+
+export const removeAsset = (slot: AssetSlot, ownerId: string) =>
+  tenant<unknown>(`/site-settings/media/${slot}/${encodeURIComponent(ownerId)}`, {
+    method: "DELETE",
+  });
