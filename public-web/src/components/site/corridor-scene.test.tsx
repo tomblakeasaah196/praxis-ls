@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { CorridorScene, __capable } from "./corridor-scene";
 import { buildGraph, abstractGraph } from "@/lib/corridor-graph";
 import * as api from "@/lib/corridors-api";
+import * as site from "@/lib/site-api";
 
 /**
  * The signature set piece (§7.5).
@@ -46,7 +47,12 @@ function setMedia(opts: { reduced?: boolean; fine?: boolean } = {}) {
   });
 }
 
-beforeEach(() => setMedia());
+/** Most tests do not care about entities; the endpoint answering an empty
+ *  array is the NORMAL state (`public_enabled` is off by default, 13787). */
+beforeEach(() => {
+  setMedia();
+  vi.spyOn(site, "listPublicEntities").mockResolvedValue([]);
+});
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -127,6 +133,75 @@ describe("the baseline, with no WebGL anywhere", () => {
     expect(screen.queryAllByRole("button")).toHaveLength(0);
     // And the readout, which is the only place a number ever appears, is absent.
     expect(document.querySelector(".corridor-readout")).toBeNull();
+  });
+});
+
+describe("where the tenant IS, not merely where they deliver", () => {
+  const entity = (codes: string[]): site.PublicEntity => ({
+    id: "e1",
+    code: "SLAS",
+    legal_name: "Smart Logistics & Services Ltd",
+    trading_name: null,
+    country_code: codes[0] ?? null,
+    coverage: codes.slice(1).map((c) => ({ country_code: c })),
+  });
+
+  it("joins on the country CODE, never on a place name", () => {
+    // Matching an entity's address against a corridor's place name is
+    // inference — "Douala" against "Douala, Littoral, Cameroun" works until the
+    // first tenant who writes it differently, and a page that mislabels where a
+    // company is, is what N12 exists to prevent. Both sides here are codes the
+    // tenant authored.
+    const g = buildGraph(
+      [
+        lane({ origin: "Douala", origin_country: "CM", destination: "Paris", destination_country: "FR" }),
+      ],
+      site.coveredCountries([entity(["CM"])]),
+    );
+    expect(g.nodes.find((n) => n.label === "Douala")?.present).toBe(true);
+    expect(g.nodes.find((n) => n.label === "Paris")?.present).toBe(false);
+  });
+
+  it("marks nothing when a corridor row carries no country", () => {
+    // `origin_country` is optional on the endpoint and plenty of rows have
+    // none. An unmarked node is the correct answer; a guessed one is a claim.
+    const g = buildGraph([lane({ origin: "Douala", destination: "Paris" })], new Set(["CM"]));
+    expect(g.nodes.every((n) => n.present === false)).toBe(true);
+  });
+
+  it("marks nothing when the tenant has published no entity", () => {
+    // `public_enabled` is off by default, so this is the DEFAULT state. An
+    // absence marks nothing rather than everything.
+    const g = buildGraph(
+      [lane({ origin: "Douala", origin_country: "CM", destination: "Paris", destination_country: "FR" })],
+      site.coveredCountries([]),
+    );
+    expect(g.nodes.every((n) => n.present === false)).toBe(true);
+  });
+
+  it("reads an entity's own country AND its coverage list", () => {
+    const covered = site.coveredCountries([entity(["CM", "TD", "CF"])]);
+    expect([...covered].sort()).toEqual(["CF", "CM", "TD"]);
+  });
+
+  it("is case-insensitive on the code, since two tables author it", () => {
+    const covered = site.coveredCountries([
+      { ...entity(["cm"]), coverage: [{ country_code: "td" }] },
+    ]);
+    expect(covered.has("CM")).toBe(true);
+    expect(covered.has("TD")).toBe(true);
+  });
+
+  it("says it in words, not only as a ring", async () => {
+    // The ring means nothing to a reader who cannot see it, and this is the one
+    // genuinely new fact the entities read contributes.
+    vi.spyOn(api, "listCorridors").mockResolvedValue([
+      lane({ origin: "Douala", origin_country: "CM", destination: "Paris", destination_country: "FR", files: 30 }),
+    ]);
+    vi.spyOn(site, "listPublicEntities").mockResolvedValue([entity(["CM"])]);
+    render(<CorridorScene />);
+    await screen.findByRole("group");
+    await waitFor(() => expect(document.querySelector(".corridor-readout-present")).toBeTruthy());
   });
 });
 

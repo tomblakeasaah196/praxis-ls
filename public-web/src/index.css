@@ -824,6 +824,16 @@
     min-height: 44px;
   }
 
+  /* A place the tenant is IN. A ring, not a colour: colour on this scene means
+     transport mode, and a fifth meaning for it would make the palette stop
+     meaning anything. */
+  .corridor-node-present {
+    fill: none;
+    stroke: var(--hero-foreground);
+    stroke-opacity: 0.75;
+    stroke-width: 0.75;
+  }
+
   .corridor-readout {
     display: flex;
     flex-wrap: wrap;
@@ -839,6 +849,14 @@
     font-weight: 600;
     letter-spacing: var(--brand-tracking-display);
     color: var(--hero-foreground);
+  }
+
+  .corridor-readout-present {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--brand-orange));
   }
 
   .corridor-readout-count {
