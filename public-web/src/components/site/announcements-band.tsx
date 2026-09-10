@@ -12,6 +12,7 @@ import {
 } from "@/lib/insights-api";
 import { useInView } from "@/components/ui/reveal";
 import { motionReduced } from "@/lib/motion";
+import { afterPaint } from "@/lib/after-paint";
 import { ArrowRightIcon } from "@/components/ui/icons";
 import { p } from "@/lib/base-path";
 import { cn } from "@/lib/cn";
@@ -79,19 +80,33 @@ export function AnnouncementsBand() {
 
   React.useEffect(() => {
     const ac = new AbortController();
-    listAnnouncements({ signal: ac.signal })
-      .then((res) => {
+    /* AFTER THE PAINT, not on mount.
+ 
+       This band is the second thing on the page and it is still not what the
+       visitor is waiting for — the hero is, and it is the LCP element. A fetch
+       issued during the critical path competes for the same connection on the
+       metered link this app's budget exists for. The band renders nothing until
+       the answer lands either way (see above), so the only thing deferring
+       costs is a few hundred milliseconds before a band appears that most
+       tenants do not have at all. */
+    const release = afterPaint(() => {
+      listAnnouncements({ signal: ac.signal })
+        .then((res) => {
         // `pinLive` re-checks the expiry the SQL already checked. A payload can
         // outlive its pin in a cache or a service worker, and drawing a notice
         // whose date has passed is precisely the staleness 13784's timestamp
         // exists to prevent.
-        setPinned((res.pinned || []).filter(pinLive));
-      })
-      // Every failure is the same answer: no band. A tenant without the
-      // `website` package answers FEATURE_DISABLED here, which is a
-      // configuration state and not an outage.
-      .catch(() => setPinned([]));
-    return () => ac.abort();
+          setPinned((res.pinned || []).filter(pinLive));
+        })
+        // Every failure is the same answer: no band. A tenant without the
+        // `website` package answers FEATURE_DISABLED here, which is a
+        // configuration state and not an outage.
+        .catch(() => setPinned([]));
+    });
+    return () => {
+      release();
+      ac.abort();
+    };
   }, []);
 
   if (!pinned || pinned.length === 0) return null;

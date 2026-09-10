@@ -10,6 +10,7 @@ import {
 } from "@/lib/corridor-graph";
 import { useInView } from "@/components/ui/reveal";
 import { motionReduced, usePointerLight, useTilt } from "@/lib/motion";
+import { afterPaint } from "@/lib/after-paint";
 import { cn } from "@/lib/cn";
 
 /**
@@ -60,14 +61,22 @@ export function CorridorScene() {
 
   React.useEffect(() => {
     let alive = true;
-    listCorridors()
-      .then((rows) => alive && setLanes(Array.isArray(rows) ? rows : []))
-      // FEATURE_DISABLED for a tenant without the website package, and an empty
-      // array for one under the k-anonymity floor. Both mean the same thing to
-      // this scene: draw the abstract graph.
-      .catch(() => alive && setLanes([]));
+    /* AFTER THE PAINT. This band is most of a page down, and the scene draws a
+       complete composition — the abstract graph — before the answer arrives, so
+       nothing is waiting on this read. Issuing it during the critical path
+       would spend the visitor's connection on a band they have not reached, on
+       behalf of a hero that has not painted. */
+    const release = afterPaint(() => {
+      listCorridors()
+        .then((rows) => alive && setLanes(Array.isArray(rows) ? rows : []))
+        // FEATURE_DISABLED for a tenant without the website package, and an
+        // empty array for one under the k-anonymity floor. Both mean the same
+        // thing to this scene: draw the abstract graph.
+        .catch(() => alive && setLanes([]));
+    });
     return () => {
       alive = false;
+      release();
     };
   }, []);
 
@@ -204,8 +213,10 @@ function CorridorFigure({ graph }: { graph: CorridorGraph }) {
     else if (e.key === "Home") next = 0;
     else if (e.key === "End") next = nodes.length - 1;
     else if (e.key === "Escape") {
-      // Out of the group, onto the figure. The next Tab continues down the page
-      // from here, which is where somebody pressing Escape expects to be.
+      // Out of the nodes, onto the figure — and the next Tab genuinely
+      // continues down the page, because no node is in the tab sequence. See
+      // the note on the node's own tabIndex for the version of this that looked
+      // right and put the visitor straight back where they started.
       (e.currentTarget as HTMLElement).focus();
       return;
     } else return;
@@ -222,7 +233,19 @@ function CorridorFigure({ graph }: { graph: CorridorGraph }) {
       <svg
         viewBox="-130 -130 260 260"
         role="group"
-        aria-label={t("site.corridor.figureLabel")}
+        /* TWO LABELS, BECAUSE THERE ARE TWO SCENES.
+ 
+           The abstract graph has no places, no counts and — deliberately — no
+           focusable nodes: there is nothing in it to select. Telling a keyboard
+           user to "use the arrow keys to move between places" in that state
+           promises navigation that does not exist, which is worse than saying
+           nothing. Found by running an actual keyboard pass against the built
+           page, where the scene is abstract because no API is answering. */
+        aria-label={
+          graph.abstract
+            ? t("site.corridor.figureLabelAbstract")
+            : t("site.corridor.figureLabel")
+        }
         tabIndex={0}
         onKeyDown={onKeyDown}
         className="corridor-svg block h-auto w-full"
@@ -270,7 +293,7 @@ function CorridorFigure({ graph }: { graph: CorridorGraph }) {
           style={{ "--depth": DEPTH.nodes } as React.CSSProperties}
         >
           {nodes.map((n, i) => (
-            <Node
+            <CorridorNode
               key={n.id}
               node={n}
               index={i}
@@ -322,7 +345,7 @@ function CorridorFigure({ graph }: { graph: CorridorGraph }) {
 /** One place on the ring. A `<g role="button">` rather than a `<button>`
  *  because SVG buttons are not focusable in every engine; the roving tabindex
  *  and the explicit role give the same semantics that do work everywhere. */
-const Node = React.forwardRef<
+const CorridorNode = React.forwardRef<
   SVGGElement,
   {
     node: GraphNode;
@@ -331,18 +354,31 @@ const Node = React.forwardRef<
     abstract: boolean;
     onFocus: () => void;
   }
->(function Node({ node, active, abstract, onFocus }, ref) {
+>(function CorridorNode({ node, active, abstract, onFocus }, ref) {
   const r = 2.5 + Math.min(node.weight / 12, 4);
   return (
     <g
       ref={ref}
-      /* One stop for the whole group; arrows move within it.
+      /* EVERY node is tabindex="-1"; the FIGURE is the single tab stop.
  
-         The abstract graph takes NO focus at all: its nodes have no label, no
-         count and nothing to reveal, so making them focusable would give a
-         keyboard user seven stops that each say nothing — and would imply the
-         ornament is data, which is the one thing §7.5 forbids it from doing. */
-      tabIndex={abstract ? undefined : active ? 0 : -1}
+         This is the WAI-ARIA composite-widget pattern, and getting it wrong is
+         subtle. The obvious version gives the active node `tabindex="0"` and the
+         rest `-1` — a roving tabstop — which reads correctly and behaves
+         wrongly: pressing Escape returns focus to the figure, and the very next
+         Tab lands back on that `tabindex="0"` node, INSIDE the scene the visitor
+         just asked to leave. A keyboard pass against the built page caught it;
+         no test would have, because it is a browser behaviour rather than a
+         React one.
+ 
+         `-1` keeps a node programmatically focusable — which is all the arrow
+         keys need — while removing it from the tab sequence entirely. So Tab
+         from anywhere in the scene goes to the next thing DOWN THE PAGE, which
+         is what Escape was promising.
+ 
+         The abstract graph takes no focus at all: its nodes have no label, no
+         count and nothing to reveal, and implying the ornament is data is the
+         one thing §7.5 forbids it from doing. */
+      tabIndex={abstract ? undefined : -1}
       role={abstract ? "presentation" : "button"}
       aria-label={node.label ?? undefined}
       onFocus={onFocus}

@@ -64,12 +64,36 @@ export function StagedLines({
    *  land inside the 600 ms narrative budget however many words it has, so the
    *  total is capped below rather than multiplied out. */
   step = 45,
+  /**
+   * Paint the words at full opacity from the first frame, staggering only their
+   * RISE. Set this on anything that is the page's LCP element.
+   *
+   * ── WHY IT EXISTS, WITH THE NUMBER ────────────────────────────────────
+   *
+   * `.staged-word` starts at `opacity: 0`. Largest Contentful Paint measures
+   * when the largest element is PAINTED, and text at zero opacity is not
+   * painted — so a headline that fades in delays LCP by the whole of its own
+   * entrance. On the hero, which §7.1 names as the LCP element, that measured:
+   *
+   *     element render delay  2989 ms → 3679 ms   (+691 ms)
+   *
+   * against `main`, for an animation nobody asked to wait for. Worse, the
+   * reveal is triggered by `useRevealed` — an IntersectionObserver — and the
+   * hero is ALWAYS in view at load, so the "scroll reveal" fires immediately
+   * and buys nothing at all in exchange for that delay.
+   *
+   * Staggering the transform alone keeps the effect: the words still arrive one
+   * after another, rising into place. They are simply legible while they do it,
+   * which is what a headline is for.
+   */
+  paintImmediately = false,
 }: {
   text: string;
   as?: "h1" | "h2" | "h3" | "p" | "span" | "div";
   className?: string;
   wordClassName?: string;
   step?: number;
+  paintImmediately?: boolean;
 }) {
   const [ref, shown] = useRevealed<HTMLElement>();
   const words = React.useMemo(() => text.split(/(\s+)/), [text]);
@@ -97,7 +121,12 @@ export function StagedLines({
           <span
             key={i}
             aria-hidden
-            className={cn("staged-word", shown && "is-in", wordClassName)}
+            className={cn(
+              "staged-word",
+              paintImmediately && "staged-word-lit",
+              shown && "is-in",
+              wordClassName,
+            )}
             style={{ transitionDelay: shown ? `${Math.round((i / 2) * realStep)}ms` : undefined }}
           >
             {word}

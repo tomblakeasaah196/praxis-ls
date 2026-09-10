@@ -8,7 +8,6 @@ import { listStories, type PortfolioCard } from "@/lib/portfolio-api";
 import { listCorridors, type Corridor } from "@/lib/corridors-api";
 import { Hero } from "@/components/site/hero";
 import { AnnouncementsBand } from "@/components/site/announcements-band";
-import { CorridorScene } from "@/components/site/corridor-scene";
 import { StageSequence } from "@/components/site/stage-sequence";
 import { MediaCard, MoreLink, Section } from "@/components/site/section";
 import { CorridorPanel } from "@/components/site/corridor-panel";
@@ -35,6 +34,34 @@ import {
 } from "@/lib/service-identity";
 import { Reveal } from "@/components/ui/reveal";
 import { usePointerLight, useProximity } from "@/lib/motion";
+import { afterPaint } from "@/lib/after-paint";
+
+/**
+ * THE SET PIECE IS ITS OWN CHUNK, AND THE REASON IS A MEASUREMENT.
+ *
+ * `marketing-page` is a lazy ROUTE chunk, so `check-bundle.mjs` does not count
+ * it in the first-paint number — and the homepage cannot render a pixel until
+ * it arrives, which makes it the last link of the critical chain in practice.
+ * PR 3's bands took it from 5.5 kB to 11.9 kB on the wire, and on Lighthouse's
+ * simulated Slow 4G that cost FCP and LCP about 0.7 s each. The budget stayed
+ * green throughout, which is the blind spot rather than the excuse.
+ *
+ * The corridor scene is the largest of the additions and the furthest down the
+ * page — most of two screens below the hero. Splitting it out is the honest
+ * trade: it is not on the path to first content, so it should not be on the
+ * chunk that decides first content.
+ *
+ * IT IS PREFETCHED AFTER PAINT, not on scroll. A lazy component fetched when
+ * its band scrolls into view is a band that pops in on a slow connection, which
+ * would make §7.5(b)'s "the baseline must not look like a fallback" false in a
+ * new way. Fetching it once the browser is idle means it is already in memory
+ * by the time anybody reaches it, and it costs the visitor nothing before then.
+ */
+const CorridorScene = React.lazy(() =>
+  import("@/components/site/corridor-scene").then((m) => ({
+    default: m.CorridorScene,
+  })),
+);
 import { p } from "@/lib/base-path";
 
 /**
@@ -80,6 +107,15 @@ export function MarketingPage() {
   const hero = heroBlock(page);
   const how = featureList(page);
   const cta = ctaBand(page);
+
+  /* Warm the set piece's chunk once the browser is idle — see the note on
+     `CorridorScene` above. By the time a reader has scrolled two screens it is
+     already parsed, and a visitor who never scrolls that far has paid for it
+     out of idle time rather than out of their first paint. */
+  React.useEffect(
+    () => afterPaint(() => void import("@/components/site/corridor-scene")),
+    [],
+  );
 
   /* The page paints from the dictionary and swaps when the override lands —
      it does NOT wait for the answer.
@@ -129,7 +165,15 @@ export function MarketingPage() {
           file would live. It is also the one dark band's neighbour, which is
           why the portal band below keeps its overlap — the two carbon regions
           read as one punctuation mark rather than as stripes. */}
-      <CorridorScene />
+      {/* The reserved height is not decoration: without it the page would jump
+          by the height of a whole band when the chunk lands, which is a layout
+          shift on the metric this split exists to protect. It is the band's own
+          minimum, so nothing moves when the real scene replaces it. */}
+      <React.Suspense
+        fallback={<div aria-hidden className="corridor-band corridor-reserve" />}
+      >
+        <CorridorScene />
+      </React.Suspense>
       <PortalBand />
       <QuoteBand block={cta} />
       <ContactBand />
