@@ -24,6 +24,10 @@ import { tr } from "@/lib/i18n";
 const ITEMS = [
   { to: "/settings/website", label: () => tr("Pages"), end: true },
   { to: "/settings/website/articles", label: () => tr("Insights"), end: false },
+  { to: "/settings/website/theme", label: () => tr("Theme"), end: false },
+  { to: "/settings/website/about", label: () => tr("About"), end: false },
+  { to: "/settings/website/partners", label: () => tr("Partners"), end: false },
+  { to: "/settings/website/social", label: () => tr("Social"), end: false },
 ];
 
 export function WebsiteNav() {

@@ -12,6 +12,7 @@ const supplierMaster = require("./schemas/supplier-master");
 const partyCommon = require("./schemas/party-common");
 const partyConfig = require("./schemas/party-config");
 const entityCommon = require("./schemas/entity-common");
+const siteSettings = require("./schemas/site-settings");
 const ledger = require("./rules/ledger");
 const marks = require("./rules/marks");
 const workSchedule = require("./rules/work-schedule");
@@ -45,6 +46,11 @@ exports.partyConfig = partyConfig;
 // addresses, registrations, establishments). Deliberately separate from
 // partyCommon — same mechanism, different meaning. See schemas/entity-common.js.
 exports.entityCommon = entityCommon;
+// Website settings — theme, social links, partners, credentials, the group
+// About, leadership and an entity's public story. Shared because every one of
+// them is a FORM: the settings screen must refuse exactly what the API refuses,
+// or a tenant learns their colour was invalid from a 422 after pressing Save.
+exports.siteSettings = siteSettings;
 // Canonical ISO country reference (code, name, phone, currency, per-jurisdiction
 // registration requirements) — the API, the seed and the client picker's source.
 /*
