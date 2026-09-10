@@ -78,7 +78,17 @@ for (const name of LIBRARY) {
 const SEARCH_DIRS = ["client/src", "src", "platform-console/src", "public-web/src", "packages", "scripts", "migrations"];
 
 const files = execSync(
-  `git ls-files ${SEARCH_DIRS.join(" ")} | grep -E '\\.(css|ts|tsx|js|jsx|mjs|html|json|sql)$'`,
+  // `--cached --others --exclude-standard`, not a bare `git ls-files`.
+  //
+  // A bare `ls-files` lists only TRACKED files, so every NEW file on a branch is
+  // invisible to this gate — and a new file is exactly what a new font name
+  // arrives in. `npm run ci` therefore reported "Font gate … ok" on a working
+  // tree whose uncommitted service named a family outside the library, and CI
+  // caught it one commit later. A gate that passes by not looking is worse than
+  // no gate: it is quoted as evidence.
+  //
+  // `check-schemas.mjs` already enumerates this way. This is that fix, here.
+  `git ls-files --cached --others --exclude-standard ${SEARCH_DIRS.join(" ")} | grep -E '\\.(css|ts|tsx|js|jsx|mjs|html|json|sql)$'`,
   { cwd: ROOT, encoding: "utf8" },
 )
   .split("\n")

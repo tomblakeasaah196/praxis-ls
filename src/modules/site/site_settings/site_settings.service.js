@@ -27,7 +27,11 @@ const { AppError } = require("../../../utils/errors");
 const events = require("./site_settings.events");
 const repo = require("./site_settings.repo");
 const { derivePalette } = require("@praxis/shared/design/palette");
-const { resolveSiteFont, SITE_FONT_ROLES } = require("@praxis/shared/design/site-fonts");
+const {
+  resolveSiteFont,
+  SITE_FONT_ROLES,
+  SITE_FONT_DEFAULTS,
+} = require("@praxis/shared/design/site-fonts");
 const { SOCIAL_IDS, isValidSocialUrl } = require("@praxis/shared/design/social");
 
 const ref = (kind, id) => `${kind}:${id}`;
@@ -42,9 +46,15 @@ async function getTheme(client) {
     primary_hex: "#ff5a00",
     secondary_hex: null,
     tertiary_hex: null,
-    font_display: "archivo",
-    font_body: "inter",
-    font_mono: "jetbrains-mono",
+    // From the registry, not written out here. Two reasons, and the second is
+    // the one that bit: a second copy of the defaults drifts the day a face
+    // changes, and `scripts/check-fonts.mjs` reads a bare "jetbrains-mono" as a
+    // FAMILY NAME outside the shipped library — it cannot tell an id from a
+    // font-family, and it is not wrong to complain about a string that looks
+    // like one.
+    font_display: SITE_FONT_DEFAULTS.display,
+    font_body: SITE_FONT_DEFAULTS.body,
+    font_mono: SITE_FONT_DEFAULTS.mono,
     radius_px: 10,
     default_mode: "light",
   };
