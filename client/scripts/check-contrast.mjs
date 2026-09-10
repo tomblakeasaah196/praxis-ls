@@ -366,6 +366,29 @@ const TEXT_PAIRS = [
     AA_NORMAL,
   ],
   // Status text on a PLAIN surface — a ledger figure or a metric, not a pill.
+  /*
+   * ── THE PRIMARY CTA, IN BOTH APPS ────────────────────────────────────────
+   *
+   * The most-clicked colour pair in the product, and it was measured in
+   * `public-web` only. `client/src/index.css` declared
+   * `--primary-foreground: rgb(255 255 255)` over `--primary: rgb(245 130 31)`
+   * — **2.59:1**, the very number this file's own section-3 comment quotes as
+   * the reason the ink tokens exist, and worse than the 3.13:1 F-15 removed
+   * from `public-web`. Being the PRE-THEME default made it what every tenant
+   * who never set `primary_foreground` actually rendered, on every primary
+   * button in the ERP.
+   *
+   * F-20 recorded it and declined it: the fix changes the appearance of every
+   * primary button, which is an ERP-wide restyle and did not belong in a
+   * `public-web` PR. It is fixed now — carbon, 7.63:1, which `@praxis/brand`,
+   * `packages/shared/design/palette.js` and CLAUDE.md all already said.
+   *
+   * The pair moved from `public-web`'s own list to this shared one in the same
+   * change, which is the part that lasts: the reason it shipped at all is that
+   * nothing measured it in the app where it was wrong.
+   */
+  ["--primary-foreground on --primary (light)", "primary-foreground", "primary", lightBody, AA_NORMAL],
+  ["--primary-foreground on --primary (dark)", "primary-foreground", "primary", darkBody, AA_NORMAL],
   ["--ok text on --card (light)", "ok", "card", lightBody, AA_NORMAL],
   ["--warn text on --card (light)", "warn", "card", lightBody, AA_NORMAL],
   ["--bad text on --card (light)", "bad", "card", lightBody, AA_NORMAL],
@@ -457,28 +480,6 @@ const APP_PAIRS = {
      */
     ["--brand-orange as eyebrow on --hero (light)", "brand-orange", "hero", lightBody, AA_NORMAL],
     ["--brand-orange as eyebrow on --hero (dark)", "brand-orange", "hero", darkBody, AA_NORMAL],
-    /*
-     * THE PRIMARY CTA — F-15's pair, and the most-clicked colour pair in the
-     * product. Measured here at 6.33:1.
-     *
-     * IT IS NOT IN THE SHARED LIST, AND THAT IS A FINDING RATHER THAN A
-     * DECISION. `client/src/index.css` declares `--primary-foreground:
-     * rgb(255 255 255)` over `--primary: rgb(245 130 31)`, which is **2.59:1** —
-     * the very number quoted in this file's own section-3 comment as the reason
-     * the ink tokens were created, and worse than the 3.13:1 F-15 removed from
-     * `public-web`. It is the pre-theme default, so it is what every tenant who
-     * has never set `primary_foreground` actually renders, on every primary
-     * button in the ERP.
-     *
-     * Adding the pair to the shared list would redden `client` immediately, and
-     * the fix — carbon on orange, which `@praxis/brand` and
-     * `packages/shared/design/palette.js` both already say, and CLAUDE.md states
-     * as a rule — changes the appearance of every primary button in the ERP.
-     * That is an ERP-wide restyle and it does not belong in a `public-web` PR.
-     * Recorded as F-20 in the guide's §3.5, with the measurement and the fix.
-     */
-    ["--primary-foreground on --primary (light)", "primary-foreground", "primary", lightBody, AA_NORMAL],
-    ["--primary-foreground on --primary (dark)", "primary-foreground", "primary", darkBody, AA_NORMAL],
     /*
      * ── THE FOUR MODES ON THE HERO PLATE, AT THE NON-TEXT FLOOR ───────────
      *

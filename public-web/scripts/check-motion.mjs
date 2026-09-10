@@ -293,7 +293,30 @@ const rmBlocks = blocksAfter(
   /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{/g,
 );
 
-const globalBlocks = rmBlocks.filter((b) => /(^|[\s,{])\*[\s,{]/.test(b));
+/**
+ * Does this block hold the UNIVERSAL umbrella — a bare `*` selector?
+ *
+ * ── WHY A REGEX OVER THE BLOCK IS NOT ENOUGH ──────────────────────────────
+ *
+ * The obvious test, `/(^|[\s,{])\*[\s,{]/`, matches `.landing-content > *`,
+ * which is a CHILD selector and not an umbrella at all. `client/src/index.css`
+ * has exactly that inside a reduced-motion block, so the obvious test reported
+ * the landing-page block as a broken global kill and named four faults in a
+ * rule that was never claiming to be one.
+ *
+ * So the selector lists are parsed: the text before each `{`, split on commas,
+ * and a block qualifies only when one of its selectors is exactly `*`.
+ */
+function hasUniversalSelector(block) {
+  // Selector lists are the runs of text that precede a `{`.
+  for (const m of block.matchAll(/(^|[};])([^{}]*)\{/g)) {
+    const selectors = m[2].split(",").map((sel) => sel.trim());
+    if (selectors.some((sel) => sel === "*")) return true;
+  }
+  return false;
+}
+
+const globalBlocks = rmBlocks.filter(hasUniversalSelector);
 
 if (rmBlocks.length === 0) {
   umbrella.push("there is no `prefers-reduced-motion: reduce` block at all");
