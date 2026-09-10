@@ -11,13 +11,17 @@ import { BrandingProvider } from "@/app/branding";
 import { AppErrorBoundary } from "@/app/error-boundary";
 import { AppRouter } from "@/app/router";
 // Self-hosted variable faces, imported here rather than linked from a CDN so
-// Vite emits the woff2 into `dist/assets` and the font files are served from the
-// tenant's own origin. A stranger reading a quote form should not be making a
-// third-party request to do it, and `scripts/check-fonts.mjs` fails a build whose
-// stacks do not end in a generic family — the brand sheet's fallback rule.
-import "@fontsource-variable/inter";
-import "@fontsource-variable/ibm-plex-sans";
-import "@fontsource-variable/jetbrains-mono";
+// Vite emits the woff2 into `dist/public-assets` and the font files are served
+// from the tenant's own origin. A stranger reading a quote form should not be
+// making a third-party request to do it, and `scripts/check-fonts.mjs` fails a
+// build whose stacks do not end in a generic family — the brand sheet's
+// fallback rule.
+//
+// `./fonts.css` rather than the three @fontsource package roots: those declare
+// seven unicode ranges per family, five of which (cyrillic, cyrillic-ext,
+// greek, greek-ext, vietnamese) this product has no audience for, and N5 asks
+// for `latin` + `latin-ext`. See the header of fonts.css.
+import "./fonts.css";
 import "./index.css";
 
 // The `.dark` class and `data-theme` are already on `<html>` before first paint —
