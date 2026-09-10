@@ -1052,7 +1052,9 @@ function useChildFields(
 ) {
   const needs = (...segs: api.EntityCollection[]) => segs.includes(seg);
   const entities = useList<Lookups["entities"][number]>(
-    needs("people") ? "/entities" : null,
+    // A corporate shareholder this picker cannot offer is a cap table that
+    // cannot be recorded. See ENTITY_LIST.
+    needs("people") ? api.ENTITY_LIST : null,
   );
   const employees = useList<Lookups["employees"][number]>(
     needs("people", "establishments") ? "/employees" : null,
@@ -1669,13 +1671,30 @@ export function EntityDossier({
       )}
 
       {tab === "Documents" && (
-        <DocumentsTab
-          entityId={entityId}
-          documents={d.data.documents}
-          establishments={establishments}
-          onRemove={(id) => removeChild("documents", id)}
-          onSaved={reload}
-        />
+        <div className="space-y-4">
+          {/* Same server-side redaction the People tab explains, and the same
+              reason for saying so: a column reading "—" for a number that is
+              on file looks like missing data unless the page says otherwise. */}
+          {!gov && (
+            <div className="rounded-lg border p-3">
+              <p className="text-sm text-foreground">
+                Document references are hidden
+              </p>
+              <p className="micro text-muted-foreground">
+                Numbers, issuing authorities, filing references and the scans
+                themselves need the entity-admin permission. What each document
+                is and when it expires is shown, so renewals stay visible.
+              </p>
+            </div>
+          )}
+          <DocumentsTab
+            entityId={entityId}
+            documents={d.data.documents}
+            establishments={establishments}
+            onRemove={(id) => removeChild("documents", id)}
+            onSaved={reload}
+          />
+        </div>
       )}
 
       {tab === "Tax & jurisdiction" && (
@@ -3465,7 +3484,9 @@ function StructureModal({
   onSaved: () => void;
 }) {
   const toast = useToast();
-  const { rows: entities } = useList<api.Entity>("/entities");
+  // The whole list, not the first 50 — a parent this picker cannot offer is a
+  // group structure that cannot be recorded. See ENTITY_LIST.
+  const { rows: entities } = useList<api.Entity>(api.ENTITY_LIST);
   const [parentId, setParentId] = React.useState(
     structure.parent_entity_id ?? "",
   );
