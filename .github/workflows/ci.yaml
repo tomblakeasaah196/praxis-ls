@@ -1206,6 +1206,14 @@ jobs:
         if: matrix.app == 'public-web'
         run: npm run check:assets --prefix public-web
 
+      - name: Font fallbacks (public-web)
+        # The metric-matched fallback faces are DERIVED from the shipped .woff2
+        # files, so a @fontsource bump silently invalidates them. A stale
+        # fallback is a layout reflow on every page and nobody sees it in
+        # review — guide O-12 measured the last one at 8 Lighthouse points.
+        if: matrix.app == 'public-web'
+        run: npm run check:fonts-fallback --prefix public-web
+
       - name: Motion budget (public-web)
         # public-web runs its OWN budget, and a different one: 200ms for
         # anything answering an input, 600ms for an entrance, unbounded only for
