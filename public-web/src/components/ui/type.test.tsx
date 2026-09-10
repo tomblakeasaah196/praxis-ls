@@ -61,10 +61,34 @@ describe("StagedLines", () => {
   it("keeps the words separated when they are laid out inline-block", () => {
     // `display: inline-block` collapses whitespace between elements, so the
     // spaces have to survive as real text nodes or the headline renders as
-    // "Freightthatmoves".
+    // "Freightthatmoves". Measured over the ANIMATED fragments only: the
+    // heading also carries a visually-hidden copy of the whole sentence, so
+    // `heading.textContent` is the sentence twice by design.
     render(<StagedLines as="h2" text="Sea freight import" />);
     const heading = screen.getByRole("heading");
-    expect(heading.textContent).toBe("Sea freight import");
+    const visible = [...heading.childNodes]
+      .filter((n) => !(n instanceof HTMLElement && n.classList.contains("sr-only")))
+      .map((n) => n.textContent)
+      .join("");
+    expect(visible).toBe("Sea freight import");
+  });
+
+  it("names the heading with real text, never with a prohibited aria-label", () => {
+    // ARIA forbids `aria-label` on a generic element — a span or div with no
+    // role — because there is no role for the label to name. This was that
+    // bug: every fragment is aria-hidden, so with the label ignored the
+    // heading announced as empty. Lighthouse reports it as
+    // `aria-prohibited-attr`; it was found by running the built page rather
+    // than by reading the component.
+    render(<StagedLines as="h2" text="Sea freight import" />);
+    const heading = screen.getByRole("heading");
+    const staged = heading.classList.contains("staged")
+      ? heading
+      : heading.querySelector(".staged");
+    expect(staged?.hasAttribute("aria-label")).toBe(false);
+    // The accessible name comes from a real, readable text node instead.
+    expect(heading.querySelector(".sr-only")?.textContent).toBe("Sea freight import");
+    expect(screen.getByRole("heading", { name: "Sea freight import" })).toBeTruthy();
   });
 
   it("caps the total stagger so a long headline stays inside the narrative budget", () => {

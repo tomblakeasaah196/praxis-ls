@@ -85,14 +85,30 @@
     --primary-ink-light: #c74600;
     --primary-ink-dark: #ff5a00;
 
-    /* Text ON the brand fill — referenced by `--primary-foreground` since that
-       token was written, and never defined, so `.btn-primary`'s colour and the
-       selected tile's glyph both resolved to nothing and inherited whatever the
-       surface gave them. White, because that is what a filled brand button in
-       this product has always looked like; it is a FILL foreground, judged
-       against the orange behind it, not body text on a page. A tenant whose
-       brand fill is pale needs to override this rather than inherit it. */
-    --brand-on-orange: #ffffff;
+    /* `--brand-on-orange` IS NOT REDEFINED HERE, AND THAT IS THE FIX.
+       ─────────────────────────────────────────────────────────────────────
+       It used to be, to `#ffffff`, with a comment arguing that a filled brand
+       button "has always looked like" that and is "a FILL foreground … not
+       body text on a page". Three things disagreed with it, and they were all
+       right:
+
+         · the comment EIGHT LINES ABOVE, in this same file: "Text on an orange
+           FILL is carbon, not white (white on #FF5A00 is 3.13:1)";
+         · `@praxis/brand/tokens.css`, imported at the top of this file, which
+           defines it as `#0a0a0a`;
+         · `packages/shared/design/palette.js`, which DERIVES `#0a0a0a` for this
+           pair on every tenant — so the moment the theme read landed the button
+           changed colour anyway, and the local value was only ever what a
+           visitor saw before it did. On the LCP path.
+
+       Measured: white on #FF5A00 is 3.13:1 against the 4.5:1 AA needs for
+       16px text. Carbon is 6.33:1. §1.2 rule 2 admits no exception, and
+       `client/` and `platform-console/` never carried this override — this app,
+       the one a stranger judges the tenant by, was the only one failing.
+
+       Caught by Lighthouse against the built page. `check:contrast`, which §5.6
+       asked PR 1 to port here and which computes exactly this, is still not
+       ported — see F-14. */
     --primary-ink: var(--primary-ink-light);
 
     /* The dark band a hero and the footer are painted on — brand carbon, and
@@ -691,6 +707,24 @@
   .corridor-band {
     background: var(--hero);
     color: var(--hero-foreground);
+  }
+
+  /* THE EYEBROW ON A DARK BAND, AND A MEASURED CONTRAST FAILURE THAT WAS REAL.
+   *
+   * `.micro` carries the light-theme muted ink. On this band's carbon ground
+   * that measures 3.37:1 at 11px — a WCAG AA failure on text, and §1.2 rule 2
+   * admits no exception. It was caught by Lighthouse against the built page,
+   * not by eye: at 11px in a dim grey it looks like a deliberate whisper right
+   * up until it is measured.
+   *
+   * The fix is the swap the hero eyebrow and the announcements band already
+   * make, and `hero.tsx` records why it is a property of the colour rather than
+   * an oversight: `--primary-ink` is the AA-corrected orange for type on WHITE
+   * and measures about 3.4:1 here, while the brand fill itself measures 6.33:1
+   * on carbon. A dark band uses the FILL as text; the ink step-down exists to
+   * make that unnecessary on light grounds. */
+  .corridor-band .micro {
+    color: rgb(var(--brand-orange));
   }
 
   .corridor-stage {
