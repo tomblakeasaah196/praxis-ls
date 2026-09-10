@@ -295,6 +295,13 @@
     --lx: 0.5;
     --ly: 0.5;
 
+    /* Proximity, written by useProximity. ZERO at rest, and that is what makes
+       the settled state settled: every transform that reads it multiplies by
+       it, so with no pointer on the page — and under reduced motion, where the
+       hook attaches nothing — the whole composition is flat. A resting value of
+       0.5 here would leave a grid of cards permanently askew. */
+    --near: 0;
+
     /* A band's vertical rhythm, as a TOKEN rather than only as a Tailwind
        spacing value, because one thing on the page has to measure against it:
        the portal mock's deliberate overlap pulls itself up by this plus a
@@ -557,6 +564,113 @@
     letter-spacing: var(--brand-tracking-eyebrow);
     text-transform: uppercase;
     color: var(--primary-ink);
+  }
+
+  /* ── The how-we-work sequence (§7.4) ────────────────────────────────────
+   *
+   * A rail that fills as the reader scrolls, and three stages that arrive on
+   * it. `--scrub` is written on the list by `useScrollScrub`; `--at` is written
+   * on each stage as its position along that scrub. The comparison between them
+   * is done in CSS, so adding a fourth stage needs no JavaScript to know about
+   * it.
+   *
+   * ── HOW A STAGE KNOWS IT HAS ARRIVED, WITHOUT A MEDIA QUERY OR A CLASS ──
+   *
+   * `clamp((var(--scrub) - var(--at)) * 8, 0, 1)` is a step function with a
+   * soft edge: zero until the scrub reaches the stage, one shortly after. It
+   * drives opacity and a small rise together, so a stage fades UP into place
+   * rather than simply appearing.
+   *
+   * The ×8 is the softness. Larger and the stages snap, which reads as a bug;
+   * smaller and all three are permanently half-lit, which reads as low
+   * contrast — and it would be, because the body copy underneath is real text
+   * that has to meet AA. Which is why the copy's own opacity floor is 1: only
+   * the DECORATION fades. A stage's heading and sentence are fully opaque from
+   * the moment they render, at every scroll position, in every state.
+   *
+   * Under reduced motion `useScrollScrub` sets `--scrub` to 1 once and attaches
+   * nothing: every stage is arrived, the rail is full, and the band is the
+   * finished diagram. */
+  .stage-seq {
+    display: grid;
+    gap: 0;
+  }
+
+  .stage-item {
+    --arrived: clamp((var(--scrub, 1) - var(--at, 0)) * 8, 0, 1);
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: 0 1.25rem;
+    padding-bottom: 2.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .stage-item {
+      grid-template-columns: 2rem minmax(0, 1.1fr) minmax(0, 0.9fr);
+      align-items: start;
+      gap: 0 2rem;
+    }
+  }
+
+  /* The rail. A full-height hairline with the lit portion drawn over it, so the
+     track is always visible and the fill is what moves. */
+  .stage-rail {
+    position: relative;
+    justify-self: center;
+    width: 1px;
+    min-height: 100%;
+    background: var(--border);
+  }
+  .stage-item:last-child .stage-rail {
+    /* The rail stops at the last dot rather than running into the band's
+       padding — a line that continues past the final stage promises a fourth. */
+    background: linear-gradient(var(--border) 0 1.25rem, transparent 1.25rem);
+  }
+
+  .stage-dot {
+    position: absolute;
+    top: 0.9rem;
+    left: 50%;
+    width: 9px;
+    height: 9px;
+    margin-left: -4.5px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    /* Fills with the tenant's primary as its stage arrives. The border stays,
+       so an unarrived dot is still a visible marker rather than a gap. */
+    box-shadow: inset 0 0 0 4px
+      color-mix(in srgb, var(--primary) calc(var(--arrived) * 100%), transparent);
+  }
+
+  /* The copy is NEVER faded — see the note above. This carries the rise only,
+     which is decoration and which the reduced-motion umbrella neutralises. */
+  .stage-body {
+    transform: translateY(calc((1 - var(--arrived)) * 6px));
+  }
+
+  .stage-figure {
+    grid-column: 2;
+    margin-top: 1rem;
+    max-width: 20rem;
+    color: var(--foreground);
+    opacity: calc(0.25 + var(--arrived) * 0.75);
+  }
+
+  @media (min-width: 768px) {
+    .stage-figure {
+      grid-column: 3;
+      grid-row: 1;
+      margin-top: 0;
+    }
+  }
+
+  /* The one moving element inside a diagram: the flow line that draws itself as
+     its stage arrives. `pathLength` is not set, so the dash values are in user
+     units and generous enough to cover the longest path in the set. */
+  .stage-flow {
+    stroke-dasharray: 120;
+    stroke-dashoffset: calc(120 - var(--arrived) * 120);
   }
 
   /* ── The corridor set piece (§7.5) ──────────────────────────────────────
@@ -953,6 +1067,34 @@
 
   .tilt-plate:focus-within {
     transform: none;
+  }
+
+  /* ── A card that turns toward the pointer (§7.3) ─────────────────────────
+   *
+   * Hover is binary and it is LATE — by the time it fires the reader has
+   * already committed. Turning toward attention as it approaches is what makes
+   * a grid feel like it noticed you, and it is most of the difference between a
+   * page that is alive and a document with `:hover` rules.
+   *
+   * THE ARITHMETIC. `--cx` is the card's own centre across the grid, written
+   * once as an inline style; `--lx` is where the pointer is, 0…1 across the same
+   * grid; `--near` is how close the pointer is to the grid at all, and it is
+   * ZERO at rest. So the rotation is (pointer − card) × proximity × 9°: each
+   * card turns toward the cursor, the ones nearest turn most, and with no
+   * pointer anywhere the whole row is flat. One listener on the grid drives all
+   * four cards, rather than four hooks each adding their own.
+   *
+   * WHY NOT A LIFT AS WELL. `.lift` already raises a card on hover and on
+   * focus-within, and it is the affordance that means "this is a link". Adding
+   * a second, continuous lift would make a card that is merely NEAR the pointer
+   * look as pressable as the one under it — and §7.3's rule is that the tenant's
+   * primary is the only thing on this page that looks clickable. */
+  .tilt-card {
+    transform-style: preserve-3d;
+    transform: rotateY(
+      calc((var(--lx) - var(--cx, 0.5)) * var(--near) * 9deg)
+    );
+    transition: transform var(--dur-response) var(--ease-standard);
   }
 
   .section-title {

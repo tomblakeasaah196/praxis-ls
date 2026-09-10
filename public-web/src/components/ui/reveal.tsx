@@ -191,11 +191,22 @@ export function Reveal({
   delay = 0,
   as: Tag = "div",
   className,
+  style,
 }: {
   children: React.ReactNode;
   delay?: 0 | 1 | 2 | 3;
   as?: "div" | "section" | "li";
   className?: string;
+  /**
+   * Merged UNDER the reveal's own transition-delay, never over it.
+   *
+   * The services grid (§7.3) sets `--cx` here — a card's position across the
+   * row, which the 3D transform reads. It has to live on this element because
+   * this is the grid item; a wrapper inside would be a second box between the
+   * grid and the card. The spread order below is what stops a caller silently
+   * cancelling the stagger by passing a style object.
+   */
+  style?: React.CSSProperties;
 }) {
   // Settled from the start when motion is reduced, or when the browser has no
   // IntersectionObserver — an old browser gets the content, not a blank page.
@@ -218,7 +229,9 @@ export function Reveal({
         shown ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
         className,
       )}
-      style={shown && delay ? { transitionDelay: `${delay * 60}ms` } : undefined}
+      style={
+        shown && delay ? { ...style, transitionDelay: `${delay * 60}ms` } : style
+      }
     >
       {children}
     </Tag>
