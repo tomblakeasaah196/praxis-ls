@@ -44,15 +44,25 @@ import { cn } from "@/lib/cn";
  * that reason. And when the ledger has nothing to publish, the graph is a
  * regular ornament with no labels — §7.5's "abstract by design".
  *
- * ── KEYBOARD: A ROVING TABSTOP, AND NO TRAP ───────────────────────────────
+ * ── KEYBOARD: ONE TAB STOP, AND NO TRAP ───────────────────────────────────
  *
  * §7.5 asks for "every node reachable, focus visible, Escape exits the scene's
  * focus trap". Everything here is delivered except the trap itself, and that
  * omission is deliberate — see the note on `onKeyDown`. A focus trap on a
  * marketing page is a thing a visitor can fall into and not get out of; what
  * the requirement actually protects is that a keyboard user can reach the nodes
- * without tabbing through fifteen of them and can leave in one keystroke. A
- * roving tabstop delivers exactly that and cannot strand anybody.
+ * without tabbing through fifteen of them and can leave in one keystroke.
+ *
+ * The figure is the single tab stop and every node is `tabindex="-1"` — the
+ * WAI-ARIA composite-widget pattern, which is programmatically focusable and
+ * untabbable. That is what the arrow keys need and nothing more.
+ *
+ * IT WAS A ROVING TABSTOP FIRST, and that reads correctly while behaving
+ * wrongly: with `tabindex="0"` on the active node, Escape returns focus to the
+ * figure and the very next Tab lands back INSIDE the scene the visitor just
+ * asked to leave. A keyboard pass against the built page caught it; no unit
+ * test would have, because it is a browser tab-order behaviour rather than a
+ * React one. The node's own `tabIndex` carries the rest of that note.
  */
 
 /** How far each layer parallaxes, in pixels of travel across the pointer's
