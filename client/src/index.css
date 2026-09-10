@@ -34,7 +34,18 @@
 
   /* Accent = brand orange (tenant loader may override) */
   --primary: rgb(245 130 31);
-  --primary-foreground: rgb(255 255 255);
+  /* CARBON, NOT WHITE, AND THIS WAS A LIVE AA FAILURE (F-20).
+     White on this orange measures 2.59:1 — worse than the 3.13:1 the same
+     mistake cost `public-web` (F-15), and this is the PRE-THEME default, so it
+     is what every tenant who has never chosen a `primary_foreground` actually
+     renders on every primary button in the ERP. Carbon measures 7.63:1.
+     `@praxis/brand` (`--brand-on-orange: #0a0a0a`),
+     `packages/shared/design/palette.js` (which DERIVES this pair per tenant)
+     and CLAUDE.md all already said so; only this file disagreed.
+     A tenant whose primary is not orange gets a label DERIVED from their own
+     colour by `applyBrand` — see lib/theme.ts. This constant is the default
+     for the default orange, and nothing more. */
+  --primary-foreground: rgb(10 10 10);
   /* --primary is a FILL colour. As TEXT it measures 2.59:1 on --card and fails
      WCAG AA (F13). --primary-ink is the type-safe orange at 4.64:1. Brand
      identity is untouched: buttons/marks keep --primary, orange type uses this.
@@ -209,7 +220,9 @@
   --border: rgb(228 233 240 / 0.11);
   --input: rgb(228 233 240 / 0.16);
   --primary: rgb(245 130 31);
-  --primary-foreground: rgb(255 255 255);
+  /* Same fill, same label: `--primary` does not change between themes, so
+     neither does what is legible on it. See the light block for F-20. */
+  --primary-foreground: rgb(10 10 10);
   /* Orange goes LIGHTER on dark, not darker — 8.68:1 on --card. */
   --primary-ink: var(--primary-ink-dark);
   --ring: rgb(245 130 31);
