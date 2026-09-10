@@ -117,6 +117,25 @@
    * and the map read the same three. They keep the palette's own values (--ok's
    * green, --brand-blue's blue, the house orange) so the map still looks like the
    * rest of the product.
+   *
+   * ── AMENDED 2026-09: HARMONISATION, AND WHY IT STOPS AT THIS FILE ────────
+   *
+   * The public marketing site now HARMONISES these per tenant: same anchor
+   * hues, but chroma and lightness adapted so four modes do not sit like
+   * foreign objects on a desaturated tenant's page. The engine is
+   * packages/shared/design/palette.js; the reasoning is
+   * doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md §1.4.
+   *
+   * THE ERP DOES NOT HARMONISE. It calls that same shared function with
+   * `harmoniseModes: false`, which returns the four literals below unchanged.
+   * The paragraphs above are why: an operator reading two hundred shipments a
+   * day learns these colours once, and they must not shift because a marketing
+   * page was repainted. "Never derived from --primary" is also unchanged —
+   * harmonisation adapts a fixed anchor, it does not compute a mode from the
+   * tenant's accent.
+   *
+   * tests/unit/palette-engine.test.js pins the four values below byte for byte.
+   * If it fails, the Control Tower has moved and the PR is wrong.
    */
   --mode-sea: 40 148 94;
   --mode-air: 28 155 215;

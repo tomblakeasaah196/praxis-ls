@@ -47,6 +47,24 @@ exports.partyConfig = partyConfig;
 exports.entityCommon = entityCommon;
 // Canonical ISO country reference (code, name, phone, currency, per-jurisdiction
 // registration requirements) — the API, the seed and the client picker's source.
+/*
+ * design/palette.js and design/color.js are DELIBERATELY NOT re-exported here,
+ * and will stay that way until PR 2 of doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md wires
+ * both sides to them.
+ *
+ * Two reasons, and the second is the one that matters:
+ *
+ *   1. `check:schemas` requires every domain on this object to be imported by
+ *      BOTH the API and the client. The palette engine is imported by neither
+ *      yet — its consumers arrive with the theme endpoint and the appearance
+ *      preview — so listing it here would be claiming a contract that does not
+ *      exist, and the gate is right to fail it.
+ *   2. This entry point pulls Zod and the ISO country and currency tables.
+ *      public-web has ~11 kB of gzipped headroom in its first-paint budget and
+ *      must import `@praxis/shared/design/palette` by deep path, which needs
+ *      nothing from here. Re-exporting would advertise the expensive path as
+ *      the normal one.
+ */
 exports.countries = countries;
 // Canonical ISO 4217 currency reference (code, name, symbol, decimals, numeric,
 // and the countries that use each). The currency module enriches tenant rows

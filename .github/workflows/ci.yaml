@@ -1183,6 +1183,21 @@ jobs:
         if: matrix.app == 'public-web'
         run: npm run check:i18n --prefix public-web
 
+      - name: Motion budget (public-web)
+        # public-web runs its OWN budget, and a different one: 200ms for
+        # anything answering an input, 600ms for an entrance, unbounded only for
+        # scroll-linked set pieces named in the gate with a reason. The ERP's
+        # 250ms rule is about a dispatcher opening the same table forty times a
+        # day; this app is the front door, where impression is the job, and
+        # client/scripts/check-motion.mjs already carves that surface out in as
+        # many words. See doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md §1.1.
+        #
+        # It also asserts the prefers-reduced-motion umbrella per block — this
+        # stylesheet has three, and the ERP's version of the check joins them all
+        # before searching, so a broken one is masked by an intact one.
+        if: matrix.app == 'public-web'
+        run: npm run check:motion --prefix public-web
+
       - name: Bundle graph
         if: matrix.app == 'public-web'
         run: npm run check:bundle --prefix public-web

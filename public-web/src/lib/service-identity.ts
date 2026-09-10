@@ -38,6 +38,20 @@ import type { IconComponent } from "@/components/ui/icon-tile";
  * `--mode-air`), so the colours read as four distinct lines rather than as a
  * legend a reader is expected to decode.
  *
+ * ── WHERE THIS IS GOING, SO THE NEXT READER IS NOT SURPRISED ──────────────
+ *
+ * Position stays the fallback and stays correct. What changes in PR 4 of
+ * doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md is that where a tenant TELLS us a
+ * service's freight mode, we use it, and the palette becomes semantic on that
+ * card — sea freight actually drawn in `--mode-sea`. The two paths coexist
+ * deliberately: a fact the tenant supplied is worth more than a position, and a
+ * position is worth more than a guess at what somebody else's words mean.
+ *
+ * Note also that the mode VALUES are no longer fixed per install: since the
+ * palette engine landed they are harmonised toward the tenant's own colours,
+ * hue held within ten degrees of its anchor. Sea is still green. See
+ * packages/shared/design/palette.js and the guide's §1.4.
+ *
  * ── AND THEREFORE ORANGE IS STILL THE ONLY THING THAT LOOKS CLICKABLE ─────
  *
  * Mode colours are used for the card's top bar, its icon tile and its panel —

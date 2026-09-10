@@ -133,6 +133,59 @@ becomes a promise. When those keys exist, the components that want them are
   the browser's own engine (`@media print` block in `index.css`), which is why the
   proposal page has no toolbar of its own.
 
+## The experience layer, and why this app's rules differ
+
+This app is granted an **express exception from the tenant-application design
+doctrine**, and if you have come here from `client/` that will look like a
+contradiction. It is written down in
+`doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md` §1; the short version:
+
+`public-web` is the surface by which a tenant is judged by people who have never
+met them. The ERP is an instrument for someone who opens the same table forty
+times a day, and every motion rule there exists to protect that person from
+decoration they have to sit through. Nobody sits through this app: a visitor
+arrives once, decides in seconds, and leaves. Impression is the job.
+
+`client/scripts/check-motion.mjs` already said so, before this exception existed
+— it carves out "the front door … the only place in this product where
+'impression' is the job". This app is that surface, so the carve-out became the
+rule here and got a gate of its own.
+
+**What actually differs:**
+
+| | ERP | here |
+| --- | --- | --- |
+| Motion | 250 ms, everything | 200 ms for response · 600 ms for entrance · unbounded for scroll-linked, by named exemption |
+| Decorative motion | forbidden | expected |
+| Payload | as needed | **128 kB gzip first paint, unchanged** |
+
+**What does not differ, and has no exception anywhere:** reduced motion renders
+the *settled* state (never a faster animation), WCAG AA in both themes, full
+keyboard operation, no raw palette colours, no native dialogs, and nothing on
+the page asserts a fact the tenant's own data does not carry.
+
+**The pieces:**
+
+- `src/lib/motion.ts` — scroll scrub, pointer-as-light, device tilt, proximity.
+  They write CSS custom properties and never React state; a scrub through
+  `setState` re-renders sixty times a second and is why marketing pages stutter
+  on the mid-range Android this app exists for.
+- `src/components/ui/type.tsx` — type as a material. Staged headlines, weight
+  that responds to scroll, pull-quotes, figure callouts.
+- `src/index.css` — one stated light source (top-left, 60°), a six-step
+  elevation scale where each level is a contact shadow *plus* an ambient shadow
+  *plus* a light-catch, and material tokens.
+- `src/fonts.css` — the four faces, subset to `latin` + `latin-ext` only.
+- `scripts/check-motion.mjs` — the budget, the exemption list with reasons, and
+  a per-block assertion that the reduced-motion umbrella is intact.
+- `packages/shared/design/palette.js` — the tenant palette engine. Not bundled
+  here: it runs on the server and its output arrives as tokens.
+
+**Adding motion?** Put the duration in a token, name the selector in the gate's
+`NARRATIVE` or `EXEMPT` list *with a reason* if it needs more than 200 ms, and
+run `npm run check:motion`. Raising a number without a reason is the thing the
+gate exists to make visible.
+
 ## Verification status
 
 Typecheck, lint, 50 tests, both gates and `vite build` are green locally, and the

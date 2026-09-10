@@ -111,6 +111,31 @@ const GATES = [
   { group: "frontend", name: "Lint (platform-console)", cmd: npm("run", "lint", "--prefix", "platform-console") },
   { group: "frontend", name: "Test (platform-console)", cmd: npm("run", "test", "--if-present", "--prefix", "platform-console") },
   { group: "frontend", name: "Build (platform-console)", cmd: npm("run", "build", "--prefix", "platform-console") },
+
+  /*
+   * ── public-web ──────────────────────────────────────────────────────────
+   *
+   * THIS APP WAS NOT IN THIS LIST AT ALL, and it has been in CI's matrix since
+   * it was created — `app: [client, platform-console, public-web]`, plus two
+   * steps of its own (check:i18n, check:bundle). So `npm run ci` reported a
+   * clean run on a branch that changed nothing but public-web and could still
+   * redden `frontend` five different ways.
+   *
+   * That is the exact failure the note above platform-console describes — "a
+   * green local run followed by a red CI on a second app nobody remembered was
+   * in the matrix" — and this file had it for a third app while warning about
+   * the second. Adding it here is what makes the warning true.
+   *
+   * Bundle graph runs AFTER build, deliberately: it reads dist/, and on a
+   * checkout that has never been built it fails with "dist not found", which
+   * looks like a broken gate rather than a missing prerequisite.
+   */
+  { group: "frontend", name: "Lint (public-web)", cmd: npm("run", "lint", "--prefix", "public-web") },
+  { group: "frontend", name: "Motion budget (public-web)", cmd: npm("run", "check:motion", "--prefix", "public-web") },
+  { group: "frontend", name: "i18n (public-web)", cmd: npm("run", "check:i18n", "--prefix", "public-web") },
+  { group: "frontend", name: "Test (public-web)", cmd: npm("run", "test", "--if-present", "--prefix", "public-web") },
+  { group: "frontend", name: "Build (public-web)", cmd: npm("run", "build", "--prefix", "public-web") },
+  { group: "frontend", name: "Bundle graph (public-web)", cmd: npm("run", "check:bundle", "--prefix", "public-web") },
 ];
 
 /** Gates this cannot honestly run, and what each one needs. Printed, not hidden. */
