@@ -38,7 +38,7 @@
  * AA as a HARD gate and reported against AAA as a target — which is the honest
  * version of "where it pays", rather than moving a threshold until it passes.
  *
- *   node scripts/check-contrast.mjs
+ *   node scripts/check-contrast.mjs [--app client|public-web]
  *
  * Exit 0 = every pair clears its floor. Exit 1 = at least one regressed.
  */
@@ -48,24 +48,133 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = join(here, "..", "..");
-const css = readFileSync(join(here, "..", "src", "index.css"), "utf8");
+const clientRoot = join(here, "..");
+const repoRoot = join(clientRoot, "..");
+
+/**
+ * WHICH APP THIS RUN IS CHECKING — `--app <dir>`, defaulting to `client`.
+ *
+ * This is D-14's pattern applied to the gate D-14's own PR could not reach:
+ * one copy with an argument rather than a second file. CLAUDE.md states the
+ * reasoning for the ESLint rules directory — "a second copy of a gate is a gate
+ * that drifts" — and the drift would be worse here than for the palette gate,
+ * because what would diverge is the CONTRAST MATHS. The source-over
+ * compositing, the sRGB linearisation and the pill parser are the substance of
+ * the check, and a second copy that rounded one of them differently would
+ * report two different ratios for the same pair of colours on two surfaces of
+ * one product.
+ *
+ * Only the SCAN ROOT, the stylesheet and the per-app pair list are per-app.
+ */
+const APP = (() => {
+  const i = process.argv.indexOf("--app");
+  const value = i >= 0 ? process.argv[i + 1] : "client";
+  if (!/^[a-z-]+$/.test(value || "")) {
+    console.error(`✗ --app "${value}" is not an app directory name.`);
+    process.exit(1);
+  }
+  return value;
+})();
+
+const appRoot = join(repoRoot, APP);
+const cssPath = join(appRoot, "src", "index.css");
+if (!existsSync(cssPath)) {
+  console.error(`✗ no stylesheet at ${relative(repoRoot, cssPath)}`);
+  process.exit(1);
+}
+const css = readFileSync(cssPath, "utf8");
 
 /** WCAG 2.1: 4.5:1 for normal text, 3:1 for large (>=18.66px bold / 24px). */
 const AA_NORMAL = 4.5;
+const AA_LARGE = 3.0;
 const AAA_NORMAL = 7.0;
 
 /* ── token extraction ─────────────────────────────────────────────────────── */
 
-/** Body of a top-level selector block (`:root` / `.dark`). */
+/**
+ * Body of a selector's block, brace-MATCHED rather than terminated by `\n}`.
+ *
+ * The old form searched for the first `\n}` after the selector, which is the
+ * end of the block only when the block sits at column zero and contains no
+ * nested rule. `client/src/index.css` happens to satisfy that; `public-web`'s
+ * does not — its tokens live inside `@layer base { :root { … } }`, so every
+ * declaration is indented and the block closes on `\n  }`. Pointed at that file
+ * the old parser threw "Could not find :root", which at least fails loudly. The
+ * dangerous version of the same bug is a stylesheet where some `\n}` DOES occur
+ * early, and the gate silently measures a fraction of the tokens and passes.
+ * Counting braces makes neither possible.
+ *
+ * `selector` is a regex source, and it may be one of SEVERAL selectors sharing
+ * a block: `public-web` writes `.dark,\n  [data-theme="dark"] { … }`, which is
+ * one rule the tokens belong to under either name.
+ */
 function block(selector) {
-  const m = css.match(new RegExp(`${selector}\\s*\\{([\\s\\S]*?)\\n\\}`));
-  if (!m) throw new Error(`Could not find "${selector}" block in index.css`);
-  return m[1];
+  const re = new RegExp(`(?:^|[,\\s])${selector}\\s*(?:,[^{}]*?)?\\{`, "m");
+  const m = css.match(re);
+  if (!m)
+    throw new Error(
+      `Could not find "${selector}" block in ${APP}/src/index.css`,
+    );
+  let depth = 1;
+  let i = m.index + m[0].length;
+  const start = i;
+  for (; i < css.length && depth > 0; i++) {
+    if (css[i] === "{") depth++;
+    else if (css[i] === "}") depth--;
+  }
+  if (depth !== 0) throw new Error(`Unbalanced braces after "${selector}"`);
+  return css.slice(start, i - 1);
 }
 
 const lightBody = block(":root");
 const darkBody = block("\\.dark");
+
+/**
+ * ── THE IMPORTED TOKEN LAYER ───────────────────────────────────────────────
+ *
+ * `public-web/src/index.css` opens with `@import "@praxis/brand/tokens.css"`
+ * and then REFERENCES what that file declares: `--hero: var(--brand-carbon)`,
+ * `--primary-foreground: var(--brand-on-orange)`. A resolver that reads only
+ * `index.css` follows those `var()`s to nothing.
+ *
+ * That is not a loud failure — it is the SKIP path again. The pair this gate
+ * exists to protect, the primary CTA (F-15), was the single most important
+ * measurement in the run and it was being reported as "token not found" beside
+ * a tick. `client` has no `@import`, which is exactly why nobody noticed the
+ * resolver could not follow one.
+ *
+ * Imports are resolved for the app's own workspace packages only — a
+ * `node_modules` path or a URL is not followed, because a gate that reads a
+ * third-party stylesheet is measuring somebody else's tokens.
+ */
+function importedBodies() {
+  const out = { light: "", dark: "" };
+  for (const m of css.matchAll(/@import\s+["']([^"']+)["']/g)) {
+    const spec = m[1];
+    if (!spec.startsWith("@praxis/")) continue;
+    const file = join(repoRoot, "packages", spec.slice("@praxis/".length));
+    if (!existsSync(file)) continue;
+    const imported = readFileSync(file, "utf8");
+    const sub = (selector) => {
+      const re = new RegExp(`(?:^|[,\\s])${selector}\\s*(?:,[^{}]*?)?\\{`, "m");
+      const hit = imported.match(re);
+      if (!hit) return "";
+      let depth = 1;
+      let i = hit.index + hit[0].length;
+      const start = i;
+      for (; i < imported.length && depth > 0; i++) {
+        if (imported[i] === "{") depth++;
+        else if (imported[i] === "}") depth--;
+      }
+      return depth === 0 ? imported.slice(start, i - 1) : "";
+    };
+    out.light += sub(":root");
+    out.dark += sub("\\.dark");
+  }
+  return out;
+}
+
+const imported = importedBodies();
 
 /** Raw declared text of a custom property, or null. */
 function rawToken(body, name) {
@@ -105,6 +214,33 @@ function resolve(expr, body, depth = 0) {
   const bare = s.match(/^var\(\s*(--[\w-]+)\s*\)$/);
   if (bare) return resolve(lookup(bare[1].slice(2), body), body, depth + 1);
 
+  /*
+   * #rgb | #rrggbb | #rrggbbaa
+   *
+   * `client/src/index.css` writes every token as `rgb(r g b)`, so this branch
+   * was never needed and was never written. `public-web/src/index.css` writes
+   * them as hex — `--background: #ffffff` — and without this the resolver
+   * returns null for EVERY token in that file. That does not fail the run: it
+   * takes the SKIP path, which prints "token not found" and passes. Twenty-eight
+   * skips and a tick is what the first port of this gate produced, which is the
+   * same failure shape as F-12 (a gate that passes by not looking) arriving
+   * through a different door.
+   *
+   * So the branch is here, and `check-contrast.test.mjs` pins both notations
+   * resolving to the same colour.
+   */
+  const hex = s.match(/^#([0-9a-f]{3,8})$/i);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3 || h.length === 4)
+      h = h.split("").map((c) => c + c).join("");
+    if (h.length !== 6 && h.length !== 8) return null;
+    return {
+      rgb: [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)),
+      a: h.length === 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1,
+    };
+  }
+
   // rgb(r g b [/ a])  |  rgb(r, g, b)  |  a bare "r g b" triplet
   const nums = s.match(
     /(\d+(?:\.\d+)?)[\s,]+(\d+(?:\.\d+)?)[\s,]+(\d+(?:\.\d+)?)/,
@@ -125,7 +261,13 @@ function alpha(v) {
 /** A token's value in this theme, falling back to :root — which is how the
  *  file is written: `.dark` overrides only what changes. */
 function lookup(name, body) {
-  return rawToken(body, name) ?? rawToken(lightBody, name);
+  const inherited = body === darkBody ? imported.dark : "";
+  return (
+    rawToken(body, name) ??
+    rawToken(lightBody, name) ??
+    rawToken(inherited, name) ??
+    rawToken(imported.light, name)
+  );
 }
 
 const token = (body, name) => resolve(lookup(name, body), body);
@@ -281,6 +423,91 @@ const TEXT_PAIRS = [
   ],
 ];
 
+/**
+ * ── PAIRS THAT EXIST ON ONE SURFACE ONLY ──────────────────────────────────
+ *
+ * The list above is every pair both apps draw. These are the ones an app has
+ * of its own, and they are declared per app rather than left to the SKIP path,
+ * because a skip is a silent pass: `public-web`'s whole hero band would have
+ * been "token not found" four times over and the run would still have printed
+ * a tick.
+ *
+ * `public-web`'s entries are the dark marketing plate — the band every page in
+ * that app now opens with (guide §8), which is the reason this gate was
+ * finally ported. F-15 is what an unmeasured band costs: white on
+ * `#FF5A00` at 3.13:1 shipped on the LCP path of every page for months, with
+ * three separate places in the tree already saying it should be carbon.
+ */
+const APP_PAIRS = {
+  "public-web": [
+    // The hero plate. `--hero` is its own ground token, not `--card`.
+    ["--hero-foreground on --hero (light)", "hero-foreground", "hero", lightBody, AA_NORMAL],
+    ["--hero-foreground on --hero (dark)", "hero-foreground", "hero", darkBody, AA_NORMAL],
+    ["--hero-muted on --hero (light)", "hero-muted", "hero", lightBody, AA_NORMAL],
+    ["--hero-muted on --hero (dark)", "hero-muted", "hero", darkBody, AA_NORMAL],
+    /*
+     * THE EYEBROW, WHICH IS THE ONE THAT INVERTS.
+     *
+     * On a light ground accent-as-text must be `--primary-ink` (the whole point
+     * of the ink step-down). On the hero's carbon it is the opposite way round:
+     * `--primary-ink` is ~3.4:1 there and the brand fill itself is 6.33:1. That
+     * asymmetry is a property of the colour, and `hero.tsx` documents it — so it
+     * is measured here rather than trusted, because it is the one place in
+     * either app where naming the FILL token in a text position is correct.
+     */
+    ["--brand-orange as eyebrow on --hero (light)", "brand-orange", "hero", lightBody, AA_NORMAL],
+    ["--brand-orange as eyebrow on --hero (dark)", "brand-orange", "hero", darkBody, AA_NORMAL],
+    /*
+     * THE PRIMARY CTA — F-15's pair, and the most-clicked colour pair in the
+     * product. Measured here at 6.33:1.
+     *
+     * IT IS NOT IN THE SHARED LIST, AND THAT IS A FINDING RATHER THAN A
+     * DECISION. `client/src/index.css` declares `--primary-foreground:
+     * rgb(255 255 255)` over `--primary: rgb(245 130 31)`, which is **2.59:1** —
+     * the very number quoted in this file's own section-3 comment as the reason
+     * the ink tokens were created, and worse than the 3.13:1 F-15 removed from
+     * `public-web`. It is the pre-theme default, so it is what every tenant who
+     * has never set `primary_foreground` actually renders, on every primary
+     * button in the ERP.
+     *
+     * Adding the pair to the shared list would redden `client` immediately, and
+     * the fix — carbon on orange, which `@praxis/brand` and
+     * `packages/shared/design/palette.js` both already say, and CLAUDE.md states
+     * as a rule — changes the appearance of every primary button in the ERP.
+     * That is an ERP-wide restyle and it does not belong in a `public-web` PR.
+     * Recorded as F-20 in the guide's §3.5, with the measurement and the fix.
+     */
+    ["--primary-foreground on --primary (light)", "primary-foreground", "primary", lightBody, AA_NORMAL],
+    ["--primary-foreground on --primary (dark)", "primary-foreground", "primary", darkBody, AA_NORMAL],
+    /*
+     * ── THE FOUR MODES ON THE HERO PLATE, AT THE NON-TEXT FLOOR ───────────
+     *
+     * §8.2 lights each service's entrance with its own mode. These pin that the
+     * light is legible as a NON-TEXT affordance — WCAG 1.4.11's 3:1 — and they
+     * are held to 3:1 rather than 4.5:1 because that is what they are: the wash
+     * in `.band-service`'s gradient and the rule under it, never type.
+     *
+     * The distinction is load-bearing and it was nearly got wrong. The first
+     * draft of that band painted the service's identity CODE in its mode
+     * colour, 11px on carbon, which is type and is held to 4.5:1. Measured:
+     * sea 5.17, air 6.33, road 6.57 — and **rail 3.68**, a live AA failure on
+     * exactly one of the four service kinds. Three of the four screenshots
+     * would have looked right. The code is `--hero-foreground` now (17:1) and
+     * these four stay at the floor they actually have to clear.
+     */
+    ["--mode-sea on --hero, non-text (light)", "mode-sea", "hero", lightBody, AA_LARGE],
+    ["--mode-air on --hero, non-text (light)", "mode-air", "hero", lightBody, AA_LARGE],
+    ["--mode-road on --hero, non-text (light)", "mode-road", "hero", lightBody, AA_LARGE],
+    ["--mode-rail on --hero, non-text (light)", "mode-rail", "hero", lightBody, AA_LARGE],
+    ["--mode-sea on --hero, non-text (dark)", "mode-sea", "hero", darkBody, AA_LARGE],
+    ["--mode-air on --hero, non-text (dark)", "mode-air", "hero", darkBody, AA_LARGE],
+    ["--mode-road on --hero, non-text (dark)", "mode-road", "hero", darkBody, AA_LARGE],
+    ["--mode-rail on --hero, non-text (dark)", "mode-rail", "hero", darkBody, AA_LARGE],
+  ],
+};
+
+for (const pair of APP_PAIRS[APP] || []) TEXT_PAIRS.push(pair);
+
 const THEMES = [
   ["light", lightBody],
   ["dark", darkBody],
@@ -390,10 +617,43 @@ const INK_FOR = {
   "bad-fill": "text-bad",
 };
 
-/** Files allowed to name a fill token in a text position, each with a reason. */
-const INK_ALLOW = [
-  "scripts/check-contrast.mjs", // this table
-];
+/**
+ * ── THE ONE GROUND WHERE THIS RULE INVERTS, AND HOW IT IS DECLARED ─────────
+ *
+ * On `public-web`'s dark marketing plate `--brand-orange` is the CORRECT text
+ * colour: 6.44:1 there, against `--primary-ink`'s ~3.4:1. On every light ground
+ * the ordinary rule still holds and the fill is 3.13:1. So the exception is
+ * real, it is narrow, and it is per-LINE — `SectionHead` and `BadgePill` each
+ * carry both branches of one ternary, and the light branch is precisely where a
+ * defect would live.
+ *
+ * A file-level allowance cannot express that, and NOR CAN A CONTEXT WINDOW.
+ * The first version of this looked for `onDark` on the violating line or the
+ * four above it, which reads sensibly and is wrong: in
+ *
+ *     onDark
+ *       ? "… text-[rgb(var(--brand-orange))]"     ← correct, 6.44:1
+ *       : "… text-[var(--primary-ink)]"           ← the light branch
+ *
+ * the window sees `onDark` from BOTH branches, so swapping the light branch to
+ * the fill was excused. That was proved rather than reasoned: the deliberate
+ * violation exited 0 when it had to exit 1.
+ *
+ * So the exception is an EXPLICIT MARKER on the violating line, with a reason —
+ * the same shape as the `praxis/no-native-dialogs` escape hatch CLAUDE.md
+ * describes, and for the same reason: an exception a reviewer can see beats one
+ * a heuristic infers. It is read from the RAW line, before comments are
+ * stripped, and an empty reason does not count.
+ *
+ *     cn(onDark && "text-[rgb(var(--brand-orange))]") // ink-on-dark: 6.44:1 on --hero
+ */
+const ON_DARK_MARKER = /ink-on-dark:\s*\S[^\n]{7,}/;
+
+/** Whole files exempt, which is only ever this gate's own tables. */
+const INK_ALLOW = {
+  client: ["scripts/check-contrast.mjs"],
+  "public-web": ["scripts/check-contrast.mjs"],
+};
 
 function stripComments(text) {
   const blanked = text.replace(/\/\*[\s\S]*?\*\//g, (m) =>
@@ -417,7 +677,7 @@ function sources() {
       "--others",
       "--exclude-standard",
       "--",
-      "client/src",
+      `${APP}/src`,
     ],
     { cwd: repoRoot, encoding: "utf8" },
   );
@@ -440,10 +700,33 @@ const INK_RE = new RegExp(
 
 const inkViolations = [];
 for (const file of sources()) {
-  const rel = relative("client", file).replace(/\\/g, "/");
-  if (INK_ALLOW.includes(rel)) continue;
-  const text = stripComments(readFileSync(join(repoRoot, file), "utf8"));
-  text.split("\n").forEach((line, i) => {
+  const rel = relative(APP, file).replace(/\\/g, "/");
+  if ((INK_ALLOW[APP] || []).includes(rel)) continue;
+  const source = readFileSync(join(repoRoot, file), "utf8");
+  /* Markers are read from the RAW text and violations from the stripped text,
+     because `stripComments` would otherwise erase the very marker that excuses
+     the line it is on. */
+  const raw = source.split("\n");
+  const text = stripComments(source);
+  const lines = text.split("\n");
+  /*
+   * The allowance is matched against the violating line AND the four above it.
+   *
+   * Every dark-ground use in this app is the true branch of a JSX conditional,
+   * and the condition is written on its own line above the string:
+   *
+   *     onDark
+   *       ? "… text-[rgb(var(--brand-orange))]"
+   *       : "… text-[var(--primary-ink)]"
+   *
+   * so a matcher that only saw the violating line would never see `onDark`.
+   * Four lines is the widest such expression in the tree (the portal band's
+   * `<Link>`, whose ground token is set on the wrapping `<p>`), and keeping the
+   * window small is what stops an allowance drifting onto an unrelated line
+   * further down the same file.
+   */
+  lines.forEach((line, i) => {
+    if (ON_DARK_MARKER.test(raw[i] || "")) return;
     for (const hit of line.matchAll(INK_RE)) {
       const tokenName = hit[1] ?? hit[2];
       inkViolations.push({
@@ -486,9 +769,31 @@ if (aaaMisses.length) {
   );
 }
 
-const note = skipped ? `, ${skipped} skipped` : "";
-if (failed) {
-  console.error(`\n✗ ${failed} contrast pair(s) below threshold${note}.\n`);
+/*
+ * ── A SKIP IS A FAILURE, NOT A FOOTNOTE ───────────────────────────────────
+ *
+ * This used to print `✓ All pairs clear their floor, 28 skipped` and exit 0.
+ * Twenty-eight was every pair in the matrix: the resolver could not read
+ * `public-web`'s hex tokens, so it measured NOTHING and said so in a tick. That
+ * is F-12's failure with a different cause — a gate that passes by not looking —
+ * and it is the reason this exit path changed rather than only the resolver.
+ *
+ * A skip means a token in the pair list did not resolve. There is no benign
+ * version of that: either the token was renamed (the pair list is stale) or the
+ * resolver cannot read the notation (the gate is broken). Both need a human,
+ * and neither is "all pairs clear their floor".
+ */
+if (skipped) {
+  console.error(
+    `\n✗ ${skipped} pair(s) could not be measured.\n` +
+      "  A pair that cannot be resolved is not a pair that passed. Either the\n" +
+      "  token was renamed — fix the list — or the resolver cannot read how it\n" +
+      "  is written, which is a hole in this gate and not in the design.\n",
+  );
   process.exit(1);
 }
-console.warn(`\n✓ All pairs clear their floor${note}.\n`);
+if (failed) {
+  console.error(`\n✗ ${failed} contrast pair(s) below threshold.\n`);
+  process.exit(1);
+}
+console.warn("\n✓ All pairs clear their floor.\n");

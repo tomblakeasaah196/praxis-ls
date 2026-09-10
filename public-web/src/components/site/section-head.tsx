@@ -84,7 +84,7 @@ export function SectionHead({
           className={cn(
             "eyebrow flex items-center gap-2",
             centred && "justify-center",
-            onDark && "text-[rgb(var(--brand-orange))]",
+            onDark && "text-[rgb(var(--brand-orange))]", // ink-on-dark: 6.44:1 on --hero, where --primary-ink is ~3.4:1
           )}
         >
           {eyebrowIcon && <IconTile icon={eyebrowIcon} size="sm" />}
@@ -105,7 +105,33 @@ export function SectionHead({
               {accent && (
                 <>
                   {" "}
-                  <span className="text-[rgb(var(--brand-orange))]">{accent}</span>
+                  {/*
+                    THE ACCENT WORD INVERTS WITH THE GROUND, exactly as the
+                    eyebrow above it does.
+
+                    It used to be `--brand-orange` unconditionally, which is
+                    3.13:1 on white. That squeaked past AA only because
+                    `.section-title` clamps to 28-40px and large text is held to
+                    3:1 — so the pass depended on a font size the caller can
+                    override through `titleClass`, and `text-title` (20px) would
+                    have failed silently at 3.13:1. `--primary-ink` is 5.79:1 at
+                    any size and is the same brand colour corrected for type,
+                    which is the whole reason the ink token exists (CLAUDE.md:
+                    accent TEXT is the ink, `--primary` is a fill).
+
+                    On the dark plate the relation inverts and the fill is the
+                    correct one — 6.44:1, against `--primary-ink`'s ~3.4:1.
+                    Found by porting `check:contrast` to this app (guide O-9).
+                  */}
+                  <span
+                    className={
+                      onDark
+                        ? "text-[rgb(var(--brand-orange))]" // ink-on-dark: the accent word on the hero plate, 6.44:1
+                        : "text-[var(--primary-ink)]"
+                    }
+                  >
+                    {accent}
+                  </span>
                 </>
               )}
             </>,

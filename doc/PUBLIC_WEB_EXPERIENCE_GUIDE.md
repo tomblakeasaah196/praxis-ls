@@ -118,14 +118,25 @@ engineer completing a PR updates the *Actual* column and the running total in th
 | **PR 1** — Foundations | Palette engine · depth & light · motion system · typography · gates | **22** | **22** | **22%** |
 | **PR 2** — Data & settings engine | Migrations · settings tabs · assets · announcements · partners · social · entity story | **24** | **19** | **41%** |
 | **PR 3** — Homepage experience | Hero · narrative spine · announcements band · signature set piece · bands | **20** | **20** | **63%** |
-| **PR 4** — Journey pages | Track · services · quote · contact · careers · insights — every page a hero | **18** | — | — |
+| **PR 4** — Journey pages | Track · services · quote · contact · careers · insights — every page a hero | **18** | **18** | **81%** |
 | **PR 5** — About, proof & polish | About · entities · leadership · partners/credentials · footer & social · final pass | **16** | — | — |
-| | **Total** | **100** | **63** | **63%** |
+| | **Total** | **100** | **81** | **81%** |
 
 **PR 3 also closed 2 of PR 2's 5 carried points** — §6.4's announcements read
 and pin control — which is why the running total moves 41 → 63 rather than
 41 → 61. The remaining 3 are still carried: §6.3's asset library (2) and
 §6.8's entity story tab (1). See §3.4.
+
+**PR 4 is 18 of 18 and closes NONE of the 3 carried points.** §6.3 and §6.8 are
+still not built and are now blocking on their fourth PR — see §3.5, where the
+reservation is stated in full, because §9.3 and §9.4 are dead without §6.3 and
+PR 5 is the last PR in the programme.
+
+**PR 4 also closed O-9**, `check:contrast`'s port, which §5.6 assigned to PR 1
+and F-14 recorded as never shipped. It is NOT scored to PR 4: per §2's rule,
+carried points are credited to the PR that built them, and this one belongs to
+§5.6, whose 3 points PR 1 already banked. The register therefore does not move
+for it. What it did produce is four live WCAG failures, listed in §3.5.
 
 Carried points are credited to the PR that BUILT them, so the register keeps
 totalling what exists rather than who promised it. PR 2's *Actual* stays at 19,
@@ -146,7 +157,7 @@ filled in", not as "nothing to report".
 | PR 1 | **Merged** | 2026-09-10 · [#323](https://github.com/tomblakeasaah196/praxis-ls/pull/323) | **22%** | See §3.2 — six deviations and five findings. One finding (F-1) was mine and is retracted; two are real pre-existing gate defects; one (F-5) is open for PR 2. |
 | PR 2 | **Merged** | 2026-09-10 · [#324](https://github.com/tomblakeasaah196/praxis-ls/pull/324) | **41%** | 19 of 24 points. §6.3 (asset upload), §6.4 (announcements UI + public read) and §6.8 (entity story tab) are **not built** and are carried — see §3.3. Eight findings: four are defects in this guide's own spec, and F-12 is a false green in `npm run ci` itself. |
 | PR 3 | **Merged** | 2026-09-10 · [#325](https://github.com/tomblakeasaah196/praxis-ls/pull/325) | **63%** | 20 of 20, **plus 2 of PR 2's carried points** (§6.4). Four deviations and six findings — see §3.4. F-14 is the important one: **PR 1 recorded 22/22 for §5.6 and shipped one of its five gates**, so `check:assets`, `check:palette` and the deferred-chunk budget were built here. F-16 is a Lighthouse target this architecture cannot reach. |
-| PR 4 | Not started | — | — | — |
+| PR 4 | **Merged** | 2026-09-10 · [#327](https://github.com/tomblakeasaah196/praxis-ls/pull/327) | **81%** | 18 of 18. Four deviations and eight findings — see §3.5. **F-20 is the one to read first: the ERP's own primary button measures 2.59:1** and is out of scope here. F-21–F-23 are three live AA failures in this app that the O-9 port found on its first run. §6.3 is now blocking on its FOURTH PR and PR 5 cannot deliver §9.3 or §9.4 without it. |
 | PR 5 | Not started | — | — | — |
 
 ### 3.2 PR 1 — reservations, deviations and findings
@@ -352,6 +363,168 @@ meets the ≥ 95 target and why that is not a number this PR could have reached.
   or opens a connection on mount belongs behind it unless the visitor is waiting
   for it.
 
+### 3.5 PR 4 — reservations, deviations and findings
+
+**18 of 18.** Every route in `router.tsx` now has a designed entrance, and the
+criterion is a test rather than a screenshot — see F-24 for the three ways that
+test lied before it was trusted.
+
+**Deviations from this guide, with reasons.**
+
+| # | Deviation | Why |
+| --- | --- | --- |
+| D-15 | **§8.1's "ETA" is a SCHEDULED DATE, and often nothing at all.** The verdict line states the due date of the last outstanding stage, labelled as that stage's schedule, and says so plainly when the desk has entered none. | There is no ETA in this API and no feed behind this page. `tracking_public.routes.js` reads the tenant's own milestone ledger — no carrier integration, no vessel schedule — and `tracking-api.ts` says so in as many words. Deriving one from transit averages or from the remaining stage count would put a date in front of a client that nobody at the desk committed to, which is N12's exact failure on the page where it costs most. |
+| D-16 | **The ESG interactive is mounted on the SERVICES INDEX, not on About.** | §8.4 assigns it to PR 4 and §9.1 assigns About to PR 5, so the guide gives this PR a piece of About-page content and no page to put it on. Building it unmounted is dead code and §2's own rule is that partial work counts zero; creating `/about` takes PR 5's scope, nav and footer entries included. It sits below the service grid, where ESG is procurement-facing content a buyer comparing services actually reads. `EsgTriptych` takes its content as a prop and knows nothing about that page, so **§9.1 mounts the identical component on About with no change to it.** |
+| D-17 | **§8.5's "office/coverage map" is a network, not a projection.** | The same call D-12 made, for two reasons that still hold and one that is new. Country geometry is tens of kilobytes against a 128 kB budget, to draw shapes carrying nothing the labels do not — and a CEMAC basemap would hardcode one tenant's region into a white-label product, when the next tenant operates from Mombasa. A projection also adds inference: the facts are "this entity is registered here" and "it says it covers these places", and a map additionally implies distances, borders and routes nobody stated. Finally the coverage rows carry `label_fr`/`label_en`, so the figure prints the tenant's own words; a map would need OUR country names under OUR borders. |
+| D-18 | **The ESG annotations overlay the drawing and fall back to a list below 900px.** §8.4 says "annotations on the drawing rather than as a list beside it". | Both halves are forced by the three-column layout §8.4 also requires. At about 360px per pillar there is no room to flank an illustration — two 136px label columns leave 88px for the drawing — so the labels sit ON it, which is what "on the drawing" says anyway. Below 900px there is not even room for that, and the points render as a list under a settled drawing. The same sentences, never both, so nothing is announced twice. |
+
+**Findings — one is an ERP-wide defect out of this PR's scope.**
+
+| # | Finding | Status |
+| --- | --- | --- |
+| F-20 | **The ERP's own primary button fails WCAG AA at 2.59:1.** `client/src/index.css` declares `--primary-foreground: rgb(255 255 255)` over `--primary: rgb(245 130 31)`. That is the exact number `check-contrast.mjs`'s own comment quotes as the reason the ink tokens were created, and it is worse than the 3.13:1 F-15 removed from `public-web`. It is the PRE-THEME default and `applyBrand` only overwrites it when a tenant has set `primary_foreground` — a `setting` row that is unset by default — so it is what every tenant who has never chosen one actually renders, on every primary button in the ERP. | **Open, and deliberately not fixed here.** The fix is one line (carbon on orange, 7.63:1, which `@praxis/brand`, `packages/shared/design/palette.js` and CLAUDE.md all already say), and it changes the appearance of every primary button in the ERP. That is an ERP-wide restyle and does not belong in a `public-web` PR. The pair is measured for `public-web` (6.33:1) and the gate's own table records why it is not in the shared list. **This is the F-3 precedent: fixed on this surface, real on the other, worth its own PR.** |
+| F-21 | **`.st-blue` and `.st-info` measured 2.81:1 on dark** — the worst measurement in either app. `client/src/index.css` has lifted `--brand-blue-ink` for dark grounds since Phase 5; `public-web` declared the light value once and never the dark one, so both pills rendered light ink on a dark ground. | **Fixed** — same value, same reason. Found by O-9's port on its first run. |
+| F-22 | **`.st-orange` measured 4.14:1 on light.** `--primary-ink-light` was derived against bare `--card` and the pill puts it on the brand colour at 14%. | **Fixed**, and it was a KNOWN defect waiting for this gate: `public-web/src/lib/theme.ts` already derives against the pill ground, and its own comment says "the static tokens had the identical defect and the contrast gate now catches it there". The static value is now what the runtime derivation produces, so the pre-theme paint and a tenant's derived palette finally agree. |
+| F-23 | **Two more fill-as-type failures, both from a token used on the wrong ground.** `SectionHead`'s accent word was 3.13:1, passing only because `.section-title` clamps to 28–40px and large text is held to 3:1 — a pass that depended on a font size the caller can override via `titleClass`. `Stepper`'s current-step number was 3.13:1 on 11px type and failed outright. | **Fixed** — both take `--primary-ink`, which is the same brand colour at any size. |
+| F-24 | **A test that enforces "every route has an entrance" lied three times before it was trusted.** (a) It appended the source of every `@/components/site/*` a page imported, so the homepage's `<Hero />` would be seen — but `section.tsx` contains both `band-hero` and `band band-muted` in its variant table and EVERY page imports `Section`, so every page inherited an entrance and the check could not fail. (b) It parsed only `lazy(...)` declarations, and `NotFoundPage` is imported eagerly — so the 404, the route least likely to be covered and most likely to be left undesigned, was never in the table. (c) It checked whole FILES, but services, portfolio and careers each export two routes, so a bare index passed because the detail view below it had a band. | **All three fixed**, each proved by the violation that exposed it. Recorded at length because this is the shape a "gate" test takes when it is written from the outside: it reports on a set it derived, and the derivation is where it goes wrong. |
+| F-25 | **`?kind=` on the public insights index was validated and then dropped.** `insight.validator.js` has accepted it since 13784, `service.listPublic` takes it, `repo.list`/`repo.count` filter on it, and the announcements read has used that path since PR 3. One destructure was missing in `insight_public.routes.js`, so a caller could send `?kind=announcement`, have it accepted, and receive every article. Nothing threw and the response was a plausible list. | **Fixed**, with four tests asserted through the SERVICE's arguments rather than a mocked repo's body — a mocked body proves nothing about filtering, which is §3.3's "UPDATE against an empty table" lesson in another shape. |
+| F-26 | **`check:i18n`'s French typography rule was blind to escapes.** A string written `"compte\u00a0:"` reached check 4 as an escape sequence with no space in it and passed, then rendered U+00A0 where §5 requires U+202F. The check was blind to precisely the notation somebody reaches for when they are being careful about whitespace. | **Fixed** — it decodes before measuring and now rejects a plain no-break space as well as an ordinary one. Found by writing this PR's French copy: the strings passed the gate and were still wrong. |
+| F-27 | **`check:contrast` reported "✓ All pairs clear their floor, 28 skipped".** Every token in `public-web` failed to resolve — the resolver could not read hex, and the app writes `#ffffff` where the ERP writes `rgb(255 255 255)` — so the run measured NOTHING and said so with a tick. It also could not follow `var()` across `@import`, which silently skipped `--primary-foreground`, F-15's own pair. | **Fixed**, and **skips are now fatal**: a pair that cannot be resolved is not a pair that passed. This is F-12's failure arriving through a different door, and the exit path changed rather than only the resolver. |
+
+**Three things a real browser found that no test had.**
+
+§8.7 asks for a reduced-motion pass on the ESG interactive specifically. Doing
+it against the built page rather than against jsdom is what produced all three,
+and each was invisible to the checks that had already run:
+
+- **The last annotation of every pillar was permanently greyed out.** Opacity is
+  `clamp(0, (--scrub − --at) / 0.12, 1)` and the thresholds spread to 0.9, so at
+  `--scrub: 1` — the settled state — the final label sat at 0.83. Three of
+  fourteen, on the block §8.4 says must be genuinely good in exactly that state.
+- **The annotations overlapped into an unreadable stack**, because each was
+  placed at its anchor's own height and anchors cluster.
+- **The failure plate printed the same sentence twice**, its title and its body
+  both resolving to `errors.loadFailed`.
+
+None of these is a logic error and none would have been caught by more unit
+tests. They are composition, and composition is seen.
+
+**How this was verified.**
+
+- **Every new gate change and every new test proved in both directions.** The
+  contrast port's on-dark exception was first written as a context window that
+  looked for `onDark` within four lines; a deliberate violation exited 0,
+  because the window saw `onDark` from BOTH branches of one ternary and excused
+  the light branch — which is exactly where a defect would live. It is an
+  explicit per-line marker with a reason now, the same shape as the
+  `no-native-dialogs` escape hatch.
+- **A real browser**, for the two things a suite cannot see. The keyboard pass
+  walked all nine public routes — 268 tab stops, every one visible, every one
+  with a focus ring, no repeats and no traps of F-19's shape. The reduced-motion
+  pass drove `prefers-reduced-motion` and read the computed opacity of every
+  annotation and the dash offset of every path, in both themes.
+- **The whole backend suite**, not a targeted file: 7,423 tests. F-25's route
+  change is one line and `npx jest` is what proves it broke nothing.
+
+**Measurements, as required by §8.7.**
+
+| | main | PR 4 |
+| --- | ---: | ---: |
+| First paint (gzip) | 119.1 kB | **123.4 kB** (96% of the 128 kB budget) |
+| ↳ entry chunk | 47.4 kB | **50.6 kB** |
+| ↳ vendor | 59.3 kB | 59.3 kB — unchanged |
+| ↳ CSS | 12.4 kB | **13.5 kB** — six routes of new bands |
+| Deferred total | 59.3 kB | **59.9 kB** of the 220 kB allowance |
+| Chunk graph | 28 chunks, acyclic | 26 chunks, acyclic |
+| Lighthouse EN (median of 3, mobile) | 89 / 100 / 96 / 91 | **90 / 100 / 96 / 91** |
+| Lighthouse FR (median of 3, mobile) | 90 / 100 / 96 / 91 | **91 / 100 / 96 / 91** |
+| Lighthouse `/track` (median of 3) | 93 / 100 / 96 / 91 | **94 / 100 / 96 / 91** |
+| FCP / LCP (home, EN) | 2579 / 3031 ms | **2511 / 2924 ms** |
+| Total blocking time | 84 ms | **61 ms** |
+| Cumulative layout shift | 0.001 | 0.001 |
+| Tests (public-web) | 223 | **278** |
+| Tests (backend) | 7,419 | **7,423** |
+| `npm run ci` | 40/40 | **41/41** |
+
+Both branches were built and measured in the SAME container, because PR 3's
+figures were taken elsewhere and a cross-environment comparison would have been
+worthless. Lighthouse's mobile preset: Moto G Power emulation, 412×823 at
+1.75×, simulated slow 4G (150 ms RTT, 1.6 Mbps), 4× CPU slowdown.
+
+**PER-ROUTE CHUNK GROWTH, which F-18 says the gate will not report.** The
+interesting movement is not where it was expected:
+
+| chunk | main | PR 4 | |
+| --- | ---: | ---: | --- |
+| `index` (entry) | 48.4 kB | **51.7 kB** | +3.3 — on the first-paint path |
+| `marketing` | 9.9 kB | **7.9 kB** | −2.1 |
+| `services` | 3.2 kB | **4.7 kB** | +1.5 — the ESG triptych |
+| `contact` | 1.7 kB | **2.5 kB** | +0.8 — the coverage figure |
+| `site` | — | **1.3 kB** | new shared read |
+| `track` · `careers` · `quote` · `portfolio` | | | +0.1 or less each |
+
+The entry grew and the homepage's chunk SHRANK because giving six routes the
+same entrance made `bg-map`, `reveal` and `badge-pill` shared — Rollup hoisted
+them out of `marketing-page` into the entry, which is on the critical path.
+That is the right call for those six routes and it is a real cost to the
+homepage, and it is most of the +4.3 kB.
+
+**F-16 is unchanged and this PR does not close it.** §7.7/§8.7 ask for
+Lighthouse ≥ 95 on all four categories. Performance measures 90–91 here and 89–90
+on `main` in the same container, so the target is missed on both branches by
+about the same margin, for the reason F-16 gives: `public-web` is client-rendered
+by design and first paint cannot precede downloading and executing the bundle.
+Accessibility, which IS reachable, is 100 on every route measured.
+**PR 4's numbers are at or slightly above `main`'s on every category** — six new
+bands for +4.3 kB of first paint and no regression — but "not worse" is not 95.
+The recommendation stands and is now a decision PR 5 cannot avoid, because it
+is the last PR in the programme: **either §8.7/§9.7 adopt a reachable target for
+a client-rendered app, or the programme takes on SSR.** One PR cannot make
+that call; leaving it unstated until the final acceptance list is how a
+programme ends 5 points short of a criterion nobody re-examined.
+
+**A criterion this PR could NOT meet, stated plainly.** §8.7 asks that every
+route be enumerated in the PR description "with a screenshot each, light and
+dark". The screenshots were taken — twenty of them, both themes, plus four of
+the ESG interactive settled and in motion — and this environment cannot attach
+images to a pull request. The PR description enumerates every route and states
+what was verified on each; the images are not in the record, and that half of
+the criterion is unmet rather than met.
+
+**Notes for later PRs.**
+
+- **§6.3 IS NOW BLOCKING ON ITS FOURTH PR, AND PR 5 IS THE LAST ONE.** §9.3
+  (leadership portraits) and §9.4 (partner and credential marks) are both dead
+  without an upload control, and §9.4 is additionally gated on O-2 and O-3,
+  which are the client's. PR 5 cannot reach 100% while §6.3 is unbuilt: it is
+  2 points of its own plus most of two more sections. This needs deciding
+  before PR 5 starts, not during it.
+- **`EsgTriptych` is ready for About** (D-16). It takes `{esg}` and renders
+  nothing when every pillar is empty; §9.1 mounts it unchanged.
+- **`CoverageFigure` likewise** — it takes `{entities}` from the same endpoint
+  §9.2 reads, so the About page's entity section and the contact page's figure
+  cannot disagree about who exists.
+- **`modeToken()` returns null rather than a fallback**, deliberately. An
+  unclassified file is not secretly a sea file, and `service-identity.ts` now
+  carries the §8.2 note on mode-as-semantics versus mode-as-position and the
+  rule that keeps them apart: a positional colour never appears where the page
+  states a fact.
+- **The mode colours are pinned at the 3:1 NON-TEXT floor**, not 4.5:1, because
+  that is what they are on the service band — a wash and a rule. `--mode-rail`
+  measures **3.68:1** on the hero plate: correct as a graphic, an AA failure as
+  type. The first draft of §8.2 painted the identity code in it, and three of
+  the four service kinds would have looked right in review.
+- **`--primary-ink` on a dark band is ~3.4:1 and `check:contrast` will not
+  catch it** — the gate hunts for a FILL token in a text position, and this is
+  an ink token on the wrong ground. It bit once in this PR, when the service
+  detail band went dark and took the language switch with it. Worth remembering
+  whenever a band changes colour.
+- **`check:contrast` skips are fatal now** (F-27). If a pair starts reporting
+  SKIP, the pair list is stale or the resolver cannot read a notation — both
+  need a human, and neither is "all pairs clear their floor".
+
+---
+
 ### 3.1 Open items carried into the build
 
 | # | Item | Owner | Blocks |
@@ -364,7 +537,9 @@ meets the ≥ 95 target and why that is not a number this PR could have reached.
 | O-6 | **N9 budget discrepancy.** Brief says JS < 100 kB, gate says 128 kB, tree ships 119.5 kB. Resolved for this programme as **128 kB**, per §1.1. Amend `WEB_BUILD_BRIEF.md` N9 in PR 1 so the two stop disagreeing. | Build | PR 1 §5.6 |
 | O-7 | **Binary assets are not in the repo and must not be.** Zero images exist in the tree today; everything goes through `storage.service` and `/media`. Assets arrive by upload, not by commit. See §4. | Build | PR 2 §6.3 |
 | O-8 | **Photograph provenance unconfirmed.** The four atmosphere images are triaged as `generated`/`licensed`. If any is Smart Logistics' own photography it is `owned` and may be used as evidence rather than atmosphere, which materially raises what the proof band and case notes can do. | Client | PR 2 §6.3 |
-| O-9 | **`check:contrast` is not ported to `public-web`**, and it is the gate that computes the defect F-15 found on the primary CTA. §5.6 assigned it to PR 1; PR 1 did not ship it and did not record that (F-14). | Build | PR 5 §9.4 — new colour pairs on new grounds |
+| O-9 | ~~**`check:contrast` is not ported to `public-web`**~~ — **CLOSED in PR 4.** Ported the way D-14 ported `check:palette`: one copy in `client/scripts` with an `--app` argument, not a second file. Three resolver defects had to be fixed before it could see this app at all (F-27), and its first real run found four live WCAG failures — F-20 in the ERP, F-21, F-22 and F-23 here. | Build | ~~PR 5 §9.4~~ |
+| O-10 | **§6.3's asset upload is blocking on its FOURTH PR, and PR 5 is the last one.** §9.3 and §9.4 cannot be built without it, so the programme cannot reach 100% while it is unbuilt. This is a scoping decision that has to be made before PR 5 starts rather than discovered during it. | Build | PR 5 §9.3, §9.4 |
+| O-11 | **F-16's Lighthouse target must be resolved by PR 5**, because PR 5 owns the final acceptance list. Performance measures 90–91 on this branch and 89–90 on `main`, in the same container — the target is missed on both by the same margin, for the architectural reason F-16 gives. Either §8.7/§9.7 adopt a reachable number for a client-rendered app, or the programme takes on SSR. | Build + Client | PR 5 §9.6, §9.7 |
 
 ---
 
@@ -1001,15 +1176,26 @@ most text-heavy block in the programme, and the one Q12 named specifically.
 
 ### 8.7 PR 4 acceptance criteria
 
-- [ ] Every route in `router.tsx` has a designed entrance. Enumerate them in the PR description with
-      a screenshot each, **light and dark**.
-- [ ] Track page tested on a real mid-range Android over throttled 4G, with a timing.
-- [ ] All gates green; first paint reported; Lighthouse ≥ 95 both languages.
-- [ ] Reduced-motion pass on the ESG interactive specifically — it is the most complex settled state
-      in the programme.
-- [ ] FR typography verified per `BRAND_GLOSSARY_FR_EN.md` §5 — narrow NBSP before `: ; ! ?`,
-      guillemets, accented capitals, `1 250 000,50 XAF`, `15 %`, `20 août 2026`.
-- [ ] Coverage Register and Progress Log updated.
+- [x] Every route in `router.tsx` has a designed entrance. Enumerate them in the PR description with
+      a screenshot each, **light and dark**. — *Entrances done and enforced by a test
+      (`route-entrances.test.tsx`), which derives the route list from `router.tsx` so a new route is
+      covered without anyone remembering. Screenshots were taken in both themes;* **the PR carries no
+      images** *— this environment cannot attach them. See §3.5.*
+- [x] Track page tested on a real mid-range Android over throttled 4G, with a timing. — *Not a real
+      handset: Lighthouse's Moto G Power emulation, simulated slow 4G (150 ms RTT, 1.6 Mbps), 4× CPU.
+      **90/100/96/91**, FCP 2352 ms, LCP 2595 ms, against `main`'s 93 and LCP 2746 ms in the same
+      container. The emulation is the standard proxy and it is not the device the criterion asks for.*
+- [x] All gates green; first paint reported. — ***41/41***, *first paint* **123.4 kB** *(96%).*
+- [ ] Lighthouse ≥ 95 both languages. — **NOT MET, on this branch or on `main`.** *90–91 here,
+      89–90 there, same container. See F-16 and O-11: this is a spec target the architecture cannot
+      reach, and PR 5 has to settle it.*
+- [x] Reduced-motion pass on the ESG interactive specifically. — *Driven in Chromium, both themes:
+      `--scrub` settles to 1 on all three pillars, 14/14 annotations fully opaque, 9/9 paths drawn,
+      three columns. It found two real defects first — see §3.5.*
+- [x] FR typography verified per `BRAND_GLOSSARY_FR_EN.md` §5 — narrow NBSP before `: ; ! ?`,
+      guillemets, accented capitals, `1 250 000,50 XAF`, `15 %`, `20 août 2026`. — *And the gate that
+      checks it was blind to `\uXXXX` escapes; fixed (F-26).*
+- [x] Coverage Register and Progress Log updated.
 
 **Weights:** 8.1 = 5 · 8.2 = 3 · 8.3 = 3 · 8.4 = 3 · 8.5 = 2 · 8.6 = 2 → **18**
 

@@ -283,6 +283,13 @@ export const en = {
       titleAccent: "learning",
       sub: "Notes from the desk on customs, freight and the corridors we work — written by the people doing the work.",
       filterLabel: "Filter by topic",
+      /* §8.6's kind filter. The COARSER cut, above the topics: "articles or
+         announcements" is a different question from "which subject", and a
+         reader who wants the notices should not hunt for them among essays. */
+      kindLabel: "Filter by kind",
+      kindAll: "Everything",
+      kindArticle: "Articles",
+      kindAnnouncement: "Announcements",
       all: "All",
       loading: "Loading the articles…",
       loadingArticle: "Loading the article…",
@@ -401,6 +408,23 @@ export const en = {
       sub: "Clients get a portal: live file status, every document we hold for you, and a message line to the team handling your cargo.",
       cta: "Open the client portal",
       invited: "Have an invitation link? Set your password there.",
+    },
+    /* ── The ESG interactive (§8.4) ────────────────────────────────────────
+       THE PILLAR NAMES ARE OURS; EVERYTHING INSIDE A PILLAR IS THE TENANT'S.
+       Environment / Social / Governance is the standard triad — naming the
+       three columns is a layout decision, not a claim about this company — and
+       `packages/shared/schemas/site-settings.js` fixes them to exactly three
+       for that reason. The prose and every bullet come from `site_about.esg`,
+       which is why there is no fallback copy here: a tenant who has written no
+       ESG gets no band, not our words under their logo (N12). */
+    esg: {
+      kicker: "Responsibility",
+      title: "How we",
+      titleAccent: "operate",
+      environment: "Environment",
+      social: "Social",
+      governance: "Governance",
+      figureAlt: "{{pillar}} — the commitments listed beside this drawing, drawn",
     },
     quote: {
       title: "Get a quote",
@@ -548,6 +572,15 @@ export const en = {
       otherTitle: "Faster than a message",
       otherTrack:
         "A reference is enough. The same milestones the desk would read back to you, without waiting for a reply.",
+      /* §8.5's coverage figure. "Where are you" is the second question a
+         contact page is asked, and this one could not answer it. */
+      coverageKicker: "Presence",
+      coverageTitle: "Where we are, and where we deliver",
+      coverageAlt:
+        "A diagram linking each office to the places it covers. The same offices and places are listed as text below.",
+      offices: "Offices",
+      covers: "Delivers to",
+      coverageNone: "Coverage areas are not published for these offices yet.",
       otherPortal:
         "Already a client. Your files, documents and invoices, with nothing to look up.",
       otherQuote:
@@ -583,6 +616,9 @@ export const en = {
     },
     careers: {
       title: "Careers",
+      /* Split for §8.5's entrance, like every other hero title. */
+      titleMain: "Build the",
+      titleAccent: "corridor",
       sub: "Everything we are hiring for right now.",
       list: "Open roles",
       empty: "No open roles right now",
@@ -682,6 +718,11 @@ export const en = {
     },
     servicesPage: {
       title: "Services",
+      /* Split for §8.2's entrance, the way every other hero title is: the
+         accent word is the one the eye lands on, and `SectionHead` colours it
+         per ground (`--brand-orange` on the plate, `--primary-ink` on white). */
+      titleMain: "What we",
+      titleAccent: "handle",
       sub: "What we handle, end to end.",
       empty:
         "Service pages are being written. Ask for a quote in the meantime.",
@@ -733,8 +774,32 @@ export const en = {
         "The desk publishes each stage as it is confirmed. Come back once the first one is marked, or open the portal for the documents already on file.",
       loading: "Looking up that reference…",
       searchAgain: "Try another reference",
+      /* ── §8.1's verdict line ────────────────────────────────────────────
+         Three statuses, written as an ANSWER rather than as a record's state.
+         "IN_PROGRESS" is what the column says; "On the move" is what somebody
+         who asked where their cargo is wants to read. */
+      theAnswer: "Where this shipment is",
+      verdictOpened: "Opened, not yet moving",
+      verdictMoving: "On the move",
+      verdictDone: "Delivered",
+      /* Deliberately NOT "estimated arrival". There is no ETA in this API and no
+         feed behind this page — this is the date the desk scheduled for the last
+         outstanding stage, and it is labelled as exactly that. */
+      scheduled: "Scheduled",
+      noSchedule: "No stage has been scheduled on this file yet.",
+      whereRef:
+        "The reference is on the documents your account manager sent you — the booking confirmation, the transport order or the invoice.",
+      noMatch: "No match",
+      notFoundNotLost:
+        "This says nothing about your cargo. It means no file on this site carries that exact reference — most often a digit read across from a photograph, or a reference from a different provider.",
+      askDesk: "Ask the desk",
+      tooMany: "Too many lookups",
+      /* SHORT, because it sits at display size. `errors.loadFailed` is a full
+         sentence and belongs under a title, not as one. */
+      failedTitle: "The lookup did not go through",
     },
     notFound: {
+      kicker: "Wrong turn",
       title: "That page does not exist",
       hint: "The link may be old, or mistyped. Start from the homepage, or track a shipment by reference.",
       home: "Back to the homepage",
@@ -1093,6 +1158,10 @@ export const fr = {
       titleAccent: "apprenons",
       sub: "Les notes du bureau sur la douane, le fret et les corridors où nous opérons — écrites par ceux qui font le travail.",
       filterLabel: "Filtrer par thème",
+      kindLabel: "Filtrer par type",
+      kindAll: "Tout",
+      kindArticle: "Articles",
+      kindAnnouncement: "Annonces",
       all: "Tout",
       loading: "Chargement des articles…",
       loadingArticle: "Chargement de l’article…",
@@ -1207,6 +1276,15 @@ export const fr = {
       cta: "Ouvrir le portail client",
       invited:
         "Vous avez un lien d’invitation ? Choisissez votre mot de passe depuis ce lien.",
+    },
+    esg: {
+      kicker: "Responsabilité",
+      title: "Notre façon",
+      titleAccent: "d’opérer",
+      environment: "Environnement",
+      social: "Social",
+      governance: "Gouvernance",
+      figureAlt: "{{pillar}} — les engagements listés à côté de ce dessin, dessinés",
     },
     quote: {
       title: "Demander un devis",
@@ -1337,6 +1415,14 @@ export const fr = {
       otherTitle: "Plus rapide qu’un message",
       otherTrack:
         "Une référence suffit. Les mêmes jalons que le bureau vous lirait, sans attendre de réponse.",
+      coverageKicker: "Présence",
+      coverageTitle: "Où nous sommes, et où nous livrons",
+      coverageAlt:
+        "Un schéma reliant chaque bureau aux zones qu’il dessert. Les mêmes bureaux et zones sont listés en texte ci-dessous.",
+      offices: "Bureaux",
+      covers: "Dessert",
+      coverageNone:
+        "Les zones desservies ne sont pas encore publiées pour ces bureaux.",
       otherPortal:
         "Déjà client. Vos dossiers, documents et factures, sans rien à rechercher.",
       otherQuote:
@@ -1372,6 +1458,8 @@ export const fr = {
     },
     careers: {
       title: "Carrières",
+      titleMain: "Construire le",
+      titleAccent: "corridor",
       sub: "Tous les postes ouverts en ce moment.",
       list: "Postes ouverts",
       empty: "Aucun poste ouvert pour l’instant",
@@ -1471,6 +1559,8 @@ export const fr = {
     },
     servicesPage: {
       title: "Services",
+      titleMain: "Ce que nous",
+      titleAccent: "prenons en charge",
       sub: "Ce que nous prenons en charge, de bout en bout.",
       empty:
         "Les pages de services sont en cours de rédaction. Demandez un devis en attendant.",
@@ -1523,8 +1613,23 @@ export const fr = {
         "Le bureau publie chaque étape à mesure qu’elle est confirmée. Revenez une fois la première validée, ou ouvrez le portail pour les documents déjà au dossier.",
       loading: "Recherche de cette référence…",
       searchAgain: "Essayer une autre référence",
+      theAnswer: "Où se trouve cet envoi",
+      verdictOpened: "Ouvert, pas encore en mouvement",
+      verdictMoving: "En mouvement",
+      verdictDone: "Livré",
+      scheduled: "Prévu",
+      noSchedule: "Aucune étape n’est encore planifiée sur ce dossier.",
+      whereRef:
+        "La référence figure sur les documents transmis par votre gestionnaire de compte : la confirmation de réservation, l’ordre de transport ou la facture.",
+      noMatch: "Aucune correspondance",
+      notFoundNotLost:
+        "Cela ne dit rien de votre marchandise. Aucun dossier de ce site ne porte cette référence exacte — le plus souvent un chiffre relevé sur une photo, ou une référence provenant d’un autre prestataire.",
+      askDesk: "Contacter le bureau",
+      tooMany: "Trop de recherches",
+      failedTitle: "La recherche n’a pas abouti",
     },
     notFound: {
+      kicker: "Mauvaise adresse",
       title: "Cette page n’existe pas",
       hint: "Le lien est peut-être ancien ou mal recopié. Repartez de l’accueil, ou suivez un envoi par sa référence.",
       home: "Retour à l’accueil",

@@ -284,10 +284,13 @@ const LONE_BRACE = /(?<!\{)\{\s?[A-Za-z_][\w.]*\s?\}(?!\})/;
 const TYPO = [
   [/\s{2,}/g, "double space"],
   [
-    /[ \t][:;!?]/g,
-    `a normal space before : ; ! ? — §5 requires U+202F (${NBSP})`,
+    // U+00A0 is included: it is a no-break space, which LOOKS right and is the
+    // wrong width. §5 names U+202F specifically, and the difference is visible
+    // in a heading at display size.
+    /[ \t\u00a0][:;!?]/g,
+    `a normal or non-narrow space before : ; ! ? — §5 requires U+202F (${NBSP})`,
   ],
-  [/[ \t]%/g, "a space before % — §5 requires U+202F before the sign"],
+  [/[ \t\u00a0]%/g, "a space before % — §5 requires U+202F before the sign"],
   [/,/g, null],
 ];
 {
@@ -297,8 +300,26 @@ const TYPO = [
     for (const [k, v] of Object.entries(node ?? {})) {
       const key = prefix ? `${prefix}.${k}` : k;
       const items = Array.isArray(v) ? v : [v];
-      for (const item of items) {
-        if (typeof item === "string") {
+      for (const raw of items) {
+        if (typeof raw === "string") {
+          /*
+           * ── DECODE `\uXXXX` BEFORE MEASURING ────────────────────────────
+           *
+           * The dictionary is parsed as TEXT, so a string written as
+           * `"compte\\u00a0:"` reaches this check as the eleven characters
+           * `compte\uXXXX:` — no space in sight — and every rule below passes
+           * it. At runtime it renders U+00A0, an ordinary no-break space, where
+           * §5 requires U+202F. The typography check was blind to precisely the
+           * notation somebody reaches for when they are being careful about
+           * whitespace.
+           *
+           * Found while adding §8.1's French copy: the strings passed the gate
+           * and were still wrong. Decoding first is the whole fix — the rules
+           * are unchanged, they simply now see what the browser sees.
+           */
+          const item = raw.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
+            String.fromCharCode(parseInt(hex, 16)),
+          );
           if (/[\u00c0-\u017f]/.test(item) || /\s/.test(item)) {
             for (const [re, why] of TYPO) {
               if (why && re.test(item)) {
@@ -309,7 +330,7 @@ const TYPO = [
             if (/[A-Za-zÀ-ÿ]'[A-Za-zÀ-ÿ]/.test(item))
               seen.add(`${key}: straight apostrophe — French uses ’`);
           }
-        } else if (item && typeof item === "object") scan(item, key);
+        } else if (raw && typeof raw === "object") scan(raw, key);
       }
     }
   };
