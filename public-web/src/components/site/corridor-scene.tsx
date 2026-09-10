@@ -2,6 +2,11 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { listCorridors, type Corridor } from "@/lib/corridors-api";
 import {
+  listPublicEntities,
+  coveredCountries,
+  type PublicEntity,
+} from "@/lib/site-api";
+import {
   buildGraph,
   laneControl,
   laneToken,
@@ -58,6 +63,7 @@ const DEPTH = { lanes: 6, nodes: 12 };
 export function CorridorScene() {
   const { t } = useTranslation();
   const [lanes, setLanes] = React.useState<Corridor[] | null>(null);
+  const [entities, setEntities] = React.useState<PublicEntity[] | null>(null);
 
   React.useEffect(() => {
     let alive = true;
@@ -67,12 +73,26 @@ export function CorridorScene() {
        would spend the visitor's connection on a band they have not reached, on
        behalf of a hero that has not painted. */
     const release = afterPaint(() => {
+      /* TWO READS, IN PARALLEL, and neither blocks the other.
+ 
+         §7.5 says the scene's data comes from `listCorridors` AND the §6.9
+         entities endpoint. They answer different questions — a corridor is a
+         lane the tenant has RUN, an entity's coverage is ground the tenant
+         STANDS ON — so the scene draws whatever arrives. Corridors alone give a
+         complete network with nothing marked; entities alone mark nothing,
+         because there are no nodes to mark. Neither failing costs the other
+         anything, which is why they are not chained. */
       listCorridors()
         .then((rows) => alive && setLanes(Array.isArray(rows) ? rows : []))
         // FEATURE_DISABLED for a tenant without the website package, and an
         // empty array for one under the k-anonymity floor. Both mean the same
         // thing to this scene: draw the abstract graph.
         .catch(() => alive && setLanes([]));
+      listPublicEntities()
+        .then((rows) => alive && setEntities(Array.isArray(rows) ? rows : []))
+        // `public_enabled` is off by default (13787), so an empty answer is the
+        // normal one and marks nothing. An absence is not a claim.
+        .catch(() => alive && setEntities([]));
     });
     return () => {
       alive = false;
@@ -85,7 +105,11 @@ export function CorridorScene() {
   // fills in. There is no loading state here for the same reason the
   // announcements band has none: a set piece that arrives late is a layout
   // shift on a page whose budget exists to avoid them.
-  const graph = React.useMemo<CorridorGraph>(() => buildGraph(lanes ?? []), [lanes]);
+  const covered = React.useMemo(() => coveredCountries(entities), [entities]);
+  const graph = React.useMemo<CorridorGraph>(
+    () => buildGraph(lanes ?? [], covered),
+    [lanes, covered],
+  );
 
   return (
     <section
@@ -336,6 +360,14 @@ function CorridorFigure({ graph }: { graph: CorridorGraph }) {
                 ledger's own number, already past the k-anonymity floor. */}
             {nodes[active].weight} {t("site.corridor.files")}
           </span>
+          {/* Said in words as well as drawn, because the ring means nothing to
+              a reader who cannot see it — and this is the one genuinely new
+              fact the entities read contributes. */}
+          {nodes[active].present ? (
+            <span className="corridor-readout-present">
+              {t("site.corridor.present")}
+            </span>
+          ) : null}
         </p>
       ) : null}
     </div>
@@ -383,7 +415,11 @@ const CorridorNode = React.forwardRef<
       aria-label={node.label ?? undefined}
       onFocus={onFocus}
       onMouseEnter={onFocus}
-      className={cn("corridor-node", active && "is-active")}
+      className={cn(
+        "corridor-node",
+        active && "is-active",
+        node.present && "is-present",
+      )}
       transform={`translate(${node.x * 100} ${node.y * 100})`}
     >
       {/* The hit area, invisible and generous. A 3px circle is not a target on
@@ -392,6 +428,13 @@ const CorridorNode = React.forwardRef<
       <circle r="11" fill="transparent" />
       <circle className="corridor-node-halo" r={r + 4} />
       <circle className="corridor-node-dot" r={r} />
+      {/* A place the tenant is IN, not merely one they reach. Drawn as a ring
+          around the dot rather than as a different colour: colour on this scene
+          already means transport mode, and a fifth meaning for it would make
+          the palette stop meaning anything. */}
+      {node.present ? (
+        <circle className="corridor-node-present" r={r + 2.5} />
+      ) : null}
     </g>
   );
 });

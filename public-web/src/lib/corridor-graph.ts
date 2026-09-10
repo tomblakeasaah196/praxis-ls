@@ -46,6 +46,17 @@ export type GraphNode = {
   y: number;
   /** Files through this place. 0 in the abstract graph. */
   weight: number;
+  /**
+   * The tenant has a public entity in this place's COUNTRY (§6.9's entities
+   * read, joined on `country_code`).
+   *
+   * "We deliver here" and "we are here" are different claims and the second is
+   * the stronger one. Only true where BOTH sides said so: the corridor row
+   * carries a country code and a `public_enabled` entity covers it. False for
+   * every node when a tenant has published no entity, which is the default —
+   * an absence marks nothing rather than guessing.
+   */
+  present: boolean;
 };
 
 export type GraphLane = {
@@ -86,13 +97,28 @@ function ringPoint(i: number, n: number): { x: number; y: number } {
  * ring whose long lanes are all short chords at one edge, which looks like a
  * bug.
  */
-export function buildGraph(corridors: Corridor[]): CorridorGraph {
+export function buildGraph(
+  corridors: Corridor[],
+  /** ISO codes the tenant's public entities sit in or cover — see
+   *  `coveredCountries` in site-api.ts. Empty is the normal case. */
+  covered: ReadonlySet<string> = new Set(),
+): CorridorGraph {
   if (!corridors.length) return abstractGraph();
 
   const weights = new Map<string, number>();
+  /* A place's country, taken from whichever corridor row mentions it. The
+     endpoint publishes `origin_country`/`destination_country` as optional, so
+     plenty of rows have neither — those places are simply never marked, which
+     is the correct answer rather than a guess. */
+  const country = new Map<string, string>();
+  const note = (place: string, code?: string | null) => {
+    if (code && !country.has(place)) country.set(place, code.toUpperCase());
+  };
   for (const c of corridors) {
     weights.set(c.origin, (weights.get(c.origin) || 0) + c.files);
     weights.set(c.destination, (weights.get(c.destination) || 0) + c.files);
+    note(c.origin, c.origin_country);
+    note(c.destination, c.destination_country);
   }
 
   const order = [...weights.entries()]
@@ -100,12 +126,16 @@ export function buildGraph(corridors: Corridor[]): CorridorGraph {
     .map(([name]) => name);
   const index = new Map(order.map((name, i) => [name, i]));
 
-  const nodes: GraphNode[] = order.map((name, i) => ({
-    id: name,
-    label: name,
-    weight: weights.get(name) || 0,
-    ...ringPoint(i, order.length),
-  }));
+  const nodes: GraphNode[] = order.map((name, i) => {
+    const code = country.get(name);
+    return {
+      id: name,
+      label: name,
+      weight: weights.get(name) || 0,
+      present: Boolean(code && covered.has(code)),
+      ...ringPoint(i, order.length),
+    };
+  });
 
   const busiest = Math.max(...corridors.map((c) => c.files), 1);
   const lanes: GraphLane[] = corridors.map((c) => ({
@@ -133,6 +163,9 @@ export function abstractGraph(): CorridorGraph {
     id: `n${i}`,
     label: null,
     weight: 0,
+    // Nothing in the ornament is a place, so nothing in it can be one the
+    // tenant is present in.
+    present: false,
     ...ringPoint(i, n),
   }));
   // Every node to the one two and three places around: a regular pattern that
