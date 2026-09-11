@@ -144,6 +144,16 @@ it, and PR 5's own 16 are its own scope and nothing else. The running column is
 unchanged for PRs 2–4 because those percentages record what was merged at the
 time.
 
+**Post-PR 5 work scores zero, deliberately, and that is the register working.**
+O-12, O-13 and O-14 were carried out of the programme as open items rather than
+as unbuilt points — §2's denominator is this guide's specified capability, and
+all of it is merged. Closing them adds no points because they were never in the
+hundred, and inflating the total to reflect effort is exactly what the fixed
+denominator exists to prevent. What they changed is recorded in §3.8 and in the
+O-row for each; the two findings that came out of them and are still open
+(O-15, O-16) are likewise not a coverage deduction, because neither is
+specified capability that is missing.
+
 Coverage is **100%**. §11's definition of done is met on four of its five
 clauses; the fifth — "Lighthouse ≥ 95 on all four categories" — is the one O-11
 was opened to resolve, and §9.7 now states a target this architecture reaches
@@ -167,6 +177,7 @@ filled in", not as "nothing to report".
 | PR 3 | **Merged** | 2026-09-10 · [#325](https://github.com/tomblakeasaah196/praxis-ls/pull/325) | **63%** | 20 of 20, **plus 2 of PR 2's carried points** (§6.4). Four deviations and six findings — see §3.4. F-14 is the important one: **PR 1 recorded 22/22 for §5.6 and shipped one of its five gates**, so `check:assets`, `check:palette` and the deferred-chunk budget were built here. F-16 is a Lighthouse target this architecture cannot reach. |
 | PR 4 | **Merged** | 2026-09-10 · [#327](https://github.com/tomblakeasaah196/praxis-ls/pull/327) | **81%** | 18 of 18. Four deviations and eight findings — see §3.5. **F-20 is the one to read first: the ERP's own primary button measures 2.59:1** and is out of scope here. F-21–F-23 are three live AA failures in this app that the O-9 port found on its first run. §6.3 is now blocking on its FOURTH PR and PR 5 cannot deliver §9.3 or §9.4 without it. |
 | PR 5 | **Merged** | 2026-09-10 · [#328](https://github.com/tomblakeasaah196/praxis-ls/pull/328) | **100%** | 16 of 16, **plus PR 2's last 3 carried points** (§6.3, §6.8), which closes O-10. Five deviations and eleven findings — see §3.6. **F-28 is the one to read first: `useScrollScrub`'s default range finishes after the band has left the screen**, so §9.1's timeline shipped its first draft permanently invisible. F-31 corrects the record: the SEO and best-practices figures in §3.4 and §3.5 were measuring the preview harness, not the app. O-11 is resolved in §9.7; O-2, O-3 and O-4 remain the client's and §9.4 ships complete without them. |
+| Post-PR 5 | **Open items** | — | **100%** | Not a programme PR: O-12, O-13 and O-14 taken, plus what looking properly turned up — see §3.8. **F-40 is the one to read first: `services-page` put the whole quote wizard on its critical path** and every gate was green, because the first-paint gate never looked at a route chunk. A live theme-toggle defect was found and fixed here too — the painter wrote inline tokens, so clicking "Dark theme" gave a visitor the class, the attribute, the stored preference and a white page. Two items stay open (O-15, O-16), both measured, both with the reason they were not taken. |
 
 ### 3.2 PR 1 — reservations, deviations and findings
 
@@ -566,6 +577,11 @@ its fourth PR.
 | F-36 | **The site does not follow `prefers-color-scheme`, and the first theme audit did not notice.** `lib/theme-mode.ts` is explicit and reasoned — "Two states, not three… a visitor who lands here for ninety seconds does not have an opinion, and a 'system' option on a marketing page is a third thing to understand" — so the mode is an explicit toggle persisted in localStorage. The audit's first run set Playwright's `colorScheme` and nothing else, and produced two BYTE-IDENTICAL screenshots for light and dark. | **The app is as designed; the AUDIT was wrong and is fixed.** It now seeds `praxis.public.theme` and asserts that `.dark` and `data-theme` are actually painted before it claims to have checked a theme. Recorded because "both themes" was very nearly reported on the strength of a pass that never switched theme — F-24's shape, in the final pass that exists to catch it. Worth a decision separately: a visitor on a dark OS gets a light page, which is defensible and is not what most of the web now does. |
 | F-37 | **The public entity payload carries no registered address, and §9.2 lists one.** §9.2's per-entity list is "trading name, country, registered address, coverage areas, service focus, cover asset, and that entity's leadership". `corporate_entity.address` is not in `publicEntities`'s allow-list — 13787 selected deliberately and left it out, and PR 2 shipped that. | **Open, deliberately not fixed here.** A postal address is a different disclosure from a country: it is what somebody needs to send a courier, and also what somebody needs to impersonate the company on headed paper. Widening a public endpoint's allow-list is not a decision to take quietly on the last PR of a programme. Either §9.2 drops it, or a later change adds it with the argument written down — the entity card renders correctly without it either way. |
 | F-38 | **The upload's transparency check is what makes O-3 a real answer rather than a note.** Not a defect — recorded because it is the one place this PR turned a client-side open item into something the system enforces. §9.4 says "a white rectangle on a dark band is worse than an absent logo" and O-3 records that the supplied marks are rasters with white backgrounds baked in. `sharp`'s `stats.isOpaque` is true exactly when every pixel's alpha is 255, which IS "this image has a background". | **Shipped.** A mark for a slot on a dark band is refused with a message naming the fix, and the renderer's answer where no usable file exists is the organisation's NAME set in the display face — a wordmark, which states the same fact and reads correctly with no asset at all. So §9.4 is complete for a tenant who never resolves O-3. |
+| F-39 | **The entry ships both translation dictionaries.** Measured, not inferred: building with `fr` aliased to `en` takes `index` from 52.7 to 44.3 kB gzip. Every visitor carries 8.4 kB of a language they are not reading — 6.6 % of the whole first-paint budget, and the largest single item left in it. | **Open (O-15), with the reason it was not taken.** A naive split trades 8 kB of parallel transfer for a serial round trip and is a wash at best; it pays only with a `modulepreload` for the resolved dictionary in the server-rendered head. |
+| F-40 | **`services-page` put the whole quote wizard on its critical path.** A static `import { QuoteWizard }` from a route chunk is part of that route, so 6.6 kB gzipped — the largest single item on the route, larger than the page itself — had to arrive before React could commit a page whose form sits two screens below the fold. Every gate was green: the first-paint gate measured the entry and its static imports and never looked at a route chunk. | **Fixed.** `components/site/quote-band.tsx` defers it behind `useApproaching` — a screen of `rootMargin`, so the chunk lands before the band is legible rather than swapping under the reader's thumb. 16.3 → 10.0 kB of route-own payload. |
+| F-41 | **`check:motion`'s declaration regex required whitespace before the property.** `.x{transition:opacity 3s}` on one line matched nothing — in `index.css` or anywhere else. Both apps' copies. Found by probing the gate with a real violation; reading it would not have shown this, because the pattern looks correct until you notice `{` is not `\s`. | **Fixed** in both copies, and both probes are recorded in §3.8. |
+| F-42 | **`check:contrast` read the first `:root` block and the first declaration in it.** Two independent first-match assumptions, and the second is the one that mattered: after the gate was widened to collect every matching rule, `rawToken` still returned the earliest declaration, so an override — the thing a cascade exists to do — was collected and then ignored. A gate that measures a value nobody is served is worse than one that measures nothing, because it reports a pass. | **Fixed.** Blocks are joined in cascade order and `rawToken` takes the last. Verified by a second `:root` re-declaring `--foreground` at 1.12:1: caught, and not caught before. |
+| F-43 | **`/careers`'s 0.093 shift is the skeleton, not the font.** O-12's fallbacks left it unchanged, and it survives with fonts blocked entirely; a `PerformanceObserver` puts it at a single shift at t=227 ms. Lighthouse attributed it to "web font loaded", which is coarse enough to have sent this to the wrong fix. | **Open (O-16), diagnosed not guessed.** `PageSkeleton rows={4}` stands in for a list whose length is the tenant's; the honest fix needs both rendered heights measured against a live backend. |
 
 **How this was verified.**
 
@@ -711,6 +727,77 @@ performance rather than quietly dropped.
 
 ---
 
+### 3.8 After PR 5 — the open items, taken
+
+Not a PR of the programme: the work O-12, O-13 and O-14 were carried out of it
+for, plus what looking properly turned up. Recorded here because §2's rule is
+that a finding without its verification is a claim.
+
+**O-12 — the fallback faces, generated rather than measured.** O-12 itself
+warned that the 105.9 % it quoted came from one container and that a visitor's
+fallback varies by platform, so the numbers are read out of the real `.woff2`
+files by `scripts/gen-font-fallbacks.mjs` (fontkit, already present via pdfkit)
+and `check:fonts-fallback` fails when a `@fontsource` bump moves them. Each
+override is stated against the ADJUSTED em — `face fraction ÷ size-adjust` —
+which is the step that is easy to get wrong and looks plausible either way.
+`/about?lang=fr` CLS **0.184 → 0.003**, performance **87 → 95**. The check that
+actually settles it is not Lighthouse: with fonts blocked versus loaded, the
+footer position and document height are identical to the pixel on `/careers`,
+`/about` and `/contact`.
+
+**A live defect found on the way, and it was shipped.** The theme painter wrote
+the visitor's current palette as INLINE custom properties on `:root`. Correct at
+boot and wrong from the first click of the toggle: `setMode` flips `.dark` and
+`data-theme`, nothing re-ran the painter, and an inline token outranks every
+rule in `index.css`. A visitor who chose "Dark theme" got the class, the
+attribute, the stored preference — and a white page. It hid because
+`index.css`'s own `.dark` block works perfectly when the painter has written
+nothing, which is the state of a dev preview with no API; the bug needed the
+theme read to SUCCEED. Both palettes now ship as a stylesheet, so no future path
+that flips the class can forget to repaint. Verified in a real browser either
+side of the click: `--background` `rgb(255 255 255)` ⇄ `rgb(11 13 17)`,
+`--primary` `rgb(255 90 0)` ⇄ `rgb(255 122 51)`.
+
+**F-18 — the first-paint gate never looked at a route chunk.** Turning the
+measurement on found `services-page` at 16.3 kB of route-own payload, because it
+imported the quote wizard statically for a form below two screens of prose. The
+budget is on what a route ADDS, not on the total: the total is what a visitor
+waits for and is the number printed, but it is already budgeted — every kilobyte
+the entry gains shows up in all twelve route totals at once, so a single entry
+regression would redden twelve rows and none of them would be the cause. Proven
+in both directions: the gate exits 1 at 16.3 kB and 0 at 10.0 kB.
+
+**O-13 — and two blind spots the finding did not know about.** Both gates now
+walk every `.css` under `src/`, discovered rather than listed. The two extra
+findings (F-41, F-42) came from *probing* each gate with a real violation
+instead of reading it, which is the only way to establish a blind spot:
+
+| Probe | Before | After |
+| --- | --- | --- |
+| `transition: opacity 3000ms` in `public-web/src/fonts.css`, one line | passed, silently | ✗ 3000 ms against a 200 ms budget, named to `src/fonts.css` |
+| the same, multi-line, in `src/fonts-fallback.css` | passed, silently | ✗ named to `src/fonts-fallback.css` |
+| the same in `client/src/fonts/brittany-signature.css` | passed, silently | ✗ 3000 ms > 250 ms, named to the file |
+| a second `:root` re-declaring `--foreground: #f2f2f2` | passed | ✗ 1.12:1 on two pairs |
+| the same block inside `@media (prefers-color-scheme: dark)` | passed | passes, deliberately — neither app resolves its theme from that query |
+
+**O-14 — resolved in favour of the product.** §9.2 promised a registered address
+the allow-list deliberately never selected. Nothing on this site publishes a
+postal address, `WEB_BUILD_BRIEF.md` N12 forbids inventing what the tenant has
+not given us, and a street address is different in kind from a country — it is
+what somebody needs to send a courier and equally what somebody needs to put a
+real company's registered office on headed paper they wrote themselves. So the
+document was corrected, not the endpoint, and widening a public allow-list stays
+a decision somebody takes deliberately.
+
+**What is left, and why it is left.** O-15 (8.4 kB of unread dictionary in every
+entry) and O-16 (`/careers`'s 0.093 shift) are both measured and both carry the
+reason they were not taken: the first because a naive split is a wash without a
+head-side `modulepreload`, the second because the honest fix needs two rendered
+heights and this session had no live backend to measure them against. Neither is
+a guess deferred; both are numbers with a next step.
+
+---
+
 ### 3.1 Open items carried into the build
 
 | # | Item | Owner | Blocks |
@@ -726,9 +813,11 @@ performance rather than quietly dropped.
 | O-9 | ~~**`check:contrast` is not ported to `public-web`**~~ — **CLOSED in PR 4.** Ported the way D-14 ported `check:palette`: one copy in `client/scripts` with an `--app` argument, not a second file. Three resolver defects had to be fixed before it could see this app at all (F-27), and its first real run found four live WCAG failures — F-20 in the ERP, F-21, F-22 and F-23 here. | Build | ~~PR 5 §9.4~~ |
 | O-10 | ~~**§6.3's asset upload is blocking on its FOURTH PR**~~ — **CLOSED in PR 5**, built first and credited to PR 2 (§2's rule: carried points belong to the PR that built them). 13789 adds `public_media_provenance` and makes §1.3 a CHECK — `generated` may occupy ATMOSPHERE and no other role — plus AVIF/WebP derivatives at three widths, a transparency check that closes half of O-3, and `GET /public/site/media/:id[/:width.:format]` fail-closed on an owner join. §6.8's entity story tab landed with it. | Build | ~~PR 5 §9.3, §9.4~~ |
 | O-11 | ~~**F-16's Lighthouse target must be resolved by PR 5**~~ — **CLOSED in PR 5. See §3.7.** F-31 is the reason the answer is not the one F-16 expected: the best-practices and SEO figures on record were measuring the preview harness, not the app, so three of the four categories are met and **performance is the only real gap**. §9.7 now asks for ≥ 95 on the other three and **≥ 90 on performance**, which is met on every route but one; ≥ 95 on performance is scoped as SSR follow-on work rather than dropped. | Build + Client | ~~PR 5 §9.6, §9.7~~ |
-| O-12 | **Metric-matched fallback faces (F-33).** `font-display: swap` reflows the footer on any short page and costs 8 Lighthouse points in French (`/about?lang=fr`: CLS 0.184, performance 87, against 0 and 95 in English). Pre-existing and app-wide — `/careers?lang=fr` from PR 4 measures 0.096 with the same cause. The fix is a `@font-face` per family with `src: local(…)` plus `size-adjust`/`ascent-override`; the number measured here (Inter at **105.9%** of `sans-serif`) is from ONE container and a visitor's fallback varies by platform. **The single highest-value performance fix left in this app.** | Build | performance ≥ 95, whenever it is taken on |
-| O-13 | **`check:motion` and `check:contrast` read `src/index.css` and only that file (F-34).** Per-route CSS splitting — worth ~1.5 kB of first paint immediately, on a budget now at 99% — cannot be done until both gates walk the stylesheet graph. Doing it first would buy headroom by making two gates blind to the thing being changed. | Build | any further first-paint work |
-| O-14 | **The public entity payload carries no registered address (F-37)**, and §9.2 lists one. `corporate_entity.address` was deliberately left out of 13787's allow-list. Either §9.2 drops it, or a later change adds it with the argument written down — a postal address is what somebody needs to send a courier AND what somebody needs to impersonate the company on headed paper. | Build + Client | §9.2's field list |
+| O-12 | ~~**Metric-matched fallback faces (F-33)**~~ — **CLOSED.** A `@font-face` per family, `src: local(…)` only, with `size-adjust`/`ascent-override`/`descent-override`/`line-gap-override` **generated from the real `.woff2` files** by `scripts/gen-font-fallbacks.mjs` rather than measured in one container — O-12 itself warned that a hand-measured 105.9% varies by platform, so the number is derived (Inter 105.31%, Archivo 91.10%, IBM Plex 91.96%, JetBrains Mono 100.32%) and `check:fonts-fallback` fails when a `@fontsource` bump moves it. `/about?lang=fr` CLS **0.184 → 0.003**, performance **87 → 95**; with fonts blocked versus loaded, the footer position and document height are identical to the pixel on `/careers`, `/about` and `/contact`. | Build | ~~performance ≥ 95~~ |
+| O-13 | ~~**`check:motion` and `check:contrast` read `src/index.css` and only that file (F-34)**~~ — **CLOSED, and it was worse than F-34 said.** Both gates now walk every `.css` under `src/`, discovered rather than listed. Establishing the blind spot by *probe* rather than by reading found two more: `check:motion`'s declaration regex required whitespace before the property, so `.x{transition:opacity 3s}` on one line matched nothing anywhere, including in `index.css`; and `check:contrast` read the FIRST matching `:root` block and `rawToken` the FIRST declaration in it, so a re-declaration — the thing a cascade exists to do — was collected and then ignored. A block inside `@media (prefers-color-scheme:)` is deliberately still excluded: neither app resolves its theme from that query. | Build | ~~any further first-paint work~~ |
+| O-14 | ~~**The public entity payload carries no registered address (F-37)**~~ — **CLOSED in favour of the product.** §9.2 and §7.2's endpoint table are corrected; the allow-list is unchanged. Nothing on this site publishes a postal address — `/contact` says so in its own header, `GET /branding` returns no postal details, and `WEB_BUILD_BRIEF.md` N12 forbids inventing what the tenant has not supplied — so the guide was the only thing out of step, and the narrower reading wins by default. Widening a public endpoint stays a decision somebody takes deliberately rather than one a spec implies. | Build + Client | ~~§9.2's field list~~ |
+| O-15 | **The entry ships BOTH translation dictionaries (F-39).** Building with `fr` aliased to `en` takes `index` from 52.7 to 44.3 kB gzip, so every visitor pays **8.4 kB — 6.6 % of the whole first-paint budget** — for the language they are not reading. Not taken here because splitting it naively LOSES: awaiting the resolved dictionary in `main.tsx` turns 8 kB of parallel transfer into a serial round trip, which on the connections this budget exists for is a wash at best. It pays with a `<link rel="modulepreload">` for the right dictionary in the server-rendered head — `src/shared/http/public-head.js` already builds that head and already knows the request's language. | Build | first-paint headroom |
+| O-16 | **`/careers` shifts 0.093 on a skeleton that is not the height of its content.** Diagnosed with a `PerformanceObserver` rather than inferred: one shift at t=227 ms, and NOT the font — it survives with fonts blocked, and O-12's fallbacks left it unchanged (Lighthouse's "web font loaded" attribution is coarse). `PageSkeleton rows={4}` stands in for a vacancy list whose length is the tenant's. Not fixed here because the honest fix needs the real rendered heights of both states, and this session has no live backend to measure them against — guessing a reservation is how the swap gets worse rather than better. | Build | CLS on `/careers` |
 
 ---
 
@@ -1180,7 +1269,7 @@ All under `/public/site`, all `feature: "website"`-gated, all pinned to the **li
 | `GET /public/site/partners` | Active partners by kind, and credentials. Never `permission_note`. |
 | `GET /public/site/social` | Active social links only. |
 | `GET /public/site/about` | Group About + group leadership. |
-| `GET /public/site/entities` | Public-enabled entities: name, trading name, country, address, coverage, focus, cover asset, and that entity's leadership. **No RCCM, no NIU, no cap table, no governance.** |
+| `GET /public/site/entities` | Public-enabled entities: name, trading name, country, coverage, focus, cover asset, and that entity's leadership. **No RCCM, no NIU, no registered address** (O-14), **no cap table, no governance.** |
 
 **A test per endpoint asserting the redaction.** Not "the controller omits it" — an assertion on the
 serialised response body that the statutory and governance fields are absent. Redaction that is
@@ -1419,10 +1508,28 @@ most text-heavy block in the programme, and the one Q12 named specifically.
 corridors they run, so the group structure and the service network are **the same picture**. Reuses
 PR 3's corridor scene rather than inventing a second spatial idea.
 
-- Per entity: trading name, country, registered address, coverage areas, service focus, cover asset,
-  and that entity's leadership. **No RCCM, no NIU** (§6.8).
+- Per entity: trading name, country, coverage areas, service focus, cover asset, and that entity's
+  leadership. **No RCCM, no NIU** (§6.8), and **no registered address** — see below.
 - An org-chart fallback for reduced motion and for narrow screens — and it must be clean, not a
   squashed map.
+
+**The registered address was struck from this list, not forgotten (O-14/F-37).** It read
+"trading name, country, registered address, …" while `13787`'s allow-list deliberately never
+selected `corporate_entity.address`, so the spec promised a field the product had decided not to
+ship — the drift that makes a spec stop being worth checking against.
+
+Resolved in favour of the product, because the product is already consistent and this document was
+the only thing out of step. Nothing on this site publishes a postal address: `/contact` says so in
+its own header, `GET /branding` returns colours, a name and logos and no postal details, and
+`WEB_BUILD_BRIEF.md` N12 forbids inventing the ones the tenant has not given us. A registered
+address is also the one field on that list which is materially different in kind from the rest — a
+country tells a visitor where a company operates; a street address is what somebody needs to send a
+courier, and equally what somebody needs to put a real company's registered office on headed paper
+they wrote themselves.
+
+So the narrower reading wins by default, and widening a public endpoint's allow-list stays a
+decision somebody takes deliberately, with the argument written down, rather than one this document
+implies. §7.2's endpoint table is corrected to match.
 
 ### 9.3 Leadership · 2 points
 
