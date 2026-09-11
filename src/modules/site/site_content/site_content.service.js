@@ -184,16 +184,44 @@ async function getPublicPage(client, key) {
  * sentence comes back on its own, rather than a `site.oldThing.title` override
  * sitting in a table for a page that no longer reads it.
  */
+/** Segments that would reach the prototype chain instead of the tree. */
+const UNSAFE_SEGMENT = new Set(["__proto__", "constructor", "prototype"]);
+
+/**
+ * Write `value` at a dotted path, creating the objects on the way.
+ *
+ * ── WHY THIS GUARDS A KEY THE CATALOGUE ALREADY VETTED ────────────────────
+ *
+ * Every key reaching here has passed `isSiteCopyKey`, so by construction it is
+ * a dictionary path and cannot be `__proto__`. The guard is here anyway,
+ * because that argument is about the catalogue and this function is about
+ * assignment: it holds only as long as nobody ever calls `setPath` from
+ * somewhere else, and "safe because of what the only caller happens to do
+ * today" is exactly the property that stops being true without anyone
+ * noticing. The cost is a `Set` lookup per segment on a read that is cached
+ * for five minutes.
+ *
+ * Null-prototype objects for the same reason. They serialise identically —
+ * `JSON.stringify` ignores the prototype — so the wire format is unchanged,
+ * and there is no inherited property left for a key to collide with.
+ */
 function setPath(tree, dotted, value) {
   const parts = dotted.split(".");
+  if (parts.some((part) => UNSAFE_SEGMENT.has(part))) return;
   let node = tree;
   for (let i = 0; i < parts.length - 1; i += 1) {
     const part = parts[i];
-    // A plain object at every level. `Object.create(null)` would be tidier
-    // against prototype keys, but this tree is JSON.stringify'd straight onto
-    // the wire and a null-prototype object serialises identically — so the
-    // guard that matters is the one below, on the key itself.
-    if (!node[part] || typeof node[part] !== "object") node[part] = {};
+    // `hasOwnProperty`, not a truthiness test on `node[part]`: the latter reads
+    // through the prototype, so on a plain `{}` a segment named `toString`
+    // would find the inherited function, decide the level already existed, and
+    // then try to walk into it.
+    if (
+      !Object.prototype.hasOwnProperty.call(node, part) ||
+      !node[part] ||
+      typeof node[part] !== "object"
+    ) {
+      node[part] = Object.create(null);
+    }
     node = node[part];
   }
   node[parts[parts.length - 1]] = value;
@@ -211,14 +239,16 @@ function setPath(tree, dotted, value) {
  */
 async function getPublicCopy(client) {
   const rows = await repo.listPublishedCopyOverrides(client);
-  const en = {};
-  const fr = {};
+  // Null-prototype roots, matching what `setPath` creates below.
+  const en = Object.create(null);
+  const fr = Object.create(null);
   for (const row of rows) {
     const items = Array.isArray(row?.content?.items) ? row.content.items : [];
     for (const item of items) {
       const key = typeof item?.key === "string" ? item.key : "";
-      // `__proto__` and friends can never reach setPath: the catalogue is the
-      // allow-list and every key in it starts `site.` and is a dictionary path.
+      // The catalogue is the allow-list: every key in it starts `site.` and is
+      // a dictionary path. `setPath` guards the prototype chain a second time
+      // rather than trusting that — see the note on it.
       if (!key || !isSiteCopyKey(key)) continue;
       const frText = typeof item?.value?.fr === "string" ? item.value.fr : "";
       if (!frText) continue;

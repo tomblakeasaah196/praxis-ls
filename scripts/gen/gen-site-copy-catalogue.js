@@ -357,7 +357,21 @@ function render({ entries, sections }) {
 function main() {
   const check = process.argv.includes("--check");
   const next = render(build());
-  const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, "utf8") : null;
+  // Read and handle "not there" as an outcome, rather than asking first and
+  // reading second. `existsSync` then `readFileSync` is two trips to the
+  // filesystem with a gap in between, and the gap is real here: `--check` runs
+  // in CI beside jobs that write into this tree, and the answer to "does it
+  // exist" can stop being true before the read happens. One call cannot
+  // disagree with itself.
+  let current = null;
+  try {
+    current = fs.readFileSync(OUT, "utf8");
+  } catch (err) {
+    // A missing file is the ordinary first-run state and means "stale"; any
+    // other error (a directory, a permission problem) is a real fault and must
+    // not be silently reported as a catalogue that needs regenerating.
+    if (err.code !== "ENOENT") throw err;
+  }
   if (check) {
     if (current === next) {
       console.log("site copy catalogue: up to date");

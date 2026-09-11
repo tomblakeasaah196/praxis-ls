@@ -51,14 +51,43 @@
 -- No new column, no new index: this is one more value in an existing CHECK.
 -- ============================================================================
 
--- Drop-then-guarded-add, the same shape 12753 used: the DROP makes the re-run
--- converge on the WIDER list rather than failing on the narrower one already
--- there, and the guard is what keeps the ADD itself safe to replay.
+-- ── THE GUARD IS SCHEMA-QUALIFIED, AND 12753'S WAS NOT ────────────────────
+--
+-- `pg_constraint` is DATABASE-wide. `conname` is unique per table, not per
+-- database, so `WHERE conname = 'site_block_type_chk'` matches the constraint
+-- on ANY schema's `site_block` — and a tenant database has two, `live` and
+-- `sandbox`, migrated one after the other by provision-tenant.
+--
+-- 12753 guarded on the bare `conname`. So on every tenant ever provisioned,
+-- `live` got the CHECK and then `sandbox` found live's row, took the
+-- `IF NOT EXISTS` branch as false, and silently skipped its own ADD. Every
+-- sandbox `site_block` in existence has NO type constraint on it: a block type
+-- the registry has never heard of is accepted there and renders as nothing,
+-- which is the exact failure 12753's own comment says the CHECK exists to
+-- prevent.
+--
+-- It was silent for two reasons — a skipped ADD raises nothing, and the type is
+-- also validated in `site_content.schema.js` on the write path, so no request
+-- ever reached the missing constraint. The `COMMENT ON CONSTRAINT` below is
+-- what finally made it speak: it runs against `current_schema()` and cannot
+-- find a constraint the guard decided not to create.
+--
+-- Qualifying by relation AND namespace fixes both. The DROP + ADD then runs
+-- per schema, so applying this migration REPAIRS the sandbox schemas 12753
+-- left unconstrained rather than only widening the live ones.
 ALTER TABLE site_block DROP CONSTRAINT IF EXISTS site_block_type_chk;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'site_block_type_chk') THEN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+     WHERE c.conname = 'site_block_type_chk'
+       AND t.relname = 'site_block'
+       AND n.nspname = current_schema()
+  ) THEN
     ALTER TABLE site_block ADD CONSTRAINT site_block_type_chk CHECK (type IN (
       'hero',
       'stat_chips',
@@ -85,8 +114,13 @@ COMMENT ON CONSTRAINT site_block_type_chk ON site_block IS
 
 -- ============================================================================
 -- VERIFY
---   SELECT pg_get_constraintdef(oid) FROM pg_constraint
---    WHERE conname = 'site_block_type_chk';        -- expect sixteen types
+--   -- BOTH schemas, not just live — this is the 12753 repair:
+--   SELECT n.nspname, pg_get_constraintdef(c.oid)
+--     FROM pg_constraint c
+--     JOIN pg_class t ON t.oid = c.conrelid
+--     JOIN pg_namespace n ON n.oid = t.relnamespace
+--    WHERE c.conname = 'site_block_type_chk' AND t.relname = 'site_block';
+--     -- expect two rows (live, sandbox), sixteen types each
 --   INSERT INTO site_block (page_id, type, content)
 --        VALUES ((SELECT page_id FROM site_page LIMIT 1), 'copy_overrides',
 --                '{"items":[]}'::jsonb);            -- expect: accepted

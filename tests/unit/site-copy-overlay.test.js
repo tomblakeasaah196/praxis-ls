@@ -156,6 +156,40 @@ describe("getPublicCopy", () => {
     expect(out.fr.site.portfolioPage.sub).toBe("Dans nos mots.");
   });
 
+  it("cannot be made to write through the prototype chain", async () => {
+    // CodeQL flagged the recursive assignment in `setPath`, and it was right to:
+    // the catalogue makes `__proto__` unreachable TODAY, which is a fact about
+    // the only caller rather than about the function. A row is data and this
+    // one is the shape an attacker would send if the allow-list ever moved.
+    repo.listPublishedCopyOverrides.mockResolvedValue([
+      block([
+        item("__proto__.polluted", "yes"),
+        item("site.__proto__.polluted", "yes"),
+        item("constructor.prototype.polluted", "yes"),
+        item("site.portfolioPage.sub", "Dans nos mots."),
+      ]),
+    ]);
+    const out = await service.getPublicCopy(client);
+    expect({}.polluted).toBeUndefined();
+    expect(Object.prototype.polluted).toBeUndefined();
+    // …and the legitimate override in the same block still lands.
+    expect(out.fr.site.portfolioPage.sub).toBe("Dans nos mots.");
+  });
+
+  it("serialises to the same JSON despite null-prototype nodes", async () => {
+    // The wire format is the contract i18next's addResourceBundle consumes.
+    // Object.create(null) is invisible to JSON.stringify, and this pins that —
+    // a future refactor to Map or a class would not be.
+    repo.listPublishedCopyOverrides.mockResolvedValue([
+      block([item("site.portfolioPage.titleMain", "Nos", "Reference")]),
+    ]);
+    const out = await service.getPublicCopy(client);
+    expect(JSON.parse(JSON.stringify(out))).toEqual({
+      en: { site: { portfolioPage: { titleMain: "Reference" } } },
+      fr: { site: { portfolioPage: { titleMain: "Nos" } } },
+    });
+  });
+
   it("lets the last published page win when two override one key", async () => {
     // The repo orders by the page's own nav order, so this is at least stable
     // between requests. The editor writes one block on one page, so it is a
