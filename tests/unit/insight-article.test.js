@@ -471,3 +471,73 @@ describe("the public insights index passes its kind filter through", () => {
     expect(opts).toMatchObject({ kind: "article", tag: "strategy" });
   });
 });
+
+/**
+ * ── THE COVER UPLOAD'S EVENT (2026-09-11) ──────────────────────────────────
+ *
+ * Settings › Website › Insights refused every cover with "A required value was
+ * missing" — under a file-drop that had the file in it — while the gallery
+ * upload directly below it took the same photograph without complaint. Two
+ * endpoints, the same validator (`v.cover`), the same vault call, the same body
+ * limit: everything a reader would suspect was shared, and only one of them
+ * failed.
+ *
+ * The difference was one key. `setCover` ends with an `emitEvent` that
+ * `addGalleryImage` does not have, and it passed `event:` where the helper
+ * reads `eventTypeKey`. `event_log.event_type_key` is `citext NOT NULL`
+ * (migration 0120), so the INSERT raised SQLSTATE 23502 and `error-handler.js`
+ * mapped it to a 400 `MISSING_VALUE` — a message about the caller's OWN body,
+ * which is why the screen blamed the field and the user re-tried the upload.
+ *
+ * `atomically` then rolled the whole transaction back, so the article never got
+ * its cover AND the bytes the vault had just written were discarded: an upload
+ * that cost the full wait and left nothing behind, every time.
+ *
+ * The suite did not catch it because it mocks `emit` wholesale — a mock accepts
+ * any shape, so the one key that mattered was the one nothing asserted. These
+ * assert the KEY, not that the call happened.
+ */
+describe("the cover upload emits a named event", () => {
+  const { emitEvent } = require("../../src/shared/events/emit");
+  const vault = require("../../src/modules/vault/document_vault/document_vault.service");
+
+  // A one-pixel PNG, so `parseDataUrl` and the IMAGE_TYPES check both pass.
+  const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGP4DwABAQEAG7buVgAAAABJRU5ErkJggg==";
+
+  beforeEach(() => {
+    repo.IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+    jest.spyOn(vault, "createDocument").mockResolvedValue({ doc_id: "d-new" });
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  async function upload(before = {}) {
+    repo.get.mockResolvedValue(row({ cover_vault_id: null, ...before }));
+    repo.update.mockResolvedValue(row({ cover_vault_id: "d-new" }));
+    await service.setCover({ query: jest.fn(async () => ({ rows: [] })) }, {
+      id: "a1", dataUrl: PNG, originalName: "cover.png", actor: { user_id: "u1" },
+    });
+    return emitEvent.mock.calls[0][1];
+  }
+
+  it("names the event under the key the helper reads", async () => {
+    // `event:` is not `eventTypeKey:`, and the difference is a NOT NULL column.
+    const e = await upload();
+    expect(e.eventTypeKey).toBe("insight.updated");
+    expect(e.event).toBeUndefined();
+  });
+
+  it("attributes the event to the person who uploaded", async () => {
+    // Every other emit in this module passes the actor; the cover's omitted it,
+    // so the one event that records a public-facing image change was anonymous.
+    expect((await upload()).actorUserId).toBe("u1");
+  });
+
+  it("emits the same shape whether or not a cover was replaced", async () => {
+    // Replacing archives the displaced document, which is an extra statement
+    // inside the same transaction — and a transaction that rolls back takes the
+    // newly-written bytes with it.
+    const e = await upload({ cover_vault_id: "d-old" });
+    expect(e.eventTypeKey).toBe("insight.updated");
+    expect(e.payload).toMatchObject({ insight_article_id: "a1", cover_vault_id: "d-new" });
+  });
+});
