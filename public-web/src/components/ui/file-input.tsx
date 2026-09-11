@@ -157,7 +157,8 @@ export function FileInput({
 
       {value ? (
         <div className="flex items-center gap-3 rounded-[calc(var(--radius)-2px)] border bg-muted/40 p-3">
-          {value.previewUrl ? (
+          {/* Same barrier as the careers form — see the note there. */}
+          {value.previewUrl && value.previewUrl.startsWith("blob:") ? (
             <img
               src={value.previewUrl}
               alt=""
