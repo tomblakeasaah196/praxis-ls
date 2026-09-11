@@ -30,10 +30,15 @@
  *
  * ── WHAT IT FLAGS ──────────────────────────────────────────────────────────
  *
- *   native-date-input    a native `type="date"` control
+ *   native-date-input    a native `type="date"` / `type="datetime-local"`
+ *                        control — BOTH render their date part in the OS
+ *                        locale, and the second was missed on the first pass
+ *                        purely because it carries a different `type`
  *   floating-locale      an order-sensitive date format with no locale pinned
  *   month-first-locale   an order-sensitive date format pinned to en-US / en
  *   month-first-literal  the token MM/DD/YYYY written into code
+ *   iso-date-on-paper    a date rendered ISO where a PERSON reads it — a
+ *                        document template, a spreadsheet number format
  *
  * "Order-sensitive" is the whole precision of this gate. A format renders a day
  * NUMBER next to a month only when its options are absent (the default is
@@ -136,6 +141,15 @@ const ALLOW_FILES = {
     rules: ["native-date-input"],
     why: "The console's twin of the above.",
   },
+  "client/src/components/ui/datetime-field.tsx": {
+    rules: ["native-date-input"],
+    why: "`DateField`'s sibling for a date AND a time. Same arrangement: the " +
+      "hidden native control lends its picker and is never read.",
+  },
+  "platform-console/src/components/DateTimeField.tsx": {
+    rules: ["native-date-input"],
+    why: "The console's twin of the above.",
+  },
 };
 
 /** The rules an allowlist entry lets through for `rel`. */
@@ -161,6 +175,15 @@ const MONTH_FIRST_LOCALE = /^["'](en-US|en-PH|en|und)["']$/;
  * is a gate that drifts" is the reason the ESLint rules have one copy, and the
  * same worry applies here. This makes drift impossible instead of unlikely.
  */
+/**
+ * Rendering paths whose output a PERSON reads: a printed document, a file they
+ * open in Excel. ISO is banned here and nowhere else — see rule 4a.
+ */
+const PAPER_SURFACES = [
+  "src/services/documents/templates/",
+  "src/services/spreadsheet/",
+];
+
 const TWINS = [
   ["client/src/lib/day-first-date.ts", "platform-console/src/lib/day-first-date.ts"],
 ];
@@ -298,7 +321,7 @@ function localeArg(args) {
  * keeps a waiver attached to the statement it excuses rather than drifting up
  * the file. Capped so a marker cannot silently cover a whole screenful.
  */
-const WAIVER = /@date-format:(parts|foreign)\b/;
+const WAIVER = /@date-format:(parts|foreign|filename)\b/;
 
 function waived(lines, codeLines, index) {
   if (WAIVER.test(lines[index] || "")) return true;
@@ -332,9 +355,12 @@ function scanSource(source, rel) {
   };
 
   // 1 — native date controls.
-  for (const m of code.matchAll(/type\s*=\s*["']date["']/g)) {
+  for (const m of code.matchAll(/type\s*=\s*["'](date|datetime-local)["']/g)) {
     add(m.index, "native-date-input",
-      "Use <DateField> — a native date input renders in the OS locale.");
+      m[1] === "date"
+        ? "Use <DateField> — a native date input renders in the OS locale."
+        : "Use <DateTimeField> — `datetime-local` renders its DATE part in the " +
+          "OS locale too, which is the same defect with a different `type`.");
   }
 
   // 2/3 — order-sensitive date formatting with no locale, or a month-first one.
@@ -372,7 +398,29 @@ function scanSource(source, rel) {
     }
   }
 
-  // 4 — the format written out as a literal.
+  // 4a — an ISO date rendered where a PERSON reads it.
+  //
+  // ISO is not wrong the way month-first is — it is unambiguous — so this rule
+  // is deliberately narrow. It fires only in the rendering paths listed in
+  // PAPER_SURFACES: a document template, a spreadsheet number format. Everywhere
+  // else ISO is the CORRECT answer — it is the wire format the API contract, the
+  // `@shared` validators and every `date` column are built on, and a gate that
+  // discouraged it generally would be telling people to break the product.
+  if (PAPER_SURFACES.some((dir) => rel.startsWith(dir))) {
+    for (const m of code.matchAll(/["'`]y{2,4}[-/]m{1,2}[-/]d{1,2}/gi)) {
+      add(m.index, "iso-date-on-paper",
+        "This is read by a person. Praxis prints dates dd/mm/yyyy — the stored " +
+        "value stays ISO.");
+    }
+    for (const m of code.matchAll(/toISOString\(\)\s*\.\s*slice\(0, *10\)/g)) {
+      add(m.index, "iso-date-on-paper",
+        "An ISO day where a person reads it. Print dd/mm/yyyy; keep ISO for the " +
+        "wire. (A FILENAME is the exception — `/` is not legal in one — so mark " +
+        "it @date-format:filename with the reason.)");
+    }
+  }
+
+  // 4b — the format written out as a literal.
   for (const m of code.matchAll(/\bMM[/.-]DD[/.-](YYYY|YY)\b/gi)) {
     add(m.index, "month-first-literal",
       "Praxis writes dates dd/mm/yyyy. If this names an INCOMING third-party " +
@@ -444,8 +492,9 @@ function main() {
     console.error(`      → ${p.hint}`);
   }
   console.error("\nLegitimately handling somebody else's format? Mark the line");
-  console.error("@date-format:foreign (an incoming third-party format) or");
-  console.error("@date-format:parts (Intl used only for formatToParts), with a reason.\n");
+  console.error("@date-format:foreign (an incoming third-party format),");
+  console.error("@date-format:parts (Intl used only for formatToParts), or");
+  console.error("@date-format:filename (an ISO day in a filename), with a reason.\n");
   return 1;
 }
 

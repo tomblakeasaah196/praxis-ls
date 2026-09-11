@@ -48,8 +48,8 @@ reason next to it, and nothing in the tree needs one today.
 
 ## The second frontend rule: dates are day-first
 
-**Never `<input type="date">`. Use `<DateField>` from
-`@/components/ui/date-field`.**
+**Never `<input type="date">` or `<input type="datetime-local">`. Use
+`<DateField>` / `<DateTimeField>` from `@/components/ui/`.**
 
 This is enforced by `scripts/check-date-format.js` (`npm run check:dates`),
 which runs in CI and in `npm run ci`, so a native date input does not merge.
@@ -67,7 +67,8 @@ month nobody expected or a customs deadline missed by a quarter.
 
 `DateField` reads and writes dd/mm/yyyy while storing the ISO `YYYY-MM-DD` the
 API already wants, so nothing downstream changes. It takes `min`, `max`,
-`required`, and a react-hook-form `{...field}` spread.
+`required`, and a react-hook-form `{...field}` spread. `DateTimeField` is the
+same thing with `HH:mm` on the end. (`type="month"` is fine — no day in it.)
 
 The same rule covers **displaying** a date. `toLocaleDateString()` with no
 locale means "whatever this machine is set to" — month-first on a US
@@ -76,11 +77,20 @@ dates were month-first too. Use the formatters in `lib/format.ts` (`dateFmt`,
 `dateDmy`, `dateTimeFmt`) or pin `en-GB`; never `undefined`, `[]`, `"en"` or
 `"en-US"` for a format that renders a day number.
 
-Two escape hatches, each costing a written reason next to it:
+**ISO `YYYY-MM-DD` is not the bug** — it is the wire format the API contract,
+the `@shared` validators and every `date` column are built on, and it stays.
+What changes is where a PERSON reads a date: document and PDF templates
+(`services/documents/templates` — an invoice prints `27/07/2026`), xlsx/CSV
+exports (`services/spreadsheet`), and screens. The gate flags ISO in those two
+backend paths and nowhere else.
+
+Three escape hatches, each costing a written reason next to it:
 `@date-format:foreign` for an incoming third-party format (a bank statement
 genuinely arrives month-first, and refusing to parse it does not make it
-day-first) and `@date-format:parts` for an `Intl.DateTimeFormat` built only to
-call `formatToParts()`, which renders nothing. Full detail in
+day-first), `@date-format:parts` for an `Intl.DateTimeFormat` built only to call
+`formatToParts()`, which renders nothing, and `@date-format:filename` for an ISO
+day in a filename (`/` is not legal in one, and ISO is what makes downloads
+sort). Full detail in
 **`doc/FRONTEND_GUIDE.md` §3.12**.
 
 ## The third frontend rule: uploads go through the engine

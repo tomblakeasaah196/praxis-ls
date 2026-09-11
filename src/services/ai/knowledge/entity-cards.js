@@ -21,12 +21,23 @@
  * and nothing to drift. `scripts/check-date-format.js` fails the build on a
  * locale-less date format anywhere in the tree.
  */
+const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})/;
 function dmy(v) {
   if (!v) return "";
+  // A bare calendar date is reordered as TEXT, never through a Date. `date`
+  // columns (incorporation_date, expires_on, start_date…) carry no time and no
+  // zone, and `new Date("2026-07-27")` is midnight UTC — read back with local
+  // getters on a server behind UTC that is the 26th. These strings are what an
+  // assistant quotes back as fact, so a day lost to a timezone is a wrong
+  // answer stated confidently.
+  if (typeof v === "string") {
+    const m = CALENDAR_DATE.exec(v);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  }
   const d = v instanceof Date ? v : new Date(v);
   if (Number.isNaN(d.getTime())) return String(v);
   const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
 }
 
 
@@ -496,7 +507,7 @@ const BUILDERS = [
             && Number(r.share_capital_paid_up) !== Number(r.share_capital)
             ? ` (${Number(r.share_capital_paid_up).toLocaleString("en-US")} paid up)` : "");
       const born = r.incorporation_date
-        ? `incorporated ${String(r.incorporation_date).slice(0, 10)}${r.incorporation_place ? ` in ${r.incorporation_place}` : ""}`
+        ? `incorporated ${dmy(r.incorporation_date)}${r.incorporation_place ? ` in ${r.incorporation_place}` : ""}`
         : null;
       const group = r.parent_code
         ? `${(r.relationship_type || "subsidiary").toLowerCase().replace(/_/g, " ")} of ${r.parent_code} — ${r.parent_name}`
@@ -539,7 +550,7 @@ const BUILDERS = [
         + `${r.country_code ? ` in ${r.country_code}` : ""}`
         + `${r.issuing_authority ? `, issued by ${r.issuing_authority}` : ""}`
         + `${r.is_primary ? " (primary for that country)" : ""}`
-        + `${r.expires_on ? `, expiring ${String(r.expires_on).slice(0, 10)}` : ""}.`,
+        + `${r.expires_on ? `, expiring ${dmy(r.expires_on)}` : ""}.`,
     }),
   },
 ];

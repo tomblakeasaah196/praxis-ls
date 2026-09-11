@@ -185,6 +185,60 @@ describe("the day-first twins", () => {
   });
 });
 
+describe("datetime-local — the same defect with a different `type`", () => {
+  it("flags a native datetime-local control", () => {
+    // It renders its DATE part in the OS locale exactly as type="date" does.
+    // The first version of this gate missed every one of these because it
+    // matched the attribute VALUE "date" and nothing else.
+    expect(rules('<Input type="datetime-local" value={v} onChange={f} />'))
+      .toEqual(["native-date-input"]);
+  });
+
+  it("points at DateTimeField rather than DateField for one", () => {
+    const [hit] = scanSource('<Input type="datetime-local" />', "client/src/x.tsx");
+    expect(hit.hint).toContain("DateTimeField");
+  });
+
+  it("leaves type=\"month\" alone — there is no day in it to misorder", () => {
+    expect(rules('<Input type="month" value={period} onChange={f} />')).toEqual([]);
+  });
+});
+
+describe("ISO dates where a person reads them", () => {
+  const DOC = "src/services/documents/templates/registry.js";
+  const SHEET = "src/services/spreadsheet/build.js";
+
+  it("flags an ISO number format in a spreadsheet column", () => {
+    expect(scanSource('return { fmt: "yyyy-mm-dd" };', SHEET).map((p) => p.rule))
+      .toEqual(["iso-date-on-paper"]);
+  });
+
+  it("flags an ISO day sliced into a document template", () => {
+    expect(scanSource("const d = dt.toISOString().slice(0, 10);", DOC).map((p) => p.rule))
+      .toEqual(["iso-date-on-paper"]);
+  });
+
+  it("does NOT flag ISO anywhere else — it is the wire format", () => {
+    // This is the rule's whole discipline. ISO is what the API contract, the
+    // @shared validators and every `date` column are built on; a gate that
+    // discouraged it generally would be telling people to break the product.
+    expect(rules("const today = new Date().toISOString().slice(0, 10);")).toEqual([]);
+    expect(scanSource('const q = { from: "2026-01-01" };', "src/modules/x/y.js")).toEqual([]);
+    expect(scanSource("t.toISOString().slice(0, 10)", "src/modules/x/y.repo.js")).toEqual([]);
+  });
+
+  it("lets a FILENAME keep its ISO stamp, with the reason", () => {
+    // "/" is a path separator: "export-11/09/2026.csv" is not a filename. ISO is
+    // also what makes a folder of exports sort chronologically.
+    const src = [
+      "/* @date-format:filename — `/` is not legal in a filename, and ISO is",
+      "   what makes a folder of exports sort. */",
+      "const stamp = date.toISOString().slice(0, 10);",
+    ].join("\n");
+    expect(scanSource(src, "src/services/spreadsheet/helpers.js")).toEqual([]);
+  });
+});
+
 describe("the live tree", () => {
   it("passes its own gate", () => {
     // The gate is only worth having if the repository actually satisfies it —

@@ -339,6 +339,7 @@ return `{ rows | data, error, loading, reload }`.
 | Form field                       | `<Field>`                                                                                 | Supplies the label association and `aria-required` / `aria-invalid`.                                                                                            |
 | Text input                       | `<Input>` / `<Textarea>`                                                                  |                                                                                                                                                                 |
 | Date input                       | `<DateField>`                                                                             | **Never `<Input type="date">`.** Reads and writes dd/mm/yyyy whatever the OS locale is; stores ISO. Takes `min`/`max`/`required` and an RHF `{...field}` spread (§3.12). |
+| Date **and time** input           | `<DateTimeField>`                                                                         | **Never `<Input type="datetime-local">`** — it renders its date part in the OS locale too. dd/mm/yyyy HH:mm, 24-hour; stores `YYYY-MM-DDTHH:mm` (§3.12). |
 | Choose one                       | `<NativeSelect>` (default) · `<Select>` (rich options) · `<SearchSelect>` (server-backed) |                                                                                                                                                                 |
 | Toggle                           | `<Checkbox>` / `<RadioGroup>`                                                             |                                                                                                                                                                 |
 | View switch                      | `<Segmented>` (2–5 fixed) · `<Chips>` (wrapping filters)                                  |                                                                                                                                                                 |
@@ -562,6 +563,12 @@ import { DateField } from "@/components/ui/date-field";
 </FormField>
 ```
 
+For a date **and** a time, `<DateTimeField>` is the same thing with `HH:mm` on
+the end (24-hour, storing `YYYY-MM-DDTHH:mm`). `<input type="datetime-local">`
+is banned for exactly the same reason and was missed on the first pass only
+because it carries a different `type`. `type="month"` is fine — it has no day in
+it, so there is no order to get wrong.
+
 `value` and `onChange` speak ISO `YYYY-MM-DD` — the same string the API wants —
 so nothing downstream changes. What the operator sees and types is dd/mm/yyyy.
 `onChange` fires with `""` while the date is incomplete or impossible, so a
@@ -586,11 +593,32 @@ workstation and in a container with no `LANG`. Use the formatters in
 numeric dd/mm/yyyy — or pin `en-GB`. Never pass `undefined`, `[]`, `"en"` or
 `"en-US"` to a format that renders a day number.
 
-The gate has two escape hatches, each costing a written reason:
+### What a person reads vs. what the wire carries
+
+**ISO `YYYY-MM-DD` is not the bug** — it is unambiguous, and it is the format
+the API contract, the `@shared` validators and every `date` column are built on.
+Keep it everywhere it is a *value*: request bodies, query params, `DateField`'s
+own `value`, state you post back.
+
+Change it only where a **person** reads it. Those surfaces are:
+
+| Surface | Prints |
+| --- | --- |
+| Document / PDF templates (`services/documents/templates`) | `27/07/2026` via `k.dateFmt` |
+| xlsx and CSV exports (`services/spreadsheet`) | `dd/mm/yyyy` number format |
+| Screens | `dateFmt` / `dateDmy` / `dateTimeFmt` (§5) |
+
+`check:dates` enforces exactly that split: it flags ISO in the first two paths
+and nowhere else. The one exception inside them is a **filename** — `/` is not
+legal in one, and ISO is what makes a folder of exports sort — which carries an
+`@date-format:filename` marker.
+
+The gate has three escape hatches, each costing a written reason:
 `@date-format:foreign` for an incoming third-party format (a bank statement
 genuinely arrives month-first, and refusing to parse it does not make it
-day-first), and `@date-format:parts` for an `Intl.DateTimeFormat` built only to
-call `formatToParts()`, which renders nothing. Whole files are listed per-rule
+day-first), `@date-format:parts` for an `Intl.DateTimeFormat` built only to
+call `formatToParts()`, which renders nothing, and `@date-format:filename` for
+an ISO day in a filename. Whole files are listed per-rule
 in the script's `ALLOW_FILES`. Nothing else in the tree needs one today.
 
 ### 3.11 A record's detail view — a page on desktop, a sheet on a phone
@@ -858,7 +886,7 @@ in English (`"The record": "Le dossier"`), not a dossier.
 - [ ] No raw UUIDs, ISO dates, dotted event keys or SCREAMING_ENUMs on screen (§5).
 - [ ] No raw `<table>` / `<input>` / `<textarea>` / `role="menu"` — use the primitives (§3.5).
 - [ ] No `window.confirm` / `alert` / `prompt` — `useConfirm()`, `usePrompt()`, `<Callout>` or `useToast()` (§3.10).
-- [ ] No `<Input type="date">` — `<DateField>`; and no locale-less `toLocaleDateString()` (§3.12).
+- [ ] No `<Input type="date">` or `type="datetime-local"` — `<DateField>` / `<DateTimeField>`; no locale-less `toLocaleDateString()`; no ISO date on a document or export (§3.12).
 - [ ] New shared component? Add a story, a usage example, a best-practices note and a test.
 - [ ] Row actions go in `<RowActions>` — that is what keeps the row at its density height (§7.1).
 - [ ] `npm run lint`, `npm test`, `npm run check:contrast`, `npm run check:motion`, `npm run check:palette`, `npm run check:docs`, `npm run check:schemas`, `npm run build`, `npm run check:bundle`, `npm run check:shared` and `npm run test:e2e` all pass in `client/`, and `npm run check:dates` at the repo root.
