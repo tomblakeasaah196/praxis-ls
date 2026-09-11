@@ -1033,11 +1033,34 @@ export function AppShell() {
             width via <PageContainer> / pageShell (audit F3), so the shell stays out
             of that decision and a full-bleed screen stays possible.
           */}
+              {/*
+               * `relative` IS A BUG FIX, not styling. It makes this element a
+               * containing block, so an absolutely-positioned descendant is
+               * laid out against THE APP'S SCROLL CONTAINER rather than
+               * against the document.
+               *
+               * Without it, any `position: absolute` descendant with no
+               * positioned ancestor — every `sr-only` control is one, and
+               * seven file inputs across the app are `sr-only` — resolves
+               * against the initial containing block and adds its offset to
+               * the DOCUMENT's scrollable overflow. Focusing it (which is what
+               * opening a file picker does) then makes the browser scroll the
+               * document to reveal it, carrying the entire shell out of the
+               * viewport. Because `html, body, #root` are `overflow: hidden`
+               * (index.css) there is no scrollbar to bring it back, so the app
+               * simply appears black until a reload. See the long note in
+               * `components/ui/file-drop.tsx`, which is where it was found.
+               *
+               * That component carries its own `relative` too, because it is
+               * also rendered inside dialogs and must not depend on being a
+               * descendant of this element. This is the floor for everything
+               * else, and for whatever gets written next.
+               */}
               <main
                 id="main-content"
                 tabIndex={-1}
                 key={env}
-                className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 focus:outline-none md:p-6 md:pb-6 2xl:px-8"
+                className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 focus:outline-none md:p-6 md:pb-6 2xl:px-8"
               >
                 {/* Per-route boundary, keyed on the path so navigating away from a
                 crashed screen clears the error rather than stranding the user on it.

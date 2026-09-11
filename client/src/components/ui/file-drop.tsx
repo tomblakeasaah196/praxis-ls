@@ -145,7 +145,8 @@ export function FileDrop({
           onPick(e.dataTransfer.files?.[0] ?? null);
         }}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-input px-4 py-6 text-center transition-colors hover:border-[color-mix(in_srgb,var(--primary)_50%,transparent)] hover:bg-accent/40",
+          // `relative` IS LOAD-BEARING — see the note above the <input>.
+          "relative flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-input px-4 py-6 text-center transition-colors hover:border-[color-mix(in_srgb,var(--primary)_50%,transparent)] hover:bg-accent/40",
           disabled && "pointer-events-none opacity-60",
         )}
       >
@@ -170,6 +171,37 @@ export function FileDrop({
           </>
         )}
         {hint && <span className="micro text-muted-foreground">{hint}</span>}
+        {/*
+         * THE LABEL ABOVE MUST STAY `relative`, AND THIS IS THE ENTIRE REASON.
+         *
+         * `sr-only` is `position: absolute` with no offsets. Absolute means the
+         * element is laid out against its nearest POSITIONED ancestor, and if
+         * there is none that is the initial containing block — the document.
+         * An element positioned against the document contributes to the
+         * DOCUMENT's scrollable overflow, even though it visually sits inside
+         * the app shell's own scroll container.
+         *
+         * So on a long screen, scrolled down, this 1px input gave <html> a
+         * scrollable region several hundred pixels tall. Clicking the label
+         * focuses the input — that is how a file picker is opened — and the
+         * browser scrolls the focused element into view. It scrolled the
+         * DOCUMENT, pushing the whole app shell up and out of the viewport.
+         *
+         * What the user sees is the page turn black, because `html, body,
+         * #root` are `height: 100%; overflow: hidden` (index.css) and what is
+         * left below the shell is bare body background. And `overflow: hidden`
+         * is why it does not come back: it suppresses the SCROLLBAR, it does
+         * not stop the browser scrolling programmatically — so there is no way
+         * left to scroll it back, and only a reload resets it. Measured in
+         * Chromium at 1440×900: document scrollTop 50 → 768, `#root` top 0 →
+         * -768. It reproduced on Cancel as well as on picking a file, because
+         * the focus — not the file — is what moves it.
+         *
+         * One `relative` on the label gives this a containing block inside the
+         * app's own scroll container, and the document's scrollable overflow
+         * goes to zero. Do not remove it, and do not replace `sr-only` with
+         * something else absolutely positioned without re-reading this.
+         */}
         <input
           type="file"
           className="sr-only"
