@@ -43,7 +43,7 @@ import { getPublicEsg, hasEsg, type EsgContent } from "@/lib/site-api";
 import { afterPaint } from "@/lib/after-paint";
 import { Reveal } from "@/components/ui/reveal";
 import { Markdown } from "@/components/ui/markdown";
-import { QuoteWizard } from "@/components/site/quote-wizard";
+import { QuoteBand } from "@/components/site/quote-band";
 import { useDocumentMeta } from "@/lib/use-document-meta";
 import { p } from "@/lib/base-path";
 
@@ -808,27 +808,20 @@ export function ServiceDetailPage() {
         lead={t("site.quote.sub")}
         divided
       >
-        <Card padded className="max-w-reading">
-          {/* The list AND the row this page is about.
-
-              This band used to render `<QuoteWizard />` bare, so a visitor who
-              had just read the whole of the sea-freight page was asked, on that
-              same page, how their cargo was moving and which service they
-              wanted — with no options to choose from, because the wizard had
-              never been handed the published list. It asked for the one thing
-              the page already knew, in a free-text box.
-
-              `services` is the module-cached read this page already holds, so
-              neither prop costs a request. */}
-          <QuoteWizard
-            services={services}
-            preselect={
-              services.find(
-                (row) => row.service_type_id === profile.service_type_id,
-              ) || null
-            }
-          />
-        </Card>
+        {/* Deferred, not removed — F-18. The wizard is the largest thing on
+            this route and it sits below two screens of prose; `QuoteBand`
+            fetches it a screen early so it is in place before it is read and
+            off the critical path for the visitor who never scrolls this far.
+            The props are unchanged: `services` is the module-cached read this
+            page already holds, so neither costs a request. */}
+        <QuoteBand
+          services={services}
+          preselect={
+            services.find(
+              (row) => row.service_type_id === profile.service_type_id,
+            ) || null
+          }
+        />
       </Section>
     </PageShell>
   );
