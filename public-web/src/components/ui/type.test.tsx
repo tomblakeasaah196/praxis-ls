@@ -106,6 +106,48 @@ describe("StagedLines", () => {
     expect(delay).toBeLessThanOrEqual(420);
   });
 
+  it("rises out of a clip without hiding the word from the first paint", () => {
+    // The mask and the LCP protection are the same constraint seen twice. A clip
+    // deep enough to hide a word BEFORE it moves is `opacity: 0` wearing a
+    // different property — clipped text is no more painted than transparent
+    // text, and the hero's fade once measured +691 ms for exactly that.
+    //
+    // So: the clip exists, and the word inside it is the one that carries the
+    // paint flag. What keeps the illusion is the travel being smaller than the
+    // clip, which is `.staged-clip`'s job in index.css and not this one's.
+    render(<StagedLines as="h2" masked paintImmediately text="Sea freight import" />);
+    const heading = screen.getByRole("heading");
+    const clips = heading.querySelectorAll(".staged-clip");
+    expect(clips.length).toBe(3);
+    for (const clip of clips) {
+      const word = clip.querySelector(".staged-word");
+      expect(word).toBeTruthy();
+      // `aria-hidden` stays on the WORD, not on the box around it: every
+      // `.staged-word` in the tree being hidden is the invariant, and a future
+      // caller rendering one without a clip must not quietly lose it.
+      expect(word).toHaveAttribute("aria-hidden");
+      expect(word?.className).toContain("staged-word-lit");
+    }
+  });
+
+  it("holds a second instance back, and keeps counting from where the first stopped", () => {
+    // A headline split across two instances — the hero's is, so its accent word
+    // can land on its own beat — is still ONE sentence to a reader and to
+    // anything sweeping across it. `startDelay` is the beat; `wordOffset` is
+    // what stops a left-to-right effect restarting on the second half.
+    render(<StagedLines as="h2" startDelay={340} wordOffset={5} text="forward now" />);
+    act(() => fire([{ target: screen.getByRole("heading"), isIntersecting: true }]));
+
+    const words = screen.getByRole("heading").querySelectorAll<HTMLElement>(".staged-word");
+    expect(words.length).toBe(2);
+    // The hold applies to every word, and the stagger still runs on top of it.
+    expect(parseInt(words[0].style.transitionDelay, 10)).toBe(340);
+    expect(parseInt(words[1].style.transitionDelay, 10)).toBeGreaterThan(340);
+    // …and the positions continue the line rather than starting it again.
+    expect(words[0].style.getPropertyValue("--wi")).toBe("5");
+    expect(words[1].style.getPropertyValue("--wi")).toBe("6");
+  });
+
   it("renders settled immediately under reduced motion", () => {
     setReducedMotion(true);
     render(<StagedLines as="h2" text="Track a shipment" />);

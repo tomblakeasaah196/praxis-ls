@@ -2,12 +2,32 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useBranding } from "@/app/branding";
+import { cn } from "@/lib/cn";
 import { TrackWidget } from "./track-widget";
 import { SectionHead } from "./section-head";
 import { RouteCanvas } from "./route-canvas";
 import { usePointerLight, useTilt } from "@/lib/motion";
+import { useInView, useRevealed } from "@/components/ui/reveal";
 import { StagedLines, WeightScrub } from "@/components/ui/type";
 import { p } from "@/lib/base-path";
+/*
+ * THIS BAND'S OWN STYLESHEET, AND WHY IT IS AN IMPORT RATHER THAN MORE OF
+ * `index.css`.
+ *
+ * Everything in it is mounted here and nowhere else, and this component is
+ * reachable only from `marketing-page.tsx`, which `router.tsx` loads with
+ * `React.lazy`. In `index.css` those rules sat on the first-paint path of every
+ * route in the app — the track page, the portal login, a policy page — none of
+ * which can render a hero. Imported here, Rollup attaches them to the marketing
+ * chunk instead, which is the only chunk that can use them.
+ *
+ * O-13 held this back until PR #330: both gates read `src/index.css` and only
+ * that file, so splitting would have bought first-paint headroom by making them
+ * blind to the thing being moved. They walk every stylesheet under `src/` now.
+ * The file's own header carries the rest, including why nothing in it is in an
+ * `@layer`.
+ */
+import "./hero.css";
 
 /**
  * The hero — a dark plate, one promise, two ways out.
@@ -96,6 +116,25 @@ export type HeroCopy = {
 export const SCRIM_FLOOR = 0.87;
 
 /**
+ * THE BEAM'S BRIGHTNESS CEILING, AS A NUMBER A TEST CAN READ.
+ *
+ * Same argument as `SCRIM_FLOOR` above, for the same element. The pass lightens
+ * the ground behind the copy, and the eyebrow — #ff5a00 at 11px, needing 4.5:1 —
+ * is what breaks first, exactly as it is for the scrim. On carbon:
+ *
+ *     a = 0.18   ground L = 0.0196   eyebrow 4.96:1
+ *     a = 0.22   ground L = 0.0237   eyebrow 4.56:1   ← the ceiling
+ *     a = 0.26   ground L = 0.0281   eyebrow 4.30:1   ✗
+ *
+ * The value that actually paints is `--beam-peak` in index.css, because that is
+ * where the gradient is; this is the ceiling it is held to, and `hero.test.tsx`
+ * reads both and compares them. Neither the contrast gate nor the motion gate
+ * can catch this on its own — one measures token pairs, the other durations,
+ * and a passing light is neither.
+ */
+export const BEAM_PEAK = 0.22;
+
+/**
  * The two scrims, as stop lists rather than as strings.
  *
  * `over` marks the stops that sit under copy. Those are held to `SCRIM_FLOOR`;
@@ -158,6 +197,21 @@ export function Hero({ copy = null }: { copy?: HeroCopy | null }) {
    */
   const lightRef = usePointerLight<HTMLElement>();
   const tilt = useTilt<HTMLElement>({ max: 18 });
+  /*
+   * TWO OBSERVERS, TWO DIFFERENT QUESTIONS, BOTH SHARED.
+   *
+   * `useRevealed` answers "has this arrived yet" once and unobserves — it
+   * drives the entrance sequence, which must never re-run. `useInView` answers
+   * "is it on screen right now", continuously — it is the only thing that lets
+   * the beam's loop run, so a hero four screens above the reader is not
+   * spending a phone's battery on a light show nobody can see.
+   *
+   * Both ride the shared instances in reveal.tsx. Neither is a new observer,
+   * which is the rule that file states and the reason `useInView` was built
+   * there rather than here.
+   */
+  const [liveRef, live] = useInView<HTMLDivElement>();
+  const [enterRef, entered] = useRevealed<HTMLDivElement>();
   /* Both hooks hand back `RefObject`, whose `current` React types as readonly —
      it is the shape you ATTACH, not the shape you assign. Two hooks want the
      same node, so one of them has to be written by hand, and the cast is the
@@ -183,7 +237,15 @@ export function Hero({ copy = null }: { copy?: HeroCopy | null }) {
        uploaded, which is where an unlucky image puts something bright directly
        under the navigation. Costs nothing, needs no per-image tuning, and gives
        every photograph the same contrast floor. */
-    <section ref={bandRef} className="band-hero vignette relative overflow-hidden">
+    <section
+      ref={bandRef}
+      /* `data-live` is what unpauses the pass. It is an attribute rather than a
+         class because it is STATE, not styling: the CSS reads
+         `.band-hero[data-live="true"]`, and a reader of either file can see at a
+         glance that nothing animates until the band says it is visible. */
+      data-live={live ? "true" : "false"}
+      className="band-hero vignette relative overflow-hidden"
+    >
       {image ? (
         <>
           <img
@@ -192,6 +254,58 @@ export function Hero({ copy = null }: { copy?: HeroCopy | null }) {
             aria-hidden
             className="absolute inset-0 h-full w-full object-cover"
           />
+          {/*
+            THE LIGHT, WHICH THIS BAND HAS BEEN DESCRIBING AND NOT RENDERING.
+
+            `.hero-light` has been in index.css since PR 3, with a note in this
+            file saying "the pointer light is applied UNDER the scrim so it
+            cannot spend them". It was never mounted. The comment was true about
+            the design and false about the page, which is the worst combination
+            — every later reader trusted it.
+
+            It is inside the `image` branch, and that is the whole safety
+            argument rather than an accident of where it was typed. The
+            derivation the scrim floors rest on is "lightening cannot take an
+            image past white, so the copy's contrast is bounded below by the
+            near-white case that was measured". That argument needs a scrim
+            above the light, and the scrims only exist when there is a
+            photograph. On a band with no upload there is no scrim, so the same
+            glow would lighten the carbon directly under the copy — where the
+            eyebrow, at 4.5:1, is the thing that breaks first.
+          */}
+          <div aria-hidden className="hero-light" />
+        </>
+      ) : null}
+
+      {/* THE PASS — AND IT IS MOUNTED HERE, BETWEEN THE LIGHT AND THE SCRIMS,
+          FOR THE SAME REASON THE LIGHT IS WHERE IT IS.
+
+          One raked beam crosses the band every `--beam-cycle`, passing BEHIND
+          the headline word by word and handing off to the plate's edge as it
+          leaves — one event, two consumers, one token.
+
+          Paint order is the whole safety argument, and it is why this sits in
+          its own block between two conditionals rather than tidily inside one
+          of them. With a tenant photograph the scrims below render AFTER it and
+          therefore above it, so the wash that caps the image caps the beam and
+          the measured floors bind unchanged. Without one there is no scrim, and
+          the beam is on bare carbon under the copy at `--beam-peak` — 22 %,
+          derived against the eyebrow in the token block. Either way no type on
+          this band changes colour as the beam passes; only the ground behind it
+          does.
+
+          The long note on `.hero-beam-track` in index.css carries the rest: why
+          a loop is allowed here at all, why it stops when the band is off
+          screen, why each layer's BASE style is already its settled state so
+          the reduced-motion umbrella leaves the band correct, and what the
+          first draft of this did to the eyebrow when the beam was on top
+          instead. */}
+      <div ref={liveRef} aria-hidden className="hero-beam-track">
+        <span className="hero-beam" />
+      </div>
+
+      {image ? (
+        <>
           {/*
             THE SCRIM, AND THE NUMBERS IN IT.
 
@@ -240,7 +354,10 @@ export function Hero({ copy = null }: { copy?: HeroCopy | null }) {
         <RouteCanvas className="h-full w-full" alpha={0.42} />
       </div>
 
-      <div className="wrap tilt-stage relative grid items-center gap-10 py-14 md:py-20 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:py-24">
+      <div
+        ref={enterRef}
+        className="wrap tilt-stage relative grid items-center gap-10 py-14 md:py-20 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:py-24"
+      >
         <div className="max-w-prose">
           {/* The shared heading block. This hero was the LAST hand-rolled
               eyebrow + h1 in the app — the most-seen heading on the site, and
@@ -281,6 +398,8 @@ export function Hero({ copy = null }: { copy?: HeroCopy | null }) {
                 {children}
               </WeightScrub>
             )}
+            eyebrowClass={cn("hero-enter hero-enter-eyebrow", entered && "is-in")}
+            leadClass={cn("hero-enter hero-enter-lead", entered && "is-in")}
             eyebrow={copy ? copy.kicker : t("site.hero.eyebrow")}
             title={
               /* `paintImmediately` because this headline IS the LCP element.
@@ -288,17 +407,75 @@ export function Hero({ copy = null }: { copy?: HeroCopy | null }) {
                  delays the page's largest paint by its own entrance — measured
                  at +691 ms — in exchange for a reveal that fires instantly
                  anyway, the hero being in view at load. The words still stagger;
-                 they are simply legible while they arrive. */
+                 they are simply legible while they arrive.
+ 
+                 `masked` is the same constraint honoured a second time. A word
+                 rising out of a clipped edge is the reveal this band wanted, and
+                 a clip tall enough to hide the word first would cost the same
+                 691 ms in a different property — clipped text is no more painted
+                 than transparent text. So the clip is sized to the glyphs and
+                 the travel is 0.4em: four-fifths of every word is painted on the
+                 first frame, and the fifth that is cut is the fifth the eye
+                 reads as an edge. Measured over seven loads of the built page,
+                 248 ms median either way, the H1 both times.
+ 
+                 `startDelay` opens the line at 80 ms rather than at zero, so the
+                 eyebrow above it is already there when the headline moves. */
               <StagedLines
                 paintImmediately
+                masked
+                startDelay={80}
+                wordClassName="hero-word-light"
                 text={copy ? copy.title : t("site.hero.titleMain")}
               />
             }
-            accent={copy ? undefined : t("site.hero.titleAccent")}
+            accent={
+              /* THE ACCENT WORD GETS THE ONLY FADE ON THIS BAND, AND THE BEAT
+                 BEFORE IT IS THE POINT.
+ 
+                 340 ms is after the last word of the line has started moving
+                 (80 + four steps of 45), so the sentence lands, holds for a
+                 breath, and then the word that carries the promise arrives on
+                 its own — rising and fading up in the accent colour rather than
+                 merely being present in it.
+ 
+                 It can afford what the rest of the line cannot. LCP measures the
+                 headline BLOCK, and one short word out of six is a sliver of its
+                 area: the h1 still paints on the first frame. That is the whole
+                 reason the split exists — the expensive effect is spent where it
+                 is cheap, and only there.
+ 
+                 A tenant-authored title is one string and gets no accent at all
+                 (the note above the component records why), so this is the
+                 dictionary path only. */
+              copy ? undefined : (
+                /* `wordOffset` is the count of words in the line above, so the
+                   accent word is the SIXTH light in the pass rather than a
+                   second first. The dictionary line is "Freight that moves your
+                   business" in English and "Le fret qui fait avancer" in French
+                   — five words either way, which is luck rather than design, so
+                   it is counted rather than typed. */
+                <StagedLines
+                  masked
+                  startDelay={340}
+                  wordOffset={
+                    (copy ? "" : t("site.hero.titleMain")).trim().split(/\s+/)
+                      .length
+                  }
+                  wordClassName="hero-word-light hero-word-light-accent"
+                  text={t("site.hero.titleAccent")}
+                />
+              )
+            }
             lead={copy ? copy.lead : t("site.hero.sub")}
           />
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div
+            className={cn(
+              "hero-enter hero-enter-cta mt-8 flex flex-wrap items-center gap-3",
+              entered && "is-in",
+            )}
+          >
             {/* A route, not an in-page jump. This was `href="#quote"` back when
                 the form was a band below — which meant the primary CTA on the
                 site depended on a scroll landing on an element the lazy chunk
@@ -333,23 +510,80 @@ export function Hero({ copy = null }: { copy?: HeroCopy | null }) {
             flat the moment anybody focuses a field inside. The widget keeps its
             real estate and gains material — that audience arithmetic is not up
             for redesign, and this is not a demotion of it. */}
-        <div className="track-widget tilt-plate p-5 md:p-6">
-          <p className="micro">{t("site.track.kicker")}</p>
-          <h2 className="mt-1 font-display text-h3 font-semibold leading-tight tracking-tight">
-            {t("site.track.title")}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {t("site.track.hint")}
-          </p>
-          <div className="mt-4">
-            <TrackWidget variant="compact" />
+        {/* THE ENTRANCE IS A WRAPPER, AND IT HAS TO BE.
+ 
+            `.tilt-plate` owns `transform` on the plate and rewrites it every
+            frame from the pointer. An entrance animating the same property
+            would either be wiped by the first mouse movement or wipe the tilt,
+            depending on which won the cascade — and it would look correct in
+            review either way, because a still screenshot cannot show a conflict
+            that only appears once the pointer moves. Two transforms, two
+            elements, `preserve-3d` on the wrapper so it does not flatten the
+            rotation it contains. */}
+        <div
+          className={cn(
+            "hero-plate-enter hero-enter-plate",
+            entered && "is-in",
+          )}
+        >
+          <div className="track-widget tilt-plate p-5 md:p-6">
+            {/* The sheen, and the ring that catches the beam. Both are
+                decoration on a pane of glass: hidden from assistive technology,
+                deaf to the pointer, and drawn UNDER the contents — the ring sits
+                at `inset: -1px`, outside the padding box, so nothing here can
+                come between a finger and the field. */}
+            <span aria-hidden className="hero-plate-glare" />
+            <span aria-hidden className="hero-beam-edge" />
+            {/* Positioned, so it paints above the glare. An in-flow child would
+                render BENEATH a positioned sibling however late it appears in
+                the markup, which is the one ordering rule that catches everyone
+                exactly once. */}
+            <div className="relative">
+              {/* The plate is dark glass in both themes now (see
+                  `.track-widget`), so its accent type takes the same swap the
+                  hero eyebrow beside it takes: `.micro` carries the light-theme
+                  muted ink, which measures 3.37:1 on this ground and fails.
+                  `--brand-orange` is 6.44:1 here.
+ 
+                  It is Praxis's orange rather than the tenant's for the same
+                  reason the eyebrow and the accent word are — that colour was
+                  measured on carbon and `--primary-ink` was not. The beam and
+                  the glass tint DO use the tenant's `--primary`, because those
+                  are light rather than type and carry no contrast duty. The
+                  note on `.hero-beam-track` records the follow-up that would
+                  make all four of them the tenant's. */}
+              <p
+                className={cn(
+                  "micro",
+                  "text-[rgb(var(--brand-orange))]", // ink-on-dark: 6.44:1 on the carbon under --hero-plate; --primary-ink is ~3.4:1 there
+                )}
+              >
+                {t("site.track.kicker")}
+              </p>
+              <h2 className="mt-1 font-display text-h3 font-semibold leading-tight tracking-tight">
+                {t("site.track.title")}
+              </h2>
+              <p className="mt-2 text-sm text-[var(--hero-muted)]">
+                {t("site.track.hint")}
+              </p>
+              <div className="mt-4">
+                {/* `onDark` at last. The prop has existed since the widget was
+                    written, for the case where the plate is dark — which, until
+                    this change, the hero's plate only was when the visitor had
+                    switched the whole site to dark mode. */}
+                <TrackWidget variant="compact" onDark shimmer />
+              </div>
+              <Link
+                to="/portal/login"
+                className={cn(
+                  "mt-4 inline-flex text-sm underline-offset-4 hover:underline",
+                  "text-[rgb(var(--brand-orange))]", // ink-on-dark: 6.44:1 on the carbon under --hero-plate; --primary-ink is ~3.4:1 there
+                )}
+              >
+                {t("site.chrome.portalEntry")}
+              </Link>
+            </div>
           </div>
-          <Link
-            to="/portal/login"
-            className="mt-4 inline-flex text-sm text-primary-ink underline-offset-4 hover:underline"
-          >
-            {t("site.chrome.portalEntry")}
-          </Link>
         </div>
       </div>
     </section>
