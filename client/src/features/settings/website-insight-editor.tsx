@@ -39,6 +39,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Pill } from "@/components/ui/pill";
+import { Segmented } from "@/components/ui/segmented";
+import { PinDialog } from "./website-insight-pin";
+import { fmtDay } from "./website-insight-dates";
 import { ErrorState, LoadingRow } from "@/components/ui/states";
 import { FileDrop } from "@/components/ui/file-drop";
 import { Callout } from "@/components/ui/callout";
@@ -66,6 +69,7 @@ type Draft = {
   meta_title_fr: string; meta_title_en: string;
   meta_description_fr: string; meta_description_en: string;
   tags: string;
+  kind: api.InsightKind;
 };
 
 const EMPTY: Draft = {
@@ -76,6 +80,7 @@ const EMPTY: Draft = {
   meta_title_fr: "", meta_title_en: "",
   meta_description_fr: "", meta_description_en: "",
   tags: "",
+  kind: "article",
 };
 
 const s = (v: string | null | undefined) => v ?? "";
@@ -91,6 +96,10 @@ function toDraft(row: api.InsightArticle): Draft {
     meta_description_fr: s(row.meta_description_fr),
     meta_description_en: s(row.meta_description_en),
     tags: (row.tags || []).join(", "),
+    /* A row written before 13784 can arrive without a `kind` — from a cache, or
+       from a deploy mid-roll. It is an article: that is what everything was
+       before the column existed, and it is the column's own default. */
+    kind: row.kind === "announcement" ? "announcement" : "article",
   };
 }
 
@@ -112,6 +121,8 @@ export function WebsiteInsightEditorPage() {
   const [coverBusy, setCoverBusy] = React.useState(false);
   const [coverError, setCoverError] = React.useState<string | null>(null);
   const [removingCover, setRemovingCover] = React.useState(false);
+  const [pinning, setPinning] = React.useState(false);
+  const [pinError, setPinError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (data) {
@@ -158,6 +169,7 @@ export function WebsiteInsightEditorPage() {
         meta_description_en: orNull(draft.meta_description_en),
         // Split, trimmed, blanks dropped — "logistique, douane," is two tags.
         tags: draft.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        kind: draft.kind,
       });
       setDirty(false);
       reload();
@@ -184,6 +196,23 @@ export function WebsiteInsightEditorPage() {
       return tr("Choose a PNG, JPEG or WebP image.");
     }
     return null;
+  }
+
+  /* Immediate, like the cover and unlike the text: a pin is its own endpoint
+     (13784 — it is an act with a stated expiry, not a field), so it has nothing
+     to wait for a Save button for. */
+  async function submitPin(pinnedUntil: string | null) {
+    setBusy(true);
+    setPinError(null);
+    try {
+      await api.pinInsight(articleId, pinnedUntil);
+      setPinning(false);
+      reload();
+    } catch (err) {
+      setPinError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function onPickCover(file: File | null) {
@@ -304,6 +333,103 @@ export function WebsiteInsightEditorPage() {
           Every save goes straight to your public site. To rework it out of
           sight, unpublish it from the list first.
         </Callout>
+      )}
+
+      {/* ── WHAT THIS PIECE IS ────────────────────────────────────────────
+       *
+       * It lives here, above the headline, because it is the first decision a
+       * writer makes and it changes what the piece is FOR — not a setting they
+       * tune afterwards. `insight.repo`'s WRITABLE list says the same thing in
+       * its own words: kind is writable "because it is a property of the piece
+       * — a writer decides they are writing an announcement".
+       *
+       * ── AND WHY IT HAD TO BE BUILT ────────────────────────────────────────
+       *
+       * The API has accepted `kind` since 13784 and nothing in this app ever
+       * sent it. So every piece written here was an article, the list's
+       * Announcements filter could only ever be empty, and "Pin to home page"
+       * — which renders only for an announcement — could never appear on any
+       * row. The homepage band was reachable by seed script and by nothing a
+       * person could click.
+       *
+       * The pin is deliberately NOT here. It has its own endpoint and its own
+       * dialog on the list, for the reason 13784 gives: putting a piece on the
+       * tenant's front page is a deliberate act with a stated expiry, not a
+       * field somebody brushes past while fixing a typo. */}
+      <SettingsCard
+        title={tr("What this is")}
+        desc="An announcement is an article with a different job: a partnership, a certification, a corridor opening. Publish one and you can pin it to the band under your home page's hero, where it shows its headline until the pin expires."
+      >
+        <Segmented<api.InsightKind>
+          label={tr("Kind")}
+          value={draft.kind}
+          onChange={(k) => set("kind", k)}
+          options={[
+            { value: "article", label: tr("Article") },
+            { value: "announcement", label: tr("Announcement") },
+          ]}
+        />
+      </SettingsCard>
+
+      {/* ── THE HOME PAGE, THE MOMENT IT BECOMES REACHABLE ────────────────
+       *
+       * It appears as soon as the kind is Announcement, right under the control
+       * that made it one, because that is when a writer wants it. Before this,
+       * the only pin lived on the list — so deciding a piece was an announcement
+       * and putting it on the home page were two screens apart, and the second
+       * one was findable only by knowing it was there.
+       *
+       * The pin still needs the piece PUBLISHED, which is the server's rule and
+       * a sound one: the band links to a page, and pinning a draft would put a
+       * link to a 404 under the hero. So the control says so rather than 422-ing.
+       *
+       * The kind read here is `data.kind`, not `draft.kind` — the SAVED value.
+       * A writer who flips the control but has not saved has not made this an
+       * announcement yet, and offering to pin something the server still calls
+       * an article is offering a button that fails. */}
+      {data?.kind === "announcement" && (
+        <SettingsCard
+          title={tr("Home page")}
+          desc="Pinned announcements appear in the band under your hero, newest expiry first. At most five show at once — and the pin lapses on its own, so the band empties itself."
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            {api.isPinned(data) ? (
+              <>
+                <Pill tone="ok">{tr("On the home page")}</Pill>
+                <span className="text-sm text-muted-foreground">
+                  {tr("until") + " " + fmtDay(data.pinned_until)}
+                </span>
+              </>
+            ) : data.pinned_until ? (
+              <>
+                <Pill tone="warn">{tr("Pin expired")}</Pill>
+                <span className="text-sm text-muted-foreground">
+                  {fmtDay(data.pinned_until)}
+                </span>
+              </>
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {tr("Not on the home page.")}
+              </span>
+            )}
+            <Button
+              className="ms-auto"
+              variant={api.isPinned(data) ? "outline" : "default"}
+              disabled={busy || (!published && !api.isPinned(data))}
+              onClick={() => {
+                setPinError(null);
+                setPinning(true);
+              }}
+            >
+              {api.isPinned(data) ? tr("Edit pin") : tr("Pin to home page")}
+            </Button>
+          </div>
+          {!published && !api.isPinned(data) && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              {tr("Publish it first — the band links to its page.")}
+            </p>
+          )}
+        </SettingsCard>
       )}
 
       <SettingsCard
@@ -517,6 +643,19 @@ export function WebsiteInsightEditorPage() {
       </SettingsCard>
 
       {saveError && <ErrorState message={saveError} />}
+
+      {pinning && data && (
+        <PinDialog
+          row={data}
+          busy={busy}
+          error={pinError}
+          onClose={() => {
+            setPinning(false);
+            setPinError(null);
+          }}
+          onSubmit={(until) => void submitPin(until)}
+        />
+      )}
 
       <ConfirmDialog
         open={removingCover}
