@@ -97,15 +97,22 @@ export const DateTimeField = React.forwardRef<
       | (HTMLInputElement & { showPicker?: () => void })
       | null;
     if (!el) return;
-    if (typeof el.showPicker === "function") {
-      try {
-        el.showPicker();
-        return;
-      } catch {
-        /* showPicker throws without a user gesture in some engines — fall through. */
-      }
+    // The fallback lives INSIDE the catch rather than after it. Not a style
+    // choice: a catch whose body is only a comment is a SILENT catch, and R1
+    // (doc/ERROR_HANDLING.md) wants either a taxonomy marker or real handling.
+    // None of storage/parse/teardown describes "the engine refused to open a
+    // picker without a user gesture", and picking one to quiet the rule would
+    // put a lie in a comment. There IS real handling here — it was just written
+    // one line too low.
+    if (typeof el.showPicker !== "function") {
+      el.focus();
+      return;
     }
-    el.focus();
+    try {
+      el.showPicker();
+    } catch {
+      el.focus();
+    }
   }
 
   return (
