@@ -52,6 +52,15 @@ export type UploadItem<T = unknown> = {
   /** 0–100. Meaningful only while `state` is "uploading" or "success". */
   percent: number;
   error: string | null;
+  /**
+   * The thrown error itself, kept alongside the message.
+   *
+   * Call sites need more than the text: the branding upload maps a 403 to "you
+   * need Settings edit permission", which only an ApiError's `status` can tell
+   * it. Matching on the message string instead would break the first time
+   * anyone reworded it.
+   */
+  errorCause: unknown;
   result: T | null;
   originalBytes: number;
   /** Bytes actually sent; equals originalBytes when compression was skipped. */
@@ -172,7 +181,12 @@ export function useUpload<T = unknown>({
           return { ok: true as const, result: null };
         }
 
-        patch(item.id, { state: "uploading", percent: 0, error: null });
+        patch(item.id, {
+          state: "uploading",
+          percent: 0,
+          error: null,
+          errorCause: null,
+        });
         const result = await sendRef.current(toSend, {
           onProgress: (percent) =>
             patch(item.id, {
@@ -181,7 +195,13 @@ export function useUpload<T = unknown>({
           signal: controller.signal,
         });
 
-        patch(item.id, { state: "success", percent: 100, result, error: null });
+        patch(item.id, {
+          state: "success",
+          percent: 100,
+          result,
+          error: null,
+          errorCause: null,
+        });
         return { ok: true as const, result };
       } catch (err) {
         const aborted =
@@ -193,6 +213,7 @@ export function useUpload<T = unknown>({
           error: aborted
             ? null
             : (err as Error)?.message || "That upload did not go through.",
+          errorCause: aborted ? null : err,
         });
         return { ok: false as const, result: null };
       } finally {
@@ -228,6 +249,7 @@ export function useUpload<T = unknown>({
           error: tooBig
             ? `That file is ${humanSize(file.size)} — the limit here is ${humanSize(maxBytes as number)}.`
             : null,
+          errorCause: null,
           result: null,
           originalBytes: file.size,
           bytes: file.size,

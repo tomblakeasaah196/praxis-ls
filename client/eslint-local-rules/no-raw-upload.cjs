@@ -46,11 +46,19 @@
  */
 "use strict";
 
-/** Files allowed to contain a raw file input: the engine itself. */
+/**
+ * Files allowed to contain a raw file input: the engine itself, in each app.
+ *
+ * `file-input.tsx` is public-web's equivalent — that app cannot import the
+ * client's engine (it installs only its own dependencies in CI), so it holds
+ * its own `FileInput`/`FilePicker` pair and this is the one file in it allowed
+ * to own the element.
+ */
 const ALLOWED = [
   "components/ui/image-upload.tsx",
   "components/ui/file-drop.tsx",
   "components/ui/file-upload.tsx",
+  "components/ui/file-input.tsx",
 ];
 
 function isAllowedFile(filename) {
@@ -84,7 +92,7 @@ module.exports = {
     schema: [],
     messages: {
       banned:
-        "A raw file input has no preview, no upload percentage and no compression — the three things every upload in this product is supposed to have. Use <ImageUpload profile=\"…\" send={…}> from components/ui/image-upload, or useUpload() from lib/use-upload if the bytes must wait for Save. See doc/FRONTEND_GUIDE.md §3.13. If this is genuinely the exception, add `eslint-disable-next-line praxis/no-raw-upload` with a written reason.",
+        "A raw file input has no preview, no upload percentage and no compression — the three things every upload in this product is supposed to have. In client/ and platform-console/ use <ImageUpload profile=\"…\" send={…}>, or <FilePicker> + <UploadList> + useUpload() when the bytes must wait for Save; in public-web/ use <FileInput> or <FilePicker> from components/ui/file-input. See doc/FRONTEND_GUIDE.md §3.13. If this is genuinely the exception, add `eslint-disable-next-line praxis/no-raw-upload` with a written reason.",
     },
   },
 

@@ -46,6 +46,12 @@ test("no-raw-upload", () => {
         code: 'const a = <input type="file" />;',
         filename: "src/components/ui/file-drop.tsx",
       },
+      // public-web's own engine file — that app cannot import the client's, so
+      // it holds its own and is exempt by the same path rule.
+      {
+        code: 'const a = <input type="file" />;',
+        filename: "public-web/src/components/ui/file-input.tsx",
+      },
 
       // The sanctioned call site shape.
       {

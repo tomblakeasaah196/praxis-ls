@@ -218,41 +218,6 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-assertion": "off",
     },
   },
-  /**
-   * THE UPLOAD-GATE BASELINE — a list whose only purpose is to reach zero.
-   *
-   * `praxis/no-raw-upload` is "error" everywhere, so nothing NEW can be written
-   * with a bare `<input type="file">`. These thirteen files predate the engine
-   * and are listed explicitly rather than left to warn, which is the shape this
-   * repo already uses when a gate lands on existing code (the committed
-   * baseline in scripts/check-silent-catch.js, ALLOW_LOCAL_SCHEMA in
-   * check-schemas.mjs). An explicit shrinking list is reviewable; an ambient
-   * "warn" is a rule nobody reads.
-   *
-   * Each of these is a screen where an upload today shows no preview, no
-   * percentage and sends an uncompressed original. PR2 migrates them onto
-   * `<ImageUpload>` / `<FilePicker>` + `useUpload()` and DELETES the entry.
-   * Do not add to this list: a new upload site has the engine available, which
-   * is the whole reason the engine was written first.
-   */
-  {
-    files: [
-      "src/components/scan-attachment.tsx",
-      "src/components/settings/controls.tsx",
-      "src/features/comms/inbox/composer/attachment-tray.tsx",
-      "src/features/finance/receivables.tsx",
-      "src/features/hr/contracts.tsx",
-      "src/features/masterdata/corporate-entities.tsx",
-      "src/features/masterdata/financial-dictionary-import.tsx",
-      "src/features/operations/transit-order-360.tsx",
-      "src/features/sales/partnership-forms.tsx",
-      "src/features/sales/quote-request-forms.tsx",
-      "src/features/security/my-security.tsx",
-      "src/features/settings/document-templates-page.tsx",
-      "src/features/settings/website-assets.tsx",
-    ],
-    rules: { "praxis/no-raw-upload": "off" },
-  },
   // THE BAN IS NOT TYPESCRIPT-ONLY.
   //
   // Every other block in this file is scoped to TS and TSX files, which is right

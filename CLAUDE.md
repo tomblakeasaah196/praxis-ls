@@ -90,8 +90,13 @@ call `formatToParts()`, which renders nothing. Full detail in
 Save), from `@/components/ui/image-upload` and `@/lib/use-upload`.**
 
 Enforced by the `praxis/no-raw-upload` ESLint rule as an **error** in all three
-frontend apps. It catches the rewrites too — `<input type={"file"} />` and
+frontend apps, with **no baseline allow-list** — every upload site in the tree is
+on the engine. It catches the rewrites too: `<input type={"file"} />` and
 `el.type = "file"` after `createElement` are the same violation.
+
+`public-web/` carries its own copy of the engine (`components/ui/file-input.tsx`,
+`lib/image-compress.ts`) because that app installs only its own dependencies in
+CI and cannot import from `client/`. Keep the two in step.
 
 The engine gives every upload three things, none of them optional: a **preview**
 from the moment the picker closes, a **0→100% percentage** ending in an explicit
