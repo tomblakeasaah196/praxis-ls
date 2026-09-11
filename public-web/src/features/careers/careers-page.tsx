@@ -14,6 +14,7 @@ import { FilePicker } from "@/components/ui/file-input";
 import {
   compressImage,
   isPreviewableImage,
+  isSafeBlobUrl,
   previewUrlFor,
 } from "@/lib/image-compress";
 import { Button } from "@/components/ui/button";
@@ -664,13 +665,13 @@ function ApplyForm({ vacancy: v }: { vacancy: api.PublicVacancy }) {
             }
             onPick={(files) => void pick(files)}
           />
-          {/* The `blob:` test is a barrier AT THE SINK, and it is not
-              superstition: `previewUrlFor` already proves this, but CodeQL
-              cannot follow a sanitiser across a module boundary and reports the
-              flow as js/xss-through-dom (high). A high-severity alert argued
-              away rather than closed is one the next person has to argue away
-              again — and the check costs one string comparison per render. */}
-          {preview && preview.startsWith("blob:") ? (
+          {/* Guarded at the sink. `previewUrlFor` already proves this URL is a
+              blob:, but CodeQL cannot follow a sanitiser across a module
+              boundary and reports the flow as js/xss-through-dom (high). The
+              check costs one string comparison per render and closes the alert
+              rather than arguing it away — an alert argued away is one the next
+              person has to argue away again. */}
+          {isSafeBlobUrl(preview) ? (
             <img
               src={preview}
               alt=""

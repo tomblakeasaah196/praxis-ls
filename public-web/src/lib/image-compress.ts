@@ -195,6 +195,22 @@ export function fileToDataUrl(file: File): Promise<string> {
 }
 
 /**
+ * True when a URL is safe to hand to an `<img src>`.
+ *
+ * The only scheme that reaches here is `blob:`, which cannot execute and cannot
+ * be reinterpreted as markup — unlike `data:text/html` or `javascript:`, which
+ * a URL sink genuinely will honour.
+ *
+ * This is a named guard rather than an inline `startsWith` because that is what
+ * makes the check legible both to a reader and to CodeQL, which reports this
+ * flow as js/xss-through-dom and recognises a validating guard call where it
+ * does not recognise a bare prefix test buried in a JSX conditional.
+ */
+export function isSafeBlobUrl(url: string | null | undefined): url is string {
+  return typeof url === "string" && url.startsWith("blob:");
+}
+
+/**
  * An object URL for a preview, proven to be one before it reaches an `src`.
  *
  * `URL.createObjectURL` can only ever return `blob:<origin>/<uuid>`, so the
@@ -214,7 +230,7 @@ export function previewUrlFor(file: File): string | null {
   if (!file) return null;
   try {
     const url = URL.createObjectURL(file);
-    return url.startsWith("blob:") ? url : null;
+    return isSafeBlobUrl(url) ? url : null;
   } catch {
     /* @silent:parse — no object-URL support; the control renders without one. */
     return null;

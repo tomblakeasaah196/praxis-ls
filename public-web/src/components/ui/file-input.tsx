@@ -5,6 +5,7 @@ import { CloseIcon, DocumentIcon } from "@/components/ui/icons";
 import {
   compressImage,
   isPreviewableImage,
+  isSafeBlobUrl,
   previewUrlFor,
 } from "@/lib/image-compress";
 
@@ -157,8 +158,8 @@ export function FileInput({
 
       {value ? (
         <div className="flex items-center gap-3 rounded-[calc(var(--radius)-2px)] border bg-muted/40 p-3">
-          {/* Same barrier as the careers form — see the note there. */}
-          {value.previewUrl && value.previewUrl.startsWith("blob:") ? (
+          {/* Same guard as the careers form — see the note there. */}
+          {isSafeBlobUrl(value.previewUrl) ? (
             <img
               src={value.previewUrl}
               alt=""
