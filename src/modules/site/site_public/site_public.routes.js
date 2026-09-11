@@ -39,6 +39,28 @@ router.get("/pages/:key", limit, asyncHandler(async (req, res) => {
   res.json({ data: await req.tenantDbIn("live", (c) => service.getPublicPage(c, req.params.key)) });
 }));
 
+/**
+ * The copy overlay — every `site.*` string this tenant has rewritten, as an
+ * i18next resource tree per language.
+ *
+ * ── WHY IT IS CACHED LIKE /theme AND NOT LIKE /announcements ──────────────
+ *
+ * It is on the LCP path in the strictest sense: the renderer holds its first
+ * paint for it, because painting the shipped English heading and swapping it
+ * for the tenant's a beat later is a visible flicker on the largest text on the
+ * page. So it gets `/theme`'s five minutes, for `/theme`'s reason — a burst of
+ * visitors costs one read, and a tenant who rewrites a heading sees it within a
+ * coffee break. Copy is not the thing a tenant publishes because it is urgent;
+ * that is the announcements band, which is deliberately uncached.
+ *
+ * Never 404s. A tenant who has overridden nothing — which is every tenant on
+ * day one — gets `{en:{},fr:{}}` and the site reads exactly as it shipped.
+ */
+router.get("/copy", limit, asyncHandler(async (req, res) => {
+  res.set("Cache-Control", "public, max-age=300");
+  res.json({ data: await req.tenantDbIn("live", (c) => service.getPublicCopy(c)) });
+}));
+
 /* ── the experience reads ───────────────────────────────────────────────────
  *
  * Everything below is served to the open internet, on the same rate limiter and

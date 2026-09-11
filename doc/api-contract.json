@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 140,
-  "route_count": 1563,
+  "route_count": 1569,
   "tiers": {
-    "public": 58,
+    "public": 61,
     "self-scoped": 93,
-    "gated": 1412
+    "gated": 1415
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -526,6 +526,12 @@
       "tier": "gated"
     },
     "DELETE /api/tenant/site-settings/leaders/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/site-settings/media/:slot/:ownerId": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -3459,7 +3465,25 @@
       "validated": false,
       "tier": "public"
     },
+    "GET /api/tenant/public/site/copy": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
     "GET /api/tenant/public/site/entities": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/site/media/:id": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/site/media/:id/:variant": {
       "auth": false,
       "rbac": false,
       "validated": false,
@@ -4000,6 +4024,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/site-settings/theme/preview": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site/copy/catalogue": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8404,6 +8434,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/site-settings/leaders": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/site-settings/media": {
       "auth": true,
       "rbac": true,
       "validated": false,
