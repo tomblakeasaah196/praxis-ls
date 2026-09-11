@@ -70,6 +70,7 @@ const GATES = [
   { group: "backend", name: "jest.mock hoisting", cmd: node("scripts/check-jest-mock-hoisting.js") },
   { group: "backend", name: "API docs in sync", cmd: node("scripts/generate-api-docs.js", "--check") },
   { group: "backend", name: "Site copy catalogue in sync", cmd: node("scripts/gen/gen-site-copy-catalogue.js", "--check") },
+  { group: "backend", name: "Constraint guards are schema-qualified", cmd: node("scripts/db/check-constraint-guards.js") },
   { group: "backend", name: "Migration reversibility", cmd: node("scripts/db/check-migration-reversibility.js") },
   { group: "backend", name: "Migration idempotency", cmd: node("scripts/db/check-migration-idempotency.js") },
   { group: "backend", name: "Destructive migrations declared", cmd: node("scripts/db/check-destructive-migrations.js") },
@@ -160,6 +161,10 @@ const GATES = [
 /** Gates this cannot honestly run, and what each one needs. Printed, not hidden. */
 const SKIPPED = [
   ["Provisioning + migration replay", "a live Postgres", "node scripts/db/migrate-platform.js && node scripts/db/provision-tenant.js --slug=citenant"],
+  // Needs a PROVISIONED tenant, not just a server: the defect it catches is a
+  // property of live and sandbox being migrated in that order, so it has
+  // nothing to compare until both schemas exist.
+  ["live/sandbox schema parity", "a provisioned tenant", "node scripts/db/check-schema-parity.js --slug=citenant"],
   ["Integration suites", "a live Postgres + seeded tenant", "RUN_DB_TESTS=1 npx jest tests/integration"],
   ["PgBouncer pooling", "PgBouncer", "see .github/workflows/ci.yaml — 'Stand up PgBouncer'"],
   ["Desktop layout gate (e2e)", "a Chromium download", "npm run e2e:install --prefix client && npm run test:e2e --prefix client"],
