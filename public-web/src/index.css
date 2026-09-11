@@ -1778,10 +1778,29 @@
     transition: transform 0.2s var(--ease-decelerate);
   }
 
-  /* Content above both. */
+  /* Content above both.
+   *
+   * ── .nav-panel-host IS NOT IN THIS LIST, AND MUST NEVER BE ───────────────
+   *
+   * It was, and it cost the site 440px of dead space at the top of every page.
+   * `.site-header > .nav-panel-host` is specificity 0-2-0 and `.nav-panel-host`
+   * is 0-1-0, so this rule's `position: relative` beat the panel's own
+   * `position: absolute` and put the CLOSED panel back into normal flow. The
+   * header then measured 449px instead of 109px — measured in Chromium against
+   * the built page, both numbers, not estimated. And because the closed panel is
+   * `visibility: hidden` rather than `display: none`, the 340px it occupied was
+   * invisible: a hole under the nav with nothing in it.
+   *
+   * It also silently poisoned `--site-header-h`, which is measured from the
+   * header's bounding box: every sticky aside and every anchor scroll-margin on
+   * the site was offset by the height of a panel nobody had opened.
+   *
+   * The panel does still need to sit above the sheen, and it gets that from its
+   * own rule — an absolutely positioned element takes a `z-index` perfectly
+   * well. What it must not take is a `position` from anywhere but its own
+   * declaration. */
   .site-header > .wrap,
-  .site-header > .site-drawer,
-  .site-header > .nav-panel-host {
+  .site-header > .site-drawer {
     position: relative;
     z-index: 1;
   }
@@ -1977,16 +1996,36 @@
    * element removed from the DOM has nothing to animate. `visibility` is what
    * takes it out of the tab order, delayed until the close has finished so the
    * wipe is visible; `pointer-events` matches. */
+  /* OUT OF FLOW, always. The panel hangs over the hero rather than reserving a
+     box for itself — see the note beside `.site-header > .wrap` for what
+     happened the one time something else set its `position`.
+   *
+   * `z-index: 3` puts it over the progress rail (2) and the bar's content (1),
+   * which matters at exactly one place: the 2px rail sits on the header's
+   * bottom edge and the panel starts there. */
   .nav-panel-host {
     position: absolute;
     inset-inline: 0;
     top: 100%;
+    z-index: 3;
   }
 
+  /* OPAQUE, and the bar above it is not — the difference is deliberate.
+   *
+   * The bar is a 60px strip whose translucency is what lets the page move
+   * underneath it. This is a 340px content surface that hangs over the HERO,
+   * and the hero is a near-black plate carrying 96px type. At the 97% white this
+   * rule used to carry, the remaining 3% ghosted the headline straight through
+   * the service list — invisible on small type, glaring under a headline that
+   * size. Measured in Chromium, not guessed at.
+   *
+   * The `backdrop-filter` went with it: at 97% opacity it was blurring a
+   * backdrop nobody could see, which is a compositor layer and a GPU pass per
+   * frame bought for nothing. The panel reads as one piece of material with the
+   * bar because of the lit edge and the shadow, never because it was see-through. */
   .nav-panel {
     position: relative;
-    background: color-mix(in srgb, var(--background) 97%, transparent);
-    backdrop-filter: saturate(1.4) blur(18px);
+    background: var(--background);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 26px 50px -26px rgb(var(--ink) / 0.28);
     clip-path: inset(0 0 100% 0);
