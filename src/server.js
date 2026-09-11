@@ -28,6 +28,7 @@ const { router: clientErrorsRouter } = require("./routes/client-errors");
 const { router: metricsRouter } = require("./routes/metrics");
 const { initRateLimitStore, apiLimiter } = require("./shared/http/rate-limit");
 const { isPublicMediaPath } = require("./shared/http/media-guard");
+const { RAISED: RAISED_BODY_LIMITS, DEFAULT_LIMIT: DEFAULT_BODY_LIMIT } = require("./shared/http/body-limits");
 const storage = require("./services/storage.service");
 const registry = require("./services/tenant/registry.service");
 const publicHead = require("./shared/http/public-head");
@@ -264,50 +265,24 @@ function buildApp() {
    * qes_public.controller and is null for non-JSON bodies.
    */
   /**
-   * ONE route gets a bigger body, and only this one.
+   * The routes allowed a bigger body than the global limit below, and why each
+   * one needs it, are in `shared/http/body-limits` — it is one list because the
+   * same base64-inflation bug has now been found in three separate features
+   * (a CV, a staff file, every picture on the tenant's website) and the fourth
+   * should be a line in that file rather than a fourth block of prose here.
    *
-   * A job applicant's CV is base64-encoded into the JSON body
-   * (`careers-api.ts` → `fileToDataUrl`), and base64 inflates by a third — so
-   * the 8 MB the form advertises, and which `careers.service.CV_MAX_BYTES`
-   * enforces, is about 10.7 MB on the wire. Against the 2 MB global limit below
-   * that meant anything over roughly 1.4 MB was refused with a 413 AFTER the
-   * applicant had waited through the whole upload, which is most phone-scanned
-   * CVs. The form promised 8 MB and the server had never been able to take it.
-   *
-   * Mounted BEFORE the global parser rather than after, because body-parser sets
-   * `req._body` once it has parsed and every downstream parser bails on that
-   * flag — a larger parser registered later would never run. Raising the global
-   * limit instead would hand 12 MB bodies to all ~600 routes to fix one; this
-   * gives it to the single public path that needs it.
+   * Mounted BEFORE the global parser, which is not a style choice: body-parser
+   * sets `req._body` once it has parsed, and every downstream body parser bails
+   * on that flag, so a larger parser registered afterwards never runs at all.
    */
-  const CV_APPLY_PATH = /^\/api\/(v\d+\/)?tenant\/careers\/[^/]+\/apply\/?$/;
-  app.use(
-    CV_APPLY_PATH,
-    express.json({ limit: "12mb", verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } }),
-  );
+  for (const group of RAISED_BODY_LIMITS) {
+    app.use(
+      group.path,
+      express.json({ limit: group.limit, verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } }),
+    );
+  }
 
-  /*
-   * The staff file (12764), for the same reason and by the same mechanism.
-   *
-   * Hiring somebody submits the person, their papers and their standing pay
-   * lines in ONE call, and "their papers" is a photographed ID card, a CV and a
-   * passport photograph — three files a phone camera produces at 2–4 MB each,
-   * plus a third again for base64. Against the 2 MB global limit that POST is a
-   * 413 before any of our code runs, which surfaces as a hire that silently
-   * refuses to save and no field to blame.
-   *
-   * Two paths only: creating an employee, and adding one document to an
-   * existing one. Same argument as the CV path above — a global raise would
-   * hand 12 MB bodies to ~600 routes to fix two. The per-file ceiling is in
-   * employees.validator, and document_vault re-checks the decoded bytes.
-   */
-  const EMPLOYEE_DOC_PATH = /^\/api\/(v\d+\/)?tenant\/employees(\/[^/]+\/documents)?\/?$/;
-  app.use(
-    EMPLOYEE_DOC_PATH,
-    express.json({ limit: "12mb", verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } }),
-  );
-
-  app.use(express.json({ limit: "2mb", verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } }));
+  app.use(express.json({ limit: DEFAULT_BODY_LIMIT, verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } }));
   app.use(express.urlencoded({ extended: true }));
 
   // OBS-E2: browser crash reports. Mounted before the tenant router so it needs
