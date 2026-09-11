@@ -249,6 +249,15 @@ export const en = {
       insights: "Insights",
       careers: "Careers",
       contact: "Contact",
+      /* The services panel. Its own keys rather than reused ones: "All
+         services" is a destination and `nav.services` is a section, and a
+         dictionary that conflates them is a dictionary that breaks the day
+         somebody renames one of them. */
+      servicesToggle: "Show services",
+      servicesAll: "All services",
+      servicesMore: "+{{count}} more",
+      servicesPitch:
+        "Not sure which one you need? Describe the shipment and the right desk answers.",
     },
     /**
      * Insights — the renamed Kaizen Hub (WS5). "Insights" everywhere: module,
@@ -1232,6 +1241,11 @@ export const fr = {
       insights: "Analyses",
       careers: "Carrières",
       contact: "Contact",
+      servicesToggle: "Afficher les services",
+      servicesAll: "Tous les services",
+      servicesMore: "+{{count}} de plus",
+      servicesPitch:
+        "Vous ne savez pas lequel choisir ? Décrivez l’expédition et le bon service vous répond.",
     },
     corridor: {
       eyebrow: "Le réseau",
