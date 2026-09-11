@@ -478,6 +478,46 @@ describe("ServiceTypeWebTab", () => {
     );
   });
 
+  it("shows the chosen picture in the box instead of a truncated UUID", async () => {
+    // The report: "I don't know if it uploaded, there is no preview of the
+    // image inline." Every dropzone here was handed `file={null}`, so
+    // <FileDrop>'s thumbnail, filename and upload state were dead code and the
+    // only feedback was the first eight characters of a document id.
+    getServiceTypeWeb.mockResolvedValue(draftTab());
+    uploadServiceTypeWebMedia.mockResolvedValue(draftTab());
+
+    view(
+      <ServiceTypeWebTab
+        serviceTypeId={ST_ID}
+        serviceTypeKey={ST_KEY}
+        onEditServiceType={() => {}}
+      />,
+    );
+    await screen.findByTestId("web-profile-editor");
+
+    const file = new File([WEBP_HEADER], "services-hero.webp", {
+      type: "image/webp",
+    });
+    fireEvent.change(screen.getByLabelText(COVER_LABEL), {
+      target: { files: [file] },
+    });
+
+    // The name is in the box straight away — before the round trip resolves.
+    expect(await screen.findByText("services-hero.webp")).toBeTruthy();
+    // And the box offers a preview of it rather than nothing.
+    expect(
+      await screen.findByRole("button", { name: /Expand preview/i }),
+    ).toBeTruthy();
+
+    await waitFor(() =>
+      expect(uploadServiceTypeWebMedia).toHaveBeenCalledTimes(1),
+    );
+    // It stays put afterwards, so the answer to "did it upload?" is the
+    // picture, and it is confirmed rather than replaced by an id.
+    expect(screen.getByText("services-hero.webp")).toBeTruthy();
+    expect(await screen.findByText(/Upload successful/i)).toBeTruthy();
+  });
+
   it("still refuses a file the browser DID name, and named as something else", async () => {
     // The guard is relaxed for "" only. An outright mismatch is still worth a
     // sentence here rather than a round trip and a 422.
