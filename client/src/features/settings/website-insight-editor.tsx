@@ -173,7 +173,14 @@ export function WebsiteInsightEditorPage() {
   function imageProblem(file: File): string | null {
     if (!file.size) return tr("That image is empty.");
     if (file.size > IMAGE_MAX_BYTES) return tr("Images must be no larger than 10 MB.");
-    if (!IMAGE_ACCEPT.split(",").includes(file.type.toLowerCase())) {
+    // A browser reports an EMPTY type for a file whose extension the operating
+    // system has no registry entry for, and `.webp` is the one that still hits
+    // that on Windows — so treating "" as "not an image" refused genuine WebP
+    // files with a message telling the person to pick a WebP. The vault sniffs the
+    // magic bytes and is the authority (`document_vault.service.sniffContentType`);
+    // only an outright mismatch is worth refusing here. Same rule as
+    // `vault-file.scanFileProblem`.
+    if (file.type && !IMAGE_ACCEPT.split(",").includes(file.type.toLowerCase())) {
       return tr("Choose a PNG, JPEG or WebP image.");
     }
     return null;
