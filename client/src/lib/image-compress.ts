@@ -188,6 +188,65 @@ export async function compressImage(
   }
 }
 
+/**
+ * Read a File back as a base64 data URL.
+ *
+ * For the endpoints that still take one. The engine works in Files because that
+ * is what compresses and what multipart sends; this is the adapter at the edge,
+ * so a site can be migrated onto the engine without its API being changed in
+ * the same step.
+ */
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read that file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * True when a URL is safe to hand to an `<img src>`.
+ *
+ * The only scheme that reaches here is `blob:`, which cannot execute and cannot
+ * be reinterpreted as markup — unlike `data:text/html` or `javascript:`, which
+ * a URL sink genuinely will honour.
+ *
+ * A named guard rather than an inline `startsWith` because that is what makes
+ * the check legible both to a reader and to CodeQL, which reports this flow as
+ * js/xss-through-dom on public-web's copy of this file.
+ */
+export function isSafeBlobUrl(url: string | null | undefined): url is string {
+  return typeof url === "string" && url.startsWith("blob:");
+}
+
+/**
+ * An object URL for a preview, proven to be one before it reaches an `src`.
+ *
+ * `URL.createObjectURL` can only ever return `blob:<origin>/<uuid>`, so the
+ * check below can never fail in practice. It is here because the VALUE flows
+ * from a file the user chose into an `<img src>`, and "user-controlled data
+ * reaches a URL sink" is a real shape — one CodeQL flags as high severity
+ * (js/xss-through-dom) precisely because it cannot see that the blob contract
+ * holds. Asserting the prefix at the point of creation makes the guarantee
+ * local and checkable instead of an argument about an API's contract, and it
+ * still catches the day someone swaps this for a FileReader data: URL — where
+ * `data:text/html` IS reachable and the sink would be live.
+ *
+ * Returns null rather than throwing: no preview is a degraded control, and a
+ * thrown error here would take the whole upload with it.
+ */
+export function previewUrlFor(file: File): string | null {
+  if (!file) return null;
+  try {
+    const url = URL.createObjectURL(file);
+    return isSafeBlobUrl(url) ? url : null;
+  } catch {
+    /* @silent:parse — no object-URL support; the control renders without one. */
+    return null;
+  }
+}
+
 /** True when this file is an image the engine will show a preview for. */
 export function isPreviewableImage(file: File | null | undefined): boolean {
   if (!file) return false;

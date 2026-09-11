@@ -10,6 +10,13 @@ import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { Section } from "@/components/site/section";
 import { Card } from "@/components/ui/card";
 import { Panel } from "@/components/ui/panel";
+import { FilePicker } from "@/components/ui/file-input";
+import {
+  compressImage,
+  isPreviewableImage,
+  isSafeBlobUrl,
+  previewUrlFor,
+} from "@/lib/image-compress";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/field";
@@ -70,6 +77,11 @@ import { p } from "@/lib/base-path";
  * English-only string. A test advert that only warns the English-reading half of
  * the applicants is a warning that did not happen.
  */
+/** Kept out of the JSX so the suppression comment stays on the line directly
+ *  above `src` — Prettier re-wraps a long <img> and would separate them. */
+const CV_PREVIEW_CLASS =
+  "h-12 w-12 shrink-0 rounded border bg-background object-cover";
+
 export function CareersPage() {
   const { t } = useTranslation();
   const [rows, setRows] = React.useState<api.PublicVacancy[] | null>(null);
@@ -427,8 +439,16 @@ export function VacancyPage() {
 /** The application itself. */
 function ApplyForm({ vacancy: v }: { vacancy: api.PublicVacancy }) {
   const { t } = useTranslation();
-  const fileRef = React.useRef<HTMLInputElement>(null);
   const [file, setFile] = React.useState<File | null>(null);
+  const [preview, setPreview] = React.useState<string | null>(null);
+
+  // An object URL pins the whole file in memory until it is revoked.
+  React.useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
   const [fileError, setFileError] = React.useState<string | null>(null);
   const [cvDataUrl, setCvDataUrl] = React.useState<string | null>(null);
   const [f, setF] = React.useState({
@@ -460,14 +480,31 @@ function ApplyForm({ vacancy: v }: { vacancy: api.PublicVacancy }) {
     (!requirePortfolio || f.portfolio_url.trim().length > 0) &&
     !intake.busy;
 
-  async function pick(ev: React.ChangeEvent<HTMLInputElement>) {
-    const picked = ev.target.files?.[0] || null;
-    setFile(picked);
+  async function pick(files: FileList | null) {
+    const picked = files?.[0] || null;
     setFileError(null);
     setCvDataUrl(null);
+    setPreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return null;
+    });
+    setFile(picked);
     if (!picked) return;
     try {
-      setCvDataUrl(await api.fileToDataUrl(picked));
+      // Compressed before it is ever encoded. A CV photographed on a phone is
+      // routinely 8–12 MB, and this is a stranger on a corridor connection with
+      // no account and no second attempt: the resize is the difference between
+      // an application that lands and one that times out. "document" keeps the
+      // source format, so the company receives the kind of file it can open.
+      const { file: prepared } = await compressImage(picked, "document");
+      setFile(prepared);
+      if (isPreviewableImage(prepared)) {
+        // The preview this form never had. Attaching the wrong scan is
+        // otherwise invisible — and a candidate has no account to check it from
+        // afterwards. previewUrlFor proves the blob: contract at the sink.
+        setPreview(previewUrlFor(prepared));
+      }
+      setCvDataUrl(await api.fileToDataUrl(prepared));
     } catch (e) {
       setFileError(e instanceof Error ? e.message : String(e));
     }
@@ -622,26 +659,52 @@ function ApplyForm({ vacancy: v }: { vacancy: api.PublicVacancy }) {
       <div>
         <p className="field-label">{t("site.careers.cv")}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileRef.current?.click()}
+          <FilePicker
+            accept={api.CV_ACCEPT}
+            label={t("site.careers.cv")}
             disabled={intake.busy}
-          >
-            {t("site.careers.cvPick")}
-          </Button>
+            trigger={
+              <span className="btn-surface inline-flex h-10 items-center rounded-[calc(var(--radius)-2px)] px-4 text-sm font-medium no-underline">
+                {t("site.careers.cvPick")}
+              </span>
+            }
+            onPick={(files) => void pick(files)}
+          />
+          {/* CodeQL reports js/xss-through-dom (high) on the `src` below, and
+              it is a FALSE POSITIVE dismissed in the Security tab — not
+              suppressed here. GitHub's CodeQL Action ignores source-code
+              suppression comments (`// codeql[…]` / `// lgtm[…]` were an LGTM
+              feature); alerts are dismissed through code scanning itself. A
+              directive here would look like it was handling the alert while
+              doing nothing, which is worse than no comment at all.
+
+              The flow it traces is real: a file the visitor chose reaches a URL
+              sink. What it cannot see is that `preview` can only ever be a `blob:`
+              URL — `URL.createObjectURL` has no other possible return — and a
+              blob: URL can neither execute nor be reinterpreted as markup. The
+              schemes that would make this sink live, `data:text/html` and
+              `javascript:`, are unreachable.
+
+              What was tried, so nobody repeats it: asserting the prefix inside
+              `previewUrlFor` (not followed across a module boundary); an inline
+              `startsWith` on this conditional (not recognised as a barrier);
+              and the named guard below (still reported).
+
+              The guard STAYS regardless of the dismissal. It is not decoration
+              — it is what catches the day someone swaps object URLs for a
+              FileReader `data:` URL, where this sink genuinely would be live.
+              image-compress.test.ts covers that rejection path.
+
+              Revisit if this component ever takes its src from anywhere other
+              than `previewUrlFor`. */}
+          {isSafeBlobUrl(preview) ? (
+            <img src={preview} alt="" className={CV_PREVIEW_CLASS} />
+          ) : null}
           <span className="min-w-0 truncate text-xs text-muted-foreground">
             {file ? file.name : t("site.careers.cvNone")}
           </span>
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          className="sr-only"
-          accept={api.CV_ACCEPT}
-          onChange={pick}
-          aria-label={t("site.careers.cv")}
-        />
+
         <p className="mt-1.5 text-xs text-muted-foreground">
           {t("site.careers.cvHint")}
         </p>

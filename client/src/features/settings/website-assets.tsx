@@ -53,6 +53,10 @@ import { Field } from "@/components/settings/controls";
 import { tr } from "@/lib/i18n";
 import { errMsg } from "@/lib/use-resource";
 import * as api from "@/lib/site-settings-api";
+import { FilePicker } from "@/components/ui/image-upload";
+import { UploadProgress } from "@/components/ui/upload-progress";
+import { useUpload } from "@/lib/use-upload";
+import { fileToDataUrl } from "@/lib/image-compress";
 
 /**
  * What each slot is called, in words a marketing administrator recognises.
@@ -89,15 +93,6 @@ function constraintHint(slot: api.AssetSlot): string {
   return parts.join(" · ");
 }
 
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(new Error(tr("Could not read that file.")));
-    r.readAsDataURL(file);
-  });
-}
-
 /**
  * One image, in one slot, on one row.
  *
@@ -131,37 +126,58 @@ export function AssetSlotField({
   const [err, setErr] = React.useState<string | null>(null);
   const inputId = React.useId();
 
-  async function onFile(file?: File | null) {
+  /**
+   * Through the upload engine. `profile="brand"` for two reasons: these are
+   * marks and wordmarks whose colours must come back unchanged, and the profile
+   * keeps the SOURCE format — which matters here more than anywhere, because
+   * several slots require a transparent background and are refused server-side
+   * without one.
+   */
+  const upload = useUpload<{ doc_id: string }>({
+    profile: "brand",
+    maxBytes: spec.maxBytes,
+    send: async (file, ctx) =>
+      api.uploadAsset(
+        {
+          slot,
+          owner_id: ownerId,
+          provenance,
+          data_url: await fileToDataUrl(file),
+          original_name: file.name,
+        },
+        ctx.onProgress,
+      ),
+    onAllComplete: ([created]) => {
+      if (created) onChange(created.doc_id);
+    },
+  });
+
+  const item = upload.items[0] ?? null;
+  const uploading =
+    item?.state === "uploading" || item?.state === "compressing";
+
+  React.useEffect(() => {
+    // The server's message is shown verbatim: for a mark with a baked-in white
+    // background it names the fix ("export it as a PNG with transparency at
+    // twice the display size"), and rewriting that here would lose the only
+    // sentence that helps.
+    if (item?.state === "error" && item.error) setErr(item.error);
+  }, [item?.state, item?.error]);
+
+  function onFile(file?: File | null) {
     if (!file) return;
     setErr(null);
-    // The cap is checked here as well as by the server, because a 6 MB upload
-    // over a Douala connection that is refused on arrival costs the tenant the
-    // whole upload before it tells them anything.
+    // The cap is checked by the engine too, but the message here names the SLOT
+    // limit rather than a generic one — a 6 MB upload over a Douala connection
+    // refused on arrival costs the tenant the whole upload before it tells them
+    // anything.
     if (file.size > spec.maxBytes) {
       setErr(
         `${tr("That file is too large for this slot. The limit is")} ${kb(spec.maxBytes)} KB.`,
       );
       return;
     }
-    setBusy(true);
-    try {
-      const created = await api.uploadAsset({
-        slot,
-        owner_id: ownerId,
-        provenance,
-        data_url: await readAsDataUrl(file),
-        original_name: file.name,
-      });
-      onChange(created.doc_id);
-    } catch (e) {
-      // The server's message is shown verbatim: for a mark with a baked-in
-      // white background it names the fix ("export it as a PNG with
-      // transparency at twice the display size"), and rewriting that here would
-      // lose the only sentence that helps.
-      setErr(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
+    void upload.pick([file]);
   }
 
   async function onRemove() {
@@ -180,9 +196,9 @@ export function AssetSlotField({
   return (
     <Field label={SLOT_LABEL[slot]()}>
       <div className="flex flex-wrap items-start gap-3">
-        {currentId ? (
+        {item?.previewUrl || currentId ? (
           <img
-            src={`/api/tenant/public/site/media/${currentId}`}
+            src={item?.previewUrl || `/api/tenant/public/site/media/${currentId}`}
             /* The row's own name is the alt text and it is supplied by the
                caller's context, not by a second field — see the header. Here in
                the editor the image is a PREVIEW of a control, so it is labelled
@@ -198,19 +214,20 @@ export function AssetSlotField({
 
         <div className="min-w-[240px] flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <label
-              htmlFor={inputId}
-              className="inline-flex h-9 cursor-pointer items-center rounded-md border border-input px-3 text-sm font-medium hover:bg-accent/40 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--ring)]"
-            >
-              {currentId ? tr("Replace") : tr("Upload")}
-            </label>
-            <input
-              id={inputId}
-              type="file"
+            <FilePicker
+              variant="inline"
               accept="image/png,image/jpeg,image/webp"
-              className="sr-only"
-              disabled={disabled || busy}
-              onChange={(e) => onFile(e.target.files?.[0])}
+              disabled={disabled || busy || uploading}
+              trigger={
+                <span className="inline-flex h-9 items-center rounded-md border border-input px-3 text-sm font-medium no-underline hover:bg-accent/40">
+                  {uploading
+                    ? tr("Uploading…")
+                    : currentId
+                      ? tr("Replace")
+                      : tr("Upload")}
+                </span>
+              }
+              onPick={(files) => onFile(files?.[0])}
             />
             {currentId ? (
               <Button size="sm" variant="ghost" disabled={disabled || busy} onClick={onRemove}>
@@ -218,6 +235,14 @@ export function AssetSlotField({
               </Button>
             ) : null}
           </div>
+
+          {item && item.state !== "idle" && (
+            <UploadProgress
+              state={item.state}
+              percent={item.percent}
+              error={item.error}
+            />
+          )}
 
           {/* BEFORE the dialog, not after a rejection. §6.3. */}
           <p className="text-xs text-muted-foreground">{constraintHint(slot)}</p>
