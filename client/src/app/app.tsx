@@ -274,6 +274,10 @@ const WebsitePageEditorPage = lazyNamed(
   () => import("@/features/settings/website-page-editor"),
   "WebsitePageEditorPage",
 );
+const WebsiteCopyPage = lazyNamed(
+  () => import("@/features/settings/website-copy"),
+  "WebsiteCopyPage",
+);
 const WebsiteInsightsPage = lazyNamed(
   () => import("@/features/settings/website-insights"),
   "WebsiteInsightsPage",
@@ -694,6 +698,7 @@ export function App() {
                   literal "articles" — React Router ranks a static segment
                   higher, so these two win, but the ordering is written this way
                   so a reader sees why the collision is not one. */}
+              <Route path="settings/website/copy" element={<WebsiteCopyPage />} />
               <Route path="settings/website/theme" element={<WebsiteThemePage />} />
               <Route path="settings/website/about" element={<WebsiteAboutPage />} />
               <Route path="settings/website/partners" element={<WebsitePartnersPage />} />

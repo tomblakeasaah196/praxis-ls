@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 2× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (529)
+## All codes (530)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -246,6 +246,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ITINERARY_LEG_REQUIRED` | — | 1× | — |
 | `JOIN_LINK_REQUIRED` | — | 1× | — |
 | `KEY_IMMUTABLE` | 422 | 1× | — |
+| `KEY_RESERVED` | 422 | 2× | — |
 | `KEY_TAKEN` | 422 | 4× | — |
 | `KPI_NOT_PARTITIONED` | 500 | 4× | — |
 | `LAST_CEO` | 409 | 2× | — |
