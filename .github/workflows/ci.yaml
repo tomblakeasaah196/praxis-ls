@@ -335,6 +335,15 @@ jobs:
         # reintroduced one key at a time and invisible to every other gate.
         run: node scripts/gen/gen-site-copy-catalogue.js --check
 
+      - name: Constraint guards are schema-qualified
+        # pg_constraint is DATABASE-wide, so a guard reading it by `conname`
+        # alone matches the OTHER schema's copy of the table. live migrates
+        # before sandbox, so sandbox silently skipped its own ADD — 111
+        # constraints lost across 48 migrations before anyone noticed (13791).
+        # check-schema-parity.js catches the symptom in the migrations job;
+        # this catches the cause, in the file, at authoring time.
+        run: node scripts/db/check-constraint-guards.js
+
       - name: Migration reversibility
         # Audit DATA 3.5 / TEST-D2: there is not one down-migration in this
         # repo, which is half of why a bad deploy was unrecoverable (the other
@@ -548,6 +557,19 @@ jobs:
             echo "::error::Re-running migrations applied files that were already recorded — the ledger is not doing its job."
             exit 1
           fi
+
+      - name: live and sandbox enforce the same rules
+        # Nothing in this repo ever compared the two schemas, and that is how one
+        # mistake survived 48 migrations: `pg_constraint` is database-wide, so a
+        # guard reading it by `conname` alone matches the OTHER schema's copy of
+        # the table. live migrates first, so sandbox found live's row and skipped
+        # its own ADD — silently, 111 times. See 13791.
+        #
+        # This needs a real database: each of those 48 files is individually
+        # correct-looking and only the ORDER they run in produces the divergence,
+        # so no static gate can see it. It runs here because this job already
+        # provisions a tenant from nothing.
+        run: node scripts/db/check-schema-parity.js --slug=citenant
 
       - name: Probe the constraints that cannot be NOT VALID
         # 0498's unique doc_number indexes either build or fail the migration.
