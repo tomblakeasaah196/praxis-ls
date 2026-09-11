@@ -1,35 +1,20 @@
 /**
- * Browser-side image compression — the first half of the upload engine.
+ * Browser-side image compression for public-web.
  *
- * WHY COMPRESS HERE when the server compresses too. Because the server's pass
- * happens AFTER the bytes have crossed the network, and the bytes crossing the
- * network are the wait the user is watching on the progress bar. A 6 MB phone
- * photo on a 3G connection in the corridor is roughly a 40-second upload; the
- * same photo resized here first is about 400 KB and lands in under three. The
- * server pass still runs and is still authoritative — a client that skipped
- * this (an API caller, a future mobile app, someone with a devtools console)
- * must never be able to plant an unprocessed original in storage.
+ * A DELIBERATE COPY of client/src/lib/image-compress.ts, not an import. This
+ * app installs only its own dependencies in CI and does not resolve anything
+ * from `client/` or `@praxis/shared` (see the import ban in eslint.config.js) —
+ * a cross-app import resolves locally via the root workspace and then fails in
+ * CI, which is the exact trap that ban exists to stop people falling into.
  *
- * WHY WEBP, and why NOT always. `canvas.toBlob` supports "image/webp" in every
- * browser we serve and supports AVIF in none of them, so WebP is the only
- * modern format available on this side; the server adds AVIF afterwards.
+ * Keep the two in step. The profile table and the quality numbers must match
+ * `src/services/image-pipeline.service.js`, which is the authority for both.
  *
- * But the format the client emits becomes the format of the stored MASTER, and
- * the master is what a download hands back. An agent who forwards a customs
- * declaration to a broker, a bank or a government e-portal cannot send a .webp
- * to systems that refuse it. So the rule is by purpose, not global:
- *
- *   document / brand  → re-encode in the SOURCE format (JPEG stays JPEG)
- *   photo / avatar    → re-encode as WebP
- *
- * `brand` is in the first group deliberately: a logo is capped at 512 KB
- * anyway, so there is no byte argument worth trading the tenant's ability to
- * download their own asset for.
- *
- * FAILURE IS ALWAYS "SEND THE ORIGINAL". Every path in this file degrades to
- * the untouched File. A compression bug must cost bytes, never an upload.
+ * This app matters MORE than the other two for compression, not less. Its
+ * uploads come from strangers on phones — a candidate photographing a CV, a
+ * prospect attaching a scanned bill of lading — over the corridor's own
+ * connections, with no account and no second attempt if it fails.
  */
-
 /** Purpose of the image, mirroring the backend's image-pipeline profiles. */
 export type UploadProfile = "photo" | "document" | "brand" | "avatar";
 
@@ -200,7 +185,11 @@ export function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read that file."));
+    // A CODE, not a sentence. This rejection is always caught by the caller,
+    // which shows its own dictionary copy (`site.quote.fileUnreadable`); a
+    // prose string here would be untranslated text the check:i18n gate rightly
+    // refuses, for a message no visitor ever sees.
+    reader.onerror = () => reject(new Error("file_read_failed"));
     reader.readAsDataURL(file);
   });
 }
@@ -212,9 +201,10 @@ export function fileToDataUrl(file: File): Promise<string> {
  * be reinterpreted as markup — unlike `data:text/html` or `javascript:`, which
  * a URL sink genuinely will honour.
  *
- * A named guard rather than an inline `startsWith` because that is what makes
- * the check legible both to a reader and to CodeQL, which reports this flow as
- * js/xss-through-dom on public-web's copy of this file.
+ * This is a named guard rather than an inline `startsWith` because that is what
+ * makes the check legible both to a reader and to CodeQL, which reports this
+ * flow as js/xss-through-dom and recognises a validating guard call where it
+ * does not recognise a bare prefix test buried in a JSX conditional.
  */
 export function isSafeBlobUrl(url: string | null | undefined): url is string {
   return typeof url === "string" && url.startsWith("blob:");

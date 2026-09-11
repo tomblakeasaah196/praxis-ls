@@ -180,6 +180,8 @@ export function FilePicker({
   hint,
   multiple = false,
   disabled = false,
+  variant = "dropzone",
+  trigger,
   className,
 }: {
   onPick: (files: FileList | null) => void;
@@ -188,6 +190,18 @@ export function FilePicker({
   hint?: string;
   multiple?: boolean;
   disabled?: boolean;
+  /**
+   * "dropzone" is the default and right for a form field. "inline" renders a
+   * text trigger instead, for the places a dropzone would be absurd — an
+   * "Attach scan" link in a table row, a "Replace" beside an existing file.
+   *
+   * This variant exists so those sites are not pushed into an
+   * eslint-disable. A gate that the honest cases cannot satisfy is a gate that
+   * gets disabled, and then the preview and the percentage go with it.
+   */
+  variant?: "dropzone" | "inline";
+  /** The clickable text, for variant="inline". */
+  trigger?: React.ReactNode;
   className?: string;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -197,6 +211,46 @@ export function FilePicker({
   const open = () => {
     if (!disabled) inputRef.current?.click();
   };
+
+  const input = (
+    <input
+      id={inputId}
+      ref={inputRef}
+      type="file"
+      accept={accept}
+      multiple={multiple}
+      disabled={disabled}
+      className="sr-only"
+      // In the dropzone variant the visible <label htmlFor> names this input.
+      // The inline variant has no separate label element — the trigger sits
+      // INSIDE the label — so `label` is applied here instead. Without this the
+      // input's accessible name is whatever the trigger happens to say, which
+      // for a trigger reading "Replace" tells a screen-reader user nothing
+      // about what is being replaced.
+      aria-label={variant === "inline" ? label : undefined}
+      onChange={(e) => {
+        onPick(e.target.files);
+        // Reset so picking the SAME file twice still fires a change event —
+        // which is exactly what happens after a failed upload and a re-pick.
+        e.target.value = "";
+      }}
+    />
+  );
+
+  if (variant === "inline") {
+    return (
+      <label
+        className={cn(
+          "cursor-pointer text-sm text-primary-ink underline underline-offset-2 hover:opacity-80",
+          disabled && "pointer-events-none opacity-50",
+          className,
+        )}
+      >
+        {trigger ?? "Choose a file"}
+        {input}
+      </label>
+    );
+  }
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -243,21 +297,7 @@ export function FilePicker({
         {hint && <p className="micro text-muted-foreground">{hint}</p>}
       </div>
 
-      <input
-        id={inputId}
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        multiple={multiple}
-        disabled={disabled}
-        className="sr-only"
-        onChange={(e) => {
-          onPick(e.target.files);
-          // Reset so picking the SAME file twice still fires a change event —
-          // which is exactly what happens after a failed upload and a re-pick.
-          e.target.value = "";
-        }}
-      />
+      {input}
     </div>
   );
 }

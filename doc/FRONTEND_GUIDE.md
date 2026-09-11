@@ -668,8 +668,15 @@ Reach for these:
 | --- | --- |
 | Upload starts as soon as a file is picked | `<ImageUpload profile="…" send={…}>` |
 | Upload waits for Save (metadata typed after picking) | `<FilePicker>` + `<UploadList>` + `useUpload({ autoStart: false })` |
+| An inline trigger — a table row, a "Replace" beside a file | `<FilePicker variant="inline" trigger={…}>` |
 | Rendering a stored image | `<ResponsiveImage src={…} variant="thumb">` |
 | Just the status line | `<UploadProgress>` |
+| No upload at all — the image is embedded, not sent | `compressImage()` from `lib/image-compress` |
+
+`public-web/` has its own copy (`components/ui/file-input.tsx`, `lib/image-compress.ts`)
+because that app installs only its own dependencies in CI and cannot import from
+`client/`. Keep the two in step; `src/services/image-pipeline.service.js` is the
+authority for the profile table and the quality numbers.
 
 Every one of these gives the user the same three things, and none of them is a
 prop you can turn off:
@@ -746,9 +753,17 @@ so this is safe to point at images uploaded long before the engine existed.
 That matters because `<picture>` does **not** fall back: a `<source>` that 404s
 renders a broken image rather than dropping to the `<img>`.
 
+#### Progress without changing transport
+
+`tenantWithProgress()` and `publicApi`'s XHR path report real upload progress for
+a **JSON body**, not just multipart. So a site that posts a base64 data URL still
+drives a genuine 0→100% bar — converting an endpoint to multipart is a byte
+saving, not a prerequisite for the percentage.
+
 The escape hatch is `eslint-disable-next-line praxis/no-raw-upload` with a
 written reason beside it. The engine's own primitives are exempt by path;
-nothing else in the tree needs one.
+nothing else in the tree needs one, and there is no baseline allow-list — every
+upload site in all three apps is on the engine.
 
 ---
 
