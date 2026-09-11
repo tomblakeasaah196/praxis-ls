@@ -8,6 +8,7 @@ import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { DateTimeField } from "@/components/ui/datetime-field";
 import { tenant } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/data-list";
@@ -176,10 +177,9 @@ function MeetingForm({
             </Field>
           )}
           <Field label="Scheduled at">
-            <Input
-              type="datetime-local"
+            <DateTimeField
               value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
+              onChange={setScheduledAt}
             />
           </Field>
           {/* The discovery wizard asks for it and the old schema had nowhere
