@@ -21,6 +21,10 @@ const replaceServiceTypeWebFaq = vi.fn();
 const replaceServiceTypeWebRelated = vi.fn();
 const uploadServiceTypeWebMedia = vi.fn();
 const removeServiceTypeWebMedia = vi.fn();
+const listServiceTypeWebGroups = vi.fn();
+const createServiceTypeWebGroup = vi.fn();
+const updateServiceTypeWebGroup = vi.fn();
+const deleteServiceTypeWebGroup = vi.fn();
 
 vi.mock("@/lib/operations-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/operations-api")>(
@@ -41,6 +45,10 @@ vi.mock("@/lib/operations-api", async () => {
       uploadServiceTypeWebMedia(...a),
     removeServiceTypeWebMedia: (...a: unknown[]) =>
       removeServiceTypeWebMedia(...a),
+    listServiceTypeWebGroups: (...a: unknown[]) => listServiceTypeWebGroups(...a),
+    createServiceTypeWebGroup: (...a: unknown[]) => createServiceTypeWebGroup(...a),
+    updateServiceTypeWebGroup: (...a: unknown[]) => updateServiceTypeWebGroup(...a),
+    deleteServiceTypeWebGroup: (...a: unknown[]) => deleteServiceTypeWebGroup(...a),
   };
 });
 
@@ -191,8 +199,35 @@ beforeEach(() => {
   replaceServiceTypeWebRelated.mockReset();
   uploadServiceTypeWebMedia.mockReset();
   removeServiceTypeWebMedia.mockReset();
+  listServiceTypeWebGroups.mockReset();
+  createServiceTypeWebGroup.mockReset();
+  updateServiceTypeWebGroup.mockReset();
+  deleteServiceTypeWebGroup.mockReset();
   listServiceTypes.mockResolvedValue([]);
+  listServiceTypeWebGroups.mockResolvedValue(PILLARS);
 });
+
+const FREIGHT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const LOGISTICS = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const RETIRED = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+const PILLARS = [
+  {
+    group_id: FREIGHT, key: "freight", name_fr: "Fret international",
+    name_en: "International freight", icon: "ship", sort_order: 10,
+    is_active: true, service_count: 8,
+  },
+  {
+    group_id: LOGISTICS, key: "logistics", name_fr: "Transport et logistique",
+    name_en: "Transport and logistics", icon: "truck", sort_order: 20,
+    is_active: true, service_count: 5,
+  },
+  {
+    group_id: RETIRED, key: "retired", name_fr: "Retiré",
+    name_en: null, icon: null, sort_order: 30,
+    is_active: false, service_count: 0,
+  },
+];
 
 describe("ServiceTypeWebTab", () => {
   it("renders the no-profile empty state", async () => {
@@ -545,4 +580,197 @@ describe("ServiceTypeWebTab", () => {
     expect(uploadServiceTypeWebMedia).not.toHaveBeenCalled();
   });
 
+});
+
+describe("ServiceTypeWebTab · the card (12755)", () => {
+  // These four columns — group_id, claim_fr, claim_en, accent — shipped with
+  // migration 12755, are accepted by the PUT, and are written by seed 9084. The
+  // tab rendered no control for any of them and `applyTab` did not seed them
+  // into the draft, so `dirtyPatch` could not have sent one even if a control
+  // had existed. A tenant could be shown a pillar and a closing line on their own
+  // public site with no way in the product to change either.
+
+  it("round-trips the closing line, the pillar and the accent through the one upsert", async () => {
+    const user = userEvent.setup();
+    getServiceTypeWeb.mockResolvedValue(
+      draftTab({
+        profile: {
+          ...draftTab().profile!,
+          claim_fr: "Une étude de transport avant le premier levage.",
+          claim_en: "A transport study before the first lift.",
+          group_id: FREIGHT,
+          accent: "SUCCESS",
+        },
+      }),
+    );
+    upsertServiceTypeWeb.mockImplementation(async () => draftTab());
+
+    view(
+      <ServiceTypeWebTab
+        serviceTypeId={ST_ID}
+        serviceTypeKey={ST_KEY}
+        onEditServiceType={() => {}}
+      />,
+    );
+
+    // Seeded from the GET, not blank — the bug was that these never reached the draft.
+    const claim = (await screen.findByTestId("web-claim-fr")) as HTMLInputElement;
+    expect(claim.value).toBe("Une étude de transport avant le premier levage.");
+    const pillar = screen.getByTestId("web-pillar") as HTMLSelectElement;
+    expect(pillar.value).toBe(FREIGHT);
+    expect(
+      within(screen.getByTestId("web-accent-picker"))
+        .getByRole("radio", { name: /Success/i })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+
+    // Change all three, then save once.
+    await user.clear(claim);
+    await user.type(claim, "Étudié avant d'être déplacé.");
+    await user.selectOptions(pillar, LOGISTICS);
+    await user.click(
+      within(screen.getByTestId("web-accent-picker")).getByRole("radio", {
+        name: /Brand/i,
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(upsertServiceTypeWeb).toHaveBeenCalledTimes(1));
+    const [, body] = upsertServiceTypeWeb.mock.calls[0];
+    expect(body).toMatchObject({
+      claim_fr: "Étudié avant d'être déplacé.",
+      group_id: LOGISTICS,
+      accent: "PRIMARY",
+    });
+    // Only what changed: the EN claim was not touched, so it is not in the patch.
+    expect(body).not.toHaveProperty("claim_en");
+  });
+
+  it("clearing the closing line sends null, not an empty string", async () => {
+    const user = userEvent.setup();
+    getServiceTypeWeb.mockResolvedValue(
+      draftTab({
+        profile: { ...draftTab().profile!, claim_fr: "Une phrase." },
+      }),
+    );
+    upsertServiceTypeWeb.mockResolvedValue(draftTab());
+
+    view(
+      <ServiceTypeWebTab
+        serviceTypeId={ST_ID}
+        serviceTypeKey={ST_KEY}
+        onEditServiceType={() => {}}
+      />,
+    );
+    await user.clear(await screen.findByTestId("web-claim-fr"));
+    await user.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(upsertServiceTypeWeb).toHaveBeenCalledTimes(1));
+    expect(upsertServiceTypeWeb.mock.calls[0][1].claim_fr).toBeNull();
+  });
+
+  it("offers only active pillars, plus the unnamed group as a real choice", async () => {
+    getServiceTypeWeb.mockResolvedValue(draftTab());
+    view(
+      <ServiceTypeWebTab
+        serviceTypeId={ST_ID}
+        serviceTypeKey={ST_KEY}
+        onEditServiceType={() => {}}
+      />,
+    );
+    const pillar = (await screen.findByTestId("web-pillar")) as HTMLSelectElement;
+    const values = Array.from(pillar.options).map((o) => o.value);
+    // Empty is the unnamed group at the foot of the page, which still renders —
+    // not a placeholder.
+    expect(values).toContain("");
+    expect(values).toContain(FREIGHT);
+    expect(values).toContain(LOGISTICS);
+    // A hidden pillar is not offerable: assigning to it would drop the card into
+    // the unnamed group with nothing on this screen explaining why.
+    expect(values).not.toContain(RETIRED);
+  });
+
+  it("keeps a hidden pillar selectable when the service is already under it", async () => {
+    // The select would otherwise match no option and render its first one — the
+    // unnamed group — stating that a service under a hidden pillar belongs to no
+    // pillar. Nothing is lost on save, but the screen would be lying, and the fix
+    // (un-hide the pillar) is one nobody reaches if they cannot see it is in use.
+    getServiceTypeWeb.mockResolvedValue(
+      draftTab({
+        profile: { ...draftTab().profile!, group_id: RETIRED },
+      }),
+    );
+    view(
+      <ServiceTypeWebTab
+        serviceTypeId={ST_ID}
+        serviceTypeKey={ST_KEY}
+        onEditServiceType={() => {}}
+      />,
+    );
+    const pillar = (await screen.findByTestId("web-pillar")) as HTMLSelectElement;
+    expect(pillar.value).toBe(RETIRED);
+    const option = Array.from(pillar.options).find((o) => o.value === RETIRED);
+    expect(option?.textContent).toMatch(/hidden/i);
+  });
+
+  it("the card stays editable while published — only slugs and media lock", async () => {
+    getServiceTypeWeb.mockResolvedValue(
+      publishableTab({
+        profile: {
+          ...publishableTab().profile!,
+          is_published: true,
+          claim_fr: "Une phrase.",
+        },
+      }),
+    );
+    view(
+      <ServiceTypeWebTab
+        serviceTypeId={ST_ID}
+        serviceTypeKey={ST_KEY}
+        onEditServiceType={() => {}}
+      />,
+    );
+    expect(
+      ((await screen.findByTestId("web-claim-fr")) as HTMLInputElement).disabled,
+    ).toBe(false);
+    expect((screen.getByTestId("web-pillar") as HTMLSelectElement).disabled).toBe(false);
+    // …while the slug box beside it is locked, which is the rule being pinned.
+    expect((screen.getByTestId("web-slug-fr") as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it("manages pillars from the field that uses them, and re-reads after a write", async () => {
+    const user = userEvent.setup();
+    getServiceTypeWeb.mockResolvedValue(draftTab());
+    createServiceTypeWebGroup.mockResolvedValue({
+      group_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      key: "value-added", name_fr: "Douane", name_en: null,
+      icon: null, sort_order: 100, is_active: true,
+    });
+
+    view(
+      <ServiceTypeWebTab
+        serviceTypeId={ST_ID}
+        serviceTypeKey={ST_KEY}
+        onEditServiceType={() => {}}
+      />,
+    );
+    await user.click(await screen.findByTestId("web-manage-pillars"));
+    const manager = await screen.findByTestId("pillar-manager");
+    // The existing pillars are listed, INCLUDING the hidden one — the manager is
+    // the one place that has to be able to see and reactivate it.
+    expect(within(manager).getByText(/Fret international/)).toBeTruthy();
+    expect(within(manager).getByText(/Retiré/)).toBeTruthy();
+
+    await user.click(within(manager).getByTestId("pillar-add"));
+    await user.type(screen.getByLabelText(/Name \(FR\)/i), "Douane");
+    await user.type(screen.getByLabelText(/^Anchor$/i), "value-added");
+    await user.click(screen.getByTestId("pillar-save"));
+
+    await waitFor(() => expect(createServiceTypeWebGroup).toHaveBeenCalledTimes(1));
+    expect(createServiceTypeWebGroup.mock.calls[0][0]).toMatchObject({
+      key: "value-added", name_fr: "Douane", is_active: true,
+    });
+    // The list is re-read so the new pillar is selectable without a page reload.
+    await waitFor(() => expect(listServiceTypeWebGroups.mock.calls.length).toBeGreaterThan(1));
+  });
 });

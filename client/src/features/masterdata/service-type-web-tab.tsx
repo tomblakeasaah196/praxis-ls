@@ -13,7 +13,7 @@ import { tr } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Field } from "@/components/ui/modal";
+import { Field, Select } from "@/components/ui/modal";
 import { Pill } from "@/components/ui/pill";
 import { Callout } from "@/components/ui/callout";
 import { FileDrop } from "@/components/ui/file-drop";
@@ -25,6 +25,7 @@ import { ApiError } from "@/lib/api-client";
 import { readFileAsDataUrl } from "@/lib/vault-file";
 import { slug as suggestSlug, isValidSlug } from "@/lib/slug";
 import * as api from "@/lib/operations-api";
+import { ServiceTypeWebPillars } from "./service-type-web-pillars";
 
 const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp";
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
@@ -248,6 +249,85 @@ function HighlightsEditor({
   );
 }
 
+/* ── Accent picker ───────────────────────────────────────────────────────── */
+
+/**
+ * Which brand token tints this service's card.
+ *
+ * The swatches paint with `rgb(var(--brand-orange))` and friends rather than a
+ * palette class, because that is the whole point of storing a token NAME: the
+ * three chips restyle themselves to the tenant's own brand, so what the person
+ * picks here is what they will see on their site. A `bg-orange-500` swatch would
+ * show them a colour their site never renders.
+ *
+ * The mapping mirrors `public-web/src/lib/service-identity.ts` — PRIMARY is the
+ * brand fill, ACCENT the secondary brand colour, SUCCESS the semantic green.
+ * They are deliberately the same three tokens, resolved on this side too, so the
+ * preview cannot drift from the page.
+ */
+const ACCENT_SWATCH: Record<api.ServiceTypeWebAccent, string> = {
+  PRIMARY: "rgb(var(--brand-orange))",
+  ACCENT: "rgb(var(--brand-blue))",
+  SUCCESS: "rgb(var(--ok))",
+};
+
+const ACCENT_LABEL: Record<api.ServiceTypeWebAccent, string> = {
+  PRIMARY: "Brand",
+  ACCENT: "Secondary",
+  SUCCESS: "Success",
+};
+
+function AccentPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: api.ServiceTypeWebAccent;
+  onChange: (next: api.ServiceTypeWebAccent) => void;
+  disabled?: boolean;
+}) {
+  const options = Object.keys(ACCENT_SWATCH) as api.ServiceTypeWebAccent[];
+  return (
+    <div
+      role="radiogroup"
+      aria-label={tr("Card accent")}
+      className="flex flex-wrap gap-2"
+      data-testid="web-accent-picker"
+    >
+      {options.map((key) => {
+        const on = value === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            disabled={disabled}
+            onClick={() => onChange(key)}
+            className={cn(
+              "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              on
+                ? "border-primary bg-primary/10 text-foreground"
+                : "border-input text-muted-foreground hover:bg-muted",
+            )}
+          >
+            <span
+              aria-hidden
+              className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10"
+              style={{ background: ACCENT_SWATCH[key] }}
+            />
+            {tr(ACCENT_LABEL[key])}
+            {/* Never colour alone (WCAG §1.4.1) — the selected chip is also the
+                only one carrying the tick and the ring. */}
+            {on && <span aria-hidden>✓</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── Root tab ────────────────────────────────────────────────────────────── */
 
 export function ServiceTypeWebTab({
@@ -300,6 +380,12 @@ export function ServiceTypeWebTab({
     fr?: string;
     en?: string;
   }>({});
+  // Pillars are tenant-wide, so they are their own read rather than part of the
+  // tab payload. Only the ACTIVE ones are offered: assigning a service to a
+  // hidden pillar would drop its card into the unnamed group with nothing on
+  // this screen explaining why.
+  const pillars = useResource(() => api.listServiceTypeWebGroups(), []);
+  const [pillarsOpen, setPillarsOpen] = React.useState(false);
   const nameEnPollRef = React.useRef<number | null>(null);
   React.useEffect(
     () => () => {
@@ -330,6 +416,18 @@ export function ServiceTypeWebTab({
       meta_description_en: p?.meta_description_en ?? "",
       video_url: p?.video_url ?? "",
       sort_order: p?.sort_order ?? 100,
+      // The card (12755). Seeded into BOTH draft and baseline like every other
+      // field: `dirtyPatch` compares the two, so a key absent from here can
+      // never be sent — which is exactly how these four stayed unreachable
+      // while the API accepted them all along.
+      //
+      // `group_id` keeps null rather than collapsing to "": null IS the value
+      // that puts the service in the trailing unnamed group, and the server
+      // reads an explicit null as that instruction.
+      group_id: p?.group_id ?? null,
+      claim_fr: p?.claim_fr ?? "",
+      claim_en: p?.claim_en ?? "",
+      accent: p?.accent ?? "PRIMARY",
     };
     setDraft(next);
     setBaseline(next);
@@ -404,6 +502,12 @@ export function ServiceTypeWebTab({
         // video_url empty → null so the server clears the column.
         if (k === "video_url" && a === "") {
           out.video_url = null;
+        } else if ((k === "claim_fr" || k === "claim_en") && a === "") {
+          // A cleared claim is an absent claim. Sending "" would store a blank
+          // string that every "is this set?" test in the tree has to special-case
+          // — including the backfill seed's, which reads blank as empty and would
+          // re-fill a claim the tenant had deliberately removed.
+          (out as Record<string, unknown>)[k] = null;
         } else {
           (out as Record<string, unknown>)[k] = a;
         }
@@ -611,6 +715,27 @@ export function ServiceTypeWebTab({
       .slice(0, 8);
   }, [types.data, relatedQ, pickedRelated, serviceTypeId]);
 
+  /**
+   * Active pillars — plus the one this service is ALREADY under, even if it has
+   * since been hidden.
+   *
+   * Without that second half the select would find no option matching
+   * `group_id` and fall back to rendering its first one, which is the unnamed
+   * group: the box would state, wrongly and silently, that a service under a
+   * hidden pillar belongs to no pillar at all. Nothing is lost on save (the
+   * value is unchanged, so it is never in the patch) but the screen would be
+   * lying about where the card sits, and the fix for a hidden pillar is to
+   * un-hide it — which nobody does if they cannot see it is the one in use.
+   */
+  const pillarOptions = React.useMemo(() => {
+    const all = pillars.data || [];
+    const active = all.filter((g) => g.is_active !== false);
+    const current = draft.group_id
+      ? all.find((g) => g.group_id === draft.group_id)
+      : undefined;
+    return current && current.is_active === false ? [...active, current] : active;
+  }, [pillars.data, draft.group_id]);
+
   if (tab.loading) return <LoadingRow label={tr("Loading website profile…")} />;
   if (tab.error) return <ErrorState message={tab.error} />;
   if (!data || !readiness) {
@@ -663,6 +788,7 @@ export function ServiceTypeWebTab({
   const metaDescKey = `meta_description_${lang}` as const;
   const slugKey = `slug_${lang}` as const;
   const highlightsKey = `highlights_${lang}` as const;
+  const claimKey = `claim_${lang}` as const;
 
   const slugSuggestion = suggestSlug(
     lang === "fr" ? nameFr || serviceTypeKey : nameEn || nameFr || serviceTypeKey,
@@ -820,6 +946,106 @@ export function ServiceTypeWebTab({
             setField(highlightsKey, next.slice(0, L.HIGHLIGHTS_MAX))
           }
         />      </section>
+
+      {/* ── Card ────────────────────────────────────────────────────────── */}
+      {/* What the service looks like on the public services page: which pillar
+          it sits under, the line its card closes on, and the brand token that
+          tints it. All three are copy-level rather than slug/media, so they stay
+          editable while published — the server locks only slugs and media. */}
+      <section className="space-y-4 rounded-xl border bg-card p-4">
+        <h3 className="text-sm font-semibold text-foreground">
+          {tr("Card on the services page")}
+        </h3>
+        <Field
+          label={`${tr("Closing line")} (${lang.toUpperCase()})`}
+          hint={tr("One sentence the card ends on. Not a slogan — say what the service does for them.")}
+        >
+          <Input
+            value={String(draft[claimKey] ?? "")}
+            disabled={readOnly}
+            maxLength={L.CLAIM_MAX}
+            onChange={(e) => setField(claimKey, e.target.value)}
+            data-testid={`web-claim-${lang}`}
+          />
+          <CharCount
+            value={String(draft[claimKey] ?? "")}
+            max={L.CLAIM_MAX}
+          />
+        </Field>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Field
+            label={tr("Pillar")}
+            hint={tr("The section of the services page this card sits under.")}
+          >
+            <div className="flex gap-2">
+              <Select
+                value={String(draft.group_id ?? "")}
+                disabled={readOnly}
+                aria-label={tr("Pillar")}
+                data-testid="web-pillar"
+                onChange={(e) => setField("group_id", e.target.value || null)}
+              >
+                {/* Empty is a real choice, not a placeholder: it puts the card in
+                    the unnamed group at the foot of the page, which still renders. */}
+                <option value="">{tr("Unnamed group (foot of the page)")}</option>
+                {pillarOptions.map((g) => (
+                  <option key={g.group_id} value={g.group_id}>
+                    {g.name_fr}
+                    {g.name_en ? ` · ${g.name_en}` : ""}
+                    {g.is_active === false ? ` — ${tr("hidden")}` : ""}
+                  </option>
+                ))}
+              </Select>
+              {canWrite && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={() => setPillarsOpen(true)}
+                  data-testid="web-manage-pillars"
+                >
+                  {tr("Manage")}
+                </Button>
+              )}
+            </div>
+            {pillars.error && (
+              <p className="micro text-destructive mt-1">{pillars.error}</p>
+            )}
+            {!pillars.loading && !pillars.error && (pillars.data || []).length === 0 && (
+              <p className="micro text-muted-foreground mt-1">
+                {tr("No pillars yet — every published service collects into one unnamed group.")}
+              </p>
+            )}
+          </Field>
+          <Field
+            label={tr("Accent")}
+            hint={tr("Which of your brand colours tints this card. Shown in your own palette.")}
+          >
+            <AccentPicker
+              value={(draft.accent as api.ServiceTypeWebAccent) || "PRIMARY"}
+              disabled={readOnly}
+              onChange={(next) => setField("accent", next)}
+            />
+          </Field>
+        </div>
+        <p className="micro text-muted-foreground">
+          {tr("The pillar and the accent are the same in both languages — only the closing line is per-language.")}
+        </p>
+      </section>
+
+      <ServiceTypeWebPillars
+        open={pillarsOpen}
+        onClose={() => setPillarsOpen(false)}
+        canWrite={canWrite && !isArchived}
+        onChanged={() => {
+          pillars.reload();
+          // A deleted pillar is SET NULL on every profile under it, so this
+          // service's own group_id may have just changed underneath the draft.
+          // Re-read rather than leaving a stale id selected in the box.
+          setLocalTab(null);
+          tab.reload();
+        }}
+      />
 
       {/* ── Media ───────────────────────────────────────────────────────── */}
       <section className="space-y-4 rounded-xl border bg-card p-4">
