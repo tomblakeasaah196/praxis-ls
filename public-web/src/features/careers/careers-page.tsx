@@ -670,11 +670,16 @@ function ApplyForm({ vacancy: v }: { vacancy: api.PublicVacancy }) {
             }
             onPick={(files) => void pick(files)}
           />
-          {/* SUPPRESSED, with the reason, because it is a false positive and
-              three real fixes did not convince the analyser.
+          {/* CodeQL reports js/xss-through-dom (high) on the `src` below, and
+              it is a FALSE POSITIVE dismissed in the Security tab — not
+              suppressed here. GitHub's CodeQL Action ignores source-code
+              suppression comments (`// codeql[…]` / `// lgtm[…]` were an LGTM
+              feature); alerts are dismissed through code scanning itself. A
+              directive here would look like it was handling the alert while
+              doing nothing, which is worse than no comment at all.
 
-              CodeQL reports js/xss-through-dom (high) here: a file the visitor
-              chose flows into a URL sink. `preview` can only ever be a `blob:`
+              The flow it traces is real: a file the visitor chose reaches a URL
+              sink. What it cannot see is that `preview` can only ever be a `blob:`
               URL — `URL.createObjectURL` has no other possible return — and a
               blob: URL can neither execute nor be reinterpreted as markup. The
               schemes that would make this sink live, `data:text/html` and
@@ -685,7 +690,7 @@ function ApplyForm({ vacancy: v }: { vacancy: api.PublicVacancy }) {
               `startsWith` on this conditional (not recognised as a barrier);
               and the named guard below (still reported).
 
-              The guard STAYS regardless of the suppression. It is not decoration
+              The guard STAYS regardless of the dismissal. It is not decoration
               — it is what catches the day someone swaps object URLs for a
               FileReader `data:` URL, where this sink genuinely would be live.
               image-compress.test.ts covers that rejection path.
@@ -693,7 +698,6 @@ function ApplyForm({ vacancy: v }: { vacancy: api.PublicVacancy }) {
               Revisit if this component ever takes its src from anywhere other
               than `previewUrlFor`. */}
           {isSafeBlobUrl(preview) ? (
-            // codeql[js/xss-through-dom]
             <img src={preview} alt="" className={CV_PREVIEW_CLASS} />
           ) : null}
           <span className="min-w-0 truncate text-xs text-muted-foreground">
