@@ -60,6 +60,11 @@ import { tr } from "@/lib/i18n";
 import * as api from "@/lib/insights-api";
 import * as site from "@/lib/site-content-api";
 import { WebsiteNav } from "./website-nav";
+/* One copy, shared with the editor — which now pins too, so a writer who has
+   just made a piece an announcement does not have to come back here to put it
+   on the home page. See website-insight-pin.tsx. */
+import { PinDialog } from "./website-insight-pin";
+import { fmtDay } from "./website-insight-dates";
 
 /** Publishing needs a slug and a body, and the server refuses without them.
  *  Saying so in the list is cheaper than a 422 the writer reads after pressing
@@ -415,123 +420,6 @@ export function WebsiteInsightsPage() {
 /** A pin's expiry, as a reader of this list wants it: a day, in their locale,
  *  with no time of day. The hour a pin lapses is not a decision anybody makes
  *  and showing it invites somebody to try. */
-function fmtDay(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ""
-    : d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-}
-
-/** `<input type="date">` speaks `YYYY-MM-DD` in LOCAL time; the API wants an
- *  instant. End of the chosen day, so "pinned until the 4th" includes the 4th —
- *  a pin that vanished at midnight on the morning of its own expiry date would
- *  be a day short of what the tenant asked for. */
-const endOfDayIso = (day: string): string | null => {
-  if (!day) return null;
-  const d = new Date(`${day}T23:59:59`);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-};
-
-/** Tomorrow, as the date input's floor. The server refuses a past date
- *  (PIN_EXPIRED); saying so in the control is cheaper than saying it in a 422. */
-const tomorrow = (): string =>
-  new Date(Date.now() + 86400e3).toISOString().slice(0, 10);
-
-/**
- * The pin dialog — one date, and a way to take the pin off.
- *
- * ── WHY THE EXPIRY IS REQUIRED AND NOT OPTIONAL ────────────────────────────
- *
- * Migration 13784 chose a timestamp over a boolean because "featured" flags go
- * stale in silence: the JCTrans membership pinned in March is still on the
- * front page in November, and nobody notices because nobody reads their own
- * homepage. A dialog that let the date be left empty would put the boolean
- * straight back — so there is no "pin indefinitely", and the field defaults to
- * a month out rather than to nothing.
- *
- * ── NO NATIVE DIALOG ANYWHERE NEAR THIS ────────────────────────────────────
- *
- * Unpinning is a real removal and the obvious shape for it is a `confirm()`.
- * CLAUDE.md bans it outright — it renders in OS chrome that discards the
- * tenant's white-label branding, its buttons say OK and Cancel rather than
- * naming the action, and it cannot be translated. It is a second button in this
- * dialog instead, which names what it does.
- */
-function PinDialog({
-  row,
-  busy,
-  error,
-  onClose,
-  onSubmit,
-}: {
-  row: api.InsightArticle;
-  busy: boolean;
-  error: string | null;
-  onClose: () => void;
-  onSubmit: (pinnedUntil: string | null) => void;
-}) {
-  const pinned = api.isPinned(row);
-  const [day, setDay] = React.useState(() =>
-    pinned && row.pinned_until
-      ? String(row.pinned_until).slice(0, 10)
-      : new Date(Date.now() + 86400e3 * 30).toISOString().slice(0, 10),
-  );
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={pinned ? tr("Change how long this stays up") : tr("Pin to the home page")}
-      description="Pinned announcements appear in the band under your hero, newest expiry first. At most five show at once."
-    >
-      <form
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit(endOfDayIso(day));
-        }}
-      >
-        <p className="text-sm text-muted-foreground">{row.title_fr}</p>
-        <Field
-          label={tr("Show it until")}
-          required
-          hint="It comes off the home page on its own after this date. It stays published at its own address."
-        >
-          <Input
-            type="date"
-            min={tomorrow()}
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
-          />
-        </Field>
-        {error && <ErrorState message={error} />}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Not a confirm() — see the note above. */}
-          {pinned ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={() => onSubmit(null)}
-            >
-              {tr("Take it off the home page")}
-            </Button>
-          ) : (
-            <span />
-          )}
-          <FormButtons
-            busy={busy}
-            disabled={busy || !day}
-            onCancel={onClose}
-            saveLabel={pinned ? tr("Update") : tr("Pin it")}
-          />
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
 /**
  * Creation asks for the headline and nothing else.
  *
@@ -548,16 +436,24 @@ function ArticleForm({
   onSaved: () => void;
 }) {
   const [titleFr, setTitleFr] = React.useState("");
+  /* ASKED FIRST, AND ASKED HERE.
+     It decides what the piece is for, so it belongs before the headline rather
+     than in a settings card the writer meets afterwards — and a dialog whose
+     only question is the headline is a dialog that silently made every piece an
+     article. It stays changeable in the editor: a draft that turns out to be an
+     announcement halfway through is a normal thing to happen. */
+  const [kind, setKind] = React.useState<api.InsightKind>("article");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const nav = useNavigate();
+  const isAnnouncement = kind === "announcement";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const row = await api.createInsight({ title_fr: titleFr.trim() });
+      const row = await api.createInsight({ title_fr: titleFr.trim(), kind });
       onSaved();
       onClose();
       // Straight into the editor. A writer who has just typed a headline wants
@@ -575,10 +471,30 @@ function ArticleForm({
     <Modal
       open
       onClose={onClose}
-      title={tr("New article")}
+      title={isAnnouncement ? tr("New announcement") : tr("New article")}
       description="It starts as a draft. Nothing is served until you publish it."
     >
       <form className="space-y-4" onSubmit={submit}>
+        <Segmented<api.InsightKind>
+          label={tr("What are you writing?")}
+          value={kind}
+          onChange={setKind}
+          options={[
+            { value: "article", label: tr("Article") },
+            { value: "announcement", label: tr("Announcement") },
+          ]}
+        />
+        {/* Said once, where the choice is made, rather than left for the writer
+            to discover when a Pin button does or does not appear on a row. */}
+        <p className="text-sm text-muted-foreground">
+          {isAnnouncement
+            ? tr(
+                "An announcement can be pinned to the band under your home page's hero, where it shows its headline until the pin expires.",
+              )
+            : tr(
+                "An article lives on your Insights page. Announcements are the ones that can reach your home page.",
+              )}
+        </p>
         <Field
           label={tr("Headline (French)")}
           required
@@ -587,7 +503,11 @@ function ArticleForm({
           <Input
             value={titleFr}
             onChange={(e) => setTitleFr(e.target.value)}
-            placeholder="Ce que décide vraiment un Incoterm"
+            placeholder={
+              isAnnouncement
+                ? "Une adresse européenne pour le corridor camerounais"
+                : "Ce que décide vraiment un Incoterm"
+            }
           />
         </Field>
         {error && <ErrorState message={error} />}
@@ -595,7 +515,7 @@ function ArticleForm({
           busy={busy}
           disabled={busy || !titleFr.trim()}
           onCancel={onClose}
-          saveLabel={tr("Create article")}
+          saveLabel={isAnnouncement ? tr("Create announcement") : tr("Create article")}
         />
       </form>
     </Modal>
