@@ -5,6 +5,7 @@
  * Conversation rides in the URL (?channel=…). On our Control-Tower skin.
  */
 import * as React from "react";
+import { dateDmy } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -96,7 +97,8 @@ function fmtRelative(iso?: string | null) {
   if (h < 24) return `${h}h`;
   const d = Math.floor(h / 24);
   if (d < 7) return `${d}d`;
-  return new Date(iso).toLocaleDateString([], {
+  // en-GB, not the workstation locale — "11 Sep", never "Sep 11".
+  return new Date(iso).toLocaleDateString("en-GB", {
     month: "short",
     day: "numeric",
   });
@@ -440,7 +442,7 @@ function InfoPane({ channel }: { channel: api.Channel | null }) {
           <span className="text-muted-foreground">{tr("Opened")}</span>
           <span className="num">
             {channel.created_at
-              ? new Date(channel.created_at).toLocaleDateString()
+              ? dateDmy(channel.created_at)
               : "—"}
           </span>
         </div>

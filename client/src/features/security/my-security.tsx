@@ -6,10 +6,15 @@
  * disable flows are shown with guidance.
  */
 import { pageShell } from "@/lib/layout";
+import { dateDmy } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { useAuth } from "@/app/auth/auth-context";
-import { ApiError, tenant } from "@/lib/api-client";
+import { ApiError, tenantWithProgress } from "@/lib/api-client";
+import { FilePicker } from "@/components/ui/image-upload";
+import { UploadProgress } from "@/components/ui/upload-progress";
+import { useUpload } from "@/lib/use-upload";
+import { fileToDataUrl } from "@/lib/image-compress";
 import { pinStore } from "@/lib/pin-store";
 import {
   changePassword,
@@ -43,38 +48,39 @@ export function MySecurityPage() {
   const { user, registerPin, patchUser } = useAuth();
 
   // --- Profile picture ---
-  const avatarInput = React.useRef<HTMLInputElement>(null);
-  const [avatarBusy, setAvatarBusy] = React.useState(false);
   const [avatarMsg, setAvatarMsg] = React.useState<Msg>(null);
-  async function onAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (file.size > 1024 * 1024) {
-      setAvatarMsg({ kind: "err", text: "Image must be 1 MB or smaller." });
-      return;
-    }
-    setAvatarBusy(true);
-    setAvatarMsg(null);
-    try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(String(r.result));
-        r.onerror = () => reject(new Error("Couldn't read that image."));
-        r.readAsDataURL(file);
-      });
-      const res = await tenant<{ avatar_url: string }>("/auth/avatar", {
-        method: "POST",
-        body: { data_url: dataUrl },
-      });
+
+  /**
+   * Through the upload engine. The "avatar" profile squares the image with an
+   * attention crop — which lands on the face far more reliably than the centre
+   * crop the CSS was doing — and runs the enhancement chain, because profile
+   * photos are taken on phones in offices and are routinely under-exposed.
+   */
+  const avatar = useUpload<{ avatar_url: string }>({
+    profile: "avatar",
+    maxBytes: 1024 * 1024,
+    send: async (file, ctx) =>
+      tenantWithProgress<{ avatar_url: string }>(
+        "/auth/avatar",
+        { data_url: await fileToDataUrl(file) },
+        ctx.onProgress,
+      ),
+    onAllComplete: ([res]) => {
+      if (!res) return;
       patchUser({ avatar_url: res.avatar_url });
       setAvatarMsg({ kind: "ok", text: "Profile picture updated." });
-    } catch (err) {
-      setAvatarMsg({ kind: "err", text: errText(err) });
-    } finally {
-      setAvatarBusy(false);
+    },
+  });
+
+  const avatarItem = avatar.items[0] ?? null;
+  const avatarBusy =
+    avatarItem?.state === "uploading" || avatarItem?.state === "compressing";
+
+  React.useEffect(() => {
+    if (avatarItem?.state === "error" && avatarItem.error) {
+      setAvatarMsg({ kind: "err", text: avatarItem.error });
     }
-  }
+  }, [avatarItem?.state, avatarItem?.error]);
 
   // --- Password ---
   //
@@ -247,9 +253,12 @@ export function MySecurityPage() {
           desc="Shown on your account menu across the app."
         >
           <div className="flex items-center gap-4">
-            {user?.avatar_url ? (
+            {/* The preview is the picked file the moment it is chosen, falling
+                back to the stored avatar. Before this the old picture stayed on
+                screen through the whole upload with nothing to say otherwise. */}
+            {avatarItem?.previewUrl || user?.avatar_url ? (
               <img
-                src={user.avatar_url}
+                src={avatarItem?.previewUrl || user?.avatar_url || ""}
                 alt="Your avatar"
                 className="h-16 w-16 rounded-xl object-cover"
               />
@@ -261,23 +270,31 @@ export function MySecurityPage() {
               </span>
             )}
             <div>
-              <input
-                ref={avatarInput}
-                type="file"
+              <FilePicker
+                variant="inline"
                 accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={onAvatarPick}
+                disabled={avatarBusy}
+                trigger={
+                  <span className="inline-flex h-9 items-center rounded-lg border px-3 text-sm no-underline">
+                    {avatarBusy ? "Uploading…" : "Change picture"}
+                  </span>
+                }
+                onPick={(files) => {
+                  setAvatarMsg(null);
+                  void avatar.pick(files);
+                }}
               />
-              <Button
-                variant="outline"
-                onClick={() => avatarInput.current?.click()}
-                loading={avatarBusy}
-              >
-                Change picture
-              </Button>
               <p className="mt-1 text-xs text-muted-foreground">
                 PNG, JPG, WEBP or GIF, up to 1 MB.
               </p>
+              {avatarItem && avatarItem.state !== "idle" && (
+                <UploadProgress
+                  className="mt-1 max-w-[220px]"
+                  state={avatarItem.state}
+                  percent={avatarItem.percent}
+                  error={avatarItem.error}
+                />
+              )}
               {avatarMsg && (
                 <p
                   className={`mt-1 text-xs ${avatarMsg.kind === "ok" ? "text-[rgb(var(--ok))]" : "text-[rgb(var(--bad))]"}`}
@@ -516,7 +533,7 @@ export function MySecurityPage() {
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Added {new Date(d.created_at).toLocaleDateString()}
+                          Added {dateDmy(d.created_at)}
                         </div>
                       </div>
                       <Button

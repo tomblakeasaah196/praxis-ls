@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DateField } from "@/components/ui/date-field";
 import { FormButtons } from "@/components/ui/form-buttons";
 import { Modal, Field } from "@/components/ui/modal";
 import { ErrorState } from "@/components/ui/states";
@@ -82,11 +82,10 @@ export function PinDialog({
           required
           hint="It comes off the home page on its own after this date. It stays published at its own address."
         >
-          <Input
-            type="date"
+          <DateField
             min={tomorrow()}
             value={day}
-            onChange={(e) => setDay(e.target.value)}
+            onChange={setDay}
           />
         </Field>
         {error && <ErrorState message={error} />}

@@ -48,6 +48,9 @@ export default tseslint.config(
        * `alert("Thanks!")`, rather than after a sweep has to remove it.
        */
       "praxis/no-native-dialogs": "error",
+      // Shares the client's rule implementation — see the index.cjs note on why
+      // a second copy of a gate is a gate that drifts.
+      "praxis/no-raw-upload": "error",
       "react-hooks/exhaustive-deps": "warn",
       "@typescript-eslint/no-unused-vars": [
         "error",
