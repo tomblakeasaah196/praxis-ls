@@ -84,11 +84,17 @@ describe("the override arithmetic", () => {
  * The guard is NOT the F-27 failure this file warns about two blocks down. What
  * makes a skip dishonest is that nothing else checks the thing; here something
  * does, and it is stricter. `check:fonts-fallback` — gate 37, in the public-web
- * job, where these packages are always installed — runs `gen-font-fallbacks.mjs
- * --check`, which REGENERATES the stylesheet from these same files through this
- * same `readFaceMetrics` and fails on any difference. It cannot pass without
- * reading them, so "were the metrics actually read" is enforced there whether
- * this block runs or not.
+ * job — runs `gen-font-fallbacks.mjs --check`, which REGENERATES the stylesheet
+ * from these same files through this same `readFaceMetrics` and fails on any
+ * difference. It cannot pass without reading them, so "were the metrics actually
+ * read" is enforced there whether this block runs or not.
+ *
+ * That sentence was written before it was true, which is worth leaving on the
+ * record. The gate needs `fontkit` as well as the font files, and it had neither
+ * job that could supply both: the public-web job has the files and no fontkit,
+ * `build-test` has fontkit (transitively, via pdfkit) and no files. It had never
+ * passed in CI. `fontkit` is a devDependency of `public-web` now — F-46 — which
+ * is what makes the division of labour above real rather than assumed.
  *
  * What is genuinely conditional is the Inter-versus-Arial assertion below: it
  * runs on a developer's machine and in any job that installs public-web, and it
