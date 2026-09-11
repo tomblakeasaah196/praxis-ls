@@ -10,6 +10,24 @@ import { usePointerLight, useTilt } from "@/lib/motion";
 import { useInView, useRevealed } from "@/components/ui/reveal";
 import { StagedLines, WeightScrub } from "@/components/ui/type";
 import { p } from "@/lib/base-path";
+/*
+ * THIS BAND'S OWN STYLESHEET, AND WHY IT IS AN IMPORT RATHER THAN MORE OF
+ * `index.css`.
+ *
+ * Everything in it is mounted here and nowhere else, and this component is
+ * reachable only from `marketing-page.tsx`, which `router.tsx` loads with
+ * `React.lazy`. In `index.css` those rules sat on the first-paint path of every
+ * route in the app — the track page, the portal login, a policy page — none of
+ * which can render a hero. Imported here, Rollup attaches them to the marketing
+ * chunk instead, which is the only chunk that can use them.
+ *
+ * O-13 held this back until PR #330: both gates read `src/index.css` and only
+ * that file, so splitting would have bought first-paint headroom by making them
+ * blind to the thing being moved. They walk every stylesheet under `src/` now.
+ * The file's own header carries the rest, including why nothing in it is in an
+ * `@layer`.
+ */
+import "./hero.css";
 
 /**
  * The hero — a dark plate, one promise, two ways out.

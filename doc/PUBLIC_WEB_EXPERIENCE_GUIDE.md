@@ -178,7 +178,7 @@ filled in", not as "nothing to report".
 | PR 4 | **Merged** | 2026-09-10 · [#327](https://github.com/tomblakeasaah196/praxis-ls/pull/327) | **81%** | 18 of 18. Four deviations and eight findings — see §3.5. **F-20 is the one to read first: the ERP's own primary button measures 2.59:1** and is out of scope here. F-21–F-23 are three live AA failures in this app that the O-9 port found on its first run. §6.3 is now blocking on its FOURTH PR and PR 5 cannot deliver §9.3 or §9.4 without it. |
 | PR 5 | **Merged** | 2026-09-10 · [#328](https://github.com/tomblakeasaah196/praxis-ls/pull/328) | **100%** | 16 of 16, **plus PR 2's last 3 carried points** (§6.3, §6.8), which closes O-10. Five deviations and eleven findings — see §3.6. **F-28 is the one to read first: `useScrollScrub`'s default range finishes after the band has left the screen**, so §9.1's timeline shipped its first draft permanently invisible. F-31 corrects the record: the SEO and best-practices figures in §3.4 and §3.5 were measuring the preview harness, not the app. O-11 is resolved in §9.7; O-2, O-3 and O-4 remain the client's and §9.4 ships complete without them. |
 | Post-PR 5 | **Open items** | — | **100%** | Not a programme PR: O-12, O-13 and O-14 taken, plus what looking properly turned up — see §3.8. **F-40 is the one to read first: `services-page` put the whole quote wizard on its critical path** and every gate was green, because the first-paint gate never looked at a route chunk. A live theme-toggle defect was found and fixed here too — the painter wrote inline tokens, so clicking "Dark theme" gave a visitor the class, the attribute, the stored preference and a white page. Two items stay open (O-15, O-16), both measured, both with the reason they were not taken. |
-| Hero pass | **In review** | — | **100%** | Not a coverage PR — §7.1 revisited for drama. One deviation and six findings, see §3.9. **F-50 is the one to read first: the obvious way to build a light beam over this band takes the eyebrow to 1.9:1**, and neither gate can see it. F-47 and F-48 are two things §7.1 has been describing and not doing since PR 3. F-52: the first-paint headroom is now very small, and #330 closed O-13 while this was in flight. |
+| Hero pass | **In review** | — | **100%** | Not a coverage PR — §7.1 revisited for drama. One deviation and six findings, see §3.9. **F-50 is the one to read first: the obvious way to build a light beam over this band takes the eyebrow to 1.9:1**, and neither gate can see it. F-47 and F-48 are two things §7.1 has been describing and not doing since PR 3. **F-52/F-53 are a pair: this band went over the first-paint budget, and the split that fixes it costs 18 ms of homepage LCP** — a hard rule kept at a soft target's expense, with the recovery named in O-18. The entry stylesheet still comes out smaller than it went in. |
 
 ### 3.2 PR 1 — reservations, deviations and findings
 
@@ -876,30 +876,62 @@ reveal, a choreographed entrance, and the plate rebuilt as dark glass with a mov
   `.tilt-card`, which has its own arithmetic. Only `.tilt-stage` is shared. Corrected while raising
   the plate's rotation from 3°/2° to 7°/5° — at three degrees nobody noticed the plate was a solid,
   at fourteen the reference field visibly slides away from a hand already reaching for it.
-- **F-52 — this adds ~1.1 kB of CSS to a first paint with very little room left.** It is real
-  rules rather than the comments, which minify away. The claim O-13 was the blocker is **withdrawn**:
-  #330 closed it while this was in flight, so both gates now walk every stylesheet under `src/` and
-  the per-route splitting it was holding up is unblocked. What remains true is the arithmetic —
-  three changes in a row have each taken a bite out of this band, and the entry-level headroom is
-  now small enough that the next one has to arrive with a reclaim rather than a plan for one. The
-  measured figures are in the table below, re-taken against the merge rather than carried over from
-  the branch they were first read on.
+- **F-52 — this band went over the first-paint budget, and the fix was the split O-13 had been
+  holding back.** The rules added here are ~1.1 kB gzip of real CSS (the comments minify away), and
+  on a budget with 0.7 kB left that is 131.5 kB of 131 — a red gate, not a note. O-13 closed while
+  this was in flight, so the honest fix was available for the first time: `hero.css` is the band's
+  own stylesheet, imported by `hero.tsx`, which is reachable only from the lazily-loaded marketing
+  page. Rollup attaches it to that chunk.
+
+  It is worth being precise about what moved and why it is not just this PR's mess being swept
+  sideways. `.track-widget` and `.tilt-plate` were already on the entry before this change, and
+  neither can be rendered by any route except the homepage — so the entry stylesheet comes out of
+  this PR at **16.7 kB against main's 16.8**, smaller than it went in. Every route that cannot
+  render a hero — the track page, the portal login, a policy page — now carries less than it did.
+
+- **F-53 — and the split costs 18 ms of LCP on the homepage, which is the half nobody would find
+  later.** Measured, interleaved, eleven loads each, twice:
+
+      main b736faa   268 ms median   element H1
+      with the split 284–288 ms      element H1
+
+  The cause is structural rather than sizeable: the marketing chunk now has a stylesheet of its own,
+  discovered only once the entry has run, so there is one more request on the critical path to the
+  hero. A smaller `hero.css` would not help — the cost is the existence of the request, not its
+  weight.
+
+  **Taken deliberately, and the reasoning is the asymmetry between the two numbers.** §1.2 rule 8 is
+  an absolute — "First paint stays inside 128 kB gzip", no PR may trade it away — and the bundle gate
+  fails the build on it. §9.7's performance ≥ 90 is a target, nothing gates it, and the homepage
+  measures 90–91, so 18 ms is real headroom spent rather than a threshold crossed. Paying a soft
+  target to keep a hard rule is the right way round; the reverse would have meant cutting effects
+  from the band to fit, which is the same trade made silently.
+
+  **The recovery is named and is not speculative.** `src/shared/http/public-head.js` builds the
+  server-rendered head and already knows the request — a `<link rel="preload" as="style">` for the
+  marketing chunk's stylesheet, resolved from Vite's manifest, puts that request in parallel with
+  the entry instead of behind it. That is the same mechanism O-15 describes for the dictionaries and
+  it wants the manifest plumbing either way, so it belongs in that change and not behind a hero
+  animation. **O-18** carries it.
 
 **Measured, rather than argued.**
 
 | What | Before | After |
 | --- | --- | --- |
-| LCP, homepage, 7 loads each | **248 ms** median, element `H1` | **244 ms** median, element `H1` |
-| First paint | 129.3 kB gzip | **130.4 kB** gzip (budget 131) |
+| LCP, homepage, 11 loads each, interleaved | **268 ms** median, element `H1` | **284 ms** median, element `H1` — F-53 |
+| First paint, total | 130.3 kB gzip | **130.4 kB** gzip (budget 131) |
+| First paint, the stylesheet alone | 16.8 kB gzip | **16.7 kB** gzip — smaller than it went in |
+| Marketing chunk's own CSS | — | 1.6 kB gzip, off the entry |
 | Eyebrow on carbon, beam at peak | 6.44:1 | **4.56:1** (floor 4.5) |
 | `prefers-reduced-motion` | — | beam parked at opacity 0, ring at 0, words at their inherited colour, plate settled — read from computed style, not reasoned |
 
-The LCP row is the one that mattered. A word rising out of a clipped edge is the reveal §7.1
-wanted, and a clip deep enough to hide the word before it moves would have re-created the exact
-defect `paintImmediately` exists to fix — clipped text is no more painted than transparent text, and
+The mask is the reason the LCP row is not worse than it is. A word rising out of a clipped edge is
+the reveal §7.1 wanted, and a clip deep enough to hide the word before it moves would have
+re-created the exact defect `paintImmediately` exists to fix — clipped text is no more painted than transparent text, and
 PR 3 measured +691 ms for that. The clip is sized to the glyphs and the travel is 0.4em instead, so
-four-fifths of every word is painted on the first frame. The measurement above is the evidence that
-this is true rather than merely plausible.
+four-fifths of every word is painted on the first frame. Measured on its own, before the split, that
+cost nothing at all: 244 ms against main's 248, the H1 both times. The 284 ms above is F-53's
+18 ms and not the mask's.
 
 ---
 
@@ -924,6 +956,7 @@ this is true rather than merely plausible.
 | O-15 | **The entry ships BOTH translation dictionaries (F-39).** Building with `fr` aliased to `en` takes `index` from 52.7 to 44.3 kB gzip, so every visitor pays **8.4 kB — 6.6 % of the whole first-paint budget** — for the language they are not reading. Not taken here because splitting it naively LOSES: awaiting the resolved dictionary in `main.tsx` turns 8 kB of parallel transfer into a serial round trip, which on the connections this budget exists for is a wash at best. It pays with a `<link rel="modulepreload">` for the right dictionary in the server-rendered head — `src/shared/http/public-head.js` already builds that head and already knows the request's language. | Build | first-paint headroom |
 | O-16 | **`/careers` shifts 0.093 on a skeleton that is not the height of its content.** Diagnosed with a `PerformanceObserver` rather than inferred: one shift at t=227 ms, and NOT the font — it survives with fonts blocked, and O-12's fallbacks left it unchanged (Lighthouse's "web font loaded" attribution is coarse). `PageSkeleton rows={4}` stands in for a vacancy list whose length is the tenant's. Not fixed here because the honest fix needs the real rendered heights of both states, and this session has no live backend to measure them against — guessing a reservation is how the swap gets worse rather than better. | Build | CLS on `/careers` |
 | O-17 | **The hero's accent TYPE is Praxis's orange, not the tenant's.** `section-head.tsx`'s `onDark` branch and the plate's kicker both use `rgb(var(--brand-orange))`, which the file header says is never tenant-overridden. It is there for a measured reason — `--primary-ink` resolves to the *light-ground* ink in the light theme and is ~3.4:1 on carbon — but `--primary-ink-dark` is the token that solves it properly, is AA-corrected for dark grounds, and is already computed per tenant by `theme.ts`. So a tenant whose primary is navy gets a navy beam lighting an orange accent word. The beam and the glass tint use `--primary` today because they are light rather than type and carry no contrast duty; making the four agree repaints **every dark band on the site** and needs `check:contrast` run against it, which is why it is an item and not a line in the hero's diff. | Build | white-label correctness for any non-orange tenant |
+| O-18 | **The marketing chunk's stylesheet is discovered a round trip late (F-53).** Splitting `hero.css` off the entry kept this band inside §1.2 rule 8's first-paint budget and cost **18 ms of homepage LCP** — 268 ms to 284 ms, measured interleaved, eleven loads each. The cost is the extra request's *position*, not its size, so a smaller file does not help. The fix is a `<link rel="preload" as="style">` in `src/shared/http/public-head.js`, resolved from Vite's build manifest, which puts it in parallel with the entry rather than behind it. It wants the same manifest plumbing O-15's `modulepreload` does, so the two belong in one change. | Build | homepage LCP, and §9.7's performance ≥ 90 |
 
 ---
 
