@@ -12,11 +12,11 @@
  * WHY IT IS A SECOND FILE AND NOT A SECOND IMPLEMENTATION. The console is
  * plain CSS and has no `Input` primitive, so the markup cannot be shared with
  * the client's `DateField`. What CAN drift is the part that matters — what
- * counts as a real date, and how dd/mm/yyyy maps to ISO — so that is imported
- * from the client's `day-first-date.ts`, the one copy, exactly as
- * `eslint-local-rules/index.cjs` imports the client's rule implementations and
- * for the reason stated there: the console is the smaller app, so the copy that
- * fell behind would be this one.
+ * counts as a real date, and how dd/mm/yyyy maps to ISO — and that lives in
+ * `lib/day-first-date.ts`, which is kept byte-identical to the client's copy by
+ * the same gate. See that file's header for why it is a copy and not an import:
+ * the Dockerfile's console build stage copies only `platform-console/`, so a
+ * relative import into `client/` builds locally and then fails in the image.
  */
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
@@ -24,7 +24,7 @@ import {
   displayToIso,
   maskInput,
   validityMessage,
-} from "../../../client/src/lib/day-first-date";
+} from "@/lib/day-first-date";
 
 export function DateField({
   value,
