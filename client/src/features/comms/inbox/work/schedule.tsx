@@ -31,7 +31,7 @@
 import * as React from "react";
 import { dateTimeFmt } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DateTimeField } from "@/components/ui/datetime-field";
 import { tr } from "@/lib/i18n";
 // The choice type and the payload function live in `schedule-payload.ts` — a
 // module exporting both a component and a plain function loses fast refresh for
@@ -82,10 +82,9 @@ export function SchedulePicker({
       <div className="flex flex-wrap items-end gap-2">
         <label className="text-xs">
           <span className="block text-muted-foreground">{tr("At a time")}</span>
-          <Input
-            type="datetime-local"
+          <DateTimeField
             value={at}
-            onChange={(e) => setAt(e.target.value)}
+            onChange={setAt}
             aria-label={tr("Send at")}
             className="mt-0.5 h-8 text-xs"
           />
