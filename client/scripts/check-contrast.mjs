@@ -42,7 +42,7 @@
  *
  * Exit 0 = every pair clears its floor. Exit 1 = at least one regressed.
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
@@ -84,6 +84,56 @@ if (!existsSync(cssPath)) {
 }
 const css = readFileSync(cssPath, "utf8");
 
+/**
+ * ── EVERY STYLESHEET, AND EVERY MATCHING BLOCK — O-13 ──────────────────────
+ *
+ * Two blind spots, one shape: this gate resolved tokens out of `index.css`, and
+ * out of the FIRST `:root` it found there.
+ *
+ *   · A sibling sheet was invisible. `main.tsx` imports three, and a token
+ *     declared in any of them resolved to nothing — which is the SKIP path this
+ *     file already has a long note about, and skips are how the primary CTA
+ *     (F-15) got measured as "token not found" beside a tick.
+ *   · A SECOND block for the same selector was invisible. `public-web` has one:
+ *     tokens are re-declared for a reader whose choice differs from the base.
+ *     A token safe where it is first declared and unsafe where it is overridden
+ *     read as safe.
+ *
+ * WHAT IS DELIBERATELY NOT MERGED: a block inside `@media (prefers-color-scheme:
+ * …)`. Neither app resolves its theme from that query — `index.html` writes
+ * `data-theme` before first paint precisely so the OS setting does not decide,
+ * and `public-web`'s one such block is written `:root:not([data-theme="light"])`
+ * to stay out of the way. Folding its values into the light palette would
+ * measure a combination no visitor is ever served, and report a failure nobody
+ * can reproduce — which costs a gate its credibility faster than a miss does.
+ */
+function stylesheets(dir) {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, e.name);
+    if (e.isDirectory()) out.push(...stylesheets(full));
+    else if (e.name.endsWith(".css")) out.push(full);
+  }
+  return out;
+}
+
+/** index.css LAST, because later declarations win and it is the app's own final
+ *  sheet — the order `main.tsx` imports them in. */
+const SHEETS = stylesheets(join(appRoot, "src"))
+  .sort((a, b) => (a === cssPath ? 1 : b === cssPath ? -1 : a.localeCompare(b)))
+  .map((file) => readFileSync(file, "utf8"));
+
+/** Is the block that opens at `index` nested inside a colour-scheme query? */
+function inColourSchemeQuery(source, index) {
+  const before = source.slice(0, index);
+  const opens = [];
+  for (const m of before.matchAll(/@media[^{]*\{|\{|\}/g)) {
+    if (m[0] === "}") opens.pop();
+    else opens.push(m[0].startsWith("@media") ? m[0] : "");
+  }
+  return opens.some((o) => /prefers-color-scheme/.test(o));
+}
+
 /** WCAG 2.1: 4.5:1 for normal text, 3:1 for large (>=18.66px bold / 24px). */
 const AA_NORMAL = 4.5;
 const AA_LARGE = 3.0;
@@ -109,21 +159,28 @@ const AAA_NORMAL = 7.0;
  * one rule the tokens belong to under either name.
  */
 function block(selector) {
-  const re = new RegExp(`(?:^|[,\\s])${selector}\\s*(?:,[^{}]*?)?\\{`, "m");
-  const m = css.match(re);
-  if (!m)
-    throw new Error(
-      `Could not find "${selector}" block in ${APP}/src/index.css`,
-    );
-  let depth = 1;
-  let i = m.index + m[0].length;
-  const start = i;
-  for (; i < css.length && depth > 0; i++) {
-    if (css[i] === "{") depth++;
-    else if (css[i] === "}") depth--;
+  const re = new RegExp(`(?:^|[,\\s])${selector}\\s*(?:,[^{}]*?)?\\{`, "gm");
+  const bodies = [];
+  for (const source of SHEETS) {
+    for (const m of source.matchAll(re)) {
+      if (inColourSchemeQuery(source, m.index)) continue;
+      let depth = 1;
+      let i = m.index + m[0].length;
+      const start = i;
+      for (; i < source.length && depth > 0; i++) {
+        if (source[i] === "{") depth++;
+        else if (source[i] === "}") depth--;
+      }
+      if (depth !== 0) throw new Error(`Unbalanced braces after "${selector}"`);
+      bodies.push(source.slice(start, i - 1));
+    }
   }
-  if (depth !== 0) throw new Error(`Unbalanced braces after "${selector}"`);
-  return css.slice(start, i - 1);
+  if (!bodies.length)
+    throw new Error(
+      `Could not find "${selector}" block in any ${APP}/src stylesheet`,
+    );
+  // Joined in cascade order, so a later re-declaration is the one measured.
+  return bodies.join("\n");
 }
 
 const lightBody = block(":root");
@@ -176,10 +233,20 @@ function importedBodies() {
 
 const imported = importedBodies();
 
-/** Raw declared text of a custom property, or null. */
+/**
+ * Raw declared text of a custom property, or null.
+ *
+ * The LAST declaration, not the first — `block()` now joins every matching rule
+ * in cascade order, and the cascade's rule for two declarations of equal
+ * specificity is that the later one wins. Reading the first was correct only
+ * while exactly one rule could exist, and it is the half of O-13 that would
+ * have made the widening useless: a bad override would have been collected and
+ * then ignored, which is worse than not collecting it, because the gate would
+ * report a measurement of a value nobody is served.
+ */
 function rawToken(body, name) {
-  const m = body.match(new RegExp(`--${name}:\\s*([^;]+);`));
-  return m ? m[1].trim() : null;
+  const all = [...body.matchAll(new RegExp(`--${name}:\\s*([^;]+);`, "g"))];
+  return all.length ? all[all.length - 1][1].trim() : null;
 }
 
 /**

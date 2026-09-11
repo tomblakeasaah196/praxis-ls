@@ -52,6 +52,34 @@ const clientRoot = join(here, "..");
 const cssPath = join(clientRoot, "src", "index.css");
 const twPath = join(clientRoot, "tailwind.config.ts");
 const css = readFileSync(cssPath, "utf8");
+
+/**
+ * ── EVERY STYLESHEET, NOT JUST index.css — O-13 ────────────────────────────
+ *
+ * This gate read one file, and `client/src/fonts/brittany-signature.css` is
+ * proof that one file is not where the CSS lives. A timed declaration in any
+ * other sheet was a silent pass — established by putting a 3000ms transition in
+ * a sibling and watching this gate report "within budget", not by inspection.
+ *
+ * Discovered rather than listed, for the reason the finding itself
+ * demonstrates: a hand-maintained list of stylesheets goes stale the first time
+ * somebody adds one, and it goes stale silently.
+ *
+ * `index.css` keeps its own binding above — the reduced-motion umbrella is a
+ * property of that file specifically, and is asserted against it by name.
+ */
+function stylesheets(dir) {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, e.name);
+    if (e.isDirectory()) out.push(...stylesheets(full));
+    else if (e.name.endsWith(".css")) out.push(full);
+  }
+  return out;
+}
+const SHEETS = stylesheets(join(clientRoot, "src"))
+  .sort()
+  .map((file) => ({ file: relative(clientRoot, file), text: readFileSync(file, "utf8") }));
 const tw = readFileSync(twPath, "utf8");
 
 /** Every .ts/.tsx under client/src. Walked rather than globbed so this stays a
@@ -182,7 +210,10 @@ function declarations(source) {
       }
     }
     const m = line.match(
-      /(?:^|\s)(transition|animation)(?:-duration)?\s*:\s*([^;]+);/,
+      /* `{` and `;` beside whitespace: `.x{transition:opacity 3s}` on one line
+         matched nothing, so a compact or generated stylesheet read as a pass.
+         The same blind spot as public-web's copy, found the same way. */
+      /(?:^|[\s{;])(transition|animation)(?:-duration)?\s*:\s*([^;]+);/,
     );
     if (m) out.push({ prop: m[1], value: m[2], selector, line: i + 1 });
     if (line.includes("}")) {
@@ -206,7 +237,8 @@ const failures = [];
 const exempted = [];
 let checked = 0;
 
-for (const d of declarations(css)) {
+for (const sheet of SHEETS)
+for (const d of declarations(sheet.text).map((d) => ({ ...d, file: sheet.file }))) {
   const worst = Math.max(0, ...durations(d.value));
   if (worst === 0) continue;
   checked++;
@@ -463,7 +495,8 @@ if (failures.length) {
         ? "a framework animation with no entry in FRAMEWORK_OK — this file cannot read its duration, so it must be reasoned about by hand"
         : `${Math.round(f.worst)}ms > ${BUDGET_MS}ms`;
     console.error(
-      `    ${f.selector}  { ${f.prop}: ${f.value.trim()} }  — ${why}`,
+      `    ${f.selector}  { ${f.prop}: ${f.value.trim()} }  — ${why}` +
+        (f.file ? `\n      ${f.file}` : ""),
     );
   }
   console.error(
