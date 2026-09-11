@@ -167,7 +167,7 @@ filled in", not as "nothing to report".
 | PR 3 | **Merged** | 2026-09-10 · [#325](https://github.com/tomblakeasaah196/praxis-ls/pull/325) | **63%** | 20 of 20, **plus 2 of PR 2's carried points** (§6.4). Four deviations and six findings — see §3.4. F-14 is the important one: **PR 1 recorded 22/22 for §5.6 and shipped one of its five gates**, so `check:assets`, `check:palette` and the deferred-chunk budget were built here. F-16 is a Lighthouse target this architecture cannot reach. |
 | PR 4 | **Merged** | 2026-09-10 · [#327](https://github.com/tomblakeasaah196/praxis-ls/pull/327) | **81%** | 18 of 18. Four deviations and eight findings — see §3.5. **F-20 is the one to read first: the ERP's own primary button measures 2.59:1** and is out of scope here. F-21–F-23 are three live AA failures in this app that the O-9 port found on its first run. §6.3 is now blocking on its FOURTH PR and PR 5 cannot deliver §9.3 or §9.4 without it. |
 | PR 5 | **Merged** | 2026-09-10 · [#328](https://github.com/tomblakeasaah196/praxis-ls/pull/328) | **100%** | 16 of 16, **plus PR 2's last 3 carried points** (§6.3, §6.8), which closes O-10. Five deviations and eleven findings — see §3.6. **F-28 is the one to read first: `useScrollScrub`'s default range finishes after the band has left the screen**, so §9.1's timeline shipped its first draft permanently invisible. F-31 corrects the record: the SEO and best-practices figures in §3.4 and §3.5 were measuring the preview harness, not the app. O-11 is resolved in §9.7; O-2, O-3 and O-4 remain the client's and §9.4 ships complete without them. |
-| Hero pass | **In review** | — | **100%** | Not a coverage PR — §7.1 revisited for drama. One deviation and six findings, see §3.8. **F-42 is the one to read first: the obvious way to build a light beam over this band takes the eyebrow to 1.9:1**, and neither gate can see it. F-39 and F-40 are two things §7.1 has been describing and not doing since PR 3. F-44: first paint is now **127.6 kB of 128**, which makes O-13 the next blocker rather than a note. |
+| Hero pass | **In review** | — | **100%** | Not a coverage PR — §7.1 revisited for drama. One deviation and six findings, see §3.8. **F-42 is the one to read first: the obvious way to build a light beam over this band takes the eyebrow to 1.9:1**, and neither gate can see it. F-39 and F-40 are two things §7.1 has been describing and not doing since PR 3. F-44: first paint is now **130.4 kB of 131**, which makes O-13 the next blocker rather than a note. |
 
 ### 3.2 PR 1 — reservations, deviations and findings
 
@@ -763,18 +763,20 @@ reveal, a choreographed entrance, and the plate rebuilt as dark glass with a mov
   `.tilt-card`, which has its own arithmetic. Only `.tilt-stage` is shared. Corrected while raising
   the plate's rotation from 3°/2° to 7°/5° — at three degrees nobody noticed the plate was a solid,
   at fourteen the reference field visibly slides away from a hand already reaching for it.
-- **F-44 — first paint is now 127.6 kB of 128 (was 126.5), and O-13 is the next blocker.** The
-  ~1.1 kB is CSS, and it is real rules rather than the comments, which minify away. Headroom is
-  **0.4 kB**: the next change to this stylesheet has to reclaim space before it can add any, and the
-  per-route CSS splitting O-13 describes — worth ~1.5 kB — cannot be done until `check:motion` and
-  `check:contrast` walk the stylesheet graph rather than reading `src/index.css` alone.
+- **F-44 — first paint is 130.4 kB of 131 (main at ef93d76 is 129.3), and O-13 is the next
+  blocker.** The ~1.1 kB this adds is CSS, and it is real rules rather than the comments, which
+  minify away. Headroom is **0.6 kB**, on a budget the header PR had just raised from 128: the next
+  change to this stylesheet has to reclaim space before it can add any, and the per-route CSS
+  splitting O-13 describes — worth ~1.5 kB — cannot be done until `check:motion` and
+  `check:contrast` walk the stylesheet graph rather than reading `src/index.css` alone. Two
+  consecutive PRs have now spent this band's remaining headroom; the third cannot.
 
 **Measured, rather than argued.**
 
 | What | Before | After |
 | --- | --- | --- |
-| LCP, homepage, 7 loads each | **248 ms** median, element `H1` | **248 ms** median, element `H1` |
-| First paint | 126.5 kB gzip | **127.6 kB** gzip (budget 128) |
+| LCP, homepage, 7 loads each | **248 ms** median, element `H1` | **244 ms** median, element `H1` |
+| First paint | 129.3 kB gzip | **130.4 kB** gzip (budget 131) |
 | Eyebrow on carbon, beam at peak | 6.44:1 | **4.56:1** (floor 4.5) |
 | `prefers-reduced-motion` | — | beam parked at opacity 0, ring at 0, words at their inherited colour, plate settled — read from computed style, not reasoned |
 
