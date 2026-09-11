@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:26-alpine AS base
 # chromium + shared libs/fonts: PDF rendering (invoices, reports, payslips) goes
 # through src/services/pdf.service.js (Puppeteer) from both the API process
 # (runtime) and the BullMQ worker (report-processor.js), so both stages need a
