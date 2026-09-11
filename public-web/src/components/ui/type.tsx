@@ -87,6 +87,56 @@ export function StagedLines({
    * which is what a headline is for.
    */
   paintImmediately = false,
+  /**
+   * Wrap every word in a clip it rises out of.
+   *
+   * ── IT IS A PARTIAL MASK, AND THAT IS THE WHOLE DESIGN ────────────────
+   *
+   * The obvious build — a clip tall enough to hide the word before it moves —
+   * re-creates the exact defect `paintImmediately` exists to fix. LCP measures
+   * when the largest element is PAINTED; text clipped out of its container is
+   * no more painted than text at `opacity: 0`, so a full mask on a hero
+   * headline is the same +691 ms wearing a different property, and a harder one
+   * to find because nothing in the file says `opacity: 0`.
+   *
+   * So the clip is sized to the glyphs and the word travels 0.4em: about
+   * four-fifths of it is inside the clip on the first frame, and the fifth that
+   * is cut is the fifth the eye reads as an edge. `.staged-clip` in index.css
+   * carries the padding/negative-margin pair that keeps the headline's measure
+   * and wrap points identical to the unmasked version.
+   *
+   * MEASURED, not assumed, on the built page over seven loads each:
+   *
+   *     main          LCP 248 ms median   element H1
+   *     with the mask LCP 248 ms median   element H1
+   *
+   * Identical, and still the headline. That is the only evidence that makes the
+   * paragraph above true rather than plausible.
+   */
+  masked = false,
+  /**
+   * Hold every word back by this many milliseconds before the stagger starts.
+   *
+   * For a headline split across two `StagedLines` — the hero's is, so its accent
+   * can arrive on its own beat after the rest of the line has landed. It is a
+   * delay, not a second timeline: the stagger inside this instance is unchanged,
+   * and nothing here schedules anything in JavaScript.
+   */
+  startDelay = 0,
+  /**
+   * Where this instance's words sit in the headline AS A WHOLE.
+   *
+   * A headline split across two `StagedLines` — the hero's is, so its accent can
+   * arrive on its own beat — is still one sentence to a reader and to anything
+   * sweeping across it. Without this the accent word is index 0 of its own
+   * instance and a left-to-right effect restarts on it, which reads as the
+   * sweep stuttering rather than as it continuing.
+   *
+   * It is written out as `--wi` on every word, for CSS to consume. Nothing here
+   * decides what it is FOR: the hero's per-word light reads it, and anything
+   * else that wants a position in the line can too.
+   */
+  wordOffset = 0,
 }: {
   text: string;
   as?: "h1" | "h2" | "h3" | "p" | "span" | "div";
@@ -94,6 +144,9 @@ export function StagedLines({
   wordClassName?: string;
   step?: number;
   paintImmediately?: boolean;
+  masked?: boolean;
+  startDelay?: number;
+  wordOffset?: number;
 }) {
   const [ref, shown] = useRevealed<HTMLElement>();
   const words = React.useMemo(() => text.split(/(\s+)/), [text]);
@@ -112,14 +165,13 @@ export function StagedLines({
           all. `sr-only` is Tailwind's own recipe and is already used elsewhere
           in this app. */}
       <span className="sr-only">{text}</span>
-      {words.map((word, i) =>
-        /^\s+$/.test(word) ? (
-          // Whitespace is preserved as text rather than as a fragment: wrapping
-          // it makes `inline-block` collapse the gap and the words run together.
-          <React.Fragment key={i}>{word}</React.Fragment>
-        ) : (
+      {words.map((word, i) => {
+        // Whitespace is preserved as text rather than as a fragment: wrapping
+        // it makes `inline-block` collapse the gap and the words run together.
+        if (/^\s+$/.test(word)) return <React.Fragment key={i}>{word}</React.Fragment>;
+
+        const moving = (
           <span
-            key={i}
             aria-hidden
             className={cn(
               "staged-word",
@@ -127,12 +179,34 @@ export function StagedLines({
               shown && "is-in",
               wordClassName,
             )}
-            style={{ transitionDelay: shown ? `${Math.round((i / 2) * realStep)}ms` : undefined }}
+            style={
+              {
+                transitionDelay: shown
+                  ? `${startDelay + Math.round((i / 2) * realStep)}ms`
+                  : undefined,
+                // `i / 2` because `words` interleaves the whitespace it split
+                // on, so every other entry is a gap.
+                "--wi": String(wordOffset + i / 2),
+              } as React.CSSProperties
+            }
           >
             {word}
           </span>
-        ),
-      )}
+        );
+
+        // `aria-hidden` stays on the WORD rather than moving out to the clip.
+        // The clip is a box, not a fragment of a sentence, and every
+        // `.staged-word` in the tree being hidden is the invariant the a11y
+        // test holds — one that a future caller rendering a word without a clip
+        // would otherwise quietly break.
+        return masked ? (
+          <span key={i} className="staged-clip">
+            {moving}
+          </span>
+        ) : (
+          <React.Fragment key={i}>{moving}</React.Fragment>
+        );
+      })}
     </Tag>
   );
 }

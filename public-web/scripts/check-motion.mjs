@@ -79,6 +79,14 @@ const EXEMPT = [
   [/^\.weight-scrub/, "scroll-linked: the reader's scroll position IS the timeline"],
   [/^\.lane-/, "marching-ants stroke on a shipping lane — the motion IS direction of travel"],
   [/^\.ambient/, "continuous atmosphere on a set piece; paused off-screen and under reduced motion"],
+  [
+    /^\.hero-word-light/,
+    "the headline catching the pass: each word turns to the tenant's accent and back as the beam reaches it, on the same --beam-cycle with a per-word delay. Both endpoints are measured colours on an unchanged ground (--hero-foreground 12.1:1, --primary 6.33:1 on carbon), so unlike a blend it spends no contrast. Paused unless the band is on screen, and it declares no fill-mode, so under the reduced-motion umbrella a word reverts to its inherited resting colour",
+  ],
+  [
+    /^\.hero-beam/,
+    "the hero's pass: one raked beam every --beam-cycle and the plate edge that catches it as it leaves — one event, two selectors, one token. Paused unless the band reports itself on screen (data-live, useInView), and both declare a BASE style that is already the settled state — beam parked off-screen at zero opacity, ring at zero — so the reduced-motion umbrella's single unfilled 0.001ms iteration leaves the band correct rather than mid-flash. The focus-hold on the same element is the reader's own state and replaces the pass rather than overlapping it",
+  ],
 ];
 
 /** Tailwind `animation` entries that may loop forever, and why. */
