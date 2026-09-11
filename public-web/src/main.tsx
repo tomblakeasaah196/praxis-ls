@@ -22,6 +22,11 @@ import { AppRouter } from "@/app/router";
 // greek, greek-ext, vietnamese) this product has no audience for, and N5 asks
 // for `latin` + `latin-ext`. See the header of fonts.css.
 import "./fonts.css";
+// Metric-matched fallbacks, generated from the real font files by
+// `scripts/gen-font-fallbacks.mjs`. AFTER fonts.css so the two sets of
+// @font-face rules read in the order a person would expect, and before
+// index.css so the stacks that name these families are declared already.
+import "./fonts-fallback.css";
 import "./index.css";
 
 // The `.dark` class and `data-theme` are already on `<html>` before first paint —
