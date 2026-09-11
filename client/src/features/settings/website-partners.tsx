@@ -36,6 +36,7 @@ import { PageHeader } from "@/components/data-list";
 import { HubCrumb } from "@/components/tabbed-hub";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Pill } from "@/components/ui/pill";
 import { SettingsCard, Field } from "@/components/settings/controls";
@@ -55,6 +56,37 @@ const KIND_HELP: Record<api.PartnerKind, string> = {
 const today = () => new Date().toISOString().slice(0, 10);
 const isExpired = (c: api.Credential) =>
   Boolean(c.expires_on && String(c.expires_on).slice(0, 10) < today());
+
+/**
+ * The expiry cell of a credential row — day-first, saved on blur like its
+ * neighbours.
+ *
+ * The other fields on this row are uncontrolled (`defaultValue` + `onBlur`),
+ * which `DateField` cannot be: what it displays (dd/mm/yyyy) and what it stores
+ * (ISO) are two different strings, so there is nothing a single `defaultValue`
+ * could seed that stays in step with both. Holding the ISO here is the whole
+ * difference, and the save still happens when the operator leaves the field.
+ */
+function CredentialExpiry({
+  credential,
+  onSave,
+}: {
+  credential: api.Credential;
+  onSave: (expiresOn: string | null) => void;
+}) {
+  const initial = credential.expires_on
+    ? String(credential.expires_on).slice(0, 10)
+    : "";
+  const [value, setValue] = React.useState(initial);
+
+  return (
+    <DateField
+      value={value}
+      onChange={setValue}
+      onBlur={() => value !== initial && onSave(value || null)}
+    />
+  );
+}
 
 export function WebsitePartnersPage() {
   const [partners, setPartners] = React.useState<api.Partner[] | null>(null);
@@ -277,13 +309,12 @@ export function WebsitePartnersPage() {
                     />
                   </Field>
                   <Field label={tr("Expires")}>
-                    <Input
-                      type="date"
-                      defaultValue={c.expires_on ? String(c.expires_on).slice(0, 10) : ""}
-                      onBlur={(e) =>
+                    <CredentialExpiry
+                      credential={c}
+                      onSave={(expiresOn) =>
                         run(() =>
                           api.updateCredential(c.credential_id, {
-                            expires_on: e.target.value || null,
+                            expires_on: expiresOn,
                           }),
                         )
                       }

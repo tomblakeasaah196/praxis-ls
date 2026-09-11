@@ -7,6 +7,7 @@ import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { RowActions } from "@/components/ui/row-actions";
 import { FormButtons } from "@/components/ui/form-buttons";
 import { Input } from "@/components/ui/input";
@@ -171,10 +172,9 @@ function ReceiptForm({
             />
           </Field>
           <Field label="Received on">
-            <Input
-              type="date"
+            <DateField
               value={f.received_on}
-              onChange={(e) => set("received_on", e.target.value)}
+              onChange={(iso) => set("received_on", iso)}
             />
           </Field>
           <Field
@@ -266,10 +266,9 @@ function PostForm({
             </Select>
           </Field>
           <Field label={tr("Entry date")} required>
-            <Input
-              type="date"
+            <DateField
               value={f.entry_date}
-              onChange={(e) => set("entry_date", e.target.value)}
+              onChange={(iso) => set("entry_date", iso)}
             />
           </Field>
           <Field label={tr("Source doc ref")} className="sm:col-span-2">

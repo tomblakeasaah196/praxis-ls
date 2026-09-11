@@ -28,7 +28,7 @@ export function fmtDay(iso: string | null): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? ""
-    : d.toLocaleDateString(undefined, {
+    : d.toLocaleDateString("en-GB", {
         day: "numeric",
         month: "short",
         year: "numeric",
