@@ -39,6 +39,8 @@ export function SectionHead({
   onDark = false,
   titleClass,
   titleWrapper,
+  eyebrowClass,
+  leadClass,
   as: Tag = "h2",
   className,
 }: {
@@ -67,6 +69,21 @@ export function SectionHead({
    * the accessible name and the `onDark` colour rules are unaffected.
    */
   titleWrapper?: (children: React.ReactNode) => React.ReactNode;
+  /**
+   * Extra classes on the eyebrow and on the lead.
+   *
+   * The hero (§7.1) arrives as a choreographed sequence — eyebrow, headline,
+   * accent, lead, buttons, plate — and three of those six are rendered in here.
+   * The alternative was for the hero to stop using this component and build its
+   * own heading block, which is precisely the fault this file's header says a
+   * reviewer is told to catch. Same reasoning as `titleWrapper` above: an
+   * extension point is one implementation, a copy is two.
+   *
+   * They ADD to the recipe rather than replacing it, so a caller cannot lose
+   * the `onDark` contrast rules by passing a class.
+   */
+  eyebrowClass?: string;
+  leadClass?: string;
   as?: "h1" | "h2" | "h3";
   className?: string;
 }) {
@@ -85,6 +102,7 @@ export function SectionHead({
             "eyebrow flex items-center gap-2",
             centred && "justify-center",
             onDark && "text-[rgb(var(--brand-orange))]", // ink-on-dark: 6.44:1 on --hero, where --primary-ink is ~3.4:1
+            eyebrowClass,
           )}
         >
           {eyebrowIcon && <IconTile icon={eyebrowIcon} size="sm" />}
@@ -144,6 +162,7 @@ export function SectionHead({
             "mt-3 text-lg",
             centred && "mx-auto",
             onDark ? "text-[var(--hero-muted)]" : "text-muted-foreground",
+            leadClass,
           )}
         >
           {lead}
