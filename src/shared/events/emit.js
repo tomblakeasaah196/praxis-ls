@@ -152,6 +152,34 @@ function clearEventTypeCache() {
 async function emitEvent(client, e) {
   const key = e.eventTypeKey;
 
+  /**
+   * A missing key is a CALLER bug, and it must say so here.
+   *
+   * `event_log.event_type_key` is `citext NOT NULL` (migration 0120), so an
+   * undefined key does not emit an event without a name — it raises SQLSTATE
+   * 23502, which `error-handler.js` maps to a 400 `MISSING_VALUE`, "A required
+   * value was missing". That message is about the caller's OWN body, so the
+   * screen blames the field the user was filling in and the user re-tries the
+   * upload that was never the problem.
+   *
+   * That is not hypothetical. `insight.setCover` passed `event:` instead of
+   * `eventTypeKey:`, and the symptom was an article cover upload that failed
+   * with "A required value was missing" under a file-drop that had a file in
+   * it — while the gallery upload beside it, byte-for-byte the same call
+   * without an `emitEvent`, worked. The transaction rolled back after the
+   * document had been written to the vault, so every attempt also left the
+   * bytes behind.
+   *
+   * Throwing here costs nothing a working call site can notice (a key-less
+   * call could only ever have hit the constraint) and turns a misleading 400
+   * into a named 500 with the module in the message.
+   */
+  if (!key) {
+    throw new Error(
+      `emitEvent: eventTypeKey is required (module ${e.moduleKey || "?"}, entity ${e.entityRef || "?"})`,
+    );
+  }
+
   // Is this event type flagged security-critical? Cached — see lookupEventType.
   // Resolving it in JS (rather than an in-SQL subquery on the same INSERT)
   // keeps every statement below using each parameter in exactly one place —

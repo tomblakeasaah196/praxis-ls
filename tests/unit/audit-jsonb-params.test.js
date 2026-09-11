@@ -144,3 +144,57 @@ describe("emitEvent() binds its payload as JSON", () => {
     expect(JSON.parse(params[EVENT_PAYLOAD])).toEqual({});
   });
 });
+
+/**
+ * ── AN EVENT WITHOUT A NAME IS A CALLER BUG, NOT A USER'S (2026-09-11) ─────
+ *
+ * `event_log.event_type_key` is `citext NOT NULL` (migration 0120). A caller
+ * that spells the key wrong therefore does not emit a nameless event — it
+ * raises SQLSTATE 23502, which `error-handler.js` maps to a 400 `MISSING_VALUE`
+ * carrying "A required value was missing".
+ *
+ * That message is about the REQUEST BODY, and it is handed to a user who filled
+ * the body in correctly. `insight.setCover` passed `event:` instead of
+ * `eventTypeKey:` and the article cover upload failed with exactly that, under
+ * a file-drop holding the file — while the gallery upload beside it, the same
+ * call without an `emitEvent`, worked. Nothing in the message pointed at the
+ * event write, so the screen blamed its own field.
+ *
+ * The guard converts that into a named failure at the call site. It cannot
+ * break a working caller: a key-less call could only ever have hit the
+ * constraint.
+ */
+describe("emitEvent refuses a call with no event type key", () => {
+  beforeEach(() => clearEventTypeCache());
+
+  it("throws rather than letting the NOT NULL column raise a 400", async () => {
+    const c = recordingClient();
+    await expect(emitEvent(c, { moduleKey: "MOD-29", entityRef: "insight_article:a1" }))
+      .rejects.toThrow(/eventTypeKey is required/);
+  });
+
+  it("names the module and the entity, so the caller is findable", async () => {
+    // The whole point: a 23502 says which COLUMN was null and nothing about
+    // which of ~600 write paths wrote it.
+    const c = recordingClient();
+    await expect(emitEvent(c, { moduleKey: "MOD-29", entityRef: "insight_article:a1" }))
+      .rejects.toThrow(/MOD-29.*insight_article:a1/);
+  });
+
+  it("writes nothing at all when the key is missing", async () => {
+    // It must fail BEFORE the INSERT: inside `atomically`, a throw rolls the
+    // caller's transaction back, and a half-written event_log row would be the
+    // one artefact of a request that otherwise left no trace.
+    const c = recordingClient();
+    await expect(emitEvent(c, { moduleKey: "MOD-29" })).rejects.toThrow();
+    expect(c.calls).toHaveLength(0);
+  });
+
+  it("still emits normally when the key is present", async () => {
+    // The guard is a guard, not a new precondition on ordinary calls.
+    const c = recordingClient();
+    await emitEvent(c, { eventTypeKey: "insight.updated", moduleKey: "MOD-29" });
+    expect(c.paramsFor("event_log")).not.toBeNull();
+    expect(c.paramsFor("event_log")[0]).toBe("insight.updated");
+  });
+});

@@ -461,9 +461,10 @@ async function setCover(client, { id, dataUrl, originalName, actor = {}, slug: t
       after: { cover_vault_id: created.doc_id },
     });
     await emitEvent(client, {
-      event: events.UPDATED,
+      eventTypeKey: events.UPDATED,
       moduleKey: events.MODULE,
       entityRef: ref(id),
+      actorUserId: actor.user_id || null,
       payload: { insight_article_id: id, cover_vault_id: created.doc_id },
     });
     return row;
