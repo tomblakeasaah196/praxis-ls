@@ -28,6 +28,11 @@ const { router: clientErrorsRouter } = require("./routes/client-errors");
 const { router: metricsRouter } = require("./routes/metrics");
 const { initRateLimitStore, apiLimiter } = require("./shared/http/rate-limit");
 const { isPublicMediaPath } = require("./shared/http/media-guard");
+const {
+  parseDerivativeKey,
+  ensureDerivative,
+  profileForKey,
+} = require("./services/image-pipeline.service");
 const { RAISED: RAISED_BODY_LIMITS, DEFAULT_LIMIT: DEFAULT_BODY_LIMIT } = require("./shared/http/body-limits");
 const storage = require("./services/storage.service");
 const registry = require("./services/tenant/registry.service");
@@ -360,11 +365,60 @@ function buildApp() {
           })
         : null;
 
+    /**
+     * AVIF/WebP derivatives are served here too, and generated on first request
+     * when they are missing.
+     *
+     * WHY GENERATE HERE rather than relying on upload-time generation alone.
+     * <picture> does not fall back: a <source srcset> that 404s renders a
+     * broken image instead of dropping to the <img>. So the frontend may only
+     * reference a derivative that is CERTAIN to exist — and every image stored
+     * before the pipeline shipped has none. Generating on miss makes the
+     * guarantee unconditional and removes the backfill from the critical path.
+     *
+     * The variant/format allow-list lives in parseDerivativeKey, and it is a
+     * security control: without it this route would let an anonymous caller
+     * name arbitrary encode dimensions and bill us the CPU for them.
+     */
+    const serveDerivative = async (req, res, next) => {
+      const key = decodeURIComponent(req.path).replace(/^\/+/, "");
+      if (!parseDerivativeKey(key)) return next();
+
+      let buffer = null;
+      try {
+        buffer = await storage.get(key);
+      } catch {
+        /* @silent:storage — a miss is the trigger for generating it below. */
+      }
+
+      if (!buffer || !buffer.length) {
+        const made = await ensureDerivative(key, { profile: profileForKey(key) });
+        if (!made) {
+          return res
+            .status(404)
+            .json({ error: { code: "NOT_FOUND", message: "Not found" } });
+        }
+        buffer = made.buffer;
+      }
+
+      // A derivative key is derived from a master key that already carries the
+      // upload's entropy suffix, so the bytes behind this URL can never change:
+      // a re-upload mints a new master key and therefore new derivative keys.
+      // That makes `immutable` accurate rather than optimistic, and it is what
+      // keeps repeat traffic off Node entirely.
+      res.set("Cache-Control", "public, max-age=31536000, immutable");
+      res.type(key.endsWith(".avif") ? "image/avif" : "image/webp");
+      return res.send(buffer);
+    };
+
     app.use("/media", (req, res, next) => {
       if (!isPublicMediaPath(req.path)) {
         // Deliberately 404, not 403: a probe shouldn't be able to tell a
         // protected key from a nonexistent one.
         return res.status(404).json({ error: { code: "NOT_FOUND", message: "Not found" } });
+      }
+      if (parseDerivativeKey(decodeURIComponent(req.path).replace(/^\/+/, ""))) {
+        return serveDerivative(req, res, next).catch(next);
       }
       if (mediaStatic) return mediaStatic(req, res, next);
 

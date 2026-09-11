@@ -11,5 +11,6 @@ module.exports = {
   rules: {
     "no-unmarked-silent-catch": require("./no-unmarked-silent-catch.cjs"),
     "no-native-dialogs": require("./no-native-dialogs.cjs"),
+    "no-raw-upload": require("./no-raw-upload.cjs"),
   },
 };

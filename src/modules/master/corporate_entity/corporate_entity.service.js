@@ -21,6 +21,7 @@ const letterheadBlocks = require("../../../services/documents/templates/letterhe
 const dossierService = require("../entity-360.service");
 const { maskBank } = require("../_shared/confidential");
 const storage = require("../../../services/storage.service");
+const imagePipeline = require("../../../services/image-pipeline.service");
 const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
 const opsRef = require("../../../services/documents/operation-reference");
@@ -300,7 +301,12 @@ async function uploadLogo(client, { id, dataUrl, variant = "light", slug, actor 
   if (buffer.length > MAX_LOGO_BYTES) throw new AppError("IMAGE_TOO_LARGE", "Logo must be 512 KB or smaller", 413);
 
   const key = `tenant_${slug}/entity/${id}/logo_${variant}_${crypto.randomBytes(6).toString("hex")}.${ext}`;
-  const stored = await storage.put(buffer, { key, contentType });
+  // 'brand', not 'photo': this logo is printed on the entity's letterhead and
+  // invoices, so its colours have to survive the round trip exactly.
+  const stored = await imagePipeline.storeImage(
+    { buffer, mimetype: contentType, originalname: `logo_${variant}.${ext}` },
+    { key, profile: "brand" },
+  );
   const column = variant === "dark" ? "logo_dark_ref" : "logo_light_ref";
   const row = await repo.updateInternal(client, id, { [column]: stored.public_url });
   await audit(client, { actorUserId: actor.user_id || null, action: events.UPDATED, moduleKey: events.MODULE, entityRef: ref(id), before, after: row });

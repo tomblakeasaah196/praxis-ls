@@ -19,7 +19,7 @@
  * re-entering the colour and filing a bug.
  */
 import { siteSettings } from "@praxis/shared";
-import { tenant } from "./api-client";
+import { tenant, tenantWithProgress } from "./api-client";
 
 /* ── theme ──────────────────────────────────────────────────────────────────*/
 
@@ -226,13 +226,26 @@ export const ASSET_SLOTS = siteSettings.SITE_MEDIA_SLOTS;
  *  written — an SVG needs none, and an upload predating 13789 has none. */
 export type AssetVariants = { widths: number[]; formats: string[] } | null;
 
-export const uploadAsset = (body: {
-  slot: AssetSlot;
-  owner_id: string;
-  provenance: AssetProvenance;
-  data_url: string;
-  original_name?: string;
-}) => tenant<{ doc_id: string }>("/site-settings/media", { method: "POST", body });
+export const uploadAsset = (
+  body: {
+    slot: AssetSlot;
+    owner_id: string;
+    provenance: AssetProvenance;
+    data_url: string;
+    original_name?: string;
+  },
+  onProgress?: (percent: number) => void,
+) =>
+  onProgress
+    ? tenantWithProgress<{ doc_id: string }>(
+        "/site-settings/media",
+        body,
+        onProgress,
+      )
+    : tenant<{ doc_id: string }>("/site-settings/media", {
+        method: "POST",
+        body,
+      });
 
 export const removeAsset = (slot: AssetSlot, ownerId: string) =>
   tenant<unknown>(`/site-settings/media/${slot}/${encodeURIComponent(ownerId)}`, {

@@ -3,7 +3,7 @@
  * Routes mirror src/modules/hr/attendance.
  */
 import type { WorkSchedule } from "@shared";
-import { tenant, tenantDownload } from "./api-client";
+import { tenant, tenantDownload, tenantWithProgress } from "./api-client";
 import { tokenStore } from "./token-store";
 import { deviceId } from "./device-id";
 
@@ -1363,18 +1363,28 @@ export const sendContract = (id: string, to: string) =>
   });
 /** Upload an already-signed contract PDF (base64 data URL): vault it and tie the
  *  vault doc to the contract row via pdf_vault_id. */
-export const uploadContractSigned = async (id: string, dataUrl: string) => {
-  const doc = await tenant<{ doc_id?: string; vault_id?: string }>(
-    "/documents",
-    {
-      method: "POST",
-      body: {
-        data_url: dataUrl,
-        doc_type: "EMPLOYMENT_CONTRACT",
-        entity_ref: `hr_contract:${id}`,
-      },
-    },
-  );
+export const uploadContractSigned = async (
+  id: string,
+  dataUrl: string,
+  onProgress?: (percent: number) => void,
+) => {
+  const body = {
+    data_url: dataUrl,
+    doc_type: "EMPLOYMENT_CONTRACT",
+    entity_ref: `hr_contract:${id}`,
+  };
+  // Progress covers the upload call only — the PATCH that follows it is a few
+  // hundred bytes, so reporting it would add a second bar for no information.
+  const doc = onProgress
+    ? await tenantWithProgress<{ doc_id?: string; vault_id?: string }>(
+        "/documents",
+        body,
+        onProgress,
+      )
+    : await tenant<{ doc_id?: string; vault_id?: string }>("/documents", {
+        method: "POST",
+        body,
+      });
   const vaultId = doc.doc_id || doc.vault_id;
   return tenant<Contract>(`/contracts/${id}`, {
     method: "PATCH",

@@ -41,6 +41,10 @@ import { FormButtons } from "@/components/ui/form-buttons";
 import { Input } from "@/components/ui/input";
 import { DateField } from "@/components/ui/date-field";
 import { Modal, Field, Select } from "@/components/ui/modal";
+import { FilePicker } from "@/components/ui/image-upload";
+import { UploadProgress } from "@/components/ui/upload-progress";
+import { useUpload } from "@/lib/use-upload";
+import { fileToDataUrl } from "@/lib/image-compress";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { ScreenError } from "@/components/connection/screen-error";
 import { DraftBanner } from "@/components/ui/draft-banner";
@@ -89,6 +93,96 @@ const FRAMEWORKS: { value: api.AccountingFramework; label: string }[] = [
 const NUMBERING_RESETS = ["NEVER", "ANNUAL", "MONTHLY"] as const;
 
 /** A titled block of fields — thirty controls in one flat grid is a wall. */
+/**
+ * One entity logo field — light or dark — on the upload engine.
+ *
+ * Extracted into its own component because the form renders this TWICE and
+ * `useUpload` is a hook: two independent uploads need two independent
+ * lifecycles, and a render function called twice cannot hold either.
+ *
+ * `profile="brand"`: this logo is printed on the entity's letterhead and its
+ * invoices, so its colours have to survive the round trip exactly. The
+ * enhancement chain is off for that reason, not for lack of ambition.
+ */
+function EntityLogoField({
+  entityId,
+  variant,
+  current,
+  hint,
+  onUploaded,
+  onError,
+}: {
+  /** Null until the entity exists — the upload is keyed by its id. */
+  entityId: string | null;
+  variant: "light" | "dark";
+  current: string;
+  hint: string;
+  onUploaded: (updated: api.Entity) => void;
+  onError: (message: string | null) => void;
+}) {
+  const upload = useUpload<api.Entity>({
+    profile: "brand",
+    send: async (file, ctx) =>
+      api.uploadEntityLogo(
+        entityId as string,
+        await fileToDataUrl(file),
+        variant,
+        ctx.onProgress,
+      ),
+    onAllComplete: ([updated]) => {
+      if (updated) onUploaded(updated);
+    },
+  });
+
+  const item = upload.items[0] ?? null;
+  const busy = item?.state === "uploading" || item?.state === "compressing";
+
+  React.useEffect(() => {
+    if (item?.state === "error" && item.error) onError(item.error);
+  }, [item?.state, item?.error, onError]);
+
+  return (
+    <Field
+      label={
+        variant === "light"
+          ? "Logo (light background)"
+          : "Logo (dark background)"
+      }
+      hint={hint}
+    >
+      <div className="flex items-center gap-3">
+        {item?.previewUrl || current ? (
+          <img
+            src={item?.previewUrl || current}
+            alt=""
+            className={`h-10 w-auto rounded border object-contain p-1 ${variant === "dark" ? "bg-foreground" : "bg-background"}`}
+          />
+        ) : null}
+        <div className="min-w-0 flex-1 space-y-1">
+          <FilePicker
+            variant="inline"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            disabled={busy || !entityId}
+            trigger={busy ? "Uploading…" : current ? "Replace" : "Upload logo"}
+            onPick={(files) => {
+              if (!entityId) return;
+              onError(null);
+              void upload.pick(files);
+            }}
+          />
+          {item && item.state !== "idle" && (
+            <UploadProgress
+              state={item.state}
+              percent={item.percent}
+              error={item.error}
+            />
+          )}
+        </div>
+      </div>
+    </Field>
+  );
+}
+
 function Fieldset({
   legend,
   hint,
@@ -124,7 +218,6 @@ function EntityForm({
   const [v, setV] = React.useState<EntityFormValues>(() => valuesFrom(row));
   const [logoLight, setLogoLight] = React.useState(row?.logo_light_ref ?? "");
   const [logoDark, setLogoDark] = React.useState(row?.logo_dark_ref ?? "");
-  const [logoBusy, setLogoBusy] = React.useState<"light" | "dark" | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [queued, setQueued] = React.useState(false);
@@ -164,32 +257,6 @@ function EntityForm({
   // A subsidiary's parent can be any other entity — never itself, which the API
   // rejects anyway (rules.assertNoCycle), but offering it would be a trap.
   const parentOptions = entities.filter((x) => x.entity_id !== row?.entity_id);
-
-  /** Entities must exist before a logo can be attached (the upload is keyed by id). */
-  async function pickLogo(file: File | null, variant: "light" | "dark") {
-    if (!file || isNew || !row) return;
-    setLogoBusy(variant);
-    setError(null);
-    try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(String(r.result));
-        r.onerror = () => reject(new Error("Could not read the file."));
-        r.readAsDataURL(file);
-      });
-      const updated = await api.uploadEntityLogo(
-        row.entity_id,
-        dataUrl,
-        variant,
-      );
-      if (variant === "dark") setLogoDark(updated.logo_dark_ref ?? "");
-      else setLogoLight(updated.logo_light_ref ?? "");
-    } catch (err) {
-      setError(errMsg(err));
-    } finally {
-      setLogoBusy(null);
-    }
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -253,31 +320,17 @@ function EntityForm({
     current: string,
     hint: string,
   ) => (
-    <Field
-      label={
-        variant === "light"
-          ? "Logo (light background)"
-          : "Logo (dark background)"
-      }
+    <EntityLogoField
+      entityId={isNew || !row ? null : row.entity_id}
+      variant={variant}
+      current={current}
       hint={hint}
-    >
-      <div className="flex items-center gap-3">
-        {current ? (
-          <img
-            src={current}
-            alt=""
-            className={`h-10 w-auto rounded border object-contain p-1 ${variant === "dark" ? "bg-foreground" : "bg-background"}`}
-          />
-        ) : null}
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/svg+xml"
-          disabled={logoBusy !== null}
-          onChange={(e) => pickLogo(e.target.files?.[0] ?? null, variant)}
-          className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:opacity-90"
-        />
-      </div>
-    </Field>
+      onUploaded={(updated) => {
+        if (variant === "dark") setLogoDark(updated.logo_dark_ref ?? "");
+        else setLogoLight(updated.logo_light_ref ?? "");
+      }}
+      onError={setError}
+    />
   );
 
   return (

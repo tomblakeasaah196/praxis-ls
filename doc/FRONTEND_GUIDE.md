@@ -338,6 +338,7 @@ return `{ rows | data, error, loading, reload }`.
 | Confirm                          | `<ConfirmDialog>`                                                                         | Name the object and the action, not "Yes/No".                                                                                                                   |
 | Form field                       | `<Field>`                                                                                 | Supplies the label association and `aria-required` / `aria-invalid`.                                                                                            |
 | Text input                       | `<Input>` / `<Textarea>`                                                                  |                                                                                                                                                                 |
+| Date input                       | `<DateField>`                                                                             | **Never `<Input type="date">`.** Reads and writes dd/mm/yyyy whatever the OS locale is; stores ISO. Takes `min`/`max`/`required` and an RHF `{...field}` spread (§3.12). |
 | Choose one                       | `<NativeSelect>` (default) · `<Select>` (rich options) · `<SearchSelect>` (server-backed) |                                                                                                                                                                 |
 | Toggle                           | `<Checkbox>` / `<RadioGroup>`                                                             |                                                                                                                                                                 |
 | View switch                      | `<Segmented>` (2–5 fixed) · `<Chips>` (wrapping filters)                                  |                                                                                                                                                                 |
@@ -541,6 +542,57 @@ exception, `eslint-disable-next-line praxis/no-native-dialogs` still works and
 in these configs uses. Nothing in the tree needs it today. `window.print()` and
 `beforeunload` are not matched by the rule and need no disable.
 
+### 3.12 Dates — day-first, always
+
+**Never `<input type="date">`. Use `<DateField>`.**
+
+This is enforced by `scripts/check-date-format.js`, which runs in CI and in
+`npm run ci`, so a native date input does not merge.
+
+```tsx
+import { DateField } from "@/components/ui/date-field";
+
+<Field label={tr("Expires on")} required>
+  <DateField value={expiresOn} onChange={setExpiresOn} min={todayISO()} required />
+</Field>
+
+// Inside a <Form>, the react-hook-form spread works unchanged:
+<FormField form={form} name="entry_date" label={tr("Entry date")} required>
+  {(field) => <DateField {...field} value={String(field.value ?? "")} />}
+</FormField>
+```
+
+`value` and `onChange` speak ISO `YYYY-MM-DD` — the same string the API wants —
+so nothing downstream changes. What the operator sees and types is dd/mm/yyyy.
+`onChange` fires with `""` while the date is incomplete or impossible, so a
+half-typed `31/02` never reaches your state as a rolled-over 3rd of March.
+
+**Why it is a hard rule and not a preference.** A native `<input type="date">`
+renders in the OPERATING SYSTEM's locale, and no HTML attribute overrides it —
+`lang` is ignored for the value display. On a US-configured workstation it shows
+and accepts mm/dd/yyyy. Praxis serves a corridor that reads dates day-first, so
+the operator types 03/07 meaning the 3rd of July and the control stores the 7th
+of March.
+
+Nothing catches that. Both readings are real dates, so the value validates, the
+API accepts it, the round-trip is clean and every test stays green. It surfaces
+months later — a licence that expired in a month nobody expected, a customs
+deadline missed by a quarter, a payroll run dated to the wrong period.
+
+The same applies to **displaying** a date. `toLocaleDateString()` with no locale
+means "whatever this machine is set to", which is month-first on a US
+workstation and in a container with no `LANG`. Use the formatters in
+`lib/format.ts` (§5) — `dateFmt` for "21 Jul 2026", `dateDmy` for a strict
+numeric dd/mm/yyyy — or pin `en-GB`. Never pass `undefined`, `[]`, `"en"` or
+`"en-US"` to a format that renders a day number.
+
+The gate has two escape hatches, each costing a written reason:
+`@date-format:foreign` for an incoming third-party format (a bank statement
+genuinely arrives month-first, and refusing to parse it does not make it
+day-first), and `@date-format:parts` for an `Intl.DateTimeFormat` built only to
+call `formatToParts()`, which renders nothing. Whole files are listed per-rule
+in the script's `ALLOW_FILES`. Nothing else in the tree needs one today.
+
 ### 3.11 A record's detail view — a page on desktop, a sheet on a phone
 
 A 360 is one body with two shells. Write the body as an ordinary component that
@@ -604,6 +656,117 @@ another both ways is a cycle. The operations screens are `<list>.tsx`,
 
 ---
 
+### 3.13 Uploads — the engine, never a bare input
+
+**Never write `<input type="file">`.** Use the upload engine. This is enforced by
+the `praxis/no-raw-upload` ESLint rule as an **error** in all three frontend
+apps, so a bare file input does not merge.
+
+Reach for these:
+
+| Situation | Use |
+| --- | --- |
+| Upload starts as soon as a file is picked | `<ImageUpload profile="…" send={…}>` |
+| Upload waits for Save (metadata typed after picking) | `<FilePicker>` + `<UploadList>` + `useUpload({ autoStart: false })` |
+| An inline trigger — a table row, a "Replace" beside a file | `<FilePicker variant="inline" trigger={…}>` |
+| Rendering a stored image | `<ResponsiveImage src={…} variant="thumb">` |
+| Just the status line | `<UploadProgress>` |
+| No upload at all — the image is embedded, not sent | `compressImage()` from `lib/image-compress` |
+
+`public-web/` has its own copy (`components/ui/file-input.tsx`, `lib/image-compress.ts`)
+because that app installs only its own dependencies in CI and cannot import from
+`client/`. Keep the two in step; `src/services/image-pipeline.service.js` is the
+authority for the profile table and the quality numbers.
+
+Every one of these gives the user the same three things, and none of them is a
+prop you can turn off:
+
+1. **A preview**, from the moment the picker closes — before compression, before
+   the request. You should never upload a scan and be shown only a filename.
+2. **A percentage**, 0→100, with the phase named: *Optimising…*, *Uploading…*,
+   then **Upload complete** — and that last state appears only once the server
+   has answered, not when the last byte was sent.
+3. **Compression**, before anything leaves the device.
+
+```tsx
+const upload = useUpload<{ doc_id: string }>({
+  profile: "document",
+  autoStart: false,               // the form's Save button calls upload.start()
+  maxBytes: 25 * 1024 * 1024,
+  send: (file, ctx) =>
+    uploadFile("/tenant/documents", file, {
+      fields: { doc_type: docType, original_name: file.name },
+      onProgress: ctx.onProgress,
+      signal: ctx.signal,
+    }),
+});
+
+<FilePicker accept=".pdf,.png,.jpg" onPick={(f) => void upload.pick(f)} />
+<UploadList items={upload.items} onRemove={upload.remove} onRetry={upload.retry} />
+```
+
+#### `profile` is required, and it is not cosmetic
+
+It decides whether the image is tonally corrected, and the wrong choice is the
+kind of bug nobody reports:
+
+| Profile | Enhancement | Use for |
+| --- | --- | --- |
+| `document` | **None.** Downscale + high-quality re-encode only | Vault scans, KYC, customs declarations, invoices |
+| `brand` | **None.** Colours come back byte-faithful | Tenant logos, app icons, letterhead marks |
+| `photo` | Auto-level, grey-world white balance, post-resize sharpen | Site heroes, success stories, marketing imagery |
+| `avatar` | As `photo`, plus a square attention crop | Profile pictures |
+
+`document` and `brand` never touch tone, and that is a requirement rather than a
+default. Auto-levelling a faint carbon-copy customs stamp pushes it to white,
+and a scan that no longer matches the paper is discovered during an audit, not
+in review. Stretching a logo's histogram gives a tenant back a slightly
+different green on every screen — the white-label promise, broken by a
+"quality" improvement.
+
+#### Why it is a hard rule and not a preference
+
+`FileDrop` has accepted `uploadProgress` and `uploadSuccess` props since the day
+it was written. Of roughly thirty upload sites in `client/`, **two** passed
+them. Nobody decided those screens should have no progress bar; the raw input
+was simply closer to hand than four pieces of state and a cleanup effect. That
+asymmetry is what a lint rule removes.
+
+What the user pays when it is skipped: no preview, so picking the wrong scan is
+invisible until someone downloads it months later; no percentage, so a 6 MB
+photo on a corridor connection is indistinguishable from a frozen screen and
+people re-click and double-upload; no compression, so the original sits in
+storage and is served back at full size into a 96px table cell on every page
+load, forever.
+
+#### Delivery
+
+The backend writes AVIF and WebP derivatives beside every master at `thumb`
+(256px), `preview` (1024px) and `full` (2400px). `<ResponsiveImage>` is what
+collects on that — a list of forty documents pointed at `variant="thumb"` pulls
+forty files of a few KB instead of forty full-size images. The `<img>` inside
+keeps the **master** as its `src`, so "Save image as" still yields the portable
+JPEG/PNG rather than an AVIF the recipient's software may not open.
+
+A derivative that does not exist yet is generated by `/media` on first request,
+so this is safe to point at images uploaded long before the engine existed.
+That matters because `<picture>` does **not** fall back: a `<source>` that 404s
+renders a broken image rather than dropping to the `<img>`.
+
+#### Progress without changing transport
+
+`tenantWithProgress()` and `publicApi`'s XHR path report real upload progress for
+a **JSON body**, not just multipart. So a site that posts a base64 data URL still
+drives a genuine 0→100% bar — converting an endpoint to multipart is a byte
+saving, not a prerequisite for the percentage.
+
+The escape hatch is `eslint-disable-next-line praxis/no-raw-upload` with a
+written reason beside it. The engine's own primitives are exempt by path;
+nothing else in the tree needs one, and there is no baseline allow-list — every
+upload site in all three apps is on the engine.
+
+---
+
 ## 4. Accessibility — the floor, not the aspiration
 
 WCAG 2.1 AA is the minimum. `eslint-plugin-jsx-a11y` runs on every build and the primitives
@@ -634,7 +797,10 @@ are axe-tested. What that leaves to you:
 
 Anything a person reads must be formatted for a person. Helpers live in `lib/format.ts`.
 
-- **Dates** — never raw ISO. `dateFmt` → "21 Jul 2026", `dateTimeFmt` → "21 Jul 2026, 23:00".
+- **Dates** — never raw ISO, and never month-first. `dateFmt` → "21 Jul 2026", `dateTimeFmt`
+  → "21 Jul 2026, 23:00", `dateDmy` → "21/07/2026" for a strict numeric date. Never call
+  `toLocaleDateString()` without a locale: it renders month-first on a US workstation, and
+  `check:dates` fails the build on it (§3.12).
 - **Money** — `money(v, ccy)` (suffixed) · `amount(v)` (2dp, no suffix, header carries the
   currency) · `money0(v)` (0dp) · `num(v)`. Always with the `.num` tabular class.
 - **Foreign-key IDs → names** — never a bare UUID in a column. Build an id→name map
@@ -692,9 +858,10 @@ in English (`"The record": "Le dossier"`), not a dossier.
 - [ ] No raw UUIDs, ISO dates, dotted event keys or SCREAMING_ENUMs on screen (§5).
 - [ ] No raw `<table>` / `<input>` / `<textarea>` / `role="menu"` — use the primitives (§3.5).
 - [ ] No `window.confirm` / `alert` / `prompt` — `useConfirm()`, `usePrompt()`, `<Callout>` or `useToast()` (§3.10).
+- [ ] No `<Input type="date">` — `<DateField>`; and no locale-less `toLocaleDateString()` (§3.12).
 - [ ] New shared component? Add a story, a usage example, a best-practices note and a test.
 - [ ] Row actions go in `<RowActions>` — that is what keeps the row at its density height (§7.1).
-- [ ] `npm run lint`, `npm test`, `npm run check:contrast`, `npm run check:motion`, `npm run check:palette`, `npm run check:docs`, `npm run check:schemas`, `npm run build`, `npm run check:bundle`, `npm run check:shared` and `npm run test:e2e` all pass in `client/`.
+- [ ] `npm run lint`, `npm test`, `npm run check:contrast`, `npm run check:motion`, `npm run check:palette`, `npm run check:docs`, `npm run check:schemas`, `npm run build`, `npm run check:bundle`, `npm run check:shared` and `npm run test:e2e` all pass in `client/`, and `npm run check:dates` at the repo root.
 - [ ] Screen registered in `app.tsx` via `lazyNamed(...)`; **no** new `manualChunks` bucket (§3.7).
 - [ ] RBAC action is **`edit`**, not `update` (matches the backend).
 - [ ] Route added in `app.tsx`; **`screen-registry.json` updated in the same commit** — the ribbon

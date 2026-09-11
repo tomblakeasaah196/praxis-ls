@@ -20,6 +20,7 @@ import { currencies as ccyLib } from "@shared";
 import { flagOf } from "@/components/smart-country-picker";
 import { SmartCurrencyPicker } from "@/components/smart-currency-picker";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { DateField } from "@/components/ui/date-field";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -520,10 +521,9 @@ function SetRateForm({
           />
         </Field>
         <Field label={tr("As of")} required>
-          <Input
-            type="date"
+          <DateField
             value={asOf}
-            onChange={(e) => setAsOf(e.target.value)}
+            onChange={setAsOf}
           />
         </Field>
         {error && (
