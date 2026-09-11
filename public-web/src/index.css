@@ -2182,13 +2182,312 @@
 
   /* ── The sticky header ─────────────────────────────────────────────────── */
 
+  /*
+   * THE HEADER IS AN OBJECT LYING ON THE DOCUMENT, AND EVERY RULE BELOW IS A
+   * CONSEQUENCE OF THAT.
+   *
+   * Two forces act on it and each is one inherited custom property, written by
+   * JavaScript and read by CSS — never the other way round (`lib/motion.ts`):
+   *
+   *   --hdr   0…1  how far the reader has driven the bar into its working
+   *                state. Direction-aware, smoothed in `use-header-scroll.ts`,
+   *                pinned at 0 under reduced motion.
+   *   --lx/--ly    where the light is, from the pointer. The hero's contract,
+   *                unchanged, so one mechanism lights the whole page.
+   *   --read  0…1  how much of the document is behind the reader.
+   *
+   * NOTHING HERE TRANSITIONS ON `--hdr`. The smoothing happens once, in the
+   * frame loop, so a dozen consumers cannot drift out of step with each other
+   * — and because a bare custom property is not interpolable without
+   * `@property`, a transition on one would simply not run in some engines.
+   * `use-header-scroll.ts` sets out the full argument.
+   */
+
+  .site-shell {
+    /* The resting values, declared HERE and not only in JavaScript, so the
+       first paint before the effect runs — and any environment where it never
+       runs, a prerender or a test — composes the bar correctly rather than
+       falling back to a `var(…, 0)` default scattered through the file. */
+    --hdr: 0;
+    --read: 0;
+  }
+
+  /* ── the utility strip, and how it leaves ────────────────────────────────
+   *
+   * It does not slide out. A row that translates away is a rectangle leaving,
+   * and this is the one moment in the page where the chrome has the reader's
+   * attention for free — they caused it.
+   *
+   * So it ERODES. `.hdr-erode > .wrap` is masked by a repeating radial
+   * gradient: a grid of cells whose black centre shrinks as `--hdr` rises, so
+   * the row breaks into a field of dots and then into nothing. At rest the
+   * black stop is far outside the cell and the mask is fully opaque, which is
+   * the important half — a mask that is even slightly patterned at rest would
+   * be a permanent 40px of moiré at the top of every page.
+   *
+   * A MASK AND A TRANSFORM, and nothing else: no canvas, no per-frame
+   * JavaScript, nothing on the critical path. And because it is a scrub rather
+   * than an animation, a reader who reverses watches it REASSEMBLE from where
+   * it got to, instead of watching a second animation play.
+   */
+  .hdr-erode {
+    position: relative;
+    /* `clip` rather than `hidden`: it establishes no scroll container, so the
+       collapsing row can never become a 0px-tall thing with a scrollbar, and
+       the embers leaving it cannot paint over the bar below. */
+    overflow: clip;
+    height: calc(2.5rem * (1 - var(--hdr)));
+  }
+
+  .hdr-erode > .wrap {
+    /* Upward, because the strip is being blown off the top of the page. Slight
+       — the mask is doing the work, and a large translate would turn the dots
+       back into a rectangle that happens to be perforated. */
+    transform: translateY(calc(var(--hdr) * -9px));
+    /* Faster than 1:1 so the last 20% of the travel is already empty; the row
+       must be gone before its box finishes collapsing, or the final frames are
+       legible text being guillotined. */
+    opacity: calc(1 - var(--hdr) * 1.35);
+    filter: blur(calc(var(--hdr) * 2.2px));
+
+    /* The cell. 6px is where a 12px label reads as breaking into grains rather
+       than as being covered by polka dots. */
+    -webkit-mask-size: 6px 6px;
+    mask-size: 6px 6px;
+    -webkit-mask-repeat: repeat;
+    mask-repeat: repeat;
+    /* 240% at rest puts the opaque stop well beyond the cell's farthest corner
+       — the mask is solid black and costs nothing. At `--hdr: 1` it is 0 and
+       the row is fully masked out. The 12% ramp is the grain's soft edge; a
+       hard stop reads as pixel art at this size. */
+    -webkit-mask-image: radial-gradient(
+      circle,
+      #000 calc((1 - var(--hdr)) * 240%),
+      rgb(0 0 0 / 0) calc((1 - var(--hdr)) * 240% + 12%)
+    );
+    mask-image: radial-gradient(
+      circle,
+      #000 calc((1 - var(--hdr)) * 240%),
+      rgb(0 0 0 / 0) calc((1 - var(--hdr)) * 240% + 12%)
+    );
+  }
+
+  /* The particles it breaks into. Decorative in the strictest sense — no text,
+     no target, `aria-hidden` on the layer — and removed outright under reduced
+     motion rather than slowed. */
+  .hdr-embers {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 2.5rem;
+    pointer-events: none;
+  }
+
+  .hdr-ember {
+    position: absolute;
+    bottom: 0.55rem;
+    /* Spread across the row rather than clustered: `--i` is the particle's
+       index and 18 is the count in `site-header.tsx`. The two numbers have to
+       agree, which is why the count lives in one place and this reads it. */
+    left: calc((var(--i) + 0.5) * (100% / 18));
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: rgb(var(--brand-orange));
+
+    /* Each particle runs its own short local timeline inside the global one,
+       offset by its index, so the row comes apart in a ripple rather than
+       nineteen dots leaving in formation. */
+    --phase: calc(var(--i) * 0.03);
+    --t: clamp(0, (var(--hdr) - var(--phase)) * 2.4, 1);
+
+    /* Outward from the centre as well as up: `--i - 8.5` is signed, so the
+       left half drifts left and the right half right, and the row reads as
+       being blown apart rather than swept. */
+    transform: translate3d(
+        calc(var(--t) * (var(--i) - 8.5) * 1.1px),
+        calc(var(--t) * -24px),
+        0
+      )
+      scale(calc(1 - var(--t) * 0.55));
+    /* Peaks in the middle of its own travel and is gone at both ends: a spark
+       is bright while it flies and absent before and after. `t(1-t)` peaks at
+       0.25, so ×3.4 tops out just under full strength. */
+    opacity: calc(var(--t) * (1 - var(--t)) * 3.4);
+  }
+
+  /* ── the bar itself: a lit glass slab ──────────────────────────────────── */
+
   /* Blur rather than opacity-only: the header sits over full-bleed photography,
      and a semi-transparent fill without a blur turns the nav labels into a
-     contrast gamble that depends on whatever image is behind them. */
+     contrast gamble that depends on whatever image is behind them.
+   *
+   * It DEEPENS with `--hdr`, which is the physical reading: a bar resting
+   * against the top of the document is flush with it, and one held over a page
+   * that is moving underneath is a separate object — thicker glass, more
+   * saturated refraction, and a shadow it did not cast before.
+   *
+   * `isolation: isolate` so the sheen's blending cannot reach the page behind
+   * the bar, and the plain `background` above the `color-mix` one is the
+   * fallback for an engine that cannot resolve `calc()` inside a colour mix. */
   .site-header {
+    position: relative;
+    isolation: isolate;
     background: color-mix(in srgb, var(--background) 92%, transparent);
-    backdrop-filter: saturate(1.4) blur(10px);
+    background: color-mix(
+      in srgb,
+      var(--background) calc(88% + var(--hdr) * 9%),
+      transparent
+    );
+    backdrop-filter: saturate(calc(1.3 + var(--hdr) * 0.5))
+      blur(calc(8px + var(--hdr) * 8px));
     border-bottom: 1px solid var(--border);
+    /* The cast shadow. Entirely a function of `--hdr`, so it is exactly zero at
+       rest — a shadow under a bar flush with the top of the page is a shadow
+       from a light source that is not there. */
+    box-shadow: 0 calc(var(--hdr) * 16px) calc(var(--hdr) * 34px)
+      calc(var(--hdr) * -16px) rgb(var(--ink) / calc(var(--hdr) * 0.2));
+  }
+
+  /* The lit edge, from the site's one light source: top-left at 60°. The
+     corridor stage states the same source; this is that light landing on the
+     header's top arris. It is a GRADIENT and not a line, because a uniformly
+     bright edge is a border, and an edge that is brightest where the light is
+     and gone by the far side is a bevel. */
+  .hdr-lit {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 1px;
+    pointer-events: none;
+    z-index: 0;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--hero-foreground) 60%, transparent) 0%,
+      color-mix(in srgb, var(--hero-foreground) 26%, transparent) 30%,
+      transparent 64%
+    );
+    opacity: calc(0.2 + var(--hdr) * 0.8);
+  }
+
+  /* ── the specular sheen ──────────────────────────────────────────────────
+   *
+   * TWO LAYERS AT TWO SPEEDS, and the lag between them is the entire effect. A
+   * single highlight tracking the pointer is a gradient following a cursor.
+   * Two, one wide and cool and one narrow and warm, transitioning at 160ms and
+   * 200ms, separate into a surface and something under the surface — which is
+   * what a thick piece of glass looks like when you move a light across it.
+   *
+   * WHY TRANSFORM AND NOT A GRADIENT POSITION. `--lx` is written raw by
+   * JavaScript and is not interpolable, so a `background-position` keyed to it
+   * would snap frame to frame and could not lag at all. A fixed-shape element
+   * moved by `translateX` transitions properly, runs on the compositor, and
+   * gives the lag for free.
+   *
+   * The travel arithmetic: a layer W% of the bar wide, centred on the bar's
+   * left edge by its negative margin, must translate by 100/W of its OWN width
+   * to reach the right edge. 60% → 166.67%; 26% → 384.6%.
+   *
+   * Under the content and over the fill (`z-index: 0`, and `.site-header .wrap`
+   * is lifted to 1), so it can never spend the contrast the labels need — the
+   * same guarantee `.hero-light` makes about the hero's scrim. */
+  .hdr-sheen {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+    /* Brushed, not poured. A 3px comb at barely over a hundredth of an alpha
+       keeps the slab from reading as plastic; it is invisible as a texture and
+       only present as a refusal to be perfectly smooth. */
+    background-image: repeating-linear-gradient(
+      90deg,
+      rgb(var(--ink) / 0.013) 0 1px,
+      transparent 1px 3px
+    );
+  }
+
+  .hdr-sheen::before,
+  .hdr-sheen::after {
+    content: "";
+    position: absolute;
+    /* Taller than the bar so the ellipse's vertical falloff happens outside it
+       and what crosses the bar is the bright middle of the highlight. */
+    top: -60%;
+    bottom: -60%;
+    left: 0;
+  }
+
+  /* The surface: wide, cool, fast. */
+  .hdr-sheen::before {
+    width: 60%;
+    margin-left: -30%;
+    background: radial-gradient(
+      closest-side ellipse,
+      color-mix(in srgb, var(--hero-foreground) 11%, transparent),
+      transparent 100%
+    );
+    transform: translateX(calc(var(--lx, 0.5) * 166.67%));
+    transition: transform 0.16s var(--ease-standard);
+  }
+
+  /* Under it: narrow, warm, slower. The brand colour, at an alpha low enough
+     that it never reads as a coloured bar — only as the depth cue that the
+     slab has something in it. */
+  .hdr-sheen::after {
+    width: 26%;
+    margin-left: -13%;
+    opacity: calc(0.45 + var(--hdr) * 0.35);
+    background: radial-gradient(
+      closest-side ellipse,
+      rgb(var(--brand-orange) / 0.16),
+      transparent 100%
+    );
+    transform: translateX(calc(var(--lx, 0.5) * 384.6%));
+    transition: transform 0.2s var(--ease-decelerate);
+  }
+
+  /* Content above both. */
+  .site-header > .wrap,
+  .site-header > .site-drawer,
+  .site-header > .nav-panel-host {
+    position: relative;
+    z-index: 1;
+  }
+
+  .hdr-row {
+    /* 12px at rest, 7.2px condensed. Together with the strip's 40px that is a
+       112px bar becoming a 64px one. */
+    padding-block: calc(0.75rem - var(--hdr) * 0.3rem);
+  }
+
+  .hdr-mark {
+    transform-origin: left center;
+    transform: scale(calc(1 - var(--hdr) * 0.08));
+  }
+
+  /* ── the progress rail, which is the bottom border ───────────────────────
+   *
+   * Not an added element and not added height: the hairline was already there,
+   * and it now answers "how much more of this is there" — the one question a
+   * sticky bar is in a position to answer for free.
+   *
+   * It is driven even under reduced motion, deliberately. This is INFORMATION.
+   * A reader who has asked for less animation has not asked to be told less. */
+  .hdr-rail {
+    position: absolute;
+    inset-inline: 0;
+    bottom: -1px;
+    height: 2px;
+    pointer-events: none;
+    z-index: 2;
+    transform-origin: left center;
+    transform: scaleX(var(--read, 0));
+    background: linear-gradient(
+      90deg,
+      rgb(var(--brand-orange) / 0.45),
+      rgb(var(--brand-orange))
+    );
   }
 
   /* The utility strip above the nav — sign-in, language, phone. Two lines of
@@ -2199,7 +2498,98 @@
     color: var(--hero-muted);
   }
 
+  /* ── the nav, and its one piece of travelling ink ────────────────────────
+   *
+   * `.navpill` and `.navrail` are SIBLINGS of the links, not backgrounds on
+   * them. That is the whole design: seven backgrounds cross-fading is seven
+   * things being born and dying where the eye expects one thing to move.
+   *
+   * `--px` and `--pw` are written by `useTravellingPill` after it MEASURES the
+   * item — never computed from an index, because "Contact" and "Nos
+   * réalisations" are not the same width and the widths change with the
+   * language and the tenant's display font.
+   *
+   * THE SQUASH IS THE TWO DURATIONS. `transform` settles in 170ms and `width`
+   * in 200ms, both on the overshooting emphasis curve, so the pill arrives and
+   * its trailing edge catches up a beat later. That is stretch-and-settle for
+   * free, out of two numbers, with no keyframes to keep in step.
+   *
+   * `[data-ready]` gates the transitions off for the first placement: a pill
+   * that slides in from the left edge on every page load is an entrance nobody
+   * asked for, and on a route change it would travel from the old page's item
+   * across a nav that has already re-rendered. */
+  .navrow {
+    position: relative;
+  }
+
+  .navitem {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .navpill {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    z-index: 0;
+    height: 2.125rem;
+    width: var(--pw, 0px);
+    transform: translate(var(--px, 0px), -50%);
+    border-radius: calc(var(--radius) - 4px);
+    pointer-events: none;
+    opacity: var(--pill-on, 0);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--foreground) 10%, transparent),
+      color-mix(in srgb, var(--foreground) 4%, transparent)
+    );
+    /* The same 60° source as the bar's own edge: lit along the top, seated by a
+       hairline shadow below. This is what makes it an object sitting in the bar
+       rather than a rectangle painted on it. */
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--hero-foreground) 34%, transparent),
+      inset 0 -1px 0 rgb(var(--ink) / 0.05),
+      0 1px 2px rgb(var(--ink) / 0.06);
+  }
+
+  .navrail {
+    position: absolute;
+    bottom: 1px;
+    left: 0;
+    z-index: 0;
+    height: 2px;
+    /* Inset from the pill by the link's own padding, so the rail underlines the
+       WORD rather than the highlight — which is what the old per-item ::after
+       did, and the one thing about it worth keeping. */
+    width: max(0px, calc(var(--pw, 0px) - 24px));
+    transform: translateX(calc(var(--px, 0px) + 12px));
+    border-radius: 2px;
+    pointer-events: none;
+    opacity: var(--pill-on, 0);
+    background: rgb(var(--brand-orange));
+  }
+
+  /* The rail is on the slower, non-overshooting curve. It arrives after the
+     pill, which reads as ink trailing a moving object — and it is the reason
+     the travel looks like one gesture instead of two elements leaving at once. */
+  .navrow[data-ready="true"] .navpill {
+    transition:
+      transform 0.17s var(--ease-emphasis),
+      width 0.2s var(--ease-emphasis),
+      opacity 0.12s linear;
+  }
+  .navrow[data-ready="true"] .navrail {
+    transition:
+      transform 0.2s var(--ease-decelerate),
+      width 0.2s var(--ease-decelerate),
+      opacity 0.12s linear;
+  }
+
   .navlink {
+    position: relative;
+    z-index: 1;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -2208,29 +2598,225 @@
     font-size: 0.9375rem;
     font-weight: 500;
     color: color-mix(in srgb, var(--foreground) 82%, transparent);
-    transition:
-      color var(--dur) var(--ease),
-      background-color var(--dur) var(--ease);
+    transition: color var(--dur) var(--ease);
   }
+  /* No background here any more — the travelling pill IS the hover state, and a
+     second one underneath it would be the cross-fade this replaced. */
   .navlink:hover {
     color: var(--foreground);
-    background: var(--accent);
   }
   .navlink[aria-current="page"],
   .navlink[data-active="true"] {
     color: var(--foreground);
     font-weight: 600;
   }
-  .navlink[aria-current="page"]::after,
-  .navlink[data-active="true"]::after {
-    content: "";
+
+  /* The disclosure for the services panel. A separate control from the link on
+     purpose (see `nav-services-panel.tsx`): the label navigates, this opens. */
+  .navchevron {
+    position: relative;
+    z-index: 1;
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    margin-left: -6px;
+    border-radius: 999px;
+    color: color-mix(in srgb, var(--foreground) 62%, transparent);
+    transition:
+      transform var(--dur) var(--ease),
+      color var(--dur) var(--ease);
+  }
+  .navchevron:hover {
+    color: var(--foreground);
+  }
+  .navchevron[aria-expanded="true"] {
+    transform: rotate(180deg);
+    color: var(--primary-ink);
+  }
+
+  /* ── the services panel: the bar extending, not a popup ──────────────────
+   *
+   * `clip-path` rather than a scale: a panel that scales distorts every word in
+   * it on the way open, and the point of the gesture is that the header is
+   * EXTRUDING downward — a wipe from its own bottom edge is literally that
+   * motion, and it leaves the type alone.
+   *
+   * It is never unmounted, because it animates closed as well as open and an
+   * element removed from the DOM has nothing to animate. `visibility` is what
+   * takes it out of the tab order, delayed until the close has finished so the
+   * wipe is visible; `pointer-events` matches. */
+  .nav-panel-host {
     position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: -1px;
-    height: 2px;
-    border-radius: 2px;
-    background: var(--primary);
+    inset-inline: 0;
+    top: 100%;
+  }
+
+  .nav-panel {
+    position: relative;
+    background: color-mix(in srgb, var(--background) 97%, transparent);
+    backdrop-filter: saturate(1.4) blur(18px);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 26px 50px -26px rgb(var(--ink) / 0.28);
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-6px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 0.14s var(--ease-standard),
+      clip-path 0.19s var(--ease-standard),
+      transform 0.19s var(--ease-standard),
+      visibility 0s linear 0.19s;
+  }
+
+  .nav-panel[data-open="true"] {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+      opacity 0.12s var(--ease-standard),
+      clip-path 0.19s var(--ease-decelerate),
+      transform 0.19s var(--ease-decelerate),
+      visibility 0s;
+  }
+
+  /* The bar's lit edge, continued across the panel's top. It is what makes the
+     two read as one piece of material rather than as a card that appeared. */
+  .nav-panel-edge {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--hero-foreground) 45%, transparent) 0%,
+      transparent 58%
+    );
+  }
+
+  .nav-panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1.5rem 2rem;
+    padding-block: 1.75rem 2rem;
+  }
+
+  /* Left to right, the direction it is read in. The step is small — five
+     columns at 16ms is 64ms of stagger, which is felt as one panel arriving
+     with a grain to it rather than as five columns queueing. */
+  .nav-panel-col {
+    opacity: 0;
+    transform: translateY(-7px);
+    transition:
+      opacity 0.16s var(--ease-standard),
+      transform 0.18s var(--ease-standard);
+  }
+  .nav-panel[data-open="true"] .nav-panel-col {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 0.16s var(--ease-standard) calc(var(--i, 0) * 16ms),
+      transform 0.2s var(--ease-decelerate) calc(var(--i, 0) * 16ms);
+  }
+
+  /* Layout only. The typography is `.micro`, which is the site's existing
+     eyebrow recipe — a second uppercase-tracked-11px rule would be the same
+     decision written twice, and the one that drifts is always the copy. */
+  .nav-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 0.625rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-panel-link {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.4375rem 0.5rem;
+    margin-inline: -0.5rem;
+    border-radius: calc(var(--radius) - 4px);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--foreground) 88%, transparent);
+    transition:
+      background-color var(--dur) var(--ease),
+      color var(--dur) var(--ease);
+  }
+  .nav-panel-link:hover {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+
+  /* The glyph carries the lane colour; the label never does. Colour on this
+     site means transport mode, and a service NAME in road-orange would be
+     stating a leg rather than labelling a link. */
+  .nav-panel-glyph {
+    display: grid;
+    place-items: center;
+    width: 1.625rem;
+    height: 1.625rem;
+    flex: none;
+    border-radius: calc(var(--radius) - 5px);
+    color: var(--muted-foreground);
+    background: rgb(var(--ink) / 0.05);
+    transition:
+      background-color var(--dur) var(--ease),
+      color var(--dur) var(--ease);
+  }
+  .nav-panel-link[data-toned="true"] .nav-panel-glyph {
+    color: var(--tone);
+    background: color-mix(in srgb, var(--tone) 12%, transparent);
+  }
+
+  /* NO RULES FOR THE CLOSING COLUMN, deliberately. Its "all services" links are
+     `.more-link` and its button is `.btn-primary` — the two primitives the rest
+     of the site already uses for exactly those two jobs. Writing panel-specific
+     versions cost 1.3 kB on the first-paint budget and bought a second
+     definition of "a link with an arrow" to keep in step with the first.
+     `check:bundle` is what made that visible; guide §3.5 is what already said
+     it. Its layout is Tailwind at the call site, where it is read next to the
+     markup it arranges. */
+
+  /* ── the drawer ──────────────────────────────────────────────────────────
+   * The phone's version of the same idea: the rows arrive in the order they
+   * are read. Short, because the reader tapped a button and is waiting. */
+  .drawer-row {
+    animation: drawer-in 0.19s var(--ease-decelerate) both;
+    animation-delay: calc(var(--i, 0) * 22ms);
+  }
+
+  @keyframes drawer-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+
+  /* ── reduced motion ──────────────────────────────────────────────────────
+   *
+   * The umbrella at the top of this file already flattens every duration. What
+   * it cannot do is remove things that are not animations: a mask driven by a
+   * custom property is a static state, and eighteen sparks are eighteen dots
+   * sitting in a row. `--hdr` never leaves 0 (`use-header-scroll.ts` pins it),
+   * so the bar simply stays composed — and these two rules make sure nothing is
+   * left behind that only made sense while it was moving.
+   *
+   * `--read` is NOT killed here. It is information, not decoration. */
+  @media (prefers-reduced-motion: reduce) {
+    .hdr-embers {
+      display: none;
+    }
+    .hdr-erode > .wrap {
+      -webkit-mask-image: none;
+      mask-image: none;
+      filter: none;
+    }
   }
 
   /* A link that is a link and not a button: the arrow is the convention this
