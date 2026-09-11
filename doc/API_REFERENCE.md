@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1563 |
+| Routes | 1569 |
 | Modules mounted | 140 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1563 mounted routes, grouped by path prefix.
+All 1569 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1592,7 +1592,10 @@ All 1563 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/public/sign/:token/verify` | — |
 | GET | `/api/tenant/public/site/about` | — |
 | GET | `/api/tenant/public/site/announcements` | — |
+| GET | `/api/tenant/public/site/copy` | — |
 | GET | `/api/tenant/public/site/entities` | — |
+| GET | `/api/tenant/public/site/media/:id` | — |
+| GET | `/api/tenant/public/site/media/:id/:variant` | — |
 | GET | `/api/tenant/public/site/pages` | — |
 | GET | `/api/tenant/public/site/pages/:key` | — |
 | GET | `/api/tenant/public/site/partners` | — |
@@ -1869,6 +1872,7 @@ All 1563 mounted routes, grouped by path prefix.
 |---|---|---|
 | DELETE | `/api/tenant/site/blocks/:blockId` | yes |
 | PATCH | `/api/tenant/site/blocks/:blockId` | — |
+| GET | `/api/tenant/site/copy/catalogue` | — |
 | GET | `/api/tenant/site/meta` | — |
 | GET | `/api/tenant/site/pages` | — |
 | POST | `/api/tenant/site/pages` | — |
@@ -1895,6 +1899,8 @@ All 1563 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/site-settings/leaders` | — |
 | DELETE | `/api/tenant/site-settings/leaders/:id` | — |
 | PATCH | `/api/tenant/site-settings/leaders/:id` | — |
+| POST | `/api/tenant/site-settings/media` | — |
+| DELETE | `/api/tenant/site-settings/media/:slot/:ownerId` | — |
 | GET | `/api/tenant/site-settings/partners` | — |
 | POST | `/api/tenant/site-settings/partners` | — |
 | DELETE | `/api/tenant/site-settings/partners/:id` | — |

@@ -326,6 +326,15 @@ jobs:
         # Fails if a route or an error code was added without regenerating.
         run: node scripts/generate-api-docs.js --check
 
+      - name: Site copy catalogue in sync
+        # packages/shared/data/site-copy.generated.js enumerates every `site.*`
+        # string a tenant may rewrite from Settings > Website > Copy, and is
+        # DERIVED from public-web/src/lib/i18n-dict.ts. A string added to the
+        # dictionary without regenerating is a sentence on the public site that
+        # no tenant can reach — the exact defect the catalogue exists to close,
+        # reintroduced one key at a time and invisible to every other gate.
+        run: node scripts/gen/gen-site-copy-catalogue.js --check
+
       - name: Migration reversibility
         # Audit DATA 3.5 / TEST-D2: there is not one down-migration in this
         # repo, which is half of why a bad deploy was unrecoverable (the other
