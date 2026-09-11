@@ -257,9 +257,20 @@
        remembers a page; Archivo's 100-900 axis is also what <WeightScrub>
        animates. PR 2 overrides all three per tenant from the font registry in
        @praxis/shared. See doc/PUBLIC_WEB_EXPERIENCE_GUIDE.md §5.5. */
-    --font-display: "Archivo Variable", "Archivo", sans-serif;
-    --font-body: var(--brand-font-body);
-    --font-mono: var(--brand-font-mono);
+    /* Each stack names its METRIC-MATCHED FALLBACK between the webfont and the
+       generic — `fonts-fallback.css`, generated from the real font files. That
+       middle entry is what makes `font-display: swap` cost no layout shift: the
+       browser paints a local face already sized to the space the webfont will
+       occupy, so nothing moves when it lands. Guide O-12 / F-33.
+
+       `--font-body` and `--font-mono` no longer defer to `--brand-font-*`,
+       which names the same families without the fallback. The brand sheet is
+       shared with the ERP, where the trade is different — it is behind a login,
+       nobody measures its CLS, and a fallback face per family is weight for no
+       gain. This is the surface strangers judge. */
+    --font-display: "Archivo Variable", "Archivo Variable Fallback", sans-serif;
+    --font-body: "Inter Variable", "Inter Variable Fallback", sans-serif;
+    --font-mono: "JetBrains Mono Variable", "JetBrains Mono Variable Fallback", monospace;
 
     /* Slightly rounder than the ERP's 8px: a public page is not a data grid.
        A tenant's own `radius` from the branding endpoint overrides it. */

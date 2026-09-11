@@ -55,6 +55,39 @@ const twPath = join(appRoot, "tailwind.config.ts");
 const css = readFileSync(cssPath, "utf8");
 const tw = readFileSync(twPath, "utf8");
 
+/**
+ * ── EVERY STYLESHEET, NOT JUST index.css — O-13 ────────────────────────────
+ *
+ * This gate read one file. `index.css` is where the motion is TODAY, which is
+ * why nobody noticed, and it is not where the motion is DEFINED: `main.tsx`
+ * imports three stylesheets, and any component may add a fourth. A
+ * `transition: opacity 3000ms` in `fonts.css` passed this gate silently —
+ * verified by putting one there, which is the only way to establish a gate's
+ * blind spot rather than assume its absence.
+ *
+ * The rule is every `.css` under `src/`, discovered rather than listed. A list
+ * is a thing that goes stale in exactly the way that produced this finding, and
+ * a stylesheet in the app's own tree is either shipped or dead — scanning a dead
+ * one costs a millisecond and misses nothing.
+ *
+ * `index.css` keeps its own binding above: the reduced-motion umbrella and the
+ * `@layer` structure are properties OF that file, so §3 asserts against it by
+ * name. Only the timing budget is graph-wide, because a slow transition is slow
+ * wherever it is declared.
+ */
+function stylesheets(dir) {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, e.name);
+    if (e.isDirectory()) out.push(...stylesheets(full));
+    else if (e.name.endsWith(".css")) out.push(full);
+  }
+  return out;
+}
+const SHEETS = stylesheets(join(appRoot, "src"))
+  .sort()
+  .map((file) => ({ file: relative(appRoot, file), text: readFileSync(file, "utf8") }));
+
 const RESPONSE_MS = 200;
 const NARRATIVE_MS = 600;
 
@@ -164,7 +197,14 @@ function declarations(source) {
       }
     }
 
-    const start = line.match(/(?:^|\s)(transition|animation)(?:-duration|-delay)?\s*:(.*)$/);
+    /* `{` and `;` are in the class beside whitespace, and that is a second
+       blind spot rather than tidiness. `.x{transition:opacity 3s}` — one line,
+       no space after the brace — matched nothing at all, so the gate's answer
+       for a compact or generated stylesheet was a silent pass. Found by probing
+       this gate with a real violation instead of trusting it. */
+    const start = line.match(
+      /(?:^|[\s{;])(transition|animation)(?:-duration|-delay)?\s*:(.*)$/,
+    );
     if (start) {
       let value = start[2];
       let j = i;
@@ -201,9 +241,16 @@ const failures = [];
 const relaxed = [];
 const exempted = [];
 let checked = 0;
-const props = customProperties(css);
+/* Custom properties resolve across the whole graph: a duration token declared
+   in one sheet and used in another is one `var()` the resolver must follow, and
+   the alternative is a "0ms" reading that looks like a pass. */
+const props = new Map();
+for (const sheet of SHEETS) {
+  for (const [name, value] of customProperties(sheet.text)) props.set(name, value);
+}
 
-for (const d of declarations(css)) {
+for (const sheet of SHEETS)
+for (const d of declarations(sheet.text).map((d) => ({ ...d, file: sheet.file }))) {
   const worst = Math.max(0, ...durations(resolveVars(d.value, props)));
   if (worst === 0) continue;
   checked += 1;
@@ -301,7 +348,30 @@ const rmBlocks = blocksAfter(
   /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{/g,
 );
 
-const globalBlocks = rmBlocks.filter((b) => /(^|[\s,{])\*[\s,{]/.test(b));
+/**
+ * Does this block hold the UNIVERSAL umbrella — a bare `*` selector?
+ *
+ * ── WHY A REGEX OVER THE BLOCK IS NOT ENOUGH ──────────────────────────────
+ *
+ * The obvious test, `/(^|[\s,{])\*[\s,{]/`, matches `.landing-content > *`,
+ * which is a CHILD selector and not an umbrella at all. `client/src/index.css`
+ * has exactly that inside a reduced-motion block, so the obvious test reported
+ * the landing-page block as a broken global kill and named four faults in a
+ * rule that was never claiming to be one.
+ *
+ * So the selector lists are parsed: the text before each `{`, split on commas,
+ * and a block qualifies only when one of its selectors is exactly `*`.
+ */
+function hasUniversalSelector(block) {
+  // Selector lists are the runs of text that precede a `{`.
+  for (const m of block.matchAll(/(^|[};])([^{}]*)\{/g)) {
+    const selectors = m[2].split(",").map((sel) => sel.trim());
+    if (selectors.some((sel) => sel === "*")) return true;
+  }
+  return false;
+}
+
+const globalBlocks = rmBlocks.filter(hasUniversalSelector);
 
 if (rmBlocks.length === 0) {
   umbrella.push("there is no `prefers-reduced-motion: reduce` block at all");
@@ -360,7 +430,8 @@ for (const file of sources(join(appRoot, "src"))) {
 /* ── report ───────────────────────────────────────────────────────────────── */
 
 console.warn(
-  `\npublic-web motion — ${checked} timed declaration(s) checked · response ${RESPONSE_MS}ms · narrative ${NARRATIVE_MS}ms\n`,
+  `\npublic-web motion — ${checked} timed declaration(s) across ${SHEETS.length} stylesheet(s)` +
+    ` · response ${RESPONSE_MS}ms · narrative ${NARRATIVE_MS}ms\n`,
 );
 
 if (relaxed.length) {
@@ -383,7 +454,7 @@ if (failures.length) {
   for (const f of failures) {
     console.error(
       `    ${f.selector}  (${f.prop}: ${f.value.trim()})\n` +
-        `      ${f.worst}ms against the ${f.kind} budget of ${f.budget}ms\n`,
+        `      ${f.file} — ${f.worst}ms against the ${f.kind} budget of ${f.budget}ms\n`,
     );
   }
   console.error(

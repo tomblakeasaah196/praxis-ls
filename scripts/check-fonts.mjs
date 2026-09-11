@@ -25,7 +25,7 @@
  * Adding a family means adding it to lib/fonts.ts. That is the point: the
  * library is the single list, and this proves it.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -64,6 +64,53 @@ for (const name of LIBRARY) {
   allowed.add(name.toLowerCase());
   allowed.add(`${name.toLowerCase()} variable`);
 }
+
+/**
+ * ── METRIC-MATCHED FALLBACK FACES ARE NOT NEW FONTS ───────────────────────
+ *
+ * `public-web/src/fonts-fallback.css` declares families like "Inter Variable
+ * Fallback". This gate flagged all four, and on its own terms it was right:
+ * they are not in the library.
+ *
+ * They are also not fonts. Each one re-declares a face the visitor's machine
+ * ALREADY HAS — `src: local("Arial"), local("Helvetica"), …` — with
+ * `size-adjust` and vertical overrides so it occupies the space the real
+ * webfont will, and `font-display: swap` therefore costs no layout shift
+ * (guide O-12). Nothing is downloaded, nothing is licensed, nothing is
+ * shipped.
+ *
+ * So the rule this gate enforces — "no font from outside the shipped library is
+ * named anywhere" — is not what a fallback violates. What would violate it is a
+ * fallback face that quietly pulls a `url()`, and that is exactly what the test
+ * below refuses: a family is admitted only if the `@font-face` declaring it
+ * sources EVERY reference from `local()`.
+ *
+ * Derived from the stylesheet rather than allow-listed by name, so a fifth face
+ * added by the generator is covered and a hand-written one that fetches
+ * something is not.
+ */
+const FALLBACK_SHEET = "public-web/src/fonts-fallback.css";
+
+function localOnlyFallbackFamilies() {
+  const found = new Set();
+  const full = path.join(ROOT, FALLBACK_SHEET);
+  if (!existsSync(full)) return found;
+  const css = readFileSync(full, "utf8");
+  // Each @font-face block, whole, so `src` and `font-family` are read together.
+  for (const block of css.match(/@font-face\s*\{[^}]*\}/g) || []) {
+    const family = /font-family:\s*["']([^"']+)["']/.exec(block)?.[1];
+    const src = /src:\s*([^;]+);/.exec(block)?.[1];
+    if (!family || !src) continue;
+    // Every reference must be a local(). One url() and the block is a real
+    // webfont wearing a fallback's name.
+    const refs = src.match(/\b(local|url)\s*\(/g) || [];
+    if (!refs.length || refs.some((r) => r.trim().startsWith("url"))) continue;
+    found.add(family.toLowerCase());
+  }
+  return found;
+}
+
+for (const family of localOnlyFallbackFamilies()) allowed.add(family);
 
 // Surfaces we control. doc/reference is vendored third-party sample code and
 // node_modules is not ours; the legacy PHP codebase under doc/ is dead.

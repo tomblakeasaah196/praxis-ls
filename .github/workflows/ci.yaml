@@ -326,6 +326,15 @@ jobs:
         # Fails if a route or an error code was added without regenerating.
         run: node scripts/generate-api-docs.js --check
 
+      - name: Site copy catalogue in sync
+        # packages/shared/data/site-copy.generated.js enumerates every `site.*`
+        # string a tenant may rewrite from Settings > Website > Copy, and is
+        # DERIVED from public-web/src/lib/i18n-dict.ts. A string added to the
+        # dictionary without regenerating is a sentence on the public site that
+        # no tenant can reach — the exact defect the catalogue exists to close,
+        # reintroduced one key at a time and invisible to every other gate.
+        run: node scripts/gen/gen-site-copy-catalogue.js --check
+
       - name: Migration reversibility
         # Audit DATA 3.5 / TEST-D2: there is not one down-migration in this
         # repo, which is half of why a bad deploy was unrecoverable (the other
@@ -1205,6 +1214,14 @@ jobs:
         # claim. Also the per-asset byte caps and bilingual alt (N10).
         if: matrix.app == 'public-web'
         run: npm run check:assets --prefix public-web
+
+      - name: Font fallbacks (public-web)
+        # The metric-matched fallback faces are DERIVED from the shipped .woff2
+        # files, so a @fontsource bump silently invalidates them. A stale
+        # fallback is a layout reflow on every page and nobody sees it in
+        # review — guide O-12 measured the last one at 8 Lighthouse points.
+        if: matrix.app == 'public-web'
+        run: npm run check:fonts-fallback --prefix public-web
 
       - name: Motion budget (public-web)
         # public-web runs its OWN budget, and a different one: 200ms for
