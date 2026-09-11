@@ -67,7 +67,47 @@ describe("the override arithmetic", () => {
   });
 });
 
-describe("our own faces are read from the shipped files", () => {
+/**
+ * ── WHY THIS BLOCK IS CONDITIONAL, AND WHY THAT IS NOT A HOLE ─────────────
+ *
+ * These read the real `.woff2` out of `@fontsource-variable/*`, which are
+ * `public-web`'s dependencies and nobody else's. This suite runs under jest at
+ * the repo ROOT, and CI's `build-test` job installs the root workspace only —
+ * there is no `public-web/node_modules` in it at all. So the block passed
+ * locally, where both trees happen to be installed, and failed in CI with four
+ * "Cannot resolve module" errors.
+ *
+ * That is F-44's asymmetry again, pointing the other way: F-44 was public-web
+ * reaching for a root package, this is a root test reaching for public-web's.
+ * Neither is visible to a local `npm run ci`, which installs everything.
+ *
+ * The guard is NOT the F-27 failure this file warns about two blocks down. What
+ * makes a skip dishonest is that nothing else checks the thing; here something
+ * does, and it is stricter. `check:fonts-fallback` — gate 37, in the public-web
+ * job, where these packages are always installed — runs `gen-font-fallbacks.mjs
+ * --check`, which REGENERATES the stylesheet from these same files through this
+ * same `readFaceMetrics` and fails on any difference. It cannot pass without
+ * reading them, so "were the metrics actually read" is enforced there whether
+ * this block runs or not.
+ *
+ * What is genuinely conditional is the Inter-versus-Arial assertion below: it
+ * runs on a developer's machine and in any job that installs public-web, and it
+ * does not run in `build-test`. It is a statement about why the fix exists
+ * rather than about whether it works, so that placement is acceptable — the
+ * behaviour it explains is pinned by the generator.
+ */
+const facesInstalled = (() => {
+  try {
+    mod.readFaceMetrics("inter");
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+const describeIfFaces = facesInstalled ? describe : describe.skip;
+
+describeIfFaces("our own faces are read from the shipped files", () => {
   test.each(["archivo", "ibm-plex-sans", "inter", "jetbrains-mono"])(
     "%s reports real metrics",
     (id) => {

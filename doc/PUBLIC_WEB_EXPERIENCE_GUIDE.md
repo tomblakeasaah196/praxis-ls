@@ -583,6 +583,7 @@ its fourth PR.
 | F-42 | **`check:contrast` read the first `:root` block and the first declaration in it.** Two independent first-match assumptions, and the second is the one that mattered: after the gate was widened to collect every matching rule, `rawToken` still returned the earliest declaration, so an override — the thing a cascade exists to do — was collected and then ignored. A gate that measures a value nobody is served is worse than one that measures nothing, because it reports a pass. | **Fixed.** Blocks are joined in cascade order and `rawToken` takes the last. Verified by a second `:root` re-declaring `--foreground` at 1.12:1: caught, and not caught before. |
 | F-43 | **`/careers`'s 0.093 shift is the skeleton, not the font.** O-12's fallbacks left it unchanged, and it survives with fonts blocked entirely; a `PerformanceObserver` puts it at a single shift at t=227 ms. Lighthouse attributed it to "web font loaded", which is coarse enough to have sent this to the wrong fix. | **Open (O-16), diagnosed not guessed.** `PageSkeleton rows={4}` stands in for a list whose length is the tenant's; the honest fix needs both rendered heights measured against a live backend. |
 | F-44 | **A test imported `@praxis/shared` from `public-web` and passed.** D-1 keeps that package out of this bundle and three files carry comments saying so — `site-theme.ts`, `social-row.tsx`, `social-row.test.tsx` — and none of them enforced it. The root workspace hoists the package into a `node_modules` this app can see, so the import resolved locally and `npm run ci` went 42/42. CI failed it twice: the `frontend (public-web)` job and the Dockerfile both run `npm ci --prefix public-web`, which installs what the app DECLARES. **A local run structurally cannot reproduce that**, which is what makes this a gate rather than a note. | **Fixed.** `no-restricted-imports` bans `@praxis/shared` and its subpaths in `public-web`, tests included — the violation WAS a test, and one that resolves an undeclared package is green by accident. Verified by re-adding the exact import: caught locally now. The cross-package assertion moved to `tests/unit/font-fallback-metrics.test.js`, at the repo root where the package genuinely resolves, and compares `siteFontStack()` against the text of `site-theme.ts` — proved against a real drift in both directions. |
+| F-45 | **The same asymmetry, pointing the other way.** `tests/unit/font-fallback-metrics.test.js` runs under jest at the repo ROOT and reads the real `.woff2` out of `@fontsource-variable/*` — which are `public-web`'s dependencies. CI's `build-test` job installs the root workspace only, so there is no `public-web/node_modules` in it and four assertions died on "Cannot resolve module". Local runs install both trees, so `npm run ci` cannot see this either. | **Fixed, and the skip is not a hole.** The block is conditional on the faces resolving, and what it asserted is enforced where it always can be: `check:fonts-fallback` (gate 37, public-web job) regenerates the stylesheet from those same files through the same `readFaceMetrics` and fails on any difference — it cannot pass without reading them. The registry-drift assertions need no font files and still run everywhere. Verified by moving `public-web/node_modules` aside to reproduce `build-test` exactly: 9 passed, 5 skipped, green. |
 
 **How this was verified.**
 
@@ -801,6 +802,17 @@ reproduce a per-app install. So D-1 is now a lint rule rather than a comment,
 tests included, and the cross-package assertion moved to `tests/unit/`, where
 the package actually resolves and where it can compare `siteFontStack()` against
 the text of the file holding the copy.
+
+**And its mirror image (F-45).** The fix for F-44 moved a cross-package
+assertion into `tests/unit/`, and the root suite then failed in CI for the
+opposite reason: it reads the real `.woff2` files out of `@fontsource-variable/*`,
+which belong to `public-web`, and `build-test` installs the root workspace only.
+Two jobs, two dependency trees, and a local run that installs both — so neither
+direction is visible to `npm run ci`. That is worth stating plainly as the
+general lesson of this section: **a green local gate is evidence about one
+install, not about CI's.** The block is now conditional, and what it asserted is
+enforced by gate 37 in the job that always has the files. Reproduced by moving
+`public-web/node_modules` aside rather than reasoned about.
 
 **What is left, and why it is left.** O-15 (8.4 kB of unread dictionary in every
 entry) and O-16 (`/careers`'s 0.093 shift) are both measured and both carry the
