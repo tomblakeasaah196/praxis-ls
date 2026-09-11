@@ -77,6 +77,11 @@ import { p } from "@/lib/base-path";
  * English-only string. A test advert that only warns the English-reading half of
  * the applicants is a warning that did not happen.
  */
+/** Kept out of the JSX so the suppression comment stays on the line directly
+ *  above `src` — Prettier re-wraps a long <img> and would separate them. */
+const CV_PREVIEW_CLASS =
+  "h-12 w-12 shrink-0 rounded border bg-background object-cover";
+
 export function CareersPage() {
   const { t } = useTranslation();
   const [rows, setRows] = React.useState<api.PublicVacancy[] | null>(null);
@@ -665,18 +670,31 @@ function ApplyForm({ vacancy: v }: { vacancy: api.PublicVacancy }) {
             }
             onPick={(files) => void pick(files)}
           />
-          {/* Guarded at the sink. `previewUrlFor` already proves this URL is a
-              blob:, but CodeQL cannot follow a sanitiser across a module
-              boundary and reports the flow as js/xss-through-dom (high). The
-              check costs one string comparison per render and closes the alert
-              rather than arguing it away — an alert argued away is one the next
-              person has to argue away again. */}
+          {/* SUPPRESSED, with the reason, because it is a false positive and
+              three real fixes did not convince the analyser.
+
+              CodeQL reports js/xss-through-dom (high) here: a file the visitor
+              chose flows into a URL sink. `preview` can only ever be a `blob:`
+              URL — `URL.createObjectURL` has no other possible return — and a
+              blob: URL can neither execute nor be reinterpreted as markup. The
+              schemes that would make this sink live, `data:text/html` and
+              `javascript:`, are unreachable.
+
+              What was tried, so nobody repeats it: asserting the prefix inside
+              `previewUrlFor` (not followed across a module boundary); an inline
+              `startsWith` on this conditional (not recognised as a barrier);
+              and the named guard below (still reported).
+
+              The guard STAYS regardless of the suppression. It is not decoration
+              — it is what catches the day someone swaps object URLs for a
+              FileReader `data:` URL, where this sink genuinely would be live.
+              image-compress.test.ts covers that rejection path.
+
+              Revisit if this component ever takes its src from anywhere other
+              than `previewUrlFor`. */}
           {isSafeBlobUrl(preview) ? (
-            <img
-              src={preview}
-              alt=""
-              className="h-12 w-12 shrink-0 rounded border bg-background object-cover"
-            />
+            // codeql[js/xss-through-dom]
+            <img src={preview} alt="" className={CV_PREVIEW_CLASS} />
           ) : null}
           <span className="min-w-0 truncate text-xs text-muted-foreground">
             {file ? file.name : t("site.careers.cvNone")}
