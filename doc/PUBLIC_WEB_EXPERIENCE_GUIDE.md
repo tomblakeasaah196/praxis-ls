@@ -167,6 +167,7 @@ filled in", not as "nothing to report".
 | PR 3 | **Merged** | 2026-09-10 · [#325](https://github.com/tomblakeasaah196/praxis-ls/pull/325) | **63%** | 20 of 20, **plus 2 of PR 2's carried points** (§6.4). Four deviations and six findings — see §3.4. F-14 is the important one: **PR 1 recorded 22/22 for §5.6 and shipped one of its five gates**, so `check:assets`, `check:palette` and the deferred-chunk budget were built here. F-16 is a Lighthouse target this architecture cannot reach. |
 | PR 4 | **Merged** | 2026-09-10 · [#327](https://github.com/tomblakeasaah196/praxis-ls/pull/327) | **81%** | 18 of 18. Four deviations and eight findings — see §3.5. **F-20 is the one to read first: the ERP's own primary button measures 2.59:1** and is out of scope here. F-21–F-23 are three live AA failures in this app that the O-9 port found on its first run. §6.3 is now blocking on its FOURTH PR and PR 5 cannot deliver §9.3 or §9.4 without it. |
 | PR 5 | **Merged** | 2026-09-10 · [#328](https://github.com/tomblakeasaah196/praxis-ls/pull/328) | **100%** | 16 of 16, **plus PR 2's last 3 carried points** (§6.3, §6.8), which closes O-10. Five deviations and eleven findings — see §3.6. **F-28 is the one to read first: `useScrollScrub`'s default range finishes after the band has left the screen**, so §9.1's timeline shipped its first draft permanently invisible. F-31 corrects the record: the SEO and best-practices figures in §3.4 and §3.5 were measuring the preview harness, not the app. O-11 is resolved in §9.7; O-2, O-3 and O-4 remain the client's and §9.4 ships complete without them. |
+| Hero pass | **In review** | — | **100%** | Not a coverage PR — §7.1 revisited for drama. One deviation and six findings, see §3.8. **F-42 is the one to read first: the obvious way to build a light beam over this band takes the eyebrow to 1.9:1**, and neither gate can see it. F-39 and F-40 are two things §7.1 has been describing and not doing since PR 3. F-44: first paint is now **127.6 kB of 128**, which makes O-13 the next blocker rather than a note. |
 
 ### 3.2 PR 1 — reservations, deviations and findings
 
@@ -711,6 +712,81 @@ performance rather than quietly dropped.
 
 ---
 
+### 3.8 Hero pass — reservations, deviations and findings
+
+Not a coverage PR. §7.1 was complete and correct and the band still read as a SaaS header: the
+depth was real but too small to notice, the plate followed the page's theme rather than the band it
+floats on, and nothing on the band moved after the first 600 ms. This adds one continuous event —
+a raked beam on `--beam-cycle` that passes behind the headline, lights each word in the tenant's
+accent as it reaches it, and hands off to the plate's edge as it leaves — plus a masked word
+reveal, a choreographed entrance, and the plate rebuilt as dark glass with a moving glare.
+
+**The deviation.**
+
+| # | Deviation | Why |
+| --- | --- | --- |
+| D-24 | **The hero's entrance settles at ~820 ms, past §5.4's 600 ms narrative budget as a total.** Every *declared* duration is inside it and `check:motion` passes on every one. | The budget bounds a single animation, and a sequence's total is a different quantity. The plate is a quarter of the screen: starting it at 260 ms and landing it in the same beat as an eyebrow is a layout shift, not an entrance. The curve — `cubic-bezier(0.16, 1, 0.3, 1)` — spends four-fifths of its travel in the first third of its time, so the plate reads as arriving at ~450 ms and the rest is it shedding momentum. Stated here rather than hidden because a gate that passes is not the same as a rule that was kept. |
+
+**Findings.**
+
+- **F-39 — `.hero-light` has been in `index.css` since PR 3 and was never mounted.** `hero.tsx`'s
+  own header says "the pointer light is applied UNDER the scrim so it cannot spend them", and
+  `index.css` carries a 20-line derivation for a layer that was not in the tree. The comment was
+  true about the design and false about the page, which is the worst combination — every later
+  reader trusted it, this one included, until a `grep` for the class came back with two comments and
+  no JSX. Now mounted, inside the `image` branch: the derivation needs a scrim above the light, and
+  scrims only exist when there is an upload.
+- **F-40 — the homepage's one functional object was a white tile in the light theme.**
+  `.track-widget` painted from `--card`, which is `#ffffff` on `:root`. The band it floats on is
+  `--hero`, which is carbon in *both* themes and is deliberately not a tenant token. So the plate
+  followed the page and not the band: frosted white with dark type in light mode, dark glass in
+  dark mode, one class and two different objects. Rebuilt on `--hero-plate` — dark glass in every
+  theme, tinted with the tenant's `--primary` over a near-white base so a navy-primary tenant gets
+  a cool pane rather than an invisible one.
+- **F-41 — `TrackWidget` has accepted an `onDark` prop since it was written and nothing on the hero
+  ever passed it.** Which is consistent with F-40: while the plate was white in light mode, not
+  passing it was *correct*. The prop was waiting for the plate to be what §7.1 always described.
+- **F-42 — the obvious way to build this effect is a live WCAG failure, and no gate in this repo can
+  see it.** The first draft was a `screen` beam over the copy with a 58 % white core. Measured
+  against the eyebrow — `#ff5a00` at 11 px, the same element that binds the scrim floors — it takes
+  it from 6.44:1 to **1.9:1** while it crosses. `screen` lightens the type and the ground toward the
+  same white and contrast is what is left in between, so the brighter the beam the less there is of
+  it. `check:contrast` measures token *pairs* and `check:motion` measures *durations*; a passing
+  light is neither, and a still frame does not show it. Resolved three ways, all in the tree: the
+  beam is mounted **under** the copy and under the scrims, so no type on the band ever changes
+  colour and a photograph's scrim caps it exactly as it caps the image; its brightness is capped at
+  `--beam-peak` = 22 %, derived at 4.56:1 for the eyebrow on carbon; and the drama that was wanted
+  comes from `.hero-word-light`, which moves the type between two *measured* colours
+  (`--hero-foreground` 12.1:1, `--primary` 6.33:1) on an unchanged ground and therefore spends
+  nothing. `BEAM_PEAK` in `hero.tsx` and three tests in `hero.test.tsx` hold all of it.
+- **F-43 — `.tilt-plate`'s note claimed the services band reuses it.** It does not; the grid uses
+  `.tilt-card`, which has its own arithmetic. Only `.tilt-stage` is shared. Corrected while raising
+  the plate's rotation from 3°/2° to 7°/5° — at three degrees nobody noticed the plate was a solid,
+  at fourteen the reference field visibly slides away from a hand already reaching for it.
+- **F-44 — first paint is now 127.6 kB of 128 (was 126.5), and O-13 is the next blocker.** The
+  ~1.1 kB is CSS, and it is real rules rather than the comments, which minify away. Headroom is
+  **0.4 kB**: the next change to this stylesheet has to reclaim space before it can add any, and the
+  per-route CSS splitting O-13 describes — worth ~1.5 kB — cannot be done until `check:motion` and
+  `check:contrast` walk the stylesheet graph rather than reading `src/index.css` alone.
+
+**Measured, rather than argued.**
+
+| What | Before | After |
+| --- | --- | --- |
+| LCP, homepage, 7 loads each | **248 ms** median, element `H1` | **248 ms** median, element `H1` |
+| First paint | 126.5 kB gzip | **127.6 kB** gzip (budget 128) |
+| Eyebrow on carbon, beam at peak | 6.44:1 | **4.56:1** (floor 4.5) |
+| `prefers-reduced-motion` | — | beam parked at opacity 0, ring at 0, words at their inherited colour, plate settled — read from computed style, not reasoned |
+
+The LCP row is the one that mattered. A word rising out of a clipped edge is the reveal §7.1
+wanted, and a clip deep enough to hide the word before it moves would have re-created the exact
+defect `paintImmediately` exists to fix — clipped text is no more painted than transparent text, and
+PR 3 measured +691 ms for that. The clip is sized to the glyphs and the travel is 0.4em instead, so
+four-fifths of every word is painted on the first frame. The measurement above is the evidence that
+this is true rather than merely plausible.
+
+---
+
 ### 3.1 Open items carried into the build
 
 | # | Item | Owner | Blocks |
@@ -729,6 +805,7 @@ performance rather than quietly dropped.
 | O-12 | **Metric-matched fallback faces (F-33).** `font-display: swap` reflows the footer on any short page and costs 8 Lighthouse points in French (`/about?lang=fr`: CLS 0.184, performance 87, against 0 and 95 in English). Pre-existing and app-wide — `/careers?lang=fr` from PR 4 measures 0.096 with the same cause. The fix is a `@font-face` per family with `src: local(…)` plus `size-adjust`/`ascent-override`; the number measured here (Inter at **105.9%** of `sans-serif`) is from ONE container and a visitor's fallback varies by platform. **The single highest-value performance fix left in this app.** | Build | performance ≥ 95, whenever it is taken on |
 | O-13 | **`check:motion` and `check:contrast` read `src/index.css` and only that file (F-34).** Per-route CSS splitting — worth ~1.5 kB of first paint immediately, on a budget now at 99% — cannot be done until both gates walk the stylesheet graph. Doing it first would buy headroom by making two gates blind to the thing being changed. | Build | any further first-paint work |
 | O-14 | **The public entity payload carries no registered address (F-37)**, and §9.2 lists one. `corporate_entity.address` was deliberately left out of 13787's allow-list. Either §9.2 drops it, or a later change adds it with the argument written down — a postal address is what somebody needs to send a courier AND what somebody needs to impersonate the company on headed paper. | Build + Client | §9.2's field list |
+| O-15 | **The hero's accent TYPE is Praxis's orange, not the tenant's.** `section-head.tsx`'s `onDark` branch and the plate's kicker both use `rgb(var(--brand-orange))`, which the file header says is never tenant-overridden. It is there for a measured reason — `--primary-ink` resolves to the *light-ground* ink in the light theme and is ~3.4:1 on carbon — but `--primary-ink-dark` is the token that solves it properly, is AA-corrected for dark grounds, and is already computed per tenant by `theme.ts`. So a tenant whose primary is navy gets a navy beam lighting an orange accent word. The beam and the glass tint use `--primary` today because they are light rather than type and carry no contrast duty; making the four agree repaints **every dark band on the site** and needs `check:contrast` run against it, which is why it is an item and not a line in the hero's diff. | Build | white-label correctness for any non-orange tenant |
 
 ---
 
