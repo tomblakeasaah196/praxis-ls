@@ -83,6 +83,42 @@ day-first) and `@date-format:parts` for an `Intl.DateTimeFormat` built only to
 call `formatToParts()`, which renders nothing. Full detail in
 **`doc/FRONTEND_GUIDE.md` §3.12**.
 
+## The third frontend rule: uploads go through the engine
+
+**Never `<input type="file">`. Use `<ImageUpload>` (upload on pick) or
+`<FilePicker>` + `<UploadList>` + `useUpload({ autoStart: false })` (upload on
+Save), from `@/components/ui/image-upload` and `@/lib/use-upload`.**
+
+Enforced by the `praxis/no-raw-upload` ESLint rule as an **error** in all three
+frontend apps. It catches the rewrites too — `<input type={"file"} />` and
+`el.type = "file"` after `createElement` are the same violation.
+
+The engine gives every upload three things, none of them optional: a **preview**
+from the moment the picker closes, a **0→100% percentage** ending in an explicit
+*Upload complete* once the server has answered, and **compression** before the
+bytes leave the device.
+
+`profile` is required and is not cosmetic — it decides whether the image is
+tonally corrected. `document` and `brand` never are: auto-levelling a customs
+scan makes it stop matching the paper, and stretching a logo's histogram hands
+the tenant back a different green. `photo` and `avatar` are. Full detail,
+including the delivery side (`<ResponsiveImage>`, AVIF/WebP derivatives), is in
+**`doc/FRONTEND_GUIDE.md` §3.13**.
+
+**Why it is a hard rule.** `FileDrop` has accepted `uploadProgress` and
+`uploadSuccess` props since it was written, and 2 of ~30 upload sites passed
+them. Nobody decided those screens should have no progress bar — the raw input
+was closer to hand than four pieces of state and a cleanup effect. A bare upload
+costs the user a preview (picking the wrong scan is invisible for months), a
+percentage (a slow upload is indistinguishable from a frozen screen, so people
+double-upload) and compression (the original is served back at full size into a
+96px cell, forever).
+
+Backend side: `src/services/image-pipeline.service.js` is the one engine every
+image write goes through, and callers must hash the master **it returns**, never
+the bytes they received — `document_signature` records `artifact_hash` from the
+vault row's `content_hash` and `document_verification` compares the two.
+
 ## Before you write frontend code
 
 `doc/FRONTEND_GUIDE.md` is **the** frontend document — CI fails if it names a
