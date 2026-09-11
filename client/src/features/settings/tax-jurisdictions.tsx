@@ -29,6 +29,7 @@ import { tenant } from "@/lib/api-client";
 import { loadPostableAccounts } from "@/lib/finance-api";
 import type { Option } from "@/lib/finance-api";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { DateField } from "@/components/ui/date-field";
 import { LoadingRow, EmptyState, ErrorState } from "@/components/ui/states";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/data-list";
@@ -453,17 +454,15 @@ function CodeFormModal({
             accounts={accounts}
           />
           <Field label={tr("Effective from")} required>
-            <Input
-              type="date"
+            <DateField
               value={effectiveFrom}
-              onChange={(e) => setEffectiveFrom(e.target.value)}
+              onChange={setEffectiveFrom}
             />
           </Field>
           <Field label="Effective to" hint="Blank = open-ended">
-            <Input
-              type="date"
+            <DateField
               value={effectiveTo}
-              onChange={(e) => setEffectiveTo(e.target.value)}
+              onChange={setEffectiveTo}
             />
           </Field>
         </div>

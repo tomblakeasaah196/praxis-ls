@@ -19,7 +19,7 @@ import { SkeletonTable } from "@/components/ui/skeleton";
 import { AiActions } from "@/components/ai-actions";
 import type { AiAction } from "@/features/scaffold/screen-specs";
 import { errMsg, useList, useRefresh, type Row } from "@/lib/use-resource";
-import { cell, dateFmt } from "@/lib/format";
+import { cell, dateFmt, dateTimeFmt } from "@/lib/format";
 import { StatusPill } from "@/components/ui/pill";
 import { SearchSelect } from "@/components/ui/search-select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -484,7 +484,7 @@ export function MeetingsPage() {
               </div>
               <span className="hidden text-xs text-muted-foreground sm:block">
                 {r.scheduled_at
-                  ? new Date(String(r.scheduled_at)).toLocaleString()
+                  ? dateTimeFmt(String(r.scheduled_at))
                   : "Unscheduled"}
               </span>
             </button>

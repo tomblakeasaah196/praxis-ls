@@ -35,6 +35,7 @@ import * as React from "react";
 import { tr } from "@/lib/i18n";
 import { ScreenAi } from "@/components/screen-ai";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { FormButtons } from "@/components/ui/form-buttons";
 import { Input } from "@/components/ui/input";
 import { Pill } from "@/components/ui/pill";
@@ -414,10 +415,9 @@ function SetRateModal({
             />
           </Field>
           <Field label={tr("Effective from")} required>
-            <Input
-              type="date"
+            <DateField
               value={from}
-              onChange={(e) => setFrom(e.target.value)}
+              onChange={setFrom}
             />
           </Field>
           <Field label={tr("Note")}>

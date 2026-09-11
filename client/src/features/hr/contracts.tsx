@@ -7,6 +7,7 @@ import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { DocButton } from "@/components/doc-button";
 import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
@@ -129,17 +130,15 @@ function NewContractForm({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Effective on">
-            <Input
-              type="date"
+            <DateField
               value={f.effective_on}
-              onChange={(e) => set("effective_on", e.target.value)}
+              onChange={(iso) => set("effective_on", iso)}
             />
           </Field>
           <Field label="Ends on">
-            <Input
-              type="date"
+            <DateField
               value={f.end_on}
-              onChange={(e) => set("end_on", e.target.value)}
+              onChange={(iso) => set("end_on", iso)}
             />
           </Field>
         </div>

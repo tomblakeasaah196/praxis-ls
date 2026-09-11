@@ -29,6 +29,7 @@
  * this file. Editing another PR's JSX is what makes parallel work fail.
  */
 import * as React from "react";
+import { dateDmy, dateTimeFmt } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, Select } from "@/components/ui/modal";
@@ -563,7 +564,7 @@ export function Composer({
         .focus("end")
         .insertContent(
           `<p>${a.filename || tr("Document")}: <a href="${url}">${url}</a> ` +
-          `<em>(${tr("expires")} ${new Date(link.expires_at).toLocaleDateString()})</em></p>`,
+          `<em>(${tr("expires")} ${dateDmy(link.expires_at)})</em></p>`,
         )
         .run();
       await detach(a.email_attachment_id);
@@ -921,7 +922,7 @@ export function Composer({
 
       {queued && queued.undo_seconds === 0 && (
         <div className="border-t border-border px-3 py-2 text-xs text-muted-foreground" role="status">
-          {`${tr("Scheduled for")} ${new Date(queued.release_at).toLocaleString()}. ${tr("You can cancel it from the outbox until then.")}`}
+          {`${tr("Scheduled for")} ${dateTimeFmt(queued.release_at)}. ${tr("You can cancel it from the outbox until then.")}`}
         </div>
       )}
     </section>
