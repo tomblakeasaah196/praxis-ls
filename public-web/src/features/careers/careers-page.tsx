@@ -11,7 +11,11 @@ import { Section } from "@/components/site/section";
 import { Card } from "@/components/ui/card";
 import { Panel } from "@/components/ui/panel";
 import { FilePicker } from "@/components/ui/file-input";
-import { compressImage, isPreviewableImage } from "@/lib/image-compress";
+import {
+  compressImage,
+  isPreviewableImage,
+  previewUrlFor,
+} from "@/lib/image-compress";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/field";
@@ -491,8 +495,8 @@ function ApplyForm({ vacancy: v }: { vacancy: api.PublicVacancy }) {
       if (isPreviewableImage(prepared)) {
         // The preview this form never had. Attaching the wrong scan is
         // otherwise invisible — and a candidate has no account to check it from
-        // afterwards.
-        setPreview(URL.createObjectURL(prepared));
+        // afterwards. previewUrlFor proves the blob: contract at the sink.
+        setPreview(previewUrlFor(prepared));
       }
       setCvDataUrl(await api.fileToDataUrl(prepared));
     } catch (e) {

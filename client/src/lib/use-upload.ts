@@ -29,6 +29,7 @@ import * as React from "react";
 import {
   compressImage,
   isPreviewableImage,
+  previewUrlFor,
   type UploadProfile,
 } from "@/lib/image-compress";
 
@@ -235,7 +236,7 @@ export function useUpload<T = unknown>({
         // The preview is created here, synchronously, BEFORE any compression or
         // upload — so it is on screen the instant the picker closes rather than
         // after a round trip. That is the whole point of enforcing it centrally.
-        const previewUrl = previewable ? URL.createObjectURL(file) : null;
+        const previewUrl = previewable ? previewUrlFor(file) : null;
         if (previewUrl) urls.current.add(previewUrl);
 
         const tooBig = maxBytes != null && file.size > maxBytes;

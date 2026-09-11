@@ -2,7 +2,11 @@ import * as React from "react";
 import { cn } from "@/lib/cn";
 import { tStatic } from "@/lib/i18n";
 import { CloseIcon, DocumentIcon } from "@/components/ui/icons";
-import { compressImage, isPreviewableImage } from "@/lib/image-compress";
+import {
+  compressImage,
+  isPreviewableImage,
+  previewUrlFor,
+} from "@/lib/image-compress";
 
 /**
  * One optional file, checked here and again on the server.
@@ -127,9 +131,7 @@ export function FileInput({
         // The preview this control never had. A candidate attaching the wrong
         // scan has no account to come back and check it from, so the moment of
         // picking is the only moment they can notice.
-        previewUrl: isPreviewableImage(prepared)
-          ? URL.createObjectURL(prepared)
-          : null,
+        previewUrl: isPreviewableImage(prepared) ? previewUrlFor(prepared) : null,
       });
     } catch {
       setError(tStatic("site.quote.fileUnreadable"));
