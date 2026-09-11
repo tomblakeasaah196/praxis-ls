@@ -6,7 +6,7 @@
  */
 import * as React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "@/components/ui/toast";
@@ -401,4 +401,108 @@ describe("ServiceTypeWebTab", () => {
     expect(body).toMatchObject({ slug_fr: null });
     expect(body.slug_fr).toBeNull();
   });
+
+  /* ── Cover upload ─────────────────────────────────────────────────────── */
+  //
+  // A real WebP off a Windows machine frequently arrives with `file.type === ""`
+  // — the browser reads the media type from the OS registry and `.webp` is the
+  // extension still missing from it. The picker's own guard used to read that as
+  // "not one of PNG/JPEG/WebP" and refuse the file with a message telling the
+  // person to choose a WebP, which is the least actionable refusal possible. The
+  // vault sniffs the magic bytes and is the authority; this guard exists to save
+  // a round trip, not to second-guess it.
+  //
+  // Driven with fireEvent rather than `user.upload`, and the reason is the same
+  // fact the fix is about: user-event filters the file against the input's
+  // `accept` list and an empty type matches nothing, so it would refuse to
+  // deliver the very file under test. A browser does not behave that way —
+  // `accept` steers the file dialog and does not apply to a DRAGGED file at all,
+  // which is how most covers get here.
+
+  const COVER_LABEL = "Cover image · required to publish";
+
+  /** A WebP's opening bytes: "RIFF", a four-byte length, then "WEBP". Written as
+   *  a string because that is what `BlobPart` accepts without a cast, and the
+   *  client never looks at the bytes anyway — the vault's sniffer does, and it
+   *  reads exactly these twelve. */
+  const WEBP_HEADER = "RIFF\u0000\u0000\u0000\u0000WEBPVP8 ";
+
+  it("uploads a WebP whose media type the browser could not name", async () => {
+    getServiceTypeWeb.mockResolvedValue(draftTab());
+    uploadServiceTypeWebMedia.mockResolvedValue(draftTab());
+
+    view(
+      <ServiceTypeWebTab
+        serviceTypeId={ST_ID}
+        serviceTypeKey={ST_KEY}
+        onEditServiceType={() => {}}
+      />,
+    );
+    await screen.findByTestId("web-profile-editor");
+
+    const file = new File([WEBP_HEADER], "cover.webp", { type: "" });
+    fireEvent.change(screen.getByLabelText(COVER_LABEL), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() =>
+      expect(uploadServiceTypeWebMedia).toHaveBeenCalledTimes(1),
+    );
+    const [id, body] = uploadServiceTypeWebMedia.mock.calls[0];
+    expect(id).toBe(ST_ID);
+    expect(body.role).toBe("COVER");
+    expect(body.original_name).toBe("cover.webp");
+    expect(screen.queryByText(/Choose a PNG, JPEG or WebP image/i)).toBeNull();
+  });
+
+  it("uploads a WebP the browser did name", async () => {
+    getServiceTypeWeb.mockResolvedValue(draftTab());
+    uploadServiceTypeWebMedia.mockResolvedValue(draftTab());
+
+    view(
+      <ServiceTypeWebTab
+        serviceTypeId={ST_ID}
+        serviceTypeKey={ST_KEY}
+        onEditServiceType={() => {}}
+      />,
+    );
+    await screen.findByTestId("web-profile-editor");
+
+    const file = new File([WEBP_HEADER], "cover.webp", { type: "image/webp" });
+    fireEvent.change(screen.getByLabelText(COVER_LABEL), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() =>
+      expect(uploadServiceTypeWebMedia).toHaveBeenCalledTimes(1),
+    );
+  });
+
+  it("still refuses a file the browser DID name, and named as something else", async () => {
+    // The guard is relaxed for "" only. An outright mismatch is still worth a
+    // sentence here rather than a round trip and a 422.
+    getServiceTypeWeb.mockResolvedValue(draftTab());
+
+    view(
+      <ServiceTypeWebTab
+        serviceTypeId={ST_ID}
+        serviceTypeKey={ST_KEY}
+        onEditServiceType={() => {}}
+      />,
+    );
+    await screen.findByTestId("web-profile-editor");
+
+    const file = new File(["%PDF-1.7"], "notes.pdf", {
+      type: "application/pdf",
+    });
+    fireEvent.change(screen.getByLabelText(COVER_LABEL), {
+      target: { files: [file] },
+    });
+
+    expect(
+      await screen.findByText(/Choose a PNG, JPEG or WebP image/i),
+    ).toBeTruthy();
+    expect(uploadServiceTypeWebMedia).not.toHaveBeenCalled();
+  });
+
 });
