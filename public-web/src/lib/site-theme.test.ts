@@ -7,7 +7,6 @@ import {
   __FONT_STACKS,
   type SiteThemePayload,
 } from "@/lib/site-theme";
-import { siteFontStack, SITE_FONT_FAMILIES } from "@praxis/shared/design/site-fonts";
 
 /**
  * The website theme, and the failure that would white-screen a marketing page.
@@ -197,9 +196,9 @@ describe("the font stacks", () => {
        in a test parses as the family `inter variable"')` — a name outside the
        library, reported against a file that names no font at all. */
     for (const [role, family] of [
-      ["display", SITE_FONT_FAMILIES.inter],
-      ["body", SITE_FONT_FAMILIES["ibm-plex-sans"]],
-      ["mono", SITE_FONT_FAMILIES["jetbrains-mono"]],
+      ["display", "Inter Variable"],
+      ["body", "IBM Plex Sans Variable"],
+      ["mono", "JetBrains Mono Variable"],
     ]) {
       expect(css).toContain(`--font-${role}:`);
       expect(css).toContain(family);
@@ -210,7 +209,12 @@ describe("the font stacks", () => {
     // The middle entry is what makes `font-display: swap` cost no layout
     // shift (O-12). A stack that goes straight to `sans-serif` reflows.
     applySiteTheme(full());
-    for (const family of Object.values(SITE_FONT_FAMILIES)) {
+    for (const family of [
+      "Archivo Variable",
+      "IBM Plex Sans Variable",
+      "Inter Variable",
+      "JetBrains Mono Variable",
+    ]) {
       if (!sheet().includes(`"${family}"`)) continue;
       expect(sheet()).toContain(`"${family} Fallback"`);
     }
@@ -234,14 +238,36 @@ describe("the font stacks", () => {
     expect(sheet()).toContain("--font-body");
   });
 
-  it("matches the shared registry exactly, so the copy cannot drift", () => {
-    // These four strings are a COPY of `siteFontStack()`'s output — D-1 keeps
-    // @praxis/shared out of this bundle. This is what stops the copy drifting.
-    for (const id of Object.keys(__FONT_STACKS)) {
-      const generic = id === "jetbrains-mono" ? "monospace" : "sans-serif";
-      expect(`${id}: ${__FONT_STACKS[id]}`).toBe(`${id}: ${siteFontStack(id, generic)}`);
-    }
-    expect(Object.keys(__FONT_STACKS).sort()).toEqual(Object.keys(SITE_FONT_FAMILIES).sort());
+  /**
+   * ── WHY THE AUTHORITY IS NOT IMPORTED HERE ────────────────────────────
+   *
+   * `siteFontStack()` in `@praxis/shared/design/site-fonts` is the authority,
+   * and this file does NOT import it. `public-web` does not depend on
+   * `@praxis/shared` at all — D-1 spent real effort keeping it out of this
+   * bundle, and `social-row.test.tsx` settled the same question the same way.
+   *
+   * The first draft imported it anyway. It passed locally, because the root
+   * workspace hoists `@praxis/shared` into a `node_modules` this app can see,
+   * and it failed in CI, where the public-web job installs only this app's own
+   * dependencies. A test that resolves a package the app does not declare is
+   * green by accident.
+   *
+   * So the halves are split where the resolution actually works:
+   *   · HERE — the copy is pinned to literal strings, self-contained.
+   *   · `tests/unit/font-fallback-metrics.test.js` — runs under jest at the
+   *     repo root, where `@praxis/shared` genuinely resolves, and compares
+   *     `siteFontStack()` against the text of THIS file. That is the half that
+   *     catches drift on the shared side, which a literal here cannot.
+   */
+  it("pins the copy to the exact stacks the registry produces", () => {
+    expect(__FONT_STACKS).toEqual({
+      archivo: '"Archivo Variable", "Archivo Variable Fallback", sans-serif',
+      "ibm-plex-sans":
+        '"IBM Plex Sans Variable", "IBM Plex Sans Variable Fallback", sans-serif',
+      inter: '"Inter Variable", "Inter Variable Fallback", sans-serif',
+      "jetbrains-mono":
+        '"JetBrains Mono Variable", "JetBrains Mono Variable Fallback", monospace',
+    });
   });
 });
 
