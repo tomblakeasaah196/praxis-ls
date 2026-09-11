@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Seed one tenant's website content — theme, group About, leadership and the
- * partner list — from a JSON profile.
+ * Seed one tenant's website content — theme, group About, leadership, the
+ * partner list and the homepage announcements — from a JSON profile.
  *
  *   node scripts/tenant/seed-site-experience.js --slug=smartls --profile=smartls [--force]
  *
@@ -170,6 +170,94 @@ const keepOrSet = (col) =>
     if (DATA.partners) {
       console.warn(`[praxis-db] partners: ${partners} added, ${DATA.partners.length - partners} already present`);
       console.warn("[praxis-db]   all INACTIVE — record who cleared each mark in Settings › Website before showing it");
+    }
+
+    /* ── announcements ─────────────────────────────────────────────────
+     *
+     * An announcement IS an article with `kind = 'announcement'` — migration
+     * 13784 says why at length, and the short version is that it already has a
+     * title, a body, a slug, a publish verb and a public detail page, so a
+     * second table would have duplicated all five and drifted from them at the
+     * first feature that touched only one.
+     *
+     * ── PUBLISHED AND PINNED, WHICH IS NOT THE DEFAULT ELSEWHERE IN HERE ───
+     *
+     * The partners above are seeded INACTIVE because clearance for somebody
+     * else's trademark is not a decision a script is entitled to make. This is
+     * the opposite case and the distinction is worth stating: an announcement
+     * is the tenant's OWN statement about the tenant's OWN company. There is no
+     * third party whose permission is missing. What is missing is only whether
+     * the facts are right, and that is settled by the person who runs this
+     * command against a named tenant — which is why the profile carries a
+     * `//announcements` note listing exactly what was deliberately not invented,
+     * and why this prints the same list on every run.
+     *
+     * `pinned_until` is a timestamp and not a flag, so the homepage band empties
+     * itself when the launch stops being news. Nobody reads their own homepage;
+     * a boolean would still be there in eleven months.
+     *
+     * Matched on `slug_en`, so re-running does not publish the notice twice.
+     * Without --force an existing row is left completely alone — including a
+     * pin the tenant has since cleared, which they cleared on purpose.
+     */
+    let announcements = 0;
+    let announcementsKept = 0;
+    for (const a of DATA.announcements || []) {
+      const cols = [
+        "slug_fr", "slug_en", "title_fr", "title_en", "excerpt_fr", "excerpt_en",
+        "body_fr", "body_en", "meta_title_fr", "meta_title_en",
+        "meta_description_fr", "meta_description_en",
+      ];
+      const values = cols.map((c) => a[c] ?? null);
+      // `author_user_id` and `cover_vault_id` stay NULL. A byline is a real
+      // colleague and a cover is a real photograph (N12, guide §1.3); a seed
+      // script has no business attributing copy to somebody or illustrating it
+      // with an image nobody chose.
+      const res = await cli.query(
+        `INSERT INTO insight_article (
+           ${cols.join(", ")}, tags, kind, is_published, published_at,
+           pinned_until, sort_order
+         )
+         SELECT ${cols.map((_, i) => `$${i + 1}`).join(", ")},
+                $${cols.length + 1}::text[], 'announcement', true, now(),
+                $${cols.length + 2}::timestamptz, $${cols.length + 3}
+          WHERE NOT EXISTS (
+            SELECT 1 FROM insight_article WHERE slug_en IS NOT DISTINCT FROM $2
+          )`,
+        [...values, a.tags || [], a.pinned_until || null, a.sort_order ?? 100],
+      );
+      if (res.rowCount) {
+        announcements += 1;
+      } else if (force) {
+        // --force rewrites the copy AND restores the pin: this is the "reset a
+        // workspace for a demo" path, and a half-restored announcement (new
+        // words, expired pin) is not a state anybody asked for.
+        await cli.query(
+          `UPDATE insight_article
+              SET ${cols.map((c, i) => `${c} = $${i + 1}`).join(", ")},
+                  tags = $${cols.length + 1}::text[],
+                  kind = 'announcement',
+                  is_published = true,
+                  published_at = COALESCE(published_at, now()),
+                  pinned_until = $${cols.length + 2}::timestamptz,
+                  sort_order = $${cols.length + 3},
+                  updated_at = now()
+            WHERE slug_en IS NOT DISTINCT FROM $2`,
+          [...values, a.tags || [], a.pinned_until || null, a.sort_order ?? 100],
+        );
+        announcements += 1;
+      } else {
+        announcementsKept += 1;
+      }
+    }
+    if (DATA.announcements) {
+      console.warn(
+        `[praxis-db] announcements: ${announcements} written, ${announcementsKept} already present (kept)`,
+      );
+      console.warn("[praxis-db]   PUBLISHED and PINNED — they are live on the homepage band now.");
+      if (DATA["//announcements"]) {
+        console.warn(`[praxis-db]   ${DATA["//announcements"]}`);
+      }
     }
 
     console.warn(`[praxis-db] website experience seeded for '${slug}' from profile '${profile}' ✓`);
