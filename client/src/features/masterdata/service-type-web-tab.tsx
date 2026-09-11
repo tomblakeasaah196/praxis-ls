@@ -31,6 +31,7 @@ const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 const L = api.SERVICE_TYPE_WEB_LIMITS;
 
 type Lang = "fr" | "en";
+type MediaRole = "COVER" | "ICON" | "GALLERY";
 
 function imageProblem(file: File): string | null {
   if (!file.size) return "That image is empty.";
@@ -476,22 +477,74 @@ export function ServiceTypeWebTab({
     await run(() => api.upsertServiceTypeWeb(serviceTypeId, seed));
   }
 
-  async function onUpload(role: "COVER" | "ICON" | "GALLERY", file: File | null) {
+  /**
+   * THE PICKED FILE IS THE PREVIEW, and it is why this state exists.
+   *
+   * Every dropzone on this screen used to be handed `file={null}`, hard-coded.
+   * `<FileDrop>` already renders a thumbnail, the filename, the size and an
+   * upload state from the file it is given — all of it was dead code here, so
+   * choosing a cover produced no thumbnail, no filename, and no sign that
+   * anything had happened. What replaced it, once the round trip finished, was
+   * the first eight characters of a document UUID: `91ff95bb…`. Nobody can
+   * confirm they uploaded the right photograph from that, which is exactly the
+   * report this fixes — "I don't know if it uploaded, there is no preview".
+   *
+   * Held per slot rather than as one value because COVER and ICON are distinct
+   * pictures that can each be mid-upload, and a single field would show one
+   * slot's thumbnail under the other's dropzone.
+   *
+   * It is the LOCAL file, never a fetched one: the bytes are already in the
+   * browser, so the preview costs nothing and — unlike reading the stored
+   * document back — needs no permission the person editing a service type may
+   * not have. A cover uploaded in an EARLIER session therefore still has no
+   * thumbnail; see the note on the vault download in the media block below.
+   */
+  const [picked, setPicked] = React.useState<Record<MediaRole, File | null>>({
+    COVER: null,
+    ICON: null,
+    GALLERY: null,
+  });
+  const [uploaded, setUploaded] = React.useState<Record<MediaRole, boolean>>({
+    COVER: false,
+    ICON: false,
+    GALLERY: false,
+  });
+
+  async function onUpload(role: MediaRole, file: File | null) {
     setMediaError(null);
-    if (!file) return;
+    // Clearing the box — `<FileDrop>`'s own "Remove file" — drops the preview
+    // without touching what is stored. Removing the stored document is the
+    // separate Remove button, which is destructive and says so.
+    if (!file) {
+      setPicked((p) => ({ ...p, [role]: null }));
+      setUploaded((u) => ({ ...u, [role]: false }));
+      return;
+    }
     const problem = imageProblem(file);
     if (problem) {
       setMediaError(problem);
       return;
     }
-    await run(async () => {
-      const data_url = await readFileAsDataUrl(file);
-      return api.uploadServiceTypeWebMedia(serviceTypeId, {
-        role,
-        data_url,
-        original_name: file.name,
+    // Shown BEFORE the upload starts, so the thumbnail appears while the bytes
+    // are still going up rather than after they land.
+    setPicked((p) => ({ ...p, [role]: file }));
+    setUploaded((u) => ({ ...u, [role]: false }));
+    try {
+      await run(async () => {
+        const data_url = await readFileAsDataUrl(file);
+        return api.uploadServiceTypeWebMedia(serviceTypeId, {
+          role,
+          data_url,
+          original_name: file.name,
+        });
       });
-    });
+    } finally {
+      // `run` swallows the error into `error`, so success is "the slot now
+      // holds a document". A gallery frame clears its box — the list below is
+      // where it lives now, and the box has to be free for the next one.
+      setUploaded((u) => ({ ...u, [role]: true }));
+      if (role === "GALLERY") setPicked((p) => ({ ...p, GALLERY: null }));
+    }
   }
 
   async function onRemoveMedia(docId: string) {
@@ -781,7 +834,8 @@ export function ServiceTypeWebTab({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <FileDrop
-              file={null}
+              file={picked.COVER}
+              uploadSuccess={uploaded.COVER && !busy}
               disabled={mediaLocked || busy}
               accept={IMAGE_ACCEPT}
               label={`${tr("Cover image")} · ${tr("required to publish")}`}
@@ -791,8 +845,16 @@ export function ServiceTypeWebTab({
             />
             {profile.cover_vault_id && (
               <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="font-mono text-muted-foreground">
-                  {profile.cover_vault_id.slice(0, 8)}…
+                <span className="text-muted-foreground">
+                  {/* The document id used to be the whole label, in monospace,
+                      truncated to eight characters. It answers no question a
+                      person editing a web page has — least of all "is my
+                      photograph on there?" — so it is now the title attribute
+                      (still there for a support conversation) behind a sentence
+                      that says what the state actually is. */}
+                  <span title={profile.cover_vault_id}>
+                    {tr("Cover image stored")}
+                  </span>
                   {readiness.cover.allowed ? (
                     <Pill tone="ok" className="ml-2">
                       {tr("Ready")}
@@ -818,7 +880,8 @@ export function ServiceTypeWebTab({
           </div>
           <div>
             <FileDrop
-              file={null}
+              file={picked.ICON}
+              uploadSuccess={uploaded.ICON && !busy}
               disabled={mediaLocked || busy}
               accept={IMAGE_ACCEPT}
               label={tr("Icon (optional)")}
@@ -827,8 +890,11 @@ export function ServiceTypeWebTab({
             />
             {profile.icon_vault_id && (
               <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="font-mono text-muted-foreground">
-                  {profile.icon_vault_id.slice(0, 8)}…
+                <span
+                  className="text-muted-foreground"
+                  title={profile.icon_vault_id}
+                >
+                  {tr("Icon stored")}
                 </span>
                 {!mediaLocked && (
                   <Button
@@ -846,7 +912,8 @@ export function ServiceTypeWebTab({
         </div>
         <div>
           <FileDrop
-            file={null}
+            file={picked.GALLERY}
+            uploadSuccess={uploaded.GALLERY && !busy}
             disabled={
               mediaLocked ||
               busy ||
