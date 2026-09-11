@@ -29,6 +29,7 @@
  * composer must not draw a toast for it.
  */
 import * as React from "react";
+import { dateTimeFmt } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { tr } from "@/lib/i18n";
@@ -61,7 +62,7 @@ export function SchedulePicker({
           <span className="text-xs text-muted-foreground">
             {value.kind === "MORNING"
               ? `${tr("Going out at 09:00 in")} ${recipientTimezone || tr("their timezone")}`
-              : `${tr("Going out")} ${new Date(value.iso).toLocaleString()}`}
+              : `${tr("Going out")} ${dateTimeFmt(value.iso)}`}
           </span>
         )}
         <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>

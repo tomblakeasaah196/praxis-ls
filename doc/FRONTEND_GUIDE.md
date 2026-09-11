@@ -338,6 +338,7 @@ return `{ rows | data, error, loading, reload }`.
 | Confirm                          | `<ConfirmDialog>`                                                                         | Name the object and the action, not "Yes/No".                                                                                                                   |
 | Form field                       | `<Field>`                                                                                 | Supplies the label association and `aria-required` / `aria-invalid`.                                                                                            |
 | Text input                       | `<Input>` / `<Textarea>`                                                                  |                                                                                                                                                                 |
+| Date input                       | `<DateField>`                                                                             | **Never `<Input type="date">`.** Reads and writes dd/mm/yyyy whatever the OS locale is; stores ISO. Takes `min`/`max`/`required` and an RHF `{...field}` spread (§3.12). |
 | Choose one                       | `<NativeSelect>` (default) · `<Select>` (rich options) · `<SearchSelect>` (server-backed) |                                                                                                                                                                 |
 | Toggle                           | `<Checkbox>` / `<RadioGroup>`                                                             |                                                                                                                                                                 |
 | View switch                      | `<Segmented>` (2–5 fixed) · `<Chips>` (wrapping filters)                                  |                                                                                                                                                                 |
@@ -541,6 +542,57 @@ exception, `eslint-disable-next-line praxis/no-native-dialogs` still works and
 in these configs uses. Nothing in the tree needs it today. `window.print()` and
 `beforeunload` are not matched by the rule and need no disable.
 
+### 3.12 Dates — day-first, always
+
+**Never `<input type="date">`. Use `<DateField>`.**
+
+This is enforced by `scripts/check-date-format.js`, which runs in CI and in
+`npm run ci`, so a native date input does not merge.
+
+```tsx
+import { DateField } from "@/components/ui/date-field";
+
+<Field label={tr("Expires on")} required>
+  <DateField value={expiresOn} onChange={setExpiresOn} min={todayISO()} required />
+</Field>
+
+// Inside a <Form>, the react-hook-form spread works unchanged:
+<FormField form={form} name="entry_date" label={tr("Entry date")} required>
+  {(field) => <DateField {...field} value={String(field.value ?? "")} />}
+</FormField>
+```
+
+`value` and `onChange` speak ISO `YYYY-MM-DD` — the same string the API wants —
+so nothing downstream changes. What the operator sees and types is dd/mm/yyyy.
+`onChange` fires with `""` while the date is incomplete or impossible, so a
+half-typed `31/02` never reaches your state as a rolled-over 3rd of March.
+
+**Why it is a hard rule and not a preference.** A native `<input type="date">`
+renders in the OPERATING SYSTEM's locale, and no HTML attribute overrides it —
+`lang` is ignored for the value display. On a US-configured workstation it shows
+and accepts mm/dd/yyyy. Praxis serves a corridor that reads dates day-first, so
+the operator types 03/07 meaning the 3rd of July and the control stores the 7th
+of March.
+
+Nothing catches that. Both readings are real dates, so the value validates, the
+API accepts it, the round-trip is clean and every test stays green. It surfaces
+months later — a licence that expired in a month nobody expected, a customs
+deadline missed by a quarter, a payroll run dated to the wrong period.
+
+The same applies to **displaying** a date. `toLocaleDateString()` with no locale
+means "whatever this machine is set to", which is month-first on a US
+workstation and in a container with no `LANG`. Use the formatters in
+`lib/format.ts` (§5) — `dateFmt` for "21 Jul 2026", `dateDmy` for a strict
+numeric dd/mm/yyyy — or pin `en-GB`. Never pass `undefined`, `[]`, `"en"` or
+`"en-US"` to a format that renders a day number.
+
+The gate has two escape hatches, each costing a written reason:
+`@date-format:foreign` for an incoming third-party format (a bank statement
+genuinely arrives month-first, and refusing to parse it does not make it
+day-first), and `@date-format:parts` for an `Intl.DateTimeFormat` built only to
+call `formatToParts()`, which renders nothing. Whole files are listed per-rule
+in the script's `ALLOW_FILES`. Nothing else in the tree needs one today.
+
 ### 3.11 A record's detail view — a page on desktop, a sheet on a phone
 
 A 360 is one body with two shells. Write the body as an ordinary component that
@@ -634,7 +686,10 @@ are axe-tested. What that leaves to you:
 
 Anything a person reads must be formatted for a person. Helpers live in `lib/format.ts`.
 
-- **Dates** — never raw ISO. `dateFmt` → "21 Jul 2026", `dateTimeFmt` → "21 Jul 2026, 23:00".
+- **Dates** — never raw ISO, and never month-first. `dateFmt` → "21 Jul 2026", `dateTimeFmt`
+  → "21 Jul 2026, 23:00", `dateDmy` → "21/07/2026" for a strict numeric date. Never call
+  `toLocaleDateString()` without a locale: it renders month-first on a US workstation, and
+  `check:dates` fails the build on it (§3.12).
 - **Money** — `money(v, ccy)` (suffixed) · `amount(v)` (2dp, no suffix, header carries the
   currency) · `money0(v)` (0dp) · `num(v)`. Always with the `.num` tabular class.
 - **Foreign-key IDs → names** — never a bare UUID in a column. Build an id→name map
@@ -692,9 +747,10 @@ in English (`"The record": "Le dossier"`), not a dossier.
 - [ ] No raw UUIDs, ISO dates, dotted event keys or SCREAMING_ENUMs on screen (§5).
 - [ ] No raw `<table>` / `<input>` / `<textarea>` / `role="menu"` — use the primitives (§3.5).
 - [ ] No `window.confirm` / `alert` / `prompt` — `useConfirm()`, `usePrompt()`, `<Callout>` or `useToast()` (§3.10).
+- [ ] No `<Input type="date">` — `<DateField>`; and no locale-less `toLocaleDateString()` (§3.12).
 - [ ] New shared component? Add a story, a usage example, a best-practices note and a test.
 - [ ] Row actions go in `<RowActions>` — that is what keeps the row at its density height (§7.1).
-- [ ] `npm run lint`, `npm test`, `npm run check:contrast`, `npm run check:motion`, `npm run check:palette`, `npm run check:docs`, `npm run check:schemas`, `npm run build`, `npm run check:bundle`, `npm run check:shared` and `npm run test:e2e` all pass in `client/`.
+- [ ] `npm run lint`, `npm test`, `npm run check:contrast`, `npm run check:motion`, `npm run check:palette`, `npm run check:docs`, `npm run check:schemas`, `npm run build`, `npm run check:bundle`, `npm run check:shared` and `npm run test:e2e` all pass in `client/`, and `npm run check:dates` at the repo root.
 - [ ] Screen registered in `app.tsx` via `lazyNamed(...)`; **no** new `manualChunks` bucket (§3.7).
 - [ ] RBAC action is **`edit`**, not `update` (matches the backend).
 - [ ] Route added in `app.tsx`; **`screen-registry.json` updated in the same commit** — the ribbon
