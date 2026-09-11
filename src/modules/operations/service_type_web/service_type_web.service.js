@@ -173,26 +173,36 @@ async function upsertProfile(client, { serviceTypeId, patch, actor = {} }) {
       });
     }
   }
-  if (before) {
-    // Slug-uniqueness: drafts included, so two services cannot both want
-    // the same /fr/<slug>. The partial unique index is the real guard; the
-    // service is the friendlier one (turn 23505 into a 422 with a field).
-    for (const lang of ["fr", "en"]) {
-      const key = `slug_${lang}`;
-      if (fields[key] && fields[key] !== before[key]) {
-        const dup = await client.query(
-          `SELECT 1 FROM service_type_web_profile
-            WHERE slug_${lang} = $1 AND service_type_id <> $2 LIMIT 1`,
-          [fields[key], serviceTypeId],
+  // Slug-uniqueness: drafts included, so two services cannot both want the same
+  // /fr/<slug>. The partial unique index (ux_stwp_slug_fr / _en) is the real
+  // guard; this is the friendlier one — it turns 23505 into a 422 that names
+  // the field the form can show it against.
+  //
+  // Deliberately NOT gated on an existing row. It used to sit inside
+  // `if (before)`, which skipped it on exactly the write most likely to collide:
+  // the FIRST save of a page, where the slug is whatever the tab suggested from
+  // the service name and has never been checked against anything. That write
+  // reached the unique index and came back as the generic constraint handler's
+  // "a record with these values already exists" — no field, no slug, and no clue
+  // which of the two languages was the problem.
+  //
+  // `before` is still consulted, only as the skip: re-sending the slug a row
+  // already has is not a collision with itself.
+  for (const lang of ["fr", "en"]) {
+    const key = `slug_${lang}`;
+    if (fields[key] && (!before || fields[key] !== before[key])) {
+      const dup = await client.query(
+        `SELECT 1 FROM service_type_web_profile
+          WHERE slug_${lang} = $1 AND service_type_id <> $2 LIMIT 1`,
+        [fields[key], serviceTypeId],
+      );
+      if (dup.rowCount) {
+        throw new AppError(
+          "SLUG_TAKEN",
+          `Another service already uses the slug "${fields[key]}" in language "${lang}"`,
+          422,
+          { [key]: ["already in use"] },
         );
-        if (dup.rowCount) {
-          throw new AppError(
-            "SLUG_TAKEN",
-            `Another service already uses the slug "${fields[key]}" in language "${lang}"`,
-            422,
-            { [key]: ["already in use"] },
-          );
-        }
       }
     }
   }

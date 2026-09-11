@@ -129,9 +129,22 @@ async function upsertProfile(client, serviceTypeId, patch) {
   const sent = COLUMNS.filter((col) => Object.prototype.hasOwnProperty.call(patch, col));
   if (sent.length === 0) {
     // Pure touch (e.g. the caller only sent an audio field that maps to no
-    // column). INSERT defaults and RETURN.
+    // column). Create the row if it is absent, return it untouched if it is not.
+    //
+    // The conflict clause is not decoration. This branch is reached with an
+    // EXISTING row on a live path: `removeMedia` builds an empty `fields` when
+    // the doc it is unbinding is scoped to this service but is no longer the
+    // row's `cover_vault_id` / `icon_vault_id` — which is exactly the state a
+    // PUT `{cover_vault_id: null}` leaves behind, and exactly when someone goes
+    // to clean the orphaned document up. A bare INSERT there raises 23505 on
+    // the primary key, aborts the surrounding transaction, and answers 500 to a
+    // request that should have been a no-op. `DO UPDATE` (rather than
+    // `DO NOTHING`) so `RETURNING *` still yields the row.
     const { rows } = await client.query(
-      `INSERT INTO service_type_web_profile (service_type_id) VALUES ($1) RETURNING *`,
+      `INSERT INTO service_type_web_profile (service_type_id) VALUES ($1)
+       ON CONFLICT (service_type_id)
+         DO UPDATE SET service_type_id = EXCLUDED.service_type_id
+       RETURNING *`,
       [serviceTypeId],
     );
     return rows[0];
@@ -168,10 +181,21 @@ async function lockProfile(client, serviceTypeId) {
   return rows[0] || null;
 }
 
-/** The name_en presence + is_active read the publish gate needs. */
+/**
+ * The name_en presence + is_active read the publish gate needs — plus name_fr,
+ * which the gate itself does not use but `getTab` returns to the tab.
+ *
+ * `name_fr` was missing here while `getTab` read `serviceType.name_fr`, so
+ * `service_type.name_fr` left every GET as `undefined` and JSON dropped it. The
+ * tab uses that name for two visible things: the FR slug SUGGESTION (which then
+ * fell back to the SCREAMING_SNAKE key, offering `project-cargo` where the
+ * French name gives `cargaison-speciale`) and the meta-title fallback hint,
+ * which rendered blank. Both read as the server having no French name for a row
+ * that has one.
+ */
 async function serviceTypeForPublish(client, serviceTypeId) {
   const { rows } = await client.query(
-    `SELECT service_type_id, name_en, is_active
+    `SELECT service_type_id, name_en, name_fr, is_active
        FROM service_type
       WHERE service_type_id = $1`,
     [serviceTypeId],
@@ -379,6 +403,15 @@ async function publicDetail(client, slug) {
   // Allowlist re-check at read time (cover + icon + gallery), one IN-list
   // round trip. A row's media URLs are derived from the allowlist, not
   // from the profile row alone.
+  //
+  // The map is doc id → ROLE, and the caller must compare the role to the slot
+  // it found the id in. Presence alone is not the allowlist: every other check
+  // on this table binds role to slot — `publicList` asserts
+  // `public_media_role = 'COVER'` inside its EXISTS, `publicMediaForServe`
+  // asserts role AND slot before streaming a byte, and the admin
+  // `isCoverAllowed` asserts `role === "COVER"`. Reading presence only would
+  // make the detail page the one surface that shows a GALLERY document as the
+  // cover, on a row whose card in the list correctly shows none.
   const ids = [row.cover_vault_id, row.icon_vault_id, ...(row.gallery_vault_ids || [])].filter(Boolean);
   const mediaByRole = new Map();
   if (ids.length) {

@@ -72,8 +72,15 @@ export function ServiceTypesPage() {
   React.useEffect(() => {
     // Auto-select the first row once the list arrives, so the split pane is
     // never empty on first paint (matches client-360's behaviour).
-    if (!selId && rows.length) setSelId(rows[0].service_type_id);
-  }, [rows, selId]);
+    //
+    // `!selected` rather than `!selId`, because the selected id can stop being
+    // in `rows` without being cleared: untick "Show archived" while an archived
+    // service is open and the list re-fetches without it. The pane then rendered
+    // "No service type selected" over a selId that was still set, and nothing
+    // re-selected — the only way out was to click another row.
+    if (!rows.length) return;
+    if (!selected) setSelId(rows[0].service_type_id);
+  }, [rows, selected]);
 
   return (
     <section className={shell}>
