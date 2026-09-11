@@ -582,6 +582,7 @@ its fourth PR.
 | F-41 | **`check:motion`'s declaration regex required whitespace before the property.** `.x{transition:opacity 3s}` on one line matched nothing — in `index.css` or anywhere else. Both apps' copies. Found by probing the gate with a real violation; reading it would not have shown this, because the pattern looks correct until you notice `{` is not `\s`. | **Fixed** in both copies, and both probes are recorded in §3.8. |
 | F-42 | **`check:contrast` read the first `:root` block and the first declaration in it.** Two independent first-match assumptions, and the second is the one that mattered: after the gate was widened to collect every matching rule, `rawToken` still returned the earliest declaration, so an override — the thing a cascade exists to do — was collected and then ignored. A gate that measures a value nobody is served is worse than one that measures nothing, because it reports a pass. | **Fixed.** Blocks are joined in cascade order and `rawToken` takes the last. Verified by a second `:root` re-declaring `--foreground` at 1.12:1: caught, and not caught before. |
 | F-43 | **`/careers`'s 0.093 shift is the skeleton, not the font.** O-12's fallbacks left it unchanged, and it survives with fonts blocked entirely; a `PerformanceObserver` puts it at a single shift at t=227 ms. Lighthouse attributed it to "web font loaded", which is coarse enough to have sent this to the wrong fix. | **Open (O-16), diagnosed not guessed.** `PageSkeleton rows={4}` stands in for a list whose length is the tenant's; the honest fix needs both rendered heights measured against a live backend. |
+| F-44 | **A test imported `@praxis/shared` from `public-web` and passed.** D-1 keeps that package out of this bundle and three files carry comments saying so — `site-theme.ts`, `social-row.tsx`, `social-row.test.tsx` — and none of them enforced it. The root workspace hoists the package into a `node_modules` this app can see, so the import resolved locally and `npm run ci` went 42/42. CI failed it twice: the `frontend (public-web)` job and the Dockerfile both run `npm ci --prefix public-web`, which installs what the app DECLARES. **A local run structurally cannot reproduce that**, which is what makes this a gate rather than a note. | **Fixed.** `no-restricted-imports` bans `@praxis/shared` and its subpaths in `public-web`, tests included — the violation WAS a test, and one that resolves an undeclared package is green by accident. Verified by re-adding the exact import: caught locally now. The cross-package assertion moved to `tests/unit/font-fallback-metrics.test.js`, at the repo root where the package genuinely resolves, and compares `siteFontStack()` against the text of `site-theme.ts` — proved against a real drift in both directions. |
 
 **How this was verified.**
 
@@ -788,6 +789,18 @@ what somebody needs to send a courier and equally what somebody needs to put a
 real company's registered office on headed paper they wrote themselves. So the
 document was corrected, not the endpoint, and widening a public allow-list stays
 a decision somebody takes deliberately.
+
+**And one the gates could not have caught locally (F-44).** A test imported
+`@praxis/shared/design/site-fonts` from `public-web`. D-1 keeps that package out
+of this bundle, three files carry comments saying so, and nothing enforced it —
+so the import resolved through the root workspace's hoisted `node_modules` and
+`npm run ci` reported 42/42. CI failed it twice, because the public-web job and
+the Dockerfile both run `npm ci --prefix public-web` and install only what the
+app declares. That asymmetry is permanent: no local run of the whole tree can
+reproduce a per-app install. So D-1 is now a lint rule rather than a comment,
+tests included, and the cross-package assertion moved to `tests/unit/`, where
+the package actually resolves and where it can compare `siteFontStack()` against
+the text of the file holding the copy.
 
 **What is left, and why it is left.** O-15 (8.4 kB of unread dictionary in every
 entry) and O-16 (`/careers`'s 0.093 shift) are both measured and both carry the

@@ -26,7 +26,7 @@
  */
 "use strict";
 
-const { existsSync } = require("node:fs");
+const { existsSync, readFileSync } = require("node:fs");
 const { join } = require("node:path");
 
 /** The generator is ESM and jest here is CJS, so the part worth testing lives
@@ -141,5 +141,69 @@ describeIfFonts("the fallback table is pinned to a real font file", () => {
     expect(mod.FALLBACK_METRICS.sans.locals).toContain("Liberation Sans");
     expect(mod.FALLBACK_METRICS.mono.locals[0]).toBe("Courier New");
     expect(mod.FALLBACK_METRICS.mono.locals).toContain("Liberation Mono");
+  });
+});
+
+/**
+ * ── THE COPY IN public-web, PINNED TO THE REGISTRY THAT OWNS IT ───────────
+ *
+ * `public-web/src/lib/site-theme.ts` hardcodes the four `font-family` stacks
+ * rather than calling `siteFontStack()`, because `public-web` does not depend on
+ * `@praxis/shared` and D-1 spent real effort keeping it that way. A copy with no
+ * check is a copy that drifts, and the drift is invisible: a stack naming a
+ * family no `@font-face` declares falls silently through to the generic and
+ * looks fine to anybody who has that font installed (F-11).
+ *
+ * The check lives HERE rather than in that app's own suite, and that placement
+ * is the finding. The vitest version imported `@praxis/shared/design/site-fonts`
+ * directly, which passed locally — the root workspace hoists the package into a
+ * `node_modules` public-web can see — and failed in CI, where that app's job
+ * installs only its own declared dependencies. Green by accident is worse than
+ * red: it is a test asserting against a module the app does not have.
+ *
+ * At the repo root the package genuinely resolves, so this compares the real
+ * `siteFontStack()` against the TEXT of the file holding the copy. Reading it as
+ * text rather than importing it is what keeps a TypeScript module out of a jest
+ * run, and it is enough: the thing being protected is a string literal.
+ */
+describe("the public site's font stacks match the shared registry", () => {
+  const fonts = require("../../packages/shared/design/site-fonts");
+  const source = readFileSync(
+    join(__dirname, "..", "..", "public-web", "src", "lib", "site-theme.ts"),
+    "utf8",
+  );
+
+  /** The `FONT_STACKS` object literal, as { id: stack }. */
+  const copied = (() => {
+    const block = source.match(/const FONT_STACKS: Record<string, string> = \{([\s\S]*?)\n\};/);
+    if (!block) throw new Error("FONT_STACKS literal not found in site-theme.ts");
+    const out = {};
+    for (const m of block[1].matchAll(/"?([\w-]+)"?:\s*\n?\s*'([^']+)'/g)) out[m[1]] = m[2];
+    return out;
+  })();
+
+  test("covers every id the registry names, and no other", () => {
+    expect(Object.keys(copied).sort()).toEqual(
+      Object.keys(fonts.SITE_FONT_FAMILIES).sort(),
+    );
+  });
+
+  test("every copied stack is exactly what siteFontStack() produces", () => {
+    for (const id of Object.keys(copied)) {
+      const generic = id === "jetbrains-mono" ? "monospace" : "sans-serif";
+      // Keyed by id in the assertion so a failure names the font rather than
+      // reporting two long strings that differ somewhere.
+      expect({ [id]: copied[id] }).toEqual({ [id]: fonts.siteFontStack(id, generic) });
+    }
+  });
+
+  test("each stack names the metric-matched fallback between face and generic", () => {
+    // The middle entry is the whole of O-12: a stack that goes straight to
+    // `sans-serif` reflows on swap, which is the 0.184 CLS this closed.
+    for (const [id, stack] of Object.entries(copied)) {
+      expect({ [id]: stack }).toEqual({
+        [id]: expect.stringContaining(`"${fonts.SITE_FONT_FAMILIES[id]} Fallback"`),
+      });
+    }
   });
 });
