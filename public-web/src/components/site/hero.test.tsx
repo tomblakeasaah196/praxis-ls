@@ -11,7 +11,12 @@ import { RouteCanvas } from "./route-canvas";
  *  protects the component and not the design. */
 const HERE = __dirname;
 const read = (rel: string) => readFileSync(join(HERE, rel), "utf8");
-const css = read("../../index.css");
+/* The band's own stylesheet, which is where its numbers live — it is a separate
+   file so the rules ride the marketing chunk instead of the entry, and `hero.css`
+   carries the reasoning. Read here for the same reason `check-motion.mjs` reads
+   CSS: the values that bind this band are declarations, and a test that cannot
+   see them protects the component and not the design. */
+const css = read("./hero.css");
 
 /**
  * The hero — the LCP element, and the one band whose contrast was MEASURED
@@ -111,6 +116,26 @@ describe("the pass", () => {
     expect(stripe).toContain("var(--beam-peak)");
   });
 
+  it("keeps the band's rules off the entry stylesheet", () => {
+    // These rules are mounted by this component and by nothing else, and this
+    // component is reachable only from the lazily-loaded marketing page. On the
+    // entry they were first-paint weight for every route in the app, including
+    // the ones that cannot render a hero — and the entry is the budget that is
+    // measured to the kilobyte. Moving one back is a silent regression that the
+    // bundle gate would only catch once the budget had already been spent.
+    const entry = read("../../index.css");
+    for (const selector of [".hero-beam", ".hero-word-light", ".track-widget", ".tilt-plate"]) {
+      expect(entry).not.toContain(`${selector} {`);
+      expect(css).toContain(`${selector} {`);
+    }
+    // …and what deliberately STAYED, because every §8 page wears it: moving
+    // these would duplicate them into a dozen route chunks, which costs more in
+    // total than it saves on the entry.
+    for (const shared of [".band-hero {", ".hero-title {", ".staged-clip {"]) {
+      expect(entry).toContain(shared);
+    }
+  });
+
   it("mounts the beam under the scrims, which is what caps it on a photograph", () => {
     // Paint order IS the safety argument on an image-backed hero: the scrims
     // render after the beam and therefore above it, so the measured wash caps
@@ -129,7 +154,7 @@ describe("the pass", () => {
     // the ground. The moment a keyframe here carries a literal, that claim is
     // no longer true and nothing else in the tree would notice.
     const frames = (
-      css.match(/@keyframes hero-word-light(?:-accent)? \{[\s\S]*?\n {2}\}/g) || []
+      css.match(/@keyframes hero-word-light(?:-accent)? \{[\s\S]*?\n\}/g) || []
     ).join("\n");
     expect(frames).toContain("hero-word-light-accent");
     expect(frames).not.toMatch(/#[0-9a-f]{3,8}\b/i);
