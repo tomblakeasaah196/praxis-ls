@@ -46,6 +46,43 @@ If you believe you have found the exception, you almost certainly have not.
 `eslint-disable-next-line praxis/no-native-dialogs` exists, requires a written
 reason next to it, and nothing in the tree needs one today.
 
+## The second frontend rule: dates are day-first
+
+**Never `<input type="date">`. Use `<DateField>` from
+`@/components/ui/date-field`.**
+
+This is enforced by `scripts/check-date-format.js` (`npm run check:dates`),
+which runs in CI and in `npm run ci`, so a native date input does not merge.
+
+A native date input renders in the **operating system's** locale, and no HTML
+attribute overrides it — `lang` is ignored for the value display. On a
+US-configured workstation it shows and accepts mm/dd/yyyy. Praxis serves a
+corridor that reads dates day-first, so the operator types 03/07 meaning the 3rd
+of July and the control stores the 7th of March.
+
+Nothing catches that, which is the entire reason it is a gate. Both readings are
+real dates: the value validates, the API accepts it, the round-trip is clean and
+every test stays green. It surfaces months later as a licence that expired in a
+month nobody expected or a customs deadline missed by a quarter.
+
+`DateField` reads and writes dd/mm/yyyy while storing the ISO `YYYY-MM-DD` the
+API already wants, so nothing downstream changes. It takes `min`, `max`,
+`required`, and a react-hook-form `{...field}` spread.
+
+The same rule covers **displaying** a date. `toLocaleDateString()` with no
+locale means "whatever this machine is set to" — month-first on a US
+workstation, and in a container with no `LANG`, which is how server-rendered
+dates were month-first too. Use the formatters in `lib/format.ts` (`dateFmt`,
+`dateDmy`, `dateTimeFmt`) or pin `en-GB`; never `undefined`, `[]`, `"en"` or
+`"en-US"` for a format that renders a day number.
+
+Two escape hatches, each costing a written reason next to it:
+`@date-format:foreign` for an incoming third-party format (a bank statement
+genuinely arrives month-first, and refusing to parse it does not make it
+day-first) and `@date-format:parts` for an `Intl.DateTimeFormat` built only to
+call `formatToParts()`, which renders nothing. Full detail in
+**`doc/FRONTEND_GUIDE.md` §3.12**.
+
 ## Before you write frontend code
 
 `doc/FRONTEND_GUIDE.md` is **the** frontend document — CI fails if it names a
@@ -66,6 +103,13 @@ npm run check:schemas   # a shared schema is used by BOTH sides, and migrated
                         # validators have not grown their own rules back
 npm run check:bundle    # chunk graph is acyclic — needs `npm run build` first
 npm test
+```
+
+One more runs from the repo ROOT rather than `client/`, because it covers the
+backend and all three frontends at once:
+
+```
+npm run check:dates     # no month-first dates anywhere — see the rule above
 ```
 
 `platform-console/` and `public-web/` each have their own `npm run lint`. All

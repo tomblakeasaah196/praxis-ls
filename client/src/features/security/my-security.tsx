@@ -6,6 +6,7 @@
  * disable flows are shown with guidance.
  */
 import { pageShell } from "@/lib/layout";
+import { dateDmy } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { useAuth } from "@/app/auth/auth-context";
@@ -516,7 +517,7 @@ export function MySecurityPage() {
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Added {new Date(d.created_at).toLocaleDateString()}
+                          Added {dateDmy(d.created_at)}
                         </div>
                       </div>
                       <Button

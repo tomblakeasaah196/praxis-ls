@@ -476,6 +476,25 @@ jobs:
         # actually returns, so the defect lived exactly in the gap between them.
         run: node scripts/check-citext-arrays.js
 
+      - name: Dates are day-first (dd/mm/yyyy)
+        # Praxis serves a corridor that reads dates day-first, and month-first is
+        # what you get by DEFAULT three different ways: `<input type="date">`
+        # renders in the OS locale with no attribute that overrides it,
+        # `toLocaleDateString()` with no locale means "whatever this machine is
+        # set to" (en-US in a container with no LANG — so SERVER-rendered dates
+        # were month-first too), and "en-US" copied out of a snippet.
+        #
+        # No other gate can catch it. 03/07/2026 is a real date under either
+        # reading, so nothing throws, no snapshot moves and no test goes red —
+        # the defect surfaces months later as a licence that expired in the
+        # wrong month or a customs deadline missed by a quarter.
+        #
+        # Covers the backend and all three frontends. Legitimate month-first
+        # handling — an incoming bank statement, or Intl used only for
+        # formatToParts — is marked @date-format:foreign / @date-format:parts
+        # with a reason, or listed per-rule in the script's ALLOW_FILES.
+        run: node scripts/check-date-format.js
+
   # ---------------------------------------------------------------------------
   # TC-CI6 — migrations are never executed in CI; the first run is production.
   #
