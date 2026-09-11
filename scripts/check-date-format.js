@@ -147,6 +147,24 @@ function allowedRules(rel) {
 /** Locales that render a date month-first. */
 const MONTH_FIRST_LOCALE = /^["'](en-US|en-PH|en|und)["']$/;
 
+/**
+ * Files that must stay byte-identical, because they are the same logic compiled
+ * into two apps that cannot import from each other.
+ *
+ * `client/` and `platform-console/` each build in their own Docker stage, and
+ * the console's stage copies ONLY `platform-console/` — deliberately: the other
+ * two stages copy the whole repo because they have `file:..` dependencies, and
+ * the console has none. So a relative import into `client/` resolves in a
+ * checkout, passes `vite build` locally, and fails inside the image. (It did.)
+ *
+ * Duplication answered by a gate rather than by trust: "a second copy of a gate
+ * is a gate that drifts" is the reason the ESLint rules have one copy, and the
+ * same worry applies here. This makes drift impossible instead of unlikely.
+ */
+const TWINS = [
+  ["client/src/lib/day-first-date.ts", "platform-console/src/lib/day-first-date.ts"],
+];
+
 /* ── source scanning ─────────────────────────────────────────────────────── */
 
 /**
@@ -385,10 +403,36 @@ function main() {
     problems.push(...scanSource(fs.readFileSync(file, "utf8"), rel));
   }
 
-  if (!problems.length) {
+  // The twins. A drift here is not a "risk" like the scans above — it is two
+  // apps that have already stopped agreeing on what a date is — so it is
+  // reported on its own terms, with the command that fixes it.
+  const drifted = [];
+  for (const [a, b] of TWINS) {
+    const pa = path.join(ROOT, a);
+    const pb = path.join(ROOT, b);
+    if (!fs.existsSync(pa) || !fs.existsSync(pb)) { drifted.push([a, b, "one of them is missing"]); continue; }
+    if (fs.readFileSync(pa, "utf8") !== fs.readFileSync(pb, "utf8")) {
+      drifted.push([a, b, "they differ"]);
+    }
+  }
+
+  if (drifted.length) {
+    console.error(`\n${drifted.length} day-first twin(s) out of sync.\n`);
+    console.error("These files are the same logic built into two apps that cannot import from");
+    console.error("each other — the console's Docker stage copies only platform-console/. They");
+    console.error("must be byte-identical, or the two apps disagree about what a date is.\n");
+    for (const [a, b, why] of drifted) {
+      console.error(`  ${a}`);
+      console.error(`  ${b}`);
+      console.error(`      → ${why}. Fix: cp ${a} ${b}\n`);
+    }
+  }
+
+  if (!problems.length && !drifted.length) {
     console.warn(`Day-first date gate OK — ${files.length} file(s), no month-first dates.`);
     return 0;
   }
+  if (!problems.length) return 1;
 
   console.error(`\n${problems.length} month-first date risk(s).\n`);
   console.error("Praxis serves a corridor that reads dates day-first. A month-first date");
@@ -407,4 +451,4 @@ function main() {
 
 if (require.main === module) process.exit(main());
 
-module.exports = { blankNonCode, orderSensitive, localeArg, waived, scanSource, allowedRules, ALLOW_FILES };
+module.exports = { TWINS, blankNonCode, orderSensitive, localeArg, waived, scanSource, allowedRules, ALLOW_FILES };

@@ -155,6 +155,36 @@ describe("order-sensitivity, the judgement the whole gate rests on", () => {
   });
 });
 
+describe("the day-first twins", () => {
+  const fs = require("fs");
+  const path = require("path");
+  const { TWINS } = require("../../scripts/check-date-format");
+  const root = path.join(__dirname, "..", "..");
+
+  it("declares the pair that has to stay identical", () => {
+    expect(TWINS).toContainEqual([
+      "client/src/lib/day-first-date.ts",
+      "platform-console/src/lib/day-first-date.ts",
+    ]);
+  });
+
+  it.each(TWINS)("%s and %s are byte-identical", (a, b) => {
+    // Not an import, a COPY — and this is what keeps it honest. The Dockerfile's
+    // console stage copies only platform-console/, so a relative import into
+    // client/ resolves in a checkout, passes `vite build` locally, and then
+    // fails inside the image. It did exactly that, which is why this exists.
+    expect(fs.readFileSync(path.join(root, b), "utf8")).toBe(
+      fs.readFileSync(path.join(root, a), "utf8"),
+    );
+  });
+
+  it("keeps the copy free of imports, so it cannot drift through its surroundings", () => {
+    for (const [a] of TWINS) {
+      expect(fs.readFileSync(path.join(root, a), "utf8")).not.toMatch(/^\s*import\s/m);
+    }
+  });
+});
+
 describe("the live tree", () => {
   it("passes its own gate", () => {
     // The gate is only worth having if the repository actually satisfies it —

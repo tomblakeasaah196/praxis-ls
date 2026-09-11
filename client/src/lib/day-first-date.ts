@@ -1,18 +1,32 @@
 /**
- * Day-first date conversion — the ONE implementation, shared by both apps.
+ * Day-first date conversion — the canonical copy.
  *
- * The tenant client and the platform console each render their own `DateField`
- * (one is Tailwind + the `Input` primitive, the other is the console's plain
- * CSS), but the part that must not differ is this: what counts as a real date,
- * and how dd/mm/yyyy maps to the ISO the API stores. A second copy of that is a
- * second place for "is 31/02 a date" to be answered differently — so the
- * console imports this file by relative path, exactly as its
- * `eslint-local-rules/index.cjs` imports the client's rule implementations and
- * for the same stated reason.
+ * ── THERE ARE TWO OF THIS FILE, BYTE FOR BYTE ──────────────────────────────
  *
- * Deliberately dependency-free: no imports, no path aliases, nothing that has
- * to resolve through a bundler config. That is what lets a second app consume
- * it by relative path without any new plumbing.
+ *   client/src/lib/day-first-date.ts
+ *   platform-console/src/lib/day-first-date.ts
+ *
+ * Both apps render their own `DateField` (one is Tailwind + the `Input`
+ * primitive, the other is the console's plain CSS), but the part that must not
+ * differ is this: what counts as a real date, and how dd/mm/yyyy maps to the
+ * ISO the API stores. A second answer to "is 31/02 a date" is a bug waiting for
+ * whichever app gets less attention.
+ *
+ * A relative import across the two apps was tried first and does not work. The
+ * Dockerfile's `consolebuild` stage copies ONLY `platform-console/` — the client
+ * and public-web stages copy the whole repo because they have `file:..`
+ * dependencies, and the console deliberately has none — so `../../../client/…`
+ * resolves in a checkout, builds locally, and then fails inside the image. That
+ * boundary is deliberate and worth more than the deduplication.
+ *
+ * So the copies are kept honest by a GATE instead of by an import:
+ * `scripts/check-date-format.js` fails the build if the two files differ by a
+ * single byte. Edit either one and copy it over the other; the gate prints the
+ * command.
+ *
+ * Deliberately dependency-free — no imports, no path aliases, nothing that has
+ * to resolve through a bundler config — so the copies cannot drift through
+ * their surroundings either.
  */
 
 /** ISO `YYYY-MM-DD` → display `dd/mm/yyyy` (empty for anything else). */
@@ -54,8 +68,8 @@ export function maskInput(raw: string): string {
  * `""` when it does. ISO strings compare lexicographically, so `min`/`max` need
  * no parsing.
  *
- * `t` translates; pass `tr` in the client, identity in the console (which is
- * English-only, Praxis-side).
+ * `t` translates; pass `tr` in the client, and leave it out in the console,
+ * which is English-only and Praxis-side.
  */
 export function validityMessage(
   text: string,
