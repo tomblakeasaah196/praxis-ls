@@ -48,6 +48,9 @@ export default tseslint.config(
        * `alert("Thanks!")`, rather than after a sweep has to remove it.
        */
       "praxis/no-native-dialogs": "error",
+      // Shares the client's rule implementation — see the index.cjs note on why
+      // a second copy of a gate is a gate that drifts.
+      "praxis/no-raw-upload": "error",
       "react-hooks/exhaustive-deps": "warn",
       "@typescript-eslint/no-unused-vars": [
         "error",
@@ -122,6 +125,26 @@ export default tseslint.config(
       // `console.warn`, which is what the equivalent client scripts do.
       "no-console": "off",
     },
+  },
+  /**
+   * THE UPLOAD-GATE BASELINE for public-web — two files, both PR2's to migrate.
+   *
+   * `file-input.tsx` is this app's own picker primitive and `careers-page.tsx`
+   * is the CV upload behind it. public-web has no copy of the client's upload
+   * engine yet: PR2 ports it across (the same way eslint-local-rules was
+   * ported) and deletes this block. Until then the rule stays ON for every
+   * other file here, so a new upload site cannot be written bare.
+   *
+   * This is the app where a missing preview costs most: a candidate who
+   * attaches the wrong CV to a job application has no way to notice, and no
+   * account to come back and check it from.
+   */
+  {
+    files: [
+      "src/components/ui/file-input.tsx",
+      "src/features/careers/careers-page.tsx",
+    ],
+    rules: { "praxis/no-raw-upload": "off" },
   },
   // THE BAN IS NOT TYPESCRIPT-ONLY.
   //

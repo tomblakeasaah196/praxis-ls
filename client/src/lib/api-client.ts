@@ -61,6 +61,18 @@ type Opts = Omit<RequestInit, "body"> & {
   retry?: boolean;
 };
 
+/**
+ * A request body that must travel as multipart rather than JSON.
+ *
+ * FormData is the ONLY body type here that must not be JSON-stringified and
+ * must not carry an explicit Content-Type: the browser has to set that header
+ * itself so it can append the multipart boundary, and a Content-Type we set by
+ * hand would omit the boundary and make the body unparseable server-side.
+ */
+function isMultipart(body: unknown): body is FormData {
+  return typeof FormData !== "undefined" && body instanceof FormData;
+}
+
 let refreshing: Promise<boolean> | null = null;
 
 /**
@@ -365,14 +377,16 @@ export async function apiWithProgress<T = unknown>(
   opts: Opts = {},
   onProgress?: (percent: number) => void,
 ): Promise<T> {
-  const { body, auth = true, retry = true, headers, ...rest } = opts;
+  const { body, auth = true, retry = true, headers, signal, ...rest } = opts;
   const method = String(rest.method || "GET");
+  const multipart = isMultipart(body);
 
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(method, `/api${path}`);
     const h = new Headers(headers);
-    if (body !== undefined) h.set("Content-Type", "application/json");
+    // Multipart sets its own Content-Type, boundary included — see isMultipart.
+    if (body !== undefined && !multipart) h.set("Content-Type", "application/json");
     h.set("X-Praxis-Env", tokenStore.getEnv());
     if (auth) {
       const t = tokenStore.getAccess();
@@ -461,8 +475,64 @@ export async function apiWithProgress<T = unknown>(
       );
     };
 
-    xhr.send(body === undefined ? undefined : JSON.stringify(body));
+    // Cancellation. An upload is the one request a user genuinely wants to be
+    // able to stop — they picked the wrong file, or it is taking too long on a
+    // bad connection — and without this the bytes keep going regardless of what
+    // the UI shows.
+    if (signal) {
+      if (signal.aborted) {
+        xhr.abort();
+        return;
+      }
+      signal.addEventListener("abort", () => xhr.abort(), { once: true });
+    }
+
+    xhr.send(
+      body === undefined
+        ? undefined
+        : multipart
+          ? (body as FormData)
+          : JSON.stringify(body),
+    );
   });
+}
+
+/**
+ * Upload one file as multipart/form-data, with real progress.
+ *
+ * `fields` are sent alongside the file as ordinary form fields; values are
+ * stringified, and an object or array is JSON-encoded so a route can carry
+ * structured metadata beside the bytes without a second request.
+ */
+export function uploadFile<T = unknown>(
+  path: string,
+  file: File,
+  {
+    field = "file",
+    fields = {},
+    onProgress,
+    signal,
+  }: {
+    field?: string;
+    fields?: Record<string, unknown>;
+    onProgress?: (percent: number) => void;
+    signal?: AbortSignal;
+  } = {},
+): Promise<T> {
+  const form = new FormData();
+  form.append(field, file, file.name);
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined || value === null) continue;
+    form.append(
+      key,
+      typeof value === "object" ? JSON.stringify(value) : String(value),
+    );
+  }
+  return apiWithProgress<T>(
+    path,
+    { method: "POST", body: form, signal },
+    onProgress,
+  );
 }
 
 export const tenant = <T = unknown>(p: string, o?: Opts) =>
