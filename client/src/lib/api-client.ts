@@ -541,7 +541,11 @@ export const tenantWithProgress = <T = unknown>(
   p: string,
   body: unknown,
   onProgress: (percent: number) => void,
-) => apiWithProgress<T>(`/tenant${p}`, { method: "POST", body }, onProgress);
+  /** POST unless told otherwise. An amend — a re-stated licence, a corrected
+   *  number — is a PATCH, and sending it as a POST would open a second row for
+   *  the same card rather than updating the one on file. */
+  method: "POST" | "PATCH" | "PUT" = "POST",
+) => apiWithProgress<T>(`/tenant${p}`, { method, body }, onProgress);
 export const tenantPaged = <T = unknown>(p: string, o?: Opts) =>
   apiPaged<T>(`/tenant${p}`, o);
 export const platform = <T = unknown>(p: string, o?: Opts) =>

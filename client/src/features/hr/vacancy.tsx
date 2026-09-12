@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FileDrop } from "@/components/ui/file-drop";
+import { compressImage } from "@/lib/image-compress";
 import { Callout } from "@/components/ui/callout";
 import { Modal, Field } from "@/components/ui/modal";
 import { Pill, type Tone } from "@/components/ui/pill";
@@ -128,6 +129,13 @@ function AddApplicantForm({
   // Without it a referral can never be scored on more than the typed fields,
   // while an online applicant is read in full.
   const [cv, setCv] = React.useState<File | null>(null);
+  /**
+   * The CV rides inside the applicant payload rather than going up on its own,
+   * so the percentage here is that one request's — which is the honest number,
+   * because the CV is nearly all of its weight.
+   */
+  const [cvProgress, setCvProgress] = React.useState<number | null>(null);
+  const [cvDone, setCvDone] = React.useState(false);
   const [cvError, setCvError] = React.useState<string | null>(null);
   const readDataUrl = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -142,26 +150,42 @@ function AddApplicantForm({
     setBusy(true);
     setError(null);
     try {
-      const cvDataUrl = cv ? await readDataUrl(cv) : undefined;
-      await api.addApplicant(vacancyId, {
-        cv_data_url: cvDataUrl,
-        cv_filename: cv?.name,
-        full_name: f.full_name,
-        email: f.email || undefined,
-        phone: f.phone || undefined,
-        address: f.address || undefined,
-        // The scorer matches these by substring, so blanks would be scored as a
-        // required skill nobody can meet.
-        skills: f.skills
-          .split(",")
-          .map((x) => x.trim())
-          .filter(Boolean),
-        experience_years: num(f.experience_years),
-        expected_salary: num(f.expected_salary),
-        portfolio_url: withScheme(f.portfolio_url) || undefined,
-        cover_note: f.cover_note || undefined,
-        source: f.source || undefined,
-      });
+      // Compressed before it is encoded: a CV photographed on a phone is
+      // routinely 8-12 MB, and "document" keeps its source format so the
+      // recruiter opens the kind of file they expect.
+      const prepared = cv ? (await compressImage(cv, "document")).file : null;
+      const cvDataUrl = prepared ? await readDataUrl(prepared) : undefined;
+      if (cv) {
+        setCvProgress(0);
+        setCvDone(false);
+      }
+      await api.addApplicant(
+        vacancyId,
+        {
+          cv_data_url: cvDataUrl,
+          cv_filename: cv?.name,
+          full_name: f.full_name,
+          email: f.email || undefined,
+          phone: f.phone || undefined,
+          address: f.address || undefined,
+          // The scorer matches these by substring, so blanks would be scored as a
+          // required skill nobody can meet.
+          skills: f.skills
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean),
+          experience_years: num(f.experience_years),
+          expected_salary: num(f.expected_salary),
+          portfolio_url: withScheme(f.portfolio_url) || undefined,
+          cover_note: f.cover_note || undefined,
+          source: f.source || undefined,
+        },
+        cv ? setCvProgress : undefined,
+      );
+      if (cv) {
+        setCvProgress(100);
+        setCvDone(true);
+      }
       onSaved();
       onClose();
     } catch (err) {
@@ -279,6 +303,8 @@ function AddApplicantForm({
         </Field>
         <FileDrop
           file={cv}
+          uploadProgress={cvProgress}
+          uploadSuccess={cvDone}
           onPick={(picked) => {
             // Refused here as well as server-side, because the alternative is
             // reading an 80 MB file into memory to be told no afterwards.
@@ -289,6 +315,8 @@ function AddApplicantForm({
               return;
             }
             setCvError(null);
+            setCvProgress(null);
+            setCvDone(false);
             setCv(picked);
           }}
           accept="application/pdf,image/png,image/jpeg"

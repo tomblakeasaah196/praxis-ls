@@ -43,11 +43,12 @@ import { Segmented } from "@/components/ui/segmented";
 import { PinDialog } from "./website-insight-pin";
 import { fmtDay } from "./website-insight-dates";
 import { ErrorState, LoadingRow } from "@/components/ui/states";
-import { FileDrop } from "@/components/ui/file-drop";
+import { FileDrop, fileDropProps } from "@/components/ui/file-drop";
+import { useUpload } from "@/lib/use-upload";
+import { fileToDataUrl } from "@/lib/image-compress";
 import { Callout } from "@/components/ui/callout";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { slug as suggestSlug, isValidSlug } from "@/lib/slug";
-import { readFileAsDataUrl } from "@/lib/vault-file";
 import { tr } from "@/lib/i18n";
 import * as api from "@/lib/insights-api";
 
@@ -215,48 +216,62 @@ export function WebsiteInsightEditorPage() {
     }
   }
 
-  async function onPickCover(file: File | null) {
-    setCoverError(null);
-    if (!file) return;
-    const problem = imageProblem(file);
-    if (problem) {
-      setCoverError(problem);
-      return;
-    }
-    setCoverBusy(true);
-    try {
-      await api.setInsightCover(articleId, {
-        data_url: await readFileAsDataUrl(file),
-        original_name: file.name,
-      });
+  /**
+   * Cover and gallery, each on its own engine instance.
+   *
+   * `profile: "photo"` — these are the images on a published article, so the
+   * enhancement chain is wanted, and the compression matters: a writer drops a
+   * 9 MB press photo in here and it becomes a few hundred KB before it leaves
+   * the browser.
+   */
+  const coverUpload = useUpload({
+    profile: "photo",
+    send: async (file, ctx) =>
+      api.setInsightCover(
+        articleId,
+        { data_url: await fileToDataUrl(file), original_name: file.name },
+        ctx.onProgress,
+      ),
+    onAllComplete: () => reload(),
+  });
+
+  const galleryUpload = useUpload({
+    profile: "photo",
+    send: async (file, ctx) =>
+      api.addInsightGalleryImage(
+        articleId,
+        { data_url: await fileToDataUrl(file), original_name: file.name },
+        ctx.onProgress,
+      ),
+    onAllComplete: () => {
       reload();
-    } catch (err) {
-      setCoverError(errMsg(err));
-    } finally {
-      setCoverBusy(false);
-    }
+      // The box clears — the gallery list below is where the image lives now.
+      galleryReset.current?.();
+    },
+  });
+  const galleryReset = React.useRef<(() => void) | null>(null);
+  galleryReset.current = galleryUpload.reset;
+
+  /** An upload in flight. Separate from `coverBusy`, which also covers the
+   *  reorder and remove calls that are not uploads. */
+  const uploadBusy = [coverUpload.items[0], galleryUpload.items[0]].some(
+    (i) => i?.state === "uploading" || i?.state === "compressing",
+  );
+
+  function onPickCover(file: File | null) {
+    setCoverError(null);
+    if (!file) return coverUpload.reset();
+    const problem = imageProblem(file);
+    if (problem) return setCoverError(problem);
+    void coverUpload.pick([file]);
   }
 
-  async function onPickGalleryImage(file: File | null) {
+  function onPickGalleryImage(file: File | null) {
     setCoverError(null);
-    if (!file) return;
+    if (!file) return galleryUpload.reset();
     const problem = imageProblem(file);
-    if (problem) {
-      setCoverError(problem);
-      return;
-    }
-    setCoverBusy(true);
-    try {
-      await api.addInsightGalleryImage(articleId, {
-        data_url: await readFileAsDataUrl(file),
-        original_name: file.name,
-      });
-      reload();
-    } catch (err) {
-      setCoverError(errMsg(err));
-    } finally {
-      setCoverBusy(false);
-    }
+    if (problem) return setCoverError(problem);
+    void galleryUpload.pick([file]);
   }
 
   /** Reorder and remove are one call: the array is the display order, so both
@@ -467,10 +482,10 @@ export function WebsiteInsightEditorPage() {
         desc="Shown on the Insights index and across the top of the article. Optional — an article without one reads as text, not as broken."
       >
         <FileDrop
-          file={null}
-          onPick={(f) => void onPickCover(f)}
+          {...fileDropProps(coverUpload.items[0])}
+          onPick={onPickCover}
           accept={IMAGE_ACCEPT}
-          disabled={coverBusy}
+          disabled={coverBusy || uploadBusy}
           label={coverId ? tr("Replace the cover") : tr("Add a cover")}
           hint={tr("PNG, JPEG or WebP, up to 10 MB.")}
           error={coverError || undefined}
@@ -504,7 +519,7 @@ export function WebsiteInsightEditorPage() {
                 className="mt-2"
                 size="sm"
                 variant="outline"
-                disabled={coverBusy}
+                disabled={coverBusy || uploadBusy}
                 onClick={() => setRemovingCover(true)}
               >
                 {tr("Remove cover")}
@@ -519,10 +534,10 @@ export function WebsiteInsightEditorPage() {
         desc="Drawn as a grid below the text, in the order here. They cannot be placed between paragraphs — the article body is plain text on purpose, so images live in one strip underneath."
       >
         <FileDrop
-          file={null}
-          onPick={(f) => void onPickGalleryImage(f)}
+          {...fileDropProps(galleryUpload.items[0])}
+          onPick={onPickGalleryImage}
           accept={IMAGE_ACCEPT}
-          disabled={coverBusy || gallery.length >= GALLERY_MAX}
+          disabled={coverBusy || uploadBusy || gallery.length >= GALLERY_MAX}
           label={tr("Add an image")}
           hint={
             gallery.length >= GALLERY_MAX
@@ -552,7 +567,7 @@ export function WebsiteInsightEditorPage() {
                   {i + 1}. {id.slice(0, 8)}…
                 </span>
                 <div className="ms-auto flex items-center gap-1">
-                  <Button size="sm" variant="ghost" disabled={coverBusy || i === 0}
+                  <Button size="sm" variant="ghost" disabled={coverBusy || uploadBusy || i === 0}
                     onClick={() => {
                       const next = [...gallery];
                       [next[i - 1], next[i]] = [next[i], next[i - 1]];
@@ -562,7 +577,7 @@ export function WebsiteInsightEditorPage() {
                     {tr("Up")}
                   </Button>
                   <Button size="sm" variant="ghost"
-                    disabled={coverBusy || i === gallery.length - 1}
+                    disabled={coverBusy || uploadBusy || i === gallery.length - 1}
                     onClick={() => {
                       const next = [...gallery];
                       [next[i + 1], next[i]] = [next[i], next[i + 1]];
@@ -575,7 +590,7 @@ export function WebsiteInsightEditorPage() {
                       Removing one of twelve is cheap to undo — upload it again —
                       and a dialog on every thumbnail turns arranging a gallery
                       into twelve dialogs. The file is archived, not deleted. */}
-                  <Button size="sm" variant="ghost" disabled={coverBusy}
+                  <Button size="sm" variant="ghost" disabled={coverBusy || uploadBusy}
                     onClick={() => void saveGallery(gallery.filter((g) => g !== id))}
                   >
                     {tr("Remove")}
