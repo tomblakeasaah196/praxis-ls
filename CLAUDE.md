@@ -113,6 +113,12 @@ from the moment the picker closes, a **0→100% percentage** ending in an explic
 *Upload complete* once the server has answered, and **compression** before the
 bytes leave the device.
 
+A `<FileDrop>` is also gated: `praxis/require-upload-progress` fails one that
+passes neither `{...fileDropProps(upload.items[0])}` nor an explicit
+`uploadProgress`. That rule exists because the first one did not cover it —
+`no-raw-upload` passed the whole tree while fourteen `<FileDrop>`s still showed
+a filename and then a tick with no percentage between them.
+
 `profile` is required and is not cosmetic — it decides whether the image is
 tonally corrected. `document` and `brand` never are: auto-levelling a customs
 scan makes it stop matching the paper, and stretching a logo's histogram hands

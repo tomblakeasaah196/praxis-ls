@@ -16,13 +16,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Field, Select } from "@/components/ui/modal";
 import { Pill } from "@/components/ui/pill";
 import { Callout } from "@/components/ui/callout";
-import { FileDrop } from "@/components/ui/file-drop";
+import { FileDrop, fileDropProps } from "@/components/ui/file-drop";
+import { useUpload } from "@/lib/use-upload";
+import { fileToDataUrl } from "@/lib/image-compress";
 import { Segmented } from "@/components/ui/segmented";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { cn } from "@/lib/cn";
 import { errMsg, useResource } from "@/lib/use-resource";
 import { ApiError } from "@/lib/api-client";
-import { readFileAsDataUrl } from "@/lib/vault-file";
 import { slug as suggestSlug, isValidSlug } from "@/lib/slug";
 import * as api from "@/lib/operations-api";
 import { ServiceTypeWebPillars } from "./service-type-web-pillars";
@@ -603,25 +604,64 @@ export function ServiceTypeWebTab({
    * not have. A cover uploaded in an EARLIER session therefore still has no
    * thumbnail; see the note on the vault download in the media block below.
    */
-  const [picked, setPicked] = React.useState<Record<MediaRole, File | null>>({
-    COVER: null,
-    ICON: null,
-    GALLERY: null,
-  });
-  const [uploaded, setUploaded] = React.useState<Record<MediaRole, boolean>>({
-    COVER: false,
-    ICON: false,
-    GALLERY: false,
-  });
+  /**
+   * One upload engine per media slot.
+   *
+   * Three explicit calls rather than a loop, because hooks must run in a fixed
+   * order — and one shared uploader would mean a gallery upload driving the
+   * cover slot's progress bar.
+   *
+   * `profile: "photo"` for all three: these are the pictures on the public
+   * services page, so the enhancement chain is wanted. They are also the exact
+   * screen this whole feature was reported against — it showed a filename and
+   * then a tick, with nothing in between.
+   */
+  // Set below, once the gallery uploader exists — onAllComplete closes over
+  // the uploader it belongs to, which cannot reference itself at creation.
+  const galleryReset = React.useRef<(() => void) | null>(null);
 
-  async function onUpload(role: MediaRole, file: File | null) {
+  function useMediaUpload(role: MediaRole) {
+    return useUpload<api.ServiceTypeWebTab>({
+      profile: "photo",
+      send: async (file, ctx) =>
+        api.uploadServiceTypeWebMedia(
+          serviceTypeId,
+          {
+            role,
+            data_url: await fileToDataUrl(file),
+            original_name: file.name,
+          },
+          ctx.onProgress,
+        ),
+      onAllComplete: () => {
+        tab.reload();
+        // A gallery frame clears its box — the list below is where the image
+        // lives now, and the box has to be free for the next one.
+        if (role === "GALLERY") galleryReset.current?.();
+      },
+    });
+  }
+
+  const coverUpload = useMediaUpload("COVER");
+  const iconUpload = useMediaUpload("ICON");
+  const galleryUpload = useMediaUpload("GALLERY");
+
+  galleryReset.current = galleryUpload.reset;
+
+  const uploaders: Record<MediaRole, ReturnType<typeof useMediaUpload>> = {
+    COVER: coverUpload,
+    ICON: iconUpload,
+    GALLERY: galleryUpload,
+  };
+
+  function onUpload(role: MediaRole, file: File | null) {
     setMediaError(null);
-    // Clearing the box — `<FileDrop>`'s own "Remove file" — drops the preview
+    const uploader = uploaders[role];
+    // Clearing the box — FileDrop's own "Remove file" — drops the preview
     // without touching what is stored. Removing the stored document is the
     // separate Remove button, which is destructive and says so.
     if (!file) {
-      setPicked((p) => ({ ...p, [role]: null }));
-      setUploaded((u) => ({ ...u, [role]: false }));
+      uploader.reset();
       return;
     }
     const problem = imageProblem(file);
@@ -629,26 +669,7 @@ export function ServiceTypeWebTab({
       setMediaError(problem);
       return;
     }
-    // Shown BEFORE the upload starts, so the thumbnail appears while the bytes
-    // are still going up rather than after they land.
-    setPicked((p) => ({ ...p, [role]: file }));
-    setUploaded((u) => ({ ...u, [role]: false }));
-    try {
-      await run(async () => {
-        const data_url = await readFileAsDataUrl(file);
-        return api.uploadServiceTypeWebMedia(serviceTypeId, {
-          role,
-          data_url,
-          original_name: file.name,
-        });
-      });
-    } finally {
-      // `run` swallows the error into `error`, so success is "the slot now
-      // holds a document". A gallery frame clears its box — the list below is
-      // where it lives now, and the box has to be free for the next one.
-      setUploaded((u) => ({ ...u, [role]: true }));
-      if (role === "GALLERY") setPicked((p) => ({ ...p, GALLERY: null }));
-    }
+    void uploader.pick([file]);
   }
 
   async function onRemoveMedia(docId: string) {
@@ -1060,14 +1081,13 @@ export function ServiceTypeWebTab({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <FileDrop
-              file={picked.COVER}
-              uploadSuccess={uploaded.COVER && !busy}
+              {...fileDropProps(coverUpload.items[0])}
               disabled={mediaLocked || busy}
               accept={IMAGE_ACCEPT}
               label={`${tr("Cover image")} · ${tr("required to publish")}`}
               hint="PNG, JPEG or WebP · 10 MB maximum"
-              error={mediaError}
-              onPick={(file) => void onUpload("COVER", file)}
+              error={mediaError ?? fileDropProps(coverUpload.items[0]).error}
+              onPick={(file) => onUpload("COVER", file)}
             />
             {profile.cover_vault_id && (
               <div className="mt-2 flex items-center justify-between text-xs">
@@ -1106,13 +1126,12 @@ export function ServiceTypeWebTab({
           </div>
           <div>
             <FileDrop
-              file={picked.ICON}
-              uploadSuccess={uploaded.ICON && !busy}
+              {...fileDropProps(iconUpload.items[0])}
               disabled={mediaLocked || busy}
               accept={IMAGE_ACCEPT}
               label={tr("Icon (optional)")}
               hint="PNG, JPEG or WebP · 10 MB maximum"
-              onPick={(file) => void onUpload("ICON", file)}
+              onPick={(file) => onUpload("ICON", file)}
             />
             {profile.icon_vault_id && (
               <div className="mt-2 flex items-center justify-between text-xs">
@@ -1138,8 +1157,7 @@ export function ServiceTypeWebTab({
         </div>
         <div>
           <FileDrop
-            file={picked.GALLERY}
-            uploadSuccess={uploaded.GALLERY && !busy}
+            {...fileDropProps(galleryUpload.items[0])}
             disabled={
               mediaLocked ||
               busy ||
@@ -1148,7 +1166,7 @@ export function ServiceTypeWebTab({
             accept={IMAGE_ACCEPT}
             label={tr("Add gallery image")}
             hint={`${tr("Up to")} ${L.GALLERY_MAX}`}
-            onPick={(file) => void onUpload("GALLERY", file)}
+            onPick={(file) => onUpload("GALLERY", file)}
           />
           {(profile.gallery_vault_ids || []).length > 0 && (
             <ul className="mt-2 space-y-1">
