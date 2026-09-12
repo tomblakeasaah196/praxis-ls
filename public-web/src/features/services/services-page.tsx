@@ -42,7 +42,7 @@ import { EsgTriptych } from "@/components/site/esg-triptych";
 import { getPublicEsg, hasEsg, type EsgContent } from "@/lib/site-api";
 import { afterPaint } from "@/lib/after-paint";
 import { Reveal } from "@/components/ui/reveal";
-import { Markdown } from "@/components/ui/markdown";
+import { LongCopy } from "./long-copy";
 import { QuoteBand } from "@/components/site/quote-band";
 import { useDocumentMeta } from "@/lib/use-document-meta";
 import { p } from "@/lib/base-path";
@@ -666,9 +666,7 @@ export function ServiceDetailPage() {
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
           <div className="min-w-0 max-w-prose">
             {longText ? (
-              <div className="prose-site">
-                <Markdown text={longText} />
-              </div>
+              <LongCopy text={longText} />
             ) : (
               <p className="text-sm text-muted-foreground">
                 {t("site.servicesPage.noLong")}

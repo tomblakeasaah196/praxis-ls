@@ -842,6 +842,9 @@ export const en = {
       back: "All services",
       noLong: "The full description for this service is being written.",
       video: "Watch",
+      onThisPage: "On this page",
+      readMore: "Read the full detail",
+      readLess: "Show less",
     },
     portfolioPage: {
       title: "Success stories",
@@ -1747,6 +1750,9 @@ export const fr = {
       noLong:
         "La description complète de ce service est en cours de rédaction.",
       video: "Vidéo",
+      onThisPage: "Sur cette page",
+      readMore: "Lire le détail complet",
+      readLess: "Réduire",
     },
     portfolioPage: {
       title: "Nos réalisations",
