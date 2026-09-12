@@ -2,7 +2,7 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * The site copy catalogue: every `site.*` string a tenant may override.
- * 465 keys in 24 sections.
+ * 468 keys in 24 sections.
  * Source: public-web/src/lib/i18n-dict.ts
  * Regenerate with: node scripts/gen/gen-site-copy-catalogue.js
  *
@@ -423,6 +423,9 @@ exports.SITE_COPY_ENTRIES = [
   ["site.servicesPage.gallery","servicesPage","Gallery","From the yard","Sur le terrain"],
   ["site.servicesPage.highlights","servicesPage","Highlights","What is included","Ce qui est inclus"],
   ["site.servicesPage.noLong","servicesPage","No Long","The full description for this service is being written.","La description complète de ce service est en cours de rédaction."],
+  ["site.servicesPage.onThisPage","servicesPage","On This Page","On this page","Sur cette page"],
+  ["site.servicesPage.readLess","servicesPage","Read Less","Show less","Réduire"],
+  ["site.servicesPage.readMore","servicesPage","Read More","Read the full detail","Lire le détail complet"],
   ["site.servicesPage.related","servicesPage","Related","Related services","Services liés"],
   ["site.servicesPage.sub","servicesPage","Sub","What we handle, end to end.","Ce que nous prenons en charge, de bout en bout."],
   ["site.servicesPage.title","servicesPage","Title","Services","Services"],

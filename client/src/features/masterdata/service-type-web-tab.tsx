@@ -30,6 +30,7 @@ import { useToast } from "@/components/ui/toast";
 import { useFormDraft } from "@/lib/form-draft";
 import { DraftBanner } from "@/components/ui/draft-banner";
 import { ServiceTypeWebPillars } from "./service-type-web-pillars";
+import { ServiceTypeWebAiDialog } from "./service-type-web-ai-dialog";
 
 const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp";
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
@@ -533,6 +534,7 @@ export function ServiceTypeWebTab({
   // this screen explaining why.
   const pillars = useResource(() => api.listServiceTypeWebGroups(), []);
   const [pillarsOpen, setPillarsOpen] = React.useState(false);
+  const [aiOpen, setAiOpen] = React.useState(false);
   const nameEnPollRef = React.useRef<number | null>(null);
   React.useEffect(
     () => () => {
@@ -989,6 +991,23 @@ export function ServiceTypeWebTab({
 
   return (
     <div className="space-y-6" data-testid="web-profile-editor">
+      <ServiceTypeWebAiDialog
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        serviceTypeId={serviceTypeId}
+        hasExistingCopy={Boolean(
+          String(draft.long_description_en ?? "").trim() ||
+            String(draft.long_description_fr ?? "").trim(),
+        )}
+        current={draft}
+        onApply={(patch) => {
+          // Into the DRAFT, never to the server. The author still presses Save,
+          // which is also what makes this undoable — the rescue copy and the
+          // baseline both still hold what was there before.
+          setDraft((d) => ({ ...d, ...patch }));
+          toast.success(tr("Draft applied — review it, then Save."));
+        }}
+      />
       {formDraft.pending && (
         <DraftBanner
           savedAt={formDraft.pending.savedAt}
@@ -1055,6 +1074,18 @@ export function ServiceTypeWebTab({
                 onClick={() => void saveProfile()}
               >
                 {tr("Save")}
+              </Button>
+              {/* Beside Save rather than inside the Content block: it drafts the
+                  whole page — both languages, the highlights, the meta fields —
+                  not the one box it would otherwise sit under. */}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => setAiOpen(true)}
+                data-testid="web-ai-open"
+              >
+                {tr("Draft with AI")}
               </Button>
               {isPublished ? (
                 <Button

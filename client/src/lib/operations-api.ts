@@ -2153,6 +2153,71 @@ export const upsertServiceTypeWeb = (
     body: patch,
   });
 
+/* ── AI drafting ──────────────────────────────────────────────────────────
+   The assistant that turns pasted prose into a page. It WRITES NOTHING: the
+   proposal comes back as a profile-shaped patch and the author accepts it field
+   by field in the review step. */
+
+export type ServiceTypeWebToneLevel = "off" | "light" | "strong";
+
+/** The five axes, in the order the wizard shows them. */
+export const SERVICE_TYPE_WEB_TONE_AXES = [
+  "operational",
+  "commercial",
+  "seo",
+  "corridor",
+  "plain",
+] as const;
+export type ServiceTypeWebToneAxis =
+  (typeof SERVICE_TYPE_WEB_TONE_AXES)[number];
+export type ServiceTypeWebTone = Record<
+  ServiceTypeWebToneAxis,
+  ServiceTypeWebToneLevel
+>;
+
+export const SERVICE_TYPE_WEB_TONE_DEFAULT: ServiceTypeWebTone = {
+  operational: "strong",
+  commercial: "light",
+  seo: "strong",
+  corridor: "light",
+  plain: "strong",
+};
+
+export type ServiceTypeWebAiRequest = {
+  source: "existing" | "scratch";
+  /** Required for `existing`; meaningless for `scratch`. */
+  licence?: "structure" | "tighten" | "rewrite";
+  language_mode?: "each" | "extend";
+  primary?: "en" | "fr";
+  tone?: ServiceTypeWebTone;
+  instructions?: string;
+};
+
+export type ServiceTypeWebAiResult = {
+  manual_required: boolean;
+  /** Present when the assistant could not be used or its answer was unusable. */
+  reason?: string;
+  provider?: string | null;
+  languages?: { lang: "en" | "fr"; ok: boolean }[];
+  /**
+   * True only when every language went down the structure path, where the
+   * author's own paragraphs were copied rather than regenerated. The review
+   * step says so, because it is the difference between "we added headings" and
+   * "we rewrote your page".
+   */
+  prose_preserved?: boolean;
+  proposal?: ServiceTypeWebProfilePatch;
+};
+
+export const draftServiceTypeWebCopy = (
+  serviceTypeId: string,
+  body: ServiceTypeWebAiRequest,
+) =>
+  tenant<ServiceTypeWebAiResult>(`/service-types/${serviceTypeId}/web/ai-copy`, {
+    method: "POST",
+    body,
+  });
+
 export const publishServiceTypeWeb = (serviceTypeId: string) =>
   tenant<ServiceTypeWebTab>(`/service-types/${serviceTypeId}/web/publish`, {
     method: "POST",
