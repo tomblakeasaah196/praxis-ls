@@ -26,7 +26,11 @@ import { errMsg, useResource } from "@/lib/use-resource";
 import { ApiError } from "@/lib/api-client";
 import { slug as suggestSlug, isValidSlug } from "@/lib/slug";
 import * as api from "@/lib/operations-api";
+import { useToast } from "@/components/ui/toast";
+import { useFormDraft } from "@/lib/form-draft";
+import { DraftBanner } from "@/components/ui/draft-banner";
 import { ServiceTypeWebPillars } from "./service-type-web-pillars";
+import { ServiceTypeWebAiDialog } from "./service-type-web-ai-dialog";
 
 const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp";
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
@@ -331,6 +335,148 @@ function AccentPicker({
 
 /* ── Root tab ────────────────────────────────────────────────────────────── */
 
+/**
+ * The editor's field set, derived from a profile row.
+ *
+ * Lifted out of `applyTab` because "a new server payload arrived" and "re-seed
+ * the boxes the user is typing into" are two different events, and treating
+ * them as one is what destroyed authored copy. EVERY mutation on this tab
+ * answers with the whole tab, and `applyTab` pushed all of it straight back
+ * into `draft` — so Publish, Save FAQ, Save related, Remove media and a
+ * gallery reorder each replaced a screenful of unsaved text with whatever the
+ * server still held. No error, no prompt, nothing in the console. The reported
+ * case: eleven thousand characters of page copy pasted in, Publish pressed,
+ * and the seeded placeholder back in the boxes. None of those writes touch a
+ * text column, so re-seeding from them was pure loss with no upside.
+ *
+ * `reseedFor` below is the policy that replaced it.
+ */
+function draftFromProfile(
+  p: api.ServiceTypeWebTab["profile"],
+): api.ServiceTypeWebProfilePatch {
+  return {
+      short_description_fr: p?.short_description_fr ?? "",
+      short_description_en: p?.short_description_en ?? "",
+      long_description_fr: p?.long_description_fr ?? "",
+      long_description_en: p?.long_description_en ?? "",
+      highlights_fr: [...(p?.highlights_fr || [])],
+      highlights_en: [...(p?.highlights_en || [])],
+      coverage_fr: p?.coverage_fr ?? "",
+      coverage_en: p?.coverage_en ?? "",
+      slug_fr: p?.slug_fr ?? "",
+      slug_en: p?.slug_en ?? "",
+      meta_title_fr: p?.meta_title_fr ?? "",
+      meta_title_en: p?.meta_title_en ?? "",
+      meta_description_fr: p?.meta_description_fr ?? "",
+      meta_description_en: p?.meta_description_en ?? "",
+      video_url: p?.video_url ?? "",
+      sort_order: p?.sort_order ?? 100,
+      // The card (12755). Seeded into BOTH draft and baseline like every other
+      // field: `dirtyPatch` compares the two, so a key absent from here can
+      // never be sent — which is exactly how these four stayed unreachable
+      // while the API accepted them all along.
+      //
+      // `group_id` keeps null rather than collapsing to "": null IS the value
+      // that puts the service in the trailing unnamed group, and the server
+      // reads an explicit null as that instruction.
+      group_id: p?.group_id ?? null,
+      claim_fr: p?.claim_fr ?? "",
+      claim_en: p?.claim_en ?? "",
+      accent: p?.accent ?? "PRIMARY",
+  };
+}
+
+/**
+ * Which parts of the editor a given response is allowed to overwrite.
+ *
+ * The rule is "only a write that actually touched a section may re-seed it".
+ * Anything omitted keeps what the user has on screen, unsaved and still dirty.
+ */
+type Reseed = { draft?: boolean; faq?: boolean; related?: boolean };
+
+/** The first GET, and a restore — the editor is empty, so everything seeds. */
+const RESEED_ALL: Reseed = { draft: true, faq: true, related: true };
+/** Publish, unpublish, media, gallery order: no text column moved. Touch nothing. */
+const RESEED_NONE: Reseed = {};
+
+/**
+ * Build the omitted-keys-unchanged patch — only dirty keys.
+ *
+ * Pure and module-level so the component can memoise it, which gives the tab a
+ * reliable `isDirty` for the unsaved-changes guard and the Save button. It was
+ * a closure over `draft`/`baseline` called only at save time, so nothing else
+ * could ask "is there unsaved work here?" — and nothing did.
+ */
+function buildDirtyPatch(
+  draft: api.ServiceTypeWebProfilePatch,
+  baseline: api.ServiceTypeWebProfilePatch,
+): api.ServiceTypeWebProfilePatch {
+  const out: api.ServiceTypeWebProfilePatch = {};
+  const keys = Object.keys(draft) as (keyof api.ServiceTypeWebProfilePatch)[];
+  for (const k of keys) {
+    let a = draft[k];
+    const b = baseline[k];
+    // Highlights: drop blank rows on the wire so the validator's min(1) passes.
+    if (k === "highlights_fr" || k === "highlights_en") {
+      a = (Array.isArray(a) ? a : [])
+        .map((s) => String(s).trim())
+        .filter(Boolean)
+        .slice(0, L.HIGHLIGHTS_MAX);
+    }
+    if (Array.isArray(a) && Array.isArray(b)) {
+      const bNorm =
+        k === "highlights_fr" || k === "highlights_en"
+          ? (b as string[]).map((s) => String(s).trim()).filter(Boolean)
+          : b;
+      if (JSON.stringify(a) !== JSON.stringify(bNorm)) {
+        (out as Record<string, unknown>)[k] = a;
+      }
+    } else if (a !== b) {
+      // Empty string for text clears as "" (readiness treats "" as missing);
+      // video_url empty → null so the server clears the column.
+      if (k === "video_url" && a === "") {
+        out.video_url = null;
+      } else if ((k === "claim_fr" || k === "claim_en") && a === "") {
+        // A cleared claim is an absent claim. Sending "" would store a blank
+        // string that every "is this set?" test in the tree has to special-case
+        // — including the backfill seed's, which reads blank as empty and would
+        // re-fill a claim the tenant had deliberately removed.
+        (out as Record<string, unknown>)[k] = null;
+      } else {
+        (out as Record<string, unknown>)[k] = a;
+      }
+    }
+  }
+  // Empty slug box while draft → explicit null (server `col = EXCLUDED.col`
+  // clears). The regex rejects "", so we never send "". Slug inputs are locked
+  // while published, so this path only runs on a draft clear.
+  if (out.slug_fr === "") out.slug_fr = null;
+  if (out.slug_en === "") out.slug_en = null;
+  return out;
+}
+
+/**
+ * Merge a save response back into the boxes WITHOUT discarding keystrokes that
+ * landed while the request was in flight.
+ *
+ * A field the user has not touched since `sent` takes the server's value; one
+ * they have kept typing into keeps theirs and stays dirty for the next save.
+ * On a page this size a save is not instant, and "it threw away the sentence I
+ * typed while it was saving" is the same defect in miniature.
+ */
+function mergeAfterSave(
+  current: api.ServiceTypeWebProfilePatch,
+  sent: api.ServiceTypeWebProfilePatch,
+  fromServer: api.ServiceTypeWebProfilePatch,
+): api.ServiceTypeWebProfilePatch {
+  const out = { ...fromServer };
+  for (const k of Object.keys(fromServer) as (keyof api.ServiceTypeWebProfilePatch)[]) {
+    const same = JSON.stringify(current[k]) === JSON.stringify(sent[k]);
+    if (!same) (out as Record<string, unknown>)[k] = current[k];
+  }
+  return out;
+}
+
 export function ServiceTypeWebTab({
   serviceTypeId,
   serviceTypeKey,
@@ -356,6 +502,7 @@ export function ServiceTypeWebTab({
     () => api.getServiceTypeWeb(serviceTypeId),
     [serviceTypeId, serviceTypeNameEn],
   );
+  const toast = useToast();
   const [lang, setLang] = React.useState<Lang>("fr");
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -387,6 +534,7 @@ export function ServiceTypeWebTab({
   // this screen explaining why.
   const pillars = useResource(() => api.listServiceTypeWebGroups(), []);
   const [pillarsOpen, setPillarsOpen] = React.useState(false);
+  const [aiOpen, setAiOpen] = React.useState(false);
   const nameEnPollRef = React.useRef<number | null>(null);
   React.useEffect(
     () => () => {
@@ -397,54 +545,34 @@ export function ServiceTypeWebTab({
     [],
   );
 
-  const applyTab = React.useCallback((payload: api.ServiceTypeWebTab) => {
-    setLocalTab(payload);
-    const p = payload.profile;
-    const next: api.ServiceTypeWebProfilePatch = {
-      short_description_fr: p?.short_description_fr ?? "",
-      short_description_en: p?.short_description_en ?? "",
-      long_description_fr: p?.long_description_fr ?? "",
-      long_description_en: p?.long_description_en ?? "",
-      highlights_fr: [...(p?.highlights_fr || [])],
-      highlights_en: [...(p?.highlights_en || [])],
-      coverage_fr: p?.coverage_fr ?? "",
-      coverage_en: p?.coverage_en ?? "",
-      slug_fr: p?.slug_fr ?? "",
-      slug_en: p?.slug_en ?? "",
-      meta_title_fr: p?.meta_title_fr ?? "",
-      meta_title_en: p?.meta_title_en ?? "",
-      meta_description_fr: p?.meta_description_fr ?? "",
-      meta_description_en: p?.meta_description_en ?? "",
-      video_url: p?.video_url ?? "",
-      sort_order: p?.sort_order ?? 100,
-      // The card (12755). Seeded into BOTH draft and baseline like every other
-      // field: `dirtyPatch` compares the two, so a key absent from here can
-      // never be sent — which is exactly how these four stayed unreachable
-      // while the API accepted them all along.
-      //
-      // `group_id` keeps null rather than collapsing to "": null IS the value
-      // that puts the service in the trailing unnamed group, and the server
-      // reads an explicit null as that instruction.
-      group_id: p?.group_id ?? null,
-      claim_fr: p?.claim_fr ?? "",
-      claim_en: p?.claim_en ?? "",
-      accent: p?.accent ?? "PRIMARY",
-    };
-    setDraft(next);
-    setBaseline(next);
-    setFaqRows(
-      (payload.faq || []).map((r) => ({
-        question_fr: r.question_fr,
-        question_en: r.question_en,
-        answer_fr: r.answer_fr,
-        answer_en: r.answer_en,
-        sort_order: r.sort_order,
-      })),
-    );
-    setPickedRelated(relatedIds(payload.related));
-    setSlugHint({});
-    setError(null);
-  }, []);
+  const applyTab = React.useCallback(
+    (payload: api.ServiceTypeWebTab, reseed: Reseed = RESEED_ALL) => {
+      // The row itself is always current — readiness, published state, media
+      // ids and slugs all come from here, and holding a stale one is what made
+      // an uploaded cover fail to tick its checklist row.
+      setLocalTab(payload);
+      if (reseed.draft) {
+        const next = draftFromProfile(payload.profile);
+        setDraft(next);
+        setBaseline(next);
+      }
+      if (reseed.faq) {
+        setFaqRows(
+          (payload.faq || []).map((r) => ({
+            question_fr: r.question_fr,
+            question_en: r.question_en,
+            answer_fr: r.answer_fr,
+            answer_en: r.answer_en,
+            sort_order: r.sort_order,
+          })),
+        );
+      }
+      if (reseed.related) setPickedRelated(relatedIds(payload.related));
+      setSlugHint({});
+      setError(null);
+    },
+    [],
+  );
 
   // Seed from GET; clear the local override when the service type (or its
   // name_en) changes so a jump-modal save re-applies the fresh readiness.
@@ -453,7 +581,14 @@ export function ServiceTypeWebTab({
   }, [serviceTypeId, serviceTypeNameEn]);
 
   React.useEffect(() => {
-    if (tab.data && !localTab) applyTab(tab.data);
+    if (!tab.data || localTab) return;
+    // `localTab` is cleared by the name_en poll and by void mutations, which
+    // re-opens this path while the user may be mid-sentence. Seed the boxes
+    // only when there is nothing in them to lose.
+    applyTab(
+      tab.data,
+      isDirtyRef.current ? { faq: true, related: true } : RESEED_ALL,
+    );
   }, [tab.data, localTab, applyTab]);
 
   // Prefer the mutation response; fall back to the GET.
@@ -469,6 +604,53 @@ export function ServiceTypeWebTab({
   const nameFr = data?.service_type?.name_fr || "";
   const nameEn = data?.service_type?.name_en || "";
 
+  /** Only the keys that differ from the last server payload. */
+  const dirty = React.useMemo(
+    () => buildDirtyPatch(draft, baseline),
+    [draft, baseline],
+  );
+  const isDirty = Object.keys(dirty).length > 0;
+  // Read by the reload effect, which must not re-seed over unsaved work but
+  // must not re-run every keystroke either.
+  const isDirtyRef = React.useRef(false);
+  isDirtyRef.current = isDirty;
+
+  /**
+   * The local rescue copy.
+   *
+   * A service page is the longest thing anyone writes in this product — the
+   * case that prompted this was eleven thousand characters per language,
+   * composed elsewhere and pasted in. Losing that to a stray click, a reload
+   * or a closed laptop is not a small annoyance, so what is in the boxes is
+   * mirrored to this browser and offered back on return.
+   *
+   * `maxBytes` is raised well above the shared 64 KB default: that ceiling is
+   * sized for ordinary forms, and the comment on it names a document editor as
+   * the exception. This is that exception, and a silently dropped rescue copy
+   * is worse than none — the banner would simply never appear on the one
+   * screen most able to lose an hour of work.
+   */
+  const formDraft = useFormDraft<api.ServiceTypeWebProfilePatch>({
+    key: `service-type-web:${serviceTypeId}`,
+    values: draft,
+    label: "Website copy",
+    maxBytes: 512 * 1024,
+    enabled: !readOnly,
+  });
+
+  // Last line of defence for a full-page navigation or a closed tab. The draft
+  // hook already flushes on `visibilitychange`; this is the prompt, not the
+  // save, and browsers show their own wording for it.
+  React.useEffect(() => {
+    if (!isDirty || readOnly) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [isDirty, readOnly]);
+
   function setField<K extends keyof api.ServiceTypeWebProfilePatch>(
     key: K,
     value: api.ServiceTypeWebProfilePatch[K],
@@ -476,64 +658,26 @@ export function ServiceTypeWebTab({
     setDraft((d) => ({ ...d, [key]: value }));
   }
 
-  /** Build the omitted-keys-unchanged patch — only dirty keys. */
-  function dirtyPatch(): api.ServiceTypeWebProfilePatch {
-    const out: api.ServiceTypeWebProfilePatch = {};
-    const keys = Object.keys(draft) as (keyof api.ServiceTypeWebProfilePatch)[];
-    for (const k of keys) {
-      let a = draft[k];
-      const b = baseline[k];
-      // Highlights: drop blank rows on the wire so the validator's min(1) passes.
-      if (k === "highlights_fr" || k === "highlights_en") {
-        a = (Array.isArray(a) ? a : [])
-          .map((s) => String(s).trim())
-          .filter(Boolean)
-          .slice(0, L.HIGHLIGHTS_MAX);
-      }
-      if (Array.isArray(a) && Array.isArray(b)) {
-        const bNorm =
-          k === "highlights_fr" || k === "highlights_en"
-            ? (b as string[]).map((s) => String(s).trim()).filter(Boolean)
-            : b;
-        if (JSON.stringify(a) !== JSON.stringify(bNorm)) {
-          (out as Record<string, unknown>)[k] = a;
-        }
-      } else if (a !== b) {
-        // Empty string for text clears as "" (readiness treats "" as missing);
-        // video_url empty → null so the server clears the column.
-        if (k === "video_url" && a === "") {
-          out.video_url = null;
-        } else if ((k === "claim_fr" || k === "claim_en") && a === "") {
-          // A cleared claim is an absent claim. Sending "" would store a blank
-          // string that every "is this set?" test in the tree has to special-case
-          // — including the backfill seed's, which reads blank as empty and would
-          // re-fill a claim the tenant had deliberately removed.
-          (out as Record<string, unknown>)[k] = null;
-        } else {
-          (out as Record<string, unknown>)[k] = a;
-        }
-      }
-    }
-    // Empty slug box while draft → explicit null (server `col = EXCLUDED.col`
-    // clears). The regex rejects "", so we never send "". Slug inputs are locked
-    // while published, so this path only runs on a draft clear.
-    if (out.slug_fr === "") out.slug_fr = null;
-    if (out.slug_en === "") out.slug_en = null;
-    return out;
-  }
 
-  async function run(fn: () => Promise<api.ServiceTypeWebTab | void>) {
+  async function run(
+    fn: () => Promise<api.ServiceTypeWebTab | void>,
+    reseed: Reseed = RESEED_ALL,
+    /** Re-seed this response by hand, when `reseed` is too blunt. */
+    after?: (payload: api.ServiceTypeWebTab) => void,
+  ): Promise<boolean> {
     setBusy(true);
     setError(null);
     try {
       const result = await fn();
       if (result) {
         // Re-render from the response body only (guide: do not branch on 201 vs 200).
-        applyTab(result);
+        applyTab(result, reseed);
+        after?.(result);
       } else {
         setLocalTab(null);
         tab.reload();
       }
+      return true;
     } catch (e) {
       // Surface server messages verbatim (LOCKED, BAD_FILE_TYPE, SLUG_TAKEN,
       // CONFLICT, validation). Never re-phrase.
@@ -555,19 +699,44 @@ export function ServiceTypeWebTab({
       } else {
         setError(errMsg(e));
       }
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
   async function saveProfile(extra?: api.ServiceTypeWebProfilePatch) {
-    const patch = { ...dirtyPatch(), ...extra };
-    if (Object.keys(patch).length === 0 && !extra) {
-      setError(null);
+    const patch = { ...dirty, ...extra };
+    if (Object.keys(patch).length === 0) {
+      // Say so out loud. This returned silently, so "Save with nothing to do"
+      // and "Save succeeded" looked identical from the outside — and after the
+      // boxes had been reset by some other write, the silent one was what the
+      // user got while believing their copy was safely stored.
+      toast.info(tr("No changes to save."));
       return;
     }
     // What the user accepted in the box is what gets sent — never rewrite.
-    await run(() => api.upsertServiceTypeWeb(serviceTypeId, patch));
+    //
+    // `sent` is the draft as it stood at the moment of sending. A page this
+    // size takes a visible moment to save, and the response must not roll back
+    // a sentence typed while it was in flight — so we re-seed by hand here
+    // rather than letting `applyTab` overwrite the boxes wholesale.
+    const sent = draft;
+    const ok = await run(
+      () => api.upsertServiceTypeWeb(serviceTypeId, patch),
+      RESEED_NONE,
+      (payload) => {
+        const fromServer = draftFromProfile(payload.profile);
+        setDraft((current) => mergeAfterSave(current, sent, fromServer));
+        setBaseline(fromServer);
+      },
+    );
+    if (ok) {
+      // The local rescue copy has done its job; keeping it would offer to
+      // restore what is now simply the saved state.
+      formDraft.clear();
+      toast.success(tr("Website copy saved."));
+    }
   }
 
   async function createPage() {
@@ -673,7 +842,10 @@ export function ServiceTypeWebTab({
   }
 
   async function onRemoveMedia(docId: string) {
-    await run(() => api.removeServiceTypeWebMedia(serviceTypeId, docId));
+    await run(
+      () => api.removeServiceTypeWebMedia(serviceTypeId, docId),
+      RESEED_NONE,
+    );
   }
 
   async function saveFaq() {
@@ -701,7 +873,7 @@ export function ServiceTypeWebTab({
     await run(async () => {
       const out = await api.replaceServiceTypeWebFaq(serviceTypeId, cleaned);
       return out.tab;
-    });
+    }, { faq: true });
   }
 
   async function saveRelated() {
@@ -711,7 +883,7 @@ export function ServiceTypeWebTab({
         pickedRelated,
       );
       return out.tab;
-    });
+    }, { related: true });
   }
 
   // Related-service search over the service-type list.
@@ -819,6 +991,37 @@ export function ServiceTypeWebTab({
 
   return (
     <div className="space-y-6" data-testid="web-profile-editor">
+      <ServiceTypeWebAiDialog
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        serviceTypeId={serviceTypeId}
+        hasExistingCopy={Boolean(
+          String(draft.long_description_en ?? "").trim() ||
+            String(draft.long_description_fr ?? "").trim(),
+        )}
+        current={draft}
+        onApply={(patch) => {
+          // Into the DRAFT, never to the server. The author still presses Save,
+          // which is also what makes this undoable — the rescue copy and the
+          // baseline both still hold what was there before.
+          setDraft((d) => ({ ...d, ...patch }));
+          toast.success(tr("Draft applied — review it, then Save."));
+        }}
+      />
+      {formDraft.pending && (
+        <DraftBanner
+          savedAt={formDraft.pending.savedAt}
+          what="website copy"
+          onRestore={() => {
+            const restored = formDraft.restore();
+            // Merged over the current field set rather than replacing it, so a
+            // draft written by an older build — one field short — cannot blank
+            // a box it has never heard of.
+            if (restored) setDraft((current) => ({ ...current, ...restored }));
+          }}
+          onDiscard={formDraft.discard}
+        />
+      )}
       {/* Status + publish strip */}
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border bg-card p-4">
         <div className="space-y-2">
@@ -872,13 +1075,28 @@ export function ServiceTypeWebTab({
               >
                 {tr("Save")}
               </Button>
+              {/* Beside Save rather than inside the Content block: it drafts the
+                  whole page — both languages, the highlights, the meta fields —
+                  not the one box it would otherwise sit under. */}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => setAiOpen(true)}
+                data-testid="web-ai-open"
+              >
+                {tr("Draft with AI")}
+              </Button>
               {isPublished ? (
                 <Button
                   size="sm"
                   variant="outline"
                   loading={busy}
                   onClick={() =>
-                    void run(() => api.unpublishServiceTypeWeb(serviceTypeId))
+                    void run(
+                      () => api.unpublishServiceTypeWeb(serviceTypeId),
+                      RESEED_NONE,
+                    )
                   }
                   data-testid="web-unpublish"
                 >
@@ -890,7 +1108,10 @@ export function ServiceTypeWebTab({
                   loading={busy}
                   disabled={!readiness.publishable}
                   onClick={() =>
-                    void run(() => api.publishServiceTypeWeb(serviceTypeId))
+                    void run(
+                      () => api.publishServiceTypeWeb(serviceTypeId),
+                      RESEED_NONE,
+                    )
                   }
                   data-testid="web-publish"
                 >
@@ -1187,10 +1408,12 @@ export function ServiceTypeWebTab({
                         onClick={() => {
                           const g = [...(profile.gallery_vault_ids || [])];
                           [g[idx - 1], g[idx]] = [g[idx], g[idx - 1]];
-                          void run(() =>
-                            api.upsertServiceTypeWeb(serviceTypeId, {
-                              gallery_vault_ids: g,
-                            }),
+                          void run(
+                            () =>
+                              api.upsertServiceTypeWeb(serviceTypeId, {
+                                gallery_vault_ids: g,
+                              }),
+                            RESEED_NONE,
                           );
                         }}
                       >

@@ -15,6 +15,7 @@
 const { atomically } = require("../../../shared/db/tx");
 const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
+const aiCopy = require("./service_type_web.ai_copy");
 const { parseDataUrl } = require("../../../utils/data-url");
 const storage = require("../../../services/storage.service");
 const vault = require("../../vault/document_vault/document_vault.service");
@@ -589,6 +590,26 @@ async function deleteGroup(client, { groupId, actor = {} }) {
   });
 }
 
+
+/**
+ * Draft website copy with the assistant. WRITES NOTHING.
+ *
+ * The proposal goes back to the tab and the author accepts it field by field.
+ * A generator that saved its own output would be the same defect this screen
+ * was just repaired for — an unattended write landing on top of authored copy —
+ * and it would arrive with the author's own permission attached, which makes it
+ * harder to argue with rather than safer.
+ */
+async function draftCopy(client, { serviceTypeId, input, actor = {}, env = "live" }) {
+  const exists = await repo.serviceTypeExists(client, serviceTypeId);
+  if (!exists) throw new AppError("NOT_FOUND", "Service type not found", 404);
+  const [profile, serviceType] = await Promise.all([
+    repo.getProfile(client, serviceTypeId),
+    repo.serviceTypeForPublish(client, serviceTypeId),
+  ]);
+  return aiCopy.draft(client, { profile, serviceType, input, actor, env });
+}
+
 module.exports = {
   // admin
   getTab,
@@ -604,6 +625,7 @@ module.exports = {
   removeMedia,
   replaceFaq,
   replaceRelated,
+  draftCopy,
   // hooks
   autoUnpublishForArchive,
   // exposed for tests

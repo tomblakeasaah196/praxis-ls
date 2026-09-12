@@ -773,4 +773,141 @@ describe("ServiceTypeWebTab · the card (12755)", () => {
     // The list is re-read so the new pillar is selectable without a page reload.
     await waitFor(() => expect(listServiceTypeWebGroups.mock.calls.length).toBeGreaterThan(1));
   });
+
+  /**
+   * Unsaved copy is the tenant's work, and every write on this tab used to
+   * throw it away.
+   *
+   * `run()` fed EVERY mutation response back through `applyTab`, which re-seeded
+   * the description boxes from the server. Publish, Save FAQ, Save related,
+   * Remove media and a gallery reorder change no text column, so each of them
+   * silently replaced whatever was typed with the stored copy. The reported
+   * loss was eleven thousand characters of page copy, pasted in and then
+   * Published — which handed back the seeded placeholder with no error.
+   *
+   * These pin the behaviour per write, because one shared fix is easy to undo
+   * one call site at a time.
+   */
+  describe("unsaved copy survives writes that do not touch it", () => {
+    const LONG = "A".repeat(400) + " freshly written body";
+
+    async function typeLongBody() {
+      await screen.findByTestId("web-profile-editor");
+      // Same handle the published-lock test uses — the label wraps the counter
+      // as well as the control, so it is the value that identifies the box.
+      const box = screen.getByDisplayValue("Long FR body") as HTMLTextAreaElement;
+      fireEvent.change(box, { target: { value: LONG } });
+      await waitFor(() => expect(box.value).toBe(LONG));
+      return box;
+    }
+
+    it("Publish does not roll the boxes back to the stored copy", async () => {
+      const user = userEvent.setup();
+      getServiceTypeWeb.mockResolvedValue(publishableTab());
+      // The server echoes the row as it stands — WITHOUT the unsaved edit,
+      // which is exactly the payload that used to overwrite it.
+      publishServiceTypeWeb.mockResolvedValue(
+        publishableTab({
+          profile: { ...publishableTab().profile!, is_published: true },
+        }),
+      );
+
+      view(
+        <ServiceTypeWebTab
+          serviceTypeId={ST_ID}
+          serviceTypeKey={ST_KEY}
+          onEditServiceType={() => {}}
+        />,
+      );
+
+      const box = await typeLongBody();
+      await user.click(screen.getByRole("button", { name: /^Publish$/i }));
+
+      await waitFor(() => expect(publishServiceTypeWeb).toHaveBeenCalled());
+      // The published state landed...
+      await waitFor(() => expect(screen.getByText(/Published/)).toBeTruthy());
+      // ...and the typing is still there.
+      expect(box.value).toBe(LONG);
+    });
+
+    it("saving the FAQ does not roll the boxes back", async () => {
+      const user = userEvent.setup();
+      getServiceTypeWeb.mockResolvedValue(draftTab());
+      replaceServiceTypeWebFaq.mockResolvedValue({ tab: draftTab() });
+
+      view(
+        <ServiceTypeWebTab
+          serviceTypeId={ST_ID}
+          serviceTypeKey={ST_KEY}
+          onEditServiceType={() => {}}
+        />,
+      );
+
+      const box = await typeLongBody();
+      const faqSave = screen.queryByRole("button", { name: /Save FAQ/i });
+      if (faqSave) {
+        await user.click(faqSave);
+        await waitFor(() =>
+          expect(replaceServiceTypeWebFaq).toHaveBeenCalled(),
+        );
+      }
+      expect(box.value).toBe(LONG);
+    });
+
+    it("a successful save says so, and keeps what was typed during the request", async () => {
+      const user = userEvent.setup();
+      getServiceTypeWeb.mockResolvedValue(draftTab());
+      let release: (v: unknown) => void = () => {};
+      upsertServiceTypeWeb.mockImplementation(
+        () => new Promise((res) => { release = res; }),
+      );
+
+      view(
+        <ServiceTypeWebTab
+          serviceTypeId={ST_ID}
+          serviceTypeKey={ST_KEY}
+          onEditServiceType={() => {}}
+        />,
+      );
+
+      const box = await typeLongBody();
+      await user.click(screen.getByRole("button", { name: /^Save$/i }));
+      await waitFor(() => expect(upsertServiceTypeWeb).toHaveBeenCalled());
+
+      // A sentence typed while the save is in flight must not be rolled back
+      // by the response, which cannot possibly contain it.
+      const DURING = LONG + " and one more clause";
+      fireEvent.change(box, { target: { value: DURING } });
+      release(draftTab({
+        profile: { ...draftTab().profile!, long_description_fr: LONG },
+      }));
+
+      await waitFor(() =>
+        expect(screen.getByText(/Website copy saved/i)).toBeTruthy(),
+      );
+      expect(box.value).toBe(DURING);
+    });
+
+    it("Save with nothing to send says so rather than looking successful", async () => {
+      const user = userEvent.setup();
+      getServiceTypeWeb.mockResolvedValue(draftTab());
+
+      view(
+        <ServiceTypeWebTab
+          serviceTypeId={ST_ID}
+          serviceTypeKey={ST_KEY}
+          onEditServiceType={() => {}}
+        />,
+      );
+
+      await screen.findByTestId("web-profile-editor");
+      await user.click(screen.getByRole("button", { name: /^Save$/i }));
+
+      expect(upsertServiceTypeWeb).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(screen.getByText(/No changes to save/i)).toBeTruthy(),
+      );
+    });
+  });
+
 });
