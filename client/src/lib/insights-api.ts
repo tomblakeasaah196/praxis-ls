@@ -22,7 +22,7 @@
  * off the patch is what stops an ordinary typo fix from flipping an article
  * live — the same rule the pages screen follows.
  */
-import { tenant } from "./api-client";
+import { tenant, tenantWithProgress } from "./api-client";
 
 /** FR is required upstream and EN is optional; the public page falls back
  *  FR↔EN rather than blanking a heading somebody half-translated. */
@@ -145,7 +145,11 @@ export const isPinned = (r: Pick<InsightArticle, "pinned_until">): boolean =>
 export const setInsightCover = (
   id: string,
   body: { data_url: string; original_name?: string },
-) => tenant<InsightArticle>(`/insights/${id}/cover`, { method: "POST", body });
+  onProgress?: (percent: number) => void,
+) =>
+  onProgress
+    ? tenantWithProgress<InsightArticle>(`/insights/${id}/cover`, body, onProgress)
+    : tenant<InsightArticle>(`/insights/${id}/cover`, { method: "POST", body });
 
 export const removeInsightCover = (id: string) =>
   tenant<InsightArticle>(`/insights/${id}/cover`, { method: "DELETE" });
@@ -166,7 +170,11 @@ export const insightCoverUrl = (id: string | null | undefined): string | null =>
 export const addInsightGalleryImage = (
   id: string,
   body: { data_url: string; original_name?: string },
-) => tenant<InsightArticle>(`/insights/${id}/gallery`, { method: "POST", body });
+  onProgress?: (percent: number) => void,
+) =>
+  onProgress
+    ? tenantWithProgress<InsightArticle>(`/insights/${id}/gallery`, body, onProgress)
+    : tenant<InsightArticle>(`/insights/${id}/gallery`, { method: "POST", body });
 
 /** Store the whole list: this is BOTH the reorder and the removal, because the
  *  array is the display order. The server ignores any id that was not already

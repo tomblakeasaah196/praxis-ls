@@ -39,6 +39,7 @@ import { DateField } from "@/components/ui/date-field";
 import { CountrySelect } from "@/components/country-select";
 import { Callout } from "@/components/ui/callout";
 import { FileDrop } from "@/components/ui/file-drop";
+import { compressImage } from "@/lib/image-compress";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money, dateFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/hr-api";
@@ -374,6 +375,10 @@ function DocumentsPanel({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [file, setFile] = React.useState<File | null>(null);
+  /** The scan rides inside the document payload, so this is that one request's
+   *  percentage — which is the honest number, since the scan is its weight. */
+  const [docProgress, setDocProgress] = React.useState<number | null>(null);
+  const [docDone, setDocDone] = React.useState(false);
   const [number, setNumber] = React.useState("");
   const [issued, setIssued] = React.useState("");
   const [expires, setExpires] = React.useState("");
@@ -396,14 +401,29 @@ function DocumentsPanel({
     setBusy(true);
     setError(null);
     try {
-      await api.addEmployeeDocument(employeeId, {
-        document_type_code: code,
-        document_number: number.trim() || null,
-        issued_on: issued || null,
-        expires_on: expires || null,
-        file_data_url: file ? await fileToDataUrl(file) : null,
-        file_name: file ? file.name : null,
-      });
+      // Compressed before it is encoded. "document" keeps the source format —
+      // a staff file is evidence, and it is never tonally corrected.
+      const prepared = file ? (await compressImage(file, "document")).file : null;
+      if (prepared) {
+        setDocProgress(0);
+        setDocDone(false);
+      }
+      await api.addEmployeeDocument(
+        employeeId,
+        {
+          document_type_code: code,
+          document_number: number.trim() || null,
+          issued_on: issued || null,
+          expires_on: expires || null,
+          file_data_url: prepared ? await fileToDataUrl(prepared) : null,
+          file_name: prepared ? prepared.name : null,
+        },
+        prepared ? setDocProgress : undefined,
+      );
+      if (prepared) {
+        setDocProgress(100);
+        setDocDone(true);
+      }
       reset();
       onChanged();
     } catch (err) {
@@ -513,7 +533,13 @@ function DocumentsPanel({
           <div className="mt-4 space-y-3">
             <FileDrop
               file={file}
-              onPick={setFile}
+              uploadProgress={docProgress}
+              uploadSuccess={docDone}
+              onPick={(picked) => {
+                setDocProgress(null);
+                setDocDone(false);
+                setFile(picked);
+              }}
               accept="image/png,image/jpeg,image/webp,application/pdf"
               hint={tr(
                 "PNG, JPG, WebP or PDF, up to 6 MB — or leave it and record the paper reference.",
@@ -784,9 +810,15 @@ function DriverLicenceFields({
   value,
   onChange,
   existing,
+  uploadProgress,
+  uploadSuccess,
 }: {
   value: LicenceDraft;
   onChange: (patch: Partial<LicenceDraft>) => void;
+  /** The scan travels inside the licence payload, which the PARENT submits —
+   *  so the percentage is passed down rather than owned here. */
+  uploadProgress: number | null;
+  uploadSuccess: boolean;
   /** The row already on file, when there is one — so the block can say it is
    *  amending a record rather than silently creating a second one. */
   existing: api.EmployeeDocument | null;
@@ -831,6 +863,8 @@ function DriverLicenceFields({
       >
         <FileDrop
           file={value.file}
+          uploadProgress={uploadProgress}
+          uploadSuccess={uploadSuccess}
           onPick={(file) => onChange({ file })}
           accept="image/png,image/jpeg,image/webp,application/pdf"
           hint={tr("PNG, JPG, WebP or PDF — up to 6 MB.")}
@@ -966,6 +1000,10 @@ export function EditEmployeeForm({
     [docs.data],
   );
   const [licence, setLicence] = React.useState<LicenceDraft>(emptyLicence);
+  const [licenceProgress, setLicenceProgress] = React.useState<number | null>(
+    null,
+  );
+  const [licenceDone, setLicenceDone] = React.useState(false);
   /*
    * Seeded ONCE, when the staff file arrives — `useState` cannot, because the
    * fetch settles after the first render. Guarded on the row's id so a reload
@@ -1030,22 +1068,41 @@ export function EditEmployeeForm({
   /** Amend the licence on file, or open one. Amend, so ticking the box on
    *  somebody who already has a licence does not leave two rows for one card. */
   async function saveLicence() {
+    // "document" keeps the source format: a licence scan is evidence.
+    const preparedLicence = licence.file
+      ? (await compressImage(licence.file, "document")).file
+      : null;
     const body: api.EmployeeDocumentInput = {
       document_type_code: DRIVER_LICENCE_CODE,
       document_number: licence.document_number.trim() || null,
       issued_on: licence.issued_on || null,
       expires_on: licence.expires_on || null,
-      file_data_url: licence.file ? await fileToDataUrl(licence.file) : null,
-      file_name: licence.file ? licence.file.name : null,
+      file_data_url: preparedLicence
+        ? await fileToDataUrl(preparedLicence)
+        : null,
+      file_name: preparedLicence ? preparedLicence.name : null,
     };
+    if (preparedLicence) {
+      setLicenceProgress(0);
+      setLicenceDone(false);
+    }
     if (existingLicence) {
       await api.updateEmployeeDocument(
         employee.employee_id,
         existingLicence.document_id,
         body,
+        preparedLicence ? setLicenceProgress : undefined,
       );
     } else {
-      await api.addEmployeeDocument(employee.employee_id, body);
+      await api.addEmployeeDocument(
+        employee.employee_id,
+        body,
+        preparedLicence ? setLicenceProgress : undefined,
+      );
+    }
+    if (preparedLicence) {
+      setLicenceProgress(100);
+      setLicenceDone(true);
     }
     docs.reload();
   }
@@ -1408,8 +1465,14 @@ export function EditEmployeeForm({
           {f.is_driver && (
             <DriverLicenceFields
               value={licence}
-              onChange={(patch) => setLicence((l) => ({ ...l, ...patch }))}
+              onChange={(patch) => {
+                setLicenceProgress(null);
+                setLicenceDone(false);
+                setLicence((l) => ({ ...l, ...patch }));
+              }}
               existing={existingLicence}
+              uploadProgress={licenceProgress}
+              uploadSuccess={licenceDone}
             />
           )}
         </Section>

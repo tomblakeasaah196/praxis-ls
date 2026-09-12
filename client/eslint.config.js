@@ -208,6 +208,13 @@ export default tseslint.config(
        * ambient permission.
        */
       "praxis/no-raw-upload": "error",
+
+      /**
+       * The companion to the rule above, and the one that would have caught
+       * what it missed: no-raw-upload governs how a file is PICKED, this one
+       * governs whether the user is told anything while it uploads.
+       */
+      "praxis/require-upload-progress": "error",
     },
   },
   // Test files run under Vitest globals and legitimately use non-null assertions.

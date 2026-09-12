@@ -2,7 +2,7 @@
  * Operations API helpers (typed) — dossiers (operation files), transit orders,
  * delivery notes, milestones. Routes mirror src/modules/operations/*.
  */
-import { tenant } from "./api-client";
+import { tenant, tenantWithProgress } from "./api-client";
 
 /* ── Operation files / dossiers(/operations) ── */
 export type Dossier = {
@@ -2172,11 +2172,18 @@ export const uploadServiceTypeWebMedia = (
     data_url: string;
     original_name?: string;
   },
+  onProgress?: (percent: number) => void,
 ) =>
-  tenant<ServiceTypeWebTab>(`/service-types/${serviceTypeId}/web/media`, {
-    method: "POST",
-    body,
-  });
+  onProgress
+    ? tenantWithProgress<ServiceTypeWebTab>(
+        `/service-types/${serviceTypeId}/web/media`,
+        body,
+        onProgress,
+      )
+    : tenant<ServiceTypeWebTab>(`/service-types/${serviceTypeId}/web/media`, {
+        method: "POST",
+        body,
+      });
 
 export const removeServiceTypeWebMedia = (
   serviceTypeId: string,
