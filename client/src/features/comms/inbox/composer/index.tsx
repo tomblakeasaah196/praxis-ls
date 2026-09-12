@@ -44,6 +44,7 @@ import { EditorSurface } from "./editor";
 import { ComposerToolbar, FontNote } from "./toolbar";
 import { SlashMenu } from "./slash-menu";
 import { AttachmentTray, AttachButton } from "./attachment-tray";
+import { UploadProgress } from "@/components/ui/upload-progress";
 import { RecipientField, type ExtraRecipient } from "./recipient-field";
 import { isAddress, parseAddresses } from "./addresses";
 import { useFromMailbox } from "./use-from-mailbox";
@@ -408,20 +409,39 @@ export function Composer({
     touch();
   }, [editor, initialBodyText, setBodyText, touch]);
 
+  /** Which attachment is going up, and how far. */
+  const [attaching, setAttaching] = React.useState<{
+    name: string;
+    index: number;
+    of: number;
+  } | null>(null);
+  const [attachPercent, setAttachPercent] = React.useState<number | null>(null);
+
   async function attach(files: File[]) {
     if (!files.length) return;
     setBusy(true);
     setError(null);
     try {
       const id = await ensureDraft();
-      for (const file of files) {
+      // One at a time, each with its own percentage: attaching four scans and
+      // watching a single spinner tells you nothing about which one is slow, or
+      // whether anything is happening at all.
+      for (let i = 0; i < files.length; i += 1) {
+        const file = files[i];
+        setAttaching({ name: file.name, index: i + 1, of: files.length });
+        setAttachPercent(0);
          
-        await api.uploadAttachment({
-          email_draft_id: id, filename: file.name,
-           
-          data_url: await fileToDataUrl(file),
-        });
+        await api.uploadAttachment(
+          {
+            email_draft_id: id,
+            filename: file.name,
+             
+            data_url: await fileToDataUrl(file),
+          },
+          setAttachPercent,
+        );
       }
+      setAttachPercent(100);
       await reloadTray(id);
     } catch (err) {
       // Shown in the composer rather than the global banner: it is about the
@@ -429,6 +449,8 @@ export function Composer({
       setError((err as { message?: string })?.message || tr("That file could not be attached."));
     } finally {
       setBusy(false);
+      setAttaching(null);
+      setAttachPercent(null);
     }
   }
 
@@ -886,6 +908,21 @@ export function Composer({
           {schedule.kind === "NOW" ? tr("Send") : tr("Schedule")}
         </Button>
         <AttachButton onFiles={attach} disabled={busy} />
+        {attaching && attachPercent !== null && (
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="micro max-w-[12rem] truncate text-muted-foreground">
+              {attaching.of > 1
+                ? `${attaching.name} (${attaching.index}/${attaching.of})`
+                : attaching.name}
+            </span>
+            <UploadProgress
+              className="w-40"
+              state={attachPercent >= 100 ? "success" : "uploading"}
+              percent={attachPercent}
+              error={null}
+            />
+          </span>
+        )}
         <SchedulePicker value={schedule} onChange={setSchedule} />
         {slots["composer.footer.left"]}
         <span className="ml-auto flex items-center gap-2">

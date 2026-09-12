@@ -18,6 +18,7 @@
  */
 import * as React from "react";
 import { cn } from "@/lib/cn";
+import type { UploadItem } from "@/lib/use-upload";
 import { UploadIcon } from "@/components/ui/icons";
 import { Modal } from "@/components/ui/modal";
 import { PdfPreview } from "@/components/ui/pdf-preview";
@@ -278,4 +279,51 @@ export function FileDrop({
       )}
     </div>
   );
+}
+
+/**
+ * Map an upload-engine item onto FileDrop's props.
+ *
+ * WHY THIS EXISTS. FileDrop has accepted `uploadProgress` and `uploadSuccess`
+ * since the day it was written, and of its ten call sites TWO passed them —
+ * the same two that were passing them before the upload engine was built. The
+ * props were never the problem: assembling them by hand is a file, a
+ * percentage, a success flag, an error and a reset, in every site, every time.
+ *
+ * So this is the whole wiring, once:
+ *
+ *     const upload = useUpload({ profile: "photo", send });
+ *     <FileDrop
+ *       {...fileDropProps(upload.items[0])}
+ *       onPick={(f) => (f ? void upload.pick([f]) : upload.reset())}
+ *       accept={IMAGE_ACCEPT}
+ *       label="Cover image"
+ *     />
+ *
+ * and the site gets compression, a real 0→100 percentage and the completion
+ * state for free, because they all come from the same engine every other
+ * upload in the product uses.
+ *
+ * `praxis/require-upload-progress` fails a `<FileDrop>` that has neither this
+ * spread nor an explicit `uploadProgress`, so the two-of-ten outcome cannot
+ * happen again quietly.
+ */
+export function fileDropProps<T>(item: UploadItem<T> | null | undefined): {
+  file: File | null;
+  uploadProgress: number | null;
+  uploadSuccess: boolean;
+  error: string | null;
+} {
+  return {
+    // The PREPARED file once compression has run, so the chip shows the size
+    // that will actually be sent rather than the one off the camera.
+    file: item ? (item.prepared ?? item.file) : null,
+    // null while idle: a bar reading 0% before anything has started is noise.
+    uploadProgress:
+      item && item.state !== "idle" && item.state !== "error"
+        ? item.percent
+        : null,
+    uploadSuccess: item?.state === "success",
+    error: item?.error ?? null,
+  };
 }
