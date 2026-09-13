@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { StagedLines, PullQuote, FigureCallout } from "@/components/ui/type";
@@ -89,6 +91,35 @@ describe("StagedLines", () => {
     // The accessible name comes from a real, readable text node instead.
     expect(heading.querySelector(".sr-only")?.textContent).toBe("Sea freight import");
     expect(screen.getByRole("heading", { name: "Sea freight import" })).toBeTruthy();
+  });
+
+  it("keeps the readable copy out of what a visitor pastes", () => {
+    /* THE COST OF THE TEST ABOVE, AND WHERE IT IS PAID.
+ 
+       The `.sr-only` span is the RIGHT answer for the accessible name and it
+       puts the sentence in the DOM twice. `clip-path` hides those glyphs from
+       the eye and from nothing else, so they stayed in the text flow and a
+       visitor who selected the homepage headline and pressed copy got
+ 
+         "Freight that moves your businessFreight that moves your business
+          forwardforward"
+ 
+       `index.css` answers it with `user-select: none` on `.sr-only`, which is
+       asserted there rather than here because it is one rule covering every
+       sr-only node in the app, not something this component declares.
+ 
+       ⚠ DO NOT REACH FOR `getSelection()` TO TEST THIS. Chromium's clipboard
+       serialiser honours `user-select: none`; `Selection.toString()` does not,
+       and returns the hidden copy anyway for a range that spans it. The paste
+       is clean while the JS API still shows the duplicate — verified in
+       Chromium against the real page, both before and after. jsdom has neither
+       path, so this asserts the rule's presence and the browser evidence lives
+       in the comment beside it. */
+    const css = readFileSync(
+      join(__dirname, "..", "..", "index.css"),
+      "utf8",
+    );
+    expect(css).toMatch(/\.sr-only\s*\{[^}]*[^-]user-select:\s*none/);
   });
 
   it("caps the total stagger so a long headline stays inside the narrative budget", () => {

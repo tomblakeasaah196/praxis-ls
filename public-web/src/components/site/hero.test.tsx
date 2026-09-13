@@ -299,4 +299,26 @@ describe("the route canvas", () => {
     expect(host.getAttribute("aria-hidden")).toBe("true");
     expect(host.className).toContain("pointer-events-none");
   });
+  it("lets the pointer reach the plate: the entrance wrapper is deaf, the plate is not", () => {
+    /* THE REGRESSION THIS EXISTS FOR, AND WHAT IT CANNOT SEE.
+ 
+       `.hero-plate-enter` carries `transform-style: preserve-3d` so the plate's
+       tilt reaches `.tilt-stage`'s perspective two elements up. Chromium
+       hit-tests a nested `preserve-3d` subtree against the flat box of the
+       element that opens it, so presses over the left ~40% of the plate — the
+       reference field's own centre among them — resolved to the WRAPPER and the
+       field never saw them. Measured in Chromium before the fix: 22 of 56 sample
+       points across the plate reported `div.hero-plate-enter` as the mousedown
+       target, focus stayed on `<body>`, and typing went nowhere.
+ 
+       jsdom has no compositor, so no amount of `fireEvent` here reproduces it —
+       clicking the input in this file works with the bug present and with it
+       gone. What CAN be protected is the pairing, and the pairing is the whole
+       fix: the wrapper takes itself out of hit-testing, and the plate puts
+       itself back in because `pointer-events` inherits. Delete either line and
+       the band is broken in a way nothing else in this repo would notice —
+       silently for the wrapper's line, and visibly for the plate's. */
+    expect(css).toMatch(/\.hero-plate-enter\s*\{[^}]*pointer-events:\s*none/);
+    expect(css).toMatch(/\.track-widget\s*\{[^}]*pointer-events:\s*auto/);
+  });
 });

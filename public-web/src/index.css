@@ -2311,6 +2311,44 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+    /* NOT SELECTABLE, AND THAT IS A CORRECTNESS RULE RATHER THAN A NICETY.
+ 
+       `clip-path` hides these glyphs from the eye and from nothing else. They
+       stay in the text flow, so a drag across them selects them and a copy
+       returns them — and where the sr-only text is a DUPLICATE of visible
+       content, the visitor gets every word twice.
+ 
+       `StagedLines` is where that bites. It renders the real sentence once into
+       an `.sr-only` span and again as the per-word `aria-hidden` spans the
+       animation moves, which is the correct way to animate words without
+       reading twenty separate nodes to a screen reader. The cost was that
+       selecting the homepage headline copied
+ 
+         "Freight that moves your businessFreight that moves your business
+          forwardforward"
+ 
+       — the visible half and the hidden half interleaved, which is what a
+       visitor pastes into an email when they quote the site back at you.
+ 
+       Selection is not an accessibility surface: a screen reader reads the
+       accessibility tree, not the selection, so nothing here is taken away from
+       the readers this text exists for. The `.sr-only` span STAYS — naming the
+       heading with `aria-label` instead is the bug the third test in
+       `type.test.tsx` exists to prevent, because ARIA forbids the attribute on
+       a generic element and the heading then announces as empty.
+
+       WHAT THIS ACTUALLY FIXES, PRECISELY. Chromium's CLIPBOARD serialiser
+       honours `user-select: none`; its `Selection.toString()` does not, and
+       still returns the hidden copy for a range that spans it. So the paste is
+       clean and a `getSelection()` assertion would still see the duplicate —
+       which is a trap for whoever tests this next, not a sign the rule failed.
+       Measured on the real page, same drag across the hero headline:
+
+         without this rule   "…your businessFreight that moves your business
+                              forwardforward"
+         with it             "Freight that moves your business forward" */
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   .skip-link {
