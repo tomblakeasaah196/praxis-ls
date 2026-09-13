@@ -33,6 +33,7 @@
 
 import * as React from "react";
 import { tr } from "@/lib/i18n";
+import { IndexRow } from "@/components/ui/index-row";
 import { useSearchParams } from "react-router-dom";
 import { useFieldHighlight } from "@/lib/use-url-tab";
 import { ScreenAi } from "@/components/screen-ai";
@@ -877,6 +878,8 @@ export function CorporateEntitiesPage() {
           defaultSize={280}
           min={220}
           max={480}
+          activeKind={tr("Corporate entity")}
+          active={!!selected}
         >
           <div className="space-y-2">
             <Input
@@ -891,10 +894,11 @@ export function CorporateEntitiesPage() {
                 <div className="px-3 py-4 micro">No entities.</div>
               ) : (
                 filtered.map((en) => (
-                  <button
+                  <IndexRow
                     key={en.entity_id}
+                    selected={en.entity_id === selId}
                     onClick={() => setSelId(en.entity_id)}
-                    className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${en.entity_id === selId ? "bg-primary/10 text-foreground" : "hover:bg-muted"}`}
+                    className="items-center justify-between gap-2"
                   >
                     <span className="min-w-0 truncate">
                       <span className="num font-medium">{en.code}</span> ·{" "}
@@ -903,7 +907,7 @@ export function CorporateEntitiesPage() {
                     <Pill tone={LIFECYCLE_TONE[statusOf(en)] || "mute"}>
                       {enumLabel(statusOf(en))}
                     </Pill>
-                  </button>
+                  </IndexRow>
                 ))
               )}
             </div>
