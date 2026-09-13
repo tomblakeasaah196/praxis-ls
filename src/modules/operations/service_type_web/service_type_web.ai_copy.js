@@ -65,6 +65,16 @@ function limits() {
 
 const FEATURE_KEY = "service_page_copy";
 
+/**
+ * FAQs asked of the model per language.
+ *
+ * Four, not twelve. The column allows twelve, but a FAQ block is read by
+ * someone scanning for one specific worry, and a wall of twelve is the same
+ * wall of text this whole feature exists to break up. Four the author can
+ * actually review, and they can add more by hand.
+ */
+const FAQ_TARGET = 4;
+
 /** Axis → the sentence the model is actually given. */
 const TONE_AXES = {
   operational: {
@@ -209,6 +219,8 @@ const houseRules = () => [
   `The short description is at most ${limits().SHORT_DESCRIPTION_MAX} characters and works as a card teaser and a meta-description fallback.`,
   `meta_title is at most ${limits().META_TITLE_MAX} characters; meta_description at most ${limits().META_DESCRIPTION_MAX}.`,
   `claim is ONE sentence, at most ${limits().CLAIM_MAX} characters — the line the services-page card closes on.`,
+  `Exactly ${FAQ_TARGET} FAQ entries. Answer what a buyer actually asks before committing — what is included, what it costs them in time, what documents they must provide, what happens when something goes wrong. Never a question whose answer is a figure you would have to invent.`,
+  `A FAQ question is at most ${limits().QUESTION_MAX} characters and an answer at most ${limits().ANSWER_MAX}; keep answers to a short paragraph.`,
 ];
 
 function languageName(lang) {
@@ -220,7 +232,9 @@ function languageName(lang) {
  * mode, because it is the scannable half of the page and no licence protects it
  * (there is nothing to protect: these fields are usually empty).
  */
-const DERIVED_SHAPE = `"short_description":"","highlights":["",""],"coverage":"","meta_title":"","meta_description":"","claim":""`;
+const DERIVED_SHAPE =
+  `"short_description":"","highlights":["",""],"coverage":"","meta_title":"","meta_description":"","claim":"",` +
+  `"faq":[{"question":"","answer":""}]`;
 
 function buildStructurePrompt({ lang, paragraphs, tone, instructions }) {
   const numbered = paragraphs.map((p, i) => `[${i}] ${p}`).join("\n\n");
@@ -298,7 +312,17 @@ function buildScratchPrompt({ lang, tone, instructions, serviceName, serviceKey 
 
 /* ── model call ─────────────────────────────────────────────────────────── */
 
+const faqSchema = z
+  .array(
+    z.object({
+      question: z.string().trim().min(1),
+      answer: z.string().trim().min(1),
+    }).passthrough(),
+  )
+  .optional();
+
 const derivedSchema = z.object({
+  faq: faqSchema,
   short_description: z.string().trim().max(limits().SHORT_DESCRIPTION_MAX * 2).optional(),
   highlights: z.array(z.string().trim().min(1)).optional(),
   coverage: z.string().trim().max(limits().COVERAGE_MAX * 2).optional(),
@@ -348,6 +372,18 @@ function clip(text, max) {
   return (space > max * 0.6 ? cut.slice(0, space) : cut).trim();
 }
 
+/** The FAQ the model returned for one language, clipped to the columns. */
+function shapeFaq(out) {
+  if (!Array.isArray(out.faq)) return [];
+  return out.faq
+    .map((r) => ({
+      question: clip(r && r.question, limits().QUESTION_MAX),
+      answer: clip(r && r.answer, limits().ANSWER_MAX),
+    }))
+    .filter((r) => r.question && r.answer)
+    .slice(0, limits().FAQ_MAX);
+}
+
 function shapeDerived(out, lang) {
   const suffix = `_${lang}`;
   const result = {};
@@ -385,9 +421,18 @@ async function callModel(client, prompt) {
 async function draftLanguage(client, { lang, body, opts, serviceName, serviceKey, fromLang, fromBody }) {
   const { source, licence, tone, instructions } = opts;
 
-  if (source === "existing" && licence === "structure") {
+  // `!fromBody` is load-bearing. The structure licence preserves EXISTING
+  // prose, and the target of an "extend one to the other" has none — that is
+  // what makes it the target. Without this guard the French job entered the
+  // structure branch with `body` undefined, found zero paragraphs, returned
+  // null without ever calling the model, and was reported to the author as
+  // "one language did not come back". The extend target belongs on the prose
+  // path below, where `fromBody` is the source it is written from.
+  if (source === "existing" && licence === "structure" && !fromBody) {
     const paragraphs = toParagraphs(stripStructure(body));
-    if (!paragraphs.length) return null;
+    // Nothing to work from is not a failure — say so distinctly, so the review
+    // step does not warn about a language the author simply had not written.
+    if (!paragraphs.length) return { skipped: true };
     const { parsed, raw } = await callModel(
       client,
       buildStructurePrompt({ lang, paragraphs, tone, instructions }),
@@ -396,7 +441,8 @@ async function draftLanguage(client, { lang, body, opts, serviceName, serviceKey
     if (!ok || !ok.success) return { failed: true, raw };
     return {
       raw,
-      prose_preserved: true,
+      mode: "structured",
+      faq: shapeFaq(ok.data),
       patch: {
         [`long_description_${lang}`]: assembleStructured(paragraphs, ok.data.sections),
         ...shapeDerived(ok.data, lang),
@@ -413,7 +459,12 @@ async function draftLanguage(client, { lang, body, opts, serviceName, serviceKey
   if (!ok || !ok.success) return { failed: true, raw };
   return {
     raw,
-    prose_preserved: false,
+    // "written" had no prose of the author's to preserve (drafted from scratch,
+    // or the target of an extend); "rewritten" did and changed it. The
+    // difference is the whole of what the review banner promises, so it is not
+    // collapsed into one boolean here.
+    mode: source === "scratch" || fromBody ? "written" : "rewritten",
+    faq: shapeFaq(ok.data),
     patch: {
       [`long_description_${lang}`]: clip(ok.data.long_description, limits().LONG_DESCRIPTION_MAX),
       ...shapeDerived(ok.data, lang),
@@ -483,14 +534,26 @@ async function draft(client, { profile, serviceType, input, actor = {}, env = "l
   );
 
   const patch = {};
+  const faqByLang = { en: [], fr: [] };
   const languages = [];
   let inputTokens = 0;
   let outputTokens = 0;
   let provider = null;
-  let preserved = opts.licence === "structure";
+  // "Nothing of yours was reworded." A language WRITTEN from scratch or
+  // extended from the other had no prose of the author's to preserve, so it
+  // does not falsify the claim; only a "rewritten" one does. Collapsing those
+  // two into a single boolean is what would make the banner lie in both
+  // directions at once.
+  let reworded = false;
 
   for (let i = 0; i < results.length; i += 1) {
     const r = results[i];
+    if (r && r.skipped) {
+      // The author had written nothing in this language. Not a failure, and
+      // warning about it would teach them to ignore the warning.
+      languages.push({ lang: jobs[i].lang, ok: true, mode: "skipped" });
+      continue;
+    }
     if (!r || r.error || r.failed || !r.patch) {
       languages.push({ lang: jobs[i].lang, ok: false });
       if (r && r.raw) {
@@ -501,14 +564,15 @@ async function draft(client, { profile, serviceType, input, actor = {}, env = "l
       continue;
     }
     Object.assign(patch, r.patch);
-    languages.push({ lang: jobs[i].lang, ok: true });
-    if (!r.prose_preserved) preserved = false;
+    if (Array.isArray(r.faq) && r.faq.length) faqByLang[jobs[i].lang] = r.faq;
+    languages.push({ lang: jobs[i].lang, ok: true, mode: r.mode });
+    if (r.mode === "rewritten") reworded = true;
     inputTokens += Number(r.raw?.usage?.prompt_tokens || 0);
     outputTokens += Number(r.raw?.usage?.completion_tokens || 0);
     provider = provider || r.raw?.provider || null;
   }
 
-  const any = languages.some((l) => l.ok);
+  const any = languages.some((l) => l.ok && l.mode !== "skipped");
   await governance.recordUsage(client, {
     userId: actor.user_id || null,
     featureKey: FEATURE_KEY,
@@ -528,13 +592,39 @@ async function draft(client, { profile, serviceType, input, actor = {}, env = "l
     };
   }
 
+  /**
+   * One FAQ row carries BOTH languages — `replaceFaq` requires all four fields
+   * — so a row can only be offered where the English and the French both came
+   * back. Paired by position, which is sound because each language was asked
+   * for the same questions in the same order, and truncated to the shorter
+   * side rather than padded: a row with an empty French answer is a row the
+   * server refuses, and offering it would put the failure at Save time.
+   *
+   * When only one language was drafted there is no FAQ to propose. That is
+   * stated in the result rather than left as a silently missing section.
+   */
+  const pairs = Math.min(faqByLang.en.length, faqByLang.fr.length);
+  const faq = Array.from({ length: pairs }, (_, i) => ({
+    question_en: faqByLang.en[i].question,
+    question_fr: faqByLang.fr[i].question,
+    answer_en: faqByLang.en[i].answer,
+    answer_fr: faqByLang.fr[i].answer,
+    sort_order: i * 10,
+  }));
+
   return {
     manual_required: false,
     provider,
     languages,
-    // True only when every language went down the structure path, where the
-    // author's paragraphs were copied rather than regenerated.
-    prose_preserved: preserved,
+    faq,
+    /** Why there is no FAQ, when there is copy but no pair to build one from. */
+    faq_unavailable:
+      pairs === 0 && (faqByLang.en.length > 0 || faqByLang.fr.length > 0)
+        ? "single_language"
+        : undefined,
+    // "Nothing you wrote was reworded" — true when no language took a rewrite
+    // path over the author's own prose.
+    prose_preserved: !reworded,
     proposal: patch,
   };
 }

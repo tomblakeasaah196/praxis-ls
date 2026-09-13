@@ -202,13 +202,43 @@ function buildApp() {
    * other page, and editing the theme block moves the hash with it instead of
    * failing silently in production. See shared/http/inline-script-hashes.js.
    */
+  /**
+   * EVERY shell this server serves, not just public-web's.
+   *
+   * public-web was the only one listed, and `client/` ships its own inline
+   * block — the no-flash theme script that sets `.dark`, the titlebar colour
+   * and the manifest theme before first paint. Its hash was never in the
+   * policy, so the browser refused it on every page of the tenant ERP:
+   *
+   *     Executing inline script violates … 'script-src 'self' 'sha256-xCIIN…''
+   *
+   * That hash is public-web's; the one the browser asked for is client's. The
+   * cost was invisible in review and obvious in use — a dark-mode operator got
+   * a frame of the light theme on every load and refresh, a white titlebar
+   * strip, and a light PWA window frame around a dark app. The CSP was working
+   * exactly as configured; the configuration only knew about one of the apps.
+   *
+   * Derived from a list so adding a fourth shell cannot repeat it, and computed
+   * from the BUILT file so editing a theme block moves the allowance with it.
+   * `hashesForFile` yields [] for a shell that is not built, which is why an
+   * API-only deploy still boots.
+   */
   const cspDefaults = helmet.contentSecurityPolicy.getDefaultDirectives();
-  const publicWebShellHashes = inlineScriptHashes.hashesForFile(
-    path.resolve(__dirname, "../public-web/dist/index.html"),
-  );
+  const SPA_SHELLS = [
+    "../client/dist/index.html",
+    "../public-web/dist/index.html",
+    "../platform-console/dist/index.html",
+  ];
+  const shellHashes = [
+    ...new Set(
+      SPA_SHELLS.flatMap((rel) =>
+        inlineScriptHashes.hashesForFile(path.resolve(__dirname, rel)),
+      ),
+    ),
+  ];
   const scriptSrc = [
     ...(cspDefaults["script-src"] || ["'self'"]),
-    ...publicWebShellHashes,
+    ...shellHashes,
   ];
   app.use(
     helmet({
