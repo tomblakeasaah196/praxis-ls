@@ -858,14 +858,14 @@ on every list-with-360 screen.**
 </SplitPane>
 ```
 
-**Why it is a rule and not a preference.** Fifteen screens marked the open record with
-one hand-copied string — `bg-primary/10 text-foreground` — and nothing else. A 10% tint of
-the accent is roughly a 4% luminance step on the dark `--card`, which is below the threshold
-at which a person GLANCING at the screen registers a difference at all. That is the only
-threshold that matters here: "which record am I looking at?" is asked once, pre-attentively,
-before any reading starts. None of the fifteen carried `aria-current` either, so the state
-was not merely faint — it was absent from the accessibility tree, and a screen reader user
-had no way to hear which row was open.
+**Why it is a rule and not a preference.** Sixteen screens marked the open record with
+one hand-copied string — `bg-primary/10 text-foreground` — and nothing else. Measured
+against the `--background` these lists actually sit on, that is **1.126:1** in the dark
+theme: a 0.68% luminance step, well below the threshold at which a person GLANCING at the
+screen registers a difference at all. That is the only threshold that matters here: "which
+record am I looking at?" is asked once, pre-attentively, before any reading starts. None of
+the sixteen carried `aria-current` either, so the state was not merely faint — it was absent
+from the accessibility tree, and a screen reader user had no way to hear which row was open.
 
 **The treatment is a pair, and the pair is the point.** The row gets a solid `--accent`
 ground and a 3px `--primary` rail; the detail pane gets the same rail down its leading edge
@@ -874,14 +874,23 @@ and an eyebrow naming the kind. Two rails of one colour and one width read as ON
 pane leaves the reader knowing which row is highlighted and still not knowing what the right
 half of the screen is.
 
-**Ground AND rail, not either.** The ground alone is one token step and tenants retune
-surfaces. The rail is the tenant's own accent at full strength on a neutral ground, so it
-survives any palette — and it is a SHAPE, which is what the eye resolves at a glance and what
-stays legible to a reader with a colour-vision deficiency.
+**Ground AND rail, and the rail is the half that carries it.** At 7.50:1 against the dark
+ground the rail is a 35% luminance step, where no ground colour subtle enough to still read
+as a *surface* can be more than a couple of percent. It is also a SHAPE, which is what the
+eye resolves at a glance rather than colour, and what keeps the state legible to a reader
+with a colour-vision deficiency. The ground is what makes the whole row feel selected rather
+than merely ticked in the margin.
+
+**The ground is two layers, and it has to be.** `.index-row-open` (index.css) is `--accent`
+with the tenant's `--primary` at 15% over it. No SINGLE token steps clearly from
+`--background` in both themes, because `--background` sits between `--card` and `--accent`
+in one of them: `--accent` alone measures 1.281:1 dark but **1.021:1 light**, flatter than
+the tint it replaces. Layered, it is 1.619:1 dark and 1.161:1 light. Use the class rather
+than a `bg-*` utility, and let it track tenant re-branding the way `.st-orange` does.
 
 **Pass layout in `className`, nothing else.** `flex-col`, `items-center justify-between`,
 a tighter `py-1.5` for a dense slot list. Ground, rail, padding and state belong to the
-component; a call site that restates them is the fifteen-copy problem starting again.
+component; a call site that restates them is the sixteen-copy problem starting again.
 
 **A rail that cannot be an `<IndexRow>`** — the inbox thread row carries a checkbox, a star
 and an open button, so it is an `<li>` with three controls rather than one — imports

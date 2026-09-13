@@ -49,8 +49,10 @@ describe("IndexRow", () => {
       </IndexRow>,
     );
     const row = screen.getByRole("button");
-    // The surface step…
-    expect(row.className).toContain("bg-accent");
+    // The surface step — `.index-row-open` is --accent with the tenant's
+    // --primary at 15% over it, which is the only combination that steps
+    // clearly from --background in BOTH themes (see index.css).
+    expect(row.className).toContain("index-row-open");
     // …and the rail, which is what survives a tenant repainting the surfaces.
     expect(row.className).toContain("before:bg-primary");
     // The shape that was NOT visible enough is gone for good.
@@ -89,7 +91,7 @@ describe("IndexRow", () => {
     );
     const row = screen.getByRole("button");
     expect(row.className).toContain("flex-col");
-    expect(row.className).toContain("bg-accent");
+    expect(row.className).toContain("index-row-open");
   });
 
   it("has no axe violations in either state", async () => {
