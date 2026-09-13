@@ -1,30 +1,36 @@
 /**
  * IndexRow — one entry in the index rail of a master-detail (360) screen.
  *
- * WHY. Thirteen screens render a list on the left and a 360 on the right, and
+ * WHY. Sixteen screens render a list on the left and a 360 on the right, and
  * every one of them marked the open record with the same hand-written string:
  *
  *     className={`… ${id === selId ? "bg-primary/10 text-foreground" : "hover:bg-muted"}`}
  *
- * A 10% tint of the accent is a ~4% luminance lift over `--card` in the dark
- * theme (`rgb(18 22 30)`). That is below the threshold at which a person
- * GLANCING at the screen sees a difference at all, which is the only threshold
+ * Measured against the `--background` these lists actually sit on, that tint is
+ * 1.126:1 in the dark theme — a 0.68% luminance step. That is below the
+ * threshold at which a person GLANCING at the screen sees a difference at all,
+ * which is the only threshold
  * that matters for "which record am I looking at?" — the question the reader
  * asks once per screen, pre-attentively, before they start reading. The report
  * that prompted this said it plainly: nothing on the split screen showed which
  * service type the right-hand pane belonged to.
  *
- * None of the thirteen carried `aria-current` either, so the state was not
+ * None of the sixteen carried `aria-current` either, so the state was not
  * merely faint, it was absent from the accessibility tree entirely. A screen
  * reader user had no way to hear which row was open.
  *
- * THE TREATMENT IS TWO SIGNALS, NOT ONE. A solid `--accent` ground (a real
- * surface step, not a wash) and a 3px `--primary` rail down the leading edge.
- * Ground alone is theme-fragile — it is one token step and tenants retune
- * surfaces. The rail is the tenant's own accent at full strength against a
- * neutral ground, so it survives any palette, and its SHAPE is what the eye
- * picks up at a glance rather than its colour, which is also what makes it
- * legible to the ~8% of this corridor's users with a colour-vision deficiency.
+ * THE TREATMENT IS TWO SIGNALS, NOT ONE. A real ground (`.index-row-open`,
+ * defined in index.css — `--accent` with `--primary` at 15% over it, which is
+ * 1.619:1 dark and 1.161:1 light against the `--background` these lists sit on,
+ * where the old tint measured 1.126:1 and 1.095:1) and a 3px `--primary` rail
+ * down the leading edge.
+ *
+ * The rail is the half that carries it: at 7.50:1 against the dark ground it is
+ * a 35% luminance step, where no ground colour subtle enough to read as a
+ * surface can be more than a couple of percent. It is also a SHAPE, which is
+ * what the eye resolves at a glance rather than colour, and what keeps the
+ * state legible to a reader with a colour-vision deficiency. The ground is what
+ * makes the whole row feel selected rather than merely ticked in the margin.
  *
  * IT IS HALF OF A PAIR. `<SplitPane activeKind>` draws the same rail down the
  * leading edge of the detail pane. Two rails of one colour and one width read
@@ -44,7 +50,7 @@
  *
  * BEST PRACTICE. Pass LAYOUT in `className` (`flex-col`, `items-center
  * justify-between`) and nothing else — ground, rail, padding and state belong
- * to the component, and a call site that re-states them is the thirteen-copy
+ * to the component, and a call site that re-states them is the sixteen-copy
  * problem starting again.
  */
 import * as React from "react";
@@ -60,7 +66,7 @@ import { cn } from "@/lib/cn";
  * into two different meanings of "open".
  */
 export const INDEX_ROW_OPEN =
-  "bg-accent text-accent-foreground before:bg-primary";
+  "index-row-open text-accent-foreground before:bg-primary";
 
 /** The same, for a row that is not the open one. */
 export const INDEX_ROW_IDLE = "before:bg-transparent hover:bg-muted";

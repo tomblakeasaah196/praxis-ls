@@ -474,6 +474,38 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.015em;
   }
+
+  /*
+   * The ground under the OPEN record in a master-detail index (`<IndexRow>`,
+   * guide §3.14). Two layers, and it has to be two.
+   *
+   * The sixteen 360 screens marked the open row with `bg-primary/10` and
+   * nothing else. Measured against the `--background` these lists actually sit
+   * on, that is 1.126:1 in the dark theme — a 0.68% luminance step, which is
+   * why the report said nothing showed which record was open.
+   *
+   * `--accent` alone does not fix it either, and fails in the opposite theme:
+   * it is the surface meant to sit on `--card`, and against `--background` it
+   * measures 1.281:1 dark but 1.021:1 LIGHT — flatter than the tint it
+   * replaces. No single token steps clearly from `--background` in both
+   * themes, because `--background` sits between `--card` and `--accent` in one
+   * of them.
+   *
+   * So: `--accent` as the surface step, and the tenant's own `--primary` at
+   * 15% over it as the tint. 1.619:1 dark and 1.161:1 light — a real step in
+   * both, and it tracks tenant re-branding the way `.st-orange` and the
+   * progress fills already do. background-image paints over background-color,
+   * which is what layers them without a stacking-order trick that a caller's
+   * own `z-index` could later break.
+   */
+  .index-row-open {
+    background-color: var(--accent);
+    background-image: linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--primary) 15%, transparent),
+      color-mix(in srgb, var(--primary) 15%, transparent)
+    );
+  }
   /* Was 10px / 0.19em / --ink-3 — 3.01:1, the app's most-used contrast failure
      across 198 call sites (F13). 11px with restrained tracking and the retuned
      --ink-3 measures 5.36:1 on --card and 4.89:1 on --background. Heavy
