@@ -36,7 +36,7 @@ import {
   readCachedSiteTheme,
   writeCachedSiteTheme,
 } from "@/lib/site-theme";
-import { getMode } from "@/lib/theme-mode";
+import { FORCE_DARK, getMode } from "@/lib/theme-mode";
 
 type Ctx = {
   branding: Branding;
@@ -55,8 +55,17 @@ const BrandingContext = React.createContext<Ctx>({
 export const DEFAULT_PRIMARY = "#ff5a00";
 
 /** The `theme` a tenant picked in Appearance is a hint, not an order: a public
- *  visitor's own persisted choice wins, because they are the one reading it. */
+ *  visitor's own persisted choice wins, because they are the one reading it.
+ *
+ *  While `FORCE_DARK` holds, the hint is not applied at all. This was the last
+ *  path to a light page and the worst-looking one: `GET /branding` resolves
+ *  AFTER first paint, so a tenant with `theme: "light"` did not merely start
+ *  light — the site painted dark and then flipped to white under the reader a
+ *  beat later, on every load, for every visitor who had never touched the
+ *  toggle. Locking the mode without this line would have left that flip in
+ *  place and made it look like a bug in the lock. */
 function syncTenantThemePreference(b: Branding): void {
+  if (FORCE_DARK) return;
   if (!b.theme) return;
   const stored = (() => {
     try {

@@ -531,6 +531,45 @@
  * call site is how an easing set stops meaning anything. */
 .hero-plate-enter {
   transform-style: preserve-3d;
+  /* ── DEAF TO THE POINTER, AND THE PLATE HEARS AGAIN ──────────────────────
+   *
+   * THE BUG. `preserve-3d` above is load-bearing for the look (it is what lets
+   * `.tilt-plate`'s rotation reach `.tilt-stage`'s perspective, two elements
+   * up) and it broke every click on this plate. Chromium hit-tests a nested
+   * `preserve-3d` subtree against the FLAT box of the element that opens it, so
+   * pointer events over the left ~40% of the plate resolved to THIS wrapper
+   * instead of descending to what was drawn there. Measured on the real page:
+   * 22 of 56 sample points across the plate — the reference field's own centre
+   * among them — reported `div.hero-plate-enter` as the mousedown target, so
+   * the field never received the press, focus stayed on `<body>`, and typing
+   * went nowhere. Nothing is painted over the field; the hit test simply stops
+   * one element too early.
+   *
+   * IT IS INVISIBLE TO EVERY TEST IN THIS REPO, and will stay invisible.
+   * jsdom has no compositor: `.track-widget input` is found, `fireEvent.click`
+   * dispatches straight at the node, and the suite is green. Only a real
+   * browser can see it, and public-web has no Playwright harness — the layout
+   * gate in CI is client-only. So `hero.test.tsx` guards the PAIRING of the two
+   * declarations instead (this one and `.track-widget`'s), which is the
+   * regression that can realistically happen: someone tidies away a
+   * `pointer-events` line that looks like it does nothing. Reproducing the bug
+   * itself needs Chromium and the note above is the record of having done it.
+   *
+   * THE FIX, AND WHY THIS ONE. The wrapper exists to carry an entrance
+   * animation. It has no text, no controls and no reason to be a pointer
+   * target, so taking it out of hit-testing costs nothing and lets the test
+   * descend to the plate, which has always been hit-tested correctly. Geometry
+   * is untouched — the plate's rect is identical to the pixel before and after
+   * (837.69, 265.48, 540.92, 260.45 at full tilt), so the tilt, the
+   * perspective and the entrance all look exactly as they did.
+   *
+   * The alternatives all moved the picture. Flattening this wrapper drops the
+   * plate out of the stage's 3D space and the foreshortening with it; giving
+   * the wrapper its own `perspective` restores the look but re-centres the
+   * projection on the plate rather than the band, which is a different image
+   * unless `perspective-origin` is hand-derived from the grid's column ratio
+   * and gap — a number that silently goes wrong the day either changes. */
+  pointer-events: none;
   opacity: 0;
   transform: translate3d(4%, 26px, 0) scale(0.97);
   transition:
@@ -624,6 +663,11 @@
  * shadow reads as a blur and three reads as distance — contact, mid, and the
  * long throw that puts the plate in front of the band rather than on it. */
 .track-widget {
+  /* Back on, because `.hero-plate-enter` above is `pointer-events: none` and
+     that inherits. This is the element the wrapper's exemption is FOR: the
+     plate and everything in it — the reference field, the Track button, the
+     portal link — are hit-tested from here down. */
+  pointer-events: auto;
   position: relative;
   background: var(--hero-plate);
   backdrop-filter: saturate(1.6) blur(20px);

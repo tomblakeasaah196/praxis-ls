@@ -2,7 +2,7 @@ import * as React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 // Imported for its side effect BEFORE anything renders: the language is decided
-// from `?lang=` → saved choice → browser, and a page that paints English first
+// from `?lang=` → saved choice → English, and a page that paints English first
 // and then flips to French is a page that showed the wrong site.
 import "@/lib/i18n";
 import { useLang } from "@/lib/i18n";
