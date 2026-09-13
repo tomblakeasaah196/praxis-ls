@@ -18,6 +18,7 @@
  * silently dropped two is worse than one that says which two.
  */
 import { cn } from "@/lib/cn";
+import { INDEX_ROW_OPEN } from "@/components/ui/index-row";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Pill } from "@/components/ui/pill";
@@ -101,8 +102,12 @@ export function ThreadRow({
     <li>
       <div
         className={cn(
-          "flex items-start gap-2 border-b border-border px-3 py-2.5 transition-colors",
-          active ? "bg-primary/10" : "hover:bg-muted/60",
+          "relative flex items-start gap-2 border-b border-border px-3 py-2.5 transition-colors",
+          // Flush list, so the rail sits on the row's very edge rather than
+          // inset the way `<IndexRow>`'s does on a rounded one. The colour is
+          // INDEX_ROW_OPEN either way — one meaning of "this is the open one".
+          "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:transition-colors before:content-['']",
+          active ? INDEX_ROW_OPEN : "before:bg-transparent hover:bg-muted/60",
         )}
       >
         <div className="pt-0.5">

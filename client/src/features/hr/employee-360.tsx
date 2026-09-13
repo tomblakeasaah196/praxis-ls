@@ -6,6 +6,8 @@
  * contracts, dispatch).
  */
 import { pageShell } from "@/lib/layout";
+import { SplitPane } from "@/components/ui/split-pane";
+import { IndexRow } from "@/components/ui/index-row";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { useUrlTab, useFieldHighlight, useDeepLinkEdit } from "@/lib/use-url-tab";
@@ -2254,7 +2256,15 @@ export function EmployeesPage() {
       {employees.error ? (
         <ErrorState message={employees.error} />
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+        <SplitPane
+          storageKey="hr.employees"
+          label="Employee list width"
+          defaultSize={280}
+          min={220}
+          max={480}
+          activeKind={tr("Employee")}
+          active={!!selected}
+        >
           <div className="space-y-2">
             <Input
               placeholder="Search name or matricule…"
@@ -2291,10 +2301,11 @@ export function EmployeesPage() {
                 <div className="px-3 py-4 micro">No employees.</div>
               ) : (
                 filtered.map((e) => (
-                  <button
+                  <IndexRow
                     key={e.employee_id}
+                    selected={e.employee_id === selId}
                     onClick={() => select(e)}
-                    className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${e.employee_id === selId ? "bg-primary/10 text-foreground" : "hover:bg-muted"}`}
+                    className="items-center justify-between gap-2"
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">
@@ -2326,7 +2337,7 @@ export function EmployeesPage() {
                             : "Susp."}
                       </Pill>
                     </span>
-                  </button>
+                  </IndexRow>
                 ))
               )}
             </div>
@@ -2339,7 +2350,7 @@ export function EmployeesPage() {
               hint="Choose a person from the list."
             />
           )}
-        </div>
+        </SplitPane>
       )}
       {creating && (
         <EmployeeWizard

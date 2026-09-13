@@ -357,6 +357,7 @@ return `{ rows | data, error, loading, reload }`.
 | Unknown payload                  | `<DataView>`                                                                              | Never `<pre>{JSON.stringify(…)}</pre>` in the UI.                                                                                                               |
 | Edit one field                   | `<InlineEdit>`                                                                            | Descriptive master data only — **never** a field on a posted document (§7.3).                                                                                   |
 | Master-detail                    | `<SplitPane>`                                                                             | Keyboard-resizable. Replaces `lg:grid-cols-[260px_1fr]`.                                                                                                        |
+| Row in a master-detail index     | `<IndexRow>`                                                                              | The open record's ground + accent rail + `aria-current`. Pair with `<SplitPane activeKind>` (§3.14).                                                            |
 | Bulk actions                     | `<BulkBar>` + `useRowSelection`                                                           | Announces the count; scoped to visible rows (§7.2).                                                                                                             |
 | Column control                   | `<ColumnsMenu>` + `useColumnVisibility`                                                   | Persists the HIDDEN set, per screen (§7.2).                                                                                                                     |
 | Row actions                      | `<RowActions>`                                                                            | Also what bounds the row-action button to the row height (§7.1).                                                                                                |
@@ -828,6 +829,66 @@ upload site in all three apps is on the engine.
 
 ---
 
+### 3.14 Master-detail — the open record has to be visible
+
+**Rows are `<IndexRow>`; the `<SplitPane>` takes `activeKind` and `active`. Both,
+on every list-with-360 screen.**
+
+```tsx
+<SplitPane
+  storageKey="master.service-types"
+  label="Service type list width"
+  activeKind={tr("Service type")}   // the KIND, already translated
+  active={!!selected}
+>
+  <div className="space-y-2">
+    {rows.map((r) => (
+      <IndexRow
+        key={r.service_type_id}
+        selected={r.service_type_id === selId}
+        onClick={() => setSelId(r.service_type_id)}
+        className="flex-col gap-0.5"   // LAYOUT only
+      >
+        <span className="truncate font-medium">{r.name_en}</span>
+        <span className="micro">{r.key}</span>
+      </IndexRow>
+    ))}
+  </div>
+  {selected ? <ServiceTypeDossier … /> : <EmptyState … />}
+</SplitPane>
+```
+
+**Why it is a rule and not a preference.** Fifteen screens marked the open record with
+one hand-copied string — `bg-primary/10 text-foreground` — and nothing else. A 10% tint of
+the accent is roughly a 4% luminance step on the dark `--card`, which is below the threshold
+at which a person GLANCING at the screen registers a difference at all. That is the only
+threshold that matters here: "which record am I looking at?" is asked once, pre-attentively,
+before any reading starts. None of the fifteen carried `aria-current` either, so the state
+was not merely faint — it was absent from the accessibility tree, and a screen reader user
+had no way to hear which row was open.
+
+**The treatment is a pair, and the pair is the point.** The row gets a solid `--accent`
+ground and a 3px `--primary` rail; the detail pane gets the same rail down its leading edge
+and an eyebrow naming the kind. Two rails of one colour and one width read as ONE object, so
+"this row opened that pane" is seen rather than deduced. A marked row next to an unmarked
+pane leaves the reader knowing which row is highlighted and still not knowing what the right
+half of the screen is.
+
+**Ground AND rail, not either.** The ground alone is one token step and tenants retune
+surfaces. The rail is the tenant's own accent at full strength on a neutral ground, so it
+survives any palette — and it is a SHAPE, which is what the eye resolves at a glance and what
+stays legible to a reader with a colour-vision deficiency.
+
+**Pass layout in `className`, nothing else.** `flex-col`, `items-center justify-between`,
+a tighter `py-1.5` for a dense slot list. Ground, rail, padding and state belong to the
+component; a call site that restates them is the fifteen-copy problem starting again.
+
+**A rail that cannot be an `<IndexRow>`** — the inbox thread row carries a checkbox, a star
+and an open button, so it is an `<li>` with three controls rather than one — imports
+`INDEX_ROW_OPEN` from the same module and positions the rail itself. The geometry is local
+(a flush bordered list wants a different rail from a rounded one); the meaning of "this is
+the open one" is shared.
+
 ## 4. Accessibility — the floor, not the aspiration
 
 WCAG 2.1 AA is the minimum. `eslint-plugin-jsx-a11y` runs on every build and the primitives
@@ -994,6 +1055,10 @@ Opt-in on `<DataList>` / `<ListPage>`, because each costs something:
 - **`<SplitPane>` for master-detail.** A real `role="separator"` with arrow keys, Home/End and
   Enter-to-collapse. Two drag handles in this app had to be retro-fitted for the keyboard after
   shipping; do not build a third that needs it.
+- **A master-detail screen must SAY what is open.** `<IndexRow>` on the rows and
+  `activeKind` on the `<SplitPane>`, together — see §3.14. One without the other is half a
+  signal: a marked row beside an anonymous pane, or a labelled pane beside a list where every
+  row looks the same.
 - **The FAB is touch-only.** `<FloatingActions>` is `md:hidden`; desktop uses
   `<QuickActionsMenu>` in the top bar. A fixed bottom-right cluster covers the last rows and
   the pager of every list screen, and making it draggable was the workaround, not the fix.
