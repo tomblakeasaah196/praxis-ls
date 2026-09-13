@@ -1000,12 +1000,19 @@ export function ServiceTypeWebTab({
             String(draft.long_description_fr ?? "").trim(),
         )}
         current={draft}
-        onApply={(patch) => {
+        onApply={(patch, faq) => {
           // Into the DRAFT, never to the server. The author still presses Save,
           // which is also what makes this undoable — the rescue copy and the
           // baseline both still hold what was there before.
           setDraft((d) => ({ ...d, ...patch }));
-          toast.success(tr("Draft applied — review it, then Save."));
+          // The FAQ is a separate table behind its own Save, so it lands in the
+          // FAQ editor's rows rather than in the profile draft.
+          if (faq && faq.length) setFaqRows(faq);
+          toast.success(
+            faq && faq.length
+              ? tr("Draft applied — review it, then Save and Save FAQ.")
+              : tr("Draft applied — review it, then Save."),
+          );
         }}
       />
       {formDraft.pending && (

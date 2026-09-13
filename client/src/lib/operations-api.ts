@@ -2207,6 +2207,13 @@ export type ServiceTypeWebAiResult = {
    */
   prose_preserved?: boolean;
   proposal?: ServiceTypeWebProfilePatch;
+  /**
+   * Bilingual FAQ rows, ready for `replaceServiceTypeWebFaq`. Empty when only
+   * one language was drafted — a row needs both, so there is nothing to offer.
+   */
+  faq?: ServiceTypeWebFaqRow[];
+  /** Why the FAQ is absent, when copy came back but no pair could be built. */
+  faq_unavailable?: "single_language";
 };
 
 export const draftServiceTypeWebCopy = (
