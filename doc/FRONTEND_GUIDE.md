@@ -859,13 +859,27 @@ on every list-with-360 screen.**
 ```
 
 **Why it is a rule and not a preference.** Sixteen screens marked the open record with
-one hand-copied string — `bg-primary/10 text-foreground` — and nothing else. Measured
-against the `--background` these lists actually sit on, that is **1.126:1** in the dark
-theme: a 0.68% luminance step, well below the threshold at which a person GLANCING at the
-screen registers a difference at all. That is the only threshold that matters here: "which
-record am I looking at?" is asked once, pre-attentively, before any reading starts. None of
-the sixteen carried `aria-current` either, so the state was not merely faint — it was absent
-from the accessibility tree, and a screen reader user had no way to hear which row was open.
+one hand-copied string — `bg-primary/10 text-foreground` — and nothing else. **That string
+compiles to no CSS at all.** `primary` is declared `DEFAULT: "var(--primary)"` in
+`tailwind.config.ts`, and `--primary` is a complete `rgb(245 130 31)` rather than the bare
+channels a slash-opacity utility needs, so Tailwind has nowhere to put the alpha and emits
+nothing — silently, with the class still in the markup looking like it works. Verified
+against the production bundle: `.bg-primary\/10` appears zero times, `.bg-primary` appears.
+
+So the open row and the closed row rendered the **same** ground, and "which record am I
+looking at?" — asked once per screen, pre-attentively, before any reading starts — had no
+answer on the screen. None of the sixteen carried `aria-current` either, so it was absent
+from the accessibility tree too, and a screen reader user had no way to hear which row was
+open.
+
+> **This is not local to these rows.** 334 slash-opacity utilities across the tree sit on
+> the same opaque tokens and are equally dead — `bg-muted/30` (38), `bg-muted/50` (32),
+> `bg-card/40` (27), `bg-accent/60` (16), `border-border/60` (15) and so on. Only the
+> status and brand tones (`ok`, `warn`, `bad`, `brand-blue`, `brand-orange`) declare
+> `<alpha-value>` and can take a `/NN`. **Do not reach for `/NN` on a core token** — use
+> the opacity-free utility, or `color-mix` in a real stylesheet the way `.index-row-open`
+> and `.st-orange` do. Repairing the config is its own change: it would alter rendering in
+> 334 places at once.
 
 **The treatment is a pair, and the pair is the point.** The row gets a solid `--accent`
 ground and a 3px `--primary` rail; the detail pane gets the same rail down its leading edge
@@ -882,11 +896,13 @@ with a colour-vision deficiency. The ground is what makes the whole row feel sel
 than merely ticked in the margin.
 
 **The ground is two layers, and it has to be.** `.index-row-open` (index.css) is `--accent`
-with the tenant's `--primary` at 15% over it. No SINGLE token steps clearly from
-`--background` in both themes, because `--background` sits between `--card` and `--accent`
-in one of them: `--accent` alone measures 1.281:1 dark but **1.021:1 light**, flatter than
-the tint it replaces. Layered, it is 1.619:1 dark and 1.161:1 light. Use the class rather
-than a `bg-*` utility, and let it track tenant re-branding the way `.st-orange` does.
+with the tenant's `--primary` at 15% over it, via `color-mix`. No SINGLE token steps clearly
+from `--background` in both themes, because `--background` sits between `--card` and
+`--accent` in one of them: `--accent` alone measures 1.281:1 dark but **1.021:1 light**,
+flatter than the state it replaces. Layered, it is 1.619:1 dark and 1.161:1 light. It is
+hand-written CSS rather than a `bg-*` utility precisely because the utility form *cannot*
+express it — see the alpha note above — and `color-mix` in a stylesheet lets it track tenant
+re-branding the way `.st-orange` does.
 
 **Pass layout in `className`, nothing else.** `flex-col`, `items-center justify-between`,
 a tighter `py-1.5` for a dense slot list. Ground, rail, padding and state belong to the

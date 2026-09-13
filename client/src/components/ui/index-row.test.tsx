@@ -2,10 +2,12 @@
  * The open-record bond: `<IndexRow>` and `<SplitPane activeKind>`.
  *
  * WHY THESE ASSERTIONS. The defect this pair fixes was not a crash and no test
- * could have caught it by exercising behaviour — every one of the thirteen 360
+ * could have caught it by exercising behaviour — every one of the sixteen 360
  * screens "worked", clicked, fetched and rendered. What was broken was whether
- * a person could SEE which record was open, and the failing state was a
- * `bg-primary/10` tint that is ~4% of a luminance step on the dark card.
+ * a person could SEE which record was open, and the failing state was
+ * `bg-primary/10`: a class that compiles to NO CSS at all, because `primary` is
+ * an opaque `var(--primary)` with no `<alpha-value>` slot for the `/10` to go
+ * in. The markup looked correct and the row had no ground.
  *
  * So the assertions are about the two things that can actually be regressed
  * back: the accessibility state (`aria-current`, which was absent on all
@@ -55,8 +57,13 @@ describe("IndexRow", () => {
     expect(row.className).toContain("index-row-open");
     // …and the rail, which is what survives a tenant repainting the surfaces.
     expect(row.className).toContain("before:bg-primary");
-    // The shape that was NOT visible enough is gone for good.
-    expect(row.className).not.toContain("bg-primary/10");
+    // The class that rendered NOTHING is gone for good. Any `/NN` on a core
+    // token is silently dropped by Tailwind (only ok/warn/bad/brand-* declare
+    // `<alpha-value>`), so a ground expressed that way is not a faint ground —
+    // it is no ground. Reach for color-mix in index.css instead.
+    expect(row.className).not.toMatch(
+      /\b(bg|text|border)-(primary|accent|muted|card)\/\d+/,
+    );
   });
 
   it("leaves the closed row without a rail", () => {

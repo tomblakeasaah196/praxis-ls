@@ -6,24 +6,37 @@
  *
  *     className={`… ${id === selId ? "bg-primary/10 text-foreground" : "hover:bg-muted"}`}
  *
- * Measured against the `--background` these lists actually sit on, that tint is
- * 1.126:1 in the dark theme — a 0.68% luminance step. That is below the
- * threshold at which a person GLANCING at the screen sees a difference at all,
- * which is the only threshold
- * that matters for "which record am I looking at?" — the question the reader
- * asks once per screen, pre-attentively, before they start reading. The report
- * that prompted this said it plainly: nothing on the split screen showed which
- * service type the right-hand pane belonged to.
+ * IT WAS NOT A FAINT TINT. IT WAS NOTHING AT ALL. `bg-primary/10` compiles to
+ * no rule whatsoever, so the open row had no background: `primary` is declared
+ * `DEFAULT: "var(--primary)"` in tailwind.config.ts, and `--primary` is a
+ * complete `rgb(245 130 31)` rather than the bare channels a slash-opacity
+ * utility needs. Tailwind has nowhere to put the alpha, so it emits nothing —
+ * silently, with the class still sitting in the markup looking like it works.
+ * Confirmed against the production bundle: `.bg-primary\/10` appears zero times
+ * in the built CSS, while `.bg-primary` is there.
+ *
+ * So the open row and the closed row were rendering the SAME ground, and the
+ * report that prompted this was exact: nothing on the split screen showed which
+ * service type the right-hand pane belonged to. Nothing did.
+ *
+ * This is not local to these rows — 334 slash-opacity utilities across the tree
+ * sit on the same opaque tokens and are equally dead (`bg-muted/30`,
+ * `bg-card/40`, `hover:bg-muted/60` …). Only the status and brand tones
+ * (`ok`, `warn`, `bad`, `brand-blue`, `brand-orange`) declare `<alpha-value>`
+ * and can take a `/NN`. Fixing the config is its own change, with its own
+ * review — it would alter rendering in 334 places at once.
  *
  * None of the sixteen carried `aria-current` either, so the state was not
  * merely faint, it was absent from the accessibility tree entirely. A screen
  * reader user had no way to hear which row was open.
  *
  * THE TREATMENT IS TWO SIGNALS, NOT ONE. A real ground (`.index-row-open`,
- * defined in index.css — `--accent` with `--primary` at 15% over it, which is
- * 1.619:1 dark and 1.161:1 light against the `--background` these lists sit on,
- * where the old tint measured 1.126:1 and 1.095:1) and a 3px `--primary` rail
- * down the leading edge.
+ * defined in index.css — `--accent` with `--primary` at 15% over it via
+ * `color-mix`, which is 1.619:1 dark and 1.161:1 light against the
+ * `--background` these lists sit on, where the old state was 1.000:1) and a 3px
+ * `--primary` rail down the leading edge. The ground is hand-written CSS rather
+ * than a `bg-*` utility precisely BECAUSE the utility form cannot express it:
+ * `color-mix` in a real stylesheet is not subject to the alpha problem above.
  *
  * The rail is the half that carries it: at 7.50:1 against the dark ground it is
  * a 35% luminance step, where no ground colour subtle enough to read as a

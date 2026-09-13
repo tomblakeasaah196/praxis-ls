@@ -233,9 +233,16 @@ export function SplitPane({
           // full height at full strength: the rail's job is to anchor the TOP of
           // the pane to the row, and a 2000px stripe of the tenant's accent down
           // a long dossier is livery, not a marker.
+          //
+          // Two stops, not three. A `via-primary/30` midpoint compiles to
+          // NOTHING: `primary` is declared `var(--primary)` in the Tailwind
+          // config, an opaque colour with no `<alpha-value>` slot, so every
+          // slash-opacity utility on it is silently dropped. That is the same
+          // mechanism that made the old selected row invisible — see
+          // index-row.tsx.
           activeKind &&
             active &&
-            "before:absolute before:inset-y-0 before:left-0 before:hidden before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-primary before:via-primary/30 before:to-transparent before:content-[''] lg:before:block",
+            "before:absolute before:inset-y-0 before:left-0 before:hidden before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-primary before:to-transparent before:content-[''] lg:before:block",
         )}
       >
         {activeKind && active && (
