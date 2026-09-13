@@ -2,7 +2,7 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * The site copy catalogue: every `site.*` string a tenant may override.
- * 496 keys in 24 sections.
+ * 494 keys in 24 sections.
  * Source: public-web/src/lib/i18n-dict.ts
  * Regenerate with: node scripts/gen/gen-site-copy-catalogue.js
  *
@@ -80,8 +80,6 @@ exports.SITE_COPY_ENTRIES = [
   ["site.careers.cultureTitle","careers","Culture Title","Life here","La vie ici"],
   ["site.careers.cv","careers","Cv","Your CV","Votre CV"],
   ["site.careers.cvHint","careers","Cv Hint","PDF, PNG or JPG, up to 8 MB.","PDF, PNG ou JPG, 8 Mo maximum."],
-  ["site.careers.cvNone","careers","Cv None","No file selected","Aucun fichier sélectionné"],
-  ["site.careers.cvPick","careers","Cv Pick","Choose a file","Choisir un fichier"],
   ["site.careers.cvRequired","careers","Cv Required","This role asks for a CV.","Ce poste exige un CV."],
   ["site.careers.email","careers","Email","Email","Courriel"],
   ["site.careers.empty","careers","Empty","No open roles right now","Aucun poste ouvert pour l’instant"],

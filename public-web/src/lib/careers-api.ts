@@ -11,7 +11,7 @@
  * careers link is this workspace's own domain and carries no slug.
  */
 import { publicApi, publicGet } from "./api";
-import { currentLocale, tStatic } from "./i18n";
+import { currentLocale } from "./i18n";
 
 /** What the server chooses to make public — an allow-list built in
  *  `careers.service`, never a database row. Anything absent here is absent on
@@ -130,37 +130,6 @@ export const unsubscribeAlert = (token: string) =>
     `/careers/alerts/unsubscribe/${encodeURIComponent(token)}`,
     { method: "POST", body: {} },
   );
-
-/** Matches CV_MAX_BYTES in careers.service. Checked here too so an 8 MB scan is
- *  refused before it is base64-encoded and pushed over a phone connection. */
-export const CV_MAX_BYTES = 8 * 1024 * 1024;
-export const CV_ACCEPT = "application/pdf,image/png,image/jpeg";
-
-/** Read a picked file as a base64 data URL — the shape the vault upload path
- *  takes. Rejects with a sentence the applicant can act on. */
-export function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (file.size > CV_MAX_BYTES) {
-      return reject(
-        new Error(
-          tStatic("errors.fileTooLarge", {
-            size: (file.size / 1024 / 1024).toFixed(1),
-            limit: CV_MAX_BYTES / 1024 / 1024,
-          }),
-        ),
-      );
-    }
-    const reader = new FileReader();
-    reader.onerror = () =>
-      reject(
-        new Error(
-          tStatic("errors.fileUnreadable"),
-        ),
-      );
-    reader.onload = () => resolve(String(reader.result));
-    reader.readAsDataURL(file);
-  });
-}
 
 /**
  * Salary band as one human phrase, or null when the role does not publish one.

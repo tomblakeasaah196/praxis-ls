@@ -190,8 +190,11 @@ describe("the careers page with nothing open", () => {
     expect(
       await screen.findByLabelText(/The kind of work you are looking for/i),
     ).toBeInTheDocument();
-    // And the file picker the engine exists for, from the same chunk.
-    expect(await screen.findByText("Choose a file")).toBeInTheDocument();
+    /* And the CV control, which is the shared `FileInput` rather than a copy of
+       the upload engine — asserted by its LABEL, so the assertion survives the
+       control being restyled and fails if the form ever grows its own picker
+       again. */
+    expect(await screen.findByLabelText("Your CV")).toBeInTheDocument();
   });
 
   it("offers the alert form only when the tenant switched alerts on", async () => {

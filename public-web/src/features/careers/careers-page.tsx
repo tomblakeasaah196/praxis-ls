@@ -58,10 +58,12 @@ import "./careers-i18n";
  *      reference than a candidate with nothing"). Rendering only "Thank you"
  *      would tell a person their CV is in a pile when it may not be — so the
  *      confirmation is a different sentence for each case.
- *   2. THE FILE IS SIZE-CHECKED BEFORE IT IS READ. `fileToDataUrl` refuses over
- *      8 MB, matching `CV_MAX_BYTES` in `careers.service`, so an oversized scan
- *      is a message at selection time and not a lost form after a minute on a
- *      metered connection.
+ *   2. THE FILE IS CHECKED BEFORE IT IS SENT. `FileInput` refuses a wrong type
+ *      outright and refuses an oversized one AFTER compressing, against
+ *      `ATTACHMENT_MAX_BYTES` — the same 8 MB `CV_MAX_BYTES` enforces in
+ *      `careers.service`. So an unusable file is a message at selection time and
+ *      not a lost form after a minute on a metered connection, and a CV
+ *      photographed on a phone is resized rather than refused.
  *   3. WHAT THE ROLE INSISTS ON IS SAID FIRST. `apply_config` carries
  *      `require_cover_letter` / `require_portfolio`; the server enforces them and
  *      returns named field errors, so the form marks them required up front
