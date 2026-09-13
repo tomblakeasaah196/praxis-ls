@@ -3,13 +3,7 @@ import { useTranslation } from "react-i18next";
 import * as api from "@/lib/careers-api";
 import { withScheme } from "@/lib/format";
 import { useIntake } from "@/lib/use-intake";
-import { FilePicker } from "@/components/ui/file-input";
-import {
-  compressImage,
-  isPreviewableImage,
-  isSafeBlobUrl,
-  previewUrlFor,
-} from "@/lib/image-compress";
+import { FileInput, type Attachment } from "@/components/ui/file-input";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/field";
 // Registers `site.careers.*`, which lives in this chunk rather than in the
@@ -39,11 +33,6 @@ import "./careers-i18n";
  * receipt that says whether the CV actually landed.
  */
 
-/** Kept out of the JSX so the suppression comment stays on the line directly
- *  above `src` — Prettier re-wraps a long <img> and would separate them. */
-const CV_PREVIEW_CLASS =
-  "h-12 w-12 shrink-0 rounded border bg-background object-cover";
-
 export type CandidateFormProps = {
   /** Where the body goes. The two callers differ in exactly this and the copy. */
   send: (body: api.ApplyInput) => Promise<api.ApplyResult>;
@@ -71,18 +60,10 @@ export function CandidateForm({
   renderSent,
 }: CandidateFormProps) {
   const { t } = useTranslation();
-  const [file, setFile] = React.useState<File | null>(null);
-  const [preview, setPreview] = React.useState<string | null>(null);
-
-  // An object URL pins the whole file in memory until it is revoked.
-  React.useEffect(
-    () => () => {
-      if (preview) URL.revokeObjectURL(preview);
-    },
-    [preview],
-  );
-  const [fileError, setFileError] = React.useState<string | null>(null);
-  const [cvDataUrl, setCvDataUrl] = React.useState<string | null>(null);
+  /* One piece of state where there were four (`file`, `preview`, `fileError`,
+     `cvDataUrl`) and no revoke effect: `FileInput` owns the object URL's
+     lifetime along with everything else it owns. */
+  const [cv, setCv] = React.useState<Attachment | null>(null);
   const [f, setF] = React.useState({
     full_name: "",
     email: "",
@@ -109,36 +90,6 @@ export function CandidateForm({
     (!requirePortfolio || f.portfolio_url.trim().length > 0) &&
     !intake.busy;
 
-  async function pick(files: FileList | null) {
-    const picked = files?.[0] || null;
-    setFileError(null);
-    setCvDataUrl(null);
-    setPreview((old) => {
-      if (old) URL.revokeObjectURL(old);
-      return null;
-    });
-    setFile(picked);
-    if (!picked) return;
-    try {
-      // Compressed before it is ever encoded. A CV photographed on a phone is
-      // routinely 8–12 MB, and this is a stranger on a corridor connection with
-      // no account and no second attempt: the resize is the difference between
-      // an application that lands and one that times out. "document" keeps the
-      // source format, so the company receives the kind of file it can open.
-      const { file: prepared } = await compressImage(picked, "document");
-      setFile(prepared);
-      if (isPreviewableImage(prepared)) {
-        // The preview this form never had. Attaching the wrong scan is
-        // otherwise invisible — and a candidate has no account to check it from
-        // afterwards. previewUrlFor proves the blob: contract at the sink.
-        setPreview(previewUrlFor(prepared));
-      }
-      setCvDataUrl(await api.fileToDataUrl(prepared));
-    } catch (e) {
-      setFileError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSend) return;
@@ -163,8 +114,8 @@ export function CandidateForm({
         ? withScheme(f.portfolio_url.trim())
         : undefined,
       cover_note: f.cover_note.trim() || undefined,
-      cv_data_url: cvDataUrl || undefined,
-      cv_filename: file?.name,
+      cv_data_url: cv?.dataUrl,
+      cv_filename: cv?.filename,
     });
   }
 
@@ -260,61 +211,47 @@ export function CandidateForm({
         onChange={(e) => set("cover_note", e.target.value)}
       />
 
+      {/*
+        The shared control, not a second copy of it.
+
+        This form used to hand-roll the whole engine beside `FilePicker`: its own
+        compression call, its own size check, its own object-URL lifetime, its
+        own preview `<img>` and its own filename-and-bytes chip. `FileInput`
+        already does every one of those things — its preview carries the comment
+        "Same guard as the careers form", which is how long the duplication has
+        been visible — so what was here was a THIRD copy of the upload engine in
+        a repo whose CLAUDE.md §3.13 says to keep the two it already has in step.
+
+        Two things improve by deleting it rather than merely moving it:
+
+          · THE SIZE CHECK NOW RUNS ON THE COMPRESSED BYTES. This form refused a
+            file over 8 MB before compressing it (`fileToDataUrl`), so a CV
+            photographed on a phone — routinely 8–12 MB and well under the limit
+            once resized — was a dead end for somebody with no account and no
+            support channel. `FileInput` compresses first and checks after, which
+            is what its own header argues for.
+          · THE TYPE IS CHECKED BEFORE ANY WORK. `ATTACHMENT_TYPES` is refused up
+            front with a sentence naming the formats, instead of the vault
+            refusing the bytes a minute later.
+
+        The 8 MB ceiling and the accepted types are the same values on both
+        paths (`ATTACHMENT_MAX_BYTES` / `ATTACHMENT_TYPES` against `CV_MAX_BYTES`
+        / `CV_TYPES`), and the server still sniffs the bytes regardless.
+      */}
       <div>
-        <p className="field-label">{t("site.careers.cv")}</p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-3">
-          <FilePicker
-            accept={api.CV_ACCEPT}
-            label={t("site.careers.cv")}
-            disabled={intake.busy}
-            trigger={
-              <span className="btn-surface inline-flex h-10 items-center rounded-[calc(var(--radius)-2px)] px-4 text-sm font-medium no-underline">
-                {t("site.careers.cvPick")}
-              </span>
-            }
-            onPick={(files) => void pick(files)}
-          />
-          {/* CodeQL reports js/xss-through-dom (high) on the `src` below, and
-              it is a FALSE POSITIVE dismissed in the Security tab — not
-              suppressed here. GitHub's CodeQL Action ignores source-code
-              suppression comments (`// codeql[…]` / `// lgtm[…]` were an LGTM
-              feature); alerts are dismissed through code scanning itself. A
-              directive here would look like it was handling the alert while
-              doing nothing, which is worse than no comment at all.
-
-              The flow it traces is real: a file the visitor chose reaches a URL
-              sink. What it cannot see is that `preview` can only ever be a `blob:`
-              URL — `URL.createObjectURL` has no other possible return — and a
-              blob: URL can neither execute nor be reinterpreted as markup. The
-              schemes that would make this sink live, `data:text/html` and
-              `javascript:`, are unreachable.
-
-              What was tried, so nobody repeats it: asserting the prefix inside
-              `previewUrlFor` (not followed across a module boundary); an inline
-              `startsWith` on this conditional (not recognised as a barrier);
-              and the named guard below (still reported).
-
-              The guard STAYS regardless of the dismissal. It is not decoration
-              — it is what catches the day someone swaps object URLs for a
-              FileReader `data:` URL, where this sink genuinely would be live.
-              image-compress.test.ts covers that rejection path.
-
-              Revisit if this component ever takes its src from anywhere other
-              than `previewUrlFor`. */}
-          {isSafeBlobUrl(preview) ? (
-            <img src={preview} alt="" className={CV_PREVIEW_CLASS} />
-          ) : null}
-          <span className="min-w-0 truncate text-xs text-muted-foreground">
-            {file ? file.name : t("site.careers.cvNone")}
-          </span>
-        </div>
-
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          {t("site.careers.cvHint")}
-        </p>
-        {(fileError || intake.fields.cv_data_url) && (
+        <FileInput
+          id="careers-cv"
+          label={t("site.careers.cv")}
+          hint={t("site.careers.cvHint")}
+          value={cv}
+          onChange={setCv}
+        />
+        {/* The SERVER's verdict on the file, which `FileInput` cannot know: the
+            vault sniffs the bytes and can refuse a .exe renamed .pdf that passed
+            every check on this side. */}
+        {intake.fields.cv_data_url && (
           <p role="alert" className="mt-1.5 text-xs text-bad">
-            {fileError || intake.fields.cv_data_url}
+            {intake.fields.cv_data_url}
           </p>
         )}
       </div>
