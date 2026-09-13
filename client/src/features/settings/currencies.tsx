@@ -12,6 +12,7 @@
  */
 
 import { pageShell } from "@/lib/layout";
+import { IndexRow } from "@/components/ui/index-row";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { errMsg, useList, useResource } from "@/lib/use-resource";
@@ -1260,6 +1261,8 @@ export function CurrenciesPage() {
           defaultSize={300}
           min={240}
           max={520}
+          activeKind={tr("Currency")}
+          active={!!selId}
         >
           <div className="space-y-2">
             <Input
@@ -1274,10 +1277,11 @@ export function CurrenciesPage() {
                 </div>
               ) : (
                 filtered.map((c) => (
-                  <button
+                  <IndexRow
                     key={c.code}
+                    selected={c.code === selId}
                     onClick={() => setSelId(c.code)}
-                    className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${c.code === selId ? "bg-primary/10 text-foreground" : "hover:bg-muted"}`}
+                    className="items-center gap-2"
                   >
                     <span aria-hidden className="w-5 text-center">
                       {flagOf(ccyLib.representativeCountry(c.code))}
@@ -1291,7 +1295,7 @@ export function CurrenciesPage() {
                       <Pill tone="orange">Top</Pill>
                     )}
                     {!c.is_active && <Pill tone="mute">{tr("Off")}</Pill>}
-                  </button>
+                  </IndexRow>
                 ))
               )}
             </div>
