@@ -105,6 +105,33 @@ function emptyProfile(serviceTypeId) {
  * API accepts and can never write; the reverse is a column writable through
  * PUT that no validator ever admits. Both are silent.
  */
+/**
+ * The jsonb columns on `service_type_web_profile`.
+ *
+ * A JS array handed to node-postgres becomes a POSTGRES ARRAY LITERAL —
+ * `{"a","b"}` — which is not JSON. Casting that to jsonb raises 22P02, which
+ * the error handler maps to `400 INVALID_VALUE`, "One of the values is in the
+ * wrong format": no field named, no column named, on a request carrying a whole
+ * page of copy. Every save that included highlights failed that way.
+ *
+ * Listed per column rather than "stringify anything that is an array", because
+ * `gallery_vault_ids` is `uuid[]` and the raw array is exactly what IT needs.
+ * The same distinction is why this cannot be a blanket rule in the query layer.
+ */
+const JSONB_COLUMNS = new Set(["highlights_fr", "highlights_en"]);
+
+/** Serialise a value for the column it is bound to. */
+function bind(col, value) {
+  if (value === undefined) return null;
+  if (!JSONB_COLUMNS.has(col)) return value;
+  // Already a string means a caller has stringified it; sending it twice would
+  // store a JSON string containing JSON.
+  if (typeof value === "string") return value;
+  // `null` on a NOT NULL DEFAULT '[]' column is 23502 — an empty list is how
+  // the highlights are cleared, so that is what a null becomes here.
+  return JSON.stringify(value ?? []);
+}
+
 const PROFILE_COLUMNS = [
   "short_description_fr", "short_description_en",
   "long_description_fr", "long_description_en",
@@ -151,7 +178,7 @@ async function upsertProfile(client, serviceTypeId, patch) {
   }
   const insertCols = ["service_type_id", ...sent];
   const placeholders = insertCols.map((_, i) => `$${i + 1}`).join(", ");
-  const values = [serviceTypeId, ...sent.map((col) => (patch[col] === undefined ? null : patch[col]))];
+  const values = [serviceTypeId, ...sent.map((col) => bind(col, patch[col]))];
   // EXCLUDED.<col> = the value the INSERT tried to write (i.e. what the
   // caller sent, including a real null). No COALESCE — explicit null is a
   // clear, omitted keys are not in the SET list at all.

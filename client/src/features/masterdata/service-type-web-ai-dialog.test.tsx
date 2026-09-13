@@ -9,7 +9,7 @@
  */
 import * as React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ToastProvider } from "@/components/ui/toast";
 
@@ -202,5 +202,129 @@ describe("ServiceTypeWebAiDialog", () => {
   it("offers only 'from scratch' when there is no copy to work from", () => {
     view({ hasExistingCopy: false, current: {} });
     expect(screen.getByRole("button", { name: /Use what is in the boxes/ })).toBeDisabled();
+  });
+
+  /**
+   * The review row shows ~320 characters. On a long description that is the
+   * first paragraph of twenty, and a trailing "…" the reader cannot open hides
+   * exactly the part worth judging.
+   */
+  it("offers the full text of a truncated field, and applies what was edited", async () => {
+    const user = userEvent.setup();
+    const LONG = "Sentence. ".repeat(60);
+    draftServiceTypeWebCopy.mockResolvedValue({
+      manual_required: false,
+      proposal: { long_description_en: LONG },
+    });
+    const { onApply } = view();
+
+    await runWizard(user);
+    await screen.findByText(/Review the draft/);
+
+    // Truncated, so the action says so.
+    await user.click(screen.getByRole("button", { name: /Read full & edit/ }));
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(box.value).toBe(LONG);
+
+    fireEvent.change(box, { target: { value: "My corrected body." } });
+    await user.click(screen.getByRole("button", { name: /Keep this/ }));
+    await user.click(screen.getByRole("button", { name: /Apply/ }));
+
+    expect(onApply.mock.calls[0][0].long_description_en).toBe("My corrected body.");
+  });
+
+  it("a short field says Edit rather than Read full", async () => {
+    const user = userEvent.setup();
+    draftServiceTypeWebCopy.mockResolvedValue({
+      manual_required: false,
+      proposal: { meta_title_en: "Short title" },
+    });
+    view();
+    await runWizard(user);
+    await screen.findByText(/Review the draft/);
+    expect(screen.getByRole("button", { name: /^Edit$/ })).toBeTruthy();
+  });
+
+  it("refuses to keep an edit that is past the column's limit", async () => {
+    const user = userEvent.setup();
+    draftServiceTypeWebCopy.mockResolvedValue({
+      manual_required: false,
+      proposal: { meta_title_en: "Short title" },
+    });
+    view();
+    await runWizard(user);
+    await screen.findByText(/Review the draft/);
+    await user.click(screen.getByRole("button", { name: /^Edit$/ }));
+
+    // meta_title is capped at 70 — better to say so here than at Save.
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "x".repeat(80) },
+    });
+    expect(screen.getByRole("button", { name: /Keep this/ })).toBeDisabled();
+    expect(screen.getByText(/Too long for this field/)).toBeTruthy();
+  });
+
+  /**
+   * A backdrop click discarded a whole generated draft and sent the author back
+   * through the wizard from the beginning. The proposal lives only in component
+   * state; there is nothing to restore it from.
+   */
+  it("does not throw the draft away on a backdrop click or Escape", async () => {
+    const user = userEvent.setup();
+    draftServiceTypeWebCopy.mockResolvedValue({
+      manual_required: false,
+      proposal: { short_description_en: "A teaser." },
+    });
+    const { onClose } = view();
+
+    await runWizard(user);
+    await screen.findByText(/Review the draft/);
+
+    await user.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText(/Review the draft/)).toBeTruthy();
+  });
+
+  it("proposes a bilingual FAQ and applies it separately from the copy", async () => {
+    const user = userEvent.setup();
+    draftServiceTypeWebCopy.mockResolvedValue({
+      manual_required: false,
+      proposal: { short_description_en: "A teaser." },
+      faq: [
+        {
+          question_en: "What is included?",
+          question_fr: "Que comprend le service ?",
+          answer_en: "Everything.",
+          answer_fr: "Tout.",
+          sort_order: 0,
+        },
+      ],
+    });
+    const { onApply } = view();
+
+    await runWizard(user);
+    await screen.findByText(/Review the draft/);
+    expect(screen.getByText(/What is included\?/)).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /Apply/ }));
+    const [patch, faq] = onApply.mock.calls[0];
+    // The FAQ is its own table behind its own Save — never folded into the patch.
+    expect(patch.short_description_en).toBe("A teaser.");
+    expect(faq).toHaveLength(1);
+    expect(faq[0].question_fr).toBe("Que comprend le service ?");
+  });
+
+  it("says why there is no FAQ when only one language came back", async () => {
+    const user = userEvent.setup();
+    draftServiceTypeWebCopy.mockResolvedValue({
+      manual_required: false,
+      proposal: { short_description_en: "A teaser." },
+      faq: [],
+      faq_unavailable: "single_language",
+    });
+    view();
+    await runWizard(user);
+    await screen.findByText(/Review the draft/);
+    expect(screen.getByText(/No FAQ this time/)).toBeTruthy();
   });
 });
