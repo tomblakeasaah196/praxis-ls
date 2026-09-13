@@ -104,15 +104,64 @@ const FIELD_LABEL: Partial<Record<keyof api.ServiceTypeWebProfilePatch, string>>
   meta_description_fr: "Meta description (FR)",
 };
 
+const L = api.SERVICE_TYPE_WEB_LIMITS;
+
+/** The column's real limit, so the editor counts against the truth. */
+const FIELD_CAP: Partial<Record<keyof api.ServiceTypeWebProfilePatch, number>> = {
+  short_description_en: L.SHORT_DESCRIPTION_MAX,
+  short_description_fr: L.SHORT_DESCRIPTION_MAX,
+  long_description_en: L.LONG_DESCRIPTION_MAX,
+  long_description_fr: L.LONG_DESCRIPTION_MAX,
+  coverage_en: L.COVERAGE_MAX,
+  coverage_fr: L.COVERAGE_MAX,
+  claim_en: L.CLAIM_MAX,
+  claim_fr: L.CLAIM_MAX,
+  meta_title_en: L.META_TITLE_MAX,
+  meta_title_fr: L.META_TITLE_MAX,
+  meta_description_en: L.META_DESCRIPTION_MAX,
+  meta_description_fr: L.META_DESCRIPTION_MAX,
+};
+
+const isHighlights = (k: keyof api.ServiceTypeWebProfilePatch) =>
+  k === "highlights_en" || k === "highlights_fr";
+
+/** Editable text for a value: highlights become one plain line each. */
+function toEditable(k: keyof api.ServiceTypeWebProfilePatch, v: unknown): string {
+  if (isHighlights(k)) return Array.isArray(v) ? v.map(String).join("\n") : "";
+  return v == null ? "" : String(v);
+}
+
+/** …and back again, in the shape the column wants. */
+function fromEditable(
+  k: keyof api.ServiceTypeWebProfilePatch,
+  text: string,
+): string | string[] {
+  if (!isHighlights(k)) return text;
+  return text
+    .split("\n")
+    .map((line) => line.replace(/^\s*[•\-*]\s*/, "").trim())
+    .filter(Boolean)
+    .slice(0, L.HIGHLIGHTS_MAX);
+}
+
 function asText(v: unknown): string {
   if (Array.isArray(v)) return v.map((x) => `• ${String(x)}`).join("\n");
   return v == null ? "" : String(v);
 }
 
-/** A short, honest preview: enough to judge, not the whole page. */
-function preview(v: unknown, max = 320): string {
+const PREVIEW_MAX = 320;
+
+/**
+ * A short preview: enough to judge, not the whole page.
+ *
+ * Returns whether it TRUNCATED, because a trailing "…" that the reader cannot
+ * open is worse than no preview — the copy that matters is exactly the part
+ * being hidden. The row turns that into a "Read full" action.
+ */
+function preview(v: unknown): { text: string; truncated: boolean } {
   const s = asText(v).trim();
-  return s.length > max ? `${s.slice(0, max).trimEnd()}…` : s;
+  if (s.length <= PREVIEW_MAX) return { text: s, truncated: false };
+  return { text: `${s.slice(0, PREVIEW_MAX).trimEnd()}…`, truncated: true };
 }
 
 function LevelPicker({
@@ -165,7 +214,10 @@ export function ServiceTypeWebAiDialog({
   /** What is in the boxes now, for the before/after column. */
   current: api.ServiceTypeWebProfilePatch;
   /** Hands the accepted fields to the tab's draft. Never saves. */
-  onApply: (patch: api.ServiceTypeWebProfilePatch) => void;
+  onApply: (
+    patch: api.ServiceTypeWebProfilePatch,
+    faq?: api.ServiceTypeWebFaqRow[],
+  ) => void;
 }) {
   const [step, setStep] = React.useState<Step>(1);
   const [source, setSource] = React.useState<Source>("existing");
@@ -181,6 +233,13 @@ export function ServiceTypeWebAiDialog({
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<api.ServiceTypeWebAiResult | null>(null);
   const [accepted, setAccepted] = React.useState<Record<string, boolean>>({});
+  const [acceptFaq, setAcceptFaq] = React.useState(true);
+  /** Author's own corrections, laid over the proposal. */
+  const [edits, setEdits] = React.useState<
+    Partial<Record<keyof api.ServiceTypeWebProfilePatch, string | string[]>>
+  >({});
+  const [editing, setEditing] =
+    React.useState<keyof api.ServiceTypeWebProfilePatch | null>(null);
 
   // A fresh dialog every time it opens — a wizard that remembers last week's
   // answers is a wizard that quietly rewrites a page on a default nobody re-read.
@@ -197,7 +256,17 @@ export function ServiceTypeWebAiDialog({
     setError(null);
     setResult(null);
     setAccepted({});
+    setEdits({});
+    setEditing(null);
+    setAcceptFaq(true);
   }, [open, hasExistingCopy]);
+
+  /** What the row shows and what Apply sends: the author's edit if they made one. */
+  const valueFor = React.useCallback(
+    (k: keyof api.ServiceTypeWebProfilePatch) =>
+      Object.prototype.hasOwnProperty.call(edits, k) ? edits[k] : result?.proposal?.[k],
+    [edits, result],
+  );
 
   const proposalKeys = React.useMemo(() => {
     const p = result?.proposal || {};
@@ -232,6 +301,7 @@ export function ServiceTypeWebAiDialog({
         if (Array.isArray(v) ? v.length > 0 : v) next[k] = true;
       }
       setAccepted(next);
+      setAcceptFaq((out.faq?.length ?? 0) > 0);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -240,16 +310,19 @@ export function ServiceTypeWebAiDialog({
   }
 
   function applyAccepted() {
-    const p = result?.proposal || {};
     const patch: api.ServiceTypeWebProfilePatch = {};
     for (const k of proposalKeys) {
-      if (accepted[k]) (patch as Record<string, unknown>)[k] = p[k];
+      if (accepted[k]) (patch as Record<string, unknown>)[k] = valueFor(k);
     }
-    onApply(patch);
+    const faq = acceptFaq && result?.faq?.length ? result.faq : undefined;
+    onApply(patch, faq);
     onClose();
   }
 
-  const acceptedCount = proposalKeys.filter((k) => accepted[k]).length;
+  const faqRows = result?.faq || [];
+  const acceptedCount =
+    proposalKeys.filter((k) => accepted[k]).length +
+    (acceptFaq && faqRows.length ? 1 : 0);
 
   /* ── the review step replaces the wizard once a draft exists ───────────── */
   if (result) {
@@ -258,6 +331,12 @@ export function ServiceTypeWebAiDialog({
         open={open}
         onClose={onClose}
         size="xl"
+        /* A stray click on the backdrop threw away a whole generated draft and
+           sent the author back through the entire wizard. There is nothing to
+           recover it from — the proposal lives only in this component's state —
+           so the backdrop and Escape are disabled and leaving is the explicit
+           Discard button or the ✕. Same reason the wizard below is pinned. */
+        dismissible={false}
         title={tr("Review the draft")}
         description={tr(
           "Nothing is saved yet. What you accept goes into the boxes on the tab; you still press Save.",
@@ -303,10 +382,52 @@ export function ServiceTypeWebAiDialog({
             </Callout>
           )}
 
+          {result.faq_unavailable === "single_language" && (
+            <Callout tone="warn" title={tr("No FAQ this time")}>
+              {tr(
+                "A FAQ entry needs both languages, and only one was drafted. Run it again with both, or add the questions by hand.",
+              )}
+            </Callout>
+          )}
+
+          {faqRows.length > 0 && (
+            <div className="rounded-lg border bg-card p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-semibold">
+                  {tr("FAQ")} · {faqRows.length} {tr("questions, both languages")}
+                </span>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={acceptFaq}
+                    onChange={(e) => setAcceptFaq(e.target.checked)}
+                  />
+                  {tr("Accept")}
+                </label>
+              </div>
+              {/* The whole FAQ is one accept, not one per row: a row is only
+                  valid with all four fields, so accepting half of a pair is not
+                  a state the server has. Individual rows stay editable in the
+                  tab's own FAQ editor once applied. */}
+              <p className="mt-1 text-xs text-muted-foreground">
+                {tr("Replaces the FAQ list on the tab. You still press Save FAQ there.")}
+              </p>
+              <ol className="mt-2 space-y-2">
+                {faqRows.map((r, i) => (
+                  <li key={i} className="text-sm">
+                    <p className="font-medium">{r.question_en}</p>
+                    <p className="text-muted-foreground">{r.question_fr}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
           <ul className="space-y-3">
             {proposalKeys.map((k) => {
               const now = preview(current[k]);
-              const next = preview(result.proposal?.[k]);
+              const next = preview(valueFor(k));
+              const edited = Object.prototype.hasOwnProperty.call(edits, k);
               return (
                 <li key={k} className="rounded-lg border bg-card p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -330,14 +451,29 @@ export function ServiceTypeWebAiDialog({
                         {tr("Now")}
                       </p>
                       <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                        {now || tr("— empty —")}
+                        {now.text || tr("— empty —")}
                       </p>
                     </div>
                     <div className="min-w-0">
-                      <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
+                      <p className="mb-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
                         {tr("Proposed")}
+                        {edited && <Pill tone="ok">{tr("Edited")}</Pill>}
                       </p>
-                      <p className="whitespace-pre-wrap break-words text-sm">{next}</p>
+                      <p className="whitespace-pre-wrap break-words text-sm">
+                        {next.text}
+                      </p>
+                      {/* Always offered, not only when truncated: a short field
+                          can still be wrong, and having to accept it and then
+                          go hunting for the box on the tab is the long way
+                          round. The label says which case this is. */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="mt-1 px-0"
+                        onClick={() => setEditing(k)}
+                      >
+                        {next.truncated ? tr("Read full & edit") : tr("Edit")}
+                      </Button>
                     </div>
                   </div>
                 </li>
@@ -345,6 +481,20 @@ export function ServiceTypeWebAiDialog({
             })}
           </ul>
         </div>
+        {editing && (
+          <FieldEditor
+            fieldKey={editing}
+            label={tr(FIELD_LABEL[editing] || String(editing))}
+            value={toEditable(editing, valueFor(editing))}
+            onCancel={() => setEditing(null)}
+            onSave={(text) => {
+              setEdits((e) => ({ ...e, [editing]: fromEditable(editing, text) }));
+              // Editing a field is a decision to keep it.
+              setAccepted((a) => ({ ...a, [editing]: true }));
+              setEditing(null);
+            }}
+          />
+        )}
       </Dialog>
     );
   }
@@ -363,6 +513,8 @@ export function ServiceTypeWebAiDialog({
       open={open}
       onClose={onClose}
       size="lg"
+      // The tone axes and the free-text instructions are real work too.
+      dismissible={false}
       title={tr("Draft with the assistant")}
       description={stepTitle}
       headerRight={
@@ -529,6 +681,103 @@ export function ServiceTypeWebAiDialog({
               />
             </Field>
           </div>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+/**
+ * Full text of one proposed field, editable before it is accepted.
+ *
+ * The review row shows ~320 characters. For a short description that is most
+ * of it; for a long description it is the first paragraph of twenty, and
+ * judging a page from its opening is not judging it. So every row can open
+ * here, and since the text is in front of the author anyway, it is editable —
+ * accepting a nearly-right draft and then hunting for the box on the tab is
+ * the long way round.
+ *
+ * NOT DISMISSIBLE, and that is the point of the component as much as the
+ * editing is. A backdrop click here would discard an edit; a backdrop click on
+ * the review behind it discarded a whole generated draft, which is what
+ * happened and what sent the author back through the wizard from the start.
+ * Leaving is Cancel or the ✕, both deliberate.
+ */
+function FieldEditor({
+  fieldKey,
+  label,
+  value,
+  onSave,
+  onCancel,
+}: {
+  fieldKey: keyof api.ServiceTypeWebProfilePatch;
+  label: string;
+  value: string;
+  onSave: (text: string) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = React.useState(value);
+  const highlights = isHighlights(fieldKey);
+  const cap = FIELD_CAP[fieldKey];
+  const over = cap != null && text.length > cap;
+  const lines = highlights
+    ? text.split("\n").filter((l) => l.trim()).length
+    : 0;
+  const tooMany = highlights && lines > L.HIGHLIGHTS_MAX;
+
+  return (
+    <Dialog
+      open
+      onClose={onCancel}
+      size="xl"
+      dismissible={false}
+      title={label}
+      description={
+        highlights
+          ? tr("One highlight per line. Nothing is saved until you press Save on the tab.")
+          : tr("Nothing is saved until you press Save on the tab.")
+      }
+      footer={
+        <>
+          <Button variant="ghost" onClick={onCancel}>
+            {tr("Cancel")}
+          </Button>
+          <Button onClick={() => onSave(text)} disabled={over || tooMany}>
+            {tr("Keep this")}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-2">
+        {/* No `autoFocus` — the dialog already moves focus inside itself, and
+            the prop is banned for the usability reasons jsx-a11y cites. */}
+        <Textarea
+          rows={18}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="font-mono text-sm"
+        />
+        <div className="flex flex-wrap justify-between gap-2 text-xs">
+          <span className={cn(over && "text-[rgb(var(--bad))]")}>
+            {cap != null
+              ? `${text.length}/${cap}`
+              : `${text.length} ${tr("characters")}`}
+          </span>
+          {highlights && (
+            <span className={cn(tooMany && "text-[rgb(var(--bad))]")}>
+              {lines}/{L.HIGHLIGHTS_MAX} {tr("highlights")}
+            </span>
+          )}
+        </div>
+        {over && (
+          <Callout tone="bad" title={tr("Too long for this field")}>
+            {tr("The server refuses anything past the limit, so trim it here rather than on Save.")}
+          </Callout>
+        )}
+        {tooMany && (
+          <Callout tone="bad" title={tr("Too many highlights")}>
+            {tr("Only the first eight would be kept. Remove the extras so you choose which.")}
+          </Callout>
         )}
       </div>
     </Dialog>
