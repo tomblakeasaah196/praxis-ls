@@ -357,6 +357,7 @@ return `{ rows | data, error, loading, reload }`.
 | Unknown payload                  | `<DataView>`                                                                              | Never `<pre>{JSON.stringify(…)}</pre>` in the UI.                                                                                                               |
 | Edit one field                   | `<InlineEdit>`                                                                            | Descriptive master data only — **never** a field on a posted document (§7.3).                                                                                   |
 | Master-detail                    | `<SplitPane>`                                                                             | Keyboard-resizable. Replaces `lg:grid-cols-[260px_1fr]`.                                                                                                        |
+| Row in a master-detail index     | `<IndexRow>`                                                                              | The open record's ground + accent rail + `aria-current`. Pair with `<SplitPane activeKind>` (§3.14).                                                            |
 | Bulk actions                     | `<BulkBar>` + `useRowSelection`                                                           | Announces the count; scoped to visible rows (§7.2).                                                                                                             |
 | Column control                   | `<ColumnsMenu>` + `useColumnVisibility`                                                   | Persists the HIDDEN set, per screen (§7.2).                                                                                                                     |
 | Row actions                      | `<RowActions>`                                                                            | Also what bounds the row-action button to the row height (§7.1).                                                                                                |
@@ -828,6 +829,91 @@ upload site in all three apps is on the engine.
 
 ---
 
+### 3.14 Master-detail — the open record has to be visible
+
+**Rows are `<IndexRow>`; the `<SplitPane>` takes `activeKind` and `active`. Both,
+on every list-with-360 screen.**
+
+```tsx
+<SplitPane
+  storageKey="master.service-types"
+  label="Service type list width"
+  activeKind={tr("Service type")}   // the KIND, already translated
+  active={!!selected}
+>
+  <div className="space-y-2">
+    {rows.map((r) => (
+      <IndexRow
+        key={r.service_type_id}
+        selected={r.service_type_id === selId}
+        onClick={() => setSelId(r.service_type_id)}
+        className="flex-col gap-0.5"   // LAYOUT only
+      >
+        <span className="truncate font-medium">{r.name_en}</span>
+        <span className="micro">{r.key}</span>
+      </IndexRow>
+    ))}
+  </div>
+  {selected ? <ServiceTypeDossier … /> : <EmptyState … />}
+</SplitPane>
+```
+
+**Why it is a rule and not a preference.** Sixteen screens marked the open record with
+one hand-copied string — `bg-primary/10 text-foreground` — and nothing else. **That string
+compiles to no CSS at all.** `primary` is declared `DEFAULT: "var(--primary)"` in
+`tailwind.config.ts`, and `--primary` is a complete `rgb(245 130 31)` rather than the bare
+channels a slash-opacity utility needs, so Tailwind has nowhere to put the alpha and emits
+nothing — silently, with the class still in the markup looking like it works. Verified
+against the production bundle: `.bg-primary\/10` appears zero times, `.bg-primary` appears.
+
+So the open row and the closed row rendered the **same** ground, and "which record am I
+looking at?" — asked once per screen, pre-attentively, before any reading starts — had no
+answer on the screen. None of the sixteen carried `aria-current` either, so it was absent
+from the accessibility tree too, and a screen reader user had no way to hear which row was
+open.
+
+> **This is not local to these rows.** 334 slash-opacity utilities across the tree sit on
+> the same opaque tokens and are equally dead — `bg-muted/30` (38), `bg-muted/50` (32),
+> `bg-card/40` (27), `bg-accent/60` (16), `border-border/60` (15) and so on. Only the
+> status and brand tones (`ok`, `warn`, `bad`, `brand-blue`, `brand-orange`) declare
+> `<alpha-value>` and can take a `/NN`. **Do not reach for `/NN` on a core token** — use
+> the opacity-free utility, or `color-mix` in a real stylesheet the way `.index-row-open`
+> and `.st-orange` do. Repairing the config is its own change: it would alter rendering in
+> 334 places at once.
+
+**The treatment is a pair, and the pair is the point.** The row gets a solid `--accent`
+ground and a 3px `--primary` rail; the detail pane gets the same rail down its leading edge
+and an eyebrow naming the kind. Two rails of one colour and one width read as ONE object, so
+"this row opened that pane" is seen rather than deduced. A marked row next to an unmarked
+pane leaves the reader knowing which row is highlighted and still not knowing what the right
+half of the screen is.
+
+**Ground AND rail, and the rail is the half that carries it.** At 7.50:1 against the dark
+ground the rail is a 35% luminance step, where no ground colour subtle enough to still read
+as a *surface* can be more than a couple of percent. It is also a SHAPE, which is what the
+eye resolves at a glance rather than colour, and what keeps the state legible to a reader
+with a colour-vision deficiency. The ground is what makes the whole row feel selected rather
+than merely ticked in the margin.
+
+**The ground is two layers, and it has to be.** `.index-row-open` (index.css) is `--accent`
+with the tenant's `--primary` at 15% over it, via `color-mix`. No SINGLE token steps clearly
+from `--background` in both themes, because `--background` sits between `--card` and
+`--accent` in one of them: `--accent` alone measures 1.281:1 dark but **1.021:1 light**,
+flatter than the state it replaces. Layered, it is 1.619:1 dark and 1.161:1 light. It is
+hand-written CSS rather than a `bg-*` utility precisely because the utility form *cannot*
+express it — see the alpha note above — and `color-mix` in a stylesheet lets it track tenant
+re-branding the way `.st-orange` does.
+
+**Pass layout in `className`, nothing else.** `flex-col`, `items-center justify-between`,
+a tighter `py-1.5` for a dense slot list. Ground, rail, padding and state belong to the
+component; a call site that restates them is the sixteen-copy problem starting again.
+
+**A rail that cannot be an `<IndexRow>`** — the inbox thread row carries a checkbox, a star
+and an open button, so it is an `<li>` with three controls rather than one — imports
+`INDEX_ROW_OPEN` from the same module and positions the rail itself. The geometry is local
+(a flush bordered list wants a different rail from a rounded one); the meaning of "this is
+the open one" is shared.
+
 ## 4. Accessibility — the floor, not the aspiration
 
 WCAG 2.1 AA is the minimum. `eslint-plugin-jsx-a11y` runs on every build and the primitives
@@ -994,6 +1080,10 @@ Opt-in on `<DataList>` / `<ListPage>`, because each costs something:
 - **`<SplitPane>` for master-detail.** A real `role="separator"` with arrow keys, Home/End and
   Enter-to-collapse. Two drag handles in this app had to be retro-fitted for the keyboard after
   shipping; do not build a third that needs it.
+- **A master-detail screen must SAY what is open.** `<IndexRow>` on the rows and
+  `activeKind` on the `<SplitPane>`, together — see §3.14. One without the other is half a
+  signal: a marked row beside an anonymous pane, or a labelled pane beside a list where every
+  row looks the same.
 - **The FAB is touch-only.** `<FloatingActions>` is `md:hidden`; desktop uses
   `<QuickActionsMenu>` in the top bar. A fixed bottom-right cluster covers the last rows and
   the pager of every list screen, and making it draggable was the workaround, not the fix.
