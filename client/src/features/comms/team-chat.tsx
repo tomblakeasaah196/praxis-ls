@@ -12,6 +12,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
+import { Textarea } from "@/components/ui/textarea";
 import { ErrorState } from "@/components/ui/states";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { useAuth } from "@/app/auth/auth-context";
@@ -85,6 +86,104 @@ function Avatar({
     </span>
   );
 }
+/**
+ * ── PROFILE PICTURE PREVIEW ────────────────────────────────────────────────
+ *
+ * An avatar in this list is 32–40px: enough to recognise a colleague, nowhere
+ * near enough to actually SEE a face — or to check that the person in the
+ * photo is who the name says. Every avatar in the chat therefore opens one
+ * shared modal with the picture large (or the large initials chip when no
+ * photo is uploaded, saying so rather than showing an empty frame).
+ *
+ * One context + one dialog at the page level, not a dialog per avatar: there
+ * are avatars in four places (list rows, thread header, info pane, member
+ * roster) and only ever one picture on screen at a time.
+ */
+type AvatarPreview = {
+  name?: string | null;
+  src?: string | null;
+  subtitle?: string | null;
+};
+const AvatarPreviewContext = React.createContext<(p: AvatarPreview) => void>(
+  () => {},
+);
+
+/** An avatar that opens the preview modal. Same pixels, now a button. */
+function ClickableAvatar({
+  name,
+  src,
+  size = "md",
+  subtitle,
+}: {
+  name?: string | null;
+  src?: string | null;
+  size?: keyof typeof AVATAR_SIZES;
+  subtitle?: string | null;
+}) {
+  const openPreview = React.useContext(AvatarPreviewContext);
+  return (
+    <button
+      type="button"
+      onClick={() => openPreview({ name, src, subtitle })}
+      aria-label={`${tr("View profile picture of")} ${name || tr("this conversation")}`}
+      title={tr("View profile picture")}
+      className="shrink-0 cursor-zoom-in rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <Avatar name={name} src={src} size={size} />
+    </button>
+  );
+}
+
+function AvatarPreviewDialog({
+  preview,
+  onClose,
+}: {
+  preview: AvatarPreview | null;
+  onClose: () => void;
+}) {
+  const name = preview?.name || null;
+  return (
+    <Dialog
+      open={!!preview}
+      onClose={onClose}
+      title={name || tr("Profile picture")}
+    >
+      {preview && (
+        <div className="flex flex-col items-center gap-4 py-2 text-center">
+          {preview.src ? (
+            <img
+              src={preview.src}
+              alt={name || tr("Profile picture")}
+              className="max-h-[60vh] w-auto max-w-full rounded-2xl object-contain"
+            />
+          ) : (
+            <span
+              className="grid h-44 w-44 place-items-center rounded-full text-6xl font-semibold text-white"
+              style={{ backgroundColor: avatarColour(name) }}
+              aria-hidden
+            >
+              {initials(name)}
+            </span>
+          )}
+          <div>
+            <div className="text-sm font-semibold">{name}</div>
+            {preview.subtitle && (
+              <div className="micro mt-0.5">{preview.subtitle}</div>
+            )}
+          </div>
+          {!preview.src && (
+            <p className="micro text-muted-foreground">
+              {tr(
+                "No profile photo uploaded yet — the initials chip is shown instead.",
+              )}
+            </p>
+          )}
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
 function fmtRelative(iso?: string | null) {
   if (!iso) return "";
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -144,7 +243,9 @@ function NewChoiceModal({
       open
       onClose={onClose}
       title={tr("New")}
-      description={tr("Start an in-house message, a group channel, or an email.")}
+      description={tr(
+        "Start an in-house message, a group channel, or an email.",
+      )}
     >
       <div className="space-y-2">
         <button type="button" className={opt} onClick={() => onPick("direct")}>
@@ -160,9 +261,13 @@ function NewChoiceModal({
           <span className="micro">{tr("A shared channel with your team")}</span>
         </button>
         <button type="button" className={opt} onClick={() => onPick("email")}>
-          <span className="block font-medium text-foreground">{tr("Email")}</span>
+          <span className="block font-medium text-foreground">
+            {tr("Email")}
+          </span>
           <span className="micro">
-            {tr("Email a client, supplier, colleague or lead — from your mailbox")}
+            {tr(
+              "Email a client, supplier, colleague or lead — from your mailbox",
+            )}
           </span>
         </button>
       </div>
@@ -185,6 +290,7 @@ function NewChatModal({
     initialMode || "DIRECT",
   );
   const [name, setName] = React.useState("");
+  const [topic, setTopic] = React.useState("");
   const [selected, setSelected] = React.useState<string[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -206,7 +312,12 @@ function NewChatModal({
               kind: "DIRECT" as const,
               member_ids: selected.slice(0, 1),
             }
-          : { name, kind: "DEPARTMENT" as const, member_ids: selected };
+          : {
+              name,
+              kind: "DEPARTMENT" as const,
+              member_ids: selected,
+              topic: topic.trim() || undefined,
+            };
       const ch = await api.createChannel(body);
       onCreated(ch.group_id);
       onClose();
@@ -241,6 +352,19 @@ function NewChatModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ops — Douala corridor"
+            />
+          </Field>
+        )}
+        {mode === "GROUP" && (
+          <Field
+            label={tr("Description")}
+            hint={tr("Shown under About in the conversation info pane.")}
+          >
+            <Textarea
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder={tr("What is this channel for?")}
+              rows={2}
             />
           </Field>
         )}
@@ -329,20 +453,27 @@ function ChannelRow({
   onClick: () => void;
 }) {
   const unread = c.unread || 0;
+  // A row is two controls, not one: the avatar opens the profile-picture
+  // modal, everything else selects the conversation. A <button> inside a
+  // <button> is invalid HTML and swallows the inner click, so the row itself
+  // is a plain div and the text half carries the selection.
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={cn(
         "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors",
         active ? "bg-accent" : "hover:bg-accent/60",
       )}
     >
-      <Avatar
+      <ClickableAvatar
         name={c.name}
         src={c.kind === "DIRECT" ? c.partner_avatar_ref : null}
+        subtitle={c.kind ? c.kind.toLowerCase() : null}
       />
-      <span className="min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={onClick}
+        className="min-w-0 flex-1 text-left"
+      >
         <span className="flex items-baseline justify-between gap-1">
           <span
             className={cn(
@@ -397,25 +528,72 @@ function ChannelRow({
             </span>
           )}
         </span>
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
 
-function InfoPane({ channel }: { channel: api.Channel | null }) {
+function InfoPane({
+  channel,
+  onChanged,
+}: {
+  channel: api.Channel | null;
+  /** Called after a description save so the channel list (and this pane's
+   *  channel prop, which comes from it) refreshes. */
+  onChanged?: () => void;
+}) {
+  const groupId = channel?.group_id ?? null;
+  // The roster lives at GET /channels/:id/members; the list endpoint that
+  // feeds this pane never carried it, which is why the pane used to show a
+  // bare count (and, fed from the list, not even that — "—").
+  const members = useResource<api.ChannelMember[]>(
+    () => (groupId ? api.listChannelMembers(groupId) : Promise.resolve([])),
+    [groupId],
+  );
+  const [editingTopic, setEditingTopic] = React.useState(false);
+  const [topicDraft, setTopicDraft] = React.useState("");
+  const [savingTopic, setSavingTopic] = React.useState(false);
+  const [topicError, setTopicError] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    setEditingTopic(false);
+    setTopicError(null);
+  }, [groupId]);
+
+  async function saveTopic(e: React.FormEvent) {
+    e.preventDefault();
+    if (!groupId) return;
+    setSavingTopic(true);
+    setTopicError(null);
+    try {
+      await api.updateChannel(groupId, { topic: topicDraft.trim() || null });
+      setEditingTopic(false);
+      onChanged?.();
+    } catch (err) {
+      setTopicError(errMsg(err));
+    } finally {
+      setSavingTopic(false);
+    }
+  }
+
   if (!channel)
     return (
       <div className="flex flex-1 items-center justify-center p-6 text-center micro">
         Details appear here.
       </div>
     );
+
+  const roster = members.data || [];
+  const topic = (channel.topic || "").trim();
+  const isGroup = channel.kind !== "DIRECT";
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
       <div className="flex flex-col items-center gap-2 border-b border-border pb-4 text-center">
-        <Avatar
+        <ClickableAvatar
           name={channel.name}
           src={channel.kind === "DIRECT" ? channel.partner_avatar_ref : null}
           size="lg"
+          subtitle={channel.kind ? channel.kind.toLowerCase() : null}
         />
         <div className="text-sm font-semibold">{channel.name}</div>
         {channel.kind && (
@@ -424,23 +602,109 @@ function InfoPane({ channel }: { channel: api.Channel | null }) {
       </div>
       <div className="space-y-3 pt-4 text-sm">
         <div>
-          <div className="micro mb-1 uppercase tracking-wide">About</div>
-          <p className="text-muted-foreground">
-            {channel.kind === "DIRECT"
-              ? "Direct message."
-              : "Group conversation — auditable and exportable."}
-          </p>
+          <div className="micro mb-1 uppercase tracking-wide">
+            {tr("About")}
+          </div>
+          {editingTopic ? (
+            <form className="space-y-2" onSubmit={saveTopic}>
+              <Textarea
+                value={topicDraft}
+                onChange={(e) => setTopicDraft(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder={tr("What is this channel for?")}
+              />
+              {topicError && <ErrorState message={topicError} />}
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setEditingTopic(false)}
+                  disabled={savingTopic}
+                >
+                  {tr("Cancel")}
+                </Button>
+                <Button type="submit" size="sm" loading={savingTopic}>
+                  {tr("Save")}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p className="text-muted-foreground">
+                {topic ||
+                  (channel.kind === "DIRECT"
+                    ? tr("Direct message.")
+                    : tr("No description yet."))}
+              </p>
+              {isGroup && (
+                <button
+                  type="button"
+                  className="micro mt-1 font-medium text-foreground underline underline-offset-2"
+                  onClick={() => {
+                    setTopicDraft(topic);
+                    setEditingTopic(true);
+                  }}
+                >
+                  {topic ? tr("Edit description") : tr("Add description")}
+                </button>
+              )}
+            </>
+          )}
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Members</span>
-          <span className="num">{channel.member_count ?? "—"}</span>
+        <div>
+          <div className="micro mb-1 flex items-baseline justify-between uppercase tracking-wide">
+            <span>{tr("Members")}</span>
+            <span className="num">
+              {roster.length || channel.member_count || 0}
+            </span>
+          </div>
+          {members.loading ? (
+            <div className="space-y-1.5">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-8 animate-pulse rounded-lg border border-border bg-accent/40"
+                />
+              ))}
+            </div>
+          ) : members.error ? (
+            <p className="micro text-muted-foreground">{members.error}</p>
+          ) : roster.length ? (
+            <ul className="space-y-0.5">
+              {roster.map((m) => (
+                <li
+                  key={m.user_id}
+                  className="flex items-center gap-2 rounded-lg px-1 py-1"
+                >
+                  <ClickableAvatar
+                    name={m.full_name || m.email}
+                    src={m.avatar_ref}
+                    size="sm"
+                    subtitle={
+                      m.member_role ? m.member_role.toLowerCase() : null
+                    }
+                  />
+                  <span className="min-w-0 flex-1 truncate text-[12.5px]">
+                    {m.full_name || m.email}
+                  </span>
+                  {m.member_role && m.member_role !== "MEMBER" && (
+                    <span className="micro shrink-0 rounded bg-accent px-1.5 py-0.5">
+                      {m.member_role.toLowerCase()}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="micro text-muted-foreground">—</p>
+          )}
         </div>
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">{tr("Opened")}</span>
           <span className="num">
-            {channel.created_at
-              ? dateDmy(channel.created_at)
-              : "—"}
+            {channel.created_at ? dateDmy(channel.created_at) : "—"}
           </span>
         </div>
       </div>
@@ -450,19 +714,27 @@ function InfoPane({ channel }: { channel: api.Channel | null }) {
 
 export function TeamChatPage() {
   const [infoOpen, setInfoOpen] = React.useState(() => {
-    try { return localStorage.getItem("comms:info-open") !== "false"; }
-    catch { return true; /* @silent:storage — use the first-visit default */ }
+    try {
+      return localStorage.getItem("comms:info-open") !== "false";
+    } catch {
+      return true; /* @silent:storage — use the first-visit default */
+    }
   });
   const [mobileInfoOpen, setMobileInfoOpen] = React.useState(false);
   const toggleInfo = () => {
     const next = !infoOpen;
     setInfoOpen(next);
-    try { localStorage.setItem("comms:info-open", String(next)); }
-    catch { /* @silent:storage — the toggle still works for this visit */ }
+    try {
+      localStorage.setItem("comms:info-open", String(next));
+    } catch {
+      /* @silent:storage — the toggle still works for this visit */
+    }
   };
   React.useEffect(() => {
     const desktop = window.matchMedia("(min-width: 1024px)");
-    const closeDrawer = () => { if (desktop.matches) setMobileInfoOpen(false); };
+    const closeDrawer = () => {
+      if (desktop.matches) setMobileInfoOpen(false);
+    };
     desktop.addEventListener("change", closeDrawer);
     return () => desktop.removeEventListener("change", closeDrawer);
   }, []);
@@ -508,186 +780,217 @@ export function TeamChatPage() {
     setParams(n);
   };
 
+  const [preview, setPreview] = React.useState<AvatarPreview | null>(null);
+
   return (
-    <section className="animate-fade-in flex min-h-0 flex-1 flex-col">
-      {/* Size from the shell's remaining space, never from a guessed viewport offset. */}
-      <div className={cn(
-        "grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card shadow-sm md:grid-cols-[320px_minmax(0,1fr)]",
-        infoOpen && "lg:grid-cols-[320px_minmax(0,1fr)_300px]",
-      )}>
-        {/* conversation list */}
+    <AvatarPreviewContext.Provider value={setPreview}>
+      <section className="animate-fade-in flex min-h-0 flex-1 flex-col">
+        {/* Size from the shell's remaining space, never from a guessed viewport offset. */}
         <div
           className={cn(
-            "flex min-h-0 flex-col overflow-hidden border-border md:border-r",
-            activeId ? "hidden md:flex" : "flex",
+            "grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card shadow-sm md:grid-cols-[320px_minmax(0,1fr)]",
+            infoOpen && "lg:grid-cols-[320px_minmax(0,1fr)_300px]",
           )}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <h2 className="font-display text-[15px] font-medium">{tr("Chats")}</h2>
-              {unreadTotal > 0 && (
-                <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                  {unreadTotal > 99 ? "99+" : unreadTotal}
-                </span>
-              )}
-            </div>
-            {/* Labeled, not a bare glyph: the previous 16px "+" read as a
+          {/* conversation list */}
+          <div
+            className={cn(
+              "flex min-h-0 flex-col overflow-hidden border-border md:border-r",
+              activeId ? "hidden md:flex" : "flex",
+            )}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <h2 className="font-display text-[15px] font-medium">
+                  {tr("Chats")}
+                </h2>
+                {unreadTotal > 0 && (
+                  <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                    {unreadTotal > 99 ? "99+" : unreadTotal}
+                  </span>
+                )}
+              </div>
+              {/* Labeled, not a bare glyph: the previous 16px "+" read as a
                 generic "add" control and the compose entry was invisible to
                 new users. Text at md+, icon-only below (WS feedback). */}
-            <Button
-              size="sm"
-              onClick={() => setNewKind("menu")}
-              title={tr("New conversation")}
-              aria-label={tr("New conversation")}
-              icon={<PlusIcon width={16} height={16} />}
-            >
-              <span className="hidden md:inline">{tr("New")}</span>
-            </Button>
-          </div>
-          <div className="px-3 py-2">
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={tr("Search conversations…")}
-            />
-          </div>
-          <div className="flex gap-1 overflow-x-auto px-3 pb-2">
-            {FILTERS.map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={cn(
-                  "shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  filter === f.key
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
+              <Button
+                size="sm"
+                onClick={() => setNewKind("menu")}
+                title={tr("New conversation")}
+                aria-label={tr("New conversation")}
+                icon={<PlusIcon width={16} height={16} />}
               >
-                {tr(f.label)}
-              </button>
-            ))}
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3">
-            {channels.loading ? (
-              <div className="space-y-1 p-2">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-14 animate-pulse rounded-xl border border-border bg-accent/40"
-                  />
-                ))}
-              </div>
-            ) : channels.error ? (
-              <div className="p-4">
-                <ErrorState message={channels.error} />
-              </div>
-            ) : filtered.length ? (
-              <div className="space-y-px">
-                {filtered.map((c) => (
-                  <ChannelRow
-                    key={c.group_id}
-                    c={c}
-                    active={activeId === c.group_id}
-                    onClick={() => select(c.group_id)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2 px-4 py-12 text-center micro">
-                <p>
-                  {q || filter !== "all"
-                    ? tr("No conversations match.")
-                    : tr("No conversations yet")}
-                </p>
-                {/* The question this answers is "where is my email?", and it is
+                <span className="hidden md:inline">{tr("New")}</span>
+              </Button>
+            </div>
+            <div className="px-3 py-2">
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={tr("Search conversations…")}
+              />
+            </div>
+            <div className="flex gap-1 overflow-x-auto px-3 pb-2">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={cn(
+                    "shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    filter === f.key
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  {tr(f.label)}
+                </button>
+              ))}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3">
+              {channels.loading ? (
+                <div className="space-y-1 p-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-14 animate-pulse rounded-xl border border-border bg-accent/40"
+                    />
+                  ))}
+                </div>
+              ) : channels.error ? (
+                <div className="p-4">
+                  <ErrorState message={channels.error} />
+                </div>
+              ) : filtered.length ? (
+                <div className="space-y-px">
+                  {filtered.map((c) => (
+                    <ChannelRow
+                      key={c.group_id}
+                      c={c}
+                      active={activeId === c.group_id}
+                      onClick={() => select(c.group_id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2 px-4 py-12 text-center micro">
+                  <p>
+                    {q || filter !== "all"
+                      ? tr("No conversations match.")
+                      : tr("No conversations yet")}
+                  </p>
+                  {/* The question this answers is "where is my email?", and it is
                     asked here because the header says Inbox. One sentence and a
                     link beats the chip that used to sit above and go nowhere. */}
-                {!q && filter === "all" && (
-                  <p>
-                    {tr("This is in-house chat.")}{" "}
-                    <Link to="/comms/mail" className="font-medium text-foreground underline underline-offset-2">
-                      {tr("Your email is in Mailbox.")}
-                    </Link>
-                  </p>
-                )}
+                  {!q && filter === "all" && (
+                    <p>
+                      {tr("This is in-house chat.")}{" "}
+                      <Link
+                        to="/comms/mail"
+                        className="font-medium text-foreground underline underline-offset-2"
+                      >
+                        {tr("Your email is in Mailbox.")}
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* thread */}
+          <div
+            className={cn(
+              "flex min-h-0 min-w-0 flex-col overflow-hidden",
+              activeId ? "flex" : "hidden md:flex",
+            )}
+          >
+            {activeId ? (
+              <Thread
+                key={activeId}
+                channelId={activeId}
+                meId={meId}
+                nameOf={nameOf}
+                channels={all}
+                onBack={() => {
+                  const n = new URLSearchParams(params);
+                  n.delete("channel");
+                  setParams(n);
+                }}
+                infoOpen={infoOpen}
+                onToggleInfo={toggleInfo}
+                onOpenMobileInfo={() => setMobileInfoOpen(true)}
+                onSent={() => channels.reload()}
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center p-6 text-center micro">
+                {tr("Pick a conversation to start.")}
               </div>
             )}
           </div>
-        </div>
 
-        {/* thread */}
-        <div
-          className={cn(
-            "flex min-h-0 min-w-0 flex-col overflow-hidden",
-            activeId ? "flex" : "hidden md:flex",
-          )}
-        >
-          {activeId ? (
-            <Thread
-              key={activeId}
-              channelId={activeId}
-              meId={meId}
-              nameOf={nameOf}
-              channels={all}
-              onBack={() => {
-                const n = new URLSearchParams(params);
-                n.delete("channel");
-                setParams(n);
-              }}
-              infoOpen={infoOpen}
-              onToggleInfo={toggleInfo}
-              onOpenMobileInfo={() => setMobileInfoOpen(true)}
-              onSent={() => channels.reload()}
-            />
-          ) : (
-            <div className="flex flex-1 items-center justify-center p-6 text-center micro">
-              {tr("Pick a conversation to start.")}
+          {/* customer / channel 360 — third pane on wide screens */}
+          <div
+            id="chat-info-panel"
+            className={cn(
+              "hidden min-h-0 flex-col overflow-hidden border-l border-border",
+              infoOpen && "lg:flex",
+            )}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-border p-3">
+              <span className="text-sm font-semibold">
+                {tr("Conversation info")}
+              </span>
+              <Button size="sm" variant="ghost" onClick={toggleInfo}>
+                {tr("Hide")}
+              </Button>
             </div>
-          )}
+            <InfoPane
+              channel={all.find((c) => c.group_id === activeId) || null}
+              onChanged={channels.reload}
+            />
+          </div>
         </div>
 
-        {/* customer / channel 360 — third pane on wide screens */}
-        <div id="chat-info-panel" className={cn("hidden min-h-0 flex-col overflow-hidden border-l border-border", infoOpen && "lg:flex")}>
-          <div className="flex shrink-0 items-center justify-between border-b border-border p-3">
-            <span className="text-sm font-semibold">{tr("Conversation info")}</span>
-            <Button size="sm" variant="ghost" onClick={toggleInfo}>{tr("Hide")}</Button>
-          </div>
+        <Dialog
+          open={mobileInfoOpen}
+          onClose={() => setMobileInfoOpen(false)}
+          title={tr("Conversation info")}
+          placement="right"
+          bodyClassName="p-0"
+        >
           <InfoPane
             channel={all.find((c) => c.group_id === activeId) || null}
+            onChanged={channels.reload}
           />
-        </div>
-      </div>
+        </Dialog>
 
-      <Dialog open={mobileInfoOpen} onClose={() => setMobileInfoOpen(false)}
-        title={tr("Conversation info")} placement="right" bodyClassName="p-0">
-        <InfoPane channel={all.find((c) => c.group_id === activeId) || null} />
-      </Dialog>
-
-      {newKind === "menu" && (
-        <NewChoiceModal
-          onPick={(k) => setNewKind(k)}
-          onClose={() => setNewKind("")}
-        />
-      )}
-      {(newKind === "direct" || newKind === "group") && (
-        <NewChatModal
-          colleagues={colleagues.data || []}
-          initialMode={newKind === "group" ? "GROUP" : "DIRECT"}
-          onClose={() => setNewKind("")}
-          onCreated={(id) => {
-            channels.reload();
-            select(id);
-          }}
-        />
-      )}
-      {newKind === "email" && (
-        <NewMessageDialog
-          open
-          onClose={() => setNewKind("")}
-          onSent={() => setNewKind("")}
-        />
-      )}
-    </section>
+        {newKind === "menu" && (
+          <NewChoiceModal
+            onPick={(k) => setNewKind(k)}
+            onClose={() => setNewKind("")}
+          />
+        )}
+        {(newKind === "direct" || newKind === "group") && (
+          <NewChatModal
+            colleagues={colleagues.data || []}
+            initialMode={newKind === "group" ? "GROUP" : "DIRECT"}
+            onClose={() => setNewKind("")}
+            onCreated={(id) => {
+              channels.reload();
+              select(id);
+            }}
+          />
+        )}
+        {newKind === "email" && (
+          <NewMessageDialog
+            open
+            onClose={() => setNewKind("")}
+            onSent={() => setNewKind("")}
+          />
+        )}
+      </section>
+      <AvatarPreviewDialog preview={preview} onClose={() => setPreview(null)} />
+    </AvatarPreviewContext.Provider>
   );
 }
 
@@ -723,9 +1026,12 @@ function Thread({
   const msgs = React.useMemo(() => thread.data?.messages || [], [thread.data]);
 
   const composerBusy = React.useRef(false);
-  const [editingMessage, setEditingMessage] = React.useState<api.CommMessage | null>(null);
+  const [editingMessage, setEditingMessage] =
+    React.useState<api.CommMessage | null>(null);
   const [replyTo, setReplyTo] = React.useState<api.CommMessage | null>(null);
-  const [forwarding, setForwarding] = React.useState<api.CommMessage | null>(null);
+  const [forwarding, setForwarding] = React.useState<api.CommMessage | null>(
+    null,
+  );
 
   // Live updates (socket.io). Any channel event refreshes the thread; a peer's
   // typing shows a transient indicator. The 8s poll below stays as a fallback
@@ -801,10 +1107,11 @@ function Thread({
         >
           ←
         </button>
-        <Avatar
+        <ClickableAvatar
           name={ch.data?.name}
           src={ch.data?.kind === "DIRECT" ? ch.data?.partner_avatar_ref : null}
           size="sm"
+          subtitle={ch.data?.kind ? ch.data.kind.toLowerCase() : null}
         />
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">
           {ch.data?.name || "Conversation"}
@@ -812,19 +1119,33 @@ function Thread({
         {ch.data?.kind && (
           <span className="micro">· {ch.data.kind.toLowerCase()}</span>
         )}
-        <Button size="sm" variant="ghost" className="hidden shrink-0 lg:inline-flex"
-          aria-expanded={infoOpen} aria-controls="chat-info-panel" onClick={onToggleInfo}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="hidden shrink-0 lg:inline-flex"
+          aria-expanded={infoOpen}
+          aria-controls="chat-info-panel"
+          onClick={onToggleInfo}
+        >
           {tr(infoOpen ? "Hide info" : "Show info")}
         </Button>
-        <Button size="sm" variant="ghost" className="shrink-0 lg:hidden"
-          aria-haspopup="dialog" onClick={onOpenMobileInfo}>{tr("Info")}</Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="shrink-0 lg:hidden"
+          aria-haspopup="dialog"
+          onClick={onOpenMobileInfo}
+        >
+          {tr("Info")}
+        </Button>
       </div>
 
       <div
         ref={scrollerRef}
         onScroll={(event) => {
           const el = event.currentTarget;
-          nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+          nearBottom.current =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 160;
         }}
         className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-[rgb(var(--ink-3)/0.04)] px-4 py-3"
       >
@@ -839,12 +1160,27 @@ function Thread({
               message={m}
               mine={!!meId && m.sender_user_id === meId}
               meId={meId}
-              senderName={m.sender_user_id ? nameOf[m.sender_user_id] || tr("Someone") : null}
-              repliedTo={m.reply_to_message_id ? byId.get(m.reply_to_message_id) || null : null}
-              onEdit={(message) => { if (!composerBusy.current) setEditingMessage(message); }}
-              onReply={(message) => { if (!composerBusy.current) setReplyTo(message); }}
+              senderName={
+                m.sender_user_id
+                  ? nameOf[m.sender_user_id] || tr("Someone")
+                  : null
+              }
+              repliedTo={
+                m.reply_to_message_id
+                  ? byId.get(m.reply_to_message_id) || null
+                  : null
+              }
+              onEdit={(message) => {
+                if (!composerBusy.current) setEditingMessage(message);
+              }}
+              onReply={(message) => {
+                if (!composerBusy.current) setReplyTo(message);
+              }}
               onForward={setForwarding}
-              onChanged={() => { thread.reload(); onSent(); }}
+              onChanged={() => {
+                thread.reload();
+                onSent();
+              }}
             />
           ))
         ) : (
@@ -863,24 +1199,35 @@ function Thread({
       <Composer
         channelId={channelId}
         editingMessage={editingMessage}
-        onBusyChange={(busy) => { composerBusy.current = busy; }}
+        onBusyChange={(busy) => {
+          composerBusy.current = busy;
+        }}
         onCancelEdit={() => setEditingMessage(null)}
         onEditLast={() => {
-          const last = [...msgs].reverse().find((m) => m.sender_user_id === meId && !!m.body && !m.deleted_at);
+          const last = [...msgs]
+            .reverse()
+            .find(
+              (m) => m.sender_user_id === meId && !!m.body && !m.deleted_at,
+            );
           if (last) setEditingMessage(last);
         }}
         replyTo={
           replyTo
             ? {
-              message_id: replyTo.message_id,
-              body: replyTo.body,
-              sender: replyTo.sender_user_id ? nameOf[replyTo.sender_user_id] : null,
-            }
+                message_id: replyTo.message_id,
+                body: replyTo.body,
+                sender: replyTo.sender_user_id
+                  ? nameOf[replyTo.sender_user_id]
+                  : null,
+              }
             : null
         }
         onCancelReply={() => setReplyTo(null)}
         onTyping={setTyping}
-        onSent={() => { thread.reload(); onSent(); }}
+        onSent={() => {
+          thread.reload();
+          onSent();
+        }}
       />
 
       <ForwardDialog
