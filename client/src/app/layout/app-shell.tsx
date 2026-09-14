@@ -703,8 +703,22 @@ function AppMark({ cfg }: { cfg: EffectivePwa }) {
       <AppIcon cfg={cfg} size={APP_MARK_SIZE} />
       {/* `truncate` because the name is tenant-supplied and the bar is shared
           with the window controls — a long one must give way rather than push
-          the search field off the row. */}
-      <span className="truncate text-[13px] font-semibold tracking-tight text-foreground">
+          the search field off the row.
+
+          `sm:` — IT STANDS DOWN ON A PHONE, and it is the right thing to give.
+          The name is here because this strip REPLACES the OS title bar in an
+          installed desktop window, where naming the window is the bar's whole
+          job. There is no WCO on a phone: `env(titlebar-area-*)` is undefined in
+          every mobile browser, so below `sm` this is an ordinary app bar, and
+          the name is the one element in it that carries no function — the icon
+          beside it says the same thing, and the user reached this app by
+          tapping that icon under that name.
+
+          It was paid for by the notification bell, which now renders at every
+          width. The layout gate measures the drag handle for exactly this
+          reason ("it is the first thing a seventh control in this strip would
+          consume") and caught the bell taking it to zero at 320px. */}
+      <span className="hidden truncate text-[13px] font-semibold tracking-tight text-foreground sm:inline">
         {cfg.name}
       </span>
     </div>

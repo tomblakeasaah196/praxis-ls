@@ -356,6 +356,30 @@ describe("title bar strip", () => {
   });
 
   /**
+   * AND THE NAME STANDS DOWN ON A PHONE.
+   *
+   * It is here because this strip REPLACES the OS title bar in an installed
+   * desktop window. There is no WCO on a phone, so below `sm` it is an ordinary
+   * app bar and the name is the one element in it carrying no function — the
+   * icon beside it says the same thing.
+   *
+   * That 60px is what pays for the notification bell rendering at every width.
+   * The class is asserted rather than the rendered width because jsdom lays
+   * nothing out; the CONSEQUENCE — that the drag handle survives at 320px — is
+   * measured in a real browser by `e2e/layout.spec.ts`, which is where the
+   * arithmetic actually happens.
+   */
+  it("hides the app name below sm, keeping the icon", () => {
+    const { container } = renderShell();
+    const strip = container.querySelector<HTMLElement>(".wco")!;
+    const name = within(strip).getByText("Acme Freight");
+    expect(name.className).toContain("hidden");
+    expect(name.className).toContain("sm:inline");
+    // The icon is not gated — the identity survives at every width.
+    expect(strip.querySelector(".wco-mark > :first-child")).not.toBeNull();
+  });
+
+  /**
    * THE FALLBACK IS THE TRAP. `effectivePwa` resolves `iconUrl` to the brand
    * logo when no dedicated app icon is set, so the naive `<img src={iconUrl}>`
    * puts a wide wordmark in a 20px slot — squashed, or worse, laid out at its

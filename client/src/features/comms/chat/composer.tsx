@@ -306,6 +306,11 @@ export function Composer({
   return (
     <div
       ref={rootRef}
+      // A stable hook for the layout gate, which checks in a real browser that
+      // the floating cluster ends above this element's top edge. A class-based
+      // selector would go stale the first time this row is restyled, and the
+      // assertion would then silently stop testing anything.
+      data-composer
       className="relative max-h-[50%] shrink-0 overflow-y-auto border-t border-border bg-card"
     >
       {(editingMessage || replyTo) && (
