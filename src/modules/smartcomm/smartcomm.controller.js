@@ -42,6 +42,7 @@ module.exports = {
   listChannels: A((c, req) => service.listChannels(c, actor(req), req.query)),
   createChannel: C((c, req) => service.createChannel(c, { data: req.body, actor: actor(req) })),
   getChannel: A((c, req) => service.getChannel(c, { id: req.params.id, actor: actor(req) })),
+  updateChannel: A((c, req) => service.updateChannel(c, { id: req.params.id, data: req.body, actor: actor(req) })),
   archive: A((c, req) => service.setArchived(c, { id: req.params.id, archived: req.body.archived === true, actor: actor(req) })),
   members: A((c, req) => service.listMembers(c, { groupId: req.params.id, actor: req.user })),
   addMember: C((c, req) => service.addMember(c, { groupId: req.params.id, userId: req.body.user_id, memberRole: req.body.member_role, actor: actor(req) })),
