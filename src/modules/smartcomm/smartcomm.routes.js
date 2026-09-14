@@ -67,6 +67,7 @@ const edit = requirePermission(M, "edit");
 router.get("/channels", view, c.listChannels);
 router.post("/channels", create, v.channel, c.createChannel);
 router.get("/channels/:id", view, c.getChannel);
+router.patch("/channels/:id", edit, v.channelUpdate, c.updateChannel);
 router.post("/channels/:id/archive", edit, v.flag, c.archive);
 router.get("/channels/:id/members", view, c.members);
 router.post("/channels/:id/members", edit, v.member, c.addMember);

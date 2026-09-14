@@ -123,6 +123,17 @@ export type Channel = {
   last_message?: CommMessage | null;
   /** The other member's uploaded profile photo (/media URL) — DIRECT channels only. */
   partner_avatar_ref?: string | null;
+  /** The channel's About text (comms_group.topic) — null until somebody writes one. */
+  topic?: string | null;
+};
+
+/** One row of `GET /channels/:id/members` — the roster the info pane lists. */
+export type ChannelMember = {
+  user_id: string;
+  full_name?: string | null;
+  email: string;
+  avatar_ref?: string | null;
+  member_role?: "OWNER" | "ADMIN" | "MEMBER" | null;
 };
 
 export type Colleague = {
@@ -202,6 +213,12 @@ export const testSendEmail = (body: { to: string; purpose?: string }) =>
 export const listChannels = () => tenant<Channel[]>("/smartcomm/channels");
 export const getChannel = (id: string) =>
   tenant<Channel>(`/smartcomm/channels/${id}`);
+/** The channel roster — names, photos and roles — for the info pane. */
+export const listChannelMembers = (id: string) =>
+  tenant<ChannelMember[]>(`/smartcomm/channels/${id}/members`);
+/** Edit the channel's About text (`topic`). Null clears it. */
+export const updateChannel = (id: string, body: { topic?: string | null }) =>
+  tenant<Channel>(`/smartcomm/channels/${id}`, { method: "PATCH", body });
 export const createChannel = (body: {
   name: string;
   kind?: ChannelKind;
