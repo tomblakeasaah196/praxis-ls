@@ -1,4 +1,5 @@
 "use strict";
+const { isDeepStrictEqual } = require("node:util");
 const repo = require("./smartcomm.schedule.repo");
 const comms = require("./smartcomm.repo");
 const { AppError } = require("../../utils/errors");
@@ -28,8 +29,19 @@ async function validateAttachments(c, groupId, attachments, replyTo) {
 }
 async function create(c, { groupId, actor, data, env }) {
   if (env !== "live") throw new AppError("VALIDATION_ERROR", "Scheduled delivery is available in LIVE only", 422);
-  validateTime(data);
   await member(c, groupId, actor.user_id);
+  // A retry after a lost response may arrive AFTER send_at. Recover its
+  // original result before applying future-time validation to a new schedule.
+  const existing = await repo.findRequest(c, actor.user_id, data.request_id);
+  if (existing) {
+    const same = existing.group_id === groupId && existing.body === (data.body || "")
+      && isDeepStrictEqual(existing.attachments, data.attachments || [])
+      && (existing.reply_to || null) === (data.reply_to || null)
+      && Date.parse(existing.send_at) === Date.parse(data.send_at) && existing.timezone === data.timezone;
+    if (!same) throw new AppError("VALIDATION_ERROR", "This request key was already used for another schedule", 422);
+    return existing;
+  }
+  validateTime(data);
   if (!await repo.sender(c, actor.user_id, groupId)) throw new AppError("NOT_A_MEMBER", "This conversation is not available for sending", 403);
   if (!data.body?.trim() && !data.attachments?.length) throw new AppError("EMPTY_MESSAGE", "A message needs text or attachments", 422);
   await validateAttachments(c, groupId, data.attachments, data.reply_to);
