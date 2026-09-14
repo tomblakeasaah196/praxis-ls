@@ -722,6 +722,8 @@ function Thread({
   // render, which would make the reply-quote map below rebuild each time.
   const msgs = React.useMemo(() => thread.data?.messages || [], [thread.data]);
 
+  const composerBusy = React.useRef(false);
+  const [editingMessage, setEditingMessage] = React.useState<api.CommMessage | null>(null);
   const [replyTo, setReplyTo] = React.useState<api.CommMessage | null>(null);
   const [forwarding, setForwarding] = React.useState<api.CommMessage | null>(null);
 
@@ -839,7 +841,8 @@ function Thread({
               meId={meId}
               senderName={m.sender_user_id ? nameOf[m.sender_user_id] || tr("Someone") : null}
               repliedTo={m.reply_to_message_id ? byId.get(m.reply_to_message_id) || null : null}
-              onReply={setReplyTo}
+              onEdit={(message) => { if (!composerBusy.current) setEditingMessage(message); }}
+              onReply={(message) => { if (!composerBusy.current) setReplyTo(message); }}
               onForward={setForwarding}
               onChanged={() => { thread.reload(); onSent(); }}
             />
@@ -859,6 +862,13 @@ function Thread({
 
       <Composer
         channelId={channelId}
+        editingMessage={editingMessage}
+        onBusyChange={(busy) => { composerBusy.current = busy; }}
+        onCancelEdit={() => setEditingMessage(null)}
+        onEditLast={() => {
+          const last = [...msgs].reverse().find((m) => m.sender_user_id === meId && !!m.body && !m.deleted_at);
+          if (last) setEditingMessage(last);
+        }}
         replyTo={
           replyTo
             ? {

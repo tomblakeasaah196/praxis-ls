@@ -718,6 +718,7 @@ export function AppShell() {
   const brandName = branding.name || "Praxis LS";
   const navigate = useNavigate();
   const location = useLocation();
+  const chatWorkstation = /^\/comms\/?$/.test(location.pathname);
   const qc = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -940,8 +941,8 @@ export function AppShell() {
               <span className="hidden sm:inline-flex">
                 <ThemeToggle />
               </span>
-              <span className="hidden md:inline-flex">
-                <QuickActionsMenu badge={unread.messages} />
+              <span className={chatWorkstation ? "inline-flex" : "hidden md:inline-flex"}>
+                <QuickActionsMenu badge={chatWorkstation ? unread.messages + unread.notifications : unread.messages} />
               </span>
               <NotificationBell
                 count={unread.notifications}
@@ -1062,7 +1063,7 @@ export function AppShell() {
                 key={env}
                 className={cn(
                   "relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 focus:outline-none md:p-6 md:pb-6 2xl:px-8",
-                  /^\/comms\/?$/.test(location.pathname) && "overflow-hidden",
+                  chatWorkstation && "overflow-hidden",
                 )}
               >
                 {/* Per-route boundary, keyed on the path so navigating away from a
@@ -1108,7 +1109,9 @@ export function AppShell() {
             onClose={() => setPaletteOpen(false)}
           />
           <PraxisDrawer />
-          <FloatingActions badge={unread.messages + unread.notifications} />
+          {/* On chat, global actions live in the title bar even on phones:
+              the floating button otherwise covers the composer send control. */}
+          {!chatWorkstation && <FloatingActions badge={unread.messages + unread.notifications} />}
           {/* Env-switch interstitial. Shown while `switchingFrom` is set — i.e. for
           the brief window between the toggle and the newly-mounted screen's
           first paint. `to` is the destination env, mapped back from the
