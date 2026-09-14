@@ -128,6 +128,12 @@ function renderShell() {
   return renderScreen(<AppShell />);
 }
 
+/** The shell at a given route — the chat workstation is the one that used to
+ *  suppress the floating cluster. */
+function renderShellAt(path: string) {
+  return renderScreen(<AppShell />, { path });
+}
+
 describe("title bar strip", () => {
   it("renders as the app's utility bar where there is no window to overlay", () => {
     // jsdom implements no WCO, which is the same situation as a browser tab and
@@ -289,6 +295,34 @@ describe("title bar strip", () => {
     const bell = strip.getByRole("button", { name: /notification/i });
     expect(bell.className).not.toMatch(/(^|\s)hidden(\s|$)/);
     expect(bell.className).toContain("grid");
+  });
+
+  /**
+   * THE FLOATING CLUSTER APPEARS ON SMART COMMS TOO.
+   *
+   * It was `!chatWorkstation &&`, because the cluster lands on the composer's
+   * Send button — the mic, when nothing is typed, which is the control that
+   * sends a voice note. The stand-in was the title bar's quick-actions menu,
+   * and that menu is gone at every width: keeping the exception would leave a
+   * phone in Smart Comms with no quick actions and no clock-in at all.
+   *
+   * The overlap is settled where it is caused — the composer publishes
+   * `--fab-floor` and the cluster anchors above it (`lib/fab-floor.ts`) — so
+   * what belongs here is only that the shell no longer makes an exception of
+   * the route. Portalled to <body>, hence `screen` and not `container`.
+   */
+  it("renders the floating cluster on the chat workstation, not only off it", () => {
+    renderShellAt("/comms");
+    expect(
+      screen.getByRole("button", { name: /Quick actions/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders it on an ordinary screen too", () => {
+    renderShell();
+    expect(
+      screen.getByRole("button", { name: /Quick actions/ }),
+    ).toBeInTheDocument();
   });
 
   it("mounts the icon rail beside the content, not inside the strip", () => {

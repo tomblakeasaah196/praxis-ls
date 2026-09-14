@@ -1167,9 +1167,18 @@ export function AppShell() {
             onClose={() => setPaletteOpen(false)}
           />
           <PraxisDrawer />
-          {/* On chat, global actions live in the title bar even on phones:
-              the floating button otherwise covers the composer send control. */}
-          {!chatWorkstation && <FloatingActions badge={unread.messages + unread.notifications} />}
+          {/* ON EVERY TOUCH SCREEN, Smart Comms included.
+
+              It used to be `!chatWorkstation &&`, because the cluster sits in
+              the same corner as the composer's send and mic buttons, and the
+              title bar's quick-actions menu stood in for it there. That menu is
+              gone at every width, so the exception would now leave a phone on
+              `/comms` with no quick actions at all — and no clock-in, which is
+              the surface `<ClockPunch>` lives on below `sm`.
+
+              The overlap is solved where it is caused: the composer publishes
+              `--fab-floor` and the cluster anchors above it (floating-actions.tsx). */}
+          <FloatingActions badge={unread.messages + unread.notifications} />
           {/* Env-switch interstitial. Shown while `switchingFrom` is set — i.e. for
           the brief window between the toggle and the newly-mounted screen's
           first paint. `to` is the destination env, mapped back from the
