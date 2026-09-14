@@ -223,7 +223,7 @@ export function Composer({
   }
 
   return (
-    <div className="border-t border-border">
+    <div className="max-h-[50%] shrink-0 overflow-y-auto border-t border-border">
       {replyTo && (
         <div className="flex items-start gap-2 border-b border-border bg-muted/50 px-3 py-1.5">
           <span aria-hidden className="mt-0.5 text-muted-foreground">↩</span>

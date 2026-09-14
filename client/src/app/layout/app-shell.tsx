@@ -1060,7 +1060,10 @@ export function AppShell() {
                 id="main-content"
                 tabIndex={-1}
                 key={env}
-                className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 focus:outline-none md:p-6 md:pb-6 2xl:px-8"
+                className={cn(
+                  "relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 focus:outline-none md:p-6 md:pb-6 2xl:px-8",
+                  /^\/comms\/?$/.test(location.pathname) && "overflow-hidden",
+                )}
               >
                 {/* Per-route boundary, keyed on the path so navigating away from a
                 crashed screen clears the error rather than stranding the user on it.
