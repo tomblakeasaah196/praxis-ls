@@ -1,5 +1,6 @@
 "use strict";
 const list = async (c, groupId, userId) => (await c.query("SELECT * FROM comms_scheduled_message WHERE group_id = $1 AND sender_user_id = $2 ORDER BY send_at DESC LIMIT 100", [groupId, userId])).rows;
+const findRequest = async (c, userId, requestId) => (await c.query("SELECT * FROM comms_scheduled_message WHERE sender_user_id = $1 AND request_id = $2", [userId, requestId])).rows[0];
 const insert = async (c, groupId, userId, d) => (await c.query(`INSERT INTO comms_scheduled_message (request_id, group_id, sender_user_id, body, attachments, reply_to, send_at, timezone)
  VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8) ON CONFLICT (sender_user_id, request_id) DO UPDATE SET request_id = EXCLUDED.request_id
  WHERE comms_scheduled_message.group_id = EXCLUDED.group_id AND comms_scheduled_message.body = EXCLUDED.body
@@ -25,4 +26,4 @@ const sender = async (c, id, groupId) => (await c.query(`SELECT u.user_id, u.ful
  WHERE ur.user_id = u.user_id AND (r.code = 'CEO' OR p.can_create = true))`, [id, groupId])).rows[0];
 const mediaAllowed = async (c, id, groupId) => (await c.query("SELECT media_id FROM comms_media WHERE media_id = $1 AND group_id = $2", [id, groupId])).rowCount > 0;
 const vaultAllowed = async (c, id, groupId) => (await c.query("SELECT doc_id FROM document_vault WHERE doc_id = $1 AND entity_ref = $2", [id, `comms_group:${groupId}`])).rowCount > 0;
-module.exports = { list, insert, change, due, claim, sent, fail, sender, mediaAllowed, vaultAllowed };
+module.exports = { list, findRequest, insert, change, due, claim, sent, fail, sender, mediaAllowed, vaultAllowed };

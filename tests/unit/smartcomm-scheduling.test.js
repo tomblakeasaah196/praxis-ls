@@ -31,6 +31,13 @@ describe("durable scheduled chat", () => {
     await expect(schedule.create(client(), { ...args, env: "live" })).rejects.toThrow(/member/);
     expect(queue.insert).not.toHaveBeenCalled();
   });
+  test("a lost-response retry recovers a schedule even after its send time has passed", async () => {
+    const row = { group_id: "group", body: "hello", attachments: [], reply_to: null, send_at: new Date(0).toISOString(), timezone: "UTC", status: "SENT" };
+    queue.findRequest.mockResolvedValue(row);
+    await expect(schedule.create(client(), { groupId: "group", actor, env: "live", data: { ...row, request_id: "same-key" } })).resolves.toBe(row);
+    expect(queue.insert).not.toHaveBeenCalled();
+    await expect(schedule.create(client(), { groupId: "group", actor, env: "live", data: { ...row, body: "different", request_id: "same-key" } })).rejects.toThrow(/already used/);
+  });
   test("validates media and reply against this channel before queueing", async () => {
     queue.mediaAllowed.mockResolvedValue(false);
     await expect(schedule.validateAttachments(client(), "group", [{ attachment_kind: "MEDIA", media_id: "foreign" }])).rejects.toThrow(/conversation/);
