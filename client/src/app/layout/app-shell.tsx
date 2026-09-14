@@ -76,7 +76,6 @@ import { NotificationBell } from "@/components/notification-bell";
 import { CommandPalette } from "@/components/command-palette";
 import { PraxisDrawer } from "@/components/praxis-drawer";
 import { FloatingActions } from "@/components/floating-actions";
-import { QuickActionsMenu } from "@/components/quick-actions";
 import {
   DropdownMenu,
   DropdownItem,
@@ -987,9 +986,22 @@ export function AppShell() {
               <span className="hidden sm:inline-flex">
                 <ThemeToggle />
               </span>
-              <span className={chatWorkstation ? "inline-flex" : "hidden md:inline-flex"}>
-                <QuickActionsMenu badge={chatWorkstation ? unread.messages + unread.notifications : unread.messages} />
-              </span>
+              {/*
+              NO QUICK-ACTIONS TRIGGER HERE, AT ANY WIDTH.
+
+              A burst icon in the title bar is a menu whose contents you cannot
+              guess from its glyph, sitting in the one strip where every other
+              control says exactly what it is: search, clock, environment,
+              language, theme, alerts, account. It also put Messages in the top
+              bar while the rail already carries Messages, so the same
+              destination had two chrome homes and the unread count had to be
+              duplicated between them to stay honest.
+
+              The two surfaces that remain are the ones that fit their input:
+              `<IconRail>` on desktop (where the count now rides the Messages
+              cell it belongs to) and `<FloatingActions>` on touch. Neither is
+              in the header.
+              */}
               <NotificationBell
                 count={unread.notifications}
                 onChange={unread.reload}
@@ -1067,7 +1079,7 @@ export function AppShell() {
         family" a spatial fact rather than a caption.
       */}
           <div className="flex min-h-0 flex-1">
-            <IconRail />
+            <IconRail messageBadge={unread.messages} />
 
             <div className="flex min-w-0 flex-1 flex-col">
               <Ribbon pathname={location.pathname} />

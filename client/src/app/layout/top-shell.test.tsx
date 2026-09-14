@@ -243,13 +243,52 @@ describe("title bar strip", () => {
       strip.getByRole("button", { name: /data environment/i }),
     ).toBeInTheDocument();
     expect(
-      strip.getByRole("button", { name: /quick actions/i }),
-    ).toBeInTheDocument();
-    expect(
       strip.getByRole("button", { name: /notification/i }),
     ).toBeInTheDocument();
     // Nothing in the strip is a placeholder.
     expect(container.querySelector(".wco .animate-pulse")).toBeNull();
+  });
+
+  /**
+   * AND NO QUICK-ACTIONS TRIGGER, AT ANY WIDTH.
+   *
+   * It was a burst icon in a strip where every other control says what it is,
+   * and it put Messages in the title bar while the icon rail already carried
+   * Messages — one destination, two chrome homes, and an unread count that had
+   * to be duplicated between them to stay honest. The rail's own Messages cell
+   * carries the count now (`icon-rail.tsx`), and the touch cluster is the
+   * surface below `md`.
+   *
+   * Asserted as an ABSENCE because that is the whole requirement: a control
+   * removed on purpose comes back the next time someone needs somewhere to put
+   * a button, and a strip is where buttons go when nobody has said no.
+   */
+  it("has no quick-actions trigger in the strip", () => {
+    const { container } = renderShell();
+    const strip = within(container.querySelector<HTMLElement>(".wco")!);
+    expect(
+      strip.queryByRole("button", { name: /quick actions/i }),
+    ).toBeNull();
+  });
+
+  /**
+   * THE BELL IS IN THE STRIP ON A PHONE TOO.
+   *
+   * It was `hidden … sm:grid`, and below 640px nothing replaced it: the bottom
+   * nav carries the navigation families and nothing else, and the touch cluster
+   * carries Praxis AI / Messages / Help. So a phone had the unread count on the
+   * tab title and on the installed app's icon — two places it cannot be ACTED
+   * on — and no route to the notifications short of typing /notifications.
+   *
+   * jsdom has no viewport, so the class is what is asserted: the point is that
+   * no width-gated class hides it, not that a particular pixel width renders.
+   */
+  it("keeps the notification bell at every width, phone included", () => {
+    const { container } = renderShell();
+    const strip = within(container.querySelector<HTMLElement>(".wco")!);
+    const bell = strip.getByRole("button", { name: /notification/i });
+    expect(bell.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+    expect(bell.className).toContain("grid");
   });
 
   it("mounts the icon rail beside the content, not inside the strip", () => {
