@@ -68,6 +68,22 @@ async function setArchived(client, { id, archived, actor }) {
   await assertMember(client, id, actor.user_id);
   return repo.updateChannel(client, id, { status: archived ? "ARCHIVED" : "ACTIVE" });
 }
+/**
+ * PATCH /channels/:id — edit the channel's About text (`comms_group.topic`).
+ *
+ * The info pane showed a hard-coded sentence for every group ("Group
+ * conversation — auditable and exportable.") because nothing ever wrote or
+ * read `topic` after creation. This is the write half of fixing that: any
+ * member of the channel may set or clear it, matching addMember/removeMember,
+ * whose roster changes are likewise member acts rather than owner acts.
+ */
+async function updateChannel(client, { id, data, actor }) {
+  await assertMember(client, id, actor.user_id);
+  const fields = {};
+  if (data.topic !== undefined) fields.topic = (data.topic || "").trim() || null;
+  if (!Object.keys(fields).length) return repo.getChannel(client, id);
+  return repo.updateChannel(client, id, fields);
+}
 
 // ── Members ──
 async function addMember(client, { groupId, userId, memberRole, actor }) {
@@ -524,7 +540,7 @@ async function certifiedExport(client, { groupId, actor = {} }) {
 }
 
 module.exports = {
-  listChannels, getChannel, createChannel, setArchived,
+  listChannels, getChannel, createChannel, setArchived, updateChannel,
   addMember, removeMember, listMembers, setPinned, setMuted,
   postMessage, editMessage, deleteMessage, thread,
   react, star, starred, search, markRead, unread,
