@@ -41,19 +41,27 @@ describe("catalog structure", () => {
     ]);
   });
 
-  it("ships exactly ten live tiles in PR-1 — the four cards plus six free counts", () => {
+  it("ships the ten PR-1 live tiles plus Human Capital's six (PR-4, D12)", () => {
+    // PR-2 (Operations/Fleet/Warehouse) and PR-3 (Money/Sales) flip their own
+    // entries in parallel; when they do, their ids join this list.
     expect([...LIVE_IDS].sort()).toEqual(
       [
         "approvals_awaiting",
+        "attendance_today",
+        "attrition_90d",
         "compliance_open",
         "files_active",
         "fleet_utilisation",
+        "headcount",
         "journals_unposted",
+        "leave_pending",
         "needs_location",
+        "payroll_run_state",
         "proformas_open",
         "receivables_overdue",
         "revenue",
         "sla_on_time",
+        "vacancies_open",
       ].sort(),
     );
     expect(LIVE_IDS.length).toBeLessThanOrEqual(32);
@@ -153,7 +161,9 @@ describe("valuesFor guard contract", () => {
   });
 
   it("unknown and hidden ids are never answered, even when asked", async () => {
-    const out = await valuesFor(emptySchemaClient, ["revenue", "made_up_id", "headcount"]);
+    // `dwell_days` is PR-2's, still hidden here — the domain PRs that follow
+    // PR-4 swap in an id of their own when they flip theirs live.
+    const out = await valuesFor(emptySchemaClient, ["revenue", "made_up_id", "dwell_days"]);
     expect(Object.keys(out)).toEqual(["revenue"]);
   });
 });
