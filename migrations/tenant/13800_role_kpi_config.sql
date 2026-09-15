@@ -30,13 +30,17 @@
 -- resolver filters before it paints, so an orphan id never renders and never
 -- grants anything.
 --
--- THE SEED IS DATA-DRIVEN ON PURPOSE. The curated band per role is intersected
--- with what that role can actually READ at apply time, so the seed cannot
--- create a default that the eligibility resolver would immediately hide —
--- a seeded lie on day one is worse than no seed. Roles with no curated row
--- (ACCOUNTANT, PROCUREMENT, SUPER_ADMIN, …) fall through to the system
--- default of today's four; HR and the sales tiles arrive with their domains
--- (PR-3/PR-4) and get curated rows there.
+-- WHERE THE SEED IS, AND WHY IT IS NOT HERE. This file creates the table and
+-- nothing else. The curated per-role defaults live in
+-- `migrations/seeds/9023_seed_role_kpi_defaults.sql`, because the seed has to
+-- read `role` and `permission` to intersect a curated band with what the role
+-- can actually READ — and on a freshly provisioned tenant those tables are
+-- still EMPTY at this point: `provisioning.service.js → migrateTenantDb` runs
+-- every tenant migration first and only then the 90xx seeds, and the roles
+-- themselves are seeded by 9020/9021/9022. A seed block in this file inserts
+-- zero rows on every new tenant and rows on every existing one — the same
+-- migration set producing two different tenants, which is the one thing the
+-- ledger exists to prevent.
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS role_kpi_config (
@@ -49,62 +53,6 @@ CREATE TABLE IF NOT EXISTS role_kpi_config (
   CHECK (locked_ids <@ default_ids),
   CHECK (array_length(default_ids, 1) IS NULL OR array_length(default_ids, 1) <= 4)
 );
-
--- ── seed: curated defaults for the six job families with an obvious band ────
-
-WITH tile(tile_id, module_key) AS (
-  VALUES
-    ('revenue',             'MOD-51'),
-    ('receivables_overdue', 'MOD-52'),
-    ('proformas_open',      'MOD-50'),
-    ('journals_unposted',   'MOD-55'),
-    ('files_active',        'MOD-29'),
-    ('sla_on_time',         'MOD-29'),
-    ('approvals_awaiting',  'MOD-00A'),
-    ('compliance_open',     'MOD-65'),
-    ('needs_location',      'MOD-00A'),
-    ('fleet_utilisation',   'MOD-39')
-),
-curated(role_code, tile_ids) AS (
-  VALUES
-    ('FINANCE',    ARRAY['revenue','receivables_overdue','proformas_open','journals_unposted']),
-    ('OPERATIONS', ARRAY['files_active','sla_on_time','needs_location','approvals_awaiting']),
-    ('FLEET',      ARRAY['fleet_utilisation','files_active','needs_location','approvals_awaiting']),
-    ('WAREHOUSE',  ARRAY['files_active','compliance_open','needs_location','approvals_awaiting']),
-    ('SALES',      ARRAY['revenue','receivables_overdue','proformas_open','files_active']),
-    ('CEO',        ARRAY['revenue','receivables_overdue','sla_on_time','files_active']),
-    ('MANAGEMENT', ARRAY['revenue','receivables_overdue','sla_on_time','files_active'])
-),
-eligible AS (
-  -- The read-time rule, evaluated at seed time: a tile is eligible for a role
-  -- when the role can read the tile's module — or is the CEO, for whom
-  -- requirePermission bypasses the matrix (rbac.js); an eligible-set that
-  -- ignored that would hand the CEO a picker narrower than their own band.
-  SELECT r.role_id, t.tile_id
-  FROM role r
-  JOIN tile t ON true
-  WHERE r.is_system = true
-    AND (
-      r.code = 'CEO'
-      OR EXISTS (
-        SELECT 1 FROM permission p
-        WHERE p.role_id = r.role_id AND p.module_key = t.module_key AND p.can_read = true
-      )
-    )
-)
-INSERT INTO role_kpi_config (role_id, scope_ids, default_ids, locked_ids)
-SELECT
-  r.role_id,
-  NULL,                                   -- scope = dynamic (everything readable)
-  (SELECT array_agg(x.tile_id ORDER BY ord)
-     FROM unnest(c.tile_ids) WITH ORDINALITY AS q(tile_id, ord)
-     JOIN eligible e ON e.tile_id = q.tile_id AND e.role_id = r.role_id),
-  '{}'
-FROM role r
-JOIN curated c ON c.role_code = r.code
-WHERE (SELECT count(*) FROM unnest(c.tile_ids) x
-         WHERE x IN (SELECT tile_id FROM eligible e WHERE e.role_id = r.role_id)) > 0
-ON CONFLICT (role_id) DO NOTHING;
 
 -- DOWN
 -- DROP TABLE IF EXISTS role_kpi_config;

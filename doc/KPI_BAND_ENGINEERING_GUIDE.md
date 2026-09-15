@@ -329,7 +329,7 @@ feature: first decide what Operations may read, then what it must look at.
   scope/default/locked of tiles whose `module` just lost `can_read`, and logs
   the prune to the audit ledger (`permission.changed` event already exists).
 
-The system seeds sensible role defaults at migration (e.g. **Executive:**
+The system seeds sensible role defaults (e.g. **Executive:**
 revenue, receivables_overdue, files_active, compliance_open — today's band
 minus the fleet tile, plus the ops health tile; **Finance:** revenue,
 receivables_overdue, payables_overdue, cash_collected; **Operations:**
@@ -339,6 +339,16 @@ headcount, attendance_today, leave_pending, vacancies_open; **Sales:**
 pipeline_won, quote_requests_open, revenue, dso). A user whose roles have no
 config at all falls back to today's four — behaviour-preserving for every
 tenant that never touches this feature.
+
+That seed is `migrations/seeds/9023_seed_role_kpi_defaults.sql` — a 90xx tenant
+seed, not a block inside the migration that creates the table. It intersects
+each curated band with the role's real `can_read` grants, so it can never
+promise a tile the eligibility resolver would immediately hide, and that
+intersection needs `role` and `permission` to have rows.
+`provisioning.service.js → migrateTenantDb` applies every tenant migration
+first and only then the 90xx seeds, with the roles themselves arriving in
+9020/9021/9022 — so the same block inside `13800` writes nothing on a new
+tenant and something on an existing one.
 
 ### 7.3 What does NOT get a UI
 
