@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 140,
-  "route_count": 1569,
+  "route_count": 1578,
   "tiers": {
-    "public": 61,
-    "self-scoped": 93,
-    "gated": 1415
+    "public": 65,
+    "self-scoped": 94,
+    "gated": 1419
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -142,6 +142,12 @@
       "tier": "gated"
     },
     "DELETE /api/tenant/cost-tracking/allocations/:allocationId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/costing/reconciliations/:dossierId/lines/:costingLineId/documents/:docId": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -1341,6 +1347,12 @@
       "validated": false,
       "tier": "public"
     },
+    "GET /api/tenant/careers/settings/public": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
     "GET /api/tenant/cash-requests/": {
       "auth": true,
       "rbac": true,
@@ -1533,13 +1545,19 @@
       "validated": false,
       "tier": "gated"
     },
-    "GET /api/tenant/costing/reconciliations/": {
+    "GET /api/tenant/costing/reconciliations/:dossierId": {
       "auth": true,
       "rbac": true,
       "validated": false,
       "tier": "gated"
     },
-    "GET /api/tenant/costing/reconciliations/:id": {
+    "GET /api/tenant/costing/reconciliations/owed": {
+      "auth": true,
+      "rbac": false,
+      "validated": false,
+      "tier": "self-scoped"
+    },
+    "GET /api/tenant/costing/reconciliations/owed/all": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -3987,6 +4005,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/site-settings/careers": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/site-settings/credentials": {
       "auth": true,
       "rbac": true,
@@ -4864,6 +4888,12 @@
       "tier": "gated"
     },
     "PATCH /api/tenant/contracts/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PATCH /api/tenant/costing/reconciliations/:dossierId/lines/:costingLineId": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -6141,6 +6171,24 @@
       "validated": false,
       "tier": "public"
     },
+    "POST /api/tenant/careers/alerts": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "POST /api/tenant/careers/alerts/unsubscribe/:token": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "POST /api/tenant/careers/open-application": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
     "POST /api/tenant/cash-requests/": {
       "auth": true,
       "rbac": true,
@@ -6375,37 +6423,31 @@
       "validated": false,
       "tier": "gated"
     },
-    "POST /api/tenant/costing/reconciliations/": {
+    "POST /api/tenant/costing/reconciliations/:dossierId/lines/:costingLineId/documents": {
       "auth": true,
       "rbac": true,
       "validated": false,
       "tier": "gated"
     },
-    "POST /api/tenant/costing/reconciliations/:id/reject": {
+    "POST /api/tenant/costing/reconciliations/:dossierId/reasons": {
       "auth": true,
       "rbac": true,
       "validated": false,
       "tier": "gated"
     },
-    "POST /api/tenant/costing/reconciliations/:id/submit": {
+    "POST /api/tenant/costing/reconciliations/:dossierId/reject": {
       "auth": true,
       "rbac": true,
       "validated": false,
       "tier": "gated"
     },
-    "POST /api/tenant/costing/reconciliations/:id/suggestions/:sid/confirm": {
+    "POST /api/tenant/costing/reconciliations/:dossierId/settle": {
       "auth": true,
       "rbac": true,
       "validated": false,
       "tier": "gated"
     },
-    "POST /api/tenant/costing/reconciliations/:id/suggestions/:sid/reject": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/costing/reconciliations/:id/validate": {
+    "POST /api/tenant/costing/reconciliations/:dossierId/submit": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8301,6 +8343,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/service-types/:id/web/ai-copy": {
+      "auth": true,
+      "rbac": true,
+      "validated": true,
+      "tier": "gated"
+    },
     "POST /api/tenant/service-types/:id/web/media": {
       "auth": true,
       "rbac": true,
@@ -9376,6 +9424,12 @@
       "tier": "gated"
     },
     "PUT /api/tenant/site-settings/about": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/site-settings/careers": {
       "auth": true,
       "rbac": true,
       "validated": false,

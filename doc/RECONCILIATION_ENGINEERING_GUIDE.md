@@ -1,9 +1,20 @@
 # Budget Reconciliation — engineering guide
 
-**Status:** approved design. Every decision here cites its question in
+**Status:** PR 1 shipped; PRs 2 and 3 outstanding. Every decision here cites its question in
 `doc/RECONCILIATION_PROGRAMME_QUESTIONNAIRE.md` §10 (answered 15/09/2026). Where this guide and the
 questionnaire disagree, this guide is newer and wins; where this guide is silent, the questionnaire's
 recommendation stands.
+
+**What PR 1 changed about this guide.** Four things came out differently once the code was written,
+and the guide has been corrected rather than left describing a plan nobody followed:
+
+| Guide said | Shipped | Why |
+| --- | --- | --- |
+| `GET` creates the row on first read | **Reads never write.** The header is created by the first WRITE. | A GET that inserts is a non-idempotent read, and it let a `view`-only user cause a write. The sparse-line model already worked this way; the header now matches it (§4.0). |
+| Module key `MOD-85`, registered in a tenant migration | **`MOD-76`, in a platform SEED** (`9132`) | `MOD-01`…`MOD-75` are taken, and `platform.module_catalogue` is seeded per platform, not migrated per tenant (`9130` is the pattern). |
+| `app_setting (scope, key, value)` | **`setting (section, key, value)`** | That is the table's real shape (`0130:28`). |
+| `dossier_reconciliation_suggestion` retired by comment | **Dropped** | It sits inside the orphan sweep's range, and that gate is right: a table no code touches is a hole, not a record. §8.4. |
+
 
 **Module name:** **Budget Reconciliation** in the UI (Q21). Table and module names stay
 `dossier_reconciliation` so no route, migration or import moves. "OCR" is retired as a label — it
@@ -427,16 +438,16 @@ Base path `/costing/reconciliations`, module key `MOD-76`.
 
 | Method | Path | Grant | Does |
 | --- | --- | --- | --- |
-| `GET` | `/dossier/:dossierId` | `view` | The sheet: header, grid, totals, gates. Creates the row on first read — there is no "draft it" step (Q6). |
-| `PATCH` | `/:id/lines/:costingLineId` | `edit` | **The endpoint that has never existed.** `actual_ttc`, `spent_on`, `variance_reason`, `returned_amount`. Upserts the sparse row. |
-| `POST` | `/:id/lines/:costingLineId/documents` | `edit` | Attach a vault document to the line. Many per line. |
-| `DELETE` | `/:id/lines/:costingLineId/documents/:docId` | `edit` | Detach (does not delete the vault row). |
-| `POST` | `/:id/reasons` | `edit` | Apply one reason to several lines (§4.6). |
-| `POST` | `/:id/submit` | `edit` | Operations → Finance. Runs both gates. |
-| `POST` | `/:id/reject` | `validate` | Back to `OPEN` with a reason. |
-| `POST` | `/:id/settle` | `validate` | §4.4. Finance records the returned cash and posts. |
-| `GET` | `/:id/statement` | `export` | PDF or xlsx (Q19). `can_export`, not `can_read` — 12771 created that column for exactly this distinction. |
-| `POST` | `/:id/statement/send` | `export` | Post the statement into the file's Smart Comms channel (Q19, §6.4). |
+| `GET` | `/:dossierId` | `view` | The sheet: header, grid, totals, gates. Creates nothing — there is no "draft it" step (Q6) and the header appears on the first write. |
+| `PATCH` | `/:dossierId/lines/:costingLineId` | `edit` | **The endpoint that has never existed.** `actual_ttc`, `spent_on`, `variance_reason`, `returned_amount`. Upserts the sparse row. |
+| `POST` | `/:dossierId/lines/:costingLineId/documents` | `edit` | Attach a vault document to the line. Many per line. |
+| `DELETE` | `/:dossierId/lines/:costingLineId/documents/:docId` | `edit` | Detach (does not delete the vault row). |
+| `POST` | `/:dossierId/reasons` | `edit` | Apply one reason to several lines (§4.6). |
+| `POST` | `/:dossierId/submit` | `edit` | Operations → Finance. Runs both gates. |
+| `POST` | `/:dossierId/reject` | `validate` | Back to `OPEN` with a reason. |
+| `POST` | `/:dossierId/settle` | `validate` | §4.4. Finance records the returned cash and posts. |
+| `GET` | `/:dossierId/statement` | `export` | PDF or xlsx (Q19). `can_export`, not `can_read` — 12771 created that column for exactly this distinction. |
+| `POST` | `/:dossierId/statement/send` | `export` | Post the statement into the file's Smart Comms channel (Q19, §6.4). |
 | `GET` | `/owed` | *(self)* | What the CALLER owes. Ungated like `hr_query/mine` — a person may always see their own obligations. |
 | `GET` | `/owed/all` | `view` | What everyone owes, for Finance. |
 
@@ -717,6 +728,32 @@ of the 21 answers; flagged for the owner.
 §4.3. Fixed by `spent_on` in `13793`, but worth recording as a finding: every cost entry in the
 system is dated by when its row was written.
 
+### 8.4 The orphan sweep counted commented-out DDL
+
+`tests/security/mail-orphan-sweep.test.js` scanned raw migration text for `CREATE TABLE IF NOT
+EXISTS`, so a **well-documented `-- DOWN` block** — one that spells out the statements to reverse a
+drop — registered a table the database does not have, and the gate then demanded application code
+for it. It also had no notion of a table being dropped later, so retiring a feature correctly (drop
+the table, delete the code) failed it, and the only ways to green were to leave dead schema behind or
+to write "not built yet" about something that was built.
+
+Fixed in PR 1: strip line comments before scanning, and subtract anything a later migration drops.
+The gate now reads what migrations DO rather than what they describe.
+
+### 8.5 Cost proofs: Word and Excel
+
+`document_vault` accepts PDF/PNG/JPG at 5 MB for anything carrying a `dossier_id`, which is legacy's
+rule for a bill of lading and the right one for it. A cost proof is different: a carrier's demurrage
+statement arrives as `.xlsx` and a clearing agent's breakdown as `.docx`, and refusing those does not
+make the money unspent — it makes the evidence live in somebody's inbox instead of on the line it
+proves.
+
+PR 1 widens the list **for `doc_type = 'COST_PROOF'` only**, to 15 MB (a multi-page colour scan of a
+customs file clears 5 MB routinely). The sniffer learned the ZIP container magic to support it, and
+that is a deliberately weaker assertion than the other four: it says "these bytes are an archive",
+not "these bytes are a Word document". The DECLARED type resolves which, and only within what the
+caller allowed — so a renamed `.zip` declaring itself a PDF is still refused.
+
 ### 8.3 `proof_vault_id` is a paste-a-uuid text box
 
 `regie-detail.tsx:313-321` renders *"Proof document id"* as a bare `<Input>`. It is the only proof
@@ -755,10 +792,12 @@ and commit what it writes — never edit them by hand.
 
 ## 10. PRs
 
-### PR 1 — `feat(reconciliation): the line becomes writable, and proof becomes real`
-Migration `13793`. The grid query. `PATCH /lines/:costingLineId`, the document routes, the reason
-group. Submit/reject/settle skeleton without the postings. The line modal and the upload engine.
-Removes the cash request's misplaced proof gate (§7.1).
+### PR 1 — `feat(reconciliation): the line becomes writable, and proof becomes real` · **shipped**
+Migration `13793` + seed `9132`. The projected grid. `PATCH /lines/:costingLineId`, the document
+routes, the reason group. Submit/reject/settle without the postings. The sheet, the line modal and
+the upload engine. Removes the cash request's misplaced proof gate (§7.1). Also, not originally
+planned: Word and Excel accepted as cost proofs (§8.5), `pricing_variance` re-pointed at the new
+shape (§7.4), and the orphan-sweep gate taught that a dropped table is not an orphan (§8.4).
 
 ### PR 2 — `feat(reconciliation): settlement posts the actuals and returns the cash`
 `spent_on` → `journal_entry.entry_date`; delta postings; the régie legs (§7.2); the file stamp; the
