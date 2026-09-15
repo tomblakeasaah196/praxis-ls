@@ -1,4 +1,12 @@
 "use strict";
+// The transcription service now resolves its key platform-first (like llm.service),
+// so the "not configured" assertions below must pin the platform lookup to null —
+// otherwise the real service would spend the DB connect timeout on a pool that
+// does not exist in unit tests before falling back to the (empty) env key.
+jest.mock("../../src/services/platform/ai-vendor.service", () => ({
+  getConfig: jest.fn().mockResolvedValue(null),
+}));
+
 const aiTranscribe = require("../../src/jobs/handlers/ai-transcribe");
 const transcription = require("../../src/services/ai/transcription.service");
 const vision = require("../../src/services/ai/vision.service");
@@ -36,6 +44,37 @@ describe("provider services: validation", () => {
     await expect(
       transcription.transcribe({ audio: Buffer.from("hi"), vendor: null }),
     ).rejects.toThrow(/not configured|audio Buffer/);
+  });
+  test("transcribe resolves the platform console key when no vendor is passed", async () => {
+    // Keys moved to the platform console (0060); the direct callers (mail
+    // dictation, smartcomm voice notes, HR intake) pass no vendor, so the
+    // service itself must find the console key. With one resolved, the
+    // missing-key guard no longer fires — the next rejection is the empty
+    // buffer guard, and nothing network-bound runs before it.
+    const vendors = require("../../src/services/platform/ai-vendor.service");
+    vendors.getConfig.mockResolvedValueOnce({
+      vendor: "groq",
+      api_key: "gk",
+      endpoint_url: "https://api.groq.com/openai/v1",
+      model: "whisper-large-v3",
+      is_active: true,
+    });
+    await expect(
+      transcription.transcribe({ audio: Buffer.alloc(0), vendor: null }),
+    ).rejects.toThrow(/non-empty audio Buffer/);
+  });
+  test("an inactive platform vendor row falls through to the env fallback", async () => {
+    const vendors = require("../../src/services/platform/ai-vendor.service");
+    vendors.getConfig.mockResolvedValueOnce({
+      vendor: "groq",
+      api_key: "gk",
+      endpoint_url: "https://api.groq.com/openai/v1",
+      model: "whisper-large-v3",
+      is_active: false,
+    });
+    await expect(
+      transcription.transcribe({ audio: Buffer.from("hi"), vendor: null }),
+    ).rejects.toThrow(/not configured/);
   });
   test("vision extract rejects empty image or missing provider", async () => {
     await expect(
