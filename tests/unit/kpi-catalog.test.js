@@ -41,29 +41,34 @@ describe("catalog structure", () => {
     ]);
   });
 
-  it("ships the ten PR-1 live tiles plus Human Capital's six (PR-4, D12)", () => {
-    // PR-2 (Operations/Fleet/Warehouse) and PR-3 (Money/Sales) flip their own
-    // entries in parallel; when they do, their ids join this list.
-    expect([...LIVE_IDS].sort()).toEqual(
-      [
-        "approvals_awaiting",
-        "attendance_today",
-        "attrition_90d",
-        "compliance_open",
-        "files_active",
-        "fleet_utilisation",
-        "headcount",
-        "journals_unposted",
-        "leave_pending",
-        "needs_location",
-        "payroll_run_state",
-        "proformas_open",
-        "receivables_overdue",
-        "revenue",
-        "sla_on_time",
-        "vacancies_open",
-      ].sort(),
-    );
+  it("live set = PR-1's ten + PR-2's five + PR-4's six (stock_value waits for a cost column)", () => {
+    const PR1 = [
+      "approvals_awaiting",
+      "compliance_open",
+      "files_active",
+      "fleet_utilisation",
+      "journals_unposted",
+      "needs_location",
+      "proformas_open",
+      "receivables_overdue",
+      "revenue",
+      "sla_on_time",
+    ];
+    const PR2 = ["late_vs_eta", "dwell_days", "fleet_docs_expiring", "work_orders_open", "warehouse_occupancy"];
+    const PR4 = [
+      "headcount",
+      "attendance_today",
+      "leave_pending",
+      "vacancies_open",
+      "payroll_run_state",
+      "attrition_90d",
+    ];
+    // An EXACT set, not a containment: a tile going live is a product decision,
+    // and the assertion that catches an accidental flip is the one that fails
+    // when the set grows. PR-3 (Money/Sales) adds its nine ids here when it
+    // lands; until then, these 21 are the whole live catalog.
+    expect([...LIVE_IDS].sort()).toEqual([...PR1, ...PR2, ...PR4].sort());
+    expect(LIVE_IDS).not.toContain("stock_value");
     expect(LIVE_IDS.length).toBeLessThanOrEqual(32);
   });
 
@@ -161,9 +166,9 @@ describe("valuesFor guard contract", () => {
   });
 
   it("unknown and hidden ids are never answered, even when asked", async () => {
-    // `dwell_days` is PR-2's, still hidden here — the domain PRs that follow
-    // PR-4 swap in an id of their own when they flip theirs live.
-    const out = await valuesFor(emptySchemaClient, ["revenue", "made_up_id", "dwell_days"]);
+    // `cash_collected` is PR-3's (Money), still hidden — the domain PR that
+    // flips it swaps in an id of its own here.
+    const out = await valuesFor(emptySchemaClient, ["revenue", "made_up_id", "cash_collected"]);
     expect(Object.keys(out)).toEqual(["revenue"]);
   });
 });
