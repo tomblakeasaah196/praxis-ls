@@ -46,7 +46,7 @@ const PNG = Buffer.concat([
   Buffer.alloc(64, 0),
 ]);
 const EXE = Buffer.concat([Buffer.from("MZ"), Buffer.alloc(64, 0)]);
-/** PK\x03\x04 — a ZIP container, which is what .docx and .xlsx are (13793). */
+/** PK\x03\x04 — a ZIP container, which is what .docx and .xlsx are (13801). */
 const ZIP = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(64, 0)]);
 const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -174,7 +174,7 @@ describe("uploading anywhere else is unchanged", () => {
 });
 
 /**
- * Cost proofs (13793, owner decision Q8).
+ * Cost proofs (13801, owner decision Q8).
  *
  * "pdf or image or word or excel". A carrier's demurrage statement arrives as
  * .xlsx and a clearing agent's breakdown as .docx; refusing those does not make

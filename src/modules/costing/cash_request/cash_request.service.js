@@ -1026,7 +1026,7 @@ async function justify(client, { id, lines = [], entityId = null, entryDate = nu
     if (lines.length) await checkProof(client, cr, written);
 
     /*
-     * ── THE PROOF GATE MOVED (13793, owner decision Q7) ────────────────────
+     * ── THE PROOF GATE MOVED (13801, owner decision Q7) ────────────────────
      *
      * This used to throw PROOF_REQUIRED while any line carried
      * `justification_required` with no `proof_vault_id`. The intent was right —

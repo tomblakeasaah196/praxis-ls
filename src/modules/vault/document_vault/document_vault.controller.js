@@ -1,6 +1,6 @@
 "use strict";
 
-/** What a cost proof may be (13793, owner Q8) — whatever the supplier sent. */
+/** What a cost proof may be (13801, owner Q8) — whatever the supplier sent. */
 const COST_PROOF_TYPES = [
   "application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -118,7 +118,7 @@ module.exports = {
         // 5 MB, PDF/PNG/JPG, contents checked. Uploads elsewhere (HR files,
         // finance scans) keep the vault's wider defaults untouched.
         //
-        // COST_PROOF is the one exception, and it is a deliberate one (13793,
+        // COST_PROOF is the one exception, and it is a deliberate one (13801,
         // owner decision Q8). A cost proof is whatever the supplier actually
         // sent: "pdf or image or word or excel". A carrier's demurrage
         // statement arrives as .xlsx and a clearing agent's breakdown as .docx,

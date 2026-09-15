@@ -14,6 +14,7 @@
  */
 
 const service = require("../../src/modules/costing/dossier_reconciliation/dossier_reconciliation.service");
+const { schemas } = require("../../src/modules/costing/dossier_reconciliation/dossier_reconciliation.validator");
 
 jest.mock("../../src/shared/events/emit", () => ({
   audit: jest.fn(async () => {}),
@@ -383,5 +384,59 @@ describe("the living sheet — the property the whole design rests on (Q6)", () 
     const c = fakeClient({ header: openHeader() });
     expect(await service.reopen(c, { dossierId: DOSSIER, reason: "x", actor: finance })).toBeNull();
     expect(c.written).toEqual([]);
+  });
+});
+
+/**
+ * What the DATABASE no longer enforces, and the code must.
+ *
+ * 13801 could not add a CHECK to `dossier_reconciliation_line`: a constraint on
+ * a pre-existing table above 13791 aborts provisioning for every new tenant
+ * (tests/unit/migration-constraint-ordering.test.js). The migration says the
+ * two rules are enforced in code instead. These are that promise, kept — the
+ * half of the trade that makes it honest rather than a hole.
+ */
+describe("the rules the migration could not make constraints", () => {
+  test("a caller cannot set actual_source — the service derives it", () => {
+    // The CHECK would have been actual_source IN ('DERIVED','CONFIRMED',
+    // 'OVERRIDDEN'). The schema is .strict(), so the field is not merely
+    // ignored, it is REFUSED — which is stronger than the constraint was.
+    const bad = schemas.patchLine.safeParse({ actual_ttc: 100, actual_source: "CONFIRMED" });
+    expect(bad.success).toBe(false);
+    const good = schemas.patchLine.safeParse({ actual_ttc: 100 });
+    expect(good.success).toBe(true);
+    expect(good.data.actual_source).toBeUndefined();
+  });
+
+  test("derived, not trusted: confirming the shown figure vs replacing it", async () => {
+    const c = fakeClient({ header: openHeader() });
+    await service.patchLine(c, { dossierId: DOSSIER, costingLineId: LINE_A, fields: { actual_ttc: 119250 }, actor: ops });
+    expect(c.written.find((w) => w.op === "upsertLine").params[3]).toBe("CONFIRMED");
+  });
+
+  test("negative money is refused on every amount the sheet writes", () => {
+    // The CHECK would have been actual_ttc >= 0 AND returned_amount >= 0.
+    expect(schemas.patchLine.safeParse({ actual_ttc: -1 }).success).toBe(false);
+    expect(schemas.patchLine.safeParse({ returned_amount: -1 }).success).toBe(false);
+    expect(schemas.settle.safeParse({ returned: { [LINE_A]: -1 } }).success).toBe(false);
+    expect(schemas.patchLine.safeParse({ actual_ttc: 0 }).success).toBe(true);
+  });
+
+  test("spent_on takes the wire format, and nothing else", () => {
+    // ISO on the wire is what every date column and the @shared validators are
+    // built on; dd/mm/yyyy is what a PERSON reads, and DateField converts.
+    expect(schemas.patchLine.safeParse({ spent_on: "2026-07-27" }).success).toBe(true);
+    expect(schemas.patchLine.safeParse({ spent_on: "27/07/2026" }).success).toBe(false);
+    // Explicitly clearing it is a different instruction from omitting it.
+    expect(schemas.patchLine.safeParse({ spent_on: null }).success).toBe(true);
+  });
+
+  test("a budget line from another file is refused, which the dropped FK could not have done", async () => {
+    // The FK would have accepted ANY real costing_line_id. This refuses one
+    // that belongs to a different operations file — a stronger guarantee.
+    const c = fakeClient({ header: openHeader(), lineOnDossier: false });
+    await expect(
+      service.patchLine(c, { dossierId: DOSSIER, costingLineId: LINE_B, fields: { actual_ttc: 1 }, actor: ops }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

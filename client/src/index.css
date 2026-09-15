@@ -227,7 +227,15 @@
   --primary-ink: var(--primary-ink-dark);
   --ring: rgb(245 130 31);
   --destructive: rgb(232 104 96);
-  --destructive-foreground: rgb(255 255 255);
+  /*
+   * Carbon, not white — and for the same reason `--primary-foreground` is
+   * carbon (F-20). `--destructive` is LIGHTENED under .dark so that
+   * `text-destructive` reads on a dark card, which leaves the fill too
+   * luminous to carry white type: white on it is 3.19:1, a live AA failure on
+   * every Delete button in dark mode. Carbon on the same fill is 6.21:1. The
+   * light theme keeps white, where the deeper red measures 4.54:1.
+   */
+  --destructive-foreground: rgb(10 10 10);
   --sidebar: rgb(18 22 30);
   --sidebar-foreground: rgb(228 233 240);
   --sidebar-border: rgb(228 233 240 / 0.11);
@@ -1377,6 +1385,50 @@
   outline: none;
 }
 
+/* --- Quick PIN premium — identity card, read-only chip, passkey divider ---- */
+.pin-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.pin-identity-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: 0.85rem;
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.03));
+  border: 1px solid rgb(255 255 255 / 0.09);
+  box-shadow:
+    0 8px 24px rgb(0 0 0 / 0.25),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+.pin-switch {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--primary) 72%, #d8b3bb);
+  text-decoration: underline;
+  text-decoration-color: rgb(255 255 255 / 0.18);
+  text-underline-offset: 3px;
+}
+.pin-switch:hover {
+  color: var(--primary);
+}
+.login-card .pin-identity-card + .pin-switch {
+  margin-left: 0.2rem;
+}
+/* Wider card to hold 8 boxes without overflow scrolling */
+.login-card {
+  max-width: 28rem;
+}
+@media (max-width: 420px) {
+  .login-card {
+    max-width: 22.5rem;
+    padding: 1.25rem;
+  }
+}
+
 @keyframes landing-kenburns {
   from {
     transform: scale(1) translate3d(0, 0, 0);
@@ -2006,6 +2058,7 @@
   /* Density now lives on `--rail-w` (see the density block above), because the
      title bar's app mark centres itself on this width too. */
   .rail-btn {
+    position: relative;
     display: grid;
     place-items: center;
     width: 36px;
@@ -2016,6 +2069,36 @@
     transition:
       background-color var(--dur) var(--ease),
       color var(--dur) var(--ease);
+  }
+  /**
+   * The unread count on a rail cell (Messages).
+   *
+   * OUT OF FLOW, because `.rail-btn` is a centring grid and an in-flow sibling
+   * would stack under the glyph and push it off centre. The ring is the rail's
+   * own `--card`, not a hard white: on the rail the badge overlaps the icon,
+   * and a ring painted in the surface behind it is what keeps the digits
+   * legible against a stroke rather than smeared into one.
+   *
+   * `--primary` / `--primary-foreground` is the same pair the bell's badge
+   * uses, which is deliberate — two counts in the same chrome that disagree
+   * about their colour read as two different kinds of thing.
+   */
+  .rail-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    display: grid;
+    place-items: center;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 0 0 2px var(--card);
   }
   .rail-btn:hover {
     background: var(--accent);

@@ -43,7 +43,7 @@ async function forDossier(client, dossierId) {
 /**
  * Open the file's reconciliation, or return the one that is already there.
  *
- * ON CONFLICT DO NOTHING against `uq_reconciliation_one_per_dossier` (13793),
+ * ON CONFLICT DO NOTHING against `uq_reconciliation_one_per_dossier` (13801),
  * so two people opening the same file at the same moment get the same row
  * rather than one of them getting a 23505. One per file, for ever (Q6) — this
  * is the only place a reconciliation is ever created.

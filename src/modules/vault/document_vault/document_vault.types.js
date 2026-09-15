@@ -68,7 +68,7 @@ const DOC_TYPES = {
    * raised against it.
    */
   CASH_PAYMENT_RECEIPT:  { label: "Cash payment receipt",     module: "costing/cash_request",          moduleKey: "MOD-49" },
-  // 13793 — the invoice or receipt proving what a BUDGET LINE was actually spent
+  // 13801 — the invoice or receipt proving what a BUDGET LINE was actually spent
   // on. Read under MOD-76, because the person who needs to open it is the one
   // reconciling the file, not whoever happens to hold a Settings grant.
   COST_PROOF:            { label: "Cost proof",                module: "costing/dossier_reconciliation", moduleKey: "MOD-76" },

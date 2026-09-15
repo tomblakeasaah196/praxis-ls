@@ -5,7 +5,7 @@
  *
  * The previous version of this module carried a matcher that scored untagged
  * cost entries against catalogue items and PROPOSED mappings for a human to
- * confirm. It is retired (13793). With the line keyed on `costing_line_id` and
+ * confirm. It is retired (13801). With the line keyed on `costing_line_id` and
  * the actual entered by the person who physically spent the money, there is
  * nothing left to guess: "what needs an AI? Justify. Prove, and I can approve."
  *

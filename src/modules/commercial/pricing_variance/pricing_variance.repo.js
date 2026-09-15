@@ -14,7 +14,7 @@ const costingRepo = require("../../costing/costing/costing.repo");
  * ── WHY THIS READS `costing_line` AND NOT THE RECONCILIATION'S OWN COLUMNS ──
  *
  * It used to `SUM(l.budget_ht)` and `SUM(l.actual_ht)` off
- * `dossier_reconciliation_line`. 13793 retired both columns: the reconciliation
+ * `dossier_reconciliation_line`. 13801 retired both columns: the reconciliation
  * grid is TTC (owner decision Q4), and its line table became SPARSE — it stores
  * only what a human typed, and a budget line nobody has touched has no row at
  * all. Summing a column that is no longer written would report every file as
