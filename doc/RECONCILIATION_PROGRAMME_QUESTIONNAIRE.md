@@ -1024,7 +1024,7 @@ Sequenced, not sized. Each is independently shippable and leaves the tree green.
 
 ### PR 1 — The line becomes writable, and proof becomes real
 
-- Migration `13793`: `costing_line_id`, `budget_ttc`, `actual_ttc`, `actual_source`,
+- Migration `13801`: `costing_line_id`, `budget_ttc`, `actual_ttc`, `actual_source`,
   `proof_vault_id`, `variance_reason`, `justification_required` on
   `dossier_reconciliation_line`; `revision` / `supersedes_id` on the header; the settings row for
   Q13's thresholds.
@@ -1153,7 +1153,7 @@ migrations `0200`, `0342`, `0630`, `10715`, `10720`, `10741`, `11740`, `12771` �
 | The costing is a TTC cash budget (Q4) | `12768`, quoted in `12771`'s header |
 | MOD-47 is shared by two modules (Q21) | `dossier_reconciliation.routes.js:13` and `cost_tracking.routes.js:1` |
 | "OCR" already means optical character recognition here (Q21) | `10720_reconciliation_ocr_and_document.sql` — `bank_statement.ocr_used/ocr_provider/ocr_model` |
-| Next free migration is 13793 | highest existing is `13792_site_careers_and_alerts.sql` |
+| Next free migration is 13801 | highest existing is `13792_site_careers_and_alerts.sql` |
 | No chart library in `client/` (Q15) | `package.json` — no recharts/d3/nivo/apex/victory; `meter.tsx`'s header explains the choice |
 | A generic tenant socket publish exists (Q16) | `src/realtime/index.js:244` — `publish(tenantSlug, groupId, event, payload)` |
 

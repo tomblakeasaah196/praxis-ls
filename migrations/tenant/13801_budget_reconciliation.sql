@@ -1,5 +1,5 @@
 -- ============================================================================
--- TENANT DB — 13793 Budget Reconciliation: the line becomes writable, and
+-- TENANT DB — 13801 Budget Reconciliation: the line becomes writable, and
 -- proof becomes real.
 --
 -- Owner decisions Q1–Q21, doc/RECONCILIATION_PROGRAMME_QUESTIONNAIRE.md §10.
@@ -80,26 +80,28 @@ DELETE FROM dossier_reconciliation a
       WHERE a.dossier_id = b.dossier_id
         AND a.created_at < b.created_at;
 
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-      FROM pg_constraint c
-      JOIN pg_class t ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'uq_reconciliation_one_per_dossier'
-       AND t.relname = 'dossier_reconciliation'
-       AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE dossier_reconciliation
-      ADD CONSTRAINT uq_reconciliation_one_per_dossier UNIQUE (dossier_id);
-  END IF;
-END $$;
+-- A unique INDEX rather than a unique CONSTRAINT, and the difference matters
+-- here for one reason: migrations above 13791 must not ADD CONSTRAINT to a
+-- table they did not create (tests/unit/migration-constraint-ordering.test.js).
+-- 13791 mirrors live's constraints into sandbox during provisioning and aborts
+-- on a column it cannot see, so a constraint added up here reddens the
+-- `migrations` job for every new tenant.
+--
+-- Nothing is lost. 13791 copies contype 'c' and 'f' only, so a unique index is
+-- outside its remit entirely, and ON CONFLICT infers against a unique index
+-- exactly as it does against a unique constraint — which is what repo.open
+-- relies on to make two people opening the same file get the same row.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_reconciliation_one_per_dossier
+  ON dossier_reconciliation (dossier_id);
 
 ALTER TABLE dossier_reconciliation
   ADD COLUMN IF NOT EXISTS revision             integer NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS currency             char(3) NOT NULL DEFAULT 'XAF',
   ADD COLUMN IF NOT EXISTS exchange_rate_to_xaf numeric(18,6) NOT NULL DEFAULT 1,
-  ADD COLUMN IF NOT EXISTS settled_by           uuid REFERENCES app_user(user_id),
+  -- No REFERENCES: see the note on the unique index above. resolveActorId()
+  -- already resolves the writer against the LIVE schema before every write
+  -- here, which is the guarantee the FK would have given.
+  ADD COLUMN IF NOT EXISTS settled_by           uuid,
   ADD COLUMN IF NOT EXISTS settled_at           timestamptz,
   ADD COLUMN IF NOT EXISTS returned_total       numeric(18,2) NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS reopened_reason      text,
@@ -121,22 +123,17 @@ COMMENT ON COLUMN dossier_reconciliation.returned_total IS
 UPDATE dossier_reconciliation SET status = 'OPEN'    WHERE status IN ('DRAFT','REJECTED');
 UPDATE dossier_reconciliation SET status = 'SETTLED' WHERE status = 'VALIDATED';
 
+-- The old CHECK has to go — it permits DRAFT/VALIDATED/REJECTED and forbids
+-- everything this module now uses. It is NOT replaced with a new one, and that
+-- is a deliberate trade rather than an oversight: a CHECK added to a
+-- pre-existing table above 13791 aborts provisioning for every new tenant.
+--
+-- So the vocabulary is enforced in code instead, which is what
+-- migration-constraint-ordering's header prescribes. That is honest here
+-- because `status` has exactly one writer — repo.setStatus, which takes literal
+-- SQL from the service's own transitions and never a caller's string. There is
+-- no path by which an arbitrary status reaches this column.
 ALTER TABLE dossier_reconciliation DROP CONSTRAINT IF EXISTS dossier_reconciliation_status_check;
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-      FROM pg_constraint c
-      JOIN pg_class t ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'dossier_reconciliation_status_check'
-       AND t.relname = 'dossier_reconciliation'
-       AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE dossier_reconciliation
-      ADD CONSTRAINT dossier_reconciliation_status_check
-      CHECK (status IN ('OPEN','SUBMITTED','SETTLED'));
-  END IF;
-END $$;
 
 ALTER TABLE dossier_reconciliation ALTER COLUMN status SET DEFAULT 'OPEN';
 
@@ -153,43 +150,36 @@ ALTER TABLE dossier_reconciliation ALTER COLUMN status SET DEFAULT 'OPEN';
 -- lines from one catalogue item (per-container demurrage; that is what
 -- `container_type_ref_id` is for).
 ALTER TABLE dossier_reconciliation_line
-  ADD COLUMN IF NOT EXISTS costing_line_id  uuid REFERENCES costing_line(costing_line_id),
+  -- No REFERENCES (see the unique-index note above). The service checks every
+  -- costing_line_id against the file's own approved costing before it writes —
+  -- repo.costingLineOnDossier, on every write path — which is a STRONGER
+  -- guarantee than the FK: it refuses a line that exists but belongs to another
+  -- file, which an FK would happily accept.
+  ADD COLUMN IF NOT EXISTS costing_line_id  uuid,
   ADD COLUMN IF NOT EXISTS actual_ttc       numeric(18,2) NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS actual_source    text NOT NULL DEFAULT 'DERIVED',
   ADD COLUMN IF NOT EXISTS spent_on         date,
   ADD COLUMN IF NOT EXISTS variance_reason  text,
   ADD COLUMN IF NOT EXISTS reason_group_id  uuid,
   ADD COLUMN IF NOT EXISTS returned_amount  numeric(18,2) NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS updated_by       uuid REFERENCES app_user(user_id),
+  ADD COLUMN IF NOT EXISTS updated_by       uuid,
   ADD COLUMN IF NOT EXISTS updated_at       timestamptz;
 
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint c
-      JOIN pg_class t ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'chk_recon_line_actual_source'
-       AND t.relname = 'dossier_reconciliation_line'
-       AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE dossier_reconciliation_line ADD CONSTRAINT chk_recon_line_actual_source
-      CHECK (actual_source IN ('DERIVED','CONFIRMED','OVERRIDDEN'));
-  END IF;
-  -- Money follows 0497's non-negative rule. NOT VALID: the constraint governs
-  -- new writes without a full-table scan, which is the pattern 0497 and 12771
-  -- both use.
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint c
-      JOIN pg_class t ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'chk_recon_line_money_nonneg'
-       AND t.relname = 'dossier_reconciliation_line'
-       AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE dossier_reconciliation_line ADD CONSTRAINT chk_recon_line_money_nonneg
-      CHECK (actual_ttc >= 0 AND returned_amount >= 0) NOT VALID;
-  END IF;
-END $$;
+-- NO CHECKS ON THIS TABLE, for the reason given on the unique index above.
+-- Both rules that would have been CHECKs are enforced in code, and each has a
+-- single writer, which is what makes that trade honest rather than a hole:
+--
+--   actual_source IN ('DERIVED','CONFIRMED','OVERRIDDEN')
+--     Never taken from a caller. dossier_reconciliation.service.patchLine
+--     DERIVES it by comparing the submitted amount against what the grid was
+--     showing, and the PATCH validator is .strict() — a payload carrying
+--     actual_source is refused outright rather than honoured.
+--
+--   actual_ttc >= 0 AND returned_amount >= 0
+--     The validator's MONEY schema is z.coerce.number().min(0), applied to
+--     every amount on the only two routes that write them.
+--
+-- tests/unit/budget-reconciliation-service.test.js pins both.
 
 -- The sparse-row model depends on this: the writer upserts ON CONFLICT, so a
 -- line the user touches twice updates rather than duplicating.
@@ -218,13 +208,13 @@ COMMENT ON COLUMN dossier_reconciliation_line.returned_amount IS
 -- rather than dropped: dropping an applied column is destructive and buys
 -- nothing, and 10741 set the precedent for retiring a structure by comment.
 COMMENT ON COLUMN dossier_reconciliation_line.budget_ht IS
-  'RETIRED by 13793 (owner decision Q4 — the grid is TTC). Not read, not written. Budget is projected from costing_line at read time.';
+  'RETIRED by 13801 (owner decision Q4 — the grid is TTC). Not read, not written. Budget is projected from costing_line at read time.';
 COMMENT ON COLUMN dossier_reconciliation_line.actual_ht IS
-  'RETIRED by 13793 (owner decision Q4 — the grid is TTC). Not read, not written. See actual_ttc.';
+  'RETIRED by 13801 (owner decision Q4 — the grid is TTC). Not read, not written. See actual_ttc.';
 COMMENT ON COLUMN dossier_reconciliation_line.doc_ref IS
-  'RETIRED by 13793 (owner decision Q8 — proof is a vault document, not a typed reference). Never written by any code path even before this: buildLines set it NULL on every line. See dossier_reconciliation_document.';
+  'RETIRED by 13801 (owner decision Q8 — proof is a vault document, not a typed reference). Never written by any code path even before this: buildLines set it NULL on every line. See dossier_reconciliation_document.';
 COMMENT ON COLUMN dossier_reconciliation_line.doc_required IS
-  'RETIRED by 13793 (owner decision Q9 — the CASH REQUEST is SSOT for the justification tick, not the catalogue). Derived at read from cash_request_line.justification_required.';
+  'RETIRED by 13801 (owner decision Q9 — the CASH REQUEST is SSOT for the justification tick, not the catalogue). Derived at read from cash_request_line.justification_required.';
 
 -- ── 4. Many documents per line (Q8) ─────────────────────────────────────────
 --
@@ -290,7 +280,11 @@ COMMENT ON TABLE dossier_reconciliation_settlement IS
 -- a live policy gap and PR 2's problem.
 ALTER TABLE cost_entry
   ADD COLUMN IF NOT EXISTS spent_on        date,
-  ADD COLUMN IF NOT EXISTS costing_line_id uuid REFERENCES costing_line(costing_line_id);
+  -- No REFERENCES (see the unique-index note above). PR 2, which is what starts
+  -- writing this, takes the id from the reconciliation line it is settling —
+  -- and that line's id was already checked against the file's approved costing
+  -- before it could be stored.
+  ADD COLUMN IF NOT EXISTS costing_line_id uuid;
 
 CREATE INDEX IF NOT EXISTS ix_cost_entry_costing_line
   ON cost_entry (costing_line_id) WHERE costing_line_id IS NOT NULL;
@@ -370,9 +364,6 @@ DROP TABLE IF EXISTS dossier_reconciliation_suggestion;
 --   DROP TABLE IF EXISTS dossier_reconciliation_document;
 --   DROP INDEX IF EXISTS ix_recon_line_reason_group;
 --   DROP INDEX IF EXISTS uq_recon_line_costing_line;
---   ALTER TABLE dossier_reconciliation_line
---     DROP CONSTRAINT IF EXISTS chk_recon_line_money_nonneg,
---     DROP CONSTRAINT IF EXISTS chk_recon_line_actual_source;
 --   -- DESTRUCTIVE: these columns hold what people typed — the actuals, the
 --   -- dates, the overrun reasons, the cash returned. Nothing else in the
 --   -- database holds them. Export before running this.
@@ -393,4 +384,4 @@ DROP TABLE IF EXISTS dossier_reconciliation_suggestion;
 --     DROP COLUMN IF EXISTS returned_total, DROP COLUMN IF EXISTS settled_at,
 --     DROP COLUMN IF EXISTS settled_by, DROP COLUMN IF EXISTS exchange_rate_to_xaf,
 --     DROP COLUMN IF EXISTS currency, DROP COLUMN IF EXISTS revision;
---   ALTER TABLE dossier_reconciliation DROP CONSTRAINT IF EXISTS uq_reconciliation_one_per_dossier;
+--   DROP INDEX IF EXISTS uq_reconciliation_one_per_dossier;

@@ -587,6 +587,57 @@ export const tenantDownload = (p: string, filename: string) =>
   download(`/tenant${p}`, filename);
 
 /**
+ * Fetch a gated binary endpoint and return an object URL for it.
+ *
+ * WHY THIS EXISTS AND `<img src>` DOES NOT. Auth here is a Bearer token in a
+ * header, and a plain `src` attribute cannot carry one — the browser issues its
+ * own credential-free request and gets a 401. Public assets (a tenant logo, an
+ * avatar) are served unauthenticated under /media and need none of this; a
+ * private conversation's attachments are the opposite, so the bytes are
+ * fetched like any other API call and handed to the element as a blob.
+ *
+ * The caller MUST revoke the returned URL when it is done, or the whole blob
+ * stays pinned in memory for the life of the document — on a thread somebody
+ * scrolls through all day that is a leak with teeth. `useObjectUrl` in the chat
+ * feature is the hook that does it.
+ *
+ * Server-side `Cache-Control: private, max-age=…` still applies, so scrolling a
+ * photo back into view re-reads the HTTP cache rather than the network.
+ */
+export async function fetchObjectUrl(path: string, signal?: AbortSignal): Promise<string> {
+  return URL.createObjectURL(await fetchBlob(path, signal));
+}
+
+/**
+ * As `fetchObjectUrl`, but hands back the BLOB rather than a URL for it.
+ *
+ * Because a caller sometimes has to know what actually arrived. An object URL
+ * is opaque: hand one to an <audio> and a server that answered 200 with the
+ * SPA's index.html — an auth redirect, a proxy rule, a route that stopped
+ * matching — is indistinguishable from a codec this browser lacks. Both render
+ * as "can't play this", which is the sentence that has sent people hunting the
+ * wrong fault for weeks.
+ *
+ * `res.ok` does not cover it either: the failure being guarded against here is
+ * a 200 whose body is the wrong KIND of thing, and only the bytes can say so.
+ * See `features/comms/chat/clip-source.ts`, which sniffs the container.
+ */
+export async function fetchBlob(path: string, signal?: AbortSignal): Promise<Blob> {
+  const h = new Headers();
+  h.set("X-Praxis-Env", tokenStore.getEnv());
+  const t = tokenStore.getAccess();
+  if (t) h.set("Authorization", `Bearer ${t}`);
+  const res = await send(`/api${path}`, { headers: h, signal });
+  if (!res.ok) {
+    throw new ApiError("FETCH_FAILED", res.statusText || "Could not load that file", res.status);
+  }
+  return res.blob();
+}
+export const tenantBlob = (p: string, signal?: AbortSignal) => fetchBlob(`/tenant${p}`, signal);
+export const tenantObjectUrl = (p: string, signal?: AbortSignal) =>
+  fetchObjectUrl(`/tenant${p}`, signal);
+
+/**
  * As `download`, but POSTs a JSON body first.
  *
  * `download` covers the usual export: a GET whose parameters fit in a query

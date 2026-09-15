@@ -93,7 +93,7 @@ still rendered (budget, committed, disbursed, actual 0) because the read builds 
 `costing_line`. A row appears the moment someone types into it. This is what makes a new costing line
 show up automatically, on a sheet that was settled last month, with no migration of anything (Q6).
 
-### 3.2 Migration `13793_budget_reconciliation.sql`
+### 3.2 Migration `13801_budget_reconciliation.sql`
 
 Additive except where it retires what Q20 killed. **No backfill** — the owner confirmed every row in
 the system today is mock data (Q6), so nothing true is lost by restructuring.
@@ -201,7 +201,7 @@ CREATE INDEX IF NOT EXISTS ix_cost_entry_costing_line
 -- Kept, not dropped: applied tables are hash-pinned and dropping is destructive.
 -- The code stops reading and writing it as of this migration.
 COMMENT ON TABLE dossier_reconciliation_suggestion IS
-  'RETIRED by 13793 (owner decision Q20). The reconciliation line is keyed on costing_line_id, so there is nothing left to guess. Nothing reads or writes this table.';
+  'RETIRED by 13801 (owner decision Q20). The reconciliation line is keyed on costing_line_id, so there is nothing left to guess. Nothing reads or writes this table.';
 
 -- ── 7. The overspend allowance (Q13) ───────────────────────────────────────
 -- `setting` is (section, key, value jsonb) with UNIQUE (section, key) —
@@ -218,9 +218,9 @@ ON CONFLICT (section, key) DO NOTHING;
 -- place, commented, and no longer read or written — the header's single margin
 -- figure is derived (§4.5), never stored.
 COMMENT ON COLUMN dossier_reconciliation_line.budget_ht IS
-  'RETIRED by 13793 (owner decision Q4 — the grid is TTC). Not read, not written.';
+  'RETIRED by 13801 (owner decision Q4 — the grid is TTC). Not read, not written.';
 COMMENT ON COLUMN dossier_reconciliation_line.actual_ht IS
-  'RETIRED by 13793 (owner decision Q4 — the grid is TTC). Not read, not written.';
+  'RETIRED by 13801 (owner decision Q4 — the grid is TTC). Not read, not written.';
 ```
 
 ### 3.3 The module key lives in a PLATFORM migration, not this one
@@ -725,7 +725,7 @@ of the 21 answers; flagged for the owner.
 
 ### 8.2 `cost_entry` cannot say when money was spent
 
-§4.3. Fixed by `spent_on` in `13793`, but worth recording as a finding: every cost entry in the
+§4.3. Fixed by `spent_on` in `13801`, but worth recording as a finding: every cost entry in the
 system is dated by when its row was written.
 
 ### 8.4 The orphan sweep counted commented-out DDL
@@ -793,7 +793,7 @@ and commit what it writes — never edit them by hand.
 ## 10. PRs
 
 ### PR 1 — `feat(reconciliation): the line becomes writable, and proof becomes real` · **shipped**
-Migration `13793` + seed `9132`. The projected grid. `PATCH /lines/:costingLineId`, the document
+Migration `13801` + seed `9132`. The projected grid. `PATCH /lines/:costingLineId`, the document
 routes, the reason group. Submit/reject/settle without the postings. The sheet, the line modal and
 the upload engine. Removes the cash request's misplaced proof gate (§7.1). Also, not originally
 planned: Word and Excel accepted as cost proofs (§8.5), `pricing_variance` re-pointed at the new
