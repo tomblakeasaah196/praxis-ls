@@ -387,6 +387,43 @@ describe("VoiceNote blames the right party for a response that is not audio", ()
     expect(screen.queryByText(/This browser can't play this recording/i)).toBeNull();
   });
 
+  /**
+   * THE FAULT THAT COST MONTHS, now a sentence.
+   *
+   * `img-src` carried `blob:` and `media-src` was never written down, so CSP
+   * fell back to `default-src 'self'` and blocked every <audio> in the product
+   * while the recorder, the upload, the storage, the headers, the object URL
+   * and the service worker were each provably fine. A blocked element fires
+   * `error` with code 4 — the same code as a missing codec — so the bubble
+   * accused the reader's browser. The browser does say which directive
+   * refused, once, and this is that being heard.
+   */
+  it("names a policy refusal instead of accusing the browser", async () => {
+    mediaBlob.mockResolvedValue(
+      new Blob([new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0])], { type: "audio/webm" }),
+    );
+    render(<VoiceNote attachment={{ ...notAudioBase, transcript_status: "NONE" }} />);
+    await userEvent.click(screen.getByRole("button", { name: /^play voice note$/i }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^play voice note$/i })).not.toBeDisabled(),
+    );
+
+    // What Chrome dispatches when the policy blocks a blob: media source.
+    const violation = new Event("securitypolicyviolation") as Event & {
+      blockedURI: string;
+      violatedDirective: string;
+      effectiveDirective: string;
+    };
+    violation.blockedURI = "blob:https://smartls.praxisls.com/45a9e4da";
+    violation.violatedDirective = "media-src";
+    violation.effectiveDirective = "media-src";
+    document.dispatchEvent(violation);
+
+    expect(await screen.findByText(/security policy blocked the recording/i)).toBeInTheDocument();
+    expect(screen.getByText(/blocked by media-src/i)).toBeInTheDocument();
+    expect(screen.queryByText(/This browser can't play this recording/i)).toBeNull();
+  });
+
   it("keeps a real audio container on the browser's side of the line", async () => {
     mediaBlob.mockResolvedValue(
       new Blob([new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0])], { type: "audio/webm" }),
