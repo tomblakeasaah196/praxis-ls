@@ -1177,28 +1177,86 @@ migrations `0200`, `0342`, `0630`, `10715`, `10720`, `10741`, `11740`, `12771` �
 
 ---
 
-## 10. Answer summary
+## 10. DECISIONS — answered by the owner, 15/09/2026
+
+Recorded here because the engineering guide, the migrations and the PR descriptions all cite them,
+and a decision that lives only in a chat log is a decision the next engineer will re-litigate.
+
+| Q | Topic | Decision |
+| --- | --- | --- |
+| 1 | Line grain | **B** — the line is the `costing_line`. |
+| 2 | Where ACTUAL comes from | **C** — pre-filled and editable. |
+| 3 | Does validation post `cost_entry` | **B** — validation posts. **Plus the owner's own question, which found a schema gap:** *"when do we actually post the entry? funds would have been released but the actual transaction happened 3 days ago."* `cost_entry` has **no date column at all** — only `created_at`. Answered by `spent_on` on the line, which becomes the journal entry's date. See the guide §4.3. |
+| 4 | HT or TTC | **B** — **TTC only** on the line. *"119 250 was disbursed and the line needed 119 250 (100 000 HT + 19 250 VAT). I just need to know: is that what you spent?"* The HT margin figure survives as ONE derived header number, never a second column. |
+| 5 | Débours in the grid | **B** — every line, **débours above all**. *"This is the SSOT of what is actually spent per file."* Plus: **a line-detail modal** showing that line's history and its supporting documents. |
+| 6 | One per file / living / revisions | **ONE reconciliation per file. Never two.** A LIVING sheet bound to the costing, which is SSOT: unlock and amend the costing and this moves with it — an amended line changes here, a new line appears here **even if the sheet was already closed**. Several cash requests against one file raise the same lines here automatically, live. Under-spend leaves **cash finance expects back in the vault**, and the sheet is where that is seen and settled. **Prepared by Operations → submitted to Finance → Finance records the amount returned → MD is told. No second approval.** Plus a **summary modal** across all of it. *"There is no real data so far — everything on the system now is a mock."* → **no backfill.** |
+| 7 | Entry point for the upload | **B** — the upload lives HERE. The cash request only carries the justification-required tick. *"Reconciliation is one of the main worksheets and engines used across the whole system."* |
+| 8 | What replaces `doc_ref` | **B**, extended to **many documents per line** — *"the first Maersk invoice for demurrage was for one day only, the second is for two"* — so a join table, not one FK. Plus: a **supporting-documents view on the Operations file 360**, grouped by the line each document belongs to. |
+| 9 | Source of the justification tick | **The cash request is SSOT.** The financial dictionary may inspire the tick; the cash request decides it. |
+| 10 | Is missing proof blocking | Blocking, and it **holds the person the cash was disbursed to accountable**: the line-detail modal, an in-app + push notification, and a new section on **My workspace** listing every justification that person owes — operations files and overhead alike. |
+| 11 | Spend with no cash request / no budget line | **No spend on an operations file without an approved costing. Ever.** No off-budget line, no unbudgeted row. Instead: a one- or two-line hint on the sheet — can't find a line, need a line → request an unlock, add it, re-approve — **deep-linked to the costing**. *"This is what this new system has that the old one did not get."* Overhead is a separate future module (expense module, or the costing sheet learning to be one) — briefed separately to the engineering team. |
+| 12 | Overspend reason — grain and gate | **B**, plus **apply-to-many**: one reason, a picker for the other lines it explains. One network outage at customs delays a container a day and four lines move — demurrage, port storage, yard occupancy, another — and that is one sentence, typed once. |
+| 13 | Tolerance | **B** — tenant-configured, in the module's configuration tab, by anyone holding approval rights there. Defaults 1 000 and 2% accepted. **Renamed** to something a person understands. |
+| 14 | Underspend and cash returned | **B** — and this is where the refund of claimed-but-unused cash is seen and settled. |
+| 15 | The chart set | **Add a chart library.** It will serve the Reporting Module later. Interactive. **One visual on the sheet, and a button that opens the rest** — no congestion. |
+| 16 | What real time means | **B**. |
+| 17 | Grade and KPI strip | **B**, and add a third if it earns its place. |
+| 18 | Workflow and who validates | **B**, under Q6's chain: Operations prepares, Finance settles, MD is informed. |
+| 19 | The printed statement | **B and C — let them pick.** Plus **send it in-house through Smart Comms.** In-house only. |
+| 20 | The AI matcher | **Retire it.** *"From what I have described to you, what needs an AI? Justify. Prove, and I can approve."* |
+| 21 | Name and module key | **B — "Budget Reconciliation".** |
+
+### What these answers changed about the plan
+
+- **Q6 replaced my own recommendation and is better than it.** I proposed revisions — R1 closes, R2
+  opens pre-filled. The owner's answer is one row that never closes, whose LINES ARE THE COSTING'S
+  LINES. That removes a whole class of "which revision is current" bugs, and it makes "real time"
+  free: if the line set is a projection of `costing_line` rather than a copy of it, an amended
+  costing IS an amended reconciliation, with nothing to sync. The stored line holds only what a
+  human typed. See guide §3.
+- **Q4 = TTC only** means the reconciliation line grid stops carrying `budget_ht` / `actual_ht`
+  entirely. The margin question keeps exactly one derived HT figure at header level, so Sales's R/Y/G
+  flag survives and no column holds two bases.
+- **Q7 = B forces a change in the CASH REQUEST module**, which was not in scope when this sheet was
+  written: `justify`'s `PROOF_REQUIRED` block must come off, because the proof it demands now lands
+  somewhere else. Leaving both would keep §0's dead end alive. Guide §7.1.
+- **Q6 + Q14 move the régie retirement.** Finance records the returned cash at settlement, which is
+  the `CASH_RETURN` leg of the advance — so settlement, not `justify`, is where the advance is
+  retired. Guide §7.2.
+- **Q11 = "never" collided with five shipped code paths.** `supplier-invoice-posted-cost-entry.js`
+  and four sibling orchestration handlers write `cost_entry` against a dossier with no costing line
+  at all. The policy is right; the code does not implement it yet. Guide §8.1 reports this.
+- **Q3's follow-up question found a real gap.** `cost_entry` has no date column — `entry_date` is
+  passed to `journalEntry.buildAndInsert` and never reaches the cost entry row. A spend that happened
+  three days ago cannot currently say so. Guide §4.3.
+- **Q15 = a chart library** is the first new frontend dependency in this area, and
+  `client/vite.config.ts` already has the mechanism for it (`ROUTE_LOCAL_VENDOR`) plus three gates
+  that constrain the choice. Guide §6.1.
+
+---
+
+## 11. Answer summary
 
 | Q | Topic | Your answer |
 | --- | --- | --- |
-| 1 | Line grain — costing line, item, or cash-request line | |
-| 2 | Where ACTUAL comes from — typed / derived / **pre-filled + editable** | |
-| 3 | Does validation write `cost_entry`? (the deferred Q18 seam) | |
-| 4 | **HT or TTC — and do we carry both?** | |
-| 5 | **Débours in the grid?** | |
-| 6 | One per file, living tally, or revisions | |
-| 7 | Entry point — Justify, Reconciliation, or both | |
-| 8 | What replaces `doc_ref` (vault upload?) | |
-| 9 | Source of "justification required" | |
-| 10 | Is missing proof blocking, and where | |
-| 11 | Spend with no cash request; spend with no budget line | |
-| 12 | Overspend reason — grain and gate | |
-| 13 | **Tolerance before a reason is demanded (your numbers)** | |
-| 14 | Underspend, unclaimed budget, and cash still held | |
-| 15 | The chart set | |
-| 16 | What "real time" means | |
-| 17 | The grade and the KPI strip | |
-| 18 | Workflow, who validates, and whether it gates invoicing | |
-| 19 | The printed statement (+ xlsx?) | |
-| 20 | The AI matcher — keep, retire, re-aim | |
-| 21 | Name, and the MOD-47 split | |
+| 1 | Line grain — costing line, item, or cash-request line | see §10 |
+| 2 | Where ACTUAL comes from — typed / derived / **pre-filled + editable** | see §10 |
+| 3 | Does validation write `cost_entry`? (the deferred Q18 seam) | see §10 |
+| 4 | **HT or TTC — and do we carry both?** | see §10 |
+| 5 | **Débours in the grid?** | see §10 |
+| 6 | One per file, living tally, or revisions | see §10 |
+| 7 | Entry point — Justify, Reconciliation, or both | see §10 |
+| 8 | What replaces `doc_ref` (vault upload?) | see §10 |
+| 9 | Source of "justification required" | see §10 |
+| 10 | Is missing proof blocking, and where | see §10 |
+| 11 | Spend with no cash request; spend with no budget line | see §10 |
+| 12 | Overspend reason — grain and gate | see §10 |
+| 13 | **Tolerance before a reason is demanded (your numbers)** | see §10 |
+| 14 | Underspend, unclaimed budget, and cash still held | see §10 |
+| 15 | The chart set | see §10 |
+| 16 | What "real time" means | see §10 |
+| 17 | The grade and the KPI strip | see §10 |
+| 18 | Workflow, who validates, and whether it gates invoicing | see §10 |
+| 19 | The printed statement (+ xlsx?) | see §10 |
+| 20 | The AI matcher — keep, retire, re-aim | see §10 |
+| 21 | Name, and the MOD-47 split | see §10 |
