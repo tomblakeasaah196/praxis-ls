@@ -584,11 +584,11 @@ function EntityForm({
                 onChange={(e) => set("address_postal_code", e.target.value)}
               />
             </Field>
-            <Field label="Country">
+            <Field label="Registered country">
               <CountrySelect
                 value={v.address_country_code || v.country_code}
                 onChange={(c) => set("address_country_code", c)}
-                label="Country"
+                label="Registered country"
               />
             </Field>
             <Field label="PO Box" hint="Printed on letterhead as 'PO Box …'">
