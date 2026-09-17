@@ -38,10 +38,11 @@ COMMENT ON COLUMN entity_letterhead.logo_height_mm IS 'Logo height in mm (4-60) 
 -- ── 4. Ensure entity_address po_box exists (defensive — 0515 added it, but 0511 party tables did not)
 ALTER TABLE entity_address ADD COLUMN IF NOT EXISTS po_box text;
 
--- ── DOWN (commented, for reference)
+-- DOWN
 -- ALTER TABLE entity_letterhead DROP COLUMN IF EXISTS show_postal_address;
 -- ALTER TABLE entity_letterhead DROP COLUMN IF EXISTS show_po_box;
 -- ALTER TABLE entity_letterhead DROP COLUMN IF EXISTS logo_height_mm;
 -- ALTER TABLE entity_tax_registration DROP CONSTRAINT IF EXISTS entity_tax_registration_regime_check;
 -- ALTER TABLE client_address DROP COLUMN IF EXISTS po_box;
 -- ALTER TABLE supplier_address DROP COLUMN IF EXISTS po_box;
+-- ALTER TABLE entity_address DROP COLUMN IF EXISTS po_box;
