@@ -12,10 +12,44 @@
  *
  * ── WHY `activationConstraint.distance` IS SET ─────────────────────────────
  *
- * Without it, a click IS a drag start, so the picker inside the card can never
- * be clicked and every card is "dragging" the moment the pointer goes down.
- * Eight pixels is below the threshold anyone notices and above the jitter of a
- * finger landing on glass.
+ * Without it, a click IS a drag start, so the controls inside the card can
+ * never be clicked and every card is "dragging" the moment the pointer goes
+ * down. Eight pixels is below the threshold anyone notices and above the
+ * jitter of a finger landing on glass.
+ *
+ * ── THE WHOLE CARD OPENS IT, AND THE DRAG HANDLE IS A SEPARATE BOX ─────────
+ *
+ * A card's job is to be read and then opened, so the target is the card and not
+ * the 20px line of its title: the title, the pills, the date and the assignee
+ * are all inside ONE `<button>`, which is what makes "click anywhere on the
+ * card" true rather than approximately true.
+ *
+ * The grip is the title strip, laid OVER that button as a sibling — not as its
+ * ancestor, and not as a `::after` on the title. Both alternatives put the drag
+ * handle's `touch-action: none` in the tree ABOVE the click target, and
+ * `touch-action` is intersected up from the element under the finger: the card
+ * would then refuse to scroll the board on a phone, so a reader flicking
+ * through a full column would drag cards instead. A sibling passes the gesture
+ * through, and it also splits the two interactions cleanly — a pointerup that
+ * ends a drag lands on the grip, whose only listener is dnd-kit's, so the click
+ * a drag would otherwise leave behind opens nothing. That is a structural fix
+ * rather than a timing one.
+ *
+ * ── THE OPEN CARD IS MARKED, AND THE PANE IS ITS OTHER HALF ────────────────
+ *
+ * The card in the pane wears `<IndexRow>`'s pair — the `.index-row-open` ground
+ * and the 3px `--primary` rail — and `aria-current`, so "which task is the pane
+ * showing" is answered on the board as well as in the pane. Guide §3.14 is
+ * explicit that a master-detail screen has to say what is open, and that the
+ * meaning of "this is the open one" is shared even when the geometry is local:
+ * a card is not an `<IndexRow>` (it carries a Move menu), so it borrows
+ * `INDEX_ROW_OPEN` and positions the rail itself, exactly as the inbox thread
+ * row does.
+ *
+ * `bg-card` is deliberately NOT applied to a selected card. It is a Tailwind
+ * utility and `.index-row-open` lives in `@layer components`, so the utility
+ * would win and the open card would look like every other card — the F13 defect
+ * the ground exists to fix.
  *
  * ── WHY THE BOARD IS NOT THE PAGINATED LIST ────────────────────────────────
  *
@@ -43,6 +77,7 @@ import { Pill } from "@/components/ui/pill";
 import { EmptyState, LoadingRow } from "@/components/ui/states";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownItem } from "@/components/ui/dropdown-menu";
+import { INDEX_ROW_OPEN } from "@/components/ui/index-row";
 import { useToast } from "@/components/ui/toast";
 import { errMsg } from "@/lib/use-resource";
 import { dateFmt } from "@/lib/format";
@@ -54,11 +89,14 @@ import { COLUMN_LABEL, PRIORITY_LABEL, PRIORITY_TONE, STATUS_LABEL } from "../la
 export function TaskBoard({
   board,
   loading,
+  selectedId,
   onOpen,
   onCreate,
 }: {
   board: TaskBoard | undefined;
   loading: boolean;
+  /** The task the detail pane is showing, so the board can say which one it is. */
+  selectedId: string | null;
   onOpen: (taskId: string) => void;
   onCreate: () => void;
 }) {
@@ -117,6 +155,7 @@ export function TaskBoard({
             key={column}
             column={column}
             tasks={board?.[column] ?? []}
+            selectedId={selectedId}
             onOpen={onOpen}
             onMove={async (id, status) => {
               try {
@@ -156,12 +195,14 @@ export function TaskBoard({
 function Column({
   column,
   tasks,
+  selectedId,
   onOpen,
   onMove,
   onCreate,
 }: {
   column: BoardColumn;
   tasks: Task[];
+  selectedId: string | null;
   onOpen: (id: string) => void;
   onMove: (id: string, status: TaskStatus) => Promise<void>;
   onCreate: () => void;
@@ -177,7 +218,12 @@ function Column({
       )}
     >
       <header className="mb-3 flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-medium">{COLUMN_LABEL[column]}</h3>
+        {/* `h2`, not `h3`: the board sits directly under the page's `<h1>`
+            (`PageHeader`), so a column heading one level down skipped a level
+            and axe fails the screen on `heading-order`. The four columns and
+            the open task's `<Panel>` are siblings in the outline — all of them
+            are what the page is made of. */}
+        <h2 className="text-sm font-medium">{COLUMN_LABEL[column]}</h2>
         <span className="micro num" aria-hidden>
           {tasks.length}
         </span>
@@ -188,6 +234,7 @@ function Column({
           <TaskCard
             key={task.task_id}
             task={task}
+            selected={task.task_id === selectedId}
             dimmed={task.status !== column}
             onOpen={() => onOpen(task.task_id)}
             onMove={onMove}
@@ -210,14 +257,18 @@ function Column({
 
 function TaskCard({
   task,
+  selected = false,
   onOpen,
   onMove,
   overlay = false,
   dimmed = false,
 }: {
   task: Task;
+  /** Is the detail pane showing THIS task? */
+  selected?: boolean;
   onOpen?: () => void;
   onMove?: (id: string, status: TaskStatus) => Promise<void>;
+  /** The copy that follows the pointer. Not interactive, not draggable. */
   overlay?: boolean;
   dimmed?: boolean;
 }) {
@@ -230,56 +281,97 @@ function TaskCard({
   const overdue =
     task.due_at && task.status !== "DONE" && task.status !== "CANCELLED" && new Date(task.due_at) < new Date();
 
+  const live = !overlay;
+
   return (
     <article
       ref={overlay ? undefined : setNodeRef}
       className={cn(
-        "rounded-md border bg-card p-3 shadow-sm transition-opacity",
-        isDragging && !overlay && "opacity-40",
-        dimmed && !overlay && "opacity-60",
+        "group relative rounded-md border shadow-sm transition-opacity",
+        selected
+          ? cn(
+              INDEX_ROW_OPEN,
+              // The rail, positioned here rather than borrowed from
+              // `<IndexRow>`: a flush list row and a bordered card want
+              // different insets, while the MEANING of the open one is shared.
+              "before:absolute before:inset-y-2 before:left-1 before:w-[3px] before:rounded-full before:content-['']",
+            )
+          : "bg-card",
+        isDragging && live && "opacity-40",
+        dimmed && live && "opacity-60",
         overlay && "rotate-1 shadow-lg ring-1 ring-primary",
       )}
     >
-      <div
-        {...(overlay ? {} : listeners)}
-        {...(overlay ? {} : attributes)}
-        className={cn("min-w-0", !overlay && "cursor-grab touch-none active:cursor-grabbing")}
+      {/*
+        ONE BUTTON IS THE WHOLE CARD. Everything a reader might click —
+        the title, the priority pill, the date, the owner's name — is inside it,
+        so the hit area IS the card rather than the title line. `<span>`s rather
+        than `<div>`s because a button may only contain phrasing content, and
+        the pills are spans for the same reason.
+      */}
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={!onOpen}
+        // The board's half of the master-detail bond, and the half a screen
+        // reader can hear: the ground and rail say it to the eye.
+        aria-current={selected ? "true" : undefined}
+        title={task.title}
+        className={cn(
+          "block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          // The Move menu sits below the button in the flow; the button gives
+          // back the bottom padding the row would otherwise double.
+          live && onMove ? "px-3 pt-3 pb-2" : "p-3",
+          live && onOpen && "cursor-pointer",
+        )}
       >
-        <button
-          type="button"
-          onClick={onOpen}
-          disabled={!onOpen}
-          className="block w-full truncate text-left text-sm font-medium hover:text-primary-ink"
-          title={task.title}
-        >
+        <span className={cn("block truncate text-sm font-medium", live && onOpen && "group-hover:text-primary-ink")}>
           {task.title}
-        </button>
-      </div>
+        </span>
 
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <Pill tone={PRIORITY_TONE[task.priority]}>{PRIORITY_LABEL[task.priority]}</Pill>
-        {task.due_at && (
-          <span className={cn("num text-xs", overdue ? "text-destructive" : "text-muted-foreground")}>
-            {overdue ? "Overdue · " : ""}
-            {dateFmt(task.due_at)}
-          </span>
-        )}
-        {task.subtask_count > 0 && (
-          <span className="num text-xs text-muted-foreground">
-            {task.subtask_done_count}/{task.subtask_count}
-          </span>
-        )}
-        {task.assigned_to_name && (
-          <span className="truncate text-xs text-muted-foreground">{task.assigned_to_name}</span>
-        )}
-        {task.entity_label && <Pill tone="blue">{task.entity_label}</Pill>}
-      </div>
+        <span className="mt-2 flex flex-wrap items-center gap-1.5">
+          <Pill tone={PRIORITY_TONE[task.priority]}>{PRIORITY_LABEL[task.priority]}</Pill>
+          {task.due_at && (
+            <span className={cn("num text-xs", overdue ? "text-destructive" : "text-muted-foreground")}>
+              {overdue ? "Overdue · " : ""}
+              {dateFmt(task.due_at)}
+            </span>
+          )}
+          {task.subtask_count > 0 && (
+            <span className="num text-xs text-muted-foreground">
+              {task.subtask_done_count}/{task.subtask_count}
+            </span>
+          )}
+          {task.assigned_to_name && (
+            <span className="truncate text-xs text-muted-foreground">{task.assigned_to_name}</span>
+          )}
+          {task.entity_label && <Pill tone="blue">{task.entity_label}</Pill>}
+        </span>
+      </button>
+
+      {/*
+        The grip, over the title strip. A sibling of the button and not an
+        ancestor of it, so the card's click target and the drag gesture's
+        `touch-action` do not overlap (see the file header). Its height matches
+        the title's line box, which is what makes it cover the title and
+        nothing else. It carries a NAME of its own: dnd-kit gives it
+        `role="button"` and the drag instructions, but an icon-less box has no
+        text to be named by.
+      */}
+      {live && onOpen && onMove && (
+        <div
+          {...listeners}
+          {...attributes}
+          aria-label={`Drag “${task.title}”`}
+          className="absolute left-3 right-3 top-3 h-5 cursor-grab touch-none active:cursor-grabbing"
+        />
+      )}
 
       {/* The keyboard route. A real menu rather than a hover affordance,
           because a control that only appears on pointer-hover does not exist
           for a keyboard user (FRONTEND_GUIDE §7.3). */}
-      {onMove && !overlay && (
-        <div className="mt-2 flex justify-end">
+      {live && onMove && (
+        <div className="flex justify-end px-3 pb-3">
           <DropdownMenu
             align="end"
             trigger={

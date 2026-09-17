@@ -656,6 +656,17 @@ Four rules make it hold together:
    give a screen reader two of every heading. `lib/use-media-query.ts` opens with
    this reasoning. It answers `true` before `matchMedia` resolves, so the first
    frame is the desktop branch.
+
+   **A CSS wrapper does not hide a PORTAL, which is how this rule gets broken.**
+   `<div className="xl:hidden"><Dialog … /></div>` reads like a media query and
+   is not one: Radix renders the dialog into `<body>`, so the wrapper never
+   becomes an ancestor of anything the user sees and `display: none` on it hides
+   nothing. The Tasks board shipped exactly that — the phone sheet opened over
+   the board at every width, on top of the detail pane it was supposed to
+   replace, and no test in the tree could have caught it because the two were
+   never rendered together on purpose. Anything portalled — every `<Dialog>`,
+   every Radix surface — branches on a media query in JavaScript
+   (`useIsWide()` / `useIsDesktop()`), never on a class on a wrapper.
 2. **The body renders from the RESPONSE, never from a row the caller passed in.**
    A modal opened from a list has the row in hand; a page opened from a pasted
    link has a uuid and nothing else. If the detail endpoint returns ids only, add
@@ -912,7 +923,18 @@ component; a call site that restates them is the sixteen-copy problem starting a
 and an open button, so it is an `<li>` with three controls rather than one — imports
 `INDEX_ROW_OPEN` from the same module and positions the rail itself. The geometry is local
 (a flush bordered list wants a different rail from a rounded one); the meaning of "this is
-the open one" is shared.
+the open one" is shared. The task board's card does the same (`task-board.tsx`): it is not a
+row in an index rail, but the open card wears the same ground, the same 3px rail and
+`aria-current`, so "which task is the pane showing" is answered on both halves.
+
+**A pane that holds nothing is not reserved.** The board used to keep a permanent 22rem
+column holding "Select a card to see its steps…" — a fifth of every wide screen spent on a
+sentence, paid for out of the four kanban columns it squeezed. That is the `SplitPane`
+pattern's one bad bargain: `<SplitPane>` always renders both halves, so an empty detail side
+becomes a standing tax on the screen. Where the detail is optional rather than the default
+(a board you triage without opening anything), render the second column only while a record
+is open, give the body the width the rest of the time, and branch the phone's sheet in
+JavaScript so the sheet cannot appear beside the pane — `features/workspace/tasks/tasks-page.tsx`.
 
 ### 3.15 The sign-in screen — the device remembers, and lets go
 
