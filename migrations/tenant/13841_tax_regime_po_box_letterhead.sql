@@ -15,12 +15,17 @@ COMMENT ON COLUMN supplier_address.po_box IS 'PO Box / BP — printed on letterh
 -- inline \"Add\" UI without a migration; the IN list documents the standard.
 -- We keep the CHECK permissive (regex) so custom regimes added inline are
 -- accepted; the app-level Zod schema enforces the same.
+-- Idempotent guard: DO block per migrator requirement (no native IF NOT EXISTS for constraints).
 ALTER TABLE entity_tax_registration DROP CONSTRAINT IF EXISTS entity_tax_registration_regime_check;
-ALTER TABLE entity_tax_registration ADD CONSTRAINT entity_tax_registration_regime_check
-  CHECK (
-    regime IS NULL
-    OR regime ~ '^[A-Z0-9_]{2,30}$'
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'entity_tax_registration_regime_check') THEN
+    ALTER TABLE entity_tax_registration ADD CONSTRAINT entity_tax_registration_regime_check
+      CHECK (
+        regime IS NULL
+        OR regime ~ '^[A-Z0-9_]{2,30}$'
+      );
+  END IF;
+END $$;
 
 -- Document the allowed standard values — the single source lives in
 -- packages/shared/data/tax-regimes.js (REEL,NORMAL,SIMPLIFIE,LIBERATOIRE,FORFAIT,FRANCHISE)
