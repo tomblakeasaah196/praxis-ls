@@ -4,7 +4,7 @@
 **Scope:** the entire Praxis AI subsystem, backend and frontend.
 **Goal of the remediation:** after these fixes, Praxis AI should feel like *Claude, connected to our ERP* — fast, no timeouts, a wide and reliable context window, accurate answers grounded in real tenant data, correct grammar, and the ability to reliably **create anything** (lead, client, supplier, PO, PR, opportunity, …) through the same guarded, human‑confirmed flow.
 
-> How to read this: findings are grouped by theme and severity (**P0** ship‑blocker → **P3** polish). Every finding cites the file that owns it so it can be verified and fixed directly. The remediation is broken into **6 milestones, each a single PR**, at the end.
+> How to read this: findings are grouped by theme and severity (**P0** ship‑blocker → **P3** polish). Every finding cites the file that owns it so it can be verified and fixed directly. The remediation is broken into **8 milestones, each a single PR**, at the end.
 
 ---
 
@@ -104,6 +104,9 @@ The AI's ability to *do* things splits into two code paths, and only one is corr
 **D4 — [P2] Tool scoping is crude substring scoring.** `selectTools` scores by `hay.includes(word)` (`:446`), so short tokens match spuriously (`"add"` ⊂ `"address"`, `"is"` ⊂ `"list"`), and a relevant tool can be dropped from the 64 if the user did not name its module. Combined with D1 this is the "must specify the module" complaint.
 *Fix:* token‑boundary matching + the scope signal from D1; keep a slightly larger CORE set; consider embedding‑based tool retrieval.
 
+**D5 — [P1] Ask / Draft / Analyse / Act are cosmetic — all four behave identically.** The composer offers four modes (`client/src/components/ai/context.tsx:125–128`; `composer.tsx:17`) — Ask ("answer from my records"), Draft ("write it for me"), Analyse ("figures, trends, variances"), Act ("propose an action to confirm") — and sends the chosen one as `mode`. The backend never reads it (dropped by the non‑strict validator, `ai-api.ts:136`), so **all four produce the same prompt and the same behaviour**. The user picks "Draft" and gets whatever the model would have done anyway; "Analyse" does not bias toward figures/tables; "Act" does not bias toward proposing a write. This is a visible promise the product does not keep.
+*Fix:* honour `mode` server‑side — each mode appends a short posture directive to the system prompt (Draft → write the artifact in full; Analyse → prefer tables + variances and show the numbers; Act → prefer proposing the write once details exist; Ask → read‑only, never propose a write) and can bias tool selection (Act widens writes, Analyse widens reads/metrics). This is small and high‑impact.
+
 ### E. Timeouts, performance & reliability ("ensure there are no timeouts")
 
 **E1 — [P1] Hard per‑call axios timeouts can abort real work.** Non‑streaming calls time out at 60 s (`llm.service.js:75`), streaming at 120 s (`:120`). A non‑streaming `ask` makes several sequential model calls (initial + one per tool round + final pass), each capped at 60 s; a slow model on a genuine multi‑hop chain can trip these, and a tripped call is treated as transient → falls back to the (mis‑configured, B2) `gemini` → stub. The SSE path already sends a 15 s heartbeat to defeat proxy idle timeouts (`assistant.controller.js:78`), which is good.
@@ -137,11 +140,35 @@ The AI's ability to *do* things splits into two code paths, and only one is corr
 **H2 — [P2] Failure telemetry is thin.** `recordUsage` logs tokens/latency/success, but truncation, tool‑selection misses, duplicate‑read grooves, and fallback‑to‑stub events are not first‑class metrics.
 *Fix:* structured counters + an AI‑health panel in AI Control.
 
+### I. Module → AI governance & manifest drift (why a third of the app is invisible to the assistant)
+
+**I1 — [P0] The read‑first rules never mention AI manifests.** `CLAUDE.md` — the document every engineer is told to read before writing code — contains **zero** references to `*.ai.js`, `ai_action_catalogue`, or the AI at all. The convention *does* exist, but only in `doc/BUILD_CONVENTIONS.md` (a build checklist, line 81) and `doc/AI_ARCHITECTURE.md` §2 — neither of which the working‑rules doc points to. So an engineer adding or changing a module has no prompt to update its manifest, and the AI silently falls behind the app.
+
+**I2 — [P0] Nothing enforces manifest coverage or catalogue sync.** `scripts/ai/sync-actions.js` only has `--dry`/`--tenant`/`--all` — there is **no `--check` mode**, and `ci-local.js` does not run it. No gate fails when a module ships without a manifest, when a manifest drifts from its service (the C1–C3 shape mismatches), or when the live catalogue is stale. `AI_ARCHITECTURE.md:62` claims "Adding/removing a module updates the catalogue automatically → no drift" — that is **aspirational**: it only holds if someone remembers to run the sync and the manifests are correct, and there is no check that either is true.
+
+**I3 — [P0] Measured drift: 38 of 119 modules (with a service/controller) have no manifest.** Excluding the legitimately non‑AI ones (auth/session/RBAC, `ai/*` itself, `branding`, `preference`, `audit_ledger`), the real, user‑facing coverage gaps include — several of them **built after Praxis AI shipped**:
+`finance/credit_note`, `operations/q_ticket`, `dashboard/support` (support tickets — the meeting's "tickets → AI self‑healing"), `dashboard/workspace` (**Tasks & Calendar — new**), `hr/{onboarding,succession,hr_query,hr_sanction}`, `vault/{document_vault,document_verification,signature_request}`, `documents/template`, `master/{master_config,rate_provider}`. The assistant cannot see, answer about, or act on any of these — so "everything is connected to AI" is not true today.
+*Fix (PR 7):* a **manifest‑coverage CI gate** — every module with a public controller either has a `*.ai.js` or carries an explicit, reviewed `// ai:none` opt‑out; plus wire manifests for the AI‑relevant gaps above.
+
+**I4 — [P1] Confirm both `live` and `sandbox` schemas are synced.** `sync-actions.js` targets `["live"]`; a TEST/sandbox copilot (the LIVE/TEST toggle) that runs on seed‑only actions would explain "it works in live but not in test." Verify and sync both.
+
+### J. Conversation management & Spaces UX (to actually mirror Claude)
+
+**J1 — [P1] A conversation cannot be deleted or archived.** The repo exposes `currentConversation` / `startNewConversation` / `clearHistory` (`assistant.repo.js`) — and `clear` deliberately does **not** delete (it starts a new thread and retains the old one, because `ai_action_run` FKs `conversation_id`, `assistant.repo.js:136–150`). There is no delete or archive endpoint, service, or UI. So sensitive research (the exact case raised) cannot be removed or hidden. *Fix:* a soft‑delete/archive (`deleted_at`/`archived_at` on `ai_conversation`, filtered out of `listConversations`; a hard purge that also clears the FK'd action runs, gated by confirm).
+
+**J2 — [P1] A conversation cannot be pinned.** No pin flag or ordering hook; important threads sink into the time buckets. *Fix:* `pinned_at`, sorted above the buckets.
+
+**J3 — [P2] A conversation cannot be renamed.** Titles are auto‑derived from the first user message (`assistant.repo.js:84–88`); there is no rename.
+
+**J4 — [P1] The Spaces list is not collapsible.** `history-rail.tsx:100–140` renders Spaces as a fixed, always‑expanded section above the conversation list, so a long scope list pushes chats down and hides them. *Fix:* a collapsible Spaces section (remembered open/closed per user) so the conversation list gets the room.
+
+**J5 — [P2] Row‑level affordances are missing entirely.** Each conversation row is a single open button (`history-rail.tsx:164–190`) with no hover menu for pin/rename/archive/delete — the controls a Claude‑like history rail needs. *Fix:* a per‑row overflow menu; document the pattern in `doc/FRONTEND_GUIDE.md` in the implementing PR (kept out of this audit so `check:docs` does not flag components that do not exist yet).
+
 ---
 
-## 3. Remediation plan — 6 milestones, one PR each
+## 3. Remediation plan — 8 milestones, one PR each
 
-Each milestone is independently shippable, gated by `npm run ci`, and closes the findings listed. Ordered by user‑visible impact.
+Each milestone is independently shippable, gated by `npm run ci`, and closes the findings listed. Ordered by user‑visible impact. Every finding above maps to exactly one PR below.
 
 ### PR 1 — Grounding integrity (closes A1, A2, A3, A4) · **P0**
 Make the model reason over real data.
@@ -160,17 +187,30 @@ Make the model reason over real data.
 - Add a CI gate/test that every `ai_enabled` write resolves to an executor and runs against a smoke fixture **with the actor present**; fail the build if a catalogue write is not truly executable.
 - **Acceptance:** creating a **lead, client, supplier, PO, PR, opportunity** (and a representative write from every module family) via the assistant succeeds end‑to‑end, with correct attribution and audit rows; the test matrix in Appendix A is green.
 
-### PR 4 — Steering & context window (closes D1, D2, D3, D4; G1) · **P1**
-- Honour `scope`/`mode` in tool selection and retrieval; token‑boundary tool scoring; scope per‑user learning/feedback/preferences; grow the replay window (cheap once PR 2 caches the prefix) with a structured summary.
-- **Acceptance:** choosing an area in the UI measurably improves tool/answer relevance without the user naming the module; no cross‑user data appears in prompts.
+### PR 4 — Steering, modes & context window (closes D1, D2, D3, D4, D5; G1) · **P1**
+- Honour `scope` AND `mode` server‑side: bias tool selection + retrieval toward the chosen area, and give each mode a real posture (Draft → write the artifact; Analyse → tables/variances with the numbers shown; Act → prefer proposing the write; Ask → read‑only). Token‑boundary tool scoring; scope per‑user learning/feedback/preferences; grow the replay window (cheap once PR 2 caches the prefix) with a structured summary.
+- **Acceptance:** the four modes visibly change the answer's shape; choosing an area improves relevance without the user naming the module; no cross‑user data appears in prompts.
 
 ### PR 5 — Reliability, timeouts & performance (closes E1, E2, E3, E4; G2) · **P1**
 - Remove sub‑budget hard timeouts end‑to‑end (generous caps + heartbeat + disconnect‑abort); make post‑confirm auto‑continue cheap/opt‑in and pass `allowed` through; align the non‑stream final‑pass; surface embeddings health.
 - **Acceptance:** a genuine 6–8 hop question completes without a timeout; a confirm no longer costs 2–3 extra model calls by default; disabling embeddings shows a clear "grounding limited" state.
 
-### PR 6 — Evaluation, quality bar & observability (closes B6, H1, H2; G3, G4, F3) · **P1/P2**
-- A golden‑set eval over a seeded tenant (grounding accuracy, no truncation, tool‑selection, write success, grammar/style score) wired into CI; structured AI‑health telemetry (truncations, fallbacks, tool‑miss, groove) + an AI Control panel; regression coverage for TTS/canvas/xlsx; document the redaction policy.
-- **Acceptance:** the eval runs in CI and blocks regressions; the health panel shows truncation/timeout/fallback rates trending to zero after PRs 1–5.
+### PR 6 — Conversation management & Spaces UX (closes J1, J2, J3, J4, J5) · **P1**
+Make the copilot's history behave like Claude's.
+- Backend: soft‑delete + archive + pin + rename on `ai_conversation` (`deleted_at`/`archived_at`/`pinned_at`/`title`), with a confirm‑gated hard purge that also clears the FK'd `ai_action_run` rows; endpoints + `ai-api.ts` methods.
+- Frontend: a per‑row overflow menu (pin / rename / archive / delete) on the history rail; a **collapsible Spaces section** (state remembered per user) so the conversation list gets the room; pinned threads sort above the time buckets. Document the pattern in `doc/FRONTEND_GUIDE.md` (now that the components exist, so `check:docs` stays green).
+- **Acceptance:** a sensitive thread can be deleted or archived; a thread can be pinned to the top and renamed; collapsing Spaces reveals more chats.
+
+### PR 7 — Module → AI governance: close the drift, wire the gaps (closes I1, I2, I3, I4) · **P0**
+Guarantee "everything is connected to AI" and keep it that way.
+- Add a **manifest‑coverage CI gate**: every module with a public controller must have a `*.ai.js` **or** an explicit reviewed `// ai:none` opt‑out; the gate lists offenders and fails the build. Add `sync-actions.js --check` (drift: catalogue vs manifests) and run both in `ci-local.js`/CI. Combine with PR 3's write‑executability gate.
+- Author the missing AI‑relevant manifests (credit_note, q_ticket, support tickets, workspace Tasks/Calendar, the HR sub‑modules, document vault/verification/signature‑request, templates, master_config/rate_provider).
+- **Point CLAUDE.md at the rule** (done in this audit PR as a first step) and correct `AI_ARCHITECTURE.md:62`'s "no drift" claim to reference the gate. Verify `live` **and** `sandbox` catalogue sync.
+- **Acceptance:** the coverage gate is green with no silent gaps; adding a module without a manifest (or opt‑out) fails CI; the assistant can see/act on the newly‑wired modules.
+
+### PR 8 — Evaluation, quality bar & observability (closes B6, H1, H2; G3, G4, F3) · **P1/P2**
+- A golden‑set eval over a seeded tenant (grounding accuracy — numbers reported correctly; no truncation; tool‑selection; write success with actor; grammar/style score) wired into CI; structured AI‑health telemetry (truncations, fallbacks, tool‑miss, groove, timeouts) + an AI Control panel; regression coverage for TTS / open‑in‑canvas → Markdown / table → xlsx; document the redaction policy.
+- **Acceptance:** the eval runs in CI and blocks regressions; the health panel shows truncation/timeout/fallback rates trending to zero after PRs 1–7.
 
 ---
 
