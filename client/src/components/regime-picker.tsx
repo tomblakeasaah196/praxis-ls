@@ -177,7 +177,7 @@ export function RegimePicker({
             </span>
           ) : isCustomSelected ? (
             <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="shrink-0 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-semibold">
+              <span className="shrink-0 rounded-md bg-warn/15 px-2 py-0.5 text-xs font-semibold">
                 {selectedCode}
               </span>
               <span className="truncate text-xs text-muted-foreground">Custom</span>
@@ -245,10 +245,10 @@ export function RegimePicker({
                     onClick={() => pick(item)}
                     className={cn(
                       "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm border border-dashed",
-                      index === active ? "bg-amber-500/10 border-amber-500/30" : "hover:bg-muted border-border",
+                      index === active ? "bg-warn/10 border-warn/30" : "hover:bg-muted border-border",
                     )}
                   >
-                    <span className="rounded-md bg-amber-500/15 px-2 py-1 text-xs font-semibold">+ {item}</span>
+                    <span className="rounded-md bg-warn/15 px-2 py-1 text-xs font-semibold">+ {item}</span>
                     <span className="text-xs text-muted-foreground">
                       {lang === "fr" ? "Ajouter ce régime" : "Add this regime"}
                     </span>
