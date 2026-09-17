@@ -21,7 +21,7 @@ _Last updated: 2026-09-17. Keep this section in step with `main` — when a PR m
 | PR 1 | Grounding integrity (A1–A4) | 🟡 partial | A2 done in [#404](https://github.com/tomblakeasaah196/praxis-ls/pull/404); A1/A3/A4 still open |
 | PR 2 | Completeness, model & no‑truncation (B1, B2, B4, B5) | 🟡 partial | B1 + B4 done in [#404](https://github.com/tomblakeasaah196/praxis-ls/pull/404); B2 (fallback vendor + health check) and B5 (shared cached prompt builder) still open |
 | PR 3 | "Create anything": one write contract (C1–C4) | 🟡 partial | Contract + gate + the named creates + 31 create actions done in [#406](https://github.com/tomblakeasaah196/praxis-ls/pull/406); 154 pre-contract writes inventoried for follow-up |
-| PR 4 | Steering, modes & context window (D1–D5, G1) | ✅ merged | D5 + D1 in [#404](https://github.com/tomblakeasaah196/praxis-ls/pull/404); D2/D3/D4 (per‑user steering, wider configurable context window, token‑boundary tool scoring) in [#407](https://github.com/tomblakeasaah196/praxis-ls/pull/407) |
+| PR 4 | Steering, modes & context window (D1–D5, G1) | ✅ merged | D5 + D1 in [#404](https://github.com/tomblakeasaah196/praxis-ls/pull/404); D2/D3/D4 (per‑user steering, wider configurable context window, token‑boundary tool scoring) in [#410](https://github.com/tomblakeasaah196/praxis-ls/pull/410) |
 | PR 5 | Reliability, timeouts & performance (E1–E4, G2) | ⬜ not started | — |
 | PR 6 | Conversation management & Spaces UX (J1–J5) | ⬜ not started | — |
 | PR 7 | Module → AI governance (I1–I4) | 🟡 partial | CLAUDE.md rule added in [#400](https://github.com/tomblakeasaah196/praxis-ls/pull/400) (I3 first step); coverage gate + missing manifests still open |
@@ -36,10 +36,10 @@ _Last updated: 2026-09-17. Keep this section in step with `main` — when a PR m
 | B4 — streamed usage counted as zero | P1 | ✅ | `stream_options.include_usage` set on streamed calls. [#404](https://github.com/tomblakeasaah196/praxis-ls/pull/404) |
 | D5 — Ask/Draft/Analyse/Act were identical | P1 | ✅ | Validator accepts `mode`/`scope`; each mode appends a real posture directive. Act still only *proposes*. [#404](https://github.com/tomblakeasaah196/praxis-ls/pull/404) |
 | D1 — `scope` ignored server‑side | P1 | ✅ | Chosen Space now biases tool selection/retrieval. [#404](https://github.com/tomblakeasaah196/praxis-ls/pull/404) |
-| D2 — learning signals tenant‑wide | P1 | ✅ | `recentPatterns`/`recentNegativeFeedback` now filter by `user_id` (no tenant fallback — that was the leak), capped + de‑duplicated. [#407](https://github.com/tomblakeasaah196/praxis-ls/pull/407) |
-| D3 — thin replay window + prose summary | P2 | ✅ | Window is `AI_HISTORY_TURNS` (40, configurable); window/summary gap closed via `REPLAY_TURNS`; summary is now STRUCTURED (decisions/figures/records/open, verbatim). [#407](https://github.com/tomblakeasaah196/praxis-ls/pull/407) |
-| D4 — crude substring tool scoring | P2 | ✅ | `selectTools` scores by token‑set membership ("add" no longer matches "address"); CORE widened per major module. [#407](https://github.com/tomblakeasaah196/praxis-ls/pull/407) |
-| F2 — cross‑user prompt contamination | P2 | ✅ | Closed by D2 — no other user's actions/feedback reach a caller's prompt. [#407](https://github.com/tomblakeasaah196/praxis-ls/pull/407) |
+| D2 — learning signals tenant‑wide | P1 | ✅ | `recentPatterns`/`recentNegativeFeedback` now filter by `user_id` (no tenant fallback — that was the leak), capped + de‑duplicated. [#410](https://github.com/tomblakeasaah196/praxis-ls/pull/410) |
+| D3 — thin replay window + prose summary | P2 | ✅ | Window is `AI_HISTORY_TURNS` (40, configurable); window/summary gap closed via `REPLAY_TURNS`; summary is now STRUCTURED (decisions/figures/records/open, verbatim). [#410](https://github.com/tomblakeasaah196/praxis-ls/pull/410) |
+| D4 — crude substring tool scoring | P2 | ✅ | `selectTools` scores by token‑set membership ("add" no longer matches "address"); CORE widened per major module. [#410](https://github.com/tomblakeasaah196/praxis-ls/pull/410) |
+| F2 — cross‑user prompt contamination | P2 | ✅ | Closed by D2 — no other user's actions/feedback reach a caller's prompt. [#410](https://github.com/tomblakeasaah196/praxis-ls/pull/410) |
 | I3 — CLAUDE.md never mentioned manifests | P0 | ✅ | "Wire every module to the AI" rule added. [#400](https://github.com/tomblakeasaah196/praxis-ls/pull/400) |
 | C1 — `create_supplier` threw (bare ref) | P0 | ✅ | Write contract + fix; proven at runtime. [#406](https://github.com/tomblakeasaah196/praxis-ls/pull/406) |
 | C2 — `create_lead`/`create_opportunity` dropped the actor | P0 | ✅ | Contract forwards the full actor. [#406](https://github.com/tomblakeasaah196/praxis-ls/pull/406) |
