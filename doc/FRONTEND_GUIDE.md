@@ -1152,6 +1152,23 @@ Opt-in on `<DataList>` / `<ListPage>`, because each costs something:
   renders in `<IconRail>`'s tail. A fixed bottom-right cluster covers the last rows and
   the pager of every list screen, and making it draggable was the workaround, not the fix.
   Both surfaces read `useQuickActions()` so they cannot drift.
+- **A drag on a phone is a HOLD, and it may not take the scroll.** A touch screen has one
+  thumb, and on a kanban board the board itself is what that thumb scrolls — so a card
+  cannot claim the gesture at `touchstart`. `touch-action: none` on the card (the usual way
+  to make a drag "reliable") hands the whole column's scrolling to whichever card the thumb
+  lands on. The board instead runs THREE sensors side by side (`task-board.tsx`): the mouse
+  drags the grip at 8px, the finger picks a card up by holding it for `LONG_PRESS_MS`
+  anywhere on the card, the keyboard takes the grip with Space. The dwell is the grace
+  period — a finger that moves past `tolerance` before it elapses was scrolling, and the
+  pending drag is abandoned rather than fought for — and it is also what keeps a TAP a tap,
+  so opening a card and dragging a card are never the same event. Two corollaries: a
+  `MouseSensor` and NOT a `PointerSensor` (a finger fires `pointerdown` too, so a
+  pointer-driven 8px constraint reads the first eight pixels of a flick as a drag), and the
+  drag handle and the click target stay separate elements, because the pointerup that ends a
+  mouse drag has to land somewhere whose only listener is dnd-kit's. Covered end to end by
+  `features/workspace/tasks/task-board.test.tsx` — real `TouchEvent`s, real sensors, the
+  request asserted — including the flick that must scroll and the two-finger touch that
+  must do nothing.
 - **Nothing quick-action-shaped goes in the title bar.** It held a burst-icon menu once; the
   glyph named nothing in a strip where every other control says what it is, and it put
   Messages in the header while the rail already carried Messages — one destination with two
