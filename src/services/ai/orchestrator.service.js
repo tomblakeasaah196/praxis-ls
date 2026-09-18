@@ -9,7 +9,7 @@
 const crypto = require("crypto");
 const llm = require("./llm.service");
 const { retrieve, toContextBlock } = require("./retrieval.service");
-const { redact } = require("./redact");
+const { redactExternal, redactForReasoning } = require("./redact");
 const governance = require("../../modules/ai/governance/governance.service");
 const convo = require("../../modules/ai/assistant/assistant.repo");
 const { buildFieldMeta } = require("./action-fields");
@@ -284,10 +284,14 @@ const history_ = {
       });
       if (pending.length < SUMMARY_BATCH) return;
 
-      // Redacted on the way IN, like every other egress path — the summariser is
-      // a model call, so PII/financial scrubbing applies before the text leaves.
-      const transcript = pending.map((m) => `${m.role}: ${redact(m.content)}`).join("\n");
-      const prior = state.summary ? `EXISTING SUMMARY:\n${redact(state.summary)}\n\n` : "";
+      // STRICT redaction on the way IN (audit A1). This is the one model call in
+      // `ask` whose OUTPUT is persisted and replayed into later turns, so it is
+      // external egress rather than reasoning over the caller's own data: contact
+      // details and the tax ID are masked here and nowhere else in this file.
+      // Amounts and ERP references still survive — the summary's FIGURES heading
+      // asks for them "copied EXACTLY", which `[NUM]` made impossible (D3).
+      const transcript = pending.map((m) => `${m.role}: ${redactExternal(m.content)}`).join("\n");
+      const prior = state.summary ? `EXISTING SUMMARY:\n${redactExternal(state.summary)}\n\n` : "";
       const res = await llm.chat({
         client,
         temperature: 0,
@@ -787,7 +791,13 @@ function buildSystemPrompt({ user, patternBlock = "", feedbackBlock = "", prefsB
     prefsBlock +
     modeDirective(mode) +
     "\n\nCONTEXT:\n" +
-    redact(toContextBlock(hits));
+    // REASONING-class redaction (audit A1): the CONTEXT is the caller's own
+    // authorised data — retrieval already filtered it by the confidentiality
+    // tags their RBAC allows — and it goes into this one prompt and nowhere
+    // else, so amounts and ERP references reach the model intact while payment
+    // instruments and government IDs stay masked. The strict `redactExternal`
+    // is used only where output is persisted (the summariser).
+    redactForReasoning(toContextBlock(hits));
   return { staticPrefix: SYSTEM_RULES, dynamic, full: SYSTEM_RULES + dynamic };
 }
 
@@ -798,7 +808,11 @@ async function ask({ client, user, conversationId, message, allowed, registry, f
   if (!gate.allowed) {
     return { answer: `The AI assistant is unavailable: ${gate.reason}.`, actions: [], blocked: true, gate };
   }
-  const hits = await retrieve({ query: message, tenantClient: client, allowed, k: 6 });
+  // Tenant-facing grounding (audit A3/A4): a wider block than the old six chunks,
+  // with the knowledge base holding its own reserved slots, and NO codebase chunks
+  // — an operator asking about their receivables should not be grounded on this
+  // repository's source, which is where the snake_case/UUID drift came from.
+  const hits = await retrieve({ query: message, tenantClient: client, allowed, includeCodebase: false });
   const tools = await loadTools(client);
   // Self-learning: recent successful execution patterns for the model to reference.
   const patterns = await recentPatterns(client, user.user_id);
@@ -824,6 +838,8 @@ async function ask({ client, user, conversationId, message, allowed, registry, f
   // One shared builder for both ask() and askStream() (audit B5) — see
   // buildSystemPrompt / SYSTEM_RULES above. `full` is the system message;
   // `staticPrefix` is the cacheable rules block passed to llm as `cachePrefix`.
+  // The CONTEXT inside it is redacted REASONING-class (audit A1) — see the note
+  // on buildSystemPrompt.
   const prompt = buildSystemPrompt({ user, patternBlock, feedbackBlock, prefsBlock, mode, hits });
 
   // ── Conversation memory ──────────────────────────────────────────────────
@@ -838,8 +854,9 @@ async function ask({ client, user, conversationId, message, allowed, registry, f
   // (governance.canUseFeature hard-blocks on the cap) — an unbounded transcript
   // would make each successive question in a long thread cost more than the last.
   //
-  // Redaction applies to history too: PII/financial scrubbing has to hold for
-  // replayed turns exactly as it does for the live question.
+  // Redaction applies to history too, in the same class as the live question:
+  // a replayed turn is the caller reading back their own conversation, so it
+  // gets `redactForReasoning`, not the strict summariser/embeddings scrub.
   // Fold anything that has scrolled out of the window into the rolling summary
   // first, so THIS answer sees it (0481). Best-effort — never blocks the answer.
   const resolvedId = conversationId || (await history_.currentId(client, user));
@@ -856,11 +873,11 @@ async function ask({ client, user, conversationId, message, allowed, registry, f
           role: "system",
           content:
             "EARLIER IN THIS CONVERSATION (summary of turns no longer replayed in full):\n" +
-            redact(history.summary),
+            redactForReasoning(history.summary),
         }]
       : []),
-    ...history.turns.map((m) => ({ role: m.role, content: redact(m.content) })),
-    { role: "user", content: redact(message) },
+    ...history.turns.map((m) => ({ role: m.role, content: redactForReasoning(m.content) })),
+    { role: "user", content: redactForReasoning(message) },
   ];
 
   // Offer a focused, relevant slice of the catalogue (scored on this turn + the
@@ -1011,7 +1028,7 @@ async function ask({ client, user, conversationId, message, allowed, registry, f
       }
       readTrace.push(step);
       // Cap + redact so a big list can't blow the context or leak sensitive text.
-      toolMsgs.push({ role: "tool", tool_call_id: call.id, content: redact(content).slice(0, 6000) });
+      toolMsgs.push({ role: "tool", tool_call_id: call.id, content: redactForReasoning(content).slice(0, 6000) });
     }
 
     // The assistant message lists only the READ calls, because only those have
@@ -1272,7 +1289,7 @@ async function confirmAction({ client, user, actionRunId, registry, payload: edi
         temperature: 0.3,
         messages: [
           { role: "system", content: sys },
-          ...hist.map((m) => ({ role: m.role, content: redact(m.content) })),
+          ...hist.map((m) => ({ role: m.role, content: redactForReasoning(m.content) })),
         ],
       });
       message = nar.text || null;
@@ -1378,7 +1395,11 @@ async function* askStream({ client, user, conversationId, message, allowed, regi
     return;
   }
 
-  const hits = await retrieve({ query: message, tenantClient: client, allowed, k: 6 });
+  // Tenant-facing grounding (audit A3/A4): a wider block than the old six chunks,
+  // with the knowledge base holding its own reserved slots, and NO codebase chunks
+  // — an operator asking about their receivables should not be grounded on this
+  // repository's source, which is where the snake_case/UUID drift came from.
+  const hits = await retrieve({ query: message, tenantClient: client, allowed, includeCodebase: false });
   const tools = await loadTools(client);
   // Self-learning: recent successful execution patterns.
   const patterns = await recentPatterns(client, user.user_id);
@@ -1402,7 +1423,8 @@ async function* askStream({ client, user, conversationId, message, allowed, regi
     : "";
 
   // Same shared builder as ask() (audit B5) — no second copy of the rules to
-  // drift, and the static prefix is cacheable via `cachePrefix` below.
+  // drift, the static prefix is cacheable via `cachePrefix` below, and the
+  // CONTEXT is redacted REASONING-class (audit A1) inside buildSystemPrompt.
   const prompt = buildSystemPrompt({ user, patternBlock, feedbackBlock, prefsBlock, mode, hits });
 
   // ── Conversation memory (same as non-streaming) ──
@@ -1412,10 +1434,10 @@ async function* askStream({ client, user, conversationId, message, allowed, regi
   const messages = [
     { role: "system", content: prompt.full, cachePrefix: prompt.staticPrefix },
     ...(history.summary
-      ? [{ role: "system", content: "EARLIER IN THIS CONVERSATION (summary of turns no longer replayed in full):\n" + redact(history.summary) }]
+      ? [{ role: "system", content: "EARLIER IN THIS CONVERSATION (summary of turns no longer replayed in full):\n" + redactForReasoning(history.summary) }]
       : []),
-    ...history.turns.map((m) => ({ role: m.role, content: redact(m.content) })),
-    { role: "user", content: redact(message) },
+    ...history.turns.map((m) => ({ role: m.role, content: redactForReasoning(m.content) })),
+    { role: "user", content: redactForReasoning(message) },
   ];
 
   // The chosen Space biases tool selection toward that area (audit D1): a scope
@@ -1561,7 +1583,7 @@ async function* askStream({ client, user, conversationId, message, allowed, regi
         content = JSON.stringify({ error: err.message });
       }
       readTrace.push(step);
-      toolMsgs.push({ role: "tool", tool_call_id: call.id, content: redact(content).slice(0, 6000) });
+      toolMsgs.push({ role: "tool", tool_call_id: call.id, content: redactForReasoning(content).slice(0, 6000) });
     }
 
     convo.push(
