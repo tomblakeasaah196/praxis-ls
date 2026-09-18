@@ -12,7 +12,7 @@
 
 _Last updated: 2026-09-17. Keep this section in step with `main` — when a PR merges, tick the findings it closed and link it here. Status legend: ✅ merged · 🟡 in progress · ⬜ not started._
 
-**Next up for another engineer:** PR 5 (reliability/timeouts E1–E4, G2), then PR 6 (conversation management/Spaces), the PR 7 coverage gate + remaining manifests, PR 1 redaction (A1), PR 2's fallback vendor (B2) + shared cached prompt builder (B5), and PR 8 (eval harness/observability). The write-contract backlog (154 writes) lives in `src/services/ai/write-contract-baseline.json` and is chipped away in any PR. NOTE for PR 5/B5: the two system-prompt copies (`ask`/`askStream`) still drift by hand — they were touched again here for D2's per-user blocks, so the shared-builder dedupe (B5) is now more overdue.
+**Next up for another engineer:** PR 5 (reliability/timeouts E1–E4, G2), then PR 6 (conversation management/Spaces), the PR 7 coverage gate + remaining manifests, PR 1 redaction (A1), PR 2's fallback vendor (B2) + shared cached prompt builder (B5), and PR 8 (eval harness/observability). The write-contract backlog (154 writes) lives in `src/services/ai/write-contract-baseline.json` and is chipped away in any PR. NOTE for PR 5/B5: the two system-prompt copies (`ask`/`askStream`) still drift by hand — they were touched again in PR 4 for D2's per-user blocks, so the shared-builder dedupe (B5) is now more overdue. **Whoever closes a milestone updates this section** (the milestone row, the finding rows, and Appendix A where relevant).
 
 ### By milestone
 
