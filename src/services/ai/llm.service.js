@@ -101,10 +101,23 @@ function prepareMessages(vendor, messages) {
  * gateway (audit B2). The native host does not speak /chat/completions, so a
  * "gemini" vendor pointed there resolves but every call fails — the health check
  * flags it so the misconfig is visible before the first request.
+ *
+ * Parses the URL and matches the HOST exactly (not a substring of the whole URL
+ * string): a substring check would both miss a legitimately different host and
+ * mis-flag a look-alike like `generativelanguage.googleapis.com.example.com`
+ * (CodeQL js/incomplete-url-substring-sanitization). The OpenAI-compat gateway
+ * is the same host under a `/…/openai` path, so the path decides compat.
  */
 function looksLikeNativeGemini(url) {
-  const u = String(url || "").toLowerCase();
-  return u.includes("generativelanguage.googleapis.com") && !u.includes("/openai");
+  let parsed;
+  try {
+    parsed = new URL(String(url || ""));
+  } catch {
+    return false; // not a parseable URL — nothing to flag
+  }
+  const isGoogleGenAiHost = parsed.hostname.toLowerCase() === "generativelanguage.googleapis.com";
+  const hasOpenAiCompatPath = /(^|\/)openai(\/|$)/i.test(parsed.pathname);
+  return isGoogleGenAiHost && !hasOpenAiCompatPath;
 }
 
 // Some models (notably DeepSeek, esp. when handed a large tool list) emit their

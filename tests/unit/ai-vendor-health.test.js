@@ -59,6 +59,20 @@ test("flags a 'gemini' pointed at the NATIVE (non-/chat/completions) endpoint", 
   expect(health.issues.join(" ")).toMatch(/native/i);
 });
 
+test("a look-alike host is NOT mis-flagged as native Gemini (CodeQL: exact host match)", async () => {
+  // ...googleapis.com.evil.com is a DIFFERENT host — the native-endpoint check
+  // must match the parsed hostname exactly, not a substring of the URL.
+  platformVendors.getConfig.mockImplementation(async (v) =>
+    v === "gemini"
+      ? { vendor: "gemini", api_key: "g", endpoint_url: "https://generativelanguage.googleapis.com.evil.com/v1beta", model: "gemini-1.5-pro", is_active: true }
+      : null,
+  );
+  const health = await llm.checkVendorHealth();
+  // Not the real Gemini host, so it is not flagged as the native API.
+  expect(health.fallback.openaiCompatible).toBe(true);
+  expect(health.issues.join(" ")).not.toMatch(/native/i);
+});
+
 test("an unreadable platform DB leaves the check inconclusive, not a false alarm", async () => {
   // getConfig throws (DB down at boot) and there is no .env fallback for gemini,
   // so its non-resolution must be reported as inconclusive rather than a
