@@ -149,6 +149,7 @@ export function AssetSlotField({
   const upload = useUpload<{ doc_id: string }>({
     profile: uploadProfileForSlot(slot),
     maxBytes: spec.maxBytes,
+    minimumWidth: spec.minWidth,
     send: async (file, ctx) =>
       api.uploadAsset(
         {
