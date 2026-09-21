@@ -50,7 +50,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           # `security-extended` over the default `security`: the default set is
@@ -69,6 +69,6 @@ jobs:
       # bundled by Vite; CodeQL analyses JS/TS from source, and a build here
       # would add minutes and a failure mode without adding coverage.
       - name: Analyse
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:javascript-typescript"
