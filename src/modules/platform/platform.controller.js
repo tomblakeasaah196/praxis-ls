@@ -324,6 +324,13 @@ const aiVendorSet = asyncHandler(async (req, res) => {
   res.json({ data });
 });
 const aiVendorTest = asyncHandler(async (req, res) => res.json({ data: await aiVendors.test(req.params.vendor) }));
+// Takes effect on the next chat turn on every API instance: the runtime reads
+// the flag per call (`llm.service.resolveChain`), so there is no cache to
+// reset here — unlike the storage/geocoding settings above.
+const aiVendorSetChatPrimary = asyncHandler(async (req, res) => {
+  const data = await aiVendors.setChatPrimary({ vendor: req.params.vendor, actorId: actor(req) });
+  res.json({ data });
+});
 
 module.exports = {
   login,
@@ -381,4 +388,5 @@ module.exports = {
   aiVendorsList,
   aiVendorSet,
   aiVendorTest,
+  aiVendorSetChatPrimary,
 };

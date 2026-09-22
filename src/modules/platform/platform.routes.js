@@ -132,5 +132,9 @@ router.post("/settings/:section/:key/test", requireCap("settings.write"), valida
 router.get("/ai-vendors", requireCap("settings.read"), c.aiVendorsList);
 router.put("/ai-vendors/:vendor", requireCap("settings.write"), validate("aiVendorSet"), c.aiVendorSet);
 router.post("/ai-vendors/:vendor/test", requireCap("settings.write"), validateParams("aiVendorTest"), c.aiVendorTest);
+// Which chat vendor every tenant's AI tries FIRST. A PUT with no body: the
+// resource is "the primary", the segment is its new value, and it is
+// idempotent — choosing the current primary again changes nothing.
+router.put("/ai-vendors/:vendor/chat-primary", requireCap("settings.write"), validateParams("aiVendorChatPrimary"), c.aiVendorSetChatPrimary);
 
 module.exports = router;
