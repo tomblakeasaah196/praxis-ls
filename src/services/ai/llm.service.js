@@ -5,6 +5,14 @@
  * back to .env (BUILD_CONVENTIONS §7: DB-first, env-fallback). If
  * neither is set, the call degrades to a clear stub. All vendors here speak the
  * OpenAI-compatible /chat/completions shape.
+ *
+ * WHICH VENDOR IS TRIED FIRST is the platform's choice, not this file's. The
+ * console marks one `ai_vendor_credential` row `is_chat_primary` (Integrations
+ * → AI providers → "Use as primary"); `resolveChain` reads it and puts that
+ * vendor at the head of the chain, with the rest of `DEFAULT_CHAIN` behind it
+ * as the fallback. Same DB-first/env-fallback rule as the credentials: no row
+ * flagged, or a platform DB that cannot be asked, means `DEFAULT_PRIMARY` —
+ * exactly what every deployment ran on before the choice existed.
  */
 "use strict";
 
@@ -13,9 +21,12 @@ const { config } = require("../../config/env");
 const platformVendors = require("../platform/ai-vendor.service");
 const { logger } = require("../../config/logger");
 const { KINDS } = require("./health.service");
+const { CHAT_VENDORS, DEFAULT_PRIMARY, DEFAULT_FALLBACK, chainFrom } = require("./chat-vendors");
 
-const PRIMARY = "deepseek";
-const FALLBACK = "gemini";
+// Kept under their old names for the callers and docs that read them; they
+// are the DEFAULTS now, not the chain. The chain comes from `resolveChain`.
+const PRIMARY = DEFAULT_PRIMARY;
+const FALLBACK = DEFAULT_FALLBACK;
 
 // Gemini speaks the OpenAI /chat/completions shape ONLY through Google's
 // compatibility gateway, never its native endpoint (audit B2 — the native API
@@ -45,6 +56,52 @@ async function resolveVendor(client, name) {
   const env = ENV_VENDORS[name];
   if (env && env.api_key && env.endpoint_url) return env;
   return null;
+}
+
+/**
+ * The platform's chosen primary chat vendor, or null when none is chosen, the
+ * choice names something that cannot answer a chat call, or the platform DB
+ * cannot be asked. Null is never an error here: the chain has a default, and
+ * the boot health check (`checkVendorHealth`) is where a lookup failure is
+ * reported — a chat turn should answer from the default rather than fail on a
+ * preference lookup.
+ */
+async function preferredPrimary() {
+  try {
+    const chosen = await platformVendors.getChatPrimary();
+    return CHAT_VENDORS.includes(chosen) ? chosen : null;
+  } catch (err) {
+    logger.debug({ err }, "chat primary preference unavailable — using the default chain");
+    return null;
+  }
+}
+
+/**
+ * The ordered vendor chain for one call: `[primary, fallback]`.
+ *
+ *   · An explicit `vendorName` wins — the caller asked for that vendor first.
+ *   · Otherwise the platform's `is_chat_primary` row, if it names a chat vendor.
+ *   · Otherwise `DEFAULT_PRIMARY`.
+ *
+ * The fallback is always the rest of `DEFAULT_CHAIN` with the primary removed,
+ * so swapping the primary swaps the chain: choose Gemini and DeepSeek becomes
+ * the fallback, not a second Gemini and not nothing. `singleVendor` drops the
+ * fallback hop (see `chat`).
+ *
+ * Returns `{ chain, source }` — `source` says whether the head came from the
+ * platform's choice or the default, so the health check and the boot log can
+ * tell an operator WHY the primary is what it is.
+ */
+async function resolveChain({ vendorName, singleVendor = false } = {}) {
+  let source = "default";
+  let first = vendorName || null;
+  if (first) source = "explicit";
+  else {
+    const chosen = await preferredPrimary();
+    if (chosen) { first = chosen; source = "platform"; }
+  }
+  const chain = chainFrom(first || DEFAULT_PRIMARY);
+  return { chain: singleVendor ? [chain[0]] : chain, source };
 }
 
 /**
@@ -365,11 +422,14 @@ function classifyVendorError(err) {
   return "transient";
 }
 
-async function chat({ client, messages, tools, temperature = 0.2, vendorName = PRIMARY, responseFormat, maxTokens = config.AI_MAX_TOKENS, timeoutMs, singleVendor = false }) {
+async function chat({ client, messages, tools, temperature = 0.2, vendorName, responseFormat, maxTokens = config.AI_MAX_TOKENS, timeoutMs, singleVendor = false }) {
   // `singleVendor` drops the fallback hop. Only for calls that are OPTIONAL to
   // the turn (the summariser): trying a second vendor doubles the worst-case
   // wait for work whose failure costs nothing but a retry next turn.
-  const chain = singleVendor ? [vendorName] : [...new Set([vendorName, FALLBACK])];
+  // `vendorName` is undefined unless a caller pins a vendor: the head of the
+  // chain is the platform's choice (`resolveChain`), read per call so a switch
+  // made in the console takes effect on the next turn, no restart.
+  const { chain } = await resolveChain({ vendorName, singleVendor });
   let configError = null;
   // Audit H2. This layer is the ONLY one that can see a fallback happen — by
   // the time the orchestrator has a result, a degraded turn and a clean one
@@ -429,8 +489,8 @@ async function chat({ client, messages, tools, temperature = 0.2, vendorName = P
  * the full text for conversation persistence. The generator also yields the
  * same data, so callers can use either interface.
  */
-async function* chatStream({ client, messages, tools, temperature = 0.2, vendorName = PRIMARY, onDelta, maxTokens = config.AI_MAX_TOKENS }) {
-  const chain = [...new Set([vendorName, FALLBACK])];
+async function* chatStream({ client, messages, tools, temperature = 0.2, vendorName, onDelta, maxTokens = config.AI_MAX_TOKENS }) {
+  const { chain } = await resolveChain({ vendorName });
   let configError = null;
   // Audit H2 — same collect-here, record-there split as `chat`. The events ride
   // out on the TERMINAL chunk rather than a return value, because a generator's
@@ -533,9 +593,16 @@ async function inspectVendor(client, role, name) {
  * where a platform-DB hiccup left resolution unknown so a caller can log softly.
  */
 async function checkVendorHealth({ client } = {}) {
-  const primary = await inspectVendor(client, "primary", PRIMARY);
-  const fallback = await inspectVendor(client, "fallback", FALLBACK);
-  const distinct = PRIMARY !== FALLBACK;
+  // The SAME resolution the runtime performs, so this reports the chain a turn
+  // will actually walk — including a primary chosen in the console — rather
+  // than the constants. `source` lets the log say "gemini (chosen in the
+  // platform console)" instead of leaving an operator to wonder why the
+  // primary is not the documented default.
+  const { chain, source } = await resolveChain();
+  const [primaryName, fallbackName] = chain;
+  const primary = await inspectVendor(client, "primary", primaryName);
+  const fallback = await inspectVendor(client, "fallback", fallbackName);
+  const distinct = primaryName !== fallbackName;
   const issues = [];
   for (const v of [primary, fallback]) {
     if (v.resolved) {
@@ -546,9 +613,21 @@ async function checkVendorHealth({ client } = {}) {
       issues.push(`${v.role} chat vendor "${v.name}" is not configured — no active credential in platform.ai_vendor_credential and no usable .env fallback (needs a key + endpoint).`);
     }
   }
-  if (!distinct) issues.push(`primary and fallback are both "${PRIMARY}" — a primary failure has no distinct provider to fall back to.`);
+  if (!distinct) issues.push(`primary and fallback are both "${primaryName}" — a primary failure has no distinct provider to fall back to.`);
   const inconclusive = (primary.lookupError || fallback.lookupError) && issues.length === 0;
-  return { ok: issues.length === 0, inconclusive, distinct, primary, fallback, issues, checkedAt: new Date().toISOString() };
+  return { ok: issues.length === 0, inconclusive, distinct, primary, fallback, chain, source, issues, checkedAt: new Date().toISOString() };
 }
 
-module.exports = { chat, chatStream, resolveVendor, checkVendorHealth, supportsPromptCache, PRIMARY, FALLBACK };
+module.exports = {
+  chat,
+  chatStream,
+  resolveVendor,
+  resolveChain,
+  checkVendorHealth,
+  supportsPromptCache,
+  PRIMARY,
+  FALLBACK,
+  DEFAULT_PRIMARY,
+  DEFAULT_FALLBACK,
+  CHAT_VENDORS,
+};

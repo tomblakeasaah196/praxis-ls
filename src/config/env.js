@@ -369,7 +369,13 @@ const Schema = z.object({
   DEEPSEEK_BASE_URL: z.string().default("https://api.deepseek.com"),
   DEEPSEEK_MODEL: z.string().default("deepseek-chat"),
   GEMINI_API_KEY: z.string().default(""),
-  GEMINI_MODEL: z.string().default("gemini-1.5-pro"),
+  // The .env fallback model, used when the platform `gemini` row has no key.
+  // Kept equal to the platform seed (platform/0108) so the fallback path and
+  // the console path run the SAME model — the two used to differ (1.5-pro here,
+  // 1.5-flash there), a ~10× price gap on identical calls, priced in the ledger
+  // for only one of them. The 1.5 line is shut down; 2.5-flash is GA with no
+  // shutdown date announced.
+  GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
   GROQ_API_KEY: z.string().default(""),
   WHISPER_BASE_URL: z.string().default(""),
   AI_MONTHLY_CAP_XAF: int(0),
