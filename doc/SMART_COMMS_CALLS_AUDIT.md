@@ -1997,8 +1997,8 @@ factual. The next agent relies on them.
 | PR-1 | MERGED | `claude/magical-einstein-xqhkn1` | #476 | 2026-09-24 | Includes owner decisions A-1 (Groq → Gemini transcription, no browser capture) and A-2 (Gemini → DeepSeek summaries) |
 | PR-2 | MERGED | `claude/wizardly-ptolemy-dyazt1` | #477 | 2026-09-24 | Per-part recorder and transcription, finalise, race-free drafts, pinned draft (O3), N3; migration 14050 |
 | PR-3 | MERGED | `claude/tender-davinci-v1eh8y` | #479 | 2026-09-24 | TURN, credentials, relay, IDOR, rate limits; migration 14060; null-payload crash in the relay |
-| PR-4 | OPEN | `claude/smart-comms-pr-4-9e8q91` | #481 | — | Perfect negotiation, rings on every device (push at dial, re-alerts, cancel everywhere), ringing read, Answer/Decline, device check + Test ring, noise default off, no screen wake lock; TURN relay-to-relay and TLS on 443 (owner's Step 0/0b); migration 14070 |
-| PR-5 | NOT STARTED | — | — | — | |
+| PR-4 | MERGED | `claude/smart-comms-pr-4-9e8q91` | #481 | 2026-09-24 | Perfect negotiation, rings on every device (push at dial, re-alerts, cancel everywhere), ringing read, Answer/Decline, device check + Test ring, noise default off, no screen wake lock; TURN relay-to-relay and TLS on 443 (owner's Step 0/0b); migration 14070 |
+| PR-5 | IN PROGRESS | `claude/smart-comms-pr-5-jzgkt1` | — | — | |
 | PR-6 | NOT STARTED | — | — | — | |
 | PR-7 | NOT STARTED | — | — | — | |
 | Plan update (O1–O5, A12–A15, N1–N5, PR-7) | MERGED | `claude/integration-audit-report-u6twc5` | #475 | 2026-09-24 | Owner decisions, ringing findings, PR-1 findings, test calls |
