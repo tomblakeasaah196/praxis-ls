@@ -1,13 +1,9 @@
 /**
- * Worker job: the call record pipeline for one call
- * (smartcomm.call.pipeline.service.processCall).
- *
- * Enqueued at hang-up (origin "hangup", delayed while the clients flush their
- * parts) and by the daily sweep (origin "sweep"). The origin decides whether
- * anyone may be notified: a sweep run never notifies (audit A4). A job queued
- * before origins existed is a hang-up job. The queue de-duplicates on the call
- * id, and the pipeline is idempotent by state. A missing tenantMeta is a caller
- * bug and throws; every other exit is a state on the call row.
+ * Worker job: the whole-call transcription job from before per-part
+ * transcription (audit PR-2). Nothing enqueues it any more; it stays
+ * registered so jobs queued before the deploy still run, as a deadline
+ * finalise: parts whose job never ran are started, then the call is
+ * finalised. The origin still decides whether anyone may be notified.
  */
 "use strict";
 
@@ -20,9 +16,10 @@ module.exports = async function callTranscribe(job) {
   if (!callId || !tenantMeta || (env !== "live" && env !== "sandbox")) {
     throw new Error("call-transcribe requires callId + a live or sandbox tenant");
   }
-  const result = await registry.withTenantConnection(tenantMeta, env, (c) =>
-    pipeline.processCall(c, { callId, tenantMeta, env, user, slug: tenantMeta.slug, origin }),
-  );
-  logger.info({ callId, env, origin, result }, "call-transcribe finished");
+  const withDb = (fn) => registry.withTenantConnection(tenantMeta, env, fn);
+  const result = await pipeline.finaliseCall({
+    withDb, callId, tenantMeta, env, origin, deadline: true, user,
+  });
+  logger.info({ callId, env, origin, result }, "call-transcribe (legacy) finished");
   return result;
 };
