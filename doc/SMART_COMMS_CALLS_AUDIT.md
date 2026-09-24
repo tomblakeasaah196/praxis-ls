@@ -20,8 +20,8 @@ to get right.
 | Severity | Count | Meaning |
 | --- | --- | --- |
 | CRITICAL | 7 | Wrong for every user or every call, or loses/corrupts data. Fix first. |
-| HIGH | 34 | Security hole, cross-tenant scale failure, or a feature that does not work in real use. |
-| MEDIUM | 39 | Real defect with a narrower blast radius. |
+| HIGH | 33 | Security hole, cross-tenant scale failure, or a feature that does not work in real use. |
+| MEDIUM | 40 | Real defect with a narrower blast radius. |
 | LOW | 12 | Hygiene, misleading docs, minor leaks. |
 
 ---
@@ -998,14 +998,22 @@ the area.
   the Redis adapter attached, that is one duplicate per replica.
 - Fix: `io.local.to(...)`. → PR-5.
 
-**N3 · HIGH · The default Gemini model is retired, so both fallbacks can fail**
-- Where: `src/config/env.js:372`, `GEMINI_MODEL` defaults to `gemini-1.5-pro`.
-- What: unless the platform `gemini` credential names a current audio-capable
-  model, the Gemini transcription (O1) and the Gemini summary (O2) fail with a
-  404. So does the rest of Praxis AI's chat fallback.
-- Fix: the owner sets a current model on the credential now. In code, a
-  current default and a boot/health check that says when the configured model
-  is missing. → PR-2 (code); PR-7's platform check keeps watching it.
+**N3 · MEDIUM · Hardcoded Gemini defaults name retired models**
+- Where:
+  - `src/config/env.js:372` (`GEMINI_MODEL` defaults to `gemini-1.5-pro`);
+  - `src/services/ai/vision.service.js:24` (falls back to `gemini-1.5-pro`);
+  - `client/src/features/ai-control/pages.tsx:717` (prefills
+    `gemini-1.5-flash`).
+- What: these apply only when the platform `gemini` credential is missing,
+  inactive or unreadable. Vendors resolve platform-first
+  (`llm.service.js` `resolveVendor`, `ai-vendor.service.js` `getConfig`). On
+  2026-09-24 the credential in Platform Console → Integrations names
+  `gemini-2.5-flash`, so production uses that. But a platform-DB outage or a
+  deactivated credential would fall back to a retired model, and the Gemini
+  transcription (O1) and summary (O2) would fail with a 404.
+- Fix: current defaults in all three places, and a health check that reports
+  when the configured model does not exist. → PR-2; PR-7's platform check keeps
+  watching it.
 
 **N4 · LOW · "Transcription failed" is never shown**
 - Where: `transcriptionIssue` in `client/src/features/comms/call/call-session.ts`.
@@ -1345,8 +1353,11 @@ migration(s), `tests/unit/smartcomm-call-records.test.js`, a new integration tes
       and links to the conversation.
     - Design stays within the primitives; PR-6 does the final look.
 11. **Gemini model (N3).**
-    - Replace the retired `GEMINI_MODEL` default with a current audio-capable
-      model. Check Google's current model list; do not guess.
+    - Replace the retired defaults with a current audio-capable model in all
+      three places N3 lists: `env.js`, `vision.service.js` and the
+      `ai-control` prefill. Check Google's current model list; do not guess.
+      The platform credential (`gemini-2.5-flash` today) stays what
+      production uses.
     - Add a boot or health check that logs, and shows in the platform AI
       Vendors screen, when the configured Gemini model does not exist.
 12. **Docs.** Rewrite guide §4.5 to the new trigger model, and remove the claims
