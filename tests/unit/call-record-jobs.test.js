@@ -3,9 +3,8 @@
  * The call-record jobs (audit PR-2). The part and finalise jobs carry who
  * started them, because only a non-sweep run may notify anyone (A4); the
  * handlers hand the pipeline a `withDb` that opens a connection per call
- * rather than one connection for the whole job (D3); the old whole-call job
- * still runs, as a deadline finalise; and the daily sweep restarts only work
- * that never ran.
+ * rather than one connection for the whole job (D3); and the daily sweep
+ * restarts only work that never ran.
  */
 jest.mock("../../src/services/tenant/registry.service", () => ({
   withTenantConnection: jest.fn(async (meta, env, fn) => fn({ fake: true })),
@@ -22,7 +21,6 @@ const registry = require("../../src/services/tenant/registry.service");
 const pipeline = require("../../src/modules/smartcomm/smartcomm.call.pipeline.service");
 const partJob = require("../../src/jobs/handlers/call-transcribe-part");
 const finaliseJob = require("../../src/jobs/handlers/call-finalise");
-const legacyJob = require("../../src/jobs/handlers/call-transcribe");
 const recordSweep = require("../../src/jobs/handlers/comms-call-record-sweep");
 
 const tenantMeta = { slug: "acme", db_name: "acme" };
@@ -50,13 +48,6 @@ test("the finalise job hands its origin and deadline flag to finaliseCall", asyn
   await finaliseJob({ data: { callId: "c1", tenantMeta, env: "live", origin: "sweep", deadline: true } });
   expect(pipeline.finaliseCall.mock.calls[0][0]).toEqual(
     expect.objectContaining({ callId: "c1", origin: "sweep", deadline: true }),
-  );
-});
-
-test("a whole-call job queued before per-part transcription runs as a deadline finalise, as a hang-up", async () => {
-  await legacyJob({ data: { callId: "c1", tenantMeta, env: "live" } });
-  expect(pipeline.finaliseCall.mock.calls[0][0]).toEqual(
-    expect.objectContaining({ callId: "c1", origin: "hangup", deadline: true }),
   );
 });
 
