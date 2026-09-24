@@ -1983,6 +1983,7 @@ factual. The next agent relies on them.
 | PR-6 | NOT STARTED | — | — | — | |
 | PR-7 | NOT STARTED | — | — | — | |
 | Plan update (O1–O5, A12–A15, N1–N5, PR-7) | OPEN | `claude/integration-audit-report-u6twc5` | #475 | — | Owner decisions, ringing findings, PR-1 findings, test calls |
+| Chat UI redesign (**parallel, not a plan PR**) | IN PROGRESS | `claude/message-ui-redesign-gzxylv` | — | — | Cosmetic chat-thread restyle. Touches `team-chat.tsx` **header + sidebar + thread scroller only** — NOT the composer area (PR-2) and adds no feature gating (PR-6). See the log entry below before PR-2/PR-6. |
 
 Status values: `NOT STARTED` → `IN PROGRESS` → `OPEN` (PR raised) → `MERGED`.
 Use `BLOCKED` with a reason in Notes if you stop.
@@ -2184,3 +2185,42 @@ Use `BLOCKED` with a reason in Notes if you stop.
   Setup, and a daily platform check reported only to admin.praxisls.com.
 - §4 item 3: PR-1 left the rate-limit question open; the owner's O1 decides it
   (any Groq failure goes to Gemini at once).
+
+### Chat UI redesign · 2026-09-24 · IN PROGRESS (parallel, not a plan PR)
+
+Recorded here at the owner's request so the calls PRs know which files a
+**parallel, cosmetic** effort has touched. This is **not** one of the seven PRs
+and fixes none of the audit's findings; it restyles the in-house chat thread
+(bubbles, backdrop, voice player, link/ERP cards, sidebar, header) for a
+premium, WhatsApp-grade finish. Branch `claude/message-ui-redesign-gzxylv`.
+
+- **Overlap that matters — `client/src/features/comms/team-chat.tsx`.** Changed
+  regions, and only these:
+  - **Thread header:** removed the `· direct` kind label; the dial button is now
+    a circular icon button; the info-pane toggle moved into a WhatsApp-style ⋮
+    (`MoreVerticalIcon`) dropdown; a presence subtitle was added under the name.
+  - **Sidebar:** the New button is a gradient pill, the filter tabs and
+    `ChannelRow` (glowing unread, active-row tint) were restyled.
+  - **Thread scroller:** gained the washed backdrop (`.chat-thread-bg`) + tenant
+    hero image via `useBranding()`; the shell got `.chat-shell`.
+  - **NOT touched:** the **composer area** (where **PR-2** pins the "Call
+    summary — Review & send" card, O3 step 10) and **no feature gating** was
+    added (that is **PR-6**'s F10). So the merge risk is low — different regions.
+  - **Heads-up for PR-6 (F10).** The audit cites the phone icon at
+    `team-chat.tsx:511,1007`; those line numbers and the button markup have
+    moved. The dial affordance now lives in (a) the circular header icon button
+    and (b) a "Start a voice call" ⋮-menu item. Re-locate both when adding the
+    `calls`-feature + MOD-64 gate. The member-area dial button (old `:511`, in
+    `InfoPane`) is unchanged.
+- **No overlap — chat-only files** (in none of the seven PRs' file lists):
+  `chat/message-bubble.tsx`, `chat/link-card.tsx`, `chat/voice-note.tsx`,
+  `chat/erp-card.tsx`, plus a new section in `src/index.css`, a new
+  `MoreVerticalIcon` in `components/ui/icons.tsx`, and updated tests
+  (`team-chat.test.tsx`, `chat/chat.test.tsx`, `chat/message-links.test.tsx`).
+- **Gates:** `check:palette`, `check:motion`, `check:contrast`, `check:docs`,
+  `lint` (0 errors) and `tsc -b` all pass; the touched comms unit suites pass.
+  (Full `npm run ci` still owed on the final branch state.)
+- **For PR-2 / PR-6:** if you land first, this branch rebases onto your merge
+  and reconciles `team-chat.tsx`; if this lands first, expect the header/sidebar
+  markup to differ from the audit's 2026-09-24 snapshot — re-read it before
+  applying line-referenced fixes.
