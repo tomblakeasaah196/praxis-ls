@@ -246,9 +246,9 @@ describe("the metric definitions", () => {
    * length changing from 5 to 6.
    *
    * THREE WERE ADDED FOR THE HERO'S FIGURE RAIL. The rail carries three
-   * figures, and the seeded set was four — which gives a tenant nothing to
-   * choose between, only a row to accept. Eight is one per metric, so the
-   * editor opens on a catalogue somebody can drag into an order. The three are
+   * figures and the registry held five, so a tenant choosing what a visitor
+   * reads first was choosing from barely more than fits. Eight is what the
+   * editor's "Live figure" list now offers against three slots. The three are
    * `company.years_active` (the only figure on a freight homepage whose true
    * value changes with nobody doing any work, and therefore the one most
    * certain to be stale if typed), `coverage.countries_count` (the same union
@@ -287,15 +287,17 @@ describe("the metric definitions", () => {
   });
 
   it("declines to measure the two that would otherwise publish a zero", async () => {
-    /* `company.years_active` and `coverage.countries_count` are both seeded on
-       a fresh tenant and both need work nobody has done yet — a founded year
-       on Settings › Website › About, and a published corporate entity. A
-       resolver returning 0 there would fall through to the seeded literal of
-       0 and put "0 Countries covered" on the tenant's own front door, which is
-       not a missing number but a false one.
+    /* Both need work nobody has necessarily done — a founded year on Settings
+       › Website › About, and a published corporate entity. The editor creates
+       a new figure with a literal of "0", so a resolver answering 0 rather
+       than null would fall through to that literal and put "0 Countries
+       covered" on the tenant's own front door. Not a missing number: a false
+       one.
 
        So they answer null, which `applyMetrics` treats as "drop the figure".
-       The seeded catalogue is only safe because of this. */
+       That pairing is what makes a metric safe to offer in the editor at all
+       — a tenant binds one, sees nothing until it is true, and never has to
+       know it was the literal showing. */
     const none = { query: async () => ({ rows: [] }) };
     await expect(metrics.resolveMetric(none, "company.years_active")).resolves.toBeNull();
 
