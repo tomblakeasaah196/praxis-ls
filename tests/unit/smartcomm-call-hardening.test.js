@@ -254,3 +254,93 @@ describe("C13: the tenant's relay-only setting", () => {
     await expect(service.callSettings(db)).resolves.toMatchObject({ relay_only: true });
   });
 });
+
+/* ── C4 · a chat attachment cannot surface someone else's call ────────────── */
+
+describe("C4: CALL attachments come only from sendSummary", () => {
+  const validator = require("../../src/modules/smartcomm/smartcomm.validator");
+  const callAttachment = { attachment_kind: "CALL", call_id: CALL };
+
+  test("the message route's schema refuses a CALL attachment", () => {
+    expect(validator.schemas.message.safeParse({ body: "hi", attachments: [callAttachment] }).success).toBe(false);
+    // Other kinds still pass.
+    expect(validator.schemas.message.safeParse({ body: "hi", attachments: [{ attachment_kind: "ERP", erp_kind: "INVOICE", erp_id: CALL }] }).success).toBe(true);
+  });
+
+  test("the scheduled-message schema refuses one too", () => {
+    const body = {
+      request_id: CALL, body: "later", attachments: [callAttachment],
+      send_at: new Date(Date.now() + 3_600_000).toISOString(), timezone: "Africa/Douala",
+    };
+    expect(validator.schemas.scheduled.safeParse(body).success).toBe(false);
+  });
+
+  test("an edit carries a body and nothing else", () => {
+    expect(validator.schemas.editMessage.safeParse({ body: "x", attachments: [callAttachment] }).success).toBe(false);
+    expect(validator.schemas.editMessage.safeParse({ body: "x" }).success).toBe(true);
+  });
+
+  test("a stored schedule with a CALL attachment is refused at send time, even with a real vault id", async () => {
+    const schedule = require("../../src/modules/smartcomm/smartcomm.schedule.service");
+    const c = { query: async () => ({ rows: [{ doc_id: CALL }], rowCount: 1 }) };
+    await expect(schedule.validateAttachments(c, G1, [{ ...callAttachment, vault_id: CALL }], null))
+      .rejects.toMatchObject({ status: 422 });
+  });
+
+  test("the AI's post_comms_message uses the same refusing schema", () => {
+    const manifest = require("../../src/modules/smartcomm/smartcomm.ai");
+    const write = manifest.writes.find((w) => w.key === "post_comms_message");
+    expect(write.schema.safeParse({ group_id: G1, body: "x", attachments: [callAttachment] }).success).toBe(false);
+  });
+});
+
+describe("C4: a call card resolves only for the message that sent it", () => {
+  const pipeline = require("../../src/modules/smartcomm/smartcomm.call.pipeline.service");
+  const MSG_SENT = "66666666-6666-6666-6666-666666666666";
+  const MSG_UPDATE = "77777777-7777-7777-7777-777777777777";
+  const MSG_FORGED = "88888888-8888-8888-8888-888888888888";
+
+  // A permissive database: it returns the summary whatever the WHERE says, so
+  // the function's own check is what is under test. The SQL is asserted too.
+  function db(summary) {
+    const seen = [];
+    return {
+      seen,
+      query: async (sql, params) => {
+        seen.push({ sql, params });
+        return { rows: [{ call_id: CALL, summary_text: "secret minutes", transcription_error: "groq: 401 key sk-x", ...summary }] };
+      },
+    };
+  }
+
+  test("the message that posted the summary gets the card", async () => {
+    const cards = await pipeline.cardsForCallIds(db({ draft_status: "SENT", sent_message_id: MSG_SENT }), [{ call_id: CALL, message_id: MSG_SENT }]);
+    expect(cards.get(`${MSG_SENT}:${CALL}`)).toMatchObject({ summary_text: "secret minutes" });
+  });
+
+  test("the update message gets it too", async () => {
+    const cards = await pipeline.cardsForCallIds(
+      db({ draft_status: "SENT", sent_message_id: MSG_SENT, update_message_id: MSG_UPDATE }),
+      [{ call_id: CALL, message_id: MSG_UPDATE }],
+    );
+    expect(cards.get(`${MSG_UPDATE}:${CALL}`)).toBeTruthy();
+  });
+
+  test("another message pointing at the same call gets nothing", async () => {
+    const cards = await pipeline.cardsForCallIds(db({ draft_status: "SENT", sent_message_id: MSG_SENT }), [{ call_id: CALL, message_id: MSG_FORGED }]);
+    expect(cards.size).toBe(0);
+  });
+
+  test.each(["PENDING_REVIEW", "DISCARDED", "SENDING"])("a %s draft never resolves", async (draftStatus) => {
+    const cards = await pipeline.cardsForCallIds(db({ draft_status: draftStatus, sent_message_id: MSG_SENT }), [{ call_id: CALL, message_id: MSG_SENT }]);
+    expect(cards.size).toBe(0);
+  });
+
+  test("the query itself filters on SENT and the message ids, and returns no vendor text", async () => {
+    const d = db({ draft_status: "SENT", sent_message_id: MSG_SENT });
+    const cards = await pipeline.cardsForCallIds(d, [{ call_id: CALL, message_id: MSG_SENT }]);
+    expect(d.seen[0].sql).toMatch(/draft_status = 'SENT'/);
+    expect(d.seen[0].sql).toMatch(/sent_message_id|update_message_id/);
+    expect(JSON.stringify([...cards.values()])).not.toMatch(/sk-x|transcription_error/);
+  });
+});

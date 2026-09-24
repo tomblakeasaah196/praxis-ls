@@ -38,6 +38,15 @@ const attachment = z.object({
   kind: z.enum(["IMAGE", "AUDIO", "VIDEO"]).optional().nullable(),
   is_voice_note: z.boolean().optional(),
 }).passthrough();
+/**
+ * An attachment a PERSON may post (audit C4). A CALL card resolves a call's
+ * summary for everyone in the channel, so only `sendSummary` writes one; a
+ * client naming another pair's call id here would surface their summary.
+ */
+const notCall = (a) => a.attachment_kind !== "CALL";
+const NOT_CALL = { message: "Call summaries are shared from the call, not attached", path: ["attachment_kind"] };
+const postedAttachment = attachment.refine(notCall, NOT_CALL);
+const scheduledAttachment = attachment.strip().refine(notCall, NOT_CALL);
 const schemas = {
   // SEC H3 guard. Four write routes reached their handler with an unvalidated
   // body. The three toggles read `req.body.x === true`, so an absent or
@@ -58,10 +67,11 @@ const schemas = {
   emailTestSend: z.object({ to: z.string().trim().email().max(254), purpose: z.string().trim().min(1).max(64).optional() }).strict(),
   channel: z.object({ name: z.string().min(1), kind: z.enum(["DEPARTMENT", "PROJECT", "DOSSIER", "DIRECT", "CLIENT"]).optional(), dossier_id: z.string().uuid().optional().nullable(), client_id: z.string().uuid().optional().nullable(), topic: z.string().optional(), member_ids: z.array(z.string().uuid()).optional() }),
   member: z.object({ user_id: z.string().uuid(), member_role: z.enum(["OWNER", "ADMIN", "MEMBER"]).optional() }),
-  message: z.object({ body: z.string().optional(), media_vault_id: z.string().uuid().optional().nullable(), reply_to: z.string().uuid().optional().nullable(), attachments: z.array(attachment).optional() }),
-  scheduled: z.object({ request_id: z.string().uuid(), body: z.string().max(10000).default(""), attachments: z.array(attachment.strip()).max(20).default([]), reply_to: z.string().uuid().nullable().optional(), send_at: z.string().datetime({ offset: true }), timezone: z.string().min(1).max(100) }).strict(),
+  message: z.object({ body: z.string().optional(), media_vault_id: z.string().uuid().optional().nullable(), reply_to: z.string().uuid().optional().nullable(), attachments: z.array(postedAttachment).optional() }),
+  scheduled: z.object({ request_id: z.string().uuid(), body: z.string().max(10000).default(""), attachments: z.array(scheduledAttachment).max(20).default([]), reply_to: z.string().uuid().nullable().optional(), send_at: z.string().datetime({ offset: true }), timezone: z.string().min(1).max(100) }).strict(),
   reschedule: z.object({ send_at: z.string().datetime({ offset: true }), timezone: z.string().min(1).max(100) }).strict(),
-  editMessage: z.object({ body: z.string().min(1) }),
+  // An edit changes the words only; attachments are never edited (C4).
+  editMessage: z.object({ body: z.string().min(1) }).strict(),
   react: z.object({ emoji: z.string().min(1).max(16) }),
   draft: z.object({ body: z.string() }),
   /**

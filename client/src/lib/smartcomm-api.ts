@@ -681,7 +681,6 @@ export type CallCard = {
   ended_at: string | null;
   call_status: string;
   transcription_state: CallTranscriptState | null;
-  transcription_error: string | null;
   caller_name: string | null;
   callee_name: string | null;
 };
