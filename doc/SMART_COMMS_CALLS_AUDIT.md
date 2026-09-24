@@ -1997,7 +1997,7 @@ factual. The next agent relies on them.
 | PR-1 | MERGED | `claude/magical-einstein-xqhkn1` | #476 | 2026-09-24 | Includes owner decisions A-1 (Groq → Gemini transcription, no browser capture) and A-2 (Gemini → DeepSeek summaries) |
 | PR-2 | MERGED | `claude/wizardly-ptolemy-dyazt1` | #477 | 2026-09-24 | Per-part recorder and transcription, finalise, race-free drafts, pinned draft (O3), N3; migration 14050 |
 | PR-3 | MERGED | `claude/tender-davinci-v1eh8y` | #479 | 2026-09-24 | TURN, credentials, relay, IDOR, rate limits; migration 14060; null-payload crash in the relay |
-| PR-4 | OPEN | `claude/smart-comms-pr-4-9e8q91` | #PRNUM | — | Perfect negotiation, rings on every device (push at dial, re-alerts, cancel everywhere), ringing read, Answer/Decline, device check + Test ring, noise default off, no screen wake lock; TURN relay-to-relay and TLS on 443 (owner's Step 0/0b); migration 14070 |
+| PR-4 | OPEN | `claude/smart-comms-pr-4-9e8q91` | #481 | — | Perfect negotiation, rings on every device (push at dial, re-alerts, cancel everywhere), ringing read, Answer/Decline, device check + Test ring, noise default off, no screen wake lock; TURN relay-to-relay and TLS on 443 (owner's Step 0/0b); migration 14070 |
 | PR-5 | NOT STARTED | — | — | — | |
 | PR-6 | NOT STARTED | — | — | — | |
 | PR-7 | NOT STARTED | — | — | — | |
@@ -2604,7 +2604,7 @@ premium, WhatsApp-grade finish. Branch `claude/message-ui-redesign-gzxylv`
   set, and the Settings → Calls card in light and dark. Nothing touched
   production; the §0 parking SQL was not run.
 
-### PR-4 · 2026-09-24 · OPEN (#PRNUM)
+### PR-4 · 2026-09-24 · OPEN (#481)
 - Before the plan (owner's Step 0 and 0b), each with its test:
   - **Relay to relay.** PR-3's entrypoint denied the relay's own public
     address, so a call with both callers relayed (client → TURN → TURN →
@@ -2804,4 +2804,20 @@ premium, WhatsApp-grade finish. Branch `claude/message-ui-redesign-gzxylv`
   design: **Tap to hear** (overlay), **Tap to enable ring sound** (ring), the
   "on another device" line, the ring prompt and the This-device panel.
   `endedReason` gains `answered_elsewhere`.
-- Gates: GATES_PLACEHOLDER
+- Gates: `npm run ci` 47/47 passed (335 s) on `6dca1b5`, run alone on a
+  clean tree; the first run failed only `public-web-csp-cors.test.js`,
+  whose SEC-M8 guard matched the `scriptSrc` source text that the
+  `buildScriptSrc` refactor moved (now asserted through the function),
+  fixed. Backend jest 9,939 passed / 108 skipped; client vitest 3,138
+  passed / 10 skipped. Run by hand, because `npm run ci` skips them:
+  Playwright `e2e/call.spec.ts` 13/13, three runs in a row, against a
+  production build; on local Postgres 16 + pgvector, provisioning a tenant
+  from nothing (14070 in live and sandbox; the replay applied 0 files),
+  live/sandbox schema parity, the AI catalogue sync and `--check`, and
+  `tests/integration/call-{rings,hardening,liveness,pipeline}.test.js`
+  (11/11, with ffmpeg); `RUN_TURN_TESTS=1 tests/integration/
+  turn-relay.test.js` 3/3 on coturn 4.6.1 in both layouts (relay to relay
+  fails with 403 on PR-3's entrypoint). Not run: the Docker build,
+  PgBouncer, the desktop layout gate, the AI golden-set eval, anything on
+  a real phone (the owner's checklist on #481). Nothing touched
+  production; the §0 SQL was not run.
