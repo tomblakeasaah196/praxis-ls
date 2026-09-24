@@ -1028,8 +1028,11 @@ export function wireCallSocket(): void {
   s.on("call:declined", onTerminal);
   s.on("call:no_answer", onTerminal);
 
-  // A13: every moment this tab may have missed a `call:ringing`.
+  // A13: every moment this tab may have missed a `call:ringing` — now (the
+  // socket may have connected before these handlers existed), each
+  // (re)connect, the return to the foreground, and the network coming back.
   s.on("connect", () => void reconcileRinging(true));
+  void reconcileRinging(true);
   if (typeof document !== "undefined") {
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") void reconcileRinging();

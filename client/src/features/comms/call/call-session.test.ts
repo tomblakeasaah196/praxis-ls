@@ -1005,3 +1005,16 @@ describe("the service worker's hand-offs (A8, A14, step 6–7)", () => {
     expect(result.current.phase).toBe("connecting");
   });
 });
+
+describe("the ringing read on a fresh load (A13)", () => {
+  it("runs when the session is wired, even if the socket connected first", async () => {
+    const mod = await fresh();
+    W.api.getRingingCalls = async () => [ringingRow()] as unknown as Record<string, unknown>;
+    const { result } = renderHook(() => mod.useCall());
+    await act(async () => {
+      mod.wireCallSocket(); // no `connect` event: it already happened
+      await settle();
+    });
+    expect(result.current.phase).toBe("incoming");
+  });
+});
