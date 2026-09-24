@@ -1996,7 +1996,7 @@ factual. The next agent relies on them.
 | Audit (this document) | MERGED | `claude/integration-audit-report-u6twc5` | #474 | 2026-09-24 | Report, PR plan, scale design |
 | PR-1 | MERGED | `claude/magical-einstein-xqhkn1` | #476 | 2026-09-24 | Includes owner decisions A-1 (Groq → Gemini transcription, no browser capture) and A-2 (Gemini → DeepSeek summaries) |
 | PR-2 | MERGED | `claude/wizardly-ptolemy-dyazt1` | #477 | 2026-09-24 | Per-part recorder and transcription, finalise, race-free drafts, pinned draft (O3), N3; migration 14050 |
-| PR-3 | IN PROGRESS | `claude/tender-davinci-v1eh8y` | — | — | TURN, credentials, relay, IDOR, rate limits |
+| PR-3 | OPEN | `claude/tender-davinci-v1eh8y` | #479 | — | TURN, credentials, relay, IDOR, rate limits; migration 14060; null-payload crash in the relay |
 | PR-4 | NOT STARTED | — | — | — | |
 | PR-5 | NOT STARTED | — | — | — | |
 | PR-6 | NOT STARTED | — | — | — | |
@@ -2396,3 +2396,160 @@ Use `BLOCKED` with a reason in Notes if you stop.
   golden set. The device matrix is the owner's (PR body, "For the owner to
   run"). Nothing here touched production, and the §0 parking SQL was not
   run.
+
+### PR-3 · 2026-09-24 · OPEN (#479)
+- Fixed, each with the test that proves it. Each test was run against the
+  code before its fix and failed there; the only ones that already passed
+  are guards: a stranger's TURN refresh is 404, `STUN_URLS` is used as
+  given, the sweep records no actor, a live call's signal is relayed, and
+  a non-null primitive socket payload is ignored.
+  - C1: `docker/coturn/docker-entrypoint.sh` renders coturn's config into a
+    mode-600 file (the secret is not in argv): REST auth, denied peers for
+    0/8, 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.0.0/24,
+    192.168/16, 198.18/15, 240/4, ::1, IPv4-mapped IPv6, 64:ff9b::/96,
+    fc00::/7 and fe80::/10, plus this host's public IP; no TCP relay; user
+    and total quotas; a bandwidth cap. Image pinned by version and digest.
+    Tests: `turn-deployment.test.js` (the rendered config, the compose
+    service, every option checked against coturn 4.18.0's parser);
+    `tests/integration/turn-relay.test.js` (`RUN_TURN_TESTS=1`, a real
+    coturn): allocation works, and 169.254.169.254, 172.17.0.1, 127.0.0.1,
+    10.0.0.1 and 192.168.1.1 are refused with 403.
+  - C3: `static-auth-secret` replaces `TURNSHAREKEY`, which coturn never
+    read; realm, external IP, a `turns:` listener, and a health check that
+    allocates. Real coturn accepts a credential minted by
+    `smartcomm.turn.service` and refuses an expired or altered one
+    (`turn-relay.test.js`). `scripts/turn-check.sh` is the owner's check on
+    the deployed relay.
+  - C2: credentials only for RINGING/IN_CALL calls (404 otherwise, the same
+    as a stranger); username `<expiry>:<comms_call.turn_token>`, a random
+    per-call token written with the row at dial; TTL = the call's remaining
+    allowance + 60 s; `call-turn` rate limit. `smartcomm-call-hardening.test.js`,
+    `smartcomm-call-routes.test.js`, `call-hardening.test.js` (real SQL).
+  - C12: STUN from `STUN_URLS`, else the TURN host, else none; never Google.
+  - C13: setting `comms.call_privacy {relay_only}` → `iceTransportPolicy:
+    "relay"`, a switch in Settings → Calls, and the engine passes it to
+    `RTCPeerConnection`. `smartcomm-call-hardening.test.js`,
+    `call-engine.test.ts`, `calls-page.test.tsx`.
+  - C4: the message, scheduled-message and AI-post schemas refuse
+    `attachment_kind: "CALL"`; an edit is body-only (`.strict()`); a stored
+    schedule carrying one is refused at send time; `writeMessage` is
+    unchanged. A card resolves only for a SENT summary whose
+    `sent_message_id` or `update_message_id` is that message (in SQL and in
+    code). `smartcomm-call-hardening.test.js`; `call-pipeline.test.js` on
+    real Postgres (the posted card resolves; a stranger's forged post is
+    422, and a CALL row inserted another way resolves to nothing). On
+    `main` the forged post is accepted (201).
+  - C5, D7: relay only for RINGING/IN_CALL calls (`liveCounterpart`); the
+    counterpart is cached per socket per call and dropped when a terminal
+    call event reaches the socket (any replica) or after 30 s; SDP a
+    string ≤ 64 KB; a candidate its four known fields ≤ 2 KB, or null; a
+    per-socket token bucket (burst 120, 20/s); `maxHttpBufferSize` 128 KB.
+    `realtime-call-relay.test.js` (on `main`, with only the export added,
+    12 of its 13 tests fail; the passing one is the "live call is relayed"
+    guard).
+  - B8: hang-up, decline and failure record the actor in the event and the
+    audit; the sweep records nobody.
+  - B9: the server decides the reason; an old client's `reason` is
+    accepted and ignored; the client no longer sends one.
+  - C6: `directPartner` requires an ACTIVE callee, read from
+    `live.app_user` (see new findings); ≤ 6 dials per callee per minute
+    (Redis, fails open); `call-dial` limiter per caller (8/min); a
+    deactivated user's push subscriptions are deleted from live and
+    sandbox (`user-deactivated-drop-push.js`).
+  - C8: regenerate answers 202 and queues `call-summary-regenerate`
+    (jobId `callregen-<call>-<lang>`, failed jobs not kept); the job reads,
+    calls the LLM with no connection held, writes through the guarded
+    upsert and emits `call:summary_ready {redraft, language}`. The
+    language must change (422 `SAME_LANGUAGE`), a draft has at most 6
+    rewrites (409 `REGENERATE_LIMIT`), and `call-regenerate` limits a call
+    to 3 requests per 10 minutes. The editor polls until the draft is in
+    the new language, and puts the old language back if it fails.
+  - C10: the AI reads need `calls` / `call_recording`.
+  - C11: `getSummary`, `getTranscript` and `call:transcription_failed` give
+    a reason code (`SIDE_NOT_RECORDED`, `PARTS_NOT_TRANSCRIBED`,
+    `TRANSCRIPTION_FAILED`); call rows and cards no longer carry
+    `transcription_error` (or `turn_token`).
+  - Handed over by PR-2: the part re-run route has a `call-part-rerun`
+    limiter; `/live-log` answers 410 Gone and its write path is removed
+    (the table and its rows stay).
+- Found and fixed while re-reviewing this PR's own diff:
+  - `call:offer` / `answer` / `ice` / `ring_ack` with a `null` payload
+    threw inside socket.io's listener, and `server.js` exits on
+    `uncaughtException`: one emit from any signed-in user restarted an API
+    replica. Pre-existing on `main`; fixed here because it is the relay C5
+    hardens. `realtime-call-relay.test.js`.
+- Not fixed / deferred:
+  - C6's block / do-not-disturb option stays with PR-6, as §3 plans.
+  - The acceptance run on the production relay (`turn-check.sh`) is the
+    owner's; see the PR body.
+- Deviations from §3:
+  - `--no-loopback-peers` is not written: coturn 4.18.0 (the pinned image)
+    has no such option and refuses loopback peers by default
+    (`allow-loopback-peers` is opt-in); 127/8 and ::1 are in the deny list
+    too. `no-cli` and `no-dtls` are left out for the same reason (off by
+    default in 4.18.0, and they only log errors there).
+  - Step 3's "internal flag on postMessage" is not used. The owner asked for
+    the refusal at the route/validator, with `writeMessage` untouched.
+  - `TURN_CREDENTIAL_TTL` is removed: the TTL is derived from the call.
+  - The per-callee limit is in the service (Redis counter), because only
+    the service knows the callee; the per-caller limit is a route limiter.
+- Schema: migration 14060 adds `comms_call.turn_token` (plain column) and
+  seeds `setting comms.call_privacy {"relay_only": false}` ON CONFLICT DO
+  NOTHING. New queue `call-summary-regenerate` (concurrency 2, attempts 1).
+  New env: `TURN_REALM`, `TURN_EXTERNAL_IP`, `TURN_TLS_PORT`,
+  `TURN_TLS_CERT`, `TURN_TLS_KEY`, `TURN_MIN_PORT`, `TURN_MAX_PORT`,
+  `TURN_USER_QUOTA`, `TURN_TOTAL_QUOTA`, `TURN_MAX_BPS`; removed
+  `TURN_CREDENTIAL_TTL`. New error codes: `CALLEE_INACTIVE`, `GONE`,
+  `QUEUE_UNAVAILABLE`, `RATE_LIMITED` (service), `REGENERATE_LIMIT`,
+  `SAME_LANGUAGE`. `POST /summary/regenerate` now answers 202.
+- New findings:
+  - `src/shared/http/rate-limit.js`: when `initRateLimitStore()` cannot
+    build the Redis store, it sets `storeKind = "memory"` but leaves
+    `store` null, and every limiter's `increment` then returns
+    `totalHits: 1`. With Redis down at boot, no limiter in the product
+    limits anything (login included), while the header comment says it
+    "degrades to the in-process store". Shared code outside this PR's
+    files; suggest a small fix (express-rate-limit's `MemoryStore` as the
+    fallback) in its own PR.
+  - `sandbox.app_user` is a mirror whose `status` is never updated after
+    the first copy (`shared/db/sandbox-user-mirror.js`: ON CONFLICT DO
+    NOTHING), so any sandbox query that trusts `app_user.status` sees a
+    suspended user as ACTIVE. PR-3 reads `live.app_user` for the callee;
+    other modules may have the same assumption. Like the mirror, this
+    assumes the live schema is named `live` (`platform.tenant_database.
+    live_schema` defaults to it and provisioning never changes it).
+  - `tests/integration/call-pipeline.test.js` ("O1: a part both providers
+    fail…") fails without ffmpeg installed, on `main` as well. PR-2's log
+    says it passed without ffmpeg; here it did not. CI installs ffmpeg, so
+    CI is unaffected.
+  - `client/src/features/comms/call/call-upload-outbox.ts:110` has a
+    silent catch without a taxonomy marker (a lint warning, PR-2's file).
+- For the next PR (PR-4):
+  - `iceConfigFor` returns `iceTransportPolicy` and `expiresAt`; the client
+    passes the policy through `rtcConfiguration()` in `call-engine.ts`.
+    `GET /calls/:id/turn` (rate-limited, live calls only) is still unused
+    by the client; PR-4's ICE restart can refresh through it.
+  - Signal payloads are validated server-side now: an SDP must be a string
+    and a candidate an object (or null). The relay drops a signal for an
+    ended call and answers nothing.
+  - Hang-up takes no body reason; the server records `hangup`.
+- Deploy note: C12 removes the Google STUN default. Production needs
+  `STUN_URLS` or `TURN_HOST` set, or cross-network calls get no STUN after
+  the deploy (PR body, "For the owner to run", step 0).
+- Gates: `npm run ci` 47/47 passed (534 s) on `6d1eca3`, run alone on a
+  clean tree; the first run failed only the backend lint warning budget
+  (four new warnings in this PR's tests), fixed. Run by hand, because
+  `npm run ci` skips them, on local Postgres 16 + pgvector: provisioning
+  two tenants from nothing (14060 in live and sandbox; the replay applied
+  0 files), live/sandbox schema parity, the AI catalogue sync and
+  `--check`, `tests/integration/call-{pipeline,liveness,hardening}.test.js`
+  (8/8, with ffmpeg), and `RUN_TURN_TESTS=1 tests/integration/
+  turn-relay.test.js` (2/2) on a real coturn 4.6.1. coturn 4.18.0 (the
+  pinned image) could not be pulled here (Docker Hub's anonymous rate
+  limit); its option parser was checked from the 4.18.0 source tag
+  instead. `/security-review` on the diff: nothing at the reporting bar;
+  one sub-threshold note fixed (a respelled call uuid had its own
+  regenerate budget), the other is the owner's step 5 in the PR body. Not
+  run: the Docker build, PgBouncer, the desktop layout gate, the AI golden
+  set, and the Settings → Calls card in light and dark. Nothing touched
+  production; the §0 parking SQL was not run.
