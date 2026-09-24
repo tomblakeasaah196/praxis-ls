@@ -1520,7 +1520,7 @@ factual. The next agent relies on them.
 
 | PR | Status | Branch | GitHub PR | Merged | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Audit (this document) | OPEN | `claude/integration-audit-report-u6twc5` | — | — | Report, PR plan, scale design |
+| Audit (this document) | OPEN | `claude/integration-audit-report-u6twc5` | #474 | — | Report, PR plan, scale design |
 | PR-1 | NOT STARTED | — | — | — | |
 | PR-2 | NOT STARTED | — | — | — | |
 | PR-3 | NOT STARTED | — | — | — | |
