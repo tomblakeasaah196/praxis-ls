@@ -606,10 +606,14 @@ test("the summary link opens the conversation with the draft pinned above the co
   await expect(pinned.getByRole("button", { name: /Send to conversation/ })).toBeVisible();
   await expect(pinned.getByRole("button", { name: "Hide" })).toHaveAttribute("aria-expanded", "true");
 
-  // Above the composer, not over the thread or in a floating panel.
+  // Above the composer, not over the thread or in a floating panel, and the
+  // composer stays on screen: on a short window the editor scrolls inside the
+  // card rather than pushing the composer below the fold.
   const composer = page.getByRole("textbox", { name: /message/i }).last();
   const [card, box] = await Promise.all([pinned.boundingBox(), composer.boundingBox()]);
   expect(card && box && card.y + card.height <= box.y + 1).toBe(true);
+  const viewport = page.viewportSize();
+  expect(box && viewport && box.y + box.height <= viewport.height).toBe(true);
 
   // Collapsing keeps it pinned, and takes ?summary= off the address.
   await pinned.getByRole("button", { name: "Hide" }).click();

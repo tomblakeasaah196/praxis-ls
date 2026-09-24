@@ -43,9 +43,11 @@ export function PinnedCallSummary({
   return (
     <section
       aria-label={tr("Call summary — Review & send")}
-      className="shrink-0 border-t border-border bg-card px-3 py-2"
+      className="flex min-h-0 flex-col border-t border-border bg-card px-3 py-2"
     >
-      <div className="flex flex-wrap items-center gap-2">
+      {/* The section may shrink (min-h-0) so on a short screen the editor
+          scrolls inside the space left and the composer stays in view. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <PhoneIcon width={16} height={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">{tr("Call summary — Review & send")}</p>
@@ -73,7 +75,7 @@ export function PinnedCallSummary({
       {open && (
         <div
           id={regionId}
-          className="mt-2 max-h-[55vh] overflow-y-auto overscroll-contain rounded-[10px] border border-border bg-background p-3"
+          className="mt-2 max-h-[55vh] min-h-0 overflow-y-auto overscroll-contain rounded-[10px] border border-border bg-background p-3"
         >
           <CallSummaryEditor callId={draft.call_id} onChanged={onChanged} refreshKey={refreshKey} />
           <p className="mt-3 text-micro">
