@@ -64,6 +64,23 @@ async function get(client, entityId) {
 }
 
 /**
+ * Serialize calendar writes per entity (PR-10 / B.4).
+ *
+ * `working_calendar` carries no unique index on entity_id — the table predates
+ * the corporate-entities programme — so two concurrent first saves could both
+ * see "no calendar yet" and both INSERT, leaving an entity with two calendars
+ * and `get()` choosing between them by accident. A transaction-scoped advisory
+ * lock is the whole fix: the second writer waits for the first to commit, then
+ * reads the committed row and updates it. Postgres releases it at COMMIT and
+ * at ROLLBACK alike, so there is nothing to remember and nothing to leak.
+ */
+async function lockEntityCalendar(client, entityId) {
+  await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+    "working_calendar:" + entityId,
+  ]);
+}
+
+/**
  * Replace an entity's own calendar.
  *
  * Always writes to the ENTITY's calendar, creating it on first save — editing
@@ -79,6 +96,7 @@ async function save(client, entityId, { timezone, days = [], holidays = [], name
 
   await client.query("BEGIN");
   try {
+    await lockEntityCalendar(client, entityId);
     const existing = await client.query(
       "SELECT working_calendar_id FROM working_calendar WHERE entity_id = $1 LIMIT 1",
       [entityId],
@@ -140,16 +158,46 @@ async function save(client, entityId, { timezone, days = [], holidays = [], name
   return get(client, entityId);
 }
 
-/** Drop an entity's own calendar so it inherits the tenant default again. */
+/**
+ * Drop an entity's own calendar so it inherits the tenant default again.
+ *
+ * Reset is deliberately the same unit of work as save.  In particular, do not
+ * move the reads below outside the transaction: the audit record must describe
+ * the calendar that was actually removed, and an event/audit failure must not
+ * turn a successful delete into an unaudited change.  Keeping the inherited
+ * result in `after` also makes a reset auditable when there was no own calendar
+ * (the before and after snapshots then both identify the tenant default).
+ */
 async function reset(client, entityId, { actor = {} } = {}) {
-  await client.query("DELETE FROM working_calendar WHERE entity_id = $1", [entityId]);
-  await audit(client, {
-    actorUserId: await resolveActorId(client, actor.user_id),
-    action: "working_calendar.reset",
-    moduleKey: MODULE,
-    entityRef: "corporate_entity:" + entityId,
-  });
-  return get(client, entityId);
+  await client.query("BEGIN");
+  try {
+    await lockEntityCalendar(client, entityId);
+    const before = await get(client, entityId);
+
+    await client.query("DELETE FROM working_calendar WHERE entity_id = $1", [entityId]);
+
+    const after = await get(client, entityId);
+    await emitEvent(client, {
+      eventTypeKey: "working_calendar.reset",
+      moduleKey: MODULE,
+      entityRef: "corporate_entity:" + entityId,
+      actorUserId: actor.user_id || null,
+      payload: { before, after },
+    });
+    await audit(client, {
+      actorUserId: await resolveActorId(client, actor.user_id),
+      action: "working_calendar.reset",
+      moduleKey: MODULE,
+      entityRef: "corporate_entity:" + entityId,
+      before,
+      after,
+    });
+    await client.query("COMMIT");
+    return after;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  }
 }
 
 module.exports = { get, save, reset };

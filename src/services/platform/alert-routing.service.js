@@ -72,6 +72,22 @@ const EVENT_SEVERITY = {
   // platform fault with immediate user-visible effect, and it stays broken
   // until someone looks.
   "entitlement.unavailable": "page",
+  // Smart Comms PR-2. The transcript-never-dies guarantee has exactly one
+  // visible failure path (§4.5 step 3): the certified transcript could not be
+  // produced and the flagged browser capture is carrying the call. `notify`
+  // rather than `page` because the caller still has words, a labelled draft and
+  // a daily reprocess — this is a degradation to read about in the morning, and
+  // the PR-3 observability chapter is where a SUSTAINED rate earns a page
+  // (§7.2's alert on the TRANSCRIPTION_FAILED count).
+  "comms.transcription_failed": "notify",
+  // Smart Comms PR-3 (§7.2's "the never-dies guarantee is only as good as its
+  // alarm"). Same failure as the line above, at a RATE: one call falling back
+  // is a degradation to read about in the morning, ten in a day is a provider
+  // outage, a dead key or a stopped queue — and it means the guarantee is
+  // failing for calls whose callers are being told nothing. That earns a page,
+  // which is why the two events are separate rather than one with a severity
+  // that depends on the count.
+  "comms.transcription_sustained": "page",
   "backup.stale": "notify",
   "tenant.amber": "notify",
   // A tenant past a SOFT limit. Nothing was blocked and nothing is broken —

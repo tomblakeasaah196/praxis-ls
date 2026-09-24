@@ -12,6 +12,7 @@
 "use strict";
 
 const crypto = require("crypto");
+const { insertOne } = require("../../../shared/db/query-helpers");
 const repo = require("./corporate_entity.repo");
 const events = require("./corporate_entity.events");
 const rules = require("./corporate_entity.rules");
@@ -20,7 +21,6 @@ const lh = require("../entity-letterhead.service");
 const letterheadService = lh;
 const letterheadBlocks = require("../../../services/documents/templates/letterhead-blocks");
 const dossierService = require("../entity-360.service");
-const { maskBank } = require("../_shared/confidential");
 const storage = require("../../../services/storage.service");
 const imagePipeline = require("../../../services/image-pipeline.service");
 const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emit");
@@ -55,17 +55,24 @@ const CREATE_CAMEL_ALIASES = {
 };
 
 /**
- * Register a corporate entity.
+ * Register a corporate entity with optional atomic initial registered address (PR-02).
  *
- * `input` is the schema-validated body (entityCommon.masterCreate) in COLUMN
- * NAMES, plus `actor`. Every writable column is accepted through the SAME
- * allow-list the PATCH path uses (repo.WRITABLE), so a field the shared schema
- * accepts can never again be silently dropped between validation and INSERT —
- * create and update agree by construction instead of by two hand-kept lists.
+ * The entity and its initial REGISTERED address must commit or fail together
+ * (Decision Q7 / CE-08 / CE-19). The previous client flow POSTed the entity and
+ * then issued a second POST for the address, logging only a console warning on
+ * failure and leaving the offline outbox unaware of the dependent write. That
+ * allowed a successful create to silently lose its address and an offline create
+ * to be reported complete before both records existed.
  *
- * `actorArg` exists for the AI write adapter, which calls
- * `service(client, payload, actor)` with the actor as a third positional
- * argument rather than folded into the body.
+ * This implementation moves the boundary to the server: one transaction owns
+ * both rows. If the address payload is present and contains any meaningful
+ * content, it is inserted in the same BEGIN/COMMIT block as the entity. Any
+ * failure rolls back both — no partial success, no orphaned dependent row.
+ *
+ * Idempotency: the tenant router's idempotency middleware stores the response
+ * against the Idempotency-Key. A replay of the same key returns the original
+ * entity response without re-executing this transaction, which prevents duplicate
+ * entities and duplicate initial addresses on reconnect (outbox flush).
  */
 async function create(client, input = {}, actorArg = null) {
   const { actor = actorArg || {}, ...body } = input;
@@ -74,13 +81,18 @@ async function create(client, input = {}, actorArg = null) {
     delete body[camel];
   }
 
-  const code = body.code;
+  // PR-02: initial_address is not a column; it is a dependent child that must be
+  // created atomically with the entity. Extract it before building the entity fields.
+  const { initial_address: rawInitialAddress, initialAddress, ...entityBody } = body;
+  const initialAddressInput = rawInitialAddress || initialAddress || null;
+
+  const code = entityBody.code;
   const existing = await repo.getByCode(client, code);
   if (existing) throw new AppError("DUPLICATE_CODE", "An entity with code " + code + " already exists", 409);
-  rules.assertFiscalMonth(body.fiscal_year_start_month);
+  rules.assertFiscalMonth(entityBody.fiscal_year_start_month);
 
-  if (body.parent_entity_id) {
-    const parent = await repo.get(client, body.parent_entity_id);
+  if (entityBody.parent_entity_id) {
+    const parent = await repo.get(client, entityBody.parent_entity_id);
     if (!parent) throw new AppError("NOT_FOUND", "The parent entity does not exist", 404);
   }
 
@@ -93,16 +105,78 @@ async function create(client, input = {}, actorArg = null) {
   // because there a null means "clear this".)
   const fields = { code };
   for (const k of repo.WRITABLE) {
-    if (body[k] !== undefined && body[k] !== null) fields[k] = body[k];
+    if (entityBody[k] !== undefined && entityBody[k] !== null) fields[k] = entityBody[k];
   }
   if (fields.bank_block !== undefined) fields.bank_block = JSON.stringify(fields.bank_block || {});
   // Service-owned column, so not in WRITABLE — but the create schema allows
   // starting life as a DRAFT, and the 0515 trigger defaults it to ACTIVE.
-  if (body.registration_status) fields.registration_status = body.registration_status;
+  if (entityBody.registration_status) fields.registration_status = entityBody.registration_status;
 
   await client.query("BEGIN");
   try {
     const row = await repo.insert(client, fields);
+
+    // Atomic initial registered address (PR-02 / CE-08 / CE-19)
+    let initialAddressRow = null;
+    if (initialAddressInput) {
+      const hasContent = (a) => {
+        if (!a || typeof a !== "object") return false;
+        const keys = ["line1", "line2", "city", "region", "postal_code", "country_code", "po_box"];
+        return keys.some((k) => {
+          const v = a[k];
+          return v !== undefined && v !== null && String(v).trim() !== "";
+        });
+      };
+
+      if (hasContent(initialAddressInput)) {
+        // Force canonical values: REGISTERED type and primary flag, regardless of
+        // what the client sent — the initial address is always the registered office.
+        const addressData = {
+          entity_id: row.entity_id,
+          type: "REGISTERED",
+          line1: initialAddressInput.line1 ?? null,
+          line2: initialAddressInput.line2 ?? null,
+          city: initialAddressInput.city ?? null,
+          region: initialAddressInput.region ?? null,
+          postal_code: initialAddressInput.postal_code ?? null,
+          country_code:
+            initialAddressInput.country_code ||
+            entityBody.country_code ||
+            fields.country_code ||
+            null,
+          po_box: initialAddressInput.po_box ?? null,
+          is_primary: true,
+          is_active: initialAddressInput.is_active !== undefined ? initialAddressInput.is_active : true,
+        };
+
+        // Re-use the same allow-list the nested address endpoint uses, so validation
+        // parity is preserved. The parent column is included explicitly.
+        const ADDRESS_WRITABLE = [
+          "type",
+          "line1",
+          "line2",
+          "city",
+          "region",
+          "postal_code",
+          "country_code",
+          "po_box",
+          "is_primary",
+          "is_active",
+        ];
+        const ADDRESS_INSERT_ALLOW = [...ADDRESS_WRITABLE, "entity_id"];
+
+        initialAddressRow = await insertOne(client, "entity_address", addressData, "*", ADDRESS_INSERT_ALLOW);
+
+        await audit(client, {
+          actorUserId: actor.user_id || null,
+          action: "entity_address.created",
+          moduleKey: events.MODULE,
+          entityRef: "entity_address:" + initialAddressRow.address_id,
+          after: initialAddressRow,
+        });
+      }
+    }
+
     // The two-character marker that leads this entity's OPERATION-file
     // references (`SL` in `SL7Z3K9QW2M4XBSM`) — derived from the name, walked
     // past anything already taken, and persisted once. Assigned here, in the
@@ -114,7 +188,7 @@ async function create(client, input = {}, actorArg = null) {
     await emitEvent(client, { eventTypeKey: events.CREATED, moduleKey: events.MODULE, entityRef: ref(row.entity_id), actorUserId: actor.user_id || null });
     await audit(client, { actorUserId: actor.user_id || null, action: events.CREATED, moduleKey: events.MODULE, entityRef: ref(row.entity_id), after: row });
     await client.query("COMMIT");
-    return { ...row, ops_reference_prefix: opsPrefix };
+    return { ...row, ops_reference_prefix: opsPrefix, ...(initialAddressRow ? { initial_address: initialAddressRow } : {}) };
   } catch (err) { await client.query("ROLLBACK"); throw err; }
 }
 
@@ -357,12 +431,30 @@ async function saveLetterhead(client, { id, patch = {}, actor = {} }) {
 }
 
 /** The stored configuration plus its rendered preview, in one or both languages. */
-async function letterhead(client, id, lang = null, { financials = false } = {}) {
+async function letterhead(client, id, lang = null, { tax = false } = {}) {
   const entity = await repo.get(client, id);
   if (!entity) throw new AppError("NOT_FOUND", "Entity not found", 404);
   const { addresses, registrations, establishments } = await repo.collections(client, id);
-  const { tax_registrations: taxRegistrations, letterhead: config } = await repo.documentsAndTax(client, id);
+  const { letterhead: config } = await repo.documentsAndTax(client, id);
   const treasuryAccounts = await repo.treasuryAccounts(client, id);
+
+  // PR-04 (Decision Q3): this endpoint is an API READ of the letterhead, not a
+  // print path, so the registration numbers it composes from are gated on the
+  // caller's MOD-01 view capability exactly like the /360 bundle. A caller
+  // without it gets the layout with the identifiers absent — the source block,
+  // the rendered preview and the composed blocks all degrade together, because
+  // they are all fed these same rows. The invoice/quotation RENDERERS keep
+  // composing from the raw rows on their own module's authority: a commercial
+  // document must carry its statutory mentions (CE-18), and that is a document
+  // gate, not this one.
+  //
+  // PR-10 / A0: the PAYMENT BLOCK is deliberately NOT part of that redaction.
+  // The owner's binding decision is that every MOD-01 viewer sees the bank
+  // details on the letterhead surface — the preview must show what the
+  // document prints, which was the whole point of previewing the renderer's
+  // own composition.
+  const visibleEntity = dossierService.maskEntityRegistrations(entity, tax);
+  const visibleRegistrations = tax ? registrations : registrations.map(dossierService.redactRegistration);
 
   // Bug #14: registerdAddress() / identifiers() / paymentBlock() inside the
   // block composer read both top-level entity columns (address_line1..city) and
@@ -375,37 +467,41 @@ async function letterhead(client, id, lang = null, { financials = false } = {}) 
   // "Legal form & capital" / "Bank" blocks printed empty even when data
   // existed. Passing them through is the fix.
 
-  const input = { entity, config, addresses, registrations, taxRegistrations, treasuryAccounts, establishments };
-  // Same confidentiality rule as the dossier: the payment block and the account
-  // list both carry the number, and this route is MOD-01 `view`.
-  const mask = (p) => dossierService.maskPaymentBlock(p, financials);
+  const input = { entity: visibleEntity, config, addresses, registrations: visibleRegistrations, treasuryAccounts, establishments };
   const customLines = await repo.letterheadLines(client, id);
+  /*
+   * The registration rows ride along so `compose()` can build the identifiers
+   * block from them — `visibleEntity` is the raw repo row and carries no
+   * `identifiers` array, so without these the block fell back to the legacy
+   * `niu`/`rccm` columns and printed nothing for any tenant whose NIU/RCCM
+   * live in entity_registration rows. The VISIBLE (PR-04-redacted) rows, not
+   * the raw ones: a redacted row has no `number`, contributes no identifier,
+   * and a caller without MOD-01 tax view keeps getting the layout with the
+   * numbers absent — same rule as the rendered preview above.
+   */
   const composeInput = {
-    entity, config, addresses, establishments, treasuryAccounts, customLines,
+    entity: visibleEntity, config, addresses, establishments, treasuryAccounts, customLines,
+    registrations: visibleRegistrations,
     layout: (config && config.layout) || null,
     logo_url: entity.logo_light_ref || null,
   };
-  const composeFor = (l) => {
-    const c = letterheadBlocks.compose(composeInput, l);
-    return {
-      ...c,
-      // The payment block carries an account number and this route is MOD-01
-      // `view`, not a financial grant — same rule the dossier applies.
-      footer: c.footer.map((b) => (b.id === "payment" && !financials
-        ? { ...b, lines: b.lines.map(() => ({ type: "text", text: "••••" })) }
-        : b)),
-    };
-  };
+  const composeFor = (l) => letterheadBlocks.compose(composeInput, l);
 
   return {
     config: config || { entity_id: id, ...letterheadService.DEFAULT_CONFIG },
     remittance_account_id: entity.remittance_account_id || null,
-    treasury_accounts: treasuryAccounts.map((t) => maskBank(t, financials)),
+    // PR-10 / A0: NOT masked. This endpoint is MOD-01 `view`, and the owner's
+    // decision is that the letterhead surface shows a MOD-01 viewer the bank
+    // details the document itself prints — bank name, account number, holder.
+    // The rows, the rendered previews and the composed blocks all carry the
+    // real values; gate 14 keeps applying to the Treasury module's own
+    // dossier and the party bank rows, which are different surfaces.
+    treasury_accounts: treasuryAccounts,
     // Both languages, always: a French entity that also invoices in English
     // needs to see both, and rendering twice is free (it is a pure function).
     preview: {
-      fr: mask(letterheadService.render(input, "fr")),
-      en: mask(letterheadService.render(input, "en")),
+      fr: letterheadService.render(input, "fr"),
+      en: letterheadService.render(input, "en"),
     },
     blocks: { fr: composeFor("fr"), en: composeFor("en") },
     custom_lines: customLines,
@@ -464,10 +560,17 @@ async function saveLetterheadLine(client, { id, lineId = null, patch = {}, remov
  * Deriving the two lists from differently-redacted rows would also have made
  * the dossier's renewals and this route disagree about the same document.
  *
- * `governance` defaults to FALSE: a caller that has not established the grant
- * gets the redacted list, so a new call site fails closed rather than open.
+ * PR-04 adds the tax half of the same discipline (Decision Q3): registration
+ * and tax labels carry the number itself (`"VAT FR12345678901"`), so the rows
+ * are redacted for a caller without MOD-01 view and the label degrades to the
+ * kind alone — still enough to act on ("the France VAT registration lapses in
+ * March"), without handing over the identifier.
+ *
+ * `governance` and `tax` both default to FALSE: a caller that has not
+ * established the grant gets the redacted list, so a new call site fails
+ * closed rather than open.
  */
-async function renewals(client, id, asOf = null, { governance = false } = {}) {
+async function renewals(client, id, asOf = null, { governance = false, tax = false } = {}) {
   const entity = await repo.get(client, id);
   if (!entity) throw new AppError("NOT_FOUND", "Entity not found", 404);
   const { registrations } = await repo.collections(client, id);
@@ -475,8 +578,8 @@ async function renewals(client, id, asOf = null, { governance = false } = {}) {
   return renewalRules.renewals(
     {
       documents: governance ? documents : documents.map(dossierService.redactDocument),
-      registrations,
-      taxRegistrations,
+      registrations: tax ? registrations : registrations.map(dossierService.redactRegistration),
+      taxRegistrations: tax ? taxRegistrations : taxRegistrations.map(dossierService.redactTaxRegistration),
     },
     asOf,
   );
@@ -491,9 +594,24 @@ async function capTable(client, id, asOf = null) {
 }
 
 const get = (client, id) => repo.get(client, id);
-const list = (client, q) => repo.list(client, q);
+
+/**
+ * One page of entities plus the filter total, for the HTTP layer to surface as
+ * `X-Total-Count` (PR-09). The pickers and the entity list page search
+ * server-side through `q` + `registration_status`, so a tenant with more
+ * entities than `page()`'s 200-row maximum is still fully reachable — and the
+ * total is what tells the client there are more pages to offer.
+ */
+const listPaged = (client, q) => repo.listPaged(client, q);
+
+/**
+ * Bare rows — the AI tool registry's `list_entities` contract. See the matching
+ * note in the repo: the model is told this returns a list, so it must not start
+ * receiving the `{ rows, total }` envelope the paged route sends.
+ */
+const list = async (client, q) => (await repo.listPaged(client, q)).rows;
 
 module.exports = {
   create, update, setStatus, setActive, setStructure, uploadLogo, capTable,
-  letterhead, saveLetterhead, saveLetterheadLine, renewals, get, list, setOpsReferencePrefix,
+  letterhead, saveLetterhead, saveLetterheadLine, renewals, get, list, listPaged, setOpsReferencePrefix,
 };

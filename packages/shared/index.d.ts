@@ -551,7 +551,11 @@ export type FieldConfig = {
   applies_to: "CLIENT" | "SUPPLIER";
   field_key: string;
   field_group: string | null;
+  /** Required to CREATE the record (the create form's policy). */
   is_required: boolean;
+  /** Required to ACTIVATE it (14030) — the activation gate's policy, and a
+   *  separate question from `is_required`. */
+  required_for_activation: boolean;
   is_visible: boolean;
   is_custom: boolean;
   sort_order: number;
@@ -559,7 +563,10 @@ export type FieldConfig = {
 };
 
 export declare namespace partyConfig {
-  const DEFAULT_ROWS: ReadonlyArray<[string, string, string, boolean]>;
+  /** `[applies_to, field_key, field_group, is_required, required_for_activation?]` */
+  const DEFAULT_ROWS: ReadonlyArray<
+    [string, string, string, boolean, boolean?]
+  >;
   const GROUP_ORDER: readonly string[];
   function defaultsFor(appliesTo: string): FieldConfig[];
   function effectiveConfig(
@@ -567,6 +574,10 @@ export declare namespace partyConfig {
     dbRows: FieldConfig[] | null | undefined,
   ): FieldConfig[];
   function checkRequired(
+    data: Record<string, unknown>,
+    config: FieldConfig[],
+  ): { ok: boolean; missing: string[] };
+  function checkActivationRequired(
     data: Record<string, unknown>,
     config: FieldConfig[],
   ): { ok: boolean; missing: string[] };
@@ -768,6 +779,19 @@ export declare namespace notificationInterrupt {
 }
 
 /**
+ * Which categories EMAIL by default — the opt-out exception to email's
+ * opt-in rule (every other category emails only when asked). Shared because
+ * the API hands the default to the EMAIL preference read and the Preferences
+ * matrix draws its checkbox from it. See rules/notification-email-default.js.
+ */
+export declare namespace notificationEmailDefault {
+  /** Categories whose EMAIL channel defaults ON. Today: tasks. */
+  const EMAIL_DEFAULT_CATEGORIES: ReadonlySet<string>;
+  /** The answer absent any preference row. */
+  function emailDefaultFor(category?: string | null): boolean;
+}
+
+/**
  * Where a notification about an `entity_ref` should take the reader.
  *
  * Shared because the API stamps `notification.link_url` from it when the row is
@@ -779,8 +803,13 @@ export type EntityLinkPrecision = "record" | "section";
 export type EntityLink = { url: string; precision: EntityLinkPrecision };
 
 export declare namespace entityRoute {
+  /** The URL shape for a type with a detail route: either a path `prefix` the id
+   *  is appended to, or a list `path` the id rides on as a `query` parameter. */
+  type DetailSpec =
+    | { prefix: string; query?: undefined }
+    | { path: string; query: string; prefix?: undefined };
   /** Types with a detail route; the id opens the record itself. */
-  const DETAIL: Readonly<Record<string, (id: string) => string>>;
+  const DETAIL: Readonly<Record<string, DetailSpec>>;
   /** Types with no detail route; the link opens the list that holds them. */
   const SECTION: Readonly<Record<string, string>>;
   /** "email_thread:39cb…" → { type, id }. Null for an empty ref. */
@@ -795,8 +824,59 @@ export declare namespace entityRoute {
   function linkFor(entityRef?: string | null): EntityLink | null;
   /** Just the path, for callers indifferent to how precise it is. */
   function urlFor(entityRef?: string | null): string | null;
+  /**
+   * The reverse of `urlFor`: a path, root-relative URL or absolute URL back to
+   * the record it addresses. Null for a section landing, which names no record.
+   */
+  function parseUrl(
+    href?: string | null,
+  ): { type: string; id: string; precision: "record" } | null;
   /** Every path this module can emit — what the router test asserts against. */
   function allRoutes(): string[];
+}
+
+/**
+ * What in a message body is a link, and where does it go.
+ *
+ * Shared because the API and the client must agree on it: the API decides which
+ * URLs to unfurl and what to store, the client decides what is clickable. See
+ * rules/link-detect.js.
+ */
+export type DetectedLinkKind = "web" | "app" | "mail";
+export type DetectedLink = {
+  /** Index into the body this link was found in. */
+  start: number;
+  end: number;
+  /** Exactly the characters the sender typed. */
+  raw: string;
+  kind: DetectedLinkKind;
+  /** Absolute URL for "web", `mailto:` for "mail", the in-app path for "app". */
+  href: string;
+  /** The record an in-app link names, when it names one. */
+  entity?: { type: string; id: string; precision: "record" } | null;
+  /** English surface copy for an in-app chip, run through `tr()` by the client. */
+  label?: string | null;
+};
+
+export declare namespace linkDetect {
+  const MAX_LINKS: number;
+  /** Entity type → the word a chip carries for it. */
+  const APP_LABEL: Readonly<Record<string, string>>;
+  /** Every link in a body, in the order they appear. */
+  function extractLinks(text?: string | null): DetectedLink[];
+  /** The cache/dedup key for a URL: canonical, no fragment. Null when refused. */
+  function normaliseUrl(href: string): string | null;
+  /** The distinct web URLs in a body — what the unfurl queue is fed. */
+  function webUrls(text?: string | null): string[];
+  /** The records the in-app links point at, as `entity_ref` strings. */
+  function entityRefs(text?: string | null): string[];
+  /** The in-app path for a URL on a host the caller owns, else null. */
+  function toAppPath(
+    href: string,
+    selfHosts?: ReadonlyArray<string>,
+  ): string | null;
+  /** Sentence punctuation peeled off a candidate's tail. */
+  function peelTail(candidate: string): string;
 }
 
 /**
@@ -899,3 +979,62 @@ export declare const siteSettings: {
   SITE_MEDIA_PROVENANCE: string[];
   siteMediaUpload: z.ZodTypeAny;
 };
+
+/**
+ * The call summary contract (SMART_COMMS_CALLS_ENGINEERING_GUIDE §4.10).
+ *
+ * `schema` is the strict shape — the caller's own edit is validated with it,
+ * so an edit that violates the contract is a 422 rather than a stored draft
+ * nobody can render. `sanitise` is the forgiving coercion the pipeline uses on
+ * a provider's answer: it returns null rather than inventing a summary, which
+ * is what sends the flow down the labelled "transcript-only" path.
+ *
+ * `summary` is the draft-language prose; `key_points[].text` and
+ * `follow_ups[].text` are VERBATIM quotations in the language spoken and are
+ * never translated by either side.
+ */
+export declare namespace callSummary {
+  type Speaker = "caller" | "callee";
+  type Language = "en" | "fr";
+
+  type KeyPoint = { text: string; raised_by: Speaker };
+  type FollowUp = { text: string; owner: Speaker; due: string | null };
+
+  const LANGUAGES: readonly ["en", "fr"];
+
+  const LIMITS: {
+    summaryMax: number;
+    pointsMax: number;
+    followUpsMax: number;
+    textMax: number;
+  };
+
+  const language: z.ZodEnum<["en", "fr"]>;
+
+  const schema: z.ZodObject<{
+    summary: z.ZodString;
+    key_points: z.ZodArray<
+      z.ZodObject<{ text: z.ZodString; raised_by: z.ZodEnum<["caller", "callee"]> }>
+    >;
+    follow_ups: z.ZodArray<
+      z.ZodObject<{
+        text: z.ZodString;
+        owner: z.ZodEnum<["caller", "callee"]>;
+        due: z.ZodNullable<z.ZodEffects<z.ZodString, string, string>>;
+      }>
+    >;
+  }>;
+
+  /** Coerce a provider's answer into the contract, or null when it invented
+   *  nothing usable. Unknown keys are dropped; lists are capped. */
+  function sanitise(value: unknown): {
+    summary: string;
+    key_points: KeyPoint[];
+    follow_ups: FollowUp[];
+  } | null;
+
+  /** The first balanced `{…}` in a string (tolerates ```json fences). */
+  function extractJson(text: string): unknown;
+
+  function isLanguage(value: unknown): value is Language;
+}

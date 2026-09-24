@@ -14,6 +14,11 @@ const repo = require("./smartcomm.repo");
 const scheduled = require("./smartcomm.schedule.repo");
 const media = require("./smartcomm.media.service");
 const erp = require("./smartcomm.erp.service");
+// The call record half (PR-2). Required at the top for the card resolution
+// below; the pipeline requires THIS file lazily inside sendSummary, which is
+// what keeps the pair from being a load-time cycle.
+const pipeline = require("./smartcomm.call.pipeline.service");
+const links = require("./smartcomm.links.service");
 const events = require("./smartcomm.events");
 const documents = require("../../services/documents/document.service");
 const { emitEvent, audit, resolveActorId } = require("../../shared/events/emit");
@@ -114,6 +119,17 @@ function attachmentRow(messageId, a) {
   if (kind === "MEDIA") {
     return { ...base, attachment_kind: "MEDIA", media_id: a.media_id || null };
   }
+  if (kind === "CALL") {
+    // A call summary card (PR-2). The card RESOLVES at read time, exactly like
+    // an ERP reference: the summary can be regenerated in the other language,
+    // and a reader must see the current draft, not the bytes that were frozen
+    // into the message. The message itself carries only the pointer.
+    return {
+      ...base,
+      attachment_kind: "CALL",
+      call_id: (a && a.call_id) || null,
+    };
+  }
   if (kind === "ERP") {
     return {
       ...base,
@@ -135,6 +151,7 @@ function attachmentSummary(attachments) {
   if (!list.length) return "Sent an attachment";
   if (list.some((a) => a && a.is_voice_note)) return "Sent a voice note";
   if (list.some((a) => a && a.attachment_kind === "ERP")) return "Shared a record";
+  if (list.some((a) => a && a.attachment_kind === "CALL")) return "Shared a call summary";
   const first = list[0] || {};
   if (first.kind === "IMAGE") return list.length > 1 ? `Sent ${list.length} photos` : "Sent a photo";
   if (first.kind === "VIDEO") return "Sent a video";
@@ -151,7 +168,7 @@ function attachmentSummary(attachments) {
  * "new message in Smart Comms". The chat card is still posted and still shows
  * up in the channel; only the duplicate notification is skipped.
  */
-async function postMessage(client, { groupId, body = null, mediaVaultId = null, replyTo = null, attachments = [], actor = {}, notifyMembers = true, scheduleId = null }) {
+async function postMessage(client, { groupId, body = null, mediaVaultId = null, replyTo = null, attachments = [], actor = {}, notifyMembers = true, scheduleId = null, tenantMeta = null, env = "live" }) {
   await client.query("BEGIN");
   try {
     if (scheduleId) {
@@ -174,6 +191,18 @@ async function postMessage(client, { groupId, body = null, mediaVaultId = null, 
     await emitEvent(client, { eventTypeKey: events.MESSAGE_POSTED, moduleKey: events.MODULE, entityRef: "comms_message:" + m.message_id, actorUserId: actor.user_id || null });
     if (scheduleId) await scheduled.sent(client, scheduleId, m.message_id);
     await client.query("COMMIT");
+    // The preview rows for a message a person just sent, written OUTSIDE the
+    // transaction on purpose. A link preview is bookkeeping about somebody
+    // else's web page: it must never be able to fail a send, hold the message's
+    // row locks while a third party is slow, or — worst — make a message
+    // undeliverable because a tenant's Redis is down. Everything here is wrapped,
+    // and the only consequence of any of it failing is that the card shows up on
+    // the first read instead of before it.
+    try {
+      await links.recordSentLinks(client, { body, m, tenantMeta, env });
+    } catch {
+      /* @silent:storage|parse|teardown */
+    }
     rtPublish(groupId, "comms:message", { group_id: groupId, message: m });
     // G22 — a posted message notifies the OTHER members through the same
     // preference-honouring channel every other module uses (IN_APP + optional
@@ -311,7 +340,7 @@ async function deleteMessage(client, { messageId, actor }) {
  * bubbles used to be one query because a bubble was a line of text; the cost of
  * making them rich is paid once per page, not once per bubble.
  */
-async function thread(client, { groupId, actor, limit, before, erpAllow = new Set() }) {
+async function thread(client, { groupId, actor, limit, before, erpAllow = new Set(), tenantMeta = null, env = "live" }) {
   await assertMember(client, groupId, actor.user_id);
   await repo.touchPresence(client, groupId, actor.user_id);
   // `before` is a query-string value and can arrive as an array (`?before=x&
@@ -340,6 +369,14 @@ async function thread(client, { groupId, actor, limit, before, erpAllow = new Se
   const cards = await erp.resolveMany(client, [...seen.values()], erpAllow);
   const cardByKey = new Map([...seen.keys()].map((k, i) => [k, cards[i]]));
 
+  // Call summary cards (PR-2), resolved the same way and for the same reason:
+  // one lookup per distinct CALL on the page, and the card the reader sees is
+  // the CURRENT draft/record rather than what was frozen into the message —
+  // a summary can be regenerated in the other language after it was posted, and
+  // a reader must see the same thing the transcript link will show them.
+  const callIds = attachments.filter((a) => a.attachment_kind === "CALL" && a.call_id).map((a) => a.call_id);
+  const callCards = await pipeline.cardsForCallIds(client, callIds);
+
   const starSet = new Set(starred);
   const byMessage = new Map(ids.map((id) => [id, { attachments: [], reactions: [] }]));
   for (const a of attachments) {
@@ -348,13 +385,27 @@ async function thread(client, { groupId, actor, limit, before, erpAllow = new Se
     bucket.attachments.push(
       a.attachment_kind === "ERP"
         ? { ...a, erp_card: cardByKey.get(`${a.erp_kind}:${a.erp_id}`) || null }
-        : a,
+        : a.attachment_kind === "CALL"
+          ? { ...a, call_card: callCards.get(a.call_id) || null }
+          : a,
     );
   }
   for (const r of reactions) {
     const bucket = byMessage.get(r.message_id);
     if (bucket) bucket.reactions.push({ emoji: r.emoji, count: r.count, users: r.users });
   }
+
+  // Link previews, resolved for THIS page, after the messages are in hand.
+  //
+  // A separate call rather than a JOIN, and never a fetch: a thread read is the
+  // hot path of the most-used screen in the product, and a card is worth at most
+  // one indexed lookup per distinct URL. Where a URL has no row yet — a message
+  // older than this feature, a link pasted by a producer that never queued a
+  // fetch — `previewsFor` creates the row and enqueues the work, so the reader
+  // sees nothing and the NEXT reader sees a card. A slow third-party site is
+  // therefore never able to make opening a chat slow, which is the property the
+  // split exists to buy.
+  const previews = await links.previewsFor(client, messages, { tenantMeta, env });
 
   return {
     group_id: groupId,
@@ -363,7 +414,12 @@ async function thread(client, { groupId, actor, limit, before, erpAllow = new Se
       attachments: byMessage.get(m.message_id)?.attachments || [],
       reactions: byMessage.get(m.message_id)?.reactions || [],
       starred_by_me: starSet.has(m.message_id),
+      // The URLs in this bubble, in reading order. The CARD is not here: it lives
+      // once in `links.by_url`, because a link quoted nine times in one thread is
+      // nine references to one preview and not nine copies of a description.
+      link_urls: previews.byMessage[m.message_id] || [],
     })),
+    links: previews.byUrl,
   };
 }
 

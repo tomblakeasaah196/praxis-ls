@@ -43,7 +43,11 @@ import { useToast } from "@/components/ui/toast";
 import { SmartCountryPicker } from "@/components/smart-country-picker";
 import { TimezonePicker } from "@/components/timezone-picker";
 import { RegimePicker } from "@/components/regime-picker";
-import { ScanAttachment } from "@/components/scan-attachment";
+import { ScanAttachment, ScanCardActions } from "@/components/scan-attachment";
+import { SectionTabs } from "@/components/ui/section-tabs";
+import { ResponsiveList, RecordCard } from "@/components/ui/responsive-list";
+import { DropdownItem, DropdownSeparator } from "@/components/ui/dropdown-menu";
+import { MoreMenu } from "@/components/ui/more-menu";
 import {
   SCAN_ACCEPT,
   scanFileProblem,
@@ -55,7 +59,15 @@ import { NewMessageDialog } from "@/features/comms/inbox/composer/new-message";
 import { WorkingCalendarTab } from "./working-calendar-tab";
 import { EntityPublicStoryTab } from "./entity-public-story-tab";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
-import { money, num, dateDmy, enumLabel, toDateInput } from "@/lib/format";
+import { EntityPicker } from "@/components/entity-picker";
+import {
+  money,
+  num,
+  dateDmy,
+  dateTimeFmt,
+  enumLabel,
+  toDateInput,
+} from "@/lib/format";
 import { reportActionError } from "@/lib/action-error";
 import { pageShell } from "@/lib/layout";
 import { entityCommon } from "@shared";
@@ -101,6 +113,34 @@ const TABS = [
   "Public story",
 ] as const;
 type Tab = (typeof TABS)[number];
+
+/**
+ * What the same twelve sections are called on a phone.
+ *
+ * At 390px a scroll strip shows about two and a half tabs. Four of these names
+ * are two words long and three of those are joined by an ampersand, so the
+ * strip was spending its whole width on "Identity & registrations … Documents …"
+ * — two tabs of signpost for a reader who needs to see where they can go. The
+ * short forms are the FIRST word of each name, because that is the word that
+ * distinguishes it, and nothing else in the strip begins with the same one.
+ *
+ * The mapping lives here rather than inside `TABS` so the tab's VALUE — the
+ * `?tab=` parameter, the section heading, the deep-link target — keeps the full
+ * name everywhere. `letterhead-deep-link.test.tsx` links to
+ * `?tab=Banking %26 treasury`, and it must keep working.
+ *
+ * Omitted where the full name already fits in a phone-width tab: Overview,
+ * Documents, Structure, Letterhead, Renewals.
+ */
+const SHORT_LABEL: Partial<Record<Tab, string>> = {
+  "Identity & registrations": "Identity",
+  "Tax & jurisdiction": "Tax",
+  "People & shareholding": "People",
+  "Contacts & addresses": "Contacts",
+  "Banking & treasury": "Banking",
+  "Working calendar": "Calendar",
+  "Public story": "Story",
+};
 
 const RENEWAL_TONE: Record<string, Tone> = {
   EXPIRED: "bad",
@@ -202,6 +242,18 @@ function Detail({
  * best — and it is what the letterhead studio's block links point at, because
  * the block catalogue names the section, not a control that may not exist yet.
  */
+/**
+ * The heading level a dossier `Section` renders at.
+ *
+ * A section heading must sit exactly one level below the entity's name: an h2
+ * name takes h3 sections (the master–detail list), an h1 name takes h2 sections
+ * (the deep-link page). `Section` is used dozens of times across the tabs, so
+ * the level travels by context rather than by a prop on every call — the
+ * provider is set once in `EntityDossier`, next to `titleAs`, which is the only
+ * place that knows the answer.
+ */
+const SectionHeadingLevel = React.createContext<"h2" | "h3">("h3");
+
 function Section({
   title,
   description,
@@ -215,11 +267,12 @@ function Section({
   field?: string;
   children: React.ReactNode;
 }) {
+  const H = React.useContext(SectionHeadingLevel);
   return (
     <section data-field={field} className="space-y-3 rounded-xl border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <H className="text-sm font-semibold text-foreground">{title}</H>
           {description && (
             <p className="micro text-muted-foreground">{description}</p>
           )}
@@ -246,7 +299,9 @@ type FieldSpec = {
     | "select"
     | "textarea"
     | "multiselect"
-    | "file";
+    | "file"
+    /** Server-searched corporate entity (EntityPicker) — an id, not free text. */
+    | "entity";
   options?: { value: string; label: string }[];
   placeholder?: string;
   hint?: string;
@@ -519,6 +574,21 @@ function ChildModal({
                       onChange={(c) => set(f.key, c)}
                       label={f.label}
                     />
+                  ) : f.type === "entity" ? (
+                    /*
+                     * PR-09: the corporate-shareholder link. This used to be a
+                     * `<select>` over the tenant-wide entity list the modal
+                     * fetched on open — capped at 200 by `page()` and filtered
+                     * in the browser, and one full-list request per modal. The
+                     * picker searches server-side, offers only ACTIVE entities
+                     * for a new link (Decision Q6) and shows an existing
+                     * inactive holder as history with a replacement path.
+                     */
+                    <EntityPicker
+                      label={f.label}
+                      value={(values[f.key] as string) || null}
+                      onChange={(id) => set(f.key, id ?? "")}
+                    />
                   ) : f.type === "timezone" ? (
                     <TimezonePicker
                       value={(values[f.key] as string) || ""}
@@ -673,9 +743,12 @@ const opts = (xs: readonly string[]) =>
  * entity-owns-entity holding that could not be recorded — in a module whose
  * whole point is group structure. A uuid text box would technically close the
  * gap and would never be used, so these are pickers.
+ *
+ * Entities are deliberately NOT in this map anymore (PR-09): a corporate
+ * holder is chosen through `EntityPicker`, which searches the server on demand
+ * rather than the modal pre-fetching the tenant-wide list.
  */
 type Lookups = {
-  entities: { entity_id: string; code: string; legal_name: string }[];
   employees: { employee_id: string; full_name?: string | null }[];
   users: {
     user_id: string;
@@ -689,7 +762,6 @@ type Lookups = {
 };
 
 const EMPTY_LOOKUPS: Lookups = {
-  entities: [],
   employees: [],
   users: [],
   jurisdictions: [],
@@ -782,13 +854,8 @@ const personFields = (lk: Lookups): FieldSpec[] => [
   {
     key: "holder_entity_id",
     label: "Held by one of our entities",
-    type: "select",
-    options: nameOpts(
-      lk.entities,
-      (e) => e.entity_id,
-      (e) => `${e.code} — ${e.legal_name}`,
-    ),
-    hint: "For an intra-group holding. The cap table shows this as a code beside the holder.",
+    type: "entity",
+    hint: "For an intra-group holding. The cap table shows this as a code beside the holder. Only active entities are offered for a new holding.",
   },
 
   {
@@ -922,6 +989,14 @@ const addressFields = (): FieldSpec[] => [
   { key: "country_code", label: "Country", type: "country" },
   { key: "po_box", label: "PO box" },
   { key: "is_primary", label: "Primary", type: "checkbox" },
+  {
+    key: "is_public",
+    label: "Public on the website",
+    type: "checkbox",
+    hint: "Publishes this address on the public entity card beside the registered one — only with a public label.",
+  },
+  { key: "public_label_fr", label: "Public label (FR)", placeholder: "Bureau opérationnel de Douala" },
+  { key: "public_label_en", label: "Public label (EN)", placeholder: "Douala operations desk" },
   {
     key: "is_active",
     label: "Active",
@@ -1085,17 +1160,17 @@ const establishmentFields = (lk: Lookups): FieldSpec[] => [
  * people modal fetches four lists. They load when the modal opens rather than
  * with the dossier: six extra requests on every entity view, for pickers most
  * visits never open, is not a trade worth making.
+ *
+ * PR-09: the tenant-wide ENTITY list is no longer one of them. The corporate
+ * holder field is an `EntityPicker`, which searches `/entities` on the server
+ * only when its popover is opened — so a people modal costs one lookup fewer,
+ * and no nested modal fetches a full tenant-wide list it mostly never shows.
  */
 function useChildFields(
   seg: api.EntityCollection,
   establishments: api.EntityEstablishment[],
 ) {
   const needs = (...segs: api.EntityCollection[]) => segs.includes(seg);
-  const entities = useList<Lookups["entities"][number]>(
-    // A corporate shareholder this picker cannot offer is a cap table that
-    // cannot be recorded. See ENTITY_LIST.
-    needs("people") ? api.ENTITY_LIST : null,
-  );
   const employees = useList<Lookups["employees"][number]>(
     needs("people", "establishments") ? "/employees" : null,
   );
@@ -1115,7 +1190,6 @@ function useChildFields(
   return React.useMemo(() => {
     const lk: Lookups = {
       ...EMPTY_LOOKUPS,
-      entities: entities.rows || [],
       employees: employees.rows || [],
       users: users.rows || [],
       jurisdictions: jurisdictions.rows || [],
@@ -1144,7 +1218,6 @@ function useChildFields(
   }, [
     seg,
     establishments,
-    entities.rows,
     employees.rows,
     users.rows,
     jurisdictions.rows,
@@ -1241,8 +1314,10 @@ export function EntityDossier({
    * rather than a style question. Inline in the master–detail list the page's h1
    * is "Corporate entities", so the entity name is an h2 and the `Section`
    * headings below it are h3s. On the deep-link route there is no other heading,
-   * so the entity name IS the h1. It was hard-coded to h3 in both, which skipped
-   * a level under the list's h1 and left the deep-link page with no h1 at all.
+   * so the entity name IS the h1 — and the sections step down to h2s so the
+   * ladder never skips (see `SectionHeadingLevel`). It was hard-coded to h3 in
+   * both, which skipped a level under the list's h1 and left the deep-link page
+   * with no h1 at all.
    */
   titleAs?: "h1" | "h2";
 }) {
@@ -1270,6 +1345,12 @@ export function EntityDossier({
   const [statusOpen, setStatusOpen] = React.useState(false);
   const [structureOpen, setStructureOpen] = React.useState(false);
   const [opsPrefixOpen, setOpsPrefixOpen] = React.useState(false);
+  const [registrationVerifyBusy, setRegistrationVerifyBusy] = React.useState<
+    string | null
+  >(null);
+  const [registrationVerifyError, setRegistrationVerifyError] = React.useState<
+    string | null
+  >(null);
   // Which KPI tile's drill-in is open, if any. The dialog is mounted only while
   // one is chosen, so the fetching kinds (employees, journal) do not issue a
   // request for a list nobody asked to see.
@@ -1315,6 +1396,28 @@ export function EntityDossier({
       reload();
     } catch (e) {
       reportActionError(e);
+    }
+  }
+
+  async function setRegistrationVerified(
+    registration: api.EntityRegistration,
+    verified: boolean,
+  ) {
+    setRegistrationVerifyBusy(registration.registration_id);
+    setRegistrationVerifyError(null);
+    try {
+      if (verified) {
+        await api.verifyEntityRegistration(entityId, registration.registration_id);
+        toast.success("Registration verified.");
+      } else {
+        await api.unverifyEntityRegistration(entityId, registration.registration_id);
+        toast.success("Registration marked unverified.");
+      }
+      reload();
+    } catch (e) {
+      setRegistrationVerifyError(errMsg(e));
+    } finally {
+      setRegistrationVerifyBusy(null);
     }
   }
 
@@ -1367,7 +1470,7 @@ export function EntityDossier({
   }, [deepEdit, loadedAddresses, loadedCapabilities]);
 
   if (d.loading) return <LoadingRow label="Loading entity…" />;
-  if (d.error || !d.data) {
+  if (d.error || !d.data || !d.data.entity) {
     return (
       <ErrorState message={d.error ? errMsg(d.error) : "Entity not found."} />
     );
@@ -1385,6 +1488,7 @@ export function EntityDossier({
     usage,
     readiness,
     treasury_accounts: treasury,
+    treasury_primary: treasuryPrimary,
     expiring_registrations: expiring,
     can_see_governance: gov,
     capabilities,
@@ -1424,6 +1528,7 @@ export function EntityDossier({
   const renewalsView = (renewalAsOf && datedRenewals.data) || d.data.renewals;
 
   return (
+    <SectionHeadingLevel.Provider value={Title === "h1" ? "h2" : "h3"}>
     <div className="space-y-4">
       {/* Header card — the client/supplier 360 surface (party-360.tsx), so the
           three masters read as one family. */}
@@ -1539,22 +1644,19 @@ export function EntityDossier({
         <EntityKpiDrill kind={drill} data={d.data} onClose={() => setDrill(null)} />
       )}
 
-      <nav
-        className="flex flex-wrap items-end gap-1 overflow-x-auto border-b"
-        aria-label="Entity sections"
-      >
-        {TABS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            aria-current={tab === t ? "page" : undefined}
-            className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm ${tab === t ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-          >
-            {t}
-          </button>
-        ))}
-      </nav>
+      {/* Twelve sections — the longest strip in the app, and on a phone it was
+          four rows of buttons between the KPI band and the record's actual
+          content. `SectionTabs` is the shared scroll strip: one row, active
+          section centred, fading at whichever edge has more. `sticky` because
+          every section under it is long enough to scroll past the strip. */}
+      <SectionTabs
+        label="Entity sections"
+        value={tab}
+        onChange={setTab}
+        sticky
+        className="mb-4"
+        tabs={TABS.map((t) => ({ value: t, label: t, shortLabel: SHORT_LABEL[t] }))}
+      />
 
       {tab === "Overview" && (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -1749,6 +1851,9 @@ export function EntityDossier({
             ) : undefined
           }
         >
+          {registrationVerifyError && (
+            <ErrorState message={registrationVerifyError} />
+          )}
           <MiniTable
             empty={registrations.length === 0}
             head={
@@ -1759,7 +1864,8 @@ export function EntityDossier({
                 <Th>Authority</Th>
                 <Th>{tr("Issued")}</Th>
                 <Th>{tr("Expires")}</Th>
-                <Th />
+                <Th>{tr("Verification")}</Th>
+                <Th><span className="sr-only">{tr("Actions")}</span></Th>
               </>
             }
           >
@@ -1781,33 +1887,55 @@ export function EntityDossier({
                 <Td>{r.issuing_authority || "—"}</Td>
                 <Td>{r.issued_on ? dateDmy(r.issued_on) : "—"}</Td>
                 <Td>{r.expires_on ? dateDmy(r.expires_on) : "—"}</Td>
+                <Td>
+                  <Pill tone={r.verified ? "ok" : "warn"}>
+                    {r.verified ? tr("Verified") : tr("Not verified")}
+                  </Pill>
+                  {r.verified && r.verified_at ? (
+                    <div className="micro text-muted-foreground">
+                      {dateTimeFmt(r.verified_at)}
+                    </div>
+                  ) : null}
+                </Td>
                 <Td r>
-                  {caps.edit && (
-                    <>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {caps.approve && (
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() =>
-                          setEditing({
-                            seg: "registrations",
-                            title: "Edit registration",
-                            row: r as unknown as Record<string, unknown>,
-                          })
-                        }
+                        loading={registrationVerifyBusy === r.registration_id}
+                        onClick={() => void setRegistrationVerified(r, !r.verified)}
                       >
-                        Edit
+                        {r.verified ? "Unverify" : "Verify"}
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          removeChild("registrations", r.registration_id)
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </>
-                  )}
+                    )}
+                    {caps.edit && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            setEditing({
+                              seg: "registrations",
+                              title: "Edit registration",
+                              row: r as unknown as Record<string, unknown>,
+                            })
+                          }
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            removeChild("registrations", r.registration_id)
+                          }
+                        >
+                          Remove
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </Td>
               </tr>
             ))}
@@ -1886,7 +2014,7 @@ export function EntityDossier({
                   <Th>Regime</Th>
                   <Th>Filing</Th>
                   <Th>{tr("Status")}</Th>
-                  <Th />
+                  <Th><span className="sr-only">{tr("Actions")}</span></Th>
                 </>
               }
             >
@@ -2056,6 +2184,7 @@ export function EntityDossier({
           addresses={addresses}
           onSaved={reload}
           canEdit={caps.public_story}
+          headingAs={Title === "h1" ? "h2" : "h3"}
         />
       )}
 
@@ -2239,7 +2368,7 @@ export function EntityDossier({
                   <Th r>Ownership</Th>
                   <Th r>Voting</Th>
                   <Th>Held from</Th>
-                  <Th />
+                  <Th><span className="sr-only">{tr("Actions")}</span></Th>
                 </>
               }
             >
@@ -2418,7 +2547,7 @@ export function EntityDossier({
                   <Th>{tr("Title")}</Th>
                   <Th>Appointed</Th>
                   <Th>Until</Th>
-                  <Th />
+                  <Th><span className="sr-only">{tr("Actions")}</span></Th>
                 </>
               }
             >
@@ -2544,7 +2673,7 @@ export function EntityDossier({
                   <Th>{tr("Address")}</Th>
                   <Th>{tr("City")}</Th>
                   <Th>{tr("Country")}</Th>
-                  <Th />
+                  <Th><span className="sr-only">{tr("Actions")}</span></Th>
                 </>
               }
             >
@@ -2561,6 +2690,12 @@ export function EntityDossier({
                       <>
                         {" "}
                         <Pill tone="mute">{tr("Inactive")}</Pill>
+                      </>
+                    )}
+                    {a.is_public && (
+                      <>
+                        {" "}
+                        <Pill tone="blue">{tr("Public")}</Pill>
                       </>
                     )}
                   </Td>
@@ -2631,7 +2766,7 @@ export function EntityDossier({
                   <Th>{tr("Title")}</Th>
                   <Th>{tr("Email")}</Th>
                   <Th>{tr("Phone")}</Th>
-                  <Th />
+                  <Th><span className="sr-only">{tr("Actions")}</span></Th>
                 </>
               }
             >
@@ -2840,7 +2975,7 @@ export function EntityDossier({
                   <Th>{tr("Country")}</Th>
                   <Th>{tr("Manager")}</Th>
                   <Th>Tax office</Th>
-                  <Th />
+                  <Th><span className="sr-only">{tr("Actions")}</span></Th>
                 </>
               }
             >
@@ -2913,9 +3048,9 @@ export function EntityDossier({
 
       {tab === "Banking & treasury" && (
         <Section
-          title="Treasury accounts"
+          title="Banking & treasury"
           field="treasury_accounts"
-          description="Read-only here. Bank, cash and mobile-money accounts are owned by Treasury so the GL mapping and the invoice payment block can never disagree."
+          description="Read-only here. The primary account is the one this entity's documents print in their payment block; accounts themselves are owned by Treasury so the GL mapping and the invoice can never disagree."
           action={
             <Button
               size="sm"
@@ -2926,39 +3061,139 @@ export function EntityDossier({
             </Button>
           }
         >
-          <MiniTable
-            empty={treasury.length === 0}
-            head={
-              <>
-                <Th>{tr("Label")}</Th>
-                <Th>{tr("Kind")}</Th>
-                <Th>GL account</Th>
-                <Th>{tr("Currency")}</Th>
-                <Th>{tr("Status")}</Th>
-              </>
-            }
-          >
-            {treasury.map((t) => (
-              <tr key={t.treasury_account_id}>
+          {/*
+           * PR-10 / A5 + A1: ONE account, decided by the server's resolver
+           * (`treasury_primary`) — the same rule the letterhead payment block
+           * runs — printed in full: bank, number, holder. A tenant with six
+           * accounts gets one detailed row here and one payment line on the
+           * letterhead, never six of either. The other accounts stay
+           * discoverable through the count affordance below, without their
+           * identifiers being printed beside the primary's.
+           */}
+          {treasuryPrimary?.state === "account" && treasuryPrimary.account && (
+            <MiniTable
+              empty={false}
+              head={
+                <>
+                  <Th>{tr("Label")}</Th>
+                  <Th>{tr("Kind")}</Th>
+                  <Th>GL account</Th>
+                  <Th>{tr("Currency")}</Th>
+                  <Th>{tr("Status")}</Th>
+                  <Th>{tr("Bank name")}</Th>
+                  <Th>{tr("Account number")}</Th>
+                  <Th>{tr("Holder name")}</Th>
+                </>
+              }
+            >
+              <tr data-field="treasury_primary">
                 <Td>
-                  <span className="font-medium text-foreground">{t.label}</span>
+                  <span className="font-medium text-foreground">
+                    {treasuryPrimary.account.label}
+                  </span>{" "}
+                  <Pill tone="blue">{tr("Primary")}</Pill>
                 </Td>
                 <Td>
-                  {enumLabel(t.kind)}
-                  {t.momo_network ? ` · ${t.momo_network}` : ""}
+                  {enumLabel(treasuryPrimary.account.kind)}
+                  {treasuryPrimary.account.momo_network
+                    ? ` · ${treasuryPrimary.account.momo_network}`
+                    : ""}
                 </Td>
                 <Td>
-                  <span className="num">{t.coa_code}</span>
+                  <span className="num">{treasuryPrimary.account.coa_code}</span>
                 </Td>
-                <Td>{t.currency || "—"}</Td>
+                <Td>{treasuryPrimary.account.currency || "—"}</Td>
                 <Td>
-                  <Pill tone={t.is_active ? "ok" : "mute"}>
-                    {t.is_active ? "Active" : "Inactive"}
+                  <Pill
+                    tone={treasuryPrimary.account.is_active ? "ok" : "mute"}
+                  >
+                    {treasuryPrimary.account.is_active ? "Active" : "Inactive"}
                   </Pill>
                 </Td>
+                <Td>{treasuryPrimary.account.bank_name || "—"}</Td>
+                <Td>
+                  <span className="num">
+                    {treasuryPrimary.account.account_number || "—"}
+                  </span>
+                </Td>
+                <Td>{treasuryPrimary.account.holder_name || "—"}</Td>
               </tr>
-            ))}
-          </MiniTable>
+            </MiniTable>
+          )}
+          {/*
+           * The explicit empty states. "unset" — nobody picked a primary — and
+           * "ambiguous" — several accounts still carry the flag, the exact
+           * residue of the per-category clearing PR-10 fixed server-side. Both
+           * render NOTHING in the payment block, so the tab says so and points
+           * at the fix instead of guessing an account or printing them all.
+           */}
+          {treasuryPrimary && treasuryPrimary.state !== "account" && (
+            <Callout
+              tone="warn"
+              title="No primary account selected"
+            >
+              {treasuryPrimary.state === "ambiguous"
+                ? "Several accounts are flagged primary for this entity, so no payment block prints and no single account is shown here. Open Treasury and set one primary account — setting it clears the others."
+                : "This entity has no primary account, so its documents print no payment block. Open Treasury and set a primary account — it is the one the letterhead and this tab will show."}{" "}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => navigate("/master/treasury-accounts")}
+              >
+                Open Treasury →
+              </button>
+            </Callout>
+          )}
+          {/* No bundle at all (an older API): the hint still renders rather
+              than an empty tab pretending everything is fine. */}
+          {!treasuryPrimary && (
+            <Callout tone="warn" title="No primary account selected">
+              Open Treasury and set a primary account — it is the one this
+              entity&apos;s payment block and this tab will show.{" "}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => navigate("/master/treasury-accounts")}
+              >
+                Open Treasury →
+              </button>
+            </Callout>
+          )}
+          {/*
+           * The non-primary accounts stay discoverable without their
+           * identifiers being printed beside the primary's: a count and a way
+           * through. Treasury owns the rows (treasury_is_read_only).
+           */}
+          {treasury.filter(
+            (t) =>
+              !(
+                treasuryPrimary?.state === "account" &&
+                treasuryPrimary.account.treasury_account_id ===
+                  t.treasury_account_id
+              ),
+          ).length > 0 && (
+            <p className="micro text-muted-foreground">
+              {tr(
+                `${
+                  treasury.filter(
+                    (t) =>
+                      !(
+                        treasuryPrimary?.state === "account" &&
+                        treasuryPrimary.account.treasury_account_id ===
+                          t.treasury_account_id
+                      ),
+                  ).length
+                } other account(s) — open Treasury`,
+              )}{" "}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => navigate("/master/treasury-accounts")}
+              >
+                {tr("Open Treasury →")}
+              </button>
+            </p>
+          )}
           {treasury.length === 0 && (
             <EmptyState
               title="No treasury accounts for this entity"
@@ -3020,6 +3255,7 @@ export function EntityDossier({
         />
       )}
     </div>
+    </SectionHeadingLevel.Provider>
   );
 }
 
@@ -3082,6 +3318,146 @@ export function EntityDossierPage() {
  */
 const docLabel = (d: api.EntityDocument) =>
   d.title || d.document_type_name || d.document_number || "Document";
+
+/**
+ * One administrative document on a phone — the card `ResponsiveList` renders
+ * below `md` (see `components/ui/responsive-list.tsx`).
+ *
+ * Nine table columns collapse into four lines without losing a fact: the title
+ * (which is what the reader calls the document), where it came from, the two
+ * statuses as pills, and the four identifying fields that decide whether it is
+ * still valid. The four controls the row used to wrap down its right-hand side
+ * are one visible View/Attach plus `⋯` — and the selection checkbox, which the
+ * cards have to carry because "tick these and share them as one ZIP" is a flow
+ * the phone has to be able to finish.
+ */
+function EntityDocumentCard({
+  doc,
+  selected,
+  onToggle,
+  canEdit,
+  canApprove,
+  verifyBusy,
+  onVerify,
+  onEdit,
+  onRemove,
+  onAttached,
+  onAttachError,
+}: {
+  doc: api.EntityDocument;
+  selected: boolean;
+  onToggle: () => void;
+  canEdit: boolean;
+  canApprove: boolean;
+  verifyBusy: string | null;
+  onVerify: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+  onAttached: (vaultId: string) => void | Promise<void>;
+  onAttachError: (message: string | null) => void;
+}) {
+  return (
+    <RecordCard
+      leading={
+        <input
+          type="checkbox"
+          className="h-4 w-4 accent-primary align-middle"
+          checked={selected}
+          aria-label={`${tr("Select")} ${docLabel(doc)}`}
+          onChange={onToggle}
+        />
+      }
+      title={doc.title || doc.document_type_name || tr("Untitled")}
+      subtitle={doc.establishment_name || undefined}
+      pills={
+        <>
+          <Pill tone={SCAN_TONE[doc.scan_status] || "mute"}>
+            {enumLabel(doc.scan_status)}
+          </Pill>
+          {!doc.vault_id && doc.physical_ref ? (
+            <Pill tone="mute">{tr("Paper")}</Pill>
+          ) : null}
+          <Pill
+            tone={
+              doc.verification_status === "VERIFIED"
+                ? "ok"
+                : doc.verification_status === "REJECTED"
+                  ? "bad"
+                  : "warn"
+            }
+          >
+            {enumLabel(doc.verification_status)}
+          </Pill>
+        </>
+      }
+      meta={[
+        [tr("Type"), doc.document_type_name || "—"],
+        [tr("Number"), doc.document_number || "—"],
+        [tr("Country"), doc.country_code || "—"],
+        [tr("Expires"), doc.expires_on ? dateDmy(doc.expires_on) : "—"],
+      ]}
+      actions={
+        canEdit ? (
+          <ScanCardActions
+            vaultId={doc.vault_id}
+            docType="ENTITY_DOCUMENT"
+            entityRef={`entity_document:${doc.document_id}`}
+            onAttached={onAttached}
+            onError={onAttachError}
+            menuLabel={tr("Document actions")}
+            menuItems={
+              <>
+                {canApprove &&
+                  doc.vault_id &&
+                  doc.verification_status !== "VERIFIED" && (
+                    <DropdownItem
+                      onSelect={onVerify}
+                      disabled={verifyBusy === doc.document_id}
+                    >
+                      {tr("Verify")}
+                    </DropdownItem>
+                  )}
+                <DropdownItem onSelect={onEdit}>{tr("Edit")}</DropdownItem>
+                <DropdownSeparator />
+                <DropdownItem destructive onSelect={onRemove}>
+                  {tr("Remove")}
+                </DropdownItem>
+              </>
+            }
+          />
+        ) : (
+          // Without edit rights the card keeps exactly the controls the row
+          // keeps: open the scan if there is one, and verify it if this reader
+          // is the approver. No file action, no edit, no remove — and no kebab
+          // holding an action this reader may not take.
+          <>
+            {doc.vault_id && (
+              <ScanAttachment
+                compact
+                vaultId={doc.vault_id}
+                docType="ENTITY_DOCUMENT"
+                entityRef={`entity_document:${doc.document_id}`}
+                onAttached={onAttached}
+                onError={onAttachError}
+                disabled
+              />
+            )}
+            {canApprove && doc.vault_id && doc.verification_status !== "VERIFIED" && (
+              <MoreMenu label={tr("Document actions")}>
+                <DropdownItem
+                  onSelect={onVerify}
+                  disabled={verifyBusy === doc.document_id}
+                >
+                  {tr("Verify")}
+                </DropdownItem>
+              </MoreMenu>
+            )}
+          </>
+        )
+      }
+    />
+  );
+}
 
 /** What the vault stored, mapped to the extension the download should carry. */
 const BLOB_EXT: Record<string, string> = {
@@ -3475,6 +3851,29 @@ function DocumentsTab({
           </Button>
         </div>
       )}
+      {/* Nine columns — document, type, number, country, expiry, two statuses
+          and four controls — which on a phone is a horizontal scroll with the
+          row's subject off screen. Below `md` the same records are cards; the
+          selection checkbox comes with them, because ticking rows is how a
+          batch is shared or zipped and that has to work on a phone too. */}
+      <ResponsiveList
+        items={documents}
+        renderItem={(doc) => (
+          <EntityDocumentCard
+            doc={doc}
+            selected={selected.includes(doc.document_id)}
+            onToggle={() => toggleOne(doc.document_id)}
+            canEdit={canEdit}
+            canApprove={canApprove}
+            verifyBusy={verifyBusy}
+            onVerify={() => void verifyDocument(doc)}
+            onEdit={() => setAdding(doc)}
+            onRemove={() => onRemove(doc.document_id)}
+            onAttachError={setAttachError}
+            onAttached={(vaultId) => linkScan(doc, vaultId)}
+          />
+        )}
+      >
       <MiniTable
         empty={documents.length === 0}
         head={
@@ -3501,7 +3900,7 @@ function DocumentsTab({
             <Th>{tr("Expires")}</Th>
             <Th>Scan</Th>
             <Th>{tr("Verification")}</Th>
-            <Th />
+            <Th><span className="sr-only">{tr("Actions")}</span></Th>
           </>
         }
       >
@@ -3544,6 +3943,23 @@ function DocumentsTab({
                   {" "}
                   <Pill tone="mute">Paper</Pill>
                 </>
+              ) : null}
+              {/*
+               * PR-07 (CE-11): the one state the PENDING pill used to hide —
+               * the file IS in the vault, the link PATCH just never landed.
+               * Distinguishable from "no scan at all" since the reconciliation
+               * completes it automatically; the tooltip says so instead of
+               * sending the operator to re-upload a file the vault holds.
+               */}
+              {doc.scan_stored_unlinked ? (
+                <span
+                  title={tr(
+                    "The file reached the vault, but the link back to this record did not complete. It finishes automatically on the next reconciliation pass — no need to upload again.",
+                  )}
+                >
+                  {" "}
+                  <Pill tone="warn">{tr("File stored — link pending")}</Pill>
+                </span>
               ) : null}
             </Td>
             <Td>
@@ -3605,6 +4021,7 @@ function DocumentsTab({
           </tr>
         ))}
       </MiniTable>
+      </ResponsiveList>
 
       {documents.length === 0 && (
         <EmptyState
@@ -3966,14 +4383,28 @@ function LetterheadTab({
 
         <Section
           title="Payment block"
-          description="Which account leads the payment block on this entity's documents. Accounts themselves live in Treasury."
+          description="The primary account — the ONE account this entity's documents print. Accounts themselves live in Treasury."
         >
           {p.payment_block.source === "bank_block_legacy" && (
             <Callout tone="warn" title="Still using the old bank block">
               These details come from the entity&apos;s legacy bank block, not a
               treasury account. Activate the migrated account in Treasury and
-              flag it &ldquo;show on documents&rdquo; so the payment block and
-              the ledger agree.
+              set it as the entity&apos;s primary so the payment block and the
+              ledger agree.
+            </Callout>
+          )}
+          {p.payment_block.source === "no_primary" && (
+            <Callout tone="warn" title="No primary account selected">
+              No payment block prints until Treasury has one primary account
+              for this entity{remittance ? " — the selected remittance account is inactive or ambiguous" : ""}.
+              {" "}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => window.location.assign("/master/treasury-accounts")}
+              >
+                Open Treasury →
+              </button>
             </Callout>
           )}
           <Select
@@ -3983,10 +4414,12 @@ function LetterheadTab({
               patch({ remittance_account_id: ev.target.value || null })
             }
           >
-            <option value="">{tr("— first flagged account —")}</option>
+            <option value="">
+              {tr("— the account flagged primary in Treasury —")}
+            </option>
             {accounts.map((a) => (
               <option key={a.treasury_account_id} value={a.treasury_account_id}>
-                {a.label} ({a.currency})
+                {a.label} ({a.currency}){a.is_primary ? tr(" · primary") : ""}
               </option>
             ))}
           </Select>
@@ -4030,9 +4463,6 @@ function StructureModal({
   onSaved: () => void;
 }) {
   const toast = useToast();
-  // The whole list, not the first 50 — a parent this picker cannot offer is a
-  // group structure that cannot be recorded. See ENTITY_LIST.
-  const { rows: entities } = useList<api.Entity>(api.ENTITY_LIST);
   const [parentId, setParentId] = React.useState(
     structure.parent_entity_id ?? "",
   );
@@ -4053,15 +4483,20 @@ function StructureModal({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Never offer this entity as its own parent, nor anything it already sits
-  // above — the API rejects both (rules.assertNoCycle), but a picker that leads
-  // straight to a 422 is a picker that should not have offered the option.
-  const descendants = React.useMemo(
-    () => new Set(structure.children.map((c) => c.entity_id)),
-    [structure.children],
-  );
-  const parentOptions = (entities || []).filter(
-    (x) => x.entity_id !== entityId && !descendants.has(x.entity_id),
+  /*
+   * Never offer this entity as its own parent, nor anything it already sits
+   * above — the API rejects both (rules.assertNoCycle), but a picker that leads
+   * straight to a 422 is a picker that should not have offered the option.
+   *
+   * PR-09: the parent is chosen through `EntityPicker`, which searches the
+   * server (so a parent beyond the 200-row client-side ceiling is reachable)
+   * and offers only ACTIVE entities for a NEW link (Decision Q6). A parent
+   * that has since been deactivated stays on the trigger and in the panel as
+   * history, with the active entities below it as the replacement path.
+   */
+  const excludeIds = React.useMemo(
+    () => [entityId, ...structure.children.map((c) => c.entity_id)],
+    [entityId, structure.children],
   );
 
   async function save() {
@@ -4097,19 +4532,15 @@ function StructureModal({
       <div className="space-y-3">
         <Field
           label="Parent entity"
-          hint="Leave blank for a standalone or top-level company."
+          hint="Leave blank for a standalone or top-level company. Only active entities can be a new parent."
         >
-          <Select
-            value={parentId}
-            onChange={(ev) => setParentId(ev.target.value)}
-          >
-            <option value="">{tr("— none —")}</option>
-            {parentOptions.map((p) => (
-              <option key={p.entity_id} value={p.entity_id}>
-                {p.code} — {p.legal_name}
-              </option>
-            ))}
-          </Select>
+          <EntityPicker
+            label="Parent entity"
+            value={parentId || null}
+            onChange={(id) => setParentId(id ?? "")}
+            excludeIds={excludeIds}
+            emptyLabel={tr("— none —")}
+          />
         </Field>
 
         {parentId && (

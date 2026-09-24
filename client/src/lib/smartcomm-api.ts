@@ -9,7 +9,7 @@ export type ChannelKind =
   "DEPARTMENT" | "PROJECT" | "DOSSIER" | "DIRECT" | "CLIENT";
 
 /** What a chat attachment points at. See migration 13794. */
-export type AttachmentKind = "VAULT" | "MEDIA" | "ERP";
+export type AttachmentKind = "VAULT" | "MEDIA" | "ERP" | "CALL";
 export type MediaKind = "IMAGE" | "AUDIO" | "VIDEO";
 export type TranscriptStatus = "NONE" | "PENDING" | "DONE" | "FAILED" | "UNAVAILABLE";
 export type ErpKind = "INVOICE" | "DOSSIER" | "CLIENT" | "PURCHASE_ORDER" | "SUPPLIER_INVOICE";
@@ -63,6 +63,10 @@ export type CommAttachment = {
   erp_id?: string | null;
   erp_label?: string | null;
   erp_card?: ErpCard | null;
+  /* CALL — the summary card a caller posts. The card is resolved at read time
+     (like an ERP reference), so a regenerated draft shows its current words. */
+  call_id?: string | null;
+  call_card?: CallCard | null;
 };
 
 /** What `POST /channels/:id/media` hands back, and what the composer echoes
@@ -93,6 +97,44 @@ export type ErpAttachment = {
 
 export type PostedAttachment = UploadedAttachment | ErpAttachment;
 
+/**
+ * A link's preview card, resolved from the tenant's own cache.
+ *
+ * `image_src` is NEVER a third-party URL — it is our `/smartcomm/links/image`
+ * route keyed on the link's hash, and it must be fetched with a token (so it
+ * arrives as a blob through `linkImageObjectUrl`, like every other gated file in
+ * this module). A `<img src="https://them.example/open.gif">` inside a chat bubble
+ * hands the reader's IP, cookies and user agent to the site they only read a link
+ * to, which is a tracking pixel in a work product.
+ *
+ * `state` is the difference between three quiet things and one loud one:
+ * `OK` renders a card, `EMPTY`/`UNREACHABLE`/`PENDING` render the link alone, and
+ * `REFUSED` renders the link alone forever. None of them is an error to show the
+ * user: the message arrived, the URL is right there, and a card is a courtesy from
+ * a third-party website rather than a promise this product made.
+ */
+export type LinkPreviewState = "PENDING" | "OK" | "EMPTY" | "UNREACHABLE" | "REFUSED";
+export type LinkMediaKind = "YOUTUBE" | "VIMEO" | "LOOM" | "MAPS";
+export type LinkPreview = {
+  url: string;
+  state: LinkPreviewState;
+  title: string | null;
+  description: string | null;
+  site_name: string | null;
+  image_src: string | null;
+  icon_src: string | null;
+  /** The cache key of THIS link — the only thing a client may hand the image
+   *  route. null when the card has no pictures at all, which is the cue for the
+   *  bubble not to try. */
+  link_hash?: string | null;
+  media: { kind: LinkMediaKind; id: string; open_url: string; duration?: number | null; author?: string | null } | null;
+  fetched_at: string | null;
+  stale: boolean;
+};
+
+/** The thread read's link block: one card per distinct URL, referenced by id. */
+export type ThreadLinks = Record<string, LinkPreview>;
+
 export type CommMessage = {
   message_id: string;
   group_id: string;
@@ -120,6 +162,15 @@ export type CommMessage = {
   attachments?: CommAttachment[];
   reactions?: { emoji: string; count: number; users?: string[] }[];
   starred_by_me?: boolean;
+  /**
+   * The URLs in this bubble, in reading order, on the thread read only.
+   *
+   * Ids rather than cards, because `ThreadLinks` holds the card once. A link
+   * quoted nine times in one channel is nine pointers to one preview — the same
+   * shape the ERP attachments use, where the reference is stored and the card is
+   * resolved per read against the reader.
+   */
+  link_urls?: string[];
 };
 
 export type Channel = {
@@ -133,8 +184,13 @@ export type Channel = {
   unread?: number;
   member_count?: number;
   last_message?: CommMessage | null;
+  /** The other member's user id — DIRECT channels only. The dial target key. */
+  partner_user_id?: string | null;
   /** The other member's uploaded profile photo (/media URL) — DIRECT channels only. */
   partner_avatar_ref?: string | null;
+  /** The other member's last presence beat — DIRECT channels only. Render
+   *  day-first under the name when they are offline (see presence.ts). */
+  partner_last_seen_at?: string | null;
 };
 
 export type Colleague = {
@@ -142,6 +198,10 @@ export type Colleague = {
   full_name?: string | null;
   email: string;
   avatar_ref?: string | null;
+  /** Last app-open / return-from-background / navigation beat (server-upserted).
+   *  ISO on the wire; render day-first with the lastSeenText helper. The LIVE
+   *  presence dot is the socket, not this timestamp. */
+  last_seen_at?: string | null;
 };
 
 /* ── Outbound provider config (email) — set + live test ── */
@@ -220,10 +280,21 @@ export const createChannel = (body: {
   member_ids?: string[];
   topic?: string;
 }) => tenant<Channel>("/smartcomm/channels", { method: "POST", body });
+/**
+ * The thread, plus the previews its links have earned.
+ *
+ * `links` is optional and keyed by canonical URL rather than embedded per message,
+ * so a client that predates the field ignores it and a thread with the same link
+ * quoted nine times carries the card once. Absent means "this server has no
+ * preview cache", which renders as plain links — the same thing a `REFUSED` or a
+ * dead third party renders as, and the reason the bubble needs no version check.
+ */
 export const getThread = (id: string) =>
-  tenant<{ group_id: string; messages: CommMessage[] }>(
-    `/smartcomm/channels/${id}/messages`,
-  );
+  tenant<{
+    group_id: string;
+    messages: CommMessage[];
+    links?: ThreadLinks;
+  }>(`/smartcomm/channels/${id}/messages`);
 export const postMessage = (
   id: string,
   body: string,
@@ -334,6 +405,38 @@ export const searchErp = (q: string, kinds?: ErpKind[]) =>
   );
 export const getErpCard = (kind: ErpKind, id: string) =>
   tenant<ErpCard>(`/smartcomm/erp/${kind}/${id}`);
+
+/**
+ * One link's preview, fetched NOW, for the composer.
+ *
+ * The exception to every other preview path in this file: this one waits on the
+ * third party, because a person is standing there looking at it with the URL
+ * still in their input box. Post-send, the card is always read from the cache and
+ * never waited on.
+ */
+export const previewLink = (url: string) =>
+  tenant<{
+    url: string;
+    state: LinkPreviewState;
+    title?: string | null;
+    description?: string | null;
+    card?: LinkPreview;
+    reason?: string | null;
+  }>("/smartcomm/links/preview", { method: "POST", body: { url } });
+
+/**
+ * A preview image, as an object URL.
+ *
+ * `linkHash` is the sha256 of the CANONICAL link, which is also the card's own
+ * key in the thread response — so the client never handles the remote image URL
+ * at all, and cannot be talked into fetching one the cache does not have.
+ */
+export const linkImageObjectUrl = (linkHash: string, part: "image" | "icon" = "image", signal?: AbortSignal) =>
+  tenantObjectUrl(
+    `/smartcomm/links/image?link=${encodeURIComponent(linkHash)}${part === "icon" ? "&part=icon" : ""}`,
+    signal,
+  );
+
 /* ── Per-channel draft ────────────────────────────────────────────────────
  *
  * `comms_draft` has existed since migration 0430 and nothing ever wrote to it,
@@ -369,6 +472,228 @@ export const listQuickPhrases = () => tenant<QuickPhrase[]>("/smartcomm/quick-re
 export const saveQuickPhrase = (data: { label: string; body: string }, id?: string) =>
   tenant<QuickPhrase>(`/smartcomm/quick-replies${id ? `/${id}` : ""}`, { method: id ? "PATCH" : "POST", body: data });
 export const deleteQuickPhrase = (id: string) => tenant(`/smartcomm/quick-replies/${id}`, { method: "DELETE" });
+
+/* ── 1:1 voice calls (Smart Comms PR-1) ──────────────────────────────────────
+ * The server owns the call row (RINGING → IN_CALL → terminal) and both timers;
+ * these calls only create, move, and read it. Media is P2P and never touches
+ * the API — `ice` below is the ONLY server→client network input the engine
+ * gets (STUN/TURN, time-limited TURN credential).
+ */
+export type CallStatus =
+  | "RINGING" | "IN_CALL"
+  | "ENDED" | "NO_ANSWER" | "CANCELLED" | "DECLINED" | "BUSY" | "FAILED";
+export type CallEndReason =
+  | "hangup" | "declined" | "cancelled" | "no_answer" | "busy" | "max_duration" | "ice_failed";
+
+export type IceServer = {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+};
+export type IceConfig = { iceServers: IceServer[]; turnConfigured: boolean };
+
+export type Call = {
+  call_id: string;
+  group_id: string;
+  caller_id: string;
+  callee_id: string;
+  status: CallStatus;
+  started_at: string;
+  connected_at?: string | null;
+  ended_at?: string | null;
+  duration_seconds?: number | null;
+  end_reason?: CallEndReason | null;
+  channel_name?: string | null;
+  caller_name?: string | null;
+  callee_name?: string | null;
+  /** The tenant's recording kill switch, as the call row reports it (PR-2).
+   *  False means: no recorder arms, no consent banner shows, because nothing is
+   *  being recorded. Absent on the ring payload an older server sends. */
+  recording_enabled?: boolean;
+  /** The tenant's RNNoise default (PR-3, §4.4). False means this tenant has
+   *  switched the yard filter off for everyone; the per-user preference can
+   *  still override it either way. Absent on a ring payload from an older
+   *  server, which is why the client treats "absent" as "on". */
+  noise_suppression?: boolean;
+};
+
+/** Dial on a DIRECT channel. The partner is resolved server-side; `ice` is
+ *  the dialer's config for the engine to start collecting candidates. */
+export const dialCall = (groupId: string) =>
+  tenant<Call & { ice: IceConfig }>(`/smartcomm/calls`, { method: "POST", body: { group_id: groupId } });
+/** Accept carries the acceptor's own ICE config — the callee's engine starts
+ *  at answer time and needs TURN creds in the same response. */
+export const acceptCall = (id: string) =>
+  tenant<Call & { ice: IceConfig }>(`/smartcomm/calls/${id}/accept`, { method: "POST" });
+export const declineCall = (id: string) =>
+  tenant<Call>(`/smartcomm/calls/${id}/decline`, { method: "POST" });
+export const hangupCall = (id: string) =>
+  tenant<Call>(`/smartcomm/calls/${id}/hangup`, { method: "POST" });
+/** The engine exhausted ICE and media never connected. */
+export const reportCallFailure = (id: string) =>
+  tenant<Call>(`/smartcomm/calls/${id}/fail`, { method: "POST" });
+export const listCalls = () => tenant<Call[]>(`/smartcomm/calls`);
+export const getCall = (id: string) => tenant<Call>(`/smartcomm/calls/${id}`);
+
+/* ── The call record half (Smart Comms PR-2) ─────────────────────────────────
+ * Recorded audio goes up in PARTS as they are cut (60–120 s), the browser's
+ * live capture rides along with it, and everything after the hang-up is a read:
+ * the transcript, the caller's draft, and the caller's one tap to send.
+ * `recording_enabled` on the call row is the tenant's kill switch — when it is
+ * false there is no recorder, no consent banner, and these routes 403.
+ */
+export type CallRecordSide = "caller" | "callee";
+export type CallTranscriptState = "PENDING" | "PROCESSING" | "CERTIFIED" | "TRANSCRIPTION_FAILED";
+export type CallProvenance = "groq" | "browser-live" | "transcript-only";
+
+export type CallSummaryKeyPoint = { text: string; raised_by: CallRecordSide };
+export type CallSummaryFollowUp = { text: string; owner: CallRecordSide; due: string | null };
+
+export type CallSummaryDraft = {
+  summary_id: string;
+  summary_text: string;
+  key_points: CallSummaryKeyPoint[];
+  follow_ups: CallSummaryFollowUp[];
+  language: "en" | "fr";
+  provenance: CallProvenance;
+  draft_status: "PENDING_REVIEW" | "SENT" | "DISCARDED";
+  sent_message_id: string | null;
+  update_available: boolean;
+  update_message_id: string | null;
+  regenerate_count: number;
+};
+
+export type CallSummaryView = {
+  call_id: string;
+  transcription_state: CallTranscriptState;
+  transcription_error: string | null;
+  recording_enabled: boolean;
+  is_caller: boolean;
+  summary: CallSummaryDraft | null;
+};
+
+export type CallTranscriptSide = {
+  side: CallRecordSide;
+  label: string;
+  name: string | null;
+  provider: "groq" | "browser-live" | null;
+  certified: boolean;
+  text: string | null;
+  parts: {
+    part_index: number;
+    text: string;
+    language: "en" | "fr";
+    provider: "groq" | "browser-live";
+    certified: boolean;
+  }[];
+};
+
+export type CallTranscriptView = {
+  call_id: string;
+  state: CallTranscriptState;
+  error: string | null;
+  certified: boolean;
+  provenance: "groq" | "browser-live";
+  text: string;
+  sides: CallTranscriptSide[];
+  parts: {
+    side: CallRecordSide;
+    part_index: number;
+    language: "en" | "fr";
+    provider: "groq" | "browser-live";
+    certified: boolean;
+  }[];
+};
+
+/** The card a chat reader sees for a posted call summary. Resolved on every
+ *  thread read, so it shows the record as it stands rather than as it stood
+ *  when the caller pressed send. */
+export type CallCard = {
+  call_id: string;
+  summary_text: string;
+  key_points: CallSummaryKeyPoint[];
+  follow_ups: CallSummaryFollowUp[];
+  language: "en" | "fr";
+  provenance: CallProvenance;
+  draft_status: "PENDING_REVIEW" | "SENT" | "DISCARDED";
+  update_available: boolean;
+  duration_seconds: number | null;
+  ended_at: string | null;
+  call_status: string;
+  transcription_state: CallTranscriptState | null;
+  transcription_error: string | null;
+  caller_name: string | null;
+  callee_name: string | null;
+};
+
+/** One recorded part. `live_segments` travels with the audio it belongs to: the
+ *  two together are what make the fallback (flagged browser text) possible for
+ *  the SAME span when the provider cannot read the bytes. */
+export const uploadCallPart = (
+  callId: string,
+  file: File,
+  fields: {
+    side: CallRecordSide;
+    part_index: number;
+    part_count: number;
+    duration_ms?: number;
+    language?: "en" | "fr";
+    live_segments?: unknown[];
+  },
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
+) =>
+  uploadFile<unknown>(`/tenant/smartcomm/calls/${callId}/recording`, file, {
+    field: "file",
+    fields: { ...fields },
+    onProgress,
+    signal,
+  });
+
+/** The live capture on its own — the upload that must still land when the
+ *  recorder produced no audio at all (§4.9). */
+export const uploadCallLiveLog = (
+  callId: string,
+  data: { side: CallRecordSide; language?: "en" | "fr"; live_segments: unknown[] },
+) =>
+  tenant<{ side: CallRecordSide; written: number }>(
+    `/smartcomm/calls/${callId}/live-log`,
+    { method: "POST", body: data },
+  );
+
+export const getCallTranscript = (callId: string) =>
+  tenant<CallTranscriptView>(`/smartcomm/calls/${callId}/transcript`);
+export const getCallSummary = (callId: string) =>
+  tenant<CallSummaryView>(`/smartcomm/calls/${callId}/summary`);
+export const sendCallSummary = (
+  callId: string,
+  data: { summary_text?: string; key_points?: CallSummaryKeyPoint[]; follow_ups?: CallSummaryFollowUp[] },
+) =>
+  tenant<{ call_id: string; is_update: boolean; message_id: string }>(
+    `/smartcomm/calls/${callId}/summary/send`,
+    { method: "POST", body: data },
+  );
+export const discardCallSummary = (callId: string) =>
+  tenant<{ call_id: string; draft_status: string }>(
+    `/smartcomm/calls/${callId}/summary/discard`,
+    { method: "POST" },
+  );
+/** The EN/FR toggle (§4.10). One language, and it is the whole request. */
+export const regenerateCallSummary = (callId: string, language: "en" | "fr") =>
+  tenant<{
+    call_id: string;
+    language: "en" | "fr";
+    provenance: CallProvenance;
+    summary: {
+      summary_text: string;
+      key_points: CallSummaryKeyPoint[];
+      follow_ups: CallSummaryFollowUp[];
+      draft_status: CallSummaryDraft["draft_status"];
+    };
+  }>(`/smartcomm/calls/${callId}/summary/regenerate`, { method: "POST", body: { language } });
+/** Refreshed TURN credential mid-call (the one minted at dial expires with
+ *  the call, plus margin). */
+export const getCallTurn = (id: string) => tenant<IceConfig>(`/smartcomm/calls/${id}/turn`);
 
 export type ScheduledMessage = {
   schedule_id: string; group_id: string; body: string; attachments: PostedAttachment[];

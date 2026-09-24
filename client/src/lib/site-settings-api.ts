@@ -208,18 +208,58 @@ export type EntityStory = {
   legal_name: string;
   trading_name: string | null;
   country_code: string;
+  /** The authoritative lifecycle ladder (Decision Q1): a DRAFT or DEACTIVATED
+   *  company is not on the website even with `public_enabled` on, and the tab
+   *  says so rather than letting an operator discover it on the About page. */
+  registration_status: string | null;
   public_enabled: boolean;
   public_summary_fr: string | null;
   public_summary_en: string | null;
   public_coverage: { country_code: string; label_fr?: string | null; label_en?: string | null }[];
-  public_focus: { label_fr?: string | null; label_en?: string | null; mode?: string | null }[];
+  public_focus: {
+    label_fr?: string | null;
+    label_en?: string | null;
+    mode?: string | null;
+    service_type_key?: string | null;
+  }[];
   public_cover_vault_id: string | null;
+  /**
+   * PR-07 (CE-25): the state of the last cover-attachment attempt that has
+   * not resolved — null when the last attempt linked or was reconciled. The
+   * Story tab renders it as a durable banner so "the upload did not take"
+   * stays on the screen until it is fixed, instead of dying with the toast.
+   * `vault_doc_id` is the honest byte counter: present when the file reached
+   * storage, absent when the attempt died before any byte was written.
+   */
+  cover_attachment?: {
+    state: "INTENT" | "BYTES_STORED" | "FAILED";
+    vault_doc_id: string | null;
+    attempts: number;
+    last_error: string | null;
+    updated_at: string | null;
+  } | null;
 };
 
 export const getEntityStory = (id: string) =>
   tenant<EntityStory>(`/site-settings/entities/${id}/story`);
 export const saveEntityStory = (id: string, body: Partial<EntityStory>) =>
   tenant<EntityStory>(`/site-settings/entities/${id}/story`, { method: "PUT", body });
+
+/* ── the service catalogue behind the focus picker (Decision Q8) ────────────
+ *
+ * The picker offers a stable `service_type.key` — the tenant's own taxonomy —
+ * and NOT a free transport mode, so the card's colour is derived in one place
+ * server-side. The labels the operator types remain an editorial overlay over
+ * the classification.
+ */
+export type ServiceFocusEntry = {
+  key: string;
+  label: { fr: string; en: string | null };
+  mode: string | null;
+};
+
+export const listServiceFocus = () =>
+  tenant<ServiceFocusEntry[]>("/site-settings/service-types");
 
 /* ── website media (§6.3) ───────────────────────────────────────────────────
  *

@@ -309,6 +309,10 @@ export type Entity = {
 export type EntityInput = Partial<Omit<Entity, "entity_id" | "is_active">> & {
   code: string;
   legal_name: string;
+  /** PR-02 atomic creation: optional initial REGISTERED address committed in the same transaction. */
+  initial_address?: Partial<EntityAddress> & {
+    type?: EntityAddress["type"];
+  };
 };
 
 /* Nested collections owned by an entity. */
@@ -397,6 +401,12 @@ export type EntityAddress = {
   po_box?: string | null;
   is_primary?: boolean;
   is_active?: boolean;
+  /** The explicit public-address marker (13963, Decision Q2): publishes this
+   *  row on the public entity card beside the canonical registered address —
+   *  only with a label, never automatically. */
+  is_public?: boolean;
+  public_label_fr?: string | null;
+  public_label_en?: string | null;
 };
 export type EntityRegistration = {
   registration_id: string;
@@ -408,7 +418,15 @@ export type EntityRegistration = {
   expires_on?: string | null;
   is_primary?: boolean;
   verified?: boolean;
+  verified_by?: string | null;
+  verified_at?: string | null;
   notes?: string | null;
+  /**
+   * Set when the caller lacks MOD-01 view: the number itself is absent from
+   * the row rather than blanked, so the kind/country/dates still render and
+   * the compliance story stays readable. See entity-360.service.redactRegistration.
+   */
+  redacted?: boolean;
 };
 export type EntityEstablishment = {
   establishment_id: string;
@@ -453,6 +471,14 @@ export type EntityDocument = {
   /** Joined from `entity_establishment` — which site the document belongs to. */
   establishment_name?: string | null;
   vault_id?: string | null;
+  /**
+   * PR-07 (CE-11): true when a live vault document under this row's
+   * `entity_ref` holds the scan bytes but `vault_id` was never linked — the
+   * middle request of the three-request attach flow failed. The
+   * reconciliation completes the link; the register shows this pill until it
+   * does, so "stored, link pending" stops reading as "no scan at all".
+   */
+  scan_stored_unlinked?: boolean;
   scan_status: "PENDING" | "SCANNED" | "VERIFIED" | "REJECTED" | "EXPIRED";
   physical_ref?: string | null;
   scan_due_on?: string | null;
@@ -494,6 +520,8 @@ export type EntityTaxRegistration = {
   /** Joined from `app_user` — who chases this filing. */
   responsible_name?: string | null;
   notes?: string | null;
+  /** Set when the caller lacks MOD-01 view — the number is absent, not blanked. */
+  redacted?: boolean;
 };
 
 export type TaxObligation = {
@@ -504,6 +532,12 @@ export type TaxObligation = {
   period_code?: string | null;
   tax_kind?: string | null;
   country_code?: string | null;
+  /**
+   * Joined from the tax registration — which number files this obligation.
+   * Absent (with `redacted`) for a caller without MOD-01 view.
+   */
+  tax_number?: string | null;
+  redacted?: boolean;
 };
 
 export type LetterheadConfig = {
@@ -620,6 +654,10 @@ export type PaymentAccount = {
   iban?: string | null;
   swift_bic?: string | null;
   currency?: string | null;
+  /** PR-10 / A4: the holder — whose account the remittance must land in. */
+  holder_name?: string | null;
+  /** The legacy 0516 spelling, still returned by the frozen bank_block
+   *  fallback for pre-treasury tenants. */
   beneficiary_name?: string | null;
 };
 
@@ -649,7 +687,7 @@ export type LetterheadPreview = {
     legal_mentions?: string | null;
   };
   payment_block: {
-    source: "treasury" | "bank_block_legacy" | "none" | "hidden";
+    source: "treasury" | "no_primary" | "bank_block_legacy" | "none" | "hidden";
     accounts: PaymentAccount[];
   };
   identifiers: { kind: string; number: string }[];
@@ -684,6 +722,18 @@ export type Renewals = {
   as_of: string;
   items: RenewalItem[];
   counts: { expired: number; due: number; approaching: number };
+  /**
+   * Current-row data-quality findings (doc/CORPORATE_ENTITY_REGISTRATION_
+   * CURRENT_ROW.md): registration keys where no row could be selected — no sole
+   * row and no unique primary. Nothing is monitored for those keys; the
+   * ambiguity itself is the finding. Advisory, like every renewal.
+   */
+  ambiguous_registrations?: Array<{
+    country_code: string | null;
+    kind: string | null;
+    rows: number;
+    reason: "multiple_primary_rows" | "no_primary_multiple_rows";
+  }>;
 };
 
 export type CapTableFinding = {
@@ -758,6 +808,10 @@ export type Entity360 = {
   establishments: EntityEstablishment[];
   /** Read-only here: treasury accounts are owned by MOD-09 and created there. */
   treasury_accounts: Treasury[];
+  /** PR-10 / A1: the resolver's answer — which ONE account is the primary.
+   *  "unset"/"ambiguous" is what the Banking & treasury tab renders as its
+   *  explicit "No primary account selected" hint. */
+  treasury_primary: TreasuryPrimary;
   treasury_is_read_only: boolean;
   cap_table: CapTable;
   usage: {
@@ -868,17 +922,17 @@ export const entityRenewals = (id: string, asOf?: string | null) =>
 export const entityCapTable = (id: string, asOf?: string | null) =>
   tenant<CapTable>(`/entities/${id}/cap-table${asOfQuery(asOf)}`);
 
-/**
- * The entity list as every picker needs it: all of them.
- *
- * `page()` on the API clamps a list with no `limit` to 50 rows, and the screens
- * that read this one filter it in the BROWSER — so entity 51 was unfindable by
- * search and unofferable as a parent or a corporate shareholder, with no error
- * and no empty state to say the list had been cut. 200 is `page()`'s own
- * maximum. Past that the fix is server-side search, which `LIST_SQL` already
- * supports through its `q` parameter.
+/*
+ * PR-09: ENTITY_LIST ("/entities?limit=200") is gone. Every screen that used it
+ * filtered the fetched rows in the browser, so entity 201+ was unreachable —
+ * and every nested modal that contained an entity picker re-fetched the whole
+ * tenant-wide list just to open. The pickers now search server-side through
+ * `/entities?registration_status=ACTIVE&q=…&limit=…` (see
+ * components/entity-picker.tsx) and the entity list page pages through
+ * `/entities` with `useListPaged`, whose `X-Total-Count` the list route now
+ * sends. Do not reintroduce a "fetch them all" constant here — that ceiling is
+ * what this PR removed.
  */
-export const ENTITY_LIST = "/entities?limit=200";
 
 /** Generic nested-collection helpers — one implementation for all seven. */
 export type EntityCollection =
@@ -904,6 +958,23 @@ export const updateEntityChild = <T>(
 export const verifyEntityDocument = (entityId: string, documentId: string) =>
   tenant<EntityDocument>(
     `/entities/${entityId}/documents/${documentId}/verify`,
+    { method: "POST" },
+  );
+/** MOD-01 approval transitions; ordinary registration PATCH cannot write these fields. */
+export const verifyEntityRegistration = (
+  entityId: string,
+  registrationId: string,
+) =>
+  tenant<EntityRegistration>(
+    `/entities/${entityId}/registrations/${registrationId}/verify`,
+    { method: "POST" },
+  );
+export const unverifyEntityRegistration = (
+  entityId: string,
+  registrationId: string,
+) =>
+  tenant<EntityRegistration>(
+    `/entities/${entityId}/registrations/${registrationId}/unverify`,
     { method: "POST" },
   );
 export const deleteEntityChild = (
@@ -1012,7 +1083,30 @@ export type Treasury = {
   momo_network?: string | null;
   momo_fee_account?: string | null;
   is_active: boolean;
+  /** PR-10 / A1: ONE primary per entity — the account the letterhead payment
+   *  block prints and the Banking & treasury tab details. */
+  is_primary?: boolean;
+  show_on_documents?: boolean;
+  /** Bank identity (0516/0520). Unmasked on the corporate-entity 360 and
+   *  letterhead surfaces for every MOD-01 viewer (PR-10 / A0) — these are the
+   *  details the entity's own invoices print. */
+  bank_name?: string | null;
+  branch?: string | null;
+  account_number?: string | null;
+  iban?: string | null;
+  swift_bic?: string | null;
+  /** The account holder — holder_name is the source of truth (0520), with
+   *  beneficiary_name (0516) as the legacy fallback, coalesced server-side. */
+  holder_name?: string | null;
 };
+/**
+ * The resolver's answer for "which account is this entity's primary?" —
+ * serialized by the /360 bundle so the Banking & treasury tab and the
+ * letterhead can never disagree with the invoice (PR-10 / A1).
+ */
+export type TreasuryPrimary =
+  | { state: "account"; account: Treasury }
+  | { state: "unset" | "ambiguous"; account: null };
 export type TreasuryInput = {
   entity_id: string;
   kind: "BANK" | "CASH" | "MOMO";
@@ -1793,6 +1887,14 @@ export type DocumentType = Registry & {
   default_severity?: string;
   /** How far ahead of expiry this kind of document starts warning. */
   renewal_lead_days?: number | null;
+  /** Advisory: raises a flag when absent, never blocks activation (0512). */
+  is_required?: boolean;
+  /** The ACTIVATION set (14030): a flagged type is on the 360's "Required to
+   *  activate" checklist AND is what the verification gate demands. */
+  required_for_activation?: boolean;
+  /** ISO-2 jurisdiction the type is exempt OUTSIDE of ('CM' on the ACF), or
+   *  null for no exemption. Seeded product data, not a tenant toggle. */
+  exempt_outside_country?: string | null;
 };
 export const listClientTypes = () => tenant<ClientType[]>("/client-types");
 export const createClientType = (body: { code: string; name: string }) =>
@@ -1816,6 +1918,8 @@ export const createDocumentType = (body: {
   name: string;
   applies_to?: string;
   default_severity?: string;
+  /** 14030 — start a new type off gating activation. */
+  required_for_activation?: boolean;
 }) => tenant<DocumentType>("/party-document-types", { method: "POST", body });
 export const updateDocumentType = (id: string, body: Partial<DocumentType>) =>
   tenant<DocumentType>(`/party-document-types/${id}`, {
@@ -1847,7 +1951,11 @@ export type FieldConfigRow = {
   applies_to: "CLIENT" | "SUPPLIER";
   field_key: string;
   field_group: string | null;
+  /** Required to CREATE the record. */
   is_required: boolean;
+  /** Required to ACTIVATE it (14030) — a separate policy, enforced at the
+   *  verification gate rather than on the create form. */
+  required_for_activation: boolean;
   is_visible: boolean;
   is_custom?: boolean;
   sort_order: number;

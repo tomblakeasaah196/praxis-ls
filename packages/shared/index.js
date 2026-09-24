@@ -13,10 +13,13 @@ const partyCommon = require("./schemas/party-common");
 const partyConfig = require("./schemas/party-config");
 const entityCommon = require("./schemas/entity-common");
 const siteSettings = require("./schemas/site-settings");
+const callSummary = require("./schemas/call-summary");
 const ledger = require("./rules/ledger");
 const marks = require("./rules/marks");
 const entityRoute = require("./rules/entity-route");
+const linkDetect = require("./rules/link-detect");
 const notificationInterrupt = require("./rules/notification-interrupt");
+const notificationEmailDefault = require("./rules/notification-email-default");
 const workSchedule = require("./rules/work-schedule");
 const pwaDesign = require("./pwa-design");
 const countries = require("./data/countries");
@@ -54,15 +57,29 @@ exports.entityCommon = entityCommon;
 // them is a FORM: the settings screen must refuse exactly what the API refuses,
 // or a tenant learns their colour was invalid from a 422 after pressing Save.
 exports.siteSettings = siteSettings;
+// The call summary contract (guide §4.10): the API parses the provider's JSON
+// with it, the caller's screen renders and edits the stored draft with it.
+// Shared because the draft is EDITED before it is sent — a shape the client
+// believes legal and the API refuses is a draft nobody can send.
+exports.callSummary = callSummary;
 // entity_ref → the screen that shows it. Shared because the API stamps
 // `notification.link_url` from it at write time and the client resolves it
 // again at draw time for every row written before that column existed.
 exports.entityRoute = entityRoute;
+// What in a message body is a link. Shared because the API decides which URLs to
+// spend a fetch on and what to store, and the client decides what is clickable —
+// two copies disagree and the visible failure is a message with nothing to click.
+exports.linkDetect = linkDetect;
 // Which notifications may interrupt — sound, hold the banner, vibrate.
 // Shared because the API stamps it onto the push payload, the socket
 // listener uses it to decide whether to make a noise, and the Preferences
 // matrix draws the default from it for a user who has set none.
 exports.notificationInterrupt = notificationInterrupt;
+// Which categories email by default (the tasks opt-out exception to email's
+// opt-in rule). Shared for the same reason the interrupt rule is: the API
+// hands the default to the EMAIL preference read, and the Preferences matrix
+// draws its checkbox from it — two callers, one answer, no drift.
+exports.notificationEmailDefault = notificationEmailDefault;
 // Canonical ISO country reference (code, name, phone, currency, per-jurisdiction
 // registration requirements) — the API, the seed and the client picker's source.
 /*

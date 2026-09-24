@@ -33,8 +33,10 @@ import { Pill } from "@/components/ui/pill";
 import { Stat } from "@/components/ui/stat";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
+import { SectionTabs } from "@/components/ui/section-tabs";
 import { InlineEdit } from "@/components/ui/inline-edit";
 import { useResource } from "@/lib/use-resource";
+import { useUrlTab } from "@/lib/use-url-tab";
 import { useRowAction } from "@/lib/use-action";
 import { DictionaryFinder } from "@/components/dictionary-finder";
 import { cn } from "@/lib/cn";
@@ -138,8 +140,12 @@ type Tab = BaseTab | "Website";
  * (empty 200 list, 429, non-feature 403, network blip) keeps the tab visible so
  * a paid package is never hidden on a transient or an unrelated denial.
  */
-function useWebsiteFeature(): boolean {
-  const [on, setOn] = React.useState(false);
+function useWebsiteFeature(): boolean | null {
+  // Tri-state on purpose: `null` is "probe still in flight". The distinction
+  // matters since the tab moved into `?tab=` — a deep link arriving as
+  // `?tab=Website` must not be reset to Overview merely because the probe has
+  // not answered yet; only a definitive FEATURE_DISABLED may do that.
+  const [on, setOn] = React.useState<boolean | null>(null);
   React.useEffect(() => {
     let live = true;
     tenant("/public/services", { auth: false })
@@ -1177,20 +1183,37 @@ export function ServiceTypeDossier({
     () => (websiteOn ? [...BASE_TABS, "Website"] : [...BASE_TABS]),
     [websiteOn],
   );
-  const [tab, setTab] = React.useState<Tab>("Overview");
+  // `?tab=` (use-url-tab), not local state: the tab survives a reload and a
+  // link can land on it — same house pattern as entity-360. "Overview" is the
+  // fallback, so the param is omitted there. The list passed in is the FULL
+  // set including "Website": a `?tab=Website` link must resolve while the
+  // feature probe is still in flight, and the flag-off case is handled by the
+  // effect below rather than by silently reading the param as Overview.
+  const [tab, setTab] = useUrlTab<Tab>(
+    React.useMemo<Tab[]>(() => [...BASE_TABS, "Website"], []),
+    "Overview",
+  );
   const [archiving, setArchiving] = React.useState(false);
 
-  // Reset the active tab back to Overview when the selection changes so a
+  // Reset the active tab back to Overview when the selection CHANGES so a
   // switch from a service with milestones to one without does not land on an
-  // empty tab (matches party-360's behaviour).
+  // empty tab (matches party-360's behaviour). Skips the first render: the tab
+  // now lives in `?tab=`, and resetting on mount would wipe the very param a
+  // deep link or a reload arrived with.
+  const prevId = React.useRef(serviceTypeId);
   React.useEffect(() => {
+    if (prevId.current === serviceTypeId) return;
+    prevId.current = serviceTypeId;
     setTab("Overview");
-  }, [serviceTypeId]);
+  }, [serviceTypeId, setTab]);
 
-  // If the flag flips off while the Website tab is open, fall back to Overview.
+  // If the flag is definitively OFF while the Website tab is open, fall back
+  // to Overview. Strictly `false`, not falsy: while the probe is in flight
+  // (`null`) a `?tab=Website` deep link must be allowed to stand, or every
+  // reload of that tab would bounce to Overview before the answer arrived.
   React.useEffect(() => {
-    if (tab === "Website" && !websiteOn) setTab("Overview");
-  }, [tab, websiteOn]);
+    if (tab === "Website" && websiteOn === false) setTab("Overview");
+  }, [tab, websiteOn, setTab]);
 
   const reload = () => {
     dossier.reload();
@@ -1301,22 +1324,19 @@ export function ServiceTypeDossier({
         />
       </KpiRow>
 
-      {/* Tabs — ninth "Website" tab only when the website feature is on. */}
-      <div className="flex flex-wrap gap-1 border-b">
-        {tabs.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t === "Website" ? tr("Website") : t}
-          </button>
-        ))}
-      </div>
+      {/* Tabs — ninth "Website" tab only when the website feature is on. One
+          row on a phone: `section-tabs.tsx`. */}
+      <SectionTabs
+        label="Service type sections"
+        value={tab}
+        onChange={setTab}
+        sticky
+        className="mb-4"
+        tabs={tabs.map((t) => ({
+          value: t,
+          label: t === "Website" ? tr("Website") : t,
+        }))}
+      />
 
       {tab === "Overview" && <OverviewTab d={d} onEditName={saveName} />}
       {tab === "Milestones" && (

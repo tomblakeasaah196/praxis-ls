@@ -17,9 +17,11 @@ import { tr } from "@/lib/i18n";
 import { Link, useParams } from "react-router-dom";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
+import { SectionTabs } from "@/components/ui/section-tabs";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { useResource, errMsg } from "@/lib/use-resource";
+import { useUrlTab } from "@/lib/use-url-tab";
 import { money, dateFmt, cell } from "@/lib/format";
 import * as api from "@/lib/treasury-api";
 import { useConfirm } from "@/components/ui/use-confirm";
@@ -162,7 +164,10 @@ export function TreasuryDossier({
     () => api.getDossier(id),
     [id],
   );
-  const [tab, setTab] = React.useState<Tab>("Overview");
+  // `?tab=` (use-url-tab), not local state: this 360 exists on its own route
+  // precisely to be deep-linkable, and a reload was dumping the reader back on
+  // Overview. "Overview" is the fallback, so the param is omitted there.
+  const [tab, setTab] = useUrlTab<Tab>(TABS, "Overview");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -381,18 +386,19 @@ export function TreasuryDossier({
         </Section>
       )}
 
-      {/* ── Tabs ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-1 border-b border-border">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            className={`rounded-t-md px-3 py-1.5 text-sm ${tab === t ? "bg-card border border-b-transparent border-border text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setTab(t)}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+      {/* ── Tabs ──────────────────────────────────────────────────────────
+          Seven sections, and this strip used to be the app's third look for the
+          same control (rounded folder tabs). `SectionTabs` is the shared one:
+          one row on a phone, the active section centred, fading at whichever
+          edge has more. */}
+      <SectionTabs
+        label="Treasury sections"
+        value={tab}
+        onChange={setTab}
+        sticky
+        className="mb-3"
+        tabs={TABS.map((t) => ({ value: t, label: t }))}
+      />
 
       {tab === "Overview" && (
         <div className="grid gap-4 lg:grid-cols-2">
