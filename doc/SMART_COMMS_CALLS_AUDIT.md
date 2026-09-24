@@ -1443,6 +1443,25 @@ limited to live calls and bounded. The server decides every recorded outcome.
      requires a language change.
    - The AI manifest reads check the `call_recording` feature.
    - Clients receive a reason code instead of raw vendor error text.
+6. **Handed over by PR-2 (added after PR-2).**
+   - C4: reject `attachment_kind: "CALL"` at the route/validator level for
+     the generic message, edit and scheduled-message routes, **not** inside
+     `smartcomm.service.writeMessage`, which `sendSummary` uses. Resolve a
+     card only for a SENT summary whose `sent_message_id` or
+     `update_message_id` is that message.
+   - C11: `getSummary` and `getTranscript` still return
+     `transcription_error`. Return reason codes to clients; keep raw vendor
+     text in server logs only.
+   - C8: `regenerateSummary` still calls the LLM inside the request. Make it
+     a queued job, rate-limited per call, and require a language change.
+   - B9: the client still sends a hang-up `reason`. The server derives it
+     and ignores the body.
+   - Rate-limit the part re-run route
+     (`POST /calls/:id/recording/:side/:part/rerun`) together with dial,
+     TURN credentials and regenerate.
+   - `/live-log`: nothing has used it since PR-1, but it still accepts and
+     stores up to 2,000 segments of 2,000 characters per request. Make it
+     return 410 Gone (preferred), or cap and rate-limit it.
 
 **Acceptance.**
 - A TURN allocation to 169.254.169.254 or 172.17.0.1 is refused.
@@ -1976,13 +1995,13 @@ factual. The next agent relies on them.
 | --- | --- | --- | --- | --- | --- |
 | Audit (this document) | MERGED | `claude/integration-audit-report-u6twc5` | #474 | 2026-09-24 | Report, PR plan, scale design |
 | PR-1 | MERGED | `claude/magical-einstein-xqhkn1` | #476 | 2026-09-24 | Includes owner decisions A-1 (Groq → Gemini transcription, no browser capture) and A-2 (Gemini → DeepSeek summaries) |
-| PR-2 | OPEN | `claude/wizardly-ptolemy-dyazt1` | #477 | — | Per-part recorder and transcription, finalise, race-free drafts, pinned draft (O3), N3; migration 14050 |
-| PR-3 | NOT STARTED | — | — | — | |
+| PR-2 | MERGED | `claude/wizardly-ptolemy-dyazt1` | #477 | 2026-09-24 | Per-part recorder and transcription, finalise, race-free drafts, pinned draft (O3), N3; migration 14050 |
+| PR-3 | IN PROGRESS | `claude/tender-davinci-v1eh8y` | — | — | TURN, credentials, relay, IDOR, rate limits |
 | PR-4 | NOT STARTED | — | — | — | |
 | PR-5 | NOT STARTED | — | — | — | |
 | PR-6 | NOT STARTED | — | — | — | |
 | PR-7 | NOT STARTED | — | — | — | |
-| Plan update (O1–O5, A12–A15, N1–N5, PR-7) | OPEN | `claude/integration-audit-report-u6twc5` | #475 | — | Owner decisions, ringing findings, PR-1 findings, test calls |
+| Plan update (O1–O5, A12–A15, N1–N5, PR-7) | MERGED | `claude/integration-audit-report-u6twc5` | #475 | 2026-09-24 | Owner decisions, ringing findings, PR-1 findings, test calls |
 
 Status values: `NOT STARTED` → `IN PROGRESS` → `OPEN` (PR raised) → `MERGED`.
 Use `BLOCKED` with a reason in Notes if you stop.
