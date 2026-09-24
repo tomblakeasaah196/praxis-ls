@@ -1976,7 +1976,7 @@ factual. The next agent relies on them.
 | --- | --- | --- | --- | --- | --- |
 | Audit (this document) | MERGED | `claude/integration-audit-report-u6twc5` | #474 | 2026-09-24 | Report, PR plan, scale design |
 | PR-1 | MERGED | `claude/magical-einstein-xqhkn1` | #476 | 2026-09-24 | Includes owner decisions A-1 (Groq → Gemini transcription, no browser capture) and A-2 (Gemini → DeepSeek summaries) |
-| PR-2 | NOT STARTED | — | — | — | |
+| PR-2 | IN PROGRESS | `claude/wizardly-ptolemy-dyazt1` | — | — | Recorder, per-part transcription, finalise, pinned draft (O3), N3 |
 | PR-3 | NOT STARTED | — | — | — | |
 | PR-4 | NOT STARTED | — | — | — | |
 | PR-5 | NOT STARTED | — | — | — | |
