@@ -974,17 +974,13 @@ describe("the service worker's hand-offs (A8, A14, step 6–7)", () => {
     W.api.declineCall = async () => W.row({ call_id: CALL_ID, status: "DECLINED", end_reason: "declined" });
     act(() => mod.wireCallSocket());
     const { result } = renderHook(() => mod.useCall());
-    const phases: string[] = [];
     await act(async () => {
       mod.initCallDeepLink(`?ring=${CALL_ID}&act=decline`);
-      for (let i = 0; i < 10; i += 1) {
-        phases.push(result.current.phase);
-        await Promise.resolve();
-      }
       await settle();
     });
     expect(W.hits.declineCall).toBe(1);
-    expect(phases).not.toContain("incoming");
+    // No ring was presented on the way: a presented ring acks its channel.
+    expect(emitted("call:ring_ack")).toEqual([]);
     expect(result.current.phase).toBe("ended");
     expect(result.current.endedReason).toBe("declined");
   });
