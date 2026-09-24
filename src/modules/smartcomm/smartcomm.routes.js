@@ -194,7 +194,9 @@ const regenerateLimiter = makeLimiter({
   name: "call-regenerate",
   max: 3,
   windowMs: 10 * MINUTE,
-  keyGenerator: (req) => `regen:${(req.tenant && req.tenant.slug) || "-"}:${req.params.id}`,
+  // Postgres reads a uuid written upper-case, without hyphens or in braces
+  // as the same id; the key must too, or each spelling gets its own budget.
+  keyGenerator: (req) => `regen:${(req.tenant && req.tenant.slug) || "-"}:${String(req.params.id).toLowerCase().replace(/[^0-9a-f]/g, "")}`,
 });
 router.post("/calls", create, callsOn, dialLimiter, v.callCreate, c.createCall);
 router.post("/calls/:id/accept", view, callsOn, c.acceptCall);

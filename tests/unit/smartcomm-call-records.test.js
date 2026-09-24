@@ -1303,6 +1303,17 @@ describe("regenerate — the EN/FR toggle is a queued job (C8)", () => {
     expect(jobs("call-summary-regenerate")[0][3]).toEqual(expect.objectContaining({ removeOnFail: true, removeOnComplete: true }));
   });
 
+  test("the job id uses the row's call id, whatever spelling of it the URL used", async () => {
+    // Postgres matches a uuid written another way; the fake does the same.
+    const respelled = "CALL-1-RESPELLED";
+    mockStore.current.calls.set(respelled, mockStore.current.calls.get(CALL));
+    mockStore.current.summaries.set(respelled, mockStore.current.summaries.get(CALL));
+    const out = await pipeline.requestRegenerate(client(), { callId: respelled, actor: caller, language: "fr", tenantMeta });
+    expect(out.call_id).toBe(CALL);
+    expect(jobs("call-summary-regenerate")[0][3].jobId).toBe(`callregen-${CALL}-fr`);
+    expect(jobs("call-summary-regenerate")[0][2].callId).toBe(CALL);
+  });
+
   test("the language must change: the draft's own language is 422 and queues nothing", async () => {
     await expect(pipeline.requestRegenerate(client(), { callId: CALL, actor: caller, language: "en", tenantMeta }))
       .rejects.toMatchObject({ code: "SAME_LANGUAGE", status: 422 });

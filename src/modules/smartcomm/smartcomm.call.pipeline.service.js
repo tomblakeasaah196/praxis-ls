@@ -1371,9 +1371,11 @@ async function requestRegenerate(client, { callId, actor, language, tenantMeta =
   if (Number(summary.regenerate_count) >= REGENERATE_MAX) {
     throw new AppError("REGENERATE_LIMIT", `A draft can be rewritten ${REGENERATE_MAX} times`, 409);
   }
-  const jobId = `callregen-${callId}-${language}`;
+  // The row's id, not the URL's spelling of it, so one call has one job id.
+  const canonicalId = summary.call_id || callId;
+  const jobId = `callregen-${canonicalId}-${language}`;
   const queued = await enqueueSafely(jobId, (enqueue) => enqueue("call-summary-regenerate", "regenerate", {
-    callId, language, userId: actor.user_id, tenantMeta, env,
+    callId: canonicalId, language, userId: actor.user_id, tenantMeta, env,
   }, {
     jobId,
     attempts: 1,
@@ -1385,7 +1387,7 @@ async function requestRegenerate(client, { callId, actor, language, tenantMeta =
   if (!queued) {
     throw new AppError("QUEUE_UNAVAILABLE", "The summary could not be rewritten right now. Try again.", 503);
   }
-  return { call_id: callId, language, queued: true };
+  return { call_id: canonicalId, language, queued: true };
 }
 
 /**

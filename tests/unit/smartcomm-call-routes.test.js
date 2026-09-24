@@ -107,7 +107,9 @@ describe("the call routes that ring or spend are rate-limited", () => {
     expect(first.body.data).toEqual({ call_id: CALL, language: "fr", queued: true });
     await request(a).post(`/calls/${CALL}/summary/regenerate`).send({ language: "en" });
     await request(a).post(`/calls/${CALL}/summary/regenerate`).send({ language: "fr" });
-    const fourth = await request(a).post(`/calls/${CALL}/summary/regenerate`).set("x-user-id", "cccccccc-cccc-cccc-cccc-cccccccccccc").send({ language: "en" });
+    // Another spelling of the same uuid is the same call's budget.
+    const respelled = CALL.toUpperCase().replace(/-/g, "");
+    const fourth = await request(a).post(`/calls/${respelled}/summary/regenerate`).set("x-user-id", "cccccccc-cccc-cccc-cccc-cccccccccccc").send({ language: "en" });
     expect(fourth.status).toBe(429);
     expect(pipeline.requestRegenerate).toHaveBeenCalledTimes(3);
   });
