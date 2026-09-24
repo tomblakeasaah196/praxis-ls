@@ -1,0 +1,256 @@
+"use strict";
+/**
+ * Calls audit PR-3: security hardening of the call state machine and the relay
+ * credentials. Each block names its finding; every test here failed on the
+ * code before PR-3.
+ */
+const crypto = require("crypto");
+
+jest.mock("../../src/config/env", () => {
+  const real = jest.requireActual("../../src/config/env");
+  return { ...real, config: { ...real.config } };
+});
+jest.mock("../../src/jobs/queue-producer", () => ({ enqueue: jest.fn(async () => ({})) }));
+jest.mock("../../src/shared/push/push.service", () => ({
+  sendToUser: jest.fn(async () => ({ sent: 1, failed: 0, total: 1 })),
+}));
+const mockCounters = new Map();
+jest.mock("../../src/config/redis", () => ({
+  getClient: () => ({
+    incr: async (k) => { const n = (mockCounters.get(k) || 0) + 1; mockCounters.set(k, n); return n; },
+    expire: async () => 1,
+  }),
+}));
+
+const { config } = require("../../src/config/env");
+const requestContext = require("../../src/config/request-context");
+const realtime = require("../../src/realtime");
+const turn = require("../../src/modules/smartcomm/smartcomm.turn.service");
+const service = require("../../src/modules/smartcomm/smartcomm.call.service");
+
+const U1 = "11111111-1111-1111-1111-111111111111";
+const U2 = "22222222-2222-2222-2222-222222222222";
+const U3 = "44444444-4444-4444-4444-444444444444";
+const G1 = "33333333-3333-3333-3333-333333333333";
+const CALL = "55555555-5555-5555-5555-555555555555";
+
+const TURN_KEYS = ["STUN_URLS", "TURN_HOST", "TURN_CREDENTIAL_SECRET", "TURN_PORT_UDP", "TURN_PORT_TCP", "TURN_TRANSPORTS", "TURN_TLS_PORT"];
+const saved = Object.fromEntries(TURN_KEYS.map((k) => [k, config[k]]));
+function withTurn(overrides) {
+  Object.assign(config, {
+    STUN_URLS: "", TURN_HOST: "", TURN_CREDENTIAL_SECRET: "", TURN_PORT_UDP: 3478,
+    TURN_PORT_TCP: 3478, TURN_TRANSPORTS: "udp,tcp", TURN_TLS_PORT: 0,
+  }, overrides);
+}
+afterEach(() => Object.assign(config, saved));
+
+/**
+ * One call row plus the few statements the paths under test issue. The
+ * guarded writes behave like Postgres: they match only the status they name.
+ */
+function makeDb({ call = null, settings = {}, members = [], partner = { user_id: U2, status: "ACTIVE" } } = {}) {
+  const state = { call: call ? { ...call } : null, audits: [], events: [], inserted: null };
+  const client = {
+    state,
+    query: async (sql, params = []) => {
+      if (/SET turn_token = COALESCE\(turn_token, \$2\)/.test(sql)) {
+        const c = state.call;
+        if (!c || c.call_id !== params[0] || !["RINGING", "IN_CALL"].includes(c.status)) return { rows: [] };
+        c.turn_token = c.turn_token || params[1];
+        return { rows: [{ turn_token: c.turn_token }] };
+      }
+      if (/SELECT \* FROM comms_call WHERE call_id = \$1/.test(sql)) {
+        return { rows: state.call && state.call.call_id === params[0] ? [state.call] : [] };
+      }
+      if (/SELECT 1 AS ok FROM comms_call/.test(sql)) {
+        const c = state.call;
+        return { rows: c && c.call_id === params[0] && (c.caller_id === params[1] || c.callee_id === params[1]) ? [{ ok: 1 }] : [] };
+      }
+      if (/FROM setting WHERE section = 'comms'/.test(sql)) {
+        return { rows: Object.entries(settings).map(([key, value]) => ({ key, value })) };
+      }
+      if (/FROM feature_state/.test(sql)) return { rows: [{ state: "on" }] };
+      if (/FROM comms_member WHERE group_id/.test(sql)) {
+        const m = members.find((x) => x.group_id === params[0] && x.user_id === params[1]);
+        return { rows: m ? [m] : [] };
+      }
+      if (/FROM comms_group g\s+JOIN comms_member m/.test(sql)) {
+        return { rows: partner ? [partner] : [] };
+      }
+      if (/WHERE \(caller_id = \$1 OR callee_id = \$1\) AND status IN/.test(sql)) return { rows: [] };
+      if (/INSERT INTO comms_call/.test(sql)) {
+        state.call = {
+          call_id: CALL, group_id: params[0], caller_id: params[1], callee_id: params[2],
+          status: "RINGING", started_at: new Date().toISOString(), connected_at: null, turn_token: null,
+        };
+        return { rows: [state.call] };
+      }
+      if (/UPDATE comms_call SET status = \$3/.test(sql)) {
+        const c = state.call;
+        if (!c || c.call_id !== params[0] || c.status !== params[1]) return { rows: [] };
+        const setClause = sql.split("SET ")[1].split(" WHERE")[0];
+        c.status = params[2];
+        for (const part of setClause.split(",").map((s) => s.trim())) {
+          const m = part.match(/^(\w+) = \$(\d+)$/);
+          if (m && m[1] !== "status") c[m[1]] = params[Number(m[2]) - 1];
+        }
+        return { rows: [c] };
+      }
+      if (/INSERT INTO immutable_ledger/.test(sql)) { state.audits.push(params); return { rows: [] }; }
+      if (/INSERT INTO event_log/.test(sql)) { state.events.push(params); return { rows: [] }; }
+      if (/FROM app_user/.test(sql)) return { rows: [{ user_id: params[0], full_name: "Ada", status: "ACTIVE" }] };
+      return { rows: [] };
+    },
+  };
+  return client;
+}
+
+const inTenant = (fn, env = "live") => requestContext.run({ tenant: "acme", userId: U1, env }, fn);
+let publishSpy;
+beforeEach(() => {
+  mockCounters.clear();
+  publishSpy = jest.spyOn(realtime, "publishToUser").mockImplementation(() => {});
+});
+afterEach(() => publishSpy.mockRestore());
+
+const ringing = (extra = {}) => ({
+  call_id: CALL, group_id: G1, caller_id: U1, callee_id: U2, status: "RINGING",
+  started_at: new Date().toISOString(), connected_at: null, turn_token: null, ...extra,
+});
+const inCall = (connectedSecondsAgo, extra = {}) => ringing({
+  status: "IN_CALL",
+  connected_at: new Date(Date.now() - connectedSecondsAgo * 1000).toISOString(),
+  ...extra,
+});
+const turnServers = (ice) => ice.iceServers.filter((s) => s.username);
+
+/* ── C2 · relay credentials are tied to one live call ─────────────────────── */
+
+describe("C2: TURN credentials are minted only for a live call, and name it", () => {
+  beforeEach(() => withTurn({ TURN_HOST: "turn.example.com", TURN_CREDENTIAL_SECRET: "k" }));
+
+  test.each(["ENDED", "FAILED", "NO_ANSWER", "DECLINED", "CANCELLED"])(
+    "a credential request for a %s call is 404",
+    async (status) => {
+      const db = makeDb({ call: ringing({ status }) });
+      await expect(service.turnFor(db, { id: CALL, actor: { user_id: U1 } }))
+        .rejects.toMatchObject({ status: 404 });
+    },
+  );
+
+  test("a stranger gets the same 404 as a missing call", async () => {
+    const db = makeDb({ call: inCall(10) });
+    await expect(service.turnFor(db, { id: CALL, actor: { user_id: U3 } }))
+      .rejects.toMatchObject({ status: 404 });
+  });
+
+  test("the username is <expiry>:<the call's own random token>, and holds no user id", async () => {
+    const db = makeDb({ call: inCall(10) });
+    const ice = await service.turnFor(db, { id: CALL, actor: { user_id: U1 } });
+    const token = db.state.call.turn_token;
+    expect(token).toMatch(/^[A-Za-z0-9_-]{16,}$/);
+    for (const s of turnServers(ice)) {
+      expect(s.username).toMatch(new RegExp(`^\\d+:${token}$`));
+      expect(s.username).not.toContain(U1);
+      // coturn's REST scheme: HMAC-SHA1 over the WHOLE username.
+      expect(s.credential).toBe(crypto.createHmac("sha1", "k").update(s.username).digest("base64"));
+    }
+  });
+
+  test("both participants get the call's one token; another call gets another", async () => {
+    const db = makeDb({ call: inCall(10) });
+    const a = await service.turnFor(db, { id: CALL, actor: { user_id: U1 } });
+    const b = await service.turnFor(db, { id: CALL, actor: { user_id: U2 } });
+    const tokenOf = (ice) => turnServers(ice)[0].username.split(":")[1];
+    expect(tokenOf(a)).toBe(tokenOf(b));
+    const other = makeDb({ call: inCall(10) });
+    expect(tokenOf(await service.turnFor(other, { id: CALL, actor: { user_id: U1 } }))).not.toBe(tokenOf(a));
+  });
+
+  test("the TTL is the call's remaining allowance plus 60 s", async () => {
+    const db = makeDb({ call: inCall(600) });
+    const ice = await service.turnFor(db, { id: CALL, actor: { user_id: U1 } });
+    const expiry = Number(turnServers(ice)[0].username.split(":")[0]);
+    const expected = Math.floor(Date.now() / 1000) + (1800 - 600) + 60;
+    expect(Math.abs(expiry - expected)).toBeLessThanOrEqual(2);
+  });
+
+  test("a ringing call's credential lasts the rest of the ring plus a full call", async () => {
+    const db = makeDb({ call: ringing({ started_at: new Date(Date.now() - 20_000).toISOString() }) });
+    const ice = await service.turnFor(db, { id: CALL, actor: { user_id: U2 } });
+    const expiry = Number(turnServers(ice)[0].username.split(":")[0]);
+    const expected = Math.floor(Date.now() / 1000) + (60 - 20) + 1800 + 60;
+    expect(Math.abs(expiry - expected)).toBeLessThanOrEqual(2);
+  });
+
+  test("the dial response carries a credential for the new call", async () => {
+    const db = makeDb({ members: [{ group_id: G1, user_id: U1 }] });
+    const out = await inTenant(() => service.createCall(db, { groupId: G1, actor: { user_id: U1 } }));
+    expect(turnServers(out.ice)[0].username).toMatch(new RegExp(`:${db.state.call.turn_token}$`));
+  });
+
+  test("the call row a client reads never carries the token", async () => {
+    const db = makeDb({ call: inCall(10, { turn_token: "secret-token-value" }) });
+    db.query = ((orig) => async (sql, params) => {
+      if (/SELECT c\.\*, g\.name AS channel_name/.test(sql)) return { rows: [{ ...db.state.call, transcription_error: "groq: 401 invalid key sk-live-abc" }] };
+      return orig(sql, params);
+    })(db.query);
+    const row = await service.getCall(db, { id: CALL, actor: { user_id: U1 } });
+    expect(row.turn_token).toBeUndefined();
+    expect(JSON.stringify(row)).not.toMatch(/secret-token-value|sk-live-abc/);
+  });
+});
+
+/* ── C12 · STUN only from configuration ───────────────────────────────────── */
+
+describe("C12: no public STUN server unless one is configured", () => {
+  test("nothing configured: no STUN at all, and never Google", () => {
+    withTurn({});
+    const ice = turn.iceConfigFor({ token: "t", ttlSeconds: 120 });
+    expect(JSON.stringify(ice)).not.toMatch(/google/);
+    expect(ice.iceServers).toEqual([]);
+  });
+
+  test("with TURN configured, its own port serves STUN", () => {
+    withTurn({ TURN_HOST: "turn.example.com", TURN_CREDENTIAL_SECRET: "k", TURN_PORT_UDP: 3478 });
+    const ice = turn.iceConfigFor({ token: "t", ttlSeconds: 120 });
+    expect(ice.iceServers[0]).toEqual({ urls: ["stun:turn.example.com:3478"] });
+  });
+
+  test("STUN_URLS, when set, is used as given", () => {
+    withTurn({ STUN_URLS: "stun:a.example:3478, stun:b.example:3478" });
+    const ice = turn.iceConfigFor({ token: "t", ttlSeconds: 120 });
+    expect(ice.iceServers[0]).toEqual({ urls: ["stun:a.example:3478", "stun:b.example:3478"] });
+  });
+
+  test("a TLS port adds a turns: URL for networks that block UDP", () => {
+    withTurn({ TURN_HOST: "turn.example.com", TURN_CREDENTIAL_SECRET: "k", TURN_TLS_PORT: 5349 });
+    const ice = turn.iceConfigFor({ token: "t", ttlSeconds: 120 });
+    expect(turnServers(ice).map((s) => s.urls[0])).toContain("turns:turn.example.com:5349?transport=tcp");
+  });
+});
+
+/* ── C13 · relay-only calls hide each side's IP address ───────────────────── */
+
+describe("C13: the tenant's relay-only setting", () => {
+  beforeEach(() => withTurn({ TURN_HOST: "turn.example.com", TURN_CREDENTIAL_SECRET: "k" }));
+
+  test("off by default: the browser may use every candidate", async () => {
+    const db = makeDb({ call: inCall(5) });
+    const ice = await service.turnFor(db, { id: CALL, actor: { user_id: U1 } });
+    expect(ice.iceTransportPolicy).toBe("all");
+  });
+
+  test("on: iceTransportPolicy is relay for both participants", async () => {
+    const db = makeDb({ call: inCall(5), settings: { call_privacy: { relay_only: true } } });
+    const a = await service.turnFor(db, { id: CALL, actor: { user_id: U1 } });
+    const b = await service.turnFor(db, { id: CALL, actor: { user_id: U2 } });
+    expect(a.iceTransportPolicy).toBe("relay");
+    expect(b.iceTransportPolicy).toBe("relay");
+  });
+
+  test("the setting is read through callSettings", async () => {
+    const db = makeDb({ settings: { call_privacy: { relay_only: true } } });
+    await expect(service.callSettings(db)).resolves.toMatchObject({ relay_only: true });
+  });
+});

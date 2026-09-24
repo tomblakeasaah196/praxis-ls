@@ -92,11 +92,13 @@ async function callSettings(client) {
   const defaults = {
     recording_retention_days: 30,
     noise_suppression: true,
+    // comms.call_privacy (audit C13): relay-only calls, off by default.
+    relay_only: false,
   };
   try {
     const { rows } = await client.query(
       `SELECT key, value FROM setting WHERE section = 'comms' AND key = ANY($1)`,
-      [["call_recording", "call_noise_suppression"]],
+      [["call_recording", "call_noise_suppression", "call_privacy"]],
     );
     for (const row of rows) {
       if (row.key === "call_recording" && row.value && row.value.retention_days !== undefined) {
@@ -105,6 +107,9 @@ async function callSettings(client) {
       }
       if (row.key === "call_noise_suppression" && row.value && row.value.enabled !== undefined) {
         defaults.noise_suppression = row.value.enabled === true || row.value.enabled === "true";
+      }
+      if (row.key === "call_privacy" && row.value) {
+        defaults.relay_only = row.value.relay_only === true || row.value.relay_only === "true";
       }
     }
   } catch (err) {
@@ -214,13 +219,11 @@ async function createCall(client, { groupId, actor, tenantMeta = null, env = "li
   void enqueueRingEscalation({ callId: call.call_id, tenantMeta, env });
 
   logger.info({ callId: call.call_id, caller: actor.user_id, callee: partner.user_id }, "call: RINGING");
-  // The dialer's ICE config rides the create response: the call does not need
-  // to be "answered" before the caller's engine can start collecting ICE
-  // candidates, and a second round trip here is setup latency on every call.
-  const { iceConfigFor } = require("./smartcomm.turn.service");
+  // The dialer's ICE config rides the create response, so its engine can
+  // gather candidates while the callee's phone rings.
   return {
-    ...call,
-    ice: iceConfigFor(actor.user_id),
+    ...publicCall(call),
+    ice: await iceFor(client, call, settings),
     recording_enabled: recording,
     noise_suppression: settings.noise_suppression,
   };
@@ -251,15 +254,11 @@ async function acceptCall(client, { id, actor, env = "live" }) {
   rtToUser(other, "call:accepted", payload, { env });
   rtToUser(actor.user_id, "call:accepted", payload, { env });
   logger.info({ callId: id }, "call: IN_CALL");
-  // The callee's engine starts NOW (the mic opens at answer time), and its
-  // ICE config rides this response the same way the dialer's did — one
-  // fewer round trip in the second that decides whether the media path
-  // forms before the caller gives up.
-  const { iceConfigFor } = require("./smartcomm.turn.service");
+  // The callee's engine starts now, so its ICE config rides this response.
   const settings = await callSettings(client);
   return {
-    ...updated,
-    ice: iceConfigFor(actor.user_id),
+    ...publicCall(updated),
+    ice: await iceFor(client, updated, settings),
     recording_enabled: await recordingEnabled(client),
     noise_suppression: settings.noise_suppression,
   };
@@ -386,7 +385,7 @@ async function endCall(client, {
   if (updated && (status === "ENDED" || (status === "FAILED" && updated.connected_at))) {
     await require("./smartcomm.call.pipeline.service").scheduleDeadline({ callId: id, tenantMeta, env });
   }
-  return updated;
+  return publicCall(updated);
 }
 
 /**
@@ -736,19 +735,50 @@ async function settingsFor(client) {
   return callSettings(client);
 }
 
-/** Fresh ICE config for a call's participant — the credential is scoped to
- *  the USER (their id is in the username), so a refresh mid-call never
- *  reuses the other participant's, and neither can replay the other's. */
+/**
+ * Relay credentials and the TTL they carry (audit C2). Minted only for a call
+ * that is RINGING or IN_CALL: an ended call's id is worth nothing to a relay.
+ * The TTL is what is left of the call plus a minute. A ringing call can still
+ * become a full-length one, so it gets the rest of the ring plus the cap.
+ */
+function credentialTtl(call, now = Date.now()) {
+  const since = (iso) => (now - new Date(iso).getTime()) / 1000;
+  const remaining = call.status === "IN_CALL" && call.connected_at
+    ? MAX_CALL_S - since(call.connected_at)
+    : RING_TIMEOUT_S - since(call.started_at) + MAX_CALL_S;
+  return Math.max(0, Math.ceil(remaining)) + 60;
+}
+
+async function iceFor(client, call, settings = null) {
+  const { iceConfigFor, newCallToken } = require("./smartcomm.turn.service");
+  const token = await repo.ensureTurnToken(client, { callId: call.call_id, token: newCallToken() });
+  if (!token) throw new AppError("NOT_FOUND", "Call not found", 404);
+  const { relay_only: relayOnly } = settings || await callSettings(client);
+  return iceConfigFor({ token, ttlSeconds: credentialTtl(call), relayOnly });
+}
+
+/** GET /calls/:id/turn — a refreshed credential for a participant of a live
+ *  call. Anything else (a stranger, an ended call) is the same 404. */
 async function turnFor(client, { id, actor }) {
-  const ok = await repo.isParticipant(client, { callId: id, userId: actor.user_id });
-  if (!ok) throw new AppError("NOT_FOUND", "Call not found", 404);
-  const { iceConfigFor } = require("./smartcomm.turn.service");
-  return iceConfigFor(actor.user_id);
+  const call = await repo.findCall(client, id);
+  if (!call || (call.caller_id !== actor.user_id && call.callee_id !== actor.user_id)
+      || (call.status !== "RINGING" && call.status !== "IN_CALL")) {
+    throw new AppError("NOT_FOUND", "Call not found", 404);
+  }
+  return iceFor(client, call);
+}
+
+/** A call row as clients read it: without the relay token, and without the
+ *  stored transcription error, which can hold vendor text (audit C11). */
+function publicCall(row) {
+  if (!row) return row;
+  const { turn_token: _token, transcription_error: _error, ...rest } = row;
+  return rest;
 }
 
 // ── Reads ──────────────────────────────────────────────────────────────────
 async function listCalls(client, actor) {
-  return repo.listCallsForUser(client, actor.user_id);
+  return (await repo.listCallsForUser(client, actor.user_id)).map(publicCall);
 }
 
 async function getCall(client, { id, actor }) {
@@ -770,7 +800,7 @@ async function getCall(client, { id, actor }) {
   if (!rows[0]) throw new AppError("NOT_FOUND", "Call not found", 404);
   // Every call row a client reads carries the recording switch, so a screen
   // opened mid-call (or a reload) knows whether to show the consent banner.
-  return { ...rows[0], recording_enabled: await recordingEnabled(client) };
+  return { ...publicCall(rows[0]), recording_enabled: await recordingEnabled(client) };
 }
 
 module.exports = {
@@ -787,6 +817,8 @@ module.exports = {
   listCalls,
   getCall,
   turnFor,
+  credentialTtl,
+  publicCall,
   // The one recording-flag helper (audit B14): the pipeline reads it too.
   recordingEnabled,
   // PR-3.

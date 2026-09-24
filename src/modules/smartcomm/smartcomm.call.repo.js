@@ -139,6 +139,18 @@ async function otherParticipant(client, { callId, userId }) {
   return rows[0] || null;
 }
 
+/** The call's relay-credential token, written on the first mint. Only a
+ *  RINGING or IN_CALL call gets one (audit C2); null otherwise. */
+async function ensureTurnToken(client, { callId, token }) {
+  const { rows } = await client.query(
+    `UPDATE comms_call SET turn_token = COALESCE(turn_token, $2)
+     WHERE call_id = $1 AND status IN ('RINGING','IN_CALL')
+     RETURNING turn_token`,
+    [callId, token],
+  );
+  return rows[0] ? rows[0].turn_token : null;
+}
+
 /** Does `userId` participate in this call at all (any status)? */
 async function isParticipant(client, { callId, userId }) {
   const { rows } = await client.query(
@@ -749,6 +761,7 @@ async function pendingDraftsInChannel(client, { groupId, userId, limit = 5 }) {
 }
 
 module.exports = {
+  ensureTurnToken,
   ACTIVE_STATUSES,
   findActiveCall,
   insertCall,
