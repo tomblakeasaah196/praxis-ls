@@ -164,8 +164,9 @@ services:
     volumes:
       - ./docker/coturn/docker-entrypoint.sh:/usr/local/bin/praxis-turn-entrypoint.sh:ro
       - ./scripts/turn-check.sh:/check/turn-check.sh:ro
-      # TLS (turns:) — mount the certificate for TURN_HOST when TURN_TLS_PORT
-      # is set, e.g. - /etc/letsencrypt:/etc/letsencrypt:ro
+      # TLS (turns:) — when TURN_TLS_PORT is set, mount a COPY of TURN_HOST's
+      # certificate and key readable by the image's `nobody` user (Let's
+      # Encrypt's privkey is root-only), e.g. - /etc/praxis/turn-tls:/etc/turn-tls:ro
     environment:
       # Empty values are refused by the entrypoint, not by compose: `:?` here
       # would fail every `docker compose` command on a box without TURN.
