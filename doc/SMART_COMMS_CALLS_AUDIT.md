@@ -12,7 +12,7 @@ Every finding cites `file:line`. Nothing here was run against production data;
 one-active-call partial indexes) and the database schema are sound and worth
 keeping. The **record pipeline's scheduling and notifications, the client call
 engine, the recorder, the call screen and the TURN deployment** are broken
-badly enough that they should be rebuilt rather than patched. Section 4 says
+badly enough that they should be rebuilt rather than patched. Section 5 says
 what to keep, rebuild and remove. A targeted rebuild of those parts costs less
 than starting from scratch, because the parts worth keeping are the hard ones
 to get right.
@@ -26,12 +26,61 @@ to get right.
 
 ---
 
+## How to use this document (read first if you are fixing a PR)
+
+The fix is split into **six PRs** (§3), done **one at a time, in order**. Each
+PR is done in its own chat, starting from the latest `main` after the previous
+PR has merged. Several PRs edit the same files, so running them in parallel
+causes conflicts.
+
+If you are the agent working on one of them:
+
+1. **Read, in this order:** `CLAUDE.md`; §0 and §1 of this document; your PR's
+   section in §3; §4 if you are on PR-2 or PR-5; every entry in the **Progress
+   log (§6)**. Earlier PRs may have changed a file, a name or a plan you depend
+   on, and the log is where they said so.
+2. **Check the previous PR is merged.** Its Progress row must say `MERGED`. If
+   it does not, stop and tell the owner.
+3. **Re-verify each finding before you change anything.** The `file:line`
+   references were correct on 2026-09-24 and will drift. Confirm the defect
+   still exists in the current code. If one no longer applies, record that in
+   your Progress entry and move on.
+4. **Stay in scope.** Fix only your PR's IDs. If you find a new defect, add it
+   to "New findings" in your Progress entry. Fix it only if it is small and in a
+   file you are already changing; otherwise leave it for the PR that owns that
+   area.
+5. **Test first.** For each finding, where practical, write a test that fails
+   on the current code, then fix it. A finding without a test is not fixed.
+6. **Follow the repo's gates** (`CLAUDE.md`):
+   - Run the full `npm run ci` before every push; a subset run is not evidence.
+   - Regenerate `doc/API_REFERENCE.md` and `doc/ERROR_CODES.md` with
+     `node scripts/generate-api-docs.js` when you add or change an `AppError`
+     or a route.
+   - Migrations: take the next free number; include a DOWN section. An
+     existing table may only gain **plain columns**; dropping a constraint is
+     allowed, adding one is not (`tests/unit/migration-constraint-ordering.test.js`).
+   - Frontend: no native dialogs, no `<input type="date">` or
+     `<input type="file">`, no raw palette colours, day-first dates.
+7. **Leave the code more honest than you found it.** Correct any false
+   statement in the docs or comments you touch (H3). Cut essay comments in the
+   files you edit down to short "why" notes (H4). Do not add new essays.
+8. **PR hygiene.** The title uses a Conventional Commits prefix (the one given
+   in your section). The description follows `.github/pull_request_template.md`
+   and lists the IDs fixed, the IDs deferred (with the reason) and the test and
+   gate results.
+9. **Before the PR merges, update §6.** Set your row's status, add your log
+   entry (what changed, deviations from this plan, new findings, anything the
+   next PR must know) and commit it on your PR branch. The next agent starts
+   from your entry.
+
+---
+
 ## 0. Stop the bleeding (today, before any code change)
 
 The nightly notifications come from the `comms-call-record-sweep` job (§1). It
 is registered again every time the worker boots, so it **cannot be switched off
 from configuration**. Turning the `call_recording` feature off does not stop it
-either: the pipeline never checks that flag (A5). Until the Phase 1 hotfix
+either: the pipeline never checks that flag (A5). Until the PR-1 hotfix
 ships, park the affected calls so the sweep's two queries no longer select
 them.
 
@@ -82,7 +131,7 @@ COMMIT;
 ```
 
 New calls still enter the pipeline when they end. This stops the backlog, not
-the defect. If calling should be off until Phase 1 ships, switch the `calls`
+the defect. If calling should be off until PR-1 ships, switch the `calls`
 feature off for the tenant in the platform console. That hides nothing already
 queued, so run the SQL as well.
 
@@ -877,103 +926,568 @@ F = call UI, G = privacy, H = tests and docs.
 
 ---
 
-## 3. Fix plan
+## 3. The fix, as six PRs
 
-Sizes assume one engineer who knows this codebase: **S** ≤ 1 day, **M** 2–4
-days, **L** 1–2 weeks. Each phase ends with its acceptance check.
+| PR | Title prefix | Covers | Size |
+| --- | --- | --- | --- |
+| PR-1 | `fix(comms): stop phantom call notifications` | A1, A4, A5, A6, A9, A10, A11, B1, B2, B5, B10, E14 | M |
+| PR-2 | `fix(comms): rebuild the call recorder and transcription pipeline` | A2, A3, B4, B6, B7, B11–B14, C7, D3, D10, E9–E11, H1 | L |
+| PR-3 | `fix(comms): harden calls — TURN, credentials, relay, IDOR, rate limits` | B8, B9, C1–C6, C8, C10–C13, D7 | M |
+| PR-4 | `fix(comms): reliable call engine — negotiation, audio, rings` | A7, A8, E1–E8, E13 | L |
+| PR-5 | `perf(comms): scale calls and transcription across tenants` | B3, C9, D1, D2, D4–D6, D8, D9, D11, D12, E12 | L |
+| PR-6 | `feat(comms): new call screen and privacy defaults` | F1–F10, G1–G5, H2, C6 (do-not-disturb) | L |
 
-### Phase 1: stop the phantom notifications and calls (S–M, ship first)
-1. Remove notifications from sweep-initiated runs. Notify once per draft,
-   tracked by a `notified_at` column (A4).
-2. Pipeline gate: recording on AND at least one part or segment, otherwise
-   terminal `NO_RECORDING` (A5, B5).
-3. Move the record sweep to a working-hours cron per tenant timezone, with
-   hashed hour spreading (A1, D2).
-4. Separate the ring deep link (`?ring=`) from the summary link. Add a summary
-   route and screen, plus a "Calls" list with pending drafts (A6, E14).
-5. Fix the keepalive URL (A10). Change liveness to an allowed reason and
-   `Math.max` (B1, B2).
-6. Add the env to the user room (A9). Add a worker-side socket emitter through
-   the Redis adapter (`@socket.io/redis-emitter`) so worker events reach
-   clients (A6).
-7. **Accept:** a 3-minute test call produces exactly one notification within a
-   minute of hang-up, and it opens the draft. Nothing is sent at night. A closed
-   tab ends the call within 60 s.
+All six PRs also apply H3 and H4 to the files they touch. Together they cover
+all 83 findings.
 
-### Phase 2: rebuild the recorder and pipeline triggers (M)
-1. One complete file per part (restart the `MediaRecorder` per part), or a
-   single resumable upload (A3).
-2. A "side complete" endpoint that triggers processing, and certification only
-   when all declared parts are present (A2, E11).
-3. Idempotent reprocessing: skip certified sides, cap attempts on every branch,
-   exclude ineligible calls (B4, B5).
-4. Draft state guards and a transactional send (B6, B7).
-5. Deterministic storage keys, upload window and byte quotas, validator caps
-   that match the columns (B11–B13).
-6. Remove the Web Speech live capture (E9, E10, G2, C7, D10).
-7. **Accept:** 5-, 15- and 29-minute calls on Chrome Android, Safari iOS and
-   desktop all reach CERTIFIED. A re-run never bills a certified side.
+### PR-1 · Stop the phantom notifications and calls
 
-### Phase 3: security hardening (M)
-1. coturn: `--static-auth-secret`, realm, external-ip, TLS on 443, denied
-   private ranges, quotas, pinned image, health check (C1, C3).
-2. Call-scoped, rate-limited TURN credentials issued only for live calls (C2).
-3. Reject `CALL` attachments on the generic post route, and resolve cards only
-   for SENT summaries (C4).
-4. Relay only for live calls, with payload validation, per-socket rate limits
-   and a cached participant pair (C5, D7).
-5. Dial rate limits, callee must be ACTIVE, DND and block (C6). Queue and
-   rate-limit regeneration (C8). Throttle presence writes (C9). Gate AI reads
-   on the recording flag (C10).
-6. **Accept:** a TURN SSRF probe to 169.254.169.254 and 172.17.0.1 is refused.
-   Posting a foreign `call_id` returns 422.
+**Goal.** No notification is ever sent from the nightly job. Calls with no audio
+never reach the AI. The summary notification opens the summary. A closed tab
+ends its call. Sandbox calls stay in the sandbox.
 
-### Phase 4: call engine reliability (M–L)
-1. Perfect negotiation with `onnegotiationneeded`, buffered ICE candidates, and
-   no blind re-offer (E1–E3).
-2. Audio element created on the gesture with `play()` handling (E4). Noise
-   filter at 48 kHz with `resume()`, CSP `'wasm-unsafe-eval'`, and default OFF
-   until the device matrix passes (E5).
-3. Mic before dial or accept; hang up on engine failure; in-flight dial guard
-   (E6, E7). "Answered on another device" (E8). Presence snapshot (E12).
-4. Service-worker actions for Accept/Decline, a close-on-end push, and
-   auto-close at `expires_at` (A7, A8).
-5. **Accept:** the full manual matrix passes (H2), including switching from
-   Wi-Fi to 4G mid-call, and push Answer/Decline from the lock screen.
+**Depends on:** this document merged to `main`.
 
-### Phase 5: scale across tenants (M)
-1. Per-call delayed jobs as the clock, with a safety sweep only over tenants
-   that have active calls (D1).
-2. Per-tenant fair queues for transcription, with 429-aware backoff (D2).
-   Release DB connections during vendor calls (D3).
-3. Event-driven metric counters plus a `started_at` index; group alarms by env
-   (D4, D5, D11).
-4. Redis presence with TTLs, no tenant-wide broadcast (D6, D8, B3). Bounded
-   purge and partner join (D9).
-5. **Accept:** a load test with 200 tenants, 50 concurrent calls, and one
-   tenant with 2,000 backlogged transcripts. Ring timeouts stay within 5 s for
-   every other tenant, and the tenant DB pools stay under their budget.
+**Main files:** `src/jobs/workers.js`, `src/jobs/handlers/comms-call-record-sweep*.js`,
+`src/jobs/handlers/call-transcribe.js`,
+`src/modules/smartcomm/smartcomm.call.{service,repo,pipeline.service}.js`,
+`src/realtime/index.js`, `src/modules/notification/notification.service.js`
+(for the `publishToUser` signature only), a new tenant migration,
+`client/src/features/comms/call/{call-session,ring-surface,summary-draft}.ts(x)`,
+`client/src/features/comms/{comms-live,hub}.tsx`, `client/src/app/app.tsx`,
+`client/src/app/screen-registry.json`, `client/src/lib/smartcomm-api.ts`,
+`client/public/push-handler.js`.
 
-### Phase 6: new call screen and privacy (M)
-1. Opaque, token-driven call and ring screens using the tenant `--primary` and
-   destructive tokens, with no blur. Banners in the layout flow. A dockable
-   in-call bar. Design-system `Switch`/`Dialog`/`Field`. Reduced motion
-   (F1–F5, F9).
-2. Recording notice on the ring screen, and a per-call "don't record" option
-   (F6, G5). Editable key points and follow-ups, confirmed discard, day-first
-   dates (F7, F8). UI feature gates (F10).
-3. Recording OFF by default, a tenant admin switch, a processor disclosure,
-   text retention and an erasure path, and a presence privacy setting
-   (G1–G4).
+**Out of scope:** the recorder, the transcription logic itself, TURN, the engine
+and the call-screen visuals. Those belong to later PRs. Do not restyle the call
+screen here, but do not add new design-system violations either.
 
-### Phase 7: make it stay fixed (S–M)
-1. Real end-to-end test through the worker (H1). The manual matrix as a
-   release gate (H2).
-2. Correct every false statement in H3.
+**Steps**
+1. **Schedule (A1).** Replace `repeat: { every: 86_400_000 }` for
+   `comms-call-record-sweep-scheduler` with a cron pattern at a daytime hour.
+   Add two new env settings, `COMMS_CALL_RECORD_SWEEP_CRON` (default
+   `0 10 * * *`) and `COMMS_CALL_RECORD_SWEEP_TZ` (default `Africa/Douala`), in
+   both `src/config/env.js` and `.env.example`. The `check-env-template` gate
+   requires both. **Also remove the old repeatable at worker boot.** BullMQ
+   keeps a repeatable registered under its old key, so the midnight run keeps
+   firing unless `getRepeatableJobs()` is scanned and every entry for that
+   queue with `every` set is removed. Add a test for the removal.
+2. **Notify once, never from a sweep (A4).**
+   - Pass `origin: "hangup" | "sweep"` from `startPipeline` through the job
+     data to `processCall`.
+   - Add a plain column `notified_at timestamptz` to `comms_call_summary`.
+     Claim it atomically with
+     `UPDATE … SET notified_at = now() WHERE call_id = $1 AND notified_at IS NULL RETURNING`
+     and push only when the claim succeeds **and** `origin !== "sweep"`.
+   - Sweep-created drafts appear in the Calls list (step 5) and send no push.
+   - Raise the per-call ops alert only on the first failure of a call, not on
+     sweep re-runs.
+3. **No audio, no pipeline (A5, B5).**
+   - In `processCall`, before any attempt is counted: if recording is off for
+     the tenant, or there are no uploaded parts and no live-log rows and the
+     upload grace has passed, set the terminal state `NO_RECORDING` and return.
+     No LLM call, no alert, no notification.
+   - Change `listUntranscribedEndedCalls` to exclude calls that never connected
+     (`AND (status = 'ENDED' OR connected_at IS NOT NULL)`). Give every other
+     skip in `processCall` a terminal state, so no row is selected forever.
+   - Add `NO_RECORDING` to the client's `CallTranscriptState` type and render
+     it as "Not recorded".
+   - Migration: backfill `NO_RECORDING` for calls that ended more than a day ago
+     with a NULL state and no recording or live-log rows. The state column has
+     no CHECK, so this is data only.
+4. **Separate ring links from summary links (A6).**
+   - Rings use `?ring=<id>[&act=…]`: server `escalateRing` URL,
+     `ring-surface.ringUrl`, and `parseCallLink` reading `ring`.
+   - Summary notifications use `/comms/calls/<id>`.
+   - Keep `?call=<id>` working for notifications already delivered: redirect
+     it to `/comms/calls/<id>`, never treat it as a ring.
+   - Add unit tests showing `?call=` never produces a ring or the redial
+     banner.
+5. **A reachable summary (A6, E14).**
+   - `/comms/calls` lists the user's calls from `GET /smartcomm/calls`. Extend
+     the list query with `transcription_state`, `draft_status` and
+     `notified_at`, and badge the drafts that are waiting.
+   - `/comms/calls/:id` shows the summary editor inline, plus the transcript.
+   - Split `CallSummaryPanel` into an embeddable editor used by both this page
+     and the floating panel.
+   - The hub's current `calls` section is the settings page. Move it off the
+     hub (it stays at `/settings/calls`) so the "Calls" tab is the list.
+   - Update `screen-registry.json`. Use the primitives from
+     `doc/FRONTEND_GUIDE.md` §3.5.
+   - The `call:summary_ready` socket event now shows a toast linking to the
+     page instead of opening a floating panel over the user's work.
+6. **Worker events reach clients, and the env is part of the room (A6, A9).**
+   - Add `@socket.io/redis-emitter` (check it is compatible with the installed
+     `@socket.io/redis-adapter`). When `io` is null (the worker process),
+     `publishToUser` emits through the emitter.
+   - Change the user room to `t:<slug>:<env>:u:<uid>`. Give `publishToUser` an
+     `env` argument and update all three callers (notification, call and
+     pipeline services).
+   - Sockets join the room for their own env.
+   - Test that a worker-side publish reaches a socket in the same env and
+     never one in the other env.
+7. **Closed tab and liveness (A10, B1, B2, B10).**
+   - Build the keepalive hang-up URL from the same helper as `hangupCall`, so
+     it becomes `/api/tenant/smartcomm/calls/:id/hangup`. Add a test that the
+     URL matches the router.
+   - New migration: drop the `end_reason` CHECK on `comms_call` (dropping is
+     allowed; re-adding a wider one is not). Enforce the closed set, including
+     `disconnected`, in `repo.transition`. Before writing the migration, check
+     the constraint's real name in `pg_constraint`.
+   - Change `Math.min` to `Math.max` in `sweepLiveness`.
+   - Pass the real `reason` to `durationSeconds`.
+8. **Notification copy (A11).** The summary push states the counterpart's name,
+   a day-first time and the duration. Localise it in the service worker the
+   same way ring strings are (`data.kind = "call_summary"` plus fields), so
+   French devices read French.
+9. **Docs.** Correct the engineering guide's description of the nightly sweep
+   and the deep links.
+
+**Tests to add or extend:** `tests/unit/smartcomm-call-records.test.js`
+(origin=sweep never notifies; `notified_at` is claimed once; `NO_RECORDING`
+never calls the LLM; the SQL excludes calls that never connected);
+`tests/unit/smartcomm-calls.test.js` (liveness uses max; a `disconnected` end
+is accepted); a worker test for removing the old repeatable;
+`client/src/features/comms/call/{call-session,ring-surface}.test.ts` (link
+parsing, the keepalive URL); a realtime room test.
+
+**Acceptance.**
+- A 3-minute call produces exactly one push, within a minute of hang-up, and it
+  opens `/comms/calls/<id>`.
+- Running the record sweep job by hand sends no push.
+- A call with recording off ends as `NO_RECORDING` with no LLM call.
+- Closing the tab mid-call ends the call within 60 s.
+- A sandbox call never rings a live tab.
+- `npm run ci` is green.
+
+### PR-2 · Rebuild the recorder and the transcription pipeline
+
+**Goal.** Every recorded part is a valid audio file. Each part is transcribed as
+it arrives, during the call. The summary is ready about a minute after hang-up,
+whatever the call's length. Retries are per part, capped, and never re-bill
+finished work. Summary state changes are race-free.
+
+**Depends on:** PR-1 merged. Read its Progress entry: the job `origin` flag and
+the `NO_RECORDING` state are used here.
+
+**Main files:** `client/src/features/comms/call/{call-recorder,call-session}.ts`,
+`client/src/lib/smartcomm-api.ts`,
+`src/modules/smartcomm/smartcomm.call.{pipeline.service,repo,service}.js`,
+`smartcomm.{validator,controller,routes}.js`, `src/jobs/handlers/call-transcribe.js`
+(split into per-part and finalise handlers), `src/jobs/workers.js`, new tenant
+migration(s), `tests/unit/smartcomm-call-records.test.js`, a new integration test.
+
+**Steps**
+1. **Valid parts (A3).**
+   - Stop the `MediaRecorder` at each part boundary and start a new one on the
+     same stream, so every part is a complete file with its own header.
+   - Measure each part's real duration from timestamps; do not assume 5 s per
+     chunk.
+   - Set mono Opus at `audioBitsPerSecond` 24 000–32 000. Browsers otherwise
+     pick a much higher rate.
+   - On the server, check the container signature (WebM EBML `1A 45 DF A3`,
+     MP4 `ftyp`, Ogg `OggS`) before accepting a part.
+2. **Transcribe during the call (A2; design in §4).**
+   - Each accepted part enqueues a `call-transcribe-part` job with jobId
+     `callpart-<call>-<side>-<part>`.
+   - The result is stored per part. Plain columns on `comms_call_recording` are
+     allowed.
+   - A new `POST /smartcomm/calls/:id/recording/complete { side, parts }`
+     declares a side finished, stored as plain columns on `comms_call`.
+   - A `call-finalise` job runs when both sides are declared and every declared
+     part has a result, or at a deadline (ended_at + 10 min) as a delayed job.
+   - It assembles the transcript and certifies only when every declared part is
+     certified. Otherwise the draft is labelled with the missing minutes. It
+     then drafts the summary and notifies once (PR-1's `notified_at`).
+3. **Idempotent reprocessing (B4, B5).**
+   - Only parts that failed are retried; a certified part is never sent to the
+     provider again.
+   - Attempts are capped per part and per call on every branch, including stale
+     `PROCESSING`.
+   - Inserting a certified row retires whatever row is current for that part.
+4. **Race-free drafts (B6, B7).**
+   - Guard the draft upsert with
+     `ON CONFLICT … DO UPDATE … WHERE comms_call_summary.draft_status = 'PENDING_REVIEW'`.
+   - `sendSummary` runs in one transaction. It claims the draft with
+     `SET draft_status = 'SENDING' WHERE draft_status = 'PENDING_REVIEW' RETURNING`,
+     posts the message, marks it `SENT`, and rolls back if the post fails.
+   - `draft_status` is on a table created in 14010, so enforce the new value in
+     code (no new CHECK).
+   - Correct the false "same transaction" claim in migration 14010's comments
+     by stating it in a new migration or in the guide. Do **not** edit 14010
+     itself.
+5. **Upload rules (B11–B13, B14).**
+   - Cap `duration_ms` at 125 000.
+   - Use a deterministic object key per (call, side, part), or delete the old
+     object on replace.
+   - Accept uploads only for calls that connected and are `IN_CALL` or ended
+     within 15 minutes.
+   - Add a per-call byte cap, and reject `part_index` above the declared
+     `parts`.
+   - Keep one `recordingEnabled` helper that fails closed.
+6. **Remove the browser speech capture (C7, D10, E9, E10).**
+   - Delete `live-transcript.ts` from the call path, and remove the
+     `/live-log` write route.
+   - Keep reading existing `browser-live` rows, so old calls still render.
+   - Update the consent text accordingly.
+7. **Release DB connections during vendor calls (D3).** Read state in one short
+   `withTenantConnection`, release it, call the provider, then write in another
+   short connection.
+8. **Durable uploads (E11).** Retry each part upload with backoff. Keep
+   unacknowledged parts in IndexedDB and resume them on the next app load, so
+   the last part survives a closed tab.
+9. **A real end-to-end check (H1).**
+   - Add `tests/integration/call-pipeline.test.js`, which needs Postgres and
+     Redis; follow `tests/integration/entity-concurrency.test.js`. It uploads
+     real multi-part recordings through the routes and runs the part and
+     finalise handlers. The transcription vendor is stubbed, but the stub
+     **rejects headerless audio**, so A3 cannot regress. It asserts one
+     certified transcript, one notification and a readable summary.
+   - Add a Playwright check that decodes every recorded part independently
+     with `decodeAudioData`.
+10. **Docs.** Rewrite guide §4.5 to the new trigger model, and remove the claims
+    that "clients re-trigger the job when the last part lands" and "no code path
+    posts without this write in the same transaction".
+
+**Acceptance.**
+- Calls of 5, 15 and 29 minutes on Chrome Android, Safari iOS and desktop all
+  reach `CERTIFIED`.
+- The summary is ready within 2 minutes of hang-up for a 29-minute call.
+- Re-running finalise or reprocess never calls the provider for a certified
+  part (asserted by a test).
+- A double-tapped send posts one message.
+- `npm run ci` is green.
+
+### PR-3 · Security hardening
+
+**Goal.** The relay cannot reach private networks. Relay credentials are tied to
+a live call. Summaries cannot leak through chat attachments. Call signalling is
+limited to live calls and bounded. The server decides every recorded outcome.
+
+**Depends on:** PR-2 merged.
+
+**Main files:** `docker-compose.yml`, `.env.example`, `src/config/env.js`,
+`src/modules/smartcomm/smartcomm.{turn.service,call.service,call.repo,validator,service,routes,ai}.js`,
+`smartcomm.call.pipeline.service.js` (`cardsForCallIds`, `regenerateSummary`),
+`src/realtime/index.js` (relay only; presence is PR-5).
+
+**Steps**
+1. **coturn (C1, C3).**
+   - Replace `TURNSHAREKEY` with `--static-auth-secret=${TURN_CREDENTIAL_SECRET}`,
+     and add `--realm`, `--external-ip` and a TLS listener (`turns:` on 443 or
+     5349, with certificate paths).
+   - Deny peer IPs: `0.0.0.0/8`, `10.0.0.0/8`, `100.64.0.0/10`, `127.0.0.0/8`,
+     `169.254.0.0/16`, `172.16.0.0/12`, `192.168.0.0/16`, `::1`, `fc00::/7`,
+     `fe80::/10`.
+   - Keep `--no-loopback-peers` and `--no-multicast-peers`. Add
+     `--user-quota`, `--total-quota`, `--max-bps` and `--fingerprint`.
+   - Pin the image version.
+   - Add the new variables to `env.js` and `.env.example`, and a runbook step
+     using `turnutils_uclient` to prove that allocation works and that a peer
+     in 169.254.169.254 and 172.17.0.1 is refused.
+2. **Credentials (C2, C12, C13).**
+   - `turnFor` and dial/accept mint credentials only for `RINGING` or
+     `IN_CALL` calls.
+   - The username is `<expiry>:<opaque per-call token>`: random, stored on the
+     row, with no user id in it.
+   - TTL is the call's remaining allowance plus 60 s. Add a rate limit on the
+     turn endpoint.
+   - STUN comes from configuration. With TURN configured, use its STUN port;
+     never Google unless it is configured explicitly. Correct `.env.example`.
+   - Add a tenant setting `comms.call_privacy { relay_only }` that sets
+     `iceTransportPolicy: "relay"`.
+3. **IDOR (C4).**
+   - The generic message, edit and scheduled-message validators reject
+     `attachment_kind: "CALL"`. Grep every use of the shared `attachment`
+     schema.
+   - Only `sendSummary` may create one, through an internal flag on
+     `postMessage`.
+   - `cardsForCallIds` resolves a card only when the message is the summary's
+     `sent_message_id` or `update_message_id` and `draft_status = 'SENT'`.
+4. **Relay (C5, D7).**
+   - Relay only for `RINGING`/`IN_CALL` calls, with a new repo function
+     instead of `otherParticipant`.
+   - Cache the counterpart per socket per call, cleared on terminal events.
+   - Validate payloads: SDP is a string ≤ 64 KB; a candidate is an object
+     ≤ 2 KB.
+   - Add a per-socket token bucket, and set `maxHttpBufferSize` on the
+     server.
+5. **Abuse and authority (B8, B9, C6, C8, C10, C11).**
+   - Record the actor on hang-up, decline and fail. The server derives the
+     end reason and ignores the body.
+   - Dial rate limits per caller and per callee.
+   - `directPartner` requires `status = 'ACTIVE'`. Delete a user's push
+     subscriptions when they are deactivated.
+   - `regenerateSummary` becomes a queued job, rate-limited per call, and
+     requires a language change.
+   - The AI manifest reads check the `call_recording` feature.
+   - Clients receive a reason code instead of raw vendor error text.
+
+**Acceptance.**
+- A TURN allocation to 169.254.169.254 or 172.17.0.1 is refused.
+- A credential request for an ended call returns 404.
+- Posting a message with a `CALL` attachment returns 422.
+- A signal for an ended call is dropped.
+- A dial flood returns 429.
+- `npm run ci` is green, and `/security-review` has been run on the diff.
+
+### PR-4 · Call engine reliability
+
+**Goal.** Calls connect first time, survive network changes, always play audio,
+and ring correctly on every device, including the notification buttons.
+
+**Depends on:** PR-3 merged (relay payload shapes may have changed; read its
+entry).
+
+**Main files:** `client/src/features/comms/call/{call-engine,call-session,noise-suppression,wake-keepalive,ring-surface}.ts`,
+`client/src/features/comms/comms-live.tsx`, `client/public/push-handler.js`,
+`src/server.js` (CSP), `src/modules/smartcomm/smartcomm.call.service.js`
+(call-ended push, noise default), `src/realtime/index.js` (signal event
+shape, if changed).
+
+**Steps**
+1. **Perfect negotiation (E1–E3).**
+   - Implement the standard pattern: the callee is polite;
+     `onnegotiationneeded` → `setLocalDescription()` → signal; use
+     `makingOffer`, `ignoreOffer` and `isSettingRemoteAnswerPending`.
+   - Buffer remote candidates until `remoteDescription` is set.
+   - Remove the blind re-offer on `call:accepted`. The callee sends an explicit
+     "ready" after accepting, and the caller then sends its current description
+     if it has no answer yet.
+   - An ICE restart refreshes TURN credentials when they are close to expiry
+     (`getCallTurn`).
+2. **Audio always plays (E4).**
+   - Create the `<audio>` element during the dial/answer gesture and call
+     `play()`.
+   - If `play()` is rejected, show a "Tap to hear" control on the call
+     screen.
+3. **Noise filter (E5).**
+   - Create `AudioContext({ sampleRate: 48000 })` in the gesture and call
+     `resume()`.
+   - Add `'wasm-unsafe-eval'` to `script-src` (it allows WebAssembly
+     compilation only, not `eval`).
+   - Detect silence on the filtered output and fall back to the raw track.
+   - Default the tenant setting to OFF: `callSettings` defaults, plus a
+     migration that flips the seeded value only where it is still
+     `{"enabled": true}`.
+4. **Failures and races (E6, E7, E8).**
+   - Open the mic before `dialCall` or `acceptCall`. Any engine failure sends
+     `hangup`, `decline` or `fail`.
+   - Set a synchronous `dialing` phase so a double tap cannot dial twice.
+   - When a device is ringing and receives `call:accepted` for its own user from
+     another device, it stops ringing and shows "Answered on another
+     device", not "Missed call".
+   - Handle `call:ringing_sent` in the caller's other tabs.
+5. **Rings (A7, A8).**
+   - On every terminal transition where a ring push was sent, send a
+     data-only `kind: "call_end"` push that closes tag `call:<id>`.
+   - The service worker maps `event.action`: `accept` opens
+     `/comms?ring=<id>&act=accept`; `decline` opens `…&act=decline`, and the
+     app declines and closes.
+   - An expired ring, when tapped, opens `/comms/calls/<id>` instead of a
+     ring.
+6. **Screen on the cheek (E13).** Do not hold a screen wake lock by default.
+   If device tests show the call dies with the screen off, keep the lock and add
+   a "controls locked" state that ignores taps until a deliberate unlock
+   gesture.
+
+**Tests:** the engine unit tests (glare, buffered candidates, restart offer
+sent); Playwright two-page tests (a call connects; `context.setOffline` toggled
+mid-call and the call recovers; a double-tap dial creates one call);
+service-worker action tests.
+
+**Acceptance.**
+- The engine rows of `doc/SMART_COMMS_CALLS_MANUAL_MATRIX.md` pass on Chrome
+  Android, Safari iOS and desktop, including a Wi-Fi→4G switch mid-call and
+  Answer/Decline from the lock screen.
+- `npm run ci` is green.
+
+### PR-5 · Scale calls and transcription across tenants
+
+**Goal.** Cost and latency grow with the number of calls, not the number of
+tenants. No tenant can delay another. Transcription stays within provider
+limits with a measured latency target (§4).
+
+**Depends on:** PR-4 merged.
+
+**Main files:** `src/jobs/workers.js`, `src/jobs/handlers/comms-call-*.js`,
+`src/jobs/handlers/call-transcribe*.js`, `src/jobs/queue-producer.js`,
+`src/modules/smartcomm/smartcomm.call.{service,repo}.js`, `smartcomm.repo.js`,
+`src/realtime/index.js` (presence),
+`src/services/platform/comms-metrics.service.js`,
+`src/jobs/handlers/comms-call-metrics.js`, a new tenant migration (index),
+`client/src/features/comms/{presence.ts,comms-live.tsx}`.
+
+**Steps**
+1. **Per-call clocks (D1).**
+   - `createCall` enqueues a ring-deadline job at +60 s; accept enqueues a cap
+     job at +30 min. A participant's socket disconnect during an active call
+     enqueues a liveness check at +60 s. JobIds are per call.
+   - Replace the 15-second fleet sweep with a 5-minute safety sweep that only
+     visits tenants in a Redis set of tenants with active calls.
+2. **Fair, limited transcription (D2; §4).**
+   - One global limiter sized to the provider's per-key limits, from
+     configuration.
+   - Per-tenant fairness: a Redis token bucket per tenant, or per-tenant queues
+     served round-robin. BullMQ groups need BullMQ Pro, so do not assume them.
+   - Priorities: parts of live calls, then finalise, then reprocess.
+   - A 429 delays the job by `retry-after` without spending an attempt.
+   - A per-tenant daily audio-minute budget through the governance service.
+   - Spread any remaining daily work by a hash of the tenant slug.
+3. **Metrics without fan-out (D4, D5, D11, D12).**
+   - Increment day counters at each terminal transition, and aggregate once a
+     day.
+   - Add an index on `comms_call (started_at)` (an index is not a constraint;
+     it is allowed).
+   - Group the alarm by `(tenant, env)` and alert on live only.
+   - Compute UTC dates in SQL and return `metric_date::text`.
+   - Log the tenant env, not `NODE_ENV`.
+4. **Presence (B3, C9, D6, D8, E12).**
+   - Per-user Redis keys `presence:<slug>:<env>:<uid>` with a 90 s TTL,
+     refreshed by a throttled socket heartbeat.
+   - Send a snapshot of the user's DIRECT contacts on connect.
+   - Send presence changes only to those contacts' user rooms.
+   - Liveness reads these keys. Delete the global SET and ZSET.
+   - Write `last_seen_at` to the database at most every 5 minutes per user.
+5. **Bounded queries (D9).** Batch the audio purge (LIMIT 500, looped). Use one
+   lateral join for the DIRECT partner in the channel list.
+6. **Observability.** Export the age of the oldest transcription job, the
+   hang-up→summary latency (p50/p95) and the provider 429 rate, per tenant.
+   Alert on latency, not on failure counts.
+
+**Acceptance.**
+- A load script (in `scripts/`) simulating 10, 50 and 200 tenants: ring
+  timeouts fire within 5 s for every tenant while one tenant has 2 000 queued
+  transcriptions.
+- At 10-tenant load, p95 hang-up→summary is under 2 minutes.
+- Tenant DB pool use stays within budget.
+- `npm run ci` is green.
+
+### PR-6 · New call screen and privacy defaults
+
+**Goal.** A calm, solid, tenant-branded call experience that does not block the
+ERP, and privacy-respecting defaults a tenant can defend.
+
+**Depends on:** PR-5 merged.
+
+**Main files:** `client/src/features/comms/call/{call-overlay,incoming-ring,summary-draft,call-summary-card}.tsx`,
+a new in-call bar component in the app shell, `client/src/features/settings/calls-page.tsx`,
+`client/src/features/comms/team-chat.tsx`, `client/src/lib/i18n-dict.ts`,
+migrations and seeds for defaults, the consent copy, the AI and transcript
+retention code, `doc/SMART_COMMS_CALLS_MANUAL_MATRIX.md`.
+
+**Steps**
+1. **Screens (F1–F5, F9).**
+   - Opaque `bg-background` surfaces with token borders; no `backdrop-filter`,
+     no translucent layers.
+   - Accents use the tenant `--primary`/`text-primary-ink`; hang-up and answer
+     buttons use the destructive and ok token pairs.
+   - Banners sit in the layout flow.
+   - A minimise action turns the call into a docked in-call bar (name, timer,
+     mute, hang-up) that survives navigation.
+   - Use `Switch`, `Dialog`/`Sheet`, `Field` and `IconButton`.
+   - Honour reduced motion.
+   - Pass the gates: `check:palette`, `check:contrast`, `check:motion`, and
+     the axe tests in `screens.axe.test.tsx`.
+2. **Consent and review (F6, F7, F8, G5).**
+   - The ring screen states that the call will be recorded.
+   - The callee can choose "Answer without recording". The server records the
+     choice on the call, and neither side arms the recorder.
+   - Key points and follow-ups can be edited and removed.
+   - Discard uses `useConfirm` with `destructive`.
+   - Due dates use `dateDmy`.
+3. **Gating (F10, C6).**
+   - The phone icon renders only when `calls` is on for the tenant and the
+     user may create in MOD-64.
+   - Add a per-user do-not-disturb setting for calls.
+4. **Privacy defaults (G1–G4).**
+   - `call_recording` defaults to OFF in the catalogue. For tenants still on
+     `source = 'default'`, flip it off in a migration, after the owner signs
+     off.
+   - Add a tenant-admin switch on the Calls settings page (MOD-70 edit).
+   - Name the outside companies that actually receive call data in the consent
+     text and a "How calls are processed" panel, reading the configured
+     transcription and LLM vendors rather than hard-coding them. Add them to
+     the tenant DPA doc.
+   - A transcript retention setting with a sweep, and an audited admin erasure
+     of a user's call records.
+   - A "hide my last seen" setting.
+5. **Release gate (H2).** Run every row of the manual matrix and record the
+   results. `call_recording` must not be enabled by default for any new tenant
+   until the matrix passes.
+
+**Acceptance.**
+- The screens pass the frontend gates and a light/dark visual check.
+- A tenant created after this PR has recording off.
+- The matrix has no PENDING cells.
+- `npm run ci` is green.
 
 ---
 
-## 4. Keep, rebuild, remove
+## 4. Transcription at scale: what changes from 1 tenant to 10 and beyond
+
+**Worked example for 10 tenants.** Assume 40 active callers per tenant, 5 calls
+each a day, averaging 6 minutes: about **2,000 calls and 12,000 call-minutes a
+day**. Both sides are transcribed separately, so that is 24,000 audio-minutes
+(~400 audio-hours) a day. The busiest hour carries about 15%: ~300 calls and
+~3,600 audio-minutes.
+
+**The volume is small. How the current code bunches it is the problem.**
+
+- 3,600 audio-minutes an hour is 60 audio-minutes a minute, which is 30
+  two-minute parts a minute, or **0.5 provider requests a second**. At ~3 s a
+  request, that is 1–2 requests in flight on average.
+- The current code instead:
+  1. waits until hang-up and then sends a whole call serially (a 30-minute call
+     is 30 sequential requests after hang-up);
+  2. runs on **one queue of concurrency 2 for every tenant**;
+  3. piles everything left over onto one midnight run;
+  4. treats a provider rate limit (429) as a failure, which triggers the
+     browser fallback and then nightly reprocessing.
+- At 10 tenants that becomes hours of backlog at peak, 429 storms at
+  midnight, and the nightly notification loop multiplied by ten.
+
+**The design that holds (built in PR-2 and PR-5):**
+
+1. **Transcribe during the call.** Each 2-minute part is transcribed as soon as
+   it uploads. A 30-minute call becomes 15 small jobs per side spread over the
+   30 minutes. At hang-up only the last part is left, so the summary arrives in
+   about a minute whether the call lasted 3 minutes or 30. Load follows talk
+   time, with no post-call spike and no midnight spike.
+2. **One rate limiter for the provider, fair shares for tenants.** A global
+   limiter sized to the provider's per-key limits (requests per minute and
+   audio-seconds per hour; check your plan, since audio-seconds is usually the
+   binding one), and a per-tenant token bucket so one busy tenant cannot starve
+   the others.
+3. **Priorities.** Live calls first, then finalising, then retries. A 429 waits
+   for `retry-after` and is not counted as a failure.
+4. **No database connection held while waiting on the provider.** Workers can
+   then run 10–20 requests each without draining tenant pools.
+5. **Scale workers by queue lag.** Run transcription as its own worker
+   deployment and add replicas when the oldest job is older than the target.
+   The work is I/O-bound, so the ceiling is the provider limit, not CPU.
+6. **Keep audio small.** Mono Opus at 24–32 kbps is ~240 KB per audio-minute:
+   ~6 GB a day and ~175 GB at 30-day retention at the volume above. The
+   browsers' default rate can be several times that. Text is negligible
+   (~1 KB per audio-minute).
+7. **Budgets per tenant.** A daily audio-minute budget per plan, enforced before
+   the provider is called, with a clear "over budget" state rather than a
+   failure.
+8. **Measure the right thing.** Target: 95% of summaries ready within 2 minutes
+   of hang-up. Alert on the age of the oldest job and the 429 rate, per tenant.
+   Failure counts on their own are not enough.
+9. **Beyond ~50 tenants.** Add a second transcription provider as a fallback
+   (it keeps transcripts certified, unlike the browser capture). Use multiple
+   provider keys or an enterprise tier, and consider letting large tenants bring
+   their own key.
+
+**Cost** is priced per audio-hour. At a few cents per audio-hour (check the
+provider's current price), 400 audio-hours a day is tens of dollars a day across
+10 tenants. Cost is not the constraint. Scheduling and rate limits are.
+
+---
+
+## 5. Keep, rebuild, remove
 
 | Part | Decision | Why |
 | --- | --- | --- |
@@ -995,3 +1509,46 @@ days, **L** 1–2 weeks. Each phase ends with its acceptance check.
 UI) needs rewriting. The rest needs local fixes. Starting from scratch would
 re-derive the schema, the state machine and the shared contract that already
 work, so the targeted plan above is the cheaper route.
+
+---
+
+## 6. Progress log
+
+Every PR chat updates this section **on its own PR branch before merging**: its
+row in the table, and one log entry appended at the bottom. Keep entries
+factual. The next agent relies on them.
+
+| PR | Status | Branch | GitHub PR | Merged | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Audit (this document) | OPEN | `claude/integration-audit-report-u6twc5` | — | — | Report, PR plan, scale design |
+| PR-1 | NOT STARTED | — | — | — | |
+| PR-2 | NOT STARTED | — | — | — | |
+| PR-3 | NOT STARTED | — | — | — | |
+| PR-4 | NOT STARTED | — | — | — | |
+| PR-5 | NOT STARTED | — | — | — | |
+| PR-6 | NOT STARTED | — | — | — | |
+
+Status values: `NOT STARTED` → `IN PROGRESS` → `OPEN` (PR raised) → `MERGED`.
+Use `BLOCKED` with a reason in Notes if you stop.
+
+### Log entry template
+
+```
+### PR-N · <date> · <status>
+- Fixed: <IDs>, each with the test that proves it.
+- Not fixed / deferred: <IDs and why; which PR now owns them>.
+- Deviations from §3: <what you did differently and why>.
+- Schema: <migrations added, with numbers; new columns, states or events>.
+- New findings: <defects found that are not in §2, with file:line>.
+- For the next PR: <anything the next agent must know>.
+- Gates: <`npm run ci` result; manual checks done>.
+```
+
+### Entries
+
+### Audit · 2026-09-24 · OPEN
+- Wrote §0–§5: 83 findings, the emergency runbook, the six-PR plan and the
+  transcription scale design.
+- For PR-1: merge this document first, so the PR-1 chat can read it from
+  `main`. The §0 parking SQL is optional and can be run before PR-1 ships;
+  record here if it was run and on which tenants.
