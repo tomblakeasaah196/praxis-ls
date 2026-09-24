@@ -109,7 +109,8 @@ export function CommsLive() {
     const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
     const onWorker = (ev: MessageEvent) => {
       const msg = ev.data as { type?: string; url?: string } | null;
-      if (msg?.type === "praxis:navigate" && typeof msg.url === "string" && msg.url.startsWith("/")) {
+      if (msg?.type === "praxis:navigate" && typeof msg.url === "string"
+          && msg.url.startsWith("/") && !msg.url.startsWith("//")) {
         navigateRef.current(msg.url);
       }
     };
