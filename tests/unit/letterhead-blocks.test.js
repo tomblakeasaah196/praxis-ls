@@ -70,10 +70,171 @@ describe("composition — the content is derived, never typed", () => {
       .toBe("RCCM RC/DLA/2021/B/2060 | NIU M042116033580Q");
   });
 
+  /**
+   * THE @param CONTRACT IS NOW SELF-HONOURING. `entity.identifiers` and
+   * `entity.address_lines` used to be an obligation on the caller — computed
+   * inside `entity-letterhead.service.render()` and attached only by the
+   * template renderer. Every caller holding the raw repo row (the entity's own
+   * letterhead endpoint included) composed an identifiers block that saw only
+   * the legacy `niu`/`rccm` columns — null for any tenant whose NIU/RCCM live
+   * in entity_registration rows — and printed nothing while the preview beside
+   * it printed the numbers. These pin the derivation happening inside compose.
+   *
+   * PR-10 / A3 added the other half: the identifiers are TRADE-REGISTER rows.
+   * A VAT tax registration handed to compose() contributes nothing — the
+   * number lives on the tax registration and is printed by the tax module's
+   * own authority, not on the trade-register line.
+   */
+  test("a raw entity row plus registration rows prints the identifiers — no pre-attachment needed", () => {
+    const raw = {
+      legal_name: "Smart Logistics and Services Ltd",
+      niu: null,
+      rccm: null, // the legacy columns are empty: the rows are the only source
+    };
+    const c = blocks.compose({
+      entity: raw,
+      registrations: [
+        { kind: "RCCM", number: "RC/DLA/2021/B/2060" },
+        { kind: "NIU", number: "M042116033580Q" },
+      ],
+      taxRegistrations: [
+        { tax_kind: "VAT", tax_number: "CM-VAT-778899", is_active: true },
+      ],
+    }, "fr");
+    expect(textOf(byId(c.footer, "identifiers")))
+      .toBe("RCCM RC/DLA/2021/B/2060 | NIU M042116033580Q");
+    // Not reported empty: the block has real content now.
+    expect(c.empty_blocks).not.toContain("identifiers");
+  });
+
+  test("a VAT tax registration contributes NO identifier (PR-10 / A3)", () => {
+    const c = blocks.compose({
+      entity: { legal_name: "ACME", niu: null, rccm: null },
+      registrations: [{ kind: "NIU", number: "M042116033580Q" }],
+      taxRegistrations: [{ tax_kind: "VAT", tax_number: "CM-VAT-778899", is_active: true }],
+    }, "fr");
+    expect(textOf(byId(c.footer, "identifiers"))).toBe("NIU M042116033580Q");
+    expect(c.empty_blocks).not.toContain("identifiers");
+  });
+
+  test("an entity already carrying identifiers wins over the rows — the renderer's country-resolved bundle is not recomputed", () => {
+    const c = blocks.compose({
+      entity: { ...ENTITY, identifiers: [{ kind: "SIREN", number: "552 100 554" }] },
+      registrations: [{ kind: "NIU", number: "SHOULD-NOT-PRINT" }],
+    }, "fr");
+    expect(textOf(byId(c.footer, "identifiers"))).toBe("SIREN 552 100 554");
+  });
+
+  test("a redacted registration row (PR-04: no number) contributes no identifier", () => {
+    const c = blocks.compose({
+      entity: { legal_name: "ACME", niu: null, rccm: null },
+      registrations: [{ kind: "NIU", redacted: true }],
+      taxRegistrations: [{ tax_kind: "VAT", redacted: true, is_active: true }],
+    }, "en");
+    const b = byId(c.footer, "identifiers");
+    expect(b.lines).toHaveLength(0);
+    expect(b.empty).toBe(true);
+  });
+
+  test("a raw entity row plus entity_address rows prints the structured registered address, not the legacy blob", () => {
+    const raw = {
+      legal_name: "Smart Logistics and Services Ltd",
+      address: "Old free-text address\nThat nobody maintains",
+    };
+    const c = blocks.compose({
+      entity: raw,
+      addresses: [
+        {
+          type: "REGISTERED", is_active: true, is_primary: true,
+          line1: "1030, Avenue Douala Manga Bell", line2: "Bali",
+          po_box: "BP 5120", postal_code: null, city: "Douala",
+          region: null, country_code: "CM",
+        },
+      ],
+    }, "en");
+    expect(textOf(byId(c.header, "address")))
+      .toBe("1030, Avenue Douala Manga Bell, Bali | BP 5120, Douala, CM");
+    expect(textOf(byId(c.header, "address"))).not.toContain("Old free-text");
+  });
+
   test("an entity with no structured address falls back to its legacy column", () => {
     const legacy = { ...ENTITY, address_lines: undefined, address: "Bonabéri\nDouala, Cameroun" };
     expect(textOf(byId(blocks.compose({ entity: legacy }, "fr").header, "address")))
       .toBe("Bonabéri | Douala, Cameroun");
+  });
+
+  /**
+   * THE PAYMENT BLOCK (PR-10 / A0 + A1 + A4). Bank name, account number and
+   * HOLDER NAME — the three details the owner's binding decision says a
+   * document somebody must pay has to carry — from the ONE primary account
+   * the resolver picks, on the same show_bank_block toggle as the rest of the
+   * block. A tenant with several accounts must never print several bank lines.
+   */
+  const PRIMARY_ACCOUNT = {
+    treasury_account_id: "ta1",
+    label: "Afriland — Main XAF",
+    is_active: true,
+    is_primary: true,
+    bank_name: "Afriland First Bank",
+    branch: "Douala Central",
+    account_number: "1000500012345",
+    holder_name: "Smart Logistics and Services Ltd",
+    iban: "CM21100030000100200456",
+    swift_bic: "CCEICMCX",
+    currency: "XAF",
+  };
+  const payInput = (accounts) => ({
+    entity: ENTITY,
+    treasuryAccounts: accounts,
+  });
+
+  test("the payment block prints the bank, the number AND the holder, on the toggle", () => {
+    const c = blocks.compose(payInput([PRIMARY_ACCOUNT]), "fr");
+    const pay = byId(c.footer, "payment");
+    expect(textOf(pay)).toContain("Afriland First Bank");
+    expect(textOf(pay)).toContain("1000500012345");
+    // A4: the holder — the detail that decides whether a remittance lands.
+    expect(textOf(pay)).toContain("Holder Smart Logistics and Services Ltd");
+    expect(pay.visible).toBe(true);
+    expect(c.empty_blocks).not.toContain("payment");
+  });
+
+  test("the show_bank_block toggle switches the holder off with the rest — no half block", () => {
+    const c = blocks.compose(
+      { ...payInput([PRIMARY_ACCOUNT]), config: { show_bank_block: false } },
+      "fr",
+    );
+    expect(byId(c.footer, "payment").visible).toBe(false);
+  });
+
+  test("six accounts print ONE payment line — the primary — never six", () => {
+    const six = [1, 2, 3, 4, 5, 6].map((n) => ({
+      ...PRIMARY_ACCOUNT,
+      treasury_account_id: `ta${n}`,
+      label: `Bank ${n}`,
+      bank_name: `Bank ${n}`,
+      account_number: String(n).repeat(10),
+      is_primary: n === 1,
+    }));
+    const c = blocks.compose(payInput(six), "fr");
+    const pay = byId(c.footer, "payment");
+    expect(pay.lines).toHaveLength(1);
+    expect(textOf(pay)).toContain("Bank 1 ·");
+    expect(textOf(pay)).not.toContain("Bank 2");
+    expect(textOf(pay)).not.toContain("2222222222");
+  });
+
+  test("no primary prints NOTHING — the explicit empty state, not a guessed account", () => {
+    const none = blocks.compose(payInput([{ ...PRIMARY_ACCOUNT, is_primary: false }]), "fr");
+    expect(byId(none.footer, "payment").lines).toHaveLength(0);
+    expect(none.empty_blocks).toContain("payment");
+
+    const ambiguous = blocks.compose(
+      payInput([PRIMARY_ACCOUNT, { ...PRIMARY_ACCOUNT, treasury_account_id: "ta2" }]),
+      "fr",
+    );
+    expect(byId(ambiguous.footer, "payment").lines).toHaveLength(0);
+    expect(ambiguous.empty_blocks).toContain("payment");
   });
 
   /**
@@ -307,6 +468,29 @@ describe("deep links resolve to something that exists", () => {
 
   test.each(blocks.catalogue("en"))("$id points at an anchor that exists", (b) => {
     expect([...anchors]).toContain(b.source.field);
+  });
+
+  /**
+   * THE ROUTE HALF OF THE SAME CONTRACT. A tab and an anchor that both exist
+   * are worthless if the studio navigates to a path no route serves — which is
+   * exactly what happened: `jump()` built `/master/entities/:id?tab=&field=`
+   * while app.tsx declares `master/corporate-entities/:entityId`, so every
+   * "Edit in X →" landed on the catch-all redirect to "/". Gated the same way
+   * as the anchors: the studio's literal path must be a route the app declares.
+   */
+  test("the studio's jump path is a route app.tsx actually declares", () => {
+    const studio = read("letterhead-studio.tsx");
+    const app = fs.readFileSync(
+      path.join(__dirname, "../../client/src/app/app.tsx"),
+      "utf8",
+    );
+    const m = studio.match(/window\.location\.assign\(`(\/[^$]+)\$\{entityId\}/);
+    // Guards the test itself: if the navigation is rewritten out of this
+    // shape, fail loudly rather than pass vacuously.
+    expect(m).not.toBeNull();
+    const prefix = m[1]; // e.g. "/master/corporate-entities/"
+    const routePath = `${prefix.replace(/^\//, "")}:entityId`;
+    expect(app).toContain(`path="${routePath}"`);
   });
 });
 

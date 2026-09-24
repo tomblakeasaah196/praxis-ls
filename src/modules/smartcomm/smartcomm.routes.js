@@ -122,6 +122,19 @@ router.post("/media/:mediaId/transcribe", view, v.transcribe, c.transcribeMedia)
 router.get("/erp/search", view, c.erpSearch);
 router.get("/erp/:kind/:id", view, c.erpCard);
 
+/**
+ * Link previews.
+ *
+ * `links/image` is the only file route in this module that answers with bytes
+ * rather than a JSON descriptor, and it is not an open proxy: it takes the hash
+ * of a LINK, not a URL, and can only return the image this tenant's own unfurl
+ * already recorded for it (see the controller). The two are on different
+ * permissions for the reason spelled out on every other route here — reading a
+ * cached picture is a read; making the server go and fetch a page is not.
+ */
+router.post("/links/preview", create, v.linkPreview, c.linkPreview);
+router.get("/links/image", view, c.linkImage);
+
 // Durable scheduled messages (personal management, never other senders' rows).
 router.get("/channels/:id/scheduled", view, c.scheduled);
 router.post("/channels/:id/scheduled", create, v.scheduled, c.schedule);
@@ -141,5 +154,61 @@ router.post("/messages/:messageId/react", view, v.react, c.react);
 // acknowledge; the sender sees acknowledged_by/acknowledged_at on the row.
 router.post("/messages/:messageId/acknowledge", view, c.ack);
 router.post("/messages/:messageId/star", view, c.star);
+
+// ── 1:1 voice calls (PR-1) ─────────────────────────────────────────────────
+//
+// Gated on the `calls` feature ON TOP of MOD-64: the comms gate says "this
+// tenant has chat", the calls gate is the tenant's kill switch for the call
+// feature specifically (guide decision row 2). Off, the routes answer 403
+// FEATURE_DISABLED and the dial icon does not render — one flag, two honest
+// surfaces.
+//
+// RBAC: dialing is `create` (it starts a new interaction, like a message);
+// accepting/declining/hanging up is `view`, the same deliberate choice as
+// acknowledging a message — each of those is the user's own state in an
+// interaction they are part of, and the other participant only ever sees the
+// state change, never anything the actor wrote.
+const { requireFeature } = require("../../middleware/feature-gate");
+const callsOn = requireFeature("calls");
+/**
+ * The RECORD flag (PR-2 decision row 2) on top of `calls`: calls can be live
+ * with recording off — a tenant that cannot keep audio still wants to talk —
+ * and that switch is the consent story's tenant half. Off, these routes answer
+ * 403 FEATURE_DISABLED and the recorder never arms or uploads.
+ */
+const recordOn = requireFeature("call_recording");
+router.post("/calls", create, callsOn, v.callCreate, c.createCall);
+router.post("/calls/:id/accept", view, callsOn, c.acceptCall);
+router.post("/calls/:id/decline", view, callsOn, c.declineCall);
+router.post("/calls/:id/hangup", view, callsOn, v.callHangup, c.hangupCall);
+// ICE exhausted — the engine gives up before the call ever connected.
+router.post("/calls/:id/fail", view, callsOn, c.callFailed);
+router.get("/calls", view, callsOn, c.listCalls);
+router.get("/calls/:id", view, callsOn, c.getCall);
+// A refreshed TURN credential mid-call (the one minted at dial expires with
+// the call, plus margin).
+router.get("/calls/:id/turn", view, callsOn, c.callTurn);
+
+// ── The call record half (PR-2) ────────────────────────────────────────────
+//
+// Every route here is a PARTICIPANT route: the call service resolves the id to
+// a person and refuses a stranger with the same NOT_FOUND a nonexistent call
+// gets, so knowing a call id is never a way to read someone's conversation.
+// RBAC stays `view` for the same reason the PR-1 transitions do — the actor is
+// reporting on a call they are already in, and the only thing a route like
+// `/summary/send` writes is a message into a channel the caller is a member of.
+//
+// `singleFile("file")` is mounted BEFORE the validator on the multipart route,
+// and that order is load-bearing: the middleware is what parses the multipart
+// body into `req.body` for the validator to read, and what puts the buffer
+// where `readUpload` looks for it.
+router.post("/calls/:id/recording",
+  view, recordOn, singleFile("file"), v.callRecording, c.uploadCallRecording);
+router.post("/calls/:id/live-log", view, recordOn, v.callLiveLog, c.uploadCallLiveLog);
+router.get("/calls/:id/transcript", view, recordOn, c.getCallTranscript);
+router.get("/calls/:id/summary", view, recordOn, c.getCallSummary);
+router.post("/calls/:id/summary/send", view, recordOn, v.callSummarySend, c.sendCallSummary);
+router.post("/calls/:id/summary/discard", view, recordOn, c.discardCallSummary);
+router.post("/calls/:id/summary/regenerate", view, recordOn, v.callSummaryRegenerate, c.regenerateCallSummary);
 
 module.exports = { basePath: "/smartcomm", feature: "comms", router };

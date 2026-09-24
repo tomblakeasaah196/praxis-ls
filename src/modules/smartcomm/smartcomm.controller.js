@@ -1,8 +1,11 @@
 "use strict";
 const service = require("./smartcomm.service");
+const calls = require("./smartcomm.call.service");
+const callRecords = require("./smartcomm.call.pipeline.service");
 const schedule = require("./smartcomm.schedule.service");
 const cfg = require("./smartcomm.config.service");
 const erp = require("./smartcomm.erp.service");
+const links = require("./smartcomm.links.service");
 const { asyncHandler, AppError } = require("../../utils/errors");
 const { readUpload } = require("../../shared/http/upload.middleware");
 const { readPermissions } = require("../../middleware/rbac");
@@ -47,14 +50,77 @@ module.exports = {
   removeMember: A((c, req) => service.removeMember(c, { groupId: req.params.id, userId: req.params.userId, actor: actor(req) })),
   pin: A((c, req) => service.setPinned(c, { groupId: req.params.id, pinned: req.body.pinned === true, actor: actor(req) })),
   mute: A((c, req) => service.setMuted(c, { groupId: req.params.id, muted: req.body.muted === true, actor: actor(req) })),
+  /**
+   * The thread, and the link cards for the page that was just read.
+   *
+   * Two things are threaded down here that the messages themselves do not need:
+   * the reader's ERP module set (`erpAllow`, because a record card resolves
+   * against WHO is looking) and the tenant handle + env, which the preview path
+   * needs for exactly one reason — to put work on the queue. `thread()` never
+   * fetches a URL; it reads the cache and, when a URL is new or past its TTL,
+   * marks it and enqueues the fetch. A request that fetched would make opening a
+   * chat as slow as the slowest link inside it.
+   */
   thread: asyncHandler(async (req, res) => {
     const allow = await erpAllow(req);
     const data = await req.tenantDb((c) => service.thread(c, {
       groupId: req.params.id, actor: actor(req), limit: req.query.limit, before: req.query.before, erpAllow: allow,
+      tenantMeta: req.tenant, env: req.env,
     }));
     res.json({ data });
   }),
-  post: C((c, req) => service.postMessage(c, { groupId: req.params.id, body: req.body.body, mediaVaultId: req.body.media_vault_id, replyTo: req.body.reply_to, attachments: req.body.attachments, actor: actor(req) })),
+  /**
+   * One link's preview, on demand, while the composer still has the keystrokes.
+   *
+   * `create`, and deliberately NOT `view`, which the shape of the endpoint
+   * (a read) would otherwise suggest: it makes an outbound HTTP request from the
+   * tenant's server to an address supplied by the caller, which is a side effect
+   * with a victim. Every other endpoint in this module that reaches outside the
+   * tenant — `config/email/test`, `config/email/test-send`, the WhatsApp test —
+   * is gated the same way, for the same reason, and the note above `edit` in
+   * routes.js is what makes that a rule rather than a coincidence.
+   */
+  linkPreview: A((c, req) => links.previewNow(req.body.url)),
+  /**
+   * The image behind a card, from our own cache.
+   *
+   * `view` because it is a read of a picture the caller's channel already
+   * earned, and it takes no URL: the parameter is the sha256 of a LINK, and the
+   * only bytes it can ever return are the ones this tenant's unfurl already
+   * stored for it. That is what makes it safe to hand to an `<img>`-adjacent blob
+   * fetch, and why there is no allowlist here — the allowlist is the cache.
+   */
+  linkImage: asyncHandler(async (req, res) => {
+    const found = await req.tenantDb((c) => links.imageFor(c, req.query.link, req.query.part === "icon" ? "icon" : "image"));
+    if (!found) {
+      // A 404 rather than a placeholder: the bubble already knows how to draw a
+      // card with no image, and inventing one here would mean a graphic that
+      // implies the page HAD an image when the fetch failed or was refused.
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "No preview image for that link" } });
+      return;
+    }
+    res.setHeader("Content-Type", found.contentType);
+    // Private, and immutable for as long as the cache row lives: the bytes are
+    // the same for every reader of this tenant, and re-fetching them on every
+    // scroll of a thread is the traffic this proxy exists to avoid. No
+    // `default-src` relaxation, no sniffing, and nothing that can script: this is
+    // an image response and it is served like one.
+    res.setHeader("Cache-Control", "private, max-age=86400, immutable");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox; img-src 'self' data:");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.end(found.buffer);
+  }),
+  post: C((c, req) => service.postMessage(c, {
+    groupId: req.params.id, body: req.body.body, mediaVaultId: req.body.media_vault_id,
+    replyTo: req.body.reply_to, attachments: req.body.attachments, actor: actor(req),
+    // Sent from a person's keystrokes, so the preview work is queued NOW rather
+    // than waiting for the first reader of the thread. Every OTHER producer of a
+    // message (the task-blockage DM, a mail mention, an import) does not pass
+    // this, and nothing is lost by it: their links are found at read time like
+    // any other, one page view later.
+    tenantMeta: req.tenant, env: req.env,
+  })),
   edit: A((c, req) => service.editMessage(c, { messageId: req.params.messageId, body: req.body.body, actor: actor(req) })),
   del: A((c, req) => service.deleteMessage(c, { messageId: req.params.messageId, actor: actor(req) })),
   react: A((c, req) => service.react(c, { messageId: req.params.messageId, emoji: req.body.emoji, actor: actor(req) })),
@@ -127,6 +193,77 @@ module.exports = {
     res.json({ data });
   }),
 
+  // ── The call record half (PR-2) ─────────────────────────────────────────
+  /**
+   * One recorded PARTIC of a call, uploaded at hang-up.
+   *
+   * Multipart, like a voice note, and read through the same seam — the recorder
+   * has one buffer to hand over and a handful of numbers about it. `readUpload`
+   * is what lets a data-URL fallback exist for the recorder that could not get
+   * a MediaRecorder: on a browser where only the live capture worked, the audio
+   * never arrives and the flagged transcript is all that side has, which is the
+   * §4.5 fallback doing its job.
+   *
+   * The upload answers the PART, not the transcript: part 9 of 12 must return
+   * the instant it is stored, because the phone that sent it is about to send
+   * the next one. Transcription is the job's business (jobId-deduplicated per
+   * call), and the caller watches its state in the thread.
+   */
+  uploadCallRecording: asyncHandler(async (req, res) => {
+    const file = readUpload(req);
+    const body = req.body || {};
+    const data = await req.tenantDb((c) => callRecords.registerPart(c, {
+      callId: req.params.id,
+      actor: actor(req),
+      side: body.side,
+      partIndex: body.part_index,
+      partCount: body.part_count,
+      durationMs: body.duration_ms,
+      language: body.language || null,
+      file,
+      slug: req.tenant.slug,
+    }));
+    res.status(201).json({ data });
+  }),
+
+  /**
+   * The browser live capture on its own, for the side whose audio could not be
+   * uploaded at all (§4.9). Separate from `uploadCallRecording` because it is
+   * the one upload that must still land when MediaRecorder never produced a
+   * part — the fallback cannot be a rider on the thing that failed.
+   */
+  uploadCallLiveLog: A((c, req) => callRecords.registerLiveLog(c, {
+    callId: req.params.id,
+    actor: actor(req),
+    side: req.body.side,
+    segments: req.body.live_segments,
+    language: req.body.language || null,
+  })),
+
+  getCallTranscript: A((c, req) => callRecords.getTranscript(c, {
+    callId: req.params.id, actor: actor(req),
+  })),
+  getCallSummary: A((c, req) => callRecords.getSummary(c, {
+    callId: req.params.id, actor: actor(req),
+  })),
+  sendCallSummary: A((c, req) => callRecords.sendSummary(c, {
+    callId: req.params.id,
+    actor: actor(req),
+    summaryText: req.body.summary_text,
+    keyPoints: req.body.key_points,
+    followUps: req.body.follow_ups,
+    tenantMeta: req.tenant,
+    env: req.env,
+  })),
+  discardCallSummary: A((c, req) => callRecords.discardSummary(c, {
+    callId: req.params.id, actor: actor(req),
+  })),
+  regenerateCallSummary: A((c, req) => callRecords.regenerateSummary(c, {
+    callId: req.params.id,
+    actor: actor(req),
+    language: req.body.language,
+  })),
+
   /**
    * The bytes of one chat attachment, for a member of its channel.
    *
@@ -174,4 +311,28 @@ module.exports = {
     res.json({ data });
   }),
   certify: A((c, req) => service.certifiedExport(c, { groupId: req.params.id, actor: actor(req) })),
+  // ── 1:1 voice calls (PR-1) ───────────────────────────────────────────────
+  // Membership is asserted in the call service (the channel is the
+  // authorisation); the state machine is server-authoritative there too, so
+  // the handlers stay thin.
+  createCall: C((c, req) => calls.createCall(c, {
+    groupId: req.body.group_id, actor: actor(req), tenantMeta: req.tenant, env: req.env,
+  })),
+  acceptCall: A((c, req) => calls.acceptCall(c, { id: req.params.id, actor: actor(req) })),
+  declineCall: A((c, req) => calls.declineCall(c, {
+    id: req.params.id, actor: actor(req), tenantMeta: req.tenant, env: req.env,
+  })),
+  hangupCall: A((c, req) => calls.hangup(c, {
+    id: req.params.id,
+    actor: actor(req),
+    reason: (req.body && req.body.reason) || "hangup",
+    tenantMeta: req.tenant,
+    env: req.env,
+  })),
+  callFailed: A((c, req) => calls.reportFailure(c, {
+    id: req.params.id, actor: actor(req), tenantMeta: req.tenant, env: req.env,
+  })),
+  listCalls: A((c, req) => calls.listCalls(c, actor(req))),
+  getCall: A((c, req) => calls.getCall(c, { id: req.params.id, actor: actor(req) })),
+  callTurn: A((c, req) => calls.turnFor(c, { id: req.params.id, actor: actor(req) })),
 };

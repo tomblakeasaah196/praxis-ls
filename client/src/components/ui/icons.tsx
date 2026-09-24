@@ -54,6 +54,19 @@ export const ArrowRightIcon = (p: P) => (
     <path d="m13 6 6 6-6 6" />
   </svg>
 );
+export const ArrowLeftIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M19 12H5" />
+    <path d="m11 18-6-6 6-6" />
+  </svg>
+);
+export const InfoIcon = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v6" />
+    <path d="M12 7.25h.01" />
+  </svg>
+);
 export const SunIcon = (p: P) => (
   <svg {...base(p)}>
     <circle cx="12" cy="12" r="4" />
@@ -128,6 +141,23 @@ export const PencilIcon = (p: P) => (
     <path d="M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 17v3Z" />
   </svg>
 );
+/**
+ * Overflow — three dots, horizontally.
+ *
+ * The one glyph that needs no label: every phone OS and every mail client uses
+ * it, and it is what `<MoreMenu>` opens. Added here rather than reusing
+ * `app/layout/nav-icons.tsx`'s copy because that file is the shell's own set
+ * and a `components/ui` primitive reaching up into `app/layout` inverts the
+ * dependency the tree is built on — the reason both files have a `ChevronIcon`
+ * and neither imports the other's.
+ */
+export const MoreIcon = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="5" cy="12" r="1.4" />
+    <circle cx="12" cy="12" r="1.4" />
+    <circle cx="19" cy="12" r="1.4" />
+  </svg>
+);
 export const RefreshIcon = (p: P) => (
   <svg {...base(p)}>
     <path d="M21 12a9 9 0 1 1-3-6.7L21 8m0-5v5h-5" />
@@ -164,6 +194,18 @@ export const MicIcon = (p: P) => (
   <svg {...base(p)}>
     <rect x="9" y="2" width="6" height="12" rx="3" />
     <path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" />
+  </svg>
+);
+/** Phone handset — the dial affordance on a DIRECT conversation. */
+export const PhoneIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" />
+  </svg>
+);
+/** Hang-up — the same handset rotated 135°, the universal "end call" answer. */
+export const PhoneDownIcon = (p: P) => (
+  <svg {...base(p)} style={{ transform: "rotate(135deg)", ...p.style }}>
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" />
   </svg>
 );
 /** Stop — a filled square, deliberately not another mic. A recording control

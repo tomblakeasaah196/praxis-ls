@@ -26,6 +26,38 @@ const { initRedis, createConnection, closeRedis } = require("../config/redis");
 const PROCESSORS = [
   { name: "comms-send-flush", concurrency: 1, handler: require("./handlers/comms-send-flush") },
   { name: "comms-send-scheduler", concurrency: 1, handler: require("./handlers/comms-send-scheduler") },
+  // 1:1 voice calls (PR-1): the sweep is the ONLY clock for the two call
+  // deadlines (60 s ring, 30 min cap). The row owns the deadline, so a call
+  // ends correctly even when the API process that started it is gone —
+  // process restart, pocket, closed tab. 15 s granularity, see scheduler.
+  { name: "comms-call-sweep", concurrency: 1, handler: require("./handlers/comms-call-sweep") },
+  { name: "comms-call-sweep-scheduler", concurrency: 1, handler: require("./handlers/comms-call-sweep-scheduler") },
+  // The ring push escalation (PR-3, §4.6): the second channel, 5 s into a ring
+  // that has not been acknowledged. Concurrency 2 — the work is one HTTP round
+  // trip to a push service per ringing call, and a ring is a 60-second window
+  // in which a queue behind another tenant's slow push service costs the bell.
+  { name: "comms-call-ring-escalate", concurrency: 2, handler: require("./handlers/comms-call-ring-escalate") },
+  /**
+   * The call RECORD half (PR-2, guide §4.5). `call-transcribe` transcribes a
+   * call's recorded parts and drafts the summary; concurrency 2 because the
+   * work is mostly waiting on two third parties (the transcription vendor per
+   * part, then the LLM). The record sweep is the daily reprocess of everything
+   * that fell back to the browser capture, plus the 30-day audio retention —
+   * concurrency 1 on both, since neither is a deadline and a stampede of
+   * vendor calls is what concurrency 5 would buy.
+   */
+  { name: "call-transcribe", concurrency: 2, handler: require("./handlers/call-transcribe") },
+  { name: "comms-call-record-sweep", concurrency: 1, handler: require("./handlers/comms-call-record-sweep") },
+  { name: "comms-call-record-sweep-scheduler", concurrency: 1, handler: require("./handlers/comms-call-record-sweep-scheduler") },
+  /**
+   * Smart Comms link previews. Concurrency 2 rather than 1: the work is one
+   * outbound HTTP request to a third party that may take seconds, and two
+   * tenants' backlogs should not queue behind each other's slow host — while
+   * still being small enough that a stuck deploy cannot turn into a hundred
+   * simultaneous requests from one box to the public internet.
+   */
+  { name: "comms-link-unfurl", concurrency: 2, handler: require("./handlers/comms-link-unfurl") },
+  { name: "comms-link-unfurl-scheduler", concurrency: 1, handler: require("./handlers/comms-link-unfurl-scheduler") },
   { name: "regie-aging", concurrency: 1, handler: require("./handlers/regie-aging") },
   { name: "regie-aging-scheduler", concurrency: 1, handler: require("./handlers/regie-aging-scheduler") },
   { name: "pdf", concurrency: 2, handler: require("./handlers/pdf-render") },
@@ -102,6 +134,14 @@ const PROCESSORS = [
   { name: "mail-sla-sweep-scheduler", concurrency: 1, handler: require("./handlers/mail-sla-sweep-scheduler") },
   { name: "mail-followup-sweep", concurrency: 1, handler: require("./handlers/mail-followup-sweep") },
   { name: "mail-followup-sweep-scheduler", concurrency: 1, handler: require("./handlers/mail-followup-sweep-scheduler") },
+  /*
+   * Media/document compensation (PR-07, CE-11 + CE-25). Concurrency 1: the
+   * pass is idempotent but its guarded archives and byte deletions are exactly
+   * the kind of work that must not race itself — a second concurrent sweep
+   * over one tenant would contend on the same orphan rows for nothing.
+   */
+  { name: "media-reconcile", concurrency: 1, handler: require("./handlers/media-reconcile") },
+  { name: "media-reconcile-scheduler", concurrency: 1, handler: require("./handlers/media-reconcile-scheduler") },
   { name: "mail-webhook-renew", concurrency: 2, handler: require("./handlers/mail-webhook-renew") },
   { name: "mail-webhook-renew-scheduler", concurrency: 1, handler: require("./handlers/mail-webhook-renew-scheduler") },
   // PR-4 §8.6. One attachment per job, so the unit of retry is the unit of
@@ -136,6 +176,15 @@ const PROCESSORS = [
   // is told once.
   { name: "contract-lapse", concurrency: 1, handler: require("./handlers/contract-lapse") },
   { name: "contract-lapse-scheduler", concurrency: 1, handler: require("./handlers/contract-lapse-scheduler") },
+  // Tax obligation generation + reminders (MOD-01, PR-05, 13970). concurrency 1
+  // is load-bearing rather than tidy: generation inserts under
+  // `ux_tax_calendar_generation_key` and the reminder sweep reads then writes
+  // `last_reminder_step`, so two passes over one tenant would spend the whole
+  // run colliding on the unique index and re-reading the same watermark. The
+  // work is safe to do twice — that is the point of both mechanisms — but it
+  // would be safe twice and take twice as long.
+  { name: "tax-obligation", concurrency: 1, handler: require("./handlers/tax-obligation") },
+  { name: "tax-obligation-scheduler", concurrency: 1, handler: require("./handlers/tax-obligation-scheduler") },
   // Workspace reminders (MOD-00A, 13810). concurrency 1: the sweep disarms rows
   // as it goes, so two passes over one tenant would mostly find nothing — but
   // the rows they DO both see are the ones in flight, and a reminder is the one
@@ -161,6 +210,13 @@ const PROCESSORS = [
   // performance choice — the uptime denominator assumes ONE sample per
   // interval, and a second concurrent worker would double the numerator.
   { name: "health-collect", concurrency: 1, handler: require("./handlers/health-collect") },
+  // Smart Comms call metrics (PR-3, §7.2). concurrency 1 is a correctness
+  // requirement rather than a throughput one, the same way it is for the sweep:
+  // the aggregation opens one connection per tenant and writes a fixed row per
+  // day, so two concurrent runs would do the same work twice and — during the
+  // alert tick — race the dedupe stamp that stops a persistent condition paging
+  // every hour.
+  { name: "comms-call-metrics", concurrency: 1, handler: require("./handlers/comms-call-metrics") },
   // Backup + restore rehearsal (§3.2, WS-B1/B3). concurrency 1 is not a
   // throughput choice: parallel pg_dumps multiply I/O on a shared Postgres host,
   // and the entire reason this runs at 01:00 is to be cheap. A fleet backup that
@@ -293,6 +349,23 @@ async function scheduleRecurring() {
   await require("./queue-producer").enqueue("comms-send-scheduler", "tick", {}, {
     repeat: { every: 30000 }, removeOnComplete: true, removeOnFail: 50,
   });
+  // Calls ride their own tick: a 30-minute cap and a 60-second ring want
+  // closer granularity than chat's 30 s, and call deadlines must not stop
+  // if an unrelated automation interval is disabled.
+  await require("./queue-producer").enqueue("comms-call-sweep-scheduler", "tick", {}, {
+    repeat: { every: 15000 }, removeOnComplete: true, removeOnFail: 50,
+  });
+  /**
+   * The call RECORD tick (PR-2): daily, and deliberately NOT on the 15 s clock
+   * the deadlines use. Nothing here is a deadline — a flagged transcript is
+   * already readable and already alerted, and retention is a 30-day window —
+   * while every retry spends the tenant's transcription budget for real. A
+   * daily cadence is what makes both the spend and the PR-3 failure-rate signal
+   * honest.
+   */
+  await require("./queue-producer").enqueue("comms-call-record-sweep-scheduler", "tick", {}, {
+    repeat: { every: 24 * 60 * 60 * 1000 }, removeOnComplete: true, removeOnFail: 50,
+  });
   const every = config.ORCHESTRATION_DISPATCH_INTERVAL_MS;
   if (!every || every <= 0) {
     logger.info("orchestration scheduler disabled (ORCHESTRATION_DISPATCH_INTERVAL_MS=0)");
@@ -366,6 +439,31 @@ async function scheduleRecurring() {
     logger.info({ every: followEvery }, "mail follow-up sweep registered");
   }
 
+  // Media/document compensation (PR-07): completes scan links whose PATCH
+  // never landed and sweeps vault objects orphaned by failed owner-pointer
+  // commits. Warn rather than info when disabled — an orphan left by a failed
+  // cover replacement is invisible by design until this sweep runs, so a
+  // silently disabled sweep turns the compensation guarantees into best
+  // wishes.
+  const mediaEvery = config.MEDIA_RECONCILE_INTERVAL_MS;
+  if (!mediaEvery || mediaEvery <= 0) {
+    logger.warn("media reconciliation disabled (MEDIA_RECONCILE_INTERVAL_MS=0) — orphaned vault objects will not be swept");
+  } else {
+    await enqueue("media-reconcile-scheduler", "tick", {}, { repeat: { every: mediaEvery }, removeOnComplete: true, removeOnFail: 50 });
+    logger.info({ every: mediaEvery }, "media reconciliation registered");
+  }
+
+  // Link previews: the backstop sweep. The queue is the fast path (a link posted
+  // is a fetch enqueued); this is the one that catches what the fast path missed,
+  // which is mostly rows written by a request that had no Redis to enqueue on.
+  const linkEvery = config.COMMS_LINK_SWEEP_INTERVAL_MS;
+  if (!linkEvery || linkEvery <= 0 || config.COMMS_LINK_PREVIEWS === false) {
+    logger.info("link-preview sweep disabled (COMMS_LINK_SWEEP_INTERVAL_MS=0 or COMMS_LINK_PREVIEWS=false)");
+  } else {
+    await enqueue("comms-link-unfurl-scheduler", "tick", {}, { repeat: { every: linkEvery }, removeOnComplete: true, removeOnFail: 50 });
+    logger.info({ every: linkEvery }, "link-preview sweep registered");
+  }
+
   // Mail push-subscription renewal (Graph/Gmail webhooks expire). Disabled at 0.
   const renewEvery = config.MAIL_WEBHOOK_RENEW_INTERVAL_MS;
   if (!renewEvery || renewEvery <= 0) {
@@ -408,6 +506,36 @@ async function scheduleRecurring() {
     removeOnComplete: true,
     removeOnFail: 20,
   });
+
+  // Smart Comms call metrics (PR-3, §7.2). Two cadences, deliberately:
+  //
+  //   00:20 UTC daily — the 7-day re-aggregation (which is also what repairs a
+  //   window in which the worker was down) and the 400-day purge. A wall-clock
+  //   pattern rather than an interval, so a restart does not drift the run —
+  //   the same reasoning as the error purge above. 20 past midnight rather than
+  //   on the hour: the 02:00 slot is taken by three other purges, and the day
+  //   being aggregated has to be over before it is counted.
+  //
+  //   Hourly — refresh today and evaluate the alarm. A daily evaluation would
+  //   make the alarm up to a day stale, and what it watches is a caller being
+  //   told their transcript is coming when it is not.
+  await enqueue("comms-call-metrics", "aggregate", {}, {
+    repeat: { pattern: "20 0 * * *", tz: "UTC" },
+    removeOnComplete: true,
+    removeOnFail: 20,
+  });
+
+  const commsMetricsEvery = config.COMMS_METRICS_ALERT_INTERVAL_MS;
+  if (!commsMetricsEvery || commsMetricsEvery <= 0) {
+    logger.info("call metrics alert evaluation disabled (COMMS_METRICS_ALERT_INTERVAL_MS=0) — the screen still aggregates nightly");
+  } else {
+    await enqueue("comms-call-metrics", "alert", {}, {
+      repeat: { every: commsMetricsEvery },
+      removeOnComplete: true,
+      removeOnFail: 50,
+    });
+    logger.info({ every: commsMetricsEvery }, "call metrics alert evaluator registered");
+  }
 
   const healthEvery = config.HEALTH_SAMPLE_INTERVAL_MS;
   if (!healthEvery || healthEvery <= 0) {
@@ -540,6 +668,31 @@ async function scheduleRecurring() {
       removeOnFail: 50,
     });
     logger.info({ pattern: regieCron, tz: config.FX_SYNC_TZ || "UTC" }, "regie aging scheduler registered");
+  }
+
+  /*
+   * Tax obligation generation + reminders (MOD-01, PR-05). 05:00 local: after
+   * the ledger-writing jobs and early enough to be finished before the 07:00
+   * contract warnings, so the reminders land in the same morning feed a person
+   * is already reading.
+   *
+   * Wall-clock cron rather than an interval for the reason the leave-accrual
+   * comment gives — "by the 15th" is a calendar promise, and an interval-based
+   * repeat drifts off it after every restart. Both halves are idempotent, so a
+   * missed day is recovered by the next tick rather than lost, and a tenant
+   * that wants an hourly belt-and-braces pass can set `0 * * * *` without
+   * duplicating anything.
+   */
+  const taxObligationCron = config.TAX_OBLIGATION_CRON;
+  if (!taxObligationCron) {
+    logger.info("tax obligation scheduler disabled (TAX_OBLIGATION_CRON empty)");
+  } else {
+    await enqueue("tax-obligation-scheduler", "tick", {}, {
+      repeat: { pattern: taxObligationCron, tz: config.FX_SYNC_TZ || "UTC" },
+      removeOnComplete: true,
+      removeOnFail: 50,
+    });
+    logger.info({ pattern: taxObligationCron, tz: config.FX_SYNC_TZ || "UTC" }, "tax obligation scheduler registered");
   }
 
   // Scheduled reports (1.3). Hourly rather than daily: `next_run_at` is a

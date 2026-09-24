@@ -202,25 +202,32 @@ describe("letterhead assembly", () => {
       expect(ids.map((i) => i.kind).sort()).toEqual(["NIU", "RCCM"]);
     });
 
-    it("pulls the VAT number from the tax registration, not the trade register", () => {
-      const ids = lh.identifiers(
-        ENTITY,
-        [],
-        [{ tax_kind: "VAT", tax_number: "FR12345678901" }],
-      );
-      expect(ids.find((i) => i.kind === "VAT").number).toBe("FR12345678901");
-    });
-
-    it("ignores deregistered and inactive tax registrations", () => {
+    /*
+     * PR-10 / A3 — the reversal of the old rule, pinned. The VAT number used
+     * to be loop-added from the tax registrations; it is a tax-registration
+     * fact and no longer appears on the trade-register line at all. Full
+     * resolver-level coverage lives in entity-primary-account.test.js; these
+     * keep the unit contract visible where the rest of identifiers() is
+     * tested.
+     */
+    it("NEVER pulls the VAT number from the tax registration — trade-register rows only", () => {
       const ids = lh.identifiers(
         { ...ENTITY, niu: null, rccm: null },
-        [],
-        [
-          { tax_kind: "VAT", tax_number: "OLD", deregistered_on: "2025-01-01" },
-          { tax_kind: "WHT", tax_number: "INACTIVE", is_active: false },
-        ],
+        [{ kind: "NIU", number: "N1" }],
       );
-      expect(ids).toEqual([]);
+      expect(ids).toEqual([{ kind: "NIU", number: "N1" }]);
+    });
+
+    it("tax registrations cannot contribute an identifier even when handed one", () => {
+      // The old call shape (entity, registrations, taxRegistrations). The
+      // third argument is ignored by contract now — a caller still passing it
+      // must not get a VAT line back.
+      const ids = lh.identifiers(
+        { ...ENTITY, niu: null, rccm: null },
+        [{ kind: "RCCM", number: "RC/1" }],
+        [{ tax_kind: "VAT", tax_number: "FR12345678901", is_active: true }],
+      );
+      expect(ids).toEqual([{ kind: "RCCM", number: "RC/1" }]);
     });
 
     it("does not repeat a kind", () => {
@@ -237,21 +244,27 @@ describe("letterhead assembly", () => {
       treasury_account_id: "t1",
       label: "Afriland — Main XAF",
       show_on_documents: true,
+      is_active: true,
+      is_primary: true,
       bank_name: "Afriland First Bank",
       account_number: "1000500012345",
+      holder_name: "Smart Logistics and Services Ltd",
       currency: "XAF",
     };
 
-    it("reads treasury_account when an account is flagged for documents", () => {
+    it("prints the PRIMARY account — the single source the resolver picks", () => {
       const p = lh.paymentBlock(ENTITY, [account]);
       expect(p.source).toBe("treasury");
+      expect(p.accounts).toHaveLength(1);
       expect(p.accounts[0].bank_name).toBe("Afriland First Bank");
+      expect(p.accounts[0].holder_name).toBe("Smart Logistics and Services Ltd");
     });
 
-    it("leads with the entity's remittance account", () => {
+    it("the remittance account is the primary; the other accounts do not print beside it", () => {
       const second = {
         ...account,
         treasury_account_id: "t2",
+        is_primary: false,
         label: "Second",
         bank_name: "UBA",
       };
@@ -259,18 +272,23 @@ describe("letterhead assembly", () => {
         account,
         second,
       ]);
+      expect(p.accounts).toHaveLength(1);
       expect(p.accounts[0].label).toBe("Second");
-      expect(p.accounts).toHaveLength(2);
     });
 
-    it("skips accounts not flagged for documents, and inactive ones", () => {
-      expect(
-        lh.paymentBlock(ENTITY, [{ ...account, show_on_documents: false }])
-          .source,
-      ).not.toBe("treasury");
-      expect(
-        lh.paymentBlock(ENTITY, [{ ...account, is_active: false }]).source,
-      ).not.toBe("treasury");
+    it("several flagged primaries print nothing — an explicit no_primary state, never a pick", () => {
+      const sixPrimaries = [1, 2, 3, 4, 5, 6].map((n) => ({
+        ...account, treasury_account_id: `t${n}`, label: `Bank ${n}`,
+      }));
+      const p = lh.paymentBlock(ENTITY, sixPrimaries);
+      expect(p.source).toBe("no_primary");
+      expect(p.accounts).toHaveLength(0);
+    });
+
+    it("accounts but no primary: no_primary, and no silent legacy fallback", () => {
+      const p = lh.paymentBlock(ENTITY, [{ ...account, is_primary: false }]);
+      expect(p.source).toBe("no_primary");
+      expect(p.accounts).toHaveLength(0);
     });
 
     it("falls back to the frozen bank_block so existing invoices render unchanged", () => {
@@ -323,7 +341,8 @@ describe("letterhead assembly", () => {
         {
           treasury_account_id: "t1",
           label: "Main",
-          show_on_documents: true,
+          is_active: true,
+          is_primary: true,
           bank_name: "Afriland",
         },
       ],
@@ -497,6 +516,95 @@ describe("renewal ladder", () => {
     );
     expect(r.items[0].kind).toBe("TAX_REGISTRATION");
     expect(r.items[0].state).toBe("APPROACHING");
+  });
+
+  it("monitors only the SELECTED registration per (country, kind) — the current-row rule", () => {
+    // A superseded row expiring sooner must not shout over the row that is
+    // actually current; the array is history, not a lifecycle.
+    const r = rn.renewals(
+      {
+        registrations: [
+          { registration_id: "r-old", kind: "NIU", number: "OLD", country_code: "CM", is_primary: false, expires_on: "2026-08-10" },
+          { registration_id: "r-now", kind: "NIU", number: "NEW", country_code: "CM", is_primary: true, expires_on: "2026-10-01" },
+        ],
+      },
+      TODAY,
+    );
+    expect(r.items).toHaveLength(1);
+    expect(r.items[0].id).toBe("r-now");
+    expect(r.ambiguous_registrations).toEqual([]);
+  });
+
+  it("selects a sole row with no primary, and keeps monitoring it after expiry", () => {
+    const r = rn.renewals(
+      {
+        registrations: [
+          { registration_id: "r-only", kind: "RCCM", number: "X", country_code: "CM", is_primary: false, expires_on: "2026-01-01" },
+        ],
+      },
+      TODAY,
+    );
+    expect(r.items).toHaveLength(1);
+    expect(r.items[0]).toMatchObject({ id: "r-only", kind: "REGISTRATION", state: "EXPIRED" });
+  });
+
+  it("reports an ambiguous key as a data-quality finding and monitors no row for it", () => {
+    const r = rn.renewals(
+      {
+        registrations: [
+          { registration_id: "r-a", kind: "VAT", number: "A", country_code: "FR", expires_on: "2026-08-10" },
+          { registration_id: "r-b", kind: "VAT", number: "B", country_code: "FR", expires_on: "2026-09-01" },
+        ],
+      },
+      TODAY,
+    );
+    expect(r.items).toEqual([]);
+    expect(r.ambiguous_registrations).toEqual([
+      { country_code: "FR", kind: "VAT", rows: 2, reason: "no_primary_multiple_rows" },
+    ]);
+  });
+
+  it("treats two primary rows as ambiguous too — selection must be unique", () => {
+    const r = rn.renewals(
+      {
+        registrations: [
+          { registration_id: "r-a", kind: "NIU", number: "A", country_code: "CM", is_primary: true, expires_on: "2026-08-10" },
+          { registration_id: "r-b", kind: "NIU", number: "B", country_code: "CM", is_primary: true, expires_on: "2026-09-01" },
+        ],
+      },
+      TODAY,
+    );
+    expect(r.items).toEqual([]);
+    expect(r.ambiguous_registrations).toEqual([
+      { country_code: "CM", kind: "NIU", rows: 2, reason: "multiple_primary_rows" },
+    ]);
+  });
+
+  it("groups the current-row key by country and kind, case-insensitively", () => {
+    const r = rn.renewals(
+      {
+        registrations: [
+          { registration_id: "r-cm", kind: "NIU", number: "CM-NIU", country_code: "CM", is_primary: true, expires_on: "2026-08-20" },
+          { registration_id: "r-fr", kind: "NIU", number: "FR-NIU", country_code: "FR", is_primary: true, expires_on: "2026-08-25" },
+        ],
+      },
+      TODAY,
+    );
+    // Two DIFFERENT keys — both selected, both monitored.
+    expect(r.items.map((i) => i.id).sort()).toEqual(["r-cm", "r-fr"]);
+  });
+
+  it("keeps an unverified selected row selected — verification is a gate, not a selector", () => {
+    const r = rn.renewals(
+      {
+        registrations: [
+          { registration_id: "r-v", kind: "NIU", number: "N", country_code: "CM", is_primary: true, verified: false, expires_on: "2026-08-20" },
+        ],
+      },
+      TODAY,
+    );
+    expect(r.items).toHaveLength(1);
+    expect(r.items[0].id).toBe("r-v");
   });
 
   it("produces compliance flags that never exceed a recommendation", () => {

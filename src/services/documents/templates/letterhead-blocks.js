@@ -211,8 +211,8 @@ const CATALOGUE = [
     zone: "footer",
     label: { fr: "Identifiants fiscaux et commerciaux", en: "Tax & trade identifiers" },
     hint: {
-      fr: "NIU, RCCM, TVA, EORI — dérivés des immatriculations, donc justes hors du Cameroun.",
-      en: "NIU, RCCM, VAT, EORI — derived from the registrations, so they stay right outside Cameroon.",
+      fr: "NIU, RCCM, EORI — dérivés des immatriculations. La TVA vit sur l'enregistrement fiscal, pas ici.",
+      en: "NIU, RCCM, EORI — derived from the registrations. VAT lives on the tax registration, not here.",
     },
     source: { tab: "Identity & registrations", field: "registrations" },
     toggle: ["show_registrations"],
@@ -222,6 +222,12 @@ const CATALOGUE = [
      * French one SIREN and TVA intracommunautaire. `kit.footer` printed two
      * hardcoded labels, which is correct in exactly one country and this
      * product is not sold in exactly one country.
+     *
+     * TRADE-REGISTER ROWS ONLY (PR-10 / A3): the identifiers come from
+     * entity_registration (plus the legacy niu/rccm columns). A VAT number is
+     * a TAX-registration fact — it used to be loop-added here from the tax
+     * rows, which printed a number the tax module owns, from a join the
+     * letterhead does not control, on a line that says "trade register".
      */
     derive: (b) => (b.entity.identifiers || []).map((i) => ({ type: "text", text: `${i.kind} ${i.number}` })),
     /*
@@ -264,10 +270,22 @@ const CATALOGUE = [
      * number on it hands the tenant's banking details to every warehouse and
      * border post the sheet passes through, for nothing. The template opts in
      * (`opts.bank`); the toggle only decides whether it MAY.
+     *
+     * ONE account, the PRIMARY (PR-10 / A1): `b.payment` is
+     * `lh.paymentBlock()`'s output, which resolves the primary account and
+     * never lists the rest — six bank accounts on a tenant must not become six
+     * payment lines at the foot of an invoice.
+     *
+     * The HOLDER (PR-10 / A4): a payment block without the account holder's
+     * name is a formality, not an instruction — the bank detail that decides
+     * whether a remittance lands is whose account it is. Same toggle as the
+     * rest of the block: switch the payment block off and the holder goes too.
      */
     derive: (b) => (b.payment.accounts || []).map((a) => ({
       type: "text",
-      text: join([a.bank_name, a.branch, a.account_number, a.iban ? `IBAN ${a.iban}` : null,
+      text: join([a.bank_name, a.branch, a.account_number,
+        a.holder_name ? `Holder ${a.holder_name}` : null,
+        a.iban ? `IBAN ${a.iban}` : null,
         a.swift_bic ? `SWIFT ${a.swift_bic}` : null, a.currency]),
     })).filter((l) => l.text),
   },
@@ -569,23 +587,61 @@ function measure(blocks, zone, { gapMm = 1.2 } = {}) {
 /**
  * Build the resolved header and footer for one entity in one language.
  *
- * @param {object}   input.entity            corporate_entity row, already carrying
- *                                           `address_lines` and `identifiers` from
- *                                           `entity-letterhead.service`
+ * @param {object}   input.entity            corporate_entity row. It MAY already carry
+ *                                           `address_lines` and `identifiers` (the
+ *                                           template renderer attaches them in
+ *                                           `resolveEntity`); when it does not, they
+ *                                           are derived HERE from the rows below, so
+ *                                           a caller holding the raw repo row cannot
+ *                                           silently compose an identifier-less sheet.
  * @param {object}   [input.config]          entity_letterhead row
  * @param {object[]} [input.customLines]     entity_letterhead_line rows
  * @param {object}   [input.layout]          entity_letterhead.layout jsonb
  * @param {object[]} [input.treasuryAccounts] treasury_account rows
  * @param {object[]} [input.establishments]  entity_establishment rows
  * @param {object[]} [input.addresses]       entity_address rows
+ * @param {object[]} [input.registrations]   entity_registration rows (pre-redacted by
+ *                                           the caller where PR-04 requires it — a row
+ *                                           without a `number` contributes nothing).
+ *                                           Trade-register rows only: a VAT number is
+ *                                           a tax-registration fact and no longer
+ *                                           contributes an identifier (PR-10 / A3).
  * @param {object}   [input.doc]             { number, date, title, page, pages } for tokens
  * @param {string}   [lang]                  'fr' | 'en'
  */
 function compose(input = {}, lang) {
-  const entity = input.entity || {};
+  const source = input.entity || {};
   const config = { ...lh.DEFAULT_CONFIG, ...(input.config || {}) };
-  const language = lang === "fr" || lang === "en" ? lang : (entity.default_language || "en");
+  const language = lang === "fr" || lang === "en" ? lang : (source.default_language || "en");
   const addresses = input.addresses || [];
+
+  /*
+   * THE ENTITY THE BLOCKS READ, with its derived facts guaranteed present.
+   *
+   * The @param contract above used to be an obligation on the caller —
+   * `entity.identifiers` and `entity.address_lines` were computed inside
+   * `entity-letterhead.service.render()` and only the template renderer
+   * bothered to attach them before calling here. Every other caller (the
+   * entity's own letterhead endpoint included) handed over the raw repo row,
+   * so the identifiers block only ever saw the legacy `niu`/`rccm` columns —
+   * null for any tenant whose NIU/RCCM live in entity_registration rows —
+   * and printed nothing while the preview beside it printed the numbers.
+   *
+   * Derived here, from the same `lh` helpers `render()` uses, so the two
+   * outputs cannot disagree. A caller that already attached them wins: the
+   * template renderer resolves country NAMES ("Cameroun", not "CM") with the
+   * catalogue this pure module must not import. PR-04 redaction survives
+   * unchanged because it happens UPSTREAM, in the rows: a redacted
+   * registration row has no `number` and `lh.identifiers` skips it, and the
+   * masked entity's legacy columns are already null.
+   */
+  const entity = { ...source };
+  if (!Array.isArray(entity.identifiers)) {
+    entity.identifiers = lh.identifiers(entity, input.registrations || []);
+  }
+  if (!Array.isArray(entity.address_lines)) {
+    entity.address_lines = lh.addressLines(entity, addresses, { language });
+  }
 
   // The bundle every `derive` and every token reads. Assembled once: the
   // payment block and the address line are each a non-trivial precedence walk

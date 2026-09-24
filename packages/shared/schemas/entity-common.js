@@ -295,6 +295,10 @@ exports.contactCreate = z.object(contactShape);
 exports.contactUpdate = patchOf(contactShape);
 
 // ── Address ────────────────────────────────────────────────────────────────
+// `is_public` / `public_label_*` are the explicit second-address marker
+// (Decision Q2, migration 13963). They never publish the REGISTERED office —
+// that is resolved by the public read the same way the letterhead resolves
+// it — they publish THIS row beside it, and only with a label.
 const addressShape = {
   type: requiredEnum(ADDRESS_TYPES, "Address type").optional(),
   line1: nullableText,
@@ -306,8 +310,29 @@ const addressShape = {
   po_box: nullableText,
   is_primary: z.boolean().optional(),
   is_active: z.boolean().optional(),
+  is_public: z.boolean().optional(),
+  public_label_fr: nullableText,
+  public_label_en: nullableText,
 };
-exports.addressCreate = z.object(addressShape);
+/** A row marked public on CREATE must carry its label in the same body. The
+ *  UPDATE twin cannot live here — a patch may set the marker on a row that
+ *  already carries a label, and only the write service sees that row — so it
+ *  is `rowRules` on the addresses spec in nested.js. Neither rule is a
+ *  database CHECK: 13963 documents the 13791 provisioning hazard that keeps
+ *  `entity_address` constraint-free, and the public read re-asserts the rule
+ *  as the third layer anyway. */
+const withAddressRules = (schema) =>
+  schema.refine(
+    (v) =>
+      !v.is_public ||
+      [v.public_label_fr, v.public_label_en].some((l) => l && String(l).trim()),
+    {
+      message:
+        "A public address needs the label visitors will read beside it — write it in at least one language.",
+      path: ["public_label_fr"],
+    },
+  );
+exports.addressCreate = withAddressRules(z.object(addressShape));
 exports.addressUpdate = patchOf(addressShape);
 
 // ── Registration (the entity's own NIU / RCCM / VAT / EORI / EIN …) ─────────
@@ -817,6 +842,63 @@ exports.opsReferencePrefix = z.object({
     .regex(/^[A-Z0-9]{2}$/, "Two characters, A-Z or 0-9 — e.g. SL"),
 });
 
+/*
+ * ── Tax obligation generator (PR-05, audit CE-16) ──────────────────────────
+ *
+ * These are the shapes for the three write endpoints on the generated
+ * obligation calendar. They live here rather than in the API validator for the
+ * reason the rest of this file does — one definition, both halves of the app —
+ * and because the horizon/backfill bounds below are the same numbers the
+ * scheduler uses as its defaults, so a client cannot ask for a window the
+ * generator would refuse.
+ */
+
+/** The statuses a PERSON may set. SUPERSEDED is written by the generator only. */
+const TAX_OBLIGATION_MANUAL_STATUSES = ["PENDING", "DONE", "WAIVED"];
+
+/**
+ * A run of the generator for one entity.
+ *
+ * Both knobs are optional and both are bounded: an unbounded `horizon` would
+ * let a caller ask for four hundred years of obligations in one request, and
+ * an unbounded `backfill` would let one call mark a decade of never-filed
+ * periods LATE at once — which is not a generation, it is a demolition.
+ */
+exports.taxObligationGenerate = z.object({
+  horizon: blankToUndefined(
+    z.number().int("Whole periods only.").min(0).max(24, "Generate at most 24 periods ahead."),
+  )
+    .optional(),
+  backfill: blankToUndefined(
+    z.number().int("Whole periods only.").min(0).max(12, "Backfill at most 12 periods."),
+  )
+    .optional(),
+});
+
+/**
+ * Waive, complete or reopen one obligation.
+ *
+ * `reason` is optional in the shape and REQUIRED for a waiver by the service —
+ * the rule is "a waiver needs a reason", not "this endpoint always needs one",
+ * and a refine that fired on DONE would ask someone to justify ticking a
+ * filing as filed.
+ */
+exports.taxObligationStatus = z.object({
+  status: z.enum(TAX_OBLIGATION_MANUAL_STATUSES),
+  reason: blankToUndefined(z.string().trim().min(3, "Give a reason.").max(500)).nullable().optional(),
+});
+
+/**
+ * Assign the person who files it.
+ *
+ * Nullable and not optional: sending `responsible_user_id: null` means "take
+ * the assignment off", which is a real action and must not be indistinguishable
+ * from a body that forgot the field.
+ */
+exports.taxObligationAssign = z.object({
+  responsible_user_id: nullableId("Must be a valid user id."),
+});
+
 // ── AI-facing envelopes ────────────────────────────────────────────────────
 // The assistant calls a tool with a flat payload and no route parameter, so the
 // entity id travels in the body. Composed here rather than in the API validator
@@ -916,3 +998,4 @@ exports.CONTACT_ROLE_TAGS = CONTACT_ROLE_TAGS;
 exports.TAX_KINDS = TAX_KINDS;
 exports.FILING_FREQUENCIES = FILING_FREQUENCIES;
 exports.TAX_REGIMES = TAX_REGIMES;
+exports.TAX_OBLIGATION_MANUAL_STATUSES = TAX_OBLIGATION_MANUAL_STATUSES;

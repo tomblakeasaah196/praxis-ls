@@ -336,6 +336,23 @@ const Schema = z.object({
    */
   REDIS_PASSWORD: z.string().default(""),
 
+  /**
+   * Inhouse calls (Smart Comms PR-1): STUN/TURN for WebRTC media.
+   *
+   * `TURN_HOST` empty = STUN-only (local dev, easy NATs). When set, the
+   * compose `coturn` service sits behind it and every credential issued to a
+   * client is time-limited (TTL, HMAC with TURN_CREDENTIAL_SECRET) — a static
+   * public TURN user is a credential leak that outlives the call that needed
+   * it. See src/modules/smartcomm/smartcomm.turn.service.js and the guide §5.5.
+   */
+  STUN_URLS: z.string().default(""),
+  TURN_HOST: z.string().default(""),
+  TURN_PORT_TCP: int(3478),
+  TURN_PORT_UDP: int(3478),
+  TURN_TRANSPORTS: z.string().default("udp,tcp"),
+  TURN_CREDENTIAL_SECRET: z.string().default(""),
+  TURN_CREDENTIAL_TTL: int(1860),
+
   JWT_ACCESS_SECRET: z.string().default("__dev_access__"),
   JWT_REFRESH_SECRET: z.string().default("__dev_refresh__"),
   JWT_ACCESS_TTL: z.string().default("15m"),
@@ -467,6 +484,29 @@ const Schema = z.object({
   // than mid-afternoon while someone is looking at the same advance. Empty
   // disables it; POST /regie/age-due still ages on demand.
   REGIE_AGING_CRON: z.string().default("0 6 * * *"),
+  /*
+   * Tax obligation generation + reminders (MOD-01, PR-05 / audit CE-16).
+   *
+   * ONE tick does both halves, and that is deliberate rather than convenient:
+   * generation writes the obligations and reminders announce them, so a tenant
+   * whose filing appeared yesterday and whose reminder fired this morning has
+   * been told about a deadline that only exists because of the other job.
+   * Coupling them also means there is no window in which the calendar and the
+   * notifications disagree.
+   *
+   * 05:00 in the FX timezone. After the ledger-writing jobs (regie at 06:00 is
+   * the nearest and this one does not post), and early enough that the run has
+   * finished before the 07:00 contract warnings — the reminders it emits land
+   * in the same morning feed a person is already reading, rather than in an
+   * overnight queue nobody opens.
+   *
+   * Safe to run far more often than daily: the generator is idempotent on
+   * `ux_tax_calendar_generation_key` and the reminder ladder is watermarked on
+   * `last_reminder_step`, so an hourly tick costs one indexed pass and repeats
+   * nothing. Empty disables both; the dossier's Generate button still runs the
+   * generator for one entity on demand.
+   */
+  TAX_OBLIGATION_CRON: z.string().default("0 5 * * *"),
   // Scheduled reports (1.3): the tick that fans `scheduled-report` out per live
   // tenant. HOURLY, at five past — `next_run_at` is a timestamp and the due
   // query asks `next_run_at <= now()`, so this interval is the resolution of
@@ -650,6 +690,14 @@ const Schema = z.object({
   HEALTH_POOL_UTILISATION_AMBER: int(80),
   HEALTH_POOLER_MAXWAIT_AMBER_MS: int(100),
 
+  // Smart Comms calls (guide §7.2): the sustained-transcription-failure alarm.
+  // Vault-first (Platform Console → ops.tuning) with these as the fallback —
+  // the right number depends on how many calls a deployment makes, which is not
+  // knowable from the code. Threshold is a count of calls whose transcript fell
+  // back to the browser capture inside the window.
+  COMMS_TRANSCRIPTION_ALERT_THRESHOLD: int(3),
+  COMMS_TRANSCRIPTION_ALERT_WINDOW_HOURS: int(24),
+
   // Uptime probing (WS-U1). The interval is also the DENOMINATOR of the
   // availability figure — a missing sample counts as downtime — so changing it
   // changes what past percentages mean. 0 disables probing.
@@ -739,6 +787,67 @@ const Schema = z.object({
   // this back at 14:00" arriving at 14:05 is fine, at 15:00 is not.
   MAIL_FOLLOWUP_SWEEP_INTERVAL_MS: int(60000),
   MAIL_AI_MONTHLY_CAP_XAF: int(0),
+
+  // Media/document compensation sweep (PR-07, CE-11 + CE-25): how often the
+  // reconciliation runs per LIVE tenant — completing document-scan links whose
+  // PATCH never landed, and sweeping vault objects orphaned by failed
+  // owner-pointer commits after the service's own TTL (24h). 0 disables the
+  // sweep; the outbox still records every attempt state, it just stops being
+  // repaired automatically.
+  MEDIA_RECONCILE_INTERVAL_MS: int(900000), // 15 min
+
+  /**
+   * Smart Comms link previews (doc/SMART_COMMS_LINKS.md).
+   *
+   * `COMMS_LINK_PREVIEWS` is the whole feature's kill switch, and it is an env
+   * var rather than a tenant setting on purpose: what it turns off is an OUTBOUND
+   * HTTP REQUEST made by the server on behalf of a chat message. An operator
+   * under a data-residency review, an air-gapped deploy, or an incident where a
+   * provider is blocking us needs to stop that with a restart, not with a
+   * permission grant. Off, links stay clickable (that half is client-side and
+   * needs no fetch) and simply have no card.
+   *
+   * The timeouts are floors on bad-web latency, not tuning: 6s is longer than
+   * about 99% of pages answer and shorter than the worker's own job timeout, and
+   * the byte cap is a head-metadata bound, not a page-size one — we read the
+   * `<head>` and stop.
+   */
+  COMMS_LINK_PREVIEWS: bool(true),
+  COMMS_LINK_FETCH_TIMEOUT_MS: int(6000),
+  COMMS_LINK_FETCH_MAX_BYTES: int(262144),
+  // An image is bigger than a `<head>` and is streamed to one reader at a time,
+  // so it gets its own cap. 2 MB is above every `og:image` in the wild that a
+  // 320px-wide card will display; a larger one is refused rather than resized,
+  // because a fetch-then-decode of an attacker-sized PNG is the DoS this caps.
+  COMMS_LINK_IMAGE_MAX_BYTES: int(2097152),
+  // How old a card may get before a READ marks it for background refresh
+  // (stale-while-revalidate: the reader always gets the stored card immediately,
+  // the refresh is what keeps tomorrow's reader honest).
+  COMMS_LINK_TTL_DAYS: int(7),
+  // First retry delay for a failed fetch; doubles per attempt to ~8x.
+  COMMS_LINK_RETRY_MINUTES: int(15),
+  // The playable media CARD (thumbnail, duration, "Watch on YouTube"). Not an
+  // iframe: `frame-src` is deliberately same-origin and blob only, asserted by
+  // tests/unit/csp-blob-media.test.js, and this flag does not change that. With
+  // this off, a YouTube link gets an ordinary preview card like any other page.
+  COMMS_LINK_EMBEDS: bool(true),
+  // How often the worker drains whatever the queue lost, per LIVE tenant: rows
+  // created but never fetched (a Redis restart, a producer with no queue access)
+  // and rows a reader marked stale. 0 disables the sweep — the feature still works
+  // entirely from the queue, so unlike media-reconcile a disabled sweep is a
+  // slower preview rather than an unrepaired inconsistency, and it logs at info.
+  COMMS_LINK_SWEEP_INTERVAL_MS: int(900000), // 15 min
+  // Hosts to treat as our own in addition to `APP_BASE_DOMAIN` and the request's
+  // own Host — a tenant whose public site lives on a domain the registry does not
+  // know about. Comma-separated, bare hostnames.
+  COMMS_LINK_EXTRA_OWN_HOSTS: z.string().default(""),
+
+  // How often the worker refreshes today's call metrics and evaluates the
+  // sustained-transcription-failure alarm (guide §7.2). 0 disables the
+  // evaluator only — the nightly aggregation still runs, so the ops screen
+  // keeps working and only the alarm goes quiet, which is the honest way round
+  // for a control an operator might turn off while debugging a noisy provider.
+  COMMS_METRICS_ALERT_INTERVAL_MS: int(3600000), // hourly
 
   // How often to renew push subscriptions (Graph webhooks expire ~3d). 0 disables.
   MAIL_WEBHOOK_RENEW_INTERVAL_MS: int(21600000), // 6h

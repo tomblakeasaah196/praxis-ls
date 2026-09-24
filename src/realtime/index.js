@@ -44,6 +44,17 @@ const mailRoom = (slug) => `t:${slug}:mail`;
  */
 const userRoom = (slug, uid) => `t:${slug}:u:${uid}`;
 
+/**
+ * Per-process count of a user's connected sockets, keyed "<slug>:<uid>".
+ *
+ * Presence math for one replica: a user with two tabs here is still online
+ * when one of them closes, and the `online: false` broadcast must wait for
+ * the LAST socket on this replica. Cross-replica accuracy comes for free —
+ * a disconnect fires on the replica that HELD the socket, so every socket's
+ * join/leave is announced exactly once through the adapter.
+ */
+const userSocketCount = new Map();
+
 /** Same origin policy as the HTTP CORS: base domain + its subdomains, explicit
  *  extras, and localhost in development. */
 function corsOrigin(origin, cb) {
@@ -209,6 +220,9 @@ function initSocket(httpServer) {
     socket.on("channel:typing", (groupId) =>
       socket.to(room(tenantSlug, groupId)).emit("channel:typing", { group_id: groupId, user_id: userId }),
     );
+
+    attachCallSignals(socket);
+    attachPresence(socket);
   });
 
   attachMailBridge();
@@ -227,6 +241,150 @@ function initSocket(httpServer) {
 
   logger.info("real-time (socket.io) ready");
   return io;
+}
+
+/**
+ * 1:1 call signaling (PR-1) — RELAY ONLY.
+ *
+ * The server carries the SDP offer/answer and ICE candidates between the two
+ * participants and nothing else: it never stores them, never parses them, and
+ * the media itself is P2P (guide D4 — our servers relay signaling only). The
+ * state machine (RINGING → IN_CALL → terminal) is not driven from here; it
+ * lives on the REST paths, because a state change writes a row and this file
+ * must not own two sources of truth for one call.
+ *
+ * Participant check per event, exactly like `channel:join`: the row is the
+ * authorisation and it is re-read every time, so a socket that is no longer a
+ * participant (removed from the channel mid-call, call already closed) stops
+ * being relayed to with no bookkeeping to get wrong. A non-participant's
+ * signal is answered with silence, not an error — an error here would be a
+ * probe for "is there a call I am not in".
+ */
+function attachCallSignals(socket) {
+  const { tenant, env, tenantSlug, userId } = socket.data;
+
+  async function relay(callId, event, extra) {
+    if (typeof callId !== "string") return;
+    const callRepo = require("../modules/smartcomm/smartcomm.call.repo");
+    const other = await registry.withTenantConnection(tenant, env, (c) =>
+      callRepo.otherParticipant(c, { callId, userId }),
+    );
+    if (!other) return;
+    publishToUser(tenantSlug, other.user_id, event, { call_id: callId, ...(extra || {}) });
+  }
+
+  socket.on("call:offer", ({ callId, sdp } = {}) => {
+    if (sdp) {
+      relay(callId, "call:offer", { sdp }).catch((err) =>
+        logger.warn({ err, callId }, "call:offer relay failed"),
+      );
+    }
+  });
+  socket.on("call:answer", ({ callId, sdp } = {}) => {
+    if (sdp) {
+      relay(callId, "call:answer", { sdp }).catch((err) =>
+        logger.warn({ err, callId }, "call:answer relay failed"),
+      );
+    }
+  });
+  socket.on("call:ice", ({ callId, candidate } = {}) => {
+    relay(callId, "call:ice", { candidate: candidate || null }).catch((err) =>
+      logger.warn({ err, callId }, "call:ice relay failed"),
+    );
+  });
+  socket.on("call:ring_ack", ({ callId, channel } = {}) => {
+    // PR-3 (§4.6). The ack is what stops the other channels: it is written to
+    // the row (which the delayed push escalation re-reads before it sends) and
+    // broadcast to this user's other devices so the desk tab and the phone stop
+    // ringing together.
+    //
+    // The write goes through the SERVICE, not the repo, because the service is
+    // where the two rules live that make the ack meaningful: only the callee can
+    // ack a ring, and only the FIRST ack counts (a second device acking 20 ms
+    // later must not overwrite which channel landed).
+    //
+    // A failure here is swallowed on purpose: the ring times out on its own 60
+    // seconds later, so an unvalidated ack costs at most one push and never the
+    // call — and a warning per ack on a flaky network is a log nobody can read.
+    if (typeof callId !== "string") return;
+    const callService = require("../modules/smartcomm/smartcomm.call.service");
+    registry
+      .withTenantConnection(tenant, env, (c) =>
+        callService.ackRing(c, {
+          id: callId,
+          actor: { user_id: userId },
+          channel: typeof channel === "string" ? channel : "socket",
+          tenantSlug,
+        }),
+      )
+      .catch(
+        /* @silent:db — see above. */
+        () => {},
+      );
+  });
+}
+
+/**
+ * Presence + last seen (PR-1, guide §4.11).
+ *
+ * "Online now" = a socket is connected; the broadcast rides the tenant-wide
+ * room (mailRoom — every authenticated socket in the tenant already joins
+ * it, so presence needs no new room and no client change to hear it). The
+ * persistent half is comms_user_presence.last_seen_at, flushed on connect,
+ * on every `comms:seen` beat (the client throttles to one per 60 s), and on
+ * disconnect.
+ */
+function attachPresence(socket) {
+  const { tenant, env, tenantSlug, userId } = socket.data;
+  if (!userId) return;
+  const key = `${tenantSlug}:${userId}`;
+
+  const touch = () => {
+    const callRepo = require("../modules/smartcomm/smartcomm.call.repo");
+    registry
+      .withTenantConnection(tenant, env, (c) => callRepo.touchPresence(c, userId))
+      .catch((err) => logger.warn({ err, userId }, "presence flush failed"));
+  };
+
+  // The online registry the call-liveness sweep reads (field note FN-1): one
+  // SET per tenant+env, one member per SOCKET, so a user with two tabs on two
+  // replicas stays "online" while any tab is alive, and the last tab leaving
+  // removes the user cleanly. Best-effort: a registry hiccup must never fail a
+  // join/leave, and the sweep's 60 s offline grace plus the 30-minute cap both
+  // sit on the far side of a wrong read.
+  const touchOnline = (add) => {
+    try {
+      const { getClient } = require("../config/redis");
+      const member = `${userId}:${socket.id}`;
+      const onlineKey = `praxis:comms:online:${tenantSlug}:${env}`;
+      const op = add ? getClient().sadd(onlineKey, member) : getClient().srem(onlineKey, member);
+      void op.catch(() => {});
+    } catch {
+      /* @silent:storage — no Redis client yet (boot); the next socket event retries. */
+    }
+  };
+
+  const n = (userSocketCount.get(key) || 0) + 1;
+  userSocketCount.set(key, n);
+  touch();
+  touchOnline(true);
+  if (n === 1) {
+    io.to(mailRoom(tenantSlug)).emit("comms:presence", { user_id: userId, online: true });
+  }
+
+  socket.on("comms:seen", () => touch());
+
+  socket.on("disconnect", () => {
+    touchOnline(false);
+    const left = (userSocketCount.get(key) || 1) - 1;
+    if (left <= 0) {
+      userSocketCount.delete(key);
+      touch();
+      io.to(mailRoom(tenantSlug)).emit("comms:presence", { user_id: userId, online: false });
+    } else {
+      userSocketCount.set(key, left);
+    }
+  });
 }
 
 /**
