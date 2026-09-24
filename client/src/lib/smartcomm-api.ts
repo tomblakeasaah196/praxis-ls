@@ -494,7 +494,15 @@ export type IceServer = {
   username?: string;
   credential?: string;
 };
-export type IceConfig = { iceServers: IceServer[]; turnConfigured: boolean };
+/** `iceTransportPolicy` "relay" is the tenant's relay-only privacy setting
+ *  (audit C13): no host or reflexive candidates, so neither side learns the
+ *  other's IP address. Absent from an older server, which means "all". */
+export type IceConfig = {
+  iceServers: IceServer[];
+  turnConfigured: boolean;
+  iceTransportPolicy?: "all" | "relay";
+  expiresAt?: string | null;
+};
 
 export type Call = {
   call_id: string;
