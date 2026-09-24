@@ -138,11 +138,10 @@ services:
   # ── coturn — STUN/TURN for inhouse 1:1 calls (Smart Comms) ──────────────
   #
   # Opt-in behind the `turn` profile: without it calls are peer-to-peer only
-  # (STUN from TURN_HOST or STUN_URLS), which fails on mobile carrier-grade
-  # NAT. Enabling it: set TURN_CREDENTIAL_SECRET, TURN_REALM and TURN_HOST
-  # (and TURN_EXTERNAL_IP behind cloud NAT) in .env, open the ports below in
-  # the firewall, `docker compose --profile turn up -d turn`, then run
-  # scripts/turn-check.sh (doc/SMART_COMMS_CALLS_AUDIT.md, PR-3).
+  # (STUN from STUN_URLS, else Google's as a stopgap), which fails on mobile
+  # carrier-grade NAT. Set it up once with scripts/turn-setup.sh; the steps
+  # and the reasons are in doc/TURN_PRODUCTION_SETUP.md. deploy.sh never
+  # touches this container.
   #
   # Host networking, because the relay needs a wide UDP port range. That is
   # also why docker/coturn/docker-entrypoint.sh denies every private,
@@ -164,9 +163,10 @@ services:
     volumes:
       - ./docker/coturn/docker-entrypoint.sh:/usr/local/bin/praxis-turn-entrypoint.sh:ro
       - ./scripts/turn-check.sh:/check/turn-check.sh:ro
-      # TLS (turns:) — when TURN_TLS_PORT is set, mount a COPY of TURN_HOST's
-      # certificate and key readable by the image's `nobody` user (Let's
-      # Encrypt's privkey is root-only), e.g. - /etc/praxis/turn-tls:/etc/turn-tls:ro
+      # TLS (turns:): a directory holding a COPY of TURN_HOST's certificate
+      # and key, readable by the image's `nobody` user (Let's Encrypt's
+      # privkey is root-only). scripts/turn-setup.sh prepares it.
+      - ${TURN_TLS_DIR:-./docker/coturn/no-tls}:/etc/turn-tls:ro
     environment:
       # Empty values are refused by the entrypoint, not by compose: `:?` here
       # would fail every `docker compose` command on a box without TURN.

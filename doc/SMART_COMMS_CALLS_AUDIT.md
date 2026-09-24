@@ -2467,7 +2467,9 @@ premium, WhatsApp-grade finish. Branch `claude/message-ui-redesign-gzxylv`
     per-call token written with the row at dial; TTL = the call's remaining
     allowance + 60 s; `call-turn` rate limit. `smartcomm-call-hardening.test.js`,
     `smartcomm-call-routes.test.js`, `call-hardening.test.js` (real SQL).
-  - C12: STUN from `STUN_URLS`, else the TURN host, else none; never Google.
+  - C12: STUN from `STUN_URLS`, else the TURN host. Google's public STUN is
+    only the fallback when neither is set (owner decision below), logged
+    once, and gone as soon as `TURN_HOST` is configured.
   - C13: setting `comms.call_privacy {relay_only}` → `iceTransportPolicy:
     "relay"`, a switch in Settings → Calls, and the engine passes it to
     `RTCPeerConnection`. `smartcomm-call-hardening.test.js`,
@@ -2575,9 +2577,15 @@ premium, WhatsApp-grade finish. Branch `claude/message-ui-redesign-gzxylv`
     and a candidate an object (or null). The relay drops a signal for an
     ended call and answers nothing.
   - Hang-up takes no body reason; the server records `hangup`.
-- Deploy note: C12 removes the Google STUN default. Production needs
-  `STUN_URLS` or `TURN_HOST` set, or cross-network calls get no STUN after
-  the deploy (PR body, "For the owner to run", step 0).
+- Owner decision (2026-09-24, during PR-3): keep Google's STUN as the
+  fallback while no STUN or TURN is configured, so calls between networks
+  keep working until the self-hosted relay is up. This departs from C12's
+  fix, which dropped Google entirely. The relay is set up once by hand with
+  `scripts/turn-setup.sh` (`doc/TURN_PRODUCTION_SETUP.md`), not from
+  deploy.sh. Moving the TURN host and secret into the admin console,
+  encrypted, is proposed for a later PR. The guide says how: coturn reads
+  its secret from Redis, with a two-secret rotation. No static TURN
+  username: that is what C2 removed.
 - Gates: `npm run ci` 47/47 passed (534 s) on `6d1eca3`, run alone on a
   clean tree; the first run failed only the backend lint warning budget
   (four new warnings in this PR's tests), fixed. Run by hand, because

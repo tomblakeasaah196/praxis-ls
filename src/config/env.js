@@ -362,6 +362,7 @@ const Schema = z.object({
   TURN_TLS_PORT: int(0),
   TURN_TLS_CERT: z.string().default(""),
   TURN_TLS_KEY: z.string().default(""),
+  TURN_TLS_DIR: z.string().default(""),
   TURN_MIN_PORT: int(49152),
   TURN_MAX_PORT: int(65535),
   TURN_USER_QUOTA: int(12),

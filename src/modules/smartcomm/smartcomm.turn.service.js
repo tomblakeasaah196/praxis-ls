@@ -9,8 +9,11 @@
  * its TTL is the call's remaining allowance plus a minute. The call service
  * decides WHETHER to mint (only for RINGING or IN_CALL); this file only how.
  *
- * STUN comes from configuration only: STUN_URLS, else the TURN host's own
- * port, else none. A public STUN server is never used unless it is listed.
+ * STUN comes from STUN_URLS, else the TURN host's own port. Only when
+ * neither is set does it fall back to Google's public STUN (owner decision,
+ * PR-3): calls between networks keep working until the self-hosted relay is
+ * configured, and that fallback sends each caller's address to Google, so it
+ * is logged once and disappears as soon as TURN_HOST or STUN_URLS is set.
  */
 "use strict";
 
@@ -18,7 +21,9 @@ const crypto = require("crypto");
 const { config } = require("../../config/env");
 const { logger } = require("../../config/logger");
 
+const FALLBACK_STUN = "stun:stun.l.google.com:19302";
 let warnedTurnMisconfigured = false;
+let warnedStunFallback = false;
 
 const turnConfigured = () => Boolean(config.TURN_HOST && config.TURN_CREDENTIAL_SECRET);
 
@@ -50,7 +55,12 @@ function stunServers() {
   const listed = String(config.STUN_URLS || "").split(",").map((s) => s.trim()).filter(Boolean);
   if (listed.length) return [{ urls: listed }];
   if (config.TURN_HOST) return [{ urls: [`stun:${config.TURN_HOST}:${config.TURN_PORT_UDP}`] }];
-  return [];
+  if (!warnedStunFallback) {
+    warnedStunFallback = true;
+    logger.warn("Neither STUN_URLS nor TURN_HOST is set — calls use Google's public STUN " +
+      "server (callers' addresses go to Google) and have no relay. Configure TURN_HOST.");
+  }
+  return [{ urls: [FALLBACK_STUN] }];
 }
 
 /**

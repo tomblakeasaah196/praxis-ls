@@ -221,12 +221,19 @@ describe("C2: TURN credentials are minted only for a live call, and name it", ()
 
 /* ── C12 · STUN only from configuration ───────────────────────────────────── */
 
-describe("C12: no public STUN server unless one is configured", () => {
-  test("nothing configured: no STUN at all, and never Google", () => {
+describe("C12: STUN from configuration; Google only as the unconfigured fallback", () => {
+  // Owner decision (2026-09-24, PR-3): keep Google's STUN while no STUN or
+  // TURN is configured, so calls between networks keep working until the
+  // self-hosted relay is up. It must never be used once either is set.
+  test("nothing configured: Google's STUN, as the stopgap fallback", () => {
     withTurn({});
     const ice = turn.iceConfigFor({ token: "t", ttlSeconds: 120 });
-    expect(JSON.stringify(ice)).not.toMatch(/google/);
-    expect(ice.iceServers).toEqual([]);
+    expect(ice.iceServers).toEqual([{ urls: ["stun:stun.l.google.com:19302"] }]);
+  });
+
+  test("with TURN configured, never Google", () => {
+    withTurn({ TURN_HOST: "turn.example.com", TURN_CREDENTIAL_SECRET: "k" });
+    expect(JSON.stringify(turn.iceConfigFor({ token: "t", ttlSeconds: 120 }))).not.toMatch(/google/);
   });
 
   test("with TURN configured, its own port serves STUN", () => {
