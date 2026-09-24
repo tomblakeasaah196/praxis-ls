@@ -1295,6 +1295,14 @@ describe("regenerate — the EN/FR toggle is a queued job (C8)", () => {
     expect(queued[0][3]).toEqual(expect.objectContaining({ jobId: `callregen-${CALL}-fr`, attempts: 1 }));
   });
 
+  test("a failed rewrite is not kept, so its job id cannot swallow the next request", async () => {
+    // BullMQ ignores an add whose jobId still exists, failed jobs included: a
+    // kept failure would turn every later request for that language into a
+    // 202 that nothing ever answers.
+    await pipeline.requestRegenerate(client(), { callId: CALL, actor: caller, language: "fr", tenantMeta });
+    expect(jobs("call-summary-regenerate")[0][3]).toEqual(expect.objectContaining({ removeOnFail: true, removeOnComplete: true }));
+  });
+
   test("the language must change: the draft's own language is 422 and queues nothing", async () => {
     await expect(pipeline.requestRegenerate(client(), { callId: CALL, actor: caller, language: "en", tenantMeta }))
       .rejects.toMatchObject({ code: "SAME_LANGUAGE", status: 422 });

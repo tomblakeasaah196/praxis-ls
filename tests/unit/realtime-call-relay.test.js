@@ -179,3 +179,16 @@ describe("C5: the socket server's buffer is bounded", () => {
     }
   });
 });
+
+describe("a malformed event cannot take the process down", () => {
+  test.each([null, 42, "x", [1], true])("payload %p on every call event is ignored without throwing", async (payload) => {
+    const s = fakeSocket();
+    realtime.attachCallSignals(s);
+    for (const event of ["call:offer", "call:answer", "call:ice", "call:ring_ack"]) {
+      expect(() => s.emit(event, payload)).not.toThrow();
+    }
+    await flush();
+    expect(mockEmits).toHaveLength(0);
+    expect(mockDb.connections).toBe(0);
+  });
+});

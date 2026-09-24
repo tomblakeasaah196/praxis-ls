@@ -304,6 +304,11 @@ function tokenBucket({ burst, refillPerSecond }, now = () => Date.now()) {
   };
 }
 
+/** A client event's payload as an object. `null`, an array or a primitive
+ *  becomes `{}`: destructuring `null` throws inside socket.io's listener, and
+ *  an uncaught exception there exits the API process (server.js). */
+const asObject = (p) => (p && typeof p === "object" && !Array.isArray(p) ? p : {});
+
 function attachCallSignals(socket) {
   const { tenant, env, tenantSlug, userId } = socket.data;
   const allow = tokenBucket(SIGNAL_LIMITS);
@@ -338,19 +343,23 @@ function attachCallSignals(socket) {
       .catch((err) => logger.warn({ err, callId }, `${event} relay failed`));
   }
 
-  socket.on("call:offer", ({ callId, sdp } = {}) => {
+  socket.on("call:offer", (p) => {
+    const { callId, sdp } = asObject(p);
     const clean = cleanSdp(sdp);
     if (clean !== undefined) relay("call:offer", callId, { sdp: clean });
   });
-  socket.on("call:answer", ({ callId, sdp } = {}) => {
+  socket.on("call:answer", (p) => {
+    const { callId, sdp } = asObject(p);
     const clean = cleanSdp(sdp);
     if (clean !== undefined) relay("call:answer", callId, { sdp: clean });
   });
-  socket.on("call:ice", ({ callId, candidate } = {}) => {
+  socket.on("call:ice", (p) => {
+    const { callId, candidate } = asObject(p);
     const clean = cleanCandidate(candidate);
     if (clean !== undefined) relay("call:ice", callId, { candidate: clean });
   });
-  socket.on("call:ring_ack", ({ callId, channel } = {}) => {
+  socket.on("call:ring_ack", (p) => {
+    const { callId, channel } = asObject(p);
     // PR-3 (§4.6). The ack is what stops the other channels: it is written to
     // the row (which the delayed push escalation re-reads before it sends) and
     // broadcast to this user's other devices so the desk tab and the phone stop

@@ -1378,7 +1378,9 @@ async function requestRegenerate(client, { callId, actor, language, tenantMeta =
     jobId,
     attempts: 1,
     removeOnComplete: true,
-    removeOnFail: 100,
+    // Not kept: BullMQ ignores an add whose jobId exists, failed jobs
+    // included, so a kept failure would swallow every later request.
+    removeOnFail: true,
   }));
   if (!queued) {
     throw new AppError("QUEUE_UNAVAILABLE", "The summary could not be rewritten right now. Try again.", 503);

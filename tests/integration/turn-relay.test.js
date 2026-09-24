@@ -13,6 +13,11 @@ const os = require("os");
 const path = require("path");
 const { spawn, spawnSync } = require("child_process");
 
+jest.mock("../../src/config/env", () => {
+  const real = jest.requireActual("../../src/config/env");
+  return { ...real, config: { ...real.config } };
+});
+
 const ROOT = path.join(__dirname, "..", "..");
 const has = (bin) => spawnSync("sh", ["-c", `command -v ${bin}`]).status === 0;
 const enabled = process.env.RUN_TURN_TESTS === "1" && has("turnserver") && has("turnutils_uclient");
@@ -44,6 +49,33 @@ maybe("coturn relay (real server)", () => {
     if (server) server.kill("SIGTERM");
     spawnSync("pkill", ["-f", `listening-port=${PORT}|turnserver -c .*turn-it-`]);
   });
+
+  /** One allocation + a send to a public peer with explicit credentials. */
+  function allocateWith(username, password) {
+    const out = spawnSync("timeout", ["12", "turnutils_uclient", "-u", username, "-w", password,
+      "-p", PORT, "-e", "203.0.113.10", "-n", "1", "-m", "1", "-c", "127.0.0.1"], { encoding: "utf8" });
+    return `${out.stdout}${out.stderr}`;
+  }
+
+  test("C3: a credential minted by the API's own code is accepted; expired or altered ones are not", () => {
+    const { config } = require("../../src/config/env");
+    Object.assign(config, { TURN_HOST: "127.0.0.1", TURN_CREDENTIAL_SECRET: SECRET, TURN_PORT_UDP: Number(PORT), STUN_URLS: "" });
+    const turn = require("../../src/modules/smartcomm/smartcomm.turn.service");
+    const token = turn.newCallToken();
+    const ice = turn.iceConfigFor({ token, ttlSeconds: 120 });
+    const relay = ice.iceServers.find((x) => x.username);
+    expect(relay.username).toMatch(new RegExp(`^\\d+:${token}$`));
+
+    const ok = allocateWith(relay.username, relay.credential);
+    expect(ok).toMatch(/tot_send_msgs=1/);
+    expect(ok).not.toMatch(/error/i);
+
+    const expired = turn.turnCredential({ token, ttlSeconds: 60, now: Date.now() - 3_600_000 });
+    expect(allocateWith(expired.username, expired.password)).toMatch(/Cannot complete Allocation/);
+
+    const tampered = `${relay.username.split(":")[0]}:${turn.newCallToken()}`;
+    expect(allocateWith(tampered, relay.credential)).toMatch(/Cannot complete Allocation/);
+  }, 60_000);
 
   test("allocation works; private and metadata peers are refused", () => {
     const out = spawnSync("sh", [path.join(ROOT, "scripts", "turn-check.sh"), "127.0.0.1", PORT], {

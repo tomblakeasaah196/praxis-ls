@@ -146,7 +146,9 @@ async function assertCalleeNotFlooded(calleeId, env) {
     return;
   }
   if (count > DIAL_LIMITS.perCalleePerMinute) {
-    throw new AppError("RATE_LIMITED", "That person has been called too often just now. Try again in a minute.", 429);
+    // Generic on purpose: naming the callee would tell this caller that other
+    // people have been calling them.
+    throw new AppError("RATE_LIMITED", "Too many calls just now. Try again in a minute.", 429);
   }
 }
 
@@ -182,10 +184,14 @@ async function createCall(client, { groupId, actor, tenantMeta = null, env = "li
     throw new AppError("CALLEE_BUSY", "That person is already on a call", 409);
   }
 
+  // The relay token is written with the row, so the dial response can mint
+  // a credential even if the callee declines before it is sent (audit C2).
+  const { newCallToken } = require("./smartcomm.turn.service");
   const { call, busyWith } = await repo.insertCall(client, {
     groupId,
     callerId: actor.user_id,
     calleeId: partner.user_id,
+    turnToken: newCallToken(),
   });
   if (!call) {
     // Lost the race: one of the two just took a call between the check and
@@ -783,9 +789,13 @@ function credentialTtl(call, now = Date.now()) {
   return Math.max(0, Math.ceil(remaining)) + 60;
 }
 
+/** ICE config for a call the caller of this function has just seen live
+ *  (created, answered, or checked by turnFor). The token comes from the row;
+ *  only a call dialled before 14060 has none, and gets one here. */
 async function iceFor(client, call, settings = null) {
   const { iceConfigFor, newCallToken } = require("./smartcomm.turn.service");
-  const token = await repo.ensureTurnToken(client, { callId: call.call_id, token: newCallToken() });
+  const token = call.turn_token
+    || await repo.ensureTurnToken(client, { callId: call.call_id, token: newCallToken() });
   if (!token) throw new AppError("NOT_FOUND", "Call not found", 404);
   const { relay_only: relayOnly } = settings || await callSettings(client);
   return iceConfigFor({ token, ttlSeconds: credentialTtl(call), relayOnly });
