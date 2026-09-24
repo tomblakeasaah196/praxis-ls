@@ -91,7 +91,6 @@ describe("the call routes that ring or spend are rate-limited", () => {
     const U = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
     const statuses = [];
     for (let i = 0; i < 10; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       statuses.push((await request(a).post("/calls").set("x-user-id", U).send({ group_id: G1 })).status);
     }
     expect(statuses.slice(0, 8)).toEqual(Array(8).fill(201));

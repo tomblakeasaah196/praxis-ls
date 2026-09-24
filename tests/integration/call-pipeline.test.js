@@ -333,8 +333,8 @@ d("a recorded call, end to end on a real schema (audit H1)", () => {
     expect(after.pending_call_summaries).toEqual([]);
 
     // C4 on real SQL: the posted message carries the card...
-    const cardOf = (thread, messageId) => {
-      const m = (thread.messages || thread.items || thread).find((x) => x.message_id === messageId);
+    const cardOf = (page, messageId) => {
+      const m = (page.messages || page.items || page).find((x) => x.message_id === messageId);
       return m && m.attachments.find((a) => a.attachment_kind === "CALL");
     };
     expect(cardOf(after, posted.rows[0].message_id).call_card)

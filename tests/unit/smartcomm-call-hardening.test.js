@@ -81,20 +81,24 @@ function makeDb({ call = null, settings = {}, members = [], partner = { user_id:
       if (/INSERT INTO comms_call/.test(sql)) {
         state.call = {
           call_id: CALL, group_id: params[0], caller_id: params[1], callee_id: params[2],
-          status: "RINGING", started_at: new Date().toISOString(), connected_at: null, turn_token: null,
+          status: "RINGING", started_at: new Date().toISOString(), connected_at: null, turn_token: params[3] || null,
         };
-        return { rows: [state.call] };
+        const inserted = { ...state.call };
+        if (state.afterInsert) state.afterInsert(state.call);
+        return { rows: [inserted] };
       }
       if (/UPDATE comms_call SET status = \$3/.test(sql)) {
         const c = state.call;
         if (!c || c.call_id !== params[0] || c.status !== params[1]) return { rows: [] };
         const setClause = sql.split("SET ")[1].split(" WHERE")[0];
         c.status = params[2];
-        for (const part of setClause.split(",").map((s) => s.trim())) {
+        for (const part of setClause.split(",").map((x) => x.trim())) {
           const m = part.match(/^(\w+) = \$(\d+)$/);
           if (m && m[1] !== "status") c[m[1]] = params[Number(m[2]) - 1];
         }
-        return { rows: [c] };
+        const moved = { ...c };
+        if (state.afterTransition) state.afterTransition(c);
+        return { rows: [moved] };
       }
       if (/INSERT INTO immutable_ledger/.test(sql)) { state.audits.push(params); return { rows: [] }; }
       if (/INSERT INTO event_log/.test(sql)) { state.events.push(params); return { rows: [] }; }
@@ -187,6 +191,20 @@ describe("C2: TURN credentials are minted only for a live call, and name it", ()
     const db = makeDb({ members: [{ group_id: G1, user_id: U1 }] });
     const out = await inTenant(() => service.createCall(db, { groupId: G1, actor: { user_id: U1 } }));
     expect(turnServers(out.ice)[0].username).toMatch(new RegExp(`:${db.state.call.turn_token}$`));
+  });
+
+  test("a callee who declines before the dial response lands does not turn the dial into a 404", async () => {
+    const db = makeDb({ members: [{ group_id: G1, user_id: U1 }] });
+    db.state.afterInsert = (row) => { row.status = "DECLINED"; };
+    const out = await inTenant(() => service.createCall(db, { groupId: G1, actor: { user_id: U1 } }));
+    expect(turnServers(out.ice)[0].username).toMatch(/^\d+:[A-Za-z0-9_-]{16,}$/);
+  });
+
+  test("a hang-up between the answer and its response does not turn the answer into a 404", async () => {
+    const db = makeDb({ call: ringing({ turn_token: "tok-from-the-dial-aaaa" }) });
+    db.state.afterTransition = (row) => { row.status = "ENDED"; };
+    const out = await inTenant(() => service.acceptCall(db, { id: CALL, actor: { user_id: U2 } }));
+    expect(turnServers(out.ice)[0].username).toMatch(/:tok-from-the-dial-aaaa$/);
   });
 
   test("the call row a client reads never carries the token", async () => {
@@ -428,13 +446,16 @@ describe("C6: dial limits and an ACTIVE callee", () => {
     const limit = service.DIAL_LIMITS.perCalleePerMinute;
     for (let i = 0; i < limit; i += 1) {
       const db = makeDb({ members: MEMBERS });
-      // eslint-disable-next-line no-await-in-loop
       await inTenant(() => service.createCall(db, { groupId: G1, actor: { user_id: U1 } }));
     }
     publishSpy.mockClear();
     const db = makeDb({ members: MEMBERS });
     await expect(inTenant(() => service.createCall(db, { groupId: G1, actor: { user_id: U1 } })))
       .rejects.toMatchObject({ status: 429, code: "RATE_LIMITED" });
+    // The message must not tell this caller that other people have been
+    // calling that colleague.
+    await expect(inTenant(() => service.createCall(makeDb({ members: MEMBERS }), { groupId: G1, actor: { user_id: U1 } })))
+      .rejects.toThrow(/^Too many calls just now/);
     expect(db.state.call).toBeNull();
     expect(publishSpy).not.toHaveBeenCalled();
   });
@@ -446,16 +467,19 @@ describe("C6: a deactivated user's devices stop receiving pushes", () => {
   test("their push subscriptions are deleted", async () => {
     const seen = [];
     const client = {
-      query: async (sql, params) => {
+      query: async (sql) => {
         seen.push(sql);
         if (/SELECT status FROM app_user/.test(sql)) return { rows: [{ status: "SUSPENDED" }] };
+        if (/to_regclass\('sandbox.push_subscription'\)/.test(sql)) return { rows: [{ ok: true }] };
         if (/DELETE FROM push_subscription WHERE user_id = \$1/.test(sql)) return { rowCount: 2, rows: [] };
+        if (/DELETE FROM sandbox\.push_subscription WHERE user_id = \$1/.test(sql)) return { rowCount: 1, rows: [] };
         return { rows: [] };
       },
     };
     const out = await load().run(client, { entity_ref: `app_user:${U2}` });
-    expect(out).toEqual({ deleted: 2 });
-    expect(seen.some((s) => /DELETE FROM push_subscription/.test(s))).toBe(true);
+    // Live devices and Test-mode (sandbox) devices alike.
+    expect(out).toEqual({ deleted: 3 });
+    expect(seen.some((x) => /DELETE FROM sandbox\.push_subscription/.test(x))).toBe(true);
   });
 
   test("an active user keeps theirs", async () => {

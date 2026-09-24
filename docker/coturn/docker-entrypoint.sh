@@ -20,6 +20,14 @@
 #     scanner for anyone holding a credential.
 #   - Per-user and total allocation quotas and a per-session bandwidth cap.
 #
+# Options checked against coturn 4.18.0 (the pinned image), whose defaults
+# already turn the CLI, DTLS and the SOFTWARE attribute off; `no-cli` and
+# `no-dtls` would only log errors there. tests/unit/turn-deployment.test.js
+# fails on an option not checked against that version.
+#
+# The image runs as `nobody`: the TLS certificate and key must be readable
+# by that user (a copy, not Let's Encrypt's root-only privkey).
+#
 # Required: TURN_CREDENTIAL_SECRET, TURN_REALM. Anything else has a default.
 # The container refuses to start without them rather than starting a relay
 # that accepts no credential, or one keyed on an empty secret.
@@ -62,10 +70,8 @@ umask 077
   echo "use-auth-secret"
   echo "static-auth-secret=$TURN_CREDENTIAL_SECRET"
   echo "fingerprint"
-  echo "no-cli"
   echo "no-multicast-peers"
   echo "no-tcp-relay"
-  echo "no-software-attribute"
   echo "stale-nonce=600"
   echo "min-port=$TURN_MIN_PORT"
   echo "max-port=$TURN_MAX_PORT"
@@ -109,10 +115,8 @@ umask 077
     echo "tls-listening-port=$TURN_TLS_PORT"
     echo "cert=$TURN_TLS_CERT"
     echo "pkey=$TURN_TLS_KEY"
-    echo "no-dtls"
   else
     echo "no-tls"
-    echo "no-dtls"
   fi
 } > "$TURN_CONF"
 

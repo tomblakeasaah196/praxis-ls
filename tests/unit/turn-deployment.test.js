@@ -101,6 +101,25 @@ describe("coturn entrypoint (C1: the relay cannot reach private networks)", () =
     expect(denied).toContain(range);
   });
 
+  // Every option the entrypoint may write, checked by hand against the
+  // `long_options` table of coturn 4.18.0 (src/apps/relay/mainrelay.c), the
+  // pinned image. coturn skips an unknown config line with a warning, so a
+  // misspelt hardening option would silently not apply: add a new one here
+  // only after checking it against the pinned version.
+  const CHECKED_4_18 = new Set([
+    "listening-port", "realm", "use-auth-secret", "static-auth-secret", "fingerprint",
+    "no-multicast-peers", "no-tcp-relay", "stale-nonce", "min-port", "max-port",
+    "user-quota", "total-quota", "max-bps", "log-file", "simple-log", "denied-peer-ip",
+    "external-ip", "tls-listening-port", "cert", "pkey", "no-tls",
+  ]);
+
+  test("every option written is one checked against the pinned coturn", () => {
+    for (const env of [BASE, { ...BASE, TURN_EXTERNAL_IP: "203.0.113.7", TURN_TLS_PORT: "443", TURN_TLS_CERT: "/c", TURN_TLS_KEY: "/k" }]) {
+      const keys = render(env).lines.filter((l) => l && !l.startsWith("MODE=")).map((l) => l.split("=")[0]);
+      for (const k of keys) expect(CHECKED_4_18.has(k) ? k : `unchecked option: ${k}`).toBe(k);
+    }
+  });
+
   test("no TCP relay, no multicast peers, quotas and a bandwidth cap", () => {
     expect(r.lines).toEqual(expect.arrayContaining([
       "no-tcp-relay",

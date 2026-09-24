@@ -32,13 +32,13 @@ async function findActiveCall(client, userId) {
  *  `{ call: null, busyWith }` when a partial unique index rejected the insert
  *  because one of the two users is already on a call (guide D8). The service
  *  decides which of the two users it was and says so in the error. */
-async function insertCall(client, { groupId, callerId, calleeId }) {
+async function insertCall(client, { groupId, callerId, calleeId, turnToken = null }) {
   try {
     const { rows } = await client.query(
-      `INSERT INTO comms_call (group_id, caller_id, callee_id, status)
-       VALUES ($1, $2, $3, 'RINGING')
+      `INSERT INTO comms_call (group_id, caller_id, callee_id, status, turn_token)
+       VALUES ($1, $2, $3, 'RINGING', $4)
        RETURNING *`,
-      [groupId, callerId, calleeId],
+      [groupId, callerId, calleeId, turnToken],
     );
     return { call: rows[0], busyWith: null };
   } catch (err) {
@@ -142,8 +142,9 @@ async function liveCounterpart(client, { callId, userId }) {
   return rows[0] || null;
 }
 
-/** The call's relay-credential token, written on the first mint. Only a
- *  RINGING or IN_CALL call gets one (audit C2); null otherwise. */
+/** The call's relay-credential token (audit C2). A call gets it at insert;
+ *  this backfills a call dialled before migration 14060, and only while it is
+ *  RINGING or IN_CALL. Null otherwise. */
 async function ensureTurnToken(client, { callId, token }) {
   const { rows } = await client.query(
     `UPDATE comms_call SET turn_token = COALESCE(turn_token, $2)
@@ -166,13 +167,17 @@ async function isParticipant(client, { callId, userId }) {
 
 /** The other member of a DIRECT channel, if their account is ACTIVE (audit
  *  C6: a deactivated employee's phone is never rung). Null for a group
- *  channel, and for a direct channel whose other member is not active. */
+ *  channel, and for a direct channel whose other member is not active.
+ *
+ *  The status is read from `live.app_user` in both environments: identity is
+ *  pinned to live, and `sandbox.app_user` is a mirror whose status is never
+ *  updated after the row is copied (shared/db/sandbox-user-mirror.js). */
 async function directPartner(client, { groupId, userId }) {
   const { rows } = await client.query(
     `SELECT m.user_id
      FROM comms_group g
      JOIN comms_member m ON m.group_id = g.group_id
-     JOIN app_user u ON u.user_id = m.user_id AND u.status = 'ACTIVE'
+     JOIN live.app_user u ON u.user_id = m.user_id AND u.status = 'ACTIVE'
      WHERE g.group_id = $1 AND g.kind = 'DIRECT' AND m.user_id <> $2
      LIMIT 1`,
     [groupId, userId],
