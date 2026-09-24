@@ -35,6 +35,10 @@ const MAX_CALL_S = 1800;
  *  airplane row (which drops one device — the other is still online), well
  *  under the 30-minute cap that remains the backstop if the registry is down. */
 const LIVENESS_OFFLINE_S = 60;
+/** Dial limits (audit C6). Per caller is the route's limiter; per callee is
+ *  here, where the callee is known: a colleague cannot be rung more than this
+ *  in a minute, by anyone. */
+const DIAL_LIMITS = Object.freeze({ perCalleePerMinute: 6 });
 
 /** Push to ONE user's room for the call's env, on every replica
  *  (best-effort; the row is already committed). Callers pass the env the call
@@ -125,6 +129,28 @@ async function assertMember(client, groupId, userId) {
 }
 
 /**
+ * The per-callee dial counter (audit C6), one Redis key per callee per
+ * minute. Fails open: a Redis outage must not stop calls, and the route's
+ * per-caller limiter still holds.
+ */
+async function assertCalleeNotFlooded(calleeId, env) {
+  const tenant = requestContext.getTenant();
+  let count = 0;
+  try {
+    const redis = require("../../config/redis").getClient();
+    const key = `praxis:comms:dialled:${tenant}:${env}:${calleeId}`;
+    count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, 60);
+  } catch (err) {
+    logger.warn({ err }, "call: dial counter unavailable — per-callee limit skipped");
+    return;
+  }
+  if (count > DIAL_LIMITS.perCalleePerMinute) {
+    throw new AppError("RATE_LIMITED", "That person has been called too often just now. Try again in a minute.", 429);
+  }
+}
+
+/**
  * Dial: create the RINGING row and send the ring to the other participant.
  *
  * `groupId` is the DIRECT channel of the two of you — the icon sits on its
@@ -137,8 +163,12 @@ async function createCall(client, { groupId, actor, tenantMeta = null, env = "li
   await assertMember(client, groupId, actor.user_id);
   const partner = await repo.directPartner(client, { groupId, userId: actor.user_id });
   if (!partner) {
+    if (await repo.isDirectChannel(client, groupId)) {
+      throw new AppError("CALLEE_INACTIVE", "That person's account is not active", 422);
+    }
     throw new AppError("NOT_A_DIRECT_CHANNEL", "Calls are available on direct conversations", 422);
   }
+  await assertCalleeNotFlooded(partner.user_id, env);
 
   // D8, named: the partial unique indexes are the guard, these SELECTs exist
   // so the error can say WHO is busy. A race between the check and the insert
@@ -283,6 +313,7 @@ async function declineCall(client, { id, actor, tenantMeta = null, env = "live" 
     notifyEvent: terminal === "CANCELLED" ? "call:cancelled" : "call:declined",
     tenantMeta,
     env,
+    actorUserId: actor.user_id,
   });
 }
 
@@ -294,7 +325,7 @@ async function declineCall(client, { id, actor, tenantMeta = null, env = "live" 
  * IN_CALL + anyone → ENDED (hangup)
  * FAILED           → ice_failed is set by the engine report below, not here.
  */
-async function hangup(client, { id, actor, reason = "hangup", tenantMeta = null, env = "live" }) {
+async function hangup(client, { id, actor, tenantMeta = null, env = "live" }) {
   const call = await repo.findCall(client, id);
   if (!call || (call.caller_id !== actor.user_id && call.callee_id !== actor.user_id)) {
     throw new AppError("NOT_FOUND", "Call not found", 404);
@@ -303,8 +334,10 @@ async function hangup(client, { id, actor, reason = "hangup", tenantMeta = null,
     return declineCall(client, { id, actor, tenantMeta, env });
   }
   if (call.status === "IN_CALL") {
+    // The reason is the server's (audit B9): a person hanging up is a
+    // hangup, whatever the client claims.
     return endCall(client, {
-      id, fromStatus: "IN_CALL", status: "ENDED", reason, tenantMeta, env,
+      id, fromStatus: "IN_CALL", status: "ENDED", reason: "hangup", tenantMeta, env, actorUserId: actor.user_id,
     });
   }
   throw new AppError("CALL_MOVED_ON", "This call has already ended", 409);
@@ -323,7 +356,7 @@ async function reportFailure(client, { id, actor, tenantMeta = null, env = "live
     throw new AppError("CALL_MOVED_ON", "This call has already ended", 409);
   }
   return endCall(client, {
-    id, fromStatus, status: "FAILED", reason: "ice_failed", tenantMeta, env,
+    id, fromStatus, status: "FAILED", reason: "ice_failed", tenantMeta, env, actorUserId: actor.user_id,
   });
 }
 
@@ -338,6 +371,7 @@ async function reportFailure(client, { id, actor, tenantMeta = null, env = "live
  */
 async function endCall(client, {
   id, fromStatus, status, reason, notifyEvent, tenantSlug = null, tenantMeta = null, env = "live",
+  actorUserId = null,
 }) {
   const before = await repo.findCall(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Call not found", 404);
@@ -352,14 +386,16 @@ async function endCall(client, {
     throw new AppError("CALL_MOVED_ON", "This call has already ended", 409);
   }
 
+  // The person who acted (audit B8); null only for the sweep.
+  const actorId = actorUserId ? await resolveActorId(client, actorUserId) : null;
   await emitEvent(client, {
     eventTypeKey: status === "ENDED" ? events.CALL_ENDED : events.CALL_CLOSED,
     moduleKey: events.MODULE,
     entityRef: cref(id),
-    actorUserId: null,
+    actorUserId: actorId,
   });
   await audit(client, {
-    actorUserId: null,
+    actorUserId: actorId,
     action: status === "ENDED" ? events.CALL_ENDED : events.CALL_CLOSED,
     moduleKey: events.MODULE,
     entityRef: cref(id),
@@ -391,9 +427,7 @@ async function endCall(client, {
 /**
  * Talk time: from `connected_at` (a call that rang 40 s and talked 30 min
  * lasted 30 min), clamped to the cap, so the sweep's max_duration end records
- * exactly 1800. It is never derived from the end reason: until PR-3 (B9) the
- * client can still send one, and "max_duration" after 10 s must stay 10 s
- * (audit B10 removed the dead branch that would have trusted it).
+ * exactly 1800.
  */
 function durationSeconds(call) {
   if (!call.connected_at) return 0;
@@ -806,6 +840,7 @@ async function getCall(client, { id, actor }) {
 }
 
 module.exports = {
+  DIAL_LIMITS,
   RING_TIMEOUT_S,
   MAX_CALL_S,
   RING_PUSH_DELAY_MS,

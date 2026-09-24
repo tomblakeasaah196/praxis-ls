@@ -144,13 +144,12 @@ const schemas = {
   /**
    * 1:1 call transitions (PR-1). The dial names a channel — the DIRECT
    * conversation the icon sits on — never a person, so the callee is resolved
-   * server-side and there is no user id to spoof. `reason` on hangup is
-   * closed, because it lands in the row's CHECK constraint and in the event
-   * the other side sees: a free-text reason there is a label someone will
-   * quote in a support ticket.
+   * server-side and there is no user id to spoof.
    */
   callCreate: z.object({ group_id: z.string().uuid() }).strict(),
-  callHangup: z.object({ reason: z.enum(["hangup", "declined", "cancelled", "no_answer", "busy", "max_duration", "ice_failed"]).optional() }).strict(),
+  // Clients built before PR-3 send a `reason`; it is accepted and ignored
+  // (audit B9: the server decides how a call ended).
+  callHangup: z.object({ reason: z.string().max(32).optional() }).strict(),
 
   /**
    * The record half (PR-2, guide §6.2).
@@ -162,11 +161,8 @@ const schemas = {
    * is uploading — a validator that guessed would be the second place the rule
    * lives.
    *
-   * `live_segments` is the browser capture (§4.9), sent as a JSON string
-   * alongside the audio (a multipart field cannot carry an array) and accepted
-   * as an array when the client uses a JSON body. Its CONTENTS are normalised
-   * in the pipeline service: a malformed segment is dropped, never a reason to
-   * refuse the audio it travelled with.
+   * A `live_segments` field from a client built before PR-1 is passed
+   * through unread; the browser capture is retired.
    *
    * `language` is the uploading side's app language. Only the CALLER's is used
    * — it is the language the summary is drafted in (§4.10) — and it is an enum
@@ -180,16 +176,6 @@ const schemas = {
     // and matches the repo's bound (audit B11).
     duration_ms: z.coerce.number().int().min(0).max(125_000).optional(),
     language: z.enum(["en", "fr"]).optional(),
-    live_segments: z.preprocess((v) => {
-      if (typeof v !== "string") return v;
-      try { return JSON.parse(v); } catch { return undefined; }
-    }, z.array(z.object({
-      seq: z.coerce.number().int().min(0).optional(),
-      text: z.string().max(2000),
-      language: z.enum(["en", "fr"]).optional(),
-      started_ms: z.coerce.number().int().min(0).optional().nullable(),
-      ended_ms: z.coerce.number().int().min(0).optional().nullable(),
-    })).max(2000).optional()),
   }).passthrough(),
   /** A side has finished recording: how many parts it made (audit A2). Zero
    *  is a real answer (a device whose recorder could not start). */
@@ -197,21 +183,6 @@ const schemas = {
     side: z.enum(["caller", "callee"]),
     parts: z.number().int().min(0).max(60),
   }).strict(),
-  /** A retry of the live-log upload on its own (the audio may already be in). */
-  callLiveLog: z.object({
-    side: z.enum(["caller", "callee"]),
-    language: z.enum(["en", "fr"]).optional(),
-    live_segments: z.preprocess((v) => {
-      if (typeof v !== "string") return v;
-      try { return JSON.parse(v); } catch { return undefined; }
-    }, z.array(z.object({
-      seq: z.coerce.number().int().min(0).optional(),
-      text: z.string().max(2000),
-      language: z.enum(["en", "fr"]).optional(),
-      started_ms: z.coerce.number().int().min(0).optional().nullable(),
-      ended_ms: z.coerce.number().int().min(0).optional().nullable(),
-    })).max(2000)),
-  }).passthrough(),
   /**
    * The caller's SEND, carrying their own edit of the draft.
    *
@@ -236,4 +207,4 @@ const schemas = {
   callSummaryRegenerate: z.object({ language: z.enum(["en", "fr"]) }).strict(),
 };
 const mw = (k) => (req, _res, next) => { const p = schemas[k].safeParse(req.body); if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors)); req.body = p.data; return next(); };
-module.exports = { transcribe: mw("transcribe"), callRecording: mw("callRecording"), callRecordingComplete: mw("callRecordingComplete"), callLiveLog: mw("callLiveLog"), callSummarySend: mw("callSummarySend"), callSummaryRegenerate: mw("callSummaryRegenerate"), linkPreview: mw("linkPreview"), scheduled: mw("scheduled"), reschedule: mw("reschedule"), mediaUpload: mw("mediaUpload"), promote: mw("promote"), channel: mw("channel"), member: mw("member"), message: mw("message"), editMessage: mw("editMessage"), react: mw("react"), draft: mw("draft"), quickReply: mw("quickReply"), flag: mw("flag"), emailTest: mw("emailTest"), emailDnsCheck: mw("emailDnsCheck"), emailTestSend: mw("emailTestSend"), quickReplyPatch: mw("quickReplyPatch"), whatsappConfig: mw("whatsappConfig"), emailConfig: mw("emailConfig"), callCreate: mw("callCreate"), callHangup: mw("callHangup"), schemas };
+module.exports = { transcribe: mw("transcribe"), callRecording: mw("callRecording"), callRecordingComplete: mw("callRecordingComplete"), callSummarySend: mw("callSummarySend"), callSummaryRegenerate: mw("callSummaryRegenerate"), linkPreview: mw("linkPreview"), scheduled: mw("scheduled"), reschedule: mw("reschedule"), mediaUpload: mw("mediaUpload"), promote: mw("promote"), channel: mw("channel"), member: mw("member"), message: mw("message"), editMessage: mw("editMessage"), react: mw("react"), draft: mw("draft"), quickReply: mw("quickReply"), flag: mw("flag"), emailTest: mw("emailTest"), emailDnsCheck: mw("emailDnsCheck"), emailTestSend: mw("emailTestSend"), quickReplyPatch: mw("quickReplyPatch"), whatsappConfig: mw("whatsappConfig"), emailConfig: mw("emailConfig"), callCreate: mw("callCreate"), callHangup: mw("callHangup"), schemas };

@@ -164,19 +164,28 @@ async function isParticipant(client, { callId, userId }) {
   return rows.length > 0;
 }
 
-/** The other member of a DIRECT channel (the dial target when the icon is
- *  on the channel header). Null for non-DIRECT channels or channels with
- *  more than one other member — the header icon only renders on DIRECT. */
+/** The other member of a DIRECT channel, if their account is ACTIVE (audit
+ *  C6: a deactivated employee's phone is never rung). Null for a group
+ *  channel, and for a direct channel whose other member is not active. */
 async function directPartner(client, { groupId, userId }) {
   const { rows } = await client.query(
     `SELECT m.user_id
      FROM comms_group g
      JOIN comms_member m ON m.group_id = g.group_id
+     JOIN app_user u ON u.user_id = m.user_id AND u.status = 'ACTIVE'
      WHERE g.group_id = $1 AND g.kind = 'DIRECT' AND m.user_id <> $2
      LIMIT 1`,
     [groupId, userId],
   );
   return rows[0] || null;
+}
+
+async function isDirectChannel(client, groupId) {
+  const { rows } = await client.query(
+    "SELECT 1 AS ok FROM comms_group WHERE group_id = $1 AND kind = 'DIRECT'",
+    [groupId],
+  );
+  return rows.length > 0;
 }
 
 /** The user's calls, newest first, with what the Calls list badges: the
@@ -503,46 +512,6 @@ async function listUnfinalisedCalls(client, { limit = 25, maxAttempts, afterMinu
   return rows;
 }
 
-/**
- * Write a side's live capture segments (idempotent by seq). Old cached
- * clients still send these; nothing builds a transcript from them.
- */
-async function upsertLiveLog(client, { callId, side, segments }) {
-  if (!segments.length) return 0;
-  let written = 0;
-  const CHUNK = 200;
-  for (let i = 0; i < segments.length; i += CHUNK) {
-    const slice = segments.slice(i, i + CHUNK);
-    const values = [];
-    const params = [callId, side];
-    for (const s of slice) {
-      const base = params.length;
-      params.push(s.seq, s.text, s.language, s.startedMs ?? null, s.endedMs ?? null);
-      values.push(`($1, $2, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`);
-    }
-    const { rowCount } = await client.query(
-      `INSERT INTO comms_call_live_log
-         (call_id, side, seq, text, language, started_ms, ended_ms)
-       VALUES ${values.join(", ")}
-       ON CONFLICT (call_id, side, seq) DO UPDATE SET
-         text = EXCLUDED.text, language = EXCLUDED.language,
-         started_ms = EXCLUDED.started_ms, ended_ms = EXCLUDED.ended_ms`,
-      params,
-    );
-    written += rowCount;
-  }
-  return written;
-}
-
-async function listLiveLog(client, { callId, side = null }) {
-  const { rows } = await client.query(
-    `SELECT * FROM comms_call_live_log
-     WHERE call_id = $1 AND ($2::text IS NULL OR side = $2)
-     ORDER BY side, seq`,
-    [callId, side],
-  );
-  return rows;
-}
 
 /** Transcript rows for a side, in order — the CURRENT set only. */
 async function listCurrentTranscripts(client, callId, side = null) {
@@ -773,6 +742,7 @@ module.exports = {
   liveCounterpart,
   isParticipant,
   directPartner,
+  isDirectChannel,
   listCallsForUser,
   touchPresence,
   lastSeen,
@@ -796,8 +766,6 @@ module.exports = {
   bumpTranscriptionAttempts,
   markFinalised,
   listUnfinalisedCalls,
-  upsertLiveLog,
-  listLiveLog,
   listCurrentTranscripts,
   insertTranscriptRows,
   setSummaryLanguage,
