@@ -156,8 +156,11 @@ describe("C2: TURN credentials are minted only for a live call, and name it", ()
     for (const s of turnServers(ice)) {
       expect(s.username).toMatch(new RegExp(`^\\d+:${token}$`));
       expect(s.username).not.toContain(U1);
-      // coturn's REST scheme: HMAC-SHA1 over the WHOLE username.
-      expect(s.credential).toBe(crypto.createHmac("sha1", "k").update(s.username).digest("base64"));
+      // coturn's REST scheme: HMAC-SHA1 over the WHOLE username, rebuilt here
+      // from the expiry and the token rather than read back from it.
+      const label = `${Date.parse(ice.expiresAt) / 1000}:${token}`;
+      expect(s.username).toBe(label);
+      expect(s.credential).toBe(crypto.createHmac("sha1", "k").update(label).digest("base64"));
     }
   });
 
