@@ -1220,25 +1220,45 @@ async function getSummary(client, { callId, actor }) {
   };
 }
 
-/** The card a chat reader sees, resolved live for a page of attachments (the
- *  erp-card pattern). One map keyed by call_id, built from one query. */
-async function cardsForCallIds(client, callIds) {
-  const ids = [...new Set((callIds || []).filter(Boolean))];
-  if (!ids.length) return new Map();
+/**
+ * The card a chat reader sees, resolved live for a page of CALL attachments.
+ * A card resolves only for the message that posted it: the summary must be
+ * SENT and the attachment's message must be its `sent_message_id` or
+ * `update_message_id` (audit C4). Any other message naming the call id gets
+ * nothing. Keyed `<message_id>:<call_id>`.
+ */
+const cardKey = (messageId, callId) => `${messageId}:${callId}`;
+async function cardsForCallIds(client, refs) {
+  const wanted = (refs || []).filter((r) => r && r.call_id && r.message_id);
+  if (!wanted.length) return new Map();
   const { rows } = await client.query(
     `SELECT s.call_id, s.summary_text, s.key_points, s.follow_ups, s.language,
             s.provenance, s.draft_status, s.update_available,
+            s.sent_message_id, s.update_message_id,
             c.duration_seconds, c.ended_at, c.status AS call_status,
-            c.transcription_state, c.transcription_error,
+            c.transcription_state,
             cu.full_name AS caller_name, bu.full_name AS callee_name
        FROM comms_call_summary s
        JOIN comms_call c ON c.call_id = s.call_id
        LEFT JOIN app_user cu ON cu.user_id = c.caller_id
        LEFT JOIN app_user bu ON bu.user_id = c.callee_id
-      WHERE s.call_id = ANY($1::uuid[])`,
-    [ids],
+      WHERE s.call_id = ANY($1::uuid[])
+        AND s.draft_status = 'SENT'
+        AND (s.sent_message_id = ANY($2::uuid[]) OR s.update_message_id = ANY($2::uuid[]))`,
+    [[...new Set(wanted.map((r) => r.call_id))], [...new Set(wanted.map((r) => r.message_id))]],
   );
-  return new Map(rows.map((r) => [r.call_id, r]));
+  const byCall = new Map(rows.map((r) => [r.call_id, r]));
+  const cards = new Map();
+  for (const { call_id: callId, message_id: messageId } of wanted) {
+    const row = byCall.get(callId);
+    if (!row || row.draft_status !== "SENT") continue;
+    if (row.sent_message_id !== messageId && row.update_message_id !== messageId) continue;
+    const {
+      sent_message_id: _sent, update_message_id: _update, transcription_error: _error, ...card
+    } = row;
+    cards.set(cardKey(messageId, callId), card);
+  }
+  return cards;
 }
 
 /** The caller's drafts waiting in a conversation, for the pinned card (O3). */
