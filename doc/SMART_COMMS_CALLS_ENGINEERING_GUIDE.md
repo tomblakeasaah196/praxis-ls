@@ -225,11 +225,13 @@ TURN_MAX_PORT=65535
 TURN_USER_QUOTA=12
 TURN_TOTAL_QUOTA=400
 TURN_MAX_BPS=64000
-STUN_URLS=                                       # empty: STUN from TURN_HOST, or none
+STUN_URLS=                                       # empty: TURN_HOST's STUN, else Google's (stopgap)
+TURN_TLS_DIR=                                    # host dir with a nobody-readable cert copy
 ```
 
 `.env.example` documents each one. The credential TTL is not configured: it
-is the call's remaining allowance plus 60 s (§5.5).
+is the call's remaining allowance plus 60 s (§5.5). Production setup: `doc/TURN_PRODUCTION_SETUP.md`
+and `scripts/turn-setup.sh`.
 
 No media secrets: media is P2P; the only credential that exists is the
 short-TTL TURN credential (§5.5).

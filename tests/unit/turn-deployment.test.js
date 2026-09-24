@@ -158,3 +158,43 @@ describe("docker-compose `turn` service", () => {
     }
   });
 });
+
+describe("scripts/turn-setup.sh (the one-time production setup), .env half", () => {
+  const SETUP = path.join(ROOT, "scripts", "turn-setup.sh");
+  function run(dir, args) {
+    return spawnSync("sh", [SETUP, ...args, "--env-only"], { cwd: dir, encoding: "utf8", env: { PATH: process.env.PATH } });
+  }
+  const envOf = (dir) => Object.fromEntries(fs.readFileSync(path.join(dir, ".env"), "utf8").split("\n")
+    .filter((l) => /^[A-Z_]+=/.test(l)).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]));
+
+  test("generates the shared secret once, and never rotates an existing one", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "turn-setup-"));
+    fs.copyFileSync(path.join(ROOT, ".env.example"), path.join(dir, ".env"));
+    expect(run(dir, ["--host", "turn.example.com"]).status).toBe(0);
+    const first = envOf(dir);
+    expect(first.TURN_CREDENTIAL_SECRET).toMatch(/^[0-9a-f]{64}$/);
+    expect(first.TURN_HOST).toBe("turn.example.com");
+    expect(first.TURN_REALM).toBe("turn.example.com");
+    expect(run(dir, ["--host", "turn.example.com"]).status).toBe(0);
+    expect(envOf(dir).TURN_CREDENTIAL_SECRET).toBe(first.TURN_CREDENTIAL_SECRET);
+    expect(fs.readdirSync(dir).some((f) => f.startsWith(".env.bak-turn-"))).toBe(true);
+  });
+
+  test("TLS defaults to 5349 (443 is nginx's) with paths as seen inside the relay", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "turn-setup-"));
+    fs.writeFileSync(path.join(dir, ".env"), "TURN_CREDENTIAL_SECRET=__set_me__\n");
+    expect(run(dir, ["--host", "turn.example.com", "--tls-from", "/etc/letsencrypt/live/turn.example.com"]).status).toBe(0);
+    expect(envOf(dir)).toEqual(expect.objectContaining({
+      TURN_TLS_PORT: "5349", TURN_TLS_DIR: "/etc/praxis/turn-tls",
+      TURN_TLS_CERT: "/etc/turn-tls/fullchain.pem", TURN_TLS_KEY: "/etc/turn-tls/privkey.pem",
+    }));
+  });
+
+  test("refuses a host that is not a hostname", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "turn-setup-"));
+    fs.writeFileSync(path.join(dir, ".env"), "\n");
+    const out = run(dir, ["--host", "turn.example.com;reboot"]);
+    expect(out.status).toBe(1);
+    expect(out.stderr).toMatch(/not a hostname/);
+  });
+});
