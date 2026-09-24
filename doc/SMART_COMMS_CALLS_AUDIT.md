@@ -1996,8 +1996,8 @@ factual. The next agent relies on them.
 | Audit (this document) | MERGED | `claude/integration-audit-report-u6twc5` | #474 | 2026-09-24 | Report, PR plan, scale design |
 | PR-1 | MERGED | `claude/magical-einstein-xqhkn1` | #476 | 2026-09-24 | Includes owner decisions A-1 (Groq → Gemini transcription, no browser capture) and A-2 (Gemini → DeepSeek summaries) |
 | PR-2 | MERGED | `claude/wizardly-ptolemy-dyazt1` | #477 | 2026-09-24 | Per-part recorder and transcription, finalise, race-free drafts, pinned draft (O3), N3; migration 14050 |
-| PR-3 | OPEN | `claude/tender-davinci-v1eh8y` | #479 | — | TURN, credentials, relay, IDOR, rate limits; migration 14060; null-payload crash in the relay |
-| PR-4 | NOT STARTED | — | — | — | |
+| PR-3 | MERGED | `claude/tender-davinci-v1eh8y` | #479 | 2026-09-24 | TURN, credentials, relay, IDOR, rate limits; migration 14060; null-payload crash in the relay |
+| PR-4 | IN PROGRESS | `claude/smart-comms-pr-4-9e8q91` | — | — | |
 | PR-5 | NOT STARTED | — | — | — | |
 | PR-6 | NOT STARTED | — | — | — | |
 | PR-7 | NOT STARTED | — | — | — | |
