@@ -1253,9 +1253,10 @@ async function cardsForCallIds(client, refs) {
     const row = byCall.get(callId);
     if (!row || row.draft_status !== "SENT") continue;
     if (row.sent_message_id !== messageId && row.update_message_id !== messageId) continue;
-    const {
-      sent_message_id: _sent, update_message_id: _update, transcription_error: _error, ...card
-    } = row;
+    const card = { ...row };
+    delete card.sent_message_id;
+    delete card.update_message_id;
+    delete card.transcription_error;
     cards.set(cardKey(messageId, callId), card);
   }
   return cards;

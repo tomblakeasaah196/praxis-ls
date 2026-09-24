@@ -129,11 +129,14 @@ async function markRingPushSent(client, callId) {
   return rows[0] || null;
 }
 
-/** Who is the other participant of this call, relative to `userId`. */
-async function otherParticipant(client, { callId, userId }) {
+/** The other participant of a LIVE call (RINGING or IN_CALL), relative to
+ *  `userId`; null for a stranger or a call that has ended (audit C5). */
+async function liveCounterpart(client, { callId, userId }) {
   const { rows } = await client.query(
     `SELECT CASE WHEN caller_id = $2 THEN callee_id ELSE caller_id END AS user_id
-     FROM comms_call WHERE call_id = $1 AND (caller_id = $2 OR callee_id = $2)`,
+     FROM comms_call
+     WHERE call_id = $1 AND (caller_id = $2 OR callee_id = $2)
+       AND status IN ('RINGING','IN_CALL')`,
     [callId, userId],
   );
   return rows[0] || null;
@@ -767,7 +770,7 @@ module.exports = {
   insertCall,
   findCall,
   transition,
-  otherParticipant,
+  liveCounterpart,
   isParticipant,
   directPartner,
   listCallsForUser,
