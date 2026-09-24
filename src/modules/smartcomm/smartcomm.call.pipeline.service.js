@@ -336,38 +336,39 @@ function recordingEnabled(client) {
 
 /** Best-effort: a queue outage costs latency, and the record sweep picks up
  *  a part or a finalise whose job never ran. */
-async function enqueueSafe(queue, name, data, opts) {
+async function enqueueSafely(jobId, send) {
   try {
-    const { enqueue } = require("../../jobs/queue-producer");
-    return await enqueue(queue, name, data, opts);
+    return await send(require("../../jobs/queue-producer").enqueue);
   } catch (err) {
-    logger.warn({ err, queue, jobId: opts && opts.jobId }, "call: could not enqueue");
+    logger.warn({ err, jobId }, "call: could not enqueue");
     return null;
   }
 }
 
 function startPartJob({ callId, side, partIndex, tenantMeta, env = "live", origin = "upload", suffix = "" }) {
-  return enqueueSafe("call-transcribe-part", "part", {
+  const jobId = `callpart-${callId}-${side}-${partIndex}${suffix}`;
+  return enqueueSafely(jobId, (enqueue) => enqueue("call-transcribe-part", "part", {
     callId, side, partIndex, tenantMeta, env, origin,
   }, {
-    jobId: `callpart-${callId}-${side}-${partIndex}${suffix}`,
+    jobId,
     attempts: 1,
     removeOnComplete: true,
     removeOnFail: 100,
-  });
+  }));
 }
 
 function enqueueFinalise({ callId, tenantMeta, env = "live", origin = "upload", deadline = false, delayMs = 0 }) {
-  return enqueueSafe("call-finalise", "finalise", {
+  const jobId = deadline ? `callfinaldl-${callId}` : `callfinal-${callId}`;
+  return enqueueSafely(jobId, (enqueue) => enqueue("call-finalise", "finalise", {
     callId, tenantMeta, env, origin, deadline,
   }, {
-    jobId: deadline ? `callfinaldl-${callId}` : `callfinal-${callId}`,
+    jobId,
     delay: delayMs,
     attempts: 2,
     backoff: { type: "exponential", delay: 30_000 },
     removeOnComplete: true,
     removeOnFail: 100,
-  });
+  }));
 }
 
 /** From the ENDED transition: the deadline finalise, for sides that never

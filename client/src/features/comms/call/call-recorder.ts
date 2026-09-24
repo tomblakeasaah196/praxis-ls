@@ -71,6 +71,11 @@ async function recordingStream(stream: MediaStream): Promise<{ stream: MediaStre
     return { stream, own: null };
   }
   const own = track.clone();
+  if (own.readyState === "ended") {
+    // A device that will not share its capture: record the call's own track.
+    own.stop();
+    return { stream, own: null };
+  }
   try {
     await own.applyConstraints({ channelCount: 1 });
   } catch {

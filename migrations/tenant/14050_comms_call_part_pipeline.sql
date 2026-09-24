@@ -17,6 +17,10 @@
 --      - duration_seconds must accept up to 125 s (B11: a part cut by a
 --        throttled tab runs slightly past 120 s).
 --    Names read from pg_constraint on a tenant provisioned from nothing.
+--    14010's comment on sent_message_id says no code path posts without that
+--    write in the same transaction. That was not true until now: the send
+--    claims the draft (SENDING), writes the message and marks it SENT in one
+--    transaction (smartcomm.call.pipeline.service.js sendSummary).
 -- 4. Parts of calls recorded before this migration whose transcription never
 --    ran are parts 2..N of one continuous MediaRecorder stream (A3): no
 --    container header, so no provider can decode them. They are closed as
