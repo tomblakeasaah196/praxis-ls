@@ -22,7 +22,8 @@ import { useBranding } from "@/app/branding/branding-context";
 import * as api from "@/lib/smartcomm-api";
 import { getCommsSocket, useCommsChannel } from "@/lib/comms-socket";
 import { useOnline, lastSeenText } from "./presence";
-import { dial } from "./call/call-session";
+import { dial, useCall } from "./call/call-session";
+import { PinnedCallSummary } from "./call/pinned-call-summary";
 import { NewMessageDialog } from "./inbox/composer/new-message";
 import { Composer } from "./chat/composer";
 import { MessageBubble } from "./chat/message-bubble";
@@ -863,6 +864,24 @@ function Thread({
   // .chat-thread-bg). Either way it is barely visible under a heavy wash.
   const { branding } = useBranding();
   const heroImage = branding?.hero?.imageUrl || null;
+  // The caller's call-summary drafts for this conversation, pinned above the
+  // composer (owner decision O3). `?summary=<call>` opens one: that is where
+  // the summary notification lands.
+  const [params, setParams] = useSearchParams();
+  const openSummary = params.get("summary");
+  const setOpenSummary = React.useCallback((callId: string | null) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (callId) next.set("summary", callId);
+      else next.delete("summary");
+      return next;
+    }, { replace: true });
+  }, [setParams]);
+  const { summaryTick } = useCall();
+  const reloadThread = thread.reload;
+  React.useEffect(() => {
+    if (summaryTick) reloadThread();
+  }, [summaryTick, reloadThread]);
   const followedInitially = React.useRef(false);
   const nearBottom = React.useRef(true);
   const scrollerRef = React.useRef<HTMLDivElement | null>(null);
@@ -1131,6 +1150,18 @@ function Thread({
           {typingName} {tr("is typing…")}
         </div>
       )}
+
+      <PinnedCallSummary
+        drafts={thread.data?.pending_call_summaries || []}
+        openCallId={openSummary}
+        onOpenChange={setOpenSummary}
+        onChanged={() => {
+          setOpenSummary(null);
+          thread.reload();
+          onSent();
+        }}
+        refreshKey={summaryTick}
+      />
 
       <Composer
         channelId={channelId}
