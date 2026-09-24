@@ -611,12 +611,16 @@ export type PendingCallSummary = {
   transcription_state: CallTranscriptState | null;
 };
 
+export type CallTranscriptReason = "SIDE_NOT_RECORDED" | "PARTS_NOT_TRANSCRIBED" | "TRANSCRIPTION_FAILED";
+
 export type CallSummaryView = {
   call_id: string;
   group_id: string;
   gaps: CallTranscriptGap[];
   transcription_state: CallTranscriptState;
-  transcription_error: string | null;
+  /** Why the transcript is incomplete, as a code (audit C11); never the
+   *  provider's own message. */
+  transcription_reason: CallTranscriptReason | null;
   recording_enabled: boolean;
   is_caller: boolean;
   summary: CallSummaryDraft | null;
@@ -641,7 +645,7 @@ export type CallTranscriptSide = {
 export type CallTranscriptView = {
   call_id: string;
   state: CallTranscriptState;
-  error: string | null;
+  reason: CallTranscriptReason | null;
   certified: boolean;
   provenance: CallTranscriptProvider;
   text: string;
@@ -736,19 +740,13 @@ export const discardCallSummary = (callId: string) =>
     `/smartcomm/calls/${callId}/summary/discard`,
     { method: "POST" },
   );
-/** The EN/FR toggle (§4.10). One language, and it is the whole request. */
+/** The EN/FR toggle (§4.10). Queued (audit C8): the answer is 202, and the
+ *  rewritten draft is read once `call:summary_ready` (redraft) arrives. */
 export const regenerateCallSummary = (callId: string, language: "en" | "fr") =>
-  tenant<{
-    call_id: string;
-    language: "en" | "fr";
-    provenance: CallProvenance;
-    summary: {
-      summary_text: string;
-      key_points: CallSummaryKeyPoint[];
-      follow_ups: CallSummaryFollowUp[];
-      draft_status: CallSummaryDraft["draft_status"];
-    };
-  }>(`/smartcomm/calls/${callId}/summary/regenerate`, { method: "POST", body: { language } });
+  tenant<{ call_id: string; language: "en" | "fr"; queued: true }>(
+    `/smartcomm/calls/${callId}/summary/regenerate`,
+    { method: "POST", body: { language } },
+  );
 /** Refreshed TURN credential mid-call (the one minted at dial expires with
  *  the call, plus margin). */
 export const getCallTurn = (id: string) => tenant<IceConfig>(`/smartcomm/calls/${id}/turn`);

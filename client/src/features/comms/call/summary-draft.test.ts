@@ -13,7 +13,7 @@ import type { CallSummaryView } from "@/lib/smartcomm-api";
 const view = (over: Partial<CallSummaryView> = {}, summary: Partial<CallSummaryView["summary"]> = {}): CallSummaryView => ({
   call_id: "c1",
   transcription_state: "CERTIFIED",
-  transcription_error: null,
+  transcription_reason: null,
   recording_enabled: true,
   is_caller: true,
   summary: over.summary === null ? null : {

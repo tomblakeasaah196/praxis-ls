@@ -344,3 +344,145 @@ describe("C4: a call card resolves only for the message that sent it", () => {
     expect(JSON.stringify([...cards.values()])).not.toMatch(/sk-x|transcription_error/);
   });
 });
+
+/* ── B8 · who ended the call is recorded ──────────────────────────────────── */
+
+describe("B8: terminal transitions record the actor", () => {
+  const actorOf = (db) => db.state.events.map((p) => p[3]);
+
+  test("a hang-up records the person who hung up, in the event and the audit", async () => {
+    const db = makeDb({ call: inCall(30) });
+    await inTenant(() => service.hangup(db, { id: CALL, actor: { user_id: U2 } }));
+    expect(actorOf(db)).toContain(U2);
+    expect(db.state.audits.length).toBeGreaterThan(0);
+    expect(JSON.stringify(db.state.audits)).toContain(U2);
+  });
+
+  test("a decline records the callee", async () => {
+    const db = makeDb({ call: ringing() });
+    await inTenant(() => service.declineCall(db, { id: CALL, actor: { user_id: U2 } }));
+    expect(actorOf(db)).toContain(U2);
+  });
+
+  test("an engine failure report records the reporter", async () => {
+    const db = makeDb({ call: inCall(5) });
+    await inTenant(() => service.reportFailure(db, { id: CALL, actor: { user_id: U1 } }));
+    expect(actorOf(db)).toContain(U1);
+  });
+
+  test("the sweep acts for nobody", async () => {
+    const db = makeDb({ call: ringing({ started_at: new Date(Date.now() - 61_000).toISOString() }) });
+    db.query = ((orig) => async (sql, params) => {
+      if (/WHERE \(status = 'RINGING' AND started_at/.test(sql)) return { rows: [db.state.call] };
+      return orig(sql, params);
+    })(db.query);
+    await service.sweep(db, { tenantSlug: null });
+    expect(db.state.call.status).toBe("NO_ANSWER");
+    expect(actorOf(db)).toEqual([null]);
+  });
+});
+
+/* ── B9 · the server decides the end reason ───────────────────────────────── */
+
+describe("B9: the recorded end reason is the server's", () => {
+  test("a client claiming max_duration after 30 s records hangup", async () => {
+    const db = makeDb({ call: inCall(30) });
+    const out = await inTenant(() => service.hangup(db, { id: CALL, actor: { user_id: U1 }, reason: "max_duration" }));
+    expect(out.end_reason).toBe("hangup");
+    expect(db.state.call.end_reason).toBe("hangup");
+  });
+
+  test("the controller passes no reason from the body", async () => {
+    const controller = require("../../src/modules/smartcomm/smartcomm.controller");
+    const spy = jest.spyOn(service, "hangup").mockResolvedValue({ ok: true });
+    const req = {
+      params: { id: CALL }, body: { reason: "max_duration" }, user: { user_id: U1 }, tenant: { slug: "acme" }, env: "live",
+      tenantDb: (fn) => fn({}),
+    };
+    const res = { json: jest.fn(), status: jest.fn(() => res) };
+    await new Promise((resolve) => { res.json.mockImplementation(resolve); controller.hangupCall(req, res, resolve); });
+    expect(spy.mock.calls[0][1].reason).toBeUndefined();
+    spy.mockRestore();
+  });
+});
+
+/* ── C6 · dialing cannot be used to harass, or reach a departed employee ──── */
+
+describe("C6: dial limits and an ACTIVE callee", () => {
+  const MEMBERS = [{ group_id: G1, user_id: U1 }];
+
+  test("a deactivated employee is never rung", async () => {
+    const db = makeDb({ members: MEMBERS, partner: { user_id: U2, status: "SUSPENDED" } });
+    db.query = ((orig) => async (sql, params) => {
+      // The real WHERE: a partner query that requires ACTIVE finds nobody.
+      if (/FROM comms_group g\s+JOIN comms_member m/.test(sql) && /status = 'ACTIVE'/.test(sql)) return { rows: [] };
+      return orig(sql, params);
+    })(db.query);
+    await expect(inTenant(() => service.createCall(db, { groupId: G1, actor: { user_id: U1 } })))
+      .rejects.toMatchObject({ status: 422 });
+    expect(db.state.call).toBeNull();
+    expect(publishSpy.mock.calls.filter((c) => c[3] === "call:ringing")).toHaveLength(0);
+  });
+
+  test("one person rung too often in a minute: the next dial is 429 and rings nobody", async () => {
+    const limit = service.DIAL_LIMITS.perCalleePerMinute;
+    for (let i = 0; i < limit; i += 1) {
+      const db = makeDb({ members: MEMBERS });
+      // eslint-disable-next-line no-await-in-loop
+      await inTenant(() => service.createCall(db, { groupId: G1, actor: { user_id: U1 } }));
+    }
+    publishSpy.mockClear();
+    const db = makeDb({ members: MEMBERS });
+    await expect(inTenant(() => service.createCall(db, { groupId: G1, actor: { user_id: U1 } })))
+      .rejects.toMatchObject({ status: 429, code: "RATE_LIMITED" });
+    expect(db.state.call).toBeNull();
+    expect(publishSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("C6: a deactivated user's devices stop receiving pushes", () => {
+  const load = () => require("../../src/orchestration/handlers/user-deactivated-drop-push");
+
+  test("their push subscriptions are deleted", async () => {
+    const seen = [];
+    const client = {
+      query: async (sql, params) => {
+        seen.push(sql);
+        if (/SELECT status FROM app_user/.test(sql)) return { rows: [{ status: "SUSPENDED" }] };
+        if (/DELETE FROM push_subscription WHERE user_id = \$1/.test(sql)) return { rowCount: 2, rows: [] };
+        return { rows: [] };
+      },
+    };
+    const out = await load().run(client, { entity_ref: `app_user:${U2}` });
+    expect(out).toEqual({ deleted: 2 });
+    expect(seen.some((s) => /DELETE FROM push_subscription/.test(s))).toBe(true);
+  });
+
+  test("an active user keeps theirs", async () => {
+    const client = { query: async (sql) => (/SELECT status/.test(sql) ? { rows: [{ status: "ACTIVE" }] } : { rows: [] }) };
+    await expect(load().run(client, { entity_ref: `app_user:${U2}` })).resolves.toEqual({ skipped: "still active" });
+  });
+
+  test("it is registered on app_user.updated", () => {
+    expect(load().eventKey).toBe("app_user.updated");
+    const src = require("fs").readFileSync(require.resolve("../../src/orchestration/handlers/index.js"), "utf8");
+    expect(src).toMatch(/require\("\.\/user-deactivated-drop-push"\)/);
+  });
+});
+
+/* ── C10 · the AI reads honour the recording kill switch ──────────────────── */
+
+describe("C10: Praxis AI cannot read call records when recording is off", () => {
+  const manifest = require("../../src/modules/smartcomm/smartcomm.ai");
+  const off = { query: async (sql) => (/FROM feature_state/.test(sql) ? { rows: [{ state: "off" }] } : { rows: [] }) };
+
+  test.each(["comms_call_transcript", "comms_call_summary"])("%s is refused with FEATURE_DISABLED", async (key) => {
+    const read = manifest.reads.find((r) => r.key === key);
+    await expect(read.service(off, { call_id: CALL }, { user_id: U1 })).rejects.toMatchObject({ status: 403, code: "FEATURE_DISABLED" });
+  });
+
+  test("the call list needs the calls feature", async () => {
+    const read = manifest.reads.find((r) => r.key === "list_comms_calls");
+    await expect(read.service(off, {}, { user_id: U1 })).rejects.toMatchObject({ status: 403, code: "FEATURE_DISABLED" });
+  });
+});
