@@ -109,6 +109,20 @@ function tellClients(clients, message) {
 
 const conversationUrl = (d) => (d && d.group_id ? `/comms?channel=${d.group_id}` : "/comms");
 
+/*
+ * Rings this worker has already seen cancelled, with the line that replaced
+ * them. The ring push and its cancel are separate sends and can arrive out of
+ * order; a ring that lands after its cancel shows the cancel's line instead of
+ * pinning a dead call to the lock screen. In memory only: the race is
+ * milliseconds, and the lines' 60 s expiry covers a worker that restarted.
+ */
+const cancelledRings = new Map();
+function rememberCancel(callId, title) {
+  if (!callId) return;
+  cancelledRings.set(callId, title);
+  if (cancelledRings.size > 50) cancelledRings.delete(cancelledRings.keys().next().value);
+}
+
 /** Close ring notifications whose window has passed (audit A7): a ring
  *  pinned to the lock screen for hours invites answering a dead call. */
 async function closeExpiredRings() {
@@ -149,6 +163,9 @@ async function handleCallRing(data, words) {
   const d = data.data || {};
   const tag = data.tag || (d.call_id ? `call:${d.call_id}` : undefined);
   const timestamp = typeof data.timestamp === "number" ? data.timestamp : Date.now();
+  if (cancelledRings.has(d.call_id)) {
+    return showRingOutcome(cancelledRings.get(d.call_id), tag, d, timestamp);
+  }
   const clients = await windowClients();
   tellClients(clients, { type: "praxis:call-ring", data: d });
   const expires = Date.parse(d.expires_at || "");
@@ -180,6 +197,10 @@ async function handleCallCancel(data, words) {
   const clients = await windowClients();
   tellClients(clients, { type: "praxis:call-cancel", data: d });
   const visible = hasVisibleClient(clients);
+  let title = words.ended;
+  if (d.outcome === "answered") title = visible ? words.answeredHere : words.answered;
+  else if (d.outcome === "missed") title = missedTitle(d, words);
+  rememberCancel(d.call_id, title);
   if (visible && !mustShowEveryPush()) {
     if (tag && typeof self.registration.getNotifications === "function") {
       const open = await self.registration.getNotifications({ tag });
@@ -187,9 +208,6 @@ async function handleCallCancel(data, words) {
     }
     return undefined;
   }
-  let title = words.ended;
-  if (d.outcome === "answered") title = visible ? words.answeredHere : words.answered;
-  else if (d.outcome === "missed") title = missedTitle(d, words);
   const timestamp = typeof data.timestamp === "number" ? data.timestamp : Date.now();
   return showRingOutcome(title, tag, d, timestamp);
 }

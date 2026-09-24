@@ -238,6 +238,16 @@ describe("a cancel push (A7, step 6)", () => {
     expect(page.messages.at(-1)).toEqual({ type: "praxis:call-cancel", data: expect.objectContaining({ outcome: "answered" }) });
   });
 
+  it("a ring push that arrives AFTER its cancel (the two sends raced) does not bring the ring back", async () => {
+    const w = worker();
+    await w.push(cancel("missed"));
+    await w.push(ring());
+    const shown = w.shown();
+    expect(shown).toHaveLength(1);
+    expect(shown[0].title).toBe("Missed call — Bruno Kamga");
+    expect(shown[0].options.requireInteraction).toBe(false);
+  });
+
   it("on an iPhone app with the app on screen it still shows a line (it answered here, so it says so)", async () => {
     const page = client(true);
     const w = worker({ userAgent: IPHONE_APP, clients: [page] });
