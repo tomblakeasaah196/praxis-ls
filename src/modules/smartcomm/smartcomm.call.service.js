@@ -772,7 +772,9 @@ async function turnFor(client, { id, actor }) {
  *  stored transcription error, which can hold vendor text (audit C11). */
 function publicCall(row) {
   if (!row) return row;
-  const { turn_token: _token, transcription_error: _error, ...rest } = row;
+  const rest = { ...row };
+  delete rest.turn_token;
+  delete rest.transcription_error;
   return rest;
 }
 
