@@ -167,8 +167,12 @@ jest.mock("../../src/modules/smartcomm/smartcomm.call.repo", () => {
       call.finalised_at = new Date(Date.now() + 1).toISOString();
       return call;
     },
-    partsAwaitingPurge: async (c, { olderThanDays }) =>
-      on().parts.filter((p) => !p.purged_at && Number(p.age_days || 0) >= olderThanDays),
+    partsAwaitingPurge: async (c, { olderThanDays, limit = Infinity, skip = [] }) => {
+      on().purgeReads = (on().purgeReads || 0) + 1;
+      return on().parts
+        .filter((p) => !p.purged_at && Number(p.age_days || 0) >= olderThanDays && !skip.includes(p.recording_id))
+        .slice(0, limit);
+    },
     markPartsPurged: async (c, ids) => {
       let n = 0;
       for (const p of on().parts) {
@@ -1503,6 +1507,27 @@ describe("retention (D7)", () => {
     const out = await pipeline.purgeExpiredAudio(client(), { days: 30 });
     expect(out).toEqual({ due: 1, purged: 0, failed: 1 });
     expect(mockStore.current.parts[0].purged_at).toBeNull();
+  });
+
+  test("D9: the purge reads in bounded batches and loops until nothing is due", async () => {
+    for (let i = 1; i <= 12; i += 1) mockStore.current.parts.push(part("caller", i, { age_days: 40 }));
+    const out = await pipeline.purgeExpiredAudio(client(), { days: 30, batch: 5 });
+    expect(out).toEqual({ due: 12, purged: 12, failed: 0 });
+    expect(mockStore.current.purgeReads).toBe(3);
+  });
+
+  test("D9: a part whose delete keeps failing cannot loop the run", async () => {
+    for (let i = 1; i <= 6; i += 1) mockStore.current.parts.push(part("caller", i, { age_days: 40 }));
+    storage.delete.mockImplementation(async (ref) => { if (String(ref).includes("001")) throw new Error("S3 says no"); });
+    const out = await pipeline.purgeExpiredAudio(client(), { days: 30, batch: 2 });
+    expect(out).toEqual({ due: 6, purged: 5, failed: 1 });
+    expect(mockStore.current.purgeReads).toBeLessThanOrEqual(4);
+  });
+
+  test("D9: a run is capped; what is left is due tomorrow", async () => {
+    for (let i = 1; i <= 10; i += 1) mockStore.current.parts.push(part("caller", i, { age_days: 40 }));
+    const out = await pipeline.purgeExpiredAudio(client(), { days: 30, batch: 2, maxBatches: 3 });
+    expect(out).toEqual({ due: 6, purged: 6, failed: 0 });
   });
 });
 

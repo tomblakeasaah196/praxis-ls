@@ -991,3 +991,82 @@ describe("per-call clocks (D1)", () => {
     expect(await service.sweep(makeClient({ store: makeStore() }), { tenantSlug: "acme" })).toEqual({ moved: 0, live: 0 });
   });
 });
+
+describe("ring pushes are fair across tenants (leftover from PR-4)", () => {
+  const ringJobs = () => require("../../src/jobs/queue-producer").enqueue.mock.calls
+    .filter((c) => c[0] === "comms-call-ring-escalate");
+
+  test("a first ring and a cancel go ahead of every re-alert", async () => {
+    const first = await service.ringPriority({ slug: "acme", urgent: true });
+    for (let i = 0; i < 500; i += 1) await service.ringPriority({ slug: "busy", urgent: true });
+    const burstTail = await service.ringPriority({ slug: "busy", urgent: true });
+    const realert = await service.ringPriority({ slug: "quiet", urgent: false });
+    expect(first).toBe(1);
+    expect(realert).toBeGreaterThan(burstTail);
+  });
+
+  test("a burst of 200 rings at one tenant does not queue another tenant's ring behind it", async () => {
+    for (let i = 0; i < 200; i += 1) {
+      await service.enqueueRingPush({ callId: `busy-${i}`, tenantMeta: { slug: "busy" }, env: "live", alert: 0 });
+    }
+    await service.enqueueRingPush({ callId: "other", tenantMeta: { slug: "other" }, env: "live", alert: 0 });
+    const jobs = ringJobs();
+    const other = jobs.find((c) => c[2].callId === "other")[3].priority;
+    const busy = jobs.filter((c) => String(c[2].callId).startsWith("busy-")).map((c) => c[3].priority);
+    // BullMQ serves the lowest priority first: the other tenant's first ring
+    // ties the busy tenant's first and is ahead of its other 199.
+    expect(other).toBe(Math.min(...busy));
+    expect(busy.filter((p) => p > other)).toHaveLength(199);
+  });
+
+  test("cancels are urgent, re-alerts are not", async () => {
+    await service.enqueueRingCancel({ callId: "c1", outcome: "missed", tenantMeta: { slug: "acme" }, env: "live" });
+    await service.enqueueRingPush({ callId: "c1", tenantMeta: { slug: "acme" }, env: "live", alert: 2 });
+    const [cancel, realert] = ringJobs();
+    expect(cancel[3].priority).toBeLessThan(100_000);
+    expect(realert[3].priority).toBeGreaterThan(100_000);
+  });
+
+  test("with Redis down the ring still queues, unranked in its class", async () => {
+    mockRedis._state.fail = true;
+    expect(await service.ringPriority({ slug: "acme", urgent: true })).toBe(1);
+    mockRedis._state.fail = false;
+  });
+});
+
+describe("ring concurrency comes from configuration", () => {
+  test("COMMS_CALL_RING_CONCURRENCY sizes the ring worker", () => {
+    const { config } = require("../../src/config/env");
+    expect(config.COMMS_CALL_RING_CONCURRENCY).toBe(16);
+    const src = require("fs").readFileSync(require.resolve("../../src/jobs/workers.js"), "utf8");
+    expect(src).toMatch(/name: "comms-call-ring-escalate", concurrency: config\.COMMS_CALL_RING_CONCURRENCY/);
+  });
+});
+
+describe("day counters at each transition (audit D4)", () => {
+  const day = () => new Date().toISOString().slice(0, 10);
+  const counter = (field, env = "live") => mockRedis.get(`praxis:callm:${day()}:acme:${env}:${field}`);
+
+  test("dial, answer and hang-up count what the metrics screen shows", async () => {
+    const store = makeStore();
+    const out = await inTenant(() => service.createCall(makeClient({ store, members: [MEMBER1] }), {
+      groupId: G1, actor: { user_id: U1 }, tenantMeta: TENANT, env: "live",
+    }));
+    await inTenant(() => service.acceptCall(makeClient({ store }), { id: out.call_id, actor: { user_id: U2 }, tenantMeta: TENANT }));
+    store.calls.get(out.call_id).connected_at = new Date(Date.now() - 90_000).toISOString();
+    await inTenant(() => service.hangup(makeClient({ store }), { id: out.call_id, actor: { user_id: U1 }, tenantMeta: TENANT }));
+    expect(await counter("calls_started")).toBe("1");
+    expect(await counter("calls_answered")).toBe("1");
+    expect(await counter("answered_ended")).toBe("1");
+    expect(Number(await counter("duration_sum"))).toBeGreaterThanOrEqual(89);
+  });
+
+  test("an unanswered ring counts as no answer, in its own env", async () => {
+    const store = makeStore();
+    const call = store.insert({ groupId: G1, callerId: U1, calleeId: U2 });
+    call.started_at = new Date(Date.now() - 61_000).toISOString();
+    await service.sweep(makeClient({ store }), { tenantSlug: "acme", env: "sandbox" });
+    expect(await counter("calls_no_answer", "sandbox")).toBe("1");
+    expect(await counter("calls_no_answer", "live")).toBeNull();
+  });
+});

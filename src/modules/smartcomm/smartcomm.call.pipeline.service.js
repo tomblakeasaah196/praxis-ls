@@ -1578,19 +1578,37 @@ async function rerunPart(client, { callId, actor, side, partIndex, tenantMeta = 
  * and summaries are the record and stay. A row is marked purged only when
  * its bytes are really gone or already missing.
  */
-async function purgeExpiredAudio(client, { days = RETENTION_DAYS } = {}) {
-  const due = await repo.partsAwaitingPurge(client, { olderThanDays: days });
-  const gone = [];
-  for (const part of due) {
-    try {
-      await storage.delete(part.vault_ref);
-      gone.push(part.recording_id);
-    } catch (err) {
-      logger.warn({ err, recording_id: part.recording_id }, "call: audio purge failed for one part");
+/** Audio purge batches (audit D9): 500 parts a read, 8 deletes at a time,
+ *  and at most PURGE_MAX_BATCHES a run; what is left waits for tomorrow. */
+const PURGE_BATCH = 500;
+const PURGE_CONCURRENCY = 8;
+const PURGE_MAX_BATCHES = 40;
+
+async function purgeExpiredAudio(client, { days = RETENTION_DAYS, batch = PURGE_BATCH, maxBatches = PURGE_MAX_BATCHES } = {}) {
+  const failedIds = [];
+  let due = 0;
+  let purged = 0;
+  for (let b = 0; b < maxBatches; b += 1) {
+    const rows = await repo.partsAwaitingPurge(client, { olderThanDays: days, limit: batch, skip: failedIds });
+    if (!rows.length) break;
+    due += rows.length;
+    const gone = [];
+    for (let i = 0; i < rows.length; i += PURGE_CONCURRENCY) {
+      await Promise.all(rows.slice(i, i + PURGE_CONCURRENCY).map(async (part) => {
+        try {
+          await storage.delete(part.vault_ref);
+          gone.push(part.recording_id);
+        } catch (err) {
+          // Skipped for the rest of this run, so one bad object cannot loop it.
+          failedIds.push(part.recording_id);
+          logger.warn({ err, recording_id: part.recording_id }, "call: audio purge failed for one part");
+        }
+      }));
     }
+    purged += await repo.markPartsPurged(client, gone);
+    if (rows.length < batch) break;
   }
-  const purged = await repo.markPartsPurged(client, gone);
-  return { due: due.length, purged, failed: due.length - gone.length };
+  return { due, purged, failed: failedIds.length };
 }
 
 module.exports = {

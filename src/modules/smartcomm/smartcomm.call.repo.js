@@ -463,13 +463,16 @@ async function closeExhaustedParts(client, { staleMinutes, maxRuns, callId = nul
 }
 
 /** The retention sweep's read (D7): parts whose audio is past its window. */
-async function partsAwaitingPurge(client, { olderThanDays }) {
+async function partsAwaitingPurge(client, { olderThanDays, limit = 500, skip = [] }) {
   const { rows } = await client.query(
     `SELECT r.recording_id, r.vault_ref, r.call_id
      FROM comms_call_recording r
      WHERE r.purged_at IS NULL
-       AND r.created_at <= now() - make_interval(days => $1::int)`,
-    [olderThanDays],
+       AND r.created_at <= now() - make_interval(days => $1::int)
+       AND NOT (r.recording_id = ANY($3::uuid[]))
+     ORDER BY r.created_at
+     LIMIT $2`,
+    [olderThanDays, limit, skip],
   );
   return rows;
 }

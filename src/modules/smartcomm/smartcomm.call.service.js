@@ -25,6 +25,7 @@ const { logger } = require("../../config/logger");
 
 const clock = require("./smartcomm.call.clock");
 const presence = require("./smartcomm.presence");
+const signals = require("./smartcomm.call.signals");
 
 const cref = (id) => "comms_call:" + id;
 
@@ -42,6 +43,14 @@ const LIVENESS_OFFLINE_S = 60;
  *  here, where the callee is known: a colleague cannot be rung more than this
  *  in a minute, by anyone. */
 const DIAL_LIMITS = Object.freeze({ perCalleePerMinute: 6 });
+
+/** A day counter for the platform metrics (audit D4), on the call's UTC
+ *  start day. Best-effort, like every signal. */
+function countCall(call, field, { slug = null, env = "live", by = 1 } = {}) {
+  return signals.count({
+    slug: slug || requestContext.getTenant(), env, field, by, startedAt: call && call.started_at,
+  });
+}
 
 /** Push to ONE user's room for the call's env, on every replica
  *  (best-effort; the row is already committed). Callers pass the env the call
@@ -256,6 +265,7 @@ async function createCall(client, { groupId, actor, tenantMeta = null, env = "li
   // job queues its own re-alerts.
   void enqueueRingPush({ callId: call.call_id, tenantMeta, env, alert: 0 });
   // The ring's own deadline (D1); the tenant joins the safety sweep's set.
+  await countCall(call, "calls_started", { slug: tenantMeta && tenantMeta.slug, env });
   await clock.markTenantActive(tenantMeta, env);
   await clock.scheduleRingDeadline({
     callId: call.call_id, tenantMeta, env, ringTimeoutS: RING_TIMEOUT_S, startedAt: call.started_at,
@@ -299,6 +309,7 @@ async function acceptCall(client, { id, actor, tenantMeta = null, env = "live" }
   rtToUser(actor.user_id, "call:accepted", payload, { env });
   void enqueueRingCancel({ callId: id, outcome: "answered", tenantMeta, env });
   // The 30-minute cap (D1), and the live call each side's disconnect checks.
+  await countCall(updated, "calls_answered", { slug: tenantMeta && tenantMeta.slug, env });
   await clock.markTenantActive(tenantMeta, env);
   await clock.scheduleCap({ callId: id, tenantMeta, env, maxCallS: MAX_CALL_S, connectedAt: updated.connected_at });
   await rememberActiveCall(updated, { slug: tenantMeta && tenantMeta.slug, env });
@@ -431,7 +442,13 @@ async function endCall(client, {
   };
   rtToUser(before.caller_id, notifyEvent || "call:ended", payload, { slug: tenantSlug, env });
   rtToUser(before.callee_id, notifyEvent || "call:ended", payload, { slug: tenantSlug, env });
-  logger.info({ callId: id, status, reason }, "call: terminal");
+  logger.info({ callId: id, status, reason, env }, "call: terminal");
+  const counted = { slug: tenantSlug || (tenantMeta && tenantMeta.slug), env };
+  if (TERMINAL_COUNTERS[status]) await countCall(updated, TERMINAL_COUNTERS[status], counted);
+  if ((status === "ENDED" || status === "FAILED") && updated.connected_at) {
+    await countCall(updated, "answered_ended", counted);
+    await countCall(updated, "duration_sum", { ...counted, by: Number(updated.duration_seconds) || 0 });
+  }
   if (fromStatus === "IN_CALL") {
     await forgetActiveCall(before, { slug: tenantSlug || (tenantMeta && tenantMeta.slug), env });
   }
@@ -644,6 +661,11 @@ const RING_VIBRATE = Object.freeze([600, 250, 600, 250, 600]);
  *  no CHECK on the column). */
 const RING_CHANNELS = new Set(["socket", "notification", "push"]);
 
+/** The day counter a terminal status adds to (audit D4). */
+const TERMINAL_COUNTERS = Object.freeze({
+  NO_ANSWER: "calls_no_answer", DECLINED: "calls_declined", BUSY: "calls_busy", FAILED: "calls_failed",
+});
+
 /** A terminal status reached from RINGING, as the cancel push says it. */
 const CANCEL_OUTCOMES = Object.freeze({ DECLINED: "declined", CANCELLED: "missed", NO_ANSWER: "missed", FAILED: "ended" });
 
@@ -657,9 +679,35 @@ function ringSecondsLeft(call, now = Date.now()) {
   return Math.ceil((new Date(call.started_at).getTime() + RING_TIMEOUT_S * 1000 - now) / 1000);
 }
 
-function enqueueRingJob(name, data, opts) {
+/**
+ * Ring-queue priority (BullMQ: lower runs first). First alerts and cancels
+ * go ahead of re-alerts; within a class, each tenant's jobs are ranked by how
+ * many it has queued in the last 10 s, so a burst at one tenant cannot delay
+ * another tenant's ring (every tenant's first ring has rank 1).
+ */
+const RING_RANK_SPAN = 100_000;
+const RING_RANK_WINDOW_S = 10;
+async function ringPriority({ slug, urgent }) {
+  let rank = 1;
+  try {
+    const bucket = Math.floor(Date.now() / (RING_RANK_WINDOW_S * 1000));
+    const key = `praxis:ringrank:${slug}:${bucket}`;
+    const r = require("../../config/redis").getClient();
+    rank = Number(await r.incr(key)) || 1;
+    if (rank === 1) await r.expire(key, RING_RANK_WINDOW_S * 3);
+  } catch {
+    /* @silent:storage — unranked, the job still runs in its class. */
+  }
+  return 1 + (urgent ? 0 : RING_RANK_SPAN) + Math.min(rank - 1, RING_RANK_SPAN - 1);
+}
+
+async function enqueueRingJob(name, data, opts) {
   const { enqueue } = require("../../jobs/queue-producer");
-  return enqueue("comms-call-ring-escalate", name, data, { attempts: 1, removeOnComplete: true, removeOnFail: 50, ...opts });
+  const urgent = name === "cancel" || !data.alert;
+  const priority = await ringPriority({ slug: data.tenantMeta && data.tenantMeta.slug, urgent });
+  return enqueue("comms-call-ring-escalate", name, data, {
+    attempts: 1, removeOnComplete: true, removeOnFail: 50, priority, ...opts,
+  });
 }
 
 /**
@@ -706,7 +754,10 @@ async function ackRing(client, { id, actor, channel = "socket" }) {
   if (call.caller_id === actor.user_id) return null;
   const safeChannel = RING_CHANNELS.has(channel) ? channel : "socket";
   const updated = await repo.markRingAck(client, { callId: id, channel: safeChannel });
-  if (updated) logger.info({ callId: id, channel: safeChannel }, "call: ring acked");
+  if (updated) {
+    logger.info({ callId: id, channel: safeChannel }, "call: ring acked");
+    await countCall(updated, `ring_${safeChannel}`, { env: requestContext.getEnv() });
+  }
   return updated;
 }
 
@@ -935,6 +986,7 @@ module.exports = {
   RING_REALERT_MS,
   RING_MAX_REALERTS,
   RING_CHANNELS,
+  ringPriority,
   createCall,
   acceptCall,
   declineCall,
