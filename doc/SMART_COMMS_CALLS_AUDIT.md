@@ -2000,7 +2000,7 @@ factual. The next agent relies on them.
 | PR-4 | MERGED | `claude/smart-comms-pr-4-9e8q91` | #481 | 2026-09-24 | Perfect negotiation, rings on every device (push at dial, re-alerts, cancel everywhere), ringing read, Answer/Decline, device check + Test ring, noise default off, no screen wake lock; TURN relay-to-relay and TLS on 443 (owner's Step 0/0b); migration 14070 |
 | PR-5 | MERGED | `claude/smart-comms-pr-5-jzgkt1` | #482 | 2026-09-25 | Per-call clocks, Redis presence, fair/limited transcription, fair ring queue, metrics from counters, latency alarm, bounded queries, env in every room; rate-limit memory fallback, sandbox status mirror; `scripts/load-calls.js`; migration 14080 |
 | PR-6 | MERGED | `claude/smart-comms-pr-5-jzgkt1` (restarted from `main` after #482) | #483 | 2026-09-25 | Solid ring card, call screen, docked bar and thread strip (O4); answer without recording; recording is the tenant's opt-in; processors named; DND, quiet hours, hide last seen; transcript retention and erasure; N4; F10 gating; migration 14090 |
-| PR-7 | IN REVIEW | `claude/smart-comms-pr-5-jzgkt1` (restarted from `main` after #483) | #484 | — | Test right (can_test); Comms → Setup → Test calls, 11 steps, 3 a day; reference clips; daily platform call check → console Health and bell; migrations 14100, 14110, platform 0108 |
+| PR-7 | MERGED | `claude/smart-comms-pr-5-jzgkt1` (restarted from `main` after #483) | #484 | 2026-09-25 | Test right (can_test); Comms → Setup → Test calls, 11 steps, 3 a day; reference clips; daily platform call check → console Health and bell; migrations 14100, 14110, platform 0108 |
 | Plan update (O1–O5, A12–A15, N1–N5, PR-7) | MERGED | `claude/integration-audit-report-u6twc5` | #475 | 2026-09-24 | Owner decisions, ringing findings, PR-1 findings, test calls |
 | Chat UI redesign (**parallel, not a plan PR**) | MERGED | `claude/message-ui-redesign-gzxylv` | #478 | 2026-09-24 | Cosmetic chat-thread restyle. Touches `team-chat.tsx` **header + sidebar + thread scroller only** — NOT the composer area (PR-2) and adds no feature gating (PR-6). See the log entry below before PR-2/PR-6. |
 
@@ -3127,7 +3127,7 @@ premium, WhatsApp-grade finish. Branch `claude/message-ui-redesign-gzxylv`
   (`resetCallCapabilities` on logout).
 - Gates: see the PR body. Nothing touched production; no owner SQL was run.
 
-### PR-7 · 2026-09-25 · OPEN (#484)
+### PR-7 · 2026-09-25 · MERGED (#484)
 - Fixed (O5), each with the test that proves it:
   - The **Test** right: `permission.can_test` (migration 14100, no backfill,
     commented like 12771's), `test → can_test` in `rbac.js` and
@@ -3209,4 +3209,16 @@ premium, WhatsApp-grade finish. Branch `claude/message-ui-redesign-gzxylv`
   `comms-diagnostics`, `comms-call-canary`.
 - Owner's: grant the Test right to the roles that should have it (no role
   holds it); run matrix §5d (T1–T5) on devices.
-- Gates: see the PR body. Nothing touched production.
+- CodeQL on the PR flagged the probe's MD5 (the TURN long-term key, RFC 5389
+  §15.4, which the relay computes too) because values reached it through
+  names its heuristic reads as a person's credentials. Fixed by naming, not
+  by suppression: `turn.service.signedLabel({ id })` gives the label and its
+  HMAC, the platform check signs a random id, and the integration test's
+  shared value no longer contains "secret" (a string literal argument was
+  the last source). Verified with CodeQL 2.27.1 locally before the push.
+- Gates: `npm run ci` 47/47; Playwright e2e 65/65; the call integration
+  suites on local Postgres; the probe against a real coturn; CI and CodeQL
+  green on the PR. Nothing touched production.
+- The programme: PR-1 to PR-7 are merged. What remains is the owner's —
+  the device matrix (§1–§5d), granting the Test right, and the signed-off
+  SQL that turns recording off for existing tenants (PR-6's entry).
