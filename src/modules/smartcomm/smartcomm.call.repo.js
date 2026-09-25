@@ -245,6 +245,20 @@ async function touchPresence(client, userId) {
   return rows[0];
 }
 
+/** The people this user has a DIRECT conversation with: who hears their
+ *  presence, and whose presence their snapshot carries. */
+async function directContacts(client, userId) {
+  const { rows } = await client.query(
+    `SELECT DISTINCT o.user_id
+       FROM comms_member me
+       JOIN comms_group g ON g.group_id = me.group_id AND g.kind = 'DIRECT'
+       JOIN comms_member o ON o.group_id = me.group_id AND o.user_id <> me.user_id
+      WHERE me.user_id = $1`,
+    [userId],
+  );
+  return rows.map((r) => r.user_id);
+}
+
 async function lastSeen(client, userIds) {
   if (!userIds.length) return [];
   const { rows } = await client.query(
@@ -768,6 +782,7 @@ module.exports = {
   isDirectChannel,
   listCallsForUser,
   touchPresence,
+  directContacts,
   lastSeen,
   // The ring half (PR-3 ack; PR-4 pushes and the ringing read).
   markRingAck,
