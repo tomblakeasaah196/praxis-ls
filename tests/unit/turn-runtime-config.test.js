@@ -244,19 +244,30 @@ describe("a settings name from the URL cannot reach Object.prototype", () => {
   );
 
   it("returns null for an inherited name rather than a callable", () => {
-    const { lookupSpec, spec, valueRules } = settings._test;
+    const { lookupSpec, spec, valueRulesById } = settings._test;
     for (const inherited of ["constructor", "toString", "valueOf", "__proto__"]) {
       expect(lookupSpec(spec, inherited, inherited)).toBeNull();
-      expect(lookupSpec(valueRules, inherited, inherited)).toBeNull();
+      expect(lookupSpec(valueRulesById, inherited, inherited)).toBeNull();
       // And with the id pre-joined, which is the shape that would break the
       // dot-always-present accident this replaced.
       expect(lookupSpec(spec, inherited, "")).toBeNull();
     }
   });
 
+  it("has no inherited string keys to reach in the first place", () => {
+    // The point of a Map over an object literal: there is no prototype chain
+    // for a URL-supplied name to walk.
+    const { spec, valueRulesById } = settings._test;
+    for (const registry of [spec, valueRulesById]) {
+      expect(registry).toBeInstanceOf(Map);
+      expect(registry.get("constructor")).toBeUndefined();
+      expect(registry.get("toString")).toBeUndefined();
+    }
+  });
+
   it("still finds a real entry, so the fix is not a blanket no", () => {
-    const { lookupSpec, spec, valueRules } = settings._test;
+    const { lookupSpec, spec, valueRulesById } = settings._test;
     expect(lookupSpec(spec, "network", "turn")).toBeTruthy();
-    expect(typeof lookupSpec(valueRules, "network", "turn")).toBe("function");
+    expect(typeof lookupSpec(valueRulesById, "network", "turn")).toBe("function");
   });
 });

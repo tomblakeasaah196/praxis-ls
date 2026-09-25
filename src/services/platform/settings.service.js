@@ -88,24 +88,29 @@ const SPEC = {
 const specKey = (section, key) => section + "." + key;
 
 /**
- * Look one entry up in a map keyed by `<section>.<key>`, where both halves
- * came off the URL (`/settings/:section/:key`).
+ * The two registries above, as Maps, for lookup by a name off the URL.
  *
- * `MAP[specKey(section, key)]` reaches Object.prototype through a request
- * parameter. `constructor`, `toString`, `valueOf` and friends are inherited
- * members, so a lookup that finds nothing of ours can still hand back a
- * FUNCTION — and both callers below invoke what they get. Nothing reachable
- * today produces one, because `specKey` always inserts a dot and no
- * prototype member contains one; that is an accident of this helper rather
- * than a check, and it would stop being true the moment anyone joins the id
- * upstream or renames a section.
+ * `/settings/:section/:key` puts two request parameters into an id, and both
+ * callers INVOKE whatever the lookup returns. Indexing an object literal
+ * with that id reaches Object.prototype — `constructor`, `toString`,
+ * `valueOf` are inherited members, so a lookup finding nothing of ours can
+ * still hand back a function.
  *
- * An own-property test is the whole fix (CodeQL:
- * js/unvalidated-dynamic-method-call).
+ * A Map has no prototype chain to walk and no inherited string keys, so the
+ * dynamic property read is gone rather than guarded. (An own-property test
+ * on the literal is equally safe at runtime and was the first fix here, but
+ * it leaves the read in place — which is the shape itself, and what CodeQL's
+ * js/unvalidated-dynamic-method-call is about.)
+ *
+ * The literals stay the source of truth: they are what a reader edits when
+ * adding a credential, and deriving these once at load keeps the two from
+ * drifting.
  */
-function lookupSpec(map, section, key) {
-  const id = specKey(section, key);
-  return Object.prototype.hasOwnProperty.call(map, id) ? map[id] : null;
+const SPEC_BY_ID = new Map(Object.entries(SPEC));
+
+function lookupSpec(registry, section, key) {
+  const found = registry.get(specKey(section, key));
+  return found === undefined ? null : found;
 }
 
 /**
@@ -143,9 +148,11 @@ const VALUE_RULES = {
   },
 };
 
+const VALUE_RULES_BY_ID = new Map(Object.entries(VALUE_RULES));
+
 /** Throws 422 when a known setting's value is malformed. */
 function assertValueShape(section, key, value) {
-  const rule = lookupSpec(VALUE_RULES, section, key);
+  const rule = lookupSpec(VALUE_RULES_BY_ID, section, key);
   if (!rule) return;
   const problem = rule(value || {});
   if (problem) {
@@ -248,7 +255,7 @@ async function resolve(section, key) {
 
 /** Run the provider's live probe against the stored credential. Never throws. */
 async function test(section, key) {
-  const spec = lookupSpec(SPEC, section, key);
+  const spec = lookupSpec(SPEC_BY_ID, section, key);
   if (!spec) return { ok: false, error: "no test available for " + section + "." + key };
   const resolved = await resolve(section, key);
   if (!resolved) return { ok: false, error: "not configured" };
@@ -285,4 +292,4 @@ async function generateVapid({ subject, actor = null } = {}) {
 
 module.exports = {
   // The value rules, for the suite that holds the iceServers shapes.
-  _test: { valueRules: VALUE_RULES, lookupSpec, spec: SPEC }, list, get, put, resolve, test, generateVapid };
+  _test: { valueRules: VALUE_RULES, lookupSpec, spec: SPEC_BY_ID, valueRulesById: VALUE_RULES_BY_ID }, list, get, put, resolve, test, generateVapid };
