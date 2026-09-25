@@ -102,8 +102,9 @@ describe("the packet goes to the checked address, not the name", () => {
     const sock = { send: (_b, _p, addr) => sent.push(addr), on: () => {}, close: () => {} };
     const create = jest.spyOn(dgram, "createSocket").mockReturnValue(sock);
     try {
-      void probe.allocate({ host: "relay.example", port: 3478, label: "l", mac: "m", timeoutMs: 20 });
-      await new Promise((r) => setTimeout(r, 30));
+      // Awaiting the call itself rather than sleeping: it resolves on its own
+      // timeout, and the send has necessarily happened by then.
+      await probe.allocate({ host: "relay.example", port: 3478, label: "l", mac: "m", timeoutMs: 5 });
       expect(sent).toContain("203.0.113.10");
       expect(sent).not.toContain("relay.example");
     } finally {
