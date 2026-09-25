@@ -339,8 +339,25 @@ const turnEffective = asyncHandler(async (_req, res) => {
       host_owned: runtime.turnHostOwned(),
       configured: relay.configured,
       source: relay.source,
+      // Where the shared secret comes from, and whether a rotation's overlap
+      // is still open. Never the secret itself.
+      secret: await require("../../modules/smartcomm/smartcomm.turn.secret.service").status(),
     },
   });
+});
+
+/**
+ * Rotate the relay's shared secret.
+ *
+ * The old secret stays valid for one call's length, so nothing in progress
+ * loses its relay — see smartcomm.turn.secret.service.js for why the Redis
+ * write happens before the vault write. Refused with 409 unless the
+ * deployment has opted in, because in `env` mode coturn holds a static
+ * secret this cannot reach and rotating would break every call.
+ */
+const turnRotate = asyncHandler(async (req, res) => {
+  const secrets = require("../../modules/smartcomm/smartcomm.turn.secret.service");
+  res.json({ data: await secrets.rotate({ actor: actor(req) }) });
 });
 
 const vapidGenerate = asyncHandler(async (req, res) =>
@@ -415,6 +432,7 @@ module.exports = {
   settingPut,
   settingTest,
   turnEffective,
+  turnRotate,
   vapidGenerate,
   aiVendorsList,
   aiVendorSet,
