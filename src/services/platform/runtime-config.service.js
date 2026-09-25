@@ -236,7 +236,12 @@ async function turn() {
   const v = (row && row.value) || {};
 
   const host = String(pick(v.host, config.TURN_HOST, "") || "").trim();
-  const secret = String(config.TURN_CREDENTIAL_SECRET || "");
+  // Deliberately NOT a field on the object below. This is a description of
+  // the relay — it is passed around, returned to callers and shaped into a
+  // console response, and a shared secret riding along on it would widen the
+  // blast radius of the one value that must not leak. Whoever signs fetches
+  // it at the point of signing instead (smartcomm.turn.service.signedLabel).
+  const secretSet = Boolean(config.TURN_CREDENTIAL_SECRET);
   return {
     // Settable from the console: the API is their only reader.
     host,
@@ -248,10 +253,12 @@ async function turn() {
     // settable — see the note above.
     portUdp: num(config.TURN_PORT_UDP, 3478),
     tlsPort: num(config.TURN_TLS_PORT, 0),
-    secret,
 
-    /** A relay exists only when both halves of the credential do. */
-    configured: Boolean(host && secret),
+    /** A relay exists only when both halves of the credential do: somewhere
+     *  to reach, and something to sign with. The secret itself stays out of
+     *  this object — see above. */
+    secretSet,
+    configured: Boolean(host && secretSet),
     source: row && row.value && Object.keys(row.value).length ? "vault" : "env",
   };
 }

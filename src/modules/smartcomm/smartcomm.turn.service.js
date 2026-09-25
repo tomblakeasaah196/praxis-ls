@@ -32,7 +32,7 @@ let warnedStunFallback = false;
  * ports are settable from the platform console, so reading env here would
  * quietly ignore whatever an operator has set.
  */
-const turnConfigured = (relay) => Boolean(relay && relay.host && relay.secret);
+const turnConfigured = (relay) => Boolean(relay && relay.host && relay.secretSet);
 
 /** A fresh per-call token for the credential's username. */
 function newCallToken() {

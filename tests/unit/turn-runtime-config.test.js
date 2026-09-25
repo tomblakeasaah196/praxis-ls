@@ -122,9 +122,18 @@ describe("what the console may NOT set, whatever is in the row", () => {
     expect((await runtime.turn()).portUdp).toBe(3478);
   });
 
-  it("ignores a secret in the vault — the API signs with what coturn verifies with", async () => {
+  /**
+   * The secret is not on this object at all. It is a description of the
+   * relay — passed around, returned to callers, shaped into a console
+   * response — and the one value that must not leak has no business riding
+   * along on it. Whoever signs fetches it at the point of signing.
+   */
+  it("never carries the secret itself, only whether one exists", async () => {
     mockResolve.mockResolvedValue({ value: { secret: "from-the-console" }, secret: "from-the-console" });
-    expect((await runtime.turn()).secret).toBe("host-secret");
+    const relay = await runtime.turn();
+    expect(relay.secret).toBeUndefined();
+    expect(relay.secretSet).toBe(true);
+    expect(JSON.stringify(relay)).not.toMatch(/host-secret|from-the-console/);
   });
 });
 
