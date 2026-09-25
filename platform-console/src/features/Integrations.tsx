@@ -4,6 +4,7 @@ import { useAsync } from "@/lib/useAsync";
 import { useToast } from "@/components/Toast";
 import { Button, Card, Empty, Field, Loading, PageHeader, Pill } from "@/components/ui";
 import { AiVendorsSection } from "@/features/AiVendors";
+import { fmtDateTime } from "@/lib/format";
 
 /**
  * Deploy-wide integration credentials (S3 / Geoapify / VAPID). Root-admin sets
@@ -484,6 +485,23 @@ function TurnCard() {
   const set = (patch: Partial<TurnEffective["editable"]>) =>
     setForm((f) => (f ? { ...f, ...patch } : f));
 
+  const [rotating, setRotating] = useState(false);
+  const rotate = async () => {
+    // Deliberately no confirm step: it is safe by construction — the previous
+    // secret keeps working for longer than the longest call — and a dialog
+    // would suggest otherwise.
+    setRotating(true);
+    try {
+      const out = await platform.turnRotate();
+      toast(`New secret in force. The previous one works until ${fmtDateTime(out.previous_valid_until)}.`);
+      reload();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Rotation failed");
+    } finally {
+      setRotating(false);
+    }
+  };
+
   const save = async () => {
     if (!form) return;
     setBusy(true);
@@ -543,6 +561,35 @@ function TurnCard() {
         <Button variant="primary" onClick={save} loading={busy}>Save</Button>
       </div>
 
+      <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Shared secret</h3>
+      {data.secret.source === "vault" ? (
+        <>
+          <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+            The API signs each call’s credential with it and the relay verifies the signature.
+            Rotating mints a new one and keeps the old one accepted for about 35 minutes, so no
+            call in progress loses its relay — and nothing restarts.
+          </p>
+          <div className="row" style={{ gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            {data.secret.secret_set
+              ? <Pill tone="ok">set{data.secret.last4 ? ` · …${data.secret.last4}` : ""}</Pill>
+              : <Pill tone="bad">not set</Pill>}
+            {data.secret.rotating && (
+              <Pill tone="warn">
+                rotating · the previous one works until {fmtDateTime(data.secret.previous_valid_until)}
+              </Pill>
+            )}
+            <Button variant="ghost" size="sm" onClick={rotate} loading={rotating}>Rotate</Button>
+          </div>
+        </>
+      ) : (
+        <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+          {host.secret_set ? "Set on the host" : "Not set"} — and owned there. The relay holds a
+          static copy it reads at start, so this cannot be rotated from the console. To change
+          that, give the relay its Redis user and set <code>TURN_SECRET_SOURCE=vault</code>
+          (doc/TURN_PRODUCTION_SETUP.md).
+        </p>
+      )}
+
       <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Set on the host</h3>
       <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
         coturn reads these when it starts, so they cannot be changed from here — they are
@@ -556,10 +603,6 @@ function TurnCard() {
           <tr><td>TLS port (listener)</td><td>{onHost(host.tls_port, "off")}</td></tr>
           <tr><td>External IP</td><td>{onHost(host.external_ip, "on the interface")}</td></tr>
           <tr><td>Listening IP</td><td>{onHost(host.listening_ip, "all addresses")}</td></tr>
-          <tr>
-            <td>Shared secret</td>
-            <td>{host.secret_set ? <Pill tone="ok">set</Pill> : <Pill tone="bad">not set</Pill>}</td>
-          </tr>
         </tbody>
       </table>
     </Card>

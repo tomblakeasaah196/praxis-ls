@@ -236,12 +236,19 @@ async function turn() {
   const v = (row && row.value) || {};
 
   const host = String(pick(v.host, config.TURN_HOST, "") || "").trim();
-  // Deliberately NOT a field on the object below. This is a description of
-  // the relay — it is passed around, returned to callers and shaped into a
-  // console response, and a shared secret riding along on it would widen the
-  // blast radius of the one value that must not leak. Whoever signs fetches
-  // it at the point of signing instead (smartcomm.turn.service.signedLabel).
-  const secretSet = Boolean(config.TURN_CREDENTIAL_SECRET);
+  // The VALUE is deliberately not a field on the object below. This is a
+  // description of the relay — passed around, returned to callers, shaped
+  // into a console response — and the one value that must not leak has no
+  // business riding along on it. Whoever signs fetches it at the point of
+  // signing (smartcomm.turn.secret.service.activeSecret).
+  //
+  // Its PRESENCE still has to follow TURN_SECRET_SOURCE: on `vault` a
+  // deployment can have no TURN_CREDENTIAL_SECRET at all and be perfectly
+  // configured, so asking env alone here would report no relay and the
+  // console would show a working deployment as broken.
+  const secretSet = Boolean(
+    await require("../../modules/smartcomm/smartcomm.turn.secret.service").activeSecret(),
+  );
   return {
     // Settable from the console: the API is their only reader.
     host,
@@ -253,6 +260,7 @@ async function turn() {
     // settable — see the note above.
     portUdp: num(config.TURN_PORT_UDP, 3478),
     tlsPort: num(config.TURN_TLS_PORT, 0),
+    secretSource: String(config.TURN_SECRET_SOURCE || "env"),
 
     /** A relay exists only when both halves of the credential do: somewhere
      *  to reach, and something to sign with. The secret itself stays out of

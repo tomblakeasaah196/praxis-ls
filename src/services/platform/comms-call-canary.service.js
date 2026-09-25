@@ -102,7 +102,12 @@ async function relayCheck() {
     return { ok: false, error: "no relay configured (host / TURN_CREDENTIAL_SECRET): calls between mobile networks may not connect" };
   }
   const turn = require("../../modules/smartcomm/smartcomm.turn.service");
-  const { label, mac } = turn.signedLabel({ id: `canary-${crypto.randomBytes(9).toString("base64url")}`, ttlSeconds: 60 });
+  // Signed with the secret in force (vault or `.env`), or a deployment that
+  // has rotated from the console would fail its own canary.
+  const secret = await require("../../modules/smartcomm/smartcomm.turn.secret.service").activeSecret();
+  const { label, mac } = turn.signedLabel({
+    id: `canary-${crypto.randomBytes(9).toString("base64url")}`, ttlSeconds: 60, secret,
+  });
   const out = await require("./turn-probe").allocate({
     host: relay.host, port: relay.portUdp, label, mac,
   });
