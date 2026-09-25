@@ -21,15 +21,14 @@ jest.mock("../../src/config/env", () => {
   return { ...real, config: { ...real.config } };
 });
 const PORT = 34790;
-const SECRET = "probe-integration-secret";
+const RELAY_SHARED = "probe-integration-shared";
 
 // Signed exactly as the API signs a caller's (smartcomm.turn.service).
-const mint = (sharedKey) => {
-  const { config } = require("../../src/config/env");
-  config.TURN_CREDENTIAL_SECRET = sharedKey;
-  const { label, mac } = require("../../src/modules/smartcomm/smartcomm.turn.service")
-    .signedLabel({ id: "canary-test", ttlSeconds: 120 });
-  return { label, mac };
+const { config } = require("../../src/config/env");
+const turn = require("../../src/modules/smartcomm/smartcomm.turn.service");
+const signed = (shared) => {
+  config.TURN_CREDENTIAL_SECRET = shared;
+  return turn.signedLabel({ id: "canary-test", ttlSeconds: 120 });
 };
 
 maybe("the TURN probe against a real relay", () => {
@@ -38,7 +37,7 @@ maybe("the TURN probe against a real relay", () => {
   beforeAll(async () => {
     relay = spawn("turnserver", [
       "-n", "--listening-port", String(PORT), "--listening-ip", IP, "--relay-ip", IP,
-      "--use-auth-secret", `--static-auth-secret=${SECRET}`, "--realm", "turn.test",
+      "--use-auth-secret", `--static-auth-secret=${RELAY_SHARED}`, "--realm", "turn.test",
       "--no-tls", "--no-dtls", "--no-cli", "--log-file", "stdout",
     ], { stdio: "ignore" });
     await new Promise((r) => setTimeout(r, 1500));
@@ -46,15 +45,15 @@ maybe("the TURN probe against a real relay", () => {
   afterAll(() => relay && relay.kill());
 
   test("a credential signed with the relay's secret allocates, and is released", async () => {
-    const out = await allocate({ host: IP, port: PORT, ...mint(SECRET) });
+    const out = await allocate({ host: IP, port: PORT, ...signed(RELAY_SHARED) });
     expect(out).toMatchObject({ ok: true, relayed: expect.stringMatching(/^\d+\.\d+\.\d+\.\d+:\d+$/) });
   });
 
   test("a wrong secret is refused with 401", async () => {
-    expect(await allocate({ host: IP, port: PORT, ...mint("not-the-secret") })).toMatchObject({ ok: false, code: 401 });
+    expect(await allocate({ host: IP, port: PORT, ...signed("not-the-one-the-relay-has") })).toMatchObject({ ok: false, code: 401 });
   });
 
   test("a relay that is not there times out", async () => {
-    expect(await allocate({ host: IP, port: PORT + 3, ...mint(SECRET), timeoutMs: 1000 })).toMatchObject({ ok: false });
+    expect(await allocate({ host: IP, port: PORT + 3, ...signed(RELAY_SHARED), timeoutMs: 1000 })).toMatchObject({ ok: false });
   });
 });
