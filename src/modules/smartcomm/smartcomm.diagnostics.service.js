@@ -347,7 +347,7 @@ async function capStatus(liveClient) {
  * POST /smartcomm/diagnostics/runs. `liveClient` is the live schema (the run
  * table and the cap), `envClient` the environment being tested.
  */
-async function startRun(liveClient, envClient, { actor, env = "live", tenantMeta, userAgent = null, appVersion = null, enqueue = null }) {
+async function startRun(liveClient, envClient, { actor, env = "live", tenantMeta, userAgent = null, appVersion = null, enqueue: injected = null }) {
   const run = await atomically(liveClient, async () => {
     await repo.lockCap(liveClient);
     await repo.purgeOld(liveClient, RETENTION_DAYS);
@@ -372,9 +372,9 @@ async function startRun(liveClient, envClient, { actor, env = "live", tenantMeta
   let saved = await setStep(liveClient, run.run_id, "schedules", schedules, null);
 
   // Step 1 is proved by the worker picking this up; step 3 rides on it.
-  const send = enqueue || require("../../jobs/queue-producer").enqueue;
+  const enqueue = injected || require("../../jobs/queue-producer").enqueue;
   try {
-    await send(QUEUE, "roundtrip", {
+    await enqueue("comms-diagnostics", "roundtrip", {
       runId: run.run_id, tenantMeta, env, userId: actor.user_id, enqueuedAt: Date.now(),
     }, { jobId: `diag-roundtrip-${run.run_id}`, attempts: 1, removeOnComplete: true, removeOnFail: 50 });
     saved = await setStep(liveClient, run.run_id, "worker", { status: "running" }, null);
@@ -542,7 +542,7 @@ function iceForRun() {
 
 /** Steps 9–11: hand the run to the worker. Without one, they are skipped
  *  and the audio is removed here instead. */
-async function finishRun(liveClient, { runId, actor, tenantMeta, env, meta, enqueue = null }) {
+async function finishRun(liveClient, { runId, actor, tenantMeta, env, meta, enqueue: injected = null }) {
   const run = ownRun(await repo.getRun(liveClient, runId), actor);
   const worker = stepOf(run, "worker");
   if (worker && worker.status === "fail") {
@@ -555,8 +555,8 @@ async function finishRun(liveClient, { runId, actor, tenantMeta, env, meta, enqu
     }, meta);
   }
   const requested = { status: "running", detail: { requested_at: new Date().toISOString() } };
-  const send = enqueue || require("../../jobs/queue-producer").enqueue;
-  await send(QUEUE, "pipeline", { runId: run.run_id, tenantMeta, env, userId: run.user_id }, {
+  const enqueue = injected || require("../../jobs/queue-producer").enqueue;
+  await enqueue("comms-diagnostics", "pipeline", { runId: run.run_id, tenantMeta, env, userId: run.user_id }, {
     jobId: `diag-pipeline-${run.run_id}`, attempts: 1, removeOnComplete: true, removeOnFail: 50,
   });
   return update(liveClient, run.run_id, (r) => {
