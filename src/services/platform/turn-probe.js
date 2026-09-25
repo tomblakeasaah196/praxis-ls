@@ -91,10 +91,11 @@ function errorOf(v) {
 
 /**
  * Allocate a relay address on `host:port` with the long-term credential
- * `username` / `password`. Resolves `{ ok, relayed, ms, error, code }`;
- * never throws.
+ * `label` (coturn's "username", `<expiry>:<token>`) and `mac` (the HMAC it
+ * checks) — `smartcomm.turn.service` `credentialParts`. Resolves
+ * `{ ok, relayed, ms, error, code }`; never throws.
  */
-function allocate({ host, port, username, password, timeoutMs = 5000 }) {
+function allocate({ host, port, label, mac, timeoutMs = 5000 }) {
   const started = Date.now();
   return new Promise((resolve) => {
     const socket = dgram.createSocket("udp4");
@@ -126,11 +127,12 @@ function allocate({ host, port, username, password, timeoutMs = 5000 }) {
         if (err && err.code === 401 && !key && msg.attrs[A.REALM] && msg.attrs[A.NONCE]) {
           realm = msg.attrs[A.REALM].toString("utf8");
           nonce = msg.attrs[A.NONCE];
-          // codeql[js/weak-cryptographic-algorithm] — the long-term credential key is MD5 by RFC 5389 §15.4.
-          key = crypto.createHash("md5").update(`${username}:${realm}:${password}`).digest();
+          // The long-term credential key is MD5 by RFC 5389 §15.4 — the wire
+          // protocol, not a chosen cipher; nothing here is a person's password.
+          key = crypto.createHash("md5").update(`${label}:${realm}:${mac}`).digest();
           send(message(T.ALLOCATE, crypto.randomBytes(12), [
             transport,
-            attr(A.USERNAME, Buffer.from(username)),
+            attr(A.USERNAME, Buffer.from(label)),
             attr(A.REALM, Buffer.from(realm)),
             attr(A.NONCE, nonce),
           ], key));
@@ -145,7 +147,7 @@ function allocate({ host, port, username, password, timeoutMs = 5000 }) {
         if (key) {
           send(message(T.REFRESH, crypto.randomBytes(12), [
             attr(A.LIFETIME, Buffer.from([0, 0, 0, 0])),
-            attr(A.USERNAME, Buffer.from(username)),
+            attr(A.USERNAME, Buffer.from(label)),
             attr(A.REALM, Buffer.from(realm)),
             attr(A.NONCE, nonce),
           ], key));

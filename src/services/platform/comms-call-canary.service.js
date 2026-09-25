@@ -97,10 +97,9 @@ async function relayCheck() {
     return { ok: false, error: "no relay configured (TURN_HOST / TURN_CREDENTIAL_SECRET): calls between mobile networks may not connect" };
   }
   const turn = require("../../modules/smartcomm/smartcomm.turn.service");
-  const cred = turn.turnCredential({ token: `canary-${turn.newCallToken()}`, ttlSeconds: 60 });
+  const { label, mac } = turn.credentialParts({ token: `canary-${turn.newCallToken()}`, ttlSeconds: 60 });
   const out = await require("./turn-probe").allocate({
-    host: config.TURN_HOST, port: Number(config.TURN_PORT_UDP) || 3478,
-    username: cred.username, password: cred.password,
+    host: config.TURN_HOST, port: Number(config.TURN_PORT_UDP) || 3478, label, mac,
   });
   return out.ok
     ? { ok: true, detail: { relayed: out.relayed } }

@@ -77,7 +77,7 @@ describe("the shared checks", () => {
     probe.allocate.mockResolvedValueOnce({ ok: true, relayed: "203.0.113.9:50000" });
     expect(await canary.relayCheck()).toMatchObject({ ok: true });
     // The credential is minted the way the API mints a caller's: expiry:token.
-    expect(probe.allocate.mock.calls[1][0]).toMatchObject({ host: "turn.example.test", port: 3478, username: expect.stringMatching(/^\d+:canary-/) });
+    expect(probe.allocate.mock.calls[1][0]).toMatchObject({ host: "turn.example.test", port: 3478, label: expect.stringMatching(/^\d+:canary-/), mac: expect.any(String) });
   });
 
   test("the schedule check fails on a midnight repeatable", async () => {
