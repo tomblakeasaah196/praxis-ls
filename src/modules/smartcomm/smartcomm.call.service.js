@@ -1053,7 +1053,11 @@ async function iceFor(client, call, settings = null) {
   // are read per call through the runtime config (cached, ~30 s) rather than
   // captured from env at boot — a console change reaches the next call.
   const relay = await require("../../services/platform/runtime-config.service").turn();
-  return iceConfigFor({ token, ttlSeconds: credentialTtl(call), relayOnly, relay });
+  // Fetched here rather than carried on `relay`: the secret's lifetime is
+  // these two lines, and nothing that only needs to describe the relay is
+  // handed the means to impersonate it.
+  const secret = await require("./smartcomm.turn.secret.service").activeSecret();
+  return iceConfigFor({ token, ttlSeconds: credentialTtl(call), relayOnly, relay, secret });
 }
 
 /** GET /calls/:id/turn — a refreshed credential for a participant of a live

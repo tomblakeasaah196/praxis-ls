@@ -337,9 +337,14 @@ async function turn() {
 
   const crypto = require("crypto");
   const turnService = require("../../modules/smartcomm/smartcomm.turn.service");
+  // The secret in force, not `.env`: on TURN_SECRET_SOURCE=vault the relay
+  // verifies against the vault's value, and signing with the host's copy
+  // would fail a working relay with a 401.
+  const secret = await require("../../modules/smartcomm/smartcomm.turn.secret.service").activeSecret();
   const { label, mac } = turnService.signedLabel({
     id: `probe-${crypto.randomBytes(9).toString("base64url")}`,
     ttlSeconds: 60,
+    secret,
   });
   const out = await require("./turn-probe").allocate({
     host: cfg.host, port: cfg.portUdp, label, mac,

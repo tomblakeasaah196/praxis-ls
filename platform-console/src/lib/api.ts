@@ -202,6 +202,16 @@ export type TurnEffective = {
   };
   configured: boolean;
   source: "vault" | "env";
+  /** The shared secret's shape — never the secret. */
+  secret: {
+    /** `vault` means the console owns it and can rotate it. */
+    source: "vault" | "env";
+    secret_set: boolean;
+    /** True while a previous secret is still being accepted by the relay. */
+    rotating: boolean;
+    previous_valid_until: string | null;
+    last4: string | null;
+  };
 };
 
 export const platform = {
@@ -323,6 +333,11 @@ export const platform = {
    * because the point of the panel is to see the whole relay without SSH.
    */
   turnEffective: () => api<TurnEffective>("/settings/network/turn/effective"),
+  /** Mint a new shared secret. The old one keeps working for one call's
+   *  length, so nothing in progress loses its relay. */
+  turnRotate: () => api<{ rotated: boolean; previous_valid_until: string }>(
+    "/settings/network/turn/rotate", { method: "POST" },
+  ),
   putSetting: (section: string, key: string, body: { value?: Record<string, unknown>; secret?: string }) =>
     api<PlatformSetting>(`/settings/${encodeURIComponent(section)}/${encodeURIComponent(key)}`, { method: "PUT", body }),
   testSetting: (section: string, key: string) =>
