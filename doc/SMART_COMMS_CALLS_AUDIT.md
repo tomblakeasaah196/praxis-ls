@@ -2000,7 +2000,7 @@ factual. The next agent relies on them.
 | PR-4 | MERGED | `claude/smart-comms-pr-4-9e8q91` | #481 | 2026-09-24 | Perfect negotiation, rings on every device (push at dial, re-alerts, cancel everywhere), ringing read, Answer/Decline, device check + Test ring, noise default off, no screen wake lock; TURN relay-to-relay and TLS on 443 (owner's Step 0/0b); migration 14070 |
 | PR-5 | MERGED | `claude/smart-comms-pr-5-jzgkt1` | #482 | 2026-09-25 | Per-call clocks, Redis presence, fair/limited transcription, fair ring queue, metrics from counters, latency alarm, bounded queries, env in every room; rate-limit memory fallback, sandbox status mirror; `scripts/load-calls.js`; migration 14080 |
 | PR-6 | MERGED | `claude/smart-comms-pr-5-jzgkt1` (restarted from `main` after #482) | #483 | 2026-09-25 | Solid ring card, call screen, docked bar and thread strip (O4); answer without recording; recording is the tenant's opt-in; processors named; DND, quiet hours, hide last seen; transcript retention and erasure; N4; F10 gating; migration 14090 |
-| PR-7 | IN PROGRESS | `claude/smart-comms-pr-5-jzgkt1` (restarted from `main` after #483) | — | — | |
+| PR-7 | IN PROGRESS | `claude/smart-comms-pr-5-jzgkt1` (restarted from `main` after #483) | — | — | Test right (can_test); Comms → Setup → Test calls, 11 steps, 3 a day; reference clips; daily platform call check → console Health and bell; migrations 14100, 14110, platform 0108 |
 | Plan update (O1–O5, A12–A15, N1–N5, PR-7) | MERGED | `claude/integration-audit-report-u6twc5` | #475 | 2026-09-24 | Owner decisions, ringing findings, PR-1 findings, test calls |
 | Chat UI redesign (**parallel, not a plan PR**) | MERGED | `claude/message-ui-redesign-gzxylv` | #478 | 2026-09-24 | Cosmetic chat-thread restyle. Touches `team-chat.tsx` **header + sidebar + thread scroller only** — NOT the composer area (PR-2) and adds no feature gating (PR-6). See the log entry below before PR-2/PR-6. |
 
@@ -3126,3 +3126,87 @@ premium, WhatsApp-grade finish. Branch `claude/message-ui-redesign-gzxylv`
   capability read is cached per session in `call-capabilities.ts`
   (`resetCallCapabilities` on logout).
 - Gates: see the PR body. Nothing touched production; no owner SQL was run.
+
+### PR-7 · 2026-09-25 · OPEN
+- Fixed (O5), each with the test that proves it:
+  - The **Test** right: `permission.can_test` (migration 14100, no backfill,
+    commented like 12771's), `test → can_test` in `rbac.js` and
+    `action-authz.js`, carried through `identity-cache.js`,
+    `permission.repo.js` (the column list and the COALESCE upsert, so saving
+    other rights never clears it) and `permission.validator.js`; the matrix
+    shows it as "T" (Test — run live checks that spend provider credit), the
+    legend's tooltip says the CEO always passes it. `rbac-enforcement.test.js`
+    (the map, "not implied by any other right", the CEO),
+    `permission-test-right.test.js`, `client/src/lib/rbac.test.ts`.
+  - The manual run, Comms → Setup → **Test calls**: nine routes under
+    `/smartcomm/diagnostics/runs`, every one `requirePermission("MOD-64",
+    "test")` + `calls` (403 with every other right:
+    `call-diagnostics-routes.test.js`). The 3-a-day cap is counted in
+    `comms_call_diagnostic_run` (migration 14110, live schema, 90 days) under
+    an advisory lock: six simultaneous starts make exactly three runs
+    (`tests/integration/call-diagnostics-cap.test.js`; with the lock removed
+    it makes six). The fourth is 429 `DIAGNOSTICS_DAILY_CAP` with
+    `next_available_at`; the tab disables its button and names the time.
+    The eleven steps of §3 in order, each with status, time, cause, fix and
+    code; the server's half in `smartcomm.diagnostics.service.js` and the
+    `comms-diagnostics` job, the device's in `test-calls-runner.ts`. Real
+    code: `transcribePart` / `draftSummary` gained a diagnostics mode (audio
+    from the run, no call signals, a FORCED provider only there), the ring is
+    `testRing` with the run's nonce (the service worker echoes it), the
+    recorder is `CallRecorder`, the filter `applyNoiseSuppression`. A run
+    writes nothing but its row and its `diagnostics` usage
+    (`call-diagnostics.test.js`: no call table, metric, signal, chat or
+    notification). Each step turns red on its own injected failure — bad
+    Groq key, bad Gemini key, stopped worker, a queue that refuses, wrong
+    TURN secret / push denied / blocked microphone as the device reports
+    them, a part that is not a complete file — in `call-diagnostics.test.js`
+    and `test-calls-runner.test.ts`. Progress streams over the socket
+    (`comms:diagnostics`), polling as the fallback; **Copy report** is plain
+    text with keys redacted; past runs are listed for Test holders.
+  - Reference clips: `src/modules/smartcomm/diagnostics-fixtures/`, EN and FR,
+    ~18 s each, synthesised with espeak-ng from the text in
+    `reference.json` (no licence issue), with the summary's reference
+    transcript.
+  - The platform check: `comms-call-canary`, daily at
+    `COMMS_CALL_CANARY_CRON` / `_TZ` (10:00 Africa/Douala): the queue, the
+    live-signal emitter's subscribers, the scheduler registrations, one EN
+    clip through Groq and forced through Gemini, a Gemini and a forced
+    DeepSeek summary, a TURN allocation from the server (`turn-probe.js`, a
+    minimal RFC 5766 Allocate, proven against a real coturn:
+    `tests/integration/turn-probe.test.js`, opt-in with RUN_TURN_TESTS=1),
+    and per-tenant checks that spend no credit. Results in
+    `platform.comms_call_canary_run` (platform migration 0108); console
+    Health → **Calls pipeline**; one bell (`notifyCapable`) and one
+    `alerts.raise` (`comms.call_canary`, `notify`) on a failure and on the
+    recovery. `comms-call-canary.test.js`.
+  - PR-5's leftover: `tests/integration/call-pipeline.test.js` ("O1: a part
+    both providers fail…") failed without ffmpeg because every part was the
+    same fixture and the provider stubs find a part by its bytes; each part
+    is now distinct. Reproduced without ffmpeg first; passes with and
+    without it.
+- Deviations from §3:
+  - "Only that step" turns red; a step that NEEDS the broken one is shown
+    skipped (grey), not red. A stopped worker therefore shows step 1 red and
+    step 3 skipped (step 3 is the worker's own emitter), and 9–11 skipped.
+    A bad Gemini key turns 9 and 10 red: both use Gemini, and each names it.
+  - Steps 4–7 are the device's report: the server records what the runner's
+    browser measured and cannot re-verify a microphone. Step 8's success is
+    the server's own container check on the uploaded parts.
+  - The canary's "live signal" check asks Redis whether an API instance is
+    subscribed to the adapter channel the worker publishes on (there is no
+    screen to echo at 10:00); its queue check measures how late the daily
+    job ran against its due time.
+  - A second failing day stays quiet on the bell (the console shows it red);
+    the recovery rings once.
+  - Diagnostics routes are not AI tools (smartcomm.ai.js says why).
+- Schema: tenant 14100 (`permission.can_test`), 14110
+  (`comms_call_diagnostic_run`); platform 0108 (`comms_call_canary_run`).
+  New routes as above and `GET /api/platform/ops/comms/canary`; capabilities
+  gains `can_test`. New AppErrors `DIAGNOSTICS_DAILY_CAP`,
+  `DIAGNOSTICS_RUN_CLOSED`, `DIAGNOSTICS_BAD_SIGNAL`. New socket event
+  `comms:diagnostics`; new alert event `comms.call_canary`; new env
+  `COMMS_CALL_CANARY_CRON`, `COMMS_CALL_CANARY_TZ`; new queues
+  `comms-diagnostics`, `comms-call-canary`.
+- Owner's: grant the Test right to the roles that should have it (no role
+  holds it); run matrix §5d (T1–T5) on devices.
+- Gates: see the PR body. Nothing touched production.
