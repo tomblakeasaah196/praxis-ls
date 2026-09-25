@@ -28,7 +28,7 @@ const mint = (sharedKey) => {
   const { config } = require("../../src/config/env");
   config.TURN_CREDENTIAL_SECRET = sharedKey;
   const { label, mac } = require("../../src/modules/smartcomm/smartcomm.turn.service")
-    .credentialParts({ token: "canary-test", ttlSeconds: 120 });
+    .signedLabel({ id: "canary-test", ttlSeconds: 120 });
   return { label, mac };
 };
 

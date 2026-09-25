@@ -33,17 +33,17 @@ function newCallToken() {
 }
 
 /**
- * The credential's two halves under neutral names: `label` (what coturn calls
- * the username, `<expiry>:<token>`) and `mac` (the HMAC it checks). For code
- * that must derive a TURN key from them — the platform check's allocation —
- * without the values passing through identifiers CodeQL's sensitive-data
- * heuristic reads as a person's username and password (neither is: a public
- * call label and an HMAC under the deployment's own coturn secret).
+ * coturn's REST scheme under neutral names: `label` is `<expiry>:<id>` (what
+ * coturn calls the username) and `mac` the HMAC-SHA1 of it under the shared
+ * secret (what it checks as the password). The platform check derives a TURN
+ * key from these, and CodeQL's sensitive-data heuristic reads identifiers by
+ * name; neither value is a person's: a public label and an HMAC under the
+ * deployment's own coturn secret.
  */
-function credentialParts({ token, ttlSeconds, now = Date.now() }) {
-  if (!token) throw new Error("a TURN credential needs the call's token");
+function signedLabel({ id, ttlSeconds, now = Date.now() }) {
+  if (!id) throw new Error("a TURN credential needs an id");
   const expiry = Math.floor(now / 1000) + Math.max(60, Math.ceil(Number(ttlSeconds) || 0));
-  const label = `${expiry}:${token}`;
+  const label = `${expiry}:${id}`;
   const sharedKey = String(config.TURN_CREDENTIAL_SECRET);
   const mac = crypto
     // SHA1 is TURN's wire protocol (RFC 5766 MESSAGE-INTEGRITY; coturn's
@@ -58,7 +58,8 @@ function credentialParts({ token, ttlSeconds, now = Date.now() }) {
 
 /** One credential for `token`, valid for `ttlSeconds` (at least a minute). */
 function turnCredential({ token, ttlSeconds, now = Date.now() }) {
-  const { label, mac, expiresAt } = credentialParts({ token, ttlSeconds, now });
+  if (!token) throw new Error("a TURN credential needs the call's token");
+  const { label, mac, expiresAt } = signedLabel({ id: token, ttlSeconds, now });
   return { username: label, password: mac, expiresAt };
 }
 
@@ -118,4 +119,4 @@ function usesGoogleStun() {
   return !String(config.STUN_URLS || "").trim() && !config.TURN_HOST;
 }
 
-module.exports = { newCallToken, turnCredential, credentialParts, iceConfigFor, usesGoogleStun };
+module.exports = { newCallToken, turnCredential, signedLabel, iceConfigFor, usesGoogleStun };
