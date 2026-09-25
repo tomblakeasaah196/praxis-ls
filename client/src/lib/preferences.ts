@@ -133,8 +133,8 @@ export const EMPTY_CALL_PREFS: CallPrefs = { noiseSuppression: null, doNotDistur
 
 const boolOrNull = (v: unknown) => (typeof v === "boolean" ? v : null);
 
-export const fetchCallPrefs = async (): Promise<CallPrefs> => {
-  const p = ((await tenant<unknown>("/me/preferences/calls")) ?? {}) as Partial<CallPrefs>;
+function parseCallPrefs(raw: unknown): CallPrefs {
+  const p = (raw ?? {}) as Partial<CallPrefs>;
   const q = p.quietHours as QuietHours | null | undefined;
   return {
     noiseSuppression: boolOrNull(p.noiseSuppression),
@@ -142,9 +142,12 @@ export const fetchCallPrefs = async (): Promise<CallPrefs> => {
     quietHours: q && typeof q.from === "string" && typeof q.to === "string" ? { from: q.from, to: q.to } : null,
     hideLastSeen: boolOrNull(p.hideLastSeen),
   };
-};
+}
+
+export const fetchCallPrefs = async (): Promise<CallPrefs> =>
+  parseCallPrefs(await tenant<unknown>("/me/preferences/calls"));
 
 /** Partial — omit to leave the preference alone, send null to follow the
  *  tenant default again. */
-export const saveCallPrefs = (patch: Partial<CallPrefs>) =>
-  tenant<CallPrefs>("/me/preferences/calls", { method: "PUT", body: patch });
+export const saveCallPrefs = async (patch: Partial<CallPrefs>): Promise<CallPrefs> =>
+  parseCallPrefs(await tenant<unknown>("/me/preferences/calls", { method: "PUT", body: patch }));
