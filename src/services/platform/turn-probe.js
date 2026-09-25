@@ -168,9 +168,15 @@ async function assertProbeableHost(host) {
  * from a person may pass it.
  */
 async function allocate({ host, port, label, mac, timeoutMs = 5000, allowPrivate = false }) {
+  // The packet goes to the address we CHECKED, never to the name. Resolving
+  // once and sending to the result closes the gap between the two: a name
+  // that answers publicly here and privately a millisecond later cannot move
+  // the target, because the target is already an address. It also means the
+  // operator-supplied string never reaches the socket.
+  let target = host;
   if (!allowPrivate) {
     try {
-      await assertProbeableHost(host);
+      [target] = await assertProbeableHost(host);
     } catch (err) {
       return { ok: false, code: "BLOCKED_ADDRESS", error: err.message, ms: 0 };
     }
@@ -195,7 +201,7 @@ async function allocate({ host, port, label, mac, timeoutMs = 5000, allowPrivate
     let key = null;
     let realm = null;
     let nonce = null;
-    const send = (buf) => socket.send(buf, port, host, (err) => err && done({ ok: false, error: err.message }));
+    const send = (buf) => socket.send(buf, port, target, (err) => err && done({ ok: false, error: err.message }));
 
     socket.on("error", (err) => done({ ok: false, error: err.message }));
     socket.on("message", (raw) => {
