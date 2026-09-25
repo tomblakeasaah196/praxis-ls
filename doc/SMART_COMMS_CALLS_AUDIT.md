@@ -1998,7 +1998,7 @@ factual. The next agent relies on them.
 | PR-2 | MERGED | `claude/wizardly-ptolemy-dyazt1` | #477 | 2026-09-24 | Per-part recorder and transcription, finalise, race-free drafts, pinned draft (O3), N3; migration 14050 |
 | PR-3 | MERGED | `claude/tender-davinci-v1eh8y` | #479 | 2026-09-24 | TURN, credentials, relay, IDOR, rate limits; migration 14060; null-payload crash in the relay |
 | PR-4 | MERGED | `claude/smart-comms-pr-4-9e8q91` | #481 | 2026-09-24 | Perfect negotiation, rings on every device (push at dial, re-alerts, cancel everywhere), ringing read, Answer/Decline, device check + Test ring, noise default off, no screen wake lock; TURN relay-to-relay and TLS on 443 (owner's Step 0/0b); migration 14070 |
-| PR-5 | OPEN | `claude/smart-comms-pr-5-jzgkt1` | — | — | Per-call clocks, Redis presence, fair/limited transcription, fair ring queue, metrics from counters, latency alarm, bounded queries, env in every room; rate-limit memory fallback, sandbox status mirror; `scripts/load-calls.js`; migration 14080 |
+| PR-5 | OPEN | `claude/smart-comms-pr-5-jzgkt1` | #482 | — | Per-call clocks, Redis presence, fair/limited transcription, fair ring queue, metrics from counters, latency alarm, bounded queries, env in every room; rate-limit memory fallback, sandbox status mirror; `scripts/load-calls.js`; migration 14080 |
 | PR-6 | NOT STARTED | — | — | — | |
 | PR-7 | NOT STARTED | — | — | — | |
 | Plan update (O1–O5, A12–A15, N1–N5, PR-7) | MERGED | `claude/integration-audit-report-u6twc5` | #475 | 2026-09-24 | Owner decisions, ringing findings, PR-1 findings, test calls |
@@ -2822,7 +2822,7 @@ premium, WhatsApp-grade finish. Branch `claude/message-ui-redesign-gzxylv`
   a real phone (the owner's checklist on #481). Nothing touched
   production; the §0 SQL was not run.
 
-### PR-5 · 2026-09-25 · OPEN
+### PR-5 · 2026-09-25 · OPEN (#482)
 - Fixed, each with the test that proves it. The new tests were written first
   and fail on PR-4's code (the `realtime-presence`, `call-clock`,
   `call-transcribe-gate`, `worker-deferral`, `tenant-db-slots` and
