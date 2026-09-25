@@ -50,10 +50,12 @@ vi.mock("./call-ring-prompt", () => ({ CallRingPrompt: () => null }));
 import { ThreadCallStrip } from "./thread-call-strip";
 import { CommsLive } from "../comms-live";
 import { ToastProvider } from "@/components/ui/toast";
+import { setCallView } from "./call-view";
 
 beforeEach(() => {
   S.state.phase = "incoming";
   S.answer.mockClear();
+  setCallView("auto");
 });
 
 describe("the thread strip", () => {
@@ -105,5 +107,28 @@ describe("CommsLive places the call once (O4)", () => {
     expect(document.querySelector("[data-call-surface='bar']")).not.toBeNull();
     await userEvent.click(screen.getAllByRole("button", { name: "Open the call" })[0]);
     expect(document.querySelector("[data-call-surface='screen']")).not.toBeNull();
+  });
+
+  it("in the call's conversation a live call is the strip alone; Open the call shows the screen and the strip steps aside", async () => {
+    S.state.phase = "in_call";
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/comms?channel=g1"]}>
+          <ThreadCallStrip groupId="g1" />
+          <CommsLive />
+        </MemoryRouter>
+      </ToastProvider>,
+    );
+    expect(document.querySelector("[data-call-surface='thread-live']")).not.toBeNull();
+    expect(document.querySelector("[data-call-surface='screen']")).toBeNull();
+    expect(document.querySelector("[data-call-surface='bar']")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Open the call" }));
+    expect(document.querySelector("[data-call-surface='screen']")).not.toBeNull();
+    expect(document.querySelector("[data-call-surface='thread-live']")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "End call" })).toHaveLength(1);
+    // Minimised again: back to the strip, and no docked bar in the thread.
+    await userEvent.click(screen.getByRole("button", { name: "Minimise call" }));
+    expect(document.querySelector("[data-call-surface='thread-live']")).not.toBeNull();
+    expect(document.querySelector("[data-call-surface='bar']")).toBeNull();
   });
 });

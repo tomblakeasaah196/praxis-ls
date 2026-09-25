@@ -114,6 +114,11 @@ export function CallOverlay({
           </Button>
         )}
         {quality && phase === "in_call" && <QualityLine quality={quality} />}
+        {phase === "in_call" && (
+          <p className="text-xs text-muted-foreground" aria-live="polite">
+            {muted ? tr("Your microphone is muted") : tr("Your microphone is on")}
+          </p>
+        )}
       </div>
 
       {noise && phase === "in_call" && (

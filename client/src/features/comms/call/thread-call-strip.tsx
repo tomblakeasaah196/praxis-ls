@@ -3,16 +3,20 @@
  *
  * While the caller's conversation is open, this strip at the top of the thread
  * replaces the ring card, so there is only ever one Answer button; once
- * answered it becomes the live-call strip (name, clock, mute, hang up), and
- * the docked bar steps aside. It sits in the thread's layout flow.
+ * answered it becomes the live-call strip (name, clock, mute, open the call,
+ * hang up), and the docked bar steps aside. "Open the call" shows the full
+ * call screen (quality, noise filter, the recording notice); while it is open
+ * the strip steps aside in turn, so End call is never on screen twice
+ * (call-view.ts). It sits in the thread's layout flow.
  */
 import { tr, tv } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { PhoneIcon, PhoneDownIcon, MicIcon, MicOffIcon } from "@/components/ui/icons";
+import { PhoneIcon, PhoneDownIcon, MicIcon, MicOffIcon, ExpandIcon } from "@/components/ui/icons";
 import { useCall, answer, decline, hangup, setMuted } from "./call-session";
 import { useCallProcessing, processorsSentence } from "./call-capabilities";
 import { RecordingNotice } from "./call-parts";
 import { fmtClock, ringingFor, RING_WINDOW_S } from "./call-time";
+import { useCallView, setCallView } from "./call-view";
 
 /** The strip for `groupId`'s call, or nothing when no call is on it. */
 export function ThreadCallStrip({ groupId }: { groupId: string | null | undefined }) {
@@ -20,6 +24,7 @@ export function ThreadCallStrip({ groupId }: { groupId: string | null | undefine
   const live = !!groupId && call.call?.group_id === groupId
     && call.phase !== "idle" && call.phase !== "ended";
   const processing = useCallProcessing(live && call.recordingEnabled);
+  const view = useCallView();
   if (!live) return null;
   const who = call.peerName || tr("Someone");
 
@@ -54,6 +59,8 @@ export function ThreadCallStrip({ groupId }: { groupId: string | null | undefine
     );
   }
 
+  // The full call screen is open: it carries the controls.
+  if (view === "full") return null;
   const status = call.phase === "in_call"
     ? fmtClock(call.elapsedS)
     : call.phase === "connecting" ? tr("Connecting…") : tr("Calling…");
@@ -78,6 +85,10 @@ export function ThreadCallStrip({ groupId }: { groupId: string | null | undefine
           {call.muted ? <MicOffIcon width={15} height={15} /> : <MicIcon width={15} height={15} />}
         </Button>
       )}
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCallView("full")}
+        aria-label={tr("Open the call")} icon={null}>
+        <ExpandIcon width={15} height={15} />
+      </Button>
       <Button variant="destructive" size="sm" onClick={() => void hangup()} icon={<PhoneDownIcon width={14} height={14} />}>
         {tr("End call")}
       </Button>

@@ -46,6 +46,7 @@ import { acquireCallKeepAlive, releaseWakeLock } from "./call/wake-keepalive";
 import { setOnline, useOnline, replaceOnline } from "./presence";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "@/components/ui/icons";
+import { useCallView, setCallView } from "./call/call-view";
 
 /** 60 s client-side throttle for the seen beat — the server upserts either
  *  way, so the throttle is about honesty (and load), not correctness. */
@@ -80,11 +81,13 @@ export function CommsLive() {
     ? new URLSearchParams(location.search).get("channel")
     : null;
   const inThread = !!openChannel && call.call?.group_id === openChannel;
-  // Full call screen or the docked bar (F4). A new call opens full.
-  const [view, setView] = React.useState<"full" | "bar">("full");
+  // Full call screen, docked bar, or — in the call's own conversation — the
+  // thread strip alone (call-view.ts). A new call starts at "auto".
+  const view = useCallView();
   React.useEffect(() => {
-    if (call.phase === "idle" || call.phase === "ended") setView("full");
+    if (call.phase === "idle" || call.phase === "ended") setCallView("auto");
   }, [call.phase]);
+  const showFull = view === "full" || (view === "auto" && !inThread);
   const processing = useCallProcessing(call.recordingEnabled && call.phase !== "idle" && call.phase !== "ended");
   const processors = processorsSentence(processing);
 
@@ -286,17 +289,17 @@ export function CommsLive() {
           recordingEnabled={call.recordingEnabled}
           onMute={() => setMuted(!call.muted)}
           onHangup={() => void hangup()}
-          onExpand={() => setView("full")}
+          onExpand={() => setCallView("full")}
           onOpenConversation={call.call ? () => navigateRef.current(`/comms?channel=${call.call?.group_id}`) : undefined}
         />
       )}
       {(call.phase === "dialing" || call.phase === "outgoing" || call.phase === "connecting" || call.phase === "in_call")
-        && view === "full" && !inThread && (
+        && showFull && (
         <CallOverlay
           name={call.peerName}
           phase={call.phase}
           processors={processors}
-          onMinimise={() => setView("bar")}
+          onMinimise={() => setCallView("bar")}
           audioBlocked={call.audioBlocked}
           onTapToHear={() => void resumeAudio()}
           elapsedS={call.elapsedS}

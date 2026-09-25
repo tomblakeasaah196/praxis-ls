@@ -47,7 +47,9 @@ export function IncomingRing({
   const titleId = React.useId();
   return (
     <section
-      role="dialog"
+      // An incoming call asks for an answer now: alertdialog, announced as
+      // soon as it appears. Modal only when it has taken the whole screen.
+      role="alertdialog"
       aria-modal={full ? "true" : "false"}
       aria-labelledby={titleId}
       data-call-surface="ring"

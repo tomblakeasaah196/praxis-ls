@@ -3026,7 +3026,12 @@ premium, WhatsApp-grade finish. Branch `claude/message-ui-redesign-gzxylv`
     expand to a full solid screen. In the caller's open conversation the ring
     strip replaces the card, so there is one Answer button, and becomes the
     live strip once answered (`comms-live.tsx` hides the card and the bar for
-    that thread). `thread-call-strip.test.tsx` ("CommsLive shows no card…").
+    that thread); the strip's **Open the call** shows the full call screen
+    and the strip steps aside while it is open, so End call is never on
+    screen twice (`call-view.ts`). The ring card is an `alertdialog`.
+    `thread-call-strip.test.tsx`, and `e2e/call.spec.ts` (updated for the
+    in-thread strip and the capability read; a new case for the in-thread
+    ring; 65/65 e2e locally).
   - F5: `Checkbox` for every checkbox (call screen noise filter, Settings →
     Calls), `Button` with an icon for every "×"/"✕" glyph. `useConfirm` for
     Discard was already PR-2's.
