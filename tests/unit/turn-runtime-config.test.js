@@ -216,3 +216,47 @@ describe("what the console refuses to save", () => {
     expect(rule({})).toBeNull();
   });
 });
+
+/**
+ * `/settings/:section/:key` puts two URL segments into a map lookup whose
+ * result is then CALLED. A plain object literal inherits Object.prototype,
+ * so a lookup finding nothing of ours could still hand back a function —
+ * `constructor`, `toString`, `valueOf`. Nothing reachable produces one
+ * today only because `specKey` always inserts a dot and no prototype member
+ * contains one, which is an accident of that helper rather than a check.
+ *
+ * CodeQL flagged the shape (js/unvalidated-dynamic-method-call) and was
+ * right to: it would stop being true the moment anyone joined the id
+ * upstream. These pin the own-property test that replaced the accident.
+ */
+describe("a settings name from the URL cannot reach Object.prototype", () => {
+  const settings = jest.requireActual("../../src/services/platform/settings.service");
+
+  it.each(["constructor", "toString", "valueOf", "hasOwnProperty", "__proto__", "isPrototypeOf"])(
+    "%s is not a settable or testable setting",
+    async (inherited) => {
+      // Neither half of the pair, nor a pre-joined id, may find an inherited
+      // member — and `test()` must answer "no test available", not invoke it.
+      const out = await settings.test(inherited, inherited);
+      expect(out).toMatchObject({ ok: false });
+      expect(String(out.error)).toMatch(/no test available/);
+    },
+  );
+
+  it("returns null for an inherited name rather than a callable", () => {
+    const { lookupSpec, spec, valueRules } = settings._test;
+    for (const inherited of ["constructor", "toString", "valueOf", "__proto__"]) {
+      expect(lookupSpec(spec, inherited, inherited)).toBeNull();
+      expect(lookupSpec(valueRules, inherited, inherited)).toBeNull();
+      // And with the id pre-joined, which is the shape that would break the
+      // dot-always-present accident this replaced.
+      expect(lookupSpec(spec, inherited, "")).toBeNull();
+    }
+  });
+
+  it("still finds a real entry, so the fix is not a blanket no", () => {
+    const { lookupSpec, spec, valueRules } = settings._test;
+    expect(lookupSpec(spec, "network", "turn")).toBeTruthy();
+    expect(typeof lookupSpec(valueRules, "network", "turn")).toBe("function");
+  });
+});

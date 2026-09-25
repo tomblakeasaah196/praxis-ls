@@ -88,6 +88,27 @@ const SPEC = {
 const specKey = (section, key) => section + "." + key;
 
 /**
+ * Look one entry up in a map keyed by `<section>.<key>`, where both halves
+ * came off the URL (`/settings/:section/:key`).
+ *
+ * `MAP[specKey(section, key)]` reaches Object.prototype through a request
+ * parameter. `constructor`, `toString`, `valueOf` and friends are inherited
+ * members, so a lookup that finds nothing of ours can still hand back a
+ * FUNCTION — and both callers below invoke what they get. Nothing reachable
+ * today produces one, because `specKey` always inserts a dot and no
+ * prototype member contains one; that is an accident of this helper rather
+ * than a check, and it would stop being true the moment anyone joins the id
+ * upstream or renames a section.
+ *
+ * An own-property test is the whole fix (CodeQL:
+ * js/unvalidated-dynamic-method-call).
+ */
+function lookupSpec(map, section, key) {
+  const id = specKey(section, key);
+  return Object.prototype.hasOwnProperty.call(map, id) ? map[id] : null;
+}
+
+/**
  * Per-setting shape checks for the values that leave this deployment.
  *
  * `platformSetting` in the validator accepts any object, which is right for a
@@ -124,7 +145,7 @@ const VALUE_RULES = {
 
 /** Throws 422 when a known setting's value is malformed. */
 function assertValueShape(section, key, value) {
-  const rule = VALUE_RULES[specKey(section, key)];
+  const rule = lookupSpec(VALUE_RULES, section, key);
   if (!rule) return;
   const problem = rule(value || {});
   if (problem) {
@@ -227,7 +248,7 @@ async function resolve(section, key) {
 
 /** Run the provider's live probe against the stored credential. Never throws. */
 async function test(section, key) {
-  const spec = SPEC[specKey(section, key)];
+  const spec = lookupSpec(SPEC, section, key);
   if (!spec) return { ok: false, error: "no test available for " + section + "." + key };
   const resolved = await resolve(section, key);
   if (!resolved) return { ok: false, error: "not configured" };
@@ -264,4 +285,4 @@ async function generateVapid({ subject, actor = null } = {}) {
 
 module.exports = {
   // The value rules, for the suite that holds the iceServers shapes.
-  _test: { valueRules: VALUE_RULES }, list, get, put, resolve, test, generateVapid };
+  _test: { valueRules: VALUE_RULES, lookupSpec, spec: SPEC }, list, get, put, resolve, test, generateVapid };

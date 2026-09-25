@@ -201,14 +201,8 @@ async function allocate({ host, port, label, mac, timeoutMs = 5000, allowPrivate
     let key = null;
     let realm = null;
     let nonce = null;
-    // `target` is not the operator's string: it is an address that
-    // assertProbeableHost resolved and then refused unless EVERY answer was
-    // public (tests/unit/turn-probe-ssrf.test.js). CodeQL's taint tracker
-    // cannot see a dns.lookup plus a range filter as a sanitizer, so it
-    // still reads the vault-sourced host as reaching this socket. The
-    // mitigation is here, tested, and the same range list coturn's own
-    // entrypoint denies as peers (audit C1).
-    // codeql[js/request-forgery]
+    // `target` is an address assertProbeableHost resolved and then refused
+    // unless EVERY answer was public — never the operator's string.
     const send = (buf) => socket.send(buf, port, target, (err) => err && done({ ok: false, error: err.message }));
 
     socket.on("error", (err) => done({ ok: false, error: err.message }));
