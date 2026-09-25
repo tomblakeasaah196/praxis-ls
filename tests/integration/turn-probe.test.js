@@ -9,7 +9,6 @@
  * first one found).
  */
 const os = require("os");
-const crypto = require("crypto");
 const { spawn, spawnSync } = require("child_process");
 
 const has = (bin) => spawnSync("sh", ["-c", `command -v ${bin}`]).status === 0;
@@ -17,12 +16,20 @@ const IP = process.env.TURN_TEST_RELAY_IP
   || Object.values(os.networkInterfaces()).flat().find((a) => a && a.family === "IPv4" && !a.internal)?.address;
 const enabled = process.env.RUN_TURN_TESTS === "1" && has("turnserver") && !!IP;
 const maybe = enabled ? describe : describe.skip;
+jest.mock("../../src/config/env", () => {
+  const real = jest.requireActual("../../src/config/env");
+  return { ...real, config: { ...real.config } };
+});
 const PORT = 34790;
 const SECRET = "probe-integration-secret";
 
-const cred = (secret) => {
-  const username = `${Math.floor(Date.now() / 1000) + 120}:canary-test`;
-  return { username, password: crypto.createHmac("sha1", secret).update(username).digest("base64") };
+// Signed exactly as the API signs a caller's (smartcomm.turn.service).
+const cred = (sharedKey) => {
+  const { config } = require("../../src/config/env");
+  config.TURN_CREDENTIAL_SECRET = sharedKey;
+  const { label, mac } = require("../../src/modules/smartcomm/smartcomm.turn.service")
+    .credentialParts({ token: "canary-test", ttlSeconds: 120 });
+  return { label, mac };
 };
 
 maybe("the TURN probe against a real relay", () => {
