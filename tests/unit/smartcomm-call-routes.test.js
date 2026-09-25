@@ -175,3 +175,42 @@ describe("PR-4: the ringing read and the test ring", () => {
     expect(spy.mock.calls[0][1]).toMatchObject({ id: CALL, tenantMeta: { slug: "accept-tenant" } });
   });
 });
+
+describe("PR-6 routes", () => {
+  test("accept with record:false reaches the service as a declined recording; no body records", async () => {
+    const spy = jest.spyOn(calls, "acceptCall").mockResolvedValue({ call_id: CALL });
+    await request(app()).post(`/calls/${CALL}/accept`).send({ record: false });
+    expect(spy.mock.calls[0][1]).toMatchObject({ record: false });
+    await request(app()).post(`/calls/${CALL}/accept`);
+    expect(spy.mock.calls[1][1]).toMatchObject({ record: true });
+    spy.mockRestore();
+  });
+
+  test("accept refuses an unknown body field", async () => {
+    const res = await request(app()).post(`/calls/${CALL}/accept`).send({ record: "no" });
+    expect(res.status).toBe(422);
+  });
+
+  test("GET /calls/processing is the disclosure, not a call id", async () => {
+    const spy = jest.spyOn(calls, "processingDisclosure").mockResolvedValue({ transcription: [] });
+    const res = await request(app()).get("/calls/processing");
+    expect(res.status).toBe(200);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  test("erase-user takes one user id and passes the actor", async () => {
+    const spy = jest.spyOn(pipeline, "eraseUserCallRecords").mockResolvedValue({ calls: 0 });
+    const U = "66666666-6666-6666-6666-666666666666";
+    expect((await request(app()).post("/calls/erase-user").send({ user_id: "nope" })).status).toBe(422);
+    const res = await request(app()).post("/calls/erase-user").send({ user_id: U });
+    expect(res.status).toBe(200);
+    expect(spy.mock.calls[0][1]).toMatchObject({ userId: U, actor: expect.objectContaining({ user_id: expect.any(String) }) });
+    spy.mockRestore();
+  });
+
+  test("erase-user is a settings admin's action (MOD-70 edit)", () => {
+    const src = require("fs").readFileSync(require.resolve("../../src/modules/smartcomm/smartcomm.routes.js"), "utf8");
+    expect(src).toMatch(/router\.post\("\/calls\/erase-user", requirePermission\("MOD-70", "edit"\)/);
+  });
+});
