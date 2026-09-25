@@ -765,7 +765,7 @@ async function pipelineJob({ withLiveDb, withEnvDb, runId, userId, tenantMeta, e
       status: ownOnly ? "warn" : "fail", ms: Date.now() - t0, detail: { checks },
       code: providerDown("groq") && providerDown("gemini") ? "TRANSCRIPTION_DOWN"
         : providerDown("groq") ? "GROQ_FAILED" : providerDown("gemini") ? "GEMINI_FAILED" : "OWN_PARTS",
-      cause: failed.map((c) => `${c.label}: ${c.error || "failed"}`).join("; "),
+      cause: failed.map((f) => `${f.label}: ${f.error || "failed"}`).join("; "),
       fix: ownOnly
         ? "The providers work; your own recording did not transcribe. Speak closer to the microphone and run it again."
         : "Tell support which provider failed (it is in this report): calls fall back to the other one, but only while it works.",
@@ -783,7 +783,7 @@ async function pipelineJob({ withLiveDb, withEnvDb, runId, userId, tenantMeta, e
     ? {
       status: "fail", ms: Date.now() - s0, detail: { checks: sums },
       code: sumFailed.length === 2 ? "SUMMARY_DOWN" : sumFailed[0].provider === "gemini" ? "GEMINI_SUMMARY_FAILED" : "DEEPSEEK_SUMMARY_FAILED",
-      cause: sumFailed.map((c) => `${c.label}: ${c.error}`).join("; "),
+      cause: sumFailed.map((f) => `${f.label}: ${f.error}`).join("; "),
       fix: "Tell support which summary provider failed (it is in this report).",
     }
     : { status: "pass", ms: Date.now() - s0, detail: { checks: sums } }, meta));
