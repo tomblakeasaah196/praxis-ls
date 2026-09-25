@@ -96,6 +96,7 @@ const pct = (xs, p) => {
   const s = [...xs].sort((a, b) => a - b);
   return s[Math.min(s.length - 1, Math.ceil((p / 100) * s.length) - 1)];
 };
+const say = (text) => process.stdout.write(`${text}\n`);
 const round = (x, d = 0) => (x === null || x === undefined ? null : Number(x.toFixed(d)));
 
 /* ── Stubs: the third parties only ─────────────────────────────────────── */
@@ -490,7 +491,7 @@ async function runCase(n, baseMeta, db) {
       within_budget: timeouts === 0,
     },
   };
-  console.log(JSON.stringify(result, null, 2));
+  say(JSON.stringify(result, null, 2));
   return result;
 }
 
@@ -500,7 +501,7 @@ async function main() {
   instrumentPools();
   const baseMeta = await registry.resolveBySlug(SLUG);
   if (!baseMeta) throw new Error(`tenant ${SLUG} not found in the platform registry`);
-  console.log(`load-calls: cloning ${baseMeta.db_name} → ${CLONE}; Redis db ${REDIS_DB}; ${REPLICAS} worker replica(s); limits groq ${config.GROQ_TRANSCRIBE_RPM} rpm / ${config.GROQ_TRANSCRIBE_AUDIO_SECONDS_PER_HOUR} s·h, gemini ${config.GEMINI_TRANSCRIBE_RPM} rpm; tenant share ${config.CALL_TRANSCRIBE_TENANT_PER_MIN}/min burst ${config.CALL_TRANSCRIBE_TENANT_BURST}`);
+  say(`load-calls: cloning ${baseMeta.db_name} → ${CLONE}; Redis db ${REDIS_DB}; ${REPLICAS} worker replica(s); limits groq ${config.GROQ_TRANSCRIBE_RPM} rpm / ${config.GROQ_TRANSCRIBE_AUDIO_SECONDS_PER_HOUR} s·h, gemini ${config.GEMINI_TRANSCRIBE_RPM} rpm; tenant share ${config.CALL_TRANSCRIBE_TENANT_PER_MIN}/min burst ${config.CALL_TRANSCRIBE_TENANT_BURST}`);
   const results = [];
   try {
     for (const n of CASES) {
@@ -521,7 +522,7 @@ async function main() {
   if (JSON_OUT) require("fs").writeFileSync(JSON_OUT, JSON.stringify(results, null, 2));
   const ok = results.every((r) => r.ring_timeouts.all_within_5s && r.pool.within_budget)
     && results.filter((r) => r.tenants === 10).every((r) => r.hangup_to_summary_s.p95 !== null && r.hangup_to_summary_s.p95 < 120);
-  console.log(ok ? "\nload-calls: acceptance met" : "\nload-calls: acceptance NOT met");
+  say(ok ? "\nload-calls: acceptance met" : "\nload-calls: acceptance NOT met");
   process.exit(ok ? 0 : 1);
 }
 
