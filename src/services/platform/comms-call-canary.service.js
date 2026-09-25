@@ -30,6 +30,7 @@
  */
 "use strict";
 
+const crypto = require("crypto");
 const { config } = require("../../config/env");
 const { logger } = require("../../config/logger");
 
@@ -97,7 +98,7 @@ async function relayCheck() {
     return { ok: false, error: "no relay configured (TURN_HOST / TURN_CREDENTIAL_SECRET): calls between mobile networks may not connect" };
   }
   const turn = require("../../modules/smartcomm/smartcomm.turn.service");
-  const { label, mac } = turn.credentialParts({ token: `canary-${turn.newCallToken()}`, ttlSeconds: 60 });
+  const { label, mac } = turn.signedLabel({ id: `canary-${crypto.randomBytes(9).toString("base64url")}`, ttlSeconds: 60 });
   const out = await require("./turn-probe").allocate({
     host: config.TURN_HOST, port: Number(config.TURN_PORT_UDP) || 3478, label, mac,
   });

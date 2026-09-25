@@ -92,7 +92,7 @@ function errorOf(v) {
 /**
  * Allocate a relay address on `host:port` with the long-term credential
  * `label` (coturn's "username", `<expiry>:<token>`) and `mac` (the HMAC it
- * checks) — `smartcomm.turn.service` `credentialParts`. Resolves
+ * checks) — `smartcomm.turn.service` `signedLabel`. Resolves
  * `{ ok, relayed, ms, error, code }`; never throws.
  */
 function allocate({ host, port, label, mac, timeoutMs = 5000 }) {
