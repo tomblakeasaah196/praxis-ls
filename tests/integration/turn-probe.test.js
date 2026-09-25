@@ -24,7 +24,7 @@ const PORT = 34790;
 const SECRET = "probe-integration-secret";
 
 // Signed exactly as the API signs a caller's (smartcomm.turn.service).
-const cred = (sharedKey) => {
+const mint = (sharedKey) => {
   const { config } = require("../../src/config/env");
   config.TURN_CREDENTIAL_SECRET = sharedKey;
   const { label, mac } = require("../../src/modules/smartcomm/smartcomm.turn.service")
@@ -46,15 +46,15 @@ maybe("the TURN probe against a real relay", () => {
   afterAll(() => relay && relay.kill());
 
   test("a credential signed with the relay's secret allocates, and is released", async () => {
-    const out = await allocate({ host: IP, port: PORT, ...cred(SECRET) });
+    const out = await allocate({ host: IP, port: PORT, ...mint(SECRET) });
     expect(out).toMatchObject({ ok: true, relayed: expect.stringMatching(/^\d+\.\d+\.\d+\.\d+:\d+$/) });
   });
 
   test("a wrong secret is refused with 401", async () => {
-    expect(await allocate({ host: IP, port: PORT, ...cred("not-the-secret") })).toMatchObject({ ok: false, code: 401 });
+    expect(await allocate({ host: IP, port: PORT, ...mint("not-the-secret") })).toMatchObject({ ok: false, code: 401 });
   });
 
   test("a relay that is not there times out", async () => {
-    expect(await allocate({ host: IP, port: PORT + 3, ...cred(SECRET), timeoutMs: 1000 })).toMatchObject({ ok: false });
+    expect(await allocate({ host: IP, port: PORT + 3, ...mint(SECRET), timeoutMs: 1000 })).toMatchObject({ ok: false });
   });
 });
