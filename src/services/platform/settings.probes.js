@@ -331,7 +331,7 @@ async function turn() {
   const runtime = require("./runtime-config.service");
   const cfg = await runtime.turn();
   if (!cfg.host) throw new Error("no relay host configured (TURN_HOST, or the host field above)");
-  if (!cfg.secret) {
+  if (!cfg.secretSet) {
     throw new Error("TURN_CREDENTIAL_SECRET is not set on the host — the API cannot sign a relay credential");
   }
 
