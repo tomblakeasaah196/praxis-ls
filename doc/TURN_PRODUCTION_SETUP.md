@@ -279,11 +279,32 @@ do not connect. That is the promise the switch makes.
 - **One shared secret, two readers.** The API signs with
   `TURN_CREDENTIAL_SECRET` and coturn verifies with the same value, so both
   must read one source. Today that is the host's `.env`.
-- **Moving it to the admin console (proposed for a later PR).** Storing the
-  TURN host and secret encrypted in the platform console, like the AI vendor
-  credentials, is sound for the API side. But coturn cannot read the
-  console, so the secret would then live in two places, and they would drift.
-  The way to do it properly:
+- **The admin console holds the API side (done).** Platform console →
+  Integrations → **Call relay (TURN)** sets the relay hostname, the advertised
+  TCP port, the transports and the STUN list. They are stored in the platform
+  settings vault and read per call through `runtime-config.service.turn()`: a
+  saved value wins over `.env`, an empty one falls back to it, and a vault
+  that cannot be read falls back to it too — the platform database is not on
+  the call path and must not become so. The same card SHOWS the host-owned
+  half read-only (realm, listener ports, external and listening IP, whether a
+  secret is set), so the whole relay is visible without an SSH session, and
+  its **Test** button makes a real allocation so drift between what we
+  advertise and what the relay is doing surfaces there.
+
+  What stays in `.env`, and why that is not an omission: the realm, the IPs,
+  the certificate paths, the port range and the quotas are coturn's, read from
+  the file the entrypoint renders when the container starts. The **listener
+  ports** (`TURN_PORT_UDP`, `TURN_TLS_PORT`) stay too, although the API reads
+  them as well — a settable copy would let the console advertise
+  `turns:host:443` while coturn still listens on 5349 and the firewall still
+  drops 443, which looks like it worked and silently breaks every relayed
+  call. Changing a listener is a host operation because it is a network
+  change: the daemon has to re-bind, and the port has to be opened in the
+  cloud provider's firewall, which no application code can do.
+- **Moving the SECRET there too (still proposed).** It is the one value worth
+  rotating often, and it is the hard one: the API signs with it and coturn
+  verifies with it, so a value only one of them can read puts the two out of
+  step and every credential is refused. The way to do it properly:
   - the console stores the secret, encrypted, and the API reads it from
     there;
   - coturn reads its secrets from Redis (`redis-userdb` with the
@@ -294,8 +315,10 @@ do not connect. That is the promise the switch makes.
   - the host `.env` then keeps only the relay's own settings (realm, ports,
     TLS).
 
-  That is a separate, reviewable change (platform console, Redis ACL for
-  coturn, rotation). Until it lands, `.env` is the single source.
+  That is a separate, reviewable change (Redis ACL for coturn, rotation).
+  Until it lands, `TURN_CREDENTIAL_SECRET` is `.env`'s alone. Note what it
+  costs: once the secret lives in the platform database, losing that database
+  loses the relay too, where today the two fail independently.
 - **Same VPS as the app.** Supported: the relay refuses private, loopback,
   link-local and Docker-bridge peers, has no TCP relay, and has quotas, so a
   credential cannot reach Postgres, Redis or cloud metadata. A separate

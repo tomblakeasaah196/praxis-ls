@@ -25,7 +25,14 @@ const FALLBACK_STUN = "stun:stun.l.google.com:19302";
 let warnedTurnMisconfigured = false;
 let warnedStunFallback = false;
 
-const turnConfigured = () => Boolean(config.TURN_HOST && config.TURN_CREDENTIAL_SECRET);
+/**
+ * A relay exists only when both halves do: a host to reach and a secret to
+ * sign with. `relay` is the resolved runtime config
+ * (runtime-config.service.turn()), never `config` directly — the host and
+ * ports are settable from the platform console, so reading env here would
+ * quietly ignore whatever an operator has set.
+ */
+const turnConfigured = (relay) => Boolean(relay && relay.host && relay.secret);
 
 /** A fresh per-call token for the credential's username. */
 function newCallToken() {
@@ -63,10 +70,10 @@ function turnCredential({ token, ttlSeconds, now = Date.now() }) {
   return { username: label, password: mac, expiresAt };
 }
 
-function stunServers() {
-  const listed = String(config.STUN_URLS || "").split(",").map((s) => s.trim()).filter(Boolean);
+function stunServers(relay) {
+  const listed = String(relay.stunUrls || "").split(",").map((s) => s.trim()).filter(Boolean);
   if (listed.length) return [{ urls: listed }];
-  if (config.TURN_HOST) return [{ urls: [`stun:${config.TURN_HOST}:${config.TURN_PORT_UDP}`] }];
+  if (relay.host) return [{ urls: [`stun:${relay.host}:${relay.portUdp}`] }];
   if (!warnedStunFallback) {
     warnedStunFallback = true;
     logger.warn("Neither STUN_URLS nor TURN_HOST is set — calls use Google's public STUN " +
@@ -83,40 +90,40 @@ function stunServers() {
  * exchanged, and a call that cannot connect keeps it where a quiet fallback
  * to peer-to-peer would break it.
  */
-function iceConfigFor({ token, ttlSeconds, relayOnly = false }) {
-  const servers = stunServers();
+function iceConfigFor({ token, ttlSeconds, relayOnly = false, relay }) {
+  const servers = stunServers(relay);
   let expiresAt = null;
-  if (turnConfigured()) {
+  if (turnConfigured(relay)) {
     const cred = turnCredential({ token, ttlSeconds });
     expiresAt = cred.expiresAt;
-    const urls = String(config.TURN_TRANSPORTS || "udp,tcp")
+    const urls = String(relay.transports || "udp,tcp")
       .split(",")
       .map((s) => s.trim())
       .filter((t) => t === "udp" || t === "tcp")
-      .map((t) => `turn:${config.TURN_HOST}:${t === "tcp" ? config.TURN_PORT_TCP : config.TURN_PORT_UDP}?transport=${t}`);
-    if (Number(config.TURN_TLS_PORT) > 0) {
-      urls.push(`turns:${config.TURN_HOST}:${config.TURN_TLS_PORT}?transport=tcp`);
+      .map((t) => `turn:${relay.host}:${t === "tcp" ? relay.portTcp : relay.portUdp}?transport=${t}`);
+    if (Number(relay.tlsPort) > 0) {
+      urls.push(`turns:${relay.host}:${relay.tlsPort}?transport=tcp`);
     }
     for (const url of urls) {
       servers.push({ urls: [url], username: cred.username, credential: cred.password });
     }
-  } else if (config.TURN_HOST && !warnedTurnMisconfigured) {
+  } else if (relay.host && !warnedTurnMisconfigured) {
     // Warn once per process: an ops error, not a per-call one.
     warnedTurnMisconfigured = true;
-    logger.warn("TURN_HOST is set but TURN_CREDENTIAL_SECRET is empty — no relay, " +
+    logger.warn("A relay host is set but TURN_CREDENTIAL_SECRET is empty — no relay, " +
       "calls behind carrier-grade NAT will not connect");
   }
   return {
     iceServers: servers,
     iceTransportPolicy: relayOnly ? "relay" : "all",
-    turnConfigured: turnConfigured(),
+    turnConfigured: turnConfigured(relay),
     expiresAt,
   };
 }
 
 /** Whether calls fall back to Google's public STUN (for the disclosure). */
-function usesGoogleStun() {
-  return !String(config.STUN_URLS || "").trim() && !config.TURN_HOST;
+function usesGoogleStun(relay) {
+  return !String((relay && relay.stunUrls) || "").trim() && !(relay && relay.host);
 }
 
 module.exports = { newCallToken, turnCredential, signedLabel, iceConfigFor, usesGoogleStun, turnConfigured };

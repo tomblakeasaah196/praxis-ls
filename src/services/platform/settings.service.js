@@ -75,8 +75,64 @@ const SPEC = {
       client_secret: secret,
     }),
   },
+  // The call relay, API side (FN-2 follow-up). The probe takes no cfg: it
+  // exercises what the runtime config has in force, which is the only way to
+  // catch the drift this panel can create — see settings.probes.turn.
+  //
+  // No secret. TURN_CREDENTIAL_SECRET stays on the host because the API signs
+  // with it and coturn verifies with it; a value only one of them can read
+  // puts the two out of step and refuses every call's credential. That is the
+  // pooler-password case named in runtime-config.service.js.
+  "network.turn": { probe: probes.turn, cfg: () => ({}) },
 };
 const specKey = (section, key) => section + "." + key;
+
+/**
+ * Per-setting shape checks for the values that leave this deployment.
+ *
+ * `platformSetting` in the validator accepts any object, which is right for a
+ * store this generic. `network.turn` needs more than that: its values are
+ * assembled into the `iceServers` URLs handed to every caller's browser, so a
+ * stray space or a scheme pasted into the host field becomes an ICE server
+ * nobody can reach, on every call, with the failure surfacing as "calls do
+ * not connect" rather than as anything about this field.
+ */
+const VALUE_RULES = {
+  "network.turn": (v) => {
+    const host = v.host === undefined ? "" : String(v.host).trim();
+    if (host && !/^[A-Za-z0-9.-]+$/.test(host)) {
+      return "host must be a bare hostname or IP — no scheme, port or path (e.g. turn.example.com)";
+    }
+    if (v.port_tcp !== undefined && v.port_tcp !== null && v.port_tcp !== "") {
+      const n = Number(v.port_tcp);
+      if (!Number.isInteger(n) || n < 1 || n > 65535) return "port_tcp must be a whole number between 1 and 65535";
+    }
+    if (v.transports !== undefined && v.transports !== null && v.transports !== "") {
+      const parts = String(v.transports).split(",").map((t) => t.trim()).filter(Boolean);
+      if (!parts.length || parts.some((t) => t !== "udp" && t !== "tcp")) {
+        return "transports must be udp, tcp, or udp,tcp";
+      }
+    }
+    if (v.stun_urls) {
+      const bad = String(v.stun_urls).split(",").map((u) => u.trim()).filter(Boolean)
+        .filter((u) => !/^stuns?:/.test(u));
+      if (bad.length) return `stun_urls entries must start with stun: or stuns: (got ${bad[0]})`;
+    }
+    return null;
+  },
+};
+
+/** Throws 422 when a known setting's value is malformed. */
+function assertValueShape(section, key, value) {
+  const rule = VALUE_RULES[specKey(section, key)];
+  if (!rule) return;
+  const problem = rule(value || {});
+  if (problem) {
+    const e = new Error(problem);
+    e.status = 422;
+    throw e;
+  }
+}
 
 /** Public, redacted row shape (no ciphertext / plaintext). */
 function redact(row) {
@@ -118,6 +174,7 @@ async function get(section, key) {
  * key). Returns the redacted row.
  */
 async function put({ section, key, value = {}, secret, actor = null }) {
+  assertValueShape(section, key, value);
   const existing = await getRow(section, key);
   let secretEnc = existing ? existing.secret_enc : null;
   let last4 = existing ? existing.last4 : null;
@@ -205,4 +262,6 @@ async function generateVapid({ subject, actor = null } = {}) {
   return { public_key: keys.publicKey, subject: subj };
 }
 
-module.exports = { list, get, put, resolve, test, generateVapid };
+module.exports = {
+  // The value rules, for the suite that holds the iceServers shapes.
+  _test: { valueRules: VALUE_RULES }, list, get, put, resolve, test, generateVapid };

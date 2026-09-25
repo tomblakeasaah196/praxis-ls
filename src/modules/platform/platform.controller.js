@@ -310,6 +310,39 @@ const settingPut = asyncHandler(async (req, res) => {
 const settingTest = asyncHandler(async (req, res) =>
   res.json({ data: await platformSettings.test(req.params.section, req.params.key) }),
 );
+/**
+ * The relay as it actually stands: what the API advertises, and what coturn
+ * was started with.
+ *
+ * Both halves in one response on purpose. The console's job here is not only
+ * to edit the settable half — it is to show an operator the whole relay
+ * WITHOUT an SSH session, including the parts they cannot change from there.
+ * Splitting it would leave the read-only half invisible, which is how a
+ * deployment ends up advertising a TLS port nothing is listening on.
+ *
+ * No secret, in either half: `secret_set` says whether the host has one.
+ */
+const turnEffective = asyncHandler(async (_req, res) => {
+  const runtime = require("../../services/platform/runtime-config.service");
+  const relay = await runtime.turn();
+  res.json({
+    data: {
+      // Settable here — the API is their only reader.
+      editable: {
+        host: relay.host,
+        port_tcp: relay.portTcp,
+        transports: relay.transports,
+        stun_urls: relay.stunUrls,
+      },
+      // Read-only: coturn reads these from the host at start, so a value set
+      // here would report success and change nothing.
+      host_owned: runtime.turnHostOwned(),
+      configured: relay.configured,
+      source: relay.source,
+    },
+  });
+});
+
 const vapidGenerate = asyncHandler(async (req, res) =>
   res.json({ data: await platformSettings.generateVapid({ subject: req.body.subject, actor: actor(req) }) }),
 );
@@ -381,6 +414,7 @@ module.exports = {
   settingGet,
   settingPut,
   settingTest,
+  turnEffective,
   vapidGenerate,
   aiVendorsList,
   aiVendorSet,
