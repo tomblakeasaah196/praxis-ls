@@ -47,11 +47,15 @@ function newCallToken() {
  * name; neither value is a person's: a public label and an HMAC under the
  * deployment's own coturn secret.
  */
-function signedLabel({ id, ttlSeconds, now = Date.now() }) {
+function signedLabel({ id, ttlSeconds, now = Date.now(), secret }) {
   if (!id) throw new Error("a TURN credential needs an id");
   const expiry = Math.floor(now / 1000) + Math.max(60, Math.ceil(Number(ttlSeconds) || 0));
   const label = `${expiry}:${id}`;
-  const sharedKey = String(config.TURN_CREDENTIAL_SECRET);
+  // `secret` when the caller resolved one (the vault, or the resolved relay
+  // config); `.env` otherwise. Not read from `config` unconditionally any
+  // more: with TURN_SECRET_SOURCE=vault the value here is the one coturn has
+  // in its Redis set, and signing with the env copy would be refused.
+  const sharedKey = String(secret === undefined || secret === null ? config.TURN_CREDENTIAL_SECRET : secret);
   const mac = crypto
     // SHA1 is TURN's wire protocol (RFC 5766 MESSAGE-INTEGRITY; coturn's
     // use-auth-secret computes exactly this), not a chosen cipher.
@@ -64,9 +68,9 @@ function signedLabel({ id, ttlSeconds, now = Date.now() }) {
 }
 
 /** One credential for `token`, valid for `ttlSeconds` (at least a minute). */
-function turnCredential({ token, ttlSeconds, now = Date.now() }) {
+function turnCredential({ token, ttlSeconds, now = Date.now(), secret }) {
   if (!token) throw new Error("a TURN credential needs the call's token");
-  const { label, mac, expiresAt } = signedLabel({ id: token, ttlSeconds, now });
+  const { label, mac, expiresAt } = signedLabel({ id: token, ttlSeconds, now, secret });
   return { username: label, password: mac, expiresAt };
 }
 
@@ -90,11 +94,11 @@ function stunServers(relay) {
  * exchanged, and a call that cannot connect keeps it where a quiet fallback
  * to peer-to-peer would break it.
  */
-function iceConfigFor({ token, ttlSeconds, relayOnly = false, relay }) {
+function iceConfigFor({ token, ttlSeconds, relayOnly = false, relay, secret }) {
   const servers = stunServers(relay);
   let expiresAt = null;
   if (turnConfigured(relay)) {
-    const cred = turnCredential({ token, ttlSeconds });
+    const cred = turnCredential({ token, ttlSeconds, secret });
     expiresAt = cred.expiresAt;
     const urls = String(relay.transports || "udp,tcp")
       .split(",")
