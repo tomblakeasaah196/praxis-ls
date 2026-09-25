@@ -87,6 +87,32 @@ describe("the host check", () => {
   });
 });
 
+describe("the packet goes to the checked address, not the name", () => {
+  /**
+   * Resolving once and sending to the result closes the gap between the
+   * check and the send: a name that answers publicly here and privately a
+   * millisecond later cannot move the target, because by then the target is
+   * already an address.
+   */
+  it("sends to the resolved address rather than the hostname", async () => {
+    const dnsp = require("dns").promises;
+    const dgram = require("dgram");
+    const lookup = jest.spyOn(dnsp, "lookup").mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
+    const sent = [];
+    const sock = { send: (_b, _p, addr) => sent.push(addr), on: () => {}, close: () => {} };
+    const create = jest.spyOn(dgram, "createSocket").mockReturnValue(sock);
+    try {
+      void probe.allocate({ host: "relay.example", port: 3478, label: "l", mac: "m", timeoutMs: 20 });
+      await new Promise((r) => setTimeout(r, 30));
+      expect(sent).toContain("203.0.113.10");
+      expect(sent).not.toContain("relay.example");
+    } finally {
+      lookup.mockRestore();
+      create.mockRestore();
+    }
+  });
+});
+
 describe("allocate refuses before it sends anything", () => {
   it("returns BLOCKED_ADDRESS rather than opening a socket", async () => {
     const dgram = require("dgram");
