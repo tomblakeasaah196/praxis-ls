@@ -208,6 +208,10 @@ router.post("/calls/test-ring", view, callsOn, testRingLimiter, v.callTestRing, 
 // PR-6 (audit G2): who receives this tenant's call data, from the configured
 // vendors. Read by the consent line on the ring and Settings → Calls.
 router.get("/calls/processing", view, callsOn, c.callProcessing);
+// PR-6 (audit F10): what this person's app may offer — calls on, may dial,
+// recording on, settings admin. Not behind `callsOn`: its answer IS whether
+// calls are on, so the phone icon never renders into a 403.
+router.get("/calls/capabilities", view, c.callCapabilities);
 // PR-6 (audit G3): a settings admin erases one person's call records.
 router.post("/calls/erase-user", requirePermission("MOD-70", "edit"), v.callEraseUser, c.eraseUserCallRecords);
 router.post("/calls/:id/accept", view, callsOn, v.callAccept, c.acceptCall);

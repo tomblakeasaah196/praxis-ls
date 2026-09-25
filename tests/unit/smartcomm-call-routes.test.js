@@ -214,3 +214,35 @@ describe("PR-6 routes", () => {
     expect(src).toMatch(/router\.post\("\/calls\/erase-user", requirePermission\("MOD-70", "edit"\)/);
   });
 });
+
+describe("GET /calls/capabilities (audit F10)", () => {
+  const rbac = require("../../src/middleware/rbac");
+  test("says whether calls are on, whether this person may dial, and whether recording is on", async () => {
+    rbac.readPermissions = jest.fn(async () => [true, false]);
+    const a = express();
+    a.use(express.json());
+    a.use((req, _res, next) => {
+      req.tenant = { slug: "acme" };
+      req.env = "live";
+      req.user = { user_id: "u1" };
+      req.tenantDb = (fn) => fn({
+        query: async (sql, p) => {
+          if (/FROM feature_state WHERE feature_key = \$1/.test(sql) && p[0] === "call_recording") {
+            return { rows: [{ state: "on", tenant_enabled: true }] };
+          }
+          if (/FROM feature_state WHERE feature_key=\$1|FROM feature_state WHERE feature_key = \$1/.test(sql)) {
+            return { rows: [{ state: "on" }] };
+          }
+          return { rows: [] };
+        },
+      });
+      next();
+    });
+    a.use(router);
+    a.use(errorHandler);
+    const res = await request(a).get("/calls/capabilities");
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ calls: true, can_dial: true, recording: true, settings_admin: false });
+    expect(rbac.readPermissions.mock.calls[0][1]).toEqual([["MOD-64", "create"], ["MOD-70", "edit"]]);
+  });
+});
