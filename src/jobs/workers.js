@@ -54,6 +54,9 @@ const PROCESSORS = [
   { name: "call-summary-regenerate", concurrency: 2, handler: require("./handlers/call-summary-regenerate") },
   { name: "comms-call-record-sweep", concurrency: 1, handler: require("./handlers/comms-call-record-sweep") },
   { name: "comms-call-record-sweep-scheduler", concurrency: 1, handler: require("./handlers/comms-call-record-sweep-scheduler") },
+  // Comms → Setup → Test calls (PR-7, O5): the queue round trip and the
+  // provider checks of one run. Capped at 3 runs a tenant a day upstream.
+  { name: "comms-diagnostics", concurrency: 2, handler: require("./handlers/comms-diagnostics") },
   /**
    * Smart Comms link previews. Concurrency 2 rather than 1: the work is one
    * outbound HTTP request to a third party that may take seconds, and two
