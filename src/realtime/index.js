@@ -425,7 +425,7 @@ function attachPresence(socket) {
 
   const warn = (what) => (err) => logger.warn({ err, userId }, `presence: ${what} failed`);
 
-  (async () => {
+  const joined = (async () => {
     const before = await presence.join(redis(), who);
     const list = await contacts();
     const users = await presence.onlineMap(redis(), { slug: tenantSlug, env, userIds: list });
@@ -448,7 +448,9 @@ function attachPresence(socket) {
 
   socket.on("disconnect", () => {
     clearInterval(heartbeat);
-    (async () => {
+    // After the join has landed, so a quick disconnect cannot leave this
+    // socket's entry behind it (it would count as online for 90 s).
+    joined.then(async () => {
       const left = await presence.leave(redis(), who);
       if (left > 0) return;
       await announce(false);
@@ -462,7 +464,7 @@ function attachPresence(socket) {
           callId, tenantMeta: tenant, env, atMs: Date.now() + LIVENESS_OFFLINE_S * 1000 + clock.GRACE_MS,
         });
       }
-    })().catch(warn("disconnect"));
+    }).catch(warn("disconnect"));
   });
 }
 

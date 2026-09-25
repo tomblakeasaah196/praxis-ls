@@ -49,7 +49,7 @@ const PROCESSORS = [
    * retention; concurrency 1, since neither is a deadline.
    */
   { name: "call-transcribe-part", concurrency: config.CALL_TRANSCRIBE_CONCURRENCY || 8, handler: require("./handlers/call-transcribe-part") },
-  { name: "call-finalise", concurrency: 2, handler: require("./handlers/call-finalise") },
+  { name: "call-finalise", concurrency: config.CALL_FINALISE_CONCURRENCY || 4, handler: require("./handlers/call-finalise") },
   // The EN/FR rewrite of a summary draft (audit C8), off the request path.
   { name: "call-summary-regenerate", concurrency: 2, handler: require("./handlers/call-summary-regenerate") },
   { name: "comms-call-record-sweep", concurrency: 1, handler: require("./handlers/comms-call-record-sweep") },
@@ -299,6 +299,13 @@ function startWorkers() {
           logger.info({ queue: p.name, job: job.name, id: job.id, ms }, "job done");
           return result;
         } catch (err) {
+          // A job that moved itself to the delayed set (a call part waiting
+          // for its tenant's fair share: PR-5) is the queue working, not a
+          // failure: no ERROR, no failure count.
+          if (err && err.name === "DelayedError") {
+            logger.debug({ queue: p.name, job: job.name, id: job.id }, "job deferred");
+            throw err;
+          }
           const ms = Date.now() - started;
           metrics.observe("praxis_job_duration_seconds", ms / 1000, { queue: p.name });
           logger.error({ queue: p.name, job: job.name, id: job.id, ms, err }, "job threw");

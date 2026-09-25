@@ -518,7 +518,6 @@ describe("reads and TURN refresh", () => {
  * ends. The ack is the ring-channel metric only: it silences nothing.
  */
 describe("rings on every device (PR-4)", () => {
-  const TENANT = { slug: "acme" };
   const ringJobs = () => {
     const { enqueue } = require("../../src/jobs/queue-producer");
     return enqueue.mock.calls.filter((c) => c[0] === "comms-call-ring-escalate");

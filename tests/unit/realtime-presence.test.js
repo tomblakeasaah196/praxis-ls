@@ -228,3 +228,21 @@ describe("the mail bridge re-emits on this replica only (N2)", () => {
     expect(emitted).toEqual([{ rooms: ["t:acme:live:mail"], event: "mail:new", payload: { inserted: 2 }, local: true }]);
   });
 });
+
+describe("a disconnect that races its own connect", () => {
+  test("leaves no entry behind: the user is offline afterwards", async () => {
+    const presence = require("../../src/modules/smartcomm/smartcomm.presence");
+    const realJoin = presence.join;
+    const spy = jest.spyOn(presence, "join").mockImplementation(async (...a) => {
+      await new Promise((r) => setTimeout(r, 30)); // a slow Redis round-trip
+      return realJoin(...a);
+    });
+    const s = fakeSocket(A, "quick");
+    realtime.attachPresence(s);
+    s.fire("disconnect"); // before the join has landed
+    await new Promise((r) => setTimeout(r, 60));
+    await flush();
+    spy.mockRestore();
+    expect(await redis.zcount(`presence:acme:live:${A}`, Date.now(), "+inf")).toBe(0);
+  });
+});

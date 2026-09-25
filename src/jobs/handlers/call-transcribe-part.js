@@ -18,6 +18,7 @@
 
 const { DelayedError } = require("bullmq");
 const registry = require("../../services/tenant/registry.service");
+const { withTenantSlot } = require("../tenant-db-slots");
 const pipeline = require("../../modules/smartcomm/smartcomm.call.pipeline.service");
 const gate = require("../../modules/smartcomm/smartcomm.call.gate");
 const signals = require("../../modules/smartcomm/smartcomm.call.signals");
@@ -48,7 +49,8 @@ module.exports = async function callTranscribePart(job, token) {
     const ms = await gate.reserveTenantSlot(redisOrNull(), { slug: tenantMeta.slug });
     if (ms > 0) await wait(job, token, ms, { slotAt: Date.now() + ms });
   }
-  const withDb = (fn) => registry.withTenantConnection(tenantMeta, env, fn);
+  // At most TENANT_POOL_MAX - 2 of the tenant's connections (tenant-db-slots).
+  const withDb = (fn) => withTenantSlot(tenantMeta.slug, () => registry.withTenantConnection(tenantMeta, env, fn));
   let result;
   try {
     result = await pipeline.transcribePartJob({

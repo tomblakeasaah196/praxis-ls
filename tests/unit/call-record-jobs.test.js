@@ -126,3 +126,26 @@ test("the daily sweep restarts only work that never ran, through the pipeline", 
   expect(out).toEqual({ parts: 1, closed: 0, calls: 1 });
   expect(pipeline.sweepStalled).toHaveBeenCalledWith({ fake: true }, { tenantMeta, env: "live" });
 });
+
+test("the part job's connections go through the tenant's background slots (pool budget)", async () => {
+  const slots = require("../../src/jobs/tenant-db-slots");
+  let seen = null;
+  pipeline.transcribePartJob.mockImplementationOnce(async ({ withDb }) => {
+    await withDb(async () => { seen = slots.inUse("acme"); });
+    return { status: "OK" };
+  });
+  await partJob(bullJob({ callId: "c1", side: "caller", partIndex: 1, tenantMeta, env: "live" }), "tok");
+  expect(seen).toBe(1);
+  expect(slots.inUse("acme")).toBe(0);
+});
+
+test("the call workers' concurrency comes from configuration (§4 item 5)", () => {
+  const { config } = require("../../src/config/env");
+  expect(config.CALL_TRANSCRIBE_CONCURRENCY).toBe(8);
+  expect(config.CALL_FINALISE_CONCURRENCY).toBe(4);
+  expect(config.COMMS_CALL_CLOCK_CONCURRENCY).toBe(8);
+  const src = require("fs").readFileSync(require.resolve("../../src/jobs/workers.js"), "utf8");
+  expect(src).toMatch(/name: "call-transcribe-part", concurrency: config\.CALL_TRANSCRIBE_CONCURRENCY/);
+  expect(src).toMatch(/name: "call-finalise", concurrency: config\.CALL_FINALISE_CONCURRENCY/);
+  expect(src).toMatch(/name: "comms-call-clock", concurrency: config\.COMMS_CALL_CLOCK_CONCURRENCY/);
+});

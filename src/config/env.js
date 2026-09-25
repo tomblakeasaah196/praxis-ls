@@ -475,6 +475,8 @@ const Schema = z.object({
   COMMS_CALL_CLOCK_CONCURRENCY: int(8),
   COMMS_CALL_RING_CONCURRENCY: int(16),
   CALL_TRANSCRIBE_CONCURRENCY: int(8),
+  // Finalise drafts the summary; it waits on the LLM holding no connection.
+  CALL_FINALISE_CONCURRENCY: int(4),
   // One limiter per provider key, shared by every worker (Redis). Size them to
   // the plan on the key: Groq's free tier is 20 requests a minute and 7,200
   // audio-seconds an hour. A full Groq limiter sends the part to Gemini (O1).
