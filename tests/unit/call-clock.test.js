@@ -126,3 +126,19 @@ describe("the clock never throws into a call", () => {
     expect(enqueue.mock.calls[0][3].jobId).toBe(`callclock-live-c1-${Math.ceil(at / 1000)}`);
   });
 });
+
+describe("the daily record sweep is spread by tenant (D2)", () => {
+  const recordScheduler = require("../../src/jobs/handlers/comms-call-record-sweep-scheduler");
+
+  test("each tenant gets a stable delay inside the 6-hour window, and tenants differ", async () => {
+    registry.listActiveTenants.mockResolvedValue([A, B, QUIET]);
+    await recordScheduler();
+    const delays = enqueue.mock.calls.filter((c) => c[0] === "comms-call-record-sweep").map((c) => [c[2].tenantMeta.slug, c[3].delay]);
+    for (const [slug, delay] of delays) {
+      expect(delay).toBe(recordScheduler.spreadDelay(slug));
+      expect(delay).toBeGreaterThanOrEqual(0);
+      expect(delay).toBeLessThan(recordScheduler.SPREAD_MS);
+    }
+    expect(new Set(delays.map(([, d]) => d)).size).toBe(3);
+  });
+});
