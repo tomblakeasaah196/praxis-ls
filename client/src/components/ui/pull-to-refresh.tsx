@@ -196,9 +196,18 @@ export function PullToRefresh({
         : "Pull to refresh";
 
   return (
+    // h-full, and the content below is h-full too, so this wrapper is
+    // LAYOUT-TRANSPARENT: it passes the parent's height straight through to the
+    // page. It has to, now that it sits between the shell's <main> and every
+    // screen — a full-height screen (the comms chat, the AI workspace) sizes
+    // itself with `h-full`/`h-[calc(100%…)]` against <main>, and a wrapper of
+    // its own (auto) height would collapse that chain and drop the page's
+    // pinned-to-bottom composer far down the page. No padding/margin/border
+    // here either, so the AI workspace's negative margins still cancel <main>'s
+    // padding exactly as they did when it was <main>'s direct child.
     <div
       ref={wrapperRef}
-      className="relative overscroll-y-contain"
+      className="relative h-full overscroll-y-contain"
       style={{ overscrollBehaviorY: "contain" } as React.CSSProperties}
     >
       {/* Indicator — sits at the very top, revealed as you pull */}
@@ -260,8 +269,12 @@ export function PullToRefresh({
         </div>
       </div>
 
-      {/* Content — slides down with the pull (no translate on reduced-motion, just indicator) */}
+      {/* Content — slides down with the pull (no translate on reduced-motion,
+          just indicator). h-full so the height chain reaches the page (see the
+          wrapper note above); relative so the out-of-flow edge below anchors
+          here even on reduced-motion, where no transform is applied. */}
       <div
+        className="relative h-full"
         style={
           reduced
             ? undefined
@@ -272,9 +285,13 @@ export function PullToRefresh({
               }
         }
       >
-        {/* Subtle top border that appears as you pull — gives the sheet an edge */}
+        {/* Subtle top border that appears as you pull — gives the sheet an edge.
+            ABSOLUTELY positioned so it consumes no layout height: an in-flow 1px
+            row here would push an h-full page 1px past the viewport (enough to
+            fail the composer-fits-in-833px layout gate) and dent every
+            fill-the-height screen by a pixel. */}
         <div
-          className="pointer-events-none h-px bg-border lg:hidden"
+          className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-px bg-border lg:hidden"
           style={{
             opacity: showIndicator ? 0.18 + progress * 0.52 : 0,
             transform: `scaleX(${0.6 + progress * 0.4})`,
