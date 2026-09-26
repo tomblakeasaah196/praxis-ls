@@ -627,7 +627,8 @@ export function SignInPanel({
 
   return (
     <div className="login-panel" data-mode={mode}>
-      <p className="login-card-kicker">{brandName}</p>
+      {/* The lock screen carries the brand above the card already. */}
+      {mode === "signin" && <p className="login-card-kicker">{brandName}</p>}
       <h2 id={titleId} className="login-card-title">
         {title}
       </h2>
@@ -649,8 +650,8 @@ export function SignInPanel({
                 <p className="login-identity-name">{fullName}</p>
                 <p className="login-identity-email">{rememberedEmail}</p>
               </div>
-              <button type="button" className="login-switch" onClick={onSwitch}>
-                Not you? Switch account
+              <button type="button" className="login-switch" onClick={onSwitch} aria-label="Not you? Switch account">
+                Not you?
               </button>
             </div>
           </div>
