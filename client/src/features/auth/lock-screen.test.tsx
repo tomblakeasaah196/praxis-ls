@@ -121,6 +121,15 @@ describe("LockLayer", () => {
     expect(screen.getByRole("button", { name: "Approve payment" })).toBeInTheDocument();
   });
 
+  it("seals the page even when it does not know whose screen it is", () => {
+    const saved = auth.user;
+    (auth as { user: unknown }).user = null;
+    render(<Page />);
+    expect(screen.getByTestId("app").closest(".praxis-locked")).not.toBeNull();
+    expect(screen.getByText("Session locked")).toBeInTheDocument();
+    auth.user = saved;
+  });
+
   it("renders nothing while signed in", () => {
     auth.status = "authed";
     render(<Page />);

@@ -121,6 +121,10 @@ export function LockLayer({ maxAgeMin = 120 }: { maxAgeMin?: number }) {
   const [identity, setIdentity] = React.useState<typeof user>(null);
   const [host, setHost] = React.useState<HTMLElement | null>(null);
   const titleId = React.useId();
+  // Read through a ref: a branding refresh while locked must not re-run the
+  // seal below, which would remount the panel and drop a half-typed PIN.
+  const brandRef = React.useRef(brandName);
+  brandRef.current = brandName;
 
   // Latch open on lock; only the panel's onDone (or leaving auth) closes it.
   React.useEffect(() => {
@@ -153,7 +157,7 @@ export function LockLayer({ maxAgeMin = 120 }: { maxAgeMin?: number }) {
     const kinds = ["pointerdown", "mousedown", "touchstart", "focusin", "keydown", "keyup"];
     kinds.forEach((k) => el.addEventListener(k, stop));
     const title = document.title;
-    document.title = `Locked · ${brandName}`;
+    document.title = `Locked · ${brandRef.current}`;
     return () => {
       kinds.forEach((k) => el.removeEventListener(k, stop));
       unseal();
@@ -161,9 +165,13 @@ export function LockLayer({ maxAgeMin = 120 }: { maxAgeMin?: number }) {
       setHost(null);
       document.title = title;
     };
-  }, [open, brandName]);
+  }, [open]);
 
-  if (!open || !host || !identity) return null;
+  // The seal (sealPage, above) never waits on knowing WHO is locked out. With
+  // no cached identity the panel falls back to the device's remembered one,
+  // and failing that asks for an email — a different account signing in then
+  // reloads the page (auth-context), so nobody inherits what is behind the blur.
+  if (!open || !host) return null;
 
   return createPortal(
     <div className="login-lock-scrim" role="dialog" aria-modal="true" aria-labelledby={titleId}>
@@ -183,7 +191,11 @@ export function LockLayer({ maxAgeMin = 120 }: { maxAgeMin?: number }) {
         <SignInPanel
           mode="unlock"
           titleId={titleId}
-          identity={{ email: identity.email, display_name: identity.display_name, avatar_url: identity.avatar_url }}
+          identity={
+            identity
+              ? { email: identity.email, display_name: identity.display_name, avatar_url: identity.avatar_url }
+              : null
+          }
           reason={reasonText(reasonShown, maxAgeMin)}
           onSwitchAccount={abandonLock}
           onDone={() => setOpen(false)}
