@@ -55,18 +55,9 @@ export const en = {
     density: "Density",
     signOut: "Sign out",
     lockScreen: "Lock screen",
-    signOutTitle: "Sign out",
-    signOutDescription:
-      "This device remembers you. Choose how much of that it should forget.",
-    signOutStay: "Stay signed in",
-    signOutForget: "Sign out and remove this account",
-    signOutStored: "Remembered on this device",
-    signOutKeeps:
-      "Keeps your account on this device. The next sign-in greets you and offers your passkey or Quick PIN.",
-    signOutRemoves:
-      "Removes your account from this device — the greeting, the Quick PIN set up here and the passkey record. The next person gets a blank sign-in form. Your account itself is untouched.",
-    signOutShared:
-      "On a shared workstation, remove the account. On your own phone or laptop, a plain sign out is what makes tomorrow fast.",
+    signOutTitle: "Sign out?",
+    signOutRemember: "Remember me on this device",
+    signOutRememberHint: "Untick on a shared computer.",
     closeMenu: "Close menu",
   },
   auth: {
@@ -3293,18 +3284,9 @@ export const fr: Dict = {
     density: "Densité",
     signOut: "Se déconnecter",
     lockScreen: "Verrouiller l'écran",
-    signOutTitle: "Se déconnecter",
-    signOutDescription:
-      "Cet appareil vous reconnaît. Choisissez ce qu'il doit oublier.",
-    signOutStay: "Rester connecté",
-    signOutForget: "Se déconnecter et retirer ce compte",
-    signOutStored: "Mémorisé sur cet appareil",
-    signOutKeeps:
-      "Conserve votre compte sur cet appareil. La prochaine connexion vous salue et propose votre clé d'accès ou votre code PIN rapide.",
-    signOutRemoves:
-      "Retire votre compte de cet appareil — le message d'accueil, le code PIN rapide configuré ici et l'enregistrement de la clé d'accès. La personne suivante obtient un formulaire vierge. Votre compte lui-même n'est pas modifié.",
-    signOutShared:
-      "Sur un poste partagé, retirez le compte. Sur votre propre téléphone ou ordinateur, une simple déconnexion rend la connexion de demain rapide.",
+    signOutTitle: "Se déconnecter ?",
+    signOutRemember: "Se souvenir de moi sur cet appareil",
+    signOutRememberHint: "Décochez sur un ordinateur partagé.",
     closeMenu: "Fermer le menu",
   },
   auth: {
