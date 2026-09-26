@@ -79,10 +79,10 @@ const resetPassword = zValidate(z.object({ token: z.string().min(16), new_passwo
 const changePassword = zValidate(z.object({ current_password: z.string().min(1), new_password: z.string().min(1) }));
 
 const signature = zValidate(z.object({ html: z.string().max(20000) }));
-// The weak-PIN rules (1234, 1111, 1212…) are NOT here: they live in
-// @praxis/shared's quickPin, which the service applies and the My security
-// screen shows as the user types. This file only guards the shape, and importing
-// the shared package here would mark it a migrated adapter (check:schemas).
+// The weak-PIN rules (1234, 1111, 1212…) are NOT here: they live in the shared
+// package's quickPin rule, which the service applies and the My security screen
+// shows as the user types. This file only guards the shape; importing the shared
+// package here would mark it a migrated adapter (check:schemas).
 const pinRegister = zValidate(z.object({
   pin: z.string().regex(/^\d{4}$/),
   label: z.string().max(80).optional().nullable(),
