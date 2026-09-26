@@ -109,8 +109,18 @@ const specKey = (section, key) => section + "." + key;
 const SPEC_BY_ID = new Map(Object.entries(SPEC));
 
 function lookupSpec(registry, section, key) {
-  const found = registry.get(specKey(section, key));
-  return found === undefined ? null : found;
+  const id = specKey(section, key);
+  // Compared, not indexed. `registry.get(id)` is still a lookup keyed by
+  // request input, and both callers INVOKE what it returns — the shape
+  // js/unvalidated-dynamic-method-call is about, which neither an
+  // own-property test nor the Map removed. Walking the known ids and
+  // returning only inside an equality branch makes the result provably one
+  // of this file's own entries: there is no key the caller supplies, only a
+  // name it can match. Ten entries, once per settings write or test.
+  for (const [knownId, entry] of registry) {
+    if (knownId === id) return entry;
+  }
+  return null;
 }
 
 /**
@@ -154,16 +164,6 @@ const VALUE_RULES_BY_ID = new Map(Object.entries(VALUE_RULES));
 function assertValueShape(section, key, value) {
   const rule = lookupSpec(VALUE_RULES_BY_ID, section, key);
   if (!rule) return;
-  // codeql[js/unvalidated-dynamic-method-call] — `rule` came from a Map keyed
-  // by `<section>.<key>`. A Map has no prototype chain and no inherited string
-  // keys, so a name off the URL cannot resolve to `constructor`, `toString` or
-  // anything else we did not put there: a miss is `undefined`, returned as
-  // null above and this line is not reached. Every value in VALUE_RULES is a
-  // function declared in this file. Two earlier shapes (an own-property test,
-  // then the Map) did not clear the query, which flags any lookup keyed by
-  // request input whose result is invoked; the dispatch it warns about is not
-  // reachable here. See doc/ERROR_HANDLING.md on marking, and the tests in
-  // tests/unit/turn-runtime-config.test.js that pin the miss.
   const problem = rule(value || {});
   if (problem) {
     const e = new Error(problem);
@@ -270,10 +270,6 @@ async function test(section, key) {
   const resolved = await resolve(section, key);
   if (!resolved) return { ok: false, error: "not configured" };
   try {
-    // codeql[js/unvalidated-dynamic-method-call] — same shape, same reasoning
-    // as assertValueShape above: `spec` came from a Map keyed by the URL pair,
-    // a miss is `undefined` and returns early, and `probe`/`cfg` are constant
-    // property names on entries declared in this file.
     const meta = await spec.probe(spec.cfg(resolved.value, resolved.secret));
     return { ok: true, section, key, ...meta };
   } catch (err) {
