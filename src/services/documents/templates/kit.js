@@ -1427,7 +1427,9 @@ function zoneHtml(list = [], cfg = {}) {
  */
 function standardHead(entity = {}, cfg = {}, opts = {}) {
   const lh = composed(entity, cfg, opts.doc || {});
-  const head = zoneHtml(lh.header, cfg);
+  // The payment block may be dragged into the header; it still prints only on
+  // a document that opts in (`opts.bank`), wherever it sits.
+  const head = zoneHtml(lh.header.filter((b) => opts.bank || b.id !== "payment"), cfg);
   if (!opts.title) return head;
   const meta = (opts.meta || []).filter((m) => m && m[1]).map((m) => `<span class="mi">${
     t(typeof m[0] === "string" ? { fr: m[0], en: m[0] } : m[0], cfg.language)
@@ -1503,8 +1505,9 @@ function shellMm(entity = {}, cfg = {}, opts = {}) {
   const lh = composed(entity, cfg, opts.doc || {});
   const footList = lh.footer.filter((b) => opts.bank || b.id !== "payment");
 
-  const head = blocks.measure(lh.header, "header");
-  const headNoMark = blocks.measure(lh.header.filter((b) => b.id !== "logo"), "header");
+  const headList = lh.header.filter((b) => opts.bank || b.id !== "payment");
+  const head = blocks.measure(headList, "header");
+  const headNoMark = blocks.measure(headList.filter((b) => b.id !== "logo"), "header");
   // The accent rule and its margin are hairlines either way and already counted
   // by `measure`; what is fixed here is only the mark's marginal contribution.
   const fixed = Math.max(0, Math.round((head - headNoMark) * 10) / 10);

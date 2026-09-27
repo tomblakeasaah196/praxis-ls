@@ -71,6 +71,13 @@ const schemas = {
     notes: z.string().max(1000).optional().nullable(),
   }),
 
+  attachDocumentScan: z.object({
+    vault_id: z.string().uuid(),
+    file_name: z.string().max(255).optional().nullable(),
+    file_size: z.number().int().nonnegative().optional().nullable(),
+    mime_type: z.string().max(100).optional().nullable(),
+  }),
+
   createSignatory: z.object({
     user_id: z.string().uuid().optional().nullable(),
     person_id: z.string().uuid().optional().nullable(),
@@ -133,6 +140,7 @@ module.exports = {
   create: mw("create"), update: mw("update"), setActive: mw("setActive"),
   reverseEntry: mw("reverseEntry"),
   createDocument: mw("createDocument"),
+  attachDocumentScan: mw("attachDocumentScan"),
   createSignatory: mw("createSignatory"), updateSignatory: mw("updateSignatory"),
   gatewayUpsert: mw("gatewayUpsert"), gatewayActive: mw("gatewayActive"), gatewayRole: mw("gatewayRole"),
   schemas,

@@ -696,6 +696,9 @@ const letterheadPlacement = z
     tone: z.enum(["ink", "muted", "accent"]).optional(),
     transform: z.enum(["none", "upper"]).optional(),
     visible: z.boolean().optional(),
+    // Place within a stacked cell (meeting 5 — the bank block could not be
+    // moved down past the blocks sharing its cell).
+    order: z.number().int().min(0).max(99).optional(),
   })
   .strict();
 
@@ -707,6 +710,14 @@ exports.letterheadUpdate = z.object({
   show_contact: z.boolean().optional(),
   show_bank_block: z.boolean().optional(),
   show_establishment: z.boolean().optional(),
+  // 13841 — the PO box and postal-address blocks' own switches.
+  show_postal_address: z.boolean().optional(),
+  show_po_box: z.boolean().optional(),
+  // 14140 (meeting 5) — which entity_address rows print, and whether the trade
+  // identifiers share one line.
+  address_id: blankToUndefined(z.string().uuid("Must be a valid address id.")).nullable(),
+  postal_address_id: blankToUndefined(z.string().uuid("Must be a valid address id.")).nullable(),
+  identifiers_inline: z.boolean().optional(),
   header_note_fr: optionalText.nullable(),
   header_note_en: optionalText.nullable(),
   footer_note_fr: optionalText.nullable(),

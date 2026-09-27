@@ -28,9 +28,25 @@ import { useConfirm } from "@/components/ui/use-confirm";
 import { usePrompt } from "@/components/ui/use-prompt";
 import { useToast } from "@/components/ui/toast";
 import { AccountModal } from "./account-modal";
-import { DocumentModal } from "./document-modal";
+import { DocumentModal, TREASURY_VAULT_TYPE } from "./document-modal";
+import { ScanAttachment } from "@/components/scan-attachment";
 import { SignatoryModal } from "./signatory-modal";
 import { ReconciliationTab } from "./reconciliation-tab";
+
+const RENEWAL_TONE: Record<"APPROACHING" | "DUE" | "EXPIRED", Tone> = {
+  APPROACHING: "warn",
+  DUE: "bad",
+  EXPIRED: "bad",
+};
+
+/** "Expired 3 days ago" / "Expires in 12 days" — the renewal reminder. */
+function renewalLabel(state: "APPROACHING" | "DUE" | "EXPIRED", days: number | null): string {
+  if (state === "EXPIRED") {
+    return days === null ? tr("Expired") : `${tr("Expired")} ${Math.abs(days)} ${tr("day(s) ago")}`;
+  }
+  if (days === 0) return tr("Expires today");
+  return `${tr("Expires in")} ${days ?? "?"} ${tr("day(s)")}`;
+}
 
 const TABS = [
   "Overview",
@@ -170,6 +186,7 @@ export function TreasuryDossier({
   const [tab, setTab] = useUrlTab<Tab>(TABS, "Overview");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  const [docError, setDocError] = React.useState<string | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
   const [docModalOpen, setDocModalOpen] = React.useState(false);
   const [sigModalOpen, setSigModalOpen] = React.useState(false);
@@ -707,6 +724,7 @@ export function TreasuryDossier({
             </Button>
           }
         >
+          {docError && <ErrorState message={docError} />}
           <MiniTable
             head={
               <>
@@ -715,6 +733,7 @@ export function TreasuryDossier({
                 <Th>Number</Th>
                 <Th>Issue date</Th>
                 <Th>Expiry date</Th>
+                <Th>{tr("File")}</Th>
                 <Th>{tr("Status")}</Th>
                 <Th r>Actions</Th>
               </>
@@ -732,7 +751,29 @@ export function TreasuryDossier({
                 <Td className="font-medium">{doc.title}</Td>
                 <Td>{cell(doc.document_number)}</Td>
                 <Td>{dateFmt(doc.issue_date)}</Td>
-                <Td>{dateFmt(doc.expiry_date)}</Td>
+                <Td>
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
+                    {dateFmt(doc.expiry_date)}
+                    {doc.renewal_state && doc.renewal_state !== "OK" && (
+                      <Pill tone={RENEWAL_TONE[doc.renewal_state]}>
+                        {renewalLabel(doc.renewal_state, doc.days_remaining ?? null)}
+                      </Pill>
+                    )}
+                  </span>
+                </Td>
+                <Td>
+                  <ScanAttachment
+                    vaultId={doc.vault_id}
+                    docType={TREASURY_VAULT_TYPE}
+                    entityRef={`treasury_account_document:${doc.document_id}`}
+                    labelWhenEmpty={tr("Attach file")}
+                    onError={setDocError}
+                    onAttached={async (vaultId) => {
+                      await api.attachDocumentScan(id, doc.document_id, { vault_id: vaultId });
+                      reload();
+                    }}
+                  />
+                </Td>
                 <Td>
                   <Pill tone={doc.is_verified ? "ok" : "warn"}>
                     {doc.is_verified ? "Verified" : "Unverified"}
