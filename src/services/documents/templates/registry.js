@@ -34,6 +34,39 @@ function fmtLines(lines = [], ccy, cfg = {}) {
 }
 
 /**
+ * The VAT rate a line PRINTS: its own tax code's rate (`tax_rate`) when the
+ * loader supplied one, else the legacy `tax`.
+ *
+ * Why two fields. `tax` is part of the signed canonical payload (v1), which
+ * must never change — and the invoice and quotation loaders have always put
+ * 19.25 there for every taxable line, and the quotation even on disbursements.
+ * Correcting `tax` would make every signed document with an exempt or
+ * pass-through line read as AMENDED. So the true rate travels beside it as a
+ * field the hash does not read, and only the page uses it.
+ */
+function displayLines(lines = []) {
+  return (Array.isArray(lines) ? lines : []).map((l) =>
+    l && l.tax_rate !== undefined ? { ...l, tax: l.tax_rate } : l);
+}
+
+/**
+ * The totals row's VAT label: "TVA 19,25%" when every taxed line shares that
+ * one rate (the usual Cameroonian case, and the label these documents always
+ * printed), plain "TVA" when the lines carry different rates or none — a single
+ * rate in the label over lines at 0% and 19.25% would be a false statement.
+ */
+function vatLabel(lines = []) {
+  const rates = new Set(displayLines(lines)
+    .filter((l) => l && !l.is_disbursement && l.tax !== null && l.tax !== undefined && l.tax !== "")
+    .map((l) => Number(l.tax)));
+  if (rates.size === 1) {
+    const r = [...rates][0];
+    return { fr: `TVA ${String(r).replace(".", ",")}%`, en: `VAT ${r}%` };
+  }
+  return { fr: "TVA", en: "VAT" };
+}
+
+/**
  * Shared builder for the line-item + totals family (invoice / proforma /
  * quotation / credit note). `opts`: { title, meta, totalsRows(data), notesLabel,
  * words? } — `words` adds the amount-in-words block (the legacy PO and invoice
@@ -55,7 +88,7 @@ function lineDoc(opts) {
       ], cfg),
       // `grouped`: one printed line per client heading × nature (14130). The
       // data — and the signature over it — stays the detailed lines.
-      k.lineTable(LINE_COLS, fmtLines(opts.grouped ? groupLines(data.lines, cfg.language, data.client_headings) : data.lines, ccy, cfg), cfg),
+      k.lineTable(LINE_COLS, fmtLines(opts.grouped ? groupLines(displayLines(data.lines), cfg.language, data.client_headings) : displayLines(data.lines), ccy, cfg), cfg),
       k.totals(opts.totalsRows(data, ccy, cfg), cfg),
       words,
       cfg.show && cfg.show.notes && data.notes ? k.section({ fr: "Notes", en: "Notes" }, `<div class="box">${k.esc(data.notes).replace(/\n/g, "<br>")}</div>`, cfg) : "",
@@ -98,7 +131,7 @@ const TEMPLATES = {
       totalsRows: (d, ccy, cfg) => [
         [{ fr: "Total HT", en: "Subtotal" }, k.money(d.totals.service_ht, ccy, cfg)],
         [{ fr: "Débours", en: "Disbursements" }, k.money(d.totals.disbursement_total, ccy, cfg)],
-        [{ fr: "TVA 19,25%", en: "VAT 19.25%" }, k.money(d.totals.vat_total, ccy, cfg)],
+        [vatLabel(d.lines), k.money(d.totals.vat_total, ccy, cfg)],
         [{ fr: "Total TTC", en: "Total" }, k.money(d.totals.total_ttc, ccy, cfg), { grand: true }],
       ],
       // The legacy invoice printed "ARRÊTÉE LA PRÉSENTE FACTURE À LA SOMME DE :"
@@ -118,7 +151,7 @@ const TEMPLATES = {
       meta: (d) => [[{ fr: "Date", en: "Date" }, k.dateFmt(d.date)], [{ fr: "Valable jusqu'au", en: "Valid until" }, k.dateFmt(d.valid_until)], [{ fr: "Acompte", en: "Advance" }, has(d.advance_pct) ? `${d.advance_pct}%` : ""]],
       totalsRows: (d, ccy, cfg) => [
         [{ fr: "Total HT", en: "Subtotal" }, k.money(d.totals.service_ht, ccy, cfg)],
-        [{ fr: "TVA 19,25%", en: "VAT 19.25%" }, k.money(d.totals.vat_total, ccy, cfg)],
+        [vatLabel(d.lines), k.money(d.totals.vat_total, ccy, cfg)],
         [{ fr: "Total TTC", en: "Total" }, k.money(d.totals.total_ttc, ccy, cfg), { grand: true }],
         has(d.advance_pct) ? [{ fr: `Acompte ${d.advance_pct}%`, en: `Advance ${d.advance_pct}%` }, k.money(d.totals.total_ttc * (d.advance_pct / 100), ccy, cfg)] : null,
       ],
@@ -140,7 +173,7 @@ const TEMPLATES = {
       meta: (d) => [[{ fr: "Date", en: "Date" }, k.dateFmt(d.date)], [{ fr: "Valable jusqu'au", en: "Valid until" }, k.dateFmt(d.valid_until)]],
       totalsRows: (d, ccy, cfg) => [
         [{ fr: "Total HT", en: "Subtotal" }, k.money(d.totals.service_ht, ccy, cfg)],
-        [{ fr: "TVA 19,25%", en: "VAT 19.25%" }, k.money(d.totals.vat_total, ccy, cfg)],
+        [vatLabel(d.lines), k.money(d.totals.vat_total, ccy, cfg)],
         [{ fr: "Total TTC", en: "Total" }, k.money(d.totals.total_ttc, ccy, cfg), { grand: true }],
       ],
     }),
@@ -157,7 +190,7 @@ const TEMPLATES = {
       meta: (d) => [[{ fr: "Date", en: "Date" }, k.dateFmt(d.date)], [{ fr: "Facture d'origine", en: "Original invoice" }, d.original_ref], [{ fr: "Motif", en: "Reason" }, d.reason]],
       totalsRows: (d, ccy, cfg) => [
         [{ fr: "Total HT", en: "Subtotal" }, "-" + k.money(d.totals.service_ht, ccy, cfg)],
-        [{ fr: "TVA 19,25%", en: "VAT 19.25%" }, "-" + k.money(d.totals.vat_total, ccy, cfg)],
+        [vatLabel(d.lines), "-" + k.money(d.totals.vat_total, ccy, cfg)],
         [{ fr: "Total avoir TTC", en: "Credit total" }, "-" + k.money(d.totals.total_ttc, ccy, cfg), { grand: true }],
       ],
     }),

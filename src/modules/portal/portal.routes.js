@@ -26,6 +26,7 @@ router.get("/client", requireFeature("portal.client"), requirePermission("MOD-29
 // A client's own file: visible stages, committed dates, and the assumptions
 // those dates depend on.
 router.get("/client/dossier/:dossierId", requireFeature("portal.client"), requirePermission("MOD-29", "view"), controller.clientChain);
+router.get("/client/invoice/:invoiceId", requireFeature("portal.client"), requirePermission("MOD-29", "view"), controller.clientInvoice);
 router.get("/investor", requireFeature("portal.investor"), requirePermission("MOD-56", "view"), controller.investor);
 router.get("/auditor", requireFeature("portal.audit"), requirePermission("MOD-69", "view"), controller.auditor);
 

@@ -24,6 +24,7 @@ module.exports = {
   check: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.checkAccess(c, { email: req.query.email, portal: req.query.portal })) })),
   client: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientView(c, { clientId: clientId(req) })) })),
   clientChain: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientChain(c, { clientId: clientId(req), dossierId: req.params.dossierId })) })),
+  clientInvoice: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientInvoice(c, { clientId: clientId(req), invoiceId: req.params.invoiceId, lang: req.query.lang })) })),
   clientDocuments: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientDocuments(c, { clientId: clientId(req) })) })),
   clientOnboarding: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientOnboarding(c, { clientId: clientId(req) })) })),
   clientMessages: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientMessages(c, { clientId: clientId(req), dossierId: req.query.dossier_id || null })) })),
