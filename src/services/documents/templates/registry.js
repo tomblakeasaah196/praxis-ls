@@ -2038,6 +2038,68 @@ const TEMPLATES = {
     sampleData: { number: "REL-2026-0011", date: "2026-07-27", client: "CIMENCAM SA", client_lines: ["Douala, Cameroun"], body: "Sauf erreur de notre part, les factures ci-dessous demeurent impayées à ce jour. Nous vous prions de bien vouloir procéder à leur règlement dans les meilleurs délais.", invoices: [{ ref: "FCT-2026-0001", date: "2026-06-15", days_late: 42, amount: 1607900 }], total: 1607900, currency: "XAF" },
   },
 
+  /*
+   * The letter to a bank naming who may sign on an account (meeting 5, 21 Sep
+   * 2026 — "generate the bank authorisation letter from the signatories").
+   * Built from the treasury account and its ACTIVE signatories, so the letter
+   * and the Signatories tab cannot disagree about who signs, up to what, and
+   * whether alone or jointly.
+   */
+  BANK_AUTHORISATION: {
+    docType: "BANK_AUTHORISATION", title: { fr: "Lettre d'autorisation de signature", en: "Signatory authorisation letter" }, module: "master/treasury_account", fields: ["signatories", "account"],
+    build: (d, cfg, entity, verify) => {
+      const lang = cfg.language;
+      const ccy = d.currency || cfg.base_currency || "XAF";
+      const col = [
+        { key: "name", label: { fr: "Nom", en: "Name" } },
+        { key: "role", label: { fr: "Fonction", en: "Role" } },
+        { key: "mode", label: { fr: "Signature", en: "Signing" } },
+        { key: "limit", label: { fr: "Plafond", en: "Limit" }, num: true },
+        { key: "from", label: { fr: "À compter du", en: "From" } },
+      ];
+      const rows = (d.signatories || []).map((s) => ({
+        name: s.full_name,
+        role: s.role_title || "—",
+        mode: s.rule_type === "JOINT_REQUIRED"
+          ? k.t({ fr: "Conjointe", en: "Joint" }, lang)
+          : k.t({ fr: "Seule", en: "Sole" }, lang),
+        limit: s.limit_amount == null || s.limit_amount === "" ? k.t({ fr: "Sans plafond", en: "No limit" }, lang) : k.money(s.limit_amount, s.currency || ccy, cfg),
+        from: k.dateFmt(s.effective_from),
+      }));
+      const account = [
+        d.account_label,
+        d.account_number && `${k.t({ fr: "Compte n°", en: "Account no." }, lang)} ${d.account_number}`,
+        d.iban && `IBAN ${d.iban}`,
+        d.swift_bic && `SWIFT ${d.swift_bic}`,
+        d.currency,
+      ].filter(Boolean).map(k.esc).join(" · ");
+      const joint = (d.signatories || []).some((s) => s.rule_type === "JOINT_REQUIRED");
+      const text = lang === "fr"
+        ? `Madame, Monsieur,<br><br>Nous vous prions de bien vouloir noter que les personnes désignées ci-dessous sont habilitées à signer, au nom de ${k.esc(d.holder || entity.legal_name || "")}, tout ordre de paiement, chèque ou virement sur le compte ci-dessus, dans les limites et selon les modalités indiquées.${joint ? " Les opérations marquées « conjointe » requièrent la signature de deux personnes habilitées." : ""} Cette liste annule et remplace toute autorisation antérieure pour ce compte.`
+        : `Dear Sir or Madam,<br><br>Please note that the persons named below are authorised to sign, on behalf of ${k.esc(d.holder || entity.legal_name || "")}, any payment order, cheque or transfer on the account above, within the limits and on the terms shown.${joint ? " Operations marked \"joint\" require the signatures of two authorised persons." : ""} This list cancels and replaces any earlier authorisation on this account.`;
+      const body = [
+        k.standardHead(entity, cfg, { title: { fr: "Lettre d'autorisation de signature", en: "Signatory authorisation letter" }, number: d.number, meta: [[{ fr: "Date", en: "Date" }, k.dateFmt(d.date)]] }),
+        k.parties([{ label: { fr: "À l'attention de", en: "To" }, name: d.bank_name, lines: [d.branch].filter(Boolean) }], cfg),
+        k.section({ fr: "Compte", en: "Account" }, `<div class="box">${account || "—"}</div>`, cfg),
+        `<p style="margin:14px 2px">${text}</p>`,
+        k.section({ fr: "Signataires habilités", en: "Authorised signatories" }, k.lineTable(col, rows, cfg), cfg),
+        `<p style="margin:14px 2px">${lang === "fr" ? "Veuillez agréer, Madame, Monsieur, l'expression de nos salutations distinguées." : "Yours faithfully,"}</p>`,
+        k.signerBlock([{ label: { fr: "Pour la société — représentant légal", en: "For the company — legal representative" }, name: d.signed_by || "" }], cfg),
+        k.standardFoot(entity, cfg, verify),
+      ].join("");
+      return k.shell("Bank authorisation " + (d.account_number || ""), body, cfg);
+    },
+    sampleData: {
+      number: "AUT-2026-0001", date: "2026-09-27", bank_name: "Afriland First Bank", branch: "Agence Akwa, Douala",
+      account_label: "Compte courant principal", account_number: "10005 00001 01234567801 45", iban: "CM21 10005 00001 01234567801 45", swift_bic: "CCEICMCX", currency: "XAF",
+      holder: "SMART LOGISTICS AND SERVICES LTD",
+      signatories: [
+        { full_name: "Jean Mballa", role_title: "Gérant", rule_type: "SINGLE_SIGNATURE", limit_amount: null, currency: "XAF", effective_from: "2026-01-01" },
+        { full_name: "Aïcha Ndongo", role_title: "Directrice financière", rule_type: "JOINT_REQUIRED", limit_amount: 25000000, currency: "XAF", effective_from: "2026-03-15" },
+      ],
+    },
+  },
+
   COMMS_CERTIFIED_EXPORT: {
     docType: "COMMS_CERTIFIED_EXPORT", title: { fr: "Export certifié", en: "Certified export" }, module: "smartcomm", fields: ["chain-of-custody"],
     build: (d, cfg, entity, verify) => {

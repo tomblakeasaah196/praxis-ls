@@ -78,6 +78,14 @@ const schemas = {
     mime_type: z.string().max(100).optional().nullable(),
   }),
 
+  authorisationLetter: z.object({
+    signed_by: z.string().trim().max(200).optional().nullable(),
+  }),
+  aiAuthorisationLetter: z.object({
+    treasury_account_id: z.string().uuid(),
+    signed_by: z.string().trim().max(200).optional().nullable(),
+  }),
+
   createSignatory: z.object({
     user_id: z.string().uuid().optional().nullable(),
     person_id: z.string().uuid().optional().nullable(),
@@ -141,6 +149,7 @@ module.exports = {
   reverseEntry: mw("reverseEntry"),
   createDocument: mw("createDocument"),
   attachDocumentScan: mw("attachDocumentScan"),
+  authorisationLetter: mw("authorisationLetter"),
   createSignatory: mw("createSignatory"), updateSignatory: mw("updateSignatory"),
   gatewayUpsert: mw("gatewayUpsert"), gatewayActive: mw("gatewayActive"), gatewayRole: mw("gatewayRole"),
   schemas,

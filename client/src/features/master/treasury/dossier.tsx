@@ -30,6 +30,7 @@ import { useToast } from "@/components/ui/toast";
 import { AccountModal } from "./account-modal";
 import { DocumentModal, TREASURY_VAULT_TYPE } from "./document-modal";
 import { ScanAttachment } from "@/components/scan-attachment";
+import { openVaultDoc } from "@/lib/vault-file";
 import { SignatoryModal } from "./signatory-modal";
 import { ReconciliationTab } from "./reconciliation-tab";
 
@@ -193,6 +194,33 @@ export function TreasuryDossier({
   const [confirm, confirmDialog] = useConfirm();
   const [prompt, promptDialog] = usePrompt();
   const toast = useToast();
+
+  /**
+   * Generate the bank's signatory letter and file it under Documents. The name
+   * of whoever signs it for the company is asked for (optional) because it is
+   * the one fact the signatories themselves do not carry.
+   */
+  async function generateLetter() {
+    const signedBy = await prompt({
+      title: tr("Signatory authorisation letter"),
+      label: tr("Signed for the company by"),
+      hint: tr("Optional — the legal representative's name, printed under the signature line. Leave blank to sign by hand."),
+      confirmLabel: tr("Generate letter"),
+    });
+    if (signedBy === null) return;
+    setBusy("letter");
+    setActionError(null);
+    try {
+      const doc = await api.generateAuthorisationLetter(id, { signed_by: signedBy.trim() || null });
+      toast.success(tr("Letter generated and filed under Documents."));
+      reload();
+      if (doc.vault_id) await openVaultDoc(doc.vault_id);
+    } catch (e) {
+      setActionError(errMsg(e));
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function doAction(key: string, run: () => Promise<unknown>) {
     setBusy(key);
@@ -635,9 +663,21 @@ export function TreasuryDossier({
           title="Authorized signatories"
           description="Single- and joint-signature limits, effective dates and authority rules"
           action={
-            <Button size="sm" onClick={() => setSigModalOpen(true)}>
-              Add signatory
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Meeting 5: the letter the bank asks for, from these rows. */}
+              <Button
+                size="sm"
+                variant="outline"
+                loading={busy === "letter"}
+                disabled={busy !== null || !(data.signatories || []).some((s) => s.is_active)}
+                onClick={() => void generateLetter()}
+              >
+                {tr("Authorisation letter")}
+              </Button>
+              <Button size="sm" onClick={() => setSigModalOpen(true)}>
+                Add signatory
+              </Button>
+            </div>
           }
         >
           <MiniTable
