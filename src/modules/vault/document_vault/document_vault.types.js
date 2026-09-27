@@ -220,6 +220,8 @@ const DOC_TYPES = {
    * belongs to, instead of falling back to the Settings grant.
    */
   TREASURY_DOCUMENT:     { label: "Treasury account document", module: "master/treasury_account",      moduleKey: "MOD-09" },
+  // The generated signatory letter to a bank — same register, same reader.
+  BANK_AUTHORISATION:    { label: "Signatory authorisation letter", module: "master/treasury_account", moduleKey: "MOD-09" },
 };
 
 /**

@@ -294,6 +294,13 @@ export const attachDocumentScan = (
 ) =>
   tenant<TreasuryDocument>(`/treasury-accounts/${accountId}/documents/${documentId}/scan`, { method: "POST", body });
 
+/**
+ * Generate the signatory authorisation letter for the bank (meeting 5) from the
+ * account's active signatories. Returns the document row it filed.
+ */
+export const generateAuthorisationLetter = (accountId: string, body: { signed_by?: string | null } = {}) =>
+  tenant<TreasuryDocument>(`/treasury-accounts/${accountId}/authorisation-letter`, { method: "POST", body });
+
 export const listSignatories = (accountId: string) =>
   tenant<TreasurySignatory[]>(`/treasury-accounts/${accountId}/signatories`);
 
