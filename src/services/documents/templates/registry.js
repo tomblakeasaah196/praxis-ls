@@ -2096,7 +2096,7 @@ const TEMPLATES = {
         mode: s.rule_type === "JOINT_REQUIRED"
           ? k.t({ fr: "Conjointe", en: "Joint" }, lang)
           : k.t({ fr: "Seule", en: "Sole" }, lang),
-        limit: s.limit_amount == null || s.limit_amount === "" ? k.t({ fr: "Sans plafond", en: "No limit" }, lang) : k.money(s.limit_amount, s.currency || ccy, cfg),
+        limit: s.limit_amount === null || s.limit_amount === undefined || s.limit_amount === "" ? k.t({ fr: "Sans plafond", en: "No limit" }, lang) : k.money(s.limit_amount, s.currency || ccy, cfg),
         from: k.dateFmt(s.effective_from),
       }));
       const account = [
