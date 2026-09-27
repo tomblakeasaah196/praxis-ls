@@ -206,7 +206,7 @@ async function clientInvoices(client, clientId) {
 async function clientInvoiceWithLines(client, { clientId, invoiceId }) {
   const { CLIENT_HEADING_COLUMNS, clientHeadingJoin } = require("../master/financial_dictionary/client-heading.sql");
   const { rows: [invoice] } = await client.query(
-    "SELECT invoice_id, doc_number, issued_on, payment_due_on, status, currency, service_ht, disbursement_total, vat_total, total_ttc " +
+    "SELECT invoice_id, doc_number, created_at AS issued_on, payment_due_on, status, currency, service_ht, disbursement_total, vat_total, total_ttc " +
       `FROM invoice WHERE invoice_id = $1 AND client_id = $2 AND type = 'FINAL' AND ${CLIENT_VISIBLE_INVOICE}`,
     [invoiceId, clientId],
   );

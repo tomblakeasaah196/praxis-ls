@@ -254,7 +254,7 @@ async function clientInvoice(client, { clientId, invoiceId, lang = "fr" }) {
     qty: Number(l.qty),
     unit: Number(l.unit_price),
     amount: Number(l.line_ht),
-    tax: l.is_disbursement ? null : (l.tax_rate_percent == null ? 19.25 : Number(l.tax_rate_percent)),
+    tax: l.is_disbursement ? null : ((l.tax_rate_percent === null || l.tax_rate_percent === undefined) ? 19.25 : Number(l.tax_rate_percent)),
     is_disbursement: l.is_disbursement === true,
     client_heading: l.client_heading || null,
     client_heading_code: l.client_heading_code || null,
