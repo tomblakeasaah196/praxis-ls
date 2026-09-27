@@ -25,7 +25,7 @@ import { EmptyState } from "@/components/ui/states";
 import { ScreenError } from "@/components/connection/screen-error";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { useResource } from "@/lib/use-resource";
-import { money } from "@/lib/format";
+import { amount, dateFmt } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/costing-api";
@@ -53,9 +53,21 @@ const BASIS_NOTE: Record<api.SuggestedLine["qty_basis"], string> = {
  *  fallback, NOT this carrier's price, and saying so stops "MSC rate card"
  *  appearing beside a number MSC never quoted. */
 function priceNote(l: api.SuggestedLine, carrier: string | null): string | null {
+  // Converted into the sheet's currency: say from what, so an EUR figure on an
+  // XAF rate card is never a mystery to the approver.
+  const from =
+    l.source_unit_cost != null && l.source_currency
+      ? ` · ${amount(l.source_unit_cost)} ${l.source_currency}`
+      : "";
+  return withFrom(scopeNote(l, carrier), from);
+}
+const withFrom = (note: string | null, from: string) => (note ? note + from : from ? from.slice(3) : null);
+
+function scopeNote(l: api.SuggestedLine, carrier: string | null): string | null {
   if (l.price_source === "NONE") return null;
+  if (l.price_source === "NO_FX") return tr("No exchange rate on file to convert this rate");
   if (l.price_source === "CATALOGUE_DEFAULT") return tr("Catalogue default");
-  const eff = l.effective_from ? `, from ${l.effective_from}` : "";
+  const eff = l.effective_from ? `, ${tr("from")} ${dateFmt(l.effective_from)}` : "";
   if (l.rate_scope === "CARRIER_AND_TYPE")
     return `${carrier || tr("Carrier")} · ${l.container_type_code}${eff}`;
   if (l.rate_scope === "CARRIER") return `${carrier || tr("Carrier")}${eff}`;
@@ -68,13 +80,11 @@ function LineRow({
   checked,
   onToggle,
   carrier,
-  currency,
 }: {
   line: api.SuggestedLine;
   checked: boolean;
   onToggle: (next: boolean) => void;
   carrier: string | null;
-  currency: string;
 }) {
   const note = priceNote(line, carrier);
   return (
@@ -123,9 +133,8 @@ function LineRow({
         {line.unit_cost === null ? (
           <Pill tone="warn">{tr("Needs a price")}</Pill>
         ) : (
-          <span className="num text-sm text-foreground">
-            {money(line.unit_cost, line.currency || currency)}
-          </span>
+          // No currency on the line: the dialog's heading names the sheet's.
+          <span className="num text-sm text-foreground">{amount(line.unit_cost)}</span>
         )}
       </div>
     </div>
@@ -135,6 +144,7 @@ function LineRow({
 export function SuggestDialog({
   dossierId,
   currency,
+  exchangeRate = 1,
   /** Codes already on the sheet. Suggest TOPS UP: a charge you have already is
    *  offered unticked with its state named, never silently re-added and never
    *  overwriting what you typed into it. */
@@ -144,14 +154,20 @@ export function SuggestDialog({
 }: {
   dossierId: string;
   currency: string;
+  /** The sheet's one rate (1 <currency> = rate XAF); prices arrive converted. */
+  exchangeRate?: number;
   existingKeys: Set<string>;
   onImport: (lines: api.SuggestedLine[]) => void;
   onClose: () => void;
 }) {
   const [tier, setTier] = React.useState<Tier>("ADVANCED");
   const res = useResource(
-    () => api.suggestCostingLines(dossierId, tier),
-    [dossierId, tier],
+    () =>
+      api.suggestCostingLines(dossierId, tier, {
+        currency,
+        exchangeRateToXaf: exchangeRate,
+      }),
+    [dossierId, tier, currency, exchangeRate],
   );
   const d = res.data;
 
@@ -199,7 +215,8 @@ export function SuggestDialog({
       open
       onClose={onClose}
       size="xl"
-      title={tr("Suggest charges")}
+      // The sheet's one currency, named once — the lines below carry none.
+      title={`${tr("Suggest charges")} · ${currency}`}
       description={
         d
           ? `${d.file.service_name_en || d.file.service_type_key || ""}${
@@ -294,7 +311,6 @@ export function SuggestDialog({
                         checked={sel.has(k)}
                         onToggle={(next) => toggle(k, next)}
                         carrier={d.file.rate_provider_name}
-                        currency={currency}
                       />
                     );
                   })}

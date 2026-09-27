@@ -7,22 +7,35 @@
 const { titleCase } = require("../../src/modules/master/financial_dictionary/financial_dictionary.rules");
 const { standardRateJoin, STANDARD_RATE_COLUMNS } = require("../../src/modules/master/expense_rate/standard-rate.sql");
 
-describe("titleCase — every word of a catalogue label starts with a capital", () => {
+describe("titleCase — every word capitalised, each language's small words left small", () => {
   test.each([
-    ["shipping line charges", "Shipping Line Charges"],
-    ["frais de dossier", "Frais De Dossier"],
-    // Only the first letter moves: acronyms survive, unlike initcap().
-    ["THC per box", "THC Per Box"],
-    ["IT equipment & hardware", "IT Equipment & Hardware"],
-    ["air waybill (awb) fee", "Air Waybill (Awb) Fee"],
-    // A hyphen, a slash and a bracket start a word; an apostrophe does not.
-    ["last-mile / port exit", "Last-Mile / Port Exit"],
-    ["frais d'agence", "Frais D'agence"],
-    ["écrou", "Écrou"],
-  ])("%s → %s", (input, out) => expect(titleCase(input)).toBe(out));
+    ["shipping line charges", "en", "Shipping Line Charges"],
+    ["frais de dossier", "fr", "Frais de Dossier"],
+    // A small word typed with a capital is lowered…
+    ["Frais De Dossier", "fr", "Frais de Dossier"],
+    ["frais d'agence et de documentation", "fr", "Frais d'Agence et de Documentation"],
+    ["commission on disbursements", "en", "Commission on Disbursements"],
+    // …but one opening the label or a phrase after a dash / bracket is not.
+    ["à la charge du client", "fr", "À la Charge du Client"],
+    ["transport — pour compte client", "fr", "Transport — Pour Compte Client"],
+    ["l'entrepôt", "fr", "L'Entrepôt"],
+    ["the end of the line", "en", "The End of the Line"],
+    // Only the first letter moves: acronyms survive, unlike initcap(); an
+    // all-caps small word is an acronym or a letter, never lowered.
+    ["THC per box", "en", "THC per Box"],
+    ["IT equipment & hardware", "en", "IT Equipment & Hardware"],
+    ["air waybill (awb) fee", "en", "Air Waybill (Awb) Fee"],
+    ["type A container", "en", "Type A Container"],
+    ["frais DE ligne", "fr", "Frais DE Ligne"],
+    // Hyphen and slash separate words inside a phrase.
+    ["last-mile / port exit", "en", "Last-Mile / Port Exit"],
+    ["porte-à-porte", "fr", "Porte-à-Porte"],
+    ["écrou", "fr", "Écrou"],
+  ])("%s (%s) → %s", (input, lang, out) => expect(titleCase(input, lang)).toBe(out));
 
   test("already title case is a no-op, and a missing label stays missing", () => {
-    expect(titleCase("Documentation Fee")).toBe("Documentation Fee");
+    expect(titleCase("Documentation Fee", "en")).toBe("Documentation Fee");
+    expect(titleCase("Frais de Dossier", "fr")).toBe("Frais de Dossier");
     expect(titleCase(null)).toBeNull();
     expect(titleCase(undefined)).toBeUndefined();
   });

@@ -67,8 +67,8 @@ function normalise(data) {
   itemData.direction = direction;
   itemData.is_disbursement = rules.resolveDisbursement(direction, data.is_disbursement);
   // Title Case on every save, so the catalogue stays the way 90995 left it.
-  if (itemData.label_fr !== undefined) itemData.label_fr = rules.titleCase(itemData.label_fr);
-  if (itemData.label_en !== undefined) itemData.label_en = rules.titleCase(itemData.label_en);
+  if (itemData.label_fr !== undefined) itemData.label_fr = rules.titleCase(itemData.label_fr, "fr");
+  if (itemData.label_en !== undefined) itemData.label_en = rules.titleCase(itemData.label_en, "en");
   return { itemData, posting_rules: data.posting_rules || [], service_tiers: data.service_tiers || [] };
 }
 

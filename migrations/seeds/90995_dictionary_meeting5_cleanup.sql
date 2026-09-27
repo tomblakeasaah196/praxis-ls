@@ -26,9 +26,12 @@
 --      description, as 9082 did, because a seed writes no audit row.
 --
 --   3. TITLES ARE TITLE CASE (01:44:14 — "titles that come with small letters").
---      Every word of label_en and label_fr starts with a capital; the rest of
---      each word is left alone, so "THC", "PDF", "(BL)" and "IT" survive —
---      unlike initcap(), which would print "Thc". Same rule as
+--      Every word of label_en and label_fr starts with a capital, except each
+--      language's small words ("Frais de Dossier", "Frais d'Agence et de
+--      Documentation", "Commission on Disbursements"), which stay lower case
+--      unless they open the label or a phrase. The rest of each word is left
+--      alone, so "THC", "PDF", "(BL)" and "IT" survive — unlike initcap(),
+--      which would print "Thc". Same rule as
 --      `financial_dictionary.rules.titleCase`, which the service applies on
 --      every save from this release.
 --
@@ -38,27 +41,55 @@
 -- ============================================================================
 
 -- ── helpers (session-scoped; dropped with the session) ─────────────────────
-CREATE OR REPLACE FUNCTION pg_temp.praxis_title_case(s text) RETURNS text
+CREATE OR REPLACE FUNCTION pg_temp.praxis_title_case(s text, lang text) RETURNS text
 LANGUAGE plpgsql IMMUTABLE AS $$
+-- The SQL twin of financial_dictionary.rules.titleCase — see that function for
+-- the rule. Every word capitalised, the language's small words lower case
+-- unless they open the label or a phrase, elided articles kept small
+-- ("d'Agence"), and only ever a word's FIRST letter raised.
 DECLARE
-  out  text := '';
-  prev text := ' ';
-  ch   text;
-  i    int;
+  small  text[] := CASE WHEN lang = 'fr' THEN ARRAY[
+    'à','au','aux','avec','chez','d','dans','de','des','du','en','entre','et',
+    'l','la','le','les','ou','par','pour','sans','sous','sur','un','une','vers']
+  ELSE ARRAY[
+    'a','an','and','as','at','by','for','from','in','nor','of','on','or','per',
+    'the','to','via','vs','with'] END;
+  out          text := '';
+  tok          text;
+  phrase_start boolean := true;
+  opening      boolean;
+  el           text[];
+  m            text[];
 BEGIN
   IF s IS NULL THEN RETURN NULL; END IF;
-  FOR i IN 1..char_length(s) LOOP
-    ch := substr(s, i, 1);
-    -- A word starts after the start of the string, whitespace, an opening
-    -- bracket, a slash, a hyphen or a quote. Not after an apostrophe: that is
-    -- inside a word ("d'agence" is one word, and "D'agence" is its title case).
-    IF (prev ~ '[[:space:]]' OR prev IN ('(', '[', '/', '-', '"', '«'))
-       AND ch <> upper(ch) THEN
-      out := out || upper(ch);
-    ELSE
-      out := out || ch;
+  FOR tok IN
+    SELECT (regexp_matches(s, '([[:space:]()\[\]/"«»:—–-]+|[^[:space:]()\[\]/"«»:—–-]+)', 'g'))[1]
+  LOOP
+    IF tok ~ '^[[:space:]()\[\]/"«»:—–-]+$' THEN
+      -- A separator run: hyphen and slash separate words inside a phrase,
+      -- a bracket, colon, quote or dash also starts a new phrase.
+      IF tok ~ '[(\[:"«—–]' THEN phrase_start := true; END IF;
+      out := out || tok;
+      CONTINUE;
     END IF;
-    prev := ch;
+    opening := phrase_start;
+    phrase_start := false;
+    el := regexp_match(tok, '^([[:alpha:]])([''’])(.+)$');
+    IF el IS NOT NULL AND lower(el[1]) = ANY (small) THEN
+      m := regexp_match(el[3], '^([^[:alpha:]]*)([[:alpha:]])(.*)$');
+      out := out
+             || CASE WHEN opening THEN upper(el[1]) ELSE lower(el[1]) END
+             || el[2]
+             || CASE WHEN m IS NULL THEN el[3] ELSE m[1] || upper(m[2]) || m[3] END;
+      CONTINUE;
+    END IF;
+    IF NOT opening AND lower(tok) = ANY (small)
+       AND NOT (tok = upper(tok) AND tok <> lower(tok)) THEN
+      out := out || lower(tok);
+      CONTINUE;
+    END IF;
+    m := regexp_match(tok, '^([^[:alpha:]]*)([[:alpha:]])(.*)$');
+    out := out || CASE WHEN m IS NULL THEN tok ELSE m[1] || upper(m[2]) || m[3] END;
   END LOOP;
   RETURN out;
 END $$;
@@ -159,13 +190,13 @@ END $$;
 
 -- ── 3. Title Case on every label ───────────────────────────────────────────
 UPDATE dictionary_item
-   SET label_en = pg_temp.praxis_title_case(label_en)
+   SET label_en = pg_temp.praxis_title_case(label_en, 'en')
  WHERE label_en IS NOT NULL
-   AND label_en IS DISTINCT FROM pg_temp.praxis_title_case(label_en);
+   AND label_en IS DISTINCT FROM pg_temp.praxis_title_case(label_en, 'en');
 
 UPDATE dictionary_item
-   SET label_fr = pg_temp.praxis_title_case(label_fr)
- WHERE label_fr IS DISTINCT FROM pg_temp.praxis_title_case(label_fr);
+   SET label_fr = pg_temp.praxis_title_case(label_fr, 'fr')
+ WHERE label_fr IS DISTINCT FROM pg_temp.praxis_title_case(label_fr, 'fr');
 
 -- DOWN
 -- Step 3 is not reversed (the original casing is not kept, and was the defect).

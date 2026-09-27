@@ -35,7 +35,9 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DictionaryFinder } from "@/components/dictionary-finder";
 import type { DictSearchHit } from "@/lib/masterdata-api";
 import type { EquipmentPick } from "@/components/equipment-step";
-import { money } from "@/lib/format";
+// Lines and sub-totals carry NO currency: the sheet has one, named in its
+// header and printed on the grand total (meeting 5). `money` is for that total.
+import { money, amount } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { priceCostingLine } from "@/lib/costing-api";
 import {
@@ -44,6 +46,7 @@ import {
   defaultVatCode,
   deboursVatFromRate,
   lineKey,
+  priceNote,
   withVatDefault,
   type LineDraft,
 } from "./costing-model";
@@ -55,6 +58,7 @@ export function LineGrid({
   dossierId,
   serviceTypeId,
   currency,
+  exchangeRate = 1,
   vatCodes,
   readOnly,
   onChange,
@@ -66,6 +70,9 @@ export function LineGrid({
    *  which is what it did before this screen passed it. */
   serviceTypeId?: string | null;
   currency: string;
+  /** The sheet's ONE rate: 1 <currency> = exchangeRate XAF. Prices fetched for
+   *  a hand-picked line arrive already converted at it. */
+  exchangeRate?: number;
   vatCodes: { tax_code_id: string; code: string; rate_percent?: number | null }[];
   readOnly: boolean;
   onChange: (next: LineDraft[]) => void;
@@ -83,17 +90,23 @@ export function LineGrid({
   /**
    * Price a hand-picked line (meeting 5, 01:01:49 — "it doesn't give the
    * cost"). Same server cascade as Suggest: the file's carrier, then the
-   * item's standard rate. The line is found again by identity, and only a line
-   * nobody has priced by hand yet is filled — a person's number always wins.
+   * item's standard rate — converted server-side into THIS sheet's currency at
+   * THIS sheet's rate, so a rate card in XAF lands in an EUR sheet as EUR. The
+   * line is found again by identity, and only a line nobody has priced by hand
+   * yet is filled — a person's number always wins.
    *
-   * A rate in another currency is NOT dropped into this sheet as if it were
-   * in the sheet's: 72 700 EUR in an XAF sheet is off by 655×. The line stays
-   * unpriced and says why, so the person converts it deliberately.
+   * A rate in a currency with no quote on file (NO_FX) is not guessed: the
+   * line stays unpriced and its note says what the rate card said.
    */
   const fillPrice = (id: string, containerTypeRefId: string | null) => {
-    priceCostingLine({ dictionaryItemId: id, dossierId: dossierId || null, containerTypeRefId })
+    priceCostingLine({
+      dictionaryItemId: id,
+      dossierId: dossierId || null,
+      containerTypeRefId,
+      sheet: { currency, exchangeRateToXaf: exchangeRate },
+    })
       .then((p) => {
-        if (p.unit_cost === null || p.price_source === "NONE") return;
+        if (p.price_source === "NONE") return;
         const { lines: now, onChange: emit } = latest.current;
         const at = now.findIndex(
           (l) =>
@@ -102,16 +115,16 @@ export function LineGrid({
             !Number(l.unit_cost),
         );
         if (at < 0) return;
-        const foreign = !!p.currency && p.currency !== currency;
         const next = [...now];
-        next[at] = foreign
-          ? { ...now[at], price_note: `${tr("Rate on file is in")} ${p.currency} — ${money(p.unit_cost, p.currency || currency)}` }
-          : {
-              ...now[at],
-              unit_cost: p.unit_cost,
-              price_note:
-                p.price_source === "EXPENSE_RATE" ? tr("From the rate card") : tr("Catalogue default"),
-            };
+        next[at] =
+          p.unit_cost === null
+            ? { ...now[at], price_note: priceNote(p) }
+            : {
+                ...now[at],
+                unit_cost: p.unit_cost,
+                base_unit_cost: p.unit_cost_xaf ?? null,
+                price_note: priceNote(p),
+              };
         emit(next);
       })
       // Pricing is a convenience: on failure the line stays as picked and the
@@ -119,6 +132,7 @@ export function LineGrid({
       // for "this charge has no rate".
       .catch(() => toast.info(tr("Could not look up a price for this line — enter the unit cost.")));
   };
+;
   const replaceLine = (i: number, line: LineDraft) =>
     onChange(lines.map((l, j) => (j === i ? line : l)));
 
@@ -246,7 +260,7 @@ export function LineGrid({
           </THead>
           <TBody>
             {lines.map((l, i) => {
-              const amount = (Number(l.qty) || 0) * (Number(l.unit_cost) || 0);
+              const lineAmount = (Number(l.qty) || 0) * (Number(l.unit_cost) || 0);
               return (
                 <TR key={`${lineKey(l)}-${i}`}>
                   <TD className="num text-muted-foreground">{i + 1}</TD>
@@ -303,7 +317,7 @@ export function LineGrid({
                   </TD>
                   <TD className="text-right">
                     {readOnly ? (
-                      <span className="num">{money(l.unit_cost ?? 0, currency)}</span>
+                      <span className="num">{amount(l.unit_cost ?? 0)}</span>
                     ) : (
                       <Input
                         type="number"
@@ -315,6 +329,9 @@ export function LineGrid({
                           setLineCalc(i, {
                             unit_cost:
                               e.target.value === "" ? null : Number(e.target.value),
+                            // A typed price is in the sheet's currency now;
+                            // the next conversion starts from it.
+                            base_unit_cost: null,
                           })
                         }
                       />
@@ -331,7 +348,7 @@ export function LineGrid({
                       readOnly ? (
                         <span className="num">
                           {l.upstream_vat_amount != null && l.upstream_vat_amount > 0
-                            ? `${money(l.upstream_vat_amount, currency)} `
+                            ? `${amount(l.upstream_vat_amount)} `
                             : ""}
                           <span className="micro">{tr("(PT)")}</span>
                         </span>
@@ -381,6 +398,7 @@ export function LineGrid({
                                   upstream_vat_rate_percent: null,
                                   upstream_vat_amount:
                                     e.target.value === "" ? null : Number(e.target.value),
+                                  base_upstream_vat: null,
                                 })
                               }
                             />
@@ -416,7 +434,7 @@ export function LineGrid({
                       </Select>
                     )}
                   </TD>
-                  <TD className="num text-right">{money(amount, currency)}</TD>
+                  <TD className="num text-right">{amount(lineAmount)}</TD>
                   {!readOnly && (
                     <TD>
                       <div className="flex gap-1">
@@ -506,7 +524,7 @@ export function VatPanel({
   const r = (n: number) => Math.round(n * 100) / 100;
 
   return (
-    <Panel title={tr("VAT")}>
+    <Panel title={`${tr("VAT")} · ${currency}`}>
       <Table>
         <THead>
           <TR>
@@ -521,8 +539,8 @@ export function VatPanel({
             .map((b) => (
               <TR key={b.rate}>
                 <TD>{b.rate}%</TD>
-                <TD className="num text-right">{money(r(b.base), currency)}</TD>
-                <TD className="num text-right">{money(r(b.vat), currency)}</TD>
+                <TD className="num text-right">{amount(r(b.base))}</TD>
+                <TD className="num text-right">{amount(r(b.vat))}</TD>
               </TR>
             ))}
           {noCode > 0 && (
@@ -531,7 +549,7 @@ export function VatPanel({
                 {tr("No VAT code")}
                 <p className="micro">{tr("No tax code picked on these lines.")}</p>
               </TD>
-              <TD className="num text-right">{money(r(noCode), currency)}</TD>
+              <TD className="num text-right">{amount(r(noCode))}</TD>
               <TD className="num text-right">—</TD>
             </TR>
           )}
@@ -543,9 +561,9 @@ export function VatPanel({
                   {tr("Re-billed at cost; the VAT is the supplier's, budgeted into the total.")}
                 </p>
               </TD>
-              <TD className="num text-right">{money(r(passThrough), currency)}</TD>
+              <TD className="num text-right">{amount(r(passThrough))}</TD>
               <TD className="num text-right">
-                {passThroughVat > 0 ? money(r(passThroughVat), currency) : "—"}
+                {passThroughVat > 0 ? amount(r(passThroughVat)) : "—"}
               </TD>
             </TR>
           )}
@@ -570,19 +588,19 @@ export function TotalsFooter({
       <KpiRow stack>
         <KpiTile
           label={tr("Subtotal (HT)")}
-          value={money(t.total_ht, currency)}
+          value={amount(t.total_ht)}
           hint={
             t.disbursement_total > 0
-              ? `${tr("of which débours")} ${money(t.disbursement_total, currency)}`
+              ? `${tr("of which débours")} ${amount(t.disbursement_total)}`
               : undefined
           }
         />
         <KpiTile
           label={tr("VAT")}
-          value={money(t.vat_total, currency)}
+          value={amount(t.vat_total)}
           hint={
             t.upstream_vat_total > 0
-              ? `${tr("of which on débours (PT)")} ${money(t.upstream_vat_total, currency)}`
+              ? `${tr("of which on débours (PT)")} ${amount(t.upstream_vat_total)}`
               : undefined
           }
         />
@@ -593,7 +611,7 @@ export function TotalsFooter({
       </KpiRow>
       {t.upstream_vat_total > 0 && (
         <p className="micro">
-          <span className="num">{money(t.upstream_vat_total, currency)}</span>{" "}
+          <span className="num">{amount(t.upstream_vat_total)}</span>{" "}
           {tr(
             "of the VAT is the supplier's own on débours (PT), re-billed at cost and budgeted into the total.",
           )}

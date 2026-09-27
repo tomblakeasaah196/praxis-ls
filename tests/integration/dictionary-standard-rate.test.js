@@ -137,4 +137,28 @@ d("Financial dictionary: standard rate, re-lettered codes, apply to carriers", (
     const afterRefusal = await one("SELECT count(*)::int AS n FROM expense_rate WHERE dictionary_item_id = $1", [item.dictionary_item_id]);
     expect(afterRefusal.n).toBe(before.n);
   });
+
+  test("the seed's SQL title case and the service's JS title case agree", async () => {
+    // Loaded from the seed file itself, so the test runs the SQL that ships.
+    const fs = require("fs");
+    const path = require("path");
+    const { titleCase } = require("../../src/modules/master/financial_dictionary/financial_dictionary.rules");
+    const seed = fs.readFileSync(path.join(__dirname, "../../migrations/seeds/90995_dictionary_meeting5_cleanup.sql"), "utf8");
+    const fn = /CREATE OR REPLACE FUNCTION pg_temp\.praxis_title_case[\s\S]*?END \$\$;/.exec(seed);
+    expect(fn).not.toBeNull();
+    await c.query(fn[0]);
+    const cases = [
+      ["frais de dossier", "fr"], ["Frais De Dossier", "fr"],
+      ["frais d'agence et de documentation", "fr"], ["commissions sur débours", "fr"],
+      ["transport — pour compte client", "fr"], ["l'entrepôt", "fr"],
+      ["frais DE ligne THC (pdf)", "fr"], ["à la charge du client", "fr"], ["porte-à-porte", "fr"],
+      ["commission on disbursements", "en"], ["THC per box", "en"], ["type A container", "en"],
+      ["air waybill (awb) fee", "en"], ["last-mile / port exit", "en"], ["the end of the line", "en"],
+      ["bank caution — deposit", "en"], ["IT equipment & hardware", "en"],
+    ];
+    for (const [label, lang] of cases) {
+      const { rows } = await c.query("SELECT pg_temp.praxis_title_case($1, $2) AS t", [label, lang]);
+      expect([label, rows[0].t]).toEqual([label, titleCase(label, lang)]);
+    }
+  });
 });

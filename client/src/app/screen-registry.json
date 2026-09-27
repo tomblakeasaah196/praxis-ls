@@ -1066,6 +1066,7 @@
         "costing_kpis",
         "suggest_costing_lines",
         "price_costing_line",
+        "costing_fx_rate",
         "create_costing",
         "update_costing",
         "costing_status",
