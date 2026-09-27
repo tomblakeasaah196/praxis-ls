@@ -127,7 +127,6 @@ async function resolveEntity(client, entityId, { language = "en" } = {}) {
       client.query("SELECT * FROM entity_tax_registration WHERE entity_id = $1", [entity.entity_id])
         .then((r) => r.rows).catch(() => []),
     ]);
-    entity.address_lines = letterhead.addressLines(entity, addresses, { countryName, language });
     entity.identifiers = letterhead.identifiers(entity, registrations, taxRegistrations);
     /*
      * THE LETTERHEAD ROW, AND WHY IT IS FETCHED HERE.
@@ -166,6 +165,9 @@ async function resolveEntity(client, entityId, { language = "en" } = {}) {
       client.query("SELECT * FROM entity_establishment WHERE entity_id = $1", [entity.entity_id])
         .then((r) => r.rows).catch(() => []),
     ]);
+    // After the letterhead row, because the row names WHICH address prints
+    // (meeting 5) — the same resolver the dossier preview runs.
+    entity.address_lines = letterhead.addressLines(entity, addresses, { countryName, language, config: lhRow });
     entity.letterhead_row = lhRow;
     entity.letterhead_lines = lhLines;
     entity.letterhead_sources = { addresses, treasuryAccounts: treasury, establishments };

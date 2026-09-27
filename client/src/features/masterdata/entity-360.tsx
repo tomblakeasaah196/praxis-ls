@@ -4115,9 +4115,12 @@ function LetterheadTab({
   canEdit?: boolean;
 }) {
   const toast = useToast();
+  // `fresh`: the letterhead is composed from the addresses, registrations and
+  // treasury accounts other tabs edit — a cached copy is the old PO box.
   const lh = useResource<api.LetterheadBundle>(
     () => api.entityLetterhead(entityId),
     [entityId],
+    { fresh: true },
   );
   const [lang, setLang] = React.useState<"fr" | "en">("fr");
   const [busy, setBusy] = React.useState(false);

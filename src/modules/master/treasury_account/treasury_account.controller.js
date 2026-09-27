@@ -138,6 +138,14 @@ module.exports = {
       actor: actor(req),
     })) });
   }),
+  attachDocumentScan: asyncHandler(async (req, res) => {
+    res.json({ data: await req.tenantDb((c) => service.attachDocumentScan(c, {
+      accountId: req.params.id,
+      documentId: req.params.docId,
+      actor: actor(req),
+      ...req.body,
+    })) });
+  }),
 
   // Signatories (PR-03, Audit #3)
   listSignatories: asyncHandler(async (req, res) => {

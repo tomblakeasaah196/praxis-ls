@@ -423,6 +423,39 @@ async function removeDocument(client, { accountId, documentId, actor = {} }) {
   return { deleted: true };
 }
 
+/**
+ * Link an uploaded scan to a document record — the second of the two calls
+ * every master-data attachment makes (see client components/scan-attachment).
+ * The vault row must exist and must have been filed against THIS account, so a
+ * caller cannot point a treasury record at somebody else's file.
+ */
+async function attachDocumentScan(client, { accountId, documentId, actor = {}, ...body }) {
+  const doc = await repo.getDocument(client, documentId);
+  if (!doc || doc.treasury_account_id !== accountId) {
+    throw new AppError("NOT_FOUND", "Treasury document not found", 404);
+  }
+  const { rows: [vaulted] } = await client.query(
+    "SELECT doc_id, entity_ref, original_name FROM document_vault WHERE doc_id = $1",
+    [body.vault_id],
+  );
+  if (!vaulted) throw new AppError("VAULT_DOC_NOT_FOUND", "The uploaded file was not found in the vault.", 422);
+  const owners = [`treasury_account:${accountId}`, `treasury_account_document:${documentId}`];
+  if (vaulted.entity_ref && !owners.includes(vaulted.entity_ref)) {
+    throw new AppError("VAULT_DOC_FOREIGN", "That file belongs to another record.", 422);
+  }
+  const row = await repo.attachDocumentScan(client, documentId, {
+    vault_id: vaulted.doc_id,
+    file_name: body.file_name || vaulted.original_name || null,
+    file_size: body.file_size ?? null,
+    mime_type: body.mime_type || null,
+  });
+  await audit(client, {
+    actorUserId: actor.user_id || null, action: "treasury_account.document_scan_attached",
+    moduleKey: events.MODULE, entityRef: ref(accountId), before: doc, after: row,
+  });
+  return row;
+}
+
 async function verifyDocument(client, { accountId, documentId, actor = {} }) {
   const doc = await repo.getDocument(client, documentId);
   if (!doc || doc.treasury_account_id !== accountId) {
@@ -525,7 +558,7 @@ async function deleteGateway(client, { provider, actor = {} }) {
 
 module.exports = {
   create, update, setActive, setPrimary, verify, unverify, get, list, reverseEntry,
-  listDocuments, addDocument, removeDocument, verifyDocument,
+  listDocuments, addDocument, removeDocument, verifyDocument, attachDocumentScan,
   listSignatories, addSignatory, updateSignatory, removeSignatory,
   listGateways, getGateway, upsertGateway, setGatewayActive, setGatewayRole, deleteGateway,
 };
