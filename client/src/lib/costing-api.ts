@@ -225,6 +225,7 @@ export type SuggestedLine = {
   dictionary_item_id: string;
   item_code: string;
   label: string;
+  label_en?: string | null;
   label_fr?: string | null;
   subcategory?: string | null;
   unit_of_measure?: string | null;
@@ -296,6 +297,26 @@ export const suggestCostingLines = (
   dossierId: string,
   tier: "BASIC" | "ADVANCED" | "FULL" = "FULL",
 ) => tenant<CostingSuggestion>(`/costings/suggest${qs({ dossier_id: dossierId, tier })}`);
+
+/** One hand-picked line, priced by the same cascade Suggest uses (the file's
+ *  carrier → the item's standard rate). Before this, "+ Add a line" arrived at
+ *  0 even when Expense rates had a price (meeting 5). */
+export type PricedLine = Pick<
+  SuggestedLine,
+  "unit_cost" | "currency" | "price_source" | "price_note" | "expense_rate_id" | "effective_from" | "rate_scope"
+> & { dictionary_item_id: string; container_type_ref_id: string | null };
+export const priceCostingLine = (opts: {
+  dictionaryItemId: string;
+  dossierId?: string | null;
+  containerTypeRefId?: string | null;
+}) =>
+  tenant<PricedLine>(
+    `/costings/price-line${qs({
+      dictionary_item_id: opts.dictionaryItemId,
+      dossier_id: opts.dossierId || undefined,
+      container_type_ref_id: opts.containerTypeRefId || undefined,
+    })}`,
+  );
 
 /** DRAFT-only, server-side. The screen has never called this; the worksheet
  *  in PR 2 does. */

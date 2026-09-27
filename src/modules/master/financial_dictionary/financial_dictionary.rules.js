@@ -25,6 +25,24 @@ function formatCode(direction, serial) {
   return `#${directionLetter(direction)}${String(serial).padStart(3, "0")}`;
 }
 
+/**
+ * Title Case for a catalogue label — every word starts with a capital (meeting
+ * 5, 01:44:14: "Shipping Line Charges", not "shipping line charges").
+ *
+ * Only the FIRST letter of each word is touched; the rest is left as typed, so
+ * "THC", "PDF", "(BL)" and "IT Equipment" survive. That is the difference from
+ * a naive capitalise-and-lowercase, which would print "Thc". A word starts after
+ * the start of the string, whitespace, an opening bracket, a slash, a hyphen or
+ * a quote — not after an apostrophe, which is inside a word ("D'agence").
+ *
+ * The seed 90995 applies the identical rule in SQL to the rows already stored;
+ * change one and change the other.
+ */
+function titleCase(label) {
+  if (label === null || label === undefined) return label;
+  return String(label).replace(/(^|[\s([/\-"«])(\p{Ll})/gu, (_m, before, ch) => before + ch.toUpperCase());
+}
+
 /** A débours item always carries the flag; otherwise the explicit toggle wins. */
 function resolveDisbursement(direction, isDisbursement) { return direction === "DISBURSEMENT" ? true : !!isDisbursement; }
 
@@ -479,7 +497,7 @@ function partitionImport(rows = [], ctx = {}) {
 }
 
 module.exports = {
-  directionLetter, formatCode, resolveDisbursement, tierRank, tierIncludes, primaryServiceKey, needsAttention,
+  directionLetter, formatCode, titleCase, resolveDisbursement, tierRank, tierIncludes, primaryServiceKey, needsAttention,
   // spend
   SPEND_LENSES, normalisePeriod, monthKeys, spendSeries,
   // cost evolution

@@ -30,6 +30,11 @@ import { tr } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/costing-api";
 import { suggestionKey as keyOf } from "./costing-model";
+import { dictLabel } from "@/lib/dict-label";
+
+/** The line's name in the reader's language (lib/dict-label). */
+const labelOf = (l: api.SuggestedLine) =>
+  dictLabel({ label_en: l.label_en ?? l.label, label_fr: l.label_fr }) || l.label;
 
 type Tier = "BASIC" | "ADVANCED" | "FULL";
 
@@ -87,7 +92,7 @@ function LineRow({
         // the 40'. The visible label is the row body beside it.
         label={
           <span className="sr-only">
-            {line.label}
+            {labelOf(line)}
             {line.container_type_label ? ` — ${line.container_type_label}` : ""}
           </span>
         }
@@ -95,7 +100,7 @@ function LineRow({
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="num micro text-muted-foreground">{line.item_code}</span>
-          <span className="text-sm font-medium text-foreground">{line.label}</span>
+          <span className="text-sm font-medium text-foreground">{labelOf(line)}</span>
           {line.container_type_label && (
             <Pill tone="blue">{line.container_type_label}</Pill>
           )}
@@ -277,7 +282,7 @@ export function SuggestDialog({
                         className="flex items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2"
                       >
                         <span className="text-sm text-muted-foreground">
-                          {l.label}
+                          {labelOf(l)}
                           {l.container_type_label ? ` — ${l.container_type_label}` : ""}
                         </span>
                         <Pill tone="ok">{tr("Already on the sheet")}</Pill>

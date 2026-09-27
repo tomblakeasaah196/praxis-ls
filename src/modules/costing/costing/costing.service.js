@@ -807,6 +807,14 @@ const kpis = (client, q) => repo.kpis(client, q);
 const suggestLines = (client, q = {}) =>
   suggest.build(client, { dossierId: q.dossier_id, tier: q.tier, onDate: q.on_date });
 
+const priceLine = (client, q = {}) =>
+  suggest.priceOne(client, {
+    dossierId: q.dossier_id || null,
+    dictionaryItemId: q.dictionary_item_id,
+    containerTypeRefId: q.container_type_ref_id || null,
+    onDate: q.on_date || null,
+  });
+
 // A cleared approval chain approves+locks the costing (BUILD_CONVENTIONS §2/§5).
 onApproved.register("costing", (client, { id, actor }) => setStatus(client, { id, to: "APPROVE", actor: actor || {}, viaChain: true }));
 
@@ -989,6 +997,6 @@ async function nudge(client, { id, actor = {} }) {
 
 module.exports = {
   createDraft, updateDraft, setStatus, unlockTransition, get, budget,
-  list, listPaged, kpis, suggestLines, gate, nudge,
+  list, listPaged, kpis, suggestLines, priceLine, gate, nudge,
   validatorCandidates: (client) => repo.validatorCandidates(client),
 };

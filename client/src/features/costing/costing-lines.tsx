@@ -22,7 +22,9 @@
  * `subcategory` was considered and dropped (Q14): a costing is read as a total,
  * and sub-headings turn a fourteen-row sheet into five sections of three.
  */
+import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/modal";
 import { Segmented } from "@/components/ui/segmented";
@@ -35,6 +37,7 @@ import type { DictSearchHit } from "@/lib/masterdata-api";
 import type { EquipmentPick } from "@/components/equipment-step";
 import { money } from "@/lib/format";
 import { tr } from "@/lib/i18n";
+import { priceCostingLine } from "@/lib/costing-api";
 import {
   BLANK_LINE,
   computeTotals,
@@ -69,6 +72,53 @@ export function LineGrid({
 }) {
   const setLine = (i: number, patch: Partial<LineDraft>) =>
     onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+
+  // The price arrives AFTER the pick has already been applied, so the patch
+  // must land on the grid as it is THEN, not on the `lines` this render closed
+  // over — otherwise a quantity typed while the request was in flight is lost.
+  const toast = useToast();
+  const latest = React.useRef({ lines, onChange });
+  latest.current = { lines, onChange };
+
+  /**
+   * Price a hand-picked line (meeting 5, 01:01:49 — "it doesn't give the
+   * cost"). Same server cascade as Suggest: the file's carrier, then the
+   * item's standard rate. The line is found again by identity, and only a line
+   * nobody has priced by hand yet is filled — a person's number always wins.
+   *
+   * A rate in another currency is NOT dropped into this sheet as if it were
+   * in the sheet's: 72 700 EUR in an XAF sheet is off by 655×. The line stays
+   * unpriced and says why, so the person converts it deliberately.
+   */
+  const fillPrice = (id: string, containerTypeRefId: string | null) => {
+    priceCostingLine({ dictionaryItemId: id, dossierId: dossierId || null, containerTypeRefId })
+      .then((p) => {
+        if (p.unit_cost === null || p.price_source === "NONE") return;
+        const { lines: now, onChange: emit } = latest.current;
+        const at = now.findIndex(
+          (l) =>
+            l.dictionary_item_id === id &&
+            (l.container_type_ref_id || null) === containerTypeRefId &&
+            !Number(l.unit_cost),
+        );
+        if (at < 0) return;
+        const foreign = !!p.currency && p.currency !== currency;
+        const next = [...now];
+        next[at] = foreign
+          ? { ...now[at], price_note: `${tr("Rate on file is in")} ${p.currency} — ${money(p.unit_cost, p.currency || currency)}` }
+          : {
+              ...now[at],
+              unit_cost: p.unit_cost,
+              price_note:
+                p.price_source === "EXPENSE_RATE" ? tr("From the rate card") : tr("Catalogue default"),
+            };
+        emit(next);
+      })
+      // Pricing is a convenience: on failure the line stays as picked and the
+      // person types the cost — but they are TOLD, so a 0 is never mistaken
+      // for "this charge has no rate".
+      .catch(() => toast.info(tr("Could not look up a price for this line — enter the unit cost.")));
+  };
   const replaceLine = (i: number, line: LineDraft) =>
     onChange(lines.map((l, j) => (j === i ? line : l)));
 
@@ -148,14 +198,18 @@ export function LineGrid({
         ));
       if (!made.length) return;
       onChange([...lines.slice(0, at), ...made, ...lines.slice(at + 1)]);
+      for (const p of picks) fillPrice(id, p.container_type_ref_id || null);
     };
 
-  const pickOne = (i: number) => (id: string, label: string, hit?: DictSearchHit) =>
+  const pickOne = (i: number) => (id: string, label: string, hit?: DictSearchHit) => {
+    // A DIFFERENT charge on this row: the old charge's price is not this one's.
+    const changed = (lines[i].dictionary_item_id || "") !== (id || "");
     replaceLine(
       i,
       withVatDefault(
         {
           ...lines[i],
+          ...(changed ? { unit_cost: 0, price_note: null } : {}),
           dictionary_item_id: id || undefined,
           label: id ? label : "",
           // Nature comes from the catalogue, not from a checkbox the user ticks.
@@ -172,6 +226,8 @@ export function LineGrid({
         },
         defaultTax,
       ));
+    if (id && changed) fillPrice(id, null);
+  };
 
   return (
     <div className="space-y-2">
