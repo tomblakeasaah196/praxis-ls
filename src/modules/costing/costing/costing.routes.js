@@ -22,6 +22,8 @@ router.use(authMiddleware);
 // requires the caller to hold MOD-10 (Expense Rates) just to have a costing
 // price itself. One call, gated on the module that owns the document.
 router.get("/suggest", requirePermission(MODULE, "view"), validator.suggestQuery, controller.suggest);
+// The same pricing for ONE line picked by hand — `view` for the reason above.
+router.get("/price-line", requirePermission(MODULE, "view"), validator.priceLineQuery, controller.priceLine);
 router.get("/kpis", requirePermission(MODULE, "view"), validator.listQuery, controller.kpis);
 router.get("/validators", requirePermission(MODULE, "view"), controller.validators);
 router.get("/", requirePermission(MODULE, "view"), validator.listQuery, controller.list);

@@ -74,6 +74,15 @@ const suggestQuery = z.object({
   on_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
+// One hand-picked line, priced (meeting 5). dossier_id is optional: a sheet
+// drafted before it is linked to a file prices from the item's own rates.
+const priceLineQuery = z.object({
+  dictionary_item_id: z.string().uuid(),
+  dossier_id: z.string().uuid().optional(),
+  container_type_ref_id: z.string().uuid().optional(),
+  on_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
 /**
  * The budget ledger's one option (12771).
  *
@@ -96,7 +105,7 @@ const gateQuery = z.object({
 const aiUpdate = update.extend({ costing_id: z.string().uuid() });
 const aiSetStatus = setStatus.extend({ costing_id: z.string().uuid() });
 const aiUnlock = unlock.extend({ costing_id: z.string().uuid() });
-const schemas = { create, update, setStatus, unlock, listQuery, suggestQuery, budgetQuery, gateQuery, aiUpdate, aiSetStatus, aiUnlock };
+const schemas = { create, update, setStatus, unlock, listQuery, suggestQuery, priceLineQuery, budgetQuery, gateQuery, aiUpdate, aiSetStatus, aiUnlock };
 const mw = (k) => (req, _res, next) => { const p = schemas[k].safeParse(req.body); if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors)); req.body = p.data; return next(); };
 /** Query-string variant: parses `req.query`, which Express makes read-only on
  *  some versions, so the parsed result is stashed rather than reassigned. */
@@ -108,7 +117,7 @@ const qw = (k) => (req, _res, next) => {
 };
 module.exports = {
   create: mw("create"), update: mw("update"), setStatus: mw("setStatus"), unlock: mw("unlock"),
-  listQuery: qw("listQuery"), suggestQuery: qw("suggestQuery"), budgetQuery: qw("budgetQuery"),
+  listQuery: qw("listQuery"), suggestQuery: qw("suggestQuery"), priceLineQuery: qw("priceLineQuery"), budgetQuery: qw("budgetQuery"),
   gateQuery: qw("gateQuery"),
   schemas,
 };

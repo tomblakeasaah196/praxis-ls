@@ -20,6 +20,7 @@
  *    register's chunk, and tripped `react-refresh/only-export-components` on
  *    every module that mixed a component with a helper.
  */
+import { dictLabel } from "@/lib/dict-label";
 import { tr } from "@/lib/i18n";
 import * as api from "@/lib/costing-api";
 
@@ -139,7 +140,7 @@ export const lineKey = (l: LineDraft) =>
 /** A suggested line, as the worksheet holds it. */
 export const fromSuggestion = (s: api.SuggestedLine): LineDraft => ({
   dictionary_item_id: s.dictionary_item_id,
-  label: s.label,
+  label: dictLabel({ label_en: s.label_en ?? s.label, label_fr: s.label_fr }) || s.label,
   qty: s.qty,
   unit_cost: s.unit_cost,
   is_disbursement: s.is_disbursement,

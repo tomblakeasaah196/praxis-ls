@@ -96,7 +96,9 @@ function qtyBasis(unitOfMeasure, qty) {
  *   1. an `expense_rate` for this carrier and this container type, then the
  *      carrier's general rate, then the item's default rate — `pickRate` scores
  *      and orders that, and it is the same function the rate editor uses;
- *   2. the catalogue's own `default_price`;
+ *   2. the item's standard rate as read with the item (`default_price`, which
+ *      since 14120 IS the no-carrier expense rate, so step 1 normally already
+ *      found it — this only matters for a caller that passes no rate rows);
  *   3. nothing, badged so the gap is visible before the sheet is submitted.
  *
  * `pickRate` throws NO_RATE / NO_RATE_MATCH when nothing is effective or
@@ -133,7 +135,7 @@ function priceLine(item, rateRows, { date, rateProviderId, containerTypeRefId })
   if (item.default_price !== null && item.default_price !== undefined) {
     return {
       unit_cost: num(item.default_price),
-      currency: item.currency || null,
+      currency: item.default_price_currency || item.currency || null,
       price_source: "CATALOGUE_DEFAULT",
       price_note: null,
       expense_rate_id: null,
@@ -202,6 +204,8 @@ async function build(client, { dossierId, tier = "FULL", onDate = null }) {
       dictionary_item_id: item.dictionary_item_id,
       item_code: item.code,
       label: item.label_en || item.label_fr,
+      // Both names, so the sheet shows the one its reader reads (lib/dict-label).
+      label_en: item.label_en || null,
       label_fr: item.label_fr,
       subcategory: item.subcategory || null,
       unit_of_measure: item.unit_of_measure || null,
@@ -305,4 +309,36 @@ async function build(client, { dossierId, tier = "FULL", onDate = null }) {
   };
 }
 
-module.exports = { build, qtyFromUnit, qtyBasis, priceLine, TIERS };
+/**
+ * Price ONE line a person picked by hand from the finder.
+ *
+ * "Suggest" priced its own lines and nothing else, so a charge added with
+ * "+ Add a line" arrived at 0 even when the Expense Rates screen had a price
+ * for it (meeting 5, 01:01:49 — "it doesn't give the cost"). This is the same
+ * `priceLine` cascade over the same rate rows, scoped by the file's carrier
+ * when there is a file, so a hand-picked line and a suggested one can never be
+ * priced differently.
+ *
+ * `dossierId` is optional: a sheet can be drafted before it is attached to a
+ * file, and then only the item's own (no-carrier) rates apply.
+ */
+async function priceOne(client, { dossierId = null, dictionaryItemId, containerTypeRefId = null, onDate = null }) {
+  const date = onDate || new Date().toISOString().slice(0, 10);
+  const { rows } = await client.query(
+    "SELECT dictionary_item_id, currency FROM dictionary_item WHERE dictionary_item_id = $1",
+    [dictionaryItemId],
+  );
+  const item = rows[0];
+  if (!item) throw new AppError("NOT_FOUND", "Dictionary item not found", 404);
+  let rateProviderId = null;
+  if (dossierId) {
+    const file = await repo.dossierForCosting(client, dossierId);
+    if (!file) throw new AppError("NOT_FOUND", "Operations file not found", 404);
+    rateProviderId = file.rate_provider_id || null;
+  }
+  const rates = await repo.ratesForItems(client, [dictionaryItemId]);
+  const priced = priceLine(item, rates.get(dictionaryItemId) || [], { date, rateProviderId, containerTypeRefId });
+  return { dictionary_item_id: dictionaryItemId, container_type_ref_id: containerTypeRefId, ...priced };
+}
+
+module.exports = { build, priceOne, qtyFromUnit, qtyBasis, priceLine, TIERS };
