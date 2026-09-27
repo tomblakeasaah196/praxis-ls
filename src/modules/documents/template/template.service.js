@@ -204,7 +204,15 @@ async function resolveEntity(client, entityId, { language = "en" } = {}) {
  * hex triple is dropped rather than interpolated.
  */
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
-const hex = (v) => (typeof v === "string" && HEX.test(v.trim()) ? v.trim() : null);
+// Expanded to six digits: several print styles append an alpha pair to the
+// accent (`${accent}0d`), and a stored "#000" would become "#0000d" there.
+// Values saved before 14140 could be three-digit; new ones are normalised by
+// the shared `colourInput`.
+const hex = (v) => {
+  if (typeof v !== "string" || !HEX.test(v.trim())) return null;
+  const t = v.trim().toLowerCase();
+  return t.length === 4 ? `#${t.slice(1).split("").map((c) => c + c).join("")}` : t;
+};
 
 function entityLetterheadCfg(entity) {
   const row = entity.letterhead_row;

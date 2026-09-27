@@ -125,3 +125,28 @@ describe("moving blocks", () => {
     expect(head).not.toContain('data-block="payment"');
   });
 });
+
+describe("any brand colour, black included (00:41:19)", () => {
+  const { colourInput, letterheadUpdate } = require("../../packages/shared/schemas/entity-common");
+
+  test("names, a missing hash and the 3-digit shorthand all normalise to #rrggbb", () => {
+    for (const v of ["black", "noir", "000", "#000", "000000", "#000000", " Black "]) {
+      expect(colourInput(v)).toBe("#000000");
+    }
+    expect(colourInput("#C2703D")).toBe("#c2703d");
+    expect(colourInput("not a colour")).toBeNull();
+  });
+
+  test("the letterhead validator stores what colourInput returns, and still refuses nonsense", () => {
+    expect(letterheadUpdate.parse({ brand_color: "black" }).brand_color).toBe("#000000");
+    expect(letterheadUpdate.safeParse({ brand_color: "sunset" }).success).toBe(false);
+    expect(letterheadUpdate.parse({ brand_color: null }).brand_color).toBeNull();
+  });
+
+  test("text in a pale brand colour prints in a readable variant; rules keep the exact colour", () => {
+    const html = kit.shell("t", "", { accent: "#ffff00" });
+    expect(html).not.toMatch(/\.accent \{ color: #ffff00/);
+    expect(html).toMatch(/\.lhb \.rule \{ border-bottom: 0\.7mm solid #ffff00/);
+    expect(kit.shell("t", "", { accent: "#000000" })).toMatch(/\.accent \{ color: #000000/);
+  });
+});

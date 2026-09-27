@@ -29,6 +29,7 @@ import { tr } from "@/lib/i18n";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useUrlTab, useFieldHighlight, useDeepLinkEdit } from "@/lib/use-url-tab";
 import { LetterheadStudio } from "./letterhead-studio";
+import { BrandColourField } from "./brand-colour-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
@@ -4306,13 +4307,14 @@ function LetterheadTab({
                 ))}
               </Select>
             </Field>
-            <Field label="Brand colour" hint="The rule under the header.">
-              <Input
+            <Field label="Brand colour" hint="The rule under the header. Any colour — black included.">
+              <BrandColourField
+                ariaLabel={tr("Brand colour")}
                 value={draft.brand_color ?? ""}
-                placeholder="#C2703D"
+                fallback="#f5821f"
                 readOnly={!canEdit}
-                onChange={(ev) => {
-                  setDraft((s) => ({ ...s, brand_color: ev.target.value }));
+                onChange={(v) => {
+                  setDraft((s) => ({ ...s, brand_color: v }));
                   setDirty(true);
                 }}
               />
@@ -4321,12 +4323,13 @@ function LetterheadTab({
               label="Accent colour"
               hint="Secondary rules and table headings."
             >
-              <Input
+              <BrandColourField
+                ariaLabel={tr("Accent colour")}
                 value={draft.accent_color ?? ""}
-                placeholder="#1F6F6B"
+                fallback="#b7c4d6"
                 readOnly={!canEdit}
-                onChange={(ev) => {
-                  setDraft((s) => ({ ...s, accent_color: ev.target.value }));
+                onChange={(v) => {
+                  setDraft((s) => ({ ...s, accent_color: v }));
                   setDirty(true);
                 }}
               />
