@@ -23,6 +23,8 @@ router.use(authMiddleware);
 // price itself. One call, gated on the module that owns the document.
 router.get("/suggest", requirePermission(MODULE, "view"), validator.suggestQuery, controller.suggest);
 // The same pricing for ONE line picked by hand — `view` for the reason above.
+// The rate a sheet in another currency defaults to — the pricer may overwrite it.
+router.get("/fx-rate", requirePermission(MODULE, "view"), validator.fxQuery, controller.fxRate);
 router.get("/price-line", requirePermission(MODULE, "view"), validator.priceLineQuery, controller.priceLine);
 router.get("/kpis", requirePermission(MODULE, "view"), validator.listQuery, controller.kpis);
 router.get("/validators", requirePermission(MODULE, "view"), controller.validators);

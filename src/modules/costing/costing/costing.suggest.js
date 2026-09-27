@@ -32,6 +32,7 @@
 
 const repo = require("./costing.repo");
 const { pickRate } = require("../../master/expense_rate/expense_rate.rules");
+const currencySvc = require("../../master/currency/currency.service");
 const { AppError } = require("../../../utils/errors");
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -154,6 +155,79 @@ function priceLine(item, rateRows, { date, rateProviderId, containerTypeRefId })
   };
 }
 
+/**
+ * Put a priced line into the SHEET's currency (meeting 5, 01:12:33).
+ *
+ * A costing has ONE currency and ONE exchange rate — `exchange_rate_to_xaf`,
+ * "1 <currency> = rate XAF" — and every line is in that currency. A rate on
+ * file may be in anything: XAF mostly, sometimes the carrier's EUR or USD. So:
+ *
+ *   rate in the sheet's currency   → as is
+ *   rate in XAF                    → divided by the sheet's rate
+ *   rate in a third currency       → to XAF at the Currencies module's rate for
+ *                                    the day, then divided by the sheet's rate
+ *
+ * The sheet's own rate is the one used for the last step, never a fresh quote,
+ * because it is the rate the pricer can see and edit and the approver signs.
+ * A third currency with no quote on file is NOT guessed: the line comes back
+ * unpriced (`NO_FX`) with the original figure, so a person decides.
+ *
+ * `unit_cost_xaf` is the line's value in XAF before rounding into the sheet's
+ * currency. The worksheet keeps it so that switching the sheet's currency or
+ * rate converts from the same XAF figure every time instead of compounding
+ * rounding — XAF → EUR → XAF lands back on the number it started from.
+ *
+ * No `sheet.currency` → no conversion at all (the pre-conversion contract, for
+ * a caller that does not pass one).
+ */
+async function toSheetCurrency(client, priced, sheet, cache) {
+  if (!sheet || !sheet.currency || priced.unit_cost === null) return priced;
+  const to = String(sheet.currency).toUpperCase();
+  const sheetRate = Number(sheet.rate) > 0 ? Number(sheet.rate) : 1;
+  const from = String(priced.currency || "XAF").toUpperCase();
+  const unit = num(priced.unit_cost);
+  if (from === to) {
+    return { ...priced, currency: to, source_unit_cost: null, source_currency: null, unit_cost_xaf: to === "XAF" ? unit : unit * sheetRate };
+  }
+  let perXaf = 1; // XAF value of one unit of `from`
+  if (from !== "XAF") {
+    if (!cache.has(from)) {
+      try {
+        const hit = await currencySvc.rateFor(client, { base: from, quote: "XAF", date: sheet.date });
+        cache.set(from, Number(hit.rate) > 0 ? Number(hit.rate) : null);
+      } catch (err) {
+        // @silent:expected — no quote for this currency on or before the day is
+        // an ordinary state (a currency never synced); the line is returned
+        // unpriced with its original figure instead of a guessed conversion.
+        if (err.code !== "NO_FX_RATE") throw err;
+        cache.set(from, null);
+      }
+    }
+    perXaf = cache.get(from);
+    if (!perXaf) {
+      return {
+        ...priced,
+        unit_cost: null,
+        currency: to,
+        price_source: "NO_FX",
+        price_note: `No ${from} → XAF exchange rate on file to convert this rate`,
+        source_unit_cost: unit,
+        source_currency: from,
+        unit_cost_xaf: null,
+      };
+    }
+  }
+  const xaf = unit * perXaf;
+  return {
+    ...priced,
+    unit_cost: round2(xaf / sheetRate),
+    currency: to,
+    source_unit_cost: unit,
+    source_currency: from,
+    unit_cost_xaf: xaf,
+  };
+}
+
 /** The display name for a container type, matching the equipment picker's. */
 const typeLabel = (row) => row.container_type_en || row.container_type_fr || row.container_type_code;
 
@@ -162,7 +236,7 @@ const typeLabel = (row) => row.container_type_en || row.container_type_fr || row
  *
  * @returns { file, tier, bands: [{ tier, lines }], counts, defaults }
  */
-async function build(client, { dossierId, tier = "FULL", onDate = null }) {
+async function build(client, { dossierId, tier = "FULL", onDate = null, sheet = null }) {
   const wanted = TIERS.includes(String(tier).toUpperCase()) ? String(tier).toUpperCase() : "FULL";
   const date = onDate || new Date().toISOString().slice(0, 10);
 
@@ -191,6 +265,9 @@ async function build(client, { dossierId, tier = "FULL", onDate = null }) {
   const vat = await repo.defaultSalesTaxCode(client, { entityId: file.entity_id, onDate: date });
 
   const bands = new Map(TIERS.map((t) => [t, []]));
+  // Into the sheet's currency when the caller names one — see toSheetCurrency.
+  const fx = new Map();
+  const inSheet = (priced) => toSheetCurrency(client, priced, sheet && { ...sheet, date }, fx);
 
   for (const item of items) {
     const rows = rateRows.get(item.dictionary_item_id) || [];
@@ -226,11 +303,11 @@ async function build(client, { dossierId, tier = "FULL", onDate = null }) {
     // `Demurrage 20'` and `Demurrage 40'` as two codes, and ours needs one.
     if (item.varies_by_equipment && containers.length) {
       for (const box of containers) {
-        const priced = priceLine(item, rows, {
+        const priced = await inSheet(priceLine(item, rows, {
           date,
           rateProviderId: file.rate_provider_id || null,
           containerTypeRefId: box.container_type_ref_id,
-        });
+        }));
         bands.get(item.tier).push({
           ...common,
           container_type_ref_id: box.container_type_ref_id,
@@ -247,11 +324,11 @@ async function build(client, { dossierId, tier = "FULL", onDate = null }) {
     // An equipment-varying charge on a file with no equipment recorded yet:
     // one line, no box, and a note rather than silently dropping the charge.
     const qty = qtyFromUnit(item.unit_of_measure, file);
-    const priced = priceLine(item, rows, {
+    const priced = await inSheet(priceLine(item, rows, {
       date,
       rateProviderId: file.rate_provider_id || null,
       containerTypeRefId: null,
-    });
+    }));
     bands.get(item.tier).push({
       ...common,
       container_type_ref_id: null,
@@ -292,8 +369,8 @@ async function build(client, { dossierId, tier = "FULL", onDate = null }) {
     })),
     counts: {
       total: all.length,
-      priced: all.filter((l) => l.price_source !== "NONE").length,
-      needs_price: all.filter((l) => l.price_source === "NONE").length,
+      priced: all.filter((l) => l.unit_cost !== null).length,
+      needs_price: all.filter((l) => l.unit_cost === null).length,
       needs_quantity: all.filter((l) => l.qty === null).length,
       disbursements: all.filter((l) => l.is_disbursement).length,
     },
@@ -322,7 +399,7 @@ async function build(client, { dossierId, tier = "FULL", onDate = null }) {
  * `dossierId` is optional: a sheet can be drafted before it is attached to a
  * file, and then only the item's own (no-carrier) rates apply.
  */
-async function priceOne(client, { dossierId = null, dictionaryItemId, containerTypeRefId = null, onDate = null }) {
+async function priceOne(client, { dossierId = null, dictionaryItemId, containerTypeRefId = null, onDate = null, sheet = null }) {
   const date = onDate || new Date().toISOString().slice(0, 10);
   const { rows } = await client.query(
     "SELECT dictionary_item_id, currency FROM dictionary_item WHERE dictionary_item_id = $1",
@@ -337,8 +414,13 @@ async function priceOne(client, { dossierId = null, dictionaryItemId, containerT
     rateProviderId = file.rate_provider_id || null;
   }
   const rates = await repo.ratesForItems(client, [dictionaryItemId]);
-  const priced = priceLine(item, rates.get(dictionaryItemId) || [], { date, rateProviderId, containerTypeRefId });
+  const priced = await toSheetCurrency(
+    client,
+    priceLine(item, rates.get(dictionaryItemId) || [], { date, rateProviderId, containerTypeRefId }),
+    sheet && { ...sheet, date },
+    new Map(),
+  );
   return { dictionary_item_id: dictionaryItemId, container_type_ref_id: containerTypeRefId, ...priced };
 }
 
-module.exports = { build, priceOne, qtyFromUnit, qtyBasis, priceLine, TIERS };
+module.exports = { build, priceOne, qtyFromUnit, qtyBasis, priceLine, toSheetCurrency, TIERS };
