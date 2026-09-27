@@ -17,6 +17,26 @@ const clientId = (req) => {
   return id;
 };
 
+/**
+ * The client for a STAFF preview (`GET /api/tenant/portals/client…`). These
+ * routes run under the staff session (authMiddleware + MOD-29 view), where
+ * `req.portal` never exists, so `clientId(req)` above refused every preview
+ * with CLIENT_REQUIRED. Staff choose the client they are previewing — the
+ * access-management screen passes the grant's client_id — and MOD-29 already
+ * lets them see every client, so the query parameter is the right source
+ * here. The portal-user routes (portal_auth.routes.js) still take it from the
+ * grant only. Checked as a UUID so a malformed id is a clear 422, not a
+ * database error.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const staffClientId = (req) => {
+  const id = req.query && req.query.client_id;
+  if (!id || !UUID_RE.test(String(id))) {
+    throw new AppError("CLIENT_REQUIRED", "Choose the client to preview (client_id must be a client's id)", 422);
+  }
+  return String(id);
+};
+
 module.exports = {
   listAccess: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.listAccess(c, req.query)) })),
   grant: asyncHandler(async (req, res) => { const b = req.body; res.status(201).json({ data: await req.tenantDb((c) => service.grantAccess(c, { portal: b.portal, subjectEmail: b.subject_email, clientId: b.client_id, expiresAt: b.expires_at, actor: actor(req) })) }); }),
@@ -24,7 +44,6 @@ module.exports = {
   check: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.checkAccess(c, { email: req.query.email, portal: req.query.portal })) })),
   client: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientView(c, { clientId: clientId(req) })) })),
   clientChain: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientChain(c, { clientId: clientId(req), dossierId: req.params.dossierId })) })),
-  clientInvoice: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientInvoice(c, { clientId: clientId(req), invoiceId: req.params.invoiceId, lang: req.query.lang })) })),
   clientDocuments: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientDocuments(c, { clientId: clientId(req) })) })),
   clientOnboarding: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientOnboarding(c, { clientId: clientId(req) })) })),
   clientMessages: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientMessages(c, { clientId: clientId(req), dossierId: req.query.dossier_id || null })) })),
@@ -39,6 +58,9 @@ module.exports = {
   clientQuoteRequests: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientQuoteRequests(c, { clientId: clientId(req) })) })),
   createClientQuote: asyncHandler(async (req, res) => res.status(201).json({ data: await req.tenantDb((c) => service.createClientQuote(c, { clientId: clientId(req), data: req.body, actor: req.portal.user || {} })) })),
   // Staff-side handlers (MOD-67 gated in the routes file).
+  staffClient: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientView(c, { clientId: staffClientId(req) })) })),
+  staffClientChain: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientChain(c, { clientId: staffClientId(req), dossierId: req.params.dossierId })) })),
+  staffClientInvoice: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientInvoice(c, { clientId: staffClientId(req), invoiceId: req.params.invoiceId, lang: req.query.lang })) })),
   staffMessages: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.staffMessages(c, { clientId: req.query.client_id, dossierId: req.query.dossier_id || null })) })),
   staffSendMessage: asyncHandler(async (req, res) => res.status(201).json({ data: await req.tenantDb((c) => service.staffSendMessage(c, { clientId: req.body.client_id, body: req.body.body, dossierId: req.body.dossier_id || null, actor: actor(req) })) })),
   staffOnboarding: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientOnboarding(c, { clientId: req.query.client_id })) })),
