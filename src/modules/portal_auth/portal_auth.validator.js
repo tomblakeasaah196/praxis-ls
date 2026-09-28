@@ -180,7 +180,7 @@ const schemas = {
     // it would store a place the client did not choose.
     origin_location: z.string().trim().min(1).max(200),
     destination_location: z.string().trim().min(1).max(200),
-    // The doors either side of the main leg (14200). Optional: a port-to-port
+    // The doors either side of the main leg (14220). Optional: a port-to-port
     // request names neither.
     collection_location: optText(200),
     delivery_location: optText(200),
@@ -264,7 +264,17 @@ const schemas = {
     })
     .refine(pinBoth, { message: "A location needs both latitude and longitude", path: ["lat"] }),
   chatRead: z.object({ thread: chatThread, at: z.string().datetime({ offset: true }).optional() }),
-  staffChatSend: z.object({ client_id: z.string().uuid(), ...chatFields }),
+  // The team's side: the same fields, a location included — the ERP's reply
+  // tools can share where someone is (client portal PR 3).
+  staffChatSend: z
+    .object({
+      client_id: z.string().uuid(),
+      ...chatFields,
+      lat: optNum(-90, 90),
+      lng: optNum(-180, 180),
+      location_label: optText(200),
+    })
+    .refine(pinBoth, { message: "A location needs both latitude and longitude", path: ["lat"] }),
   staffChatRead: z.object({ client_id: z.string().uuid(), thread: chatThread }),
   // A proposal in the portal. Declining takes a reason from the signing
   // programme's DECLINE list; free text is appended to a reason, never instead

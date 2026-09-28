@@ -292,7 +292,7 @@ async function clientQuoteRequests(client, { clientId }) {
  *  the same intake queue as website and manual requests.
  *
  *  Up to four places come with it — the two ends of the main leg and, for a
- *  door-to-door move, where we collect and where we deliver (14200). Each one
+ *  door-to-door move, where we collect and where we deliver (14220). Each one
  *  the client PICKED is resolved to a verified place here, before
  *  quoteRequest.create opens its transaction (a worldwide pick is a provider
  *  call); each one they TYPED travels as text for the desk to pin. */
