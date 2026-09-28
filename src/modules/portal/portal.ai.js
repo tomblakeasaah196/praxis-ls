@@ -3,6 +3,7 @@ const service = require("./portal.service");
 const clientPortal = require("./portal_client.service");
 const bundles = require("./invoice_bundle.service");
 const chat = require("./portal_chat.service");
+const notify = require("./portal_notify.service");
 const validator = require("./portal.validator");
 const { schemas: portalSchemas } = require("../portal_auth/portal_auth.validator");
 module.exports = {
@@ -18,6 +19,7 @@ module.exports = {
     { key: "list_client_conversations", service: (c, p) => chat.staffThreads(c, { clientId: p.client_id }), permission: { module: "MOD-67", action: "view" }, describe: "A client's portal conversations — the General thread and one per shipment — with when each last moved and how many of the client's messages the team has not read." },
     { key: "read_client_conversation", service: (c, p) => chat.staffMessages(c, { clientId: p.client_id, thread: p.thread || "general" }), permission: { module: "MOD-67", action: "view" }, describe: "The latest messages of one client conversation (thread 'general' or a shipment's dossier_id), with photos, files, voice notes, locations and the shipment stage each message is about." },
     { key: "list_payment_proofs", service: (c, p) => clientPortal.staffProofs(c, { status: p.status || null, clientId: p.client_id || null }), permission: { module: "MOD-52", action: "view" }, describe: "Proofs of payment clients uploaded in the portal, the invoices each covers, and whether finance has confirmed them." },
+    { key: "client_notification_reach", service: (c, p) => notify.staffReach(c, { clientId: p.client_id }), permission: { module: "MOD-67", action: "view" }, describe: "Who at a client is told about portal activity, and how: each contact's access, how many phones or computers they allowed notifications on, and which topics (MESSAGES, REQUESTS, BILLING, PROPOSALS, SHIPMENTS) reach them by email and by push." },
   ],
   writes: [
     { key: "grant_portal_access", service: (c, p, actor) => service.grantAccess(c, { portal: p.portal, subjectEmail: p.subject_email, clientId: p.client_id, expiresAt: p.expires_at, accessScope: p.access_scope, isClientAdmin: p.is_client_admin, actor }), schema: validator.schemas.grant, permission: { module: "MOD-67", action: "edit" }, confirm: true, describe: "Grant a client/investor/auditor portal access (auditor time-boxed; a client grant can be limited to OPERATIONS or BILLING)." },

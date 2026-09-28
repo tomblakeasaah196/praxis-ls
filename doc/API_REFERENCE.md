@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1785 |
+| Routes | 1799 |
 | Modules mounted | 141 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1785 mounted routes, grouped by path prefix.
+All 1799 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1591,11 +1591,25 @@ All 1785 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/portal/client/messages` | — |
 | POST | `/api/tenant/portal/client/messages` | — |
 | GET | `/api/tenant/portal/client/messages/export` | — |
+| GET | `/api/tenant/portal/client/notifications` | — |
+| POST | `/api/tenant/portal/client/notifications` | — |
 | GET | `/api/tenant/portal/client/onboarding` | — |
 | POST | `/api/tenant/portal/client/payment-proofs` | — |
 | GET | `/api/tenant/portal/client/payment-proofs/:id/file` | — |
+| GET | `/api/tenant/portal/client/proposals` | — |
+| GET | `/api/tenant/portal/client/proposals/:id` | — |
+| POST | `/api/tenant/portal/client/proposals/:id/accept` | — |
+| POST | `/api/tenant/portal/client/proposals/:id/decline` | — |
+| GET | `/api/tenant/portal/client/proposals/:id/pdf` | — |
+| POST | `/api/tenant/portal/client/proposals/:id/sign` | — |
+| POST | `/api/tenant/portal/client/proposals/:id/sign/complete` | — |
+| POST | `/api/tenant/portal/client/proposals/:id/sign/resend` | — |
+| POST | `/api/tenant/portal/client/push/subscribe` | — |
+| POST | `/api/tenant/portal/client/push/test` | — |
+| POST | `/api/tenant/portal/client/push/unsubscribe` | — |
 | GET | `/api/tenant/portal/client/quote-requests` | — |
 | POST | `/api/tenant/portal/client/quote-requests` | — |
+| POST | `/api/tenant/portal/client/quote-requests/fill` | — |
 | GET | `/api/tenant/portal/client/requests` | — |
 | POST | `/api/tenant/portal/client/requests/:id/answer` | — |
 | GET | `/api/tenant/portal/client/requests/:id/file` | — |

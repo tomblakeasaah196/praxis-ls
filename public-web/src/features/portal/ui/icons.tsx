@@ -432,3 +432,24 @@ export const ImageIcon = (p: Props) => (
     <path d="m21 16-5-5-8.5 9" />
   </Svg>
 );
+/** A bell — "tell me". */
+export const BellIcon = (p: Props) => (
+  <Svg {...p}>
+    <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" />
+    <path d="M10 21a2.2 2.2 0 0 0 4 0" />
+  </Svg>
+);
+/** A box with an arrow out — iOS's Share button, which is where "Add to Home Screen" lives. */
+export const ShareIcon = (p: Props) => (
+  <Svg {...p}>
+    <path d="M8 9H6.5a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 17.5 9H16" />
+    <path d="M12 3v11M8.5 6.5 12 3l3.5 3.5" />
+  </Svg>
+);
+/** A phone with a star on it — "add the portal to this device". */
+export const InstallIcon = (p: Props) => (
+  <Svg {...p}>
+    <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
+    <path d="M12 8v6M9.5 11.5 12 14l2.5-2.5M10.5 18.5h3" />
+  </Svg>
+);

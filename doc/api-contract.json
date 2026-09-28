@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 141,
-  "route_count": 1785,
+  "route_count": 1799,
   "tiers": {
     "public": 74,
     "self-scoped": 107,
-    "gated": 1604
+    "gated": 1618
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -3573,6 +3573,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/portal/client/notifications": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/portal/client/onboarding": {
       "auth": true,
       "rbac": true,
@@ -3580,6 +3586,24 @@
       "tier": "gated"
     },
     "GET /api/tenant/portal/client/payment-proofs/:id/file": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/proposals": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/proposals/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/proposals/:id/pdf": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8733,13 +8757,73 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/portal/client/notifications": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/portal/client/payment-proofs": {
       "auth": true,
       "rbac": true,
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/portal/client/proposals/:id/accept": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/proposals/:id/decline": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/proposals/:id/sign": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/proposals/:id/sign/complete": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/proposals/:id/sign/resend": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/push/subscribe": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/push/test": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/push/unsubscribe": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/portal/client/quote-requests": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/quote-requests/fill": {
       "auth": true,
       "rbac": true,
       "validated": false,

@@ -54,6 +54,10 @@ const {
 // mail-sending endpoints a stranger can hit, and sharing one budget would let a
 // flood of code requests lock out a real password reset from the same office.
 const codeLimiter = makeLimiter({ name: "portal-code", max: 8 });
+// Signing a proposal emails a code (the signature programme's OTP, which caps
+// its own resends too); the AI fill spends the tenant's AI budget.
+const signLimiter = makeLimiter({ name: "portal-sign", max: 12 });
+const fillLimiter = makeLimiter({ name: "portal-quote-fill", max: 20 });
 
 const router = express.Router();
 
@@ -166,6 +170,32 @@ router.post("/client/chat/read", portalAuth("CLIENT"), v.chatRead, pc.chatRead);
 router.get("/client/chat/attachments/:attachmentId", portalAuth("CLIENT"), pc.chatAttachment);
 router.get("/client/quote-requests", portalAuth("CLIENT"), controller.clientQuoteRequests);
 router.post("/client/quote-requests", portalAuth("CLIENT"), v.portalQuote, controller.createClientQuote);
+// "Describe it in your own words" — reads a description into the quote
+// wizard's fields. Limited per caller: it may spend the tenant's AI budget.
+router.post("/client/quote-requests/fill", portalAuth("CLIENT"), fillLimiter, v.quoteFill, pc.quoteFill);
+// Proposals the tenant sent this client: read, download, decline, accept. On
+// a tenant that offers a digital signature card for proposals, accepting IS
+// signing — an emailed code, then a stamp or a drawn mark, through the
+// signature programme (portal_proposal.service); the three sign routes share
+// the signing OTP's limiter budget.
+router.get("/client/proposals", portalAuth("CLIENT"), OPS, pc.proposals);
+router.get("/client/proposals/:id", portalAuth("CLIENT"), OPS, pc.proposal);
+router.get("/client/proposals/:id/pdf", portalAuth("CLIENT"), OPS, pc.proposalPdf);
+router.post("/client/proposals/:id/decline", portalAuth("CLIENT"), OPS, v.proposalDecline, pc.proposalDecline);
+router.post("/client/proposals/:id/accept", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.proposalAccept);
+router.post("/client/proposals/:id/sign", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.proposalSignStart);
+router.post("/client/proposals/:id/sign/resend", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.proposalSignResend);
+router.post("/client/proposals/:id/sign/complete", portalAuth("CLIENT"), OPS, signLimiter, v.proposalSignComplete, pc.proposalSignComplete);
+// Notifications (14180): what this person is told by email and on their phone,
+// and the devices they allowed it on. Self-service — a person's own switches
+// and their own devices, never a colleague's. The test sends a real push to the
+// caller's own devices only, and is limited like the staff one.
+const pushTestLimiter = makeLimiter({ name: "portal-push-test", max: 10, windowMs: 10 * 60 * 1000 });
+router.get("/client/notifications", portalAuth("CLIENT"), pc.notifySettings);
+router.post("/client/notifications", portalAuth("CLIENT"), v.notifySettings, pc.notifySave);
+router.post("/client/push/subscribe", portalAuth("CLIENT"), v.pushSubscribe, pc.pushSubscribe);
+router.post("/client/push/unsubscribe", portalAuth("CLIENT"), v.pushUnsubscribe, pc.pushUnsubscribe);
+router.post("/client/push/test", portalAuth("CLIENT"), pushTestLimiter, v.empty, pc.pushTest);
 // Staff management — invite/manage external users. IAM & user access (MOD-67).
 const M = "MOD-67";
 router.get("/users", authMiddleware, requirePermission(M, "view"), c.listUsers);

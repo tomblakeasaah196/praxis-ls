@@ -1899,7 +1899,8 @@
         "review_client_request",
         "list_client_conversations",
         "read_client_conversation",
-        "reply_to_client"
+        "reply_to_client",
+        "client_notification_reach"
       ]
     },
     {

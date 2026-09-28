@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (658)
+## All codes (666)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -230,6 +230,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ENTITY_REQUIRED` | 422 | 12× | — |
 | `ENTRY_NOT_ON_ACCOUNT` | 400 | 1× | — |
 | `ENVELOPE_IN_FLIGHT` | 409 | 1× | — |
+| `ESIGN_UNAVAILABLE` | 409 | 1× | — |
 | `EVENT_FORBIDDEN` | 403 | 1× | — |
 | `EVERY_LINE_NEEDS_BUDGET` | — | 1× | — |
 | `EXISTS` | 409 | 3× | — |
@@ -281,7 +282,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `INVALID_ROTATION` | 422 | 1× | — |
 | `INVALID_SORT` | — | 1× | — |
 | `INVALID_STATE` | 422 | 1× | — |
-| `INVALID_SUBSCRIPTION` | 422 | 1× | — |
+| `INVALID_SUBSCRIPTION` | 422 | 2× | — |
 | `INVALID_TOKEN` | 401 | 10× | — |
 | `INVALID_TRANSITION` | 422 | 23× | — |
 | `INVALID_VALUE` | 409, 422 | 13× | — |
@@ -359,7 +360,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 3× | — |
-| `NOT_FOUND` | 404, 422 | 728× | — |
+| `NOT_FOUND` | 404, 422 | 729× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
 | `NOT_OPEN` | 409, 422 | 3× | — |
@@ -370,7 +371,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_PUBLISHED` | 422 | 1× | — |
 | `NOT_QUALIFIED` | 422 | 1× | — |
 | `NOT_QUERIED` | 422 | 1× | — |
-| `NOT_READY` | 409 | 3× | — |
+| `NOT_READY` | 409 | 4× | — |
 | `NOT_RELEASED` | 422 | 1× | — |
 | `NOT_REPRINTABLE` | 409 | 1× | — |
 | `NOT_REVERSIBLE` | 422 | 1× | — |
@@ -435,6 +436,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NO_REPLY_ADDRESS` | 422 | 1× | — |
 | `NO_REVENUE_ACCOUNT` | 422 | 1× | — |
 | `NO_SCHEDULE` | 422 | 1× | — |
+| `NO_SENDER` | 409 | 1× | — |
 | `NO_SERVICE_TYPE` | — | 1× | — |
 | `NO_SIGNATORIES` | 422 | 1× | — |
 | `NO_SIGNED_COPY` | 422 | 2× | — |
@@ -511,13 +513,15 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `PO_NOT_RECEIVABLE` | 422 | 1× | — |
 | `PREFIX_IN_USE` | 422 | 1× | — |
 | `PREFIX_TAKEN` | 422 | 1× | — |
-| `PRESET_NOT_ALLOWED` | 422 | 2× | — |
+| `PRESET_NOT_ALLOWED` | 422 | 3× | — |
 | `PRIMARY_DEACTIVATION_BLOCKED` | 422 | 1× | — |
 | `PRINT_CODE_EXHAUSTED` | 500 | 1× | — |
 | `PRIVILEGED_TARGET` | 403 | 1× | — |
 | `PROFILE_ENTITY_MISMATCH` | 422 | 1× | — |
 | `PROFILE_SOURCE_KIND_MISMATCH` | 422 | 1× | — |
 | `PROOF_REQUIRED` | 422 | 1× | — |
+| `PROPOSAL_ANSWERED` | 409 | 1× | — |
+| `PROPOSAL_EXPIRED` | 409 | 1× | — |
 | `PROTECTED` | 422 | 1× | — |
 | `PROTECTED_ROLE` | 409 | 1× | — |
 | `PROVIDER_NOT_ENABLED` | — | 1× | — |
@@ -594,7 +598,11 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SESSION_REVOKED` | 401 | 8× | — |
 | `SETUP_REQUIRED` | 400 | 1× | — |
 | `SIDE_ALREADY_COMPLETE` | 409 | 1× | — |
+| `SIGNATURE_REQUIRED` | 409 | 1× | — |
 | `SIGNER_IDENTITY_NOT_ACCEPTED` | — | 1× | — |
+| `SIGNING_CLOSED` | 409 | 2× | — |
+| `SIGNING_INCOMPLETE` | 409 | 1× | — |
+| `SIGNING_NOT_STARTED` | 409 | 2× | — |
 | `SLUG_TAKEN` | 422 | 3× | — |
 | `SMTP_AUTH_FAILED` | 502 | 1× | — |
 | `SMTP_SEND_FAILED` | 502 | 3× | — |
@@ -642,7 +650,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `UNKNOWN_CONTAINER` | 422 | 1× | — |
 | `UNKNOWN_CONTAINER_TYPE` | 422 | 1× | — |
 | `UNKNOWN_CURRENCY` | 422 | 2× | — |
-| `UNKNOWN_DECLINE_REASON` | 422 | 1× | — |
+| `UNKNOWN_DECLINE_REASON` | 422 | 2× | — |
 | `UNKNOWN_DEPARTMENT` | 422 | 1× | — |
 | `UNKNOWN_DOC` | 404 | 7× | — |
 | `UNKNOWN_DOCUMENT_TYPE` | 422 | 1× | — |

@@ -11,6 +11,9 @@
 const service = require("./portal_client.service");
 const bundles = require("./invoice_bundle.service");
 const chat = require("./portal_chat.service");
+const proposals = require("./portal_proposal.service");
+const quoteFill = require("./portal_quote_fill.service");
+const notify = require("./portal_notify.service");
 const authService = require("../portal_auth/portal_auth.service");
 const authController = require("../portal_auth/portal_auth.controller");
 const { readUpload } = require("../../shared/http/upload.middleware");
@@ -80,6 +83,12 @@ const meOf = (req) => ({ portal_user_id: req.portal.user.portal_user_id, email: 
 /** When this person's access began — "unread" never reaches back past it. */
 const sinceOf = (req) => (req.portal.grant && req.portal.grant.created_at) || null;
 const chatMeta = (b) => ({ width: b.width, height: b.height, durationMs: b.duration_ms });
+/** The signer, from the session — never from the body (guide §6.3). */
+const signerOf = (req) => ({ ...meOf(req), full_name: req.portal.user.full_name || null });
+const ipOf = (req) => req.ip || null;
+const uaOf = (req) => String(req.get("user-agent") || "").slice(0, 300) || null;
+const tenantNameOf = (req) => (req.tenant && req.tenant.name) || "";
+const originOf = (req) => `${req.protocol}://${req.get("host")}`;
 
 module.exports = {
   // ── client ──
@@ -307,6 +316,106 @@ module.exports = {
         clientId: clientId(req), scope: scopeOf(req), attachmentId: uuidOf(req.params.attachmentId, "attachmentId"),
         size: req.query.size === "preview" ? "preview" : null,
       })));
+  }),
+
+  // Proposals: read, download, decline, accept — with an e-signature where the
+  // tenant offers one (portal_proposal.service).
+  proposals: asyncHandler(async (req, res) => {
+    res.json({ data: await req.tenantDb((c) => proposals.list(c, { clientId: clientId(req) })) });
+  }),
+  proposal: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        proposals.get(c, { clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), lang: langOf(req) })),
+    });
+  }),
+  proposalPdf: asyncHandler(async (req, res) => {
+    sendFile(res, await req.tenantDb((c) => proposals.pdf(c, { clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), lang: langOf(req) })));
+  }),
+  proposalDecline: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        proposals.decline(c, {
+          clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req),
+          reasonCode: req.body.reason_code, note: req.body.note || null, lang: langOf(req),
+        })),
+    });
+  }),
+  proposalAccept: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        proposals.accept(c, { clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req), ip: ipOf(req), lang: langOf(req) })),
+    });
+  }),
+  proposalSignStart: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        proposals.startSigning(c, {
+          clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req),
+          grantId: req.portal.grant && req.portal.grant.portal_access_id, lang: langOf(req), tenantName: tenantNameOf(req),
+        })),
+    });
+  }),
+  proposalSignResend: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        proposals.resendCode(c, { clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req), lang: langOf(req), tenantName: tenantNameOf(req) })),
+    });
+  }),
+  proposalSignComplete: asyncHandler(async (req, res) => {
+    const b = req.body;
+    res.json({
+      data: await req.tenantDb((c) =>
+        proposals.completeSigning(c, {
+          clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req),
+          code: b.code, presetCode: b.preset_code, fullName: b.full_name || null, partyRole: b.party_role || null,
+          markImageB64: b.mark_image_b64 || null, ip: ipOf(req), userAgent: uaOf(req), lang: langOf(req),
+          origin: originOf(req), slug: slugOf(req),
+        })),
+    });
+  }),
+  quoteFill: asyncHandler(async (req, res) => {
+    res.json({ data: await req.tenantDb((c) => quoteFill.fill(c, { text: req.body.text, env: req.env || "live" })) });
+  }),
+
+  // Notifications (14180). The switches are tenant data, keyed to this
+  // person at this client; the devices are identity, so they are read and
+  // written on identityDb like a staff login's (notification.controller).
+  notifySettings: asyncHandler(async (req, res) => {
+    const cid = clientId(req);
+    const settings = await req.tenantDb((c) => notify.settings(c, { clientId: cid, email: emailOf(req), scope: scopeOf(req) }));
+    const devices = await req.identityDb((c) => notify.devices(c, { portalUserId: req.portal.user.portal_user_id }));
+    res.json({ data: { ...settings, ...devices } });
+  }),
+  notifySave: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        notify.saveSettings(c, {
+          clientId: clientId(req), email: emailOf(req), scope: scopeOf(req),
+          topics: req.body.topics, language: req.body.language || null,
+        })),
+    });
+  }),
+  pushSubscribe: asyncHandler(async (req, res) => {
+    const cid = clientId(req);
+    const out = await req.identityDb((c) =>
+      notify.subscribe(c, { portalUserId: req.portal.user.portal_user_id, subscription: req.body.subscription, userAgent: uaOf(req) }));
+    // The first device allowed is where the language of the emails is learnt.
+    if (req.body.language) {
+      await req.tenantDb((c) => notify.rememberLanguage(c, { clientId: cid, email: emailOf(req), language: req.body.language }));
+    }
+    res.json({ data: out });
+  }),
+  pushUnsubscribe: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.identityDb((c) => notify.unsubscribe(c, { portalUserId: req.portal.user.portal_user_id, endpoint: req.body.endpoint })),
+    });
+  }),
+  pushTest: asyncHandler(async (req, res) => {
+    const name = await authController.tenantName(req);
+    res.json({
+      data: await req.identityDb((c) => notify.test(c, { portalUserId: req.portal.user.portal_user_id, lang: langOf(req), tenantName: name })),
+    });
   }),
 
   // ── staff ──

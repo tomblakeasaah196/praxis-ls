@@ -43,6 +43,8 @@ export type ChatTarget = {
   draft?: string | null;
   /** Opened from a stage of the shipment: the first message is about it. */
   milestone?: { id: string; label: string } | null;
+  /** Straight into General — a notification about it, tapped on a phone. */
+  general?: boolean;
 } | null;
 
 type Open = { thread: string; ref: string | null };
@@ -106,7 +108,7 @@ export function ChatSheet({ open, target, onClose, onRead }: { open: boolean; ta
     if (!open) return;
     void loadThreads();
     if (target?.dossierId) setActive({ thread: target.dossierId, ref: target.ref || null });
-    else setActive(wide ? { thread: "general", ref: null } : null);
+    else setActive(wide || target?.general ? { thread: "general", ref: null } : null);
     // `wide` is read once per opening on purpose: rotating a tablet mid-chat
     // must not close the conversation.
     // eslint-disable-next-line react-hooks/exhaustive-deps

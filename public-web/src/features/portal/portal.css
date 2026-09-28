@@ -283,6 +283,15 @@
   border-color: var(--primary);
   background: var(--pt-tint);
 }
+/* A switch that reads as a word — "Email", "App" — pressed or not: the
+   notification settings, two to a row. */
+.pt-chip-sm {
+  min-height: 36px;
+  padding: 0 12px;
+  gap: 6px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+}
 
 /* ── buttons ────────────────────────────────────────────────────────────── */
 
@@ -1392,6 +1401,36 @@ a.pt-row:hover {
 .pt-fab .pt-badge {
   top: -4px;
   right: -4px;
+}
+
+/* ── signing a proposal ─────────────────────────────────────────────────── */
+
+/* The pad is paper in both themes. The ink is printed ink (SignaturePad
+   draws in a fixed near-black, because the PNG lands on a white document),
+   and a dark-mode card behind it would make the signature invisible while it
+   is being written. White here is paper, not a brand colour. */
+.pt-sign-pad {
+  position: relative;
+  overflow: hidden;
+  border: 1.5px dashed var(--pt-line-strong);
+  border-radius: var(--pt-radius);
+  background: #fff;
+}
+.pt-sign-line {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 34px;
+  height: 1px;
+  background: var(--pt-line-strong);
+  pointer-events: none;
+}
+/* What the stamp will print: the name, the role, the day. */
+.pt-sign-stamp {
+  padding: 14px 16px;
+  border: 1.5px solid var(--primary);
+  border-radius: var(--pt-radius-sm);
+  background: var(--pt-tint);
 }
 
 @media print {

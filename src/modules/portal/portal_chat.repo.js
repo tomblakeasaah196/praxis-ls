@@ -69,7 +69,7 @@ async function threads(client, { clientId, portalUserId, email, since }) {
      )
      SELECT l.*, COALESCE(u.unread, 0) AS unread, d.ref AS dossier_ref, d.status AS dossier_status
        FROM last l
-       LEFT JOIN unread u ON u.dossier_id IS NOT DISTINCT FROM l.dossier_id
+       LEFT JOIN unread u ON COALESCE(u.dossier_id::text, 'general') = COALESCE(l.dossier_id::text, 'general')
        LEFT JOIN dossier_visible d ON d.dossier_id = l.dossier_id
       ORDER BY l.created_at DESC`,
     [clientId, portalUserId, email || "", since || "epoch"],
