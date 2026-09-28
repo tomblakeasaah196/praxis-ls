@@ -32,6 +32,7 @@
  * dictionary_ref elsewhere in the product.
  */
 import * as React from "react";
+import { useSearchParams } from "react-router-dom";
 import { tr } from "@/lib/i18n";
 import { IndexRow } from "@/components/ui/index-row";
 import { ScreenAi } from "@/components/screen-ai";
@@ -44,6 +45,7 @@ import { Callout } from "@/components/ui/callout";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { SplitPane } from "@/components/ui/split-pane";
+import { isDesktopNow } from "@/lib/use-media-query";
 import { PageHeader } from "@/components/data-list";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useToast } from "@/components/ui/toast";
@@ -717,12 +719,31 @@ export function ExpenseRatesPage() {
       }),
     [q, dir],
   );
-  const [selId, setSelId] = React.useState<string | null>(null);
+  // `?focus=<dictionary_item_id>` opens that line — how the dictionary 360's
+  // Rates tile lands here on the line it was showing rather than on the first
+  // one. Read once, as the starting selection: the rail owns it after that, and
+  // the parameter is dropped the moment the reader picks or closes something,
+  // so a reload does not drag them back to a line they have moved on from.
+  const [params, setParams] = useSearchParams();
+  const [selId, setSelIdState] = React.useState<string | null>(() =>
+    params.get("focus"),
+  );
+  const setSelId = (next: string | null) => {
+    setSelIdState(next);
+    if (params.has("focus")) {
+      const p = new URLSearchParams(params);
+      p.delete("focus");
+      setParams(p, { replace: true });
+    }
+  };
   const [settings, setSettings] = React.useState(false);
 
   const rows = React.useMemo(() => list.data || [], [list.data]);
+  // Opens the first item beside a desktop's detail pane — never on a phone,
+  // where it is a full-screen sheet over the list (SplitPane onClose).
   React.useEffect(() => {
-    if (!selId && rows.length) setSelId(rows[0].dictionary_item_id);
+    if (!selId && rows.length && isDesktopNow())
+      setSelIdState(rows[0].dictionary_item_id);
   }, [rows, selId]);
   const selected = rows.find((r) => r.dictionary_item_id === selId) || null;
 
@@ -766,8 +787,14 @@ export function ExpenseRatesPage() {
           max={520}
           activeKind={tr("Expense item")}
           active={!!selected}
+          onClose={() => setSelId(null)}
+          sheetTitle={
+            selected
+              ? `${selected.code} · ${selected.label_en || selected.label_fr || ""}`
+              : null
+          }
         >
-          <div className="max-h-[70vh] space-y-1 overflow-auto rounded-lg border p-1">
+          <div className="space-y-1 rounded-lg border p-1 lg:max-h-[70vh] lg:overflow-auto">
             {list.loading ? (
               <LoadingRow label="Loading items…" />
             ) : rows.length === 0 ? (
