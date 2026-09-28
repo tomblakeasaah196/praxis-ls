@@ -376,6 +376,18 @@ The app shell wraps content in `<main>` with responsive padding, so screens **do
 padding or page chrome. One `<PageContainer>` per screen, at the top; nesting them is a bug.
 Don't add `max-w-*` inside one — if a section must be narrower, constrain the section.
 
+**The bottom of a long page is an in-flow spacer, not `<main>`'s padding.** `<main>`'s
+`pb-24` is the clearance for the phone's fixed bottom nav, but the pull-to-refresh wrapper
+between `<main>` and the page is `h-full` (the chat and AI screens need a definite height), so
+a long page OVERFLOWS that wrapper — and a scroll container appends its end padding only after
+its in-flow children, never after a descendant's overflow. Every long page lost the clearance:
+its last ~66px sat behind the nav with the scroll already at its end, reported as "the 360
+won't scroll down". The shell now closes every page with an empty block of the same height
+(`app-shell.tsx`, after the routed screen). On a full-height screen it lands exactly in the
+space the padding reserves and adds no scroll; on a long page it carries the clearance with the
+overflow. **Change `<main>`'s padding and you change that spacer with it.**
+`e2e/phone-record-sheet.spec.ts` asserts the end of a long page clears the nav.
+
 ### 3.7 Routes and bundle chunks
 
 **Add your screen to `app/app.tsx` with `lazyNamed(...)`, like every other screen.** Routes are
