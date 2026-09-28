@@ -45,6 +45,35 @@ const jsonField = (schema) =>
     }
   }, schema);
 const flag = z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean());
+/** A multipart number: "12.5" → 12.5, blank → absent, bounded. */
+const optNum = (min, max) =>
+  z.preprocess(
+    (v) => (typeof v === "string" ? (v.trim() === "" ? undefined : Number(v)) : v ?? undefined),
+    z.number().finite().min(min).max(max).optional(),
+  );
+const optInt = (min, max) =>
+  z.preprocess(
+    (v) => (typeof v === "string" ? (v.trim() === "" ? undefined : Number(v)) : v ?? undefined),
+    z.number().int().min(min).max(max).optional(),
+  );
+/** A chat thread: "general", or the id of a shipment. */
+const chatThread = z.preprocess(blankToUndefined, z.union([z.literal("general"), z.string().uuid()]).optional());
+/**
+ * What a chat message may carry besides its file (14170). The text is
+ * optional — a photo, a voice note or a pin can stand alone — and bounded here
+ * because the column's CHECK went (see the migration); the service refuses a
+ * message with nothing in it. A pin is both coordinates or neither.
+ * width/height/duration_ms are layout hints the phone measured, bounded.
+ */
+const chatFields = {
+  thread: chatThread,
+  body: z.preprocess((v) => (v === undefined || v === null ? "" : v), z.string().max(4000)),
+  milestone_instance_id: optUuid,
+  width: optInt(1, 20000),
+  height: optInt(1, 20000),
+  duration_ms: optInt(0, 600000),
+};
+const pinBoth = (v) => (v.lat === undefined) === (v.lng === undefined);
 const SCOPES = ["ALL", "OPERATIONS", "BILLING"];
 
 const schemas = {
@@ -156,6 +185,19 @@ const schemas = {
   message: z.object({ body: z.string().trim().min(1).max(4000), dossier_id: z.string().uuid().optional() }),
   // Staff reply — client_id comes from the caller (staff route).
   staffMessage: z.object({ client_id: z.string().uuid(), body: z.string().trim().min(1).max(4000), dossier_id: z.string().uuid().optional() }),
+  // The chat (14170). Multipart when a file rides along, so every field may
+  // arrive as a string.
+  chatSend: z
+    .object({
+      ...chatFields,
+      lat: optNum(-90, 90),
+      lng: optNum(-180, 180),
+      location_label: optText(200),
+    })
+    .refine(pinBoth, { message: "A location needs both latitude and longitude", path: ["lat"] }),
+  chatRead: z.object({ thread: chatThread, at: z.string().datetime({ offset: true }).optional() }),
+  staffChatSend: z.object({ client_id: z.string().uuid(), ...chatFields }),
+  staffChatRead: z.object({ client_id: z.string().uuid(), thread: chatThread }),
 };
 
 const mw = (k) => (req, _res, next) => {
@@ -178,5 +220,6 @@ module.exports = {
   staffCreateRequest: mw("staffCreateRequest"), staffReviewRequest: mw("staffReviewRequest"),
   staffConfirmProof: mw("staffConfirmProof"), staffRejectProof: mw("staffRejectProof"),
   staffPublishBundle: mw("staffPublishBundle"),
+  chatSend: mw("chatSend"), chatRead: mw("chatRead"), staffChatSend: mw("staffChatSend"), staffChatRead: mw("staffChatRead"),
   schemas,
 };

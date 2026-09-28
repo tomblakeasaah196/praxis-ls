@@ -21,6 +21,7 @@ const zip = require("../../shared/files/zip");
 const vault = require("../vault/document_vault/document_vault.service");
 const { emitEvent, audit, resolveActorId } = require("../../shared/events/emit");
 const { AppError } = require("../../utils/errors");
+const { atomically } = require("../../shared/db/tx");
 
 const MODULE = "MOD-51"; // final invoices — the bundle is part of issuing one
 
@@ -137,16 +138,11 @@ async function publish(c, { invoiceId, docIds = [], actor = {} }) {
     .map((r, i) => ({ doc_id: r.doc_id, position: i + 1, label: r.line_label || null }));
 
   const publishedBy = await resolveActorId(c, actor.user_id);
-  await c.query("BEGIN");
-  let bundle;
-  try {
-    bundle = await repo.upsertBundle(c, { invoiceId, clientId: inv.client_id, dossierId: inv.dossier_id, publishedBy });
+  // The bundle and its items land together or not at all.
+  await atomically(c, async () => {
+    const bundle = await repo.upsertBundle(c, { invoiceId, clientId: inv.client_id, dossierId: inv.dossier_id, publishedBy });
     await repo.replaceItems(c, bundle.bundle_id, items);
-    await c.query("COMMIT");
-  } catch (err) {
-    await c.query("ROLLBACK");
-    throw err;
-  }
+  });
   await audit(c, {
     actorUserId: publishedBy, action: "invoice_bundle.published", moduleKey: MODULE,
     entityRef: `final_invoice:${invoiceId}`, after: { documents: items.length },

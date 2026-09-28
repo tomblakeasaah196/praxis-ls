@@ -296,3 +296,109 @@ describe("an invoice's supporting documents", () => {
     await findByText(en.err.BUNDLE_TOO_LARGE);
   });
 });
+
+describe("the chat", () => {
+  const THREADS = [
+    { thread: "general", dossier_id: null, dossier_ref: null, dossier_status: null, unread: 1, last: { direction: "STAFF", mine: false, preview: "Your statement is ready.", kind: "TEXT", at: "2026-09-28T08:00:00Z" } },
+    { thread: "11111111-1111-4111-8111-111111111111", dossier_id: "11111111-1111-4111-8111-111111111111", dossier_ref: "PRX-9", dossier_status: "IN_PROGRESS", unread: 2, last: { direction: "STAFF", mine: false, preview: null, kind: "IMAGE", at: "2026-09-28T09:00:00Z" } },
+  ];
+  const PAGE = {
+    thread: "general",
+    dossier_ref: null,
+    has_more: false,
+    messages: [
+      {
+        message_id: "m1", dossier_id: null, dossier_ref: null, direction: "STAFF", body: "Your statement is ready.", created_at: "2026-09-28T08:00:00Z",
+        author: { name: "Paul Ekambi", email: null }, mine: false, seen: null, milestone: null, location: null, attachments: [],
+      },
+    ],
+  };
+  const chatRoutes = (sent: RequestInit[] = []) => ({
+    "/portal/client/home": () => [200, { data: { ...HOME, chat: { unread: 3 } } }] as [number, Json],
+    "/portal/client/chat/threads": () => [200, { data: THREADS }] as [number, Json],
+    "/portal/client/chat/unread": () => [200, { data: { unread: 0 } }] as [number, Json],
+    "/portal/client/chat/messages": (init?: RequestInit) => {
+      if (init?.method === "POST") {
+        sent.push(init);
+        return [201, { data: { ...PAGE.messages[0], message_id: "m2", direction: "CLIENT", body: "Thank you!", mine: true, seen: false, author: { name: null, email: "marie@acme.cm" } } }] as [number, Json];
+      }
+      return [200, { data: PAGE }] as [number, Json];
+    },
+    "/portal/client/chat/read": () => [200, { data: { thread: "general" } }] as [number, Json],
+  });
+
+  it("puts the unread count on the chat button and lists General before the shipments", async () => {
+    stubApi(true, chatRoutes());
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { container, findByText, getByText } = await mount("/portal");
+    const fab = container.querySelector(".pt-fab") as HTMLButtonElement;
+    await waitFor(() => expect(fab.textContent).toContain("3"));
+    fireEvent.click(fab);
+    await findByText(en.chat.general);
+    const rows = [...document.querySelectorAll(".pt-chat-thread")].map((n) => n.textContent || "");
+    expect(rows[0]).toContain(en.chat.general);
+    expect(rows[1]).toContain("PRX-9");
+    // A photo with no words reads as what it is.
+    expect(rows[1]).toContain(en.chat.kind.IMAGE);
+    getByText(en.chat.newAbout);
+  });
+
+  /** The upload path is XHR (for its progress events); route it through the same table. */
+  class FakeXHR {
+    status = 0;
+    responseText = "";
+    upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null };
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    private method = "GET";
+    private url = "";
+    open(method: string, url: string) {
+      this.method = method;
+      this.url = url;
+    }
+    setRequestHeader() {}
+    send(body: FormData) {
+      const path = new URL(this.url, "http://localhost").pathname.replace("/api/tenant", "");
+      calls.push(`${this.method} ${path}`);
+      const hit = routes[path];
+      const [status, json] = hit ? hit({ method: this.method, body } as RequestInit) : [404, { error: { code: "NOT_FOUND" } }];
+      setTimeout(() => {
+        this.upload.onprogress?.({ lengthComputable: true, loaded: 1, total: 1 });
+        this.status = status;
+        this.responseText = JSON.stringify(json);
+        this.onload?.();
+      }, 0);
+    }
+  }
+
+  it("opens a conversation, marks it read, and sends as a multipart message", async () => {
+    const sent: RequestInit[] = [];
+    stubApi(true, chatRoutes(sent));
+    vi.stubGlobal("XMLHttpRequest", FakeXHR);
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { container, findByText, getByLabelText, getByRole } = await mount("/portal");
+    fireEvent.click(container.querySelector(".pt-fab") as HTMLButtonElement);
+    fireEvent.click(await findByText(en.chat.general));
+    await findByText("Your statement is ready.", { selector: ".pt-chat-text" });
+    await waitFor(() => expect(calls).toContain("POST /portal/client/chat/read"));
+    const box = getByLabelText(en.chat.placeholder);
+    fireEvent.change(box, { target: { value: "Thank you!" } });
+    fireEvent.click(getByRole("button", { name: en.chat.send }));
+    await findByText("Thank you!", { selector: ".pt-chat-text" });
+    await waitFor(() => expect(sent).toHaveLength(1));
+    const form = sent[0].body as FormData;
+    expect(form.get("thread")).toBe("general");
+    expect(form.get("body")).toBe("Thank you!");
+    // The new thread API, never the first portal's flat endpoint.
+    expect(calls).not.toContain("POST /portal/client/messages");
+  });
+
+  it("gives a Billing-only colleague no way to start a shipment conversation", async () => {
+    stubApi(true, { ...chatRoutes(), "/portal/me": () => [200, { data: ME("BILLING") }] });
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { container, findByText, queryByText } = await mount("/portal");
+    fireEvent.click(container.querySelector(".pt-fab") as HTMLButtonElement);
+    await findByText(en.chat.general);
+    expect(queryByText(en.chat.newAbout)).toBeNull();
+  });
+});

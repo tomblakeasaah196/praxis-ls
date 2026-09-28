@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 141,
-  "route_count": 1774,
+  "route_count": 1785,
   "tiers": {
     "public": 74,
     "self-scoped": 107,
-    "gated": 1593
+    "gated": 1604
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -3429,6 +3429,24 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/portal/chat/attachments/:attachmentId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/chat/messages": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/chat/threads": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/portal/client": {
       "auth": true,
       "rbac": true,
@@ -3454,6 +3472,30 @@
       "tier": "gated"
     },
     "GET /api/tenant/portal/client/billing": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/chat/attachments/:attachmentId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/chat/messages": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/chat/threads": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/chat/unread": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8643,6 +8685,18 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/portal/chat/messages": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/chat/read": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/portal/client-requests": {
       "auth": true,
       "rbac": true,
@@ -8650,6 +8704,18 @@
       "tier": "gated"
     },
     "POST /api/tenant/portal/client-requests/:id/review": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/chat/messages": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/chat/read": {
       "auth": true,
       "rbac": true,
       "validated": false,

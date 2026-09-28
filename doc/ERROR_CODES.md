@@ -90,7 +90,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_DECISION` | 422 | 3× | — |
 | `BAD_DOC_TYPE` | 422 | 2× | — |
 | `BAD_FEE_ACCOUNT` | 422 | 1× | — |
-| `BAD_FILE` | 400, 422 | 15× | — |
+| `BAD_FILE` | 400, 422 | 17× | — |
 | `BAD_FILE_TYPE` | 422 | 11× | — |
 | `BAD_FONT` | 422 | 3× | — |
 | `BAD_HEADERS` | 422 | 1× | — |
@@ -216,7 +216,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `EMPTY_DRAFT` | 422 | 2× | — |
 | `EMPTY_FILE` | 422 | 3× | — |
 | `EMPTY_IMAGE` | 422 | 1× | — |
-| `EMPTY_MESSAGE` | 422 | 2× | — |
+| `EMPTY_MESSAGE` | 422 | 3× | — |
 | `EMPTY_PAGE` | 422 | 1× | — |
 | `EMPTY_RECONCILIATION` | 422 | 1× | — |
 | `EMPTY_SET` | 422 | 1× | — |
@@ -236,7 +236,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `FEATURE_DISABLED` | 403 | 4× | — |
 | `FIELD_NOT_WRITABLE` | — | 2× | — |
 | `FILE_REQUIRED` | 422 | 2× | — |
-| `FILE_TOO_LARGE` | 413 | 4× | — |
+| `FILE_TOO_LARGE` | 413 | 5× | — |
 | `FORBIDDEN` | 403 | 7× | `PERMISSION_DENIED` |
 | `FULLY_DISBURSED` | 422 | 1× | — |
 | `FULLY_PAID` | 422 | 2× | — |
@@ -326,7 +326,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `METHOD_FIELDS_REQUIRED` | — | 1× | — |
 | `METHOD_NOT_ALLOWED` | — | 1× | — |
 | `METHOD_REQUIRED` | — | 1× | — |
-| `MILESTONE_MISMATCH` | 422 | 1× | — |
+| `MILESTONE_MISMATCH` | 422 | 3× | — |
 | `MISSING_FIELDS` | 422 | 1× | — |
 | `MISSING_REQUIRED_FIELDS` | — | 1× | — |
 | `MISSING_VALUE` | 422 | 1× | — |
@@ -359,7 +359,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 3× | — |
-| `NOT_FOUND` | 404, 422 | 723× | — |
+| `NOT_FOUND` | 404, 422 | 728× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
 | `NOT_OPEN` | 409, 422 | 3× | — |
@@ -506,7 +506,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `POOL_EXHAUSTED` | 500 | 1× | — |
 | `PORTAL_ADMIN_REQUIRED` | 403 | 1× | — |
 | `PORTAL_FORBIDDEN` | 403 | 1× | — |
-| `PORTAL_SCOPE` | 403 | 1× | — |
+| `PORTAL_SCOPE` | 403 | 2× | — |
 | `PORTAL_USER_INACTIVE` | 401 | 2× | — |
 | `PO_NOT_RECEIVABLE` | 422 | 1× | — |
 | `PREFIX_IN_USE` | 422 | 1× | — |
@@ -668,7 +668,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `USE_APPROVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 422 | 278× | — |
+| `VALIDATION_ERROR` | 422 | 281× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |
@@ -677,7 +677,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `VEHICLE_NOT_FOUND` | 404 | 1× | — |
 | `VEHICLE_UNAVAILABLE` | 422 | 1× | — |
 | `VERIFICATION_INCOMPLETE` | — | 3× | — |
-| `VOICE_TOO_LONG` | 422 | 1× | — |
+| `VOICE_TOO_LONG` | 422 | 2× | — |
 | `WEAK_PASSWORD` | 422 | 2× | — |
 | `WEAK_PIN` | 422 | 1× | — |
 | `WEBAUTHN_UNAVAILABLE` | 500 | 1× | — |

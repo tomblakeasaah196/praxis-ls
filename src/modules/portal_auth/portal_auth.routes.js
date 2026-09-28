@@ -153,6 +153,17 @@ router.get("/client/onboarding", portalAuth("CLIENT"), controller.clientOnboardi
 router.get("/client/messages", portalAuth("CLIENT"), controller.clientMessages);
 router.post("/client/messages", portalAuth("CLIENT"), v.message, controller.sendClientMessage);
 router.get("/client/messages/export", portalAuth("CLIENT"), controller.exportClientChat);
+// The chat (14170): a General thread and one per shipment, with photos, PDFs,
+// voice notes and location pins. Every client may use General; a shipment's
+// thread follows the shipment routes' OPERATIONS scope, checked in the service
+// per thread rather than here, because the same route serves both. Sends are
+// MULTIPART — `singleFile` before the validator, as for every portal upload.
+router.get("/client/chat/threads", portalAuth("CLIENT"), pc.chatThreads);
+router.get("/client/chat/unread", portalAuth("CLIENT"), pc.chatUnread);
+router.get("/client/chat/messages", portalAuth("CLIENT"), pc.chatMessages);
+router.post("/client/chat/messages", portalAuth("CLIENT"), singleFile("file"), v.chatSend, pc.chatSend);
+router.post("/client/chat/read", portalAuth("CLIENT"), v.chatRead, pc.chatRead);
+router.get("/client/chat/attachments/:attachmentId", portalAuth("CLIENT"), pc.chatAttachment);
 router.get("/client/quote-requests", portalAuth("CLIENT"), controller.clientQuoteRequests);
 router.post("/client/quote-requests", portalAuth("CLIENT"), v.portalQuote, controller.createClientQuote);
 // Staff management — invite/manage external users. IAM & user access (MOD-67).
@@ -176,6 +187,13 @@ router.post("/data-room/:id/answer", authMiddleware, requirePermission(M, "edit"
 // onboarding checklist. Same gate (MOD-67).
 router.get("/messages", authMiddleware, requirePermission(M, "view"), controller.staffMessages);
 router.post("/messages", authMiddleware, requirePermission(M, "edit"), v.staffMessage, controller.staffSendMessage);
+// The team's side of the chat (14170): a client's threads, one thread, a reply
+// with or without a file, and "we have read this" (the client's seen ticks).
+router.get("/chat/threads", authMiddleware, requirePermission(M, "view"), pc.staffChatThreads);
+router.get("/chat/messages", authMiddleware, requirePermission(M, "view"), pc.staffChatMessages);
+router.post("/chat/messages", authMiddleware, requirePermission(M, "edit"), singleFile("file"), v.staffChatSend, pc.staffChatSend);
+router.post("/chat/read", authMiddleware, requirePermission(M, "view"), v.staffChatRead, pc.staffChatRead);
+router.get("/chat/attachments/:attachmentId", authMiddleware, requirePermission(M, "view"), pc.staffChatAttachment);
 router.get("/onboarding", authMiddleware, requirePermission(M, "view"), controller.staffOnboarding);
 router.post("/onboarding/:clientId/:stepKey", authMiddleware, requirePermission(M, "edit"), validator.toggle, controller.staffToggleOnboarding);
 

@@ -400,3 +400,35 @@ export const ArchiveIcon = (p: Props) => (
     <path d="M12 11v6M9.5 14.5 12 17l2.5-2.5" />
   </Svg>
 );
+/** A microphone — "record a voice note". */
+export const MicIcon = (p: Props) => (
+  <Svg {...p}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
+  </Svg>
+);
+/** Two ticks — the team has read it. */
+export const DoubleCheckIcon = (p: Props) => (
+  <Svg {...p}>
+    <path d="m2.5 12.5 4.5 4.5 9.5-9.5M11.5 16.5l.5.5 9.5-9.5" />
+  </Svg>
+);
+export const PlayIcon = (p: Props) => (
+  <Svg {...p}>
+    <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" fill="currentColor" stroke="none" />
+  </Svg>
+);
+export const PauseIcon = (p: Props) => (
+  <Svg {...p}>
+    <rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none" />
+    <rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none" />
+  </Svg>
+);
+/** A picture — "photos". */
+export const ImageIcon = (p: Props) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="3" />
+    <circle cx="9" cy="10" r="2" />
+    <path d="m21 16-5-5-8.5 9" />
+  </Svg>
+);

@@ -26,6 +26,7 @@
 const crypto = require("crypto");
 const repo = require("./portal_client.repo");
 const bundles = require("./invoice_bundle.service");
+const chat = require("./portal_chat.service");
 const portal = require("./portal.service");
 const vault = require("../vault/document_vault/document_vault.service");
 const shipmentDetails = require("../operations/shipment_details/shipment_details.service");
@@ -186,9 +187,11 @@ const canBilling = (scope) => scope === "ALL" || scope === "BILLING";
  * a finance colleague sees what is due and nothing about shipments; an
  * operations colleague sees shipments and paperwork and no amounts.
  */
-async function home(c, { clientId, scope = "ALL", lang = "en" }) {
+async function home(c, { clientId, scope = "ALL", lang = "en", me = null, since = null }) {
   const company = await clientIdentity(c, { clientId });
-  const out = { company, scope, shipments: null, requests: null, billing: null };
+  const out = { company, scope, shipments: null, requests: null, billing: null, chat: null };
+  // The badge on the chat button (14170): what the team wrote since I last looked.
+  if (me) out.chat = { unread: await chat.unread(c, { clientId, me, scope, since }) };
 
   if (canOps(scope)) {
     await repo.syncRuleRequests(c, clientId);

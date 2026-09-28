@@ -3293,6 +3293,10 @@ export const en = {
     "documents": "documents",
     "Receipt owed": "Receipt owed",
     "This file's reconciliation holds no documents yet — the invoice can still be shared on its own.": "This file's reconciliation holds no documents yet — the invoice can still be shared on its own.",
+    "Attach a photo or PDF": "Attach a photo or PDF",
+    "Download the original": "Download the original",
+    "General": "General",
+    "Photo unavailable": "Photo unavailable",
   },
   dataRoom: {
     staffDesc: "Document requests from external auditors — share vault documents in answer.",
@@ -6635,6 +6639,10 @@ export const fr: Dict = {
     "documents": "documents",
     "Receipt owed": "Justificatif dû",
     "This file's reconciliation holds no documents yet — the invoice can still be shared on its own.": "Le rapprochement de ce dossier ne contient encore aucun document — la facture peut être partagée seule.",
+    "Attach a photo or PDF": "Joindre une photo ou un PDF",
+    "Download the original": "Télécharger l’original",
+    "General": "Général",
+    "Photo unavailable": "Photo indisponible",
   },
   dataRoom: {
     staffDesc: "Demandes de documents des auditeurs externes — partagez les documents du coffre en réponse.",

@@ -126,8 +126,12 @@ export function portalUpload<T = unknown>(
   });
 }
 
-/** Bytes to a Save-As, with the session. A pop-up-free anchor click. */
-export async function portalDownload(path: string, filename: string): Promise<void> {
+/**
+ * Bytes with the session, as a Blob — a photo or a voice note shown in place,
+ * which an `<img src>` cannot fetch because the session is a header, not a
+ * cookie.
+ */
+export async function portalBlob(path: string): Promise<Blob> {
   const get = () => {
     const t = portalSession.access();
     return fetch(`${BASE}${path}`, { headers: t ? { Authorization: `Bearer ${t}` } : {} }).catch(() => null);
@@ -147,7 +151,12 @@ export async function portalDownload(path: string, filename: string): Promise<vo
     const code = res ? (await errorFrom(res)).code : "OFFLINE";
     throw new PortalError(code === "ERROR" ? "DOWNLOAD_FAILED" : code, message, res ? res.status : 0);
   }
-  const url = URL.createObjectURL(await res.blob());
+  return res.blob();
+}
+
+/** Bytes to a Save-As, with the session. A pop-up-free anchor click. */
+export async function portalDownload(path: string, filename: string): Promise<void> {
+  const url = URL.createObjectURL(await portalBlob(path));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
@@ -312,6 +321,8 @@ export type CurrencyTotal = { currency: string; due: number; overdue: number; co
 export type PortalHome = {
   company: PortalMe["company"];
   scope: Scope;
+  /** What the team wrote since I last looked (14170) — the chat button's badge. */
+  chat?: { unread: number } | null;
   shipments: { active_count: number; items: ShipmentCard[] } | null;
   requests: { open_count: number; in_review_count: number; items: ClientRequest[] } | null;
   billing: {
@@ -591,6 +602,84 @@ export const portalSendMessage = (body: string, dossierId?: string | null) =>
     method: "POST",
     body: dossierId ? { body, dossier_id: dossierId } : { body },
   });
+// ── Client: the chat (14170) — General and one thread per shipment ─────────
+
+export type ChatKind = "TEXT" | "IMAGE" | "FILE" | "VOICE" | "LOCATION";
+export type ChatThread = {
+  /** "general", or the shipment's id. */
+  thread: string;
+  dossier_id: string | null;
+  dossier_ref: string | null;
+  dossier_status: string | null;
+  unread: number;
+  last: { direction: "STAFF" | "CLIENT"; mine: boolean; preview: string | null; kind: ChatKind; at: string } | null;
+};
+export type ChatAttachment = {
+  attachment_id: string;
+  kind: "IMAGE" | "FILE" | "VOICE";
+  name: string | null;
+  mime_type: string | null;
+  size: number | null;
+  width: number | null;
+  height: number | null;
+  duration_ms: number | null;
+};
+export type ChatMessage = {
+  message_id: string;
+  dossier_id: string | null;
+  dossier_ref: string | null;
+  direction: "STAFF" | "CLIENT";
+  body: string;
+  created_at: string;
+  author: { name: string | null; email: string | null };
+  mine: boolean;
+  /** On my own messages: the team has read it. */
+  seen: boolean | null;
+  milestone: { milestone_instance_id: string; label: string | null } | null;
+  location: { lat: number; lng: number; label: string | null } | null;
+  attachments: ChatAttachment[];
+};
+export type ChatPage = { thread: string; dossier_ref: string | null; has_more: boolean; messages: ChatMessage[] };
+export type ChatSend = {
+  thread: string;
+  body?: string;
+  milestone_instance_id?: string | null;
+  location?: { lat: number; lng: number; label?: string | null } | null;
+  width?: number | null;
+  height?: number | null;
+  duration_ms?: number | null;
+};
+
+export const portalChatThreads = () => portalApi<ChatThread[]>("/client/chat/threads");
+export const portalChatUnread = () => portalApi<{ unread: number }>("/client/chat/unread");
+export const portalChatMessages = (thread: string, lang: string, before?: string | null) =>
+  portalApi<ChatPage>(
+    `/client/chat/messages?thread=${encodeURIComponent(thread)}&${langQ(lang)}${before ? `&before=${encodeURIComponent(before)}` : ""}`,
+  );
+/** One message — words, a pin, a file, or a mix. Multipart, so a photo reports its percentage. */
+export function portalChatSend(input: ChatSend, lang: string, file?: File | null, onProgress?: (pct: number) => void) {
+  const form = new FormData();
+  form.append("thread", input.thread);
+  if (input.body) form.append("body", input.body);
+  if (input.milestone_instance_id) form.append("milestone_instance_id", input.milestone_instance_id);
+  if (input.location) {
+    form.append("lat", String(input.location.lat));
+    form.append("lng", String(input.location.lng));
+    if (input.location.label) form.append("location_label", input.location.label);
+  }
+  if (input.width) form.append("width", String(Math.round(input.width)));
+  if (input.height) form.append("height", String(Math.round(input.height)));
+  if (input.duration_ms) form.append("duration_ms", String(Math.round(input.duration_ms)));
+  if (file) form.append("file", file, file.name);
+  return portalUpload<ChatMessage>(`/client/chat/messages?${langQ(lang)}`, form, onProgress);
+}
+export const portalChatRead = (thread: string, at?: string | null) =>
+  portalApi<{ thread: string }>("/client/chat/read", { method: "POST", body: at ? { thread, at } : { thread } });
+export const portalChatAttachment = (id: string, preview = false) =>
+  portalBlob(`/client/chat/attachments/${encodeURIComponent(id)}${preview ? "?size=preview" : ""}`);
+export const portalChatAttachmentDownload = (id: string, filename: string) =>
+  portalDownload(`/client/chat/attachments/${encodeURIComponent(id)}`, filename);
+
 export const portalExportChat = () =>
   portalDownload("/client/messages/export", `conversation-${new Date().toISOString().slice(0, 10)}.pdf`);
 

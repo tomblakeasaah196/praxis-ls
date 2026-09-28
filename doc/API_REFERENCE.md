@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1774 |
+| Routes | 1785 |
 | Modules mounted | 141 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1774 mounted routes, grouped by path prefix.
+All 1785 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1559,6 +1559,11 @@ All 1774 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/auth/refresh` | — |
 | GET | `/api/tenant/portal/auth/sessions` | — |
 | POST | `/api/tenant/portal/auth/sessions/:id/revoke` | — |
+| GET | `/api/tenant/portal/chat/attachments/:attachmentId` | — |
+| GET | `/api/tenant/portal/chat/messages` | — |
+| POST | `/api/tenant/portal/chat/messages` | — |
+| POST | `/api/tenant/portal/chat/read` | — |
+| GET | `/api/tenant/portal/chat/threads` | — |
 | GET | `/api/tenant/portal/client` | — |
 | GET | `/api/tenant/portal/client-requests` | — |
 | POST | `/api/tenant/portal/client-requests` | — |
@@ -1566,6 +1571,12 @@ All 1774 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/client-requests/:id/review` | — |
 | GET | `/api/tenant/portal/client-requests/document-types` | — |
 | GET | `/api/tenant/portal/client/billing` | — |
+| GET | `/api/tenant/portal/client/chat/attachments/:attachmentId` | — |
+| GET | `/api/tenant/portal/client/chat/messages` | — |
+| POST | `/api/tenant/portal/client/chat/messages` | — |
+| POST | `/api/tenant/portal/client/chat/read` | — |
+| GET | `/api/tenant/portal/client/chat/threads` | — |
+| GET | `/api/tenant/portal/client/chat/unread` | — |
 | GET | `/api/tenant/portal/client/document-types` | — |
 | GET | `/api/tenant/portal/client/documents` | — |
 | POST | `/api/tenant/portal/client/documents` | — |
