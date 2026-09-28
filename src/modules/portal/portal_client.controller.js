@@ -9,6 +9,7 @@
  */
 "use strict";
 const service = require("./portal_client.service");
+const bundles = require("./invoice_bundle.service");
 const authService = require("../portal_auth/portal_auth.service");
 const authController = require("../portal_auth/portal_auth.controller");
 const { readUpload } = require("../../shared/http/upload.middleware");
@@ -195,7 +196,32 @@ module.exports = {
     });
   }),
 
+  // An invoice's supporting documents (14160): the list, one file, all as a ZIP.
+  invoiceDocuments: asyncHandler(async (req, res) => {
+    res.json({ data: await req.tenantDb((c) => bundles.clientView(c, { clientId: clientId(req), invoiceId: req.params.invoiceId })) });
+  }),
+  invoiceDocumentsZip: asyncHandler(async (req, res) => {
+    sendFile(res, await req.tenantDb((c) =>
+      bundles.clientZip(c, {
+        clientId: clientId(req),
+        invoiceId: req.params.invoiceId,
+        invoicePdf: () => service.invoicePdf(c, { clientId: clientId(req), invoiceId: req.params.invoiceId, lang: langOf(req), origin: `${req.protocol}://${req.get("host")}`, env: req.env || "live" }),
+      })));
+  }),
+  invoiceDocument: asyncHandler(async (req, res) => {
+    sendFile(res, await req.tenantDb((c) => bundles.clientFile(c, { clientId: clientId(req), invoiceId: req.params.invoiceId, docId: req.params.docId })));
+  }),
+
   // ── staff ──
+  staffInvoiceBundle: asyncHandler(async (req, res) => {
+    res.json({ data: await req.tenantDb((c) => bundles.staffView(c, { invoiceId: req.params.invoiceId })) });
+  }),
+  staffPublishBundle: asyncHandler(async (req, res) => {
+    res.json({ data: await req.tenantDb((c) => bundles.publish(c, { invoiceId: req.params.invoiceId, docIds: req.body.doc_ids, actor: staff(req) })) });
+  }),
+  staffWithdrawBundle: asyncHandler(async (req, res) => {
+    res.json({ data: await req.tenantDb((c) => bundles.withdraw(c, { invoiceId: req.params.invoiceId, actor: staff(req) })) });
+  }),
   staffRequests: asyncHandler(async (req, res) => {
     res.json({
       data: await req.tenantDb((c) =>

@@ -392,3 +392,11 @@ export const PaperclipIcon = (p: Props) => (
     <path d="M20.5 11.5 12 20a5.3 5.3 0 0 1-7.5-7.5l9-9a3.5 3.5 0 0 1 5 5l-9 9a1.8 1.8 0 0 1-2.5-2.5l8.3-8.3" />
   </Svg>
 );
+/** A box with its lid and an arrow down — "everything, in one download". */
+export const ArchiveIcon = (p: Props) => (
+  <Svg {...p}>
+    <path d="M3 4h18v4H3z" />
+    <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+    <path d="M12 11v6M9.5 14.5 12 17l2.5-2.5" />
+  </Svg>
+);

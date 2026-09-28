@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 141,
-  "route_count": 1768,
+  "route_count": 1774,
   "tiers": {
     "public": 74,
     "self-scoped": 107,
-    "gated": 1587
+    "gated": 1593
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -3495,6 +3495,24 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/portal/client/invoice/:invoiceId/documents": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/invoice/:invoiceId/documents/:docId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/invoice/:invoiceId/documents/zip": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/portal/client/invoice/:invoiceId/pdf": {
       "auth": true,
       "rbac": true,
@@ -3586,6 +3604,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/portal/investor": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/invoice-bundles/:invoiceId": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8704,6 +8728,18 @@
       "tier": "gated"
     },
     "POST /api/tenant/portal/data-room/:id/documents": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/invoice-bundles/:invoiceId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/invoice-bundles/:invoiceId/withdraw": {
       "auth": true,
       "rbac": true,
       "validated": false,

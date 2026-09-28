@@ -142,7 +142,10 @@ export async function portalDownload(path: string, filename: string): Promise<vo
         : res.status === 401
           ? tStatic("errors.sessionExpired")
           : tStatic("errors.downloadFailed");
-    throw new PortalError("DOWNLOAD_FAILED", message, res ? res.status : 0);
+    // The server's own code when it sent one ("too large to download
+    // together" is a different sentence from "it did not work").
+    const code = res ? (await errorFrom(res)).code : "OFFLINE";
+    throw new PortalError(code === "ERROR" ? "DOWNLOAD_FAILED" : code, message, res ? res.status : 0);
   }
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");
@@ -301,6 +304,8 @@ export type InvoiceSummary = {
   state: InvoiceState;
   dossier_id: string | null;
   dossier_ref: string | null;
+  /** Supporting documents finance shared with this invoice — the paperclip count. */
+  documents_count?: number;
 };
 export type CurrencyTotal = { currency: string; due: number; overdue: number; count: number };
 
@@ -495,11 +500,22 @@ export type PortalInvoiceDetail = {
   lines: { label: string; amount: number; tax: number | null; is_disbursement: boolean }[];
   summary: InvoiceSummary | null;
   how_to_pay: PayTo | null;
+  /** The supporting documents finance shared with it (14160), in the file's order. */
+  documents?: InvoiceDocuments | null;
+};
+export type InvoiceDocuments = {
+  published_at: string;
+  items: { doc_id: string; position: number; label: string | null; name: string; ext: string }[];
 };
 export const portalInvoice = (invoiceId: string, lang: string) =>
   portalApi<PortalInvoiceDetail>(`/client/invoice/${encodeURIComponent(invoiceId)}?${langQ(lang)}`);
 export const portalInvoicePdf = (invoiceId: string, filename: string, lang: string) =>
   portalDownload(`/client/invoice/${encodeURIComponent(invoiceId)}/pdf?${langQ(lang)}`, filename);
+/** The invoice and every shared document, numbered, as one ZIP. */
+export const portalInvoiceDocumentsZip = (invoiceId: string, filename: string, lang: string) =>
+  portalDownload(`/client/invoice/${encodeURIComponent(invoiceId)}/documents/zip?${langQ(lang)}`, filename);
+export const portalInvoiceDocument = (invoiceId: string, docId: string, filename: string) =>
+  portalDownload(`/client/invoice/${encodeURIComponent(invoiceId)}/documents/${encodeURIComponent(docId)}`, filename);
 
 export function portalSubmitProof(
   input: {

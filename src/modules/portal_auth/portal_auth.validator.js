@@ -148,6 +148,9 @@ const schemas = {
     note: z.string().trim().max(1000).optional().nullable(),
   }),
   staffConfirmProof: z.object({ treasury_account_id: z.string().uuid().optional().nullable() }),
+  // An invoice's supporting documents, shared with the client (14160). The
+  // service refuses any id that is not on the invoice's own file.
+  staffPublishBundle: z.object({ doc_ids: z.array(z.string().uuid()).max(200) }),
   staffRejectProof: z.object({ note: z.string().trim().min(1).max(1000) }),
   // A portal message — the body is the only thing the caller supplies.
   message: z.object({ body: z.string().trim().min(1).max(4000), dossier_id: z.string().uuid().optional() }),
@@ -174,5 +177,6 @@ module.exports = {
   paymentProof: mw("paymentProof"), teamInvite: mw("teamInvite"), teamUpdate: mw("teamUpdate"),
   staffCreateRequest: mw("staffCreateRequest"), staffReviewRequest: mw("staffReviewRequest"),
   staffConfirmProof: mw("staffConfirmProof"), staffRejectProof: mw("staffRejectProof"),
+  staffPublishBundle: mw("staffPublishBundle"),
   schemas,
 };

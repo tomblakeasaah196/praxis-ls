@@ -215,3 +215,84 @@ describe("a colleague given only Billing", () => {
     expect(calls).not.toContain("GET /portal/client/shipments");
   });
 });
+
+describe("an invoice's supporting documents", () => {
+  const INVOICE = {
+    invoice_id: "i1",
+    doc_number: "FAC-2026-1182",
+    issued_on: "2026-09-20",
+    payment_due_on: "2026-10-20",
+    days_to_due: 22,
+    currency: "XAF",
+    total: 1850000,
+    paid: 0,
+    in_review: 0,
+    outstanding: 1850000,
+    state: "DUE",
+    dossier_id: "d1",
+    dossier_ref: "PRX-1",
+    documents_count: 2,
+  };
+  const DETAIL = {
+    invoice: {
+      invoice_id: "i1",
+      doc_number: "FAC-2026-1182",
+      issued_on: "2026-09-20",
+      payment_due_on: "2026-10-20",
+      status: "ISSUED_LOCKED",
+      currency: "XAF",
+      service_ht: 350000,
+      disbursement_total: 1400000,
+      vat_total: 100000,
+      total_ttc: 1850000,
+    },
+    lines: [{ label: "Port charges (PAD)", amount: 900000, tax: null, is_disbursement: true }],
+    summary: INVOICE,
+    how_to_pay: null,
+    documents: {
+      published_at: "2026-09-27T10:00:00Z",
+      items: [
+        { doc_id: "v1", position: 1, label: "Port charges (PAD)", name: "pad-receipt", ext: "pdf" },
+        { doc_id: "v2", position: 2, label: "Demurrage", name: "Maersk demurrage", ext: "pdf" },
+      ],
+    },
+  };
+  const billing = (zip: [number, Json]) => ({
+    "/portal/client/billing": () => [200, { data: { totals: [], invoices: [INVOICE], proofs: [], how_to_pay: null } }] as [number, Json],
+    "/portal/client/invoice/i1": () => [200, { data: DETAIL }] as [number, Json],
+    "/portal/client/invoice/i1/documents/zip": () => zip,
+  });
+
+  beforeEach(() => {
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:zip"), revokeObjectURL: vi.fn() }));
+    // The Save-As anchor: jsdom would try to navigate to the blob.
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("shows the paperclip on the row, and one tap downloads the invoice and every document as a ZIP", async () => {
+    stubApi(true, billing([200, { ok: true }]));
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { findByText, getByText, getByRole } = await mount("/portal/billing");
+    // The row says how many documents come with the invoice, in words for a screen reader.
+    getByText("Supporting documents: 2", { selector: ".sr-only" });
+    fireEvent.click(getByText("FAC-2026-1182"));
+    await findByText(en.bill.docs.title);
+    fireEvent.click(getByRole("button", { name: en.bill.docs.all }));
+    await waitFor(() => expect(calls).toContain("GET /portal/client/invoice/i1/documents/zip"));
+    // The single files wait behind a tap.
+    expect(document.body.textContent).not.toContain("Maersk demurrage");
+    fireEvent.click(getByRole("button", { name: en.bill.docs.show }));
+    getByText("Maersk demurrage");
+  });
+
+  it("says so when the documents are too large to download together", async () => {
+    stubApi(true, billing([413, { error: { code: "BUNDLE_TOO_LARGE", message: "server words" } }]));
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { findByText, getByText, getByRole } = await mount("/portal/billing");
+    fireEvent.click(getByText("FAC-2026-1182"));
+    await findByText(en.bill.docs.title);
+    fireEvent.click(getByRole("button", { name: en.bill.docs.all }));
+    await findByText(en.err.BUNDLE_TOO_LARGE);
+  });
+});

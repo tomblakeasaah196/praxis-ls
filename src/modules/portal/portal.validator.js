@@ -29,6 +29,11 @@ const schemas = {
     payment_proof_id: z.string().uuid(),
     treasury_account_id: z.string().uuid().optional().nullable(),
   }),
+  aiPublishBundle: z.object({
+    invoice_id: z.string().uuid(),
+    doc_ids: z.array(z.string().uuid()).max(200),
+  }),
+  aiWithdrawBundle: z.object({ invoice_id: z.string().uuid() }),
   aiRejectProof: z.object({
     payment_proof_id: z.string().uuid(),
     note: z.string().trim().min(1).max(1000),

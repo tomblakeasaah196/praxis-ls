@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1768 |
+| Routes | 1774 |
 | Modules mounted | 141 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1768 mounted routes, grouped by path prefix.
+All 1774 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1573,6 +1573,9 @@ All 1768 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/portal/client/dossier/:dossierId` | — |
 | GET | `/api/tenant/portal/client/home` | — |
 | GET | `/api/tenant/portal/client/invoice/:invoiceId` | — |
+| GET | `/api/tenant/portal/client/invoice/:invoiceId/documents` | — |
+| GET | `/api/tenant/portal/client/invoice/:invoiceId/documents/:docId` | — |
+| GET | `/api/tenant/portal/client/invoice/:invoiceId/documents/zip` | — |
 | GET | `/api/tenant/portal/client/invoice/:invoiceId/pdf` | — |
 | GET | `/api/tenant/portal/client/messages` | — |
 | POST | `/api/tenant/portal/client/messages` | — |
@@ -1601,6 +1604,9 @@ All 1768 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/data-room/:id/answer` | — |
 | POST | `/api/tenant/portal/data-room/:id/documents` | — |
 | GET | `/api/tenant/portal/investor` | — |
+| GET | `/api/tenant/portal/invoice-bundles/:invoiceId` | — |
+| POST | `/api/tenant/portal/invoice-bundles/:invoiceId` | — |
+| POST | `/api/tenant/portal/invoice-bundles/:invoiceId/withdraw` | — |
 | GET | `/api/tenant/portal/me` | — |
 | GET | `/api/tenant/portal/messages` | — |
 | POST | `/api/tenant/portal/messages` | — |

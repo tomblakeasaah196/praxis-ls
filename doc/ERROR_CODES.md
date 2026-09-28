@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (655)
+## All codes (658)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -145,6 +145,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BASE_CURRENCY_CORRUPT` | — | 1× | — |
 | `BREACHED_PASSWORD` | 422 | 1× | — |
 | `BUDGET_EXHAUSTED` | 422 | 1× | — |
+| `BUNDLE_TOO_LARGE` | 413 | 1× | — |
 | `CALLEE_BUSY` | 409 | 1× | — |
 | `CALLEE_DND` | 409 | 1× | — |
 | `CALLEE_INACTIVE` | 422 | 1× | — |
@@ -159,7 +160,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `CERTIFIED_NOT_AVAILABLE` | — | 2× | — |
 | `CLASH_DETECTED` | 409 | 2× | — |
 | `CLASS_MISMATCH` | 422 | 1× | — |
-| `CLIENT_REQUIRED` | 422 | 15× | — |
+| `CLIENT_REQUIRED` | 422 | 16× | — |
 | `CLOSE_BLOCKED` | 422 | 1× | — |
 | `COA_IS_MANAGED` | 422 | 1× | — |
 | `CODE_IN_USE` | 422 | 1× | — |
@@ -284,6 +285,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `INVALID_TOKEN` | 401 | 10× | — |
 | `INVALID_TRANSITION` | 422 | 23× | — |
 | `INVALID_VALUE` | 409, 422 | 13× | — |
+| `INVOICE_NOT_ISSUED` | 409 | 1× | — |
 | `INVOICE_POSTED` | 422 | 1× | — |
 | `IN_USE` | 409 | 2× | — |
 | `ISSUER_NOT_SIGNED` | 409 | 1× | — |
@@ -357,8 +359,9 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 3× | — |
-| `NOT_FOUND` | 404, 422 | 718× | — |
+| `NOT_FOUND` | 404, 422 | 723× | — |
 | `NOT_LEAF` | 422 | 1× | — |
+| `NOT_ON_THIS_FILE` | 409 | 1× | — |
 | `NOT_OPEN` | 409, 422 | 3× | — |
 | `NOT_OPERATIONAL` | 422 | 1× | — |
 | `NOT_PENDING` | 422 | 2× | — |

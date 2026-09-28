@@ -98,6 +98,11 @@ router.get("/client/dossier/:dossierId", portalAuth("CLIENT"), OPS, c.clientChai
 // account to pay it into (14150) — a superset of what this route returned.
 router.get("/client/invoice/:invoiceId", portalAuth("CLIENT"), BILL, pc.invoice);
 router.get("/client/invoice/:invoiceId/pdf", portalAuth("CLIENT"), BILL, pc.invoicePdf);
+// The invoice's supporting documents, once finance has shared them (14160).
+// `zip` is declared before `:docId` so it is never read as a document id.
+router.get("/client/invoice/:invoiceId/documents", portalAuth("CLIENT"), BILL, pc.invoiceDocuments);
+router.get("/client/invoice/:invoiceId/documents/zip", portalAuth("CLIENT"), BILL, pc.invoiceDocumentsZip);
+router.get("/client/invoice/:invoiceId/documents/:docId", portalAuth("CLIENT"), BILL, pc.invoiceDocument);
 router.get("/client/home", portalAuth("CLIENT"), pc.home);
 router.get("/client/shipments", portalAuth("CLIENT"), OPS, pc.shipments);
 router.get("/client/shipments/:id", portalAuth("CLIENT"), OPS, pc.shipment);
@@ -189,5 +194,10 @@ router.get("/payment-proofs", authMiddleware, PORTAL_CLIENT, requirePermission("
 router.post("/payment-proofs/:id/confirm", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-52", "create"), v.staffConfirmProof, pc.staffConfirmProof);
 router.post("/payment-proofs/:id/reject", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-52", "edit"), v.staffRejectProof, pc.staffRejectProof);
 router.get("/payment-proofs/:id/file", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-52", "view"), pc.staffProofFile);
+// Finance: share a final invoice's supporting documents with the client in one
+// act (14160). MOD-51 is final invoices — the same grant that issues one.
+router.get("/invoice-bundles/:invoiceId", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-51", "view"), pc.staffInvoiceBundle);
+router.post("/invoice-bundles/:invoiceId", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-51", "edit"), v.staffPublishBundle, pc.staffPublishBundle);
+router.post("/invoice-bundles/:invoiceId/withdraw", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-51", "edit"), v.empty, pc.staffWithdrawBundle);
 
 module.exports = { basePath: "/portal", feature: null, router };

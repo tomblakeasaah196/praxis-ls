@@ -1,6 +1,7 @@
 "use strict";
 const service = require("./portal.service");
 const clientPortal = require("./portal_client.service");
+const bundles = require("./invoice_bundle.service");
 const validator = require("./portal.validator");
 const { schemas: portalSchemas } = require("../portal_auth/portal_auth.validator");
 module.exports = {
@@ -12,6 +13,7 @@ module.exports = {
     // Client portal redesign (14150): what we are waiting for from clients, and
     // the payments clients say they have made.
     { key: "list_client_requests", service: (c, p) => clientPortal.staffRequests(c, { clientId: p.client_id || null, status: p.status || null }), permission: { module: "MOD-29", action: "view" }, describe: "Documents and information requested from clients through the portal, with what each client sent back (status OPEN / SUBMITTED / ACCEPTED / REJECTED)." },
+    { key: "get_invoice_client_documents", service: (c, p) => bundles.staffView(c, { invoiceId: p.invoice_id }), permission: { module: "MOD-51", action: "view" }, describe: "For one final invoice: the supporting documents its file's reconciliation holds (which lines owe a receipt), and which are already shared with the client in their portal." },
     { key: "list_payment_proofs", service: (c, p) => clientPortal.staffProofs(c, { status: p.status || null, clientId: p.client_id || null }), permission: { module: "MOD-52", action: "view" }, describe: "Proofs of payment clients uploaded in the portal, the invoices each covers, and whether finance has confirmed them." },
   ],
   writes: [
@@ -19,6 +21,8 @@ module.exports = {
     { key: "request_client_document", service: (c, p, actor) => clientPortal.createRequest(c, { clientId: p.client_id, dossierId: p.dossier_id || null, kind: p.kind, docTypeCode: p.doc_type_code || null, title: p.title || null, note: p.note || null, dueOn: p.due_on || null, actor }), schema: portalSchemas.staffCreateRequest, permission: { module: "MOD-29", action: "edit" }, confirm: true, describe: "Ask a client, in their portal, for a document (by document type) or a piece of information, optionally for one shipment and by a due date." },
     { key: "review_client_request", service: (c, p, actor) => clientPortal.reviewRequest(c, { requestId: p.client_request_id, decision: p.decision, note: p.note || null, actor }), schema: validator.schemas.aiReviewRequest, permission: { module: "MOD-29", action: "edit" }, confirm: true, describe: "Accept or reject (with the reason the client reads) what a client sent for a request, or cancel the request." },
     { key: "confirm_payment_proof", service: (c, p, actor) => clientPortal.confirmProof(c, { proofId: p.payment_proof_id, treasuryAccountId: p.treasury_account_id || null, actor }), schema: validator.schemas.aiConfirmProof, permission: { module: "MOD-52", action: "create" }, confirm: true, describe: "Confirm a client's proof of payment; when it names invoices a DRAFT receipt is created for finance to post." },
+    { key: "publish_invoice_documents", service: (c, p, actor) => bundles.publish(c, { invoiceId: p.invoice_id, docIds: p.doc_ids, actor }), schema: validator.schemas.aiPublishBundle, permission: { module: "MOD-51", action: "edit" }, confirm: true, describe: "Share an issued final invoice with the client's portal together with the chosen supporting documents from its file (the client can download them all as one ZIP)." },
+    { key: "withdraw_invoice_documents", service: (c, p, actor) => bundles.withdraw(c, { invoiceId: p.invoice_id, actor }), schema: validator.schemas.aiWithdrawBundle, permission: { module: "MOD-51", action: "edit" }, confirm: true, describe: "Stop sharing a final invoice's supporting documents with the client; the documents stay on the file." },
     { key: "reject_payment_proof", service: (c, p, actor) => clientPortal.rejectProof(c, { proofId: p.payment_proof_id, note: p.note, actor }), schema: validator.schemas.aiRejectProof, permission: { module: "MOD-52", action: "edit" }, confirm: true, describe: "Reject a client's proof of payment, with the reason the client will read." },
   ],
 };

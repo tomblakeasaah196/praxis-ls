@@ -25,6 +25,7 @@
 
 const crypto = require("crypto");
 const repo = require("./portal_client.repo");
+const bundles = require("./invoice_bundle.service");
 const portal = require("./portal.service");
 const vault = require("../vault/document_vault/document_vault.service");
 const shipmentDetails = require("../operations/shipment_details/shipment_details.service");
@@ -149,6 +150,8 @@ function invoiceView(row, asOf = today()) {
     state,
     dossier_id: row.dossier_id,
     dossier_ref: row.dossier_ref || null,
+    // Supporting documents finance shared with it (14160) — the paperclip count.
+    documents_count: Number(row.documents_count || 0),
   };
 }
 
@@ -469,6 +472,8 @@ async function invoice(c, { clientId, invoiceId, lang }) {
     ...detail,
     summary: row ? invoiceView(row) : null,
     how_to_pay: await howToPay(c, entity && entity.entity_id),
+    // The supporting documents finance has shared with this invoice (14160).
+    documents: await bundles.clientView(c, { clientId, invoiceId }),
   };
 }
 

@@ -212,6 +212,7 @@ export const en = {
     TENANT_SUSPENDED: "The portal is unavailable right now.",
     TENANT_NOT_READY: "The portal is unavailable right now.",
     DOWNLOAD_FAILED: "The download didn’t work. Try again.",
+    BUNDLE_TOO_LARGE: "These are too large to download together. Download them one by one.",
   },
   upload: {
     takePhoto: "Take a photo",
@@ -398,6 +399,19 @@ export const en = {
     disbursements: "Disbursements",
     vat: "VAT",
     receiptFile: "payment-proof",
+    docs: {
+      title: "Supporting documents",
+      count: "Supporting documents: {{count}}",
+      shared: "Shared {{when}}",
+      all: "Download all (.zip)",
+      show: "See the files",
+      hide: "Hide the files",
+      downloadOne: "Download {{name}}",
+      about: "About these documents",
+      info:
+        "The receipts behind the costs this invoice bills at cost. The ZIP holds the invoice and every document, numbered in the order of its lines.",
+      zipName: "documents",
+    },
     proof: {
       SUBMITTED: "In review",
       CONFIRMED: "Confirmed",
@@ -759,6 +773,8 @@ export const fr = {
     TENANT_SUSPENDED: "Le portail est indisponible pour le moment.",
     TENANT_NOT_READY: "Le portail est indisponible pour le moment.",
     DOWNLOAD_FAILED: "Le téléchargement a échoué. Réessayez.",
+    BUNDLE_TOO_LARGE:
+      "Ces fichiers sont trop volumineux pour un seul téléchargement. Téléchargez-les un par un.",
   },
   upload: {
     takePhoto: "Prendre une photo",
@@ -945,6 +961,19 @@ export const fr = {
     disbursements: "Débours",
     vat: "TVA",
     receiptFile: "preuve-de-paiement",
+    docs: {
+      title: "Justificatifs",
+      count: "Justificatifs : {{count}}",
+      shared: "Partagés {{when}}",
+      all: "Tout télécharger (.zip)",
+      show: "Voir les fichiers",
+      hide: "Masquer les fichiers",
+      downloadOne: "Télécharger {{name}}",
+      about: "À propos de ces justificatifs",
+      info:
+        "Les reçus des frais que cette facture refacture au coût réel. Le ZIP contient la facture et chaque justificatif, numérotés dans l’ordre de ses lignes.",
+      zipName: "justificatifs",
+    },
     proof: {
       SUBMITTED: "En vérification",
       CONFIRMED: "Confirmé",

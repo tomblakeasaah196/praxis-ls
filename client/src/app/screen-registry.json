@@ -839,7 +839,10 @@
         "get_final_invoice",
         "draft_final_invoice",
         "update_final_invoice",
-        "submit_final_invoice"
+        "submit_final_invoice",
+        "get_invoice_client_documents",
+        "publish_invoice_documents",
+        "withdraw_invoice_documents"
       ]
     },
     {
