@@ -41,6 +41,14 @@ async function options(client, { user, ref, q, limit }) {
     [ref],
   );
   if (!rows.length) throw new Error(`unknown or disabled options source: ${ref}`);
+  // An executor the manifests REGISTERED — an own key of the map, never one it
+  // inherits. `ref` comes straight off the query string, and on a plain object
+  // `registry["constructor"]` is a function too. The catalogue lookup above
+  // would refuse such a key today, but what a dispatch may call should not rest
+  // on the contents of a table (CodeQL js/unvalidated-dynamic-method-call).
+  if (!Object.prototype.hasOwnProperty.call(registry, ref)) {
+    throw new Error(`no executor for ${ref}`);
+  }
   const fn = registry[ref];
   if (typeof fn !== "function") throw new Error(`no executor for ${ref}`);
   const out = await fn({ client, user, payload: { limit: Math.min(limit || 100, 500), q: q || undefined } });
