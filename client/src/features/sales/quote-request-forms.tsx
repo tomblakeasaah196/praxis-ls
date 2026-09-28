@@ -88,7 +88,7 @@ export function QuoteRequestForm({
   const [serviceCategory, setServiceCategory] = React.useState("");
   const [serviceType, setServiceType] = React.useState("");
   const [origin, setOrigin] = React.useState("");
-  // The doors either side of the main leg (14200) — where we collect and
+  // The doors either side of the main leg (14220) — where we collect and
   // where we deliver. Blank on a port-to-port request.
   const [collection, setCollection] = React.useState("");
   const [delivery, setDelivery] = React.useState("");

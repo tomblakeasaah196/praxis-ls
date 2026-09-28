@@ -40,7 +40,7 @@ const base = {
   service_type: text255,
   origin_location: text255,
   destination_location: text255,
-  // 14200 — the doors either side of the main leg. Text only, like the two
+  // 14220 — the doors either side of the main leg. Text only, like the two
   // ends above: the place ids beside them are written by the intake paths
   // that resolve them (see the note at the end of this object).
   collection_location: text255,
@@ -53,7 +53,7 @@ const base = {
   additional_notes: text5000,
   incoterm: text255,
   owner_user_id: z.string().uuid().optional().nullable(),
-  // origin_place_id / destination_place_id / attachment_doc_id (and 14200's
+  // origin_place_id / destination_place_id / attachment_doc_id (and 14220's
   // collection_place_id / delivery_place_id) are in the repo's WRITABLE list
   // but deliberately NOT here. They are written by public_intake.service and
   // the portal's createClientQuote, which earn them: the coordinates come from

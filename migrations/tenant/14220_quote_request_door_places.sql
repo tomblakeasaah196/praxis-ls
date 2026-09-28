@@ -1,5 +1,5 @@
 -- ============================================================================
--- TENANT DB — 14200 A quote request can name the two doors as well as the two
+-- TENANT DB — 14220 A quote request can name the two doors as well as the two
 -- ports: where we collect the cargo, and where we deliver it.
 --
 -- ── WHY ────────────────────────────────────────────────────────────────────
@@ -53,11 +53,11 @@ ALTER TABLE quote_request
 COMMENT ON COLUMN quote_request.collection_location IS
   'Where the cargo is collected, before the main leg — often an address. NULL when the client delivers to the port/airport themselves.';
 COMMENT ON COLUMN quote_request.collection_place_id IS
-  'geo_place id behind collection_location, resolved server-side (no FK — see 14200). NULL when the requester wrote free text.';
+  'geo_place id behind collection_location, resolved server-side (no FK — see 14220). NULL when the requester wrote free text.';
 COMMENT ON COLUMN quote_request.delivery_location IS
   'Where the cargo is delivered, after the main leg — often an address. NULL when the client collects at the port/airport.';
 COMMENT ON COLUMN quote_request.delivery_place_id IS
-  'geo_place id behind delivery_location, resolved server-side (no FK — see 14200). NULL when the requester wrote free text.';
+  'geo_place id behind delivery_location, resolved server-side (no FK — see 14220). NULL when the requester wrote free text.';
 
 -- ============================================================================
 -- VERIFY

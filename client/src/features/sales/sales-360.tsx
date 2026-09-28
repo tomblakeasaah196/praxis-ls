@@ -1215,7 +1215,7 @@ export function IntakeDossier({
             {[
               // The route in the order the cargo travels it — the door we
               // collect from, the two ends of the main leg, the door we
-              // deliver to (14200). Each end says whether the requester PICKED
+              // deliver to (14220). Each end says whether the requester PICKED
               // a place (pinned to a verified geo_place) or wrote it, which is
               // the one the desk still has to find on the map.
               { label: "Place of collection", value: routeEnd(q.collection_location, q.collection_place_id) },
