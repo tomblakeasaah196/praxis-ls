@@ -19,14 +19,14 @@ router.post("/convert-from-supplier/:id", requirePermission(MODULE, "create"), c
 // Non-blocking duplicate detection (§5.1) — static prefix, before /:id.
 router.post("/dedupe-check", requirePermission(MODULE, "view"), validate(partyCommon.dedupeCheck), controller.dedupeCheck);
 
-// Who can be named account manager (PR 3, 14190) — the account manager
+// Who can be named account manager (PR 3, 14200) — the account manager
 // picker's search, gated like naming one. Static prefix, before /:id.
 router.get("/account-manager-candidates", requireAnyPermission([[MODULE, "edit"], ["MOD-64C", "edit"]]), controller.accountManagerCandidates);
 
 router.get("/", requirePermission(MODULE, "view"), controller.list);
 router.get("/:id", requirePermission(MODULE, "view"), controller.get);
 router.get("/:id/credit", requirePermission(MODULE, "view"), controller.creditCheck);
-// The account manager (PR 3, 14190). Readable by anyone who can see the client
+// The account manager (PR 3, 14200). Readable by anyone who can see the client
 // or answer its messages; set by the client master's editors OR by the people
 // who answer the Client inbox (MOD-64C) — sales and operations assign who looks
 // after a client, and they do not hold the master's edit right. The two grants

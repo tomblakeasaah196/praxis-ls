@@ -1,5 +1,5 @@
 -- ============================================================================
--- TENANT DB — 14190 A client's account manager: the person on the team who
+-- TENANT DB — 14200 A client's account manager: the person on the team who
 -- looks after a client, and the first one their messages reach (client portal
 -- redesign, PR 3).
 --
@@ -31,7 +31,7 @@ CREATE INDEX IF NOT EXISTS ix_client_master_relationship_manager
   WHERE relationship_manager_user_id IS NOT NULL;
 
 COMMENT ON COLUMN client_master.relationship_manager_user_id IS
-  'The client''s account manager (PR 3, 14190): the login a client''s portal message reaches first, with the owners of the shipment it is about. Set from the employee picker through PUT /clients/:id/account-manager, which requires an ACTIVE login.';
+  'The client''s account manager (PR 3, 14200): the login a client''s portal message reaches first, with the owners of the shipment it is about. Set from the employee picker through PUT /clients/:id/account-manager, which requires an ACTIVE login.';
 
 -- DOWN
 -- Additive: an index and a comment.

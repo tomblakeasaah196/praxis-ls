@@ -32,7 +32,7 @@ async function create(client, { data, actor = {} }) {
     Object.assign(masterData, partyWrite.niuRccmMirror(registrations), { name_norm: partyWrite.normalizeName(masterData) });
     // Tenant field-requirement policy on top of the static schema (§5.2).
     await masterConfig.enforceRequired(client, "CLIENT", masterData);
-    // The account manager (14190) is named through its own service whichever
+    // The account manager (14200) is named through its own service whichever
     // door it comes in by — it must be an ACTIVE login, and naming one is
     // audited and tells them — so it is not a plain column of the insert.
     const { relationship_manager_user_id: accountManagerId, ...insertable } = masterData;
@@ -65,7 +65,7 @@ async function update(client, { id, patch, actor = {}, env }) {
   const masterPatch = { ...patch };
   const { registrations } = masterPatch;
   delete masterPatch.registrations; delete masterPatch.primary_contact; delete masterPatch.primary_address;
-  // The account manager goes through its own service, as on create (14190):
+  // The account manager goes through its own service, as on create (14200):
   // an ACTIVE login, audited, and the person told.
   const accountManagerId = masterPatch.relationship_manager_user_id;
   delete masterPatch.relationship_manager_user_id;
