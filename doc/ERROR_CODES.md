@@ -578,6 +578,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `RUN_LOCKED` | 422 | 1× | — |
 | `SAME_LANGUAGE` | 422 | 1× | — |
 | `SAME_PASSWORD` | 422 | 1× | — |
+| `SAME_VALIDATOR_APPROVER` | — | 1× | — |
 | `SCANNED_PDF` | 422 | 2× | — |
 | `SCAN_ENCODING_UNSUPPORTED` | — | 1× | — |
 | `SCAN_REQUIRED` | 422 | 3× | — |
