@@ -709,7 +709,7 @@ Four rules make it hold together:
 5. **A tile that counts rows opens them.** "57 costings" is a question the
    reader cannot answer from the number — which ones, for which client, on
    which file. Pass `onClick` and open `<KpiDetailsModal>`
-   (`features/masterdata/kpi-details-modal.tsx`) with the rows behind the
+   (`components/kpi-details-modal.tsx`) with the rows behind the
    count, a destination per row, and `viewAll` to the module that owns them.
    When the count can run into the thousands, page on the SERVER (`paging`,
    read with `useListPaged`) so the dialog says "of 3,412" under a tile that

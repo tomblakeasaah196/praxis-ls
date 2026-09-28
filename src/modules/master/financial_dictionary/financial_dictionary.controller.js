@@ -154,6 +154,11 @@ module.exports = {
     if (!r) throw new AppError("NOT_FOUND", "Dictionary item not found", 404);
     res.json({ data: r });
   }),
+  spendDocuments: asyncHandler(async (req, res) => {
+    const r = await req.tenantDb((c) => service.spendDocumentsPage(c, req.params.id, req.query));
+    if (!r) throw new AppError("NOT_FOUND", "Dictionary item not found", 404);
+    sendPaged(res, r);
+  }),
   rateEvolution: asyncHandler(async (req, res) => {
     const r = await req.tenantDb((c) => service.rateEvolution(c, req.params.id, { as_of: req.query.as_of }));
     if (!r) throw new AppError("NOT_FOUND", "Dictionary item not found", 404);

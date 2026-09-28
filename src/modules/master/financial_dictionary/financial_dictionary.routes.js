@@ -33,6 +33,9 @@ router.get("/search", requirePermission(MODULE, "view"), v.searchQuery, c.search
 router.get("/", requirePermission(MODULE, "view"), c.list);
 router.get("/:id/360", requirePermission(MODULE, "view"), c.dossier);
 router.get("/:id/spend", requirePermission(MODULE, "view"), v.spendQuery, c.spend);
+// The documents behind the Spend tab's tiles, a page at a time — the rows the
+// tab's own list already shows on MOD-05, so the same gate.
+router.get("/:id/spend/documents", requirePermission(MODULE, "view"), v.spendDocsQuery, c.spendDocuments);
 // The rows behind the 360's usage tiles, one page at a time. MOD-05 view opens
 // the route; each DOCUMENT list is then gated on the module that owns its rows
 // (see the controller), because the rows name clients and amounts the counts

@@ -6,7 +6,7 @@
  * go and find those fourteen somewhere else — and the question they were asking
  * was always "which ones": which costings, for which client, on which file.
  * Each tile now opens the same drill-in dialog the party and entity 360s use
- * (`./kpi-details-modal`), listing the rows it counts.
+ * (`components/kpi-details-modal`), listing the rows it counts.
  *
  * THE LIST IS THE COUNT. The server reads the same table with the same filter
  * as the tile (GET /financial-dictionary/:id/usage/:kind — see the repo), and
@@ -40,7 +40,7 @@ import {
   KPI_PAGE_SIZE,
   type KpiDetailHeader,
   type KpiDetailRow,
-} from "./kpi-details-modal";
+} from "@/components/kpi-details-modal";
 
 type Tone = React.ComponentProps<typeof Pill>["tone"];
 

@@ -223,3 +223,41 @@ describe("the list reads what the tile counts", () => {
     expect(countSeen[0]).toMatch(new RegExp(`FROM ${table}\\s+WHERE dictionary_item_id = \\$1`));
   });
 });
+
+describe("GET /:id/spend/documents — the rows behind the Spend tab's tiles", () => {
+  test("one lens, one page, the true total; the window is normalised as the tiles' is", async () => {
+    const res = await request(app())
+      .get(`/${ITEM}/spend/documents?from=2026-06-01&to=2026-01-01&lens=committed&limit=20&offset=20`)
+      .set("x-grants", "MOD-05:view");
+    expect(res.status).toBe(200);
+    expect(res.headers["x-total-count"]).toBe("57");
+    const q = usageQuery();
+    // A reversed window collapses exactly as `spend` collapses it (rules.normalisePeriod).
+    const p = rules.normalisePeriod({ from: "2026-06-01", to: "2026-01-01" });
+    expect(q.params).toEqual([ITEM, p.from, p.to, 20, null, "committed", 20]);
+    expect(q.sql).toMatch(/lens = \$6::text/);
+  });
+
+  test("no lens is every lens — the Documents tile", async () => {
+    await request(app()).get(`/${ITEM}/spend/documents`).set("x-grants", "MOD-05:view");
+    expect(usageQuery().params[5]).toBeNull();
+  });
+
+  test("a lens that does not exist is refused", async () => {
+    const res = await request(app())
+      .get(`/${ITEM}/spend/documents?lens=forecast`)
+      .set("x-grants", "MOD-05:view");
+    expect(res.status).toBe(422);
+    expect(queries).toHaveLength(0);
+  });
+
+  test("the paged list and the capped list read the same union", async () => {
+    const seen = [];
+    const client = { query: async (sql) => (seen.push(sql), { rows: [] }) };
+    await repo.spendDocuments(client, ITEM, "2026-01-01", "2026-06-30", 100, null);
+    await repo.spendDocumentsPage(client, ITEM, "2026-01-01", "2026-06-30", { limit: 20, offset: 0 });
+    const union = (sql) => sql.slice(sql.indexOf("FROM (") + 6, sql.lastIndexOf(") docs"));
+    expect(union(seen[1])).toBe(union(seen[0]));
+    for (const lens of ["'estimated'", "'committed'", "'actual'"]) expect(seen[0]).toContain(lens);
+  });
+});

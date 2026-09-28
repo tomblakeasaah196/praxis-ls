@@ -129,6 +129,14 @@ const spendQuery = z.object({
   include_documents: z.enum(["true", "false"]).optional(),
 });
 
+// One page of the documents behind a Spend tile — the Spend tab's own window
+// and file filter, one lens (or every lens), a page.
+const spendDocsQuery = spendQuery.omit({ include_documents: true }).extend({
+  lens: z.enum(["estimated", "committed", "actual"]).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
 // One page of a usage drill-in (the 360's tiles). 100 is the page ceiling —
 // the dialog asks for 20; a larger page is for a caller that knows why.
 const usageQuery = z.object({
@@ -195,7 +203,7 @@ const aiRateSupersede = rateSupersede.extend({ dictionary_item_id: z.string().uu
 const aiRateApplyAll = rateApplyAll.extend({ dictionary_item_id: z.string().uuid() });
 const schemas = {
   create, update, aiUpdate, aiRateSupersede, aiRateApplyAll, refCreate, refUpdate,
-  searchQuery, spendQuery, usageQuery, rateSupersede, rateApplyAll, importUpload, importCommit, importErrors,
+  searchQuery, spendQuery, spendDocsQuery, usageQuery, rateSupersede, rateApplyAll, importUpload, importCommit, importErrors,
 };
 
 /** Query-string validator — same shape as `mw`, but reads req.query. */
@@ -223,6 +231,7 @@ module.exports = {
   create: mw("create"), update: mw("update"), refCreate: mw("refCreate"), refUpdate: mw("refUpdate"),
   searchQuery: qmw("searchQuery"),
   spendQuery: qmw("spendQuery"),
+  spendDocsQuery: qmw("spendDocsQuery"),
   usageQuery: usage,
   rateSupersede: mw("rateSupersede"),
   rateApplyAll: mw("rateApplyAll"),

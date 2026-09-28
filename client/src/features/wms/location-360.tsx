@@ -23,6 +23,10 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { num, dateFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/wms-api";
+import {
+  KpiDetailsModal,
+  type KpiDetailRow,
+} from "@/components/kpi-details-modal";
 
 const shell = pageShell.wide;
 const STATE_TONE: Record<string, Tone> = {
@@ -189,6 +193,97 @@ function NewLocationForm({
   );
 }
 
+/**
+ * The rows behind a location's tiles, in the shared drill-in dialog.
+ *
+ * "Items stored" and "On hand" both open this slot's stock — the first newest
+ * first as the Inventory tab lists it, the second largest quantity first, the
+ * order that adds up the on-hand figure. "Equipment" opens the equipment parked
+ * here. The rows are the SAME arrays the tiles were counted from, so the two
+ * cannot disagree. "Capacity used" is a percentage, not a list, and stays inert.
+ */
+type LocationDrill = "items" | "on_hand" | "equipment";
+
+function LocationKpiDrill({
+  kind,
+  label,
+  items,
+  equip,
+  onClose,
+}: {
+  kind: LocationDrill;
+  label: string;
+  items: api.InventoryItem[];
+  equip: api.Equipment[];
+  onClose: () => void;
+}) {
+  if (kind === "equipment") {
+    return (
+      <KpiDetailsModal
+        open
+        onClose={onClose}
+        title={`${tr("Equipment")} · ${label}`}
+        description="Handling equipment parked at this location. Click a row to find it on the equipment board."
+        headers={[{ label: tr("Equipment") }, { label: tr("Status") }]}
+        rows={equip.map((e): KpiDetailRow => ({
+          id: e.wms_equipment_id,
+          href: `/wms/equipment?focus=${encodeURIComponent(e.wms_equipment_id)}`,
+          cells: [
+            e.label,
+            <Pill key="s" tone={EQ_TONE[e.status] || "mute"}>
+              {enumLabel(e.status)}
+            </Pill>,
+          ],
+        }))}
+        emptyLabel="No equipment is parked at this location."
+        viewAll={{ label: "View more in Equipment", href: "/wms/equipment" }}
+      />
+    );
+  }
+  const rows =
+    kind === "on_hand"
+      ? [...items].sort(
+          (a, b) => Number(b.qty_on_hand || 0) - Number(a.qty_on_hand || 0),
+        )
+      : items;
+  return (
+    <KpiDetailsModal
+      open
+      onClose={onClose}
+      title={`${kind === "on_hand" ? tr("On hand") : "Items stored"} · ${label}`}
+      description={
+        kind === "on_hand"
+          ? "The stock that makes up the on-hand total, largest quantity first. Click a row to open the item."
+          : "The stock items held at this location. Click a row to open the item."
+      }
+      headers={[
+        { label: tr("SKU") },
+        { label: tr("Item") },
+        { label: tr("On hand"), right: true },
+        { label: tr("State") },
+      ]}
+      rows={rows.map((i): KpiDetailRow => ({
+        id: i.inventory_item_id,
+        href: `/wms/inventory?focus=${encodeURIComponent(i.inventory_item_id)}`,
+        cells: [
+          <span key="k" className="num">
+            {i.sku || "—"}
+          </span>,
+          i.description,
+          <span key="q" className="num whitespace-nowrap">
+            {num(i.qty_on_hand)} {i.uom || ""}
+          </span>,
+          <Pill key="s" tone={STATE_TONE[i.state] || "mute"}>
+            {i.state}
+          </Pill>,
+        ],
+      }))}
+      emptyLabel="Nothing is stored at this location."
+      viewAll={{ label: "View more in Inventory", href: "/wms/inventory" }}
+    />
+  );
+}
+
 function LocationDetail({
   location,
   inventory,
@@ -201,6 +296,7 @@ function LocationDetail({
   counts: api.CycleCount[];
 }) {
   const [tab, setTab] = React.useState<Tab>("Inventory");
+  const [drill, setDrill] = React.useState<LocationDrill | null>(null);
   const lid = location.location_id;
   const items = inventory.filter((i) => i.location_id === lid);
   const equip = equipment.filter((e) => e.location_id === lid);
@@ -232,14 +328,35 @@ function LocationDetail({
       </div>
 
       <KpiRow stack>
-        <KpiTile label="Items stored" value={num(items.length)} />
-        <KpiTile label={tr("On hand")} value={num(Math.round(onHand))} />
-        <KpiTile label={tr("Equipment")} value={num(equip.length)} />
+        <KpiTile
+          label="Items stored"
+          value={num(items.length)}
+          onClick={() => setDrill("items")}
+        />
+        <KpiTile
+          label={tr("On hand")}
+          value={num(Math.round(onHand))}
+          onClick={() => setDrill("on_hand")}
+        />
+        <KpiTile
+          label={tr("Equipment")}
+          value={num(equip.length)}
+          onClick={() => setDrill("equipment")}
+        />
         <KpiTile
           label={tr("Capacity used")}
           value={usedPct != null ? `${usedPct}%` : "—"}
         />
       </KpiRow>
+      {drill && (
+        <LocationKpiDrill
+          kind={drill}
+          label={api.locationLabel(location)}
+          items={items}
+          equip={equip}
+          onClose={() => setDrill(null)}
+        />
+      )}
 
       {/* One row on a phone — see `section-tabs.tsx`. */}
       <SectionTabs

@@ -417,16 +417,14 @@ async function spendActual(c, id, from, to, dossierId = null) {
 }
 
 /**
- * The documents behind the numbers — what a drill-in opens.
- *
- * Deliberately capped and ordered newest-first rather than paged: this is the
- * "show me the receipts" list under a chart, not a browsable ledger. The module
- * that owns each document is where a user goes to page through them, and each
- * row carries the ref the deep-link needs.
+ * The four lenses' rows as one set — `$1` item, `$2`/`$3` the window, `$5` one
+ * operations file or NULL. Shared by the capped list under the Spend chart and
+ * by the paged drill-in its tiles open, so the two cannot disagree about which
+ * documents a lens holds. Each branch is its lens's SUM query (`spendEstimated`,
+ * `spendCommitted`, `spendActual`) with the same table, statuses and date, one
+ * row per line — which is why a lens's row count is the count on its tile.
  */
-async function spendDocuments(c, id, from, to, limit = 100, dossierId = null) {
-  const { rows } = await c.query(
-    `SELECT * FROM (
+const SPEND_DOCS_UNION = `
        SELECT 'estimated' AS lens, 'costing' AS doc_type, co.costing_id AS doc_id,
               co.doc_number, co.status, co.dossier_id, d.ref AS dossier_ref,
               (cl.qty * cl.unit_cost) AS amount, co.currency, co.created_at::date AS doc_date, cl.label
@@ -463,10 +461,38 @@ async function spendDocuments(c, id, from, to, limit = 100, dossierId = null) {
           AND COALESCE(je.entry_date, ce.created_at::date) >= $2::date
           AND COALESCE(je.entry_date, ce.created_at::date) <= $3::date
           AND ($5::uuid IS NULL OR ce.dossier_id = $5::uuid)
-     ) docs ORDER BY doc_date DESC, lens LIMIT $4`,
+`;
+
+/**
+ * The documents behind the numbers — the list under the Spend chart.
+ *
+ * Deliberately capped and ordered newest-first rather than paged: this is the
+ * "show me the receipts" list under a chart, not a browsable ledger. The tiles
+ * above it open the paged version (`spendDocumentsPage`) for the whole set.
+ */
+async function spendDocuments(c, id, from, to, limit = 100, dossierId = null) {
+  const { rows } = await c.query(
+    `SELECT * FROM (${SPEND_DOCS_UNION}) docs ORDER BY doc_date DESC, lens LIMIT $4`,
     [id, from, to, limit, dossierId],
   );
   return rows;
+}
+
+/**
+ * One page of the same documents, optionally one lens, with the true total —
+ * what the Spend tab's tiles open. `lens` NULL is every lens (the Documents
+ * tile). Ordered as the capped list is, with the id as the tie-break a stable
+ * page needs.
+ */
+async function spendDocumentsPage(c, id, from, to, { lens = null, dossierId = null, limit, offset }) {
+  const { rows } = await c.query(
+    `SELECT *, ${TOTAL_COL} FROM (${SPEND_DOCS_UNION}) docs
+      WHERE ($6::text IS NULL OR lens = $6::text)
+      ORDER BY doc_date DESC, lens, doc_id
+      LIMIT $4 OFFSET $7`,
+    [id, from, to, limit, dossierId, lens, offset],
+  );
+  return splitTotal(rows);
 }
 
 /* ── COST EVOLUTION — the effective-dated rate history per item + provider ─── */
@@ -536,7 +562,7 @@ module.exports = {
   createItem, createRule, updateItem, getItem, getItemRow, nextCode,
   listRules, deleteRules, listTiers, replaceTiers,
   listItems, searchItems, usageCounts, usageRows,
-  spendEstimated, spendCommitted, spendActual, spendDocuments,
+  spendEstimated, spendCommitted, spendActual, spendDocuments, spendDocumentsPage,
   rateHistory, openRate, insertRate, expireRate,
   postableAccounts, taxCodeIndex, serviceTypeIndex,
   listRefs, createRef, updateRef, getRef,

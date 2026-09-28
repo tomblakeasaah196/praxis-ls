@@ -2,11 +2,12 @@
  * KPI drill-in modal — one tile, one browsable list of the rows behind it.
  *
  * Extracted from `party-360.tsx` unchanged when the corporate-entity dossier
- * grew the same drill-ins (the tiles and the party masters are the two places a
- * number on screen is the entry point to a list rather than a fact). The party
- * dossier and the entity dossier now share one dialog, so a drill-in looks and
- * behaves the same wherever it is opened — including the keyboard path and the
- * 20-row page size.
+ * grew the same drill-ins, and moved up from `features/masterdata` when record
+ * screens outside master data (leads, treasury accounts, warehouse locations,
+ * tax jurisdictions) grew them too — a feature importing another feature's
+ * file for a shared dialog is how the chunk graph grows cycles. Every 360 now
+ * opens one dialog, so a drill-in looks and behaves the same wherever it is
+ * opened — including the keyboard path and the 20-row page size.
  *
  * ROWS ARE PROVIDED BY THE CALLER. The party dossier derives them from its 360
  * payload in the client; the entity drill fetches the entity's employees and
@@ -300,7 +301,15 @@ function KpiDetailCard({
   headers: KpiDetailHeader[];
   onOpen: (href?: string) => void;
 }) {
-  const [first, ...rest] = row.cells;
+  const [first, ...cells] = row.cells;
+  // Pairs with their header, then drop the empty ones: in a table a blank cell
+  // holds its column, but in a card it is a label with nothing after it — a
+  // ledger line's untouched Credit side read as "Credit" and then silence.
+  const rest = cells
+    .map((c, i) => ({ c, header: headers[i + 1] }))
+    .filter(
+      ({ c }) => c !== "" && c !== null && c !== undefined && c !== false,
+    );
   const body = (
     <>
       <span
@@ -314,14 +323,12 @@ function KpiDetailCard({
       </span>
       {rest.length > 0 && (
         <span className="mt-1.5 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px]">
-          {rest.map((c, i) => (
+          {rest.map(({ c, header }, i) => (
             <React.Fragment key={i}>
-              <span className="text-muted-foreground">
-                {headers[i + 1]?.label}
-              </span>
+              <span className="text-muted-foreground">{header?.label}</span>
               <span
                 className={
-                  headers[i + 1]?.right
+                  header?.right
                     ? "num min-w-0 text-foreground"
                     : "min-w-0 text-foreground"
                 }

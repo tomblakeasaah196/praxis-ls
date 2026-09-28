@@ -1632,6 +1632,13 @@ export const dictSpend = (
   );
 };
 
+/** The paged documents behind the Spend tab's tiles (GET /:id/spend/documents)
+ *  — the same rows as `documents` above, one lens at a time, with the true
+ *  total. Read with `useListPaged`, passing from / to / dossier_id / lens as
+ *  its filters. */
+export const dictSpendDocsPath = (id: string) =>
+  `/financial-dictionary/${encodeURIComponent(id)}/spend/documents`;
+
 /* ── Cost evolution (GET /financial-dictionary/:id/rate-history) ───────────
  * Grouped into SERIES — one per (provider, shipping line, variant) — because a
  * 20ft and a 40ft price are both current and neither supersedes the other. */
