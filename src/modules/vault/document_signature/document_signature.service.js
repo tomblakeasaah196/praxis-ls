@@ -38,7 +38,7 @@ const METHOD_WORDS = {
   QES:     { fr: "Certifié par un tiers de confiance",    en: "Certified by a trust provider" },
   WET:     { fr: "Signé à la main et rapproché",          en: "Signed by hand and reconciled" },
 };
-/** Every assurance a row may carry (migration 14200 moved this out of a CHECK). */
+/** Every assurance a row may carry (migration 14210 moved this out of a CHECK). */
 const ASSURANCE_LEVELS = new Set(["SES", "AES_OTP", "AES_PASSKEY", "QES", "WET"]);
 const methodWords = (level, lang) => (METHOD_WORDS[level] || METHOD_WORDS.SES)[lang === "en" ? "en" : "fr"];
 
@@ -345,7 +345,7 @@ async function signInternal(client, opts) {
   const assurance = settled && settled.assurance === "AES_PASSKEY"
     ? "AES_PASSKEY"
     : proofOtp ? "AES_OTP" : "SES";
-  // The column's CHECK was dropped by 14200 (the 13791 rule); this is the list.
+  // The column's CHECK was dropped by 14210 (the 13791 rule); this is the list.
   if (!ASSURANCE_LEVELS.has(assurance)) throw new AppError("BAD_ASSURANCE", "Unknown assurance level", 500);
 
   const vaultDoc = await vaultRepo.getByRef(client, entityRef).catch(() => null);
