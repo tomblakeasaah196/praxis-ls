@@ -101,6 +101,7 @@ import { type EffectivePwa } from "@/lib/pwa-config";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { PullToRefresh } from "@/components/ui/pull-to-refresh";
+import { checkForUpdate } from "@/lib/pwa-update";
 import { LockIcon, XIcon } from "@/components/ui/icons";
 import { ActionErrorBanner } from "@/components/action-error-banner";
 import { AccessBanner } from "@/app/layout/access-banner";
@@ -730,8 +731,16 @@ export function AppShell() {
    * survive (stale-while-revalidate, like a native app). The control tower
    * shipped this gesture on its own; hoisting it to the shell is what makes the
    * pull work on EVERY screen, which is what users expect from a mobile app.
+   *
+   * It also asks for a new BUILD. On an installed phone app there is no reload
+   * button, so this pull is what a person does when they suspect they are out
+   * of date — and before this it could never find a deploy, because a soft
+   * refresh makes no navigation and so the browser never re-checks the service
+   * worker. Not awaited: the check announces through the update toast on its
+   * own, and the spinner is about the data.
    */
   const softRefresh = React.useCallback(async () => {
+    void checkForUpdate({ force: true });
     await qc.invalidateQueries();
   }, [qc]);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
