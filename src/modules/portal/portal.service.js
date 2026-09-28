@@ -216,6 +216,10 @@ async function createClientQuote(client, { clientId, data, actor }) {
   const row = await quoteRequest.create(client, {
     data: {
       ...data,
+      // `quote_request.incoterm` is NOT NULL (0683) and the portal lets a
+      // client say "not sure" — which is an answer for sales to follow up,
+      // not a reason to fail the insert.
+      incoterm: data.incoterm || "TBD",
       client_id: clientId,
       intake_channel: "PORTAL",
       requester_name: data.requester_name || cm?.name || null,

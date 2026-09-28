@@ -127,11 +127,17 @@ async function clientMessages(client, clientId, { dossierId = null, limit = 200 
     params.push(dossierId);
     wh += " AND m.dossier_id = $" + params.length;
   }
+  // The LATEST `limit` messages, handed back oldest first. An ascending sort
+  // with a limit returned the FIRST two hundred, so a long thread stopped
+  // showing anything new once it passed that length.
   const { rows } = await client.query(
-    `SELECT m.*, u.full_name AS author_name
-       FROM client_message m
-       LEFT JOIN app_user u ON u.user_id = m.author_user_id
-      WHERE ${wh} ORDER BY m.created_at ASC LIMIT $2`,
+    `SELECT * FROM (
+       SELECT m.*, u.full_name AS author_name, d.ref AS dossier_ref
+         FROM client_message m
+         LEFT JOIN app_user u ON u.user_id = m.author_user_id
+         LEFT JOIN dossier_visible d ON d.dossier_id = m.dossier_id
+        WHERE ${wh} ORDER BY m.created_at DESC LIMIT $2
+     ) latest ORDER BY latest.created_at ASC`,
     params,
   );
   return rows;

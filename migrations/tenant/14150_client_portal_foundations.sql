@@ -125,27 +125,16 @@ CREATE INDEX IF NOT EXISTS ix_portal_passkey_user ON portal_passkey (portal_user
 
 -- ── 2. A client's own team ──────────────────────────────────────────────────
 
+-- access_scope is one of ALL / OPERATIONS / BILLING. That rule is enforced by
+-- the validators (portal.validator `grant`/`team`, portal_auth.validator
+-- `teamInvite`/`teamUpdate`) and by portal_client.service's SCOPES — NOT by a
+-- CHECK here: portal_access predates 13791, and a constraint added to an
+-- existing table above it breaks provisioning a fresh tenant's sandbox
+-- (tests/unit/migration-constraint-ordering.test.js has the whole story).
 ALTER TABLE portal_access
   ADD COLUMN IF NOT EXISTS access_scope     text NOT NULL DEFAULT 'ALL',
   ADD COLUMN IF NOT EXISTS is_client_admin  boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS invited_by_email citext;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-      FROM pg_constraint c
-      JOIN pg_class t     ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'chk_portal_access_scope'
-       AND t.relname = 'portal_access'
-       AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE portal_access
-      ADD CONSTRAINT chk_portal_access_scope
-      CHECK (access_scope IN ('ALL','OPERATIONS','BILLING'));
-  END IF;
-END $$;
 
 -- ── 3. What we are waiting for from the client ──────────────────────────────
 
@@ -253,7 +242,6 @@ ON CONFLICT (kind, code) DO NOTHING;
 --   DROP TABLE IF EXISTS payment_proof;
 --   -- DESTRUCTIVE: loses every document request and the client's answers.
 --   DROP TABLE IF EXISTS client_request;
---   ALTER TABLE portal_access DROP CONSTRAINT IF EXISTS chk_portal_access_scope;
 --   ALTER TABLE portal_access
 --     DROP COLUMN IF EXISTS invited_by_email,
 --     DROP COLUMN IF EXISTS is_client_admin,

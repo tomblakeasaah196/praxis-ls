@@ -180,6 +180,8 @@ router.post("/onboarding/:clientId/:stepKey", authMiddleware, requirePermission(
 // receipt, so it needs the same `create` grant a receipt does.
 const PORTAL_CLIENT = requireFeature("portal.client");
 router.get("/client-requests", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-29", "view"), pc.staffRequests);
+// What staff may ask for — the same registry the client picks from.
+router.get("/client-requests/document-types", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-29", "view"), pc.documentTypes);
 router.post("/client-requests", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-29", "edit"), v.staffCreateRequest, pc.staffCreateRequest);
 router.post("/client-requests/:id/review", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-29", "edit"), v.staffReviewRequest, pc.staffReviewRequest);
 router.get("/client-requests/:id/file", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-29", "view"), pc.staffRequestFile);
