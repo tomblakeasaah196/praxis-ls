@@ -225,7 +225,7 @@ async function attachment(client, { attachmentId, clientId = null }) {
  * lists the service combines:
  *
  *   manager  the client's account manager (client_master.
- *            relationship_manager_user_id, 14190) — if their login is ACTIVE;
+ *            relationship_manager_user_id, 14200) — if their login is ACTIVE;
  *   owners   for a shipment's conversation, that file's operations and sales
  *            owners — the ACTIVE ones;
  *   md       the MD — the CEO role (role.code = 'CEO', as auth derives
