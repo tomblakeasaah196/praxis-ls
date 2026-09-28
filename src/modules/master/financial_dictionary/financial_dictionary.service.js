@@ -53,6 +53,26 @@ async function dossier(c, id) {
   return { item, posting_rules: item.posting_rules, service_tiers: item.service_tiers, usage, compliance };
 }
 
+/**
+ * One page of the rows behind one of the 360's usage tiles — the drill-in the
+ * tile opens. `{ rows, total }`, or null when the item does not exist.
+ *
+ * `invoiceTypes` narrows the invoices drill to the kinds the viewer may open
+ * (the controller resolves it from their grants); the other kinds are gated
+ * whole, before this is called.
+ */
+async function listUsage(c, id, kind, q = {}, { invoiceTypes = [] } = {}) {
+  const item = await repo.getItemRow(c, id);
+  if (!item) return null;
+  const out = await repo.usageRows(c, id, kind, q, { invoiceTypes });
+  if (kind !== "rates") return out;
+  // In force / superseded by the SAME rule the Cost & evolution tab uses.
+  return {
+    ...out,
+    rows: out.rows.map((r) => ({ ...r, rate: Number(r.rate), ...rules.rateState(r) })),
+  };
+}
+
 function pickItem(src) {
   const out = {};
   for (const k of ITEM_COLS) if (src[k] !== undefined) out[k] = src[k];
@@ -566,7 +586,7 @@ async function updateRef(c, { id, patch, actor }) {
 }
 
 module.exports = {
-  listItems, searchItems, get, dossier, create, update,
+  listItems, searchItems, get, dossier, listUsage, create, update,
   spend, rateEvolution, supersedeRate, applyRateToProviders,
   importTemplate, importValidate, importCommit, importErrorFile,
   listRefs, createRef, updateRef,

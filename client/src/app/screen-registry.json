@@ -351,6 +351,10 @@
         "get_dictionary_item",
         "create_dictionary_item",
         "update_dictionary_item",
+        "dictionary_item_costing_lines",
+        "dictionary_item_cash_request_lines",
+        "dictionary_item_invoice_lines",
+        "dictionary_item_purchase_order_lines",
         "dictionary_rate_history"
       ]
     },

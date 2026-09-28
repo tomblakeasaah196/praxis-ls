@@ -23,12 +23,24 @@
  * dossier reads employees and journal entries from their own modules) — without
  * them a slow query would render as an empty list, which reads as "none exist"
  * rather than "not loaded yet".
+ *
+ * `paging` is for the callers whose rows are too many to hand over at once — the
+ * financial dictionary's tiles count every costing line a charge has ever sat
+ * on, which for a core charge is thousands. Then `rows` is ONE page, the server
+ * owns the cursor, and "Showing 1–20 of 3,412" states the same total as the
+ * tile that was clicked instead of the size of whatever prefix was fetched.
+ *
+ * `viewAll` is the way out to the module that owns the rows ("View more in
+ * Costing"): the dialog answers "which ones", and the module is where you go to
+ * sort, search and act on them.
  */
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingRow } from "@/components/ui/states";
+import { num } from "@/lib/format";
+import { useIsCompact } from "@/lib/use-media-query";
 
 /** Table chrome, local to this dialog so the extraction carries no dependency
  *  back into the party dossier. */
@@ -61,6 +73,16 @@ export type KpiDetailRow = {
 export type KpiDetailHeader = { label: string; right?: boolean };
 export const KPI_PAGE_SIZE = 20;
 
+/** Server-side paging: the caller fetches one page at a time and owns the
+ *  cursor. See the file header. */
+export type KpiDetailPaging = {
+  page: number;
+  pageSize: number;
+  /** Every matching row, not this page's length. */
+  total: number;
+  onPageChange: (page: number) => void;
+};
+
 export function KpiDetailsModal({
   open,
   onClose,
@@ -72,6 +94,9 @@ export function KpiDetailsModal({
   moreHint,
   loading,
   error,
+  paging,
+  viewAll,
+  size = "xl",
 }: {
   open: boolean;
   onClose: () => void;
@@ -86,19 +111,33 @@ export function KpiDetailsModal({
   loading?: boolean;
   /** The fetch failed, as a ready-to-render message. */
   error?: string | null;
+  /** `rows` is one server page — see `KpiDetailPaging`. Omit and `rows` is the
+   *  whole list, paged here. */
+  paging?: KpiDetailPaging;
+  /** A footer link to the module that owns these rows. */
+  viewAll?: { label: string; href: string };
+  /** `wide` for a table of six or more columns — the dialog's own size for a
+   *  body that is a wide table (see `dialog.tsx`). */
+  size?: "xl" | "wide";
 }) {
   const navigate = useNavigate();
-  const [page, setPage] = React.useState(0);
+  const [localPage, setLocalPage] = React.useState(0);
   // Reset the page cursor whenever the row set changes underneath — otherwise a
   // filter that shortens the list would leave the modal stranded on page 3.
+  // (A server-paged caller owns its own cursor; this one is then unused.)
   React.useEffect(() => {
-    setPage(0);
+    setLocalPage(0);
   }, [rows.length, title]);
 
-  const total = rows.length;
-  const totalPages = Math.max(1, Math.ceil(total / KPI_PAGE_SIZE));
-  const start = page * KPI_PAGE_SIZE;
-  const pageRows = rows.slice(start, start + KPI_PAGE_SIZE);
+  const pageSize = paging ? paging.pageSize : KPI_PAGE_SIZE;
+  // `max` with the page length: an endpoint that stopped sending its total must
+  // still read as the rows on screen, never as "0 of 0" above twenty rows.
+  const total = paging ? Math.max(paging.total, rows.length) : rows.length;
+  const page = paging ? paging.page : localPage;
+  const setPage = paging ? paging.onPageChange : setLocalPage;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const start = page * pageSize;
+  const pageRows = paging ? rows : rows.slice(start, start + pageSize);
 
   function open_(href?: string) {
     if (!href) return;
@@ -106,11 +145,19 @@ export function KpiDetailsModal({
     navigate(href);
   }
 
+  // Below `md` a row is a CARD, not a table row. The table is five or six
+  // columns of numbers — at 390px it either scrolls sideways past the one column
+  // the reader wanted, or (what it did) squeezes every column until
+  // "CST-2026-0199" breaks over three lines. A card gives the first cell the
+  // whole width as its title and lists the rest as label · value pairs, which
+  // is how a phone reads a record anyway.
+  const compact = useIsCompact();
+
   return (
     <Modal
       open={open}
       onClose={onClose}
-      size="xl"
+      size={size}
       title={title}
       description={description}
     >
@@ -127,69 +174,79 @@ export function KpiDetailsModal({
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-muted-foreground">
-                    <tr>
-                      {headers.map((h, i) => (
-                        <Th key={i} r={h.right}>
-                          {h.label}
-                        </Th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {pageRows.map((r) => (
-                      // The row itself carries the pointer click (a `<tr onClick>`
-                      // is fine — it isn't one of the static elements the a11y rule
-                      // guards against). Keyboard reaches the row via the first
-                      // cell's `<button>`, the same row-activator pattern
-                      // data-list.tsx uses so a screen-reader user has one focus
-                      // stop per row rather than one per cell.
-                      <tr
-                        key={r.id}
-                        className={
-                          r.href
-                            ? "cursor-pointer transition-colors hover:bg-muted/60 focus-within:bg-muted/60"
-                            : "transition-colors"
-                        }
-                        onClick={() => open_(r.href)}
-                      >
-                        {r.cells.map((c, i) => (
-                          <Td key={i} r={headers[i]?.right}>
-                            {i === 0 && r.href ? (
-                              <button
-                                type="button"
-                                className="text-left text-primary-ink underline underline-offset-2 hover:opacity-80 focus-visible:outline-none"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  open_(r.href);
-                                }}
-                              >
-                                {c}
-                              </button>
-                            ) : (
-                              c
-                            )}
-                          </Td>
+              {compact ? (
+                <ul className="divide-y divide-border overflow-hidden rounded-lg border">
+                  {pageRows.map((r) => (
+                    <li key={r.id}>
+                      <KpiDetailCard row={r} headers={headers} onOpen={open_} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 text-muted-foreground">
+                      <tr>
+                        {headers.map((h, i) => (
+                          <Th key={i} r={h.right}>
+                            {h.label}
+                          </Th>
                         ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {total > KPI_PAGE_SIZE && (
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {pageRows.map((r) => (
+                        // The row itself carries the pointer click (a `<tr onClick>`
+                        // is fine — it isn't one of the static elements the a11y rule
+                        // guards against). Keyboard reaches the row via the first
+                        // cell's `<button>`, the same row-activator pattern
+                        // data-list.tsx uses so a screen-reader user has one focus
+                        // stop per row rather than one per cell.
+                        <tr
+                          key={r.id}
+                          className={
+                            r.href
+                              ? "cursor-pointer transition-colors hover:bg-muted/60 focus-within:bg-muted/60"
+                              : "transition-colors"
+                          }
+                          onClick={() => open_(r.href)}
+                        >
+                          {r.cells.map((c, i) => (
+                            <Td key={i} r={headers[i]?.right}>
+                              {i === 0 && r.href ? (
+                                <button
+                                  type="button"
+                                  className="text-left text-primary-ink underline underline-offset-2 hover:opacity-80 focus-visible:outline-none"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    open_(r.href);
+                                  }}
+                                >
+                                  {c}
+                                </button>
+                              ) : (
+                                c
+                              )}
+                            </Td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {total > pageSize && (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="micro">
-                    Showing {start + 1}–
-                    {Math.min(start + KPI_PAGE_SIZE, total)} of {total}
+                    Showing {start + 1}–{Math.min(start + pageSize, total)} of{" "}
+                    {num(total)}
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
                       size="sm"
                       variant="outline"
                       disabled={page === 0}
-                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      onClick={() => setPage(Math.max(0, page - 1))}
                     >
                       Previous
                     </Button>
@@ -200,7 +257,7 @@ export function KpiDetailsModal({
                       size="sm"
                       variant="outline"
                       disabled={page >= totalPages - 1}
-                      onClick={() => setPage((p) => p + 1)}
+                      onClick={() => setPage(page + 1)}
                     >
                       Next
                     </Button>
@@ -211,6 +268,80 @@ export function KpiDetailsModal({
           )}
         </>
       )}
+      {/* Not on an error: a refusal is usually a missing grant on that very
+          module, and a link into it would only be refused again. */}
+      {viewAll && !error && (
+        <div className="mt-3 flex justify-end border-t pt-3">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => open_(viewAll.href)}
+          >
+            {viewAll.label}
+          </Button>
+        </div>
+      )}
     </Modal>
+  );
+}
+
+/**
+ * One row as a phone card: the first cell is the title, every other cell a
+ * label · value pair under it. A row with a destination is ONE button — the
+ * whole card is the tap target, as a 44px-tall row on a phone should be — and
+ * everything inside it is a `<span>`, so the button holds phrasing content only.
+ */
+function KpiDetailCard({
+  row,
+  headers,
+  onOpen,
+}: {
+  row: KpiDetailRow;
+  headers: KpiDetailHeader[];
+  onOpen: (href?: string) => void;
+}) {
+  const [first, ...rest] = row.cells;
+  const body = (
+    <>
+      <span
+        className={
+          row.href
+            ? "block font-medium text-primary-ink"
+            : "block font-medium text-foreground"
+        }
+      >
+        {first}
+      </span>
+      {rest.length > 0 && (
+        <span className="mt-1.5 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px]">
+          {rest.map((c, i) => (
+            <React.Fragment key={i}>
+              <span className="text-muted-foreground">
+                {headers[i + 1]?.label}
+              </span>
+              <span
+                className={
+                  headers[i + 1]?.right
+                    ? "num min-w-0 text-foreground"
+                    : "min-w-0 text-foreground"
+                }
+              >
+                {c}
+              </span>
+            </React.Fragment>
+          ))}
+        </span>
+      )}
+    </>
+  );
+  if (!row.href) return <div className="px-3 py-2.5">{body}</div>;
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(row.href)}
+      className="block w-full px-3 py-2.5 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+    >
+      {body}
+    </button>
   );
 }

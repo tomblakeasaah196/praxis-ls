@@ -36,6 +36,11 @@ import { useResource } from "@/lib/use-resource";
 import { money, num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/masterdata-api";
 import { OperationsFilePicker, type PickedFile } from "@/components/operations/file-picker";
+import {
+  CASH_REQUEST_ROUTE,
+  COSTING_ROUTE,
+  PURCHASE_ORDER_ROUTE,
+} from "./financial-dictionary-usage";
 
 /* ── Period picker ────────────────────────────────────────────────────────── */
 
@@ -280,9 +285,18 @@ function Legend() {
  * unknown type to an inert link instead of an exception.
  */
 const DOC_ROUTE = new Map<string, (d: api.SpendDocument) => string>([
-  ["costing", (d) => `/costing/sheets?focus=${d.doc_id}`],
-  ["purchase_order", (d) => `/procurement/purchase-orders?focus=${d.doc_id}`],
-  ["cash_request", (d) => `/costing/cash-requests?focus=${d.doc_id}`],
+  // The record 360s, the same place the usage tiles open. (This used to be
+  // `/costing/sheets?focus=`, which is no section of the costing hub — the link
+  // landed on the costing list with the sheet nowhere in it.)
+  ["costing", (d) => `${COSTING_ROUTE}/${encodeURIComponent(d.doc_id)}`],
+  [
+    "purchase_order",
+    (d) => `${PURCHASE_ORDER_ROUTE}?focus=${encodeURIComponent(d.doc_id)}`,
+  ],
+  [
+    "cash_request",
+    (d) => `${CASH_REQUEST_ROUTE}/${encodeURIComponent(d.doc_id)}`,
+  ],
   [
     "cost_entry",
     (d) =>

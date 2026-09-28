@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1768 |
+| Routes | 1769 |
 | Modules mounted | 141 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1768 mounted routes, grouped by path prefix.
+All 1769 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -918,6 +918,7 @@ All 1768 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/financial-dictionary/:id/rates/apply-all` | — |
 | POST | `/api/tenant/financial-dictionary/:id/rates/supersede` | — |
 | GET | `/api/tenant/financial-dictionary/:id/spend` | — |
+| GET | `/api/tenant/financial-dictionary/:id/usage/:kind` | — |
 | POST | `/api/tenant/financial-dictionary/import/commit` | — |
 | POST | `/api/tenant/financial-dictionary/import/errors` | — |
 | GET | `/api/tenant/financial-dictionary/import/template` | — |
