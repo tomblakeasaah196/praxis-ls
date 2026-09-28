@@ -278,7 +278,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `INVALID_QTY` | 422 | 3× | — |
 | `INVALID_RESET_TOKEN` | 400 | 1× | — |
 | `INVALID_ROTATION` | 422 | 1× | — |
-| `INVALID_SORT` | — | 1× | — |
+| `INVALID_SORT` | — | 2× | — |
 | `INVALID_STATE` | 422 | 1× | — |
 | `INVALID_SUBSCRIPTION` | 422 | 1× | — |
 | `INVALID_TOKEN` | 401 | 10× | — |
