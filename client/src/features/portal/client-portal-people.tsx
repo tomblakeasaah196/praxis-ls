@@ -10,11 +10,13 @@
  *                The steps themselves are the tenant's, set once for every
  *                client in ⚙ Settings on the Clients list.
  *
- * Built for the hand first. On a phone the 360 is already a full-screen sheet,
- * so every row here is a single full-width tap target (≥ 56px) that opens its
- * own bottom sheet — the list reads like a settings screen, not a table with
- * buttons squeezed into it. On a desktop the same rows sit in two columns and
- * the sheets open as centred dialogs; nothing is desktop-only or phone-only.
+ * TWO SHELLS, ONE BODY — the rule every tab of this 360 already follows
+ * (FRONTEND_GUIDE §3.16). On a desktop the people are the same `MiniTable` the
+ * Documents and Banks tabs draw, a column per fact and the row's actions at its
+ * end, and the checklist is a dense list of checkboxes; on a phone the people
+ * are `RecordCard`s (one visible action, the rest behind ⋯) and each step is a
+ * full-width row a thumb can hit. `useIsCompact()` picks one — never both
+ * mounted, never a CSS `hidden` pair.
  *
  * Gated on MOD-29 (the client portal) server-side; the tab hides for anyone
  * who cannot read it. The API is the authority for create/edit.
@@ -25,18 +27,22 @@ import { tenant } from "@/lib/api-client";
 import { errMsg, isFeatureDisabled, useResource } from "@/lib/use-resource";
 import { dateFmt, todayISO } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useIsCompact } from "@/lib/use-media-query";
 import { Button } from "@/components/ui/button";
 import { Modal, Field } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { DateField } from "@/components/ui/date-field";
 import { Checkbox, RadioGroup } from "@/components/ui/checkbox";
 import { Pill, type Tone } from "@/components/ui/pill";
-import { Avatar } from "@/components/ui/avatar";
+import { MoreMenu } from "@/components/ui/more-menu";
+import { DropdownItem, DropdownSeparator } from "@/components/ui/dropdown-menu";
+import { ResponsiveList, RecordCard } from "@/components/ui/responsive-list";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { useToast } from "@/components/ui/toast";
-import { CheckIcon, ChevronIcon, MailIcon, PlusIcon, ShieldIcon } from "@/components/ui/icons";
+import { CheckIcon, MailIcon, ShieldIcon } from "@/components/ui/icons";
+import { MiniTable, Th, Td } from "@/features/masterdata/mini-table";
 import { SCOPE_LABEL, type PortalScope } from "./portal-scope";
 
 /* ── shapes (portal_client.controller staffPeople / peopleWithLogins) ───── */
@@ -91,16 +97,24 @@ const SIGN_IN_LABEL: Record<SignIn, string> = {
 const dayOf = (ts: string | null) => (ts ? String(ts).slice(0, 10) : "");
 const ended = (p: PortalPerson) => !!p.expires_at && Date.parse(p.expires_at) < Date.now();
 const displayName = (p: PortalPerson) => p.full_name || p.email;
+/** Whether the row offers an invitation — anyone who cannot sign in yet. */
+const canInvite = (p: PortalPerson) => p.sign_in !== "ACTIVE";
+const inviteLabel = (p: PortalPerson) => (p.sign_in === "INVITED" ? tr("Resend invitation") : tr("Send invitation"));
+
+/** The one line under a person's status: when they last signed in, or how their link stands. */
+function signInDetail(p: PortalPerson): string | null {
+  if (p.sign_in === "ACTIVE") return p.last_login_at ? tv("Last signed in {{date}}", { date: dateFmt(p.last_login_at) }) : null;
+  if (p.sign_in === "INVITED" && p.invite_expires_at) return tv("Link valid until {{date}}", { date: dateFmt(p.invite_expires_at) });
+  return null;
+}
 
 const peoplePath = (clientId: string) => `/portal/clients/${encodeURIComponent(clientId)}/people`;
 
-/** A full-width tap target for a list row — the one row recipe for this tab. */
-const ROW =
-  "flex w-full min-h-[56px] items-center gap-3 px-3 py-2.5 text-left transition-colors " +
-  "hover:bg-accent/60 active:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring " +
-  "disabled:cursor-default disabled:opacity-60";
-
-/** A section heading with its count and one action — the same shape on every section of the tab. */
+/**
+ * A section heading and its one action — the same markup as the `Section`
+ * the Documents, Contacts and Banks tabs of this 360 use, so the Portal tab's
+ * headings sit exactly where theirs do.
+ */
 export function PortalSectionHeader({
   title,
   meta,
@@ -111,12 +125,12 @@ export function PortalSectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-2 flex min-h-9 items-center justify-between gap-3">
+    <div className="mb-3 flex items-center justify-between gap-3">
       <div className="min-w-0">
         <h4 className="text-sm font-semibold text-foreground">{title}</h4>
         {meta ? <p className="text-xs text-muted-foreground">{meta}</p> : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="flex shrink-0 gap-2">{action}</div> : null}
     </div>
   );
 }
@@ -130,18 +144,59 @@ export function ClientPortalPeople({
   clientId: string;
   contacts?: ContactSuggestion[];
 }) {
+  const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm();
   const people = useResource(() => tenant<People>(peoplePath(clientId)), [clientId], { fresh: true });
   const [inviting, setInviting] = React.useState(false);
-  const [open, setOpen] = React.useState<PortalPerson | null>(null);
+  const [editing, setEditing] = React.useState<PortalPerson | null>(null);
+  const [busy, setBusy] = React.useState<string | null>(null);
 
   const members = people.data?.members ?? [];
   const defaults = people.data?.defaults ?? { access_scope: "ALL", first_is_admin: true };
   const taken = new Set(members.map((m) => m.email.toLowerCase()));
   const suggestions = contacts.filter((c) => c.email && !taken.has(c.email.toLowerCase()));
 
+  /** Send or re-send one person's link, from their row. */
+  async function invite(p: PortalPerson) {
+    setBusy(p.portal_access_id);
+    try {
+      const r = await tenant<Added>(`${peoplePath(clientId)}/${encodeURIComponent(p.portal_access_id)}/invite`, { method: "POST" });
+      if (r.invite.emailed) toast.success(tv("Invitation sent to {{email}}.", { email: p.email }));
+      else toast.error(tr("The link is ready but the email could not be sent. Try again in a moment."));
+      // An open sheet shows the new state of the link, not the one it opened on.
+      setEditing((cur) => (cur && cur.portal_access_id === p.portal_access_id ? r : cur));
+      people.reload();
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove(p: PortalPerson) {
+    const ok = await confirm({
+      title: tv("Remove {{name}}'s access?", { name: displayName(p) }),
+      body: tr("They can no longer see this client's shipments, documents or invoices. You can invite them again later."),
+      confirmLabel: tr("Remove access"),
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(p.portal_access_id);
+    try {
+      await tenant(`${peoplePath(clientId)}/${encodeURIComponent(p.portal_access_id)}/revoke`, { method: "POST" });
+      toast.success(tv("{{name}} no longer has access.", { name: displayName(p) }));
+      setEditing(null);
+      people.reload();
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (isFeatureDisabled(people.errorCode)) {
     return (
-      <section>
+      <section className="min-w-0">
         <PortalSectionHeader title={tr("Who can sign in")} />
         <EmptyState
           title={tr("The client portal is not switched on")}
@@ -151,18 +206,32 @@ export function ClientPortalPeople({
     );
   }
 
-  const inviteButton = (
-    <Button size="sm" icon={<PlusIcon width={16} height={16} />} onClick={() => setInviting(true)}>
-      {tr("Invite")}
-    </Button>
+  /** The row's less-used actions — the invitation when it is not the visible one, and Remove, last. */
+  const menu = (p: PortalPerson, withInvite: boolean) => (
+    <MoreMenu label={tv("Actions for {{name}}", { name: displayName(p) })} disabled={busy === p.portal_access_id}>
+      {withInvite && canInvite(p) ? (
+        <>
+          <DropdownItem onSelect={() => void invite(p)}>{inviteLabel(p)}</DropdownItem>
+          <DropdownSeparator />
+        </>
+      ) : null}
+      <DropdownItem destructive onSelect={() => void remove(p)}>
+        {tr("Remove access")}
+      </DropdownItem>
+    </MoreMenu>
   );
 
   return (
     <section className="min-w-0">
       <PortalSectionHeader
         title={tr("Who can sign in")}
-        meta={people.data ? tv("{{n}} with access", { n: members.length }) : undefined}
-        action={people.data ? inviteButton : undefined}
+        action={
+          people.data ? (
+            <Button size="sm" variant="outline" icon={null} onClick={() => setInviting(true)}>
+              {tr("+ Invite")}
+            </Button>
+          ) : undefined
+        }
       />
       {people.error ? (
         <ErrorState message={people.error} />
@@ -172,42 +241,114 @@ export function ClientPortalPeople({
         <EmptyState
           title={tr("Nobody at this client can sign in yet")}
           hint={tr("Invite their main contact. They get an email to set a password, and can then add their own colleagues.")}
-          action={
-            <Button icon={<PlusIcon width={16} height={16} />} onClick={() => setInviting(true)}>
-              {tr("Invite someone")}
-            </Button>
-          }
+          action={<Button onClick={() => setInviting(true)}>{tr("Invite someone")}</Button>}
         />
       ) : (
-        <ul className="divide-y overflow-hidden rounded-xl border bg-card">
-          {members.map((p) => (
-            <li key={p.portal_access_id}>
-              <button type="button" className={ROW} onClick={() => setOpen(p)} aria-label={tv("Manage {{name}}", { name: displayName(p) })}>
-                <Avatar name={p.full_name || p.email} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-foreground">{displayName(p)}</span>
-                  {p.full_name ? <span className="block truncate text-xs text-muted-foreground">{p.email}</span> : null}
-                  <span className="mt-1.5 flex flex-wrap gap-1.5">
-                    <Pill tone="blue">{tr(SCOPE_LABEL[p.access_scope])}</Pill>
+        <ResponsiveList
+          items={members}
+          renderItem={(p) => (
+            <RecordCard
+              title={displayName(p)}
+              subtitle={p.full_name ? p.email : undefined}
+              pills={<PersonPills p={p} />}
+              meta={[
+                [tr("Sign-in"), signInDetail(p)],
+                [tr("Access until"), p.expires_at ? dateFmt(p.expires_at) : null],
+              ]}
+              actions={
+                <>
+                  <Button size="sm" variant="outline" icon={null} onClick={() => setEditing(p)}>
+                    {tr("Edit")}
+                  </Button>
+                  {menu(p, true)}
+                </>
+              }
+            />
+          )}
+        >
+          <MiniTable
+            empty={false}
+            head={
+              <>
+                <Th>{tr("Person")}</Th>
+                <Th>{tr("What they see")}</Th>
+                <Th>{tr("Sign-in")}</Th>
+                <Th>{tr("Access until")}</Th>
+                <Th>
+                  <span className="sr-only">{tr("Actions")}</span>
+                </Th>
+              </>
+            }
+          >
+            {/* Nothing in a row wraps: the short columns hold their line, a
+                long address is cut with its full text on hover, and the
+                invitation lives under the status it changes — so a row is one
+                or two lines of text, never a tower of wrapped words. */}
+            {members.map((p) => (
+              <tr key={p.portal_access_id} className={ended(p) ? "opacity-60" : undefined}>
+                <Td>
+                  <div className="flex items-center gap-2 whitespace-nowrap">
+                    <span className="max-w-[14rem] truncate font-medium text-foreground 2xl:max-w-[28rem]" title={displayName(p)}>
+                      {displayName(p)}
+                    </span>
                     {p.is_client_admin ? (
                       <Pill tone="ok">
                         <ShieldIcon width={12} height={12} aria-hidden />
                         {tr("Admin")}
                       </Pill>
                     ) : null}
-                    {p.sign_in !== "ACTIVE" ? <Pill tone={SIGN_IN_TONE[p.sign_in]}>{tr(SIGN_IN_LABEL[p.sign_in])}</Pill> : null}
+                  </div>
+                  {p.full_name ? (
+                    <div className="max-w-[14rem] truncate text-xs text-muted-foreground 2xl:max-w-[28rem]" title={p.email}>
+                      {p.email}
+                    </div>
+                  ) : null}
+                </Td>
+                <Td>
+                  <span className="whitespace-nowrap">{tr(SCOPE_LABEL[p.access_scope])}</span>
+                </Td>
+                <Td>
+                  <div className="whitespace-nowrap">
+                    <Pill tone={SIGN_IN_TONE[p.sign_in]}>{tr(SIGN_IN_LABEL[p.sign_in])}</Pill>
+                  </div>
+                  {canInvite(p) ? (
+                    <button
+                      type="button"
+                      disabled={busy === p.portal_access_id}
+                      onClick={() => void invite(p)}
+                      className="whitespace-nowrap text-xs font-medium text-primary-ink underline-offset-2 hover:underline disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {busy === p.portal_access_id ? tr("Sending…") : inviteLabel(p)}
+                    </button>
+                  ) : signInDetail(p) ? (
+                    <div className="whitespace-nowrap text-xs text-muted-foreground">{signInDetail(p)}</div>
+                  ) : null}
+                </Td>
+                <Td>
+                  <span className="whitespace-nowrap">
                     {p.expires_at ? (
-                      <Pill tone={ended(p) ? "bad" : "mute"}>
-                        {ended(p) ? tr("Access ended") : tv("Until {{date}}", { date: dateFmt(p.expires_at) })}
-                      </Pill>
-                    ) : null}
+                      ended(p) ? (
+                        <Pill tone="bad">{tr("Access ended")}</Pill>
+                      ) : (
+                        dateFmt(p.expires_at)
+                      )
+                    ) : (
+                      <span className="text-muted-foreground">{tr("No end date")}</span>
+                    )}
                   </span>
-                </span>
-                <ChevronIcon className="-rotate-90 shrink-0 text-muted-foreground" aria-hidden />
-              </button>
-            </li>
-          ))}
-        </ul>
+                </Td>
+                <Td r>
+                  <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                    <Button size="sm" variant="ghost" icon={null} onClick={() => setEditing(p)}>
+                      {tr("Edit")}
+                    </Button>
+                    {menu(p, true)}
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </MiniTable>
+        </ResponsiveList>
       )}
 
       <InviteSheet
@@ -220,15 +361,33 @@ export function ClientPortalPeople({
         onDone={people.reload}
       />
       <PersonSheet
-        person={open}
+        person={editing}
         clientId={clientId}
-        onClose={() => setOpen(null)}
-        onChanged={(next) => {
-          people.reload();
-          setOpen(next);
-        }}
+        busy={editing ? busy === editing.portal_access_id : false}
+        onClose={() => setEditing(null)}
+        onSaved={people.reload}
+        onInvite={(p) => void invite(p)}
+        onRemove={(p) => void remove(p)}
       />
+      {confirmDialog}
     </section>
+  );
+}
+
+/** A person's status pills, in the phone card's order: scope, role, sign-in, end. */
+function PersonPills({ p }: { p: PortalPerson }) {
+  return (
+    <>
+      <Pill tone="blue">{tr(SCOPE_LABEL[p.access_scope])}</Pill>
+      {p.is_client_admin ? (
+        <Pill tone="ok">
+          <ShieldIcon width={12} height={12} aria-hidden />
+          {tr("Admin")}
+        </Pill>
+      ) : null}
+      <Pill tone={SIGN_IN_TONE[p.sign_in]}>{tr(SIGN_IN_LABEL[p.sign_in])}</Pill>
+      {ended(p) ? <Pill tone="bad">{tr("Access ended")}</Pill> : null}
+    </>
   );
 }
 
@@ -327,6 +486,7 @@ function InviteSheet({
       onClose={onClose}
       title={tr("Invite to the client portal")}
       description={tr("They sign in to follow their shipments, send documents and see their invoices.")}
+      size="lg"
       footer={
         <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
           <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
@@ -373,39 +533,47 @@ function InviteSheet({
             </div>
           </div>
         ) : null}
-        <Field label={tr("Email")} required error={error ?? undefined}>
-          <Input
-            type="email"
-            inputMode="email"
-            autoComplete="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@company.com"
-          />
-        </Field>
-        <Field label={tr("Name")} hint={tr("Optional — used to greet them in the email.")}>
-          <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={120} />
-        </Field>
+        {/* Side by side from `sm`, the way the app's other grant forms lay out
+            their identity fields; one column in the phone's sheet. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label={tr("Email")} required error={error ?? undefined}>
+            <Input
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@company.com"
+            />
+          </Field>
+          <Field label={tr("Name")} hint={tr("Optional — used to greet them in the email.")}>
+            <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={120} />
+          </Field>
+        </div>
         <Field label={tr("What they see")}>
           <ScopeChoice value={scope} onChange={setScope} />
         </Field>
-        <Checkbox
-          checked={admin}
-          onCheckedChange={setAdmin}
-          label={tr("Portal admin")}
-          hint={tr("Can invite and manage their colleagues from the portal.")}
-        />
-        <Field label={tr("Last day of access")} hint={tr("Leave empty for no end date.")}>
-          <DateField value={until} onChange={setUntil} min={todayISO()} />
-        </Field>
-        <Checkbox
-          checked={send}
-          onCheckedChange={setSend}
-          label={tr("Email them the invitation now")}
-          hint={tr("A link to set their own password. It stays valid for 7 days.")}
-        />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-start">
+          <Field label={tr("Last day of access")} hint={tr("Leave empty for no end date.")}>
+            <DateField value={until} onChange={setUntil} min={todayISO()} />
+          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:pt-6">
+            <Checkbox
+              checked={admin}
+              onCheckedChange={setAdmin}
+              label={tr("Portal admin")}
+              hint={tr("Can invite and manage their colleagues from the portal.")}
+            />
+            <Checkbox
+              checked={send}
+              onCheckedChange={setSend}
+              label={tr("Email them the invitation now")}
+              hint={tr("A link to set their own password. It stays valid for 7 days.")}
+            />
+          </div>
+        </div>
       </form>
     </Modal>
   );
@@ -428,23 +596,33 @@ function signInLine(p: PortalPerson): string {
   }
 }
 
+/**
+ * One person's access, opened from their row's Edit. The invitation and the
+ * removal are the ROW's actions (the parent owns them, so a row's ⋯ and this
+ * dialog cannot drift); this dialog adds the three things only it edits.
+ */
 function PersonSheet({
   person,
   clientId,
+  busy,
   onClose,
-  onChanged,
+  onSaved,
+  onInvite,
+  onRemove,
 }: {
   person: PortalPerson | null;
   clientId: string;
+  busy: boolean;
   onClose: () => void;
-  onChanged: (next: PortalPerson | null) => void;
+  onSaved: () => void;
+  onInvite: (p: PortalPerson) => void;
+  onRemove: (p: PortalPerson) => void;
 }) {
   const toast = useToast();
-  const [confirm, confirmDialog] = useConfirm();
   const [scope, setScope] = React.useState<PortalScope>("ALL");
   const [admin, setAdmin] = React.useState(false);
   const [until, setUntil] = React.useState("");
-  const [busy, setBusy] = React.useState<"save" | "resend" | "remove" | null>(null);
+  const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
     if (!person) return;
@@ -453,119 +631,80 @@ function PersonSheet({
     setUntil(dayOf(person.expires_at));
   }, [person]);
 
-  if (!person) return confirmDialog;
+  if (!person) return null;
   const p = person;
-  const base = `${peoplePath(clientId)}/${encodeURIComponent(p.portal_access_id)}`;
   const dirty = scope !== p.access_scope || admin !== p.is_client_admin || until !== dayOf(p.expires_at);
 
   async function save() {
-    setBusy("save");
+    setSaving(true);
     try {
-      await tenant<PortalPerson>(base, {
+      await tenant<PortalPerson>(`${peoplePath(clientId)}/${encodeURIComponent(p.portal_access_id)}`, {
         method: "POST",
         body: { access_scope: scope, is_client_admin: admin, expires_at: until || null },
       });
       toast.success(tr("Access updated."));
-      onChanged(null);
+      onSaved();
       onClose();
     } catch (e) {
       toast.error(errMsg(e));
     } finally {
-      setBusy(null);
+      setSaving(false);
     }
   }
 
-  async function resend() {
-    setBusy("resend");
-    try {
-      const next = await tenant<Added>(`${base}/invite`, { method: "POST" });
-      if (next.invite.emailed) toast.success(tv("Invitation sent to {{email}}.", { email: p.email }));
-      else toast.error(tr("The link is ready but the email could not be sent. Try again in a moment."));
-      onChanged(next);
-    } catch (e) {
-      toast.error(errMsg(e));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function remove() {
-    const ok = await confirm({
-      title: tv("Remove {{name}}'s access?", { name: displayName(p) }),
-      body: tr("They can no longer see this client's shipments, documents or invoices. You can invite them again later."),
-      confirmLabel: tr("Remove access"),
-      destructive: true,
-    });
-    if (!ok) return;
-    setBusy("remove");
-    try {
-      await tenant(`${base}/revoke`, { method: "POST" });
-      toast.success(tv("{{name}} no longer has access.", { name: displayName(p) }));
-      onChanged(null);
-      onClose();
-    } catch (e) {
-      toast.error(errMsg(e));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  const canInvite = p.sign_in !== "ACTIVE";
   return (
-    <>
-      <Modal
-        open={!!person}
-        onClose={onClose}
-        title={displayName(p)}
-        description={p.full_name ? p.email : undefined}
-        footer={
-          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <Button
-              variant="ghost"
-              loading={busy === "remove"}
-              disabled={busy !== null && busy !== "remove"}
-              onClick={() => void remove()}
-              className="w-full text-destructive sm:w-auto"
-            >
-              {tr("Remove access")}
+    <Modal
+      open
+      onClose={onClose}
+      title={displayName(p)}
+      description={p.full_name ? p.email : undefined}
+      size="lg"
+      footer={
+        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <Button
+            variant="ghost"
+            disabled={busy || saving}
+            onClick={() => onRemove(p)}
+            className="w-full text-destructive sm:w-auto"
+          >
+            {tr("Remove access")}
+          </Button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
+              {tr("Cancel")}
             </Button>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row">
-              <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
-                {tr("Close")}
-              </Button>
-              <Button loading={busy === "save"} disabled={!dirty || (busy !== null && busy !== "save")} onClick={() => void save()} className="w-full sm:w-auto">
-                {tr("Save")}
-              </Button>
-            </div>
+            <Button loading={saving} disabled={!dirty || busy} onClick={() => void save()} className="w-full sm:w-auto">
+              {tr("Save")}
+            </Button>
           </div>
-        }
-      >
-        <div className="grid grid-cols-1 gap-4">
-          <div className="flex items-start gap-3 rounded-xl bg-muted p-3">
+        </div>
+      }
+    >
+      <div className="grid grid-cols-1 gap-4">
+        {/* Where their sign-in stands, with the one action that changes it —
+            beside the sentence on a desktop, under it in the phone's sheet. */}
+        <div className="flex flex-col gap-3 rounded-lg border bg-muted/40 p-3 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
             <Pill tone={SIGN_IN_TONE[p.sign_in]}>{tr(SIGN_IN_LABEL[p.sign_in])}</Pill>
             <p className="min-w-0 flex-1 text-sm text-foreground">{signInLine(p)}</p>
           </div>
-          {canInvite ? (
+          {canInvite(p) ? (
             <Button
+              size="sm"
               variant="outline"
-              loading={busy === "resend"}
-              disabled={busy !== null && busy !== "resend"}
-              icon={<MailIcon width={16} height={16} />}
-              onClick={() => void resend()}
-              className="w-full sm:w-auto sm:justify-self-start"
+              loading={busy}
+              icon={<MailIcon width={14} height={14} />}
+              onClick={() => onInvite(p)}
+              className="w-full shrink-0 sm:w-auto"
             >
-              {p.sign_in === "INVITED" ? tr("Resend invitation") : tr("Send invitation")}
+              {inviteLabel(p)}
             </Button>
           ) : null}
-          <Field label={tr("What they see")}>
-            <ScopeChoice value={scope} onChange={setScope} />
-          </Field>
-          <Checkbox
-            checked={admin}
-            onCheckedChange={setAdmin}
-            label={tr("Portal admin")}
-            hint={tr("Can invite and manage their colleagues from the portal.")}
-          />
+        </div>
+        <Field label={tr("What they see")}>
+          <ScopeChoice value={scope} onChange={setScope} />
+        </Field>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-start">
           <Field label={tr("Last day of access")} hint={tr("Leave empty for no end date.")}>
             <div className="flex items-center gap-2">
               <DateField value={until} onChange={setUntil} className="min-w-0 flex-1" />
@@ -576,20 +715,27 @@ function PersonSheet({
               ) : null}
             </div>
           </Field>
-          <p className="break-words text-xs text-muted-foreground">
-            {[
-              // The sheet's title truncates a long address; the full one is here.
-              p.full_name ? null : p.email,
-              tv("Access given {{date}}", { date: dateFmt(p.created_at) }),
-              p.invited_by_email ? tv("added by {{who}} from the portal", { who: p.invited_by_email }) : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+          <div className="sm:pt-6">
+            <Checkbox
+              checked={admin}
+              onCheckedChange={setAdmin}
+              label={tr("Portal admin")}
+              hint={tr("Can invite and manage their colleagues from the portal.")}
+            />
+          </div>
         </div>
-      </Modal>
-      {confirmDialog}
-    </>
+        <p className="break-words text-xs text-muted-foreground">
+          {[
+            // The dialog's title truncates a long address; the full one is here.
+            p.full_name ? null : p.email,
+            tv("Access given {{date}}", { date: dateFmt(p.created_at) }),
+            p.invited_by_email ? tv("added by {{who}} from the portal", { who: p.invited_by_email }) : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
+    </Modal>
   );
 }
 
@@ -604,12 +750,19 @@ type Step = {
 };
 type Onboarding = { client_id: string; progress: number; steps: Step[] };
 
+/** A phone's checklist row: the whole width is the target, ≥ 56px tall. */
+const PHONE_ROW =
+  "flex w-full min-h-[56px] items-center gap-3 px-3 py-2.5 text-left transition-colors " +
+  "hover:bg-accent/60 active:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring " +
+  "disabled:cursor-default disabled:opacity-60";
+
 export function ClientOnboarding({ clientId }: { clientId: string }) {
   const toast = useToast();
+  const compact = useIsCompact();
   const path = `/portal/clients/${encodeURIComponent(clientId)}/onboarding`;
   const onb = useResource(() => tenant<Onboarding>(path), [clientId], { fresh: true });
   // Optimistic ticks: a checklist that waits a round trip before the box fills
-  // reads as broken on a phone. The server's answer replaces them on reload.
+  // reads as broken. The server's answer replaces them on reload.
   const [local, setLocal] = React.useState<Record<string, boolean>>({});
   const [busy, setBusy] = React.useState<string | null>(null);
   const fr = currentLocale().startsWith("fr");
@@ -621,6 +774,7 @@ export function ClientOnboarding({ clientId }: { clientId: string }) {
   const steps = (onb.data?.steps ?? []).map((s) => ({ ...s, done: local[s.step_key] ?? s.done }));
   const done = steps.filter((s) => s.done).length;
   const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
+  const label = (s: Step) => (fr ? s.label_fr || s.label_en : s.label_en || s.label_fr);
 
   async function toggle(s: Step) {
     setBusy(s.step_key);
@@ -640,12 +794,27 @@ export function ClientOnboarding({ clientId }: { clientId: string }) {
     }
   }
 
+  // The checklist's heading row: how far along, as words, a bar and a figure.
+  const progress = (
+    <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2 text-muted-foreground">
+      <span className="shrink-0 text-sm font-medium">{tv("{{done}} of {{total}} done", { done, total: steps.length })}</span>
+      <div
+        role="progressbar"
+        aria-label={tr("Onboarding progress")}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+        className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+      >
+        <div className="h-full rounded-full bg-ok transition-[width] duration-300" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="num shrink-0 text-sm font-medium text-foreground">{pct}%</span>
+    </div>
+  );
+
   return (
     <section className="min-w-0">
-      <PortalSectionHeader
-        title={tr("Onboarding")}
-        meta={onb.data ? tv("{{done}} of {{total}} done", { done, total: steps.length }) : undefined}
-      />
+      <PortalSectionHeader title={tr("Onboarding")} />
       {onb.error ? (
         <ErrorState message={onb.error} />
       ) : !onb.data ? (
@@ -655,27 +824,15 @@ export function ClientOnboarding({ clientId }: { clientId: string }) {
           title={tr("No onboarding steps")}
           hint={tr("Add the steps every client goes through in ⚙ Settings on the Clients list.")}
         />
-      ) : (
-        <div className="overflow-hidden rounded-xl border bg-card">
-          <div className="px-3 pb-2 pt-3">
-            <div
-              role="progressbar"
-              aria-label={tr("Onboarding progress")}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={pct}
-              className="h-2 overflow-hidden rounded-full bg-muted"
-            >
-              <div className="h-full rounded-full bg-ok transition-[width] duration-300" style={{ width: `${pct}%` }} />
-            </div>
-            <p className="mt-1.5 text-right text-xs font-medium text-muted-foreground">{pct}%</p>
-          </div>
-          <ul className="divide-y border-t">
+      ) : compact ? (
+        <div className="overflow-hidden rounded-lg border bg-card">
+          {progress}
+          <ul className="divide-y">
             {steps.map((s) => (
               <li key={s.step_key}>
                 <button
                   type="button"
-                  className={ROW}
+                  className={PHONE_ROW}
                   aria-pressed={s.done}
                   disabled={busy === s.step_key}
                   onClick={() => void toggle(s)}
@@ -691,13 +848,36 @@ export function ClientOnboarding({ clientId }: { clientId: string }) {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className={cn("block text-sm", s.done ? "text-muted-foreground" : "font-medium text-foreground")}>
-                      {fr ? s.label_fr || s.label_en : s.label_en || s.label_fr}
+                      {label(s)}
                     </span>
                     {s.done && s.done_at ? (
                       <span className="block text-xs text-muted-foreground">{tv("Done {{date}}", { date: dateFmt(s.done_at) })}</span>
                     ) : null}
                   </span>
                 </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        // A desktop checklist: one dense line per step, a real checkbox, and
+        // the day it was done where a date column would be — the same frame
+        // as the people table above it.
+        <div className="overflow-hidden rounded-lg border">
+          {progress}
+          <ul className="divide-y divide-border">
+            {steps.map((s) => (
+              <li key={s.step_key} className="flex items-center gap-3 px-3 py-1.5 text-sm">
+                <Checkbox
+                  checked={s.done}
+                  disabled={busy === s.step_key}
+                  onCheckedChange={() => void toggle(s)}
+                  label={<span className={s.done ? "text-muted-foreground" : "text-foreground"}>{label(s)}</span>}
+                  className="min-w-0 flex-1 items-center"
+                />
+                <span className="num shrink-0 text-muted-foreground">
+                  {s.done && s.done_at ? tv("Done {{date}}", { date: dateFmt(s.done_at) }) : "—"}
+                </span>
               </li>
             ))}
           </ul>

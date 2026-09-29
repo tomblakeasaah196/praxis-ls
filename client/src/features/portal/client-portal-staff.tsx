@@ -628,12 +628,11 @@ export function ClientPortalTab({
     // one long unbreakable email grew it past a phone's width and pushed the
     // Invite button off the screen. minmax(0, 1fr) lets `truncate` do its job.
     <div className="grid min-w-0 grid-cols-1 gap-6">
-      {canPortal ? (
-        <div className="grid min-w-0 grid-cols-1 gap-6 2xl:grid-cols-2 2xl:items-start">
-          <ClientPortalPeople clientId={clientId} contacts={contacts} />
-          <ClientOnboarding clientId={clientId} />
-        </div>
-      ) : null}
+      {/* Full width, one section under another, like every other tab of this
+          360: the people table needs its five columns, and half a pane is a
+          horizontal scroll at any width a desktop actually has. */}
+      {canPortal ? <ClientPortalPeople clientId={clientId} contacts={contacts} /> : null}
+      {canPortal ? <ClientOnboarding clientId={clientId} /> : null}
       {canPortal ? (
         <section className="min-w-0">
           <PortalSectionHeader title={tr("Documents and information")} />

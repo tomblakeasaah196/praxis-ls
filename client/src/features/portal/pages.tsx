@@ -33,11 +33,14 @@ import { LoadingRow, EmptyState, ErrorState } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { useToast } from "@/components/ui/toast";
-import { ChevronIcon } from "@/components/ui/icons";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { RowActions } from "@/components/ui/row-actions";
+import { ResponsiveList, RecordCard } from "@/components/ui/responsive-list";
 import { AiActions } from "@/components/ai-actions";
 import type { AiAction } from "@/features/scaffold/screen-specs";
 import { errMsg, useList, useRefresh, type Row } from "@/lib/use-resource";
 import { cell, dateFmt, todayISO } from "@/lib/format";
+import { useIsCompact } from "@/lib/use-media-query";
 import { DataView } from "@/components/ui/data-view";
 
 const PORTAL_AI: AiAction[] = [
@@ -259,6 +262,7 @@ function PreviewModal({
 export function PortalAccessPage() {
   const reload = useRefresh();
   const toast = useToast();
+  const compact = useIsCompact();
   const [confirm, confirmDialog] = useConfirm();
   const { rows, error } = useList("/portals/access");
   const { rows: clients } = useList("/clients");
@@ -281,6 +285,26 @@ export function PortalAccessPage() {
   );
 
   const external = (rows || []).filter((g) => g.portal !== "CLIENT");
+  /** What a grant's row says about signing in. A grant with no portal_user is a
+   *  grant nobody can use — surfaced because it is invisible otherwise. */
+  const grantState = (g: Row) => {
+    const email = String(g.subject_email || "").toLowerCase();
+    const login = loginByEmail.get(email);
+    const lastLogin = login && login.last_login_at ? String(login.last_login_at) : null;
+    return {
+      id: String(g.portal_access_id),
+      email,
+      portal: String(g.portal) as ExternalPortal,
+      login,
+      lastLogin,
+      expired: !!g.expires_at && Date.parse(String(g.expires_at)) < Date.now(),
+      signIn: !login
+        ? { tone: "warn" as const, label: tr("No sign-in yet") }
+        : !lastLogin
+          ? { tone: "blue" as const, label: tr("Invitation sent") }
+          : null,
+    };
+  };
   // Which clients have portal users — a count and a way in, never the controls.
   const clientCounts = React.useMemo(() => {
     const m = new Map<string, number>();
@@ -339,15 +363,31 @@ export function PortalAccessPage() {
         title={tr("Portal access")}
         description={tr("Investors and auditors: who can open their portal, and until when. Client portal users are managed on each client.")}
         action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={() => setPreview({ title: tr("Investor portal preview"), path: "/portals/investor" })}>
-              {tr("Preview investor")}
-            </Button>
-            <Button variant="outline" onClick={() => setPreview({ title: tr("Auditor portal preview"), path: "/portals/auditor" })}>
-              {tr("Preview auditor")}
-            </Button>
-            <Button onClick={() => setGrantOpen(true)}>{tr("Grant access")}</Button>
-          </div>
+          compact ? (
+            // Three header buttons do not fit a phone's width; the primary one
+            // stays, the two previews go behind ⋯ (FRONTEND_GUIDE §3.16).
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setGrantOpen(true)}>{tr("Grant access")}</Button>
+              <MoreMenu label={tr("More portal actions")}>
+                <DropdownItem onSelect={() => setPreview({ title: tr("Investor portal preview"), path: "/portals/investor" })}>
+                  {tr("Preview investor")}
+                </DropdownItem>
+                <DropdownItem onSelect={() => setPreview({ title: tr("Auditor portal preview"), path: "/portals/auditor" })}>
+                  {tr("Preview auditor")}
+                </DropdownItem>
+              </MoreMenu>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" onClick={() => setPreview({ title: tr("Investor portal preview"), path: "/portals/investor" })}>
+                {tr("Preview investor")}
+              </Button>
+              <Button variant="outline" onClick={() => setPreview({ title: tr("Auditor portal preview"), path: "/portals/auditor" })}>
+                {tr("Preview auditor")}
+              </Button>
+              <Button onClick={() => setGrantOpen(true)}>{tr("Grant access")}</Button>
+            </div>
+          )
         }
       />
 
@@ -356,8 +396,10 @@ export function PortalAccessPage() {
       ) : rows === null ? (
         <SkeletonTable />
       ) : (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-start">
-          <section>
+        // Side by side only where the grants table keeps its six columns on
+        // one line each (2xl); below that the client list goes under it.
+        <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] 2xl:items-start">
+          <section className="min-w-0">
             <h2 className="mb-2 text-sm font-semibold text-foreground">{tr("Investors and auditors")}</h2>
             {external.length === 0 ? (
               <EmptyState
@@ -365,61 +407,107 @@ export function PortalAccessPage() {
                 hint={tr("Grant an auditor a time-boxed, read-only view, or an investor the board figures.")}
               />
             ) : (
-              <ul className="divide-y overflow-hidden rounded-xl border bg-card">
-                {external.map((g) => {
-                  const id = String(g.portal_access_id);
-                  const portal = String(g.portal) as ExternalPortal;
-                  const email = String(g.subject_email || "").toLowerCase();
-                  // A grant with no portal_user is a grant nobody can use —
-                  // surfaced on the row because it is invisible otherwise.
-                  const login = loginByEmail.get(email);
-                  const signedInBefore = !!(login && login.last_login_at);
-                  const expired = !!g.expires_at && Date.parse(String(g.expires_at)) < Date.now();
+              /* A list screen's table on a desktop — the shared Table, whose
+                 rows follow the user's density and whose RowActions hold the
+                 buttons to the row's height — and a card per grant on a phone. */
+              <ResponsiveList
+                items={external}
+                renderItem={(g) => {
+                  const st = grantState(g);
                   return (
-                    <li key={id} className="flex flex-wrap items-center gap-3 p-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">{cell(g.subject_email)}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <Pill tone="blue">{tr(PORTAL_LABEL[portal] ?? portal)}</Pill>
-                          {!login ? (
-                            <Pill tone="warn">{tr("No sign-in yet")}</Pill>
-                          ) : !signedInBefore ? (
-                            <Pill tone="mute">{tr("Invitation sent")}</Pill>
-                          ) : null}
-                          {g.expires_at ? (
-                            <Pill tone={expired ? "bad" : "mute"}>
-                              {expired ? tr("Access ended") : tv("Until {{date}}", { date: dateFmt(g.expires_at) })}
-                            </Pill>
-                          ) : null}
-                        </div>
-                        <p className="mt-1 truncate text-xs text-muted-foreground">
-                          {tv("Granted {{date}}", { date: dateFmt(g.created_at) })}
-                          {signedInBefore ? ` · ${tv("last signed in {{date}}", { date: dateFmt(login?.last_login_at) })}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant={login ? "ghost" : "outline"}
-                          loading={rowBusy === email}
-                          onClick={() => void invite(email)}
-                        >
-                          {login ? tr("Resend invite") : tr("Create sign-in")}
-                        </Button>
-                        <MoreMenu label={tv("Actions for {{name}}", { name: email })}>
-                          <DropdownItem destructive disabled={rowBusy === id} onSelect={() => void revoke(g)}>
-                            {tr("Remove access")}
-                          </DropdownItem>
-                        </MoreMenu>
-                      </div>
-                    </li>
+                    <RecordCard
+                      title={cell(g.subject_email)}
+                      pills={
+                        <>
+                          <Pill tone="blue">{tr(PORTAL_LABEL[st.portal] ?? st.portal)}</Pill>
+                          {st.signIn ? <Pill tone={st.signIn.tone}>{st.signIn.label}</Pill> : null}
+                          {st.expired ? <Pill tone="bad">{tr("Access ended")}</Pill> : null}
+                        </>
+                      }
+                      meta={[
+                        [tr("Access until"), g.expires_at && !st.expired ? dateFmt(g.expires_at) : null],
+                        [tr("Granted"), dateFmt(g.created_at)],
+                        [tr("Last signed in"), st.lastLogin ? dateFmt(st.lastLogin) : null],
+                      ]}
+                      actions={
+                        <>
+                          <Button size="sm" variant="outline" icon={null} loading={rowBusy === st.email} onClick={() => void invite(st.email)}>
+                            {st.login ? tr("Resend invite") : tr("Create sign-in")}
+                          </Button>
+                          <MoreMenu label={tv("Actions for {{name}}", { name: st.email })}>
+                            <DropdownItem destructive disabled={rowBusy === st.id} onSelect={() => void revoke(g)}>
+                              {tr("Remove access")}
+                            </DropdownItem>
+                          </MoreMenu>
+                        </>
+                      }
+                    />
                   );
-                })}
-              </ul>
+                }}
+              >
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>{tr("Email")}</TH>
+                      <TH>{tr("Portal")}</TH>
+                      <TH>{tr("Sign-in")}</TH>
+                      <TH>{tr("Access until")}</TH>
+                      <TH>{tr("Granted")}</TH>
+                      <TH>
+                        <span className="sr-only">{tr("Actions")}</span>
+                      </TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {external.map((g) => {
+                      const st = grantState(g);
+                      return (
+                        <TR key={st.id} className={st.expired ? "opacity-60" : undefined}>
+                          <TD className="font-medium text-foreground">
+                            <span className="block max-w-[22rem] truncate" title={st.email}>
+                              {cell(g.subject_email)}
+                            </span>
+                          </TD>
+                          <TD className="whitespace-nowrap">{tr(PORTAL_LABEL[st.portal] ?? st.portal)}</TD>
+                          <TD className="whitespace-nowrap">
+                            {st.signIn ? (
+                              <Pill tone={st.signIn.tone}>{st.signIn.label}</Pill>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {st.lastLogin ? tv("last signed in {{date}}", { date: dateFmt(st.lastLogin) }) : "—"}
+                              </span>
+                            )}
+                          </TD>
+                          <TD className="num whitespace-nowrap">
+                            {g.expires_at ? (
+                              st.expired ? <Pill tone="bad">{tr("Access ended")}</Pill> : dateFmt(g.expires_at)
+                            ) : (
+                              <span className="text-muted-foreground">{tr("No end date")}</span>
+                            )}
+                          </TD>
+                          <TD className="num whitespace-nowrap text-muted-foreground">{dateFmt(g.created_at)}</TD>
+                          <TD className="whitespace-nowrap">
+                            <RowActions>
+                              <Button size="sm" variant="ghost" icon={null} loading={rowBusy === st.email} onClick={() => void invite(st.email)}>
+                                {st.login ? tr("Resend invite") : tr("Create sign-in")}
+                              </Button>
+                              <MoreMenu label={tv("Actions for {{name}}", { name: st.email })}>
+                                <DropdownItem destructive disabled={rowBusy === st.id} onSelect={() => void revoke(g)}>
+                                  {tr("Remove access")}
+                                </DropdownItem>
+                              </MoreMenu>
+                            </RowActions>
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </Table>
+              </ResponsiveList>
             )}
           </section>
 
-          <section>
+          <section className="min-w-0">
             <h2 className="mb-2 text-sm font-semibold text-foreground">{tr("Client portals")}</h2>
             <p className="mb-2 text-xs text-muted-foreground">
               {tr("Who at a client can sign in is managed on the client: open one to invite, change or remove people.")}
@@ -435,20 +523,29 @@ export function PortalAccessPage() {
                 }
               />
             ) : (
-              <ul className="divide-y overflow-hidden rounded-xl border bg-card">
-                {clientCounts.map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      to={clientPortalHref(c.id)}
-                      className="flex min-h-[48px] items-center gap-3 px-3 py-2 transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{c.name}</span>
-                      <Pill tone="mute">{tv("{{n}} with access", { n: c.n })}</Pill>
-                      <ChevronIcon className="-rotate-90 shrink-0 text-muted-foreground" aria-hidden />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>{tr("Client")}</TH>
+                    <TH className="text-right">{tr("With access")}</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {clientCounts.map((c) => (
+                    <TR key={c.id}>
+                      <TD>
+                        <Link
+                          to={clientPortalHref(c.id)}
+                          className="font-medium text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {c.name}
+                        </Link>
+                      </TD>
+                      <TD className="num text-right">{c.n}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
             )}
           </section>
         </div>
