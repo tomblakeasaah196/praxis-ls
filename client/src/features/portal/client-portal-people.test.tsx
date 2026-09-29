@@ -3,9 +3,13 @@
  * client can sign in, the invitation each is waiting on, and their onboarding
  * checklist. Every write goes to the client-scoped routes (MOD-29), never to
  * the investor/auditor screen's.
+ *
+ * Both shells are exercised: the desktop table (jsdom's default — no
+ * matchMedia means "desktop") and the phone's cards, with `matchMedia`
+ * stubbed to a narrow screen.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderScreen } from "@/test/screen-harness";
 
@@ -58,20 +62,50 @@ const DEFAULTS = { access_scope: "OPERATIONS", first_is_admin: true };
 
 const writes = () => calls.filter((c) => c.method === "POST");
 
+/** A phone: `(min-width: 768px)` does not match, so `useIsCompact()` is true. */
+function onAPhone() {
+  vi.stubGlobal(
+    "matchMedia",
+    (query: string) =>
+      ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} }) as unknown as MediaQueryList,
+  );
+}
+
 beforeEach(() => {
   calls.length = 0;
   replies.clear();
 });
+afterEach(() => vi.unstubAllGlobals());
 
-describe("who can sign in", () => {
-  it("lists each person with what they see, their role and where their invitation stands", async () => {
+describe("who can sign in — on a desktop, a table like the 360's other tabs", () => {
+  it("has a column per fact and the row's actions at its end", async () => {
     renderScreen(<ClientPortalPeople clientId="c1" />, { routes: { [PEOPLE]: { members: [ama, kofi], defaults: DEFAULTS } } });
-    expect(await screen.findByText("Ama Owusu")).toBeInTheDocument();
-    expect(screen.getByText("ama@acme.cm")).toBeInTheDocument();
-    expect(screen.getByText("Admin")).toBeInTheDocument();
-    // The one who has never signed in says why, on the row.
-    expect(screen.getByText("Invitation expired")).toBeInTheDocument();
-    expect(screen.getByText("2 with access")).toBeInTheDocument();
+    const table = await screen.findByRole("table");
+    const heads = within(table).getAllByRole("columnheader").map((h) => h.textContent);
+    expect(heads).toEqual(["Person", "What they see", "Sign-in", "Access until", "Actions"]);
+
+    const [, amaRow, kofiRow] = within(table).getAllByRole("row");
+    expect(within(amaRow).getByText("Ama Owusu")).toBeInTheDocument();
+    expect(within(amaRow).getByText("ama@acme.cm")).toBeInTheDocument();
+    expect(within(amaRow).getByText("Admin")).toBeInTheDocument();
+    expect(within(amaRow).getByText("Can sign in")).toBeInTheDocument();
+    expect(within(amaRow).getByText("No end date")).toBeInTheDocument();
+    // Someone already signing in is not offered an invitation.
+    expect(within(amaRow).queryByRole("button", { name: /invitation/i })).toBeNull();
+
+    expect(within(kofiRow).getByText("Invitation expired")).toBeInTheDocument();
+    expect(within(kofiRow).getByRole("button", { name: "Send invitation" })).toBeInTheDocument();
+    expect(within(kofiRow).getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(within(kofiRow).getByRole("button", { name: "Actions for kofi@acme.cm" })).toBeInTheDocument();
+  });
+
+  it("sends an expired invitation again straight from the row", async () => {
+    const user = userEvent.setup();
+    replies.set(`POST ${PEOPLE}/g-kofi/invite`, { ...kofi, sign_in: "INVITED", invite: { sent: true, emailed: true } });
+    renderScreen(<ClientPortalPeople clientId="c1" />, { routes: { [PEOPLE]: { members: [ama, kofi], defaults: DEFAULTS } } });
+    await user.click(await screen.findByRole("button", { name: "Send invitation" }));
+    expect(writes()).toEqual([{ path: `${PEOPLE}/g-kofi/invite`, method: "POST", body: undefined }]);
+    expect(await screen.findByText("Invitation sent to kofi@acme.cm.")).toBeInTheDocument();
   });
 
   it("offers the first invitation when nobody has access", async () => {
@@ -85,6 +119,22 @@ describe("who can sign in", () => {
       routes: { [PEOPLE]: { __error: { status: 403, message: "off", code: "FEATURE_DISABLED" } } },
     });
     expect(await screen.findByText("The client portal is not switched on")).toBeInTheDocument();
+  });
+});
+
+describe("who can sign in — on a phone, a card per person", () => {
+  it("shows the same facts as cards, one action visible and the rest behind ⋯", async () => {
+    onAPhone();
+    renderScreen(<ClientPortalPeople clientId="c1" />, { routes: { [PEOPLE]: { members: [ama, kofi], defaults: DEFAULTS } } });
+    // The first frame is the desktop's (useIsCompact answers "desktop" until
+    // matchMedia resolves); wait for the phone's shell to replace it.
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(2));
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText("Ama Owusu")).toBeInTheDocument();
+    expect(screen.getByText("Invitation expired")).toBeInTheDocument();
+    // The invitation is in kofi's ⋯, not a second visible button on a narrow card.
+    expect(screen.queryByRole("button", { name: "Send invitation" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Actions for kofi@acme.cm" })).toBeInTheDocument();
   });
 });
 
@@ -117,15 +167,14 @@ describe("inviting someone", () => {
     expect(await screen.findByText("Invitation sent to esi@acme.cm.")).toBeInTheDocument();
   });
 
-  it("does not suggest someone who already has access", async () => {
+  it("does not suggest someone who already has access, nor pre-tick admin after the first person", async () => {
     const user = userEvent.setup();
     renderScreen(<ClientPortalPeople clientId="c1" contacts={[{ name: "Ama Owusu", email: "AMA@acme.cm" }]} />, {
       routes: { [PEOPLE]: { members: [ama], defaults: DEFAULTS } },
     });
-    await user.click(await screen.findByRole("button", { name: "Invite" }));
+    await user.click(await screen.findByRole("button", { name: "+ Invite" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).queryByText("From this client's contacts")).toBeNull();
-    // Not the client's first person: admin is not pre-ticked.
     expect(within(dialog).getByRole("checkbox", { name: /Portal admin/ })).not.toBeChecked();
   });
 
@@ -141,25 +190,13 @@ describe("inviting someone", () => {
   });
 });
 
-describe("one person's sheet", () => {
-  it("resends an invitation that expired", async () => {
-    const user = userEvent.setup();
-    replies.set(`POST ${PEOPLE}/g-kofi/invite`, { ...kofi, sign_in: "INVITED", invite: { sent: true, emailed: true } });
-    renderScreen(<ClientPortalPeople clientId="c1" />, { routes: { [PEOPLE]: { members: [ama, kofi], defaults: DEFAULTS } } });
-    await user.click(await screen.findByRole("button", { name: "Manage kofi@acme.cm" }));
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/expired before they used it/)).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Send invitation" }));
-    expect(writes()).toEqual([{ path: `${PEOPLE}/g-kofi/invite`, method: "POST", body: undefined }]);
-    expect(await screen.findByText("Invitation sent to kofi@acme.cm.")).toBeInTheDocument();
-  });
-
+describe("editing one person", () => {
   it("changes what they see, and only saves once something changed", async () => {
     const user = userEvent.setup();
     replies.set(`POST ${PEOPLE}/g-ama`, { ...ama, access_scope: "BILLING" });
     renderScreen(<ClientPortalPeople clientId="c1" />, { routes: { [PEOPLE]: { members: [ama], defaults: DEFAULTS } } });
-    await user.click(await screen.findByRole("button", { name: "Manage Ama Owusu" }));
-    const dialog = await screen.findByRole("dialog");
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog", { name: "Ama Owusu" });
     expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
     await user.click(within(dialog).getByRole("radio", { name: "Billing" }));
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
@@ -172,9 +209,9 @@ describe("one person's sheet", () => {
     const user = userEvent.setup();
     replies.set(`POST ${PEOPLE}/g-ama/revoke`, { revoked: true, email: "ama@acme.cm" });
     renderScreen(<ClientPortalPeople clientId="c1" />, { routes: { [PEOPLE]: { members: [ama], defaults: DEFAULTS } } });
-    await user.click(await screen.findByRole("button", { name: "Manage Ama Owusu" }));
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Remove access" }));
-    // The confirmation opens over the person's sheet: the newest dialog.
+    // The confirmation opens over the person's dialog: the newest dialog.
     const confirm = (await screen.findAllByRole("dialog")).at(-1)!;
     expect(within(confirm).getByText("Remove Ama Owusu's access?")).toBeInTheDocument();
     await user.click(within(confirm).getByRole("button", { name: "Remove access" }));
@@ -190,17 +227,27 @@ describe("the onboarding checklist", () => {
     { step_key: "FIRST_BOOKING", label_en: "First shipment booked", label_fr: "Première expédition réservée", done: false, done_at: null },
   ];
 
-  it("shows progress and ticks a step through the client's own route", async () => {
+  it("is a dense list of real checkboxes on a desktop, ticked through the client's own route", async () => {
     const user = userEvent.setup();
     replies.set(`POST ${ONB}/FIRST_BOOKING`, { ...steps[1], done: true });
     renderScreen(<ClientOnboarding clientId="c1" />, { routes: { [ONB]: { client_id: "c1", progress: 50, steps } } });
     expect(await screen.findByText("1 of 2 done")).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "Onboarding progress" })).toHaveAttribute("aria-valuenow", "50");
+    expect(screen.getByRole("checkbox", { name: "KYC documents received" })).toBeChecked();
 
-    const step = screen.getByRole("button", { name: /First shipment booked/ });
-    expect(step).toHaveAttribute("aria-pressed", "false");
+    const step = screen.getByRole("checkbox", { name: "First shipment booked" });
+    expect(step).not.toBeChecked();
     await user.click(step);
     expect(writes()).toEqual([{ path: `${ONB}/FIRST_BOOKING`, method: "POST", body: undefined }]);
+  });
+
+  it("is a row per step a thumb can hit on a phone", async () => {
+    onAPhone();
+    renderScreen(<ClientOnboarding clientId="c1" />, { routes: { [ONB]: { client_id: "c1", progress: 50, steps } } });
+    await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
+    const step = await screen.findByRole("button", { name: /First shipment booked/ });
+    expect(step).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("says where the steps come from when there are none", async () => {

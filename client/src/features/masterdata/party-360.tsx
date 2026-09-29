@@ -33,6 +33,7 @@ import { TimezonePicker } from "@/components/timezone-picker";
 import { ScanAttachment, ScanCardActions } from "@/components/scan-attachment";
 import { SectionTabs } from "@/components/ui/section-tabs";
 import { ResponsiveList, RecordCard } from "@/components/ui/responsive-list";
+import { MiniTable, Th, Td } from "./mini-table";
 import { DropdownItem } from "@/components/ui/dropdown-menu";
 import {
   SCAN_ACCEPT,
@@ -136,37 +137,6 @@ const ADDRESS_TYPES = [
 ];
 
 /* ── Small building blocks ─────────────────────────────────────────────────── */
-
-function MiniTable({
-  head,
-  children,
-  empty,
-}: {
-  head: React.ReactNode;
-  children: React.ReactNode;
-  empty: boolean;
-}) {
-  if (empty)
-    return <div className="px-3 py-6 text-center micro">{tr("Nothing here yet.")}</div>;
-  return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-muted-foreground">
-          <tr>{head}</tr>
-        </thead>
-        <tbody className="divide-y divide-border">{children}</tbody>
-      </table>
-    </div>
-  );
-}
-const Th = ({ children, r }: { children?: React.ReactNode; r?: boolean }) => (
-  <th className={`px-3 py-2 font-medium ${r ? "text-right" : "text-left"}`}>
-    {children}
-  </th>
-);
-const Td = ({ children, r }: { children?: React.ReactNode; r?: boolean }) => (
-  <td className={`px-3 py-1.5 ${r ? "text-right num" : ""}`}>{children}</td>
-);
 
 type FieldSpec = {
   key: string;

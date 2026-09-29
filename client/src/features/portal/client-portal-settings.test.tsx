@@ -3,7 +3,7 @@
  * of ⚙ Settings on the Clients list: what a new invitation starts with, and
  * the onboarding checklist every client starts from.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderScreen } from "@/test/screen-harness";
@@ -38,6 +38,7 @@ const writes = () => calls.filter((c) => c.method === "POST");
 beforeEach(() => {
   calls.length = 0;
 });
+afterEach(() => vi.unstubAllGlobals());
 
 describe("new invitations", () => {
   it("saves the default scope and the first-admin rule, only once changed", async () => {
@@ -57,15 +58,18 @@ describe("new invitations", () => {
   });
 });
 
-describe("onboarding steps", () => {
-  it("lists the active steps in order, and keeps the switched-off ones folded away", async () => {
-    const user = userEvent.setup();
+describe("onboarding steps — on a desktop, the registry table the categories use", () => {
+  it("lists the active steps in order, then the switched-off ones dimmed with Switch on", async () => {
     mount();
-    expect(await screen.findByText("Company profile completed")).toBeInTheDocument();
-    expect(screen.queryByText("Fax the mandate")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Switched off (1)" }));
-    expect(screen.getByText("Fax the mandate")).toBeInTheDocument();
-    // The first cannot move up, the last cannot move down.
+    const table = await screen.findByRole("table");
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows.map((r) => within(r).getAllByRole("cell")[1].textContent)).toEqual([
+      "Company profile completed",
+      "KYC documents received",
+      "Fax the mandate",
+    ]);
+    expect(within(rows[2]).getByRole("button", { name: "Switch on" })).toBeInTheDocument();
+    // The first cannot move up, the last active one cannot move down.
     expect(screen.getByRole("button", { name: "Move Company profile completed up" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Move KYC documents received down" })).toBeDisabled();
   });
@@ -82,7 +86,7 @@ describe("onboarding steps", () => {
   it("adds a step in both languages — the French falls back to the English when left empty", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(await screen.findByRole("button", { name: "Add a step" }));
+    await user.click(await screen.findByRole("button", { name: "+ Add new" }));
     await user.type(screen.getByRole("textbox", { name: /In English/ }), "Customs mandate signed");
     await user.click(screen.getByRole("button", { name: "Add step" }));
     expect(writes()).toEqual([
@@ -91,14 +95,36 @@ describe("onboarding steps", () => {
     expect(await screen.findByText("Step added — every client's checklist now has it.")).toBeInTheDocument();
   });
 
-  it("switches a step back on", async () => {
+  it("switches a step off and back on", async () => {
     const user = userEvent.setup();
     mount();
-    await user.click(await screen.findByRole("button", { name: "Switched off (1)" }));
-    await user.click(screen.getByRole("button", { name: "Switch on" }));
+    await user.click(await screen.findByRole("button", { name: "Switch on" }));
+    const [firstOff] = screen.getAllByRole("button", { name: "Switch off" });
+    await user.click(firstOff);
     expect(writes()).toEqual([
       { path: "/portal/settings/onboarding-steps/OLD_STEP", method: "POST", body: { is_active: true } },
+      { path: "/portal/settings/onboarding-steps/COMPANY_PROFILE", method: "POST", body: { is_active: false } },
     ]);
+  });
+});
+
+describe("onboarding steps — on a phone, a row per step", () => {
+  it("keeps the switched-off steps folded away, and the actions behind ⋯", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      (query: string) =>
+        ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} }) as unknown as MediaQueryList,
+    );
+    const user = userEvent.setup();
+    mount();
+    // The ⋯ exists only in the phone's rows — waiting on it waits out the
+    // desktop first frame (useIsCompact answers "desktop" until matchMedia).
+    expect(await screen.findByRole("button", { name: "Actions for Company profile completed" })).toBeInTheDocument();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText("Company profile completed")).toBeInTheDocument();
+    expect(screen.queryByText("Fax the mandate")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Switched off (1)" }));
+    expect(screen.getByText("Fax the mandate")).toBeInTheDocument();
   });
 });
 
