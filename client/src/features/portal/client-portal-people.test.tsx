@@ -126,8 +126,7 @@ describe("who can sign in — on a phone, a card per person", () => {
   it("shows the same facts as cards, one action visible and the rest behind ⋯", async () => {
     onAPhone();
     renderScreen(<ClientPortalPeople clientId="c1" />, { routes: { [PEOPLE]: { members: [ama, kofi], defaults: DEFAULTS } } });
-    // The first frame is the desktop's (useIsCompact answers "desktop" until
-    // matchMedia resolves); wait for the phone's shell to replace it.
+    // Wait for the data: the phone's cards are what renders once it lands.
     await waitFor(() => expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(2));
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.getByText("Ama Owusu")).toBeInTheDocument();

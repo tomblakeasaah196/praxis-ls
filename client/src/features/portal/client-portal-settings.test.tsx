@@ -117,8 +117,7 @@ describe("onboarding steps — on a phone, a row per step", () => {
     );
     const user = userEvent.setup();
     mount();
-    // The ⋯ exists only in the phone's rows — waiting on it waits out the
-    // desktop first frame (useIsCompact answers "desktop" until matchMedia).
+    // The ⋯ exists only in the phone's rows, so finding it proves the shell.
     expect(await screen.findByRole("button", { name: "Actions for Company profile completed" })).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.getByText("Company profile completed")).toBeInTheDocument();
