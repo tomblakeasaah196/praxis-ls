@@ -299,11 +299,17 @@ export function ClientPortalPeople({
                         {tr("Admin")}
                       </Pill>
                     ) : null}
-                    {nameMissing(p) ? <Pill tone="warn">{tr("Name missing")}</Pill> : null}
                   </div>
+                  {/* The second line: their address under a name, or — for a
+                      login from before names were required — the flag that
+                      one is missing, where it costs the row no width. */}
                   {p.full_name ? (
                     <div className="max-w-[14rem] truncate text-xs text-muted-foreground 2xl:max-w-[28rem]" title={p.email}>
                       {p.email}
+                    </div>
+                  ) : nameMissing(p) ? (
+                    <div className="whitespace-nowrap">
+                      <Pill tone="warn">{tr("Name missing")}</Pill>
                     </div>
                   ) : null}
                 </Td>
