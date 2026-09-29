@@ -97,6 +97,8 @@ const SIGN_IN_LABEL: Record<SignIn, string> = {
 const dayOf = (ts: string | null) => (ts ? String(ts).slice(0, 10) : "");
 const ended = (p: PortalPerson) => !!p.expires_at && Date.parse(p.expires_at) < Date.now();
 const displayName = (p: PortalPerson) => p.full_name || p.email;
+/** A login from before the name was required — staff add it from Edit. */
+const nameMissing = (p: PortalPerson) => !p.full_name || !p.full_name.trim();
 /** Whether the row offers an invitation — anyone who cannot sign in yet. */
 const canInvite = (p: PortalPerson) => p.sign_in !== "ACTIVE";
 const inviteLabel = (p: PortalPerson) => (p.sign_in === "INVITED" ? tr("Resend invitation") : tr("Send invitation"));
@@ -297,6 +299,7 @@ export function ClientPortalPeople({
                         {tr("Admin")}
                       </Pill>
                     ) : null}
+                    {nameMissing(p) ? <Pill tone="warn">{tr("Name missing")}</Pill> : null}
                   </div>
                   {p.full_name ? (
                     <div className="max-w-[14rem] truncate text-xs text-muted-foreground 2xl:max-w-[28rem]" title={p.email}>
@@ -378,6 +381,7 @@ export function ClientPortalPeople({
 function PersonPills({ p }: { p: PortalPerson }) {
   return (
     <>
+      {nameMissing(p) ? <Pill tone="warn">{tr("Name missing")}</Pill> : null}
       <Pill tone="blue">{tr(SCOPE_LABEL[p.access_scope])}</Pill>
       {p.is_client_admin ? (
         <Pill tone="ok">
@@ -429,11 +433,13 @@ function InviteSheet({
   const [send, setSend] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [nameError, setNameError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
     setEmail("");
     setName("");
+    setNameError(null);
     setScope(defaults.access_scope);
     // The tenant's rule, shown rather than applied behind the person's back:
     // the box starts ticked for a client's first person when that is the
@@ -444,12 +450,17 @@ function InviteSheet({
     setError(null);
   }, [open, defaults.access_scope, defaults.first_is_admin, firstPerson]);
 
-  const valid = /^\S+@\S+\.\S+$/.test(email.trim());
+  const emailOk = /^\S+@\S+\.\S+$/.test(email.trim());
+  const valid = emailOk && !!name.trim();
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!valid) {
+    if (!emailOk) {
       setError(tr("Enter their email address."));
+      return;
+    }
+    if (!name.trim()) {
+      setNameError(tr("Enter their name."));
       return;
     }
     setBusy(true);
@@ -459,7 +470,7 @@ function InviteSheet({
         method: "POST",
         body: {
           email: email.trim(),
-          ...(name.trim() ? { full_name: name.trim() } : {}),
+          full_name: name.trim(),
           access_scope: scope,
           is_client_admin: admin,
           expires_at: until || null,
@@ -518,7 +529,9 @@ function InviteSheet({
                     aria-pressed={on}
                     onClick={() => {
                       setEmail(s.email);
-                      setName(s.name);
+                      // Keep a name already typed when the contact has none on file.
+                      if (s.name && s.name.trim()) setName(s.name.trim());
+                      setNameError(null);
                     }}
                     className={cn(
                       "min-h-9 max-w-full truncate rounded-full border px-3 py-1.5 text-sm transition-colors",
@@ -548,8 +561,21 @@ function InviteSheet({
               placeholder="name@company.com"
             />
           </Field>
-          <Field label={tr("Name")} hint={tr("Optional — used to greet them in the email.")}>
-            <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={120} />
+          <Field
+            label={tr("Name")}
+            required
+            error={nameError ?? undefined}
+            hint={tr("Greets them in the email and the portal, and shows on every message and file they send.")}
+          >
+            <Input
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (e.target.value.trim()) setNameError(null);
+              }}
+              autoComplete="off"
+              maxLength={120}
+            />
           </Field>
         </div>
         <Field label={tr("What they see")}>
@@ -619,6 +645,7 @@ function PersonSheet({
   onRemove: (p: PortalPerson) => void;
 }) {
   const toast = useToast();
+  const [name, setName] = React.useState("");
   const [scope, setScope] = React.useState<PortalScope>("ALL");
   const [admin, setAdmin] = React.useState(false);
   const [until, setUntil] = React.useState("");
@@ -626,6 +653,7 @@ function PersonSheet({
 
   React.useEffect(() => {
     if (!person) return;
+    setName(person.full_name ?? "");
     setScope(person.access_scope);
     setAdmin(person.is_client_admin);
     setUntil(dayOf(person.expires_at));
@@ -633,16 +661,24 @@ function PersonSheet({
 
   if (!person) return null;
   const p = person;
-  const dirty = scope !== p.access_scope || admin !== p.is_client_admin || until !== dayOf(p.expires_at);
+  const nameChanged = name.trim() !== (p.full_name ?? "").trim();
+  const dirty = nameChanged || scope !== p.access_scope || admin !== p.is_client_admin || until !== dayOf(p.expires_at);
+  // A name can be corrected but never removed — the team must know who this is.
+  const nameOk = !!name.trim();
 
   async function save() {
     setSaving(true);
     try {
       await tenant<PortalPerson>(`${peoplePath(clientId)}/${encodeURIComponent(p.portal_access_id)}`, {
         method: "POST",
-        body: { access_scope: scope, is_client_admin: admin, expires_at: until || null },
+        body: {
+          ...(nameChanged ? { full_name: name.trim() } : {}),
+          access_scope: scope,
+          is_client_admin: admin,
+          expires_at: until || null,
+        },
       });
-      toast.success(tr("Access updated."));
+      toast.success(nameChanged ? tr("Saved") : tr("Access updated."));
       onSaved();
       onClose();
     } catch (e) {
@@ -673,7 +709,7 @@ function PersonSheet({
             <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
               {tr("Cancel")}
             </Button>
-            <Button loading={saving} disabled={!dirty || busy} onClick={() => void save()} className="w-full sm:w-auto">
+            <Button loading={saving} disabled={!dirty || !nameOk || busy} onClick={() => void save()} className="w-full sm:w-auto">
               {tr("Save")}
             </Button>
           </div>
@@ -701,6 +737,18 @@ function PersonSheet({
             </Button>
           ) : null}
         </div>
+        <Field
+          label={tr("Name")}
+          required
+          error={nameOk || nameMissing(p) ? undefined : tr("Enter their name.")}
+          hint={
+            nameMissing(p)
+              ? tr("Nobody entered a name when they were invited. Add it so the team knows who sends their messages and files.")
+              : tr("Shown on every message and file they send. They can also correct it in their portal.")
+          }
+        >
+          <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={120} />
+        </Field>
         <Field label={tr("What they see")}>
           <ScopeChoice value={scope} onChange={setScope} />
         </Field>
