@@ -1415,9 +1415,19 @@ export function PartyDossier({
   // Messages only for the people who answer clients (MOD-64C) — for anyone
   // else the conversation's API refuses, so the tab would be a 403.
   const canAnswerClients = useCanUseModule("MOD-64C");
+  // Portal: who at the client can sign in, their onboarding and requests are
+  // the client portal (MOD-29); the payment claims in it are receivables
+  // (MOD-52). The tab shows when either answers, and each section inside it
+  // follows its own grant.
+  const canClientPortal = useCanUseModule("MOD-29");
+  const canPaymentClaims = useCanUseModule("MOD-52");
   const tabList: readonly Tab[] =
     kind === "client"
-      ? CLIENT_TABS.filter((t) => t !== "Messages" || canAnswerClients)
+      ? CLIENT_TABS.filter(
+          (t) =>
+            (t !== "Messages" || canAnswerClients) &&
+            (t !== "Portal" || canClientPortal || canPaymentClaims),
+        )
       : SUPPLIER_TABS;
   const [tab, setTab] = useUrlTab<Tab>(tabList, "Overview");
   const [adding, setAdding] = React.useState<
@@ -2241,6 +2251,10 @@ export function PartyDossier({
         <ClientPortalTab
           clientId={partyId}
           dossiers={(d.dossiers ?? []).map((ds) => ({ dossier_id: ds.dossier_id, ref: ds.ref || ds.dossier_id.slice(0, 8) }))}
+          // The client's own contacts, offered as one-tap invitations.
+          contacts={(d.contacts ?? [])
+            .filter((c) => !!c.email)
+            .map((c) => ({ name: c.name, email: String(c.email) }))}
         />
       )}
 
