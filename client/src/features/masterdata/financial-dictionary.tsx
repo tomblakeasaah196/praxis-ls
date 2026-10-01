@@ -37,6 +37,7 @@ import { SpendTab, CostEvolutionTab } from "./financial-dictionary-spend";
 import { DictImportModal } from "./financial-dictionary-import";
 import { DictUsageDrill } from "./financial-dictionary-usage";
 import { SetRateModal } from "./rate-modals";
+import { vatBasisLine } from "@/lib/vat-basis";
 import { PencilIcon } from "@/components/ui/icons";
 import { dictLabel } from "@/lib/dict-label";
 import { isDesktopNow } from "@/lib/use-media-query";
@@ -453,6 +454,16 @@ function DictDossier({
                         {tr("since")} {dateFmt(it.default_price_from)}
                       </span>
                     ) : null}
+                    {it.default_price != null && it.default_price_ttc != null ? (
+                      <span className="block micro num">
+                        {vatBasisLine(
+                          it.default_price_ttc,
+                          it.default_price,
+                          it.default_price_vat_rate,
+                          it.default_price_currency || it.currency || "XAF",
+                        )}
+                      </span>
+                    ) : null}
                   </span>
                   {d.capabilities?.edit_rates && (
                     <Button
@@ -511,6 +522,9 @@ function DictDossier({
                   effective_from: it.default_price_from || "",
                   in_force: true,
                   superseded: false,
+                  price_includes_vat: it.default_price_ttc != null,
+                  rate_ttc: it.default_price_ttc ?? null,
+                  vat_rate_percent: it.default_price_vat_rate ?? null,
                 }
               : null
           }

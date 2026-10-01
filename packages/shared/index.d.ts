@@ -1103,6 +1103,53 @@ export declare namespace dictionarySibling {
   ): { to: T; to_mode: SiblingMode; reason: { en: string; fr: string } } | null;
 }
 
+export declare namespace expenseRate {
+  type Create = {
+    dictionary_item_id: string;
+    rate_provider_id?: string | null;
+    container_type_ref_id?: string | null;
+    rate: number;
+    currency?: string;
+    effective_from?: string;
+    effective_to?: string | null;
+    note?: string | null;
+    price_includes_vat?: boolean;
+  };
+  type Update = Partial<Omit<Create, "dictionary_item_id">>;
+  type Supersede = {
+    rate: number;
+    currency?: string;
+    effective_from: string;
+    effective_to?: string | null;
+    rate_provider_id?: string | null;
+    container_type_ref_id?: string | null;
+    note?: string | null;
+    price_includes_vat?: boolean;
+  };
+  type ApplyAll = {
+    rate: number;
+    currency?: string;
+    effective_from: string;
+    container_type_ref_id?: string | null;
+    rate_provider_ids: string[];
+    note?: string | null;
+    price_includes_vat?: boolean;
+  };
+  const create: import("zod").ZodType<Create>;
+  const update: import("zod").ZodType<Update>;
+  const aiUpdate: import("zod").ZodType<Omit<Update, "note"> & { expense_rate_id: string }>;
+  const supersede: import("zod").ZodType<Supersede>;
+  const applyAll: import("zod").ZodType<ApplyAll>;
+  const resolveQuery: import("zod").ZodTypeAny;
+  const vatBasisQuery: import("zod").ZodType<{ dictionary_item_id: string; date?: string }>;
+  const importUpload: import("zod").ZodTypeAny;
+  const importCommit: import("zod").ZodTypeAny;
+  /** TTC ÷ (1 + rate/100), unrounded; null when either is not a number. */
+  function htFromTtc(ttc: number | string, vatRatePercent: number | string): number | null;
+  /** Does a free-text note say the price includes VAT ("TTC", "TVA incluse"…)? */
+  function noteSaysTtc(note: unknown): boolean;
+}
+
 export declare namespace dictionaryPosting {
   type Direction = "REVENUE" | "EXPENSE" | "DISBURSEMENT" | "ASSET";
   type Context = "sale" | "purchase" | "disbursement";

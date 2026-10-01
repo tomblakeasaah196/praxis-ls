@@ -8,6 +8,7 @@ const { requirePermission, requireAnyPermission } = require("../../../middleware
 const c = require("./financial_dictionary.controller");
 const v = require("./financial_dictionary.validator");
 const validate = require("./financial_dictionary.posting.validator");
+const validateRate = require("./financial_dictionary.rate.validator");
 
 const MODULE = "MOD-05";
 const RATES_MODULE = "MOD-10";
@@ -59,8 +60,8 @@ router.get("/:id/rate-history", requirePermission(MODULE, "view"), c.rateEvoluti
 // not on the dictionary: someone who may edit catalogue wording must not be
 // able to change what a line costs (meeting 5, 01:17:37). The dictionary's
 // own "Edit standard rate" pop-up posts here too, so it inherits the gate.
-router.post("/:id/rates/supersede", requirePermission(RATES_MODULE, "edit"), v.rateSupersede, c.supersedeRate);
-router.post("/:id/rates/apply-all", requirePermission(RATES_MODULE, "edit"), v.rateApplyAll, c.applyRateToProviders);
+router.post("/:id/rates/supersede", requirePermission(RATES_MODULE, "edit"), validateRate.rateSupersede, c.supersedeRate);
+router.post("/:id/rates/apply-all", requirePermission(RATES_MODULE, "edit"), validateRate.rateApplyAll, c.applyRateToProviders);
 router.get("/:id", requirePermission(MODULE, "view"), c.get);
 router.post("/", requirePermission(MODULE, "create"), v.create, c.create);
 router.patch("/:id", requirePermission(MODULE, "edit"), v.update, c.update);

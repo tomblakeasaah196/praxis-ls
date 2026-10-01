@@ -47,7 +47,7 @@ const create = z.object({
   posting_rules: z.array(rule).min(1),
   service_tiers: z.array(tier).optional(),
   // Where the posting came from when the AI suggested it (meeting 6, F3):
-  // audit only — checked strictly against @praxis/shared
+  // audit only — checked strictly against the shared package's
   // dictionaryPosting.provenance by the service, never stored on the line.
   posting_suggestion: z.record(z.any()).nullish(),
 });
@@ -174,32 +174,8 @@ const usageQuery = z.object({
 });
 const USAGE_KINDS = ["costings", "cash_requests", "invoices", "purchase_orders", "rates"];
 
-// Supersede, not edit: `effective_from` is the pivot the open row is expired
-// against, so it is required — the whole operation is meaningless without it.
-// `effective_to` stays optional (an open-ended new rate is the normal case).
-const rateSupersede = z.object({
-  rate: z.number().nonnegative(),
-  currency: z.string().length(3).optional(),
-  effective_from: day,
-  effective_to: day.nullish(),
-  // NULL = the item's plain default rate (no carrier/authority scope).
-  rate_provider_id: z.string().uuid().nullish(),
-  // NULL = no equipment dimension (an authority fee per BL, an air rate
-  // priced by weight rather than by box).
-  container_type_ref_id: z.string().uuid().nullish(),
-  note: z.string().nullish(),
-});
-
-// "Apply to all carriers": one rate, many series. The ids are the carriers
-// left ticked; the container type (if any) applies to every one of them.
-const rateApplyAll = z.object({
-  rate: z.number().nonnegative(),
-  currency: z.string().length(3).optional(),
-  effective_from: day,
-  container_type_ref_id: z.string().uuid().nullish(),
-  rate_provider_ids: z.array(z.string().uuid()).min(1).max(200),
-  note: z.string().nullish(),
-});
+// A line's rate (supersede / apply to all carriers) is shared with the rate
+// dialog — see financial_dictionary.rate.validator.js (meeting 6, F4).
 
 // Uploads ride the same base64 data-URL convention as the document vault, so
 // there is one upload shape in the product and no multipart middleware to add.
@@ -236,11 +212,9 @@ const importErrors = z.object({
 const update = create.omit({ default_price: true }).partial();
 // AI-facing: the item is in the URL for HTTP, in the payload for the copilot.
 const aiUpdate = update.extend({ dictionary_item_id: z.string().uuid() });
-const aiRateSupersede = rateSupersede.extend({ dictionary_item_id: z.string().uuid() });
-const aiRateApplyAll = rateApplyAll.extend({ dictionary_item_id: z.string().uuid() });
 const schemas = {
-  create, update, aiUpdate, aiRateSupersede, aiRateApplyAll, refCreate, refUpdate,
-  searchQuery, spendQuery, spendDocsQuery, usageQuery, rateSupersede, rateApplyAll, importUpload, importCommit, importErrors,
+  create, update, aiUpdate, refCreate, refUpdate,
+  searchQuery, spendQuery, spendDocsQuery, usageQuery, importUpload, importCommit, importErrors,
   siblingsQuery, siblingLink, aiSiblingLink,
 };
 
@@ -273,8 +247,6 @@ module.exports = {
   spendQuery: qmw("spendQuery"),
   spendDocsQuery: qmw("spendDocsQuery"),
   usageQuery: usage,
-  rateSupersede: mw("rateSupersede"),
-  rateApplyAll: mw("rateApplyAll"),
   importUpload: mw("importUpload"),
   importCommit: mw("importCommit"),
   importErrors: mw("importErrors"),

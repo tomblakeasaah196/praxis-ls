@@ -32,6 +32,7 @@ import * as ops from "@/lib/operations-api";
 import * as fin from "@/lib/finance-api";
 import { useAuth } from "@/app/auth/auth-context";
 import { PostingSuggestionPanel } from "./posting-suggestion";
+import { dictionaryPosting } from "@shared";
 
 type Ctx = api.PostingContext;
 type RuleRow = {
@@ -509,16 +510,20 @@ export function DictForm({
       const label_en = f.label_en.trim();
       // An edit asks only when the direction changed (F8 "editing a line").
       const direction = directionChosen ? f.direction : null;
+      // The API's own request shape: a question it would refuse is not asked
+      // (a one-letter label, a category it does not know).
+      const question = dictionaryPosting.request.safeParse({
+        label_fr: label_fr || label_en,
+        label_en: label_en || null,
+        category: f.category,
+        direction,
+        fresh: fresh || undefined,
+      });
+      if (!question.success) return;
       setSuggesting(true);
       setSuggestError(null);
       try {
-        const s = await api.suggestDictPosting({
-          label_fr: label_fr || label_en,
-          label_en: label_en || null,
-          category: f.category,
-          direction,
-          fresh: fresh || undefined,
-        });
+        const s = await api.suggestDictPosting(question.data);
         setSuggestion(s);
         // A new line's untouched posting is pre-filled; anything a person
         // has typed is left alone and the suggestion offered beside it.

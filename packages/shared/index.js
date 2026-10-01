@@ -15,6 +15,7 @@ const entityCommon = require("./schemas/entity-common");
 const siteSettings = require("./schemas/site-settings");
 const callSummary = require("./schemas/call-summary");
 const dictionaryPosting = require("./schemas/dictionary-posting");
+const expenseRate = require("./schemas/expense-rate");
 const ledger = require("./rules/ledger");
 const marks = require("./rules/marks");
 const entityRoute = require("./rules/entity-route");
@@ -70,6 +71,11 @@ exports.callSummary = callSummary;
 // the provenance it saves with. One shape, so a suggestion the screen shows is
 // one the API will take.
 exports.dictionaryPosting = dictionaryPosting;
+// An expense rate and its VAT basis (meeting 6, F4): the rate dialog previews
+// "72 700 TTC = 60 964 HT at 19,25 %" with htFromTtc and the API stores the HT
+// it computes with the same function — one division, so the saved rate is the
+// one the dialog showed.
+exports.expenseRate = expenseRate;
 // entity_ref → the screen that shows it. Shared because the API stamps
 // `notification.link_url` from it at write time and the client resolves it
 // again at draw time for every row written before that column existed.
