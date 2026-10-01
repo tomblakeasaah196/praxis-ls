@@ -6,8 +6,9 @@ Praxis), plus the nine screen captures embedded in the notes. Every item below w
 checked against `main` at `683d672` (2026-09-29). Items marked **[Meeting]** were
 raised in the meeting; **[Found]** were found while verifying them and were not raised.
 
-This is the auditor's register for the four PRs that follow from the meeting. Each PR
-prompt points here for evidence; QC of each PR is done against this file.
+This is the auditor's register for the four PRs that follow from the meeting. The PR prompts
+live beside it in this folder (see [README.md](README.md)); each one points here for evidence,
+and QC of each PR is done against this file and that PR's Definition of done.
 
 ---
 
