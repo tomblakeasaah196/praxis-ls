@@ -212,6 +212,16 @@ picker groups siblings, explains them, or warns.
 **3.3 [Meeting] Operations users must pick GL accounts to create a dictionary line**
 ("Every item maps to accounts before it can be saved", `financial-dictionary-form.tsx:655`;
 service 422 at `financial_dictionary.service.js:211`). Tom floated "leave it to the accountant".
+*Found while answering F7:*
+- every AI call is gated on the ASSISTANT's tenant switch. `canUseFeature` checks
+  `ai.assistant.backend` whatever feature key it is given (`governance.service.js`), and the
+  client hides all AI UI when `ai_enabled` is false (`client/src/components/ai-actions.tsx`);
+- `ai.*` features are off by default in the platform catalogue
+  (`migrations/seeds/9110_seed_platform_features.sql`);
+- a call is priced at the vendor's one token price (`estimateCostNative`,
+  `governance.rules.js`), so a stronger model or a grounded search would be under-counted;
+- `llm.service.js` uses Gemini's OpenAI-compatible endpoint, which has no Google Search; the
+  native `generateContent` is already used in `gemini-transcription.service.js:147`.
 
 **3.4 [Meeting-derived] A rate's VAT basis is a free-text note** (`expense_rate.validator.js:14,23`);
 "VAT inclusive" typed there changes no arithmetic.
@@ -343,6 +353,23 @@ move, no family column in the detailed view.
   passkeys too.) Item 3.8 is out of scope.
 - **F6 Signing** — the phone's passkey first, the emailed code last; plus a 5-minute window per
   person and session after one confirmation, each signature still bound to its own document hash.
+- **F7 The model and the cost** — owner's words:
+  > "Seed a stronger Gemini model JUST FOR THIS feature. And it caches for future uses to
+  > minimize cost to the max. This model works just here. Every tenant should have it. It's
+  > quite sensitive. We don't need to manually configure anything. It should be automated."
+
+  Hence:
+  - its own feature key, ON for every tenant, with its own gate (not the assistant's switch);
+  - the strongest generally available Gemini Pro-tier model with Google Search grounding,
+    chosen and verified automatically, with a logged fallback to the platform's Gemini model;
+  - only generic, tenant-free questions;
+  - a platform-wide cache shared by all tenants;
+  - mapping onto each tenant's chart of accounts done locally;
+  - the model's own prices and the search fee metered;
+  - a labelled local fallback that never blocks a save.
+- **F8 Where it runs** — the create wizard, a change of a line's direction, one review of the
+  existing lines (lists mismatches, changes nothing), and spreadsheet imports (a row without a
+  posting gets a suggestion the person accepts before commit).
 - **Auditor defaults** — only a DRAFT client with no history can be deleted; coverage countries
   from the shared ISO list; an empty LIVE shows a go-live checklist.
 
