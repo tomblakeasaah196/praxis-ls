@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { BrandingProvider } from "@/app/branding";
 import { QuoteWizard } from "@/components/site/quote-wizard";
 import { en } from "@/lib/i18n-dict";
+import type { ServiceCard } from "@/lib/services-api";
 
 /**
  * The wizard, judged against what WS2 said it must beat.
@@ -14,10 +15,52 @@ import { en } from "@/lib/i18n-dict";
  * that never asks for one — because a wizard that always advances looks
  * identical to a correct one until somebody submits.
  *
- * The three that are about the payload are the ones a reviewer should read
- * first: the incoterm is always sent, `project_cargo_flag: false` survives the
- * empty-value filter, and no coordinate is ever posted.
+ * The ones about the payload are the ones a reviewer should read first: the
+ * request carries the SERVICE TYPE the visitor reached through the cards
+ * (meeting 6, PR 2), an Incoterm is always sent — one the service offers, or
+ * TBD for "not sure" — documents travel with it, and no coordinate is ever
+ * posted.
  */
+
+const ANY_MODE = ["EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP"];
+const ALL = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"];
+const terms = (codes: string[]) => codes.map((code) => ({ code, name_en: `${code} name`, name_fr: `${code} nom`, sea_only: ["FAS", "FOB", "CFR", "CIF"].includes(code) }));
+
+/** A published service as /public/services sends it (14300: card, flow, Incoterms). */
+const svc = (id: string, name: string, card: string, flow: string | null, codes: string[], shape = "ROUTE"): ServiceCard =>
+  ({
+    service_type_id: id,
+    slug_en: id,
+    slug_fr: id,
+    name_en: name,
+    name_fr: name,
+    mode: card === "STORAGE" ? "WAREHOUSE" : card,
+    card,
+    flow,
+    incoterms: terms(codes),
+    enquiry_shape: shape,
+    short_description_en: null,
+    short_description_fr: null,
+    claim_en: null,
+    claim_fr: null,
+    accent: "PRIMARY",
+    cover_url: null,
+    icon_url: null,
+    has_video: false,
+    sort_order: null,
+    published_month: null,
+  }) as unknown as ServiceCard;
+
+const SERVICES: ServiceCard[] = [
+  svc("s-sea-imp", "Sea Freight Import", "SEA", "IMPORT", ALL),
+  svc("s-sea-exp", "Sea Freight Export", "SEA", "EXPORT", ALL),
+  svc("s-air-imp", "Air Freight Import", "AIR", "IMPORT", ANY_MODE),
+  svc("s-rail-hin", "Rail Hinterland Transit", "RAIL", "HINTERLAND", ANY_MODE),
+  svc("s-rail-inl", "Rail Transportation", "RAIL", "INLAND", ANY_MODE),
+  svc("s-wh", "Warehousing", "STORAGE", "INLAND", [], "STORAGE"),
+  svc("s-cus", "Customs Brokerage", "CUSTOMS", null, ALL),
+  svc("s-proj", "Project Cargo", "OTHER", "END_TO_END", ALL),
+];
 
 const responses: Array<{ url: RegExp; body: unknown; status?: number }> = [];
 
@@ -38,10 +81,10 @@ const stubFetch = () =>
 
 let fetchMock: ReturnType<typeof stubFetch>;
 
-const mount = async () => {
+const mount = async (services: ServiceCard[] = SERVICES) => {
   const view = render(
     <BrandingProvider>
-      <QuoteWizard />
+      <QuoteWizard services={services} />
     </BrandingProvider>,
   );
   await act(async () => {
@@ -70,35 +113,50 @@ const press = (name: string) =>
   fireEvent.click(screen.getByRole("button", { name }));
 
 /**
- * Pick a transport mode.
+ * Pick a card, then (when the card holds several services) a flow.
  *
- * A RADIO, not a button: the mode is one choice among four, which is what a
- * radio group is, and the semantics buy arrow-key navigation, one tab stop and
- * an "n of 4" announcement. Asserting on the role is what keeps that from being
- * quietly reverted to four toggle buttons.
+ * RADIOS, not buttons: a single choice among several is what a radio group
+ * is, and the semantics buy arrow-key navigation, one tab stop and an "n of 6"
+ * announcement. Asserting on the role keeps that from being quietly reverted.
  */
-const chooseMode = (name: string) =>
+const choose = (name: string) =>
   fireEvent.click(screen.getByRole("radio", { name: new RegExp("^" + name) }));
 
-/** Fill step 0 and advance. */
-async function stepNeed(mode = en.site.quote.modeSEA) {
-  chooseMode(mode);
-  type(en.site.quote.service, "Sea freight import");
-  press(en.site.quote.next);
-  await act(async () => {
+const settle = () =>
+  act(async () => {
     await new Promise((r) => setTimeout(r, 0));
   });
+
+/** Fill step 1 (Sea → Import by default) and advance. */
+async function stepNeed(card: string = en.site.quote.modeSEA, flow: string | null = en.site.quote.flowIMPORT) {
+  choose(card);
+  if (flow) choose(flow);
+  press(en.site.quote.next);
+  await settle();
 }
 
-/** Fill the freight route step and advance. */
-async function stepRoute() {
+/** Fill the freight route step (FOB) and advance. */
+async function stepRoute(term: string | null = "FOB") {
   type(en.site.quote.originPort, "Shanghai");
   type(en.site.quote.destinationPort, "Douala");
-  fireEvent.change(field(en.site.quote.incoterm), { target: { value: "FOB" } });
+  if (term) choose(term);
   press(en.site.quote.next);
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
-  });
+  await settle();
+}
+
+/** From the details step, through the (optional) documents step, to the contact step. */
+async function toContact() {
+  press(en.site.quote.next);
+  await screen.findByRole("heading", { name: en.site.quote.stepDocuments });
+  press(en.site.quote.next);
+  await screen.findByLabelText(labelRe(en.site.quote.name));
+}
+
+async function fillContactAndSend() {
+  type(en.site.quote.name, "Ada Mballa");
+  type(en.site.quote.email, "ada@example.cm");
+  press(en.site.quote.submit);
+  await waitFor(() => expect(sentBody()).toBeTruthy());
 }
 
 beforeEach(() => {
@@ -131,8 +189,14 @@ describe("a step will not advance while it is incomplete", () => {
     await mount();
     press(en.site.quote.next);
     expect(await screen.findByText(en.site.quote.errMode)).toBeInTheDocument();
-    expect(screen.getByText(en.site.quote.errService)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: en.site.quote.stepNeed })).toBeInTheDocument();
+  });
+
+  it("refuses a card with several services until the flow is chosen", async () => {
+    await mount();
+    choose(en.site.quote.modeSEA);
+    press(en.site.quote.next);
+    expect(await screen.findByText(en.site.quote.errFlow)).toBeInTheDocument();
   });
 
   it("says nothing until an attempt is made", async () => {
@@ -141,218 +205,304 @@ describe("a step will not advance while it is incomplete", () => {
     expect(screen.queryByText(en.site.quote.errMode)).not.toBeInTheDocument();
   });
 
-  it("refuses the route step without an incoterm", async () => {
-    // Resolved decision 3, and the bug it was resolving: the shipped form left
-    // this optional, so a blank Incoterm became a 422 nobody could explain.
+  it("refuses the route step without both ends", async () => {
     await mount();
     await stepNeed();
     type(en.site.quote.originPort, "Shanghai");
-    type(en.site.quote.destinationPort, "Douala");
     press(en.site.quote.next);
-    expect(await screen.findByText(en.site.quote.errIncoterm)).toBeInTheDocument();
+    expect(await screen.findByText(en.site.quote.errDestination)).toBeInTheDocument();
   });
 
-  it("asks for nothing on the details step", async () => {
-    // Every field there is a nicety that makes a better quote; gating on one
-    // would be inventing a requirement the desk never had.
+  it("asks for nothing on the details or documents steps", async () => {
+    // Every field there is a nicety that makes a better quote, and a stranger
+    // may not have an invoice yet (owner decision Q6).
     await mount();
     await stepNeed();
     await stepRoute();
-    press(en.site.quote.next);
-    await waitFor(() =>
-      expect(
-        screen.getByRole("heading", { name: en.site.quote.stepContact }),
-      ).toBeInTheDocument(),
-    );
+    await toContact();
+    expect(screen.getByRole("heading", { name: en.site.quote.stepContact })).toBeInTheDocument();
   });
 });
 
-describe("the mode selector is a radio group, and says what each mode covers", () => {
-  it("offers four radios in one group, not four toggle buttons", async () => {
-    // One tab stop, arrow-key navigation, and "2 of 4" announced — none of
-    // which four aria-pressed buttons give a keyboard or screen-reader user.
+describe("the first step is six cards, read off the tenant's services (owner decision Q1)", () => {
+  it("draws only the cards the tenant offers, in order, under a Transport label", async () => {
     await mount();
-    expect(screen.getAllByRole("radio")).toHaveLength(4);
+    const group = screen.getByRole("group", { name: en.site.quote.mode });
+    const cards = within(group).getAllByRole("radio").map((r) => r.closest("label")?.textContent || "");
+    expect(cards.map((c) => c.split(/(?=[A-Z])/)[0])).toBeTruthy();
+    for (const card of [en.site.quote.modeSEA, en.site.quote.modeAIR, en.site.quote.modeRAIL, en.site.quote.modeSTORAGE, en.site.quote.modeCUSTOMS]) {
+      expect(within(group).getByRole("radio", { name: new RegExp("^" + card) })).toBeInTheDocument();
+    }
+    // No road service published here, so no Road card.
+    expect(within(group).queryByRole("radio", { name: new RegExp("^" + en.site.quote.modeROAD) })).toBeNull();
+    expect(within(group).getByText(en.site.quote.transport)).toBeInTheDocument();
   });
 
-  it("describes every mode, so a prospect is not guessing what one covers", async () => {
-    // The line our first version left out entirely. Somebody who does not know
-    // whether "By road or rail" covers a Douala → N'Djamena run picks nothing,
-    // and picking nothing is where this form loses them.
+  it("names the tenant's own services under each card", async () => {
     await mount();
-    expect(screen.getByText(en.site.quote.modeSEAHint)).toBeInTheDocument();
-    expect(screen.getByText(en.site.quote.modeROADHint)).toBeInTheDocument();
-    expect(screen.getByText(en.site.quote.modeWAREHOUSEHint)).toBeInTheDocument();
+    expect(screen.getByText("Sea Freight Import")).toBeInTheDocument();
+    expect(screen.getByText("Rail Hinterland Transit")).toBeInTheDocument();
   });
 
-  it("marks the chosen mode as checked", async () => {
+  it("offers only the flows that exist under the card", async () => {
     await mount();
-    chooseMode(en.site.quote.modeAIR);
-    expect(screen.getByRole("radio", { name: new RegExp("^" + en.site.quote.modeAIR) }))
-      .toBeChecked();
+    choose(en.site.quote.modeRAIL);
+    const flow = screen.getByRole("group", { name: en.site.quote.flow });
+    expect(within(flow).getAllByRole("radio").map((r) => r.closest("label")?.textContent)).toEqual([
+      en.site.quote.flowINLAND,
+      en.site.quote.flowHINTERLAND,
+    ]);
+  });
+
+  it("asks into or out of the hinterland for a hinterland transit (owner decision Q2)", async () => {
+    await mount();
+    choose(en.site.quote.modeRAIL);
+    choose(en.site.quote.flowHINTERLAND);
+    press(en.site.quote.next);
+    expect(await screen.findByText(en.site.quote.errHinterland)).toBeInTheDocument();
+    choose(en.site.quote.hinterlandINTO);
+    press(en.site.quote.next);
+    await screen.findByLabelText(labelRe(en.site.quote.originPlace));
+  });
+
+  it("skips the flow for a card holding one service", async () => {
+    await mount();
+    choose(en.site.quote.modeSTORAGE);
+    expect(screen.queryByRole("group", { name: en.site.quote.flow })).toBeNull();
+    press(en.site.quote.next);
+    expect(await screen.findByLabelText(labelRe(en.site.quote.warehouseLocation))).toBeInTheDocument();
+  });
+
+  it("keeps a service no card describes under Other services", async () => {
+    await mount();
+    expect(screen.queryByText("Project Cargo")).toBeNull();
+    press(en.site.quote.otherServices);
+    choose("Project Cargo");
+    press(en.site.quote.next);
+    await screen.findByLabelText(labelRe(en.site.quote.originPlace));
+  });
+
+  it("shows two services that share a card and a flow by their names", async () => {
+    await mount([...SERVICES, svc("s-sea-imp-2", "Sea Freight Import (LCL)", "SEA", "IMPORT", ALL)]);
+    choose(en.site.quote.modeSEA);
+    const flow = screen.getByRole("group", { name: en.site.quote.flow });
+    const names = within(flow).getAllByRole("radio").map((r) => r.closest("label")?.textContent);
+    expect(names).toEqual(["Sea Freight Import", "Sea Freight Import (LCL)", en.site.quote.flowEXPORT]);
+  });
+});
+
+describe("the Incoterms are the service's own (owner decision Q3)", () => {
+  it("offers a sea service all eleven, plus Not sure", async () => {
+    await mount();
+    await stepNeed();
+    const group = screen.getByRole("group", { name: en.site.quote.incoterm });
+    expect(within(group).getAllByRole("radio")).toHaveLength(12);
+    expect(within(group).getByRole("radio", { name: new RegExp("^" + en.site.quote.incotermNotSure) })).toBeChecked();
+  });
+
+  it("offers an air service the seven any-mode terms only — no FOB", async () => {
+    await mount();
+    await stepNeed(en.site.quote.modeAIR, null);
+    const group = screen.getByRole("group", { name: en.site.quote.incoterm });
+    expect(within(group).getAllByRole("radio")).toHaveLength(8);
+    expect(within(group).queryByRole("radio", { name: /^FOB/ })).toBeNull();
   });
 });
 
 describe("the step indicator", () => {
   it("says how far through the form the visitor is", async () => {
-    // "How much is left" is the question somebody asks before deciding to
-    // start, and a row of dots answers it only if you count them.
     await mount();
-    expect(
-      screen.getByText(en.site.quote.stepCounter.replace("{{step}}", "1").replace("{{total}}", "4")),
-    ).toBeInTheDocument();
+    expect(screen.getByText(en.site.quote.stepCounter.replace("{{step}}", "1").replace("{{total}}", "5"))).toBeInTheDocument();
   });
 
   it("advances the counter with the step", async () => {
     await mount();
     await stepNeed();
-    expect(
-      screen.getByText(en.site.quote.stepCounter.replace("{{step}}", "2").replace("{{total}}", "4")),
-    ).toBeInTheDocument();
+    expect(screen.getByText(en.site.quote.stepCounter.replace("{{step}}", "2").replace("{{total}}", "5"))).toBeInTheDocument();
   });
 });
 
 describe("the branch", () => {
-  it("asks a warehousing enquiry for storage, not for a route", async () => {
-    // Asking a storage prospect for an Incoterm is asking a question with no
-    // answer.
+  it("asks a storage enquiry for a place and a duration, not for a route", async () => {
     await mount();
-    chooseMode(en.site.quote.modeWAREHOUSE);
-    type(en.site.quote.service, "Warehousing");
+    choose(en.site.quote.modeSTORAGE);
     press(en.site.quote.next);
-    expect(
-      await screen.findByLabelText(labelRe(en.site.quote.warehouseLocation)),
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText(labelRe(en.site.quote.incoterm))).not.toBeInTheDocument();
+    expect(await screen.findByLabelText(labelRe(en.site.quote.warehouseLocation))).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: en.site.quote.incoterm })).toBeNull();
     expect(screen.queryByLabelText(labelRe(en.site.quote.originPort))).not.toBeInTheDocument();
   });
 
-  it("names the route fields after the mode", async () => {
-    // Port of loading for sea, Airport of departure for air. Their site does
-    // this and it is right.
+  it("names the route fields after the card", async () => {
     await mount();
-    chooseMode(en.site.quote.modeAIR);
-    type(en.site.quote.service, "Air freight");
-    press(en.site.quote.next);
-    expect(
-      await screen.findByLabelText(labelRe(en.site.quote.originAirport)),
-    ).toBeInTheDocument();
+    await stepNeed(en.site.quote.modeAIR, null);
+    expect(await screen.findByLabelText(labelRe(en.site.quote.originAirport))).toBeInTheDocument();
     expect(screen.queryByLabelText(labelRe(en.site.quote.originPort))).not.toBeInTheDocument();
   });
 });
 
 describe("the step dots", () => {
   it("go back to a completed step without losing what is ahead", async () => {
-    // A visitor four steps in who wants to correct step two must not lose
-    // steps three and four.
     await mount();
     await stepNeed();
     await stepRoute();
     const nav = within(screen.getByRole("navigation", { name: en.site.quote.stepsLabel }));
     fireEvent.click(nav.getByRole("button", { name: new RegExp(en.site.quote.stepNeed) }));
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: en.site.quote.stepNeed })).toBeInTheDocument(),
-    );
-    // The route answers are still there when we come forward again.
+    await waitFor(() => expect(screen.getByRole("heading", { name: en.site.quote.stepNeed })).toBeInTheDocument());
     press(en.site.quote.next);
-    await waitFor(() =>
-      expect(field(en.site.quote.originPort)).toHaveValue("Shanghai"),
-    );
+    await waitFor(() => expect(field(en.site.quote.originPort)).toHaveValue("Shanghai"));
   });
 
   it("offers no way to jump forward past a step's validation", async () => {
     await mount();
     const nav = within(screen.getByRole("navigation", { name: en.site.quote.stepsLabel }));
-    // A control that refuses when pressed is worse than no control: the visitor
-    // presses it twice and concludes the page is broken.
-    expect(
-      nav.queryByRole("button", { name: new RegExp(en.site.quote.stepContact) }),
-    ).not.toBeInTheDocument();
+    expect(nav.queryByRole("button", { name: new RegExp(en.site.quote.stepContact) })).not.toBeInTheDocument();
   });
 });
 
 describe("what reaches the endpoint", () => {
-  it("sends the incoterm, the route and the service", async () => {
+  it("sends the service type, the Incoterm, the route and the service's name", async () => {
     await mount();
     await stepNeed();
     await stepRoute();
-    press(en.site.quote.next);
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: en.site.quote.stepContact })).toBeInTheDocument(),
-    );
-    type(en.site.quote.name, "Ada Mballa");
-    type(en.site.quote.email, "ada@example.cm");
-    press(en.site.quote.submit);
-    await waitFor(() => expect(sentBody()).toBeTruthy());
+    await toContact();
+    await fillContactAndSend();
     const body = sentBody();
+    expect(body.service_type_id).toBe("s-sea-imp");
+    expect(body.service_category).toBe("Sea Freight Import");
     expect(body.incoterm).toBe("FOB");
     expect(body.origin_location).toBe("Shanghai");
     expect(body.destination_location).toBe("Douala");
     expect(body.requester_email).toBe("ada@example.cm");
   });
 
-  it("sends N/A as the incoterm for storage, which is an answer", async () => {
-    // The schema requires one and a warehousing enquiry genuinely has none.
-    // Blank would be a 422; N/A is the truth.
+  it("sends TBD when the visitor is not sure of the term", async () => {
     await mount();
-    chooseMode(en.site.quote.modeWAREHOUSE);
-    type(en.site.quote.service, "Warehousing");
+    await stepNeed();
+    await stepRoute(null);
+    await toContact();
+    await fillContactAndSend();
+    expect(sentBody().incoterm).toBe("TBD");
+  });
+
+  it("sends the hinterland direction with a hinterland transit", async () => {
+    await mount();
+    choose(en.site.quote.modeRAIL);
+    choose(en.site.quote.flowHINTERLAND);
+    choose(en.site.quote.hinterlandOUT_OF);
+    press(en.site.quote.next);
+    await settle();
+    type(en.site.quote.originPlace, "Bangui");
+    type(en.site.quote.destinationPlace, "Douala");
+    press(en.site.quote.next);
+    await settle();
+    await toContact();
+    await fillContactAndSend();
+    expect(sentBody()).toMatchObject({ service_type_id: "s-rail-hin", hinterland_direction: "OUT_OF" });
+  });
+
+  it("sends N/A as the incoterm for storage, which is an answer", async () => {
+    await mount();
+    choose(en.site.quote.modeSTORAGE);
     press(en.site.quote.next);
     await screen.findByLabelText(labelRe(en.site.quote.warehouseLocation));
     type(en.site.quote.warehouseLocation, "Douala");
     press(en.site.quote.next);
     await screen.findByLabelText(labelRe(en.site.quote.weight));
-    press(en.site.quote.next);
-    await screen.findByLabelText(labelRe(en.site.quote.name));
-    type(en.site.quote.name, "Ada Mballa");
-    type(en.site.quote.email, "ada@example.cm");
-    press(en.site.quote.submit);
-    await waitFor(() => expect(sentBody()).toBeTruthy());
+    await toContact();
+    await fillContactAndSend();
     expect(sentBody().incoterm).toBe("N/A");
     expect(sentBody().warehouse_location).toBe("Douala");
     expect(sentBody()).not.toHaveProperty("origin_location");
   });
 
-  it("never posts a coordinate", async () => {
-    // A body that could carry one could carry any, and have it stored as
-    // provider-vouched. The server re-asks the provider; the browser sends an
-    // id and the text that produced it, or nothing.
+  it("files the pre-launch request in words, with no service type and TBD", async () => {
+    // Nothing published yet: every card is offered and the service is typed.
+    await mount([]);
+    choose(en.site.quote.modeSEA);
+    type(en.site.quote.service, "Sea freight import");
+    press(en.site.quote.next);
+    await settle();
+    type(en.site.quote.originPort, "Shanghai");
+    type(en.site.quote.destinationPort, "Douala");
+    expect(screen.queryByRole("group", { name: en.site.quote.incoterm })).toBeNull();
+    press(en.site.quote.next);
+    await settle();
+    await toContact();
+    await fillContactAndSend();
+    expect(sentBody()).not.toHaveProperty("service_type_id");
+    expect(sentBody()).toMatchObject({ service_category: "Sea freight import", incoterm: "TBD" });
+  });
+
+  it("carries a document, with what it is, in the request itself — with its progress", async () => {
+    // A request with documents goes up over XHR, for the 0→100 % bar.
+    const posted: string[] = [];
+    class FakeXHR {
+      status = 0;
+      responseText = "";
+      upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      open() {}
+      setRequestHeader() {}
+      getResponseHeader() {
+        return null;
+      }
+      send(body: string) {
+        posted.push(body);
+        setTimeout(() => {
+          this.upload.onprogress?.({ lengthComputable: true, loaded: 1, total: 2 });
+          this.status = 201;
+          this.responseText = JSON.stringify({ data: { received: true, reference: "SQ-2026-0008" } });
+          this.onload?.();
+        }, 0);
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", FakeXHR);
     await mount();
     await stepNeed();
     await stepRoute();
+    press(en.site.quote.next);
+    await screen.findByRole("heading", { name: en.site.quote.stepDocuments });
+    expect(screen.getByText(en.site.quote.docsWhy)).toBeInTheDocument();
+    const input = screen.getByLabelText(en.site.quote.docsAdd) as HTMLInputElement;
+    const file = new File(["%PDF-1.4 invoice"], "invoice.pdf", { type: "application/pdf" });
+    fireEvent.change(input, { target: { files: [file] } });
+    await screen.findByText("invoice.pdf");
     press(en.site.quote.next);
     await screen.findByLabelText(labelRe(en.site.quote.name));
     type(en.site.quote.name, "Ada Mballa");
     type(en.site.quote.email, "ada@example.cm");
     press(en.site.quote.submit);
-    await waitFor(() => expect(sentBody()).toBeTruthy());
+    expect(await screen.findByText("SQ-2026-0008")).toBeInTheDocument();
+    const docs = JSON.parse(posted[0]).documents;
+    expect(docs).toHaveLength(1);
+    expect(docs[0]).toMatchObject({ filename: "invoice.pdf", document_kind: "COMMERCIAL_INVOICE" });
+    expect(String(docs[0].data_url)).toMatch(/^data:application\/pdf;base64,/);
+  });
+
+  it("never posts a coordinate", async () => {
+    await mount();
+    await stepNeed();
+    await stepRoute();
+    await toContact();
+    await fillContactAndSend();
     const json = JSON.stringify(sentBody());
     expect(json).not.toContain("latitude");
     expect(json).not.toContain("longitude");
   });
 
   it("stamps the timer the spam trap needs, and carries a FILLED honeypot", async () => {
-    // The trap is asymmetric on purpose. A person leaves `website_url` empty
-    // and the payload cleaner drops it — omitted passes, because the schema
-    // marks it optional. A bot fills it, the value travels, and
-    // `z.string().max(0)` refuses the submission. So the assertion that
-    // matters is that a filled honeypot is NOT cleaned away.
-    //
-    // `form_started_at` is the partner: under 1500 ms after it, the middleware
-    // answers SPAM_REJECTED.
+    // A person leaves `website_url` empty and the payload cleaner drops it; a
+    // bot fills it, the value travels, and `z.string().max(0)` refuses it.
     await mount();
     await stepNeed();
     await stepRoute();
-    press(en.site.quote.next);
-    await screen.findByLabelText(labelRe(en.site.quote.name));
+    await toContact();
     type(en.site.quote.name, "Ada Mballa");
     type(en.site.quote.email, "ada@example.cm");
-
-    // What a form-filling bot does to every input it can find.
     const honeypot = document.querySelector<HTMLInputElement>('input[name="website_url"]');
     expect(honeypot).not.toBeNull();
     fireEvent.change(honeypot as HTMLInputElement, { target: { value: "http://spam.example" } });
-
     press(en.site.quote.submit);
     await waitFor(() => expect(sentBody()).toBeTruthy());
     expect(sentBody().website_url).toBe("http://spam.example");
@@ -361,27 +511,19 @@ describe("what reaches the endpoint", () => {
 });
 
 describe("the draft", () => {
-  it("survives a remount, so a refresh does not wipe four steps", async () => {
+  it("survives a remount, so a refresh does not wipe the steps", async () => {
     const first = await mount();
     await stepNeed();
     type(en.site.quote.originPort, "Shanghai");
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await settle();
     first.unmount();
 
     await mount();
-    // Back on step one — the step index is not persisted, only the answers —
-    // and the answers are there.
     press(en.site.quote.next);
-    await waitFor(() =>
-      expect(field(en.site.quote.originPort)).toHaveValue("Shanghai"),
-    );
+    await waitFor(() => expect(field(en.site.quote.originPort)).toHaveValue("Shanghai"));
   });
 
   it("is kept out of localStorage", async () => {
-    // A quote draft names a company, a route and a phone number. On the shared
-    // machine in an internet café, localStorage would still have it tomorrow.
     await mount();
     await stepNeed();
     expect(sessionStorage.length).toBeGreaterThan(0);
@@ -389,34 +531,23 @@ describe("the draft", () => {
   });
 
   it("is cleared once the request is filed", async () => {
-    // A surviving draft reappears pre-filled and invites a duplicate.
     await mount();
     await stepNeed();
     await stepRoute();
-    press(en.site.quote.next);
-    await screen.findByLabelText(labelRe(en.site.quote.name));
-    type(en.site.quote.name, "Ada Mballa");
-    type(en.site.quote.email, "ada@example.cm");
-    press(en.site.quote.submit);
-    await waitFor(() =>
-      expect(screen.getByText(en.site.quote.sent)).toBeInTheDocument(),
-    );
+    await toContact();
+    await fillContactAndSend();
+    await waitFor(() => expect(screen.getByText(en.site.quote.sent)).toBeInTheDocument());
     expect(sessionStorage.getItem("praxis.quote.draft")).toBeNull();
   });
 });
 
 describe("the receipt", () => {
   it("shows the reference the API generated", async () => {
-    // The one thing that lets a client chase their request by phone instead of
-    // by hope.
     await mount();
     await stepNeed();
     await stepRoute();
-    press(en.site.quote.next);
-    await screen.findByLabelText(labelRe(en.site.quote.name));
-    type(en.site.quote.name, "Ada Mballa");
-    type(en.site.quote.email, "ada@example.cm");
-    press(en.site.quote.submit);
+    await toContact();
+    await fillContactAndSend();
     expect(await screen.findByText("SQ-2026-0007")).toBeInTheDocument();
   });
 
@@ -430,11 +561,8 @@ describe("the receipt", () => {
     await mount();
     await stepNeed();
     await stepRoute();
-    press(en.site.quote.next);
-    await screen.findByLabelText(labelRe(en.site.quote.name));
-    type(en.site.quote.name, "Ada Mballa");
-    type(en.site.quote.email, "ada@example.cm");
-    press(en.site.quote.submit);
+    await toContact();
+    await fillContactAndSend();
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.getByText(en.site.quote.err)).toBeInTheDocument();
   });
@@ -535,11 +663,8 @@ describe("the step transition (§8.3)", () => {
     await mount();
     await stepNeed();
     await stepRoute();
-    press(en.site.quote.next);
-    await screen.findByLabelText(labelRe(en.site.quote.name));
-    type(en.site.quote.name, "Ada Mballa");
-    type(en.site.quote.email, "ada@example.cm");
-    press(en.site.quote.submit);
+    await toContact();
+    await fillContactAndSend();
     await waitFor(() =>
       expect(screen.getByText(en.site.quote.sent)).toBeInTheDocument(),
     );

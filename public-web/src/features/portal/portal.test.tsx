@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import i18n from "@/lib/i18n";
 import { BrandingProvider } from "@/app/branding";
@@ -10,6 +10,9 @@ import { PortalApp } from "./portal-app";
 import { parseAmount } from "./lib/numbers";
 import { errorText } from "./ui/kit";
 import { en } from "./portal-copy";
+import { en as siteDict } from "@/lib/i18n-dict";
+
+const site = siteDict.site.quote;
 import { PLATE_GROUND_FLOOR, SCRIM_DOOR_VEIL, SCRIM_DOOR_WASH, SCRIM_FLOOR } from "@/components/site/hero-scrim";
 
 /**
@@ -92,6 +95,35 @@ function stubApi(signedIn: boolean, extra: typeof routes = {}) {
     }),
   );
 }
+
+/** The upload path is XHR (for its progress events); route it through the same table. */
+class FakeXHR {
+  status = 0;
+  responseText = "";
+  upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null };
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  private method = "GET";
+  private url = "";
+  open(method: string, url: string) {
+    this.method = method;
+    this.url = url;
+  }
+  setRequestHeader() {}
+  send(body: FormData) {
+    const path = new URL(this.url, "http://localhost").pathname.replace("/api/tenant", "");
+    calls.push(`${this.method} ${path}`);
+    const hit = routes[path];
+    const [status, json] = hit ? hit({ method: this.method, body } as RequestInit) : [404, { error: { code: "NOT_FOUND" } }];
+    setTimeout(() => {
+      this.upload.onprogress?.({ lengthComputable: true, loaded: 1, total: 1 });
+      this.status = status;
+      this.responseText = JSON.stringify(json);
+      this.onload?.();
+    }, 0);
+  }
+}
+
 
 function Loc() {
   const l = useLocation();
@@ -424,34 +456,6 @@ describe("the chat", () => {
     getByText(en.chat.newAbout);
   });
 
-  /** The upload path is XHR (for its progress events); route it through the same table. */
-  class FakeXHR {
-    status = 0;
-    responseText = "";
-    upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null };
-    onload: (() => void) | null = null;
-    onerror: (() => void) | null = null;
-    private method = "GET";
-    private url = "";
-    open(method: string, url: string) {
-      this.method = method;
-      this.url = url;
-    }
-    setRequestHeader() {}
-    send(body: FormData) {
-      const path = new URL(this.url, "http://localhost").pathname.replace("/api/tenant", "");
-      calls.push(`${this.method} ${path}`);
-      const hit = routes[path];
-      const [status, json] = hit ? hit({ method: this.method, body } as RequestInit) : [404, { error: { code: "NOT_FOUND" } }];
-      setTimeout(() => {
-        this.upload.onprogress?.({ lengthComputable: true, loaded: 1, total: 1 });
-        this.status = status;
-        this.responseText = JSON.stringify(json);
-        this.onload?.();
-      }, 0);
-    }
-  }
-
   it("opens a conversation, marks it read, and sends as a multipart message", async () => {
     const sent: RequestInit[] = [];
     stubApi(true, chatRoutes(sent));
@@ -629,7 +633,18 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
     };
   }
 
-  async function openAirImport(extra: typeof routes = {}) {
+  const ANY_MODE = ["EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP"].map((code) => ({ code, name_en: `${code} name`, name_fr: `${code} nom`, sea_only: false }));
+  /** The tenant's active services, as /portal/client/quote-services sends them. */
+  const SERVICES = [
+    { service_type_id: "s-air-imp", name_en: "Air Freight Import", name_fr: "Fret Aérien Import", card: "AIR", flow: "IMPORT", enquiry_shape: "ROUTE", incoterms: ANY_MODE },
+    { service_type_id: "s-air-exp", name_en: "Air Freight Export", name_fr: "Fret Aérien Export", card: "AIR", flow: "EXPORT", enquiry_shape: "ROUTE", incoterms: ANY_MODE },
+    { service_type_id: "s-rail-hin", name_en: "Rail Hinterland Transit", name_fr: "Transit Ferroviaire Hinterland", card: "RAIL", flow: "HINTERLAND", enquiry_shape: "ROUTE", incoterms: ANY_MODE },
+    { service_type_id: "s-rail-inl", name_en: "Rail Transportation", name_fr: "Transport Ferroviaire", card: "RAIL", flow: "INLAND", enquiry_shape: "ROUTE", incoterms: ANY_MODE },
+    { service_type_id: "s-wh", name_en: "Warehousing", name_fr: "Entreposage", card: "STORAGE", flow: "INLAND", enquiry_shape: "STORAGE", incoterms: [] },
+    { service_type_id: "s-proj", name_en: "Project Cargo", name_fr: "Cargaison Spéciale", card: "OTHER", flow: "END_TO_END", enquiry_shape: "ROUTE", incoterms: ANY_MODE },
+  ];
+
+  async function openQuote(extra: typeof routes = {}) {
     const sent: Record<string, unknown>[] = [];
     const asked: URLSearchParams[] = [];
     stubApi(true, {
@@ -640,16 +655,36 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
         }
         return [200, { data: [] }];
       },
+      "/portal/client/quote-services": () => [200, { data: SERVICES }],
+      "/portal/client/quote-requests/documents": () => [201, { data: { doc_id: "00000000-0000-4000-8000-0000000000d1", name: "invoice.pdf" } }],
       "/portal/client/proposals": () => [200, { data: [] }],
       "/portal/client/places": placesRoute(asked),
       ...extra,
     });
+    vi.stubGlobal("XMLHttpRequest", FakeXHR);
     sessionStorage.setItem("praxis.portal.token", "tok");
     const view = await mount("/portal/quotes?new=1");
-    fireEvent.click(await view.findByRole("button", { name: en.mode.AIR }));
-    fireEvent.click(view.getByRole("button", { name: en.quote.dir.IMPORT }));
-    fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
     return { ...view, sent, asked };
+  }
+
+  async function openAirImport(extra: typeof routes = {}) {
+    const view = await openQuote(extra);
+    fireEvent.click(await view.findByRole("radio", { name: site.modeAIR }));
+    fireEvent.click(view.getByRole("radio", { name: site.flowIMPORT }));
+    fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
+    return view;
+  }
+
+  /** The cargo step, then the documents step — one invoice, uploaded — then Send. */
+  async function finish(view: Awaited<ReturnType<typeof openQuote>>, what: string) {
+    fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
+    fireEvent.change(await view.findByRole("textbox", { name: en.quote.what }), { target: { value: what } });
+    fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
+    await view.findByText(site.docsWhy, { exact: false });
+    const input = view.getByLabelText(site.docsAdd) as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["%PDF-1.4"], "invoice.pdf", { type: "application/pdf" })] } });
+    await view.findByText(site.docsComplete, undefined, SLOW);
+    fireEvent.click(view.getByRole("button", { name: new RegExp(en.quote.send) }));
   }
 
   it("names the ends for the mode, and an airport field searches airports", async () => {
@@ -670,7 +705,8 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
   });
 
   it("prices the whole journey: two airports and a door, each sent as a pick", async () => {
-    const { findByRole, getByRole, sent, asked } = await openAirImport();
+    const view = await openAirImport();
+    const { findByRole, getByRole, sent, asked } = view;
 
     fireEvent.click(await findByRole("button", { name: new RegExp(en.quote.route.aol) }));
     fireEvent.change(await findByRole("combobox", { name: en.quote.route.aol }, SLOW), { target: { value: "guangzhou" } });
@@ -687,11 +723,12 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
     // A door searches addresses worldwide as they type.
     expect(asked.some((p) => p.get("q") === "Bonaberi" && p.get("provider") === "true")).toBe(true);
 
-    fireEvent.click(getByRole("button", { name: new RegExp(en.common.next) }));
-    fireEvent.change(await findByRole("textbox", { name: en.quote.what }), { target: { value: "2 pallets of spare parts" } });
-    fireEvent.click(getByRole("button", { name: new RegExp(en.quote.send) }));
+    await finish(view, "2 pallets of spare parts");
     await waitFor(() => expect(sent).toHaveLength(1), SLOW);
     expect(sent[0]).toMatchObject({
+      service_type_id: "s-air-imp",
+      incoterm: "TBD",
+      documents: [{ doc_id: "00000000-0000-4000-8000-0000000000d1", document_kind: "COMMERCIAL_INVOICE" }],
       origin_location: "Guangzhou Baiyun",
       origin_place: { geo_place_id: CAN.geo_place_id },
       destination_location: "Douala",
@@ -705,7 +742,8 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
   });
 
   it("takes a place no map knows, as written, and says the desk will pin it", async () => {
-    const { findByRole, getByRole, findByText, sent } = await openAirImport();
+    const view = await openAirImport();
+    const { findByRole, getByRole, findByText, sent } = view;
     fireEvent.click(await findByRole("button", { name: new RegExp(en.quote.route.aol) }));
     fireEvent.change(await findByRole("combobox", { name: en.quote.route.aol }, SLOW), { target: { value: "Guangzhou" } });
     fireEvent.click(await findByRole("option", { name: /Guangzhou Baiyun/ }, SLOW));
@@ -720,9 +758,7 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
     fireEvent.click(await findByRole("option", { name: new RegExp(asWritten.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }, SLOW));
     await findByText(en.place.typed, undefined, SLOW);
 
-    fireEvent.click(getByRole("button", { name: new RegExp(en.common.next) }));
-    fireEvent.change(await findByRole("textbox", { name: en.quote.what }), { target: { value: "Machine parts" } });
-    fireEvent.click(getByRole("button", { name: new RegExp(en.quote.send) }));
+    await finish(view, "Machine parts");
     await waitFor(() => expect(sent).toHaveLength(1), SLOW);
     expect(sent[0].collection_location).toBe("Supplier yard, km 12");
     expect(sent[0]).not.toHaveProperty("collection_place");
@@ -736,5 +772,131 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
     await waitFor(() => expect(queryByRole("combobox", { name: en.quote.route.aol })).toBeNull());
     // Still on the route step of the same sheet.
     expect(getByRole("button", { name: new RegExp(en.quote.route.aod) })).toBeTruthy();
+  });
+
+  it("will not send without a document — the invoice is the one it asks for", async () => {
+    const view = await openAirImport();
+    const { findByRole, getByRole, findByText, sent } = view;
+    fireEvent.click(await findByRole("button", { name: new RegExp(en.quote.route.aol) }));
+    fireEvent.change(await findByRole("combobox", { name: en.quote.route.aol }, SLOW), { target: { value: "guangzhou" } });
+    fireEvent.click(await findByRole("option", { name: /Guangzhou Baiyun/ }, SLOW));
+    fireEvent.click(await findByRole("button", { name: new RegExp(en.quote.route.aod) }));
+    fireEvent.change(await findByRole("combobox", { name: en.quote.route.aod }, SLOW), { target: { value: "Douala" } });
+    fireEvent.click(await findByRole("option", { name: /Douala/ }, SLOW));
+    fireEvent.click(getByRole("button", { name: new RegExp(en.common.next) }));
+    fireEvent.change(await findByRole("textbox", { name: en.quote.what }), { target: { value: "Spare parts" } });
+    fireEvent.click(getByRole("button", { name: new RegExp(en.common.next) }));
+    await findByText(site.docsRequired, { exact: false });
+    fireEvent.click(getByRole("button", { name: new RegExp(en.quote.send) }));
+    expect(await findByText(site.errDocs)).toBeTruthy();
+    expect(sent).toHaveLength(0);
+  });
+
+  it("offers the service's own Incoterms and Not sure — and sends the one picked", async () => {
+    const view = await openAirImport();
+    const { findByRole, getByRole, sent } = view;
+    const terms = within(getByRole("group", { name: site.incoterm }));
+    expect(terms.getAllByRole("radio")).toHaveLength(8);
+    expect(terms.queryByRole("radio", { name: /^FOB/ })).toBeNull();
+    fireEvent.click(terms.getByRole("radio", { name: /^DAP/ }));
+    fireEvent.click(await findByRole("button", { name: new RegExp(en.quote.route.aol) }));
+    fireEvent.change(await findByRole("combobox", { name: en.quote.route.aol }, SLOW), { target: { value: "guangzhou" } });
+    fireEvent.click(await findByRole("option", { name: /Guangzhou Baiyun/ }, SLOW));
+    fireEvent.click(await findByRole("button", { name: new RegExp(en.quote.route.aod) }));
+    fireEvent.change(await findByRole("combobox", { name: en.quote.route.aod }, SLOW), { target: { value: "Douala" } });
+    fireEvent.click(await findByRole("option", { name: /Douala/ }, SLOW));
+    await finish(view, "Spare parts");
+    await waitFor(() => expect(sent).toHaveLength(1), SLOW);
+    expect(sent[0].incoterm).toBe("DAP");
+  });
+
+  it("asks a hinterland transit which way it runs, and sends the answer", async () => {
+    const view = await openQuote();
+    fireEvent.click(await view.findByRole("radio", { name: site.modeRAIL }));
+    fireEvent.click(view.getByRole("radio", { name: site.flowHINTERLAND }));
+    fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
+    expect(await view.findByText(site.errHinterland)).toBeTruthy();
+    fireEvent.click(view.getByRole("radio", { name: new RegExp(site.hinterlandINTO) }));
+    fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
+    await view.findByRole("button", { name: new RegExp(en.quote.from) });
+  });
+
+  it("goes straight to the place and the duration for storage — one service, no flow", async () => {
+    const view = await openQuote();
+    fireEvent.click(await view.findByRole("radio", { name: site.modeSTORAGE }));
+    expect(view.queryByRole("group", { name: site.flow })).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
+    expect(await view.findByLabelText(site.warehouseLocation)).toBeTruthy();
+  });
+
+  it("keeps Project Cargo under Other services", async () => {
+    const view = await openQuote();
+    await view.findByRole("radio", { name: site.modeAIR });
+    expect(view.queryByRole("radio", { name: "Project Cargo" })).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: site.otherServices }));
+    fireEvent.click(view.getByRole("radio", { name: "Project Cargo" }));
+    fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
+    await view.findByRole("button", { name: new RegExp(en.quote.from) });
+  });
+
+  it("writes the weight in tonnes with a capital T", async () => {
+    const view = await openAirImport();
+    const { findByRole, getByRole, findByText } = view;
+    fireEvent.click(await findByRole("button", { name: new RegExp(en.quote.route.aol) }));
+    fireEvent.change(await findByRole("combobox", { name: en.quote.route.aol }, SLOW), { target: { value: "guangzhou" } });
+    fireEvent.click(await findByRole("option", { name: /Guangzhou Baiyun/ }, SLOW));
+    fireEvent.click(await findByRole("button", { name: new RegExp(en.quote.route.aod) }));
+    fireEvent.change(await findByRole("combobox", { name: en.quote.route.aod }, SLOW), { target: { value: "Douala" } });
+    fireEvent.click(await findByRole("option", { name: /Douala/ }, SLOW));
+    fireEvent.click(getByRole("button", { name: new RegExp(en.common.next) }));
+    fireEvent.change(await findByRole("textbox", { name: en.quote.weight }), { target: { value: "25000" } });
+    expect(await findByText("≈ 25 T")).toBeTruthy();
+  });
+});
+
+describe("a request, opened (meeting 6, item 2.9)", { timeout: 20000 }, () => {
+  const DETAIL = {
+    quote_request_id: "q-1",
+    public_ref: "SQ-2026-0003",
+    status: "CONVERTED_TO_OPPORTUNITY",
+    created_at: "2026-09-29T08:00:00Z",
+    service: { service_type_id: "s-sea-imp", name_en: "Sea Freight Import", name_fr: "Fret Maritime Import", card: "SEA", flow: "IMPORT", enquiry_shape: "ROUTE", incoterms: [] },
+    service_category: "Sea Freight Import",
+    hinterland_direction: null,
+    origin_location: "Shanghai",
+    destination_location: "Douala",
+    collection_location: null,
+    delivery_location: null,
+    warehouse_location: null,
+    warehouse_duration: null,
+    incoterm: "TBD",
+    estimated_weight: 25000,
+    cargo_description: "Ceramic tiles",
+    requester_name: "Elisha Godwin",
+    documents: [{ id: "att-1", name: "invoice.pdf", document_kind: "COMMERCIAL_INVOICE", kind: "PRIMARY", created_at: "2026-09-29T08:00:00Z" }],
+    timeline: [
+      { status: "RECEIVED", at: "2026-09-29T08:00:00Z" },
+      { status: "UNDER_REVIEW", at: "2026-09-29T09:00:00Z" },
+      { status: "CONVERTED_TO_OPPORTUNITY", at: "2026-09-30T09:00:00Z" },
+    ],
+    proposal: { proposal_id: "p-1", doc_number: "PRO-2026-0001", title: "Tiles, Shanghai to Douala", status: "SENT", currency: "XAF", created_at: "2026-09-30T09:00:00Z" },
+    quotation: null,
+  };
+
+  it("shows the scope, the documents, the timeline and the proposal that answered it", async () => {
+    stubApi(true, {
+      "/portal/client/quote-requests": () => [200, { data: [] }],
+      "/portal/client/quote-requests/q-1": () => [200, { data: DETAIL }],
+      "/portal/client/proposals": () => [200, { data: [] }],
+    });
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { findByText, getByText } = await mount("/portal/quotes?request=q-1");
+    await findByText("Sea Freight Import");
+    getByText("Shanghai");
+    getByText("invoice.pdf");
+    getByText(en.quote.detail.toBeDetermined);
+    getByText(en.quote.status.UNDER_REVIEW);
+    getByText("Tiles, Shanghai to Douala");
+    getByText(site.docsAdd);
   });
 });

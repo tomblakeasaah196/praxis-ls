@@ -294,7 +294,7 @@ async function leadDossier(c, { leadId, canSeeFinancials = false }) {
 async function intakeAttachments(c, quoteRequestId) {
   return rowsOf(
     c,
-    `SELECT a.quote_request_attachment_id, a.kind, a.vault_id, a.created_at,
+    `SELECT a.quote_request_attachment_id, a.kind, a.document_kind, a.vault_id, a.created_at,
             v.original_name, v.doc_type, v.status AS vault_status,
             u.full_name AS uploaded_by_name
        FROM quote_request_attachment a
@@ -312,12 +312,19 @@ async function intakeDossier(c, { quoteRequestId, canSeeFinancials = false }) {
     await c.query(
       `SELECT q.*, u.full_name AS owner_name, cu.full_name AS created_by_name,
               e.legal_name AS entity_name,
-              l.company_name AS lead_company_name, l.status AS lead_status
+              l.company_name AS lead_company_name, l.status AS lead_status,
+              -- The service the request names (14310) and the client it is
+              -- for, as words — the dossier header never shows a key or an id.
+              st.name_en AS service_name_en, st.name_fr AS service_name_fr,
+              st.transport_mode AS service_mode, st.territory AS service_territory,
+              cm.name AS client_name
          FROM quote_request q
          LEFT JOIN app_user u ON u.user_id = q.owner_user_id
          LEFT JOIN app_user cu ON cu.user_id = q.created_by_user_id
          LEFT JOIN corporate_entity e ON e.entity_id = q.entity_id
          LEFT JOIN lead l ON l.lead_id = q.lead_id
+         LEFT JOIN service_type st ON st.service_type_id = q.service_type_id
+         LEFT JOIN client_master cm ON cm.client_id = q.client_id
         WHERE q.quote_request_id = $1`,
       [quoteRequestId],
     )

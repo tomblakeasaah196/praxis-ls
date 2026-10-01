@@ -204,6 +204,55 @@ export async function publicApi<T = unknown>(
     : (json as T);
 }
 
+/**
+ * A JSON POST that reports how much of its body has left the browser.
+ *
+ * `fetch` still has no upload progress, and a quote request carrying three
+ * scanned documents is several megabytes of base64 on a phone connection —
+ * long enough that a silent button reads as a frozen screen and people send it
+ * twice (CLAUDE.md, uploads: every upload shows 0→100 %). Same answer, errors
+ * and envelope as `publicApi`; `onProgress` gets 0–99 while bytes go up and
+ * 100 only once the SERVER has answered.
+ */
+export function publicPostWithProgress<T = unknown>(
+  path: string,
+  body: unknown,
+  onProgress: (pct: number) => void,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", buildUrl(path));
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)));
+    };
+    xhr.onerror = () => reject(new PublicApiError("NETWORK_ERROR", tStatic("errors.network"), 0));
+    xhr.onload = () => {
+      const requestId = xhr.getResponseHeader("X-Request-Id");
+      let json: unknown = null;
+      if (xhr.responseText) {
+        try {
+          json = JSON.parse(xhr.responseText);
+        } catch {
+          reject(new PublicApiError("BAD_RESPONSE", tStatic("errors.badResponse"), xhr.status, undefined, requestId));
+          return;
+        }
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        const err =
+          json && typeof json === "object" && "error" in json
+            ? (json as { error?: { code?: string; message?: string; fields?: FieldErrors } }).error
+            : undefined;
+        reject(new PublicApiError(err?.code || "ERROR", err?.message || xhr.statusText || "Request failed", xhr.status, err?.fields, requestId));
+        return;
+      }
+      onProgress(100);
+      resolve(json && typeof json === "object" && "data" in json ? (json as { data: T }).data : (json as T));
+    };
+    xhr.send(JSON.stringify(body));
+  });
+}
+
 /** `GET` shorthand — the shape most reads here take. */
 export const publicGet = <T>(
   path: string,
