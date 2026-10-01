@@ -254,7 +254,7 @@ const schemas = {
     note: z.string().trim().max(2000).optional().nullable(),
     due_on: isoDate.optional().nullable(),
   }),
-  // staffReviewRequest moved to @praxis/shared clientPortal.reviewRequest
+  // staffReviewRequest moved to clientPortal.reviewRequest in packages/shared
   // (14260): the Accept dialog's fields are the API's.
   staffConfirmProof: z.object({ treasury_account_id: z.string().uuid().optional().nullable() }),
   // A client's portal, managed from the Client 360 (MOD-29). `expires_at` is
