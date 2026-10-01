@@ -49,6 +49,11 @@ export const BLOCKED_REASON: Record<string, string> = dict({
 export const ASSURANCE_WORDS: Record<string, string> = dict({
   SES: "Signed from your account",
   AES_OTP: "Confirmed by a code sent to your email",
+  AES_PASSKEY: "Confirmed with a fingerprint or face (passkey)",
+  // Meeting 6, F6: the 2nd, 3rd… signature of a run, within 5 minutes of one
+  // confirmation on the same session — never shown as a fresh confirmation.
+  AES_PASSKEY_WINDOW: "Within a 5-minute signing window opened by a fingerprint or face",
+  AES_OTP_WINDOW: "Within a 5-minute signing window opened by an emailed code",
   QES: "Identity checked by an independent provider",
   WET: "Signed by hand, then matched back to this record",
 });

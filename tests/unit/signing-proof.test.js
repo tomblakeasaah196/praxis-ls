@@ -44,7 +44,8 @@ describe("settle — turning a proof into evidence", () => {
 
   test("a passkey bound to this person, document and version → AES_PASSKEY", async () => {
     const r = await signingProof.settle({}, { actor: ACTOR, docType: "COSTING", entityRef: REF, doc: DOC, proof: passkey() });
-    expect(r).toEqual({ assurance: "AES_PASSKEY", otpChallengeId: null, passkeyCredentialId: "cred-1" });
+    // Not from a signed-in request, so it opens no 5-minute window (14345).
+    expect(r).toEqual({ assurance: "AES_PASSKEY", otpChallengeId: null, passkeyCredentialId: "cred-1", opensWindow: null });
   });
 
   test("someone else's passkey proof is refused", async () => {
@@ -65,7 +66,7 @@ describe("settle — turning a proof into evidence", () => {
 
   test("an emailed code is verified against THIS document's hash → AES_OTP", async () => {
     const r = await signingProof.settle({}, { actor: ACTOR, docType: "COSTING", entityRef: REF, doc: DOC, proof: { otp_code: "123456" } });
-    expect(r).toEqual({ assurance: "AES_OTP", otpChallengeId: "otp-1", passkeyCredentialId: null });
+    expect(r).toEqual({ assurance: "AES_OTP", otpChallengeId: "otp-1", passkeyCredentialId: null, opensWindow: null });
     expect(otp.verify.mock.calls[0][2]).toMatchObject({ userId: "u-1", entityRef: REF, contentHash: HASH, code: "123456" });
   });
 });

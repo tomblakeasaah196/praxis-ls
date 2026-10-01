@@ -43,6 +43,10 @@ router.post("/internal", requirePermission(MODULE, "approve"), validator.signInt
 // the route that signs (a costing approval needs MOD-46 `approve` + APPROVER).
 router.post("/proof/options", validator.proofTarget, controller.proofOptions);
 router.post("/proof/otp", validator.proofTarget, controller.proofOtp);
+// The 5-minute signing window (meeting 6, F6) — the caller's own, on the
+// session their token names. Signed-in is enough, like the proof routes.
+router.get("/proof/window", controller.window);
+router.post("/proof/window/end", controller.endWindow);
 router.post("/:id/revoke", requirePermission(MODULE, "approve"), validator.revoke, controller.revoke);
 
 module.exports = { basePath: "/signatures", feature: "signatures", router };
