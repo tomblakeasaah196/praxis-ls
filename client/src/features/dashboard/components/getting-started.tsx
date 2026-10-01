@@ -10,39 +10,11 @@
  * Every item's state comes from the tenant's own data — nothing is ticked by
  * hand — and every item opens the screen that does it.
  */
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { tenant } from "@/lib/api-client";
-import { tenantKey } from "@/lib/query-client";
 import { tr } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { ArrowRightIcon, CheckIcon } from "@/components/ui/icons";
-
-export type GettingStarted = {
-  show: boolean;
-  env: "live" | "sandbox";
-  done?: number;
-  total?: number;
-  items: {
-    key: string;
-    label: string;
-    to: string;
-    done: boolean;
-    count: number;
-  }[];
-};
-
-const PATH = "/dashboard/getting-started";
-
-/** The checklist, or null. Tolerant: a failed read is "no checklist", never a broken tower. */
-export function useGettingStarted(enabled: boolean): GettingStarted | null {
-  const q = useQuery({
-    queryKey: tenantKey(PATH),
-    queryFn: () => tenant<GettingStarted>(PATH).catch(() => null),
-    enabled,
-  });
-  return enabled && q.data && q.data.show ? q.data : null;
-}
+import type { GettingStarted } from "../use-getting-started";
 
 export function GettingStartedPanel({ data }: { data: GettingStarted }) {
   const done = data.items.filter((i) => i.done).length;

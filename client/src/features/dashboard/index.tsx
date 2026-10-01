@@ -53,10 +53,8 @@ import { OperationalActivityPanel } from "./components/operational-activity-pane
 import { RecentActivity } from "./components/recent-activity";
 import { TowerHero } from "./components/tower-hero";
 import { TowerFilters } from "./components/tower-filters";
-import {
-  GettingStartedPanel,
-  useGettingStarted,
-} from "./components/getting-started";
+import { GettingStartedPanel } from "./components/getting-started";
+import { useGettingStarted } from "./use-getting-started";
 import { PasskeyNudge } from "@/features/security/passkey-nudge";
 import type { ControlTowerFilters } from "./use-control-tower";
 import { useKpiCatalog } from "./use-control-tower";
