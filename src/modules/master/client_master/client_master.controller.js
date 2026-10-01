@@ -12,6 +12,9 @@ module.exports = {
     res.json({ data: r });
   }),
   create: asyncHandler(async (req, res) => res.status(201).json({ data: await req.tenantDb((c) => service.create(c, { data: req.body, actor: actor(req) })) })),
+  // Meeting 6, 3.6 — discard a DRAFT client with no history.
+  discardCheck: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.discardCheck(c, { id: req.params.id })) })),
+  discard: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.discard(c, { id: req.params.id, actor: actor(req) })) })),
   update: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.update(c, { id: req.params.id, patch: req.body, actor: actor(req), env: req.env })) })),
   setPublicReferenceConsent: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.setPublicReferenceConsent(c, { id: req.params.id, consent: req.body.consent, actor: actor(req) })) })),
   // The account manager (PR 3, 14200) — who looks after this client.
