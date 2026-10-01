@@ -18,6 +18,7 @@
  * understands the correction stops fighting it; one who does not keeps
  * re-entering the colour and filing a bug.
  */
+import type { coverage } from "@praxis/shared";
 import { siteSettings } from "@praxis/shared";
 import { tenant, tenantWithProgress } from "./api-client";
 
@@ -216,6 +217,9 @@ export type EntityStory = {
   public_summary_fr: string | null;
   public_summary_en: string | null;
   public_coverage: { country_code: string; label_fr?: string | null; label_en?: string | null }[];
+  /** Meeting 6, 3.5: stored rows whose code is not a country, or whose label
+   *  names a place in another country (Libreville under GB). Read-only. */
+  coverage_flags?: coverage.Flag[];
   public_focus: {
     label_fr?: string | null;
     label_en?: string | null;

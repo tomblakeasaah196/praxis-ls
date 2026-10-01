@@ -25,6 +25,7 @@ const notificationEmailDefault = require("./rules/notification-email-default");
 const workSchedule = require("./rules/work-schedule");
 const quickPin = require("./rules/quick-pin");
 const dictionarySibling = require("./rules/dictionary-sibling");
+const coverage = require("./rules/coverage");
 const pwaDesign = require("./pwa-design");
 const countries = require("./data/countries");
 const currencies = require("./data/currencies");
@@ -104,6 +105,11 @@ exports.quickPin = quickPin;
 // stamps the mode and presets Suggest, and every picker draws the question and
 // the guard from the same table (meeting 6, F2).
 exports.dictionarySibling = dictionarySibling;
+// "Where it operates" (meeting 6, 3.5): what a complete coverage row is, and
+// which stored rows name a place in another country (Libreville under GB).
+// Shared because the Story tab blocks the save with the same answer the API
+// refuses with, and the API flags stored rows with the rule the tab explains.
+exports.coverage = coverage;
 // Canonical ISO country reference (code, name, phone, currency, per-jurisdiction
 // registration requirements) — the API, the seed and the client picker's source.
 /*

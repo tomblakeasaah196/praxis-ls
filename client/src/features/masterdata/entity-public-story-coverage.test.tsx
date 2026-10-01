@@ -12,9 +12,14 @@
  * The second test pins the reason the id is not just the index: removing a
  * middle row must leave the rows below it intact rather than shifting their
  * keys onto the wrong DOM.
+ *
+ * Meeting 6 (29 Sep 2026), register 3.5 — the free two-letter box is now the
+ * ISO country picker (Gabon had been saved as GB), an incomplete row blocks
+ * the save with a message instead of being dropped, and a stored row whose
+ * label names a place in another country is flagged.
  */
 import { describe, it, expect, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import {
@@ -23,12 +28,27 @@ import {
   renderScreen,
 } from "@/test/screen-harness";
 
-vi.mock("@/lib/api-client", async () => apiClientMock());
+const puts: { path: string; body?: unknown }[] = [];
+vi.mock("@/lib/api-client", async () => {
+  const base = await apiClientMock();
+  return {
+    ...base,
+    tenant: (path: string, init?: { method?: string; body?: unknown }) => {
+      if (init?.method === "PUT") {
+        puts.push({ path, body: init.body });
+        return Promise.resolve({});
+      }
+      return base.tenant(path);
+    },
+  };
+});
 vi.mock("@/app/auth/auth-context", async () => authContextMock());
 
 import { EntityDossier } from "./entity-360";
+import { coverage } from "@shared";
 
-const story = (public_coverage: unknown[] = []) => ({
+type Row = { country_code: string; label_fr?: string; label_en?: string };
+const story = (public_coverage: Row[] = []) => ({
   entity_id: "e1",
   code: "SLAS",
   legal_name: "Smart Logistics & Services Ltd",
@@ -39,6 +59,8 @@ const story = (public_coverage: unknown[] = []) => ({
   public_summary_fr: "Un réseau logistique.",
   public_summary_en: "A logistics network.",
   public_coverage,
+  // What the API computes on read (site_settings.service getEntityStory).
+  coverage_flags: coverage.flags(public_coverage),
   public_focus: [],
   public_cover_vault_id: null,
   cover_attachment: null,
@@ -106,7 +128,8 @@ const dossier = {
   },
 };
 
-async function openStoryTab(public_coverage: unknown[] = []) {
+async function openStoryTab(public_coverage: Row[] = []) {
+  puts.length = 0;
   const user = userEvent.setup();
   renderScreen(<EntityDossier entityId="e1" onEdit={() => {}} />, {
     routes: {
@@ -121,35 +144,60 @@ async function openStoryTab(public_coverage: unknown[] = []) {
 }
 
 describe("Corporate entities · Public story — where it operates", () => {
-  it("keeps focus in the country-code box across keystrokes", async () => {
+  it("keeps focus in a new place's label across keystrokes", async () => {
     const user = await openStoryTab();
 
     await user.click(screen.getByRole("button", { name: /add a place/i }));
-    const code = screen.getByRole("textbox", { name: /country code/i });
-    await user.click(code);
-    await user.keyboard("cm");
+    const label = screen.getByRole("textbox", { name: /label \(fr\)/i });
+    await user.click(label);
+    await user.keyboard("Douala");
 
-    // Both characters landed in the SAME element, upper-cased, and it is
-    // still the active element — a remounted row would have swallowed the
-    // second keystroke and left focus on <body>.
-    expect(code).toHaveValue("CM");
-    expect(document.activeElement).toBe(code);
+    // Every character landed in the SAME element, and it is still the active
+    // element — a remounted row would have swallowed the rest.
+    expect(label).toHaveValue("Douala");
+    expect(document.activeElement).toBe(label);
   });
 
-  it("shows each place input's expected shape as a placeholder", async () => {
+  it("takes the country from the ISO picker, not a free box", async () => {
     const user = await openStoryTab();
     await user.click(screen.getByRole("button", { name: /add a place/i }));
 
-    expect(screen.getByRole("textbox", { name: /country code/i })).toHaveAttribute(
-      "placeholder",
-      "CM",
-    );
-    expect(screen.getByRole("textbox", { name: /label \(fr\)/i })).toHaveAttribute(
-      "placeholder",
-    );
-    expect(screen.getByRole("textbox", { name: /label \(en\)/i })).toHaveAttribute(
-      "placeholder",
-    );
+    expect(screen.queryByRole("textbox", { name: /country code/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Country" }));
+    await user.type(screen.getByRole("textbox", { name: "Search countries" }), "Gabon");
+    await user.click(await screen.findByRole("option", { name: /Gabon/ }));
+    await user.type(screen.getByRole("textbox", { name: /label \(fr\)/i }), "Libreville");
+    await user.click(screen.getByRole("button", { name: /save places/i }));
+
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({
+      public_coverage: [{ country_code: "GA", label_fr: "Libreville", label_en: "" }],
+    });
+  });
+
+  it("an incomplete row blocks the save with a message, and is not dropped", async () => {
+    const user = await openStoryTab([{ country_code: "CM", label_fr: "Douala", label_en: "Douala" }]);
+    await user.click(screen.getByRole("button", { name: /add a place/i }));
+    await user.type(screen.getAllByRole("textbox", { name: /label \(en\)/i })[1], "Port-Gentil");
+    await user.click(screen.getByRole("button", { name: /save places/i }));
+
+    expect(await screen.findByText(/one place is incomplete/i)).toBeInTheDocument();
+    expect(screen.getByText("Pick the country.")).toBeInTheDocument();
+    expect(puts).toHaveLength(0);
+    // Still on screen, label intact.
+    expect(screen.getAllByRole("textbox", { name: /label \(en\)/i })[1]).toHaveValue("Port-Gentil");
+  });
+
+  it("flags a stored GB row whose label is Libreville, without changing it", async () => {
+    await openStoryTab([
+      { country_code: "CM", label_fr: "Douala", label_en: "Douala" },
+      { country_code: "GB", label_fr: "Libreville", label_en: "Libreville" },
+    ]);
+    expect(screen.getByText("Check these places")).toBeInTheDocument();
+    expect(
+      screen.getByText('"Libreville" is in Gabon, but this row says United Kingdom (GB).'),
+    ).toBeInTheDocument();
+    expect(puts).toHaveLength(0);
   });
 
   it("removes the row that was asked for, and only that one", async () => {
@@ -161,14 +209,14 @@ describe("Corporate entities · Public story — where it operates", () => {
 
     const rows = () =>
       screen
-        .getAllByRole("textbox", { name: /country code/i })
+        .getAllByRole("textbox", { name: /label \(fr\)/i })
         .map((el) => (el as HTMLInputElement).value);
-    expect(rows()).toEqual(["CM", "GA", "TD"]);
+    expect(rows()).toEqual(["Douala", "Libreville", "N'Djamena"]);
 
     const middle = screen.getAllByRole("listitem")[1];
     await user.click(within(middle).getByRole("button", { name: /remove/i }));
 
-    expect(rows()).toEqual(["CM", "TD"]);
+    expect(rows()).toEqual(["Douala", "N'Djamena"]);
     // The row that stayed still holds ITS labels, not the removed row's.
     expect(screen.getAllByRole("textbox", { name: /label \(en\)/i })[1]).toHaveValue(
       "N'Djamena",
