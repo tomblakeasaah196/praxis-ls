@@ -145,6 +145,25 @@ describe("mapping onto THIS tenant's chart", () => {
     expect(rules.mapAccount("6131", accounts)).toEqual({ suggested: "6131", account: null, how: "mint", mint: { code: "6131", parent_code: "613", label_fr: null } });
   });
 
+  test("a party control account maps to itself even once it has auxiliary children", () => {
+    // After the first client is activated, 4111 is a non-postable parent of
+    // that client's 41110001. A dictionary line's 4111 means "this invoice's
+    // client" — never one client's own account.
+    const chart = [
+      { code: "4111", is_postable: false },
+      { code: "41110001", is_postable: true },
+      { code: "4011", is_postable: false },
+      { code: "40110001", is_postable: true },
+    ];
+    expect(rules.mapAccount("4111", chart)).toEqual({ suggested: "4111", account: "4111", how: "exact" });
+    expect(rules.mapAccount("4011", chart)).toEqual({ suggested: "4011", account: "4011", how: "exact" });
+  });
+
+  test("the control accounts are exactly party-accounting's", () => {
+    const { PARTY } = require("../../src/modules/master/party-accounting.service");
+    expect([...rules.PARTY_CONTROL_ACCOUNTS].sort()).toEqual(Object.values(PARTY).map((p) => p.parent).sort());
+  });
+
   it("lowers the confidence when an account is mapped to a leaf or minted, or the sources disagree", () => {
     const answer = { direction: "REVENUE", is_disbursement: false, vat_treatment: "STANDARD", postings: [{ context: "sale", debit: "4111", credit: "706" }], confidence: "high" };
     const out = rules.mapToTenant(answer, { accounts, taxCodes });

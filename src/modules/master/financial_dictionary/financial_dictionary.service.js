@@ -7,6 +7,7 @@ const { resolveContext } = require("../../../services/spreadsheet");
 const { emitEvent, audit } = require("../../../shared/events/emit");
 const currencyRepo = require("../currency/currency.repo");
 const expenseRateService = require("../expense_rate/expense_rate.service");
+const { PARTY } = require("../party-accounting.service");
 const { page } = require("../../../shared/db/query-helpers");
 const crypto = require("crypto");
 const { dictionarySibling, dictionaryPosting } = require("@praxis/shared");
@@ -803,7 +804,9 @@ async function importContext(c) {
   // serialises regardless. Six round trips ONCE per upload, not per row —
   // which is the optimisation that actually matters here (a 500-row sheet
   // validated row-by-row would be 1500 lookups against three small tables).
-  const accounts = await repo.postableAccounts(c);
+  const accounts = await repo.postableAccounts(c, {
+    partyControl: Object.values(PARTY).map((p) => p.parent),
+  });
   const taxCodes = await repo.taxCodeIndex(c);
   const serviceTypes = await repo.serviceTypeIndex(c);
   const subcategories = await repo.listRefs(c, "SUBCATEGORY");

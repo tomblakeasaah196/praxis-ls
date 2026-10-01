@@ -625,9 +625,16 @@ const expireRate = (c, rateId, effectiveTo) =>
 /* ── IMPORT — the reference data a row is validated against ─────────────────
  * One round-trip per catalogue rather than one per row: a 500-row upload
  * validated row-by-row would be 1500 lookups against three small tables. */
-async function postableAccounts(c) {
+async function postableAccounts(c, { partyControl = [] } = {}) {
+  // `partyControl`: the client / supplier control accounts (4111, 4011). A
+  // dictionary line names them for "this document's party", and the first
+  // activated party makes them non-postable parents (party-accounting
+  // allocateAux) — so they stay valid on a posting rule whatever their flag.
   const { rows } = await c.query(
-    "SELECT code, label_fr, class FROM chart_of_accounts WHERE is_postable = true AND is_active IS DISTINCT FROM false ORDER BY code",
+    `SELECT code, label_fr, class FROM chart_of_accounts
+      WHERE (is_postable = true OR code = ANY($1::text[])) AND is_active IS DISTINCT FROM false
+      ORDER BY code`,
+    [partyControl],
   );
   return rows;
 }

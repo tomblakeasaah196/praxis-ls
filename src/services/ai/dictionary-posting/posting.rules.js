@@ -183,10 +183,26 @@ function priceCall(price, { input_tokens = 0, output_tokens = 0, queries = 0, gr
  *          pre-filled (code, French label from the parent where known, the
  *          longest existing ancestor) — for a person to confirm
  */
+/**
+ * The party control accounts — `party-accounting.service` PARTY (4111 for
+ * clients, 4011 for suppliers; tests/unit/dictionary-posting-rules.test.js
+ * pins the two lists together).
+ *
+ * On a dictionary line they stand for "this document's client / supplier":
+ * the posting engine (services/accounting/determination.js) books the
+ * counterpart on the party's own auxiliary account. The first activated
+ * client or supplier turns the control account into a non-postable parent
+ * (allocateAux), and mapping it to a "child" would then name ONE party's
+ * auxiliary account on a line every client is invoiced from. So a control
+ * account maps to itself whenever the chart has it.
+ */
+const PARTY_CONTROL_ACCOUNTS = new Set(["4111", "4011"]);
+
 function mapAccount(code, accounts) {
   const c = String(code);
   const byCode = new Map(accounts.map((a) => [String(a.code), a]));
   const hit = byCode.get(c);
+  if (hit && PARTY_CONTROL_ACCOUNTS.has(c)) return { suggested: c, account: c, how: "exact" };
   if (hit && hit.is_postable !== false) return { suggested: c, account: c, how: "exact" };
   const leaves = accounts
     .filter((a) => a.is_postable !== false && String(a.code).length > c.length && String(a.code).startsWith(c))
@@ -311,6 +327,7 @@ module.exports = {
   priceFor,
   priceCall,
   mapAccount,
+  PARTY_CONTROL_ACCOUNTS,
   taxFor,
   mapToTenant,
   localSuggestion,
