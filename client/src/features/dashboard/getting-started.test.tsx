@@ -19,7 +19,8 @@ vi.mock("@/lib/token-store", async (orig) => {
   return { ...mod, tokenStore: { ...mod.tokenStore, getEnv: () => env } };
 });
 
-import { GettingStartedPanel, type GettingStarted } from "./components/getting-started";
+import { GettingStartedPanel } from "./components/getting-started";
+import type { GettingStarted } from "./use-getting-started";
 import { DashboardPage } from "./index";
 
 const CHECKLIST: GettingStarted = {

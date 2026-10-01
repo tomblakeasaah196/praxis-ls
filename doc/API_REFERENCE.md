@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1835 |
+| Routes | 1850 |
 | Modules mounted | 141 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1835 mounted routes, grouped by path prefix.
+All 1850 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -53,6 +53,7 @@ All 1835 mounted routes, grouped by path prefix.
 | PUT | `/api/platform/ai-vendors/:vendor` | — |
 | PUT | `/api/platform/ai-vendors/:vendor/chat-primary` | — |
 | POST | `/api/platform/ai-vendors/:vendor/test` | — |
+| GET | `/api/platform/ai-vendors/gemini/dictionary-posting-model` | — |
 | GET | `/api/platform/ai-vendors/gemini/model-check` | — |
 
 ### `platform/audit`
@@ -505,6 +506,7 @@ All 1835 mounted routes, grouped by path prefix.
 |---|---|---|
 | GET | `/api/tenant/clients/` | — |
 | POST | `/api/tenant/clients/` | — |
+| DELETE | `/api/tenant/clients/:id` | — |
 | GET | `/api/tenant/clients/:id` | — |
 | PATCH | `/api/tenant/clients/:id` | — |
 | GET | `/api/tenant/clients/:id/360` | — |
@@ -534,6 +536,7 @@ All 1835 mounted routes, grouped by path prefix.
 | PATCH | `/api/tenant/clients/:id/contacts/:childId` | — |
 | POST | `/api/tenant/clients/:id/copy-from-origin` | — |
 | GET | `/api/tenant/clients/:id/credit` | — |
+| GET | `/api/tenant/clients/:id/discard-check` | — |
 | GET | `/api/tenant/clients/:id/documents` | — |
 | POST | `/api/tenant/clients/:id/documents` | — |
 | DELETE | `/api/tenant/clients/:id/documents/:childId` | — |
@@ -672,6 +675,7 @@ All 1835 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/currencies/rate-history` | — |
 | GET | `/api/tenant/currencies/rates` | — |
 | POST | `/api/tenant/currencies/rates` | — |
+| POST | `/api/tenant/currencies/rates/release` | — |
 | POST | `/api/tenant/currencies/sync` | — |
 | GET | `/api/tenant/currencies/sync-status` | — |
 
@@ -691,6 +695,7 @@ All 1835 mounted routes, grouped by path prefix.
 |---|---|---|
 | GET | `/api/tenant/dashboard/` | — |
 | GET | `/api/tenant/dashboard/control-tower` | — |
+| GET | `/api/tenant/dashboard/getting-started` | — |
 | GET | `/api/tenant/dashboard/kpi-catalog` | — |
 | GET | `/api/tenant/dashboard/kpis` | — |
 
@@ -881,6 +886,8 @@ All 1835 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/expense-rates/import/template` | — |
 | POST | `/api/tenant/expense-rates/import/validate` | — |
 | GET | `/api/tenant/expense-rates/resolve` | — |
+| GET | `/api/tenant/expense-rates/vat-basis` | — |
+| GET | `/api/tenant/expense-rates/vat-review` | — |
 
 ### `tenant/extra-charge-simulations`
 
@@ -928,6 +935,7 @@ All 1835 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/financial-dictionary/:id/rate-history` | — |
 | POST | `/api/tenant/financial-dictionary/:id/rates/apply-all` | — |
 | POST | `/api/tenant/financial-dictionary/:id/rates/supersede` | — |
+| POST | `/api/tenant/financial-dictionary/:id/siblings` | — |
 | GET | `/api/tenant/financial-dictionary/:id/spend` | — |
 | GET | `/api/tenant/financial-dictionary/:id/spend/documents` | — |
 | GET | `/api/tenant/financial-dictionary/:id/usage/:kind` | — |
@@ -935,10 +943,15 @@ All 1835 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/financial-dictionary/import/errors` | — |
 | GET | `/api/tenant/financial-dictionary/import/template` | — |
 | POST | `/api/tenant/financial-dictionary/import/validate` | — |
+| GET | `/api/tenant/financial-dictionary/posting-review` | — |
+| POST | `/api/tenant/financial-dictionary/posting-review` | — |
+| POST | `/api/tenant/financial-dictionary/posting-suggestion` | — |
 | GET | `/api/tenant/financial-dictionary/refs` | — |
 | POST | `/api/tenant/financial-dictionary/refs` | — |
 | PATCH | `/api/tenant/financial-dictionary/refs/:id` | — |
 | GET | `/api/tenant/financial-dictionary/search` | — |
+| GET | `/api/tenant/financial-dictionary/siblings` | — |
+| GET | `/api/tenant/financial-dictionary/siblings/unpaired` | — |
 
 ### `tenant/financing`
 
@@ -2037,6 +2050,8 @@ All 1835 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/signatures/print-jobs/:id/reprint` | — |
 | POST | `/api/tenant/signatures/proof/options` | — |
 | POST | `/api/tenant/signatures/proof/otp` | — |
+| GET | `/api/tenant/signatures/proof/window` | — |
+| POST | `/api/tenant/signatures/proof/window/end` | — |
 | GET | `/api/tenant/signatures/qes/quote` | — |
 | GET | `/api/tenant/signatures/qes/usage` | — |
 | GET | `/api/tenant/signatures/reasons` | — |

@@ -859,7 +859,9 @@ async function importValidate(c, { buffer, actor = {} }) {
       { label_fr: row.data.label_fr, label_en: row.data.label_en, category: row.data.category, direction: row.data.direction },
       { userId: actor.user_id || null, callBudget },
     );
-    row.ai_posting = {
+    // An object-literal key, so the response-contract scan sees the field
+    // the import preview reads (ImportStagingRow.ai_posting).
+    Object.assign(row, { ai_posting: {
       source: sug.source,
       model: sug.model,
       cache_entry_id: sug.cache_entry_id,
@@ -874,7 +876,7 @@ async function importValidate(c, { buffer, actor = {} }) {
       // A rule that needs an account created first cannot be accepted from
       // the preview: the person creates it in the wizard.
       acceptable: sug.rules.every((r) => r.debit_account && r.credit_account),
-    };
+    } });
   }
   const needing = valid.filter((r) => r.data.needs_posting).length;
   return {
