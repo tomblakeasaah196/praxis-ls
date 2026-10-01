@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1825 |
+| Routes | 1834 |
 | Modules mounted | 141 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1825 mounted routes, grouped by path prefix.
+All 1834 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1620,7 +1620,12 @@ All 1825 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/client/push/unsubscribe` | — |
 | GET | `/api/tenant/portal/client/quote-requests` | — |
 | POST | `/api/tenant/portal/client/quote-requests` | — |
+| GET | `/api/tenant/portal/client/quote-requests/:id` | — |
+| POST | `/api/tenant/portal/client/quote-requests/:id/documents` | — |
+| GET | `/api/tenant/portal/client/quote-requests/:id/documents/:attachmentId` | — |
+| POST | `/api/tenant/portal/client/quote-requests/documents` | — |
 | POST | `/api/tenant/portal/client/quote-requests/fill` | — |
+| GET | `/api/tenant/portal/client/quote-services` | — |
 | GET | `/api/tenant/portal/client/requests` | — |
 | POST | `/api/tenant/portal/client/requests/:id/answer` | — |
 | GET | `/api/tenant/portal/client/requests/:id/file` | — |
@@ -1651,6 +1656,7 @@ All 1825 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/invoice-bundles/:invoiceId` | — |
 | POST | `/api/tenant/portal/invoice-bundles/:invoiceId/withdraw` | — |
 | GET | `/api/tenant/portal/me` | — |
+| POST | `/api/tenant/portal/me/profile` | — |
 | GET | `/api/tenant/portal/messages` | — |
 | POST | `/api/tenant/portal/messages` | — |
 | GET | `/api/tenant/portal/onboarding` | yes |
@@ -1815,9 +1821,12 @@ All 1825 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/quote-requests/:id/attachments` | — |
 | POST | `/api/tenant/quote-requests/:id/attachments` | — |
 | DELETE | `/api/tenant/quote-requests/:id/attachments/:attachmentId` | — |
+| POST | `/api/tenant/quote-requests/:id/attachments/from-chat` | — |
 | POST | `/api/tenant/quote-requests/:id/convert-to-opportunity` | — |
 | POST | `/api/tenant/quote-requests/:id/transition` | — |
+| GET | `/api/tenant/quote-requests/client-match` | — |
 | GET | `/api/tenant/quote-requests/export.csv` | — |
+| GET | `/api/tenant/quote-requests/services` | — |
 | GET | `/api/tenant/quote-requests/tiles` | — |
 
 ### `tenant/rate-providers`
