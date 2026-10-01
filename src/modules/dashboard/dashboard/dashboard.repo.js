@@ -269,4 +269,27 @@ async function controlTower(client, options = {}) {
 // `needs_location` tile counts over the SAME expressions the map's banner and
 // queue use — one definition of "unplottable", because two copies is how the
 // tile and the banner start disagreeing about the same dossier.
-module.exports = { kpis, controlTower, TOWER_FROM, NEEDS_LOCATION_EXPR, IS_MOVEMENT_EXPR };
+/**
+ * The go-live checklist's live state (meeting 6, register 3.9), in one round
+ * trip. `env` is the schema this connection is pinned to — 'live' or
+ * 'sandbox' — read from the connection itself, so the HTTP path and an AI read
+ * cannot disagree about which environment they are looking at.
+ *
+ * Operations files are counted through `dossier_visible`: a DRAFT the wizard
+ * is still filling in is not a first file yet (dossier-draft-isolation).
+ */
+async function gettingStartedCounts(c) {
+  const { rows } = await c.query(
+    `SELECT current_schema() AS env,
+            (SELECT count(*) FROM client_master WHERE merged_into_id IS NULL)::int AS clients,
+            (SELECT count(*) FROM portal_access WHERE portal = 'CLIENT')::int AS portal_invites,
+            (SELECT count(*) FROM dossier_visible)::int AS operations_files,
+            (SELECT count(*) FROM treasury_account WHERE is_active)::int AS treasury_accounts,
+            (SELECT count(*) FROM email_connection
+              WHERE status = 'CONNECTED' AND archived_at IS NULL)::int AS mailboxes,
+            (SELECT count(*) FROM app_user WHERE status = 'ACTIVE')::int AS active_users`,
+  );
+  return rows[0];
+}
+
+module.exports = { kpis, controlTower, gettingStartedCounts, TOWER_FROM, NEEDS_LOCATION_EXPR, IS_MOVEMENT_EXPR };

@@ -30,6 +30,7 @@ module.exports = {
 
   reads: [
     { key: "tenant_kpis", service: (c) => service.kpis(c), permission: { module: MOD, action: "view" }, describe: "The tenant's headline KPIs — the numbers the dashboard opens on." },
+    { key: "go_live_checklist", service: (c) => service.gettingStarted(c), permission: { module: MOD, action: "view" }, describe: "On a LIVE workspace with no operations file yet: the go-live checklist — create a client, invite them to the portal, open the first operations file, set the treasury accounts, connect the mailbox, invite the team — each with whether it is done and the screen that does it. Empty (show: false) in TEST or once a file exists." },
     { key: "control_tower", service: (c, p) => service.controlTower(c, service.controlTowerOptions(p || {})), permission: { module: MOD, action: "view" }, describe: "Operations files in flight. Filter by mode (AIR/SEA/LAND/RAIL/OTHER), layer (MOVEMENT/ACTIVITY), verified (VERIFIED/UNVERIFIED), service_type_id, territory and a date window on date_field (created/updated/arrival/delivery)." },
   ],
 
