@@ -1,7 +1,7 @@
 # PR 3 of 4 — Money, master data and signing
 
 > Tenant review of 29 Sep 2026 ("meeting 6"). Owner decisions answered 2026-10-01.
-> Evidence and decisions: [register.md](register.md) (items 3.1–3.9, decisions F1–F6).
+> Evidence and decisions: [register.md](register.md) (items 3.1–3.9, decisions F1–F8).
 
 You are working in the praxis-ls repository: Praxis LS, a white-label, multi-tenant logistics
 and OHADA-accounting ERP. Backend Node/Express in `src/`, staff app in `client/`, public website
@@ -41,6 +41,10 @@ disagree, trust the code, say so in the PR, and carry on.
 - The header of `migrations/seeds/9082_seed_dictionary_reclass.sql` — why siblings exist.
 - The header of `src/modules/vault/document_signature/signing-proof.service.js` — what a
   signature proves today.
+- For section C: the headers of `migrations/seeds/9110_seed_platform_features.sql` (why `ai.*`
+  features are off by default), `migrations/tenant/10775_mail_ai_feature_flag.sql` and
+  `src/services/ai/gemini-model-check.service.js`; `canUseFeature` in
+  `src/modules/ai/governance/governance.service.js`.
 - `doc/FRONTEND_GUIDE.md` §3.5, §3.10, §3.12, §6.
 
 ## Owner decisions (final — do not re-ask)
@@ -63,6 +67,12 @@ disagree, trust the code, say so in the PR, and carry on.
 - **F6 Signing without fingerprint / face on the computer.** Offer the phone's passkey first
   (scan a QR, confirm on the phone); the emailed code is only the last resort. Plus a **5-minute
   window**: one confirmation also covers the same person's further signatures for 5 minutes.
+- **F7 The model and the cost.** A stronger Gemini model is used for this feature ONLY — no
+  other feature changes model. Every tenant has the feature, fully automatic, with nothing for
+  anyone to configure. Its answers are cached and reused, across tenants, to keep the cost as low
+  as it can go.
+- **F8 Where it runs.** In the create wizard, when a line's direction changes, in one review of
+  the existing lines, and on spreadsheet imports.
 
 **Auditor defaults** (applied unless the owner overrides them; recorded in the register):
 
@@ -121,28 +131,141 @@ disagree, trust the code, say so in the PR, and carry on.
   cost, is flagged before saving, with one sentence saying why and a one-tap switch.
 - Codes, posting rules and stored history of existing lines do not change.
 
-### C. The AI suggests a new line's OHADA posting (3.3, F3)
+### C. The AI suggests a line's OHADA posting (3.3, F3, F7, F8)
 
-- In the dictionary create wizard (`client/src/features/masterdata/financial-dictionary-form.tsx`),
-  a "Suggest the accounting" action — offered automatically once the label and category are
-  filled — proposes the direction, the débours flag, the VAT treatment and the posting rules
-  (context × debit / credit accounts) under SYSCOHADA, and pre-fills the "OHADA posting" block.
-  Anyone with dictionary create / edit rights edits and saves. Posting rules stay mandatory at
-  save (`financial_dictionary.service.js:211`).
-- **Sources, in this order:**
-  1. the tenant's own dictionary — lines with similar names or categories and their posting
-     rules (the company audited all 177 seeded rows, seed `9082`);
-  2. the tenant's chart of accounts — a suggestion resolves to EXISTING leaves, or offers the
-     existing "mint a missing CoA leaf" panel; it never invents an account silently;
-  3. `doc/OHADA_KB.md` and the AI knowledge layer;
-  4. the web, through Gemini with Google Search grounding. `src/services/ai/llm.service.js` uses
-     Gemini's OpenAI-compatible endpoint, which does not carry Google Search; call the native
-     `generateContent` the way `src/services/ai/gemini-transcription.service.js:147` already does,
-     and check Google's current documentation for the grounding request shape before coding.
-- **Show why.** A short rationale and the sources (web titles and links) beside the suggestion.
-  Record in the audit trail that the posting was AI-suggested, and who accepted or changed it.
-- Respect the tenant's AI switch: with AI off, no key, or a failed call, the form works exactly as
-  today. One call per click; cache by normalised label.
+**What the person sees.** In the dictionary create wizard
+(`client/src/features/masterdata/financial-dictionary-form.tsx`), once the label and category are
+filled, the "OHADA posting" block is pre-filled with a SYSCOHADA proposal: the direction, the
+débours flag, the VAT treatment and the posting rules (context × debit / credit accounts).
+Anyone with dictionary create / edit rights, operations or finance alike, edits and saves it.
+Posting rules stay mandatory at save (`financial_dictionary.service.js:211`). **Nothing the AI
+proposes is ever saved without a person.**
+
+**Its own feature, on for every tenant, nothing to configure (F7).**
+
+- Give this job its own feature key (for example `ai.dictionary_posting`), used by nothing else:
+  - a platform feature-catalogue entry (your seeds range) with `default_state = 'on'`, in every
+    plan, depending on nothing. The header of `9110_seed_platform_features.sql` explains why
+    `ai.*` keys are off by default; this one is the owner's deliberate exception (F7) — say so
+    in that header;
+  - its `ai_feature_flag` row, ON (your tenant range), as `10775_mail_ai_feature_flag.sql` did,
+    so per-user grants and the usage ledger can name it;
+  - `migrateTenant` re-projects features after migrating, so existing and newly provisioned
+    tenants get it with no console or tenant action. Prove it on a tenant whose assistant is OFF.
+- **Its own gate.** `canUseFeature` (`src/modules/ai/governance/governance.service.js`) checks
+  the ASSISTANT's tenant switch (`ai.assistant.backend`) whatever feature key it is given, and
+  the client hides all AI UI when `ai_enabled` is false (`client/src/components/ai-actions.tsx`,
+  `client/src/app/auth/auth-context.tsx:76`). Make the gate check this feature's own switch —
+  the per-user grant, the tenant's own budget and the plan's AI spend limit still apply —
+  expose the feature's state to the client beside `ai_enabled`, and do not put the suggestion
+  behind the assistant's gate. Turning the assistant off must not turn this off, and the reverse.
+  Every other feature's gate behaves exactly as today; add a test that proves it.
+
+**Its own, stronger model, chosen automatically (F7).**
+
+- It uses the platform's Gemini credential (`resolveVendor(null, "gemini")` — Platform Console
+  → Integrations → AI providers) but NOT that credential's model. It uses the strongest
+  generally available Gemini Pro-tier model — not preview, not experimental — that supports
+  `generateContent` and Google Search grounding on that key. Choose it automatically from Google's
+  native models list and verify it the way `src/services/ai/gemini-model-check.service.js`
+  verifies the platform model (bounded, cached, logged at boot). When none qualifies, fall back
+  to the platform Gemini model (the credential's, else `GEMINI_MODEL`) and log it. Show the chosen
+  model and its status, read-only, on the console's AI providers screen beside the existing check.
+  No other feature's model changes, and the console's chat-primary setting does not affect it.
+- Call the native `generateContent` with Google Search grounding, the way
+  `src/services/ai/gemini-transcription.service.js:147` calls the native API — `llm.service.js`
+  goes through Gemini's OpenAI-compatible endpoint, which has no Google Search. Before coding,
+  read Google's current documentation for the grounding request and response (the tool, the
+  grounding metadata) and Google's terms for grounded results: what must be shown with them and
+  what may be stored. The cache below must comply; if the terms limit storing Google's text,
+  cache only our own structured result and the source links.
+- Ask for a fixed JSON shape and validate it with a Zod schema in `packages/shared`. An answer
+  that does not parse is a failure (see the fallback), never half-applied.
+
+**Cache everything that can be cached (F7: "minimize cost to the max").**
+
+- Ask Gemini only for the GENERIC SYSCOHADA treatment of a kind of line: the direction, the
+  débours flag, the VAT treatment, the standard SYSCOHADA account numbers for each posting
+  context, a short rationale and the sources. **Never send tenant data** — no amounts, client or
+  supplier names, file references or the tenant's own account labels. The line's label,
+  category and direction are the whole question.
+- Store the answer on the PLATFORM (your platform range), shared by every tenant, keyed by:
+  - the normalised label — lower-case, accents stripped, punctuation and spaces collapsed, and
+    the sibling suffixes ("— Client Account", "— Own Cost", "— Deposit" and their French forms)
+    removed;
+  - the category;
+  - the direction, when the person has already chosen one. A changed direction asks again
+    under the new key.
+
+  Each entry records the model, the date and the sources. Refresh an entry only when the
+  feature's model changes or it is older than about 12 months.
+- Before any model call, look up in this order:
+  1. an exact cache hit;
+  2. a near hit through the existing embeddings service (`src/services/ai/embeddings.service.js`;
+     the platform database already carries pgvector, `migrations/platform/0040_ai_knowledge.sql`):
+     same category, a high similarity threshold. The UI names the cached line it matched and
+     offers "Search again". With no embeddings vendor configured, skip this step;
+  3. only then a grounded call.
+
+  Concurrent requests for the same key make one call. A cache hit costs nothing and says so.
+- Mapping the generic answer onto THIS tenant's chart of accounts happens locally, with no model
+  call: the nearest EXISTING postable leaf under the suggested account, else the existing "mint a
+  missing CoA leaf" panel (`financial-dictionary-form.tsx:97`) pre-filled for a person to
+  confirm. Never an invented account, never a silent mint.
+
+**Cost, safety and honesty.**
+
+- Record every model call and every grounded search in the tenant's `ai_usage_ledger` under
+  this feature's key. Don't let `recordUsage` price it: it charges the vendor row's single token
+  price (`estimateCostNative` in `governance.rules.js`), which is the platform model's price —
+  wrong for a Pro model, and blind to search fees. Seed this model's own prices in your platform
+  range — input, output, per grounded search — with their source and date, and pass the computed
+  `costNative`.
+- When the call is blocked or fails, the person gets a local suggestion instead. This covers:
+  - the plan's AI limit or the tenant's budget hard cap reached;
+  - a revoked user;
+  - no key;
+  - Google down;
+  - an answer that does not parse.
+
+  The local suggestion comes from the tenant's own audited lines (similar names and categories —
+  the company audited all 177 seeded rows, seed `9082`) and `doc/OHADA_KB.md`. It is labelled
+  "Suggested without a web search". Never a dead end and never a blocked save: the block can
+  always be filled by hand, as today.
+- Beside the suggestion, show:
+  - a short rationale;
+  - the sources — titles and links as Google returns them, plus whatever display Google's
+    terms require;
+  - a confidence level (high / medium / low). Lower it when the sources disagree, or when the
+    account had to be mapped to a parent or minted.
+
+  A low-confidence posting carries "Check this one" until a person confirms it.
+- The audit trail records:
+  - that the posting was AI-suggested, and whether it came from the cache, a fresh search or
+    the local fallback;
+  - the model and the cache entry;
+  - who accepted or changed it.
+- The assistant gets no write here. `financial_dictionary.ai.js` may expose the suggestion as a
+  READ; saving stays a person's act.
+
+**Where it runs (F8).** The same engine, cache first, in four places. In none of them does it
+save anything on its own:
+
+1. **The create wizard.** Automatic once the label and category are filled. It runs once per
+   line, not per keystroke, and asks again only when the label, category or direction changes.
+2. **Editing a line.** Changing a line's direction re-suggests its posting. The suggestion is
+   shown beside the current posting for the person to accept or not.
+3. **One review of the existing lines.** A person starts it from the Financial Dictionary
+   settings, and it runs as a background job in the worker. It lists every line whose posting
+   differs from the suggestion, with the reason and the sources, and changes nothing. A person
+   applies a suggestion line by line, through the normal edit; past postings never change. It
+   can resume, and the cache makes a second run — or another tenant's — nearly free.
+4. **Spreadsheet imports** (`financial_dictionary.import.js`, `importValidate` →
+   `importCommit`). A row without a posting is no longer rejected for that alone: validate
+   attaches a suggestion, and the preview marks those rows "AI-suggested posting". Commit takes
+   them only after the person accepts them in the preview, all at once or row by row. Use the
+   cache first, cap the fresh model calls one import may make, and give the remaining rows the
+   labelled local fallback.
 
 ### D. A rate says whether it includes VAT (3.4, F4)
 
@@ -249,8 +372,15 @@ disagree, trust the code, say so in the PR, and carry on.
    posted invoice are unchanged. The PR lists the counts.
 4. "Gate-Pass Fee" appears once in every picker; choosing "Billed to the client at cost" stores
    the débours sibling and "Our own cost" the expense sibling; a mismatch is flagged.
-5. Creating a line with AI on pre-fills a SYSCOHADA posting on existing accounts, with its
-   sources, editable by a non-finance user with create rights; with AI off the form is unchanged.
+5. On a tenant whose assistant is OFF, with nothing configured:
+   - creating a line pre-fills a SYSCOHADA posting on EXISTING accounts, with its sources and a
+     confidence level, and a non-finance user with create rights edits and saves it;
+   - the same label asked again from another tenant makes no model call;
+   - a blocked or failed call gives the labelled local suggestion and the form still saves;
+   - changing a line's direction re-suggests its posting;
+   - the review job lists mismatches and changes nothing;
+   - an import row without a posting gets a suggestion that the person accepts before commit;
+   - the ledger shows the model's own price and the search fee.
 6. A VAT-inclusive rate stores and shows its HT figure; a costing using it does not add VAT
    twice.
 7. Coverage takes countries from the ISO picker; "GB" for a Libreville row is flagged; an
