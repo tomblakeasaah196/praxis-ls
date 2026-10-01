@@ -7,6 +7,9 @@ const { resolveContext } = require("../../../services/spreadsheet");
 const { emitEvent, audit } = require("../../../shared/events/emit");
 const currencyRepo = require("../currency/currency.repo");
 const { page } = require("../../../shared/db/query-helpers");
+const crypto = require("crypto");
+const { dictionarySibling } = require("@praxis/shared");
+const { AppError } = require("../../../utils/errors");
 
 // The only columns a caller may write on dictionary_item. `code`, ids and the
 // timestamps are server-owned; picking an explicit set (never spreading the
@@ -24,9 +27,134 @@ const ITEM_COLS = [
 ];
 
 const listItems = (c, q) => repo.listItems(c, q);
-// The shared finder. Thin on purpose — the ranking is the query's job (repo),
-// and every caller across costing/quotation/cash-request wants the same shape.
-const searchItems = (c, q) => repo.searchItems(c, q);
+
+/** A sibling as a picker receives it: the hit shape plus its mode. */
+const asSibling = (r) => ({ ...r, mode: dictionarySibling.modeOf(r.direction) });
+
+/** Group rows by sibling_group, each group ordered as the question offers it. */
+function byGroup(rows) {
+  const out = new Map();
+  for (const r of rows) {
+    if (!out.has(r.sibling_group)) out.set(r.sibling_group, []);
+    out.get(r.sibling_group).push(asSibling(r));
+  }
+  for (const [k, v] of out) out.set(k, dictionarySibling.orderSiblings(v));
+  return out;
+}
+
+/**
+ * The shared finder. The ranking is the query's job (repo); this adds the
+ * siblings (meeting 6, F2).
+ *
+ * A service the catalogue holds in several fulfilment modes — "Gate-Pass Fee"
+ * (our own cost) and "Gate-Pass Fee — Client Account" (débours) — comes back
+ * ONCE, at the rank of its best-matching row, carrying every mode in
+ * `siblings` and its name without the suffix in `group_label_*`. The picker
+ * then asks one question and the answer chooses the row. `group: false` (the
+ * service-type mapping screen, which maps each row) or a `direction` filter (a
+ * cash request only ever advances débours) returns the rows one by one, still
+ * carrying their siblings.
+ */
+async function searchItems(c, q = {}) {
+  const rows = await repo.searchItems(c, q);
+  const groups = [...new Set(rows.map((r) => r.sibling_group).filter(Boolean))];
+  const members = byGroup(await repo.siblingsOfGroups(c, groups, { includeInactive: q.include_inactive === true }));
+  const collapse = q.group !== false && !q.direction;
+  const seen = new Set();
+  const out = [];
+  for (const r of rows) {
+    const sibs = r.sibling_group ? members.get(r.sibling_group) || [] : [];
+    const grouped = sibs.length > 1;
+    if (collapse && grouped) {
+      if (seen.has(r.sibling_group)) continue;
+      seen.add(r.sibling_group);
+    }
+    out.push({
+      ...asSibling(r),
+      siblings: grouped ? sibs : [],
+      group_label_en: grouped ? dictionarySibling.baseLabel(r.label_en) : null,
+      group_label_fr: grouped ? dictionarySibling.baseLabel(r.label_fr) : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * For each dictionary line, its mode and its siblings — what the line guard
+ * reads to say "this is our own cost on a client-billed line" and to offer the
+ * one-tap switch. `{ [id]: { mode, sibling_group, siblings } }`.
+ */
+async function siblingsFor(c, ids = []) {
+  const uniq = [...new Set(ids.filter(Boolean))].slice(0, 200);
+  const items = await repo.itemsWithGroup(c, uniq);
+  const groups = [...new Set(items.map((i) => i.sibling_group).filter(Boolean))];
+  const members = byGroup(await repo.siblingsOfGroups(c, groups));
+  const out = {};
+  for (const i of items) {
+    const sibs = i.sibling_group ? members.get(i.sibling_group) || [] : [];
+    out[i.dictionary_item_id] = {
+      dictionary_item_id: i.dictionary_item_id,
+      direction: i.direction,
+      mode: dictionarySibling.modeOf(i.direction),
+      sibling_group: i.sibling_group || null,
+      siblings: sibs.length > 1 ? sibs : [],
+    };
+  }
+  return out;
+}
+
+/** The lines 14342 could not pair, for a person to link or confirm. */
+const unpairedLines = (c) => repo.unpairedLines(c);
+
+/**
+ * Link a line to another line's service, or confirm it stands alone — the
+ * person's answer to "Lines to pair".
+ *
+ * A group holds ONE row per mode: linking a second débours row to a group that
+ * already has one is refused, because the picker could not say which of the two
+ * "Billed to the client at cost" means.
+ */
+async function linkSibling(c, { id, linkTo = null, standsAlone = false, actor = {} }) {
+  const item = await repo.getItemRow(c, id);
+  if (!item) return null;
+  const userId = actor.user_id || null;
+  await c.query("BEGIN");
+  try {
+    let after;
+    if (standsAlone) {
+      const old = item.sibling_group;
+      await repo.setSiblingGroup(c, [id], null, userId);
+      await repo.dissolveSingleton(c, old);
+      after = { sibling_group: null, stands_alone: true };
+    } else {
+      if (!linkTo || linkTo === id) throw new AppError("VALIDATION_ERROR", "Pick the other line of the same service to link to.", 422);
+      const target = await repo.getItemRow(c, linkTo);
+      if (!target) throw new AppError("NOT_FOUND", "The line to link to was not found", 404);
+      const group = target.sibling_group || item.sibling_group || crypto.randomUUID();
+      const { rows: clash } = await c.query(
+        "SELECT code FROM dictionary_item WHERE sibling_group = $1 AND direction = $2 AND dictionary_item_id <> $3 LIMIT 1",
+        [group, item.direction, id],
+      );
+      if (clash[0] || (target.direction === item.direction)) {
+        throw new AppError(
+          "SIBLING_MODE_TAKEN",
+          `That service already has a ${dictionarySibling.answerFor(dictionarySibling.modeOf(item.direction), "en").toLowerCase()} line${clash[0] ? ` (${clash[0].code})` : ""}. A service holds one line per way it is charged.`,
+          409,
+        );
+      }
+      const old = item.sibling_group;
+      await repo.setSiblingGroup(c, [id, linkTo], group, userId);
+      if (old && old !== group) await repo.dissolveSingleton(c, old);
+      after = { sibling_group: group, linked_to: target.code };
+    }
+    await audit(c, {
+      actorUserId: userId, action: events.SIBLING_LINKED, moduleKey: events.MODULE, entityRef: `dict:${item.code}`,
+      before: { sibling_group: item.sibling_group || null }, after,
+    });
+    await c.query("COMMIT");
+  } catch (err) { await c.query("ROLLBACK"); throw err; }
+  return (await siblingsFor(c, [id]))[id];
+}
 
 async function get(c, id) {
   const item = await repo.getItem(c, id);
@@ -607,7 +735,7 @@ async function updateRef(c, { id, patch, actor }) {
 }
 
 module.exports = {
-  listItems, searchItems, get, dossier, listUsage, create, update,
+  listItems, searchItems, siblingsFor, unpairedLines, linkSibling, get, dossier, listUsage, create, update,
   spend, spendDocumentsPage, rateEvolution, supersedeRate, applyRateToProviders,
   importTemplate, importValidate, importCommit, importErrorFile,
   listRefs, createRef, updateRef,

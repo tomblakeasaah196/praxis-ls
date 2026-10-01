@@ -1494,22 +1494,117 @@ export type DictSearchHit = {
   client_heading_fr?: string | null;
   client_heading_en?: string | null;
   score?: number;
+  /** 14342: the rows of one service in its fulfilment modes share this id. */
+  sibling_group?: string | null;
+  /** The row's fulfilment mode — billed (débours) / own / deposit / service. */
+  mode?: SiblingMode | null;
+  /** Every mode of the service, when it has more than one (meeting 6, F2).
+   *  The finder shows the service once and asks which one. */
+  siblings?: DictSearchHit[];
+  /** The service's name without the "— Client Account" suffix. */
+  group_label_en?: string | null;
+  group_label_fr?: string | null;
 };
+export type SiblingMode = "billed" | "own" | "deposit" | "service";
+/** Who a document charges, which decides the sibling a picker presets and
+ *  what its guard flags: a document that bills a client, or our own purchase. */
+export type Fulfilment = "billed" | "own";
 export const searchDict = (opts: {
   q: string;
   limit?: number;
   direction?: Direction;
   service_type_id?: string;
   include_inactive?: boolean;
+  /** false lists every fulfilment mode as its own row (service-type mapping). */
+  group?: boolean;
 }) => {
   const p = new URLSearchParams({ q: opts.q });
   if (opts.limit) p.set("limit", String(opts.limit));
   if (opts.direction) p.set("direction", opts.direction);
   if (opts.service_type_id) p.set("service_type_id", opts.service_type_id);
   if (opts.include_inactive) p.set("include_inactive", "true");
+  if (opts.group === false) p.set("group", "false");
   return tenant<DictSearchHit[]>(
     `/financial-dictionary/search?${p.toString()}`,
   );
+};
+
+/* ── Siblings (14342, meeting 6 F2) ─────────────────────────────────────── */
+
+export type DictSiblingInfo = {
+  dictionary_item_id: string;
+  direction: Direction;
+  mode: SiblingMode | null;
+  sibling_group: string | null;
+  siblings: DictSearchHit[];
+};
+
+/*
+ * The line guard asks about every line on a document, so the lookups are
+ * batched: ids requested in the same tick go out as one
+ * GET /financial-dictionary/siblings?ids=… and each answer is kept for the
+ * session — a line's siblings do not change while someone edits a costing.
+ */
+const siblingCache = new Map<string, Promise<DictSiblingInfo | null>>();
+let siblingQueue: string[] = [];
+let siblingResolvers = new Map<string, (v: DictSiblingInfo | null) => void>();
+let siblingTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flushSiblings() {
+  const ids = siblingQueue;
+  const resolvers = siblingResolvers;
+  siblingQueue = [];
+  siblingResolvers = new Map();
+  siblingTimer = null;
+  tenant<Record<string, DictSiblingInfo>>(
+    `/financial-dictionary/siblings?ids=${ids.map(encodeURIComponent).join(",")}`,
+  )
+    .then((map) => {
+      for (const id of ids) resolvers.get(id)?.(map?.[id] ?? null);
+    })
+    .catch(() => {
+      // A defined fallback: the guard is advice, so without an answer it
+      // stays quiet and the line saves exactly as before. Forgotten from the
+      // cache so the next render asks again.
+      for (const id of ids) {
+        siblingCache.delete(id);
+        resolvers.get(id)?.(null);
+      }
+    });
+}
+
+export function dictSiblings(id: string): Promise<DictSiblingInfo | null> {
+  const hit = siblingCache.get(id);
+  if (hit) return hit;
+  const p = new Promise<DictSiblingInfo | null>((resolve) => {
+    siblingQueue.push(id);
+    siblingResolvers.set(id, resolve);
+    if (!siblingTimer) siblingTimer = setTimeout(flushSiblings, 0);
+  });
+  siblingCache.set(id, p);
+  return p;
+}
+
+export type UnpairedDictLine = {
+  dictionary_item_id: string;
+  code: string;
+  label_en: string | null;
+  label_fr: string;
+  direction: Direction;
+  sibling_group: string | null;
+  reason: "NO_PARTNER" | "MODE_CONTRADICTS_NAME";
+};
+export const unpairedDictLines = () =>
+  tenant<UnpairedDictLine[]>("/financial-dictionary/siblings/unpaired");
+export const linkDictSibling = (
+  id: string,
+  body: { link_to: string } | { stands_alone: true },
+) => {
+  siblingCache.clear();
+  return tenant<DictSiblingInfo>(`/financial-dictionary/${id}/siblings`, {
+    method: "POST",
+    body,
+  });
 };
 
 export const dictDossier = (id: string) =>

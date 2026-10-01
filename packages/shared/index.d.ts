@@ -1079,3 +1079,26 @@ export declare namespace callSummary {
 
   function isLanguage(value: unknown): value is Language;
 }
+
+/** A dictionary row seen as one fulfilment mode of a service (meeting 6, F2). */
+export type SiblingMode = "billed" | "own" | "deposit" | "service";
+export type SiblingLike = { direction: string; [k: string]: unknown };
+
+export declare namespace dictionarySibling {
+  const MODE_BY_DIRECTION: Readonly<Record<string, SiblingMode>>;
+  const MODE_ORDER: readonly SiblingMode[];
+  const QUESTION: { readonly en: string; readonly fr: string };
+  const ANSWERS: Readonly<Record<SiblingMode, { readonly en: string; readonly fr: string }>>;
+  const SUFFIX: RegExp;
+  function modeOf(direction: string | null | undefined): SiblingMode | null;
+  function baseLabel(label: string | null | undefined): string;
+  function hasSiblingSuffix(label: string | null | undefined): boolean;
+  function answerFor(mode: SiblingMode, lang: "en" | "fr" | string): string;
+  function orderSiblings<T extends SiblingLike>(siblings: readonly T[]): T[];
+  function presetFor<T extends SiblingLike>(context: "billed" | "own" | null | undefined, siblings: readonly T[]): T | null;
+  function mismatch<T extends SiblingLike>(
+    context: "billed" | "own" | null | undefined,
+    direction: string,
+    siblings: readonly T[],
+  ): { to: T; to_mode: SiblingMode; reason: { en: string; fr: string } } | null;
+}

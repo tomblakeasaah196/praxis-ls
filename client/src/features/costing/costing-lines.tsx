@@ -33,7 +33,8 @@ import { Panel } from "@/components/ui/panel";
 import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DictionaryFinder } from "@/components/dictionary-finder";
-import type { DictSearchHit } from "@/lib/masterdata-api";
+import type { DictSearchHit, Fulfilment } from "@/lib/masterdata-api";
+import { dictLabel } from "@/lib/dict-label";
 import type { EquipmentPick } from "@/components/equipment-step";
 // Lines and sub-totals carry NO currency: the sheet has one, named in its
 // header and printed on the grand total (meeting 5). `money` is for that total.
@@ -63,8 +64,13 @@ export function LineGrid({
   vatCodes,
   readOnly,
   onChange,
+  fulfilment,
 }: {
   lines: LineDraft[];
+  /** Who this costing charges (meeting 6, F2) — a client's file is "billed":
+   *  the picker presets the débours row of a service and the guard flags our
+   *  own cost on it. */
+  fulfilment?: Fulfilment | null;
   dossierId?: string | null;
   /** Scopes the charge picker to this file's service. Without it the finder
    *  offers all 165 catalogue items instead of the ~20 mapped to this service —
@@ -275,6 +281,40 @@ export function LineGrid({
       if (id && changed) fillPrice(id, null);
     };
 
+  /**
+   * The guard's one-tap switch (F2): the same service in its other fulfilment
+   * mode. Quantity and container type stay — the work is the same, only who
+   * pays for it changes — while the nature, the VAT decision and the heading
+   * follow the new row, and an unpriced line is priced for it.
+   */
+  const switchSibling = (i: number) => (to: DictSearchHit) => {
+    const l = lines[i];
+    replaceLine(
+      i,
+      withVatDefault(
+        {
+          ...l,
+          dictionary_item_id: to.dictionary_item_id,
+          label: dictLabel(to),
+          item_code: to.code,
+          client_heading: null,
+          client_heading_code: to.client_heading_code ?? null,
+          client_heading_fr: to.client_heading_fr ?? null,
+          client_heading_en: to.client_heading_en ?? null,
+          is_disbursement: to.is_disbursement === true,
+          tax_code_id: undefined,
+          tax_rate_percent: undefined,
+          upstream_vat_rate_percent: undefined,
+          upstream_vat_amount: undefined,
+          vat_mode: undefined,
+        },
+        defaultTax,
+      ),
+    );
+    if (!Number(l.unit_cost))
+      fillPrice(to.dictionary_item_id, l.container_type_ref_id || null);
+  };
+
   /*
    * Each cell's control, once. The desktop table and the phone cards below
    * render the SAME controls — a second copy of the VAT boxes for the phone
@@ -299,6 +339,8 @@ export function LineGrid({
           serviceTypeId={serviceTypeId || null}
           onPick={pickOne(i)}
           onPickMulti={pickMulti(i)}
+          fulfilment={fulfilment}
+          onSwitchSibling={switchSibling(i)}
           placeholder={tr("Search a charge…")}
         />
       )}

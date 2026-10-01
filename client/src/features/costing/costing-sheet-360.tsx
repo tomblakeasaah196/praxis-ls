@@ -681,6 +681,9 @@ export function CostingSheet360({
             ) : (
               <LineGrid
                 lines={lines || []}
+                // A client's file is billed: the débours row of a service is
+                // preset and our own cost is flagged (meeting 6, F2).
+                fulfilment={file ? (file.client_name ? "billed" : "own") : null}
                 dossierId={c.dossier_id}
                 serviceTypeId={file?.service_type_id}
                 currency={ccy}

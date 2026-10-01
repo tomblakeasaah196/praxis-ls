@@ -22,6 +22,7 @@ const notificationInterrupt = require("./rules/notification-interrupt");
 const notificationEmailDefault = require("./rules/notification-email-default");
 const workSchedule = require("./rules/work-schedule");
 const quickPin = require("./rules/quick-pin");
+const dictionarySibling = require("./rules/dictionary-sibling");
 const pwaDesign = require("./pwa-design");
 const countries = require("./data/countries");
 const currencies = require("./data/currencies");
@@ -85,6 +86,12 @@ exports.notificationEmailDefault = notificationEmailDefault;
 // a weak PIN at registration and My security says so as the user types — two
 // lists disagree, and the visible failure is a 422 after pressing Save.
 exports.quickPin = quickPin;
+// One service, several fulfilment modes (débours / own cost / deposit / own
+// service): the mode each direction stands for, the one question a picker asks,
+// the preset for a context and the mismatch guard. Shared because the API
+// stamps the mode and presets Suggest, and every picker draws the question and
+// the guard from the same table (meeting 6, F2).
+exports.dictionarySibling = dictionarySibling;
 // Canonical ISO country reference (code, name, phone, currency, per-jurisdiction
 // registration requirements) — the API, the seed and the client picker's source.
 /*

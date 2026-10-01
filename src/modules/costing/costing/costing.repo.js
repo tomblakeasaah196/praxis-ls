@@ -528,7 +528,7 @@ async function tieredItems(client, { serviceTypeId, tier = "FULL" }) {
     `SELECT di.dictionary_item_id, di.code, di.label_en, di.label_fr, di.description,
             di.direction, di.category, di.subcategory, di.unit_of_measure,
             di.is_disbursement, di.is_billable, di.varies_by_equipment,
-            di.disbursement_vat_transparent, di.currency,
+            di.disbursement_vat_transparent, di.currency, di.sibling_group,
             ${STANDARD_RATE_COLUMNS}, ${CLIENT_HEADING_COLUMNS},
             sti.tier, sti.sort_order
        FROM service_type_dictionary_item sti
