@@ -11,6 +11,7 @@ import { parseAmount } from "./lib/numbers";
 import { errorText } from "./ui/kit";
 import { en } from "./portal-copy";
 import { en as siteDict } from "@/lib/i18n-dict";
+import { en as steps } from "@/components/quote/quote-steps-copy";
 
 const site = siteDict.site.quote;
 import { PLATE_GROUND_FLOOR, SCRIM_DOOR_VEIL, SCRIM_DOOR_WASH, SCRIM_FLOOR } from "@/components/site/hero-scrim";
@@ -697,7 +698,7 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
   async function openAirImport(extra: typeof routes = {}) {
     const view = await openQuote(extra);
     fireEvent.click(await view.findByRole("radio", { name: site.modeAIR }));
-    fireEvent.click(view.getByRole("radio", { name: site.flowIMPORT }));
+    fireEvent.click(view.getByRole("radio", { name: steps.flowIMPORT }));
     fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
     return view;
   }
@@ -707,10 +708,10 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
     fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
     fireEvent.change(await view.findByRole("textbox", { name: en.quote.what }), { target: { value: what } });
     fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
-    await view.findByText(site.docsWhy, { exact: false });
-    const input = view.getByLabelText(site.docsAdd) as HTMLInputElement;
+    await view.findByText(steps.docsWhy, { exact: false });
+    const input = view.getByLabelText(steps.docsAdd) as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File(["%PDF-1.4"], "invoice.pdf", { type: "application/pdf" })] } });
-    await view.findByText(site.docsComplete, undefined, SLOW);
+    await view.findByText(steps.docsComplete, undefined, SLOW);
     fireEvent.click(view.getByRole("button", { name: new RegExp(en.quote.send) }));
   }
 
@@ -813,9 +814,9 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
     fireEvent.click(getByRole("button", { name: new RegExp(en.common.next) }));
     fireEvent.change(await findByRole("textbox", { name: en.quote.what }), { target: { value: "Spare parts" } });
     fireEvent.click(getByRole("button", { name: new RegExp(en.common.next) }));
-    await findByText(site.docsRequired, { exact: false });
+    await findByText(steps.docsRequired, { exact: false });
     fireEvent.click(getByRole("button", { name: new RegExp(en.quote.send) }));
-    expect(await findByText(site.errDocs)).toBeTruthy();
+    expect(await findByText(steps.errDocs)).toBeTruthy();
     expect(sent).toHaveLength(0);
   });
 
@@ -840,10 +841,10 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
   it("asks a hinterland transit which way it runs, and sends the answer", async () => {
     const view = await openQuote();
     fireEvent.click(await view.findByRole("radio", { name: site.modeRAIL }));
-    fireEvent.click(view.getByRole("radio", { name: site.flowHINTERLAND }));
+    fireEvent.click(view.getByRole("radio", { name: steps.flowHINTERLAND }));
     fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
-    expect(await view.findByText(site.errHinterland)).toBeTruthy();
-    fireEvent.click(view.getByRole("radio", { name: new RegExp(site.hinterlandINTO) }));
+    expect(await view.findByText(steps.errHinterland)).toBeTruthy();
+    fireEvent.click(view.getByRole("radio", { name: new RegExp(steps.hinterlandINTO) }));
     fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
     await view.findByRole("button", { name: new RegExp(en.quote.from) });
   });
@@ -851,7 +852,7 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
   it("goes straight to the place and the duration for storage — one service, no flow", async () => {
     const view = await openQuote();
     fireEvent.click(await view.findByRole("radio", { name: site.modeSTORAGE }));
-    expect(view.queryByRole("group", { name: site.flow })).toBeNull();
+    expect(view.queryByRole("group", { name: steps.flow })).toBeNull();
     fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
     expect(await view.findByLabelText(site.warehouseLocation)).toBeTruthy();
   });
@@ -860,7 +861,7 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
     const view = await openQuote();
     await view.findByRole("radio", { name: site.modeAIR });
     expect(view.queryByRole("radio", { name: "Project Cargo" })).toBeNull();
-    fireEvent.click(view.getByRole("button", { name: site.otherServices }));
+    fireEvent.click(view.getByRole("button", { name: steps.otherServices }));
     fireEvent.click(view.getByRole("radio", { name: "Project Cargo" }));
     fireEvent.click(view.getByRole("button", { name: new RegExp(en.common.next) }));
     await view.findByRole("button", { name: new RegExp(en.quote.from) });
@@ -924,6 +925,6 @@ describe("a request, opened (meeting 6, item 2.9)", { timeout: 20000 }, () => {
     getByText(en.quote.detail.toBeDetermined);
     getByText(en.quote.status.UNDER_REVIEW);
     getByText("Tiles, Shanghai to Douala");
-    getByText(site.docsAdd);
+    getByText(steps.docsAdd);
   });
 });

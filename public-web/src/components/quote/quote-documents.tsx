@@ -6,6 +6,9 @@ import { isSafeBlobUrl } from "@/lib/image-compress";
 import { CheckIcon, CloseIcon, DocumentIcon } from "@/components/ui/icons";
 import { DOCUMENT_KINDS, type DocumentKind } from "@/lib/quote-scope";
 import { QUOTE_DOC_ACCEPT, type QuoteDocuments as Docs } from "@/lib/use-quote-documents";
+// The shared quote steps' copy lives outside the entry dictionary; see
+// quote-steps-i18n.ts. Imported for the side effect.
+import "@/components/quote/quote-steps-i18n";
 
 /**
  * The documents step — shared by both quote wizards (meeting 6, PR 2, owner
@@ -58,20 +61,20 @@ export function QuoteDocumentsStep({
   return (
     <div className="space-y-4">
       <p className={cn("rounded-[calc(var(--radius)-2px)] border p-3 text-sm", variant === "portal" ? "pt-card" : "bg-[var(--secondary)]")}>
-        {t("site.quote.docsWhy")}{" "}
-        <span className="text-muted-foreground">{required ? t("site.quote.docsRequired") : t("site.quote.docsOptional")}</span>
+        {t("site.quoteSteps.docsWhy")}{" "}
+        <span className="text-muted-foreground">{required ? t("site.quoteSteps.docsRequired") : t("site.quoteSteps.docsOptional")}</span>
       </p>
 
       <fieldset>
-        <legend className={variant === "site" ? "field-label" : "pt-label"}>{t("site.quote.docsKind")}</legend>
+        <legend className={variant === "site" ? "field-label" : "pt-label"}>{t("site.quoteSteps.docsKind")}</legend>
         <div className="mt-1 flex flex-wrap gap-2">
           {DOCUMENT_KINDS.map((k) => (
             <label key={k} className={chipClass(kind === k)}>
               <input type="radio" name={`${idPrefix}-doc-kind`} checked={kind === k} onChange={() => setKind(k)} className="sr-only" />
-              {t(`site.quote.doc${k}`)}
+              {t(`site.quoteSteps.doc${k}`)}
               {k === "COMMERCIAL_INVOICE" ? (
                 <span className="rounded-full bg-[rgb(var(--ok)/0.12)] px-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[rgb(var(--ok))]">
-                  {t("site.quote.docRecommended")}
+                  {t("site.quoteSteps.docRecommended")}
                 </span>
               ) : null}
             </label>
@@ -81,7 +84,7 @@ export function QuoteDocumentsStep({
 
       <FilePicker
         accept={QUOTE_DOC_ACCEPT}
-        label={t("site.quote.docsAdd")}
+        label={t("site.quoteSteps.docsAdd")}
         multiple
         disabled={docs.busy && variant === "site"}
         onPick={(files) => void docs.add(files, kind)}
@@ -93,7 +96,7 @@ export function QuoteDocumentsStep({
             )}
           >
             <DocumentIcon size={18} />
-            {t("site.quote.docsAddAs", { kind: t(`site.quote.doc${kind}`) })}
+            {t("site.quoteSteps.docsAddAs", { kind: t(`site.quoteSteps.doc${kind}`) })}
           </span>
         }
       />
@@ -108,25 +111,25 @@ export function QuoteDocumentsStep({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-foreground">{d.name}</p>
                 <p className="num text-xs text-muted-foreground">
-                  {t(`site.quote.doc${d.kind}`)} · {formatBytes(d.bytes)}
-                  {d.originalBytes ? ` · ${t("site.quote.docsWas", { size: formatBytes(d.originalBytes) })}` : ""}
+                  {t(`site.quoteSteps.doc${d.kind}`)} · {formatBytes(d.bytes)}
+                  {d.originalBytes ? ` · ${t("site.quoteSteps.docsWas", { size: formatBytes(d.originalBytes) })}` : ""}
                 </p>
                 {d.state === "error" ? (
                   <p role="alert" className="mt-1 text-sm text-[rgb(var(--bad))]">
                     {d.error}
                   </p>
                 ) : d.state === "preparing" ? (
-                  <p className="mt-1 text-xs text-muted-foreground">{t("site.quote.docsPreparing")}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t("site.quoteSteps.docsPreparing")}</p>
                 ) : d.state === "uploading" || d.state === "done" ? (
                   <div className="mt-1.5" role="status" aria-live="polite">
                     <div className="flex items-center justify-between text-xs">
                       {d.state === "done" ? (
                         <span className="inline-flex items-center gap-1 font-semibold text-[rgb(var(--ok))]">
                           <CheckIcon size={14} />
-                          {t("site.quote.docsComplete")}
+                          {t("site.quoteSteps.docsComplete")}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">{t("site.quote.docsSending")}</span>
+                        <span className="text-muted-foreground">{t("site.quoteSteps.docsSending")}</span>
                       )}
                       <span className="num text-muted-foreground">{d.state === "done" ? 100 : d.pct}%</span>
                     </div>
@@ -143,7 +146,7 @@ export function QuoteDocumentsStep({
                 type="button"
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-[calc(var(--radius)-4px)] text-muted-foreground hover:bg-[rgb(var(--ink)/0.06)]"
                 onClick={() => docs.remove(d.id)}
-                aria-label={t("site.quote.docsRemove", { name: d.name })}
+                aria-label={t("site.quoteSteps.docsRemove", { name: d.name })}
                 disabled={d.state === "uploading"}
               >
                 <CloseIcon size={16} />

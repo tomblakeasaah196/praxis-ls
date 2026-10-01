@@ -29,6 +29,9 @@ import { ArrowRightIcon, ChevronRightIcon, DocIcon, DownloadIcon, QuoteIcon } fr
 import { dayLabel } from "../lib/when";
 import { ModeIcon } from "./shipment-parts";
 import type { Tone } from "../ui/kit";
+// The shared quote steps' copy lives outside the entry dictionary; see
+// quote-steps-i18n.ts. Imported for the side effect.
+import "@/components/quote/quote-steps-i18n";
 
 /** A request's status as a colour — the list and the detail read the same. */
 export const STATUS_TONE: Record<string, Tone> = {
@@ -89,8 +92,8 @@ function Detail({ d, onChanged, onOpenProposal }: { d: PortalQuoteDetail; onChan
     messages: {
       badType: t("portal.upload.badType"),
       tooBig: t("portal.upload.tooBig", { limit: "10 MB" }),
-      tooMany: t("site.quote.docsTooMany"),
-      totalTooBig: t("site.quote.docsTotalTooBig"),
+      tooMany: t("site.quoteSteps.docsTooMany"),
+      totalTooBig: t("site.quoteSteps.docsTotalTooBig"),
       unreadable: t("portal.upload.unreadable"),
     },
   });
@@ -136,7 +139,7 @@ function Detail({ d, onChanged, onOpenProposal }: { d: PortalQuoteDetail; onChan
             <ModeIcon mode={svc ? svc.card : "OTHER"} size={20} />
           </span>
           {svc ? serviceName(svc, lang) : d.service_category || "—"}
-          {d.hinterland_direction ? <Pill plain>{t(`site.quote.hinterland${d.hinterland_direction}`)}</Pill> : null}
+          {d.hinterland_direction ? <Pill plain>{t(`site.quoteSteps.hinterland${d.hinterland_direction}`)}</Pill> : null}
         </p>
         {route ? (
           <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm text-foreground">
@@ -186,7 +189,7 @@ function Detail({ d, onChanged, onOpenProposal }: { d: PortalQuoteDetail; onChan
           {!adding ? (
             <button type="button" className="pt-btn pt-btn-soft pt-btn-sm" onClick={() => setAdding(true)}>
               <DocIcon size={16} />
-              {t("site.quote.docsAdd")}
+              {t("site.quoteSteps.docsAdd")}
             </button>
           ) : null}
         </div>
@@ -198,7 +201,7 @@ function Detail({ d, onChanged, onOpenProposal }: { d: PortalQuoteDetail; onChan
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-foreground">{doc.name || t("portal.quote.detail.document")}</span>
                   <span className="block text-xs text-muted-foreground">
-                    {doc.document_kind ? t(`site.quote.doc${doc.document_kind}`) : t("portal.quote.detail.document")} · {dayLabel(doc.created_at)}
+                    {doc.document_kind ? t(`site.quoteSteps.doc${doc.document_kind}`) : t("portal.quote.detail.document")} · {dayLabel(doc.created_at)}
                   </span>
                 </span>
                 <DownloadIcon size={18} className="text-muted-foreground" />

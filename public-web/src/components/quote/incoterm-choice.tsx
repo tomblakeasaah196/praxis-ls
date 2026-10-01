@@ -2,6 +2,9 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import { getLang } from "@/lib/i18n";
 import type { QuoteService } from "@/lib/quote-scope";
+// The shared quote steps' copy lives outside the entry dictionary; see
+// quote-steps-i18n.ts. Imported for the side effect.
+import "@/components/quote/quote-steps-i18n";
 
 /**
  * The delivery term, as the chosen service offers it (meeting 6, PR 2, owner
@@ -63,7 +66,7 @@ export function IncotermChoice({
       <p className="mb-2 text-sm text-muted-foreground">{t("site.quote.incotermHint")}</p>
       <div className="flex flex-wrap gap-2">
         {terms.map((i) => chip(i.code, i.code, lang === "fr" ? i.name_fr : i.name_en))}
-        {chip("", t("site.quote.incotermNotSure"), null)}
+        {chip("", t("site.quoteSteps.incotermNotSure"), null)}
       </div>
     </fieldset>
   );

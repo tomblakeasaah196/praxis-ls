@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { BrandingProvider } from "@/app/branding";
 import { QuoteWizard } from "@/components/site/quote-wizard";
 import { en } from "@/lib/i18n-dict";
+import { en as steps } from "@/components/quote/quote-steps-copy";
 import type { ServiceCard } from "@/lib/services-api";
 
 /**
@@ -128,7 +129,7 @@ const settle = () =>
   });
 
 /** Fill step 1 (Sea → Import by default) and advance. */
-async function stepNeed(card: string = en.site.quote.modeSEA, flow: string | null = en.site.quote.flowIMPORT) {
+async function stepNeed(card: string = en.site.quote.modeSEA, flow: string | null = steps.flowIMPORT) {
   choose(card);
   if (flow) choose(flow);
   press(en.site.quote.next);
@@ -196,7 +197,7 @@ describe("a step will not advance while it is incomplete", () => {
     await mount();
     choose(en.site.quote.modeSEA);
     press(en.site.quote.next);
-    expect(await screen.findByText(en.site.quote.errFlow)).toBeInTheDocument();
+    expect(await screen.findByText(steps.errFlow)).toBeInTheDocument();
   });
 
   it("says nothing until an attempt is made", async () => {
@@ -235,7 +236,7 @@ describe("the first step is six cards, read off the tenant's services (owner dec
     }
     // No road service published here, so no Road card.
     expect(within(group).queryByRole("radio", { name: new RegExp("^" + en.site.quote.modeROAD) })).toBeNull();
-    expect(within(group).getByText(en.site.quote.transport)).toBeInTheDocument();
+    expect(within(group).getByText(steps.transport)).toBeInTheDocument();
   });
 
   it("names the tenant's own services under each card", async () => {
@@ -247,20 +248,20 @@ describe("the first step is six cards, read off the tenant's services (owner dec
   it("offers only the flows that exist under the card", async () => {
     await mount();
     choose(en.site.quote.modeRAIL);
-    const flow = screen.getByRole("group", { name: en.site.quote.flow });
+    const flow = screen.getByRole("group", { name: steps.flow });
     expect(within(flow).getAllByRole("radio").map((r) => r.closest("label")?.textContent)).toEqual([
-      en.site.quote.flowINLAND,
-      en.site.quote.flowHINTERLAND,
+      steps.flowINLAND,
+      steps.flowHINTERLAND,
     ]);
   });
 
   it("asks into or out of the hinterland for a hinterland transit (owner decision Q2)", async () => {
     await mount();
     choose(en.site.quote.modeRAIL);
-    choose(en.site.quote.flowHINTERLAND);
+    choose(steps.flowHINTERLAND);
     press(en.site.quote.next);
-    expect(await screen.findByText(en.site.quote.errHinterland)).toBeInTheDocument();
-    choose(en.site.quote.hinterlandINTO);
+    expect(await screen.findByText(steps.errHinterland)).toBeInTheDocument();
+    choose(steps.hinterlandINTO);
     press(en.site.quote.next);
     await screen.findByLabelText(labelRe(en.site.quote.originPlace));
   });
@@ -268,7 +269,7 @@ describe("the first step is six cards, read off the tenant's services (owner dec
   it("skips the flow for a card holding one service", async () => {
     await mount();
     choose(en.site.quote.modeSTORAGE);
-    expect(screen.queryByRole("group", { name: en.site.quote.flow })).toBeNull();
+    expect(screen.queryByRole("group", { name: steps.flow })).toBeNull();
     press(en.site.quote.next);
     expect(await screen.findByLabelText(labelRe(en.site.quote.warehouseLocation))).toBeInTheDocument();
   });
@@ -276,7 +277,7 @@ describe("the first step is six cards, read off the tenant's services (owner dec
   it("keeps a service no card describes under Other services", async () => {
     await mount();
     expect(screen.queryByText("Project Cargo")).toBeNull();
-    press(en.site.quote.otherServices);
+    press(steps.otherServices);
     choose("Project Cargo");
     press(en.site.quote.next);
     await screen.findByLabelText(labelRe(en.site.quote.originPlace));
@@ -285,9 +286,9 @@ describe("the first step is six cards, read off the tenant's services (owner dec
   it("shows two services that share a card and a flow by their names", async () => {
     await mount([...SERVICES, svc("s-sea-imp-2", "Sea Freight Import (LCL)", "SEA", "IMPORT", ALL)]);
     choose(en.site.quote.modeSEA);
-    const flow = screen.getByRole("group", { name: en.site.quote.flow });
+    const flow = screen.getByRole("group", { name: steps.flow });
     const names = within(flow).getAllByRole("radio").map((r) => r.closest("label")?.textContent);
-    expect(names).toEqual(["Sea Freight Import", "Sea Freight Import (LCL)", en.site.quote.flowEXPORT]);
+    expect(names).toEqual(["Sea Freight Import", "Sea Freight Import (LCL)", steps.flowEXPORT]);
   });
 });
 
@@ -297,7 +298,7 @@ describe("the Incoterms are the service's own (owner decision Q3)", () => {
     await stepNeed();
     const group = screen.getByRole("group", { name: en.site.quote.incoterm });
     expect(within(group).getAllByRole("radio")).toHaveLength(12);
-    expect(within(group).getByRole("radio", { name: new RegExp("^" + en.site.quote.incotermNotSure) })).toBeChecked();
+    expect(within(group).getByRole("radio", { name: new RegExp("^" + steps.incotermNotSure) })).toBeChecked();
   });
 
   it("offers an air service the seven any-mode terms only — no FOB", async () => {
@@ -387,8 +388,8 @@ describe("what reaches the endpoint", () => {
   it("sends the hinterland direction with a hinterland transit", async () => {
     await mount();
     choose(en.site.quote.modeRAIL);
-    choose(en.site.quote.flowHINTERLAND);
-    choose(en.site.quote.hinterlandOUT_OF);
+    choose(steps.flowHINTERLAND);
+    choose(steps.hinterlandOUT_OF);
     press(en.site.quote.next);
     await settle();
     type(en.site.quote.originPlace, "Bangui");
@@ -463,8 +464,8 @@ describe("what reaches the endpoint", () => {
     await stepRoute();
     press(en.site.quote.next);
     await screen.findByRole("heading", { name: en.site.quote.stepDocuments });
-    expect(screen.getByText(en.site.quote.docsWhy)).toBeInTheDocument();
-    const input = screen.getByLabelText(en.site.quote.docsAdd) as HTMLInputElement;
+    expect(screen.getByText(steps.docsWhy)).toBeInTheDocument();
+    const input = screen.getByLabelText(steps.docsAdd) as HTMLInputElement;
     const file = new File(["%PDF-1.4 invoice"], "invoice.pdf", { type: "application/pdf" });
     fireEvent.change(input, { target: { files: [file] } });
     await screen.findByText("invoice.pdf");
