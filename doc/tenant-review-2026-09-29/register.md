@@ -109,7 +109,7 @@ panel that shows them is mounted only in Client 360 and the Client inbox, never 
 
 **1.8 [Meeting] Portal invitations are email-only.** When the mail fails the UI says so
 (`client/src/features/portal/client-portal-people.tsx:161-167`) and offers no copy/WhatsApp
-fallback. Owner decision needed on what may be shared (sign-in link vs set-password link).
+fallback. *(Decided: D4 — share the sign-in link, never the set-password token.)*
 
 **1.9 [Meeting] Installing the app needs a human.** Timothée had to be told to open the link in
 Chrome; nothing detects an in-app browser (WhatsApp/Facebook webviews cannot install a PWA) or
@@ -134,7 +134,8 @@ separate button after the label; verify optically and balance.
 **1.13 [Found] "The MD" in client alerts is every active user holding the CEO role**
 (`src/modules/portal/portal_chat.repo.js:250-254`). The vendor's JBS Praxis login holds that
 role (screenshots: "JBS Praxis — CEO / Executive"), so it already receives every client-message
-alert; an email default for "the MD" would mail it every client email too.
+alert; an email default for "the MD" would mail it every client email too. *(Decided: D7 —
+accepted; Tom is an SMART LS employee.)*
 
 **Note.** The portal's own service worker already routes a tapped alert correctly
 (`public-web/public/portal/sw.js:73-96`, `postMessage` → the page navigates itself); 1.6 is the
@@ -194,13 +195,15 @@ link to the offer that answered it.
 **2.10 [Meeting] "≈ 25 t" → capital T** (`quotes.tsx:609`); **2.11 [Found]** staff form labels
 are raw enum codes (SEA_FREIGHT_IMPORT, LESS_THAN_7_DAYS) and untranslated.
 
-## PR3 — Finance, master data and trust
+## PR3 — Money, master data and signing
 
 **3.1 [Found, critical] EUR↔XAF is not the legal parity.** Screen showed "1 EUR = 656.168 XAF";
 the BEAC fixed parity is **655.957** (same for XOF). 656.168 = 1/0.001524 — the
 exchangerate-api feed's rounded rate, stored as-is by the daily/“on add” sync
 (`src/modules/master/currency/currency.sync.js:55-120`). Nothing pins a peg; costings pre-fill
-their rate from here (#497 `GET /costings/fx-rate`).
+their rate from here (#497 `GET /costings/fx-rate`). And a treasurer cannot pin it by hand
+either: the resolver prefers an override only on the SAME date (`currency.rules.js:9-18`), so the
+next night's feed row beats yesterday's manual rate.
 
 **3.2 [Meeting] Débours vs own-cost siblings are unexplained and unguarded.** Picking "Gate-Pass
 Fee — Own Cost" on a client-billed costing posts to the wrong account (Tom's own words) and no
@@ -342,6 +345,26 @@ move, no family column in the detailed view.
   person and session after one confirmation, each signature still bound to its own document hash.
 - **Auditor defaults** — only a DRAFT client with no history can be deleted; coverage countries
   from the shared ISO list; an empty LIVE shows a go-live checklist.
+
+### PR4 (answered 2026-10-01)
+
+- **G1 Quotation from a costing** — one click, priced directly with the margin simulator's own
+  rules: débours at cost (no margin, no VAT), services at the target margin, own costs not billed
+  (they set the floor); families come across; a DRAFT to adjust; the workings kept as a linked
+  margin simulation.
+- **G2 Families** — all four: bulk move, a family column in the detailed view, drag between
+  families, and a per-document family order with a default in settings.
+- **G3 Quotations in the portal** — cards (quotations and proposals, All / Quotations / Proposals
+  tabs) that open a full page: details, download, accept and sign, decline, then back; "ask about
+  this quotation" opens the chat with the quotation referenced.
+- **G4 Acceptance** — e-signature exactly like proposals.
+- **G5 Search** — ⌘K finds every module, page, tab and record, in English and French, limited to
+  what the person may open; a gate fails any unregistered page or tab; `CLAUDE.md` and the README
+  state the rule.
+- **G6 Staff menu** — Quotations moves next to Proposals in Sales & CRM.
+- **Auditor defaults** — "Create quotation" on a validated or approved costing only; a 0 % target
+  margin setting if none exists; on a phone, Requests and Quotations share one Quotes slot with a
+  switch.
 
 ## Sequencing and migrations
 

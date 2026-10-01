@@ -9,7 +9,7 @@ Services) lives here:
 | [pr1-client-portal-go-live.md](pr1-client-portal-go-live.md) | PR 1 — client documents and KYC, who is told about a client and how, taps that land, invitations and install, the public website. |
 | [pr2-quote-requests.md](pr2-quote-requests.md) | PR 2 — quote requests: one service-type model across website, portal and desk; Incoterms per service; documents; tying a request to a client; the request in the portal. |
 | [pr3-finance-master-data.md](pr3-finance-master-data.md) | PR 3 — the fixed EUR parity, débours / own-cost toggle, AI-suggested OHADA posting, VAT basis, ISO coverage, discarding a draft client, phone signing with a 5-minute window, the LIVE go-live checklist. |
-| `pr4-quotations.md` | PR 4 — quotations from costing to the client's portal. *(not started)* |
+| [pr4-quotations.md](pr4-quotations.md) | PR 4 — quotations from a costing to the client's portal (families, e-signed acceptance), Quotations beside Proposals in Sales & CRM, and ⌘K search that finds every page, tab and record, with a gate. |
 
 ## Order
 
