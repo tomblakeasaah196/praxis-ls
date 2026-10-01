@@ -191,6 +191,33 @@ describe("signing in", () => {
     await findByText(en.signin.welcomeBackNamed.replace("{{name}}", "Marie"));
     await findByText("Acme Trading");
   });
+
+  it("fills in the email a shared sign-in link carries — and only an email", async () => {
+    // "Send on WhatsApp" / "Copy link" (tenant review 29 Sep 2026, D4): the
+    // link is /portal/login?email=…, never a set-password token.
+    stubApi(false);
+    const { container } = await mount("/portal/login?email=elisha%40goum.cm");
+    const email = await waitFor(() => {
+      const el = container.querySelector<HTMLInputElement>('input[type="email"]');
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    expect(email.value).toBe("elisha@goum.cm");
+  });
+
+  it("opened inside WhatsApp's browser, says so and offers Chrome before the form", async () => {
+    stubApi(false);
+    const ua = vi
+      .spyOn(navigator, "userAgent", "get")
+      .mockReturnValue("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36 WhatsApp/2.24");
+    try {
+      const { findByTestId, findByText } = await mount("/portal/login");
+      await findByTestId("portal-in-app-notice");
+      await findByText(en.install.inAppChrome, { selector: "button" });
+    } finally {
+      ua.mockRestore();
+    }
+  });
 });
 
 describe("the door is the homepage's hero", () => {

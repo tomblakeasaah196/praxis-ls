@@ -439,4 +439,28 @@ router.get(
   asyncHandler((req, res) => iconHandler(req, res, Number(req.params.size), false)),
 );
 
+/**
+ * "Share the app" (tenant review of 29 Sep 2026, item 1.9): a QR of THIS
+ * workspace's own address, for a colleague standing beside you to scan and
+ * install from. It encodes nothing but the host the request came in on — the
+ * same address anyone already typed to reach this endpoint — so it is public
+ * like the manifest and the icons. Server-side because the staff app ships no
+ * QR library, and the one the signature seal uses is here.
+ */
+router.get(
+  "/install-qr.svg",
+  hostTenantResolver,
+  asyncHandler(async (req, res) => {
+    const QRCode = require("qrcode");
+    const target = `${req.protocol}://${req.get("host")}/`;
+    const svg = await QRCode.toString(target, { type: "svg", errorCorrectionLevel: "M", margin: 4, width: 256 });
+    res.type("image/svg+xml");
+    res.set("Cache-Control", "public, max-age=3600");
+    // Nothing in it may run: an SVG is a document, and this one is only a picture.
+    res.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
+    res.set("X-Content-Type-Options", "nosniff");
+    res.send(svg);
+  }),
+);
+
 module.exports = { router, resolvePwaConfig, renderIcon, clearIconCache, iconVersion };

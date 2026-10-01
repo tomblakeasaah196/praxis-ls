@@ -695,11 +695,23 @@ module.exports = {
   // ── staff: a client's portal, from the Client 360 (MOD-29) ──
   staffPeople: asyncHandler(async (req, res) => {
     const cid = staffClientId(req);
-    const { grants, defaults } = await req.tenantDb(async (c) => ({
+    const { grants, defaults, languageOf } = await req.tenantDb(async (c) => ({
       grants: await admin.people(c, { clientId: cid }),
       defaults: await admin.inviteDefaults(c),
+      languageOf: await admin.languages(c, { clientId: cid }),
     }));
-    res.json({ data: { members: await peopleWithLogins(req, grants), defaults } });
+    // "Send on WhatsApp" / "Copy link" (tenant review 29 Sep 2026, D4): the
+    // portal SIGN-IN page on the tenant's public host, with the person's email
+    // filled in — they sign in with an emailed 6-digit code. Never the
+    // set-password token: that stays between the invitation email and its
+    // owner, and never passes through staff hands.
+    const origin = await authController.portalLinkOrigin(req);
+    const members = (await peopleWithLogins(req, grants)).map((m) => ({
+      ...m,
+      sign_in_url: `${origin}/portal/login?email=${encodeURIComponent(m.email)}`,
+      language: languageOf(m.email),
+    }));
+    res.json({ data: { members, defaults, tenant_name: await authController.tenantName(req) } });
   }),
   staffPeopleAdd: asyncHandler(async (req, res) => {
     const cid = staffClientId(req);

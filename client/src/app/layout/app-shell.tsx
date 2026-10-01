@@ -62,6 +62,8 @@ import { TENANT_KEY } from "@/lib/query-client";
 import { useToast } from "@/components/ui/toast";
 import { useLiveNotifications } from "@/lib/use-live-notifications";
 import { useLiveRefresh, useOpenInApp, useWorkerNavigation } from "@/lib/open-in-app";
+import { ShareAppDialog } from "@/components/pwa/share-app-dialog";
+import { SendIcon } from "@/components/ui/icons";
 import { playOnce, tierFor } from "@/lib/notif-sound";
 import { applyTabBadge } from "@/lib/tab-badge";
 import { tokenStore } from "@/lib/token-store";
@@ -416,6 +418,10 @@ function UserMenu({
   ).replace(/[._-]+/g, " ");
   const email = user?.email || "";
   const role = user?.role || "Member";
+  // "Share the app" (tenant review 29 Sep 2026, item 1.9): the workspace's
+  // address to copy, send on WhatsApp or scan — installing it needs nobody to
+  // explain where the app lives any more.
+  const [sharing, setSharing] = React.useState(false);
 
   // Was a hand-rolled role="menu" (audit F13). It declared menu semantics —
   // which promise arrow keys, Home/End, type-ahead and a managed focus cycle,
@@ -495,6 +501,9 @@ function UserMenu({
             <DownloadIcon /> {t("shell.installApp")}
           </DropdownItem>
         )}
+        <DropdownItem onSelect={() => setSharing(true)}>
+          <SendIcon /> {tr("Share the app")}
+        </DropdownItem>
         <DropdownSeparator />
         {/* Theme + density are collapsible so the menu stays a scannable list
             on a phone. Theme is still sm:hidden — the header's ThemeToggle is
@@ -521,6 +530,7 @@ function UserMenu({
           </DropdownItem>
         </div>
       </DropdownMenu>
+      <ShareAppDialog open={sharing} onClose={() => setSharing(false)} appName={document.title || "Praxis LS"} />
     </div>
   );
 }
