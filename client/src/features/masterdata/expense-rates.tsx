@@ -50,8 +50,9 @@ import { PageHeader } from "@/components/data-list";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useToast } from "@/components/ui/toast";
 import { useResource, errMsg } from "@/lib/use-resource";
-import { money } from "@/lib/format";
+import { money, dateFmt } from "@/lib/format";
 import * as api from "@/lib/masterdata-api";
+import { vatBasisLine } from "@/lib/vat-basis";
 import { shell } from "./shared";
 import { SetRateModal, ApplyToCarriersModal } from "./rate-modals";
 
@@ -343,6 +344,13 @@ function RateCell({
       className={`w-full rounded-md px-2 py-1.5 text-right text-xs hover:bg-muted ${cur ? "font-semibold text-foreground" : "text-muted-foreground"}`}
     >
       {cur ? money(cur.rate, cur.currency || series?.currency) : "— set"}
+      {cur?.price_includes_vat && cur.rate_ttc != null && (
+        // Meeting 6, F4: typed VAT-inclusive — the HT above is what costing
+        // uses; the figure typed is shown with it.
+        <span className="block micro num font-normal">
+          {vatBasisLine(cur.rate_ttc, cur.rate, cur.vat_rate_percent, cur.currency || series?.currency)}
+        </span>
+      )}
     </button>
   );
 }
@@ -706,6 +714,66 @@ function RateDossier({
   );
 }
 
+/* ══════════════════════ Rates whose note says TTC ═══════════════════════ */
+
+/**
+ * Meeting 6, F4: existing rates are NOT re-divided — a note is a guess about
+ * intent, and dividing a rate that was in fact HT would under-price it. The
+ * ones whose note says the price includes VAT ("TTC", "VAT inclusive", "TVA
+ * incluse") are listed here for a person to open and, if so, set again with
+ * "Price includes VAT" ticked.
+ */
+function VatNoteReview({ onOpen }: { onOpen: (dictionaryItemId: string) => void }) {
+  const review = useResource(() => api.listVatReview(), []);
+  const rows = review.data?.rates || [];
+  if (!rows.length) return null;
+  const SHOWN = 8;
+  return (
+    <Callout
+      tone="warn"
+      title={
+        rows.length === 1
+          ? tr("1 rate's note says its price includes VAT")
+          : `${rows.length} ${tr("rates' notes say their price includes VAT")}`
+      }
+      className="mb-3"
+    >
+      <p>
+        {tr(
+          "They are stored and costed as HT and were not changed. Open each one; if the figure does include VAT, set it again with “Price includes VAT” ticked.",
+        )}
+      </p>
+      <ul className="mt-2 space-y-1">
+        {rows.slice(0, SHOWN).map((r) => (
+          <li key={r.expense_rate_id}>
+            <button
+              type="button"
+              className="text-left text-sm text-primary-ink underline-offset-2 hover:underline"
+              onClick={() => onOpen(r.dictionary_item_id)}
+            >
+              <span className="num font-semibold">{r.item_code}</span>{" "}
+              {r.item_label_en || r.item_label_fr}
+              {r.provider_name ? ` · ${r.provider_name}` : ""}
+              {r.container_type_code ? ` · ${r.container_type_code}` : ""}
+              {" — "}
+              <span className="num">{money(r.rate, r.currency)}</span>
+              <span className="micro">
+                {" "}
+                {tr("since")} {dateFmt(r.effective_from)} · “{r.note}”
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {rows.length > SHOWN && (
+        <p className="mt-1 micro">
+          {rows.length - SHOWN} {tr("more")}
+        </p>
+      )}
+    </Callout>
+  );
+}
+
 /* ══════════════════════════════ Page shell ═════════════════════════════ */
 
 export function ExpenseRatesPage() {
@@ -760,6 +828,8 @@ export function ExpenseRatesPage() {
         }
       />
       <HubTabs />
+
+      <VatNoteReview onOpen={(id) => setSelId(id)} />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Input

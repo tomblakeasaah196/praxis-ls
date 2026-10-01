@@ -120,3 +120,103 @@ describe("Set rate", () => {
     expect(body.currency).toBeUndefined();
   });
 });
+
+/**
+ * Meeting 6 (29 Sep 2026), F4 — a rate says whether it includes VAT.
+ *
+ *   · "Price includes VAT" is off by default; ticked, the dialog shows what will
+ *     be stored ("72,700 TTC = 60,964 HT at 19.25 %") and sends the figure as
+ *     typed with the flag — the server divides with the same shared function.
+ *   · It is not offered on a débours, which is always HT.
+ */
+describe("Price includes VAT (F4)", () => {
+  const VAT = {
+    dictionary_item_id: "i1",
+    is_disbursement: false,
+    offered: true,
+    vat_rate_percent: 19.25,
+    tax_code_id: "tc-std",
+    tax_code: "TVA_STD",
+    source: "standard",
+  };
+
+  it("is off by default; ticked, it previews TTC = HT and sends the flag", async () => {
+    const user = userEvent.setup();
+    renderScreen(
+      <SetRateModal
+        itemId="i1"
+        providerLabel="Standard rate"
+        providerId={null}
+        containerTypeId={null}
+        containerTypeLabel={null}
+        current={null}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+      { routes: { "/currencies": CURRENCIES, "/expense-rates/vat-basis": VAT } },
+    );
+    const box = await screen.findByRole("checkbox", { name: "Price includes VAT" });
+    expect(box).not.toBeChecked();
+
+    await user.type(screen.getByRole("spinbutton"), "72700");
+    await user.click(box);
+    expect(await screen.findByText("72,700 TTC = 60,964 HT at 19.25 %")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /save rate/i }));
+    const [, body] = supersede.mock.calls[0];
+    expect(body).toMatchObject({ rate: 72700, price_includes_vat: true });
+  });
+
+  it("re-opens a VAT-inclusive rate as it was typed, and shows both figures", async () => {
+    renderScreen(
+      <SetRateModal
+        itemId="i1"
+        providerLabel="Standard rate"
+        providerId={null}
+        containerTypeId={null}
+        containerTypeLabel={null}
+        current={{
+          expense_rate_id: "r1",
+          rate: 60964.36,
+          currency: "XAF",
+          effective_from: "2026-01-01",
+          in_force: true,
+          superseded: false,
+          price_includes_vat: true,
+          rate_ttc: "72700.00",
+          vat_rate_percent: "19.2500",
+        }}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+      { routes: { "/currencies": CURRENCIES, "/expense-rates/vat-basis": VAT } },
+    );
+    expect(await screen.findByRole("checkbox", { name: "Price includes VAT" })).toBeChecked();
+    expect(screen.getByRole("spinbutton")).toHaveValue(72700);
+    expect(screen.getAllByText("72,700 TTC = 60,964 HT at 19.25 %").length).toBeGreaterThan(0);
+  });
+
+  it("is not offered on a débours", async () => {
+    renderScreen(
+      <SetRateModal
+        itemId="d1"
+        providerLabel="Standard rate"
+        providerId={null}
+        containerTypeId={null}
+        containerTypeLabel={null}
+        current={null}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+      {
+        routes: {
+          "/currencies": CURRENCIES,
+          "/expense-rates/vat-basis": { ...VAT, dictionary_item_id: "d1", is_disbursement: true, offered: false },
+        },
+      },
+    );
+    expect(await screen.findByText("XAF")).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole("checkbox", { name: "Price includes VAT" })).not.toBeInTheDocument();
+  });
+});

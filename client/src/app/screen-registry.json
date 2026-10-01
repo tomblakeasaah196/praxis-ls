@@ -342,6 +342,8 @@
         "list_expense_rates",
         "get_expense_rate",
         "resolve_expense_rate",
+        "get_rate_vat_basis",
+        "list_rates_to_review_for_vat",
         "create_expense_rate",
         "update_expense_rate",
         "list_rate_providers",

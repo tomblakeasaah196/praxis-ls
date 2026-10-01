@@ -6,6 +6,7 @@ const importer = require("./financial_dictionary.import");
 const { resolveContext } = require("../../../services/spreadsheet");
 const { emitEvent, audit } = require("../../../shared/events/emit");
 const currencyRepo = require("../currency/currency.repo");
+const expenseRateService = require("../expense_rate/expense_rate.service");
 const { page } = require("../../../shared/db/query-helpers");
 const crypto = require("crypto");
 const { dictionarySibling, dictionaryPosting } = require("@praxis/shared");
@@ -482,6 +483,15 @@ async function openRateSeries(c, item, data) {
     providerKind = rows[0].kind;
   }
   const effectiveFrom = data.effective_from || todayIso();
+  // "Price includes VAT" (meeting 6, F4): the HT is stored, the TTC kept beside
+  // it. Resolved before anything is expired, so a refusal (a débours, a line
+  // with no VAT rate) leaves the open rate untouched.
+  const basis = await expenseRateService.applyVatBasis(c, {
+    dictionaryItemId: item.dictionary_item_id,
+    figure: data.rate,
+    priceIncludesVat: data.price_includes_vat === true,
+    date: effectiveFrom,
+  });
   const current = await repo.openRate(c, item.dictionary_item_id, key);
   if (current) {
     if (Date.parse(current.effective_from) >= Date.parse(effectiveFrom)) {
@@ -496,7 +506,7 @@ async function openRateSeries(c, item, data) {
     rate_provider_id: key.rateProviderId,
     container_type_ref_id: key.containerTypeRefId,
     provider_kind: providerKind,
-    rate: data.rate,
+    ...basis,
     // The BASE currency, not the item's: a rate is in the tenant's own money
     // unless someone deliberately picks another (meeting 5, 01:11:19).
     currency: data.currency || (await baseCurrency(c)),

@@ -10,7 +10,7 @@ import {
   uploadFile,
   downloadPost,
 } from "./api-client";
-import type { dictionaryPosting } from "@shared";
+import type { dictionaryPosting, expenseRate } from "@shared";
 
 /* ── Clients(/clients) ──────────────────────────────────────────── */
 export type Client = {
@@ -1257,22 +1257,19 @@ export type ExpenseRate = {
   effective_from?: string | null;
   effective_to?: string | null;
   note?: string | null;
+  /** Meeting 6, F4: the figure typed included VAT — `rate` is the HT derived
+   *  from it, `rate_ttc` the figure as typed, `vat_rate_percent` the divisor. */
+  price_includes_vat?: boolean;
+  rate_ttc?: number | string | null;
+  vat_rate_percent?: number | string | null;
   // Denormalised display fields, joined server-side.
   provider_name?: string | null;
   provider_kind_resolved?: RateProviderKind | null;
   container_type_code?: string | null;
   container_type_name?: string | null;
 };
-export type ExpenseRateInput = {
-  dictionary_item_id: string;
-  rate_provider_id?: string | null;
-  container_type_ref_id?: string | null;
-  rate: number;
-  currency?: string;
-  effective_from?: string;
-  effective_to?: string | null;
-  note?: string | null;
-};
+/** The shape lives in @praxis/shared (expenseRate.create) — one definition. */
+export type ExpenseRateInput = expenseRate.Create;
 export const listExpenseRates = (
   f: { dictionary_item_id?: string; rate_provider_id?: string } = {},
 ) => {
@@ -1309,6 +1306,42 @@ export const resolveExpenseRate = (opts: {
     p.set("container_type_ref_id", opts.container_type_ref_id);
   return tenant<ExpenseRate>(`/expense-rates/resolve?${p.toString()}`);
 };
+
+/** The VAT a line's VAT-inclusive price is divided by, and whether "Price
+ *  includes VAT" is offered at all — never on a débours (meeting 6, F4). */
+export type VatBasis = {
+  dictionary_item_id: string;
+  is_disbursement: boolean;
+  offered: boolean;
+  vat_rate_percent: number | null;
+  tax_code_id: string | null;
+  tax_code: string | null;
+  /** "line" = the line's own tax code; "standard" = the tenant's standard rate. */
+  source: "line" | "standard" | null;
+};
+export const getVatBasis = (dictionaryItemId: string, date?: string) => {
+  const p = new URLSearchParams({ dictionary_item_id: dictionaryItemId });
+  if (date) p.set("date", date);
+  return tenant<VatBasis>(`/expense-rates/vat-basis?${p.toString()}`);
+};
+/** Rates in force, entered HT, whose note says "TTC" / "TVA incluse" — listed
+ *  for a person to review; nothing is changed (F4). */
+export type VatReviewRate = {
+  expense_rate_id: string;
+  dictionary_item_id: string;
+  rate: number | string;
+  currency: string | null;
+  effective_from: string;
+  note: string | null;
+  item_code: string;
+  item_label_fr: string;
+  item_label_en: string | null;
+  is_disbursement: boolean;
+  provider_name: string | null;
+  container_type_code: string | null;
+};
+export const listVatReview = () =>
+  tenant<{ count: number; rates: VatReviewRate[] }>("/expense-rates/vat-review");
 
 /* ── Financial dictionary(/financial-dictionary) ────────────────── */
 export type PostingContext = "sale" | "purchase" | "disbursement";
@@ -1364,6 +1397,10 @@ export type DictItem = {
   default_price_currency?: string | null;
   default_price_from?: string | null;
   default_price_rate_id?: string | null;
+  /** Meeting 6, F4: the standard rate was typed VAT-inclusive — the figure
+   *  typed and the VAT rate it was divided by. `default_price` is the HT. */
+  default_price_ttc?: number | string | null;
+  default_price_vat_rate?: number | string | null;
   /** 14130: the family a client document prints this line under. */
   client_heading_ref_id?: string | null;
   client_heading_code?: string | null;
@@ -1749,6 +1786,11 @@ export type RatePoint = {
   in_force: boolean;
   superseded: boolean;
   note?: string | null;
+  /** Meeting 6, F4: the figure typed included VAT — `rate` is the HT derived
+   *  from it, `rate_ttc` the figure as typed, `vat_rate_percent` the divisor. */
+  price_includes_vat?: boolean;
+  rate_ttc?: number | string | null;
+  vat_rate_percent?: number | string | null;
   provider_name?: string | null;
 };
 export type RateTrend = {
@@ -1791,17 +1833,8 @@ export const dictRateHistory = (id: string, asOf?: string) =>
 
 /** Amend a rate the only way an effective-dated series may be amended: the
  *  server expires the open row the day before this one opens. Never an edit. */
-export type RateSupersedeInput = {
-  rate: number;
-  currency?: string;
-  effective_from: string;
-  effective_to?: string | null;
-  /** NULL = the item's plain default rate (no carrier/authority scope). */
-  rate_provider_id?: string | null;
-  /** NULL = no equipment dimension. */
-  container_type_ref_id?: string | null;
-  note?: string | null;
-};
+/** The shape lives in @praxis/shared (expenseRate.supersede) — one definition. */
+export type RateSupersedeInput = expenseRate.Supersede;
 export const supersedeDictRate = (id: string, body: RateSupersedeInput) =>
   tenant<DictRateEvolution>(`/financial-dictionary/${id}/rates/supersede`, {
     method: "POST",
@@ -1810,14 +1843,7 @@ export const supersedeDictRate = (id: string, body: RateSupersedeInput) =>
 
 /** One rate for many carriers at once ("apply to all shipping lines"). The ids
  *  are the carriers left ticked. All or nothing: one refusal saves none. */
-export type RateApplyAllInput = {
-  rate: number;
-  currency?: string;
-  effective_from: string;
-  container_type_ref_id?: string | null;
-  rate_provider_ids: string[];
-  note?: string | null;
-};
+export type RateApplyAllInput = expenseRate.ApplyAll;
 export const applyDictRateToProviders = (id: string, body: RateApplyAllInput) =>
   tenant<{ applied: number; evolution: DictRateEvolution }>(
     `/financial-dictionary/${id}/rates/apply-all`,
