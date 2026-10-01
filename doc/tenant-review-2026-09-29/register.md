@@ -300,6 +300,26 @@ move, no family column in the detailed view.
   each message whether it was emailed. Tom's "you can pick to respond by email" does not exist in
   the code today; this is it.
 
+### PR2 (answered 2026-10-01)
+
+- **Q1 The wizard's first step** — six cards: Sea, Air, Rail, Road (under a subtle "Transport"
+  label), Storage, Customs; then the flow (Import, Export, End-to-End, Inland, Hinterland), only
+  the flows that exist for that card. Every card and flow maps to the tenant's service types; a
+  new service type appears on its own; a request stores its service type.
+- **Q2 Hinterland** — ask "into" or "out of" the hinterland; one service type stays one.
+- **Q3 Incoterms** — per service type, editable, pre-filled from ICC 2020 (sea: all 11; air,
+  road, rail: the 7 any-mode terms), plus "Not sure".
+- **Q4 Documents (portal)** — at least one document is required to send; the commercial invoice
+  is the one strongly encouraged; more can be added later.
+- **Q5 Tying a desk request to a client** — both: a client picker suggesting the match from the
+  requester's email or domain, and "New quote request" from the Client 360. A linked request
+  appears in the client's portal with the account manager as owner.
+- **Q6 Website** — the same six cards and steps through one shared component; documents strongly
+  encouraged but optional for strangers.
+- **Auditor defaults** — services fitting no card (Project Cargo, Business Representation) sit
+  under an "Other services" link; a prospect's request is unassigned until "Start review" makes
+  the reviewer its owner; the weight reads "≈ 25 T".
+
 ## Sequencing and migrations
 
 - PR1 and PR2 are independent and can run together. PR3 is independent of all. **Start PR4

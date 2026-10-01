@@ -7,7 +7,7 @@ Services) lives here:
 | --- | --- |
 | [register.md](register.md) | Every finding, verified against the code with file:line evidence, plus the owner's decisions. The source of truth for all four PRs and for their QC. |
 | [pr1-client-portal-go-live.md](pr1-client-portal-go-live.md) | PR 1 — client documents and KYC, who is told about a client and how, taps that land, invitations and install, the public website. |
-| `pr2-quote-requests.md` | PR 2 — quote requests: one intake model across website, portal and desk. *(being written)* |
+| [pr2-quote-requests.md](pr2-quote-requests.md) | PR 2 — quote requests: one service-type model across website, portal and desk; Incoterms per service; documents; tying a request to a client; the request in the portal. |
 | `pr3-finance-master-data-trust.md` | PR 3 — FX parity, dictionary clarity, master data, signing, support access. *(not started)* |
 | `pr4-quotations.md` | PR 4 — quotations from costing to the client's portal. *(not started)* |
 
