@@ -280,6 +280,25 @@ move, no family column in the detailed view.
 - **D6 Portal entry** — a "Client Portal" outline button beside the orange "Request a Quote" in
   the header (top of the mobile menu too), and the hero card's link becomes a full-width button.
 
+### PR1 — amendment (answered 2026-10-01, supersedes D3's MD setting)
+
+- **D7 Who is told about a client** — the client's account manager **+ the CEO-role users (kept)
+  + any extra people picked for that client ("Also notify")**. The account manager and the
+  Also-notify people are picked **at client creation** (the New client form has no account-manager
+  field today although the API accepts one — `client_master.service.js:38-51`) and edited on the
+  Client 360, which shows the whole list. All of them get in-app + push + email by default
+  (opt-out per person). The tenant-level "MD" setting from D3 is dropped. Consequence accepted:
+  the vendor's JBS Praxis login holds the CEO role, so PR3 must exclude support logins from these
+  audiences.
+- **D8 Client emails** — automatic emails keep today's rule (a team reply is emailed after 10–20
+  minutes only if still unread, at most once an hour per conversation, only to people who have
+  signed in once — which is why the demo, where the "client" read every reply live, produced no
+  email). Added: **"Send by email" on hover over any team message** (⋯ menu on touch), which sends
+  that message at once as a properly branded, professionally structured email (tenant logo and
+  colours, the sender's signature, attachments, a button back to the portal), and staff can see on
+  each message whether it was emailed. Tom's "you can pick to respond by email" does not exist in
+  the code today; this is it.
+
 ## Sequencing and migrations
 
 - PR1 and PR2 are independent and can run together. PR3 is independent of all. **Start PR4
