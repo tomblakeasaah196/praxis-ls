@@ -74,6 +74,9 @@ Conformité Fiscale" (`0511_party_master_rich.sql:736`; screenshot 1 shows GOUM 
 ACTIVATE: Missing Attestation de Conformité Fiscale, Missing Business Licence / RCCM"). Unless
 someone re-creates it by hand as a portal requirement, the portal never asks for the Attestation
 that blocks activation, and an accepted RCCM never clears "Missing Business Licence / RCCM".
+Also: #471 (migration `14030`) took Bank RIB out of *activation*, but the portal's own `10747`
+GLOBAL rule still asks every client for BANK_DETAILS — client bank details are not needed to
+onboard (only for refunds and for matching incoming transfers), so the portal must stop asking.
 
 **1.3 [Meeting/Gemini] Accepted uploads are missing from the portal's own Library too.**
 `CLIENT_DOCUMENT_SELECT` (`src/modules/portal/portal.repo.js:57`) requires
@@ -126,6 +129,15 @@ sentence case. A title-case helper with per-language small words already exists 
 
 **1.12 [Meeting] Nav spacing "About … Services" looks uneven** — the Services chevron is a
 separate button after the label; verify optically and balance.
+
+**1.13 [Found] "The MD" in client alerts is every active user holding the CEO role**
+(`src/modules/portal/portal_chat.repo.js:250-254`). The vendor's JBS Praxis login holds that
+role (screenshots: "JBS Praxis — CEO / Executive"), so it already receives every client-message
+alert; an email default for "the MD" would mail it every client email too.
+
+**Note.** The portal's own service worker already routes a tapped alert correctly
+(`public-web/public/portal/sw.js:73-96`, `postMessage` → the page navigates itself); 1.6 is the
+staff app's `push-handler.js` only — port that pattern.
 
 ## PR2 — Quote requests: one intake model across website, portal and desk
 
@@ -246,6 +258,27 @@ move, no family column in the detailed view.
 "devis"/"cotation" find nothing, and there is no record search (SQ-/QT- numbers, client names).
 
 ---
+
+## Owner decisions
+
+### PR1 (answered 2026-10-01)
+
+- **D1 Accept flow** — accepting a client's KYC upload files it on the Client 360 as VERIFIED by
+  the reviewer and re-runs compliance at once; the reviewer is asked for number / issue / expiry /
+  authority only when that document type requires them.
+- **D2 What the portal asks for** — the union of the client document types marked "required to
+  activate" and the active client `document_requirement` rules, de-duplicated through one mapping —
+  **never bank details**. Plus a **"Request from client"** button in Client 360 › Documents that
+  picks from the client document-type list.
+- **D3 Staff email** — the client's account manager **and the MD** are emailed by default
+  (opt-out per person); no reachable account manager → the Client inbox team. Because of 1.13,
+  "the MD" becomes a tenant setting rather than "every CEO-role user".
+- **D4 Invites** — "Send on WhatsApp" / "Copy link" share the portal sign-in link (email
+  pre-filled, emailed 6-digit code); the set-password token never passes through staff hands.
+- **D5 Capitalisation** — Title Case in English **and French** across the entire public website
+  (and the client portal's chrome), as a maintained standard; full sentences unchanged.
+- **D6 Portal entry** — a "Client Portal" outline button beside the orange "Request a Quote" in
+  the header (top of the mobile menu too), and the hero card's link becomes a full-width button.
 
 ## Sequencing and migrations
 
