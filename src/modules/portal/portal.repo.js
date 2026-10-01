@@ -54,15 +54,36 @@ async function clientDossiers(client, clientId) {
 // is the thing that says "who a document is for", and nothing else is allowed
 // to second-guess it.
 
+//
+// One more way in (tenant review 29 Sep 2026, PR 1, item 1.3): a file THIS
+// CLIENT SENT through the portal and staff ACCEPTED — the RCCM they uploaded
+// and we filed on their record. None of the KYC types (14150) carries
+// `client_visible`, so an accepted upload vanished from the client's own
+// Library. It is theirs, they sent it, and we accepted it; the rule admits that
+// and nothing wider: `sent` only matches a vault row that is the ANSWER to one
+// of this client's ACCEPTED requests, so a document staff filed themselves —
+// an internal scan, a supplier's paper — stays exactly as invisible as before.
+// VERIFIED and ownership still hold on every row, and the download route
+// still goes through `clientDocument` below.
+
 const CLIENT_DOCUMENT_SELECT = `
   SELECT v.doc_id, v.doc_type, v.original_name, v.status, v.created_at,
          v.dossier_id, d.ref AS dossier_ref,
-         dr.name_en, dr.name_fr, dr.code AS doc_type_code
+         COALESCE(dr.name_en, sent.type_name) AS name_en,
+         COALESCE(dr.name_fr, sent.type_name) AS name_fr,
+         COALESCE(dr.code::text, sent.type_code) AS doc_type_code
     FROM document_vault v
     LEFT JOIN dossier_visible d ON d.dossier_id = v.dossier_id
     LEFT JOIN dictionary_ref dr ON dr.ref_id = v.doc_type_ref_id
+    LEFT JOIN LATERAL (
+      SELECT true AS accepted, pt.name AS type_name, pt.code::text AS type_code
+        FROM client_request r
+        LEFT JOIN party_document_type pt ON pt.document_type_id = r.party_document_type_id
+       WHERE r.answer_doc_id = v.doc_id AND r.client_id = $1 AND r.status = 'ACCEPTED'
+       LIMIT 1
+    ) sent ON true
    WHERE v.status = 'VERIFIED'
-     AND dr.extra->>'client_visible' = 'true'
+     AND (dr.extra->>'client_visible' = 'true' OR sent.accepted IS TRUE)
      AND ( (v.dossier_id IS NOT NULL AND d.client_id = $1)
         OR (v.client_id = $1) )`;
 

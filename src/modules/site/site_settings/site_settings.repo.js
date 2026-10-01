@@ -17,7 +17,7 @@
 const THEME_COLUMNS = [
   "primary_hex", "secondary_hex", "tertiary_hex",
   "font_display", "font_body", "font_mono",
-  "radius_px", "default_mode",
+  "radius_px", "default_mode", "label_case",
 ];
 
 async function getTheme(client) {

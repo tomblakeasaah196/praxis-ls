@@ -96,6 +96,31 @@ async function evaluateParty(client, { kind, partyId }) {
   return { ...result, party, missing_activation_fields: missingActivationFields };
 }
 
+/**
+ * The document types this party must have on file to be ACTIVATED — the
+ * engine's own `activationTypes`, with category, country, the
+ * `exempt_outside_country` exemption and KYC tier all applied exactly as the
+ * "Required to activate" checklist applies them.
+ *
+ * The client portal asks a client for these (14260, owner decision D2), so
+ * what the portal asks for and what the 360 says is missing cannot disagree:
+ * a client provably outside Cameroon is not asked for the Attestation de
+ * Conformité Fiscale, because the checklist does not ask for it either.
+ */
+async function activationDocTypes(client, { kind, partyId }) {
+  const c = cfg(kind);
+  const party = await loadParty(client, c, partyId);
+  if (!party) return [];
+  const { rows: docTypes } = await client.query("SELECT * FROM party_document_type WHERE is_active = true");
+  const category = await categoryCodeFor(client, c, party);
+  return rules.activationTypes(docTypes, {
+    appliesTo: c.appliesTo,
+    category,
+    country: party.country_code || party.tax_residency_country || null,
+    tier: tierFor(party),
+  });
+}
+
 /** Open (unresolved) flags for one entity_ref. */
 async function openFlags(client, entityRef) {
   const { rows } = await client.query(
@@ -287,4 +312,4 @@ async function enforceAllowed(client, { kind, partyId, action = null, override =
   return gate;
 }
 
-module.exports = { KIND, evaluateParty, sync, glParity, openFlags, reconcileFlags, gateDecision, assertAllowed, enforceAllowed, logOverride };
+module.exports = { KIND, evaluateParty, activationDocTypes, sync, glParity, openFlags, reconcileFlags, gateDecision, assertAllowed, enforceAllowed, logOverride };

@@ -1,5 +1,7 @@
 import i18n from "@/lib/i18n";
 import { en, fr } from "./portal-copy";
+import { registerLabelKeys } from "@/lib/label-case";
+import { LABEL_KEYS } from "./label-keys.generated";
 
 /**
  * Register the portal's copy when the portal chunk loads.
@@ -16,3 +18,7 @@ import { en, fr } from "./portal-copy";
  */
 i18n.addResourceBundle("en", "translation", { portal: en }, true, false);
 i18n.addResourceBundle("fr", "translation", { portal: fr }, true, false);
+
+/* The portal chrome's LABEL keys (owner decision D5), in this chunk rather
+   than the site's first paint — see scripts/gen/site-copy-case.js. */
+registerLabelKeys(LABEL_KEYS);

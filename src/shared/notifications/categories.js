@@ -27,6 +27,14 @@ const CATEGORIES = [
   // fan-out wrote `"MENTION"`, neither of which was a key here, so neither
   // appeared in Preferences and neither could be switched on for email/push.
   { key: "comms", label: "Mail & Messages", security: false },
+  // Client activity (tenant review 29 Sep 2026, D3/D7): a client wrote, sent a
+  // document, reported a payment or asked for a quote. Its own bucket because
+  // its audience is narrow and named — the client's account manager, the
+  // CEO-role users and the people picked to "Also notify" — and because it is
+  // the second category whose email defaults ON
+  // (packages/shared/rules/notification-email-default.js): the meeting found
+  // nobody had ticked Email anywhere, so a client's RCCM reached a bell only.
+  { key: "clients", label: "Client activity", security: false },
   { key: "finance", label: "Finance", security: false },
   { key: "operations", label: "Operations", security: false },
   // My Workspace tasks — pings, assignments, status moves, reminders. Its own

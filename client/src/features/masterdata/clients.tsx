@@ -16,6 +16,7 @@ import { Form, FormField, FormError } from "@/components/ui/form";
 import { useZodForm } from "@/lib/use-zod-form";
 import { useToast } from "@/components/ui/toast";
 import { clientMaster } from "@shared";
+import { ClientToldFields, type ToldPick } from "@/features/portal/account-manager";
 import { PageHeader, DataList, type Column } from "@/components/data-list";
 import { SmartCountryPicker } from "@/components/smart-country-picker";
 import {
@@ -136,6 +137,9 @@ export function ClientForm({
     line1: row?.address ?? "",
     city: row?.city ?? "",
   });
+  // Who is told about the client, picked at creation (tenant review 29 Sep
+  // 2026, D7); edited afterwards on the Client 360's account-manager card.
+  const [told, setTold] = React.useState<ToldPick>({ manager: null, also: [] });
 
   return (
     <Modal
@@ -178,6 +182,12 @@ export function ClientForm({
             name,
             registrations: toRegistrationsPayload(reqs, regs, country),
             ...(isNew ? { primary_contact, primary_address } : {}),
+            ...(isNew && told.manager?.account_user_id
+              ? { relationship_manager_user_id: told.manager.account_user_id }
+              : {}),
+            ...(isNew && told.also.length
+              ? { also_notify_user_ids: told.also.map((p) => p.account_user_id).filter((x): x is string => !!x) }
+              : {}),
           };
           if (isNew) await api.createClient(body);
           else await api.updateClient(row!.client_id, body);
@@ -323,6 +333,18 @@ export function ClientForm({
                   placeholder={tr("Douala")}
                 />
               </label>
+            </>
+          )}
+
+          {/* 3b · Who is told about this client (D7) — new-client only. */}
+          {isNew && (
+            <>
+              <div className="sm:col-span-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {tr("Who is told about this client")}
+              </div>
+              <div className="sm:col-span-2">
+                <ClientToldFields value={told} onChange={setTold} />
+              </div>
             </>
           )}
 

@@ -11,6 +11,7 @@ import {
 } from "@/lib/services-api";
 import { PublicApiError, messageFor } from "@/lib/api";
 import { currentLocale, getLang, setLang, tStatic } from "@/lib/i18n";
+import { caseLabel } from "@/lib/label-case";
 import { usePublishedServices } from "@/lib/use-services";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { MediaCard, MoreLink, Section } from "@/components/site/section";
@@ -618,7 +619,10 @@ export function ServiceDetailPage() {
             titleClass="hero-title"
             onDark
             /* F-17: the LCP element on this route. */
-            title={<StagedLines paintImmediately text={name} />}
+            /* The service's name is the tenant's, and a heading: Title Case
+               unless they chose "As written" (D5). It is a node here, not a
+               string, so SectionHead cannot case it for us. */
+            title={<StagedLines paintImmediately text={caseLabel(name, getLang())} />}
             lead={shortText || undefined}
           />
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">

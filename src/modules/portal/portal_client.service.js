@@ -33,6 +33,10 @@ const vault = require("../vault/document_vault/document_vault.service");
 const shipmentDetails = require("../operations/shipment_details/shipment_details.service");
 const letterhead = require("../master/entity-letterhead.service");
 const receivables = require("../finance/smart_receivables/smart_receivables.service");
+const compliance = require("../master/compliance/compliance.service");
+const nested = require("../master/_shared/nested");
+const { clientPortal: rules } = require("@praxis/shared");
+const { atomically } = require("../../shared/db/tx");
 const { emitEvent, audit, resolveActorId } = require("../../shared/events/emit");
 const { logger } = require("../../config/logger");
 const { AppError } = require("../../utils/errors");
@@ -107,6 +111,7 @@ function requestView(row) {
     source: row.source,
     kind: row.kind,
     doc_type_code: row.doc_type_code,
+    party_document_type_id: row.party_document_type_id || null,
     doc_type_en: row.doc_type_en || null,
     doc_type_fr: row.doc_type_fr || null,
     title: row.title,
@@ -172,6 +177,19 @@ function totalsByCurrency(invoices) {
   return [...byCcy.values()].sort((a, b) => b.due - a.due);
 }
 
+/* ── what the client is asked for (14260) ──────────────────────────────── */
+
+/**
+ * Materialise what this client owes: the compliance engine names the
+ * client's activation document types (exemptions applied), and the repo adds
+ * the active requirement rules and de-duplicates both through the one link
+ * between the two registries (portal_client.repo syncRuleRequests).
+ */
+async function syncRequests(c, clientId) {
+  const activation = await compliance.activationDocTypes(c, { kind: "client", partyId: clientId });
+  await repo.syncRuleRequests(c, clientId, { activationTypeIds: activation.map((t) => t.document_type_id) });
+}
+
 /* ── identity + home ────────────────────────────────────────────────────── */
 
 async function clientIdentity(c, { clientId }) {
@@ -195,7 +213,7 @@ async function home(c, { clientId, scope = "ALL", lang = "en", me = null, since 
   if (me) out.chat = { unread: await chat.unread(c, { clientId, me, scope, since }) };
 
   if (canOps(scope)) {
-    await repo.syncRuleRequests(c, clientId);
+    await syncRequests(c, clientId);
     const asks = (await repo.clientRequests(c, clientId)).map(requestView);
     const openByFile = countOpenByFile(asks);
     const active = await repo.shipments(c, clientId, { state: "active", limit: 50 });
@@ -243,7 +261,7 @@ function countOpenByFile(asks) {
 /* ── shipments ──────────────────────────────────────────────────────────── */
 
 async function shipments(c, { clientId, state = "active", lang = "en" }) {
-  await repo.syncRuleRequests(c, clientId);
+  await syncRequests(c, clientId);
   const openByFile = countOpenByFile((await repo.clientRequests(c, clientId)).map(requestView));
   const rows = await repo.shipments(c, clientId, { state: ["active", "done", "all"].includes(state) ? state : "active" });
   return rows.map((r) => shipmentCard(r, lang, openByFile.get(r.dossier_id) || 0));
@@ -298,7 +316,7 @@ async function shipment(c, { clientId, dossierId, scope = "ALL", lang = "en" }) 
     milestone_instance_id: idOf.get(`${m.code}|${Number(m.stage_seq)}`) || null,
   }));
 
-  await repo.syncRuleRequests(c, clientId);
+  await syncRequests(c, clientId);
   const asks = (await repo.clientRequests(c, clientId)).map(requestView).filter((r) => r.dossier_id === dossierId);
   const openCount = asks.filter((r) => r.status === "OPEN" || r.status === "REJECTED").length;
   const documents = (await portal.clientDocuments(c, { clientId })).filter((d) => d.dossier_id === dossierId);
@@ -320,7 +338,7 @@ async function shipment(c, { clientId, dossierId, scope = "ALL", lang = "en" }) 
 /* ── requests: what we are waiting for ─────────────────────────────────── */
 
 async function requests(c, { clientId }) {
-  await repo.syncRuleRequests(c, clientId);
+  await syncRequests(c, clientId);
   return (await repo.clientRequests(c, clientId)).map(requestView);
 }
 
@@ -348,6 +366,10 @@ async function storeClientFile(c, { clientId, dossierId = null, docTypeCode = nu
 /** `BL_AWB` is one requirement and two registry types: an air file gets the
  *  air waybill, anything else the bill of lading. */
 async function concreteType(c, clientId, request) {
+  // A request keyed to a client document type with no dictionary twin
+  // (14260 — a tenant's own "Attestation de Conformité Fiscale") files the
+  // upload under the type's code; the vault takes free-text types.
+  if (!request.doc_type_code) return request.files_as_code || null;
   if (request.doc_type_code !== "BL_AWB") return request.doc_type_code;
   const file = request.dossier_id ? await repo.ownsDossier(c, clientId, request.dossier_id) : null;
   return file && /AIR/i.test(file.service_key || "") ? "MAWB" : "BL";
@@ -646,11 +668,36 @@ async function removeTeamMember(c, { clientId, grantId, selfGrantId }) {
 
 /* ── staff: requests to clients ────────────────────────────────────────── */
 
+/**
+ * What an accepted CLIENT-LEVEL document files as on the Client 360 (14260):
+ * the request's own client document type, else the one its dictionary code is
+ * linked to, else OTHER — so every file a client sent and staff accepted is
+ * on the 360, whatever it was sent as. Null for a shipment's paperwork and for
+ * an answer with no file: those keep today's behaviour.
+ */
+function filesAs(row) {
+  if (row.dossier_id || row.kind !== "DOCUMENT") return null;
+  if (!row.files_as_type_id) {
+    return { document_type_id: null, code: "OTHER", name: null, requires_expiry: false, requires_issuing_authority: false };
+  }
+  return {
+    document_type_id: row.files_as_type_id,
+    code: row.files_as_code,
+    name: row.files_as_name,
+    requires_expiry: row.files_as_requires_expiry === true,
+    requires_issuing_authority: row.files_as_requires_authority === true,
+  };
+}
+
 const staffRequests = async (c, { clientId = null, status = null }) =>
   (await repo.staffRequests(c, { clientId, status })).map((r) => ({
     ...requestView(r), client_id: r.client_id, client_name: r.client_name,
     // Who at the client sent it — the controller adds their name.
     answered_by_email: r.answered_by_email || null,
+    // What Accept files it as on the 360, and the fields that type requires.
+    files_as: filesAs(r),
+    accept_fields: rules.acceptFieldsFor(filesAs(r)),
+    client_document_id: r.client_document_id || null,
   }));
 
 /** Staff ask a client for a document or a piece of information. */
@@ -682,12 +729,104 @@ async function createRequest(c, { clientId, dossierId = null, kind, docTypeCode 
 }
 
 /**
+ * Where each client document type stands for this client — the "Request from
+ * client" picker's second column. The LIST of types is the Documents tab's own
+ * (`GET /party-document-types?applies_to=CLIENT`); this only says, per type id,
+ * whether one is on file (and until when), whether it is already requested,
+ * and whether the client needs it to be activated (the compliance engine's
+ * answer, exemptions applied).
+ */
+async function documentStatus(c, { clientId }) {
+  const company = await repo.clientIdentity(c, clientId);
+  if (!company) throw notFound("That client");
+  const activation = await compliance.activationDocTypes(c, { kind: "client", partyId: clientId });
+  return {
+    activation_type_ids: activation.map((t) => t.document_type_id),
+    on_file: await repo.documentsOnFile(c, clientId),
+    requested: await repo.openRequestsByType(c, clientId),
+  };
+}
+
+/**
+ * "Request from client" — Client 360 › Documents (14260, owner decision D2).
+ *
+ * One portal request per picked type, from the SAME registry "Add document"
+ * offers (party_document_type, CLIENT or BOTH, active). A type the client
+ * already has an open request for is refused rather than asked twice; "Other —
+ * describe it" is a request with the description as its title, which files
+ * under OTHER when accepted and may be asked as often as needed. The client is
+ * told exactly as for any request: one `client_request.created` per request,
+ * which the portal sender batches into one email (notify-portal).
+ */
+async function requestDocuments(c, { clientId, items = [], note = null, dueOn = null, actor = {} }) {
+  const company = await repo.clientIdentity(c, clientId);
+  if (!company) throw notFound("That client");
+  if (!items.length) throw new AppError("VALIDATION_ERROR", "Pick at least one document", 422);
+  const open = await repo.openRequestTypes(c, clientId);
+  const other = await repo.clientDocumentTypeByCode(c, "OTHER");
+  const seen = new Set();
+  const planned = [];
+  for (const item of items) {
+    if (item.other) {
+      planned.push({ type: other, title: String(item.other).trim() });
+      continue;
+    }
+    const type = await repo.clientDocumentType(c, item.document_type_id);
+    if (!type) throw new AppError("BAD_DOC_TYPE", "Choose a client document type from the list", 422);
+    if (seen.has(type.document_type_id)) continue;
+    seen.add(type.document_type_id);
+    if (open.has(type.document_type_id)) {
+      throw new AppError("ALREADY_REQUESTED", `${type.name} has already been requested from this client`, 409, {
+        document_type_id: [type.document_type_id],
+      });
+    }
+    planned.push({ type, title: null });
+  }
+  const createdBy = await resolveActorId(c, actor.user_id);
+  const ids = await atomically(c, async () => {
+    const out = [];
+    for (const p of planned) {
+      const row = await repo.insertRequest(c, {
+        client_id: clientId, dossier_id: null, source: "STAFF", kind: "DOCUMENT",
+        doc_type_code: p.type ? p.type.portal_doc_code || null : null,
+        party_document_type_id: p.type ? p.type.document_type_id : null,
+        title: p.title, note, due_on: dueOn, status: "OPEN", created_by: createdBy,
+      });
+      await audit(c, {
+        actorUserId: actor.user_id || null, action: "client_request.created", moduleKey: MODULE_OPS,
+        entityRef: `client_request:${row.client_request_id}`,
+        after: { client_id: clientId, kind: "DOCUMENT", party_document_type_id: p.type ? p.type.document_type_id : null, title: p.title },
+      });
+      await emitEvent(c, {
+        eventTypeKey: "client_request.created", moduleKey: MODULE_OPS, entityRef: `client_request:${row.client_request_id}`,
+        actorUserId: actor.user_id || null, payload: { client_id: clientId, dossier_id: null, kind: "DOCUMENT" },
+      });
+      out.push(row.client_request_id);
+    }
+    return out;
+  });
+  const rows = [];
+  for (const id of ids) rows.push(requestView(await repo.requestById(c, id)));
+  return rows;
+}
+
+/**
  * Accept, reject (with the reason the client will read) or cancel. Accepting
  * or rejecting needs something to judge, so both require a SUBMITTED answer;
  * cancelling is for a request that should never have been asked — including a
  * rule-driven one this client is exempt from, which then stays cancelled.
+ *
+ * ACCEPTING A CLIENT'S KYC UPLOAD FILES IT (14260, owner decision D1). In one
+ * transaction: the request closes, the vault copy turns VERIFIED, and the file
+ * becomes the client's `client_document` of the type it was asked for —
+ * created, or superseding the one on file — VERIFIED by the reviewer, through
+ * the Documents tab's own path (nested.fileVerifiedDocument). The compliance
+ * engine then runs at once, so "Required to activate" loses the line in the
+ * same request. Expiry and issuing authority are required only when the type
+ * requires them (`clientPortal.acceptFieldsFor`). A shipment's paperwork keeps
+ * today's behaviour: it is accepted on the file and goes no further.
  */
-async function reviewRequest(c, { requestId, decision, note = null, actor = {} }) {
+async function reviewRequest(c, { requestId, decision, note = null, document = null, actor = {} }) {
   const current = await repo.requestById(c, requestId);
   if (!current) throw notFound("That request");
   const next = { ACCEPT: "ACCEPTED", REJECT: "REJECTED", CANCEL: "CANCELLED" }[decision];
@@ -701,14 +840,48 @@ async function reviewRequest(c, { requestId, decision, note = null, actor = {} }
   if (decision === "CANCEL" && ["ACCEPTED", "CANCELLED"].includes(current.status)) {
     throw new AppError("REQUEST_CLOSED", "This request is already closed", 409);
   }
-  const reviewer = await resolveActorId(c, actor.user_id);
-  const row = await repo.reviewRequest(c, { requestId, status: next, note: note ? String(note).trim() : null, reviewedBy: reviewer });
-  if (current.answer_doc_id && decision !== "CANCEL") {
-    await repo.setVaultReview(c, { docId: current.answer_doc_id, status: decision === "ACCEPT" ? "VERIFIED" : "REJECTED", verifiedBy: reviewer });
+  const filing = decision === "ACCEPT" && current.answer_doc_id ? filesAs(current) : null;
+  let fileAs = null;
+  if (filing) {
+    // The type it files under, re-read: deactivated since it was asked → OTHER.
+    fileAs = (filing.document_type_id && (await repo.clientDocumentType(c, filing.document_type_id)))
+      || (await repo.clientDocumentTypeByCode(c, "OTHER"));
+    const missing = rules.missingAcceptFields(fileAs, document);
+    if (missing.length) {
+      throw new AppError(
+        "ACCEPT_FIELDS_REQUIRED",
+        `${(fileAs && fileAs.name) || "This document"} is filed with its ${missing.map((k) => FIELD_WORDS[k]).join(" and ")} — add ${missing.length > 1 ? "them" : "it"} to accept`,
+        422,
+        Object.fromEntries(missing.map((k) => [`document.${k}`, ["Required for this document type"]])),
+      );
+    }
   }
-  await audit(c, {
-    actorUserId: actor.user_id || null, action: `client_request.${next.toLowerCase()}`, moduleKey: MODULE_OPS,
-    entityRef: `client_request:${requestId}`, before: { status: current.status }, after: { status: next, note },
+  const reviewer = await resolveActorId(c, actor.user_id);
+  let filed = null;
+  const row = await atomically(c, async () => {
+    const reviewed = await repo.reviewRequest(c, { requestId, status: next, note: note ? String(note).trim() : null, reviewedBy: reviewer });
+    if (current.answer_doc_id && decision !== "CANCEL") {
+      await repo.setVaultReview(c, { docId: current.answer_doc_id, status: decision === "ACCEPT" ? "VERIFIED" : "REJECTED", verifiedBy: reviewer });
+    }
+    if (fileAs) {
+      filed = await nested.fileVerifiedDocument(c, {
+        kind: "client",
+        parentId: current.client_id,
+        documentTypeId: fileAs.document_type_id,
+        vaultId: current.answer_doc_id,
+        fields: rules.acceptFieldsFor(fileAs).asks ? document || {} : {},
+        actor: { ...actor, user_id: reviewer },
+      });
+      await repo.linkClientDocument(c, { requestId, documentId: filed.document_id, documentTypeId: fileAs.document_type_id });
+      // "Required to activate" and the flags move in this same request.
+      await compliance.sync(c, { kind: "client", partyId: current.client_id });
+    }
+    await audit(c, {
+      actorUserId: actor.user_id || null, action: `client_request.${next.toLowerCase()}`, moduleKey: MODULE_OPS,
+      entityRef: `client_request:${requestId}`, before: { status: current.status },
+      after: { status: next, note, client_document_id: filed ? filed.document_id : null },
+    });
+    return reviewed;
   });
   await emitEvent(c, {
     eventTypeKey: "client_request.reviewed", moduleKey: MODULE_OPS, entityRef: `client_request:${requestId}`,
@@ -716,6 +889,9 @@ async function reviewRequest(c, { requestId, decision, note = null, actor = {} }
   });
   return requestView(await repo.requestById(c, requestId));
 }
+
+/** How an accept field is named to the reviewer. */
+const FIELD_WORDS = { expires_on: "expiry date", issuing_authority: "issuing authority" };
 
 async function staffRequestFile(c, { requestId }) {
   const request = await repo.requestById(c, requestId);
@@ -806,7 +982,7 @@ module.exports = {
   requests, uploadForRequest, answerRequest, shareDocument, requestFile, documentTypes,
   billing, invoice, invoicePdf, submitProof, proofFile, howToPay,
   team, addTeamMember, updateTeamMember, removeTeamMember,
-  staffRequests, createRequest, reviewRequest, staffRequestFile,
+  staffRequests, createRequest, documentStatus, requestDocuments, reviewRequest, staffRequestFile, syncRequests, filesAs,
   staffProofs, confirmProof, rejectProof,
   UPLOAD_MAX_BYTES,
 };

@@ -289,7 +289,10 @@ function sectionsReachableFrom(entry) {
   const queue = [entry];
   while (queue.length) {
     const file = queue.pop();
-    if (seen.has(file) || file === dict) continue;
+    // The LABEL sets this generator writes name every section as DATA; they
+    // read none of them. Followed, they made every section look read on every
+    // page (they are imported by lib/i18n.ts, which everything reaches).
+    if (seen.has(file) || file === dict || /\.generated\.ts$/.test(file)) continue;
     seen.add(file);
     const { sections, imports } = scanFile(file);
     for (const s of sections) found.add(s);
@@ -410,9 +413,93 @@ function render({ entries, sections }) {
   return lines.join("\n");
 }
 
+/* ── the LABEL sets the site and the portal case at runtime ──────────────
+ *
+ * The Title Case standard (owner decision D5) is classified by hand in
+ * `site-copy-case.js`, beside this file. The browser cannot read that file —
+ * it is CommonJS outside the app — so this generator writes the LABEL half of
+ * it into the two places the app loads it from, and `--check` holds them to
+ * the list exactly as it holds the catalogue to the dictionary:
+ *
+ *   - `public-web/src/lib/label-keys.generated.ts` — `site.*`, and the few
+ *     `portal.*` keys the ENTRY dictionary carries (the marketing page's link
+ *     to the set-password screen). In the first-paint bundle.
+ *   - `public-web/src/features/portal/label-keys.generated.ts` — the rest of
+ *     `portal.*`, registered by `portal-i18n.ts`, so it rides the portal's own
+ *     chunk and a visitor who never signs in never downloads it.
+ *
+ * A section that is LABEL throughout is written `true`, so a key added to it
+ * later is cased without a regeneration; a PROSE section is not written at all.
+ */
+const CASE = require("./site-copy-case");
+const LABELS_SITE = path.join(WEB_SRC, "lib", "label-keys.generated.ts");
+const LABELS_PORTAL = path.join(WEB_SRC, "features", "portal", "label-keys.generated.ts");
+
+function labelSets() {
+  const { en } = readObjectLiterals(DICT);
+  const entryPortal = new Set([...leaves(en.portal || {}, "portal").keys()].map((k) => CASE.split(k).join("\u0000")));
+  const site = {};
+  const portal = {};
+  for (const [section, entry] of Object.entries(CASE.CASES)) {
+    const target = section.startsWith("site.") ? site : portal;
+    if (entry === CASE.LABEL) target[section] = true;
+    if (typeof entry !== "object") continue;
+    for (const rel of entry.LABEL) {
+      const into = target === portal && entryPortal.has(`${section}\u0000${rel}`) ? site : target;
+      (into[section] = into[section] || []).push(rel);
+    }
+  }
+  return { site, portal };
+}
+
+function renderLabels(map, where) {
+  const sorted = Object.keys(map).sort();
+  const lines = [
+    "/**",
+    " * GENERATED FILE — do not hand-edit.",
+    ` * The LABEL keys ${where} renders in Title Case (owner decision D5).`,
+    " * Source: scripts/gen/site-copy-case.js — classify a key THERE, then run",
+    " *   node scripts/gen/gen-site-copy-catalogue.js",
+    " * `true` = every key in the section; otherwise the keys below it, `*` for an array index.",
+    " */",
+    "export const LABEL_KEYS: Readonly<Record<string, true | readonly string[]>> = {",
+  ];
+  for (const k of sorted) {
+    const v = map[k];
+    lines.push(v === true ? `  ${JSON.stringify(k)}: true,` : `  ${JSON.stringify(k)}: ${JSON.stringify(v.sort())},`);
+  }
+  lines.push("};", "");
+  return lines.join("\n");
+}
+
+/** [file, wanted contents] for every file this generator owns. */
+function outputs() {
+  const { site, portal } = labelSets();
+  return [
+    [OUT, render(build())],
+    [LABELS_SITE, renderLabels(site, "the website (and the entry dictionary's portal keys)")],
+    [LABELS_PORTAL, renderLabels(portal, "the client portal")],
+  ];
+}
+
 function main() {
   const check = process.argv.includes("--check");
-  const next = render(build());
+  let stale = false;
+  for (const [file, next] of outputs()) {
+    if (writeOrCheck(file, next, check)) stale = true;
+  }
+  if (check && stale) {
+    console.error(
+      "site copy catalogue is stale — a `site.*` string or its LABEL/PROSE class changed without regenerating.\n" +
+        "  Run: node scripts/gen/gen-site-copy-catalogue.js",
+    );
+    process.exit(1);
+  }
+  if (check) console.log("site copy catalogue: up to date");
+}
+
+/** Returns true when `file` is stale (check mode) — writes it otherwise. */
+function writeOrCheck(file, next, check) {
   // Read and handle "not there" as an outcome, rather than asking first and
   // reading second. `existsSync` then `readFileSync` is two trips to the
   // filesystem with a gap in between, and the gap is real here: `--check` runs
@@ -421,7 +508,7 @@ function main() {
   // disagree with itself.
   let current = null;
   try {
-    current = fs.readFileSync(OUT, "utf8");
+    current = fs.readFileSync(file, "utf8");
   } catch (err) {
     // A missing file is the ordinary first-run state and means "stale"; any
     // other error (a directory, a permission problem) is a real fault and must
@@ -429,18 +516,14 @@ function main() {
     if (err.code !== "ENOENT") throw err;
   }
   if (check) {
-    if (current === next) {
-      console.log("site copy catalogue: up to date");
-      return;
-    }
-    console.error(
-      "site copy catalogue is stale — a `site.*` string changed without regenerating.\n" +
-        "  Run: node scripts/gen/gen-site-copy-catalogue.js",
-    );
-    process.exit(1);
+    if (current !== next) console.error(`  stale: ${path.relative(ROOT, file)}`);
+    return current !== next;
   }
-  fs.writeFileSync(OUT, next);
-  console.log(`wrote ${path.relative(ROOT, OUT)}`);
+  if (current !== next) {
+    fs.writeFileSync(file, next);
+    console.log(`wrote ${path.relative(ROOT, file)}`);
+  }
+  return false;
 }
 
 main();
