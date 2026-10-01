@@ -61,6 +61,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TENANT_KEY } from "@/lib/query-client";
 import { useToast } from "@/components/ui/toast";
 import { useLiveNotifications } from "@/lib/use-live-notifications";
+import { useLiveRefresh, useOpenInApp, useWorkerNavigation } from "@/lib/open-in-app";
 import { playOnce, tierFor } from "@/lib/notif-sound";
 import { applyTabBadge } from "@/lib/tab-badge";
 import { tokenStore } from "@/lib/token-store";
@@ -69,7 +70,7 @@ import { disconnectCommsSocket } from "@/lib/comms-socket";
 import { setAppBadge } from "@/lib/app-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LangToggle } from "@/components/lang-toggle";
-import { navT } from "@/lib/i18n";
+import { navT, tr } from "@/lib/i18n";
 import { getMode, setMode, resolved } from "@/lib/theme-mode";
 import { ClockPunchChip } from "@/components/clock-punch";
 import { openInstallUi, isStandalone } from "@/lib/pwa-install";
@@ -774,12 +775,21 @@ export function AppShell() {
    * judgement made here — everything else still lands in the bell and moves the
    * badge, which is what "quietly appear" is supposed to look like.
    */
+  // A tap on a push lands inside this window, without a reload (1.6, C1),
+  // and a live arrival about the open screen refreshes just that screen (C3).
+  useWorkerNavigation();
+  const liveRefresh = useLiveRefresh();
+  const openInApp = useOpenInApp();
+
   useLiveNotifications(
     React.useCallback(
       (n) => {
         // Always: the badge is now correct within a socket round-trip rather
         // than within a minute, for interrupts and quiet arrivals alike.
         unread.reload();
+        // The client's upload appears on the 360 that is open, now — not on
+        // the next reload (tenant review 29 Sep 2026, item 1.6).
+        liveRefresh(n);
         const tier = tierFor(n);
         if (tier === "silent") return;
         playOnce(tier, n.notification_id);
@@ -787,9 +797,11 @@ export function AppShell() {
         // pointer to the bell, and a five-line toast covering the screen is
         // its own kind of interruption.
         const preview = n.body ? `${n.title} — ${n.body}` : n.title;
-        toast.info(preview.length > 140 ? `${preview.slice(0, 139)}…` : preview);
+        toast.info(preview.length > 140 ? `${preview.slice(0, 139)}…` : preview, {
+          open: n.link_url ? { label: tr("Open"), onOpen: () => openInApp(n.link_url) } : undefined,
+        });
       },
-      [unread, toast],
+      [unread, toast, liveRefresh, openInApp],
     ),
   );
 

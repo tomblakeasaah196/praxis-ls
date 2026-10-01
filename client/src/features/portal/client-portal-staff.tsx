@@ -40,6 +40,7 @@ import {
   PortalSectionHeader,
   type ContactSuggestion,
 } from "./client-portal-people";
+import { useReviewRequest } from "./client-kyc";
 
 /* ── shapes (portal_client.service.js requestView / proofView) ──────────── */
 
@@ -67,6 +68,20 @@ export type StaffRequest = {
   answered_by_name?: string | null;
   review_note: string | null;
   created_at: string;
+  /** The client document type a client-level request satisfies (14260). */
+  party_document_type_id?: string | null;
+  /** What Accept files it as on the Client 360 — null for a shipment's paperwork. */
+  files_as?: {
+    document_type_id: string | null;
+    code: string | null;
+    name: string | null;
+    requires_expiry: boolean;
+    requires_issuing_authority: boolean;
+  } | null;
+  /** Which accept fields that type requires (`clientPortal.acceptFieldsFor`). */
+  accept_fields?: { asks: boolean; issued_on: boolean; expires_on: boolean; issuing_authority: boolean };
+  /** The 360 document an accepted upload was filed as. */
+  client_document_id?: string | null;
 };
 
 export type StaffProof = {
@@ -145,8 +160,11 @@ export function ClientRequestsPanel({
   const [asking, setAsking] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [confirm, confirmDialog] = useConfirm();
-  const [prompt, promptDialog] = usePrompt();
   const toast = useToast();
+  // Accept / Send back are shared with Client 360 › Documents (client-kyc):
+  // Accept files a client's KYC upload on the 360, asking for the fields its
+  // type requires first (tenant review 29 Sep 2026, D1).
+  const reviewer = useReviewRequest(reload);
 
   const all = rows || [];
   const review = all.filter((r) => r.status === "SUBMITTED");
@@ -154,33 +172,18 @@ export function ClientRequestsPanel({
   const done = all.filter((r) => r.status === "ACCEPTED" || r.status === "CANCELLED");
   const shown = view === "review" ? review : view === "waiting" ? waiting : done;
 
-  async function decide(r: StaffRequest, decision: "ACCEPT" | "REJECT" | "CANCEL") {
-    let note: string | null = null;
-    if (decision === "REJECT") {
-      note = await prompt({
-        title: tr("Send this back to the client?"),
-        description: tr("They see your reason on the request and can send a new file."),
-        label: tr("What is wrong with it"),
-        placeholder: tr("Page 2 is missing"),
-        multiline: true,
-        confirmLabel: tr("Send back"),
-        validate: (v) => (v.trim() ? null : tr("Tell the client what to fix.")),
-      });
-      if (note === null) return;
-    }
-    if (decision === "CANCEL") {
-      const ok = await confirm({
-        title: tr("Stop asking for this?"),
-        body: tr("The request disappears from the client's list. You can ask again later."),
-        confirmLabel: tr("Cancel request"),
-        cancelLabel: tr("Keep it"),
-      });
-      if (!ok) return;
-    }
+  async function cancel(r: StaffRequest) {
+    const ok = await confirm({
+      title: tr("Stop asking for this?"),
+      body: tr("The request disappears from the client's list. You can ask again later."),
+      confirmLabel: tr("Cancel request"),
+      cancelLabel: tr("Keep it"),
+    });
+    if (!ok) return;
     setBusy(r.client_request_id);
     try {
-      await tenant(`/portal/client-requests/${r.client_request_id}/review`, { method: "POST", body: { decision, note } });
-      toast.success(decision === "ACCEPT" ? tr("Accepted — filed on the shipment.") : decision === "REJECT" ? tr("Sent back to the client.") : tr("Request cancelled."));
+      await tenant(`/portal/client-requests/${r.client_request_id}/review`, { method: "POST", body: { decision: "CANCEL", note: null } });
+      toast.success(tr("Request cancelled."));
       reload();
     } catch (e) {
       toast.error(errMsg(e));
@@ -256,16 +259,16 @@ export function ClientRequestsPanel({
                 ) : null}
                 {r.status === "SUBMITTED" ? (
                   <>
-                    <Button size="sm" variant="outline" loading={busy === r.client_request_id} onClick={() => void decide(r, "REJECT")}>
+                    <Button size="sm" variant="outline" loading={reviewer.busy === r.client_request_id} onClick={() => void reviewer.sendBack(r)}>
                       {tr("Send back")}
                     </Button>
-                    <Button size="sm" loading={busy === r.client_request_id} onClick={() => void decide(r, "ACCEPT")}>
+                    <Button size="sm" loading={reviewer.busy === r.client_request_id} onClick={() => void reviewer.accept(r)}>
                       {tr("Accept")}
                     </Button>
                   </>
                 ) : null}
                 {r.status === "OPEN" || r.status === "REJECTED" ? (
-                  <Button size="sm" variant="ghost" loading={busy === r.client_request_id} onClick={() => void decide(r, "CANCEL")}>
+                  <Button size="sm" variant="ghost" loading={busy === r.client_request_id} onClick={() => void cancel(r)}>
                     {tr("Cancel")}
                   </Button>
                 ) : null}
@@ -288,7 +291,7 @@ export function ClientRequestsPanel({
         />
       ) : null}
       {confirmDialog}
-      {promptDialog}
+      {reviewer.dialogs}
     </section>
   );
 }

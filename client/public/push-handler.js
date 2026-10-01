@@ -378,23 +378,84 @@ self.addEventListener("notificationclick", (event) => {
     return;
   }
 
-  const target = d.url || "/notifications";
-  event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clients) => {
-        // Focus an existing tab if one is open; otherwise open a new one.
-        for (const client of clients) {
-          if ("focus" in client) {
-            client.navigate(target).catch(() => {});
-            return client.focus();
-          }
-        }
-        if (self.clients.openWindow) return self.clients.openWindow(target);
-        return undefined;
-      }),
-  );
+  event.waitUntil(openInApp(d.url));
 });
+
+/**
+ * A path on THIS origin, or the inbox — a notification never sends the app
+ * somewhere else, whatever its payload says.
+ */
+function appUrl(raw) {
+  try {
+    const u = new URL(raw || "/notifications", self.location.origin);
+    if (u.origin !== self.location.origin) return "/notifications";
+    return u.pathname + u.search + u.hash;
+  } catch (_e) {
+    return "/notifications";
+  }
+}
+
+/**
+ * Ask one window to open `url` itself, inside the SPA, and wait for it to say
+ * it did. The page's app-wide listener (lib/open-in-app.ts) answers on the
+ * port; a page that predates it, or is frozen, never answers, and that silence
+ * is what sends the worker to its fallback.
+ */
+function askToOpen(client, url, waitMs) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      resolve(ok);
+    };
+    try {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = (e) => finish(!!(e.data && e.data.ok));
+      client.postMessage({ type: "praxis:navigate", url }, [channel.port2]);
+    } catch (_e) {
+      finish(false);
+      return;
+    }
+    setTimeout(() => finish(false), waitMs);
+  });
+}
+
+/**
+ * A tap on an ordinary notification (tenant review of 29 Sep 2026, item 1.6).
+ *
+ * It used to call `client.navigate(url)` and swallow the rejection — and a
+ * navigate is refused for a window this worker does not control, so with the
+ * app open the tap brought it forward on the page it was already on. The
+ * portal's worker had it right (`postMessage`, the page routes itself), and
+ * this is that pattern: focus, ask the page to open the place without a
+ * reload, and only if no window answers fall back to navigating it — and if
+ * that is refused too, a new window. With no window at all, a new window.
+ */
+async function openInApp(rawUrl) {
+  const url = appUrl(rawUrl);
+  const clients = await windowClients();
+  for (const client of clients) {
+    if (!("focus" in client)) continue;
+    try {
+      await client.focus();
+    } catch (_e) {
+      /* focusing can be refused; the page can still open the place */
+    }
+    if (await askToOpen(client, url, 1500)) return undefined;
+    try {
+      if (typeof client.navigate === "function") {
+        await client.navigate(url);
+        return undefined;
+      }
+    } catch (_e) {
+      /* not ours to navigate — a new window is the last resort */
+    }
+    break;
+  }
+  if (self.clients.openWindow) return self.clients.openWindow(url);
+  return undefined;
+}
 
 /**
  * The browser has replaced this device's subscription — which it does on its

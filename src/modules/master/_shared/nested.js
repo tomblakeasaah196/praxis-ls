@@ -26,6 +26,7 @@ const { partyCommon, entityCommon, taxRegimes } = require("@praxis/shared");
 // below to avoid an unused-import lint while keeping the import visible to the gate.
 void taxRegimes;
 const { canSeeFinancials, canSeeRegistrations, maskBank } = require("./confidential");
+const { inTransaction } = require("../../../shared/db/tx");
 const changeRequest = require("./change-request.service");
 const numbering = require("../../../services/documents/numbering.service");
 // PR-07 (CE-11): the attachment outbox. The vault-side service only — the
@@ -66,6 +67,32 @@ const validate = (schema) => (req, _res, next) => {
  */
 const provided = (obj) =>
   Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+
+/**
+ * Run a write in a transaction — this one's own, or the caller's.
+ *
+ * Every write below used to open its own BEGIN/COMMIT, which is right for a
+ * route and wrong for a service that files a document as ONE step of a larger
+ * change: Postgres has no nested transactions, so the inner COMMIT would commit
+ * the caller's work early (shared/db/tx.js). Accepting a client's portal upload
+ * (14260) files the client_document, verifies it and closes the request
+ * together, so when the caller already holds a transaction opened through
+ * `atomically`, the write joins it and the caller decides the outcome. A route
+ * — the only caller before that — still gets exactly the BEGIN / COMMIT /
+ * ROLLBACK it always did.
+ */
+async function inTx(c, fn) {
+  if (inTransaction(c)) return fn();
+  await c.query("BEGIN");
+  try {
+    const out = await fn();
+    await c.query("COMMIT");
+    return out;
+  } catch (e) {
+    await c.query("ROLLBACK");
+    throw e;
+  }
+}
 
 function buildResource(cfg) {
   const {
@@ -178,8 +205,7 @@ function buildResource(cfg) {
       // A retry must not rewrite who checked the fact or when they checked it.
       if (before.verified === true) return before;
 
-      await c.query("BEGIN");
-      try {
+      return inTx(c, async () => {
         const { rows: [row] } = await c.query(
           `UPDATE ${table}
               SET verified = true, verified_by = $2, verified_at = now(),
@@ -197,12 +223,8 @@ function buildResource(cfg) {
           before,
           after: row,
         });
-        await c.query("COMMIT");
         return row;
-      } catch (e) {
-        await c.query("ROLLBACK");
-        throw e;
-      }
+      });
     }
 
     if (!isDocument) throw new AppError("NOT_DOCUMENT", "Only documents or entity registrations can be verified", 422);
@@ -216,8 +238,7 @@ function buildResource(cfg) {
       throw new AppError("SCAN_REQUIRED", "The attached scan is not ready yet.", 422);
     }
 
-    await c.query("BEGIN");
-    try {
+    return inTx(c, async () => {
       const { rows: [row] } = await c.query(
         `UPDATE ${table}
             SET verification_status = 'VERIFIED', scan_status = 'VERIFIED',
@@ -235,12 +256,8 @@ function buildResource(cfg) {
         before,
         after: row,
       });
-      await c.query("COMMIT");
       return row;
-    } catch (e) {
-      await c.query("ROLLBACK");
-      throw e;
-    }
+    });
   }
 
   /**
@@ -310,40 +327,39 @@ function buildResource(cfg) {
           throw e;
         }
       }
-      await c.query("BEGIN");
       try {
-        const insertData = { ...data };
-        if (isDocument && numberingKey) {
-          // Counterparty document numbers are internal system references, not
-          // user-entered values. Prefer the normal entity-scoped allocator when
-          // the party is already linked to a corporate entity; the fallback
-          // keeps onboarding valid for a party created before that link exists.
-          const parent = await c.query(
-            `SELECT entity_id FROM ${parentTable} WHERE ${parentPk} = $1`,
-            [parentId],
-          );
-          const entityId = parent.rows[0] && parent.rows[0].entity_id;
-          const issuedOrToday = insertData.issued_on || new Date().toISOString().slice(0, 10);
-          const allocated = entityId
-            ? await numbering.allocate(c, { moduleKey: numberingKey, entityId, date: issuedOrToday })
-            : await numbering.allocatePartyDocument(c, { moduleKey: numberingKey, partyKind: kind, date: issuedOrToday });
-          insertData.document_number = allocated.number;
-        }
-        const row = await insertOne(c, table, provided({ ...insertData, [parentCol]: parentId }), "*", insertAllow);
-        await demoteOtherPrimaries(c, row, data.is_primary === true);
-        await audit(c, { actorUserId: actor.user_id || null, action: `${label}.created`, moduleKey, entityRef: `${label}:${row[pk]}`, after: row });
-        // Bug #13: afterWrite is the hook that advances a document's
-        // scan_status from PENDING → SCANNED when a vault_id arrives, and it
-        // must fire on CREATE too (when a file is attached in the same step as
-        // the row, the vault_id is part of the insert payload). It already
-        // fired on every UPDATE, so an operator attaching from the row worked;
-        // attaching while creating silently left the document at PENDING
-        // forever.
-        await afterWrite(c, { op: "create", row, actor });
-        await c.query("COMMIT");
-        return row;
+        return await inTx(c, async () => {
+          const insertData = { ...data };
+          if (isDocument && numberingKey) {
+            // Counterparty document numbers are internal system references, not
+            // user-entered values. Prefer the normal entity-scoped allocator when
+            // the party is already linked to a corporate entity; the fallback
+            // keeps onboarding valid for a party created before that link exists.
+            const parent = await c.query(
+              `SELECT entity_id FROM ${parentTable} WHERE ${parentPk} = $1`,
+              [parentId],
+            );
+            const entityId = parent.rows[0] && parent.rows[0].entity_id;
+            const issuedOrToday = insertData.issued_on || new Date().toISOString().slice(0, 10);
+            const allocated = entityId
+              ? await numbering.allocate(c, { moduleKey: numberingKey, entityId, date: issuedOrToday })
+              : await numbering.allocatePartyDocument(c, { moduleKey: numberingKey, partyKind: kind, date: issuedOrToday });
+            insertData.document_number = allocated.number;
+          }
+          const row = await insertOne(c, table, provided({ ...insertData, [parentCol]: parentId }), "*", insertAllow);
+          await demoteOtherPrimaries(c, row, data.is_primary === true);
+          await audit(c, { actorUserId: actor.user_id || null, action: `${label}.created`, moduleKey, entityRef: `${label}:${row[pk]}`, after: row });
+          // Bug #13: afterWrite is the hook that advances a document's
+          // scan_status from PENDING → SCANNED when a vault_id arrives, and it
+          // must fire on CREATE too (when a file is attached in the same step as
+          // the row, the vault_id is part of the insert payload). It already
+          // fired on every UPDATE, so an operator attaching from the row worked;
+          // attaching while creating silently left the document at PENDING
+          // forever.
+          await afterWrite(c, { op: "create", row, actor });
+          return row;
+        });
       } catch (e) {
-        await c.query("ROLLBACK");
         if (e.code === "23503") throw new AppError("NOT_FOUND", "Parent or referenced record not found", 404);
         throw e;
       }
@@ -367,18 +383,13 @@ function buildResource(cfg) {
           throw e;
         }
       }
-      await c.query("BEGIN");
-      try {
+      return inTx(c, async () => {
         const row = await updateOne(c, table, pk, id, provided(patch), "*", updateAllow, touch ? { touch: "updated_at" } : {});
         await demoteOtherPrimaries(c, row, patch.is_primary === true);
         await audit(c, { actorUserId: actor.user_id || null, action: `${label}.updated`, moduleKey, entityRef: `${label}:${id}`, before, after: row });
         await afterWrite(c, { op: "update", row, actor });
-        await c.query("COMMIT");
         return row;
-      } catch (e) {
-        await c.query("ROLLBACK");
-        throw e;
-      }
+      });
     },
     async remove(c, { parentId, id, actor = {} }) {
       const before = await getById(c, table, pk, id);
@@ -437,6 +448,69 @@ function resourceSpecs(kind) {
     { seg: "registrations", table: "party_registration", pk: "registration_id", parentCol: `${kind}_id`, create: partyCommon.registrationCreate, update: partyCommon.registrationUpdate, touch: false, governed: { create: "TAX_REGISTRATION", update: "TAX_REGISTRATION" }, writable: ["country_code", "kind", "number", "issuing_authority", "issued_on", "expires_on"] },
     { seg: "beneficial-owners", table: `${kind}_beneficial_owner`, pk: "owner_id", create: partyCommon.beneficialOwnerCreate, update: partyCommon.beneficialOwnerUpdate, touch: false, writable: ["full_name", "date_of_birth", "nationality", "id_type", "id_number", "ownership_percent", "is_pep", "notes", "vault_id"] },
   ];
+}
+
+/** The service of one party collection, built exactly as `mountNested` builds it. */
+function partyResource(kind, seg) {
+  const r = resourceSpecs(kind).find((x) => x.seg === seg);
+  if (!r) throw new AppError("BAD_RESOURCE", `unknown ${kind} collection "${seg}"`, 500);
+  return buildResource({
+    table: r.table, pk: r.pk, parentCol: r.parentCol || `${kind}_id`,
+    parentTable: `${kind}_master`, parentPk: `${kind}_id`, moduleKey: kind === "client" ? "MOD-03" : "MOD-04",
+    label: r.table, writable: r.writable, touch: r.touch, isBank: r.isBank, isDocument: r.isDocument,
+    numberingKey: r.numberingKey, immutable: r.immutable, kind, governed: r.governed, rowRules: r.rowRules,
+  }).service;
+}
+
+/**
+ * File a scanned file as a party's VERIFIED document of one type — the step a
+ * reviewer takes when they accept what a client sent through the portal
+ * (14260, owner decision D1).
+ *
+ * It is the Documents tab's own path, not a second one: the row is created
+ * (number allocated, audited, the scan linked) or — when the party already
+ * holds a document of that type — SUPERSEDED in place: the new file and dates
+ * replace the old on the same row, `version_no` moves on, and the audit ledger
+ * keeps the row as it was. Then the same `verify` the Verify button runs marks
+ * it VERIFIED by the reviewer. `content_hash` is the vault row's, so what the
+ * 360 records is what the vault holds.
+ *
+ * Joins the caller's transaction (see `inTx`) — the caller opens it with
+ * `atomically` so the document, the request and the vault row move together.
+ */
+async function fileVerifiedDocument(c, { kind, parentId, documentTypeId, vaultId, fields = {}, actor = {} }) {
+  const table = `${kind}_document`;
+  const parentCol = `${kind}_id`;
+  const service = partyResource(kind, "documents");
+  const data = provided({
+    issued_on: fields.issued_on || undefined,
+    expires_on: fields.expires_on || undefined,
+    issuing_authority: fields.issuing_authority || undefined,
+    vault_id: vaultId,
+  });
+  const { rows: [existing] } = await c.query(
+    `SELECT document_id FROM ${table}
+      WHERE ${parentCol} = $1 AND document_type_id = $2
+      ORDER BY updated_at DESC LIMIT 1`,
+    [parentId, documentTypeId],
+  );
+  let row;
+  if (existing) {
+    row = await service.update(c, { parentId, id: existing.document_id, patch: data, actor });
+    await c.query(
+      `UPDATE ${table} SET version_no = version_no + 1, updated_at = now() WHERE document_id = $1`,
+      [row.document_id],
+    );
+  } else {
+    row = await service.create(c, { parentId, data: { document_type_id: documentTypeId, ...data }, actor });
+  }
+  await c.query(
+    `UPDATE ${table} d SET content_hash = v.content_hash
+       FROM document_vault v
+      WHERE d.document_id = $1 AND v.doc_id = $2`,
+    [row.document_id, vaultId],
+  );
+  return service.verify(c, { parentId, id: row.document_id, actor });
 }
 
 /**
@@ -671,4 +745,4 @@ function mountEntityNested(router, { moduleKey, parentTable, parentPk }) {
   }
 }
 
-module.exports = { mountNested, mountEntityNested, buildResource, resourceSpecs, entityResourceSpecs, validate };
+module.exports = { mountNested, mountEntityNested, buildResource, resourceSpecs, entityResourceSpecs, validate, partyResource, fileVerifiedDocument };

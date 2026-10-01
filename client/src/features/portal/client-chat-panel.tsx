@@ -22,7 +22,9 @@ import { useUpload } from "@/lib/use-upload";
 import { dateTimeFmt } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
-import { SendIcon } from "@/components/ui/icons";
+import { SendIcon, MailIcon } from "@/components/ui/icons";
+import { MoreMenu } from "@/components/ui/more-menu";
+import { DropdownItem } from "@/components/ui/dropdown-menu";
 import { Chips } from "@/components/ui/chips";
 import { Textarea } from "@/components/ui/textarea";
 import { Pill } from "@/components/ui/pill";
@@ -32,8 +34,10 @@ import { FilePicker, UploadList } from "@/components/ui/image-upload";
 import { pasteFileFromEvent } from "@/components/ui/upload-paste";
 import { useToast } from "@/components/ui/toast";
 import { useCanUseModule } from "@/lib/route-access";
+import { useRefreshEvent } from "@/lib/open-in-app";
 import { VoiceRecorder, type Recording } from "@/features/comms/chat/voice-recorder";
 import { ClientChatTools, ShareLocationDialog, type SharedPlace } from "./client-chat-tools";
+import { DeliveryLine, SendByEmailDialog, type DeliveryPerson } from "./client-message-email";
 
 type Attachment = {
   attachment_id: string;
@@ -45,7 +49,7 @@ type Attachment = {
   height: number | null;
   duration_ms: number | null;
 };
-type Message = {
+export type Message = {
   message_id: string;
   direction: "STAFF" | "CLIENT";
   body: string;
@@ -55,6 +59,8 @@ type Message = {
   milestone: { milestone_instance_id: string; label: string | null } | null;
   location: { lat: number; lng: number; label: string | null } | null;
   attachments: Attachment[];
+  /** On a TEAM message: what its email did for each person at the client (D8). */
+  delivery?: DeliveryPerson[];
 };
 type Page = { thread: string; dossier_ref: string | null; has_more: boolean; messages: Message[] };
 type Thread = { dossier_id: string | null; dossier_ref: string | null; last_at: string; unread: number };
@@ -126,14 +132,37 @@ function ChatVoice({ att }: { att: Attachment }) {
   );
 }
 
-function Bubble({ m }: { m: Message }) {
+export function Bubble({ m, onEmail }: { m: Message; onEmail?: (m: Message) => void }) {
   const ours = m.direction === "STAFF";
   // Which colleague at the client wrote it: their name, with the address under
   // it — two people at one client can share a first name.
   const who = ours ? m.author.name || tr("Team") : m.author.name || m.author.email || tr("Client");
   const whoEmail = !ours && m.author.name && m.author.email ? m.author.email : null;
+  const emailable = ours && !!onEmail;
   return (
-    <li className={cn("flex", ours ? "justify-end" : "justify-start")}>
+    <li className={cn("group flex items-start gap-1", ours ? "justify-end" : "justify-start")}>
+      {emailable ? (
+        <>
+          {/* "Send by email" (D8): an envelope on hover where there is a
+              pointer that hovers, the message's ⋯ menu on a touch screen. */}
+          <button
+            type="button"
+            title={tr("Send by email")}
+            aria-label={tr("Send by email")}
+            onClick={() => onEmail?.(m)}
+            className={cn(
+              "mt-1 hidden h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-opacity",
+              "hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "[@media(hover:hover)]:grid opacity-0 group-hover:opacity-100",
+            )}
+          >
+            <MailIcon width={16} height={16} />
+          </button>
+          <MoreMenu label={tr("Message actions")} className="mt-1 h-8 w-8 border-0 [@media(hover:hover)]:hidden">
+            <DropdownItem onSelect={() => onEmail?.(m)}>{tr("Send by email")}</DropdownItem>
+          </MoreMenu>
+        </>
+      ) : null}
       <div
         className={cn(
           "max-w-[75%] rounded-2xl px-3 py-2 text-sm",
@@ -178,6 +207,7 @@ function Bubble({ m }: { m: Message }) {
         ) : null}
         {m.body ? <p className="whitespace-pre-wrap break-words">{m.body}</p> : null}
         <p className="mt-0.5 text-right text-[11px] text-muted-foreground">{dateTimeFmt(m.created_at)}</p>
+        {ours ? <DeliveryLine people={m.delivery} /> : null}
       </div>
     </li>
   );
@@ -203,6 +233,10 @@ export function ClientChatPanel({
   const [busy, setBusy] = React.useState(false);
   const [placing, setPlacing] = React.useState(false);
   const [pasteNote, setPasteNote] = React.useState<string | null>(null);
+  // "Send by email" (D8) — the same grant as replying: the Client inbox
+  // (MOD-64C). The route checks `edit`, exactly as it does for a reply.
+  const [emailing, setEmailing] = React.useState<Message | null>(null);
+  const canEmail = useCanUseModule("MOD-64C");
   const end = React.useRef<HTMLDivElement>(null);
   const box = React.useRef<HTMLTextAreaElement>(null);
   const fileOpen = React.useRef<(() => void) | null>(null);
@@ -242,6 +276,15 @@ export function ClientChatPanel({
     },
     [q, thread, clientId, loadThreads],
   );
+
+  // A live arrival about this client, or a bell click on this page, re-reads
+  // the conversation now rather than at the next poll (item 1.6).
+  useRefreshEvent((d) => {
+    if (d.scope === "screen" || !d.clientId || d.clientId === clientId) {
+      loadThreads();
+      void load(true);
+    }
+  });
 
   React.useEffect(() => {
     setPage(null);
@@ -381,7 +424,7 @@ export function ClientChatPanel({
         ) : (
           <ul className="grid gap-2">
             {page.messages.map((m) => (
-              <Bubble key={m.message_id} m={m} />
+              <Bubble key={m.message_id} m={m} onEmail={canEmail ? setEmailing : undefined} />
             ))}
           </ul>
         )}
@@ -468,6 +511,7 @@ export function ClientChatPanel({
         </p>
       </div>
       <ShareLocationDialog open={placing} onClose={() => setPlacing(false)} onSend={(p) => void sendPlace(p)} busy={busy} />
+      <SendByEmailDialog message={emailing} onClose={() => setEmailing(null)} onSent={() => void load(false)} />
     </div>
   );
 }

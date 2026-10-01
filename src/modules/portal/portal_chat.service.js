@@ -25,6 +25,7 @@ const repo = require("./portal_chat.repo");
 const vault = require("../vault/document_vault/document_vault.service");
 const notifications = require("../notification/notification.service");
 const notificationRepo = require("../notification/notification.repo");
+const accountManager = require("../master/client_master/account_manager.service");
 const storage = require("../../services/storage.service");
 const imagePipeline = require("../../services/image-pipeline.service");
 const { emitEvent, resolveActorId } = require("../../shared/events/emit");
@@ -33,6 +34,8 @@ const { AppError } = require("../../utils/errors");
 const { logger } = require("../../config/logger");
 
 const MODULE = "MOD-67"; // client support — where the chat's events are filed
+/** The environment the pool stamped on this connection (registry.service). */
+const CONN_ENV = Symbol.for("praxis.conn.env");
 /**
  * The Client inbox (PR 3, seeds 90997/9136): the permission of the people who
  * answer clients — operations, sales, management. A message nobody owns goes
@@ -311,14 +314,34 @@ async function staffDossier(c, { clientId, thread }) {
   return dossier;
 }
 
+/**
+ * One page of a conversation for the team — with, on each TEAM message, what
+ * its email did for each person at the client (tenant review 29 Sep 2026, D8):
+ * emailed, read in the portal so no email was needed, or not emailed and why.
+ * Read from the portal sender's own record (portal_notify.messageDelivery). A
+ * TEST connection has no client to email, so there is nothing to show there.
+ */
 async function staffMessages(c, { clientId, thread, before = null }) {
   const dossier = await staffDossier(c, { clientId, thread });
   const rows = await repo.messages(c, { clientId, dossierId: dossier && dossier.dossier_id, before, limit: PAGE, clientView: false });
+  const views = rows.map((r) => messageView(r));
+  const key = repo.threadKey(dossier && dossier.dossier_id);
+  if (c[CONN_ENV] !== "sandbox" && views.some((m) => m.direction === "STAFF")) {
+    try {
+      const notify = require("./portal_notify.service");
+      const delivery = await notify.messageDelivery(c, { clientId, thread: key, messages: views });
+      for (const m of views) if (m.direction === "STAFF") m.delivery = delivery[m.message_id] || [];
+    } catch (err) {
+      // taxonomy: degraded-optional — the conversation is the point; a delivery
+      // line that cannot be read must not take the thread down with it.
+      logger.warn({ err, clientId }, "client chat: delivery state unavailable");
+    }
+  }
   return {
-    thread: repo.threadKey(dossier && dossier.dossier_id),
+    thread: key,
     dossier_ref: dossier ? dossier.ref : null,
     has_more: rows.length === PAGE,
-    messages: rows.map((r) => messageView(r)),
+    messages: views,
   };
 }
 
@@ -350,6 +373,13 @@ async function staffSend(c, { clientId, thread, body = "", milestoneId = null, f
   });
   const [saved] = await repo.messages(c, { clientId, dossierId: dossier && dossier.dossier_id, limit: 1, clientView: false });
   return messageView(saved && saved.message_id === row.message_id ? saved : { ...row, dossier_ref: dossier && dossier.ref });
+}
+
+/** Each stage's client questions on one shipment — the operations file's timeline (1.7). */
+async function staffMilestoneQuestions(c, { clientId, dossierId }) {
+  const dossier = await staffDossier(c, { clientId, thread: dossierId });
+  if (!dossier) throw new AppError("NOT_FOUND", "No such file for this client", 404);
+  return repo.milestoneQuestions(c, { clientId, dossierId: dossier.dossier_id });
 }
 
 async function staffAttachment(c, { attachmentId, size = null }) {
@@ -390,23 +420,27 @@ async function attachmentBytes(a, size) {
 }
 
 /**
- * Tell the team a client wrote (owner decision 2/12):
+ * Tell the team a client wrote (owner decision 2/12, and tenant review 29 Sep
+ * 2026, D3/D7):
  *
- *   · the client's account manager and — for a shipment's conversation — the
- *     file's operations and sales owners;
- *   · when none of those can be reached (General with no account manager, a
- *     file nobody owns, or owners who have left), the people who answer the
- *     Client inbox, operations among them (MOD-64C);
- *   · the MD, always.
+ *   · the client's ONE "who is told" list (account_manager.audience): its
+ *     account manager, its "Also notify" people and the CEO-role users;
+ *   · for a shipment's conversation, that file's operations and sales owners
+ *     too — the people working the file;
+ *   · when neither an account manager nor a file owner can be reached, the
+ *     people who answer the Client inbox (MOD-64C), as before.
  *
- * One alert per person per thread per minute: a client typing five short
- * lines is one ping, not five. The link opens the conversation in the inbox.
+ * Under "Client activity", whose email is ON by default (opt-out per person):
+ * the bell and the push for every message (one a minute per thread), and ONE
+ * email per person per conversation per 15 minutes. The link opens the
+ * conversation in the inbox.
  */
 async function alertTeam(c, { clientId, dossier, row, kind, who = null }) {
   try {
+    const list = await accountManager.audience(c, { clientId });
     const audience = await repo.staffAudience(c, { clientId, dossier });
-    let ids = [...audience.manager, ...audience.owners, ...audience.md];
-    if (!audience.manager.length && !audience.owners.length) {
+    let ids = [...list.manager, ...list.also, ...list.ceo, ...audience.owners];
+    if (!list.manager.length && !audience.owners.length) {
       ids = ids.concat(await notificationRepo.recipientsWithPermission(c, INBOX_MODULE, "edit"));
     }
     ids = [...new Set(ids.filter(Boolean))];
@@ -423,7 +457,7 @@ async function alertTeam(c, { clientId, dossier, row, kind, who = null }) {
       await notifications.notify(c, {
         userId,
         eventTypeKey: "client_message.received",
-        category: "comms",
+        category: "clients",
         title: dossier ? `${company} · ${dossier.ref}` : company,
         body,
         entityRef: `client_message:${row.message_id}`,
@@ -431,6 +465,7 @@ async function alertTeam(c, { clientId, dossier, row, kind, who = null }) {
         dedupeKey: `chat:${clientId}:${thread}:${userId}`,
         pushTag: `chat:${clientId}:${thread}`,
         renotify: true,
+        emailOnceEvery: { key: `client:${clientId}:chat:${thread}`, seconds: 15 * 60 },
       });
     }
   } catch (err) {
@@ -499,6 +534,6 @@ const KIND_LINE = {
 
 module.exports = {
   threads, unread, messages, read, send, clientAttachment,
-  staffThreads, staffMessages, staffRead, staffSend, staffAttachment, staffInbox,
+  staffThreads, staffMessages, staffRead, staffSend, staffAttachment, staffInbox, staffMilestoneQuestions,
   sniffAudio, PAGE, INBOX_MODULE,
 };

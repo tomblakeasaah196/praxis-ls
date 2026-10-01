@@ -17,7 +17,7 @@
  * conversation in the Client inbox.
  */
 import * as React from "react";
-import { tr } from "@/lib/i18n";
+import { tr, tv } from "@/lib/i18n";
 import { tenant } from "@/lib/api-client";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,36 @@ export type AccountManager = {
 };
 
 const path = (clientId: string) => `/clients/${encodeURIComponent(clientId)}/account-manager`;
+const toldPath = (clientId: string) => `/clients/${encodeURIComponent(clientId)}/told`;
+const CANDIDATES = "/clients/account-manager-candidates";
+
+type ToldPerson = { user_id: string; name: string | null; job_title?: string | null; reachable?: boolean; employee_id?: string | null };
+
+/**
+ * Who is told about a client (tenant review 29 Sep 2026, D7): the account
+ * manager, the CEO-role users and the "Also notify" people — in-app, by push
+ * and by email, each person free to opt out in Preferences. When nobody
+ * reachable looks after the client, the Client inbox team is told as well.
+ */
+export type ToldList = {
+  client_id: string;
+  manager: AccountManager["manager"];
+  also_notify: ToldPerson[];
+  ceo: ToldPerson[];
+  fallback_to_inbox: boolean;
+};
+
+/** "Awa (account manager), Timothée (CEO), Paul (also notify)" — the whole list, one sentence. */
+export function toldSentence(t: ToldList | null): string {
+  if (!t) return "";
+  const named = (p: { name: string | null }) => p.name || tr("Unnamed");
+  const parts: string[] = [];
+  if (t.manager && t.manager.reachable) parts.push(`${named(t.manager)} (${tr("account manager")})`);
+  for (const p of t.ceo || []) parts.push(`${named(p)} (${tr("CEO")})`);
+  for (const p of t.also_notify || []) if (p.reachable !== false) parts.push(`${named(p)} (${tr("also notify")})`);
+  if (t.fallback_to_inbox) parts.push(tr("the client inbox team"));
+  return parts.join(", ");
+}
 
 export function AccountManagerCard({
   clientId,
@@ -57,6 +87,25 @@ export function AccountManagerCard({
   const [picking, setPicking] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const m = res.data?.manager || null;
+  // The whole "who is told" list, re-read whenever the manager changes.
+  const told = useResource(() => tenant<ToldList>(toldPath(clientId)), [clientId, m?.user_id ?? null], { fresh: true });
+  const [addingAlso, setAddingAlso] = React.useState(false);
+  const also = (told.data && Array.isArray(told.data.also_notify) ? told.data.also_notify : []) as ToldPerson[];
+
+  async function saveAlso(userIds: string[], message: string) {
+    setBusy(true);
+    try {
+      await tenant<ToldList>(`/clients/${encodeURIComponent(clientId)}/also-notify`, { method: "PUT", body: { user_ids: userIds } });
+      toast.success(message);
+      setAddingAlso(false);
+      told.reload();
+      onChange?.();
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function save(userId: string | null) {
     setBusy(true);
@@ -135,7 +184,137 @@ export function AccountManagerCard({
           <p className="mt-1 text-xs text-muted-foreground">{tr("Only people with a login can be told when the client writes.")}</p>
         </div>
       ) : null}
+
+      {/* Also notify + the whole list (D7). */}
+      {told.data && Array.isArray(told.data.also_notify) ? (
+        <div className="mt-4 border-t pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="micro">{tr("Also notify")}</p>
+            <Button size="sm" variant="ghost" onClick={() => setAddingAlso((v) => !v)} disabled={busy}>
+              {tr("Add a person")}
+            </Button>
+          </div>
+          {also.length ? (
+            <ul className="mt-1 flex flex-wrap gap-2" aria-label={tr("Also notify")}>
+              {also.map((p) => (
+                <li key={p.user_id} className="flex items-center gap-1 rounded-full border bg-muted px-2.5 py-0.5 text-xs text-foreground">
+                  <span>{p.name || tr("Unnamed")}</span>
+                  {p.reachable === false ? <Pill tone="bad">{tr("No active login")}</Pill> : null}
+                  <button
+                    type="button"
+                    className="ml-0.5 rounded-full px-1 text-muted-foreground hover:text-foreground"
+                    aria-label={tv("Stop telling {{name}}", { name: p.name || tr("this person") })}
+                    disabled={busy}
+                    onClick={() =>
+                      void saveAlso(
+                        also.filter((x) => x.user_id !== p.user_id).map((x) => x.user_id),
+                        tr("Removed from the list"),
+                      )
+                    }
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">{tr("Nobody else — add people who must also hear about this client.")}</p>
+          )}
+          {addingAlso ? (
+            <div className="mt-2">
+              <EmployeePicker
+                id={`also-notify-${clientId}`}
+                label={tr("Also notify")}
+                placeholder={tr("Search by name or job title…")}
+                requireAccount
+                source={CANDIDATES}
+                disabled={busy}
+                exclude={new Set(also.map((p) => p.employee_id).filter((x): x is string => !!x))}
+                onPick={(hit) => {
+                  if (!hit.account_user_id) return;
+                  void saveAlso([...also.map((x) => x.user_id), hit.account_user_id], tr("Added to the list"));
+                }}
+              />
+            </div>
+          ) : null}
+          <p className="mt-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{tr("Told about this client:")}</span> {toldSentence(told.data) || "—"}
+          </p>
+          <p className="text-xs text-muted-foreground">{tr("In-app, by push and by email. Each person can switch the email off in their notification preferences.")}</p>
+        </div>
+      ) : null}
       {confirmDialog}
+    </div>
+  );
+}
+
+
+/* ── picked at creation (D7) ────────────────────────────────────────── */
+
+export type ToldPick = { manager: EmployeeHit | null; also: EmployeeHit[] };
+
+/**
+ * The account manager and "Also notify" pickers of the New client form — the
+ * API already takes `relationship_manager_user_id` and `also_notify_user_ids`
+ * on create, through the same audited service the 360 uses. People with a
+ * login only, from the same candidates read.
+ */
+export function ClientToldFields({ value, onChange }: { value: ToldPick; onChange: (next: ToldPick) => void }) {
+  const chosen = new Set([value.manager?.employee_id, ...value.also.map((p) => p.employee_id)].filter((x): x is string => !!x));
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium text-foreground">{tr("Account manager")}</p>
+        {value.manager ? (
+          <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm">
+            <span className="min-w-0 flex-1 truncate">{value.manager.full_name}</span>
+            <Button size="sm" variant="ghost" onClick={() => onChange({ ...value, manager: null })}>
+              {tr("Change")}
+            </Button>
+          </div>
+        ) : (
+          <EmployeePicker
+            id="new-client-account-manager"
+            label={tr("Account manager")}
+            placeholder={tr("Search by name or job title…")}
+            requireAccount
+            source={CANDIDATES}
+            exclude={chosen}
+            onPick={(hit) => onChange({ ...value, manager: hit })}
+          />
+        )}
+        <p className="text-xs text-muted-foreground">{tr("The first person told when the client writes, sends a document or asks for a quote.")}</p>
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium text-foreground">{tr("Also notify")}</p>
+        {value.also.length ? (
+          <ul className="flex flex-wrap gap-2" aria-label={tr("Also notify")}>
+            {value.also.map((p) => (
+              <li key={p.employee_id} className="flex items-center gap-1 rounded-full border bg-muted px-2.5 py-0.5 text-xs">
+                <span>{p.full_name}</span>
+                <button
+                  type="button"
+                  className="ml-0.5 rounded-full px-1 text-muted-foreground hover:text-foreground"
+                  aria-label={tv("Stop telling {{name}}", { name: p.full_name || tr("this person") })}
+                  onClick={() => onChange({ ...value, also: value.also.filter((x) => x.employee_id !== p.employee_id) })}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <EmployeePicker
+          id="new-client-also-notify"
+          label={tr("Add a person")}
+          placeholder={tr("Search by name or job title…")}
+          requireAccount
+          source={CANDIDATES}
+          exclude={chosen}
+          onPick={(hit) => onChange({ ...value, also: [...value.also, hit] })}
+        />
+        <p className="text-xs text-muted-foreground">{tr("Told too, with the account manager and the CEO.")}</p>
+      </div>
     </div>
   );
 }
