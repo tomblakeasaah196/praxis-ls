@@ -238,3 +238,23 @@ describe("the shared quote-request rules", () => {
     expect(quoteRequest.INTAKE_CHANNELS).toEqual(expect.arrayContaining(["WEBSITE", "PORTAL", "EMAIL", "MANUAL"]));
   });
 });
+
+describe("email domains — a hostile address costs linear time", () => {
+  test("a trailing dot is not part of the domain", () => {
+    expect(emailDomain.domainOf("ops@tema-shipping.com.")).toBe("tema-shipping.com");
+    expect(emailDomain.domainOf("ops@tema-shipping.com...")).toBe("tema-shipping.com");
+    expect(emailDomain.domainOf("ops@...")).toBeNull();
+  });
+
+  test("an address past the 254-character limit is refused before any regex runs", () => {
+    expect(emailDomain.domainOf(`a@${"b".repeat(250)}.cm`)).toBeNull();
+  });
+
+  test("thousands of dots answer at once (the ReDoS CodeQL flagged)", () => {
+    const started = Date.now();
+    for (const tail of [".".repeat(50000), `${".".repeat(50000)}x`, `x${".a".repeat(25000)}!`]) {
+      expect(emailDomain.domainOf(`a@b${tail}`)).toBeNull();
+    }
+    expect(Date.now() - started).toBeLessThan(200);
+  });
+});
