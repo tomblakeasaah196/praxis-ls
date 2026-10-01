@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 141,
-  "route_count": 1835,
+  "route_count": 1850,
   "tiers": {
     "public": 75,
-    "self-scoped": 112,
-    "gated": 1648
+    "self-scoped": 114,
+    "gated": 1661
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -112,6 +112,12 @@
       "tier": "gated"
     },
     "DELETE /api/tenant/client-types/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/clients/:id": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -796,6 +802,12 @@
       "tier": "gated"
     },
     "GET /api/platform/ai-vendors": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/platform/ai-vendors/gemini/dictionary-posting-model": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -1605,6 +1617,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/clients/:id/discard-check": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/clients/:id/documents": {
       "auth": true,
       "rbac": true,
@@ -1882,6 +1900,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/dashboard/control-tower": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/dashboard/getting-started": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -2229,6 +2253,18 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/expense-rates/vat-basis": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/expense-rates/vat-review": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/extra-charge-simulations/": {
       "auth": true,
       "rbac": true,
@@ -2331,6 +2367,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/financial-dictionary/posting-review": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/financial-dictionary/refs": {
       "auth": true,
       "rbac": true,
@@ -2338,6 +2380,18 @@
       "tier": "gated"
     },
     "GET /api/tenant/financial-dictionary/search": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/financial-dictionary/siblings": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/financial-dictionary/siblings/unpaired": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -4526,6 +4580,12 @@
       "rbac": true,
       "validated": false,
       "tier": "gated"
+    },
+    "GET /api/tenant/signatures/proof/window": {
+      "auth": true,
+      "rbac": false,
+      "validated": false,
+      "tier": "self-scoped"
     },
     "GET /api/tenant/signatures/qes/quote": {
       "auth": true,
@@ -7371,6 +7431,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/currencies/rates/release": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/currencies/sync": {
       "auth": true,
       "rbac": true,
@@ -7707,6 +7773,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/financial-dictionary/:id/siblings": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/financial-dictionary/import/commit": {
       "auth": true,
       "rbac": true,
@@ -7720,6 +7792,18 @@
       "tier": "gated"
     },
     "POST /api/tenant/financial-dictionary/import/validate": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/financial-dictionary/posting-review": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/financial-dictionary/posting-suggestion": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -9700,6 +9784,12 @@
       "tier": "self-scoped"
     },
     "POST /api/tenant/signatures/proof/otp": {
+      "auth": true,
+      "rbac": false,
+      "validated": false,
+      "tier": "self-scoped"
+    },
+    "POST /api/tenant/signatures/proof/window/end": {
       "auth": true,
       "rbac": false,
       "validated": false,
