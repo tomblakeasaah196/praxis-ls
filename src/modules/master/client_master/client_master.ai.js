@@ -13,6 +13,8 @@ module.exports = {
     { key: "find_account_manager_candidates", service: (c, p) => accountManager.candidates(c, { q: (p && p.q) || "", limit: p && p.limit }), permission: { module: "MOD-03", action: "edit" }, describe: "People who can be named a client's account manager — staff with an active login — searched by name or job title (q). Returns each one's account_user_id, the user_id set_client_account_manager takes." },
     { key: "get_client_account_manager", service: (c, id) => accountManager.get(c, { clientId: id && typeof id === "object" ? id.client_id : id }), permission: { module: "MOD-03", action: "view" }, describe: "Who looks after a client (their account manager): name, job title, and whether they can still be reached. The client's portal messages reach this person first." },
   ],
+  // Discarding a draft client (DELETE /clients/:id, meeting 6, 3.6) is
+  // deliberately absent: the assistant may not delete a client.
   writes: [
     { key: "create_client", service: service.create, schema: validator.schemas.create, permission: { module: "MOD-03", action: "create" }, confirm: true, describe: "Register a new client (KYC, credit limit, payment terms)." },
     { key: "update_client", service: (c, p, actor) => (({ client_id, ...patch }) => service.update(c, { id: client_id, patch, actor }))(p), schema: validator.schemas.aiUpdate, permission: { module: "MOD-03", action: "edit" }, confirm: true, describe: "Update a client by id." },

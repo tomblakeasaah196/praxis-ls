@@ -41,6 +41,7 @@ import {
   readFileAsDataUrl,
 } from "@/lib/vault-file";
 import * as api from "@/lib/masterdata-api";
+import { DiscardDraftClient } from "./client-discard";
 import { useUrlTab } from "@/lib/use-url-tab";
 import { ClientPortalTab } from "@/features/portal/client-portal-staff";
 import { ClientChatPanel } from "@/features/portal/client-chat-panel";
@@ -1600,6 +1601,22 @@ export function PartyDossier({
               >
                 Activate
               </Button>
+            )}
+            {/* Meeting 6, 3.6: a DRAFT client with no history can be
+                discarded; with history it says "Deactivate instead". */}
+            {isClient && p.registration_status === "DRAFT" && (
+              <DiscardDraftClient
+                clientId={partyId}
+                name={p.name}
+                onDeactivate={() =>
+                  act(
+                    () =>
+                      api.setRegistrationStatus(kind, partyId, "DEACTIVATED"),
+                    "Client deactivated",
+                  )
+                }
+                onDiscarded={onChanged}
+              />
             )}
             {blocked ? (
               <Button

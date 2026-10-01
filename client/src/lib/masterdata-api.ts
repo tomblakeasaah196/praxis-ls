@@ -2649,6 +2649,25 @@ export const setRegistrationStatus = (
     : updateSupplier(id, {
         registration_status: status,
       } as Partial<SupplierInput>);
+/** Meeting 6, 3.6 — can this client be discarded? Only a DRAFT with no history;
+ *  otherwise the answer names what it has, and the screen says "Deactivate
+ *  instead". Gated on the client master's `delete` right (403 otherwise). */
+export type ClientDiscardCheck = {
+  client_id: string;
+  registration_status: string | null;
+  can_discard: boolean;
+  reason: "NOT_DRAFT" | "HAS_HISTORY" | null;
+  history: { key: string; count: number; label: string }[];
+};
+export const clientDiscardCheck = (id: string) =>
+  tenant<ClientDiscardCheck>(`/clients/${id}/discard-check`);
+/** Delete a DRAFT client with no history and its own children, in one
+ *  audited transaction (a full snapshot is kept in the audit trail). */
+export const discardClient = (id: string) =>
+  tenant<{ discarded: true; client_id: string; removed: Record<string, number> }>(
+    `/clients/${id}`,
+    { method: "DELETE" },
+  );
 /** Smart Copy — a supplier id → a draft client, or a client id → a draft supplier. */
 export const convertFromSupplier = (supplierId: string) =>
   tenant<Client>(`/clients/convert-from-supplier/${supplierId}`, {

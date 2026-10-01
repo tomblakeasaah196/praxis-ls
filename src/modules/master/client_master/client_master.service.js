@@ -20,6 +20,7 @@ const accountManager = require("./account_manager.service");
 const { emitEvent, audit } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
 const { atomically } = require("../../../shared/db/tx");
+const discardRepo = require("./client_master.discard.repo");
 
 async function create(client, { data, actor = {} }) {
   // Country-first form blocks (§2) are written as their own rows, not master
@@ -130,4 +131,70 @@ async function setPublicReferenceConsent(client, { id, consent, actor = {} }) {
   await audit(client, { actorUserId: actor.user_id || null, action: "client.public_reference_consent.changed", moduleKey: events.MODULE, entityRef: "client:" + id, before: { public_reference_consent: before.public_reference_consent }, after: { public_reference_consent: consent } });
   return row;
 }
-module.exports = { create, update, get, list, creditCheck, setPublicReferenceConsent };
+/**
+ * What a discard would refuse on — the dialog asks before offering the
+ * destructive button, so a person with a client that has history is told
+ * "Deactivate instead" without first being asked to confirm a delete.
+ */
+async function discardCheck(client, { id }) {
+  const row = await repo.get(client, id);
+  if (!row) throw new AppError("NOT_FOUND", "Client not found", 404);
+  const counts = await discardRepo.history(client, id);
+  const history = Object.entries(counts)
+    .filter(([, n]) => Number(n) > 0)
+    .map(([key, n]) => ({ key, count: Number(n), label: discardRepo.HISTORY_LABELS[key] || key }));
+  const isDraft = row.registration_status === "DRAFT";
+  return {
+    client_id: id,
+    registration_status: row.registration_status,
+    can_discard: isDraft && history.length === 0,
+    reason: !isDraft ? "NOT_DRAFT" : history.length ? "HAS_HISTORY" : null,
+    history,
+  };
+}
+
+/**
+ * Discard a DRAFT client with no history (meeting 6, register 3.6) — the
+ * CINECAM-style test client that otherwise stays in LIVE for ever.
+ *
+ * ONE transaction: the client row is locked, its history re-counted under the
+ * lock (so a quotation raised a second ago refuses it), its own rows are
+ * snapshotted in full into the audit trail, and then it and its own children
+ * — contacts, addresses, banks, beneficial owners, registrations, documents,
+ * onboarding steps, portal grants and unused invites — are removed. Anything
+ * else is refused with "Deactivate instead", naming what it found.
+ *
+ * Not in the AI manifest: the assistant may not delete a client.
+ */
+async function discard(client, { id, actor = {} }) {
+  return atomically(client, async () => {
+    const { rows } = await client.query("SELECT * FROM client_master WHERE client_id = $1 FOR UPDATE", [id]);
+    const row = rows[0];
+    if (!row) throw new AppError("NOT_FOUND", "Client not found", 404);
+    if (row.registration_status !== "DRAFT") {
+      throw new AppError("CLIENT_NOT_DRAFT", "Only a draft client can be discarded. Deactivate instead.", 409, { registration_status: row.registration_status });
+    }
+    const check = await discardCheck(client, { id });
+    if (check.history.length) {
+      throw new AppError(
+        "CLIENT_HAS_HISTORY",
+        `This client already has ${check.history.map((h) => `${h.count} ${h.label}`).join(", ")}. Deactivate instead.`,
+        409,
+        { history: check.history },
+      );
+    }
+    const children = await discardRepo.children(client, id);
+    const snapshot = { client: row, ...children };
+    const removed = await discardRepo.removeAll(client, id, children.portal_invites.map((i) => i.invite_id));
+    if (removed !== 1) throw new AppError("CLIENT_NOT_DRAFT", "Only a draft client can be discarded. Deactivate instead.", 409);
+    await emitEvent(client, { eventTypeKey: events.DISCARDED, moduleKey: events.MODULE, entityRef: "client:" + id, actorUserId: actor.user_id || null });
+    await audit(client, { actorUserId: actor.user_id || null, action: events.DISCARDED, moduleKey: events.MODULE, entityRef: "client:" + id, before: snapshot, after: null, isSensitive: true });
+    return {
+      discarded: true,
+      client_id: id,
+      removed: Object.fromEntries(Object.entries(children).map(([k, v]) => [k, v.length])),
+    };
+  });
+}
+
+module.exports = { create, update, get, list, creditCheck, setPublicReferenceConsent, discardCheck, discard };
