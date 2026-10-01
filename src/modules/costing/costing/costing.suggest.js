@@ -33,6 +33,7 @@
 const repo = require("./costing.repo");
 const { pickRate } = require("../../master/expense_rate/expense_rate.rules");
 const currencySvc = require("../../master/currency/currency.service");
+const { dictionarySibling } = require("@praxis/shared");
 const { AppError } = require("../../../utils/errors");
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -252,10 +253,47 @@ async function build(client, { dossierId, tier = "FULL", onDate = null, sheet = 
     );
   }
 
-  const [items, containers] = await Promise.all([
+  const [allItems, containers] = await Promise.all([
     repo.tieredItems(client, { serviceTypeId: file.service_type_id, tier: wanted }),
     repo.containerTypesOnFile(client, dossierId),
   ]);
+
+  // ONE line per service, not one per fulfilment mode (meeting 6, F2). 9082
+  // maps every sibling of a service to the same service types, so "Gate-Pass
+  // Fee" and "Gate-Pass Fee — Client Account" were both suggested and a pricer
+  // ticked whichever came first. The file decides the preset — a client's file
+  // is billed, so the débours row is offered; a file with no client is our own
+  // cost — and `siblings` lets the dialog switch with one tap.
+  const context = file.client_id ? "billed" : "own";
+  const groups = new Map();
+  for (const it of allItems) {
+    if (!it.sibling_group) continue;
+    if (!groups.has(it.sibling_group)) groups.set(it.sibling_group, []);
+    groups.get(it.sibling_group).push(it);
+  }
+  const items = [];
+  const placed = new Set();
+  for (const it of allItems) {
+    const members = it.sibling_group ? groups.get(it.sibling_group) : null;
+    if (!members || members.length < 2) {
+      items.push({ ...it, siblings: [] });
+      continue;
+    }
+    if (placed.has(it.sibling_group)) continue;
+    placed.add(it.sibling_group);
+    const chosen = dictionarySibling.presetFor(context, members) || it;
+    const ordered = dictionarySibling.orderSiblings(members).map((m) => ({
+      dictionary_item_id: m.dictionary_item_id,
+      code: m.code,
+      label_en: m.label_en || null,
+      label_fr: m.label_fr,
+      direction: m.direction,
+      mode: dictionarySibling.modeOf(m.direction),
+      is_disbursement: m.is_disbursement === true,
+    }));
+    // The chosen sibling keeps the band and order the group first appeared at.
+    items.push({ ...chosen, tier: it.tier, sort_order: it.sort_order, siblings: ordered });
+  }
 
   const rateRows = await repo.ratesForItems(client, items.map((i) => i.dictionary_item_id));
 
@@ -298,6 +336,13 @@ async function build(client, { dossierId, tier = "FULL", onDate = null, sheet = 
       client_heading_code: item.client_heading_code || null,
       client_heading_fr: item.client_heading_fr || null,
       client_heading_en: item.client_heading_en || null,
+      // The service's other fulfilment modes, when it has them (F2): the
+      // dialog asks "billed to the client at cost / our own cost" and swaps.
+      direction: item.direction,
+      mode: dictionarySibling.modeOf(item.direction),
+      siblings: item.siblings || [],
+      group_label_en: item.siblings && item.siblings.length ? dictionarySibling.baseLabel(item.label_en) : null,
+      group_label_fr: item.siblings && item.siblings.length ? dictionarySibling.baseLabel(item.label_fr) : null,
     };
 
     // ── The equipment expansion ───────────────────────────────────────────
@@ -351,6 +396,8 @@ async function build(client, { dossierId, tier = "FULL", onDate = null, sheet = 
       dossier_id: file.dossier_id,
       ref: file.ref,
       client_name: file.client_name,
+      // What the sibling question was preset from: a client's file is billed.
+      fulfilment: context,
       service_type_id: file.service_type_id,
       service_type_key: file.service_type_key,
       service_name_en: file.service_name_en,

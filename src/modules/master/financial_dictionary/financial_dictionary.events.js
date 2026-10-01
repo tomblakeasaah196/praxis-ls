@@ -10,4 +10,7 @@ module.exports = {
   // The direction changed, so the code moved to the new letter's next free
   // number. Audit-only: the before/after pair is the record of the old code.
   RECODED: "dictionary_item.recoded",
+  // A person linked a line to its service's other modes, or confirmed it stands
+  // alone (14342 "Lines to pair", meeting 6 F2). Audit-only.
+  SIBLING_LINKED: "dictionary_item.sibling_linked",
 };

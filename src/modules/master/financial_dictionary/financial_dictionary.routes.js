@@ -29,6 +29,10 @@ router.post("/import/errors", requirePermission(MODULE, "view"), v.importErrors,
 // segment must not be read as an id. Only needs `view` — it is the read path
 // every other module's picker calls.
 router.get("/search", requirePermission(MODULE, "view"), v.searchQuery, c.search);
+// Siblings (14342, meeting 6 F2) — the line guard's lookup and "Lines to pair".
+// Literal segments, so before "/:id".
+router.get("/siblings", requirePermission(MODULE, "view"), v.siblingsQuery, c.siblings);
+router.get("/siblings/unpaired", requirePermission(MODULE, "view"), c.unpaired);
 
 router.get("/", requirePermission(MODULE, "view"), c.list);
 router.get("/:id/360", requirePermission(MODULE, "view"), c.dossier);
@@ -51,5 +55,6 @@ router.post("/:id/rates/apply-all", requirePermission(RATES_MODULE, "edit"), v.r
 router.get("/:id", requirePermission(MODULE, "view"), c.get);
 router.post("/", requirePermission(MODULE, "create"), v.create, c.create);
 router.patch("/:id", requirePermission(MODULE, "edit"), v.update, c.update);
+router.post("/:id/siblings", requirePermission(MODULE, "edit"), v.siblingLink, c.linkSibling);
 
 module.exports = { basePath: "/financial-dictionary", feature: null, router };

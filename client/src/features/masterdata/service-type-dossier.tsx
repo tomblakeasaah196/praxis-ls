@@ -607,6 +607,8 @@ function DictionaryTab({
             label={`Add a dictionary line to ${serviceKey}`}
             placeholder="Search a charge to add…"
             allowEmpty={false}
+            // Mapping adds each fulfilment mode as its own row (F2).
+            groupSiblings={false}
             onPick={(id) => addLine(id)}
           />
         </div>

@@ -103,8 +103,21 @@ module.exports = {
       direction: req.query.direction,
       service_type_id: req.query.service_type_id,
       include_inactive: req.query.include_inactive === "true",
+      group: req.query.group !== "false",
     })),
   })),
+  // One service, several fulfilment modes (14342, meeting 6 F2).
+  siblings: asyncHandler(async (req, res) => res.json({
+    data: await req.tenantDb((c) => service.siblingsFor(c, String(req.query.ids).split(",").map((s) => s.trim()))),
+  })),
+  unpaired: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.unpairedLines(c)) })),
+  linkSibling: asyncHandler(async (req, res) => {
+    const r = await req.tenantDb((c) => service.linkSibling(c, {
+      id: req.params.id, linkTo: req.body.link_to || null, standsAlone: req.body.stands_alone === true, actor: actor(req),
+    }));
+    if (!r) throw new AppError("NOT_FOUND", "Dictionary item not found", 404);
+    res.json({ data: r });
+  }),
   get: asyncHandler(async (req, res) => {
     const r = await req.tenantDb((c) => service.get(c, req.params.id));
     if (!r) throw new AppError("NOT_FOUND", "Dictionary item not found", 404);

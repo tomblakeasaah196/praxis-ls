@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/toast";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { marks } from "@praxis/shared";
 import * as api from "@/lib/masterdata-api";
+import { DictionaryFinder } from "@/components/dictionary-finder";
 
 const KINDS: { kind: api.DictRefKind; label: string }[] = [
   { kind: "SUBCATEGORY", label: "Sub-categories" },
@@ -156,8 +157,8 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="micro">
-          Values a manager can extend. Seeded rows are marked <em>{tr("System")}</em>{" "}
-          but stay editable.
+          Values a manager can extend. Seeded rows are marked{" "}
+          <em>{tr("System")}</em> but stay editable.
         </p>
         <Button
           size="sm"
@@ -355,6 +356,112 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
   );
 }
 
+/* ── Lines to pair (14342, meeting 6 F2) ──────────────────────────────────── */
+
+const REASON: Record<api.UnpairedDictLine["reason"], string> = {
+  NO_PARTNER:
+    "Named as one way of charging a service, but no other line of that service was found.",
+  MODE_CONTRADICTS_NAME:
+    "Its name says one way of charging, its direction says another.",
+};
+
+/**
+ * The lines the sibling backfill could not pair, for a person to settle: link
+ * each to the other line of the same service, or confirm it stands alone.
+ * Nothing here was guessed by the migration; a row leaves the list once
+ * someone answers it.
+ */
+export function SiblingPairing() {
+  const toast = useToast();
+  const list = useResource(() => api.unpairedDictLines(), []);
+  const [busy, setBusy] = React.useState<string | null>(null);
+
+  async function settle(
+    id: string,
+    body: { link_to: string } | { stands_alone: true },
+  ) {
+    setBusy(id);
+    try {
+      await api.linkDictSibling(id, body);
+      toast.success(
+        "stands_alone" in body
+          ? tr("Confirmed as a line of its own")
+          : tr("Linked"),
+      );
+      list.reload();
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (list.error) return <ErrorState message={list.error} />;
+  if (!list.data) return <LoadingRow label={tr("Loading…")} />;
+  if (!list.data.length)
+    return (
+      <EmptyState
+        title={tr("Every line is paired")}
+        hint={tr(
+          "Each service charged several ways is linked, so pickers show it once and ask how it is charged.",
+        )}
+      />
+    );
+  return (
+    <div className="space-y-2">
+      <p className="micro">
+        {tr(
+          "Pickers show a service once and ask whether it is billed to the client at cost or our own cost. These lines could not be paired automatically — link each one, or confirm it stands alone.",
+        )}
+      </p>
+      {list.data.map((r) => (
+        <div
+          key={r.dictionary_item_id}
+          className="space-y-2 rounded-lg border px-3 py-2"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-xs text-muted-foreground">
+              {r.code}
+            </span>
+            <span className="text-sm text-foreground">
+              {r.label_en || r.label_fr}
+            </span>
+            <Pill tone="mute">{r.direction}</Pill>
+          </div>
+          <p className="micro">{tr(REASON[r.reason])}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-[14rem] flex-1">
+              <DictionaryFinder
+                label={`${tr("Link")} ${r.code} ${tr("to")}`}
+                placeholder={tr("Link to the other line of this service…")}
+                allowEmpty={false}
+                groupSiblings={false}
+                onPick={(id) =>
+                  id
+                    ? void settle(r.dictionary_item_id, { link_to: id })
+                    : undefined
+                }
+              />
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              loading={busy === r.dictionary_item_id}
+              onClick={() =>
+                void settle(r.dictionary_item_id, { stands_alone: true })
+              }
+            >
+              {tr("Stands alone")}
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type SettingsTab = api.DictRefKind | "PAIRING";
+
 export function FinancialDictionarySettings({
   open,
   onClose,
@@ -362,7 +469,7 @@ export function FinancialDictionarySettings({
   open: boolean;
   onClose: () => void;
 }) {
-  const [kind, setKind] = React.useState<api.DictRefKind>("SUBCATEGORY");
+  const [kind, setKind] = React.useState<SettingsTab>("SUBCATEGORY");
   if (!open) return null;
   return (
     <Modal
@@ -376,10 +483,16 @@ export function FinancialDictionarySettings({
         value={kind}
         onChange={setKind}
         className="mb-4"
-        tabs={KINDS.map((k) => ({ value: k.kind, label: k.label }))}
+        tabs={[
+          ...KINDS.map((k) => ({
+            value: k.kind as SettingsTab,
+            label: k.label,
+          })),
+          { value: "PAIRING" as SettingsTab, label: tr("Lines to pair") },
+        ]}
       />
       <div className="max-h-[60vh] overflow-auto pr-1">
-        <RefManager kind={kind} />
+        {kind === "PAIRING" ? <SiblingPairing /> : <RefManager kind={kind} />}
       </div>
     </Modal>
   );

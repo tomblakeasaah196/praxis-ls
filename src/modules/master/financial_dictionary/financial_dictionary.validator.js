@@ -119,7 +119,32 @@ const searchQuery = z.object({
   direction: z.enum(["REVENUE", "EXPENSE", "DISBURSEMENT", "ASSET"]).optional(),
   service_type_id: z.string().uuid().optional(),
   include_inactive: z.enum(["true", "false"]).optional(),
+  // "false" lists each fulfilment mode as its own row (the service-type
+  // mapping); the default shows a service once with its siblings (F2).
+  group: z.enum(["true", "false"]).optional(),
 });
+
+// The line guard's lookup: the lines on a document, comma-separated.
+const siblingsQuery = z.object({
+  ids: z
+    .string()
+    .min(1)
+    .max(200 * 37)
+    .refine((v) => v.split(",").every((id) => /^[0-9a-f-]{36}$/i.test(id.trim())), "ids must be comma-separated uuids"),
+});
+
+// "Lines to pair": link this line to another of the same service, or confirm
+// it stands alone. Exactly one of the two.
+const siblingLinkShape = z.object({
+  link_to: z.string().uuid().nullish(),
+  stands_alone: z.boolean().optional(),
+});
+const oneOfLinkOrAlone = [
+  (v) => (v.stands_alone === true) !== Boolean(v.link_to),
+  { message: "Send either link_to or stands_alone: true" },
+];
+const siblingLink = siblingLinkShape.refine(...oneOfLinkOrAlone);
+const aiSiblingLink = siblingLinkShape.extend({ dictionary_item_id: z.string().uuid() }).refine(...oneOfLinkOrAlone);
 
 const spendQuery = z.object({
   from: day.optional(),
@@ -204,6 +229,7 @@ const aiRateApplyAll = rateApplyAll.extend({ dictionary_item_id: z.string().uuid
 const schemas = {
   create, update, aiUpdate, aiRateSupersede, aiRateApplyAll, refCreate, refUpdate,
   searchQuery, spendQuery, spendDocsQuery, usageQuery, rateSupersede, rateApplyAll, importUpload, importCommit, importErrors,
+  siblingsQuery, siblingLink, aiSiblingLink,
 };
 
 /** Query-string validator — same shape as `mw`, but reads req.query. */
@@ -230,6 +256,8 @@ const mw = (k) => (req, _res, next) => {
 module.exports = {
   create: mw("create"), update: mw("update"), refCreate: mw("refCreate"), refUpdate: mw("refUpdate"),
   searchQuery: qmw("searchQuery"),
+  siblingsQuery: qmw("siblingsQuery"),
+  siblingLink: mw("siblingLink"),
   spendQuery: qmw("spendQuery"),
   spendDocsQuery: qmw("spendDocsQuery"),
   usageQuery: usage,
