@@ -34,6 +34,7 @@ import { useToast } from "@/components/ui/toast";
 import { useCanUseModule } from "@/lib/route-access";
 import { VoiceRecorder, type Recording } from "@/features/comms/chat/voice-recorder";
 import { ClientChatTools, ShareLocationDialog, type SharedPlace } from "./client-chat-tools";
+import { FileOnQuoteRequestDialog, type ChatFile } from "@/features/sales/file-on-quote-request";
 
 type Attachment = {
   attachment_id: string;
@@ -126,7 +127,20 @@ function ChatVoice({ att }: { att: Attachment }) {
   );
 }
 
-function Bubble({ m }: { m: Message }) {
+/** "File on a quote request" under a client's photo or PDF (meeting 6, PR 2). */
+function FileOnRequestButton({ att, onFile }: { att: Attachment; onFile: (f: ChatFile) => void }) {
+  return (
+    <button
+      type="button"
+      className="mt-0.5 block text-[11px] font-medium text-primary-ink underline underline-offset-2 hover:opacity-80"
+      onClick={() => onFile({ attachment_id: att.attachment_id, name: att.name, kind: att.kind })}
+    >
+      {tr("File on a quote request")}
+    </button>
+  );
+}
+
+function Bubble({ m, onFile }: { m: Message; onFile?: (f: ChatFile) => void }) {
   const ours = m.direction === "STAFF";
   // Which colleague at the client wrote it: their name, with the address under
   // it — two people at one client can share a first name.
@@ -164,6 +178,9 @@ function Bubble({ m }: { m: Message }) {
                 {a.name || tr("Document")}
               </Button>
             )}
+            {/* Only what the CLIENT sent — the team's own replies are not their
+                documents — and never a voice note. */}
+            {onFile && m.direction === "CLIENT" && a.kind !== "VOICE" ? <FileOnRequestButton att={a} onFile={onFile} /> : null}
           </div>
         ))}
         {m.location ? (
@@ -210,6 +227,9 @@ export function ClientChatPanel({
   const sending = React.useRef(false);
   // Quick replies are Smart Comms' (MOD-64); the tools offer them to its holders.
   const phrasesOn = useCanUseModule("MOD-64");
+  // Filing a file on a quote request is the intake register's (MOD-20).
+  const canFileOnRequest = useCanUseModule("MOD-20");
+  const [filing, setFiling] = React.useState<ChatFile | null>(null);
   // Held in a ref: a parent passing an inline arrow must not change `load`'s
   // identity on every render — that would restart the poll, re-read, notify
   // the parent, re-render it, and go round again.
@@ -381,7 +401,7 @@ export function ClientChatPanel({
         ) : (
           <ul className="grid gap-2">
             {page.messages.map((m) => (
-              <Bubble key={m.message_id} m={m} />
+              <Bubble key={m.message_id} m={m} onFile={canFileOnRequest ? setFiling : undefined} />
             ))}
           </ul>
         )}
@@ -468,6 +488,7 @@ export function ClientChatPanel({
         </p>
       </div>
       <ShareLocationDialog open={placing} onClose={() => setPlacing(false)} onSend={(p) => void sendPlace(p)} busy={busy} />
+      {canFileOnRequest ? <FileOnQuoteRequestDialog clientId={clientId} file={filing} onClose={() => setFiling(null)} /> : null}
     </div>
   );
 }

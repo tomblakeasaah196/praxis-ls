@@ -20,6 +20,7 @@
  */
 
 import * as React from "react";
+import { quoteRequest, emailDomain } from "@shared";
 import { tr } from "@/lib/i18n";
 import { tenant, tenantWithProgress } from "@/lib/api-client";
 import { FilePicker } from "@/components/ui/image-upload";
@@ -29,33 +30,32 @@ import { fileToDataUrl } from "@/lib/image-compress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Modal, Field, Select } from "@/components/ui/modal";
+import { Modal, Field, Select as NativeSelect } from "@/components/ui/modal";
+import { Select, type SelectOption } from "@/components/ui/select";
+import { SearchSelect } from "@/components/ui/search-select";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { ErrorState } from "@/components/ui/states";
-import { errMsg, type Row } from "@/lib/use-resource";
+import { Pill } from "@/components/ui/pill";
+import { errMsg, useResource, type Row } from "@/lib/use-resource";
+import {
+  CHANNELS,
+  DURATIONS,
+  cardLabel,
+  channelLabel,
+  clientMatch,
+  documentKindLabel,
+  durationLabel,
+  flowLabel,
+  hinterlandLabel,
+  incotermLabel,
+  quoteServices,
+  serviceNameOf,
+  type ClientMatch,
+  type QuoteServiceOption,
+} from "@/lib/quote-request-api";
 
-const INTAKE_CHANNELS = ["MANUAL", "WEBSITE", "REFERRAL", "CAMPAIGN"];
-const SERVICE_CATEGORIES = [
-  "SEA_FREIGHT_IMPORT",
-  "SEA_FREIGHT_EXPORT",
-  "AIR_FREIGHT_IMPORT",
-  "AIR_FREIGHT_EXPORT",
-  "HINTERLAND_TRANSIT",
-  "INLAND_TRANSPORTATION",
-  "END_TO_END_AIR_FREIGHT",
-  "WAREHOUSING",
-  "END_TO_END_SEA_FREIGHT",
-  "BUSINESS_REPRESENTATION",
-];
-const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"];
-const WAREHOUSE_DURATIONS = [
-  { value: "", label: "Select…" },
-  { value: "LESS_THAN_7_DAYS", label: "Less than 7 days" },
-  { value: "DAYS_7_TO_14", label: "7–14 days" },
-  { value: "DAYS_15_TO_30", label: "15–30 days" },
-  { value: "OVER_30_DAYS", label: "Over 30 days" },
-  { value: "UNKNOWN", label: "Unknown" },
-];
+/** The order the service picker groups by — the wizard's cards, then "Other services". */
+const CARD_ORDER = ["SEA", "AIR", "RAIL", "ROAD", "STORAGE", "CUSTOMS", "OTHER"];
 
 export type QuoteRequestInitial = {
   requester_name?: string | null;
@@ -63,7 +63,33 @@ export type QuoteRequestInitial = {
   requester_email?: string | null;
   requester_phone?: string | null;
   cargo_description?: string | null;
+  /** The client the request is for — "New quote request" on the Client 360, or a mail conversion's match. */
+  client_id?: string | null;
+  client_name?: string | null;
+  intake_channel?: string | null;
 };
+
+/**
+ * The services as the picker's options: grouped by card (Sea, Air, … then
+ * Other services), each with its flow underneath — "a picker with a popover"
+ * (meeting 6, item 2.1), over the tenant's own service types rather than the
+ * ten keys this form used to hard-code.
+ */
+function serviceOptions(services: QuoteServiceOption[]): SelectOption[] {
+  const order = (c: string) => (CARD_ORDER.indexOf(c) === -1 ? 99 : CARD_ORDER.indexOf(c));
+  return [...services]
+    .sort((a, b) => order(a.card) - order(b.card) || serviceNameOf(a).localeCompare(serviceNameOf(b)))
+    .map((sv) => ({
+      value: sv.service_type_id,
+      label: serviceNameOf(sv),
+      text: serviceNameOf(sv),
+      hint: flowLabel(sv.flow) || undefined,
+      group: cardLabel(sv.card),
+    }));
+}
+
+const fieldError = (errors: Record<string, string[] | undefined>, k: string) =>
+  errors[k] && errors[k]!.length ? errors[k]![0] : undefined;
 
 export function QuoteRequestForm({
   open,
@@ -74,19 +100,22 @@ export function QuoteRequestForm({
 }: {
   open: boolean;
   editing: Row | null;
-  /** Seed for a NEW request (mail conversion). Ignored when `editing` is set. */
+  /** Seed for a NEW request (mail conversion, Client 360). Ignored when `editing` is set. */
   initial?: QuoteRequestInitial | null;
   onClose: () => void;
   /** Receives the created request's id on POST, so callers can link back to it. */
   onSaved: (id?: string | null) => void;
 }) {
+  const services = useResource(() => (open ? quoteServices() : Promise.resolve([] as QuoteServiceOption[])), [open]);
   const [requesterName, setRequesterName] = React.useState("");
   const [requesterCompany, setRequesterCompany] = React.useState("");
   const [requesterEmail, setRequesterEmail] = React.useState("");
   const [requesterPhone, setRequesterPhone] = React.useState("");
   const [intakeChannel, setIntakeChannel] = React.useState("MANUAL");
-  const [serviceCategory, setServiceCategory] = React.useState("");
-  const [serviceType, setServiceType] = React.useState("");
+  const [clientId, setClientId] = React.useState("");
+  const [clientName, setClientName] = React.useState("");
+  const [serviceTypeId, setServiceTypeId] = React.useState("");
+  const [hinterland, setHinterland] = React.useState("");
   const [origin, setOrigin] = React.useState("");
   // The doors either side of the main leg (14220) — where we collect and
   // where we deliver. Blank on a port-to-port request.
@@ -98,9 +127,12 @@ export function QuoteRequestForm({
   const [weight, setWeight] = React.useState("");
   const [projectCargo, setProjectCargo] = React.useState(false);
   const [cargo, setCargo] = React.useState("");
-  const [incoterm, setIncoterm] = React.useState("FOB");
+  // "To be determined", never a silent FOB (meeting 6, item 2.3).
+  const [incoterm, setIncoterm] = React.useState("TBD");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [errors, setErrors] = React.useState<Record<string, string[] | undefined>>({});
+  const [match, setMatch] = React.useState<ClientMatch | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -110,9 +142,11 @@ export function QuoteRequestForm({
     setRequesterCompany(seed(editing?.requester_company, initial?.requester_company));
     setRequesterEmail(seed(editing?.requester_email, initial?.requester_email));
     setRequesterPhone(seed(editing?.requester_phone, initial?.requester_phone));
-    setIntakeChannel(editing?.intake_channel ? String(editing.intake_channel) : "MANUAL");
-    setServiceCategory(editing?.service_category ? String(editing.service_category) : "");
-    setServiceType(editing?.service_type ? String(editing.service_type) : "");
+    setIntakeChannel(seed(editing?.intake_channel, initial?.intake_channel) || "MANUAL");
+    setClientId(seed(editing?.client_id, initial?.client_id));
+    setClientName(seed(editing?.client_name, initial?.client_name));
+    setServiceTypeId(editing?.service_type_id ? String(editing.service_type_id) : "");
+    setHinterland(editing?.hinterland_direction ? String(editing.hinterland_direction) : "");
     setOrigin(editing?.origin_location ? String(editing.origin_location) : "");
     setCollection(editing?.collection_location ? String(editing.collection_location) : "");
     setDelivery(editing?.delivery_location ? String(editing.delivery_location) : "");
@@ -122,43 +156,100 @@ export function QuoteRequestForm({
     setWeight(editing?.estimated_weight != null ? String(editing.estimated_weight) : "");
     setProjectCargo(Boolean(editing?.project_cargo_flag));
     setCargo(seed(editing?.cargo_description, initial?.cargo_description));
-    setIncoterm(editing?.incoterm ? String(editing.incoterm) : "FOB");
+    setIncoterm(editing?.incoterm ? String(editing.incoterm) : "TBD");
     setError(null);
+    setErrors({});
+    setMatch(null);
   }, [open, editing, initial]);
 
-  async function save() {
-    if (!incoterm.trim()) {
-      setError("Incoterm is required.");
+  const list = services.data || [];
+  const service = list.find((x) => x.service_type_id === serviceTypeId) || null;
+  // A request converted or closed keeps the client it had (shared rule).
+  const relinkable = quoteRequest.canRelink(editing ? String(editing.status || "") : "RECEIVED");
+
+  /**
+   * The client a requester's address belongs to (owner decision Q5): an exact
+   * contact first, then the company domain — never Gmail. Offered in one tap,
+   * never applied by itself.
+   */
+  React.useEffect(() => {
+    if (!open || clientId || !relinkable) return;
+    const email = requesterEmail.trim();
+    if (!emailDomain.domainOf(email)) {
+      setMatch(null);
       return;
     }
+    let live = true;
+    const h = window.setTimeout(() => {
+      clientMatch(email)
+        .then((m) => live && setMatch(m))
+        .catch(() => live && setMatch(null));
+    }, 350);
+    return () => {
+      live = false;
+      window.clearTimeout(h);
+    };
+  }, [open, clientId, requesterEmail, relinkable]);
+
+  /** The terms the chosen service offers, "To be determined", and a legacy value kept as it is. */
+  const termOptions = React.useMemo(() => {
+    const codes = service ? service.incoterms.map((i) => i.code) : [];
+    const out = ["TBD", ...codes];
+    if (service && service.enquiry_shape !== "ROUTE") out.push("N/A");
+    if (incoterm && !out.includes(incoterm)) out.push(incoterm);
+    return out;
+  }, [service, incoterm]);
+
+  function pickService(id: string) {
+    setServiceTypeId(id);
+    const next = list.find((x) => x.service_type_id === id);
+    if (!next || next.flow !== "HINTERLAND") setHinterland("");
+    // A term the new service does not offer goes back to "to be determined".
+    if (next && incoterm !== "TBD" && !next.incoterms.some((i) => i.code === incoterm)) setIncoterm(next.enquiry_shape === "ROUTE" ? "TBD" : "N/A");
+  }
+
+  async function save() {
     setBusy(true);
     setError(null);
+    setErrors({});
+    const payload: Record<string, unknown> = {
+      requester_name: requesterName || undefined,
+      requester_company: requesterCompany || undefined,
+      requester_email: requesterEmail || undefined,
+      requester_phone: requesterPhone || undefined,
+      intake_channel: intakeChannel,
+      ...(relinkable ? { client_id: clientId || null } : {}),
+      service_type_id: serviceTypeId || (editing?.service_type_id ? null : undefined),
+      hinterland_direction: service?.flow === "HINTERLAND" ? hinterland || null : null,
+      origin_location: origin || undefined,
+      destination_location: destination || undefined,
+      collection_location: collection || undefined,
+      delivery_location: delivery || undefined,
+      warehouse_location: warehouseLocation || undefined,
+      warehouse_duration: warehouseDuration || undefined,
+      estimated_weight: weight ? Number(weight) : undefined,
+      project_cargo_flag: projectCargo,
+      cargo_description: cargo || undefined,
+      incoterm,
+    };
+    // The API's own shape (@shared quoteRequest), so a field it refuses is
+    // named here rather than learned from a 422 after Save.
+    const parsed = (editing ? quoteRequest.staffUpdate : quoteRequest.staffCreate).safeParse(payload);
+    if (!parsed.success) {
+      setErrors(parsed.error.flatten().fieldErrors as Record<string, string[] | undefined>);
+      setBusy(false);
+      return;
+    }
     try {
-      const payload: Record<string, unknown> = {
-        requester_name: requesterName || undefined,
-        requester_company: requesterCompany || undefined,
-        requester_email: requesterEmail || undefined,
-        requester_phone: requesterPhone || undefined,
-        intake_channel: intakeChannel,
-        service_category: serviceCategory || undefined,
-        service_type: serviceType || undefined,
-        origin_location: origin || undefined,
-        destination_location: destination || undefined,
-        collection_location: collection || undefined,
-        delivery_location: delivery || undefined,
-        warehouse_location: warehouseLocation || undefined,
-        warehouse_duration: warehouseDuration || undefined,
-        estimated_weight: weight ? Number(weight) : undefined,
-        project_cargo_flag: projectCargo,
-        cargo_description: cargo || undefined,
-        incoterm,
-      };
+      let id: string | null = null;
       if (editing?.quote_request_id) {
         await tenant(`/quote-requests/${editing.quote_request_id}`, { method: "PATCH", body: payload });
+        id = String(editing.quote_request_id);
       } else {
-        await tenant(`/quote-requests`, { method: "POST", body: payload });
+        const row = await tenant<{ quote_request_id?: string }>(`/quote-requests`, { method: "POST", body: payload });
+        id = row?.quote_request_id || null;
       }
-      onSaved();
+      onSaved(id);
       onClose();
     } catch (e) {
       setError(errMsg(e));
@@ -167,133 +258,173 @@ export function QuoteRequestForm({
     }
   }
 
+  const suggestion = match?.suggestion || null;
+
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? `Edit ${editing.public_ref || "request"}` : "Capture quote request"}
-      description="The logistics scope of a request for a quote. Incoterm is required."
+      title={editing ? `${tr("Edit")} ${editing.public_ref || tr("request")}` : tr("Capture quote request")}
+      description={tr("The logistics scope of a request for a quote, the service it asks for, and the client it is for.")}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {tr("Cancel")}
           </Button>
           <Button onClick={save} loading={busy}>
-            {editing ? "Save changes" : "Capture request"}
+            {editing ? tr("Save changes") : tr("Capture request")}
           </Button>
         </div>
       }
     >
       {error && <ErrorState message={error} />}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Requester name">
+        <div className="sm:col-span-2">
+          <Field
+            label={tr("Client")}
+            hint={relinkable ? tr("A request tied to a client appears in their portal, and their account manager owns it.") : tr("A converted or closed request keeps the client it had.")}
+            error={fieldError(errors, "client_id")}
+          >
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <SearchSelect
+                  path="/clients"
+                  label={tr("Client")}
+                  value={clientName}
+                  placeholder={tr("Search clients…")}
+                  disabled={!relinkable}
+                  getKey={(r) => String(r.client_id)}
+                  getLabel={(r) => String(r.name || "")}
+                  onSelect={(r) => {
+                    setClientId(String(r.client_id));
+                    setClientName(String(r.name || ""));
+                    if (!requesterCompany) setRequesterCompany(String(r.name || ""));
+                  }}
+                />
+              </div>
+              {clientId && relinkable ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setClientId("");
+                    setClientName("");
+                  }}
+                >
+                  {tr("Unlink")}
+                </Button>
+              ) : null}
+            </div>
+            {!clientId && suggestion ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted-foreground">
+                  {suggestion.matched_on === "DOMAIN" ? tr("Same company domain as") : tr("This address belongs to")}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setClientId(suggestion.client_id);
+                    setClientName(suggestion.name);
+                    if (!requesterCompany) setRequesterCompany(suggestion.name);
+                  }}
+                >
+                  {`${tr("Link to")} ${suggestion.name}`}
+                </Button>
+              </div>
+            ) : !clientId && match?.public_webmail ? (
+              <p className="micro mt-1">{tr("A public webmail address — no client is suggested from its domain.")}</p>
+            ) : null}
+          </Field>
+        </div>
+        <Field label={tr("Requester name")}>
           <Input value={requesterName} onChange={(e) => setRequesterName(e.target.value)} />
         </Field>
-        <Field label="Requester company">
+        <Field label={tr("Requester company")}>
           <Input value={requesterCompany} onChange={(e) => setRequesterCompany(e.target.value)} />
         </Field>
-        <Field label={tr("Email")}>
-          <Input
-            type="email"
-            value={requesterEmail}
-            onChange={(e) => setRequesterEmail(e.target.value)}
-          />
+        <Field label={tr("Email")} error={fieldError(errors, "requester_email")}>
+          <Input type="email" value={requesterEmail} onChange={(e) => setRequesterEmail(e.target.value)} />
         </Field>
         <Field label={tr("Phone")}>
           <Input value={requesterPhone} onChange={(e) => setRequesterPhone(e.target.value)} />
         </Field>
-        <Field label="Intake channel">
-          <Select value={intakeChannel} onChange={(e) => setIntakeChannel(e.target.value)}>
-            {INTAKE_CHANNELS.map((c) => (
+        <Field label={tr("Intake channel")} error={fieldError(errors, "intake_channel")}>
+          <NativeSelect value={intakeChannel} onChange={(e) => setIntakeChannel(e.target.value)}>
+            {CHANNELS.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {channelLabel(c)}
               </option>
             ))}
-          </Select>
+          </NativeSelect>
         </Field>
-        <Field label={tr("Service category")}>
-          <Select value={serviceCategory} onChange={(e) => setServiceCategory(e.target.value)}>
-            <option value="">{tr("Select…")}</option>
-            {SERVICE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
+        <Field label={tr("Service")} error={fieldError(errors, "service_type_id")}>
+          <Select
+            value={serviceTypeId}
+            onValueChange={pickService}
+            placeholder={services.loading ? tr("Loading…") : tr("Choose a service")}
+            options={serviceOptions(list)}
+            aria-label={tr("Service")}
+          />
+          {!serviceTypeId && editing?.service_category ? (
+            <p className="micro mt-1">{`${tr("Filed as")} “${String(editing.service_category)}”`}</p>
+          ) : null}
         </Field>
-        <Field label={tr("Incoterm")} required>
-          <Select value={incoterm} onChange={(e) => setIncoterm(e.target.value)}>
-            {INCOTERMS.map((c) => (
+        {service?.flow === "HINTERLAND" ? (
+          <Field label={tr("Hinterland direction")} error={fieldError(errors, "hinterland_direction")}>
+            <NativeSelect value={hinterland} onChange={(e) => setHinterland(e.target.value)}>
+              <option value="">{tr("Not known yet")}</option>
+              <option value="INTO">{hinterlandLabel("INTO")}</option>
+              <option value="OUT_OF">{hinterlandLabel("OUT_OF")}</option>
+            </NativeSelect>
+          </Field>
+        ) : null}
+        <Field label={tr("Incoterm")} required error={fieldError(errors, "incoterm")} hint={service ? undefined : tr("Choose the service first — it decides which terms are offered.")}>
+          <NativeSelect value={incoterm} onChange={(e) => setIncoterm(e.target.value)}>
+            {termOptions.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {incotermLabel(c)}
               </option>
             ))}
-          </Select>
+          </NativeSelect>
         </Field>
         <Field label={tr("Origin")}>
-          <Input
-            value={origin}
-            onChange={(e) => setOrigin(e.target.value)}
-            placeholder="City, Country"
-          />
+          <Input value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder={tr("City, Country")} />
         </Field>
         <Field label={tr("Destination")}>
-          <Input
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            placeholder="City, Country"
-          />
+          <Input value={destination} onChange={(e) => setDestination(e.target.value)} placeholder={tr("City, Country")} />
         </Field>
-        <Field label="Place of collection" hint="Door to door: where we collect before the main leg.">
-          <Input
-            value={collection}
-            onChange={(e) => setCollection(e.target.value)}
-            placeholder="Address, town or warehouse"
-          />
+        <Field label={tr("Place of collection")} hint={tr("Door to door: where we collect before the main leg.")}>
+          <Input value={collection} onChange={(e) => setCollection(e.target.value)} placeholder={tr("Address, town or warehouse")} />
         </Field>
-        <Field label={tr("Place of delivery")} hint="Door to door: where we deliver after the main leg.">
-          <Input
-            value={delivery}
-            onChange={(e) => setDelivery(e.target.value)}
-            placeholder="Address, town or warehouse"
-          />
+        <Field label={tr("Place of delivery")} hint={tr("Door to door: where we deliver after the main leg.")}>
+          <Input value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder={tr("Address, town or warehouse")} />
         </Field>
-        <Field label="Warehouse location">
+        <Field label={tr("Warehouse location")}>
           <Input value={warehouseLocation} onChange={(e) => setWarehouseLocation(e.target.value)} />
         </Field>
-        <Field label="Warehouse duration">
-          <Select value={warehouseDuration} onChange={(e) => setWarehouseDuration(e.target.value)}>
-            {WAREHOUSE_DURATIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
+        <Field label={tr("Warehouse duration")}>
+          <NativeSelect value={warehouseDuration} onChange={(e) => setWarehouseDuration(e.target.value)}>
+            <option value="">{tr("Select…")}</option>
+            {DURATIONS.map((d) => (
+              <option key={d} value={d}>
+                {durationLabel(d)}
               </option>
             ))}
-          </Select>
+          </NativeSelect>
         </Field>
-        <Field label="Estimated weight (kg)">
-          <Input
-            type="number"
-            step="0.01"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-          />
+        <Field label={tr("Estimated weight (kg)")} error={fieldError(errors, "estimated_weight")}>
+          <Input type="number" step="0.01" value={weight} onChange={(e) => setWeight(e.target.value)} />
         </Field>
         <Field label={tr("Project cargo")}>
-          <Select
-            value={projectCargo ? "yes" : "no"}
-            onChange={(e) => setProjectCargo(e.target.value === "yes")}
-          >
+          <NativeSelect value={projectCargo ? "yes" : "no"} onChange={(e) => setProjectCargo(e.target.value === "yes")}>
             <option value="no">{tr("No")}</option>
             <option value="yes">{tr("Yes")}</option>
-          </Select>
+          </NativeSelect>
         </Field>
         <div className="sm:col-span-2">
-          <Field label={tr("Cargo description")} hint="Up to 5000 characters.">
-            <Textarea
-              rows={3}
-              value={cargo}
-              onChange={(e) => setCargo(e.target.value)}
-            />
+          <Field label={tr("Cargo description")} hint={tr("Up to 5000 characters.")} error={fieldError(errors, "cargo_description")}>
+            <Textarea rows={3} value={cargo} onChange={(e) => setCargo(e.target.value)} />
           </Field>
         </div>
       </div>
@@ -431,8 +562,9 @@ export function AttachmentsPanel({ requestId }: { requestId: string }) {
           {rows.map((r) => (
             <li key={String(r.id)} className="flex items-center justify-between py-2">
               <span className="truncate text-sm">
-                {String(r.original_name || "document")}
-                {String(r.kind) === "PRIMARY" ? <span className="micro ml-2">primary</span> : null}
+                {String(r.original_name || tr("Document"))}
+                {r.document_kind ? <Pill tone="mute" className="ml-2">{documentKindLabel(String(r.document_kind))}</Pill> : null}
+                {String(r.kind) === "PRIMARY" ? <span className="micro ml-2">{tr("primary")}</span> : null}
               </span>
               <Button variant="ghost" onClick={() => setPendingRemove(r)}>
                 Detach

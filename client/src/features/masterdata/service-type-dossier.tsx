@@ -42,6 +42,9 @@ import { DictionaryFinder } from "@/components/dictionary-finder";
 import { Checkbox } from "@/components/ui/checkbox";
 import { money, num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/operations-api";
+import { incoterms, serviceScope } from "@shared";
+import { Select as NativeSelect } from "@/components/ui/modal";
+import { cardLabel, flowLabel, incotermLabel } from "@/lib/quote-request-api";
 import { ServiceTypeAssumptions } from "./service-type-assumptions";
 // The shipment/service-detail form (0660) — which fields a file of this
 // service type captures, and therefore what every document about it prints.
@@ -996,12 +999,69 @@ function CommercialTab({ d }: { d: api.ServiceTypeDossier }) {
 
 /* ── Overview tab ───────────────────────────────────────────────────────── */
 
+/**
+ * Where this service sits on a quote request (meeting 6, PR 2, 14300): its card,
+ * edited right here, the flow its territory gives it, and the Incoterms it
+ * offers (the full list is edited in the service's form). The same facts the
+ * website's and the portal's wizards draw from — a correction here moves the
+ * service on both, with no code change.
+ */
+function QuoteCardPanel({ st, onSaveMode }: { st: api.ServiceType; onSaveMode: (mode: string) => Promise<void> }) {
+  const mode = st.transport_mode || serviceScope.modeFromKey(st.key);
+  const flow = serviceScope.flowOf(st.territory);
+  const terms = st.incoterms ?? incoterms.defaultsForMode(mode);
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <h3 className="mb-3 text-sm font-semibold text-foreground">{tr("On the quote form")}</h3>
+      <dl className="space-y-3 text-sm">
+        <div>
+          <dt className="micro">{tr("Card")}</dt>
+          <dd className="mt-1 max-w-xs">
+            <NativeSelect
+              aria-label={tr("Quote form card")}
+              value={mode}
+              disabled={busy}
+              onChange={async (e) => {
+                setBusy(true);
+                try {
+                  await onSaveMode(e.target.value);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {serviceScope.MODES.map((m) => (
+                <option key={m} value={m}>
+                  {cardLabel(m)}
+                </option>
+              ))}
+            </NativeSelect>
+          </dd>
+        </div>
+        <div>
+          <dt className="micro">{tr("Flow")}</dt>
+          <dd className="mt-0.5">{flow ? flowLabel(flow) : tr("Shown by its name — its territory names no flow")}</dd>
+        </div>
+        <div>
+          <dt className="micro">{tr("Incoterms offered")}</dt>
+          <dd className="mt-1 flex flex-wrap gap-1">
+            {terms.length ? terms.map((c) => <span key={c} title={incotermLabel(c)}><Pill tone="mute">{c}</Pill></span>) : <span className="text-muted-foreground">{tr("None — a request reads “Not applicable”")}</span>}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 function OverviewTab({
   d,
   onEditName,
+  onSaveMode,
 }: {
   d: api.ServiceTypeDossier;
   onEditName: (nextName: string) => Promise<void>;
+  onSaveMode: (mode: string) => Promise<void>;
 }) {
   const st = d.service_type;
   return (
@@ -1060,6 +1120,7 @@ function OverviewTab({
           <Stat label="Margin sims" value={num(d.stats.margin_simulations)} />
         </div>
       </div>
+      <QuoteCardPanel st={st} onSaveMode={onSaveMode} />
     </div>
   );
 }
@@ -1234,6 +1295,16 @@ export function ServiceTypeDossier({
     }
   }
 
+  async function saveMode(mode: string) {
+    try {
+      await api.updateServiceType(serviceTypeId, { transport_mode: mode });
+      reload();
+      onChanged?.();
+    } catch (e) {
+      reportActionError(e);
+    }
+  }
+
   const templateHint = d.readiness.has_active_template
     ? `v${d.readiness.active_template_version}`
     : undefined;
@@ -1310,7 +1381,7 @@ export function ServiceTypeDossier({
         }))}
       />
 
-      {tab === "Overview" && <OverviewTab d={d} onEditName={saveName} />}
+      {tab === "Overview" && <OverviewTab d={d} onEditName={saveName} onSaveMode={saveMode} />}
       {tab === "Milestones" && (
         <MilestonesTab
           templates={d.templates}

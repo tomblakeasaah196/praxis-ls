@@ -613,6 +613,11 @@ export type ServiceType = {
   /** What a public quote enquiry must ask for this service (migration 12774).
    *  ROUTE | STORAGE | NONE, defaulting to ROUTE server-side. */
   enquiry_shape?: EnquiryShape | null;
+  /** The quote form's card (14300): SEA, AIR, RAIL, ROAD, STORAGE, CUSTOMS or
+   *  OTHER. Defaults to the key's reading; the tenant corrects it here. */
+  transport_mode?: string | null;
+  /** The Incoterms 2020 codes a request for this service may use (14300). */
+  incoterms?: string[] | null;
   is_system?: boolean;
   is_active?: boolean;
   created_at?: string | null;
@@ -628,6 +633,8 @@ export type ServiceTypeInput = {
   name_en?: string | null;
   territory?: string | null;
   enquiry_shape?: EnquiryShape;
+  transport_mode?: string;
+  incoterms?: string[];
   is_active?: boolean;
   ops_reference_code?: string;
 };

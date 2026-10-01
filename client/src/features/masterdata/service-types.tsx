@@ -23,6 +23,7 @@ import { IndexRow } from "@/components/ui/index-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pill } from "@/components/ui/pill";
+import { Callout } from "@/components/ui/callout";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { SplitPane } from "@/components/ui/split-pane";
 import { isDesktopNow } from "@/lib/use-media-query";
@@ -31,6 +32,8 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { ScreenAi } from "@/components/screen-ai";
 import { useResource } from "@/lib/use-resource";
 import * as api from "@/lib/operations-api";
+import { serviceScope } from "@shared";
+import { placementLabel } from "@/lib/quote-request-api";
 import { ServiceTypeForm } from "./service-type-form";
 import { TemplateForm } from "./service-type-template-form";
 import { MilestonePolicyForm } from "./milestone-policy-form";
@@ -72,6 +75,19 @@ export function ServiceTypesPage() {
     );
   }, [rows, q]);
   const selected = rows.find((r) => r.service_type_id === selId) || null;
+  // Two active services on one card AND one flow would read as ONE chip in a
+  // quote request (meeting 6, PR 2) — the wizards fall back to their names, but
+  // the tenant should know, and fix it by changing a card or a territory.
+  const clashes = React.useMemo(() => {
+    const byId = new Map(rows.map((r) => [r.service_type_id, r]));
+    return serviceScope.collisions(rows).map((c) => ({
+      ...c,
+      names: c.ids.map((id) => {
+        const r = byId.get(id);
+        return r ? r.name_en || r.name_fr || r.key : id;
+      }),
+    }));
+  }, [rows]);
   React.useEffect(() => {
     // Auto-select the first row once the list arrives, so the split pane is
     // never empty on first paint (matches client-360's behaviour).
@@ -101,6 +117,21 @@ export function ServiceTypesPage() {
         }
       />
       <HubTabs />
+
+      {clashes.length ? (
+        <Callout tone="warn" title={tr("Quote requests cannot tell these apart")} className="mb-4">
+          <ul className="space-y-0.5">
+            {clashes.map((c) => (
+              <li key={`${c.mode}-${c.flow}`}>
+                <span className="font-medium">{placementLabel(c.mode, c.flow)}</span>: {c.names.join(", ")}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1">
+            {tr("A client picks a card, then a flow. Services sharing both are offered by name instead — change the card or the territory of one of them so each has its own place.")}
+          </p>
+        </Callout>
+      ) : null}
 
       {list.error ? (
         <ErrorState message={list.error} />
