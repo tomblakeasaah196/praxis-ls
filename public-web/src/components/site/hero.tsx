@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useBranding } from "@/app/branding";
 import { cn } from "@/lib/cn";
+import { ArrowRightIcon } from "@/components/ui/icons";
 import { TrackWidget } from "./track-widget";
 import { SectionHead } from "./section-head";
 import { RouteCanvas } from "./route-canvas";
@@ -606,14 +607,17 @@ export function Hero({
                     switched the whole site to dark mode. */}
                 <TrackWidget variant="compact" onDark shimmer />
               </div>
+              {/* A button the width of the field above it, not a line of
+                  small print under it (D6): the card is where a client lands
+                  looking for their shipment, and the portal is where the rest
+                  of it — documents, invoices, messages — lives. Ghost on the
+                  dark plate, so Track stays the card's one filled action. */}
               <Link
                 to="/portal/login"
-                className={cn(
-                  "mt-4 inline-flex text-sm underline-offset-4 hover:underline",
-                  "text-[var(--primary-ink-hero)]",
-                )}
+                className="btn-ghost-hero mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-[calc(var(--radius)-2px)] px-4 text-[0.9375rem] font-semibold"
               >
                 {t("site.chrome.portalEntry")}
+                <ArrowRightIcon size={16} aria-hidden />
               </Link>
             </div>
           </div>

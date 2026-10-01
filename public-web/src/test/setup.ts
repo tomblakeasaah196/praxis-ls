@@ -1,6 +1,32 @@
 import "@testing-library/jest-dom/vitest";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
+
+/**
+ * Component tests read the dictionary AS WRITTEN.
+ *
+ * The Title Case standard (owner decision D5) is applied at render by one
+ * i18next post-processor, and the suites here assert against the dictionary
+ * itself — `findByText(en.site.trackPage.failedTitle)` — which is what keeps a
+ * test from hard-coding a string the dictionary later changes. With the
+ * standard on, every such assertion would have to re-derive the casing, which
+ * is testing `titleCase` seventy-seven times instead of once.
+ *
+ * So the harness pins "As written", the tenant setting that turns it off, and
+ * the standard is tested where it lives: `lib/label-case.test.ts` (the rule,
+ * the tokens, the toggle, a tenant override) and `site-header.test.tsx` (the
+ * real header, rendered with it on). A test that wants it on says so.
+ *
+ * A mock FACTORY rather than one call here, because several suites
+ * `vi.resetModules()` and import the app again — a fresh `label-case` module
+ * starts on the production default, and a one-off call would have pinned only
+ * the first instance. The factory runs for every instance.
+ */
+vi.mock("@/lib/label-case", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/label-case")>();
+  actual.setLabelCase("AS_WRITTEN");
+  return actual;
+});
 
 /**
  * Every test here renders a page that a stranger reaches with no session, so

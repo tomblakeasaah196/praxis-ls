@@ -75,6 +75,19 @@ const EVENTS = {
   "payment_proof.confirmed": { topic: "BILLING" },
   "payment_proof.rejected": { topic: "BILLING" },
   "proposal.sent": { topic: "PROPOSALS", client: "proposal" },
+  /*
+   * A quote request the client made IN THE PORTAL (tenant review 29 Sep 2026,
+   * PR 1, B3): acknowledged when it arrives, and told when it moves. Only a
+   * PORTAL request ever reaches here — `client: "quote_request"` reads the
+   * client off the row and only for that channel — so a website enquiry, whose
+   * address anyone can type into a public form, is never emailed: that would
+   * make the form a mail-bombing vector. UNDER_REVIEW is a push only; the
+   * sender drops it from the email (portal_notify.service PUSH_ONLY).
+   */
+  "quote_request.created": { topic: "QUOTES", client: "quote_request" },
+  "quote_request.under_review": { topic: "QUOTES", client: "quote_request" },
+  "quote_request.clarification_required": { topic: "QUOTES", client: "quote_request" },
+  "quote_request.quoted": { topic: "QUOTES", client: "quote_request" },
   "milestone.advanced": {
     topic: "SHIPMENTS",
     when: (p) => p.to === "DONE" && UUID.test(String(p.milestone_instance_id || "")),
@@ -90,6 +103,11 @@ const CLIENT_OF = {
     (ref) => idOf(ref),
   ],
   proposal: ["SELECT client_id FROM proposal WHERE proposal_id = $1", (ref) => idOf(ref)],
+  // A PORTAL request only — see the EVENTS note on quote requests.
+  quote_request: [
+    "SELECT client_id FROM quote_request WHERE quote_request_id = $1 AND intake_channel = 'PORTAL'",
+    (ref) => idOf(ref),
+  ],
   // Only a stage the client can see, on a file that is not a draft — the
   // rest of the chain is the team's, and a draft is not a file yet.
   milestone: [

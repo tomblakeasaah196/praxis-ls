@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The dictionary gate: one file, five checks, all of them about the failure mode
+ * The dictionary gate: one file, seven checks, all of them about the failure mode
  * this app is built around — a public surface that is bilingual in the brochure
  * and half-translated in the browser.
  *
@@ -14,7 +14,7 @@
  * `npm run check:i18n` can also be pointed at a branch by a human before they open
  * a PR.
  *
- * ── THE FIVE CHECKS ───────────────────────────────────────────────────────
+ * ── THE CHECKS ────────────────────────────────────────────────────────────
  *
  *   1. PARITY. A key in `en` and not in `fr` renders the raw key on the French
  *      page — `site.quote.incotermPick` where a select label should be. i18next
@@ -32,6 +32,12 @@
  *      A literal sentence inside JSX is invisible to the dictionary, so the
  *      French page shows English for exactly that one string, forever, in the
  *      one place nobody screenshots.
+ *   6. NO SENTENCE OUTSIDE THE DICTIONARY. Rule 5's blind spot — a sentence
+ *      that is a STRING (an error message, a `hint=` prop) rather than JSX text.
+ *   7. EVERY LABEL IS CLASSIFIED. Owner decision D5 renders every LABEL in
+ *      Title Case, in both languages; `scripts/gen/site-copy-case.js` says
+ *      which keys those are, and a key it does not name fails here — so no
+ *      new label escapes the standard.
  *
  * Usage: node scripts/check-i18n.mjs [--fix-hint] (npm run check:i18n)
  */
@@ -512,6 +518,61 @@ for (const file of allFiles) {
   }
 }
 
+/* ── 7. every label is classified — the Title Case standard holds ──────── */
+
+/**
+ * Owner decision D5 (tenant review of 29 Sep 2026): every LABEL on the site
+ * and in the portal renders in Title Case, in English and French; prose stays
+ * as written. Which is which is ONE hand-maintained list,
+ * `scripts/gen/site-copy-case.js` at the repo root, and the post-processor in
+ * `src/lib/label-case.ts` cases exactly what it marks LABEL.
+ *
+ * So the standard holds only as long as the list is complete. A `site.*` or
+ * `portal.*` key the list does not name is a string nobody decided about — a
+ * new button that would quietly render in sentence case beside its Title Case
+ * neighbours — and that is the failure this check exists for. The reverse
+ * fails too: an entry that names no key is a classification for a string that
+ * is gone, and a list that keeps those stops being read.
+ *
+ * Plain Node, no dependency: the list is CommonJS and requires nothing, so this
+ * gate still runs before `npm install` finishes, like the rest of the file.
+ */
+{
+  const CASE_LIST = path.join(ROOT, "..", "scripts", "gen", "site-copy-case.js");
+  const LIST_REL = "scripts/gen/site-copy-case.js";
+  const cases = nodeRequire(CASE_LIST);
+  const leafKeys = new Set();
+  const collect = (node, prefix) => {
+    if (typeof node === "string") {
+      if (/^(site|portal)\./.test(prefix)) leafKeys.add(prefix);
+      return;
+    }
+    if (Array.isArray(node)) node.forEach((v, i) => collect(v, `${prefix}.${i}`));
+    else if (node && typeof node === "object")
+      for (const [k, v] of Object.entries(node)) collect(v, prefix ? `${prefix}.${k}` : k);
+  };
+  for (const { values: v, mount } of valueSets) collect(v.en, mount);
+
+  const seen = new Set();
+  for (const key of [...leafKeys].sort()) {
+    const kind = cases.classify(key);
+    const [section, rel] = cases.split(key);
+    seen.add(`${section}.${rel}`);
+    seen.add(section);
+    if (!kind)
+      fail(
+        LIST_REL,
+        0,
+        "unclassified",
+        `${key} is neither LABEL nor PROSE — add "${rel}" to "${section}" (a name for something: LABEL; a statement: PROSE)`,
+      );
+  }
+  for (const { key } of cases.explicitKeys())
+    if (!seen.has(key)) fail(LIST_REL, 0, "unclassified", `${key} is classified but no dictionary has it — remove the entry`);
+  for (const section of Object.keys(cases.CASES))
+    if (!seen.has(section)) fail(LIST_REL, 0, "unclassified", `section "${section}" has no keys any more — remove it`);
+}
+
 /* ── report ─────────────────────────────────────────────────────────────── */
 if (failures.length) {
   const byRule = new Map();
@@ -537,5 +598,5 @@ if (failures.length) {
 }
 
 console.log(
-  `✓ check:i18n — ${dict.en.size} keys, both languages; no dangling calls, tokens match, French typography clean, no hardcoded prose in ${files.length} files.`,
+  `✓ check:i18n — ${dict.en.size} keys, both languages; no dangling calls, tokens match, French typography clean, no hardcoded prose in ${files.length} files; every site and portal label classified for Title Case.`,
 );

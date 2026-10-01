@@ -96,17 +96,37 @@ const SATISFIED_BY = `
        ELSE ARRAY[w.doc_type_code] END`;
 
 /**
- * Materialise the requirement rules as RULE requests for this client:
+ * What the portal NEVER asks a client for (14260, owner decision D2). A
+ * client's bank details are not needed to onboard them — only for a refund or
+ * to match a transfer — so neither the dictionary code nor the client document
+ * type is ever materialised as a request, whatever a rule or a tenant setting
+ * says. A client can still send them unprompted.
+ */
+const NEVER_ASK_CODES = ["BANK_DETAILS"];
+const NEVER_ASK_TYPES = ["BANK_RIB"];
+
+/**
+ * Materialise what a client owes as RULE requests:
  *
- *   · client-level rules (GLOBAL, or CLIENT_TYPE matching the client's type),
+ *   · client-level — ONE list (14260, D2): the union of
+ *       (a) the client's ACTIVATION document types, resolved by the
+ *           compliance engine (`activationTypeIds`, so an exemption such as
+ *           the ACF's `exempt_outside_country` holds), and
+ *       (b) the active CLIENT requirement rules (GLOBAL, or CLIENT_TYPE
+ *           matching the client's type),
+ *     de-duplicated through the one link between the two registries:
+ *     `party_document_type.portal_doc_code`. A request carries the client
+ *     document type it satisfies (`party_document_type_id`) and, when the
+ *     type has one, its dictionary code;
  *   · file-level rules (GLOBAL, or SERVICE_TYPE matching the file's service
  *     type key or territory — 10747 seeds `IMPORT` / `EXPORT`) for every
- *     file still open,
+ *     file still open, keyed by dictionary code as before,
  *
- * skipping any the vault already satisfies with a VERIFIED document. The
- * partial unique index makes this safe to run on every read.
+ * skipping anything already satisfied: a VERIFIED client document of the type
+ * (not expired), or a VERIFIED vault file of the code. Never bank details
+ * (NEVER_ASK). The partial unique indexes make this safe to run on every read.
  */
-async function syncRuleRequests(client, clientId) {
+async function syncRuleRequests(client, clientId, { activationTypeIds = [] } = {}) {
   await client.query(
     `WITH cl AS (
        SELECT cm.client_id, ct.code AS client_type_code
@@ -114,14 +134,30 @@ async function syncRuleRequests(client, clientId) {
          LEFT JOIN client_type ct ON ct.client_type_id = cm.client_type_id
         WHERE cm.client_id = $1
      ),
-     wanted AS (
-       SELECT r.doc_type_code, NULL::uuid AS dossier_id
+     client_rules AS (
+       SELECT r.doc_type_code
          FROM document_requirement r CROSS JOIN cl
         WHERE r.is_active AND r.is_mandatory AND r.applies_to = 'CLIENT'
           AND (r.scope_kind = 'GLOBAL'
                OR (r.scope_kind = 'CLIENT_TYPE' AND r.scope_value = cl.client_type_code::text))
+     ),
+     client_wanted AS (
+       SELECT t.document_type_id, t.portal_doc_code AS doc_type_code
+         FROM party_document_type t
+        WHERE t.document_type_id = ANY($2::uuid[]) AND t.is_active
        UNION
-       SELECT r.doc_type_code, d.dossier_id
+       SELECT t.document_type_id, cr.doc_type_code
+         FROM client_rules cr
+         LEFT JOIN party_document_type t ON t.portal_doc_code = cr.doc_type_code AND t.is_active
+     ),
+     wanted AS (
+       SELECT w.doc_type_code, w.document_type_id, NULL::uuid AS dossier_id
+         FROM client_wanted w
+         LEFT JOIN party_document_type t ON t.document_type_id = w.document_type_id
+        WHERE COALESCE(w.doc_type_code, '') <> ALL ($3::text[])
+          AND COALESCE(t.code::text, '') <> ALL ($4::text[])
+       UNION
+       SELECT r.doc_type_code, NULL::uuid AS document_type_id, d.dossier_id
          FROM dossier_visible d
          JOIN service_type st ON st.service_type_id = d.service_type_id
          JOIN document_requirement r
@@ -133,62 +169,111 @@ async function syncRuleRequests(client, clientId) {
                         OR COALESCE(st.territory, '') ILIKE '%' || r.scope_value || '%')))
         WHERE d.client_id = $1 AND d.status IN ('OPEN','IN_PROGRESS')
      )
-     INSERT INTO client_request (client_id, dossier_id, source, kind, doc_type_code, status)
-     SELECT $1, w.dossier_id, 'RULE', 'DOCUMENT', w.doc_type_code, 'OPEN'
+     INSERT INTO client_request (client_id, dossier_id, source, kind, doc_type_code, party_document_type_id, status)
+     SELECT $1, w.dossier_id, 'RULE', 'DOCUMENT', w.doc_type_code, w.document_type_id, 'OPEN'
        FROM wanted w
       WHERE NOT EXISTS (
         SELECT 1
           FROM document_vault v
           JOIN dictionary_ref dr ON dr.ref_id = v.doc_type_ref_id AND dr.kind = 'DOCUMENT_TYPE'
-         WHERE v.status = 'VERIFIED'
+         WHERE w.doc_type_code IS NOT NULL
+           AND v.status = 'VERIFIED'
            AND dr.code::text = ANY (${SATISFIED_BY})
            AND ((w.dossier_id IS NULL AND v.client_id = $1)
                 OR (w.dossier_id IS NOT NULL AND v.dossier_id = w.dossier_id))
       )
+        AND NOT EXISTS (
+        SELECT 1
+          FROM client_document cd
+         WHERE w.document_type_id IS NOT NULL
+           AND cd.client_id = $1 AND cd.document_type_id = w.document_type_id
+           AND cd.verification_status = 'VERIFIED'
+           AND (cd.expires_on IS NULL OR cd.expires_on >= current_date)
+      )
+        -- Somebody already asked for this type ("Request from client" on
+        -- the 360): one question per document on the phone, not two.
+        AND NOT EXISTS (
+        SELECT 1
+          FROM client_request o
+         WHERE w.dossier_id IS NULL AND w.document_type_id IS NOT NULL
+           AND o.client_id = $1 AND o.dossier_id IS NULL
+           AND o.party_document_type_id = w.document_type_id
+           AND o.status IN ('OPEN','SUBMITTED','REJECTED')
+      )
      ON CONFLICT DO NOTHING`,
-    [clientId],
+    [clientId, activationTypeIds, NEVER_ASK_CODES, NEVER_ASK_TYPES],
   );
 
-  // A rule that staff satisfied some other way (filed the BL themselves) is
-  // done — the client must not keep seeing "needed" for a paper we hold.
+  // A rule that staff satisfied some other way (filed the BL themselves, or
+  // the RCCM straight onto the 360) is done — the client must not keep seeing
+  // "needed" for a paper we hold.
   await client.query(
     `UPDATE client_request w
         SET status = 'ACCEPTED', review_note = NULL
       WHERE w.client_id = $1 AND w.source = 'RULE' AND w.status IN ('OPEN','REJECTED')
-        AND EXISTS (
+        AND (EXISTS (
           SELECT 1
             FROM document_vault v
             JOIN dictionary_ref dr ON dr.ref_id = v.doc_type_ref_id AND dr.kind = 'DOCUMENT_TYPE'
-           WHERE v.status = 'VERIFIED'
+           WHERE w.doc_type_code IS NOT NULL
+             AND v.status = 'VERIFIED'
              AND dr.code::text = ANY (${SATISFIED_BY})
              AND ((w.dossier_id IS NULL AND v.client_id = w.client_id)
-                  OR (w.dossier_id IS NOT NULL AND v.dossier_id = w.dossier_id)))`,
+                  OR (w.dossier_id IS NOT NULL AND v.dossier_id = w.dossier_id)))
+          OR EXISTS (
+          SELECT 1
+            FROM client_document cd
+           WHERE w.dossier_id IS NULL AND w.party_document_type_id IS NOT NULL
+             AND cd.client_id = w.client_id AND cd.document_type_id = w.party_document_type_id
+             AND cd.verification_status = 'VERIFIED'
+             AND (cd.expires_on IS NULL OR cd.expires_on >= current_date)))`,
     [clientId],
   );
 
-  // A finished shipment no longer needs its paperwork chased.
+  // A finished shipment no longer needs its paperwork chased — and bank
+  // details are never chased at all, whatever generated the question.
   await client.query(
     `UPDATE client_request w
         SET status = 'CANCELLED'
       WHERE w.client_id = $1 AND w.source = 'RULE' AND w.status IN ('OPEN','REJECTED')
-        AND w.dossier_id IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM dossier_visible d
-           WHERE d.dossier_id = w.dossier_id AND d.status IN ('OPEN','IN_PROGRESS'))`,
-    [clientId],
+        AND ((w.dossier_id IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM dossier_visible d
+                 WHERE d.dossier_id = w.dossier_id AND d.status IN ('OPEN','IN_PROGRESS')))
+          OR (w.dossier_id IS NULL AND w.status = 'OPEN'
+              AND (COALESCE(w.doc_type_code, '') = ANY ($2::text[])
+                   OR EXISTS (SELECT 1 FROM party_document_type t
+                               WHERE t.document_type_id = w.party_document_type_id
+                                 AND t.code::text = ANY ($3::text[])))))`,
+    [clientId, NEVER_ASK_CODES, NEVER_ASK_TYPES],
   );
 }
 
+/**
+ * One request, with the client document type a CLIENT-LEVEL request files as
+ * (14260): its own `party_document_type_id`, else the type its dictionary
+ * code is linked to. `files_as_*` is what the reviewer's Accept writes onto the
+ * 360 and which fields it asks for; NULL on a shipment request, and on a
+ * client-level one with no type, which files under OTHER.
+ */
 const REQUEST_SELECT = `
   SELECT r.client_request_id, r.client_id, r.dossier_id, r.source, r.kind, r.doc_type_code,
          r.title, r.note, r.due_on, r.status, r.answer_text, r.answer_doc_id,
          r.answered_by_email, r.answered_at, r.review_note, r.reviewed_at, r.created_at, r.updated_at,
+         r.party_document_type_id, r.client_document_id,
          d.ref AS dossier_ref,
-         dr.name_en AS doc_type_en, dr.name_fr AS doc_type_fr,
+         COALESCE(dr.name_en, pt.name) AS doc_type_en, COALESCE(dr.name_fr, pt.name) AS doc_type_fr,
+         pt.document_type_id AS files_as_type_id, pt.code::text AS files_as_code, pt.name AS files_as_name,
+         pt.requires_expiry AS files_as_requires_expiry,
+         pt.requires_issuing_authority AS files_as_requires_authority,
          v.original_name AS answer_doc_name
     FROM client_request r
     LEFT JOIN dossier_visible d ON d.dossier_id = r.dossier_id
     LEFT JOIN dictionary_ref dr ON dr.kind = 'DOCUMENT_TYPE' AND dr.code::text = r.doc_type_code
+    LEFT JOIN party_document_type pt
+           ON r.dossier_id IS NULL
+          AND (pt.document_type_id = r.party_document_type_id
+               OR (r.party_document_type_id IS NULL AND pt.portal_doc_code = r.doc_type_code))
     LEFT JOIN document_vault v ON v.doc_id = r.answer_doc_id`;
 
 /** What the client sees, most urgent first: rejected (fix it), open, in review. */
@@ -212,17 +297,102 @@ async function clientRequest(client, clientId, requestId) {
 async function insertRequest(client, row) {
   const { rows } = await client.query(
     `INSERT INTO client_request (client_id, dossier_id, source, kind, doc_type_code, title, note, due_on, status,
-                                 answer_text, answer_doc_id, answered_by_email, answered_at, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+                                 answer_text, answer_doc_id, answered_by_email, answered_at, created_by,
+                                 party_document_type_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      RETURNING client_request_id`,
     [
       row.client_id, row.dossier_id || null, row.source, row.kind, row.doc_type_code || null,
       row.title || null, row.note || null, row.due_on || null, row.status || "OPEN",
       row.answer_text || null, row.answer_doc_id || null, row.answered_by_email || null,
-      row.answered_at || null, row.created_by || null,
+      row.answered_at || null, row.created_by || null, row.party_document_type_id || null,
     ],
   );
   return rows[0];
+}
+
+/* ── client document types (14260) ─────────────────────────────────────── */
+
+/**
+ * An active client document type — the registry the Client 360's "Add
+ * document" uses (applies_to CLIENT or BOTH). The column on client_request is
+ * plain (13791 rule), so this is the check the foreign key would have made.
+ */
+async function clientDocumentType(client, documentTypeId) {
+  const { rows } = await client.query(
+    `SELECT document_type_id, code::text AS code, name, portal_doc_code,
+            requires_expiry, requires_issuing_authority
+       FROM party_document_type
+      WHERE document_type_id = $1 AND is_active AND applies_to IN ('CLIENT','BOTH')`,
+    [documentTypeId],
+  );
+  return rows[0] || null;
+}
+
+/** A type by its code — OTHER, for a document with no type of its own. */
+async function clientDocumentTypeByCode(client, code) {
+  const { rows } = await client.query(
+    `SELECT document_type_id, code::text AS code, name, portal_doc_code,
+            requires_expiry, requires_issuing_authority
+       FROM party_document_type WHERE code = $1 AND applies_to IN ('CLIENT','BOTH')`,
+    [code],
+  );
+  return rows[0] || null;
+}
+
+/** The client document types this client already has an OPEN or SUBMITTED request for. */
+async function openRequestTypes(client, clientId) {
+  const { rows } = await client.query(
+    `SELECT DISTINCT COALESCE(r.party_document_type_id, pt.document_type_id) AS document_type_id
+       FROM client_request r
+       LEFT JOIN party_document_type pt ON r.party_document_type_id IS NULL AND pt.portal_doc_code = r.doc_type_code
+      WHERE r.client_id = $1 AND r.dossier_id IS NULL AND r.status IN ('OPEN','SUBMITTED','REJECTED')
+        AND COALESCE(r.party_document_type_id, pt.document_type_id) IS NOT NULL`,
+    [clientId],
+  );
+  return new Set(rows.map((r) => r.document_type_id));
+}
+
+/**
+ * Where each client document type stands for one client, for the "Request
+ * from client" picker: the newest document on file per type, and the newest
+ * open request per type.
+ */
+async function documentsOnFile(client, clientId) {
+  const { rows } = await client.query(
+    `SELECT DISTINCT ON (cd.document_type_id)
+            cd.document_type_id, cd.document_id, cd.expires_on, cd.verification_status, cd.scan_status
+       FROM client_document cd
+      WHERE cd.client_id = $1 AND cd.document_type_id IS NOT NULL
+      ORDER BY cd.document_type_id, cd.updated_at DESC`,
+    [clientId],
+  );
+  return rows;
+}
+
+async function openRequestsByType(client, clientId) {
+  const { rows } = await client.query(
+    `SELECT DISTINCT ON (t.document_type_id)
+            t.document_type_id, r.client_request_id, r.status, r.created_at, r.due_on
+       FROM client_request r
+       JOIN party_document_type t
+         ON t.document_type_id = r.party_document_type_id
+         OR (r.party_document_type_id IS NULL AND t.portal_doc_code = r.doc_type_code)
+      WHERE r.client_id = $1 AND r.dossier_id IS NULL AND r.status IN ('OPEN','SUBMITTED','REJECTED')
+      ORDER BY t.document_type_id, r.created_at DESC`,
+    [clientId],
+  );
+  return rows;
+}
+
+/** The 360 document an accepted upload was filed as, on the request. */
+async function linkClientDocument(client, { requestId, documentId, documentTypeId }) {
+  await client.query(
+    `UPDATE client_request
+        SET client_document_id = $2, party_document_type_id = COALESCE(party_document_type_id, $3)
+      WHERE client_request_id = $1`,
+    [requestId, documentId, documentTypeId],
+  );
 }
 
 /** The client answered — a file, a sentence, or both. Clears a previous rejection. */
@@ -566,6 +736,7 @@ module.exports = {
   clientIdentity,
   shipments, shipmentCard, stageIds,
   syncRuleRequests, clientRequests, clientRequest, insertRequest, submitRequest,
+  clientDocumentType, clientDocumentTypeByCode, openRequestTypes, linkClientDocument, documentsOnFile, openRequestsByType, NEVER_ASK_CODES, NEVER_ASK_TYPES,
   staffRequests, requestById, reviewRequest, setVaultReview, archiveVaultDoc,
   documentType, documentTypes, ownsDossier, vaultDoc,
   billingInvoices, payableInvoices, invoiceEntity, entityForPayment, vaultByRef,

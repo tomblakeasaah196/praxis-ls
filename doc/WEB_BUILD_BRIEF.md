@@ -84,9 +84,23 @@ fallback to the homepage. The cross-language suggestion is a dismissible banner,
 and dismissal persists.
 
 **N8 — French typography is checked, not assumed.** Narrow non-breaking space
-before `: ; ! ?`, guillemets `« »`, accented capitals, sentence case in headings,
-`1 250 000,50 XAF`, `15 %`, `20 août 2026`. `BRAND_GLOSSARY_FR_EN.md` §5 is the
-full list. These are the details that decide whether the French reads native.
+before `: ; ! ?`, guillemets `« »`, accented capitals, sentence case in
+sentences, `1 250 000,50 XAF`, `15 %`, `20 août 2026`. `BRAND_GLOSSARY_FR_EN.md`
+§5 is the full list. These are the details that decide whether the French reads
+native.
+
+> **Amended 2026-10-01 — owner decision D5** (tenant review of 29 Sep 2026).
+> This clause said "sentence case in headings" for French without exception.
+> Every **label** on the public website and the client portal's chrome — nav,
+> buttons, headings including the hero headline, eyebrows, card titles, tabs,
+> field labels, pills — now renders in **Title Case in English and French**
+> (`Nos Réalisations`, `Demander un Devis`), small words left small; sentences
+> stay as written, and the staff ERP is out of scope. Applied at render, not by
+> retyping copy: `scripts/gen/site-copy-case.js` classifies every `site.*` and
+> `portal.*` key LABEL or PROSE, `public-web/src/lib/label-case.ts` cases the
+> LABELs, `check:i18n` fails on an unclassified key, and a tenant can choose
+> "As written" on Website › Theme. Full rule: `BRAND_GLOSSARY_FR_EN.md` §5
+> rule 3.
 
 **N9 — Performance budgets.** LCP < 1.5s on Slow 4G / mid-range Android · CLS <
 0.05 · INP < 200ms · **JS < 128 KB compressed** · page < 600 KB · Lighthouse ≥ 95
@@ -200,7 +214,7 @@ results go in `HANDOFF.md`:
 
 - [ ] Every page renders in both languages, no English string on a French page
 - [ ] Homepage copy matches §3 **exactly** — diff it, don't eyeball it
-- [ ] French typography rules spot-checked on every page (N8)
+- [ ] French typography rules spot-checked on every page (N8), labels in Title Case (D5)
 - [ ] FR layout holds at 320px with strings ~25% longer than EN
 - [ ] `hreflang` + canonical correct on every page; sitemap covers both trees
 - [ ] Root 302 works; **no deep link redirects**; switcher preserves the page

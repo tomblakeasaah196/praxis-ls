@@ -221,6 +221,12 @@ async function attachment(client, { attachmentId, clientId = null }) {
 }
 
 /**
+ * The shipment half of who a client's message alerts. The client half — the
+ * account manager, "Also notify" and the CEO-role users — is the ONE list
+ * every client event uses (account_manager.audience, tenant review 29 Sep
+ * 2026, D7); portal_chat.service.alertTeam combines the two. `manager` and
+ * `md` are still returned for callers that read them.
+ *
  * Who on the team a client's message alerts (owner decision 2/12), as three
  * lists the service combines:
  *
@@ -310,7 +316,30 @@ async function inbox(client, { limit = 300 } = {}) {
   return rows;
 }
 
+/**
+ * The client's questions on each stage of one shipment (tenant review 29 Sep
+ * 2026, item 1.7): per milestone, how many client messages name it, how many
+ * the team has not read, and when the last one came. The operations file's
+ * timeline draws its counts from this; the thread itself is the shipment's
+ * conversation, read through `messages`.
+ */
+async function milestoneQuestions(client, { clientId, dossierId }) {
+  const { rows } = await client.query(
+    `SELECT m.milestone_instance_id,
+            COUNT(*) FILTER (WHERE m.direction = 'CLIENT')::int AS questions,
+            COUNT(*) FILTER (WHERE m.direction = 'CLIENT' AND m.staff_read_at IS NULL)::int AS unread,
+            COUNT(*)::int AS messages,
+            MAX(m.created_at) AS last_at
+       FROM client_message m
+      WHERE m.client_id = $1 AND m.dossier_id = $2 AND m.milestone_instance_id IS NOT NULL
+      GROUP BY m.milestone_instance_id`,
+    [clientId, dossierId],
+  );
+  return rows;
+}
+
 module.exports = {
+  milestoneQuestions,
   threadKey, clientDossier, clientMilestone, threads, unreadTotal, messages, insertMessage,
   insertAttachment, markRead, markStaffRead, staffThreads, attachment, staffAudience, inbox,
 };

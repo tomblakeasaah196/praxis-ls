@@ -15,10 +15,13 @@ const rule = require("../../packages/shared/rules/notification-email-default");
 const cats = require("../../src/shared/notifications/categories");
 
 describe("emailDefaultFor — the tasks opt-out exception", () => {
-  test("tasks emails by default; every other known category does not", () => {
+  test("tasks and client activity email by default; every other known category does not", () => {
     expect(rule.emailDefaultFor("tasks")).toBe(true);
+    // Tenant review 29 Sep 2026 (D3/D7): the people named on a client are
+    // emailed about its activity unless they opt out.
+    expect(rule.emailDefaultFor("clients")).toBe(true);
     for (const c of cats.CATEGORIES) {
-      if (c.key === "tasks") continue;
+      if (c.key === "tasks" || c.key === "clients") continue;
       expect(rule.emailDefaultFor(c.key)).toBe(false);
     }
   });

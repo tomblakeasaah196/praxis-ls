@@ -103,6 +103,11 @@ const base = {
   default_language: language,
   preferred_channel: optionalText,
   relationship_manager_user_id: blankToUndefined(uuid),
+  // "Also notify" (tenant review 29 Sep 2026, D7): extra people told about
+  // this client beside its account manager and the CEO-role users. Logins,
+  // picked at creation; the service writes them through account_manager
+  // .setAlsoNotify like the dedicated endpoint, so every door is audited.
+  also_notify_user_ids: z.array(uuid).max(25, "Pick at most 25 people.").optional(),
   payment_terms_days: wholeDays,
   credit_limit: nonNegativeAmount,
   credit_insured: z.boolean().optional(),
@@ -154,6 +159,17 @@ const accountManager = z.object({ user_id: uuid.nullable() }).strict();
 // AI-facing: the client by id, and the login (null clears).
 const aiAccountManager = accountManager.extend({ client_id: uuid });
 
+/**
+ * "Also notify" (D7) — the whole list of extra people told about a client,
+ * replacing what was there. Logins; an empty list clears it. Its own endpoint
+ * for the same reason the account manager has one: the people who decide who
+ * is told answer the Client inbox (MOD-64C), not the client master.
+ */
+const alsoNotify = z
+  .object({ user_ids: z.array(uuid).max(25, "Pick at most 25 people.") })
+  .strict();
+const aiAlsoNotify = alsoNotify.extend({ client_id: uuid });
+
 // Named `exports.x =` assignments, NOT `module.exports = { x }` — see index.js.
 exports.create = create;
 exports.update = update;
@@ -161,3 +177,5 @@ exports.aiUpdate = aiUpdate;
 exports.consent = consent;
 exports.accountManager = accountManager;
 exports.aiAccountManager = aiAccountManager;
+exports.alsoNotify = alsoNotify;
+exports.aiAlsoNotify = aiAlsoNotify;

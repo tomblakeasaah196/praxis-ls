@@ -373,6 +373,27 @@ export function WebsiteThemePage() {
             </div>
           </SettingsCard>
 
+          {/* Owner decision D5 (tenant review 29 Sep 2026): every label on the
+              website and the client portal — links, buttons, headings, tabs,
+              field labels — in Title Case, English and French. Sentences are
+              never touched. The standard for every tenant; "As written" shows
+              the words exactly as they are typed. */}
+          <SettingsCard
+            title={tr("Labels")}
+            desc={tr("Title Case capitalises each word of the links, buttons, headings and field labels on your website and client portal — “Request a Quote”, “Demander un Devis”. Sentences always stay as written.")}
+          >
+            <Field label={tr("Label capitalisation")}>
+              <Segmented
+                value={form.label_case === "AS_WRITTEN" ? "AS_WRITTEN" : "TITLE"}
+                onChange={(v) => set("label_case", v)}
+                options={[
+                  { value: "TITLE", label: tr("Title Case (standard)") },
+                  { value: "AS_WRITTEN", label: tr("As written") },
+                ]}
+              />
+            </Field>
+          </SettingsCard>
+
           <SettingsCard
             title={tr("Preview")}
             desc={tr("Both themes, painted from the same values your site will use.")}
