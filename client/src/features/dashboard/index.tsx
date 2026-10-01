@@ -53,6 +53,10 @@ import { OperationalActivityPanel } from "./components/operational-activity-pane
 import { RecentActivity } from "./components/recent-activity";
 import { TowerHero } from "./components/tower-hero";
 import { TowerFilters } from "./components/tower-filters";
+import {
+  GettingStartedPanel,
+  useGettingStarted,
+} from "./components/getting-started";
 import { PasskeyNudge } from "@/features/security/passkey-nudge";
 import type { ControlTowerFilters } from "./use-control-tower";
 import { useKpiCatalog } from "./use-control-tower";
@@ -111,6 +115,9 @@ export function DashboardPage() {
   // anything keyed off it cannot disagree with the schema the data came from. It
   // returns 'live' | 'sandbox'; the UI calls the latter TEST everywhere.
   const isTest = tokenStore.getEnv() !== "live";
+  // Meeting 6, 3.9: an empty LIVE gets a go-live checklist instead of a wall
+  // of zeros. Never asked for in TEST (and the server refuses it there too).
+  const gettingStarted = useGettingStarted(!isTest);
 
   if (loading) return <PageSkeleton tiles={4} rows={5} cols={5} />;
   if (error) return <ErrorState message={error} />;
@@ -168,69 +175,81 @@ export function DashboardPage() {
           rather than floating in the corner the FAB cluster owns. */}
       <PasskeyNudge />
 
-      {/*
-        The tower grid. One column up to lg, then the mock's 1.62fr / 1fr split
-        from xl — which is the breakpoint the frame never had. Below xl the map
-        stacks above the shipment list rather than being squeezed to a strip.
-      */}
-      <TowerFilters value={filters} page={data.page} onChange={setFilters} />
+      {gettingStarted && <GettingStartedPanel data={gettingStarted} />}
 
-      <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => setMeeting(true)}
-        >
-          Meeting view
-        </Button>
-      </div>
-
-      <div className="mb-4 grid gap-3 lg:mb-5 lg:gap-4 xl:grid-cols-[1.62fr_1fr]">
-        {map}
-        {/*
-          The right column answers whichever question is live: the itinerary of
-          the file under discussion, or the list of everything open. One column
-          rather than a third one, because a tower that grows a panel per feature
-          is the wall of information this redesign exists to avoid.
+      {/* An empty LIVE shows the checklist above INSTEAD of the map, the
+          file list and a band of zeros (meeting 6, 3.9). */}
+      {!gettingStarted && (
+        <>
+          {/*
+          The tower grid. One column up to lg, then the mock's 1.62fr / 1fr split
+          from xl — which is the breakpoint the frame never had. Below xl the map
+          stacks above the shipment list rather than being squeezed to a strip.
         */}
-        {selectedShipment ? (
-          <ItineraryPanel
-            shipment={selectedShipment}
-            legs={selectedLegs}
-            onClose={() => setSelected(null)}
+          <TowerFilters
+            value={filters}
+            page={data.page}
+            onChange={setFilters}
           />
-        ) : (
-          <LiveShipments
-            shipments={data.shipments}
-            selected={selected}
-            onSelect={(dossierId) => setSelected(dossierId)}
-          />
-        )}
-      </div>
 
-      {data.activity.length > 0 && (
-        <div className="mb-4 lg:mb-5">
-          <OperationalActivityPanel
-            records={data.activity}
-            selected={selected}
-            onSelect={(dossierId) =>
-              setSelected((current) =>
-                current === dossierId ? null : dossierId,
-              )
-            }
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setMeeting(true)}
+            >
+              Meeting view
+            </Button>
+          </div>
+
+          <div className="mb-4 grid gap-3 lg:mb-5 lg:gap-4 xl:grid-cols-[1.62fr_1fr]">
+            {map}
+            {/*
+            The right column answers whichever question is live: the itinerary of
+            the file under discussion, or the list of everything open. One column
+            rather than a third one, because a tower that grows a panel per feature
+            is the wall of information this redesign exists to avoid.
+          */}
+            {selectedShipment ? (
+              <ItineraryPanel
+                shipment={selectedShipment}
+                legs={selectedLegs}
+                onClose={() => setSelected(null)}
+              />
+            ) : (
+              <LiveShipments
+                shipments={data.shipments}
+                selected={selected}
+                onSelect={(dossierId) => setSelected(dossierId)}
+              />
+            )}
+          </div>
+
+          {data.activity.length > 0 && (
+            <div className="mb-4 lg:mb-5">
+              <OperationalActivityPanel
+                records={data.activity}
+                selected={selected}
+                onSelect={(dossierId) =>
+                  setSelected((current) =>
+                    current === dossierId ? null : dossierId,
+                  )
+                }
+              />
+            </div>
+          )}
+
+          <KpiStrip
+            // A server that predates the band payload still answers the legacy
+            // flat keys; `legacyBand` keeps the tower painted through a split
+            // deploy. Once every server ships `band`, the fallback is dead code.
+            band={data.band ?? legacyBand(data.kpis)}
+            onOpen={setOpenKpi}
+            onEditTiles={() => setEditingBand(true)}
           />
-        </div>
+        </>
       )}
-
-      <KpiStrip
-        // A server that predates the band payload still answers the legacy
-        // flat keys; `legacyBand` keeps the tower painted through a split
-        // deploy. Once every server ships `band`, the fallback is dead code.
-        band={data.band ?? legacyBand(data.kpis)}
-        onOpen={setOpenKpi}
-        onEditTiles={() => setEditingBand(true)}
-      />
 
       <KpiPicker
         open={editingBand}
@@ -241,13 +260,15 @@ export function DashboardPage() {
         error={bandCatalog.error}
       />
 
-      <Briefing
-        activeFiles={data.activeFiles}
-        approvals={data.approvals}
-        complianceFlags={data.complianceFlags}
-        unpostedJournals={data.unpostedJournals}
-        isTest={isTest}
-      />
+      {!gettingStarted && (
+        <Briefing
+          activeFiles={data.activeFiles}
+          approvals={data.approvals}
+          complianceFlags={data.complianceFlags}
+          unpostedJournals={data.unpostedJournals}
+          isTest={isTest}
+        />
+      )}
 
       <AppLauncher onBrowseAll={palette.open} />
 

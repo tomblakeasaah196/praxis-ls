@@ -22,6 +22,7 @@
       "purpose": "Landing overview / KPIs for the signed-in user.",
       "actions": [
         "tenant_kpis",
+        "go_live_checklist",
         "control_tower"
       ]
     },
