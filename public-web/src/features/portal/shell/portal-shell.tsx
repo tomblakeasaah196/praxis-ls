@@ -27,6 +27,7 @@ import {
 } from "@/lib/portal-api";
 import { portalSession } from "@/lib/portal-session";
 import { getLang } from "@/lib/i18n";
+import { caseLabel } from "@/lib/label-case";
 import { usePortal } from "../lib/portal-context";
 import { syncPush } from "../lib/portal-pwa";
 import { deviceCanUsePasskey, createPasskey, isCancel, biometricKind } from "../lib/passkey";
@@ -395,7 +396,11 @@ export function PageHeader({
   return (
     <div className={cn("mb-5 flex items-end justify-between gap-4", className)}>
       <div className="min-w-0">
-        <h1 className="pt-display text-[1.85rem] sm:text-[2.1rem]">{title}</h1>
+        <h1 className="pt-display text-[1.85rem] sm:text-[2.1rem]">
+          {/* A page title is portal chrome, a LABEL (D5) — and some are the
+              tenant's words (a shipment's or a document's name). */}
+          {typeof title === "string" ? caseLabel(title, getLang()) : title}
+        </h1>
         {sub ? <p className="mt-1 text-[0.95rem] text-muted-foreground">{sub}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}

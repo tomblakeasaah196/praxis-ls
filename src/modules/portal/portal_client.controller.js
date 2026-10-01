@@ -583,6 +583,31 @@ module.exports = {
         })),
     });
   }),
+  // "Send by email" on a team message (D8): who may receive it, and the send.
+  staffChatRecipients: asyncHandler(async (req, res) => {
+    const out = await req.tenantDb((c) => notify.recipientsFor(c, { messageId: uuidOf(req.params.messageId, "messageId") }));
+    res.json({ data: { recipients: out.recipients, thread: out.thread } });
+  }),
+  staffChatEmail: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        notify.emailTeamMessage(c, {
+          messageId: uuidOf(req.params.messageId, "messageId"),
+          recipients: req.body.recipients,
+          requestKey: req.body.request_key,
+          actor: staff(req),
+          tenant: req.tenant,
+          env: req.env || "live",
+        })),
+    });
+  }),
+  // A shipment's client questions per stage, for the operations file (1.7).
+  staffChatMilestones: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        chat.staffMilestoneQuestions(c, { clientId: uuidOf(req.query.client_id, "client_id"), dossierId: uuidOf(req.query.dossier_id, "dossier_id") })),
+    });
+  }),
   staffChatRead: asyncHandler(async (req, res) => {
     res.json({ data: await req.tenantDb((c) => chat.staffRead(c, { clientId: req.body.client_id, thread: req.body.thread || "general" })) });
   }),
@@ -625,7 +650,23 @@ module.exports = {
   staffReviewRequest: asyncHandler(async (req, res) => {
     res.json({
       data: await req.tenantDb((c) =>
-        service.reviewRequest(c, { requestId: req.params.id, decision: req.body.decision, note: req.body.note || null, actor: staff(req) })),
+        service.reviewRequest(c, {
+          requestId: req.params.id, decision: req.body.decision, note: req.body.note || null,
+          document: req.body.document || null, actor: staff(req),
+        })),
+    });
+  }),
+  // "Request from client" (14260): where each type stands, and the batch ask.
+  staffDocumentStatus: asyncHandler(async (req, res) => {
+    const cid = staffClientId(req);
+    res.json({ data: await req.tenantDb((c) => service.documentStatus(c, { clientId: cid })) });
+  }),
+  staffRequestDocuments: asyncHandler(async (req, res) => {
+    const cid = staffClientId(req);
+    const b = req.body;
+    res.status(201).json({
+      data: await req.tenantDb((c) =>
+        service.requestDocuments(c, { clientId: cid, items: b.items, note: b.note || null, dueOn: b.due_on || null, actor: staff(req) })),
     });
   }),
   staffRequestFile: asyncHandler(async (req, res) => {
@@ -654,11 +695,23 @@ module.exports = {
   // ── staff: a client's portal, from the Client 360 (MOD-29) ──
   staffPeople: asyncHandler(async (req, res) => {
     const cid = staffClientId(req);
-    const { grants, defaults } = await req.tenantDb(async (c) => ({
+    const { grants, defaults, languageOf } = await req.tenantDb(async (c) => ({
       grants: await admin.people(c, { clientId: cid }),
       defaults: await admin.inviteDefaults(c),
+      languageOf: await admin.languages(c, { clientId: cid }),
     }));
-    res.json({ data: { members: await peopleWithLogins(req, grants), defaults } });
+    // "Send on WhatsApp" / "Copy link" (tenant review 29 Sep 2026, D4): the
+    // portal SIGN-IN page on the tenant's public host, with the person's email
+    // filled in — they sign in with an emailed 6-digit code. Never the
+    // set-password token: that stays between the invitation email and its
+    // owner, and never passes through staff hands.
+    const origin = await authController.portalLinkOrigin(req);
+    const members = (await peopleWithLogins(req, grants)).map((m) => ({
+      ...m,
+      sign_in_url: `${origin}/portal/login?email=${encodeURIComponent(m.email)}`,
+      language: languageOf(m.email),
+    }));
+    res.json({ data: { members, defaults, tenant_name: await authController.tenantName(req) } });
   }),
   staffPeopleAdd: asyncHandler(async (req, res) => {
     const cid = staffClientId(req);

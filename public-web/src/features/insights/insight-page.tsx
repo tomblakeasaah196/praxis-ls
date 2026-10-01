@@ -11,6 +11,7 @@ import {
   type InsightArticle,
 } from "@/lib/insights-api";
 import { getLang, tStatic } from "@/lib/i18n";
+import { caseLabel } from "@/lib/label-case";
 import { dateFmt } from "@/lib/format";
 import { p } from "@/lib/base-path";
 import { useDocumentMeta } from "@/lib/use-document-meta";
@@ -226,7 +227,9 @@ function Article({
           ))}
         </div>
         <h1 className="mt-3 font-display text-h1 font-semibold leading-tight tracking-tight">
-          {title}
+          {/* The article's title is the page heading — Title Case unless the
+              tenant chose "As written" (D5). Its body is never touched. */}
+          {typeof title === "string" ? caseLabel(title, getLang()) : title}
         </h1>
         {article.author && (
           <p className="mt-4 text-sm text-muted-foreground">

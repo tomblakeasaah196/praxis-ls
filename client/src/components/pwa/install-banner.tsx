@@ -12,6 +12,9 @@ import * as React from "react";
 import { usePwaInstall } from "@/lib/pwa-install";
 import { useBranding } from "@/app/branding/branding-context";
 import { XIcon } from "@/components/ui/icons";
+import { InAppBrowserNotice } from "./in-app-browser-notice";
+import { tr } from "@/lib/i18n";
+import { inAppBrowser } from "@/lib/in-app-browser";
 
 const DISMISS_KEY_ANDROID = "pwa-install-dismissed";
 const DISMISS_KEY_IOS = "pwa-ios-a2hs-dismissed";
@@ -63,6 +66,7 @@ export function InstallBanner() {
   const [forced, setForced] = React.useState(false);
   const [closed, setClosed] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const webview = React.useMemo(() => inAppBrowser(), []);
 
   // React to menu re-entry.
   const firstSignal = React.useRef(openSignal);
@@ -80,6 +84,31 @@ export function InstallBanner() {
   // choosing "Install app" from the account menu — still works, because that is
   // an explicit request, not a prompt.
   if (isStandalone) return null;
+
+  // Inside WhatsApp's (or Facebook's, Instagram's…) own browser nothing can be
+  // installed, and the iPhone steps below would be wrong too: say so, and
+  // offer Chrome (tenant review 29 Sep 2026, item 1.9).
+  if (webview && !closed) {
+    return (
+      <div
+        role="dialog"
+        aria-label={`Install ${brandName}`}
+        className="fixed inset-x-0 bottom-0 z-[60] flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+12px)]"
+      >
+        <div className="pointer-events-auto relative w-full max-w-md shadow-l">
+          <InAppBrowserNotice className="pr-10" />
+          <button
+            type="button"
+            onClick={() => setClosed(true)}
+            aria-label={tr("Close")}
+            className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground hover:text-foreground"
+          >
+            <XIcon width={16} height={16} />
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (!pwa.installEnabled && !forced) return null;
 
   const iosMode = isIOS;

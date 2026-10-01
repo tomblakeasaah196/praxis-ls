@@ -71,6 +71,7 @@ async function getTheme(client) {
     font_mono: SITE_FONT_DEFAULTS.mono,
     radius_px: 10,
     default_mode: "light",
+    label_case: "TITLE",
   };
 }
 
@@ -139,6 +140,9 @@ async function publicTheme(client) {
     },
     radius: `${row.radius_px}px`,
     defaultMode: row.default_mode,
+    // Owner decision D5: Title Case for every label unless the tenant chose
+    // "As written". A row from before 14262 has no value — that is the standard.
+    labelCase: row.label_case === "AS_WRITTEN" ? "AS_WRITTEN" : "TITLE",
     light: palette.light,
     dark: palette.dark,
     corrections: palette.meta.corrections,

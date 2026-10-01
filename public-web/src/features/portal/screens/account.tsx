@@ -88,6 +88,7 @@ import {
   InstallIcon,
 } from "../ui/icons";
 import { whenShort } from "../lib/when";
+import { PortalInAppNotice } from "../ui/in-app-notice";
 
 const SCOPES: Scope[] = ["ALL", "OPERATIONS", "BILLING"];
 const SCOPE_TONE: Record<Scope, Tone> = { ALL: "brand", OPERATIONS: "info", BILLING: "ok" };
@@ -686,7 +687,10 @@ function Security() {
 function InstallApp() {
   const { t } = useTranslation();
   const { state, install } = useInstall();
-  if (state === "installed" || state === "unavailable") return null;
+  if (state === "installed") return null;
+  // Inside WhatsApp's own browser (item 1.9) nothing installs: say so, and
+  // offer the way out — even where the install state reads "unavailable".
+  if (state === "unavailable") return <PortalInAppNotice />;
   return (
     <section className="pt-card flex items-center gap-4 p-4 sm:p-5">
       <IconDisc tone="brand">
@@ -734,6 +738,7 @@ function InstallHelp() {
 const TOPIC_ICON: Record<NotifyTopic, React.ReactNode> = {
   MESSAGES: <ChatIcon size={20} />,
   REQUESTS: <FolderIcon size={20} />,
+  QUOTES: <QuoteIcon size={20} />,
   BILLING: <WalletIcon size={20} />,
   PROPOSALS: <QuoteIcon size={20} />,
   SHIPMENTS: <ShipIcon size={20} />,

@@ -42,6 +42,10 @@ const c = require("./portal_auth.controller");
 // `validator` / `c` / `v`) — a chain named `controller.` or `validator.` reads as unvalidated.
 const controller = require("../portal/portal.controller");
 const v = require("./portal_auth.validator");
+// The staff half's shared forms (14260, D1/D2): the Accept dialog and "Request
+// from client" validate with the same schemas the API does.
+const { clientPortal } = require("@praxis/shared");
+const { body } = require("../../shared/http/validate");
 // The client portal redesign (14150): home, shipments, requests, billing,
 // proof of payment, the client's own team — and the staff half of each.
 const pc = require("../portal/portal_client.controller");
@@ -262,7 +266,14 @@ router.get("/chat/threads", authMiddleware, requirePermission(INBOX, "view"), pc
 router.get("/chat/messages", authMiddleware, requirePermission(INBOX, "view"), pc.staffChatMessages);
 router.post("/chat/messages", authMiddleware, requirePermission(INBOX, "edit"), singleFile("file"), v.staffChatSend, pc.staffChatSend);
 router.post("/chat/read", authMiddleware, requirePermission(INBOX, "view"), v.staffChatRead, pc.staffChatRead);
+// "Send by email" on a team message (tenant review 29 Sep 2026, D8): the
+// same grant as replying, because it is the team writing to the client.
+router.get("/chat/messages/:messageId/recipients", authMiddleware, requirePermission(INBOX, "edit"), pc.staffChatRecipients);
+router.post("/chat/messages/:messageId/email", authMiddleware, requirePermission(INBOX, "edit"), body(clientPortal.messageEmail), pc.staffChatEmail);
 router.get("/chat/attachments/:attachmentId", authMiddleware, requirePermission(INBOX, "view"), pc.staffChatAttachment);
+// The client's questions per stage of one shipment — the operations file's
+// milestone timeline (tenant review 29 Sep 2026, item 1.7). Same grant as the inbox.
+router.get("/chat/milestones", authMiddleware, requirePermission(INBOX, "view"), pc.staffChatMilestones);
 
 // Staff: what we asked clients for, and what they sent (14150). Operations
 // (MOD-29, the client-portal module) asks and reviews; finance (MOD-52,
@@ -273,7 +284,7 @@ router.get("/client-requests", authMiddleware, PORTAL_CLIENT, requirePermission(
 // What staff may ask for — the same registry the client picks from.
 router.get("/client-requests/document-types", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-29", "view"), pc.documentTypes);
 router.post("/client-requests", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-29", "edit"), v.staffCreateRequest, pc.staffCreateRequest);
-router.post("/client-requests/:id/review", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-29", "edit"), v.staffReviewRequest, pc.staffReviewRequest);
+router.post("/client-requests/:id/review", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-29", "edit"), body(clientPortal.reviewRequest), pc.staffReviewRequest);
 router.get("/client-requests/:id/file", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-29", "view"), pc.staffRequestFile);
 router.get("/payment-proofs", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-52", "view"), pc.staffProofs);
 router.post("/payment-proofs/:id/confirm", authMiddleware, PORTAL_CLIENT, requirePermission("MOD-52", "create"), v.staffConfirmProof, pc.staffConfirmProof);
@@ -303,6 +314,10 @@ router.post("/clients/:clientId/people/:id", authMiddleware, PORTAL_CLIENT, CP("
 router.post("/clients/:clientId/people/:id/invite", authMiddleware, PORTAL_CLIENT, CP("edit"), v.empty, pc.staffPeopleResend);
 router.post("/clients/:clientId/people/:id/revoke", authMiddleware, PORTAL_CLIENT, CP("edit"), v.empty, pc.staffPeopleRevoke);
 router.get("/clients/:clientId/onboarding", authMiddleware, PORTAL_CLIENT, CP("view"), pc.staffOnboarding);
+// "Request from client" on Client 360 › Documents (14260, D2): where each
+// client document type stands, and one portal request per type picked.
+router.get("/clients/:clientId/document-status", authMiddleware, PORTAL_CLIENT, CP("view"), pc.staffDocumentStatus);
+router.post("/clients/:clientId/document-requests", authMiddleware, PORTAL_CLIENT, CP("edit"), body(clientPortal.documentRequests), pc.staffRequestDocuments);
 router.post("/clients/:clientId/onboarding/:stepKey", authMiddleware, PORTAL_CLIENT, CP("edit"), v.empty, pc.staffOnboardingToggle);
 // Portal settings that apply to every client — the Clients screen's ⚙: what a
 // new invite sees by default, and the onboarding checklist every client starts from.

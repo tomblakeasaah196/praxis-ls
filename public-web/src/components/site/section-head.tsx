@@ -1,5 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
+import { getLang } from "@/lib/i18n";
+import { caseLabel } from "@/lib/label-case";
 import { IconTile, type IconComponent } from "@/components/ui/icon-tile";
 
 /**
@@ -88,6 +90,15 @@ export function SectionHead({
   className?: string;
 }) {
   const centred = align === "center";
+  /* A heading is a LABEL (owner decision D5): Title Case unless the tenant
+     chose "As written". Dictionary strings arrive cased already, and casing is
+     idempotent; this is for what the TENANT typed — a case note's title, a job
+     title, a proposal's — which reaches a heading without passing through a
+     dictionary key. Only a plain string is touched: a node is the caller's.
+     The accent finishes the title's phrase, so its first word is mid-phrase. */
+  const lang = getLang();
+  const head = typeof title === "string" ? caseLabel(title, lang) : title;
+  const tail = typeof accent === "string" ? caseLabel(accent, lang, { continues: true }) : accent;
   return (
     <div
       className={cn(
@@ -119,8 +130,8 @@ export function SectionHead({
         >
           {(titleWrapper || ((x: React.ReactNode) => x))(
             <>
-              {title}
-              {accent && (
+              {head}
+              {tail && (
                 <>
                   {" "}
                   {/*
@@ -164,7 +175,7 @@ export function SectionHead({
                         : "text-[var(--primary-ink)]"
                     }
                   >
-                    {accent}
+                    {tail}
                   </span>
                 </>
               )}

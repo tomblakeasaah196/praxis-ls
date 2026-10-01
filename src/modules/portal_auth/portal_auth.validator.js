@@ -83,7 +83,11 @@ const SCOPES = ["ALL", "OPERATIONS", "BILLING"];
 /** A last day of access, dd/mm/yyyy on screen and ISO on the wire, kept to its end. */
 const accessUntil = isoDate.transform((d) => `${d}T23:59:59.999Z`);
 /** What a client can be told about (14180, portal_notify.service TOPICS). */
-const NOTIFY_TOPICS = ["MESSAGES", "REQUESTS", "BILLING", "PROPOSALS", "SHIPMENTS"];
+// QUOTES (14261): a quote request made in the portal — received, needs a
+// clarification, quoted. Since 14261 this list, with TOPICS in
+// portal_notify.service, is what refuses an unknown topic: the tables no
+// longer spell it in a CHECK.
+const NOTIFY_TOPICS = ["MESSAGES", "REQUESTS", "QUOTES", "BILLING", "PROPOSALS", "SHIPMENTS"];
 
 /**
  * The push services browsers actually use: Chrome, Edge and Android (FCM),
@@ -216,10 +220,8 @@ const schemas = {
     note: z.string().trim().max(2000).optional().nullable(),
     due_on: isoDate.optional().nullable(),
   }),
-  staffReviewRequest: z.object({
-    decision: z.enum(["ACCEPT", "REJECT", "CANCEL"]),
-    note: z.string().trim().max(1000).optional().nullable(),
-  }),
+  // staffReviewRequest moved to clientPortal.reviewRequest in packages/shared
+  // (14260): the Accept dialog's fields are the API's.
   staffConfirmProof: z.object({ treasury_account_id: z.string().uuid().optional().nullable() }),
   // A client's portal, managed from the Client 360 (MOD-29). `expires_at` is
   // the LAST DAY they may sign in, so it is stored as the end of that day.
@@ -350,7 +352,7 @@ module.exports = {
   portalQuote: mw("portalQuote"), quoteDocument: mw("quoteDocument"), message: mw("message"), staffMessage: mw("staffMessage"),
   requestUpload: mw("requestUpload"), empty: mw("empty"), requestAnswer: mw("requestAnswer"), shareDocument: mw("shareDocument"),
   paymentProof: mw("paymentProof"), teamInvite: mw("teamInvite"), teamUpdate: mw("teamUpdate"),
-  staffCreateRequest: mw("staffCreateRequest"), staffReviewRequest: mw("staffReviewRequest"),
+  staffCreateRequest: mw("staffCreateRequest"),
   staffConfirmProof: mw("staffConfirmProof"), staffRejectProof: mw("staffRejectProof"),
   staffPublishBundle: mw("staffPublishBundle"),
   staffPersonAdd: mw("staffPersonAdd"), staffPersonUpdate: mw("staffPersonUpdate"), profile: mw("profile"),

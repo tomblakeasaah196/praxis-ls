@@ -354,11 +354,13 @@ function ReadinessBanner({
   );
 }
 
-function MilestonesTab({ fileId }: { fileId: string }) {
+function MilestonesTab({ fileId, clientId }: { fileId: string; clientId?: string | null }) {
   // The chain, its dates and its actions now live in one component shared with
   // the Milestones screen — two renderings of the same thing had already
-  // drifted once (the standalone screen advanced, this one only listed).
-  return <MilestoneChain dossierId={fileId} />;
+  // drifted once (the standalone screen advanced, this one only listed). The
+  // client's questions on each stage show here too (tenant review 29 Sep
+  // 2026, item 1.7).
+  return <MilestoneChain dossierId={fileId} clientId={clientId} />;
 }
 
 function MoneyTab({ m }: { m: api.DossierOverview["money"] | undefined }) {
@@ -1013,7 +1015,7 @@ export function OperationFile360({
       )}
       {activeTab === "containers" && <ContainersTab fileId={fileId} />}
       {activeTab === "itinerary" && <ItineraryEditor dossierId={fileId} />}
-      {activeTab === "milestones" && <MilestonesTab fileId={fileId} />}
+      {activeTab === "milestones" && <MilestonesTab fileId={fileId} clientId={header.client_id} />}
       {activeTab === "tasks" && <FileTasksTab fileId={fileId} />}
       {activeTab === "queries" && <QTickets dossierId={fileId} />}
       {activeTab === "money" && <MoneyTab m={d.money} />}

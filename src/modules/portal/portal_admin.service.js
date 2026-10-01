@@ -113,6 +113,22 @@ async function moveOnboardingStep(client, { stepKey, direction, actor = {} }) {
 
 const people = (client, { clientId }) => repo.clientGrants(client, clientId);
 
+/**
+ * The language each person reads the portal in, for a link staff share by
+ * WhatsApp (tenant review 29 Sep 2026, D4): their own notification setting
+ * when they made one, else the client's preferred language.
+ */
+async function languages(client, { clientId }) {
+  const { rows } = await client.query(
+    "SELECT subject_email::text AS email, language FROM portal_notify_setting WHERE client_id = $1 AND language IS NOT NULL",
+    [clientId],
+  );
+  const { rows: [cm] } = await client.query("SELECT preferred_language FROM client_master WHERE client_id = $1", [clientId]);
+  const fallback = cm && cm.preferred_language === "fr" ? "fr" : "en";
+  const byEmail = new Map(rows.map((r) => [String(r.email).toLowerCase(), r.language]));
+  return (email) => byEmail.get(String(email || "").toLowerCase()) || fallback;
+}
+
 async function mustOwn(client, clientId, grantId) {
   const grant = await repo.clientGrant(client, clientId, grantId);
   if (!grant) throw new AppError("NOT_FOUND", "This person does not have access to this client's portal", 404);
@@ -189,6 +205,6 @@ const personFor = (client, { clientId, grantId }) => mustOwn(client, clientId, g
 module.exports = {
   inviteDefaults, saveInviteDefaults,
   onboardingTemplate, createOnboardingStep, updateOnboardingStep, moveOnboardingStep,
-  people, addPerson, updatePerson, revokePerson, personFor,
+  people, languages, addPerson, updatePerson, revokePerson, personFor,
   keyFrom,
 };

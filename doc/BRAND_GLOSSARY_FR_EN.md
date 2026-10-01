@@ -174,9 +174,35 @@ mechanical, they are checkable, and readers in this market notice every one.
 demande` — never `Tarifs: sur demande`.
 2. **Guillemets, not quotes.** « comme ceci », with a non-breaking space inside
    each.
-3. **Sentence case in headings. French has no title case.**
-   ✅ `Une comptabilité conforme, écriture par écriture`
-   ❌ `Une Comptabilité Conforme, Écriture Par Écriture`
+3. **Sentence case in headings — except LABELS on the public website and the
+   client portal, which are Title Case in both languages.**
+   ✅ `Une comptabilité conforme, écriture par écriture` (the staff ERP, and any
+   sentence anywhere)
+   ❌ `Une Comptabilité Conforme, Écriture Par Écriture` (capitalised small words
+   are wrong under either rule)
+
+   > **Amended 2026-10-01 — owner decision D5** (tenant review of 29 Sep 2026,
+   > `doc/tenant-review-2026-09-29/register.md`, answered 2026-10-01). This
+   > rule said "French has no title case", without exception. The owner made
+   > Title Case the standard for every **label** on the **public website and
+   > the client portal's chrome**, in English **and French**: nav and footer
+   > links and column titles, buttons and calls to action, page and section
+   > headings (the hero headline included), eyebrows, card titles, tabs, form
+   > field labels, pills — `Nos Réalisations`, `Portail Client`,
+   > `Demander un Devis`.
+   >
+   > **Scope.** Sentences, paragraphs, hints, placeholders, toasts, error
+   > messages and legal text stay as written, in both languages. The staff ERP
+   > (`client/`) keeps sentence case. Small words stay small in Title Case
+   > (`de`, `du`, `un`, `et`, `par`… — the list in
+   > `packages/shared/text/title-case.js`), and accented capitals (rule 6)
+   > still apply: `Écriture par Écriture`.
+   >
+   > **How it holds.** No string is retyped: the casing is applied at render by
+   > one post-processor (`public-web/src/lib/label-case.ts`), to the keys
+   > classified LABEL in `scripts/gen/site-copy-case.js`; `npm run check:i18n`
+   > fails on a key that list does not classify. A tenant may switch it off —
+   > Website › Theme › Label capitalisation: *As written*.
 4. **Numbers:** non-breaking space as thousands separator, comma as decimal —
    `1 250 000,50 XAF`. Currency **after** the amount. English: `XAF 1,250,000.50`.
 5. **Dates:** `20 août 2026` — month lowercase, no ordinal. English: `20 August 2026`.

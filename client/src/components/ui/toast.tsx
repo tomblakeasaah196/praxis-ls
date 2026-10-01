@@ -37,12 +37,18 @@ import { XIcon } from "@/components/ui/icons";
 
 export type ToastTone = "success" | "error" | "info";
 
-type Toast = { id: number; tone: ToastTone; message: string };
+/**
+ * An optional "Open" on an info toast — the same place the bell's row opens,
+ * so it is never a control that exists nowhere else (see the header).
+ */
+export type ToastOpen = { label: string; onOpen: () => void };
+
+type Toast = { id: number; tone: ToastTone; message: string; open?: ToastOpen };
 
 type ToastApi = {
   success: (message: string) => void;
   error: (message: string) => void;
-  info: (message: string) => void;
+  info: (message: string, opts?: { open?: ToastOpen }) => void;
   dismiss: (id: number) => void;
 };
 
@@ -76,9 +82,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const push = React.useCallback(
-    (tone: ToastTone, message: string) => {
+    (tone: ToastTone, message: string, open?: ToastOpen) => {
       const id = nextId.current++;
-      setToasts((t) => [...t, { id, tone, message }]);
+      setToasts((t) => [...t, { id, tone, message, open }]);
       timers.current.set(
         id,
         setTimeout(() => dismiss(id), TIMEOUT[tone]),
@@ -97,7 +103,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     () => ({
       success: (m) => push("success", m),
       error: (m) => push("error", m),
-      info: (m) => push("info", m),
+      info: (m, opts) => push("info", m, opts && opts.open),
       dismiss,
     }),
     [push, dismiss],
@@ -126,6 +132,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <p className="min-w-0 flex-1 text-sm text-foreground">
               {t.message}
             </p>
+            {t.open ? (
+              <button
+                type="button"
+                onClick={() => {
+                  t.open?.onOpen();
+                  dismiss(t.id);
+                }}
+                className="shrink-0 rounded-md px-1.5 text-sm font-medium text-primary-ink underline-offset-2 hover:underline"
+              >
+                {t.open.label}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => dismiss(t.id)}

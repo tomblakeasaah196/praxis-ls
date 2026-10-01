@@ -61,6 +61,10 @@ jest.mock("../../src/services/email.service", () => ({
     return { messageId: "m" };
   },
 }));
+// A team message's files, read once for every recipient (Send by email, B4).
+jest.mock("../../src/services/storage.service", () => ({
+  get: async () => Buffer.from("%PDF-1.4"),
+}));
 jest.mock("../../src/modules/branding/branding.service", () => ({
   getBranding: async () => ({ name: "Acme Logistics", primary: "#0a7d5a", primaryForeground: "#ffffff", logoUrl: "/media/logo.png" }),
 }));
@@ -229,7 +233,9 @@ describe("a person's own switches", () => {
   test("defaults: everything on, except shipment steps by email", async () => {
     mockDb.setting = async () => null;
     const s = await notify.settings(null, { clientId: CLIENT, email: "marie@acme.cm", scope: "ALL" });
-    expect(s.topics.map((x) => x.topic)).toEqual(["MESSAGES", "REQUESTS", "BILLING", "PROPOSALS", "SHIPMENTS"]);
+    expect(s.topics.map((x) => x.topic)).toEqual(["MESSAGES", "REQUESTS", "QUOTES", "BILLING", "PROPOSALS", "SHIPMENTS"]);
+    // A quote request's news is emailed by default (tenant review 29 Sep 2026, B3).
+    expect(s.topics.find((x) => x.topic === "QUOTES")).toEqual({ topic: "QUOTES", email: true, push: true });
     expect(s.topics.find((x) => x.topic === "SHIPMENTS")).toEqual({ topic: "SHIPMENTS", email: false, push: true });
     expect(s.topics.find((x) => x.topic === "BILLING")).toEqual({ topic: "BILLING", email: true, push: true });
   });
@@ -283,6 +289,8 @@ function deliveryDb({ people, waiting, unread = {}, told = false, claim = () => 
     requests: async () => [],
     proposals: async () => [],
     stages: async () => [],
+    manuallySent: async () => new Set(),
+    quoteRequests: async () => [],
   });
   return { marked, released };
 }
@@ -435,9 +443,193 @@ describe("a device", () => {
     expect(bad.success).toBe(false);
   });
 
-  test("settings take the five topics and nothing else", () => {
+  test("settings take the six topics and nothing else", () => {
+    expect(schemas.notifySettings.safeParse({ topics: [{ topic: "QUOTES", email: true, push: true }] }).success).toBe(true);
     expect(schemas.notifySettings.safeParse({ topics: [{ topic: "BILLING", email: false, push: true }] }).success).toBe(true);
     expect(schemas.notifySettings.safeParse({ topics: [{ topic: "PAYROLL", email: false, push: true }] }).success).toBe(false);
     expect(schemas.notifySettings.safeParse({ topics: [], client_id: CLIENT }).success).toBe(false);
+  });
+});
+
+
+/* ── tenant review 29 Sep 2026, PR 1 (B3, B4, B5) ─────────────────────── */
+
+const QR = "77777777-7777-4777-8777-777777777777";
+
+describe("a quote request made in the portal (B3)", () => {
+  test("is read off its row — and only a PORTAL request reaches a client", async () => {
+    mockRows = [[/FROM quote_request WHERE quote_request_id/, { rows: [{ client_id: CLIENT }] }]];
+    const c = conn("live");
+    const out = await producer.onEvent(c, { eventTypeKey: "quote_request.created", entityRef: `quote_request:${QR}`, payload: {} });
+    expect(out).toMatchObject({ clientId: CLIENT, topic: "QUOTES", item: `quote_request:${QR}` });
+    const read = c.calls.find((x) => /FROM quote_request WHERE quote_request_id/.test(x.sql));
+    // A website enquiry is never emailed: anyone can type any address into the public form.
+    expect(read.sql).toMatch(/intake_channel = 'PORTAL'/);
+  });
+
+  test("a website enquiry — no PORTAL row — records nothing", async () => {
+    const c = conn("live");
+    expect(await producer.onEvent(c, { eventTypeKey: "quote_request.created", entityRef: `quote_request:${QR}`, payload: {} })).toBeNull();
+    expect(inserts(c)).toEqual([]);
+  });
+
+  test("the acknowledgement and QUOTED are emailed and pushed; UNDER_REVIEW is a push only", async () => {
+    const rows = [
+      { outbox_id: 31, event_key: "quote_request.created", item_ref: `quote_request:${QR}` },
+      { outbox_id: 32, event_key: "quote_request.under_review", item_ref: `quote_request:${QR}` },
+      { outbox_id: 33, event_key: "quote_request.quoted", item_ref: `quote_request:${QR}` },
+    ];
+    const { marked } = deliveryDb({ people: [MARIE], waiting: { push: rows, email: rows } });
+    mockDb.quoteRequests = async () => [{ quote_request_id: QR, public_ref: "SQ-2026-0003", status: "QUOTED" }];
+    await notify.deliver(null, { tenant: TENANT, clientId: CLIENT, topic: "QUOTES", thread: null, stage: "both" });
+    expect(mockEmails).toHaveLength(1);
+    expect(mockEmails[0].text).toContain("We received your request SQ-2026-0003");
+    expect(mockEmails[0].text).toContain("Your quotation for SQ-2026-0003 is ready");
+    expect(mockEmails[0].text).not.toContain("We are reviewing");
+    expect(mockPushes).toHaveLength(1);
+    expect(mockPushes[0].url).toBe("/portal/quotes");
+    // Every row is handled on both channels, the push-only one included.
+    expect(marked).toEqual([["push", [31, 32, 33]], ["email", [31, 32, 33]]]);
+  });
+
+  test("only UNDER_REVIEW waiting on email: nothing is emailed, the row is still handled", async () => {
+    const rows = [{ outbox_id: 41, event_key: "quote_request.under_review", item_ref: `quote_request:${QR}` }];
+    const { marked } = deliveryDb({ people: [MARIE], waiting: { email: rows } });
+    mockDb.quoteRequests = async () => [{ quote_request_id: QR, public_ref: "SQ-2026-0003", status: "UNDER_REVIEW" }];
+    await notify.deliver(null, { tenant: TENANT, clientId: CLIENT, topic: "QUOTES", thread: null, stage: "email" });
+    expect(mockEmails).toEqual([]);
+    expect(marked).toEqual([["email", [41]]]);
+  });
+});
+
+const TEAM_MSG = {
+  message_id: MSG, client_id: CLIENT, dossier_id: SHIP, direction: "STAFF", body: "The truck left Douala.\n\nETA Bangui Friday.",
+  created_at: "2026-09-30T10:00:00Z", client_name: "GOUM", dossier_ref: "PRX-2026-0418", pol: "Douala", pod: "Bangui",
+  author_email: "tom@smartls.cm", author_name: "Tom Blake",
+  attachments: [{ attachment_id: "a1", kind: "FILE", file_name: "BL.pdf", mime_type: "application/pdf", byte_size: 1200, storage_path: "v/bl.pdf" }],
+};
+const ELISHA = { email: "elisha@goum.cm", full_name: "Elisha Godwin", scope: "ALL", portal_user_id: "pu-9", status: "ACTIVE", last_login_at: "2026-09-29T08:00:00Z", language: "en" };
+
+describe("Send by email (B4)", () => {
+  function sendDb({ people = [ELISHA], claimed = () => 1 } = {}) {
+    const released = [];
+    Object.assign(mockDb, {
+      teamMessage: async () => TEAM_MSG,
+      reachList: async () => people,
+      clientProfile: async () => ({ name: "GOUM", preferred_language: "en" }),
+      claimManual: async (c, a) => claimed(a),
+      release: async (c, id) => released.push(id),
+      messageOutbox: async () => [],
+      threadEmails: async () => [],
+      threadCursors: async () => [],
+    });
+    return { released };
+  }
+
+  test("sends one branded email with the sender's signature, the file attached and a reply-to", async () => {
+    sendDb();
+    const c = conn("live");
+    const out = await notify.emailTeamMessage(c, {
+      messageId: MSG, recipients: ["Elisha@goum.cm"], requestKey: "k-1", actor: { user_id: "u-tom" }, tenant: TENANT,
+    });
+    expect(out.emailed).toEqual(["elisha@goum.cm"]);
+    expect(mockEmails).toHaveLength(1);
+    const mail = mockEmails[0];
+    expect(mail.subject).toBe("GOUM · PRX-2026-0418");
+    expect(mail.signature).toBe("auto");
+    expect(mail.actorUserId).toBe("u-tom");
+    expect(mail.replyTo).toBe("tom@smartls.cm");
+    expect(mail.attachments).toEqual([expect.objectContaining({ filename: "BL.pdf" })]);
+    expect(mail.text).toContain("The truck left Douala.");
+    expect(mail.text).toContain("Shipment PRX-2026-0418 · Douala → Bangui");
+    expect(mail.text).toContain(`https://acme.example/portal?chat=${SHIP}`);
+    expect(mail.html).toContain("#0a7d5a");
+    expect(mail.html).not.toMatch(/<script/i);
+  });
+
+  test("a double click — the same key, the claim already taken — sends nothing twice", async () => {
+    sendDb({ claimed: () => null });
+    const out = await notify.emailTeamMessage(conn("live"), {
+      messageId: MSG, recipients: ["elisha@goum.cm"], requestKey: "k-1", actor: {}, tenant: TENANT,
+    });
+    expect(out.already).toEqual(["elisha@goum.cm"]);
+    expect(mockEmails).toEqual([]);
+  });
+
+  test("reaches someone who has not signed in, never a disabled login or a stranger", async () => {
+    sendDb({ people: [{ ...ELISHA, last_login_at: null }, { ...ELISHA, email: "gone@goum.cm", status: "DISABLED" }] });
+    const ok = await notify.emailTeamMessage(conn("live"), { messageId: MSG, recipients: ["elisha@goum.cm"], requestKey: "k", actor: {}, tenant: TENANT });
+    expect(ok.emailed).toEqual(["elisha@goum.cm"]);
+    await expect(notify.emailTeamMessage(conn("live"), { messageId: MSG, recipients: ["gone@goum.cm"], requestKey: "k", actor: {}, tenant: TENANT }))
+      .rejects.toMatchObject({ code: "RECIPIENT_NOT_ALLOWED" });
+    await expect(notify.emailTeamMessage(conn("live"), { messageId: MSG, recipients: ["someone@else.cm"], requestKey: "k", actor: {}, tenant: TENANT }))
+      .rejects.toMatchObject({ code: "RECIPIENT_NOT_ALLOWED" });
+  });
+
+  test("never from TEST", async () => {
+    sendDb();
+    await expect(notify.emailTeamMessage(conn("sandbox"), { messageId: MSG, recipients: ["elisha@goum.cm"], requestKey: "k", actor: {}, tenant: TENANT }))
+      .rejects.toMatchObject({ code: "SANDBOX_NO_EMAIL" });
+    expect(mockEmails).toEqual([]);
+  });
+
+  test("a failed send gives its claim back so the next click can send", async () => {
+    const { released } = sendDb({ people: [{ ...ELISHA, email: "fails@acme.cm" }], claimed: () => 5 });
+    await expect(notify.emailTeamMessage(conn("live"), { messageId: MSG, recipients: ["fails@acme.cm"], requestKey: "k", actor: {}, tenant: TENANT }))
+      .rejects.toMatchObject({ code: "EMAIL_FAILED" });
+    expect(released).toEqual([5]);
+  });
+
+  test("the shared body is strict: who, and the key that makes it once", () => {
+    const { clientPortal } = require("@praxis/shared");
+    expect(clientPortal.messageEmail.safeParse({ recipients: ["a@b.cm"], request_key: "00000000-0000-4000-8000-000000000001" }).success).toBe(true);
+    expect(clientPortal.messageEmail.safeParse({ recipients: [], request_key: "00000000-0000-4000-8000-000000000001" }).success).toBe(false);
+    expect(clientPortal.messageEmail.safeParse({ recipients: ["a@b.cm"] }).success).toBe(false);
+  });
+});
+
+describe("what each team message's email did (B5)", () => {
+  const at = "2026-09-30T10:00:00Z";
+  const msg = { message_id: MSG, direction: "STAFF", created_at: at };
+  const people = [
+    ELISHA,
+    { ...ELISHA, email: "paul@goum.cm", full_name: "Paul", portal_user_id: "pu-2" },
+    { ...ELISHA, email: "new@goum.cm", full_name: "New", portal_user_id: "pu-3", last_login_at: null },
+    { ...ELISHA, email: "off@goum.cm", full_name: "Off", portal_user_id: "pu-4", email_off: ["MESSAGES"] },
+    { ...ELISHA, email: "late@goum.cm", full_name: "Late", portal_user_id: "pu-5" },
+  ];
+
+  test("emailed, read in the portal, never signed in, switched off — read from what the sender recorded", async () => {
+    Object.assign(mockDb, {
+      reachList: async () => people,
+      messageOutbox: async () => [{ outbox_id: 70, item_ref: `client_message:${MSG}`, created_at: at, email_done_at: "2026-09-30T10:12:00Z" }],
+      threadEmails: async () => [
+        { email: "elisha@goum.cm", dedupe_key: `email:MESSAGES:${SHIP}:70`, sent_at: "2026-09-30T10:12:00Z", message_id: null },
+      ],
+      threadCursors: async () => [{ portal_user_id: "pu-2", last_read_at: "2026-09-30T10:03:00Z" }],
+    });
+    const out = await notify.messageDelivery(null, { clientId: CLIENT, thread: SHIP, messages: [msg] });
+    const state = Object.fromEntries(out[MSG].map((p) => [p.email, p.state]));
+    expect(state).toEqual({
+      "elisha@goum.cm": "EMAILED",
+      "paul@goum.cm": "READ",
+      "new@goum.cm": "NEVER_SIGNED_IN",
+      "off@goum.cm": "SWITCHED_OFF",
+      "late@goum.cm": "NOT_EMAILED",
+    });
+  });
+
+  test("a deliberate send says who sent it; an email pass not run yet is on its way", async () => {
+    Object.assign(mockDb, {
+      reachList: async () => [ELISHA, { ...ELISHA, email: "paul@goum.cm", portal_user_id: "pu-2" }],
+      messageOutbox: async () => [{ outbox_id: 71, item_ref: `client_message:${MSG}`, created_at: new Date().toISOString(), email_done_at: null }],
+      threadEmails: async () => [
+        { email: "elisha@goum.cm", dedupe_key: `manual:${MSG}:k`, sent_at: "2026-09-30T10:42:00Z", message_id: MSG, sent_by_name: "Tom Blake" },
+      ],
+      threadCursors: async () => [],
+    });
+    const out = await notify.messageDelivery(null, { clientId: CLIENT, thread: SHIP, messages: [{ ...msg, created_at: new Date(Date.now() - 60_000).toISOString() }] });
+    expect(out[MSG][0]).toMatchObject({ state: "EMAILED", manual: true, by: "Tom Blake" });
+    expect(out[MSG][1]).toMatchObject({ state: "PENDING" });
   });
 });
