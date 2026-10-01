@@ -25,19 +25,18 @@
  * still offered Convert.
  */
 "use strict";
+const { quoteRequest } = require("@praxis/shared");
 const { AppError } = require("../../../utils/errors");
 
-const STATUSES = [
-  "RECEIVED",
-  "UNDER_REVIEW",
-  "CLARIFICATION_REQUIRED",
-  "QUOTED",
-  "CONVERTED_TO_OPPORTUNITY",
-  "CLOSED_NO_ACTION",
-];
+/**
+ * The status list and the terminal set are `@praxis/shared`'s since meeting 6
+ * (PR 2) — the staff form greys the client picker on a terminal request from
+ * the same list this module refuses the edit with.
+ */
+const STATUSES = [...quoteRequest.STATUSES];
 
 /** States from which nothing may be edited, attached or detached any more. */
-const TERMINAL = ["CONVERTED_TO_OPPORTUNITY", "CLOSED_NO_ACTION"];
+const TERMINAL = [...quoteRequest.TERMINAL];
 
 const NEXT = {
   RECEIVED: ["UNDER_REVIEW", "CLARIFICATION_REQUIRED", "CLOSED_NO_ACTION"],

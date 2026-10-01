@@ -15,6 +15,7 @@
  *     instead of a frozen screen.
  */
 
+import type { DocumentKind, HinterlandDirection, QuoteCard, QuoteFlow, QuoteService } from "./quote-scope";
 import { tStatic } from "./i18n";
 import { portalSession, refreshPortalSession, PORTAL_SIGNED_OUT } from "./portal-session";
 
@@ -770,6 +771,11 @@ export type PortalQuoteRequest = {
   status: string;
   service_category: string | null;
   service_type: string | null;
+  /** The service type the request named (meeting 6, PR 2) — null on a request
+   *  filed before services were structured, which then shows its words. */
+  service_type_id: string | null;
+  service: { service_type_id: string; name_en: string; name_fr: string; card: QuoteCard; flow: QuoteFlow | null } | null;
+  hinterland_direction: HinterlandDirection | null;
   origin_location: string | null;
   destination_location: string | null;
   /** The doors either side of the main leg — null on a port-to-port request. */
@@ -780,33 +786,99 @@ export type PortalQuoteRequest = {
   destination_place: PortalPlace | null;
   collection_place: PortalPlace | null;
   delivery_place: PortalPlace | null;
+  warehouse_location: string | null;
+  warehouse_duration: string | null;
   incoterm: string | null;
   estimated_weight: number | null;
   cargo_description: string | null;
+  /** How many documents the request carries. */
+  documents: number;
   created_at: string;
 };
 export const portalQuoteRequests = () => portalApi<PortalQuoteRequest[]>("/client/quote-requests");
+
+/** What the quote wizard offers: every ACTIVE service, with its card, flow and Incoterms. */
+export const portalQuoteServices = () => portalApi<QuoteService[]>("/client/quote-services");
+
+/** A document uploaded BEFORE the request is sent — staged, then named by id. */
+export function portalStageQuoteDocument(file: File, onProgress?: (pct: number) => void) {
+  const form = new FormData();
+  form.append("file", file);
+  return portalUpload<{ doc_id: string; name: string | null }>("/client/quote-requests/documents", form, onProgress);
+}
+
 export const portalCreateQuote = (data: {
-  service_category: string;
-  service_type?: string;
-  origin_location: string;
-  destination_location: string;
+  service_type_id: string;
+  hinterland_direction?: HinterlandDirection;
+  origin_location?: string;
+  destination_location?: string;
   collection_location?: string;
   delivery_location?: string;
   origin_place?: PortalPlacePick;
   destination_place?: PortalPlacePick;
   collection_place?: PortalPlacePick;
   delivery_place?: PortalPlacePick;
+  warehouse_location?: string;
+  warehouse_duration?: string;
   estimated_weight?: number;
   cargo_description?: string;
   incoterm?: string;
+  /** At least one (owner decision Q4). */
+  documents: { doc_id: string; document_kind: DocumentKind }[];
 }) => portalApi<PortalQuoteRequest>("/client/quote-requests", { method: "POST", body: data });
+
+/** One request as its client reads it (meeting 6, item 2.9). */
+export type PortalQuoteDetail = {
+  quote_request_id: string;
+  public_ref: string | null;
+  status: string;
+  created_at: string;
+  service: QuoteService | null;
+  service_category: string | null;
+  hinterland_direction: HinterlandDirection | null;
+  origin_location: string | null;
+  destination_location: string | null;
+  collection_location: string | null;
+  delivery_location: string | null;
+  warehouse_location: string | null;
+  warehouse_duration: string | null;
+  incoterm: string | null;
+  estimated_weight: number | null;
+  cargo_description: string | null;
+  requester_name: string | null;
+  documents: { id: string; name: string | null; document_kind: DocumentKind | null; kind: string; created_at: string }[];
+  /** The status as it moved, oldest first. */
+  timeline: { status: string; at: string }[];
+  /** The proposal that answered the request, once one has been sent. */
+  proposal: { proposal_id: string; doc_number: string | null; title: string; status: string; currency: string | null; created_at: string } | null;
+  /** PR 4 (meeting 6): the Commercial quotation that answered it. */
+  quotation: null;
+};
+export const portalQuoteRequest = (id: string) => portalApi<PortalQuoteDetail>(`/client/quote-requests/${encodeURIComponent(id)}`);
+
+/** "Add a document" on a request already sent — at any time. */
+export function portalAddQuoteDocument(id: string, file: File, kind: DocumentKind, onProgress?: (pct: number) => void) {
+  const form = new FormData();
+  form.append("document_kind", kind);
+  form.append("file", file);
+  return portalUpload<{ id: string; name: string | null; document_kind: DocumentKind | null }>(
+    `/client/quote-requests/${encodeURIComponent(id)}/documents`,
+    form,
+    onProgress,
+  );
+}
+
+export const portalDownloadQuoteDocument = (id: string, attachmentId: string, filename: string) =>
+  portalDownload(`/client/quote-requests/${encodeURIComponent(id)}/documents/${encodeURIComponent(attachmentId)}`, filename);
 
 /** "Describe it in your own words" — the wizard's fields, read from a description. */
 export type QuoteFill = {
   fields: {
-    mode: Mode | null;
-    direction: "IMPORT" | "EXPORT" | "LOCAL" | null;
+    mode: QuoteCard | null;
+    flow: QuoteFlow | null;
+    hinterland_direction: HinterlandDirection | null;
+    /** The service type the card and flow lead to, when exactly one does. */
+    service_type_id: string | null;
     origin: string | null;
     destination: string | null;
     incoterm: string | null;

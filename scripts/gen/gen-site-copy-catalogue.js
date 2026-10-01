@@ -76,6 +76,12 @@ const FEATURE_DICTS = [
     /** Where `en` / `fr` from that file sit under `site.` */
     mount: "careers",
   },
+  {
+    // The quote steps the website's wizard and the client portal share
+    // (meeting 6, PR 2) — read only inside lazy chunks.
+    file: path.join(WEB_SRC, "components", "quote", "quote-steps-copy.ts"),
+    mount: "quoteSteps",
+  },
 ];
 const ROUTER = path.join(WEB_SRC, "app", "router.tsx");
 const OUT = path.join(ROOT, "packages", "shared", "data", "site-copy.generated.js");

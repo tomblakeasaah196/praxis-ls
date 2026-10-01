@@ -2,6 +2,7 @@
 const { z } = require("zod");
 const { AppError } = require("../../utils/errors");
 const { schemas: qTicket } = require("../operations/q_ticket/q_ticket.validator");
+const { quoteRequest } = require("@praxis/shared");
 
 /*
  * WebAuthn envelopes — the same shapes the staff validator declares
@@ -109,27 +110,6 @@ const PLACE_KINDS = [
   "SEAPORT", "AIRPORT", "TERMINAL", "RAIL_TERMINAL", "BORDER_POST",
   "WAREHOUSE", "INLAND", "CITY", "ADDRESS", "OTHER",
 ];
-/*
- * One place a client picked in the quote sheet, in one of two shapes: a place
- * they were offered (its id — re-checked server-side, never trusted), or a
- * worldwide suggestion (the provider's id and the text that produced it,
- * NEVER a coordinate: the server re-asks the provider and stores its answer).
- * Absent or null when they typed the place instead.
- */
-const placePick = z
-  .union([
-    z.object({ geo_place_id: z.string().uuid() }).strict(),
-    z
-      .object({
-        provider_place_id: z.string().trim().min(1).max(300),
-        query: z.string().trim().min(1).max(200),
-        country: z.string().trim().regex(/^[A-Za-z]{2}$/).optional(),
-      })
-      .strict(),
-  ])
-  .nullable()
-  .optional();
-
 const schemas = {
   login: z.object({ email: z.string().email(), password: z.string().min(1), trust_device: trust }),
   refresh: z.object({ refresh_token: z.string().min(20).max(200) }),
@@ -183,27 +163,13 @@ const schemas = {
   raiseTicket: qTicket.raise,
   replyTicket: qTicket.reply,
   // Self-service quoting from the portal (PRD §11.1). client_id is never
-  // accepted from the body — the grant decides the client.
-  portalQuote: z.object({
-    service_category: z.string().min(1).max(80),
-    service_type: z.string().optional(),
-    // 200, not 120: a picked address arrives as the provider's formatted line
-    // ("12 Rue de la Joie, Bonabéri, Douala, Littoral, Cameroon"), and cutting
-    // it would store a place the client did not choose.
-    origin_location: z.string().trim().min(1).max(200),
-    destination_location: z.string().trim().min(1).max(200),
-    // The doors either side of the main leg (14220). Optional: a port-to-port
-    // request names neither.
-    collection_location: optText(200),
-    delivery_location: optText(200),
-    origin_place: placePick,
-    destination_place: placePick,
-    collection_place: placePick,
-    delivery_place: placePick,
-    estimated_weight: z.number().nonnegative().optional(),
-    cargo_description: z.string().max(2000).optional(),
-    incoterm: z.string().max(40).optional(),
-  }),
+  // accepted from the body — the grant decides the client. The shape is
+  // `@praxis/shared`'s (meeting 6, PR 2): the service type the wizard led to,
+  // the hinterland direction, the route, and at least one staged document.
+  portalQuote: quoteRequest.portalCreate,
+  // A document for a quote request — staged before it is sent, or added to one
+  // already sent. The file is the multipart body; this is what it IS.
+  quoteDocument: quoteRequest.portalDocumentUpload,
   // The quote sheet's place search. A GET, so every value is a string and
   // `kind` is a string or an array depending on how many were sent.
   places: z
@@ -383,7 +349,7 @@ module.exports = {
   passkeyLoginOptions: mw("passkeyLoginOptions"), passkeyLoginVerify: mw("passkeyLoginVerify"),
   passkeyRegisterVerify: mw("passkeyRegisterVerify"),
   raiseTicket: mw("raiseTicket"), replyTicket: mw("replyTicket"),
-  portalQuote: mw("portalQuote"), message: mw("message"), staffMessage: mw("staffMessage"),
+  portalQuote: mw("portalQuote"), quoteDocument: mw("quoteDocument"), message: mw("message"), staffMessage: mw("staffMessage"),
   requestUpload: mw("requestUpload"), empty: mw("empty"), requestAnswer: mw("requestAnswer"), shareDocument: mw("shareDocument"),
   paymentProof: mw("paymentProof"), teamInvite: mw("teamInvite"), teamUpdate: mw("teamUpdate"),
   staffCreateRequest: mw("staffCreateRequest"),

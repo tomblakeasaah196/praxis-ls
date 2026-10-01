@@ -9,12 +9,79 @@
  * (service_type.validator.js:9). Display names stay freely editable.
  */
 import * as React from "react";
+import { incoterms, serviceScope } from "@shared";
 import { tr } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Modal, Field, Select } from "@/components/ui/modal";
 import { errMsg } from "@/lib/use-resource";
+import { cardLabel, incotermLabel } from "@/lib/quote-request-api";
 import * as api from "@/lib/operations-api";
+
+/**
+ * The quote form's card and the Incoterms a service offers (meeting 6, PR 2,
+ * 14300). Both default from the KEY — `SEA_FREIGHT_IMPORT` is a sea service and
+ * offers all eleven ICC terms; an air, road or rail one the seven any-mode
+ * terms — and both are the tenant's to correct, because a card decides which
+ * questions a client is asked. Until somebody picks a card on a NEW service it
+ * follows the key as it is typed, and the terms follow the card until somebody
+ * ticks one; after that, their choice stands.
+ */
+function QuoteFields({
+  mode,
+  terms,
+  onMode,
+  onTerms,
+}: {
+  mode: string;
+  terms: string[];
+  onMode: (m: string) => void;
+  onTerms: (t: string[]) => void;
+}) {
+  const set = new Set(terms);
+  return (
+    <>
+      <Field
+        label={tr("Quote form card")}
+        hint={tr("Where this service sits when a client asks for a price — on the website, in the client portal and at the desk.")}
+      >
+        <Select value={mode} onChange={(e) => onMode(e.target.value)}>
+          {serviceScope.MODES.map((m) => (
+            <option key={m} value={m}>
+              {cardLabel(m)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <div className="sm:col-span-2">
+        <Field
+          label={tr("Incoterms offered")}
+          hint={tr("A request for this service may use only these, or “To be determined”. FAS, FOB, CFR and CIF are for sea and inland waterway only.")}
+        >
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {incoterms.CODES.map((code) => (
+              <Checkbox
+                key={code}
+                checked={set.has(code)}
+                onCheckedChange={(v) => {
+                  const next = new Set(set);
+                  if (v === true) next.add(code);
+                  else next.delete(code);
+                  onTerms(incoterms.normalise([...next]));
+                }}
+                label={incotermLabel(code)}
+              />
+            ))}
+          </div>
+          <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => onTerms(incoterms.defaultsForMode(mode))}>
+            {tr("Reset to the ICC 2020 defaults for this card")}
+          </Button>
+        </Field>
+      </div>
+    </>
+  );
+}
 
 export function ServiceTypeForm({
   row,
@@ -37,6 +104,19 @@ export function ServiceTypeForm({
     ops_reference_code: row?.ops_reference_code ?? "",
   });
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
+  // The card and the terms — see QuoteFields. `touched` stops the defaults
+  // following the key once somebody has chosen.
+  const initialMode = row?.transport_mode || serviceScope.modeFromKey(row?.key);
+  const [mode, setMode] = React.useState<string>(initialMode);
+  const [terms, setTerms] = React.useState<string[]>(row?.incoterms ?? incoterms.defaultsForMode(initialMode));
+  const [modeTouched, setModeTouched] = React.useState(!isNew);
+  const [termsTouched, setTermsTouched] = React.useState(!isNew);
+  React.useEffect(() => {
+    if (modeTouched) return;
+    const m = serviceScope.modeFromKey(f.key);
+    setMode(m);
+    if (!termsTouched) setTerms(incoterms.defaultsForMode(m));
+  }, [f.key, modeTouched, termsTouched]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -55,6 +135,8 @@ export function ServiceTypeForm({
           name_en: f.name_en || undefined,
           territory: f.territory || undefined,
           enquiry_shape: f.enquiry_shape,
+          transport_mode: mode,
+          incoterms: terms,
           ops_reference_code: opsCode,
         });
       } else {
@@ -65,6 +147,8 @@ export function ServiceTypeForm({
           name_en: f.name_en || null,
           territory: f.territory || null,
           enquiry_shape: f.enquiry_shape,
+          transport_mode: mode,
+          incoterms: terms,
           // Unchanged codes are not resent: the API refuses a change once a file
           // has used one, and echoing the same value would turn a name edit into
           // a rejected save on a service type that has been in use for months.
@@ -143,6 +227,19 @@ export function ServiceTypeForm({
               ))}
             </Select>
           </Field>
+          <QuoteFields
+            mode={mode}
+            terms={terms}
+            onMode={(m) => {
+              setModeTouched(true);
+              setMode(m);
+              if (!termsTouched) setTerms(incoterms.defaultsForMode(m));
+            }}
+            onTerms={(t) => {
+              setTermsTouched(true);
+              setTerms(t);
+            }}
+          />
           <Field label="Name (FR)" required>
             <Input
               value={f.name_fr}

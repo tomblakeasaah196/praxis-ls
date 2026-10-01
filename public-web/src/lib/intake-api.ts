@@ -42,6 +42,7 @@
  */
 import { publicApi, PublicApiError, type FieldErrors } from "./api";
 import type { PlacePick } from "./places-api";
+import type { DocumentKind, HinterlandDirection } from "./quote-scope";
 
 export type IntakeReceipt = { received: boolean; reference: string };
 
@@ -54,6 +55,11 @@ export type QuoteRequest = Trap & {
   requester_email?: string;
   requester_phone?: string;
   service_category?: string;
+  /** The published service the visitor picked (meeting 6, PR 2) — the server
+   *  stores it, and writes `service_category` from its name. */
+  service_type_id?: string;
+  /** For a hinterland transit: into it (import) or out of it (export). */
+  hinterland_direction?: HinterlandDirection;
   origin_location?: string;
   destination_location?: string;
   cargo_description?: string;
@@ -78,9 +84,12 @@ export type QuoteRequest = Trap & {
    */
   origin_place?: PlacePick;
   destination_place?: PlacePick;
-  /** One optional file, as a base64 data URL. See `components/ui/file-input`. */
-  attachment_data_url?: string;
-  attachment_filename?: string;
+  /**
+   * Up to three documents, each a base64 data URL with what it is — strongly
+   * encouraged, never required: a stranger may not have an invoice yet
+   * (owner decision Q6). Every one reaches the desk's Attachments tab.
+   */
+  documents?: { data_url: string; filename?: string; document_kind?: DocumentKind }[];
 };
 
 export type ContactEnquiry = Trap & {
@@ -95,11 +104,12 @@ export type ContactEnquiry = Trap & {
 
 export type NewsletterSignup = Trap & { email: string; name?: string };
 
-const submit = <T>(
-  path: string,
-  body: T & Trap,
-  startedAt: number | undefined,
-): Promise<IntakeReceipt> => {
+/**
+ * The body an intake endpoint receives: the form's fields and when it was
+ * started, with the empties dropped. Shared with `quote-intake.ts`, whose
+ * document-carrying send must clean exactly as this one does.
+ */
+export const cleanIntake = <T>(body: T & Trap, startedAt: number | undefined): T & Trap =>
   // Empty strings are dropped: `.strict()` accepts the key, but the services
   // write `data.x || null` and an empty subject on a lead is noise in a queue.
   //
@@ -107,16 +117,23 @@ const submit = <T>(
   // against the three empties explicitly for that reason. `project_cargo_flag:
   // false` is a real answer to a real question — a filter on falsiness would
   // silently turn "no, this is ordinary cargo" into "unanswered".
-  const clean = Object.fromEntries(
+  Object.fromEntries(
     Object.entries({ ...body, form_started_at: startedAt }).filter(
       ([, v]) => v !== "" && v !== undefined && v !== null,
     ),
   ) as T & Trap;
-  return publicApi<IntakeReceipt>(path, { method: "POST", body: clean });
-};
+
+const submit = <T>(
+  path: string,
+  body: T & Trap,
+  startedAt: number | undefined,
+): Promise<IntakeReceipt> =>
+  publicApi<IntakeReceipt>(path, { method: "POST", body: cleanIntake(body, startedAt) });
 
 export const quoteRequests = {
   path: "/public/intake/quote-requests" as const,
+  /** Without documents. A request that carries them goes through
+   *  `quote-intake.ts`, which reports its upload progress. */
   send: (body: QuoteRequest, startedAt?: number) =>
     submit("/public/intake/quote-requests", body, startedAt),
 };

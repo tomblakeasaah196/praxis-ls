@@ -145,3 +145,37 @@ describe("the pre-existing exemptions still hold", () => {
     }
   });
 });
+
+describe("the routes that carry a quote request's documents (meeting 6, PR 2)", () => {
+  // Both advertised 8–10 MB and both sat on the 2 MB parser: a scanned
+  // commercial invoice was a 413 before any code ran.
+  const COVERED = [
+    "/api/tenant/public/intake/quote-requests",
+    "/api/v1/tenant/public/intake/quote-requests",
+    "/api/tenant/quote-requests/0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0/attachments",
+  ];
+  // The DELETE of one attachment carries no body; from-chat names a file by id.
+  const NOT_COVERED = [
+    "/api/tenant/quote-requests/abc/attachments/0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0",
+    "/api/tenant/quote-requests/abc/attachments/from-chat",
+    "/api/tenant/quote-requests",
+    "/api/tenant/public/intake/leads",
+  ];
+
+  it.each(COVERED)("accepts a 6 MB scan on %s", async (path) => {
+    const res = await request(appWithParsers()).post(path).send(bodyFor(6 * 1024 * 1024));
+    expect(res.status).toBe(200);
+  });
+
+  it.each(NOT_COVERED)("leaves %s on the 2 MB global parser", async (path) => {
+    const res = await request(appWithParsers()).post(path).send(bodyFor(6 * 1024 * 1024));
+    expect(res.status).toBe(413);
+  });
+
+  it("covers the website's three documents together — 12 MB, after base64", () => {
+    const group = RAISED.find((g) => g.name === "quote-request-documents");
+    const { quoteRequest } = require("@praxis/shared");
+    expect(group.advertises).toBeGreaterThanOrEqual(quoteRequest.PUBLIC_DOCUMENTS_TOTAL_BYTES);
+    expect(parseLimit(group.limit)).toBeGreaterThanOrEqual(encodedSize(quoteRequest.PUBLIC_DOCUMENTS_TOTAL_BYTES));
+  });
+});

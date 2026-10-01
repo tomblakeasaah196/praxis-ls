@@ -74,6 +74,11 @@ const FEATURE_DICTS = [
     file: path.join(SRC, "features/portal/portal-copy.ts"),
     mount: "portal",
   },
+  {
+    // The quote steps the website's wizard and the portal share (meeting 6).
+    file: path.join(SRC, "components/quote/quote-steps-copy.ts"),
+    mount: "site.quoteSteps",
+  },
 ];
 
 /** True for any file that IS copy rather than a component that contains copy.

@@ -46,6 +46,7 @@ import { AiActions } from "@/components/ai-actions";
 import type { AiAction } from "@/features/scaffold/screen-specs";
 import { Link } from "react-router-dom";
 import { QuoteRequestForm, ConvertToOpportunityModal } from "./quote-request-forms";
+import { CHANNELS, channelLabel, serviceNameOf } from "@/lib/quote-request-api";
 import { IntakeDossier } from "./sales-360";
 
 /** TOTAL plus one count per intake status; `OTHER` only ever appears if a row
@@ -95,12 +96,14 @@ const STATUS_FILTERS = [
   { value: "CLOSED_NO_ACTION", label: "Closed" },
 ];
 
-const CHANNEL_FILTERS = [
-  { value: "", label: "All channels" },
-  { value: "WEBSITE", label: "Website" },
-  { value: "MANUAL", label: "Manual" },
-  { value: "REFERRAL", label: "Referral" },
-  { value: "CAMPAIGN", label: "Campaign" },
+/**
+ * Every channel a request arrives by — the client portal and email included
+ * (meeting 6, item 2.5: a portal request used to have no chip, and displayed
+ * as MANUAL in the form). Built from the shared list, in its words.
+ */
+const channelFilters = () => [
+  { value: "", label: tr("All channels") },
+  ...CHANNELS.map((c) => ({ value: c, label: channelLabel(c) })),
 ];
 
 
@@ -218,9 +221,9 @@ export function QuoteRequestsPage() {
           onChange={setStatusFilter}
         />
         <Chips
-          label="Filter by channel"
+          label={tr("Filter by channel")}
           value={channelFilter}
-          options={CHANNEL_FILTERS}
+          options={channelFilters()}
           onChange={setChannelFilter}
         />
       </div>
@@ -278,8 +281,14 @@ export function QuoteRequestsPage() {
                         <span className="block truncate font-mono font-medium">
                           {cell(r.public_ref)}
                         </span>
+                        {/* Who asked: the company — a portal request's is its
+                            client's name (meeting 6, item 2.4), never "—"
+                            while a name is known — then the service. */}
                         <span className="block truncate micro">
-                          {cell(r.requester_company)}
+                          {cell(r.requester_company || r.client_name || r.requester_name)}
+                          {r.service_name_en || r.service_name_fr
+                            ? ` · ${serviceNameOf({ name_en: r.service_name_en, name_fr: r.service_name_fr })}`
+                            : ""}
                         </span>
                       </span>
                       <StatusPill status={String(r.status || "RECEIVED")} />

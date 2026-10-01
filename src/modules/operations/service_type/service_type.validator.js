@@ -1,5 +1,6 @@
 "use strict";
 const { z } = require("zod");
+const { serviceScope, incoterms } = require("@praxis/shared");
 const { AppError } = require("../../../utils/errors");
 
 /**
@@ -61,12 +62,31 @@ const OPS_REFERENCE_CODE = z
  */
 const ENQUIRY_SHAPE = z.enum(["ROUTE", "STORAGE", "NONE"]);
 
+/**
+ * The quote form's card (14300): SEA, AIR, RAIL, ROAD, STORAGE, CUSTOMS or
+ * OTHER — `@praxis/shared` serviceScope.MODES, the same list the form offers.
+ * Optional on create: blank means "the key's reading", which the service fills
+ * in (and the column's trigger would anyway). Not nullable: there is no
+ * "no card" — a service that fits none is OTHER, listed under "Other services".
+ */
+const TRANSPORT_MODE = z.enum(serviceScope.MODES);
+
+/**
+ * The Incoterms the service offers (14300, owner decision Q3), as ICC 2020
+ * codes from `@praxis/shared` incoterms.CODES. Empty is a real answer — a
+ * storage service offers none. The service stores them de-duplicated and in
+ * ICC order, so two lists with the same terms are the same list.
+ */
+const INCOTERMS = z.array(z.enum(incoterms.CODES)).max(incoterms.CODES.length);
+
 const create = z.object({
   key: KEY,
   name_fr: z.string().min(1),
   name_en: z.string().min(1).optional(),
   territory: TERRITORY.optional(),
   enquiry_shape: ENQUIRY_SHAPE.optional(),
+  transport_mode: TRANSPORT_MODE.optional(),
+  incoterms: INCOTERMS.optional(),
   is_active: z.boolean().optional(),
   ops_reference_code: OPS_REFERENCE_CODE.optional(),
 });
@@ -81,6 +101,8 @@ const update = z.object({
   // Not nullable: the column is NOT NULL with a default, so "no shape" is not a
   // state — ROUTE is.
   enquiry_shape: ENQUIRY_SHAPE.optional(),
+  transport_mode: TRANSPORT_MODE.optional(),
+  incoterms: INCOTERMS.optional(),
   is_active: z.boolean().optional(),
   // Editable only while no dossier has used it — the service enforces that.
   // Not nullable: a code can be corrected, never removed, because clearing it

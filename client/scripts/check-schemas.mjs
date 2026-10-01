@@ -179,6 +179,25 @@ const ALLOW_LOCAL_SCHEMA = {
     + "have never been shared and are still declared here. Remove this entry "
     + "when the employee shape itself moves into packages/shared; until then "
     + "the file is a normal validator that happens to import one shared rule.",
+  "src/modules/operations/service_type/service_type.validator.js":
+    "Partly migrated (meeting 6, PR 2). The quote-form card and the Incoterms "
+    + "a service offers are `@praxis/shared`'s vocabularies (serviceScope.MODES, "
+    + "incoterms.CODES) — the Service types form offers exactly the list the API "
+    + "accepts. The rest of the service-type shape (key, names, territory, "
+    + "reference code, tier matrix) has never been shared. Remove this entry "
+    + "when the service-type shape moves into packages/shared.",
+  "src/modules/sales/public_intake/public_intake.validator.js":
+    "Partly migrated (meeting 6, PR 2). The website's QUOTE shape is "
+    + "`@praxis/shared` quoteRequest.publicQuote — one definition of a quote "
+    + "request for the website, the portal and the desk. The contact, "
+    + "partnership and newsletter shapes (and the spam trap they share) have "
+    + "never been shared and are still declared here.",
+  "src/modules/portal_auth/portal_auth.validator.js":
+    "Partly migrated (meeting 6, PR 2). The portal's quote request and its "
+    + "document upload are `@praxis/shared` quoteRequest.portalCreate / "
+    + "portalDocumentUpload, the same definition the desk and the website use. "
+    + "The other ~40 portal shapes (sign-in, passkeys, chat, billing, team, "
+    + "notifications) have never been shared and are still declared here.",
 };
 
 const migratedValidators = apiFiles.filter(

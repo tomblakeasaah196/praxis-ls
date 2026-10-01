@@ -283,6 +283,17 @@
   border-color: var(--primary);
   background: var(--pt-tint);
 }
+/* The same chip as a RADIO — a label around a visually hidden input (the
+   shared quote wizard, components/quote): one tab stop and arrow keys for a
+   single choice, which a row of pressed buttons cannot give. */
+.pt-chip-radio:has(> input:checked) {
+  border-color: var(--primary);
+  background: var(--pt-tint);
+}
+.pt-chip-radio:has(> input:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
 /* A switch that reads as a word — "Email", "App" — pressed or not: the
    notification settings, two to a row. */
 .pt-chip-sm {

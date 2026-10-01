@@ -17,6 +17,24 @@ const events = require("./service_type.events");
 const { audit } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
 const opsRef = require("../../../services/documents/operation-reference");
+const { serviceScope, incoterms } = require("@praxis/shared");
+
+/**
+ * The quote-form fields of a write (14300), settled before they reach the row:
+ * a new service with no card takes the key's reading, and one with no
+ * Incoterms takes that card's ICC defaults — the same answers the column's
+ * trigger gives, stated here so the response carries them. A list that arrives
+ * is stored de-duplicated and in ICC order. A card changed on an existing
+ * service does NOT re-default its Incoterms: the tenant's list is theirs.
+ */
+function quoteFields(data, { isNew }) {
+  const out = {};
+  if (data.transport_mode) out.transport_mode = data.transport_mode;
+  else if (isNew) out.transport_mode = serviceScope.modeFromKey(data.key);
+  if (Array.isArray(data.incoterms)) out.incoterms = incoterms.normalise(data.incoterms);
+  else if (isNew) out.incoterms = incoterms.defaultsForMode(out.transport_mode);
+  return out;
+}
 
 const base = makeService({ repo, moduleKey: events.MODULE, entity: "service_type", events });
 
@@ -112,6 +130,7 @@ async function assertNotSystem(client, id, verb) {
 
 module.exports = {
   ...base,
+  quoteFields,
 
   async create(client, args) {
     // citext UNIQUE on `key` means the DB is the real guard; this turns the
@@ -121,9 +140,10 @@ module.exports = {
       throw new AppError("DUPLICATE_KEY", `Service type '${args.data.key}' already exists`, 422, { key: ["already in use"] });
     }
     if (args.data.ops_reference_code) await assertCodeAssignable(client, null, args.data.ops_reference_code);
+    const data = { ...args.data, ...quoteFields(args.data, { isNew: true }) };
     return atomically(client, async () => {
       const row = await codeConflictAsField(
-        () => base.create(client, args),
+        () => base.create(client, { ...args, data }),
         args.data.ops_reference_code,
       );
       // Assigned NOW rather than on the first dossier of this type, so the code
@@ -149,8 +169,9 @@ module.exports = {
     if (args.patch && args.patch.ops_reference_code) {
       await assertCodeAssignable(client, args.id, args.patch.ops_reference_code);
     }
+    const patch = args.patch ? { ...args.patch, ...quoteFields(args.patch, { isNew: false }) } : args.patch;
     return codeConflictAsField(
-      () => base.update(client, args),
+      () => base.update(client, { ...args, patch }),
       args.patch && args.patch.ops_reference_code,
     );
   },
