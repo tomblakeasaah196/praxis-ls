@@ -406,7 +406,7 @@ export function SiteHeader({
                 <span key={item.to} className="navitem">
                   <NavLink
                     to={item.to}
-                    className="navlink"
+                    className={cn("navlink", hasPanel && "navlink-caret")}
                     onPointerEnter={(e) => {
                       aim(e.currentTarget);
                       // Pointing at anything that is not Services closes the
@@ -443,6 +443,26 @@ export function SiteHeader({
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* The way in for someone who is already a client (owner decision
+                D6, tenant review 29 Sep 2026). It was a 12px link in the
+                strip, which erodes the moment the page scrolls, so a client
+                looking for their portal had to scroll back to the top and
+                find small print. An OUTLINE beside the orange fill: the quote
+                stays the one primary act on the bar, and this is plainly the
+                second. The strip keeps its link — it costs nothing there.
+
+                Not between `lg` and `xl`: that is the one band where the
+                seven links share the row with both buttons, and measured at
+                1024px the row wraps "Our Work" onto two lines to fit them.
+                There the strip's link is the entry, as it was; from 1280px,
+                which the brief's layout check names, there is room to spare
+                (116px each side in English, 62px in French). */}
+            <Link
+              to="/portal/login"
+              className="btn-outline hidden h-11 items-center whitespace-nowrap rounded-[calc(var(--radius)-2px)] px-4 text-[0.9375rem] font-semibold md:inline-flex lg:hidden xl:inline-flex"
+            >
+              {t("site.chrome.portalEntry")}
+            </Link>
             <Link
               to={p("/quote")}
               className="btn-primary hdr-cta hidden h-11 items-center rounded-[calc(var(--radius)-2px)] px-5 text-[0.9375rem] font-semibold md:inline-flex"
@@ -498,11 +518,31 @@ export function SiteHeader({
             className="site-drawer border-t bg-background lg:hidden"
           >
             <ul className="wrap py-1">
+              {/* The bar's two buttons, FIRST — the same pair, in the same
+                  order, as on a wide screen (D6). Below the seven links they
+                  were the last thing in a drawer a phone has to scroll. */}
+              <li
+                className="drawer-row grid grid-cols-2 gap-2 border-b py-3"
+                style={{ "--i": 0 } as React.CSSProperties}
+              >
+                <Link
+                  to="/portal/login"
+                  className="btn-outline flex h-11 items-center justify-center rounded-[calc(var(--radius)-2px)] px-3 text-center font-semibold"
+                >
+                  {t("site.chrome.portalEntry")}
+                </Link>
+                <Link
+                  to={p("/quote")}
+                  className="btn-primary flex h-11 items-center justify-center rounded-[calc(var(--radius)-2px)] px-3 text-center font-semibold"
+                >
+                  {t("site.hero.cta")}
+                </Link>
+              </li>
               {NAV.map((item, i) => (
                 <li
                   key={item.to}
                   className="drawer-row"
-                  style={{ "--i": i } as React.CSSProperties}
+                  style={{ "--i": i + 1 } as React.CSSProperties}
                 >
                   <Link to={item.to} className="block border-b py-3 font-medium">
                     {t(item.labelKey)}
@@ -510,27 +550,10 @@ export function SiteHeader({
                 </li>
               ))}
               <li
-                className="drawer-row flex items-center justify-between gap-3 border-b py-3"
-                style={{ "--i": NAV.length } as React.CSSProperties}
-              >
-                <Link
-                  to="/portal/login"
-                  className="font-medium text-primary-ink"
-                >
-                  {t("site.chrome.portalEntry")}
-                </Link>
-                <LangToggle />
-              </li>
-              <li
-                className="drawer-row py-3"
+                className="drawer-row flex items-center justify-end gap-3 py-3"
                 style={{ "--i": NAV.length + 1 } as React.CSSProperties}
               >
-                <Link
-                  to={p("/quote")}
-                  className="btn-primary flex h-11 items-center justify-center rounded-[calc(var(--radius)-2px)] font-semibold"
-                >
-                  {t("site.hero.cta")}
-                </Link>
+                <LangToggle />
               </li>
             </ul>
           </nav>
