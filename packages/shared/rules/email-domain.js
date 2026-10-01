@@ -36,12 +36,26 @@ const PUBLIC_WEBMAIL = [
 ];
 const WEBMAIL = new Set(PUBLIC_WEBMAIL);
 
-/** `ada@Goum-Intl.cm ` → `goum-intl.cm`; anything without one `@` → null. */
+/** The longest an address can be (RFC 5321 path limit, less the brackets). */
+const MAX_ADDRESS = 254;
+
+/**
+ * `ada@Goum-Intl.cm ` → `goum-intl.cm`; anything without one `@` → null.
+ *
+ * The address is a requester's, typed by a stranger on the website or read off
+ * an email, so nothing here may cost more than linear time on it: the length
+ * is capped before any regular expression sees it, and the trailing dots are
+ * stripped by a loop — `/\.+$/` re-scans a run of dots from every position it
+ * starts at, which is quadratic on "a@b" followed by thousands of them.
+ */
 function domainOf(email) {
   const s = String(email || "").trim().toLowerCase();
+  if (s.length > MAX_ADDRESS) return null;
   const at = s.lastIndexOf("@");
   if (at < 1 || at === s.length - 1) return null;
-  const domain = s.slice(at + 1).replace(/\.+$/, "");
+  let end = s.length;
+  while (end > at + 1 && s[end - 1] === ".") end -= 1;
+  const domain = s.slice(at + 1, end);
   return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain) ? domain : null;
 }
 
