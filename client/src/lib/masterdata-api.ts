@@ -10,6 +10,7 @@ import {
   uploadFile,
   downloadPost,
 } from "./api-client";
+import type { dictionaryPosting } from "@shared";
 
 /* ── Clients(/clients) ──────────────────────────────────────────── */
 export type Client = {
@@ -1409,6 +1410,8 @@ export type DictInput = {
     sort_order?: number;
   }[];
   is_active?: boolean;
+  /** Where an AI-suggested posting came from — audit only (meeting 6, F3). */
+  posting_suggestion?: dictionaryPosting.Provenance | null;
 };
 export type DictFull = DictItem & {
   posting_rules: PostingRule[];
@@ -1831,6 +1834,27 @@ export type ImportStagingRow = {
   raw: Record<string, unknown>;
   data?: Record<string, unknown>;
   reasons?: string[];
+  /** A row with no posting gets one suggested at validate time (meeting 6,
+   *  F8); commit takes it only once the person has accepted it. */
+  ai_posting?: ImportAiPosting;
+  accept_posting?: {
+    rules: PostingRule[];
+    provenance?: dictionaryPosting.Provenance | null;
+  } | null;
+};
+export type ImportAiPosting = {
+  source: dictionaryPosting.Source;
+  model: string | null;
+  cache_entry_id: string | null;
+  confidence: dictionaryPosting.Confidence;
+  check_needed: boolean;
+  direction: Direction;
+  rationale: string;
+  sources: { title: string; uri: string | null }[];
+  search_suggestion_html: string | null;
+  fallback_reason: string | null;
+  rules: (PostingRule & { tax_code_id?: string | null; mint?: unknown })[];
+  acceptable: boolean;
 };
 export type ImportRejectedRow = {
   row?: number;
@@ -1842,7 +1866,7 @@ export type ImportValidateResult = {
   parsed: number;
   valid: ImportStagingRow[];
   rejected: ImportRejectedRow[];
-  summary: { total: number; valid: number; rejected: number };
+  summary: { total: number; valid: number; rejected: number; ai_suggested?: number };
 };
 export type ImportCommitResult = {
   created: {
@@ -2608,3 +2632,89 @@ export const convertFromClient = (clientId: string) =>
   tenant<Supplier>(`/suppliers/convert-from-client/${clientId}`, {
     method: "POST",
   });
+
+/* ── The AI-suggested OHADA posting (meeting 6, F3 / F7 / F8) ──────────────
+ * POST /financial-dictionary/posting-suggestion — cache first, then a web
+ * search, else the labelled local suggestion. Saves nothing. */
+export type MintProposal = { code: string; parent_code: string | null; label_fr: string | null };
+export type AccountMapping = {
+  suggested: string;
+  account: string | null;
+  how: "exact" | "child" | "mint";
+  mint?: MintProposal;
+};
+export type SuggestedRule = {
+  applies_context: PostingContext;
+  debit_account: string | null;
+  credit_account: string | null;
+  tax_code_id: string | null;
+  is_disbursement: boolean;
+  mapping?: { debit: AccountMapping; credit: AccountMapping };
+};
+export type PostingSuggestion = {
+  source: dictionaryPosting.Source;
+  model: string | null;
+  cache_entry_id: string | null;
+  answered_at: string | null;
+  direction: Direction;
+  is_disbursement: boolean;
+  vat_treatment: dictionaryPosting.VatTreatment;
+  rules: SuggestedRule[];
+  needs_mint: boolean;
+  confidence: dictionaryPosting.Confidence;
+  check_needed: boolean;
+  rationale: string;
+  /** Titles and links as Google returned them — shown, never stored. */
+  sources: { title: string; uri: string | null }[];
+  /** Google's Search Suggestions (HTML + CSS), required with a grounded answer. */
+  search_suggestion_html: string | null;
+  matched_label: string | null;
+  similarity: number | null;
+  fallback_reason: string | null;
+  cost: { native: number; currency: string | null; search: number; note?: string };
+};
+export const suggestDictPosting = (body: dictionaryPosting.Request) =>
+  tenant<PostingSuggestion>("/financial-dictionary/posting-suggestion", {
+    method: "POST",
+    body,
+  });
+
+export type PostingReview = {
+  review: {
+    review_id: string;
+    status: "queued" | "running" | "done" | "failed";
+    started_at: string;
+    finished_at: string | null;
+    total: number;
+    examined: number;
+    mismatches: number;
+    fresh_calls: number;
+    error: string | null;
+  } | null;
+  lines: {
+    dictionary_item_id: string;
+    code: string;
+    label_en: string | null;
+    label_fr: string;
+    direction: Direction;
+    category: string;
+    outcome: "mismatch" | "no_suggestion";
+    reasons: string[];
+    source: dictionaryPosting.Source | null;
+    model: string | null;
+    confidence: dictionaryPosting.Confidence | null;
+    suggestion: {
+      direction: Direction;
+      is_disbursement: boolean;
+      vat_treatment: dictionaryPosting.VatTreatment;
+      rules: SuggestedRule[];
+    } | null;
+  }[];
+};
+export const getPostingReview = () =>
+  tenant<PostingReview>("/financial-dictionary/posting-review");
+export const startPostingReview = () =>
+  tenant<{ review: PostingReview["review"]; already_running: boolean }>(
+    "/financial-dictionary/posting-review",
+    { method: "POST" },
+  );

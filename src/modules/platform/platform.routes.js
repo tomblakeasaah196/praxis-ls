@@ -134,6 +134,7 @@ router.post("/settings/:section/:key/test", requireCap("settings.write"), valida
 // Deploy-wide AI vendor keys — one shared set every tenant's AI runtime uses.
 router.get("/ai-vendors", requireCap("settings.read"), c.aiVendorsList);
 router.get("/ai-vendors/gemini/model-check", requireCap("settings.read"), c.aiGeminiModelCheck);
+router.get("/ai-vendors/gemini/dictionary-posting-model", requireCap("settings.read"), c.aiDictionaryPostingModel);
 router.put("/ai-vendors/:vendor", requireCap("settings.write"), validate("aiVendorSet"), c.aiVendorSet);
 router.post("/ai-vendors/:vendor/test", requireCap("settings.write"), validateParams("aiVendorTest"), c.aiVendorTest);
 // Which chat vendor every tenant's AI tries FIRST. A PUT with no body: the

@@ -13,4 +13,10 @@ module.exports = {
   // A person linked a line to its service's other modes, or confirmed it stands
   // alone (14342 "Lines to pair", meeting 6 F2). Audit-only.
   SIBLING_LINKED: "dictionary_item.sibling_linked",
+  // A line was saved with an AI-suggested posting (meeting 6, F3): where the
+  // suggestion came from (cache / fresh search / local fallback), the model
+  // and cache entry, and whether the person accepted or changed it.
+  POSTING_SUGGESTED: "dictionary_item.posting_suggested",
+  // The one-off review of the existing lines' postings (F8). Audit-only.
+  POSTING_REVIEW_STARTED: "dictionary_item.posting_review_started",
 };

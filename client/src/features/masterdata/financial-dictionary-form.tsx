@@ -30,6 +30,8 @@ import { CurrencySelect } from "@/components/currency-select";
 import * as api from "@/lib/masterdata-api";
 import * as ops from "@/lib/operations-api";
 import * as fin from "@/lib/finance-api";
+import { useAuth } from "@/app/auth/auth-context";
+import { PostingSuggestionPanel } from "./posting-suggestion";
 
 type Ctx = api.PostingContext;
 type RuleRow = {
@@ -174,7 +176,9 @@ function NewAccountPanel({
 
   return (
     <div className="mt-2 rounded-lg border border-dashed bg-muted/30 p-3">
-      <p className="mb-2 text-xs font-semibold text-foreground">{tr("New account")}</p>
+      <p className="mb-2 text-xs font-semibold text-foreground">
+        {tr("New account")}
+      </p>
       <div className="grid gap-2 sm:grid-cols-2">
         <Field label={tr("Code")} required>
           <Input
@@ -241,15 +245,22 @@ function AccountField({
   onChange,
   preferredClass,
   side,
+  createRequest = null,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   preferredClass?: number;
   side: "debit" | "credit";
+  /** An account the AI suggestion named and the chart lacks (meeting 6, F3):
+   *  opens the "create account" panel pre-filled — never a silent mint. */
+  createRequest?: string | null;
 }) {
   const [restrict, setRestrict] = React.useState<boolean>(!!preferredClass);
   const [creating, setCreating] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (createRequest) setCreating(createRequest);
+  }, [createRequest]);
   const toast = useToast();
   return (
     <Field label={label}>
@@ -304,13 +315,20 @@ export function DictForm({
   row,
   onClose,
   onSaved,
+  initialSuggestion = null,
 }: {
   row: api.DictFull | null;
   onClose: () => void;
   onSaved: () => void;
+  /** A suggestion to show beside the current posting — the posting review
+   *  opens a mismatched line with it (meeting 6, F8). */
+  initialSuggestion?: api.PostingSuggestion | null;
 }) {
   const isNew = row === null;
   const toast = useToast();
+  const { user } = useAuth();
+  // Its own switch, not the assistant's (meeting 6, F7).
+  const aiPosting = user?.ai_features?.dictionary_posting === true;
   const services = useResource(
     () => ops.listServiceTypes({ includeInactive: false }),
     [],
@@ -351,6 +369,33 @@ export function DictForm({
     disbursement_vat_transparent: row?.disbursement_vat_transparent ?? true,
   }));
   const set = (patch: Partial<typeof f>) => setF((s) => ({ ...s, ...patch }));
+
+  /*
+   * The AI-suggested OHADA posting (meeting 6, F3 / F8).
+   *
+   * Asked once the label and category are filled, and again only when the
+   * label, the category or a CHOSEN direction changes — not per keystroke
+   * (debounced, and the question key is remembered). The direction is part of
+   * the question only once the person has picked one; until then the answer
+   * proposes it. On a new line the suggestion pre-fills an untouched posting;
+   * on an edit (a changed direction) it is shown beside the current posting
+   * to accept or not. Nothing is saved without the person pressing Save.
+   */
+  const [directionChosen, setDirectionChosen] = React.useState(!isNew);
+  const [suggestion, setSuggestion] =
+    React.useState<api.PostingSuggestion | null>(initialSuggestion);
+  const [suggesting, setSuggesting] = React.useState(false);
+  const [suggestError, setSuggestError] = React.useState<string | null>(null);
+  const [applied, setApplied] = React.useState<api.PostingSuggestion | null>(
+    null,
+  );
+  const [checked, setChecked] = React.useState(false);
+  const [mintRequest, setMintRequest] = React.useState<{
+    i: number;
+    side: "debit" | "credit";
+    code: string;
+  } | null>(null);
+  const askedKey = React.useRef<string>("");
 
   const [rules, setRules] = React.useState<RuleRow[]>(
     (row?.posting_rules || []).map((r) => ({
@@ -430,6 +475,106 @@ export function DictForm({
   const delRule = (i: number) =>
     setRules((rs) => (rs.length === 1 ? rs : rs.filter((_, j) => j !== i)));
 
+  const rulesBlank = rules.every((r) => !r.debit_account && !r.credit_account);
+  const sameAsApplied =
+    !!applied &&
+    rules.length === applied.rules.length &&
+    rules.every(
+      (r, i) =>
+        r.applies_context === applied.rules[i].applies_context &&
+        r.debit_account === (applied.rules[i].debit_account ?? "") &&
+        r.credit_account === (applied.rules[i].credit_account ?? ""),
+    );
+
+  function applySuggestion(s: api.PostingSuggestion) {
+    if (!directionChosen)
+      set({ direction: s.direction, is_disbursement: s.is_disbursement });
+    else set({ is_disbursement: s.is_disbursement });
+    setRules(
+      s.rules.map((r) => ({
+        applies_context: r.applies_context,
+        debit_account: r.debit_account ?? "",
+        credit_account: r.credit_account ?? "",
+        tax_code_id: r.tax_code_id ?? "",
+        is_disbursement: r.is_disbursement,
+      })),
+    );
+    setApplied(s);
+    setChecked(false);
+  }
+
+  const ask = React.useCallback(
+    async (fresh: boolean) => {
+      const label_fr = f.label_fr.trim();
+      const label_en = f.label_en.trim();
+      // An edit asks only when the direction changed (F8 "editing a line").
+      const direction = directionChosen ? f.direction : null;
+      setSuggesting(true);
+      setSuggestError(null);
+      try {
+        const s = await api.suggestDictPosting({
+          label_fr: label_fr || label_en,
+          label_en: label_en || null,
+          category: f.category,
+          direction,
+          fresh: fresh || undefined,
+        });
+        setSuggestion(s);
+        // A new line's untouched posting is pre-filled; anything a person
+        // has typed is left alone and the suggestion offered beside it.
+        if (isNew && (rulesBlank || sameAsApplied)) applySuggestion(s);
+      } catch (e) {
+        setSuggestError(errMsg(e));
+      } finally {
+        setSuggesting(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the inputs are the question key below
+    [
+      f.label_fr,
+      f.label_en,
+      f.category,
+      f.direction,
+      directionChosen,
+      isNew,
+      rulesBlank,
+      sameAsApplied,
+    ],
+  );
+
+  React.useEffect(() => {
+    if (!aiPosting) return;
+    const label = f.label_en.trim() || f.label_fr.trim();
+    if (label.length < 3 || !f.category) return;
+    if (!isNew && f.direction === row?.direction) return;
+    const key = [
+      f.label_fr.trim().toLowerCase(),
+      f.label_en.trim().toLowerCase(),
+      f.category,
+      directionChosen ? f.direction : "*",
+    ].join("|");
+    if (key === askedKey.current) return;
+    const h = setTimeout(() => {
+      askedKey.current = key;
+      void ask(false);
+    }, 900);
+    return () => clearTimeout(h);
+  }, [
+    aiPosting,
+    f.label_fr,
+    f.label_en,
+    f.category,
+    f.direction,
+    directionChosen,
+    isNew,
+    row?.direction,
+    ask,
+  ]);
+
+  // A low-confidence posting carries "Check this one" until a person confirms it.
+  const unconfirmed =
+    !!applied && applied.check_needed && sameAsApplied && !checked;
+
   const codeLetter =
     DIRECTIONS.find((d) => d.value === f.direction)?.letter ?? "X";
 
@@ -443,7 +588,7 @@ export function DictForm({
     rules.length > 0 &&
     rulesComplete &&
     (!scoped || tiers.length > 0);
-  const canSave = basicValid && !busy;
+  const canSave = basicValid && !busy && !unconfirmed;
 
   function payload(): api.DictInput {
     return {
@@ -455,7 +600,8 @@ export function DictForm({
       applicability_mode: f.applicability_mode,
       subcategory: f.subcategory || undefined,
       // null (not undefined) on an edit, so clearing the heading is saved.
-      client_heading_ref_id: f.client_heading_ref_id || (isNew ? undefined : null),
+      client_heading_ref_id:
+        f.client_heading_ref_id || (isNew ? undefined : null),
       unit_of_measure: f.unit_of_measure || undefined,
       // A price is only ever sent on CREATE, where the server opens it as the
       // line's standard expense rate. After that the price lives on Expense
@@ -485,6 +631,23 @@ export function DictForm({
             tier: t.tier,
           }))
         : [],
+      // Where the posting came from, for the audit trail: the server compares
+      // it with what is saved and records "accepted" or "changed" (F3).
+      posting_suggestion: applied
+        ? {
+            source: applied.source,
+            model: applied.model,
+            cache_entry_id: applied.cache_entry_id,
+            confidence: applied.confidence,
+            direction: applied.direction,
+            suggested_rules: applied.rules.map((r) => ({
+              applies_context: r.applies_context,
+              debit_account: r.debit_account,
+              credit_account: r.credit_account,
+            })),
+            checked,
+          }
+        : undefined,
     };
   }
 
@@ -559,7 +722,10 @@ export function DictForm({
               <Segmented
                 label={tr("Direction")}
                 value={f.direction}
-                onChange={(v) => set({ direction: v })}
+                onChange={(v) => {
+                  setDirectionChosen(true);
+                  set({ direction: v });
+                }}
                 options={DIRECTIONS.map((d) => ({
                   value: d.value,
                   label: d.label,
@@ -613,7 +779,9 @@ export function DictForm({
                 to another family on one document. */}
             <Field
               label={tr("Client heading")}
-              hint={tr("What the client reads on a quotation or invoice. Lines under one heading print as one line; disbursements and our fees print separately.")}
+              hint={tr(
+                "What the client reads on a quotation or invoice. Lines under one heading print as one line; disbursements and our fees print separately.",
+              )}
             >
               <Select
                 value={f.client_heading_ref_id}
@@ -667,6 +835,34 @@ export function DictForm({
                   + Rule
                 </Button>
               </div>
+              {aiPosting && (suggestion || suggesting || suggestError) && (
+                <div className="mb-3">
+                  <PostingSuggestionPanel
+                    suggestion={suggestion}
+                    loading={suggesting}
+                    error={suggestError}
+                    applied={
+                      !!applied && applied === suggestion && sameAsApplied
+                    }
+                    checked={checked}
+                    onChecked={setChecked}
+                    onApply={
+                      suggestion ? () => applySuggestion(suggestion) : undefined
+                    }
+                    onSearchAgain={() => void ask(true)}
+                    onMint={(code, i, side) =>
+                      setMintRequest({ i, side, code })
+                    }
+                  />
+                  {unconfirmed && (
+                    <p className="mt-1 micro text-bad">
+                      {tr(
+                        "Tick “I checked this posting” before saving — the suggestion is low confidence.",
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="space-y-3">
                 {rules.map((r, i) => (
                   <div key={i} className="rounded-md border bg-muted/30 p-2">
@@ -694,6 +890,13 @@ export function DictForm({
                         label={tr("Debit")}
                         side="debit"
                         value={r.debit_account}
+                        createRequest={
+                          mintRequest &&
+                          mintRequest.i === i &&
+                          mintRequest.side === "debit"
+                            ? mintRequest.code
+                            : null
+                        }
                         onChange={(v) => setRule(i, { debit_account: v })}
                         preferredClass={preferClass(
                           r.applies_context,
@@ -705,6 +908,13 @@ export function DictForm({
                         label={tr("Credit")}
                         side="credit"
                         value={r.credit_account}
+                        createRequest={
+                          mintRequest &&
+                          mintRequest.i === i &&
+                          mintRequest.side === "credit"
+                            ? mintRequest.code
+                            : null
+                        }
                         onChange={(v) => setRule(i, { credit_account: v })}
                         preferredClass={preferClass(
                           r.applies_context,
@@ -1079,7 +1289,9 @@ function ServiceTiersEditor({
               is offered ticked by Suggest charges; every other mapped line is
               offered under "More charges". */}
           <p className="micro">
-            {tr("Tick Core when this line belongs on almost every file of that service — Suggest charges offers it ticked. Other services list it under More charges.")}
+            {tr(
+              "Tick Core when this line belongs on almost every file of that service — Suggest charges offers it ticked. Other services list it under More charges.",
+            )}
           </p>
         </div>
         <Button
@@ -1131,7 +1343,9 @@ function ServiceTiersEditor({
                     {tr("Core")}
                     <span className="sr-only">
                       {" — "}
-                      {services.find((s) => s.service_type_id === r.service_type_id)?.name_en || ""}
+                      {services.find(
+                        (s) => s.service_type_id === r.service_type_id,
+                      )?.name_en || ""}
                     </span>
                   </span>
                 }

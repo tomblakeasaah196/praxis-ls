@@ -81,6 +81,10 @@ const PROCESSORS = [
   // Telling CLIENTS what is waiting in their portal (14180): one job per
   // client, topic and time window, mostly waiting on a push service and SMTP.
   { name: "portal-notify-deliver", concurrency: 4, handler: require("./handlers/portal-notify-deliver") },
+  // One review of a tenant's dictionary postings against the AI suggestion
+  // (meeting 6, F8). Concurrency 1: the work is a sequence of grounded calls
+  // a person started, and two reviews racing would pay for the same answers.
+  { name: "dictionary-posting-review", concurrency: 1, handler: require("./handlers/dictionary-posting-review") },
   { name: "fx-sync", concurrency: 1, handler: require("./handlers/fx-sync") },
   { name: "fx-sync-scheduler", concurrency: 1, handler: require("./handlers/fx-sync-scheduler") },
   { name: "ai-transcribe", concurrency: 2, handler: require("./handlers/ai-transcribe") },

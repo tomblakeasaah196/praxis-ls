@@ -86,6 +86,20 @@ async function setBudget(client, { periodStart, periodEnd, softCapXaf = null, ha
 // reached the orchestrator and every ask blocked with "feature disabled".
 const TENANT_FEATURE_KEY = "ai.assistant.backend";
 
+/**
+ * Features that answer to THEIR OWN tenant switch rather than the assistant's
+ * (meeting 6, F7). `ai.dictionary_posting` is on for every tenant by the
+ * owner's decision and must keep working on a tenant whose assistant is off —
+ * and turning it off must not turn the assistant off. Every key not listed
+ * here resolves exactly as before: through `ai.assistant.backend`.
+ */
+const OWN_SWITCH = Object.freeze({
+  "ai.dictionary_posting": "ai.dictionary_posting",
+});
+
+/** The tenant switch a feature key is gated on. */
+const tenantSwitchFor = (featureKey) => OWN_SWITCH[featureKey] || TENANT_FEATURE_KEY;
+
 /** The gate every AI entry point calls: is this user allowed to use this feature now?
  *  Tenant enablement = the console's `feature_state` ceiling + the tenant's
  *  `ai_feature_flag` preference (default ON when entitled), via `isFeatureEnabled`.
@@ -94,7 +108,7 @@ const TENANT_FEATURE_KEY = "ai.assistant.backend";
  *  tenant (the copilot is already bounded by the user's RBAC). An explicit revoked
  *  grant blocks that user; the budget hard-cap always blocks. */
 async function canUseFeature(client, { userId, featureKey, onDate = null }) {
-  const enabled = await isFeatureEnabled(client, TENANT_FEATURE_KEY);
+  const enabled = await isFeatureEnabled(client, tenantSwitchFor(featureKey));
   const explicit = userId ? await repo.grantFor(client, userId, featureKey) : null;
   const grant = explicit || { revoked_at: null };
   const budget = await budgetStatus(client, { onDate });
@@ -321,6 +335,6 @@ module.exports = {
   recentHealthEvents,
   listFeatures, setFeature, testVendor,
   grantAccess, revokeAccess, listGrants,
-  budgetStatus, setBudget, canUseFeature, isFeatureEnabled, recordUsage, listUsage, audioBudget,
+  budgetStatus, setBudget, canUseFeature, isFeatureEnabled, tenantSwitchFor, recordUsage, listUsage, audioBudget,
   listVendors, getVendor, setVendor, getVendorConfig,
 };

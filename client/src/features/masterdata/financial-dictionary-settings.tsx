@@ -460,14 +460,183 @@ export function SiblingPairing() {
   );
 }
 
-type SettingsTab = api.DictRefKind | "PAIRING";
+/* ── One review of the existing postings (meeting 6, F8) ────────────────── */
+
+/** A review line's stored suggestion, in the shape the edit form shows. */
+function reviewSuggestion(
+  l: api.PostingReview["lines"][number],
+): api.PostingSuggestion | null {
+  if (!l.suggestion) return null;
+  return {
+    source: l.source ?? "cache",
+    model: l.model,
+    cache_entry_id: null,
+    answered_at: null,
+    direction: l.suggestion.direction,
+    is_disbursement: l.suggestion.is_disbursement,
+    vat_treatment: l.suggestion.vat_treatment,
+    rules: l.suggestion.rules,
+    needs_mint: l.suggestion.rules.some(
+      (r) => !r.debit_account || !r.credit_account,
+    ),
+    confidence: l.confidence ?? "low",
+    check_needed: (l.confidence ?? "low") === "low",
+    rationale: l.reasons.join("; "),
+    sources: [],
+    search_suggestion_html: null,
+    matched_label: null,
+    similarity: null,
+    fallback_reason: null,
+    cost: { native: 0, currency: null, search: 0 },
+  };
+}
+
+/**
+ * Start the review, watch it run, and open a mismatched line through the
+ * ORDINARY edit with the suggestion beside its posting. The review itself
+ * changes nothing; past postings never change.
+ */
+export function PostingReviewPanel({
+  onOpenItem,
+}: {
+  onOpenItem?: (id: string, suggestion: api.PostingSuggestion | null) => void;
+}) {
+  const toast = useToast();
+  const res = useResource(() => api.getPostingReview(), []);
+  const [starting, setStarting] = React.useState(false);
+  const review = res.data?.review ?? null;
+  const running = review?.status === "queued" || review?.status === "running";
+  const { reload } = res;
+  React.useEffect(() => {
+    if (!running) return;
+    const h = setInterval(reload, 4000);
+    return () => clearInterval(h);
+  }, [running, reload]);
+
+  async function start() {
+    setStarting(true);
+    try {
+      const out = await api.startPostingReview();
+      toast.success(
+        out.already_running
+          ? tr("A review is already running")
+          : tr("Review started"),
+      );
+      reload();
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  if (res.error) return <ErrorState message={res.error} />;
+  if (!res.data) return <LoadingRow label={tr("Loading…")} />;
+  const mismatches = res.data.lines.filter((l) => l.outcome === "mismatch");
+  const unanswered = res.data.lines.filter(
+    (l) => l.outcome === "no_suggestion",
+  );
+  return (
+    <div className="space-y-3">
+      <p className="micro">
+        {tr(
+          "Compares every line's posting with the AI suggestion and lists those that differ. It changes nothing: apply a suggestion line by line through the ordinary edit.",
+        )}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          loading={starting}
+          disabled={running}
+          onClick={() => void start()}
+        >
+          {review ? tr("Review again") : tr("Start the review")}
+        </Button>
+        {review && (
+          <span className="micro">
+            {running
+              ? `${tr("Running")} · ${review.examined}/${review.total}`
+              : review.status === "failed"
+                ? `${tr("Stopped")}: ${review.error ?? ""}`
+                : `${tr("Done")} · ${review.mismatches} ${tr("to look at")} · ${review.fresh_calls} ${tr("web searches")}`}
+          </span>
+        )}
+      </div>
+      {mismatches.length === 0 && !running && review?.status === "done" ? (
+        <EmptyState
+          title={tr("Every posting matches")}
+          hint={tr("No line's posting differs from the suggestion.")}
+        />
+      ) : (
+        mismatches.map((l) => (
+          <div
+            key={l.dictionary_item_id}
+            className="space-y-1 rounded-lg border px-3 py-2"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs text-muted-foreground">
+                {l.code}
+              </span>
+              <span className="text-sm text-foreground">
+                {l.label_en || l.label_fr}
+              </span>
+              {l.confidence && (
+                <Pill
+                  tone={
+                    l.confidence === "high"
+                      ? "ok"
+                      : l.confidence === "medium"
+                        ? "warn"
+                        : "bad"
+                  }
+                >
+                  {tr(l.confidence)}
+                </Pill>
+              )}
+              {onOpenItem && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto"
+                  onClick={() =>
+                    onOpenItem(l.dictionary_item_id, reviewSuggestion(l))
+                  }
+                >
+                  {tr("Open in edit")}
+                </Button>
+              )}
+            </div>
+            <ul className="list-disc pl-5 text-xs text-muted-foreground">
+              {l.reasons.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
+      {unanswered.length > 0 && (
+        <p className="micro">
+          {unanswered.length}{" "}
+          {tr(
+            "line(s) could not be compared this run (no web search answer) — run the review again later.",
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
+type SettingsTab = api.DictRefKind | "PAIRING" | "POSTING_REVIEW";
 
 export function FinancialDictionarySettings({
   open,
   onClose,
+  onOpenItem,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Open a line in the ordinary edit, with a suggestion beside its posting. */
+  onOpenItem?: (id: string, suggestion: api.PostingSuggestion | null) => void;
 }) {
   const [kind, setKind] = React.useState<SettingsTab>("SUBCATEGORY");
   if (!open) return null;
@@ -489,10 +658,20 @@ export function FinancialDictionarySettings({
             label: k.label,
           })),
           { value: "PAIRING" as SettingsTab, label: tr("Lines to pair") },
+          {
+            value: "POSTING_REVIEW" as SettingsTab,
+            label: tr("Posting review"),
+          },
         ]}
       />
       <div className="max-h-[60vh] overflow-auto pr-1">
-        {kind === "PAIRING" ? <SiblingPairing /> : <RefManager kind={kind} />}
+        {kind === "PAIRING" ? (
+          <SiblingPairing />
+        ) : kind === "POSTING_REVIEW" ? (
+          <PostingReviewPanel onOpenItem={onOpenItem} />
+        ) : (
+          <RefManager kind={kind} />
+        )}
       </div>
     </Modal>
   );

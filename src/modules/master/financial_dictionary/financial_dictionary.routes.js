@@ -4,9 +4,10 @@
 "use strict";
 const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
-const { requirePermission } = require("../../../middleware/rbac");
+const { requirePermission, requireAnyPermission } = require("../../../middleware/rbac");
 const c = require("./financial_dictionary.controller");
 const v = require("./financial_dictionary.validator");
+const validate = require("./financial_dictionary.posting.validator");
 
 const MODULE = "MOD-05";
 const RATES_MODULE = "MOD-10";
@@ -33,6 +34,14 @@ router.get("/search", requirePermission(MODULE, "view"), v.searchQuery, c.search
 // Literal segments, so before "/:id".
 router.get("/siblings", requirePermission(MODULE, "view"), v.siblingsQuery, c.siblings);
 router.get("/siblings/unpaired", requirePermission(MODULE, "view"), c.unpaired);
+// The AI-suggested OHADA posting (meeting 6, F3). Anyone who may create OR
+// edit a line may ask — operations or finance alike; there is no
+// accountant-only gate. It saves nothing.
+router.post("/posting-suggestion", requireAnyPermission([[MODULE, "create"], [MODULE, "edit"]]), validate.postingSuggestion, c.postingSuggestion);
+// One review of the existing lines (F8): started by a person, run by the
+// worker, changes nothing.
+router.get("/posting-review", requirePermission(MODULE, "view"), c.postingReview);
+router.post("/posting-review", requirePermission(MODULE, "edit"), c.startPostingReview);
 
 router.get("/", requirePermission(MODULE, "view"), c.list);
 router.get("/:id/360", requirePermission(MODULE, "view"), c.dossier);
