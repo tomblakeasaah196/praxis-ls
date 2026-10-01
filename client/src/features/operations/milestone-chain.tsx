@@ -19,7 +19,8 @@
  * than leaving someone to infer it from a row halfway down.
  */
 import * as React from "react";
-import { StageQuestionsThread, StageQuestionsToggle, useStageQuestions } from "./stage-questions";
+import { StageQuestionsThread, StageQuestionsToggle } from "./stage-questions";
+import { useStageQuestions } from "./stage-questions-data";
 import { tr } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

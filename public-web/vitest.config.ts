@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { sharedDeep } from "./config/shared-deep";
 
 /**
  * Test config kept separate from vite.config.ts (same shape as client's) so the
@@ -11,7 +12,7 @@ import path from "node:path";
  */
 export default defineConfig({
   plugins: [react()],
-  resolve: { alias: { "@": path.resolve(__dirname, "src") } },
+  resolve: { alias: { "@": path.resolve(__dirname, "src"), ...sharedDeep(__dirname).alias } },
   test: {
     environment: "jsdom",
     globals: true,

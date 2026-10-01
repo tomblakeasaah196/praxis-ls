@@ -17,7 +17,7 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": { "@/*": ["src/*"], "@praxis/shared/*": ["../packages/shared/*"] }
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

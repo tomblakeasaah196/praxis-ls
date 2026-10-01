@@ -1002,6 +1002,7 @@ export declare const siteSettings: {
     font_mono: z.ZodString;
     radius_px: z.ZodTypeAny;
     default_mode: z.ZodEnum<["light", "dark"]>;
+    label_case: z.ZodOptional<z.ZodEnum<["TITLE", "AS_WRITTEN"]>>;
   }>;
   socialLink: z.ZodTypeAny;
   partner: z.ZodTypeAny;

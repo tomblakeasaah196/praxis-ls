@@ -60,7 +60,7 @@ export type ToldList = {
 };
 
 /** "Awa (account manager), Timothée (CEO), Paul (also notify)" — the whole list, one sentence. */
-export function toldSentence(t: ToldList | null): string {
+function toldSentence(t: ToldList | null): string {
   if (!t) return "";
   const named = (p: { name: string | null }) => p.name || tr("Unnamed");
   const parts: string[] = [];
