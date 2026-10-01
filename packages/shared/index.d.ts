@@ -1103,6 +1103,26 @@ export declare namespace dictionarySibling {
   ): { to: T; to_mode: SiblingMode; reason: { en: string; fr: string } } | null;
 }
 
+export declare namespace coverage {
+  type Row = { country_code?: string | null; label_fr?: string | null; label_en?: string | null };
+  type Flag = {
+    index: number;
+    country_code: string;
+    label: string;
+    kind: "NOT_A_COUNTRY" | "PLACE_ELSEWHERE";
+    place?: string;
+    place_country?: string;
+    message: string;
+  };
+  function isCountryCode(code: unknown): boolean;
+  function placesIn(label: unknown): { name: string; code: string; kind: "place" | "country" }[];
+  /** Why a row cannot be saved; empty when it is complete. */
+  function rowProblems(row: Row): string[];
+  /** Stored rows that need a person's eye — never blocks, never fixes. */
+  function flags(rows: Row[] | null | undefined): Flag[];
+  const PLACES: Record<string, string[]>;
+}
+
 export declare namespace expenseRate {
   type Create = {
     dictionary_item_id: string;
