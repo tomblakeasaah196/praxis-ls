@@ -777,6 +777,7 @@ export const en = {
     topic: {
       MESSAGES: "Messages from the team",
       REQUESTS: "Documents we need",
+      QUOTES: "Your quote requests",
       BILLING: "Invoices and payments",
       PROPOSALS: "Proposals",
       SHIPMENTS: "Shipment steps",
@@ -803,6 +804,12 @@ export const en = {
     ios1: "Tap the Share button in Safari.",
     ios2: "Choose “Add to Home Screen”.",
     ios3: "Open the portal from its new icon, then turn on notifications here.",
+    inAppTitle: "You are in {{app}}’s browser — it cannot install the portal",
+    inAppChrome: "Open in Chrome to install",
+    inAppAndroidHint: "Sign in there, then add it to your home screen.",
+    inAppIos1: "Tap ⋯ (or the share button) and choose Open in Safari.",
+    inAppIos2: "In Safari, tap Share › Add to Home Screen.",
+    inAppOther: "Open this link in Chrome or Safari to install the portal.",
   },
   fin: {
     title: "Financial position",
@@ -1594,6 +1601,7 @@ export const fr = {
     topic: {
       MESSAGES: "Messages de l’équipe",
       REQUESTS: "Documents demandés",
+      QUOTES: "Vos demandes de devis",
       BILLING: "Factures et paiements",
       PROPOSALS: "Propositions",
       SHIPMENTS: "Étapes d’expédition",
@@ -1620,6 +1628,12 @@ export const fr = {
     ios1: "Touchez le bouton Partager dans Safari.",
     ios2: "Choisissez « Sur l’écran d’accueil ».",
     ios3: "Ouvrez le portail depuis sa nouvelle icône, puis activez les notifications ici.",
+    inAppTitle: "Vous êtes dans le navigateur de {{app}} — il ne peut pas installer le portail",
+    inAppChrome: "Ouvrir dans Chrome pour installer",
+    inAppAndroidHint: "Connectez-vous là-bas, puis ajoutez-le à votre écran d’accueil.",
+    inAppIos1: "Touchez ⋯ (ou le bouton Partager) et choisissez Ouvrir dans Safari.",
+    inAppIos2: "Dans Safari, touchez Partager › Sur l’écran d’accueil.",
+    inAppOther: "Ouvrez ce lien dans Chrome ou Safari pour installer le portail.",
   },
   fin: {
     title: "Situation financière",

@@ -42,6 +42,9 @@ export type SiteThemePayload = {
   fonts: { display: string; body: string; mono: string };
   radius: string;
   defaultMode: "light" | "dark";
+  /** Label capitalisation (owner decision D5): Title Case unless the tenant
+   *  chose "As written". Absent from an older server or cache — the standard. */
+  labelCase?: "TITLE" | "AS_WRITTEN";
   light: Record<string, string>;
   dark: Record<string, string>;
 };

@@ -25,11 +25,12 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (685)
+## All codes (693)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
 | `2FA_NOT_IMPLEMENTED` | 501 | 1× | — |
+| `ACCEPT_FIELDS_REQUIRED` | 422 | 1× | — |
 | `ACCOUNT_MANAGER_INACTIVE` | 422 | 1× | — |
 | `ACCOUNT_MISMATCH` | 422 | 1× | — |
 | `ACCOUNT_NOT_CASH_CAPABLE` | 422 | 1× | — |
@@ -62,6 +63,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ALREADY_PROPOSED` | 409 | 1× | — |
 | `ALREADY_QUOTED` | 409 | 1× | — |
 | `ALREADY_RECONCILED` | 409 | 1× | — |
+| `ALREADY_REQUESTED` | 409 | 1× | — |
 | `ALREADY_RESTORED` | 409 | 1× | — |
 | `ALREADY_REVERSED` | 409 | 1× | — |
 | `ALREADY_REVIEWED` | 409 | 3× | — |
@@ -69,6 +71,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ALREADY_SENT` | 409 | 2× | — |
 | `ALREADY_SETTLED` | 409 | 3× | — |
 | `ALREADY_SIGNED` | 409 | 1× | — |
+| `ALSO_NOTIFY_INACTIVE` | 422 | 1× | — |
 | `APPROVAL_PENDING` | 422 | 1× | — |
 | `ARCHIVED_RETENTION` | 409 | 1× | — |
 | `ASSET_DISPOSED` | 422 | 1× | — |
@@ -91,7 +94,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_CUSTOM_FIELD` | 422 | 5× | — |
 | `BAD_DATE` | 422 | 1× | — |
 | `BAD_DECISION` | 422 | 3× | — |
-| `BAD_DOC_TYPE` | 422 | 2× | — |
+| `BAD_DOC_TYPE` | 422 | 3× | — |
 | `BAD_FEE_ACCOUNT` | 422 | 1× | — |
 | `BAD_FILE` | 400, 422 | 17× | — |
 | `BAD_FILE_TYPE` | 422 | 11× | — |
@@ -118,6 +121,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_RATE` | 422 | 3× | — |
 | `BAD_REPLACEMENT` | 422 | 2× | — |
 | `BAD_REQUEST` | 400 | 6× | — |
+| `BAD_RESOURCE` | 500 | 1× | — |
 | `BAD_ROLE` | 422 | 2× | — |
 | `BAD_SAVEPOINT` | 500 | 1× | — |
 | `BAD_SCHEME` | 422 | 2× | — |
@@ -211,6 +215,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `DUPLICATE_ORDER` | — | 1× | — |
 | `DUPLICATE_STATEMENT` | — | 1× | — |
 | `DUP_TILE` | 422 | 1× | — |
+| `EMAIL_FAILED` | 502 | 1× | — |
 | `EMAIL_REQUIRED` | 422 | 3× | — |
 | `EMAIL_SEND_FAILED` | 502 | 1× | — |
 | `EMAIL_TAKEN` | 409 | 2× | — |
@@ -372,7 +377,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 3× | — |
-| `NOT_FOUND` | 404, 422 | 749× | — |
+| `NOT_FOUND` | 404, 422 | 752× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -550,6 +555,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `RATE_LIMITED` | 429 | 1× | — |
 | `REASON_REQUIRED` | 422 | 10× | — |
 | `REAUTH_REQUIRED` | 403 | 2× | — |
+| `RECIPIENT_NOT_ALLOWED` | — | 1× | — |
 | `RECIPIENT_REJECTED` | 422 | 2× | — |
 | `RECONCILIATION_DOES_NOT_BALANCE` | — | 1× | — |
 | `RECONCILIATION_LOCKED` | 409 | 1× | — |
@@ -590,6 +596,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SAME_LANGUAGE` | 422 | 1× | — |
 | `SAME_PASSWORD` | 422 | 1× | — |
 | `SAME_VALIDATOR_APPROVER` | — | 1× | — |
+| `SANDBOX_NO_EMAIL` | 409 | 2× | — |
 | `SCANNED_PDF` | 422 | 2× | — |
 | `SCAN_ENCODING_UNSUPPORTED` | — | 1× | — |
 | `SCAN_REQUIRED` | 422 | 3× | — |
@@ -650,6 +657,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `TENANT_MISMATCH` | 400 | 1× | — |
 | `TENANT_NOT_FOUND` | 404 | 1× | — |
 | `TENANT_NOT_READY` | 423 | 1× | — |
+| `TENANT_REQUIRED` | 500 | 1× | — |
 | `TENANT_SUSPENDED` | 403 | 1× | — |
 | `TOKEN_EXPIRED` | 401 | 1× | — |
 | `TOO_FEW_STAGES` | 422 | 1× | — |
@@ -695,7 +703,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `USE_APPROVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 422 | 286× | — |
+| `VALIDATION_ERROR` | 422 | 288× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |

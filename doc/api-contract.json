@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 141,
-  "route_count": 1836,
+  "route_count": 1843,
   "tiers": {
     "public": 75,
     "self-scoped": 112,
-    "gated": 1649
+    "gated": 1656
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -1612,6 +1612,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/clients/:id/registrations": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/clients/:id/told": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -3489,6 +3495,18 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/portal/chat/messages/:messageId/recipients": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/chat/milestones": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/portal/chat/threads": {
       "auth": true,
       "rbac": true,
@@ -3724,6 +3742,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/portal/client/tickets/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/clients/:clientId/document-status": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8835,6 +8859,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/portal/chat/messages/:messageId/email": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/portal/chat/read": {
       "auth": true,
       "rbac": true,
@@ -8998,6 +9028,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/portal/client/tickets/:id/replies": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/clients/:clientId/document-requests": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -10768,6 +10804,12 @@
       "tier": "gated"
     },
     "PUT /api/tenant/clients/:id/account-manager": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/clients/:id/also-notify": {
       "auth": true,
       "rbac": true,
       "validated": false,

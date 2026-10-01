@@ -975,7 +975,8 @@ export const portalProposalSignComplete = (
 
 // ── Client: notifications — email and this device (14180) ───────────────────
 
-export type NotifyTopic = "MESSAGES" | "REQUESTS" | "BILLING" | "PROPOSALS" | "SHIPMENTS";
+/** QUOTES (14261): a quote request made in the portal — received, needs a clarification, quoted. */
+export type NotifyTopic = "MESSAGES" | "REQUESTS" | "QUOTES" | "BILLING" | "PROPOSALS" | "SHIPMENTS";
 export type NotifyChoice = { topic: NotifyTopic; email: boolean; push: boolean };
 export type NotifySettings = {
   language: "en" | "fr" | null;

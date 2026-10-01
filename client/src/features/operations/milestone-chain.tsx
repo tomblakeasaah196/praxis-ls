@@ -19,6 +19,8 @@
  * than leaving someone to infer it from a row halfway down.
  */
 import * as React from "react";
+import { StageQuestionsThread, StageQuestionsToggle } from "./stage-questions";
+import { useStageQuestions } from "./stage-questions-data";
 import { tr } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -286,15 +288,21 @@ function InsertDialog({
 
 export function MilestoneChain({
   dossierId,
+  clientId = null,
   compact = false,
 }: {
   dossierId: string;
+  /** The file's client — with it, each stage shows the client's questions (1.7). */
+  clientId?: string | null;
   compact?: boolean;
 }) {
   const chain = useResource(
     () => api.milestonesByDossier(dossierId),
     [dossierId],
   );
+  // The client's questions per stage (tenant review 29 Sep 2026, item 1.7).
+  const questions = useStageQuestions(compact ? null : clientId, dossierId);
+  const [openQuestions, setOpenQuestions] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [reopening, setReopening] =
@@ -403,6 +411,15 @@ export function MilestoneChain({
                     {m.is_anchor && <Pill tone="blue">anchor</Pill>}
                     {m.is_ad_hoc && <Pill tone="mute">added</Pill>}
                     {!m.is_client_visible && <Pill tone="mute">internal</Pill>}
+                    {questions.enabled ? (
+                      <StageQuestionsToggle
+                        count={questions.byStage.get(m.milestone_instance_id)}
+                        open={openQuestions === m.milestone_instance_id}
+                        onToggle={() =>
+                          setOpenQuestions((cur) => (cur === m.milestone_instance_id ? null : m.milestone_instance_id))
+                        }
+                      />
+                    ) : null}
                   </div>
                   <span className="micro">
                     {m.owner_tier ? api.OWNER_TIER_LABEL[m.owner_tier] : "—"}
@@ -481,6 +498,15 @@ export function MilestoneChain({
                   )}
                 </div>
               </div>
+              {questions.enabled && clientId && openQuestions === m.milestone_instance_id ? (
+                <StageQuestionsThread
+                  clientId={clientId}
+                  dossierId={dossierId}
+                  milestoneId={m.milestone_instance_id}
+                  stageLabel={label || tr("this stage")}
+                  onChanged={questions.reload}
+                />
+              ) : null}
             </li>
           );
         })}

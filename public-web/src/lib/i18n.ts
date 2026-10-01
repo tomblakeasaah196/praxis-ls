@@ -63,6 +63,7 @@ import * as React from "react";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { en, fr } from "./i18n-dict";
+import { labelCasePostProcessor } from "./label-case";
 
 export type Lang = "en" | "fr";
 
@@ -124,7 +125,7 @@ export function detectLang(): Lang {
   return fromQuery() || fromStorage() || DEFAULT_LANG;
 }
 
-i18n.use(initReactI18next).init({
+i18n.use(initReactI18next).use(labelCasePostProcessor).init({
   resources: {
     en: { translation: en },
     fr: { translation: fr },
@@ -133,6 +134,12 @@ i18n.use(initReactI18next).init({
   fallbackLng: "en",
   interpolation: { escapeValue: false },
   returnNull: false,
+  /* The Title Case standard (owner decision D5): every LABEL key, ours or a
+     tenant's override, is cased here and nowhere else — see label-case.ts.
+     `postProcessPassResolved` hands it the template, so the values put into a
+     `{{token}}` (an email, a brand name) are never cased with it. */
+  postProcess: ["labelCase"],
+  postProcessPassResolved: true,
 });
 
 export type LangChoice = Lang | "auto";

@@ -1446,6 +1446,27 @@
     border-color: color-mix(in srgb, var(--foreground) 22%, transparent);
   }
 
+  /* The SECOND call to action beside a primary one — "Client Portal" next to
+     "Request a Quote" on the bar and in the drawer (owner decision D6, 1 Oct
+     2026). Ink and edge are both `--foreground`, so it follows whatever the
+     bar is sitting on: the page in the drawer, the hero family on the bar over
+     the band, which re-points `--foreground` for the whole subtree. The edge
+     is held at 55 %, well over the 3:1 a control's boundary needs against
+     either ground; the fill stays empty so the orange beside it is the only
+     solid thing on the bar. */
+  .btn-outline {
+    color: var(--foreground);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--foreground) 55%, transparent);
+    transition:
+      background-color var(--dur) var(--ease),
+      border-color var(--dur) var(--ease);
+  }
+  .btn-outline:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--foreground) 8%, transparent);
+    border-color: var(--foreground);
+  }
+
   /* On the hero: a light button on a dark ground, which the tenant's fill cannot
      be trusted to provide (a pale tenant brand on carbon is unreadable), so it
      is structural rather than brand. */
@@ -2116,6 +2137,35 @@
     font-weight: 600;
   }
 
+  /* ── THE CARET SITS IN ITS OWN ITEM'S RHYTHM (tenant review 1.12) ──────
+   *
+   * Every label is 12px of padding, 4px of row gap and 12px of padding from
+   * the next: 28px, ink to ink. Services was the exception. Its caret sat
+   * 12.5px after the word and 22.5px before "Track", so "Services ⌄ Track"
+   * measured 42px label to label — the one gap in the row that read wider,
+   * because the eye does not count a pale 7px caret as a word.
+   *
+   * Now the caret is part of the word: 4px after it, and the link's own
+   * right padding grows by exactly the caret's width plus that 4px, so the
+   * pill and the rail cover "Services ⌄" the way they cover "About", and the
+   * next label starts the same 28px after the caret's ink as every other
+   * label starts after a word. The caret button keeps its 20px target and is
+   * pulled back over that padding (it is later in the DOM, so it is on top:
+   * the word still navigates, the caret still opens).
+   *
+   *   caret ink inside its 20px box: 3px (box → svg) + 3.5px (svg → path)
+   *   = 6.5px each side, 7px of path.
+   *   link padding-right  = 12 + 4 + 7          = 23px
+   *   caret margin-left   = 4 − 6.5 − 23        = −25.5px
+   *   caret margin-right  = 23 − (−2.5 + 20)       = 5.5px, so the item
+   *                          ends where its link does: 12px past the ink
+   *
+   * Measured in Chromium at 1280 and 1440, EN and FR, before and after: the
+   * PR description carries the numbers. */
+  .navlink.navlink-caret {
+    padding-right: 23px;
+  }
+
   /* The disclosure for the services panel. A separate control from the link on
      purpose (see `nav-services-panel.tsx`): the label navigates, this opens. */
   .navchevron {
@@ -2125,7 +2175,8 @@
     place-items: center;
     width: 20px;
     height: 20px;
-    margin-left: -6px;
+    margin-left: -25.5px;
+    margin-right: 5.5px;
     border-radius: 999px;
     color: color-mix(in srgb, var(--foreground) 62%, transparent);
     transition:

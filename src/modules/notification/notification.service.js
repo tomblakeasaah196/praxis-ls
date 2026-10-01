@@ -455,6 +455,11 @@ function announce(recipients, notification, inserted) {
         priority: notification.priority ?? "NORMAL",
         category: notification.category ?? null,
         link_url: notification.linkUrl ?? null,
+        // What it is about, so the screen that is open can tell whether to
+        // re-read itself (tenant review 29 Sep 2026, item 1.6 — a client's
+        // upload appears on the open Client 360 without a reload).
+        event_type_key: notification.eventTypeKey ?? null,
+        entity_ref: notification.entityRef ?? null,
         // Per RECIPIENT, not per notification: two people can hold opposite
         // preferences about the same category, and the one who silenced it must
         // not hear the other's tone.
@@ -467,11 +472,44 @@ function announce(recipients, notification, inserted) {
   }
 }
 
+/**
+ * "At most one email per person per conversation per window" (tenant review
+ * 29 Sep 2026, D3): a client who sends five files in a minute is five bells
+ * and five pushes — each is something to open — but ONE email, because an
+ * inbox that fills with a client's burst is an inbox somebody filters.
+ *
+ * The first notification in the window claims it and emails; the rest of the
+ * window's notifications keep their in-app row and push and skip the email.
+ * Redis `SET NX EX` makes the claim fleet-wide, exactly like the 60-second
+ * dedupe above; the process-local map is the fallback when Redis is down.
+ * Returns true when THIS call may email.
+ */
+const emailWindows = new Map();
+async function claimEmailWindow(key, seconds) {
+  if (!key) return true;
+  const redis = tryRedis();
+  if (redis) {
+    try {
+      const ok = await redis.set(`notify:email-window:${key}`, "1", "NX", "EX", Math.max(1, Math.round(seconds)));
+      if (ok === null) return false;
+      if (ok === "OK") return true;
+    } catch {
+      /* @silent:storage Redis down — degrade to the process-local map */
+    }
+  }
+  const now = Date.now();
+  const prev = emailWindows.get(key);
+  if (prev && now - prev < seconds * 1000) return false;
+  emailWindows.set(key, now);
+  if (emailWindows.size > 5000) emailWindows.delete(emailWindows.keys().next().value);
+  return true;
+}
+
 async function notifyMany(client, userIds, {
   eventTypeKey = null, title, body = null, entityRef = null, priority = "NORMAL", category = null,
   url = null, pushTag = undefined, renotify = false, requireInteraction = false,
   urgency = "normal", pushData = null, actions = null, emailFallback = false, force = false, ctx = {},
-  silentFor = [],
+  silentFor = [], emailOnceEvery = null,
 } = {}) {
   const ids = [...new Set((userIds || []).filter(Boolean))];
   if (ids.length === 0 || !title) return 0;
@@ -517,9 +555,19 @@ async function notifyMany(client, userIds, {
   // `silentFor`: people inside their quiet hours get the in-app row only
   // (calls audit A11). Never applied to security or forced notifications.
   const silent = new Set(forced || isSecurity ? [] : silentFor);
+  // One email per person per window (`emailOnceEvery: { key, seconds }`):
+  // claimed only for the people who would be emailed, so a person who opted
+  // out never spends anybody's window.
+  const grouped = new Set();
+  if (emailOnceEvery && emailOnceEvery.key && !forced && !isSecurity) {
+    for (const userId of ids) {
+      if (!wantsEmail(userId) || silent.has(userId)) continue;
+      if (!(await claimEmailWindow(`${emailOnceEvery.key}:${userId}`, emailOnceEvery.seconds || 900))) grouped.add(userId);
+    }
+  }
   const recipients = ids.map((userId) => ({
     userId,
-    email: wantsEmail(userId) && !silent.has(userId),
+    email: wantsEmail(userId) && !silent.has(userId) && !grouped.has(userId),
     push: forced || isSecurity || (inAppSet.has(userId) && !silent.has(userId)),
     badgeCount: badges.get(userId) ?? null,
     interrupt: wantsInterrupt(userId),
@@ -528,7 +576,7 @@ async function notifyMany(client, userIds, {
   const notification = {
     title, body, category: cat, isSecurity, priority, linkUrl,
     url: pushUrl, tag: pushTag, renotify, requireInteraction, urgency,
-    data: pushData, actions, emailFallback,
+    data: pushData, actions, emailFallback, eventTypeKey, entityRef,
   };
 
   // Live first: the people with the app open should learn about this before the
@@ -604,7 +652,7 @@ async function notify(client, {
   category = null, dedupeKey = null,
   url = null, pushTag = undefined, renotify = false, requireInteraction = false,
   urgency = "normal", pushData = null, actions = null, emailFallback = false, forceEmail = false,
-  force = false, ctx = {},
+  force = false, ctx = {}, emailOnceEvery = null,
 } = {}) {
   if (!userId || !title) return null;
   const cat = category || categoryFor(eventTypeKey);
@@ -674,11 +722,14 @@ async function notify(client, {
   const interrupt = notificationInterrupt.interruptFor({
     priority, category: cat, preference: storedInterrupt,
   });
-  const recipients = [{ userId, email: wantsEmail, push: Boolean(inApp) || isSecurity, badgeCount, interrupt }];
+  // One email per person per conversation per window — see claimEmailWindow.
+  const emailNow = wantsEmail && (force || isSecurity || !emailOnceEvery || !emailOnceEvery.key
+    || (await claimEmailWindow(`${emailOnceEvery.key}:${userId}`, emailOnceEvery.seconds || 900)));
+  const recipients = [{ userId, email: emailNow, push: Boolean(inApp) || isSecurity, badgeCount, interrupt }];
   const notification = {
     title, body, category: cat, isSecurity, priority, linkUrl,
     url: pushUrl, tag: pushTag, renotify, requireInteraction, urgency,
-    data: pushData, actions, emailFallback,
+    data: pushData, actions, emailFallback, eventTypeKey, entityRef,
   };
 
   if (inApp) announce(recipients, notification, [{ notification_id: inApp.notification_id, user_id: userId }]);
@@ -924,7 +975,7 @@ async function unsubscribePush(client, actor, { endpoint }) {
 }
 
 module.exports = {
-  DEDUPE_MS, DEDUPE_TTL_S, shouldDedupe, claimDedupe, recentDedupe,
+  DEDUPE_MS, DEDUPE_TTL_S, shouldDedupe, claimDedupe, recentDedupe, claimEmailWindow, emailWindows,
   notifyMany, deliverOutbound, resolveTenantMeta,
   mine, notify, listCategories, unreadCount, markRead, markAllRead, getPreferences, setPreferences,
   pushPublicKey, subscribePush, unsubscribePush, rotatePush, pushDevices, sendPushTest,
