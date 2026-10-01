@@ -178,7 +178,9 @@ describe("fx sync explains a provider failure instead of leaking an AxiosError",
     });
     const out = await sync.syncRates(client, {});
     expect(out.base).toBe("XAF");
-    expect(out.updated.map((u) => u.quote).sort()).toEqual(["EUR", "USD"]);
+    // EUR is a fixed parity against XAF (meeting 6, F1): reported, never written.
+    expect(out.updated.map((u) => u.quote).sort()).toEqual(["USD"]);
+    expect(out.fixed.map((f) => f.quote)).toEqual(["EUR"]);
   });
 
   /*

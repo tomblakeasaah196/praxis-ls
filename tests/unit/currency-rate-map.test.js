@@ -63,10 +63,16 @@ describe("rateMap — property-injection hardening", () => {
   });
 
   it("still returns a plain, spreadable record with the base at 1", async () => {
-    const out = await service.rateMap(fakeClient(), { extra: ["EUR"] });
+    const out = await service.rateMap(fakeClient(), { extra: ["GBP"] });
     expect(out.XAF).toBe(1);
     expect(out.USD).toBe(615.5);
-    expect({ ...out }.EUR).toBe(615.5); // spread works — ordinary object out
+    expect({ ...out }.GBP).toBe(615.5); // spread works — ordinary object out
+  });
+
+  it("prices EUR at the fixed parity, whatever row is stored (meeting 6, F1)", async () => {
+    const out = await service.rateMap(fakeClient(), { extra: ["EUR"] });
+    // XAF base: 1 XAF = 1/655.957 EUR, computed from the peg at full precision.
+    expect(out.EUR).toBe(1 / 655.957);
   });
 
   it("a well-formed but unpriced code is omitted, not an error", async () => {

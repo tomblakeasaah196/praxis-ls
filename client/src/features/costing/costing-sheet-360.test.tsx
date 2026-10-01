@@ -592,3 +592,27 @@ describe("Print / preview", () => {
     );
   });
 });
+
+/*
+ * Meeting 6, F1. A costing in EUR converts at the fixed parity 655.957 (BEAC):
+ * the rate is shown, badged and NOT editable — whatever an old draft stored.
+ */
+describe("the fixed EUR parity", () => {
+  it("shows 655.957 read-only with a Fixed parity (BEAC) badge", async () => {
+    renderSheet({ ...SHEET, currency: "EUR", exchange_rate_to_xaf: 656.168 });
+    expect(await screen.findByText("Fixed parity (BEAC)")).toBeInTheDocument();
+    expect(screen.getByText("655.957 XAF")).toBeInTheDocument();
+    // No number box to type another figure into.
+    expect(
+      screen.queryByRole("spinbutton", { name: /Exchange rate/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("a floating currency keeps its editable rate", async () => {
+    renderSheet({ ...SHEET, currency: "USD", exchange_rate_to_xaf: 612.4 });
+    expect(
+      await screen.findByRole("spinbutton", { name: /Exchange rate/ }),
+    ).toHaveValue(612.4);
+    expect(screen.queryByText(/Fixed parity/)).not.toBeInTheDocument();
+  });
+});

@@ -31,7 +31,10 @@ const editCurrency = z
 
 const setBase = z.object({ code: code3 });
 
-const schemas = { setRate, addCurrency, editCurrency, setBase };
+// "Follow the feed again" — release the manual override standing on a pair.
+const releaseRate = z.object({ base: code3, quote: code3 });
+
+const schemas = { setRate, addCurrency, editCurrency, setBase, releaseRate };
 
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);
@@ -45,5 +48,6 @@ module.exports = {
   addCurrency: mw("addCurrency"),
   editCurrency: mw("editCurrency"),
   setBase: mw("setBase"),
+  releaseRate: mw("releaseRate"),
   schemas,
 };

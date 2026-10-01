@@ -634,9 +634,32 @@ export type CurrencyRow = Currency & {
   sort_order: number;
 };
 
+/** A currency fixed by treaty to an anchor (XAF/XOF → EUR at 655.957). */
+export type CurrencyPeg = {
+  anchor: string;
+  /** Units of the pegged currency one unit of `anchor` buys. */
+  per_anchor: number;
+  authority: string;
+  source: string;
+};
+/** A fixed pair, "1 base = rate quote", in the direction asked. */
+export type FixedParity = {
+  base: string;
+  quote: string;
+  rate: number;
+  authority: string;
+  anchor: string;
+  source: string;
+};
+
 export declare namespace currencies {
   const CURRENCIES: readonly Currency[];
   const CATALOGUE: readonly CurrencyRow[];
+  const PEGS: Readonly<Record<string, CurrencyPeg>>;
+  function pegOf(code: string): CurrencyPeg | null;
+  /** The fixed parity for a pair in either direction, or null when a market sets it. */
+  function fixedParity(base: string, quote: string): FixedParity | null;
+  function isFixedPair(base: string, quote: string): boolean;
   function byCode(code: string): Currency | undefined;
   function decimalsFor(code: string): number;
   /** The countries that trade in a currency, priority-ordered; `[]` when none. */

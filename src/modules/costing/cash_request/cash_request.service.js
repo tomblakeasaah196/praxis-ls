@@ -344,6 +344,9 @@ async function resolveMoney(client, { ledger = null, currency = null, explicitRa
     };
   }
   const code = String(currency || "XAF").toUpperCase();
+  // A fixed parity (EUR → XAF 655.957) is the law, not an input (meeting 6, F1).
+  const fixed = currencySvc.parityToXaf(code, explicitRate);
+  if (fixed !== null) return { currency: code, exchange_rate_to_xaf: fixed };
   if (explicitRate !== null && explicitRate !== undefined && Number(explicitRate) > 0) {
     return { currency: code, exchange_rate_to_xaf: Number(explicitRate) };
   }

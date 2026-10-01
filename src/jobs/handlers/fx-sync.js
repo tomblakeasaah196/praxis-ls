@@ -35,6 +35,7 @@ module.exports = async function fxSync(job) {
           status,
           updatedCount: result.updated ? result.updated.length : 0,
           unsupported: result.unsupported || [],
+          reason: sync.fixedNote(result),
           base: result.base || null,
         });
       }

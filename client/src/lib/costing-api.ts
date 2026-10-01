@@ -334,6 +334,9 @@ export type CostingFxRate = {
   as_of_date: string | null;
   source: string | null;
   found: boolean;
+  /** A treaty parity (EUR → XAF 655.957): shown read-only, never typed. */
+  fixed?: boolean;
+  authority?: string | null;
 };
 export const costingFxRate = (currency: string) =>
   tenant<CostingFxRate>(`/costings/fx-rate${qs({ currency })}`);
