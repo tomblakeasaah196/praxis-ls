@@ -227,7 +227,8 @@ time.** `if (!supported) startCode()` (`client/src/components/signing/use-signin
 never offers the phone's passkey (WebAuthn hybrid/QR), although the server already passes each
 credential's transports (`signing-proof.service.js:64-90`).
 
-**3.8 [Meeting] Vendor access to the tenant's LIVE is an ordinary CEO account.** "I trust you,
+**3.8 [Meeting] Vendor access to the tenant's LIVE is an ordinary CEO account.**
+*(Owner decision F5: no change — out of scope.)* "I trust you,
 not your people." The JBS Praxis login holds the CEO role (RBAC bypass), appears as an employee
 (entity shows 3 employees: 2 real + JBS Praxis), and there is no tenant-visible support-access
 model (no grant, expiry, or support-activity view).
@@ -288,9 +289,9 @@ move, no family column in the detailed view.
   Also-notify people are picked **at client creation** (the New client form has no account-manager
   field today although the API accepts one — `client_master.service.js:38-51`) and edited on the
   Client 360, which shows the whole list. All of them get in-app + push + email by default
-  (opt-out per person). The tenant-level "MD" setting from D3 is dropped. Consequence accepted:
-  the vendor's JBS Praxis login holds the CEO role, so PR3 must exclude support logins from these
-  audiences.
+  (opt-out per person). The tenant-level "MD" setting from D3 is dropped. The JBS Praxis login
+  holds the CEO role and so is on every client's list — accepted: Tom is an SMART LS employee
+  (see PR3 decision F5).
 - **D8 Client emails** — automatic emails keep today's rule (a team reply is emailed after 10–20
   minutes only if still unread, at most once an hour per conversation, only to people who have
   signed in once — which is why the demo, where the "client" read every reply live, produced no
@@ -319,6 +320,28 @@ move, no family column in the detailed view.
 - **Auditor defaults** — services fitting no card (Project Cargo, Business Representation) sit
   under an "Other services" link; a prospect's request is unassigned until "Start review" makes
   the reviewer its owner; the weight reads "≈ 25 T".
+
+### PR3 (answered 2026-10-01)
+
+- **F1 EUR parity** — locked at 655.957 for XAF and XOF; the feed never touches it; open drafts
+  re-priced, signed / sealed / posted documents untouched. The override-beaten-by-tomorrow's-feed
+  bug is fixed for every currency (`currency.rules.js:9-18` prefers an override only on the same
+  date).
+- **F2 Siblings** — one entry per sibling group in every picker, then "billed to the client at
+  cost" or "our own cost", preset from the file; a mismatch is flagged.
+- **F3 Accounting of a new line** — the AI (Gemini with Google Search grounding, plus the
+  tenant's own audited lines, chart of accounts and `doc/OHADA_KB.md`) suggests the OHADA posting
+  and pre-fills it; anyone with dictionary create / edit rights edits and saves it.
+- **F4 VAT basis** — each rate says whether it includes VAT; the HT figure is stored; débours are
+  always HT.
+- **F5 Vendor access** — no change. Tom is an SMART LS employee and will change his password.
+  (Auditor note given to the owner: a password change signs out other sessions but does not reset
+  the account-wide Quick PIN or remove passkeys on other devices — change the PIN and review the
+  passkeys too.) Item 3.8 is out of scope.
+- **F6 Signing** — the phone's passkey first, the emailed code last; plus a 5-minute window per
+  person and session after one confirmation, each signature still bound to its own document hash.
+- **Auditor defaults** — only a DRAFT client with no history can be deleted; coverage countries
+  from the shared ISO list; an empty LIVE shows a go-live checklist.
 
 ## Sequencing and migrations
 

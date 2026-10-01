@@ -325,8 +325,7 @@ read wider. Give every item the same visual rhythm, and put before/after measure
   `public-web/src/components/site/quote-wizard.tsx`, `public-web/src/lib/intake-api.ts`.
   You only add notification entries for quote requests (B3).
 - **PR 3** owns currencies, the financial dictionary (except lifting `titleCase`), expense rates,
-  corporate-entity coverage, deleting draft clients, signing, vendor / support access (including
-  leaving support logins out of the "who is told" list) and the Control Tower.
+  corporate-entity coverage, deleting draft clients, signing and the Control Tower.
 - **PR 4** owns quotations / proposals, costing families, the portal's
   "Requests for Quotation / Quotations" menu split and the command palette.
 - If a fix truly needs one of those files, keep the hunk minimal and explain why in the PR.
