@@ -20,7 +20,7 @@ const schemas = {
   // Praxis AI's shapes for the client-portal staff actions (portal.ai.js). The
   // HTTP routes validate the same fields in portal_auth.validator.js; these add
   // the id the route takes from its path.
-  // aiReviewRequest is @praxis/shared clientPortal.reviewRequest + the id
+  // aiReviewRequest is clientPortal.reviewRequest (packages/shared) + the id
   // (portal.ai.js, 14260), so the Accept fields cannot drift from the route's.
   aiConfirmProof: z.object({
     payment_proof_id: z.string().uuid(),
