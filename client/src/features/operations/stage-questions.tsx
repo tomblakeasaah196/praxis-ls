@@ -18,47 +18,18 @@
 import * as React from "react";
 import { tr, tv } from "@/lib/i18n";
 import { tenant } from "@/lib/api-client";
-import { errMsg, useResource } from "@/lib/use-resource";
+import { errMsg } from "@/lib/use-resource";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, LoadingRow } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
-import { useCanUseModule } from "@/lib/route-access";
 import { useRefreshEvent } from "@/lib/open-in-app";
 import { Bubble, type Message } from "@/features/portal/client-chat-panel";
 import { SendByEmailDialog } from "@/features/portal/client-message-email";
+import type { StageCount } from "./stage-questions-data";
 
-export type StageCount = {
-  milestone_instance_id: string;
-  questions: number;
-  unread: number;
-  messages: number;
-  last_at: string | null;
-};
-
-/** Per stage, how many questions the client asked and how many nobody has read. */
-export function useStageQuestions(clientId: string | null | undefined, dossierId: string) {
-  const allowed = useCanUseModule("MOD-64C");
-  const on = !!clientId && allowed;
-  const res = useResource<StageCount[]>(
-    () =>
-      on
-        ? tenant<StageCount[]>(`/portal/chat/milestones?client_id=${encodeURIComponent(clientId as string)}&dossier_id=${encodeURIComponent(dossierId)}`)
-        : Promise.resolve([]),
-    [on, clientId, dossierId],
-    { fresh: true },
-  );
-  useRefreshEvent((d) => {
-    if (on && (d.scope === "screen" || d.clientId === clientId)) res.reload();
-  });
-  const byStage = React.useMemo(() => {
-    const m = new Map<string, StageCount>();
-    for (const row of Array.isArray(res.data) ? res.data : []) m.set(row.milestone_instance_id, row);
-    return m;
-  }, [res.data]);
-  return { enabled: on, byStage, reload: res.reload };
-}
+export type { StageCount } from "./stage-questions-data";
 
 /** "2 client questions · 1 new" — the stage's count, as a button that opens the thread. */
 export function StageQuestionsToggle({ count, open, onToggle }: { count: StageCount | undefined; open: boolean; onToggle: () => void }) {

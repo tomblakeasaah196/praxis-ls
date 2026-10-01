@@ -40,7 +40,7 @@ import {
   PortalSectionHeader,
   type ContactSuggestion,
 } from "./client-portal-people";
-import { useReviewRequest } from "./client-kyc";
+import { useReviewRequest } from "./use-review-request";
 
 /* ── shapes (portal_client.service.js requestView / proofView) ──────────── */
 

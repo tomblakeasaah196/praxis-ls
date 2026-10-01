@@ -28,8 +28,9 @@ vi.mock("@/lib/api-client", async () => {
   };
 });
 
-import { AcceptDocumentDialog, RequestFromClientDialog, standingOf } from "./client-kyc";
-import { deliveryLines } from "./client-message-email";
+import { AcceptDocumentDialog, RequestFromClientDialog } from "./client-kyc";
+import { standingOf } from "./client-kyc-rules";
+import { deliveryLines } from "./client-message-delivery";
 import { dateFmt, dateTimeFmt } from "@/lib/format";
 import type { StaffRequest } from "./client-portal-staff";
 
