@@ -1,5 +1,4 @@
 import * as React from "react";
-import { compressImage, isPreviewableImage, previewUrlFor } from "@/lib/image-compress";
 import type { DocumentKind } from "@/lib/quote-scope";
 
 /**
@@ -119,6 +118,10 @@ export function useQuoteDocuments(opts: {
           continue;
         }
         try {
+          // Loaded on first use, not with the hook: the website's wizard holds
+          // this hook from its first step, and the compressor is only needed
+          // once a file is picked (see quote-wizard.tsx, `loadDocumentsStep`).
+          const { compressImage, isPreviewableImage, previewUrlFor } = await import("@/lib/image-compress");
           const { file, originalBytes } = await compressImage(raw, "document");
           if (file.size > o.maxBytes) {
             patch(id, { state: "error", error: o.messages.tooBig, bytes: file.size });

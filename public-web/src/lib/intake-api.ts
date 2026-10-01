@@ -40,7 +40,7 @@
  * endpoint — which matters because the limit is per-connection, and an office
  * behind one NAT address shares it.
  */
-import { publicApi, publicPostWithProgress, PublicApiError, type FieldErrors } from "./api";
+import { publicApi, PublicApiError, type FieldErrors } from "./api";
 import type { PlacePick } from "./places-api";
 import type { DocumentKind, HinterlandDirection } from "./quote-scope";
 
@@ -104,12 +104,12 @@ export type ContactEnquiry = Trap & {
 
 export type NewsletterSignup = Trap & { email: string; name?: string };
 
-const submit = <T>(
-  path: string,
-  body: T & Trap,
-  startedAt: number | undefined,
-  onProgress?: (pct: number) => void,
-): Promise<IntakeReceipt> => {
+/**
+ * The body an intake endpoint receives: the form's fields and when it was
+ * started, with the empties dropped. Shared with `quote-intake.ts`, whose
+ * document-carrying send must clean exactly as this one does.
+ */
+export const cleanIntake = <T>(body: T & Trap, startedAt: number | undefined): T & Trap =>
   // Empty strings are dropped: `.strict()` accepts the key, but the services
   // write `data.x || null` and an empty subject on a lead is noise in a queue.
   //
@@ -117,21 +117,25 @@ const submit = <T>(
   // against the three empties explicitly for that reason. `project_cargo_flag:
   // false` is a real answer to a real question — a filter on falsiness would
   // silently turn "no, this is ordinary cargo" into "unanswered".
-  const clean = Object.fromEntries(
+  Object.fromEntries(
     Object.entries({ ...body, form_started_at: startedAt }).filter(
       ([, v]) => v !== "" && v !== undefined && v !== null,
     ),
   ) as T & Trap;
-  return onProgress
-    ? publicPostWithProgress<IntakeReceipt>(path, clean, onProgress)
-    : publicApi<IntakeReceipt>(path, { method: "POST", body: clean });
-};
+
+const submit = <T>(
+  path: string,
+  body: T & Trap,
+  startedAt: number | undefined,
+): Promise<IntakeReceipt> =>
+  publicApi<IntakeReceipt>(path, { method: "POST", body: cleanIntake(body, startedAt) });
 
 export const quoteRequests = {
   path: "/public/intake/quote-requests" as const,
-  /** `onProgress` when documents travel with it: the body is then megabytes. */
-  send: (body: QuoteRequest, startedAt?: number, onProgress?: (pct: number) => void) =>
-    submit("/public/intake/quote-requests", body, startedAt, onProgress),
+  /** Without documents. A request that carries them goes through
+   *  `quote-intake.ts`, which reports its upload progress. */
+  send: (body: QuoteRequest, startedAt?: number) =>
+    submit("/public/intake/quote-requests", body, startedAt),
 };
 
 export const contactEnquiries = {

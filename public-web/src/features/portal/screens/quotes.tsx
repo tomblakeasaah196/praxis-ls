@@ -72,6 +72,9 @@ import { parseAmount } from "../lib/numbers";
 import { ModeIcon } from "./shipment-parts";
 import { ProposalRow, ProposalSheet } from "./proposals";
 import { QuoteRequestSheet, STATUS_TONE } from "./quote-request-detail";
+// The shared quote steps' copy lives outside the entry dictionary; see
+// quote-steps-i18n.ts. Imported for the side effect.
+import "@/components/quote/quote-steps-i18n";
 
 /** The documents a portal request can be sent with (the server's own ceiling). */
 const DOCS_MAX = 10;
@@ -363,8 +366,8 @@ function QuoteSheet({
     messages: {
       badType: t("portal.upload.badType"),
       tooBig: t("portal.upload.tooBig", { limit: "10 MB" }),
-      tooMany: t("site.quote.docsTooMany"),
-      totalTooBig: t("site.quote.docsTotalTooBig"),
+      tooMany: t("site.quoteSteps.docsTooMany"),
+      totalTooBig: t("site.quoteSteps.docsTotalTooBig"),
       unreadable: t("portal.upload.unreadable"),
     },
   });
@@ -411,8 +414,8 @@ function QuoteSheet({
       return out;
     }
     if (k === "cargo") return cargo.trim().length > 2 && (!weight || kg >= 0) ? {} : { cargo: t("portal.quote.errCargo") };
-    if (!docs.count) return { documents: t("site.quote.errDocs") };
-    if (!docs.settled) return { documents: t("site.quote.docsPreparing") };
+    if (!docs.count) return { documents: t("site.quoteSteps.errDocs") };
+    if (!docs.settled) return { documents: t("site.quoteSteps.docsPreparing") };
     return {};
   }
   const shown = showErrors ? problems(key) : {};

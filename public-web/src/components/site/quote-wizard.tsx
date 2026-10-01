@@ -7,7 +7,8 @@ import { Stepper, type Step } from "@/components/ui/stepper";
 import { cn } from "@/lib/cn";
 import { ErrorState, SuccessState } from "@/components/state";
 import { ArrowRightIcon } from "@/components/ui/icons";
-import { quoteRequests, type QuoteRequest } from "@/lib/intake-api";
+import type { QuoteRequest } from "@/lib/intake-api";
+import { sendQuoteRequest } from "@/lib/quote-intake";
 import type { PlacePick } from "@/lib/places-api";
 import { useIntake } from "@/lib/use-intake";
 import { useWizardDraft } from "@/lib/use-wizard-draft";
@@ -31,7 +32,20 @@ import {
   type ServicePick,
 } from "@/components/quote/quote-service-step";
 import { IncotermChoice } from "@/components/quote/incoterm-choice";
-import { QuoteDocumentsStep } from "@/components/quote/quote-documents";
+// The shared quote steps' copy lives outside the entry dictionary; see
+// quote-steps-i18n.ts. Imported for the side effect.
+import "@/components/quote/quote-steps-i18n";
+
+/**
+ * The documents step — the file picker, its previews and the compressor — is
+ * the fourth of five steps and the heaviest, so it is not in the quote page's
+ * own payload (`check-bundle.mjs` caps that at 16 kB). The wizard starts the
+ * fetch as soon as it is on screen (`prefetchDocumentsStep` below), so by the
+ * time a visitor has answered three steps the chunk is in, and the Suspense
+ * fallback is what someone sees only if they get there faster than a request.
+ */
+const loadDocumentsStep = () => import("@/components/quote/quote-documents");
+const QuoteDocumentsStep = React.lazy(() => loadDocumentsStep().then((m) => ({ default: m.QuoteDocumentsStep })));
 
 /**
  * The website's quote desk, as five short questions instead of one wall of
@@ -178,19 +192,24 @@ export function QuoteWizard({
     types: DOC_TYPES,
     messages: {
       badType: t("site.quote.fileType"),
-      tooBig: t("site.quote.docsTooBig"),
-      tooMany: t("site.quote.docsTooMany"),
-      totalTooBig: t("site.quote.docsTotalTooBig"),
-      unreadable: t("site.quote.docsUnreadable"),
+      tooBig: t("site.quoteSteps.docsTooBig"),
+      tooMany: t("site.quoteSteps.docsTooMany"),
+      totalTooBig: t("site.quoteSteps.docsTotalTooBig"),
+      unreadable: t("site.quoteSteps.docsUnreadable"),
     },
   });
+
+  // Off the critical path, ahead of need — see `loadDocumentsStep`.
+  React.useEffect(() => {
+    void loadDocumentsStep();
+  }, []);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setF((s) => ({ ...s, [k]: v }));
 
   const intake = useIntake<{ received: boolean; reference: string }>({
     send: (body, startedAt) => {
       const q = body as QuoteRequest;
-      return quoteRequests.send(q, startedAt, q.documents && q.documents.length ? (pct) => docs.setAllProgress(pct) : undefined);
+      return sendQuoteRequest(q, startedAt, (pct) => docs.setAllProgress(pct));
     },
     onRateLimited: t("site.quote.limited"),
     onFailed: t("site.quote.err"),
@@ -254,7 +273,7 @@ export function QuoteWizard({
         if (f.destination_location.trim().length < 2) out.destination_location = t("site.quote.errDestination");
       }
     }
-    if (key === "documents" && docs.busy) out.documents = t("site.quote.docsPreparing");
+    if (key === "documents" && docs.busy) out.documents = t("site.quoteSteps.docsPreparing");
     if (key === "contact") {
       if (f.requester_name.trim().length < 2) out.requester_name = t("site.quote.errName");
       if (!EMAIL_RE.test(f.requester_email.trim())) out.requester_email = t("site.quote.errEmail");
@@ -529,7 +548,9 @@ export function QuoteWizard({
         )}
 
         {stepKey === "documents" && (
-          <QuoteDocumentsStep docs={docs} required={false} variant="site" idPrefix="quote" error={err("documents")} />
+          <React.Suspense fallback={<p className="text-sm text-muted-foreground">{t("common.loading")}</p>}>
+            <QuoteDocumentsStep docs={docs} required={false} variant="site" idPrefix="quote" error={err("documents")} />
+          </React.Suspense>
         )}
 
         {stepKey === "contact" && (

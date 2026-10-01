@@ -20,6 +20,9 @@ import {
   type QuoteCard,
   type QuoteService,
 } from "@/lib/quote-scope";
+// The shared quote steps' copy lives outside the entry dictionary; see
+// quote-steps-i18n.ts. Imported for the side effect.
+import "@/components/quote/quote-steps-i18n";
 
 /**
  * The first step of every quote request — the client portal's quote sheet and
@@ -95,8 +98,8 @@ export function pickProblems(
   }
   const svc = pickedService(services, pick);
   if (!pick.card && !svc) out.card = t("site.quote.errMode");
-  else if (!svc) out.service = t("site.quote.errFlow");
-  else if (needsHinterlandDirection(svc) && !pick.hinterland) out.hinterland = t("site.quote.errHinterland");
+  else if (!svc) out.service = t("site.quoteSteps.errFlow");
+  else if (needsHinterlandDirection(svc) && !pick.hinterland) out.hinterland = t("site.quoteSteps.errHinterland");
   return out;
 }
 
@@ -228,7 +231,7 @@ export function QuoteServiceStep({
           <>
             {/* The subtle label owner decision Q1 asks for: the four movements
                 read as one family, storage and customs as two of their own. */}
-            <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("site.quote.transport")}</p>
+            <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("site.quoteSteps.transport")}</p>
             <div className={grid}>{transport.map(card)}</div>
           </>
         ) : null}
@@ -244,12 +247,12 @@ export function QuoteServiceStep({
             aria-expanded={showOthers}
             onClick={() => setShowOthers((v) => !v)}
           >
-            {t("site.quote.otherServices")}
+            {t("site.quoteSteps.otherServices")}
           </button>
           {showOthers ? (
             <fieldset className="mt-2">
-              <legend className="sr-only">{t("site.quote.otherServices")}</legend>
-              <p className="mb-2 text-sm text-muted-foreground">{t("site.quote.otherServicesHint")}</p>
+              <legend className="sr-only">{t("site.quoteSteps.otherServices")}</legend>
+              <p className="mb-2 text-sm text-muted-foreground">{t("site.quoteSteps.otherServicesHint")}</p>
               <div className="flex flex-wrap gap-2">
                 {others.map((s) => (
                   <Chip
@@ -270,7 +273,7 @@ export function QuoteServiceStep({
 
       {flows.length ? (
         <fieldset>
-          <legend className={variant === "site" ? "field-label" : "pt-label"}>{t("site.quote.flow")}</legend>
+          <legend className={variant === "site" ? "field-label" : "pt-label"}>{t("site.quoteSteps.flow")}</legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {flows.map((o) => (
               <Chip
@@ -286,7 +289,7 @@ export function QuoteServiceStep({
                   })
                 }
               >
-                {o.kind === "flow" ? t(`site.quote.flow${o.flow}`) : serviceName(o.service, lang)}
+                {o.kind === "flow" ? t(`site.quoteSteps.flow${o.flow}`) : serviceName(o.service, lang)}
               </Chip>
             ))}
           </div>
@@ -298,7 +301,7 @@ export function QuoteServiceStep({
 
       {needsHinterlandDirection(svc) ? (
         <fieldset>
-          <legend className={variant === "site" ? "field-label" : "pt-label"}>{t("site.quote.hinterland")}</legend>
+          <legend className={variant === "site" ? "field-label" : "pt-label"}>{t("site.quoteSteps.hinterland")}</legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {HINTERLAND_DIRECTIONS.map((d) => (
               <Chip
@@ -307,9 +310,9 @@ export function QuoteServiceStep({
                 name={`${idPrefix}-hinterland`}
                 checked={value.hinterland === d}
                 onChange={() => onChange({ ...value, hinterland: d })}
-                hint={t(`site.quote.hinterland${d}Hint`)}
+                hint={t(`site.quoteSteps.hinterland${d}Hint`)}
               >
-                {t(`site.quote.hinterland${d}`)}
+                {t(`site.quoteSteps.hinterland${d}`)}
               </Chip>
             ))}
           </div>
