@@ -306,8 +306,15 @@ describe("the validators", () => {
     expect(schemas.places.safeParse({ q: "x", limit: "500" }).success).toBe(false);
   });
 
+  // A portal request names its service type and is sent with a document
+  // (meeting 6, PR 2) — the rest of each case is what it is about.
+  const QUOTE = {
+    service_type_id: "0f1e2d3c-4b5a-4978-8796-a5b4c3d2e1f0",
+    documents: [{ doc_id: "1f1e2d3c-4b5a-4978-8796-a5b4c3d2e1f0", document_kind: "COMMERCIAL_INVOICE" }],
+  };
+
   it("takes a pick as an id or a provider suggestion — never a coordinate", () => {
-    const base = { service_category: "Air · Import", origin_location: "Guangzhou", destination_location: "Douala" };
+    const base = { ...QUOTE, origin_location: "Guangzhou", destination_location: "Douala" };
     expect(schemas.portalQuote.safeParse({ ...base, origin_place: { geo_place_id: place().geo_place_id } }).success).toBe(true);
     expect(
       schemas.portalQuote.safeParse({ ...base, origin_place: { provider_place_id: "p", query: "guangzhou", country: "CN" } }).success,
@@ -321,7 +328,7 @@ describe("the validators", () => {
   });
 
   it("takes the two doors as optional text", () => {
-    const base = { service_category: "Sea · Import", origin_location: "Shanghai", destination_location: "Douala" };
+    const base = { ...QUOTE, origin_location: "Shanghai", destination_location: "Douala" };
     const out = schemas.portalQuote.parse({ ...base, collection_location: "", delivery_location: "Bonabéri" });
     expect(out.collection_location).toBeUndefined();
     expect(out.delivery_location).toBe("Bonabéri");

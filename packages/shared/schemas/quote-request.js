@@ -279,21 +279,32 @@ const PORTAL_DOCUMENTS_MAX = 10;
  * decides the client. At least ONE document (owner decision Q4): the desk
  * prices from it, and the commercial invoice is the one the wizard asks for.
  */
+/**
+ * A place the wizard may leave empty: "" (a cleared field) is ABSENT, never a
+ * stored empty string — a port-to-port request names no doors, and "" on the
+ * row would read as a door nobody named. The portal validator did this before
+ * the shape moved here, and portal-places.test.js holds it.
+ */
+const portalPlaceText = z.preprocess(
+  (v) => (v === "" || v === null ? undefined : v),
+  z.string().trim().max(200).optional(),
+);
+
 const portalCreate = z.object({
   service_type_id: z.string().uuid(),
   hinterland_direction: hinterlandDirection.optional().nullable(),
   // 200, not 120: a picked address arrives as the provider's formatted line.
   // Optional here because a STORAGE or a no-movement service has no route —
   // the service requires both ends for a ROUTE service.
-  origin_location: z.string().trim().max(200).optional(),
-  destination_location: z.string().trim().max(200).optional(),
-  collection_location: z.string().trim().max(200).optional(),
-  delivery_location: z.string().trim().max(200).optional(),
+  origin_location: portalPlaceText,
+  destination_location: portalPlaceText,
+  collection_location: portalPlaceText,
+  delivery_location: portalPlaceText,
   origin_place: portalPlacePick,
   destination_place: portalPlacePick,
   collection_place: portalPlacePick,
   delivery_place: portalPlacePick,
-  warehouse_location: z.string().trim().max(200).optional(),
+  warehouse_location: portalPlaceText,
   warehouse_duration: z.enum(WAREHOUSE_DURATIONS).optional(),
   estimated_weight: z.number().nonnegative().optional(),
   cargo_description: z.string().max(2000).optional(),
