@@ -23,6 +23,11 @@ d("Getting started on an empty LIVE (meeting 6, 3.9)", () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
     c = await pool.connect();
     await c.query("BEGIN");
+    // An EMPTY LIVE, whatever files other suites left in this tenant: a
+    // session-temporary view of the same name shadows live.dossier_visible
+    // (pg_temp is searched first) and is gone at ROLLBACK. current_schema()
+    // still answers 'live', so the environment check is untouched.
+    await c.query("CREATE TEMP VIEW dossier_visible AS SELECT * FROM live.dossier_visible WHERE false");
   });
   afterAll(async () => {
     if (c) {
@@ -33,14 +38,7 @@ d("Getting started on an empty LIVE (meeting 6, 3.9)", () => {
   });
 
   test("LIVE with no operations file: the six steps, each with its state and its screen", async () => {
-    const { rows: [{ n }] } = await c.query("SELECT count(*)::int AS n FROM dossier_visible");
     const g = await service().gettingStarted(c);
-    if (n > 0) {
-      // Another suite left a file in this tenant: then it is not empty, and
-      // the checklist is rightly absent. CI provisions a fresh tenant.
-      expect(g.show).toBe(false);
-      return;
-    }
     expect(g.show).toBe(true);
     expect(g.env).toBe("live");
     expect(g.items.map((i) => [i.key, i.label, i.to])).toEqual([
@@ -66,6 +64,8 @@ d("Getting started on an empty LIVE (meeting 6, 3.9)", () => {
   test("the first operations file makes it disappear", async () => {
     const { rows: [cl] } = await c.query("SELECT client_id FROM client_master WHERE name = 'Getting Started Test Client'");
     await c.query("INSERT INTO dossier (ref, client_id, status) VALUES ('GS-1', $1, 'OPEN')", [cl.client_id]);
+    // The real view again, which now holds a file.
+    await c.query("DROP VIEW pg_temp.dossier_visible");
     expect(await service().gettingStarted(c)).toEqual({ show: false, env: "live", items: [] });
   });
 
