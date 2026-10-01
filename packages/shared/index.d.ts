@@ -377,6 +377,8 @@ type ClientBaseShape = {
   default_language: Blankable<string>;
   preferred_channel: Blankable<string>;
   relationship_manager_user_id: Blankable<string>;
+  /** "Also notify" logins (D7), written through account_manager.setAlsoNotify. */
+  also_notify_user_ids: z.ZodOptional<z.ZodArray<z.ZodString>>;
   payment_terms_days: BlankableNumeric;
   credit_limit: BlankableNumeric;
   credit_insured: z.ZodOptional<z.ZodBoolean>;
@@ -416,6 +418,43 @@ export declare namespace clientMaster {
   /** PUT /clients/:id/account-manager — a login, or null to clear (PR 3). */
   const accountManager: z.ZodObject<{ user_id: z.ZodNullable<z.ZodString> }>;
   const aiAccountManager: z.ZodObject<{ user_id: z.ZodNullable<z.ZodString>; client_id: z.ZodString }>;
+  /** PUT /clients/:id/also-notify — the whole "Also notify" list (D7). */
+  const alsoNotify: z.ZodObject<{ user_ids: z.ZodArray<z.ZodString> }>;
+  const aiAlsoNotify: z.ZodObject<{ user_ids: z.ZodArray<z.ZodString>; client_id: z.ZodString }>;
+}
+
+/**
+ * The client portal's staff-side forms (tenant review 29 Sep 2026, PR 1).
+ * See schemas/client-portal.js.
+ */
+export declare namespace clientPortal {
+  type DocumentRequestItem = { document_type_id: string } | { other: string };
+  const documentRequestItem: z.ZodType<DocumentRequestItem>;
+  const documentRequests: z.ZodType<
+    { items: DocumentRequestItem[]; note?: string; due_on?: string },
+    z.ZodTypeDef,
+    { items: DocumentRequestItem[]; note?: string | null; due_on?: string | null }
+  >;
+  type AcceptDocument = { issued_on?: string; expires_on?: string; issuing_authority?: string };
+  const acceptDocument: z.ZodType<AcceptDocument, z.ZodTypeDef, Record<string, string | null | undefined>>;
+  const reviewRequest: z.ZodType<
+    { decision: "ACCEPT" | "REJECT" | "CANCEL"; note?: string | null; document?: AcceptDocument | null },
+    z.ZodTypeDef,
+    unknown
+  >;
+  type AcceptFields = { asks: boolean; issued_on: boolean; expires_on: boolean; issuing_authority: boolean };
+  function acceptFieldsFor(
+    type?: { requires_expiry?: boolean | null; requires_issuing_authority?: boolean | null } | null,
+  ): AcceptFields;
+  function missingAcceptFields(
+    type: { requires_expiry?: boolean | null; requires_issuing_authority?: boolean | null } | null | undefined,
+    document: Partial<Record<"issued_on" | "expires_on" | "issuing_authority", string | null>> | null | undefined,
+  ): Array<"expires_on" | "issuing_authority">;
+  const messageEmail: z.ZodType<
+    { recipients: string[]; request_key: string },
+    z.ZodTypeDef,
+    { recipients: string[]; request_key: string }
+  >;
 }
 
 /** The shared identity/terms fields of a supplier payload; see ClientBaseShape. */
@@ -792,7 +831,7 @@ export declare namespace notificationInterrupt {
  * matrix draws its checkbox from it. See rules/notification-email-default.js.
  */
 export declare namespace notificationEmailDefault {
-  /** Categories whose EMAIL channel defaults ON. Today: tasks. */
+  /** Categories whose EMAIL channel defaults ON. Today: tasks and clients. */
   const EMAIL_DEFAULT_CATEGORIES: ReadonlySet<string>;
   /** The answer absent any preference row. */
   function emailDefaultFor(category?: string | null): boolean;

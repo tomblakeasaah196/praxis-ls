@@ -73,6 +73,10 @@ export type ClientInput = {
   credit_limit?: number;
   is_withholding_agent?: boolean;
   is_active?: boolean;
+  /** Who is told about the client (tenant review 29 Sep 2026, D7) — logins,
+   *  picked at creation; the service writes them through the audited door. */
+  relationship_manager_user_id?: string;
+  also_notify_user_ids?: string[];
   // PR 2 extended fields (all optional; the shared schema owns validation).
   legal_name?: string;
   trading_name?: string;

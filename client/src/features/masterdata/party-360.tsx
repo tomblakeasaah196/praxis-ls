@@ -42,9 +42,11 @@ import {
 } from "@/lib/vault-file";
 import * as api from "@/lib/masterdata-api";
 import { useUrlTab } from "@/lib/use-url-tab";
+import { useRefreshEvent } from "@/lib/open-in-app";
 import { ClientPortalTab } from "@/features/portal/client-portal-staff";
 import { ClientChatPanel } from "@/features/portal/client-chat-panel";
 import { AccountManagerCard } from "@/features/portal/account-manager";
+import { ClientSentFiles, RequestFromClientDialog } from "@/features/portal/client-kyc";
 import { useCanUseModule } from "@/lib/route-access";
 import { ComposeIconButton as MailIconButton } from "@/features/comms/inbox/composer/compose-icon-button";
 import {
@@ -1410,6 +1412,8 @@ export function PartyDossier({
     | "owner"
   >(null);
   const [blocking, setBlocking] = React.useState(false);
+  // "Request from client" on Documents (tenant review 29 Sep 2026, D2).
+  const [requesting, setRequesting] = React.useState(false);
   const [converting, setConverting] = React.useState(false);
   const [merging, setMerging] = React.useState<api.DedupeCandidate | null>(
     null,
@@ -1429,6 +1433,11 @@ export function PartyDossier({
     dossier.reload();
     onChanged?.();
   };
+  // A client's upload, payment claim or message arriving live re-reads this
+  // 360 at once — the documents and the "Required to activate" list included.
+  useRefreshEvent((d) => {
+    if (d.scope === "screen" || (d.scope === "client" && d.clientId === partyId)) dossier.reload();
+  });
   async function act(fn: () => Promise<unknown>, ok: string) {
     setBusy(true);
     setError(null);
@@ -1889,7 +1898,19 @@ export function PartyDossier({
         <Section
           title="KYC / compliance documents"
           onAdd={() => setAdding("document")}
+          extra={
+            // The portal asks the client; the client portal's grant (MOD-29)
+            // is what the endpoint checks, so only its holders see the button.
+            isClient && canClientPortal ? (
+              <Button size="sm" variant="outline" onClick={() => setRequesting(true)}>
+                {tr("Request from client")}
+              </Button>
+            ) : null
+          }
         >
+          {/* What the client sent through the portal and nobody has accepted
+              yet — accepted files are simply documents below (14260, D1). */}
+          {isClient && canClientPortal ? <ClientSentFiles clientId={partyId} onChanged={reload} /> : null}
           <p className="mb-2 micro text-muted-foreground">
             Add each compliance document and upload its file — a PDF or a clear
             photo. No file yet? Add the details now and attach it later from the
@@ -2464,6 +2485,15 @@ export function PartyDossier({
           }}
         />
       )}
+      {isClient && canClientPortal ? (
+        <RequestFromClientDialog
+          open={requesting}
+          clientId={partyId}
+          types={docTypes.data || []}
+          onClose={() => setRequesting(false)}
+          onSent={reload}
+        />
+      ) : null}
       {adding === "document" && (
         <AddDocumentModal
           kind={kind}
@@ -2650,11 +2680,14 @@ function Section({
   title,
   onAdd,
   onCopy,
+  extra,
   children,
 }: {
   title: string;
   onAdd: () => void;
   onCopy?: () => void;
+  /** Another action beside "+ Add" — "Request from client" on Documents. */
+  extra?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -2668,6 +2701,7 @@ function Section({
               Copy from origin
             </Button>
           )}
+          {extra}
           <Button size="sm" variant="outline" onClick={onAdd}>
             + Add
           </Button>

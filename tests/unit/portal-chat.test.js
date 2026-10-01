@@ -23,6 +23,7 @@ let mockVaultCalls = [];
 let mockHolders = [];
 let mockHolderAsks = [];
 let mockManager = [];
+let mockAlso = [];
 let mockStored = {};
 
 jest.mock("../../src/modules/portal/portal_chat.repo", () => {
@@ -53,6 +54,15 @@ jest.mock("../../src/modules/notification/notification.repo", () => ({
   recipientsWithPermission: async (c, moduleKey, action) => {
     mockHolderAsks.push([moduleKey, action]);
     return mockHolders;
+  },
+}));
+// The ONE "who is told" list (tenant review 29 Sep 2026, D7): the account
+// manager, the "Also notify" people and the CEO-role users — ACTIVE logins only.
+jest.mock("../../src/modules/master/client_master/account_manager.service", () => ({
+  audience: async (c, { clientId }) => {
+    const manager = clientId === "c1" ? mockManager : [];
+    const also = clientId === "c1" ? mockAlso : [];
+    return { manager, also, ceo: ["md-1"], inbox: [], all: [...new Set([...manager, ...also, "md-1"])] };
   },
 }));
 jest.mock("../../src/services/storage.service", () => ({
@@ -87,6 +97,7 @@ beforeEach(() => {
   mockHolders = ["support-1"];
   mockHolderAsks = [];
   mockManager = [];
+  mockAlso = [];
   mockStored = {};
   inserted = { messages: [], attachments: [], reads: [] };
   mockRepo = {
@@ -209,7 +220,11 @@ describe("telling the team", () => {
     await chat.send(client, { clientId: "c1", me: { ...ME, full_name: "Marie Nguema" }, scope: "ALL", thread: SHIP.dossier_id, body: "Hello" });
     expect(mockNotified.map((n) => n.userId).sort()).toEqual(["am-1", "md-1", "ops-1", "sales-1"]);
     // Which colleague at the client wrote — not only which company.
-    expect(mockNotified[0]).toMatchObject({ category: "comms", title: "Acme Trading · PRX-1", body: "Marie Nguema: Hello" });
+    // "Client activity" (D3): email ON by default, opt-out per person.
+    expect(mockNotified[0]).toMatchObject({ category: "clients", title: "Acme Trading · PRX-1", body: "Marie Nguema: Hello" });
+    // One EMAIL per person per conversation per 15 minutes; the bell and the
+    // push stay per message.
+    expect(mockNotified[0].emailOnceEvery).toEqual({ key: `client:c1:chat:${SHIP.dossier_id}`, seconds: 900 });
     // One claim per person per thread: five quick lines are one ping.
     expect(mockNotified[0].dedupeKey).toBe(`chat:c1:${SHIP.dossier_id}:${mockNotified[0].userId}`);
     // The link opens the conversation itself, in the Client inbox.
@@ -240,6 +255,14 @@ describe("telling the team", () => {
     await chat.send(client, { clientId: "c1", me: ME, scope: "ALL", thread: SHIP.dossier_id, body: "Anyone?" });
     expect(mockNotified.map((n) => n.userId).sort()).toEqual(["md-1", "support-1"]);
     expect(mockHolderAsks).toEqual([["MOD-64C", "edit"]]);
+  });
+
+  it("tells the client's \"Also notify\" people too (D7)", async () => {
+    mockManager = ["am-1"];
+    mockAlso = ["paul-1", "am-1"];
+    await chat.send(client, { clientId: "c1", me: ME, scope: "ALL", thread: "general", body: "Hello" });
+    expect(mockNotified.map((n) => n.userId).sort()).toEqual(["am-1", "md-1", "paul-1"]);
+    expect(mockHolderAsks).toEqual([]);
   });
 
   it("tells a person once, whichever of the roles they hold", async () => {

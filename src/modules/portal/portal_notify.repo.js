@@ -195,7 +195,8 @@ async function recentlyTold(client, { email, channel, topic, keyPrefix, minutes 
 
 /** The sender keeps its own tables small: a month of claims, a day of finished rows. */
 async function sweep(client) {
-  await client.query("DELETE FROM portal_notify_sent WHERE sent_at < now() - interval '30 days'");
+  // A deliberate "Send by email" (14261) is the record shown on its message: kept.
+  await client.query("DELETE FROM portal_notify_sent WHERE sent_at < now() - interval '30 days' AND message_id IS NULL");
   await client.query(
     `DELETE FROM portal_notify_outbox
       WHERE push_done_at IS NOT NULL AND email_done_at IS NOT NULL AND created_at < now() - interval '1 day'`,
@@ -232,13 +233,28 @@ async function unreadReplies(client, { clientId, thread, portalUserId, since, id
   return rows;
 }
 
+/** The ones among `ids` that were already sent to this person by hand ("Send by email"). */
+async function manuallySent(client, { email, ids }) {
+  if (!ids.length) return new Set();
+  const { rows } = await client.query(
+    `SELECT DISTINCT message_id FROM portal_notify_sent
+      WHERE subject_email = $1 AND channel = 'EMAIL' AND message_id = ANY($2::uuid[])`,
+    [email, ids],
+  );
+  return new Set(rows.map((r) => r.message_id));
+}
+
 async function requests(client, { clientId, ids }) {
   const { rows } = await client.query(
     `SELECT r.client_request_id, r.kind, r.title, r.status, r.due_on, r.review_note, r.dossier_id,
-            d.ref AS dossier_ref, dt.name_en AS doc_type_en, dt.name_fr AS doc_type_fr
+            d.ref AS dossier_ref,
+            COALESCE(dt.name_en, pt.name) AS doc_type_en, COALESCE(dt.name_fr, pt.name) AS doc_type_fr
        FROM client_request r
        LEFT JOIN dossier_visible d ON d.dossier_id = r.dossier_id
        LEFT JOIN dictionary_ref dt ON dt.kind = 'DOCUMENT_TYPE' AND dt.code::text = r.doc_type_code
+       -- A request keyed to a client document type with no dictionary twin
+       -- (14260) is named by the type itself.
+       LEFT JOIN party_document_type pt ON pt.document_type_id = r.party_document_type_id
       WHERE r.client_id = $1 AND r.client_request_id = ANY($2::uuid[])
         AND r.status IN ('OPEN','REJECTED')`,
     [clientId, ids],
@@ -297,7 +313,141 @@ async function stages(client, { clientId, ids }) {
   return rows;
 }
 
+/**
+ * The client's quote requests made in the portal, with the event each outbox
+ * row was about — an acknowledgement and a status move are different lines.
+ * PORTAL only: the outbox writer already refuses anything else, and this read
+ * says so again.
+ */
+async function quoteRequests(client, { clientId, ids }) {
+  const { rows } = await client.query(
+    `SELECT quote_request_id, public_ref, status, created_at
+       FROM quote_request
+      WHERE client_id = $1 AND quote_request_id = ANY($2::uuid[]) AND intake_channel = 'PORTAL'`,
+    [clientId, ids],
+  );
+  return rows;
+}
+
+/* ── what a client was sent (tenant review 29 Sep 2026, B4/B5) ─────────── */
+
+/**
+ * Everybody with an effective CLIENT grant here — whether or not they have
+ * signed in — with what their login and switches say. The automatic sender
+ * reaches only `audience()`; this wider list is what explains, per person, why
+ * an email went or did not ("never signed in", "switched off").
+ */
+async function reachList(client, { clientId }) {
+  const { rows } = await client.query(
+    `WITH here AS (
+       SELECT DISTINCT subject_email FROM portal_access
+        WHERE portal = 'CLIENT' AND client_id = $1 AND is_active
+     ), effective AS (
+       SELECT DISTINCT ON (a.subject_email) a.*
+         FROM portal_access a
+         JOIN here h ON h.subject_email = a.subject_email
+        WHERE a.portal = 'CLIENT' AND a.is_active
+        ORDER BY a.subject_email, a.created_at DESC
+     )
+     SELECT e.subject_email::text AS email, e.access_scope AS scope, e.created_at AS granted_at, e.expires_at,
+            u.portal_user_id, u.full_name, u.status, u.last_login_at,
+            s.language, s.email_off, s.push_off
+       FROM effective e
+       LEFT JOIN portal_user u ON u.email = e.subject_email
+       LEFT JOIN portal_notify_setting s ON s.client_id = e.client_id AND s.subject_email = e.subject_email
+      WHERE e.client_id = $1
+      ORDER BY u.full_name NULLS LAST, e.subject_email`,
+    [clientId],
+  );
+  return rows;
+}
+
+/** The outbox rows that carried these messages, and whether their email pass ran. */
+async function messageOutbox(client, { clientId, messageIds }) {
+  const { rows } = await client.query(
+    `SELECT outbox_id, item_ref, thread_key, created_at, email_done_at
+       FROM portal_notify_outbox
+      WHERE client_id = $1 AND topic = 'MESSAGES'
+        AND item_ref = ANY(SELECT 'client_message:' || x FROM unnest($2::text[]) AS x)`,
+    [clientId, messageIds],
+  );
+  return rows;
+}
+
+/**
+ * Every email about one conversation since a moment: the automatic ones
+ * (keyed `email:MESSAGES:<thread>:<last outbox id>`) and the deliberate ones
+ * (`message_id` set by "Send by email"), with who pressed it.
+ */
+async function threadEmails(client, { clientId, thread, since }) {
+  const { rows } = await client.query(
+    `SELECT s.sent_id, s.subject_email::text AS email, s.dedupe_key, s.sent_at, s.message_id, s.sent_by,
+            COALESCE(e.full_name, u.full_name) AS sent_by_name
+       FROM portal_notify_sent s
+       LEFT JOIN app_user u ON u.user_id = s.sent_by
+       LEFT JOIN employee e ON e.employee_id = u.employee_id
+      WHERE s.client_id = $1 AND s.channel = 'EMAIL' AND s.topic = 'MESSAGES'
+        AND s.sent_at >= $3::timestamptz
+        AND (s.message_id IS NOT NULL OR s.dedupe_key LIKE 'email:MESSAGES:' || $2 || ':%')`,
+    [clientId, thread, since],
+  );
+  return rows;
+}
+
+/** Each portal user's read cursor on one conversation. */
+async function threadCursors(client, { clientId, thread }) {
+  const { rows } = await client.query(
+    "SELECT portal_user_id, last_read_at FROM client_message_cursor WHERE client_id = $1 AND thread_key = $2",
+    [clientId, thread],
+  );
+  return rows;
+}
+
+/** One TEAM message, what it is about, and its attachments — what "Send by email" sends. */
+async function teamMessage(client, { messageId }) {
+  const { rows } = await client.query(
+    `SELECT m.message_id, m.client_id, m.dossier_id, m.direction, m.body, m.created_at, m.author_user_id,
+            COALESCE(cm.name, cm.legal_name) AS client_name, cm.preferred_language,
+            d.ref AS dossier_ref, d.pol, d.pod,
+            u.email AS author_email, COALESCE(e.full_name, u.full_name) AS author_name,
+            COALESCE((
+              SELECT json_agg(json_build_object(
+                       'attachment_id', a.attachment_id, 'kind', a.kind, 'file_name', a.file_name,
+                       'mime_type', a.mime_type, 'byte_size', a.byte_size,
+                       'storage_path', v.storage_path, 'original_name', v.original_name) ORDER BY a.position)
+                FROM client_message_attachment a
+                JOIN document_vault v ON v.doc_id = a.doc_id
+               WHERE a.message_id = m.message_id
+            ), '[]'::json) AS attachments
+       FROM client_message m
+       JOIN client_master cm ON cm.client_id = m.client_id
+       LEFT JOIN dossier_visible d ON d.dossier_id = m.dossier_id
+       LEFT JOIN app_user u ON u.user_id = m.author_user_id
+       LEFT JOIN employee e ON e.employee_id = u.employee_id
+      WHERE m.message_id = $1`,
+    [messageId],
+  );
+  return rows[0] || null;
+}
+
+/**
+ * The claim for a deliberate send — the same table and the same unique key as
+ * every automatic send, so a double click or a retried request with the same
+ * key finds the claim taken and sends nothing twice.
+ */
+async function claimManual(client, { clientId, email, messageId, requestKey, sentBy }) {
+  const { rows } = await client.query(
+    `INSERT INTO portal_notify_sent (client_id, subject_email, channel, topic, dedupe_key, message_id, sent_by)
+     VALUES ($1, $2, 'EMAIL', 'MESSAGES', $3, $4, $5)
+     ON CONFLICT (subject_email, channel, dedupe_key) DO NOTHING
+     RETURNING sent_id`,
+    [clientId, email, `manual:${messageId}:${requestKey}`, messageId, sentBy || null],
+  );
+  return rows[0] ? rows[0].sent_id : null;
+}
+
 module.exports = {
+  quoteRequests, manuallySent, reachList, messageOutbox, threadEmails, threadCursors, teamMessage, claimManual,
   setting, saveSetting, rememberLanguage,
   saveDevice, deleteDevice, countDevices,
   audience, clientProfile,

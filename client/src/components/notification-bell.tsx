@@ -7,6 +7,8 @@
  */
 import * as React from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { refreshScreen, samePlace } from "@/lib/open-in-app";
 import { notificationLink } from "@/lib/notification-link";
 import { Popover } from "@/components/ui/popover";
 import { tenant } from "@/lib/api-client";
@@ -86,6 +88,7 @@ function NotificationRow({
   onOpen: () => void;
   onMarkRead: () => void;
 }) {
+  const queryClient = useQueryClient();
   const target = notificationLink(n);
   const dot = (
     <span
@@ -132,7 +135,15 @@ function NotificationRow({
     return (
       <Link
         to={target.url}
-        onClick={onOpen}
+        onClick={(e) => {
+          onOpen();
+          // The page already open: a same-URL navigation re-reads nothing,
+          // so refresh it instead (tenant review 29 Sep 2026, item 1.6).
+          if (samePlace(target.url, window.location)) {
+            e.preventDefault();
+            refreshScreen(queryClient);
+          }
+        }}
         className={`${shell} transition-colors hover:bg-accent/50`}
       >
         {dot}

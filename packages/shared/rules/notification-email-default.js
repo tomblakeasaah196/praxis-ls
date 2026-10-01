@@ -30,7 +30,17 @@
  * Preferences writes the row, the row beats the default, and nothing routes
  * around that — the same precedence every other preference follows.
  */
-const EMAIL_DEFAULT_CATEGORIES = new Set(["tasks"]);
+/*
+ * `clients` is the second exception (tenant review of 29 Sep 2026, owner
+ * decisions D3 and D7), for the same reason as tasks: its audience is not
+ * "everybody" but the people named on a client — its account manager, the
+ * CEO-role users and whoever was picked to "Also notify" — a set that only
+ * grows by explicit acts. A client's message, document, payment claim or quote
+ * request that lands only in a bell is a client waiting, which is precisely
+ * what the meeting found: nobody had ticked Email, so nothing arrived.
+ * Opt-out per person, exactly like tasks.
+ */
+const EMAIL_DEFAULT_CATEGORIES = new Set(["tasks", "clients"]);
 
 /**
  * Does this category email by default, absent any preference from the user?
