@@ -121,6 +121,24 @@ const RAISED = [
     advertises: 10 * 1024 * 1024,
     why: "Every picture on the tenant's public website.",
   },
+  {
+    name: "quote-request-documents",
+    /* POST /api/tenant/public/intake/quote-requests — the website's quote
+       form, up to three documents (12 MB in all) in one anonymous JSON body.
+       POST /api/tenant/quote-requests/:id/attachments — the desk's upload,
+       one 10 MB document.
+
+       Found in meeting 6's review (PR 2): both advertised 8–10 MB and both
+       sat on the 2 MB global parser, so a scanned commercial invoice was a 413
+       before any of our code ran — the website's form then reported "could not
+       send" and the desk's upload bar stopped at 99 %. The DELETE that removes
+       one attachment (`…/attachments/:id`) carries no body and stays off this
+       list, as does `…/attachments/from-chat`, which names a file by id. */
+    path: /^\/api\/(v\d+\/)?tenant\/(public\/intake\/quote-requests|quote-requests\/[^/]+\/attachments)\/?$/,
+    limit: "17mb",
+    advertises: 12 * 1024 * 1024,
+    why: "A quote request's documents: the website's three (12 MB in all), the desk's one (10 MB).",
+  },
 ];
 
 module.exports = { RAISED, DEFAULT_LIMIT, encodedSize, parseLimit };

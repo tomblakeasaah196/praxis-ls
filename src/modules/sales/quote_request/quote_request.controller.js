@@ -8,7 +8,9 @@ const actor = (req) => req.user || { user_id: null };
 
 /** The export's columns, in the order an operator expects to read them. */
 const EXPORT_COLUMNS = [
-  "public_ref", "status", "intake_channel", "service_category", "service_type",
+  "public_ref", "status", "intake_channel", "service_category", "service_type", "hinterland_direction",
+  // The client the request is for (14310), by name — an id means nothing in Excel.
+  "client_name",
   // The route in the order the cargo travels it: door, port, port, door (14220).
   "incoterm", "collection_location", "origin_location", "destination_location",
   "delivery_location", "estimated_weight",
@@ -99,13 +101,37 @@ module.exports = {
    * orphan factory and a way to attach another module's document.
    */
   addAttachment: asyncHandler(async (req, res) => {
-    const { file, filename, kind } = req.body;
+    const { file, filename, kind, document_kind: documentKind } = req.body;
     const r = await req.tenantDb((c) => service.uploadAttachment(c, {
       id: req.params.id, dataUrl: file, filename: filename || null, kind: kind || "ADDITIONAL",
-      slug: req.tenant && req.tenant.slug, actor: actor(req),
+      documentKind: documentKind || null, slug: req.tenant && req.tenant.slug, actor: actor(req),
     }));
     res.status(201).json({ data: r });
   }),
+
+  /**
+   * "File on a quote request" from a client's chat (meeting 6, item 2.6): the
+   * file the client sent, linked to one of their requests — the same vault
+   * document, not a copy. The service checks the file is from THIS request's
+   * client's conversation.
+   */
+  fileFromChat: asyncHandler(async (req, res) => {
+    const r = await req.tenantDb((c) => service.fileFromChat(c, {
+      id: req.params.id, chatAttachmentId: req.body.chat_attachment_id,
+      documentKind: req.body.document_kind || null, actor: actor(req),
+    }));
+    res.status(r && r.already ? 200 : 201).json({ data: r });
+  }),
+
+  /** Which client a requester's address belongs to — the form's one-tap suggestion. */
+  clientMatch: asyncHandler(async (req, res) =>
+    res.json({ data: await req.tenantDb((c) => service.clientMatch(c, { email: req.validatedQuery.email })) }),
+  ),
+
+  /** The services a request can name, each with its card, flow and Incoterms. */
+  services: asyncHandler(async (req, res) =>
+    res.json({ data: await req.tenantDb((c) => service.quoteServices(c)) }),
+  ),
 
   removeAttachment: asyncHandler(async (req, res) =>
     res.json({ data: await req.tenantDb((c) => service.removeAttachment(c, { id: req.params.id, attachment_id: req.params.attachmentId, actor: actor(req) })) }),

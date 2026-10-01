@@ -35,7 +35,7 @@ const { AppError, asyncHandler } = require("../../../utils/errors");
 const storage = require("../../../services/storage.service");
 const { publishedMonth } = require("../../../shared/date/published-month");
 const repo = require("../service_type_web/service_type_web.repo");
-const { serviceMode } = require("../_shared/service-mode");
+const { serviceScope, incoterms } = require("@praxis/shared");
 const grouping = require("./service_type_web_public.service");
 
 const router = express.Router();
@@ -86,8 +86,10 @@ router.get("/", limit, asyncHandler(async (req, res) => {
       slug_en: row.slug_en,
       name_fr: row.name_fr,
       name_en: row.name_en,
-      /* The transport mode, derived from `service_type.key` by the same
-         function the tracking page uses (`_shared/service-mode.js`).
+      /* The transport mode, in the glyph vocabulary the tracking page uses
+         (storage is WAREHOUSE). Since 14300 it is the service's own
+         `transport_mode` column, falling back to the key's reading — the same
+         ladder `_shared/service-mode.js` applies.
  
          It ships on the card because the quote wizard's first question — "how
          is it moving?" — was a hardcoded list of four options in the browser,
@@ -100,7 +102,19 @@ router.get("/", limit, asyncHandler(async (req, res) => {
          (`SEA_FREIGHT_IMPORT`) that appears on operations paperwork, and a
          public page has no use for it beyond the one fact this field already
          carries. */
-      mode: serviceMode(row.service_key),
+      mode: serviceScope.glyphOf(serviceScope.modeOf({ transport_mode: row.transport_mode, key: row.service_key })),
+      /* The quote wizard's two taps (meeting 6, PR 2): the CARD this service
+         sits on — its own `transport_mode` (14300), which the tenant can
+         correct in Service types, falling back to the key's reading — and the
+         FLOW inside the card, from its territory (null: shown by name). `mode`
+         above is the same fact in the glyph vocabulary the rest of the site
+         draws with, so a corrected card moves the icon too. */
+      card: serviceScope.modeOf({ transport_mode: row.transport_mode, key: row.service_key }),
+      flow: serviceScope.flowOf(row.territory),
+      /* The Incoterms this service is quoted on (owner decision Q3), with
+         their names — the website does not import @praxis/shared, so the
+         list arrives ready to draw. "Not sure" is the wizard's own answer. */
+      incoterms: incoterms.describe(row.incoterms || []),
       /* What the quote form must ask for this service (migration 12774).
  
          Separate from `mode` on purpose, and the distinction is the whole point:

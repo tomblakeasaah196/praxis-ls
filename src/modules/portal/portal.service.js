@@ -16,6 +16,8 @@ const report = require("../vault/report/report.service");
 const vault = require("../vault/document_vault/document_vault.service");
 const pdf = require("../../services/pdf.service");
 const quoteRequest = require("../sales/quote_request/quote_request.service");
+const quoteRequestRepo = require("../sales/quote_request/quote_request.repo");
+const { serviceScope, incoterms } = require("@praxis/shared");
 const portalPlaces = require("./portal_places.service");
 const geoPlaceRepo = require("../operations/geo_place/geo_place.repo");
 const receivables = require("../finance/smart_receivables/smart_receivables.service");
@@ -284,26 +286,56 @@ async function clientQuoteRequests(client, { clientId }) {
       out[`${e}_place`] = byId.get(r[`${e}_place_id`]) || null;
       delete out[`${e}_place_id`];
     }
+    // The service the request named, the way the wizard draws it — the list
+    // shows its icon and name from this, never by parsing words (meeting 6,
+    // item 2.1: it used to regex "Sea freight · Import" back into a mode).
+    out.service = r.service_type_id
+      ? {
+        service_type_id: r.service_type_id,
+        name_en: r.service_name_en || r.service_name_fr,
+        name_fr: r.service_name_fr || r.service_name_en,
+        card: serviceScope.modeOf({ transport_mode: r.service_mode, key: r.service_key }),
+        flow: serviceScope.flowOf(r.service_territory),
+      }
+      : null;
+    for (const k of ["service_name_en", "service_name_fr", "service_mode", "service_key", "service_territory"]) delete out[k];
     return out;
   });
 }
 
-/** A signed-in client books a quote for themselves. The request is filed
- *  against their client record with intake_channel PORTAL, so sales sees it in
- *  the same intake queue as website and manual requests.
+/**
+ * A signed-in client asks for a price (meeting 6, PR 2). The request is filed
+ * against their client record with intake_channel PORTAL, in the same intake
+ * queue as the website's and the desk's, and it now says:
  *
- *  Up to four places come with it — the two ends of the main leg and, for a
- *  door-to-door move, where we collect and where we deliver (14220). Each one
- *  the client PICKED is resolved to a verified place here, before
- *  quoteRequest.create opens its transaction (a worldwide pick is a provider
- *  call); each one they TYPED travels as text for the desk to pin. */
-async function createClientQuote(client, { clientId, data, actor }) {
+ *   · WHICH service — the service type the wizard's card and flow led to,
+ *     resolved to an ACTIVE one (the portal offers every active service, not
+ *     only the published ones: an existing client may need one the tenant does
+ *     not market);
+ *   · WHO asked — the signed-in person, by name and address, with the client's
+ *     name as the company (it used to copy the COMPANY's record into both, and
+ *     the desk's list read "—");
+ *   · WITH WHAT — at least one document the client uploaded first (staged),
+ *     linked in the creating transaction once each is checked to be theirs.
+ *
+ * The client's account manager becomes the owner (quoteRequest.create's
+ * client link). Up to four places come with a route service — each one PICKED
+ * is resolved to a verified place before the transaction opens (a worldwide
+ * pick is a provider call); each one TYPED travels as text.
+ */
+async function createClientQuote(client, { clientId, data, user = {} }) {
   if (!clientId) throw new AppError("CLIENT_REQUIRED", "client_id required", 422);
-  const { rows } = await client.query(
-    "SELECT name, email FROM client_master WHERE client_id = $1", [clientId],
-  );
-  const cm = rows[0];
-  const places = await portalPlaces.resolveQuotePlaces(client, { clientId, data });
+  const st = await quoteRequest.resolveService(client, data.service_type_id);
+  const shape = st.enquiry_shape || "ROUTE";
+  const missing = {};
+  if (shape === "ROUTE") {
+    if (!String(data.origin_location || "").trim() && !data.origin_place) missing.origin_location = ["where it starts"];
+    if (!String(data.destination_location || "").trim() && !data.destination_place) missing.destination_location = ["where it goes"];
+  }
+  if (shape === "STORAGE" && !String(data.warehouse_location || "").trim()) missing.warehouse_location = ["where it is stored"];
+  if (Object.keys(missing).length) throw new AppError("VALIDATION_ERROR", "Say where the goods go", 422, missing);
+
+  const places = shape === "ROUTE" ? await portalPlaces.resolveQuotePlaces(client, { clientId, data }) : {};
   const row = await quoteRequest.create(client, {
     data: {
       ...data,
@@ -314,19 +346,29 @@ async function createClientQuote(client, { clientId, data, actor }) {
       destination_place: undefined,
       collection_place: undefined,
       delivery_place: undefined,
-      // `quote_request.incoterm` is NOT NULL (0683) and the portal lets a
-      // client say "not sure" — which is an answer for sales to follow up,
-      // not a reason to fail the insert.
-      incoterm: data.incoterm || "TBD",
+      documents: undefined,
+      // `quote_request.incoterm` is NOT NULL (0683). "Not sure" is an answer
+      // for sales to follow up (TBD); a service with no route has none (N/A).
+      incoterm: shape === "ROUTE" ? data.incoterm || incoterms.NOT_SURE : incoterms.NOT_APPLICABLE,
       client_id: clientId,
       intake_channel: "PORTAL",
-      requester_name: data.requester_name || cm?.name || null,
-      requester_email: data.requester_email || cm?.email || null,
+      requester_name: user.full_name || user.email || null,
+      requester_email: user.email || null,
     },
-    actor,
+    actor: {},
+    options: {
+      requireDirection: true,
+      documents: { docs: data.documents, fromRef: quoteRequestRepo.STAGED_REF, clientId },
+    },
   });
   return row;
 }
+
+/** The services the portal's quote wizard offers: every ACTIVE one, with its card, flow and Incoterms. */
+const clientQuoteServices = (client) => quoteRequest.quoteServices(client, { publishedOnly: false });
+
+/** One request as its client reads it — scope, documents, timeline, the proposal that answered it. */
+const clientQuoteRequest = (client, { clientId, id }) => quoteRequest.clientView(client, { clientId, id });
 
 // ── Portal data views (scoped, delegated) ──
 async function clientView(client, { clientId }) {
@@ -541,5 +583,5 @@ module.exports = {
   clientDocuments, clientDocumentDownload,
   clientOnboarding, toggleOnboardingStep,
   clientMessages, sendClientMessage, staffSendMessage, staffMessages, exportClientChat,
-  clientQuoteRequests, createClientQuote,
+  clientQuoteRequests, createClientQuote, clientQuoteServices, clientQuoteRequest,
 };

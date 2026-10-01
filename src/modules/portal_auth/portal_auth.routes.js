@@ -185,6 +185,18 @@ router.post("/client/chat/read", portalAuth("CLIENT"), v.chatRead, pc.chatRead);
 router.get("/client/chat/attachments/:attachmentId", portalAuth("CLIENT"), pc.chatAttachment);
 router.get("/client/quote-requests", portalAuth("CLIENT"), controller.clientQuoteRequests);
 router.post("/client/quote-requests", portalAuth("CLIENT"), v.portalQuote, controller.createClientQuote);
+// What the quote wizard offers (meeting 6, PR 2): every ACTIVE service type,
+// each with its card, flow and Incoterms — an existing client may need a
+// service the tenant does not market, so this is not the website's list.
+router.get("/client/quote-services", portalAuth("CLIENT"), controller.clientQuoteServices);
+// A document uploaded BEFORE the request is sent (owner decision Q4: at least
+// one is required). MULTIPART — `singleFile` before the validator. Declared
+// before the `:id` routes so "documents" is never read as an id.
+router.post("/client/quote-requests/documents", portalAuth("CLIENT"), singleFile("file"), v.quoteDocument, controller.stageQuoteDocument);
+// One request as its client reads it, and "Add a document" on it at any time.
+router.get("/client/quote-requests/:id", portalAuth("CLIENT"), controller.clientQuoteRequest);
+router.post("/client/quote-requests/:id/documents", portalAuth("CLIENT"), singleFile("file"), v.quoteDocument, controller.addQuoteDocument);
+router.get("/client/quote-requests/:id/documents/:attachmentId", portalAuth("CLIENT"), controller.quoteDocumentDownload);
 // "Describe it in your own words" — reads a description into the quote
 // wizard's fields. Limited per caller: it may spend the tenant's AI budget.
 router.post("/client/quote-requests/fill", portalAuth("CLIENT"), fillLimiter, v.quoteFill, pc.quoteFill);
