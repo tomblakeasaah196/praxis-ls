@@ -13,9 +13,30 @@
 
 ## Progress tracking — update after every work item
 
-**Current overall status:** Gate 0 product/API decisions recorded (below); implementation complete on branch `arena/01a0b8b7-praxis-ls` as four ordered commits (C-PR-01 → C-PR-02 → C-PR-03 → C-PR-04). All 12 audit items addressed; the remaining gate is **runtime acceptance** (tenant DB, live provider, scheduler, browser, permissions, concurrency), which requires a provisioned environment — the DB-gated integration test is ready to run there.
+**Current overall status:** Gate 0 product/API decisions recorded (below); implementation complete on branch `arena/01a0b8b7-praxis-ls` as four ordered commits (C-PR-01 → C-PR-02 → C-PR-03 → C-PR-04). All 12 audit items addressed; the remaining gate is **runtime acceptance** (tenant DB, live provider, scheduler, browser, permissions, concurrency), which requires a provisioned environment — the DB-gated integration test is ready to run there. **Meeting 6 (2026-10-01, PR 3 of `doc/tenant-review-2026-09-29/`):** XAF/XOF ↔ EUR is a fixed parity (655.957, BEAC/BCEAO) answered from `@praxis/shared` `currencies.fixedParity` by every reader, never synced and never typed; a manual override now stands until released ("Follow the feed again", migration 14340); open DRAFT documents re-priced at the parity by 14341 (counts per tenant in `fx_parity_repair`).
 
-**Last updated:** 2026-09-19
+**Last updated:** 2026-10-01
+
+```text
+Progress update — 2026-10-01
+Workstream / PR: Meeting 6, PR 3 section A — fixed EUR parity + standing overrides
+Status: In review
+Owner: Claude Code session (meeting 6, PR 3)
+Files changed: packages/shared/data/currencies.js (PEGS, fixedParity),
+  src/modules/master/currency/{rules,service,repo,sync,dossier,routes,validator,ai}.js,
+  costing / cash_request / regie services (parity guard), costing fx-rate,
+  migrations/tenant/14340_fx_override_release.sql, 14341_fx_parity_repair_drafts.sql,
+  client currencies.tsx + costing-sheet-360.tsx.
+Completed: parity resolved in both directions everywhere (rateFor, rateMap,
+  convertAmount, costing pre-fill); sync skips and reports pegged pairs; Set-rate
+  form + API refuse them; costing rate read-only; "Fixed parity (BEAC)" badge;
+  manual override stands until released; DRAFT documents re-priced.
+Tests and acceptance evidence: tests/unit/currency-override-stands.test.js (18),
+  tests/integration/currency-override.test.js, tests/integration/fx-parity-repair.test.js,
+  client currencies.quoted + costing-sheet-360 tests.
+Blockers / decisions needed: none.
+Next action: deploy; read `SELECT doc_type, count(*) FROM fx_parity_repair GROUP BY 1` per tenant.
+```
 
 ```text
 Progress update — 2026-09-19

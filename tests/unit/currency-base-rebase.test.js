@@ -16,9 +16,11 @@ const { rebaseRates, round8 } = require("../../src/modules/master/currency/curre
 const service = require("../../src/modules/master/currency/currency.service");
 
 describe("rebaseRates (pure cross-rate math)", () => {
+  // GBP, not EUR, as the floating cross: XAF ↔ EUR is a fixed parity since
+  // meeting 6 and is asserted separately below.
   const rows = [
     { quote_code: "USD", rate: 0.00163 },
-    { quote_code: "EUR", rate: 0.00152 },
+    { quote_code: "GBP", rate: 0.00131 },
     { quote_code: "NGN", rate: 2.5 },
   ];
 
@@ -31,9 +33,9 @@ describe("rebaseRates (pure cross-rate math)", () => {
 
   it("cancels the old base out of every cross rate", () => {
     const { pairs } = rebaseRates(rows, "XAF", "USD");
-    const eur = pairs.find((p) => p.quote === "EUR");
+    const gbp = pairs.find((p) => p.quote === "GBP");
     const ngn = pairs.find((p) => p.quote === "NGN");
-    expect(eur.rate).toBe(round8(0.00152 / 0.00163)); // USD→EUR
+    expect(gbp.rate).toBe(round8(0.00131 / 0.00163)); // USD→GBP
     expect(ngn.rate).toBe(round8(2.5 / 0.00163)); // USD→NGN
   });
 
@@ -44,7 +46,7 @@ describe("rebaseRates (pure cross-rate math)", () => {
 
   it("flags missing when there is no old→new rate to anchor on", () => {
     const { pairs, missing } = rebaseRates(
-      [{ quote_code: "EUR", rate: 0.00152 }],
+      [{ quote_code: "GBP", rate: 0.00131 }],
       "XAF",
       "USD",
     );
@@ -58,12 +60,32 @@ describe("rebaseRates (pure cross-rate math)", () => {
 
   it("round-trips: rebasing to USD then back to XAF restores XAF→quote", () => {
     const fwd = rebaseRates(rows, "XAF", "USD");
-    // Build the USD table the way it would be stored (USD→XAF, USD→EUR, USD→NGN).
+    // Build the USD table the way it would be stored (USD→XAF, USD→GBP, USD→NGN).
     const usdRows = fwd.pairs.map((p) => ({ quote_code: p.quote, rate: p.rate }));
     const back = rebaseRates(usdRows, "USD", "XAF");
-    const eur = back.pairs.find((p) => p.quote === "EUR");
-    // Within rounding, XAF→EUR is recovered.
-    expect(Math.abs(eur.rate - 0.00152)).toBeLessThan(1e-6);
+    const gbp = back.pairs.find((p) => p.quote === "GBP");
+    // Within rounding, XAF→GBP is recovered.
+    expect(Math.abs(gbp.rate - 0.00131)).toBeLessThan(1e-6);
+  });
+
+  describe("a fixed parity (meeting 6, F1)", () => {
+    it("computes crosses from the peg, not from the stored feed figure", () => {
+      // The feed's rounded 0.001524 is stored for EUR; the rebase must ignore it.
+      const { pairs } = rebaseRates([{ quote_code: "EUR", rate: 0.001524 }, { quote_code: "USD", rate: 0.00163 }], "XAF", "EUR");
+      const usd = pairs.find((p) => p.quote === "USD");
+      expect(usd.rate).toBe(round8(0.00163 * 655.957)); // EUR→USD through the parity
+    });
+
+    it("never writes a fixed pair: EUR→XAF is answered by the resolver", () => {
+      const { pairs } = rebaseRates([{ quote_code: "EUR", rate: 0.001524 }], "XAF", "EUR");
+      expect(pairs.some((p) => p.quote === "XAF")).toBe(false);
+    });
+
+    it("rebases onto USD with XAF→EUR at exactly 1 / 655.957", () => {
+      const { pairs } = rebaseRates([{ quote_code: "EUR", rate: 0.001524 }, { quote_code: "USD", rate: 0.00163 }], "XAF", "USD");
+      const eur = pairs.find((p) => p.quote === "EUR");
+      expect(eur.rate).toBe(round8(1 / 655.957 / 0.00163));
+    });
   });
 });
 
