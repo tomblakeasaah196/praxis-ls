@@ -296,7 +296,8 @@
         "get_client_onboarding",
         "toggle_client_onboarding_step",
         "get_client_portal_settings",
-        "set_client_invite_defaults"
+        "set_client_invite_defaults",
+        "portal_quote_services"
       ]
     },
     {
@@ -1279,7 +1280,8 @@
       "actions": [
         "list_service_types",
         "get_service_type",
-        "get_service_type_360"
+        "get_service_type_360",
+        "list_service_quote_cards"
       ]
     },
     {
@@ -1395,7 +1397,11 @@
         "get_quote_request",
         "create_quote_request",
         "transition_quote_request",
-        "convert_quote_request"
+        "convert_quote_request",
+        "list_quote_request_services",
+        "suggest_quote_request_client",
+        "link_quote_request_client",
+        "file_chat_document_on_quote_request"
       ]
     },
     {

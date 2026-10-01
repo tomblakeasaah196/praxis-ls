@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (684)
+## All codes (693)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -168,6 +168,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `CERTIFIED_NOT_AVAILABLE` | — | 2× | — |
 | `CLASH_DETECTED` | 409 | 2× | — |
 | `CLASS_MISMATCH` | 422 | 1× | — |
+| `CLIENT_NOT_FOUND` | 422 | 1× | — |
 | `CLIENT_REQUIRED` | 422 | 17× | — |
 | `CLOSE_BLOCKED` | 422 | 1× | — |
 | `COA_IS_MANAGED` | 422 | 1× | — |
@@ -199,6 +200,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `DIAGNOSTICS_RUN_CLOSED` | 409 | 1× | — |
 | `DIRECTION_MISMATCH` | 422 | 1× | — |
 | `DOCUMENT_AMENDED` | 409 | 3× | — |
+| `DOCUMENT_NOT_YOURS` | 422 | 1× | — |
 | `DOCUMENT_UNREADABLE` | — | 1× | — |
 | `DOC_NOT_VERIFIED` | 422 | 1× | — |
 | `DOC_TYPE_NOT_SIGNABLE` | 422 | 1× | — |
@@ -245,7 +247,8 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `EXISTS` | 409 | 3× | — |
 | `FEATURE_DISABLED` | 403 | 4× | — |
 | `FIELD_NOT_WRITABLE` | — | 2× | — |
-| `FILE_REQUIRED` | 422 | 2× | — |
+| `FILES_TOO_LARGE` | 413 | 1× | — |
+| `FILE_REQUIRED` | 422 | 4× | — |
 | `FILE_TOO_LARGE` | 413 | 5× | — |
 | `FORBIDDEN` | 403 | 7× | `PERMISSION_DENIED` |
 | `FULLY_DISBURSED` | 422 | 1× | — |
@@ -260,6 +263,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `HARD_BLOCKED` | 409 | 1× | — |
 | `HAS_ACTIVITY` | 409 | 1× | — |
 | `HAS_SUBSIDIARIES` | 409 | 1× | — |
+| `HINTERLAND_DIRECTION_REQUIRED` | 422 | 1× | — |
 | `HOST_TAKEN` | 409 | 1× | — |
 | `IDEMPOTENCY_IN_PROGRESS` | 409 | 1× | — |
 | `IDEMPOTENCY_KEY_INVALID` | 400 | 1× | — |
@@ -270,6 +274,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `INCOMPLETE` | — | 2× | — |
 | `INCOMPLETE_APPLICATION` | 422 | 1× | — |
 | `INCOMPLETE_PROFILE` | — | 1× | — |
+| `INCOTERM_NOT_OFFERED` | 422 | 1× | — |
 | `INELIGIBLE_DOSSIER` | — | 1× | — |
 | `INSUFFICIENT_LEAVE` | — | 1× | — |
 | `INVALID_2FA_CODE` | 401 | 3× | — |
@@ -320,7 +325,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `LINE_HAS_CLAIMS` | — | 1× | — |
 | `LINE_REQUIRED` | 422 | 1× | — |
 | `LOCATION_REQUIRED` | — | 1× | — |
-| `LOCKED` | 422 | 36× | — |
+| `LOCKED` | 422 | 38× | — |
 | `LOCKED_NOT_DEFAULT` | — | 1× | — |
 | `LOGIN_THROTTLED` | 429 | 1× | — |
 | `LOW_MARGIN_JUSTIFICATION_REQUIRED` | 422 | 1× | — |
@@ -356,6 +361,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_AN_ANNOUNCEMENT` | 422 | 1× | — |
 | `NOT_APPROVABLE` | 400 | 1× | — |
 | `NOT_A_DIRECT_CHANNEL` | 422 | 1× | — |
+| `NOT_A_DOCUMENT` | 422 | 1× | — |
 | `NOT_A_DRAFT` | 422 | 1× | — |
 | `NOT_A_MEMBER` | 403 | 6× | `PERMISSION_DENIED` |
 | `NOT_A_VOICE_NOTE` | 422 | 1× | — |
@@ -371,8 +377,9 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 3× | — |
-| `NOT_FOUND` | 404, 422 | 746× | — |
+| `NOT_FOUND` | 404, 422 | 752× | — |
 | `NOT_LEAF` | 422 | 1× | — |
+| `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
 | `NOT_OPEN` | 409, 422 | 3× | — |
 | `NOT_OPERATIONAL` | 422 | 1× | — |
@@ -607,6 +614,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SELF_SETTLE` | 422 | 1× | — |
 | `SENDER_NOT_AUTHORIZED` | 422 | 2× | — |
 | `SEND_RATE_LIMIT` | — | 2× | — |
+| `SERVICE_TYPE_INVALID` | 422 | 1× | — |
 | `SESSION_EXPIRED` | 401 | 3× | — |
 | `SESSION_REVOKED` | 401 | 8× | — |
 | `SETUP_REQUIRED` | 400 | 1× | — |
@@ -654,6 +662,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `TOKEN_EXPIRED` | 401 | 1× | — |
 | `TOO_FEW_STAGES` | 422 | 1× | — |
 | `TOO_MANY` | 422 | 1× | — |
+| `TOO_MANY_FILES` | 422 | 1× | — |
 | `TOO_MANY_OVERRIDES` | 422 | 1× | — |
 | `TOO_MANY_STAGES` | 422 | 2× | — |
 | `TOO_MANY_TILES` | 422 | 1× | — |
@@ -694,7 +703,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `USE_APPROVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 422 | 286× | — |
+| `VALIDATION_ERROR` | 422 | 288× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |

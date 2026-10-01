@@ -29,6 +29,10 @@ const currencies = require("./data/currencies");
 const timezones = require("./data/timezones");
 const legalForms = require("./data/legal-forms");
 const taxRegimes = require("./data/tax-regimes");
+const incoterms = require("./data/incoterms");
+const serviceScope = require("./rules/service-scope");
+const emailDomain = require("./rules/email-domain");
+const quoteRequest = require("./schemas/quote-request");
 
 // Named `exports.x =` assignments, NOT `module.exports = { x }`.
 //
@@ -149,3 +153,19 @@ exports.pwaDesign = pwaDesign;
 // form draws it, the API validates it, and both print the contract's line
 // through summarise() — so `employee.working_hours` cannot drift from the grid.
 exports.workSchedule = workSchedule;
+// Incoterms 2020 (tenant review, meeting 6, PR 2): the eleven terms, their
+// names, and which four are sea-only. It was written out four times and the
+// copies disagreed; the API, the staff form and every service type's own list
+// read this one. The website and the portal get it through the API.
+exports.incoterms = incoterms;
+// Where a service type sits in a quote request: its card (transport_mode) and
+// its flow (from territory), plus the key ladder that defaults the card. The
+// service-type form suggests a card from it and the API stores and serves it.
+exports.serviceScope = serviceScope;
+// Which part of an email says who the sender works for — and the public
+// webmail domains where it says nothing. The API matches a requester to a
+// client with it; the quote-request form explains why it did not suggest one.
+exports.emailDomain = emailDomain;
+// Quote request payloads for all three doors — the desk, the portal and the
+// public website — so "a valid request" is one definition (meeting 6, PR 2).
+exports.quoteRequest = quoteRequest;

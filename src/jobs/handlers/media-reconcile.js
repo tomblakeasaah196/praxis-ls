@@ -6,7 +6,9 @@
  * detail: completes document-scan links whose PATCH never landed, sweeps
  * SITE_MEDIA objects orphaned by a failed owner-pointer commit (archiving the
  * vault row and deleting the parked bytes after the TTL), and closes the
- * outbox bookkeeping those repairs resolve.
+ * outbox bookkeeping those repairs resolve. Then it sweeps the quote-request
+ * documents a portal client staged and never sent
+ * (quote_request.service.sweepStagedDocuments).
  *
  * `attempts: 1` on the enqueue side, for the same reason as the SLA sweep:
  * the pass is idempotent — every action it takes stops matching on the re-run
@@ -23,6 +25,7 @@
 
 const registry = require("../../services/tenant/registry.service");
 const outbox = require("../../modules/vault/document_vault/attachment_outbox.service");
+const quoteRequest = require("../../modules/sales/quote_request/quote_request.service");
 
 module.exports = async function mediaReconcile(job) {
   const { tenantMeta, env = "live", ttlMs } = job.data || {};
@@ -30,5 +33,12 @@ module.exports = async function mediaReconcile(job) {
   const result = await registry.withTenantConnection(tenantMeta, env, (c) =>
     outbox.reconcile(c, ttlMs ? { ttlMs } : {}),
   );
-  return { tenant: tenantMeta.slug, env, ...result };
+  // Documents a portal client uploaded for a quote request they never sent
+  // (meeting 6, PR 2): staged under `quote_request:staged`, archived and their
+  // bytes deleted a day later. Its own pass, after the outbox's, so a failure
+  // in one never costs the other its sweep.
+  const staged = await registry.withTenantConnection(tenantMeta, env, (c) =>
+    quoteRequest.sweepStagedDocuments(c, ttlMs ? { ttlMs } : {}),
+  );
+  return { tenant: tenantMeta.slug, env, ...result, ...staged };
 };
