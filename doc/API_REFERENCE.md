@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1834 |
+| Routes | 1836 |
 | Modules mounted | 141 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1834 mounted routes, grouped by path prefix.
+All 1836 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -146,8 +146,10 @@ All 1834 mounted routes, grouped by path prefix.
 | POST | `/api/platform/ops/maintenance` | — |
 | DELETE | `/api/platform/ops/maintenance/:id` | — |
 | GET | `/api/platform/ops/objects` | — |
+| POST | `/api/platform/ops/objects/:slug/restore` | — |
 | POST | `/api/platform/ops/objects/:slug/scan` | — |
 | POST | `/api/platform/ops/objects/:slug/sync` | — |
+| POST | `/api/platform/ops/restore/:slug` | — |
 | GET | `/api/platform/ops/support/:ticketId/context` | — |
 | GET | `/api/platform/ops/telemetry/:slug` | — |
 | GET | `/api/platform/ops/uptime` | — |
