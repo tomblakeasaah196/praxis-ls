@@ -8,7 +8,8 @@ const { emitEvent, audit } = require("../../../shared/events/emit");
 const currencyRepo = require("../currency/currency.repo");
 const { page } = require("../../../shared/db/query-helpers");
 const crypto = require("crypto");
-const { dictionarySibling } = require("@praxis/shared");
+const { dictionarySibling, dictionaryPosting } = require("@praxis/shared");
+const postingEngine = require("../../../services/ai/dictionary-posting/engine.service");
 const { AppError } = require("../../../utils/errors");
 
 // The only columns a caller may write on dictionary_item. `code`, ids and the
@@ -101,6 +102,183 @@ async function siblingsFor(c, ids = []) {
     };
   }
   return out;
+}
+
+/* ── The AI-suggested OHADA posting (meeting 6, F3 / F7 / F8) ─────────────── */
+
+/**
+ * Suggest the SYSCOHADA posting of a line from its label, category and
+ * (when chosen) direction. Cache first, then a grounded call, else the
+ * labelled local suggestion — see services/ai/dictionary-posting. Saves
+ * nothing: the wizard pre-fills from it and a person saves.
+ */
+const suggestPosting = (c, data, actor = {}) =>
+  postingEngine.suggest(c, data, { userId: actor.user_id || null });
+
+/**
+ * Audit where an AI-suggested posting came from and what the person did with
+ * it (F3): accepted as suggested, or changed — and who. Provenance that does
+ * not match the shared contract is dropped with a warning rather than failing
+ * the save: it is the audit trail of a suggestion, not part of the line.
+ */
+async function auditSuggestion(c, { item, provenance, savedRules, actor }) {
+  if (!provenance) return;
+  const p = dictionaryPosting.provenance.safeParse(provenance);
+  if (!p.success) return;
+  const key = (r) => `${r.applies_context}|${r.debit_account || ""}|${r.credit_account || ""}`;
+  const suggested = new Set(p.data.suggested_rules.map(key));
+  const saved = new Set((savedRules || []).map(key));
+  const accepted = suggested.size === saved.size && [...suggested].every((k) => saved.has(k)) && p.data.direction === item.direction;
+  await audit(c, {
+    actorUserId: actor.user_id || null,
+    action: events.POSTING_SUGGESTED,
+    moduleKey: events.MODULE,
+    entityRef: `dict:${item.code}`,
+    after: {
+      source: p.data.source,
+      model: p.data.model || null,
+      cache_entry_id: p.data.cache_entry_id || null,
+      confidence: p.data.confidence,
+      checked: p.data.checked === true,
+      outcome: accepted ? "accepted" : "changed",
+      suggested: { direction: p.data.direction, rules: p.data.suggested_rules },
+      saved: { direction: item.direction, rules: savedRules },
+    },
+  });
+}
+
+/* ── One review of the existing lines' postings (F8) ──────────────────────── */
+
+/** Fresh grounded calls one review run may make; the rest use the cache or say so. */
+const REVIEW_CALL_CAP = 250;
+
+/** The last review run, with the lines whose posting differs from the suggestion. */
+async function latestReview(c) {
+  const { rows: [review] } = await c.query(
+    "SELECT * FROM dictionary_posting_review ORDER BY started_at DESC LIMIT 1",
+  );
+  if (!review) return { review: null, lines: [] };
+  const { rows: lines } = await c.query(
+    `SELECT l.dictionary_item_id, l.outcome, l.reasons, l.suggestion, l.source, l.model, l.confidence, l.examined_at,
+            di.code::text AS code, di.label_en, di.label_fr, di.direction, di.category
+       FROM dictionary_posting_review_line l
+       JOIN dictionary_item di ON di.dictionary_item_id = l.dictionary_item_id
+      WHERE l.review_id = $1 AND l.outcome <> 'match'
+      ORDER BY (l.outcome = 'mismatch') DESC, di.code`,
+    [review.review_id],
+  );
+  return { review, lines };
+}
+
+/**
+ * Start the review (or return the one already running). It runs in the worker
+ * — `dictionary-posting-review` — and changes NOTHING: it lists the lines whose
+ * posting differs from the suggestion, for a person to apply through the
+ * ordinary edit.
+ */
+async function startReview(c, { actor = {}, enqueue }) {
+  const { rows: [open] } = await c.query(
+    `SELECT * FROM dictionary_posting_review
+      WHERE status IN ('queued', 'running') AND started_at > now() - interval '6 hours'
+      ORDER BY started_at DESC LIMIT 1`,
+  );
+  if (open) return { review: open, already_running: true };
+  const { rows: [review] } = await c.query(
+    `INSERT INTO dictionary_posting_review (started_by, total)
+     VALUES ($1, (SELECT count(*) FROM dictionary_item WHERE is_active = true))
+     RETURNING *`,
+    [actor.user_id || null],
+  );
+  await audit(c, { actorUserId: actor.user_id || null, action: events.POSTING_REVIEW_STARTED, moduleKey: events.MODULE, entityRef: `dict_review:${review.review_id}`, after: review });
+  await enqueue(review);
+  return { review, already_running: false };
+}
+
+/** Why a line's posting differs from the suggestion, in one line each. Pure. */
+function postingDifferences(item, current, suggestion) {
+  const reasons = [];
+  if (suggestion.direction !== item.direction) reasons.push(`direction: ${item.direction} here, ${suggestion.direction} suggested`);
+  if (Boolean(suggestion.is_disbursement) !== Boolean(item.is_disbursement)) {
+    reasons.push(suggestion.is_disbursement ? "suggested as a débours (re-billed at cost, no VAT)" : "suggested as not a débours");
+  }
+  const byCtx = new Map(current.map((r) => [r.applies_context, r]));
+  for (const s of suggestion.rules) {
+    const have = byCtx.get(s.applies_context);
+    if (!have) {
+      reasons.push(`${s.applies_context}: no rule here, suggested ${s.debit_account || s.mapping.debit.suggested} / ${s.credit_account || s.mapping.credit.suggested}`);
+      continue;
+    }
+    if (s.debit_account && String(have.debit_account) !== String(s.debit_account)) reasons.push(`${s.applies_context}: debit ${have.debit_account} here, ${s.debit_account} suggested`);
+    if (s.credit_account && String(have.credit_account) !== String(s.credit_account)) reasons.push(`${s.applies_context}: credit ${have.credit_account} here, ${s.credit_account} suggested`);
+  }
+  return reasons;
+}
+
+/**
+ * The worker's half: examine every active line not yet examined in this run
+ * (so a restarted job RESUMES rather than paying twice), cache first.
+ */
+async function runReview(c, reviewId) {
+  const { rows: [review] } = await c.query("SELECT * FROM dictionary_posting_review WHERE review_id = $1", [reviewId]);
+  if (!review || review.status === "done") return review || null;
+  await c.query("UPDATE dictionary_posting_review SET status = 'running', error = NULL WHERE review_id = $1", [reviewId]);
+  const callBudget = { left: Math.max(0, REVIEW_CALL_CAP - Number(review.fresh_calls || 0)) };
+  try {
+    const { rows: items } = await c.query(
+      `SELECT di.dictionary_item_id, di.code::text AS code, di.label_fr, di.label_en, di.category, di.direction, di.is_disbursement
+         FROM dictionary_item di
+        WHERE di.is_active = true
+          AND NOT EXISTS (SELECT 1 FROM dictionary_posting_review_line l
+                           WHERE l.review_id = $1 AND l.dictionary_item_id = di.dictionary_item_id)
+        ORDER BY di.code`,
+      [reviewId],
+    );
+    for (const item of items) {
+      const before = callBudget.left;
+      const sug = await postingEngine.suggest(
+        c,
+        { label_fr: item.label_fr, label_en: item.label_en, category: item.category, direction: item.direction },
+        { userId: review.started_by, excludeId: item.dictionary_item_id, callBudget },
+      );
+      const current = await repo.listRules(c, item.dictionary_item_id);
+      let outcome;
+      let reasons;
+      if (sug.source === "local") {
+        // No web-grounded answer to compare with: said so, not called a mismatch.
+        outcome = "no_suggestion";
+        reasons = [sug.fallback_reason || "no web search answer"];
+      } else {
+        reasons = postingDifferences(item, current, sug);
+        outcome = reasons.length ? "mismatch" : "match";
+      }
+      await c.query(
+        `INSERT INTO dictionary_posting_review_line
+           (review_id, dictionary_item_id, outcome, reasons, suggestion, source, model, cache_entry_id, confidence)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (review_id, dictionary_item_id) DO NOTHING`,
+        [
+          reviewId, item.dictionary_item_id, outcome, reasons,
+          // Our structured posting only — never Google's text or links.
+          JSON.stringify({ direction: sug.direction, is_disbursement: sug.is_disbursement, vat_treatment: sug.vat_treatment, rules: sug.rules.map(({ mapping: _m, ...r }) => r), generic: sug.generic }),
+          sug.source, sug.model, sug.cache_entry_id, sug.confidence,
+        ],
+      );
+      await c.query(
+        `UPDATE dictionary_posting_review
+            SET examined = examined + 1,
+                mismatches = mismatches + $2,
+                fresh_calls = fresh_calls + $3
+          WHERE review_id = $1`,
+        [reviewId, outcome === "mismatch" ? 1 : 0, before - callBudget.left],
+      );
+    }
+    await c.query("UPDATE dictionary_posting_review SET status = 'done', finished_at = now() WHERE review_id = $1", [reviewId]);
+  } catch (err) {
+    await c.query("UPDATE dictionary_posting_review SET status = 'failed', error = $2 WHERE review_id = $1", [reviewId, String(err.message || err).slice(0, 500)]);
+    throw err;
+  }
+  const { rows: [done] } = await c.query("SELECT * FROM dictionary_posting_review WHERE review_id = $1", [reviewId]);
+  return done;
 }
 
 /** The lines 14342 could not pair, for a person to link or confirm. */
@@ -355,6 +533,7 @@ async function create(c, { data, actor }) {
       await c.query("COMMIT");
       await emitEvent(c, { eventTypeKey: events.CREATED, moduleKey: events.MODULE, entityRef: `dict:${item.code}`, actorUserId: actor.user_id });
       await audit(c, { actorUserId: actor.user_id, action: events.CREATED, moduleKey: events.MODULE, entityRef: `dict:${item.code}`, after: item });
+      await auditSuggestion(c, { item, provenance: data.posting_suggestion, savedRules: posting_rules, actor });
       return get(c, item.dictionary_item_id);
     } catch (err) {
       await c.query("ROLLBACK");
@@ -384,7 +563,11 @@ async function update(c, { id, patch, actor }) {
 
   for (let attempt = 0; attempt < 6; attempt++) {
     try {
-      return await updateOnce(c, { id, before, itemData, posting_rules, service_tiers, rulesSent, tiersSent, recoded, actor });
+      const out = await updateOnce(c, { id, before, itemData, posting_rules, service_tiers, rulesSent, tiersSent, recoded, actor });
+      if (patch.posting_suggestion && rulesSent) {
+        await auditSuggestion(c, { item: { ...before, ...itemData, code: out.code }, provenance: patch.posting_suggestion, savedRules: posting_rules, actor });
+      }
+      return out;
     } catch (err) {
       // Two items re-lettered at once can mint the same serial; remint.
       if (recoded && isUniqueViolation(err) && attempt < 5) continue;
@@ -648,16 +831,48 @@ async function importTemplate(c) {
  * that the user never saw); showing the staging table first makes that a
  * decision rather than a policy.
  */
-async function importValidate(c, { buffer }) {
+/** Fresh grounded calls one import may make (F8); further rows use the cache or the local suggestion. */
+const IMPORT_CALL_CAP = 10;
+
+async function importValidate(c, { buffer, actor = {} }) {
   const parsed = await importer.parseUpload(buffer);
   const ctx = await importContext(c);
-  const { valid, rejected } = rules.partitionImport(parsed.rows, ctx.lookups);
+  // A row without a posting is no longer rejected for that alone (meeting 6,
+  // F8): it gets a suggestion here, and commit takes it only once the person
+  // has accepted it in the preview.
+  const { valid, rejected } = rules.partitionImport(parsed.rows, { ...ctx.lookups, allowMissingPosting: true });
+  const callBudget = { left: IMPORT_CALL_CAP };
+  for (const row of valid) {
+    if (!row.data.needs_posting) continue;
+    const sug = await postingEngine.suggest(
+      c,
+      { label_fr: row.data.label_fr, label_en: row.data.label_en, category: row.data.category, direction: row.data.direction },
+      { userId: actor.user_id || null, callBudget },
+    );
+    row.ai_posting = {
+      source: sug.source,
+      model: sug.model,
+      cache_entry_id: sug.cache_entry_id,
+      confidence: sug.confidence,
+      check_needed: sug.check_needed,
+      direction: sug.direction,
+      rationale: sug.rationale,
+      sources: sug.sources,
+      search_suggestion_html: sug.search_suggestion_html,
+      fallback_reason: sug.fallback_reason,
+      rules: sug.rules.map(({ mapping, ...r }) => ({ ...r, mint: mapping.debit.how === "mint" || mapping.credit.how === "mint" ? { debit: mapping.debit.mint || null, credit: mapping.credit.mint || null } : null })),
+      // A rule that needs an account created first cannot be accepted from
+      // the preview: the person creates it in the wizard.
+      acceptable: sug.rules.every((r) => r.debit_account && r.credit_account),
+    };
+  }
+  const needing = valid.filter((r) => r.data.needs_posting).length;
   return {
     sheet: parsed.sheet,
     parsed: parsed.rows.length,
     valid,
     rejected,
-    summary: { total: parsed.rows.length, valid: valid.length, rejected: rejected.length },
+    summary: { total: parsed.rows.length, valid: valid.length, rejected: rejected.length, ai_suggested: needing },
   };
 }
 
@@ -681,11 +896,34 @@ async function importCommit(c, { rows = [], actor }) {
   const rejected = [];
   for (const entry of rows) {
     const rowNumber = entry.row || null;
-    const check = rules.validateImportRow(entry.raw || entry.data || {}, ctx.lookups);
+    const check = rules.validateImportRow(entry.raw || entry.data || {}, { ...ctx.lookups, allowMissingPosting: true });
     if (!check.valid) { rejected.push({ row: rowNumber, reasons: check.reasons, raw: entry.raw || entry.data || {} }); continue; }
+    const data = { ...check.data };
+    if (data.needs_posting) {
+      // Only a posting the person ACCEPTED in the preview is taken, and it is
+      // re-checked against the tenant's accounts like any typed one.
+      const accepted = entry.accept_posting && Array.isArray(entry.accept_posting.rules) ? entry.accept_posting.rules : null;
+      if (!accepted) {
+        rejected.push({ row: rowNumber, reasons: ["No OHADA mapping — accept the AI-suggested posting in the preview, or fill the accounts in the sheet"], raw: entry.raw || {} });
+        continue;
+      }
+      const bad = accepted.filter((r) => !ctx.lookups.accounts.has(String(r.debit_account)) || !ctx.lookups.accounts.has(String(r.credit_account)));
+      if (bad.length) {
+        rejected.push({ row: rowNumber, reasons: bad.map((r) => `${r.applies_context}: accepted posting names an account that is not postable (${r.debit_account} / ${r.credit_account})`), raw: entry.raw || {} });
+        continue;
+      }
+      data.posting_rules = accepted.map((r) => ({
+        applies_context: r.applies_context,
+        debit_account: String(r.debit_account),
+        credit_account: String(r.credit_account),
+        tax_code_id: r.tax_code_id || null,
+        is_disbursement: r.is_disbursement,
+      }));
+      data.posting_suggestion = entry.accept_posting.provenance || null;
+    }
+    delete data.needs_posting;
     try {
-       
-      const item = await create(c, { data: check.data, actor });
+      const item = await create(c, { data, actor });
       created.push({ row: rowNumber, dictionary_item_id: item.dictionary_item_id, code: item.code, label_fr: item.label_fr });
     } catch (err) {
       rejected.push({ row: rowNumber, reasons: [err.message || "could not be created"], raw: entry.raw || entry.data || {} });
@@ -735,7 +973,9 @@ async function updateRef(c, { id, patch, actor }) {
 }
 
 module.exports = {
-  listItems, searchItems, siblingsFor, unpairedLines, linkSibling, get, dossier, listUsage, create, update,
+  listItems, searchItems, siblingsFor, unpairedLines, linkSibling, suggestPosting,
+  latestReview, startReview, runReview, postingDifferences,
+  get, dossier, listUsage, create, update,
   spend, spendDocumentsPage, rateEvolution, supersedeRate, applyRateToProviders,
   importTemplate, importValidate, importCommit, importErrorFile,
   listRefs, createRef, updateRef,

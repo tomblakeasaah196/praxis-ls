@@ -77,6 +77,10 @@ export type User = {
    *  and returned by the auth endpoints. Absent ⇒ AI off (opt-in). Drives the
    *  global AI gate — see components/ai-actions.tsx. */
   ai_enabled?: boolean;
+  /** AI features with their OWN tenant switch, independent of `ai_enabled`
+   *  (meeting 6, F7): the dictionary's OHADA posting suggestion is on for
+   *  every tenant, assistant or not. Absent ⇒ off. */
+  ai_features?: { dictionary_posting?: boolean };
   /** Comms channels switched on for the tenant. Absent ⇒ off. */
   channels?: { comms?: boolean };
   /** A Quick PIN is set — it signs this person in on ANY device (14230). */

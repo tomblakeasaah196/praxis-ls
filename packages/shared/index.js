@@ -14,6 +14,7 @@ const partyConfig = require("./schemas/party-config");
 const entityCommon = require("./schemas/entity-common");
 const siteSettings = require("./schemas/site-settings");
 const callSummary = require("./schemas/call-summary");
+const dictionaryPosting = require("./schemas/dictionary-posting");
 const ledger = require("./rules/ledger");
 const marks = require("./rules/marks");
 const entityRoute = require("./rules/entity-route");
@@ -64,6 +65,11 @@ exports.siteSettings = siteSettings;
 // Shared because the draft is EDITED before it is sent — a shape the client
 // believes legal and the API refuses is a draft nobody can send.
 exports.callSummary = callSummary;
+// The AI-suggested OHADA posting of a dictionary line (meeting 6, F3): the API
+// parses the model's answer and the wizard's request with it, the wizard sends
+// the provenance it saves with. One shape, so a suggestion the screen shows is
+// one the API will take.
+exports.dictionaryPosting = dictionaryPosting;
 // entity_ref → the screen that shows it. Shared because the API stamps
 // `notification.link_url` from it at write time and the client resolves it
 // again at draw time for every row written before that column existed.

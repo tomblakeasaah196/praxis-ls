@@ -955,6 +955,9 @@ function start() {
   // Calls audit N3: a retired Gemini model id fails every Gemini request.
   require("./services/ai/gemini-model-check.service").logGeminiModelAtBoot()
     .catch((err) => logger.debug({ err }, "Gemini model check could not run at boot"));
+  // Meeting 6, F7: the stronger model the dictionary posting suggestion chose.
+  require("./services/ai/dictionary-posting/model.service").logPostingModelAtBoot()
+    .catch((err) => logger.debug({ err }, "Dictionary posting model could not be chosen at boot"));
   checkConnectionBudget().catch((err) => {
     if (err && err.code === "DB_BUDGET_EXCEEDED") {
       // Enforce mode. Exit rather than serve on a budget that cannot be met —

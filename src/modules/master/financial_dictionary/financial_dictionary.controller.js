@@ -4,6 +4,7 @@ const { asyncHandler, AppError } = require("../../../utils/errors");
 const { readPermissions } = require("../../../middleware/rbac");
 const { exportFilename } = require("../../../services/spreadsheet");
 const { sendPaged } = require("../../../shared/http/paged");
+const { enqueue } = require("../../../jobs/queue-producer");
 const actor = (req) => req.user || { user_id: null };
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -111,6 +112,23 @@ module.exports = {
     data: await req.tenantDb((c) => service.siblingsFor(c, String(req.query.ids).split(",").map((s) => s.trim()))),
   })),
   unpaired: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.unpairedLines(c)) })),
+  // The AI-suggested OHADA posting (meeting 6, F3).
+  postingSuggestion: asyncHandler(async (req, res) => res.json({
+    data: await req.tenantDb((c) => service.suggestPosting(c, req.body, actor(req))),
+  })),
+  postingReview: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.latestReview(c)) })),
+  startPostingReview: asyncHandler(async (req, res) => {
+    const out = await req.tenantDb((c) => service.startReview(c, {
+      actor: actor(req),
+      enqueue: (review) => enqueue(
+        "dictionary-posting-review",
+        "review",
+        { tenantMeta: req.tenant, env: req.env || "live", reviewId: review.review_id },
+        { jobId: `dict-posting-review:${req.tenant && req.tenant.slug}:${review.review_id}`, attempts: 3 },
+      ),
+    }));
+    res.status(out.already_running ? 200 : 202).json({ data: out });
+  }),
   linkSibling: asyncHandler(async (req, res) => {
     const r = await req.tenantDb((c) => service.linkSibling(c, {
       id: req.params.id, linkTo: req.body.link_to || null, standsAlone: req.body.stands_alone === true, actor: actor(req),
@@ -199,7 +217,7 @@ module.exports = {
     res.send(buffer);
   }),
   importValidate: asyncHandler(async (req, res) => {
-    const r = await req.tenantDb((c) => service.importValidate(c, { buffer: decodeUpload(req.body.file) }));
+    const r = await req.tenantDb((c) => service.importValidate(c, { buffer: decodeUpload(req.body.file), actor: actor(req) }));
     res.json({ data: r });
   }),
   importCommit: asyncHandler(async (req, res) => {

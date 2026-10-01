@@ -46,6 +46,10 @@ const create = z.object({
   is_active: z.boolean().optional(),
   posting_rules: z.array(rule).min(1),
   service_tiers: z.array(tier).optional(),
+  // Where the posting came from when the AI suggested it (meeting 6, F3):
+  // audit only — checked strictly against @praxis/shared
+  // dictionaryPosting.provenance by the service, never stored on the line.
+  posting_suggestion: z.record(z.any()).nullish(),
 });
 
 // CONTAINER_TYPE and LOAD_MODE were seed-only kinds: the registry held them,
@@ -212,6 +216,14 @@ const importRow = z.object({
   raw: z.record(z.any()),
   data: z.record(z.any()).optional(),
   reasons: z.array(z.string()).optional(),
+  // The AI-suggested posting the person accepted in the preview (meeting 6,
+  // F8). Re-checked against the tenant's accounts by the service.
+  accept_posting: z
+    .object({
+      rules: z.array(rule).min(1).max(3),
+      provenance: z.record(z.any()).nullish(),
+    })
+    .nullish(),
 });
 const importCommit = z.object({ rows: z.array(importRow).min(1).max(2000) });
 const importErrors = z.object({

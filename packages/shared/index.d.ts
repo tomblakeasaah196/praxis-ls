@@ -1102,3 +1102,46 @@ export declare namespace dictionarySibling {
     siblings: readonly T[],
   ): { to: T; to_mode: SiblingMode; reason: { en: string; fr: string } } | null;
 }
+
+export declare namespace dictionaryPosting {
+  type Direction = "REVENUE" | "EXPENSE" | "DISBURSEMENT" | "ASSET";
+  type Context = "sale" | "purchase" | "disbursement";
+  type VatTreatment = "STANDARD" | "EXEMPT" | "DISBURSEMENT";
+  type Confidence = "high" | "medium" | "low";
+  type Source = "cache" | "near_cache" | "search" | "local";
+  const DIRECTIONS: readonly Direction[];
+  const CATEGORIES: readonly string[];
+  const CONTEXTS: readonly Context[];
+  const VAT_TREATMENTS: readonly VatTreatment[];
+  const CONFIDENCES: readonly Confidence[];
+  const SOURCES: readonly Source[];
+  type Answer = {
+    direction: Direction;
+    is_disbursement: boolean;
+    vat_treatment: VatTreatment;
+    postings: { context: Context; debit: string; credit: string }[];
+    confidence: Confidence;
+    sources_agree?: boolean;
+    rationale?: string;
+  };
+  type Request = {
+    label_fr: string;
+    label_en?: string | null;
+    category: string;
+    direction?: Direction | null;
+    fresh?: boolean;
+  };
+  type Provenance = {
+    source: Source;
+    model?: string | null;
+    cache_entry_id?: string | null;
+    confidence: Confidence;
+    direction: Direction;
+    suggested_rules: { applies_context: Context; debit_account?: string | null; credit_account?: string | null }[];
+    checked?: boolean;
+  };
+  const answer: import("zod").ZodType<Answer>;
+  const request: import("zod").ZodType<Request>;
+  const provenance: import("zod").ZodType<Provenance>;
+  function lowerConfidence(c: Confidence): Confidence;
+}

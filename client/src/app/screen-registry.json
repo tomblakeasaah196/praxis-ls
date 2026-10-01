@@ -369,7 +369,12 @@
         "dictionary_item_invoice_lines",
         "dictionary_item_purchase_order_lines",
         "dictionary_item_spend_documents",
-        "dictionary_rate_history"
+        "dictionary_rate_history",
+        "dictionary_item_siblings",
+        "dictionary_lines_to_pair",
+        "link_dictionary_sibling",
+        "suggest_dictionary_posting",
+        "dictionary_posting_review"
       ]
     },
     {
@@ -1835,7 +1840,8 @@
         "list_currencies",
         "fx_rate",
         "fx_convert",
-        "set_fx_rate"
+        "set_fx_rate",
+        "release_fx_override"
       ]
     },
     {
