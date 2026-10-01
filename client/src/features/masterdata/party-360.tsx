@@ -2245,7 +2245,7 @@ export function PartyDossier({
           // The client's own contacts, offered as one-tap invitations.
           contacts={(d.contacts ?? [])
             .filter((c) => !!c.email)
-            .map((c) => ({ name: c.name, email: String(c.email) }))}
+            .map((c) => ({ name: c.name, email: String(c.email), phone: c.phone || null }))}
         />
       )}
 

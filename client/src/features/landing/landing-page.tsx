@@ -24,6 +24,7 @@ import { getMode, setMode, type ThemeMode } from "@/lib/theme-mode";
 import { fetchLogin, type LoginConfig } from "@/lib/branding";
 import { lastSessionStore } from "@/lib/last-session";
 import { recallDevice } from "@/lib/device-memory";
+import { InAppBrowserNotice } from "@/components/pwa/in-app-browser-notice";
 
 const NEXT: Record<ThemeMode, ThemeMode> = {
   light: "dark",
@@ -135,6 +136,12 @@ export function LandingPage() {
           : undefined
       }
     >
+      {/* Opened from a WhatsApp link, say: this browser cannot install the
+          app — offer Chrome before the person signs in here for nothing
+          (tenant review 29 Sep 2026, item 1.9). */}
+      <div className="fixed inset-x-3 top-3 z-50 sm:inset-x-auto sm:right-4 sm:w-96">
+        <InAppBrowserNotice className="shadow-l" />
+      </div>
       <div
         className="landing-bg"
         style={

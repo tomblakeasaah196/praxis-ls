@@ -327,6 +327,12 @@ export default defineConfig({
         changeOrigin: true,
         headers: { Host: TENANT_HOST },
       },
+      // "Share the app"'s QR of this workspace's address (src/routes/pwa.js).
+      "/install-qr.svg": {
+        target: API_TARGET,
+        changeOrigin: true,
+        headers: { Host: TENANT_HOST },
+      },
     },
   },
 });
