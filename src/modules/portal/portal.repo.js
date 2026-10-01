@@ -316,13 +316,19 @@ async function insertClientMessage(client, { clientId, dossierId = null, directi
 
 async function clientQuoteRequests(client, clientId) {
   const { rows } = await client.query(
-    `SELECT quote_request_id, public_ref, status, service_category, service_type,
-            origin_location, destination_location, collection_location, delivery_location,
-            origin_place_id, destination_place_id, collection_place_id, delivery_place_id,
-            incoterm, estimated_weight, cargo_description, created_at
-       FROM quote_request
-      WHERE client_id = $1
-      ORDER BY created_at DESC LIMIT 50`,
+    `SELECT q.quote_request_id, q.public_ref, q.status, q.service_category, q.service_type,
+            q.service_type_id, q.hinterland_direction,
+            st.name_en AS service_name_en, st.name_fr AS service_name_fr,
+            st.transport_mode AS service_mode, st.key AS service_key, st.territory AS service_territory,
+            q.origin_location, q.destination_location, q.collection_location, q.delivery_location,
+            q.origin_place_id, q.destination_place_id, q.collection_place_id, q.delivery_place_id,
+            q.warehouse_location, q.warehouse_duration,
+            q.incoterm, q.estimated_weight, q.cargo_description, q.created_at,
+            (SELECT COUNT(*)::int FROM quote_request_attachment a WHERE a.quote_request_id = q.quote_request_id) AS documents
+       FROM quote_request q
+       LEFT JOIN service_type st ON st.service_type_id = q.service_type_id
+      WHERE q.client_id = $1
+      ORDER BY q.created_at DESC LIMIT 50`,
     [clientId],
   );
   return rows;

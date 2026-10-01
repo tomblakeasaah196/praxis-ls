@@ -1056,3 +1056,177 @@ export declare namespace callSummary {
 
   function isLanguage(value: unknown): value is Language;
 }
+
+/**
+ * Incoterms® 2020 — the eleven terms, their names, and which four are
+ * sea-only. Every service type carries its own list, pre-filled from
+ * `defaultsForMode`. See data/incoterms.js.
+ */
+export type IncotermCode =
+  | "EXW" | "FCA" | "FAS" | "FOB" | "CPT" | "CIP" | "CFR" | "CIF" | "DAP" | "DPU" | "DDP";
+export type Incoterm = {
+  code: IncotermCode;
+  name_en: string;
+  name_fr: string;
+  sea_only: boolean;
+};
+
+export declare namespace incoterms {
+  const INCOTERMS: ReadonlyArray<Incoterm>;
+  const CODES: ReadonlyArray<IncotermCode>;
+  const ANY_MODE: ReadonlyArray<IncotermCode>;
+  const SEA_ONLY: ReadonlyArray<IncotermCode>;
+  /** `TBD` — what "Not sure" is stored as. */
+  const NOT_SURE: "TBD";
+  /** `N/A` — a service with no delivery term (storage, representation). */
+  const NOT_APPLICABLE: "N/A";
+  function isCode(code: unknown): boolean;
+  /** The list a service type of this transport mode is pre-filled with. */
+  function defaultsForMode(mode: string | null | undefined): IncotermCode[];
+  /** Known codes only, de-duplicated, in ICC order. */
+  function normalise(list: unknown): IncotermCode[];
+  /** "FOB — Free On Board", "To be determined" for TBD, in the reader's language. */
+  function label(code: string | null | undefined, lang?: "en" | "fr"): string;
+  function describe(codes: unknown): Incoterm[];
+}
+
+/**
+ * Where a service type sits in a quote request: its card (`transport_mode`)
+ * and its flow (from `territory`). See rules/service-scope.js.
+ */
+export type TransportMode = "SEA" | "AIR" | "RAIL" | "ROAD" | "STORAGE" | "CUSTOMS" | "OTHER";
+export type QuoteFlow = "IMPORT" | "EXPORT" | "END_TO_END" | "INLAND" | "HINTERLAND";
+export type HinterlandDirection = "INTO" | "OUT_OF";
+
+export declare namespace serviceScope {
+  const MODES: ReadonlyArray<TransportMode>;
+  const TRANSPORT_MODES: ReadonlyArray<TransportMode>;
+  const CARD_ORDER: ReadonlyArray<TransportMode>;
+  const FLOWS: ReadonlyArray<QuoteFlow>;
+  const FLOW_OF_TERRITORY: Readonly<Record<string, QuoteFlow>>;
+  const HINTERLAND_DIRECTIONS: ReadonlyArray<HinterlandDirection>;
+  const MODE_LADDER: ReadonlyArray<readonly [TransportMode, ReadonlyArray<string>]>;
+  /** The card a key's words suggest — the default a new service type gets. */
+  function modeFromKey(key: string | null | undefined): TransportMode;
+  /** The tracking page's glyph vocabulary (storage is WAREHOUSE). */
+  function glyphOf(mode: string | null | undefined): string;
+  function modeOf(row: { transport_mode?: string | null; key?: string | null } | null | undefined): TransportMode;
+  function flowOf(territory: string | null | undefined): QuoteFlow | null;
+  function placementOf(
+    row: { transport_mode?: string | null; key?: string | null; territory?: string | null } | null | undefined,
+  ): { mode: TransportMode; flow: QuoteFlow | null };
+  /** Active services that would collapse into one chip — same card, same flow. */
+  function collisions(
+    rows: ReadonlyArray<{
+      service_type_id: string;
+      transport_mode?: string | null;
+      key?: string | null;
+      territory?: string | null;
+      is_active?: boolean | null;
+    }>,
+  ): { mode: TransportMode; flow: QuoteFlow; ids: string[] }[];
+  function needsHinterlandDirection(
+    row: { transport_mode?: string | null; key?: string | null; territory?: string | null } | null | undefined,
+  ): boolean;
+}
+
+/**
+ * Which part of an email says who the sender works for, and the public
+ * webmail domains where it says nothing. See rules/email-domain.js.
+ */
+export declare namespace emailDomain {
+  const PUBLIC_WEBMAIL: ReadonlyArray<string>;
+  function domainOf(email: string | null | undefined): string | null;
+  function isPublicWebmail(domain: string | null | undefined): boolean;
+  /** The domain a company can be matched on, or null (none, or public webmail). */
+  function companyDomainOf(email: string | null | undefined): string | null;
+}
+
+/**
+ * Quote request payloads for the desk, the portal and the public website.
+ * See schemas/quote-request.js.
+ */
+export type QuoteRequestStatus =
+  | "RECEIVED"
+  | "UNDER_REVIEW"
+  | "CLARIFICATION_REQUIRED"
+  | "QUOTED"
+  | "CONVERTED_TO_OPPORTUNITY"
+  | "CLOSED_NO_ACTION";
+export type QuoteIntakeChannel = "MANUAL" | "WEBSITE" | "PORTAL" | "EMAIL" | "REFERRAL" | "CAMPAIGN";
+export type WarehouseDuration =
+  | "LESS_THAN_7_DAYS"
+  | "DAYS_7_TO_14"
+  | "DAYS_15_TO_30"
+  | "OVER_30_DAYS"
+  | "UNKNOWN";
+export type QuoteDocumentKind =
+  | "COMMERCIAL_INVOICE"
+  | "PROFORMA"
+  | "PACKING_LIST"
+  | "BL_AWB"
+  | "CARGO_PHOTOS"
+  | "OTHER";
+
+/** What the desk sends (create requires `incoterm`; edit sends any subset). */
+export type StaffQuoteRequest = {
+  entity_id?: string | null;
+  lead_id?: string | null;
+  client_id?: string | null;
+  intake_channel?: QuoteIntakeChannel;
+  requester_name?: string;
+  requester_company?: string;
+  requester_email?: string;
+  requester_phone?: string;
+  service_type_id?: string | null;
+  hinterland_direction?: HinterlandDirection | null;
+  service_category?: string;
+  service_type?: string;
+  origin_location?: string;
+  destination_location?: string;
+  collection_location?: string;
+  delivery_location?: string;
+  warehouse_location?: string;
+  warehouse_duration?: WarehouseDuration | null;
+  estimated_weight?: number | null;
+  project_cargo_flag?: boolean;
+  cargo_description?: string;
+  additional_notes?: string;
+  incoterm?: string;
+  owner_user_id?: string | null;
+};
+
+export declare namespace quoteRequest {
+  const STATUSES: ReadonlyArray<QuoteRequestStatus>;
+  const TERMINAL: ReadonlyArray<QuoteRequestStatus>;
+  const INTAKE_CHANNELS: ReadonlyArray<QuoteIntakeChannel>;
+  const WAREHOUSE_DURATIONS: ReadonlyArray<WarehouseDuration>;
+  const DOCUMENT_KINDS: ReadonlyArray<QuoteDocumentKind>;
+  const PUBLIC_DOCUMENTS_MAX: number;
+  const PUBLIC_DOCUMENT_MAX_BYTES: number;
+  const PUBLIC_DOCUMENTS_TOTAL_BYTES: number;
+  const PORTAL_DOCUMENTS_MAX: number;
+  /** False once a request is converted or closed — it keeps the client it had. */
+  function canRelink(status: string | null | undefined): boolean;
+  const staffCreate: z.ZodType<StaffQuoteRequest & { incoterm: string }, z.ZodTypeDef, unknown>;
+  const staffUpdate: z.ZodType<StaffQuoteRequest, z.ZodTypeDef, unknown>;
+  const transition: z.ZodType<{ to: QuoteRequestStatus }, z.ZodTypeDef, unknown>;
+  const fromChat: z.ZodType<
+    { chat_attachment_id: string; document_kind?: QuoteDocumentKind | null },
+    z.ZodTypeDef,
+    unknown
+  >;
+  const clientMatchQuery: z.ZodType<{ email: string }, z.ZodTypeDef, unknown>;
+  // The remaining shapes (convert, attachment, the AI variants, publicQuote,
+  // portalCreate, portalDocumentUpload) are read by the API only; typed loosely
+  // here on purpose so the client cannot mistake them for its own forms.
+  const convert: z.ZodTypeAny;
+  const attachment: z.ZodTypeAny;
+  const aiTransition: z.ZodTypeAny;
+  const aiConvert: z.ZodTypeAny;
+  const aiLinkClient: z.ZodTypeAny;
+  const aiFileFromChat: z.ZodTypeAny;
+  const publicQuote: z.ZodTypeAny;
+  const portalCreate: z.ZodTypeAny;
+  const portalDocumentUpload: z.ZodTypeAny;
+}

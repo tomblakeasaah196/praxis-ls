@@ -7,6 +7,7 @@ const partnership = require("../partnership_request/partnership_request.service"
 const campaign = require("../marketing_campaign/marketing_campaign.service");
 const geoPlace = require("../../operations/geo_place/geo_place.service");
 const vault = require("../../vault/document_vault/document_vault.service");
+const { quoteRequest } = require("@praxis/shared");
 const { atomically } = require("../../../shared/db/tx");
 const { AppError } = require("../../../utils/errors");
 const { logger } = require("../../../config/logger");
@@ -81,12 +82,23 @@ async function resolvePlace(client, pick, label) {
  */
 async function storeAttachment(client, data) {
   if (!data.attachment_data_url) return null;
+  return storeOne(client, { data_url: data.attachment_data_url, filename: data.attachment_filename });
+}
+
+/**
+ * One website document into the vault, or null when OUR storage failed — the
+ * asymmetry above, per file. Filed under `quote_request:intake` until the
+ * request exists; `quote.create` links it and re-files it under the request's
+ * own reference in the same transaction (meeting 6, item 2.7: it used to stay
+ * under `:intake` forever, in a column no staff screen read).
+ */
+async function storeOne(client, { data_url: dataUrl, filename = null }) {
   try {
     const doc = await vault.createDocument(client, {
-      dataUrl: data.attachment_data_url,
+      dataUrl,
       docType: "QUOTE_ATTACHMENT",
-      entityRef: "quote_request:intake",
-      originalName: data.attachment_filename || null,
+      entityRef: INTAKE_REF,
+      originalName: filename || null,
       maxBytes: ATTACHMENT_MAX_BYTES,
       allowedTypes: ATTACHMENT_TYPES,
       sniff: true,
@@ -100,6 +112,46 @@ async function storeAttachment(client, data) {
   }
 }
 
+/** Where a website document waits between its upload and its request's insert. */
+const INTAKE_REF = "quote_request:intake";
+
+/** Decoded bytes a base64 data URL carries, without decoding it. */
+const decodedBytes = (dataUrl) => {
+  const comma = String(dataUrl || "").indexOf(",");
+  return comma < 0 ? 0 : Math.floor(((String(dataUrl).length - comma - 1) * 3) / 4);
+};
+
+/**
+ * Every document the visitor attached — `documents[]` (meeting 6, PR 2: up to
+ * three, each with what it is) and the single field the form sent before it —
+ * stored one by one, refused as a whole when together they exceed what the
+ * form promises. Encouraged, never required: a stranger may not have a
+ * commercial invoice yet and must not be turned away (owner decision Q6).
+ */
+async function storeDocuments(client, data) {
+  const offered = [
+    ...(Array.isArray(data.documents) ? data.documents : []),
+    ...(data.attachment_data_url ? [{ data_url: data.attachment_data_url, filename: data.attachment_filename }] : []),
+  ].slice(0, quoteRequest.PUBLIC_DOCUMENTS_MAX + 1);
+  if (offered.length > quoteRequest.PUBLIC_DOCUMENTS_MAX) {
+    throw new AppError("TOO_MANY_FILES", `At most ${quoteRequest.PUBLIC_DOCUMENTS_MAX} documents`, 422, {
+      documents: [`at most ${quoteRequest.PUBLIC_DOCUMENTS_MAX}`],
+    });
+  }
+  const total = offered.reduce((n, d) => n + decodedBytes(d.data_url), 0);
+  if (total > quoteRequest.PUBLIC_DOCUMENTS_TOTAL_BYTES) {
+    throw new AppError("FILES_TOO_LARGE", "The documents together are too large", 413, {
+      documents: [`${Math.round(quoteRequest.PUBLIC_DOCUMENTS_TOTAL_BYTES / (1024 * 1024))} MB in all`],
+    });
+  }
+  const out = [];
+  for (const d of offered) {
+    const docId = await storeOne(client, d);
+    if (docId) out.push({ doc_id: docId, document_kind: d.document_kind || null });
+  }
+  return out;
+}
+
 /** A website quote is one funnel intake: lead + linked quote or nothing. */
 async function submitQuote(client, data) {
   const entityId = await quote.resolveEntityId(client, { data });
@@ -109,7 +161,15 @@ async function submitQuote(client, data) {
   // holding a database connection open across either is how a slow provider
   // becomes a pool exhaustion. It is the same rule geoapify.service states for
   // its own callers.
-  const attachmentDocId = await storeAttachment(client, data);
+  // The service first: a stale tab naming a service the tenant has since
+  // unpublished is told so before any file is stored for it.
+  const st = data.service_type_id
+    ? await quote.resolveService(client, data.service_type_id, { publishedOnly: true })
+    : null;
+  if (st) quote.assertIncotermOffered(st, data.incoterm);
+  // What the lead calls the service — the same display copy the request gets.
+  const serviceInterest = st ? st.name_en || st.name_fr : data.service_category || null;
+  const documents = await storeDocuments(client, data);
   const originPlaceId = await resolvePlace(client, data.origin_place, "origin");
   const destinationPlaceId = await resolvePlace(client, data.destination_place, "destination");
 
@@ -124,7 +184,7 @@ async function submitQuote(client, data) {
         phone: data.requester_phone || null,
         source: "WEBSITE",
         intake_channel: "WEBSITE",
-        service_interest: data.service_category || null,
+        service_interest: serviceInterest,
         details: {
           origin_location: data.origin_location || null,
           destination_location: data.destination_location || null,
@@ -142,7 +202,10 @@ async function submitQuote(client, data) {
         intake_channel: "WEBSITE",
         origin_place_id: originPlaceId,
         destination_place_id: destinationPlaceId,
-        attachment_doc_id: attachmentDocId,
+        // The first document stays in the column 12756 gave it, so the record
+        // of what the form sent reads the same as before; every document is a
+        // quote_request_attachment row as well (below), which is what staff see.
+        attachment_doc_id: documents.length ? documents[0].doc_id : null,
         // The picks themselves are not columns; dropping them keeps the
         // spread above from carrying two objects into a row builder that would
         // ignore them silently.
@@ -150,8 +213,14 @@ async function submitQuote(client, data) {
         destination_place: undefined,
         attachment_data_url: undefined,
         attachment_filename: undefined,
+        documents: undefined,
       },
       actor: {},
+      options: {
+        publishedOnly: true,
+        requireDirection: true,
+        documents: { docs: documents, fromRef: INTAKE_REF },
+      },
     });
     return receipt(request);
   });
@@ -188,6 +257,6 @@ module.exports = {
   // Exported for the tests, which assert the two failure asymmetries directly:
   // a place that cannot be resolved must not cost the enquiry, and a file the
   // requester can fix must reach them rather than being swallowed.
-  resolvePlace, storeAttachment,
-  ATTACHMENT_MAX_BYTES, ATTACHMENT_TYPES,
+  resolvePlace, storeAttachment, storeDocuments,
+  ATTACHMENT_MAX_BYTES, ATTACHMENT_TYPES, INTAKE_REF,
 };
