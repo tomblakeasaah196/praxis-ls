@@ -55,6 +55,7 @@ import { resolvePortalTheme, setPortalTheme } from "../lib/theme";
 import { BrandMark, SignInScene, useSignInPhoto } from "../ui/brand";
 import { Avatar, InfoButton, PasswordField, Switch, errorText, Busy } from "../ui/kit";
 import { CodeInput } from "../ui/code-input";
+import { PortalInAppNotice } from "../ui/in-app-notice";
 import {
   ArrowRightIcon,
   FaceIdIcon,
@@ -354,7 +355,11 @@ export function SignInPage() {
   const navigate = useNavigate();
   const next = useNext();
   const [known, setKnown] = React.useState<KnownPerson | null>(() => portalSession.known());
-  const [email, setEmail] = React.useState(() => known?.email || "");
+  // A sign-in link a colleague shared by WhatsApp or copied (tenant review 29
+  // Sep 2026, D4) carries the person's email — and nothing else: no token.
+  const [params] = useSearchParams();
+  const sharedEmail = (params.get("email") || "").trim();
+  const [email, setEmail] = React.useState(() => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sharedEmail) ? sharedEmail : known?.email || ""));
   const [step, setStep] = React.useState<Step>("email");
   const [code, setCode] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -485,6 +490,10 @@ export function SignInPage() {
 
   return (
     <SignInFrame>
+      {/* Opened from a WhatsApp message, the portal is inside WhatsApp's own
+          browser: it cannot be installed there and its alerts die with the
+          webview, so the way out comes before the form (item 1.9). */}
+      <PortalInAppNotice className="mb-4" />
       {step === "email" ? (
         <form
           onSubmit={(e) => {

@@ -37,7 +37,10 @@
  */
 
 /** Categories that interrupt regardless of priority. */
-const INTERRUPT_CATEGORIES = new Set(["approvals", "comms"]);
+// `clients` (14261): a client's message reached people under "comms" until it
+// moved to its own category, and it keeps the interrupt it had — a client
+// writing is somebody trying to reach you.
+const INTERRUPT_CATEGORIES = new Set(["approvals", "comms", "clients"]);
 
 /**
  * Should this notification interrupt, absent any preference from the user?

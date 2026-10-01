@@ -40,11 +40,25 @@ const emailService = require("../../services/email.service");
 const branding = require("../branding/branding.service");
 const registry = require("../../services/tenant/registry.service");
 const { config } = require("../../config/env");
+const requestContext = require("../../config/request-context");
 const { logger } = require("../../config/logger");
+const storage = require("../../services/storage.service");
+const { audit, resolveActorId } = require("../../shared/events/emit");
 const { AppError } = require("../../utils/errors");
 
 const MODULE = "MOD-67";
-const TOPICS = ["MESSAGES", "REQUESTS", "BILLING", "PROPOSALS", "SHIPMENTS"];
+/**
+ * The topics a client can be told about. QUOTES (14261) is their quote
+ * requests made in the portal: the acknowledgement and the status moves. Since
+ * 14261 the database no longer spells this list in a CHECK, so THIS is where
+ * an unknown topic is refused: the outbox writer only queues the topics
+ * notify-portal maps, `deliver` throws on anything else, and the client's own
+ * switches are validated against NOTIFY_TOPICS in the portal validator.
+ */
+const TOPICS = ["MESSAGES", "REQUESTS", "QUOTES", "BILLING", "PROPOSALS", "SHIPMENTS"];
+
+/** Events that are worth a tap on a phone and not an email (B3: "push only for UNDER_REVIEW"). */
+const PUSH_ONLY = new Set(["quote_request.under_review"]);
 
 /**
  * A person with no row gets these. Shipment stages are worth a tap on a phone
@@ -209,6 +223,23 @@ const COPY = {
       unpaid: (amount) => `We could not confirm your payment of ${amount}`,
       cta: "Open billing",
     },
+    quotes: {
+      subject: (n, t) => (n === 1 ? `${t}: your quote request` : `${t}: ${n} quote request updates`),
+      received: (ref) => `We received your request ${ref}. We will come back to you shortly.`,
+      review: (ref) => `We are reviewing your request ${ref}`,
+      clarify: (ref) => `Your request ${ref} needs a clarification from you`,
+      quoted: (ref) => `Your quotation for ${ref} is ready`,
+      pushMany: (n) => `${n} quote request updates`,
+      cta: "Open my quote requests",
+    },
+    message: {
+      subject: (company, ref, tenant) => (ref ? `${company} · ${ref}` : `Message from ${tenant}`),
+      heading: (who) => (who ? `${who} wrote to you` : "A message from our team"),
+      about: (ref, route) => [ref ? `Shipment ${ref}` : null, route].filter(Boolean).join(" · "),
+      attached: (n) => (n === 1 ? "1 file attached" : `${n} files attached`),
+      linked: "Files too large to attach — open them in your portal:",
+      cta: "Open your portal",
+    },
     proposals: {
       subject: (n, t) => (n === 1 ? `${t} sent you a proposal` : `${t} sent you ${n} proposals`),
       line: (doc, title) => `Proposal ${doc || ""}${title ? `: ${title}` : ""}`.replace(/\s+:/, ":"),
@@ -251,6 +282,23 @@ const COPY = {
       paid: (amount) => `Votre paiement de ${amount} est confirmé. Merci.`,
       unpaid: (amount) => `Nous n’avons pas pu confirmer votre paiement de ${amount}`,
       cta: "Ouvrir la facturation",
+    },
+    quotes: {
+      subject: (n, t) => (n === 1 ? `${t}${NNBSP}: votre demande de devis` : `${t}${NNBSP}: ${n} mises à jour de vos demandes de devis`),
+      received: (ref) => `Nous avons bien reçu votre demande ${ref}. Nous revenons vers vous rapidement.`,
+      review: (ref) => `Nous étudions votre demande ${ref}`,
+      clarify: (ref) => `Votre demande ${ref} nécessite une précision de votre part`,
+      quoted: (ref) => `Votre cotation pour ${ref} est prête`,
+      pushMany: (n) => `${n} mises à jour de vos demandes de devis`,
+      cta: "Ouvrir mes demandes de devis",
+    },
+    message: {
+      subject: (company, ref, tenant) => (ref ? `${company} · ${ref}` : `Message de ${tenant}`),
+      heading: (who) => (who ? `${who} vous a écrit` : "Un message de notre équipe"),
+      about: (ref, route) => [ref ? `Expédition ${ref}` : null, route].filter(Boolean).join(" · "),
+      attached: (n) => (n === 1 ? "1 fichier joint" : `${n} fichiers joints`),
+      linked: `Fichiers trop volumineux pour être joints — ouvrez-les dans votre portail${NNBSP}:`,
+      cta: "Ouvrir votre portail",
     },
     proposals: {
       subject: (n, t) => (n === 1 ? `${t} vous a envoyé une proposition` : `${t} vous a envoyé ${n} propositions`),
@@ -376,6 +424,34 @@ async function resolve(c, { clientId, topic, rows }) {
     };
   }
 
+  if (topic === "QUOTES") {
+    const found = await repo.quoteRequests(c, { clientId, ids: [...new Set(idsOf(["quote_request"]))] });
+    const byId = new Map(found.map((q) => [q.quote_request_id, q]));
+    // One line per event, in the order they happened: "received" and later
+    // "quoted" for the same request are two different things to say.
+    const entries = [];
+    const seen = new Set();
+    for (const r of rows) {
+      const id = r.item_ref.slice(r.item_ref.indexOf(":") + 1);
+      const key = `${r.event_key}:${id}`;
+      if (seen.has(key) || !byId.has(id)) continue;
+      seen.add(key);
+      entries.push({ event: r.event_key, row: byId.get(id) });
+    }
+    const WORDS = {
+      "quote_request.created": "received",
+      "quote_request.under_review": "review",
+      "quote_request.clarification_required": "clarify",
+      "quote_request.quoted": "quoted",
+    };
+    return {
+      count: entries.length,
+      lines: (lang) => entries.map(({ event, row }) => COPY[lang].quotes[WORDS[event] || "review"](row.public_ref || "")),
+      push: (lang, lines) => (entries.length === 1 ? lines[0] : COPY[lang].quotes.pushMany(entries.length)),
+      path: () => "/portal/quotes",
+    };
+  }
+
   if (topic === "PROPOSALS") {
     const found = await repo.proposals(c, { clientId, ids: idsOf(["proposal"]) });
     return {
@@ -442,11 +518,25 @@ async function context(c, tenant) {
   };
 }
 
-function emailHtml({ ctx, lang, heading, about, lines, more, cta, link }) {
+/**
+ * THE client email layout — the tenant's logo and colour, a heading, what it
+ * is about, the lines, a button back to the portal. Every email a client gets
+ * from the portal uses it: the automatic notices and, since 14261, a team
+ * message sent by hand ("Send by email"), which adds `body` — the message
+ * itself, its paragraphs kept — above the list. One layout, not a second
+ * template that drifts from it.
+ */
+function emailHtml({ ctx, lang, heading, about, lines = [], more, cta, link, body = null }) {
   const w = COPY[lang];
   const items = lines
     .map((l) => `<li style="margin:0 0 8px;font-size:14px;line-height:1.5;color:#1f2d3a">${escapeHtml(l)}</li>`)
     .join("");
+  const paragraphs = body
+    ? String(body)
+      .split(/\n{2,}/)
+      .map((p) => `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#1f2d3a">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
+      .join("")
+    : "";
   const brandRow = ctx.logo
     ? `<img src="${escapeHtml(ctx.logo)}" alt="${escapeHtml(ctx.name)}" height="28" style="display:block;height:28px;max-width:180px;border:0">`
     : `<p style="margin:0;font-size:15px;font-weight:700;color:${ctx.primary}">${escapeHtml(ctx.name)}</p>`;
@@ -457,7 +547,8 @@ function emailHtml({ ctx, lang, heading, about, lines, more, cta, link }) {
       ${brandRow}
       <h1 style="margin:22px 0 6px;font-size:20px;line-height:1.3;color:#0b2030">${escapeHtml(heading)}</h1>
       ${about ? `<p style="margin:0 0 14px;font-size:13px;color:#6b8193">${escapeHtml(about)}</p>` : ""}
-      <ul style="margin:14px 0 0;padding:0 0 0 18px">${items}</ul>
+      ${paragraphs ? `<div style="margin:16px 0 0">${paragraphs}</div>` : ""}
+      ${items ? `<ul style="margin:14px 0 0;padding:0 0 0 18px">${items}</ul>` : ""}
       ${more ? `<p style="margin:0 0 0 18px;font-size:13px;color:#6b8193">${escapeHtml(more)}</p>` : ""}
       <p style="margin:24px 0 0"><a href="${escapeHtml(link)}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:${ctx.primary};color:${ctx.onPrimary};text-decoration:none;font-weight:600;font-size:14px">${escapeHtml(cta)}</a></p>
     </div>
@@ -468,12 +559,13 @@ function emailHtml({ ctx, lang, heading, about, lines, more, cta, link }) {
   </div></body></html>`;
 }
 
-function emailText({ ctx, lang, heading, about, lines, more, cta, link }) {
+function emailText({ ctx, lang, heading, about, lines = [], more, cta, link, body = null }) {
   const w = COPY[lang];
   return [
     heading,
     about || null,
     "",
+    ...(body ? [String(body), ""] : []),
     ...lines.map((l) => `• ${l}`),
     more || null,
     "",
@@ -500,14 +592,20 @@ const languageOf = (person, profile) => {
  * MESSAGES are per person — only the replies they have not read; everything
  * else is the same batch for everybody who may see it.
  */
-async function messageFor(c, { person, topic, thread, batch, lang, ctx, clientId }) {
+async function messageFor(c, { person, topic, thread, batch, lang, ctx, clientId, channel = "push" }) {
   const w = COPY[lang];
   if (topic === "MESSAGES") {
-    const unread = batch.messageIds.length
+    let unread = batch.messageIds.length
       ? await repo.unreadReplies(c, {
           clientId, thread, portalUserId: person.portal_user_id, since: person.granted_at, ids: batch.messageIds,
         })
       : [];
+    // A reply the team already sent this person by hand ("Send by email",
+    // 14261) is not news in the next automatic email.
+    const byHand = channel === "email"
+      ? await repo.manuallySent(c, { email: person.email, ids: unread.map((m) => m.message_id) })
+      : new Set();
+    if (byHand.size) unread = unread.filter((m) => !byHand.has(m.message_id));
     if (!unread.length) return null;
     const ref = unread[unread.length - 1].dossier_ref || null;
     const lines = unread.map((m) => replyLine(m, lang));
@@ -561,14 +659,17 @@ async function deliver(c, { tenant, clientId, topic, thread = null, stage }) {
     const rows = await repo.waiting(c, { clientId, topic, thread, channel });
     if (!rows.length) continue;
     const lastId = rows[rows.length - 1].outbox_id;
-    const batch = await resolve(c, { clientId, topic, rows });
+    // A push-only event (a quote request "under review") is marked done on the
+    // email channel with the rest of its batch, but never written into one.
+    const told = channel === "email" ? rows.filter((r) => !PUSH_ONLY.has(r.event_key)) : rows;
+    const batch = await resolve(c, { clientId, topic, rows: told });
     if (people.length) ctx = ctx || (await context(c, tenant));
 
     for (const person of people) {
       if (isOff(person, channel, topic)) continue;
       if (channel === "push" && !Number(person.devices)) continue;
       const lang = languageOf(person, profile);
-      const msg = await messageFor(c, { person, topic, thread, batch, lang, ctx, clientId });
+      const msg = await messageFor(c, { person, topic, thread, batch, lang, ctx, clientId, channel });
       if (!msg) continue;
       const scopeKey = `${channel}:${topic}:${thread || "-"}`;
       if (channel === "email" && topic === "MESSAGES" &&
@@ -650,7 +751,236 @@ async function staffReach(c, { clientId }) {
   });
 }
 
+/* ── "Send by email" on a team message (tenant review 29 Sep 2026, D8) ──── */
+
+/** What a mail server reliably takes; past this a file goes as a portal link. */
+const MAIL_ATTACH_MAX_BYTES = 15 * 1024 * 1024;
+
+const isExpired = (p, now = Date.now()) => !!p.expires_at && Date.parse(p.expires_at) <= now;
+
+/**
+ * Who at the client may receive a team message by hand: everyone with an
+ * active, unexpired grant who can see that conversation (a Billing-only
+ * colleague has General only), whose login is not DISABLED. Unlike the
+ * automatic sender, someone who switched message emails off or has not signed
+ * in yet IS here — a deliberate send is the team writing to them — but a
+ * removed grant or a disabled login never is.
+ */
+function sendable(people, thread) {
+  return people.filter((p) => sees(p.scope, "MESSAGES", thread) && !isExpired(p) && p.status !== "DISABLED");
+}
+
+async function recipientsFor(c, { messageId }) {
+  const m = await repo.teamMessage(c, { messageId });
+  if (!m || m.direction !== "STAFF") throw new AppError("NOT_FOUND", "That team message was not found", 404);
+  const thread = m.dossier_id ? String(m.dossier_id) : "general";
+  const people = sendable(await repo.reachList(c, { clientId: m.client_id }), thread);
+  return {
+    message: m,
+    thread,
+    recipients: people.map((p) => ({
+      email: p.email,
+      full_name: p.full_name || null,
+      signed_in: !!p.last_login_at,
+      emails_off: offLists(p).email_off.includes("MESSAGES"),
+      language: p.language || null,
+    })),
+  };
+}
+
+/**
+ * Email one team message NOW, whatever the automatic rules say (D8): the
+ * tenant's layout (`emailHtml`, the one every portal email uses), "<company> ·
+ * <shipment ref>" or "Message from <tenant>" as the subject, the message
+ * itself with the shipment and route it is about, its files attached (a portal
+ * link for what will not fit), the sender's own signature
+ * (`signature: "auto"` with the sender as actor), a reply-to that reaches the
+ * sender, and a button back to the conversation.
+ *
+ * ONCE PER CLICK. Each recipient is claimed in `portal_notify_sent` under the
+ * request's own key before the send, so a double click or a retried request
+ * finds the claim taken and sends nothing again; a failed send gives its claim
+ * back. The claim IS the record on the message ("Emailed to … by …"), and the
+ * send is in the audit ledger. NEVER FROM TEST: refused here, and the email
+ * service suppresses a sandbox connection on its own as well.
+ */
+async function emailTeamMessage(c, { messageId, recipients = [], requestKey, actor = {}, tenant = null, env = "live" }) {
+  if (env === "sandbox" || (c && c[Symbol.for("praxis.conn.env")] === "sandbox")) {
+    throw new AppError("SANDBOX_NO_EMAIL", "Nothing is emailed from TEST. Switch to LIVE to send this to the client.", 409);
+  }
+  if (!requestKey) throw new AppError("VALIDATION_ERROR", "request_key is required", 422);
+  const { message: m, thread, recipients: allowed } = await recipientsFor(c, { messageId });
+  const byEmail = new Map(allowed.map((r) => [String(r.email).toLowerCase(), r]));
+  const wanted = [...new Set(recipients.map((e) => String(e).trim().toLowerCase()))];
+  const refused = wanted.filter((e) => !byEmail.has(e));
+  if (refused.length) {
+    throw new AppError(
+      "RECIPIENT_NOT_ALLOWED",
+      `${refused.join(", ")} cannot receive this conversation — only the client's portal users who can see it.`,
+      422,
+      { recipients: refused },
+    );
+  }
+
+  // The assistant's path has no request tenant on hand; the ambient context does.
+  const where = tenant || (await registry.resolveBySlug(requestContext.getTenant()));
+  if (!where) throw new AppError("TENANT_REQUIRED", "The workspace could not be resolved", 500);
+  const ctx = await context(c, where);
+  const profile = await repo.clientProfile(c, m.client_id);
+  const route = m.pol && m.pod ? `${m.pol} → ${m.pod}` : m.pol || m.pod || null;
+  const link = `${ctx.origin}/portal?chat=${thread}`;
+
+  // The files, read once for everybody: attached while they fit, linked after.
+  const attachments = [];
+  const linked = [];
+  let total = 0;
+  for (const a of m.attachments || []) {
+    const name = a.file_name || a.original_name || "attachment";
+    const size = Number(a.byte_size) || 0;
+    if (size && total + size <= MAIL_ATTACH_MAX_BYTES) {
+      try {
+        const content = await storage.get(a.storage_path);
+        attachments.push({ filename: name, content, contentType: a.mime_type || undefined });
+        total += content.length;
+        continue;
+      } catch (err) {
+        logger.warn({ err, attachmentId: a.attachment_id }, "[portal-notify] attachment unreadable — sent as a portal link instead");
+      }
+    }
+    linked.push(name);
+  }
+
+  const sentBy = await resolveActorId(c, actor.user_id);
+  const out = { emailed: [], already: [], failed: [] };
+  for (const email of wanted) {
+    const person = byEmail.get(email);
+    const claim = await repo.claimManual(c, { clientId: m.client_id, email, messageId, requestKey, sentBy });
+    if (!claim) {
+      out.already.push(email);
+      continue;
+    }
+    const lang = languageOf({ language: person && person.language }, profile);
+    const w = COPY[lang].message;
+    const lines = [
+      ...(attachments.length ? [w.attached(attachments.length)] : []),
+      ...(linked.length ? [`${w.linked} ${linked.join(", ")}`] : []),
+    ];
+    const words = {
+      ctx, lang,
+      heading: w.heading(m.author_name),
+      about: w.about(m.dossier_ref, route),
+      body: m.body || "",
+      lines,
+      more: null,
+      cta: w.cta,
+      link,
+    };
+    try {
+      const sent = await emailService.send(c, {
+        to: email,
+        subject: w.subject(profile && profile.name ? profile.name : ctx.name, m.dossier_ref, ctx.name),
+        html: emailHtml(words),
+        text: emailText(words),
+        replyTo: m.author_email || undefined,
+        attachments: attachments.length ? attachments : null,
+        purpose: "NOTIFICATIONS",
+        moduleKey: MODULE,
+        sendPoint: "portal.notify",
+        entityRef: `client_message:${messageId}`,
+        actorUserId: actor.user_id || null,
+        signature: "auto",
+        language: lang,
+      });
+      if (sent && sent.suppressed) throw new AppError("SANDBOX_NO_EMAIL", "Nothing is emailed from TEST.", 409);
+      out.emailed.push(email);
+    } catch (err) {
+      await repo.release(c, claim).catch((e) => logger.warn({ err: e }, "[portal-notify] manual claim not released"));
+      logger.warn({ err, messageId }, "[portal-notify] a deliberate message email failed");
+      out.failed.push(email);
+    }
+  }
+
+  if (out.emailed.length) {
+    await audit(c, {
+      actorUserId: sentBy,
+      action: "client_message.emailed",
+      moduleKey: MODULE,
+      entityRef: `client_message:${messageId}`,
+      after: { client_id: m.client_id, recipients: out.emailed, attachments: attachments.length, linked: linked.length },
+    });
+  }
+  if (!out.emailed.length && out.failed.length) {
+    throw new AppError("EMAIL_FAILED", "The email could not be sent. Try again in a moment.", 502, { failed: out.failed });
+  }
+  return { ...out, delivery: (await messageDelivery(c, { clientId: m.client_id, thread, messages: [m] }))[messageId] || null };
+}
+
+/* ── what each team message's email did (D8 / B5) ──────────────────────── */
+
+/** Past this an email pass that never ran is a failure, not "on its way". */
+const STALE_MINUTES = 30;
+
+/**
+ * Per TEAM message, per person at the client: was it emailed, read in the
+ * portal so no email was needed, or not emailed — and why. Read from what the
+ * portal sender already records (`portal_notify_outbox`, `portal_notify_sent`,
+ * the read cursors); nothing new is logged to answer it.
+ *
+ *   EMAILED          an automatic email covered it, or someone sent it by hand
+ *   READ             they read it in the portal before any email was due
+ *   PENDING          the email pass has not run yet (10–20 minutes after)
+ *   NEVER_SIGNED_IN  the automatic sender only writes to people who have used the portal
+ *   SWITCHED_OFF     they turned message emails off
+ *   ALREADY_TOLD     emailed about this conversation within the hour already
+ *   FAILED           the pass ran out of retries
+ *   NOT_EMAILED      none of the above can be shown (the trail is older than a month)
+ */
+async function messageDelivery(c, { clientId, thread, messages = [] }) {
+  const team = messages.filter((m) => m && m.direction === "STAFF");
+  if (!team.length) return {};
+  const people = sendable(await repo.reachList(c, { clientId }), thread);
+  const ids = team.map((m) => String(m.message_id));
+  const outbox = await repo.messageOutbox(c, { clientId, messageIds: ids });
+  const outboxOf = new Map(outbox.map((o) => [o.item_ref.slice(o.item_ref.indexOf(":") + 1), o]));
+  const since = team.reduce((min, m) => (Date.parse(m.created_at) < min ? Date.parse(m.created_at) : min), Date.now());
+  const sent = await repo.threadEmails(c, { clientId, thread, since: new Date(since).toISOString() });
+  const cursors = new Map((await repo.threadCursors(c, { clientId, thread })).map((r) => [r.portal_user_id, r.last_read_at]));
+  const now = Date.now();
+
+  const out = {};
+  for (const m of team) {
+    const id = String(m.message_id);
+    const at = Date.parse(m.created_at);
+    const box = outboxOf.get(id) || null;
+    out[id] = people.map((p) => {
+      const email = String(p.email).toLowerCase();
+      const base = { email: p.email, name: p.full_name || null };
+      const mine = sent.filter((r) => String(r.email).toLowerCase() === email);
+      const byHand = mine.find((r) => r.message_id && String(r.message_id) === id);
+      if (byHand) return { ...base, state: "EMAILED", at: byHand.sent_at, by: byHand.sent_by_name || null, manual: true };
+      const auto = box
+        ? mine.find((r) => !r.message_id && Number(String(r.dedupe_key).split(":").pop()) >= Number(box.outbox_id)
+            && Date.parse(r.sent_at) >= at)
+        : null;
+      if (auto) return { ...base, state: "EMAILED", at: auto.sent_at, by: null, manual: false };
+      const readAt = p.portal_user_id ? cursors.get(p.portal_user_id) : null;
+      if (readAt && Date.parse(readAt) >= at) return { ...base, state: "READ", at: readAt };
+      if (!p.last_login_at) return { ...base, state: "NEVER_SIGNED_IN" };
+      if (offLists(p).email_off.includes("MESSAGES")) return { ...base, state: "SWITCHED_OFF" };
+      if (!box) return { ...base, state: "NOT_EMAILED" };
+      if (!box.email_done_at) {
+        return { ...base, state: now - Date.parse(box.created_at) > STALE_MINUTES * 60_000 ? "FAILED" : "PENDING" };
+      }
+      const earlier = mine.some((r) => !r.message_id && Date.parse(r.sent_at) < at
+        && at - Date.parse(r.sent_at) < CHAT_EMAIL_EVERY_MIN * 60_000);
+      return { ...base, state: earlier ? "ALREADY_TOLD" : "NOT_EMAILED" };
+    });
+  }
+  return out;
+}
+
 module.exports = {
+  emailTeamMessage, recipientsFor, messageDelivery, emailHtml, emailText, context, sendable, PUSH_ONLY,
   settings, saveSettings, devices, subscribe, unsubscribe, rememberLanguage, test,
   deliver, staffReach,
   sees, topicsFor, TOPICS, DEFAULTS, COPY,

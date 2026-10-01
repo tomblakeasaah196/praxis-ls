@@ -37,6 +37,8 @@ import {
   writeCachedSiteTheme,
 } from "@/lib/site-theme";
 import { FORCE_DARK, getMode } from "@/lib/theme-mode";
+import i18n from "@/lib/i18n";
+import { setLabelCase } from "@/lib/label-case";
 
 type Ctx = {
   branding: Branding;
@@ -126,7 +128,12 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     // staff see all day; this is the row for the site strangers judge them by,
     // and the two are deliberately separate records.
     const cachedTheme = readCachedSiteTheme();
-    if (cachedTheme) applySiteTheme(cachedTheme);
+    if (cachedTheme) {
+      applySiteTheme(cachedTheme);
+      // The tenant's label capitalisation rides the same row (D5) — see
+      // lib/label-case.ts. Words, not paint, but from the same record.
+      setLabelCase(cachedTheme.labelCase, i18n);
+    }
 
     let alive = true;
     // allSettled, not all: a tenant with no login config (the common case) must
@@ -148,6 +155,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
         // Applied LAST, for the reason above: on this surface the website's
         // theme is the answer and the ERP's appearance is the floor beneath it.
         applySiteTheme(t.value);
+        setLabelCase(t.value.labelCase, i18n);
         writeCachedSiteTheme(t.value);
       }
     });

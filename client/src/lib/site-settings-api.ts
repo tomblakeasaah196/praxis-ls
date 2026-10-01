@@ -32,6 +32,8 @@ export type SiteTheme = {
   font_mono: string;
   radius_px: number;
   default_mode: "light" | "dark";
+  /** Label capitalisation on the website and portal (owner decision D5). */
+  label_case?: "TITLE" | "AS_WRITTEN";
 };
 
 /** One value the engine changed, and the measured reason it had to. */

@@ -83,13 +83,27 @@ export default tseslint.config(
        * in `tests/unit/` at the repo root, which is where `@praxis/shared`
        * actually resolves; `tests/unit/font-fallback-metrics.test.js` is the
        * worked example.
+       *
+       * ── ONE DOOR, AND IT IS NOT THE PACKAGE ───────────────────────────────
+       *
+       * `@praxis/shared/text/*` is exempt, and it is not the package: an alias
+       * in `config/shared-deep.ts` maps it to the repo's own
+       * `packages/shared/` DIRECTORY, which every place this app is built has
+       * on disk (CI checks out the repo; the Dockerfile's publicwebbuild stage
+       * is `COPY . .`, as `file:../packages/brand` already needs). Nothing is
+       * resolved through a node_modules this app does not declare, which is
+       * the failure above. A module behind that door must require nothing — the
+       * title-case rule is the first (owner decision D5: one casing function
+       * for the dictionary, the site and the portal, not a copy per app).
        */
       "no-restricted-imports": [
         "error",
         {
           patterns: [
             {
-              group: ["@praxis/shared", "@praxis/shared/*"],
+              // A regex, not `group` + "!…": ignore-style negation cannot
+              // re-include a path under one it has already excluded.
+              regex: "^@praxis/shared(?!/text/[^/]+$)(/.*)?$",
               message:
                 "public-web does not depend on @praxis/shared (D-1) — it resolves locally via the root workspace and fails in CI, where this app installs only its own dependencies. Re-declare the value here, or put the cross-package assertion in tests/unit/ at the repo root.",
             },

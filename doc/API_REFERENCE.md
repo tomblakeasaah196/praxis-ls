@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1825 |
+| Routes | 1835 |
 | Modules mounted | 141 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1825 mounted routes, grouped by path prefix.
+All 1835 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -146,8 +146,10 @@ All 1825 mounted routes, grouped by path prefix.
 | POST | `/api/platform/ops/maintenance` | — |
 | DELETE | `/api/platform/ops/maintenance/:id` | — |
 | GET | `/api/platform/ops/objects` | — |
+| POST | `/api/platform/ops/objects/:slug/restore` | — |
 | POST | `/api/platform/ops/objects/:slug/scan` | — |
 | POST | `/api/platform/ops/objects/:slug/sync` | — |
+| POST | `/api/platform/ops/restore/:slug` | — |
 | GET | `/api/platform/ops/support/:ticketId/context` | — |
 | GET | `/api/platform/ops/telemetry/:slug` | — |
 | GET | `/api/platform/ops/uptime` | — |
@@ -513,6 +515,7 @@ All 1825 mounted routes, grouped by path prefix.
 | DELETE | `/api/tenant/clients/:id/addresses/:childId` | — |
 | PATCH | `/api/tenant/clients/:id/addresses/:childId` | — |
 | GET | `/api/tenant/clients/:id/aging` | — |
+| PUT | `/api/tenant/clients/:id/also-notify` | — |
 | GET | `/api/tenant/clients/:id/banks` | — |
 | POST | `/api/tenant/clients/:id/banks` | — |
 | POST | `/api/tenant/clients/:id/banks/:bankId/reveal` | — |
@@ -543,6 +546,7 @@ All 1825 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/clients/:id/registrations` | — |
 | DELETE | `/api/tenant/clients/:id/registrations/:childId` | — |
 | PATCH | `/api/tenant/clients/:id/registrations/:childId` | — |
+| GET | `/api/tenant/clients/:id/told` | — |
 | POST | `/api/tenant/clients/:id/unblock` | — |
 | POST | `/api/tenant/clients/:id/verify` | — |
 | GET | `/api/tenant/clients/account-manager-candidates` | — |
@@ -1572,6 +1576,9 @@ All 1825 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/portal/chat/inbox` | — |
 | GET | `/api/tenant/portal/chat/messages` | — |
 | POST | `/api/tenant/portal/chat/messages` | — |
+| POST | `/api/tenant/portal/chat/messages/:messageId/email` | — |
+| GET | `/api/tenant/portal/chat/messages/:messageId/recipients` | — |
+| GET | `/api/tenant/portal/chat/milestones` | — |
 | POST | `/api/tenant/portal/chat/read` | — |
 | GET | `/api/tenant/portal/chat/threads` | — |
 | GET | `/api/tenant/portal/client` | — |
@@ -1635,6 +1642,8 @@ All 1825 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/client/tickets` | — |
 | GET | `/api/tenant/portal/client/tickets/:id` | — |
 | POST | `/api/tenant/portal/client/tickets/:id/replies` | — |
+| POST | `/api/tenant/portal/clients/:clientId/document-requests` | — |
+| GET | `/api/tenant/portal/clients/:clientId/document-status` | — |
 | GET | `/api/tenant/portal/clients/:clientId/onboarding` | — |
 | POST | `/api/tenant/portal/clients/:clientId/onboarding/:stepKey` | — |
 | GET | `/api/tenant/portal/clients/:clientId/people` | — |
@@ -1651,6 +1660,7 @@ All 1825 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/invoice-bundles/:invoiceId` | — |
 | POST | `/api/tenant/portal/invoice-bundles/:invoiceId/withdraw` | — |
 | GET | `/api/tenant/portal/me` | — |
+| POST | `/api/tenant/portal/me/profile` | — |
 | GET | `/api/tenant/portal/messages` | — |
 | POST | `/api/tenant/portal/messages` | — |
 | GET | `/api/tenant/portal/onboarding` | yes |

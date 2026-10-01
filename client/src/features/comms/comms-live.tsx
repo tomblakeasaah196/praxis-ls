@@ -132,17 +132,10 @@ export function CommsLive() {
     };
     document.addEventListener("visibilitychange", onVis);
 
-    // The service worker opens a place in THIS window (an expired ring's
-    // conversation) through the router, not a reload that would drop a call.
-    const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
-    const onWorker = (ev: MessageEvent) => {
-      const msg = ev.data as { type?: string; url?: string } | null;
-      if (msg?.type === "praxis:navigate" && typeof msg.url === "string"
-          && msg.url.startsWith("/") && !msg.url.startsWith("//")) {
-        navigateRef.current(msg.url);
-      }
-    };
-    sw?.addEventListener?.("message", onWorker);
+    // The service worker's `praxis:navigate` (an expired ring's conversation,
+    // a cancelled call) is handled by the ONE app-wide listener in the shell
+    // now (lib/open-in-app.ts useWorkerNavigation) — through the router, not a
+    // reload that would drop a call, exactly as it was here.
 
     return () => {
       s.off("comms:presence", onPresence);
@@ -150,7 +143,6 @@ export function CommsLive() {
       s.off("disconnect", onDrop);
       s.off("connect", onConnect);
       document.removeEventListener("visibilitychange", onVis);
-      sw?.removeEventListener?.("message", onWorker);
       beatRef.current = () => {};
       // Logout: the socket is authenticated as THIS user, and the next user
       // on this browser (shift change) must not inherit the old user's ring.

@@ -74,6 +74,11 @@ const theme = z.object({
   font_mono: z.string().trim().min(1).max(64),
   radius_px: z.coerce.number().int().min(0).max(32),
   default_mode: z.enum(["light", "dark"]),
+  // Label capitalisation on the website and the client portal (owner decision
+  // D5, tenant review 29 Sep 2026): Title Case is the standard for every
+  // tenant; "As written" turns it off. Optional so a client from before the
+  // field still saves the rest of its theme — the column keeps its value.
+  label_case: z.enum(["TITLE", "AS_WRITTEN"]).optional(),
 });
 
 /* ── social ─────────────────────────────────────────────────────────────────*/
