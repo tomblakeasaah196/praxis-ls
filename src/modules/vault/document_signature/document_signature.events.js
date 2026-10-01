@@ -15,4 +15,9 @@ module.exports = {
   REVOKED: "document_signature.revoked",
   AMENDED: "document_signature.amended",
   STALE: "document_signature.stale_detected",
+  // The 5-minute signing window (meeting 6, F6): opened by a proof, each
+  // signature made under it, and its close (End now, sign-out, expiry).
+  WINDOW_OPENED: "document_signature.window.opened",
+  WINDOW_SIGNED: "document_signature.window.signed",
+  WINDOW_CLOSED: "document_signature.window.closed",
 };

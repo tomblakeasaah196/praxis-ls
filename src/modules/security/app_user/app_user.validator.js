@@ -113,6 +113,9 @@ const credentialEnvelope = {
 const passkeyRegisterOptions = zValidate(z.object({
   label: z.string().max(80).optional().nullable(),
   current_password: z.string().min(1).max(512).optional().nullable(),
+  // Meeting 6, F6: set the passkey up on the PHONE (QR) — for signing on a
+  // computer without fingerprint or face.
+  from_phone: z.boolean().optional(),
 }));
 const passkeyRegisterVerify = zValidate(z.object({
   attestation: z.object({

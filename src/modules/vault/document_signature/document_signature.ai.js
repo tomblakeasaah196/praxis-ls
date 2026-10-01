@@ -32,7 +32,10 @@ module.exports = {
    * No writes. Signing needs the signer's fingerprint or face (or an emailed
    * code) on their own device (signing-proof.service) — an assistant cannot
    * supply either, and a catalogue entry it could never complete would
-   * advertise a capability the runtime refuses.
+   * advertise a capability the runtime refuses. The 5-minute signing window
+   * (meeting 6, F6) changes nothing here: it belongs to the signed-in browser
+   * session that opened it, and an assistant's call has no session to match
+   * (signing-proof.service fromRequest / settle).
    */
   writes: [
   ],
