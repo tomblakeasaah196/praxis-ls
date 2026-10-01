@@ -227,7 +227,7 @@ the code, say so in the PR, and carry on.
   documents and KYC, and the public-web Title Case / LABEL classification. Keep emitting
   `quote_request.created` and the transition events exactly as today — PR 1 routes them.
 - **PR 3** owns currencies, the financial dictionary, expense rates, corporate-entity coverage,
-  deleting draft clients, signing, support access and the Control Tower.
+  deleting draft clients, signing and the Control Tower.
 - **PR 4** owns quotations / proposals, the portal's "Requests for Quotation / Quotations" menu
   split, costing families and the command palette.
 - If a fix truly needs one of those files, keep the hunk minimal and explain why in the PR.
