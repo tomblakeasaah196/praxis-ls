@@ -35,6 +35,7 @@ import { DateField } from "@/components/ui/date-field";
 import { Checkbox, RadioGroup } from "@/components/ui/checkbox";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { MoreMenu } from "@/components/ui/more-menu";
+import { isSafeSignInUrl, signInMessage, whatsappUrl } from "@/lib/share-sign-in";
 import { DropdownItem, DropdownSeparator } from "@/components/ui/dropdown-menu";
 import { ResponsiveList, RecordCard } from "@/components/ui/responsive-list";
 import { EmptyState, ErrorState } from "@/components/ui/states";
@@ -63,14 +64,18 @@ export type PortalPerson = {
   sign_in: SignIn;
   invited_at: string | null;
   invite_expires_at: string | null;
+  /** The portal SIGN-IN page with their email filled in (D4) — never a token. */
+  sign_in_url?: string | null;
+  /** The language they read the portal in, for a link shared by hand. */
+  language?: "en" | "fr" | null;
 };
 
 export type InviteDefaults = { access_scope: PortalScope; first_is_admin: boolean };
-type People = { members: PortalPerson[]; defaults: InviteDefaults };
+type People = { members: PortalPerson[]; defaults: InviteDefaults; tenant_name?: string | null };
 type Added = PortalPerson & { invite: { sent: boolean; emailed: boolean } };
 
 /** A contact on the client's record, offered as a one-tap invite. */
-export type ContactSuggestion = { name: string; email: string };
+export type ContactSuggestion = { name: string; email: string; phone?: string | null };
 
 const SCOPES: PortalScope[] = ["ALL", "OPERATIONS", "BILLING"];
 const SCOPE_HINT: Record<PortalScope, string> = {
@@ -164,7 +169,7 @@ export function ClientPortalPeople({
     try {
       const r = await tenant<Added>(`${peoplePath(clientId)}/${encodeURIComponent(p.portal_access_id)}/invite`, { method: "POST" });
       if (r.invite.emailed) toast.success(tv("Invitation sent to {{email}}.", { email: p.email }));
-      else toast.error(tr("The link is ready but the email could not be sent. Try again in a moment."));
+      else toast.error(tr("The email could not be sent. Share the sign-in link instead — Send on WhatsApp or Copy link, from the row's ⋯ menu."));
       // An open sheet shows the new state of the link, not the one it opened on.
       setEditing((cur) => (cur && cur.portal_access_id === p.portal_access_id ? r : cur));
       people.reload();
@@ -208,12 +213,44 @@ export function ClientPortalPeople({
     );
   }
 
-  /** The row's less-used actions — the invitation when it is not the visible one, and Remove, last. */
+  /**
+   * The sign-in link, shared by hand (D4) — for when the invitation email does
+   * not arrive. Their email filled in; they sign in with an emailed code.
+   */
+  function shareText(p: PortalPerson): string | null {
+    if (!p.sign_in_url || !isSafeSignInUrl(p.sign_in_url)) return null;
+    return signInMessage({ language: p.language, name: p.full_name, tenant: people.data?.tenant_name, url: p.sign_in_url });
+  }
+  const phoneOf = (p: PortalPerson) =>
+    contacts.find((c) => c.email && c.email.toLowerCase() === p.email.toLowerCase())?.phone || null;
+  function whatsapp(p: PortalPerson) {
+    const text = shareText(p);
+    if (!text) return;
+    window.open(whatsappUrl(phoneOf(p), text), "_blank", "noopener,noreferrer");
+  }
+  async function copyLink(p: PortalPerson) {
+    if (!p.sign_in_url || !isSafeSignInUrl(p.sign_in_url)) return;
+    try {
+      await navigator.clipboard.writeText(p.sign_in_url);
+      toast.success(tv("Sign-in link for {{name}} copied.", { name: displayName(p) }));
+    } catch {
+      toast.error(tr("The link could not be copied — your browser refused. Use Send on WhatsApp instead."));
+    }
+  }
+
+  /** The row's less-used actions — the invitation when it is not the visible one, sharing the sign-in link, and Remove, last. */
   const menu = (p: PortalPerson, withInvite: boolean) => (
     <MoreMenu label={tv("Actions for {{name}}", { name: displayName(p) })} disabled={busy === p.portal_access_id}>
       {withInvite && canInvite(p) ? (
         <>
           <DropdownItem onSelect={() => void invite(p)}>{inviteLabel(p)}</DropdownItem>
+          <DropdownSeparator />
+        </>
+      ) : null}
+      {p.sign_in_url && p.sign_in !== "DISABLED" ? (
+        <>
+          <DropdownItem onSelect={() => whatsapp(p)}>{tr("Send on WhatsApp")}</DropdownItem>
+          <DropdownItem onSelect={() => void copyLink(p)}>{tr("Copy link")}</DropdownItem>
           <DropdownSeparator />
         </>
       ) : null}

@@ -183,8 +183,17 @@ function byLine(by) {
  * the module's permission-holders (excluding the actor). Returns the count sent.
  */
 async function onEvent(client, { eventTypeKey, moduleKey, entityRef = null, actorUserId = null, payload = {} }) {
+  // Client activity first (tenant review 29 Sep 2026, D3/D7): the client's own
+  // people — account manager, "Also notify", CEO-role users — are told under
+  // "Client activity", email on by default. Whoever that reached is left out of
+  // the module broadcast below, so one upload is one bell per person.
+  const clientTeam = require("./notify-client-team");
+  const told = new Set(await clientTeam.onEvent(client, { eventTypeKey, entityRef, actorUserId, payload }));
   const cfg = NOTIFIABLE[eventTypeKey];
-  if (!cfg || !moduleKey) return 0;
+  if (!cfg || !moduleKey) return told.size;
+  // A website quote enquiry is one alert — the quote request's, above — not a
+  // second "New lead" for the lead created in the same transaction.
+  if (eventTypeKey === "lead.created" && (await clientTeam.isWebsiteQuoteLead(client, entityRef))) return 0;
   try {
     const repo = require("../../modules/notification/notification.repo");
     const service = require("../../modules/notification/notification.service");
@@ -198,7 +207,7 @@ async function onEvent(client, { eventTypeKey, moduleKey, entityRef = null, acto
     // The actor is excluded here rather than inside notifyMany — "do not tell
     // me about my own action" is this fan-out's rule, not a property of
     // notification delivery.
-    const targets = recipients.filter((u) => !(actorUserId && u === actorUserId));
+    const targets = recipients.filter((u) => !(actorUserId && u === actorUserId) && !told.has(u));
       // `return await`, NOT `return`. In an async function `try { return p; }`
     // does NOT catch p's rejection — the return adopts the promise and the
     // rejection escapes the handler entirely. This function is documented and

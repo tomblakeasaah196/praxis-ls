@@ -16,6 +16,7 @@ const siteSettings = require("./schemas/site-settings");
 const callSummary = require("./schemas/call-summary");
 const dictionaryPosting = require("./schemas/dictionary-posting");
 const expenseRate = require("./schemas/expense-rate");
+const clientPortal = require("./schemas/client-portal");
 const ledger = require("./rules/ledger");
 const marks = require("./rules/marks");
 const entityRoute = require("./rules/entity-route");
@@ -77,6 +78,11 @@ exports.dictionaryPosting = dictionaryPosting;
 // it computes with the same function — one division, so the saved rate is the
 // one the dialog showed.
 exports.expenseRate = expenseRate;
+// The client portal's staff-side forms (tenant review 29 Sep 2026, PR 1):
+// "Request from client", Accept with the fields a KYC document is filed with,
+// and "Send by email" on a team message. Shared because the Accept dialog must
+// ask for exactly the fields the API refuses an accept without.
+exports.clientPortal = clientPortal;
 // entity_ref → the screen that shows it. Shared because the API stamps
 // `notification.link_url` from it at write time and the client resolves it
 // again at draw time for every row written before that column existed.

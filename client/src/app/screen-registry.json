@@ -275,7 +275,7 @@
       "route": "/master/clients",
       "area": "master",
       "module_key": "MOD-03",
-      "purpose": "Customer master with a live 360 — terms, credit limit, withholding status, and each client's portal: who at the client can sign in, their onboarding checklist, and what clients sent to review. ⚙ Settings holds what every client shares (invite defaults, onboarding steps).",
+      "purpose": "Customer master with a live 360 — terms, credit limit, withholding status, and each client's portal: who at the client can sign in, their onboarding checklist, what clients sent to review (accepting files it on the 360) and \"Request from client\" for KYC documents; who is told about the client (account manager, Also notify, CEO). ⚙ Settings holds what every client shares (invite defaults, onboarding steps).",
       "actions": [
         "list_clients",
         "get_client",
@@ -283,8 +283,11 @@
         "create_client",
         "update_client",
         "request_client_document",
+        "request_client_documents",
         "get_client_account_manager",
         "set_client_account_manager",
+        "get_client_told_list",
+        "set_client_also_notify",
         "find_account_manager_candidates",
         "list_client_requests",
         "review_client_request",
@@ -1756,6 +1759,8 @@
         "list_client_conversations",
         "read_client_conversation",
         "reply_to_client",
+        "email_client_message",
+        "list_client_message_recipients",
         "client_notification_reach"
       ]
     },

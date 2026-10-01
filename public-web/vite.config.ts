@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { sharedDeep } from "./config/shared-deep";
 
 /**
  * Dev proxy: the app calls `/api/*` and `/media/*`, Vite forwards to the Node
@@ -30,6 +31,8 @@ const ALLOWED_HOSTS = (process.env.VITE_ALLOWED_HOSTS || "")
   .map((h) => h.trim())
   .filter(Boolean);
 const TENANT_HOST = process.env.VITE_TENANT_HOST || "smartls.praxisls.com";
+/** `@praxis/shared/<module>` by deep path — see config/shared-deep.ts. */
+const shared = sharedDeep(__dirname);
 
 export default defineConfig({
   // Mounted at the ROOT of the tenant host and served for /public/* and
@@ -37,7 +40,8 @@ export default defineConfig({
   // stay absolute-from-root. A build copied to a subpath would need base set.
   base: "/",
   plugins: [react()],
-  resolve: { alias: { "@": path.resolve(__dirname, "src") } },
+  resolve: { alias: { "@": path.resolve(__dirname, "src"), ...shared.alias } },
+  optimizeDeps: { include: shared.optimizeInclude },
   server: {
     // 5173 is client, 5174 is platform-console.
     port: 5175,
@@ -86,6 +90,7 @@ export default defineConfig({
      * tests/unit/public-web-mount.test.js reads both files and pins them together.
      */
     assetsDir: "public-assets",
+    commonjsOptions: { include: shared.commonjsInclude },
     rollupOptions: {
       onwarn(warning, warn) {
         // The one warning that must never be a warning. A circular chunk graph

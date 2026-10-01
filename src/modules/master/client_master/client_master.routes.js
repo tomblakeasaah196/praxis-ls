@@ -34,6 +34,11 @@ router.get("/:id/credit", requirePermission(MODULE, "view"), controller.creditCh
 // requireAnyPermission asks of its members.
 router.get("/:id/account-manager", requireAnyPermission([[MODULE, "view"], ["MOD-64C", "view"]]), controller.accountManager);
 router.put("/:id/account-manager", requireAnyPermission([[MODULE, "edit"], ["MOD-64C", "edit"]]), validator.accountManager, controller.setAccountManager);
+// Who is told about this client (tenant review 29 Sep 2026, D7): the account
+// manager, the CEO-role users and the "Also notify" people — read and edited
+// under the same grants as the account manager, for the same reason.
+router.get("/:id/told", requireAnyPermission([[MODULE, "view"], ["MOD-64C", "view"]]), controller.told);
+router.put("/:id/also-notify", requireAnyPermission([[MODULE, "edit"], ["MOD-64C", "edit"]]), validator.alsoNotify, controller.setAlsoNotify);
 router.get("/:id/360", requirePermission(MODULE, "view"), controller.dossier);
 router.get("/:id/aging", requirePermission(MODULE, "view"), controller.agingDetail);
 router.post("/", requirePermission(MODULE, "create"), validator.create, controller.create);

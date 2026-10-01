@@ -20,6 +20,9 @@ module.exports = {
   // The account manager (PR 3, 14200) — who looks after this client.
   accountManager: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => accountManager.get(c, { clientId: req.params.id })) })),
   setAccountManager: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => accountManager.set(c, { clientId: req.params.id, userId: req.body.user_id, actor: actor(req) })) })),
+  // Who is told about this client (D7): the whole list, and its "Also notify" half.
+  told: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => accountManager.told(c, { clientId: req.params.id })) })),
+  setAlsoNotify: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => accountManager.setAlsoNotify(c, { clientId: req.params.id, userIds: req.body.user_ids, actor: actor(req) })) })),
   accountManagerCandidates: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => accountManager.candidates(c, { q: req.query.q, limit: req.query.limit })) })),
   creditCheck: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.creditCheck(c, { clientId: req.params.id, additionalAmount: Number(req.query.amount) || 0 })) })),
   // 360° dossier + lifecycle actions (shared with the supplier master).

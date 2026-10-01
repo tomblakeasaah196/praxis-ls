@@ -36,7 +36,9 @@ async function create(client, { data, actor = {} }) {
     // The account manager (14200) is named through its own service whichever
     // door it comes in by — it must be an ACTIVE login, and naming one is
     // audited and tells them — so it is not a plain column of the insert.
-    const { relationship_manager_user_id: accountManagerId, ...insertable } = masterData;
+    // "Also notify" (D7) rides the same door: picked at creation, written
+    // through account_manager.setAlsoNotify (active logins, audited, told).
+    const { relationship_manager_user_id: accountManagerId, also_notify_user_ids: alsoNotifyIds, ...insertable } = masterData;
     // A new client starts as a DRAFT unless told otherwise.
     const payload = { registration_status: "DRAFT", ...insertable };
     let ref = payload.ref || null;
@@ -50,6 +52,9 @@ async function create(client, { data, actor = {} }) {
     if (accountManagerId) {
       await accountManager.set(client, { clientId: row.client_id, userId: accountManagerId, actor });
       row.relationship_manager_user_id = accountManagerId;
+    }
+    if (alsoNotifyIds && alsoNotifyIds.length) {
+      await accountManager.setAlsoNotify(client, { clientId: row.client_id, userIds: alsoNotifyIds, actor });
     }
     await emitEvent(client, { eventTypeKey: events.CREATED, moduleKey: events.MODULE, entityRef: "client:" + row.client_id, actorUserId: actor.user_id || null });
     await audit(client, { actorUserId: actor.user_id || null, action: events.CREATED, moduleKey: events.MODULE, entityRef: "client:" + row.client_id, after: row });
@@ -70,6 +75,8 @@ async function update(client, { id, patch, actor = {}, env }) {
   // an ACTIVE login, audited, and the person told.
   const accountManagerId = masterPatch.relationship_manager_user_id;
   delete masterPatch.relationship_manager_user_id;
+  const alsoNotifyIds = masterPatch.also_notify_user_ids;
+  delete masterPatch.also_notify_user_ids;
   // Sensitive-field maker-checker (§8): in LIVE, split legal name / credit limit
   // / status out of the direct patch — they need a second authorization. Done
   // BEFORE the mirror + name_norm recompute so a pending legal-name change never
@@ -90,6 +97,9 @@ async function update(client, { id, patch, actor = {}, env }) {
     const row = Object.keys(masterPatch).length ? await repo.update(client, id, masterPatch) : before;
     if (accountManagerId !== undefined) {
       await accountManager.set(client, { clientId: id, userId: accountManagerId || null, actor });
+    }
+    if (alsoNotifyIds !== undefined) {
+      await accountManager.setAlsoNotify(client, { clientId: id, userIds: alsoNotifyIds || [], actor });
     }
     // Activation (§3): allocate the aux account + refresh compliance the first
     // time a client becomes ACTIVE. Keyed on "active without an aux account" so a

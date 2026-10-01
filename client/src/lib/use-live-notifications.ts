@@ -31,6 +31,9 @@ export type LiveNotification = {
   priority?: string | null;
   category?: string | null;
   link_url?: string | null;
+  /** What it is about — so the open screen can tell whether to refresh (C3). */
+  event_type_key?: string | null;
+  entity_ref?: string | null;
   /** Resolved per-recipient on the server from their INTERRUPT preference —
    *  never re-derived here, or two people in one channel would disagree. */
   interrupt?: boolean | null;
