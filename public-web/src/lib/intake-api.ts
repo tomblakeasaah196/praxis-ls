@@ -40,8 +40,9 @@
  * endpoint — which matters because the limit is per-connection, and an office
  * behind one NAT address shares it.
  */
-import { publicApi, PublicApiError, type FieldErrors } from "./api";
+import { publicApi, publicPostWithProgress, PublicApiError, type FieldErrors } from "./api";
 import type { PlacePick } from "./places-api";
+import type { DocumentKind, HinterlandDirection } from "./quote-scope";
 
 export type IntakeReceipt = { received: boolean; reference: string };
 
@@ -54,6 +55,11 @@ export type QuoteRequest = Trap & {
   requester_email?: string;
   requester_phone?: string;
   service_category?: string;
+  /** The published service the visitor picked (meeting 6, PR 2) — the server
+   *  stores it, and writes `service_category` from its name. */
+  service_type_id?: string;
+  /** For a hinterland transit: into it (import) or out of it (export). */
+  hinterland_direction?: HinterlandDirection;
   origin_location?: string;
   destination_location?: string;
   cargo_description?: string;
@@ -78,9 +84,12 @@ export type QuoteRequest = Trap & {
    */
   origin_place?: PlacePick;
   destination_place?: PlacePick;
-  /** One optional file, as a base64 data URL. See `components/ui/file-input`. */
-  attachment_data_url?: string;
-  attachment_filename?: string;
+  /**
+   * Up to three documents, each a base64 data URL with what it is — strongly
+   * encouraged, never required: a stranger may not have an invoice yet
+   * (owner decision Q6). Every one reaches the desk's Attachments tab.
+   */
+  documents?: { data_url: string; filename?: string; document_kind?: DocumentKind }[];
 };
 
 export type ContactEnquiry = Trap & {
@@ -99,6 +108,7 @@ const submit = <T>(
   path: string,
   body: T & Trap,
   startedAt: number | undefined,
+  onProgress?: (pct: number) => void,
 ): Promise<IntakeReceipt> => {
   // Empty strings are dropped: `.strict()` accepts the key, but the services
   // write `data.x || null` and an empty subject on a lead is noise in a queue.
@@ -112,13 +122,16 @@ const submit = <T>(
       ([, v]) => v !== "" && v !== undefined && v !== null,
     ),
   ) as T & Trap;
-  return publicApi<IntakeReceipt>(path, { method: "POST", body: clean });
+  return onProgress
+    ? publicPostWithProgress<IntakeReceipt>(path, clean, onProgress)
+    : publicApi<IntakeReceipt>(path, { method: "POST", body: clean });
 };
 
 export const quoteRequests = {
   path: "/public/intake/quote-requests" as const,
-  send: (body: QuoteRequest, startedAt?: number) =>
-    submit("/public/intake/quote-requests", body, startedAt),
+  /** `onProgress` when documents travel with it: the body is then megabytes. */
+  send: (body: QuoteRequest, startedAt?: number, onProgress?: (pct: number) => void) =>
+    submit("/public/intake/quote-requests", body, startedAt, onProgress),
 };
 
 export const contactEnquiries = {

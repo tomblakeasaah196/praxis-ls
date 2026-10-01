@@ -5,7 +5,11 @@
  */
 "use strict";
 
-const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"];
+const { incoterms } = require("@praxis/shared");
+
+// The ICC 2020 list from @praxis/shared (meeting 6, PR 2) — the same eleven
+// terms the quote wizards, the desk and the service types offer.
+const INCOTERMS = [...incoterms.CODES];
 const CONTAINERS = ["20GP", "40GP", "40HC", "40RF", "20RF", "45HC"];
 const CURRENCIES = ["XAF", "EUR", "USD", "GBP", "XOF"];
 
