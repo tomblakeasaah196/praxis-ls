@@ -170,7 +170,7 @@ describe("FilePicker paste", () => {
   it("renders the third option by default", () => {
     render(<FilePicker onPick={() => {}} />);
     expect(
-      screen.getByRole("button", { name: "or paste an image" }),
+      screen.getByRole("button", { name: "Paste an image" }),
     ).toBeInTheDocument();
   });
 
@@ -242,12 +242,12 @@ describe("FilePicker paste", () => {
     const user = userEvent.setup();
     render(<FilePicker onPick={onPick} />);
 
-    await user.click(screen.getByRole("button", { name: "or paste an image" }));
+    await user.click(screen.getByRole("button", { name: "Paste an image" }));
     expect(
       screen.getByRole("button", { name: "Press Ctrl+V now" }),
     ).toBeInTheDocument();
 
-    const target = screen.getByLabelText("Paste an image");
+    const target = screen.getByRole("textbox", { name: "Paste an image" });
     fireEvent.paste(target, { clipboardData: { items: [], files: [] } });
 
     await waitFor(() =>
@@ -271,7 +271,7 @@ describe("FilePicker paste", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Paste a file" }));
-    const target = screen.getByLabelText("Paste a file");
+    const target = screen.getByRole("textbox", { name: "Paste a file" });
     fireEvent.paste(target, { clipboardData: clipboard(pdf()) });
 
     expect(onPick).toHaveBeenCalledTimes(1);

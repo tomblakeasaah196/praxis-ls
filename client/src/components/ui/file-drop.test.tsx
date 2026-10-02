@@ -164,7 +164,7 @@ describe("FileDrop paste", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "or paste an image" }),
+      screen.getByRole("button", { name: "Paste an image" }),
     ).toBeInTheDocument();
   });
 
