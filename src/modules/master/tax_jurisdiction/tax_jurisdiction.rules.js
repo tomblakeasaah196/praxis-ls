@@ -41,7 +41,7 @@ function assertEffectiveWindow({ effectiveFrom, effectiveTo }) {
  * there's a problem here, it doesn't write the accounts it posts to, that means
  * accounts to be debited and credited … debit accounts none … So I'll ensure that
  * every account is actually mapped to their account." Nine of the twenty-one
- * seeded codes had one side NULL (repaired by seed 9161).
+ * seeded codes had one side NULL (repaired by seed 90999).
  *
  * Nothing caught it because `determination.compute` reads ONE side per context —
  * the credit on a sale, the debit on a purchase — and takes the counterpart from

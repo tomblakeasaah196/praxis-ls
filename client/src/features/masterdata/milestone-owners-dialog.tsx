@@ -37,7 +37,7 @@
  *
  * ── SYSTEM ROWS DEACTIVATE, NEVER DELETE ────────────────────────────────────
  *
- * Shipped rows (seed 9160) are renameable and switchable off, never deletable —
+ * Shipped rows (seed 90998) are renameable and switchable off, never deletable —
  * spec §6.2, enforced by the server (422 SYSTEM_TYPE). A tenant row deletes
  * unless something references it, which the server turns into a 409 telling you
  * to deactivate instead. Both messages are shown as they arrive rather than

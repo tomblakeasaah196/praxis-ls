@@ -24,9 +24,9 @@ const ROOT = path.join(__dirname, "..", "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 
 const MIGRATION = "migrations/tenant/14400_milestone_owner_registry.sql";
-const SEED = "migrations/seeds/9160_seed_milestone_owners.sql";
+const SEED = "migrations/seeds/90998_seed_milestone_owners.sql";
 
-/** The owner rows 9160 seeds: code → { isInternal }. */
+/** The owner rows 90998 seeds: code → { isInternal }. */
 function seededOwners() {
   const out = new Map();
   for (const m of read(SEED).matchAll(

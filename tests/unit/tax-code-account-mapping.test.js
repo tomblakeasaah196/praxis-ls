@@ -12,7 +12,7 @@
  * Twelve of the twenty-one codes 9010 seeds were defective — nine with one side
  * NULL, three pointing at a non-postable HEADING (`62`, `447`, `521`), which is
  * worse because it looks mapped and the screen's own picker would not even offer
- * it. Seed 9161 repairs them.
+ * it. Seed 90999 repairs them.
  *
  * ── WHY NO TEST CAUGHT IT, AND WHY THIS ONE IS STATIC ──────────────────────
  *
@@ -25,7 +25,7 @@
  * The repair is SQL applied once at provisioning, so a regression in it would only
  * surface against a live Postgres, long after the edit. This reads the two seeds
  * statically: 9010's VALUES for what ships, 9000/9001 for which accounts are
- * postable, 9161 for what is filled in. An edit that reintroduces a gap fails here,
+ * postable, 90999 for what is filled in. An edit that reintroduces a gap fails here,
  * next to the change.
  */
 const fs = require("fs");
@@ -53,10 +53,10 @@ function postableAccounts() {
 }
 
 /**
- * The seeded tax codes, as (code → {debit, credit}) AFTER 9161's repairs are
+ * The seeded tax codes, as (code → {debit, credit}) AFTER 90999's repairs are
  * applied the way Postgres would apply them.
  *
- * 9010 is parsed for what ships; 9161's UPDATEs are then replayed against it by
+ * 9010 is parsed for what ships; 90999's UPDATEs are then replayed against it by
  * the rules below rather than by executing SQL. Replaying them by hand is the
  * price of a static test, and it is worth paying: the alternative is a gate that
  * needs a database and therefore does not run in `npm run ci`.
@@ -80,7 +80,7 @@ function seededTaxCodes() {
   return out;
 }
 
-/** 9161's UPDATEs, replayed over the parsed 9010 rows. */
+/** 90999's UPDATEs, replayed over the parsed 9010 rows. */
 function applyRepair(codes, postable) {
   for (const [code, c] of codes) {
     if (c.kind === "VAT" && c.appliesTo === "sales" && !c.debit) c.debit = "4111";
@@ -129,11 +129,11 @@ describe("seeded tax codes post to both sides", () => {
       .filter(([, c]) => !c.debit || !c.credit || !postable.has(c.debit) || !postable.has(c.credit))
       .map(([code]) => code);
     // If this number MOVES, 9010 was edited. Either the gap was fixed at source
-    // (then shrink this and 9161's UPDATEs together) or a new one was added.
+    // (then shrink this and 90999's UPDATEs together) or a new one was added.
     expect(defective.length).toBe(12);
   });
 
-  it("leaves no code unmapped once 9161 has run", () => {
+  it("leaves no code unmapped once 90999 has run", () => {
     const unmapped = [...repaired.entries()]
       .filter(([, c]) => !c.debit || !c.credit)
       .map(([code, c]) => `${code} (debit ${c.debit ?? "—"} / credit ${c.credit ?? "—"})`);

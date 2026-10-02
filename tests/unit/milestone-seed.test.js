@@ -46,7 +46,7 @@ const SERVICES = [
 ];
 
 /**
- * The owner codes 9160 seeds into the `milestone_owner` registry (14400).
+ * The owner codes 90998 seeds into the `milestone_owner` registry (14400).
  *
  * READ FROM THE SEED, not listed here. These were five hardcoded strings until
  * meeting 7 (1 Oct 2026, 01:57:20) made them a tenant registry, and a copy of
@@ -60,7 +60,7 @@ const OWNER_SEED = path.join(
   "..",
   "migrations",
   "seeds",
-  "9160_seed_milestone_owners.sql",
+  "90998_seed_milestone_owners.sql",
 );
 const OWNER_TIERS = new Set(
   [

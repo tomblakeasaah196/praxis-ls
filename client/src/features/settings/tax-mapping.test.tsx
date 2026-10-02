@@ -9,7 +9,7 @@
  * front of the tenant: "oh I think there's a problem here, it doesn't write the
  * accounts it posts to … debit accounts none."
  *
- * The data is repaired (seed 9161) and the API refuses a thirteenth
+ * The data is repaired (seed 90999) and the API refuses a thirteenth
  * (rules.assertPostingAccounts). These assert the part that makes a FOURTEENTH
  * findable without a code review: the mapping is a column on the screen, and a
  * jurisdiction with a gap says so at the top the moment it opens. A banner is
