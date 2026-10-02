@@ -29,6 +29,8 @@ import { ComplianceFlagsPage } from "./compliance-flags";
 import { DocumentsPage } from "./documents";
 import { SignaturesPage } from "./signatures";
 import { ReconciliationPage } from "./reconciliation";
+import * as React from "react";
+import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 
 const shell = pageShell.wide;
 
@@ -37,6 +39,7 @@ type Doc = {
   doc_type?: string | null;
   status?: string | null;
   entity_ref?: string | null;
+  original_name?: string | null;
   created_at?: string | null;
 };
 type Flag = {
@@ -70,6 +73,7 @@ function staleCount(stats: Row | null | undefined): number {
 
 function Overview() {
   const navigate = useNavigate();
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
   const docs = useList<Doc>("/documents");
   const flags = useList<Flag>("/compliance");
   /*
@@ -295,7 +299,17 @@ function Overview() {
                   key={d.doc_id}
                   className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0"
                 >
-                  <span className="flex min-w-0 items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-primary-ink"
+                    onClick={() =>
+                      setPreview({
+                        doc_id: d.doc_id,
+                        title: d.original_name || d.doc_type || "Document",
+                        filename: d.original_name,
+                      })
+                    }
+                  >
                     <Pill tone={docTone(d.status)}>
                       {d.status || "PENDING"}
                     </Pill>
@@ -310,7 +324,7 @@ function Overview() {
                         </span>
                       )}
                     </span>
-                  </span>
+                  </button>
                   <span className="num shrink-0 text-muted-foreground">
                     {dateFmt(d.created_at)}
                   </span>
@@ -348,6 +362,8 @@ function Overview() {
           signature itself.
         </p>
       </Panel>
+
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </section>
   );
 }

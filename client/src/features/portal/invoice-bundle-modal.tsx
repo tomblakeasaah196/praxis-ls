@@ -23,6 +23,7 @@ import { ErrorState } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { useToast } from "@/components/ui/toast";
+import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 
 type Candidate = {
   doc_id: string;
@@ -56,6 +57,7 @@ export function InvoiceBundleModal({ invoiceId, onClose }: { invoiceId: string |
   const [error, setError] = React.useState<string | null>(null);
   const [picked, setPicked] = React.useState<Set<string>>(new Set());
   const [busy, setBusy] = React.useState<"publish" | "withdraw" | null>(null);
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
 
   React.useEffect(() => {
     if (!invoiceId) return;
@@ -197,6 +199,20 @@ export function InvoiceBundleModal({ invoiceId, onClose }: { invoiceId: string |
                   <span className="ml-auto flex shrink-0 items-center gap-2">
                     {c.justification_required ? <Pill tone="ok">{tr("Receipt owed")}</Pill> : <Pill tone="mute">{tr("Optional")}</Pill>}
                     <span className="text-[11px] uppercase text-muted-foreground">{c.ext}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setPreview({
+                          doc_id: c.doc_id,
+                          title: c.name,
+                          filename: c.file_name,
+                        })
+                      }
+                    >
+                      {tr("Preview")}
+                    </Button>
                   </span>
                 </li>
               ))}
@@ -209,6 +225,7 @@ export function InvoiceBundleModal({ invoiceId, onClose }: { invoiceId: string |
           </div>
         )}
       </Modal>
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
       {confirmDialog}
     </>
   );
