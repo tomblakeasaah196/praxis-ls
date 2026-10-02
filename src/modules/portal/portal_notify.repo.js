@@ -287,6 +287,18 @@ async function proofs(client, { clientId, ids }) {
   return rows;
 }
 
+/** Quotations still waiting on the client (meeting 6, PR 4) — as for proposals. */
+async function quotations(client, { clientId, ids }) {
+  if (!ids || !ids.length) return [];
+  const { rows } = await client.query(
+    `SELECT quotation_id, doc_number
+       FROM quotation
+      WHERE client_id = $1 AND quotation_id = ANY($2::uuid[]) AND status = 'SENT'`,
+    [clientId, ids],
+  );
+  return rows;
+}
+
 /** Proposals still waiting on the client — an answered one is no longer news. */
 async function proposals(client, { clientId, ids }) {
   const { rows } = await client.query(
@@ -453,5 +465,5 @@ module.exports = {
   audience, clientProfile,
   waiting, markDone, staleGroups,
   claim, release, recentlyTold, sweep,
-  unreadReplies, requests, invoices, proofs, proposals, stages,
+  unreadReplies, requests, invoices, proofs, proposals, quotations, stages,
 };

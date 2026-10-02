@@ -1,3 +1,4 @@
+// search:none — success stories are website content edited on Sales › Success stories.
 "use strict";
 
 const service = require("./success_story.service");

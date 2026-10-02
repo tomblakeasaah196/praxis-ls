@@ -1,3 +1,4 @@
+// search:none — master-data configuration (which fields are required) is settings, not records.
 "use strict";
 const service = require("./master_config.service");
 const { asyncHandler } = require("../../../utils/errors");

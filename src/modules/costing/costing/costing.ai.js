@@ -15,6 +15,11 @@ module.exports = {
     { key: "suggest_costing_lines", service: service.suggestLines, permission: { module: "MOD-46", action: "view" }, describe: "The standard charge set for an operations file, from its service type's BASIC/ADVANCED/FULL tiers, priced against the file's carrier and expanded one line per container type. Nothing is saved." },
   ],
   writes: [
+    // Meeting 6, G1 — "Create quotation" on the costing sheet. The quotation
+    // module owns the write (MOD-27 create, the quotation's own grant); it is
+    // advertised here too because it is the costing the user is looking at.
+    // Same execution contract: payload mapped, the full actor forwarded.
+    { key: "quote_costing", service: (c, p, actor) => require("../../commercial/quotation/quotation.service").createFromCosting(c, { costingId: p.costing_id, quoteRequestId: Object.prototype.hasOwnProperty.call(p, "quote_request_id") ? p.quote_request_id : undefined, validUntil: p.valid_until || null, actor }), schema: require("../../commercial/quotation/quotation.validator").schemas.aiFromCosting, permission: { module: "MOD-27", action: "create" }, confirm: true, describe: "Turn this validated or approved costing into a DRAFT quotation in one step: débours at cost without VAT, services at the tenant's target margin, own costs not billed (they set the floor). Families cross intact; the workings are kept as a linked margin simulation. Params: costing_id, quote_request_id (optional), valid_until (optional)." },
     { key: "create_costing", service: service.createDraft, schema: validator.schemas.create, permission: { module: "MOD-46", action: "create" }, confirm: true, describe: "Create a DRAFT operations file costing (budget HT/VAT/TTC; débours pass-through §6.7 — no margin, §2.2)." },
     { key: "update_costing", service: (c, p, actor) => (({ costing_id, lines, ...patch }) => service.updateDraft(c, { id: costing_id, patch, lines: lines || null, actor }))(p), schema: validator.schemas.aiUpdate, permission: { module: "MOD-46", action: "edit" }, confirm: true, describe: "Edit a DRAFT costing by id." },
     /*

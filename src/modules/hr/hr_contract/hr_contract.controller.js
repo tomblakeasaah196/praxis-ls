@@ -1,3 +1,4 @@
+// search:none — a contract is a row of an employee, read on their 360 (Contracts tab).
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

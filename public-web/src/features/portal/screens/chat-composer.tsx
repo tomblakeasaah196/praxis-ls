@@ -18,9 +18,10 @@ import { compressImage, isPreviewableImage, isSafeBlobUrl, previewUrlFor } from 
 import { cn } from "@/lib/cn";
 import { currentLocale } from "@/lib/i18n";
 import { Sheet, TextField, useToast, IconDisc } from "../ui/kit";
-import { PlusIcon, SendIcon, MicIcon, CloseIcon, CameraIcon, ImageIcon, PinIcon, TrashIcon, DocIcon } from "../ui/icons";
+import { PlusIcon, SendIcon, MicIcon, CloseIcon, CameraIcon, ImageIcon, PinIcon, TrashIcon, DocIcon, QuoteIcon } from "../ui/icons";
 import { useVoiceRecorder, locate, clock, MAX_VOICE_MS, type Fix, type Recording } from "../lib/chat-media";
 import { formatBytes } from "../ui/upload";
+import type { ChatReference } from "@/lib/portal-api";
 
 const TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp,application/pdf";
@@ -54,11 +55,16 @@ export function Composer({
   onSend,
   stage,
   onClearStage,
+  about = null,
+  onClearAbout,
   draft,
 }: {
   onSend: (items: Outgoing[]) => void;
   stage: { id: string; label: string } | null;
   onClearStage: () => void;
+  /** The offer the next message asks about ("Ask about this quotation"). */
+  about?: ChatReference | null;
+  onClearAbout?: () => void;
   draft?: string | null;
 }) {
   const { t } = useTranslation();
@@ -197,6 +203,22 @@ export function Composer({
             <button type="button" className="-mr-1 grid h-5 w-5 shrink-0 place-items-center rounded-full" aria-label={t("portal.chat.removeStage")} onClick={onClearStage}>
               <CloseIcon size={12} />
             </button>
+          </span>
+        </div>
+      ) : null}
+
+      {about ? (
+        <div className="mb-2 flex">
+          <span className="pt-pill max-w-full" data-tone="brand" data-plain>
+            <QuoteIcon size={14} />
+            <span className="truncate">
+              {t(about.kind === "quotation" ? "portal.chat.aboutQuotation" : "portal.chat.aboutProposal", { ref: about.label || "" })}
+            </span>
+            {onClearAbout ? (
+              <button type="button" className="-mr-1 grid h-5 w-5 shrink-0 place-items-center rounded-full" aria-label={t("portal.chat.removeAbout")} onClick={onClearAbout}>
+                <CloseIcon size={12} />
+              </button>
+            ) : null}
           </span>
         </div>
       ) : null}

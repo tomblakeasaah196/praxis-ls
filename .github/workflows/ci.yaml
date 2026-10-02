@@ -527,6 +527,16 @@ jobs:
         # with a reason, or listed per-rule in the script's ALLOW_FILES.
         run: node scripts/check-date-format.js
 
+      - name: Search finds everything
+        # Meeting 6, PR 4 (owner decision G5: "Every single one"). ⌘K reads
+        # client/src/app/screen-registry.json for pages, hubs and 360 tabs, and
+        # src/modules/**/<module>.search.js for records. This fails on a <Route>,
+        # hub section or URL-addressable tab the registry does not carry, on a
+        # module with records and neither a search provider nor a reasoned
+        # `// search:none`, and on an entry the code no longer has. Reads files
+        # only; no database.
+        run: node scripts/check-search-registry.js
+
   # ---------------------------------------------------------------------------
   # TC-CI6 — migrations are never executed in CI; the first run is production.
   #

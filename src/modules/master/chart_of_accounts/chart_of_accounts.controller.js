@@ -1,3 +1,4 @@
+// search:none — accounts are picked by code inside journal and invoice forms, and Chart of accounts has its own code filter.
 "use strict";
 const service = require("./chart_of_accounts.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

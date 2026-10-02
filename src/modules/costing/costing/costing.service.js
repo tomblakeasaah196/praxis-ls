@@ -415,6 +415,9 @@ async function updateDraft(client, { id, patch = {}, lines = null, actor = {} })
     const fields = {};
     // §2.2: margin_percent removed from the patchable set — deprecated column.
     for (const k of ["currency", "remarks"]) if (patch[k] !== undefined) fields[k] = patch[k];
+    // Meeting 6, G2: the family order chosen on the sheet (jsonb array of
+    // heading keys), carried to the quotation priced from it.
+    if (patch.family_order !== undefined) fields.family_order = patch.family_order ? JSON.stringify(patch.family_order) : null;
     if (patch.currency !== undefined || patch.exchange_rate_to_xaf !== undefined) {
       fields.exchange_rate_to_xaf = await resolveRate(client, {
         currencyCode: patch.currency !== undefined ? patch.currency : before.currency,

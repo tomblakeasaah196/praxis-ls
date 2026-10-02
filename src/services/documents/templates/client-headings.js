@@ -97,8 +97,23 @@ const amountOf = (l) =>
  * line table renders it unchanged. Ordered by the heading's registry order,
  * disbursements before fees within a family. Totals are untouched: the sum of
  * the groups IS the sum of the lines.
+ *
+ * `order` (meeting 6, G2) is the family order THIS document chose — an array
+ * of heading keys (a registry code, or "custom:<text>"). Families it names
+ * print first, in its order; any it does not name follow in the registry's
+ * order. Absent or empty, the registry's order alone — the tenant default set
+ * in Financial Dictionary › Settings › Client headings.
  */
-function groupLines(lines = [], lang = "bilingual", registry = []) {
+function familyRank(order = []) {
+  const keys = (Array.isArray(order) ? order : []).map((k) => String(k || "").trim().toLowerCase()).filter(Boolean);
+  return (h) => {
+    const at = keys.indexOf(String(h.key || "").toLowerCase());
+    return at >= 0 ? at : keys.length + 1 + h.sort / 10000;
+  };
+}
+
+function groupLines(lines = [], lang = "bilingual", registry = [], order = null) {
+  const rank = familyRank(order);
   const groups = new Map();
   const naturesByHeading = new Map();
   for (const l of Array.isArray(lines) ? lines : []) {
@@ -114,7 +129,7 @@ function groupLines(lines = [], lang = "bilingual", registry = []) {
   const round2 = (n) => Math.round(n * 100) / 100;
   return [...groups.values()]
     .sort((a, b) =>
-      a.heading.sort - b.heading.sort
+      rank(a.heading) - rank(b.heading)
       || inLang(a.heading, lang).localeCompare(inLang(b.heading, lang))
       || (a.nature === b.nature ? 0 : a.nature === "disbursement" ? -1 : 1)
       || (a.tax ?? -1) - (b.tax ?? -1))
@@ -127,4 +142,4 @@ function groupLines(lines = [], lang = "bilingual", registry = []) {
     });
 }
 
-module.exports = { groupLines, resolveHeading, OTHER };
+module.exports = { groupLines, resolveHeading, familyRank, OTHER };

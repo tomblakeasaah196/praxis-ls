@@ -676,6 +676,7 @@ async function clientView(client, { clientId, id }) {
   const proposal = row.converted_opportunity_id
     ? await repo.answeringProposal(client, { opportunityId: row.converted_opportunity_id, clientId })
     : null;
+  const quotation = await repo.answeringQuotation(client, { quoteRequestId: row.quote_request_id, clientId });
   return {
     quote_request_id: row.quote_request_id,
     public_ref: row.public_ref,
@@ -699,9 +700,18 @@ async function clientView(client, { clientId, id }) {
     })),
     timeline,
     proposal,
-    // PR 4 (meeting 6) adds the Commercial quotation that answered the request
-    // here, beside the proposal — null until then.
-    quotation: null,
+    // The Commercial quotation that answered the request (meeting 6, PR 4),
+    // beside the proposal: linked by quotation.quote_request_id.
+    quotation: quotation
+      ? {
+          quotation_id: quotation.quotation_id,
+          doc_number: quotation.doc_number || null,
+          status: quotation.status === "SENT" && quotation.valid_until && String(quotation.valid_until instanceof Date ? quotation.valid_until.toISOString() : quotation.valid_until).slice(0, 10) < new Date().toISOString().slice(0, 10) ? "EXPIRED" : quotation.status,
+          currency: quotation.currency || "XAF",
+          total: Number(quotation.total_ttc || 0),
+          created_at: quotation.created_at,
+        }
+      : null,
   };
 }
 

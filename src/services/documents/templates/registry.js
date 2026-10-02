@@ -89,7 +89,9 @@ function lineDoc(opts) {
       ], cfg),
       // `grouped`: one printed line per client heading × nature (14130). The
       // data — and the signature over it — stays the detailed lines.
-      k.lineTable(LINE_COLS, fmtLines(opts.grouped ? groupLines(displayLines(data.lines), cfg.language, data.client_headings) : displayLines(data.lines), ccy, cfg), cfg),
+      // `family_order` (meeting 6, G2) is the order this document chose; absent,
+      // the registry's.
+      k.lineTable(LINE_COLS, fmtLines(opts.grouped ? groupLines(displayLines(data.lines), cfg.language, data.client_headings, data.family_order) : displayLines(data.lines), ccy, cfg), cfg),
       k.totals(opts.totalsRows(data, ccy, cfg), cfg),
       words,
       cfg.show && cfg.show.notes && data.notes ? k.section({ fr: "Notes", en: "Notes" }, `<div class="box">${k.esc(data.notes).replace(/\n/g, "<br>")}</div>`, cfg) : "",

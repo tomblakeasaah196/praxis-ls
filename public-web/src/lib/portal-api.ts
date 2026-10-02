@@ -329,6 +329,8 @@ export type PortalHome = {
   chat?: { unread: number } | null;
   /** Proposals waiting for this client's answer. */
   proposals?: { pending_count: number } | null;
+  /** Commercial quotations waiting for this client's answer (meeting 6, PR 4). */
+  quotations?: { pending_count: number } | null;
   shipments: { active_count: number; items: ShipmentCard[] } | null;
   requests: { open_count: number; in_review_count: number; items: ClientRequest[] } | null;
   billing: {
@@ -643,9 +645,12 @@ export type ChatMessage = {
   /** On my own messages: the team has read it. */
   seen: boolean | null;
   milestone: { milestone_instance_id: string; label: string | null } | null;
+  /** What the message is about — "Ask about this quotation" (meeting 6, G3). */
+  reference?: ChatReference | null;
   location: { lat: number; lng: number; label: string | null } | null;
   attachments: ChatAttachment[];
 };
+export type ChatReference = { kind: "quotation" | "proposal"; id: string; label: string | null };
 export type ChatPage = { thread: string; dossier_ref: string | null; has_more: boolean; messages: ChatMessage[] };
 export type ChatSend = {
   thread: string;
@@ -655,6 +660,8 @@ export type ChatSend = {
   width?: number | null;
   height?: number | null;
   duration_ms?: number | null;
+  /** `quotation:<id>` / `proposal:<id>` — the offer this message asks about. */
+  about?: string | null;
 };
 
 export const portalChatThreads = () => portalApi<ChatThread[]>("/client/chat/threads");
@@ -677,6 +684,7 @@ export function portalChatSend(input: ChatSend, lang: string, file?: File | null
   if (input.width) form.append("width", String(Math.round(input.width)));
   if (input.height) form.append("height", String(Math.round(input.height)));
   if (input.duration_ms) form.append("duration_ms", String(Math.round(input.duration_ms)));
+  if (input.about) form.append("about", input.about);
   if (file) form.append("file", file, file.name);
   return portalUpload<ChatMessage>(`/client/chat/messages?${langQ(lang)}`, form, onProgress);
 }
@@ -851,8 +859,8 @@ export type PortalQuoteDetail = {
   timeline: { status: string; at: string }[];
   /** The proposal that answered the request, once one has been sent. */
   proposal: { proposal_id: string; doc_number: string | null; title: string; status: string; currency: string | null; created_at: string } | null;
-  /** PR 4 (meeting 6): the Commercial quotation that answered it. */
-  quotation: null;
+  /** The Commercial quotation that answered it (meeting 6, PR 4). */
+  quotation: { quotation_id: string; doc_number: string | null; status: QuotationStatus; currency: string; total: number; created_at: string } | null;
 };
 export const portalQuoteRequest = (id: string) => portalApi<PortalQuoteDetail>(`/client/quote-requests/${encodeURIComponent(id)}`);
 
@@ -969,6 +977,68 @@ export const portalProposalSignComplete = (
   body: { code: string; preset_code: "STAMP" | "DRAWN"; full_name?: string; party_role?: string; mark_image_b64?: string },
 ) =>
   portalApi<{ accepted: boolean; signature: ProposalSignature | null }>(`/client/proposals/${pid(id)}/sign/complete?${langQ(lang)}`, {
+    method: "POST",
+    body,
+  });
+
+// ── Client: commercial quotations (meeting 6, PR 4 — G3/G4) ─────────────────
+
+export type QuotationStatus = "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CONVERTED";
+/** A card: enough to recognise the offer at a glance. */
+export type QuotationCard = {
+  quotation_id: string;
+  doc_number: string | null;
+  status: QuotationStatus;
+  /** SENT and still valid — the client's move. */
+  waiting: boolean;
+  currency: string;
+  total_ht: number;
+  /** TTC. */
+  total: number;
+  service: string | null;
+  route: { from: string | null; to: string | null } | null;
+  incoterm: string | null;
+  valid_until: string | null;
+  sent_on: string;
+  request: { quote_request_id: string; public_ref: string | null } | null;
+  dossier_ref: string | null;
+};
+export type QuotationDetail = {
+  quotation: QuotationCard & {
+    payment_terms_days: number | null;
+    totals: { ht: number; vat: number; ttc: number };
+    /** The families exactly as the PDF prints them. */
+    lines: { label: string; amount: number; vat_rate: number | null; is_disbursement: boolean }[];
+    decline_reason: string | null;
+    answered_at: string | null;
+  };
+  signature: ProposalSignature | null;
+  signing: { available: boolean; cards: SignCard[] };
+  decline_reasons: { reason_code: string; label: string }[];
+};
+
+export const portalQuotations = (lang: string) => portalApi<QuotationCard[]>(`/client/quotations?${langQ(lang)}`);
+export const portalQuotation = (id: string, lang: string) => portalApi<QuotationDetail>(`/client/quotations/${pid(id)}?${langQ(lang)}`);
+export const portalQuotationPdf = (id: string, filename: string, lang: string) =>
+  portalDownload(`/client/quotations/${pid(id)}/pdf?${langQ(lang)}`, filename);
+export const portalQuotationDecline = (id: string, reasonCode: string, note?: string) =>
+  portalApi<{ declined: boolean }>(`/client/quotations/${pid(id)}/decline`, {
+    method: "POST",
+    body: note ? { reason_code: reasonCode, note } : { reason_code: reasonCode },
+  });
+/** Only where the tenant offers no e-signature — elsewhere accepting IS signing. */
+export const portalQuotationAccept = (id: string) =>
+  portalApi<{ accepted: boolean; signature: ProposalSignature | null }>(`/client/quotations/${pid(id)}/accept`, { method: "POST", body: {} });
+export const portalQuotationSignStart = (id: string, lang: string) =>
+  portalApi<SigningStart>(`/client/quotations/${pid(id)}/sign?${langQ(lang)}`, { method: "POST", body: {} });
+export const portalQuotationSignResend = (id: string, lang: string) =>
+  portalApi<{ otp: SigningStart["otp"] }>(`/client/quotations/${pid(id)}/sign/resend?${langQ(lang)}`, { method: "POST", body: {} });
+export const portalQuotationSignComplete = (
+  id: string,
+  lang: string,
+  body: { code: string; preset_code: "STAMP" | "DRAWN"; full_name?: string; party_role?: string; mark_image_b64?: string },
+) =>
+  portalApi<{ accepted: boolean; signature: ProposalSignature | null }>(`/client/quotations/${pid(id)}/sign/complete?${langQ(lang)}`, {
     method: "POST",
     body,
   });

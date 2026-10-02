@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (702)
+## All codes (710)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -108,6 +108,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_LANGUAGE` | 422 | 1× | — |
 | `BAD_LAYOUT` | 422 | 1× | — |
 | `BAD_LEGACY_KIND` | — | 1× | — |
+| `BAD_MARGIN` | 422 | 1× | — |
 | `BAD_METHOD` | 422 | 2× | — |
 | `BAD_MIRROR` | 422 | 1× | — |
 | `BAD_MONTH` | 422 | 1× | — |
@@ -121,6 +122,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_PROOF_METHOD` | 500 | 1× | — |
 | `BAD_PWA_VALUE` | 422 | 2× | — |
 | `BAD_RATE` | 422 | 3× | — |
+| `BAD_REFERENCE` | 422 | 2× | — |
 | `BAD_REPLACEMENT` | 422 | 2× | — |
 | `BAD_REQUEST` | 400 | 6× | — |
 | `BAD_RESOURCE` | 500 | 1× | — |
@@ -187,6 +189,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `CONTRACT_TEXT_FROZEN` | 422 | 1× | — |
 | `COSTING_EXISTS` | — | 1× | — |
 | `COSTING_NOT_APPROVED` | 403 | 2× | — |
+| `COSTING_NOT_READY` | 422 | 1× | — |
 | `COST_CENTER_REQUIRED` | 422 | 1× | — |
 | `COUNT_NOT_ATTESTED` | 409, 422 | 2× | — |
 | `COUNT_SHEET_DISAGREES` | 422 | 1× | — |
@@ -294,7 +297,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `INVALID_EXTRACTION` | 422 | 1× | — |
 | `INVALID_FIELD` | — | 1× | — |
 | `INVALID_INVITE` | 400 | 1× | — |
-| `INVALID_MARGIN` | 100 | 1× | — |
+| `INVALID_MARGIN` | 100, 422 | 2× | — |
 | `INVALID_PRICE` | 422 | 2× | — |
 | `INVALID_PUBLIC_MEDIA` | 422 | 1× | — |
 | `INVALID_QTY` | 422 | 3× | — |
@@ -359,6 +362,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NAME_REQUIRED` | 422 | 3× | — |
 | `NEEDS_MAPPING` | 409 | 1× | — |
 | `NEGATIVE_STOCK` | 422 | 1× | — |
+| `NOTHING_TO_BILL` | 422 | 1× | — |
 | `NOTHING_TO_DISPATCH` | 409 | 1× | — |
 | `NOTHING_TO_REVIEW` | 409 | 1× | — |
 | `NOTHING_TO_SUMMARISE` | 422 | 1× | — |
@@ -383,7 +387,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 3× | — |
-| `NOT_FOUND` | 404, 422 | 757× | — |
+| `NOT_FOUND` | 404, 422 | 760× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -441,7 +445,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NO_FX_RATE` | 422 | 1× | — |
 | `NO_ITEMS` | 422 | 2× | — |
 | `NO_JOURNAL` | 422 | 1× | — |
-| `NO_LINES` | 422 | 10× | — |
+| `NO_LINES` | 422 | 11× | — |
 | `NO_MODULE` | 422 | 2× | — |
 | `NO_NETWORK` | 422 | 2× | — |
 | `NO_OPEN_PERIOD` | 422 | 1× | — |
@@ -460,7 +464,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NO_REPLY_ADDRESS` | 422 | 1× | — |
 | `NO_REVENUE_ACCOUNT` | 422 | 1× | — |
 | `NO_SCHEDULE` | 422 | 1× | — |
-| `NO_SENDER` | 409 | 1× | — |
+| `NO_SENDER` | 409 | 2× | — |
 | `NO_SERVICE_TYPE` | — | 1× | — |
 | `NO_SIGNATORIES` | 422 | 1× | — |
 | `NO_SIGNED_COPY` | 422 | 2× | — |
@@ -560,6 +564,10 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `QES_PROVIDER_ERROR` | 502 | 2× | — |
 | `QES_PROVIDER_UNSUPPORTED` | 422 | 1× | — |
 | `QUEUE_UNAVAILABLE` | 503 | 1× | — |
+| `QUOTATION_ANSWERED` | 409 | 1× | — |
+| `QUOTATION_EXPIRED` | 409 | 1× | — |
+| `QUOTE_REQUEST_NOT_FOUND` | 422 | 1× | — |
+| `QUOTE_REQUEST_OTHER_CLIENT` | 422 | 1× | — |
 | `RATE_LIMITED` | 429 | 1× | — |
 | `REASON_REQUIRED` | 422 | 10× | — |
 | `REAUTH_REQUIRED` | 403 | 2× | — |
@@ -628,7 +636,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SETUP_REQUIRED` | 400 | 1× | — |
 | `SIBLING_MODE_TAKEN` | — | 1× | — |
 | `SIDE_ALREADY_COMPLETE` | 409 | 1× | — |
-| `SIGNATURE_REQUIRED` | 409 | 1× | — |
+| `SIGNATURE_REQUIRED` | 409 | 2× | — |
 | `SIGNER_IDENTITY_NOT_ACCEPTED` | — | 1× | — |
 | `SIGNING_CLOSED` | 409 | 2× | — |
 | `SIGNING_INCOMPLETE` | 409 | 1× | — |
@@ -712,7 +720,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `USE_APPROVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 422 | 288× | — |
+| `VALIDATION_ERROR` | 422 | 290× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |

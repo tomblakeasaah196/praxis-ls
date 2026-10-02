@@ -1,3 +1,4 @@
+// search:none — attendance is daily rows per employee, read on the employee or by date.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

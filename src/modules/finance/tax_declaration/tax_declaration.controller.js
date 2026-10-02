@@ -1,3 +1,4 @@
+// search:none — a tax return is one per period and type, opened from the Tax center calendar.
 "use strict";
 const service = require("./tax_declaration.service");
 const { asyncHandler } = require("../../../utils/errors");

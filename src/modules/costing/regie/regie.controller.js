@@ -1,3 +1,4 @@
+// search:none — régie advances are worked from the Régie register by period and holder, and their cash requests are found by number.
 "use strict";
 const service = require("./regie.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

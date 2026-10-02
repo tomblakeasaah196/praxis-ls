@@ -19,6 +19,7 @@ const { computeMargin, priceForMargin, lineEconomics, classifyLine } = require("
 const quotationService = require("../quotation/quotation.service");
 const { getRule, getSetting } = require("../../../shared/config/settings");
 const { audit, emitEvent, resolveActorId } = require("../../../shared/events/emit");
+const { atomically } = require("../../../shared/db/tx");
 const { AppError } = require("../../../utils/errors");
 
 const ref = (id) => "margin_simulation:" + id;
@@ -63,10 +64,16 @@ async function assertCurrency(client, code) {
 /** A line's client-heading override (14130), trimmed; null = the catalogue's. */
 const headingOf = (l) => (l && l.client_heading && String(l.client_heading).trim() ? String(l.client_heading).trim() : null);
 
-async function fromCosting(client, { costingId }) {
+/**
+ * `convert: false` keeps the costing's own currency (the one-click quotation,
+ * meeting 6 G1: the quotation is in the currency the file was costed in, and a
+ * linear margin gives the same price either side of a conversion). The
+ * simulator's LINK COSTING import keeps converting to XAF, as legacy did.
+ */
+async function fromCosting(client, { costingId, convert = true }) {
   const costing = await repo.costingForLink(client, costingId);
   if (!costing) throw new AppError("NOT_FOUND", "Costing not found", 404);
-  const toXaf = costing.currency !== "XAF" ? Number(costing.exchange_rate_to_xaf) || 1 : 1;
+  const toXaf = convert && costing.currency !== "XAF" ? Number(costing.exchange_rate_to_xaf) || 1 : 1;
   const unclassified = [];
   const lines = (await repo.costingLinesForLink(client, costingId)).map((l) => {
     // §2.1: the catalogue classifies, not the copied boolean. The costing's tax
@@ -98,6 +105,11 @@ async function fromCosting(client, { costingId }) {
       notes: null,
       // 14130: the family the pricer chose on the costing rides along.
       client_heading: headingOf(l),
+      // Carried for the one-click quotation (G1: "families, container types,
+      // tax codes and quantities cross intact"). The simulator's own line has
+      // no column for either and ignores them.
+      container_type_ref_id: l.container_type_ref_id || null,
+      tax_code_id: nature.vat_applicable ? l.tax_code_id || null : null,
     };
   });
   return {
@@ -105,6 +117,11 @@ async function fromCosting(client, { costingId }) {
       costing_id: costing.costing_id,
       doc_number: costing.doc_number,
       dossier_id: costing.dossier_id,
+      dossier_ref: costing.dossier_ref || null,
+      client_id: costing.client_id || null,
+      entity_id: costing.entity_id || null,
+      service_type_id: costing.service_type_id || null,
+      family_order: costing.family_order || null,
       currency: costing.currency,
       status: costing.status,
       converted_to_xaf: toXaf !== 1,
@@ -147,23 +164,33 @@ async function writeLines(client, simId, lines) {
   }
 }
 
-async function create(client, { dossierId = null, serviceTypeId = null, costingId = null, currency = "XAF", lines = [], actor = {} }) {
+/**
+ * `origin` / `targetMarginPercent` / `quotationId` are the one-click
+ * quotation's (meeting 6, G1): the workings it keeps behind a quotation priced
+ * straight from a costing are stored as an ordinary simulation, marked
+ * COSTING_DIRECT and already linked to the quotation they priced. `atomically`
+ * so that path can run this inside its own transaction — a raw BEGIN/COMMIT
+ * here would commit the caller's quotation half-made.
+ */
+async function create(client, { dossierId = null, serviceTypeId = null, costingId = null, currency = "XAF", lines = [], origin = null, targetMarginPercent = null, quotationId = null, actor = {} }) {
   const ccy = await assertCurrency(client, currency);
   const priced = await classifyLines(client, lines);
   const totals = computeMargin(priced, { vatRatePercent: await vatRate(client) });
-  await client.query("BEGIN");
-  try {
+  const id = await atomically(client, async () => {
     const sim = await repo.insertSim(client, {
       dossier_id: dossierId, service_type_id: serviceTypeId, costing_id: costingId,
       created_by: await resolveActorId(client, actor.user_id),
       margin_percent: totals.margin_percent, total_cost: totals.total_cost, total_price: totals.total_price,
       currency: ccy,
+      ...(origin ? { origin } : {}),
+      ...(targetMarginPercent !== null && targetMarginPercent !== undefined ? { target_margin_percent: targetMarginPercent } : {}),
+      ...(quotationId ? { quotation_id: quotationId } : {}),
     });
     await writeLines(client, sim.margin_simulation_id, priced);
-    await audit(client, { actorUserId: actor.user_id || null, action: events.CREATED, moduleKey: events.MODULE, entityRef: ref(sim.margin_simulation_id), after: { totals } });
-    await client.query("COMMIT");
-    return { ...(await get(client, sim.margin_simulation_id)), totals };
-  } catch (err) { await client.query("ROLLBACK"); throw err; }
+    await audit(client, { actorUserId: actor.user_id || null, action: events.CREATED, moduleKey: events.MODULE, entityRef: ref(sim.margin_simulation_id), after: { totals, origin } });
+    return sim.margin_simulation_id;
+  });
+  return { ...(await get(client, id)), totals };
 }
 
 /**

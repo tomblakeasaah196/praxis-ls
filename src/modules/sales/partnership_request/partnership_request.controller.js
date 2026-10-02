@@ -1,3 +1,4 @@
+// search:none — partnership requests are a short queue on Sales › Partnerships.
 "use strict";
 const service = require("./partnership_request.service");
 const rules = require("./partnership_request.rules");

@@ -117,6 +117,11 @@ export const AREAS: Area[] = [
       { key: "quote-requests", label: "Quote requests" },
       { key: "opportunities", label: "Opportunities" },
       { key: "proposals", label: "Proposals" },
+      // Meeting 6, G6: Quotations sits after Proposals — Quote requests →
+      // Proposals → Quotations, the order the work flows. It lived under
+      // Commercial, where nobody in the meeting could find it;
+      // `/commercial/quotations` redirects here (app.tsx).
+      { key: "quotations", label: "Quotations" },
       { key: "company-profile", label: "Company profile" },
       { key: "meetings", label: "Meetings" },
       { key: "campaigns", label: "Campaigns" },
@@ -128,8 +133,9 @@ export const AREAS: Area[] = [
     key: "commercial",
     label: "Commercial",
     basePath: "/commercial",
+    // Commercial keeps the simulators and pricing variance (G6); Quotations
+    // moved to Sales & CRM.
     sections: [
-      { key: "quotations", label: "Quotations" },
       { key: "margin-simulation", label: "Margin simulation" },
       { key: "extra-charge-simulation", label: "Extra-charge simulation" },
       { key: "pricing-variance", label: "Pricing variance" },

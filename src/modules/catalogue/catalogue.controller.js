@@ -1,3 +1,4 @@
+// search:none — the module catalogue is configuration, browsed on Settings › Module catalogue, which ⌘K finds as a page.
 "use strict";
 const { asyncHandler } = require("../../utils/errors");
 const service = require("./catalogue.service");

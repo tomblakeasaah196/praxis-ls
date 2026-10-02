@@ -1,3 +1,4 @@
+// search:none — Smart Comms has its own message search in Comms (smartcomm GET /search).
 "use strict";
 const service = require("./smartcomm.service");
 const calls = require("./smartcomm.call.service");

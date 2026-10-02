@@ -24,6 +24,10 @@
  *
  *   client_request.submitted   a document or an answer sent through the portal
  *   payment_proof.submitted    "I have paid"
+ *   quotation.accepted         a quotation accepted (signed) IN THE PORTAL —
+ *                              one the team recorded itself is not news to it
+ *   quotation.declined_by_client  a quotation declined in the portal, with the
+ *                              reason (meeting 6, PR 4)
  *   quote_request.created      a quote request — read off its row (client,
  *                              channel, reference), never off the event, and
  *                              without touching the quote-request module:
@@ -85,6 +89,20 @@ const EVENTS = {
     body: (p) => [p.kind === "INFO" ? "An answer to a request" : "A file to review", who(p.by) && `From ${who(p.by)}`].filter(Boolean).join(" · "),
     url: (clientId) => `/master/clients?focus=${clientId}&tab=Documents`,
   },
+  // Meeting 6, PR 4 (G4): a client answering a quotation in the portal.
+  "quotation.accepted": {
+    when: (p) => p.via === "PORTAL",
+    conversation: "quotations",
+    title: (company, p) => `${company} accepted quotation ${p.doc_number || ""}`.trim(),
+    body: (p) => ["Signed in the client portal — it can be turned into an invoice draft", who(p.by) && `From ${who(p.by)}`].filter(Boolean).join(" · "),
+    url: (_clientId, entityRef) => `/sales/quotations?focus=${idOf(entityRef) || ""}`,
+  },
+  "quotation.declined_by_client": {
+    conversation: "quotations",
+    title: (company, p) => `${company} declined quotation ${p.doc_number || ""}`.trim(),
+    body: (p) => [p.reason || null, who(p.by) && `From ${who(p.by)}`].filter(Boolean).join(" · "),
+    url: (_clientId, entityRef) => `/sales/quotations?focus=${idOf(entityRef) || ""}`,
+  },
   "payment_proof.submitted": {
     conversation: "payments",
     title: (company) => `${company} reported a payment`,
@@ -99,6 +117,9 @@ async function notifyList(client, userIds, { title, body, entityRef, url, eventT
   if (!userIds.length) return 0;
   return service.notifyMany(client, userIds, {
     eventTypeKey, title, body, entityRef, url, priority,
+    // Delivered in this connection's environment — a TEST event never emails
+    // or pushes anyone (see notify-events.js; meeting 6, PR 4).
+    ctx: { env: client && client[Symbol.for("praxis.conn.env")] === "sandbox" ? "sandbox" : "live" },
     category: "clients",
     pushTag: `client:${clientId}:${conversation}`,
     renotify: true,
@@ -176,6 +197,7 @@ async function onEvent(client, { eventTypeKey, entityRef = null, actorUserId = n
     const spec = EVENTS[eventTypeKey];
     if (!spec) return [];
     const p = payload || {};
+    if (spec.when && !spec.when(p)) return [];
     const clientId = p.client_id && UUID.test(String(p.client_id)) ? String(p.client_id) : null;
     if (!clientId) return [];
     const accountManager = require("../../modules/master/client_master/account_manager.service");
@@ -183,10 +205,10 @@ async function onEvent(client, { eventTypeKey, entityRef = null, actorUserId = n
     const ids = list.all.filter((u) => !(actorUserId && u === actorUserId));
     const company = await companyName(client, clientId);
     await notifyList(client, ids, {
-      title: spec.title(company),
+      title: spec.title(company, p),
       body: spec.body(p),
       entityRef,
-      url: spec.url(clientId),
+      url: spec.url(clientId, entityRef),
       eventTypeKey,
       conversation: spec.conversation,
       clientId,

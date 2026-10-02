@@ -1,3 +1,4 @@
+// search:none — stock is read by SKU and location on Warehouse › Inventory, which has its own SKU search.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

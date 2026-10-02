@@ -1,3 +1,4 @@
+// search:none — auditor requests are answered inside Settings › Audit room, one auditor engagement at a time; ⌘K finds the page.
 /** Auditor data-room controllers — wired into portal_auth.routes (/portal). */
 "use strict";
 const { asyncHandler } = require("../../utils/errors");

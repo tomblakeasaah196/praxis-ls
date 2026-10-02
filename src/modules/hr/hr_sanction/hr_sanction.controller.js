@@ -1,3 +1,4 @@
+// search:none — sanctions are disciplinary rows of an employee, read on their 360 under HR grants.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler } = require("../../../utils/errors");

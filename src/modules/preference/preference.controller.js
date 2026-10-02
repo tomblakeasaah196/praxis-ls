@@ -1,4 +1,5 @@
 // ai:none — per-user UI preferences (theme, density, fonts). A private, per-caller display setting with no business meaning to reason over.
+// search:none — per-person display preferences have no business meaning to look up.
 /**
  * Per-user preference handlers.
  *

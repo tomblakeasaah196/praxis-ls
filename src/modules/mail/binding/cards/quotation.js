@@ -11,7 +11,7 @@ module.exports = {
   key: "quotation",
   label_en: "Quotation",
   label_fr: "Devis",
-  target: "/commercial/quotations/new",
+  target: "/sales/quotations/new",
   appliesTo: (f) => Boolean(f.client_id),
   fields: [
     { field: "client_id", label: "Client", why: "this thread is not bound to a client" },

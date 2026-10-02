@@ -24,6 +24,7 @@ import {
   type ChatMessage,
   type ChatAttachment,
   type ChatSend,
+  type ChatReference,
   type ShipmentCard,
 } from "@/lib/portal-api";
 import { getLang } from "@/lib/i18n";
@@ -45,6 +46,12 @@ export type ChatTarget = {
   milestone?: { id: string; label: string } | null;
   /** Straight into General — a notification about it, tapped on a phone. */
   general?: boolean;
+  /**
+   * "Ask about this quotation" (meeting 6, G3): General, with the offer as a
+   * chip on the first message — the team sees it in the Client inbox and it
+   * links to the quotation.
+   */
+  about?: ChatReference | null;
 } | null;
 
 type Open = { thread: string; ref: string | null };
@@ -122,7 +129,8 @@ export function ChatSheet({ open, target, onClose, onRead }: { open: boolean; ta
   }, [loadThreads, onRead]);
 
   const showList = wide || !active;
-  const opener = target?.dossierId && active?.thread === target.dossierId ? target : null;
+  const opener =
+    target?.dossierId && active?.thread === target.dossierId ? target : target?.general && active?.thread === "general" ? target : null;
 
   return (
     <Sheet open={open} onClose={onClose} bare full wide className="pt-chat-sheet" labelledBy={titleId}>
@@ -162,6 +170,7 @@ export function ChatSheet({ open, target, onClose, onRead }: { open: boolean; ta
             thread={active.thread}
             refLabel={active.ref}
             milestone={opener?.milestone || null}
+            about={opener?.about || null}
             draft={opener?.draft || null}
             wide={wide}
             titleId={wide ? undefined : titleId}
@@ -305,6 +314,7 @@ type Pending = {
   local: string | null;
   kind: Outgoing["kind"];
   stageLabel: string | null;
+  aboutRef: ChatReference | null;
   state: "sending" | "failed";
   pct: number | null;
   at: string;
@@ -323,6 +333,7 @@ function Conversation({
   thread,
   refLabel,
   milestone,
+  about: aboutIn,
   draft,
   wide,
   titleId,
@@ -334,6 +345,7 @@ function Conversation({
   thread: string;
   refLabel: string | null;
   milestone: { id: string; label: string } | null;
+  about: ChatReference | null;
   draft: string | null;
   wide: boolean;
   titleId?: string;
@@ -352,6 +364,7 @@ function Conversation({
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState<Pending[]>([]);
   const [stage, setStage] = React.useState(milestone);
+  const [about, setAbout] = React.useState(aboutIn);
   const [photo, setPhoto] = React.useState<ChatAttachment | null>(null);
   const [older, setOlder] = React.useState(false);
   const [fresh, setFresh] = React.useState(false);
@@ -456,21 +469,35 @@ function Conversation({
 
   function send(items: Outgoing[]) {
     const now = new Date().toISOString();
-    const made: Pending[] = items.map((it) => {
+    const made: Pending[] = items.map((it, i) => {
       seq += 1;
       const milestoneId = stage && !general ? stage.id : null;
-      const base = { id: `p${seq}`, state: "sending" as const, pct: null, at: now, kind: it.kind, stageLabel: milestoneId && stage ? stage.label : null };
-      if (it.kind === "TEXT") return { ...base, input: { thread, body: it.body, milestone_instance_id: milestoneId }, file: null, local: null };
+      // The offer rides on the FIRST message only, as a stage does.
+      const ref = i === 0 && about ? about : null;
+      const aboutKey = ref ? `${ref.kind}:${ref.id}` : null;
+      const base = { id: `p${seq}`, state: "sending" as const, pct: null, at: now, kind: it.kind, stageLabel: milestoneId && stage ? stage.label : null, aboutRef: ref };
+      if (it.kind === "TEXT") return { ...base, input: { thread, body: it.body, milestone_instance_id: milestoneId, about: aboutKey }, file: null, local: null };
       if (it.kind === "LOCATION")
-        return { ...base, input: { thread, milestone_instance_id: milestoneId, location: { lat: it.fix.lat, lng: it.fix.lng, label: it.label || null } }, file: null, local: null };
+        return {
+          ...base,
+          input: { thread, milestone_instance_id: milestoneId, about: aboutKey, location: { lat: it.fix.lat, lng: it.fix.lng, label: it.label || null } },
+          file: null,
+          local: null,
+        };
       if (it.kind === "VOICE") {
         const local = URL.createObjectURL(it.recording.file);
-        return { ...base, input: { thread, milestone_instance_id: milestoneId, duration_ms: it.recording.durationMs }, file: it.recording.file, local };
+        return { ...base, input: { thread, milestone_instance_id: milestoneId, about: aboutKey, duration_ms: it.recording.durationMs }, file: it.recording.file, local };
       }
-      return { ...base, input: { thread, body: it.body, milestone_instance_id: milestoneId, width: it.width, height: it.height }, file: it.file, local: it.previewUrl };
+      return {
+        ...base,
+        input: { thread, body: it.body, milestone_instance_id: milestoneId, about: aboutKey, width: it.width, height: it.height },
+        file: it.file,
+        local: it.previewUrl,
+      };
     });
     // A stage names the conversation's next message, not every one after it.
     if (stage) setStage(null);
+    if (about) setAbout(null);
     nearBottom.current = true;
     setPending((l) => [...l, ...made]);
     // One after another, so a burst of photos arrives in the order it was picked.
@@ -491,6 +518,7 @@ function Conversation({
     mine: true,
     seen: false,
     milestone: p.input.milestone_instance_id ? { milestone_instance_id: p.input.milestone_instance_id, label: p.stageLabel } : null,
+    reference: p.aboutRef,
     location: p.input.location ? { lat: p.input.location.lat, lng: p.input.location.lng, label: p.input.location.label || null } : null,
     attachments: p.file
       ? [
@@ -600,7 +628,7 @@ function Conversation({
         </button>
       ) : null}
 
-      <Composer onSend={send} stage={general ? null : stage} onClearStage={() => setStage(null)} draft={draft} />
+      <Composer onSend={send} stage={general ? null : stage} onClearStage={() => setStage(null)} about={about} onClearAbout={() => setAbout(null)} draft={draft} />
       <PhotoViewer att={photo} onClose={() => setPhoto(null)} />
     </section>
   );

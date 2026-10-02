@@ -66,6 +66,7 @@ import { ComplianceFlagsPage } from "./vault/compliance-flags";
 import { DocumentsPage } from "./vault/documents";
 import { SignaturesPage } from "./vault/signatures";
 import { QuotationsPage } from "./commercial/quotations";
+import { CommercialSettingsPage } from "./settings/commercial-settings";
 import { MarginSimulationsPage } from "./commercial/margin-simulations";
 import { ExtraChargeSimulationsPage } from "./commercial/extra-charge-simulations";
 import { PricingVariancePage } from "./commercial/pricing-variance";
@@ -603,6 +604,25 @@ const AREAS: Area[] = [
         },
       },
       {
+        // Sales & CRM since meeting 6 (G6): Quote requests → Proposals → Quotations.
+        name: "Quotations",
+        render: () => <QuotationsPage />,
+        routes: {
+          "/quotations": [
+            {
+              quotation_id: "q1",
+              ref: "QT-2026-001",
+              client_id: "c1",
+              status: "DRAFT",
+              total: 8_000_000,
+            },
+          ],
+          "/clients": CLIENTS,
+          "/entities": ENTITIES,
+          "/opportunities": [],
+        },
+      },
+      {
         name: "Campaigns",
         render: () => <CampaignsPage />,
         routes: {
@@ -798,24 +818,6 @@ const AREAS: Area[] = [
   {
     area: "Commercial",
     screens: [
-      {
-        name: "Quotations",
-        render: () => <QuotationsPage />,
-        routes: {
-          "/quotations": [
-            {
-              quotation_id: "q1",
-              ref: "QT-2026-001",
-              client_id: "c1",
-              status: "DRAFT",
-              total: 8_000_000,
-            },
-          ],
-          "/clients": CLIENTS,
-          "/entities": ENTITIES,
-          "/opportunities": [],
-        },
-      },
       {
         name: "Margin simulations",
         render: () => <MarginSimulationsPage />,
@@ -1688,6 +1690,15 @@ const AREAS: Area[] = [
         name: "Custom fields",
         render: () => <CustomFieldsPage />,
         routes: { "/settings": [] },
+      },
+      {
+        // Meeting 6, PR 4: the target margin a quotation from a costing is
+        // priced at (0 % until the tenant sets one).
+        name: "Commercial",
+        render: () => <CommercialSettingsPage />,
+        routes: { "/settings/commercial/quotation": { value: { target_margin_percent: 15 } } },
+        populatedProof: /94[.,]12/,
+        states: ["loading", "error", "populated"],
       },
       {
         // Calls audit PR-6: the recording opt-in, both retentions, the named

@@ -397,4 +397,20 @@ describe("the client's view", () => {
     expect(v).not.toHaveProperty("internal_notes");
     expect(v.quotation).toBeNull();
   });
+
+  // Meeting 6, PR 4 — the place PR 2 left: the quotation that answers it.
+  test("shows the quotation that answers it", async () => {
+    repo.get.mockResolvedValue({
+      quote_request_id: QR, client_id: CLIENT, status: "CONVERTED_TO_OPPORTUNITY", service_type_id: SEA, public_ref: "SQ-2026-0003",
+      created_at: "2026-09-29T08:00:00Z", updated_at: "2026-10-01T08:00:00Z",
+    });
+    repo.listAttachments.mockResolvedValue([]);
+    repo.lifecycle.mockResolvedValue([]);
+    repo.answeringQuotation.mockResolvedValue({
+      quotation_id: "q-1", doc_number: "QT-2026-0004", status: "SENT", currency: "XAF", total_ttc: "986625", valid_until: "2099-12-31", created_at: "2026-10-01",
+    });
+    const v = await service.clientView(client, { clientId: CLIENT, id: QR });
+    expect(repo.answeringQuotation).toHaveBeenCalledWith(client, { quoteRequestId: QR, clientId: CLIENT });
+    expect(v.quotation).toEqual({ quotation_id: "q-1", doc_number: "QT-2026-0004", status: "SENT", currency: "XAF", total: 986625, created_at: "2026-10-01" });
+  });
 });

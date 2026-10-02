@@ -1,3 +1,4 @@
+// search:none — Control Tower widgets are computed views, not records.
 "use strict";
 const service = require("./dashboard.service");
 const { asyncHandler } = require("../../../utils/errors");

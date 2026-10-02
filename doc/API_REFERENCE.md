@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1858 |
-| Modules mounted | 141 |
+| Routes | 1870 |
+| Modules mounted | 142 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1858 mounted routes, grouped by path prefix.
+All 1870 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1638,6 +1638,14 @@ All 1858 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/client/push/subscribe` | — |
 | POST | `/api/tenant/portal/client/push/test` | — |
 | POST | `/api/tenant/portal/client/push/unsubscribe` | — |
+| GET | `/api/tenant/portal/client/quotations` | — |
+| GET | `/api/tenant/portal/client/quotations/:id` | — |
+| POST | `/api/tenant/portal/client/quotations/:id/accept` | — |
+| POST | `/api/tenant/portal/client/quotations/:id/decline` | — |
+| GET | `/api/tenant/portal/client/quotations/:id/pdf` | — |
+| POST | `/api/tenant/portal/client/quotations/:id/sign` | — |
+| POST | `/api/tenant/portal/client/quotations/:id/sign/complete` | — |
+| POST | `/api/tenant/portal/client/quotations/:id/sign/resend` | — |
 | GET | `/api/tenant/portal/client/quote-requests` | — |
 | POST | `/api/tenant/portal/client/quote-requests` | — |
 | GET | `/api/tenant/portal/client/quote-requests/:id` | — |
@@ -1829,7 +1837,10 @@ All 1858 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/quotations/:id` | — |
 | PATCH | `/api/tenant/quotations/:id` | — |
 | POST | `/api/tenant/quotations/:id/accept` | — |
+| POST | `/api/tenant/quotations/:id/convert` | — |
 | POST | `/api/tenant/quotations/:id/transition` | — |
+| GET | `/api/tenant/quotations/from-costing/:costingId` | — |
+| POST | `/api/tenant/quotations/from-costing/:costingId` | — |
 
 ### `tenant/quote-requests`
 
@@ -1963,6 +1974,12 @@ All 1858 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/scopes/entities` | — |
 | GET | `/api/tenant/scopes/options` | — |
 | GET | `/api/tenant/scopes/tree` | — |
+
+### `tenant/search`
+
+| Method | Path | Body validated |
+|---|---|---|
+| GET | `/api/tenant/search/` | — |
 
 ### `tenant/service-types`
 

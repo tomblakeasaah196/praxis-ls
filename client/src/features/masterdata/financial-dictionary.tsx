@@ -16,6 +16,7 @@ import { pageShell } from "@/lib/layout";
 import { IndexRow } from "@/components/ui/index-row";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
+import { useRecordParam } from "@/app/layout/nav-trail-context";
 import { ScreenAi } from "@/components/screen-ai";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +71,6 @@ export function FinancialDictionaryPage() {
       }),
     [q, dir],
   );
-  const [selId, setSelId] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<api.DictFull | "new" | null>(
     null,
   );
@@ -86,18 +86,29 @@ export function FinancialDictionaryPage() {
   ) => {
     const full = await api.getDict(id);
     setSettings(false);
-    setSelId(id);
+    selectId(id);
     setReviewSuggestion(suggestion);
     setEditing(full);
   };
 
   const rows = React.useMemo(() => list.data || [], [list.data]);
+  // The open record lives in the URL (`?focus=<id>`), so a ⌘K result, a
+  // drill-in or the back arrow can land on one (meeting 6, G5).
+  const {
+    id: focusId,
+    openId: selectId,
+    close: closeSel,
+  } = useRecordParam(rows, (r) => r.dictionary_item_id);
+  // The desktop's first-row default is not a place anyone navigated to, so it
+  // stays out of the URL; a pick (or a ⌘K result) is.
+  const [defaultId, setDefaultId] = React.useState<string | null>(null);
+  const selId = focusId ?? defaultId;
   // The first line opens by itself beside a desktop's detail pane. Not on a
   // phone: there the line opens as a full-screen sheet, and opening it unasked
   // would cover the list the reader came to (SplitPane `onClose`).
   React.useEffect(() => {
     if (!selId && rows.length && isDesktopNow())
-      setSelId(rows[0].dictionary_item_id);
+      setDefaultId(rows[0].dictionary_item_id);
   }, [rows, selId]);
   const selectedRow = rows.find((r) => r.dictionary_item_id === selId);
 
@@ -151,7 +162,10 @@ export function FinancialDictionaryPage() {
           max={520}
           activeKind={tr("Dictionary item")}
           active={!!selId}
-          onClose={() => setSelId(null)}
+          onClose={() => {
+            setDefaultId(null);
+            closeSel();
+          }}
           sheetTitle={
             selectedRow
               ? `${selectedRow.code} · ${selectedRow.label_en || selectedRow.label_fr || ""}`
@@ -170,7 +184,7 @@ export function FinancialDictionaryPage() {
                 <IndexRow
                   key={r.dictionary_item_id}
                   selected={r.dictionary_item_id === selId}
-                  onClick={() => setSelId(r.dictionary_item_id)}
+                  onClick={() => selectId(r.dictionary_item_id)}
                   className="items-center justify-between gap-2"
                 >
                   <span className="min-w-0">

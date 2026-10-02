@@ -1,3 +1,4 @@
+// search:none — compliance documents are rows of a vehicle, read on the vehicle.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const service = require("./vehicle_compliance.service");

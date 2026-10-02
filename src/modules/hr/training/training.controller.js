@@ -1,3 +1,4 @@
+// search:none — trainings are a short catalogue on HR › Trainings.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

@@ -113,6 +113,14 @@ function ClientSupportRedirect() {
   const q = to.toString();
   return <Navigate to={`/comms/clients${q ? `?${q}` : ""}`} replace />;
 }
+/**
+ * A moved screen, with its query string carried across — a `?focus=` deep link
+ * to the old address still opens the record at the new one (meeting 6, G6).
+ */
+function KeepQueryRedirect({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${to}${search}${hash}`} replace />;
+}
 const SelfServicePage = lazyNamed(
   () => import("@/features/hr/self-service"),
   "SelfServicePage",
@@ -390,6 +398,12 @@ const CallsPage = lazyNamed(
   () => import("@/features/settings/calls-page"),
   "CallsPage",
 );
+// Settings › Commercial (meeting 6, G1): the target margin a quotation priced
+// straight from a costing applies to its services.
+const CommercialSettingsPage = lazyNamed(
+  () => import("@/features/settings/commercial-settings"),
+  "CommercialSettingsPage",
+);
 const CustomFieldsPage = lazyNamed(
   () => import("@/features/settings/custom-fields"),
   "CustomFieldsPage",
@@ -661,6 +675,13 @@ export function App() {
               {/* Commercial */}
               {/* Commercial — one hub, deep-linkable tabs */}
               <Route path="commercial" element={<CommercialHub />} />
+              {/* Quotations moved to Sales & CRM (meeting 6, G6). The old
+                  address keeps working — bookmarks, emails, the AI's links —
+                  and keeps its `?focus=` so a linked quotation still opens. */}
+              <Route
+                path="commercial/quotations"
+                element={<KeepQueryRedirect to="/sales/quotations" />}
+              />
               <Route path="commercial/:section" element={<CommercialHub />} />
               {/* Sales & CRM — one hub, deep-linkable tabs (intake is a Leads tab) */}
               <Route path="sales" element={<SalesHub />} />
@@ -769,6 +790,10 @@ export function App() {
               {/* Smart Comms calls (PR-3): the tenant's noise-filter default and
                   recording retention, plus the person's own preference. */}
               <Route path="settings/calls" element={<CallsPage />} />
+              <Route
+                path="settings/commercial"
+                element={<CommercialSettingsPage />}
+              />
               <Route path="self-service" element={<SelfServicePage />} />
               <Route
                 path="settings/catalogue"

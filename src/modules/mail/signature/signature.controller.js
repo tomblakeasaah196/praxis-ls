@@ -1,3 +1,4 @@
+// search:none — email signatures are templates edited on Settings › Email signatures.
 "use strict";
 const service = require("./signature.service");
 const diagnostics = require("./signature.diagnose");

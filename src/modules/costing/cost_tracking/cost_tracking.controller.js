@@ -1,3 +1,4 @@
+// search:none — cost tracking rows belong to a file's costing and are read on the file or the costing, which ⌘K finds by number.
 "use strict";
 const service = require("./cost_tracking.service");
 const { asyncHandler } = require("../../../utils/errors");

@@ -1,3 +1,4 @@
+// search:none — signatures are read on the signed document and verified by code on the verification portal.
 "use strict";
 
 const service = require("./document_signature.service");

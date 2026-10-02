@@ -1,3 +1,4 @@
+// search:none — a dozen ISO currencies, picked from lists, never opened as records.
 "use strict";
 const service = require("./currency.service");
 const { asyncHandler } = require("../../../utils/errors");
