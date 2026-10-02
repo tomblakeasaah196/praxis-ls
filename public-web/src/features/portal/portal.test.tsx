@@ -928,3 +928,175 @@ describe("a request, opened (meeting 6, item 2.9)", { timeout: 20000 }, () => {
     getByText(steps.docsAdd);
   });
 });
+
+describe("quotations (meeting 6, PR 4)", { timeout: 20000 }, () => {
+  const Q = "88888888-8888-4888-8888-888888888888";
+  const P = "77777777-7777-4777-8777-777777777777";
+  const CARD = {
+    quotation_id: Q, doc_number: "QUO-2026-0007", status: "SENT", waiting: true, currency: "XAF", total_ht: 1000000, total: 1100000,
+    service: "Sea Freight Import", route: { from: "Shanghai", to: "Douala" }, incoterm: "FOB", valid_until: "2099-12-31",
+    sent_on: "2026-09-25T09:00:00Z", request: { quote_request_id: "q-1", public_ref: "SQ-2026-0003" }, dossier_ref: null,
+  };
+  const OLD = { ...CARD, quotation_id: "99999999-9999-4999-8999-999999999999", doc_number: "QUO-2026-0001", status: "ACCEPTED", waiting: false, sent_on: "2026-09-27T09:00:00Z", request: null };
+  const PROPOSAL = {
+    proposal_id: P, doc_number: "PRP-2026-0004", title: "Door-to-door, Shanghai to Douala", status: "ACCEPTED",
+    currency: "XAF", total: 4850000, route: "Shanghai → Douala", sent_on: "2026-09-20", valid_until: "2099-12-31",
+  };
+  const DETAIL = {
+    quotation: {
+      ...CARD,
+      payment_terms_days: 30,
+      totals: { ht: 1000000, vat: 100000, ttc: 1100000 },
+      // The families exactly as the PDF prints them — the server's grouping.
+      lines: [
+        { label: "Port charges", amount: 400000, vat_rate: 0, is_disbursement: true },
+        { label: "Our services", amount: 600000, vat_rate: 19.25, is_disbursement: false },
+      ],
+      decline_reason: null,
+      answered_at: null,
+    },
+    signature: null,
+    signing: { available: true, cards: [{ preset_code: "STAMP", label: "Stamp", blurb: null }] },
+    decline_reasons: [{ reason_code: "PRICE", label: "The price" }],
+  };
+  const SIGN_START = {
+    signer: { full_name: "Marie Nguema", email_masked: "m***@acme.cm" },
+    cards: [{ preset_code: "STAMP", label: "Stamp", blurb: null }],
+    otp: { sent_to: "m***@acme.cm", expires_at: "2099-01-01T00:00:00Z", attempts_remaining: 5, resends_remaining: 3, cooldown_until: null, verified_at: null },
+  };
+  const offerRoutes = (extra: typeof routes = {}) => ({
+    "/portal/client/home": () => [200, { data: { ...HOME, quotations: { pending_count: 1 }, proposals: { pending_count: 0 } } }] as [number, Json],
+    "/portal/client/quotations": () => [200, { data: [OLD, CARD] }] as [number, Json],
+    "/portal/client/proposals": () => [200, { data: [PROPOSAL] }] as [number, Json],
+    [`/portal/client/quotations/${Q}`]: () => [200, { data: DETAIL }] as [number, Json],
+    ...extra,
+  });
+
+  it("has a line each for requests and quotations on a desk, and the quotations line counts what waits", async () => {
+    stubApi(true, offerRoutes());
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { container } = await mount("/portal");
+    const side = container.querySelector(".pt-sidebar") as HTMLElement;
+    await waitFor(() => expect(within(side).getByRole("link", { name: new RegExp(en.nav.quotations) }).textContent).toContain("1"));
+    within(side).getByRole("link", { name: en.nav.requests });
+    // The phone keeps five slots: one Quotes slot for both pages.
+    const bar = container.querySelector(".pt-tabbar") as HTMLElement;
+    expect(within(bar).getAllByRole("link")).toHaveLength(5);
+    within(bar).getByRole("link", { name: new RegExp(en.nav.quotes) });
+  });
+
+  it("lists quotations and proposals as cards, waiting first, with All / Quotations / Proposals", async () => {
+    stubApi(true, offerRoutes());
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { findByText, getByRole, queryByText, container } = await mount("/portal/quotations");
+    await findByText("QUO-2026-0007");
+    await findByText("PRP-2026-0004");
+    const cards = [...container.querySelectorAll("main .pt-card-press")].map((n) => n.textContent || "");
+    // The one waiting for an answer comes first, even though it is older.
+    expect(cards[0]).toContain("QUO-2026-0007");
+    expect(cards[0]).toContain("SQ-2026-0003");
+    expect(cards[0]).toContain(en.offer.status.SENT);
+    fireEvent.click(getByRole("button", { name: new RegExp(`^${en.offer.tab.proposals}`) }));
+    await waitFor(() => expect(queryByText("QUO-2026-0007")).toBeNull());
+    expect(queryByText("PRP-2026-0004")).not.toBeNull();
+  });
+
+  it("keeps /portal/quotes working: a proposal link lands on Quotations, anything else on Requests", async () => {
+    stubApi(true, { ...offerRoutes(), "/portal/client/quote-requests": () => [200, { data: [] }] });
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { getByTestId } = await mount("/portal/quotes");
+    await waitFor(() => expect(getByTestId("loc").textContent).toBe("/portal/requests"));
+  });
+
+  it("opens a card to the whole offer — details, the families as printed, HT / VAT / TTC — and back", async () => {
+    stubApi(true, offerRoutes());
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { findByText, getByText, getByTestId, getAllByText } = await mount("/portal/quotations");
+    fireEvent.click(await findByText("QUO-2026-0007"));
+    await waitFor(() => expect(getByTestId("loc").textContent).toBe(`/portal/quotations/${Q}`));
+    await findByText("Port charges");
+    getByText("Our services");
+    getByText(en.offer.atCost);
+    getByText("FOB");
+    getByText(en.offer.daysAfterInvoice.replace("{{days}}", "30"));
+    getByText(en.offer.ht);
+    getByText(en.offer.vat);
+    expect(getAllByText(en.offer.ttc).length).toBeGreaterThan(0);
+    fireEvent.click(getByText(en.offer.back));
+    await waitFor(() => expect(getByTestId("loc").textContent).toBe("/portal/quotations"));
+  });
+
+  it("accepts by signing — the code, then the stamp — against the quotation's own endpoints", async () => {
+    const completed: unknown[] = [];
+    stubApi(
+      true,
+      offerRoutes({
+        [`/portal/client/quotations/${Q}/sign`]: () => [200, { data: SIGN_START }],
+        [`/portal/client/quotations/${Q}/sign/complete`]: (init?: RequestInit) => {
+          completed.push(JSON.parse(String(init?.body)));
+          return [200, { data: { accepted: true, signature: null } }];
+        },
+      }),
+    );
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { findByText, findByRole, getByRole, getByLabelText } = await mount(`/portal/quotations/${Q}`);
+    await findByText("Port charges");
+    fireEvent.click(getByRole("button", { name: en.prop.acceptSign }));
+    await findByText(en.prop.sign.sentTo.replace("{{email}}", "m***@acme.cm"));
+    expect(calls).toContain(`POST /portal/client/quotations/${Q}/sign`);
+    expect(calls).not.toContain(`POST /portal/client/proposals/${Q}/sign`);
+    fireEvent.change(getByLabelText(en.signin.digit.replace("{{n}}", "1")), { target: { value: "123456" } });
+    fireEvent.click(getByRole("button", { name: en.common.next }));
+    // Signing a quotation says it accepts THIS quotation, not "this proposal".
+    await findByText(en.offer.signAgree);
+    fireEvent.click(await findByRole("button", { name: en.prop.sign.submit }));
+    await waitFor(() => expect(completed).toHaveLength(1));
+    expect(completed[0]).toMatchObject({ code: "123456", preset_code: "STAMP", full_name: "Marie Nguema" });
+  });
+
+  it("asks about the quotation in the chat, with the quotation as a chip on the first message only", async () => {
+    const sent: FormData[] = [];
+    stubApi(
+      true,
+      offerRoutes({
+        "/portal/client/chat/threads": () => [200, { data: [] }],
+        "/portal/client/chat/unread": () => [200, { data: { unread: 0 } }],
+        "/portal/client/chat/read": () => [200, { data: { thread: "general" } }],
+        "/portal/client/chat/messages": (init?: RequestInit) => {
+          if (init?.method === "POST") {
+            const form = init.body as FormData;
+            sent.push(form);
+            return [201, {
+              data: {
+                message_id: `m${sent.length}`, dossier_id: null, dossier_ref: null, direction: "CLIENT", body: String(form.get("body")),
+                created_at: "2026-10-01T08:00:00Z", author: { name: null, email: "marie@acme.cm" }, mine: true, seen: false,
+                milestone: null, location: null, attachments: [],
+                reference: form.get("about") ? { kind: "quotation", id: Q, label: "QUO-2026-0007" } : null,
+              },
+            }];
+          }
+          return [200, { data: { thread: "general", dossier_ref: null, has_more: false, messages: [] } }];
+        },
+      }),
+    );
+    vi.stubGlobal("XMLHttpRequest", FakeXHR);
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { findByText, findAllByText, getByRole, getByLabelText, queryByRole } = await mount(`/portal/quotations/${Q}`);
+    await findByText("Port charges");
+    fireEvent.click(getByRole("button", { name: en.offer.ask }));
+    const chip = en.chat.aboutQuotation.replace("{{ref}}", "QUO-2026-0007");
+    await findByText(chip);
+    fireEvent.change(getByLabelText(en.chat.placeholder), { target: { value: "Can you hold the price a week?" } });
+    fireEvent.click(getByRole("button", { name: en.chat.send }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0].get("thread")).toBe("general");
+    expect(sent[0].get("about")).toBe(`quotation:${Q}`);
+    // The bubble keeps the chip; the composer lets it go.
+    expect((await findAllByText(chip)).length).toBe(1);
+    expect(queryByRole("button", { name: en.chat.removeAbout })).toBeNull();
+    fireEvent.change(getByLabelText(en.chat.placeholder), { target: { value: "Thanks" } });
+    fireEvent.click(getByRole("button", { name: en.chat.send }));
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1].get("about")).toBeNull();
+  });
+});

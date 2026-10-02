@@ -1,3 +1,4 @@
+// search:none — deliverability is a dashboard of sending health, not records.
 "use strict";
 const service = require("./deliverability.service");
 const { asyncHandler } = require("../../../utils/errors");

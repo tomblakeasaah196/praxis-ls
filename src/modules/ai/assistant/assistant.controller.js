@@ -1,4 +1,5 @@
 // ai:none — the assistant itself. Exposing the copilot's own endpoints as copilot tools lets a turn re-enter the orchestrator, and the transcript is already the caller's.
+// search:none — the assistant's own conversations; a transcript is the caller's, read in Praxis AI, not a record others look up.
 "use strict";
 const service = require("./assistant.service");
 const { asyncHandler } = require("../../../utils/errors");

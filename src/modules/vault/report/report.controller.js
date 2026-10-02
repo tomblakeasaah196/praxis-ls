@@ -1,3 +1,4 @@
+// search:none — vault reports are generated on demand from Vault › Reports.
 "use strict";
 const service = require("./report.service");
 const templateSvc = require("../../documents/template/template.service");

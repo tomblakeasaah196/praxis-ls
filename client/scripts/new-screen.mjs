@@ -284,8 +284,28 @@ const registerEntry = `      {
         populatedProof: /REF-2026-0001/,
       },`;
 
+// The registry entry ⌘K finds the screen by, and the shell permission-filters
+// it with (meeting 6, PR 4 — G5). `scripts/check-search-registry.js` fails the
+// build on a routed screen without one, so printing it here is what makes
+// registering the path of least resistance.
+const registryEntry = JSON.stringify(
+  {
+    id: `${area.replace(/[^a-z0-9]+/gi, "_")}_${kebab.replace(/-/g, "_")}`,
+    title: name,
+    title_fr: "TODO — the French title a desk would type",
+    route: `/${area}/${kebab}`,
+    area,
+    module_key: "MOD-xx",
+    purpose: "TODO — one line: what this screen is for.",
+    actions: [],
+    synonyms: [],
+  },
+  null,
+  2,
+);
+
 console.warn(`\n✓ Created src/features/${area}/${kebab}.tsx\n`);
-console.warn("Two things this deliberately did NOT edit for you.\n");
+console.warn("Three things this deliberately did NOT edit for you.\n");
 console.warn(
   "1. The route, in src/app/app.tsx — lazy, like every other one:\n",
 );
@@ -301,6 +321,19 @@ console.warn(
 );
 console.warn("   exactly one <h1>:\n");
 console.warn(registerEntry);
+console.warn(
+  "\n3. The screen registry, in src/app/screen-registry.json (screens[]). ⌘K",
+);
+console.warn(
+  "   finds the screen by its English AND French titles and synonyms, the ribbon",
+);
+console.warn(
+  "   gates it by module_key, and the search gate fails CI without it. A hub",
+);
+console.warn(
+  "   section also goes in src/app/layout/areas.ts; a `?tab=` tab goes in tabs[]:\n",
+);
+console.warn(registryEntry);
 console.warn(`
    GET THE FIXTURE'S PATHS AND FIELD NAMES FROM THE API TYPES, NOT FROM MEMORY.
    Building the register, the same mistake was made seven times: a fixture keyed
@@ -313,4 +346,5 @@ Then, before you commit:
 
    npm run lint && npx tsc -b && npm test
    npm run check:palette && npm run check:contrast && npm run check:motion
+   npm run check:search --prefix ..     # every page, tab and record findable
 `);

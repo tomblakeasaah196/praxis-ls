@@ -1,3 +1,4 @@
+// search:none — a signature request is reached from the document it signs, which ⌘K finds.
 "use strict";
 
 const service = require("./signature_request.service");

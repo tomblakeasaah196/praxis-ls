@@ -37,6 +37,8 @@ const incoterms = require("./data/incoterms");
 const serviceScope = require("./rules/service-scope");
 const emailDomain = require("./rules/email-domain");
 const quoteRequest = require("./schemas/quote-request");
+const quotation = require("./schemas/quotation");
+const search = require("./schemas/search");
 
 // Named `exports.x =` assignments, NOT `module.exports = { x }`.
 //
@@ -194,3 +196,14 @@ exports.emailDomain = emailDomain;
 // Quote request payloads for all three doors — the desk, the portal and the
 // public website — so "a valid request" is one definition (meeting 6, PR 2).
 exports.quoteRequest = quoteRequest;
+// Quotations (meeting 6, PR 4): "Create quotation" on a costing, the per-
+// document family order, Settings › Commercial's target margin, and a client
+// declining in the portal. Shared because the costing sheet must offer the
+// button on exactly the statuses the API prices from, and the settings form
+// must refuse exactly the margin the API refuses.
+exports.quotation = quotation;
+// Search that finds everything (meeting 6, PR 4 — G5): the /search query the
+// palette sends and the API validates, the ONE synonym list both read (the
+// palette to match pages, the API to read "facture 0042" as a type hint), and
+// the accent fold both compare with — the same table as 14382's search_fold().
+exports.search = search;

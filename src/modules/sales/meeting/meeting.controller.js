@@ -1,3 +1,4 @@
+// search:none — meetings are calendar entries read in My workspace and on the lead they concern.
 "use strict";
 const service = require("./meeting.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

@@ -20,8 +20,12 @@ import { cell, money } from "@/lib/format";
 import { SearchSelect } from "@/components/ui/search-select";
 import { listSalesTaxCodes, type TaxCode } from "@/lib/masterdata-api";
 import { Segmented } from "@/components/ui/segmented";
-import { ClientFamilies } from "@/components/client-families";
+import { Callout } from "@/components/ui/callout";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ClientFamilies, FamilyBulkBar, FamilyPicker } from "@/components/client-families";
+import { customFamilies, moveLines, useFamilyRegistry, useLineSelection, useNewFamily } from "@/lib/client-families-state";
 import { dictLabel } from "@/lib/dict-label";
+import { clientQuoteRequests } from "@/lib/quote-request-api";
 
 export type QLine = {
   dictionary_item_id: string | null;
@@ -90,6 +94,14 @@ export function QuotationForm({
   const [marginPercent, setMarginPercent] = React.useState("");
   const [lines, setLines] = React.useState<QLine[]>([]);
   const [lineView, setLineView] = React.useState<"lines" | "families">("lines");
+  // Meeting 6, PR 4: the request this quotation answers, the order its
+  // families print in (G2), and the lines ticked for "Move to family…".
+  const [quoteRequestId, setQuoteRequestId] = React.useState("");
+  const [requests, setRequests] = React.useState<Row[]>([]);
+  const [familyOrder, setFamilyOrder] = React.useState<string[] | null>(null);
+  const selection = useLineSelection(lines.length);
+  const registry = useFamilyRegistry();
+  const [askFamily, askFamilyDialog] = useNewFamily();
   const [taxCodes, setTaxCodes] = React.useState<TaxCode[]>([]);
   // B1 (class E — degraded read). listSalesTaxCodes returns
   // { codes, degraded, failed_jurisdictions } so an empty picker cannot be
@@ -118,6 +130,12 @@ export function QuotationForm({
     );
     setMarginPercent(
       editing?.margin_percent != null ? String(editing.margin_percent) : "",
+    );
+    setQuoteRequestId(editing?.quote_request_id ? String(editing.quote_request_id) : "");
+    setFamilyOrder(
+      Array.isArray(editing?.family_order) && (editing?.family_order as unknown[]).length
+        ? (editing?.family_order as string[])
+        : null,
     );
     const el = (editing?.lines as Row[] | undefined) || [];
     setLines(
@@ -161,6 +179,22 @@ export function QuotationForm({
     const cm = (clients || []).find((c) => String(c.client_id) === clientId);
     setClientLabel(cm ? String(cm.name ?? cm.legal_name ?? "") : "");
   }, [open, clientId, clients]);
+
+  // The client's quote requests, for "Answers the quote request" — the one
+  // the client sees this quotation on in their portal.
+  React.useEffect(() => {
+    if (!open || !clientId) {
+      setRequests([]);
+      return;
+    }
+    let live = true;
+    clientQuoteRequests(clientId)
+      .then((rows) => live && setRequests(rows as Row[]))
+      .catch(() => live && setRequests([]));
+    return () => {
+      live = false;
+    };
+  }, [open, clientId]);
 
   // Load sales VAT codes once the modal opens (aggregated across jurisdictions).
   React.useEffect(() => {
@@ -212,6 +246,8 @@ export function QuotationForm({
       quote_model: quoteModel,
       valid_until: validUntil || null,
       margin_percent: marginPercent === "" ? null : Number(marginPercent),
+      quote_request_id: quoteRequestId || null,
+      family_order: familyOrder,
       lines: cleanLines,
     };
     try {
@@ -309,7 +345,14 @@ export function QuotationForm({
               onChange={setValidUntil}
             />
           </Field>
-          <Field label="Target margin %" hint={tr("Optional")}>
+          <Field
+            label={tr("Margin applied (%)")}
+            hint={
+              editing?.created_from === "COSTING"
+                ? tr("The margin the services were priced at from the costing.")
+                : tr("Optional")
+            }
+          >
             <Input
               type="number"
               min="0"
@@ -321,7 +364,30 @@ export function QuotationForm({
               placeholder="20"
             />
           </Field>
+          <Field
+            label={tr("Answers the quote request")}
+            hint={tr("The client sees this quotation on that request in their portal.")}
+          >
+            <Select
+              value={quoteRequestId}
+              onChange={(e) => setQuoteRequestId(e.target.value)}
+              disabled={!clientId}
+            >
+              <option value="">{clientId ? tr("— none —") : tr("Pick the client first")}</option>
+              {requests.map((r) => (
+                <option key={String(r.quote_request_id)} value={String(r.quote_request_id)}>
+                  {[cell(r.public_ref), cell(r.status)].join(" · ")}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </div>
+
+        {editing?.created_from === "COSTING" && Number(editing?.own_cost_total) > 0 ? (
+          <Callout tone="info" title={tr("Own costs on this file:")}>
+            {money(editing?.own_cost_total, currency)} — {tr("not billed; the services must cover them.")}
+          </Callout>
+        ) : null}
 
         <div className="space-y-2">
           {/* 14130 — the quotation prints one line per family; this view shows
@@ -335,17 +401,29 @@ export function QuotationForm({
               { value: "families", label: tr("By family (as printed)") },
             ]}
           />
+          {askFamilyDialog}
           {lineView === "families" && (
             <ClientFamilies
-              lines={lines
-                .filter((l) => l.label.trim())
-                .map((l) => ({ ...l, qty: Number(l.qty) || 0, amount: qLineTotal(l) }))}
+              lines={lines.map((l) => ({ ...l, qty: Number(l.qty) || 0, amount: qLineTotal(l) }))}
               currency={currency.trim().toUpperCase() || "XAF"}
               readOnly={false}
-              onHeading={(index, heading) => {
-                const kept = lines.map((l, j) => ({ l, j })).filter((x) => x.l.label.trim());
-                const target = kept[index];
-                if (target) setLine(target.j, { client_heading: heading });
+              selection={selection}
+              order={familyOrder}
+              onOrder={setFamilyOrder}
+              onHeading={(index, heading) => setLines((rs) => moveLines(rs, [index], heading))}
+              onHeadingMany={(indices, heading) => setLines((rs) => moveLines(rs, indices, heading))}
+            />
+          )}
+          {lineView === "lines" && (
+            <FamilyBulkBar
+              count={selection.selected.size}
+              registry={registry}
+              customs={customFamilies(lines, registry)}
+              onNew={askFamily}
+              onClear={selection.clear}
+              onMove={(heading) => {
+                setLines((rs) => moveLines(rs, selection.selected, heading));
+                selection.clear();
               }}
             />
           )}
@@ -362,6 +440,11 @@ export function QuotationForm({
           {lineView === "lines" && lines.map((l, i) => (
             <div key={i} className="rounded-lg border border-border/60 p-2">
               <div className="flex flex-wrap items-center gap-2">
+                <Checkbox
+                  checked={selection.selected.has(i)}
+                  onCheckedChange={() => selection.toggle(i)}
+                  label={<span className="sr-only">{`${tr("Tick")} ${l.label || tr("line")} ${i + 1}`}</span>}
+                />
                 <div className="min-w-[10rem] flex-1">
                   <SearchSelect
                     path="/financial-dictionary"
@@ -446,6 +529,18 @@ export function QuotationForm({
                   />
                   débours
                 </label>
+                {/* Meeting 6, G2: the line's family, without switching views. */}
+                <div className="flex min-w-[14rem] items-center gap-1">
+                  <span className="text-xs text-muted-foreground">{tr("Family")}</span>
+                  <FamilyPicker
+                    line={l}
+                    index={i}
+                    registry={registry}
+                    customs={customFamilies(lines, registry)}
+                    onNew={askFamily}
+                    onPick={(heading) => setLine(i, { client_heading: heading })}
+                  />
+                </div>
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-muted-foreground">{tr("Tax")}</span>
                   <Select

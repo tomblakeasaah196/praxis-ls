@@ -1,3 +1,4 @@
+// search:none — fixed assets are managed from Finance › Assets by category and depreciation run; a later pass can add them if desks ask.
 /** Asset (MOD-54) HTTP handlers — thin: req.tenantDb → service. */
 "use strict";
 const service = require("./asset.service");

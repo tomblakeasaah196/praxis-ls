@@ -12,6 +12,7 @@ const service = require("./portal_client.service");
 const bundles = require("./invoice_bundle.service");
 const chat = require("./portal_chat.service");
 const proposals = require("./portal_proposal.service");
+const quotations = require("./portal_quotation.service");
 const quoteFill = require("./portal_quote_fill.service");
 const places = require("./portal_places.service");
 const notify = require("./portal_notify.service");
@@ -422,6 +423,7 @@ module.exports = {
           thread: b.thread || "general", body: b.body, milestoneId: b.milestone_instance_id || null,
           location: b.lat !== undefined ? { lat: b.lat, lng: b.lng, label: b.location_label || null } : null,
           file: req.file || null, meta: chatMeta(b), slug: slugOf(req), lang: langOf(req),
+          ref: b.about || null,
         }));
     if (sent && sent.author && !sent.author.name) sent.author.name = nameOf(req);
     res.status(201).json({ data: sent });
@@ -490,6 +492,65 @@ module.exports = {
       data: await req.tenantDb((c) =>
         proposals.completeSigning(c, {
           clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req),
+          code: b.code, presetCode: b.preset_code, fullName: b.full_name || null, partyRole: b.party_role || null,
+          markImageB64: b.mark_image_b64 || null, ip: ipOf(req), userAgent: uaOf(req), lang: langOf(req),
+          origin: originOf(req), slug: slugOf(req),
+        })),
+    });
+  }),
+  // Commercial quotations (meeting 6, PR 4 — G3/G4): read, download, decline,
+  // accept — by e-signature where the tenant offers one, through the same
+  // signing kit proposals use (portal_quotation.service).
+  quotations: asyncHandler(async (req, res) => {
+    res.json({ data: await req.tenantDb((c) => quotations.list(c, { clientId: clientId(req), lang: langOf(req) })) });
+  }),
+  quotation: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        quotations.get(c, { clientId: clientId(req), quotationId: uuidOf(req.params.id, "id"), lang: langOf(req) })),
+    });
+  }),
+  quotationPdf: asyncHandler(async (req, res) => {
+    sendFile(res, await req.tenantDb((c) => quotations.pdf(c, {
+      clientId: clientId(req), quotationId: uuidOf(req.params.id, "id"), lang: langOf(req), origin: originOf(req), env: req.env || "live",
+    })));
+  }),
+  quotationDecline: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        quotations.decline(c, {
+          clientId: clientId(req), quotationId: uuidOf(req.params.id, "id"), me: signerOf(req),
+          reasonCode: req.body.reason_code, note: req.body.note || null, lang: langOf(req),
+        })),
+    });
+  }),
+  quotationAccept: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        quotations.accept(c, { clientId: clientId(req), quotationId: uuidOf(req.params.id, "id"), me: signerOf(req), ip: ipOf(req), lang: langOf(req) })),
+    });
+  }),
+  quotationSignStart: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        quotations.startSigning(c, {
+          clientId: clientId(req), quotationId: uuidOf(req.params.id, "id"), me: signerOf(req),
+          grantId: req.portal.grant && req.portal.grant.portal_access_id, lang: langOf(req), tenantName: tenantNameOf(req),
+        })),
+    });
+  }),
+  quotationSignResend: asyncHandler(async (req, res) => {
+    res.json({
+      data: await req.tenantDb((c) =>
+        quotations.resendCode(c, { clientId: clientId(req), quotationId: uuidOf(req.params.id, "id"), me: signerOf(req), lang: langOf(req), tenantName: tenantNameOf(req) })),
+    });
+  }),
+  quotationSignComplete: asyncHandler(async (req, res) => {
+    const b = req.body;
+    res.json({
+      data: await req.tenantDb((c) =>
+        quotations.completeSigning(c, {
+          clientId: clientId(req), quotationId: uuidOf(req.params.id, "id"), me: signerOf(req),
           code: b.code, presetCode: b.preset_code, fullName: b.full_name || null, partyRole: b.party_role || null,
           markImageB64: b.mark_image_b64 || null, ip: ipOf(req), userAgent: uaOf(req), lang: langOf(req),
           origin: originOf(req), slug: slugOf(req),

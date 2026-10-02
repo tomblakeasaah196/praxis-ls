@@ -9,6 +9,7 @@ import { isDesktopNow } from "@/lib/use-media-query";
 import { IndexRow } from "@/components/ui/index-row";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
+import { useRecordParam } from "@/app/layout/nav-trail-context";
 import { Button } from "@/components/ui/button";
 import { SectionTabs } from "@/components/ui/section-tabs";
 import { Input } from "@/components/ui/input";
@@ -421,11 +422,20 @@ function NewVehicleForm({
 
 export function VehiclesPage() {
   const vehicles = useResource(() => api.listVehicles(), []);
-  const [selId, setSelId] = React.useState<string | null>(null);
   const [q, setQ] = React.useState("");
   const [creating, setCreating] = React.useState(false);
 
   const rows = React.useMemo(() => vehicles.data || [], [vehicles.data]);
+  // The open record lives in the URL (`?focus=<id>`), so a ⌘K result, a
+  // drill-in or the back arrow can land on one (meeting 6, G5).
+  const {
+    id: focusId,
+    openId: selectId,
+    close: closeSel,
+  } = useRecordParam(rows, (v) => v.vehicle_id);
+  // The desktop's first-row default stays out of the URL; a pick is a step.
+  const [defaultId, setDefaultId] = React.useState<string | null>(null);
+  const selId = focusId ?? defaultId;
   const filtered = q
     ? rows.filter((v) =>
         (v.registration || "").toLowerCase().includes(q.toLowerCase()),
@@ -435,7 +445,7 @@ export function VehiclesPage() {
   // Opens the first vehicle beside a desktop's detail pane — never on a
   // phone, where it is a full-screen sheet over the list (SplitPane onClose).
   React.useEffect(() => {
-    if (!selId && rows.length && isDesktopNow()) setSelId(rows[0].vehicle_id);
+    if (!selId && rows.length && isDesktopNow()) setDefaultId(rows[0].vehicle_id);
   }, [rows, selId]);
 
   return (
@@ -452,7 +462,7 @@ export function VehiclesPage() {
           onClose={() => setCreating(false)}
           onSaved={(v) => {
             vehicles.reload();
-            setSelId(v.vehicle_id);
+            selectId(v.vehicle_id);
           }}
         />
       )}
@@ -467,7 +477,10 @@ export function VehiclesPage() {
           max={480}
           activeKind={tr("Vehicle")}
           active={!!selected}
-          onClose={() => setSelId(null)}
+          onClose={() => {
+            setDefaultId(null);
+            closeSel();
+          }}
           sheetTitle={selected?.registration}
         >
           <div className="space-y-2">
@@ -486,7 +499,7 @@ export function VehiclesPage() {
                   <IndexRow
                     key={v.vehicle_id}
                     selected={v.vehicle_id === selId}
-                    onClick={() => setSelId(v.vehicle_id)}
+                    onClick={() => selectId(v.vehicle_id)}
                     className="items-center justify-between"
                   >
                     <span className="num font-medium">

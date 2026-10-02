@@ -168,6 +168,55 @@ describe("client activity reaches the client's list (D3)", () => {
     expect(broadcast.ids).toEqual(["ops-1"]);
   });
 
+  // Meeting 6, PR 4 (G4): a client answering a quotation in the portal.
+  test("a quotation signed in the portal: the list, with who signed and a link to it", async () => {
+    const c = conn([LIST, COMPANY]);
+    const Q = "99999999-9999-4999-8999-999999999999";
+    await clientTeam.onEvent(c, {
+      eventTypeKey: "quotation.accepted", entityRef: `quotation:${Q}`,
+      payload: { client_id: CLIENT, doc_number: "QT-2026-0004", via: "PORTAL", by: { name: "Elisha Godwin", email: "elisha@goum.cm" } },
+    });
+    expect(mockNotifyMany[0]).toMatchObject({ category: "clients", title: "GOUM International accepted quotation QT-2026-0004", url: `/sales/quotations?focus=${Q}` });
+    expect(mockNotifyMany[0].body).toContain("Elisha Godwin (elisha@goum.cm)");
+  });
+
+  test("a quotation the team accepted itself is not client activity", async () => {
+    const c = conn([LIST, COMPANY]);
+    const told = await clientTeam.onEvent(c, { eventTypeKey: "quotation.accepted", entityRef: "quotation:x", payload: { client_id: CLIENT, via: "STAFF" } });
+    expect(told).toEqual([]);
+    expect(mockNotifyMany).toHaveLength(0);
+  });
+
+  test("a quotation declined in the portal: the list, with the reason", async () => {
+    const c = conn([LIST, COMPANY]);
+    await clientTeam.onEvent(c, {
+      eventTypeKey: "quotation.declined_by_client", entityRef: "quotation:x",
+      payload: { client_id: CLIENT, doc_number: "QT-2026-0004", reason: "The price — Too high for Q4" },
+    });
+    expect(mockNotifyMany[0]).toMatchObject({ title: "GOUM International declined quotation QT-2026-0004" });
+    expect(mockNotifyMany[0].body).toContain("The price — Too high for Q4");
+  });
+
+  // "Nothing from TEST may email or push anyone" (meeting 6, PR 4): the queued
+  // delivery runs in the event's own environment. In the sandbox, email.service
+  // suppresses every send and no device is registered (devices live in LIVE).
+  test("an event in TEST is delivered in TEST, never LIVE", async () => {
+    const c = conn([LIST, COMPANY]);
+    c[Symbol.for("praxis.conn.env")] = "sandbox";
+    await clientTeam.onEvent(c, {
+      eventTypeKey: "quotation.declined_by_client", entityRef: "quotation:x",
+      payload: { client_id: CLIENT, doc_number: "QT-2026-0004", reason: "The price" },
+    });
+    expect(mockNotifyMany[0].ctx).toEqual({ env: "sandbox" });
+    mockNotifyMany = [];
+    const live = conn([LIST, COMPANY]);
+    await clientTeam.onEvent(live, {
+      eventTypeKey: "quotation.declined_by_client", entityRef: "quotation:x",
+      payload: { client_id: CLIENT, doc_number: "QT-2026-0004", reason: "The price" },
+    });
+    expect(mockNotifyMany[0].ctx).toEqual({ env: "live" });
+  });
+
   test("a quote request linked to a client: that client's list", async () => {
     const c = conn([
       [/FROM quote_request WHERE quote_request_id/, { rows: [{ quote_request_id: QR, client_id: CLIENT, intake_channel: "PORTAL", public_ref: "SQ-2026-0003" }] }],

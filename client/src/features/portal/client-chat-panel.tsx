@@ -15,7 +15,8 @@
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { tr } from "@/lib/i18n";
+import { Link } from "react-router-dom";
+import { tr, tv } from "@/lib/i18n";
 import { tenant, tenantObjectUrl, tenantDownload, uploadFile } from "@/lib/api-client";
 import { errMsg } from "@/lib/use-resource";
 import { useUpload } from "@/lib/use-upload";
@@ -35,6 +36,7 @@ import { pasteFileFromEvent } from "@/components/ui/upload-paste";
 import { useToast } from "@/components/ui/toast";
 import { useCanUseModule } from "@/lib/route-access";
 import { useRefreshEvent } from "@/lib/open-in-app";
+import { quotationHref } from "@/lib/quotation-api";
 import { VoiceRecorder, type Recording } from "@/features/comms/chat/voice-recorder";
 import { ClientChatTools, ShareLocationDialog, type SharedPlace } from "./client-chat-tools";
 import { FileOnQuoteRequestDialog, type ChatFile } from "@/features/sales/file-on-quote-request";
@@ -58,15 +60,38 @@ export type Message = {
   author: { name: string | null; email: string | null; portal_user_id?: string | null };
   seen: boolean | null;
   milestone: { milestone_instance_id: string; label: string | null } | null;
+  /** "Ask about this quotation" (meeting 6, G3): the offer the client asked about. */
+  reference?: Reference | null;
   location: { lat: number; lng: number; label: string | null } | null;
   attachments: Attachment[];
   /** On a TEAM message: what its email did for each person at the client (D8). */
   delivery?: DeliveryPerson[];
 };
+type Reference = { kind: "quotation" | "proposal"; id: string; label: string | null };
 type Page = { thread: string; dossier_ref: string | null; has_more: boolean; messages: Message[] };
 type Thread = { dossier_id: string | null; dossier_ref: string | null; last_at: string; unread: number };
 
 const POLL_MS = 15_000;
+
+/**
+ * What the client's message is about — the offer they pressed "Ask about this
+ * quotation" on (meeting 6, G3) — as a chip that opens it.
+ */
+function ReferenceChip({ r }: { r: Reference }) {
+  const href = r.kind === "quotation" ? quotationHref(r.id) : `/sales/proposals?focus=${encodeURIComponent(r.id)}`;
+  const label = r.label || (r.kind === "quotation" ? tr("Quotation") : tr("Proposal"));
+  return (
+    <p className="mb-1">
+      <Link
+        to={href}
+        className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={r.kind === "quotation" ? tv("About quotation {{ref}} — open it", { ref: label }) : tv("About proposal {{ref}} — open it", { ref: label })}
+      >
+        <span className="truncate">{r.kind === "quotation" ? tv("About quotation {{ref}}", { ref: label }) : tv("About proposal {{ref}}", { ref: label })}</span>
+      </Link>
+    </p>
+  );
+}
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp";
 
 /** A photo from the chat — fetched with the session, since an <img> cannot send it. */
@@ -200,6 +225,7 @@ export function Bubble({
             <Pill tone="blue">{m.milestone.label}</Pill>
           </p>
         ) : null}
+        {m.reference ? <ReferenceChip r={m.reference} /> : null}
         {m.attachments.map((a) => (
           <div key={a.attachment_id} className="mb-1">
             {a.kind === "IMAGE" ? (

@@ -43,6 +43,30 @@ This is what lets the assistant navigate and guide ("where do I raise an
 invoice?"), power per-module beck-and-call, and deep-link an action card to the
 right screen — which raw component text cannot do.
 
+**It is also what ⌘K searches, and it is now checked against the code**
+(meeting 6, PR 4 — G5). Besides `screens[]`, the registry carries:
+
+- `title_fr` (required) and `synonyms` (optional) on every screen — the palette
+  finds a page by either language and by the shared synonym list in
+  `packages/shared/schemas/search.js` ("devis", "cotation" → Quotations);
+- `hubs[]` — the area landing pages (`/sales`, `/finance`…). Deliberately NOT in
+  `screens[]`: route-access and the ribbon read `screens[]`, and a hub is gated
+  by its sections, not by one module (see `lib/route-access.ts`);
+- `redirects[]` — old addresses that still work (`/commercial/quotations`);
+- `section_hubs[]` — a hub that keeps its sections in its own component (Smart
+  Comms);
+- `tabs[]` — every URL-addressable 360 tab (a `useUrlTab` value), with the
+  record types it is a tab of, so "Contacts" opens a client on that tab;
+- `app: "public-web"` on the public surfaces this app does not route.
+
+Records are not in the registry: each module that has them declares a
+`<module>.search.js` provider next to its `.ai.js` (gated on the module's `view`
+grant, run on the request's LIVE or TEST connection, bounded).
+`scripts/check-search-registry.js` (`npm run check:search`, in `npm run ci` and
+CI) fails on a `<Route>`, hub section or tab with no entry, on a module with
+records and neither a provider nor a `// search:none <reason>`, on an entry the
+code no longer has, and on a page without its French title.
+
 ## Rule 3 — the knowledge corpus includes the UI
 
 `src/services/ai/knowledge/codebase.js` walks `client/src` (kind `ui`) and emits
@@ -63,7 +87,9 @@ entry, as incomplete.
 - [ ] `<module>.ai.js` present; reads/writes point at real services; writes carry
       a Zod schema + `{ module, action }` permission + `confirm`.
 - [ ] Every new route has a `screen-registry.json` entry (route, module_key,
-      purpose, actions).
+      purpose, actions, title_fr); every new `?tab=` tab a `tabs[]` entry; every
+      new module with records a `<module>.search.js` or `// search:none <reason>`
+      — `npm run check:search` checks all three.
 - [ ] `node scripts/ai/reindex.js --global` picks up the new cards (idempotent).
 
 ## Rule 4 — respect the per-tenant AI toggle (EMV)

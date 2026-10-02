@@ -36,7 +36,15 @@ import { Field, Select } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect } from "@/components/currency-select";
 import { Segmented } from "@/components/ui/segmented";
-import { ClientFamilies } from "@/components/client-families";
+import { ClientFamilies, FamilyBulkBar, FamilyPicker } from "@/components/client-families";
+import {
+  customFamilies,
+  moveLines,
+  useAnnouncer,
+  useFamilyRegistry,
+  useLineSelection,
+  useNewFamily,
+} from "@/lib/client-families-state";
 import { Panel } from "@/components/ui/panel";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { EmptyState } from "@/components/ui/states";
@@ -50,7 +58,7 @@ import { ShipmentDetailsPanel } from "@/features/operations/shipment-details";
 import { useFormDraft } from "@/lib/form-draft";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money, dateFmt } from "@/lib/format";
-import { tr } from "@/lib/i18n";
+import { tr, tv } from "@/lib/i18n";
 import { currencies as ccyLib } from "@shared";
 import { listSalesTaxCodes } from "@/lib/masterdata-api";
 import * as api from "@/lib/costing-api";
@@ -69,6 +77,7 @@ import {
   type LineDraft,
 } from "./costing-model";
 import { SuggestDialog } from "./costing-suggest";
+import { CreateQuotationButton } from "./create-quotation";
 
 const TONES: Record<string, Tone> = {
   DRAFT: "mute",
@@ -205,6 +214,14 @@ export function CostingSheet360({
   // "Detailed" is the costing; "By family" is what the client will read
   // (14130, meeting 5). Same lines, two views; families are set from the second.
   const [view, setView] = React.useState<"detailed" | "families">("detailed");
+  // Meeting 6, G2: the order this sheet prints its families in (null = the
+  // registry's), the lines ticked in either view, and the registry itself
+  // for the detailed view's Family column.
+  const [familyOrder, setFamilyOrder] = React.useState<string[] | null>(null);
+  const selection = useLineSelection(lines?.length ?? 0);
+  const registry = useFamilyRegistry();
+  const [askFamily, askFamilyDialog] = useNewFamily();
+  const [announce, announcer] = useAnnouncer();
 
   const editable = c?.status === "DRAFT";
 
@@ -212,6 +229,7 @@ export function CostingSheet360({
     if (!c) return;
     setLines((c.lines || []).map(fromSaved));
     setRemarks(c.remarks || "");
+    setFamilyOrder(Array.isArray(c.family_order) && c.family_order.length ? c.family_order : null);
     setValidatorId(c.validator_id || "");
     setCurrency(c.currency || "XAF");
     setRateText(
@@ -234,7 +252,7 @@ export function CostingSheet360({
    */
   const draft = useFormDraft({
     key: `costing:${id}`,
-    values: { lines, remarks, validatorId, currency, rateText },
+    values: { lines, remarks, validatorId, currency, rateText, familyOrder },
     label: c?.doc_number || tr("Costing sheet"),
     enabled: Boolean(editable && lines),
   });
@@ -257,6 +275,7 @@ export function CostingSheet360({
         exchange_rate_to_xaf: sheetRate,
         remarks: remarks.trim() || null,
         validator_id: validatorId || null,
+        family_order: familyOrder,
         lines: lines
           .filter((l) => l.label || l.dictionary_item_id)
           .map(toPayload),
@@ -433,6 +452,12 @@ export function CostingSheet360({
         label={tr("Print / preview")}
         beforeOpen={beforePreview}
       />
+      {/* Meeting 6, G1: one click to a DRAFT quotation, priced directly. */}
+      <CreateQuotationButton
+        costingId={c.costing_id}
+        status={c.status}
+        dirty={dirty}
+      />
       {editable && (
         <>
           <Button
@@ -566,6 +591,7 @@ export function CostingSheet360({
             setLines(v.lines);
             setRemarks(v.remarks);
             setValidatorId(v.validatorId);
+            setFamilyOrder(v.familyOrder ?? null);
             setCurrency(v.currency);
             if (v.rateText) setRateText(v.rateText);
             setDirty(true);
@@ -669,16 +695,41 @@ export function CostingSheet360({
                 }))}
                 currency={ccy}
                 readOnly={!editable}
+                selection={editable ? selection : undefined}
+                order={familyOrder}
+                onOrder={(next) => {
+                  setFamilyOrder(next);
+                  setDirty(true);
+                }}
                 onHeading={(index, heading) => {
-                  setLines(
-                    (lines || []).map((l, j) =>
-                      j === index ? { ...l, client_heading: heading } : l,
-                    ),
-                  );
+                  setLines(moveLines(lines || [], [index], heading));
+                  setDirty(true);
+                }}
+                onHeadingMany={(indices, heading) => {
+                  setLines(moveLines(lines || [], indices, heading));
                   setDirty(true);
                 }}
               />
             ) : (
+              <>
+              {editable && (
+                <div className="mb-2">
+                  <FamilyBulkBar
+                    count={selection.selected.size}
+                    registry={registry}
+                    customs={customFamilies(lines || [], registry)}
+                    onNew={askFamily}
+                    onClear={selection.clear}
+                    onMove={(heading) => {
+                      const n = selection.selected.size;
+                      setLines(moveLines(lines || [], selection.selected, heading));
+                      setDirty(true);
+                      selection.clear();
+                      announce(tv("{{count}} lines moved to their new family.", { count: n }));
+                    }}
+                  />
+                </div>
+              )}
               <LineGrid
                 lines={lines || []}
                 // A client's file is billed: the débours row of a service is
@@ -694,8 +745,27 @@ export function CostingSheet360({
                   setLines(next);
                   setDirty(true);
                 }}
+                selection={editable ? selection : undefined}
+                familyCell={(l, i) => (
+                  <FamilyPicker
+                    line={l}
+                    index={i}
+                    registry={registry}
+                    customs={customFamilies(lines || [], registry)}
+                    readOnly={!editable}
+                    onNew={askFamily}
+                    onPick={(heading) => {
+                      setLines(moveLines(lines || [], [i], heading));
+                      setDirty(true);
+                      announce(tv("“{{line}}” moved to its new family.", { line: l.label || tr("line") }));
+                    }}
+                  />
+                )}
               />
+              </>
             )}
+            {askFamilyDialog}
+            {announcer}
           </Panel>
 
           <TotalsFooter lines={lines || []} currency={ccy} />

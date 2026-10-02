@@ -1,3 +1,4 @@
+// search:none — bank reconciliations are worked per treasury account, which ⌘K finds.
 /**
  * Reconciliation HTTP handlers (MOD-09). Thin: resolve the actor, call the
  * service on the request's tenant connection, shape the response.

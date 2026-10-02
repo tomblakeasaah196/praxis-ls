@@ -34,4 +34,31 @@ function computeTotals(lines, vatRatePercent = 19.25) {
   return { total_ht: round2(htC / 100), vat_total: round2(vatC / 100), total_ttc: round2((htC + vatC) / 100) };
 }
 
-module.exports = { NEXT, assertTransition, computeTotals };
+/**
+ * "Create quotation" is offered on a costing that has been validated or
+ * approved (meeting 6, auditor default): SUBMITTED_FOR_APPROVAL has passed its
+ * validator, APPROVED_LOCKED is approved, UNLOCK_REQUESTED is still approved
+ * while the reopening is decided. A DRAFT, a sheet still with its validator and
+ * a REJECTED one are not yet numbers anyone stands behind.
+ */
+const COSTING_QUOTABLE = new Set(require("@praxis/shared").quotation.COSTING_QUOTABLE);
+
+/**
+ * A document's family order (meeting 6, G2): an array of heading keys — a
+ * CLIENT_HEADING code, or "custom:<text>" for a family made up on the
+ * document. Trimmed, de-duplicated, bounded; anything else is dropped rather
+ * than refused, because an order that names a family the document no longer
+ * has is harmless (the printer skips it).
+ */
+function normaliseFamilyOrder(order) {
+  if (!Array.isArray(order)) return [];
+  const out = [];
+  for (const k of order) {
+    const key = typeof k === "string" ? k.trim().slice(0, 160) : "";
+    if (key && !out.includes(key)) out.push(key);
+    if (out.length >= 60) break;
+  }
+  return out;
+}
+
+module.exports = { NEXT, assertTransition, computeTotals, COSTING_QUOTABLE, normaliseFamilyOrder };

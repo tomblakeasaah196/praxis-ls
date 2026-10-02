@@ -1,3 +1,4 @@
+// search:none — a handful of jurisdictions, picked from lists on Master data › Tax.
 "use strict";
 const service = require("./tax_jurisdiction.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

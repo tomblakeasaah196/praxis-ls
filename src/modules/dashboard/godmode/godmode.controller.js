@@ -1,4 +1,5 @@
 // ai:none — the Praxis-side cross-tenant admin console. A tenant's copilot must not be able to see, let alone act, across tenants.
+// search:none — an operator console over other modules' data; it owns no records of its own.
 "use strict";
 const service = require("./godmode.service");
 const { asyncHandler } = require("../../../utils/errors");

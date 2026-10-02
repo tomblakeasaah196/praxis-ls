@@ -17,6 +17,7 @@
  * banner at the top of the dossier keeps that trap visible.
  */
 import * as React from "react";
+import { useRecordParam } from "@/app/layout/nav-trail-context";
 import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import { IndexRow } from "@/components/ui/index-row";
@@ -47,7 +48,6 @@ export function ServiceTypesPage() {
     () => api.listServiceTypes({ includeInactive }),
     [includeInactive],
   );
-  const [selId, setSelId] = React.useState<string | null>(null);
   const [q, setQ] = React.useState("");
   // `editing` and `templating` open modals over the selected service type.
   // `null` in `editing` means "create new"; `undefined` means "closed" — same
@@ -65,6 +65,16 @@ export function ServiceTypesPage() {
   );
 
   const rows = React.useMemo(() => list.data || [], [list.data]);
+  // The open record lives in the URL (`?focus=<id>`), so a ⌘K result, a
+  // drill-in or the back arrow can land on one (meeting 6, G5).
+  const {
+    id: focusId,
+    openId: selectId,
+    close: closeSel,
+  } = useRecordParam(rows, (r) => r.service_type_id);
+  // The desktop's first-row default stays out of the URL; a pick is a step.
+  const [defaultId, setDefaultId] = React.useState<string | null>(null);
+  const selId = focusId ?? defaultId;
   const filtered = React.useMemo(() => {
     if (!q) return rows;
     const needle = q.toLowerCase();
@@ -103,7 +113,7 @@ export function ServiceTypesPage() {
     // arrival, and — because closing clears the selection — re-open the sheet
     // the moment the reader closed it.
     if (!rows.length || !isDesktopNow()) return;
-    if (!selected) setSelId(rows[0].service_type_id);
+    if (!selected) setDefaultId(rows[0].service_type_id);
   }, [rows, selected]);
 
   return (
@@ -144,7 +154,10 @@ export function ServiceTypesPage() {
           max={480}
           activeKind={tr("Service type")}
           active={!!selected}
-          onClose={() => setSelId(null)}
+          onClose={() => {
+            setDefaultId(null);
+            closeSel();
+          }}
           sheetTitle={selected ? selected.name_en || selected.name_fr : null}
         >
           <div className="space-y-2">
@@ -171,7 +184,7 @@ export function ServiceTypesPage() {
                   <IndexRow
                     key={r.service_type_id}
                     selected={r.service_type_id === selId}
-                    onClick={() => setSelId(r.service_type_id)}
+                    onClick={() => selectId(r.service_type_id)}
                     className="flex-col gap-0.5"
                   >
                     <div className="flex items-center justify-between gap-2">

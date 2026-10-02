@@ -42,6 +42,8 @@ import { money, amount } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { priceCostingLine } from "@/lib/costing-api";
 import { useIsDesktop } from "@/lib/use-media-query";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { LineSelection } from "@/lib/client-families-state";
 import {
   BLANK_LINE,
   computeTotals,
@@ -64,6 +66,8 @@ export function LineGrid({
   vatCodes,
   readOnly,
   onChange,
+  familyCell,
+  selection,
   fulfilment,
 }: {
   lines: LineDraft[];
@@ -87,6 +91,11 @@ export function LineGrid({
   }[];
   readOnly: boolean;
   onChange: (next: LineDraft[]) => void;
+  /** Meeting 6, G2: each line's client family, changed without leaving this
+   *  view (client-families.tsx `FamilyPicker`). */
+  familyCell?: (l: LineDraft, i: number) => React.ReactNode;
+  /** Ticked lines, shared with the By-family view, for "Move to family…". */
+  selection?: LineSelection;
 }) {
   const isDesktop = useIsDesktop();
   const setLine = (i: number, patch: Partial<LineDraft>) =>
@@ -502,6 +511,16 @@ export function LineGrid({
       )}
     </>
   );
+  const tickCell = (i: number) =>
+    selection ? (
+      <Checkbox
+        checked={selection.selected.has(i)}
+        onCheckedChange={() => selection.toggle(i)}
+        // The name is beside it in the row; the label says which ROW, so the
+        // line's own words are not printed twice (a screen reader reads both).
+        label={<span className="sr-only">{`${tr("Tick")} ${tr("line")} ${i + 1}`}</span>}
+      />
+    ) : null;
   const rowActions = (i: number) => (
     <div className="flex gap-1">
       <Button
@@ -551,6 +570,7 @@ export function LineGrid({
               className="rounded-xl border bg-card p-3 shadow-[var(--shadow-s)]"
             >
               <div className="flex items-start gap-2">
+                {selection ? <span className="mt-2">{tickCell(i)}</span> : null}
                 <span className="num mt-2 w-5 shrink-0 text-xs text-muted-foreground">
                   {i + 1}
                 </span>
@@ -570,6 +590,12 @@ export function LineGrid({
                 <span className="micro mb-1 block">{tr("VAT")}</span>
                 {vatCell(l, i)}
               </div>
+              {familyCell ? (
+                <div className="mt-2">
+                  <span className="micro mb-1 block">{tr("Family")}</span>
+                  {familyCell(l, i)}
+                </div>
+              ) : null}
               <div className="mt-3 flex items-center justify-between gap-2 border-t pt-2">
                 {!readOnly ? rowActions(i) : <span />}
                 <span className="num text-base font-semibold text-foreground">
@@ -589,11 +615,13 @@ export function LineGrid({
         <Table>
           <THead>
             <TR>
+              {selection && <TH className="w-8"><span className="sr-only">{tr("Ticked")}</span></TH>}
               <TH className="w-10">#</TH>
               <TH>{tr("Charge")}</TH>
               <TH className="w-24 text-right">{tr("Qty")}</TH>
               <TH className="w-32 text-right">{tr("Unit cost")}</TH>
               <TH className="w-44">{tr("VAT")}</TH>
+              {familyCell && <TH className="w-52">{tr("Family")}</TH>}
               <TH className="w-32 text-right">{tr("Amount")}</TH>
               {!readOnly && <TH className="w-24" />}
             </TR>
@@ -604,11 +632,13 @@ export function LineGrid({
                 (Number(l.qty) || 0) * (Number(l.unit_cost) || 0);
               return (
                 <TR key={`${lineKey(l)}-${i}`}>
+                  {selection && <TD>{tickCell(i)}</TD>}
                   <TD className="num text-muted-foreground">{i + 1}</TD>
                   <TD>{chargeCell(l, i)}</TD>
                   <TD className="text-right">{qtyCell(l, i)}</TD>
                   <TD className="text-right">{unitCell(l, i)}</TD>
                   <TD>{vatCell(l, i)}</TD>
+                  {familyCell && <TD>{familyCell(l, i)}</TD>}
                   <TD className="num text-right">{amount(lineAmount)}</TD>
                   {!readOnly && <TD>{rowActions(i)}</TD>}
                 </TR>

@@ -8,6 +8,7 @@ import { useDossierRefs } from "@/lib/use-dossier-refs";
 import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
+import { useFocusRow } from "@/lib/use-focus-row";
 import { Link } from "react-router-dom";
 import { tenant, ApiError } from "@/lib/api-client";
 import { dateFmt, money as moneyFmt } from "@/lib/format";
@@ -245,6 +246,8 @@ export const ProformasPage = () => {
   const str = (r: Record<string, unknown>, k: string) =>
     r[k] == null ? "" : String(r[k]);
   const list = rows ?? [];
+  // `?focus=<advance_id>` — a ⌘K result — scrolls to and rings that row.
+  const { focusId } = useFocusRow(rows);
   const totalOpen = list.reduce(
     (s, r) =>
       s + Math.max(0, Number(r.amount ?? 0) - Number(r.applied_amount ?? 0)),
@@ -325,7 +328,7 @@ export const ProformasPage = () => {
         action={
           <div className="flex items-center gap-3">
             <Link
-              to="/commercial/quotations"
+              to="/sales/quotations"
               className="text-sm text-muted-foreground transition-colors hover:text-primary-ink"
             >
               View quotations →
@@ -344,6 +347,7 @@ export const ProformasPage = () => {
         loading={rows === null}
         error={error}
         rowKey={(r, i) => str(r, "advance_id") || String(i)}
+        highlightRowKey={focusId}
         empty={{
           title: "No advances yet",
           hint: "Record a customer advance to get started.",

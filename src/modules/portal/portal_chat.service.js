@@ -139,12 +139,44 @@ function messageView(row, { me = null, lang = "en" } = {}) {
           label: (lang === "en" && row.milestone_label_en) || row.milestone_label || null,
         }
       : null,
+    // "Ask about this quotation" (meeting 6, G3): what the message is about,
+    // shown as a chip on both sides — the team's links to the quotation.
+    reference: refView(row),
     location:
       row.location_lat !== null && row.location_lat !== undefined
         ? { lat: Number(row.location_lat), lng: Number(row.location_lng), label: row.location_label || null }
         : null,
     attachments,
   };
+}
+
+/* ── what a message is about (meeting 6, G3) ───────────────────────────── */
+
+const REF_RE = /^(quotation|proposal):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+function refView(row) {
+  const m = REF_RE.exec(String(row.ref_entity || ""));
+  if (!m) return null;
+  return { kind: m[1].toLowerCase(), id: m[2].toLowerCase(), label: row.ref_label || null };
+}
+
+/**
+ * A reference a client may attach: an offer of THEIR OWN that they can see —
+ * a quotation that is not a draft, a proposal that has been sent. Anything
+ * else is refused rather than stored, so the team's chip can never point at
+ * another company's document.
+ */
+async function checkedRef(c, { clientId, ref }) {
+  if (!ref) return null;
+  const m = REF_RE.exec(String(ref));
+  if (!m) throw new AppError("BAD_REFERENCE", "That reference is not one a message can carry", 422);
+  const kind = m[1].toLowerCase();
+  const id = m[2].toLowerCase();
+  const { rows } = kind === "quotation"
+    ? await c.query("SELECT 1 FROM quotation WHERE quotation_id = $1 AND client_id = $2 AND status <> 'DRAFT'", [id, clientId])
+    : await c.query("SELECT 1 FROM proposal WHERE proposal_id = $1 AND client_id = $2 AND status IN ('SENT', 'ACCEPTED', 'REJECTED')", [id, clientId]);
+  if (!rows.length) throw new AppError("BAD_REFERENCE", "That document is not one of yours", 422);
+  return `${kind}:${id}`;
 }
 
 /* ── client ─────────────────────────────────────────────────────────────── */
@@ -267,10 +299,11 @@ async function namedStage(c, { dossier, milestoneId }) {
 }
 
 /** A client writes — text, a file, a pin, or a mix — and the team is told. */
-async function send(c, { clientId, me, scope, thread, body = "", milestoneId = null, location = null, file = null, meta = {}, slug, lang = "en" }) {
+async function send(c, { clientId, me, scope, thread, body = "", milestoneId = null, location = null, file = null, meta = {}, slug, lang = "en", ref = null }) {
   assertNotEmpty({ body, file, location });
   const dossier = await clientThread(c, { clientId, scope, thread });
   const stage = await namedStage(c, { dossier, milestoneId });
+  const refEntity = await checkedRef(c, { clientId, ref });
   const stored = file ? await storeAttachment(c, { clientId, file, meta, status: "PENDING", slug }) : null;
 
   // The message and its attachment land together: a message whose photo
@@ -279,6 +312,7 @@ async function send(c, { clientId, me, scope, thread, body = "", milestoneId = n
     const m = await repo.insertMessage(c, {
       clientId, dossierId: dossier && dossier.dossier_id, direction: "CLIENT", body: clean(body),
       authorEmail: me.email, portalUserId: me.portal_user_id, milestoneId: stage && stage.milestone_instance_id, location,
+      refEntity,
     });
     if (stored) await repo.insertAttachment(c, { messageId: m.message_id, ...stored });
     // Writing in a thread is reading it.

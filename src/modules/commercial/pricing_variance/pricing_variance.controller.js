@@ -1,3 +1,4 @@
+// search:none — a variance is a computed comparison of quoted and realised prices per file, not a record with a name or number.
 "use strict";
 const service = require("./pricing_variance.service");
 const { asyncHandler } = require("../../../utils/errors");

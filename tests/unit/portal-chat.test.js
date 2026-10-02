@@ -190,6 +190,35 @@ describe("sending", () => {
   });
 });
 
+/**
+ * Meeting 6, G3 — "Ask about this quotation" opens the chat with the quotation
+ * referenced: the message carries `quotation:<id>`, only for an offer of the
+ * client's own, and both sides read it back as a chip.
+ */
+describe("a message about a quotation", () => {
+  const QUOTE = "44444444-4444-4444-8444-444444444444";
+  const own = (rows) => ({ query: jest.fn(async (sql) => (/FROM quotation WHERE quotation_id/.test(sql) ? { rows } : { rows: [{ name: "Acme Trading" }] })) });
+
+  it("carries the quotation it is about", async () => {
+    await chat.send(own([{ "?column?": 1 }]), { clientId: "c1", me: ME, scope: "ALL", thread: "general", body: "Can the transport be split?", ref: `quotation:${QUOTE}` });
+    expect(inserted.messages[0]).toMatchObject({ refEntity: `quotation:${QUOTE}`, body: "Can the transport be split?" });
+  });
+
+  it("refuses a quotation that is not the client's own (or still a draft)", async () => {
+    await expect(chat.send(own([]), { clientId: "c1", me: ME, scope: "ALL", thread: "general", body: "x", ref: `quotation:${QUOTE}` }))
+      .rejects.toMatchObject({ code: "BAD_REFERENCE" });
+    expect(inserted.messages).toHaveLength(0);
+  });
+
+  it("reads back as a chip both sides can follow", async () => {
+    mockRepo.messages = async () => [
+      { message_id: "m9", direction: "CLIENT", body: "About this one", created_at: "2026-10-02T09:00:00Z", ref_entity: `quotation:${QUOTE}`, ref_label: "QT-2026-0004", attachments: [] },
+    ];
+    const page = await chat.messages(client, { clientId: "c1", me: ME, scope: "ALL", thread: "general" });
+    expect(page.messages[0].reference).toEqual({ kind: "quotation", id: QUOTE, label: "QT-2026-0004" });
+  });
+});
+
 describe("voice notes", () => {
   it("recognises what MediaRecorder produces, and nothing else", () => {
     expect(chat.sniffAudio(WEBM)).toBe("audio/webm");

@@ -1,3 +1,4 @@
+// search:none — journal entries are reached from the document that posted them (invoice, receipt, payroll) and filtered by period in Journals.
 "use strict";
 const service = require("./journal_entry.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

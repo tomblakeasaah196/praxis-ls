@@ -221,6 +221,18 @@ router.post("/client/proposals/:id/accept", portalAuth("CLIENT"), OPS, signLimit
 router.post("/client/proposals/:id/sign", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.proposalSignStart);
 router.post("/client/proposals/:id/sign/resend", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.proposalSignResend);
 router.post("/client/proposals/:id/sign/complete", portalAuth("CLIENT"), OPS, signLimiter, v.proposalSignComplete, pc.proposalSignComplete);
+// Commercial quotations (meeting 6, PR 4 — G3/G4): the same shape as
+// proposals, and the same signing: on a tenant that offers a digital card,
+// accepting IS signing, through the signature programme (portal_signing.js).
+// The sign routes share the signing OTP's limiter budget.
+router.get("/client/quotations", portalAuth("CLIENT"), OPS, pc.quotations);
+router.get("/client/quotations/:id", portalAuth("CLIENT"), OPS, pc.quotation);
+router.get("/client/quotations/:id/pdf", portalAuth("CLIENT"), OPS, pc.quotationPdf);
+router.post("/client/quotations/:id/decline", portalAuth("CLIENT"), OPS, v.quotationDecline, pc.quotationDecline);
+router.post("/client/quotations/:id/accept", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.quotationAccept);
+router.post("/client/quotations/:id/sign", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.quotationSignStart);
+router.post("/client/quotations/:id/sign/resend", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.quotationSignResend);
+router.post("/client/quotations/:id/sign/complete", portalAuth("CLIENT"), OPS, signLimiter, v.proposalSignComplete, pc.quotationSignComplete);
 // Notifications (14180): what this person is told by email and on their phone,
 // and the devices they allowed it on. Self-service — a person's own switches
 // and their own devices, never a colleague's. The test sends a real push to the

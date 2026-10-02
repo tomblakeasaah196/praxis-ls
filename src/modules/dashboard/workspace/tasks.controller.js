@@ -1,3 +1,4 @@
+// search:none — tasks and calendar events are personal and live in My workspace, which has its own filters; ⌘K finds the sections.
 "use strict";
 /**
  * My Workspace — HTTP handlers for tasks and calendar events (MOD-00A).

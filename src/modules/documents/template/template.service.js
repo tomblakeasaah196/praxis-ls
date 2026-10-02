@@ -859,6 +859,9 @@ async function loadRecord(client, docType, recordId) {
         // `tax` stays as signed (canonical v1); `tax_rate` is what prints.
         lines: lr.rows.map((l) => ({ label: l.label, qty: Number(l.qty), unit: Number(l.unit_price), tax: l.is_disbursement ? null : 19.25, tax_rate: lineTaxRate(l), amount: Number(l.line_ht), ...headingFields(l) })),
         client_headings: await clientHeadingRegistry(client),
+        // G2: the family order the client accepted on the quotation. Render
+        // only — canonical.js hashes `lines`, so the order never moves a hash.
+        family_order: Array.isArray(i.family_order) ? i.family_order : null,
         totals: { service_ht: Number(i.service_ht), disbursement_total: Number(i.disbursement_total), vat_total: Number(i.vat_total), total_ttc: Number(i.total_ttc) },
         currency: i.currency,
       },
@@ -888,6 +891,8 @@ async function loadRecord(client, docType, recordId) {
         party: { name: q.client_name || "—", lines: clientLines(q) },
         lines: lr.rows.map((l) => ({ label: l.label, qty: Number(l.qty), unit: Number(l.unit_price), tax: 19.25, tax_rate: lineTaxRate(l), amount: Number(l.qty) * Number(l.unit_price), ...headingFields(l) })),
         client_headings: await clientHeadingRegistry(client),
+        // G2: this quotation's own family order. Render only, like the grouping.
+        family_order: Array.isArray(q.family_order) ? q.family_order : null,
         totals: { service_ht: Number(q.total_ht), vat_total: Number(q.total_ttc) - Number(q.total_ht), total_ttc: Number(q.total_ttc) },
         currency: q.currency,
       },

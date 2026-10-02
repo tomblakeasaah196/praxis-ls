@@ -15,7 +15,7 @@ import "./portal.css";
 import "./portal-i18n";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useLang, getLang } from "@/lib/i18n";
 import { applyPortalTheme, restoreSiteTheme, watchSystemTheme, resolvePortalTheme } from "./lib/theme";
 import { usePortalPwa } from "./lib/portal-pwa";
@@ -31,7 +31,9 @@ import { ShipmentsPage } from "./screens/shipments";
 import { ShipmentPage } from "./screens/shipment";
 import { DocumentsPage } from "./screens/documents";
 import { BillingPage } from "./screens/billing";
-import { QuotesPage } from "./screens/quotes";
+import { RequestsPage } from "./screens/quotes";
+import { QuotationsPage } from "./screens/offers";
+import { QuotationPage } from "./screens/quotation";
 import { AccountPage } from "./screens/account";
 import { InvestorTerminal, AuditorTerminal } from "./screens/terminals";
 
@@ -79,7 +81,10 @@ function SignedIn() {
               <Route path="shipments" element={<Guard ok={ctx.canOps} el={<ShipmentsPage />} />} />
               <Route path="shipments/:id" element={<Guard ok={ctx.canOps} el={<ShipmentPage />} />} />
               <Route path="documents" element={<Guard ok={ctx.canOps} el={<DocumentsPage />} />} />
-              <Route path="quotes" element={<Guard ok={ctx.canOps} el={<QuotesPage />} />} />
+              <Route path="requests" element={<Guard ok={ctx.canOps} el={<RequestsPage />} />} />
+              <Route path="quotations" element={<Guard ok={ctx.canOps} el={<QuotationsPage />} />} />
+              <Route path="quotations/:id" element={<Guard ok={ctx.canOps} el={<QuotationPage />} />} />
+              <Route path="quotes" element={<Guard ok={ctx.canOps} el={<OldQuotes />} />} />
               <Route path="billing" element={<Guard ok={ctx.canBilling} el={<BillingPage />} />} />
               <Route path="account" element={<AccountPage />} />
               <Route path="*" element={<Navigate to="/portal" replace />} />
@@ -95,6 +100,22 @@ function SignedIn() {
       )}
     </PortalSessionGate>
   );
+}
+
+/**
+ * `/portal/quotes` was one page with a Requests and a Proposals tab (meeting
+ * 6, PR 4 split it into "Requests for Quotation" and "Quotations"). Every
+ * link already sent — the proposal email's `?proposal=`, a request's
+ * `?request=`, a bookmark — keeps landing where it meant to.
+ */
+function OldQuotes() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  const offers = params.has("proposal") || params.get("tab") === "proposals";
+  if (params.get("tab")) params.delete("tab");
+  if (offers) params.set("tab", "proposals");
+  const rest = params.toString();
+  return <Navigate to={`${offers ? "/portal/quotations" : "/portal/requests"}${rest ? `?${rest}` : ""}`} replace />;
 }
 
 /** A colleague given only billing who follows a shipment link lands on Home,

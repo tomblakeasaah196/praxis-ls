@@ -1,3 +1,4 @@
+// search:none — outbound orders are worked from the Outbound queue by date and client.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

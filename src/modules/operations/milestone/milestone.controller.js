@@ -1,3 +1,4 @@
+// search:none — milestone templates are configuration of a service type, which ⌘K finds.
 "use strict";
 const service = require("./milestone.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

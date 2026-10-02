@@ -1,3 +1,4 @@
+// search:none — incidents are read on the vehicle they happened to, which ⌘K finds by registration.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

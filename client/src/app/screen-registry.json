@@ -1,6 +1,7 @@
 {
   "$comment": "Canonical UI screen registry — the AI's map of the app's screens. Each screen maps to its route, the module it belongs to (module_key), a one-line purpose, and the AI action_keys reachable from it. Keep this in sync when adding a route (see doc/AI_READINESS.md). Ingested into the AI global corpus by src/services/ai/knowledge/codebase.js; also usable by the frontend for nav/breadcrumbs.",
   "$comment_actions": "`actions[]` is now COMPLETE for every <module>.ai.js manifest action, not just a sample. It is read in both directions: screen->actions grounds the assistant ('where do I raise an invoice?'), and the INVERSION action->route is how src/services/ai/answer-sources.js turns the reads the orchestrator executed into the citations under an answer. An action missing here is an answer that cannot say where it read from, so tests/unit/ai-readiness.test.js asserts every manifest read is declared on exactly one screen. Where a module owns several screens the split is by entity, not by module_key (MOD-64's signatures live on /vault/signatures, its documents on /vault/documents).",
+  "$comment_search": "Search that finds everything (meeting 6, PR 4 — G5). ⌘K reads this file for pages: every screen carries title_fr (and optional synonyms beside the shared list in packages/shared/schemas/search.js); hubs[] are the area landing pages (kept out of screens[] on purpose — route-access and the ribbon read screens[], and a hub is gated by its sections); redirects[] are old addresses that still work; section_hubs[] are hubs that keep their sections in their own component; tabs[] are every URL-addressable 360 tab (useUrlTab), with the record types they open on. app: public-web marks a screen served by the public site rather than this app. scripts/check-search-registry.js fails the build on a route, hub section, tab or record module this file does not account for, and on an entry the code no longer has.",
   "version": 1,
   "screens": [
     {
@@ -11,7 +12,8 @@
       "area": "auth",
       "module_key": null,
       "purpose": "White-label sign-in with 2FA challenge.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Connexion"
     },
     {
       "id": "dashboard",
@@ -24,7 +26,8 @@
         "tenant_kpis",
         "go_live_checklist",
         "control_tower"
-      ]
+      ],
+      "title_fr": "Tableau de bord"
     },
     {
       "id": "security_users",
@@ -39,6 +42,12 @@
         "create_user",
         "update_user",
         "set_user_status"
+      ],
+      "title_fr": "Utilisateurs",
+      "synonyms": [
+        "utilisateurs",
+        "comptes",
+        "logins"
       ]
     },
     {
@@ -48,7 +57,8 @@
       "area": "security",
       "module_key": "MOD-67",
       "purpose": "Define roles in the RBAC engine.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Rôles"
     },
     {
       "id": "security_permissions",
@@ -57,7 +67,8 @@
       "area": "security",
       "module_key": "MOD-67",
       "purpose": "Grant matrix editor: roles x modules x R/C/U/D/A.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Matrice des permissions"
     },
     {
       "id": "security_capabilities",
@@ -66,7 +77,8 @@
       "area": "security",
       "module_key": "MOD-67",
       "purpose": "Authority overlay (ISSUER/VALIDATOR/APPROVER/LINE_MANAGER).",
-      "actions": []
+      "actions": [],
+      "title_fr": "Capacités"
     },
     {
       "id": "security_scopes",
@@ -75,7 +87,8 @@
       "area": "security",
       "module_key": "MOD-67",
       "purpose": "Entity/branch record-level scope tree.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Périmètres"
     },
     {
       "id": "security_field_visibility",
@@ -84,7 +97,8 @@
       "area": "security",
       "module_key": "MOD-67",
       "purpose": "Per-field confidentiality rules.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Visibilité des champs"
     },
     {
       "id": "security_sessions",
@@ -93,7 +107,8 @@
       "area": "security",
       "module_key": "MOD-68",
       "purpose": "Active sessions with remote kill.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Sessions"
     },
     {
       "id": "audit",
@@ -102,7 +117,8 @@
       "area": "governance",
       "module_key": "MOD-69",
       "purpose": "Immutable audit trail + soft-delete restore.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Registre d'audit"
     },
     {
       "id": "notifications",
@@ -114,7 +130,8 @@
       "actions": [
         "my_notifications",
         "my_unread_count"
-      ]
+      ],
+      "title_fr": "Notifications"
     },
     {
       "id": "workflows",
@@ -129,7 +146,8 @@
         "get_workflow",
         "create_workflow",
         "add_workflow_step"
-      ]
+      ],
+      "title_fr": "Flux de travail"
     },
     {
       "id": "approvals",
@@ -141,7 +159,8 @@
       "actions": [
         "act_approval",
         "list_approvals"
-      ]
+      ],
+      "title_fr": "Approbations"
     },
     {
       "id": "appearance",
@@ -150,7 +169,8 @@
       "area": "settings",
       "module_key": "MOD-70",
       "purpose": "White-label theming for the whole tenant: colour, logo, favicon, typography, corner radius, theme mode. Requires Settings edit.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Apparence"
     },
     {
       "id": "settings_website",
@@ -159,7 +179,8 @@
       "area": "settings",
       "module_key": "MOD-29",
       "purpose": "The tenant's public website content: pages (key, titles, slugs, SEO, publish state) and the ordered blocks on them. Only the two block types the marketing site renders have a form — the figures band and the credentials row — and a figure may bind to a metric in the registry so the number is recomputed from the ledger on every page view. Requires MOD-29 edit; not gated on the website package, so a site can be prepared before it is bought.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Pages du site web"
     },
     {
       "id": "settings_website_page",
@@ -168,7 +189,8 @@
       "area": "settings",
       "module_key": "MOD-29",
       "purpose": "One page of the public website: its identity and SEO fields, and its blocks — add, reorder, hide, delete, and edit the figures and credentials the marketing site draws. Block types with no editor here are listed and left untouched so they keep their place in the order.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Page web"
     },
     {
       "id": "settings_website_insights",
@@ -177,7 +199,8 @@
       "area": "settings",
       "module_key": "MOD-29",
       "purpose": "The tenant's public articles: headline, address, tags and publish state, with creation reduced to a headline. Publishing is its own action and is refused until the article has an address and a body. Sits beside Website pages because an article is website content; requires MOD-29 edit and is not gated on the website package, so articles can be written before a site is bought.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Articles"
     },
     {
       "id": "settings_website_insight",
@@ -186,7 +209,8 @@
       "area": "settings",
       "module_key": "MOD-29",
       "purpose": "One article: bilingual headline, address (suggested from the headline until typed), excerpt, body, tags and search metadata. One explicit save with a discard warning, because an article is one long text rather than a set of independent blocks. The cover uploads through the vault and saves immediately, since an upload that waited for Save would leave an orphaned public document.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Article"
     },
     {
       "id": "settings_pwa",
@@ -195,7 +219,8 @@
       "area": "settings",
       "module_key": "MOD-70",
       "purpose": "The tenant's INSTALLED app: home-screen icon (plain + maskable, with framing and backgrounds), web-app manifest identity (name, display mode, orientation, colours), the boot splash animation, and the install / offline / update prompt copy. Every field inherits from Appearance when unset. Requires Settings edit.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Application et PWA"
     },
     {
       "id": "my_appearance",
@@ -204,7 +229,8 @@
       "area": "settings",
       "module_key": null,
       "purpose": "Each user's own typography, overriding the tenant fonts for themselves only. Self-service — no permission required.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Mon apparence"
     },
     {
       "id": "settings",
@@ -217,7 +243,8 @@
         "list_settings",
         "get_settings_section",
         "set_setting"
-      ]
+      ],
+      "title_fr": "Paramètres"
     },
     {
       "id": "settings_numbering",
@@ -229,6 +256,23 @@
       "actions": [
         "get_numbering_scheme",
         "set_numbering_scheme"
+      ],
+      "title_fr": "Schémas de numérotation"
+    },
+    {
+      "id": "settings_commercial",
+      "title": "Commercial settings",
+      "route": "/settings/commercial",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "The target margin a quotation created straight from a costing is priced at (0 % until set).",
+      "actions": [],
+      "title_fr": "Paramètres commerciaux",
+      "synonyms": [
+        "target margin",
+        "marge cible",
+        "marge",
+        "margin"
       ]
     },
     {
@@ -238,7 +282,8 @@
       "area": "settings",
       "module_key": "MOD-64",
       "purpose": "Set the company's yard noise-filter default, the recording retention window, and your own noise-filter preference.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Appels"
     },
     {
       "id": "master_treasury_accounts",
@@ -255,6 +300,12 @@
         "generate_bank_authorisation_letter",
         "list_treasury_categories",
         "create_treasury_category"
+      ],
+      "title_fr": "Trésorerie",
+      "synonyms": [
+        "banque",
+        "caisse",
+        "comptes"
       ]
     },
     {
@@ -267,7 +318,8 @@
       "actions": [
         "get_treasury_account",
         "treasury_account_lines"
-      ]
+      ],
+      "title_fr": "Trésorerie 360"
     },
     {
       "id": "master_clients",
@@ -299,7 +351,8 @@
         "get_client_portal_settings",
         "set_client_invite_defaults",
         "portal_quote_services"
-      ]
+      ],
+      "title_fr": "Clients"
     },
     {
       "id": "master_suppliers",
@@ -313,7 +366,8 @@
         "get_supplier",
         "create_supplier",
         "update_supplier"
-      ]
+      ],
+      "title_fr": "Fournisseurs"
     },
     {
       "id": "master_corporate_entities",
@@ -334,7 +388,8 @@
         "set_entity_status",
         "set_entity_active",
         "set_entity_structure"
-      ]
+      ],
+      "title_fr": "Entités juridiques"
     },
     {
       "id": "master_expense_rates",
@@ -357,7 +412,8 @@
         "update_rate_provider",
         "set_dictionary_rate",
         "apply_dictionary_rate_to_carriers"
-      ]
+      ],
+      "title_fr": "Taux de frais"
     },
     {
       "id": "master_financial_dictionary",
@@ -382,6 +438,12 @@
         "link_dictionary_sibling",
         "suggest_dictionary_posting",
         "dictionary_posting_review"
+      ],
+      "title_fr": "Dictionnaire financier",
+      "synonyms": [
+        "rubriques",
+        "charges",
+        "débours"
       ]
     },
     {
@@ -396,12 +458,13 @@
         "upsert_payment_gateway",
         "set_gateway_active",
         "delete_payment_gateway"
-      ]
+      ],
+      "title_fr": "Passerelles de paiement"
     },
     {
       "id": "master_treasury_reconciliation",
       "title": "Reconciliation",
-      "route": "/master/treasury-accounts/:id/reconciliation",
+      "route": "/master/treasury-accounts/:id?tab=Reconciliation",
       "area": "master",
       "module_key": "MOD-09",
       "purpose": "Reconcile a treasury account against its external truth — a bank or mobile-money statement (CSV/Excel/PDF/camt.053/MT940, a scanned PDF read by OCR), or a physical count for petty cash. Upload, confirm the column mapping once per institution, sweep the ledger for candidate matches, then issue the etat de rapprochement. The matcher only ever proposes: confirming a match, approving a reconciliation and attesting a count are human acts and are not exposed to the assistant.",
@@ -412,7 +475,8 @@
         "list_cash_counts",
         "run_reconciliation_matcher",
         "build_reconciliation"
-      ]
+      ],
+      "title_fr": "Rapprochement bancaire"
     },
     {
       "id": "settings_scheduled_reports",
@@ -426,7 +490,8 @@
         "create_scheduled_report",
         "update_scheduled_report",
         "delete_scheduled_report"
-      ]
+      ],
+      "title_fr": "Rapports planifiés"
     },
     {
       "id": "settings_api_keys",
@@ -439,7 +504,8 @@
         "list_ai_vendors",
         "set_ai_vendor",
         "test_ai_vendor"
-      ]
+      ],
+      "title_fr": "Clés API et secrets"
     },
     {
       "id": "settings_pipeline_stages",
@@ -450,7 +516,8 @@
       "purpose": "CRM opportunity pipeline stages (read-only).",
       "actions": [
         "list_pipeline_stages"
-      ]
+      ],
+      "title_fr": "Étapes du pipeline"
     },
     {
       "id": "fleet_vehicles",
@@ -464,7 +531,8 @@
         "get_vehicle",
         "create_vehicle",
         "update_vehicle"
-      ]
+      ],
+      "title_fr": "Véhicules"
     },
     {
       "id": "fleet_compliance",
@@ -479,7 +547,8 @@
         "create_compliance",
         "update_compliance",
         "compliance_expiring"
-      ]
+      ],
+      "title_fr": "Conformité des véhicules"
     },
     {
       "id": "fleet_work_orders",
@@ -494,7 +563,8 @@
         "create_work_order",
         "update_work_order",
         "set_work_order_status"
-      ]
+      ],
+      "title_fr": "Ordres de travail"
     },
     {
       "id": "fleet_dispatch",
@@ -509,7 +579,8 @@
         "create_dispatch",
         "update_dispatch",
         "set_dispatch_status"
-      ]
+      ],
+      "title_fr": "Expédition"
     },
     {
       "id": "fleet_fuel",
@@ -523,7 +594,8 @@
         "get_fuel",
         "create_fuel",
         "update_fuel"
-      ]
+      ],
+      "title_fr": "Journal de carburant"
     },
     {
       "id": "fleet_drivers",
@@ -538,7 +610,8 @@
         "create_driver",
         "update_driver",
         "drivers_expiring"
-      ]
+      ],
+      "title_fr": "Permis des chauffeurs"
     },
     {
       "id": "fleet_incidents",
@@ -553,7 +626,8 @@
         "create_incident",
         "update_incident",
         "set_incident_status"
-      ]
+      ],
+      "title_fr": "Incidents"
     },
     {
       "id": "wms_locations",
@@ -567,7 +641,8 @@
         "get_location",
         "create_location",
         "update_location"
-      ]
+      ],
+      "title_fr": "Emplacements"
     },
     {
       "id": "wms_inventory",
@@ -584,7 +659,8 @@
         "update_inventory",
         "set_inventory_state",
         "move_inventory"
-      ]
+      ],
+      "title_fr": "Inventaire"
     },
     {
       "id": "wms_inbound",
@@ -599,7 +675,8 @@
         "create_inbound",
         "update_inbound",
         "set_inbound_qa"
-      ]
+      ],
+      "title_fr": "Entrées / BR"
     },
     {
       "id": "wms_outbound",
@@ -617,7 +694,8 @@
         "set_outbound_status",
         "add_outbound_line",
         "set_outbound_line_flags"
-      ]
+      ],
+      "title_fr": "Sorties"
     },
     {
       "id": "wms_equipment",
@@ -632,7 +710,8 @@
         "create_equipment",
         "update_equipment",
         "set_equipment_status"
-      ]
+      ],
+      "title_fr": "Équipement"
     },
     {
       "id": "wms_cycle_counts",
@@ -646,7 +725,8 @@
         "get_cycle_count",
         "create_cycle_count",
         "update_cycle_count"
-      ]
+      ],
+      "title_fr": "Comptages"
     },
     {
       "id": "hr_employees",
@@ -664,7 +744,8 @@
         "create_employee",
         "update_employee",
         "set_employee_active"
-      ]
+      ],
+      "title_fr": "Employés"
     },
     {
       "id": "hr_vacancies",
@@ -682,7 +763,8 @@
         "set_vacancy_status",
         "add_applicant",
         "set_applicant_status"
-      ]
+      ],
+      "title_fr": "Postes vacants"
     },
     {
       "id": "hr_contracts",
@@ -697,7 +779,8 @@
         "create_contract",
         "update_contract",
         "set_contract_status"
-      ]
+      ],
+      "title_fr": "Contrats"
     },
     {
       "id": "hr_appraisals",
@@ -711,7 +794,8 @@
         "get_appraisal",
         "create_appraisal",
         "update_appraisal"
-      ]
+      ],
+      "title_fr": "Évaluations"
     },
     {
       "id": "hr_attendance",
@@ -726,7 +810,8 @@
         "create_attendance",
         "update_attendance",
         "clock_out_attendance"
-      ]
+      ],
+      "title_fr": "Présences"
     },
     {
       "id": "hr_leave",
@@ -741,7 +826,8 @@
         "create_leave",
         "update_leave",
         "decide_leave"
-      ]
+      ],
+      "title_fr": "Congés et indemnités"
     },
     {
       "id": "hr_sops",
@@ -765,7 +851,8 @@
         "toggle_onboarding_item",
         "reschedule_onboarding_checklist",
         "complete_onboarding_checklist"
-      ]
+      ],
+      "title_fr": "Procédures"
     },
     {
       "id": "hr_trainings",
@@ -783,7 +870,8 @@
         "set_training_status",
         "add_training_attendee",
         "update_training_attendee"
-      ]
+      ],
+      "title_fr": "Formations"
     },
     {
       "id": "hr_talent_pool",
@@ -801,7 +889,8 @@
         "get_succession_plan",
         "create_succession_plan",
         "update_succession_plan"
-      ]
+      ],
+      "title_fr": "Vivier de talents"
     },
     {
       "id": "hr_advances",
@@ -810,7 +899,8 @@
       "area": "hr",
       "module_key": "MOD-17",
       "purpose": "Salary advances already paid out, and the schedule that recovers them from net pay.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Avances"
     },
     {
       "id": "hr_payroll",
@@ -825,6 +915,12 @@
         "create_payroll_run",
         "compute_payroll",
         "set_payroll_status"
+      ],
+      "title_fr": "Paie",
+      "synonyms": [
+        "bulletins",
+        "paie",
+        "salaires"
       ]
     },
     {
@@ -841,7 +937,8 @@
         "update_asset",
         "depreciate_asset",
         "dispose_asset"
-      ]
+      ],
+      "title_fr": "Immobilisations"
     },
     {
       "id": "fin_journals",
@@ -855,7 +952,8 @@
         "get_journal_entry",
         "post_journal_entry",
         "reverse_journal_entry"
-      ]
+      ],
+      "title_fr": "Journaux"
     },
     {
       "id": "fin_invoices",
@@ -873,7 +971,8 @@
         "get_invoice_client_documents",
         "publish_invoice_documents",
         "withdraw_invoice_documents"
-      ]
+      ],
+      "title_fr": "Factures"
     },
     {
       "id": "fin_credit_notes",
@@ -888,7 +987,8 @@
         "draft_credit_note",
         "update_credit_note",
         "post_credit_note"
-      ]
+      ],
+      "title_fr": "Avoirs"
     },
     {
       "id": "fin_financing",
@@ -903,7 +1003,8 @@
         "create_debt",
         "drawdown_debt",
         "repay_debt"
-      ]
+      ],
+      "title_fr": "Financements et dettes"
     },
     {
       "id": "fin_office_expenses",
@@ -917,7 +1018,8 @@
         "get_office_expense",
         "create_office_expense",
         "post_office_expense"
-      ]
+      ],
+      "title_fr": "Dépenses de bureau"
     },
     {
       "id": "fin_receivables",
@@ -936,7 +1038,8 @@
         "list_payment_proofs",
         "confirm_payment_proof",
         "reject_payment_proof"
-      ]
+      ],
+      "title_fr": "Créances"
     },
     {
       "id": "fin_statements",
@@ -951,7 +1054,8 @@
         "get_balance_sheet",
         "get_grand_livre",
         "get_cash_flow"
-      ]
+      ],
+      "title_fr": "États financiers"
     },
     {
       "id": "fin_tax",
@@ -963,6 +1067,13 @@
       "actions": [
         "get_vat_return",
         "get_corporate_tax"
+      ],
+      "title_fr": "Centre fiscal",
+      "synonyms": [
+        "dsf",
+        "tva",
+        "impôts",
+        "déclaration"
       ]
     },
     {
@@ -977,7 +1088,8 @@
         "get_account",
         "create_account",
         "update_account"
-      ]
+      ],
+      "title_fr": "Plan comptable"
     },
     {
       "id": "fin_proformas",
@@ -989,7 +1101,8 @@
       "actions": [
         "get_advance",
         "record_proforma_payment"
-      ]
+      ],
+      "title_fr": "Proforma & avances"
     },
     {
       "id": "ai_features",
@@ -998,7 +1111,8 @@
       "area": "ai",
       "module_key": "MOD-67",
       "purpose": "Per-screen AI feature toggles for the tenant.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Fonctionnalités"
     },
     {
       "id": "ai_access",
@@ -1007,7 +1121,8 @@
       "area": "ai",
       "module_key": "MOD-67",
       "purpose": "Which roles may use AI actions.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Accès"
     },
     {
       "id": "ai_budget",
@@ -1016,7 +1131,8 @@
       "area": "ai",
       "module_key": "MOD-67",
       "purpose": "AI spend caps and alerts.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Budget"
     },
     {
       "id": "ai_usage",
@@ -1025,7 +1141,8 @@
       "area": "ai",
       "module_key": "MOD-67",
       "purpose": "AI call volume and cost by period.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Utilisation"
     },
     {
       "id": "ai_health",
@@ -1034,22 +1151,8 @@
       "area": "ai",
       "module_key": "MOD-67",
       "purpose": "How well the assistant is answering: truncation, fallback, timeout and tool-miss rates.",
-      "actions": []
-    },
-    {
-      "id": "commercial_quotations",
-      "title": "Quotations",
-      "route": "/commercial/quotations",
-      "area": "commercial",
-      "module_key": "MOD-27",
-      "purpose": "Client quotations: draft, send, accept, convert.",
-      "actions": [
-        "list_quotations",
-        "get_quotation",
-        "draft_quotation",
-        "transition_quotation",
-        "accept_quotation"
-      ]
+      "actions": [],
+      "title_fr": "État"
     },
     {
       "id": "commercial_margin_sim",
@@ -1064,7 +1167,8 @@
         "margin_simulation_from_costing",
         "create_margin_simulation",
         "update_margin_simulation"
-      ]
+      ],
+      "title_fr": "Simulation de marge"
     },
     {
       "id": "commercial_extra_charges",
@@ -1077,7 +1181,8 @@
         "list_extra_charge_simulations",
         "get_extra_charge_simulation",
         "create_extra_charge_simulation"
-      ]
+      ],
+      "title_fr": "Simulation de frais supplémentaires"
     },
     {
       "id": "commercial_pricing_variance",
@@ -1089,7 +1194,8 @@
       "actions": [
         "list_pricing_variance",
         "get_pricing_variance"
-      ]
+      ],
+      "title_fr": "Écart de prix"
     },
     {
       "id": "costing_sheets",
@@ -1108,7 +1214,13 @@
         "create_costing",
         "update_costing",
         "costing_status",
-        "costing_unlock"
+        "costing_unlock",
+        "quote_costing"
+      ],
+      "title_fr": "Coûts",
+      "synonyms": [
+        "prix de revient",
+        "cotation interne"
       ]
     },
     {
@@ -1125,7 +1237,8 @@
         "cost_tracking_matrix",
         "cost_tracking_advances",
         "record_cost"
-      ]
+      ],
+      "title_fr": "Suivi des coûts"
     },
     {
       "id": "costing_reconciliation",
@@ -1137,7 +1250,8 @@
       "actions": [
         "get_budget_reconciliation",
         "list_receipts_owed"
-      ]
+      ],
+      "title_fr": "Rapprochement budgétaire"
     },
     {
       "id": "costing_cash_requests",
@@ -1155,7 +1269,8 @@
         "disburse_cash_request",
         "justify_cash_request",
         "import_costing_lines"
-      ]
+      ],
+      "title_fr": "Demandes de fonds"
     },
     {
       "id": "costing_regie",
@@ -1174,7 +1289,8 @@
         "write_off_regie_advance",
         "unage_regie_advance",
         "age_regie_advances"
-      ]
+      ],
+      "title_fr": "Régie"
     },
     {
       "id": "hr_queries",
@@ -1188,7 +1304,8 @@
         "get_hr_query",
         "create_hr_query",
         "update_hr_query"
-      ]
+      ],
+      "title_fr": "Requêtes"
     },
     {
       "id": "hr_sanctions",
@@ -1203,7 +1320,8 @@
         "create_hr_sanction",
         "update_hr_sanction",
         "lift_hr_sanction"
-      ]
+      ],
+      "title_fr": "Sanctions"
     },
     {
       "id": "ops_files",
@@ -1222,7 +1340,8 @@
         "search_geo_places",
         "create_geo_place",
         "confirm_geo_place"
-      ]
+      ],
+      "title_fr": "Dossiers"
     },
     {
       "id": "ops_milestones",
@@ -1243,7 +1362,8 @@
         "raise_q_ticket",
         "reply_q_ticket",
         "resolve_q_ticket"
-      ]
+      ],
+      "title_fr": "Jalons"
     },
     {
       "id": "ops_transit_orders",
@@ -1260,7 +1380,8 @@
         "update_transit_order_docs",
         "issue_transit_order",
         "lodge_transit_order"
-      ]
+      ],
+      "title_fr": "Ordres de transit"
     },
     {
       "id": "ops_delivery_notes",
@@ -1276,7 +1397,8 @@
         "create_delivery_note",
         "issue_delivery_note",
         "confirm_delivery"
-      ]
+      ],
+      "title_fr": "Bordereaux de livraison"
     },
     {
       "id": "master_service_types",
@@ -1290,7 +1412,8 @@
         "get_service_type",
         "get_service_type_360",
         "list_service_quote_cards"
-      ]
+      ],
+      "title_fr": "Types de service"
     },
     {
       "id": "proc_requests",
@@ -1304,7 +1427,8 @@
         "get_purchase_request",
         "create_purchase_request",
         "transition_purchase_request"
-      ]
+      ],
+      "title_fr": "Demandes"
     },
     {
       "id": "proc_orders",
@@ -1321,7 +1445,8 @@
         "transition_purchase_order",
         "pay_purchase_order",
         "unlock_purchase_order"
-      ]
+      ],
+      "title_fr": "Commandes fournisseurs"
     },
     {
       "id": "proc_grn",
@@ -1335,7 +1460,8 @@
         "get_goods_received",
         "record_goods_received",
         "send_goods_received_to_warehouse"
-      ]
+      ],
+      "title_fr": "Marchandises reçues"
     },
     {
       "id": "proc_supplier_invoices",
@@ -1352,7 +1478,8 @@
         "post_supplier_invoice",
         "pay_supplier_invoice",
         "reverse_supplier_invoice"
-      ]
+      ],
+      "title_fr": "Factures fournisseurs"
     },
     {
       "id": "sales_leads",
@@ -1367,7 +1494,8 @@
         "create_lead",
         "transition_lead",
         "convert_lead"
-      ]
+      ],
+      "title_fr": "Prospects & réception"
     },
     {
       "id": "sales_lead_dossier",
@@ -1376,7 +1504,8 @@
       "area": "sales",
       "module_key": "MOD-20",
       "purpose": "Full dossier for a single lead — Overview, Meetings (with the F1 discovery sections and their capture state), Quote requests, Proposals, Opportunities, Enquiries triaged in, and the audit history. The join F6 made necessary: the funnel, the intake lifecycle and the pipeline stage live on three different rows, so this is the one place that shows a company's whole story. Money is gated on finance visibility. Its reads are declared on the registers above; this screen adds no manifest action of its own.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Prospect 360"
     },
     {
       "id": "sales_enquiries",
@@ -1391,7 +1520,8 @@
         "transition_enquiry",
         "respond_to_enquiry",
         "triage_enquiry"
-      ]
+      ],
+      "title_fr": "Demandes de contact"
     },
     {
       "id": "sales_quote_requests",
@@ -1410,7 +1540,8 @@
         "suggest_quote_request_client",
         "link_quote_request_client",
         "file_chat_document_on_quote_request"
-      ]
+      ],
+      "title_fr": "Demandes de devis"
     },
     {
       "id": "sales_quote_request_dossier",
@@ -1419,7 +1550,8 @@
       "area": "sales",
       "module_key": "MOD-20",
       "purpose": "Full dossier for a single quote request — Overview, the full logistics Scope, Attachments from the vault, Proposals reached through the lead, and the audit history, plus the opportunity it converted into. 'Is it converted' is read from converted_opportunity_id, never from the status value. Its reads are declared on the register above; this screen adds no manifest action of its own.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Demande de devis 360"
     },
     {
       "id": "sales_partnerships",
@@ -1434,7 +1566,8 @@
         "create_partnership_request",
         "review_partnership_request",
         "approve_partnership_request"
-      ]
+      ],
+      "title_fr": "Partenariats et fournisseurs"
     },
     {
       "id": "sales_company_profile",
@@ -1445,7 +1578,8 @@
       "purpose": "Tenant-owned declared and SQL-derived fact sheet used to ground proposals and case studies.",
       "actions": [
         "get_company_profile"
-      ]
+      ],
+      "title_fr": "Profil d'entreprise"
     },
     {
       "id": "sales_opportunities",
@@ -1462,7 +1596,8 @@
         "create_opportunity",
         "move_opportunity",
         "win_opportunity"
-      ]
+      ],
+      "title_fr": "Opportunités"
     },
     {
       "id": "sales_proposals",
@@ -1479,6 +1614,31 @@
         "share_proposal",
         "transition_proposal",
         "accept_proposal"
+      ],
+      "title_fr": "Propositions"
+    },
+    {
+      "id": "sales_quotations",
+      "title": "Quotations",
+      "route": "/sales/quotations",
+      "area": "sales",
+      "module_key": "MOD-27",
+      "purpose": "Client quotations: draft (by hand or straight from a costing), send to the portal, accept or e-signed acceptance, convert to an invoice draft. Sales & CRM since meeting 6 (G6) — /commercial/quotations redirects here.",
+      "actions": [
+        "list_quotations",
+        "get_quotation",
+        "draft_quotation",
+        "transition_quotation",
+        "accept_quotation",
+        "preview_quotation_from_costing",
+        "draft_quotation_from_costing",
+        "convert_quotation"
+      ],
+      "title_fr": "Devis",
+      "synonyms": [
+        "devis",
+        "cotation",
+        "offres"
       ]
     },
     {
@@ -1496,7 +1656,8 @@
         "get_meeting_discovery",
         "get_lead_discovery",
         "save_meeting_discovery_section"
-      ]
+      ],
+      "title_fr": "Réunions"
     },
     {
       "id": "sales_campaigns",
@@ -1512,7 +1673,8 @@
         "create_campaign",
         "transition_campaign",
         "record_campaign_actuals"
-      ]
+      ],
+      "title_fr": "Campagnes"
     },
     {
       "id": "sales_success_stories",
@@ -1527,7 +1689,8 @@
         "create_success_story",
         "generate_success_story",
         "publish_success_story"
-      ]
+      ],
+      "title_fr": "Témoignages"
     },
     {
       "id": "security_overview",
@@ -1536,7 +1699,8 @@
       "area": "security",
       "module_key": "MOD-67",
       "purpose": "Security posture summary for the tenant.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Vue d'ensemble"
     },
     {
       "id": "security_my_security",
@@ -1545,7 +1709,8 @@
       "area": "security",
       "module_key": "MOD-67",
       "purpose": "Your own password, 2FA, Quick PIN and devices.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Ma sécurité"
     },
     {
       "id": "vault_overview",
@@ -1554,7 +1719,8 @@
       "area": "vault",
       "module_key": "MOD-64",
       "purpose": "Document vault summary.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Vue d'ensemble"
     },
     {
       "id": "vault_documents",
@@ -1566,7 +1732,8 @@
       "actions": [
         "list_documents",
         "archive_document"
-      ]
+      ],
+      "title_fr": "Documents"
     },
     {
       "id": "vault_signatures",
@@ -1590,7 +1757,8 @@
         "unreconciled_wet_signatures",
         "issue_wet_signature_job",
         "mark_wet_signature_printed"
-      ]
+      ],
+      "title_fr": "Signatures"
     },
     {
       "id": "vault_compliance",
@@ -1604,7 +1772,8 @@
         "compliance_rules",
         "run_compliance_check",
         "resolve_compliance_flag"
-      ]
+      ],
+      "title_fr": "Alertes de conformité"
     },
     {
       "id": "vault_reports",
@@ -1620,7 +1789,8 @@
         "dashboard_tiles",
         "save_report",
         "set_dashboard_tile"
-      ]
+      ],
+      "title_fr": "Rapports"
     },
     {
       "id": "workspace",
@@ -1629,7 +1799,8 @@
       "area": "home",
       "module_key": "MOD-00A",
       "purpose": "The signed-in user's own queue — tasks, approvals and recent work.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Mon espace de travail"
     },
     {
       "id": "workspace_today",
@@ -1640,7 +1811,8 @@
       "purpose": "The signed-in user's day as ONE list: tasks and appointments interleaved by when they are wanted, rather than a calendar beside a to-do list. Carries the counts of what is overdue, due and booked, and links out to the approvals queue instead of re-rendering it.",
       "actions": [
         "my_day_timeline"
-      ]
+      ],
+      "title_fr": "Aujourd'hui"
     },
     {
       "id": "workspace_tasks",
@@ -1661,7 +1833,8 @@
         "create_task",
         "update_task",
         "change_task_status"
-      ]
+      ],
+      "title_fr": "Tâches"
     },
     {
       "id": "workspace_calendar",
@@ -1679,7 +1852,8 @@
         "get_my_event",
         "create_calendar_event",
         "update_calendar_event"
-      ]
+      ],
+      "title_fr": "Calendrier"
     },
     {
       "id": "workspace_analytics",
@@ -1691,7 +1865,8 @@
       "actions": [
         "filter analytics",
         "drill down to tasks"
-      ]
+      ],
+      "title_fr": "Analyses"
     },
     {
       "id": "ai_workspace",
@@ -1700,7 +1875,8 @@
       "area": "home",
       "module_key": "MOD-00A",
       "purpose": "The assistant's full workspace: conversation history and Spaces, the thread, and a panel for the records, tables and drafts an answer produces. Gated on MOD-00A like the Control Tower, so it sits in Overview and is reachable by anyone who can sign in — the tenant-wide AI flag is what turns it on or off. Distinct from AI Control, which governs the assistant rather than using it.",
-      "actions": []
+      "actions": [],
+      "title_fr": "IA Praxis"
     },
     {
       "id": "comms",
@@ -1720,7 +1896,8 @@
         "client_mail_timeline",
         "send_mail",
         "reply_mail"
-      ]
+      ],
+      "title_fr": "Comms intelligentes"
     },
     {
       "id": "comms_setup",
@@ -1729,7 +1906,8 @@
       "area": "comms",
       "module_key": "MOD-72",
       "purpose": "How this company's email is configured: personal and shared mailboxes, who may work each one, and which sender every part of the product mails from.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Configuration e-mail"
     },
     {
       "id": "comms_signatures",
@@ -1740,7 +1918,8 @@
       "purpose": "The signature card as it goes out: a person's own typed fields and PNG download, plus (MOD-70) batch generation for staff and which template each part of the company gets. Name, title, address and logo are derived; colours follow tenant branding.",
       "actions": [
         "save_my_signature"
-      ]
+      ],
+      "title_fr": "Signatures e-mail"
     },
     {
       "id": "comms_calls",
@@ -1751,7 +1930,8 @@
       "purpose": "Your 1:1 calls, newest first: who, when, how long, how it ended, and whether a summary is waiting for you to review. A summary drafted by the daily sweep sends no push, so its badge here is how you find it. Call settings (noise filter, retention) are at /settings/calls.",
       "actions": [
         "list_comms_calls"
-      ]
+      ],
+      "title_fr": "Appels"
     },
     {
       "id": "comms_clients",
@@ -1768,6 +1948,12 @@
         "email_client_message",
         "list_client_message_recipients",
         "client_notification_reach"
+      ],
+      "title_fr": "Boîte de réception clients",
+      "synonyms": [
+        "chat client",
+        "messages clients",
+        "portail"
       ]
     },
     {
@@ -1780,7 +1966,8 @@
       "actions": [
         "comms_call_transcript",
         "comms_call_summary"
-      ]
+      ],
+      "title_fr": "Appel"
     },
     {
       "id": "settings_email_signatures",
@@ -1792,7 +1979,8 @@
       "actions": [
         "list_signature_staff",
         "list_signature_templates"
-      ]
+      ],
+      "title_fr": "Signatures e-mail"
     },
     {
       "id": "settings_deliverability",
@@ -1805,7 +1993,8 @@
         "deliverability_dashboard",
         "deliverability_history",
         "check_delivery_route"
-      ]
+      ],
+      "title_fr": "Délivrabilité"
     },
     {
       "id": "support",
@@ -1814,7 +2003,8 @@
       "area": "support",
       "module_key": "MOD-74",
       "purpose": "Raise a support request or send product feedback.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Support & retours"
     },
     {
       "id": "help",
@@ -1823,7 +2013,8 @@
       "area": "support",
       "module_key": null,
       "purpose": "Product guides and FAQs. Ungated — every signed-in user reaches it.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Aide"
     },
     {
       "id": "governance",
@@ -1832,7 +2023,8 @@
       "area": "governance",
       "module_key": "MOD-75",
       "purpose": "Oversight landing — approvals, workflows, audit ledger and notifications.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Gouvernance"
     },
     {
       "id": "godmode",
@@ -1841,7 +2033,8 @@
       "area": "admin",
       "module_key": "MOD-00B",
       "purpose": "CEO purge console — destructive tenant-wide operations.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Mode Dieu"
     },
     {
       "id": "master_currencies",
@@ -1856,7 +2049,8 @@
         "fx_convert",
         "set_fx_rate",
         "release_fx_override"
-      ]
+      ],
+      "title_fr": "Devises"
     },
     {
       "id": "master_tax_jurisdictions",
@@ -1872,7 +2066,8 @@
         "effective_tax_code",
         "create_tax_jurisdiction",
         "add_tax_code"
-      ]
+      ],
+      "title_fr": "Juridictions fiscales"
     },
     {
       "id": "settings_document_templates",
@@ -1885,6 +2080,12 @@
         "list_document_templates",
         "get_document_template_config",
         "set_document_template_config"
+      ],
+      "title_fr": "Modèles de documents",
+      "synonyms": [
+        "template studio",
+        "modèles",
+        "pdf"
       ]
     },
     {
@@ -1899,7 +2100,8 @@
         "get_supplier_field_config",
         "set_client_field_config",
         "set_supplier_field_config"
-      ]
+      ],
+      "title_fr": "Champs personnalisés"
     },
     {
       "id": "settings_catalogue",
@@ -1910,7 +2112,8 @@
       "purpose": "Modules and features enabled for this tenant's plan.",
       "actions": [
         "list_modules"
-      ]
+      ],
+      "title_fr": "Catalogue des modules"
     },
     {
       "id": "portal_access",
@@ -1924,7 +2127,8 @@
         "client_portal_view",
         "investor_portal_view",
         "grant_portal_access"
-      ]
+      ],
+      "title_fr": "Accès portail"
     },
     {
       "id": "settings_audit_room",
@@ -1938,7 +2142,8 @@
         "get_audit_room_request",
         "attach_audit_room_document",
         "answer_audit_room_request"
-      ]
+      ],
+      "title_fr": "Salle de données des auditeurs"
     },
     {
       "id": "my_hr",
@@ -1947,7 +2152,8 @@
       "area": "hr",
       "module_key": null,
       "purpose": "Employee self-service: own payslips with PDF download, leave balances and requests, salary advances. Ungated — the caller's own data only.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Mon RH"
     },
     {
       "id": "public_site",
@@ -1957,7 +2163,9 @@
       "module_key": null,
       "public": true,
       "purpose": "Bilingual marketing site: story, services and the quote-request form feeding the intake queue.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Site public",
+      "app": "public-web"
     },
     {
       "id": "public_tracking",
@@ -1967,7 +2175,9 @@
       "module_key": null,
       "public": true,
       "purpose": "Anonymous shipment tracking by reference.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Suivi public",
+      "app": "public-web"
     },
     {
       "id": "public_portfolio",
@@ -1977,7 +2187,9 @@
       "module_key": null,
       "public": true,
       "purpose": "Published success stories and client references.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Portfolio public",
+      "app": "public-web"
     },
     {
       "id": "public_proposal",
@@ -1987,7 +2199,9 @@
       "module_key": null,
       "public": true,
       "purpose": "Shared proposal view and PDF download by signed token.",
-      "actions": []
+      "actions": [],
+      "title_fr": "Proposition publique",
+      "app": "public-web"
     },
     {
       "id": "public_careers",
@@ -1997,7 +2211,1243 @@
       "module_key": null,
       "public": true,
       "purpose": "Public job listings and applications.",
+      "actions": [],
+      "title_fr": "Carrières",
+      "app": "public-web"
+    },
+    {
+      "id": "reset_password",
+      "title": "Reset password",
+      "title_fr": "Réinitialiser le mot de passe",
+      "route": "/reset-password",
+      "area": "auth",
+      "module_key": null,
+      "purpose": "Set a new password from the emailed reset link.",
+      "actions": [],
+      "public": true
+    },
+    {
+      "id": "verify_code",
+      "title": "Verify a document",
+      "title_fr": "Vérifier un document",
+      "route": "/v/:code",
+      "area": "public",
+      "module_key": null,
+      "purpose": "The verification portal a printed QR code opens: is this document genuine, and who signed it.",
+      "actions": [],
+      "public": true
+    },
+    {
+      "id": "verify",
+      "title": "Verify a document (by code)",
+      "title_fr": "Vérifier un document (par code)",
+      "route": "/verify",
+      "area": "public",
+      "module_key": null,
+      "purpose": "Type a verification code to check a document's signatures.",
+      "actions": [],
+      "public": true
+    },
+    {
+      "id": "sign_document",
+      "title": "Sign a document",
+      "title_fr": "Signer un document",
+      "route": "/sign/:token",
+      "area": "public",
+      "module_key": null,
+      "purpose": "A counterparty's signing page, opened from their signing link.",
+      "actions": [],
+      "public": true
+    },
+    {
+      "id": "secure_link",
+      "title": "Secure link",
+      "title_fr": "Lien sécurisé",
+      "route": "/s/:token",
+      "area": "public",
+      "module_key": null,
+      "purpose": "A shared document opened through a secure link.",
+      "actions": [],
+      "public": true
+    },
+    {
+      "id": "my_hr_queries",
+      "title": "My HR: queries and appraisals",
+      "title_fr": "Mon RH : demandes et évaluations",
+      "route": "/my-hr",
+      "area": "hr",
+      "module_key": null,
+      "purpose": "The employee's own HR record: queries to answer, sanctions on file, appraisals.",
+      "actions": [],
+      "synonyms": [
+        "mes évaluations",
+        "my appraisals",
+        "my queries"
+      ]
+    },
+    {
+      "id": "workspace_task_new",
+      "title": "New task",
+      "title_fr": "Nouvelle tâche",
+      "route": "/workspace/tasks/new",
+      "area": "home",
+      "module_key": "MOD-00A",
+      "purpose": "A new task, filled from an email when Mail converts one.",
       "actions": []
+    },
+    {
+      "id": "support_ticket_new",
+      "title": "New support ticket",
+      "title_fr": "Nouveau ticket de support",
+      "route": "/support/tickets/new",
+      "area": "support",
+      "module_key": "MOD-74",
+      "purpose": "Raise a support ticket, filled from an email when Mail converts one.",
+      "actions": []
+    },
+    {
+      "id": "sales_lead_new",
+      "title": "New lead",
+      "title_fr": "Nouveau prospect",
+      "route": "/sales/leads/new",
+      "area": "sales",
+      "module_key": "MOD-20",
+      "purpose": "A new lead, filled from an email when Mail converts one.",
+      "actions": []
+    },
+    {
+      "id": "sales_quote_request_new",
+      "title": "New quote request",
+      "title_fr": "Nouvelle demande de devis",
+      "route": "/sales/quote-requests/new",
+      "area": "sales",
+      "module_key": "MOD-20",
+      "purpose": "A new quote request, filled from an email when Mail converts one.",
+      "actions": []
+    },
+    {
+      "id": "sales_enquiry_new",
+      "title": "New enquiry",
+      "title_fr": "Nouvelle demande de contact",
+      "route": "/sales/enquiries/new",
+      "area": "sales",
+      "module_key": "MOD-25",
+      "purpose": "A new contact enquiry, filled from an email when Mail converts one.",
+      "actions": []
+    },
+    {
+      "id": "procurement_purchase_request_new",
+      "title": "New purchase request",
+      "title_fr": "Nouvelle demande d'achat",
+      "route": "/procurement/purchase-requests/new",
+      "area": "procurement",
+      "module_key": "MOD-62",
+      "purpose": "A new purchase request, filled from an email when Mail converts one.",
+      "actions": []
+    },
+    {
+      "id": "ops_file_360",
+      "title": "Operations file 360",
+      "title_fr": "Dossier 360",
+      "route": "/operations/files/:fileId",
+      "area": "operations",
+      "module_key": "MOD-29",
+      "purpose": "One operations file: details, containers, itinerary, milestones, tasks, queries, money, people, documents.",
+      "actions": []
+    },
+    {
+      "id": "ops_transit_order_360",
+      "title": "Transit order 360",
+      "title_fr": "Ordre de transit 360",
+      "route": "/operations/transit-orders/:orderId",
+      "area": "operations",
+      "module_key": "MOD-30",
+      "purpose": "One transit order: details, cargo, signatures, documents.",
+      "actions": []
+    },
+    {
+      "id": "ops_delivery_note_360",
+      "title": "Delivery note 360",
+      "title_fr": "Bon de livraison 360",
+      "route": "/operations/delivery-notes/:noteId",
+      "area": "operations",
+      "module_key": "MOD-32",
+      "purpose": "One delivery note: details, cargo, progress, signatures.",
+      "actions": []
+    },
+    {
+      "id": "costing_sheet_360",
+      "title": "Costing sheet",
+      "title_fr": "Fiche de prix de revient",
+      "route": "/costing/costing/:costingId",
+      "area": "costing",
+      "module_key": "MOD-46",
+      "purpose": "One costing worksheet: lines, families, approval, and Create quotation.",
+      "actions": []
+    },
+    {
+      "id": "costing_cash_request_360",
+      "title": "Cash request 360",
+      "title_fr": "Demande de fonds 360",
+      "route": "/costing/cash-requests/:cashRequestId",
+      "area": "costing",
+      "module_key": "MOD-49",
+      "purpose": "One cash request: amounts, approval and disbursement.",
+      "actions": []
+    },
+    {
+      "id": "master_entity_360",
+      "title": "Corporate entity 360",
+      "title_fr": "Entité 360",
+      "route": "/master/corporate-entities/:entityId",
+      "area": "master",
+      "module_key": "MOD-01",
+      "purpose": "One corporate entity: identity, registrations, tax, people, banking, letterhead, renewals.",
+      "actions": []
+    },
+    {
+      "id": "settings_signatures",
+      "title": "Signature settings",
+      "title_fr": "Paramètres de signature",
+      "route": "/settings/signatures",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "How documents are signed: presets, decline reasons, signing windows.",
+      "actions": []
+    },
+    {
+      "id": "settings_login",
+      "title": "Login page",
+      "title_fr": "Page de connexion",
+      "route": "/settings/login",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "The tenant's sign-in screen: imagery and copy.",
+      "actions": []
+    },
+    {
+      "id": "settings_website_copy",
+      "title": "Website copy",
+      "title_fr": "Textes du site web",
+      "route": "/settings/website/copy",
+      "area": "settings",
+      "module_key": "MOD-29",
+      "purpose": "Every string the public website shows, editable in English and French.",
+      "actions": []
+    },
+    {
+      "id": "settings_website_theme",
+      "title": "Website theme",
+      "title_fr": "Thème du site web",
+      "route": "/settings/website/theme",
+      "area": "settings",
+      "module_key": "MOD-29",
+      "purpose": "The public website's colours, fonts and label capitalisation.",
+      "actions": []
+    },
+    {
+      "id": "settings_website_about",
+      "title": "Website: about",
+      "title_fr": "Site web : à propos",
+      "route": "/settings/website/about",
+      "area": "settings",
+      "module_key": "MOD-29",
+      "purpose": "The About page of the public website.",
+      "actions": []
+    },
+    {
+      "id": "settings_website_partners",
+      "title": "Website partners",
+      "title_fr": "Partenaires du site web",
+      "route": "/settings/website/partners",
+      "area": "settings",
+      "module_key": "MOD-29",
+      "purpose": "Partner logos shown on the public website.",
+      "actions": []
+    },
+    {
+      "id": "settings_website_social",
+      "title": "Website social links",
+      "title_fr": "Réseaux sociaux du site web",
+      "route": "/settings/website/social",
+      "area": "settings",
+      "module_key": "MOD-29",
+      "purpose": "Social links in the public website's footer.",
+      "actions": []
+    },
+    {
+      "id": "settings_website_careers",
+      "title": "Website careers",
+      "title_fr": "Carrières du site web",
+      "route": "/settings/website/careers",
+      "area": "settings",
+      "module_key": "MOD-29",
+      "purpose": "The careers page of the public website.",
+      "actions": []
+    },
+    {
+      "id": "settings_business_policies",
+      "title": "Business policies",
+      "title_fr": "Politiques de l'entreprise",
+      "route": "/settings/business-policies",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "Tenant-wide business rules: approvals, thresholds, defaults.",
+      "actions": []
+    },
+    {
+      "id": "settings_factory_languages",
+      "title": "Factory languages",
+      "title_fr": "Langues de l'usine",
+      "route": "/settings/factory-languages",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "Planned: the languages documents are produced in.",
+      "actions": []
+    },
+    {
+      "id": "document_view",
+      "title": "Document",
+      "title_fr": "Document",
+      "route": "/documents/:docType/:id",
+      "area": "vault",
+      "module_key": null,
+      "purpose": "A generated document (invoice, quotation…) rendered on screen, gated by its own module on the API.",
+      "actions": []
+    },
+    {
+      "id": "settings_help_center",
+      "title": "Help center settings",
+      "title_fr": "Paramètres du centre d'aide",
+      "route": "/settings/help-center",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "Planned: the tenant's help center.",
+      "actions": []
+    },
+    {
+      "id": "comms_mail",
+      "title": "Mail",
+      "title_fr": "Messagerie",
+      "route": "/comms/mail",
+      "area": "comms",
+      "module_key": "MOD-64",
+      "purpose": "Email: the shared inbox, threads and conversions to leads, tasks and requests.",
+      "actions": [],
+      "synonyms": [
+        "e-mail",
+        "email",
+        "courriel",
+        "inbox"
+      ]
+    }
+  ],
+  "hubs": [
+    {
+      "id": "hub_sales",
+      "route": "/sales",
+      "title": "Sales & CRM",
+      "title_fr": "Ventes & CRM",
+      "synonyms": [
+        "crm",
+        "ventes",
+        "commercial pipeline"
+      ]
+    },
+    {
+      "id": "hub_commercial",
+      "route": "/commercial",
+      "title": "Commercial",
+      "title_fr": "Commercial",
+      "synonyms": [
+        "simulations",
+        "pricing"
+      ]
+    },
+    {
+      "id": "hub_procurement",
+      "route": "/procurement",
+      "title": "Procurement",
+      "title_fr": "Achats",
+      "synonyms": [
+        "achats",
+        "purchasing"
+      ]
+    },
+    {
+      "id": "hub_operations",
+      "route": "/operations",
+      "title": "Operations",
+      "title_fr": "Opérations",
+      "synonyms": [
+        "ops",
+        "exploitation"
+      ]
+    },
+    {
+      "id": "hub_wms",
+      "route": "/wms",
+      "title": "Warehouse",
+      "title_fr": "Entrepôt",
+      "synonyms": [
+        "wms",
+        "magasin"
+      ]
+    },
+    {
+      "id": "hub_fleet",
+      "route": "/fleet",
+      "title": "Fleet",
+      "title_fr": "Flotte",
+      "synonyms": [
+        "parc",
+        "véhicules"
+      ]
+    },
+    {
+      "id": "hub_finance",
+      "route": "/finance",
+      "title": "Finance",
+      "title_fr": "Finance",
+      "synonyms": [
+        "comptabilité",
+        "accounting",
+        "trésorerie"
+      ]
+    },
+    {
+      "id": "hub_costing",
+      "route": "/costing",
+      "title": "Costing",
+      "title_fr": "Prix de revient",
+      "synonyms": [
+        "coûts",
+        "costs"
+      ]
+    },
+    {
+      "id": "hub_hr",
+      "route": "/hr",
+      "title": "People & HR",
+      "title_fr": "Personnel et RH",
+      "synonyms": [
+        "rh",
+        "ressources humaines",
+        "human resources"
+      ]
+    },
+    {
+      "id": "hub_master",
+      "route": "/master",
+      "title": "Master data",
+      "title_fr": "Données de référence",
+      "synonyms": [
+        "référentiel",
+        "master"
+      ]
+    },
+    {
+      "id": "hub_vault",
+      "route": "/vault",
+      "title": "Vault & compliance",
+      "title_fr": "Coffre et conformité",
+      "synonyms": [
+        "conformité",
+        "compliance",
+        "archives"
+      ]
+    },
+    {
+      "id": "hub_security",
+      "route": "/security",
+      "title": "Security & access",
+      "title_fr": "Sécurité et accès",
+      "synonyms": [
+        "sécurité",
+        "accès",
+        "droits"
+      ]
+    },
+    {
+      "id": "hub_ai_control",
+      "route": "/ai-control",
+      "title": "AI Control",
+      "title_fr": "Contrôle de l'IA",
+      "synonyms": [
+        "ia",
+        "intelligence artificielle"
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "route": "/commercial/quotations",
+      "to": "/sales/quotations",
+      "why": "Quotations moved to Sales & CRM (meeting 6, G6); the query string is kept."
+    },
+    {
+      "route": "/sales/inbound-intake",
+      "to": "/sales/leads",
+      "why": "Intake is a tab of Leads (?tab=intake)."
+    },
+    {
+      "route": "/settings/business-setup",
+      "to": "/master/corporate-entities",
+      "why": "Retired duplicate of the corporate-entity editor (2026-07-18)."
+    },
+    {
+      "route": "/settings/client-support",
+      "to": "/comms/clients",
+      "why": "Client support became the Client inbox; client and thread are carried."
+    }
+  ],
+  "section_hubs": [
+    {
+      "route": "/comms",
+      "source": "client/src/features/comms/hub.tsx",
+      "sections": [
+        "setup",
+        "signatures",
+        "mail",
+        "calls",
+        "clients"
+      ],
+      "why": "Smart Comms keeps its sections in its own hub rather than areas.ts."
+    }
+  ],
+  "tabs": [
+    {
+      "id": "party_360_overview",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Overview",
+      "title": "Overview",
+      "title_fr": "Vue d'ensemble",
+      "record_types": [
+        "client",
+        "supplier"
+      ]
+    },
+    {
+      "id": "party_360_documents",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Documents",
+      "title": "Documents",
+      "title_fr": "Documents",
+      "record_types": [
+        "client",
+        "supplier"
+      ],
+      "synonyms": [
+        "kyc",
+        "pièces"
+      ]
+    },
+    {
+      "id": "party_360_contacts",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Contacts",
+      "title": "Contacts",
+      "title_fr": "Contacts",
+      "record_types": [
+        "client",
+        "supplier"
+      ],
+      "synonyms": [
+        "interlocuteurs"
+      ]
+    },
+    {
+      "id": "party_360_addresses",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Addresses",
+      "title": "Addresses",
+      "title_fr": "Adresses",
+      "record_types": [
+        "client",
+        "supplier"
+      ]
+    },
+    {
+      "id": "party_360_banks",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Banks",
+      "title": "Banks",
+      "title_fr": "Banques",
+      "record_types": [
+        "client",
+        "supplier"
+      ],
+      "synonyms": [
+        "rib",
+        "iban"
+      ]
+    },
+    {
+      "id": "party_360_registrations",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Registrations",
+      "title": "Registrations",
+      "title_fr": "Immatriculations",
+      "record_types": [
+        "client",
+        "supplier"
+      ],
+      "synonyms": [
+        "niu",
+        "rccm"
+      ]
+    },
+    {
+      "id": "party_360_owners",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Owners",
+      "title": "Owners",
+      "title_fr": "Propriétaires",
+      "record_types": [
+        "client",
+        "supplier"
+      ],
+      "synonyms": [
+        "actionnaires",
+        "beneficial owners"
+      ]
+    },
+    {
+      "id": "party_360_financial",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Financial",
+      "title": "Financial",
+      "title_fr": "Financier",
+      "record_types": [
+        "client",
+        "supplier"
+      ],
+      "synonyms": [
+        "créances",
+        "receivables",
+        "balance"
+      ]
+    },
+    {
+      "id": "client_360_operations",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Operations",
+      "title": "Operations",
+      "title_fr": "Opérations",
+      "record_types": [
+        "client"
+      ],
+      "synonyms": [
+        "dossiers",
+        "files"
+      ]
+    },
+    {
+      "id": "client_360_quote_requests",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Quote requests",
+      "title": "Quote requests",
+      "title_fr": "Demandes de devis",
+      "record_types": [
+        "client"
+      ]
+    },
+    {
+      "id": "client_360_portal",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Portal",
+      "title": "Portal",
+      "title_fr": "Portail",
+      "record_types": [
+        "client"
+      ],
+      "synonyms": [
+        "accès portail"
+      ]
+    },
+    {
+      "id": "client_360_messages",
+      "source": "client/src/features/masterdata/party-360.tsx",
+      "value": "Messages",
+      "title": "Messages",
+      "title_fr": "Messages",
+      "record_types": [
+        "client"
+      ],
+      "synonyms": [
+        "chat"
+      ]
+    },
+    {
+      "id": "employee_360_profile",
+      "source": "client/src/features/hr/employee-360.tsx",
+      "value": "Profile",
+      "title": "Profile",
+      "title_fr": "Profil",
+      "record_types": [
+        "employee"
+      ]
+    },
+    {
+      "id": "employee_360_documents",
+      "source": "client/src/features/hr/employee-360.tsx",
+      "value": "Documents",
+      "title": "Documents",
+      "title_fr": "Documents",
+      "record_types": [
+        "employee"
+      ]
+    },
+    {
+      "id": "employee_360_pay",
+      "source": "client/src/features/hr/employee-360.tsx",
+      "value": "Pay",
+      "title": "Pay",
+      "title_fr": "Rémunération",
+      "record_types": [
+        "employee"
+      ],
+      "synonyms": [
+        "salaire"
+      ]
+    },
+    {
+      "id": "employee_360_contracts",
+      "source": "client/src/features/hr/employee-360.tsx",
+      "value": "Contracts",
+      "title": "Contracts",
+      "title_fr": "Contrats",
+      "record_types": [
+        "employee"
+      ]
+    },
+    {
+      "id": "employee_360_payroll",
+      "source": "client/src/features/hr/employee-360.tsx",
+      "value": "Payroll",
+      "title": "Payroll",
+      "title_fr": "Paie",
+      "record_types": [
+        "employee"
+      ],
+      "synonyms": [
+        "bulletins"
+      ]
+    },
+    {
+      "id": "employee_360_advances",
+      "source": "client/src/features/hr/employee-360.tsx",
+      "value": "Advances",
+      "title": "Advances",
+      "title_fr": "Avances",
+      "record_types": [
+        "employee"
+      ]
+    },
+    {
+      "id": "employee_360_leave",
+      "source": "client/src/features/hr/employee-360.tsx",
+      "value": "Leave",
+      "title": "Leave",
+      "title_fr": "Congés",
+      "record_types": [
+        "employee"
+      ]
+    },
+    {
+      "id": "employee_360_attendance",
+      "source": "client/src/features/hr/employee-360.tsx",
+      "value": "Attendance",
+      "title": "Attendance",
+      "title_fr": "Présences",
+      "record_types": [
+        "employee"
+      ],
+      "synonyms": [
+        "pointage"
+      ]
+    },
+    {
+      "id": "employee_360_sanctions",
+      "source": "client/src/features/hr/employee-360.tsx",
+      "value": "Sanctions",
+      "title": "Sanctions",
+      "title_fr": "Sanctions",
+      "record_types": [
+        "employee"
+      ]
+    },
+    {
+      "id": "employee_360_appraisals",
+      "source": "client/src/features/hr/employee-360.tsx",
+      "value": "Appraisals",
+      "title": "Appraisals",
+      "title_fr": "Évaluations",
+      "record_types": [
+        "employee"
+      ]
+    },
+    {
+      "id": "treasury_360_overview",
+      "source": "client/src/features/master/treasury/dossier.tsx",
+      "value": "Overview",
+      "title": "Overview",
+      "title_fr": "Vue d'ensemble",
+      "record_types": [
+        "treasury_account"
+      ]
+    },
+    {
+      "id": "treasury_360_statement",
+      "source": "client/src/features/master/treasury/dossier.tsx",
+      "value": "Statement",
+      "title": "Statement",
+      "title_fr": "Relevé",
+      "record_types": [
+        "treasury_account"
+      ]
+    },
+    {
+      "id": "treasury_360_reconciliation",
+      "source": "client/src/features/master/treasury/dossier.tsx",
+      "value": "Reconciliation",
+      "title": "Reconciliation",
+      "title_fr": "Rapprochement",
+      "record_types": [
+        "treasury_account"
+      ]
+    },
+    {
+      "id": "treasury_360_coa_leaf",
+      "source": "client/src/features/master/treasury/dossier.tsx",
+      "value": "CoA leaf",
+      "title": "Chart-of-accounts leaf",
+      "title_fr": "Compte comptable",
+      "record_types": [
+        "treasury_account"
+      ]
+    },
+    {
+      "id": "treasury_360_signatories",
+      "source": "client/src/features/master/treasury/dossier.tsx",
+      "value": "Signatories",
+      "title": "Signatories",
+      "title_fr": "Signataires",
+      "record_types": [
+        "treasury_account"
+      ]
+    },
+    {
+      "id": "treasury_360_documents",
+      "source": "client/src/features/master/treasury/dossier.tsx",
+      "value": "Documents",
+      "title": "Documents",
+      "title_fr": "Documents",
+      "record_types": [
+        "treasury_account"
+      ]
+    },
+    {
+      "id": "treasury_360_timeline",
+      "source": "client/src/features/master/treasury/dossier.tsx",
+      "value": "Timeline",
+      "title": "Timeline",
+      "title_fr": "Historique",
+      "record_types": [
+        "treasury_account"
+      ]
+    },
+    {
+      "id": "entity_360_overview",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Overview",
+      "title": "Overview",
+      "title_fr": "Vue d'ensemble",
+      "record_types": [
+        "corporate_entity"
+      ]
+    },
+    {
+      "id": "entity_360_identity_registrations",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Identity & registrations",
+      "title": "Identity & registrations",
+      "title_fr": "Identité et immatriculations",
+      "record_types": [
+        "corporate_entity"
+      ],
+      "synonyms": [
+        "niu",
+        "rccm"
+      ]
+    },
+    {
+      "id": "entity_360_documents",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Documents",
+      "title": "Documents",
+      "title_fr": "Documents",
+      "record_types": [
+        "corporate_entity"
+      ]
+    },
+    {
+      "id": "entity_360_tax_jurisdiction",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Tax & jurisdiction",
+      "title": "Tax & jurisdiction",
+      "title_fr": "Fiscalité et juridiction",
+      "record_types": [
+        "corporate_entity"
+      ]
+    },
+    {
+      "id": "entity_360_people_shareholding",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "People & shareholding",
+      "title": "People & shareholding",
+      "title_fr": "Personnes et actionnariat",
+      "record_types": [
+        "corporate_entity"
+      ]
+    },
+    {
+      "id": "entity_360_contacts_addresses",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Contacts & addresses",
+      "title": "Contacts & addresses",
+      "title_fr": "Contacts et adresses",
+      "record_types": [
+        "corporate_entity"
+      ]
+    },
+    {
+      "id": "entity_360_structure",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Structure",
+      "title": "Structure",
+      "title_fr": "Structure",
+      "record_types": [
+        "corporate_entity"
+      ]
+    },
+    {
+      "id": "entity_360_banking_treasury",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Banking & treasury",
+      "title": "Banking & treasury",
+      "title_fr": "Banque et trésorerie",
+      "record_types": [
+        "corporate_entity"
+      ]
+    },
+    {
+      "id": "entity_360_letterhead",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Letterhead",
+      "title": "Letterhead",
+      "title_fr": "En-tête",
+      "record_types": [
+        "corporate_entity"
+      ],
+      "synonyms": [
+        "papier à en-tête"
+      ]
+    },
+    {
+      "id": "entity_360_renewals",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Renewals",
+      "title": "Renewals",
+      "title_fr": "Renouvellements",
+      "record_types": [
+        "corporate_entity"
+      ]
+    },
+    {
+      "id": "entity_360_working_calendar",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Working calendar",
+      "title": "Working calendar",
+      "title_fr": "Calendrier de travail",
+      "record_types": [
+        "corporate_entity"
+      ]
+    },
+    {
+      "id": "entity_360_public_story",
+      "source": "client/src/features/masterdata/entity-360.tsx",
+      "value": "Public story",
+      "title": "Public story",
+      "title_fr": "Présentation publique",
+      "record_types": [
+        "corporate_entity"
+      ]
+    },
+    {
+      "id": "service_type_360_overview",
+      "source": "client/src/features/masterdata/service-type-dossier.tsx",
+      "value": "Overview",
+      "title": "Overview",
+      "title_fr": "Vue d'ensemble",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_milestones",
+      "source": "client/src/features/masterdata/service-type-dossier.tsx",
+      "value": "Milestones",
+      "title": "Milestones",
+      "title_fr": "Jalons",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_details",
+      "source": "client/src/features/masterdata/service-type-dossier.tsx",
+      "value": "Details",
+      "title": "Details",
+      "title_fr": "Détails",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_assumptions",
+      "source": "client/src/features/masterdata/service-type-dossier.tsx",
+      "value": "Assumptions",
+      "title": "Assumptions",
+      "title_fr": "Hypothèses",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_dictionary",
+      "source": "client/src/features/masterdata/service-type-dossier.tsx",
+      "value": "Dictionary",
+      "title": "Dictionary",
+      "title_fr": "Dictionnaire",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_files",
+      "source": "client/src/features/masterdata/service-type-dossier.tsx",
+      "value": "Files",
+      "title": "Files",
+      "title_fr": "Dossiers",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_commercial",
+      "source": "client/src/features/masterdata/service-type-dossier.tsx",
+      "value": "Commercial",
+      "title": "Commercial",
+      "title_fr": "Commercial",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_automation",
+      "source": "client/src/features/masterdata/service-type-dossier.tsx",
+      "value": "Automation",
+      "title": "Automation",
+      "title_fr": "Automatisation",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_website",
+      "source": "client/src/features/masterdata/service-type-dossier.tsx",
+      "value": "Website",
+      "title": "Website",
+      "title_fr": "Site web",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "file_360_details",
+      "source": "client/src/features/operations/file-360.tsx",
+      "value": "details",
+      "title": "Details",
+      "title_fr": "Détails",
+      "record_types": [
+        "file"
+      ]
+    },
+    {
+      "id": "file_360_containers",
+      "source": "client/src/features/operations/file-360.tsx",
+      "value": "containers",
+      "title": "Containers",
+      "title_fr": "Conteneurs",
+      "record_types": [
+        "file"
+      ]
+    },
+    {
+      "id": "file_360_itinerary",
+      "source": "client/src/features/operations/file-360.tsx",
+      "value": "itinerary",
+      "title": "Itinerary",
+      "title_fr": "Itinéraire",
+      "record_types": [
+        "file"
+      ]
+    },
+    {
+      "id": "file_360_milestones",
+      "source": "client/src/features/operations/file-360.tsx",
+      "value": "milestones",
+      "title": "Milestones",
+      "title_fr": "Jalons",
+      "record_types": [
+        "file"
+      ]
+    },
+    {
+      "id": "file_360_tasks",
+      "source": "client/src/features/operations/file-360.tsx",
+      "value": "tasks",
+      "title": "Tasks",
+      "title_fr": "Tâches",
+      "record_types": [
+        "file"
+      ]
+    },
+    {
+      "id": "file_360_queries",
+      "source": "client/src/features/operations/file-360.tsx",
+      "value": "queries",
+      "title": "Queries",
+      "title_fr": "Questions",
+      "record_types": [
+        "file"
+      ]
+    },
+    {
+      "id": "file_360_money",
+      "source": "client/src/features/operations/file-360.tsx",
+      "value": "money",
+      "title": "Money",
+      "title_fr": "Finances",
+      "record_types": [
+        "file"
+      ],
+      "synonyms": [
+        "argent",
+        "coûts",
+        "factures"
+      ]
+    },
+    {
+      "id": "file_360_people",
+      "source": "client/src/features/operations/file-360.tsx",
+      "value": "people",
+      "title": "People",
+      "title_fr": "Intervenants",
+      "record_types": [
+        "file"
+      ]
+    },
+    {
+      "id": "file_360_documents",
+      "source": "client/src/features/operations/file-360.tsx",
+      "value": "documents",
+      "title": "Documents",
+      "title_fr": "Documents",
+      "record_types": [
+        "file"
+      ]
+    },
+    {
+      "id": "transit_order_360_details",
+      "source": "client/src/features/operations/transit-order-360.tsx",
+      "value": "details",
+      "title": "Details",
+      "title_fr": "Détails",
+      "record_types": [
+        "transit_order"
+      ]
+    },
+    {
+      "id": "transit_order_360_cargo",
+      "source": "client/src/features/operations/transit-order-360.tsx",
+      "value": "cargo",
+      "title": "Cargo",
+      "title_fr": "Marchandise",
+      "record_types": [
+        "transit_order"
+      ]
+    },
+    {
+      "id": "transit_order_360_signatures",
+      "source": "client/src/features/operations/transit-order-360.tsx",
+      "value": "signatures",
+      "title": "Signatures",
+      "title_fr": "Signatures",
+      "record_types": [
+        "transit_order"
+      ]
+    },
+    {
+      "id": "transit_order_360_documents",
+      "source": "client/src/features/operations/transit-order-360.tsx",
+      "value": "documents",
+      "title": "Documents",
+      "title_fr": "Documents",
+      "record_types": [
+        "transit_order"
+      ]
+    },
+    {
+      "id": "delivery_note_360_details",
+      "source": "client/src/features/operations/delivery-note-360.tsx",
+      "value": "details",
+      "title": "Details",
+      "title_fr": "Détails",
+      "record_types": [
+        "delivery_note"
+      ]
+    },
+    {
+      "id": "delivery_note_360_cargo",
+      "source": "client/src/features/operations/delivery-note-360.tsx",
+      "value": "cargo",
+      "title": "Cargo",
+      "title_fr": "Marchandise",
+      "record_types": [
+        "delivery_note"
+      ]
+    },
+    {
+      "id": "delivery_note_360_progress",
+      "source": "client/src/features/operations/delivery-note-360.tsx",
+      "value": "progress",
+      "title": "Progress",
+      "title_fr": "Avancement",
+      "record_types": [
+        "delivery_note"
+      ]
+    },
+    {
+      "id": "delivery_note_360_signatures",
+      "source": "client/src/features/operations/delivery-note-360.tsx",
+      "value": "signatures",
+      "title": "Signatures",
+      "title_fr": "Signatures",
+      "record_types": [
+        "delivery_note"
+      ]
     }
   ]
 }

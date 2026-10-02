@@ -1,3 +1,4 @@
+// search:none — expense rates are a reference grid edited on Master data › Expense rates.
 "use strict";
 const service = require("./expense_rate.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

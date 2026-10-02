@@ -1,3 +1,4 @@
+// search:none — queries on a file are read in the file's Queries tab, and the file is what people search for.
 "use strict";
 const service = require("./q_ticket.service");
 const { asyncHandler } = require("../../../utils/errors");

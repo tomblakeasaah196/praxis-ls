@@ -82,6 +82,9 @@ export type Costing = {
   remarks?: string | null;
   validator_id?: string | null;
   validator_assigned_at?: string | null;
+  /** Meeting 6, G2: the order this sheet's client families print in (heading
+   *  keys); null = the registry's. Carried to the quotation priced from it. */
+  family_order?: string[] | null;
   lines?: CostingLine[];
   /** Unlock audit trail (10718). Present once a reopening has been asked for. */
   unlock_reason?: string | null;
@@ -185,6 +188,7 @@ export type CostingInput = {
   exchange_rate_to_xaf?: number;
   remarks?: string | null;
   validator_id?: string | null;
+  family_order?: string[] | null;
   lines?: CostingLine[];
 };
 /** Registry filter (12766) — mirrors legacy's list.php: a text search across

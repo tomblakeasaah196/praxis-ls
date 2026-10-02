@@ -1,3 +1,4 @@
+// search:none — simulations are scratch work behind a quotation, opened from the Extra-charge simulation register, never quoted by number.
 "use strict";
 const service = require("./extra_charge_simulation.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");
