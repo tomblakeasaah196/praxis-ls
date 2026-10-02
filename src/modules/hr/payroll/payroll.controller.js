@@ -30,6 +30,10 @@ module.exports = {
   compute: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.compute(c, { id: req.params.id, config: req.body?.config || null, actor: actor(req) })) })),
   listConfig: asyncHandler(async (req, res) =>
     res.json({ data: await req.tenantDb((c) => service.listConfig(c, { entityId: req.query.entity_id })) })),
+  /* The rates that WILL be used and which layer each came from — default, the
+     accountant's tax code, or this entity's override (meeting 7, 01:20:56). */
+  effectiveRates: asyncHandler(async (req, res) =>
+    res.json({ data: await req.tenantDb((c) => service.effectiveRates(c, { entityId: req.query.entity_id, asOf: req.query.as_of || null })) })),
   saveConfig: asyncHandler(async (req, res) =>
     res.status(201).json({ data: await req.tenantDb((c) => service.saveConfig(c, { entityId: req.body.entity_id, effectiveDate: req.body.effective_date, config: req.body.config || {}, actor: actor(req) })) })),
   setStatus: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.setStatus(c, { id: req.params.id, status: req.body.status, actor: actor(req) })) })),

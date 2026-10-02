@@ -33,5 +33,8 @@ module.exports = {
       actor: actor(req),
     })) });
   }),
+  /* The half-mapped codes, for the screen's banner and the go-live check
+     (meeting 7, 01:25:15). Declared before `/:id` would swallow it. */
+  unmapped: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.unmappedCodes(c, req.query.jurisdiction_id || null)) })),
   effective: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.effectiveCode(c, { jurisdictionId: req.params.id, code: req.query.code, date: req.query.date })) })),
 };

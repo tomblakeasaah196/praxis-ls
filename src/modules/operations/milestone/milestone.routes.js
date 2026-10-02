@@ -15,6 +15,12 @@ router.post("/templates", requirePermission(MODULE, "create"), validator.publish
  * same authority as publishing. Declared before `/:id/...` so the path is not
  * read as a milestone-instance id. */
 router.post("/templates/:templateId/activate", requirePermission(MODULE, "approve"), controller.activateTemplate);
+/* Correct a stage's wording on a PUBLISHED version without republishing the
+ * chain (meeting 7, 01:35:55 / 01:55:13). `edit`, not `approve`: a label carries
+ * no schedule, so this is not the "what does every future file open with"
+ * authority that publishing and activating are. Declared before `/:id/...` so
+ * the path is not read as a milestone-instance id. */
+router.patch("/templates/stages/:stageId", requirePermission(MODULE, "edit"), validator.renameStage, controller.renameStage);
 router.post("/instantiate", requirePermission(MODULE, "create"), validator.instantiate, controller.instantiate);
 router.get("/dossier/:dossierId", requirePermission(MODULE, "view"), controller.byDossier);
 // Insert a stage into a LIVE chain (between two existing ones) and re-forecast

@@ -21,6 +21,7 @@
  */
 "use strict";
 const repo = require("./milestone.repo");
+const ownerRegistry = require("../../master/milestone_owner/milestone_owner.repo");
 const events = require("./milestone.events");
 const { computeDue, canAdvance } = require("./milestone.rules");
 const cal = require("./milestone.calendar");
@@ -117,6 +118,36 @@ const toStageInput = (row) => ({
   manualDueOverride: row.manual_due_override ? new Date(`${isoDate(row.manual_due_override)}T17:00:00Z`) : null,
 });
 
+/* ── Owner codes ────────────────────────────────────────────────────────── */
+
+/**
+ * Every owner code on these stages must be an ACTIVE row in `milestone_owner`.
+ *
+ * This is the referential check an FK would have done. 14400 explains why there
+ * is no FK: adding a REFERENCES to `milestone_template_stage` — a table that
+ * already exists — aborts provisioning a fresh tenant at 13791. So the registry
+ * table is fully constrained, the validator checks the code's SHAPE, and this
+ * checks that it exists. Removing this without re-instating an FK lets a typo
+ * ("CUSTOMSS") publish, and a stage owned by nobody is a stage whose delay the
+ * attribution report silently drops.
+ *
+ * Reported as one error naming every unknown code, not one error per stage: a
+ * chain is published in one call and a person fixing it wants the whole list.
+ */
+async function assertOwnersExist(client, stages = []) {
+  const codes = stages.map((s) => s && s.owner_tier).filter(Boolean);
+  if (!codes.length) return;
+  const unknown = await ownerRegistry.repo.unknownCodes(client, codes);
+  if (unknown.length) {
+    throw new AppError(
+      "UNKNOWN_MILESTONE_OWNER",
+      `not an active milestone owner: ${unknown.join(", ")}. Add it under Milestone owners, or pick one that exists.`,
+      422,
+      { owner_tier: unknown },
+    );
+  }
+}
+
 /* ── Templates ──────────────────────────────────────────────────────────── */
 
 /** Publish a NEW active version of a template for a service_type (supersedes older). */
@@ -129,6 +160,9 @@ async function publishTemplate(client, { serviceTypeId, stages, actor = {} }) {
   if (stages.length > MAX_STAGES) {
     throw new AppError("TOO_MANY_STAGES", `a template cannot exceed ${MAX_STAGES} stages`, 422);
   }
+  // Before the transaction: a bad owner code is the caller's mistake, and
+  // naming it costs nothing. Inside, it would roll back a half-written chain.
+  await assertOwnersExist(client, stages);
   await client.query("BEGIN");
   try {
     const version = await repo.nextVersion(client, serviceTypeId);
@@ -476,6 +510,7 @@ async function reopen(client, { instanceId, reason, actor = {} }) {
  * itself. `stage_seq` is numeric(10,4) precisely so this needs no renumber.
  */
 async function addStage(client, { dossierId, afterSeq, code, label, labelEn = null, weight = 0, minDurationHours = 0, ownerTier = null, isClientVisible = true, actor = {} }) {
+  await assertOwnersExist(client, [{ owner_tier: ownerTier }]);
   const count = await repo.existingInstances(client, dossierId);
   if (count >= MAX_STAGES) throw new AppError("TOO_MANY_STAGES", `a chain cannot exceed ${MAX_STAGES} stages`, 422);
   const seq = await repo.seqBetween(client, dossierId, Number(afterSeq || 0));
@@ -487,6 +522,62 @@ async function addStage(client, { dossierId, afterSeq, code, label, labelEn = nu
   await recalculate(client, { dossierId, trigger: "INSERT", actor });
   await audit(client, { actorUserId: actor.user_id || null, action: events.STAGE_INSERTED, moduleKey: events.MODULE, entityRef: "dossier:" + dossierId, after: row });
   return repo.getInstance(client, row.milestone_instance_id);
+}
+
+/**
+ * Correct a stage's WORDING on a published version, in place.
+ *
+ * Meeting 7, 01:35:55 and 01:55:13. Until now the only way to fix "visibility"
+ * (for "feasibility") was to publish a whole new version of the chain, which
+ * bumps the version counter and leaves a v4 that differs from v3 by one letter —
+ * the same dishonest ledger `activateTemplate` was written to avoid.
+ *
+ * WHAT MOVES AND WHAT DOES NOT. Labels only, enforced by the validator's
+ * `.strict()` and by this function reading nothing else off the body. A weight,
+ * an owner or the stage list changes the SCHEDULE, and a dossier was stamped with
+ * the stages it opened under; changing those under a file in flight is what
+ * publishing a version exists to prevent. Wording carries no schedule.
+ *
+ * It PROPAGATES to the open instances stamped from this stage (repo
+ * .renameOpenInstances), because the typo is on their screen too and a correction
+ * that only reaches future files is not a correction. DONE stages keep the label
+ * they were signed off under — that is the record of what was completed.
+ */
+async function renameStage(client, { stageId, labelFr, labelEn, actor = {} }) {
+  const before = await repo.stageWithTemplate(client, stageId);
+  if (!before) throw new AppError("NOT_FOUND", "Milestone stage not found", 404);
+
+  const fields = {};
+  if (labelFr !== undefined) fields.label_fr = String(labelFr).trim();
+  if (labelEn !== undefined) fields.label_en = labelEn === null ? null : String(labelEn).trim() || null;
+  if (fields.label_fr === "") {
+    throw new AppError("VALIDATION_ERROR", "a stage needs a French label", 422, { label_fr: ["required"] });
+  }
+
+  return atomically(client, async () => {
+    const row = await repo.updateStage(client, stageId, fields);
+    // Only the ACTIVE version's stages are on an open file's screen. A
+    // superseded version's wording is history, and rewriting the instances of a
+    // chain that is no longer published would reach files stamped from a
+    // DIFFERENT version that happens to share the code.
+    const propagated = before.is_active
+      ? await repo.renameOpenInstances(client, {
+        serviceTypeId: before.service_type_id,
+        code: before.code,
+        labelFr: fields.label_fr,
+        labelEn: fields.label_en,
+      })
+      : 0;
+    await audit(client, {
+      actorUserId: actor.user_id || null,
+      action: events.STAGE_RENAMED,
+      moduleKey: events.MODULE,
+      entityRef: "milestone_template_stage:" + stageId,
+      before: { label_fr: before.label_fr, label_en: before.label_en || null },
+      after: { label_fr: row.label_fr, label_en: row.label_en || null, open_instances_updated: propagated },
+    });
+    return { ...row, open_instances_updated: propagated, template_is_active: !!before.is_active };
+  });
 }
 
 const getTemplate = (client, id) => repo.getTemplate(client, id);
@@ -568,7 +659,7 @@ async function updatePublicDetails(client, { instanceId, details, actor = {} }) 
 const listSystemDefault = (client, serviceTypeId) => repo.systemDefaultStages(client, serviceTypeId);
 
 module.exports = {
-  publishTemplate, activateTemplate, instantiate, advance, reopen, addStage, recalculate, updatePublicDetails,
+  publishTemplate, activateTemplate, instantiate, advance, reopen, addStage, renameStage, recalculate, updatePublicDetails,
   getTemplate, listTemplates, listByDossier, listAssumptions, listSystemDefault, saveAssumptions, attribution,
   resolveTarget, resolveCalendar, resolvePolicy,
   MIN_STAGES, MAX_STAGES,

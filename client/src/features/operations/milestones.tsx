@@ -36,6 +36,8 @@ import { HubTabs, HubCrumb } from "@/components/tabbed-hub";
 import { useList, useResource, errMsg } from "@/lib/use-resource";
 import { num, dateTimeFmt } from "@/lib/format";
 import * as api from "@/lib/operations-api";
+import { useMilestoneOwners } from "@/lib/milestone-owners";
+import { MilestoneOwnersDialog } from "@/features/masterdata/milestone-owners-dialog";
 import { MilestoneChain } from "./milestone-chain";
 import { MilestoneAttribution } from "./milestone-attribution";
 import { QTickets } from "./q-tickets";
@@ -53,6 +55,9 @@ const TAB_ITEMS: TabItem[] = [
 /** One stage row, rendered with a plain-English gloss per field — the part
  *  that turns the register from an id list into something readable. */
 function StageRows({ stages }: { stages: api.MilestoneStage[] }) {
+  // The tenant's owner registry (14400), so this register reads the party's name
+  // and not the stored code.
+  const owners = useMilestoneOwners();
   if (!stages.length) {
     return <p className="px-3 py-2 micro">No stages on this template.</p>;
   }
@@ -91,7 +96,7 @@ function StageRows({ stages }: { stages: api.MilestoneStage[] }) {
                 {s.weight != null ? `${s.weight}%` : "—"}
               </td>
               <td className="px-3 py-1.5">
-                {s.owner_tier ? api.OWNER_TIER_LABEL[s.owner_tier] : "—"}
+                {owners.label(s.owner_tier)}
               </td>
               <td className="px-3 py-1.5">
                 <span className="flex flex-wrap gap-1">
@@ -583,6 +588,15 @@ function TemplatesPanel() {
 export function MilestonesPage() {
   const [dossierId, setDossierId] = React.useState("");
   /**
+   * The registry behind every stage's owner (14400).
+   *
+   * The owner asked for this in the template editor (meeting 7, 01:57:20) and it
+   * is there too — this is the permanent entry point, on the screen the registry
+   * belongs to, for the person who is not mid-edit. The same dialog either way;
+   * one place to change it.
+   */
+  const [ownersOpen, setOwnersOpen] = React.useState(false);
+  /**
    * WHY TEMPLATES IS A TAB RATHER THAN THE FOURTH BLOCK DOWN.
    *
    * The register used to sit under the chain, the client queries and the delay
@@ -615,6 +629,15 @@ export function MilestonesPage() {
         eyebrow={<HubCrumb area="Operations" to="/operations" />}
         title={tr("Milestones")}
         description="Track a file's milestone chain; read the templates that seed them."
+        action={
+          <Button variant="outline" onClick={() => setOwnersOpen(true)}>
+            Milestone owners
+          </Button>
+        }
+      />
+      <MilestoneOwnersDialog
+        open={ownersOpen}
+        onClose={() => setOwnersOpen(false)}
       />
       <HubTabs />
 

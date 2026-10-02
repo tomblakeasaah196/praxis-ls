@@ -10,6 +10,8 @@ const MODULE = "MOD-07";
 const router = express.Router();
 router.use(authMiddleware);
 router.get("/", requirePermission(MODULE, "view"), controller.list);
+// Before `/:id`, or "unmapped" is read as a jurisdiction id.
+router.get("/unmapped", requirePermission(MODULE, "view"), controller.unmapped);
 router.get("/:id", requirePermission(MODULE, "view"), controller.get);
 router.get("/:id/codes", requirePermission(MODULE, "view"), controller.listCodes);
 router.get("/:id/effective", requirePermission(MODULE, "view"), controller.effective);

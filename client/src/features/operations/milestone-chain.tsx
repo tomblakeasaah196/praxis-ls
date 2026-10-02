@@ -34,6 +34,7 @@ import { SkeletonTable } from "@/components/ui/skeleton";
 import { errMsg, useResource } from "@/lib/use-resource";
 import { dateFmt } from "@/lib/format";
 import * as api from "@/lib/operations-api";
+import { useMilestoneOwners } from "@/lib/milestone-owners";
 
 /** Whole days between two ISO dates — how a user reads a slip. */
 function dayGap(a?: string | null, b?: string | null) {
@@ -191,6 +192,7 @@ function InsertDialog({
   const [code, setCode] = React.useState("");
   const [label, setLabel] = React.useState("");
   const [owner, setOwner] = React.useState<api.OwnerTier>("INTERNAL");
+  const owners = useMilestoneOwners();
   const [hours, setHours] = React.useState("8");
   const [visible, setVisible] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -258,9 +260,12 @@ function InsertDialog({
             value={owner}
             onChange={(e) => setOwner(e.target.value as api.OwnerTier)}
           >
-            {api.OWNER_TIERS.map((t) => (
-              <option key={t} value={t}>
-                {api.OWNER_TIER_LABEL[t]}
+            {/* The tenant's registry (14400), not a hardcoded five — meeting 7,
+                01:57:20. An ad-hoc stage inserted into a live chain picks from the
+                same list the template editor does. */}
+            {owners.optionsWith(owner).map((o) => (
+              <option key={o.code} value={o.code}>
+                {o.label}
               </option>
             ))}
           </Select>
@@ -313,6 +318,8 @@ export function MilestoneChain({
     React.useState<api.MilestoneInstance | null>(null);
 
   const rows = React.useMemo(() => chain.data || [], [chain.data]);
+  // The owner registry, for every label this chain renders (14400).
+  const owners = useMilestoneOwners();
 
   async function advance(m: api.MilestoneInstance) {
     const to = api.nextMilestoneStatus(m.status);
@@ -422,12 +429,12 @@ export function MilestoneChain({
                     ) : null}
                   </div>
                   <span className="micro">
-                    {m.owner_tier ? api.OWNER_TIER_LABEL[m.owner_tier] : "—"}
+                    {owners.label(m.owner_tier)}
                     {m.status === "DONE" &&
                     m.attributed_to &&
                     m.variance_hours != null &&
                     m.variance_hours > 0
-                      ? ` · ${Math.round(m.variance_hours)}h late, charged to ${api.OWNER_TIER_LABEL[m.attributed_to]}`
+                      ? ` · ${Math.round(m.variance_hours)}h late, charged to ${owners.label(m.attributed_to)}`
                       : ""}
                     {m.reopen_reason ? ` · reopened: ${m.reopen_reason}` : ""}
                   </span>

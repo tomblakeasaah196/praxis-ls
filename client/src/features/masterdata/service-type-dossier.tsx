@@ -35,6 +35,8 @@ import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
 import { SectionTabs } from "@/components/ui/section-tabs";
 import { InlineEdit } from "@/components/ui/inline-edit";
+import { useToast } from "@/components/ui/toast";
+import { useMilestoneOwners } from "@/lib/milestone-owners";
 import { useResource } from "@/lib/use-resource";
 import { useUrlTab } from "@/lib/use-url-tab";
 import { useRowAction } from "@/lib/use-action";
@@ -331,16 +333,62 @@ function Header({
 
 /* ── Milestones tab ─────────────────────────────────────────────────────── */
 
+/**
+ * Weight totals per chain segment, the same invariant the editor gates publishing
+ * on (service-type-template-form.segmentTotals). Shown here READ-ONLY so an
+ * unbalanced published version — one that silently shortens every forecast on the
+ * service — is visible without opening the editor to find out.
+ */
+function segmentTotals(stages: api.ServiceTypeTemplateStage[]) {
+  const out = new Map<string, number>();
+  for (const s of stages) {
+    const seg = s.chain_segment || "MAIN";
+    out.set(seg, (out.get(seg) || 0) + (Number(s.weight) || 0));
+  }
+  return [...out.entries()];
+}
+const segmentOk = (seg: string, total: number) =>
+  seg === "STEADY" ? total === 0 : total === 100;
+
 function MilestonesTab({
+  svc,
   templates,
   onPublish,
   onEditPolicy,
+  onRenamed,
 }: {
+  svc: api.ServiceType;
   templates: api.ServiceTypeDossier["templates"];
   onPublish: () => void;
   onEditPolicy: () => void;
+  /** Re-read the dossier after a stage is renamed in place. */
+  onRenamed: () => void;
 }) {
   const navigate = useNavigate();
+  const owners = useMilestoneOwners();
+  const toast = useToast();
+  /**
+   * Correct a stage's wording on the ACTIVE version without republishing the
+   * chain (meeting 7, 01:35:55: "I think I have to make such a way that you can
+   * even edit the names directly like you pick a particular line and you edit
+   * it"). Labels only — a weight or an owner changes the schedule of files already
+   * open, which is what publishing a version exists to control, so those stay in
+   * the editor. The toast says how many open files the correction reached, because
+   * "did this fix the one on my screen?" is the next question.
+   */
+  const rename = async (
+    stageId: string,
+    body: { label_fr?: string; label_en?: string | null },
+  ) => {
+    const out = await api.renameMilestoneStage(stageId, body);
+    const n = out.open_instances_updated ?? 0;
+    toast.success(
+      n > 0
+        ? `Renamed, and updated ${n} open file${n === 1 ? "" : "s"}`
+        : "Renamed",
+    );
+    onRenamed();
+  };
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -376,54 +424,111 @@ function MilestonesTab({
           milestone chain.
         </div>
       ) : (
-        templates.map((t) => (
-          <div key={t.milestone_template_id} className="rounded-lg border">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium text-foreground">
-                  Version {t.version}
-                </span>
-                {t.is_active ? (
-                  <Pill tone="ok">{tr("Active")}</Pill>
-                ) : (
-                  <Pill tone="mute">Superseded</Pill>
-                )}
-                <span className="micro">
-                  {t.stages.length} stage{t.stages.length === 1 ? "" : "s"}
-                </span>
+        templates.map((t) => {
+          const totals = segmentTotals(t.stages);
+          const horizon = Number(svc.default_duration_days || 0);
+          return (
+            <div key={t.milestone_template_id} className="rounded-lg border">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-medium text-foreground">
+                    Version {t.version}
+                  </span>
+                  {t.is_active ? (
+                    <Pill tone="ok">{tr("Active")}</Pill>
+                  ) : (
+                    <Pill tone="mute">Superseded</Pill>
+                  )}
+                  <span className="micro">
+                    {t.stages.length} stage{t.stages.length === 1 ? "" : "s"}
+                  </span>
+                  {/* The one invariant a published chain can silently violate. */}
+                  {totals.map(([seg, total]) => (
+                    <Pill key={seg} tone={segmentOk(seg, total) ? "ok" : "bad"}>
+                      {seg === "MAIN" ? "" : `${seg} `}
+                      {total}
+                      {seg === "STEADY" ? " (cadence)" : " / 100"}
+                    </Pill>
+                  ))}
+                </div>
+                <span className="micro">Published {dateFmt(t.created_at)}</span>
               </div>
-              <span className="micro">Published {dateFmt(t.created_at)}</span>
+              {t.stages.length === 0 ? (
+                <div className="px-3 py-4 micro">No stages on this version.</div>
+              ) : (
+                <MiniTable
+                  empty={false}
+                  head={
+                    <>
+                      <Th>Seq</Th>
+                      <Th>{tr("Code")}</Th>
+                      <Th>{tr("Label (FR)")}</Th>
+                      <Th>Label (EN)</Th>
+                      {/* The two columns the meeting was actually about and this
+                          table did not show: what share of the file's time a stage
+                          gets, and who we are waiting on for it. */}
+                      <Th r>Weight</Th>
+                      <Th>{tr("Owner")}</Th>
+                      <Th r>Offset (days)</Th>
+                    </>
+                  }
+                >
+                  {t.stages.map((s) => (
+                    <tr key={s.stage_id}>
+                      <Td>{s.stage_seq}</Td>
+                      <Td>
+                        <span className="font-mono text-xs">{s.code}</span>
+                      </Td>
+                      {/* Editable in place on the ACTIVE version only: a
+                          superseded version's wording is history. */}
+                      <Td>
+                        {t.is_active && s.stage_id ? (
+                          <InlineEdit
+                            label={`${s.code} French label`}
+                            value={s.label_fr}
+                            required
+                            onSave={(next) =>
+                              rename(s.stage_id as string, { label_fr: next })
+                            }
+                          />
+                        ) : (
+                          s.label_fr
+                        )}
+                      </Td>
+                      <Td>
+                        {t.is_active && s.stage_id ? (
+                          <InlineEdit
+                            label={`${s.code} English label`}
+                            value={s.label_en || ""}
+                            placeholder="Add the English name"
+                            onSave={(next) =>
+                              rename(s.stage_id as string, {
+                                label_en: next.trim() || null,
+                              })
+                            }
+                          />
+                        ) : (
+                          s.label_en || "—"
+                        )}
+                      </Td>
+                      <Td r>
+                        {s.weight ?? 0}%
+                        {horizon > 0 && (s.weight ?? 0) > 0 && s.chain_segment !== "STEADY" ? (
+                          <span className="micro text-muted-foreground">
+                            {" "}
+                            ≈{Math.round(((horizon * (s.weight ?? 0)) / 100) * 10) / 10}
+                          </span>
+                        ) : null}
+                      </Td>
+                      <Td>{owners.label(s.owner_tier)}</Td>
+                      <Td r>{s.default_offset_days}</Td>
+                    </tr>
+                  ))}
+                </MiniTable>
+              )}
             </div>
-            {t.stages.length === 0 ? (
-              <div className="px-3 py-4 micro">No stages on this version.</div>
-            ) : (
-              <MiniTable
-                empty={false}
-                head={
-                  <>
-                    <Th>Seq</Th>
-                    <Th>{tr("Code")}</Th>
-                    <Th>{tr("Label (FR)")}</Th>
-                    <Th>Label (EN)</Th>
-                    <Th r>Offset (days)</Th>
-                  </>
-                }
-              >
-                {t.stages.map((s) => (
-                  <tr key={s.stage_id}>
-                    <Td>{s.stage_seq}</Td>
-                    <Td>
-                      <span className="font-mono text-xs">{s.code}</span>
-                    </Td>
-                    <Td>{s.label_fr}</Td>
-                    <Td>{s.label_en || "—"}</Td>
-                    <Td r>{s.default_offset_days}</Td>
-                  </tr>
-                ))}
-              </MiniTable>
-            )}
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );
@@ -1386,9 +1491,11 @@ export function ServiceTypeDossier({
       {tab === "Overview" && <OverviewTab d={d} onEditName={saveName} onSaveMode={saveMode} />}
       {tab === "Milestones" && (
         <MilestonesTab
+          svc={st}
           templates={d.templates}
           onPublish={onPublishTemplate}
           onEditPolicy={onEditPolicy}
+          onRenamed={reload}
         />
       )}
       {/* The chain says WHEN; the register says what those dates depend on.

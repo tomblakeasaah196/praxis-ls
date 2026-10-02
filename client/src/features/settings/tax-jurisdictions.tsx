@@ -19,6 +19,28 @@
  * Kinds are stored canonically (VAT/WHT/INCOME/PAYROLL/OTHER — the DB CHECK and
  * what determination reads) and shown with Cameroon labels; the specific
  * instrument (IS_MIN_REEL, PATENTE…) lives in the Code field, as the seed does.
+ *
+ * ── WHAT MEETING 7 (1 Oct 2026) CHANGED HERE ───────────────────────────────
+ *
+ * 1. EVERY LINE SHOWS WHERE IT POSTS, and says so when it does not (01:25:15,
+ *    live in front of the tenant: "I think there's a problem here, it doesn't
+ *    write the accounts it posts to, that means accounts to be debited and
+ *    credited … debit accounts none"). Nine of the twenty-one seeded codes had
+ *    one side NULL and three pointed at a non-postable HEADING, and nothing
+ *    anywhere said so: the two accounts were only visible inside the Amend
+ *    dialog, one code at a time. They are columns now, and a jurisdiction with a
+ *    gap opens with a banner naming every code — `tax_jurisdiction.get` ships
+ *    `unmapped_codes` with the jurisdiction so the gap cannot be one click away
+ *    from invisible again. Seed 90999 repaired the twelve; the API now refuses a
+ *    thirteenth (rules.assertPostingAccounts).
+ *
+ * 2. THE TAB IS "Autres taxes (Other taxes)" (01:29:29 → 01:34:18). The tenant
+ *    asked twice, and the decision recorded with it is the one about language:
+ *    the ACCOUNT labels stay French, because the plan comptable has no accurate
+ *    English ("it's very difficult for you to have accounts in English … they
+ *    have translations that are not very accurate"), but everything that is NOT
+ *    an account label — every family tab, every column, every field — carries
+ *    both, in the `French (English)` shape the TVA tab already used.
  */
 
 import { pageShell } from "@/lib/layout";
@@ -58,19 +80,28 @@ import {
 const KINDS = ["VAT", "WHT", "INCOME", "PAYROLL", "OTHER"] as const;
 type Kind = (typeof KINDS)[number];
 
+/**
+ * `French (English)` on every family, not just TVA.
+ *
+ * The owner's decision from meeting 7: the chart of accounts stays French because
+ * no accurate translation exists, but a FAMILY NAME is not an account — it is a
+ * tab, and a tab a tenant cannot read is a tab they do not open. OTHER is the one
+ * the tenant asked for by name, twice: "that put it other taxes. Yes. Put it other
+ * taxes."
+ */
 const KIND_LABEL: Record<Kind, string> = {
   VAT: "TVA (VAT)",
-  WHT: "Retenue à la source",
-  INCOME: "Impôt sociétés (IS)",
-  PAYROLL: "Paie & social",
-  OTHER: "Autre",
+  WHT: "Retenue à la source (Withholding)",
+  INCOME: "Impôt sociétés (Corporate tax)",
+  PAYROLL: "Paie & social (Payroll)",
+  OTHER: "Autres taxes (Other taxes)",
 };
 const KIND_HINT: Record<Kind, string> = {
-  VAT: "Taxe sur la valeur ajoutée — collectée sur les ventes, récupérable sur les achats.",
-  WHT: "Précompte / acompte / retenue à la source (SIT non-résident…).",
-  INCOME: "Impôt sur les sociétés et minimum de perception.",
-  PAYROLL: "CNPS, CFC, FNE, CAC, IRPP — retenues et charges sur salaires.",
-  OTHER: "Patente, droit de timbre, taxe foncière et autres.",
+  VAT: "Taxe sur la valeur ajoutée — collectée sur les ventes, récupérable sur les achats. (VAT: collected on sales, recoverable on purchases.)",
+  WHT: "Précompte / acompte / retenue à la source (SIT non-résident…). (Withholding at source, including the 15% on non-residents.)",
+  INCOME: "Impôt sur les sociétés et minimum de perception. (Corporate income tax and the minimum levy.)",
+  PAYROLL: "CNPS, CFC, FNE, CAC, IRPP — retenues et charges sur salaires. (Payroll withholdings and employer charges — these drive the payroll engine.)",
+  OTHER: "Patente, droit de timbre, taxe foncière et toute autre taxe à payer. (Business licence, stamp duty, property tax and any other tax due.)",
 };
 const RATE_REQUIRED: ReadonlySet<Kind> = new Set(["VAT", "WHT", "INCOME"]);
 
@@ -124,6 +155,72 @@ function rateLabel(c: Code | null): string {
   return parts.join(" · ") || "—";
 }
 
+/**
+ * The row that says where a code posts, and whether that is usable.
+ *
+ * `postable` is the set the picker offers; without it (the list has not loaded)
+ * only presence is judged, which is still the common case — a NULL side.
+ */
+function postingState(c: Code | null, postable?: Set<string> | null) {
+  const debit = c?.posts_debit_account ? String(c.posts_debit_account) : null;
+  const credit = c?.posts_credit_account ? String(c.posts_credit_account) : null;
+  const missing = !debit || !credit;
+  const notPostable = !missing && !!postable
+    && (!postable.has(debit as string) || !postable.has(credit as string));
+  return { debit, credit, missing, notPostable, ok: !missing && !notPostable };
+}
+
+/**
+ * "4111 → 4432", or the gap, named.
+ *
+ * `reason` is the SERVER's verdict (`tax_jurisdiction.repo.unmappedCodes`), not a
+ * second opinion computed here. `NOT_POSTABLE` is the half that matters: a code
+ * holding `62 → 447` looks mapped to any check this component could do on its
+ * own, and only the chart of accounts knows those are headings. Deriving it here
+ * would mean fetching the account list onto a read-only screen to answer a
+ * question the response already answered.
+ */
+function PostingCell({
+  c,
+  reason,
+}: {
+  c: Code | null;
+  reason?: "MISSING" | "NOT_POSTABLE";
+}) {
+  const { debit, credit } = postingState(c);
+  if (!reason)
+    return (
+      <span className="num text-sm">
+        {debit} <span className="text-muted-foreground">→</span> {credit}
+      </span>
+    );
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      <span className="num text-sm">{debit ?? "—"}</span>
+      <span className="text-muted-foreground">→</span>
+      <span className="num text-sm">{credit ?? "—"}</span>
+      <Pill tone="bad">
+        {reason === "MISSING" ? "not mapped" : "not a postable account"}
+      </Pill>
+    </span>
+  );
+}
+
+/**
+ * A code whose posting is unusable, as `tax_jurisdiction.get` ships it.
+ * `reason` is the server's: MISSING (a side is NULL) or NOT_POSTABLE (a side
+ * names a heading rather than a postable leaf).
+ */
+type UnmappedCode = {
+  tax_code_id: string;
+  code: string;
+  kind: string;
+  reason: "MISSING" | "NOT_POSTABLE";
+  posts_debit_account: string | null;
+  posts_credit_account: string | null;
+};
+type UnmappedBy = Map<string, UnmappedCode["reason"]>;
+
 /** Postable GL accounts, loaded only while a form is open. */
 function usePostableAccounts(open: boolean): Option[] {
   const { data } = useResource(
@@ -133,21 +230,34 @@ function usePostableAccounts(open: boolean): Option[] {
   return data ?? [];
 }
 
+/**
+ * One side of the entry a tax code posts.
+ *
+ * `required` and the "— none —" option both stay: the option is what a person
+ * clicks to SEE that nothing is chosen, and `required` is what tells them it has
+ * to be. The server refuses a half-mapped code either way
+ * (rules.assertPostingAccounts), so this is the message arriving early rather
+ * than the only thing standing between a gap and the database.
+ */
 function AccountField({
   label,
   hint,
   value,
   onChange,
   accounts,
+  required,
+  error,
 }: {
   label: string;
   hint: string;
   value: string;
   onChange: (v: string) => void;
   accounts: Option[];
+  required?: boolean;
+  error?: string;
 }) {
   return (
-    <Field label={label} hint={hint}>
+    <Field label={label} hint={hint} required={required} error={error}>
       <Select value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">{tr("— none —")}</option>
         {accounts.map((a) => (
@@ -329,7 +439,11 @@ function CodeFormModal({
   const builtBrackets = buildBrackets(brackets);
   const hasRate = ratePercent !== "" && Number(ratePercent) >= 0;
   const rateSatisfied = !RATE_REQUIRED.has(kind) || hasRate || !!builtBrackets;
-  const canSubmit = !!code.trim() && !!effectiveFrom && rateSatisfied && !busy;
+  // Meeting 7, 01:25:15 — a code with one side blank posts nowhere, and the
+  // server now refuses it. Gating Save here means the person is told before they
+  // press it rather than by a 422 afterwards.
+  const mapped = !!debit && !!credit;
+  const canSubmit = !!code.trim() && !!effectiveFrom && rateSatisfied && mapped && !busy;
 
   async function submit() {
     setBusy(true);
@@ -444,18 +558,22 @@ function CodeFormModal({
             />
           </Field>
           <AccountField
-            label="Posts — debit account"
-            hint="COA code debited (e.g. input VAT 4452)"
+            label="Posts — debit account (compte débité)"
+            hint="Input VAT 4452 on a purchase; the client 4111 on a sale; net pay 422 for an employee withholding."
             value={debit}
             onChange={setDebit}
             accounts={accounts}
+            required
+            error={!debit ? "Required — both sides of the entry." : undefined}
           />
           <AccountField
-            label="Posts — credit account"
-            hint="COA code credited (e.g. output VAT 4432)"
+            label="Posts — credit account (compte crédité)"
+            hint="Output VAT 4432 on a sale; the supplier 4011 on a purchase; the State or CNPS account for a withholding."
             value={credit}
             onChange={setCredit}
             accounts={accounts}
+            required
+            error={!credit ? "Required — both sides of the entry." : undefined}
           />
           <Field label={tr("Effective from")} required>
             <DateField
@@ -503,6 +621,14 @@ function CodeFormModal({
             title="A rate or a scale is required"
           >{`${KIND_LABEL[kind]} codes need a Rate % or a progressive scale.`}</Callout>
         )}
+
+        {!mapped && (
+          <Callout tone="warn" title="Both accounts are required">
+            A tax code says which account it <strong>debits</strong> and which it{" "}
+            <strong>credits</strong>. A line mapped on one side only looks
+            configured and posts nowhere — the gap found in the 1 October review.
+          </Callout>
+        )}
         {error && <ErrorState message={error} />}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={busy}>
@@ -522,9 +648,12 @@ function CodeFormModal({
 function CodeGroupTable({
   groups,
   onAmend,
+  unmapped,
 }: {
   groups: [string, Code[]][];
   onAmend: (t: CodeTarget) => void;
+  /** The server's verdict per code — see PostingCell for why it is not derived. */
+  unmapped: UnmappedBy;
 }) {
   const [openKey, setOpenKey] = React.useState<string | null>(null);
   if (!groups.length)
@@ -541,6 +670,9 @@ function CodeGroupTable({
           <TH>{tr("Code")}</TH>
           <TH>{tr("Current rate")}</TH>
           <TH>{tr("Applies to")}</TH>
+          {/* Where it posts — the column whose absence let twelve half-mapped
+              codes reach a live tenant review (meeting 7, 01:25:15). */}
+          <TH>Posts (débit → crédit)</TH>
           <TH>Effective</TH>
           <TH>Legal ref</TH>
           <TH>{tr("Actions")}</TH>
@@ -560,6 +692,9 @@ function CodeGroupTable({
                 <TD className="text-sm">{rateLabel(cur)}</TD>
                 <TD className="text-sm">
                   {cur?.applies_to ? String(cur.applies_to) : "—"}
+                </TD>
+                <TD>
+                  <PostingCell c={cur} reason={unmapped.get(key)} />
                 </TD>
                 <TD className="text-sm">
                   {dateFmt(cur?.effective_from)} →{" "}
@@ -593,7 +728,7 @@ function CodeGroupTable({
               </TR>
               {isOpen && (
                 <TR>
-                  <TD colSpan={6}>
+                  <TD colSpan={7}>
                     <div className="rounded-lg border bg-muted/20 p-3">
                       <span className="mb-2 block text-xs font-medium text-muted-foreground">
                         Version history
@@ -710,13 +845,15 @@ function TaxCodesDrill({
   );
 }
 
+type JurisdictionDossierData = Record<string, unknown> & {
+  tax_codes?: Code[];
+  unmapped_codes?: UnmappedCode[];
+};
+
 function JurisdictionDossier({ id }: { id: string }) {
   const reloadList = useRefresh();
-  const d = useResource<Record<string, unknown> & { tax_codes?: Code[] }>(
-    () =>
-      tenant<Record<string, unknown> & { tax_codes?: Code[] }>(
-        `/tax-jurisdictions/${id}`,
-      ),
+  const d = useResource<JurisdictionDossierData>(
+    () => tenant<JurisdictionDossierData>(`/tax-jurisdictions/${id}`),
     [id],
   );
   const [tab, setTab] = React.useState<DossierTab>("Overview");
@@ -760,6 +897,10 @@ function JurisdictionDossier({ id }: { id: string }) {
       ([, vs]) => String(currentVersion(vs)?.kind ?? vs[0]?.kind) === k,
     );
 
+  const unmapped = Array.isArray(j.unmapped_codes) ? j.unmapped_codes : [];
+  // Keyed by code so a row can flag its own gap with the same verdict the banner
+  // reports — one source, so the two can never say different things.
+  const unmappedBy: UnmappedBy = new Map(unmapped.map((u) => [u.code, u.reason]));
   const active = j.is_active !== false;
   const currency = String(j.currency ?? "XAF");
   const countByKind = (k: Kind) => groupsByKind(k).length;
@@ -804,6 +945,41 @@ function JurisdictionDossier({ id }: { id: string }) {
       </div>
 
       {rowError && <ErrorState message={rowError} />}
+
+      {/* ── The gap, named, at the top ──────────────────────────────────────
+          Meeting 7, 01:25:15. Twelve of twenty-one seeded codes were mapped on
+          one side only or pointed at a non-postable heading, and the only place
+          that was visible was inside the Amend dialog, one code at a time. It is
+          here now, and it opens with the jurisdiction. */}
+      {unmapped.length > 0 && (
+        <Callout
+          tone="bad"
+          title={
+            unmapped.length === 1
+              ? "1 tax code is not fully mapped"
+              : `${unmapped.length} tax codes are not fully mapped`
+          }
+        >
+          A code must name the account it <strong>debits</strong> and the account
+          it <strong>credits</strong>, and both must be postable leaves of the
+          chart of accounts. Open the code&apos;s family below and use{" "}
+          <span className="font-medium text-foreground">Amend rate</span> to fill
+          it in.
+          <ul className="mt-2 space-y-0.5">
+            {unmapped.map((u) => (
+              <li key={u.tax_code_id} className="num text-sm">
+                {u.code}
+                <span className="text-muted-foreground">
+                  {" — "}
+                  {u.reason === "MISSING"
+                    ? `${u.posts_debit_account ? "credit" : u.posts_credit_account ? "debit" : "both"} account missing`
+                    : "points at a heading, not a postable account"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Callout>
+      )}
 
       {codes.length === 0 && (
         <Callout tone="warn" title="No tax codes yet">
@@ -897,6 +1073,7 @@ function JurisdictionDossier({ id }: { id: string }) {
                   <TH>Family</TH>
                   <TH>{tr("Current rate")}</TH>
                   <TH>{tr("Applies to")}</TH>
+                  <TH>Posts (débit → crédit)</TH>
                   <TH>{tr("Effective from")}</TH>
                 </TR>
               </THead>
@@ -913,6 +1090,9 @@ function JurisdictionDossier({ id }: { id: string }) {
                       <TD className="text-sm">{rateLabel(cur)}</TD>
                       <TD className="text-sm">
                         {cur?.applies_to ? String(cur.applies_to) : "—"}
+                      </TD>
+                      <TD>
+                        <PostingCell c={cur} reason={unmappedBy.get(key)} />
                       </TD>
                       <TD className="text-sm">
                         {dateFmt(cur?.effective_from)}
@@ -932,6 +1112,7 @@ function JurisdictionDossier({ id }: { id: string }) {
           <CodeGroupTable
             groups={groupsByKind(tab as Kind)}
             onAmend={(t) => setAmendTarget(t)}
+            unmapped={unmappedBy}
           />
         </div>
       )}
