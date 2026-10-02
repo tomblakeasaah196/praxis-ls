@@ -57,6 +57,10 @@ import {
   type IntakeKpiKind,
   type LeadKpiKind,
 } from "./sales-kpi-drill";
+import {
+  VaultPreviewDialog,
+  type VaultPreviewDocument,
+} from "@/components/vault-preview-dialog";
 
 /* ── Types (mirrors src/modules/sales/sales-360.service.js) ────────────────── */
 
@@ -1058,6 +1062,8 @@ export function IntakeDossier({
   const [converting, setConverting] = React.useState(false);
   // Which tile's rows are open, if any (./sales-kpi-drill).
   const [drill, setDrill] = React.useState<IntakeKpiKind | null>(null);
+  // The attachment currently open in the vault preview dialog, if any.
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
   const res = useResource<IntakeDossierData>(
     () => tenant<IntakeDossierData>(`/quote-requests/${quoteRequestId}/360`),
     [quoteRequestId],
@@ -1212,6 +1218,7 @@ export function IntakeDossier({
       {drill && (
         <IntakeKpiDrill kind={drill} data={d} onClose={() => setDrill(null)} />
       )}
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
 
       {/* One row on a phone — see `section-tabs.tsx`. */}
       <SectionTabs
@@ -1310,17 +1317,51 @@ export function IntakeDossier({
             </>
           }
         >
-          {(d.attachments || []).map((a) => (
-            <tr key={a.quote_request_attachment_id}>
-              <Td>{cell(a.original_name)}</Td>
-              <Td>
-                <Pill tone={a.kind === "PRIMARY" ? "blue" : "mute"}>{a.kind === "PRIMARY" ? tr("Primary") : tr("Additional")}</Pill>
-              </Td>
-              <Td>{a.document_kind ? documentKindLabel(a.document_kind) : cell(a.doc_type)}</Td>
-              <Td>{cell(a.uploaded_by_name)}</Td>
-              <Td>{dateFmt(a.created_at)}</Td>
-            </tr>
-          ))}
+          {(d.attachments || []).map((a) => {
+            const canOpen = Boolean(a.vault_id);
+            const openPreview = canOpen
+              ? () =>
+                  setPreview({
+                    doc_id: a.vault_id,
+                    title: a.original_name || tr("Attachment"),
+                    filename: a.original_name,
+                  })
+              : undefined;
+            return (
+              <tr
+                key={a.quote_request_attachment_id}
+                className={
+                  canOpen
+                    ? "cursor-pointer transition-colors hover:bg-muted/60 focus-within:bg-muted/60"
+                    : undefined
+                }
+                onClick={openPreview}
+              >
+                <Td>
+                  {canOpen ? (
+                    <button
+                      type="button"
+                      className="text-left text-primary-ink underline underline-offset-2 hover:opacity-80 focus-visible:outline-none"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openPreview?.();
+                      }}
+                    >
+                      {cell(a.original_name)}
+                    </button>
+                  ) : (
+                    cell(a.original_name)
+                  )}
+                </Td>
+                <Td>
+                  <Pill tone={a.kind === "PRIMARY" ? "blue" : "mute"}>{a.kind === "PRIMARY" ? tr("Primary") : tr("Additional")}</Pill>
+                </Td>
+                <Td>{a.document_kind ? documentKindLabel(a.document_kind) : cell(a.doc_type)}</Td>
+                <Td>{cell(a.uploaded_by_name)}</Td>
+                <Td>{dateFmt(a.created_at)}</Td>
+              </tr>
+            );
+          })}
         </MiniTable>
       )}
 

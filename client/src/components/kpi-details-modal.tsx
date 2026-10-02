@@ -68,7 +68,11 @@ const Td = ({ children, r }: { children?: React.ReactNode; r?: boolean }) => (
  */
 export type KpiDetailRow = {
   id: string;
+  /** Where the row goes when clicked. Mutually exclusive with `onSelect`. */
   href?: string;
+  /** In-place action — opens a dialog, etc. Preferred over `href` when the row
+   *  has no page of its own (e.g. an attachment that opens a preview). */
+  onSelect?: () => void;
   cells: React.ReactNode[];
 };
 export type KpiDetailHeader = { label: string; right?: boolean };
@@ -140,10 +144,14 @@ export function KpiDetailsModal({
   const start = page * pageSize;
   const pageRows = paging ? rows : rows.slice(start, start + pageSize);
 
-  function open_(href?: string) {
-    if (!href) return;
+  function open_(row: KpiDetailRow) {
+    if (row.onSelect) {
+      row.onSelect();
+      return;
+    }
+    if (!row.href) return;
     onClose();
-    navigate(href);
+    navigate(row.href);
   }
 
   // Below `md` a row is a CARD, not a table row. The table is five or six
@@ -179,7 +187,7 @@ export function KpiDetailsModal({
                 <ul className="divide-y divide-border overflow-hidden rounded-lg border">
                   {pageRows.map((r) => (
                     <li key={r.id}>
-                      <KpiDetailCard row={r} headers={headers} onOpen={open_} />
+                      <KpiDetailCard row={r} headers={headers} onOpen={() => open_(r)} />
                     </li>
                   ))}
                 </ul>
@@ -206,21 +214,21 @@ export function KpiDetailsModal({
                         <tr
                           key={r.id}
                           className={
-                            r.href
+                            r.href || r.onSelect
                               ? "cursor-pointer transition-colors hover:bg-muted/60 focus-within:bg-muted/60"
                               : "transition-colors"
                           }
-                          onClick={() => open_(r.href)}
+                          onClick={() => open_(r)}
                         >
                           {r.cells.map((c, i) => (
                             <Td key={i} r={headers[i]?.right}>
-                              {i === 0 && r.href ? (
+                              {i === 0 && (r.href || r.onSelect) ? (
                                 <button
                                   type="button"
                                   className="text-left text-primary-ink underline underline-offset-2 hover:opacity-80 focus-visible:outline-none"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    open_(r.href);
+                                    open_(r);
                                   }}
                                 >
                                   {c}
@@ -276,7 +284,10 @@ export function KpiDetailsModal({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => open_(viewAll.href)}
+            onClick={() => {
+              onClose();
+              navigate(viewAll.href);
+            }}
           >
             {viewAll.label}
           </Button>
@@ -299,7 +310,7 @@ function KpiDetailCard({
 }: {
   row: KpiDetailRow;
   headers: KpiDetailHeader[];
-  onOpen: (href?: string) => void;
+  onOpen: () => void;
 }) {
   const [first, ...cells] = row.cells;
   // Pairs with their header, then drop the empty ones: in a table a blank cell
@@ -314,7 +325,7 @@ function KpiDetailCard({
     <>
       <span
         className={
-          row.href
+          row.href || row.onSelect
             ? "block font-medium text-primary-ink"
             : "block font-medium text-foreground"
         }
@@ -341,11 +352,11 @@ function KpiDetailCard({
       )}
     </>
   );
-  if (!row.href) return <div className="px-3 py-2.5">{body}</div>;
+  if (!row.href && !row.onSelect) return <div className="px-3 py-2.5">{body}</div>;
   return (
     <button
       type="button"
-      onClick={() => onOpen(row.href)}
+      onClick={onOpen}
       className="block w-full px-3 py-2.5 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
     >
       {body}
