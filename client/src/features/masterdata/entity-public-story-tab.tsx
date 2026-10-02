@@ -50,6 +50,7 @@ import * as site from "@/lib/site-settings-api";
 import type { Entity } from "@/lib/masterdata-api";
 import { CountrySelect } from "@/components/country-select";
 import { coverage as coverageRule } from "@shared";
+import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 
 /** One fact the system already holds. Read-only by design — see the header. */
 /** A coverage row as edited on screen: the API shape plus a local React key. */
@@ -107,6 +108,7 @@ export function EntityPublicStoryTab({
   );
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
   const [draft, setDraft] = React.useState<{
     public_summary_fr: string;
     public_summary_en: string;
@@ -543,6 +545,23 @@ export function EntityPublicStoryTab({
                   : tr(
                       "No file was stored. The cover shown above is unchanged. Try again.",
                     )}
+                {d.cover_attachment.vault_doc_id && (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      className="text-primary-ink underline"
+                      onClick={() =>
+                        setPreview({
+                          doc_id: d.cover_attachment!.vault_doc_id!,
+                          title: tr("Cover image (not published)"),
+                        })
+                      }
+                    >
+                      {tr("Open the stored file")}
+                    </button>
+                  </>
+                )}
               </>
             ) : (
               tr(
@@ -564,6 +583,7 @@ export function EntityPublicStoryTab({
           />
         </div>
       </section>
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }

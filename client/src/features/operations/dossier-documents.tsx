@@ -30,6 +30,7 @@ import { Pill } from "@/components/ui/pill";
 import { ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { useResource, errMsg } from "@/lib/use-resource";
+import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 import {
   listDictRefs,
   createDictRef,
@@ -91,6 +92,7 @@ export function DossierDocuments({
   const file = item?.prepared ?? item?.file ?? null;
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
   // Adding a type inline, without leaving a half-filled file for Settings.
   const [newType, setNewType] = React.useState<{
     code: string;
@@ -263,13 +265,21 @@ export function DossierDocuments({
               className="flex items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-sm"
             >
               <Pill tone="ok">{d.type}</Pill>
-              <span className="min-w-0 flex-1 truncate text-foreground">
+              <button
+                type="button"
+                className="min-w-0 flex-1 truncate text-left text-foreground hover:text-primary-ink hover:underline"
+                onClick={() =>
+                  setPreview({ doc_id: d.doc_id, title: d.name, filename: d.name })
+                }
+              >
                 {d.name}
-              </span>
+              </button>
             </li>
           ))}
         </ul>
       )}
+
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }
