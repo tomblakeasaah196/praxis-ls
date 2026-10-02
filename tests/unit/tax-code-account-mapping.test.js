@@ -9,10 +9,23 @@
  * to, that means accounts to be debited and credited … debit accounts none … So
  * I'll ensure that every account is actually mapped to their account."
  *
- * Twelve of the twenty-one codes 9010 seeds were defective — nine with one side
- * NULL, three pointing at a non-postable HEADING (`62`, `447`, `521`), which is
- * worse because it looks mapped and the screen's own picker would not even offer
- * it. Seed 90999 repairs them.
+ * Twelve of the twenty-one codes 9010 originally seeded were defective — nine
+ * with one side NULL, three pointing at a non-postable HEADING (`62`, `447`,
+ * `521`), which is worse because it looks mapped and the screen's own picker
+ * would not even offer it. Seed 90999 repairs them.
+ *
+ * ── WHY THE COUNT IS NINE NOW, NOT TWELVE ──────────────────────────────────
+ *
+ * The three output-VAT codes (TVA_STD, TVA_STD_SALES, TVA_EXPORT) are now
+ * born-mapped in 9010 itself — their debit is 4111 in the VALUES, not filled in
+ * afterwards — so a fresh tenant needs no repair for them. That leaves NINE
+ * defective in what 9010 ships: two input-VAT credits, four payroll debits and
+ * the three heading-pointers. 90999 still repairs those, and still re-asserts
+ * the output-VAT debit for tenants provisioned before 9010 carried it (a no-op
+ * here, since the parsed VALUES already have it). Seed 9011 additionally
+ * backfills WHT_SERVICE_REEL/PUBLIC on tenants whose credit was later cleared by
+ * hand — those two are not in the shipped-gap set, because 9010 maps them on
+ * both sides (debit 4492 / credit 4111).
  *
  * ── WHY NO TEST CAUGHT IT, AND WHY THIS ONE IS STATIC ──────────────────────
  *
@@ -129,8 +142,14 @@ describe("seeded tax codes post to both sides", () => {
       .filter(([, c]) => !c.debit || !c.credit || !postable.has(c.debit) || !postable.has(c.credit))
       .map(([code]) => code);
     // If this number MOVES, 9010 was edited. Either the gap was fixed at source
-    // (then shrink this and 90999's UPDATEs together) or a new one was added.
-    expect(defective.length).toBe(12);
+    // (then shrink this) or a new one was added. The three output-VAT codes were
+    // fixed at source (debit 4111 now in the VALUES), so nine remain: two
+    // input-VAT credits, four payroll debits, three heading-pointers.
+    expect(defective.length).toBe(9);
+    // The three born-mapped at source are no longer in the gap.
+    expect(defective).not.toContain("TVA_STD");
+    expect(defective).not.toContain("TVA_STD_SALES");
+    expect(defective).not.toContain("TVA_EXPORT");
   });
 
   it("leaves no code unmapped once 90999 has run", () => {

@@ -11,16 +11,21 @@ INSERT INTO tax_code
  (jurisdiction_id, code, kind, rate_percent, base_rule, applies_to, recoverable,
   posts_debit_account, posts_credit_account, brackets, effective_from, legal_reference)
 VALUES
+ -- Output VAT collected on a sale: the client owes the VAT with the fee, so the
+ -- other leg is 4111 Clients. Born-mapped here so a fresh tenant needs no repair;
+ -- seed 9011 / 90999 backfill the same 4111 on tenants provisioned before this.
  ('11111111-1111-1111-1111-111111111111','TVA_STD','VAT',19.2500,'service_ht','sales',NULL,
-    NULL,'4432',NULL,'2026-01-01','CGI TVA 17.5%+10% CAC'),
+    '4111','4432',NULL,'2026-01-01','CGI TVA 17.5%+10% CAC'),
  ('11111111-1111-1111-1111-111111111111','TVA_STD_SALES','VAT',19.2500,'sale_ht','sales',NULL,
-    NULL,'4431',NULL,'2026-01-01','CGI TVA'),
+    '4111','4431',NULL,'2026-01-01','CGI TVA'),
  ('11111111-1111-1111-1111-111111111111','TVA_INPUT_PURCH','VAT',19.2500,'purchase_ht','purchases',true,
     '4452',NULL,NULL,'2026-01-01','CGI TVA récupérable'),
  ('11111111-1111-1111-1111-111111111111','TVA_INPUT_TRANSPORT','VAT',19.2500,'purchase_ht','purchases',true,
     '4453',NULL,NULL,'2026-01-01','CGI TVA récupérable transport'),
+ -- Zero-rated, so nothing actually posts; the 4111 debit is only there so the
+ -- rate card is a complete entry (rules.assertPostingAccounts) and reads cleanly.
  ('11111111-1111-1111-1111-111111111111','TVA_EXPORT','VAT',0.0000,'service_ht','sales',NULL,
-    NULL,'4432',NULL,'2026-01-01','CGI exports zero-rated'),
+    '4111','4432',NULL,'2026-01-01','CGI exports zero-rated'),
  ('11111111-1111-1111-1111-111111111111','IS_STD','INCOME',33.0000,'taxable_profit','income',NULL,
     '891','441',NULL,'2026-01-01','CGI IS 30%+10% CAC'),
  ('11111111-1111-1111-1111-111111111111','IS_MIN_REEL','INCOME',2.2000,'turnover','income',NULL,
