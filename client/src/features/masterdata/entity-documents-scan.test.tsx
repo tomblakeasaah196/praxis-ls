@@ -157,9 +157,12 @@ const openDocuments = async (documents: unknown[]) => {
 
 describe("Corporate entities · Documents — attaching a file", () => {
   it("offers a file input on a paper-only row, accepting a PDF or an image", async () => {
-    await openDocuments([PAPER_ONLY]);
+    const user = await openDocuments([PAPER_ONLY]);
 
-    const input = await screen.findByLabelText("Attach scan");
+    // The row shows an `Attach scan` button; it opens the shared upload engine
+    // in a modal, which is where the real file input sits.
+    await user.click(await screen.findByRole("button", { name: "Attach scan" }));
+    const input = await screen.findByLabelText("File");
     expect(input).toHaveAttribute("type", "file");
     // The formats the vault stores a scan as. Anything else is a different kind
     // of document and does not belong on a certificate row.
@@ -174,7 +177,11 @@ describe("Corporate entities · Documents — attaching a file", () => {
     expect(
       await screen.findByRole("button", { name: "View" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Replace")).toHaveAttribute("type", "file");
+    // Replace is now an icon button beside View that opens the same upload
+    // modal — the real file input lives inside, not inline in the row.
+    expect(
+      screen.getByRole("button", { name: "Replace" }),
+    ).toBeInTheDocument();
     // The pill follows `scan_status`, which the API advances by itself once
     // `vault_id` lands — no second control, and nothing left saying "Paper".
     const row = screen
