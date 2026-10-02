@@ -9,17 +9,19 @@
  * deliberate, since refusing to register a certificate you are holding because
  * it has not been scanned yet is how a register ends up incomplete.
  *
- * What was NOT deliberate is that the attaching half only existed on corporate
- * entities, hand-rolled inline, and the opening half only existed in the
- * document viewer. Clients and suppliers had a Scan column that could only ever
- * read PENDING, because nothing in the product could give a party document a
- * `vault_id` — the API accepted one the whole time (`_shared/nested.js` even
- * advances PENDING → SCANNED the moment it lands).
- *
  * The upload is two calls and always will be: the vault owns the bytes, hashes
  * them and audits them, and the document record only points at the result. This
  * component does the first call and hands back the id; the caller patches it
  * onto its own record, because only the caller knows what that record is.
+ *
+ * SHAPE OF THE CONTROL. Tom's redesign (2026-10): what sits in the table row is
+ * `[View] [⟳]` — View as a real button (it is a primary action, not a text
+ * link), Replace as an icon-only button beside it. Clicking Replace opens a
+ * Modal whose body is the full `<FileDrop>` — drag, browse, paste, preview,
+ * 0→100% percentage, "Upload complete". That is the SAME upload engine
+ * (`useUpload` + `uploadVaultFile`) every other site uses; the modal is a
+ * surface, not a second engine. Empty rows show one `Attach scan` button that
+ * opens the same modal, so the same affordance covers both states.
  */
 import * as React from "react";
 import * as api from "@/lib/masterdata-api";
@@ -29,26 +31,19 @@ import {
   scanFileProblem,
 } from "@/lib/vault-file";
 import { errMsg } from "@/lib/use-resource";
-import { FilePicker } from "@/components/ui/image-upload";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
+import { FileDrop, fileDropProps } from "@/components/ui/file-drop";
+import { EyeIcon, RefreshIcon, UploadIcon } from "@/components/ui/icons";
 import { MoreMenu } from "@/components/ui/more-menu";
 import { DropdownItem, DropdownSeparator } from "@/components/ui/dropdown-menu";
 import { useUpload } from "@/lib/use-upload";
+import { tr } from "@/lib/i18n";
 
-const linkCls =
-  "text-sm text-primary-ink underline underline-offset-2 hover:opacity-80 disabled:opacity-50";
-
-/**
- * The compact trigger's own look — the SAME control as the link above, wearing
- * the card's clothing.
- *
- * On a phone the row is a card, and the card's other control is the `⋯` menu
- * (`components/ui/more-menu.tsx`) — a bordered 36px square. An underlined orange
- * link beside it reads as two unrelated things and gives the primary action the
- * smaller target of the two. So both become bordered 36px controls and the
- * primary one keeps the brand colour in its text.
- */
-const compactBtnCls =
-  "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 text-micro font-semibold text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+/** 36px bordered icon button — matches the Button `sm` height so View and
+ *  Replace share one baseline in the row. */
+const iconBtnCls =
+  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border bg-background text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
 
 export function ScanAttachment({
   vaultId,
@@ -88,36 +83,27 @@ export function ScanAttachment({
   disabled?: boolean;
   labelWhenEmpty?: string;
   /**
-   * ONE control instead of two — the phone-card variant.
-   *
-   * On a desktop table row both halves earn their place side by side: "View"
-   * opens the scan, "Replace" swaps it, and the reader has the width for both.
-   * On a 390px card the same pair is two underlined links plus whatever the
-   * kebab holds, and the row has room for exactly one of them. Compact shows
-   * the one the row is FOR — View when there is a file to open, the picker when
-   * there is not — and leaves "Replace" to the card's action menu, which drives
-   * the same picker through `openRef`.
+   * Hides the Replace icon from the row and routes it through the card's `⋯`
+   * menu instead — the phone card has room for one primary control, not two.
    */
   compact?: boolean;
   /**
-   * Hands the caller a function that opens the engine's picker, so an ACTION
-   * MENU can offer "Replace file" without a second `<input type="file">` (which
-   * `praxis/no-raw-upload` forbids anyway) and without the input unmounting
-   * between the menu item and the pick. Already the pattern in the chat
-   * composer's attach menu.
+   * Hands the caller a function that opens the Replace modal, so a card's
+   * action menu can offer "Replace file" without a duplicate control in the
+   * row. Already the pattern in `ScanCardActions`.
    */
   openRef?: React.Ref<() => void>;
 }) {
-  const [busy, setBusy] = React.useState<"upload" | "open" | null>(null);
+  const [busy, setBusy] = React.useState<"open" | null>(null);
+  const [modalOpen, setModalOpen] = React.useState(false);
 
   /**
    * Through the engine, so this control compresses and previews like every
-   * other upload. It keeps its own inline shape — it lives in a table row, and
-   * a dropzone there would be absurd — which is what FilePicker's
-   * variant="inline" is for.
+   * other upload. `profile: "document"`: these are certificate and licence
+   * scans, so they are downscaled and re-encoded but never tonally corrected.
    *
-   * `profile: "document"`: these are certificate and licence scans, so they are
-   * downscaled and re-encoded but never tonally corrected.
+   * The modal closes itself once the server has answered — the row is already
+   * refreshed by that point (its `onAttached` is awaited).
    */
   const upload = useUpload<{ doc_id: string }>({
     profile: "document",
@@ -128,7 +114,10 @@ export function ScanAttachment({
         ctx,
       ),
     onAllComplete: async ([vaulted]) => {
-      if (vaulted) await onAttached(vaulted.doc_id);
+      if (vaulted) {
+        await onAttached(vaulted.doc_id);
+        setModalOpen(false);
+      }
     },
   });
 
@@ -140,15 +129,27 @@ export function ScanAttachment({
     if (item?.state === "error" && item.error) onError?.(item.error);
   }, [item?.state, item?.error, onError]);
 
-  function attach(file: File | null) {
-    if (!file) return;
+  const openModal = React.useCallback(() => {
+    if (disabled) return;
+    onError?.(null);
+    upload.reset();
+    setModalOpen(true);
+  }, [disabled, onError, upload]);
+
+  React.useImperativeHandle(openRef, () => openModal, [openModal]);
+
+  function pick(file: File | null) {
+    if (!file) {
+      upload.reset();
+      return;
+    }
     const problem = scanFileProblem(file);
     if (problem) return onError?.(problem);
     onError?.(null);
     void upload.pick([file]);
   }
 
-  async function open() {
+  async function openScan() {
     if (!vaultId) return;
     setBusy("open");
     try {
@@ -160,88 +161,89 @@ export function ScanAttachment({
     }
   }
 
-  const picker = (
-    <FilePicker
-      variant="inline"
-      accept={SCAN_ACCEPT}
-      openRef={openRef}
-      disabled={busy !== null || disabled || item?.state === "uploading"}
-      triggerClassName={compact ? compactBtnCls : undefined}
-      trigger={
-        item?.state === "compressing"
-          ? "Optimising…"
-          : item?.state === "uploading"
-            ? "Uploading…"
-            : vaultId
-              ? "Replace"
-              : labelWhenEmpty
-      }
-      onPick={(files) => attach(files?.[0] ?? null)}
-    />
-  );
-
-  const viewButton = (
-    <button
-      type="button"
-      className={compact ? compactBtnCls : linkCls}
-      disabled={busy !== null}
-      onClick={() => void open()}
-    >
-      {busy === "open" ? "Opening…" : "View"}
-    </button>
-  );
+  const replaceLabel = tr("Replace");
+  const attachLabel = tr(labelWhenEmpty);
+  const modalTitle = vaultId ? tr("Replace file") : attachLabel;
 
   return (
-    <span className={compact ? "inline-flex items-center gap-2" : "inline-flex items-center gap-3"}>
-      {vaultId && viewButton}
-      {/* Compact with a file already attached: the picker is present but
-          unlabelled — the card's `⋯` menu owns "Replace file" and calls in here
-          through `openRef`, the same way the chat composer's attach menu does.
-          It has to stay MOUNTED for that to work (a hidden `display:none` file
-          input still opens the dialog when a user gesture clicks it), which is
-          why this is a wrapper rather than a conditional. */}
-      {compact && vaultId ? <span className="hidden">{picker}</span> : picker}
-      {/* The preview the control never had. Small, because this sits inline in
-          a table row — but present, so attaching the wrong scan is visible at
-          the moment it happens rather than months later. */}
-      {item?.previewUrl && (
-        <img
-          src={item.previewUrl}
-          alt=""
-          className="h-6 w-6 rounded border object-cover"
-        />
-      )}
-      {item && (item.state === "uploading" || item.state === "compressing") && (
-        <span
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-          role="progressbar"
-          aria-label="Upload progress"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={item.percent}
+    <>
+      <span className="inline-flex items-center gap-2">
+        {vaultId ? (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<EyeIcon width={14} height={14} />}
+              onClick={() => void openScan()}
+              disabled={busy !== null}
+            >
+              {busy === "open" ? tr("Opening…") : tr("View")}
+            </Button>
+            {!compact && (
+              <button
+                type="button"
+                className={iconBtnCls}
+                aria-label={replaceLabel}
+                title={replaceLabel}
+                onClick={openModal}
+                disabled={disabled}
+              >
+                <RefreshIcon width={16} height={16} />
+              </button>
+            )}
+          </>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<UploadIcon width={14} height={14} />}
+            onClick={openModal}
+            disabled={disabled}
+          >
+            {attachLabel}
+          </Button>
+        )}
+      </span>
+      {modalOpen && (
+        <Modal
+          open
+          onClose={() => setModalOpen(false)}
+          title={modalTitle}
+          size="lg"
         >
-          <span className="num">{item.percent}%</span>
-        </span>
+          {/* The engine's own surface — dropzone, browse, paste, preview and
+              the 0→100% percentage — reused as-is, so the modal is a surface
+              and not a second engine. */}
+          {/* The modal's own `<h2>` already names the action — FileDrop's own
+              label would duplicate it. Keeping it unset leaves the input's
+              aria-label at the default "File", which the dialog's labelledby
+              link to the h2 already specialises. */}
+          <FileDrop
+            {...fileDropProps(item)}
+            onPick={pick}
+            accept={SCAN_ACCEPT}
+            hint={tr("PDF or a clear photo. 25 MB maximum.")}
+            disabled={
+              disabled ||
+              item?.state === "uploading" ||
+              item?.state === "compressing"
+            }
+          />
+        </Modal>
       )}
-      {item?.state === "success" && (
-        <span className="text-xs text-ok" role="status">
-          ✓
-        </span>
-      )}
-    </span>
+    </>
   );
 }
 
 /**
  * ScanCardActions — `<ScanAttachment compact>` plus the `⋯` menu, as one unit.
  *
- * This is the phone-card action cluster, and it exists because the two halves
- * are not independent: the menu's "Replace file" drives the attachment's picker
- * through a ref, and the attachment's visible control changes with the same
- * fact ("is there a file yet?") that decides whether "Replace" belongs in the
- * menu at all. Split across two call sites, that pairing is three things to
- * keep in step on every screen that grows a card row — which is how the four
- * hand-rolled variants of this control happened in the first place.
+ * This is the phone-card action cluster. The two halves are not independent: the
+ * menu's "Replace file" drives the attachment's modal through a ref, and the
+ * attachment's visible control changes with the same fact ("is there a file
+ * yet?") that decides whether "Replace" belongs in the menu at all. Split
+ * across two call sites, that pairing is three things to keep in step on every
+ * screen that grows a card row.
  *
  * The order is the one the app uses everywhere: the primary action visible, the
  * rest behind `⋯`. The FILE action leads the menu — it is the fact about this
@@ -283,7 +285,7 @@ export function ScanCardActions({
    *  action under a separator. */
   menuItems?: React.ReactNode;
 }) {
-  const pickRef = React.useRef<(() => void) | null>(null);
+  const openRef = React.useRef<(() => void) | null>(null);
 
   return (
     <>
@@ -296,11 +298,11 @@ export function ScanCardActions({
         onError={onError}
         disabled={disabled}
         labelWhenEmpty={labelWhenEmpty}
-        openRef={pickRef}
+        openRef={openRef}
       />
       <MoreMenu label={menuLabel} disabled={disabled}>
-        <DropdownItem onSelect={() => pickRef.current?.()}>
-          {vaultId ? "Replace file" : labelWhenEmpty}
+        <DropdownItem onSelect={() => openRef.current?.()}>
+          {vaultId ? tr("Replace file") : tr(labelWhenEmpty)}
         </DropdownItem>
         {menuItems && <DropdownSeparator />}
         {menuItems}

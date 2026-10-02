@@ -360,22 +360,32 @@ export function FilePicker({
     />
   );
 
+  // Icon-only, in the tenant's brand accent — the paste glyph is the control.
+  // The word "Paste a file" stays as the aria-label and the hover tooltip, so
+  // keyboard, AT and sighted-but-uncertain users still get a name for it; the
+  // armed hint ("Press Ctrl+V now") is announced via `aria-live` on the inline
+  // message strip below. Brand-accent via `text-primary`, which is a token —
+  // every white-labelled tenant gets their own colour, not literally orange.
   const pasteControl = onPaste ? (
     <>
       <button
         type="button"
         tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled || undefined}
+        aria-label={pasteArmed ? tr("Press Ctrl+V now") : pasteCopy.button}
+        title={pasteArmed ? tr("Press Ctrl+V now") : pasteCopy.button}
         onClick={() => {
           if (disabled) return;
           setPasteArmed(true);
           setMessage(null);
           pasteTargetRef.current?.focus();
         }}
-        className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-0.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
+        className={cn(
+          "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-primary transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60",
+          pasteArmed && "bg-accent",
+        )}
       >
-        <ClipboardIcon />
-        {pasteArmed ? tr("Press Ctrl+V now") : pasteCopy.idle}
+        <ClipboardIcon width={18} height={18} />
       </button>
       <span
         ref={pasteTargetRef}
@@ -386,6 +396,11 @@ export function FilePicker({
         contentEditable
         suppressContentEditableWarning
       />
+      {pasteArmed && (
+        <span className="micro text-muted-foreground" aria-live="polite">
+          {tr("Press Ctrl+V now")}
+        </span>
+      )}
     </>
   ) : null;
 
