@@ -54,8 +54,13 @@ const ANSWERS = Object.freeze({
 /**
  * The suffixes 9082 wrote, in either language, either dash, any case. The same
  * pattern as 14342's backfill.
+ *
+ * It starts AT the dash, with no leading `\s*`: an unanchored leading
+ * whitespace run made every position in a long run of spaces a fresh match
+ * attempt that rescanned the run — quadratic on a pasted label (CodeQL
+ * js/polynomial-redos). The space before the dash is left to baseLabel's trim.
  */
-const SUFFIX = /\s*[—–-]\s*(client account|own cost|deposit|pour compte client|charge propre|d[ée]p[ôo]t)\s*$/i;
+const SUFFIX = /[—–-]\s*(client account|own cost|deposit|pour compte client|charge propre|d[ée]p[ôo]t)\s*$/i;
 
 function modeOf(direction) {
   return MODE_BY_DIRECTION[String(direction || "").toUpperCase()] || null;
