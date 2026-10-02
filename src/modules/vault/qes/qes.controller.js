@@ -1,3 +1,4 @@
+// search:none — qualified-signature sessions are steps of a signature request, never opened on their own.
 "use strict";
 
 const service = require("./qes.service");

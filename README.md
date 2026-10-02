@@ -115,6 +115,7 @@ breaks one does not merge:
 | Every text-on-surface token pair clears WCAG AA | `npm run check:contrast` |
 | The frontend guide may not name a component that does not exist | `npm run check:docs` |
 | Motion budget | `npm run check:motion` |
+| **Search finds everything.** Every `<Route>`, hub section and `?tab=` tab is in `client/src/app/screen-registry.json` with an English and a French title; every module with records has a `<module>.search.js` provider or a `// search:none <reason>` | `npm run check:search` (root; in `npm run ci` and CI) |
 
 The dialog ban is the one most likely to surprise you, so to say it plainly: a
 native dialog is drawn by the **browser**, not by us. It renders as
@@ -122,6 +123,16 @@ native dialog is drawn by the **browser**, not by us. It renders as
 cannot be translated, and blocks the event loop while it is open. There is no
 version of this product where that is acceptable, which is why it is a lint
 error rather than a convention.
+
+**Search: every page, tab and record is findable** (meeting 6, owner decision
+G5). ⌘K finds every module, page, 360 tab and record, in English and French,
+through one synonym list (`packages/shared/schemas/search.js`) — and only what
+the person may open. Adding a screen means adding its registry entry
+(`npm run new:screen --prefix client` prints one); adding a tab bound with
+`useUrlTab` means a `tabs[]` entry; adding a module with records means a
+`<module>.search.js` provider next to it (`src/services/search/provider.js` has
+the contract) or a reasoned `// search:none` in its controller.
+`npm run check:search` fails the build otherwise.
 
 ## 7. Team & working agreement
 

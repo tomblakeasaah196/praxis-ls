@@ -1,3 +1,4 @@
+// search:none — FX rate providers are configuration on Currencies.
 "use strict";
 const service = require("./rate_provider.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

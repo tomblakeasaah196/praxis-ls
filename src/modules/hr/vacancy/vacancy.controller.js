@@ -1,3 +1,4 @@
+// search:none — vacancies are a short list on HR › Vacancies (scoped by organigramme), and the public ones are on the careers site.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

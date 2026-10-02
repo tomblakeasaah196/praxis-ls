@@ -1,3 +1,4 @@
+// search:none — leave balances and requests are rows of an employee, read on their 360 or in Leave.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

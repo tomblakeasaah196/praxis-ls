@@ -1,3 +1,4 @@
+// search:none — goods-received notes are opened from the purchase order they receive, which ⌘K finds by number.
 "use strict";
 const service = require("./goods_received.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

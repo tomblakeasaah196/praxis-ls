@@ -140,6 +140,36 @@ image write goes through, and callers must hash the master **it returns**, never
 the bytes they received — `document_signature` records `artifact_hash` from the
 vault row's `content_hash` and `document_verification` compares the two.
 
+## The fourth frontend rule: search finds everything
+
+**Every page, every tab and every record is findable by ⌘K — in English and
+French, and only by people who may open it. Register what you add.**
+
+Enforced by `scripts/check-search-registry.js` (`npm run check:search` from the
+repo ROOT; in `npm run ci` and CI). It fails on:
+
+- a `<Route>` in `client/src/app/app.tsx` with no entry in
+  `client/src/app/screen-registry.json` (`screens[]`, `hubs[]` or `redirects[]`);
+- a hub section in `areas.ts`, or a URL-addressable tab (any `useUrlTab` value),
+  with no entry — tabs go in `tabs[]` with the record types they belong to;
+- a module under `src/modules` with records (a controller and a repo) and
+  neither a `<module>.search.js` provider nor a `// search:none <reason>` in its
+  controller — the same shape as `// ai:none`, and the reason is required;
+- an entry pointing at a route, file or tab that no longer exists, or a page
+  without its `title_fr`.
+
+`npm run new:screen --prefix client` prints the registry entry with the rest of
+the scaffold. A provider is a few lines with `recordProvider` from
+`src/services/search/provider.js`: name the module whose `view` grant gates it,
+the folded columns it matches, and the URL a result opens (its 360, or the list
+with `?focus=<id>`). Words people use for a thing ("devis", "cotation") go in the
+ONE synonym list, `packages/shared/schemas/search.js`, never per page.
+
+**Why it is a gate.** A screen nobody registered is invisible three times over:
+⌘K cannot find it, the shell cannot permission-filter it (route-access treats an
+unregistered route as ungated) and the AI cannot cite it. None of those fail a
+test. The owner's words for what search must cover were "every single one".
+
 ## Before you write frontend code
 
 `doc/FRONTEND_GUIDE.md` is **the** frontend document — CI fails if it names a
@@ -162,11 +192,12 @@ npm run check:bundle    # chunk graph is acyclic — needs `npm run build` first
 npm test
 ```
 
-One more runs from the repo ROOT rather than `client/`, because it covers the
-backend and all three frontends at once:
+Two more run from the repo ROOT rather than `client/`, because they cover the
+backend and the frontends at once:
 
 ```
 npm run check:dates     # no month-first dates anywhere — see the rule above
+npm run check:search    # every route, hub section, tab and record module is findable
 ```
 
 `platform-console/` and `public-web/` each have their own `npm run lint`. All

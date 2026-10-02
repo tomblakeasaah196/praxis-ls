@@ -1,3 +1,4 @@
+// search:none — tenant settings are configuration, reached as Settings pages.
 "use strict";
 const service = require("./setting.service");
 const { asyncHandler } = require("../../../utils/errors");

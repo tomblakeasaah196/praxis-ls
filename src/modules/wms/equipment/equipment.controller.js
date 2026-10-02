@@ -1,3 +1,4 @@
+// search:none — warehouse equipment is a short list on Warehouse › Equipment.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

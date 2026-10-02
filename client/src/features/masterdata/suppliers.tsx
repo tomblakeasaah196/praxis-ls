@@ -18,6 +18,7 @@ import { usePrompt } from "@/components/ui/use-prompt";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { SplitPane } from "@/components/ui/split-pane";
 import { isDesktopNow } from "@/lib/use-media-query";
+import { useRecordParam, useTrailTitle } from "@/app/layout/nav-trail-context";
 import { PageHeader } from "@/components/data-list";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { SmartCountryPicker } from "@/components/smart-country-picker";
@@ -401,7 +402,6 @@ function SupplierForm({
 
 export function SuppliersPage() {
   const suppliers = useResource(() => api.listSuppliers(), []);
-  const [selId, setSelId] = React.useState<string | null>(null);
   const [q, setQ] = React.useState("");
   const [editing, setEditing] = React.useState<api.Supplier | "new" | null>(
     null,
@@ -409,15 +409,24 @@ export function SuppliersPage() {
   const [settings, setSettings] = React.useState(false);
 
   const rows = React.useMemo(() => suppliers.data || [], [suppliers.data]);
+  // The open supplier lives in the URL (`?focus=<id>`), as on Clients — so a
+  // ⌘K result, a drill-in or the back arrow can land on one (meeting 6, G5).
+  const {
+    record: selected,
+    id: selId,
+    open: select,
+    close,
+    preselect,
+  } = useRecordParam(rows, (s) => s.supplier_id);
   const filtered = q
     ? rows.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()))
     : rows;
-  const selected = rows.find((s) => s.supplier_id === selId) || null;
   // Opens the first supplier beside a desktop's detail pane — never on a
   // phone, where it is a full-screen sheet over the list (SplitPane onClose).
   React.useEffect(() => {
-    if (!selId && rows.length && isDesktopNow()) setSelId(rows[0].supplier_id);
-  }, [rows, selId]);
+    if (!selId && rows.length && isDesktopNow()) preselect(rows[0]);
+  }, [rows, selId, preselect]);
+  useTrailTitle(selected ? selected.name : null);
 
   return (
     <section className={shell}>
@@ -446,7 +455,7 @@ export function SuppliersPage() {
           max={480}
           activeKind={tr("Supplier")}
           active={!!selected}
-          onClose={() => setSelId(null)}
+          onClose={close}
           sheetTitle={selected?.name}
         >
           <div className="space-y-2">
@@ -468,7 +477,7 @@ export function SuppliersPage() {
                     <IndexRow
                       key={s.supplier_id}
                       selected={s.supplier_id === selId}
-                      onClick={() => setSelId(s.supplier_id)}
+                      onClick={() => select(s)}
                       className="items-center justify-between gap-2"
                     >
                       <span className="truncate font-medium">{s.name}</span>

@@ -1,3 +1,4 @@
+// search:none — treasury categories are a short configuration list on Treasury.
 "use strict";
 const service = require("./treasury_category.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

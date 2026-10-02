@@ -1,3 +1,4 @@
+// search:none — intake items become leads or quote requests, which ⌘K finds; the intake is a queue, not a register.
 "use strict";
 const service = require("./inbound_intake.service");
 const rules = require("./inbound_intake.rules");

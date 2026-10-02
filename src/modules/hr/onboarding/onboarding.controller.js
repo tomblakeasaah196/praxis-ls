@@ -1,3 +1,4 @@
+// search:none — onboarding steps belong to a new hire, read on the employee.
 "use strict";
 const { asyncHandler, AppError } = require("../../../utils/errors");
 const service = require("./onboarding.service");

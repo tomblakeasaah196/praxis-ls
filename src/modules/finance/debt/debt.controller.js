@@ -1,3 +1,4 @@
+// search:none — financing lines are a handful per entity, read on Finance › Financing.
 "use strict";
 const service = require("./debt.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");
