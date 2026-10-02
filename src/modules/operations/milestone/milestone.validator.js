@@ -2,7 +2,17 @@
 const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
-const OWNER_TIER = z.enum(["INTERNAL", "CARRIER", "TERMINAL", "AUTHORITY", "CLIENT"]);
+/**
+ * A stage owner is a CODE in the `milestone_owner` registry (14400), not a fixed
+ * enum — meeting 7, 01:57:20: "we should have the possibility of adding".
+ *
+ * This checks the SHAPE only. Whether the code exists and is active is checked
+ * against the registry in milestone.service (`assertOwnersExist`), because the
+ * answer lives in the tenant's database and a zod schema cannot reach it. 14400's
+ * header says why there is no FK either (the 13791 rule), which makes those two
+ * checks the whole of the enforcement — do not remove one without the other.
+ */
+const OWNER_CODE = z.string().regex(/^[A-Z][A-Z0-9_]{1,31}$/, "an owner code is uppercase letters, digits and underscores");
 const CADENCE = z.enum(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "ANNUAL"]);
 
 const stage = z.object({
@@ -16,7 +26,7 @@ const stage = z.object({
   // stops a locked SLA from generating a physically impossible schedule.
   weight: z.number().int().min(0).max(100).optional(),
   min_duration_hours: z.number().int().min(0).max(2000).optional(),
-  owner_tier: OWNER_TIER.optional(),
+  owner_tier: OWNER_CODE.optional(),
   is_anchor: z.boolean().optional(),
   is_target_lock: z.boolean().optional(),
   is_client_visible: z.boolean().optional(),
@@ -68,9 +78,31 @@ const addStage = z.object({
   label_en: z.string().max(200).optional(),
   weight: z.number().int().min(0).max(100).optional(),
   min_duration_hours: z.number().int().min(0).max(2000).optional(),
-  owner_tier: OWNER_TIER.optional(),
+  owner_tier: OWNER_CODE.optional(),
   is_client_visible: z.boolean().optional(),
 });
+
+/**
+ * Correct a stage's wording on the version that is LIVE, without publishing a new
+ * one (meeting 7, 01:35:55: "I think I have to make such a way that you can even
+ * edit the names directly like you pick a particular line and you edit it").
+ *
+ * LABELS ONLY, and that is the whole safety argument. A weight, an owner or the
+ * stage list changes the SCHEDULE, and a file in flight was stamped with the
+ * stages it opened under — moving those under it is what publishing a version
+ * exists to avoid. Wording carries no schedule, so a typo can be fixed in place
+ * and propagated to open files, which is what the person correcting it expects.
+ *
+ * At least one of the two is required: a call that sets neither is a no-op that
+ * would still write an audit row.
+ */
+const renameStage = z.object({
+  label_fr: z.string().min(1).max(200).optional(),
+  label_en: z.string().max(200).nullable().optional(),
+}).strict().refine(
+  (v) => v.label_fr !== undefined || v.label_en !== undefined,
+  "give a French label, an English label, or both",
+);
 
 /**
  * The published assumptions register. `text_fr` is required and `text_en`
@@ -97,7 +129,7 @@ const publicDetails = z.object({
 
 // AI-facing: the stage instance is in the URL for HTTP, in the payload for the copilot.
 const aiAdvance = advance.extend({ milestone_instance_id: z.string().uuid() });
-const schemas = { publishTemplate, instantiate, advance, aiAdvance, reopen, addStage, recalculate, saveAssumptions, publicDetails };
+const schemas = { publishTemplate, instantiate, advance, aiAdvance, reopen, addStage, renameStage, recalculate, saveAssumptions, publicDetails };
 const mw = (k) => (req, _res, next) => { const p = schemas[k].safeParse(req.body); if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors)); req.body = p.data; return next(); };
 module.exports = {
   publishTemplate: mw("publishTemplate"),
@@ -105,6 +137,7 @@ module.exports = {
   advance: mw("advance"),
   reopen: mw("reopen"),
   addStage: mw("addStage"),
+  renameStage: mw("renameStage"),
   recalculate: mw("recalculate"),
   saveAssumptions: mw("saveAssumptions"),
   publicDetails: mw("publicDetails"),

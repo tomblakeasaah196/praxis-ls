@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1870 |
-| Modules mounted | 142 |
+| Routes | 1878 |
+| Modules mounted | 143 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1870 mounted routes, grouped by path prefix.
+All 1878 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1366,6 +1366,16 @@ All 1870 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/meetings/discovery/prompts` | — |
 | PATCH | `/api/tenant/meetings/discovery/prompts/:promptId` | — |
 
+### `tenant/milestone-owners`
+
+| Method | Path | Body validated |
+|---|---|---|
+| GET | `/api/tenant/milestone-owners/` | — |
+| POST | `/api/tenant/milestone-owners/` | — |
+| DELETE | `/api/tenant/milestone-owners/:id` | — |
+| GET | `/api/tenant/milestone-owners/:id` | — |
+| PATCH | `/api/tenant/milestone-owners/:id` | — |
+
 ### `tenant/milestones`
 
 | Method | Path | Body validated |
@@ -1384,6 +1394,7 @@ All 1870 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/milestones/templates` | — |
 | POST | `/api/tenant/milestones/templates` | — |
 | POST | `/api/tenant/milestones/templates/:templateId/activate` | — |
+| PATCH | `/api/tenant/milestones/templates/stages/:stageId` | — |
 
 ### `tenant/notifications`
 
@@ -1544,6 +1555,7 @@ All 1870 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/payroll/advances/mine` | — |
 | GET | `/api/tenant/payroll/config` | — |
 | POST | `/api/tenant/payroll/config` | — |
+| GET | `/api/tenant/payroll/config/effective` | — |
 | GET | `/api/tenant/payroll/employees/:employeeId/payslips` | — |
 | GET | `/api/tenant/payroll/mine` | — |
 | GET | `/api/tenant/payroll/mine/:runItemId/pdf` | — |
@@ -2390,6 +2402,7 @@ All 1870 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/tax-jurisdictions/:id/codes` | — |
 | POST | `/api/tenant/tax-jurisdictions/:id/codes/supersede` | — |
 | GET | `/api/tenant/tax-jurisdictions/:id/effective` | — |
+| GET | `/api/tenant/tax-jurisdictions/unmapped` | — |
 
 ### `tenant/timezones`
 

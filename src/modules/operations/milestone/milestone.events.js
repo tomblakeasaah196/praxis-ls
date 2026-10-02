@@ -19,6 +19,10 @@ module.exports = {
   ADVANCED: "milestone.advanced",
   REOPENED: "milestone.reopened",
   STAGE_INSERTED: "milestone.stage_inserted",
+  /* 14400 / meeting 7 — a stage's WORDING corrected on a published version,
+   * without a new version. Audit-only (no event_type row): nothing subscribes
+   * to a typo fix, and the audit trail is what a reviewer asks for. */
+  STAGE_RENAMED: "milestone.stage_renamed",
   REBASELINED: "milestone.rebaselined",
   AT_RISK: "milestone.at_risk",
   OVERDUE: "milestone.overdue",

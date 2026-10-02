@@ -11,7 +11,7 @@
 const repo = require("./tax_jurisdiction.repo");
 const { atomically } = require("../../../shared/db/tx");
 const events = require("./tax_jurisdiction.events");
-const { assertRate, assertEffectiveWindow, pickEffective } = require("./tax_jurisdiction.rules");
+const { assertRate, assertEffectiveWindow, assertPostingAccounts, pickEffective } = require("./tax_jurisdiction.rules");
 const { emitEvent, audit } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
 
@@ -58,6 +58,14 @@ async function addCode(client, { jurisdictionId, code, kind, ratePercent = null,
   if (!jur) throw new AppError("NOT_FOUND", "Jurisdiction not found", 404);
   assertRate({ kind, ratePercent, brackets });
   assertEffectiveWindow({ effectiveFrom, effectiveTo });
+  // Meeting 7, 01:25:15 — "every account is actually mapped to their account".
+  // Both sides, both postable leaves. Seed 90999 repaired the twelve that shipped
+  // defective; this is what stops the thirteenth. See rules.assertPostingAccounts
+  // for why `determination` passing on a half-mapped code proves nothing.
+  assertPostingAccounts(
+    { postsDebitAccount, postsCreditAccount },
+    await repo.postableAccountCodes(client),
+  );
   // atomically() joins an open transaction instead of opening a second one, so
   // supersedeCode can wrap expire+add as a single unit (DATA 5.4).
   return atomically(client, async () => {
@@ -111,9 +119,21 @@ async function get(client, id) {
   const jur = await repo.getJur(client, id);
   if (!jur) return null;
   jur.tax_codes = await repo.listCodes(client, id);
+  // Shipped WITH the jurisdiction rather than behind its own fetch: the banner
+  // that names a half-mapped code has to be on screen the first time the
+  // jurisdiction renders, or the gap is one click away from invisible again —
+  // which is how twelve of them survived to a live tenant review.
+  jur.unmapped_codes = await repo.unmappedCodes(client, id);
   return jur;
 }
+
+/**
+ * Every tax code in the tenant whose posting is unusable, across jurisdictions.
+ * The go-live readiness check and the Tax Center read this; `get` carries the
+ * per-jurisdiction slice for the screen's banner.
+ */
+const unmappedCodes = (client, jurisdictionId = null) => repo.unmappedCodes(client, jurisdictionId);
 const list = (client, q) => repo.listJur(client, q);
 const listCodes = (client, jurisdictionId) => repo.listCodes(client, jurisdictionId);
 
-module.exports = { createJurisdiction, updateJurisdiction, setActive, addCode, supersedeCode, effectiveCode, get, list, listCodes };
+module.exports = { createJurisdiction, updateJurisdiction, setActive, addCode, supersedeCode, effectiveCode, get, list, listCodes, unmappedCodes };

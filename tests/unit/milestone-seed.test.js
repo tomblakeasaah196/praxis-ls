@@ -45,13 +45,31 @@ const SERVICES = [
   "END_TO_END_RAIL_FREIGHT",
 ];
 
-const OWNER_TIERS = new Set([
-  "INTERNAL",
-  "CARRIER",
-  "TERMINAL",
-  "AUTHORITY",
-  "CLIENT",
-]);
+/**
+ * The owner codes 90998 seeds into the `milestone_owner` registry (14400).
+ *
+ * READ FROM THE SEED, not listed here. These were five hardcoded strings until
+ * meeting 7 (1 Oct 2026, 01:57:20) made them a tenant registry, and a copy of
+ * them in a test is a copy that goes stale the first time the registry grows: the
+ * test would then pass while a stage pointed at an owner no tenant has, which is
+ * the exact failure it exists to catch.
+ */
+const OWNER_SEED = path.join(
+  __dirname,
+  "..",
+  "..",
+  "migrations",
+  "seeds",
+  "90998_seed_milestone_owners.sql",
+);
+const OWNER_TIERS = new Set(
+  [
+    ...fs
+      .readFileSync(OWNER_SEED, "utf8")
+      // Only the INSERT's VALUES rows: ('CODE', 'Name', …
+      .matchAll(/^\s*\('([A-Z][A-Z0-9_]*)',\s*'/gm),
+  ].map((m) => m[1]),
+);
 
 /**
  * Parse the `_ms_stage` VALUES rows. Deliberately a narrow regex over the
@@ -169,6 +187,10 @@ describe("seeded milestone chains", () => {
   );
 
   it("gives every stage a valid owner tier — attribution depends on it", () => {
+    // The registry parse must not be vacuous: an empty set would make the
+    // assertion below pass for every stage, including a typo.
+    expect(OWNER_TIERS.size).toBeGreaterThanOrEqual(5);
+    expect(OWNER_TIERS.has("INTERNAL")).toBe(true);
     const bad = all.filter((s) => !OWNER_TIERS.has(s.owner));
     expect(bad).toEqual([]);
   });

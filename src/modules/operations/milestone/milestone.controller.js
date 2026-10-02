@@ -17,6 +17,9 @@ module.exports = {
   updatePublicDetails: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.updatePublicDetails(c, { instanceId: req.params.id, details: req.body, actor: actor(req) })) })),
   reopen: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.reopen(c, { instanceId: req.params.id, reason: req.body.reason, actor: actor(req) })) })),
   addStage: asyncHandler(async (req, res) => res.status(201).json({ data: await req.tenantDb((c) => service.addStage(c, { dossierId: req.params.dossierId, afterSeq: req.body.after_seq, code: req.body.code, label: req.body.label, labelEn: req.body.label_en, weight: req.body.weight, minDurationHours: req.body.min_duration_hours, ownerTier: req.body.owner_tier, isClientVisible: req.body.is_client_visible, actor: actor(req) })) })),
+  /* Correct a published stage's wording in place (meeting 7, 01:35:55). Labels
+   * only — see service.renameStage for why a weight or an owner is not here. */
+  renameStage: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.renameStage(c, { stageId: req.params.stageId, labelFr: req.body.label_fr, labelEn: req.body.label_en, actor: actor(req) })) })),
   recalculate: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.recalculate(c, { dossierId: req.params.dossierId, trigger: req.body.trigger || "MANUAL", actor: actor(req) })) })),
   attribution: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.attribution(c, { from: req.query.from || null, to: req.query.to || null, serviceTypeId: req.query.service_type_id || null })) })),
   systemDefault: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.listSystemDefault(c, req.params.serviceTypeId)) })),

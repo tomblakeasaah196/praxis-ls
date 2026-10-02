@@ -1,12 +1,12 @@
 {
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
-  "modules_mounted": 142,
-  "route_count": 1870,
+  "modules_mounted": 143,
+  "route_count": 1878,
   "tiers": {
     "public": 75,
     "self-scoped": 115,
-    "gated": 1680
+    "gated": 1688
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -434,6 +434,12 @@
       "rbac": false,
       "validated": false,
       "tier": "self-scoped"
+    },
+    "DELETE /api/tenant/milestone-owners/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
     },
     "DELETE /api/tenant/notifications/push/subscribe": {
       "auth": true,
@@ -3153,6 +3159,18 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/milestone-owners/": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/milestone-owners/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/milestones/assumptions/:serviceTypeId": {
       "auth": true,
       "rbac": true,
@@ -3448,6 +3466,12 @@
       "tier": "self-scoped"
     },
     "GET /api/tenant/payroll/config": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/payroll/config/effective": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -5151,6 +5175,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/tax-jurisdictions/unmapped": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/tax/cnps-declaration": {
       "auth": true,
       "rbac": true,
@@ -6063,7 +6093,19 @@
       "validated": false,
       "tier": "gated"
     },
+    "PATCH /api/tenant/milestone-owners/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "PATCH /api/tenant/milestones/:id/public-details": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PATCH /api/tenant/milestones/templates/stages/:stageId": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8614,6 +8656,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/meetings/discovery/prompts": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/milestone-owners/": {
       "auth": true,
       "rbac": true,
       "validated": false,

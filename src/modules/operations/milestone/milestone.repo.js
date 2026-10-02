@@ -199,15 +199,23 @@ async function attributionSummary(client, { from = null, to = null, serviceTypeI
   if (serviceTypeId) { params.push(serviceTypeId); where.push("d.service_type_id = $" + params.length); }
 
   const { rows } = await client.query(
+    // LEFT JOIN, not JOIN: a slip charged to an owner a tenant has since
+    // DELETED still happened, and dropping the row would quietly shrink the
+    // totals. The name falls back to the stored code, and `is_internal` to
+    // false — "we cannot say this was ours" is the safe reading.
     "SELECT mi.attributed_to AS owner_tier, " +
+      "       COALESCE(mo.name, mi.attributed_to) AS owner_name, " +
+      "       mo.name_fr AS owner_name_fr, " +
+      "       COALESCE(mo.is_internal, false) AS is_internal, " +
       "       COUNT(*)::int AS slips, " +
       "       ROUND(SUM(mi.variance_hours)::numeric, 0)::int AS total_hours, " +
       "       ROUND(AVG(mi.variance_hours)::numeric, 1)::float AS avg_hours, " +
       "       COUNT(*) FILTER (WHERE mi.cause_reason_code IS NOT NULL)::int AS excused, " +
       "       COALESCE(ROUND(SUM(mi.variance_hours) FILTER (WHERE mi.cause_reason_code IS NOT NULL)::numeric, 0), 0)::int AS excused_hours " +
       "  FROM milestone_instance mi JOIN dossier_visible d USING (dossier_id) " +
+      "  LEFT JOIN milestone_owner mo ON mo.code = mi.attributed_to " +
       " WHERE " + where.join(" AND ") +
-      " GROUP BY mi.attributed_to ORDER BY total_hours DESC",
+      " GROUP BY mi.attributed_to, mo.name, mo.name_fr, mo.is_internal ORDER BY total_hours DESC",
     params,
   );
   return rows;
@@ -223,13 +231,16 @@ async function attributionByStage(client, { from = null, to = null, serviceTypeI
   params.push(limit);
 
   const { rows } = await client.query(
-    "SELECT mi.code, mi.label, mi.attributed_to AS owner_tier, st.name_fr AS service_fr, st.name_en AS service_en, " +
+    "SELECT mi.code, mi.label, mi.attributed_to AS owner_tier, " +
+      "       COALESCE(mo.name, mi.attributed_to) AS owner_name, mo.name_fr AS owner_name_fr, " +
+      "       st.name_fr AS service_fr, st.name_en AS service_en, " +
       "       COUNT(*)::int AS slips, ROUND(AVG(mi.variance_hours)::numeric, 1)::float AS avg_hours, " +
       "       ROUND(SUM(mi.variance_hours)::numeric, 0)::int AS total_hours " +
       "  FROM milestone_instance mi JOIN dossier_visible d USING (dossier_id) " +
       "  LEFT JOIN service_type st ON st.service_type_id = d.service_type_id " +
+      "  LEFT JOIN milestone_owner mo ON mo.code = mi.attributed_to " +
       " WHERE " + where.join(" AND ") +
-      " GROUP BY mi.code, mi.label, mi.attributed_to, st.name_fr, st.name_en " +
+      " GROUP BY mi.code, mi.label, mi.attributed_to, mo.name, mo.name_fr, st.name_fr, st.name_en " +
       " ORDER BY total_hours DESC LIMIT $" + params.length,
     params,
   );
@@ -266,8 +277,59 @@ async function seqBetween(client, dossierId, afterSeq) {
   return next === null || next === undefined ? Number(afterSeq) + 1 : (Number(afterSeq) + Number(next)) / 2;
 }
 
+/** One template stage, with the template it belongs to and that template's state. */
+async function stageWithTemplate(client, stageId) {
+  const { rows } = await client.query(
+    "SELECT s.*, t.milestone_template_id, t.service_type_id, t.version, t.is_active" +
+      "   FROM milestone_template_stage s" +
+      "   JOIN milestone_template t ON t.milestone_template_id = s.milestone_template_id" +
+      "  WHERE s.stage_id = $1",
+    [stageId],
+  );
+  return rows[0] || null;
+}
+
+const updateStage = (client, stageId, fields) =>
+  updateOne(client, "milestone_template_stage", "stage_id", stageId, fields, "*", null);
+
+/**
+ * Carry a corrected stage LABEL onto the open instances stamped from it.
+ *
+ * Matched on (service type, stage code) rather than on a stage_id, because an
+ * instance snapshots its stage and keeps no pointer back to the row it came from
+ * (`instantiate` — deliberately, so a chain in flight cannot move underneath the
+ * file). DONE stages are left alone: what a completed stage was CALLED when it
+ * was signed off is part of the record.
+ *
+ * `label` is milestone_instance's column; `label_fr` is the alias the client
+ * reads (see listByDossier).
+ *
+ * Reads `dossier_visible`, not `dossier` (0671): this enumerates, so a DRAFT —
+ * half-finished wizard state, on nobody's chain screen — is out of scope. A draft
+ * promoted after a rename keeps the old wording on that one stage, which is the
+ * right trade against an UPDATE that sweeps wizard state.
+ */
+async function renameOpenInstances(client, { serviceTypeId, code, labelFr, labelEn }) {
+  const sets = [];
+  const params = [serviceTypeId, code];
+  if (labelFr !== undefined) { params.push(labelFr); sets.push(`label = $${params.length}`); }
+  if (labelEn !== undefined) { params.push(labelEn); sets.push(`label_en = $${params.length}`); }
+  if (!sets.length) return 0;
+  const { rowCount } = await client.query(
+    `UPDATE milestone_instance mi SET ${sets.join(", ")}
+       FROM dossier_visible d
+      WHERE d.dossier_id = mi.dossier_id
+        AND d.service_type_id = $1
+        AND mi.code = $2
+        AND mi.status <> 'DONE'`,
+    params,
+  );
+  return rowCount;
+}
+
 module.exports = {
   insertTemplate, insertStage, updateTemplate, nextVersion, activeTemplate, stages, deactivateOthers, getTemplate,
+  stageWithTemplate, updateStage, renameOpenInstances,
   insertInstance, getInstance, updateInstance, listByDossier, existingInstances, listTemplates,
   scheduleContext, workingCalendar, assumptions, replaceAssumptions, logRebaseline, openInstances, seqBetween,
   attributionSummary, attributionByStage,
