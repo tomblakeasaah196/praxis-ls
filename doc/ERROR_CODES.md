@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (710)
+## All codes (713)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -34,6 +34,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ACCOUNT_MANAGER_INACTIVE` | 422 | 1× | — |
 | `ACCOUNT_MISMATCH` | 422 | 1× | — |
 | `ACCOUNT_NOT_CASH_CAPABLE` | 422 | 1× | — |
+| `ACCOUNT_NOT_POSTABLE` | 422 | 1× | — |
 | `ACTIVATION_REQUIREMENTS_MISSING` | 422 | 1× | — |
 | `ACTUALS_LOCKED` | — | 1× | — |
 | `ADVANCE_NOT_CLEARED` | 422 | 2× | — |
@@ -387,7 +388,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 3× | — |
-| `NOT_FOUND` | 404, 422 | 760× | — |
+| `NOT_FOUND` | 404, 422 | 761× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -670,6 +671,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SYSTEM_TEMPLATE` | 422 | 1× | — |
 | `SYSTEM_TYPE` | 422 | 2× | — |
 | `TARIFF_GAP` | 422 | 1× | — |
+| `TAX_CODE_UNMAPPED` | 422 | 1× | — |
 | `TEMPLATE_NOT_PUBLISHED` | 409 | 1× | — |
 | `TENANT_MISMATCH` | 400 | 1× | — |
 | `TENANT_NOT_FOUND` | 404 | 1× | — |
@@ -706,6 +708,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `UNKNOWN_KPI_ID` | — | 1× | — |
 | `UNKNOWN_LOAD_MODE` | 422 | 1× | — |
 | `UNKNOWN_METRIC` | 422 | 1× | — |
+| `UNKNOWN_MILESTONE_OWNER` | — | 1× | — |
 | `UNKNOWN_PAYLOAD_VERSION` | 422 | 1× | — |
 | `UNKNOWN_RATE` | 422 | 1× | — |
 | `UNKNOWN_REPORT` | 404, 422 | 4× | — |
@@ -720,7 +723,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `USE_APPROVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 422 | 290× | — |
+| `VALIDATION_ERROR` | 422 | 291× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |

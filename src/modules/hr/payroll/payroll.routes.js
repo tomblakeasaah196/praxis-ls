@@ -44,6 +44,8 @@ router.get("/employees/:employeeId/payslips", requirePermission(M, "view"), cont
 // G18 — effective-dated rate configuration (the legacy's admin task). Declared
 // before "/:id" so "config" is never captured as an id.
 router.get("/config", requirePermission(M, "view"), controller.listConfig);
+// Where each rate comes from today. Also before "/:id".
+router.get("/config/effective", requirePermission(M, "view"), controller.effectiveRates);
 router.post("/config", requirePermission(M, "edit"), validator.saveConfig, controller.saveConfig);
 router.get("/", requirePermission(M, "view"), controller.list);
 router.get("/:id", requirePermission(M, "view"), controller.get);

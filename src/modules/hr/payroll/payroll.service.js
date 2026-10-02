@@ -19,6 +19,7 @@ const earningRepo = require("./earning.repo");
 const advances = require("./salary_advance.service");
 const events = require("./payroll.events");
 const { computePayslip, DEFAULTS } = require("./payroll.rules");
+const payrollRates = require("../../../services/accounting/payroll-rates");
 const employeeService = require("../../master/employees/employees.service");
 const journal = require("../../finance/journal_entry/journal_entry.service");
 const executor = require("../../../services/workflow/executor");
@@ -56,13 +57,30 @@ async function compute(client, { id, config = null, actor = {} }) {
   if (!["OPEN", "COMPUTED"].includes(run.status)) {
     throw new AppError("RUN_LOCKED", `Cannot recompute a ${run.status} run`, 422);
   }
-  // G18 — the rates come from the effective-dated payroll_config table, not
-  // from the request body. Resolve the most recent config effective on or
-  // before the run's period end; only when NO stored config exists yet does a
-  // caller-supplied preview config fall back in (fresh-tenant path), so two
-  // people can never compute the same run differently once a config exists.
-  const stored = await repo.configForPeriod(client, run.entity_id, periodEnd(run.period_code));
-  const cfg = { ...DEFAULTS, ...(stored ? stored.config : config || {}) };
+  /* ── Where a rate comes from, in three layers ─────────────────────────────
+   *
+   * G18 — the rates come from configuration, not from the request body.
+   * Meeting 7 (1 Oct 2026), 01:20:56 added the middle layer: the effective-dated
+   * `tax_code` rows the accountant maintains on Master data › Tax, which this
+   * engine previously did not read at all. Amending CNPS there changed no
+   * payslip, against what the tenant was told on that screen.
+   *
+   *   DEFAULTS          the floor, so a tenant with no PAYROLL codes still computes
+   *   tax_code          the law, versioned, resolved AT THE RUN'S PERIOD END so a
+   *                     January run uses the January rate however late it is run
+   *   payroll_config    the per-entity override, which still wins (G18) — a
+   *                     negotiated injury class is a deliberate decision and
+   *                     overruling it silently would be the worse bug
+   *
+   * Only when NO stored config exists does a caller-supplied preview config fall
+   * back in (fresh-tenant path), so two people can never compute the same run
+   * differently once a config exists.
+   */
+  const asOf = periodEnd(run.period_code);
+  const fromTax = await payrollRates.fromTaxCodes(client, asOf);
+  const stored = await repo.configForPeriod(client, run.entity_id, asOf);
+  const override = stored ? stored.config : config || {};
+  const cfg = { ...DEFAULTS, ...fromTax, ...override };
   const roster = await employeeService.roster(client, { entity_id: run.entity_id });
   await repo.deleteItems(client, id);
   // A recompute starts from clean: instalments this run had merely PROPOSED are
@@ -358,14 +376,48 @@ async function saveConfig(client, { entityId, effectiveDate, config = {}, actor 
   });
   // Propagate the preview to OPEN runs of this entity whose period starts at
   // or after the effective date. Past (validated) runs are deliberately
-  // untouched.
+  // untouched. The SAME three layers `compute` uses — a preview that skipped the
+  // tax codes would show a rate the next compute does not use, which is the
+  // class of bug this whole change is about.
+  const fromTax = await payrollRates.fromTaxCodes(client, effectiveDate);
   await client.query(
     `UPDATE payroll_run SET config_snapshot = $1
       WHERE entity_id = $2 AND status IN ('OPEN','COMPUTED')
         AND period_code >= to_char(($3::date), 'YYYY-MM')`,
-    [JSON.stringify({ ...DEFAULTS, ...clean }), entityId, effectiveDate],
+    [JSON.stringify({ ...DEFAULTS, ...fromTax, ...clean }), entityId, effectiveDate],
   );
   return row;
 }
 
-module.exports = { createRun, compute, setStatus, get, list, myPayslips, employeePayslips, ownPayslipPdf, saveConfig, listConfig };
+/**
+ * The rates that WILL be used, and where each one came from.
+ *
+ * The visible half of the meeting-7 fix: the accountant amends a rate on Master
+ * data › Tax and needs to see it land. Per key: the value in force, which layer
+ * supplied it (`default` / `tax_code` / `override`), and — where a `payroll_config`
+ * override contradicts a tax code — both numbers, so a stale override is
+ * something a person can see rather than something they discover in a payslip.
+ */
+async function effectiveRates(client, { entityId, asOf = null }) {
+  const date = asOf || new Date().toISOString().slice(0, 10);
+  const fromTax = await payrollRates.fromTaxCodes(client, date);
+  const stored = await repo.configForPeriod(client, entityId, date);
+  const override = (stored && stored.config) || {};
+  const resolved = { ...DEFAULTS, ...fromTax, ...override };
+  const sourceOf = (k) => {
+    if (Object.prototype.hasOwnProperty.call(override, k)) return "override";
+    if (Object.prototype.hasOwnProperty.call(fromTax, k)) return "tax_code";
+    return "default";
+  };
+  return {
+    as_of: date,
+    entity_id: entityId,
+    rates: Object.keys(DEFAULTS).map((key) => ({ key, value: resolved[key], source: sourceOf(key) })),
+    // A rate the tax codes supply and an override contradicts. Not an error —
+    // an override is legitimate (G18) — but never silent again.
+    conflicts: payrollRates.disagreements(fromTax, override),
+    override_effective_date: (stored && stored.effective_date) || null,
+  };
+}
+
+module.exports = { createRun, compute, setStatus, get, list, myPayslips, employeePayslips, ownPayslipPdf, saveConfig, listConfig, effectiveRates };

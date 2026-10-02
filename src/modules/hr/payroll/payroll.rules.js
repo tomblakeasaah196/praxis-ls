@@ -9,7 +9,17 @@
  */
 "use strict";
 
-// KB §9.1 / §9.2 defaults (2025/26). Override per-tenant via config_snapshot.
+/**
+ * KB §9.1 / §9.2 defaults (2025/26) — the FLOOR, not the authority.
+ *
+ * Meeting 7 (1 Oct 2026), 01:20:56: the rates an accountant maintains live in the
+ * effective-dated `tax_code` rows on Master data › Tax, and those now reach this
+ * engine. `payroll.service.compute` resolves them per period
+ * (services/accounting/payroll-rates.js) and layers them over these, with the
+ * entity's own `payroll_config` winning over both. These values therefore apply
+ * only where a tenant's jurisdiction has no PAYROLL code for them — which is what
+ * keeps a fresh tenant able to compute a payslip at all.
+ */
 const DEFAULTS = {
   cnps_pension_rate: 0.042,          // employee + employer each
   cnps_ceiling: 750000,              // monthly base cap for pension/family
@@ -32,15 +42,31 @@ const DEFAULTS = {
 
 const round = (n) => Math.round(Number(n) * 100) / 100;
 
-/** Progressive tax over ordered brackets [{upTo, rate}]. */
+/**
+ * Progressive tax over ordered brackets [{upTo, rate}].
+ *
+ * `upTo` on the TOP band is unbounded, and a missing or non-finite value reads as
+ * unbounded rather than as zero. That is not defensiveness for its own sake: a
+ * computed run stores `config_snapshot = JSON.stringify(cfg)`, and JSON has no
+ * Infinity — `{upTo: Infinity}` serialises to `{upTo: null}`. Read back naively,
+ * `Math.min(base, null)` is 0, the top band contributes NOTHING, and the highest
+ * earners are under-taxed by a snapshot that looks fine. Treating it as unbounded
+ * is the only reading that survives the round-trip.
+ */
 function progressive(base, brackets) {
   let tax = 0;
   let lower = 0;
   for (const b of brackets) {
     if (base <= lower) break;
-    const slice = Math.min(base, b.upTo) - lower;
+    // `Number(null)` is 0, not NaN, so the null a JSON round-trip leaves behind
+    // has to be rejected BEFORE the numeric check — otherwise the top band's
+    // ceiling reads as zero and it contributes nothing.
+    const ceiling = b.upTo === null || b.upTo === undefined || !Number.isFinite(Number(b.upTo))
+      ? Infinity
+      : Number(b.upTo);
+    const slice = Math.min(base, ceiling) - lower;
     if (slice > 0) tax += slice * b.rate;
-    lower = b.upTo;
+    lower = ceiling;
   }
   return tax;
 }

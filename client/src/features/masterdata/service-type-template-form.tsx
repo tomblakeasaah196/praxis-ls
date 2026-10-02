@@ -10,11 +10,27 @@
  * A tenant could see the shipped 14-stage chain and not change the one number
  * (weight) that decides when anything is due.
  *
- * THE SHAPE. One row per stage, compact: sequence, code, label, weight, owner,
- * and the flags as icons. Expanding a row reveals the rest (floor, EN label,
- * evidence, auto-advance, segment/cadence). Fourteen rows of ten fields laid
- * out flat is a wall; the summary line is what a user scans, and the detail is
- * what they occasionally edit.
+ * THE SHAPE. One row per stage: sequence, code, BOTH labels, weight, owner, and
+ * the flags as icons. Expanding a row reveals the rest (floor, evidence,
+ * auto-advance, segment/cadence). Fourteen rows of ten fields laid out flat is a
+ * wall; the summary line is what a user scans, and the detail is what they
+ * occasionally edit.
+ *
+ * BOTH NAMES ARE ON THE ROW, AND THE DIALOG IS FULL WIDTH (meeting 7, 1 Oct 2026,
+ * 01:38:25 and 01:55:13). The English label used to live behind the ▸ expander,
+ * which the owner found live in front of the tenant: "It doesn't give you the
+ * possibility of changing the English name. It gives you just the French name. So
+ * ensure that when we are creating it permits us change both English and French
+ * names. That's something we should take note of. It's a gap in the UI." And then:
+ * "we make this model a bit larger so it can accommodate all of that … if the
+ * model can cover probably full width … we can see the full English name, full
+ * French name. We see this code here." A field one click out of sight is a field
+ * a bilingual tenant does not fill in, and an unfilled English label is what an
+ * English-reading desk then reads a French stage name from.
+ *
+ * THE OWNER COMES FROM A REGISTRY, NOT AN ENUM (01:57:20). The five values were
+ * hardcoded; they are now the tenant's `milestone_owner` rows, and the gear beside
+ * the dropdown opens the registry where you noticed it was missing a party.
  *
  * THE WEIGHT METER IS THE POINT. Weights are a share of the horizon and must
  * sum to 100 PER SEGMENT — a segment summing to 97 silently shortens every
@@ -22,6 +38,11 @@
  * is shown live, per segment, and publishing is blocked until it balances.
  * That is the one invariant a user cannot be trusted to hold in their head
  * while dragging fourteen numbers around.
+ *
+ * WEIGHTS ARE SHOWN IN DAYS AS WELL AS PERCENT. A weight only means something
+ * against the service's horizon, and repartitioning after a delete (01:58:19:
+ * "you need to come and repartition the weight so that it's fully 100%") is
+ * otherwise mental arithmetic over a number nobody has in front of them.
  *
  * DRIFT, NOT LOCK-IN. Stages ship as system defaults (9091) and are ordinary
  * editable rows. The header says how far the current chain has drifted from
@@ -37,6 +58,8 @@ import { Pill } from "@/components/ui/pill";
 import { Checkbox } from "@/components/ui/checkbox";
 import { errMsg, useResource } from "@/lib/use-resource";
 import * as api from "@/lib/operations-api";
+import { useMilestoneOwners } from "@/lib/milestone-owners";
+import { MilestoneOwnersDialog } from "./milestone-owners-dialog";
 
 /** A stage row in the editor. Numbers are strings while being typed. */
 type Row = {
@@ -104,6 +127,28 @@ function segmentTotals(rows: Row[]) {
   return [...out.entries()];
 }
 
+/**
+ * What a weight means in days, against the service's own horizon.
+ *
+ * Returns null when the service has no duration (nothing honest to show) and for
+ * a STEADY segment, which runs on cadence and never enters the horizon maths. The
+ * figure is deliberately approximate — the real schedule runs on a working
+ * calendar and per-stage floors (milestone.schedule) — so it is rendered with ≈
+ * and never presented as the date anything is due.
+ */
+function weightDays(svc: api.ServiceType, weight: string, segment: string): number | null {
+  if (segment === "STEADY") return null;
+  const total = Number(svc.default_duration_days || 0);
+  if (!(total > 0)) return null;
+  const w = Number(weight) || 0;
+  if (w <= 0) return null;
+  return Math.round(((total * w) / 100) * 10) / 10;
+}
+
+/** The unit `default_duration_days` is counted in, for the preview's wording. */
+const durationUnit = (svc: api.ServiceType) =>
+  svc.duration_basis === "MONTHS" ? "months" : "days";
+
 /** A segment is balanced at 100, except cadence-driven STEADY which carries none. */
 const segmentOk = (seg: string, total: number) =>
   seg === "STEADY" ? total === 0 : total === 100;
@@ -159,6 +204,11 @@ export function TemplateForm({
   const [open, setOpen] = React.useState<number | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // The owner registry (14400) and the gear that edits it. Nested dialog, same
+  // shape as FieldOptionsDialog over the fields tab: the moment you notice the
+  // party you need is missing is the moment to add it, not after cancelling out.
+  const ownerReg = useMilestoneOwners();
+  const [ownersOpen, setOwnersOpen] = React.useState(false);
 
   // Seed from the current version when editing one; from what shipped when
   // publishing a first template. A tenant editing their chain wants the REAL
@@ -238,7 +288,10 @@ export function TemplateForm({
     <Modal
       open
       onClose={onClose}
-      size="xl"
+      /* Full width, not `xl` (max-w-3xl): two labels, a code, a weight and an
+         owner on one row do not fit in 768px, which is what pushed the English
+         label behind an expander in the first place (meeting 7, 01:55:13). */
+      size="wide"
       title={`Milestone chain — ${svc.name_en || svc.name_fr}`}
       description="The stages every new file of this service type starts with. Publishing creates a new active version; files already open keep the stages they were given."
       headerRight={
@@ -267,17 +320,34 @@ export function TemplateForm({
                 {seg === "STEADY" ? " (cadence)" : " / 100"}
               </Pill>
             ))}
+            {svc.default_duration_days ? (
+              <span className="micro text-muted-foreground">
+                over {svc.default_duration_days} {durationUnit(svc)}
+              </span>
+            ) : null}
             <span className="ml-auto micro">
               {list.length} {list.length === 1 ? "stage" : "stages"} (allowed{" "}
               {MIN_STAGES}–{MAX_STAGES})
             </span>
+            {/* The configuration button the meeting asked for (01:57:20), beside
+                the owners it configures rather than on a settings page nobody is
+                on when they notice the gap. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setOwnersOpen(true)}
+            >
+              Milestone owners…
+            </Button>
           </div>
 
           <div className="space-y-1">
             {list.map((r, i) => (
               <div key={i} className="rounded-lg border border-border">
-                {/* Summary line — what a user scans. */}
-                <div className="grid items-center gap-2 px-2 py-1.5 sm:grid-cols-[auto_2fr_3fr_auto_auto_auto]">
+                {/* Summary line — what a user scans, and now everything a user
+                    EDITS: both labels included (meeting 7, 01:38:25). */}
+                <div className="grid items-center gap-2 px-2 py-1.5 lg:grid-cols-[auto_2fr_3fr_3fr_auto_auto_auto]">
                   <span className="num micro w-6 text-right">{i + 1}</span>
                   <Input
                     value={r.code}
@@ -293,6 +363,13 @@ export function TemplateForm({
                     placeholder="Navire arrivé"
                     aria-label={`Stage ${i + 1} label (French)`}
                   />
+                  {/* Beside the French one, not behind the expander. */}
+                  <Input
+                    value={r.label_en}
+                    onChange={(e) => setRow(i, { label_en: e.target.value })}
+                    placeholder="Vessel arrived"
+                    aria-label={`Stage ${i + 1} label (English)`}
+                  />
                   <div className="flex items-center gap-1">
                     <Input
                       value={r.weight}
@@ -304,7 +381,18 @@ export function TemplateForm({
                       className="num w-14"
                       aria-label={`Stage ${i + 1} weight`}
                     />
-                    <span className="micro">%</span>
+                    <span className="micro whitespace-nowrap">
+                      %
+                      {/* What the percentage is, in the unit the operator thinks
+                          in. Approximate on purpose — the real dates come off the
+                          working calendar and the per-stage floors. */}
+                      {(() => {
+                        const d = weightDays(svc, r.weight, r.chain_segment);
+                        return d === null ? null : (
+                          <span className="text-muted-foreground"> ≈{d}</span>
+                        );
+                      })()}
+                    </span>
                   </div>
                   <Select
                     value={r.owner_tier}
@@ -314,9 +402,12 @@ export function TemplateForm({
                     aria-label={`Stage ${i + 1} owner`}
                     className="max-w-[11rem]"
                   >
-                    {api.OWNER_TIERS.map((t) => (
-                      <option key={t} value={t}>
-                        {api.OWNER_TIER_LABEL[t]}
+                    {/* `optionsWith` keeps a stage's stored owner in its own
+                        dropdown even after the tenant deactivates it — otherwise
+                        editing the weight silently reassigns the owner. */}
+                    {ownerReg.optionsWith(r.owner_tier).map((o) => (
+                      <option key={o.code} value={o.code}>
+                        {o.label}
                       </option>
                     ))}
                   </Select>
@@ -365,15 +456,8 @@ export function TemplateForm({
 
                 {open === i && (
                   <div className="grid gap-3 border-t border-border px-3 py-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <Field label="Label (English)">
-                      <Input
-                        value={r.label_en}
-                        onChange={(e) =>
-                          setRow(i, { label_en: e.target.value })
-                        }
-                        placeholder="Vessel arrived"
-                      />
-                    </Field>
+                    {/* The English label used to be here. It is on the summary
+                        row now — see the header. */}
                     <Field
                       label="Minimum duration (hours)"
                       hint="The floor this stage can never be compressed below, however late the file runs."
@@ -526,6 +610,12 @@ export function TemplateForm({
               )}
             </ul>
           )}
+
+          <MilestoneOwnersDialog
+            open={ownersOpen}
+            onClose={() => setOwnersOpen(false)}
+            onChanged={ownerReg.reload}
+          />
 
           {error && <p className="text-sm text-[rgb(var(--bad))]">{error}</p>}
           <div className="flex justify-end gap-2">
