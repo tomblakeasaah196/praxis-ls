@@ -14,7 +14,7 @@
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useBranding } from "@/app/branding";
 import { cn } from "@/lib/cn";
 import {
@@ -45,6 +45,7 @@ import {
   FingerprintIcon,
   ChevronRightIcon,
   ShieldIcon,
+  SendIcon,
 } from "../ui/icons";
 import { ChatSheet, type ChatTarget } from "../screens/chat";
 
@@ -108,7 +109,13 @@ export const useOpenChat = () => React.useContext(ChatContext);
 /** A shipment's id in a `?chat=` link; anything else is ignored, not requested. */
 const THREAD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type NavItem = { to: string; label: string; icon: React.ReactNode; badge?: number; end?: boolean };
+/**
+ * `desk` / `phone` keep an item to one layout: the sidebar has a line each for
+ * Requests for Quotation and Quotations, while the phone's bar keeps five
+ * slots and shows one Quotes slot, lit on either page (`also`), with the
+ * two-way switch at the top of both (meeting 6, PR 4 — auditor default).
+ */
+type NavItem = { to: string; label: string; icon: React.ReactNode; badge?: number; end?: boolean; desk?: boolean; phone?: boolean; also?: string[] };
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -154,13 +161,28 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const s = summary.data;
   const needed = s?.requests?.open_count || 0;
   const overdue = s?.billing?.overdue_count || 0;
+  // Offers waiting for an answer: commercial quotations and proposals alike.
+  const waitingOffers = (s?.quotations?.pending_count || 0) + (s?.proposals?.pending_count || 0);
   const chatUnread = useChatUnread(isClient, s?.chat?.unread ?? null);
 
   const nav: NavItem[] = isClient
     ? [
         { to: "/portal", label: t("portal.nav.home"), icon: <HomeIcon />, end: true },
         ...(portal.canOps ? [{ to: "/portal/shipments", label: t("portal.nav.shipments"), icon: <ShipIcon /> }] : []),
-        ...(portal.canOps ? [{ to: "/portal/quotes", label: t("portal.nav.quotes"), icon: <QuoteIcon /> }] : []),
+        ...(portal.canOps
+          ? [
+              { to: "/portal/requests", label: t("portal.nav.requests"), icon: <SendIcon />, desk: true },
+              { to: "/portal/quotations", label: t("portal.nav.quotations"), icon: <QuoteIcon />, badge: waitingOffers, desk: true },
+              {
+                to: waitingOffers ? "/portal/quotations" : "/portal/requests",
+                label: t("portal.nav.quotes"),
+                icon: <QuoteIcon />,
+                badge: waitingOffers,
+                phone: true,
+                also: ["/portal/requests", "/portal/quotations"],
+              },
+            ]
+          : []),
         ...(portal.canBilling ? [{ to: "/portal/billing", label: t("portal.nav.billing"), icon: <WalletIcon />, badge: overdue }] : []),
         ...(portal.canOps ? [{ to: "/portal/documents", label: t("portal.nav.documents"), icon: <FolderIcon />, badge: needed }] : []),
       ]
@@ -172,6 +194,9 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           end: true,
         },
       ];
+
+  const deskNav = nav.filter((n) => !n.phone);
+  const phoneNav = nav.filter((n) => !n.desk);
 
   const openChat = React.useCallback((target?: ChatTarget) => setChat(target || null), []);
   const name = portal.me.portal_user.full_name || portal.me.portal_user.email;
@@ -203,7 +228,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                 <BrandMark className="max-h-9" />
               </div>
               <nav className="mt-8 grid gap-1">
-                {nav.map((n) => (
+                {deskNav.map((n) => (
                   <NavLink key={n.to} to={n.to} end={n.end} className="pt-nav-item" aria-current={undefined}>
                     {({ isActive }) => (
                       <span className="contents" data-active={isActive || undefined}>
@@ -250,17 +275,29 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* ── phone: tab bar ── */}
-          {nav.length > 1 ? (
-            <nav className="pt-tabbar lg:hidden" aria-label={t("portal.nav.label")} style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
-              {nav.map((n) => (
-                <NavLink key={n.to} to={n.to} end={n.end} className="pt-tab">
-                  <span className="pt-tab-icon relative">
-                    {n.icon}
-                    {n.badge ? <span className="pt-badge pt-num">{n.badge > 9 ? "9+" : n.badge}</span> : null}
-                  </span>
-                  <span className="max-w-full truncate px-1">{n.label}</span>
-                </NavLink>
-              ))}
+          {phoneNav.length > 1 ? (
+            <nav className="pt-tabbar lg:hidden" aria-label={t("portal.nav.label")} style={{ gridTemplateColumns: `repeat(${phoneNav.length}, minmax(0, 1fr))` }}>
+              {phoneNav.map((n) => {
+                const inner = (
+                  <>
+                    <span className="pt-tab-icon relative">
+                      {n.icon}
+                      {n.badge ? <span className="pt-badge pt-num">{n.badge > 9 ? "9+" : n.badge}</span> : null}
+                    </span>
+                    <span className="max-w-full truncate px-1">{n.label}</span>
+                  </>
+                );
+                // The shared Quotes slot is lit on either of its two pages.
+                return n.also ? (
+                  <Link key="quotes" to={n.to} className="pt-tab" aria-current={n.also.some((p) => location.pathname.startsWith(p)) ? "page" : undefined}>
+                    {inner}
+                  </Link>
+                ) : (
+                  <NavLink key={n.to} to={n.to} end={n.end} className="pt-tab">
+                    {inner}
+                  </NavLink>
+                );
+              })}
             </nav>
           ) : null}
 

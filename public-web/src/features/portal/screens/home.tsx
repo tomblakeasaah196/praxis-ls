@@ -43,7 +43,8 @@ export function HomePage() {
 
   const asks = (s?.requests?.items || []).filter((r) => r.status === "OPEN" || r.status === "REJECTED");
   const overdue = s?.billing?.next_due && s.billing.next_due.state === "OVERDUE" ? s.billing.next_due : null;
-  const offers = s?.proposals?.pending_count || 0;
+  // Offers waiting for an answer — commercial quotations and proposals (meeting 6, G3).
+  const offers = (s?.quotations?.pending_count || 0) + (s?.proposals?.pending_count || 0);
   const needs = asks.length > 0 || !!overdue || offers > 0;
   const ships = s?.shipments?.items || [];
   const dueTotals = (s?.billing?.totals || []).filter((x) => x.due > 0);
@@ -59,7 +60,7 @@ export function HomePage() {
           {portal.company ? <p className="mt-1 truncate text-[0.95rem] text-muted-foreground">{portal.company}</p> : null}
         </div>
         {portal.canOps ? (
-          <Link to="/portal/quotes?new=1" className="pt-btn pt-btn-primary hidden shrink-0 sm:inline-flex">
+          <Link to="/portal/requests?new=1" className="pt-btn pt-btn-primary hidden shrink-0 sm:inline-flex">
             <QuoteIcon size={20} />
             {t("portal.quote.request")}
           </Link>
@@ -115,12 +116,12 @@ export function HomePage() {
                   </button>
                 ) : null}
                 {offers ? (
-                  <button type="button" className="pt-row" onClick={() => navigate("/portal/quotes?tab=proposals")}>
+                  <button type="button" className="pt-row" onClick={() => navigate("/portal/quotations")}>
                     <IconDisc tone="brand">
                       <QuoteIcon />
                     </IconDisc>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[0.95rem] font-semibold text-foreground">{t("portal.prop.awaiting")}</span>
+                      <span className="block truncate text-[0.95rem] font-semibold text-foreground">{t("portal.offer.awaiting")}</span>
                       <span className="mt-0.5 block truncate text-xs text-muted-foreground">{t("portal.prop.awaitingCount", { count: offers })}</span>
                     </span>
                     <span className="pt-btn pt-btn-soft pt-btn-sm shrink-0">{t("portal.prop.review")}</span>
@@ -184,7 +185,7 @@ export function HomePage() {
                     icon={<ShipIcon size={28} />}
                     title={t("portal.home.noneMoving")}
                     action={
-                      <Link to="/portal/quotes?new=1" className="pt-btn pt-btn-soft">
+                      <Link to="/portal/requests?new=1" className="pt-btn pt-btn-soft">
                         <QuoteIcon size={20} />
                         {t("portal.quote.request")}
                       </Link>
@@ -209,7 +210,7 @@ export function HomePage() {
             </h2>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               {portal.canOps ? (
-                <Shortcut to="/portal/quotes?new=1" icon={<SparkIcon />} label={t("portal.quote.request")} />
+                <Shortcut to="/portal/requests?new=1" icon={<SparkIcon />} label={t("portal.quote.request")} />
               ) : null}
               {portal.canOps ? <Shortcut onClick={() => setSharing(true)} icon={<UploadIcon />} label={t("portal.share.title")} tone="info" /> : null}
               {portal.canBilling ? <Shortcut to="/portal/billing" icon={<WalletIcon />} label={t("portal.bill.ivePaid")} tone="ok" /> : null}
