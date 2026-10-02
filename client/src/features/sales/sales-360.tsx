@@ -41,6 +41,16 @@ import { money, moneyCompact, num, dateFmt, dateTimeFmt, enumLabel, cell } from 
 import { pageShell } from "@/lib/layout";
 import { ConvertModal } from "./lead-forms";
 import { ConvertToOpportunityModal } from "./quote-request-forms";
+import { serviceScope } from "@shared";
+import {
+  channelLabel,
+  documentKindLabel,
+  durationLabel,
+  hinterlandLabel,
+  incotermLabel,
+  placementLabel,
+  serviceNameOf,
+} from "@/lib/quote-request-api";
 import {
   IntakeKpiDrill,
   LeadKpiDrill,
@@ -184,6 +194,8 @@ export type LeadDossierData = {
 export type IntakeAttachment = {
   quote_request_attachment_id: Id;
   kind: string;
+  /** What the document is (14310): COMMERCIAL_INVOICE, PACKING_LIST, … */
+  document_kind?: string | null;
   vault_id: Id;
   original_name?: string | null;
   doc_type?: string | null;
@@ -1009,6 +1021,21 @@ export function LeadDossier({
 
 /* ════════════════════════════ INTAKE 360 ════════════════════════════════════ */
 
+/** The flow a territory places a service in (the shared rule's own table). */
+const flowOfTerritory = (t: string | null | undefined) => serviceScope.flowOf(t);
+
+/**
+ * Who logged a request. The desk's own are a colleague; a portal request is the
+ * client's person, a website one the visitor — neither has a staff author, and
+ * "—" there read as "nobody knows" (meeting 6, item 2.4).
+ */
+function loggedBy(q: Record<string, unknown>): string {
+  const person = (q.requester_name as string) || (q.requester_email as string) || "";
+  if (q.intake_channel === "PORTAL") return person ? `${tr("Client portal")} · ${person}` : tr("Client portal");
+  if (q.intake_channel === "WEBSITE") return person ? `${tr("Website")} · ${person}` : tr("Website");
+  return cell(q.created_by_name as string);
+}
+
 const INTAKE_TABS = ["Overview", "Scope", "Attachments", "Proposals", "History"] as const;
 type IntakeTab = (typeof INTAKE_TABS)[number];
 
@@ -1122,11 +1149,27 @@ export function IntakeDossier({
           </ActionBar>
         }
         fields={[
-          { label: "Channel", value: enumLabel(String(q.intake_channel ?? "")) || "—" },
-          { label: "Service", value: enumLabel(String(q.service_category ?? "")) || "—" },
-          { label: "Incoterm", value: cell(q.incoterm as string) },
-          { label: "Owner", value: cell(q.owner_name as string) },
-          { label: "Logged by", value: cell(q.created_by_name as string) },
+          { label: tr("Channel"), value: channelLabel(q.intake_channel as string) },
+          {
+            label: tr("Service"),
+            // The service the request names (14310), in words and with where
+            // it sits — never a key. A request filed before services were
+            // structured shows the words it was filed with.
+            value: q.service_type_id
+              ? [
+                  serviceNameOf({ name_en: q.service_name_en as string, name_fr: q.service_name_fr as string }),
+                  placementLabel(q.service_mode as string, flowOfTerritory(q.service_territory as string)),
+                  hinterlandLabel(q.hinterland_direction as string),
+                ].filter(Boolean).join(" · ")
+              : cell(q.service_category as string),
+          },
+          { label: tr("Client"), value: q.client_id ? <Link className="text-primary-ink hover:underline" to={`/master/clients?focus=${encodeURIComponent(String(q.client_id))}`}>{cell(q.client_name as string)}</Link> : tr("Not tied to a client") },
+          { label: tr("Incoterm"), value: incotermLabel(q.incoterm as string) },
+          { label: tr("Owner"), value: q.owner_name ? cell(q.owner_name as string) : tr("Unassigned — Start review takes it") },
+          /* Who logged it. A portal request has no staff author: it reads
+             "Client portal · <person>" (meeting 6, item 2.4), the website's
+             "Website · <person>". */
+          { label: tr("Logged by"), value: loggedBy(q) },
           { label: "Corporate entity", value: cell(q.entity_name as string) },
           { label: "Received", value: dateFmt(q.created_at as string) },
           {
@@ -1222,7 +1265,7 @@ export function IntakeDossier({
               { label: "Origin", value: routeEnd(q.origin_location, q.origin_place_id) },
               { label: "Destination", value: routeEnd(q.destination_location, q.destination_place_id) },
               { label: "Place of delivery", value: routeEnd(q.delivery_location, q.delivery_place_id) },
-              { label: "Incoterm", value: cell(q.incoterm as string) },
+              { label: "Incoterm", value: incotermLabel(q.incoterm as string) },
               {
                 label: "Estimated weight",
                 value: q.estimated_weight ? num(q.estimated_weight as number) : "—",
@@ -1234,7 +1277,7 @@ export function IntakeDossier({
               { label: "Warehouse", value: cell(q.warehouse_location as string) },
               {
                 label: "Warehouse duration",
-                value: enumLabel(String(q.warehouse_duration ?? "")) || "—",
+                value: durationLabel(q.warehouse_duration as string),
               },
               { label: "Requester phone", value: cell(q.requester_phone as string) },
             ].map((f) => (
@@ -1271,9 +1314,9 @@ export function IntakeDossier({
             <tr key={a.quote_request_attachment_id}>
               <Td>{cell(a.original_name)}</Td>
               <Td>
-                <Pill tone={a.kind === "PRIMARY" ? "blue" : "mute"}>{enumLabel(a.kind)}</Pill>
+                <Pill tone={a.kind === "PRIMARY" ? "blue" : "mute"}>{a.kind === "PRIMARY" ? tr("Primary") : tr("Additional")}</Pill>
               </Td>
-              <Td>{cell(a.doc_type)}</Td>
+              <Td>{a.document_kind ? documentKindLabel(a.document_kind) : cell(a.doc_type)}</Td>
               <Td>{cell(a.uploaded_by_name)}</Td>
               <Td>{dateFmt(a.created_at)}</Td>
             </tr>

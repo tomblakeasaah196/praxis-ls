@@ -7,6 +7,10 @@ import {
   en as portalEn,
   fr as portalFr,
 } from "@/features/portal/portal-copy";
+import {
+  en as quoteStepsEn,
+  fr as quoteStepsFr,
+} from "@/components/quote/quote-steps-copy";
 
 /**
  * The whole translation tree as it exists AT RUNTIME — for tests only.
@@ -39,12 +43,12 @@ import {
  */
 export const en = {
   ...baseEn,
-  site: { ...baseEn.site, careers: careersEn },
+  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn },
   portal: { ...baseEn.portal, ...portalEn },
 };
 
 export const fr = {
   ...baseFr,
-  site: { ...baseFr.site, careers: careersFr },
+  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr },
   portal: { ...baseFr.portal, ...portalFr },
 };

@@ -15,6 +15,7 @@
  * equivalent page instead of dumping the visitor on the homepage.
  */
 import { PublicApiError, publicGet } from "./api";
+import type { IncotermOption, QuoteCard, QuoteFlow } from "./quote-scope";
 
 export type Lang = "en" | "fr";
 
@@ -72,6 +73,17 @@ export type ServiceCard = {
    * business representation, where all three are questions with no answer.
    */
   enquiry_shape: EnquiryShape;
+  /**
+   * The quote wizard's card and flow (meeting 6, PR 2): the service's own
+   * `transport_mode` — the tenant corrects a wrong one in Service types — and
+   * the flow its territory places it in (null: shown by its name). Optional
+   * on the wire because a cached payload from before 14300 has neither; the
+   * wizard reads them through `asQuoteService`.
+   */
+  card?: QuoteCard;
+  flow?: QuoteFlow | null;
+  /** The Incoterms this service is quoted on, with their names (owner decision Q3). */
+  incoterms?: IncotermOption[];
   short_description_fr: string | null;
   short_description_en: string | null;
   /** The one emphasised line closing the card. Migration 12755 is explicit that

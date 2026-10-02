@@ -127,14 +127,18 @@ export function LeadNewPage() {
 export function QuoteRequestNewPage() {
   const seed = useMailSeed();
   const { close, saved } = useConvertSave("quote_request", seed.threadId, "/sales/quote-requests");
+  // From an email, the request arrived BY email — the channel says so (meeting
+  // 6, item 2.6), and the form suggests the client the sender's address
+  // belongs to (never by a public webmail domain), one tap to link.
   const initial = React.useMemo(
     () => ({
       requester_name: seed.contactName,
       requester_company: seed.companyName,
       requester_email: seed.email,
       cargo_description: seed.details,
+      intake_channel: seed.fromMail ? "EMAIL" : null,
     }),
-    [seed.contactName, seed.companyName, seed.email, seed.details],
+    [seed.contactName, seed.companyName, seed.email, seed.details, seed.fromMail],
   );
   return (
     <NewShell title={tr("New quote request")} fromMail={seed.fromMail}>

@@ -1,5 +1,9 @@
 "use strict";
 
+const { serviceScope } = require("@praxis/shared");
+
+const { modeFromKey, glyphOf } = serviceScope;
+
 /**
  * The transport mode a service type moves cargo by, derived from its key.
  *
@@ -14,16 +18,22 @@
  * with two copies of the rules is how a ship on the tracking page ends up next to
  * "Place of collection" on the quote form.
  *
- * ── WHY IT IS DERIVED AND NOT A COLUMN ─────────────────────────────────────
+ * ── THE KEY'S READING, AND THE COLUMN THAT CAN OVERRULE IT ──────────────────
  *
- * `service_type` has no mode column and should not grow one: services are DATA
- * (0310_operations.sql — "user-creatable"), so a tenant can add
- * SEA_FREIGHT_TRANSSHIPMENT tomorrow and would otherwise have to come back to
- * engineering to make it show a ship. Reading the key they already chose costs
- * nothing and covers every key they will choose next, and an unrecognised one
- * answers OTHER rather than nothing — a neutral icon, never a wrong one.
+ * Reading the key a tenant already chose costs nothing and covers every key
+ * they will choose next (services are DATA — 0310_operations.sql), and an
+ * unrecognised one answers OTHER: a neutral icon, never a wrong one.
  *
- * The order is the whole content of the function, and it is the precedence
+ * Since meeting 6 (PR 2) the quote wizard's cards are a COLUMN as well —
+ * `service_type.transport_mode`, defaulted from this very reading and editable
+ * in Service types, because a card decides which questions a client is asked
+ * and a misread key there costs more than an icon. The ladder itself moved to
+ * `@praxis/shared` (rules/service-scope.js, MODE_LADDER) so the column's
+ * default, the service-type form's suggestion and this glyph cannot read one
+ * key three ways. This function keeps its old vocabulary (storage is
+ * WAREHOUSE) for the tracking page and the site focus lanes.
+ *
+ * The order is the whole content of the ladder, and it is the precedence
  * `routeLabels` has always applied. AIR before SEA, because that function tests
  * the air fields first and a combined key — a sea-air service — must land the
  * same way in both. RAIL before ROAD, because RAIL_HINTERLAND_TRANSIT is a rail
@@ -34,19 +44,7 @@
  * @returns {"SEA"|"AIR"|"RAIL"|"ROAD"|"WAREHOUSE"|"CUSTOMS"|"OTHER"}
  */
 function serviceMode(key) {
-  const k = String(key || "").toUpperCase();
-  if (k.includes("AIR") || k.includes("FLIGHT")) return "AIR";
-  if (k.includes("SEA") || k.includes("OCEAN") || k.includes("SHIPPING")) return "SEA";
-  if (k.includes("RAIL")) return "RAIL";
-  // INLAND is here because INLAND_TRANSPORTATION is a truck movement and was
-  // landing in OTHER — so a tenant's road haulage sat under "Something else" on
-  // the quote form while an empty-looking "By road or rail" card stood beside
-  // it. RAIL_TRANSPORTATION is unaffected: the RAIL test above runs first.
-  if (k.includes("ROAD") || k.includes("TRUCK") || k.includes("HAULAGE")
-      || k.includes("INLAND") || k.includes("HINTERLAND")) return "ROAD";
-  if (k.includes("WAREHOUS") || k.includes("STORAGE")) return "WAREHOUSE";
-  if (k.includes("CUSTOMS") || k.includes("CLEARANCE") || k.includes("DECLARATION")) return "CUSTOMS";
-  return "OTHER";
+  return glyphOf(modeFromKey(key));
 }
 
 module.exports = { serviceMode };

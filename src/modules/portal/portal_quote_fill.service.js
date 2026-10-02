@@ -4,8 +4,9 @@
  *
  * A client types what they would say on the phone — "2×40HC of ceramic tiles,
  * Shanghai to Douala, FOB, about 48 tonnes, need it before December" — and the
- * wizard's three steps come back filled: mode, direction, route, incoterm,
- * cargo, weight. The client still walks the steps and sends it; nothing is
+ * wizard's steps come back filled: the card and flow — and from them the
+ * SERVICE TYPE, when exactly one of the tenant's active services answers
+ * (meeting 6, PR 2) — the route, the incoterm, the cargo and the weight. The client still walks the steps and sends it; nothing is
  * filed on their behalf.
  *
  * ── TWO READERS, ONE ANSWER ────────────────────────────────────────────────
@@ -25,20 +26,26 @@
 "use strict";
 
 const { z } = require("zod");
+const { serviceScope, incoterms } = require("@praxis/shared");
 const llm = require("../../services/ai/llm.service");
 const { redact } = require("../../services/ai/redact");
 const governance = require("../ai/governance/governance.service");
 const { logger } = require("../../config/logger");
+const quoteRequest = require("../sales/quote_request/quote_request.service");
 
 const FEATURE = "portal_quote_fill";
-const MODES = ["SEA", "AIR", "ROAD", "CUSTOMS", "STORAGE", "OTHER"];
-const DIRECTIONS = ["IMPORT", "EXPORT", "LOCAL"];
-const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"];
+// The wizard's own vocabulary, from @praxis/shared — the cards, the flows and
+// the ICC 2020 terms — so the fill can never return a value the wizard has no
+// chip for (it used to know no RAIL and call inland "LOCAL").
+const MODES = [...serviceScope.MODES];
+const FLOWS = [...serviceScope.FLOWS];
+const INCOTERMS = [...incoterms.CODES];
 
 const place = z.string().trim().min(2).max(120);
 const Fields = z.object({
   mode: z.enum(MODES).nullable().optional(),
-  direction: z.enum(DIRECTIONS).nullable().optional(),
+  flow: z.enum(FLOWS).nullable().optional(),
+  hinterland_direction: z.enum(serviceScope.HINTERLAND_DIRECTIONS).nullable().optional(),
   origin: place.nullable().optional(),
   destination: place.nullable().optional(),
   incoterm: z.enum(INCOTERMS).nullable().optional(),
@@ -52,10 +59,14 @@ const Fields = z.object({
 const MODE_WORDS = [
   ["AIR", /\b(air|by air|plane|flight|avion|a[ée]rien|fret a[ée]rien|awb)\b/i],
   ["SEA", /\b(sea|ship|vessel|ocean|maritime|bateau|navire|conteneurs?|containers?|20\s?(?:ft|'|pieds|gp|dv)|40\s?(?:ft|'|pieds|hc|gp|dv)|fcl|lcl|b\/?l)\b/i],
+  ["RAIL", /\b(rail|railway|train|wagons?|ferroviaire|camrail)\b/i],
   ["ROAD", /\b(truck|road|lorry|trailer|camion|routier|route|remorque)\b/i],
   ["CUSTOMS", /\b(customs|clearance|d[ée]douanement|douanes?)\b/i],
   ["STORAGE", /\b(storage|warehouse|warehousing|entrep[oô]t|entreposage|stockage)\b/i],
 ];
+
+/** The hinterland the corridor serves: Chad and the Central African Republic, by their names and towns. */
+const HINTERLAND = /\b(n'?djamena|moundou|sarh|abéché|abeche|tchad|chad|bangui|berb[ée]rati|centrafrique|central african republic)\b/i;
 
 const CUT = String.raw`(?=\s*(?:[,.;()]|\s(?:by|via|on|in|with|for|before|par|en|avec|pour|avant|using)\b|$))`;
 const FROM_TO = [
@@ -69,7 +80,7 @@ const cap = (s) => String(s || "").trim().replace(/\s+/g, " ").replace(/^\p{Ll}/
 /** What regular expressions can read with confidence. Anything unsure stays null. */
 function rules(text) {
   const t = String(text || "");
-  const out = { mode: null, direction: null, origin: null, destination: null, incoterm: null, cargo: null, weight_kg: null, containers: null };
+  const out = { mode: null, flow: null, hinterland_direction: null, origin: null, destination: null, incoterm: null, cargo: null, weight_kg: null, containers: null };
 
   for (const [mode, re] of MODE_WORDS) {
     if (re.test(t)) {
@@ -80,9 +91,13 @@ function rules(text) {
   const inc = new RegExp(`\\b(${INCOTERMS.join("|")})\\b`, "i").exec(t);
   if (inc) out.incoterm = inc[1].toUpperCase();
 
-  if (/\b(import|importing|importation|importer)\b/i.test(t)) out.direction = "IMPORT";
-  else if (/\b(export|exporting|exportation|exporter)\b/i.test(t)) out.direction = "EXPORT";
-  else if (/\b(local|domestic|intra-?city|within)\b/i.test(t)) out.direction = "LOCAL";
+  // Hinterland first: "transit to N'Djamena" is an import that never stops in
+  // Cameroon, and reading it as IMPORT would pick the sea service instead.
+  if (HINTERLAND.test(t) || /\bhinterland\b/i.test(t)) out.flow = "HINTERLAND";
+  else if (/\b(door[- ]to[- ]door|porte[- ][àa][- ]porte|end[- ]to[- ]end)\b/i.test(t)) out.flow = "END_TO_END";
+  else if (/\b(import|importing|importation|importer)\b/i.test(t)) out.flow = "IMPORT";
+  else if (/\b(export|exporting|exportation|exporter)\b/i.test(t)) out.flow = "EXPORT";
+  else if (/\b(local|domestic|inland|intra-?city|within|national|int[ée]rieur)\b/i.test(t)) out.flow = "INLAND";
 
   for (const re of FROM_TO) {
     const m = re.exec(t);
@@ -97,6 +112,13 @@ function rules(text) {
   if (!out.destination) {
     const arrive = new RegExp(String.raw`\b(?:arriving (?:at|in)|delivered (?:to|at)|arrivant [àa]|livr[ée]e? [àa]|au port de)\s+([\p{L}][\p{L} .'-]{1,40}?)(?:\s+port)?${CUT}`, "iu").exec(t);
     if (arrive) out.destination = cap(arrive[1]);
+  }
+
+  // Which way a hinterland transit runs: into it when the goods END there
+  // (Douala → N'Djamena), out of it when they START there (Bangui → Douala).
+  if (out.flow === "HINTERLAND") {
+    if (out.destination && HINTERLAND.test(out.destination)) out.hinterland_direction = "INTO";
+    else if (out.origin && HINTERLAND.test(out.origin)) out.hinterland_direction = "OUT_OF";
   }
 
   // "48 t", "48 tonnes", "48,5 tons", "12000 kg", "12 000 kilos".
@@ -122,7 +144,8 @@ function rules(text) {
 /* ── the model ───────────────────────────────────────────────────────────── */
 
 const PROMPT = `You read a shipper's description of a freight job and return ONLY JSON:
-{"mode":"SEA|AIR|ROAD|CUSTOMS|STORAGE|OTHER|null","direction":"IMPORT|EXPORT|LOCAL|null",
+{"mode":"${MODES.join("|")}|null","flow":"${FLOWS.join("|")}|null",
+ "hinterland_direction":"INTO|OUT_OF|null (only for a transit into or out of Chad / the Central African Republic)",
  "origin":"city or port, as written, or null","destination":"city or port, as written, or null",
  "incoterm":"one of ${INCOTERMS.join(", ")} or null","cargo":"what the goods are, 3-12 words, in the writer's language, or null",
  "weight_kg":number or null,"containers":"like 2×40HC, or null"}
@@ -138,6 +161,24 @@ function merge(base, ai) {
 }
 
 /**
+ * The service type a card and a flow lead to — when exactly ONE of the
+ * tenant's active services answers. Two answers is a question for the client,
+ * so it is left to the wizard's chips. A card holding a single service (storage
+ * and customs, today) needs no flow at all.
+ */
+async function serviceFor(c, fields) {
+  if (!fields.mode || !c || typeof c.query !== "function") return null;
+  try {
+    const services = (await quoteRequest.quoteServices(c)).filter((sv) => sv.card === fields.mode);
+    const hits = services.length === 1 ? services : services.filter((sv) => fields.flow && sv.flow === fields.flow);
+    return hits.length === 1 ? hits[0].service_type_id : null;
+  } catch (err) {
+    logger.warn({ err: err && err.message }, "portal quote fill: the services could not be read, the client picks one");
+    return null;
+  }
+}
+
+/**
  * Fill the wizard from a description. Returns the fields and where they came
  * from (`ai` when the model answered and validated, `rules` otherwise), so the
  * portal can say "filled for you — check each step" either way.
@@ -145,16 +186,17 @@ function merge(base, ai) {
 async function fill(c, { text, env = "live" }) {
   const clean = String(text || "").replace(/\s+/g, " ").trim().slice(0, 2000);
   const base = rules(clean);
-  if (env !== "live" || clean.length < 8) return { fields: base, source: "rules" };
+  const withService = async (fields) => ({ ...fields, service_type_id: await serviceFor(c, fields) });
+  if (env !== "live" || clean.length < 8) return { fields: await withService(base), source: "rules" };
 
   let gate;
   try {
     gate = await governance.canUseFeature(c, { userId: null, featureKey: FEATURE });
   } catch (err) {
     logger.warn({ err: err && err.message }, "portal quote fill: AI gate unavailable, rules only");
-    return { fields: base, source: "rules" };
+    return { fields: await withService(base), source: "rules" };
   }
-  if (!gate || !gate.allowed) return { fields: base, source: "rules" };
+  if (!gate || !gate.allowed) return { fields: await withService(base), source: "rules" };
 
   const started = Date.now();
   let out = null;
@@ -199,7 +241,9 @@ async function fill(c, { text, env = "live" }) {
     /* @silent:storage — metering is an enrichment on an answer already given */
   });
 
-  return parsed ? { fields: merge(base, parsed), source: "ai" } : { fields: base, source: "rules" };
+  return parsed
+    ? { fields: await withService(merge(base, parsed)), source: "ai" }
+    : { fields: await withService(base), source: "rules" };
 }
 
 module.exports = { fill, rules, FEATURE };
