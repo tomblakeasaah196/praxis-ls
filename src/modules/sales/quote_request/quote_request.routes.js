@@ -32,6 +32,13 @@ router.get("/export.csv", requirePermission(MODULE, "view"), controller.exportCs
 // The tile vocabulary the register renders, so the screen does not keep its
 // own copy of the status list and drift from the one the API partitions on.
 router.get("/tiles", requirePermission(MODULE, "view"), controller.tiles);
+// Which client a requester's address belongs to (meeting 6, owner decision
+// Q5) — the form's and the email conversion's one-tap suggestion. Declared
+// before `/:id` so it is never read as an id.
+router.get("/client-match", requirePermission(MODULE, "view"), validator.clientMatch, controller.clientMatch);
+// The services a request can name — the desk's picker, each with its card,
+// flow and Incoterms (14300).
+router.get("/services", requirePermission(MODULE, "view"), controller.services);
 // The 360° dossier — the request's full logistics scope, its attachments, the
 // lead it came from and the opportunity it became, in one call. Same gate as
 // the plain read; money is gated separately on finance visibility.
@@ -47,5 +54,7 @@ router.post("/:id/convert-to-opportunity", requirePermission(MODULE, "approve"),
 router.get("/:id/attachments", requirePermission(MODULE, "view"), controller.listAttachments);
 router.post("/:id/attachments", requirePermission(MODULE, "edit"), validator.attachment, controller.addAttachment);
 router.delete("/:id/attachments/:attachmentId", requirePermission(MODULE, "edit"), controller.removeAttachment);
+// A file a client sent in their portal chat, filed on one of their requests.
+router.post("/:id/attachments/from-chat", requirePermission(MODULE, "edit"), validator.fromChat, controller.fileFromChat);
 
 module.exports = { basePath: "/quote-requests", feature: null, router };

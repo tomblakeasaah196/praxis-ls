@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1850 |
+| Routes | 1858 |
 | Modules mounted | 141 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1850 mounted routes, grouped by path prefix.
+All 1858 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1640,7 +1640,12 @@ All 1850 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/client/push/unsubscribe` | — |
 | GET | `/api/tenant/portal/client/quote-requests` | — |
 | POST | `/api/tenant/portal/client/quote-requests` | — |
+| GET | `/api/tenant/portal/client/quote-requests/:id` | — |
+| POST | `/api/tenant/portal/client/quote-requests/:id/documents` | — |
+| GET | `/api/tenant/portal/client/quote-requests/:id/documents/:attachmentId` | — |
+| POST | `/api/tenant/portal/client/quote-requests/documents` | — |
 | POST | `/api/tenant/portal/client/quote-requests/fill` | — |
+| GET | `/api/tenant/portal/client/quote-services` | — |
 | GET | `/api/tenant/portal/client/requests` | — |
 | POST | `/api/tenant/portal/client/requests/:id/answer` | — |
 | GET | `/api/tenant/portal/client/requests/:id/file` | — |
@@ -1838,9 +1843,12 @@ All 1850 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/quote-requests/:id/attachments` | — |
 | POST | `/api/tenant/quote-requests/:id/attachments` | — |
 | DELETE | `/api/tenant/quote-requests/:id/attachments/:attachmentId` | — |
+| POST | `/api/tenant/quote-requests/:id/attachments/from-chat` | — |
 | POST | `/api/tenant/quote-requests/:id/convert-to-opportunity` | — |
 | POST | `/api/tenant/quote-requests/:id/transition` | — |
+| GET | `/api/tenant/quote-requests/client-match` | — |
 | GET | `/api/tenant/quote-requests/export.csv` | — |
+| GET | `/api/tenant/quote-requests/services` | — |
 | GET | `/api/tenant/quote-requests/tiles` | — |
 
 ### `tenant/rate-providers`

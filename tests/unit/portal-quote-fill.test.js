@@ -42,7 +42,7 @@ describe("the rules reader", () => {
 
   it("reads a French one, place names and all", () => {
     expect(rules("Import de 3 conteneurs de 20 pieds de riz de Bangkok à Douala, CIF, 75 t")).toMatchObject({
-      mode: "SEA", direction: "IMPORT", origin: "Bangkok", destination: "Douala", incoterm: "CIF", weight_kg: 75000,
+      mode: "SEA", flow: "IMPORT", origin: "Bangkok", destination: "Douala", incoterm: "CIF", weight_kg: 75000,
     });
   });
 
@@ -55,7 +55,7 @@ describe("the rules reader", () => {
 describe("with the model", () => {
   it("fills the gaps the rules left, one validated field at a time", async () => {
     mockAnswer = JSON.stringify({
-      mode: "SEA", direction: "IMPORT", origin: null, destination: "Kribi", incoterm: "FOB",
+      mode: "SEA", flow: "IMPORT", origin: null, destination: "Kribi", incoterm: "FOB",
       cargo: "Industrial machinery", weight_kg: 12000, containers: null,
     });
     const out = await fill(client, { text: "Machinery, about 12 tonnes, FOB, coming into Kribi" });

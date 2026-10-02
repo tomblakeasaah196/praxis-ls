@@ -46,6 +46,7 @@ import { useUrlTab } from "@/lib/use-url-tab";
 import { useRefreshEvent } from "@/lib/open-in-app";
 import { ClientPortalTab } from "@/features/portal/client-portal-staff";
 import { ClientChatPanel } from "@/features/portal/client-chat-panel";
+import { ClientQuoteRequestsTab } from "@/features/sales/client-quote-requests";
 import { AccountManagerCard } from "@/features/portal/account-manager";
 import { ClientSentFiles, RequestFromClientDialog } from "@/features/portal/client-kyc";
 import { useCanUseModule } from "@/lib/route-access";
@@ -474,6 +475,7 @@ const CLIENT_TABS = [
   "Registrations",
   "Owners",
   "Operations",
+  "Quote requests",
   "Financial",
   "Portal",
   "Messages",
@@ -481,8 +483,11 @@ const CLIENT_TABS = [
 type Tab = (typeof CLIENT_TABS)[number];
 // "Operations" lists the client's dossiers, "Portal" what we asked the client
 // for through their portal, and "Messages" their portal conversations (client
-// portal PR 3); suppliers have none of these, so the three are dropped there.
-const SUPPLIER_TABS = CLIENT_TABS.filter((t) => t !== "Operations" && t !== "Portal" && t !== "Messages");
+// portal PR 3); "Quote requests" what they have asked us to price (meeting 6,
+// PR 2). Suppliers have none of these, so the four are dropped there.
+const SUPPLIER_TABS = CLIENT_TABS.filter(
+  (t) => t !== "Operations" && t !== "Quote requests" && t !== "Portal" && t !== "Messages",
+);
 
 /* ── PR3-C: duplicates, governed merge, scorecard, pending changes ─────────── */
 
@@ -1394,11 +1399,15 @@ export function PartyDossier({
   // follows its own grant.
   const canClientPortal = useCanUseModule("MOD-29");
   const canPaymentClaims = useCanUseModule("MOD-52");
+  // Quote requests are the intake register (MOD-20): its API refuses anyone
+  // else, so the tab would only ever show a 403.
+  const canQuoteRequests = useCanUseModule("MOD-20");
   const tabList: readonly Tab[] =
     kind === "client"
       ? CLIENT_TABS.filter(
           (t) =>
             (t !== "Messages" || canAnswerClients) &&
+            (t !== "Quote requests" || canQuoteRequests) &&
             (t !== "Portal" || canClientPortal || canPaymentClaims),
         )
       : SUPPLIER_TABS;
@@ -2263,6 +2272,15 @@ export function PartyDossier({
           contacts={(d.contacts ?? [])
             .filter((c) => !!c.email)
             .map((c) => ({ name: c.name, email: String(c.email), phone: c.phone || null }))}
+        />
+      )}
+
+      {tab === "Quote requests" && isClient && (
+        <ClientQuoteRequestsTab
+          clientId={partyId}
+          clientName={p.name || p.legal_name || ""}
+          contacts={d.contacts ?? []}
+          canCreate={canQuoteRequests}
         />
       )}
 

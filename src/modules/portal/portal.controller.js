@@ -1,5 +1,7 @@
 "use strict";
 const service = require("./portal.service");
+const quoteRequestService = require("../sales/quote_request/quote_request.service");
+const { readUpload } = require("../../shared/http/upload.middleware");
 const { asyncHandler, AppError } = require("../../utils/errors");
 const actor = (req) => req.user || { user_id: null };
 
@@ -57,7 +59,42 @@ module.exports = {
     res.send(out.buffer);
   }),
   clientQuoteRequests: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientQuoteRequests(c, { clientId: clientId(req) })) })),
-  createClientQuote: asyncHandler(async (req, res) => res.status(201).json({ data: await req.tenantDb((c) => service.createClientQuote(c, { clientId: clientId(req), data: req.body, actor: req.portal.user || {} })) })),
+  // The signed-in PERSON is the requester (meeting 6, item 2.4) — their name
+  // and address, never the company record's.
+  createClientQuote: asyncHandler(async (req, res) => res.status(201).json({ data: await req.tenantDb((c) => service.createClientQuote(c, { clientId: clientId(req), data: req.body, user: req.portal.user || {} })) })),
+  /** The services the quote wizard offers — every active one, with its card, flow and Incoterms. */
+  clientQuoteServices: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientQuoteServices(c)) })),
+  /** One request: scope, documents, status timeline, the proposal that answered it. */
+  clientQuoteRequest: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientQuoteRequest(c, { clientId: clientId(req), id: req.params.id })) })),
+  /**
+   * A document uploaded BEFORE the request is sent (multipart, one file): it
+   * waits, owned by this client, until the request names it. The wizard shows
+   * the upload's progress and preview while the client is still on the step.
+   */
+  stageQuoteDocument: asyncHandler(async (req, res) => {
+    const file = readUpload(req);
+    res.status(201).json({ data: await req.tenantDb((c) => quoteRequestService.stageClientDocument(c, { clientId: clientId(req), file, slug: req.tenant && req.tenant.slug })) });
+  }),
+  /** "Add a document" on a request already sent — at any time (owner decision Q4). */
+  addQuoteDocument: asyncHandler(async (req, res) => {
+    const user = (req.portal && req.portal.user) || {};
+    const file = readUpload(req);
+    const out = await req.tenantDb((c) => quoteRequestService.addClientDocument(c, {
+      clientId: clientId(req), id: req.params.id, file, documentKind: req.body.document_kind || null,
+      slug: req.tenant && req.tenant.slug, by: { name: user.full_name || null, email: user.email || null },
+    }));
+    res.status(201).json({ data: out });
+  }),
+  /** One of the request's documents — the client's own, re-checked in the service. */
+  quoteDocumentDownload: asyncHandler(async (req, res) => {
+    const { doc, buffer } = await req.tenantDb((c) => quoteRequestService.clientDocument(c, { clientId: clientId(req), id: req.params.id, attachmentId: req.params.attachmentId }));
+    // Saved, never rendered: the vault sniffed the bytes at upload, and an
+    // attachment disposition with nosniff keeps a browser from second-guessing.
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${String(doc.original_name || "document").replace(/[^\w.-]+/g, "_")}"`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(buffer);
+  }),
   // Staff-side handlers (MOD-67 gated in the routes file).
   staffClient: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientView(c, { clientId: staffClientId(req) })) })),
   staffClientChain: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientChain(c, { clientId: staffClientId(req), dossierId: req.params.dossierId })) })),

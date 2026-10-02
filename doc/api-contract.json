@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 141,
-  "route_count": 1850,
+  "route_count": 1858,
   "tiers": {
     "public": 75,
     "self-scoped": 114,
-    "gated": 1661
+    "gated": 1669
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -3741,6 +3741,24 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/portal/client/quote-requests/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/quote-requests/:id/documents/:attachmentId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/quote-services": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/portal/client/requests": {
       "auth": true,
       "rbac": true,
@@ -4215,7 +4233,19 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/quote-requests/client-match": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/quote-requests/export.csv": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/quote-requests/services": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -9027,6 +9057,18 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/portal/client/quote-requests/:id/documents": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/quote-requests/documents": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/portal/client/quote-requests/fill": {
       "auth": true,
       "rbac": true,
@@ -9406,6 +9448,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/quote-requests/:id/attachments": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/quote-requests/:id/attachments/from-chat": {
       "auth": true,
       "rbac": true,
       "validated": false,

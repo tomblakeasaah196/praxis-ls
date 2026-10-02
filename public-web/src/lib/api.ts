@@ -120,7 +120,7 @@ export type PublicApiOpts = Omit<RequestInit, "body"> & {
   signal?: AbortSignal;
 };
 
-function buildUrl(path: string, query?: PublicApiOpts["query"]): string {
+export function buildUrl(path: string, query?: PublicApiOpts["query"]): string {
   const url = `/api/tenant${path.startsWith("/") ? path : `/${path}`}`;
   if (!query) return url;
   const qs = new URLSearchParams();
