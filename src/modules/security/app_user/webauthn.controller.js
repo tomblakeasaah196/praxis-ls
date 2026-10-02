@@ -18,6 +18,7 @@ const registerOptions = asyncHandler(async (req, res) => {
       userId: req.user.user_id,
       sessionId: req.user.session_id || null,
       currentPassword: req.body.current_password || null,
+      fromPhone: req.body.from_phone === true,
       req,
     }),
   );

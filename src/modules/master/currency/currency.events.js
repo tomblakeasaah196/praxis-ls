@@ -3,6 +3,7 @@ module.exports = {
   MODULE: "MOD-08",
   RATE_SET: "fx.rate.set",
   RATE_SYNCED: "fx.rate.synced",
+  RATE_RELEASED: "fx.rate.released",
   CURRENCY_ADDED: "currency.added",
   CURRENCY_UPDATED: "currency.updated",
   CURRENCY_REMOVED: "currency.removed",

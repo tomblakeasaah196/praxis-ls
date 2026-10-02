@@ -23,10 +23,16 @@ module.exports = {
       rate: b.rate, currency: b.currency,
       effectiveFrom: b.effective_from, effectiveTo: b.effective_to,
       note: b.note,
+      priceIncludesVat: b.price_includes_vat === true,
       actor: actor(req),
     }));
     res.status(201).json({ data });
   }),
+  // Meeting 6, F4 — the rate dialog's preview, and the review list.
+  vatBasis: asyncHandler(async (req, res) => res.json({
+    data: await req.tenantDb((c) => service.vatBasisFor(c, { dictionaryItemId: req.query.dictionary_item_id, date: req.query.date })),
+  })),
+  vatReview: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.vatReview(c)) })),
   update: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.update(c, { id: req.params.id, patch: req.body, actor: actor(req) })) })),
   remove: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.remove(c, { id: req.params.id, actor: actor(req) })) })),
 

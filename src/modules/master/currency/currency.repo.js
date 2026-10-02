@@ -232,22 +232,35 @@ async function usageForCode(client, code) {
 /* ── FX rates ─────────────────────────────────────────────────────────────── */
 
 /** All rate rows for a pair on/before a date (resolver filters in JS). */
+/**
+ * `released_on` is the UTC day a manual override was released ("Follow the feed
+ * again"), as `YYYY-MM-DD` text so the pure resolver compares it with the same
+ * string arithmetic it uses for `as_of_date`.
+ */
+const RELEASED_ON = "(released_at AT TIME ZONE 'UTC')::date::text AS released_on";
+
 async function ratesForPair(client, base, quote, date) {
   const { rows } = await client.query(
-    "SELECT base_code, quote_code, rate, as_of_date::text AS as_of_date, source, is_override " +
-      "FROM fx_rate_daily WHERE base_code = $1 AND quote_code = $2 AND as_of_date <= $3::date ORDER BY as_of_date DESC",
+    "SELECT base_code, quote_code, rate, as_of_date::text AS as_of_date, source, is_override, fetched_at, " +
+      RELEASED_ON +
+      " FROM fx_rate_daily WHERE base_code = $1 AND quote_code = $2 AND as_of_date <= $3::date ORDER BY as_of_date DESC",
     [base, quote, date],
   );
   return rows;
 }
 
 /**
- * The latest WORKING rate for every quote against `base`, as of today —
- * one row per quote, newest first, an override winning over a feed on the same
- * date. This is the cross-rate table a base REBASE reads: to make NEW the base
- * we need every current OLD→quote and OLD→NEW so we can derive NEW→quote and
- * NEW→OLD. DISTINCT ON collapses each quote to its single current rate, which
- * is exactly what "the current working rate for each pair" means.
+ * The latest WORKING rate for every quote against `base`, as of today — one row
+ * per quote. This is the cross-rate table a base REBASE reads: to make NEW the
+ * base we need every current OLD→quote and OLD→NEW so we can derive NEW→quote
+ * and NEW→OLD. DISTINCT ON collapses each quote to its single current rate,
+ * which is exactly what "the current working rate for each pair" means.
+ *
+ * The ORDER BY is `currency.rules.pickRate` written in SQL, and the two change
+ * together (meeting 6, 3.1): a STANDING manual override first, whatever its
+ * date; then feed/rebase rows newest first (an override still winning on its
+ * own date); a RELEASED override last. Fixed parities are not read from here at
+ * all — rebaseRates overlays them from @praxis/shared.
  */
 async function latestRatesFromBase(client, base) {
   const { rows } = await client.query(
@@ -255,8 +268,29 @@ async function latestRatesFromBase(client, base) {
             quote_code, rate, as_of_date::text AS as_of_date, source, is_override
        FROM fx_rate_daily
       WHERE base_code = $1 AND as_of_date <= CURRENT_DATE
-      ORDER BY quote_code, as_of_date DESC, is_override DESC, fetched_at DESC`,
+      ORDER BY quote_code,
+               (is_override AND source = 'manual'
+                 AND (released_at IS NULL OR (released_at AT TIME ZONE 'UTC')::date > CURRENT_DATE)) DESC,
+               (is_override AND source = 'manual' AND released_at IS NOT NULL) ASC,
+               as_of_date DESC, is_override DESC, fetched_at DESC`,
     [base],
+  );
+  return rows;
+}
+
+/**
+ * "Follow the feed again": release every standing manual override on a pair.
+ * Every one, not only the newest — an older unreleased override would otherwise
+ * step forward and stand in its place. Returns the released rows.
+ */
+async function releaseOverrides(client, { base, quote, userId = null }) {
+  const { rows } = await client.query(
+    `UPDATE fx_rate_daily
+        SET released_at = now(), released_by_user_id = $3
+      WHERE base_code = $1 AND quote_code = $2
+        AND is_override AND source = 'manual' AND released_at IS NULL
+      RETURNING fx_rate_id, rate, as_of_date::text AS as_of_date, released_at`,
+    [base, quote, userId],
   );
   return rows;
 }
@@ -264,7 +298,10 @@ async function latestRatesFromBase(client, base) {
 async function upsertRate(client, { base, quote, rate, asOfDate, source = "manual", isOverride = true, setByUserId = null }) {
   const { rows } = await client.query(
     "INSERT INTO fx_rate_daily (base_code, quote_code, rate, as_of_date, source, is_override, set_by_user_id) VALUES ($1,$2,$3,$4,$5,$6,$7) " +
-      "ON CONFLICT (base_code, quote_code, as_of_date, source) DO UPDATE SET rate = EXCLUDED.rate, is_override = EXCLUDED.is_override, set_by_user_id = EXCLUDED.set_by_user_id, fetched_at = now() RETURNING *",
+      "ON CONFLICT (base_code, quote_code, as_of_date, source) DO UPDATE SET rate = EXCLUDED.rate, is_override = EXCLUDED.is_override, set_by_user_id = EXCLUDED.set_by_user_id, fetched_at = now(), " +
+      // Setting the rate again is a NEW decision: it stands again even if the
+      // previous one on this date had been released.
+      "released_at = NULL, released_by_user_id = NULL RETURNING *",
     [base, quote, rate, asOfDate, source, isOverride, setByUserId],
   );
   return rows[0];
@@ -317,7 +354,7 @@ async function rateHistory(client, { base, quote, limit = 50, offset = 0 }) {
   const off = Math.max(parseInt(offset, 10) || 0, 0);
   const { rows } = await client.query(
     `SELECT f.rate, f.as_of_date::text AS as_of_date, f.source, f.is_override,
-            f.fetched_at, f.set_by_user_id, u.full_name AS set_by_name, ${TOTAL_COL}
+            f.fetched_at, f.set_by_user_id, u.full_name AS set_by_name, f.released_at, ${TOTAL_COL}
        FROM fx_rate_daily f
        LEFT JOIN app_user u ON u.user_id = f.set_by_user_id
       WHERE f.base_code = $1 AND f.quote_code = $2
@@ -333,7 +370,7 @@ async function rateHistory(client, { base, quote, limit = 50, offset = 0 }) {
 async function overrideLog(client, { base, quote, limit = 25 }) {
   const { rows } = await client.query(
     `SELECT f.rate, f.as_of_date::text AS as_of_date, f.source, f.fetched_at,
-            f.set_by_user_id, u.full_name AS set_by_name
+            f.set_by_user_id, u.full_name AS set_by_name, f.released_at
        FROM fx_rate_daily f
        LEFT JOIN app_user u ON u.user_id = f.set_by_user_id
       WHERE f.base_code = $1 AND f.quote_code = $2 AND f.is_override = true
@@ -420,6 +457,7 @@ module.exports = {
   usageForCode,
   ratesForPair,
   latestRatesFromBase,
+  releaseOverrides,
   upsertRate,
   listRates,
   rateHistory,

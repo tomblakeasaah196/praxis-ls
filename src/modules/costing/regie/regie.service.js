@@ -25,6 +25,7 @@
 "use strict";
 
 const repo = require("./regie.repo");
+const currencySvc = require("../../master/currency/currency.service");
 const events = require("./regie.events");
 const rules = require("./regie.rules");
 const journalEntry = require("../../finance/journal_entry/journal_entry.service");
@@ -95,6 +96,12 @@ async function issue(client, opts) {
     actor = {}, ip = null,
   } = opts;
   if (!(Number(amount) > 0)) throw new AppError("BAD_AMOUNT", "amount must be > 0", 422);
+  // A fixed parity (EUR → XAF 655.957) is the law, not an input (meeting 6,
+  // F1): stamped when the caller sent nothing, refused when it sent another
+  // figure. `opts.exchangeRateToXaf`, not the defaulted local, so "nothing sent"
+  // is not mistaken for a typed 1.
+  const parity = currencySvc.parityToXaf(currency, opts.exchangeRateToXaf);
+  const rateToXaf = parity !== null ? parity : exchangeRateToXaf;
 
   const pol = await policy(client);
   const treasury = treasuryCoa || pol.accounts.treasury;
@@ -122,7 +129,7 @@ async function issue(client, opts) {
     const { number } = await numbering.allocate(client, { moduleKey: events.MODULE, entityId, date: entryDate });
     const advance = await repo.insertAdvance(client, {
       holder_user_id: holderUserId, amount, issued_on: entryDate,
-      currency, exchange_rate_to_xaf: exchangeRateToXaf,
+      currency, exchange_rate_to_xaf: rateToXaf,
       policy_window_days: windowDays, issue_entry_id: entry.entry_id, state: "ISSUED",
       entity_id: entityId, doc_number: number,
     });

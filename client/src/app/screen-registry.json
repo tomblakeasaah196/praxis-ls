@@ -22,6 +22,7 @@
       "purpose": "Landing overview / KPIs for the signed-in user.",
       "actions": [
         "tenant_kpis",
+        "go_live_checklist",
         "control_tower"
       ]
     },
@@ -346,6 +347,8 @@
         "list_expense_rates",
         "get_expense_rate",
         "resolve_expense_rate",
+        "get_rate_vat_basis",
+        "list_rates_to_review_for_vat",
         "create_expense_rate",
         "update_expense_rate",
         "list_rate_providers",
@@ -373,7 +376,12 @@
         "dictionary_item_invoice_lines",
         "dictionary_item_purchase_order_lines",
         "dictionary_item_spend_documents",
-        "dictionary_rate_history"
+        "dictionary_rate_history",
+        "dictionary_item_siblings",
+        "dictionary_lines_to_pair",
+        "link_dictionary_sibling",
+        "suggest_dictionary_posting",
+        "dictionary_posting_review"
       ]
     },
     {
@@ -1846,7 +1854,8 @@
         "list_currencies",
         "fx_rate",
         "fx_convert",
-        "set_fx_rate"
+        "set_fx_rate",
+        "release_fx_override"
       ]
     },
     {

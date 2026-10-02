@@ -4,9 +4,11 @@
 "use strict";
 const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
-const { requirePermission } = require("../../../middleware/rbac");
+const { requirePermission, requireAnyPermission } = require("../../../middleware/rbac");
 const c = require("./financial_dictionary.controller");
 const v = require("./financial_dictionary.validator");
+const validate = require("./financial_dictionary.posting.validator");
+const validateRate = require("./financial_dictionary.rate.validator");
 
 const MODULE = "MOD-05";
 const RATES_MODULE = "MOD-10";
@@ -29,6 +31,18 @@ router.post("/import/errors", requirePermission(MODULE, "view"), v.importErrors,
 // segment must not be read as an id. Only needs `view` — it is the read path
 // every other module's picker calls.
 router.get("/search", requirePermission(MODULE, "view"), v.searchQuery, c.search);
+// Siblings (14342, meeting 6 F2) — the line guard's lookup and "Lines to pair".
+// Literal segments, so before "/:id".
+router.get("/siblings", requirePermission(MODULE, "view"), v.siblingsQuery, c.siblings);
+router.get("/siblings/unpaired", requirePermission(MODULE, "view"), c.unpaired);
+// The AI-suggested OHADA posting (meeting 6, F3). Anyone who may create OR
+// edit a line may ask — operations or finance alike; there is no
+// accountant-only gate. It saves nothing.
+router.post("/posting-suggestion", requireAnyPermission([[MODULE, "create"], [MODULE, "edit"]]), validate.postingSuggestion, c.postingSuggestion);
+// One review of the existing lines (F8): started by a person, run by the
+// worker, changes nothing.
+router.get("/posting-review", requirePermission(MODULE, "view"), c.postingReview);
+router.post("/posting-review", requirePermission(MODULE, "edit"), c.startPostingReview);
 
 router.get("/", requirePermission(MODULE, "view"), c.list);
 router.get("/:id/360", requirePermission(MODULE, "view"), c.dossier);
@@ -46,10 +60,11 @@ router.get("/:id/rate-history", requirePermission(MODULE, "view"), c.rateEvoluti
 // not on the dictionary: someone who may edit catalogue wording must not be
 // able to change what a line costs (meeting 5, 01:17:37). The dictionary's
 // own "Edit standard rate" pop-up posts here too, so it inherits the gate.
-router.post("/:id/rates/supersede", requirePermission(RATES_MODULE, "edit"), v.rateSupersede, c.supersedeRate);
-router.post("/:id/rates/apply-all", requirePermission(RATES_MODULE, "edit"), v.rateApplyAll, c.applyRateToProviders);
+router.post("/:id/rates/supersede", requirePermission(RATES_MODULE, "edit"), validateRate.rateSupersede, c.supersedeRate);
+router.post("/:id/rates/apply-all", requirePermission(RATES_MODULE, "edit"), validateRate.rateApplyAll, c.applyRateToProviders);
 router.get("/:id", requirePermission(MODULE, "view"), c.get);
 router.post("/", requirePermission(MODULE, "create"), v.create, c.create);
 router.patch("/:id", requirePermission(MODULE, "edit"), v.update, c.update);
+router.post("/:id/siblings", requirePermission(MODULE, "edit"), v.siblingLink, c.linkSibling);
 
 module.exports = { basePath: "/financial-dictionary", feature: null, router };

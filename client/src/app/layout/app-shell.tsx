@@ -77,6 +77,7 @@ import { getMode, setMode, resolved } from "@/lib/theme-mode";
 import { ClockPunchChip } from "@/components/clock-punch";
 import { openInstallUi, isStandalone } from "@/lib/pwa-install";
 import { NotificationBell } from "@/components/notification-bell";
+import { SigningWindowBadge } from "@/components/signing/signing-window-badge";
 import { CommandPalette } from "@/components/command-palette";
 import { PraxisDrawer } from "@/components/praxis-drawer";
 import { FloatingActions } from "@/components/floating-actions";
@@ -1052,6 +1053,9 @@ export function AppShell() {
               cell it belongs to) and `<FloatingActions>` on touch. Neither is
               in the header.
               */}
+              {/* Meeting 6, F6: "Signing unlocked · 4:12 · End now" while
+                  this session's 5-minute signing window is open. */}
+              <SigningWindowBadge />
               <NotificationBell
                 count={unread.notifications}
                 onChange={unread.reload}

@@ -5,6 +5,8 @@
  *
  *   { passkey: { assertion, challenge_token } }   fingerprint / face
  *   { otp_code: "123456" }                        emailed code (fallback)
+ *   { window: true }                              this session's 5-minute
+ *                                                 signing window (meeting 6, F6)
  */
 "use strict";
 const { z } = require("zod");
@@ -19,6 +21,9 @@ const signingProofSchema = z.union([
     }).strict(),
   }).strict(),
   z.object({ otp_code: z.string().regex(/^\d{6}$/) }).strict(),
+  // Honoured only for the signed-in session that opened the window
+  // (signing-proof.service settle); anything else is asked for a proof.
+  z.object({ window: z.literal(true) }).strict(),
 ]);
 
 module.exports = { signingProofSchema };

@@ -16,6 +16,7 @@
  */
 "use strict";
 const repo = require("./currency.repo");
+const { pickRate } = require("./currency.rules");
 const { currencies } = require("@praxis/shared");
 const { AppError } = require("../../../utils/errors");
 
@@ -39,12 +40,21 @@ async function dossier(client, code) {
   // each other, so run them concurrently on the one tenant client instead of the
   // old sequential await-chain. `usageForCode` is the expensive cross-table scan;
   // overlapping it with the cheap rate reads hides most of its cost.
-  const [history, last_sync, overrides, usage] = await Promise.all([
+  const asOf = new Date().toISOString().slice(0, 10);
+  const fixed_parity = pair ? currencies.fixedParity(pair.base, pair.quote) : null;
+  const [history, last_sync, overrides, usage, pairRows] = await Promise.all([
     pair ? repo.rateHistory(client, { ...pair, limit: HISTORY_PAGE, offset: 0 }) : Promise.resolve({ rows: [], total: 0, limit: HISTORY_PAGE, offset: 0 }),
     pair ? repo.lastSync(client, pair) : Promise.resolve(null),
     pair ? repo.overrideLog(client, { ...pair, limit: 25 }) : Promise.resolve([]),
     repo.usageForCode(client, code),
+    // A pegged pair reads no rows: the resolver answers it from the peg.
+    pair && !fixed_parity ? repo.ratesForPair(client, pair.base, pair.quote, asOf) : Promise.resolve([]),
   ]);
+  // What a transaction would actually be stamped with today — not simply the
+  // newest row. Since meeting 6 a manual override stands over later feed rows,
+  // and a pegged pair ignores every row, so "latest row" and "rate in force"
+  // are different things and the screen must show the second.
+  const working_rate = pair ? pickRate(pairRows, pair.base, pair.quote, asOf) : null;
   const rate_history = history.rows;
   const rate_history_total = history.total;
   const rate_history_has_more = history.offset + history.rows.length < history.total;
@@ -63,6 +73,13 @@ async function dossier(client, code) {
     rate_history_page_size: HISTORY_PAGE,
     rate_history_has_more,
     latest_rate: rate_history[0] || null,
+    working_rate,
+    // The peg, when this pair is fixed by treaty (XAF/XOF ↔ EUR). The screen
+    // shows a "Fixed parity" badge and offers no Set rate.
+    fixed_parity,
+    // The manual override in force today, when one stands — the screen offers
+    // "Follow the feed again" for it.
+    standing_override: working_rate && working_rate.standing ? working_rate : null,
     last_sync,
     overrides,
     usage,

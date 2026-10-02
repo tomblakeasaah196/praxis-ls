@@ -16,4 +16,6 @@ router.get("/kpis", requirePermission(MODULE, "view"), c.kpisWithBand);
 router.get("/kpi-catalog", requirePermission(MODULE, "view"), c.kpiCatalog);
 // Control Tower home aggregate — operation files, live shipments, approvals.
 router.get("/control-tower", requirePermission(MODULE, "view"), c.controlTower);
+// "Getting started" on an empty LIVE (meeting 6, 3.9). Never in TEST.
+router.get("/getting-started", requirePermission(MODULE, "view"), c.gettingStarted);
 module.exports = { basePath: "/dashboard", feature: null, router };

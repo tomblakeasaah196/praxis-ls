@@ -12,22 +12,66 @@ const repo = require("./currency.repo");
 const events = require("./currency.events");
 const dossierSvc = require("./currency.dossier");
 const sync = require("./currency.sync");
-const { pickRate, convert, rebaseRates } = require("./currency.rules");
+const { pickRate, fixedRate, convert, rebaseRates } = require("./currency.rules");
+const { currencies } = require("@praxis/shared");
 const { emitEvent, audit } = require("../../../shared/events/emit");
 const { atomically } = require("../../../shared/db/tx");
 const { AppError } = require("../../../utils/errors");
 
 const today = () => new Date().toISOString().slice(0, 10);
+const up = (c) => String(c || "").toUpperCase().trim();
 
 /* ── FX resolution ────────────────────────────────────────────────────────── */
 
+/**
+ * The rate to apply for base→quote on a date. A FIXED PARITY (XAF/XOF ↔ EUR)
+ * is answered from the peg in @praxis/shared before any row is read — in either
+ * direction, at full precision, marked `is_fixed` — so no feed row and no
+ * override can move it. Everything else resolves through pickRate.
+ */
 async function rateFor(client, { base, quote, date }) {
   const d = date || today();
-  if (base === quote) return { base, quote, rate: 1, source: "identity", as_of_date: d, is_override: false };
-  const rows = await repo.ratesForPair(client, base, quote, d);
-  const row = pickRate(rows, base, quote, d);
-  if (!row) throw new AppError("NO_FX_RATE", "No FX rate for " + base + "->" + quote + " on/before " + d, 422);
+  const b = up(base);
+  const q = up(quote);
+  if (b === q) return { base: b, quote: q, rate: 1, source: "identity", as_of_date: d, is_override: false };
+  const fixed = fixedRate(b, q, d);
+  if (fixed) return { base: b, quote: q, ...fixed };
+  const rows = await repo.ratesForPair(client, b, q, d);
+  const row = pickRate(rows, b, q, d);
+  if (!row) throw new AppError("NO_FX_RATE", "No FX rate for " + b + "->" + q + " on/before " + d, 422);
   return row;
+}
+
+/** The sentence every refusal of a fixed pair uses — one wording, everywhere. */
+function fixedParityMessage(p) {
+  const anchorToPegged = p.anchor === p.base ? p : currencies.fixedParity(p.quote, p.base);
+  const shown = anchorToPegged || p;
+  return (
+    `${p.base} ↔ ${p.quote} is a fixed parity (${p.authority}): 1 ${shown.base} = ${shown.rate} ${shown.quote}. ` +
+    "No feed or manual rate can change it."
+  );
+}
+
+/**
+ * The rate a document priced in `code` converts to XAF at, when that is fixed by
+ * a peg — and a refusal when the caller sent a different figure. Returns null for
+ * a currency a market sets, so the caller keeps its own resolution.
+ *
+ * Costings, cash requests and petty-cash advances store "1 <currency> = rate
+ * XAF". For EUR that is 655.957 by law (meeting 6, F1): the sheet shows it
+ * read-only, and an API caller sending 656.168 is told why rather than having
+ * the figure silently swapped.
+ */
+function parityToXaf(code, explicit) {
+  const p = currencies.fixedParity(code, "XAF");
+  if (!p) return null;
+  if (explicit !== undefined && explicit !== null && explicit !== "") {
+    const n = Number(explicit);
+    if (!(Math.abs(n - p.rate) <= p.rate * 1e-9)) {
+      throw new AppError("FIXED_PARITY", fixedParityMessage(p), 422, { base: p.base, quote: p.quote, rate: p.rate, authority: p.authority });
+    }
+  }
+  return p.rate;
 }
 
 async function convertAmount(client, { amount, base, quote, date }) {
@@ -83,6 +127,8 @@ async function rateMap(client, { date, extra = [] } = {}) {
 
 async function setRate(client, { base, quote, rate, asOfDate, source = "manual", isOverride = true, actor = {} }) {
   if (!(Number(rate) > 0)) throw new AppError("BAD_RATE", "rate must be > 0", 422);
+  const fixed = currencies.fixedParity(base, quote);
+  if (fixed) throw new AppError("FIXED_PARITY", fixedParityMessage(fixed), 422, { base: fixed.base, quote: fixed.quote, rate: fixed.rate, authority: fixed.authority });
   // Persist the actor on the rate row (audit #9 — "who set it") AND in the
   // immutable ledger. The denormalised column lets the 360 override log render
   // the name without a cross-table join; the audit is the tamper-evident record.
@@ -90,6 +136,36 @@ async function setRate(client, { base, quote, rate, asOfDate, source = "manual",
   await emitEvent(client, { eventTypeKey: events.RATE_SET, moduleKey: events.MODULE, entityRef: "fx:" + base + "-" + quote, actorUserId: actor.user_id || null });
   await audit(client, { actorUserId: actor.user_id || null, action: events.RATE_SET, moduleKey: events.MODULE, entityRef: "fx:" + base + "-" + quote, after: row });
   return row;
+}
+
+/**
+ * "Follow the feed again" — release every standing manual override on a pair.
+ *
+ * Since meeting 6 (3.1) an override stands until a newer one or this. The
+ * release is dated (`released_at`), so the past still resolves to the override
+ * that was in force then; from today the newest feed row applies. A pair with
+ * nothing to release is a 409 — the screen offers the button only when one
+ * stands, so a second click means someone else got there first.
+ */
+async function releaseOverride(client, { base, quote, actor = {} }) {
+  const b = up(base);
+  const q = up(quote);
+  const fixed = currencies.fixedParity(b, q);
+  if (fixed) throw new AppError("FIXED_PARITY", fixedParityMessage(fixed), 422);
+  const released = await repo.releaseOverrides(client, { base: b, quote: q, userId: actor.user_id || null });
+  if (!released.length) {
+    throw new AppError("NO_STANDING_OVERRIDE", `No manual ${b}→${q} rate is standing — the pair already follows the feed.`, 409);
+  }
+  const ref = "fx:" + b + "-" + q;
+  await emitEvent(client, { eventTypeKey: events.RATE_RELEASED, moduleKey: events.MODULE, entityRef: ref, actorUserId: actor.user_id || null });
+  await audit(client, { actorUserId: actor.user_id || null, action: events.RATE_RELEASED, moduleKey: events.MODULE, entityRef: ref, before: released, after: { follows: "feed" } });
+  const now = await rateFor(client, { base: b, quote: q }).catch((e) => {
+    // @silent:expected — a pair with no feed row yet resolves to nothing after
+    // a release; the release itself stands, and the screen says "no rate".
+    if (e.code !== "NO_FX_RATE") throw e;
+    return null;
+  });
+  return { base: b, quote: q, released: released.length, rate: now };
 }
 
 /**
@@ -115,6 +191,7 @@ async function syncNow(client, actor = {}, { trigger = "manual" } = {}) {
         status,
         updatedCount: result.updated ? result.updated.length : 0,
         unsupported: result.unsupported || [],
+        reason: sync.fixedNote(result),
         base: result.base || null,
       });
       await emitEvent(client, { eventTypeKey: events.RATE_SYNCED, moduleKey: events.MODULE, entityRef: "fx:sync", actorUserId: actor.user_id || null, payload: { updated: result.updated ? result.updated.length : 0, base: result.base } });
@@ -282,9 +359,11 @@ async function removeCurrency(client, code, actor = {}) {
 
 module.exports = {
   rateFor,
+  parityToXaf,
   convertAmount,
   rateMap,
   setRate,
+  releaseOverride,
   syncNow,
   listCurrencies,
   listCurrenciesRich,

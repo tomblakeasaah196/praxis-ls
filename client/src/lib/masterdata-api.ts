@@ -10,6 +10,7 @@ import {
   uploadFile,
   downloadPost,
 } from "./api-client";
+import type { dictionaryPosting, expenseRate } from "@shared";
 
 /* ── Clients(/clients) ──────────────────────────────────────────── */
 export type Client = {
@@ -1260,22 +1261,19 @@ export type ExpenseRate = {
   effective_from?: string | null;
   effective_to?: string | null;
   note?: string | null;
+  /** Meeting 6, F4: the figure typed included VAT — `rate` is the HT derived
+   *  from it, `rate_ttc` the figure as typed, `vat_rate_percent` the divisor. */
+  price_includes_vat?: boolean;
+  rate_ttc?: number | string | null;
+  vat_rate_percent?: number | string | null;
   // Denormalised display fields, joined server-side.
   provider_name?: string | null;
   provider_kind_resolved?: RateProviderKind | null;
   container_type_code?: string | null;
   container_type_name?: string | null;
 };
-export type ExpenseRateInput = {
-  dictionary_item_id: string;
-  rate_provider_id?: string | null;
-  container_type_ref_id?: string | null;
-  rate: number;
-  currency?: string;
-  effective_from?: string;
-  effective_to?: string | null;
-  note?: string | null;
-};
+/** The shape lives in @praxis/shared (expenseRate.create) — one definition. */
+export type ExpenseRateInput = expenseRate.Create;
 export const listExpenseRates = (
   f: { dictionary_item_id?: string; rate_provider_id?: string } = {},
 ) => {
@@ -1312,6 +1310,42 @@ export const resolveExpenseRate = (opts: {
     p.set("container_type_ref_id", opts.container_type_ref_id);
   return tenant<ExpenseRate>(`/expense-rates/resolve?${p.toString()}`);
 };
+
+/** The VAT a line's VAT-inclusive price is divided by, and whether "Price
+ *  includes VAT" is offered at all — never on a débours (meeting 6, F4). */
+export type VatBasis = {
+  dictionary_item_id: string;
+  is_disbursement: boolean;
+  offered: boolean;
+  vat_rate_percent: number | null;
+  tax_code_id: string | null;
+  tax_code: string | null;
+  /** "line" = the line's own tax code; "standard" = the tenant's standard rate. */
+  source: "line" | "standard" | null;
+};
+export const getVatBasis = (dictionaryItemId: string, date?: string) => {
+  const p = new URLSearchParams({ dictionary_item_id: dictionaryItemId });
+  if (date) p.set("date", date);
+  return tenant<VatBasis>(`/expense-rates/vat-basis?${p.toString()}`);
+};
+/** Rates in force, entered HT, whose note says "TTC" / "TVA incluse" — listed
+ *  for a person to review; nothing is changed (F4). */
+export type VatReviewRate = {
+  expense_rate_id: string;
+  dictionary_item_id: string;
+  rate: number | string;
+  currency: string | null;
+  effective_from: string;
+  note: string | null;
+  item_code: string;
+  item_label_fr: string;
+  item_label_en: string | null;
+  is_disbursement: boolean;
+  provider_name: string | null;
+  container_type_code: string | null;
+};
+export const listVatReview = () =>
+  tenant<{ count: number; rates: VatReviewRate[] }>("/expense-rates/vat-review");
 
 /* ── Financial dictionary(/financial-dictionary) ────────────────── */
 export type PostingContext = "sale" | "purchase" | "disbursement";
@@ -1367,6 +1401,10 @@ export type DictItem = {
   default_price_currency?: string | null;
   default_price_from?: string | null;
   default_price_rate_id?: string | null;
+  /** Meeting 6, F4: the standard rate was typed VAT-inclusive — the figure
+   *  typed and the VAT rate it was divided by. `default_price` is the HT. */
+  default_price_ttc?: number | string | null;
+  default_price_vat_rate?: number | string | null;
   /** 14130: the family a client document prints this line under. */
   client_heading_ref_id?: string | null;
   client_heading_code?: string | null;
@@ -1413,6 +1451,8 @@ export type DictInput = {
     sort_order?: number;
   }[];
   is_active?: boolean;
+  /** Where an AI-suggested posting came from — audit only (meeting 6, F3). */
+  posting_suggestion?: dictionaryPosting.Provenance | null;
 };
 export type DictFull = DictItem & {
   posting_rules: PostingRule[];
@@ -1498,22 +1538,117 @@ export type DictSearchHit = {
   client_heading_fr?: string | null;
   client_heading_en?: string | null;
   score?: number;
+  /** 14342: the rows of one service in its fulfilment modes share this id. */
+  sibling_group?: string | null;
+  /** The row's fulfilment mode — billed (débours) / own / deposit / service. */
+  mode?: SiblingMode | null;
+  /** Every mode of the service, when it has more than one (meeting 6, F2).
+   *  The finder shows the service once and asks which one. */
+  siblings?: DictSearchHit[];
+  /** The service's name without the "— Client Account" suffix. */
+  group_label_en?: string | null;
+  group_label_fr?: string | null;
 };
+export type SiblingMode = "billed" | "own" | "deposit" | "service";
+/** Who a document charges, which decides the sibling a picker presets and
+ *  what its guard flags: a document that bills a client, or our own purchase. */
+export type Fulfilment = "billed" | "own";
 export const searchDict = (opts: {
   q: string;
   limit?: number;
   direction?: Direction;
   service_type_id?: string;
   include_inactive?: boolean;
+  /** false lists every fulfilment mode as its own row (service-type mapping). */
+  group?: boolean;
 }) => {
   const p = new URLSearchParams({ q: opts.q });
   if (opts.limit) p.set("limit", String(opts.limit));
   if (opts.direction) p.set("direction", opts.direction);
   if (opts.service_type_id) p.set("service_type_id", opts.service_type_id);
   if (opts.include_inactive) p.set("include_inactive", "true");
+  if (opts.group === false) p.set("group", "false");
   return tenant<DictSearchHit[]>(
     `/financial-dictionary/search?${p.toString()}`,
   );
+};
+
+/* ── Siblings (14342, meeting 6 F2) ─────────────────────────────────────── */
+
+export type DictSiblingInfo = {
+  dictionary_item_id: string;
+  direction: Direction;
+  mode: SiblingMode | null;
+  sibling_group: string | null;
+  siblings: DictSearchHit[];
+};
+
+/*
+ * The line guard asks about every line on a document, so the lookups are
+ * batched: ids requested in the same tick go out as one
+ * GET /financial-dictionary/siblings?ids=… and each answer is kept for the
+ * session — a line's siblings do not change while someone edits a costing.
+ */
+const siblingCache = new Map<string, Promise<DictSiblingInfo | null>>();
+let siblingQueue: string[] = [];
+let siblingResolvers = new Map<string, (v: DictSiblingInfo | null) => void>();
+let siblingTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flushSiblings() {
+  const ids = siblingQueue;
+  const resolvers = siblingResolvers;
+  siblingQueue = [];
+  siblingResolvers = new Map();
+  siblingTimer = null;
+  tenant<Record<string, DictSiblingInfo>>(
+    `/financial-dictionary/siblings?ids=${ids.map(encodeURIComponent).join(",")}`,
+  )
+    .then((map) => {
+      for (const id of ids) resolvers.get(id)?.(map?.[id] ?? null);
+    })
+    .catch(() => {
+      // A defined fallback: the guard is advice, so without an answer it
+      // stays quiet and the line saves exactly as before. Forgotten from the
+      // cache so the next render asks again.
+      for (const id of ids) {
+        siblingCache.delete(id);
+        resolvers.get(id)?.(null);
+      }
+    });
+}
+
+export function dictSiblings(id: string): Promise<DictSiblingInfo | null> {
+  const hit = siblingCache.get(id);
+  if (hit) return hit;
+  const p = new Promise<DictSiblingInfo | null>((resolve) => {
+    siblingQueue.push(id);
+    siblingResolvers.set(id, resolve);
+    if (!siblingTimer) siblingTimer = setTimeout(flushSiblings, 0);
+  });
+  siblingCache.set(id, p);
+  return p;
+}
+
+export type UnpairedDictLine = {
+  dictionary_item_id: string;
+  code: string;
+  label_en: string | null;
+  label_fr: string;
+  direction: Direction;
+  sibling_group: string | null;
+  reason: "NO_PARTNER" | "MODE_CONTRADICTS_NAME";
+};
+export const unpairedDictLines = () =>
+  tenant<UnpairedDictLine[]>("/financial-dictionary/siblings/unpaired");
+export const linkDictSibling = (
+  id: string,
+  body: { link_to: string } | { stands_alone: true },
+) => {
+  siblingCache.clear();
+  return tenant<DictSiblingInfo>(`/financial-dictionary/${id}/siblings`, {
+    method: "POST",
+    body,
+  });
 };
 
 export const dictDossier = (id: string) =>
@@ -1655,6 +1790,11 @@ export type RatePoint = {
   in_force: boolean;
   superseded: boolean;
   note?: string | null;
+  /** Meeting 6, F4: the figure typed included VAT — `rate` is the HT derived
+   *  from it, `rate_ttc` the figure as typed, `vat_rate_percent` the divisor. */
+  price_includes_vat?: boolean;
+  rate_ttc?: number | string | null;
+  vat_rate_percent?: number | string | null;
   provider_name?: string | null;
 };
 export type RateTrend = {
@@ -1697,17 +1837,8 @@ export const dictRateHistory = (id: string, asOf?: string) =>
 
 /** Amend a rate the only way an effective-dated series may be amended: the
  *  server expires the open row the day before this one opens. Never an edit. */
-export type RateSupersedeInput = {
-  rate: number;
-  currency?: string;
-  effective_from: string;
-  effective_to?: string | null;
-  /** NULL = the item's plain default rate (no carrier/authority scope). */
-  rate_provider_id?: string | null;
-  /** NULL = no equipment dimension. */
-  container_type_ref_id?: string | null;
-  note?: string | null;
-};
+/** The shape lives in @praxis/shared (expenseRate.supersede) — one definition. */
+export type RateSupersedeInput = expenseRate.Supersede;
 export const supersedeDictRate = (id: string, body: RateSupersedeInput) =>
   tenant<DictRateEvolution>(`/financial-dictionary/${id}/rates/supersede`, {
     method: "POST",
@@ -1716,14 +1847,7 @@ export const supersedeDictRate = (id: string, body: RateSupersedeInput) =>
 
 /** One rate for many carriers at once ("apply to all shipping lines"). The ids
  *  are the carriers left ticked. All or nothing: one refusal saves none. */
-export type RateApplyAllInput = {
-  rate: number;
-  currency?: string;
-  effective_from: string;
-  container_type_ref_id?: string | null;
-  rate_provider_ids: string[];
-  note?: string | null;
-};
+export type RateApplyAllInput = expenseRate.ApplyAll;
 export const applyDictRateToProviders = (id: string, body: RateApplyAllInput) =>
   tenant<{ applied: number; evolution: DictRateEvolution }>(
     `/financial-dictionary/${id}/rates/apply-all`,
@@ -1740,6 +1864,27 @@ export type ImportStagingRow = {
   raw: Record<string, unknown>;
   data?: Record<string, unknown>;
   reasons?: string[];
+  /** A row with no posting gets one suggested at validate time (meeting 6,
+   *  F8); commit takes it only once the person has accepted it. */
+  ai_posting?: ImportAiPosting;
+  accept_posting?: {
+    rules: PostingRule[];
+    provenance?: dictionaryPosting.Provenance | null;
+  } | null;
+};
+export type ImportAiPosting = {
+  source: dictionaryPosting.Source;
+  model: string | null;
+  cache_entry_id: string | null;
+  confidence: dictionaryPosting.Confidence;
+  check_needed: boolean;
+  direction: Direction;
+  rationale: string;
+  sources: { title: string; uri: string | null }[];
+  search_suggestion_html: string | null;
+  fallback_reason: string | null;
+  rules: (PostingRule & { tax_code_id?: string | null; mint?: unknown })[];
+  acceptable: boolean;
 };
 export type ImportRejectedRow = {
   row?: number;
@@ -1751,7 +1896,7 @@ export type ImportValidateResult = {
   parsed: number;
   valid: ImportStagingRow[];
   rejected: ImportRejectedRow[];
-  summary: { total: number; valid: number; rejected: number };
+  summary: { total: number; valid: number; rejected: number; ai_suggested?: number };
 };
 export type ImportCommitResult = {
   created: {
@@ -2508,6 +2653,25 @@ export const setRegistrationStatus = (
     : updateSupplier(id, {
         registration_status: status,
       } as Partial<SupplierInput>);
+/** Meeting 6, 3.6 — can this client be discarded? Only a DRAFT with no history;
+ *  otherwise the answer names what it has, and the screen says "Deactivate
+ *  instead". Gated on the client master's `delete` right (403 otherwise). */
+export type ClientDiscardCheck = {
+  client_id: string;
+  registration_status: string | null;
+  can_discard: boolean;
+  reason: "NOT_DRAFT" | "HAS_HISTORY" | null;
+  history: { key: string; count: number; label: string }[];
+};
+export const clientDiscardCheck = (id: string) =>
+  tenant<ClientDiscardCheck>(`/clients/${id}/discard-check`);
+/** Delete a DRAFT client with no history and its own children, in one
+ *  audited transaction (a full snapshot is kept in the audit trail). */
+export const discardClient = (id: string) =>
+  tenant<{ discarded: true; client_id: string; removed: Record<string, number> }>(
+    `/clients/${id}`,
+    { method: "DELETE" },
+  );
 /** Smart Copy — a supplier id → a draft client, or a client id → a draft supplier. */
 export const convertFromSupplier = (supplierId: string) =>
   tenant<Client>(`/clients/convert-from-supplier/${supplierId}`, {
@@ -2517,3 +2681,89 @@ export const convertFromClient = (clientId: string) =>
   tenant<Supplier>(`/suppliers/convert-from-client/${clientId}`, {
     method: "POST",
   });
+
+/* ── The AI-suggested OHADA posting (meeting 6, F3 / F7 / F8) ──────────────
+ * POST /financial-dictionary/posting-suggestion — cache first, then a web
+ * search, else the labelled local suggestion. Saves nothing. */
+export type MintProposal = { code: string; parent_code: string | null; label_fr: string | null };
+export type AccountMapping = {
+  suggested: string;
+  account: string | null;
+  how: "exact" | "child" | "mint";
+  mint?: MintProposal;
+};
+export type SuggestedRule = {
+  applies_context: PostingContext;
+  debit_account: string | null;
+  credit_account: string | null;
+  tax_code_id: string | null;
+  is_disbursement: boolean;
+  mapping?: { debit: AccountMapping; credit: AccountMapping };
+};
+export type PostingSuggestion = {
+  source: dictionaryPosting.Source;
+  model: string | null;
+  cache_entry_id: string | null;
+  answered_at: string | null;
+  direction: Direction;
+  is_disbursement: boolean;
+  vat_treatment: dictionaryPosting.VatTreatment;
+  rules: SuggestedRule[];
+  needs_mint: boolean;
+  confidence: dictionaryPosting.Confidence;
+  check_needed: boolean;
+  rationale: string;
+  /** Titles and links as Google returned them — shown, never stored. */
+  sources: { title: string; uri: string | null }[];
+  /** Google's Search Suggestions (HTML + CSS), required with a grounded answer. */
+  search_suggestion_html: string | null;
+  matched_label: string | null;
+  similarity: number | null;
+  fallback_reason: string | null;
+  cost: { native: number; currency: string | null; search: number; note?: string };
+};
+export const suggestDictPosting = (body: dictionaryPosting.Request) =>
+  tenant<PostingSuggestion>("/financial-dictionary/posting-suggestion", {
+    method: "POST",
+    body,
+  });
+
+export type PostingReview = {
+  review: {
+    review_id: string;
+    status: "queued" | "running" | "done" | "failed";
+    started_at: string;
+    finished_at: string | null;
+    total: number;
+    examined: number;
+    mismatches: number;
+    fresh_calls: number;
+    error: string | null;
+  } | null;
+  lines: {
+    dictionary_item_id: string;
+    code: string;
+    label_en: string | null;
+    label_fr: string;
+    direction: Direction;
+    category: string;
+    outcome: "mismatch" | "no_suggestion";
+    reasons: string[];
+    source: dictionaryPosting.Source | null;
+    model: string | null;
+    confidence: dictionaryPosting.Confidence | null;
+    suggestion: {
+      direction: Direction;
+      is_disbursement: boolean;
+      vat_treatment: dictionaryPosting.VatTreatment;
+      rules: SuggestedRule[];
+    } | null;
+  }[];
+};
+export const getPostingReview = () =>
+  tenant<PostingReview>("/financial-dictionary/posting-review");
+export const startPostingReview = () =>
+  tenant<{ review: PostingReview["review"]; already_running: boolean }>(
+    "/financial-dictionary/posting-review",
+    { method: "POST" },
+  );

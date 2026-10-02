@@ -46,6 +46,8 @@ export function DictLineCell({
         dossierId={dossierId}
         onPick={onPick}
         onPickMulti={onPickMulti}
+        // Invoices and credit notes bill a client (meeting 6, F2).
+        fulfilment="billed"
       />
       {line.container_type_label && (
         <p className="mt-0.5 truncate micro text-muted-foreground">

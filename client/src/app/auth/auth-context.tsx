@@ -54,6 +54,7 @@ import {
 } from "@/lib/api-client";
 import { tokenStore } from "@/lib/token-store";
 import { sessionClock } from "@/lib/session-clock";
+import * as signingWindow from "@/lib/signing-window";
 import { passkeyDeviceStore } from "@/lib/passkey-devices";
 import { lastSessionStore } from "@/lib/last-session";
 import { clearSessionKeepDevice } from "@/lib/device-keys";
@@ -77,6 +78,10 @@ export type User = {
    *  and returned by the auth endpoints. Absent ⇒ AI off (opt-in). Drives the
    *  global AI gate — see components/ai-actions.tsx. */
   ai_enabled?: boolean;
+  /** AI features with their OWN tenant switch, independent of `ai_enabled`
+   *  (meeting 6, F7): the dictionary's OHADA posting suggestion is on for
+   *  every tenant, assistant or not. Absent ⇒ off. */
+  ai_features?: { dictionary_posting?: boolean };
   /** Comms channels switched on for the tenant. Absent ⇒ off. */
   channels?: { comms?: boolean };
   /** A Quick PIN is set — it signs this person in on ANY device (14230). */
@@ -246,6 +251,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tokenStore.setLocked(true);
     tokenStore.clear();
     sessionClock.clear();
+    // The session is over, and its 5-minute signing window with it (F6).
+    signingWindow.clear();
     setPendingToken(null);
     setLockReason(reason);
     statusRef.current = "locked";
@@ -541,6 +548,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tokenStore.clear();
     tokenStore.setLocked(false);
     sessionClock.clear();
+    signingWindow.clear();
     persistUser(null);
     // Clear the SESSION's persisted state — tokens, cached user, theme and env
     // preferences — and nothing that describes the device: who it belongs to,
