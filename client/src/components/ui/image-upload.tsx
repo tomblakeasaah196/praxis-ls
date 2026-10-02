@@ -381,7 +381,7 @@ export function FilePicker({
           pasteTargetRef.current?.focus();
         }}
         className={cn(
-          "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-primary transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60",
+          "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-primary-ink transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60",
           pasteArmed && "bg-accent",
         )}
       >
