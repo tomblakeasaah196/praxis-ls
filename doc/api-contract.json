@@ -1,12 +1,12 @@
 {
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
-  "modules_mounted": 141,
-  "route_count": 1843,
+  "modules_mounted": 142,
+  "route_count": 1855,
   "tiers": {
     "public": 75,
-    "self-scoped": 112,
-    "gated": 1656
+    "self-scoped": 113,
+    "gated": 1667
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -3681,6 +3681,24 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/portal/client/quotations": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/quotations/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/portal/client/quotations/:id/pdf": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/portal/client/quote-requests": {
       "auth": true,
       "rbac": true,
@@ -4155,6 +4173,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/quotations/from-costing/:costingId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/quote-requests/": {
       "auth": true,
       "rbac": true,
@@ -4406,6 +4430,12 @@
       "rbac": true,
       "validated": false,
       "tier": "gated"
+    },
+    "GET /api/tenant/search/": {
+      "auth": true,
+      "rbac": false,
+      "validated": false,
+      "tier": "self-scoped"
     },
     "GET /api/tenant/service-types/": {
       "auth": true,
@@ -8967,6 +8997,36 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/portal/client/quotations/:id/accept": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/quotations/:id/decline": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/quotations/:id/sign": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/quotations/:id/sign/complete": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/portal/client/quotations/:id/sign/resend": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/portal/client/quote-requests": {
       "auth": true,
       "rbac": true,
@@ -9351,7 +9411,19 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/quotations/:id/convert": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/quotations/:id/transition": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/quotations/from-costing/:costingId": {
       "auth": true,
       "rbac": true,
       "validated": false,
