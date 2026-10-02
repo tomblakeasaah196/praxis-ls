@@ -46,6 +46,7 @@ import { cell, dateFmt, money } from "@/lib/format";
 import { uploadVaultFile } from "@/lib/masterdata-api";
 import { listColleagues } from "@/lib/smartcomm-api";
 import * as api from "@/lib/costing-api";
+import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 
 /** Signed money, sign carrying the verdict: positive is under budget. */
 const signed = (n: number | null | undefined) =>
@@ -87,6 +88,7 @@ function LineModal({
   const [error, setError] = React.useState<string | null>(null);
   const [spentOn, setSpentOn] = React.useState(line.spent_on || "");
   const [note, setNote] = React.useState("");
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
 
   /**
    * `autoStart: false` — the note is typed after the file is picked, and the
@@ -224,16 +226,25 @@ function LineModal({
               {line.documents.map((d) => (
                 <li
                   key={d.recon_document_id}
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm"
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate text-foreground">
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 text-left hover:text-primary-ink"
+                    onClick={() =>
+                      setPreview({
+                        doc_id: d.doc_id,
+                        title: d.note || d.doc_type || tr("Supporting document"),
+                      })
+                    }
+                  >
+                    <span className="block truncate text-foreground hover:underline">
                       {cell(d.note || d.doc_type || tr("Document"))}
                     </span>
                     <span className="micro">
                       {cell(d.uploaded_by_name ?? "")} · {dateFmt(d.uploaded_at)}
                     </span>
-                  </span>
+                  </button>
                   {editable && (
                     <button
                       type="button"
@@ -283,6 +294,7 @@ function LineModal({
         </div>
       </div>
       {confirmEl}
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </Modal>
   );
 }

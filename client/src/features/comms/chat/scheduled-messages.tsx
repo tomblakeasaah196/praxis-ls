@@ -9,6 +9,7 @@ import { tr } from "@/lib/i18n";
 import { errMsg } from "@/lib/use-resource";
 import * as api from "@/lib/smartcomm-api";
 import { MessageText } from "./message-text";
+import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 
 const timezone = () =>
   Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -34,6 +35,7 @@ export function ScheduledMessages({
   const [saving, setSaving] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
   const load = React.useCallback(async () => {
     setLoading(true);
     setError("");
@@ -168,15 +170,38 @@ export function ScheduledMessages({
                 <MessageText body={row.body || tr("Attachment message")} />
               </div>
               {!!row.attachments.length && (
-                <p className="micro">
-                  {row.attachments
-                    .map(
-                      (a) =>
-                        ("filename" in a && a.filename) ||
-                        ("erp_label" in a && a.erp_label) ||
-                        tr("Attachment"),
-                    )
-                    .join(" · ")}
+                <p className="micro flex flex-wrap gap-x-2 gap-y-1">
+                  {row.attachments.map((a, i) => {
+                    const label =
+                      ("filename" in a && a.filename) ||
+                      ("erp_label" in a && a.erp_label) ||
+                      tr("Attachment");
+                    const vaultId =
+                      a.attachment_kind === "VAULT" ? a.vault_id : null;
+                    return (
+                      <React.Fragment key={i}>
+                        {i > 0 && <span>·</span>}
+                        {vaultId ? (
+                          <button
+                            type="button"
+                            className="text-primary-ink underline"
+                            onClick={() =>
+                              setPreview({
+                                doc_id: vaultId,
+                                title: String(label),
+                                filename:
+                                  "filename" in a ? a.filename : null,
+                              })
+                            }
+                          >
+                            {label}
+                          </button>
+                        ) : (
+                          <span>{label}</span>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </p>
               )}
               <p className="micro">
@@ -219,6 +244,7 @@ export function ScheduledMessages({
           ))
         )}
       </div>
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </Dialog>
   );
 }

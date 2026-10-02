@@ -19,6 +19,7 @@ import { HubCrumb } from "@/components/tabbed-hub";
 import { tenant } from "@/lib/api-client";
 import { errMsg, useList } from "@/lib/use-resource";
 import { dateFmt } from "@/lib/format";
+import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 
 type Room = {
   room_id: string;
@@ -59,6 +60,7 @@ export function AuditRoomPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [attachPick, setAttachPick] = React.useState<Record<string, string>>({});
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
 
   const reload = React.useCallback(() => {
     tenant<Room[]>("/portal/data-room")
@@ -229,9 +231,19 @@ export function AuditRoomPage() {
                                   key={d.doc_id}
                                   className="flex items-center justify-between gap-3 py-2 text-sm"
                                 >
-                                  <span className="truncate text-foreground">
+                                  <button
+                                    type="button"
+                                    className="min-w-0 flex-1 truncate text-left text-foreground hover:text-primary-ink hover:underline"
+                                    onClick={() =>
+                                      setPreview({
+                                        doc_id: d.doc_id,
+                                        title: docLabel(d),
+                                        filename: d.original_name,
+                                      })
+                                    }
+                                  >
                                     {docLabel(d)}
-                                  </span>
+                                  </button>
                                   <span className="shrink-0 text-xs text-muted-foreground">
                                     {dateFmt(d.created_at)}
                                   </span>
@@ -285,6 +297,8 @@ export function AuditRoomPage() {
           })}
         </ul>
       )}
+
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </section>
   );
 }
