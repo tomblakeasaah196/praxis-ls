@@ -13,7 +13,7 @@ module.exports = recordProvider({
   module: "MOD-46",
   label: { en: "Costings", fr: "Prix de revient" },
   route: "/costing/costing",
-  from: "costing k JOIN dossier d ON d.dossier_id = k.dossier_id LEFT JOIN client_master c ON c.client_id = d.client_id",
+  from: "costing k JOIN dossier_visible d ON d.dossier_id = k.dossier_id LEFT JOIN client_master c ON c.client_id = d.client_id",
   columns: ["k.doc_number", "d.ref"],
   select: "k.costing_id AS id, k.doc_number AS ref, COALESCE(k.doc_number, d.ref) AS title, NULLIF(concat_ws(' · ', d.ref, c.name), '') AS sub, k.status AS status, k.total_ttc AS amount, k.currency AS currency",
   order: "k.created_at DESC",

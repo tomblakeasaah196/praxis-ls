@@ -157,7 +157,7 @@ async function transition(client, { id, to, entityId = null, actor = {} }) {
  * portal (G4) — not an app user, so it is stored beside the row, never as an
  * actor id; `via` says which.
  */
-async function accept(client, { id, convert = false, actor = {}, by = null, via = "STAFF" }) {
+async function accept(client, { id, convert: convertNow = false, actor = {}, by = null, via = "STAFF" }) {
   const before = await repo.get(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Quotation not found", 404);
   assertTransition(before.status, "ACCEPTED");
@@ -167,7 +167,7 @@ async function accept(client, { id, convert = false, actor = {}, by = null, via 
       answered_by_name: by && by.name ? String(by.name).slice(0, 200) : null,
       answered_by_email: by && by.email ? String(by.email).slice(0, 320) : null,
     });
-    const invoiceId = convert ? await convertToInvoice(client, before, actor) : null;
+    const invoiceId = convertNow ? await convertToInvoice(client, before, actor) : null;
     // The client and who at the client ride in the payload: an acceptance made
     // in the portal reaches the client's "who is told" list (notify-client-team).
     await emitEvent(client, {

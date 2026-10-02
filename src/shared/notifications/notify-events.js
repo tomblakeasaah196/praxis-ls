@@ -222,6 +222,11 @@ async function onEvent(client, { eventTypeKey, moduleKey, entityRef = null, acto
     // notify-events.test.js that was still asserting the real contract.
     return await service.notifyMany(client, targets, {
       eventTypeKey, title: cfg.title, body, entityRef, category, priority: cfg.priority || "NORMAL",
+      // The queued delivery runs in THIS connection's environment, not LIVE by
+      // default: a TEST event then reaches the sandbox, where email.service
+      // suppresses every send and no device is registered (devices live in
+      // LIVE) — "nothing from TEST may email or push anyone" (meeting 6, PR 4).
+      ctx: { env: client && client[Symbol.for("praxis.conn.env")] === "sandbox" ? "sandbox" : "live" },
     });
   } catch (err) {
     logger.warn({ err, eventTypeKey }, "[notify-events] failed");

@@ -58,7 +58,7 @@ function recordProvider(spec) {
 
   const folded = spec.columns.map((col) => `search_fold(${col}::text)`);
 
-  async function search(c, { term, folded: q, limit, fuzzy }) {
+  async function search(c, { folded: q, limit, fuzzy }) {
     const like = `%${escapeLike(q)}%`;
     const prefix = `${escapeLike(q)}%`;
     const fuzzyOn = fuzzy && q.length >= 4;

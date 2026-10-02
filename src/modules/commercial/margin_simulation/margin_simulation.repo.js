@@ -52,7 +52,7 @@ async function costingForLink(client, costingId) {
   // quotation (meeting 6, G1) — it is addressed to the file's client and
   // numbered by the file's entity, exactly as the costing itself is.
   const d = await client.query(
-    "SELECT client_id, entity_id, service_type_id, ref FROM dossier WHERE dossier_id = $1",
+    "SELECT client_id, entity_id, service_type_id, ref FROM dossier_visible WHERE dossier_id = $1",
     [costing.dossier_id],
   );
   const file = d.rows[0] || {};

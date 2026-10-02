@@ -22,7 +22,8 @@ vi.mock("@/lib/masterdata-api", async () => {
   return { ...actual, listDictRefs: (...a: unknown[]) => listDictRefs(...a) };
 });
 
-import { ClientFamilies, moveLines, useLineSelection, type FamilyLine } from "./client-families";
+import { ClientFamilies, type FamilyLine } from "./client-families";
+import { moveLines, useLineSelection } from "@/lib/client-families-state";
 
 const REGISTRY = [
   { ref_id: "r1", kind: "CLIENT_HEADING", code: "CUSTOMS", name_fr: "Formalités Douanières", name_en: "Customs Formalities", sort_order: 10 },

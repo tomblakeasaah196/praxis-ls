@@ -29,6 +29,6 @@ router.post("/:id/accept", requirePermission(MODULE, "approve"), validator.accep
 // ACCEPTED → a final-invoice DRAFT (meeting 6, G4). A client accepting in the
 // portal never converts; this is the team's step afterwards. `edit`, the grant
 // the CONVERTED transition already takes above.
-router.post("/:id/convert", requirePermission(MODULE, "edit"), controller.convert);
+router.post("/:id/convert", requirePermission(MODULE, "edit"), validator.convert, controller.convert);
 
 module.exports = { basePath: "/quotations", feature: "commercial.quotation", router };

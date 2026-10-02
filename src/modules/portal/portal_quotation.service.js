@@ -105,7 +105,7 @@ const CONTEXT_SELECT = `
     FROM quotation q
     LEFT JOIN quote_request qr ON qr.quote_request_id = q.quote_request_id
     LEFT JOIN service_type qst ON qst.service_type_id = qr.service_type_id
-    LEFT JOIN dossier d ON d.dossier_id = q.dossier_id
+    LEFT JOIN dossier_visible d ON d.dossier_id = q.dossier_id
     LEFT JOIN service_type dst ON dst.service_type_id = d.service_type_id`;
 
 function cardOf(r, lang) {

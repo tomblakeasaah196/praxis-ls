@@ -86,7 +86,7 @@ export function FinancialDictionaryPage() {
   ) => {
     const full = await api.getDict(id);
     setSettings(false);
-    setSelId(id);
+    selectId(id);
     setReviewSuggestion(suggestion);
     setEditing(full);
   };
@@ -95,17 +95,21 @@ export function FinancialDictionaryPage() {
   // The open record lives in the URL (`?focus=<id>`), so a ⌘K result, a
   // drill-in or the back arrow can land on one (meeting 6, G5).
   const {
-    id: selId,
+    id: focusId,
     openId: selectId,
     close: closeSel,
-    preselect,
   } = useRecordParam(rows, (r) => r.dictionary_item_id);
+  // The desktop's first-row default is not a place anyone navigated to, so it
+  // stays out of the URL; a pick (or a ⌘K result) is.
+  const [defaultId, setDefaultId] = React.useState<string | null>(null);
+  const selId = focusId ?? defaultId;
   // The first line opens by itself beside a desktop's detail pane. Not on a
   // phone: there the line opens as a full-screen sheet, and opening it unasked
   // would cover the list the reader came to (SplitPane `onClose`).
   React.useEffect(() => {
-    if (!selId && rows.length && isDesktopNow()) preselect(rows[0]);
-  }, [rows, selId, preselect]);
+    if (!selId && rows.length && isDesktopNow())
+      setDefaultId(rows[0].dictionary_item_id);
+  }, [rows, selId]);
   const selectedRow = rows.find((r) => r.dictionary_item_id === selId);
 
   return (
@@ -158,7 +162,10 @@ export function FinancialDictionaryPage() {
           max={520}
           activeKind={tr("Dictionary item")}
           active={!!selId}
-          onClose={closeSel}
+          onClose={() => {
+            setDefaultId(null);
+            closeSel();
+          }}
           sheetTitle={
             selectedRow
               ? `${selectedRow.code} · ${selectedRow.label_en || selectedRow.label_fr || ""}`

@@ -177,7 +177,7 @@ function fakeDb({ status = "APPROVED_LOCKED", requests = [] } = {}) {
       if (/FROM costing WHERE costing_id/.test(sql)) {
         return { rows: [{ costing_id: UUID(1), doc_number: "CST-2026-0043", dossier_id: UUID(2), currency: "XAF", exchange_rate_to_xaf: 1, status, family_order: ["TRANSPORT", "CUSTOMS"] }] };
       }
-      if (/FROM dossier WHERE dossier_id/.test(sql)) return { rows: [{ client_id: UUID(3), entity_id: UUID(4), service_type_id: UUID(5), ref: "SBX-2026-0001" }] };
+      if (/FROM dossier_visible WHERE dossier_id/.test(sql)) return { rows: [{ client_id: UUID(3), entity_id: UUID(4), service_type_id: UUID(5), ref: "SBX-2026-0001" }] };
       if (/FROM costing_line/.test(sql)) return { rows: costingLines() };
       if (/FROM quote_request qr/.test(sql)) return { rows: requests };
       if (/FROM quote_request WHERE quote_request_id/.test(sql)) {

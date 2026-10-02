@@ -13,7 +13,7 @@ module.exports = recordProvider({
   module: "MOD-50",
   label: { en: "Proformas & advances", fr: "Proformas et avances" },
   route: "/finance/proformas",
-  from: "advance a LEFT JOIN client_master c ON c.client_id = a.client_id LEFT JOIN dossier d ON d.dossier_id = a.dossier_id",
+  from: "advance a LEFT JOIN client_master c ON c.client_id = a.client_id LEFT JOIN dossier_visible d ON d.dossier_id = a.dossier_id",
   columns: ["c.name", "d.ref"],
   select: "a.advance_id AS id, d.ref AS ref, COALESCE(c.name, d.ref) AS title, d.ref AS sub, a.amount AS amount, a.received_on AS date",
   order: "a.created_at DESC",

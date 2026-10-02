@@ -13,7 +13,7 @@ module.exports = recordProvider({
   module: "MOD-49",
   label: { en: "Cash requests", fr: "Demandes de fonds" },
   route: "/costing/cash-requests",
-  from: "cash_request cr LEFT JOIN dossier d ON d.dossier_id = cr.dossier_id",
+  from: "cash_request cr LEFT JOIN dossier_visible d ON d.dossier_id = cr.dossier_id",
   columns: ["cr.doc_number", "cr.beneficiary", "d.ref"],
   select: "cr.cash_request_id AS id, cr.doc_number AS ref, COALESCE(cr.doc_number, cr.beneficiary) AS title, NULLIF(concat_ws(' · ', cr.beneficiary, d.ref), '') AS sub, cr.status AS status, cr.amount AS amount, cr.currency AS currency",
   order: "cr.created_at DESC",

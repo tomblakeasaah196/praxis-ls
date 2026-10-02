@@ -22,16 +22,8 @@ import { listSalesTaxCodes, type TaxCode } from "@/lib/masterdata-api";
 import { Segmented } from "@/components/ui/segmented";
 import { Callout } from "@/components/ui/callout";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  ClientFamilies,
-  FamilyBulkBar,
-  FamilyPicker,
-  customFamilies,
-  moveLines,
-  useFamilyRegistry,
-  useLineSelection,
-  useNewFamily,
-} from "@/components/client-families";
+import { ClientFamilies, FamilyBulkBar, FamilyPicker } from "@/components/client-families";
+import { customFamilies, moveLines, useFamilyRegistry, useLineSelection, useNewFamily } from "@/lib/client-families-state";
 import { dictLabel } from "@/lib/dict-label";
 import { clientQuoteRequests } from "@/lib/quote-request-api";
 
