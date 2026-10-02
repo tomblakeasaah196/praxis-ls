@@ -31,7 +31,7 @@
  *    dialog, one code at a time. They are columns now, and a jurisdiction with a
  *    gap opens with a banner naming every code — `tax_jurisdiction.get` ships
  *    `unmapped_codes` with the jurisdiction so the gap cannot be one click away
- *    from invisible again. Seed 9161 repaired the twelve; the API now refuses a
+ *    from invisible again. Seed 90999 repaired the twelve; the API now refuses a
  *    thirteenth (rules.assertPostingAccounts).
  *
  * 2. THE TAB IS "Autres taxes (Other taxes)" (01:29:29 → 01:34:18). The tenant

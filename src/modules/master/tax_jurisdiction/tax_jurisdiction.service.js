@@ -59,7 +59,7 @@ async function addCode(client, { jurisdictionId, code, kind, ratePercent = null,
   assertRate({ kind, ratePercent, brackets });
   assertEffectiveWindow({ effectiveFrom, effectiveTo });
   // Meeting 7, 01:25:15 — "every account is actually mapped to their account".
-  // Both sides, both postable leaves. Seed 9161 repaired the twelve that shipped
+  // Both sides, both postable leaves. Seed 90999 repaired the twelve that shipped
   // defective; this is what stops the thirteenth. See rules.assertPostingAccounts
   // for why `determination` passing on a half-mapped code proves nothing.
   assertPostingAccounts(

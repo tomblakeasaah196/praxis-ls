@@ -44,7 +44,7 @@ vi.mock("@/lib/operations-api", async () => {
 
 import { TemplateForm } from "./service-type-template-form";
 
-/** PROJECT_CARGO as seed 9091 and 9160 leave it — the chain the meeting reviewed. */
+/** PROJECT_CARGO as seed 9091 and 90998 leave it — the chain the meeting reviewed. */
 const SVC: ServiceType = {
   service_type_id: "st-1",
   key: "PROJECT_CARGO",
@@ -88,7 +88,7 @@ const SHIPPED: MilestoneStage[] = [
   }),
 ];
 
-/** The registry 9160 seeds, trimmed to what these assertions need. */
+/** The registry 90998 seeds, trimmed to what these assertions need. */
 const OWNERS: MilestoneOwner[] = [
   { owner_id: "o1", code: "INTERNAL", name: "Internal ops", name_fr: "Opérations internes", is_internal: true, is_system: true, sort_order: 10 },
   { owner_id: "o2", code: "CUSTOMS", name: "Customs", name_fr: "Douane", is_internal: false, is_system: true, sort_order: 51 },

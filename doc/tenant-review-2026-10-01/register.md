@@ -207,6 +207,33 @@ Found while wiring 3.7. `payroll_run.config_snapshot = JSON.stringify(cfg)`
 this PR (the snapshot was display-only and a recompute re-resolved), and would have become live
 the moment a resolved barème was stored.
 
+### 3.11 [Found in CI] A seed's NUMBER decides which database it runs against
+
+Found by the `migrations` job on PR #539, which is the only job that can see it.
+
+`migrator.files` partitions one directory by numeric prefix — `tenantSeeds` is
+`/^90/` and `platformSeeds` is `/^91/` — and nothing in a filename says which. The two
+seeds here were first numbered 9160/9161, chosen by taking the highest file in
+`migrations/seeds/` (9150) and adding ten. 9150 is a PLATFORM seed. So both landed in the
+platform range and were applied to the platform database, where none of their tables exist:
+
+```
+[praxis-db] platform migration FAILED: Failed applying seeds/9160_seed_milestone_owners.sql
+  [platform-seed]: relation "milestone_owner" does not exist
+```
+
+Every other gate passed on the broken files — numbering, idempotency, reversibility, schema
+drift — because `scripts/ci-local.js` skips provisioning, which needs a live Postgres. Renamed
+to **90998** and **90999**, which sort after both prerequisites (9010 tax, 9091 milestone
+templates) and inside the tenant range.
+
+`tests/unit/seed-scope.test.js` now pins it, and it is static so it runs in `npm run ci`:
+every platform seed schema-qualifies every write as `platform.<table>` — all seventeen, with
+no exceptions, because the platform migration runs with no tenant schema on the search path —
+and no tenant seed writes to a platform table. The prefix and the qualification have to agree.
+Verified against the real bug: with the file renamed back to 9160 the gate fails and names
+`milestone_owner, milestone_template_stage`.
+
 ---
 
 ## 4. Owner decisions
@@ -246,8 +273,8 @@ Taken from the review of this register. These are final.
 
 | Finding | Where |
 | --- | --- |
-| 3.1, 3.5, D4, D5, D7 | `migrations/seeds/9161_tax_code_account_mapping_repair.sql`, `tax_jurisdiction.rules.assertPostingAccounts`, `tax_jurisdiction.repo.unmappedCodes`, `GET /tax-jurisdictions/unmapped`, `client/src/features/settings/tax-jurisdictions.tsx` |
-| 3.4, D1, D2, D3 | `migrations/tenant/14400_milestone_owner_registry.sql`, `migrations/seeds/9160_seed_milestone_owners.sql`, `src/modules/master/milestone_owner/`, `client/src/lib/milestone-owners.ts`, `client/src/features/masterdata/milestone-owners-dialog.tsx` |
+| 3.1, 3.5, D4, D5, D7 | `migrations/seeds/90999_tax_code_account_mapping_repair.sql`, `tax_jurisdiction.rules.assertPostingAccounts`, `tax_jurisdiction.repo.unmappedCodes`, `GET /tax-jurisdictions/unmapped`, `client/src/features/settings/tax-jurisdictions.tsx` |
+| 3.4, D1, D2, D3 | `migrations/tenant/14400_milestone_owner_registry.sql`, `migrations/seeds/90998_seed_milestone_owners.sql`, `src/modules/master/milestone_owner/`, `client/src/lib/milestone-owners.ts`, `client/src/features/masterdata/milestone-owners-dialog.tsx` |
 | 3.2, 3.3, 3.9, D8 | `client/src/features/masterdata/service-type-template-form.tsx`, `service-type-dossier.tsx`, `operations-api.ts` |
 | 3.6, D8 | `milestone.service.renameStage`, `PATCH /milestones/templates/stages/:stageId`, inline edit on the Milestones tab |
 | 3.7, 3.8, 3.10, D6 | `src/services/accounting/payroll-rates.js`, `payroll.rules.progressive`, `payroll.service.compute` / `saveConfig` / `effectiveRates`, `GET /payroll/config/effective` |
@@ -256,18 +283,19 @@ Taken from the review of this register. These are final.
 
 | Gate | What it pins |
 | --- | --- |
-| `tests/unit/tax-code-account-mapping.test.js` | Every seeded code maps both sides to a postable leaf, the 9161 repair cannot be dropped, and the API rule refuses the thirteenth. Static — no Postgres needed. |
+| `tests/unit/tax-code-account-mapping.test.js` | Every seeded code maps both sides to a postable leaf, the 90999 repair cannot be dropped, and the API rule refuses the thirteenth. Static — no Postgres needed. |
 | `tests/unit/payroll-rates-from-tax-codes.test.js` | Every key the resolver emits is a key the engine has; the seeded barème and the engine's default produce identical tax; the JSON round-trip of 3.10 cannot return. |
 | `tests/unit/milestone-owner-registry.test.js` | All three CHECKs are dropped together, the registry seeds both languages and exactly one internal row, and `renameStage` refuses anything that would move a schedule. |
-| `tests/unit/milestone-seed.test.js` | Now derives the valid owner set **from seed 9160** instead of a hardcoded copy, so it cannot pass while a stage points at an owner no tenant has. |
+| `tests/unit/milestone-seed.test.js` | Now derives the valid owner set **from seed 90998** instead of a hardcoded copy, so it cannot pass while a stage points at an owner no tenant has. |
+| `tests/unit/seed-scope.test.js` | A seed's numeric prefix matches the database it writes to (3.11). Catches, statically, the one class of seed bug that otherwise only a live-Postgres CI job can see. |
 
 ### Migration numbers used
 
 | Scope | Number | File |
 | --- | --- | --- |
 | tenant | 14400 | `14400_milestone_owner_registry.sql` |
-| seeds | 9160 | `9160_seed_milestone_owners.sql` |
-| seeds | 9161 | `9161_tax_code_account_mapping_repair.sql` |
+| seeds | 90998 | `90998_seed_milestone_owners.sql` |
+| seeds | 90999 | `90999_tax_code_account_mapping_repair.sql` |
 
 The two data files are **seeds, not tenant migrations**, and that is load-bearing:
 `provisioning.migrateTenantDb` applies every tenant migration and only then every seed, so a

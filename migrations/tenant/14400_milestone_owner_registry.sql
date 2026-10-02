@@ -46,7 +46,7 @@
 --
 -- Dropping the CHECKs is the point of this file: with them in place, a row this
 -- registry allows cannot be stored. The data they guarded is unaffected — every
--- existing stage holds one of the five seeded codes, which 9160 seeds as system
+-- existing stage holds one of the five seeded codes, which 90998 seeds as system
 -- rows, so nothing is orphaned.
 -- ============================================================================
 

@@ -1075,7 +1075,7 @@ export const createGeoPlace = (body: {
  * the dropdown and found it closed: "we should have the possibility of adding …
  * a configurations button that will permit us to create new milestone owner
  * categories". The values now live in the tenant's `milestone_owner` registry
- * (14400 / seed 9160), so the TYPE is an owner CODE and the labels come from the
+ * (14400 / seed 90998), so the TYPE is an owner CODE and the labels come from the
  * registry at runtime — `useMilestoneOwners()` in lib/milestone-owners.
  *
  * Kept as a named alias rather than replaced by `string` so every call site that
