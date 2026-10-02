@@ -1,3 +1,4 @@
+// search:none — a dispatch belongs to a vehicle and a file, both of which ⌘K finds.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

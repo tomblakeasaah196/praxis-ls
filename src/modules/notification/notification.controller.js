@@ -1,3 +1,4 @@
+// search:none — notifications are the person's own bell, not records to look up.
 "use strict";
 const service = require("./notification.service");
 const { asyncHandler } = require("../../utils/errors");

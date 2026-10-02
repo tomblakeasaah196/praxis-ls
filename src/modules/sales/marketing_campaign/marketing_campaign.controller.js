@@ -1,3 +1,4 @@
+// search:none — campaigns are a short list on Sales › Campaigns.
 "use strict";
 const service = require("./marketing_campaign.service");
 const rules = require("./marketing_campaign.rules");

@@ -1,3 +1,4 @@
+// search:none — SOP acknowledgements are rows of an employee and an SOP.
 "use strict";
 const { makeController } = require("../../../shared/crud/resource");
 const { asyncHandler, AppError } = require("../../../utils/errors");

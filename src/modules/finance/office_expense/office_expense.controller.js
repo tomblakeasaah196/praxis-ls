@@ -1,3 +1,4 @@
+// search:none — office expenses are a running register filtered by period on Finance › Office expenses.
 "use strict";
 const service = require("./office_expense.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

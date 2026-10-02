@@ -7,6 +7,7 @@
 import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
+import { useFocusRow } from "@/lib/use-focus-row";
 import { tenant, uploadFile } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -198,6 +199,31 @@ export function DocumentsPage() {
   const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(
     null,
   );
+  // `?focus=<doc_id>` — a ⌘K result or a link — opens that document's preview
+  // once the register has loaded it (meeting 6, G5), then drops the param so a
+  // closed preview stays closed on refresh.
+  const { focusId, clear: clearFocus } = useFocusRow(rows);
+  React.useEffect(() => {
+    if (!focusId || !rows) return;
+    const hit = rows.find((r) => String(r.doc_id) === focusId);
+    // A document older than the register's first page is still opened: the
+    // preview reads it by id, under the same MOD-64 grant the search used.
+    setPreview(
+      hit
+        ? {
+            doc_id: String(hit.doc_id),
+            title: hit.original_name
+              ? String(hit.original_name)
+              : hit.doc_type
+                ? String(hit.doc_type)
+                : tr("Document"),
+            filename:
+              hit.original_name == null ? null : String(hit.original_name),
+          }
+        : { doc_id: focusId, title: tr("Document") },
+    );
+    clearFocus();
+  }, [focusId, rows, clearFocus]);
 
   async function withRow(id: string, fn: () => Promise<unknown>) {
     setRowBusy(id);

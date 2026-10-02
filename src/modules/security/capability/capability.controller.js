@@ -1,4 +1,5 @@
 // ai:none — capability definitions behind RBAC. Same boundary as permissions: the gate is not a tool.
+// search:none — capabilities are a fixed authority list (issuer, validator, approver), configured on Security.
 "use strict";
 const { asyncHandler } = require("../../../utils/errors");
 const { makeController } = require("../../../shared/crud/resource");

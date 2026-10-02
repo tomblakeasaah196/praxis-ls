@@ -1,3 +1,4 @@
+// search:none — compliance flags point at a record (client, file) that ⌘K finds; the flags are a queue on Vault.
 "use strict";
 const service = require("./compliance_flag.service");
 const { asyncHandler } = require("../../../utils/errors");

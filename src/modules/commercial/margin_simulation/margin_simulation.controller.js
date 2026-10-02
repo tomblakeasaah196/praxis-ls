@@ -1,3 +1,4 @@
+// search:none — a margin simulation is the workings behind a quotation and is reached from it (meeting 6, G1); ⌘K finds the quotation itself.
 "use strict";
 const service = require("./margin_simulation.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

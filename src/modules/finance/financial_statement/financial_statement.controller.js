@@ -1,3 +1,4 @@
+// search:none — statements are generated per period, not looked up by name.
 "use strict";
 const service = require("./financial_statement.service");
 const { asyncHandler } = require("../../../utils/errors");

@@ -1,3 +1,4 @@
+// search:none — places are picked inside forms (ports, airports, towns); they are not records anyone opens.
 "use strict";
 const { asyncHandler } = require("../../../utils/errors");
 const service = require("./geo_place.service");

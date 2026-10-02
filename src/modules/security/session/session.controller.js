@@ -1,4 +1,5 @@
 // ai:none — session lifecycle. The AI never issues, extends or revokes a session — it runs on the caller's.
+// search:none — sessions are the person's own devices, on My security.
 "use strict";
 const { asyncHandler } = require("../../../utils/errors");
 const { makeController } = require("../../../shared/crud/resource");

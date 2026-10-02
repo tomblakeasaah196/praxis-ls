@@ -1,3 +1,4 @@
+// search:none — workflow definitions are configuration on Governance › Workflows.
 "use strict";
 const { asyncHandler, AppError } = require("../../utils/errors");
 const identityCache = require("../../shared/cache/identity-cache");

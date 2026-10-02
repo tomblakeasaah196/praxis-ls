@@ -1,3 +1,4 @@
+// search:none — the client portal's rows (messages, requests) are read on the client's 360 and in the Client inbox, which ⌘K finds.
 "use strict";
 const service = require("./portal.service");
 const quoteRequestService = require("../sales/quote_request/quote_request.service");

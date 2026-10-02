@@ -91,6 +91,10 @@ const GATES = [
   // Spans the backend AND all three frontends — a date is rendered on every one
   // of them — so it sits in the backend group, which always runs.
   { group: "backend", name: "Dates are day-first", cmd: node("scripts/check-date-format.js") },
+  // Meeting 6, PR 4 (G5): ⌘K finds every page, tab and record. Spans the
+  // client's router, hubs and 360 tabs AND the backend's modules, so it sits in
+  // the backend group with the other cross-cutting gates. Reads files only.
+  { group: "backend", name: "Search finds everything", cmd: node("scripts/check-search-registry.js") },
 
   // ── Frontend job ────────────────────────────────────────────────────────
   { group: "frontend", name: "Lint (client)", cmd: npm("run", "lint", "--prefix", "client") },

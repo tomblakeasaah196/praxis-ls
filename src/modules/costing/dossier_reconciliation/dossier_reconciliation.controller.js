@@ -1,3 +1,4 @@
+// search:none — a reconciliation is a view of one file's costs; ⌘K finds the file and the costing.
 "use strict";
 const service = require("./dossier_reconciliation.service");
 const statement = require("./dossier_reconciliation.statement");

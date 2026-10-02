@@ -1287,3 +1287,18 @@ export declare namespace quotation {
   // Read by the API's portal routes only.
   const decline: z.ZodTypeAny;
 }
+
+export type SearchQuery = { q: string; types?: string; limit?: number };
+
+export declare namespace search {
+  /** GET /search — what the palette may send and the API accepts. */
+  const query: z.ZodType<SearchQuery, z.ZodTypeDef, unknown>;
+  /** The one maintained synonym list: each group is one thing, EN and FR. */
+  const SYNONYMS: ReadonlyArray<{ key: string; words: ReadonlyArray<string> }>;
+  /** The group a word or phrase belongs to (folded), or null. */
+  function conceptOf(word: string): string | null;
+  /** Lower-case, accents stripped, spaces collapsed — 14382's search_fold(). */
+  function fold(s: string | null | undefined): string;
+  const FOLD_FROM: string;
+  const FOLD_TO: string;
+}

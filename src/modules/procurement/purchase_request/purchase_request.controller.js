@@ -1,3 +1,4 @@
+// search:none — purchase requests become purchase orders, which ⌘K finds; open requests are a short queue on Procurement › Requests.
 "use strict";
 const service = require("./purchase_request.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");

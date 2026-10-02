@@ -34,6 +34,7 @@ const serviceScope = require("./rules/service-scope");
 const emailDomain = require("./rules/email-domain");
 const quoteRequest = require("./schemas/quote-request");
 const quotation = require("./schemas/quotation");
+const search = require("./schemas/search");
 
 // Named `exports.x =` assignments, NOT `module.exports = { x }`.
 //
@@ -176,3 +177,8 @@ exports.quoteRequest = quoteRequest;
 // button on exactly the statuses the API prices from, and the settings form
 // must refuse exactly the margin the API refuses.
 exports.quotation = quotation;
+// Search that finds everything (meeting 6, PR 4 — G5): the /search query the
+// palette sends and the API validates, the ONE synonym list both read (the
+// palette to match pages, the API to read "facture 0042" as a type hint), and
+// the accent fold both compare with — the same table as 14382's search_fold().
+exports.search = search;

@@ -1,3 +1,4 @@
+// search:none — payroll runs are one per period and entity, opened from Payroll by month.
 /** Payroll (MOD-17) HTTP handlers — thin: req.tenantDb → service. */
 "use strict";
 const service = require("./payroll.service");

@@ -1,3 +1,4 @@
+// search:none — mail has its own full-text search in Comms › Mail (10733), across subject, participants and body.
 "use strict";
 const service = require("./mail.service");
 const mailbox = require("./mailbox.service");
