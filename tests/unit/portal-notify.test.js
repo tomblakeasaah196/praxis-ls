@@ -85,6 +85,7 @@ const SHIP = "33333333-3333-4333-8333-333333333333";
 const MSG = "44444444-4444-4444-8444-444444444444";
 const STAGE = "55555555-5555-4555-8555-555555555555";
 const INV = "66666666-6666-4666-8666-666666666666";
+const QUOTE = "77777777-7777-4777-8777-777777777777";
 
 /** A connection that records what it was asked, and answers from `mockRows`. */
 function conn(env) {
@@ -288,6 +289,7 @@ function deliveryDb({ people, waiting, unread = {}, told = false, claim = () => 
     proofs: async () => [],
     requests: async () => [],
     proposals: async () => [],
+    quotations: async (c, { ids }) => (ids.includes(QUOTE) ? [{ quotation_id: QUOTE, doc_number: "QT-2026-0004" }] : []),
     stages: async () => [],
     manuallySent: async () => new Set(),
     quoteRequests: async () => [],
@@ -414,6 +416,19 @@ describe("everything else, batched", () => {
     ).rejects.toThrow("SMTP down");
     expect(released).toEqual([1]);
     expect(marked).toEqual([]);
+  });
+
+  // Meeting 6, PR 4: a commercial quotation reaches the client exactly as a
+  // proposal does — same switch — and opens on its own page in the portal.
+  test("a sent quotation is pushed, and opens its page in Quotations", async () => {
+    const { marked } = deliveryDb({
+      people: [MARIE],
+      waiting: { push: [{ outbox_id: 21, event_key: "quotation.sent", item_ref: `quotation:${QUOTE}` }] },
+    });
+    await notify.deliver(null, { tenant: TENANT, clientId: CLIENT, topic: "PROPOSALS", thread: null, stage: "push" });
+    expect(mockPushes).toHaveLength(1);
+    expect(mockPushes[0]).toMatchObject({ body: "Quotation QT-2026-0004", url: `/portal/quotations/${QUOTE}`, tag: "proposals:all" });
+    expect(marked).toEqual([["push", [21]]]);
   });
 
   test("nothing still true, nothing sent: an answered proposal is no longer news", async () => {

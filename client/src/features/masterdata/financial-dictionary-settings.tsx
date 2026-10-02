@@ -143,6 +143,33 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
       setBusy(false);
     }
   }
+  /**
+   * The DEFAULT family order (meeting 6, G2) — the order a quotation and an
+   * invoice print their client headings in, unless the document sets its own.
+   * Only the client-heading registry is ordered here: it is the one list whose
+   * order a client reads. Every row is renumbered in steps of 10, so a move is
+   * always exact even where seeded values tied.
+   */
+  const isHeading = kind === "CLIENT_HEADING";
+  async function shift(index: number, by: -1 | 1) {
+    const rows = [...(list.data || [])];
+    const to = index + by;
+    if (to < 0 || to >= rows.length) return;
+    [rows[index], rows[to]] = [rows[to], rows[index]];
+    try {
+      const changed = rows
+        .map((r, i) => ({ r, sort: (i + 1) * 10 }))
+        .filter(({ r, sort }) => r.sort_order !== sort);
+      for (const { r, sort } of changed) {
+        await api.updateDictRef(r.ref_id, { sort_order: sort });
+      }
+      toast.success(tr("Family order saved"));
+      list.reload();
+    } catch (e) {
+      toast.error(errMsg(e));
+    }
+  }
+
   async function toggle(r: api.DictRef) {
     try {
       await api.updateDictRef(r.ref_id, { is_active: !(r.is_active ?? true) });
@@ -158,6 +185,9 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
         <p className="micro">
           Values a manager can extend. Seeded rows are marked <em>{tr("System")}</em>{" "}
           but stay editable.
+          {isHeading
+            ? ` ${tr("The order below is the order quotations and invoices print their families in, unless a document sets its own.")}`
+            : ""}
         </p>
         <Button
           size="sm"
@@ -307,11 +337,33 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
         <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <tbody className="divide-y divide-border">
-              {(list.data || []).map((r) => (
+              {(list.data || []).map((r, i, all) => (
                 <tr
                   key={r.ref_id}
                   className={r.is_active === false ? "opacity-50" : ""}
                 >
+                  {isHeading && (
+                    <td className="w-20 px-1 py-1.5">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={i === 0}
+                        aria-label={`${tr("Move up")} — ${r.name_en || r.name_fr}`}
+                        onClick={() => void shift(i, -1)}
+                      >
+                        ↑
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={i === all.length - 1}
+                        aria-label={`${tr("Move down")} — ${r.name_en || r.name_fr}`}
+                        onClick={() => void shift(i, 1)}
+                      >
+                        ↓
+                      </Button>
+                    </td>
+                  )}
                   <td className="px-3 py-1.5 num font-medium text-foreground">
                     {r.code}
                   </td>

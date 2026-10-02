@@ -64,9 +64,23 @@ export type Family<T> = {
   lines: { line: T; index: number }[];
 };
 
+/**
+ * The rank of a family under a document's own order (meeting 6, G2) — the twin
+ * of `familyRank` in the template's client-headings.js. Families the order
+ * names come first, in its order; the rest follow in the registry's order.
+ */
+export function familyRanker(order: readonly string[] | null | undefined, sortOf: (h: Heading) => number) {
+  const keys = (order || []).map((k) => String(k || "").trim().toLowerCase()).filter(Boolean);
+  return (h: Heading) => {
+    const at = keys.indexOf(h.key.toLowerCase());
+    return at >= 0 ? at : keys.length + 1 + sortOf(h) / 10000;
+  };
+}
+
 /** Group lines as the client document will print them, keeping each line's
- *  index so the view can edit the line in place. */
-export function groupByFamily<T extends HeadedLine>(lines: T[], registry: HeadingRef[] = []): Family<T>[] {
+ *  index so the view can edit the line in place. `order` is the document's own
+ *  family order (G2); absent, the registry's. */
+export function groupByFamily<T extends HeadedLine>(lines: T[], registry: HeadingRef[] = [], order: readonly string[] | null = null): Family<T>[] {
   const out = new Map<string, Family<T>>();
   const natures = new Map<string, Set<string>>();
   lines.forEach((line, index) => {
@@ -82,12 +96,29 @@ export function groupByFamily<T extends HeadedLine>(lines: T[], registry: Headin
     const r = registry.find((x) => x.code === h.key);
     return r && r.sort_order != null ? Number(r.sort_order) : h.sort;
   };
+  const rank = familyRanker(order, sortOf);
   return [...out.values()]
     .map((f) => ({ ...f, mixed: (natures.get(f.heading.key)?.size ?? 0) > 1 }))
     .sort(
       (a, b) =>
-        sortOf(a.heading) - sortOf(b.heading) ||
+        rank(a.heading) - rank(b.heading) ||
         headingLabel(a.heading).localeCompare(headingLabel(b.heading)) ||
         (a.nature === b.nature ? 0 : a.nature === "disbursement" ? -1 : 1),
     );
+}
+
+/** The families of a document, in the order it prints them, one per heading
+ *  (the disbursement / fee split is within a family, never between them). */
+export function familyKeysInOrder<T extends HeadedLine>(lines: T[], registry: HeadingRef[] = [], order: readonly string[] | null = null): Heading[] {
+  const seen = new Map<string, Heading>();
+  for (const f of groupByFamily(lines, registry, order)) if (!seen.has(f.heading.key)) seen.set(f.heading.key, f.heading);
+  return [...seen.values()];
+}
+
+/** The value a line's `client_heading` takes to join a family: a registry
+ *  heading is stored by its CODE (it survives a rename); a made-up one by its
+ *  text; the catalogue default as null. */
+export function headingValue(h: Heading | null): string | null {
+  if (!h) return null;
+  return h.custom ? h.en : h.key;
 }

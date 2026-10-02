@@ -264,6 +264,12 @@ const schemas = {
   chatSend: z
     .object({
       ...chatFields,
+      // "Ask about this quotation" (meeting 6, G3): `quotation:<uuid>` or
+      // `proposal:<uuid>`; the service checks it is the client's own.
+      about: z
+        .string()
+        .regex(/^(quotation|proposal):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Not a reference a message can carry")
+        .optional(),
       lat: optNum(-90, 90),
       lng: optNum(-180, 180),
       location_label: optText(200),
@@ -288,6 +294,9 @@ const schemas = {
   proposalDecline: z
     .object({ reason_code: z.string().min(1).max(64), note: z.string().trim().max(400).optional() })
     .strict(),
+  // A commercial quotation, declined in the portal (meeting 6, G4) — the
+  // shared definition (`@praxis/shared` quotation.decline).
+  quotationDecline: require("@praxis/shared").quotation.decline,
   // Signing — the public signing page's shape exactly, and like it STRICT with
   // no email field: the address a code goes to is the one on file, never one
   // the signer supplies (guide §6.3). The name and role are the signer's own
@@ -360,6 +369,7 @@ module.exports = {
   onboardingStepUpdate: mw("onboardingStepUpdate"), onboardingStepMove: mw("onboardingStepMove"),
   chatSend: mw("chatSend"), chatRead: mw("chatRead"), staffChatSend: mw("staffChatSend"), staffChatRead: mw("staffChatRead"),
   proposalDecline: mw("proposalDecline"), proposalSignComplete: mw("proposalSignComplete"), quoteFill: mw("quoteFill"),
+  quotationDecline: mw("quotationDecline"),
   notifySettings: mw("notifySettings"), pushSubscribe: mw("pushSubscribe"), pushUnsubscribe: mw("pushUnsubscribe"),
   places: mwQuery("places"),
   isPushService,

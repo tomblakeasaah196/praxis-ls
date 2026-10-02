@@ -80,3 +80,47 @@ describe("the printed quotation and invoice are grouped; their data is not", () 
     expect(out).not.toContain("Gate pass");
   });
 });
+
+/**
+ * Meeting 6, owner decision G2 — the family order chosen on the document is the
+ * order printed. Without one, the registry's order (Financial Dictionary ›
+ * Settings › Client headings) stands.
+ */
+describe("family order — per document, with the registry as the default", () => {
+  const CUSTOM = line("DAP Douala–Bangui", 50000, { is_disbursement: false, client_heading: "DAP Douala–Bangui" });
+  const labels = (out) => out.map((l) => l.label);
+
+  test("no order: the registry's", () => {
+    expect(labels(groupLines([...DETAIL, CUSTOM], "en", REGISTRY))).toEqual([
+      "Customs Formalities — Disbursements",
+      "Customs Formalities — Service Fee",
+      "Port & Terminal Charges",
+      "DAP Douala–Bangui",
+    ]);
+  });
+
+  test("the document's order wins, families it does not name follow in registry order", () => {
+    const out = groupLines([...DETAIL, CUSTOM], "en", REGISTRY, ["custom:dap douala–bangui", "PORT_TERMINAL"]);
+    expect(labels(out)).toEqual([
+      "DAP Douala–Bangui",
+      "Port & Terminal Charges",
+      "Customs Formalities — Disbursements",
+      "Customs Formalities — Service Fee",
+    ]);
+  });
+
+  test("an order naming a family the document no longer has is harmless", () => {
+    expect(labels(groupLines(DETAIL, "en", REGISTRY, ["GONE", "PORT_TERMINAL"]))[0]).toBe("Port & Terminal Charges");
+  });
+
+  test("the printed quotation follows family_order; the signed lines do not move", () => {
+    const html = TPL.TEMPLATES.QUOTATION.build(
+      { number: "Q-2", date: "2026-10-02", lines: DETAIL, client_headings: REGISTRY, family_order: ["PORT_TERMINAL", "CUSTOMS_FORMALITIES"], totals: { service_ht: 170000, vat_total: 32725, total_ttc: 832725 }, currency: "XAF" },
+      { language: "en", show: {} },
+      { legal_name: "Tenant SARL", address: "Douala", niu: "M0" },
+      null,
+    );
+    expect(html.indexOf("Port &amp; Terminal Charges")).toBeGreaterThan(-1);
+    expect(html.indexOf("Port &amp; Terminal Charges")).toBeLessThan(html.indexOf("Customs Formalities — Disbursements"));
+  });
+});

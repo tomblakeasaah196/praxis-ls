@@ -8,8 +8,8 @@
  * arrangement as a proposal. The owner, the internal notes and who moved it
  * stay with the team: the server sends the status and the day, nothing else.
  *
- * PR 4 (meeting 6) adds the Commercial QUOTATION that answered a request beside
- * the proposal — see `Answer` below, where `quotation` is already in the shape.
+ * Meeting 6, PR 4: the Commercial QUOTATION that answered a request sits beside
+ * the proposal in `Answer` below, and opens its own page in Quotations.
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -19,7 +19,7 @@ import {
   portalQuoteRequest,
   type PortalQuoteDetail,
 } from "@/lib/portal-api";
-import { num } from "@/lib/format";
+import { money, num } from "@/lib/format";
 import { getLang } from "@/lib/i18n";
 import { serviceName } from "@/lib/quote-scope";
 import { useQuoteDocuments } from "@/lib/use-quote-documents";
@@ -51,11 +51,13 @@ export function QuoteRequestSheet({
   onClose,
   onChanged,
   onOpenProposal,
+  onOpenQuotation,
 }: {
   id: string | null;
   onClose: () => void;
   onChanged: () => void;
   onOpenProposal: (proposalId: string) => void;
+  onOpenQuotation: (quotationId: string) => void;
 }) {
   const { t } = useTranslation();
   const detail = useLoad(() => (id ? portalQuoteRequest(id) : Promise.resolve(null)), id ? `quote:${id}` : "none");
@@ -72,13 +74,24 @@ export function QuoteRequestSheet({
             onChanged();
           }}
           onOpenProposal={onOpenProposal}
+          onOpenQuotation={onOpenQuotation}
         />
       ) : null}
     </Sheet>
   );
 }
 
-function Detail({ d, onChanged, onOpenProposal }: { d: PortalQuoteDetail; onChanged: () => void; onOpenProposal: (id: string) => void }) {
+function Detail({
+  d,
+  onChanged,
+  onOpenProposal,
+  onOpenQuotation,
+}: {
+  d: PortalQuoteDetail;
+  onChanged: () => void;
+  onOpenProposal: (id: string) => void;
+  onOpenQuotation: (id: string) => void;
+}) {
   const { t } = useTranslation();
   const lang = getLang();
   const toast = useToast();
@@ -233,21 +246,44 @@ function Detail({ d, onChanged, onOpenProposal }: { d: PortalQuoteDetail; onChan
         </ol>
       </section>
 
-      <Answer d={d} onOpenProposal={onOpenProposal} />
+      <Answer d={d} onOpenProposal={onOpenProposal} onOpenQuotation={onOpenQuotation} />
     </div>
   );
 }
 
 /**
- * The team's answer to the request. Today that is the PROPOSAL reached
- * through the request's opportunity; PR 4 (meeting 6) adds the Commercial
- * QUOTATION here, from `d.quotation`, beside it.
+ * The team's answer to the request: the Commercial QUOTATION linked to it
+ * (meeting 6, PR 4), and the PROPOSAL reached through the request's
+ * opportunity — either, both, or "waiting".
  */
-function Answer({ d, onOpenProposal }: { d: PortalQuoteDetail; onOpenProposal: (id: string) => void }) {
+function Answer({
+  d,
+  onOpenProposal,
+  onOpenQuotation,
+}: {
+  d: PortalQuoteDetail;
+  onOpenProposal: (id: string) => void;
+  onOpenQuotation: (id: string) => void;
+}) {
   const { t } = useTranslation();
+  const q = d.quotation;
   return (
     <section className="grid gap-2">
       <h3 className="pt-label !mb-0">{t("portal.quote.detail.answer")}</h3>
+      {q ? (
+        <button type="button" className="pt-card pt-card-press flex items-center gap-3 p-4 text-left" onClick={() => onOpenQuotation(q.quotation_id)}>
+          <QuoteIcon size={22} className="text-primary-ink" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[0.95rem] font-semibold text-foreground">
+              {t("portal.offer.quotation")} {q.doc_number || ""}
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              {t(`portal.offer.status.${q.status}`, { defaultValue: q.status })} · <span className="pt-num">{money(q.total, q.currency)}</span>
+            </span>
+          </span>
+          <ChevronRightIcon size={18} className="text-muted-foreground" />
+        </button>
+      ) : null}
       {d.proposal ? (
         <button type="button" className="pt-card pt-card-press flex items-center gap-3 p-4 text-left" onClick={() => onOpenProposal(d.proposal!.proposal_id)}>
           <QuoteIcon size={22} className="text-primary-ink" />
@@ -260,7 +296,7 @@ function Answer({ d, onOpenProposal }: { d: PortalQuoteDetail; onOpenProposal: (
           </span>
           <ChevronRightIcon size={18} className="text-muted-foreground" />
         </button>
-      ) : (
+      ) : q ? null : (
         <p className="text-sm text-muted-foreground">{t("portal.quote.detail.waiting")}</p>
       )}
     </section>

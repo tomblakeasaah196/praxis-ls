@@ -501,6 +501,24 @@ async function answeringProposal(client, { opportunityId, clientId }) {
   return rows[0] || null;
 }
 
+/**
+ * The commercial quotation that answered a request (meeting 6, PR 4): linked
+ * by `quotation.quote_request_id`, the client's own, never a DRAFT. Newest
+ * first; an EXPIRED-by-date SENT one is reported as such by the portal.
+ */
+async function answeringQuotation(client, { quoteRequestId, clientId }) {
+  const { rows } = await client.query(
+    `SELECT q.quotation_id, q.doc_number, q.status, q.currency, q.total_ttc, q.valid_until, q.created_at
+       FROM quotation q
+      WHERE q.quote_request_id = $1 AND q.client_id = $2
+        AND q.status IN ('SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CONVERTED')
+      ORDER BY COALESCE(q.sent_at, q.created_at) DESC
+      LIMIT 1`,
+    [quoteRequestId, clientId],
+  );
+  return rows[0] || null;
+}
+
 const LIFECYCLE_ACTIONS = [
   "quote_request.under_review",
   "quote_request.clarification_required",
@@ -514,6 +532,6 @@ module.exports = {
   addAttachment, listAttachments, getAttachment, removeAttachment, demotePrimary,
   attachmentByVault, hasPrimary, refileVault,
   serviceTypeById, quoteServices, clientForLink, clientCandidates,
-  stagedDocuments, abandonedStaged, archiveAbandonedStaged, chatAttachment, lifecycle, answeringProposal,
+  stagedDocuments, abandonedStaged, archiveAbandonedStaged, chatAttachment, lifecycle, answeringProposal, answeringQuotation,
   buildWhere, WRITABLE, STAGED_REF,
 };

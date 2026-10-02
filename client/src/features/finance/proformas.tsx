@@ -325,7 +325,7 @@ export const ProformasPage = () => {
         action={
           <div className="flex items-center gap-3">
             <Link
-              to="/commercial/quotations"
+              to="/sales/quotations"
               className="text-sm text-muted-foreground transition-colors hover:text-primary-ink"
             >
               View quotations →

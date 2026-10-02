@@ -43,10 +43,26 @@ async function setStatus(client, id, fields) {
  *  can say so. */
 async function costingForLink(client, costingId) {
   const { rows } = await client.query(
-    "SELECT costing_id, doc_number, dossier_id, currency, exchange_rate_to_xaf, status FROM costing WHERE costing_id = $1",
+    "SELECT costing_id, doc_number, dossier_id, currency, exchange_rate_to_xaf, status, family_order FROM costing WHERE costing_id = $1",
     [costingId],
   );
-  return rows[0] || null;
+  const costing = rows[0] || null;
+  if (!costing || !costing.dossier_id) return costing;
+  // The file's client, entity and service ride along for the one-click
+  // quotation (meeting 6, G1) — it is addressed to the file's client and
+  // numbered by the file's entity, exactly as the costing itself is.
+  const d = await client.query(
+    "SELECT client_id, entity_id, service_type_id, ref FROM dossier WHERE dossier_id = $1",
+    [costing.dossier_id],
+  );
+  const file = d.rows[0] || {};
+  return {
+    ...costing,
+    client_id: file.client_id || null,
+    entity_id: file.entity_id || null,
+    service_type_id: file.service_type_id || null,
+    dossier_ref: file.ref || null,
+  };
 }
 
 /**
@@ -62,7 +78,7 @@ async function costingForLink(client, costingId) {
 async function costingLinesForLink(client, costingId) {
   const { rows } = await client.query(
     `SELECT cl.dictionary_item_id, cl.label, cl.qty, cl.unit_cost,
-            cl.is_disbursement, cl.tax_code_id, cl.client_heading,
+            cl.is_disbursement, cl.tax_code_id, cl.client_heading, cl.container_type_ref_id,
             di.direction   AS dict_direction,
             di.category    AS dict_category,
             di.is_disbursement AS dict_is_disbursement,

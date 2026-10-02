@@ -1270,3 +1270,20 @@ export declare namespace quoteRequest {
   const portalCreate: z.ZodTypeAny;
   const portalDocumentUpload: z.ZodTypeAny;
 }
+
+export type QuotationFromCosting = {
+  /** undefined = the suggested request; null = link none. */
+  quote_request_id?: string | null;
+  valid_until?: string | null;
+};
+
+export declare namespace quotation {
+  /** The costing statuses "Create quotation" is offered on (validated or approved). */
+  const COSTING_QUOTABLE: ReadonlyArray<string>;
+  const familyOrder: z.ZodType<string[], z.ZodTypeDef, unknown>;
+  const fromCosting: z.ZodType<QuotationFromCosting, z.ZodTypeDef, unknown>;
+  const targetMargin: z.ZodType<number, z.ZodTypeDef, unknown>;
+  const commercialSettings: z.ZodType<{ target_margin_percent: number }, z.ZodTypeDef, unknown>;
+  // Read by the API's portal routes only.
+  const decline: z.ZodTypeAny;
+}
