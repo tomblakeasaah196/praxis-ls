@@ -231,6 +231,15 @@
       ]
     },
     {
+      "id": "settings_commercial",
+      "title": "Commercial settings",
+      "route": "/settings/commercial",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "The target margin a quotation created straight from a costing is priced at (0 % until set).",
+      "actions": []
+    },
+    {
       "id": "settings_calls",
       "title": "Calls",
       "route": "/settings/calls",
@@ -1029,21 +1038,6 @@
       "actions": []
     },
     {
-      "id": "commercial_quotations",
-      "title": "Quotations",
-      "route": "/commercial/quotations",
-      "area": "commercial",
-      "module_key": "MOD-27",
-      "purpose": "Client quotations: draft, send, accept, convert.",
-      "actions": [
-        "list_quotations",
-        "get_quotation",
-        "draft_quotation",
-        "transition_quotation",
-        "accept_quotation"
-      ]
-    },
-    {
       "id": "commercial_margin_sim",
       "title": "Margin simulation",
       "route": "/commercial/margin-simulation",
@@ -1100,7 +1094,8 @@
         "create_costing",
         "update_costing",
         "costing_status",
-        "costing_unlock"
+        "costing_unlock",
+        "quote_costing"
       ]
     },
     {
@@ -1471,6 +1466,24 @@
         "share_proposal",
         "transition_proposal",
         "accept_proposal"
+      ]
+    },
+    {
+      "id": "sales_quotations",
+      "title": "Quotations",
+      "route": "/sales/quotations",
+      "area": "sales",
+      "module_key": "MOD-27",
+      "purpose": "Client quotations: draft (by hand or straight from a costing), send to the portal, accept or e-signed acceptance, convert to an invoice draft. Sales & CRM since meeting 6 (G6) — /commercial/quotations redirects here.",
+      "actions": [
+        "list_quotations",
+        "get_quotation",
+        "draft_quotation",
+        "transition_quotation",
+        "accept_quotation",
+        "preview_quotation_from_costing",
+        "draft_quotation_from_costing",
+        "convert_quotation"
       ]
     },
     {
