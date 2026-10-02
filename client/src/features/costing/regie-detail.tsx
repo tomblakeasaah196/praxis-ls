@@ -42,6 +42,7 @@ import { money, num, dateFmt, todayISO } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { uploadVaultFile } from "@/lib/masterdata-api";
 import * as api from "@/lib/costing-api";
+import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 
 /** What a cost proof may be (Q8) — whatever the supplier actually sent. The
  *  server sniffs the bytes; this is the courtesy that stops a slow upload of
@@ -663,6 +664,7 @@ export function RegieDetail({
     [advanceId],
   );
   const [dialog, setDialog] = React.useState<Dialog>(null);
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
 
   const done = () => {
     reload();
@@ -789,7 +791,22 @@ export function RegieDetail({
                       {money(r.amount, a.currency)}
                     </td>
                     <td className="py-2 text-muted-foreground">
-                      {r.proof_vault_id ? tr("Attached") : "—"}
+                      {r.proof_vault_id ? (
+                        <button
+                          type="button"
+                          className="text-primary-ink underline"
+                          onClick={() =>
+                            setPreview({
+                              doc_id: r.proof_vault_id!,
+                              title: tr("Retirement proof"),
+                            })
+                          }
+                        >
+                          {tr("Open")}
+                        </button>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -819,6 +836,7 @@ export function RegieDetail({
       {dialog === "unage" && (
         <UnageForm advance={a} onClose={() => setDialog(null)} onSaved={done} />
       )}
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }

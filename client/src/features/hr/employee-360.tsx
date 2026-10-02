@@ -44,6 +44,7 @@ import { CountrySelect } from "@/components/country-select";
 import { Callout } from "@/components/ui/callout";
 import { FileDrop } from "@/components/ui/file-drop";
 import { compressImage } from "@/lib/image-compress";
+import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money, dateFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/hr-api";
@@ -387,6 +388,7 @@ function DocumentsPanel({
   const [issued, setIssued] = React.useState("");
   const [expires, setExpires] = React.useState("");
   const [confirm, confirmDialog] = useConfirm();
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
   const types = useResource(() => api.employeeDocumentTypes(), []);
 
   const held = new Set(docs.map((d) => d.document_type_code).filter(Boolean));
@@ -503,9 +505,26 @@ function DocumentsPanel({
               </span>
             </Td>
             <Td r>
-              <Button size="sm" variant="ghost" onClick={() => remove(d)}>
-                Remove
-              </Button>
+              <span className="flex items-center justify-end gap-1">
+                {d.has_file && d.vault_id && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      setPreview({
+                        doc_id: d.vault_id!,
+                        title: d.document_type_name || d.title || tr("Document"),
+                        filename: d.original_name,
+                      })
+                    }
+                  >
+                    {tr("Open")}
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => remove(d)}>
+                  Remove
+                </Button>
+              </span>
             </Td>
           </tr>
         ))}
@@ -580,6 +599,7 @@ function DocumentsPanel({
         )}
       </div>
       {confirmDialog}
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }

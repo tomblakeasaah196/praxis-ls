@@ -36,6 +36,7 @@ import { SearchSelect } from "@/components/ui/search-select";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { ErrorState } from "@/components/ui/states";
 import { Pill } from "@/components/ui/pill";
+import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 import { errMsg, useResource, type Row } from "@/lib/use-resource";
 import {
   CHANNELS,
@@ -446,6 +447,7 @@ export function AttachmentsPanel({ requestId }: { requestId: string }) {
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [pendingRemove, setPendingRemove] = React.useState<Row | null>(null);
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
 
   const load = React.useCallback(async () => {
     try {
@@ -560,12 +562,25 @@ export function AttachmentsPanel({ requestId }: { requestId: string }) {
       ) : (
         <ul className="mt-2 divide-y">
           {rows.map((r) => (
-            <li key={String(r.id)} className="flex items-center justify-between py-2">
-              <span className="truncate text-sm">
+            <li key={String(r.id)} className="flex items-center justify-between gap-2 py-2">
+              <button
+                type="button"
+                className="min-w-0 flex-1 truncate text-left text-sm hover:text-primary-ink hover:underline"
+                onClick={() =>
+                  r.vault_id
+                    ? setPreview({
+                        doc_id: String(r.vault_id),
+                        title: String(r.original_name || tr("Document")),
+                        filename: r.original_name ? String(r.original_name) : null,
+                      })
+                    : undefined
+                }
+                disabled={!r.vault_id}
+              >
                 {String(r.original_name || tr("Document"))}
                 {r.document_kind ? <Pill tone="mute" className="ml-2">{documentKindLabel(String(r.document_kind))}</Pill> : null}
                 {String(r.kind) === "PRIMARY" ? <span className="micro ml-2">{tr("primary")}</span> : null}
-              </span>
+              </button>
               <Button variant="ghost" onClick={() => setPendingRemove(r)}>
                 Detach
               </Button>
@@ -583,6 +598,7 @@ export function AttachmentsPanel({ requestId }: { requestId: string }) {
         onClose={() => setPendingRemove(null)}
         onConfirm={() => pendingRemove && void remove(pendingRemove)}
       />
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }
