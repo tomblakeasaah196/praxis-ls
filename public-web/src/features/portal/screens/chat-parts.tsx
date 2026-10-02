@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { portalChatAttachmentDownload, type ChatAttachment, type ChatMessage } from "@/lib/portal-api";
 import { cn } from "@/lib/cn";
 import { Avatar, Busy, Sheet, Shimmer, errorText, useToast } from "../ui/kit";
-import { DocIcon, PinIcon, PlayIcon, PauseIcon, CheckIcon, DoubleCheckIcon, ClockIcon, ImageIcon, DownloadIcon } from "../ui/icons";
+import { DocIcon, PinIcon, PlayIcon, PauseIcon, CheckIcon, DoubleCheckIcon, ClockIcon, ImageIcon, DownloadIcon, QuoteIcon } from "../ui/icons";
 import { timeOf } from "../lib/when";
 import { formatBytes } from "../ui/upload";
 import { useAttachmentUrl, attachmentUrl, clock, mapsUrl } from "../lib/chat-media";
@@ -305,6 +305,14 @@ export function Bubble({
           <p className="pt-chat-stage">
             <PinIcon size={12} />
             <span className="truncate">{m.milestone.label}</span>
+          </p>
+        ) : null}
+        {m.reference ? (
+          <p className="pt-chat-stage">
+            <QuoteIcon size={12} />
+            <span className="truncate">
+              {t(m.reference.kind === "quotation" ? "portal.chat.aboutQuotation" : "portal.chat.aboutProposal", { ref: m.reference.label || "" })}
+            </span>
           </p>
         ) : null}
         {m.attachments.map((a, i) => (

@@ -26,6 +26,7 @@ import {
   portalProposalSignStart,
   portalProposalSignResend,
   portalProposalSignComplete,
+  type ProposalSignature,
   type ProposalSummary,
   type ProposalDetail,
   type SigningStart,
@@ -41,6 +42,29 @@ import { CodeInput } from "../ui/code-input";
 import { SignaturePad } from "../ui/signature-pad";
 
 const TONE: Record<ProposalSummary["status"], Tone> = { SENT: "brand", ACCEPTED: "ok", REJECTED: "mute" };
+
+/**
+ * How an offer is answered — the four calls behind the sign and decline
+ * sheets. A proposal and a commercial quotation (meeting 6, G4) are signed by
+ * the same sheets against their own endpoints, so the flow cannot drift.
+ */
+export type OfferAnswerApi = {
+  signStart: (id: string, lang: string) => Promise<SigningStart>;
+  signResend: (id: string, lang: string) => Promise<{ otp: SigningStart["otp"] }>;
+  signComplete: (
+    id: string,
+    lang: string,
+    body: { code: string; preset_code: SignCard["preset_code"]; full_name?: string; party_role?: string; mark_image_b64?: string },
+  ) => Promise<unknown>;
+  decline: (id: string, reasonCode: string, note?: string) => Promise<unknown>;
+};
+
+const PROPOSAL_ANSWER: OfferAnswerApi = {
+  signStart: portalProposalSignStart,
+  signResend: portalProposalSignResend,
+  signComplete: portalProposalSignComplete,
+  decline: portalProposalDecline,
+};
 
 export function ProposalRow({ p, onOpen }: { p: ProposalSummary; onOpen: (p: ProposalSummary) => void }) {
   const { t } = useTranslation();
@@ -225,6 +249,7 @@ export function ProposalSheet({ id, onClose, onChanged }: { id: string | null; o
         <>
           <SignSheet
             open={signing}
+            api={PROPOSAL_ANSWER}
             id={id}
             cards={d.signing.cards}
             title={d.presentation.title}
@@ -237,6 +262,7 @@ export function ProposalSheet({ id, onClose, onChanged }: { id: string | null; o
           />
           <DeclineSheet
             open={declining}
+            api={PROPOSAL_ANSWER}
             id={id}
             reasons={d.decline_reasons}
             onClose={() => setDeclining(false)}
@@ -262,7 +288,7 @@ export function ProposalSheet({ id, onClose, onChanged }: { id: string | null; o
 }
 
 /** "Signed by Marie Nguema, Finance · 28/09/2026", and the code that verifies it. */
-function SignedCard({ sig }: { sig: NonNullable<ProposalDetail["signature"]> }) {
+export function SignedCard({ sig }: { sig: ProposalSignature }) {
   const { t } = useTranslation();
   const code = sig.verify_code ? sig.verify_code.replace(/^(.{4})(.{4})$/, "$1-$2") : null;
   return (
@@ -292,18 +318,23 @@ function SignedCard({ sig }: { sig: NonNullable<ProposalDetail["signature"]> }) 
  * the signer types, or a signature drawn with a finger. One request signs and
  * accepts; a wrong code comes back to step one with the reason.
  */
-function SignSheet({
+export function SignSheet({
   open,
+  api,
   id,
   cards,
   title,
+  agree,
   onClose,
   onDone,
 }: {
   open: boolean;
+  api: OfferAnswerApi;
   id: string;
   cards: SignCard[];
   title: string;
+  /** What signing agrees to — "this proposal" unless the document says otherwise. */
+  agree?: string;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -326,7 +357,7 @@ function SignSheet({
     setStarting(true);
     setError(null);
     try {
-      const s = await portalProposalSignStart(id, lang);
+      const s = await api.signStart(id, lang);
       setStart(s);
       const first = (s.cards.length ? s.cards : cards)[0];
       if (first) setCard(first.preset_code);
@@ -335,7 +366,7 @@ function SignSheet({
     } finally {
       setStarting(false);
     }
-  }, [id, lang, cards]);
+  }, [api, id, lang, cards]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -351,7 +382,7 @@ function SignSheet({
   async function resend() {
     setError(null);
     try {
-      const r = await portalProposalSignResend(id, lang);
+      const r = await api.signResend(id, lang);
       setStart((s) => (s ? { ...s, otp: r.otp } : s));
       toast(t("portal.prop.sign.resent"));
     } catch (e) {
@@ -363,7 +394,7 @@ function SignSheet({
     setBusy(true);
     setError(null);
     try {
-      await portalProposalSignComplete(id, lang, {
+      await api.signComplete(id, lang, {
         code,
         preset_code: card,
         full_name: name.trim() || undefined,
@@ -460,7 +491,7 @@ function SignSheet({
             </div>
           )}
           <p className="flex items-start gap-2 text-sm text-muted-foreground">
-            <span className="min-w-0 flex-1">{t("portal.prop.sign.agree")}</span>
+            <span className="min-w-0 flex-1">{agree || t("portal.prop.sign.agree")}</span>
             <InfoButton title={t("portal.prop.sign.aboutTitle")} label={t("portal.prop.sign.aboutTitle")}>
               <p className="text-[0.95rem] leading-relaxed text-muted-foreground">{t("portal.prop.sign.about")}</p>
             </InfoButton>
@@ -479,16 +510,21 @@ function SignSheet({
 
 /* ── decline ─────────────────────────────────────────────────────────────── */
 
-function DeclineSheet({
+export function DeclineSheet({
   open,
+  api,
   id,
   reasons,
+  sendLabel,
   onClose,
   onDone,
 }: {
   open: boolean;
+  api: OfferAnswerApi;
   id: string;
   reasons: ProposalDetail["decline_reasons"];
+  /** The button — "Decline the proposal" unless the document says otherwise. */
+  sendLabel?: string;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -510,7 +546,7 @@ function DeclineSheet({
     setBusy(true);
     setError(null);
     try {
-      await portalProposalDecline(id, reason, note.trim() || undefined);
+      await api.decline(id, reason, note.trim() || undefined);
       onDone();
     } catch (e) {
       setError(errorText(e));
@@ -529,7 +565,7 @@ function DeclineSheet({
           <Busy busy={busy}>
             <CloseIcon size={20} />
           </Busy>
-          {t("portal.prop.declineSend")}
+          {sendLabel || t("portal.prop.declineSend")}
         </button>
       }
     >

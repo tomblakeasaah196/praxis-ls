@@ -116,6 +116,7 @@ const CASES = {
       "open", "title", "send", "emptyTitle", "team", "thisShipment", "untag",
       "general", "shipment", "all", "newAbout", "pickShipment", "noShipments", "you",
       "unread", "earlier", "newMessages", "aboutStage", "removeStage", "attach",
+      "aboutQuotation", "aboutProposal", "removeAbout",
       "takePhoto", "photosFiles", "location", "locationLabel", "sendLocation",
       "openMap", "record", "recording", "sendVoice", "deleteVoice", "play", "pause",
       "viewPhoto", "photo", "downloadOriginal", "kind.IMAGE", "kind.FILE",
@@ -171,7 +172,8 @@ const CASES = {
   "portal.mode": LABEL,
   "portal.nav": {
     LABEL: [
-      "home", "shipments", "quotes", "billing", "documents", "account",
+      "home", "shipments", "quotes", "requests", "quotations", "billing", "documents",
+      "account",
     ],
     PROSE: [
       "label",
@@ -195,6 +197,20 @@ const CASES = {
       "state.on", "state.off", "state.blocked", "state.unsupported",
       "state.installFirst", "state.unconfigured", "turnedOn", "turnedOff", "testSent",
       "testNone", "saved", "infoLabel", "info1", "info2", "info3", "blockedHow",
+    ],
+  },
+  "portal.offer": {
+    LABEL: [
+      "tab.all", "tab.quotations", "tab.proposals", "none", "quotation", "answers",
+      "status.SENT", "status.ACCEPTED", "status.REJECTED", "status.EXPIRED",
+      "status.CONVERTED", "switchRequests", "switchQuotations", "back", "details",
+      "service", "route", "incoterm", "validUntil", "paymentTerms", "onReceipt",
+      "request", "file", "pricing", "atCost", "ht", "vat", "ttc", "download", "ask",
+      "acceptTitle", "declineSend",
+    ],
+    PROSE: [
+      "sub", "noneHint", "awaiting", "daysAfterInvoice", "accepted", "declined",
+      "declinedTitle", "signAgree",
     ],
   },
   "portal.passkey": {
@@ -241,15 +257,14 @@ const CASES = {
       "sign.verify",
     ],
     PROSE: [
-      "acceptBody", "accepted", "declined", "awaiting", "sign.sending", "sign.sentTo",
+      "acceptBody", "accepted", "declined", "sign.sending", "sign.sentTo",
       "sign.resent", "sign.rolePlaceholder", "sign.agree", "sign.about",
     ],
   },
   "portal.quote": {
     LABEL: [
       "request", "new", "none", "step1", "step2", "step3", "from", "to",
-      "sameAsLast", "likeShipment", "describe", "fill", "filledPill", "tab.requests",
-      "tab.proposals", "route.pol", "route.pod", "route.aol", "route.aod",
+      "sameAsLast", "likeShipment", "describe", "fill", "filledPill", "route.pol", "route.pod", "route.aol", "route.aod",
       "route.collection", "route.collectionAdd", "route.delivery",
       "route.deliveryAdd", "route.doorToDoor", "route.withCollection",
       "route.withDelivery", "incoterm", "notSure", "what", "weight", "send",

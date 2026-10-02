@@ -502,7 +502,7 @@ describe("a quote request made in the portal (B3)", () => {
     expect(mockEmails[0].text).toContain("Your quotation for SQ-2026-0003 is ready");
     expect(mockEmails[0].text).not.toContain("We are reviewing");
     expect(mockPushes).toHaveLength(1);
-    expect(mockPushes[0].url).toBe("/portal/quotes");
+    expect(mockPushes[0].url).toBe("/portal/requests");
     // Every row is handled on both channels, the push-only one included.
     expect(marked).toEqual([["push", [31, 32, 33]], ["email", [31, 32, 33]]]);
   });

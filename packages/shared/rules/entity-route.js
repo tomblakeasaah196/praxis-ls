@@ -86,6 +86,10 @@ const DETAIL = {
   // state because the task/event opens in a panel ON that section. The client
   // still accepts the legacy `?tab=` form through its compatibility adapter so
   // notifications written before this route change remain useful.
+  // A commercial quotation opens focused in Sales & CRM › Quotations (meeting
+  // 6, G6 — it moved there from Commercial; `?focus=` is the register's
+  // useRecordParam, which opens its detail and drops the parameter).
+  quotation: { path: "/sales/quotations", query: "focus" },
   task: { path: "/workspace/tasks", query: "task" },
   calendar_event: { path: "/workspace/calendar", query: "event" },
 };

@@ -470,7 +470,7 @@ async function resolve(c, { clientId, topic, rows }) {
       count: entries.length,
       lines: (lang) => entries.map(({ event, row }) => COPY[lang].quotes[WORDS[event] || "review"](row.public_ref || "")),
       push: (lang, lines) => (entries.length === 1 ? lines[0] : COPY[lang].quotes.pushMany(entries.length)),
-      path: () => "/portal/quotes",
+      path: () => "/portal/requests",
     };
   }
 
