@@ -100,7 +100,7 @@ const DOMAIN_TO_CATEGORY = {
   // Client portal (14150): paperwork a client sent is operations work; a payment
   // claim is finance work.
   client_request: "operations", payment_proof: "finance",
-  opportunity: "sales", proposal: "sales", meeting: "sales", partnership_request: "sales",
+  opportunity: "sales", proposal: "sales", quotation: "sales", meeting: "sales", partnership_request: "sales",
   newsletter: "sales", success_story: "sales",
 
   // compliance & documents

@@ -9,4 +9,14 @@ module.exports = {
   update: asyncHandler(async (req, res) => { const b = req.body; res.json({ data: await req.tenantDb((c) => service.updateDraft(c, { id: req.params.id, patch: b, lines: b.lines || null, actor: actor(req) })) }); }),
   transition: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.transition(c, { id: req.params.id, to: req.body.to, entityId: req.body.entity_id, actor: actor(req) })) })),
   accept: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.accept(c, { id: req.params.id, convert: req.body.convert === true, actor: actor(req) })) })),
+  convert: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.convert(c, { id: req.params.id, actor: actor(req) })) })),
+  fromCostingPreview: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.fromCostingPreview(c, { costingId: req.params.costingId })) })),
+  fromCosting: asyncHandler(async (req, res) => res.status(201).json({
+    data: await req.tenantDb((c) => service.createFromCosting(c, {
+      costingId: req.params.costingId,
+      quoteRequestId: Object.prototype.hasOwnProperty.call(req.body, "quote_request_id") ? req.body.quote_request_id : undefined,
+      validUntil: req.body.valid_until || null,
+      actor: actor(req),
+    })),
+  })),
 };

@@ -33,6 +33,7 @@ const incoterms = require("./data/incoterms");
 const serviceScope = require("./rules/service-scope");
 const emailDomain = require("./rules/email-domain");
 const quoteRequest = require("./schemas/quote-request");
+const quotation = require("./schemas/quotation");
 
 // Named `exports.x =` assignments, NOT `module.exports = { x }`.
 //
@@ -169,3 +170,9 @@ exports.emailDomain = emailDomain;
 // Quote request payloads for all three doors — the desk, the portal and the
 // public website — so "a valid request" is one definition (meeting 6, PR 2).
 exports.quoteRequest = quoteRequest;
+// Quotations (meeting 6, PR 4): "Create quotation" on a costing, the per-
+// document family order, Settings › Commercial's target margin, and a client
+// declining in the portal. Shared because the costing sheet must offer the
+// button on exactly the statuses the API prices from, and the settings form
+// must refuse exactly the margin the API refuses.
+exports.quotation = quotation;

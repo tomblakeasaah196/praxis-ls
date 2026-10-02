@@ -192,6 +192,17 @@ const ALLOW_LOCAL_SCHEMA = {
     + "request for the website, the portal and the desk. The contact, "
     + "partnership and newsletter shapes (and the spam trap they share) have "
     + "never been shared and are still declared here.",
+  "src/modules/commercial/quotation/quotation.validator.js":
+    "Partly migrated (meeting 6, PR 4). \"Create quotation\" on a costing and "
+    + "the per-document family order are `@praxis/shared` quotation.fromCosting / "
+    + "familyOrder — the costing sheet and the quotation form send exactly what "
+    + "the API accepts. The quotation's own create/update/transition shapes have "
+    + "never been shared and are still declared here.",
+  "src/modules/costing/costing/costing.validator.js":
+    "Partly migrated (meeting 6, PR 4). The costing's family order is "
+    + "`@praxis/shared` quotation.familyOrder, the definition the quotation uses "
+    + "for the same field. The rest of the costing shape (lines, VAT, the seal, "
+    + "the unlock loop) has never been shared and is still declared here.",
   "src/modules/portal_auth/portal_auth.validator.js":
     "Partly migrated (meeting 6, PR 2). The portal's quote request and its "
     + "document upload are `@praxis/shared` quoteRequest.portalCreate / "

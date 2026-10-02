@@ -50,6 +50,11 @@ const NOTIFIABLE = {
   // A client said no in the portal (client portal PR 2) — with a reason sales
   // can act on, and HIGH because a declined offer is usually a call to make.
   "proposal.declined_by_client": { action: "view", title: "A client declined a proposal", priority: "HIGH" },
+  // Commercial quotations (meeting 6, PR 4, G4): accepted — signed in the
+  // portal, or recorded by the team — and declined with a reason. The client's
+  // own people are told first (notify-client-team); this is the module's.
+  "quotation.accepted": { action: "view", title: "Quotation accepted" },
+  "quotation.declined_by_client": { action: "view", title: "A client declined a quotation", priority: "HIGH" },
 
   /*
    * ── Client portal (14150) ──

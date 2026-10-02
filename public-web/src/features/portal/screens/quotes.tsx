@@ -28,25 +28,26 @@
  *
  * A sent request opens (a sheet on a phone, a panel on a desktop) with its
  * scope, its documents and "Add a document", its status as a timeline, and the
- * proposal that answered it (quote-request-detail.tsx, item 2.9).
+ * proposal or quotation that answered it (quote-request-detail.tsx, item 2.9).
  *
- * The route `/portal/quotes` and this page's shape stay as they are: PR 4
- * splits the portal menu into "Requests for Quotation" and "Quotations" and
- * moves the proposals tab.
+ * MEETING 6, PR 4 (item 4.2, agreed in the meeting): this is the "Requests for
+ * Quotation" line of the menu, and the offers — commercial quotations and
+ * proposals — are the "Quotations" line beside it (offers.tsx). The proposals
+ * tab that used to appear here once a proposal existed moved there.
+ * `/portal/quotes` still works: portal-app redirects it to whichever of the
+ * two its link meant.
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   portalQuoteRequests,
   portalQuoteServices,
   portalCreateQuote,
   portalQuoteFill,
-  portalProposals,
   portalStageQuoteDocument,
   type PortalQuoteRequest,
   type PortalPlace,
-  type ProposalSummary,
   type ShipmentCard,
   type PlaceKind,
 } from "@/lib/portal-api";
@@ -64,14 +65,14 @@ import { IncotermChoice } from "@/components/quote/incoterm-choice";
 import { QuoteDocumentsStep } from "@/components/quote/quote-documents";
 import { usePortal } from "../lib/portal-context";
 import { usePageChrome, PageHeader, useSummary } from "../shell/portal-shell";
-import { Sheet, Pill, IconDisc, SkeletonCards, EmptyState, ErrorCard, TextArea, StepDots, Seg, useLoad, useToast, errorText, Busy, type Load } from "../ui/kit";
+import { Sheet, Pill, IconDisc, SkeletonCards, EmptyState, ErrorCard, TextArea, StepDots, useLoad, useToast, errorText, Busy, type Load } from "../ui/kit";
 import { QuoteIcon, PlusIcon, ArrowRightIcon, ChevronRightIcon, CheckIcon, RefreshIcon, SparkIcon, ShipIcon, CloseIcon, PinIcon, DocIcon } from "../ui/icons";
 import { PlaceField, EMPTY_PLACE, placeValue, typedValue, pinExact, type PlaceValue } from "../ui/place-picker";
 import { relDayTitle } from "../lib/when";
 import { parseAmount } from "../lib/numbers";
 import { ModeIcon } from "./shipment-parts";
-import { ProposalRow, ProposalSheet } from "./proposals";
 import { QuoteRequestSheet, STATUS_TONE } from "./quote-request-detail";
+import { QuotesSwitch } from "./quotes-switch";
 // The shared quote steps' copy lives outside the entry dictionary; see
 // quote-steps-i18n.ts. Imported for the side effect.
 import "@/components/quote/quote-steps-i18n";
@@ -130,35 +131,23 @@ const endOf = (text: string | null | undefined, place: PortalPlace | null | unde
  *  SEAPORT is no answer to "Origin airport". */
 const fits = (v: PlaceValue, kinds?: PlaceKind[]) => !v.pick || !kinds || !v.kind || kinds.includes(v.kind as PlaceKind);
 
-type Tab = "requests" | "proposals";
-
-export function QuotesPage() {
+/** "Requests for Quotation" — asking for a price, and where each request stands. */
+export function RequestsPage() {
   const { t } = useTranslation();
   usePageChrome(null);
   const summary = useSummary();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const list = useLoad(portalQuoteRequests, "quotes");
-  const offers = useLoad(portalProposals, "proposals");
   const [open, setOpen] = React.useState(false);
-  const [tab, setTab] = React.useState<Tab>(params.get("tab") === "proposals" ? "proposals" : "requests");
-  const [proposal, setProposal] = React.useState<string | null>(null);
   const [request, setRequest] = React.useState<string | null>(null);
 
-  // Deep links: "?new=1" from Home, "?tab=proposals" and "?proposal=<id>" from
-  // Home's "waiting for your answer" and the email that announced it, and
-  // "?request=<id>" for one request.
+  // Deep links: "?new=1" from Home, and "?request=<id>" for one request.
   React.useEffect(() => {
     let changed = false;
     if (params.get("new") === "1") {
       setOpen(true);
       params.delete("new");
-      changed = true;
-    }
-    const wanted = params.get("proposal");
-    if (wanted) {
-      setTab("proposals");
-      setProposal(wanted);
-      params.delete("proposal");
       changed = true;
     }
     const req = params.get("request");
@@ -167,19 +156,14 @@ export function QuotesPage() {
       params.delete("request");
       changed = true;
     }
-    if (params.get("tab")) {
-      params.delete("tab");
-      changed = true;
-    }
     if (changed) setParams(params, { replace: true });
   }, [params, setParams]);
 
-  const pending = (offers.data || []).filter((p) => p.status === "SENT").length;
-
   return (
     <div>
+      <QuotesSwitch value="requests" />
       <PageHeader
-        title={t("portal.nav.quotes")}
+        title={t("portal.nav.requests")}
         action={
           <button type="button" className="pt-btn pt-btn-primary pt-btn-sm sm:!min-h-[44px] sm:!px-5 sm:!text-[0.9375rem]" onClick={() => setOpen(true)}>
             <PlusIcon size={18} />
@@ -188,25 +172,7 @@ export function QuotesPage() {
         }
       />
 
-      {(offers.data || []).length ? (
-        <div className="mb-4">
-          <Seg<Tab>
-            label={t("portal.nav.quotes")}
-            value={tab}
-            onChange={setTab}
-            items={[
-              { value: "requests", label: t("portal.quote.tab.requests") },
-              { value: "proposals", label: t("portal.quote.tab.proposals"), count: pending },
-            ]}
-          />
-        </div>
-      ) : null}
-
-      {tab === "proposals" && (offers.data || []).length ? (
-        <ProposalsList items={offers.data || []} onOpen={(p) => setProposal(p.proposal_id)} />
-      ) : (
-        <RequestsList list={list} onNew={() => setOpen(true)} onOpen={(q) => setRequest(q.quote_request_id)} />
-      )}
+      <RequestsList list={list} onNew={() => setOpen(true)} onOpen={(q) => setRequest(q.quote_request_id)} />
 
       <QuoteSheet open={open} onClose={() => setOpen(false)} onDone={list.reload} last={list.data?.[0] || null} ships={summary?.data?.shipments?.items || []} />
       <QuoteRequestSheet
@@ -215,27 +181,13 @@ export function QuotesPage() {
         onChanged={list.reload}
         onOpenProposal={(id) => {
           setRequest(null);
-          setProposal(id);
+          navigate(`/portal/quotations?proposal=${encodeURIComponent(id)}`);
+        }}
+        onOpenQuotation={(id) => {
+          setRequest(null);
+          navigate(`/portal/quotations/${encodeURIComponent(id)}`);
         }}
       />
-      <ProposalSheet
-        id={proposal}
-        onClose={() => setProposal(null)}
-        onChanged={() => {
-          offers.reload();
-          summary?.reload();
-        }}
-      />
-    </div>
-  );
-}
-
-function ProposalsList({ items, onOpen }: { items: ProposalSummary[]; onOpen: (p: ProposalSummary) => void }) {
-  return (
-    <div className="pt-card pt-rows overflow-hidden">
-      {items.map((p) => (
-        <ProposalRow key={p.proposal_id} p={p} onOpen={onOpen} />
-      ))}
     </div>
   );
 }

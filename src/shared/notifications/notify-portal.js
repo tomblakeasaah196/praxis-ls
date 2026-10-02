@@ -75,6 +75,9 @@ const EVENTS = {
   "payment_proof.confirmed": { topic: "BILLING" },
   "payment_proof.rejected": { topic: "BILLING" },
   "proposal.sent": { topic: "PROPOSALS", client: "proposal" },
+  // A commercial quotation reaches the client exactly as a proposal does
+  // (meeting 6, PR 4): same switch, same window, its own line in the email.
+  "quotation.sent": { topic: "PROPOSALS", client: "quotation" },
   /*
    * A quote request the client made IN THE PORTAL (tenant review 29 Sep 2026,
    * PR 1, B3): acknowledged when it arrives, and told when it moves. Only a
@@ -103,6 +106,7 @@ const CLIENT_OF = {
     (ref) => idOf(ref),
   ],
   proposal: ["SELECT client_id FROM proposal WHERE proposal_id = $1", (ref) => idOf(ref)],
+  quotation: ["SELECT client_id FROM quotation WHERE quotation_id = $1", (ref) => idOf(ref)],
   // A PORTAL request only — see the EVENTS note on quote requests.
   quote_request: [
     "SELECT client_id FROM quote_request WHERE quote_request_id = $1 AND intake_channel = 'PORTAL'",

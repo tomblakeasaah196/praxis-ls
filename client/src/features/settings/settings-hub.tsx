@@ -119,6 +119,13 @@ const SECTIONS: Section[] = [
         icon: "money",
       },
       {
+        // Meeting 6, G1: the margin "Create quotation" prices services at.
+        to: "/settings/commercial",
+        label: "Commercial",
+        desc: "Target margin for quotations priced from a costing",
+        icon: "money",
+      },
+      {
         to: "/master/treasury-accounts",
         label: "Bank Accounts",
         desc: "Company accounts (masked) & payout links",

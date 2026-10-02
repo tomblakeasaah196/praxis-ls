@@ -55,6 +55,16 @@ function assertValue(section, key, value) {
       throw new AppError("BAD_VALUE", "a setting value must be a JSON object (or a list for policy/tier/custom_field settings)", 422);
     }
   }
+  // Settings › Commercial (meeting 6, PR 4): the target margin a quotation
+  // priced from a costing applies. The shared definition — the form refuses
+  // exactly what this refuses — because priceForMargin divides by (1 − m/100)
+  // and a 100 % "margin" is a division by zero on someone's quotation.
+  if (section === "commercial" && key === "quotation") {
+    const parsed = require("@praxis/shared").quotation.commercialSettings.safeParse(value);
+    if (!parsed.success) {
+      throw new AppError("BAD_MARGIN", "commercial.quotation.target_margin_percent must be a number from 0 to below 100", 422);
+    }
+  }
   if (section === "numbering" && value && typeof value === "object" && !Array.isArray(value)) {
     if (value.padding !== undefined && (typeof value.padding !== "number" || value.padding < 0 || value.padding > 12)) {
       throw new AppError("BAD_SCHEME", "numbering.padding must be 0–12", 422);

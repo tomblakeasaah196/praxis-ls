@@ -73,8 +73,9 @@ export const SPECS: ScreenSpec[] = [
 
   /* ───────────────────────────── Commercial ───────────────────────────── */
   {
-    path: "commercial/quotations",
-    area: "Commercial",
+    // Sales & CRM since meeting 6 (G6) — /commercial/quotations redirects.
+    path: "sales/quotations",
+    area: "Sales & CRM",
     title: "Quotations",
     purpose:
       "Client quotations with a pricing workbench: build lines + totals, simulate margin and extra charges before sending.",

@@ -28,6 +28,7 @@ const repo = require("./portal_client.repo");
 const bundles = require("./invoice_bundle.service");
 const chat = require("./portal_chat.service");
 const proposals = require("./portal_proposal.service");
+const quotations = require("./portal_quotation.service");
 const portal = require("./portal.service");
 const vault = require("../vault/document_vault/document_vault.service");
 const shipmentDetails = require("../operations/shipment_details/shipment_details.service");
@@ -208,7 +209,7 @@ const canBilling = (scope) => scope === "ALL" || scope === "BILLING";
  */
 async function home(c, { clientId, scope = "ALL", lang = "en", me = null, since = null }) {
   const company = await clientIdentity(c, { clientId });
-  const out = { company, scope, shipments: null, requests: null, billing: null, chat: null, proposals: null };
+  const out = { company, scope, shipments: null, requests: null, billing: null, chat: null, proposals: null, quotations: null };
   // The badge on the chat button (14170): what the team wrote since I last looked.
   if (me) out.chat = { unread: await chat.unread(c, { clientId, me, scope, since }) };
 
@@ -229,6 +230,9 @@ async function home(c, { clientId, scope = "ALL", lang = "en", me = null, since 
     };
     // A proposal waiting for the client's answer is something they owe us too.
     out.proposals = { pending_count: await proposals.pendingCount(c, { clientId }) };
+    // …and so is a commercial quotation (meeting 6, PR 4): the portal's
+    // Quotations line counts both.
+    out.quotations = { pending_count: await quotations.pendingCount(c, { clientId }) };
   }
 
   if (canBilling(scope)) {

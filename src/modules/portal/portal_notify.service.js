@@ -246,6 +246,17 @@ const COPY = {
       pushMany: (n) => `${n} new proposals`,
       cta: "Review",
     },
+    quotations: {
+      subject: (n, t) => (n === 1 ? `${t} sent you a quotation` : `${t} sent you ${n} quotations`),
+      line: (doc) => `Quotation ${doc || ""}`.trim(),
+      pushMany: (n) => `${n} new quotations`,
+      cta: "Review",
+    },
+    offers: {
+      subject: (n, t) => `${t} sent you ${n} offers`,
+      pushMany: (n) => `${n} new offers`,
+      cta: "Review",
+    },
     shipments: {
       subject: (n, t) => (n === 1 ? `${t}: your shipment moved` : `${t}: ${n} shipment updates`),
       pushMany: (n) => `${n} shipment updates`,
@@ -304,6 +315,17 @@ const COPY = {
       subject: (n, t) => (n === 1 ? `${t} vous a envoyé une proposition` : `${t} vous a envoyé ${n} propositions`),
       line: (doc, title) => `Proposition ${doc || ""}${title ? `${NNBSP}: ${title}` : ""}`.replace(/\s+(\u202f:)/, "$1"),
       pushMany: (n) => `${n} nouvelles propositions`,
+      cta: "Voir",
+    },
+    quotations: {
+      subject: (n, t) => (n === 1 ? `${t} vous a envoyé un devis` : `${t} vous a envoyé ${n} devis`),
+      line: (doc) => `Devis ${doc || ""}`.trim(),
+      pushMany: (n) => `${n} nouveaux devis`,
+      cta: "Voir",
+    },
+    offers: {
+      subject: (n, t) => `${t} vous a envoyé ${n} offres`,
+      pushMany: (n) => `${n} nouvelles offres`,
       cta: "Voir",
     },
     shipments: {
@@ -454,11 +476,24 @@ async function resolve(c, { clientId, topic, rows }) {
 
   if (topic === "PROPOSALS") {
     const found = await repo.proposals(c, { clientId, ids: idsOf(["proposal"]) });
+    // Commercial quotations ride the same switch (meeting 6, PR 4) and open
+    // on their own page in the portal's Quotations.
+    const quotes = await repo.quotations(c, { clientId, ids: idsOf(["quotation"]) });
+    const count = found.length + quotes.length;
+    const copyKey = quotes.length && found.length ? "offers" : quotes.length ? "quotations" : "proposals";
     return {
-      count: found.length,
-      lines: (lang) => found.map((p) => COPY[lang].proposals.line(p.doc_number, p.title)),
-      push: (lang, lines) => (found.length === 1 ? lines[0] : COPY[lang].proposals.pushMany(found.length)),
-      path: () => (found.length === 1 ? `/portal/quotes?proposal=${found[0].proposal_id}` : "/portal/quotes?tab=proposals"),
+      count,
+      copyKey,
+      lines: (lang) => [
+        ...quotes.map((q) => COPY[lang].quotations.line(q.doc_number)),
+        ...found.map((p) => COPY[lang].proposals.line(p.doc_number, p.title)),
+      ],
+      push: (lang, lines) => (count === 1 ? lines[0] : COPY[lang][copyKey].pushMany(count)),
+      path: () => {
+        if (count === 1 && quotes.length) return `/portal/quotations/${quotes[0].quotation_id}`;
+        if (count === 1) return `/portal/quotations?proposal=${found[0].proposal_id}`;
+        return quotes.length && !found.length ? "/portal/quotations?tab=quotations" : found.length && !quotes.length ? "/portal/quotations?tab=proposals" : "/portal/quotations";
+      },
     };
   }
 
@@ -624,7 +659,8 @@ async function messageFor(c, { person, topic, thread, batch, lang, ctx, clientId
   }
   if (!batch.count) return null;
   const all = batch.lines(lang);
-  const key = topic.toLowerCase();
+  // A batch may name its own copy (PROPOSALS: quotations, proposals or both).
+  const key = batch.copyKey || topic.toLowerCase();
   return {
     heading: w[key].subject(all.length, ctx.name),
     about: null,

@@ -18,6 +18,11 @@ import { cell, dateFmt, money } from "@/lib/format";
 import { StatusPill } from "@/components/ui/pill";
 import { SearchSelect } from "@/components/ui/search-select";
 import { DocButton } from "@/components/doc-button";
+import { Link } from "react-router-dom";
+import { Pill } from "@/components/ui/pill";
+import { Callout } from "@/components/ui/callout";
+import { Segmented } from "@/components/ui/segmented";
+import { ClientFamilies } from "@/components/client-families";
 import { entityLabelOf, entityText, qLineTotal } from "./quotation-forms";
 
 export function QuotationDetail({
@@ -42,6 +47,8 @@ export function QuotationDetail({
   const [action, setAction] = React.useState<null | "send" | "accept">(null);
   const [entityId, setEntityId] = React.useState("");
   const [convert, setConvert] = React.useState(false);
+  // The lines as stored, or as the client reads them (G2).
+  const [lineView, setLineView] = React.useState<"lines" | "families">("lines");
 
   React.useEffect(() => {
     if (!quotation) return;
@@ -130,7 +137,38 @@ export function QuotationDetail({
               </span>
             </div>
 
+            <Provenance data={data} />
+
             {lines.length > 0 && (
+              <Segmented
+                label={tr("Line view")}
+                value={lineView}
+                onChange={(v) => setLineView(v as "lines" | "families")}
+                options={[
+                  { value: "lines", label: tr("Line items") },
+                  { value: "families", label: tr("By family (as printed)") },
+                ]}
+              />
+            )}
+            {lines.length > 0 && lineView === "families" && (
+              <ClientFamilies
+                lines={lines.map((l) => ({
+                  label: String(l.label ?? ""),
+                  qty: Number(l.qty) || 0,
+                  amount: qLineTotal(l),
+                  is_disbursement: l.is_disbursement === true,
+                  client_heading: (l.client_heading as string | null) ?? null,
+                  client_heading_code: (l.client_heading_code as string | null) ?? null,
+                  client_heading_fr: (l.client_heading_fr as string | null) ?? null,
+                  client_heading_en: (l.client_heading_en as string | null) ?? null,
+                }))}
+                currency={String(data?.currency || "XAF")}
+                readOnly
+                order={Array.isArray(data?.family_order) ? (data?.family_order as string[]) : null}
+                onHeading={() => undefined}
+              />
+            )}
+            {lines.length > 0 && lineView === "lines" && (
               <div className="rounded-lg border">
                 <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b px-3 py-2 text-xs font-medium text-muted-foreground">
                   <span>{tr("Item")}</span>
@@ -258,6 +296,18 @@ export function QuotationDetail({
                     )}
                   </>
                 )}
+                {status === "ACCEPTED" && (
+                  // G4: a client's acceptance never converts on its own —
+                  // turning it into an invoice draft is the team's step.
+                  <Button
+                    loading={busy}
+                    onClick={() =>
+                      run(() => tenant(`/quotations/${id}/convert`, { method: "POST" }))
+                    }
+                  >
+                    {tr("Create invoice draft")}
+                  </Button>
+                )}
                 {status === "SENT" && (
                   <>
                     <Button
@@ -283,5 +333,62 @@ export function QuotationDetail({
         )}
       </div>
     </Modal>
+  );
+}
+
+/**
+ * Where this quotation came from and what happened to it (meeting 6, PR 4):
+ * the request it answers, the costing it was priced from and the margin it
+ * was priced at, the workings behind its prices, and the client's own answer.
+ */
+function Provenance({ data }: { data: Row | null }) {
+  if (!data) return null;
+  const request = data.quote_request as { quote_request_id: string; public_ref: string | null; status: string } | null;
+  const costing = data.costing as { costing_id: string; doc_number: string | null } | null;
+  const workings = data.workings as { margin_simulation_id: string; target_margin_percent: number | null } | null;
+  const ccy = String(data.currency || "XAF");
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {request ? (
+          <Link className="text-primary-ink underline" to={`/sales/quote-requests/${request.quote_request_id}`}>
+            {tr("Answers")} {request.public_ref || tr("a quote request")}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">{tr("Not linked to a quote request")}</span>
+        )}
+        {costing ? (
+          <Link className="text-primary-ink underline" to={`/costing/costing/${costing.costing_id}`}>
+            {tr("Priced from costing")} {costing.doc_number || ""}
+          </Link>
+        ) : null}
+        {data.margin_percent != null ? (
+          <Pill tone="blue">
+            {tr("Margin applied")} {cell(data.margin_percent)} %
+          </Pill>
+        ) : null}
+        {workings ? (
+          <Link className="text-primary-ink underline" to={`/commercial/margin-simulation?focus=${workings.margin_simulation_id}`}>
+            {tr("See the workings")}
+          </Link>
+        ) : null}
+      </div>
+      {data.created_from === "COSTING" && Number(data.own_cost_total) > 0 ? (
+        <p className="micro">
+          {tr("Own costs on this file:")} {money(data.own_cost_total, ccy)} — {tr("not billed; the services must cover them.")}
+        </p>
+      ) : null}
+      {data.answered_via === "PORTAL" && data.status === "ACCEPTED" ? (
+        <Callout tone="ok" title={tr("Accepted in the portal.")}>
+          {[cell(data.answered_by_name), cell(data.answered_by_email), dateFmt(data.answered_at)].filter((x) => x && x !== "—").join(" · ")}
+        </Callout>
+      ) : null}
+      {data.status === "REJECTED" && data.decline_reason ? (
+        <Callout tone="warn" title={tr("Declined by the client:")}>
+          {String(data.decline_reason)}
+          {data.answered_by_name ? ` — ${String(data.answered_by_name)}` : ""}
+        </Callout>
+      ) : null}
+    </div>
   );
 }

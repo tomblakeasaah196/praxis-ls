@@ -7,6 +7,7 @@ import { EnquiriesPage } from "./enquiries";
 import { QuoteRequestsPage } from "./quote-requests";
 import { OpportunitiesPage } from "./opportunities";
 import { ProposalsPage } from "./proposals";
+import { QuotationsPage } from "@/features/commercial/quotations";
 import { CompanyProfilePage } from "./company-profile";
 import { MeetingsPage } from "./meetings";
 import { CampaignsPage } from "./campaigns";
@@ -24,6 +25,7 @@ export function SalesHub() {
         "quote-requests": QuoteRequestsPage,
         opportunities: OpportunitiesPage,
         proposals: ProposalsPage,
+        quotations: QuotationsPage,
         "company-profile": CompanyProfilePage,
         meetings: MeetingsPage,
         campaigns: CampaignsPage,

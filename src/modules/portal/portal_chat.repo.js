@@ -108,7 +108,10 @@ async function messages(client, { clientId, dossierId, before = null, limit = 40
     `SELECT * FROM (
        SELECT m.message_id, m.client_id, m.dossier_id, m.direction, m.body,
               m.author_user_id, m.author_email, m.portal_user_id, m.created_at, m.staff_read_at,
-              m.location_lat, m.location_lng, m.location_label,
+              m.location_lat, m.location_lng, m.location_label, m.ref_entity,
+              -- What the message is about (meeting 6, G3): the offer's number,
+              -- read live so a quotation numbered after the question still says so.
+              COALESCE(rq.doc_number, rp.doc_number) AS ref_label,
               u.full_name AS author_name, d.ref AS dossier_ref,
               mi.milestone_instance_id, mi.label AS milestone_label, mi.label_en AS milestone_label_en,
               COALESCE((
@@ -124,6 +127,10 @@ async function messages(client, { clientId, dossierId, before = null, limit = 40
          LEFT JOIN milestone_instance mi
                 ON mi.milestone_instance_id = m.milestone_instance_id
                ${clientView ? "AND mi.is_client_visible" : ""}
+         LEFT JOIN quotation rq
+                ON m.ref_entity LIKE 'quotation:%' AND rq.quotation_id::text = substring(m.ref_entity from 11)
+         LEFT JOIN proposal rp
+                ON m.ref_entity LIKE 'proposal:%' AND rp.proposal_id::text = substring(m.ref_entity from 10)
         WHERE m.client_id = $1 AND ${thread}
           AND ($2::timestamptz IS NULL OR m.created_at < $2::timestamptz)
         ORDER BY m.created_at DESC
@@ -138,14 +145,15 @@ async function insertMessage(client, m) {
   const { rows } = await client.query(
     `INSERT INTO client_message
        (client_id, dossier_id, direction, body, author_user_id, author_email, portal_user_id,
-        milestone_instance_id, location_lat, location_lng, location_label)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        milestone_instance_id, location_lat, location_lng, location_label, ref_entity)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      RETURNING *`,
     [
       m.clientId, m.dossierId || null, m.direction, m.body || "", m.authorUserId || null,
       m.authorEmail || null, m.portalUserId || null, m.milestoneId || null,
       m.location ? m.location.lat : null, m.location ? m.location.lng : null,
       m.location ? m.location.label || null : null,
+      m.refEntity || null,
     ],
   );
   return rows[0];
