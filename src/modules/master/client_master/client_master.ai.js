@@ -14,6 +14,8 @@ module.exports = {
     { key: "get_client_told_list", service: (c, p) => accountManager.told(c, { clientId: p && typeof p === "object" ? p.client_id : p }), permission: { module: "MOD-03", action: "view" }, describe: "Who is told about a client's activity (messages, documents, payment claims, quote requests): its account manager, the CEO-role users and the 'Also notify' people, each with whether they can still be reached, and whether alerts fall back to the Client inbox team because no reachable account manager is named." },
     { key: "get_client_account_manager", service: (c, id) => accountManager.get(c, { clientId: id && typeof id === "object" ? id.client_id : id }), permission: { module: "MOD-03", action: "view" }, describe: "Who looks after a client (their account manager): name, job title, and whether they can still be reached. The client's portal messages reach this person first." },
   ],
+  // Discarding a draft client (DELETE /clients/:id, meeting 6, 3.6) is
+  // deliberately absent: the assistant may not delete a client.
   writes: [
     { key: "create_client", service: service.create, schema: validator.schemas.create, permission: { module: "MOD-03", action: "create" }, confirm: true, describe: "Register a new client (KYC, credit limit, payment terms). relationship_manager_user_id names its account manager and also_notify_user_ids the extra people told about it (logins from find_account_manager_candidates)." },
     { key: "update_client", service: (c, p, actor) => (({ client_id, ...patch }) => service.update(c, { id: client_id, patch, actor }))(p), schema: validator.schemas.aiUpdate, permission: { module: "MOD-03", action: "edit" }, confirm: true, describe: "Update a client by id." },

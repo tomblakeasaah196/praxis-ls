@@ -47,6 +47,7 @@ const {
   SITE_FONT_DEFAULTS,
 } = require("@praxis/shared/design/site-fonts");
 const { SOCIAL_IDS, isValidSocialUrl } = require("@praxis/shared/design/social");
+const { coverage } = require("@praxis/shared");
 
 const ref = (kind, id) => `${kind}:${id}`;
 
@@ -365,6 +366,10 @@ async function getEntityStory(client, entityId) {
   });
   return {
     ...story,
+    // Meeting 6, 3.5: stored rows whose code is not a country, or whose label
+    // names a place in another country (Libreville under GB). Flagged for a
+    // person, never rewritten — see @praxis/shared coverage.
+    coverage_flags: coverage.flags(story.public_coverage),
     cover_attachment: attachment
       ? {
           state: attachment.state,

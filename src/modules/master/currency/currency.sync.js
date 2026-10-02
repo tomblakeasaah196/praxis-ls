@@ -12,6 +12,12 @@
  * Rates are written with source 'exchangerate-api' and is_override=false, so a
  * manual override (source 'manual', is_override=true) always wins in the
  * resolver and a failed/late feed can never corrupt a hand-set rate.
+ *
+ * A FIXED PARITY is never written (meeting 6, F1). XAF/XOF ↔ EUR is 655.957 by
+ * treaty; the feed's 0.001524 is that figure rounded to four significant digits,
+ * and storing it is how the Currencies screen came to show 656.168. Pegged
+ * pairs are skipped and reported under `fixed`, so the run says why they were
+ * not updated rather than looking like the provider dropped them.
  */
 "use strict";
 const axios = require("axios");
@@ -20,6 +26,7 @@ const { getSetting } = require("../../../shared/config/settings");
 const settingService = require("../../security/setting/setting.service");
 const { atomically } = require("../../../shared/db/tx");
 const { config } = require("../../../config/env");
+const { currencies } = require("@praxis/shared");
 
 async function resolveKey(client) {
   return (
@@ -54,7 +61,12 @@ async function resolveKey(client) {
  */
 async function syncRates(client, { base, quotes } = {}) {
   const baseCode = base || (await repo.getBaseCode(client)) || "XAF";
-  const quoteCodes = (quotes || (await repo.listActiveCodes(client))).filter((q) => q && q !== baseCode);
+  const candidates = (quotes || (await repo.listActiveCodes(client))).filter((q) => q && q !== baseCode);
+  const fixed = candidates
+    .map((q) => currencies.fixedParity(baseCode, q))
+    .filter(Boolean)
+    .map((p) => ({ quote: p.quote, rate: p.rate, authority: p.authority }));
+  const quoteCodes = candidates.filter((q) => !currencies.isFixedPair(baseCode, q));
 
   const key = await resolveKey(client);
   if (!key) {
@@ -65,7 +77,12 @@ async function syncRates(client, { base, quotes } = {}) {
     };
   }
   if (!quoteCodes.length) {
-    return { skipped: true, base: baseCode, reason: "no active quote currencies" };
+    return {
+      skipped: true,
+      base: baseCode,
+      fixed,
+      reason: fixed.length ? "every active quote currency is at a fixed parity" : "no active quote currencies",
+    };
   }
 
   const url = "https://v6.exchangerate-api.com/v6/" + key + "/latest/" + baseCode;
@@ -110,7 +127,18 @@ async function syncRates(client, { base, quotes } = {}) {
       updated.push({ quote, rate });
     }
   });
-  return { skipped: false, base: baseCode, as_of_date: asOf, fetched_at: fetchedAt, source: "exchangerate-api", updated, unsupported };
+  return { skipped: false, base: baseCode, as_of_date: asOf, fetched_at: fetchedAt, source: "exchangerate-api", updated, unsupported, fixed };
 }
 
-module.exports = { resolveKey, syncRates };
+/**
+ * The line a sync run records about the pairs it deliberately did not touch —
+ * "EUR at fixed parity (BEAC) — not synced" — or null when there were none.
+ * Stored as the run's `reason` so the freshness banner can say it.
+ */
+function fixedNote(result) {
+  const fixed = (result && result.fixed) || [];
+  if (!fixed.length) return null;
+  return fixed.map((f) => `${f.quote} (${f.authority})`).join(", ") + " at fixed parity — not synced";
+}
+
+module.exports = { resolveKey, syncRates, fixedNote };

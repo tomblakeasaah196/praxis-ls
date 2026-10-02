@@ -309,8 +309,99 @@ const CATALOGUE = CURRENCIES.map((c) => {
   };
 }).sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code));
 
+/*
+ * ── FIXED PARITIES ─────────────────────────────────────────────────────────
+ *
+ * Some currencies are not quoted by a market: a treaty fixes them. The CFA
+ * francs are the two that matter here — 1 EUR = 655.957 XAF (BEAC, the CEMAC
+ * zone) and 1 EUR = 655.957 XOF (BCEAO, the UEMOA zone), unchanged since the
+ * euro replaced the French franc at 1 FRF = 100 CFA on 1 January 1999.
+ *
+ * WHY IT LIVES HERE, beside the catalogue. A parity is a legal fact about the
+ * currency, not a tenant's rate: no feed may move it and no treasurer may type
+ * another figure (owner decision F1, meeting 6). The tenant's Currencies screen
+ * once showed 1 EUR = 656.168 XAF — exchangerate-api's rounded 0.001524
+ * inverted — and every costing pre-filled from it. Keeping the figure in this
+ * one file means the API's resolver, the sync, the Set-rate form and the
+ * costing sheet all read the same number, and the FX-literal gate
+ * (scripts/check-currency-literals.js) stays able to forbid a second copy in
+ * the costing and commercial modules.
+ *
+ * `per_anchor` is how many units of the currency one unit of `anchor` buys.
+ * Every rate is computed FROM it in the direction asked — never as the inverse
+ * of a rounded stored figure, which is how 656.168 happened.
+ */
+const PEGS = Object.freeze({
+  XAF: Object.freeze({
+    anchor: "EUR",
+    per_anchor: 655.957,
+    authority: "BEAC",
+    source:
+      "Banque des États de l'Afrique Centrale — CEMAC monetary cooperation with France; 1 EUR = 655.957 XAF since 1 January 1999",
+  }),
+  XOF: Object.freeze({
+    anchor: "EUR",
+    per_anchor: 655.957,
+    authority: "BCEAO",
+    source:
+      "Banque Centrale des États de l'Afrique de l'Ouest — UEMOA monetary cooperation with France; 1 EUR = 655.957 XOF since 1 January 1999",
+  }),
+});
+
+const up = (c) => String(c || "").toUpperCase().trim();
+
+/** The peg a currency carries (`{ anchor, per_anchor, authority, source }`), or null. */
+function pegOf(code) {
+  return Object.prototype.hasOwnProperty.call(PEGS, up(code)) ? PEGS[up(code)] : null;
+}
+
+/**
+ * The fixed parity between two currencies, in the direction asked —
+ * "1 base = rate quote" (the fx_rate_daily convention) — or null when the pair
+ * is not fixed by a peg. Three shapes are fixed:
+ *
+ *   anchor → pegged    EUR → XAF   rate = per_anchor           (655.957)
+ *   pegged → anchor    XAF → EUR   rate = 1 / per_anchor       (0.0015244…)
+ *   pegged → pegged    XAF → XOF   both on the same anchor: per_anchor ratio (1)
+ *
+ * The returned rate is a full-precision number; nothing here rounds it.
+ */
+function fixedParity(base, quote) {
+  const b = up(base);
+  const q = up(quote);
+  if (!b || !q || b === q) return null;
+  const pb = pegOf(b);
+  const pq = pegOf(q);
+  if (pq && pq.anchor === b) {
+    return { base: b, quote: q, rate: pq.per_anchor, authority: pq.authority, anchor: b, source: pq.source };
+  }
+  if (pb && pb.anchor === q) {
+    return { base: b, quote: q, rate: 1 / pb.per_anchor, authority: pb.authority, anchor: q, source: pb.source };
+  }
+  if (pb && pq && pb.anchor === pq.anchor) {
+    return {
+      base: b,
+      quote: q,
+      rate: pq.per_anchor / pb.per_anchor,
+      authority: `${pb.authority} / ${pq.authority}`,
+      anchor: pb.anchor,
+      source: `${pb.source}; ${pq.source}`,
+    };
+  }
+  return null;
+}
+
+/** True when no market moves this pair — a feed must skip it, a form must refuse it. */
+function isFixedPair(base, quote) {
+  return fixedParity(base, quote) !== null;
+}
+
 exports.CURRENCIES = CURRENCIES;
 exports.CATALOGUE = CATALOGUE;
+exports.PEGS = PEGS;
+exports.pegOf = pegOf;
+exports.fixedParity = fixedParity;
+exports.isFixedPair = isFixedPair;
 exports.byCode = byCode;
 exports.decimalsFor = decimalsFor;
 exports.countriesFor = countriesFor;

@@ -462,7 +462,12 @@ function validateImportRow(raw = {}, ctx = {}) {
     if (!bad) postingRules.push({ applies_context: ctxName, debit_account: debit, credit_account: credit, tax_code_id: taxCodeId });
   }
   if (postingRules.length === 0) {
-    reasons.push("No OHADA mapping — a row needs at least one context (sale / purchase / disbursement) with both a debit and a credit account");
+    // An import may leave the posting for the AI to suggest (meeting 6, F8):
+    // the row is valid PENDING a posting the person accepts in the preview —
+    // unless the sheet tried to give one and got it wrong (a reason above).
+    const triedAndFailed = reasons.some((r) => /^(sale|purchase|disbursement):/.test(r));
+    if (ctx.allowMissingPosting && !triedAndFailed) out.needs_posting = true;
+    else reasons.push("No OHADA mapping — a row needs at least one context (sale / purchase / disbursement) with both a debit and a credit account");
   }
   out.posting_rules = postingRules;
 

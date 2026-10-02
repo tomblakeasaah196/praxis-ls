@@ -28,5 +28,7 @@ router.delete("/:code", requirePermission(MODULE, "delete"), controller.removeCu
 
 // Writes — FX rates (manual overrides, as-of dated).
 router.post("/rates", requirePermission(MODULE, "edit"), validator.setRate, controller.setRate);
+// "Follow the feed again": a manual override stands until released (meeting 6, 3.1).
+router.post("/rates/release", requirePermission(MODULE, "edit"), validator.releaseRate, controller.releaseRate);
 
 module.exports = { basePath: "/currencies", feature: "finance.fx", router };

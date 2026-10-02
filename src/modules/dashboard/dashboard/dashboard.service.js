@@ -266,8 +266,38 @@ function controlTowerOptions(q = {}) {
   };
 }
 
+/**
+ * "Getting started" — what an empty LIVE shows instead of a wall of zeros
+ * (meeting 6, register 3.9; "my live is not working").
+ *
+ * Shown on LIVE only, and only until the first operations file exists; never
+ * in TEST, whose emptiness is the point of it. Each item says whether it is
+ * done from the tenant's own data — nothing is ticked by hand, so the list
+ * cannot claim a step that has not happened — and names the screen that does
+ * it. `to` is a client route; the screen registry owns them.
+ */
+const GETTING_STARTED = [
+  { key: "client", label: "Create a client", to: "/master/clients", done: (n) => n.clients > 0, count: (n) => n.clients },
+  { key: "portal", label: "Invite them to the portal", to: "/settings/portal-access", done: (n) => n.portal_invites > 0, count: (n) => n.portal_invites },
+  { key: "file", label: "Open the first operations file", to: "/operations/files", done: (n) => n.operations_files > 0, count: (n) => n.operations_files },
+  { key: "treasury", label: "Set the treasury accounts", to: "/master/treasury-accounts", done: (n) => n.treasury_accounts > 0, count: (n) => n.treasury_accounts },
+  { key: "mailbox", label: "Connect the mailbox", to: "/comms/setup", done: (n) => n.mailboxes > 0, count: (n) => n.mailboxes },
+  // The first account is the one doing this; the team is everyone after it.
+  { key: "team", label: "Invite the team", to: "/security/users", done: (n) => n.active_users > 1, count: (n) => Math.max(0, n.active_users - 1) },
+];
+
+async function gettingStarted(client) {
+  const n = await repo.gettingStartedCounts(client);
+  const env = n.env === "live" ? "live" : "sandbox";
+  const show = env === "live" && n.operations_files === 0;
+  if (!show) return { show: false, env, items: [] };
+  const items = GETTING_STARTED.map((i) => ({ key: i.key, label: i.label, to: i.to, done: i.done(n), count: i.count(n) }));
+  return { show, env, done: items.filter((i) => i.done).length, total: items.length, items };
+}
+
 module.exports = {
   controlTowerOptions,
+  gettingStarted,
   kpis: (client) => repo.kpis(client),
   bandIdentity,
   kpiBand,

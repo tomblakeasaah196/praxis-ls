@@ -85,6 +85,8 @@ type Payload = {
       identity_source: string;
       identity_words: string;
       method: string;
+      /** Meeting 6, F6: made under a 5-minute signing window — said so. */
+      signing_window?: { opened_at: string | null; words: string } | null;
       reason: string | null;
       signed_at: string;
       ip: string;
@@ -144,6 +146,7 @@ const COPY = {
     internal: "l'entreprise émettrice",
     external: "la contrepartie",
     method: "Méthode",
+    signingWindow: "Fenêtre de signature",
     reason: "Motif",
     signedAt: "Date de signature",
     network: "Réseau",
@@ -202,6 +205,7 @@ const COPY = {
     internal: "the issuing company",
     external: "the counterparty",
     method: "Method",
+    signingWindow: "Signing window",
     reason: "Reason",
     signedAt: "Signed",
     network: "Network",
@@ -563,6 +567,16 @@ export function VerifyPage() {
                 }
               />
               <Row label={c.method} value={data.signature.signed.method} />
+              {data.signature.signed.signing_window && (
+                <Row
+                  label={c.signingWindow}
+                  value={
+                    data.signature.signed.signing_window.opened_at
+                      ? `${data.signature.signed.signing_window.words} (${formatWhen(data.signature.signed.signing_window.opened_at, lang)})`
+                      : data.signature.signed.signing_window.words
+                  }
+                />
+              )}
               {data.signature.signed.reason && (
                 <Row label={c.reason} value={data.signature.signed.reason} />
               )}

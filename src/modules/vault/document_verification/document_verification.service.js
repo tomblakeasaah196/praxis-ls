@@ -194,6 +194,18 @@ function signerBlock(sig, lang) {
         en: "Name declared by the signer",
       }, lang),
     method: methodWords(sig.assurance_level, lang),
+    // Meeting 6, F6: a signature made under a 5-minute signing window says so,
+    // with when the proof that opened it was given — never as a fresh
+    // fingerprint for this document.
+    signing_window: sig.signing_window_id && sig.assurance_level && /_WINDOW$/.test(sig.assurance_level)
+      ? {
+        opened_at: sig.window_opened_at || null,
+        words: t({
+          fr: "Signé sans nouvelle confirmation, dans les 5 minutes suivant une confirmation du signataire sur la même session",
+          en: "Signed without a new confirmation, within 5 minutes of the signer confirming on the same session",
+        }, lang),
+      }
+      : null,
     reason: sig.sign_reason || null,
     preset_code: sig.preset_code || null,
     signed_at: sig.signed_at,

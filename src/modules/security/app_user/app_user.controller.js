@@ -3,6 +3,8 @@
 const { asyncHandler } = require("../../../utils/errors");
 const service = require("./app_user.service");
 const knownDevice = require("./known-device");
+const signingWindow = require("../../vault/document_signature/signing-window.service");
+const { logger } = require("../../../config/logger");
 
 const actor = (req) => req.user || { user_id: null };
 const list = asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.listUsers(c, req.query)) }));
@@ -110,6 +112,18 @@ const logout = asyncHandler(async (req, res) => {
   const result = await req.identityDb((client) =>
     service.logout(client, { actor: req.user, sessionId: req.body.session_id || null }),
   );
+  // Sign-out and the lock screen (which signs out) end this session's 5-minute
+  // signing window too (meeting 6, F6). The window is already unusable — it
+  // names a session the auth middleware now refuses — so this records the
+  // close; a failure here must not turn a sign-out into an error.
+  const sessionId = req.body.session_id || (req.user && req.user.session_id) || null;
+  if (sessionId && req.tenantDb) {
+    try {
+      await req.tenantDb((client) => signingWindow.closeForSession(client, { userId: req.user.user_id, sessionId }));
+    } catch (err) {
+      logger.warn({ err, session_id: sessionId }, "signing window close on sign-out failed — it expires on its own within 5 minutes");
+    }
+  }
   res.json({ data: result });
 });
 

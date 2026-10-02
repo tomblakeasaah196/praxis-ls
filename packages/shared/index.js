@@ -14,6 +14,8 @@ const partyConfig = require("./schemas/party-config");
 const entityCommon = require("./schemas/entity-common");
 const siteSettings = require("./schemas/site-settings");
 const callSummary = require("./schemas/call-summary");
+const dictionaryPosting = require("./schemas/dictionary-posting");
+const expenseRate = require("./schemas/expense-rate");
 const clientPortal = require("./schemas/client-portal");
 const ledger = require("./rules/ledger");
 const marks = require("./rules/marks");
@@ -23,6 +25,8 @@ const notificationInterrupt = require("./rules/notification-interrupt");
 const notificationEmailDefault = require("./rules/notification-email-default");
 const workSchedule = require("./rules/work-schedule");
 const quickPin = require("./rules/quick-pin");
+const dictionarySibling = require("./rules/dictionary-sibling");
+const coverage = require("./rules/coverage");
 const pwaDesign = require("./pwa-design");
 const countries = require("./data/countries");
 const currencies = require("./data/currencies");
@@ -70,6 +74,16 @@ exports.siteSettings = siteSettings;
 // Shared because the draft is EDITED before it is sent — a shape the client
 // believes legal and the API refuses is a draft nobody can send.
 exports.callSummary = callSummary;
+// The AI-suggested OHADA posting of a dictionary line (meeting 6, F3): the API
+// parses the model's answer and the wizard's request with it, the wizard sends
+// the provenance it saves with. One shape, so a suggestion the screen shows is
+// one the API will take.
+exports.dictionaryPosting = dictionaryPosting;
+// An expense rate and its VAT basis (meeting 6, F4): the rate dialog previews
+// "72 700 TTC = 60 964 HT at 19,25 %" with htFromTtc and the API stores the HT
+// it computes with the same function — one division, so the saved rate is the
+// one the dialog showed.
+exports.expenseRate = expenseRate;
 // The client portal's staff-side forms (tenant review 29 Sep 2026, PR 1):
 // "Request from client", Accept with the fields a KYC document is filed with,
 // and "Send by email" on a team message. Shared because the Accept dialog must
@@ -97,6 +111,17 @@ exports.notificationEmailDefault = notificationEmailDefault;
 // a weak PIN at registration and My security says so as the user types — two
 // lists disagree, and the visible failure is a 422 after pressing Save.
 exports.quickPin = quickPin;
+// One service, several fulfilment modes (débours / own cost / deposit / own
+// service): the mode each direction stands for, the one question a picker asks,
+// the preset for a context and the mismatch guard. Shared because the API
+// stamps the mode and presets Suggest, and every picker draws the question and
+// the guard from the same table (meeting 6, F2).
+exports.dictionarySibling = dictionarySibling;
+// "Where it operates" (meeting 6, 3.5): what a complete coverage row is, and
+// which stored rows name a place in another country (Libreville under GB).
+// Shared because the Story tab blocks the save with the same answer the API
+// refuses with, and the API flags stored rows with the rule the tab explains.
+exports.coverage = coverage;
 // Canonical ISO country reference (code, name, phone, currency, per-jurisdiction
 // registration requirements) — the API, the seed and the client picker's source.
 /*

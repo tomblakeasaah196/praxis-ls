@@ -46,6 +46,10 @@ const create = z.object({
   is_active: z.boolean().optional(),
   posting_rules: z.array(rule).min(1),
   service_tiers: z.array(tier).optional(),
+  // Where the posting came from when the AI suggested it (meeting 6, F3):
+  // audit only — checked strictly against the shared package's
+  // dictionaryPosting.provenance by the service, never stored on the line.
+  posting_suggestion: z.record(z.any()).nullish(),
 });
 
 // CONTAINER_TYPE and LOAD_MODE were seed-only kinds: the registry held them,
@@ -119,7 +123,32 @@ const searchQuery = z.object({
   direction: z.enum(["REVENUE", "EXPENSE", "DISBURSEMENT", "ASSET"]).optional(),
   service_type_id: z.string().uuid().optional(),
   include_inactive: z.enum(["true", "false"]).optional(),
+  // "false" lists each fulfilment mode as its own row (the service-type
+  // mapping); the default shows a service once with its siblings (F2).
+  group: z.enum(["true", "false"]).optional(),
 });
+
+// The line guard's lookup: the lines on a document, comma-separated.
+const siblingsQuery = z.object({
+  ids: z
+    .string()
+    .min(1)
+    .max(200 * 37)
+    .refine((v) => v.split(",").every((id) => /^[0-9a-f-]{36}$/i.test(id.trim())), "ids must be comma-separated uuids"),
+});
+
+// "Lines to pair": link this line to another of the same service, or confirm
+// it stands alone. Exactly one of the two.
+const siblingLinkShape = z.object({
+  link_to: z.string().uuid().nullish(),
+  stands_alone: z.boolean().optional(),
+});
+const oneOfLinkOrAlone = [
+  (v) => (v.stands_alone === true) !== Boolean(v.link_to),
+  { message: "Send either link_to or stands_alone: true" },
+];
+const siblingLink = siblingLinkShape.refine(...oneOfLinkOrAlone);
+const aiSiblingLink = siblingLinkShape.extend({ dictionary_item_id: z.string().uuid() }).refine(...oneOfLinkOrAlone);
 
 const spendQuery = z.object({
   from: day.optional(),
@@ -145,32 +174,8 @@ const usageQuery = z.object({
 });
 const USAGE_KINDS = ["costings", "cash_requests", "invoices", "purchase_orders", "rates"];
 
-// Supersede, not edit: `effective_from` is the pivot the open row is expired
-// against, so it is required — the whole operation is meaningless without it.
-// `effective_to` stays optional (an open-ended new rate is the normal case).
-const rateSupersede = z.object({
-  rate: z.number().nonnegative(),
-  currency: z.string().length(3).optional(),
-  effective_from: day,
-  effective_to: day.nullish(),
-  // NULL = the item's plain default rate (no carrier/authority scope).
-  rate_provider_id: z.string().uuid().nullish(),
-  // NULL = no equipment dimension (an authority fee per BL, an air rate
-  // priced by weight rather than by box).
-  container_type_ref_id: z.string().uuid().nullish(),
-  note: z.string().nullish(),
-});
-
-// "Apply to all carriers": one rate, many series. The ids are the carriers
-// left ticked; the container type (if any) applies to every one of them.
-const rateApplyAll = z.object({
-  rate: z.number().nonnegative(),
-  currency: z.string().length(3).optional(),
-  effective_from: day,
-  container_type_ref_id: z.string().uuid().nullish(),
-  rate_provider_ids: z.array(z.string().uuid()).min(1).max(200),
-  note: z.string().nullish(),
-});
+// A line's rate (supersede / apply to all carriers) is shared with the rate
+// dialog — see financial_dictionary.rate.validator.js (meeting 6, F4).
 
 // Uploads ride the same base64 data-URL convention as the document vault, so
 // there is one upload shape in the product and no multipart middleware to add.
@@ -187,6 +192,14 @@ const importRow = z.object({
   raw: z.record(z.any()),
   data: z.record(z.any()).optional(),
   reasons: z.array(z.string()).optional(),
+  // The AI-suggested posting the person accepted in the preview (meeting 6,
+  // F8). Re-checked against the tenant's accounts by the service.
+  accept_posting: z
+    .object({
+      rules: z.array(rule).min(1).max(3),
+      provenance: z.record(z.any()).nullish(),
+    })
+    .nullish(),
 });
 const importCommit = z.object({ rows: z.array(importRow).min(1).max(2000) });
 const importErrors = z.object({
@@ -199,11 +212,10 @@ const importErrors = z.object({
 const update = create.omit({ default_price: true }).partial();
 // AI-facing: the item is in the URL for HTTP, in the payload for the copilot.
 const aiUpdate = update.extend({ dictionary_item_id: z.string().uuid() });
-const aiRateSupersede = rateSupersede.extend({ dictionary_item_id: z.string().uuid() });
-const aiRateApplyAll = rateApplyAll.extend({ dictionary_item_id: z.string().uuid() });
 const schemas = {
-  create, update, aiUpdate, aiRateSupersede, aiRateApplyAll, refCreate, refUpdate,
-  searchQuery, spendQuery, spendDocsQuery, usageQuery, rateSupersede, rateApplyAll, importUpload, importCommit, importErrors,
+  create, update, aiUpdate, refCreate, refUpdate,
+  searchQuery, spendQuery, spendDocsQuery, usageQuery, importUpload, importCommit, importErrors,
+  siblingsQuery, siblingLink, aiSiblingLink,
 };
 
 /** Query-string validator — same shape as `mw`, but reads req.query. */
@@ -230,11 +242,11 @@ const mw = (k) => (req, _res, next) => {
 module.exports = {
   create: mw("create"), update: mw("update"), refCreate: mw("refCreate"), refUpdate: mw("refUpdate"),
   searchQuery: qmw("searchQuery"),
+  siblingsQuery: qmw("siblingsQuery"),
+  siblingLink: mw("siblingLink"),
   spendQuery: qmw("spendQuery"),
   spendDocsQuery: qmw("spendDocsQuery"),
   usageQuery: usage,
-  rateSupersede: mw("rateSupersede"),
-  rateApplyAll: mw("rateApplyAll"),
   importUpload: mw("importUpload"),
   importCommit: mw("importCommit"),
   importErrors: mw("importErrors"),

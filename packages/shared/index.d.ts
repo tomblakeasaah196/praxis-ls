@@ -673,9 +673,32 @@ export type CurrencyRow = Currency & {
   sort_order: number;
 };
 
+/** A currency fixed by treaty to an anchor (XAF/XOF → EUR at 655.957). */
+export type CurrencyPeg = {
+  anchor: string;
+  /** Units of the pegged currency one unit of `anchor` buys. */
+  per_anchor: number;
+  authority: string;
+  source: string;
+};
+/** A fixed pair, "1 base = rate quote", in the direction asked. */
+export type FixedParity = {
+  base: string;
+  quote: string;
+  rate: number;
+  authority: string;
+  anchor: string;
+  source: string;
+};
+
 export declare namespace currencies {
   const CURRENCIES: readonly Currency[];
   const CATALOGUE: readonly CurrencyRow[];
+  const PEGS: Readonly<Record<string, CurrencyPeg>>;
+  function pegOf(code: string): CurrencyPeg | null;
+  /** The fixed parity for a pair in either direction, or null when a market sets it. */
+  function fixedParity(base: string, quote: string): FixedParity | null;
+  function isFixedPair(base: string, quote: string): boolean;
   function byCode(code: string): Currency | undefined;
   function decimalsFor(code: string): number;
   /** The countries that trade in a currency, priority-ordered; `[]` when none. */
@@ -1095,6 +1118,139 @@ export declare namespace callSummary {
   function extractJson(text: string): unknown;
 
   function isLanguage(value: unknown): value is Language;
+}
+
+/** A dictionary row seen as one fulfilment mode of a service (meeting 6, F2). */
+export type SiblingMode = "billed" | "own" | "deposit" | "service";
+export type SiblingLike = { direction: string; [k: string]: unknown };
+
+export declare namespace dictionarySibling {
+  const MODE_BY_DIRECTION: Readonly<Record<string, SiblingMode>>;
+  const MODE_ORDER: readonly SiblingMode[];
+  const QUESTION: { readonly en: string; readonly fr: string };
+  const ANSWERS: Readonly<Record<SiblingMode, { readonly en: string; readonly fr: string }>>;
+  const SUFFIX: RegExp;
+  function modeOf(direction: string | null | undefined): SiblingMode | null;
+  function baseLabel(label: string | null | undefined): string;
+  function hasSiblingSuffix(label: string | null | undefined): boolean;
+  function answerFor(mode: SiblingMode, lang: "en" | "fr" | string): string;
+  function orderSiblings<T extends SiblingLike>(siblings: readonly T[]): T[];
+  function presetFor<T extends SiblingLike>(context: "billed" | "own" | null | undefined, siblings: readonly T[]): T | null;
+  function mismatch<T extends SiblingLike>(
+    context: "billed" | "own" | null | undefined,
+    direction: string,
+    siblings: readonly T[],
+  ): { to: T; to_mode: SiblingMode; reason: { en: string; fr: string } } | null;
+}
+
+export declare namespace coverage {
+  type Row = { country_code?: string | null; label_fr?: string | null; label_en?: string | null };
+  type Flag = {
+    index: number;
+    country_code: string;
+    label: string;
+    kind: "NOT_A_COUNTRY" | "PLACE_ELSEWHERE";
+    place?: string;
+    place_country?: string;
+    message: string;
+  };
+  function isCountryCode(code: unknown): boolean;
+  function placesIn(label: unknown): { name: string; code: string; kind: "place" | "country" }[];
+  /** Why a row cannot be saved; empty when it is complete. */
+  function rowProblems(row: Row): string[];
+  /** Stored rows that need a person's eye — never blocks, never fixes. */
+  function flags(rows: Row[] | null | undefined): Flag[];
+  const PLACES: Record<string, string[]>;
+}
+
+export declare namespace expenseRate {
+  type Create = {
+    dictionary_item_id: string;
+    rate_provider_id?: string | null;
+    container_type_ref_id?: string | null;
+    rate: number;
+    currency?: string;
+    effective_from?: string;
+    effective_to?: string | null;
+    note?: string | null;
+    price_includes_vat?: boolean;
+  };
+  type Update = Partial<Omit<Create, "dictionary_item_id">>;
+  type Supersede = {
+    rate: number;
+    currency?: string;
+    effective_from: string;
+    effective_to?: string | null;
+    rate_provider_id?: string | null;
+    container_type_ref_id?: string | null;
+    note?: string | null;
+    price_includes_vat?: boolean;
+  };
+  type ApplyAll = {
+    rate: number;
+    currency?: string;
+    effective_from: string;
+    container_type_ref_id?: string | null;
+    rate_provider_ids: string[];
+    note?: string | null;
+    price_includes_vat?: boolean;
+  };
+  const create: import("zod").ZodType<Create>;
+  const update: import("zod").ZodType<Update>;
+  const aiUpdate: import("zod").ZodType<Omit<Update, "note"> & { expense_rate_id: string }>;
+  const supersede: import("zod").ZodType<Supersede>;
+  const applyAll: import("zod").ZodType<ApplyAll>;
+  const resolveQuery: import("zod").ZodTypeAny;
+  const vatBasisQuery: import("zod").ZodType<{ dictionary_item_id: string; date?: string }>;
+  const importUpload: import("zod").ZodTypeAny;
+  const importCommit: import("zod").ZodTypeAny;
+  /** TTC ÷ (1 + rate/100), unrounded; null when either is not a number. */
+  function htFromTtc(ttc: number | string, vatRatePercent: number | string): number | null;
+  /** Does a free-text note say the price includes VAT ("TTC", "TVA incluse"…)? */
+  function noteSaysTtc(note: unknown): boolean;
+}
+
+export declare namespace dictionaryPosting {
+  type Direction = "REVENUE" | "EXPENSE" | "DISBURSEMENT" | "ASSET";
+  type Context = "sale" | "purchase" | "disbursement";
+  type VatTreatment = "STANDARD" | "EXEMPT" | "DISBURSEMENT";
+  type Confidence = "high" | "medium" | "low";
+  type Source = "cache" | "near_cache" | "search" | "local";
+  const DIRECTIONS: readonly Direction[];
+  const CATEGORIES: readonly string[];
+  const CONTEXTS: readonly Context[];
+  const VAT_TREATMENTS: readonly VatTreatment[];
+  const CONFIDENCES: readonly Confidence[];
+  const SOURCES: readonly Source[];
+  type Answer = {
+    direction: Direction;
+    is_disbursement: boolean;
+    vat_treatment: VatTreatment;
+    postings: { context: Context; debit: string; credit: string }[];
+    confidence: Confidence;
+    sources_agree?: boolean;
+    rationale?: string;
+  };
+  type Request = {
+    label_fr: string;
+    label_en?: string | null;
+    category: string;
+    direction?: Direction | null;
+    fresh?: boolean;
+  };
+  type Provenance = {
+    source: Source;
+    model?: string | null;
+    cache_entry_id?: string | null;
+    confidence: Confidence;
+    direction: Direction;
+    suggested_rules: { applies_context: Context; debit_account?: string | null; credit_account?: string | null }[];
+    checked?: boolean;
+  };
+  const answer: import("zod").ZodType<Answer>;
+  const request: import("zod").ZodType<Request>;
+  const provenance: import("zod").ZodType<Provenance>;
+  function lowerConfidence(c: Confidence): Confidence;
 }
 
 /**
