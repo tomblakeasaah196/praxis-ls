@@ -27,6 +27,7 @@ import { tr } from "@/lib/i18n";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Segmented } from "@/components/ui/segmented";
 import { Callout } from "@/components/ui/callout";
 import { Pagination } from "@/components/ui/pagination";
@@ -48,6 +49,16 @@ type StagedRow = {
   raw: Record<string, unknown>;
   reasons: string[];
   ok: boolean;
+  /** A row the sheet left without a posting: the AI suggested one (F8). */
+  ai?: api.ImportAiPosting;
+};
+
+const CONF_TONE = { high: "ok", medium: "warn", low: "bad" } as const;
+const SOURCE_LABEL: Record<string, string> = {
+  search: "web search",
+  cache: "shared answer",
+  near_cache: "shared answer (similar line)",
+  local: "without a web search",
 };
 
 const cell = (v: unknown) =>
@@ -76,6 +87,9 @@ export function DictImportModal({
     React.useState<api.ImportCommitResult | null>(null);
   const [filter, setFilter] = React.useState<Filter>("all");
   const [page, setPage] = React.useState(0);
+  // Rows whose AI-suggested posting the person accepted (meeting 6, F8).
+  // Commit takes a suggested row ONLY when it is in here.
+  const [accepted, setAccepted] = React.useState<Set<number>>(new Set());
 
   const reset = () => {
     setResult(null);
@@ -83,7 +97,18 @@ export function DictImportModal({
     setError(null);
     setPage(0);
     setFilter("all");
+    setAccepted(new Set());
   };
+  const acceptable = (result?.valid || []).filter(
+    (v) => v.ai_posting && v.ai_posting.acceptable && v.row != null,
+  );
+  const toggleAccept = (row: number, on: boolean) =>
+    setAccepted((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(row);
+      else next.delete(row);
+      return next;
+    });
 
   // One list, flagged — so "Rejected" is a filter over the same table rather
   // than a second table the user has to mentally reconcile with the first.
@@ -95,6 +120,7 @@ export function DictImportModal({
         raw: v.raw,
         reasons: [],
         ok: true,
+        ai: v.ai_posting,
       })),
       ...result.rejected.map((r) => ({
         row: r.row,
@@ -174,7 +200,37 @@ export function DictImportModal({
     setBusy("commit");
     setError(null);
     try {
-      const out = await api.commitDictImport(result.valid);
+      const out = await api.commitDictImport(
+        result.valid.map((v) => {
+          const { ai_posting: ai, ...row } = v;
+          if (!ai || v.row == null || !accepted.has(v.row)) return row;
+          return {
+            ...row,
+            accept_posting: {
+              rules: ai.rules.map((r) => ({
+                applies_context: r.applies_context,
+                debit_account: r.debit_account,
+                credit_account: r.credit_account,
+                tax_code_id: r.tax_code_id ?? null,
+                is_disbursement: r.is_disbursement,
+              })),
+              provenance: {
+                source: ai.source,
+                model: ai.model,
+                cache_entry_id: ai.cache_entry_id,
+                confidence: ai.confidence,
+                direction: ai.direction,
+                suggested_rules: ai.rules.map((r) => ({
+                  applies_context: r.applies_context,
+                  debit_account: r.debit_account,
+                  credit_account: r.credit_account,
+                })),
+                checked: true,
+              },
+            },
+          };
+        }),
+      );
       setCommitted(out);
       // The list behind the modal refreshes now, not on close — the requirement
       // is that imported rows appear instantly.
@@ -298,6 +354,33 @@ export function DictImportModal({
               />
             </div>
 
+            {(result.summary.ai_suggested ?? 0) > 0 && (
+              <Callout
+                tone="info"
+                title={tr("AI-suggested postings")}
+                action={
+                  acceptable.length > 0 ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setAccepted(
+                          new Set(acceptable.map((v) => v.row as number)),
+                        )
+                      }
+                    >
+                      {tr("Accept all")} ({num(acceptable.length)})
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {num(result.summary.ai_suggested ?? 0)}{" "}
+                {tr(
+                  "row(s) had no posting, so one was suggested. A suggested row is imported only once you accept its posting — all at once, or row by row.",
+                )}
+              </Callout>
+            )}
             {result.summary.rejected > 0 && (
               <Callout tone="warn" title="Some rows cannot be imported">
                 The valid rows can still be committed — this import is partial
@@ -365,19 +448,94 @@ export function DictImportModal({
                           {cell(r.raw.category)}
                         </td>
                         <td className="px-3 py-1.5 num text-xs">
-                          {[
-                            r.raw.sale_debit
-                              ? `sale ${r.raw.sale_debit}→${r.raw.sale_credit || "?"}`
-                              : "",
-                            r.raw.purchase_debit
-                              ? `purchase ${r.raw.purchase_debit}→${r.raw.purchase_credit || "?"}`
-                              : "",
-                            r.raw.disbursement_debit
-                              ? `disb ${r.raw.disbursement_debit}→${r.raw.disbursement_credit || "?"}`
-                              : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" · ") || "—"}
+                          {r.ai ? (
+                            <div className="space-y-1">
+                              <span className="flex flex-wrap items-center gap-1">
+                                <Pill tone="blue">
+                                  {tr("AI-suggested posting")}
+                                </Pill>
+                                <Pill tone={CONF_TONE[r.ai.confidence]}>
+                                  {tr(r.ai.confidence)}
+                                </Pill>
+                              </span>
+                              <span className="block">
+                                {r.ai.rules
+                                  .map(
+                                    (x) =>
+                                      `${x.applies_context} ${x.debit_account ?? "?"}→${x.credit_account ?? "?"}`,
+                                  )
+                                  .join(" · ")}
+                              </span>
+                              <span className="block micro">
+                                {tr(SOURCE_LABEL[r.ai.source] ?? r.ai.source)}
+                                {r.ai.fallback_reason
+                                  ? ` — ${r.ai.fallback_reason}`
+                                  : ""}
+                              </span>
+                              {r.ai.sources.length > 0 && (
+                                <span className="block micro">
+                                  {r.ai.sources.map((src, k) =>
+                                    src.uri ? (
+                                      <a
+                                        key={k}
+                                        href={src.uri}
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                        className="mr-2 text-primary-ink underline"
+                                      >
+                                        {src.title}
+                                      </a>
+                                    ) : (
+                                      <span key={k} className="mr-2">
+                                        {src.title}
+                                      </span>
+                                    ),
+                                  )}
+                                </span>
+                              )}
+                              {r.ai.search_suggestion_html && (
+                                <iframe
+                                  title={tr("Google Search suggestions")}
+                                  sandbox="allow-popups allow-popups-to-escape-sandbox"
+                                  srcDoc={r.ai.search_suggestion_html}
+                                  className="h-12 w-full rounded border-0"
+                                />
+                              )}
+                              {r.ai.acceptable && r.row != null ? (
+                                <Checkbox
+                                  checked={accepted.has(r.row)}
+                                  onCheckedChange={(v) =>
+                                    toggleAccept(r.row as number, !!v)
+                                  }
+                                  label={
+                                    <span className="text-xs">
+                                      {tr("Accept this posting")}
+                                    </span>
+                                  }
+                                />
+                              ) : (
+                                <span className="block micro">
+                                  {tr(
+                                    "An account it names is not in your chart — create the line from New item instead.",
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            [
+                              r.raw.sale_debit
+                                ? `sale ${r.raw.sale_debit}→${r.raw.sale_credit || "?"}`
+                                : "",
+                              r.raw.purchase_debit
+                                ? `purchase ${r.raw.purchase_debit}→${r.raw.purchase_credit || "?"}`
+                                : "",
+                              r.raw.disbursement_debit
+                                ? `disb ${r.raw.disbursement_debit}→${r.raw.disbursement_credit || "?"}`
+                                : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || "—"
+                          )}
                         </td>
                         <td className="px-3 py-1.5">
                           {r.ok ? (

@@ -315,6 +315,11 @@ async function persistTotals(client, costingId, exchangeRateToXaf) {
  */
 async function resolveRate(client, { currencyCode, explicit }) {
   const code = String(currencyCode || "XAF").toUpperCase();
+  // EUR (and XOF) convert to XAF at a fixed parity: the sheet shows it
+  // read-only, and a different figure sent by an API caller is refused rather
+  // than silently stored (meeting 6, F1).
+  const fixed = currency.parityToXaf(code, explicit);
+  if (fixed !== null) return fixed;
   if (explicit !== undefined && explicit !== null && Number(explicit) > 0) return Number(explicit);
   if (code === "XAF") return 1;
   try {
@@ -875,21 +880,33 @@ const suggestLines = (client, q = {}) =>
  * offers it and the pricer may overwrite it; what is saved is what the sheet
  * sends. `found: false` means nothing is on file and the sheet must be given a
  * rate by hand rather than silently priced at 1.
+ *
+ * `fixed: true` (with `authority`) marks a treaty parity — EUR → XAF is
+ * 655.957 (BEAC) — which the sheet shows read-only: the pricer may not
+ * overwrite it, and the API refuses another figure.
  */
 async function fxRate(client, { currency: code, on_date: onDate } = {}) {
   const c = String(code || "XAF").toUpperCase();
   const date = onDate || new Date().toISOString().slice(0, 10);
-  if (c === "XAF") return { currency: c, rate_to_xaf: 1, as_of_date: date, source: "identity", found: true };
+  if (c === "XAF") return { currency: c, rate_to_xaf: 1, as_of_date: date, source: "identity", found: true, fixed: false };
   try {
     const hit = await currency.rateFor(client, { base: c, quote: "XAF", date });
     const rate = Number(hit && hit.rate);
     if (Number.isFinite(rate) && rate > 0) {
-      return { currency: c, rate_to_xaf: rate, as_of_date: hit.as_of_date || date, source: hit.source || null, found: true };
+      return {
+        currency: c,
+        rate_to_xaf: rate,
+        as_of_date: hit.as_of_date || date,
+        source: hit.source || null,
+        found: true,
+        fixed: hit.is_fixed === true,
+        authority: hit.authority || null,
+      };
     }
   } catch (err) {
     if (err.code !== "NO_FX_RATE") throw err;
   }
-  return { currency: c, rate_to_xaf: null, as_of_date: null, source: null, found: false };
+  return { currency: c, rate_to_xaf: null, as_of_date: null, source: null, found: false, fixed: false };
 }
 
 const priceLine = (client, q = {}) =>

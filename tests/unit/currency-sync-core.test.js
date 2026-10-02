@@ -49,8 +49,8 @@ afterEach(() => jest.clearAllMocks());
 
 describe("syncRates — provider success", () => {
   it("wraps the upserts in a single transaction and writes feed rows", async () => {
-    axios.get.mockResolvedValue({ status: 200, data: { result: "success", conversion_rates: { USD: 0.0016, EUR: 0.0015 } } });
-    const c = fakeClient({ active: ["USD", "EUR", "ZZZ"] });
+    axios.get.mockResolvedValue({ status: 200, data: { result: "success", conversion_rates: { USD: 0.0016, GBP: 0.0013 } } });
+    const c = fakeClient({ active: ["USD", "GBP", "ZZZ"] });
     const out = await sync.syncRates(c, {});
 
     const sqls = c.queries.map((q) => q.sql);
@@ -58,7 +58,7 @@ describe("syncRates — provider success", () => {
     expect(sqls.some((s) => /^\s*COMMIT/i.test(s))).toBe(true);
 
     // Two written, ZZZ unsupported.
-    expect(out.updated.map((u) => u.quote).sort()).toEqual(["EUR", "USD"]);
+    expect(out.updated.map((u) => u.quote).sort()).toEqual(["GBP", "USD"]);
     expect(out.unsupported).toEqual(["ZZZ"]);
 
     // Every write is a feed row (is_override=false, source exchangerate-api).
@@ -66,6 +66,26 @@ describe("syncRates — provider success", () => {
       expect(p[4]).toBe("exchangerate-api"); // source
       expect(p[5]).toBe(false); // is_override
     }
+  });
+
+  it("never writes a fixed parity: XAF→EUR and XAF→XOF are reported, not synced (meeting 6, F1)", async () => {
+    // The provider's rounded 0.001524 is exactly how 656.168 got onto the screen.
+    axios.get.mockResolvedValue({ status: 200, data: { result: "success", conversion_rates: { USD: 0.0016, EUR: 0.001524, XOF: 1.0001 } } });
+    const c = fakeClient({ active: ["USD", "EUR", "XOF"] });
+    const out = await sync.syncRates(c, {});
+    expect(out.updated.map((u) => u.quote)).toEqual(["USD"]);
+    expect(out.fixed.map((f) => f.quote).sort()).toEqual(["EUR", "XOF"]);
+    expect(out.fixed.find((f) => f.quote === "EUR")).toEqual({ quote: "EUR", rate: 1 / 655.957, authority: "BEAC" });
+    expect(c.upserts.map((p) => p[1])).toEqual(["USD"]);
+    expect(sync.fixedNote(out)).toBe("EUR (BEAC), XOF (BEAC / BCEAO) at fixed parity — not synced");
+  });
+
+  it("skips (no HTTP) when every quote is at a fixed parity, and says so", async () => {
+    const c = fakeClient({ active: ["EUR"] });
+    const out = await sync.syncRates(c, {});
+    expect(out.skipped).toBe(true);
+    expect(out.reason).toMatch(/fixed parity/);
+    expect(axios.get).not.toHaveBeenCalled();
   });
 
   it("skips (no HTTP) when there are no active quote currencies", async () => {

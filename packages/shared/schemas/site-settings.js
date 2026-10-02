@@ -28,6 +28,7 @@
 
 const { z } = require("zod");
 const { SOCIAL_IDS, isValidSocialUrl } = require("../design/social");
+const coverage = require("../rules/coverage");
 
 /* ── primitives ─────────────────────────────────────────────────────────────*/
 
@@ -248,13 +249,25 @@ const entityPublicStory = z.object({
   public_enabled: z.boolean().optional(),
   public_summary_fr: text(PROSE),
   public_summary_en: text(PROSE),
+  // Meeting 6, register 3.5: a REAL ISO 3166-1 alpha-2 country from the
+  // shared list (any two letters let Gabon be saved as GB), and a label — a
+  // row the site cannot print is refused with a message, never dropped.
   public_coverage: z
     .array(
-      z.object({
-        country_code: z.string().trim().length(2).toUpperCase(),
-        label_fr: text(TITLE),
-        label_en: text(TITLE),
-      }),
+      z
+        .object({
+          country_code: z
+            .string()
+            .trim()
+            .toUpperCase()
+            .refine(coverage.isCountryCode, "Pick the country from the list — this is not an ISO country code."),
+          label_fr: text(TITLE),
+          label_en: text(TITLE),
+        })
+        .refine((r) => !!(r.label_fr || "").trim() || !!(r.label_en || "").trim(), {
+          message: "Give the place a label, in French or English.",
+          path: ["label_fr"],
+        }),
     )
     .max(60)
     .optional(),

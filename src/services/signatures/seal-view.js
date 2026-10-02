@@ -31,6 +31,8 @@ const METHOD_WORDS = {
   SES: { fr: "Signé depuis une session authentifiée", en: "Signed from an authenticated session" },
   AES_OTP: { fr: "Vérifié par code e-mail", en: "Verified by email code" },
   AES_PASSKEY: { fr: "Vérifié par passkey", en: "Verified by passkey" },
+  AES_PASSKEY_WINDOW: { fr: "Vérifié par passkey, dans une fenêtre de signature de 5 minutes", en: "Verified by passkey, within a 5-minute signing window" },
+  AES_OTP_WINDOW: { fr: "Vérifié par code e-mail, dans une fenêtre de signature de 5 minutes", en: "Verified by email code, within a 5-minute signing window" },
   QES: { fr: "Certifié par un tiers de confiance", en: "Certified by a trust provider" },
   WET: { fr: "Signé à la main et rapproché", en: "Signed by hand and reconciled" },
 };

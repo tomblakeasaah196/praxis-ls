@@ -111,6 +111,7 @@ async function searchItems(c, { q, limit = 20, service_type_id = null, direction
     `SELECT di.dictionary_item_id, di.code, di.label_fr, di.label_en, di.description,
             di.direction, di.category, di.subcategory, di.unit_of_measure,
             di.is_disbursement, di.is_billable, di.varies_by_equipment, di.is_active,
+            di.sibling_group,
             ${STANDARD_RATE_COLUMNS}, ${CLIENT_HEADING_COLUMNS}, di.client_heading_ref_id,
             GREATEST(
               CASE WHEN di.keywords && ARRAY[$2] THEN 1.0 ELSE 0 END,
@@ -130,6 +131,101 @@ async function searchItems(c, { q, limit = 20, service_type_id = null, direction
     params,
   );
   return rows;
+}
+
+/* ── siblings: one service, several fulfilment modes (14342, meeting 6 F2) ── */
+
+/** The columns a sibling carries — the finder's hit shape, so a picker can
+ *  hand any sibling to its caller exactly as if it had been the search hit. */
+const SIBLING_COLUMNS = `di.dictionary_item_id, di.code, di.label_fr, di.label_en, di.description,
+            di.direction, di.category, di.subcategory, di.unit_of_measure,
+            di.is_disbursement, di.is_billable, di.varies_by_equipment, di.is_active,
+            di.disbursement_vat_transparent, di.sibling_group, di.client_heading_ref_id,
+            ${STANDARD_RATE_COLUMNS}, ${CLIENT_HEADING_COLUMNS}`;
+
+/** Every member of the given groups (active only unless asked). */
+async function siblingsOfGroups(c, groups, { includeInactive = false } = {}) {
+  if (!groups || !groups.length) return [];
+  const { rows } = await c.query(
+    `SELECT ${SIBLING_COLUMNS}
+       FROM dictionary_item di ${standardRateJoin("di")} ${clientHeadingJoin("di")}
+      WHERE di.sibling_group = ANY($1::uuid[])
+        AND ($2::boolean OR di.is_active = true)
+      ORDER BY di.sibling_group, di.direction, di.code`,
+    [groups, includeInactive],
+  );
+  return rows;
+}
+
+/** The items themselves (any state) with their group — the guard's lookup. */
+async function itemsWithGroup(c, ids) {
+  if (!ids || !ids.length) return [];
+  const { rows } = await c.query(
+    `SELECT ${SIBLING_COLUMNS}
+       FROM dictionary_item di ${standardRateJoin("di")} ${clientHeadingJoin("di")}
+      WHERE di.dictionary_item_id = ANY($1::uuid[])`,
+    [ids],
+  );
+  return rows;
+}
+
+/**
+ * The lines the 14342 backfill could not pair, for a person to link or
+ * confirm: a row that carries a sibling suffix ("— Client Account", "— Own
+ * Cost", "— Deposit", French forms) but has no partner, or whose suffix says
+ * one mode while its direction says another. Rows a person has confirmed leave
+ * the list.
+ */
+async function unpairedLines(c) {
+  const { rows } = await c.query(
+    `WITH g AS (
+       SELECT sibling_group, count(*) AS n FROM dictionary_item
+        WHERE sibling_group IS NOT NULL GROUP BY sibling_group
+     )
+     SELECT di.dictionary_item_id, di.code, di.label_en, di.label_fr, di.direction, di.sibling_group,
+            CASE
+              WHEN di.sibling_group IS NULL OR g.n < 2 THEN 'NO_PARTNER'
+              ELSE 'MODE_CONTRADICTS_NAME'
+            END AS reason
+       FROM dictionary_item di
+       LEFT JOIN g ON g.sibling_group = di.sibling_group
+      WHERE di.is_active = true
+        AND di.sibling_confirmed_at IS NULL
+        AND (
+              ((di.label_en ~* $1 OR di.label_fr ~* $1) AND (di.sibling_group IS NULL OR g.n < 2))
+           OR (di.direction <> 'DISBURSEMENT' AND (di.label_en ~* $2 OR di.label_fr ~* $2))
+           OR (di.direction <> 'EXPENSE'      AND (di.label_en ~* $3 OR di.label_fr ~* $3))
+           OR (di.direction <> 'ASSET'        AND (di.label_en ~* $4 OR di.label_fr ~* $4))
+        )
+      ORDER BY di.label_en, di.code`,
+    [
+      "\\s*[—–-]\\s*(client account|own cost|deposit|pour compte client|charge propre|d[ée]p[ôo]t)\\s*$",
+      "\\s*[—–-]\\s*(client account|pour compte client)\\s*$",
+      "\\s*[—–-]\\s*(own cost|charge propre)\\s*$",
+      "\\s*[—–-]\\s*(deposit|d[ée]p[ôo]t)\\s*$",
+    ],
+  );
+  return rows;
+}
+
+async function setSiblingGroup(c, ids, group, userId) {
+  await c.query(
+    `UPDATE dictionary_item
+        SET sibling_group = $2, sibling_confirmed_at = now(), sibling_confirmed_by = $3, updated_at = now()
+      WHERE dictionary_item_id = ANY($1::uuid[])`,
+    [ids, group, userId],
+  );
+}
+
+/** Dissolve a group left with one member — a group of one is no group. */
+async function dissolveSingleton(c, group) {
+  if (!group) return;
+  await c.query(
+    `UPDATE dictionary_item SET sibling_group = NULL
+      WHERE sibling_group = $1
+        AND (SELECT count(*) FROM dictionary_item WHERE sibling_group = $1) < 2`,
+    [group],
+  );
 }
 
 /**
@@ -529,9 +625,16 @@ const expireRate = (c, rateId, effectiveTo) =>
 /* ── IMPORT — the reference data a row is validated against ─────────────────
  * One round-trip per catalogue rather than one per row: a 500-row upload
  * validated row-by-row would be 1500 lookups against three small tables. */
-async function postableAccounts(c) {
+async function postableAccounts(c, { partyControl = [] } = {}) {
+  // `partyControl`: the client / supplier control accounts (4111, 4011). A
+  // dictionary line names them for "this document's party", and the first
+  // activated party makes them non-postable parents (party-accounting
+  // allocateAux) — so they stay valid on a posting rule whatever their flag.
   const { rows } = await c.query(
-    "SELECT code, label_fr, class FROM chart_of_accounts WHERE is_postable = true AND is_active IS DISTINCT FROM false ORDER BY code",
+    `SELECT code, label_fr, class FROM chart_of_accounts
+      WHERE (is_postable = true OR code = ANY($1::text[])) AND is_active IS DISTINCT FROM false
+      ORDER BY code`,
+    [partyControl],
   );
   return rows;
 }
@@ -562,6 +665,7 @@ module.exports = {
   createItem, createRule, updateItem, getItem, getItemRow, nextCode,
   listRules, deleteRules, listTiers, replaceTiers,
   listItems, searchItems, usageCounts, usageRows,
+  siblingsOfGroups, itemsWithGroup, unpairedLines, setSiblingGroup, dissolveSingleton,
   spendEstimated, spendCommitted, spendActual, spendDocuments, spendDocumentsPage,
   rateHistory, openRate, insertRate, expireRate,
   postableAccounts, taxCodeIndex, serviceTypeIndex,

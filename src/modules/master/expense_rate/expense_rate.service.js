@@ -16,8 +16,10 @@ const importer = require("./expense_rate.import");
 const { resolveContext } = require("../../../services/spreadsheet");
 const { emitEvent, audit } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
+const { expenseRate } = require("@praxis/shared");
 
 const ref = (id) => "expense_rate:" + id;
+const today = () => new Date().toISOString().slice(0, 10);
 
 /** provider_kind is a denormalised cache of rate_provider.kind, kept only so
  *  a rate row still reads as "an authority fee" without a join in the hot
@@ -29,18 +31,75 @@ async function resolveProviderKind(client, rateProviderId) {
   return p.kind;
 }
 
-async function create(client, { dictionaryItemId, rateProviderId = null, containerTypeRefId = null, rate, currency = "XAF", effectiveFrom = null, effectiveTo = null, note = null, actor = {} }) {
+/**
+ * The VAT rate a line's VAT-inclusive price would be divided by, and whether
+ * the question is offered at all (meeting 6, F4). The rate dialog shows it
+ * before saving; applyVatBasis uses the same answer to store the HT.
+ */
+async function vatBasisFor(client, { dictionaryItemId, date = null }) {
+  const line = await repo.lineVat(client, dictionaryItemId, date || today());
+  if (!line) throw new AppError("NOT_FOUND", "Dictionary item not found", 404);
+  const isDisbursement = line.is_disbursement === true;
+  const rate = line.source && line.rate_percent !== null && line.rate_percent !== undefined ? Number(line.rate_percent) : null;
+  return {
+    dictionary_item_id: line.dictionary_item_id,
+    is_disbursement: isDisbursement,
+    // A débours is always HT; a line with no VAT rate anywhere cannot be divided.
+    offered: !isDisbursement && rate !== null,
+    vat_rate_percent: rate,
+    tax_code_id: rate === null ? null : line.tax_code_id || null,
+    tax_code: rate === null ? null : line.code || null,
+    // "line" = the line's own tax code; "standard" = the tenant's standard rate.
+    source: rate === null ? null : line.source,
+  };
+}
+
+/**
+ * The columns a rate writes for its VAT basis (meeting 6, F4).
+ *
+ * Off (the default): the figure IS the HT and is stored as given. On: the
+ * figure is TTC — `rate` becomes TTC ÷ (1 + the line's VAT rate), unrounded
+ * here (the numeric(18,2) column is the only rounding), and the typed figure
+ * and the rate it was divided by are kept beside it so both can be shown.
+ * Every reader of `expense_rate.rate` keeps reading HT, so a costing adds VAT
+ * once. The four columns are only ever written together, from here — the
+ * consistency rule 14344 leaves to the service rather than a CHECK.
+ */
+async function applyVatBasis(client, { dictionaryItemId, figure, priceIncludesVat = false, date = null }) {
+  if (priceIncludesVat !== true) {
+    return { rate: figure, price_includes_vat: false, rate_ttc: null, vat_rate_percent: null, vat_tax_code_id: null };
+  }
+  const basis = await vatBasisFor(client, { dictionaryItemId, date });
+  if (basis.is_disbursement) {
+    throw new AppError("DEBOURS_ALWAYS_HT", "A débours is always entered HT — it carries no VAT of ours, so “Price includes VAT” does not apply to it.", 422);
+  }
+  if (basis.vat_rate_percent === null) {
+    throw new AppError("NO_VAT_RATE", "No VAT rate is set up for this line, so a VAT-inclusive price cannot be converted. Enter the HT figure instead.", 422);
+  }
+  return {
+    rate: expenseRate.htFromTtc(figure, basis.vat_rate_percent),
+    price_includes_vat: true,
+    rate_ttc: Number(figure),
+    vat_rate_percent: basis.vat_rate_percent,
+    vat_tax_code_id: basis.tax_code_id,
+  };
+}
+
+async function create(client, { dictionaryItemId, rateProviderId = null, containerTypeRefId = null, rate, currency = "XAF", effectiveFrom = null, effectiveTo = null, note = null, priceIncludesVat = false, actor = {} }) {
   if (!(Number(rate) >= 0)) throw new AppError("BAD_RATE", "rate must be >= 0", 422);
   const providerKind = await resolveProviderKind(client, rateProviderId);
+  const from = effectiveFrom || today();
+  const basis = await applyVatBasis(client, { dictionaryItemId, figure: rate, priceIncludesVat, date: from });
   const row = await repo.insert(client, {
     dictionary_item_id: dictionaryItemId,
     rate_provider_id: rateProviderId,
     container_type_ref_id: containerTypeRefId,
     provider_kind: providerKind,
-    rate, currency,
-    effective_from: effectiveFrom || new Date().toISOString().slice(0, 10),
+    currency,
+    effective_from: from,
     effective_to: effectiveTo,
     note,
+    ...basis,
   });
   await audit(client, { actorUserId: actor.user_id || null, action: events.CREATED, moduleKey: events.MODULE, entityRef: ref(row.expense_rate_id), after: row });
   return row;
@@ -50,8 +109,21 @@ async function update(client, { id, patch = {}, actor = {} }) {
   const before = await repo.get(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Expense rate not found", 404);
   const fields = {};
-  for (const k of ["rate_provider_id", "container_type_ref_id", "rate", "currency", "effective_from", "effective_to", "note"]) if (patch[k] !== undefined) fields[k] = patch[k];
+  for (const k of ["rate_provider_id", "container_type_ref_id", "currency", "effective_from", "effective_to", "note"]) if (patch[k] !== undefined) fields[k] = patch[k];
   if (patch.rate_provider_id !== undefined) fields.provider_kind = await resolveProviderKind(client, patch.rate_provider_id);
+  // The figure and its VAT basis move together (F4). A new figure keeps the
+  // basis it had unless the patch says otherwise; turning the basis on or off
+  // without a new figure re-reads the one the person last typed.
+  if (patch.rate !== undefined || patch.price_includes_vat !== undefined) {
+    const includes = patch.price_includes_vat !== undefined ? patch.price_includes_vat === true : before.price_includes_vat === true;
+    const typed = before.price_includes_vat === true && before.rate_ttc !== null ? before.rate_ttc : before.rate;
+    Object.assign(fields, await applyVatBasis(client, {
+      dictionaryItemId: before.dictionary_item_id,
+      figure: patch.rate !== undefined ? patch.rate : Number(typed),
+      priceIncludesVat: includes,
+      date: fields.effective_from || before.effective_from,
+    }));
+  }
   const row = await repo.update(client, id, fields);
   await audit(client, { actorUserId: actor.user_id || null, action: events.UPDATED, moduleKey: events.MODULE, entityRef: ref(id), before, after: row });
   return row;
@@ -69,6 +141,16 @@ async function remove(client, { id, actor = {} }) {
 async function resolve(client, { dictionaryItemId, date = null, rateProviderId = null, containerTypeRefId = null }) {
   const rows = await repo.forItem(client, dictionaryItemId);
   return rules.pickRate(rows, { date: date || new Date().toISOString().slice(0, 10), rateProviderId, containerTypeRefId });
+}
+
+/**
+ * Rates in force, entered HT, whose note says the price includes VAT ("TTC",
+ * "VAT inclusive", "TVA incluse") — listed for a person to review, never
+ * changed (F4: existing rates are not re-divided on a guess about a note).
+ */
+async function vatReview(client) {
+  const rows = (await repo.vatNoteCandidates(client)).filter((r) => expenseRate.noteSaysTtc(r.note));
+  return { count: rows.length, rates: rows };
 }
 
 const get = (client, id) => repo.get(client, id);
@@ -145,4 +227,4 @@ async function importCommit(client, { rows = [], actor }) {
   return { created, rejected, summary };
 }
 
-module.exports = { create, update, remove, resolve, get, list, importTemplate, importValidate, importCommit };
+module.exports = { create, update, remove, resolve, get, list, importTemplate, importValidate, importCommit, vatBasisFor, applyVatBasis, vatReview };

@@ -357,6 +357,18 @@ export const platform = {
   /** Does the configured Gemini model still exist at Google (calls audit N3)? */
   geminiModelCheck: (refresh = false) =>
     api<GeminiModelCheck>(`/ai-vendors/gemini/model-check${refresh ? "?refresh=1" : ""}`),
+  /** The model the dictionary posting suggestion chose for itself (meeting 6, F7). Read-only. */
+  dictionaryPostingModel: (refresh = false) =>
+    api<PostingModel>(`/ai-vendors/gemini/dictionary-posting-model${refresh ? "?refresh=1" : ""}`),
+};
+
+export type PostingModel = {
+  status: "ok" | "fallback" | "unconfigured";
+  model: string | null;
+  fallback_model: string | null;
+  chosen_from?: "models.list" | "platform";
+  checked_at: string;
+  detail?: string | null;
 };
 
 export type GeminiModelCheck = {

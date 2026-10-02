@@ -43,6 +43,11 @@ router.get("/:id/360", requirePermission(MODULE, "view"), controller.dossier);
 router.get("/:id/aging", requirePermission(MODULE, "view"), controller.agingDetail);
 router.post("/", requirePermission(MODULE, "create"), validator.create, controller.create);
 router.patch("/:id", requirePermission(MODULE, "edit"), validator.update, controller.update);
+// Discard a DRAFT client with no history (meeting 6, 3.6) — the client
+// master's `delete` right. Anything with history is refused ("Deactivate
+// instead"); the check lets the screen say so before asking to confirm.
+router.get("/:id/discard-check", requirePermission(MODULE, "delete"), controller.discardCheck);
+router.delete("/:id", requirePermission(MODULE, "delete"), controller.discard);
 
 // Manual hard block (Admin/Manager ~ can_approve), reason required; verify is the
 // digital-scan gate (Hard Rule 9).

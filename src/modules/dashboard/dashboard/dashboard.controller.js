@@ -43,6 +43,10 @@ module.exports = {
   // The enumeration lives in the service (`controlTowerOptions`) so the AI
   // manifest runs the same one — an unrecognised mode/layer/date field means
   // "no filter" on both paths, not just this one.
+  // Meeting 6, 3.9 — the go-live checklist on an empty LIVE.
+  gettingStarted: asyncHandler(async (req, res) => {
+    res.json({ data: await req.tenantDb((c) => service.gettingStarted(c)) });
+  }),
   controlTower: asyncHandler(async (req, res) => {
     const options = service.controlTowerOptions(req.query || {});
     res.json({ data: await req.tenantDb((c) => service.controlTower(c, options)) });

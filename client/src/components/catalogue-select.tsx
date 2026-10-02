@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/modal";
 import { useResource } from "@/lib/use-resource";
 import { listInventory } from "@/lib/wms-api";
 import { DictionaryFinder } from "@/components/dictionary-finder";
+import type { Fulfilment } from "@/lib/masterdata-api";
 
 type Opt = { id: string; label: string };
 
@@ -58,16 +59,22 @@ export function DictionaryItemSelect({
   value,
   valueLabel,
   onPick,
+  fulfilment = "own",
 }: {
   value?: string | null;
   valueLabel?: string | null;
   onPick: (id: string, label: string) => void;
+  /** Purchase requests and orders buy on our own account, so a service held
+   *  in several modes presets "our own cost" and a débours is flagged
+   *  (meeting 6, F2). */
+  fulfilment?: Fulfilment | null;
 }) {
   return (
     <DictionaryFinder
       value={value}
       valueLabel={valueLabel}
       onPick={(id, label) => onPick(id, label)}
+      fulfilment={fulfilment}
       label="Item"
       placeholder="— item —"
     />

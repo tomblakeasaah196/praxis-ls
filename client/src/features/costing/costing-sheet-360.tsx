@@ -51,6 +51,7 @@ import { useFormDraft } from "@/lib/form-draft";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money, dateFmt } from "@/lib/format";
 import { tr } from "@/lib/i18n";
+import { currencies as ccyLib } from "@shared";
 import { listSalesTaxCodes } from "@/lib/masterdata-api";
 import * as api from "@/lib/costing-api";
 import { LineGrid, VatPanel, TotalsFooter } from "./costing-lines";
@@ -305,7 +306,12 @@ export function CostingSheet360({
   }
   const [unlocking, setUnlocking] = React.useState(false);
 
-  const parsedRate = Number(rateText);
+  // EUR (and XOF) convert to XAF at a fixed parity — 655.957, BEAC/BCEAO —
+  // which no one may overwrite (meeting 6, F1). The sheet shows it read-only and
+  // prices with it whatever an older draft or a restored buffer typed.
+  const fixedParity =
+    currency !== "XAF" ? ccyLib.fixedParity(currency, "XAF") : null;
+  const parsedRate = fixedParity ? fixedParity.rate : Number(rateText);
   const sheetRate = currency === "XAF" ? 1 : parsedRate > 0 ? parsedRate : 1;
   // Below this a save would store the fallback rate of 1, not the one typed.
   const canSave = currency === "XAF" || parsedRate > 0;
@@ -374,9 +380,11 @@ export function CostingSheet360({
       convertAll(fx.rate_to_xaf, `1 ${next} = ${fx.rate_to_xaf} XAF`);
       setRateText(String(fx.rate_to_xaf));
       setRateSource(
-        fx.as_of_date
-          ? `${tr("Currencies & FX")} · ${dateFmt(fx.as_of_date)}`
-          : tr("Currencies & FX"),
+        fx.fixed
+          ? `${tr("Fixed parity")} (${fx.authority ?? ""})`
+          : fx.as_of_date
+            ? `${tr("Currencies & FX")} · ${dateFmt(fx.as_of_date)}`
+            : tr("Currencies & FX"),
       );
     } else {
       setRateText("");
@@ -673,6 +681,9 @@ export function CostingSheet360({
             ) : (
               <LineGrid
                 lines={lines || []}
+                // A client's file is billed: the débours row of a service is
+                // preset and our own cost is flagged (meeting 6, F2).
+                fulfilment={file ? (file.client_name ? "billed" : "own") : null}
                 dossierId={c.dossier_id}
                 serviceTypeId={file?.service_type_id}
                 currency={ccy}
@@ -711,7 +722,27 @@ export function CostingSheet360({
                   <p className="num text-sm text-foreground">{ccy}</p>
                 )}
               </Field>
-              {ccy !== "XAF" && (
+              {ccy !== "XAF" && fixedParity && (
+                <Field
+                  label={`${tr("Exchange rate")} · 1 ${ccy} =`}
+                  hint={tr(
+                    "Set by treaty, the same on every document — it cannot be changed.",
+                  )}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p
+                      className="num text-sm text-foreground"
+                      aria-label={`${tr("Exchange rate")} — 1 ${ccy} ${tr("in")} XAF`}
+                    >
+                      {fixedParity.rate} XAF
+                    </p>
+                    <Pill tone="blue">
+                      {tr("Fixed parity")} ({fixedParity.authority})
+                    </Pill>
+                  </div>
+                </Field>
+              )}
+              {ccy !== "XAF" && !fixedParity && (
                 <Field
                   label={`${tr("Exchange rate")} · 1 ${ccy} =`}
                   hint={

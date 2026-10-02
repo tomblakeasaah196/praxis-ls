@@ -37,4 +37,7 @@ module.exports = {
     const r = await req.tenantDb((c) => service.setRate(c, { base: b.base, quote: b.quote, rate: b.rate, asOfDate: b.as_of_date, actor: req.user || { user_id: null } }));
     res.status(201).json({ data: r });
   }),
+  releaseRate: asyncHandler(async (req, res) =>
+    res.json({ data: await req.tenantDb((c) => service.releaseOverride(c, { base: req.body.base, quote: req.body.quote, actor: req.user || {} })) }),
+  ),
 };

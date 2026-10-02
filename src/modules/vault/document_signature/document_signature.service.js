@@ -29,17 +29,25 @@ const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emi
 const { getSetting } = require("../../../shared/config/settings");
 const { AppError } = require("../../../utils/errors");
 const { logger } = require("../../../config/logger");
+const { atomically } = require("../../../shared/db/tx");
+const signingWindow = require("./signing-window.service");
 
 /** Plain-language assurance, for anything a non-engineer will read. */
 const METHOD_WORDS = {
   SES:     { fr: "Signé depuis une session authentifiée", en: "Signed from an authenticated session" },
   AES_OTP: { fr: "Vérifié par code e-mail",               en: "Verified by email code" },
   AES_PASSKEY: { fr: "Vérifié par passkey",                en: "Verified by passkey" },
+  // Meeting 6, F6: made under a 5-minute signing window that one passkey /
+  // code proof opened — said as such, never as a fresh proof per document.
+  AES_PASSKEY_WINDOW: { fr: "Vérifié par passkey, dans une fenêtre de signature de 5 minutes", en: "Verified by passkey, within a 5-minute signing window" },
+  AES_OTP_WINDOW: { fr: "Vérifié par code e-mail, dans une fenêtre de signature de 5 minutes", en: "Verified by email code, within a 5-minute signing window" },
   QES:     { fr: "Certifié par un tiers de confiance",    en: "Certified by a trust provider" },
   WET:     { fr: "Signé à la main et rapproché",          en: "Signed by hand and reconciled" },
 };
 /** Every assurance a row may carry (migration 14210 moved this out of a CHECK). */
-const ASSURANCE_LEVELS = new Set(["SES", "AES_OTP", "AES_PASSKEY", "QES", "WET"]);
+const ASSURANCE_LEVELS = new Set(["SES", "AES_OTP", "AES_PASSKEY", "AES_PASSKEY_WINDOW", "AES_OTP_WINDOW", "QES", "WET"]);
+/** Levels a proof hands over as is (14345): a passkey, or a window it opened. */
+const PROOF_LEVELS = new Set(["AES_PASSKEY", "AES_PASSKEY_WINDOW", "AES_OTP_WINDOW"]);
 const methodWords = (level, lang) => (METHOD_WORDS[level] || METHOD_WORDS.SES)[lang === "en" ? "en" : "fr"];
 
 /**
@@ -164,6 +172,10 @@ function present(sig, status, { language = "fr", full = false, reasonWords = nul
     preset_code: sig.preset_code,
     assurance_level: sig.assurance_level,
     assurance_words: methodWords(sig.assurance_level, language),
+    // Meeting 6, F6: the 5-minute window this signature opened or was made
+    // under, and when its proof was given (14345).
+    signing_window_id: sig.signing_window_id || null,
+    window_opened_at: sig.window_opened_at || null,
     visual_mark: sig.visual_mark,
     sign_reason: sig.sign_reason,
     /*
@@ -332,7 +344,10 @@ async function signInternal(client, opts) {
   }
   const proofOtp = otpChallengeId || (settled && settled.otpChallengeId) || null;
   const stepUp = await stepUpNeeded(client, { docType, doc: liveDoc });
-  if (stepUp && !proofOtp && !(settled && settled.assurance === "AES_PASSKEY")) {
+  // A window opened by a passkey stands for that passkey (owner decision F6:
+  // one confirmation covers the next 5 minutes); one opened by a code carries
+  // that code's id in proofOtp.
+  if (stepUp && !proofOtp && !(settled && (settled.assurance === "AES_PASSKEY" || settled.assurance === "AES_PASSKEY_WINDOW"))) {
     throw new AppError(
       "STEPUP_REQUIRED",
       "This document is above the amount that requires an emailed code as well as your password.",
@@ -342,8 +357,8 @@ async function signInternal(client, opts) {
   }
   // What was COLLECTED (rule 2): a verified passkey, an emailed code, or
   // only the session.
-  const assurance = settled && settled.assurance === "AES_PASSKEY"
-    ? "AES_PASSKEY"
+  const assurance = settled && PROOF_LEVELS.has(settled.assurance)
+    ? settled.assurance
     : proofOtp ? "AES_OTP" : "SES";
   // The column's CHECK was dropped by 14210 (the 13791 rule); this is the list.
   if (!ASSURANCE_LEVELS.has(assurance)) throw new AppError("BAD_ASSURANCE", "Unknown assurance level", 500);
@@ -357,30 +372,50 @@ async function signInternal(client, opts) {
     });
   }
 
-  const row = await repo.insert(client, {
-    entity_ref: entityRef,
-    doc_type: docType,
-    document_vault_id: vaultDoc ? vaultDoc.doc_id : null,
-    payload_version: version,
-    content_hash: hash,
-    content_payload: JSON.stringify(payload),
-    artifact_hash: vaultDoc ? vaultDoc.content_hash : null,
-    assurance_level: assurance,
-    visual_mark: card.visual_mark,
-    preset_code: card.preset_code,
-    sign_reason: signReason,
-    party: "INTERNAL",
-    identity_source: "SESSION",
-    signer_user_id: user.user_id,
-    signer_name: user.full_name,
-    signer_role: user.job_title || null,
-    signer_email: user.email || null,
-    mark_image_b64: card.visual_mark === "DRAWN" ? markImageB64 : null,
-    verify_code: tokens.mintVerifyCode(),
-    ip,
-    user_agent: userAgent,
-    otp_challenge_id: proofOtp,
-    passkey_credential_id: (settled && settled.passkeyCredentialId) || null,
+  // The 5-minute window (14345): a proof from a session opens one WITH this
+  // signature, in one transaction, so a window exists only where a signature
+  // proved it; a signature made under one records which (and is counted and
+  // audited against it).
+  const row = await atomically(client, async () => {
+    let window = null;
+    if (settled && settled.signingWindowId) {
+      window = { window_id: settled.signingWindowId, opened_at: settled.windowOpenedAt || null };
+    } else if (settled && settled.opensWindow) {
+      window = await signingWindow.open(client, { ...settled.opensWindow, entityRef });
+    }
+    const inserted = await repo.insert(client, {
+      entity_ref: entityRef,
+      doc_type: docType,
+      document_vault_id: vaultDoc ? vaultDoc.doc_id : null,
+      payload_version: version,
+      content_hash: hash,
+      content_payload: JSON.stringify(payload),
+      artifact_hash: vaultDoc ? vaultDoc.content_hash : null,
+      assurance_level: assurance,
+      visual_mark: card.visual_mark,
+      preset_code: card.preset_code,
+      sign_reason: signReason,
+      party: "INTERNAL",
+      identity_source: "SESSION",
+      signer_user_id: user.user_id,
+      signer_name: user.full_name,
+      signer_role: user.job_title || null,
+      signer_email: user.email || null,
+      mark_image_b64: card.visual_mark === "DRAWN" ? markImageB64 : null,
+      verify_code: tokens.mintVerifyCode(),
+      ip,
+      user_agent: userAgent,
+      otp_challenge_id: proofOtp,
+      passkey_credential_id: (settled && settled.passkeyCredentialId) || null,
+      signing_window_id: window ? window.window_id : null,
+      window_opened_at: window ? window.opened_at : null,
+    });
+    if (window) {
+      await signingWindow.recordSignature(client, {
+        windowId: window.window_id, userId: user.user_id, signatureId: inserted.signature_id, entityRef, contentHash: hash,
+      });
+    }
+    return inserted;
   });
 
   await emitEvent(client, {

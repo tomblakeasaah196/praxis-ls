@@ -8,7 +8,10 @@
  * activated/deactivated, deleted (FK-safe), and any one can be made the base.
  * Live rates sync from exchangerate-api.com on demand ("Sync now") and nightly;
  * the API key lives behind a ⚙ Settings modal. Manual overrides stay as-of dated
- * and always win over the feed.
+ * and STAND over every later feed row until someone releases them ("Follow the
+ * feed again", meeting 6). XAF/XOF ↔ EUR is a fixed parity (655.957,
+ * BEAC/BCEAO, @shared currencies.fixedParity): shown with a badge, never synced,
+ * never typed.
  */
 
 import { pageShell } from "@/lib/layout";
@@ -59,6 +62,20 @@ type Rate = {
   fetched_at?: string;
   set_by_user_id?: string | null;
   set_by_name?: string | null;
+  /** Manual overrides: when someone chose "Follow the feed again". */
+  released_at?: string | null;
+  /** The resolver's verdict: a manual override still in force today. */
+  standing?: boolean;
+  is_fixed?: boolean;
+  authority?: string;
+};
+type FixedParity = {
+  base: string;
+  quote: string;
+  rate: number;
+  authority: string;
+  anchor: string;
+  source: string;
 };
 type UsageRow = { table: string; label: string; count: number };
 type Dossier = {
@@ -78,6 +95,11 @@ type Dossier = {
   rate_history_page_size?: number;
   rate_history_has_more?: boolean;
   latest_rate: Rate | null;
+  /** What a transaction is stamped with today (a standing override, the peg,
+   *  or the newest feed row) — not simply the newest row. */
+  working_rate?: Rate | null;
+  fixed_parity?: FixedParity | null;
+  standing_override?: Rate | null;
   last_sync: Rate | null;
   overrides: Rate[];
   usage: UsageRow[];
@@ -89,6 +111,8 @@ type SyncResult = {
   base?: string;
   updated?: { quote: string; rate: number }[];
   unsupported?: string[];
+  /** Pairs at a treaty parity: reported, never written. */
+  fixed?: { quote: string; rate: number; authority: string }[];
   fetched_at?: string;
   source?: string;
 };
@@ -720,8 +744,11 @@ function SetRateForm({
   // bank quotes it); the API stores it base-first, so it is inverted on save.
   const stored = storedFromQuoted(Number(rate));
   const tooLarge = Number(rate) > 0 && !(stored > 0);
+  // A treaty parity is not a rate anyone sets (meeting 6, F1). Refused here so
+  // nobody types a figure to be told off by a 422; the API refuses it too.
+  const fixed = base && quote ? ccyLib.fixedParity(quote, base) : null;
   const canSubmit =
-    !!base && !!quote && base !== quote && stored > 0 && !busy;
+    !!base && !!quote && base !== quote && !fixed && stored > 0 && !busy;
 
   async function submit() {
     setBusy(true);
@@ -745,7 +772,7 @@ function SetRateForm({
       open={open}
       onClose={onClose}
       title="Set FX rate"
-      description="Record a manual override rate for a currency pair (as-of dated). Overrides always win over the live feed."
+      description="Record a manual rate for a currency pair (as-of dated). It stands over the daily feed until a newer rate replaces it or you choose “Follow the feed again”."
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={busy}>
@@ -774,7 +801,9 @@ function SetRateForm({
           error={
             base && quote && base === quote
               ? "Base and quote must differ"
-              : undefined
+              : fixed
+                ? `${tr("Fixed parity")} (${fixed.authority}): 1 ${quote} = ${fmtSig(fixed.rate)} ${base}. ${tr("It cannot be set by hand.")}`
+                : undefined
           }
         >
           <Select value={quote} onChange={(e) => setQuote(e.target.value)}>
@@ -978,7 +1007,7 @@ function CurrencyDossier({
   );
   const d = asDossier(res.data);
   const [confirm, setConfirm] = React.useState<
-    null | "base" | "deactivate" | "activate" | "delete"
+    null | "base" | "deactivate" | "activate" | "delete" | "release"
   >(null);
   const [busy, setBusy] = React.useState(false);
   const [actionErr, setActionErr] = React.useState<string | null>(null);
@@ -1002,12 +1031,22 @@ function CurrencyDossier({
     onChanged();
   };
 
-  async function run(kind: "base" | "deactivate" | "activate" | "delete") {
+  async function run(
+    kind: "base" | "deactivate" | "activate" | "delete" | "release",
+  ) {
     setBusy(true);
     setActionErr(null);
     setActionNote(null);
     try {
-      if (kind === "base") {
+      if (kind === "release") {
+        await tenant("/currencies/rates/release", {
+          method: "POST",
+          body: { base: d?.base, quote: code },
+        });
+        setActionNote(
+          tr("The manual rate is released — the daily feed applies from today."),
+        );
+      } else if (kind === "base") {
         const r = await tenant<{
           base?: string;
           previous_base?: string | null;
@@ -1085,7 +1124,11 @@ function CurrencyDossier({
     });
   });
   points.reverse();
-  const latest = d.latest_rate;
+  // The rate in force, not merely the newest row: a standing override or the
+  // peg can differ from the last feed figure (meeting 6, 3.1).
+  const latest = d.working_rate ?? d.latest_rate;
+  const fixed = d.fixed_parity ?? null;
+  const standing = d.standing_override ?? null;
 
   return (
     <div className="space-y-4">
@@ -1232,36 +1275,84 @@ function CurrencyDossier({
           <>
             <div className="mb-3 flex flex-wrap items-baseline gap-x-6 gap-y-1">
               <div>
-                <div className="text-xs text-muted-foreground">Latest rate</div>
-                <div className="num text-lg font-semibold">
-                  {latest
-                    ? `1 ${code} = ${fmtQuoted(latest.rate)} ${d.base}`
-                    : "—"}
+                <div className="text-xs text-muted-foreground">
+                  {tr("Rate in force")}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="num text-lg font-semibold">
+                    {fixed
+                      ? `1 ${code} = ${fmtSig(ccyLib.fixedParity(code, d.base)?.rate ?? quoted(fixed.rate))} ${d.base}`
+                      : latest
+                        ? `1 ${code} = ${fmtQuoted(latest.rate)} ${d.base}`
+                        : "—"}
+                  </span>
+                  {fixed && (
+                    <Pill tone="blue">
+                      {tr("Fixed parity")} ({fixed.authority})
+                    </Pill>
+                  )}
+                  {standing && <Pill tone="warn">{tr("Manual rate stands")}</Pill>}
                 </div>
               </div>
-              {latest && (
+              {fixed ? (
                 <div className="text-xs text-muted-foreground">
-                  {smartCell(latest.source)} · {latest.as_of_date}
-                  {latest.fetched_at
-                    ? ` · fetched ${dateTimeFmt(latest.fetched_at)}`
-                    : ""}
+                  {tr(
+                    "Set by treaty — the daily feed never updates it and it cannot be set by hand.",
+                  )}
+                </div>
+              ) : (
+                latest && (
+                  <div className="text-xs text-muted-foreground">
+                    {smartCell(latest.source)} · {dateFmt(latest.as_of_date)}
+                    {latest.fetched_at
+                      ? ` · fetched ${dateTimeFmt(latest.fetched_at)}`
+                      : ""}
+                  </div>
+                )
+              )}
+              {!fixed && (
+                <div className="ml-auto">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onSetRate(d.base as string, code)}
+                  >
+                    Set rate
+                  </Button>
                 </div>
               )}
-              <div className="ml-auto">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onSetRate(d.base as string, code)}
-                >
-                  Set rate
-                </Button>
-              </div>
             </div>
+            {standing && (
+              <Callout
+                tone="warn"
+                className="mb-3"
+                action={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirm("release")}
+                  >
+                    {tr("Follow the feed again")}
+                  </Button>
+                }
+              >
+                {`${tr("A manual rate stands")}: 1 ${code} = ${fmtQuoted(standing.rate)} ${d.base} (${dateFmt(standing.as_of_date)}${standing.set_by_name ? ` · ${standing.set_by_name}` : ""}). ${tr("The daily feed does not replace it until you release it.")}`}
+              </Callout>
+            )}
+            {fixed && history.length > 0 && (
+              <p className="mb-2 text-xs text-muted-foreground">
+                {tr(
+                  "Past feed figures for this pair are kept below for the record; none of them is used.",
+                )}
+              </p>
+            )}
             {history.length === 0 ? (
-              <EmptyState
-                title="No rates yet"
-                hint="Use “Sync now” or set a manual rate."
-              />
+              fixed ? null : (
+                <EmptyState
+                  title="No rates yet"
+                  hint="Use “Sync now” or set a manual rate."
+                />
+              )
             ) : (
               <div className="space-y-3">
                 <div className="overflow-x-auto">
@@ -1296,7 +1387,9 @@ function CurrencyDossier({
                           <TD className="text-sm">{smartCell(r.source)}</TD>
                           <TD className="text-sm">
                             {r.is_override ? (
-                              <Pill tone="warn">manual</Pill>
+                              <Pill tone={r.released_at ? "mute" : "warn"}>
+                                {r.released_at ? tr("released") : "manual"}
+                              </Pill>
                             ) : (
                               "—"
                             )}
@@ -1440,6 +1533,21 @@ function CurrencyDossier({
         confirmLabel="Set as base"
       />
       <ConfirmDialog
+        open={confirm === "release"}
+        onClose={() => setConfirm(null)}
+        onConfirm={() => run("release")}
+        busy={busy}
+        title={`${tr("Release the manual rate for")} ${code}?`}
+        body={
+          <>
+            {tr(
+              "From today, new transactions use the newest daily feed rate. Documents already priced keep their rate, and the manual rate stays in the history.",
+            )}
+          </>
+        }
+        confirmLabel={tr("Follow the feed again")}
+      />
+      <ConfirmDialog
         open={confirm === "deactivate"}
         onClose={() => setConfirm(null)}
         onConfirm={() => run("deactivate")}
@@ -1538,7 +1646,7 @@ function SyncStatusBanner({ status }: { status: SyncStatus | null }) {
       bits.push(`Last run was skipped${run.reason ? `: ${run.reason}` : "."}`);
     else if (okRun)
       bits.push(
-        `Last synced ${lastAt ? dateTimeFmt(lastAt) : "recently"} (${run.updated_count} ${run.updated_count === 1 ? "rate" : "rates"}${run.trigger === "cron" ? ", nightly" : ""})${run.unsupported?.length ? ` · no rate for ${run.unsupported.join(", ")}` : ""}.`,
+        `Last synced ${lastAt ? dateTimeFmt(lastAt) : "recently"} (${run.updated_count} ${run.updated_count === 1 ? "rate" : "rates"}${run.trigger === "cron" ? ", nightly" : ""})${run.unsupported?.length ? ` · no rate for ${run.unsupported.join(", ")}` : ""}${run.reason ? ` · ${run.reason}` : ""}.`,
       );
     if (stale && okRun) bits.push("Rates may be stale.");
   } else {
@@ -1601,6 +1709,7 @@ export function CurrenciesPage() {
   }, [rows, q]);
 
   const codes = rows.map((c) => String(c.code)).filter(Boolean);
+  const baseCode = rows.find((c) => c.is_base)?.code ?? null;
   const activeCodes = rows
     .filter((c) => c.is_active)
     .map((c) => String(c.code));
@@ -1649,9 +1758,12 @@ export function CurrenciesPage() {
         const tail = missing
           ? ` (no rate from provider for ${r.unsupported!.join(", ")})`
           : "";
+        const fixedTail = r.fixed?.length
+          ? ` ${r.fixed.map((f) => `${f.quote} (${f.authority})`).join(", ")} ${tr("at fixed parity — not synced.")}`
+          : "";
         setSyncMsg({
           ok: true,
-          text: `Synced ${n} ${n === 1 ? "rate" : "rates"} for ${r.base} from ${r.source ?? "exchangerate-api"}${r.fetched_at ? ` at ${dateTimeFmt(r.fetched_at)}` : ""}${tail}.`,
+          text: `Synced ${n} ${n === 1 ? "rate" : "rates"} for ${r.base} from ${r.source ?? "exchangerate-api"}${r.fetched_at ? ` at ${dateTimeFmt(r.fetched_at)}` : ""}${tail}.${fixedTail}`,
         });
       }
       reloadAll();
@@ -1667,7 +1779,7 @@ export function CurrenciesPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Currencies & FX"
-        description="Add currencies from the world library, set your base, sync live rates, and open a 360 on any one. Manual overrides are as-of dated."
+        description="Add currencies from the world library, set your base, sync live rates, and open a 360 on any one. A manual rate stands until you release it; the CFA franc ↔ euro parity is fixed."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -1760,6 +1872,11 @@ export function CurrenciesPage() {
                       {c.name}
                     </span>
                     {c.is_base && <Pill tone="blue">{tr("Base")}</Pill>}
+                    {!c.is_base &&
+                      baseCode &&
+                      ccyLib.isFixedPair(c.code, baseCode) && (
+                        <Pill tone="blue">{tr("Fixed")}</Pill>
+                      )}
                     {c.most_used && !c.is_base && (
                       <Pill tone="orange">Top</Pill>
                     )}

@@ -48,6 +48,8 @@ import { dateDmy } from "@/lib/format";
 import { AssetSlotField } from "@/features/settings/website-assets";
 import * as site from "@/lib/site-settings-api";
 import type { Entity } from "@/lib/masterdata-api";
+import { CountrySelect } from "@/components/country-select";
+import { coverage as coverageRule } from "@shared";
 
 /** One fact the system already holds. Read-only by design — see the header. */
 /** A coverage row as edited on screen: the API shape plus a local React key. */
@@ -118,6 +120,10 @@ export function EntityPublicStoryTab({
   // is stripped before the rows are sent.
   const [coverage, setCoverage] = React.useState<CoverageRow[]>([]);
   const [focus, setFocus] = React.useState<site.EntityStory["public_focus"]>([]);
+  // Row problems show once someone has tried to save, not while they type.
+  const [tried, setTried] = React.useState(false);
+  const incomplete = coverage.filter((c) => coverageRule.rowProblems(c).length > 0).length;
+  const flags = story.data?.coverage_flags ?? [];
 
   React.useEffect(() => {
     const d = story.data;
@@ -283,21 +289,35 @@ export function EntityPublicStoryTab({
             "The places this company covers, in your own words. The site prints your label, never our name for the country — the two-letter code is what joins a place to the corridor network.",
           )}
         </p>
+        {/* Meeting 6, 3.5: stored rows that need a person's eye — a code that
+            is not a country, or a label that names a place in another one
+            (Libreville under GB). Flagged, never rewritten. */}
+        {flags.length > 0 && (
+          <Callout
+            tone="warn"
+            title={tr("Check these places")}
+            className="mt-3"
+          >
+            <ul className="space-y-1">
+              {flags.map((f) => (
+                <li key={`${f.index}-${f.kind}`}>{f.message}</li>
+              ))}
+            </ul>
+          </Callout>
+        )}
         <ul className="mt-3 space-y-2">
           {coverage.map((c) => (
             <li key={c._id} className="grid gap-2 sm:grid-cols-4">
-              <Input
-                aria-label={tr("Country code")}
-                placeholder="CM"
+              {/* The country comes from the ISO list — a free two-letter box
+                  let Gabon be saved as GB (meeting 6, 3.5). */}
+              <CountrySelect
+                label={tr("Country")}
                 value={c.country_code ?? ""}
-                maxLength={2}
-                disabled={busy || !canEdit}
-                onChange={(e) =>
+                allowEmpty={false}
+                onChange={(code) =>
                   setCoverage((p) =>
                     p.map((row) =>
-                      row._id === c._id
-                        ? { ...row, country_code: e.target.value.toUpperCase() }
-                        : row,
+                      row._id === c._id ? { ...row, country_code: code } : row,
                     ),
                   )
                 }
@@ -336,9 +356,21 @@ export function EntityPublicStoryTab({
               >
                 {tr("Remove")}
               </Button>
+              {tried && coverageRule.rowProblems(c).length > 0 && (
+                <p role="alert" className="text-sm text-destructive sm:col-span-4">
+                  {coverageRule.rowProblems(c).map(tr).join(" ")}
+                </p>
+              )}
             </li>
           ))}
         </ul>
+        {tried && incomplete > 0 && (
+          <p role="alert" className="mt-2 text-sm text-destructive">
+            {incomplete === 1
+              ? tr("One place is incomplete — finish it or remove it before saving.")
+              : `${incomplete} ${tr("places are incomplete — finish them or remove them before saving.")}`}
+          </p>
+        )}
         <div className="mt-3 flex gap-2">
           <Button
             size="sm"
@@ -356,16 +388,16 @@ export function EntityPublicStoryTab({
           <Button
             size="sm"
             disabled={busy || !canEdit}
-            onClick={() =>
-              save({
-                // Rows with no country code are dropped rather than sent: the
-                // code is what joins a place to the corridor network, and a
-                // blank one is a row that can never be drawn.
-                public_coverage: coverage
-                  .filter((c) => (c.country_code || "").length === 2)
-                  .map(({ _id: _local, ...row }) => row),
-              })
-            }
+            onClick={() => {
+              // An incomplete row blocks the save with a message (meeting 6,
+              // 3.5). It used to be dropped silently, which is how a row typed
+              // with a three-letter code simply vanished on Save.
+              setTried(true);
+              if (incomplete > 0) return;
+              void save({
+                public_coverage: coverage.map(({ _id: _local, ...row }) => row),
+              });
+            }}
           >
             {tr("Save places")}
           </Button>

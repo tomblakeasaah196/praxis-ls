@@ -74,6 +74,11 @@ const ALLOW_BASE_TABLE = {
     "By dossier_id, from the event payload.",
   "orchestration/handlers/dossier-created-instantiate-milestones.js":
     "By dossier_id. Runs AT promotion, which is the moment milestones are generated.",
+  "modules/master/client_master/client_master.discard.repo.js":
+    "`history(clientId)` COUNTS a client's files before a draft client may be " +
+    "discarded (meeting 6, 3.6). A DRAFT file is still a file of that client — " +
+    "and its FK would refuse the delete — so it must be counted, which the view " +
+    "would hide. A count by client_id, never an enumeration of rows.",
   "modules/costing/dossier_reconciliation/dossier_reconciliation.repo.js":
     "`dossierEntityId` reads `dossier.entity_id` by a KNOWN dossier_id from " +
     "settle/reopen (the caller has already loaded the reconciliation, whose " +

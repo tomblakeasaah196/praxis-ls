@@ -386,6 +386,11 @@ const aiVendorSetChatPrimary = asyncHandler(async (req, res) => {
 const aiGeminiModelCheck = asyncHandler(async (req, res) => res.json({
   data: await require("../../services/ai/gemini-model-check.service").checkGeminiModel({ force: req.query.refresh === "1" }),
 }));
+// Meeting 6, F7: the model the AI-suggested dictionary posting chose for
+// itself — read-only; nothing here sets it.
+const aiDictionaryPostingModel = asyncHandler(async (req, res) => res.json({
+  data: await require("../../services/ai/dictionary-posting/model.service").postingModel({ force: req.query.refresh === "1" }),
+}));
 
 module.exports = {
   login,
@@ -447,4 +452,5 @@ module.exports = {
   aiVendorTest,
   aiVendorSetChatPrimary,
   aiGeminiModelCheck,
+  aiDictionaryPostingModel,
 };

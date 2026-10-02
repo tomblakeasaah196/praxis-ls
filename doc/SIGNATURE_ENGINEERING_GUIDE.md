@@ -293,6 +293,9 @@ Two independent columns, one preset catalogue. This is Q1 = C.
 | --- | --- | --- | --- |
 | `SES` | 1 | An authenticated session, or possession of a signing token | Internal signer below the Q9 threshold; external signer whose party has no on-file address |
 | `AES_OTP` | 2 | The above **plus** a verified email OTP to an address on file | The normal external path, and internal above the Q9 threshold |
+| `AES_PASSKEY` | 2 | The signer's fingerprint / face: a user-verified WebAuthn assertion over a challenge naming the signer, the document and its content hash (`14210`) | Internal approvals — the owner decision of 28 Sep 2026; see §3.3a |
+| `AES_PASSKEY_WINDOW` | 2 | Made within 5 minutes of the same person's passkey proof, on the same session, with no new prompt (`14345`) | The 2nd, 3rd… signature of a run — §3.3a |
+| `AES_OTP_WINDOW` | 2 | Made within 5 minutes of the same person's emailed-code proof, on the same session (`14345`) | As above, where the window was opened by a code — §3.3a |
 | `WET` | 2 | Ink on paper, reconciled to the record by its printed DataMatrix | On successful reconciliation (PR-5) |
 | `QES` | 3 | A third-party provider's identity verification and audit certificate | On provider completion callback (PR-4) |
 
@@ -346,6 +349,56 @@ cards appear to the sender and to the signer** — one catalogue, one component,
 > **MUST.** `assurance_level` on a completed signature is derived from evidence actually collected
 > (§1.3(b)). The preset states the *target*; the signing service states the *outcome*. A signer who
 > picks `STAMP` and never completes the OTP is recorded as `SES`, and the portal says so.
+
+### 3.3a The signer's proof: passkey first, the phone, and the 5-minute window
+
+*Owner decisions of 28 Sep 2026 (a passkey is the condition for signing) and meeting 6, F6
+(29 Sep 2026). Code: `src/modules/vault/document_signature/signing-proof.service.js`,
+`signing-window.service.js`; client `components/signing/use-signing-proof.tsx`.*
+
+**What is asked, in order.**
+
+1. **An open window** on this session → nothing is asked (below).
+2. **A passkey.** The OS prompt, straight away. On a computer **without** fingerprint or face the
+   ceremony runs anyway, with the WebAuthn `hints: ["hybrid"]` and `hybrid` added to each allowed
+   credential's transports, so the browser offers **"Use a phone or tablet"**: a QR code, then the
+   phone's fingerprint. The server already sends each credential's stored transports.
+3. **No passkey yet.** One sheet. On a computer with its own authenticator: *Set up Face ID*
+   (platform attachment, as before). Without one: **Sign with your phone** · *Use my phone* —
+   registration with `authenticatorAttachment: "cross-platform"` (`from_phone: true` on
+   `POST /auth/passkey/register/options`), so the passkey is created ON the phone by QR.
+4. **The emailed code — last.** Only when WebAuthn is absent, or the phone was declined or out of
+   reach (a cancelled ceremony on a computer without its own authenticator). On a computer WITH
+   one, a cancel is the person saying no and nothing is sent.
+
+**The 5-minute window (`signing_window`, migration `14345`).** A successful passkey or code proof
+made from a signed-in browser session opens a window for **that person on that session** (the
+access token's `sid`):
+
+| Rule | Where it is enforced |
+| --- | --- |
+| 5 minutes from the proof, **never extended** by use | `expires_at` is set once, at open (`signing-window.service open`) |
+| Only the same person on the same session | `use()` matches `user_id` AND `session_id` |
+| Never from another device or session, the AI assistant or an API token | only `signing-proof.fromRequest` can build a window proof; it marks the proof with a private symbol carrying the request's session — a JSON body (an AI payload) cannot forge it, and a token without `sid` names no session |
+| Ends on "End now", sign-out, the lock screen | `POST /signatures/proof/window/end`; the logout path (lock signs out) calls `closeForSession` |
+| Opened only by a signature that commits | `signInternal` opens it in the SAME transaction as the signature row that proved it |
+| Audited: opened, each signature, closed | `document_signature.window.opened / .signed / .closed` on `signing_window:<id>` |
+
+**Each signature under a window is still its own signature.** It is bound to its own document's
+canonical content hash at the moment of signing (`content_hash`, exactly as every other
+signature), carries `signing_window_id` and `window_opened_at`, and copies the proof that opened
+the window into `passkey_credential_id` / `otp_challenge_id`. Its assurance is
+`AES_PASSKEY_WINDOW` or `AES_OTP_WINDOW` — **not** `AES_PASSKEY` — and the verification page says
+*"Verified by passkey, within a 5-minute signing window"* and *"Signed without a new confirmation,
+within 5 minutes of the signer confirming on the same session"*. The first signature, made by the
+proof itself, keeps `AES_PASSKEY` / `AES_OTP` and records the window it opened. A window opened
+by a passkey satisfies the Q9 step-up the way the passkey does (§6.5).
+
+**Schema rule.** `document_signature` gains plain columns only (the `13791` rule, as `14210` did);
+the assurance vocabulary is `ASSURANCE_LEVELS` in `document_signature.service`, never a CHECK.
+
+**The UI.** The shell shows **"Signing unlocked · 4:12 · End now"** while a window is open
+(`components/signing/signing-window-badge.tsx`, counting down to the server's `expires_at`).
 
 ### 3.4 The eligibility funnel (Q16, simplified in Round 2)
 
@@ -2208,6 +2261,8 @@ flags per run, so reconciling a document clears its flag on the next scan with n
 | `10790_signature_wet_events.sql` | 5 | `document_signature.printed / scanned_returned / reconciled / reconcile_review` |
 | `10791_signature_unreconciled_rule.sql` | 5 | the unreconciled scan index/default |
 | `10792_signature_wet_policy.sql` | 5 | appends `PRINT_SIGN` to paper-capable doc-type menus |
+| `14210_signature_passkey.sql` | — ✅ | `passkey_credential_id`; drops the assurance CHECK (the service owns the list) |
+| `14345_signing_window.sql` | meeting 6 ✅ | `signing_window`; `document_signature.signing_window_id / window_opened_at` (§3.3a) |
 
 > These numbers are a PLAN. Re-check `migrations/tenant/` and run
 > `node scripts/db/check-migration-numbers.js` immediately before writing each file — the range has
@@ -2236,6 +2291,10 @@ POST   /signatures/ingest                 MOD-64 create
 GET    /signatures/ingest/queue           MOD-64 view
 POST   /signatures/ingest/:id/bind        MOD-64 approve
 GET    /signatures/:id/scans              MOD-64 view   ← who verified this, when, from how many networks
+POST   /signatures/proof/options          signed in     ← the passkey ceremony for one document
+POST   /signatures/proof/otp              signed in     ← the emailed code (last resort)
+GET    /signatures/proof/window           signed in     ← this session's 5-minute window (§3.3a)
+POST   /signatures/proof/window/end       signed in     ← "End now"
 ```
 
 **Public** (no auth; token is the credential; rate-limited; `tenantDbIn("live")`):

@@ -33,12 +33,13 @@ import { cn } from "@/lib/cn";
 import * as api from "@/lib/costing-api";
 import { suggestionKey as keyOf } from "./costing-model";
 import { dictLabel } from "@/lib/dict-label";
+import { Segmented } from "@/components/ui/segmented";
+import { answerLabel } from "@/lib/dictionary-sibling";
 
 /** The line's name in the reader's language (lib/dict-label). */
 const labelOf = (l: api.SuggestedLine) =>
-  dictLabel({ label_en: l.label_en ?? l.label, label_fr: l.label_fr }) || l.label;
-
-
+  dictLabel({ label_en: l.label_en ?? l.label, label_fr: l.label_fr }) ||
+  l.label;
 
 /** Why this quantity, in words a person can check. */
 const BASIS_NOTE: Record<api.SuggestedLine["qty_basis"], string> = {
@@ -53,7 +54,10 @@ const BASIS_NOTE: Record<api.SuggestedLine["qty_basis"], string> = {
 /** Where the price came from. A rate scoped to no carrier is the item's
  *  fallback, NOT this carrier's price, and saying so stops "MSC rate card"
  *  appearing beside a number MSC never quoted. */
-function priceNote(l: api.SuggestedLine, carrier: string | null): string | null {
+function priceNote(
+  l: api.SuggestedLine,
+  carrier: string | null,
+): string | null {
   // Converted into the sheet's currency: say from what, so an EUR figure on an
   // XAF rate card is never a mystery to the approver.
   const from =
@@ -62,13 +66,20 @@ function priceNote(l: api.SuggestedLine, carrier: string | null): string | null 
       : "";
   return withFrom(scopeNote(l, carrier), from);
 }
-const withFrom = (note: string | null, from: string) => (note ? note + from : from ? from.slice(3) : null);
+const withFrom = (note: string | null, from: string) =>
+  note ? note + from : from ? from.slice(3) : null;
 
-function scopeNote(l: api.SuggestedLine, carrier: string | null): string | null {
+function scopeNote(
+  l: api.SuggestedLine,
+  carrier: string | null,
+): string | null {
   if (l.price_source === "NONE") return null;
-  if (l.price_source === "NO_FX") return tr("No exchange rate on file to convert this rate");
+  if (l.price_source === "NO_FX")
+    return tr("No exchange rate on file to convert this rate");
   if (l.price_source === "CATALOGUE_DEFAULT") return tr("Catalogue default");
-  const eff = l.effective_from ? `, ${tr("from")} ${dateFmt(l.effective_from)}` : "";
+  const eff = l.effective_from
+    ? `, ${tr("from")} ${dateFmt(l.effective_from)}`
+    : "";
   if (l.rate_scope === "CARRIER_AND_TYPE")
     return `${carrier || tr("Carrier")} · ${l.container_type_code}${eff}`;
   if (l.rate_scope === "CARRIER") return `${carrier || tr("Carrier")}${eff}`;
@@ -81,13 +92,17 @@ function LineRow({
   checked,
   onToggle,
   carrier,
+  onSwitch,
 }: {
   line: api.SuggestedLine;
   checked: boolean;
   onToggle: (next: boolean) => void;
   carrier: string | null;
+  /** A service in several fulfilment modes: switch the suggestion to another. */
+  onSwitch?: (siblingId: string) => void;
 }) {
   const note = priceNote(line, carrier);
+  const siblings = line.siblings || [];
   return (
     <div
       className={cn(
@@ -110,8 +125,12 @@ function LineRow({
       />
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="num micro text-muted-foreground">{line.item_code}</span>
-          <span className="text-sm font-medium text-foreground">{labelOf(line)}</span>
+          <span className="num micro text-muted-foreground">
+            {line.item_code}
+          </span>
+          <span className="text-sm font-medium text-foreground">
+            {labelOf(line)}
+          </span>
           {line.container_type_label && (
             <Pill tone="blue">{line.container_type_label}</Pill>
           )}
@@ -129,13 +148,30 @@ function LineRow({
             : `${tr("Qty")} ${line.qty} — ${BASIS_NOTE[line.qty_basis]}`}
           {note ? ` · ${note}` : ""}
         </p>
+        {/* One row per service (meeting 6, F2): the file presets how it is
+            charged, and one tap moves the suggestion to the other mode. */}
+        {siblings.length > 1 && onSwitch && (
+          <div className="mt-1.5">
+            <Segmented
+              label={`${tr("How is this charged on this file?")} — ${labelOf(line)}`}
+              value={line.dictionary_item_id}
+              onChange={(id) => onSwitch(id)}
+              options={siblings.map((s) => ({
+                value: s.dictionary_item_id,
+                label: answerLabel(s.mode),
+              }))}
+            />
+          </div>
+        )}
       </div>
       <div className="text-right">
         {line.unit_cost === null ? (
           <Pill tone="warn">{tr("Needs a price")}</Pill>
         ) : (
           // No currency on the line: the dialog's heading names the sheet's.
-          <span className="num text-sm text-foreground">{amount(line.unit_cost)}</span>
+          <span className="num text-sm text-foreground">
+            {amount(line.unit_cost)}
+          </span>
         )}
       </div>
     </div>
@@ -175,11 +211,17 @@ export function SuggestDialog({
   const d = res.data;
 
   const core = React.useMemo(
-    () => (d ? d.bands.filter((b) => b.tier === "BASIC").flatMap((b) => b.lines) : []),
+    () =>
+      d
+        ? d.bands.filter((b) => b.tier === "BASIC").flatMap((b) => b.lines)
+        : [],
     [d],
   );
   const extras = React.useMemo(
-    () => (d ? d.bands.filter((b) => b.tier !== "BASIC").flatMap((b) => b.lines) : []),
+    () =>
+      d
+        ? d.bands.filter((b) => b.tier !== "BASIC").flatMap((b) => b.lines)
+        : [],
     [d],
   );
 
@@ -193,13 +235,96 @@ export function SuggestDialog({
    */
   const existingRef = React.useRef(existingKeys);
   existingRef.current = existingKeys;
-  const onSheet = (l: api.SuggestedLine) => existingRef.current.has(keyOf(l));
+  // A service is on the sheet in whichever of its modes it was added.
+  const onSheet = (l: api.SuggestedLine) =>
+    [
+      l.dictionary_item_id,
+      ...(l.siblings || []).map((s) => s.dictionary_item_id),
+    ].some((id) =>
+      existingRef.current.has(keyOf({ ...l, dictionary_item_id: id })),
+    );
+
+  /*
+   * The fulfilment mode a person switched a suggestion to (F2), keyed by the
+   * suggestion's ORIGINAL key so ticking and the "already on the sheet" check
+   * keep their identity. The switched line is priced for its own row.
+   */
+  const [swapped, setSwapped] = React.useState<
+    Record<string, api.SuggestedLine>
+  >({});
+  React.useEffect(() => setSwapped({}), [d]);
+  const effective = (l: api.SuggestedLine) => swapped[keyOf(l)] ?? l;
+  const switchLine = (l: api.SuggestedLine, siblingId: string) => {
+    const k = keyOf(l);
+    const sib = (l.siblings || []).find(
+      (s) => s.dictionary_item_id === siblingId,
+    );
+    if (!sib) return;
+    if (sib.dictionary_item_id === l.dictionary_item_id) {
+      setSwapped((prev) => {
+        const next = { ...prev };
+        delete next[k];
+        return next;
+      });
+      return;
+    }
+    const disb = sib.is_disbursement === true;
+    const tax = d?.defaults;
+    const moved: api.SuggestedLine = {
+      ...l,
+      dictionary_item_id: sib.dictionary_item_id,
+      item_code: sib.code,
+      label: sib.label_en || sib.label_fr,
+      label_en: sib.label_en,
+      label_fr: sib.label_fr,
+      direction: sib.direction,
+      mode: sib.mode,
+      is_disbursement: disb,
+      disbursement_vat_transparent: disb,
+      // Pass-through is never taxed; a service of ours takes the entity's VAT.
+      tax_code_id: disb ? null : (tax?.tax_code_id ?? null),
+      tax_code: disb ? null : (tax?.tax_code ?? null),
+      tax_rate_percent: disb ? null : (tax?.tax_rate_percent ?? null),
+      unit_cost: null,
+      price_source: "NONE",
+      price_note: null,
+    };
+    setSwapped((prev) => ({ ...prev, [k]: moved }));
+    api
+      .priceCostingLine({
+        dictionaryItemId: sib.dictionary_item_id,
+        dossierId,
+        containerTypeRefId: l.container_type_ref_id,
+        sheet: { currency, exchangeRateToXaf: exchangeRate },
+      })
+      .then((p) =>
+        setSwapped((prev) =>
+          prev[k]?.dictionary_item_id === sib.dictionary_item_id
+            ? {
+                ...prev,
+                [k]: {
+                  ...prev[k],
+                  ...p,
+                  dictionary_item_id: sib.dictionary_item_id,
+                },
+              }
+            : prev,
+        ),
+      )
+      .catch(() => {
+        /* @silent:parse — a defined fallback: the switched line stays "needs
+           a price", which is what the dialog already says for a charge with
+           no rate on file. */
+      });
+  };
 
   const [picked, setPicked] = React.useState<Set<string> | null>(null);
   React.useEffect(() => {
     if (!d) return;
     const next = new Set<string>();
-    for (const l of d.bands.filter((b) => b.tier === "BASIC").flatMap((b) => b.lines))
+    for (const l of d.bands
+      .filter((b) => b.tier === "BASIC")
+      .flatMap((b) => b.lines))
       if (!existingRef.current.has(keyOf(l))) next.add(keyOf(l));
     setPicked(next);
   }, [d]);
@@ -214,7 +339,7 @@ export function SuggestDialog({
     });
 
   const allLines = React.useMemo(() => [...core, ...extras], [core, extras]);
-  const chosen = allLines.filter((l) => sel.has(keyOf(l)));
+  const chosen = allLines.filter((l) => sel.has(keyOf(l))).map(effective);
 
   const toggleMany = (lines: api.SuggestedLine[], on: boolean) =>
     setPicked((prev) => {
@@ -237,7 +362,13 @@ export function SuggestDialog({
   const needle = q.trim().toLowerCase();
   const shownExtras = needle
     ? extras.filter((l) =>
-        [labelOf(l), l.label_fr, l.label_en, l.item_code, l.container_type_label]
+        [
+          labelOf(l),
+          l.label_fr,
+          l.label_en,
+          l.item_code,
+          l.container_type_label,
+        ]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(needle)),
       )
@@ -250,7 +381,13 @@ export function SuggestDialog({
       <section className="space-y-2" aria-labelledby={id}>
         <div className="flex items-center justify-between gap-3 border-b pb-1">
           <Checkbox
-            checked={on === 0 ? false : on === selectable.length ? true : "indeterminate"}
+            checked={
+              on === 0
+                ? false
+                : on === selectable.length
+                  ? true
+                  : "indeterminate"
+            }
             onCheckedChange={(next) => toggleMany(lines, next)}
             disabled={!selectable.length}
             label={
@@ -280,10 +417,11 @@ export function SuggestDialog({
             ) : (
               <LineRow
                 key={k}
-                line={l}
+                line={effective(l)}
                 checked={sel.has(k)}
                 onToggle={(next) => toggle(k, next)}
                 carrier={d?.file.rate_provider_name ?? null}
+                onSwitch={(id) => switchLine(l, id)}
               />
             );
           })}
@@ -331,7 +469,9 @@ export function SuggestDialog({
         {d && core.length > 0 && (
           <>
             <p className="micro">
-              {tr("The core charges for this service are ticked. Untick what this file does not need.")}
+              {tr(
+                "The core charges for this service are ticked. Untick what this file does not need.",
+              )}
             </p>
             {group(tr("Core charges"), core, "suggest-core")}
           </>
@@ -347,7 +487,8 @@ export function SuggestDialog({
               aria-controls="suggest-more"
               onClick={() => setMoreOpen((o) => !o)}
             >
-              {showMore ? "▾" : "▸"} {tr("More charges for this service")} ({extras.length})
+              {showMore ? "▾" : "▸"} {tr("More charges for this service")} (
+              {extras.length})
             </Button>
             {showMore && (
               <div id="suggest-more" className="space-y-2">
@@ -360,7 +501,9 @@ export function SuggestDialog({
                 {shownExtras.length ? (
                   group(tr("More charges"), shownExtras, "suggest-more-title")
                 ) : (
-                  <p className="micro">{tr("No charge matches that search.")}</p>
+                  <p className="micro">
+                    {tr("No charge matches that search.")}
+                  </p>
                 )}
               </div>
             )}
@@ -372,12 +515,14 @@ export function SuggestDialog({
             <div className="micro space-y-0.5">
               {d.counts.needs_price > 0 && (
                 <p>
-                  {d.counts.needs_price} {tr("line(s) have no rate on file — you will price them.")}
+                  {d.counts.needs_price}{" "}
+                  {tr("line(s) have no rate on file — you will price them.")}
                 </p>
               )}
               {d.counts.needs_quantity > 0 && (
                 <p>
-                  {d.counts.needs_quantity} {tr("line(s) need a quantity only you can know.")}
+                  {d.counts.needs_quantity}{" "}
+                  {tr("line(s) need a quantity only you can know.")}
                 </p>
               )}
               {/* A franchise-regime entity is offered no VAT at all. Saying so
@@ -386,7 +531,9 @@ export function SuggestDialog({
                 <p>
                   {d.defaults.vat_regime
                     ? `${tr("No VAT offered — this entity is on the")} ${d.defaults.vat_regime} ${tr("regime.")}`
-                    : tr("No VAT offered — no sales tax code is effective for this entity.")}
+                    : tr(
+                        "No VAT offered — no sales tax code is effective for this entity.",
+                      )}
                 </p>
               )}
             </div>
