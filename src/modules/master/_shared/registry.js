@@ -28,8 +28,12 @@ const actorOf = (req) => req.user || { user_id: null };
  * @param {string} cfg.moduleKey  RBAC module for the audit trail
  * @param {string} cfg.label      entity label used in audit refs and errors
  * @param {string[]} cfg.writable body-writable columns (the allow-list)
+ * @param {string} [cfg.orderBy] ORDER BY clause, code-provided literal. Defaults
+ *   to `code`, which is right for a registry a person reads alphabetically. A
+ *   registry with a curated running order (milestone_owner, whose dropdown puts
+ *   "Internal ops" first and "Other party" last) passes its own.
  */
-function build({ table, pk, moduleKey, label, writable }) {
+function build({ table, pk, moduleKey, label, writable, orderBy = "code" }) {
   const repo = {
     writable,
     insert: (c, data) => insertOne(c, table, data, "*", writable),
@@ -44,7 +48,7 @@ function build({ table, pk, moduleKey, label, writable }) {
       if (q.applies_to) { params.push(String(q.applies_to).toUpperCase()); wh.push(`(applies_to = $${params.length} OR applies_to = 'BOTH')`); }
       if (q.q) { params.push(`%${q.q}%`); wh.push(`(code ILIKE $${params.length} OR name ILIKE $${params.length})`); }
       const where = wh.length ? `WHERE ${wh.join(" AND ")}` : "";
-      const { rows } = await c.query(`SELECT * FROM ${table} ${where} ORDER BY code LIMIT $1 OFFSET $2`, params);
+      const { rows } = await c.query(`SELECT * FROM ${table} ${where} ORDER BY ${orderBy} LIMIT $1 OFFSET $2`, params);
       return rows;
     },
   };

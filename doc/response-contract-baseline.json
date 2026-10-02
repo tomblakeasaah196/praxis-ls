@@ -16,7 +16,9 @@
     "vat_mode": "View-model state, not a response field: costing-model.LineDraft carries which of the two boxes a débours line's VAT is entered through (rate vs free-text amount). Derived from upstream_vat_rate_percent/amount on load; toPayload sends the rate and amount, never the mode.",
     "base_unit_cost": "Client-only view-model on the costing worksheet (costing-model.ts LineDraft): the line's XAF value pinned so converting the sheet's currency/rate never compounds rounding. Never sent by or to the API; toPayload omits it.",
     "base_upstream_vat": "Client-only view-model on the costing worksheet (costing-model.ts LineDraft): the line's XAF value pinned so converting the sheet's currency/rate never compounds rounding. Never sent by or to the API; toPayload omits it.",
-    "record_types": "Not an API field: client/src/lib/search-index.ts reads it from client/src/app/screen-registry.json tabs[] (meeting 6, PR 4 — G5), a static file the client imports. The scanner attributes it to the nearest exported type."
+    "record_types": "Not an API field: client/src/lib/search-index.ts reads it from client/src/app/screen-registry.json tabs[] (meeting 6, PR 4 — G5), a static file the client imports. The scanner attributes it to the nearest exported type.",
+    "tax_codes": "tax_jurisdiction.service.get attaches it to the row it returns (`jur.tax_codes = ...`, `jur.unmapped_codes = ...`) rather than selecting it, so the scanner — which reads `SELECT ... AS alias` — cannot see it. Both ARE sent, and the jurisdiction 360 is built on them: meeting 7 (01:25:15) needed the unmapped codes on screen the moment the jurisdiction opens. Previously invisible to this gate because the type was an inline intersection; naming it is what surfaced it.",
+    "unmapped_codes": "tax_jurisdiction.service.get attaches it to the row it returns (`jur.tax_codes = ...`, `jur.unmapped_codes = ...`) rather than selecting it, so the scanner — which reads `SELECT ... AS alias` — cannot see it. Both ARE sent, and the jurisdiction 360 is built on them: meeting 7 (01:25:15) needed the unmapped codes on screen the moment the jurisdiction opens. Previously invisible to this gate because the type was an inline intersection; naming it is what surfaced it."
   },
   "tables": [
     "ageing",
@@ -111,9 +113,11 @@
     "step_count",
     "system_code",
     "table_name",
+    "tax_codes",
     "tax_office_ref",
     "tax_residency_country",
     "total_employer_charges",
+    "unmapped_codes",
     "usage_total",
     "variance_committed_actual",
     "variance_estimated_actual",

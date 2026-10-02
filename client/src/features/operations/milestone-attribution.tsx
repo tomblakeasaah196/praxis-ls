@@ -27,9 +27,17 @@ import { useResource } from "@/lib/use-resource";
 import { num } from "@/lib/format";
 import { tenant } from "@/lib/api-client";
 import * as api from "@/lib/operations-api";
+import { useMilestoneOwners } from "@/lib/milestone-owners";
 
 type TierRow = {
   owner_tier: api.OwnerTier;
+  /* Joined from `milestone_owner` by the repo (14400), so a tenant's own party
+   * reads by its name. Absent when the owner row has since been deleted — the
+   * slip still happened, so the row is kept and the code is shown. */
+  owner_name?: string | null;
+  owner_name_fr?: string | null;
+  /** Whether this owner is US. The ours/theirs split reads this and nothing else. */
+  is_internal?: boolean;
   slips: number;
   total_hours: number;
   avg_hours: number;
@@ -40,6 +48,8 @@ type StageRow = {
   code: string;
   label?: string | null;
   owner_tier: api.OwnerTier;
+  owner_name?: string | null;
+  owner_name_fr?: string | null;
   service_fr?: string | null;
   service_en?: string | null;
   slips: number;
@@ -61,6 +71,9 @@ const asDuration = (hours: number) => {
 
 export function MilestoneAttribution() {
   const data = useResource(() => getAttribution(), []);
+  // The registry, for an owner the join could not resolve (a deleted row) and
+  // for the reader's language.
+  const owners = useMilestoneOwners();
 
   if (data.loading) return <SkeletonTable rows={4} cols={4} />;
   if (data.error) return <ErrorState message={data.error} />;
@@ -103,8 +116,16 @@ export function MilestoneAttribution() {
               <TD>
                 <div className="flex items-center gap-2">
                   <span className="text-foreground">
-                    {api.OWNER_TIER_LABEL[t.owner_tier]}
+                    {t.owner_name || owners.label(t.owner_tier)}
                   </span>
+                  {/* Ours or theirs — the question the whole table exists to
+                      answer, and it has to keep working for an owner a tenant
+                      added after this screen was written (14400). */}
+                  {t.is_internal ? (
+                    <Pill tone="mute">ours</Pill>
+                  ) : (
+                    <Pill tone="blue">third party</Pill>
+                  )}
                   {t.owner_tier === worst.owner_tier && (
                     <Pill tone="bad">most time lost</Pill>
                   )}
@@ -151,7 +172,9 @@ export function MilestoneAttribution() {
               <TR key={s.code + s.owner_tier + (s.service_en || "")}>
                 <TD>{s.label || s.code}</TD>
                 <TD className="micro">{s.service_en || s.service_fr || "—"}</TD>
-                <TD className="micro">{api.OWNER_TIER_LABEL[s.owner_tier]}</TD>
+                <TD className="micro">
+                  {s.owner_name || owners.label(s.owner_tier)}
+                </TD>
                 <TD className="num text-right">{num(s.slips)}</TD>
                 <TD className="num text-right">{asDuration(s.avg_hours)}</TD>
                 <TD className="num text-right">{asDuration(s.total_hours)}</TD>

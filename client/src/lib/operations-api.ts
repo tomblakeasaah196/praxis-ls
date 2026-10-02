@@ -626,6 +626,13 @@ export type ServiceType = {
   /** The two characters that close this service's operation-file references
    *  (`SM` in `SL7Z3K9QW2M4XBSM`). Frozen once a file has used it. */
   ops_reference_code?: string | null;
+  /* The scheduling horizon (0650 / seed 9091). Carried by `st.*` and always has
+   * been; declared here so the chain editor can show what a stage's WEIGHT means
+   * in days — "FEASIBILITY 5% ≈ 2 of 45" — instead of leaving the operator to do
+   * the arithmetic while repartitioning (meeting 7, 01:58:19). */
+  default_duration_days?: number | null;
+  duration_basis?: "WORKING_DAYS" | "CALENDAR_DAYS" | "MONTHS" | null;
+  is_open_ended?: boolean | null;
 };
 export type ServiceTypeInput = {
   key?: string;
@@ -672,6 +679,16 @@ export const archiveServiceType = (id: string) =>
 /* ── Service type 360° — every collection returned defaults to [] for a brand
  * new service type, and money keys arrive masked (`money.masked`) for callers
  * without finance visibility (MOD-09). Mirrors the party-360 shape. */
+/**
+ * A stage as the service-type 360 inlines it (`service_type.repo
+ * .templatesWithStages`).
+ *
+ * The SCHEDULING half was already in that payload and was not declared here, so
+ * the Milestones tab could only render a name and an offset — the weight and the
+ * owner, which are what the meeting-7 review spent its time on, were present in
+ * the response and invisible to TypeScript. Declared now, optional because the
+ * `jsonb_build_object` emits SQL NULL for an unset column.
+ */
 export type ServiceTypeTemplateStage = {
   stage_id: string;
   stage_seq: number | string;
@@ -679,6 +696,19 @@ export type ServiceTypeTemplateStage = {
   label_fr: string;
   label_en?: string | null;
   default_offset_days: number;
+  weight?: number | null;
+  min_duration_hours?: number | null;
+  owner_tier?: OwnerTier | null;
+  is_anchor?: boolean | null;
+  is_target_lock?: boolean | null;
+  is_client_visible?: boolean | null;
+  is_optional?: boolean | null;
+  chain_segment?: string | null;
+  cadence?: Cadence | null;
+  required_evidence_doc_type?: string | null;
+  auto_advance_on_event?: string | null;
+  is_system?: boolean | null;
+  system_code?: string | null;
 };
 export type ServiceTypeTemplate = {
   milestone_template_id: string;
@@ -856,8 +886,9 @@ export const removeServiceTypeDictionaryTier = (
  * Publish a new ACTIVE template version.
  *
  * The body carries the whole scheduling shape, not just labels — the backend
- * validator (milestone.validator.js) bounds it at 3..15 stages, weight 0..100
- * and a known owner tier, and the DB caps the count at 15 as well.
+ * validator (milestone.validator.js) bounds it at 3..15 stages and weight
+ * 0..100, the service checks every owner code against the registry (14400), and
+ * the DB caps the count at 15 as well.
  */
 export const publishMilestoneTemplate = (body: {
   service_type_id: string;
@@ -1037,24 +1068,105 @@ export const createGeoPlace = (body: {
 
 /* ── Milestones(/milestones) — templates + per-dossier instances ── */
 
-/** Who a stage's delay is charged to when it slips (0650). */
-export type OwnerTier =
-  "INTERNAL" | "CARRIER" | "TERMINAL" | "AUTHORITY" | "CLIENT";
-export const OWNER_TIERS: OwnerTier[] = [
-  "INTERNAL",
-  "CARRIER",
-  "TERMINAL",
-  "AUTHORITY",
-  "CLIENT",
-];
+/**
+ * Who a stage's delay is charged to when it slips.
+ *
+ * NO LONGER A UNION OF FIVE. Meeting 7 (1 Oct 2026), 01:57:20 — the owner reached
+ * the dropdown and found it closed: "we should have the possibility of adding …
+ * a configurations button that will permit us to create new milestone owner
+ * categories". The values now live in the tenant's `milestone_owner` registry
+ * (14400 / seed 9160), so the TYPE is an owner CODE and the labels come from the
+ * registry at runtime — `useMilestoneOwners()` in lib/milestone-owners.
+ *
+ * Kept as a named alias rather than replaced by `string` so every call site that
+ * means "an owner code" still says so, and so this comment is where someone
+ * looking for the old enum lands.
+ */
+export type OwnerTier = string;
 
-/** Human labels — never render the SCREAMING_ENUM (FRONTEND_GUIDE §5). */
-export const OWNER_TIER_LABEL: Record<OwnerTier, string> = {
+/** One row of the tenant's milestone-owner registry (14400). */
+export type MilestoneOwner = {
+  owner_id: string;
+  code: string;
+  /** English label. */
+  name: string;
+  /** French label; falls back to `name` when a tenant has not set one. */
+  name_fr?: string | null;
+  /** True when this owner is US — the only flag the attribution split reads. */
+  is_internal: boolean;
+  description?: string | null;
+  sort_order?: number;
+  /** Shipped with the product: renameable and deactivatable, never deletable. */
+  is_system?: boolean;
+  is_active?: boolean;
+};
+
+/**
+ * The shipped five, as a LAST-RESORT label map.
+ *
+ * Not the source of truth any more — the registry is — but a screen that renders
+ * an owner before its fetch resolves, or renders a code from a closed file whose
+ * owner row a tenant has since deleted, should say "Internal ops" rather than
+ * "INTERNAL". `ownerLabelFrom` below is what call sites use; this is its floor.
+ */
+export const OWNER_TIER_LABEL: Record<string, string> = {
   INTERNAL: "Internal ops",
   CARRIER: "Carrier",
   TERMINAL: "Terminal / port",
-  AUTHORITY: "Customs / authority",
+  AUTHORITY: "Authority",
   CLIENT: "Client",
+};
+
+/**
+ * The whole registry, in the running order the dropdown shows — deactivated rows
+ * included.
+ *
+ * There is deliberately no active-only variant. A stage can hold an owner a
+ * tenant has switched off, and a closed milestone's `attributed_to` can too, so a
+ * caller with only the active rows has no NAME for those codes and renders the
+ * stored code. `useMilestoneOwners` filters for a picker; everything else wants
+ * every row.
+ */
+export const listAllMilestoneOwners = () =>
+  tenant<MilestoneOwner[]>("/milestone-owners");
+
+export const createMilestoneOwner = (body: {
+  code: string;
+  name: string;
+  name_fr?: string | null;
+  is_internal?: boolean;
+  description?: string | null;
+  sort_order?: number;
+}) => tenant<MilestoneOwner>("/milestone-owners", { method: "POST", body });
+
+/** `code` is deliberately not patchable — see milestone_owner.repo. */
+export const updateMilestoneOwner = (
+  id: string,
+  body: Partial<Omit<MilestoneOwner, "owner_id" | "code" | "is_system">>,
+) => tenant<MilestoneOwner>(`/milestone-owners/${id}`, { method: "PATCH", body });
+
+/** A system row refuses to delete (422) and a referenced one too (409). */
+export const deleteMilestoneOwner = (id: string) =>
+  tenant<{ deleted: boolean }>(`/milestone-owners/${id}`, { method: "DELETE" });
+
+/**
+ * The label for an owner code, in the reader's language where the tenant set one.
+ *
+ * Falls back, in order: the registry row, the shipped label map, the code itself.
+ * Never returns an empty string — an unlabelled owner column reads as a bug.
+ */
+export const ownerLabelFrom = (
+  owners: MilestoneOwner[] | null | undefined,
+  code?: string | null,
+  lang?: string,
+): string => {
+  if (!code) return "—";
+  const row = (owners || []).find((o) => o.code === code);
+  if (row) {
+    const fr = String(lang || "").toLowerCase().startsWith("fr");
+    return (fr ? row.name_fr || row.name : row.name) || code;
+  }
+  return OWNER_TIER_LABEL[code] || code;
 };
 
 export const CADENCES = [
@@ -1233,6 +1345,24 @@ export const addDossierMilestone = (
     method: "POST",
     body,
   });
+
+/**
+ * Correct a stage's WORDING on a published template version, in place.
+ *
+ * Meeting 7, 01:35:55: "I think I have to make such a way that you can even edit
+ * the names directly like you pick a particular line and you edit it". Labels
+ * only, deliberately: a weight or an owner changes the schedule, and a file in
+ * flight was stamped with the stages it opened under — those still need a new
+ * version. The response says how many open files the correction reached.
+ */
+export const renameMilestoneStage = (
+  stageId: string,
+  body: { label_fr?: string; label_en?: string | null },
+) =>
+  tenant<MilestoneStage & { open_instances_updated?: number }>(
+    `/milestones/templates/stages/${stageId}`,
+    { method: "PATCH", body },
+  );
 
 /** Force a re-baseline — used after a promised date changes. */
 export const recalculateMilestones = (dossierId: string) =>
