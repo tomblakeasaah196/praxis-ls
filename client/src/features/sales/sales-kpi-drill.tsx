@@ -13,12 +13,14 @@
  *
  * WHERE A ROW GOES. A quote request has its own route. Meetings, proposals and
  * deals open as dialogs on their registers, which read `?focus=` for this
- * (`useFocusOpen`). An intake attachment has no page of its own, so it is a row
- * that answers "which files" and goes nowhere — a link to nowhere is worse.
+ * (`useFocusOpen`). An intake attachment has no page of its own, so clicking
+ * one opens the shared vault preview dialog on top of this drill — the file
+ * either previews inline or falls back to Download.
  *
  * WHAT STAYS INERT. "Days open" is an age and "Converted deal" is one deal's
  * value — figures, not lists.
  */
+import * as React from "react";
 import { Pill, StatusPill } from "@/components/ui/pill";
 import { cell, dateFmt, enumLabel, money, num } from "@/lib/format";
 import {
@@ -26,6 +28,10 @@ import {
   type KpiDetailHeader,
   type KpiDetailRow,
 } from "@/components/kpi-details-modal";
+import {
+  VaultPreviewDialog,
+  type VaultPreviewDocument,
+} from "@/components/vault-preview-dialog";
 import type {
   IntakeDossierData,
   LeadDossierData,
@@ -213,7 +219,11 @@ function leadDrill(kind: LeadKpiKind, d: LeadDossierData): Drill {
   return dealsDrill(d.opportunities || [], kind === "pipeline");
 }
 
-function intakeDrill(kind: IntakeKpiKind, d: IntakeDossierData): Drill {
+function intakeDrill(
+  kind: IntakeKpiKind,
+  d: IntakeDossierData,
+  onPreview: (doc: VaultPreviewDocument) => void,
+): Drill {
   if (kind === "proposals") {
     return proposalsDrill(
       d.proposals || [],
@@ -224,7 +234,7 @@ function intakeDrill(kind: IntakeKpiKind, d: IntakeDossierData): Drill {
   return {
     title: "Attachments",
     description:
-      "The files attached to this request — the primary document first.",
+      "The files attached to this request — the primary document first. Click a row to preview the file.",
     headers: [
       { label: "File" },
       { label: "Role" },
@@ -234,6 +244,14 @@ function intakeDrill(kind: IntakeKpiKind, d: IntakeDossierData): Drill {
     ],
     rows: files.map((a) => ({
       id: a.quote_request_attachment_id,
+      onSelect: a.vault_id
+        ? () =>
+            onPreview({
+              doc_id: a.vault_id,
+              title: a.original_name || "Attachment",
+              filename: a.original_name,
+            })
+        : undefined,
       cells: [
         cell(a.original_name),
         a.kind === "PRIMARY" ? (
@@ -295,7 +313,11 @@ export function LeadKpiDrill({
   );
 }
 
-/** The drill-in for a quote-request 360 tile. Mounted only while open. */
+/** The drill-in for a quote-request 360 tile. Mounted only while open.
+ *
+ *  The attachments tile has no destination page per row — clicking a file
+ *  opens the vault preview dialog on top of the drill. The preview owns its
+ *  own loading/error state; a file not yet in the vault surfaces there. */
 export function IntakeKpiDrill({
   kind,
   data,
@@ -305,11 +327,15 @@ export function IntakeKpiDrill({
   data: IntakeDossierData;
   onClose: () => void;
 }) {
+  const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
   return (
-    <DrillModal
-      drill={intakeDrill(kind, data)}
-      subject={String(data.request.public_ref || "Quote request")}
-      onClose={onClose}
-    />
+    <>
+      <DrillModal
+        drill={intakeDrill(kind, data, setPreview)}
+        subject={String(data.request.public_ref || "Quote request")}
+        onClose={onClose}
+      />
+      <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
+    </>
   );
 }
