@@ -13,7 +13,7 @@ module.exports = recordProvider({
   module: "MOD-30",
   label: { en: "Transit orders", fr: "Ordres de transit" },
   route: "/operations/transit-orders",
-  from: "transit_order t LEFT JOIN dossier d ON d.dossier_id = t.dossier_id",
+  from: "transit_order t LEFT JOIN dossier_visible d ON d.dossier_id = t.dossier_id",
   columns: ["t.ot_number", "d.ref"],
   select: "t.transit_order_id AS id, t.ot_number AS ref, COALESCE(t.ot_number, d.ref) AS title, d.ref AS sub, t.status AS status",
   order: "t.created_at DESC",

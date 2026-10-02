@@ -13,7 +13,7 @@ module.exports = recordProvider({
   module: "MOD-32",
   label: { en: "Delivery notes", fr: "Bons de livraison" },
   route: "/operations/delivery-notes",
-  from: "delivery_note n LEFT JOIN dossier d ON d.dossier_id = n.dossier_id",
+  from: "delivery_note n LEFT JOIN dossier_visible d ON d.dossier_id = n.dossier_id",
   columns: ["n.doc_number", "n.consignee", "d.ref"],
   select: "n.delivery_note_id AS id, n.doc_number AS ref, COALESCE(n.doc_number, d.ref) AS title, NULLIF(concat_ws(' · ', n.consignee, d.ref), '') AS sub, n.status AS status, n.delivery_date AS date",
   order: "n.created_at DESC",

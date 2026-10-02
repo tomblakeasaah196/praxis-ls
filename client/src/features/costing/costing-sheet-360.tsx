@@ -36,17 +36,15 @@ import { Field, Select } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect } from "@/components/currency-select";
 import { Segmented } from "@/components/ui/segmented";
+import { ClientFamilies, FamilyBulkBar, FamilyPicker } from "@/components/client-families";
 import {
-  ClientFamilies,
-  FamilyBulkBar,
-  FamilyPicker,
   customFamilies,
   moveLines,
   useAnnouncer,
   useFamilyRegistry,
   useLineSelection,
   useNewFamily,
-} from "@/components/client-families";
+} from "@/lib/client-families-state";
 import { Panel } from "@/components/ui/panel";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { EmptyState } from "@/components/ui/states";

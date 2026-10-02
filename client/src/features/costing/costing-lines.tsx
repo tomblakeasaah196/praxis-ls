@@ -43,7 +43,7 @@ import { tr } from "@/lib/i18n";
 import { priceCostingLine } from "@/lib/costing-api";
 import { useIsDesktop } from "@/lib/use-media-query";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { LineSelection } from "@/components/client-families";
+import type { LineSelection } from "@/lib/client-families-state";
 import {
   BLANK_LINE,
   computeTotals,
@@ -511,12 +511,14 @@ export function LineGrid({
       )}
     </>
   );
-  const tickCell = (l: LineDraft, i: number) =>
+  const tickCell = (i: number) =>
     selection ? (
       <Checkbox
         checked={selection.selected.has(i)}
         onCheckedChange={() => selection.toggle(i)}
-        label={<span className="sr-only">{`${tr("Tick")} ${l.label || tr("line")} ${i + 1}`}</span>}
+        // The name is beside it in the row; the label says which ROW, so the
+        // line's own words are not printed twice (a screen reader reads both).
+        label={<span className="sr-only">{`${tr("Tick")} ${tr("line")} ${i + 1}`}</span>}
       />
     ) : null;
   const rowActions = (i: number) => (
@@ -568,7 +570,7 @@ export function LineGrid({
               className="rounded-xl border bg-card p-3 shadow-[var(--shadow-s)]"
             >
               <div className="flex items-start gap-2">
-                {selection ? <span className="mt-2">{tickCell(l, i)}</span> : null}
+                {selection ? <span className="mt-2">{tickCell(i)}</span> : null}
                 <span className="num mt-2 w-5 shrink-0 text-xs text-muted-foreground">
                   {i + 1}
                 </span>
@@ -630,7 +632,7 @@ export function LineGrid({
                 (Number(l.qty) || 0) * (Number(l.unit_cost) || 0);
               return (
                 <TR key={`${lineKey(l)}-${i}`}>
-                  {selection && <TD>{tickCell(l, i)}</TD>}
+                  {selection && <TD>{tickCell(i)}</TD>}
                   <TD className="num text-muted-foreground">{i + 1}</TD>
                   <TD>{chargeCell(l, i)}</TD>
                   <TD className="text-right">{qtyCell(l, i)}</TD>

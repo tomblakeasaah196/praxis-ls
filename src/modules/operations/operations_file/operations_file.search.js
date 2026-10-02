@@ -13,7 +13,7 @@ module.exports = recordProvider({
   module: "MOD-29",
   label: { en: "Operations files", fr: "Dossiers" },
   route: "/operations/files",
-  from: "dossier d LEFT JOIN client_master c ON c.client_id = d.client_id",
+  from: "dossier_visible d LEFT JOIN client_master c ON c.client_id = d.client_id",
   columns: ["d.ref", "d.title", "d.bl_mawb"],
   select: "d.dossier_id AS id, d.ref AS ref, COALESCE(NULLIF(d.title, ''), d.ref) AS title, NULLIF(concat_ws(' · ', d.ref, c.name), '') AS sub, d.status AS status",
   order: "d.created_at DESC",

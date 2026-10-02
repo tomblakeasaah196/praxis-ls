@@ -12,6 +12,9 @@ const schemas = {
   update: z.object({ client_id: z.string().uuid().optional().nullable(), dossier_id: z.string().uuid().optional().nullable(), costing_id: z.string().uuid().optional().nullable(), opportunity_id: z.string().uuid().optional().nullable(), currency: z.string().length(3).optional(), quote_model: z.enum(["HT_ON_TOP", "TTC"]).optional(), margin_percent: z.number().optional().nullable(), valid_until: d.optional().nullable(), lines: z.array(line).optional(), ...linkage }),
   transition: z.object({ to: z.enum(["SENT", "REJECTED", "EXPIRED"]), entity_id: z.string().uuid().optional().nullable() }),
   accept: z.object({ convert: z.boolean().optional() }),
+  // ACCEPTED → invoice draft takes nothing from the body: the lines are the
+  // quotation's own. Strict, so a stray key is refused rather than ignored.
+  convert: z.object({}).strict(),
   // "Create quotation" on a costing (G1) — the shared definition.
   fromCosting: shared.fromCosting,
   // AI-facing: quotation_id in the payload (REST uses the URL). Maps to a
@@ -26,4 +29,4 @@ const schemas = {
 };
 const mw = (k) => (req, _res, next) => { const p = schemas[k].safeParse(req.body); if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors)); req.body = p.data; return next(); };
 const costingParam = (req, _res, next) => { const p = schemas.costingParam.safeParse(req.params); if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid costing id", 422, p.error.flatten().fieldErrors)); return next(); };
-module.exports = { create: mw("create"), update: mw("update"), transition: mw("transition"), accept: mw("accept"), fromCosting: mw("fromCosting"), costingParam, schemas };
+module.exports = { create: mw("create"), update: mw("update"), transition: mw("transition"), accept: mw("accept"), convert: mw("convert"), fromCosting: mw("fromCosting"), costingParam, schemas };

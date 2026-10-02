@@ -15,7 +15,8 @@
     "reach": "Not a table: the recursive CTE in tasks.repo.dependencyWouldCycle() that walks the blocked-by graph to refuse a dependency cycle (migrations/tenant/13870). The scanner reads `JOIN reach r` as a table reference.",
     "vat_mode": "View-model state, not a response field: costing-model.LineDraft carries which of the two boxes a débours line's VAT is entered through (rate vs free-text amount). Derived from upstream_vat_rate_percent/amount on load; toPayload sends the rate and amount, never the mode.",
     "base_unit_cost": "Client-only view-model on the costing worksheet (costing-model.ts LineDraft): the line's XAF value pinned so converting the sheet's currency/rate never compounds rounding. Never sent by or to the API; toPayload omits it.",
-    "base_upstream_vat": "Client-only view-model on the costing worksheet (costing-model.ts LineDraft): the line's XAF value pinned so converting the sheet's currency/rate never compounds rounding. Never sent by or to the API; toPayload omits it."
+    "base_upstream_vat": "Client-only view-model on the costing worksheet (costing-model.ts LineDraft): the line's XAF value pinned so converting the sheet's currency/rate never compounds rounding. Never sent by or to the API; toPayload omits it.",
+    "record_types": "Not an API field: client/src/lib/search-index.ts reads it from client/src/app/screen-registry.json tabs[] (meeting 6, PR 4 — G5), a static file the client imports. The scanner attributes it to the nearest exported type."
   },
   "tables": [
     "ageing",
@@ -98,6 +99,7 @@
     "primary_address",
     "primary_contact",
     "rate_history",
+    "record_types",
     "reward_amount",
     "reward_status",
     "risk_tier",

@@ -68,11 +68,13 @@ export function ServiceTypesPage() {
   // The open record lives in the URL (`?focus=<id>`), so a ⌘K result, a
   // drill-in or the back arrow can land on one (meeting 6, G5).
   const {
-    id: selId,
+    id: focusId,
     openId: selectId,
     close: closeSel,
-    preselect,
   } = useRecordParam(rows, (r) => r.service_type_id);
+  // The desktop's first-row default stays out of the URL; a pick is a step.
+  const [defaultId, setDefaultId] = React.useState<string | null>(null);
+  const selId = focusId ?? defaultId;
   const filtered = React.useMemo(() => {
     if (!q) return rows;
     const needle = q.toLowerCase();
@@ -111,8 +113,8 @@ export function ServiceTypesPage() {
     // arrival, and — because closing clears the selection — re-open the sheet
     // the moment the reader closed it.
     if (!rows.length || !isDesktopNow()) return;
-    if (!selected) preselect(rows[0]);
-  }, [rows, selected, preselect]);
+    if (!selected) setDefaultId(rows[0].service_type_id);
+  }, [rows, selected]);
 
   return (
     <section className={shell}>
@@ -152,7 +154,10 @@ export function ServiceTypesPage() {
           max={480}
           activeKind={tr("Service type")}
           active={!!selected}
-          onClose={closeSel}
+          onClose={() => {
+            setDefaultId(null);
+            closeSel();
+          }}
           sheetTitle={selected ? selected.name_en || selected.name_fr : null}
         >
           <div className="space-y-2">

@@ -39,10 +39,8 @@ import { Select } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Pill } from "@/components/ui/pill";
-import { usePrompt } from "@/components/ui/use-prompt";
-import { useResource } from "@/lib/use-resource";
 import { amount as fmt, money } from "@/lib/format";
-import { listDictRefs } from "@/lib/masterdata-api";
+import { customFamilies, useAnnouncer, useFamilyRegistry, useNewFamily, type LineSelection } from "@/lib/client-families-state";
 import {
   familyKeysInOrder,
   groupByFamily,
@@ -67,84 +65,11 @@ const CATALOGUE = "";
 
 /* ── the registry, the choices, and moving lines ──────────────────────────── */
 
-/** The CLIENT_HEADING registry — the families a document can print. */
-export function useFamilyRegistry(): HeadingRef[] {
-  const refs = useResource(() => listDictRefs("CLIENT_HEADING"), []);
-  return React.useMemo(() => refs.data || [], [refs.data]);
-}
-
-/** Families made up on this document, offered on every line so a second line
- *  can join the first without retyping it. */
-export function customFamilies(lines: HeadedLine[], registry: HeadingRef[]): string[] {
-  return [
-    ...new Set(
-      lines
-        .map((l) => resolveHeading(l, registry))
-        .filter((h) => h.custom)
-        .map((h) => h.en),
-    ),
-  ];
-}
-
-/** `lines` with the lines at `indices` moved to `heading` (null = the catalogue's). */
-export function moveLines<T extends HeadedLine>(lines: T[], indices: Iterable<number>, heading: string | null): T[] {
-  const at = new Set(indices);
-  return lines.map((l, i) => (at.has(i) ? { ...l, client_heading: heading } : l));
-}
-
 /** The registry name of a family value, for an announcement. */
 function nameOf(value: string | null, registry: HeadingRef[], line?: HeadedLine): string {
   if (value === null) return line ? headingLabel(resolveHeading({ ...line, client_heading: null }, registry)) : tr("the catalogue's family");
   return headingLabel(resolveHeading({ client_heading: value }, registry));
 }
-
-/** "New heading…" — a family made up for this document. */
-export function useNewFamily(): [() => Promise<string | null>, React.ReactNode] {
-  const [prompt, dialog] = usePrompt();
-  const ask = React.useCallback(
-    async () =>
-      (await prompt({
-        title: tr("New family for this document"),
-        label: tr("Heading the client reads"),
-        hint: tr("For example: DAP Douala–Bangui. It applies to this document only."),
-        validate: (v) => (v.trim().length < 2 ? tr("At least two characters.") : null),
-        confirmLabel: tr("Use this heading"),
-      })) || null,
-    [prompt],
-  );
-  return [ask, dialog];
-}
-
-/**
- * A selection of lines, by index, held by the screen so the detailed view and
- * the By-family view tick the same lines. Cleared when the line count changes —
- * an index that now names a different line is worse than an empty selection.
- */
-export function useLineSelection(count: number) {
-  const [selected, setSelected] = React.useState<ReadonlySet<number>>(() => new Set());
-  React.useEffect(() => setSelected(new Set()), [count]);
-  const toggle = React.useCallback((i: number) => {
-    setSelected((s) => {
-      const n = new Set(s);
-      if (n.has(i)) n.delete(i);
-      else n.add(i);
-      return n;
-    });
-  }, []);
-  const setMany = React.useCallback((indices: number[], on: boolean) => {
-    setSelected((s) => {
-      const n = new Set(s);
-      for (const i of indices) {
-        if (on) n.add(i);
-        else n.delete(i);
-      }
-      return n;
-    });
-  }, []);
-  const clear = React.useCallback(() => setSelected(new Set()), []);
-  return { selected, toggle, setMany, clear };
-}
-export type LineSelection = ReturnType<typeof useLineSelection>;
 
 /* ── one line's family ─────────────────────────────────────────────────────── */
 
@@ -270,22 +195,6 @@ export function FamilyBulkBar({
 
 /* ── the polite announcer ──────────────────────────────────────────────────── */
 
-/** A move is announced however it was made — drag, picker or bulk bar. */
-export function useAnnouncer(): [(text: string) => void, React.ReactNode] {
-  const [text, setText] = React.useState("");
-  const say = React.useCallback((t: string) => {
-    // Cleared first so the same sentence twice is still read twice.
-    setText("");
-    window.setTimeout(() => setText(t), 30);
-  }, []);
-  const node = (
-    <p className="sr-only" aria-live="polite" role="status">
-      {text}
-    </p>
-  );
-  return [say, node];
-}
-
 /* ── the By-family view ────────────────────────────────────────────────────── */
 
 const LINE_MIME = "application/x-praxis-line";
@@ -398,6 +307,10 @@ export function ClientFamilies<T extends FamilyLine>({
         const pos = headings.findIndex((h) => h.key === f.heading.key);
         const allTicked = selection ? f.lines.every((x) => selection.selected.has(x.index)) : false;
         return (
+          // A drop target for the pointer gesture only. Every move it makes has
+          // a keyboard path that does the same thing: the Family picker on each
+          // line and the "Move the ticked lines" bar, and ↑ / ↓ for the order.
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
           <section
             key={sectionKey}
             aria-label={title}
@@ -427,6 +340,9 @@ export function ClientFamilies<T extends FamilyLine>({
               moveMany(indices, headingValue(f.heading));
             }}
           >
+            {/* Dragging a family is the pointer shortcut for its ↑ / ↓ buttons,
+                which are the keyboard path (and announce the new position). */}
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
             <header
               className="flex items-center justify-between gap-3 border-b bg-muted/40 px-3 py-2"
               draggable={!readOnly && !!onOrder && first}
@@ -469,6 +385,9 @@ export function ClientFamilies<T extends FamilyLine>({
             </header>
             <ul className="divide-y divide-border">
               {f.lines.map(({ line, index }) => (
+                // Dragging a line is the pointer shortcut for its Family picker
+                // (beside it) — the keyboard path, announced the same way.
+                // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
                 <li
                   key={index}
                   draggable={!readOnly}

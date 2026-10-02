@@ -302,7 +302,7 @@ export function QuotationDetail({
                   <Button
                     loading={busy}
                     onClick={() =>
-                      run(() => tenant(`/quotations/${id}/convert`, { method: "POST" }))
+                      run(() => tenant(`/quotations/${id}/convert`, { method: "POST", body: {} }))
                     }
                   >
                     {tr("Create invoice draft")}

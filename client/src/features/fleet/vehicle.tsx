@@ -429,11 +429,13 @@ export function VehiclesPage() {
   // The open record lives in the URL (`?focus=<id>`), so a ⌘K result, a
   // drill-in or the back arrow can land on one (meeting 6, G5).
   const {
-    id: selId,
+    id: focusId,
     openId: selectId,
     close: closeSel,
-    preselect,
   } = useRecordParam(rows, (v) => v.vehicle_id);
+  // The desktop's first-row default stays out of the URL; a pick is a step.
+  const [defaultId, setDefaultId] = React.useState<string | null>(null);
+  const selId = focusId ?? defaultId;
   const filtered = q
     ? rows.filter((v) =>
         (v.registration || "").toLowerCase().includes(q.toLowerCase()),
@@ -443,8 +445,8 @@ export function VehiclesPage() {
   // Opens the first vehicle beside a desktop's detail pane — never on a
   // phone, where it is a full-screen sheet over the list (SplitPane onClose).
   React.useEffect(() => {
-    if (!selId && rows.length && isDesktopNow()) preselect(rows[0]);
-  }, [rows, selId, preselect]);
+    if (!selId && rows.length && isDesktopNow()) setDefaultId(rows[0].vehicle_id);
+  }, [rows, selId]);
 
   return (
     <section className={shell}>
@@ -475,7 +477,10 @@ export function VehiclesPage() {
           max={480}
           activeKind={tr("Vehicle")}
           active={!!selected}
-          onClose={closeSel}
+          onClose={() => {
+            setDefaultId(null);
+            closeSel();
+          }}
           sheetTitle={selected?.registration}
         >
           <div className="space-y-2">

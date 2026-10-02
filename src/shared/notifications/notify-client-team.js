@@ -117,6 +117,9 @@ async function notifyList(client, userIds, { title, body, entityRef, url, eventT
   if (!userIds.length) return 0;
   return service.notifyMany(client, userIds, {
     eventTypeKey, title, body, entityRef, url, priority,
+    // Delivered in this connection's environment — a TEST event never emails
+    // or pushes anyone (see notify-events.js; meeting 6, PR 4).
+    ctx: { env: client && client[Symbol.for("praxis.conn.env")] === "sandbox" ? "sandbox" : "live" },
     category: "clients",
     pushTag: `client:${clientId}:${conversation}`,
     renotify: true,
