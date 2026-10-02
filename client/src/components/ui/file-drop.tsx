@@ -294,21 +294,30 @@ export function FileDrop({
           }}
         />
       </label>
+      {/* Icon-only paste control, in the tenant's brand accent — the glyph is
+          the control, and "Paste a file" lives on as the aria-label and tooltip
+          so keyboard / AT users still get a name. Brand accent is a token
+          (`text-primary`), so a white-labelled tenant gets their own colour,
+          never literally orange. */}
       <div className="flex items-center gap-2">
         <button
           type="button"
           tabIndex={disabled ? -1 : 0}
           aria-disabled={disabled || undefined}
+          aria-label={pasteArmed ? tr("Press Ctrl+V now") : pasteCopy.button}
+          title={pasteArmed ? tr("Press Ctrl+V now") : pasteCopy.button}
           onClick={() => {
             if (disabled) return;
             setPasteArmed(true);
             setPasteMessage(null);
             pasteTargetRef.current?.focus();
           }}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-0.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
+          className={cn(
+            "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-primary-ink transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60",
+            pasteArmed && "bg-accent",
+          )}
         >
-          <ClipboardIcon />
-          {pasteArmed ? tr("Press Ctrl+V now") : pasteCopy.idle}
+          <ClipboardIcon width={18} height={18} />
         </button>
         <div
           ref={pasteTargetRef}
@@ -319,6 +328,11 @@ export function FileDrop({
           contentEditable
           suppressContentEditableWarning
         />
+        {pasteArmed && (
+          <span className="micro text-muted-foreground" aria-live="polite">
+            {tr("Press Ctrl+V now")}
+          </span>
+        )}
       </div>
       {file && canPreview && (
         <div className="rounded-lg border bg-muted/20 p-2">

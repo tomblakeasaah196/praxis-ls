@@ -54,7 +54,12 @@ describe("ScanAttachment", () => {
       />,
     );
 
-    await userEvent.upload(screen.getByLabelText("Attach scan"), pdf());
+    // Empty state is a single `Attach scan` button; it opens the modal whose
+    // body is the shared upload engine. The file input inside the FileDrop
+    // defaults to aria-label="File", so user-event uploads can address it
+    // without colliding with the dialog's own labelledby title.
+    await userEvent.click(screen.getByRole("button", { name: "Attach scan" }));
+    await userEvent.upload(screen.getByLabelText("File"), pdf());
 
     await waitFor(() => expect(onAttached).toHaveBeenCalledWith("vault-1"));
     expect(uploadVaultFile).toHaveBeenCalledWith(
@@ -83,8 +88,9 @@ describe("ScanAttachment", () => {
       />,
     );
 
+    await userEvent.click(screen.getByRole("button", { name: "Attach scan" }));
     await userEvent.upload(
-      screen.getByLabelText("Attach scan"),
+      screen.getByLabelText("File"),
       pdf("huge.pdf", SCAN_MAX_BYTES + 1),
     );
 
@@ -110,7 +116,8 @@ describe("ScanAttachment", () => {
       />,
     );
 
-    await userEvent.upload(screen.getByLabelText("Attach scan"), pdf());
+    await userEvent.click(screen.getByRole("button", { name: "Attach scan" }));
+    await userEvent.upload(screen.getByLabelText("File"), pdf());
 
     await waitFor(() =>
       expect(onError).toHaveBeenLastCalledWith("File exceeds 25 MB"),
@@ -140,8 +147,11 @@ describe("ScanAttachment", () => {
       />,
     );
 
-    // An already-scanned row offers to replace, not to attach.
-    expect(screen.getByLabelText("Replace")).toBeInTheDocument();
+    // An already-scanned row offers View (the primary) and a Replace icon
+    // beside it; both are rendered as proper buttons, not underlined links.
+    expect(
+      screen.getByRole("button", { name: "Replace" }),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "View" }));
 
     await waitFor(() =>
@@ -178,13 +188,11 @@ describe("ScanCardActions · the phone card", () => {
       />,
     );
     expect(screen.getByRole("button", { name: "View" })).toBeInTheDocument();
-    // The picker is still MOUNTED — the menu drives it through `openRef`, and an
-    // input that unmounts between the click and the pick never opens — but it
-    // sits inside a `hidden` wrapper, so it is out of the accessibility tree and
-    // is not a second control competing for the same line. `display: none` does
-    // not stop a programmatic click from opening the dialog; that is the whole
-    // mechanism.
-    expect(screen.getByText("Replace").closest(".hidden")).not.toBeNull();
+    // Compact hides the Replace icon from the row — the card's `⋯` menu owns
+    // "Replace file" and opens the same modal through `openRef`.
+    expect(
+      screen.queryByRole("button", { name: "Replace" }),
+    ).toBeNull();
     unmount();
 
     render(
@@ -196,7 +204,9 @@ describe("ScanCardActions · the phone card", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: "View" })).toBeNull();
-    expect(screen.getByLabelText("Attach scan")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Attach scan" }),
+    ).toBeInTheDocument();
   });
 
   it("hides Replace behind the menu, and the menu item still opens the picker", async () => {
