@@ -1101,6 +1101,9 @@ function AllocateModal({
             setItemId(id);
             setItemLabel(label);
           }}
+          // The client's own money earmarked: what it pays for is billed to
+          // them at cost (meeting 6, F2).
+          fulfilment="billed"
           label={tr("Cost item")}
         />
         <div className="grid gap-4 sm:grid-cols-2">

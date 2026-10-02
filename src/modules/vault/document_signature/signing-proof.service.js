@@ -32,6 +32,23 @@
  *
  * The emailed code is the fallback, and it is bound the same way (otp.js,
  * rule 1: a code verifies one payload).
+ *
+ * ── THE 5-MINUTE WINDOW (meeting 6, F6) ────────────────────────────────────
+ *
+ * A passkey or code proof made from a signed-in browser session also OPENS a
+ * signing window for that person on that session (signing-window.service,
+ * migration 14345); for 5 minutes their next signatures send
+ * `{ window: true }` instead of a new proof. Each such signature is still
+ * bound to its own document's content hash at the moment of signing, and
+ * records the window and the proof that opened it, under its own assurance
+ * level (AES_PASSKEY_WINDOW / AES_OTP_WINDOW) — so the verification page says
+ * what actually happened.
+ *
+ * Only `fromRequest` can produce a proof that opens or uses a window: it marks
+ * the proof with a private symbol carrying the request's session, which no
+ * JSON body can forge. The AI assistant (which calls services directly, with
+ * no request) and an API token (whose access token names no session) therefore
+ * can neither open a window nor sign under one.
  */
 "use strict";
 
@@ -40,10 +57,14 @@ const otp = require("../../../services/signatures/otp");
 const otpRepo = require("../signature_request/signature_request.repo");
 const webauthn = require("../../security/app_user/webauthn.service");
 const webauthnRepo = require("../../security/app_user/webauthn.repo");
+const signingWindow = require("./signing-window.service");
 const { AppError } = require("../../../utils/errors");
 const { logger } = require("../../../config/logger");
 
 const KIND = "signing";
+/** Set only by fromRequest: the session a proof came from (see the header). */
+const FROM_REQUEST = Symbol("signing-proof.from-request");
+const fromSession = (proof) => (proof && proof[FROM_REQUEST]) || null;
 
 /** The document's canonical hash as it stands, on the connection given. */
 async function currentHash(client, { docType, entityRef, doc = null }) {
@@ -175,11 +196,15 @@ async function sendOtp(client, { actor = {}, docType, entityRef }) {
  * `proof` is one of:
  *   { passkey: <verifyPasskey result> }   — already verified on identity
  *   { otp_code: "123456" }                 — verified here, bound to the hash
+ *   { window: true }                       — this session's open signing window
  *
- * Returns { assurance, otpChallengeId, passkeyCredentialId }.
+ * Returns { assurance, otpChallengeId, passkeyCredentialId } plus, for the
+ * window, `signingWindowId` / `windowOpenedAt` (a signature under it) or
+ * `opensWindow` (a proof from a session, which opens one when its signature
+ * is written — document_signature.service signInternal).
  */
 async function settle(client, { actor = {}, docType, entityRef, doc = null, proof }) {
-  if (!proof || (!proof.passkey && !proof.otp_code)) {
+  if (!proof || (!proof.passkey && !proof.otp_code && !proof.window)) {
     throw new AppError(
       "SIGNING_PROOF_REQUIRED",
       "Confirm with your fingerprint or face to sign.",
@@ -188,6 +213,34 @@ async function settle(client, { actor = {}, docType, entityRef, doc = null, proo
     );
   }
   const hash = await currentHash(client, { docType, entityRef, doc });
+  const session = fromSession(proof);
+
+  if (proof.window) {
+    // Only a proof built from a signed-in request names a session; anything
+    // else (an AI payload, a forged body, an API token) never reaches a window.
+    if (!session || !session.sessionId) {
+      throw new AppError(
+        "SIGNING_PROOF_REQUIRED",
+        "A signing window is only usable from the signed-in session that opened it. Confirm with your fingerprint or face to sign.",
+        428,
+        { doc_type: docType, entity_ref: entityRef },
+      );
+    }
+    const w = await signingWindow.use(client, { userId: actor.user_id, sessionId: session.sessionId });
+    return {
+      assurance: w.proof_method === "PASSKEY" ? "AES_PASSKEY_WINDOW" : "AES_OTP_WINDOW",
+      otpChallengeId: w.otp_challenge_id || null,
+      passkeyCredentialId: w.passkey_credential_id || null,
+      signingWindowId: w.window_id,
+      windowOpenedAt: w.opened_at,
+      opensWindow: null,
+    };
+  }
+  // A proof made from a session opens that session's window when it signs.
+  const opens = (method, ids) =>
+    session && session.sessionId && actor.user_id
+      ? { userId: actor.user_id, sessionId: session.sessionId, method, ...ids }
+      : null;
 
   if (proof.passkey) {
     const b = proof.passkey;
@@ -197,13 +250,19 @@ async function settle(client, { actor = {}, docType, entityRef, doc = null, proo
     if (b.content_hash !== hash) {
       throw new AppError("SIGNING_PROOF_STALE", "This document changed while you were confirming. Check it and try again.", 409);
     }
-    return { assurance: "AES_PASSKEY", otpChallengeId: null, passkeyCredentialId: b.credential_id };
+    return {
+      assurance: "AES_PASSKEY", otpChallengeId: null, passkeyCredentialId: b.credential_id,
+      opensWindow: opens("PASSKEY", { passkeyCredentialId: b.credential_id }),
+    };
   }
 
   const row = await otp.verify(otpRepo, client, {
     userId: actor.user_id, entityRef, contentHash: hash, code: String(proof.otp_code),
   });
-  return { assurance: "AES_OTP", otpChallengeId: row.otp_id, passkeyCredentialId: null };
+  return {
+    assurance: "AES_OTP", otpChallengeId: row.otp_id, passkeyCredentialId: null,
+    opensWindow: opens("OTP", { otpChallengeId: row.otp_id }),
+  };
 }
 
 /**
@@ -214,6 +273,18 @@ async function settle(client, { actor = {}, docType, entityRef, doc = null, proo
 async function fromRequest(req) {
   const p = req.body && req.body.proof;
   if (!p) return null;
+  // The session this request is signed in under — the access token's `sid`
+  // (auth middleware). Null for a token that names none (an API token, a
+  // token minted before SEC-C2): such a request can prove, but never opens or
+  // uses a window.
+  const mark = (proof) => {
+    Object.defineProperty(proof, FROM_REQUEST, {
+      value: { sessionId: (req.user && req.user.session_id) || null },
+      enumerable: false,
+    });
+    return proof;
+  };
+  if (p.window === true) return mark({ window: true });
   if (p.passkey) {
     const verified = await req.identityDb((c) => verifyPasskey(c, {
       userId: req.user && req.user.user_id,
@@ -221,9 +292,9 @@ async function fromRequest(req) {
       challengeToken: p.passkey.challenge_token,
       req,
     }));
-    return { passkey: verified };
+    return mark({ passkey: verified });
   }
-  if (p.otp_code) return { otp_code: String(p.otp_code) };
+  if (p.otp_code) return mark({ otp_code: String(p.otp_code) });
   return null;
 }
 

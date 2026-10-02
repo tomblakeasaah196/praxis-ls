@@ -554,6 +554,9 @@ function MarginSimForm({
                       onPick={(id, label) =>
                         setLine(i, { dictionary_item_id: id, label })
                       }
+                      // A simulation prices for a client: the débours row is
+                      // preset and our own cost flagged (meeting 6, F2).
+                      fulfilment="billed"
                       label={tr("Item")}
                     />
                     <Field label={tr("Qty")}>

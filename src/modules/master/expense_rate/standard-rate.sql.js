@@ -19,7 +19,8 @@
  * cannot disagree about which row is the item's own price.
  *
  * Usage: `FROM dictionary_item di ${standardRateJoin("di")}` then select
- * `sr.rate`, `sr.currency`, `sr.effective_from`, `sr.expense_rate_id`.
+ * `sr.rate`, `sr.currency`, `sr.effective_from`, `sr.expense_rate_id` (and,
+ * since 14344, `sr.rate_ttc` / `sr.vat_rate_percent` for a VAT-inclusive one).
  */
 "use strict";
 
@@ -27,7 +28,7 @@
 function standardRateJoin(alias = "di") {
   if (!/^[a-z_][a-z0-9_]*$/i.test(alias)) throw new Error("standardRateJoin: bad alias");
   return `LEFT JOIN LATERAL (
-      SELECT er.expense_rate_id, er.rate, er.currency, er.effective_from
+      SELECT er.expense_rate_id, er.rate, er.currency, er.effective_from, er.rate_ttc, er.vat_rate_percent
         FROM expense_rate er
        WHERE er.dictionary_item_id = ${alias}.dictionary_item_id
          AND er.rate_provider_id IS NULL
@@ -42,6 +43,9 @@ function standardRateJoin(alias = "di") {
 /** The columns every caller selects, aliased so a row reads the same everywhere. */
 const STANDARD_RATE_COLUMNS =
   "sr.rate AS default_price, sr.currency AS default_price_currency, " +
-  "sr.effective_from AS default_price_from, sr.expense_rate_id AS default_price_rate_id";
+  "sr.effective_from AS default_price_from, sr.expense_rate_id AS default_price_rate_id, " +
+  // Meeting 6, F4: when the standard rate was typed VAT-inclusive, the figure
+  // typed and the VAT rate it was divided by — `default_price` stays the HT.
+  "sr.rate_ttc AS default_price_ttc, sr.vat_rate_percent AS default_price_vat_rate";
 
 module.exports = { standardRateJoin, STANDARD_RATE_COLUMNS };

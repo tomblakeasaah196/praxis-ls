@@ -273,6 +273,21 @@ export type SuggestedLine = {
   client_heading_code?: string | null;
   client_heading_fr?: string | null;
   client_heading_en?: string | null;
+  /** Meeting 6, F2: the service's fulfilment modes when it has several. The
+   *  suggestion is the one the file presets; the dialog switches with a tap. */
+  direction?: string;
+  mode?: "billed" | "own" | "deposit" | "service" | null;
+  siblings?: {
+    dictionary_item_id: string;
+    code: string;
+    label_en: string | null;
+    label_fr: string;
+    direction: string;
+    mode: "billed" | "own" | "deposit" | "service" | null;
+    is_disbursement: boolean;
+  }[];
+  group_label_en?: string | null;
+  group_label_fr?: string | null;
 };
 
 /**
@@ -292,6 +307,8 @@ export type CostingSuggestion = {
     service_name_fr: string | null;
     rate_provider_id: string | null;
     rate_provider_name: string | null;
+    /** What the sibling question was preset from: a client's file is billed. */
+    fulfilment?: "billed" | "own";
     containers: { container_type_ref_id: string; code: string; label: string; qty: number }[];
   };
   tier: "BASIC" | "ADVANCED" | "FULL";
@@ -338,6 +355,9 @@ export type CostingFxRate = {
   as_of_date: string | null;
   source: string | null;
   found: boolean;
+  /** A treaty parity (EUR → XAF 655.957): shown read-only, never typed. */
+  fixed?: boolean;
+  authority?: string | null;
 };
 export const costingFxRate = (currency: string) =>
   tenant<CostingFxRate>(`/costings/fx-rate${qs({ currency })}`);

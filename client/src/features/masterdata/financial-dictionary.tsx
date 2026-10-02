@@ -38,6 +38,7 @@ import { SpendTab, CostEvolutionTab } from "./financial-dictionary-spend";
 import { DictImportModal } from "./financial-dictionary-import";
 import { DictUsageDrill } from "./financial-dictionary-usage";
 import { SetRateModal } from "./rate-modals";
+import { vatBasisLine } from "@/lib/vat-basis";
 import { PencilIcon } from "@/components/ui/icons";
 import { dictLabel } from "@/lib/dict-label";
 import { isDesktopNow } from "@/lib/use-media-query";
@@ -75,6 +76,20 @@ export function FinancialDictionaryPage() {
   );
   const [settings, setSettings] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
+  // The posting review opens a line in the ordinary edit with the suggestion
+  // beside its posting (meeting 6, F8).
+  const [reviewSuggestion, setReviewSuggestion] =
+    React.useState<api.PostingSuggestion | null>(null);
+  const openFromReview = async (
+    id: string,
+    suggestion: api.PostingSuggestion | null,
+  ) => {
+    const full = await api.getDict(id);
+    setSettings(false);
+    setSelId(id);
+    setReviewSuggestion(suggestion);
+    setEditing(full);
+  };
 
   const rows = React.useMemo(() => list.data || [], [list.data]);
   // The open record lives in the URL (`?focus=<id>`), so a ⌘K result, a
@@ -198,7 +213,11 @@ export function FinancialDictionaryPage() {
       {editing !== null && (
         <DictForm
           row={editing === "new" ? null : editing}
-          onClose={() => setEditing(null)}
+          initialSuggestion={editing === "new" ? null : reviewSuggestion}
+          onClose={() => {
+            setEditing(null);
+            setReviewSuggestion(null);
+          }}
           onSaved={list.reload}
         />
       )}
@@ -212,6 +231,7 @@ export function FinancialDictionaryPage() {
       <FinancialDictionarySettings
         open={settings}
         onClose={() => setSettings(false)}
+        onOpenItem={(id, sug) => void openFromReview(id, sug)}
       />
       <ScreenAi path="master/financial-dictionary" />
     </section>
@@ -259,7 +279,10 @@ function DictDossier({
   if (dossier.error) return <ErrorState message={dossier.error} />;
   if (!dossier.data)
     return (
-      <EmptyState title={tr("Not found")} hint="This item may have been removed." />
+      <EmptyState
+        title={tr("Not found")}
+        hint="This item may have been removed."
+      />
     );
 
   const d = dossier.data;
@@ -301,7 +324,9 @@ function DictDossier({
               <Pill tone={it.is_active ? "ok" : "mute"}>
                 {it.is_active ? "Active" : "Inactive"}
               </Pill>
-              {it.is_disbursement && <Pill tone="blue">{tr("Disbursement")}</Pill>}
+              {it.is_disbursement && (
+                <Pill tone="blue">{tr("Disbursement")}</Pill>
+              )}
             </div>
             <p className="mt-1 micro">
               {[
@@ -436,6 +461,16 @@ function DictDossier({
                         {tr("since")} {dateFmt(it.default_price_from)}
                       </span>
                     ) : null}
+                    {it.default_price != null && it.default_price_ttc != null ? (
+                      <span className="block micro num">
+                        {vatBasisLine(
+                          it.default_price_ttc,
+                          it.default_price,
+                          it.default_price_vat_rate,
+                          it.default_price_currency || it.currency || "XAF",
+                        )}
+                      </span>
+                    ) : null}
                   </span>
                   {d.capabilities?.edit_rates && (
                     <Button
@@ -459,7 +494,12 @@ function DictDossier({
             )}
             <KV
               k="Client heading"
-              v={dictLabel({ label_en: it.client_heading_en, label_fr: it.client_heading_fr }) || tr("Other Charges")}
+              v={
+                dictLabel({
+                  label_en: it.client_heading_en,
+                  label_fr: it.client_heading_fr,
+                }) || tr("Other Charges")
+              }
             />
             <KV k="Unit" v={it.unit_of_measure || "—"} />
             <KV k="Billable" v={it.is_billable ? "Yes" : "No"} />
@@ -489,6 +529,9 @@ function DictDossier({
                   effective_from: it.default_price_from || "",
                   in_force: true,
                   superseded: false,
+                  price_includes_vat: it.default_price_ttc != null,
+                  rate_ttc: it.default_price_ttc ?? null,
+                  vat_rate_percent: it.default_price_vat_rate ?? null,
                 }
               : null
           }
@@ -589,11 +632,19 @@ function DictDossier({
           ) : (
             // Core (offered ticked by Suggest charges) or one of the service's
             // more charges (offered unticked) — meeting 5; BASIC = core.
-            ([
-              { key: "core", title: tr("Core — offered ticked"), core: true },
-              { key: "more", title: tr("More charges — offered unticked"), core: false },
-            ] as const).map((band) => {
-              const inTier = d.service_tiers.filter((s) => (s.tier === "BASIC") === band.core);
+            (
+              [
+                { key: "core", title: tr("Core — offered ticked"), core: true },
+                {
+                  key: "more",
+                  title: tr("More charges — offered unticked"),
+                  core: false,
+                },
+              ] as const
+            ).map((band) => {
+              const inTier = d.service_tiers.filter(
+                (s) => (s.tier === "BASIC") === band.core,
+              );
               if (!inTier.length) return null;
               return (
                 <div key={band.key} className="rounded-lg border">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fmtDateDmy } from "@/lib/format";
-import { platform, type AiVendor, type GeminiModelCheck } from "@/lib/api";
+import { platform, type AiVendor, type GeminiModelCheck, type PostingModel } from "@/lib/api";
 import { useAsync } from "@/lib/useAsync";
 import { useToast } from "@/components/Toast";
 import { Button, Card, ConfirmModal, Empty, Field, Loading, Pill } from "@/components/ui";
@@ -169,6 +169,31 @@ export function GeminiModelStatus({ refreshKey = 0 }: { refreshKey?: number }) {
   return <Pill tone="warn">Model not checked{check.http_status ? ` · ${check.http_status}` : ""}</Pill>;
 }
 
+/**
+ * The model the AI-suggested dictionary posting chose for itself (meeting 6,
+ * F7): the strongest generally available Gemini Pro model with Google Search
+ * grounding on this key, used by that feature ONLY. Read-only — it uses the
+ * Gemini credential above but not its model, and nothing here sets it.
+ */
+export function PostingModelStatus({ refreshKey = 0 }: { refreshKey?: number }) {
+  const [m, setM] = useState<PostingModel | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    platform.dictionaryPostingModel(refreshKey > 0)
+      .then((r) => { if (live) { setM(r); setFailed(null); } })
+      .catch((e: unknown) => { if (live) setFailed(e instanceof Error ? e.message : String(e)); });
+    return () => { live = false; };
+  }, [refreshKey]);
+  if (failed) return <Pill tone="warn">Posting model not checked · {failed.slice(0, 60)}</Pill>;
+  if (!m) return <span className="muted" style={{ fontSize: 12 }}>Choosing the posting model…</span>;
+  if (m.status === "ok") return <Pill tone="ok">Dictionary posting uses {m.model} (chosen automatically)</Pill>;
+  if (m.status === "fallback") {
+    return <Pill tone="warn">Dictionary posting falls back to {m.model || "—"}{m.detail ? ` · ${m.detail.slice(0, 80)}` : ""}</Pill>;
+  }
+  return <Pill tone="warn">No Gemini key — dictionary posting uses its local suggestion</Pill>;
+}
+
 function VendorCard({ v, onSaved }: { v: AiVendor; onSaved: () => void }) {
   const { toast } = useToast();
   const [f, setF] = useState({
@@ -227,6 +252,7 @@ function VendorCard({ v, onSaved }: { v: AiVendor; onSaved: () => void }) {
           {v.has_key ? <Pill tone="ok">Key set</Pill> : <Pill tone="warn">No key</Pill>}
           {v.last_rotated_at && <span className="muted" style={{ fontSize: 12 }}>rotated {fmtDateDmy(v.last_rotated_at)}</span>}
           {v.vendor === "gemini" && <GeminiModelStatus refreshKey={saves} />}
+          {v.vendor === "gemini" && <PostingModelStatus refreshKey={saves} />}
         </span>
         <span className="row" style={{ gap: 8 }}>
           {v.chat_capable && !v.is_chat_primary && <MakePrimaryButton v={v} onDone={onSaved} />}

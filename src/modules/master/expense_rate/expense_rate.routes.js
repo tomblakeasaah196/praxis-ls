@@ -15,6 +15,10 @@ router.get("/resolve", requirePermission(MODULE, "view"), controller.resolve);
 router.get("/import/template", requirePermission(MODULE, "create"), controller.importTemplate);
 router.post("/import/validate", requirePermission(MODULE, "create"), validator.importUpload, controller.importValidate);
 router.post("/import/commit", requirePermission(MODULE, "create"), validator.importCommit, controller.importCommit);
+// Meeting 6, F4: the VAT a line's TTC price is divided by (the rate dialog's
+// preview), and the rates whose note says "TTC" for a person to review.
+router.get("/vat-basis", requirePermission(MODULE, "view"), validator.vatBasisQuery, controller.vatBasis);
+router.get("/vat-review", requirePermission(MODULE, "view"), controller.vatReview);
 router.get("/", requirePermission(MODULE, "view"), controller.list);
 router.get("/:id", requirePermission(MODULE, "view"), controller.get);
 router.post("/", requirePermission(MODULE, "create"), validator.create, controller.create);

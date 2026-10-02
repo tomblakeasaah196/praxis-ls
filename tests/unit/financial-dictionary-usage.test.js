@@ -37,6 +37,10 @@ jest.mock("../../src/middleware/rbac", () => {
         ? next()
         : next(new AppError("PERMISSION_DENIED", `No permission for ${mod}.${action}`, 403)),
     readPermissions: async (req, specs) => specs.map(([m, a]) => held(req).includes(`${m}:${a}`)),
+    requireAnyPermission: (specs) => (req, _res, next) =>
+      specs.some(([m, a]) => held(req).includes(`${m}:${a}`))
+        ? next()
+        : next(new AppError("PERMISSION_DENIED", "No permission", 403)),
   };
 });
 

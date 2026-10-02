@@ -3,6 +3,7 @@
 
 const service = require("./document_signature.service");
 const signingProof = require("./signing-proof.service");
+const signingWindow = require("./signing-window.service");
 const { asyncHandler } = require("../../../utils/errors");
 
 const lang = (req) => (req.validatedQuery && req.validatedQuery.lang) || req.query.lang || "fr";
@@ -32,6 +33,25 @@ module.exports = {
     const contentHash = await req.tenantDb((c) => signingProof.currentHash(c, { docType, entityRef }));
     const data = await req.identityDb((c) => signingProof.passkeyOptions(c, {
       userId: req.user.user_id, entityRef, contentHash, req,
+    }));
+    res.json({ data });
+  }),
+
+  /**
+   * The 5-minute signing window on THIS session (meeting 6, F6): open or not,
+   * and until when — what "Signing unlocked · 4:12 · End now" counts down.
+   */
+  window: asyncHandler(async (req, res) => {
+    const w = await req.tenantDb((c) => signingWindow.current(c, {
+      userId: req.user.user_id, sessionId: req.user.session_id || null,
+    }));
+    res.json({ data: signingWindow.present(w) });
+  }),
+
+  /** "End now": close this session's window before its five minutes are up. */
+  endWindow: asyncHandler(async (req, res) => {
+    const data = await req.tenantDb((c) => signingWindow.end(c, {
+      userId: req.user.user_id, sessionId: req.user.session_id || null,
     }));
     res.json({ data });
   }),

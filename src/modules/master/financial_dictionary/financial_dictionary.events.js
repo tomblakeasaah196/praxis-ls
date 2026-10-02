@@ -10,4 +10,13 @@ module.exports = {
   // The direction changed, so the code moved to the new letter's next free
   // number. Audit-only: the before/after pair is the record of the old code.
   RECODED: "dictionary_item.recoded",
+  // A person linked a line to its service's other modes, or confirmed it stands
+  // alone (14342 "Lines to pair", meeting 6 F2). Audit-only.
+  SIBLING_LINKED: "dictionary_item.sibling_linked",
+  // A line was saved with an AI-suggested posting (meeting 6, F3): where the
+  // suggestion came from (cache / fresh search / local fallback), the model
+  // and cache entry, and whether the person accepted or changed it.
+  POSTING_SUGGESTED: "dictionary_item.posting_suggested",
+  // The one-off review of the existing lines' postings (F8). Audit-only.
+  POSTING_REVIEW_STARTED: "dictionary_item.posting_review_started",
 };

@@ -241,20 +241,32 @@ export async function registerPasskey(opts: {
   email: string | null | undefined;
   label?: string | null;
   currentPassword?: string | null;
+  /** Meeting 6, F6: create the passkey on the PHONE (the browser shows a QR),
+   *  for a computer with no fingerprint or face of its own. */
+  fromPhone?: boolean;
 }): Promise<{ credential_id: string; label?: string | null }> {
   if (!isPasskeySupported())
     throw new PasskeyError("WEBAUTHN_NOT_SUPPORTED", "Passkeys aren't supported in this browser.");
 
-  const label = (opts.label || "").trim() || deviceLabel();
+  const label = (opts.label || "").trim() || (opts.fromPhone ? "Phone" : deviceLabel());
   const options = await tenant<JsonOptions>("/auth/passkey/register/options", {
     method: "POST",
-    body: { label, ...(opts.currentPassword ? { current_password: opts.currentPassword } : {}) },
+    body: {
+      label,
+      ...(opts.currentPassword ? { current_password: opts.currentPassword } : {}),
+      ...(opts.fromPhone ? { from_phone: true } : {}),
+    },
   });
 
   let cred: PublicKeyCredential | null = null;
   try {
+    const publicKey = toPublicKeyOptions(options) as unknown as Record<string, unknown>;
+    // WebAuthn L3 `hints`: lead with "use a phone" (the QR). Ignored by a
+    // browser that does not know it; the cross-platform attachment the server
+    // set already steers the same way.
+    if (opts.fromPhone) publicKey.hints = ["hybrid"];
     cred = (await navigator.credentials.create({
-      publicKey: toPublicKeyOptions(options) as unknown as PublicKeyCredentialCreationOptions,
+      publicKey: publicKey as unknown as PublicKeyCredentialCreationOptions,
     })) as PublicKeyCredential | null;
   } catch (e) {
     const err = mapDomError(e, "create");
@@ -315,14 +327,30 @@ export const deletePasskey = (id: string) =>
  * one document's content hash (server: signing-proof.service). Returns the
  * `proof.passkey` body a signing route takes.
  */
-export async function passkeySigningAssertion(options: Record<string, unknown>) {
+export async function passkeySigningAssertion(
+  options: Record<string, unknown>,
+  { preferPhone = false }: { preferPhone?: boolean } = {},
+) {
   if (!isPasskeySupported())
     throw new PasskeyError("WEBAUTHN_NOT_SUPPORTED", "Passkeys aren't supported in this browser.");
   const opts = options as JsonOptions;
   let cred: PublicKeyCredential | null = null;
   try {
+    const publicKey = toPublicKeyOptions(opts) as unknown as Record<string, unknown>;
+    if (preferPhone) {
+      // Meeting 6, F6: this computer has no fingerprint or face, so the
+      // ceremony runs anyway and the browser offers "Use a phone or tablet"
+      // (QR, then the phone's fingerprint). Each key may be reached that way.
+      publicKey.hints = ["hybrid"];
+      const allow = publicKey.allowCredentials as { transports?: string[] }[] | undefined;
+      if (allow)
+        publicKey.allowCredentials = allow.map((c) => ({
+          ...c,
+          transports: Array.from(new Set([...(c.transports || []), "hybrid"])),
+        }));
+    }
     cred = (await navigator.credentials.get({
-      publicKey: toPublicKeyOptions(opts) as unknown as PublicKeyCredentialRequestOptions,
+      publicKey: publicKey as unknown as PublicKeyCredentialRequestOptions,
     })) as PublicKeyCredential | null;
   } catch (e) {
     throw mapDomError(e, "get");

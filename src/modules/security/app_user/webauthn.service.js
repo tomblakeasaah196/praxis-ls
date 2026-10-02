@@ -256,7 +256,7 @@ async function notify(client, { userId, title, body, entityRef }) {
 
 // ── Registration ─────────────────────────────────────────────────────────────
 
-async function registrationOptions(client, { userId, sessionId = null, currentPassword = null, req }) {
+async function registrationOptions(client, { userId, sessionId = null, currentPassword = null, fromPhone = false, req }) {
   const user = await userRepo.getUserSafe(client, userId);
   if (!user) throw new AppError("NOT_FOUND", "User not found", 404);
 
@@ -300,8 +300,11 @@ async function registrationOptions(client, { userId, sessionId = null, currentPa
       requireResidentKey: true,
       // Decision 1: the fingerprint / face / device PIN is part of the credential.
       userVerification: "required",
-      // Decision 6: THIS device's own authenticator, not a phone via QR.
-      authenticatorAttachment: "platform",
+      // Decision 6: THIS device's own authenticator, not a phone via QR —
+      // unless the person is setting one up FROM THEIR PHONE because this
+      // computer has no fingerprint or face (meeting 6, F6): then the
+      // browser shows the QR and the phone holds the passkey.
+      authenticatorAttachment: fromPhone ? "cross-platform" : "platform",
     },
     supportedAlgorithmIDs: [-7, -257],
   });

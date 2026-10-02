@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (701)
+## All codes (710)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -88,6 +88,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_AUDIO_TYPE` | — | 1× | — |
 | `BAD_BASE` | 400 | 1× | — |
 | `BAD_CATEGORY` | 422 | 1× | — |
+| `BAD_CLOSE_REASON` | 500 | 1× | — |
 | `BAD_CODE` | 422 | 2× | — |
 | `BAD_CONTEXT` | 422 | 1× | — |
 | `BAD_CREDENTIALS` | 401 | 1× | — |
@@ -118,6 +119,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_PARTY_KIND` | 422 | 9× | — |
 | `BAD_PORTAL` | 422 | 1× | — |
 | `BAD_PRINCIPAL` | 422 | 2× | — |
+| `BAD_PROOF_METHOD` | 500 | 1× | — |
 | `BAD_PWA_VALUE` | 422 | 2× | — |
 | `BAD_RATE` | 422 | 3× | — |
 | `BAD_REFERENCE` | 422 | 2× | — |
@@ -170,6 +172,8 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `CERTIFIED_NOT_AVAILABLE` | — | 2× | — |
 | `CLASH_DETECTED` | 409 | 2× | — |
 | `CLASS_MISMATCH` | 422 | 1× | — |
+| `CLIENT_HAS_HISTORY` | — | 1× | — |
+| `CLIENT_NOT_DRAFT` | 409 | 2× | — |
 | `CLIENT_NOT_FOUND` | 422 | 1× | — |
 | `CLIENT_REQUIRED` | 422 | 17× | — |
 | `CLOSE_BLOCKED` | 422 | 1× | — |
@@ -195,6 +199,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `CUSTODIAN_ATTESTATION_REQUIRED` | 403 | 1× | — |
 | `CYCLIC_PARENT` | 422 | 2× | — |
 | `DATE_REQUIRED` | 422 | 1× | — |
+| `DEBOURS_ALWAYS_HT` | — | 1× | — |
 | `DEFAULT_OUT_OF_SCOPE` | — | 1× | — |
 | `DEVICE_NOT_REGISTERED` | 422 | 1× | — |
 | `DEVICE_REVOKED` | 422 | 1× | — |
@@ -253,6 +258,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `FILES_TOO_LARGE` | 413 | 1× | — |
 | `FILE_REQUIRED` | 422 | 4× | — |
 | `FILE_TOO_LARGE` | 413 | 5× | — |
+| `FIXED_PARITY` | 422 | 3× | — |
 | `FORBIDDEN` | 403 | 7× | `PERMISSION_DENIED` |
 | `FULLY_DISBURSED` | 422 | 1× | — |
 | `FULLY_PAID` | 422 | 2× | — |
@@ -381,7 +387,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 3× | — |
-| `NOT_FOUND` | 404, 422 | 755× | — |
+| `NOT_FOUND` | 404, 422 | 760× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -463,6 +469,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NO_SIGNATORIES` | 422 | 1× | — |
 | `NO_SIGNED_COPY` | 422 | 2× | — |
 | `NO_SLUG` | 422 | 1× | — |
+| `NO_STANDING_OVERRIDE` | 409 | 1× | — |
 | `NO_SUMMARY` | 404 | 2× | — |
 | `NO_TARIFF` | 422 | 1× | — |
 | `NO_TEMPLATE` | 422 | 2× | — |
@@ -471,6 +478,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NO_USER_ACCOUNT` | — | 1× | — |
 | `NO_VALIDATOR` | 422 | 1× | — |
 | `NO_VAT_ACCOUNT` | 422 | 2× | — |
+| `NO_VAT_RATE` | — | 1× | — |
 | `NO_WORKING_DAYS` | 422 | 1× | — |
 | `NUDGE_QUOTA_EXHAUSTED` | 429 | 1× | — |
 | `OAUTH_CANCELLED` | 400 | 1× | — |
@@ -626,6 +634,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SESSION_EXPIRED` | 401 | 3× | — |
 | `SESSION_REVOKED` | 401 | 8× | — |
 | `SETUP_REQUIRED` | 400 | 1× | — |
+| `SIBLING_MODE_TAKEN` | — | 1× | — |
 | `SIDE_ALREADY_COMPLETE` | 409 | 1× | — |
 | `SIGNATURE_REQUIRED` | 409 | 2× | — |
 | `SIGNER_IDENTITY_NOT_ACCEPTED` | — | 1× | — |
@@ -633,7 +642,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SIGNING_INCOMPLETE` | 409 | 1× | — |
 | `SIGNING_NOT_STARTED` | 409 | 2× | — |
 | `SIGNING_PROOF_INVALID` | 400 | 6× | — |
-| `SIGNING_PROOF_REQUIRED` | 428 | 2× | — |
+| `SIGNING_PROOF_REQUIRED` | 428 | 5× | — |
 | `SIGNING_PROOF_STALE` | 409 | 1× | — |
 | `SLUG_TAKEN` | 422 | 3× | — |
 | `SMTP_AUTH_FAILED` | 502 | 1× | — |

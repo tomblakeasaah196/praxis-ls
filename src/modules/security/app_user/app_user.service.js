@@ -77,6 +77,17 @@ async function resolveAiEnabled(client) {
   }
 }
 
+/**
+ * AI features with their OWN tenant switch, resolved beside `ai_enabled`
+ * (meeting 6, F7). The dictionary's OHADA posting suggestion is on for every
+ * tenant and must show on a tenant whose assistant is off, so the client reads
+ * this rather than the global AI gate. Never throws — a hiccup is OFF.
+ */
+async function resolveAiFeatures(client) {
+  const read = async (k) => { try { return await governance.isFeatureEnabled(client, k); } catch { return false; } };
+  return { dictionary_posting: await read("ai.dictionary_posting") };
+}
+
 /** Resolve which comms channels are switched on for the tenant. WhatsApp /
  *  Instagram stay hidden in the UI until enabled (like AI). Never throws. */
 async function resolveChannels(client) {
@@ -201,6 +212,7 @@ async function issueSessionTokens(client, user, { ip, userAgent, environment, me
   });
 
   const aiEnabled = await resolveAiEnabled(client);
+  const aiFeatures = await resolveAiFeatures(client);
   const channels = await resolveChannels(client);
   const hasQuickPin = await quickPinFlag(client, user.user_id);
 
@@ -210,7 +222,7 @@ async function issueSessionTokens(client, user, { ip, userAgent, environment, me
     token_type: "Bearer",
     expires_in: config.JWT_ACCESS_TTL,
     ...sessionClock(remaining),
-    user: { user_id: user.user_id, email: user.email, display_name: user.full_name, ai_enabled: aiEnabled, channels, has_quick_pin: hasQuickPin },
+    user: { user_id: user.user_id, email: user.email, display_name: user.full_name, ai_enabled: aiEnabled, ai_features: aiFeatures, channels, has_quick_pin: hasQuickPin },
   };
 }
 
@@ -559,6 +571,7 @@ async function refresh(client, { refreshToken }) {
  *  issueSessionTokens (resolveAiEnabled/resolveChannels → effective feature_state). */
 async function me(client, user) {
   const ai_enabled = await resolveAiEnabled(client);
+  const ai_features = await resolveAiFeatures(client);
   const channels = await resolveChannels(client);
   const roles = await repo.roleNames(client, user.user_id).catch(() => []);
   return {
@@ -570,6 +583,7 @@ async function me(client, user) {
     // Primary role for the account menu; "+N" hints at additional roles.
     role: roles.length ? (roles.length > 1 ? `${roles[0]} +${roles.length - 1}` : roles[0]) : null,
     ai_enabled,
+    ai_features,
     channels,
     // The sign-in and lock screens offer the PIN on any device where this is true.
     has_quick_pin: await quickPinFlag(client, user.user_id),

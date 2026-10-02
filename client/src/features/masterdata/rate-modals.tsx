@@ -13,6 +13,11 @@
  * Both post to the rate endpoints, which are gated on Expense rates (MOD-10)
  * edit. A screen offers them only when the viewer holds that grant.
  *
+ * VAT BASIS (meeting 6, F4). "Price includes VAT" is off by default. On, the
+ * figure typed is TTC and the server stores TTC ÷ (1 + the line's VAT rate) as
+ * the rate — the preview here uses the same shared division — so a costing
+ * adds VAT once. It is not offered on a débours, which is always HT.
+ *
  * CURRENCY. A rate is in the tenant's base currency unless someone says
  * otherwise (meeting 5, 01:11:19 — a currency on every line was noise). So the
  * base is shown as a fact, and another currency is one deliberate click away
@@ -30,7 +35,9 @@ import { Modal, Field, Select } from "@/components/ui/modal";
 import { ErrorState } from "@/components/ui/states";
 import { CurrencySelect } from "@/components/currency-select";
 import { useBaseCurrency } from "@/lib/use-base-currency";
-import { errMsg } from "@/lib/use-resource";
+import { errMsg, useResource } from "@/lib/use-resource";
+import { vatBasisLine } from "@/lib/vat-basis";
+import { expenseRate } from "@shared";
 import { money, dateFmt, todayISO } from "@/lib/format";
 import * as api from "@/lib/masterdata-api";
 
@@ -86,6 +93,62 @@ function RateCurrency({
   );
 }
 
+/**
+ * "Price includes VAT" and what it will store, under the figure (F4).
+ *
+ * Nothing renders on a débours (always HT) — and on a line with no VAT rate
+ * anywhere it says why the question is not asked rather than vanishing.
+ */
+function PriceIncludesVat({
+  itemId,
+  rate,
+  currency,
+  checked,
+  onChange,
+}: {
+  itemId: string;
+  rate: string;
+  currency: string;
+  checked: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  const basis = useResource(() => api.getVatBasis(itemId), [itemId]);
+  const b = basis.data;
+  // A débours (or a basis not yet known) never offers the question, and a
+  // stale tick from an earlier answer is dropped rather than sent.
+  React.useEffect(() => {
+    if (checked && b && !b.offered) onChange(false);
+  }, [b, checked, onChange]);
+  if (!b || b.is_disbursement) return null;
+  if (!b.offered)
+    return (
+      <p className="micro">
+        {tr("No VAT rate is set up for this line, so the rate is entered HT.")}
+      </p>
+    );
+  const ttc = Number(rate);
+  const ht =
+    checked && rate !== "" && Number.isFinite(ttc)
+      ? expenseRate.htFromTtc(ttc, b.vat_rate_percent ?? 0)
+      : null;
+  return (
+    <div className="space-y-1 sm:col-span-2">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={onChange}
+        label={tr("Price includes VAT")}
+      />
+      {checked && (
+        <p className="micro num" aria-live="polite">
+          {ht !== null
+            ? vatBasisLine(ttc, ht, b.vat_rate_percent, currency)
+            : tr("Type the price including VAT; the HT figure is stored.")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function SetRateModal({
   itemId,
   providerLabel,
@@ -109,7 +172,12 @@ export function SetRateModal({
   onSaved: () => void;
 }) {
   const base = useBaseCurrency();
-  const [rate, setRate] = React.useState(current ? String(current.rate) : "");
+  // A VAT-inclusive series is re-entered the way it was typed: TTC, ticked.
+  const wasTtc = current?.price_includes_vat === true && current.rate_ttc != null;
+  const [rate, setRate] = React.useState(
+    current ? String(wasTtc ? current.rate_ttc : current.rate) : "",
+  );
+  const [inclVat, setInclVat] = React.useState(wasTtc);
   // Keep a non-base currency the series already uses; otherwise the base.
   const [curr, setCurr] = React.useState(
     current?.currency && current.currency !== base ? current.currency : "",
@@ -131,6 +199,7 @@ export function SetRateModal({
         rate_provider_id: providerId,
         container_type_ref_id: containerTypeId,
         note: note || undefined,
+        price_includes_vat: inclVat || undefined,
       });
       onSaved();
       onClose();
@@ -156,6 +225,16 @@ export function SetRateModal({
           <Callout tone="info" title={tr("Current rate")}>
             {money(current.rate, current.currency || base)} since{" "}
             {dateFmt(current.effective_from)}
+            {wasTtc && (
+              <span className="block micro num">
+                {vatBasisLine(
+                  current.rate_ttc,
+                  current.rate,
+                  current.vat_rate_percent,
+                  current.currency || base,
+                )}
+              </span>
+            )}
           </Callout>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
@@ -172,6 +251,13 @@ export function SetRateModal({
           <Field label={tr("Currency")}>
             <RateCurrency value={curr} onChange={setCurr} />
           </Field>
+          <PriceIncludesVat
+            itemId={itemId}
+            rate={rate}
+            currency={curr || base}
+            checked={inclVat}
+            onChange={setInclVat}
+          />
           <Field label={tr("Effective from")} required>
             <DateField value={from} onChange={setFrom} />
           </Field>
@@ -222,8 +308,10 @@ export function ApplyToCarriersModal({
   const [picked, setPicked] = React.useState<Set<string>>(
     () => new Set(providers.map((p) => p.rate_provider_id)),
   );
+  const base = useBaseCurrency();
   const [rate, setRate] = React.useState("");
   const [curr, setCurr] = React.useState("");
+  const [inclVat, setInclVat] = React.useState(false);
   const [from, setFrom] = React.useState(todayISO());
   const [note, setNote] = React.useState("");
   const [typeId, setTypeId] = React.useState(containerTypes[0]?.ref_id ?? "");
@@ -252,6 +340,7 @@ export function ApplyToCarriersModal({
         container_type_ref_id: perBox ? typeId : null,
         rate_provider_ids: [...picked],
         note: note || undefined,
+        price_includes_vat: inclVat || undefined,
       });
       onSaved(res.applied);
       onClose();
@@ -295,6 +384,13 @@ export function ApplyToCarriersModal({
           <Field label={tr("Currency")}>
             <RateCurrency value={curr} onChange={setCurr} />
           </Field>
+          <PriceIncludesVat
+            itemId={itemId}
+            rate={rate}
+            currency={curr || base}
+            checked={inclVat}
+            onChange={setInclVat}
+          />
           <Field label={tr("Effective from")} required>
             <DateField value={from} onChange={setFrom} />
           </Field>
