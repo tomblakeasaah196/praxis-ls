@@ -49,8 +49,7 @@ import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { errMsg, useList, useRefresh, useResource } from "@/lib/use-resource";
 import { tenant } from "@/lib/api-client";
-import { loadPostableAccounts } from "@/lib/finance-api";
-import type { Option } from "@/lib/finance-api";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DateField } from "@/components/ui/date-field";
 import { LoadingRow, EmptyState, ErrorState } from "@/components/ui/states";
@@ -221,30 +220,27 @@ type UnmappedCode = {
 };
 type UnmappedBy = Map<string, UnmappedCode["reason"]>;
 
-/** Postable GL accounts, loaded only while a form is open. */
-function usePostableAccounts(open: boolean): Option[] {
-  const { data } = useResource(
-    () => (open ? loadPostableAccounts() : Promise.resolve([] as Option[])),
-    [open],
-  );
-  return data ?? [];
-}
-
 /**
  * One side of the entry a tax code posts.
  *
- * `required` and the "— none —" option both stay: the option is what a person
- * clicks to SEE that nothing is chosen, and `required` is what tells them it has
- * to be. The server refuses a half-mapped code either way
- * (rules.assertPostingAccounts), so this is the message arriving early rather
- * than the only thing standing between a gap and the database.
+ * A searchable typeahead over the postable chart of accounts, not a native
+ * `<Select>`: a SYSCOHADA chart runs to hundreds of leaves, and scrolling one to
+ * find 4431 is the gap the 1 October review hit — the account was there, just
+ * never reached. `SearchSelect` hits `/chart-of-accounts?q=`, which ILIKEs the
+ * code OR the French label, so "4431" and "tva" both land it. Same control and
+ * endpoint the financial-dictionary form already uses for account fields.
+ *
+ * Both sides offer the identical postable set — there is no debit-only /
+ * credit-only narrowing, by design: a tax code is a self-balancing entry and
+ * which leaf lands on which side is the accountant's call, not ours. `required`
+ * and the empty placeholder surface the gap early; the server refuses a
+ * half-mapped code regardless (rules.assertPostingAccounts).
  */
 function AccountField({
   label,
   hint,
   value,
   onChange,
-  accounts,
   required,
   error,
 }: {
@@ -252,20 +248,21 @@ function AccountField({
   hint: string;
   value: string;
   onChange: (v: string) => void;
-  accounts: Option[];
   required?: boolean;
   error?: string;
 }) {
   return (
     <Field label={label} hint={hint} required={required} error={error}>
-      <Select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{tr("— none —")}</option>
-        {accounts.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.label}
-          </option>
-        ))}
-      </Select>
+      <SearchSelect
+        path="/chart-of-accounts"
+        label={label}
+        value={value}
+        placeholder={value || tr("Search account…")}
+        getKey={(r) => String(r.code)}
+        getLabel={(r) => `${r.code} — ${r.label_fr ?? r.label_en ?? ""}`.trim()}
+        filter={(r) => r.is_postable !== false}
+        onSelect={(r) => onChange(String(r.code))}
+      />
     </Field>
   );
 }
@@ -382,7 +379,6 @@ function CodeFormModal({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const accounts = usePostableAccounts(open);
   const [code, setCode] = React.useState("");
   const [kind, setKind] = React.useState<Kind>("VAT");
   const [ratePercent, setRatePercent] = React.useState("");
@@ -562,7 +558,6 @@ function CodeFormModal({
             hint="Input VAT 4452 on a purchase; the client 4111 on a sale; net pay 422 for an employee withholding."
             value={debit}
             onChange={setDebit}
-            accounts={accounts}
             required
             error={!debit ? "Required — both sides of the entry." : undefined}
           />
@@ -571,7 +566,6 @@ function CodeFormModal({
             hint="Output VAT 4432 on a sale; the supplier 4011 on a purchase; the State or CNPS account for a withholding."
             value={credit}
             onChange={setCredit}
-            accounts={accounts}
             required
             error={!credit ? "Required — both sides of the entry." : undefined}
           />
