@@ -103,7 +103,7 @@
     "mailparser": "^3.7.1",
     "maxmind": "^4.3.24",
     "multer": "^2.3.0",
-    "node-cron": "^3.0.3",
+    "node-cron": "^4.6.0",
     "nodemailer": "^6.9.16",
     "openai": "^4.73.0",
     "otplib": "^12.0.1",
