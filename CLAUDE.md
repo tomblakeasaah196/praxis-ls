@@ -210,13 +210,28 @@ Two mechanical rules that the test suite will enforce for you the hard way:
 
 `.micro` is a short caption ("Account Manager", Title Case). `.hint` is a helper
 SENTENCE that earned its place. `.eyebrow` is the uppercase editorial treatment
-for a single word over a figure. The gate reads a paragraph however the
-formatter wrapped it, and reads `text-xs/text-sm text-muted-foreground` as
-prose too: the first version looked only at the rest of the line the class was
-on, so 147 paragraphs were invisible and the longest were the most likely to
-be missed. Full detail, the gate's limits, and the
-`<PageHeader>`-versus-`<InfoHint>` split are in **`doc/FRONTEND_GUIDE.md`
-§3.17**.
+for a single word over a figure, and so is a `subtitle` prop, which is the same
+slot under a second name and capped the same way. The gate reads a paragraph
+however the formatter wrapped it, and reads `text-xs/text-sm
+text-muted-foreground` as prose too: the first version looked only at the rest
+of the line the class was on, so 147 paragraphs were invisible and the longest
+were the most likely to be missed.
+
+**A `hint` is counted wherever it is DECLARED**, as a JSX prop, as an
+`empty={{ hint }}` object property, or read from a map in the same file. All
+three render identically and only the first was measured, which left 129 sites
+uncounted and one hint of 139 characters on a screen the gate called clean.
+
+**`description` and `desc` are NOT counted, because they render behind the ⓘ** —
+`Dialog`, `PageHeader`, entity 360's `Section`, `Chart` and `SettingsCard` all
+put theirs there. `SettingsCard` was the exception until the Configure round and
+it was the expensive one: 50 printed `desc` values, 30 over the cap. If you add
+a component that takes a description, render it behind an ⓘ or the gate will
+under-report your screen. A CONSEQUENCE never goes in one — `SettingsCard` has
+`notice` for that, printed in the card body.
+
+Full detail, the gate's limits, and the `<PageHeader>`-versus-`<InfoHint>` split
+are in **`doc/FRONTEND_GUIDE.md` §3.17**.
 
 ## The sixth frontend rule: Title Case for chrome, and no dashes anywhere
 
@@ -234,12 +249,26 @@ validation, helper text. "Could not save it" must not become "Could Not Save
 It".
 
 **The gate decides which is which from the COMPONENT, not the wording.**
-`<Section title>`, `<SectionCard title>`, `<Panel title>`, `<Fieldset legend>`
-and `<HubCrumb area>` are chrome whatever words they carry; `<EmptyState>`,
-`<Callout>` and `toast` are messages whatever words they carry. The first
-version of the rule guessed from the string (did it start with "New"?) and so
-never looked at a single section card, which is exactly where the tenant found
-them: "Overview & format", "Usage across the system", "Hub › Master data".
+`<Section title>`, `<SectionCard title>`, `<Panel title>`, `<Fieldset legend>`,
+`<HubCrumb area>`, `<Modal title>`, `<KpiTile label>` and `<Stat label>` are
+chrome whatever words they carry; `<EmptyState>`, `<Callout>` and `toast` are
+messages whatever words they carry. The first version of the rule guessed from
+the string (did it start with "New"?) and so never looked at a single section
+card, which is exactly where the tenant found them: "Overview & format", "Usage
+across the system", "Hub › Master data".
+
+**That holds in the OBJECT form too, in both directions.** A `label:` in a tab
+bar, option set, column list or KPI config is chrome; a `Record<…, string>` map
+whose name says what it holds (`…_LABEL`, `…_TITLE`, `…_KIND`) carries chrome in
+its values; an `eyebrow` is an area's name. But a `{ tone, title, detail }`
+warning record renders as a `<Callout>`, so its title is a message, and a
+`prompt({ title })` is usually a question, so neither is touched. A title ending
+in `.`, `?` or `!` is a sentence and is never chrome.
+
+**Two shapes are messages the gate used to get wrong, and both are named in
+§3.18** so a fifth round cannot reopen them: a password rule ("A number") and a
+validation warning ("The source image isn't square"). `@prose:keep` is
+block-scoped, so one marker on the line that opens an array covers it.
 
 **A tab's LABEL is chrome; a tab's VALUE is a URL.** `?tab=Banking %26 treasury`
 is a deep link with a test pinning it, so the rename happens at the point of
