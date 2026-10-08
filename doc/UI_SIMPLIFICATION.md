@@ -59,6 +59,36 @@ node scripts/check-dashes.js --update-baseline     # from the root
 Both files only ever shrink, so reseeding mid-sweep locks in a worse number
 than you are about to achieve.
 
+## What the first gate missed, and why
+
+Worth reading before trusting any number this gate prints. The tenant found all
+four of these on screens the first sweep had reported as done.
+
+**It only read the rest of the line the class was on.** A wrapped paragraph
+begins on the NEXT line, so the gate saw nothing:
+
+    <p className="mb-2 micro text-muted-foreground">
+      Add each compliance document and upload its file - a PDF or a clear
+      photo. No file yet? ...
+
+147 paragraphs over the cap were invisible this way, and the longer a sentence
+is the more likely the formatter wrapped it, so the gate was blindest exactly
+where the problem was worst. `check-dashes.js` had the identical hole.
+
+**It only read `.micro` and `.hint`.** 835 `text-xs/text-sm
+text-muted-foreground` paragraphs, which look identical on screen, were never
+scanned.
+
+**It classified chrome by the STRING, not the component.** A title counted as
+chrome if it began with New, Edit, Add. That excluded every section card,
+fieldset legend and breadcrumb, which is where the tenant was pointing.
+
+**And the doc promised more than the gate delivered.** CLAUDE.md said the rule
+covered "section and card titles, nav and tab labels, column headers" while the
+gate checked roughly a fifth of that, and the sweep was reported as complete on
+the strength of the doc. If you widen a rule, widen the gate in the same commit
+or say plainly which part is not enforced yet.
+
 ## The traps, all of which bit once
 
 **The ⓘ must be a SIBLING of what it explains.** Nested in a `<label>`, an

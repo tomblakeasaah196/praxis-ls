@@ -315,7 +315,7 @@ describe("SignInPanel — each route runs the right ceremony", () => {
       passkeyDeviceStore.forgetId(EMAIL, "cred-1");
       throw new ApiError(
         "PASSKEY_REVOKED",
-        "This device's passkey is no longer registered to your account. Sign in another way, then set it up again.",
+        "This Device's passkey is no longer registered to your account. Sign in another way, then set it up again.",
         400,
       );
     });

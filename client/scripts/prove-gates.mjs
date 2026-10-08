@@ -84,6 +84,22 @@ const CASES = [
     to: 'label={tr("Territory")} hint="The territory decides which dossier routing applies, and it is printed on every document this service produces."',
   },
   {
+    name: "prose (a WRAPPED paragraph, not one line)",
+    defect: "the tenant's KYC blurb: five printed lines the gate could not see",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/masterdata/working-calendar-tab.tsx",
+    from: "          A day switched off is closed. Sunday is off by default.",
+    to: "          A day that is switched off is closed and no milestone time accrues\n          on it at all, which is why Sunday is off by default on every calendar.",
+  },
+  {
+    name: "prose (a section title in sentence case)",
+    defect: "\"Overview & format\", \"Usage across the system\" — chrome the old rule never looked at",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/settings/currencies.tsx",
+    from: 'title="Overview & Format"',
+    to: 'title="Overview & format"',
+  },
+  {
     name: "prose (Title Case on chrome)",
     defect: "tenant 8 Oct 2026 — a navigation label in sentence case",
     cmd: ["npm", ["run", "check:prose"]],

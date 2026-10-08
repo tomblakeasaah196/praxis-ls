@@ -279,7 +279,7 @@ export function DocumentsPage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        eyebrow={<HubCrumb area="Vault & compliance" to="/vault" />}
+        eyebrow={<HubCrumb area="Vault & Compliance" to="/vault" />}
         title={tr("Documents")}
         description="The confidential document vault — uploaded evidence with tamper-evident fingerprints."
         action={

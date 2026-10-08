@@ -465,7 +465,7 @@ export function TreasuryDossier({
       {tab === "Overview" && (
         <div className="grid gap-4 lg:grid-cols-2">
           {c?.is_bank_identity && (
-            <Section title="Bank identity">
+            <Section title="Bank Identity">
               <dl className="grid gap-3 sm:grid-cols-2">
                 <Detail label={tr("Bank")}>{cell(a.bank_name)}</Detail>
                 <Detail label={tr("Branch")}>{cell(a.branch)}</Detail>
@@ -481,7 +481,7 @@ export function TreasuryDossier({
             </Section>
           )}
           {c?.is_momo_identity && (
-            <Section title="Mobile-money identity">
+            <Section title="Mobile-money Identity">
               <dl className="grid gap-3 sm:grid-cols-2">
                 <Detail label={tr("Number")}>{cell(a.momo_number)}</Detail>
                 <Detail label="Till">{cell(a.momo_till)}</Detail>
@@ -513,7 +513,7 @@ export function TreasuryDossier({
               </dl>
             </Section>
           )}
-          <Section title="Last movements">
+          <Section title="Last Movements">
             <dl className="grid gap-3 sm:grid-cols-2">
               <Detail label="Last debit">
                 {data.last_debit ? (
@@ -560,7 +560,7 @@ export function TreasuryDossier({
 
       {tab === "Statement" && (
         <Section
-          title="Recent journal lines"
+          title="Recent Journal Lines"
           description="Every posting that hit this account's CoA leaf. Newest first."
         >
           <MiniTable
@@ -648,7 +648,7 @@ export function TreasuryDossier({
 
       {tab === "CoA leaf" && (
         <Section
-          title="CoA leaf"
+          title="CoA Leaf"
           description="Every treasury account owns exactly one auto-minted CoA leaf under its category's parent."
         >
           {data.coa_leaf ? (
@@ -677,7 +677,7 @@ export function TreasuryDossier({
 
       {tab === "Signatories" && (
         <Section
-          title="Authorized signatories"
+          title="Authorized Signatories"
           description="Single- and joint-signature limits, effective dates and authority rules"
           action={
             <div className="flex flex-wrap items-center gap-2">
@@ -773,7 +773,7 @@ export function TreasuryDossier({
 
       {tab === "Documents" && (
         <Section
-          title="Attached documents"
+          title="Attached Documents"
           description="Bank confirmation, RIB, mandates, KYC and signature cards"
           action={
             <Button size="sm" onClick={() => setDocModalOpen(true)}>

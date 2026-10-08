@@ -304,7 +304,7 @@ describe("unaccounted spend — the tray above the grid (guide §8.1)", () => {
     });
     await pickFile(user);
 
-    expect(await screen.findByText("Unaccounted spend")).toBeInTheDocument();
+    expect(await screen.findByText("Unaccounted Spend")).toBeInTheDocument();
     expect(screen.getByText(unaccounted().source_hint)).toBeInTheDocument();
     // The amount is the ledger's, in the sheet's currency — once, on the row.
     expect(screen.getByText(/198,000|198 000/)).toBeInTheDocument();
@@ -313,8 +313,8 @@ describe("unaccounted spend — the tray above the grid (guide §8.1)", () => {
     expect(screen.getByText(/must be mapped to a budget line/i)).toBeInTheDocument();
     // The section sits ABOVE the grid, not inside it: document order.
     const body = document.body.textContent ?? "";
-    expect(body.indexOf("Unaccounted spend")).toBeGreaterThanOrEqual(0);
-    expect(body.indexOf("Unaccounted spend")).toBeLessThan(body.indexOf("Every line on the approved costing"));
+    expect(body.indexOf("Unaccounted Spend")).toBeGreaterThanOrEqual(0);
+    expect(body.indexOf("Unaccounted Spend")).toBeLessThan(body.indexOf("Every line on the approved costing"));
   });
 
   it("maps an entry to a budget line, and mapping the last one clears the gate", async () => {
@@ -329,7 +329,7 @@ describe("unaccounted spend — the tray above the grid (guide §8.1)", () => {
       ),
     });
     await pickFile(user);
-    await screen.findByText("Unaccounted spend");
+    await screen.findByText("Unaccounted Spend");
 
     await user.selectOptions(screen.getByRole("combobox", { name: /map to line/i }), "cl-1");
     await user.click(screen.getByRole("button", { name: "Map" }));
@@ -345,7 +345,7 @@ describe("unaccounted spend — the tray above the grid (guide §8.1)", () => {
 
     // The map returns the whole sheet with the tray empty: the section and
     // its TL;DR row are gone — which is what re-enables submit.
-    await waitFor(() => expect(screen.queryByText("Unaccounted spend")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Unaccounted Spend")).toBeNull());
     expect(screen.queryByText(/unaccounted spend/i)).toBeNull();
     postSpy.mockRestore();
   });
@@ -355,7 +355,7 @@ describe("unaccounted spend — the tray above the grid (guide §8.1)", () => {
     renderScreen(<ReconciliationPage />, { routes: routes(sheet()) });
     await pickFile(user);
     await screen.findByText("Port Charges");
-    expect(screen.queryByText("Unaccounted spend")).toBeNull();
+    expect(screen.queryByText("Unaccounted Spend")).toBeNull();
   });
 
   it("on a sheet that is not OPEN, the tray is readable but not mappable", async () => {
@@ -364,7 +364,7 @@ describe("unaccounted spend — the tray above the grid (guide §8.1)", () => {
       routes: routes(sheet({ status: "SETTLED", reconciliation_id: "r-1", unaccounted: [unaccounted()] })),
     });
     await pickFile(user);
-    expect(await screen.findByText("Unaccounted spend")).toBeInTheDocument();
+    expect(await screen.findByText("Unaccounted Spend")).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: /map to line/i })).not.toBeInTheDocument();
     expect(screen.getByText(/settled — it re-opens when the facts change/i)).toBeInTheDocument();
   });

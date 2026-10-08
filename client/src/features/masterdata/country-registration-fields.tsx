@@ -77,8 +77,7 @@ export function CountryRegistrationFields({
   if (reqs.length === 0) {
     return (
       <p className="sm:col-span-2 micro text-muted-foreground">
-        No specific registration IDs are configured for this country — add any
-        via the 360 “Registrations” tab.
+        None for this country. Add them on the Registrations tab.
       </p>
     );
   }

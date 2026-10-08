@@ -95,11 +95,11 @@ describe("the 'Allow this device to ring' prompt", () => {
 async function renderCard(s: DeviceRingStatus, testRing = vi.fn(async () => ({ sent: 1, failed: 0, total: 1 }))) {
   const { DeviceRingCard } = await import("@/features/settings/device-ring-card");
   render(<DeviceRingCard check={async () => s} testRing={testRing} />);
-  await screen.findByText("This device");
+  await screen.findByText("This Device");
   return testRing;
 }
 
-describe("This device (Settings → Calls)", () => {
+describe("This Device (Settings → Calls)", () => {
   it("a device that can ring says so, and the test ring goes to this device's endpoint", async () => {
     const testRing = await renderCard(status());
     expect(screen.getByText("Calls ring on this device, even with the app closed.")).toBeTruthy();

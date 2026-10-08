@@ -115,7 +115,7 @@ export function FinancialDictionaryPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Master data" to="/master" />}
+        eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title="Financial dictionary"
         description="Priced lines with their OHADA posting rules: the single source every quote, invoice and costing reads."
         action={
@@ -705,9 +705,7 @@ function DictDossier({
             />
             {d.compliance.is_disbursement && (
               <p className="mt-2 micro">
-                A débours re-bills the VAT-inclusive amount and adds no VAT of
-                ours; the upstream supplier VAT is shown to the client as paid
-                on their behalf, not retained.
+                Re-bills the VAT-inclusive amount and adds no VAT of ours.
               </p>
             )}
           </Panel>

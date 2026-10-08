@@ -399,7 +399,7 @@ export function FolderRail({
 
       <Section
         sectionKey="pending"
-        title={tr("Not sent yet")}
+        title={tr("Not Sent Yet")}
         open={open.pending}
         onToggle={() => toggle("pending")}
         caption={caption("pending")}
@@ -463,7 +463,7 @@ export function FolderRail({
       {labels.length > 0 && (
         <Section
           sectionKey="labels"
-          title={tr("My labels")}
+          title={tr("My Labels")}
           open={open.labels}
           onToggle={() => toggle("labels")}
           caption={caption("labels")}

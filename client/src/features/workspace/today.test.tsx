@@ -119,7 +119,7 @@ const EMPTY_FEED = {
   meta: { window: "all_time", page: 1, page_size: 10, total: 0, has_more: false },
 };
 
-/** "Cash to account for" (MOD-76) — one line the caller still owes a receipt on. */
+/** "Cash to Account For" (MOD-76) — one line the caller still owes a receipt on. */
 const OWED = {
   count: 1,
   total_ttc: 85000,
@@ -275,7 +275,7 @@ describe("Today — the approvals and alerts roll-up", () => {
  * track they share. Both boxes in the row then run past the right edge of a
  * 390px phone, where the shell's `overflow-x-hidden` — the main scroll region
  * is `overflow-y-auto overflow-x-hidden` — clips them. That is the report this
- * pins: "Awaiting me" and "Unread alerts" cut off together on the right, with
+ * pins: "Awaiting Me" and "Unread Alerts" cut off together on the right, with
  * a long alert subject the thing that triggers it.
  *
  * jsdom has no layout engine, so what is asserted here is the PAIR of classes
@@ -309,7 +309,7 @@ describe("Today — a long line truncates rather than widening the boxes", () =>
     view();
     await screen.findByText("Container left the yard");
 
-    for (const name of ["Awaiting me", "Unread alerts"]) {
+    for (const name of ["Awaiting Me", "Unread Alerts"]) {
       const card = screen.getByRole("heading", { name }).closest(".bg-card");
       expect(card, `${name} panel`).toBeTruthy();
       expect(card!.className).toContain("min-w-0");

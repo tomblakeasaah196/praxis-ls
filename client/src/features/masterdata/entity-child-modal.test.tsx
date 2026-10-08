@@ -213,7 +213,7 @@ async function openRegistrationEdit(user: ReturnType<typeof userEvent.setup>) {
   );
 }
 
-describe("Master data · entity nested modals", () => {
+describe("Master Data · entity nested modals", () => {
   it("renders corporate statutory dates consistently as dd/mm/yyyy", async () => {
     open();
     expect(await screen.findByText("21/09/2021")).toBeInTheDocument();

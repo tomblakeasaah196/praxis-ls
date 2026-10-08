@@ -336,9 +336,7 @@ export function MilestonePolicyForm({
           />
 
           <p className="micro">
-            The scan that raises these runs twice a day by default, at 06:00 and
-            18:00 in the entity&apos;s timezone, and only when a
-            milestone&apos;s health actually changes.
+            Scanned twice a day, and only when a milestone&apos;s health changes.
           </p>
 
           {error && <p className="text-sm text-[rgb(var(--bad))]">{error}</p>}

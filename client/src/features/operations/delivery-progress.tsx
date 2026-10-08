@@ -69,7 +69,7 @@ export function DeliveryProgressPanel({
 
   return (
     <Panel
-      title={tr("Delivery progress")}
+      title={tr("Delivery Progress")}
       subtitle="Across every live note on this file — counted from the notes themselves."
       action={
         /*

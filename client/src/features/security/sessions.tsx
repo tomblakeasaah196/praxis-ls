@@ -134,7 +134,7 @@ export function SessionsPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Security & access" to="/security" />}
+        eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title={tr("Sessions")}
         description="Active sign-ins. Revoking a session invalidates its refresh token immediately — the next refresh is rejected as reuse."
         action={

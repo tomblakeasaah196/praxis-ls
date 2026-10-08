@@ -133,7 +133,7 @@ function AgeingPanel({ a }: { a: api.Ageing | null }) {
   ];
   const max = Math.max(1, ...rows.map((r) => Number(r.v || 0)));
   return (
-    <Panel title="Receivables ageing" subtitle={`Smart receivables ledger · ${ccy}`}>
+    <Panel title="Receivables Ageing" subtitle={`Smart receivables ledger · ${ccy}`}>
       <div className="space-y-3">
         {rows.map((r) => (
           <div key={r.label} className="flex items-center gap-3 text-sm">
@@ -196,7 +196,7 @@ function CashPanel({
 
   return (
     <Panel
-      title={tr("Cash position")}
+      title={tr("Cash Position")}
       subtitle="Treasury · bank · cash · mobile money"
     >
       {groups.length ? (

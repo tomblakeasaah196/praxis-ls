@@ -309,7 +309,7 @@ export function AppraisalsPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Human capital" to="/hr" />}
+        eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Appraisals")}
         description="KPI ratings and performance rewards. A recommended reward is added to the employee's next payroll run."
       />

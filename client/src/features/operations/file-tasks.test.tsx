@@ -79,7 +79,7 @@ const ROUTES = {
 
 beforeEach(() => navigateSpy.mockReset());
 
-describe("Operations file — the Tasks tab", () => {
+describe("Operations File — the Tasks tab", () => {
   it("asks the server for this file's tasks, at the widest reach", async () => {
     const spy = vi.spyOn(apiClient, "tenantPaged");
     renderScreen(<FileTasksTab fileId={FILE} />, { routes: ROUTES });

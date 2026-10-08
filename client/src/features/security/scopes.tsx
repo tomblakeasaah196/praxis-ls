@@ -377,7 +377,7 @@ export function ScopesPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Security & access" to="/security" />}
+        eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title={tr("Scopes")}
         description="The entity, branch or department a user belongs to. They nest — that tree is the organigramme, and approval steps route through it. Deleting a scope cascades to its assignments."
         action={

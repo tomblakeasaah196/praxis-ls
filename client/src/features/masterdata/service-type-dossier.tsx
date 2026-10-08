@@ -393,10 +393,7 @@ function MilestonesTab({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="micro">
-          Every file of this service type is stamped with the stages of the
-          ACTIVE version at the moment it is opened. Publishing a new version
-          supersedes older ones for future files only — anything already in
-          progress keeps the stages it was given.
+          A new version applies to future files only.
         </p>
         <div className="flex gap-2">
           <Button
@@ -975,11 +972,11 @@ function CommercialTab({ d }: { d: api.ServiceTypeDossier }) {
               />
             </div>
             <p className="micro">
-              Planned figures come from{" "}
-              <DeepLink href="/costing/costing">{tr("Costing")}</DeepLink>; actuals come
-              from journal entries tagged with a dossier of this service. Open{" "}
+              Planned from{" "}
+              <DeepLink href="/costing/costing">{tr("Costing")}</DeepLink>, actuals from
+              the ledger.{" "}
               <DeepLink href="/costing/cost-tracking">Cost tracking</DeepLink>{" "}
-              for the per-dossier breakdown.
+              has the breakdown.
             </p>
           </div>
         )}
@@ -1242,11 +1239,7 @@ function AutomationTab({ st }: { st: api.ServiceType }) {
           Auto-instantiation
         </h3>
         <p className="text-sm text-muted-foreground">
-          When a file is opened with this service type, the ACTIVE milestone
-          template is stamped onto it automatically. Files opened without a
-          service type (e.g. from the CRM auto-open when an opportunity is won)
-          are skipped until a service type is chosen and can be back-filled from
-          the Milestones page.
+          The active template is stamped onto each new file of this type.
         </p>
       </div>
       <div className="rounded-xl border bg-card p-4">
@@ -1269,11 +1262,8 @@ function AutomationTab({ st }: { st: api.ServiceType }) {
           </li>
         </ul>
         <p className="mt-2 micro">
-          Writes are intentionally not exposed to the assistant:{" "}
-          <span className="font-mono">key</span> is immutable after creation
-          because a rename orphans{" "}
-          <span className="font-mono">dictionary_item.service_type_key</span>{" "}
-          silently.
+          No assistant writes: <span className="font-mono">key</span> is
+          immutable after creation.
         </p>
       </div>
       <div className="rounded-xl border bg-card p-4">
@@ -1281,8 +1271,7 @@ function AutomationTab({ st }: { st: api.ServiceType }) {
           Permissions
         </h3>
         <p className="text-sm text-muted-foreground">
-          Service types ride MOD-29 (Operations file). Anyone who can manage
-          operations files can manage the service types those files use.
+          Anyone who can manage operations files can manage service types.
         </p>
         <p className="mt-2">
           <DeepLink href="/security/permissions">

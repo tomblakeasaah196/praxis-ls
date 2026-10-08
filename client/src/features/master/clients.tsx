@@ -301,7 +301,7 @@ export function ClientsPage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        eyebrow={<HubCrumb area="Master data" to="/master" />}
+        eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title={tr("Clients")}
         description="Customer registry referenced across sales, operations and receivables."
         action={<Button onClick={openNew}>{tr("New client")}</Button>}

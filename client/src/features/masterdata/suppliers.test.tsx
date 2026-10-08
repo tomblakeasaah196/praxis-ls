@@ -87,7 +87,7 @@ const SUPPLIER_360 = {
   // (`supplierDossier` returns purchase_orders/supplier_invoices, never dossiers).
 };
 
-describe("Master data · Suppliers", () => {
+describe("Master Data · Suppliers", () => {
   it("renders the dossier without crashing when the 360 response omits client-only fields", async () => {
     renderScreen(<SuppliersPage />, {
       routes: {

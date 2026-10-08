@@ -316,8 +316,7 @@ export function DictImportModal({
             onPick={onFile}
           />
           <p className="micro ml-auto">
-            Enum dropdowns and your own account, tax and service codes are on
-            the template&apos;s Reference sheet.
+            Codes and dropdowns are on the template&apos;s Reference sheet.
           </p>
         </div>
 

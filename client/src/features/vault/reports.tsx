@@ -356,7 +356,7 @@ export function ReportsPage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        eyebrow={<HubCrumb area="Vault & compliance" to="/vault" />}
+        eyebrow={<HubCrumb area="Vault & Compliance" to="/vault" />}
         title="Reports"
         description="Run finance, receivables and cross-module reports; save the ones you use."
         action={

@@ -736,7 +736,7 @@ describe("the folder rail", () => {
     render(<RailHarness folders={[folder()]} />);
     expect(screen.getByRole("button", { name: "Triage" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("button", { name: "Views" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: "Not sent yet" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Not Sent Yet" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("button", { name: "Folders" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.queryByRole("button", { name: /People/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Starred/ })).toBeNull();

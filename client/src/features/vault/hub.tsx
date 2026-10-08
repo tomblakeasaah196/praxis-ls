@@ -108,7 +108,7 @@ function Overview() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Vault & compliance" to="/vault" />}
+        eyebrow={<HubCrumb area="Vault & Compliance" to="/vault" />}
         title="Vault & compliance"
         description="Every document carries a SHA-256 content hash, so a stored file can be re-checked against its DNA at any time. Compliance rules run over the same corpus and raise flags for anything missing or aged."
         action={
@@ -186,7 +186,7 @@ function Overview() {
 
       <div className="mb-6 grid gap-4 md:grid-cols-2">
         <Panel
-          title="Open compliance flags"
+          title="Open Compliance Flags"
           subtitle="Highest severity first"
           action={
             <Button
@@ -274,7 +274,7 @@ function Overview() {
         </Panel>
 
         <Panel
-          title="Recent documents"
+          title="Recent Documents"
           subtitle="Newest uploads into the vault"
           action={
             <Button
@@ -342,7 +342,7 @@ function Overview() {
           have is whether the counterparty ever checked the document, and that
           lives on the signature itself now. */}
       <Panel
-        title="Verification portal"
+        title="Verification Portal"
         subtitle="What a counterparty sees when they scan a document"
         action={
           <Button

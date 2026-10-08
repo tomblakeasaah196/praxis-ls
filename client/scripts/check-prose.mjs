@@ -101,13 +101,34 @@ const MINOR = new Set([
 ]);
 
 /* Strings that look like titles but are values, glyphs or code. */
-const SKIP_TITLE = /^[^A-Za-z]*$|^\s*$/;
+/* Not a title: a glyph, an empty string, or a TRANSLATION KEY. `title={t("hr.myPayslips")}`
+   passes a dotted key through to i18next, so the English a reader sees lives
+   in the catalogue and capitalising the key would only break the lookup. */
+const SKIP_TITLE = /^[^A-Za-z]*$|^\s*$|^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+$/;
 
 /* A dialog title that NAMES AN OPERATION is chrome and is Title Cased: "New
    Service Type", "Edit Expense Rate". A dialog title that SPEAKS to the user
    ("Remove the account manager?") is a message and keeps sentence case, which
    is why this is a prefix list and not a catch-all. */
 const CHROME_TITLE = /^(New|Edit|Add|Create|Duplicate|Import|Export|Manage|Assign|Rename|Upload|Download|Choose|Select|Configure) [^.?!]*[^.?!\s]$/;
+
+/**
+ * Components whose `title` (or `legend`, or `area`) is STRUCTURALLY chrome.
+ *
+ * The first version of this rule classified by the STRING: a title was chrome
+ * if it began with New, Edit, Add and so on. That was the wrong axis. It let
+ * through every section card, every fieldset legend and every breadcrumb,
+ * which is where the tenant found them: "Overview & format", "Usage across the
+ * system", "Rate history vs XAF", "Hub › Master data". The rule in CLAUDE.md
+ * said section and card titles were chrome; the gate never looked at one.
+ *
+ * A component knows what it is. `<SectionCard title>` is always a heading and
+ * `toast.success()` is always a message, whatever words either is given, so
+ * the component is the reliable axis and the wording is not. Message-bearing
+ * components (EmptyState, Callout, ErrorState, toast) are deliberately absent.
+ */
+const CHROME_COMPONENT =
+  /<(?:Section|SectionCard|Panel|Fieldset|HubCrumb)\b[^>]*?\b(?:title|legend|area)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
 
 function files() {
   const out = execFileSync(
@@ -140,8 +161,11 @@ function exempt(lines, i) {
 }
 
 function isTitleCase(s) {
+  /* The apostrophe stays INSIDE the word: stripping it turned "Person's" into
+     "Person" + "s", and a bare lowercase "s" is not a minor word, so a
+     correctly cased title failed the check. */
   const words = s
-    .replace(/[(),:;?!."'’“”]/g, " ")
+    .replace(/[(),:;?!."“”]/g, " ")
     .split(/[\s/]+/)
     .filter(Boolean);
   if (!words.length) return true;
@@ -184,6 +208,53 @@ function titleCase(s) {
     .join("");
 }
 
+/** Classes that render a paragraph of helper text to the reader. */
+const PROSE_CLASS =
+  /<(?:p|span|small|li|dd)\b[^>]*className="[^"]*(?:\bmicro\b|\bhint\b|text-xs[^"]*text-muted-foreground|text-sm[^"]*text-muted-foreground)[^"]*"/;
+
+/**
+ * The visible text of the element opening at `lines[i]`, joined across however
+ * many lines the formatter spread it over.
+ *
+ * Returns null when there is no prose: nested markup, a bare interpolation
+ * (`{children}`, `{row.note}`) whose length is not knowable here, or an empty
+ * element. Guessing at those produces false failures, and a gate people have
+ * to argue with is a gate they turn off.
+ */
+function elementText(lines, i, startCol) {
+  let blob = lines[i].slice(startCol);
+  for (let j = i; j < Math.min(i + 14, lines.length); j++) {
+    if (j > i) blob += " " + lines[j];
+    if (/<\/(?:p|span|div|li|dd|small)>/.test(lines[j])) break;
+  }
+  /* Find the end of the OPENING TAG, not the first ">" in the blob. An
+     attribute can hold an arrow function (`onClick={() => save()}`), and its
+     ">" came first, so a naive strip left half the attributes in the text and
+     reported `className=rounded-md px-2 py-1 ...` as a 115-character hint. */
+  let text = blob
+    .replace(/=>/g, "\u0000")     // hide arrows from the tag-end search
+    .replace(/^[^>]*>/, "")        // past the opening tag
+    .replace(/\u0000/g, "=>")
+    .replace(/<[^>]*>/g, " ");     // any nested tags
+
+  /* Strip JSX expressions until nothing changes: a multi-line ternary nests
+     braces, and one pass of a non-nesting pattern leaves the inner halves
+     behind as if they were prose. */
+  for (let pass = 0; pass < 6; pass++) {
+    const next = text.replace(/\{[^{}]*\}/g, " ");
+    if (next === text) break;
+    text = next;
+  }
+
+  /* A brace still standing means the content is computed, so its rendered
+     length is not knowable from the source. Measuring it anyway is how a gate
+     starts reporting things nobody can act on. */
+  if (/[{}]/.test(text)) return null;
+
+  text = text.replace(/["'`]/g, "").replace(/\s+/g, " ").trim();
+  return text.length ? text : null;
+}
+
 const problems = { long: [], eyebrow: [], title: [] };
 const counts = {};
 
@@ -220,10 +291,28 @@ for (const f of files()) {
         }
       }
     }
-    const para = line.match(/className="(?:[^"]*\s)?(?:micro|hint)(?:\s[^"]*)?"/);
+    /* A PARAGRAPH, however it is spelled and however it is wrapped.
+     *
+     * This used to read only the rest of the SAME LINE, and only when the text
+     * was a quoted string. Both assumptions were wrong, and wrong in the
+     * direction that hid the worst offenders:
+     *
+     *   <p className="mb-2 micro text-muted-foreground">
+     *     Add each compliance document and upload its file - a PDF or a clear
+     *     photo. No file yet? ...
+     *
+     * is bare JSX text starting on the NEXT line, so the gate saw nothing and
+     * five printed lines sailed through. The longer the sentence, the more
+     * likely the formatter wrapped it, so the gate was blindest exactly where
+     * the problem was worst. 147 paragraphs over the cap were invisible.
+     *
+     * The class list was too narrow too: `.micro` and `.hint` were checked
+     * while 835 `text-xs/text-sm text-muted-foreground` paragraphs, which look
+     * identical on screen, were not checked at all.
+     */
+    const para = line.match(PROSE_CLASS);
     if (para) {
-      const after = line.slice(para.index + para[0].length);
-      const text = literal(after.replace(/^[^>]*>/, "")) ;
+      const text = elementText(lines, i, para.index + para[0].length);
       /* A SENTENCE, not a label. `.micro` is also the class on "Account
          Manager" and "Also Notify", which are two-word captions over a value
          and are not what this gate is about. Counting those made a screen look
@@ -255,6 +344,17 @@ for (const f of files()) {
     if (title) {
       const text = literal(title[1]);
       if (text && CHROME_TITLE.test(text) && !isTitleCase(text)) {
+        problems.title.push({ key, line: i + 1, text, abs });
+      }
+    }
+    /* A chrome component's own title, whatever words it carries. Matched
+       across the opening tag rather than one line, because the title of a
+       section with three other props is rarely on the same line as its name. */
+    const openTag = lines.slice(i, Math.min(i + 6, lines.length)).join(" ");
+    const chrome = openTag.match(CHROME_COMPONENT);
+    if (chrome && /^<(?:Section|SectionCard|Panel|Fieldset|HubCrumb)\b/.test(line.trim())) {
+      const text = chrome[2];
+      if (!SKIP_TITLE.test(text) && text.length <= 60 && !isTitleCase(text)) {
         problems.title.push({ key, line: i + 1, text, abs });
       }
     }
@@ -331,17 +431,40 @@ if (FIX_TITLES) {
   for (const [abs, list] of byFile) {
     const lines = readFileSync(abs, "utf8").split("\n");
     for (const p of list) {
-      const i = p.line - 1;
-      for (const q of ['"', "'"]) {
-        const from = q + p.text + q;
-        if (lines[i].includes(from)) {
-          lines[i] = lines[i].replace(from, q + p.next + q);
-          break;
+      /* The title is not always on the line the problem was recorded at: a
+         <SectionCard> with four props puts its `title` two lines below its
+         name, and that is where the opening tag was matched from. Search the
+         tag's span rather than a single line. */
+      let done = false;
+      for (let i = p.line - 1; i < Math.min(p.line + 5, lines.length) && !done; i++) {
+        for (const q of ['"', "'"]) {
+          const from = q + p.text + q;
+          if (lines[i].includes(from)) {
+            lines[i] = lines[i].replace(from, q + p.next + q);
+            done = true;
+            break;
+          }
         }
       }
     }
     writeFileSync(abs, lines.join("\n"));
   }
+
+  /* WHICH KEYS MAY MOVE.
+   *
+   * A dictionary key is the English text itself, and the same English can be
+   * rendered from several places for different reasons: "Yard noise filter"
+   * is a section title on the calls page AND a checkbox label in the call
+   * overlay. Retitling the section and moving the key took the French away
+   * from the checkbox, silently, because tr() falls back to English on a miss.
+   *
+   * So a key only moves when the OLD spelling has left the source entirely.
+   * Where it has not, the new key is ADDED and the old one stays, and both
+   * call sites keep their translation.
+   */
+  const sourceBlob = files()
+    .map((rel) => readIfPresent(join(appRoot, rel)) ?? "")
+    .join("\n");
 
   const dictPath = join(appRoot, "src/lib/i18n-dict.ts");
   const dictSrc = readIfPresent(dictPath);
@@ -351,6 +474,10 @@ if (FIX_TITLES) {
     let en = split === -1 ? dict : dict.slice(0, split);
     let fr = split === -1 ? "" : dict.slice(split);
     for (const [from, to] of renames) {
+      if (sourceBlob.includes(`"${from}"`)) {
+        // Still rendered somewhere under its old spelling: leave the key be.
+        continue;
+      }
       const esc = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // English: move the key and retitle the value, but only where the value
       // is the identity string. A hand-written English override stays.

@@ -151,7 +151,7 @@ export function MyAdvances({
 
   return (
     <Panel
-      title={tr("My advances")}
+      title={tr("My Advances")}
       subtitle={`${num(rows.length)} open · ${money(owed)} ${tr("to justify")}`}
       className="mb-4"
     >
@@ -746,7 +746,7 @@ export function RegieDetail({
       </Panel>
 
       <Panel
-        title={tr("Retirement ledger")}
+        title={tr("Retirement Ledger")}
         subtitle={`${num(rows.length)} ${rows.length === 1 ? tr("entry") : tr("entries")}`}
       >
         {rows.length === 0 ? (

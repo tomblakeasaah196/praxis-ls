@@ -210,7 +210,11 @@ Two mechanical rules that the test suite will enforce for you the hard way:
 
 `.micro` is a short caption ("Account Manager", Title Case). `.hint` is a helper
 SENTENCE that earned its place. `.eyebrow` is the uppercase editorial treatment
-for a single word over a figure. Full detail, the gate's limits, and the
+for a single word over a figure. The gate reads a paragraph however the
+formatter wrapped it, and reads `text-xs/text-sm text-muted-foreground` as
+prose too: the first version looked only at the rest of the line the class was
+on, so 147 paragraphs were invisible and the longest were the most likely to
+be missed. Full detail, the gate's limits, and the
 `<PageHeader>`-versus-`<InfoHint>` split are in **`doc/FRONTEND_GUIDE.md`
 §3.17**.
 
@@ -228,6 +232,18 @@ card titles, dialog titles that open a form ("New Service Type"), primary
 buttons, column headers. Messages SPEAK to the user: toasts, empty states,
 validation, helper text. "Could not save it" must not become "Could Not Save
 It".
+
+**The gate decides which is which from the COMPONENT, not the wording.**
+`<Section title>`, `<SectionCard title>`, `<Panel title>`, `<Fieldset legend>`
+and `<HubCrumb area>` are chrome whatever words they carry; `<EmptyState>`,
+`<Callout>` and `toast` are messages whatever words they carry. The first
+version of the rule guessed from the string (did it start with "New"?) and so
+never looked at a single section card, which is exactly where the tenant found
+them: "Overview & format", "Usage across the system", "Hub › Master data".
+
+**A tab's LABEL is chrome; a tab's VALUE is a URL.** `?tab=Banking %26 treasury`
+is a deep link with a test pinning it, so the rename happens at the point of
+display (a `TAB_LABEL` map beside `SHORT_LABEL`) and the value is left alone.
 
 **French is never title-cased.** "Types de service", not "Types De Service".
 That is correct French typography, and this product serves a corridor where half
@@ -248,7 +264,11 @@ look a translation up BY its exact English text and fall back to English
 silently, so a renamed string with a stale key renders English in the French
 build with nothing failing anywhere. `node scripts/check-prose.mjs --fix-titles`
 moves the key on both the `en` and `fr` sides and retitles only the English
-value. And watch for copy used as a KEY: `AREA_ICON` is keyed by an area's
+value. It moves a key ONLY when the old spelling has left the source entirely:
+the same English can be rendered from two places for different reasons
+("Yard noise filter" is a section title on one screen and a checkbox label on
+another), and moving the key for one of them took the French away from the
+other, silently. And watch for copy used as a KEY: `AREA_ICON` is keyed by an area's
 display label, so retitling the navigation silently dropped five areas onto one
 glyph in an icons-only rail, with nothing failing at the type level. Full detail
 in **`doc/FRONTEND_GUIDE.md` §3.18**.

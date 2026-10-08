@@ -100,7 +100,7 @@ export function ComplianceFlagsPage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        eyebrow={<HubCrumb area="Vault & compliance" to="/vault" />}
+        eyebrow={<HubCrumb area="Vault & Compliance" to="/vault" />}
         title="Compliance flags"
         description="Run the rule scans and clear the flags they raise."
         action={

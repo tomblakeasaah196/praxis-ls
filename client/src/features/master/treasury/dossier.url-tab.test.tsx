@@ -127,12 +127,12 @@ describe("TreasuryDossier · tab state is URL state", () => {
     const first = mount();
 
     // Starts on Overview with no param — the fallback keeps the URL clean.
-    expect(await screen.findByText("Bank identity")).toBeInTheDocument();
+    expect(await screen.findByText("Bank Identity")).toBeInTheDocument();
     expect(lastSearch).toBe("");
 
     await user.click(screen.getByRole("button", { name: "Signatories" }));
     expect(
-      await screen.findByText("Authorized signatories"),
+      await screen.findByText("Authorized Signatories"),
     ).toBeInTheDocument();
     expect(lastSearch).toBe("?tab=Signatories");
 
@@ -141,9 +141,9 @@ describe("TreasuryDossier · tab state is URL state", () => {
     first.unmount();
     mount("/?tab=Signatories");
     expect(
-      await screen.findByText("Authorized signatories"),
+      await screen.findByText("Authorized Signatories"),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Bank identity")).toBeNull();
+    expect(screen.queryByText("Bank Identity")).toBeNull();
   });
 
   it("a multi-word tab round-trips through the param (CoA leaf)", async () => {
@@ -155,6 +155,6 @@ describe("TreasuryDossier · tab state is URL state", () => {
 
   it("an unknown ?tab= value falls back to Overview instead of rendering nothing", async () => {
     mount("/?tab=Statements");
-    expect(await screen.findByText("Bank identity")).toBeInTheDocument();
+    expect(await screen.findByText("Bank Identity")).toBeInTheDocument();
   });
 });
