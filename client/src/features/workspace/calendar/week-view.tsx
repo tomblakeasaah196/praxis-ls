@@ -135,7 +135,7 @@ export function WeekView({
                       key={`${d.kind}:${d.subtask_id ?? d.task_id}`}
                       type="button"
                       onClick={() => onSelectDeadline?.(d)}
-                      title={`Due — ${dueTitle(d)}`}
+                      title={`Due: ${dueTitle(d)}`}
                       className="flex w-full items-center gap-2 rounded px-1 py-1 text-left text-sm transition-colors hover:bg-accent"
                     >
                       <Pill tone={d.is_overdue ? "bad" : "warn"}>Due</Pill>

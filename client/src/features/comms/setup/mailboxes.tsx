@@ -237,7 +237,7 @@ export function MembersModal({ mailbox, onClose }: { mailbox: api.Mailbox; onClo
       open
       onClose={onClose}
       size="lg"
-      title={`${tr("Who can work")} ${mailbox.email_address}`}
+      title={`${tr("Who Can Work")} ${mailbox.email_address}`}
       description={tr("Reading a team's mail and sending as it are different rights.")}
     >
       <div className="space-y-4">
@@ -791,7 +791,7 @@ function ImapConnectForm({
            * PERSONAL_MAILBOX_EXISTS used to end here, and the sentence it ends
            * with is "ask an administrator to set up a shared mailbox" — which
            * an administrator reads while BEING the administrator, on the only
-           * screen in the product that says "Connect a mailbox". The mailbox
+           * screen in the product that says "Connect a Mailbox". The mailbox
            * they want is a team address, that is a different object created on
            * a different tab, and nothing here said so. This is the missing
            * half: name the rule, then hand over what they have already typed.
@@ -1068,7 +1068,7 @@ export function ConnectionsTab({
         onConfirm={() => confirmTarget && void disconnect(confirmTarget)}
       />
       {/* Microsoft first, and deliberately so: for a Microsoft 365 mailbox it is
-       * the only route that exists, while "Connect a mailbox" (IMAP/SMTP) is
+       * the only route that exists, while "Connect a Mailbox" (IMAP/SMTP) is
        * for a mailbox on the company's own mail server. Offering the password
        * form first to a Microsoft tenant sends them down a road that ends in an
        * authentication failure they cannot fix. Google Workspace returns here
@@ -1078,7 +1078,7 @@ export function ConnectionsTab({
           {tr("Connect Microsoft 365")}
         </Button>
         <Button variant="outline" onClick={() => setImapOpen(true)}>
-          {tr("Connect a mailbox")}
+          {tr("Connect a Mailbox")}
         </Button>
         {note && <span className="micro">{note}</span>}
       </div>
@@ -1182,7 +1182,7 @@ export function ConnectionsTab({
         title={
           editConn
             ? tr("Edit This Mailbox")
-            : tr("Connect a mailbox")
+            : tr("Connect a Mailbox")
         }
       >
         <ImapConnectForm
