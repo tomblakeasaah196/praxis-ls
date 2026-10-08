@@ -109,7 +109,7 @@ function PillarForm({
         <Field
           label={`${tr("Name")} (FR)`}
           required
-          hint={tr("What the section is called on the French site.")}
+          about={tr("What the section is called on the French site.")}
         >
           <Input
             value={draft.name_fr}
@@ -133,7 +133,7 @@ function PillarForm({
           required
           hint={
             isNew
-              ? `${tr("Suggestion")}: ${keySuggestion || "—"}`
+              ? `${tr("Suggestion")}: ${keySuggestion || ""}`
               : tr("Changing this breaks links already shared to this section.")
           }
         >
@@ -161,7 +161,7 @@ function PillarForm({
             /services#{draft.key || keySuggestion || "…"}
           </p>
         </Field>
-        <Field label={tr("Icon")} hint={tr("Optional glyph beside the heading.")}>
+        <Field label={tr("Icon")} about={tr("Optional glyph beside the heading.")}>
           <Select
             value={draft.icon}
             disabled={disabled || busy}
@@ -177,7 +177,7 @@ function PillarForm({
         </Field>
         <Field
           label={tr("Order")}
-          hint={tr("Lower shows first on the page.")}
+          about={tr("Lower shows first on the page.")}
         >
           <Input
             type="number"

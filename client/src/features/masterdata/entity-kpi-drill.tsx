@@ -61,7 +61,7 @@ const JOURNALS_ROUTE = "/finance/journals";
 
 /** The roster is read in one page; the module's own list takes it from there. */
 const DRILL_LIMIT = 200;
-const TRUNCATED_HINT = `Showing the first ${DRILL_LIMIT} — open the module for the rest.`;
+const TRUNCATED_HINT = `Showing the first ${DRILL_LIMIT}. Open the module for the rest.`;
 
 const ROLE_LABEL = (r: string) =>
   r === "LEGAL_REPRESENTATIVE" ? "Legal rep." : enumLabel(r);

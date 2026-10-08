@@ -292,7 +292,7 @@ export function TemplateForm({
          owner on one row do not fit in 768px, which is what pushed the English
          label behind an expander in the first place (meeting 7, 01:55:13). */
       size="wide"
-      title={`Milestone chain — ${svc.name_en || svc.name_fr}`}
+      title={`Milestone chain: ${svc.name_en || svc.name_fr}`}
       description="The stages every new file of this service type starts with. Publishing creates a new active version; files already open keep the stages they were given."
       headerRight={
         drift > 0 ? (
@@ -460,7 +460,7 @@ export function TemplateForm({
                         row now — see the header. */}
                     <Field
                       label="Minimum duration (hours)"
-                      hint="The floor this stage can never be compressed below, however late the file runs."
+                      about="The floor this stage can never be compressed below, however late the file runs."
                     >
                       <Input
                         value={r.min_duration_hours}
@@ -477,7 +477,7 @@ export function TemplateForm({
                     </Field>
                     <Field
                       label="Segment"
-                      hint="MAIN for a normal chain; INBOUND / STEADY / OUTBOUND for open-ended services."
+                      about="MAIN for a normal chain; INBOUND / STEADY / OUTBOUND for open-ended services."
                     >
                       <Input
                         value={r.chain_segment}
@@ -490,13 +490,13 @@ export function TemplateForm({
                     </Field>
                     <Field
                       label={tr("Cadence")}
-                      hint="Set only for steady-state stages, which run on a rhythm and are never overdue."
+                      about="Set only for steady-state stages, which run on a rhythm and are never overdue."
                     >
                       <Select
                         value={r.cadence}
                         onChange={(e) => setRow(i, { cadence: e.target.value })}
                       >
-                        <option value="">None — scheduled normally</option>
+                        <option value="">{tr("None: scheduled normally")}</option>
                         {api.CADENCES.map((c) => (
                           <option key={c} value={c}>
                             {c.charAt(0) + c.slice(1).toLowerCase()}
@@ -506,7 +506,7 @@ export function TemplateForm({
                     </Field>
                     <Field
                       label="Required evidence"
-                      hint="Document type that proves this stage happened."
+                      about="Document type that proves this stage happened."
                     >
                       <Input
                         value={r.required_evidence_doc_type}

@@ -259,7 +259,7 @@ export function ClientForm({
             form={form}
             name="entity_id"
             label={tr("Corporate entity")}
-            hint="Which of our entities bills this client. Only active entities are offered for a new link; an existing link to a deactivated entity stays as history."
+            about="Which of our entities bills this client. Only active entities are offered for a new link; an existing link to a deactivated entity stays as history."
           >
             {(field) => (
               /*

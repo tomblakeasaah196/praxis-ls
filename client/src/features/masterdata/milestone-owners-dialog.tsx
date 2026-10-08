@@ -312,7 +312,7 @@ export function MilestoneOwnersDialog({
               <Field
                 label="Name (English)"
                 required
-                hint="What a person reads: e.g. Shipping line."
+                about="What a person reads: e.g. Shipping line."
               >
                 <Input
                   value={draft.name}
@@ -329,7 +329,7 @@ export function MilestoneOwnersDialog({
                   }}
                 />
               </Field>
-              <Field label="Name (French)" hint="Blank uses the English name.">
+              <Field label="Name (French)" about="Blank uses the English name.">
                 <Input
                   value={draft.name_fr}
                   placeholder="Expert maritime"
@@ -339,7 +339,7 @@ export function MilestoneOwnersDialog({
               <Field
                 label={tr("Code")}
                 required
-                hint="Stored on every stage, and permanent. Uppercase, digits and underscores."
+                about="Stored on every stage, and permanent. Uppercase, digits and underscores."
                 error={
                   draft.code && !codeOk
                     ? "Uppercase letters, digits and underscores; 2 to 32 characters."
@@ -356,7 +356,7 @@ export function MilestoneOwnersDialog({
                   }
                 />
               </Field>
-              <Field label="What they do" hint="Optional: shown as the dropdown's hint.">
+              <Field label="What they do" about="Optional: shown as the dropdown's hint.">
                 <Input
                   value={draft.description}
                   placeholder="Draft survey and cargo condition reports."
@@ -368,7 +368,7 @@ export function MilestoneOwnersDialog({
               checked={draft.is_internal}
               onCheckedChange={(v) => setDraft((d) => ({ ...d, is_internal: v }))}
               label="This is one of our own desks"
-              hint="Tick it only for us. The delay report splits ours from everybody else's on this alone."
+              about="Tick it only for us. The delay report splits ours from everybody else's on this alone."
             />
             <div className="flex justify-end">
               <Button type="button" loading={busy === "new"} disabled={!canAdd} onClick={() => void add()}>

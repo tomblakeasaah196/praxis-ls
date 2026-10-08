@@ -250,7 +250,7 @@ function SupplierForm({
               right control; SearchSelect earns its keep past ~20 rows. */}
           <Field
             label={tr("Category")}
-            hint={tr("From the supplier categories registry: add one inline if it is missing.")}
+            about={tr("From the supplier categories registry: add one inline if it is missing.")}
           >
             <div className="flex items-center gap-2">
               <Select
@@ -279,7 +279,7 @@ function SupplierForm({
           {/* #29 — every method the vendor accepts, not one. Checkboxes rather
               than a multi-select listbox: four known options, and a control
               where the current state is readable without opening anything. */}
-          <Field label={tr("Payment methods")} hint={tr("Tick every method this vendor accepts.")}>
+          <Field label={tr("Payment methods")} about={tr("Tick every method this vendor accepts.")}>
             <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1">
               {(["BANK", "CHEQUE", "CASH", "MOBILE_MONEY"] as const).map((m) => (
                 <label key={m} className="flex items-center gap-2 text-sm">
@@ -350,7 +350,7 @@ function SupplierForm({
           <div className="sm:col-span-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Terms
           </div>
-          <Field label={tr("Email")} hint="Used to send purchase orders">
+          <Field label={tr("Email")} about="Used to send purchase orders">
             <Input
               type="email"
               value={email}

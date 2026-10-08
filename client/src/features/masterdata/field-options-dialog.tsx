@@ -109,7 +109,7 @@ export function FieldOptionsDialog({
       open={open}
       onClose={onClose}
       size="lg"
-      title={`Options — ${fieldLabel}`}
+      title={`Options: ${fieldLabel}`}
       description={
         editable
           ? "The value is stored on every file and printed on every document. The labels are what people read."

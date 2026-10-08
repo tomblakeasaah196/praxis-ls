@@ -52,7 +52,7 @@ export function optionProblems(rows: FieldOption[]): string[] {
   const problems: string[] = [];
   if (!rows.length) {
     problems.push(
-      "A dropdown needs at least one option — an empty one cannot be answered.",
+      "A dropdown needs at least one option. An empty one cannot be answered.",
     );
   }
   if (rows.some((r) => !String(r.value || "").trim())) {
@@ -78,7 +78,7 @@ export function optionProblems(rows: FieldOption[]): string[] {
   });
   if (duplicates.size) {
     problems.push(
-      `Two options cannot share a value — ${[...duplicates].join(", ")} appears twice.`,
+      `Two options cannot share a value: ${[...duplicates].join(", ")} appears twice.`,
     );
   }
   return problems;

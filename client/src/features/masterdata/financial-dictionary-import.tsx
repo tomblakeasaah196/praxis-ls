@@ -469,7 +469,7 @@ export function DictImportModal({
                               <span className="block micro">
                                 {tr(SOURCE_LABEL[r.ai.source] ?? r.ai.source)}
                                 {r.ai.fallback_reason
-                                  ? ` — ${r.ai.fallback_reason}`
+                                  ? ` · ${r.ai.fallback_reason}`
                                   : ""}
                               </span>
                               {r.ai.sources.length > 0 && (
@@ -579,7 +579,7 @@ export function DictImportModal({
             {num(committed.summary.created)} item
             {committed.summary.created === 1 ? "" : "s"} created
             {committed.summary.rejected
-              ? `, ${num(committed.summary.rejected)} rejected — export them below and re-upload once fixed.`
+              ? `, ${num(committed.summary.rejected)} rejected. Export them below and re-upload once fixed.`
               : "."}
           </Callout>
         )}

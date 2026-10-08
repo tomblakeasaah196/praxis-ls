@@ -226,7 +226,7 @@ export function ServiceTypesPage() {
           ) : (
             <EmptyState
               title="No service type selected"
-              hint="Pick one from the list, or create a new one. Files can't carry a milestone chain until at least one exists."
+              hint="Pick one, or create a new one. A file needs one to carry milestones."
             />
           )}
         </SplitPane>

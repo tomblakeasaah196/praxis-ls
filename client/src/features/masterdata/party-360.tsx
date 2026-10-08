@@ -397,7 +397,7 @@ function AddDocumentModal({
           </Field>
           <Field
             label={tr("Number")}
-            hint="Generated automatically when the document is added."
+            about="Generated automatically when the document is added."
           >
             <Input
               value="Assigned on save"
@@ -419,7 +419,7 @@ function AddDocumentModal({
           </Field>
           <Field
             label="Physical archive ref"
-            hint="Only for paper originals: where the hard copy is filed."
+            about="Only for paper originals: where the hard copy is filed."
             className="sm:col-span-2"
           >
             <Input
@@ -439,7 +439,7 @@ function AddDocumentModal({
           error={fileError}
           uploadProgress={uploadProgress}
           uploadSuccess={uploadSuccess}
-          hint="PDF or image (PNG, JPEG, WebP), up to 25 MB. Optional: you can attach it from the row later."
+          hint="PDF or image, up to 25 MB. You can attach it later from the row."
         />
 
         {error && <ErrorState message={error} />}
@@ -955,7 +955,7 @@ function AgingDetailModal({
     <Modal
       open
       onClose={onClose}
-      title={`Aging — ${label}`}
+      title={`Aging: ${label}`}
       description={
         kind === "client"
           ? "Open receivables in this bucket."
@@ -1081,7 +1081,7 @@ function PendingChangesCard({
           >
             <span className="text-muted-foreground">
               {enumLabel(c.change_type)}
-              {c.reason ? ` — ${c.reason}` : ""}
+              {c.reason ? ` · ${c.reason}` : ""}
             </span>
             <div className="flex gap-2">
               <Button

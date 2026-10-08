@@ -28,6 +28,7 @@ import * as React from "react";
 import * as RadixCheckbox from "@radix-ui/react-checkbox";
 import * as RadixRadio from "@radix-ui/react-radio-group";
 import { cn } from "@/lib/cn";
+import { InfoHint } from "@/components/ui/info-hint";
 import { CheckIcon } from "@/components/ui/icons";
 
 export function Checkbox({
@@ -35,6 +36,8 @@ export function Checkbox({
   onCheckedChange,
   label,
   hint,
+  about,
+  aboutLabel,
   disabled,
   id,
   className,
@@ -44,7 +47,13 @@ export function Checkbox({
   /** Visible label AND accessible name. Required — an unlabelled checkbox is
    *  unusable with a screen reader and has a 16px hit target. */
   label: React.ReactNode;
+  /** Printed under the label. A tick already tells the user what state it is
+   *  in, so a hint that narrates the control ("ON: ...") is not worth a line;
+   *  what only the hint knows is the CONSEQUENCE, and that belongs in `about`. */
   hint?: string;
+  /** The consequence, behind an ⓘ beside the label. See guide §3.17. */
+  about?: string;
+  aboutLabel?: string;
   disabled?: boolean;
   id?: string;
   className?: string;
@@ -52,6 +61,7 @@ export function Checkbox({
   const uid = React.useId();
   const boxId = id ?? `${uid}-box`;
   const hintId = hint ? `${uid}-hint` : undefined;
+  const aboutId = about ? `${uid}-about` : undefined;
 
   return (
     <div className={cn("flex items-start gap-2.5", className)}>
@@ -60,7 +70,7 @@ export function Checkbox({
         checked={checked}
         onCheckedChange={(v) => onCheckedChange(v === true)}
         disabled={disabled}
-        aria-describedby={hintId}
+        aria-describedby={[hintId, aboutId].filter(Boolean).join(" ") || undefined}
         className={cn(
           "mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border border-input bg-background transition-colors",
           "data-[state=checked]:border-primary data-[state=checked]:bg-primary",
@@ -81,12 +91,33 @@ export function Checkbox({
       </RadixCheckbox.Root>
 
       <div className="min-w-0">
-        <label
-          htmlFor={boxId}
-          className={cn("text-sm text-foreground", disabled && "opacity-50")}
-        >
-          {label}
-        </label>
+        {/* The ⓘ sits BESIDE the <label>, never inside it: nested, its
+            aria-label joins the checkbox's accessible name and the control
+            announces as "Moves containers About moves containers". */}
+        <span className="flex items-center gap-1.5">
+          <label
+            htmlFor={boxId}
+            className={cn("text-sm text-foreground", disabled && "opacity-50")}
+          >
+            {label}
+          </label>
+          {about ? (
+            <>
+              <span id={aboutId} className="sr-only">
+                {about}
+              </span>
+              <InfoHint
+                label={
+                  aboutLabel ??
+                  (typeof label === "string" ? `About ${label}` : "About this option")
+                }
+                textId={aboutId}
+              >
+                {about}
+              </InfoHint>
+            </>
+          ) : null}
+        </span>
         {hint && (
           <p id={hintId} className="text-xs text-muted-foreground">
             {hint}
@@ -100,7 +131,13 @@ export function Checkbox({
 export type RadioOption = {
   value: string;
   label: React.ReactNode;
+  /** Printed under the label. A tick already tells the user what state it is
+   *  in, so a hint that narrates the control ("ON: ...") is not worth a line;
+   *  what only the hint knows is the CONSEQUENCE, and that belongs in `about`. */
   hint?: string;
+  /** The consequence, behind an ⓘ beside the label. See guide §3.17. */
+  about?: string;
+  aboutLabel?: string;
   disabled?: boolean;
   /**
    * A CSS colour to render the control itself in, instead of the dot — for

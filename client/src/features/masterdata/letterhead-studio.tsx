@@ -325,7 +325,7 @@ function CanvasZone({
                   <button
                     key={key}
                     type="button"
-                    aria-label={`${tr("Move here")} — ${tr("row")} ${row + 1}, ${tr("column")} ${col + 1}`}
+                    aria-label={`${tr("Move here")}: ${tr("row")} ${row + 1}, ${tr("column")} ${col + 1}`}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = "move";
@@ -499,7 +499,7 @@ function Inspector({
         <>
           <Field
             label={lang === "fr" ? tr("Text (French)") : tr("Text (English)")}
-            hint={tr("Type {{ to insert a fact from the entity's record.")}
+            about={tr("Type {{ to insert a fact from the entity's record.")}
           >
             <Input
               ref={textRef}
@@ -584,7 +584,7 @@ function Inspector({
             <option value="right">{tr("Right")}</option>
           </Select>
         </Field>
-        <Field label={tr("Width (columns)")} hint={tr("Of twelve.")}>
+        <Field label={tr("Width (columns)")} about={tr("Of twelve.")}>
           <Input
             type="number"
             min={1}
@@ -594,7 +594,7 @@ function Inspector({
             onChange={(e) => onPlace({ span: Number(e.target.value) })}
           />
         </Field>
-        <Field label={tr("Column")} hint={tr("0 is the left edge.")}>
+        <Field label={tr("Column")} about={tr("0 is the left edge.")}>
           <Input
             type="number"
             min={0}
@@ -618,7 +618,7 @@ function Inspector({
 
       {block.kind !== "rule" && block.kind !== "image" && (
         <div className="grid grid-cols-2 gap-2">
-          <Field label={tr("Size")} hint={tr("1 is the default.")}>
+          <Field label={tr("Size")} about={tr("1 is the default.")}>
             <Input
               type="number"
               min={0.5}

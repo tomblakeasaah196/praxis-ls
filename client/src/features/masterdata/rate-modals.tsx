@@ -216,7 +216,7 @@ export function SetRateModal({
       onClose={onClose}
       title={
         title ||
-        `Set rate — ${providerLabel}${containerTypeLabel ? " · " + containerTypeLabel : ""}`
+        `Set rate: ${providerLabel}${containerTypeLabel ? " · " + containerTypeLabel : ""}`
       }
       description="Rates are superseded, never edited in place: the prior rate expires the day before this one opens, so history stays intact."
     >

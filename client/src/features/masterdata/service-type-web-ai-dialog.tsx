@@ -671,7 +671,7 @@ export function ServiceTypeWebAiDialog({
 
             <Field
               label={tr("Anything else (optional)")}
-              hint={tr("In your own words: a angle to take, a term to prefer, something to avoid.")}
+              about={tr("In your own words: a angle to take, a term to prefer, something to avoid.")}
             >
               <Textarea
                 rows={3}

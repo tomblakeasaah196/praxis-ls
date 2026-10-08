@@ -428,7 +428,7 @@ function SpendDocsDrill({
       open
       onClose={onClose}
       title={`${tr(spec.title)} · ${code}`}
-      description={`${spec.description} ${dateFmt(range.from)} — ${dateFmt(range.to)}.`}
+      description={`${spec.description} ${dateFmt(range.from)} to ${dateFmt(range.to)}.`}
       headers={[
         { label: tr("Document") },
         { label: tr("Date") },
@@ -556,7 +556,7 @@ export function SpendTab({ id }: { id: string }) {
               d.totals.committed_count +
               d.totals.estimated_count,
           )}
-          hint={`${dateFmt(d.period.from)} — ${dateFmt(d.period.to)}`}
+          hint={`${dateFmt(d.period.from)} to ${dateFmt(d.period.to)}`}
           onClick={() => setDrill("all")}
         />
       </KpiRow>
@@ -844,7 +844,7 @@ export function CostEvolutionTab({ id }: { id: string }) {
     return (
       <EmptyState
         title="No rate cards"
-        hint="Add an expense rate for this line (Master data → Expense rates) and its history will build here as rates are superseded."
+        hint="Add an expense rate for this line and its history builds here."
       />
     );
   }

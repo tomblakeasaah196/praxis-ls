@@ -340,7 +340,7 @@ function FieldRow({
           >
             {FACET_ROLES.map((r) => (
               <option key={r || "none"} value={r}>
-                {r || "— not on the shared panel —"}
+                {r || "(not on the shared panel)"}
               </option>
             ))}
           </Select>
@@ -460,7 +460,7 @@ export function ServiceTypeFieldsTab({
       {!(sets.data || []).length ? (
         <EmptyState
           title={tr("No detail form yet")}
-          hint="Files of this service type will only record client, entity and carrier until a form is defined."
+          hint="Until a form is defined, files record only client, entity and carrier."
         />
       ) : null}
 
@@ -679,7 +679,7 @@ function NewFieldForm({
           label={tr("Key")}
           required
           className="sm:col-span-3"
-          hint="Permanent: values are stored under it."
+          about="Permanent: values are stored under it."
         >
           <Input
             value={key}

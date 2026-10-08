@@ -271,7 +271,7 @@ function AccountField({
         label={label}
         placeholder={value || "Search account…"}
         getKey={(r) => String(r.code)}
-        getLabel={(r) => `${r.code} — ${r.label_fr ?? ""}`.trim()}
+        getLabel={(r) => `${r.code}: ${r.label_fr ?? ""}`.trim()}
         filter={(r) =>
           r.is_postable !== false &&
           (restrict && preferredClass
@@ -304,7 +304,7 @@ function AccountField({
           className="mt-1 text-xs text-muted-foreground underline"
         >
           {restrict
-            ? `Showing class ${preferredClass} only — browse all`
+            ? `Showing class ${preferredClass} only: browse all`
             : "Restrict to class " + preferredClass}
         </button>
       ) : null}
@@ -722,7 +722,7 @@ export function DictForm({
           <>
             <Field
               label={tr("Direction")}
-              hint="Sets the code letter and prefilters the account picker."
+              about="Sets the code letter and prefilters the account picker."
             >
               <Segmented
                 label={tr("Direction")}
@@ -1099,7 +1099,7 @@ export function DictForm({
               </Field>
               <Field
                 label="Provider kind"
-                hint="For rate items: shipping line, customs, port authority."
+                about="For rate items: shipping line, customs, port authority."
               >
                 <Select
                   value={f.provider_kind}

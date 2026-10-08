@@ -179,9 +179,20 @@ for (const f of files()) {
   lines.forEach((line, i) => {
     if (exempt(lines, i)) return;
 
-    /* 1 + 2. Visible helper text: hint= and description=, plus a paragraph
-       carrying the .micro or .hint class. */
-    const hint = line.match(/\b(?:hint|description)=(\{?\s*(?:tr|tv|t)?\(?\s*["'][^]*)/);
+    /* 1 + 2. Visible helper text.
+
+       `hint` is PRINTED under its control, so it is what this measures, along
+       with a paragraph carrying .micro or .hint.
+
+       `description` is deliberately NOT counted any more. Every component that
+       takes one now renders it behind an ⓘ (Dialog, PageHeader, entity 360's
+       Section, Chart), so a long description costs the reader nothing. Counting
+       it made the gate report text that is no longer on the screen, which is
+       worse than not measuring: it would have had somebody shortening copy to
+       satisfy a number that no user can see. The rule the codebase now holds is
+       one line: `description` is explanation and lives behind the ⓘ, `hint` is
+       visible and is capped. */
+    const hint = line.match(/\bhint=(\{?\s*(?:tr|tv|t)?\(?\s*["'][^]*)/);
     if (hint) {
       const text = literal(hint[1]);
       if (text !== null) {

@@ -119,12 +119,35 @@ function files() {
   return out.split("\n").filter(Boolean).filter((f) => !SKIP.test(f));
 }
 
+/**
+ * THE EMPTY-VALUE GLYPH IS NOT COPY.
+ *
+ * A string that is ONLY a dash, or a word wrapped in them ("— none —"), is the
+ * "no value here" marker in a table cell, a stat tile or a select. It is
+ * typography, not writing: it has no voice, it cannot be rephrased, and it is
+ * not what reads as machine-written. Banning it would mean 196 edits in master
+ * data alone, every one of them replacing a conventional marker with a blank
+ * cell or a word that is longer than the column.
+ *
+ * This is a DECISION, not an oversight, and it is a one-line decision to
+ * reverse: delete this function and the gate will list every one of them.
+ * `lib/format.ts` is where most are minted (`money()` and friends return it),
+ * so changing the marker product-wide is a change in one file.
+ */
+function emptyValueGlyph(text) {
+  return (
+    /^\s*[\u2013\u2014\u2015]\s*$/.test(text) ||
+    /^\s*[\u2013\u2014\u2015][^\u2013\u2014\u2015]{0,24}[\u2013\u2014\u2015]\s*$/.test(text)
+  );
+}
+
 const hits = {};
 for (const f of files()) {
   const lines = readFileSync(join(repoRoot, f), "utf8").split("\n");
   lines.forEach((line, i) => {
     if (exempt(lines, i) || mechanical(line)) return;
     for (const lit of literals(line)) {
+      if (emptyValueGlyph(lit)) continue;
       if (EM.test(lit) || DOUBLE.test(lit)) {
         (hits[f] ||= []).push({ line: i + 1, text: lit.slice(0, 90) });
         break;

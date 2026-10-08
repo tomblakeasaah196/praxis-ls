@@ -522,7 +522,7 @@ function DictDossier({
       {pricing && (
         <SetRateModal
           itemId={id}
-          title={`${tr("Standard rate")} — ${it.label_en || it.label_fr}`}
+          title={`${tr("Standard rate")}: ${it.label_en || it.label_fr}`}
           providerLabel={tr("Standard rate")}
           providerId={null}
           containerTypeId={null}
@@ -634,7 +634,7 @@ function DictDossier({
           ) : d.service_tiers.length === 0 ? (
             <EmptyState
               title="No services yet"
-              hint="Add the services this line belongs to, and tick Core where it belongs on almost every file."
+              hint="Add the services this line belongs to. Tick Core for the usual ones."
             />
           ) : (
             // Core (offered ticked by Suggest charges) or one of the service's

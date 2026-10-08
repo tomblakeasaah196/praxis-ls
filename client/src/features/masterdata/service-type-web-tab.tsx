@@ -1156,7 +1156,7 @@ export function ServiceTypeWebTab({
         <div className="grid gap-4 lg:grid-cols-2">
           <Field
             label={`${tr("Short description")} (${lang.toUpperCase()})`}
-            hint={tr("Card teaser and meta-description fallback.")}
+            about={tr("Card teaser and meta-description fallback.")}
           >
             <Textarea
               value={String(draft[shortKey] ?? "")}
@@ -1172,7 +1172,7 @@ export function ServiceTypeWebTab({
           </Field>
           <Field
             label={`${tr("Long description")} (${lang.toUpperCase()})`}
-            hint={tr("Page body.")}
+            about={tr("Page body.")}
           >
             <Textarea
               value={String(draft[longKey] ?? "")}
@@ -1224,7 +1224,7 @@ export function ServiceTypeWebTab({
         <div className="grid gap-4 lg:grid-cols-2">
           <Field
             label={tr("Pillar")}
-            hint={tr("The section of the services page this card sits under.")}
+            about={tr("The section of the services page this card sits under.")}
           >
             <div className="flex gap-2">
               <Select
@@ -1241,7 +1241,7 @@ export function ServiceTypeWebTab({
                   <option key={g.group_id} value={g.group_id}>
                     {g.name_fr}
                     {g.name_en ? ` · ${g.name_en}` : ""}
-                    {g.is_active === false ? ` — ${tr("hidden")}` : ""}
+                    {g.is_active === false ? ` · ${tr("hidden")}` : ""}
                   </option>
                 ))}
               </Select>
@@ -1268,7 +1268,7 @@ export function ServiceTypeWebTab({
           </Field>
           <Field
             label={tr("Accent")}
-            hint={tr("Which of your brand colours tints this card. Shown in your own palette.")}
+            about={tr("Which of your brand colours tints this card. Shown in your own palette.")}
           >
             <AccentPicker
               value={(draft.accent as api.ServiceTypeWebAccent) || "PRIMARY"}
@@ -1445,7 +1445,7 @@ export function ServiceTypeWebTab({
         </div>
         <Field
           label={tr("Video URL")}
-          hint={tr("YouTube, Vimeo or Dailymotion embed only.")}
+          about={tr("YouTube, Vimeo or Dailymotion embed only.")}
         >
           <Input
             value={String(draft.video_url ?? "")}
@@ -1563,7 +1563,7 @@ export function ServiceTypeWebTab({
 
         <Field
           label={`${tr("Coverage note")} (${lang.toUpperCase()})`}
-          hint={tr("Optional geography or scope note on the public page.")}
+          about={tr("Optional geography or scope note on the public page.")}
         >
           <Textarea
             value={String(draft[coverKey] ?? "")}

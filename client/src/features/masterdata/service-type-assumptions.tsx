@@ -132,7 +132,7 @@ export function ServiceTypeAssumptions({
       {rows.length === 0 ? (
         <EmptyState
           title="Nothing published"
-          hint="Without a register, every date on this service reads as an unconditional promise."
+          hint="Without a register, every date here reads as a firm promise."
         />
       ) : (
         <div className="space-y-3">

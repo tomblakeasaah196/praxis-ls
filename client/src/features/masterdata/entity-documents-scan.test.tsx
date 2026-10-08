@@ -199,7 +199,7 @@ describe("Corporate entities · Documents — attaching a file", () => {
     // instead of leaving the tab looking like a dead end.
     expect(screen.queryByLabelText("Attach scan")).toBeNull();
     expect(
-      await screen.findByText(/attach the file later from the row/i),
+      await screen.findByText(/attach it later from the row/i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /add document/i }),

@@ -630,7 +630,7 @@ function ChildModal({
                       value={(values[f.key] as string) || ""}
                       onChange={(e) => set(f.key, e.target.value)}
                     >
-                      <option value="">—</option>
+                      <option value="">{tr("None")}</option>
                       {(f.options || []).map((o) => (
                         <option key={o.value} value={o.value}>
                           {o.label}
@@ -1629,7 +1629,7 @@ export function EntityDossier({
                   {x.expired ? "Expired" : "Expiring"}
                 </Pill>{" "}
                 {x.kind}{" "}
-                {x.number ? <span className="num">{x.number}</span> : null} —{" "}
+                {x.number ? <span className="num">{x.number}</span> : null} ·{" "}
                 {dateDmy(x.expires_on)}
               </li>
             ))}
@@ -2219,7 +2219,7 @@ export function EntityDossier({
       {tab === "Renewals" && (
         <Section
           title="Renewals"
-          description={`Everything on this entity that has expired or is approaching expiry, as of ${dateDmy(renewalsView.as_of)}. Nothing here blocks anything — these are recommendations for a person to act on.`}
+          description={`Everything on this entity that has expired or is approaching expiry, as of ${dateDmy(renewalsView.as_of)}. Nothing here blocks anything. These are recommendations for a person to act on.`}
           action={
             <div className="flex flex-wrap items-end gap-2">
               {/* Forward, to plan a renewal run; back, to answer "what had already
@@ -2322,7 +2322,7 @@ export function EntityDossier({
           {renewalsView.items.length === 0 && (
             <EmptyState
               title="Nothing expiring"
-              hint="Documents and registrations with an expiry date appear here as their deadline approaches."
+              hint="Anything with an expiry date appears here as its deadline approaches."
             />
           )}
         </Section>
@@ -2345,7 +2345,7 @@ export function EntityDossier({
 
           <Section
             title="Shareholding"
-            description={`Reconciled as of ${dateDmy(capView.as_of)}. Warnings never block saving — a partly-recorded cap table is normal during onboarding.`}
+            description={`Reconciled as of ${dateDmy(capView.as_of)}. Warnings never block saving. A partly-recorded cap table is normal during onboarding.`}
             action={
               <div className="flex flex-wrap items-end gap-2">
                 {/* GET /cap-table?as_of= has always existed and the assistant's
@@ -2518,7 +2518,7 @@ export function EntityDossier({
                             onClick={() =>
                               setEditing({
                                 seg: "people",
-                                title: `Also acts as — ${p.full_name}`,
+                                title: `Also acts as: ${p.full_name}`,
                                 row: p as unknown as Record<string, unknown>,
                               })
                             }
@@ -2652,7 +2652,7 @@ export function EntityDossier({
                           onClick={() =>
                             setEditing({
                               seg: "people",
-                              title: `Also acts as — ${p.full_name}`,
+                              title: `Also acts as: ${p.full_name}`,
                               row: p as unknown as Record<string, unknown>,
                             })
                           }
@@ -3588,7 +3588,7 @@ function ShareDocumentsDialog({
       open
       onClose={onClose}
       title={tr("Share documents")}
-      description={`${documents.length} selected — send them by email, or download them together as a ZIP folder.`}
+      description={`${documents.length} selected: send them by email, or download them together as a ZIP folder.`}
     >
       <div className="space-y-4">
         {error && <ErrorState message={error} />}
@@ -4073,7 +4073,7 @@ function DocumentsTab({
       {documents.length === 0 && (
         <EmptyState
           title="No documents recorded"
-          hint="Start with the certificate of incorporation and the statutes: the rest can follow as you gather them. Add document takes the details and the file (PDF or image, up to 25 MB) together; you can also attach the file later from the row."
+          hint="Start with the certificate of incorporation. Attach it later from the row."
         />
       )}
 
@@ -4124,7 +4124,7 @@ function DocumentsTab({
           }
           subject={
             entityCode
-              ? `${entityCode} — ${selectedDocs.length} document${selectedDocs.length === 1 ? "" : "s"}`
+              ? `${entityCode}: ${selectedDocs.length} document${selectedDocs.length === 1 ? "" : "s"}`
               : undefined
           }
           vaultAttachments={selectedDocs
@@ -4330,7 +4330,7 @@ function LetterheadTab({
           description="How the sheet is laid out and coloured. The preview is drawn from these, so a change here is visible immediately."
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Paper size" hint="A4 outside North America.">
+            <Field label="Paper size" about="A4 outside North America.">
               <Select
                 value={c.paper_size ?? "A4"}
                 disabled={busy || !canEdit}
@@ -4353,7 +4353,7 @@ function LetterheadTab({
                 ))}
               </Select>
             </Field>
-            <Field label="Brand colour" hint="The rule under the header. Any colour: black included.">
+            <Field label="Brand colour" about="The rule under the header. Any colour: black included.">
               <BrandColourField
                 ariaLabel={tr("Brand colour")}
                 value={draft.brand_color ?? ""}
@@ -4367,7 +4367,7 @@ function LetterheadTab({
             </Field>
             <Field
               label="Accent colour"
-              hint="Secondary rules and table headings."
+              about="Secondary rules and table headings."
             >
               <BrandColourField
                 ariaLabel={tr("Accent colour")}
@@ -4382,7 +4382,7 @@ function LetterheadTab({
             </Field>
             <Field
               label="Header height (mm)"
-              hint="10 to 120. Blank uses the renderer's default."
+              about="10 to 120. Blank uses the renderer's default."
             >
               <Input
                 type="number"
@@ -4403,7 +4403,7 @@ function LetterheadTab({
             </Field>
             <Field
               label="Footer height (mm)"
-              hint="Reserve enough for the legal mentions, or they are clipped."
+              about="Reserve enough for the legal mentions, or they are clipped."
             >
               <Input
                 type="number"
@@ -4467,7 +4467,7 @@ function LetterheadTab({
             }
           >
             <option value="">
-              {tr("— the account flagged primary in Treasury —")}
+              {tr("(the account flagged primary in Treasury)")}
             </option>
             {accounts.map((a) => (
               <option key={a.treasury_account_id} value={a.treasury_account_id}>
@@ -4614,7 +4614,7 @@ function StructureModal({
             </Field>
             <Field
               label="Owned by the parent (%)"
-              hint="What the parent holds. The cap table records who holds what in detail."
+              about="What the parent holds. The cap table records who holds what in detail."
             >
               <Input
                 type="number"
@@ -4633,13 +4633,13 @@ function StructureModal({
           checked={consolidates}
           onCheckedChange={setConsolidates}
           label="Consolidates into the parent"
-          hint="Its results are included in the parent's consolidated accounts."
+          about="Its results are included in the parent's consolidated accounts."
         />
         <Checkbox
           checked={isGroupParent}
           onCheckedChange={setIsGroupParent}
           label="This is the group parent"
-          hint="The top of the tree: the entity consolidated reporting is produced for."
+          about="The top of the tree: the entity consolidated reporting is produced for."
         />
 
         {parentId && isGroupParent && (
@@ -4706,7 +4706,7 @@ function OpsReferencePrefixModal({ entityId, current, onClose, onSaved }: {
       description="The two characters every operations file of this entity starts with. Fixed once a file has used it."
     >
       <div className="space-y-3">
-        <Field label="Prefix" hint="Two characters, A. Z or 0 to 9. Unique across this tenant's entities.">
+        <Field label="Prefix" about="Two characters, A. Z or 0 to 9. Unique across this tenant's entities.">
           <Input
             value={prefix}
             onChange={(ev) => setPrefix(ev.target.value.toUpperCase().slice(0, 2))}
@@ -4795,7 +4795,7 @@ function StatusModal({
           </Select>
         </Field>
         {needsReason && (
-          <Field label={tr("Reason")} required hint="Recorded on the audit trail.">
+          <Field label={tr("Reason")} required about="Recorded on the audit trail.">
             <Input
               value={reason}
               onChange={(ev) => setReason(ev.target.value)}

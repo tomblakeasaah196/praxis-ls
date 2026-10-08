@@ -42,6 +42,7 @@ import { FormButtons } from "@/components/ui/form-buttons";
 import { Input } from "@/components/ui/input";
 import { DateField } from "@/components/ui/date-field";
 import { Modal, Field, Select } from "@/components/ui/modal";
+import { InfoHint } from "@/components/ui/info-hint";
 import { FilePicker } from "@/components/ui/image-upload";
 import { UploadProgress } from "@/components/ui/upload-progress";
 import { useUpload } from "@/lib/use-upload";
@@ -151,10 +152,10 @@ function EntityLogoField({
     <Field
       label={
         variant === "light"
-          ? "Logo (light background)"
-          : "Logo (dark background)"
+          ? "Logo (Light Background)"
+          : "Logo (Dark Background)"
       }
-      hint={hint}
+      about={hint}
     >
       <div className="flex items-center gap-3">
         {item?.previewUrl || current ? (
@@ -191,19 +192,29 @@ function EntityLogoField({
 
 function Fieldset({
   legend,
-  hint,
+  about,
   children,
 }: {
   legend: string;
-  hint?: string;
+  /** Named `about`, not `hint`, because it is NOT printed: it sits behind the
+   *  ⓘ on the legend. The codebase holds one rule here, and the prose gate
+   *  reads it: `hint` is visible and capped, `about` is behind the icon. */
+  about?: string;
   children: React.ReactNode;
 }) {
   return (
     <fieldset className="space-y-3 rounded-lg border p-3">
-      <legend className="px-1 text-sm font-semibold text-foreground">
+      {/* The legend names the group; the sentence explaining it sits behind the
+          ⓘ (guide §3.17). Sibling of the <legend>, not a child: nested, the
+          icon's aria-label would join the group's accessible name. */}
+      <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold text-foreground">
         {legend}
       </legend>
-      {hint && <p className="micro text-muted-foreground">{hint}</p>}
+      {about ? (
+        <InfoHint label={`About ${legend}`} className="-mt-1">
+          {about}
+        </InfoHint>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">{children}</div>
     </fieldset>
   );
@@ -334,13 +345,13 @@ function EntityForm({
                 api.EntityLifecycle | undefined,
               ...(initialAddress ? { initial_address: initialAddress } : {}),
             },
-            label: `New corporate entity — ${v.legal_name.trim() || v.code.trim()}`,
+            label: `New corporate entity: ${v.legal_name.trim() || v.code.trim()}`,
           })
         : await submitQueued<api.Entity>({
             path: `/entities/${row!.entity_id}`,
             method: "PATCH",
             body,
-            label: `Corporate entity — ${row!.legal_name}`,
+            label: `Corporate entity: ${row!.legal_name}`,
           });
 
       // The draft has served its purpose either way: the values are now the
@@ -418,7 +429,7 @@ function EntityForm({
         )}
 
         <Fieldset legend="Identity">
-          <Field label={tr("Code")} required hint="Short unique key">
+          <Field label={tr("Code")} required about="Short unique key">
             <Input
               value={v.code}
               onChange={(e) => set("code", e.target.value)}
@@ -436,7 +447,7 @@ function EntityForm({
           </Field>
           <Field
             label="Trading name"
-            hint="If it trades under a different name"
+            about="If it trades under a different name"
           >
             <Input
               value={v.trading_name}
@@ -445,7 +456,7 @@ function EntityForm({
           </Field>
           <Field
             label={tr("Country")}
-            hint="Legal forms below are limited to this jurisdiction"
+            about="Legal forms below are limited to this jurisdiction"
           >
             <CountrySelect
               value={v.country_code}
@@ -456,7 +467,7 @@ function EntityForm({
           </Field>
           <Field
             label="Legal form"
-            hint="Verified for the selected country and printed on the letterhead"
+            about="Verified for the selected country and printed on the letterhead"
           >
             <LegalFormPicker
               countryCode={v.country_code}
@@ -487,7 +498,7 @@ function EntityForm({
           {isNew && (
             <Field
               label="Opening status"
-              hint="A file can be opened as a draft and completed later"
+              about="A file can be opened as a draft and completed later"
             >
               <Select
                 value={v.registration_status}
@@ -503,7 +514,7 @@ function EntityForm({
           )}
           <Field
             label={tr("Description")}
-            hint="Shown on the entity picker and internal directories"
+            about="Shown on the entity picker and internal directories"
             className="sm:col-span-2"
           >
             <Input
@@ -516,7 +527,7 @@ function EntityForm({
 
         <Fieldset
           legend="Public contact"
-          hint="Printed in the letterhead's contact line. The readiness checklist wants at least one of email or phone."
+          about="Printed in the letterhead's contact line. The readiness checklist wants at least one of email or phone."
         >
           <Field label={tr("Email")}>
             <Input
@@ -554,7 +565,7 @@ function EntityForm({
           </Field>
           <Field
             label="Headcount"
-            hint="Indicative: HR holds the real establishment"
+            about="Indicative: HR holds the real establishment"
           >
             <Input
               type="number"
@@ -565,7 +576,7 @@ function EntityForm({
           </Field>
           <Field
             label="Timezone"
-            hint="Used when a document's date matters locally"
+            about="Used when a document's date matters locally"
           >
             <TimezonePicker
               value={v.timezone}
@@ -578,9 +589,9 @@ function EntityForm({
         {isNew && (
           <Fieldset
             legend="Registered office"
-            hint="Creates the REGISTERED address used on letterheads. Example: 1030, Avenue Douala Manga Bell, PO Box 5120, Douala, CM."
+            about="Creates the REGISTERED address used on letterheads. Example: 1030, Avenue Douala Manga Bell, PO Box 5120, Douala, CM."
           >
-            <Field label="Address line 1" hint="Street and number: e.g. 1030, Avenue Douala Manga Bell">
+            <Field label="Address line 1" about="Street and number: e.g. 1030, Avenue Douala Manga Bell">
               <Input
                 value={v.address_line1}
                 onChange={(e) => set("address_line1", e.target.value)}
@@ -621,7 +632,7 @@ function EntityForm({
                 label="Registered country"
               />
             </Field>
-            <Field label="PO Box" hint="Printed on letterhead as 'PO Box …'">
+            <Field label="PO Box" about="Printed on letterhead as 'PO Box …'">
               <Input
                 value={v.address_po_box}
                 onChange={(e) => set("address_po_box", e.target.value)}
@@ -633,7 +644,7 @@ function EntityForm({
 
         <Fieldset
           legend="Incorporation and capital"
-          hint="The statutory facts documents print. Share capital is mandatory on French invoices and is on the readiness checklist."
+          about="The statutory facts documents print. Share capital is mandatory on French invoices and is on the readiness checklist."
         >
           <Field label="Date of incorporation">
             <DateField
@@ -643,7 +654,7 @@ function EntityForm({
           </Field>
           <Field
             label="Place of incorporation"
-            hint="The registry town, not the trading address"
+            about="The registry town, not the trading address"
           >
             <Input
               value={v.incorporation_place}
@@ -653,7 +664,7 @@ function EntityForm({
           </Field>
           <Field
             label="Country of incorporation"
-            hint="Differs from the country above for a redomiciled company"
+            about="Differs from the country above for a redomiciled company"
           >
             <CountrySelect
               value={v.incorporation_country}
@@ -663,7 +674,7 @@ function EntityForm({
           </Field>
           <Field
             label="Dissolution date"
-            hint="Leave blank while the company exists"
+            about="Leave blank while the company exists"
           >
             <DateField
               value={v.dissolution_date}
@@ -672,7 +683,7 @@ function EntityForm({
           </Field>
           <Field
             label="Share capital"
-            hint="The registered figure, as stated in the statutes"
+            about="The registered figure, as stated in the statutes"
           >
             <Input
               type="number"
@@ -685,7 +696,7 @@ function EntityForm({
           </Field>
           <Field
             label="Paid up"
-            hint="How much of it has actually been called and paid"
+            about="How much of it has actually been called and paid"
           >
             <Input
               type="number"
@@ -697,7 +708,7 @@ function EntityForm({
           </Field>
           <Field
             label="Capital currency"
-            hint="Often not the reporting currency"
+            about="Often not the reporting currency"
           >
             <SmartCurrencyPicker
               value={v.share_capital_currency}
@@ -710,7 +721,7 @@ function EntityForm({
         <Fieldset legend="Documents and reporting">
           <Field
             label={tr("Document prefix")}
-            hint="Leads this entity's invoice numbers"
+            about="Leads this entity's invoice numbers"
           >
             <Input
               value={v.doc_prefix}
@@ -744,7 +755,7 @@ function EntityForm({
               know which is which. */}
           <Field
             label="Accounting framework"
-            hint="What this entity reports under"
+            about="What this entity reports under"
           >
             <Select
               value={v.accounting_framework}
@@ -759,7 +770,7 @@ function EntityForm({
           </Field>
           <Field
             label="Numbering resets"
-            hint="When this entity's document counters restart"
+            about="When this entity's document counters restart"
           >
             <Select
               value={v.numbering_reset}
@@ -777,11 +788,11 @@ function EntityForm({
 
         <Fieldset
           legend="Defaults carried into other modules"
-          hint="What HR, payroll and billing inherit when someone picks this entity."
+          about="What HR, payroll and billing inherit when someone picks this entity."
         >
           <Field
             label={tr("Default currency")}
-            hint="What this entity invoices and reports in"
+            about="What this entity invoices and reports in"
           >
             <SmartCurrencyPicker
               value={v.default_currency}
@@ -791,7 +802,7 @@ function EntityForm({
           </Field>
           <Field
             label={tr("Payroll country")}
-            hint="Which country's payroll rules apply to its staff"
+            about="Which country's payroll rules apply to its staff"
           >
             <CountrySelect
               value={v.payroll_country}
@@ -801,7 +812,7 @@ function EntityForm({
           </Field>
           <Field
             label="Default tax jurisdiction"
-            hint="Which rate card a new document reaches for first"
+            about="Which rate card a new document reaches for first"
           >
             <Select
               value={v.default_tax_jurisdiction_id}
@@ -820,7 +831,7 @@ function EntityForm({
           </Field>
           <Field
             label="VAT registered"
-            hint="Drives whether its documents carry VAT"
+            about="Drives whether its documents carry VAT"
           >
             <Select
               value={v.vat_registered}
@@ -835,7 +846,7 @@ function EntityForm({
 
         <Fieldset
           legend="Group"
-          hint="Ownership percentage and consolidation live on the entity's Structure tab, which runs the cycle check."
+          about="Ownership percentage and consolidation live on the entity's Structure tab, which runs the cycle check."
         >
           <Field
             label="Parent entity"
@@ -872,7 +883,7 @@ function EntityForm({
         {!isNew && (
           <Fieldset
             legend="Letterhead logos"
-            hint="PNG/JPG/WebP/SVG, max 512 KB. The dark variant is used on dark document themes and on the app's dark mode."
+            about="PNG/JPG/WebP/SVG, max 512 KB. The dark variant is used on dark document themes and on the app's dark mode."
           >
             {logoField(
               "light",
