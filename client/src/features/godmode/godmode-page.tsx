@@ -13,6 +13,7 @@ import { ErrorState } from "@/components/ui/states";
 import { PageHeader, DataList, type Column } from "@/components/data-list";
 import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
 import { Pill } from "@/components/ui/pill";
+import { Callout } from "@/components/ui/callout";
 import { RowActions } from "@/components/ui/row-actions";
 import { useList, errMsg } from "@/lib/use-resource";
 import { num, dateFmt } from "@/lib/format";
@@ -57,20 +58,23 @@ function PurgeModal({
     }
   }
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title="Purge record — permanent"
-      description="This removes the record for good and writes the full payload to the immutable ledger. It cannot be undone."
-    >
+    <Modal open onClose={onClose} title="Purge Record">
       <form className="space-y-4" onSubmit={submit}>
-        <div className="rounded-lg border border-[rgb(var(--bad))]/40 bg-[rgb(var(--bad)/0.08)] px-3 py-2 text-sm">
+        <div className="rounded-lg border border-bad/40 bg-bad-fill/10 px-3 py-2 text-sm">
           <span className="num font-medium">{row.entity_ref}</span>
-          <div className="micro mt-0.5">
-            Accounting-connected records are refused by the server — reverse
-            them instead.
-          </div>
         </div>
+        {/* WHAT THIS DESTROYS, AT THE POINT OF COMMIT.
+         *
+         * This was the Modal's `description`, which renders behind the ⓘ on the
+         * title. §3.17's ladder puts explanation there and this is not
+         * explanation: it is the sentence that tells the CEO the record is gone
+         * for good, two inches above the button that does it. Nobody hovers
+         * before they act, so it is printed. @prose:keep — a destructive
+         * consequence at the moment of commit. */}
+        <Callout tone="bad" title="This Cannot Be Undone">
+          The record is removed for good. Its full payload is written to the
+          immutable ledger, where this purge stays on the record.
+        </Callout>
         <Field label="God Mode PIN" required>
           <Input
             type="password"
@@ -156,12 +160,21 @@ export function GodModePage() {
     <section className={pageShell.wide}>
       <PageHeader
         title="God Mode"
-        description="CEO-only purge of soft-deleted junk data. Permanent, PIN-gated, and always written to the immutable ledger."
+        description="Permanently removes soft-deleted junk data. The CEO's PIN is required for every purge."
       />
-      <div className="mb-4 rounded-xl border border-[rgb(var(--warn))]/40 bg-[rgb(var(--warn)/0.08)] px-4 py-3 text-sm">
-        Restricted to the CEO. Accounting-connected records can never be purged
-        — only reversed. Every purge is audited.
-      </div>
+      {/* THE ONE WARNING THIS SCREEN PRINTS.
+        *
+        * It used to print two: this band, and a PageHeader description carrying
+        * the same three facts behind the ⓘ. The header now says what the screen
+        * is FOR, which is what belongs behind an ⓘ, and the consequences stay
+        * here, visible, in the destructive tone. @prose:keep — what a purge
+        * destroys and what it records, on the screen that does it. */}
+      <Callout tone="bad" title="Permanent, and Recorded">
+        A purge cannot be reversed, and every one is written to the audit trail
+        under the name that ran it. Records connected to accounting are refused:
+        reverse those instead.
+      </Callout>
+      <div className="mb-4" />
       <KpiRow>
         <KpiTile label="Soft-deleted" value={num(list.length)} />
         <KpiTile
@@ -179,10 +192,7 @@ export function GodModePage() {
         error={error}
         loading={loading}
         rowKey={(r) => r.soft_delete_id}
-        empty={{
-          title: "Nothing to purge",
-          hint: "Soft-deleted junk records eligible for purge appear here.",
-        }}
+        empty={{ title: "Nothing to purge" }}
       />
       {target && (
         <PurgeModal
