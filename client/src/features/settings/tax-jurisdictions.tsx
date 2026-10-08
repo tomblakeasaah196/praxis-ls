@@ -1159,7 +1159,7 @@ export function TaxJurisdictionsPage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        eyebrow={<HubCrumb area="Master data" to="/master" />}
+        eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title="Tax rates & jurisdictions"
         description="Jurisdictions and their effective-dated tax codes (TVA/WHT/IS…) read by account determination."
         action={

@@ -504,7 +504,7 @@ const AREAS: Area[] = [
     area: "Operations",
     screens: [
       {
-        name: "Operations files",
+        name: "Operations Files",
         render: () => <OperationsFilesPage />,
         routes: {
           "/operations": [
@@ -1500,7 +1500,7 @@ const AREAS: Area[] = [
     area: "Settings",
     screens: [
       {
-        name: "Bank accounts",
+        name: "Bank Accounts",
         render: () => <BankAccountsPage />,
         routes: {
           "/treasury-accounts": [

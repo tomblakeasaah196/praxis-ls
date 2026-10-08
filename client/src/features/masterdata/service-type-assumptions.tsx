@@ -117,12 +117,7 @@ export function ServiceTypeAssumptions({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="micro max-w-3xl">
-          What this service&apos;s schedule depends on — the hours of the
-          customs office, the terminal and the carrier, the free time that is
-          not a commitment, and what is excluded as force majeure. The
-          client-visible ones are shown beside the milestone chain on the
-          portal, so a missed date is read together with the conditions it
-          rested on.
+          What this service&apos;s schedule depends on.
         </p>
         <Pill tone="mute">
           {visible} of {rows.length} shown to clients

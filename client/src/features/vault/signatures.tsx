@@ -346,7 +346,7 @@ export function SignaturesPage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        eyebrow={<HubCrumb area="Vault & compliance" to="/vault" />}
+        eyebrow={<HubCrumb area="Vault & Compliance" to="/vault" />}
         title={tr("Signatures")}
         description="A signature is bound to what the document said when it was signed. Change the document and the signature stops covering it."
       />

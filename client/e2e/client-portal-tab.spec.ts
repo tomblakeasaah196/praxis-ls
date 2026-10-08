@@ -256,7 +256,7 @@ test.describe("on a phone", () => {
   test("⚙ Settings → Client portal is rows sized for a thumb", async ({ page }, info) => {
     await openClients(page);
     await page.getByRole("button", { name: /Settings/ }).first().click();
-    const settings = page.getByRole("dialog", { name: "Master data settings" });
+    const settings = page.getByRole("dialog", { name: "Master Data settings" });
     await expect(settings).toBeVisible();
     await settings.getByRole("button", { name: "Client portal" }).click();
     await expect(settings.getByText("New invitations")).toBeVisible();
@@ -330,7 +330,7 @@ for (const width of [1280, 1440, 1920]) {
     test("⚙ Settings → Client portal is the registry table the categories use", async ({ page }, info) => {
       await openClients(page);
       await page.getByRole("button", { name: /Settings/ }).first().click();
-      const settings = page.getByRole("dialog", { name: "Master data settings" });
+      const settings = page.getByRole("dialog", { name: "Master Data settings" });
       await settings.getByRole("button", { name: "Client portal" }).click();
       const table = settings.locator("table");
       await expect(table).toBeVisible();

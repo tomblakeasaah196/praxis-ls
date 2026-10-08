@@ -131,7 +131,7 @@ const openEditor = async (user: ReturnType<typeof userEvent.setup>) => {
   return rendered;
 };
 
-describe("Master data · treasury account editing", () => {
+describe("Master Data · treasury account editing", () => {
   it("opens on the values already stored, so a correction starts from the typo", async () => {
     const user = userEvent.setup();
     await openEditor(user);

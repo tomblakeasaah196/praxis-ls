@@ -99,7 +99,7 @@ describe("Set rate", () => {
     renderScreen(
       <SetRateModal
         itemId="i1"
-        providerLabel="Standard rate"
+        providerLabel="Standard Rate"
         providerId={null}
         containerTypeId={null}
         containerTypeLabel={null}
@@ -145,7 +145,7 @@ describe("Price includes VAT (F4)", () => {
     renderScreen(
       <SetRateModal
         itemId="i1"
-        providerLabel="Standard rate"
+        providerLabel="Standard Rate"
         providerId={null}
         containerTypeId={null}
         containerTypeLabel={null}
@@ -171,7 +171,7 @@ describe("Price includes VAT (F4)", () => {
     renderScreen(
       <SetRateModal
         itemId="i1"
-        providerLabel="Standard rate"
+        providerLabel="Standard Rate"
         providerId={null}
         containerTypeId={null}
         containerTypeLabel={null}
@@ -200,7 +200,7 @@ describe("Price includes VAT (F4)", () => {
     renderScreen(
       <SetRateModal
         itemId="d1"
-        providerLabel="Standard rate"
+        providerLabel="Standard Rate"
         providerId={null}
         containerTypeId={null}
         containerTypeLabel={null}

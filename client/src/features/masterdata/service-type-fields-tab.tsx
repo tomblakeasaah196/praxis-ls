@@ -580,12 +580,8 @@ export function ServiceTypeFieldsTab({
           </Table>
 
           <p className="micro text-muted-foreground">
-            <strong>Means (shared panel)</strong> is how a field is understood
-            by every document, costing and quotation that references a file —
-            tag a Bill of Lading and a MAWB both as the transport reference and
-            they render in the same place, whatever the service type. A field
-            with no meaning still appears on the form and the file; it just does
-            not join the shared header.
+            <strong>Means (shared panel)</strong> is how every document reads
+            the field.
           </p>
 
           {editable && (

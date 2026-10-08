@@ -122,6 +122,23 @@ function literals(line) {
   while ((m = re.exec(line))) out.push(m[2]);
   const jsx = /> *([^<>{}"'`]*[\u2013\u2014\u2015][^<>{}"'`]*?) *</g;
   while ((m = jsx.exec(line))) out.push(m[1]);
+
+  /* A CONTINUATION LINE of wrapped JSX text.
+   *
+   * The two patterns above both need the text between a ">" and a "<" on one
+   * line. The formatter does not oblige: a long paragraph is wrapped, and its
+   * middle lines carry neither tag. That is how five printed lines of KYC
+   * guidance, em dash and all, passed this gate while being the longest piece
+   * of copy on the screen. A line that is bare prose (no tag, no brace, no
+   * quote) and holds a dash is copy by elimination. */
+  if (
+    /[\u2013\u2014\u2015]/.test(line) &&
+    !/[<>{}"'`]/.test(line) &&
+    !line.includes("//") &&   // a trailing line comment, still out of scope
+    /[A-Za-z]{2,}\s+[A-Za-z]{2,}/.test(line)
+  ) {
+    out.push(line.trim());
+  }
   return out;
 }
 
@@ -159,7 +176,22 @@ function emptyValueGlyph(text) {
 const hits = {};
 for (const f of files()) {
   const lines = readFileSync(join(repoRoot, f), "utf8").split("\n");
+  /* Whether this line is inside a /* ... *\/ block.
+   *
+   * Comments are out of scope by decision, and the old test for one was
+   * "the line starts with //, * or /*". The comments in this repository are
+   * prose paragraphs that do not re-prefix every line, so their middle lines
+   * looked exactly like wrapped JSX text and the widened reader below started
+   * reporting them. Tracking the state is the only way to tell a sentence in a
+   * comment from a sentence on the screen. */
+  let inBlockComment = false;
   lines.forEach((line, i) => {
+    const wasInComment = inBlockComment;
+    const opens = (line.match(/\/\*/g) || []).length;
+    const closes = (line.match(/\*\//g) || []).length;
+    if (opens > closes) inBlockComment = true;
+    else if (closes > opens) inBlockComment = false;
+    if (wasInComment || inBlockComment) return;
     if (exempt(lines, i) || mechanical(line)) return;
     for (const lit of literals(line)) {
       if (emptyValueGlyph(lit)) continue;

@@ -985,7 +985,7 @@ export function TrainingsPage() {
     // edge — the one screen in the hub where content touched the bottom.
     <section className={cn(shell, "pb-10")}>
       <PageHeader
-        eyebrow={<HubCrumb area="Human capital" to="/hr" />}
+        eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Trainings")}
         description="Schedule sessions, run them, and see who holds a current qualification."
         action={<Button onClick={() => setEditing(null)}>Schedule training</Button>}

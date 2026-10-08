@@ -119,7 +119,7 @@ export function ServiceTypesPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Master data" to="/master" />}
+        eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title="Service types"
         description="The services you sell. Operations files are classified by service type, and each one carries the milestone chain new files start with."
         action={

@@ -75,7 +75,7 @@ beforeEach(() => {
   A.get.mockReset().mockResolvedValue(runOf("FAILED", { 9: { status: "fail", code: "GROQ_FAILED", cause: "EN clip via Groq: 401" } }));
 });
 
-describe("Test calls", () => {
+describe("Test Calls", () => {
   it("says how many runs are left today", async () => {
     renderTab();
     expect(await screen.findByText("3 of 3 runs left today for your company.")).toBeInTheDocument();
@@ -105,7 +105,7 @@ describe("Test calls", () => {
   });
 
   it("a refused start (the cap reached meanwhile) is said, not swallowed", async () => {
-    A.start.mockRejectedValue(new ApiError("DIAGNOSTICS_DAILY_CAP", "Test calls are limited to 3 runs a day for your company.", 429));
+    A.start.mockRejectedValue(new ApiError("DIAGNOSTICS_DAILY_CAP", "Test Calls are limited to 3 runs a day for your company.", 429));
     renderTab();
     await userEvent.click(await screen.findByRole("button", { name: "Run the test" }));
     expect(await screen.findByText(/limited to 3 runs a day/)).toBeInTheDocument();

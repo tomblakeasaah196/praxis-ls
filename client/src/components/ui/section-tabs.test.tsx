@@ -37,10 +37,10 @@ describe("SectionTabs", () => {
     render(
       <SectionTabs
         label="Entity sections"
-        value="Banking & treasury"
+        value="Banking & Treasury"
         onChange={vi.fn()}
         tabs={[
-          { value: "Banking & treasury" as const, label: "Banking & treasury", shortLabel: "Banking" },
+          { value: "Banking & Treasury" as const, label: "Banking & Treasury", shortLabel: "Banking" },
         ]}
       />,
     );
@@ -51,8 +51,8 @@ describe("SectionTabs", () => {
     // the full label at every width, so nothing downstream (a deep link, a
     // screen reader, a test that named the section) has to know the short one.
     expect(screen.getByText("Banking")).toBeInTheDocument();
-    expect(screen.getByText("Banking & treasury")).toBeInTheDocument();
-    const tab = screen.getByRole("button", { name: "Banking & treasury" });
+    expect(screen.getByText("Banking & Treasury")).toBeInTheDocument();
+    const tab = screen.getByRole("button", { name: "Banking & Treasury" });
     expect(tab).toHaveAttribute("aria-current", "page");
     // The visible spans are hidden from the accessibility tree, so the name can
     // only come from `aria-label` — without it the tab would announce as the

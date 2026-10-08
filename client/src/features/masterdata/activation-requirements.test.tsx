@@ -186,7 +186,7 @@ beforeEach(() => {
   listSupplierTypes.mockResolvedValue([]);
 });
 
-describe("Master data settings · Required to activate", () => {
+describe("Master Data settings · Required to activate", () => {
   it("keeps `Required` and `Required to activate` as two independent columns", async () => {
     view();
 

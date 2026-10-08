@@ -215,7 +215,7 @@ export function RolesPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Security & access" to="/security" />}
+        eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title={tr("Roles")}
         description="Job areas, stored as rows rather than code. Seeded system roles can't be deleted."
         action={

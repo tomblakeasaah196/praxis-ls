@@ -114,7 +114,7 @@ export function TreasuryMasterPage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        eyebrow={<HubCrumb area="Master data" to="/master" />}
+        eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title="Treasury"
         description="Bank, cash, petty-cash and mobile-money accounts. Every account owns an auto-minted class-5 CoA leaf, so balances, statements and reconciliation come from one source of truth."
         action={

@@ -144,7 +144,7 @@ function BudgetControlPanel({ control }: { control: api.BudgetControl }) {
     </div>
   );
   return (
-    <Panel title={tr("Budgetary control")}>
+    <Panel title={tr("Budgetary Control")}>
       <div className="space-y-1.5">
         {row(tr("Budget on this file"), control.budget_total)}
         {row(tr("Committed by other requests"), control.committed_elsewhere)}
@@ -696,7 +696,7 @@ export function CashRequest360({
 
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-4">
-          <Panel title={tr("What the money is for")}>
+          <Panel title={tr("What the Money Is For")}>
             {(lines || []).length === 0 ? (
               <EmptyState
                 title={tr("No lines yet")}

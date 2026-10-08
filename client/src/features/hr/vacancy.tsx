@@ -903,7 +903,7 @@ export function VacanciesPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Human capital" to="/hr" />}
+        eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Vacancies")}
         description="Recruitment pipeline — move applicants through the hiring stages."
         action={<Button onClick={() => setCreating(true)}>{tr("New vacancy")}</Button>}

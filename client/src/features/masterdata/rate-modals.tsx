@@ -166,7 +166,7 @@ export function SetRateModal({
   containerTypeId: string | null;
   containerTypeLabel: string | null;
   current: api.RatePoint | null;
-  /** Overrides the default "Set rate — <scope>" heading. */
+  /** Overrides the default "Set Rate: <scope>" heading. */
   title?: string;
   onClose: () => void;
   onSaved: () => void;
@@ -216,7 +216,7 @@ export function SetRateModal({
       onClose={onClose}
       title={
         title ||
-        `Set rate: ${providerLabel}${containerTypeLabel ? " · " + containerTypeLabel : ""}`
+        `Set Rate: ${providerLabel}${containerTypeLabel ? " · " + containerTypeLabel : ""}`
       }
       description="Rates are superseded, never edited in place: the prior rate expires the day before this one opens, so history stays intact."
     >

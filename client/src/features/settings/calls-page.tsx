@@ -332,7 +332,7 @@ export function CallsPage() {
 
   return (
     <div className={pageShell.wide}>
-      <HubCrumb area="settings" to="/settings" />
+      <HubCrumb area="Settings" to="/settings" />
       <PageHeader
         title={tr("Calls")}
         description={tr("Whether this device can ring, recording and privacy, and your own call preferences.")}
@@ -362,7 +362,7 @@ export function CallsPage() {
 
       <DeviceRingCard />
 
-      <Panel title={tr("Yard noise filter")} className="mb-4">
+      <Panel title={tr("Yard Noise Filter")} className="mb-4">
         <p className="text-sm text-muted-foreground">
           {tr(
             "Removes steady background noise — engines, forklifts, a loading bay — from what the other side hears. Every call already has the browser's baseline noise suppression; this is the stronger filter the corridor needs.",
@@ -420,7 +420,7 @@ export function CallsPage() {
         )}
       </Panel>
 
-      <Panel title={tr("Call privacy")} className="mb-4">
+      <Panel title={tr("Call Privacy")} className="mb-4">
         <p className="text-sm text-muted-foreground">
           {tr(
             "A direct call lets each person's device learn the other's network address. Relay-only calls send the audio through your company's relay server instead, so no address is shared.",
@@ -448,7 +448,7 @@ export function CallsPage() {
         </div>
       </Panel>
 
-      <Panel title={tr("Call recording")} className="mb-4">
+      <Panel title={tr("Call Recording")} className="mb-4">
         <p className="text-sm text-muted-foreground">
           {tr(
             "When recording is on, each call's audio is transcribed and summarised for the conversation. Both people are told before they answer, and the person called can answer without recording.",
@@ -506,7 +506,7 @@ export function CallsPage() {
         </div>
       </Panel>
 
-      <Panel title={tr("How calls are processed")} className="mb-4">
+      <Panel title={tr("How Calls Are Processed")} className="mb-4">
         {processingError ? (
           <ErrorState message={processingError} />
         ) : processing ? (
@@ -526,7 +526,7 @@ export function CallsPage() {
         ) : null}
       </Panel>
 
-      <Panel title={tr("My call preferences")} className="mb-4">
+      <Panel title={tr("My Call Preferences")} className="mb-4">
         {prefs === null ? (
           <p className="text-sm text-warn" role="status">
             {tr("Your call preferences could not be read, so they cannot be changed right now.")}
@@ -581,7 +581,7 @@ export function CallsPage() {
       </Panel>
 
       {caps?.settings_admin && (
-        <Panel title={tr("Erase a person's call records")}>
+        <Panel title={tr("Erase a Person's Call Records")}>
           <p className="text-sm text-muted-foreground">
             {tr("For a data-protection request. The erasure is recorded in the audit log.")}
           </p>

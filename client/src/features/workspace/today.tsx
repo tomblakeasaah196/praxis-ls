@@ -127,7 +127,7 @@ export function TodayPage() {
         */}
         <div className="grid gap-4 lg:grid-cols-2">
           <Panel
-            title="Awaiting me"
+            title="Awaiting Me"
             className="min-w-0"
             action={
               <Link
@@ -177,7 +177,7 @@ export function TodayPage() {
           </Panel>
 
           <Panel
-            title="Unread alerts"
+            title="Unread Alerts"
             className="min-w-0"
             action={
               <Link
@@ -240,7 +240,7 @@ export function TodayPage() {
 
         <div className="mt-4 grid items-start gap-4 lg:grid-cols-3">
           <Panel
-            title="The day"
+            title="The Day"
             subtitle={
               q.data
                 ? (() => {
@@ -309,7 +309,7 @@ export function TodayPage() {
         </div>
 
         <Panel
-          title="Cash to account for"
+          title="Cash to Account For"
           subtitle={
             owedQ.isLoading
               ? "Money you've received that still needs a receipt."

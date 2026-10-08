@@ -632,7 +632,7 @@ export function ReconciliationPage() {
       />
       <HubTabs />
 
-      <Panel title={tr("Operations file")} className="mb-4">
+      <Panel title={tr("Operations File")} className="mb-4">
         <div className="max-w-md">
           <OperationsFilePicker
             label={tr("Operations file")}
@@ -811,7 +811,7 @@ export function ReconciliationPage() {
               it has no budget at all, which is why it cannot sit in a row. */}
           {unaccounted.length > 0 && (
             <Panel
-              title={tr("Unaccounted spend")}
+              title={tr("Unaccounted Spend")}
               subtitle={tr(
                 "Costs posted on this file that its approved costing does not carry. Map each one to a line — or add it to the costing and re-approve — and the sheet can go to Finance.",
               )}

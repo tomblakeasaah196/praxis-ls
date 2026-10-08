@@ -258,7 +258,7 @@ describe("the costing worksheet", () => {
     });
     await screen.findByText("CST-2026-0043");
     expect(
-      screen.getByText(/Changed since it was approved/i),
+      screen.getByText(/Changed Since It Was Approved/i),
     ).toBeInTheDocument();
     // The two lines that moved, each labelled by what happened to it.
     expect(screen.getByText("Changed")).toBeInTheDocument();

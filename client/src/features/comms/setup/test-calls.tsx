@@ -199,7 +199,7 @@ export function TestCallsTab({ deps = browserDeps }: { deps?: DeviceDeps }) {
 
   return (
     <div className="space-y-4">
-      <Panel title={tr("Test calls")}>
+      <Panel title={tr("Test Calls")}>
         <p className="text-sm text-muted-foreground">
           {tr("Checks every step of a call on this device and on the server, and names the one that is broken. It uses the real call code, creates no call, and spends a little transcription and AI credit.")}
         </p>
@@ -255,7 +255,7 @@ export function TestCallsTab({ deps = browserDeps }: { deps?: DeviceDeps }) {
         </Panel>
       )}
 
-      <Panel title={tr("Past runs")}>
+      <Panel title={tr("Past Runs")}>
         {listError ? (
           <ErrorState message={listError} />
         ) : runs === null ? (

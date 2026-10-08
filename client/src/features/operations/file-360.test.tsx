@@ -147,7 +147,7 @@ afterEach(() => {
   fixtures.current = {};
 });
 
-describe("Operations file 360 · the page", () => {
+describe("Operations File 360 · the page", () => {
   it("names the file from the 360 response alone — no list row in hand", async () => {
     renderPage();
 
@@ -365,7 +365,7 @@ describe("Operations file 360 · the page", () => {
   });
 });
 
-describe("Operations file 360 · the phone", () => {
+describe("Operations File 360 · the phone", () => {
   beforeEach(() => {
     // Below `lg` the detail view is a sheet over the list, not a page — a
     // full-page drill-in on a 390px viewport is a navigation dead end.
@@ -401,7 +401,7 @@ describe("Operations file 360 · the phone", () => {
  * The list's half of the branch. The 360 is one component either way; what
  * changes is how you get to it, and that decision lives in the list.
  */
-describe("Operations files list · how the 360 opens", () => {
+describe("Operations Files list · how the 360 opens", () => {
   const LIST = [
     {
       dossier_id: ID,

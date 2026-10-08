@@ -518,7 +518,7 @@ export function ContractsPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Human capital" to="/hr" />}
+        eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Contracts")}
         description="Issue and progress employee contracts through their lifecycle."
         action={<Button onClick={() => setCreating(true)}>New contract</Button>}

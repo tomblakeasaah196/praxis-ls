@@ -1218,7 +1218,7 @@ function CurrencyDossier({
       </div>
 
       {/* Overview & format */}
-      <SectionCard title="Overview & format">
+      <SectionCard title="Overview & Format">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label={tr("Symbol")} value={symbol || "—"} />
           <Stat label={tr("Decimals")} value={String(decimals)} />
@@ -1244,7 +1244,7 @@ function CurrencyDossier({
 
       {/* Rate history & trend */}
       <SectionCard
-        title={`Rate history vs ${d.base ?? "base"}`}
+        title={`Rate History vs ${d.base ?? "base"}`}
         right={
           points.length >= 2 && d.base ? (
             <Sparkline
@@ -1430,7 +1430,7 @@ function CurrencyDossier({
 
       {/* Usage across the system */}
       <SectionCard
-        title="Usage across the system"
+        title="Usage Across the System"
         right={
           <Pill tone={d.usage_total > 0 ? "blue" : "mute"}>
             {num(d.usage_total)} records
@@ -1457,7 +1457,7 @@ function CurrencyDossier({
       </SectionCard>
 
       {/* Sync & audit */}
-      <SectionCard title="Sync & audit">
+      <SectionCard title="Sync & Audit">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <div className="text-xs text-muted-foreground">Last live sync</div>

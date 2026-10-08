@@ -580,7 +580,7 @@ function MatrixPanel() {
 
   return (
     <Panel
-      title={tr("Master ledger")}
+      title={tr("Master Ledger")}
       subtitle="Files × cost items — columns grow with the dictionary, not a fixed list"
       action={
         <Button
@@ -2241,7 +2241,7 @@ export function RegiePage() {
 
       {watchRows.length > 0 && (
         <Panel
-          title={tr("Ageing watchlist")}
+          title={tr("Ageing Watchlist")}
           subtitle={tr(
             "Open advances at or near their own policy window — chase these before they reclassify to 4211.",
           )}

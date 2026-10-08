@@ -198,7 +198,7 @@ export function CallRecord({ callId, variant }: { callId: string; variant: "page
           {tr("Open the conversation")}
         </Link>
       </p>
-      <Panel title={tr("Call summary")}>
+      <Panel title={tr("Call Summary")}>
         {!recorded ? (
           <p className="text-sm text-muted-foreground">
             {call.recording_declined_at

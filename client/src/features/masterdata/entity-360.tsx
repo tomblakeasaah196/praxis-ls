@@ -138,6 +138,29 @@ type Tab = (typeof TABS)[number];
  * Omitted where the full name already fits in a phone-width tab: Overview,
  * Documents, Structure, Letterhead, Renewals.
  */
+/**
+ * What each tab is CALLED on screen, as distinct from what it is VALUED at.
+ *
+ * Chrome is Title Case (CLAUDE.md, sixth frontend rule), but a tab's value is
+ * the `?tab=` parameter and a deep-link target: `letterhead-deep-link.test.tsx`
+ * links to `?tab=Banking %26 treasury` and must keep working. So the rename
+ * happens here, at the point of display, exactly as SHORT_LABEL does it for the
+ * phone, and the value is left alone.
+ *
+ * screen-registry.json already carries these Title Case names in its `title`
+ * field. Until this map existed the two disagreed: the registry said
+ * "Identity & Registrations" and the strip rendered "Identity & registrations".
+ */
+const TAB_LABEL: Partial<Record<Tab, string>> = {
+  "Identity & registrations": "Identity & Registrations",
+  "Tax & jurisdiction": "Tax & Jurisdiction",
+  "People & shareholding": "People & Shareholding",
+  "Contacts & addresses": "Contacts & Addresses",
+  "Banking & treasury": "Banking & Treasury",
+  "Working calendar": "Working Calendar",
+  "Public story": "Public Story",
+};
+
 const SHORT_LABEL: Partial<Record<Tab, string>> = {
   "Identity & registrations": "Identity",
   "Tax & jurisdiction": "Tax",
@@ -1683,7 +1706,7 @@ export function EntityDossier({
         onChange={setTab}
         sticky
         className="mb-4"
-        tabs={TABS.map((t) => ({ value: t, label: t, shortLabel: SHORT_LABEL[t] }))}
+        tabs={TABS.map((t) => ({ value: t, label: TAB_LABEL[t] ?? t, shortLabel: SHORT_LABEL[t] }))}
       />
 
       {tab === "Overview" && (
@@ -1740,7 +1763,7 @@ export function EntityDossier({
           </Section>
 
           <Section
-            title="Defaults carried into other modules"
+            title="Defaults Carried into Other Modules"
             description="What HR, payroll and billing inherit when someone picks this entity."
           >
             <dl className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
@@ -1854,8 +1877,7 @@ export function EntityDossier({
               </div>
             </div>
             <p className="micro text-muted-foreground">
-              The full letterhead and footer designer, with a live preview,
-              arrives with the documents work.
+              The full designer arrives with the documents work.
             </p>
           </Section>
         </div>
@@ -1982,9 +2004,7 @@ export function EntityDossier({
                 Document references are hidden
               </p>
               <p className="micro text-muted-foreground">
-                Numbers, issuing authorities, filing references and the scans
-                themselves need the entity-admin permission. What each document
-                is and when it expires is shown, so renewals stay visible.
+                Numbers, authorities and scans need the entity-admin permission.
               </p>
             </div>
           )}
@@ -2004,7 +2024,7 @@ export function EntityDossier({
       {tab === "Tax & jurisdiction" && (
         <div className="space-y-4">
           <Section
-            title="Tax registrations"
+            title="Tax Registrations"
             description="One row per jurisdiction this entity is registered in. Rate cards stay in the Tax module and are shared across entities: what lives here is this entity's own number, regime and filing rhythm."
             action={
               <div className="flex gap-2">
@@ -2147,7 +2167,7 @@ export function EntityDossier({
           </Section>
 
           <Section
-            title="Filing calendar"
+            title="Filing Calendar"
             description="Upcoming statutory obligations for this entity, from the shared compliance calendar."
           >
             <MiniTable
@@ -2336,9 +2356,7 @@ export function EntityDossier({
                 Ownership details are hidden
               </p>
               <p className="micro text-muted-foreground">
-                Shareholdings, dates of birth and identity numbers need the
-                entity-admin permission. Roles and names are shown because they
-                are on the public trade register.
+                Shareholdings and identity numbers need the entity-admin permission.
               </p>
             </div>
           )}
@@ -2566,7 +2584,7 @@ export function EntityDossier({
           </Section>
 
           <Section
-            title="Directors, officers and signatories"
+            title="Directors, Officers and Signatories"
             description="One person can hold several roles: add them once and tick every role they hold, rather than adding a row per role."
             action={
               caps.edit ? (
@@ -2899,7 +2917,7 @@ export function EntityDossier({
       {tab === "Structure" && (
         <div className="space-y-4">
           <Section
-            title="Position in the group"
+            title="Position in the Group"
             description="A subsidiary is its own entity with its own books. This records how it relates to the parent."
             action={
               caps.edit ? (
@@ -3095,7 +3113,7 @@ export function EntityDossier({
 
       {tab === "Banking & treasury" && (
         <Section
-          title="Banking & treasury"
+          title="Banking & Treasury"
           field="treasury_accounts"
           description="Read-only here. The primary account is the one this entity's documents print in their payment block; accounts themselves are owned by Treasury so the GL mapping and the invoice can never disagree."
           action={
@@ -3615,8 +3633,7 @@ function ShareDocumentsDialog({
         {shareable.length < documents.length && (
           <p className="micro">
             {documents.length - shareable.length} of {documents.length} have no
-            scan on file and cannot be sent — the record stays, the paper does
-            not travel.
+            scan and cannot be sent.
           </p>
         )}
         <div className="flex flex-wrap justify-end gap-2">
@@ -3869,7 +3886,7 @@ function DocumentsTab({
 
   return (
     <Section
-      title="Administrative documents"
+      title="Administrative Documents"
       description="Statutes, tax clearances, licences and insurance. Add each one and upload its file. Anything with an expiry date feeds the Renewals tab. Uploading marks the scan as scanned; use Verify after checking the file against the original. Tick documents to share them by email or download them together as a ZIP."
       action={
         canEdit && (
@@ -4325,7 +4342,7 @@ function LetterheadTab({
             toggles above — a discrete choice has nothing to draft. The colours
             and heights are typed, so they ride the same draft as the wording. */}
         <Section
-          title="Page and brand"
+          title="Page and Brand"
           field="brand_color"
           description="How the sheet is laid out and coloured. The preview is drawn from these, so a change here is visible immediately."
         >
@@ -4434,7 +4451,7 @@ function LetterheadTab({
         </Section>
 
         <Section
-          title="Payment block"
+          title="Payment Block"
           description="The primary account: the ONE account this entity's documents print. Accounts themselves live in Treasury."
         >
           {p.payment_block.source === "bank_block_legacy" && (

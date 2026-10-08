@@ -143,7 +143,7 @@ function AmendmentBlock({
   );
 
   return (
-    <Panel title={tr("Changed since it was approved")}>
+    <Panel title={tr("Changed Since It Was Approved")}>
       <p className="micro mb-2">
         {tr("Revision")} {a.since_revision} · {tr("approved")}{" "}
         {dateFmt(a.approved_at)}

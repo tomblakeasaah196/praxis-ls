@@ -371,7 +371,7 @@ function DefaultRateGrid({
     return (
       <div className="flex items-center justify-between rounded-xl border bg-card p-4">
         <div>
-          <p className="text-sm font-semibold text-foreground">Standard rate</p>
+          <p className="text-sm font-semibold text-foreground">{tr("Standard Rate")}</p>
           <p className="micro">
             Applies when no carrier-specific rate is set for this item.
           </p>
@@ -388,7 +388,7 @@ function DefaultRateGrid({
         <thead>
           <tr className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <th className="px-3 py-2">{tr("Container type")}</th>
-            <th className="px-3 py-2 text-right">Standard rate</th>
+            <th className="px-3 py-2 text-right">{tr("Standard Rate")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -646,7 +646,16 @@ function RateDossier({
         // so the two screens name it the same way (meeting 5, 01:20:04).
         tabs={RATE_TABS.map((t) => ({
           value: t,
-          label: t === "Default rate" ? "Standard rate" : t,
+          // Chrome is Title Case (sixth frontend rule); the VALUE stays as it
+          // is because TAB_KINDS is keyed by it.
+          label:
+            t === "Default rate"
+              ? tr("Standard Rate")
+              : t === "Sea carriers"
+                ? tr("Sea Carriers")
+                : t === "Air carriers"
+                  ? tr("Air Carriers")
+                  : t,
         }))}
       />
 
@@ -690,7 +699,7 @@ function RateDossier({
         <SetRateModal
           itemId={id}
           providerId={editing.provider?.rate_provider_id ?? null}
-          providerLabel={editing.provider?.name ?? "Standard rate"}
+          providerLabel={editing.provider?.name ?? tr("Standard Rate")}
           containerTypeId={editing.type?.ref_id ?? null}
           containerTypeLabel={
             editing.type ? editing.type.name_en || editing.type.name_fr : null
@@ -818,7 +827,7 @@ export function ExpenseRatesPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Master data" to="/master" />}
+        eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title="Expense rates"
         description="Rates per shipping line, airline and authority. Feeds costing and the financial dictionary picker."
         action={

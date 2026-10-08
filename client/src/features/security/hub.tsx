@@ -105,7 +105,7 @@ function Overview() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Security & access" to="/security" />}
+        eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title="Security & access"
         description="Access is data, not code: role × capability × scope × CRUD-per-module × field visibility. Identity resolves against the live schema, so these rows are the same under both LIVE and TEST."
         action={
@@ -140,7 +140,7 @@ function Overview() {
       </KpiRow>
 
       <div className="mb-6 grid gap-4 md:grid-cols-2">
-        <Panel title="Account posture" subtitle="Who can sign in right now">
+        <Panel title="Account Posture" subtitle="Who can sign in right now">
           <Bar
             parts={[
               { label: "Active", value: active, tone: "--ok" },
@@ -159,7 +159,7 @@ function Overview() {
         </Panel>
 
         <Panel
-          title="Two-factor authentication"
+          title="Two-factor Authentication"
           subtitle="Enrolment across tenant users"
         >
           <div className="flex items-center gap-5">
@@ -198,7 +198,7 @@ function Overview() {
       </div>
 
       <Panel
-        title="My active sessions"
+        title="My Active Sessions"
         subtitle="Revoking invalidates the refresh token immediately"
       >
         {sessions.error ? (

@@ -64,11 +64,7 @@ function FieldConfigEditor({ side }: { side: Side }) {
   return (
     <div className="space-y-4">
       <p className="micro">
-        Toggle which fields are required and visible on the {side.toLowerCase()}{" "}
-        form. `Required` is enforced when the record is created;{" "}
-        <span className="text-foreground">`Required to activate`</span> is what
-        the party must carry before it can be activated — set it on the handful
-        of fields that genuinely gate going live. `name` is always required.
+        Which fields the {side.toLowerCase()} form requires and shows.
       </p>
       {groups.map((g) => {
         const inGroup = rows.filter((r) => (r.field_group || "OTHER") === g);

@@ -736,7 +736,7 @@ export function ExtraChargeSimulationsPage() {
              been estimated against which file; a new estimate is a deliberate act. ── */}
       <div className="mt-4">
         <Panel
-          title="Saved simulations"
+          title="Saved Simulations"
           subtitle="Each row keeps the tariff it was computed with — click one to open it"
           className="p-4"
         >
@@ -782,7 +782,7 @@ export function ExtraChargeSimulationsPage() {
         {/* ── Input rail. Sticky from xl, where there is height to spend. ── */}
         <div className="xl:sticky xl:top-2 xl:self-start">
           <Panel
-            title="The file"
+            title="The File"
             subtitle="Dates and boxes — the charge follows"
             action={
               // §3.2 — the legacy toolbar button (openAdminModal), one click
@@ -1030,7 +1030,7 @@ export function ExtraChargeSimulationsPage() {
           )}
 
           <Panel
-            title="Charge breakdown"
+            title="Charge Breakdown"
             subtitle={
               computed
                 ? `${shown.length} line${shown.length === 1 ? "" : "s"} · ${computed.currency}`

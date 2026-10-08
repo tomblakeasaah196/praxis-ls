@@ -316,7 +316,7 @@ function CargoTab({ note }: { note: api.DeliveryNote }) {
       </Panel>
 
       {(note.lines || []).length > 0 && (
-        <Panel title="Other cargo">
+        <Panel title="Other Cargo">
           <ul className="space-y-1">
             {(note.lines || []).map((l) => (
               <li
@@ -381,7 +381,7 @@ function SignaturesTab({ note }: { note: api.DeliveryNote }) {
   return (
     <div className="space-y-5">
       <Panel
-        title="At the gate"
+        title="At the Gate"
         subtitle="What the consignee wrote when the goods arrived."
       >
         <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">

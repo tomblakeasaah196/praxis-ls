@@ -89,7 +89,7 @@ export function ClientsPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Master data" to="/master" />}
+        eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title={tr("Clients")}
         description="Customer master with a live 360: compliance, KYC, banks, terms and receivables."
         action={

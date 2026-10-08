@@ -452,7 +452,7 @@ export function PayrollPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Human capital" to="/hr" />}
+        eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Payroll")}
         description="Monthly runs — compute payslips, run the approval chain, and post the payroll journal."
         action={<Button onClick={() => setCreating(true)}>New run</Button>}
