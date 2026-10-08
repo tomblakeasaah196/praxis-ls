@@ -100,7 +100,7 @@ function PolicyForm({
             />
           </Field>
         </div>
-        <Field label="Body (HTML or text)">
+        <Field label="Body (HTML or Text)">
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}

@@ -282,7 +282,7 @@ function PreviewBody({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={tr("Answers the quote request")} hint={tr("The client sees this quotation on that request in their portal.")}>
+        <Field label={tr("Answers the Quote Request")} hint={tr("The client sees this quotation on that request in their portal.")}>
           <Select value={requestId || NONE} onChange={(e) => onRequest(e.target.value)}>
             <option value={NONE}>{tr("— none —")}</option>
             {p.quote_requests.map((r) => (
@@ -294,7 +294,7 @@ function PreviewBody({
             ))}
           </Select>
         </Field>
-        <Field label={tr("Valid until")} hint={tr("Optional — you can set it on the draft.")}>
+        <Field label={tr("Valid Until")} hint={tr("Optional — you can set it on the draft.")}>
           <DateField value={validUntil} onChange={onValidUntil} />
         </Field>
       </div>

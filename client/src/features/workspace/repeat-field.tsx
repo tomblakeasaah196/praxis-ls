@@ -103,7 +103,7 @@ export function RepeatField({
       )}
 
       {state.kind === "monthly" && (
-        <Field label="On day" htmlFor={`${idPrefix}-repeat-monthday`} hint="Months without that day are skipped.">
+        <Field label="On Day" htmlFor={`${idPrefix}-repeat-monthday`} hint="Months without that day are skipped.">
           <Input
             id={`${idPrefix}-repeat-monthday`}
             type="number"

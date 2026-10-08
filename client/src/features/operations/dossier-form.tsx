@@ -219,7 +219,7 @@ export function DossierForm({
             </Select>
           </Field>
           <Field
-            label={tr("Service type")}
+            label={tr("Service Type")}
             className="sm:col-span-2"
             hint="Choosing a service decides which details this file captures, and its milestone chain."
           >

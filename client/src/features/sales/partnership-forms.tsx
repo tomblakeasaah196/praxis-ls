@@ -170,20 +170,20 @@ export function PartnershipForm({
         <Field label={tr("Company")} required>
           <Input value={company} onChange={(e) => setCompany(e.target.value)} />
         </Field>
-        <Field label="Country of origin">
+        <Field label="Country of Origin">
           <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Cameroon" />
         </Field>
-        <Field label="Application type">
+        <Field label="Application Type">
           <Select value={type} onChange={(e) => setType(e.target.value)}>
             {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </Select>
         </Field>
-        <Field label="Came in via">
+        <Field label="Came in Via">
           <Select value={channel} onChange={(e) => setChannel(e.target.value)}>
             {INTAKE_CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
           </Select>
         </Field>
-        <Field label="Contact person">
+        <Field label="Contact Person">
           <Input value={contact} onChange={(e) => setContact(e.target.value)} />
         </Field>
         <Field label={tr("Title")}>
@@ -200,14 +200,14 @@ export function PartnershipForm({
         </Field>
         <div className="sm:col-span-2">
           <Field
-            label="Network memberships"
+            label="Network Memberships"
             hint="Comma separated — WCA, JCTrans, FIATA. This is how a forwarding agent is vetted."
           >
             <Input value={networks} onChange={(e) => setNetworks(e.target.value)} placeholder="WCA, JCTrans" />
           </Field>
         </div>
         <div className="sm:col-span-2">
-          <Field label="What they are proposing">
+          <Field label="What They Are Proposing">
             <Textarea rows={3} value={proposal} onChange={(e) => setProposal(e.target.value)} />
           </Field>
         </div>
@@ -426,7 +426,7 @@ export function ReviewModal({
       <ProfilePanel request={request} onChanged={onDone} />
 
       <div className="mt-5 border-t pt-4">
-        <Field label="Internal notes" hint="Due diligence. Kept whatever the decision is; never shown to the applicant.">
+        <Field label="Internal Notes" hint="Due diligence. Kept whatever the decision is; never shown to the applicant.">
           <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={5000} />
         </Field>
 
@@ -458,7 +458,7 @@ export function ReviewModal({
 
         {(status === "NEW" || status === "IN_REVIEW") && (
           <div className="mt-3">
-            <Field label="Reason (required to reject)">
+            <Field label="Reason (Required to Reject)">
               <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="No verifiable network membership" />
             </Field>
           </div>

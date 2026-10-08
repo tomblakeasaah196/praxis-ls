@@ -498,7 +498,7 @@ export function MailSetupWizard({
           </p>
           <div className="flex items-end gap-2">
             <div className="flex-1">
-              <Field label="Send the test to" required>
+              <Field label="Send the Test To" required>
                 <Input
                   type="email"
                   value={to}
@@ -612,7 +612,7 @@ function AddSenderInline({ onAdded }: { onAdded: () => void }) {
           />
         </Field>
         <Field
-          label="From address"
+          label="From Address"
           required
           hint="Must be a real mailbox on your domain."
         >
@@ -623,7 +623,7 @@ function AddSenderInline({ onAdded }: { onAdded: () => void }) {
             placeholder="billing@yourco.cm"
           />
         </Field>
-        <Field label="From name" required>
+        <Field label="From Name" required>
           <Input
             value={f.name}
             onChange={(e) => setF((s) => ({ ...s, name: e.target.value }))}

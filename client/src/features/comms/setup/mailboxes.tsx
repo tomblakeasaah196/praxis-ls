@@ -184,12 +184,12 @@ function CreateSharedModal({
         </Field>
         {note && <div className="rounded-lg border border-border bg-card/40 px-3 py-2 text-sm">{note}</div>}
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={tr("Display name")}><Input value={f.display_name} onChange={set("display_name")} /></Field>
+          <Field label={tr("Display Name")}><Input value={f.display_name} onChange={set("display_name")} /></Field>
           <Field label={tr("Department")}><Input value={f.department} onChange={set("department")} placeholder={tr("Finance")} /></Field>
-          <Field label={tr("IMAP host")} required><Input value={f.imap_host} onChange={set("imap_host")} /></Field>
-          <Field label={tr("IMAP port")} required><Input value={String(f.imap_port)} onChange={set("imap_port")} inputMode="numeric" /></Field>
-          <Field label={tr("SMTP host")} required><Input value={f.smtp_host} onChange={set("smtp_host")} /></Field>
-          <Field label={tr("SMTP port")} required><Input value={String(f.smtp_port)} onChange={set("smtp_port")} inputMode="numeric" /></Field>
+          <Field label={tr("IMAP Host")} required><Input value={f.imap_host} onChange={set("imap_host")} /></Field>
+          <Field label={tr("IMAP Port")} required><Input value={String(f.imap_port)} onChange={set("imap_port")} inputMode="numeric" /></Field>
+          <Field label={tr("SMTP Host")} required><Input value={f.smtp_host} onChange={set("smtp_host")} /></Field>
+          <Field label={tr("SMTP Port")} required><Input value={String(f.smtp_port)} onChange={set("smtp_port")} inputMode="numeric" /></Field>
           <Field label={tr("Username")} required><Input value={f.auth_user} onChange={set("auth_user")} placeholder={tr("On cPanel, the full address")} /></Field>
           <Field label={tr("Password")} required><Input value={f.password} onChange={set("password")} type="password" autoComplete="off" /></Field>
         </div>
@@ -241,7 +241,7 @@ export function MembersModal({ mailbox, onClose }: { mailbox: api.Mailbox; onClo
       description={tr("Reading a team's mail and sending as it are different rights.")}
     >
       <div className="space-y-4">
-        <Field label={tr("Access level for the next person you add")}>
+        <Field label={tr("Access Level for the Next Person You Add")}>
           <Select value={role} onChange={(e) => setRole(e.target.value as api.MemberRole)}>
             {(Object.keys(ROLE_LABEL) as api.MemberRole[]).map((r) => (
               <option key={r} value={r}>{tr(ROLE_LABEL[r])}: {tr(ROLE_HINT[r])}</option>
@@ -336,15 +336,15 @@ function LimitsModal({ mailbox, onClose, onDone }: { mailbox: api.Mailbox; onClo
           {tr("a mailbox that sends more than its hourly allowance. Praxis holds anything over the limit for the next hour and tells the sender when it will go, rather than letting the host cut the mailbox off.")}
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label={tr("Per hour")} hint={eff ? `${tr("Company default")} ${eff.send_limit_hourly}` : undefined}>
+          <Field label={tr("Per Hour")} hint={eff ? `${tr("Company default")} ${eff.send_limit_hourly}` : undefined}>
             <Input value={String(f.send_limit_hourly)} inputMode="numeric"
               onChange={(e) => setF((s) => ({ ...s, send_limit_hourly: e.target.value }))} />
           </Field>
-          <Field label={tr("Per day")} hint={eff ? `${tr("Company default")} ${eff.send_limit_daily}` : undefined}>
+          <Field label={tr("Per Day")} hint={eff ? `${tr("Company default")} ${eff.send_limit_daily}` : undefined}>
             <Input value={String(f.send_limit_daily)} inputMode="numeric"
               onChange={(e) => setF((s) => ({ ...s, send_limit_daily: e.target.value }))} />
           </Field>
-          <Field label={tr("History to sync (days)")} hint={eff ? `${tr("Company default")} ${eff.sync_depth_days}` : undefined}>
+          <Field label={tr("History to Sync (Days)")} hint={eff ? `${tr("Company default")} ${eff.sync_depth_days}` : undefined}>
             <Input value={String(f.sync_depth_days)} inputMode="numeric"
               onChange={(e) => setF((s) => ({ ...s, sync_depth_days: e.target.value }))} />
           </Field>
@@ -388,7 +388,7 @@ function HandoverModal({
           {tr("correspondence and makes it visible to a team. It is the right thing when somebody leaves and a colleague has to answer their clients, and the wrong thing to do by accident, so it is recorded on the audit trail with your name against it.")}
         </div>
         <Field
-          label={tr("Team address it becomes")}
+          label={tr("Team Address It Becomes")}
           about={tr("Leave it empty for a shared mailbox with no catalogue slot.")}
           aboutLabel={tr("About the team address")}
         >
@@ -706,28 +706,28 @@ function ImapConnectForm({
     <form onSubmit={submit}>
       <p className="micro mb-3">Any host: cPanel, private server, provider.</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Email address" required>
+        <Field label="Email Address" required>
           <Input
             value={f.email_address}
             onChange={(e) => set("email_address", e.target.value)}
             placeholder="info@company.cm"
           />
         </Field>
-        <Field label={tr("Display name")}>
+        <Field label={tr("Display Name")}>
           <Input
             value={f.display_name}
             onChange={(e) => set("display_name", e.target.value)}
             placeholder="Company Info"
           />
         </Field>
-        <Field label="IMAP host" required>
+        <Field label="IMAP Host" required>
           <Input
             value={f.imap_host}
             onChange={(e) => set("imap_host", e.target.value)}
             placeholder="mail.company.cm"
           />
         </Field>
-        <Field label="IMAP port">
+        <Field label="IMAP Port">
           <Input
             type="number"
             className="num"
@@ -735,14 +735,14 @@ function ImapConnectForm({
             onChange={(e) => set("imap_port", e.target.value)}
           />
         </Field>
-        <Field label={tr("SMTP host")} required>
+        <Field label={tr("SMTP Host")} required>
           <Input
             value={f.smtp_host}
             onChange={(e) => set("smtp_host", e.target.value)}
             placeholder="mail.company.cm"
           />
         </Field>
-        <Field label={tr("SMTP port")}>
+        <Field label={tr("SMTP Port")}>
           <Input
             type="number"
             className="num"
@@ -750,7 +750,7 @@ function ImapConnectForm({
             onChange={(e) => set("smtp_port", e.target.value)}
           />
         </Field>
-        <Field label="Login user">
+        <Field label="Login User">
           <Input
             value={f.auth_user}
             onChange={(e) => set("auth_user", e.target.value)}

@@ -125,7 +125,7 @@ function ChannelConfig() {
           <span className="num">Comms → Mailbox</span>.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={tr("SMTP host")}>
+          <Field label={tr("SMTP Host")}>
             <Input
               value={emF.smtp_host}
               onChange={(e) =>
@@ -134,7 +134,7 @@ function ChannelConfig() {
               placeholder="smtp.provider.com"
             />
           </Field>
-          <Field label={tr("SMTP port")}>
+          <Field label={tr("SMTP Port")}>
             <Input
               type="number"
               className="num"
@@ -145,7 +145,7 @@ function ChannelConfig() {
               placeholder="587"
             />
           </Field>
-          <Field label="SMTP user">
+          <Field label="SMTP User">
             <Input
               value={emF.smtp_user}
               onChange={(e) =>
@@ -155,7 +155,7 @@ function ChannelConfig() {
             />
           </Field>
           <Field
-            label="SMTP password"
+            label="SMTP Password"
             hint={em?.pass_set ? "Leave blank to keep current." : undefined}
           >
             <Input

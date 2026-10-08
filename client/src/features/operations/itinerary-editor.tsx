@@ -329,7 +329,7 @@ export function ItineraryEditor({ dossierId }: { dossierId: string }) {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Leg type">
+              <Field label="Leg Type">
                 <Select
                   value={leg.leg_type}
                   onChange={(e) =>
@@ -440,7 +440,7 @@ export function ItineraryEditor({ dossierId }: { dossierId: string }) {
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field
-                label="Planned departure"
+                label="Planned Departure"
                 error={errorFor(i, "planned_departure")}
               >
                 <DateField
@@ -451,7 +451,7 @@ export function ItineraryEditor({ dossierId }: { dossierId: string }) {
                 />
               </Field>
               <Field
-                label="Planned arrival"
+                label="Planned Arrival"
                 error={errorFor(i, "planned_arrival")}
               >
                 <DateField
@@ -468,7 +468,7 @@ export function ItineraryEditor({ dossierId }: { dossierId: string }) {
                 plan was stored.
               */}
               <Field
-                label="Actual departure"
+                label="Actual Departure"
                 error={errorFor(i, "actual_departure")}
               >
                 <DateField
@@ -479,7 +479,7 @@ export function ItineraryEditor({ dossierId }: { dossierId: string }) {
                 />
               </Field>
               <Field
-                label="Actual arrival"
+                label="Actual Arrival"
                 error={errorFor(i, "actual_arrival")}
               >
                 <DateField

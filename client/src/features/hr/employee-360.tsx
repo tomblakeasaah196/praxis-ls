@@ -576,10 +576,10 @@ function DocumentsPanel({
                   onChange={(e) => setNumber(e.target.value)}
                 />
               </Field>
-              <Field label={tr("Issued on")}>
+              <Field label={tr("Issued On")}>
                 <DateField value={issued} onChange={setIssued} />
               </Field>
-              <Field label={tr("Expires on")}>
+              <Field label={tr("Expires On")}>
                 <DateField value={expires} onChange={setExpires} />
               </Field>
             </div>
@@ -761,7 +761,7 @@ function PayPanel({
                 ))}
               </Select>
             </Field>
-            <Field label={tr("Monthly amount")}>
+            <Field label={tr("Monthly Amount")}>
               <Input
                 type="number"
                 min={0}
@@ -858,19 +858,19 @@ function DriverLicenceFields({
         )}
       </legend>
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label={tr("Licence number")} required data-field="licence_number">
+        <Field label={tr("Licence Number")} required data-field="licence_number">
           <Input
             value={value.document_number}
             onChange={(e) => onChange({ document_number: e.target.value })}
           />
         </Field>
-        <Field label={tr("Valid from")} required>
+        <Field label={tr("Valid From")} required>
           <DateField
             value={value.issued_on}
             onChange={(v) => onChange({ issued_on: v })}
           />
         </Field>
-        <Field label={tr("Valid until")} required>
+        <Field label={tr("Valid Until")} required>
           <DateField
             value={value.expires_on}
             onChange={(v) => onChange({ expires_on: v })}
@@ -882,7 +882,7 @@ function DriverLicenceFields({
           number and the dates, which the operator is reading off the card in
           their hand. */}
       <Field
-        label={tr("Scan of the licence")}
+        label={tr("Scan of the Licence")}
         hint={tr("Optional here — it can be attached later from Documents.")}
       >
         <FileDrop
@@ -1177,7 +1177,7 @@ export function EditEmployeeForm({
                 ))}
               </Select>
             </Field>
-            <Field label={tr("Full name")} required className="sm:col-span-3" data-field="full_name">
+            <Field label={tr("Full Name")} required className="sm:col-span-3" data-field="full_name">
               <Input
                 value={f.full_name}
                 onChange={(e) => set("full_name", e.target.value)}
@@ -1196,7 +1196,7 @@ export function EditEmployeeForm({
                 ))}
               </Select>
             </Field>
-            <Field label={tr("Marital status")}>
+            <Field label={tr("Marital Status")}>
               <Select
                 value={f.marital_status}
                 onChange={(e) => set("marital_status", e.target.value)}
@@ -1209,7 +1209,7 @@ export function EditEmployeeForm({
                 ))}
               </Select>
             </Field>
-            <Field label={tr("Dependent children")}>
+            <Field label={tr("Dependent Children")}>
               <Input
                 type="number"
                 min={0}
@@ -1219,7 +1219,7 @@ export function EditEmployeeForm({
             </Field>
             {showsMaiden && (
               <Field
-                label={tr("Maiden name")}
+                label={tr("Maiden Name")}
                 hint={tr("« Née … Epse … » on the contract.")}
               >
                 <Input
@@ -1230,25 +1230,25 @@ export function EditEmployeeForm({
             )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={tr("Date of birth")}>
+            <Field label={tr("Date of Birth")}>
               <DateField
                 value={f.date_of_birth}
                 onChange={(v) => set("date_of_birth", v)}
               />
             </Field>
-            <Field label={tr("Place of birth")}>
+            <Field label={tr("Place of Birth")}>
               <Input
                 value={f.place_of_birth}
                 onChange={(e) => set("place_of_birth", e.target.value)}
               />
             </Field>
-            <Field label={tr("Father's name")}>
+            <Field label={tr("Father's Name")}>
               <Input
                 value={f.father_name}
                 onChange={(e) => set("father_name", e.target.value)}
               />
             </Field>
-            <Field label={tr("Mother's name")}>
+            <Field label={tr("Mother's Name")}>
               <Input
                 value={f.mother_name}
                 onChange={(e) => set("mother_name", e.target.value)}
@@ -1283,19 +1283,19 @@ export function EditEmployeeForm({
                 onChange={(e) => set("id_document_number", e.target.value)}
               />
             </Field>
-            <Field label={tr("Issued on")}>
+            <Field label={tr("Issued On")}>
               <DateField
                 value={f.id_document_issued_on}
                 onChange={(v) => set("id_document_issued_on", v)}
               />
             </Field>
-            <Field label={tr("Issued at")}>
+            <Field label={tr("Issued At")}>
               <Input
                 value={f.id_document_issued_at}
                 onChange={(e) => set("id_document_issued_at", e.target.value)}
               />
             </Field>
-            <Field label={tr("Expires on")}>
+            <Field label={tr("Expires On")}>
               <DateField
                 value={f.id_document_expires_on}
                 onChange={(v) => set("id_document_expires_on", v)}
@@ -1330,13 +1330,13 @@ export function EditEmployeeForm({
                 onChange={(e) => set("phone_whatsapp", e.target.value)}
               />
             </Field>
-            <Field label={tr("Desk phone")}>
+            <Field label={tr("Desk Phone")}>
               <Input
                 value={f.phone_desk}
                 onChange={(e) => set("phone_desk", e.target.value)}
               />
             </Field>
-            <Field label={tr("Personal email")}>
+            <Field label={tr("Personal Email")}>
               <Input
                 type="email"
                 value={f.personal_email}
@@ -1345,7 +1345,7 @@ export function EditEmployeeForm({
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label={tr("Emergency contact")}>
+            <Field label={tr("Emergency Contact")}>
               <Input
                 value={f.emergency_contact_name}
                 onChange={(e) => set("emergency_contact_name", e.target.value)}
@@ -1359,7 +1359,7 @@ export function EditEmployeeForm({
                 }
               />
             </Field>
-            <Field label={tr("Emergency phone")}>
+            <Field label={tr("Emergency Phone")}>
               <Input
                 value={f.emergency_contact_phone}
                 onChange={(e) => set("emergency_contact_phone", e.target.value)}
@@ -1370,7 +1370,7 @@ export function EditEmployeeForm({
 
         <Section title="The Engagement">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={tr("Employer entity")} data-field="entity_id">
+            <Field label={tr("Employer Entity")} data-field="entity_id">
               <Select
                 value={f.entity_id}
                 onChange={(e) => set("entity_id", e.target.value)}
@@ -1394,13 +1394,13 @@ export function EditEmployeeForm({
             onChange={setDept}
           />
             </Field>
-            <Field label={tr("Job title")} data-field="job_title">
+            <Field label={tr("Job Title")} data-field="job_title">
               <Input
                 value={f.job_title}
                 onChange={(e) => set("job_title", e.target.value)}
               />
             </Field>
-            <Field label={tr("Contract type")}>
+            <Field label={tr("Contract Type")}>
               <Select
                 value={f.employment_type}
                 onChange={(e) => set("employment_type", e.target.value)}
@@ -1413,7 +1413,7 @@ export function EditEmployeeForm({
               </Select>
             </Field>
             <Field
-              label={tr("Reports to")}
+              label={tr("Reports To")}
               hint="Their line manager. Leave blank for the top of the tree."
               htmlFor="edit-reports-to"
             >
@@ -1438,20 +1438,20 @@ export function EditEmployeeForm({
                 onChange={(emp) => setReportsTo(emp ? emp.employee_id : "")}
               />
             </Field>
-            <Field label={tr("Work email")} hint="Used to send payslips & contracts" data-field="email">
+            <Field label={tr("Work Email")} hint="Used to send payslips & contracts" data-field="email">
               <Input
                 type="email"
                 value={f.email}
                 onChange={(e) => set("email", e.target.value)}
               />
             </Field>
-            <Field label={tr("Start date")}>
+            <Field label={tr("Start Date")}>
               <DateField
                 value={f.hired_on}
                 onChange={(v) => set("hired_on", v)}
               />
             </Field>
-            <Field label={tr("Probation (months)")}>
+            <Field label={tr("Probation (Months)")}>
               <Input
                 type="number"
                 min={0}
@@ -1460,13 +1460,13 @@ export function EditEmployeeForm({
                 onChange={(e) => set("probation_months", e.target.value)}
               />
             </Field>
-            <Field label={tr("Place of work")}>
+            <Field label={tr("Place of Work")}>
               <Input
                 value={f.place_of_work}
                 onChange={(e) => set("place_of_work", e.target.value)}
               />
             </Field>
-            <Field label={tr("CNPS number")} hint="Social security.">
+            <Field label={tr("CNPS Number")} hint="Social security.">
               <Input
                 value={f.cnps_number}
                 onChange={(e) => set("cnps_number", e.target.value)}
@@ -1486,7 +1486,7 @@ export function EditEmployeeForm({
               record's existing sentence is passed through so a pattern typed
               before the grid existed is replaced deliberately, not silently. */}
           <Field
-            label={tr("Working hours")}
+            label={tr("Working Hours")}
             hint="Tick the days, set the hours, and say which are worked from home."
           >
             <WorkScheduleField
@@ -1523,7 +1523,7 @@ export function EditEmployeeForm({
 
         <Section title="Remuneration">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label={tr("Base salary (monthly)")}>
+            <Field label={tr("Base Salary (Monthly)")}>
               <Input
                 type="number"
                 min={0}
@@ -1538,7 +1538,7 @@ export function EditEmployeeForm({
                 aria-label={tr("Salary currency")}
               />
             </Field>
-            <Field label={tr("Paid by")}>
+            <Field label={tr("Paid By")}>
               <Select
                 value={f.payment_method}
                 onChange={(e) => set("payment_method", e.target.value)}
@@ -1568,7 +1568,7 @@ export function EditEmployeeForm({
                 onChange={(e) => set("bank_branch", e.target.value)}
               />
             </Field>
-            <Field label={tr("Account number")}>
+            <Field label={tr("Account Number")}>
               <Input
                 value={f.bank_account_number}
                 onChange={(e) => set("bank_account_number", e.target.value)}

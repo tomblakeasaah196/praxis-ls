@@ -295,17 +295,17 @@ export function ProposalForm({
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Language"><Select value={language} onChange={(e) => setLanguage(e.target.value as typeof language)}><option value="BILINGUAL">English + French</option><option value="EN">{tr("English")}</option><option value="FR">French</option></Select></Field>
           <Field label={tr("Currency")}><Input value={currency} maxLength={3} onChange={(e) => setCurrency(e.target.value.toUpperCase())} /></Field>
-          <Field label={tr("Service category")}><Input value={serviceCategory} onChange={(e) => setServiceCategory(e.target.value)} /></Field>
+          <Field label={tr("Service Category")}><Input value={serviceCategory} onChange={(e) => setServiceCategory(e.target.value)} /></Field>
           <Field label={tr("Incoterm")}><Input value={incoterm} onChange={(e) => setIncoterm(e.target.value)} /></Field>
           <Field label={tr("Origin")}><Input value={origin} onChange={(e) => setOrigin(e.target.value)} /></Field>
           <Field label={tr("Destination")}><Input value={destination} onChange={(e) => setDestination(e.target.value)} /></Field>
-          <Field label="Validity (days)"><Input type="number" min="1" value={validity} onChange={(e) => setValidity(e.target.value)} /></Field>
-          <Field label="Payment conditions"><Input value={payment} onChange={(e) => setPayment(e.target.value)} /></Field>
-          <Field label={tr("Cargo description")}><Input value={cargo} onChange={(e) => setCargo(e.target.value)} /></Field>
-          <Field label="Estimated weight"><Input type="number" min="0" value={estimatedWeight} onChange={(e) => setEstimatedWeight(e.target.value)} /></Field>
-          <Field label="Customs target"><Input value={customsTarget} onChange={(e) => setCustomsTarget(e.target.value)} /></Field>
-          <Field label="Transit target"><Input value={transitTarget} onChange={(e) => setTransitTarget(e.target.value)} /></Field>
-          <Field label="Free demurrage days"><Input type="number" min="0" value={freeDays} onChange={(e) => setFreeDays(e.target.value)} /></Field>
+          <Field label="Validity (Days)"><Input type="number" min="1" value={validity} onChange={(e) => setValidity(e.target.value)} /></Field>
+          <Field label="Payment Conditions"><Input value={payment} onChange={(e) => setPayment(e.target.value)} /></Field>
+          <Field label={tr("Cargo Description")}><Input value={cargo} onChange={(e) => setCargo(e.target.value)} /></Field>
+          <Field label="Estimated Weight"><Input type="number" min="0" value={estimatedWeight} onChange={(e) => setEstimatedWeight(e.target.value)} /></Field>
+          <Field label="Customs Target"><Input value={customsTarget} onChange={(e) => setCustomsTarget(e.target.value)} /></Field>
+          <Field label="Transit Target"><Input value={transitTarget} onChange={(e) => setTransitTarget(e.target.value)} /></Field>
+          <Field label="Free Demurrage Days"><Input type="number" min="0" value={freeDays} onChange={(e) => setFreeDays(e.target.value)} /></Field>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={projectCargo} onChange={(e) => setProjectCargo(e.target.checked)} />{tr("Project cargo")}</label>
         </div>
 

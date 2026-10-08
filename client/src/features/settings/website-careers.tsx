@@ -159,7 +159,7 @@ export function WebsiteCareersPage() {
           "An optional strip of your own Insights posts, shown on the careers page whether or not roles are open.",
         )}
       >
-        <Field label={tr("Insights tag")}>
+        <Field label={tr("Insights Tag")}>
           <Input
             value={form.culture_tag || ""}
             maxLength={60}

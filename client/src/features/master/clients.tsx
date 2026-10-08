@@ -136,7 +136,7 @@ function ClientForm({
             />
           </Field>
           <Field
-            label={tr("Corporate entity")}
+            label={tr("Corporate Entity")}
             hint="Which of your legal entities owns this relationship"
             className="sm:col-span-2"
           >
@@ -161,7 +161,7 @@ function ClientForm({
               placeholder="RC/DLA/2020/B/1234"
             />
           </Field>
-          <Field label="Payment terms (days)">
+          <Field label="Payment Terms (Days)">
             <Input
               type="number"
               min="0"
@@ -172,7 +172,7 @@ function ClientForm({
               placeholder="30"
             />
           </Field>
-          <Field label="Credit limit (XAF)" hint="Blank = no limit">
+          <Field label="Credit Limit (XAF)" hint="Blank = no limit">
             <Input
               type="number"
               min="0"

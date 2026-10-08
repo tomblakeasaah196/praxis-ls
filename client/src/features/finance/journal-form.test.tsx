@@ -208,7 +208,7 @@ describe("JournalEntryForm", () => {
     // are visually label-less by design and still carry a name.
     await renderForm();
     expect(
-      screen.getByRole("textbox", { name: /Source document ref/i }),
+      screen.getByRole("textbox", { name: /Source Document Ref/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("spinbutton", { name: "Debit, line 1" }),

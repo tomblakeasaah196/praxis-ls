@@ -112,7 +112,7 @@ function DebtForm({
               ))}
             </Select>
           </Field>
-          <Field label="Lender kind" required>
+          <Field label="Lender Kind" required>
             <Select
               value={f.lender_kind}
               onChange={(e) => set("lender_kind", e.target.value)}
@@ -125,7 +125,7 @@ function DebtForm({
               ))}
             </Select>
           </Field>
-          <Field label="Lender name" className="sm:col-span-2">
+          <Field label="Lender Name" className="sm:col-span-2">
             <Input
               value={f.lender_name}
               onChange={(e) => set("lender_name", e.target.value)}
@@ -143,7 +143,7 @@ function DebtForm({
               disabled={!isNew}
             />
           </Field>
-          <Field label="Interest rate %">
+          <Field label="Interest Rate %">
             <Input
               type="number"
               min="0"
@@ -153,13 +153,13 @@ function DebtForm({
               onChange={(e) => set("interest_rate", e.target.value)}
             />
           </Field>
-          <Field label="Started on">
+          <Field label="Started On">
             <DateField
               value={f.started_on}
               onChange={(iso) => set("started_on", iso)}
             />
           </Field>
-          <Field label={tr("Due on")}>
+          <Field label={tr("Due On")}>
             <DateField
               value={f.due_on}
               onChange={(iso) => set("due_on", iso)}
@@ -229,19 +229,19 @@ function RepayForm({
     >
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr("Entry date")} required>
+          <Field label={tr("Entry Date")} required>
             <DateField
               value={f.entry_date}
               onChange={(iso) => set("entry_date", iso)}
             />
           </Field>
-          <Field label={tr("Source doc ref")}>
+          <Field label={tr("Source Doc Ref")}>
             <Input
               value={f.source_doc_ref}
               onChange={(e) => set("source_doc_ref", e.target.value)}
             />
           </Field>
-          <Field label="Principal part">
+          <Field label="Principal Part">
             <Input
               type="number"
               min="0"
@@ -251,7 +251,7 @@ function RepayForm({
               onChange={(e) => set("principal_part", e.target.value)}
             />
           </Field>
-          <Field label="Interest part">
+          <Field label="Interest Part">
             <Input
               type="number"
               min="0"

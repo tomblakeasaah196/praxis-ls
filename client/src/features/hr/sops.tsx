@@ -83,7 +83,7 @@ function DraftFactsFields({
         />
       </Field>
       <Field
-        label="Steps you already know"
+        label="Steps You Already Know"
         hint="One per line. The AI orders and expands them — it does not invent a process it has never seen."
       >
         <textarea
@@ -189,7 +189,7 @@ function SopForm({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label={tr("Applies to")}
+            label={tr("Applies To")}
             hint="Who the document speaks to. Getting this wrong is how a procedure ends up addressed to nobody."
           >
             <Select value={f.scope} onChange={(e) => set("scope", e.target.value)}>
@@ -207,7 +207,7 @@ function SopForm({
               />
             </Field>
           ) : (
-            <Field label="Owned by" hint="A ROLE, never a name.">
+            <Field label="Owned By" hint="A ROLE, never a name.">
               <Input
                 value={f.owner_role}
                 onChange={(e) => set("owner_role", e.target.value)}
@@ -217,7 +217,7 @@ function SopForm({
           )}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr("Effective from")}>
+          <Field label={tr("Effective From")}>
             <DateField
               value={f.effective_on}
               onChange={(iso) => set("effective_on", iso)}

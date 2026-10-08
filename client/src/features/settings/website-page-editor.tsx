@@ -946,7 +946,7 @@ function CounterItems({
           />
           <div className="grid gap-3 sm:grid-cols-3">
             <Field
-              label={tr("Live figure")}
+              label={tr("Live Figure")}
               hint="Bound to the ledger, recomputed on every page view."
             >
               <Select
@@ -1175,7 +1175,7 @@ function LinkFields({
         placeholderEn="Request a quote"
       />
       <Field
-        label={tr("Button goes to")}
+        label={tr("Button Goes To")}
         hint={tr("A page on your own site, starting with a slash — /quote, /services, /contact.")}
         error={bad ? tr("Start it with a slash.") : undefined}
       >

@@ -169,7 +169,7 @@ function RespondModal({
         <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
           {query.body}
         </div>
-        <Field label="Your response" required>
+        <Field label="Your Response" required>
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}

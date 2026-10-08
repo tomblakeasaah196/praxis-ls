@@ -45,7 +45,7 @@ export type AiScope = {
 
 const ALL_SCOPE: AiScope = {
   key: "all",
-  label: "All my work",
+  label: "All My Work",
   // Rendered by the caller as the mark; a scope of "everything" has no glyph of
   // its own that is not just a busier version of one of the others.
   Icon: () => <></>,

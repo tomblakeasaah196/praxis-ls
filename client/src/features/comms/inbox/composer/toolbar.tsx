@@ -188,7 +188,7 @@ export function ComposerToolbar({
     >
       <div className="space-y-3">
         <Field
-          label={tr("Image address")}
+          label={tr("Image Address")}
           hint={tr("https only. Mail clients strip anything else as mixed content.")}
           error={
             image.src && !/^https:\/\//i.test(image.src.trim())
@@ -205,7 +205,7 @@ export function ComposerToolbar({
           />
         </Field>
         <Field
-          label={tr("Describe the image")}
+          label={tr("Describe the Image")}
           hint={tr("Recipients who block images see this instead.")}
         >
           <Input

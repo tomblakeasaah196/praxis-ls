@@ -169,7 +169,7 @@ function JournalEntryForm({
               </>
             )}
           </FormField>
-          <FormField form={form} name="entry_date" label={tr("Entry date")} required>
+          <FormField form={form} name="entry_date" label={tr("Entry Date")} required>
             {(field) => (
               <DateField {...field} value={String(field.value ?? "")} />
             )}
@@ -177,7 +177,7 @@ function JournalEntryForm({
           <FormField
             form={form}
             name="source_doc_ref"
-            label={tr("Source document ref")}
+            label={tr("Source Document Ref")}
             required
             hint="Mandatory — the ledger rejects entries without a source ref."
           >
@@ -417,7 +417,7 @@ function JournalReverseForm({
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Reversal date"
+            label="Reversal Date"
             required
             hint="Date the contra entry posts on."
           >
@@ -457,7 +457,7 @@ const JOURNAL_COLS = [
   { key: "entry_no", label: "No." },
   { key: "entry_date", label: "Date" },
   { key: "description", label: "Description" },
-  { key: "source_doc_ref", label: "Source ref" },
+  { key: "source_doc_ref", label: "Source Ref" },
   { key: "status", label: "Status" },
 ];
 

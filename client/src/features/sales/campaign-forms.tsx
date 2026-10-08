@@ -178,13 +178,13 @@ export function CampaignForm({
               ))}
             </Select>
           </Field>
-          <Field label="Starts on">
+          <Field label="Starts On">
             <DateField value={startsOn} onChange={setStartsOn} />
           </Field>
-          <Field label="Ends on" hint="Blank means ongoing">
+          <Field label="Ends On" hint="Blank means ongoing">
             <DateField value={endsOn} onChange={setEndsOn} />
           </Field>
-          <Field label="Send channel" hint="Used by the newsletter send">
+          <Field label="Send Channel" hint="Used by the newsletter send">
             <Select value={channel} onChange={(e) => setChannel(e.target.value)}>
               {CHANNELS.map((c) => (
                 <option key={c} value={c}>
@@ -211,7 +211,7 @@ export function CampaignForm({
               onChange={(e) => setCurrency(e.target.value.toUpperCase())}
             />
           </Field>
-          <Field label="Target service" hint="Or type your own">
+          <Field label="Target Service" hint="Or type your own">
             <Input
               list="campaign-target-services"
               value={targetService}
@@ -243,13 +243,13 @@ export function CampaignForm({
             <Field label={tr("Opportunities")}>
               <Input type="number" min={0} value={tOps} onChange={(e) => setTOps(e.target.value)} />
             </Field>
-            <Field label={tr("Deals won")}>
+            <Field label={tr("Deals Won")}>
               <Input type="number" min={0} value={tWon} onChange={(e) => setTWon(e.target.value)} />
             </Field>
           </div>
         </div>
 
-        <Field label="Remarks / justification">
+        <Field label="Remarks / Justification">
           <Textarea
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
@@ -361,13 +361,13 @@ export function ActualsForm({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Leads generated">
+          <Field label="Leads Generated">
             <Input type="number" min={0} value={leads} onChange={(e) => setLeads(e.target.value)} />
           </Field>
           <Field label={tr("Opportunities")}>
             <Input type="number" min={0} value={ops} onChange={(e) => setOps(e.target.value)} />
           </Field>
-          <Field label={tr("Deals won")}>
+          <Field label={tr("Deals Won")}>
             <Input type="number" min={0} value={won} onChange={(e) => setWon(e.target.value)} />
           </Field>
         </div>
@@ -639,14 +639,14 @@ export function SenderForm({
     >
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Sender name" required>
+          <Field label="Sender Name" required>
             <Input
               value={fromName}
               onChange={(e) => setFromName(e.target.value)}
               placeholder="Praxis LS"
             />
           </Field>
-          <Field label="Sender address" required>
+          <Field label="Sender Address" required>
             <Input
               type="email"
               value={fromAddress}
@@ -744,7 +744,7 @@ export function TemplateForm({
     >
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Template name" required className="sm:col-span-2">
+          <Field label="Template Name" required className="sm:col-span-2">
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}

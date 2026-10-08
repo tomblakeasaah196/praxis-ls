@@ -232,7 +232,7 @@ describe("DocumentPage — other doc types", () => {
       html: "<html><body>statement</body></html>",
       sample: true,
       data: null,
-      title: { fr: "Compte de résultat", en: "Income statement" },
+      title: { fr: "Compte De Résultat", en: "Income statement" },
       entity: { legal_name: "Smart Logistics SA" },
       suggested_to: null,
       report: true,

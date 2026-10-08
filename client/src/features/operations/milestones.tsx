@@ -318,7 +318,7 @@ function TemplatesPanel() {
   const cols: Column<api.MilestoneTemplate>[] = [
     {
       key: "service",
-      label: "Service type",
+      label: "Service Type",
       render: (r) => (
         <span className="font-medium text-foreground">
           {r.service_type_name || r.service_type_code || "—"}

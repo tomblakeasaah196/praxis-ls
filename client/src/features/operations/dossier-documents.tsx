@@ -166,7 +166,7 @@ export function DossierDocuments({
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
-          label={tr("Document type")}
+          label={tr("Document Type")}
           hint="Not listed? Add it — it stays available on every file."
         >
           <div className="flex gap-2">

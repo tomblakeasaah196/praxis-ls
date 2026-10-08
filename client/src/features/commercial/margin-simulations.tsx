@@ -492,7 +492,7 @@ function MarginSimForm({
             }}
           />
           <Field
-            label={tr("Link costing")}
+            label={tr("Link Costing")}
             hint="Imports the costing's lines as the cost base"
           >
             <Select
@@ -568,7 +568,7 @@ function MarginSimForm({
                         onChange={(e) => setLine(i, { qty: e.target.value })}
                       />
                     </Field>
-                    <Field label={tr("Unit cost")}>
+                    <Field label={tr("Unit Cost")}>
                       <Input
                         type="number"
                         min="0"
@@ -579,7 +579,7 @@ function MarginSimForm({
                         }
                       />
                     </Field>
-                    <Field label={tr("Unit price")}>
+                    <Field label={tr("Unit Price")}>
                       <Input
                         type="number"
                         min="0"
@@ -832,13 +832,13 @@ function SimDetail({
     },
     {
       key: "unit_cost",
-      label: "Unit cost",
+      label: "Unit Cost",
       className: "num text-right",
       render: (l) => money(l.unit_cost, currency),
     },
     {
       key: "unit_price",
-      label: "Unit price",
+      label: "Unit Price",
       className: "num text-right",
       render: (l) => money(l.unit_price, currency),
     },
@@ -955,7 +955,7 @@ function SimDetail({
 
           {rejecting ? (
             <div className="space-y-2">
-              <Field label={tr("Reject reason")} required>
+              <Field label={tr("Reject Reason")} required>
                 <Textarea
                   rows={2}
                   value={rejectReason}

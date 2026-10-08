@@ -110,7 +110,7 @@ function NewAccountForm({
     >
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr("Corporate entity")} required className="sm:col-span-2">
+          <Field label={tr("Corporate Entity")} required className="sm:col-span-2">
             <SearchSelect
               path="/entities"
               value={entityLabel}
@@ -144,7 +144,7 @@ function NewAccountForm({
             />
           </Field>
           <Field
-            label="CoA code"
+            label="CoA Code"
             hint="Chart-of-accounts account (class 5)"
             required
             className="sm:col-span-2"
@@ -157,14 +157,14 @@ function NewAccountForm({
           </Field>
           {kind === "MOMO" && (
             <>
-              <Field label="MoMo network">
+              <Field label="MoMo Network">
                 <Input
                   value={momoNetwork}
                   onChange={(e) => setMomoNetwork(e.target.value)}
                   placeholder="MTN / Orange"
                 />
               </Field>
-              <Field label="MoMo fee account" hint="CoA code for gateway fees">
+              <Field label="MoMo Fee Account" hint="CoA code for gateway fees">
                 <Input
                   value={momoFee}
                   onChange={(e) => setMomoFee(e.target.value)}

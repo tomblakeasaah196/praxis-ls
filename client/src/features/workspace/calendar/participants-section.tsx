@@ -120,7 +120,7 @@ export function ParticipantsSection({
 
   return (
     <Field
-      label="Who's coming"
+      label="Who's Coming"
       htmlFor="event-external-name"
       hint={
         participants.length

@@ -119,7 +119,7 @@ function AccountForm({
               placeholder="706100"
             />
           </Field>
-          <Field label="Parent code">
+          <Field label="Parent Code">
             <Input
               value={f.parent_code}
               onChange={(e) => set("parent_code", e.target.value)}
@@ -152,7 +152,7 @@ function AccountForm({
               ))}
             </Select>
           </Field>
-          <Field label="Normal balance" required>
+          <Field label="Normal Balance" required>
             <Select
               value={f.normal_balance}
               onChange={(e) => set("normal_balance", e.target.value)}

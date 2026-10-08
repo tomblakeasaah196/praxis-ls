@@ -46,7 +46,7 @@ export function useNewFamily(): [() => Promise<string | null>, React.ReactNode] 
     async () =>
       (await prompt({
         title: tr("New family for this document"),
-        label: tr("Heading the client reads"),
+        label: tr("Heading the Client Reads"),
         hint: tr("For example: DAP Douala–Bangui. It applies to this document only."),
         validate: (v) => (v.trim().length < 2 ? tr("At least two characters.") : null),
         confirmLabel: tr("Use this heading"),

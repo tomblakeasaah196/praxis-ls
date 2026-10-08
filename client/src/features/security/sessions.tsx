@@ -64,7 +64,7 @@ export function SessionsPage() {
     },
     {
       key: "last_seen_at",
-      label: "Last seen",
+      label: "Last Seen",
       render: (r) => <span className="num">{dateFmt(r.last_seen_at)}</span>,
     },
     {

@@ -167,7 +167,7 @@ export function ContractEditor({
                 placeholder="Employment contract"
               />
             </Field>
-            <Field label={tr("Job title")}>
+            <Field label={tr("Job Title")}>
               <Input value={f.job_title} onChange={(e) => set("job_title", e.target.value)} />
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -177,7 +177,7 @@ export function ContractEditor({
               <Field label={tr("Ends")} hint="Leave blank for an indefinite term.">
                 <DateField value={f.end_on} onChange={(iso) => set("end_on", iso)} />
               </Field>
-              <Field label="Gross monthly">
+              <Field label="Gross Monthly">
                 <Input
                   type="number"
                   min="0"
@@ -193,7 +193,7 @@ export function ContractEditor({
                   <option value="USD">USD</option>
                 </Select>
               </Field>
-              <Field label="Probation (months)">
+              <Field label="Probation (Months)">
                 <Input
                   type="number"
                   min="0"
@@ -203,7 +203,7 @@ export function ContractEditor({
                   onChange={(e) => set("probation_months", e.target.value)}
                 />
               </Field>
-              <Field label="Notice (days)">
+              <Field label="Notice (Days)">
                 <Input
                   type="number"
                   min="0"
@@ -214,14 +214,14 @@ export function ContractEditor({
                 />
               </Field>
             </div>
-            <Field label="Working hours">
+            <Field label="Working Hours">
               <Input
                 value={f.working_hours}
                 onChange={(e) => set("working_hours", e.target.value)}
                 placeholder="08:00–17:00, Monday to Friday"
               />
             </Field>
-            <Field label="Place of work">
+            <Field label="Place of Work">
               <Input value={f.place_of_work} onChange={(e) => set("place_of_work", e.target.value)} />
             </Field>
             {meta.probation_ends_on && (

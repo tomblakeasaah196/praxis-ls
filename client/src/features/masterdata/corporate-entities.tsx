@@ -438,7 +438,7 @@ function EntityForm({
             />
           </Field>
           {/* `data-field`: the anchor `?field=legal_name` focuses and rings. */}
-          <Field label={tr("Legal name")} required data-field="legal_name">
+          <Field label={tr("Legal Name")} required data-field="legal_name">
             <Input
               value={v.legal_name}
               onChange={(e) => set("legal_name", e.target.value)}
@@ -446,7 +446,7 @@ function EntityForm({
             />
           </Field>
           <Field
-            label="Trading name"
+            label="Trading Name"
             about="If it trades under a different name"
           >
             <Input
@@ -466,7 +466,7 @@ function EntityForm({
             />
           </Field>
           <Field
-            label="Legal form"
+            label="Legal Form"
             about="Verified for the selected country and printed on the letterhead"
           >
             <LegalFormPicker
@@ -497,7 +497,7 @@ function EntityForm({
           </Field>
           {isNew && (
             <Field
-              label="Opening status"
+              label="Opening Status"
               about="A file can be opened as a draft and completed later"
             >
               <Select
@@ -591,14 +591,14 @@ function EntityForm({
             legend="Registered Office"
             about="Creates the REGISTERED address used on letterheads. Example: 1030, Avenue Douala Manga Bell, PO Box 5120, Douala, CM."
           >
-            <Field label="Address line 1" about="Street and number: e.g. 1030, Avenue Douala Manga Bell">
+            <Field label="Address Line 1" about="Street and number: e.g. 1030, Avenue Douala Manga Bell">
               <Input
                 value={v.address_line1}
                 onChange={(e) => set("address_line1", e.target.value)}
                 placeholder="1030, Avenue Douala Manga Bell"
               />
             </Field>
-            <Field label="Address line 2">
+            <Field label="Address Line 2">
               <Input
                 value={v.address_line2}
                 onChange={(e) => set("address_line2", e.target.value)}
@@ -619,13 +619,13 @@ function EntityForm({
                 placeholder="Littoral"
               />
             </Field>
-            <Field label="Postal code">
+            <Field label="Postal Code">
               <Input
                 value={v.address_postal_code}
                 onChange={(e) => set("address_postal_code", e.target.value)}
               />
             </Field>
-            <Field label="Registered country">
+            <Field label="Registered Country">
               <CountrySelect
                 value={v.address_country_code || v.country_code}
                 onChange={(c) => set("address_country_code", c)}
@@ -646,14 +646,14 @@ function EntityForm({
           legend="Incorporation and Capital"
           about="The statutory facts documents print. Share capital is mandatory on French invoices and is on the readiness checklist."
         >
-          <Field label="Date of incorporation">
+          <Field label="Date of Incorporation">
             <DateField
               value={v.incorporation_date}
               onChange={(iso) => set("incorporation_date", iso)}
             />
           </Field>
           <Field
-            label="Place of incorporation"
+            label="Place of Incorporation"
             about="The registry town, not the trading address"
           >
             <Input
@@ -663,7 +663,7 @@ function EntityForm({
             />
           </Field>
           <Field
-            label="Country of incorporation"
+            label="Country of Incorporation"
             about="Differs from the country above for a redomiciled company"
           >
             <CountrySelect
@@ -673,7 +673,7 @@ function EntityForm({
             />
           </Field>
           <Field
-            label="Dissolution date"
+            label="Dissolution Date"
             about="Leave blank while the company exists"
           >
             <DateField
@@ -682,7 +682,7 @@ function EntityForm({
             />
           </Field>
           <Field
-            label="Share capital"
+            label="Share Capital"
             about="The registered figure, as stated in the statutes"
           >
             <Input
@@ -695,7 +695,7 @@ function EntityForm({
             />
           </Field>
           <Field
-            label="Paid up"
+            label="Paid Up"
             about="How much of it has actually been called and paid"
           >
             <Input
@@ -707,7 +707,7 @@ function EntityForm({
             />
           </Field>
           <Field
-            label="Capital currency"
+            label="Capital Currency"
             about="Often not the reporting currency"
           >
             <SmartCurrencyPicker
@@ -720,7 +720,7 @@ function EntityForm({
 
         <Fieldset legend="Documents and Reporting">
           <Field
-            label={tr("Document prefix")}
+            label={tr("Document Prefix")}
             about="Leads this entity's invoice numbers"
           >
             <Input
@@ -729,7 +729,7 @@ function EntityForm({
               placeholder="SLAS"
             />
           </Field>
-          <Field label="Default language">
+          <Field label="Default Language">
             <Select
               value={v.default_language}
               onChange={(e) => set("default_language", e.target.value)}
@@ -738,7 +738,7 @@ function EntityForm({
               <option value="en">{tr("English")}</option>
             </Select>
           </Field>
-          <Field label="Fiscal year start month">
+          <Field label="Fiscal Year Start Month">
             <Select
               value={v.fiscal_year_start_month}
               onChange={(e) => set("fiscal_year_start_month", e.target.value)}
@@ -754,7 +754,7 @@ function EntityForm({
               France subsidiary reporting under IFRS, and consolidation needs to
               know which is which. */}
           <Field
-            label="Accounting framework"
+            label="Accounting Framework"
             about="What this entity reports under"
           >
             <Select
@@ -769,7 +769,7 @@ function EntityForm({
             </Select>
           </Field>
           <Field
-            label="Numbering resets"
+            label="Numbering Resets"
             about="When this entity's document counters restart"
           >
             <Select
@@ -791,7 +791,7 @@ function EntityForm({
           about="What HR, payroll and billing inherit when someone picks this entity."
         >
           <Field
-            label={tr("Default currency")}
+            label={tr("Default Currency")}
             about="What this entity invoices and reports in"
           >
             <SmartCurrencyPicker
@@ -801,7 +801,7 @@ function EntityForm({
             />
           </Field>
           <Field
-            label={tr("Payroll country")}
+            label={tr("Payroll Country")}
             about="Which country's payroll rules apply to its staff"
           >
             <CountrySelect
@@ -811,7 +811,7 @@ function EntityForm({
             />
           </Field>
           <Field
-            label="Default tax jurisdiction"
+            label="Default Tax Jurisdiction"
             about="Which rate card a new document reaches for first"
           >
             <Select
@@ -830,7 +830,7 @@ function EntityForm({
             </Select>
           </Field>
           <Field
-            label="VAT registered"
+            label="VAT Registered"
             about="Drives whether its documents carry VAT"
           >
             <Select
@@ -849,7 +849,7 @@ function EntityForm({
           about="Ownership percentage and consolidation live on the entity's Structure tab, which runs the cycle check."
         >
           <Field
-            label="Parent entity"
+            label="Parent Entity"
             about="Leave blank for a standalone or top-level company. Only active entities can be a new parent."
             className="sm:col-span-2"
           >
@@ -862,7 +862,7 @@ function EntityForm({
             />
           </Field>
           {v.parent_entity_id && (
-            <Field label="Relationship to parent">
+            <Field label="Relationship to Parent">
               <Select
                 value={v.relationship_type}
                 onChange={(e) => set("relationship_type", e.target.value)}
