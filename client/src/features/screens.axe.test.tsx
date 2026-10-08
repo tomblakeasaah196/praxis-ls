@@ -1565,7 +1565,7 @@ const AREAS: Area[] = [
          * that only covers one route lets the other silently miss.
          */
         populatedProof:
-          /(?=[\s\S]*We move cargo on these lines)(?=[\s\S]*Expired — not shown on the site)/,
+          /(?=[\s\S]*We move cargo on these lines)(?=[\s\S]*Expired: not shown on the site)/,
         /*
          * `rendersRows: false` because the `.border-dashed` marker the
          * populated test uses for "is an EmptyState showing?" is ALSO the
