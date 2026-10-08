@@ -47,6 +47,12 @@ async function scrollers(page: import("@playwright/test").Page) {
         scrollH: Math.round(document.documentElement.scrollHeight),
         clientH: Math.round(document.documentElement.clientHeight),
       },
+      // The app's one scroll container. It must not scroll here EITHER: the
+      // chain sizes the content to exactly its box, which is why <main> needed
+      // no `overflow-hidden` of its own (see hub.tsx). If a future strip of
+      // chrome pushes past it, this is the assertion that says so, rather than
+      // the list quietly going back to travelling with the page.
+      main: el(document.querySelector("main")),
     };
   });
 }
@@ -67,6 +73,11 @@ test.describe("Smart Mail as a workstation", () => {
     // about: before it, the forty rows were in the page's flow, so reading a
     // conversation carried the list and the chrome off the top of the screen.
     expect(s.doc.scrollH).toBeLessThanOrEqual(s.doc.clientH + 1);
+    expect(s.main, "no <main>").not.toBeNull();
+    expect(
+      s.main!.scrolls,
+      `<main> scrolls: ${s.main!.scrollH}px in ${s.main!.clientH}px`,
+    ).toBe(false);
     expect(await hasHorizontalScroll(page)).toBe(false);
     expect(errors, "page errors").toEqual([]);
   });

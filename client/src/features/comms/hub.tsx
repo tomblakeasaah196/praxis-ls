@@ -50,11 +50,27 @@ export function CommsHub() {
   const section = callId ? "calls" : sectionParam;
   const isChat = !section || !["setup", "signatures", "mail", "calls", "clients"].includes(section);
   /* The mailbox is a three-pane workstation from `lg` up and a scrolling page
-     below it — app-shell.tsx's `mailWorkstation`, which clips <main> at `lg`
-     and not before. Every class below is therefore `lg:`-prefixed: the chain
-     has to run unbroken from <main> to the pane that actually scrolls, and one
-     `height: auto` link anywhere along it puts the panes back to growing to
-     their content, which is the defect this screen shipped with. */
+     below it, so every class below is `lg:`-prefixed.
+     
+     The chain has to run unbroken from <main> to the pane that actually
+     scrolls: <main> is already `min-h-0 flex-1 overflow-y-auto`, and from
+     there it is this section, the page, the grid, the pane column, SplitPane
+     and finally ThreadList / ThreadView. One `height: auto` link anywhere
+     along it and `flex-1` becomes `flex-basis: 0` against an unconstrained
+     parent, every `overflow-y-auto` below stops doing anything, and the panes
+     go back to growing to their content, which is the defect this screen
+     shipped with.
+     
+     <main> needs NO change for this, which was worth checking rather than
+     assuming: an `overflow-hidden` was tried there first, on the model of the
+     chat workstation, and measured to do nothing — the chain sizes the content
+     to exactly <main>'s box, so it never scrolls. Keeping it would have cost
+     something, too: `<PullToRefresh>` arms when its scroll container is at the
+     top, and a <main> that can never scroll is a <main> that is always at the
+     top, so the pull would be live under every swipe on a touch screen wide
+     enough to get the three panes. e2e/mail-workstation.spec.ts asserts that
+     <main> does not scroll, which is the property, rather than the class that
+     was going to force it. */
   const isMail = section === "mail";
   // F10: no Calls tab while the tenant has calls off. A deep link to a call
   // still opens it — its record answers for itself.

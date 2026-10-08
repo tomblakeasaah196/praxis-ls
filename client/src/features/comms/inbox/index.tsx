@@ -376,8 +376,8 @@ export function InboxPage() {
      * scrolls, which is what the rail is laid out for and what every phone mail
      * client does.
      *
-     * The chain runs <main> (app-shell's `mailWorkstation`) → the hub's
-     * section → this div → the grid → the pane column → `SplitPane` →
+     * The chain runs <main> (already `min-h-0 flex-1 overflow-y-auto`) → the
+     * hub's section → this div → the grid → the pane column → `SplitPane` →
      * `ThreadList` / `ThreadView`. A single `height: auto` link anywhere along
      * it and `flex-1` becomes `flex-basis: 0` against an unconstrained parent,
      * every `overflow-y-auto` below stops doing anything, and the panes go back
