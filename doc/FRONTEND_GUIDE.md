@@ -1146,6 +1146,187 @@ last character" from "the prefill has not happened yet".
 `app/auth/auth-lock.test.tsx` and `lib/device-keys.test.ts` are the contracts for all of the
 above.
 
+
+### 3.17 Supporting text — the ladder, and the ⓘ at the end of it
+
+**A screen explains itself once. It does not explain itself on every visit, to
+everybody, forever.**
+
+Enforced by `scripts/check-prose.mjs` (`npm run check:prose` from `client/`; in
+`npm run ci` and CI).
+
+The tenant review of 8 Oct 2026 was blunt: "there is a lot of supporting text on
+pages and they are useless at first glance". The count behind it was 805 `hint=`,
+485 `description=` and 790 `.micro` paragraphs in `client/src`, 390 of them in
+master data alone. Nobody ever decided a screen should carry nine paragraphs.
+Each one was added by somebody being helpful about the field in front of them,
+and the cost landed on a page none of them was looking at. That is the shape of
+defect a gate catches and a style guide does not.
+
+#### The ladder
+
+Work down it. Stop at the first rung that fits.
+
+1. **Delete it.** Does it restate the label, the heading, or what the control
+   plainly does? *"A service you sell. Operations files are classified by it"*
+   under a heading reading **New Service Type** is zero information.
+2. **Fold it into the control.** A format belongs in a `placeholder`, a unit
+   belongs in an adornment, a constraint belongs in `min`/`max`. A field that
+   shows `SEA_FREIGHT_IMPORT` greyed in the box does not need a sentence saying
+   SCREAMING_SNAKE.
+3. **Hide it behind `<Field about>` or `<InfoHint>`.** Genuinely useful,
+   genuinely longer than a few words, wanted by maybe one user in ten.
+4. **Leave it visible.** Rare, and the gate makes you justify it with
+   `@prose:keep <reason>`.
+
+#### Point-of-action disclosure
+
+The obvious objection is that some things are too important to hide. That is
+right, and hiding is the wrong frame. **Say it at the moment it matters, not on
+the page.**
+
+| What | Where it goes | Why not an ⓘ |
+| --- | --- | --- |
+| "Cannot be changed later" | A `Permanent` pill on the label; a disabled input once it is set | Nobody discovers an irreversible choice by hovering |
+| What a destructive action destroys | The `useConfirm()` body, at the point of commit | They are about to do it; that is when they read |
+| A legal, tax or OHADA consequence | Behind the ⓘ, shortened | It is reference, not a warning |
+| An empty state | Keep the state ("Nobody yet"), hide the consequence | The state is data; the consequence is explanation |
+
+This is why `<InfoHint>`'s own docblock refuses the first two. GitHub does the
+same thing: deleting a repository tells you nothing until you click, and then it
+tells you everything.
+
+#### Using it
+
+```tsx
+<Field
+  label={tr("Reference Code")}
+  about={tr("Closes this service's file references. Blank generates one.")}
+  aboutLabel={tr("About the reference code")}
+>
+  <Input value={code} onChange={…} />
+</Field>
+```
+
+Standalone, next to a heading, a stat or a checkbox:
+
+```tsx
+<div className="flex items-center gap-1.5">
+  <h4 className="text-sm font-medium">{tr("Equipment on the File")}</h4>
+  <InfoHint label={tr("About equipment on the file")}>
+    {tr("Whether files of this service type record the containers they move.")}
+  </InfoHint>
+</div>
+```
+
+**The ⓘ is always a SIBLING of the thing it explains, never a child of it.** An
+`<InfoHint>` inside a `<label>`, an `<h2>` or a `RadixDialog.Title` puts its
+`aria-label` into that element's accessible name, so "Shareholding" announces as
+"Shareholding About Shareholding" and every `getByRole("heading", { name })` in
+the suite stops matching. This is not theoretical; it is how the first version
+shipped and what the test suite caught.
+
+**Hidden is not deleted.** `Field` renders the `about` text in a visually hidden
+node and points the CONTROL at it with `aria-describedby`, so a screen-reader
+user hears the explanation on focus without opening anything. Hiding visual
+noise must never cost a blind operator the information.
+
+**Focus does not open it; hover and click do.** It is a `<button>`, so Enter and
+Space work. Opening on focus looked right until the icon landed in a `Dialog`,
+where it can be the first focusable element: Radix's open-autofocus landed on
+it, the panel covered the first field, Escape closed the panel instead of the
+dialog, and the close returned focus to the trigger, stealing it from whatever
+input the user had just clicked.
+
+#### What the gate measures
+
+| Rule | Limit | Escape |
+| --- | --- | --- |
+| A visible hint's length | 80 characters | `@prose:keep <reason>` |
+| Visible prose per file | today's count, ratcheted down via `prose-baseline.json` | same |
+| A sentence in `.eyebrow` | 24 characters | same |
+| Title Case on chrome | see §3.18 | same |
+
+`prose-baseline.json` only ever shrinks, the same shape as
+`src/services/ai/write-contract-baseline.json`. New code is held to the rule
+immediately; the backlog outside the area you are sweeping does not block you.
+
+#### Which ⓘ, where
+
+Two are in the tree and the difference is deliberate:
+
+- **`<PageHeader description>`** (`components/data-list.tsx`) expands the text
+  INLINE under the page title on click. A page-level description is worth a
+  paragraph and worth re-reading, and there is room for it.
+- **`<InfoHint>`** opens a small popover on hover or tap. Everything else: a
+  field, a section heading, a stat, a dialog title.
+
+#### Three classes you will meet
+
+| Class | For | Case |
+| --- | --- | --- |
+| `.micro` | a short caption over a value ("Account Manager") | Title Case |
+| `.hint` | a helper SENTENCE that earned its place on the page | sentence case |
+| `.eyebrow` | the editorial uppercase treatment, for a single word over a figure | upper |
+
+`.micro` lost `text-transform: uppercase` in this change. It was written as an
+eyebrow and became the house style for 790 helper sentences, and uppercase does
+to a sentence what it does to an email: it destroys word shape, which is most of
+how fluent reading works, and it reads as a heading, so every hint competed with
+the real headings for the eye.
+
+### 3.18 Copy rules — Title Case for chrome, and no dashes
+
+**Chrome is Title Case. Messages are sentence case. French is always sentence
+case.**
+
+Chrome is what NAMES something: page and hub titles, nav and tab labels, section
+and card titles, dialog titles that open a form ("New Service Type", "Edit
+Expense Rate"), primary buttons, table column headers.
+
+Messages SPEAK to the user: toasts, empty states, validation, confirmations,
+helper text. "Could not save it" is not improved by becoming "Could Not Save
+It".
+
+French takes sentence case ("Types de service", never "Types De Service"), which
+is correct French typography. `title_fr`, `name_fr` and `fr.strings` are
+therefore not checked, and must not be retitled.
+
+Minor words stay lowercase unless they open or close the title: `a an the and
+but or nor for so yet as at by in of off on per to up via with from into over
+vs`.
+
+**No em dashes, en dashes, or ` -- ` in anything a tenant reads.** Enforced by
+`scripts/check-dashes.js` (`npm run check:dashes` from the repo ROOT), covering
+the three frontends plus `services/documents/templates` and
+`services/spreadsheet`. Code comments and `doc/` are deliberately out of scope.
+
+Use a colon when the second half explains or enumerates the first, a full stop
+when it is a second thought, a comma when it is an aside. If none of the three
+fits, the sentence was carrying two ideas and wants to be two sentences, or one
+of them belongs behind an ⓘ. A plain hyphen is fine, so a table column reads
+`31-60`.
+
+CSS custom properties, CLI flags, SQL comment syntax and decrement operators are
+exempt mechanically. `scripts/dedash.py` works an area down; read its header
+before running it, and read the diff after.
+
+#### Renaming a label moves its dictionary key
+
+`tr()` and `navT()` look a translation up **by its exact English text** and fall
+back to English on a miss, silently. Change an English string without moving its
+key in `lib/i18n-dict.ts` and the French build renders English on that label,
+with nothing failing anywhere. `check:prose --fix-titles` does this for you:
+the key moves on both the `en` and `fr` sides, and only the English VALUE is
+retitled.
+
+Watch for labels used as KEYS. `AREA_ICON` and `EXTRA_AREA_ICON` are keyed by
+the area's display label, so retitling the navigation silently missed every key
+and five areas fell back to one glyph in an icons-only rail. Nothing failed at
+the type level, because the maps are `Record<string, …>`. The lookup now
+normalises, but the lesson is the general one: if copy is a key somewhere, grep
+for it before you change it.
+
 ## 4. Accessibility — the floor, not the aspiration
 
 WCAG 2.1 AA is the minimum. `eslint-plugin-jsx-a11y` runs on every build and the primitives
