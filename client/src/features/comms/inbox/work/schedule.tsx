@@ -115,7 +115,7 @@ export function SchedulePicker({
         <p className="mt-1 text-xs text-muted-foreground">
           {recipientTimezone
             ? `${tr("09:00 in")} ${recipientTimezone}, ${tr("on their next working morning.")}`
-            : tr("09:00 where they are. If we have no timezone on file for them, the send is refused and says so — we will not guess one.")}
+            : tr("09:00 where they are. If we have no timezone on file for them, the send is refused and says so. We will not guess one.")}
         </p>
       </div>
 

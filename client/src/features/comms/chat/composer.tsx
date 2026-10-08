@@ -516,7 +516,7 @@ export function Composer({
             if (result.kind === "rejected") {
               e.preventDefault();
               setPasteMessage(
-                tr("That file type isn't accepted here — choose a file instead."),
+                tr("That file type isn't accepted here: choose a file instead."),
               );
             }
           }}

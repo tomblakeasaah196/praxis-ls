@@ -54,7 +54,7 @@ function emptyHintFor(sel: RailSelection, query: string): string {
   if (sel.view === "VIP") return tr("No VIP conversations. A client or supplier marked VIP in their record lands here.");
   if (sel.view === "ATTACHMENT") return tr("No conversation here carries a file.");
   if (sel.label) return `${tr("Nothing carries the label")} “${sel.label}” ${tr("yet.")}`;
-  if (sel.stream === "SYSTEM") return tr("No automated mail — carrier notices and system reports will collect here.");
+  if (sel.stream === "SYSTEM") return tr("No automated mail. Carrier notices and system reports will collect here.");
   if (sel.stream === "HUMAN") return tr("No mail from people yet.");
   if (sel.folder === "SENT") return tr("Nothing sent from this mailbox yet.");
   return tr("This folder is empty. If a mailbox was just connected, give the first sync a moment.");
@@ -300,7 +300,7 @@ export function InboxPage() {
       const res = await api.deleteThread(id);
       setNote(
         res.retained_archived
-          ? `${res.deleted} ${tr("deleted.")} ${res.retained_archived} ${tr("kept — sealed into the compliance archive.")}`
+          ? `${res.deleted} ${tr("deleted.")} ${res.retained_archived} ${tr("kept: sealed into the compliance archive.")}`
           : `${res.deleted} ${tr("deleted.")}`,
       );
       // Only drop the open thread when the row itself went. A conversation
@@ -338,7 +338,7 @@ export function InboxPage() {
       const res = await api.emptyFolder(folder);
       setNote(
         res.retained_archived
-          ? `${res.deleted} ${tr("deleted.")} ${res.retained_archived} ${tr("kept — sealed into the compliance archive.")}`
+          ? `${res.deleted} ${tr("deleted.")} ${res.retained_archived} ${tr("kept: sealed into the compliance archive.")}`
           : `${res.deleted} ${tr("deleted.")}`,
       );
       setBulkFailures(res.failed || []);

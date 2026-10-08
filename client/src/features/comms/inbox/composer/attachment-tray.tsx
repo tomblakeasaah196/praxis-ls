@@ -87,7 +87,7 @@ export function AttachmentTray({
           {mb(tray.total_bytes)} {tr("of")} {mb(tray.limit_bytes)}
         </span>
         {tray.offer_secure_link && (
-          <Pill tone="warn">{tr("Large — a secure link would be better")}</Pill>
+          <Pill tone="warn">{tr("Large: a secure link would be better")}</Pill>
         )}
       </div>
 

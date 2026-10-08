@@ -142,7 +142,7 @@ export function FileDrop({
         e.preventDefault();
         setPasteArmed(false);
         setPasteMessage(
-          tr("That file type isn't accepted here — choose a file instead."),
+          tr("That file type isn't accepted here: choose a file instead."),
         );
         return;
       }

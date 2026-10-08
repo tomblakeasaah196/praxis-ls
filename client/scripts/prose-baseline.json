@@ -201,7 +201,6 @@
     "client/src/features/workspace/file-link-field.tsx": 2,
     "client/src/features/workspace/repeat-field.tsx": 3,
     "client/src/features/workspace/tasks/task-board.tsx": 2,
-    "client/src/features/workspace/tasks/task-dialog.tsx": 2,
     "client/src/features/workspace/today.tsx": 1
   },
   "longCopy": {
@@ -262,7 +261,6 @@
     "client/src/features/vault/signatures.tsx": 1,
     "client/src/features/workspace/file-link-field.tsx": 2,
     "client/src/features/workspace/tasks/task-board.tsx": 2,
-    "client/src/features/workspace/tasks/task-dialog.tsx": 1,
     "client/src/features/workspace/today.tsx": 1
   }
 }

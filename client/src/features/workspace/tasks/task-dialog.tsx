@@ -389,7 +389,7 @@ export function TaskDialog({
         )}
 
         {/* Who it is on. A task assigned to someone else is notified to them and
-            lands in their board's "My work" — the meeting's "assign it so it
+            lands in their board's "My work": the meeting's "assign it so it
             shows on their dashboard". Left empty, the task stays on the
             creator's own list. Hidden for a personal task, which by definition
             is nobody else's. */}

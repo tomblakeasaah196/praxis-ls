@@ -189,7 +189,7 @@ export function ComposerToolbar({
       <div className="space-y-3">
         <Field
           label={tr("Image address")}
-          hint={tr("https only — mail clients strip anything else as mixed content.")}
+          hint={tr("https only. Mail clients strip anything else as mixed content.")}
           error={
             image.src && !/^https:\/\//i.test(image.src.trim())
               ? tr("Must start with https://")
@@ -391,7 +391,7 @@ export function ComposerToolbar({
 export function FontNote() {
   return (
     <p className="px-3 pb-1 text-[0.6875rem] text-muted-foreground">
-      {tr("Only fonts that render everywhere are offered — a font the recipient does not have is substituted without warning.")}
+      {tr("Only fonts that render everywhere are offered: a font the recipient does not have is substituted without warning.")}
     </p>
   );
 }
