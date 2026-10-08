@@ -1357,19 +1357,104 @@ Since the 2026-10-08 round it reads, besides JSX `title=`:
   header's `eyebrow` prop is JSX containing a ">" and a blob match stopped
   inside it.
 
+Since the 2026-10-08 Configure-hub round it also reads ten more shapes. Eight
+were holes; two were the gate asking for a MESSAGE to be Title Cased, which is
+the same defect pointing the other way. Each has a `prove-gates.mjs` case.
+
+- **a chrome component's own `title` / `label`**, for `Modal`, `Dialog`,
+  `KpiTile` and `Stat`. §3.18 used to name `<Dialog title>` as unread and
+  understated it twice. The component is SPELLED `Modal`:
+  `components/ui/modal.tsx` is one line of `export { Dialog as Modal }`, the
+  tree says `Modal` 106 times to `Dialog`'s 17, and all six Configure hubs use
+  `Modal` exclusively — a rule written against the name in the guide would have
+  matched almost nothing. And a KPI caption is the same chrome written twice:
+  the object bucket has read `label:` inside a KPI config since it was widened,
+  so `{ label: "open flags" }` failed the build while
+  `<KpiTile label="Open flags">` passed. RATCHETS; 239 sites.
+- **`Record<…, string>` label maps**, by the const's NAME (`…_LABEL`,
+  `…_TITLE`, `…_NAME`, `…_COLUMN`, `…_HEADER`, `…_KIND`) plus the
+  `Record<…, string>` annotation. A regex cannot tell a label map from a route
+  or icon map, so the name is what tells it. `…_WORDS` is deliberately NOT on
+  the list: the vault had `STATUS_WORDS` (status pills, chrome) three lines from
+  `ASSURANCE_WORDS` ("Confirmed with a fingerprint or face (passkey)", a
+  sentence), so the suffix said nothing. The chrome one was renamed
+  `STATUS_LABEL`, which is the name saying what it holds. RATCHETS; 208 sites.
+- **the dotted-key `t()` catalogue values** in `i18n-dict.ts`, in the `en` half
+  only, for keys whose own name ends `…Title`, `…Label`, `…Heading`, `…Col`,
+  `…Column`, `…Section`, `…Tab`, `…Btn`, `…Button`, `…Action`, `…Header`. Two
+  things keep it narrow. The file holds `fr` under the SAME key names 2,200
+  lines down and French takes sentence case, so checking the whole file would
+  demand exactly the retitling this section forbids. And the catalogue is mostly
+  messages — `routeCheckDesc` is a paragraph, `roleKpiSaved` is a toast — with
+  no way to tell a name from a message by looking at the string, so the key name
+  is the author saying which it is. A chrome value the suffix does not reach is
+  missed; a message is never wrecked.
+- **a `hint` rendered FROM a map in the same file.** `literal()` returns null
+  for a computed hint and the site is then not counted, which is right for
+  `` hint={`${n} left`} `` and wrong for `hint={KIND_HINT[kind]}`, whose five
+  strings are twelve lines up. Tax Jurisdictions printed one of 139 characters
+  and both gates called the screen clean. The longest value is measured.
+- **a `hint` written as an object property.** `empty={{ hint: "…" }}` renders
+  what `<EmptyState hint="…">` renders and only the second was counted. 129
+  sites, 13 over the cap.
+- **`eyebrow=`**, which is the AREA'S NAME. `areas.ts` is checked and has said
+  "Vault & Compliance" and "Security & Access" since round 1; the hub pages
+  rendered `eyebrow="Vault & compliance"`, so the ribbon and the page carried
+  two spellings of one area in the same build. `ribbon-model.ts` is the receipt:
+  it holds an `EXTRA_AREA_ICON` entry written to paper over this exact mismatch.
+  4 of 14 were sentence case, one of them MASTER DATA'S. A hard failure, like
+  `areas.ts` itself.
+- **`subtitle=`**, capped at `MAX_EYEBROW` like `.eyebrow`. It renders into
+  `text-micro uppercase text-muted-foreground` and is documented as "Units /
+  scope / as-of qualifier" — a caption. The `.eyebrow` rule read only the CLASS,
+  so the same slot spelled as a prop went unmeasured, and costing's
+  reconciliation panel put 167 characters there, UPPERCASED, above its table.
+- **a title ENDING IN A FULL STOP is a message**, alongside `?` and `!`. The
+  test for a name in this section is "whether it could end in a full stop", and
+  `pwa/previews.tsx` has four Callout titles that DO end in one.
+- **a `prompt({ … })`'s own `title` is NOT chrome.** The prompt rule reads a
+  prompt's `label` and deliberately not its `title`, and says why: "a prompt's
+  `title` is often a question (\"Confirm it's you\")". The generic object rule
+  then matched that same `title:` and demanded "Confirm It's You" — the string
+  this section holds up by name as the one that must stay.
+- **a CALLOUT-SHAPED RECORD'S `title` is NOT chrome.** Chrome-versus-message is
+  settled by the COMPONENT, and the gate already honours that for an
+  `empty: {}` block. `pwa/validation.ts` builds ten warnings as
+  `{ id, tone, title, detail }` and renders each as a `<Callout>`, so every one
+  is a message by the rule already written down — and the gate produced "Your
+  Brand Colour Barely Shows on the Splash Background". An object declaring
+  `tone:` or `detail:` beside its `title:` is that shape.
+
+`@prose:keep <reason>` is also **block-scoped**: a marker on the line that
+OPENED a block covers the block, and only when that line ends in `[` or `{`.
+`pwRules` is four `label:` lines of password rule text, which this section names
+as the object rule's canonical false positive; marking each of four says one
+thing four times and invites the next person to delete three.
+
 It still does NOT read, and these are the places to look by hand:
 
-- **`<Dialog title>` by component.** A dialog names a form ("New Service Type")
-  or speaks ("Remove the account manager?"), and only the prefix rule separates
-  those, so a dialog titled "Mail setup guide" passes.
-- **`Record<Enum, string>` label maps** (`STATUS_LABEL`, `PRIORITY_LABEL`). A
-  regex cannot tell one from a route or icon map, and "In progress" also comes
-  out of the global `enumLabel()` formatter, so retitling the map alone would
-  disagree with every other enum pill in the product.
-- **the dotted-key `t()` catalogue values** in `i18n-dict.ts` (`dash.*`,
-  `nav.*`). `SKIP_TITLE` excludes a dotted KEY on purpose, which also excludes
-  the VALUE, and those values are card titles. The `dash:` block was swept by
-  hand in that round; the others were not.
+- **a paragraph holding JSX interpolations.** `elementText()` returns null once
+  a `<p>` contains `{" "}` or a nested `<span>`, because its rendered length is
+  then not knowable from the source — and measuring it anyway is how a gate
+  starts reporting things nobody can act on. The Permission Matrix printed a
+  400-character paragraph at its foot naming
+  `9021_seed_default_permissions.sql` to the tenant, and neither gate counted a
+  word of it. This is a limit, not an oversight: read such paragraphs by hand.
+- **the budget's UNIT, on a file holding several screens.** It counts per FILE,
+  which is right for a page and wrong for a tab set. `audit.tsx` has three
+  `empty: {}` hints, one per tab; `ai-control/pages.tsx` has five, one per
+  route, in 1,357 lines. A reader sees at most one, and only when that screen
+  has nothing else on it. Those carry `@prose:keep` naming the screen they
+  belong to, so the judgement sits next to the string.
+- **whether a `desc` carries a CONSEQUENCE.** `SettingsCard` renders `desc`
+  behind the ⓘ and `notice` in the card body, and nothing can check that the
+  right sentence went in the right one. That split is a review question.
+- **`enumLabel()` versus a label map.** The maps are now measured, but
+  `lib/format.ts`'s `enumLabel()` still sentence-cases an enum token
+  mechanically, so a Title Cased map and a pill rendered through `enumLabel`
+  disagree. Fixing that means Title Casing `enumLabel` plus an `ACRONYMS`-style
+  exception list, which touches every enum pill in the product and is its own
+  PR. 197 label-map values remain baselined outside the Configure hubs.
 
 French takes sentence case ("Types de service", never "Types De Service"), which
 is correct French typography. `title_fr`, `name_fr` and `fr.strings` are
