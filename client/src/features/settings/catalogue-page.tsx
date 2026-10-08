@@ -93,7 +93,7 @@ export function ModuleCataloguePage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        title="Module catalogue"
+        title="Module Catalogue"
         description="Every MOD-xx the platform knows about — the same list that backs the permission matrix. Read-only."
         action={
           <Link to="/security/permissions">

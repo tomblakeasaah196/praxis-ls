@@ -320,7 +320,7 @@ export function SlaTab() {
     <div className="space-y-6">
       <div className="space-y-4">
         <PageHeader
-          title={tr("Response times")}
+          title={tr("Response Times")}
           description={tr("How long a first reply is allowed to take. Counted in working hours, so the calendar below is half the answer.")}
           action={<Button size="sm" onClick={() => setCreating(true)}>{tr("New target")}</Button>}
         />
@@ -342,7 +342,7 @@ export function SlaTab() {
 
       <div className="space-y-3">
         <PageHeader
-          title={tr("Working hours")}
+          title={tr("Working Hours")}
           description={tr("“Four hours” starting at 17:00 on a Friday should mean Monday morning, not Friday evening.")}
         />
         {calendar.loading && <LoadingRow label={tr("Loading the calendar…")} />}

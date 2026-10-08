@@ -70,9 +70,9 @@ describe("tab gating", () => {
   test("an ordinary user sees their own mailbox and their own follow-ups, and nothing administrative", async () => {
     caps.mockResolvedValue({ can_view: true, can_create: false, can_edit: false, can_administer: false, is_ceo: false });
     render(<CommsSetupPage />);
-    await waitFor(() => expect(screen.getAllByText("My mailbox").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText("My Mailbox").length).toBeGreaterThan(0));
     expect(screen.getAllByText("Follow-ups").length).toBeGreaterThan(0);
-    for (const adminOnly of ["Send points", "Mailboxes", "Response times", "Trust & archive", "Secure links", "Senders & channels"]) {
+    for (const adminOnly of ["Send Points", "Mailboxes", "Response Times", "Trust & Archives", "Secure Links", "Senders & Channels"]) {
       expect(screen.queryByText(adminOnly)).not.toBeInTheDocument();
     }
   });
@@ -103,8 +103,8 @@ describe("tab gating", () => {
     });
     expect(nav).toBeInTheDocument();
     for (const label of [
-      "My mailbox", "Follow-ups", "Mailboxes", "Secure links",
-      "Response times", "Trust & archive", "Send points", "Senders & channels",
+      "My Mailbox", "Follow-ups", "Mailboxes", "Secure Links",
+      "Response Times", "Trust & Archives", "Send Points", "Senders & Channels",
     ]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
@@ -115,6 +115,6 @@ describe("tab gating", () => {
     // appearing a moment later.
     caps.mockReturnValue(new Promise(() => {}));
     render(<CommsSetupPage />);
-    expect(screen.queryByText("Send points")).not.toBeInTheDocument();
+    expect(screen.queryByText("Send Points")).not.toBeInTheDocument();
   });
 });
