@@ -429,6 +429,26 @@ checking the source: `enumLabel()` output, a field label that only shares its
 wording with a page title, synthetic fixture data, and code comments. The map is
 a starting point; the suite is the authority. Run it and fix what fails.
 
+**And run the WHOLE Playwright suite, not the three specs a brief names.**
+`npm run ci` skips Playwright entirely, so CI is the only signal — and the three
+specs named in this round's brief (`layout`, `mail-workstation`,
+`analytics-mobile`) all passed locally while `call.spec.ts` was red on the
+runner. The failure was a spec given the CASE rename and not the DE-DASH:
+two rename maps applied to one file in two passes, where the second map's key
+was the string the first had already rewritten. Cross-checking every
+`name: "..."` in all 11 specs against the source is the cheap version of this
+check; the 35 that match nothing are fixture data, not pins.
+
+    cd client && npm run build
+    PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers npx playwright test
+
+**A separator can be JSX, not a string.** Three em dashes hid in template
+literals (`` `Due — ${dueTitle(d)}` ``) and one sat between two expressions as
+bare JSX text (`{tr("Call summary")} — {tr("…")}`). `check-dashes.js` counts all
+four, so they were in the backlog the whole time; `dedash.py` reads single- and
+double-quoted strings only, so its FIXER could not see one of them. The gate was
+right and the tool was blind, which is the reverse of the usual failure here.
+
 **A duplicate dictionary key does not error — the LAST one wins.** Verify after
 any dictionary change, and on a MERGE keep the LAST. The snippet is under "The
 traps, all of which bit once" above. This round ended on **3503 keys each side,
