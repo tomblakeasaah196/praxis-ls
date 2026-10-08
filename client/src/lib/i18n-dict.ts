@@ -472,6 +472,30 @@ export const en = {
     stockValueHint: "Own stock at cost — awaiting a valuation source",
   },
   strings: {
+    // The authenticator app, My Security (14401). French stays SENTENCE case
+    // even where the English is Title Case chrome: that is correct French
+    // typography, and half this corridor reads French.
+    "About the authenticator app": "About the authenticator app",
+    "A phone app (Google Authenticator, Authy, 1Password and others) shows a 6-digit code that changes every 30 seconds. Scanning the square adds this account to it. After that, signing in asks for the code as well as your password, so a stolen password is not enough on its own.":
+      "A phone app (Google Authenticator, Authy, 1Password and others) shows a 6-digit code that changes every 30 seconds. Scanning the square adds this account to it. After that, signing in asks for the code as well as your password, so a stolen password is not enough on its own.",
+    "Scan this with your authenticator app": "Scan this with your authenticator app",
+    "How often a code is asked for": "How often a code is asked for",
+    "Ask for a Code": "Ask for a Code",
+    "No camera?": "No camera?",
+    "Setup key": "Setup key",
+    "Turn On": "Turn On",
+    "Turn Off": "Turn Off",
+    "Set Up": "Set Up",
+    "Authenticator": "Authenticator",
+    "on": "on",
+    "1 recovery code left": "1 recovery code left",
+    "{{n}} recovery codes left": "{{n}} recovery codes left",
+    "Save these. Each one signs you in once if you lose your phone.":
+      "Save these. Each one signs you in once if you lose your phone.",
+    "Recovery codes copied.": "Recovery codes copied.",
+    "Recovery code": "Recovery code",
+    "Lost your phone?": "Lost your phone?",
+    "Use a code from the app": "Use a code from the app",
     // Meeting 6, PR 4: quotations from a costing, families, the chat
     // reference chip, Settings › Commercial and the ⌘K palette.
     "the catalogue's family": "the catalogue's family",
@@ -4480,6 +4504,28 @@ export const fr: Dict = {
     stockValueHint: "Stock propre au coût — en attente d'une source de valorisation",
   },
   strings: {
+    // L'application d'authentification, Ma sécurité (14401).
+    "About the authenticator app": "À propos de l'application d'authentification",
+    "A phone app (Google Authenticator, Authy, 1Password and others) shows a 6-digit code that changes every 30 seconds. Scanning the square adds this account to it. After that, signing in asks for the code as well as your password, so a stolen password is not enough on its own.":
+      "Une application mobile (Google Authenticator, Authy, 1Password et d'autres) affiche un code à 6 chiffres qui change toutes les 30 secondes. Scanner le carré y ajoute ce compte. Ensuite, la connexion demande le code en plus de votre mot de passe : un mot de passe volé ne suffit plus.",
+    "Scan this with your authenticator app": "Scannez ceci avec votre application d'authentification",
+    "How often a code is asked for": "Fréquence de demande du code",
+    "Ask for a Code": "Demander un code",
+    "No camera?": "Pas de caméra ?",
+    "Setup key": "Clé de configuration",
+    "Turn On": "Activer",
+    "Turn Off": "Désactiver",
+    "Set Up": "Configurer",
+    "Authenticator": "Authentification",
+    "on": "activé",
+    "1 recovery code left": "1 code de secours restant",
+    "{{n}} recovery codes left": "{{n}} codes de secours restants",
+    "Save these. Each one signs you in once if you lose your phone.":
+      "Conservez-les. Chacun vous connecte une fois si vous perdez votre téléphone.",
+    "Recovery codes copied.": "Codes de secours copiés.",
+    "Recovery code": "Code de secours",
+    "Lost your phone?": "Téléphone perdu ?",
+    "Use a code from the app": "Utiliser un code de l'application",
     // Meeting 6, PR 4: quotations from a costing, families, the chat
     // reference chip, Settings › Commercial and the ⌘K palette.
     "the catalogue's family": "la famille du catalogue",

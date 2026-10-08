@@ -31,16 +31,28 @@ export function Soon({ className }: { className?: string }) {
   );
 }
 
+/**
+ * `action` is the card's top-right slot: an `<InfoHint>`, or a control that
+ * belongs to the whole card rather than to one field.
+ *
+ * It exists because `desc` is PRINTED under the title, on every visit, to every
+ * operator (§3.17: the fifth frontend rule). A card whose explanation runs past
+ * a few words puts it behind an ⓘ here instead and drops `desc`, which is what
+ * this slot is for; `desc` stays for the short captions that genuinely read
+ * better in the open.
+ */
 export function SettingsCard({
   title,
   desc,
   soon,
+  action,
   children,
   className,
 }: {
   title: string;
   desc?: string;
   soon?: boolean;
+  action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -48,12 +60,18 @@ export function SettingsCard({
     <div className={cn("lux-card p-5", className)}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
+          {/* The ⓘ is a SIBLING of the heading, never a child of it: inside the
+              <h2> its aria-label joins the accessible name and the card starts
+              announcing as "Authenticator App About Authenticator App". */}
           <h2 className="font-display text-lg tracking-tight">{title}</h2>
           {desc && (
             <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p>
           )}
         </div>
-        {soon && <Soon />}
+        <div className="flex shrink-0 items-center gap-2">
+          {action}
+          {soon && <Soon />}
+        </div>
       </div>
       {children}
     </div>

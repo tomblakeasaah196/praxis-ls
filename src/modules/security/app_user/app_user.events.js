@@ -12,6 +12,15 @@ module.exports = {
   TOKEN_REFRESHED: "auth.token_refreshed",
   TWOFA_ENABLED: "auth.2fa_enabled",
   TWOFA_DISABLED: "auth.2fa_disabled",
+  // One of the ten single-use codes stood in for the authenticator (14401).
+  // Its own key, not a LOGIN_SUCCEEDED with a different method: "somebody got
+  // in without the phone" is the question a human asks months later.
+  TWOFA_RECOVERY_USED: "auth.2fa_recovery_code_used",
+  // How often the authenticator asks, changed by its owner.
+  TWOFA_FREQUENCY_CHANGED: "auth.2fa_frequency_changed",
+  // An administrator cleared somebody else's authenticator (lost phone, no
+  // recovery code left). Distinct from the owner turning it off themselves.
+  TWOFA_RESET: "auth.2fa_reset",
   PASSWORD_RESET_REQUESTED: "auth.password_reset_requested",
   PASSWORD_RESET_COMPLETED: "auth.password_reset_completed",
   // Signed-in change (current password → new one). Distinct from a RESET so the

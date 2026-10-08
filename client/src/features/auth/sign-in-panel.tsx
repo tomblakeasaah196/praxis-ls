@@ -199,6 +199,12 @@ export function SignInPanel({
   const [password, setPassword] = React.useState("");
   const [showPw, setShowPw] = React.useState(false);
   const [code, setCode] = React.useState("");
+  /* The recovery path (14401). Same route, same verify call, same rate limiter
+     — a different field, because a recovery code is ten characters and the
+     6-digit OtpInput cannot hold one. Off by default: it is the exception, and
+     a screen that offers both at once makes the common case read as a choice. */
+  const [recovery, setRecovery] = React.useState("");
+  const [useRecovery, setUseRecovery] = React.useState(false);
   const [pin, setPin] = React.useState("");
   const [showKeypad, setShowKeypad] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -332,7 +338,10 @@ export function SignInPanel({
       await afterSignIn(rememberedEmail || email.trim(), "password");
     } catch (err) {
       setError(friendly(err));
-      setCode("");
+      // Only the 6-digit field is cleared on a miss: a mistyped recovery code
+      // is ten characters a user just read off a printout, and wiping it makes
+      // them find their place again.
+      if (!useRecovery) setCode("");
     } finally {
       setBusy(false);
     }
@@ -552,7 +561,9 @@ export function SignInPanel({
 
   const sub =
     stage === "twofa"
-      ? "Enter the 6-digit code from your authenticator app."
+      ? useRecovery
+        ? "Enter one of your recovery codes."
+        : "Enter the 6-digit code from your authenticator app."
       : stage === "forgot"
         ? "We'll email you a link to choose a new password."
         : stage === "forgot-sent"
@@ -977,22 +988,64 @@ export function SignInPanel({
       {/* ── 2FA ─────────────────────────────────────────────────────────── */}
       {stage === "twofa" && (
         <form onSubmit={(e) => e.preventDefault()} className="mt-6 flex flex-col gap-5" noValidate>
-          <OtpInput
-            value={code}
-            onChange={setCode}
-            onComplete={submitCode}
-            // Focus RECOVERY: the field the user was typing in is gone.
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
-            disabled={busy}
-          />
+          {useRecovery ? (
+            <div className="login-field">
+              <input
+                type="text"
+                // Not `one-time-code`: that is the SMS/TOTP autofill hint, and
+                // offering a password manager's 6-digit suggestion in the field
+                // that wants a ten-character printout code is worse than no hint.
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                aria-label={tr("Recovery code")}
+                placeholder="XXXXX-XXXXX"
+                value={recovery}
+                onChange={(e) => setRecovery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && recovery.trim().length >= 10) void submitCode(recovery);
+                }}
+                disabled={busy}
+                // Focus RECOVERY: the field the user was typing in is gone.
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
+              />
+            </div>
+          ) : (
+            <OtpInput
+              value={code}
+              onChange={setCode}
+              onComplete={submitCode}
+              // Focus RECOVERY: the field the user was typing in is gone.
+              // eslint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus
+              disabled={busy}
+            />
+          )}
           {error && (
             <p className="login-error text-center" role="alert">
               {error}
             </p>
           )}
-          <button type="button" className="login-submit" onClick={() => submitCode(code)} disabled={busy || code.length < 6}>
+          <button
+            type="button"
+            className="login-submit"
+            onClick={() => submitCode(useRecovery ? recovery : code)}
+            disabled={busy || (useRecovery ? recovery.trim().length < 10 : code.length < 6)}
+          >
             {busy ? "Verifying…" : "Verify"}
+          </button>
+          <button
+            type="button"
+            className="login-alt-link"
+            onClick={() => {
+              setUseRecovery((v) => !v);
+              clearErrors();
+              setCode("");
+              setRecovery("");
+            }}
+          >
+            {useRecovery ? tr("Use a code from the app") : tr("Lost your phone?")}
           </button>
           <button
             type="button"
@@ -1001,6 +1054,8 @@ export function SignInPanel({
               setStage("credentials");
               clearErrors();
               setCode("");
+              setRecovery("");
+              setUseRecovery(false);
             }}
           >
             <ArrowLeftIcon width={14} height={14} /> {tr("Back")}
