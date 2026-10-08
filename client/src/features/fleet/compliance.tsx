@@ -84,7 +84,7 @@ function NewComplianceForm({
     <Modal
       open
       onClose={onClose}
-      title="New compliance record"
+      title="New Compliance Record"
       description="Track an insurance or visite-technique expiry."
     >
       <form className="space-y-4" onSubmit={submit}>

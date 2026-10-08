@@ -270,7 +270,7 @@ function SupplierForm({
                 size="sm"
                 variant="outline"
                 onClick={addCategory}
-                title={tr("Add a category")}
+                title={tr("Add a Category")}
               >
                 +
               </Button>

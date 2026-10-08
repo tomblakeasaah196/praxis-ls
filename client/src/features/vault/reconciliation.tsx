@@ -56,7 +56,7 @@ function ReconciliationPage() {
   return (
     <section className={`${pageShell.wide} space-y-4`}>
       <div>
-        <h1 className="text-2xl font-semibold">{tr("Wet-signature review")}</h1>
+        <h1 className="text-2xl font-semibold">{tr("Wet-signature Review")}</h1>
         <p className="text-sm text-muted-foreground">
           Returned paper signatures that need decode, manual binding or rejection.
         </p>

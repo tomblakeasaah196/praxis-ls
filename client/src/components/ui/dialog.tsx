@@ -25,7 +25,7 @@
  * sheet; on sm+ a centred dialog.
  *
  * @example
- * <Dialog open={open} onClose={() => setOpen(false)} title="New client"
+ * <Dialog open={open} onClose={() => setOpen(false)} title="New Client"
  *         description="Creates a master-data record."
  *         footer={<FormButtons busy={saving} onCancel={close} saveLabel="Create client" />}>
  *   <Field label="Name" required><Input … /></Field>

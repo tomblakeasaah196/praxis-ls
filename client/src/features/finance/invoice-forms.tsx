@@ -93,7 +93,7 @@ export function InvoiceDraftForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="New invoice draft"
+      title="New Invoice Draft"
       description="Create a draft; add lines now or later, then submit to recognise revenue."
       size="xl"
     >
@@ -474,7 +474,7 @@ export function InvoiceEditForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="Edit invoice draft"
+      title="Edit Invoice Draft"
       description="Update the client and lines. Only DRAFT invoices can be edited."
       size="xl"
     >

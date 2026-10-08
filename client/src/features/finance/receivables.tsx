@@ -131,7 +131,7 @@ function ReceiptForm({
     <Modal
       open
       onClose={onClose}
-      title={tr("New receipt")}
+      title={tr("New Receipt")}
       description="Log a customer payment; post it to allocate FIFO against open invoices."
     >
       <form className="space-y-4" onSubmit={submit}>

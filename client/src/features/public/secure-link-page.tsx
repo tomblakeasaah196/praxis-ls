@@ -171,7 +171,7 @@ export function SecureLinkPage() {
           </div>
         ) : missing || !data ? (
           <div className="space-y-3 py-4">
-            <h1 className="font-display text-lg font-medium">{tr("This link is no longer valid.")}</h1>
+            <h1 className="font-display text-lg font-medium">{tr("This Link Is No Longer Valid.")}</h1>
             <p className="text-sm text-muted-foreground">
               {tr("It may have expired or been revoked. Ask the sender to issue a fresh link.")}
             </p>

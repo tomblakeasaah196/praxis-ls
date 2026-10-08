@@ -62,7 +62,7 @@
     },
     {
       "id": "security_permissions",
-      "title": "Permission matrix",
+      "title": "Permission Matrix",
       "route": "/security/permissions",
       "area": "security",
       "module_key": "MOD-67",
@@ -92,7 +92,7 @@
     },
     {
       "id": "security_field_visibility",
-      "title": "Field visibility",
+      "title": "Field Visibility",
       "route": "/security/field-visibility",
       "area": "security",
       "module_key": "MOD-67",
@@ -112,7 +112,7 @@
     },
     {
       "id": "audit",
-      "title": "Audit ledger",
+      "title": "Audit Ledger",
       "route": "/audit",
       "area": "governance",
       "module_key": "MOD-69",
@@ -174,7 +174,7 @@
     },
     {
       "id": "settings_website",
-      "title": "Website pages",
+      "title": "Website Pages",
       "route": "/settings/website",
       "area": "settings",
       "module_key": "MOD-29",
@@ -184,7 +184,7 @@
     },
     {
       "id": "settings_website_page",
-      "title": "Website page",
+      "title": "Website Page",
       "route": "/settings/website/:pageId",
       "area": "settings",
       "module_key": "MOD-29",
@@ -224,7 +224,7 @@
     },
     {
       "id": "my_appearance",
-      "title": "My appearance",
+      "title": "My Appearance",
       "route": "/my-appearance",
       "area": "settings",
       "module_key": null,
@@ -248,7 +248,7 @@
     },
     {
       "id": "settings_numbering",
-      "title": "Numbering schemes",
+      "title": "Numbering Schemes",
       "route": "/settings/numbering",
       "area": "settings",
       "module_key": "MOD-70",
@@ -261,7 +261,7 @@
     },
     {
       "id": "settings_commercial",
-      "title": "Commercial settings",
+      "title": "Commercial Settings",
       "route": "/settings/commercial",
       "area": "settings",
       "module_key": "MOD-70",
@@ -371,7 +371,7 @@
     },
     {
       "id": "master_corporate_entities",
-      "title": "Corporate entities",
+      "title": "Corporate Entities",
       "route": "/master/corporate-entities",
       "area": "master",
       "module_key": "MOD-01",
@@ -393,7 +393,7 @@
     },
     {
       "id": "master_expense_rates",
-      "title": "Expense rates",
+      "title": "Expense Rates",
       "route": "/master/expense-rates",
       "area": "master",
       "module_key": "MOD-10",
@@ -417,7 +417,7 @@
     },
     {
       "id": "master_financial_dictionary",
-      "title": "Financial dictionary",
+      "title": "Financial Dictionary",
       "route": "/master/financial-dictionary",
       "area": "master",
       "module_key": "MOD-05",
@@ -448,7 +448,7 @@
     },
     {
       "id": "settings_payment_gateways",
-      "title": "Payment gateways",
+      "title": "Payment Gateways",
       "route": "/settings/payment-gateways",
       "area": "settings",
       "module_key": "MOD-09",
@@ -480,7 +480,7 @@
     },
     {
       "id": "settings_scheduled_reports",
-      "title": "Scheduled reports",
+      "title": "Scheduled Reports",
       "route": "/settings/scheduled-reports",
       "area": "settings",
       "module_key": "MOD-63",
@@ -495,7 +495,7 @@
     },
     {
       "id": "settings_api_keys",
-      "title": "API keys & secrets",
+      "title": "API Keys & Secrets",
       "route": "/settings/api-keys",
       "area": "settings",
       "module_key": "MOD-70",
@@ -509,7 +509,7 @@
     },
     {
       "id": "settings_pipeline_stages",
-      "title": "Pipeline stages",
+      "title": "Pipeline Stages",
       "route": "/settings/pipeline-stages",
       "area": "settings",
       "module_key": "MOD-24",
@@ -536,7 +536,7 @@
     },
     {
       "id": "fleet_compliance",
-      "title": "Vehicle compliance",
+      "title": "Vehicle Compliance",
       "route": "/fleet/compliance",
       "area": "fleet",
       "module_key": "MOD-40",
@@ -552,7 +552,7 @@
     },
     {
       "id": "fleet_work_orders",
-      "title": "Work orders",
+      "title": "Work Orders",
       "route": "/fleet/work-orders",
       "area": "fleet",
       "module_key": "MOD-41",
@@ -584,7 +584,7 @@
     },
     {
       "id": "fleet_fuel",
-      "title": "Fuel log",
+      "title": "Fuel Log",
       "route": "/fleet/fuel",
       "area": "fleet",
       "module_key": "MOD-43",
@@ -599,7 +599,7 @@
     },
     {
       "id": "fleet_drivers",
-      "title": "Driver licences",
+      "title": "Driver Licences",
       "route": "/fleet/drivers",
       "area": "fleet",
       "module_key": "MOD-44",
@@ -715,7 +715,7 @@
     },
     {
       "id": "wms_cycle_counts",
-      "title": "Cycle counts",
+      "title": "Cycle Counts",
       "route": "/wms/cycle-counts",
       "area": "wms",
       "module_key": "MOD-38",
@@ -815,7 +815,7 @@
     },
     {
       "id": "hr_leave",
-      "title": "Leave & allowances",
+      "title": "Leave & Allowances",
       "route": "/hr/leave",
       "area": "hr",
       "module_key": "MOD-15",
@@ -875,7 +875,7 @@
     },
     {
       "id": "hr_talent_pool",
-      "title": "Talent pool",
+      "title": "Talent Pool",
       "route": "/hr/talent-pool",
       "area": "hr",
       "module_key": "MOD-19",
@@ -976,7 +976,7 @@
     },
     {
       "id": "fin_credit_notes",
-      "title": "Credit notes",
+      "title": "Credit Notes",
       "route": "/finance/credit-notes",
       "area": "finance",
       "module_key": "MOD-51",
@@ -992,7 +992,7 @@
     },
     {
       "id": "fin_financing",
-      "title": "Financing & debt",
+      "title": "Financing & Debt",
       "route": "/finance/debt",
       "area": "finance",
       "module_key": "MOD-53",
@@ -1008,7 +1008,7 @@
     },
     {
       "id": "fin_office_expenses",
-      "title": "Office expenses",
+      "title": "Office Expenses",
       "route": "/finance/office-expenses",
       "area": "finance",
       "module_key": "MOD-77",
@@ -1059,7 +1059,7 @@
     },
     {
       "id": "fin_tax",
-      "title": "Tax center",
+      "title": "Tax Center",
       "route": "/finance/tax",
       "area": "finance",
       "module_key": "MOD-07",
@@ -1078,7 +1078,7 @@
     },
     {
       "id": "fin_chart",
-      "title": "Chart of accounts",
+      "title": "Chart of Accounts",
       "route": "/finance/chart-of-accounts",
       "area": "finance",
       "module_key": "MOD-58",
@@ -1093,7 +1093,7 @@
     },
     {
       "id": "fin_proformas",
-      "title": "Proforma & advances",
+      "title": "Proforma & Advances",
       "route": "/finance/proformas",
       "area": "finance",
       "module_key": "MOD-52",
@@ -1156,7 +1156,7 @@
     },
     {
       "id": "commercial_margin_sim",
-      "title": "Margin simulation",
+      "title": "Margin Simulation",
       "route": "/commercial/margin-simulation",
       "area": "commercial",
       "module_key": "MOD-27",
@@ -1172,7 +1172,7 @@
     },
     {
       "id": "commercial_extra_charges",
-      "title": "Extra-charge simulation",
+      "title": "Extra-charge Simulation",
       "route": "/commercial/extra-charge-simulation",
       "area": "commercial",
       "module_key": "MOD-28",
@@ -1186,7 +1186,7 @@
     },
     {
       "id": "commercial_pricing_variance",
-      "title": "Pricing variance",
+      "title": "Pricing Variance",
       "route": "/commercial/pricing-variance",
       "area": "commercial",
       "module_key": "MOD-27",
@@ -1225,7 +1225,7 @@
     },
     {
       "id": "costing_tracking",
-      "title": "Cost tracking",
+      "title": "Cost Tracking",
       "route": "/costing/cost-tracking",
       "area": "costing",
       "module_key": "MOD-47",
@@ -1255,7 +1255,7 @@
     },
     {
       "id": "costing_cash_requests",
-      "title": "Cash requests",
+      "title": "Cash Requests",
       "route": "/costing/cash-requests",
       "area": "costing",
       "module_key": "MOD-49",
@@ -1367,7 +1367,7 @@
     },
     {
       "id": "ops_transit_orders",
-      "title": "Transit orders",
+      "title": "Transit Orders",
       "route": "/operations/transit-orders",
       "area": "operations",
       "module_key": "MOD-30",
@@ -1385,7 +1385,7 @@
     },
     {
       "id": "ops_delivery_notes",
-      "title": "Delivery notes",
+      "title": "Delivery Notes",
       "route": "/operations/delivery-notes",
       "area": "operations",
       "module_key": "MOD-32",
@@ -1402,7 +1402,7 @@
     },
     {
       "id": "master_service_types",
-      "title": "Service types",
+      "title": "Service Types",
       "route": "/master/service-types",
       "area": "master",
       "module_key": "MOD-29",
@@ -1432,7 +1432,7 @@
     },
     {
       "id": "proc_orders",
-      "title": "Purchase orders",
+      "title": "Purchase Orders",
       "route": "/procurement/purchase-orders",
       "area": "procurement",
       "module_key": "MOD-60",
@@ -1450,7 +1450,7 @@
     },
     {
       "id": "proc_grn",
-      "title": "Goods received",
+      "title": "Goods Received",
       "route": "/procurement/goods-received",
       "area": "procurement",
       "module_key": "MOD-61",
@@ -1465,7 +1465,7 @@
     },
     {
       "id": "proc_supplier_invoices",
-      "title": "Supplier invoices",
+      "title": "Supplier Invoices",
       "route": "/procurement/supplier-invoices",
       "area": "procurement",
       "module_key": "MOD-61",
@@ -1483,7 +1483,7 @@
     },
     {
       "id": "sales_leads",
-      "title": "Leads & intake",
+      "title": "Leads & Intake",
       "route": "/sales/leads",
       "area": "sales",
       "module_key": "MOD-20",
@@ -1509,7 +1509,7 @@
     },
     {
       "id": "sales_enquiries",
-      "title": "Contact enquiries",
+      "title": "Contact Enquiries",
       "route": "/sales/enquiries",
       "area": "sales",
       "module_key": "MOD-25",
@@ -1525,7 +1525,7 @@
     },
     {
       "id": "sales_quote_requests",
-      "title": "Quote requests",
+      "title": "Quote Requests",
       "route": "/sales/quote-requests",
       "area": "sales",
       "module_key": "MOD-20",
@@ -1555,7 +1555,7 @@
     },
     {
       "id": "sales_partnerships",
-      "title": "Partnerships & vendors",
+      "title": "Partnerships & Vendors",
       "route": "/sales/partnerships",
       "area": "sales",
       "module_key": "MOD-25",
@@ -1571,7 +1571,7 @@
     },
     {
       "id": "sales_company_profile",
-      "title": "Company profile",
+      "title": "Company Profile",
       "route": "/sales/company-profile",
       "area": "sales",
       "module_key": "MOD-23",
@@ -1678,7 +1678,7 @@
     },
     {
       "id": "sales_success_stories",
-      "title": "Success stories",
+      "title": "Success Stories",
       "route": "/sales/success-stories",
       "area": "sales",
       "module_key": "MOD-26",
@@ -1704,7 +1704,7 @@
     },
     {
       "id": "security_my_security",
-      "title": "My security",
+      "title": "My Security",
       "route": "/security/my-security",
       "area": "security",
       "module_key": "MOD-67",
@@ -1762,7 +1762,7 @@
     },
     {
       "id": "vault_compliance",
-      "title": "Compliance flags",
+      "title": "Compliance Flags",
       "route": "/vault/compliance-flags",
       "area": "vault",
       "module_key": "MOD-65",
@@ -1794,7 +1794,7 @@
     },
     {
       "id": "workspace",
-      "title": "My workspace",
+      "title": "My Workspace",
       "route": "/workspace",
       "area": "home",
       "module_key": "MOD-00A",
@@ -1911,7 +1911,7 @@
     },
     {
       "id": "comms_signatures",
-      "title": "Email signatures",
+      "title": "Email Signatures",
       "route": "/comms/signatures",
       "area": "comms",
       "module_key": "MOD-70",
@@ -1935,7 +1935,7 @@
     },
     {
       "id": "comms_clients",
-      "title": "Client inbox",
+      "title": "Client Inbox",
       "route": "/comms/clients",
       "area": "comms",
       "module_key": "MOD-64C",
@@ -1971,7 +1971,7 @@
     },
     {
       "id": "settings_email_signatures",
-      "title": "Email signatures",
+      "title": "Email Signatures",
       "route": "/settings/email-signatures",
       "area": "settings",
       "module_key": "MOD-70",
@@ -1998,7 +1998,7 @@
     },
     {
       "id": "support",
-      "title": "Support & feedback",
+      "title": "Support & Feedback",
       "route": "/support",
       "area": "support",
       "module_key": "MOD-74",
@@ -2028,7 +2028,7 @@
     },
     {
       "id": "godmode",
-      "title": "God mode",
+      "title": "God Mode",
       "route": "/godmode",
       "area": "admin",
       "module_key": "MOD-00B",
@@ -2054,7 +2054,7 @@
     },
     {
       "id": "master_tax_jurisdictions",
-      "title": "Tax jurisdictions",
+      "title": "Tax Jurisdictions",
       "route": "/master/tax-jurisdictions",
       "area": "master",
       "module_key": "MOD-07",
@@ -2071,7 +2071,7 @@
     },
     {
       "id": "settings_document_templates",
-      "title": "Document templates",
+      "title": "Document Templates",
       "route": "/settings/document-templates",
       "area": "settings",
       "module_key": "MOD-70",
@@ -2090,7 +2090,7 @@
     },
     {
       "id": "settings_custom_fields",
-      "title": "Custom fields",
+      "title": "Custom Fields",
       "route": "/settings/custom-fields",
       "area": "settings",
       "module_key": "MOD-70",
@@ -2105,7 +2105,7 @@
     },
     {
       "id": "settings_catalogue",
-      "title": "Module catalogue",
+      "title": "Module Catalogue",
       "route": "/settings/catalogue",
       "area": "settings",
       "module_key": "MOD-70",
@@ -2117,7 +2117,7 @@
     },
     {
       "id": "portal_access",
-      "title": "Portal access",
+      "title": "Portal Access",
       "route": "/settings/portal-access",
       "area": "settings",
       "module_key": "MOD-67",
@@ -2132,7 +2132,7 @@
     },
     {
       "id": "settings_audit_room",
-      "title": "Auditor data room",
+      "title": "Auditor Data Room",
       "route": "/settings/audit-room",
       "area": "settings",
       "module_key": "MOD-67",
@@ -2157,7 +2157,7 @@
     },
     {
       "id": "public_site",
-      "title": "Public website",
+      "title": "Public Website",
       "route": "/public",
       "area": "public",
       "module_key": null,
@@ -2169,7 +2169,7 @@
     },
     {
       "id": "public_tracking",
-      "title": "Public tracking",
+      "title": "Public Tracking",
       "route": "/public/track",
       "area": "public",
       "module_key": null,
@@ -2181,7 +2181,7 @@
     },
     {
       "id": "public_portfolio",
-      "title": "Public portfolio",
+      "title": "Public Portfolio",
       "route": "/public/portfolio",
       "area": "public",
       "module_key": null,
@@ -2193,7 +2193,7 @@
     },
     {
       "id": "public_proposal",
-      "title": "Public proposal",
+      "title": "Public Proposal",
       "route": "/public/proposals/:token",
       "area": "public",
       "module_key": null,
@@ -2217,7 +2217,7 @@
     },
     {
       "id": "reset_password",
-      "title": "Reset password",
+      "title": "Reset Password",
       "title_fr": "Réinitialiser le mot de passe",
       "route": "/reset-password",
       "area": "auth",
@@ -2228,7 +2228,7 @@
     },
     {
       "id": "verify_code",
-      "title": "Verify a document",
+      "title": "Verify a Document",
       "title_fr": "Vérifier un document",
       "route": "/v/:code",
       "area": "public",
@@ -2239,7 +2239,7 @@
     },
     {
       "id": "verify",
-      "title": "Verify a document (by code)",
+      "title": "Verify a Document (by Code)",
       "title_fr": "Vérifier un document (par code)",
       "route": "/verify",
       "area": "public",
@@ -2250,7 +2250,7 @@
     },
     {
       "id": "sign_document",
-      "title": "Sign a document",
+      "title": "Sign a Document",
       "title_fr": "Signer un document",
       "route": "/sign/:token",
       "area": "public",
@@ -2261,7 +2261,7 @@
     },
     {
       "id": "secure_link",
-      "title": "Secure link",
+      "title": "Secure Link",
       "title_fr": "Lien sécurisé",
       "route": "/s/:token",
       "area": "public",
@@ -2272,7 +2272,7 @@
     },
     {
       "id": "my_hr_queries",
-      "title": "My HR: queries and appraisals",
+      "title": "My HR: Queries and Appraisals",
       "title_fr": "Mon RH : demandes et évaluations",
       "route": "/my-hr",
       "area": "hr",
@@ -2287,7 +2287,7 @@
     },
     {
       "id": "workspace_task_new",
-      "title": "New task",
+      "title": "New Task",
       "title_fr": "Nouvelle tâche",
       "route": "/workspace/tasks/new",
       "area": "home",
@@ -2297,7 +2297,7 @@
     },
     {
       "id": "support_ticket_new",
-      "title": "New support ticket",
+      "title": "New Support Ticket",
       "title_fr": "Nouveau ticket de support",
       "route": "/support/tickets/new",
       "area": "support",
@@ -2307,7 +2307,7 @@
     },
     {
       "id": "sales_lead_new",
-      "title": "New lead",
+      "title": "New Lead",
       "title_fr": "Nouveau prospect",
       "route": "/sales/leads/new",
       "area": "sales",
@@ -2317,7 +2317,7 @@
     },
     {
       "id": "sales_quote_request_new",
-      "title": "New quote request",
+      "title": "New Quote Request",
       "title_fr": "Nouvelle demande de devis",
       "route": "/sales/quote-requests/new",
       "area": "sales",
@@ -2327,7 +2327,7 @@
     },
     {
       "id": "sales_enquiry_new",
-      "title": "New enquiry",
+      "title": "New Enquiry",
       "title_fr": "Nouvelle demande de contact",
       "route": "/sales/enquiries/new",
       "area": "sales",
@@ -2337,7 +2337,7 @@
     },
     {
       "id": "procurement_purchase_request_new",
-      "title": "New purchase request",
+      "title": "New Purchase Request",
       "title_fr": "Nouvelle demande d'achat",
       "route": "/procurement/purchase-requests/new",
       "area": "procurement",
@@ -2347,7 +2347,7 @@
     },
     {
       "id": "ops_file_360",
-      "title": "Operations file 360",
+      "title": "Operations File 360",
       "title_fr": "Dossier 360",
       "route": "/operations/files/:fileId",
       "area": "operations",
@@ -2357,7 +2357,7 @@
     },
     {
       "id": "ops_transit_order_360",
-      "title": "Transit order 360",
+      "title": "Transit Order 360",
       "title_fr": "Ordre de transit 360",
       "route": "/operations/transit-orders/:orderId",
       "area": "operations",
@@ -2367,7 +2367,7 @@
     },
     {
       "id": "ops_delivery_note_360",
-      "title": "Delivery note 360",
+      "title": "Delivery Note 360",
       "title_fr": "Bon de livraison 360",
       "route": "/operations/delivery-notes/:noteId",
       "area": "operations",
@@ -2377,7 +2377,7 @@
     },
     {
       "id": "costing_sheet_360",
-      "title": "Costing sheet",
+      "title": "Costing Sheet",
       "title_fr": "Fiche de prix de revient",
       "route": "/costing/costing/:costingId",
       "area": "costing",
@@ -2387,7 +2387,7 @@
     },
     {
       "id": "costing_cash_request_360",
-      "title": "Cash request 360",
+      "title": "Cash Request 360",
       "title_fr": "Demande de fonds 360",
       "route": "/costing/cash-requests/:cashRequestId",
       "area": "costing",
@@ -2397,7 +2397,7 @@
     },
     {
       "id": "master_entity_360",
-      "title": "Corporate entity 360",
+      "title": "Corporate Entity 360",
       "title_fr": "Entité 360",
       "route": "/master/corporate-entities/:entityId",
       "area": "master",
@@ -2407,7 +2407,7 @@
     },
     {
       "id": "settings_signatures",
-      "title": "Signature settings",
+      "title": "Signature Settings",
       "title_fr": "Paramètres de signature",
       "route": "/settings/signatures",
       "area": "settings",
@@ -2417,7 +2417,7 @@
     },
     {
       "id": "settings_login",
-      "title": "Login page",
+      "title": "Login Page",
       "title_fr": "Page de connexion",
       "route": "/settings/login",
       "area": "settings",
@@ -2427,7 +2427,7 @@
     },
     {
       "id": "settings_website_copy",
-      "title": "Website copy",
+      "title": "Website Copy",
       "title_fr": "Textes du site web",
       "route": "/settings/website/copy",
       "area": "settings",
@@ -2437,7 +2437,7 @@
     },
     {
       "id": "settings_website_theme",
-      "title": "Website theme",
+      "title": "Website Theme",
       "title_fr": "Thème du site web",
       "route": "/settings/website/theme",
       "area": "settings",
@@ -2447,7 +2447,7 @@
     },
     {
       "id": "settings_website_about",
-      "title": "Website: about",
+      "title": "Website: About",
       "title_fr": "Site web : à propos",
       "route": "/settings/website/about",
       "area": "settings",
@@ -2457,7 +2457,7 @@
     },
     {
       "id": "settings_website_partners",
-      "title": "Website partners",
+      "title": "Website Partners",
       "title_fr": "Partenaires du site web",
       "route": "/settings/website/partners",
       "area": "settings",
@@ -2467,7 +2467,7 @@
     },
     {
       "id": "settings_website_social",
-      "title": "Website social links",
+      "title": "Website Social Links",
       "title_fr": "Réseaux sociaux du site web",
       "route": "/settings/website/social",
       "area": "settings",
@@ -2477,7 +2477,7 @@
     },
     {
       "id": "settings_website_careers",
-      "title": "Website careers",
+      "title": "Website Careers",
       "title_fr": "Carrières du site web",
       "route": "/settings/website/careers",
       "area": "settings",
@@ -2487,7 +2487,7 @@
     },
     {
       "id": "settings_business_policies",
-      "title": "Business policies",
+      "title": "Business Policies",
       "title_fr": "Politiques de l'entreprise",
       "route": "/settings/business-policies",
       "area": "settings",
@@ -2497,7 +2497,7 @@
     },
     {
       "id": "settings_factory_languages",
-      "title": "Factory languages",
+      "title": "Factory Languages",
       "title_fr": "Langues de l'usine",
       "route": "/settings/factory-languages",
       "area": "settings",
@@ -2517,7 +2517,7 @@
     },
     {
       "id": "settings_help_center",
-      "title": "Help center settings",
+      "title": "Help Center Settings",
       "title_fr": "Paramètres du centre d'aide",
       "route": "/settings/help-center",
       "area": "settings",
@@ -2639,7 +2639,7 @@
     {
       "id": "hub_master",
       "route": "/master",
-      "title": "Master data",
+      "title": "Master Data",
       "title_fr": "Données de référence",
       "synonyms": [
         "référentiel",
@@ -2649,7 +2649,7 @@
     {
       "id": "hub_vault",
       "route": "/vault",
-      "title": "Vault & compliance",
+      "title": "Vault & Compliance",
       "title_fr": "Coffre et conformité",
       "synonyms": [
         "conformité",
@@ -2660,7 +2660,7 @@
     {
       "id": "hub_security",
       "route": "/security",
-      "title": "Security & access",
+      "title": "Security & Access",
       "title_fr": "Sécurité et accès",
       "synonyms": [
         "sécurité",
@@ -2846,7 +2846,7 @@
       "id": "client_360_quote_requests",
       "source": "client/src/features/masterdata/party-360.tsx",
       "value": "Quote requests",
-      "title": "Quote requests",
+      "title": "Quote Requests",
       "title_fr": "Demandes de devis",
       "record_types": [
         "client"
@@ -3021,7 +3021,7 @@
       "id": "treasury_360_coa_leaf",
       "source": "client/src/features/master/treasury/dossier.tsx",
       "value": "CoA leaf",
-      "title": "Chart-of-accounts leaf",
+      "title": "Chart-of-accounts Leaf",
       "title_fr": "Compte comptable",
       "record_types": [
         "treasury_account"
@@ -3071,7 +3071,7 @@
       "id": "entity_360_identity_registrations",
       "source": "client/src/features/masterdata/entity-360.tsx",
       "value": "Identity & registrations",
-      "title": "Identity & registrations",
+      "title": "Identity & Registrations",
       "title_fr": "Identité et immatriculations",
       "record_types": [
         "corporate_entity"
@@ -3095,7 +3095,7 @@
       "id": "entity_360_tax_jurisdiction",
       "source": "client/src/features/masterdata/entity-360.tsx",
       "value": "Tax & jurisdiction",
-      "title": "Tax & jurisdiction",
+      "title": "Tax & Jurisdiction",
       "title_fr": "Fiscalité et juridiction",
       "record_types": [
         "corporate_entity"
@@ -3105,7 +3105,7 @@
       "id": "entity_360_people_shareholding",
       "source": "client/src/features/masterdata/entity-360.tsx",
       "value": "People & shareholding",
-      "title": "People & shareholding",
+      "title": "People & Shareholding",
       "title_fr": "Personnes et actionnariat",
       "record_types": [
         "corporate_entity"
@@ -3115,7 +3115,7 @@
       "id": "entity_360_contacts_addresses",
       "source": "client/src/features/masterdata/entity-360.tsx",
       "value": "Contacts & addresses",
-      "title": "Contacts & addresses",
+      "title": "Contacts & Addresses",
       "title_fr": "Contacts et adresses",
       "record_types": [
         "corporate_entity"
@@ -3135,7 +3135,7 @@
       "id": "entity_360_banking_treasury",
       "source": "client/src/features/masterdata/entity-360.tsx",
       "value": "Banking & treasury",
-      "title": "Banking & treasury",
+      "title": "Banking & Treasury",
       "title_fr": "Banque et trésorerie",
       "record_types": [
         "corporate_entity"
@@ -3168,7 +3168,7 @@
       "id": "entity_360_working_calendar",
       "source": "client/src/features/masterdata/entity-360.tsx",
       "value": "Working calendar",
-      "title": "Working calendar",
+      "title": "Working Calendar",
       "title_fr": "Calendrier de travail",
       "record_types": [
         "corporate_entity"
@@ -3178,7 +3178,7 @@
       "id": "entity_360_public_story",
       "source": "client/src/features/masterdata/entity-360.tsx",
       "value": "Public story",
-      "title": "Public story",
+      "title": "Public Story",
       "title_fr": "Présentation publique",
       "record_types": [
         "corporate_entity"

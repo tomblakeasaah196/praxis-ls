@@ -112,7 +112,7 @@ function NewChecklistForm({ onClose, onSaved }: { onClose: () => void; onSaved: 
       open
       onClose={onClose}
       size="lg"
-      title="New onboarding checklist"
+      title="New Onboarding Checklist"
       description="Pick a template and a start date — every due date is worked out from it."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -509,7 +509,7 @@ function NewTemplateForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
     <Modal
       open
       onClose={onClose}
-      title="New onboarding template"
+      title="New Onboarding Template"
       description="Leave department and job title blank to cover every new hire."
     >
       <form

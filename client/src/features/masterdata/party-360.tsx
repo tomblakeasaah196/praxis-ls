@@ -379,7 +379,7 @@ function AddDocumentModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Add document">
+    <Modal open onClose={onClose} title="Add Document">
       <form onSubmit={save} className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={tr("Type")}>
@@ -2445,7 +2445,7 @@ export function PartyDossier({
       {/* Add modals */}
       {adding === "contact" && (
         <AddModal
-          title="Add contact"
+          title="Add Contact"
           onClose={() => setAdding(null)}
           fields={[
             { key: "name", label: "Name" },
@@ -2468,7 +2468,7 @@ export function PartyDossier({
       )}
       {adding === "address" && (
         <AddModal
-          title="Add address"
+          title="Add Address"
           onClose={() => setAdding(null)}
           fields={[
             { key: "line1", label: "Line 1" },
@@ -2499,7 +2499,7 @@ export function PartyDossier({
       )}
       {adding === "bank" && (
         <AddModal
-          title="Add bank account"
+          title="Add Bank Account"
           onClose={() => setAdding(null)}
           fields={[
             { key: "beneficiary_name", label: "Beneficiary" },
@@ -2548,7 +2548,7 @@ export function PartyDossier({
       )}
       {adding === "registration" && (
         <AddModal
-          title="Add registration"
+          title="Add Registration"
           onClose={() => setAdding(null)}
           fields={[
             {
@@ -2574,7 +2574,7 @@ export function PartyDossier({
       )}
       {adding === "owner" && (
         <AddModal
-          title="Add beneficial owner"
+          title="Add Beneficial Owner"
           onClose={() => setAdding(null)}
           fields={[
             { key: "full_name", label: "Full legal name" },

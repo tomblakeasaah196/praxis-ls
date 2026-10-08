@@ -116,7 +116,7 @@ function UploadDocumentForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="Upload document"
+      title="Upload Document"
       description="Stored in the confidential vault with a SHA-256 fingerprint (max 25 MB)."
       size="lg"
     >

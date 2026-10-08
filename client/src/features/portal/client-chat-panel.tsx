@@ -120,7 +120,7 @@ function ChatPhoto({ att }: { att: Attachment }) {
       type="button"
       className="block w-64 max-w-full overflow-hidden rounded-lg bg-muted"
       style={{ aspectRatio: String(ratio) }}
-      title={tr("Download the original")}
+      title={tr("Download the Original")}
       onClick={() => void tenantDownload(`/portal/chat/attachments/${att.attachment_id}`, att.name || "photo.jpg")}
     >
       {url ? (

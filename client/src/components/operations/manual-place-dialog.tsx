@@ -124,7 +124,7 @@ export function ManualPlaceDialog({
     <Dialog
       open
       onClose={onClose}
-      title="Add a place"
+      title="Add a Place"
       description="For a terminal, warehouse or address that the catalogue and the worldwide search both miss."
       footer={
         <>

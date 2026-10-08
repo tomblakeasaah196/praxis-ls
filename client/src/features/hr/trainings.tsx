@@ -736,7 +736,7 @@ function RequirementForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
     <Modal
       open
       onClose={onClose}
-      title="New requirement"
+      title="New Requirement"
       description="A rule about a role — who must hold this, and for how long it lasts."
     >
       <form

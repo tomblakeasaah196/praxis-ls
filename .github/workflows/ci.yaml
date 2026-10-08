@@ -527,6 +527,13 @@ jobs:
         # with a reason, or listed per-rule in the script's ALLOW_FILES.
         run: node scripts/check-date-format.js
 
+      - name: No dashes in tenant-readable copy
+        # Tenant review, 8 Oct 2026: "No emdashes or double dashes anywhere.
+        # It screams AI." Scoped to what a customer reads (UI strings, PDF
+        # and document templates, exports); comments and doc/ are out of
+        # scope on purpose. Ratcheted: a file may lose dashes, never gain.
+        run: node scripts/check-dashes.js
+
       - name: Search finds everything
         # Meeting 6, PR 4 (owner decision G5: "Every single one"). ⌘K reads
         # client/src/app/screen-registry.json for pages, hubs and 360 tabs, and
@@ -1197,6 +1204,15 @@ jobs:
         # reading className would have missed the one that mattered most.
         if: matrix.app == 'client'
         run: npm run check:palette --prefix client
+
+      - name: Prose budget and Title Case
+        # Tenant review, 8 Oct 2026: "a lot of supporting text on pages and
+        # they are useless at first glance". 805 hint=, 485 description= and
+        # 790 .micro paragraphs, none of them decided on, all of them printed
+        # to every operator on every visit. Caps what a screen may print and
+        # ratchets the backlog down; FRONTEND_GUIDE.md 3.17 has the ladder.
+        if: matrix.app == 'client'
+        run: npm run check:prose --prefix client
 
       - name: Test
         # The client had zero tests until Phase 1 PR2 (audit F15) while the

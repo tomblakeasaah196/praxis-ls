@@ -91,6 +91,7 @@ const GATES = [
   // Spans the backend AND all three frontends — a date is rendered on every one
   // of them — so it sits in the backend group, which always runs.
   { group: "backend", name: "Dates are day-first", cmd: node("scripts/check-date-format.js") },
+  { group: "backend", name: "No dashes in tenant copy", cmd: node("scripts/check-dashes.js") },
   // Meeting 6, PR 4 (G5): ⌘K finds every page, tab and record. Spans the
   // client's router, hubs and 360 tabs AND the backend's modules, so it sits in
   // the backend group with the other cross-cutting gates. Reads files only.
@@ -102,6 +103,7 @@ const GATES = [
   { group: "frontend", name: "Frontend guide is not lying", cmd: npm("run", "check:docs", "--prefix", "client") },
   { group: "frontend", name: "Motion budget", cmd: npm("run", "check:motion", "--prefix", "client") },
   { group: "frontend", name: "Raw-palette gate", cmd: npm("run", "check:palette", "--prefix", "client") },
+  { group: "frontend", name: "Prose budget and Title Case", cmd: npm("run", "check:prose", "--prefix", "client") },
   { group: "frontend", name: "Test (vitest)", cmd: npm("run", "test", "--if-present", "--prefix", "client") },
   // Typecheck lives here: `npm run build` is `tsc -b && vite build`, and tsc is
   // the only thing in the whole pipeline that reads the client's types. Vitest

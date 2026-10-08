@@ -289,7 +289,7 @@ export function DictImportModal({
         onClose();
       }}
       size="lg"
-      title="Import dictionary items"
+      title="Import Dictionary Items"
       description="Download the template, fill it in, upload it to review — then commit the valid rows."
     >
       <div className="space-y-4">
@@ -574,7 +574,7 @@ export function DictImportModal({
         {committed && (
           <Callout
             tone={committed.summary.rejected ? "warn" : "ok"}
-            title="Import complete"
+            title="Import Complete"
           >
             {num(committed.summary.created)} item
             {committed.summary.created === 1 ? "" : "s"} created

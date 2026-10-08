@@ -486,7 +486,7 @@ function DictDossier({
                       variant="ghost"
                       onClick={() => setPricing(true)}
                       aria-label={tr("Edit standard rate")}
-                      title={tr("Edit standard rate")}
+                      title={tr("Edit Standard Rate")}
                     >
                       <PencilIcon width={14} height={14} />
                     </Button>

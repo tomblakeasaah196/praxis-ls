@@ -119,7 +119,7 @@ export function CarrierQuickAdd({
     <Modal
       open
       onClose={onClose}
-      title="Add carrier"
+      title="Add Carrier"
       description="Added to the carrier registry — available on every file and every rate card afterwards."
     >
       <form className="space-y-4" onSubmit={submit}>

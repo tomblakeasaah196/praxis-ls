@@ -141,7 +141,7 @@ function NewEquipmentForm({
     <Modal
       open
       onClose={onClose}
-      title="New equipment"
+      title="New Equipment"
       description="Register handling equipment."
     >
       <form className="space-y-4" onSubmit={submit}>

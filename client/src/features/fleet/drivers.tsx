@@ -84,7 +84,7 @@ function NewLicenceForm({
     <Modal
       open
       onClose={onClose}
-      title="New licence"
+      title="New Licence"
       description="Record a driver licence or certification with its expiry."
     >
       <form className="space-y-4" onSubmit={submit}>

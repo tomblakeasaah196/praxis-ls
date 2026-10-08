@@ -253,7 +253,7 @@ function NewWorkOrderForm({
     <Modal
       open
       onClose={onClose}
-      title="New work order"
+      title="New Work Order"
       description="Open a maintenance job against a vehicle."
     >
       <form className="space-y-4" onSubmit={submit}>

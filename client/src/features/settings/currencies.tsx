@@ -540,7 +540,7 @@ function AddCurrencyModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Add currency"
+      title="Add Currency"
       description="Search the ISO-4217 library — by currency or by country ('Holland' finds EUR). Details prefill from the catalogue and stay editable."
       size="lg"
       footer={

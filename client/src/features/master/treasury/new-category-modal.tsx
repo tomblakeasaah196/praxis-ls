@@ -94,7 +94,7 @@ export function NewCategoryModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="New treasury category"
+      title="New Treasury Category"
       description="A treasury account type — e.g. Airtel SmartCash, Wave, Trust account. Mapped to a class-5 CoA parent; new accounts of this type get a 6-digit leaf under it."
     >
       <div className="space-y-4">
