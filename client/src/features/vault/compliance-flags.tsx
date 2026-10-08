@@ -22,7 +22,7 @@ import { Segmented } from "@/components/ui/segmented";
 
 const COMPLIANCE_AI: AiAction[] = [
   {
-    label: "Triage open flags",
+    label: "Triage Open Flags",
     kind: "assist",
     describe:
       "Summarise open compliance flags by severity and suggest what to fix first.",

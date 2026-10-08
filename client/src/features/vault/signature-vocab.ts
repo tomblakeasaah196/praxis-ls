@@ -58,12 +58,20 @@ export const ASSURANCE_WORDS: Record<string, string> = dict({
   WET: "Signed by hand, then matched back to this record",
 });
 
-/** The live state of a stored signature, as a person would say it. */
-export const STATUS_WORDS: Record<string, string> = dict({
+/* The live state of a stored signature, as a person would say it.
+ *
+ * NAMED `STATUS_LABEL` AND NOT `STATUS_WORDS`, which is what it was called.
+ * These four render inside a <StatusPill>, and §3.18 calls a status pill chrome
+ * outright, so they are Title Case. The two maps above keep names that say
+ * "prose", because that is what they hold: `ASSURANCE_WORDS` is a sentence
+ * about what a method proves, not a pill. check:prose reads a map by its NAME,
+ * so the rename is what puts these four under the rule and leaves those alone.
+ */
+export const STATUS_LABEL: Record<string, string> = dict({
   VALID: "Valid",
-  AMENDED: "Document changed",
+  AMENDED: "Document Changed",
   REVOKED: "Revoked",
-  UNKNOWN: "Cannot check",
+  UNKNOWN: "Cannot Check",
 });
 
 type Tone = "ok" | "warn" | "bad" | "mute";

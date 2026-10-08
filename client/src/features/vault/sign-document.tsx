@@ -36,7 +36,7 @@ import { dateFmt } from "@/lib/format";
 import { currentLocale } from "@/lib/i18n";
 import { isGated } from "./shared";
 import { SignatureCardGrid, type SignatureMenu } from "./signature-cards";
-import { STATUS_WORDS, statusTone, look } from "./signature-vocab";
+import { STATUS_LABEL, statusTone, look } from "./signature-vocab";
 
 /**
  * Sign as the current user.
@@ -137,7 +137,7 @@ export function SignDocumentModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={tr("Sign this document")}
+      title={tr("Sign This Document")}
       description={tr("Signed as you, with your fingerprint or face.")}
       size="lg"
     >
@@ -154,6 +154,7 @@ export function SignDocumentModal({
                 onChange={setPreset}
               />
             </Field>
+            {/* @prose:keep what is typed here is printed on the document. */}
             <Field label={tr("Reason")} hint="Printed on the signature stamp.">
               <Select
                 value={reason}
@@ -246,7 +247,7 @@ export function SignaturesOnRecord({
                 </span>
               ) : null}
               <Pill tone={statusTone(status)}>
-                {look(STATUS_WORDS, status, status)}
+                {look(STATUS_LABEL, status, status)}
               </Pill>
             </div>
             <div className="mt-0.5 text-sm text-muted-foreground">
@@ -508,8 +509,8 @@ export function SendForSignatureModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={tr("Send for signature")}
-      description="Each signatory gets their own link, in order. They confirm a code sent to the address we hold — you never type it for them."
+      title={tr("Send for Signature")}
+      description="Each signatory gets their own link, in order. They confirm a code sent to the address we hold. You never type it for them."
       size="lg"
     >
       <div className="space-y-4">
@@ -520,7 +521,7 @@ export function SendForSignatureModal({
             {cands?.counterparty ? (
               <Field
                 label={`${tr("Signatories at")} ${cands.counterparty.party_name}`}
-                hint="From your records. Add someone here on the client's file rather than typing an address."
+                about="Add someone on the client's file rather than typing an address."
               >
                 <div className="space-y-1">
                   {cands.counterparty.signatories.length === 0 ? (
@@ -545,7 +546,7 @@ export function SendForSignatureModal({
 
             <Field
               label={tr("Countersign from Your Side")}
-              hint="Optional. Adds one of your own people to the chain."
+              about="Adds one of your own people to the signing chain."
             >
               <Select
                 value=""
@@ -655,6 +656,7 @@ export function SendForSignatureModal({
 
             <Field
               label={tr("Signing Order")}
+              /* @prose:keep the order decides WHEN each signatory is emailed. */
               hint="Each link is sent when the one before it is signed."
             >
               {parties.length === 0 ? (
@@ -724,7 +726,7 @@ export function SendForSignatureModal({
 
             <Field
               label={tr("Message to the Signatories")}
-              hint="Optional. Appears in the email."
+              about="Appears in the email each signatory receives."
             >
               <Textarea
                 rows={2}

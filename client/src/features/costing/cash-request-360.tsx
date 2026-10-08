@@ -890,7 +890,7 @@ export function CashRequest360Modal({
       open
       onClose={onClose}
       ownsHistory={false}
-      eyebrow={tr("Cash request")}
+      eyebrow={tr("Cash Request")}
       title={reference || tr("Cash request")}
     >
       <CashRequest360 id={id} variant="modal" onChanged={onChanged} />
