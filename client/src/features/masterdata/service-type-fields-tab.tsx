@@ -26,6 +26,7 @@ import { Select, Field } from "@/components/ui/modal";
 import { Pill } from "@/components/ui/pill";
 import { Callout } from "@/components/ui/callout";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InfoHint } from "@/components/ui/info-hint";
 import { ErrorState, EmptyState } from "@/components/ui/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -44,6 +45,17 @@ import { optionProblems } from "./field-options";
  * and then the trade-off — rather than one run-on string, or (worse) a control
  * whose only text is nested too deep for anything to associate with it.
  */
+/**
+ * One of the two container-detail choices.
+ *
+ * `body` is the CONSEQUENCE in one line, because that is the whole decision:
+ * estimated charges or exact ones. `about` is the paragraph that used to be
+ * printed under the title, which ran to forty words of small uppercase and was
+ * read by nobody choosing between two radio buttons.
+ *
+ * Both stay on `aria-describedby`: a screen-reader user hears the trade-off in
+ * full without having to find an icon they cannot see.
+ */
 function ModeChoice({
   id,
   checked,
@@ -51,6 +63,8 @@ function ModeChoice({
   onSelect,
   title,
   body,
+  about,
+  aboutLabel,
 }: {
   id: string;
   checked: boolean;
@@ -58,6 +72,8 @@ function ModeChoice({
   onSelect: () => void;
   title: string;
   body: string;
+  about: string;
+  aboutLabel: string;
 }) {
   return (
     <div className="flex items-start gap-3 rounded-md border border-border p-3">
@@ -68,17 +84,25 @@ function ModeChoice({
         className="mt-1"
         checked={checked}
         disabled={disabled}
-        aria-describedby={`${id}-body`}
+        aria-describedby={`${id}-body ${id}-about`}
         onChange={onSelect}
       />
       <div className="min-w-0">
-        <label
-          htmlFor={id}
-          className="block cursor-pointer text-sm font-medium text-foreground"
-        >
-          {title}
-        </label>
-        <p id={`${id}-body`} className="micro text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <label
+            htmlFor={id}
+            className="block cursor-pointer text-sm font-medium text-foreground"
+          >
+            {title}
+          </label>
+          <span id={`${id}-about`} className="sr-only">
+            {about}
+          </span>
+          <InfoHint label={aboutLabel} textId={`${id}-about`}>
+            {about}
+          </InfoHint>
+        </span>
+        <p id={`${id}-body`} className="hint">
           {body}
         </p>
       </div>
@@ -124,53 +148,63 @@ function ContainerCapture({
 
   return (
     <div className="space-y-3 rounded-md border border-border p-4">
-      <div>
-        <h4 className="text-sm font-medium text-foreground">
-          Equipment on the file
-        </h4>
-        <p className="micro text-muted-foreground">
-          Whether files of this service type record the containers they move.
-        </p>
-      </div>
+      <h4 className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+        {tr("Equipment on the File")}
+        <InfoHint label={tr("About equipment on the file")}>
+          {tr("Whether files of this service type record the containers they move.")}
+        </InfoHint>
+      </h4>
 
-      <Checkbox
-        checked={captures}
-        disabled={busy}
-        onCheckedChange={(c: boolean) =>
-          set({ captures_containers: c === true })
-        }
-        label="This service moves containers"
-        hint={
-          captures
-            ? "ON — a file of this type carries the boxes on it, and every costing, quotation and document can read them."
-            : "OFF — no container table appears anywhere on a file of this type. Correct for air freight (the airline owns the ULDs), representation mandates and most storage jobs."
-        }
-      />
+      {/*
+        The checkbox used to carry whichever of two paragraphs matched its
+        state. Both said the same thing twice: the tick already tells you
+        whether this is on, so the sentence that began "ON ..." was narrating
+        a control the user was looking at. What it alone knew was the
+        CONSEQUENCE, and that is what the ⓘ keeps.
+      */}
+      <span className="flex items-center gap-1.5">
+        <Checkbox
+          checked={captures}
+          disabled={busy}
+          onCheckedChange={(c: boolean) =>
+            set({ captures_containers: c === true })
+          }
+          label={tr("This service moves containers")}
+        />
+        <InfoHint label={tr("About moving containers")}>
+          {tr("On: the file carries its boxes, and every costing, quotation and document can read them. Off: no container table appears at all, which is right for air freight, representation mandates and most storage jobs.")}
+        </InfoHint>
+      </span>
 
       {captures && (
         <div className="space-y-2 border-t border-border pt-3">
           <p className="text-sm font-medium text-foreground">
-            How much detail per container?
+            {tr("How much detail per container?")}
           </p>
           {/* Spelled out rather than labelled "Grouped / Per box", because the
-              consequence — whether per-container charges are exact or estimated
-              — is the actual decision being made, and the label alone does not
-              convey it. */}
+              consequence (whether per-container charges are exact or estimated)
+              is the actual decision being made, and the label alone does not
+              convey it. The one line under each title IS that consequence; the
+              worked example and the reasoning sit behind the ⓘ. */}
           <ModeChoice
             id="container-mode-grouped"
             checked={mode === "GROUPED"}
             disabled={busy}
             onSelect={() => set({ container_detail_mode: "GROUPED" })}
-            title="Counts by type"
-            body="Record “3 × 40' HC, 2 × 20' Flat Rack”. Fastest to enter, and enough for anything charged per container type or per TEU. Charges that depend on each box's own dates — demurrage, detention — can only be estimated across the group."
+            title={tr("Counts by type")}
+            body={tr("Fastest to enter. Per-box charges are estimated.")}
+            about={tr("Record “3 × 40' HC, 2 × 20' Flat Rack”. Enough for anything charged per container type or per TEU. Charges that depend on each box's own dates, like demurrage and detention, can only be estimated across the group.")}
+            aboutLabel={tr("About counts by type")}
           />
           <ModeChoice
             id="container-mode-per-box"
             checked={mode === "PER_BOX"}
             disabled={busy}
             onSelect={() => set({ container_detail_mode: "PER_BOX" })}
-            title="Counts by type, plus each container individually"
-            body="The same counts, and additionally each box's number, seal and dates. More to type, and never required to open a file — the numbers are filled in when the Bill of Lading arrives. This is what makes per-container charges exact instead of estimated."
+            title={tr("Counts by type, plus each container individually")}
+            body={tr("More to type. Per-box charges are exact.")}
+            about={tr("The same counts, and additionally each box's number, seal and dates. Never required to open a file: the numbers are filled in when the Bill of Lading arrives.")}
+            aboutLabel={tr("About per-container detail")}
           />
         </div>
       )}

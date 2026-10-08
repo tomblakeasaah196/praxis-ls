@@ -92,15 +92,21 @@ function exempt(lines, i) {
 }
 
 /**
- * Pull the string literals out of a line. Only their CONTENTS can be copy, so
- * this is what keeps CLI flags, CSS and operators out of the result without
- * needing to enumerate every one of them.
+ * Pull the readable text out of a line: string literals, plus JSX TEXT NODES.
+ *
+ * The second half was a real miss. `<option value="">—</option>` renders an em
+ * dash to the user and contains no string literal at all, so a literal-only
+ * scan called the file clean while the dash was on screen. JSX text between
+ * two tags is copy as surely as anything in quotes, and that is where the
+ * empty-value dashes live.
  */
 function literals(line) {
   const out = [];
   const re = /(["'`])((?:\\.|(?!\1).)*)\1/g;
   let m;
   while ((m = re.exec(line))) out.push(m[2]);
+  const jsx = /> *([^<>{}"'`]*[\u2013\u2014\u2015][^<>{}"'`]*?) *</g;
+  while ((m = jsx.exec(line))) out.push(m[1]);
   return out;
 }
 
