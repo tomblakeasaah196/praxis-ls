@@ -203,7 +203,7 @@ function NewRequestForm({
     <Modal
       open
       onClose={onClose}
-      title={tr("New request")}
+      title={tr("New Request")}
       description="Raise a leave, salary-advance or mission request for approval."
     >
       <form className="space-y-4" onSubmit={submit}>

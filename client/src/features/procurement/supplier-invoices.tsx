@@ -95,7 +95,7 @@ function SupplierInvoiceForm({
       open
       onClose={onClose}
       size="lg"
-      title="New supplier invoice"
+      title="New Supplier Invoice"
       description="Capture a vendor invoice for matching and posting."
     >
       <form className="space-y-4" onSubmit={submit}>

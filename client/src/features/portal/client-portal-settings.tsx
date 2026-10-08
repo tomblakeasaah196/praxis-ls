@@ -137,7 +137,7 @@ function InviteDefaultsBlock({ value, onSaved }: { value: InviteDefaults; onSave
 
   return (
     <Block
-      title={tr("New invitations")}
+      title={tr("New Invitations")}
       hint={tr("What someone invited to a client's portal starts with. It can always be changed for one person.")}
     >
       <div className="rounded-lg border p-3">

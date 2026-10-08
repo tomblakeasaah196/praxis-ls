@@ -285,7 +285,7 @@ function NewItemForm({
     <Modal
       open
       onClose={onClose}
-      title="New stock item"
+      title="New Stock Item"
       description="Add an item to inventory. On-hand can start at zero and be received via a movement."
     >
       <form className="space-y-4" onSubmit={submit}>

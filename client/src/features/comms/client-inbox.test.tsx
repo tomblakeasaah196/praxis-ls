@@ -107,7 +107,7 @@ describe("the Client inbox", () => {
     await user.click(await screen.findByText("Acme Trading"));
 
     expect(await screen.findByRole("heading", { name: "Acme Trading" })).toBeInTheDocument();
-    expect(await screen.findByText("Account manager")).toBeInTheDocument();
+    expect(await screen.findByText("Account Manager")).toBeInTheDocument();
     // The thread is read: the client's own message is on screen, and reading it
     // is what their "seen" tick is.
     expect(await screen.findAllByText("Is it out of port?")).not.toHaveLength(0);
@@ -126,7 +126,7 @@ describe("the Client inbox", () => {
     await user.click(screen.getAllByText("Acme Trading")[0]);
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("Acme Trading")).toBeInTheDocument();
-    expect(await within(sheet).findByText("Account manager")).toBeInTheDocument();
+    expect(await within(sheet).findByText("Account Manager")).toBeInTheDocument();
   });
 
   it("says when the list stops short of everything", async () => {

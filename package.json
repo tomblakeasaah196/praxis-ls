@@ -19,6 +19,7 @@
     "lint": "eslint . --max-warnings 136",
     "lint:fix": "eslint . --fix",
     "check:fonts": "node scripts/check-fonts.mjs",
+    "check:dashes": "node scripts/check-dashes.js",
     "check:dates": "node scripts/check-date-format.js",
     "check:search": "node scripts/check-search-registry.js",
     "check:workbook": "node doc/workbook/check-workbook.mjs",

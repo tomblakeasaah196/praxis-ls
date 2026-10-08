@@ -63,7 +63,7 @@ export function BrandColourField({
           type="color"
           value={shown}
           disabled={readOnly}
-          aria-label={`${ariaLabel} — ${tr("picker")}`}
+          aria-label={`${ariaLabel}: ${tr("picker")}`}
           onChange={(e) => onChange(e.target.value)}
           className="h-9 w-9 flex-none cursor-pointer rounded border bg-transparent p-0.5 disabled:cursor-default"
         />
@@ -88,7 +88,7 @@ export function BrandColourField({
       </div>
       {invalid && (
         <p className="micro text-destructive">
-          {tr("Not a colour we recognise — use a name like black, or a code like #C2703D.")}
+          {tr("Not a colour we recognise: use a name like black, or a code like #C2703D.")}
         </p>
       )}
       {!invalid && ink && (

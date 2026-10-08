@@ -85,7 +85,7 @@ function NewQuery({
     <Modal
       open
       onClose={onClose}
-      title="New query"
+      title="New Query"
       description="Issue a disciplinary query to an employee."
       footer={
         <>
@@ -265,7 +265,7 @@ function NewSanction({
     <Modal
       open
       onClose={onClose}
-      title="New sanction"
+      title="New Sanction"
       description="Record a disciplinary sanction against an employee."
       footer={
         <>

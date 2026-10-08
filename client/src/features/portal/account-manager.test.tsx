@@ -66,7 +66,7 @@ describe("the account manager card", () => {
 
   it("says where messages go while nobody is named", async () => {
     mount(null);
-    expect(await screen.findByText("Nobody yet — messages go to the client inbox team")).toBeInTheDocument();
+    expect(await screen.findByText("Nobody yet")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
   });
 

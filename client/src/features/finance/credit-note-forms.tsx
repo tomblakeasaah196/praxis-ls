@@ -193,7 +193,7 @@ export function CreditNoteCreateForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="New credit note"
+      title="New Credit Note"
       description="Reverses a finalised invoice; create a draft, then post to the ledger."
       size="xl"
     >
@@ -375,7 +375,7 @@ export function CreditNoteEditForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="Edit credit note"
+      title="Edit Credit Note"
       description="Update the client, reversed invoice and lines. Only drafts can be edited."
       size="xl"
     >

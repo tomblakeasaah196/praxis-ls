@@ -320,7 +320,7 @@ function PageForm({
     <Modal
       open
       onClose={onClose}
-      title={tr("New page")}
+      title={tr("New Page")}
       description="A page starts unpublished and empty. Nothing is served until you publish it."
     >
       <form className="space-y-4" onSubmit={submit}>

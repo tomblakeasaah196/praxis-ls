@@ -376,7 +376,7 @@ function NewVehicleForm({
     <Modal
       open
       onClose={onClose}
-      title="New vehicle"
+      title="New Vehicle"
       description="Add a vehicle to the fleet registry."
     >
       <form className="space-y-4" onSubmit={submit}>

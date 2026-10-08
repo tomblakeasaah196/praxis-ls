@@ -379,7 +379,7 @@ function AddDocumentModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Add document">
+    <Modal open onClose={onClose} title="Add Document">
       <form onSubmit={save} className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={tr("Type")}>
@@ -397,7 +397,7 @@ function AddDocumentModal({
           </Field>
           <Field
             label={tr("Number")}
-            hint="Generated automatically when the document is added."
+            about="Generated automatically when the document is added."
           >
             <Input
               value="Assigned on save"
@@ -419,7 +419,7 @@ function AddDocumentModal({
           </Field>
           <Field
             label="Physical archive ref"
-            hint="Only for paper originals — where the hard copy is filed."
+            about="Only for paper originals: where the hard copy is filed."
             className="sm:col-span-2"
           >
             <Input
@@ -439,7 +439,7 @@ function AddDocumentModal({
           error={fileError}
           uploadProgress={uploadProgress}
           uploadSuccess={uploadSuccess}
-          hint="PDF or image (PNG, JPEG, WebP), up to 25 MB. Optional — you can attach it from the row later."
+          hint="PDF or image, up to 25 MB. You can attach it later from the row."
         />
 
         {error && <ErrorState message={error} />}
@@ -857,9 +857,9 @@ function SvgBars({
 
 const AGING_COLUMNS: { key: api.AgingBucket; label: string }[] = [
   { key: "current", label: "Current" },
-  { key: "d1_30", label: "1–30" },
-  { key: "d31_60", label: "31–60" },
-  { key: "d61_90", label: "61–90" },
+  { key: "d1_30", label: "1-30" },
+  { key: "d31_60", label: "31-60" },
+  { key: "d61_90", label: "61-90" },
   { key: "d90_plus", label: "90+" },
 ];
 
@@ -955,7 +955,7 @@ function AgingDetailModal({
     <Modal
       open
       onClose={onClose}
-      title={`Aging — ${label}`}
+      title={`Aging: ${label}`}
       description={
         kind === "client"
           ? "Open receivables in this bucket."
@@ -1081,7 +1081,7 @@ function PendingChangesCard({
           >
             <span className="text-muted-foreground">
               {enumLabel(c.change_type)}
-              {c.reason ? ` — ${c.reason}` : ""}
+              {c.reason ? ` · ${c.reason}` : ""}
             </span>
             <div className="flex gap-2">
               <Button
@@ -1155,7 +1155,7 @@ function isOverdueDue(iso?: string | null): boolean {
  *  computed in SQL. This hint is shown when the list is at the cap so the user
  *  knows to jump into the module for the full history. */
 const RECENT_CAP_HINT =
-  "Showing the 25 most recent — open the module for the full list.";
+  "Showing the 25 most recent: open the module for the full list.";
 
 /** The single component that reads the dossier data + selected KPI, derives
  *  the row set, and renders `KpiDetailsModal`. Kept out of `PartyDossier` so
@@ -1211,7 +1211,7 @@ function KpiDetails({
     if (key === "outstanding") {
       title = `Outstanding · ${partyLabel}`;
       description =
-        "Invoices with an open balance — click a row to open the invoice.";
+        "Invoices with an open balance: click a row to open the invoice.";
       rows = invoices
         .filter((i) => isOpenInvoiceStatus(i.status))
         .map(toInvoiceRow);
@@ -1241,7 +1241,7 @@ function KpiDetails({
     } else if (key === "dossiers") {
       title = `Operations files in progress · ${partyLabel}`;
       description =
-        "Open operations files for this client — click a row to open the file.";
+        "Open operations files for this client: click a row to open the file.";
       headers = [
         { label: "Reference" },
         { label: "Title" },
@@ -1505,7 +1505,7 @@ export function PartyDossier({
     await api.documents.update(kind, partyId, doc.document_id, {
       vault_id: vaultId,
     });
-    toast.success("Scan attached — the document is now marked scanned.");
+    toast.success("Scan attached: the document is now marked scanned.");
     reload();
   }
 
@@ -2445,7 +2445,7 @@ export function PartyDossier({
       {/* Add modals */}
       {adding === "contact" && (
         <AddModal
-          title="Add contact"
+          title="Add Contact"
           onClose={() => setAdding(null)}
           fields={[
             { key: "name", label: "Name" },
@@ -2468,7 +2468,7 @@ export function PartyDossier({
       )}
       {adding === "address" && (
         <AddModal
-          title="Add address"
+          title="Add Address"
           onClose={() => setAdding(null)}
           fields={[
             { key: "line1", label: "Line 1" },
@@ -2499,7 +2499,7 @@ export function PartyDossier({
       )}
       {adding === "bank" && (
         <AddModal
-          title="Add bank account"
+          title="Add Bank Account"
           onClose={() => setAdding(null)}
           fields={[
             { key: "beneficiary_name", label: "Beneficiary" },
@@ -2539,7 +2539,7 @@ export function PartyDossier({
           onAdded={(fileAttached) => {
             toast.success(
               fileAttached
-                ? "Document added — scan attached."
+                ? "Document added: scan attached."
                 : "Document added.",
             );
             reload();
@@ -2548,7 +2548,7 @@ export function PartyDossier({
       )}
       {adding === "registration" && (
         <AddModal
-          title="Add registration"
+          title="Add Registration"
           onClose={() => setAdding(null)}
           fields={[
             {
@@ -2574,7 +2574,7 @@ export function PartyDossier({
       )}
       {adding === "owner" && (
         <AddModal
-          title="Add beneficial owner"
+          title="Add Beneficial Owner"
           onClose={() => setAdding(null)}
           fields={[
             { key: "full_name", label: "Full legal name" },

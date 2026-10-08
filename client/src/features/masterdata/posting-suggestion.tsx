@@ -83,7 +83,7 @@ export function PostingSuggestionPanel({
         className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground"
         role="status"
       >
-        {tr("No suggestion this time — fill the posting by hand.")} {error}
+        {tr("No suggestion this time: fill the posting by hand.")} {error}
       </div>
     );
   }
@@ -178,7 +178,7 @@ export function PostingSuggestionPanel({
         suggestion.source === "near_cache" ? (
         <p className="micro">
           {tr(
-            "Sources are shown with a live search — use Search again to see them.",
+            "Sources are shown with a live search: use Search again to see them.",
           )}
         </p>
       ) : null}

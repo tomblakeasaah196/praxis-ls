@@ -1228,7 +1228,7 @@ export function EmployeeWizard({
       open
       onClose={onClose}
       size="wide"
-      title={tr("New employee")}
+      title={tr("New Employee")}
       description={tr(
         "The record every contract, payslip and dispatch is written from. Only the name is required — the rest can be filled in later, and the meter says what is still outstanding.",
       )}

@@ -201,7 +201,7 @@ function AddApplicantForm({
     <Modal
       open
       onClose={onClose}
-      title="Add applicant"
+      title="Add Applicant"
       size="lg"
       description="Add a candidate to this vacancy's pipeline. The more you fill in, the more the AI score has to read."
     >
@@ -406,7 +406,7 @@ function NewVacancyForm({
     <Modal
       open
       onClose={onClose}
-      title={tr("New vacancy")}
+      title={tr("New Vacancy")}
       description="Open a role and start collecting applicants."
     >
       <form className="space-y-4" onSubmit={submit}>

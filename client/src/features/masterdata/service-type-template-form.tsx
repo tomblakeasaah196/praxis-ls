@@ -292,7 +292,7 @@ export function TemplateForm({
          owner on one row do not fit in 768px, which is what pushed the English
          label behind an expander in the first place (meeting 7, 01:55:13). */
       size="wide"
-      title={`Milestone chain — ${svc.name_en || svc.name_fr}`}
+      title={`Milestone chain: ${svc.name_en || svc.name_fr}`}
       description="The stages every new file of this service type starts with. Publishing creates a new active version; files already open keep the stages they were given."
       headerRight={
         drift > 0 ? (
@@ -460,7 +460,7 @@ export function TemplateForm({
                         row now — see the header. */}
                     <Field
                       label="Minimum duration (hours)"
-                      hint="The floor this stage can never be compressed below, however late the file runs."
+                      about="The floor this stage can never be compressed below, however late the file runs."
                     >
                       <Input
                         value={r.min_duration_hours}
@@ -477,7 +477,7 @@ export function TemplateForm({
                     </Field>
                     <Field
                       label="Segment"
-                      hint="MAIN for a normal chain; INBOUND / STEADY / OUTBOUND for open-ended services."
+                      about="MAIN for a normal chain; INBOUND / STEADY / OUTBOUND for open-ended services."
                     >
                       <Input
                         value={r.chain_segment}
@@ -490,13 +490,13 @@ export function TemplateForm({
                     </Field>
                     <Field
                       label={tr("Cadence")}
-                      hint="Set only for steady-state stages, which run on a rhythm and are never overdue."
+                      about="Set only for steady-state stages, which run on a rhythm and are never overdue."
                     >
                       <Select
                         value={r.cadence}
                         onChange={(e) => setRow(i, { cadence: e.target.value })}
                       >
-                        <option value="">None — scheduled normally</option>
+                        <option value="">{tr("None: scheduled normally")}</option>
                         {api.CADENCES.map((c) => (
                           <option key={c} value={c}>
                             {c.charAt(0) + c.slice(1).toLowerCase()}
@@ -506,7 +506,7 @@ export function TemplateForm({
                     </Field>
                     <Field
                       label="Required evidence"
-                      hint="Document type that proves this stage happened."
+                      about="Document type that proves this stage happened."
                     >
                       <Input
                         value={r.required_evidence_doc_type}
@@ -521,7 +521,7 @@ export function TemplateForm({
                     </Field>
                     <Field
                       label="Completed automatically by"
-                      hint="An event key that completes this stage when it fires, e.g. delivery_note.created."
+                      about="An event key that completes this stage when it fires, e.g. delivery_note.created."
                     >
                       <Input
                         value={r.auto_advance_on_event}
@@ -535,14 +535,14 @@ export function TemplateForm({
                       <Checkbox
                         checked={r.is_anchor}
                         onCheckedChange={(v) => setRow(i, { is_anchor: v })}
-                        label="Anchor — the schedule stays provisional until this happens"
+                        label="Anchor: the schedule stays provisional until this happens"
                       />
                       <Checkbox
                         checked={r.is_target_lock}
                         onCheckedChange={(v) =>
                           setRow(i, { is_target_lock: v })
                         }
-                        label="SLA date — hold this commitment and compress what remains instead of moving it"
+                        label="SLA date. Hold this commitment and compress what remains instead of moving it"
                       />
                       <Checkbox
                         checked={r.is_client_visible}
@@ -554,7 +554,7 @@ export function TemplateForm({
                       <Checkbox
                         checked={r.is_optional}
                         onCheckedChange={(v) => setRow(i, { is_optional: v })}
-                        label="Optional — may be skipped without blocking the chain"
+                        label="Optional. May be skipped without blocking the chain"
                       />
                     </div>
                   </div>

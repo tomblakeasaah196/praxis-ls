@@ -98,7 +98,7 @@ export function PrForm({
     <Modal
       open
       onClose={onClose}
-      title="New purchase request"
+      title="New Purchase Request"
       description="Ask for a purchase to be raised."
     >
       <form className="space-y-4" onSubmit={submit}>

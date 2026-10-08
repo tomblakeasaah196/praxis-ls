@@ -118,7 +118,7 @@ export function LeadNewPage() {
     [seed.companyName, seed.contactName, seed.email, seed.subject],
   );
   return (
-    <NewShell title={tr("New lead")} fromMail={seed.fromMail}>
+    <NewShell title={tr("New Lead")} fromMail={seed.fromMail}>
       <LeadForm open editing={null} initial={initial} onClose={close} onSaved={saved} />
     </NewShell>
   );
@@ -141,7 +141,7 @@ export function QuoteRequestNewPage() {
     [seed.contactName, seed.companyName, seed.email, seed.details, seed.fromMail],
   );
   return (
-    <NewShell title={tr("New quote request")} fromMail={seed.fromMail}>
+    <NewShell title={tr("New Quote Request")} fromMail={seed.fromMail}>
       <QuoteRequestForm open editing={null} initial={initial} onClose={close} onSaved={saved} />
     </NewShell>
   );
@@ -161,7 +161,7 @@ export function EnquiryNewPage() {
     [seed.contactName, seed.email, seed.companyName, seed.subject, seed.details],
   );
   return (
-    <NewShell title={tr("New enquiry")} fromMail={seed.fromMail}>
+    <NewShell title={tr("New Enquiry")} fromMail={seed.fromMail}>
       <EnquiryCreateForm open initial={initial} onClose={close} onSaved={saved} />
     </NewShell>
   );
@@ -175,7 +175,7 @@ export function TicketNewPage() {
     [seed.subject, seed.details],
   );
   return (
-    <NewShell title={tr("New support ticket")} fromMail={seed.fromMail}>
+    <NewShell title={tr("New Support Ticket")} fromMail={seed.fromMail}>
       <NewTicketModal initial={initial} onClose={close} onCreated={saved} />
     </NewShell>
   );
@@ -189,7 +189,7 @@ export function TaskNewPage() {
     [seed.subject, seed.details],
   );
   return (
-    <NewShell title={tr("New task")} fromMail={seed.fromMail}>
+    <NewShell title={tr("New Task")} fromMail={seed.fromMail}>
       <TaskDialog open initial={initial} onClose={close} onSaved={saved} />
     </NewShell>
   );
@@ -207,7 +207,7 @@ export function PurchaseRequisitionNewPage() {
     [seed.subject],
   );
   return (
-    <NewShell title={tr("New purchase request")} fromMail={seed.fromMail}>
+    <NewShell title={tr("New Purchase Request")} fromMail={seed.fromMail}>
       <PrForm initial={initial} onClose={close} onSaved={saved} />
     </NewShell>
   );

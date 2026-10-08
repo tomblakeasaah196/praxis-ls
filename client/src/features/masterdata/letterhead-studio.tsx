@@ -325,7 +325,7 @@ function CanvasZone({
                   <button
                     key={key}
                     type="button"
-                    aria-label={`${tr("Move here")} — ${tr("row")} ${row + 1}, ${tr("column")} ${col + 1}`}
+                    aria-label={`${tr("Move here")}: ${tr("row")} ${row + 1}, ${tr("column")} ${col + 1}`}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = "move";
@@ -480,7 +480,7 @@ function Inspector({
         <div data-field="logo">
           <Field
             label={tr("Mark height (mm)")}
-            hint={tr("4-60. It does not shrink with the page. The image itself is set on the entity's own form.")}
+            about={tr("4-60. It does not shrink with the page. The image itself is set on the entity's own form.")}
           >
             <Input
               type="number"
@@ -499,7 +499,7 @@ function Inspector({
         <>
           <Field
             label={lang === "fr" ? tr("Text (French)") : tr("Text (English)")}
-            hint={tr("Type {{ to insert a fact from the entity's record.")}
+            about={tr("Type {{ to insert a fact from the entity's record.")}
           >
             <Input
               ref={textRef}
@@ -584,7 +584,7 @@ function Inspector({
             <option value="right">{tr("Right")}</option>
           </Select>
         </Field>
-        <Field label={tr("Width (columns)")} hint={tr("Of twelve.")}>
+        <Field label={tr("Width (columns)")} about={tr("Of twelve.")}>
           <Input
             type="number"
             min={1}
@@ -594,7 +594,7 @@ function Inspector({
             onChange={(e) => onPlace({ span: Number(e.target.value) })}
           />
         </Field>
-        <Field label={tr("Column")} hint={tr("0 is the left edge.")}>
+        <Field label={tr("Column")} about={tr("0 is the left edge.")}>
           <Input
             type="number"
             min={0}
@@ -618,7 +618,7 @@ function Inspector({
 
       {block.kind !== "rule" && block.kind !== "image" && (
         <div className="grid grid-cols-2 gap-2">
-          <Field label={tr("Size")} hint={tr("1 is the default.")}>
+          <Field label={tr("Size")} about={tr("1 is the default.")}>
             <Input
               type="number"
               min={0.5}
@@ -721,7 +721,7 @@ function AddressPanel({
       <p className="text-sm font-medium text-foreground">{tr("Address on documents")}</p>
       {rows.length === 0 ? (
         <p className="micro text-muted-foreground">
-          {tr("No structured address yet — the letterhead prints the free-text address. Add one under Contacts & addresses.")}
+          {tr("No structured address yet: the letterhead prints the free-text address. Add one under Contacts & addresses.")}
         </p>
       ) : (
         <>
@@ -742,7 +742,7 @@ function AddressPanel({
           <div data-field="postal_address_id">
             <Field
               label={tr("PO box / postal block")}
-              hint={tr("Automatic takes a postal (mailing) row with a PO box, else the address block's row.")}
+              about={tr("Automatic takes a postal (mailing) row with a PO box, else the address block's row.")}
             >
               <Select
                 value={cfg.postal_address_id || ""}
@@ -1034,10 +1034,10 @@ export function LetterheadStudio({
         <p className="micro text-muted-foreground">
           {readOnly
             ? tr(
-                "This letterhead is read-only for you. The preview is live — ask an entity administrator to change the arrangement.",
+                "This letterhead is read-only for you. The preview is live. Ask an entity administrator to change the arrangement.",
               )
             : tr(
-                "Drag a block to move it. Click one to edit it. The content comes from the entity's own record — this arranges it.",
+                "Drag a block to move it. Click one to edit it. The content comes from the entity's own record: this arranges it.",
               )}
         </p>
       </div>
@@ -1139,7 +1139,7 @@ export function LetterheadStudio({
           </div>
           <p className="micro text-muted-foreground">
             {tr(
-              "Your own line — a strapline, a licence number. It can quote a fact from the record, so it never goes stale.",
+              "Your own line: a strapline, a licence number. It can quote a fact from the record, so it never goes stale.",
             )}
           </p>
         </div>

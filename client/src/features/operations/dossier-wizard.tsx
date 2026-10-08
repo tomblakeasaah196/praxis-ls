@@ -212,7 +212,7 @@ export function DossierWizard({
       open
       onClose={onClose}
       size="lg"
-      title="New operations file"
+      title="New Operations File"
       description="An operations file is the anchor everything — costing, transit, invoicing — tags."
     >
       {/* Progress, and where they are in it. `aria-current` is what makes this

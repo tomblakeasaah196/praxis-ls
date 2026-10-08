@@ -138,7 +138,7 @@ export function ServiceTypesPage() {
             ))}
           </ul>
           <p className="mt-1">
-            {tr("A client picks a card, then a flow. Services sharing both are offered by name instead — change the card or the territory of one of them so each has its own place.")}
+            {tr("A client picks a card, then a flow. Services sharing both are offered by name instead. Change the card or the territory of one of them so each has its own place.")}
           </p>
         </Callout>
       ) : null}
@@ -226,7 +226,7 @@ export function ServiceTypesPage() {
           ) : (
             <EmptyState
               title="No service type selected"
-              hint="Pick one from the list, or create a new one — files can't carry a milestone chain until at least one exists."
+              hint="Pick one, or create a new one. A file needs one to carry milestones."
             />
           )}
         </SplitPane>

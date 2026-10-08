@@ -187,7 +187,7 @@ export function EntityPublicStoryTab({
             </H>
             <p className="mt-1 max-w-prose text-sm text-muted-foreground">
               {tr(
-                "Off by default. When it is on, the About page shows this company's trading name, country, summary, coverage and service focus — and never its registration or tax numbers.",
+                "Off by default. When it is on, the About page shows this company's trading name, country, summary, coverage and service focus. And never its registration or tax numbers.",
               )}
             </p>
           </div>
@@ -217,7 +217,7 @@ export function EntityPublicStoryTab({
       {d.public_enabled && d.registration_status !== "ACTIVE" ? (
         <Callout tone="warn" title={tr("Not on the website")}>
           {tr(
-            "Publishing is on, but this company's lifecycle status is not ACTIVE, so the public website excludes it — and serves 404s for its cover. Set the status back to ACTIVE in Master data to publish it.",
+            "Publishing is on, but this company's lifecycle status is not ACTIVE, so the public website excludes it. And serves 404s for its cover. Set the status back to ACTIVE in Master data to publish it.",
           )}
         </Callout>
       ) : null}
@@ -288,7 +288,7 @@ export function EntityPublicStoryTab({
         <H className="text-sm font-medium text-foreground">{tr("Where it operates")}</H>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
           {tr(
-            "The places this company covers, in your own words. The site prints your label, never our name for the country — the two-letter code is what joins a place to the corridor network.",
+            "The places this company covers, in your own words. The site prints your label, never our name for the country: the two-letter code is what joins a place to the corridor network.",
           )}
         </p>
         {/* Meeting 6, 3.5: stored rows that need a person's eye — a code that
@@ -369,8 +369,8 @@ export function EntityPublicStoryTab({
         {tried && incomplete > 0 && (
           <p role="alert" className="mt-2 text-sm text-destructive">
             {incomplete === 1
-              ? tr("One place is incomplete — finish it or remove it before saving.")
-              : `${incomplete} ${tr("places are incomplete — finish them or remove them before saving.")}`}
+              ? tr("One place is incomplete: finish it or remove it before saving.")
+              : `${incomplete} ${tr("places are incomplete. Finish them or remove them before saving.")}`}
           </p>
         )}
         <div className="mt-3 flex gap-2">
@@ -410,7 +410,7 @@ export function EntityPublicStoryTab({
         <H className="text-sm font-medium text-foreground">{tr("Service focus")}</H>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
           {tr(
-            "What this company actually handles. Classify each line against a service type from your catalogue — the transport mode and the card's colour come from it, in every language. Your labels are optional wording on top of the classification.",
+            "What this company actually handles. Classify each line against a service type from your catalogue: the transport mode and the card's colour come from it, in every language. Your labels are optional wording on top of the classification.",
           )}
         </p>
         {catalogue.error ? (
@@ -540,7 +540,7 @@ export function EntityPublicStoryTab({
                 — {d.cover_attachment.last_error || tr("the server did not say why")}.{" "}
                 {d.cover_attachment.vault_doc_id
                   ? tr(
-                      "The file reached storage but was never published, so the cover shown above is still the previous one. Try again — the stored copy is cleaned up automatically.",
+                      "The file reached storage but was never published, so the cover shown above is still the previous one. Try again: the stored copy is cleaned up automatically.",
                     )
                   : tr(
                       "No file was stored. The cover shown above is unchanged. Try again.",
@@ -565,7 +565,7 @@ export function EntityPublicStoryTab({
               </>
             ) : (
               tr(
-                "An upload was interrupted before it finished. If you just uploaded, give it a moment and reload; otherwise try again — the previous cover is still the one on the site.",
+                "An upload was interrupted before it finished. If you just uploaded, give it a moment and reload; otherwise try again: the previous cover is still the one on the site.",
               )
             )}
           </Callout>

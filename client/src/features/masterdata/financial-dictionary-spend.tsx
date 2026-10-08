@@ -338,17 +338,17 @@ const SPEND_DRILL: Record<
 > = {
   actual: {
     title: "Actual",
-    description: "Ledger cost entries in this period — what was really posted.",
+    description: "Ledger cost entries in this period: what was really posted.",
     viewAll: { label: "View more in Cost tracking", href: "/costing/cost-tracking" },
   },
   committed: {
     title: "Committed",
     description:
-      "Purchase-order lines and approved cash-request lines in this period — promised to a third party, posted or not.",
+      "Purchase-order lines and approved cash-request lines in this period: promised to a third party, posted or not.",
   },
   estimated: {
     title: "Estimated",
-    description: "Costing-sheet lines in this period — what was planned.",
+    description: "Costing-sheet lines in this period: what was planned.",
     viewAll: { label: "View more in Costing", href: COSTING_ROUTE },
   },
   all: {
@@ -428,7 +428,7 @@ function SpendDocsDrill({
       open
       onClose={onClose}
       title={`${tr(spec.title)} · ${code}`}
-      description={`${spec.description} ${dateFmt(range.from)} — ${dateFmt(range.to)}.`}
+      description={`${spec.description} ${dateFmt(range.from)} to ${dateFmt(range.to)}.`}
       headers={[
         { label: tr("Document") },
         { label: tr("Date") },
@@ -515,7 +515,7 @@ export function SpendTab({ id }: { id: string }) {
           <OperationsFilePicker
             id={`spend-file-${id}`}
             label={tr("Operations file")}
-            placeholder={tr("Every file — search ref, client, B/L…")}
+            placeholder={tr("Every file: search ref, client, B/L…")}
             value={file?.dossier_id ?? null}
             onSelect={(f) => setFile(f)}
             onClear={() => setFile(null)}
@@ -556,7 +556,7 @@ export function SpendTab({ id }: { id: string }) {
               d.totals.committed_count +
               d.totals.estimated_count,
           )}
-          hint={`${dateFmt(d.period.from)} — ${dateFmt(d.period.to)}`}
+          hint={`${dateFmt(d.period.from)} to ${dateFmt(d.period.to)}`}
           onClick={() => setDrill("all")}
         />
       </KpiRow>
@@ -844,7 +844,7 @@ export function CostEvolutionTab({ id }: { id: string }) {
     return (
       <EmptyState
         title="No rate cards"
-        hint="Add an expense rate for this line (Master data → Expense rates) and its history will build here as rates are superseded."
+        hint="Add an expense rate for this line and its history builds here."
       />
     );
   }

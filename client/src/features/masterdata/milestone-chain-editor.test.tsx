@@ -147,7 +147,7 @@ describe("the chain editor · both names on the row (finding 3.2)", () => {
     // is its own bug — the second reads stale the moment you type in the first.
     expect(screen.getAllByLabelText("Stage 1 label (English)")).toHaveLength(1);
     // The fields that genuinely belong in the expander are still there.
-    expect(screen.getByLabelText(/Minimum duration/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Minimum duration/i)).toBeInTheDocument();
   });
 
   it("sends an edited English label through to publish", async () => {

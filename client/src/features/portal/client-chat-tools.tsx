@@ -65,7 +65,7 @@ export function ClientChatTools({
           type="button"
           disabled={disabled}
           aria-label={tr("Add to the reply")}
-          title={tr("Add to the reply")}
+          title={tr("Add to the Reply")}
           className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
         >
           <PlusIcon width={20} height={20} />

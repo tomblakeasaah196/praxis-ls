@@ -242,6 +242,8 @@ export function FormField<TFieldValues extends FieldValues>({
   name,
   label,
   hint,
+  about,
+  aboutLabel,
   required,
   className,
   children,
@@ -249,7 +251,12 @@ export function FormField<TFieldValues extends FieldValues>({
   form: UseFormReturn<TFieldValues>;
   name: Path<TFieldValues>;
   label: string;
+  /** Printed under the control. Capped by `npm run check:prose`; reach for
+   *  `about` instead unless the user needs it to fill the field in at all. */
   hint?: string;
+  /** The same guidance behind an ⓘ on the label. See `Field` and guide §3.17. */
+  about?: string;
+  aboutLabel?: string;
   required?: boolean;
   className?: string;
   children: (
@@ -264,6 +271,8 @@ export function FormField<TFieldValues extends FieldValues>({
         <Field
           label={label}
           hint={hint}
+          about={about}
+          aboutLabel={aboutLabel}
           required={required}
           error={fieldState.error?.message}
           className={className}

@@ -125,7 +125,7 @@ function ReadinessChecklist({
     {
       key: "name_en",
       ok: readiness.name_en_present,
-      label: tr("English name — set on the service type"),
+      label: tr("English name: set on the service type"),
       action: canWrite
         ? { label: tr("Edit service type"), onClick: onJumpNameEn }
         : undefined,
@@ -217,7 +217,7 @@ function HighlightsEditor({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="micro text-muted-foreground">
-          {tr("Guided 4–8 highlights · hard cap 8")} · {lang.toUpperCase()}
+          {tr("Guided 4 to 8 highlights · hard cap 8")} · {lang.toUpperCase()}
         </p>
         <span className="micro text-muted-foreground">
           {items.filter((s) => s.trim()).length}/{L.HIGHLIGHTS_MAX}
@@ -952,12 +952,12 @@ export function ServiceTypeWebTab({
         <EmptyState
           title={tr("No web page yet")}
           hint={tr(
-            "Describe this service for your public website — bilingual copy, cover image, SEO slugs and FAQ. Creating a page never changes the operational form, milestones or dictionary.",
+            "Describe this service for your public website: bilingual copy, cover image, SEO slugs and FAQ. Creating a page never changes the operational form, milestones or dictionary.",
           )}
         />
         <p className="micro text-muted-foreground">
           {tr(
-            "Customer-facing copy follows the brand register (BRAND_GLOSSARY_FR_EN.md) — clear, professional, never marketing-speak.",
+            "Customer-facing copy follows the brand register (BRAND_GLOSSARY_FR_EN.md): clear, professional, never marketing-speak.",
           )}
         </p>
         {error && <ErrorState message={error} />}
@@ -1010,8 +1010,8 @@ export function ServiceTypeWebTab({
           if (faq && faq.length) setFaqRows(faq);
           toast.success(
             faq && faq.length
-              ? tr("Draft applied — review it, then Save and Save FAQ.")
-              : tr("Draft applied — review it, then Save."),
+              ? tr("Draft applied: review it, then Save and Save FAQ.")
+              : tr("Draft applied: review it, then Save."),
           );
         }}
       />
@@ -1145,7 +1145,7 @@ export function ServiceTypeWebTab({
         />
         <p className="micro text-muted-foreground max-w-md">
           {tr(
-            "Copy is customer-facing — follow BRAND_GLOSSARY_FR_EN.md register rules in both languages.",
+            "Copy is customer-facing. Follow BRAND_GLOSSARY_FR_EN.md register rules in both languages.",
           )}
         </p>
       </div>
@@ -1156,7 +1156,7 @@ export function ServiceTypeWebTab({
         <div className="grid gap-4 lg:grid-cols-2">
           <Field
             label={`${tr("Short description")} (${lang.toUpperCase()})`}
-            hint={tr("Card teaser and meta-description fallback.")}
+            about={tr("Card teaser and meta-description fallback.")}
           >
             <Textarea
               value={String(draft[shortKey] ?? "")}
@@ -1172,7 +1172,7 @@ export function ServiceTypeWebTab({
           </Field>
           <Field
             label={`${tr("Long description")} (${lang.toUpperCase()})`}
-            hint={tr("Page body.")}
+            about={tr("Page body.")}
           >
             <Textarea
               value={String(draft[longKey] ?? "")}
@@ -1207,7 +1207,7 @@ export function ServiceTypeWebTab({
         </h3>
         <Field
           label={`${tr("Closing line")} (${lang.toUpperCase()})`}
-          hint={tr("One sentence the card ends on. Not a slogan — say what the service does for them.")}
+          about={tr("One sentence the card ends on. Not a slogan: say what the service does for them.")}
         >
           <Input
             value={String(draft[claimKey] ?? "")}
@@ -1224,7 +1224,7 @@ export function ServiceTypeWebTab({
         <div className="grid gap-4 lg:grid-cols-2">
           <Field
             label={tr("Pillar")}
-            hint={tr("The section of the services page this card sits under.")}
+            about={tr("The section of the services page this card sits under.")}
           >
             <div className="flex gap-2">
               <Select
@@ -1241,7 +1241,7 @@ export function ServiceTypeWebTab({
                   <option key={g.group_id} value={g.group_id}>
                     {g.name_fr}
                     {g.name_en ? ` · ${g.name_en}` : ""}
-                    {g.is_active === false ? ` — ${tr("hidden")}` : ""}
+                    {g.is_active === false ? ` · ${tr("hidden")}` : ""}
                   </option>
                 ))}
               </Select>
@@ -1262,13 +1262,13 @@ export function ServiceTypeWebTab({
             )}
             {!pillars.loading && !pillars.error && (pillars.data || []).length === 0 && (
               <p className="micro text-muted-foreground mt-1">
-                {tr("No pillars yet — every published service collects into one unnamed group.")}
+                {tr("No pillars yet: every published service collects into one unnamed group.")}
               </p>
             )}
           </Field>
           <Field
             label={tr("Accent")}
-            hint={tr("Which of your brand colours tints this card. Shown in your own palette.")}
+            about={tr("Which of your brand colours tints this card. Shown in your own palette.")}
           >
             <AccentPicker
               value={(draft.accent as api.ServiceTypeWebAccent) || "PRIMARY"}
@@ -1278,7 +1278,7 @@ export function ServiceTypeWebTab({
           </Field>
         </div>
         <p className="micro text-muted-foreground">
-          {tr("The pillar and the accent are the same in both languages — only the closing line is per-language.")}
+          {tr("The pillar and the accent are the same in both languages: only the closing line is per-language.")}
         </p>
       </section>
 
@@ -1445,7 +1445,7 @@ export function ServiceTypeWebTab({
         </div>
         <Field
           label={tr("Video URL")}
-          hint={tr("YouTube, Vimeo or Dailymotion embed only.")}
+          about={tr("YouTube, Vimeo or Dailymotion embed only.")}
         >
           <Input
             value={String(draft.video_url ?? "")}
@@ -1563,7 +1563,7 @@ export function ServiceTypeWebTab({
 
         <Field
           label={`${tr("Coverage note")} (${lang.toUpperCase()})`}
-          hint={tr("Optional geography or scope note on the public page.")}
+          about={tr("Optional geography or scope note on the public page.")}
         >
           <Textarea
             value={String(draft[coverKey] ?? "")}

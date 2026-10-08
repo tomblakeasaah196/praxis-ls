@@ -271,7 +271,7 @@ function AccountField({
         label={label}
         placeholder={value || "Search account…"}
         getKey={(r) => String(r.code)}
-        getLabel={(r) => `${r.code} — ${r.label_fr ?? ""}`.trim()}
+        getLabel={(r) => `${r.code}: ${r.label_fr ?? ""}`.trim()}
         filter={(r) =>
           r.is_postable !== false &&
           (restrict && preferredClass
@@ -304,7 +304,7 @@ function AccountField({
           className="mt-1 text-xs text-muted-foreground underline"
         >
           {restrict
-            ? `Showing class ${preferredClass} only — browse all`
+            ? `Showing class ${preferredClass} only: browse all`
             : "Restrict to class " + preferredClass}
         </button>
       ) : null}
@@ -695,7 +695,7 @@ export function DictForm({
       }}
       size="lg"
       title={isNew ? "New dictionary item" : `Edit ${row?.code}`}
-      description="A priced line with its OHADA posting rules — the single source every quote, invoice and costing reads."
+      description="A priced line with its OHADA posting rules: the single source every quote, invoice and costing reads."
     >
       {/* Progress */}
       <div className="mb-4 flex items-center gap-2">
@@ -722,7 +722,7 @@ export function DictForm({
           <>
             <Field
               label={tr("Direction")}
-              hint="Sets the code letter and prefilters the account picker."
+              about="Sets the code letter and prefilters the account picker."
             >
               <Segmented
                 label={tr("Direction")}
@@ -803,7 +803,7 @@ export function DictForm({
 
             <Field
               label="Applicability"
-              hint="Where this line surfaces. Overhead/admin lines never appear in a service pick-list."
+              about="Where this line surfaces. Overhead/admin lines never appear in a service pick-list."
             >
               <Segmented
                 label="Applicability"
@@ -862,7 +862,7 @@ export function DictForm({
                   {unconfirmed && (
                     <p className="mt-1 micro text-bad">
                       {tr(
-                        "Tick “I checked this posting” before saving — the suggestion is low confidence.",
+                        "Tick “I checked this posting” before saving: the suggestion is low confidence.",
                       )}
                     </p>
                   )}
@@ -1030,7 +1030,7 @@ export function DictForm({
             </Field>
             <Field
               label={tr("Pricing")}
-              hint="Formula-priced items (Demurrage, Storage…) are calculated by the Extra Charges Simulation module from a tariff; the Expense Rates tab still keeps a reference rate for them."
+              about="Formula-priced items (Demurrage, Storage…) are calculated by the Extra Charges Simulation module from a tariff; the Expense Rates tab still keeps a reference rate for them."
             >
               <Segmented
                 label={tr("Pricing")}
@@ -1060,7 +1060,7 @@ export function DictForm({
                 <Field
                   label={tr("Standard rate")}
                   hint={tr(
-                    "Optional. Saved as this line's standard expense rate from today — leave it empty if the price is not known yet.",
+                    "Optional. Saved as this line's standard expense rate from today. Leave it empty if the price is not known yet.",
                   )}
                 >
                   <Input
@@ -1099,7 +1099,7 @@ export function DictForm({
               </Field>
               <Field
                 label="Provider kind"
-                hint="For rate items — shipping line, customs, port authority."
+                about="For rate items: shipping line, customs, port authority."
               >
                 <Select
                   value={f.provider_kind}
@@ -1200,7 +1200,7 @@ export function DictForm({
               />
             ) : null}
             {!basicValid && (
-              <ErrorState message="Some required fields are missing — go back to Basics." />
+              <ErrorState message="Some required fields are missing: go back to Basics." />
             )}
           </div>
         )}
@@ -1295,7 +1295,7 @@ function ServiceTiersEditor({
               offered under "More charges". */}
           <p className="micro">
             {tr(
-              "Tick Core when this line belongs on almost every file of that service — Suggest charges offers it ticked. Other services list it under More charges.",
+              "Tick Core when this line belongs on almost every file of that service. Suggest charges offers it ticked. Other services list it under More charges.",
             )}
           </p>
         </div>

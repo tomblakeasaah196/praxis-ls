@@ -229,7 +229,7 @@ describe("Corporate entities · adding a second role to an existing holder", () 
     // The person's own form, opened for THIS person (not a blank "Add person"),
     // with the roles they already hold ticked.
     expect(
-      await screen.findByText(/also acts as — massomba timothée/i),
+      await screen.findByText(/also acts as: massomba timothée/i),
     ).toBeInTheDocument();
     expect(
       within(

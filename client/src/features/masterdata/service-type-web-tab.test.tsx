@@ -283,7 +283,7 @@ describe("ServiceTypeWebTab", () => {
     );
     const checklist = await screen.findByTestId("web-readiness-checklist");
     expect(
-      within(checklist).getByText(/English name — set on the service type/i),
+      within(checklist).getByText(/English name: set on the service type/i),
     ).toBeTruthy();
     // Publish disabled until readiness.publishable.
     const publish = screen.getByTestId("web-publish");
@@ -762,7 +762,7 @@ describe("ServiceTypeWebTab · the card (12755)", () => {
     expect(within(manager).getByText(/Retiré/)).toBeTruthy();
 
     await user.click(within(manager).getByTestId("pillar-add"));
-    await user.type(screen.getByLabelText(/Name \(FR\)/i), "Douane");
+    await user.type(screen.getByLabelText(/^Name \(FR\)/i), "Douane");
     await user.type(screen.getByLabelText(/^Anchor$/i), "value-added");
     await user.click(screen.getByTestId("pillar-save"));
 

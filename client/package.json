@@ -17,6 +17,7 @@
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:motion": "node scripts/check-motion.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
+    "check:prose": "node scripts/check-prose.mjs",
     "check:palette": "node scripts/check-palette.mjs --app client",
     "check:lint-rules": "node --test eslint-local-rules/*.test.cjs",
     "check:shared": "node scripts/check-shared.mjs",

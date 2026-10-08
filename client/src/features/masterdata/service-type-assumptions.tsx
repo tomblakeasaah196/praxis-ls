@@ -132,7 +132,7 @@ export function ServiceTypeAssumptions({
       {rows.length === 0 ? (
         <EmptyState
           title="Nothing published"
-          hint="Without a register, every date on this service reads as an unconditional promise."
+          hint="Without a register, every date here reads as a firm promise."
         />
       ) : (
         <div className="space-y-3">
@@ -176,7 +176,7 @@ export function ServiceTypeAssumptions({
                     value={a.text_fr}
                     onChange={(e) => set(i, { text_fr: e.target.value })}
                     rows={2}
-                    placeholder="La douane traite du lundi au vendredi, 07h30–15h30."
+                    placeholder="La douane traite du lundi au vendredi, 07h30 to 15h30."
                   />
                 </Field>
                 <Field label={tr("English")}>
@@ -184,7 +184,7 @@ export function ServiceTypeAssumptions({
                     value={a.text_en || ""}
                     onChange={(e) => set(i, { text_en: e.target.value })}
                     rows={2}
-                    placeholder="Customs processes Mon–Fri, 07:30–15:30."
+                    placeholder="Customs processes Mon: Fri, 07:30 to 15:30."
                   />
                 </Field>
               </div>

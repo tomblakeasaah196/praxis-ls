@@ -136,7 +136,7 @@ function CreateQuotationDialog({ costingId, onClose }: { costingId: string; onCl
       open
       onClose={onClose}
       size="wide"
-      title={tr("Create quotation")}
+      title={tr("Create Quotation")}
       description={tr("Priced from this costing with the margin simulator's rules. It opens as a draft you can still adjust.")}
       footer={
         <>

@@ -351,7 +351,7 @@ function SiteForm({
     <Modal
       open
       onClose={onClose}
-      title="New worksite"
+      title="New Worksite"
       description="A geofence centre — clock-ins within the radius are on-site."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -567,7 +567,7 @@ function EditableLabel({
         type="button"
         onClick={() => setEditing(true)}
         disabled={busy}
-        title="Rename this device"
+        title="Rename This Device"
         className="block max-w-full truncate text-left text-foreground hover:underline disabled:opacity-60"
       >
         {value}

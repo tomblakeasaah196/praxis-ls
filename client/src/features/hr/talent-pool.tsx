@@ -69,7 +69,7 @@ function TalentForm({
     <Modal
       open
       onClose={onClose}
-      title="Add to talent pool"
+      title="Add to Talent Pool"
       description="Keep a candidate on file for future roles."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -170,7 +170,7 @@ function SuccessionForm({
     <Modal
       open
       onClose={onClose}
-      title="New succession plan"
+      title="New Succession Plan"
       description="Name a role's successor and how ready they are."
     >
       <form className="space-y-4" onSubmit={submit}>

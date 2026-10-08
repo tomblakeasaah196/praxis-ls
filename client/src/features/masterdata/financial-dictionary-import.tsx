@@ -289,8 +289,8 @@ export function DictImportModal({
         onClose();
       }}
       size="lg"
-      title="Import dictionary items"
-      description="Download the template, fill it in, upload it to review — then commit the valid rows."
+      title="Import Dictionary Items"
+      description="Download the template, fill it in, upload it to review: then commit the valid rows."
     >
       <div className="space-y-4">
         {/* Step 1 + 2 */}
@@ -377,7 +377,7 @@ export function DictImportModal({
               >
                 {num(result.summary.ai_suggested ?? 0)}{" "}
                 {tr(
-                  "row(s) had no posting, so one was suggested. A suggested row is imported only once you accept its posting — all at once, or row by row.",
+                  "row(s) had no posting, so one was suggested. A suggested row is imported only once you accept its posting: all at once, or row by row.",
                 )}
               </Callout>
             )}
@@ -469,7 +469,7 @@ export function DictImportModal({
                               <span className="block micro">
                                 {tr(SOURCE_LABEL[r.ai.source] ?? r.ai.source)}
                                 {r.ai.fallback_reason
-                                  ? ` — ${r.ai.fallback_reason}`
+                                  ? ` · ${r.ai.fallback_reason}`
                                   : ""}
                               </span>
                               {r.ai.sources.length > 0 && (
@@ -516,7 +516,7 @@ export function DictImportModal({
                               ) : (
                                 <span className="block micro">
                                   {tr(
-                                    "An account it names is not in your chart — create the line from New item instead.",
+                                    "An account it names is not in your chart: create the line from New item instead.",
                                   )}
                                 </span>
                               )}
@@ -574,12 +574,12 @@ export function DictImportModal({
         {committed && (
           <Callout
             tone={committed.summary.rejected ? "warn" : "ok"}
-            title="Import complete"
+            title="Import Complete"
           >
             {num(committed.summary.created)} item
             {committed.summary.created === 1 ? "" : "s"} created
             {committed.summary.rejected
-              ? `, ${num(committed.summary.rejected)} rejected — export them below and re-upload once fixed.`
+              ? `, ${num(committed.summary.rejected)} rejected. Export them below and re-upload once fixed.`
               : "."}
           </Callout>
         )}

@@ -251,7 +251,7 @@ function NewTemplatePicker({
     <Modal
       open
       onClose={onClose}
-      title="New milestone template"
+      title="New Milestone Template"
       description="A template is the chain every new file of a service type opens with. Pick the service type to write one for."
     >
       {types.loading ? (

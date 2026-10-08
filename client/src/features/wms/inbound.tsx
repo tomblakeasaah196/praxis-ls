@@ -159,7 +159,7 @@ function NewGrnForm({
     <Modal
       open
       onClose={onClose}
-      title={tr("New receipt")}
+      title={tr("New Receipt")}
       description="Open a goods-received note. It starts on hold pending QA."
     >
       <form className="space-y-4" onSubmit={submit}>

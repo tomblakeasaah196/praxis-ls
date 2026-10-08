@@ -295,7 +295,7 @@ function NewReviewForm({
     <Modal
       open
       onClose={onClose}
-      title="New access review"
+      title="New Access Review"
       description="Snapshots every user and their roles right now, then asks you to approve, revoke or flag each one."
     >
       <form className="space-y-4" onSubmit={submit}>

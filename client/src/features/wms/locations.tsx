@@ -62,7 +62,7 @@ function NewLocationForm({
     <Modal
       open
       onClose={onClose}
-      title={tr("New location")}
+      title={tr("New Location")}
       description="Add a slotting location — a zone/aisle/rack/bin, or a yard slot."
     >
       <form className="space-y-4" onSubmit={submit}>

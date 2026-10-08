@@ -80,7 +80,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
       : null;
   const sizeError =
     isContainer && !form.size.trim()
-      ? "Size is the rate-card lookup key — required."
+      ? "Size is the rate-card lookup key: required."
       : null;
 
   const families = React.useMemo(() => {
@@ -235,7 +235,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
                 label={tr("TEU")}
                 required
                 error={touched ? teuError || undefined : undefined}
-                hint="Capacity. A 20' is 1, a 40' is 2."
+                about="Capacity. A 20' is 1, a 40' is 2."
               >
                 <Input
                   type="number"
@@ -254,7 +254,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
                 label="Size key"
                 required
                 error={touched ? sizeError || undefined : undefined}
-                hint="What the rate card calls it — 20, 40, 40HC."
+                about="What the rate card calls it: 20, 40, 40HC."
               >
                 <Input
                   placeholder="50HC"
@@ -269,7 +269,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
               </Field>
               <Field
                 label="Family"
-                hint="Groups the sized variants of one kind."
+                about="Groups the sized variants of one kind."
               >
                 <Select
                   value={form.family}
@@ -286,7 +286,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
               </Field>
               <Field
                 label="Also known as"
-                hint="Comma-separated, for the finder's search."
+                about="Comma-separated, for the finder's search."
               >
                 <Input
                   placeholder="50hq, 50dc"
@@ -299,7 +299,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
               <Field
                 label="Marks token"
                 className="sm:col-span-2"
-                hint={`How it prints on marks & numbers — e.g. 02*${form.marks_token.trim() || previewToken}. Leave blank to use the derived value.`}
+                hint={`How it prints on marks & numbers: e.g. 02*${form.marks_token.trim() || previewToken}. Leave blank to use the derived value.`}
               >
                 <Input
                   placeholder={previewToken}
@@ -349,7 +349,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
                         size="sm"
                         variant="ghost"
                         disabled={i === 0}
-                        aria-label={`${tr("Move up")} — ${r.name_en || r.name_fr}`}
+                        aria-label={`${tr("Move up")}: ${r.name_en || r.name_fr}`}
                         onClick={() => void shift(i, -1)}
                       >
                         ↑
@@ -358,7 +358,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
                         size="sm"
                         variant="ghost"
                         disabled={i === all.length - 1}
-                        aria-label={`${tr("Move down")} — ${r.name_en || r.name_fr}`}
+                        aria-label={`${tr("Move down")}: ${r.name_en || r.name_fr}`}
                         onClick={() => void shift(i, 1)}
                       >
                         ↓
@@ -463,7 +463,7 @@ export function SiblingPairing() {
     <div className="space-y-2">
       <p className="micro">
         {tr(
-          "Pickers show a service once and ask whether it is billed to the client at cost or our own cost. These lines could not be paired automatically — link each one, or confirm it stands alone.",
+          "Pickers show a service once and ask whether it is billed to the client at cost or our own cost. These lines could not be paired automatically: link each one, or confirm it stands alone.",
         )}
       </p>
       {list.data.map((r) => (
@@ -670,7 +670,7 @@ export function PostingReviewPanel({
         <p className="micro">
           {unanswered.length}{" "}
           {tr(
-            "line(s) could not be compared this run (no web search answer) — run the review again later.",
+            "line(s) could not be compared this run (no web search answer): run the review again later.",
           )}
         </p>
       )}

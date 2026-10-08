@@ -153,7 +153,7 @@ function NewRuleForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
       open
       onClose={onClose}
       size="lg"
-      title="New house rule"
+      title="New House Rule"
       description="A clause the system applies evenly. Created switched off."
     >
       <form className="space-y-4" onSubmit={submit}>

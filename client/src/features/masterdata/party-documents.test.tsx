@@ -86,7 +86,7 @@ const openAddDocument = async (extra?: Record<string, unknown>) => {
   await user.click(await screen.findByRole("button", { name: "+ Add" }));
   // The dialog title, not the submit button of the same words.
   expect(
-    await screen.findByRole("heading", { name: "Add document" }),
+    await screen.findByRole("heading", { name: "Add Document" }),
   ).toBeInTheDocument();
   return user;
 };
@@ -136,7 +136,7 @@ describe("Clients · Documents — the Add document form", () => {
     expect(await screen.findByText(/scan attached/i)).toBeInTheDocument();
     await waitFor(() =>
       expect(
-        screen.queryByRole("heading", { name: "Add document" }),
+        screen.queryByRole("heading", { name: "Add Document" }),
       ).toBeNull(),
     );
   });

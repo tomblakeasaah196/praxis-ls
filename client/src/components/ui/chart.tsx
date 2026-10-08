@@ -29,6 +29,7 @@ import * as React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { InfoHint } from "@/components/ui/info-hint";
 
 /* ─── Series colour: tokens, never literals ─────────────────────────────── */
 
@@ -109,9 +110,16 @@ export function Chart({
 }) {
   return (
     <figure className={cn("space-y-2", className)}>
-      <div>
+      {/* `description` is explanation, so it sits behind the ⓘ like every other
+          `description` in the app (guide §3.17). Sibling of the title, never a
+          child: nested, its aria-label would join the title's accessible name. */}
+      <div className="flex items-center gap-1.5">
         <Title className="text-sm font-medium text-foreground">{title}</Title>
-        {description && <p className="micro">{description}</p>}
+        {description ? (
+          <InfoHint label={typeof title === "string" ? `About ${title}` : "About this chart"}>
+            {description}
+          </InfoHint>
+        ) : null}
       </div>
       <div role="img" aria-label={ariaLabel} style={{ height }} className="w-full min-w-0">
         {children}

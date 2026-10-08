@@ -136,7 +136,7 @@ function CostingForm({
     <Modal
       open
       onClose={onClose}
-      title={tr("New costing")}
+      title={tr("New Costing")}
       description={tr(
         "What this operations file will cost us. Charges are added on the worksheet — Suggest loads the standard set for the file's service.",
       )}
@@ -1575,7 +1575,7 @@ function CashRequestForm({
       open
       onClose={onClose}
       size="lg"
-      title="New cash request"
+      title="New Cash Request"
       description="Request an advance against an operations file budget."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -1869,7 +1869,7 @@ export function CashRequestsPage() {
               variant="outline"
               loading={busyId === r.cash_request_id}
               onClick={() => importCosting(r)}
-              title="Import budget lines from the approved costing"
+              title="Import Budget Lines from the Approved Costing"
             >
               Import costing
             </Button>

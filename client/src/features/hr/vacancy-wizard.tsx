@@ -216,7 +216,7 @@ export function VacancyWizard({
       // `close` is async now (it may await a confirmation); the returned
       // promise is intentionally not awaited here — Modal's onClose is void.
       onClose={() => void close()}
-      title={tr("New vacancy")}
+      title={tr("New Vacancy")}
       description="Answer a few questions — type or speak them — and AI writes the advert."
       size="lg"
     >

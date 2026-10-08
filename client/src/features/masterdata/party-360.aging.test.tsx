@@ -30,7 +30,7 @@ vi.mock("@/app/auth/auth-context", async () => authContextMock());
 import { PartyDossier } from "./party-360";
 
 /** The two figures from the field report: 759,812.50 current, 6,847,500 in
- *  31–60. Both wrapped mid-number in the five-across phone grid. */
+ *  31-60. Both wrapped mid-number in the five-across phone grid. */
 const CLIENT_360 = {
   party: {
     client_id: "c1",
@@ -157,7 +157,7 @@ describe("AgingCard · the phone layout", () => {
       "title",
       "759,812.50 XAF",
     );
-    expect(await tileFor("31–60")).toHaveAttribute("title", "6,847,500.00 XAF");
+    expect(await tileFor("31-60")).toHaveAttribute("title", "6,847,500.00 XAF");
   });
 
   it("keeps five-across full-precision tiles from md up", async () => {

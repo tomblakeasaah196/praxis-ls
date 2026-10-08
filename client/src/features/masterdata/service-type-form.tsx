@@ -10,10 +10,12 @@
  */
 import * as React from "react";
 import { incoterms, serviceScope } from "@shared";
-import { tr } from "@/lib/i18n";
+import { tr, tv } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover } from "@/components/ui/popover";
+import { Pill } from "@/components/ui/pill";
 import { Modal, Field, Select } from "@/components/ui/modal";
 import { errMsg } from "@/lib/use-resource";
 import { cardLabel, incotermLabel } from "@/lib/quote-request-api";
@@ -28,6 +30,76 @@ import * as api from "@/lib/operations-api";
  * follows the key as it is typed, and the terms follow the card until somebody
  * ticks one; after that, their choice stands.
  */
+/**
+ * The eleven Incoterms, behind one button.
+ *
+ * They used to be eleven checkboxes in a three-column grid with a paragraph
+ * over them and a reset button under them: a third of the form's height, for a
+ * setting the key already gets right on almost every service anybody creates.
+ * The grid is the same grid, it just waits behind its own summary now, which is
+ * the state a reader actually wants ("All 11 ICC terms") rather than eleven
+ * ticks they have to count.
+ */
+function IncotermsField({
+  mode,
+  terms,
+  onTerms,
+}: {
+  mode: string;
+  terms: string[];
+  onTerms: (t: string[]) => void;
+}) {
+  const set = new Set(terms);
+  const total = incoterms.CODES.length;
+  const summary =
+    terms.length === total
+      ? tv("All {{total}} ICC terms", { total })
+      : terms.length === 0
+        ? tr("None chosen")
+        : tv("{{count}} of {{total}} terms", { count: terms.length, total });
+
+  return (
+    <Popover
+      label={tr("Incoterms offered")}
+      align="start"
+      className="w-[22rem] max-w-[calc(100vw-2rem)] p-3"
+      trigger={
+        <Button type="button" variant="outline" className="w-full justify-between font-normal">
+          <span>{summary}</span>
+          <span aria-hidden className="text-muted-foreground">
+            ▾
+          </span>
+        </Button>
+      }
+    >
+      <div className="grid grid-cols-2 gap-2">
+        {incoterms.CODES.map((code) => (
+          <Checkbox
+            key={code}
+            checked={set.has(code)}
+            onCheckedChange={(v) => {
+              const next = new Set(set);
+              if (v === true) next.add(code);
+              else next.delete(code);
+              onTerms(incoterms.normalise([...next]));
+            }}
+            label={incotermLabel(code)}
+          />
+        ))}
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-2 w-full"
+        onClick={() => onTerms(incoterms.defaultsForMode(mode))}
+      >
+        {tr("Reset to ICC 2020 defaults")}
+      </Button>
+    </Popover>
+  );
+}
+
 function QuoteFields({
   mode,
   terms,
@@ -39,12 +111,12 @@ function QuoteFields({
   onMode: (m: string) => void;
   onTerms: (t: string[]) => void;
 }) {
-  const set = new Set(terms);
   return (
     <>
       <Field
-        label={tr("Quote form card")}
-        hint={tr("Where this service sits when a client asks for a price — on the website, in the client portal and at the desk.")}
+        label={tr("Quote Form Card")}
+        about={tr("Where this service sits when a client asks for a price: the website, the client portal and the desk.")}
+        aboutLabel={tr("About the quote form card")}
       >
         <Select value={mode} onChange={(e) => onMode(e.target.value)}>
           {serviceScope.MODES.map((m) => (
@@ -54,31 +126,13 @@ function QuoteFields({
           ))}
         </Select>
       </Field>
-      <div className="sm:col-span-2">
-        <Field
-          label={tr("Incoterms offered")}
-          hint={tr("A request for this service may use only these, or “To be determined”. FAS, FOB, CFR and CIF are for sea and inland waterway only.")}
-        >
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {incoterms.CODES.map((code) => (
-              <Checkbox
-                key={code}
-                checked={set.has(code)}
-                onCheckedChange={(v) => {
-                  const next = new Set(set);
-                  if (v === true) next.add(code);
-                  else next.delete(code);
-                  onTerms(incoterms.normalise([...next]));
-                }}
-                label={incotermLabel(code)}
-              />
-            ))}
-          </div>
-          <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => onTerms(incoterms.defaultsForMode(mode))}>
-            {tr("Reset to the ICC 2020 defaults for this card")}
-          </Button>
-        </Field>
-      </div>
+      <Field
+        label={tr("Incoterms Offered")}
+        about={tr("A request may use only these, or “To be determined”. FAS, FOB, CFR and CIF are sea and inland waterway only.")}
+        aboutLabel={tr("About incoterms offered")}
+      >
+        <IncotermsField mode={mode} terms={terms} onTerms={onTerms} />
+      </Field>
     </>
   );
 }
@@ -168,34 +222,53 @@ export function ServiceTypeForm({
     <Modal
       open
       onClose={onClose}
-      title={isNew ? "New service type" : "Edit service type"}
-      description="A service you sell. Operations files are classified by it, and each one carries its own milestone chain."
+      title={isNew ? tr("New Service Type") : tr("Edit Service Type")}
     >
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr("Key")} required className={isNew ? "" : "opacity-60"}>
+          {/*
+            PERMANENCE IS SHOWN, NOT EXPLAINED (guide §3.17).
+
+            This field carried a sentence saying the key could never be changed.
+            On an existing service that sentence was redundant, because the
+            input is already disabled, and a disabled input says "not yours to
+            change" faster than any wording. On a NEW service it was the one
+            thing the operator had to know, and it was set in small grey
+            uppercase under the box, which is where the eye goes last.
+
+            So the warning became a badge ON the label, where it is read before
+            the field rather than after it, and the detail it used to spell out
+            moved behind the ⓘ for the one person in ten who wants to know why.
+          */}
+          <Field
+            label={
+              <span className="inline-flex items-center gap-2">
+                {tr("Key")}
+                {isNew ? <Pill tone="warn">{tr("Permanent")}</Pill> : null}
+              </span>
+            }
+            required
+            className={isNew ? "" : "opacity-60"}
+            about={
+              isNew
+                ? tr("The machine name, in SCREAMING_SNAKE. Other records point at it, so it cannot be changed once saved.")
+                : tr("Fixed. Dictionary items and operations files point at this key.")
+            }
+            aboutLabel={tr("About the key")}
+          >
             <Input
               value={f.key}
               onChange={(e) => set("key", e.target.value.toUpperCase())}
               placeholder="SEA_FREIGHT_IMPORT"
               disabled={!isNew}
             />
-            {isNew ? (
-              <p className="micro mt-1">
-                Permanent identifier, SCREAMING_SNAKE. Cannot be changed later.
-              </p>
-            ) : (
-              <p className="micro mt-1">
-                Fixed — other records reference this key.
-              </p>
-            )}
           </Field>
           <Field label={tr("Territory")}>
             <Select
               value={f.territory}
               onChange={(e) => set("territory", e.target.value)}
             >
-              <option value="">—</option>
+              <option value="">{tr("None")}</option>
               {api.TERRITORIES.map((t) => (
                 <option key={t} value={t}>
                   {t.replace(/_/g, " ").toLowerCase()}
@@ -211,8 +284,9 @@ export function ServiceTypeForm({
               origin, a destination and an Incoterm, including services that
               move nothing at all. */}
           <Field
-            label={tr("Quote form asks for")}
-            hint="What a visitor requesting this service has to tell you before the form will continue."
+            label={tr("Quote Form Asks For")}
+            about={tr("What a visitor has to tell you before the request form will continue.")}
+            aboutLabel={tr("About what the quote form asks for")}
           >
             <Select
               value={f.enquiry_shape}
@@ -262,18 +336,27 @@ export function ServiceTypeForm({
             let someone set the code they actually use before that happens than
             to discover it afterwards.
           */}
-          <Field label="Reference code">
+          {/*
+            The live example moved into the ⓘ rather than being deleted: it is
+            the clearest thing on the field, because two letters in isolation
+            mean nothing and SL7Z3K9QW2M4XBSM means everything to somebody who
+            reads these off paperwork. It interpolates the typed value, so the
+            panel shows the reference this service is about to mint.
+          */}
+          <Field
+            label={tr("Reference Code")}
+            about={tv(
+              "Closes this service's file references, like {{example}}. Blank generates one. Fixed once a file has used it.",
+              { example: `SL7Z3K9QW2M4XB${f.ops_reference_code || "SM"}` },
+            )}
+            aboutLabel={tr("About the reference code")}
+          >
             <Input
               value={f.ops_reference_code}
               onChange={(e) => set("ops_reference_code", e.target.value.toUpperCase().slice(0, 2))}
               placeholder={isNew ? "auto" : "SM"}
               maxLength={2}
             />
-            <p className="micro mt-1">
-              Closes this service&rsquo;s operation-file references, e.g.{" "}
-              <span className="font-mono">SL7Z3K9QW2M4XB{f.ops_reference_code || "SM"}</span>. Leave blank to
-              generate one. Fixed once a file has used it.
-            </p>
           </Field>
         </div>
         {error && <p className="text-sm text-[rgb(var(--bad))]">{error}</p>}

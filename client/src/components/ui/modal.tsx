@@ -18,6 +18,7 @@
  */
 import * as React from "react";
 import { cn } from "@/lib/cn";
+import { InfoHint } from "@/components/ui/info-hint";
 
 export { Dialog as Modal, ConfirmDialog } from "@/components/ui/dialog";
 
@@ -93,6 +94,8 @@ export { Dialog as Modal, ConfirmDialog } from "@/components/ui/dialog";
 export function Field({
   label,
   hint,
+  about,
+  aboutLabel,
   error,
   required,
   htmlFor,
@@ -113,8 +116,33 @@ export function Field({
    * Still keep it short and still a NOUN — see the note above.
    */
   label: React.ReactNode;
-  /** Guidance shown under the control. Announced after the label. */
+  /**
+   * Guidance shown under the control, PRINTED ON THE PAGE for every operator
+   * on every visit. Reach for `about` instead unless the user needs this
+   * before they can fill the field in at all (a format they must match, a
+   * consequence of the value they pick). `npm run check:prose` caps how long
+   * this may be and how many a screen may carry. See FRONTEND_GUIDE §3.17.
+   */
   hint?: string;
+  /**
+   * The same guidance, behind an ⓘ beside the label. This is where an
+   * explanation belongs once it is longer than a few words or is only wanted
+   * by a minority of users: the screen keeps the label, the answer stays one
+   * hover or tap away, and a screen reader still gets it from the control's
+   * `aria-describedby`.
+   *
+   * NOT for anything the user must know BEFORE acting. An irreversible choice
+   * or a destructive consequence is relocated to the control itself (locked,
+   * disabled) or to the `useConfirm()` body at the point of commit, never
+   * hidden behind a hover.
+   */
+  about?: string;
+  /**
+   * Accessible name for the ⓘ, e.g. "About reference code". Defaults to
+   * "About <label>" when `label` is a plain string. Pass a translated one
+   * where the surrounding screen runs through `tr()`.
+   */
+  aboutLabel?: string;
   /** Validation message. Sets aria-invalid and is announced via aria-describedby. */
   error?: string;
   required?: boolean;
@@ -138,9 +166,20 @@ export function Field({
   const labelId = `${uid}-label`;
   const hintId = hint ? `${uid}-hint` : undefined;
   const errorId = error ? `${uid}-error` : undefined;
+  const aboutId = about ? `${uid}-about` : undefined;
   // Error first: when a field is both invalid and hinted, the problem should be
   // read before the guidance.
-  const describedBy = [errorId, hintId].filter(Boolean).join(" ") || undefined;
+  //
+  // `aboutId` is in here deliberately. The ⓘ hides the text from the SCREEN,
+  // not from assistive technology: a screen-reader user who tabs into the
+  // control hears the explanation without having to find and open a popover
+  // they cannot see. Field owns the text node and lends its id to the ⓘ so
+  // there is exactly one copy of the sentence in the accessibility tree.
+  const describedBy =
+    [errorId, hintId, aboutId].filter(Boolean).join(" ") || undefined;
+  const aboutName =
+    aboutLabel ??
+    (typeof label === "string" ? `About ${label}` : "About this field");
 
   const only =
     React.Children.count(children) === 1
@@ -169,20 +208,36 @@ export function Field({
 
   return (
     <div className={cn("space-y-1.5", className)} data-field={dataField}>
-      <label
-        id={labelId}
-        htmlFor={controlId}
-        className="block text-sm font-medium text-foreground"
-      >
-        {label}
-        {/* The asterisk is decoration: `aria-required` on the control is what
-            actually conveys this, and "Client star" is not a field name. */}
-        {required && (
-          <span aria-hidden className="text-destructive">
-            {" *"}
-          </span>
-        )}
-      </label>
+      {/* The ⓘ sits BESIDE the <label>, never inside it. A button nested in a
+          label is activated by clicks meant for the label, and its text would
+          be absorbed into the control's accessible name, so the field would
+          announce as "Reference code, about reference code". */}
+      <div className="flex items-center gap-1.5">
+        <label
+          id={labelId}
+          htmlFor={controlId}
+          className="block text-sm font-medium text-foreground"
+        >
+          {label}
+          {/* The asterisk is decoration: `aria-required` on the control is what
+              actually conveys this, and "Client star" is not a field name. */}
+          {required && (
+            <span aria-hidden className="text-destructive">
+              {" *"}
+            </span>
+          )}
+        </label>
+        {about ? (
+          <>
+            <span id={aboutId} className="sr-only">
+              {about}
+            </span>
+            <InfoHint label={aboutName} textId={aboutId} side="top">
+              {about}
+            </InfoHint>
+          </>
+        ) : null}
+      </div>
 
       {control ?? (
         <div

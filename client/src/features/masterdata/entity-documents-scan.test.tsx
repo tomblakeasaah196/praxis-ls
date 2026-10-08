@@ -199,7 +199,7 @@ describe("Corporate entities · Documents — attaching a file", () => {
     // instead of leaving the tab looking like a dead end.
     expect(screen.queryByLabelText("Attach scan")).toBeNull();
     expect(
-      await screen.findByText(/attach the file later from the row/i),
+      await screen.findByText(/attach it later from the row/i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /add document/i }),
@@ -272,14 +272,14 @@ describe("Corporate entities · Documents — the stored-but-unlinked scan", () 
     await openDocuments([WAITING, PAPER_ONLY]);
 
     const waitingRow = screen.getByText("Licence douanière").closest("tr") as HTMLElement;
-    expect(within(waitingRow).getByText("File stored — link pending")).toBeInTheDocument();
+    expect(within(waitingRow).getByText("File stored: link pending")).toBeInTheDocument();
     // The pill is a link-state, not a scan-state: the scan column still says
     // Pending, because no scan is LINKED yet — that is the honest pair.
     expect(within(waitingRow).getByText("Pending")).toBeInTheDocument();
 
     // A plain paper-only row is NOT waiting on a link, and must not say it is.
     const paperRow = screen.getByText("Certificat d'incorporation").closest("tr") as HTMLElement;
-    expect(within(paperRow).queryByText("File stored — link pending")).toBeNull();
+    expect(within(paperRow).queryByText("File stored: link pending")).toBeNull();
   });
 
   it("explains that the reconciliation finishes the link, so nobody re-uploads", async () => {

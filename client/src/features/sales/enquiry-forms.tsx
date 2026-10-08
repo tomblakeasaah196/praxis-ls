@@ -201,7 +201,7 @@ export function ManageEnquiryModal({
       open={open}
       onClose={onClose}
       size="xl"
-      title="Manage enquiry"
+      title="Manage Enquiry"
       description="Classify it, answer it, route it into the funnel, or close it."
       headerRight={<StatusPill status={status} />}
       footer={
