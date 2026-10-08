@@ -41,7 +41,8 @@ const pinSet = asyncHandler(async (req, res) => res.json({
 }));
 const pinRemove = asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.removeQuickPin(c, { userId: req.user.user_id })) }));
 const pinLogin = asyncHandler(async (req, res) => {
-  const result = await req.identityDb((c) => service.pinLogin(c, { email: req.body.email, pin: req.body.pin, ip: req.ip, userAgent: req.headers["user-agent"], environment: req.env }));
+  const deviceTrusted = await knownDevice.mfaTrustForEmail(req, req.body.email);
+  const result = await req.identityDb((c) => service.pinLogin(c, { email: req.body.email, pin: req.body.pin, ip: req.ip, userAgent: req.headers["user-agent"], environment: req.env, deviceTrusted }));
   if (result && result.access_token) await knownDevice.remember(req, res, { userId: result.user.user_id });
   res.json({ data: result });
 });
@@ -83,6 +84,11 @@ const device = asyncHandler(async (req, res) => {
 });
 
 const login = asyncHandler(async (req, res) => {
+  // Resolved here, not in the service: the trust lives on the request's device
+  // cookie, and the service never sees a request. It is read for an email the
+  // caller supplied and acted on only after the password passes, so it reveals
+  // nothing and skips nothing on its own (14401, known-device.js).
+  const deviceTrusted = await knownDevice.mfaTrustForEmail(req, req.body.email);
   const result = await req.identityDb((client) =>
     service.login(client, {
       email: req.body.email,
@@ -90,6 +96,7 @@ const login = asyncHandler(async (req, res) => {
       ip: req.ip,
       userAgent: req.headers["user-agent"],
       environment: req.env,
+      deviceTrusted,
     }),
   );
   // A pending 2FA challenge is not a sign-in yet; the code that completes it is.
@@ -179,23 +186,65 @@ const verifyTotp = asyncHandler(async (req, res) => {
       environment: req.env,
     }),
   );
-  if (result && result.access_token) await knownDevice.remember(req, res, { userId: result.user.user_id });
+  // `mfa_trust_until` is an INSTRUCTION to this layer, not part of the response:
+  // the same call that remembers the device stamps the window. It comes off
+  // UNCONDITIONALLY, before any branch, so no path can serialise it.
+  const trustUntil = result && result.mfa_trust_until ? result.mfa_trust_until : null;
+  if (result) delete result.mfa_trust_until;
+  if (result && result.access_token) {
+    await knownDevice.remember(req, res, { userId: result.user.user_id, mfaTrustedUntil: trustUntil });
+  }
   res.json({ data: result });
 });
 
 const setupTotp = asyncHandler(async (req, res) => {
-  res.json({ data: await req.identityDb((client) => service.setupTotp(client, req.user.user_id)) });
+  res.json({
+    data: await req.identityDb((client) =>
+      service.setupTotp(client, req.user.user_id, {
+        sessionId: req.user.session_id || null,
+        currentPassword: req.body ? req.body.current_password || null : null,
+      }),
+    ),
+  });
 });
 
 const enableTotp = asyncHandler(async (req, res) => {
   res.json({
-    data: await req.identityDb((client) => service.enableTotp(client, req.user.user_id, req.body.code)),
+    data: await req.identityDb((client) =>
+      service.enableTotp(client, req.user.user_id, req.body.code, { frequency: req.body.frequency || null }),
+    ),
   });
 });
 
 const disableTotp = asyncHandler(async (req, res) => {
   res.json({
-    data: await req.identityDb((client) => service.disableTotp(client, req.user.user_id, req.body.code)),
+    data: await req.identityDb((client) =>
+      service.disableTotp(client, req.user.user_id, {
+        sessionId: req.user.session_id || null,
+        currentPassword: req.body ? req.body.current_password || null : null,
+      }),
+    ),
+  });
+});
+
+const mfaStatus = asyncHandler(async (req, res) => {
+  res.json({ data: await req.identityDb((client) => service.mfaStatus(client, req.user.user_id)) });
+});
+
+const setMfaFrequency = asyncHandler(async (req, res) => {
+  res.json({
+    data: await req.identityDb((client) =>
+      service.setMfaFrequency(client, req.user.user_id, req.body.frequency),
+    ),
+  });
+});
+
+/** Administrator clears another person's authenticator (MOD-67 edit). */
+const resetMfa = asyncHandler(async (req, res) => {
+  res.json({
+    data: await req.identityDb((client) =>
+      service.resetMfaForUser(client, { id: req.params.id, actor: req.user }),
+    ),
   });
 });
 
@@ -213,6 +262,9 @@ module.exports = {
   setupTotp,
   enableTotp,
   disableTotp,
+  mfaStatus,
+  setMfaFrequency,
+  resetMfa,
   refresh,
   me,
   logout,

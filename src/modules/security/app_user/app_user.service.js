@@ -43,11 +43,16 @@ const encryption = require("../../../services/encryption.service");
 const emailService = require("../../../services/email.service");
 const storage = require("../../../services/storage.service");
 const imagePipeline = require("../../../services/image-pipeline.service");
+const qr = require("../../../services/signatures/qr");
 const passwordPolicy = require("../../../shared/security/password-policy");
 const notificationRepo = require("../../notification/notification.repo");
 const repo = require("./app_user.repo");
 const events = require("./app_user.events");
 const sessionPolicy = require("./session-policy");
+// The device the SERVER remembers — read here only for the MFA trust window
+// it carries (14401). known-device.js documents what that window may and may
+// not stand in for.
+const knownDeviceRepo = require("./known-device.repo");
 const governance = require("../../ai/governance/governance.service");
 const entitlement = require("../../../services/platform/entitlement.service");
 const { quickPin } = require("@praxis/shared");
@@ -269,7 +274,13 @@ function throttleFor(user, now = Date.now()) {
   return remaining > 0 ? remaining : 0;
 }
 
-async function login(client, { email, password, ip, userAgent, environment }) {
+/**
+ * `deviceTrusted` is resolved by the CONTROLLER from the device cookie
+ * (known-device.js) before this runs — the service never sees the request. It
+ * is only ever consulted here, AFTER the password has already checked out, so
+ * it substitutes for the second factor and never for the first.
+ */
+async function login(client, { email, password, ip, userAgent, environment, deviceTrusted = false }) {
   const user = await repo.findByEmail(client, String(email || "").toLowerCase());
 
   // SEC-C3. Checked BEFORE argon2.verify: verification is deliberately
@@ -321,7 +332,7 @@ async function login(client, { email, password, ip, userAgent, environment }) {
   const passwordOk = await argon2.verify(user.password_hash, password || "").catch(() => false);
   if (!passwordOk) return fail("bad_password");
 
-  if (user.is_2fa_enabled) {
+  if (user.is_2fa_enabled && !deviceTrusted) {
     return {
       pending_2fa: true,
       pending_token: signPendingTwoFaToken(user.user_id),
@@ -329,7 +340,14 @@ async function login(client, { email, password, ip, userAgent, environment }) {
     };
   }
 
-  return issueSessionTokens(client, user, { ip, userAgent, environment, method: "password" });
+  return issueSessionTokens(client, user, {
+    ip,
+    userAgent,
+    environment,
+    // Named in the LOGIN_SUCCEEDED event payload, so "why was no code asked
+    // for" is answerable from the record rather than inferred.
+    method: user.is_2fa_enabled ? "password+trusted_device" : "password",
+  });
 }
 
 async function verifyTotp(client, { pendingToken, code, ip, userAgent, environment }) {
@@ -350,29 +368,148 @@ async function verifyTotp(client, { pendingToken, code, ip, userAgent, environme
 
   const secret = encryption.decrypt(user.totp_secret_enc);
   const ok = authenticator.verify({ token: String(code || ""), secret });
-  if (!ok) {
+
+  /* A recovery code is the SAME door, under the same rate limiter — not a
+     quieter one beside it. Tried only once the TOTP has failed, so the common
+     path costs no argon2 at all. */
+  const viaRecovery = ok ? false : await spendRecoveryCode(client, user.user_id, code);
+
+  if (!ok && !viaRecovery) {
     await repo.recordLoginFailure(client, user.user_id);
     throw new AppError("INVALID_2FA_CODE", "Invalid authentication code", 401);
   }
 
-  const method = payload.via === "pin" ? "pin+totp" : "password+totp";
-  return issueSessionTokens(client, user, { ip, userAgent, environment, method });
+  const base = payload.via === "pin" ? "pin+totp" : "password+totp";
+  const method = viaRecovery ? `${base.split("+")[0]}+recovery_code` : base;
+  const tokens = await issueSessionTokens(client, user, { ip, userAgent, environment, method });
+
+  if (viaRecovery) {
+    const left = await repo.countLiveRecoveryCodes(client, user.user_id);
+    await audit(client, {
+      actorUserId: user.user_id,
+      actorName: user.full_name || user.email || null,
+      actorEmail: user.email || null,
+      action: events.TWOFA_RECOVERY_USED,
+      moduleKey: events.MODULE,
+      entityRef: `app_user:${user.user_id}`,
+      // Somebody got in without the authenticator. That is either the owner
+      // after losing a phone or an attacker holding a leaked printout, and
+      // both are worth a line a human will see.
+      isSensitive: true,
+      payload: { codes_remaining: left },
+    });
+  }
+
+  /* A device only earns its window by proving a factor HERE. A recovery code
+     counts: it is the second factor, spent, and refusing to trust the device
+     afterwards would ask someone with a lost phone for a code they cannot
+     produce at every sign-in until they re-enrol. */
+  tokens.mfa_trust_until = mfaTrustUntil(user.mfa_frequency || "always");
+  return tokens;
+}
+
+/* ── The authenticator, as a person experiences it (14401) ─────────────────
+ *
+ * How often it asks. 'always' is every sign-in and is the default; 'daily' and
+ * 'monthly' let a device that has already proved a code skip the next ones for
+ * 24 hours or 30 days. The window is ROLLING from the last code proved, not a
+ * calendar day: someone who signs in at 23:50 is not asked again at 00:01.
+ */
+const MFA_FREQUENCIES = ["always", "daily", "monthly"];
+const MFA_TRUST_DAYS = { always: 0, daily: 1, monthly: 30 };
+
+/** When this device may stop being asked, or null for 'always'. */
+function mfaTrustUntil(frequency) {
+  const days = MFA_TRUST_DAYS[frequency] || 0;
+  return days ? new Date(Date.now() + days * 24 * 60 * 60 * 1000) : null;
+}
+
+/* Recovery codes — the way back in when the phone is gone.
+ *
+ * Ten codes of ten characters, from an alphabet with no 0/O and no 1/I/L: these
+ * are read off a screenshot or a printout and typed by hand, and a code that
+ * cannot be transcribed is not a recovery path. 31^10 is ~2^49.5, which behind
+ * argon2id at ~90ms a guess is not brute-forceable offline.
+ *
+ * Verification walks the (at most ten) live hashes. That is up to ~0.9s on a
+ * route that is deliberately slow and the tightest rate-limited in the app, and
+ * it is the price of storing no lookup handle for a secret.
+ */
+const RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const RECOVERY_CODE_COUNT = 10;
+const RECOVERY_CODE_LENGTH = 10;
+
+/** `randomInt` rather than `randomBytes % n`: the modulo is biased when the
+ *  alphabet does not divide 256, and here it does not. */
+function newRecoveryCode() {
+  let out = "";
+  for (let i = 0; i < RECOVERY_CODE_LENGTH; i += 1) {
+    out += RECOVERY_ALPHABET[crypto.randomInt(RECOVERY_ALPHABET.length)];
+  }
+  // Grouped for the eye; the dash is cosmetic and normalisation drops it.
+  return `${out.slice(0, 5)}-${out.slice(5)}`;
+}
+
+/** What the user typed, reduced to what was generated: case and the grouping
+ *  dash (and any spaces a paste brings) must not decide whether they get in. */
+function normaliseRecoveryCode(input) {
+  return String(input || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/** Mint a fresh set, replacing any previous one, and return the PLAINTEXT —
+ *  the only moment it exists. Called on enable and on an administrator's
+ *  reset-and-re-enrol, never on a read. */
+async function mintRecoveryCodes(client, userId) {
+  const codes = Array.from({ length: RECOVERY_CODE_COUNT }, newRecoveryCode);
+  const hashes = await Promise.all(
+    codes.map((c) => argon2.hash(normaliseRecoveryCode(c), ARGON)),
+  );
+  await repo.replaceRecoveryCodes(client, userId, hashes);
+  return codes;
+}
+
+/**
+ * Spend a recovery code. Returns true when one matched and was burned.
+ *
+ * The burn is guarded in SQL (`used_at IS NULL`), so two requests racing the
+ * same code produce exactly one winner — a code presented twice, by whoever,
+ * works once.
+ */
+async function spendRecoveryCode(client, userId, presented) {
+  const candidate = normaliseRecoveryCode(presented);
+  if (candidate.length !== RECOVERY_CODE_LENGTH) return false;
+  const live = await repo.liveRecoveryCodes(client, userId);
+  for (const row of live) {
+    const ok = await argon2.verify(row.code_hash, candidate).catch(() => false);
+    if (ok) return repo.burnRecoveryCode(client, row.code_id);
+  }
+  return false;
 }
 
 /** Generates+stores a secret but does NOT enable 2FA yet — enableTotp()
  *  requires proving one valid code against it first, so a user can't
- *  lock themselves out by fat-fingering enrollment. */
-async function setupTotp(client, userId) {
+ *  lock themselves out by fat-fingering enrollment.
+ *
+ *  Returns the QR as an SVG data URL. The screen used to print the raw
+ *  `otpauth://` string and ask the person to "scan the link", which no
+ *  authenticator app can do: that URL is what a QR ENCODES, and a camera is
+ *  how it is read. `otpauth_url` is still returned for the manual path and for
+ *  a client older than this change. */
+async function setupTotp(client, userId, { sessionId = null, currentPassword = null } = {}) {
   const user = await repo.getTotpSecret(client, userId);
   if (!user) throw new AppError("NOT_FOUND", "User not found", 404);
+
+  // Same bar as adding a passkey or a PIN: minting a second factor on a
+  // session someone walked away from is how an attacker makes one THEIRS.
+  await sessionPolicy.assertFreshAuth(client, { sessionId, userId, currentPassword });
 
   const secret = authenticator.generateSecret();
   await repo.setTotpSecret(client, userId, encryption.encrypt(secret));
   const otpauthUrl = authenticator.keyuri(user.email, "Praxis LS", secret);
-  return { secret, otpauth_url: otpauthUrl };
+  return { secret, otpauth_url: otpauthUrl, qr_svg: await qr.dataUrl(otpauthUrl) };
 }
 
-async function enableTotp(client, userId, code) {
+async function enableTotp(client, userId, code, { frequency = null } = {}) {
   const user = await repo.getTotpSecret(client, userId);
   if (!user || !user.totp_secret_enc) {
     throw new AppError("SETUP_REQUIRED", "Run 2FA setup before enabling", 400);
@@ -382,6 +519,12 @@ async function enableTotp(client, userId, code) {
     throw new AppError("INVALID_2FA_CODE", "Invalid authentication code", 401);
   }
   await repo.setTotpEnabled(client, userId, true);
+  if (frequency) await repo.setMfaFrequency(client, userId, frequency);
+  // Every device starts untrusted, whatever the frequency: the window is
+  // earned by proving a code at a sign-in, not by enrolling.
+  await knownDeviceRepo.revokeMfaTrust(client, userId);
+  // Shown once, here, and nowhere else ever again.
+  const recoveryCodes = await mintRecoveryCodes(client, userId);
   await identityCache.invalidateUser(userId);
   await emitEvent(client, {
     eventTypeKey: events.TWOFA_ENABLED,
@@ -399,19 +542,34 @@ async function enableTotp(client, userId, code) {
     // Enabling 2FA is a security-posture change — deserves the badge.
     isSensitive: true,
   });
-  return { is_2fa_enabled: true };
+  return {
+    is_2fa_enabled: true,
+    mfa_frequency: frequency || user.mfa_frequency || "always",
+    recovery_codes: recoveryCodes,
+  };
 }
 
-async function disableTotp(client, userId, code) {
+/**
+ * Turn the authenticator off.
+ *
+ * It used to demand a fresh 6-digit code, which locked out the one person who
+ * most needs this: someone whose phone is gone cannot produce a code, so their
+ * only exit was an administrator. The bar is now the same one that protects
+ * every other credential change on this screen — a recent sign-in, or the
+ * account password (sessionPolicy.assertFreshAuth) — plus the named,
+ * destructive confirmation the UI puts in front of it.
+ */
+async function disableTotp(client, userId, { sessionId = null, currentPassword = null } = {}) {
   const user = await repo.getTotpSecret(client, userId);
   if (!user || !user.is_2fa_enabled) {
     throw new AppError("NOT_ENABLED", "2FA is not enabled", 400);
   }
-  const secret = encryption.decrypt(user.totp_secret_enc);
-  if (!authenticator.verify({ token: String(code || ""), secret })) {
-    throw new AppError("INVALID_2FA_CODE", "Invalid authentication code", 401);
-  }
+  await sessionPolicy.assertFreshAuth(client, { sessionId, userId, currentPassword });
   await repo.setTotpEnabled(client, userId, false);
+  // The factor is gone, so everything that stood in for it goes with it: no
+  // orphan recovery code, no device still inside a window it earned.
+  await repo.deleteRecoveryCodes(client, userId);
+  await knownDeviceRepo.revokeMfaTrust(client, userId);
   await identityCache.invalidateUser(userId);
   await emitEvent(client, {
     eventTypeKey: events.TWOFA_DISABLED,
@@ -430,6 +588,97 @@ async function disableTotp(client, userId, code) {
     isSensitive: true,
   });
   return { is_2fa_enabled: false };
+}
+
+/**
+ * What the My Security card renders: is it on, how often does it ask, and how
+ * many ways back in are left. No secret, no code, nothing that could be used
+ * to sign in — this is a GET on an authenticated session.
+ */
+async function mfaStatus(client, userId) {
+  const user = await repo.getTotpSecret(client, userId);
+  if (!user) throw new AppError("NOT_FOUND", "User not found", 404);
+  return {
+    is_2fa_enabled: !!user.is_2fa_enabled,
+    mfa_frequency: user.mfa_frequency || "always",
+    recovery_codes_remaining: user.is_2fa_enabled
+      ? await repo.countLiveRecoveryCodes(client, userId)
+      : 0,
+  };
+}
+
+/**
+ * Change how often the authenticator asks.
+ *
+ * EVERY device's window is dropped, in both directions. Tightening is obvious
+ * (a month-long window must not outlive the decision to end it). Loosening
+ * matters too: moving to 'monthly' should not silently backdate a window a
+ * device earned under 'daily' into one thirty times longer. Either way the
+ * next sign-in asks once, and the new rule starts from there.
+ */
+async function setMfaFrequency(client, userId, frequency) {
+  if (!MFA_FREQUENCIES.includes(frequency)) {
+    throw new AppError("VALIDATION_ERROR", "Unknown verification frequency", 400);
+  }
+  const user = await repo.getTotpSecret(client, userId);
+  if (!user || !user.is_2fa_enabled) {
+    throw new AppError("NOT_ENABLED", "2FA is not enabled", 400);
+  }
+  await repo.setMfaFrequency(client, userId, frequency);
+  await knownDeviceRepo.revokeMfaTrust(client, userId);
+  await audit(client, {
+    actorUserId: userId,
+    actorName: user.full_name || user.email || null,
+    actorEmail: user.email || null,
+    action: events.TWOFA_FREQUENCY_CHANGED,
+    moduleKey: events.MODULE,
+    entityRef: `app_user:${userId}`,
+    isSensitive: true,
+    payload: { mfa_frequency: frequency },
+  });
+  return { is_2fa_enabled: true, mfa_frequency: frequency };
+}
+
+/**
+ * An administrator clears somebody else's authenticator — the path for a lost
+ * phone with no recovery code left.
+ *
+ * It does NOT hand out a new secret or a new code: it puts the account back to
+ * "no second factor", and the owner re-enrols from their own My Security card.
+ * An administrator who could mint a working factor for another person could
+ * also mint one for themselves on that account.
+ *
+ * Guarded by MOD-67 edit at the route, which is the same authority as setting
+ * somebody's password — exercised, as there, in the direction where the
+ * administrator never learns a credential.
+ */
+async function resetMfaForUser(client, { id, actor }) {
+  const user = await repo.getTotpSecret(client, id);
+  if (!user) throw new AppError("NOT_FOUND", "User not found", 404);
+  if (!user.is_2fa_enabled) return { is_2fa_enabled: false, reset: false };
+
+  await repo.setTotpEnabled(client, id, false);
+  await repo.deleteRecoveryCodes(client, id);
+  await knownDeviceRepo.revokeMfaTrust(client, id);
+  await identityCache.invalidateUser(id);
+  await emitEvent(client, {
+    eventTypeKey: events.TWOFA_RESET,
+    moduleKey: events.MODULE,
+    entityRef: `app_user:${id}`,
+    actorUserId: actor ? actor.user_id : null,
+  });
+  await audit(client, {
+    actorUserId: actor ? actor.user_id : null,
+    actorName: (actor && (actor.display_name || actor.full_name)) || null,
+    actorEmail: (actor && actor.email) || null,
+    action: events.TWOFA_RESET,
+    moduleKey: events.MODULE,
+    entityRef: `app_user:${id}`,
+    // One person removing another's second factor. Always sensitive.
+    isSensitive: true,
+    payload: { subject_email: user.email || null },
+  });
+  return { is_2fa_enabled: false, reset: true };
 }
 
 /** Pure reuse-detection predicate (exported for tests): true when the presented
@@ -1401,7 +1650,7 @@ async function removeQuickPin(client, { userId }) {
  * Returns the token pair, or `{ pending_2fa }` for an account with an
  * authenticator app — the PIN replaced the password, not the code.
  */
-async function pinLogin(client, { email, pin, ip, userAgent, environment }) {
+async function pinLogin(client, { email, pin, ip, userAgent, environment, deviceTrusted = false }) {
   const unavailable = new AppError(
     "PIN_LOGIN_UNAVAILABLE",
     "Quick PIN isn't set up for this account. Sign in with your password.",
@@ -1450,14 +1699,19 @@ async function pinLogin(client, { email, pin, ip, userAgent, environment }) {
   }
   await repo.recordQuickPinSuccess(client, user.user_id);
 
-  if (user.is_2fa_enabled) {
+  if (user.is_2fa_enabled && !deviceTrusted) {
     return {
       pending_2fa: true,
       pending_token: signPendingTwoFaToken(user.user_id, "pin"),
       expires_in: TWOFA_PENDING_TTL,
     };
   }
-  return issueSessionTokens(client, user, { ip, userAgent, environment, method: "pin" });
+  return issueSessionTokens(client, user, {
+    ip,
+    userAgent,
+    environment,
+    method: user.is_2fa_enabled ? "pin+trusted_device" : "pin",
+  });
 }
 
 module.exports = {
@@ -1474,6 +1728,15 @@ module.exports = {
   setupTotp,
   enableTotp,
   disableTotp,
+  mfaStatus,
+  setMfaFrequency,
+  resetMfaForUser,
+  // Exported for tests: the trust window and the recovery-code alphabet are
+  // the security-relevant decisions here, and both should be assertable
+  // without standing up a database.
+  mfaTrustUntil,
+  normaliseRecoveryCode,
+  MFA_FREQUENCIES,
   refresh,
   refreshTokenReused,
   me,

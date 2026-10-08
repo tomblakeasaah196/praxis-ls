@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 143,
-  "route_count": 1878,
+  "route_count": 1881,
   "tiers": {
     "public": 75,
-    "self-scoped": 115,
-    "gated": 1688
+    "self-scoped": 117,
+    "gated": 1689
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -1382,6 +1382,12 @@
       "rbac": true,
       "validated": false,
       "tier": "gated"
+    },
+    "GET /api/tenant/auth/2fa": {
+      "auth": true,
+      "rbac": false,
+      "validated": false,
+      "tier": "self-scoped"
     },
     "GET /api/tenant/auth/device": {
       "auth": false,
@@ -10725,6 +10731,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/users/:id/2fa/reset": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/users/:id/invite": {
       "auth": true,
       "rbac": true,
@@ -10982,6 +10994,12 @@
       "rbac": true,
       "validated": false,
       "tier": "gated"
+    },
+    "PUT /api/tenant/auth/2fa/frequency": {
+      "auth": true,
+      "rbac": false,
+      "validated": false,
+      "tier": "self-scoped"
     },
     "PUT /api/tenant/auth/pin": {
       "auth": true,

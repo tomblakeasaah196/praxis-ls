@@ -61,4 +61,70 @@ async function forgetPasskey(client, { userId, credentialId }) {
   );
 }
 
-module.exports = { upsert, latestAccount, forgetPasskey, MAX_IDS };
+/* ── The authenticator, between asks (14401) ───────────────────────────────
+ *
+ * `mfa_trusted_until` records that THIS (device, person) already proved a TOTP
+ * code, so a 'daily' or 'monthly' account is not asked again until it lapses.
+ * Read known-device.js's safety note first: the trust is consumed only after
+ * the password or the Quick PIN has already passed, so the cookie alone still
+ * unlocks nothing.
+ */
+
+/** Stamp the trust. No-op for a device this person has never signed in on —
+ *  `remember()` creates that row, and it runs on the same request. */
+async function trustForMfa(client, { deviceHash, userId, until }) {
+  await client.query(
+    `UPDATE user_known_device SET mfa_trusted_until = $3
+      WHERE device_hash = $1 AND user_id = $2`,
+    [deviceHash, userId, until],
+  );
+}
+
+/**
+ * True while this device may skip the code for the person signing in as
+ * `email`. `now()` is the DATABASE's clock on purpose: a trust window must not
+ * be extendable by a machine with a wrong clock.
+ *
+ * Keyed on the email because the caller is the LOGIN route, which has no user
+ * id yet — and must not acquire one before the password is checked. The join
+ * answers one question, "is this exact pairing trusted", and answers it `false`
+ * for an address that does not exist, so it tells a caller nothing it could
+ * not already infer. `email` is citext, so the comparison is case-insensitive
+ * in the column's own collation rather than by lowercasing here.
+ */
+async function mfaTrustedForEmail(client, { deviceHash, email }) {
+  const { rows } = await client.query(
+    `SELECT 1
+       FROM user_known_device d
+       JOIN app_user u ON u.user_id = d.user_id
+      WHERE d.device_hash = $1
+        AND u.email = $2
+        AND u.status = 'ACTIVE'
+        AND d.mfa_trusted_until IS NOT NULL
+        AND d.mfa_trusted_until > now()`,
+    [deviceHash, email],
+  );
+  return rows.length > 0;
+}
+
+/** Forget every device's trust for this person — on disable, on an
+ *  administrator's reset, and whenever the frequency changes (the person is
+ *  tightening it, and a window opened under the old setting must not outlive
+ *  the decision to change it). */
+async function revokeMfaTrust(client, userId) {
+  await client.query(
+    `UPDATE user_known_device SET mfa_trusted_until = NULL
+      WHERE user_id = $1 AND mfa_trusted_until IS NOT NULL`,
+    [userId],
+  );
+}
+
+module.exports = {
+  upsert,
+  latestAccount,
+  forgetPasskey,
+  trustForMfa,
+  mfaTrustedForEmail,
+  revokeMfaTrust,
+  MAX_IDS,
+};

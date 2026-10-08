@@ -1219,6 +1219,27 @@ Standalone, next to a heading, a stat or a checkbox:
 </div>
 ```
 
+On a settings card, the slot is `<SettingsCard action>`, which renders in the
+card's top-right beside the `pending backend` badge. A card whose explanation
+runs past a few words puts it there and drops `desc` entirely, rather than
+printing a paragraph under every card title on every visit:
+
+```tsx
+<SettingsCard
+  title="Authenticator App"
+  action={
+    <InfoHint label={tr("About the authenticator app")}>
+      {tr("A phone app shows a 6-digit code that changes every 30 seconds…")}
+    </InfoHint>
+  }
+>
+  …
+</SettingsCard>
+```
+
+`desc` stays for the short captions that genuinely read better in the open; it
+is printed, so the length cap in §3.17 applies to it as it does to `hint`.
+
 **The ⓘ is always a SIBLING of the thing it explains, never a child of it.** An
 `<InfoHint>` inside a `<label>`, an `<h2>` or a `RadixDialog.Title` puts its
 `aria-label` into that element's accessible name, so "Shareholding" announces as
