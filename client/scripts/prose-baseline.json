@@ -95,7 +95,6 @@
     "client/src/features/fleet/incidents.tsx": 1,
     "client/src/features/fleet/vehicle.tsx": 1,
     "client/src/features/fleet/work-orders.tsx": 1,
-    "client/src/features/godmode/godmode-page.tsx": 1,
     "client/src/features/governance/approvals.tsx": 2,
     "client/src/features/governance/audit.tsx": 8,
     "client/src/features/governance/notifications.tsx": 2,
@@ -467,9 +466,6 @@
     "client/src/features/settings/tax-jurisdictions.tsx": 3,
     "client/src/features/settings/website-insights.tsx": 2,
     "client/src/features/settings/website-theme.tsx": 2,
-    "client/src/features/vault/compliance-flags.tsx": 1,
-    "client/src/features/vault/documents.tsx": 1,
-    "client/src/features/vault/reports.tsx": 3,
     "client/src/features/wms/equipment.tsx": 1,
     "client/src/features/wms/location-360.tsx": 3,
     "client/src/lib/client-families-state.ts": 1,
@@ -513,7 +509,6 @@
     "client/src/features/fleet/drivers.tsx": 1,
     "client/src/features/fleet/fuel.tsx": 2,
     "client/src/features/fleet/incidents.tsx": 1,
-    "client/src/features/godmode/godmode-page.tsx": 1,
     "client/src/features/governance/approvals.tsx": 2,
     "client/src/features/governance/audit.tsx": 1,
     "client/src/features/governance/notifications.tsx": 1,
@@ -575,10 +570,6 @@
     "client/src/features/settings/tax-jurisdictions.tsx": 3,
     "client/src/features/support/new-ticket-modal.tsx": 1,
     "client/src/features/support/support-page.tsx": 2,
-    "client/src/features/vault/hub.tsx": 4,
-    "client/src/features/vault/reconciliation.tsx": 1,
-    "client/src/features/vault/sign-document.tsx": 2,
-    "client/src/features/vault/signatures.tsx": 1,
     "client/src/features/wms/cycle-count.tsx": 1,
     "client/src/features/wms/equipment.tsx": 1,
     "client/src/features/wms/location-360.tsx": 3,
@@ -643,5 +634,16 @@
   },
   "catalogue": {
     "client/src/lib/i18n-dict.ts": 6
+  },
+  "eyebrow": {
+    "client/src/features/commercial/extra-charge-simulations.tsx": 2,
+    "client/src/features/costing/pages.tsx": 1,
+    "client/src/features/costing/reconciliation.tsx": 1,
+    "client/src/features/finance/hub.tsx": 1,
+    "client/src/features/operations/delivery-note-360.tsx": 1,
+    "client/src/features/operations/delivery-progress.tsx": 1,
+    "client/src/features/operations/transit-order-360.tsx": 2,
+    "client/src/features/security/hub.tsx": 3,
+    "client/src/features/vault/hub.tsx": 2
   }
 }

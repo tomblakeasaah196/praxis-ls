@@ -30,6 +30,12 @@ import {
 } from "@/components/vault-preview-dialog";
 
 const FILE_CONTEXTS = [
+  /* The product-wide spelling of an empty option, and NOT title-cased here.
+     `entity-picker.tsx`, `department-select.tsx` and nine sales forms render
+     the same string, one of them pinned by name in entity-picker.test.tsx, so
+     retitling this copy alone would put two spellings of one option in the
+     product. Its em dashes are a separate job of the same size: §3.18.
+     @prose:keep product-wide empty-option label, swept with the other nine. */
   { value: "", label: "— none —" },
   { value: "OPS", label: "Operations" },
   { value: "OVH", label: "Overhead" },
@@ -281,7 +287,7 @@ export function DocumentsPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Vault & Compliance" to="/vault" />}
         title={tr("Documents")}
-        description="The confidential document vault — uploaded evidence with tamper-evident fingerprints."
+        description="Uploaded evidence, held with a tamper-evident fingerprint for each file."
         action={
           <Button onClick={() => setUploadOpen(true)}>Upload document</Button>
         }

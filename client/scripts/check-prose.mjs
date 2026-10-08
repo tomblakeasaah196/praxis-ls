@@ -695,6 +695,32 @@ for (const f of files()) {
         problems.eyebrow.push({ key, line: i + 1, text });
       }
     }
+    /* 3b. THE SAME SLOT, UNDER THE NAME `subtitle`.
+     *
+     * `<Panel subtitle>` and `<Section subtitle>` render into
+     * `text-micro uppercase text-muted-foreground`, and the prop is documented
+     * as "Units / scope / as-of qualifier under the title" — a caption. The
+     * .eyebrow rule exists because a sentence in a caption's slot is a
+     * paragraph in a caption's clothes, and it read only the CLASS, so the slot
+     * spelled as a prop went unmeasured.
+     *
+     * Costing's reconciliation panel put 167 characters there. Rendered
+     * UPPERCASE, at caption size, above the table it describes. That is the
+     * tenant's complaint in its strongest form, and both gates called it clean.
+     *
+     * 18 in the tree, so it ratchets: the eyebrow bucket gains a baseline here
+     * for the first time, which costs nothing because it was empty. */
+    /* Not a docblock's example of the prop. `panel.tsx`'s own JSDoc shows
+       `subtitle="Smart receivables ledger · XAF"`, which renders nowhere. */
+    const sub = inBlockComment || trimmed.startsWith("*") || trimmed.startsWith("//")
+      ? null
+      : line.match(/\bsubtitle=\{?\s*(?:tr|tv|trc|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
+    if (sub) {
+      const text = sub[2].replace(/\\(["'])/g, "$1");
+      if (text.length > MAX_EYEBROW) {
+        problems.eyebrow.push({ key, line: i + 1, text });
+      }
+    }
 
     /* 4. Title Case, but only on CHROME.
        A message is sentence case and must stay that way: "Could not save it"
@@ -802,6 +828,32 @@ for (const f of files()) {
           problems.title.push({ key, line: j + 1, text: opt[2], abs });
         }
         if (depth <= 0) break;
+      }
+    }
+    /* AN `eyebrow` IS THE AREA'S NAME, AND THE RIBBON AND THE PAGE DISAGREED.
+     *
+     * `areas.ts` is checked and has said "Vault & Compliance" and "Security &
+     * Access" since round 1. `<TabbedHub eyebrow="Vault & compliance">` is the
+     * line the hub page itself renders above its title, and nothing read it, so
+     * the ribbon and the page carried two spellings of one area name in the same
+     * build. That is the defect this gate's own areas.ts/nav-model.ts comment
+     * describes, in a third copy nobody had found.
+     *
+     * `ribbon-model.ts` is the receipt: it holds an EXTRA_AREA_ICON entry
+     * `"Security & access": AREA_ICON["Security & Access"]`, written to paper
+     * over this exact mismatch, and a case-insensitive lookup added after
+     * retitling the navigation dropped five areas onto one glyph.
+     *
+     * There are 14 of these in the tree and 4 were sentence case, including
+     * Master Data's — an area round 1 reported finished. Small enough to be a
+     * hard failure rather than a ratchet, like areas.ts itself. */
+    const eyebrow = line.match(
+      /\beyebrow=\{?\s*(?:tr|tv|navT|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/,
+    );
+    if (eyebrow) {
+      const text = eyebrow[2].replace(/\\(["'])/g, "$1");
+      if (!SKIP_TITLE.test(text) && text.length <= 60 && !isTitleCase(text)) {
+        problems.title.push({ key, line: i + 1, text, abs });
       }
     }
     const h = line.match(/<h1[^>]*>\s*\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
@@ -1083,9 +1135,11 @@ if (UPDATE) {
   for (const p of problems.mapLabel) mapLabel[p.key] = (mapLabel[p.key] || 0) + 1;
   const catalogue = {};
   for (const p of problems.catalogue) catalogue[p.key] = (catalogue[p.key] || 0) + 1;
+  const eyebrow = {};
+  for (const p of problems.eyebrow) eyebrow[p.key] = (eyebrow[p.key] || 0) + 1;
   writeFileSync(
     BASELINE,
-    `${JSON.stringify({ budget: counts, longCopy, objTitle, compChrome, mapLabel, catalogue }, null, 2)}\n`,
+    `${JSON.stringify({ budget: counts, longCopy, objTitle, compChrome, mapLabel, catalogue, eyebrow }, null, 2)}\n`,
   );
   console.log(
     `prose-baseline.json written: ${Object.keys(counts).length} files with visible prose, ` +
@@ -1154,10 +1208,18 @@ if (fails.length) {
   console.error(`\nToo much text printed on the page:\n${fails.join("\n")}`);
   console.error(`\n  Shorten it, fold it into the control, or move it behind <Field about>.`);
 }
-if (problems.eyebrow.length) {
+const eyeFails = ratchet(problems.eyebrow, baseline.eyebrow);
+if (eyeFails.length) {
   bad++;
-  console.error(`\nA sentence in an .eyebrow (that class is for a two-word label):\n`);
-  for (const p of problems.eyebrow) console.error(`  ${p.key}:${p.line}  ${p.text.slice(0, 80)}`);
+  console.error(
+    `\nA sentence in a caption slot (.eyebrow and \`subtitle\` are for a two-word label, max ${MAX_EYEBROW}):\n`,
+  );
+  for (const { key, n, allowed } of eyeFails) {
+    console.error(`  ${key}: ${n} over the caption cap (allowed ${allowed})`);
+    for (const q of problems.eyebrow.filter((x) => x.key === key).slice(0, 4)) {
+      console.error(`      L${q.line} (${q.text.length}) ${q.text.slice(0, 80)}`);
+    }
+  }
 }
 if (problems.title.length) {
   bad++;

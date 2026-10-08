@@ -257,6 +257,6 @@ const TABS = hubTabs("/security", {
 
 export function SecurityHub() {
   return (
-    <TabbedHub eyebrow="Security & access" basePath="/security" tabs={TABS} />
+    <TabbedHub eyebrow="Security & Access" basePath="/security" tabs={TABS} />
   );
 }

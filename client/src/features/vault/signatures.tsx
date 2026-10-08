@@ -34,7 +34,7 @@ import { cell, dateFmt } from "@/lib/format";
 import { StatusPill } from "@/components/ui/pill";
 import { isGated } from "./shared";
 import { SignDocumentModal } from "./sign-document";
-import { STATUS_WORDS, statusTone, look } from "./signature-vocab";
+import { STATUS_LABEL, statusTone, look } from "./signature-vocab";
 
 function RevokeForm({
   open,
@@ -80,11 +80,12 @@ function RevokeForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={tr("Revoke this signature")}
+      title={tr("Revoke This Signature")}
       description="The signature is kept on record. Anyone scanning a printed copy will be told it was revoked, and why."
       size="md"
     >
       <div className="space-y-4">
+        {/* @prose:keep the reason typed here becomes public. */}
         <Field label={tr("Reason")} hint="Shown on the public verification page.">
           <Input
             value={reason}
@@ -181,7 +182,8 @@ function ScansModal({
           {scans.length === 0 ? (
             <EmptyState
               title={tr("Nobody has verified this yet")}
-              hint="A verification is recorded the first time someone scans the printed QR code or types the code beneath it."
+              /* @prose:keep when a verification is recorded; shortened from 105. */
+              hint="Recorded the first time someone scans the QR code or types the code beneath it."
             />
           ) : (
             <Table>
@@ -379,13 +381,11 @@ export function SignaturesPage() {
       </form>
 
       {!activeRef ? (
-        <EmptyState
-          title={tr("Enter a reference")}
-          hint="Type a document reference above to see its signatures."
-        />
+        <EmptyState title={tr("Enter a reference")} />
       ) : gated ? (
         <EmptyState
           title={tr("Signatures aren't enabled")}
+          /* @prose:keep tells "off" apart from "no access", which §4 requires. */
           hint="The signatures feature is off for this workspace, or you don't have access."
         />
       ) : error ? (
@@ -415,16 +415,14 @@ export function SignaturesPage() {
             </Button>
           </div>
           {!activeType ? (
+            /* @prose:keep says why the Sign button beside it is disabled. */
             <p className="mb-3 text-xs text-muted-foreground">
-              Enter the document type as well to sign — it decides which methods are available.
+              Enter the document type to sign: it decides which methods are available.
             </p>
           ) : null}
 
           {rows.length === 0 ? (
-            <EmptyState
-              title={tr("No signatures yet")}
-              hint="Nobody has signed this document."
-            />
+            <EmptyState title={tr("No signatures yet")} />
           ) : (
             <Table>
               <THead>
@@ -448,6 +446,7 @@ export function SignaturesPage() {
                         </span>
                       ) : null}
                       {r.identity_source === "DECLARED" ? (
+                        /* @prose:keep this name was typed, not verified. */
                         <span className="block text-xs text-muted-foreground">
                           Name as stated by the signer
                         </span>
@@ -463,7 +462,7 @@ export function SignaturesPage() {
                     </TD>
                     <TD className="text-sm">
                       <StatusPill
-                        status={look(STATUS_WORDS, r.status, String(r.status))}
+                        status={look(STATUS_LABEL, r.status, String(r.status))}
                         tone={statusTone(r.status)}
                       />
                       {r.revoke_reason ? (
