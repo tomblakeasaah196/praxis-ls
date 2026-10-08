@@ -39,6 +39,36 @@ vi.mock("@/lib/api-client", async () => {
 });
 
 import { AnalyticsPage } from "./analytics-page";
+import { setLang } from "@/lib/i18n";
+import { en, fr } from "@/lib/i18n-dict";
+
+/** Every key this tab renders, for the sentence-case guard above. */
+const ANALYTICS_KEYS = [
+  "Work by Milestone",
+  "Work by Operations File",
+  "Open Work by Assignee",
+  "Open Work over Time",
+  "Headline Figures",
+  "Overdue Aging",
+  "Cycle Time",
+  "Blocked Work",
+  "Blockage Note",
+  "Selected Assignee",
+  "Operations File",
+  "Open Task",
+  "Open the List",
+  "Days Late",
+  "Days to Complete",
+  "Average Days",
+  "Still Open",
+  "Waiting on / Note",
+  "Completed per Day",
+  "Overdue by Age",
+  "Time to Complete",
+  "Blocked by Assignee",
+  "Open Work by Operations File",
+  "Open Work by Milestone",
+];
 
 const ANALYTICS = {
   window: {
@@ -172,6 +202,78 @@ describe("Analytics — the four states", () => {
     const { container } = renderScreen(<AnalyticsPage />, at());
     await screen.findByText("17");
     expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+/**
+ * ── THE FRENCH BUILD ───────────────────────────────────────────────────────
+ *
+ * This tab had ZERO `tr()` calls in 1,500 lines, so it rendered English in the
+ * French build with nothing failing anywhere: the exact silent-fallback shape
+ * §3.18 warns about, at the scale of a whole surface. A test is the only thing
+ * that catches it coming back, because a string added without `tr()` compiles,
+ * renders, passes every English assertion, and is only wrong for half the
+ * people this product serves.
+ */
+describe("Analytics — the French build", () => {
+  afterEach(() => {
+    setLang("en");
+  });
+
+  it("RENDERS FRENCH, not English with French chrome around it", async () => {
+    setLang("fr");
+    renderScreen(<AnalyticsPage />, at());
+    await screen.findByText("17");
+
+    // The page, a filter, a panel title, a column header and the ⓘ: one from
+    // each layer, because a half-wired screen passes a test that only checks
+    // the title.
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Analytique" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Période")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Ancienneté des retards" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "À propos des chiffres clés" }),
+    ).toBeInTheDocument();
+  });
+
+  it("USES THE ADJECTIVE, NOT THE VERB, where Open labels a count", async () => {
+    // `strings."Open"` is "Ouvrir" and has to stay the verb: that is what every
+    // button rendering it means. A headline tile reading "Ouvrir 17" is the
+    // defect `trc()` exists for, and the one split-pane.tsx worked around by
+    // not rendering the word at all.
+    setLang("fr");
+    renderScreen(<AnalyticsPage />, at());
+    await screen.findByText("17");
+    const tile = screen.getByRole("button", { name: /17/ });
+    expect(tile).toHaveTextContent("Ouvert");
+    expect(tile).not.toHaveTextContent("Ouvrir");
+  });
+
+  it("keeps French in sentence case, including where the English is Title Case", async () => {
+    // Correct French typography, and the sixth frontend rule: "Travail par
+    // jalon", never "Travail Par Jalon". Asserted on the dictionary rather than
+    // the DOM so it covers the panels a given fixture does not render.
+    const titleCased = Object.entries(fr.strings)
+      .filter(([k]) => k in en.strings)
+      .filter(([, v]) => typeof v === "string")
+      .filter(([, v]) => {
+        const words = String(v).split(/\s+/).filter((w) => /^[A-Za-zÀ-ÿ]/.test(w));
+        // Two or more capitalised words in a row is the English habit leaking.
+        return (
+          words.length > 1 &&
+          words.slice(1).filter((w) => w[0] === w[0].toUpperCase() && w[0] !== w[0].toLowerCase())
+            .length >= 2
+        );
+      })
+      .map(([k]) => k);
+    // Proper nouns and acronyms are the legitimate case, so this is a
+    // regression guard on the keys this change added, not a repo-wide rule.
+    const added = titleCased.filter((k) => ANALYTICS_KEYS.includes(k));
+    expect(added).toEqual([]);
   });
 });
 
