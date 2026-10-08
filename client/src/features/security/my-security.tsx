@@ -3,7 +3,14 @@
  * the fastest and safest way in and the one the lock screen leads with), your
  * password, an authenticator app, and your Quick PIN (one per person, valid on
  * every device). Talks to the tenant auth routes: /auth/passkey/*,
- * /auth/change-password, /auth/2fa/setup|enable|disable, /auth/pin.
+ * /auth/change-password, /auth/2fa (+ /setup, /enable, /disable, /frequency),
+ * /auth/pin.
+ *
+ * The authenticator card shows ONE state at a time (14401). It used to render
+ * the enrolment form, a setup key, a raw `otpauth://` string the user was told
+ * to "scan", and a permanent "Already enrolled?" code box with a Disable
+ * button, all at once, to people who were not enrolled at all. Now: off is one
+ * button; enrolling is a QR; on is one status row and how often it asks.
  *
  * Removing a passkey here is the ONE way a passkey leaves a device (owner
  * decision, 29 Sep 2026) — so it also tells the device's own passkey manager,
@@ -16,7 +23,7 @@
  */
 import { pageShell } from "@/lib/layout";
 import { dateFmt, fmtRelative } from "@/lib/format";
-import { tr } from "@/lib/i18n";
+import { tr, tv } from "@/lib/i18n";
 import * as React from "react";
 import { useAuth } from "@/app/auth/auth-context";
 import { ApiError, tenantWithProgress } from "@/lib/api-client";
@@ -29,13 +36,17 @@ import { cn } from "@/lib/cn";
 import { useSearchParams } from "react-router-dom";
 import {
   changePassword,
+  getMfa,
   setupTotp,
   enableTotp,
   disableTotp,
+  setMfaFrequency,
   getQuickPin,
   setQuickPin,
   removeQuickPin,
   type TotpSetup,
+  type MfaStatus,
+  type MfaFrequency,
   type QuickPinStatus,
 } from "@/lib/security-api";
 import {
@@ -61,7 +72,25 @@ import { PageHeader } from "@/components/data-list";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { Input } from "@/components/ui/input";
 import { OtpInput } from "@/components/ui/otp-input";
+import { Segmented, type SegmentedOption } from "@/components/ui/segmented";
+import { InfoHint } from "@/components/ui/info-hint";
+import { Pill } from "@/components/ui/pill";
+import { useToast } from "@/components/ui/toast";
 import { SettingsCard, Field } from "@/components/settings/controls";
+
+/**
+ * How often the authenticator asks, as the owner chooses it (14401).
+ *
+ * `daily` and `monthly` are remembered PER DEVICE, server side: proving a code
+ * on the laptop never stops the phone asking. Module scope so the enrolment
+ * step and the enrolled card offer the identical three, and `as const` so the
+ * value type stays `MfaFrequency` rather than widening to string.
+ */
+const MFA_EVERY: SegmentedOption<MfaFrequency>[] = [
+  { value: "always", label: "Every Sign-In" },
+  { value: "daily", label: "Daily" },
+  { value: "monthly", label: "Monthly" },
+];
 
 type Msg = { kind: "ok" | "err"; text: string } | null;
 
@@ -76,6 +105,7 @@ function errText(e: unknown): string {
 
 export function MySecurityPage() {
   const { user, patchUser } = useAuth();
+  const toast = useToast();
 
   // --- Profile picture ---
   const [avatarMsg, setAvatarMsg] = React.useState<Msg>(null);
@@ -165,52 +195,168 @@ export function MySecurityPage() {
     }
   }
 
-  // --- MFA ---
+  /* --- Authenticator app ---------------------------------------------------
+   *
+   * Three states, one at a time, because the card used to render all of them
+   * at once: an enrolment form, a key, a raw `otpauth://` string the user was
+   * told to "scan", and a permanent "Already enrolled?" box with a code field
+   * and a Disable button, shown to people who were not enrolled at all.
+   *
+   *   idle    off   → one button.   on → one status row + how often it asks.
+   *   setup         → the QR, a code field, and the frequency being chosen.
+   *   codes         → the ten recovery codes, once, then gone.
+   */
+  type MfaStage = "idle" | "setup" | "codes";
+  const [mfa, setMfa] = React.useState<MfaStatus | null>(null);
+  const [mfaStage, setMfaStage] = React.useState<MfaStage>("idle");
   const [setup, setSetup] = React.useState<TotpSetup | null>(null);
   const [enrollCode, setEnrollCode] = React.useState("");
-  const [disableCode, setDisableCode] = React.useState("");
+  const [enrollEvery, setEnrollEvery] = React.useState<MfaFrequency>("always");
+  const [newCodes, setNewCodes] = React.useState<string[] | null>(null);
+  const [showKey, setShowKey] = React.useState(false);
   const [mfaBusy, setMfaBusy] = React.useState(false);
   const [mfaMsg, setMfaMsg] = React.useState<Msg>(null);
+  const mfaOn = !!mfa?.is_2fa_enabled;
+
+  const loadMfa = React.useCallback(() => {
+    getMfa()
+      .then(setMfa)
+      .catch(() =>
+        setMfa({ is_2fa_enabled: false, mfa_frequency: "always", recovery_codes_remaining: 0 }),
+      );
+  }, []);
+  React.useEffect(() => loadMfa(), [loadMfa]);
 
   async function beginSetup() {
     setMfaBusy(true);
     setMfaMsg(null);
     try {
-      setSetup(await setupTotp());
+      // Minting a second factor is a credential change: on a session that is no
+      // longer fresh the server asks for the password first, in the same
+      // branded dialog the passkey and the PIN use.
+      const started = await withReauth((pw) => setupTotp(pw));
+      if (!started) return;
+      setSetup(started);
+      setEnrollEvery(mfa?.mfa_frequency ?? "always");
+      setShowKey(false);
+      setEnrollCode("");
+      setMfaStage("setup");
     } catch (e) {
       setMfaMsg({ kind: "err", text: errText(e) });
     } finally {
       setMfaBusy(false);
     }
   }
+
   async function enable(code: string) {
     setMfaBusy(true);
     setMfaMsg(null);
     try {
-      await enableTotp(code.trim());
+      const done = await enableTotp(code.trim(), enrollEvery);
       setSetup(null);
       setEnrollCode("");
-      setMfaMsg({
-        kind: "ok",
-        text: "Authenticator enabled. You'll be asked for a code at sign-in.",
+      setMfa({
+        is_2fa_enabled: true,
+        mfa_frequency: done.mfa_frequency,
+        recovery_codes_remaining: done.recovery_codes.length,
       });
+      // The ONE moment these exist. No route re-reads them.
+      setNewCodes(done.recovery_codes);
+      setMfaStage("codes");
+    } catch (e) {
+      setMfaMsg({ kind: "err", text: errText(e) });
+      setEnrollCode("");
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
+  /**
+   * Turning it off names what stops protecting the account, at the point of
+   * commit rather than in a paragraph on the page nobody reads. No code is
+   * asked for: someone whose phone is gone cannot produce one, and they are
+   * exactly who reaches for this.
+   */
+  async function disable() {
+    const sure = await confirm({
+      title: "Turn off the authenticator?",
+      body: "Your password alone will sign you in, and your recovery codes stop working.",
+      confirmLabel: "Turn Off",
+      destructive: true,
+    });
+    if (!sure) return;
+    setMfaBusy(true);
+    setMfaMsg(null);
+    try {
+      const done = await withReauth((pw) => disableTotp(pw), REAUTH_REMOVE);
+      if (!done) return;
+      setMfa({ is_2fa_enabled: false, mfa_frequency: "always", recovery_codes_remaining: 0 });
+      setMfaStage("idle");
+      setMfaMsg({ kind: "ok", text: "Authenticator turned off." });
     } catch (e) {
       setMfaMsg({ kind: "err", text: errText(e) });
     } finally {
       setMfaBusy(false);
     }
   }
-  async function disable(code: string) {
-    setMfaBusy(true);
+
+  function cancelSetup() {
+    setSetup(null);
+    setEnrollCode("");
+    setShowKey(false);
+    setMfaStage("idle");
+  }
+
+  async function copyCodes(codes: string[]) {
+    try {
+      await navigator.clipboard.writeText(codes.join("\n"));
+      toast.success(tr("Recovery codes copied."));
+    } catch {
+      // Not a silent catch, so no taxonomy marker: the clipboard is the
+      // browser's to refuse (permissions, an insecure origin, an old Safari),
+      // and the user is told what to do instead. The codes are on screen.
+      setMfaMsg({ kind: "err", text: "Could not copy. Select the codes and copy them." });
+    }
+  }
+
+  function downloadCodes(codes: string[]) {
+    // No date in the name: an ISO day here would be the one place a filename
+    // disagrees with every other date a user reads, and these are not sorted.
+    const blob = new Blob([`${codes.join("\n")}\n`], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "praxis-recovery-codes.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** The codes leave the screen for good here, so this is the last honest
+   *  moment to ask. One tap, and it prevents the lockout the codes exist for. */
+  async function dismissCodes() {
+    const saved = await confirm({
+      title: "Saved your recovery codes?",
+      body: "They are not shown again. Without them, a lost phone needs an administrator to reset your authenticator.",
+      confirmLabel: "Yes, Saved",
+      cancelLabel: "Not Yet",
+    });
+    if (!saved) return;
+    setNewCodes(null);
+    setMfaStage("idle");
+    loadMfa();
+  }
+
+  /** How often it asks. Optimistic, because the control IS the state: a
+   *  segment that waits for a round trip reads as broken. */
+  async function changeEvery(next: MfaFrequency) {
+    const previous = mfa;
+    setMfa((m) => (m ? { ...m, mfa_frequency: next } : m));
     setMfaMsg(null);
     try {
-      await disableTotp(code.trim());
-      setDisableCode("");
-      setMfaMsg({ kind: "ok", text: "Authenticator disabled." });
+      await setMfaFrequency(next);
     } catch (e) {
+      setMfa(previous);
       setMfaMsg({ kind: "err", text: errText(e) });
-    } finally {
-      setMfaBusy(false);
     }
   }
 
@@ -220,19 +366,33 @@ export function MySecurityPage() {
   const bio = biometricName();
 
   /**
-   * Adding a way in on a session that is no longer fresh needs the password
-   * (server: REAUTH_REQUIRED). One helper, so the passkey and the PIN ask the
-   * same question the same way. Resolves null when the person backs out.
+   * Changing a way in on a session that is no longer fresh needs the password
+   * (server: REAUTH_REQUIRED). One helper, so the passkey, the PIN and the
+   * authenticator ask the same question the same way. Resolves null when the
+   * person backs out.
+   *
+   * `why` names what the password is being asked FOR. It defaults to adding a
+   * credential, which is what every caller did until the authenticator could
+   * also be turned off here: telling somebody they are confirming a password
+   * "to add a new way into your account" while they remove one is the kind of
+   * small lie that teaches people to stop reading dialogs.
    */
-  async function withReauth<T>(run: (currentPassword: string | null) => Promise<T>): Promise<T | null> {
+  const REAUTH_ADD =
+    "You signed in a while ago. Enter your password to add a new way into your account. It stops someone at an unattended desk from adding their own.";
+  const REAUTH_REMOVE =
+    "You signed in a while ago. Enter your password to remove a way into your account. It stops someone at an unattended desk from weakening it.";
+
+  async function withReauth<T>(
+    run: (currentPassword: string | null) => Promise<T>,
+    why: string = REAUTH_ADD,
+  ): Promise<T | null> {
     try {
       return await run(null);
     } catch (e) {
       if (!(e instanceof ApiError && e.code === "REAUTH_REQUIRED")) throw e;
       const pw = await prompt({
         title: "Confirm it's you",
-        description:
-          "You signed in a while ago. Enter your password to add a new way into your account — it stops someone at an unattended desk from adding their own.",
+        description: why,
         label: "Current password",
         type: "password",
         confirmLabel: "Confirm",
@@ -680,78 +840,147 @@ export function MySecurityPage() {
         </SettingsCard>
 
         <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
-          {/* MFA */}
+          {/* The authenticator app */}
           <SettingsCard
-            title="Authenticator app (MFA)"
-            desc="Time-based codes as a second factor at sign-in."
+            title="Authenticator App"
+            action={
+              <InfoHint label={tr("About the authenticator app")}>
+                {tr(
+                  "A phone app (Google Authenticator, Authy, 1Password and others) shows a 6-digit code that changes every 30 seconds. Scanning the square adds this account to it. After that, signing in asks for the code as well as your password, so a stolen password is not enough on its own.",
+                )}
+              </InfoHint>
+            }
           >
-            {!setup ? (
-              <Button onClick={beginSetup} loading={mfaBusy}>
-                Set up authenticator
-              </Button>
-            ) : (
+            {mfa === null ? (
+              <p className="text-sm text-muted-foreground">{tr("Loading…")}</p>
+            ) : mfaStage === "codes" && newCodes ? (
+              /* Shown ONCE. Nothing re-reads them, so the card says so at the
+                 moment it matters and keeps the way out behind a confirm. */
               <div className="flex flex-col gap-3">
-                <p className="text-sm text-muted-foreground">
-                  Add this account to your authenticator app — scan the link or
-                  enter the key manually, then enter the 6-digit code to
-                  confirm.
+                <p className="text-sm font-medium">
+                  {tr("Save these. Each one signs you in once if you lose your phone.")}
                 </p>
-                <Field label="Setup key">
+                <ul className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg border p-3 font-mono text-sm">
+                  {newCodes.map((c) => (
+                    <li key={c}>{c}</li>
+                  ))}
+                </ul>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => void copyCodes(newCodes)}>
+                    {tr("Copy")}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => downloadCodes(newCodes)}>
+                    {tr("Download")}
+                  </Button>
+                  <Button size="sm" onClick={() => void dismissCodes()}>
+                    {tr("Done")}
+                  </Button>
+                </div>
+              </div>
+            ) : mfaStage === "setup" && setup ? (
+              <div className="flex flex-col items-center gap-4">
+                {/* The QR, which is what "scan it" has always meant. The card
+                    used to print the raw otpauth:// string instead, which no
+                    authenticator app can read.
+
+                    `bg-white` is deliberate and is NOT a white-labelling
+                    violation: a QR is read by a camera looking for dark modules
+                    on a light field, and inverting it for dark mode makes it
+                    stop scanning on a good many readers. The padding carries
+                    the quiet zone past the card's own surface colour. */}
+                <img
+                  src={setup.qr_svg}
+                  alt={tr("Scan this with your authenticator app")}
+                  width={196}
+                  height={196}
+                  className="rounded-lg bg-white p-3"
+                />
+                <OtpInput
+                  value={enrollCode}
+                  onChange={setEnrollCode}
+                  onComplete={enable}
+                  disabled={mfaBusy}
+                />
+                <div className="w-full">
+                  {/* `Segmented`'s own `label` names the group for assistive
+                      tech and is NOT rendered, so sighted users need this one:
+                      three bare buttons reading "Daily / Monthly" next to a QR
+                      do not say what they are the frequency OF. Under 24 chars,
+                      so it is a caption and not prose the gate counts. */}
+                  <p className="micro mb-1.5">{tr("Ask for a Code")}</p>
+                  <Segmented
+                    label={tr("How often a code is asked for")}
+                    value={enrollEvery}
+                    onChange={setEnrollEvery}
+                    options={MFA_EVERY}
+                  />
+                </div>
+                <div className="flex w-full items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline underline-offset-2"
+                    onClick={() => setShowKey((v) => !v)}
+                  >
+                    {tr("No camera?")}
+                  </button>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" onClick={cancelSetup}>
+                      {tr("Cancel")}
+                    </Button>
+                    <Button
+                      onClick={() => enable(enrollCode)}
+                      loading={mfaBusy}
+                      disabled={enrollCode.length < 6}
+                    >
+                      {tr("Turn On")}
+                    </Button>
+                  </div>
+                </div>
+                {showKey && (
                   <Input
                     readOnly
+                    aria-label={tr("Setup key")}
                     value={setup.secret}
                     className="font-mono text-xs"
                     onFocus={(e) => e.currentTarget.select()}
                   />
-                </Field>
-                <Field label="otpauth link">
-                  <Input
-                    readOnly
-                    value={setup.otpauth_url}
-                    className="font-mono text-xs"
-                    onFocus={(e) => e.currentTarget.select()}
-                  />
-                </Field>
-                <Field label="6-digit code from the app">
-                  <OtpInput
-                    value={enrollCode}
-                    onChange={setEnrollCode}
-                    onComplete={enable}
-                    disabled={mfaBusy}
-                  />
-                </Field>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => enable(enrollCode)}
-                    loading={mfaBusy}
-                    disabled={enrollCode.length < 6}
-                  >
-                    Enable
-                  </Button>
-                  <Button variant="ghost" onClick={() => setSetup(null)}>
-                    Cancel
+                )}
+              </div>
+            ) : mfaOn ? (
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      {tr("Authenticator")}
+                      <Pill tone="ok" className="!py-0.5 !text-[9px]">
+                        {tr("on")}
+                      </Pill>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {mfa.recovery_codes_remaining === 1
+                        ? tr("1 recovery code left")
+                        : tv("{{n}} recovery codes left", { n: mfa.recovery_codes_remaining })}
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => void disable()} disabled={mfaBusy}>
+                    {tr("Turn Off")}
                   </Button>
                 </div>
+                <div>
+                  <p className="micro mb-1.5">{tr("Ask for a Code")}</p>
+                  <Segmented
+                    label={tr("How often a code is asked for")}
+                    value={mfa.mfa_frequency}
+                    onChange={(v) => void changeEvery(v)}
+                    options={MFA_EVERY}
+                  />
+                </div>
               </div>
+            ) : (
+              <Button onClick={() => void beginSetup()} loading={mfaBusy}>
+                {tr("Set Up")}
+              </Button>
             )}
-
-            <div className="mt-5 border-t pt-4">
-              <p className="micro mb-2">Already enrolled?</p>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <OtpInput
-                  value={disableCode}
-                  onChange={setDisableCode}
-                  disabled={mfaBusy}
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => disable(disableCode)}
-                  disabled={mfaBusy || disableCode.length < 6}
-                >
-                  Disable MFA
-                </Button>
-              </div>
-            </div>
 
             {mfaMsg && (
               <p className={`mt-4 ${mfaMsg.kind === "ok" ? okCls : errCls}`}>
