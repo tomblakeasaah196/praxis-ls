@@ -25,8 +25,23 @@ const zValidate = (schema) => validateBody(schema);
 // at SESSION_MAX_AGE_MIN whatever the checkbox said (session-policy.js).
 const login = zValidate(z.object({ email: z.string().trim().email(), password: z.string().min(1), keep_signed_in: z.boolean().optional() }));
 const refresh = zValidate(z.object({ refresh_token: z.string().min(1) }));
-const verifyTotp = zValidate(z.object({ pending_token: z.string().min(1), code: z.string().min(6).max(8), keep_signed_in: z.boolean().optional() }));
-const totpCode = zValidate(z.object({ code: z.string().min(6).max(8) }));
+/* 2FA.
+ *
+ * `code` is a 6-digit TOTP OR one of the ten recovery codes (14401), which is
+ * ten characters plus a cosmetic dash and may arrive pasted with spaces. The
+ * service normalises before comparing, so the shape check only has to be wide
+ * enough to let a real recovery code through and narrow enough to keep a
+ * payload from being a denial-of-service: 24 is both. */
+const MFA_FREQUENCY = z.enum(["always", "daily", "monthly"]);
+const verifyTotp = zValidate(z.object({ pending_token: z.string().min(1), code: z.string().min(6).max(24), keep_signed_in: z.boolean().optional() }));
+const totpCode = zValidate(z.object({ code: z.string().min(6).max(8), frequency: MFA_FREQUENCY.optional() }));
+/* Starting enrolment and ending it are both credential changes on a session
+ * that may be hours old, so each carries the optional `current_password` that
+ * answers REAUTH_REQUIRED — the same shape the Quick PIN and passkey routes
+ * use. No minimum beyond 1: the shape check must not hint at a password's
+ * length, and a wrong one fails the Argon2id compare in the service. */
+const reauth = zValidate(z.object({ current_password: z.string().min(1).max(512).optional().nullable() }));
+const mfaFrequency = zValidate(z.object({ frequency: MFA_FREQUENCY }));
 
 const schemas = {
   // `password` is optional ONLY because `invite` is the alternative — the
@@ -152,7 +167,7 @@ const passkeyLoginVerify = zValidate(z.object({
 
 module.exports = {
   ...passthrough,
-  login, refresh, verifyTotp, totpCode, signature, pinSet, pinLogin,
+  login, refresh, verifyTotp, totpCode, reauth, mfaFrequency, signature, pinSet, pinLogin,
   passkeyRegisterOptions, passkeyRegisterVerify, passkeyLoginOptions, passkeyLoginVerify,
   avatar, forgotPassword, resetPassword, changePassword,
   create: zValidate(schemas.create),

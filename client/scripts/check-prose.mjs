@@ -136,10 +136,12 @@ function files() {
     ["ls-files", "src/**/*.tsx", "src/**/*.ts", "app/**/*.tsx", "components/**/*.tsx"],
     { cwd: appRoot, encoding: "utf8" },
   );
-  return out
-    .split("\n")
-    .filter(Boolean)
-    .filter((f) => !/\.(test|spec)\.|\.stories\./.test(f));
+  /* `git ls-files` prints an unmerged path ONCE PER STAGE, so during a
+     conflicted merge every count in this file triples and the failure reads as
+     new prose somebody wrote. Dedupe. */
+  return [...new Set(out.split("\n").filter(Boolean))].filter(
+    (f) => !/\.(test|spec)\.|\.stories\./.test(f),
+  );
 }
 
 /** `tr("x")`, `tv("x", …)`, `"x"`, `{"x"}` all yield x. Template literals and
