@@ -109,7 +109,7 @@ export function TodayPage() {
             <Button variant="outline" onClick={() => setEventOpen(true)}>
               New event
             </Button>
-            <Button onClick={() => setTaskOpen(true)}>New task</Button>
+            <Button onClick={() => setTaskOpen(true)}>New Task</Button>
           </div>
         }
       />
@@ -275,7 +275,7 @@ export function TodayPage() {
                 title="Nothing due today"
                 hint="Add a task with a date, or put an appointment in the diary, and it will appear here in time order."
                 action={
-                  <Button onClick={() => setTaskOpen(true)}>New task</Button>
+                  <Button onClick={() => setTaskOpen(true)}>New Task</Button>
                 }
               />
             ) : (

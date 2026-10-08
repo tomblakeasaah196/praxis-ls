@@ -293,7 +293,7 @@ describe("a cancelled prerequisite", () => {
 
   it("says out loud that calling it off did not unblock anything", async () => {
     show(cancelled);
-    expect(await screen.findByText(/Cancelled — still blocking/)).toBeInTheDocument();
+    expect(await screen.findByText(/Cancelled, still blocking/)).toBeInTheDocument();
   });
 
   it("offers the override as a deliberate, attributable act", async () => {

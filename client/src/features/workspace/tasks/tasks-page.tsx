@@ -190,7 +190,7 @@ export function TasksPage() {
       <PageHeader
         title="Tasks"
         description="What has to happen, in the order it has to happen in. Drag a card to move it, or use the Move menu."
-        action={<Button onClick={() => setCreateOpen(true)}>New task</Button>}
+        action={<Button onClick={() => setCreateOpen(true)}>New Task</Button>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">

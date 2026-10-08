@@ -232,7 +232,7 @@ export function TaskList({
           <div className="min-w-[14rem]">
             <OperationsFilePicker
               id="task-list-file"
-              label="Operations file"
+              label="Operations File"
               placeholder="Any file — search ref, client, B/L…"
               value={dossierId}
               onSelect={(file) => onDossierChange({ dossier_id: file.dossier_id, ref: file.ref })}
@@ -320,11 +320,11 @@ export function TaskList({
           }
           hint={
             q
-              ? tr("Try another word — the search covers titles, notes, the linked file's reference, its client and step titles.")
+              ? tr("Try another word. The search covers titles, notes, the linked file's reference, its client and step titles.")
               : filtered
                 ? "Clear a filter or two and it will come back."
                 : fileFixed
-                  ? "Work people take on for this shipment — chasing a document, calling the client — shows here."
+                  ? "Work people take on for this shipment, such as chasing a document or calling the client, shows here."
                   : undefined
           }
           action={
