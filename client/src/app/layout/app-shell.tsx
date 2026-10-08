@@ -729,7 +729,34 @@ export function AppShell() {
   const brandName = branding.name || "Praxis LS";
   const navigate = useNavigate();
   const location = useLocation();
+  /**
+   * THE TWO SURFACES THAT OWN THEIR OWN SCROLL — and they do not own it at the
+   * same widths.
+   *
+   * Team chat is full-height everywhere: its composer is pinned to the bottom
+   * of the viewport on a phone exactly as on a desktop, so <main> must not
+   * scroll at any width.
+   *
+   * The mailbox is full-height from `lg` UP ONLY. Above `lg` it is a three-pane
+   * workstation and each pane scrolls itself; below `lg` the panes stack and the
+   * page scrolls, which is what a phone mail client does and what the folder
+   * rail is laid out for. Clipping <main> at every width would have left a
+   * phone unable to scroll the mailbox at all, because `html`, `body` and
+   * `#root` are `overflow: hidden` (index.css) and there is no second scroll
+   * container to fall back to.
+   *
+   * THE MAILBOX WAS IN NEITHER SET, and that was the defect behind the whole
+   * layout. `ThreadList`'s `overflow-y-auto` and `ThreadView`'s both resolve
+   * against a parent with `height: auto`, where `flex-1` is `flex-basis: 0`
+   * against an unconstrained container and the child grows to its content
+   * instead. So neither pane ever scrolled: the PAGE did. Reading down a
+   * conversation carried the list, the folder rail and three bars of chrome off
+   * the top of the screen, and scanning the list carried the message being read
+   * off the bottom. The `lg:sticky lg:top-4` on the folder rail is the
+   * workaround that was reached for in place of the chain.
+   */
   const chatWorkstation = /^\/comms\/?$/.test(location.pathname);
+  const mailWorkstation = /^\/comms\/mail\/?$/.test(location.pathname);
   const qc = useQueryClient();
   // The one scroll container (index.css: html/body/#root are overflow:hidden).
   // Handed to <PullToRefresh> so the pull only arms at the true top of the
@@ -1179,6 +1206,7 @@ export function AppShell() {
                 className={cn(
                   "relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain overflow-x-hidden p-4 pb-24 focus:outline-none md:p-6 md:pb-6 2xl:px-8",
                   chatWorkstation && "overflow-hidden",
+                  mailWorkstation && "lg:overflow-hidden",
                 )}
               >
                 {/* App-wide pull-to-refresh. It wraps every routed screen rather
