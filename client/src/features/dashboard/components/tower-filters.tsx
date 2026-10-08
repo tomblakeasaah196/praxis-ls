@@ -43,31 +43,31 @@ type Props = {
 };
 
 const MODES = [
-  { value: "", label: "All modes" },
+  { value: "", label: "All Modes" },
   { value: "AIR", label: "Air" },
   { value: "SEA", label: "Sea" },
   { value: "LAND", label: "Land" },
   { value: "RAIL", label: "Rail" },
-  { value: "OTHER", label: "No transport" },
+  { value: "OTHER", label: "No Transport" },
 ] as const;
 
 const LAYERS = [
   { value: "", label: "Everything" },
-  { value: "MOVEMENT", label: "On the move" },
-  { value: "ACTIVITY", label: "At a facility" },
+  { value: "MOVEMENT", label: "On the Move" },
+  { value: "ACTIVITY", label: "At a Facility" },
 ] as const;
 
 const VERIFICATION = [
-  { value: "", label: "Any location" },
-  { value: "VERIFIED", label: "Verified only" },
-  { value: "UNVERIFIED", label: "Needs a location" },
+  { value: "", label: "Any Location" },
+  { value: "VERIFIED", label: "Verified Only" },
+  { value: "UNVERIFIED", label: "Needs a Location" },
 ] as const;
 
 const DATE_FIELDS = [
-  { value: "created", label: "Created date" },
-  { value: "updated", label: "Updated date" },
-  { value: "arrival", label: "Planned arrival" },
-  { value: "delivery", label: "Planned delivery" },
+  { value: "created", label: "Created Date" },
+  { value: "updated", label: "Updated Date" },
+  { value: "arrival", label: "Planned Arrival" },
+  { value: "delivery", label: "Planned Delivery" },
 ] as const;
 
 function Field({
@@ -425,7 +425,7 @@ export function TowerFilters({ value, page, onChange }: Props) {
             {appliedChips.length
               ? appliedChips.slice(0, 2).join(" • ") +
                 (appliedChips.length > 2 ? ` • +${appliedChips.length - 2}` : "")
-              : "No filters — showing everything"}
+              : "No filters: showing everything"}
           </p>
         </div>
 
@@ -590,7 +590,7 @@ export function TowerFilters({ value, page, onChange }: Props) {
         {/* Grouped sections — large tap targets, iOS-style grouping, not a 10-field wall */}
         <div className="space-y-6">
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Filters are applied on the server and keep the result page stable. Changes do not take effect until you tap Apply.
+            Changes take effect when you tap Apply.
           </p>
 
           <div className="rounded-xl border bg-card">

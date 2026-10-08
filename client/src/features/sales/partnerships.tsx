@@ -146,7 +146,7 @@ export function PartnershipsPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Sales & CRM" to="/sales" />}
-        title="Partnerships & vendors"
+        title="Partnerships & Vendors"
         description="Applications from forwarding agents and vendors. Approving a vendor opens a draft supplier in the master registry — which buys nothing until somebody verifies it."
       />
       <HubTabs />

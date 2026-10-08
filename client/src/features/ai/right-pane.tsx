@@ -37,6 +37,7 @@ import { cn } from "@/lib/cn";
 import { Markdown, renderInline } from "@/components/markdown";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
+import { InfoHint } from "@/components/ui/info-hint";
 import { CheckIcon, DownloadIcon, XIcon } from "@/components/ui/icons";
 import { screenByRoute } from "@/app/screen-registry";
 import {
@@ -221,7 +222,7 @@ function CanvasView({
     return (
       <PaneEmpty
         title="Nothing on the canvas"
-        body="When Praxis drafts something long — a proforma, a memo, a summary — it opens here for room to read it."
+        body="A long draft opens here for room to read it: a proforma, a memo, a summary."
       />
     );
   }
@@ -320,7 +321,7 @@ function TableView({ tables }: { tables: AiTable[] }) {
     return (
       <PaneEmpty
         title="No tables in this answer"
-        body="When an answer comes back with rows in it, they open here — sortable, and exportable to Excel."
+        body="When an answer comes back with rows in it, they open here: sortable, and exportable to Excel."
       />
     );
   }
@@ -656,10 +657,15 @@ function SourcesView({
   }
   return (
     <div className="px-3 py-3">
-      <p className="micro mb-2 px-1 text-muted-foreground">
-        {sources.length} reference{sources.length === 1 ? "" : "s"} across this
-        conversation. Everything here was read under your own permissions.
-      </p>
+      <div className="mb-2 flex items-center gap-1.5 px-1">
+        <p className="micro text-muted-foreground">
+          {sources.length} reference{sources.length === 1 ? "" : "s"} across this
+          conversation.
+        </p>
+        <InfoHint label="About these references">
+          Everything here was read under your own permissions.
+        </InfoHint>
+      </div>
       <ul className="space-y-0.5">
         {sources.map((s) => (
           <li key={s.href}>

@@ -355,7 +355,7 @@ describe("children and the roll-up", () => {
     show(parent);
     expect(await screen.findByText("1/3")).toBeInTheDocument();
     // The alternative — a denominator of 2 — is a lie with a number on it.
-    expect(screen.getByText(/1 more child task is not yours to view/)).toBeInTheDocument();
+    expect(screen.getByText(/1 more, counted above but not yours to view/)).toBeInTheDocument();
   });
 
   it("names each child's own owner, because that is what a child is for", async () => {
@@ -428,7 +428,7 @@ describe("watchers and pings", () => {
     // A ping is not a messaging channel: it reaches only people already on the
     // task, and saying so prevents it being used as one.
     expect(
-      screen.getByText(/never to you, and never to anybody who is not already on the task/i),
+      screen.getByText(/never to you/i),
     ).toBeInTheDocument();
   });
 
@@ -455,7 +455,7 @@ describe("watchers and pings", () => {
     const button = await screen.findByRole("button", { name: /Ping everyone on this task/ });
     expect(button).toBeDisabled();
     expect(
-      await screen.findByText(/There is nobody to ping — assign the task or add a watcher first/),
+      await screen.findByText(/Assign the task or add a watcher first/),
     ).toBeInTheDocument();
   });
 

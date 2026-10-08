@@ -223,7 +223,7 @@ export function WebsitePageEditorPage() {
   return (
     <section className={cn(pageShell.standard, "pb-24")}>
       <PageHeader
-        eyebrow={<HubCrumb area="Website pages" to="/settings/website" />}
+        eyebrow={<HubCrumb area="Website Pages" to="/settings/website" />}
         title={page ? page.title_fr : tr("Website page")}
         description="What this page is called, and what is on it."
         action={

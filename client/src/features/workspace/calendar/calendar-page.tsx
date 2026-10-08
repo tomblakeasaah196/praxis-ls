@@ -223,7 +223,7 @@ export function CalendarPage() {
     <section className={pageShell.wide}>
       <PageHeader
         title="Calendar"
-        description="Appointments, deadlines and meetings — the dated half of your workspace."
+        description="Appointments, deadlines and meetings: the dated half of your workspace."
         action={<Button onClick={() => openNew()}>New event</Button>}
       />
 

@@ -190,7 +190,7 @@ function CreateSharedModal({
           <Field label={tr("IMAP Port")} required><Input value={String(f.imap_port)} onChange={set("imap_port")} inputMode="numeric" /></Field>
           <Field label={tr("SMTP Host")} required><Input value={f.smtp_host} onChange={set("smtp_host")} /></Field>
           <Field label={tr("SMTP Port")} required><Input value={String(f.smtp_port)} onChange={set("smtp_port")} inputMode="numeric" /></Field>
-          <Field label={tr("Username")} required hint={tr("On cPanel, the full address.")}><Input value={f.auth_user} onChange={set("auth_user")} /></Field>
+          <Field label={tr("Username")} required><Input value={f.auth_user} onChange={set("auth_user")} placeholder={tr("On cPanel, the full address")} /></Field>
           <Field label={tr("Password")} required><Input value={f.password} onChange={set("password")} type="password" autoComplete="off" /></Field>
         </div>
         <SmtpSignInFields value={smtpAuth} onChange={setSmtpAuth} disabled={busy} />
@@ -237,14 +237,14 @@ export function MembersModal({ mailbox, onClose }: { mailbox: api.Mailbox; onClo
       open
       onClose={onClose}
       size="lg"
-      title={`${tr("Who can work")} ${mailbox.email_address}`}
+      title={`${tr("Who Can Work")} ${mailbox.email_address}`}
       description={tr("Reading a team's mail and sending as it are different rights.")}
     >
       <div className="space-y-4">
         <Field label={tr("Access Level for the Next Person You Add")}>
           <Select value={role} onChange={(e) => setRole(e.target.value as api.MemberRole)}>
             {(Object.keys(ROLE_LABEL) as api.MemberRole[]).map((r) => (
-              <option key={r} value={r}>{tr(ROLE_LABEL[r])} — {tr(ROLE_HINT[r])}</option>
+              <option key={r} value={r}>{tr(ROLE_LABEL[r])}: {tr(ROLE_HINT[r])}</option>
             ))}
           </Select>
         </Field>
@@ -385,9 +385,13 @@ function HandoverModal({
       <form className="space-y-3" onSubmit={submit}>
         <div className="rounded-lg border border-[rgb(var(--warn))]/40 bg-[rgb(var(--warn))]/5 px-3 py-2 text-sm">
           {tr("This takes")} <strong>{mailbox.owner_name || tr("one person")}</strong>&apos;s{" "}
-          {tr("correspondence and makes it visible to a team. It is the right thing when somebody leaves and a colleague has to answer their clients, and the wrong thing to do by accident — so it is recorded on the audit trail with your name against it.")}
+          {tr("correspondence and makes it visible to a team. It is the right thing when somebody leaves and a colleague has to answer their clients, and the wrong thing to do by accident, so it is recorded on the audit trail with your name against it.")}
         </div>
-        <Field label={tr("Team Address It Becomes")} hint={tr("Optional. Leave empty for a shared mailbox with no catalogue slot.")}>
+        <Field
+          label={tr("Team Address It Becomes")}
+          about={tr("Leave it empty for a shared mailbox with no catalogue slot.")}
+          aboutLabel={tr("About the team address")}
+        >
           <Select value={key} onChange={(e) => setKey(e.target.value)}>
             <option value="">{tr("— none —")}</option>
             {free.map((c) => <option key={c.catalogue_key} value={c.catalogue_key}>{c.label_en}</option>)}
@@ -478,7 +482,7 @@ export function MailboxesTab({
       key: "member_count", label: tr("People"),
       render: (m) => (m.kind === "PERSONAL" ? <span className="text-muted-foreground">—</span> : <span className="num">{m.member_count ?? 0}</span>),
     },
-    { key: "last_success_at", label: tr("Last sync"), render: (m) => <span className="num">{m.last_success_at ? dateFmt(m.last_success_at) : "—"}</span> },
+    { key: "last_success_at", label: tr("Last Sync"), render: (m) => <span className="num">{m.last_success_at ? dateFmt(m.last_success_at) : "—"}</span> },
     {
       key: "_a", label: "",
       render: (m) => (
@@ -502,7 +506,7 @@ export function MailboxesTab({
     <section className="space-y-5">
       <PageHeader
         title={tr("Mailboxes")}
-        description={tr("Every mailbox in the company — the personal ones people connect themselves, and the team addresses you set up for them.")}
+        description={tr("Every mailbox in the company: the personal ones people connect themselves, and the team addresses you set up for them.")}
         action={canCreate ? <Button onClick={() => setChoosing(null)}>{tr("New shared mailbox")}</Button> : undefined}
       />
 
@@ -555,7 +559,7 @@ export function MailboxesTab({
             department: choosing?.department ?? null,
             label: choosing?.label_en ?? null,
           }}
-          title={choosing ? `${tr("Set up")} ${choosing.label_en}` : tr("New shared mailbox")}
+          title={choosing ? `${tr("Set up")} ${choosing.label_en}` : tr("New Shared Mailbox")}
           description={choosing?.description_en || tr("A team address several people work together. First: where does this company's email live?")}
           onClose={() => setChoosing(undefined)}
           onChooseSmtp={() => { setCreating(choosing ?? null); setChoosing(undefined); }}
@@ -700,10 +704,7 @@ function ImapConnectForm({
 
   return (
     <form onSubmit={submit}>
-      <p className="micro mb-3">
-        Any host (cPanel, private server, provider). Password is encrypted at
-        rest.
-      </p>
+      <p className="micro mb-3">Any host: cPanel, private server, provider.</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Email Address" required>
           <Input
@@ -749,11 +750,11 @@ function ImapConnectForm({
             onChange={(e) => set("smtp_port", e.target.value)}
           />
         </Field>
-        <Field label="Login User" hint="Defaults to the email address.">
+        <Field label="Login User">
           <Input
             value={f.auth_user}
             onChange={(e) => set("auth_user", e.target.value)}
-            placeholder={tr("optional")}
+            placeholder={tr("Defaults to the email address")}
           />
         </Field>
         <Field
@@ -790,7 +791,7 @@ function ImapConnectForm({
            * PERSONAL_MAILBOX_EXISTS used to end here, and the sentence it ends
            * with is "ask an administrator to set up a shared mailbox" — which
            * an administrator reads while BEING the administrator, on the only
-           * screen in the product that says "Connect a mailbox". The mailbox
+           * screen in the product that says "Connect a Mailbox". The mailbox
            * they want is a team address, that is a different object created on
            * a different tab, and nothing here said so. This is the missing
            * half: name the rule, then hand over what they have already typed.
@@ -820,7 +821,7 @@ function ImapConnectForm({
               }
             >
               {tr(
-                "A personal mailbox is one per person. An address a team works together — invoicing@, operations@ — is a shared mailbox, set up on the Mailboxes tab. What you have typed carries over; you will re-enter the password.",
+                "A personal mailbox is one per person. An address a team works together, such as invoicing@ or operations@, is a shared mailbox, set up on the Mailboxes tab. What you have typed carries over; you will re-enter the password.",
               )}
             </Callout>
           )}
@@ -1067,7 +1068,7 @@ export function ConnectionsTab({
         onConfirm={() => confirmTarget && void disconnect(confirmTarget)}
       />
       {/* Microsoft first, and deliberately so: for a Microsoft 365 mailbox it is
-       * the only route that exists, while "Connect a mailbox" (IMAP/SMTP) is
+       * the only route that exists, while "Connect a Mailbox" (IMAP/SMTP) is
        * for a mailbox on the company's own mail server. Offering the password
        * form first to a Microsoft tenant sends them down a road that ends in an
        * authentication failure they cannot fix. Google Workspace returns here
@@ -1077,7 +1078,7 @@ export function ConnectionsTab({
           {tr("Connect Microsoft 365")}
         </Button>
         <Button variant="outline" onClick={() => setImapOpen(true)}>
-          {tr("Connect a mailbox")}
+          {tr("Connect a Mailbox")}
         </Button>
         {note && <span className="micro">{note}</span>}
       </div>
@@ -1180,8 +1181,8 @@ export function ConnectionsTab({
         }}
         title={
           editConn
-            ? tr("Edit this mailbox")
-            : tr("Connect a mailbox")
+            ? tr("Edit This Mailbox")
+            : tr("Connect a Mailbox")
         }
       >
         <ImapConnectForm

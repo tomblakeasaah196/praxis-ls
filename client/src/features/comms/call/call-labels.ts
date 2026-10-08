@@ -70,8 +70,8 @@ export function stateBadge(state?: CallTranscriptState | null): { label: string;
   switch (state) {
     case "PENDING":
     case "PROCESSING": return { label: tr("Transcribing…"), tone: "blue" };
-    case "TRANSCRIPTION_FAILED": return { label: tr("Transcript failed"), tone: "bad" };
-    case "NO_RECORDING": return { label: tr("Not recorded"), tone: "mute" };
+    case "TRANSCRIPTION_FAILED": return { label: tr("Transcript Failed"), tone: "bad" };
+    case "NO_RECORDING": return { label: tr("Not Recorded"), tone: "mute" };
     default: return null;
   }
 }
@@ -79,9 +79,9 @@ export function stateBadge(state?: CallTranscriptState | null): { label: string;
 /** The summary's badge on a list row: what, if anything, is waiting for this user. */
 export function summaryBadge(row: CallListRow, isCaller: boolean): { label: string; tone: Tone } | null {
   if (!isCaller || !row.draft_status) return null;
-  if (row.draft_status === "PENDING_REVIEW") return { label: tr("Summary to review"), tone: "warn" };
-  if (row.draft_status === "SENT" && row.summary_update_available) return { label: tr("Update available"), tone: "warn" };
-  if (row.draft_status === "SENT") return { label: tr("Summary sent"), tone: "ok" };
+  if (row.draft_status === "PENDING_REVIEW") return { label: tr("Summary to Review"), tone: "warn" };
+  if (row.draft_status === "SENT" && row.summary_update_available) return { label: tr("Update Available"), tone: "warn" };
+  if (row.draft_status === "SENT") return { label: tr("Summary Sent"), tone: "ok" };
   return null;
 }
 
@@ -93,12 +93,12 @@ export function clockOf(seconds: number): string {
 
 /**
  * The minutes with no transcript, for the caller (the editor is the caller's):
- * "02:00–04:00 on your side". Empty when nothing is missing.
+ * "02:00 to 04:00 on your side". Empty when nothing is missing.
  */
 export function gapsSentence(gaps: CallTranscriptGap[]): string {
   if (!gaps.length) return "";
   const spans = gaps
-    .map((g) => tv(g.side === "caller" ? "{{from}}–{{to}} on your side" : "{{from}}–{{to}} on their side", {
+    .map((g) => tv(g.side === "caller" ? "{{from}} to {{to}} on your side" : "{{from}} to {{to}} on their side", {
       from: clockOf(g.from_s), to: clockOf(g.to_s),
     }))
     .join(", ");

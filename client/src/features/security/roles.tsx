@@ -68,7 +68,7 @@ function RoleForm({
     <Modal
       open
       onClose={onClose}
-      title={editing ? "Edit role" : "New role"}
+      title={editing ? "Edit Role" : "New Role"}
       description="A role is a job area. Grants are attached to it on the Permission matrix tab."
     >
       <div className="space-y-4">

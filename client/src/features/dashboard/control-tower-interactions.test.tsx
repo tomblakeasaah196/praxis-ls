@@ -260,7 +260,7 @@ describe("selecting a file", () => {
     );
     // Yaoundé is a reference point on the delivery leg — a verified place NEAR the
     // real address. Saying so is the difference between honest and precise.
-    expect(await screen.findByText("Reference point")).toBeInTheDocument();
+    expect(await screen.findByText("Reference Point")).toBeInTheDocument();
   });
 
   it("closing the itinerary brings the list back", async () => {
@@ -591,12 +591,12 @@ describe("meeting view", () => {
     const dialog = await screen.findByRole("dialog", {
       name: /operations meeting/i,
     });
-    expect(within(dialog).getByText("Active files")).toBeInTheDocument();
-    expect(within(dialog).getByText("Need a location")).toBeInTheDocument();
+    expect(within(dialog).getByText("Active Files")).toBeInTheDocument();
+    expect(within(dialog).getByText("Need a Location")).toBeInTheDocument();
     // The stat counts FILES at a facility; the legend below counts the same
     // files as "facility only". Two numbers, two labels — the same words on both
     // would read as one figure disagreeing with itself.
-    expect(within(dialog).getByText("At a facility")).toBeInTheDocument();
+    expect(within(dialog).getByText("At a Facility")).toBeInTheDocument();
     expect(within(dialog).getByText(/facility only/)).toBeInTheDocument();
     // Read-only is stated, not implied: the person driving a projector is talking,
     // not watching their cursor.
@@ -704,7 +704,7 @@ const SHIPMENT: LiveShipment = {
   mode: "sea",
   from: "Shanghai",
   to: "Douala",
-  status: "In progress",
+  status: "In Progress",
   tone: "blue",
   stage: "Costing approval",
   eta: "20 Jul 2026",
@@ -837,7 +837,7 @@ describe("OperationalActivityPanel", () => {
     );
     const row = screen.getByRole("button", { name: /REF-9/ });
     expect(row).toHaveAttribute("aria-pressed", "true");
-    expect(row).toHaveTextContent("Needs a location");
+    expect(row).toHaveTextContent("Needs a Location");
   });
 
   it("has no axe violations", async () => {

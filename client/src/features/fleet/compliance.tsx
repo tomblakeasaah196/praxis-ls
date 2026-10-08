@@ -260,7 +260,7 @@ export function VehicleCompliancePage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Fleet" to="/fleet" />}
-        title="Vehicle compliance"
+        title="Vehicle Compliance"
         description="Insurance and visite-technique expiry — renew before they lapse."
         action={<Button onClick={() => setCreating(true)}>New record</Button>}
       />

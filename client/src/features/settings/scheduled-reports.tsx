@@ -242,7 +242,7 @@ export function ScheduledReportsPage() {
       {confirmDialog}
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Scheduled reports"
+        title="Scheduled Reports"
         description="Automated report delivery — pick a report, a cadence and recipients."
         action={
           <Button onClick={() => setCreateOpen(true)}>Schedule report</Button>

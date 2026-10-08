@@ -247,6 +247,282 @@ an empty list only in French. One binding, in the memo's deps.
 **A comma after a JSX expression on the next line renders as " , ".** JSX joins
 the line break with a space. The comma has to go inside the expression.
 
+## Round 3 — the Monitor family, and the holes that let two sweeps lie
+
+**The gate was the problem, not the backlog.** Rounds 1 and 2 both reported an
+area done on the strength of `check:prose`, and both times the tenant found
+sentence-case chrome by opening the screen. This round started by widening the
+gate and letting it state the real backlog, which is the only reason the numbers
+below are bigger than the brief's.
+
+### Hole 1 — chrome defined in an object literal
+
+Both gates read JSX attributes and CSS classes. A tab bar, an option set, a KPI
+config, a column list and a wizard-step list are neither:
+
+    const TABS = [{ key: "mine", label: "My mailbox", ... }];
+
+**991 sites in `client/src`.** That is why the Smart Comms setup page still had
+ten sentence-case tabs after round 2 swept the area it sits in.
+
+`label:`, `title:` and `tabLabel:` object properties are now read. `text:`,
+`name:` and `description:` are deliberately not: `badge.text` is a count ("3
+locked invoices"), `name` is usually a record's own data, and `description`
+lives behind the ⓘ by convention and costs the reader nothing.
+
+It **ratchets** through `prose-baseline.json`, like `budget` and `longCopy`.
+Holding 991 sites to a new rule in one commit is how a gate gets reverted.
+`--fix-titles` touches this bucket only behind `--only <path>`, because the same
+property name carries names AND messages: "SMTP login rejected" and the password
+rule "A number" are both `title:`/`label:` strings and both correctly sentence
+case.
+
+### Hole 2 — a computed `title=` was dropped silently
+
+The string extractor expected the attribute to open with a literal or a `tr(`.
+Anything else returned `null` and the site vanished with no warning:
+
+    title={tr("New message")}                               checked
+    title={title || (draft ? tr("Continue this draft")
+                           : tr("New message"))}             NOT checked
+
+which is why the mail composer's dialog read "New message" through two sweeps.
+Every branch of the expression is now checked, each against the chrome-prefix
+rule separately, so "New message" is flagged and "Continue this draft" is not.
+**That surfaced 71 sentence-case dialog titles across 41 files**, none of which
+any gate had ever read.
+
+### Hole 3 — the page title. The biggest one, and the oldest.
+
+`<PageHeader title>` IS the page's `<h1>`, §3.18 has named page titles as chrome
+since it was written, and the tenant's own words were "titles and major lines
+should be Title Case (Service Types, not Service types)". It was never checked:
+`CHROME_COMPONENT` lists the five components added when the rule was widened and
+`PageHeader` is not one of them.
+
+Adding it found 17. Then the matcher itself turned out to be broken two ways:
+
+- **`[^>]*?` cannot cross a ">"**, and a page header's `eyebrow` prop is JSX
+  holding one. The scan stopped inside the eyebrow, matched the nested
+  `<HubCrumb area="Procurement">` (already Title Case), and called the tag
+  clean. **Every page header carrying a breadcrumb was exempt by accident** —
+  most of the hub pages in the app, including `masterdata/service-types.tsx`,
+  whose "Service types" is the tenant's OWN example of the rule, unfixed through
+  three rounds.
+- **walking forward line by line instead ran PAST the tag's end**, so `<Section
+  title={tr("Queries")}>` picked up the `<EmptyState title="No queries">` nested
+  inside it and reported a message as chrome.
+
+The opening tag is now read as a span with `{}` depth and quotes tracked, and
+only the component's own top-level attribute is taken. `ListPage` joins
+`PageHeader` — it renders an `<h1>` too. **61 more page titles**, 60 retitled.
+
+**And the registry had been right all along.** `screen-registry.json` has said
+`"Service Types"` since round 1, because the gate DID check the registry. The
+page rendering it said "Service types". So ⌘K, the breadcrumb and the page
+heading disagreed in the same build, on 74 screens, for three rounds — and
+every one of the 74 now agrees with the registry rather than the registry being
+changed. If a page title and its registry entry ever diverge again, the page is
+the thing that drifted.
+
+### And a fourth: the dotted-key `t()` catalogue
+
+`SKIP_TITLE` excludes a dotted translation key on purpose, because capitalising
+`hr.myPayslips` would break the lookup. It also excludes the VALUE, and in the
+`dash:` block those values are the Control Tower's KPI tile labels — the first
+thing anyone sees on that screen. **46 were sentence case.** Swept by hand:
+units like "vehicles" rendered after a number, the search placeholder, the
+band's own status counts and every value holding a `{{token}}` are left alone,
+and the French half is untouched. `nav:` and the other blocks were NOT swept.
+
+### `--fix-titles` was silently untranslating
+
+It holds a dictionary key back when the old spelling survives in the source, and
+its comment promised the new key was added beside it. **It was not** — the
+branch just skipped, so the retitled label got no key at all and `tr()` answered
+with the English. "New message" is a key with a real French value that survives
+in a CODE COMMENT and a scaffold spec, neither of which renders anything. **7 of
+this round's first 66 retitles landed that way.** The new key is now added
+beside the old, carrying the same translation.
+
+### What the gate still does NOT read
+
+Said out loud rather than implied, which is the mistake rounds 1 and 2 made:
+
+- **`<Dialog title>` by component.** A dialog names a form ("New Service Type")
+  or speaks ("Remove the account manager?"), and only the prefix rule separates
+  those, so a dialog titled "Mail setup guide" passes.
+- **`Record<Enum, string>` label maps** (`STATUS_LABEL`, `PRIORITY_LABEL`). A
+  regex cannot tell one from a route or icon map. And "In progress" also comes
+  out of the global `enumLabel()` formatter, so Title Casing the map alone would
+  disagree with every other enum pill in the product. Changing `enumLabel()` is
+  an app-wide decision, not a Monitor one.
+- **the rest of the dotted-key catalogue** (`nav:`, `common:`, `shell:`, `hr:`,
+  `portal:`, `mail:`, `settings:`).
+- **bare JSX text** as a title, where the words start on the line after the tag.
+
+### Monitor, by the numbers
+
+| | before | after |
+| --- | --- | --- |
+| object-literal chrome sites | 224 | **0** |
+| over-length visible prose | 23 | **0** |
+| files over the prose budget | 5 | **2** (mail-setup-wizard 9→7, task-panel 5→4) |
+| gate-counted em/en dashes | 142 | **37** (all empty-value glyphs and JSDoc) |
+| sentence-case page titles | 11 | **0** |
+| sentence-case KPI tile labels | 46 | **0** |
+
+Repo-wide, because the holes were holes everywhere: 71 computed and JSX dialog
+titles and 61 page titles retitled outside Monitor, **359 distinct case-only
+retitles in all**, and the dash backlog 1496 → 1337.
+
+`prose-baseline.json` after reseeding: `objTitle` 653 (Monitor 0), `longCopy`
+136 (Monitor 0), `budget` 764 (Monitor 65, of which only the two files above are
+over the default of 3).
+
+### Classification: the 224 were not all chrome
+
+The scanner over-reports by design and the reliable signal is **what consumes
+the array**, not the wording. Three shapes are messages, and two are now
+excluded STRUCTURALLY rather than by hand-written exemptions:
+
+- **`empty={{ ... }}`** — the JSX form of an `<EmptyState>`'s props. Only
+  `empty: {` was matched, so eight "No calls yet" / "Nothing has bounced" empty
+  states were reported as sentence-case chrome.
+- **a title ending in `?` or `!`** — `confirm({ title: "Delete this
+  conversation?" })` is unmistakably a message whatever property it arrives
+  under, and ten of Monitor's sites are these.
+- **a complete statement**, which cannot be detected mechanically and carries
+  `@prose:keep <reason>`. Six in Monitor: the four clause-shaped support-ticket
+  kinds ("Support: I need help" is a sentence the user is saying about
+  themselves, not a name) and two thread-attention strings.
+
+§3.18 now states that a select option, a radio label and a status pill ARE
+chrome, and where the line falls between a name and a statement. Round 2 decided
+the opposite and wrote it only in a commit message, which is why this round
+nearly reversed it.
+
+### The traps this round added
+
+**`@prose:keep` must be on the line ABOVE the component, or the line itself.**
+`exempt()` reads those two lines and nothing further up, so a four-line
+explanatory comment ending above the tag does NOT exempt it. That cost two
+strings, retitled anyway on the next run: "My workspace has moved" and "Régie
+d'avance", the second a French term with no Title Case form at all. Put the
+prose in one comment and the marker in a second, one-line comment directly
+above the component.
+
+**A sweep of one area creates divergences with the areas it borders**, and the
+baseline hides them. These were found by reading, not by a gate:
+`VERIFICATION_COPY` (components/operations/place-meta.ts) and `STATE_NOTE`
+(dashboard/components/itinerary-panel.tsx) are parallel maps over the same state
+drawn as the same pill; "No transport" is written out in three files; the reading
+pane's Mark Read and the thread list's bulk Mark Read are the same action; and
+`operational-activity-panel`'s pill text has to match the filter option that
+selects it. After sweeping an area, grep every string you changed:
+
+    git grep -F "<the old string>" -- client/src platform-console public-web
+
+**A bulk rename of test expectations is about 30% wrong.** Applying this round's
+rename map to every test file touched 26 files; **12 had to be reverted** after
+checking the source: `enumLabel()` output, a field label that only shares its
+wording with a page title, synthetic fixture data, and code comments. The map is
+a starting point; the suite is the authority. Run it and fix what fails.
+
+**And run the WHOLE Playwright suite, not the three specs a brief names.**
+`npm run ci` skips Playwright entirely, so CI is the only signal — and the three
+specs named in this round's brief (`layout`, `mail-workstation`,
+`analytics-mobile`) all passed locally while `call.spec.ts` was red on the
+runner. The failure was a spec given the CASE rename and not the DE-DASH:
+two rename maps applied to one file in two passes, where the second map's key
+was the string the first had already rewritten. Cross-checking every
+`name: "..."` in all 11 specs against the source is the cheap version of this
+check; the 35 that match nothing are fixture data, not pins.
+
+    cd client && npm run build
+    PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers npx playwright test
+
+**A separator can be JSX, not a string.** Three em dashes hid in template
+literals (`` `Due — ${dueTitle(d)}` ``) and one sat between two expressions as
+bare JSX text (`{tr("Call summary")} — {tr("…")}`). `check-dashes.js` counts all
+four, so they were in the backlog the whole time; `dedash.py` reads single- and
+double-quoted strings only, so its FIXER could not see one of them. The gate was
+right and the tool was blind, which is the reverse of the usual failure here.
+
+**A duplicate dictionary key does not error — the LAST one wins.** Verify after
+any dictionary change, and on a MERGE keep the LAST. The snippet is under "The
+traps, all of which bit once" above. This round ended on **3503 keys each side,
+0 duplicated**.
+
+### `dedash.py` was wrong three ways, and is fixed
+
+The next round will run it, so this matters more than the strings it changed:
+
+- an **interpolated range** (`"{{from}}–{{to}} on your side"`, a time span)
+  became `"{{from}}: {{to}} on your side"`, which reads as a label and a value.
+  The numeric-range rule now covers `{{token}}` and `${expr}`.
+- a **colon in front of a coordinating conjunction**: "...nothing malicious: but
+  from that row". Those take a comma.
+- a **parenthetical pair** had only its LAST dash rewritten, leaving one em dash
+  standing AND the sentence cut in half ("a summary: it opens here"). Running
+  the tool twice does not help; it yields two colons. Parentheticals are now
+  listed for a human instead of half-rewritten. There were 3 in Monitor.
+
+**And it does not move dictionary keys.** 30 of the strings it rewrote had
+orphaned theirs and silently lost their French. Moving them is a separate step,
+and the French half wants the same punctuation the English chose, because the
+gate scans `fr.strings` too. Two French values also came out carrying an English
+"to" from the range fix and had to be corrected to "à".
+
+### Control Tower: measured, and NOT restructured
+
+Round 2's lesson was that an area can be a geometry problem rather than a copy
+problem, so this was measured before deciding. Reporting rather than acting was
+a deliberate call: this PR already carries two gate rewrites.
+
+Its over-length prose count was 5 and is now 0, so **copy was never its
+problem**. What the measurement does say:
+
+| | |
+| --- | --- |
+| stacked blocks on a live tenant | **10** (hero, passkey nudge, filters, a strip holding one button, map+list grid, activity panel, KPI band, briefing, app launcher, recent activity) |
+| position of the KPI band | **7th of 10** |
+| chrome strips between the hero and the map | **2** (`TowerFilters`, then a right-aligned row whose only child is "Meeting view") |
+| what scrolls | the page, as a document |
+
+The scroll is a DECISION, not the Smart Mail defect: `index.tsx` carries a
+docblock on why a `h-[calc(100vh-7rem)]` height chain was removed. Leave it.
+
+The finding worth acting on is the band's position. A manager opens the Control
+Tower for the numbers, and the numbers sit below a map, a shipment list and an
+activity panel. That is the Analytics lesson exactly — numbers you read at a
+glance, not a page to scroll — and moving `<KpiStrip>` above the map grid is a
+small change that wants a browser measurement and an e2e spec of its own, on the
+model of `e2e/mail-workstation.spec.ts`. `e2e/layout.spec.ts` is the only spec
+that touches this screen today.
+
+### i18n: measured at 923, and deliberately deferred to PR 2
+
+The brief estimated ~370 untranslated strings in Monitor. Measured:
+
+| area | untranslated props | bare JSX prose lines | `tr()` calls | lines |
+| --- | --- | --- | --- | --- |
+| Control Tower | 335 | 56 | 31 | 8,992 |
+| My Workspace | 164 | 55 | 164 (146 of them in Analytics) | 10,379 |
+| Praxis AI | 33 | 23 | **0** | 1,922 |
+| Smart Comms | 183 | 46 | 1,508 | 28,576 |
+| Support & Feedback | 26 | 2 | 18 | 1,010 |
+| **total** | **741** | **182** | | |
+
+**About 923 strings, not 370**, and many sit in module-level constants where
+`tr()` cannot wrap the definition — a module-level `tr()` freezes the English at
+import — so the call has to move to the render site one site at a time. That is
+a PR of its own. The copy had to settle first in any case: the dictionary key IS
+the final English, and wiring before the copy settles means moving every key
+twice.
+
+Praxis AI is the place to start: 1,922 lines, zero `tr()` calls.
+
 ## What is done
 
 - `ui/info-hint.tsx` (new), `<Field about>`, `.hint` and `.eyebrow` classes

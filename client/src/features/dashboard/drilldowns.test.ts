@@ -120,13 +120,13 @@ describe("buildSlaDrill", () => {
 
   it("reports an on-time percentage over the measured set", () => {
     expect(
-      buildSlaDrill(dossiers).meta.find((m) => m.label === "On time")?.value,
+      buildSlaDrill(dossiers).meta.find((m) => m.label === "On Time")?.value,
     ).toBe("50%");
   });
 
   it("reports em-dash, not 0%, when nothing is measurable yet", () => {
     const d = buildSlaDrill([{ ref: "OPS-9", eta: "2026-07-01" }]);
-    expect(d.meta.find((m) => m.label === "On time")?.value).toBe("—");
+    expect(d.meta.find((m) => m.label === "On Time")?.value).toBe("—");
   });
 });
 
@@ -269,7 +269,7 @@ describe("buildDwellDrill", () => {
       6,
     );
     expect(d.badge.text).toBe("6 days average");
-    expect(d.meta[0]).toEqual({ label: "Average dwell", value: "6 days" });
+    expect(d.meta[0]).toEqual({ label: "Average Dwell", value: "6 days" });
     expect(d.rows[0].cells).toEqual(["Cargo discharged", "Terminal", "2", "12"]);
   });
 
@@ -299,7 +299,7 @@ describe("buildFleetDocsDrill", () => {
   it("counts vehicles, not documents, in the meta", () => {
     const d = buildFleetDocsDrill(docs);
     expect(d.meta.find((m) => m.label === "Vehicles")?.value).toBe("2");
-    expect(d.meta.find((m) => m.label === "Already lapsed")?.value).toBe("1");
+    expect(d.meta.find((m) => m.label === "Already Lapsed")?.value).toBe("1");
     expect(d.badge.tone).toBe("bad");
   });
 });
@@ -339,7 +339,7 @@ describe("buildWarehouseOccupancyDrill", () => {
     expect(d.rows.map((r) => r.cells[0])).toEqual(["A-01-R1-B1", "A-01-R1-B2", "YARD-Y1"]);
     expect(d.rows[0].cells[3]).toEqual({ text: "120%", tone: "warn" });
     expect(d.rows[2].cells[3]).toEqual({ text: "0%", tone: "mute" });
-    expect(d.meta.find((m) => m.label === "Locations with capacity")?.value).toBe("3");
+    expect(d.meta.find((m) => m.label === "Locations with Capacity")?.value).toBe("3");
   });
 
   it("the headline is the tile's pair — 0 % over 700 units is measurable and says so", () => {

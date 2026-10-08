@@ -347,7 +347,7 @@ function ScheduleForm({
       open
       onClose={onClose}
       size="lg"
-      title={training ? "Edit session" : "Schedule a training"}
+      title={training ? "Edit Session" : "Schedule a training"}
       description="A session has a time, a way in, and — optionally — the qualification it satisfies."
     >
       <form className="space-y-4" onSubmit={submit}>

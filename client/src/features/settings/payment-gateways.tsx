@@ -80,7 +80,7 @@ function GatewayForm({
       open={open}
       onClose={onClose}
       title={
-        isEdit ? `Configure ${cell(editing?.provider)}` : "Add payment gateway"
+        isEdit ? `Configure ${cell(editing?.provider)}` : "Add Payment Gateway"
       }
       description="Per-tenant gateway config. Credentials are encrypted and write-only — leave blank to keep the existing secret."
     >
@@ -204,7 +204,7 @@ export function PaymentGatewaysPage() {
       {confirmDialog}
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Payment gateways"
+        title="Payment Gateways"
         description="Per-tenant gateway providers and their encrypted credentials. Keys are write-only and never returned."
         action={<Button onClick={openNew}>Add gateway</Button>}
       />

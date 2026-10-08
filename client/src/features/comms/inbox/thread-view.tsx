@@ -67,10 +67,10 @@ const RAIL_PREF = "comms:work-rail-open";
  */
 function railAttention(thread: ThreadDetail): { mark: string; tone: "bad" | "info"; label: string } | null {
   if (thread.sla_breached) {
-    return { mark: "!", tone: "bad", label: tr("A first reply is overdue") };
+    return { mark: "!", tone: "bad", label: tr("A first reply is overdue") }; // @prose:keep a statement about this thread, not a name
   }
   if (!thread.entity_ref) {
-    return { mark: "?", tone: "info", label: tr("Not linked to a client or a file yet") };
+    return { mark: "?", tone: "info", label: tr("Not linked to a client or a file yet") }; // @prose:keep a statement about this thread, not a name
   }
   return null;
 }
@@ -601,7 +601,7 @@ export function ThreadView({
             disabled={busy}
             onClick={() => onToggleRead(thread.unread_count > 0)}
           >
-            {thread.unread_count > 0 ? tr("Mark read") : tr("Mark unread")}
+            {thread.unread_count > 0 ? tr("Mark Read") : tr("Mark Unread")}
           </Button>
 
           {/* Everything a reader does once in a while, most-used first and the

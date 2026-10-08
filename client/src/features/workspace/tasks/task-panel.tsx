@@ -24,6 +24,7 @@ import { Panel } from "@/components/ui/panel";
 import { Pill } from "@/components/ui/pill";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { DateField } from "@/components/ui/date-field";
 import { LoadingRow } from "@/components/ui/states";
@@ -586,9 +587,7 @@ function ChildTasksSection({
           with three children, which is a lie with a number on it. */}
       {(task.hidden_child_count ?? 0) > 0 && (
         <p className="micro mt-1">
-          {task.hidden_child_count} more child{" "}
-          {task.hidden_child_count === 1 ? "task is" : "tasks are"} not yours to view. They are
-          still counted above.
+          {task.hidden_child_count} more, counted above but not yours to view.
         </p>
       )}
 
@@ -1035,18 +1034,18 @@ function CollaborationSection({ task, audience }: { task: Task; audience?: Audie
             placeholder="Any news on this? (optional)"
             onChange={(e) => setMessage(e.target.value)}
           />
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button size="sm" onClick={() => void send()} disabled={ping.isPending}>
               Send the ping
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setComposing(false)}>
               Cancel
             </Button>
+            <InfoHint label="About who gets the ping">
+              Goes to the assignee, the author and anyone watching. Never to
+              you.
+            </InfoHint>
           </div>
-          <p className="micro">
-            Goes to this task&apos;s assignee, its author and everybody watching it —
-            never to you, and never to anybody who is not already on the task.
-          </p>
         </div>
       ) : recipients.length > 0 ? (
         <Button size="sm" variant="outline" className="mt-2" onClick={() => setComposing(true)}>
@@ -1060,7 +1059,7 @@ function CollaborationSection({ task, audience }: { task: Task; audience?: Audie
             Ping everyone on this task
           </Button>
           <p className="micro mt-1">
-            There is nobody to ping — assign the task or add a watcher first.
+            Assign the task or add a watcher first.
           </p>
         </div>
       )}

@@ -284,7 +284,7 @@ export function CampaignsPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Sales & CRM" to="/sales" />}
-        title="Marketing campaigns"
+        title="Marketing Campaigns"
         description="What each campaign was budgeted to do and what it actually returned — plus the newsletter audience it sends to."
         action={
           <div className="flex items-center gap-3">

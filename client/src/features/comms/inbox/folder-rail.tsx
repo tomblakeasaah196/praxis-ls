@@ -100,7 +100,7 @@ const VIEWS: { key: NonNullable<RailSelection["view"]>; label: string; glyph: st
   { key: "UNREAD", label: "Unread", glyph: "●" },
   { key: "STARRED", label: "Starred", glyph: "★" },
   { key: "VIP", label: "VIP", glyph: "◆" },
-  { key: "ATTACHMENT", label: "With attachments", glyph: "◫" },
+  { key: "ATTACHMENT", label: "With Attachments", glyph: "◫" },
 ];
 
 /** The canonical name, translated; anything else is the server's own text. */

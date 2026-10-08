@@ -828,7 +828,7 @@ export function ExpenseRatesPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Master Data" to="/master" />}
-        title="Expense rates"
+        title="Expense Rates"
         description="Rates per shipping line, airline and authority. Feeds costing and the financial dictionary picker."
         action={
           <Button variant="ghost" size="sm" onClick={() => setSettings(true)}>

@@ -554,7 +554,7 @@ export function AuditPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Governance" to="/governance" />}
-        title="Audit ledger"
+        title="Audit Ledger"
         description="Append-only trail of every create, lock, post, reverse, permission change and AI action. Writes are blocked at the database, not just the API."
         action={
           tab === "reviews" ? (

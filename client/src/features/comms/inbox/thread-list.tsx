@@ -274,8 +274,8 @@ export function ThreadRow({
 }
 
 const BULK: { op: BulkOp; label: string; folder?: MailFolder }[] = [
-  { op: "read", label: "Mark read" },
-  { op: "unread", label: "Mark unread" },
+  { op: "read", label: "Mark Read" },
+  { op: "unread", label: "Mark Unread" },
   { op: "move", label: "Archive", folder: "ARCHIVE" },
   { op: "move", label: "Spam", folder: "SPAM" },
   { op: "move", label: "Trash", folder: "TRASH" },

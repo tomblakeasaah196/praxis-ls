@@ -260,7 +260,7 @@ export function ApiKeysPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="API keys & secrets"
+        title="API Keys & Secrets"
         description={
           <>
             Encrypted, write-only third-party integration keys (FX &amp; more).

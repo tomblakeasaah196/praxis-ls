@@ -116,7 +116,7 @@ export function FinancialDictionaryPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Master Data" to="/master" />}
-        title="Financial dictionary"
+        title="Financial Dictionary"
         description="Priced lines with their OHADA posting rules: the single source every quote, invoice and costing reads."
         action={
           <div className="flex items-center gap-2">

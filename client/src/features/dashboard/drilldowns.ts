@@ -123,14 +123,14 @@ export function buildRevenueDrill(
   const sampled = availableCount > (invoices || []).length;
 
   return {
-    title: "Revenue · locked invoices",
+    title: "Revenue · Locked Invoices",
     badge: {
       tone: "orange",
       text: `${finals.length} locked invoice${finals.length === 1 ? "" : "s"}`,
     },
     meta: [
       { label: "Revenue", value: `${grouped(headline)} ${currency}` },
-      { label: "Locked invoices", value: String(finals.length) },
+      { label: "Locked Invoices", value: String(finals.length) },
       { label: "Clients", value: String(ranked.length) },
       ...(ranked.length
         ? [{ label: "Top", value: clientName[ranked[0][0]] || "Unattributed" }]
@@ -156,7 +156,7 @@ export function buildRevenueDrill(
     note: sampled
       ? `Ranked over the ${(invoices || []).length} most recent invoices of ${availableCount}. The revenue figure above covers all of them.`
       : undefined,
-    cta: { label: "Open invoices", to: KPI_ROUTE.revenue },
+    cta: { label: "Open Invoices", to: KPI_ROUTE.revenue },
     empty: {
       title: "No revenue posted yet",
       hint: "Revenue lands here as final invoices are issued and locked.",
@@ -180,13 +180,13 @@ export function buildSlaDrill(dossiers: Row[] | null): Drill {
     [str(d.pol), str(d.pod)].filter(Boolean).join(" → ") || "—";
 
   return {
-    title: "On-time delivery",
+    title: "On-time Delivery",
     badge: {
       tone: late.length ? "warn" : "ok",
       text: `${measured.length} arrival${measured.length === 1 ? "" : "s"} measured`,
     },
     meta: [
-      { label: "On time", value: pct === null ? "—" : `${pct}%` },
+      { label: "On Time", value: pct === null ? "—" : `${pct}%` },
       { label: "Measured", value: String(measured.length) },
       { label: "Late", value: String(late.length) },
     ],
@@ -215,7 +215,7 @@ export function buildSlaDrill(dossiers: Row[] | null): Drill {
           },
         ],
       })),
-    cta: { label: "Open operations files", to: KPI_ROUTE.sla_on_time },
+    cta: { label: "Open Operations Files", to: KPI_ROUTE.sla_on_time },
     empty: {
       title: "No arrivals recorded yet",
       hint: "An on-time rate needs both an ETA and an ATA on an operations file.",
@@ -246,7 +246,7 @@ export function buildOverdueDrill(
   const oldest = invoices.length ? Number(invoices[0].days_overdue) || 0 : 0;
 
   return {
-    title: "Receivables · past due",
+    title: "Receivables · Past Due",
     badge: { tone: "warn", text: "Outstanding past due date" },
     meta: [
       {
@@ -277,7 +277,7 @@ export function buildOverdueDrill(
         ],
       };
     }),
-    cta: { label: "Open receivables", to: KPI_ROUTE.receivables_overdue },
+    cta: { label: "Open Receivables", to: KPI_ROUTE.receivables_overdue },
     empty: {
       title: "Nothing past due",
       hint: "Every locked invoice is within its payment terms.",
@@ -291,11 +291,11 @@ export function buildFleetDrill(vehicles: Row[] | null): Drill {
   const active = all.filter((v) => str(v.status).toUpperCase() === "ACTIVE");
 
   return {
-    title: "Fleet utilisation",
+    title: "Fleet Utilisation",
     badge: { tone: "blue", text: `${active.length} of ${all.length} active` },
     meta: [
       { label: "Active", value: String(active.length) },
-      { label: "Fleet size", value: String(all.length) },
+      { label: "Fleet Size", value: String(all.length) },
       {
         label: "Utilisation",
         value: all.length
@@ -317,7 +317,7 @@ export function buildFleetDrill(vehicles: Row[] | null): Drill {
         },
       ],
     })),
-    cta: { label: "Open fleet", to: KPI_ROUTE.fleet_utilisation },
+    cta: { label: "Open Fleet", to: KPI_ROUTE.fleet_utilisation },
     empty: {
       title: "No vehicles visible",
       hint: "The fleet module may be switched off for this tenant, or you may not have the grant to read it.",
@@ -343,12 +343,12 @@ export function buildFilesActiveDrill(dossiers: Row[] | null): Drill {
   });
   const inProgress = open.filter((d) => str(d.status).toUpperCase() === "IN_PROGRESS").length;
   return {
-    title: "Active operations files",
+    title: "Active Operations Files",
     badge: { tone: "blue", text: `${open.length} active` },
     meta: [
       { label: "Active", value: String(open.length) },
-      { label: "In progress", value: String(inProgress) },
-      { label: "Not started", value: String(open.length - inProgress) },
+      { label: "In Progress", value: String(inProgress) },
+      { label: "Not Started", value: String(open.length - inProgress) },
     ],
     columns: [
       { label: "File" },
@@ -368,7 +368,7 @@ export function buildFilesActiveDrill(dossiers: Row[] | null): Drill {
         dateFmt(d.created_at),
       ],
     })),
-    cta: { label: "Open operations files", to: KPI_ROUTE.files_active },
+    cta: { label: "Open Operations Files", to: KPI_ROUTE.files_active },
     empty: {
       title: "Nothing moving",
       hint: "No files are open or in progress right now.",
@@ -382,10 +382,10 @@ export function buildFilesActiveDrill(dossiers: Row[] | null): Drill {
 export function buildNeedsLocationDrill(shipments: Row[] | null): Drill {
   const list = shipments || [];
   return {
-    title: "Files that need a verified place",
+    title: "Files That Need a Verified Place",
     badge: { tone: "warn", text: `${list.length} in the queue` },
-    meta: [{ label: "Needs a location", value: String(list.length) }],
-    columns: [{ label: "File" }, { label: "Origin named" }, { label: "Destination named" }, { label: "Status" }],
+    meta: [{ label: "Needs a Location", value: String(list.length) }],
+    columns: [{ label: "File" }, { label: "Origin Named" }, { label: "Destination Named" }, { label: "Status" }],
     rows: list.slice(0, 8).map((d) => ({
       key: str(d.dossier_id) || str(d.ref),
       cells: [
@@ -395,7 +395,7 @@ export function buildNeedsLocationDrill(shipments: Row[] | null): Drill {
         str(d.status) || "—",
       ],
     })),
-    cta: { label: "Open operations files", to: KPI_ROUTE.needs_location },
+    cta: { label: "Open Operations Files", to: KPI_ROUTE.needs_location },
     empty: {
       title: "The map can plot everything",
       hint: "Every file with named endpoints resolves to a verified place.",
@@ -409,7 +409,7 @@ export function buildNeedsLocationDrill(shipments: Row[] | null): Drill {
 export function buildApprovalsDrill(rows: Row[] | null): Drill {
   const list = rows || [];
   return {
-    title: "Approvals awaiting",
+    title: "Approvals Awaiting",
     badge: { tone: "orange", text: `${list.length} open task${list.length === 1 ? "" : "s"}` },
     meta: [{ label: "Pending", value: String(list.length) }],
     columns: [{ label: "Record" }, { label: "Module" }, { label: "Raised", align: "right" }],
@@ -421,10 +421,10 @@ export function buildApprovalsDrill(rows: Row[] | null): Drill {
         dateFmt(r.created_at),
       ],
     })),
-    cta: { label: "Open approvals", to: KPI_ROUTE.approvals_awaiting },
+    cta: { label: "Open Approvals", to: KPI_ROUTE.approvals_awaiting },
     empty: {
       title: "Nothing waiting",
-      hint: "No approval task is pending — or the approvals queue is not yours to open.",
+      hint: "No approval task is pending, or the approvals queue is not yours to open.",
     },
   };
 }
@@ -436,10 +436,10 @@ export function buildComplianceDrill(rows: Row[] | null): Drill {
   const sevTone = (s: string): Tone =>
     s === "HIGH" || s === "CRITICAL" ? "bad" : s === "MEDIUM" ? "warn" : "mute";
   return {
-    title: "Open compliance flags",
+    title: "Open Compliance Flags",
     badge: { tone: "bad", text: `${list.length} unresolved` },
     meta: [
-      { label: "Open flags", value: String(list.length) },
+      { label: "Open Flags", value: String(list.length) },
       {
         label: "High",
         value: String(list.filter((r) => sevTone(str(r.severity).toUpperCase()) === "bad").length),
@@ -454,7 +454,7 @@ export function buildComplianceDrill(rows: Row[] | null): Drill {
         dateFmt(r.created_at),
       ],
     })),
-    cta: { label: "Open the register", to: KPI_ROUTE.compliance_open },
+    cta: { label: "Open the Register", to: KPI_ROUTE.compliance_open },
     empty: {
       title: "No open flags",
       hint: "Nothing is unresolved in the compliance register right now.",
@@ -469,7 +469,7 @@ export function buildProformasDrill(rows: Row[] | null, currency: string, author
   const list = rows || [];
   const total = list.reduce((s, r) => s + (Number(r.total_ttc ?? r.amount) || 0), 0);
   return {
-    title: "Proforma invoices",
+    title: "Proforma Invoices",
     badge: {
       tone: "blue",
       text: `${authoritativeCount ?? list.length} issued`,
@@ -495,7 +495,7 @@ export function buildProformasDrill(rows: Row[] | null, currency: string, author
       list.length && authoritativeCount !== null && authoritativeCount > list.length
         ? `Ranked over the ${list.length} most recent of ${authoritativeCount}.`
         : undefined,
-    cta: { label: "Open proformas", to: KPI_ROUTE.proformas_open },
+    cta: { label: "Open Proformas", to: KPI_ROUTE.proformas_open },
     empty: {
       title: "No proformas issued",
       hint: "Proforma invoices land here as commercial quotes are raised.",
@@ -508,11 +508,11 @@ export function buildProformasDrill(rows: Row[] | null, currency: string, author
 export function buildJournalsDrill(rows: Row[] | null): Drill {
   const drafts = (rows || []).filter((r) => str(r.status).toLowerCase() === "draft");
   return {
-    title: "Unposted journal entries",
+    title: "Unposted Journal Entries",
     badge: { tone: "mute", text: `${drafts.length} draft${drafts.length === 1 ? "" : "s"}` },
     meta: [
       { label: "Drafts", value: String(drafts.length) },
-      { label: "Of which today", value: String(drafts.filter((r) => str(r.posted_date || r.created_at).startsWith(new Date().toISOString().slice(0, 10))).length) },
+      { label: "Of Which Today", value: String(drafts.filter((r) => str(r.posted_date || r.created_at).startsWith(new Date().toISOString().slice(0, 10))).length) },
     ],
     columns: [{ label: "Entry" }, { label: "Date" }, { label: "Status" }],
     rows: drafts.slice(0, 8).map((r) => ({
@@ -523,10 +523,10 @@ export function buildJournalsDrill(rows: Row[] | null): Drill {
         str(r.status) || "—",
       ],
     })),
-    cta: { label: "Open journals", to: KPI_ROUTE.journals_unposted },
+    cta: { label: "Open Journals", to: KPI_ROUTE.journals_unposted },
     empty: {
       title: "Ledger is current",
-      hint: "No draft journal entries — everything raised has been posted.",
+      hint: "No draft journal entries: everything raised has been posted.",
     },
   };
 }
@@ -578,14 +578,14 @@ export function buildLateVsEtaDrill(dossiers: Row[] | null, now: Date = new Date
     .sort((a, b) => b.days - a.days);
   const worst = late.length ? late[0].days : 0;
   return {
-    title: "Past ETA · undelivered",
+    title: "Past ETA · Undelivered",
     badge: { tone: late.length ? "bad" : "ok", text: `${late.length} late` },
     meta: [
       { label: "Past ETA", value: String(late.length) },
-      { label: "Over a week", value: String(late.filter((l) => l.days > 7).length) },
+      { label: "Over a Week", value: String(late.filter((l) => l.days > 7).length) },
       ...(late.length ? [{ label: "Worst", value: dayNoun(worst) }] : []),
     ],
-    columns: [{ label: "File" }, { label: "Route" }, { label: "ETA" }, { label: "Overdue by", align: "right" }],
+    columns: [{ label: "File" }, { label: "Route" }, { label: "ETA" }, { label: "Overdue By", align: "right" }],
     rows: late.slice(0, 8).map(({ d, days }) => ({
       key: str(d.dossier_id) || str(d.ref),
       cells: [
@@ -595,7 +595,7 @@ export function buildLateVsEtaDrill(dossiers: Row[] | null, now: Date = new Date
         { text: dayNoun(days), tone: (days > 7 ? "bad" : "warn") as Tone },
       ],
     })),
-    cta: { label: "Open operations files", to: KPI_ROUTE.late_vs_eta },
+    cta: { label: "Open Operations Files", to: KPI_ROUTE.late_vs_eta },
     empty: {
       title: "Nothing past its ETA",
       hint: "Every open file with an ETA is either not due yet or already has an arrival recorded.",
@@ -638,16 +638,16 @@ export function buildHeadcountDrill(employees: Row[] | null): Drill {
     list.map((e) => str(e.department).trim()).filter(Boolean),
   );
   return {
-    title: "Active employees",
+    title: "Active Employees",
     badge: { tone: "blue", text: `${list.length} active` },
     meta: [
-      { label: "Active (page)", value: String(list.length) },
+      { label: "Active (Page)", value: String(list.length) },
       { label: "Departments", value: String(departments.size) },
     ],
     columns: [
       { label: "Employee" },
       { label: "Department" },
-      { label: "Job title" },
+      { label: "Job Title" },
     ],
     rows: list.slice(0, 8).map((e) => ({
       key: str(e.employee_id) || str(e.full_name),
@@ -661,10 +661,10 @@ export function buildHeadcountDrill(employees: Row[] | null): Drill {
       list.length >= 200
         ? "The table lists the 200 most recent active employees; the tile's headcount covers the whole register."
         : undefined,
-    cta: { label: "Open the staff register", to: KPI_ROUTE.headcount },
+    cta: { label: "Open the Staff Register", to: KPI_ROUTE.headcount },
     empty: {
       title: "No active employees",
-      hint: "The staff register is empty — add employees and the headcount follows.",
+      hint: "The staff register is empty. Add employees and the headcount follows.",
     },
   };
 }
@@ -686,14 +686,14 @@ export function buildDwellDrill(
   const tierName = (t: string) =>
     ({ INTERNAL: "Internal", CARRIER: "Carrier", TERMINAL: "Terminal", AUTHORITY: "Authority", CLIENT: "Client" })[t] || t || "—";
   return {
-    title: "Dwell · arrival to delivery",
+    title: "Dwell · Arrival to Delivery",
     badge: { tone: "mute", text: dwellDays === null ? "No delivery measured" : `${dayNoun(dwellDays)} average` },
     meta: [
-      { label: "Average dwell", value: dwellDays === null ? "—" : dayNoun(dwellDays) },
-      { label: "Slips attributed", value: String(tiers.reduce((s, t) => s + (Number(t.slips) || 0), 0)) },
-      { label: "Hours lost", value: String(Math.round(totalHours)) },
+      { label: "Average Dwell", value: dwellDays === null ? "—" : dayNoun(dwellDays) },
+      { label: "Slips Attributed", value: String(tiers.reduce((s, t) => s + (Number(t.slips) || 0), 0)) },
+      { label: "Hours Lost", value: String(Math.round(totalHours)) },
     ],
-    columns: [{ label: "Stage" }, { label: "Charged to" }, { label: "Slips", align: "right" }, { label: "Avg hours", align: "right" }],
+    columns: [{ label: "Stage" }, { label: "Charged To" }, { label: "Slips", align: "right" }, { label: "Avg Hours", align: "right" }],
     rows: stages.slice(0, 8).map((r, i) => ({
       key: `${str(r.code)}-${str(r.owner_tier)}-${i}`,
       cells: [
@@ -704,7 +704,7 @@ export function buildDwellDrill(
       ],
     })),
     note: stages.length ? "Slips are settled milestone variances; force-majeure stays counted, never netted away." : undefined,
-    cta: { label: "Open milestones", to: KPI_ROUTE.dwell_days },
+    cta: { label: "Open Milestones", to: KPI_ROUTE.dwell_days },
     empty: {
       title: "No slips to attribute",
       hint: "Attribution fills in as milestones complete late and are charged to a tier.",
@@ -731,21 +731,21 @@ export function buildAttendanceDrill(punches: Row[] | null): Drill {
   const present = [...byEmployee.values()];
   const stillIn = present.filter((p) => !p.clock_out_at).length;
   return {
-    title: "Attendance · today",
+    title: "Attendance · Today",
     badge: {
       tone: "ok",
       text: `${present.length} clocked in`,
     },
     meta: [
-      { label: "Clocked in", value: String(present.length) },
+      { label: "Clocked In", value: String(present.length) },
       { label: "Punches", value: String(list.length) },
-      { label: "Still clocked in", value: String(stillIn) },
+      { label: "Still Clocked In", value: String(stillIn) },
     ],
     columns: [
       { label: "Employee" },
       { label: "Department" },
-      { label: "Clock in" },
-      { label: "Clock out" },
+      { label: "Clock In" },
+      { label: "Clock Out" },
     ],
     rows: present.slice(0, 8).map((p) => ({
       key: str(p.attendance_id) || str(p.employee_id),
@@ -760,7 +760,7 @@ export function buildAttendanceDrill(punches: Row[] | null): Drill {
       list.length >= 200
         ? "The table lists the 200 most recent punches of the day."
         : undefined,
-    cta: { label: "Open attendance", to: KPI_ROUTE.attendance_today },
+    cta: { label: "Open Attendance", to: KPI_ROUTE.attendance_today },
     empty: {
       title: "Nobody has clocked in yet",
       hint: "Punches land here as the team badges in. The tile's expected count comes from the roster's working days.",
@@ -778,11 +778,11 @@ export function buildFleetDocsDrill(rows: Row[] | null): Drill {
   const kindName = (k: string) =>
     ({ INSURANCE: "Insurance", VISITE_TECHNIQUE: "Technical inspection" })[k] || k || "—";
   return {
-    title: "Fleet documents · expiring within 30 days",
+    title: "Fleet Documents · Expiring Within 30 Days",
     badge: { tone: lapsed ? "bad" : list.length ? "warn" : "ok", text: `${list.length} to renew` },
     meta: [
       { label: "Expiring", value: String(list.length) },
-      { label: "Already lapsed", value: String(lapsed) },
+      { label: "Already Lapsed", value: String(lapsed) },
       { label: "Vehicles", value: String(new Set(list.map((r) => str(r.vehicle_id))).size) },
     ],
     columns: [{ label: "Vehicle" }, { label: "Document" }, { label: "Expires" }, { label: "Status" }],
@@ -801,7 +801,7 @@ export function buildFleetDocsDrill(rows: Row[] | null): Drill {
         ],
       };
     }),
-    cta: { label: "Open fleet compliance", to: KPI_ROUTE.fleet_docs_expiring },
+    cta: { label: "Open Fleet Compliance", to: KPI_ROUTE.fleet_docs_expiring },
     empty: {
       title: "Nothing expiring",
       hint: "No insurance or inspection on the register falls due in the next 30 days.",
@@ -819,11 +819,11 @@ export function buildLeaveDrill(rows: Row[] | null): Drill {
     return on && (!acc || on < acc) ? on : acc;
   }, null);
   return {
-    title: "Leave requests · pending",
+    title: "Leave Requests · Pending",
     badge: { tone: "warn", text: `${list.length} awaiting a decision` },
     meta: [
       { label: "Pending", value: String(list.length) },
-      ...(oldest ? [{ label: "Earliest starts", value: dateFmt(oldest) }] : []),
+      ...(oldest ? [{ label: "Earliest Starts", value: dateFmt(oldest) }] : []),
     ],
     columns: [
       { label: "Employee" },
@@ -840,7 +840,7 @@ export function buildLeaveDrill(rows: Row[] | null): Drill {
         dateFmt(r.ends_on),
       ],
     })),
-    cta: { label: "Open the leave queue", to: KPI_ROUTE.leave_pending },
+    cta: { label: "Open the Leave Queue", to: KPI_ROUTE.leave_pending },
     empty: {
       title: "Nothing awaiting a decision",
       hint: "Every leave request has been approved or rejected.",
@@ -860,14 +860,14 @@ export function buildWorkOrdersDrill(rows: Row[] | null, now: Date = new Date())
     .sort((a, b) => b.age - a.age);
   const corrective = open.filter(({ r }) => str(r.kind).toUpperCase() === "CORRECTIVE").length;
   return {
-    title: "Open work orders",
+    title: "Open Work Orders",
     badge: { tone: "mute", text: `${open.length} open` },
     meta: [
       { label: "Open", value: String(open.length) },
       { label: "Corrective", value: String(corrective) },
       { label: "Preventive", value: String(open.length - corrective) },
     ],
-    columns: [{ label: "Vehicle" }, { label: "Kind" }, { label: "Status" }, { label: "Open for", align: "right" }],
+    columns: [{ label: "Vehicle" }, { label: "Kind" }, { label: "Status" }, { label: "Open For", align: "right" }],
     rows: open.slice(0, 8).map(({ r, age }) => ({
       key: str(r.work_order_id),
       cells: [
@@ -880,7 +880,7 @@ export function buildWorkOrdersDrill(rows: Row[] | null, now: Date = new Date())
         dayNoun(age),
       ],
     })),
-    cta: { label: "Open work orders", to: KPI_ROUTE.work_orders_open },
+    cta: { label: "Open Work Orders", to: KPI_ROUTE.work_orders_open },
     empty: {
       title: "Workshop is clear",
       hint: "No maintenance order is open or in progress.",
@@ -895,11 +895,11 @@ export function buildVacanciesDrill(rows: Row[] | null): Drill {
   const list = (rows || []).filter((v) => str(v.status).toUpperCase() === "OPEN");
   const posted = list.filter((v) => v.posted_to_website).length;
   return {
-    title: "Open vacancies",
+    title: "Open Vacancies",
     badge: { tone: "mute", text: `${list.length} open` },
     meta: [
       { label: "Open", value: String(list.length) },
-      { label: "On the website", value: String(posted) },
+      { label: "On the Website", value: String(posted) },
     ],
     columns: [
       { label: "Role" },
@@ -918,10 +918,10 @@ export function buildVacanciesDrill(rows: Row[] | null): Drill {
       (rows || []).length >= 200
         ? "The table lists the 200 most recent vacancies; the count covers the open ones among them."
         : undefined,
-    cta: { label: "Open recruitment", to: KPI_ROUTE.vacancies_open },
+    cta: { label: "Open Recruitment", to: KPI_ROUTE.vacancies_open },
     empty: {
       title: "No open vacancies",
-      hint: "Nothing is being hired for right now — open a vacancy and it lands here.",
+      hint: "Nothing is being hired for right now: open a vacancy and it lands here.",
     },
   };
 }
@@ -958,18 +958,18 @@ export function buildWarehouseOccupancyDrill(
   const label = (l: Row) =>
     str(l.label) || [str(l.zone), str(l.aisle), str(l.rack), str(l.bin), str(l.yard)].filter(Boolean).join("-") || str(l.location_id).slice(0, 8);
   return {
-    title: "Warehouse occupancy",
+    title: "Warehouse Occupancy",
     badge: {
       tone: measurable ? (pair.value >= 90 ? "warn" : "orange") : "mute",
       text: measurable ? `${headline} of recorded capacity` : "No capacity recorded",
     },
     meta: [
       { label: "Occupancy", value: headline },
-      { label: "Capacity units", value: measurable ? grouped(pair.denominator) : "—" },
-      { label: "Locations with capacity", value: String(withCap.length) },
+      { label: "Capacity Units", value: measurable ? grouped(pair.denominator) : "—" },
+      { label: "Locations with Capacity", value: String(withCap.length) },
       { label: "Full (≥ 90 %)", value: String(withCap.filter((x) => x.pct >= 90).length) },
     ],
-    columns: [{ label: "Location" }, { label: "On hand", align: "right" }, { label: "Capacity", align: "right" }, { label: "Occupied", align: "right" }],
+    columns: [{ label: "Location" }, { label: "On Hand", align: "right" }, { label: "Capacity", align: "right" }, { label: "Occupied", align: "right" }],
     rows: withCap.slice(0, 8).map(({ l, cap, used, pct }) => ({
       key: str(l.location_id),
       cells: [
@@ -982,10 +982,10 @@ export function buildWarehouseOccupancyDrill(
     note: measurable
       ? "Units are whatever each location records as capacity; a site mixing pallets and bags reads approximately."
       : "Give locations a capacity (Warehouse → Locations) and this ratio becomes measurable.",
-    cta: { label: "Open warehouse", to: KPI_ROUTE.warehouse_occupancy },
+    cta: { label: "Open Warehouse", to: KPI_ROUTE.warehouse_occupancy },
     empty: {
       title: "No location has a recorded capacity",
-      hint: "Occupancy is units on hand against capacity — with no capacity recorded there is nothing to divide by.",
+      hint: "Occupancy is units on hand against capacity. With no capacity recorded there is nothing to divide by.",
     },
   };
 }
@@ -1017,7 +1017,7 @@ export function buildPayrollDrill(
   }, 0);
   const figuresComplete = items.length > 0 && items.every((it) => it.net_pay !== null && it.net_pay !== undefined);
   return {
-    title: "Payroll runs",
+    title: "Payroll Runs",
     badge: {
       tone: "orange",
       text: inFlight.length
@@ -1025,9 +1025,9 @@ export function buildPayrollDrill(
         : "All runs settled",
     },
     meta: [
-      { label: "In flight", value: String(inFlight.length) },
-      { label: "Latest period", value: str(all[0]?.period_code) || "—" },
-      { label: "Payslips (in flight)", value: items.length ? String(items.length) : "—" },
+      { label: "In Flight", value: String(inFlight.length) },
+      { label: "Latest Period", value: str(all[0]?.period_code) || "—" },
+      { label: "Payslips (in Flight)", value: items.length ? String(items.length) : "—" },
       {
         label: `Net (in flight), ${currency}`,
         value: figuresComplete ? `${grouped(net)} ${currency}` : "—",
@@ -1052,10 +1052,10 @@ export function buildPayrollDrill(
     note: all.length >= 200
       ? "The table lists the 200 most recent runs; the in-flight count is the tile's figure over all periods."
       : undefined,
-    cta: { label: "Open payroll", to: KPI_ROUTE.payroll_run_state },
+    cta: { label: "Open Payroll", to: KPI_ROUTE.payroll_run_state },
     empty: {
       title: "No payroll runs yet",
-      hint: "A run appears here each payroll period is opened — the count stays 0 until then, truthfully.",
+      hint: "A run appears here each payroll period is opened: the count stays 0 until then, truthfully.",
     },
   };
 }
@@ -1084,16 +1084,16 @@ export function buildAttritionDrill(rows: Row[] | null): Drill {
     return Number.isFinite(days) && days <= ATTRITION_WINDOW_DAYS;
   }).length;
   return {
-    title: "Attrition · 90 days",
+    title: "Attrition · 90 Days",
     badge: { tone: "bad", text: `${leftWithinWindow} left within 90 days` },
     meta: [
-      { label: "Left within 90 days", value: String(leftWithinWindow) },
-      { label: "Off the active register", value: String(list.length) },
+      { label: "Left Within 90 Days", value: String(leftWithinWindow) },
+      { label: "Off the Active Register", value: String(list.length) },
     ],
     columns: [
       { label: "Employee" },
       { label: "Status" },
-      { label: "Left on", align: "right" },
+      { label: "Left On", align: "right" },
     ],
     rows: list.slice(0, 8).map((e) => {
       const status = str(e.status).toUpperCase();
@@ -1108,7 +1108,7 @@ export function buildAttritionDrill(rows: Row[] | null): Drill {
     }),
     note:
       "The headline counts employee.deactivated events over the last 90 days; the rows are the current non-active register (suspensions and terminations).",
-    cta: { label: "Open the staff register", to: KPI_ROUTE.attrition_90d },
+    cta: { label: "Open the Staff Register", to: KPI_ROUTE.attrition_90d },
     empty: {
       title: "Nobody has left",
       hint: "No employee has been deactivated in the last 90 days, and the register holds no one off the active list.",
@@ -1136,7 +1136,7 @@ export function buildCashCollectedDrill(rows: Row[] | null, currency: string): D
   const list = rows || [];
   const total = list.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
   return {
-    title: "Cash collected this month",
+    title: "Cash Collected This Month",
     badge: { tone: "ok", text: `${grouped(total)} ${currency}` },
     meta: [
       { label: "Receipts", value: String(list.length) },
@@ -1148,7 +1148,7 @@ export function buildCashCollectedDrill(rows: Row[] | null, currency: string): D
       cells: [dateFmt(r.received_on), str(r.method) || "—", grouped(Number(r.amount) || 0)],
     })),
     note: list.length >= 200 ? "The table lists the 200 most recent receipts; the tile totals the month." : undefined,
-    cta: { label: "Open receivables", to: KPI_ROUTE.cash_collected },
+    cta: { label: "Open Receivables", to: KPI_ROUTE.cash_collected },
     empty: {
       title: "Nothing collected yet this month",
       hint: "Posted receipts land here as payments are recorded. The month is young, not empty.",
@@ -1170,7 +1170,7 @@ export function buildPayablesDrill(rows: Row[] | null, currency: string): Drill 
   const total = due.reduce((sum, r) => sum + outstanding(r), 0);
   const ranked = [...due].sort((a, b) => outstanding(b) - outstanding(a));
   return {
-    title: "Supplier invoices past due",
+    title: "Supplier Invoices Past Due",
     badge: { tone: "warn", text: `${grouped(total)} ${currency}` },
     meta: [
       { label: "Invoices", value: String(due.length) },
@@ -1187,7 +1187,7 @@ export function buildPayablesDrill(rows: Row[] | null, currency: string): Drill 
       ],
     })),
     note: (rows || []).length >= 200 ? "Ranked over the 200 most recent invoices; the tile totals them all." : undefined,
-    cta: { label: "Open supplier debt", to: KPI_ROUTE.payables_overdue },
+    cta: { label: "Open Supplier Debt", to: KPI_ROUTE.payables_overdue },
     empty: {
       title: "Nothing past due",
       hint: "Every supplier invoice is either settled or not yet at its due date.",
@@ -1200,7 +1200,7 @@ export function buildCashRequestsDrill(rows: Row[] | null, currency: string): Dr
   const waiting = (rows || []).filter((r) => ["SUBMITTED", "VALIDATED"].includes(str(r.status)));
   const total = waiting.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
   return {
-    title: "Cash requests awaiting a decision",
+    title: "Cash Requests Awaiting a Decision",
     badge: { tone: "bad", text: `${waiting.length} waiting` },
     meta: [
       { label: "Requests", value: String(waiting.length) },
@@ -1218,7 +1218,7 @@ export function buildCashRequestsDrill(rows: Row[] | null, currency: string): Dr
         grouped(Number(r.amount) || 0),
       ],
     })),
-    cta: { label: "Open cash requests", to: KPI_ROUTE.cash_requests_awaiting },
+    cta: { label: "Open Cash Requests", to: KPI_ROUTE.cash_requests_awaiting },
     empty: {
       title: "No request is waiting",
       hint: "Every raised cash request has been decided.",
@@ -1251,11 +1251,11 @@ export function buildMarginDrill(
     (r) => r.margin_percent === null || r.margin_percent === undefined,
   );
   return {
-    title: "Margin on closed files",
+    title: "Margin on Closed Files",
     badge: { tone: "orange", text: marginPct === null ? "Not measurable" : `${marginPct} %` },
     meta: [
-      { label: "Closed files measured", value: String(closedCount) },
-      { label: "Average margin", value: marginPct === null ? "—" : `${marginPct} %` },
+      { label: "Closed Files Measured", value: String(closedCount) },
+      { label: "Average Margin", value: marginPct === null ? "—" : `${marginPct} %` },
     ],
     columns: [{ label: "Simulation" }, { label: "Approved" }, { label: "Margin", align: "right" }],
     rows: list.slice(0, 8).map((r) => ({
@@ -1271,7 +1271,7 @@ export function buildMarginDrill(
     note: withheld
       ? "Some per-file margins are not shown for your role; the average above is the aggregate you may read."
       : undefined,
-    cta: { label: "Open margin simulations", to: KPI_ROUTE.margin_closed },
+    cta: { label: "Open Margin Simulations", to: KPI_ROUTE.margin_closed },
     empty: {
       title: "No closed file has an approved margin",
       hint: "Margin is measured once a file completes with its simulation approved.",
@@ -1297,12 +1297,12 @@ export function buildDsoDrill(rows: Row[] | null, dsoDays: number | null, curren
     0,
   );
   return {
-    title: "Days sales outstanding",
+    title: "Days Sales Outstanding",
     badge: { tone: "blue", text: dsoDays === null ? "Not measurable" : `${dsoDays} days` },
     meta: [
-      { label: "Open invoices", value: String(open.length) },
+      { label: "Open Invoices", value: String(open.length) },
       { label: `Outstanding (${currency})`, value: grouped(outstanding) },
-      { label: "Weighted age", value: dsoDays === null ? "—" : `${dsoDays} days` },
+      { label: "Weighted Age", value: dsoDays === null ? "—" : `${dsoDays} days` },
     ],
     columns: [{ label: "Invoice" }, { label: "Issued" }, { label: "Age", align: "right" }, { label: currency, align: "right" }],
     rows: ranked.slice(0, 8).map((r) => ({
@@ -1315,10 +1315,10 @@ export function buildDsoDrill(rows: Row[] | null, dsoDays: number | null, curren
       ],
     })),
     note: (rows || []).length >= 200 ? "Ranked over the 200 most recent invoices; the tile weights them all." : undefined,
-    cta: { label: "Open receivables", to: KPI_ROUTE.dso },
+    cta: { label: "Open Receivables", to: KPI_ROUTE.dso },
     empty: {
       title: "Nothing is outstanding",
-      hint: "Every locked final invoice has been settled — there is no age to weigh.",
+      hint: "Every locked final invoice has been settled: there is no age to weigh.",
     },
   };
 }
@@ -1333,7 +1333,7 @@ export function buildPipelineWonDrill(rows: Row[] | null, currency: string): Dri
   );
   const total = won.reduce((sum, r) => sum + (Number(r.estimated_value) || 0), 0);
   return {
-    title: "Won this month",
+    title: "Won This Month",
     badge: { tone: "ok", text: `${grouped(total)} ${currency}` },
     meta: [
       { label: "Opportunities", value: String(won.length) },
@@ -1344,7 +1344,7 @@ export function buildPipelineWonDrill(rows: Row[] | null, currency: string): Dri
       key: str(r.opportunity_id) || str(r.name),
       cells: [str(r.name) || "—", dateFmt(r.settled_at), grouped(Number(r.estimated_value) || 0)],
     })),
-    cta: { label: "Open opportunities", to: KPI_ROUTE.pipeline_won },
+    cta: { label: "Open Opportunities", to: KPI_ROUTE.pipeline_won },
     empty: {
       title: "Nothing won yet this month",
       hint: "Opportunities appear here as they are settled won. The month is young, not empty.",
@@ -1360,11 +1360,11 @@ export function buildQuoteRequestsDrill(rows: Row[] | null): Drill {
   const waiting = (r: Row) => daysBetween(new Date(str(r.created_at)), today);
   const ranked = [...open].sort((a, b) => waiting(b) - waiting(a));
   return {
-    title: "Quote requests awaiting an answer",
+    title: "Quote Requests Awaiting an Answer",
     badge: { tone: "blue", text: `${open.length} open` },
     meta: [
-      { label: "Open requests", value: String(open.length) },
-      { label: "Longest waiting", value: ranked.length ? `${waiting(ranked[0])} days` : "—" },
+      { label: "Open Requests", value: String(open.length) },
+      { label: "Longest Waiting", value: ranked.length ? `${waiting(ranked[0])} days` : "—" },
     ],
     columns: [{ label: "Reference" }, { label: "Requester" }, { label: "Stage" }, { label: "Waiting", align: "right" }],
     rows: ranked.slice(0, 8).map((r) => ({
@@ -1376,7 +1376,7 @@ export function buildQuoteRequestsDrill(rows: Row[] | null): Drill {
         `${waiting(r)} d`,
       ],
     })),
-    cta: { label: "Open quote requests", to: KPI_ROUTE.quote_requests_open },
+    cta: { label: "Open Quote Requests", to: KPI_ROUTE.quote_requests_open },
     empty: {
       title: "Every request has been answered",
       hint: "Nothing is waiting on a quote from us.",
@@ -1398,10 +1398,10 @@ export function buildPosInFlightDrill(rows: Row[] | null, inFlight: number, curr
   const issued = (rows || []).filter((r) => ISSUED.includes(str(r.status)));
   const total = issued.reduce((sum, r) => sum + (Number(r.total_ttc) || 0), 0);
   return {
-    title: "Purchase orders awaiting receipt",
+    title: "Purchase Orders Awaiting Receipt",
     badge: { tone: "warn", text: `${inFlight} in flight` },
     meta: [
-      { label: "Awaiting receipt", value: String(inFlight) },
+      { label: "Awaiting Receipt", value: String(inFlight) },
       { label: `Issued value (${currency})`, value: grouped(total) },
     ],
     columns: [{ label: "Order" }, { label: "Supplier" }, { label: "Due" }, { label: currency, align: "right" }],
@@ -1418,7 +1418,7 @@ export function buildPosInFlightDrill(rows: Row[] | null, inFlight: number, curr
       issued.length !== inFlight
         ? "The table lists issued orders; the tile counts those with no goods received yet."
         : undefined,
-    cta: { label: "Open purchase orders", to: KPI_ROUTE.pos_in_flight },
+    cta: { label: "Open Purchase Orders", to: KPI_ROUTE.pos_in_flight },
     empty: {
       title: "Nothing is awaiting receipt",
       hint: "Every issued order has had its goods received.",
@@ -1431,7 +1431,7 @@ export function buildPurchaseRequestsDrill(rows: Row[] | null): Drill {
   const PENDING = ["SUBMITTED", "APPROVED"];
   const pending = (rows || []).filter((r) => PENDING.includes(str(r.status)));
   return {
-    title: "Purchase requests awaiting an order",
+    title: "Purchase Requests Awaiting an Order",
     badge: { tone: "mute", text: `${pending.length} waiting` },
     meta: [
       { label: "Awaiting a PO", value: String(pending.length) },
@@ -1447,7 +1447,7 @@ export function buildPurchaseRequestsDrill(rows: Row[] | null): Drill {
         dateFmt(r.created_at),
       ],
     })),
-    cta: { label: "Open purchase requests", to: KPI_ROUTE.purchase_requests },
+    cta: { label: "Open Purchase Requests", to: KPI_ROUTE.purchase_requests },
     empty: {
       title: "Nothing is awaiting an order",
       hint: "Every approved request has been turned into a purchase order.",

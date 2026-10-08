@@ -342,7 +342,7 @@ export function GoodsReceivedPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Procurement" to="/procurement" />}
-        title="Goods received"
+        title="Goods Received"
         description="Receipt notes (GRN) against purchase orders."
         action={<Button onClick={() => setOpen(true)}>New GRN</Button>}
       />

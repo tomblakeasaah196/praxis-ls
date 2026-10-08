@@ -491,7 +491,7 @@ export function CostTrackingPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Costing" to="/costing" />}
-        title="Cost tracking"
+        title="Cost Tracking"
         description="Actual costs booked against each file, vs the plan — and the advances funding them."
       />
       <HubTabs />
@@ -1889,7 +1889,7 @@ export function CashRequestsPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Costing" to="/costing" />}
-        title="Cash requests"
+        title="Cash Requests"
         description="Advances requested against operations file budgets."
         action={
           <Button onClick={() => setOpen(true)}>{tr("New request")}</Button>
@@ -2211,6 +2211,12 @@ export function RegiePage() {
 
   return (
     <section className={shell}>
+      {/* The OHADA name for the instrument, used verbatim as the page name.
+          §3.18 does not title-case French, and "Régie D'avance" is not a
+          spelling of it that exists. The marker goes on the line ABOVE the
+          component: exempt() reads that line and the one it is on, nothing
+          further up. */}
+      {/* @prose:keep french-term */}
       <PageHeader
         eyebrow={<HubCrumb area="Costing" to="/costing" />}
         title="Régie d'avance"

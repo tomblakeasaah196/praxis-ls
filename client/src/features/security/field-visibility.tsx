@@ -79,7 +79,7 @@ function FieldVisForm({
     <Modal
       open
       onClose={onClose}
-      title={editing ? "Edit field rule" : "New field rule"}
+      title={editing ? "Edit Field Rule" : "New Field Rule"}
       description="Masks a confidential field for one role. Enforced server-side on read, so it holds even under the TEST toggle."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -211,7 +211,7 @@ export function FieldVisibilityPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Security & Access" to="/security" />}
-        title="Field visibility"
+        title="Field Visibility"
         description="Per-role masking of confidential fields — margins, salaries, cost rates. Editing these needs the approve action, not just edit."
         action={<Button onClick={() => setForm({ fv: null })}>New rule</Button>}
       />

@@ -155,7 +155,7 @@ function PoForm({
       open
       onClose={onClose}
       size="lg"
-      title={initial ? "Edit purchase order" : "New purchase order"}
+      title={initial ? "Edit Purchase Order" : "New Purchase Order"}
       description="Order goods/services from a supplier."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -680,7 +680,7 @@ export function PurchaseOrdersPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Procurement" to="/procurement" />}
-        title={tr("Purchase orders")}
+        title={tr("Purchase Orders")}
         description="Orders raised to suppliers."
         action={<Button onClick={() => setOpen(true)}>New PO</Button>}
       />

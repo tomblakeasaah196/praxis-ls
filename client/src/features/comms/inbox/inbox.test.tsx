@@ -531,10 +531,10 @@ describe("the conversation view", () => {
 
   it("offers the read toggle in the direction that matches the state", () => {
     const { unmount } = renderView(<ThreadView thread={detail({ unread_count: 2 })} {...props} />);
-    expect(screen.getByRole("button", { name: "Mark read" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark Read" })).toBeInTheDocument();
     unmount();
     renderView(<ThreadView thread={detail({ unread_count: 0 })} {...props} />);
-    expect(screen.getByRole("button", { name: "Mark unread" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark Unread" })).toBeInTheDocument();
   });
 
   it("invites a choice rather than showing an empty pane", () => {

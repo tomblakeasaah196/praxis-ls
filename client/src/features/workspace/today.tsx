@@ -103,7 +103,7 @@ export function TodayPage() {
     <section className={pageShell.wide}>
       <PageHeader
         title="Today"
-        description="Everything that wants you today, in the order it wants you — tasks and appointments in one list."
+        description="Everything that wants you today, in the order it wants you: tasks and appointments in one list."
         action={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setEventOpen(true)}>
@@ -273,7 +273,7 @@ export function TodayPage() {
             ) : items.length === 0 ? (
               <EmptyState
                 title="Nothing due today"
-                hint="Add a task with a date, or put an appointment in the diary, and it will appear here in time order."
+                hint="Add a task with a date, or an appointment in the diary."
                 action={
                   <Button onClick={() => setTaskOpen(true)}>New Task</Button>
                 }
@@ -293,8 +293,7 @@ export function TodayPage() {
             {q.data?.truncated &&
               Object.values(q.data.truncated).some(Boolean) && (
                 <p className="mt-3 rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  This day is showing the most relevant results within the
-                  Workspace limit. Open Tasks or Calendar for the complete set.
+                  Open Tasks or Calendar for the complete set.
                 </p>
               )}
           </Panel>
@@ -369,9 +368,7 @@ export function TodayPage() {
               ))}
             </ul>
           ) : (
-            <p className="micro">
-              No receipts owed. Any cash you take will show up here.
-            </p>
+            <p className="micro">No receipts owed.</p>
           )}
         </Panel>
       </>

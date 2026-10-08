@@ -1,5 +1,5 @@
 /**
- * Comms → Setup → Trust & archive (§9.6, §9.7, §9.8).
+ * Comms → Setup → Trust & Archives (§9.6, §9.7, §9.8).
  *
  * Three things an administrator needs and one a compliance officer does.
  *
@@ -109,7 +109,7 @@ function VerifyDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () =
             ))}
           </Select>
         </Field>
-        <Field label={tr("Domain")} hint={tr("Just the domain — camrail.cm, not an address.")}>
+        <Field label={tr("Domain")} hint={tr("Just the domain: camrail.cm, not an address.")}>
           <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="camrail.cm" />
         </Field>
         <Callout tone="warn" title={tr("Only confirm what you have checked.")}>
@@ -152,7 +152,7 @@ function Domains() {
 
   const columns: Column<api.VerifiedDomain>[] = [
     { key: "domain", label: tr("Domain"), render: (r) => <span className="num">{r.domain}</span> },
-    { key: "party", label: tr("Belongs to"), render: (r) => r.party_name || r.party_id },
+    { key: "party", label: tr("Belongs To"), render: (r) => r.party_name || r.party_id },
     { key: "kind", label: tr("Type"), render: (r) => (r.party_kind === "CLIENT" ? tr("Client") : tr("Supplier")) },
     {
       key: "source",
@@ -195,7 +195,7 @@ function Domains() {
   return (
     <div className="space-y-3">
       <PageHeader
-        title={tr("Confirmed domains")}
+        title={tr("Confirmed Domains")}
         description={tr("Which domains genuinely belong to which party. This is the list the financial-document send block compares against.")}
         action={<Button size="sm" onClick={() => setAdding(true)}>{tr("Confirm a domain")}</Button>}
       />
@@ -235,7 +235,7 @@ function Bounces() {
     { key: "last", label: tr("Last"), render: (r) => dateTimeFmt(r.last_bounced_at) },
     {
       key: "why",
-      label: tr("What the server said"),
+      label: tr("What the Server Said"),
       render: (r) => (
         <span className="text-xs text-muted-foreground">{r.diagnostic || "—"}</span>
       ),
@@ -245,7 +245,7 @@ function Bounces() {
   return (
     <div className="space-y-3">
       <PageHeader
-        title={tr("Undeliverable addresses")}
+        title={tr("Undeliverable Addresses")}
         description={tr("Addresses that bounced. The composer checks this list before a send, so a hard bounce is caught while there is still someone to ask about it.")}
       />
       <DataList
@@ -269,7 +269,7 @@ function Archive() {
   return (
     <div className="space-y-3">
       <PageHeader
-        title={tr("Archive integrity")}
+        title={tr("Archive Integrity")}
         description={tr("Every message is sealed into a hash chain as it arrives or leaves. This walks the chain and reports the first break, if there is one.")}
       />
       <Button
@@ -300,7 +300,7 @@ function Archive() {
         <Callout tone="bad" title={tr("The chain breaks.")}>
           {result.checked} {tr("messages checked. The first break is at")}{" "}
           <span className="num">{result.broken_at || tr("an unknown row")}</span>.{" "}
-          {tr("This is most often two messages archived at the same moment rather than anything malicious — but from that row forward the archive cannot be relied on as evidence, and that should be looked at before anyone needs it to be.")}
+          {tr("This is most often two messages archived at the same moment rather than anything malicious, but from that row forward the archive cannot be relied on as evidence, and that should be looked at before anyone needs it to be.")}
         </Callout>
       )}
     </div>

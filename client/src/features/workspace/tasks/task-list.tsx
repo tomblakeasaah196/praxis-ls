@@ -67,10 +67,10 @@ import { describeRule } from "../repeat";
 const PAGE = 50;
 
 const SORT_OPTIONS: Array<{ value: TaskSort; label: string }> = [
-  { value: "due_asc", label: "Soonest due first" },
-  { value: "due_desc", label: "Latest due first" },
-  { value: "priority_desc", label: "Most urgent first" },
-  { value: "created_desc", label: "Newest first" },
+  { value: "due_asc", label: "Soonest Due First" },
+  { value: "due_desc", label: "Latest Due First" },
+  { value: "priority_desc", label: "Most Urgent First" },
+  { value: "created_desc", label: "Newest First" },
 ];
 
 export function TaskList({

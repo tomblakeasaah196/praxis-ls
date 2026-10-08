@@ -155,7 +155,7 @@ const SHIPMENTS: LiveShipment[] = [
     mode: "sea",
     from: "Shanghai",
     to: "Douala",
-    status: "In progress",
+    status: "In Progress",
     tone: "blue",
     stage: "Costing approval",
     eta: "04 Jul 2026",
@@ -172,7 +172,7 @@ const SHIPMENTS: LiveShipment[] = [
     to: "Garoua",
     status: "In transit",
     tone: "blue",
-    stage: "On road",
+    stage: "On Road",
     eta: "05 Jul 2026",
     progress: null,
   },
@@ -185,7 +185,7 @@ const LANES: Lane[] = [
     dossierId: "d-142",
     ref: "SBX-OPS-2026-0142",
     mode: "sea",
-    status: "In progress",
+    status: "In Progress",
     legType: "MAIN_CARRIAGE",
     seq: 1,
     from: {
@@ -324,7 +324,7 @@ describe("KpiStrip", () => {
         onEditTiles={vi.fn()}
       />,
     );
-    expect(screen.getByText("Revenue · turnover")).toBeInTheDocument();
+    expect(screen.getByText("Revenue · Turnover")).toBeInTheDocument();
     expect(screen.getByText("0.0")).toBeInTheDocument();
   });
 
@@ -350,7 +350,7 @@ describe("KpiStrip", () => {
         onEditTiles={vi.fn()}
       />,
     );
-    expect(screen.getByText("Fleet utilisation")).toBeInTheDocument();
+    expect(screen.getByText("Fleet Utilisation")).toBeInTheDocument();
   });
 
   it("a selected tile that is unavailable here shows as a counted gap, not a card", () => {
@@ -361,7 +361,7 @@ describe("KpiStrip", () => {
         onEditTiles={vi.fn()}
       />,
     );
-    expect(screen.queryByText("Location queue")).not.toBeInTheDocument();
+    expect(screen.queryByText("Location Queue")).not.toBeInTheDocument();
     expect(screen.getByText("1 hidden")).toBeInTheDocument();
   });
 
@@ -369,7 +369,7 @@ describe("KpiStrip", () => {
     wrap(
       <KpiStrip band={bandOf([])} onOpen={vi.fn()} onEditTiles={vi.fn()} />,
     );
-    expect(screen.getByRole("button", { name: /Edit tiles/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edit Tiles/i })).toBeInTheDocument();
   });
 
   it("renders nothing before the server has resolved a band", () => {
@@ -406,7 +406,7 @@ describe("KpiStrip", () => {
   it("the door opens the picker, not a route", async () => {
     const onEditTiles = vi.fn();
     wrap(<KpiStrip band={bandOf([bandSlot()])} onOpen={vi.fn()} onEditTiles={onEditTiles} />);
-    await userEvent.click(screen.getByRole("button", { name: /Edit tiles/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Edit Tiles/i }));
     expect(onEditTiles).toHaveBeenCalled();
   });
 

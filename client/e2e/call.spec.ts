@@ -649,7 +649,7 @@ test("the summary link opens the conversation with the draft pinned above the co
 
   await page.goto("/comms?channel=ch-e2e-1&summary=call-e2e-1");
 
-  const pinned = page.getByRole("region", { name: "Call Summary — Review & send" });
+  const pinned = page.getByRole("region", { name: "Call summary: Review & send" });
   await expect(pinned).toBeVisible();
   await expect(pinned.getByLabel("Summary", { exact: true })).toHaveValue("We agreed the Friday delivery.");
   await expect(pinned.getByRole("button", { name: /Send to conversation/ })).toBeVisible();
@@ -764,7 +764,7 @@ test("two devices: the callee's network drops for a few seconds and the call car
     await expect(d.caller.getByRole("timer")).toBeVisible();
     await expect(d.callee.getByRole("timer")).toBeVisible();
     await expect(d.callee.getByText("Could not connect the call")).toHaveCount(0);
-    await expect(d.callee.getByText("The call was lost — the connection ended")).toHaveCount(0);
+    await expect(d.callee.getByText("The call was lost: the connection ended")).toHaveCount(0);
     await expect(d.callee.getByText("Reconnecting…")).toHaveCount(0, { timeout: 25_000 });
     await d.callee.getByRole("button", { name: "End call" }).click();
     await expect(d.callee.getByRole("dialog")).toHaveCount(0, { timeout: 10_000 });

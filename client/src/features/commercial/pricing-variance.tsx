@@ -292,7 +292,7 @@ export function PricingVariancePage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Commercial" to="/commercial" />}
-        title="Pricing variance"
+        title="Pricing Variance"
         description="Derived from each file's reconciliation — quote vs actual as a red/yellow/green flag. Raw cost stays finance-only."
       />
       <HubTabs />

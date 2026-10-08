@@ -275,7 +275,7 @@ export function QuotationForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit quotation" : "New quotation"}
+      title={editing ? "Edit Quotation" : "New Quotation"}
       description="A priced offer — lines, VAT model and validity; sent then accepted."
       size="xl"
     >

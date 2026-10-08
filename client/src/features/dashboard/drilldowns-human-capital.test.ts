@@ -53,7 +53,7 @@ describe("buildHeadcountDrill", () => {
   it("counts the page and its departments — the register list sends no total", () => {
     const d = buildHeadcountDrill(employees);
     expect(d.badge.text).toBe("2 active");
-    expect(d.meta.find((m) => m.label === "Active (page)")?.value).toBe("2");
+    expect(d.meta.find((m) => m.label === "Active (Page)")?.value).toBe("2");
     expect(d.meta.find((m) => m.label === "Departments")?.value).toBe("2");
     expect(d.rows[0].cells[0]).toBe("Amadou Diallo");
   });
@@ -91,7 +91,7 @@ describe("buildAttendanceDrill", () => {
 
   it("counts PEOPLE, not punch rows — a re-badge is one present", () => {
     const d = buildAttendanceDrill(punches);
-    expect(d.meta.find((m) => m.label === "Clocked in")?.value).toBe("2");
+    expect(d.meta.find((m) => m.label === "Clocked In")?.value).toBe("2");
     expect(d.meta.find((m) => m.label === "Punches")?.value).toBe("3");
   });
 
@@ -117,7 +117,7 @@ describe("buildLeaveDrill", () => {
 
   it("names the earliest start, the fact the approver plans around", () => {
     const d = buildLeaveDrill(requests);
-    expect(d.meta.find((m) => m.label === "Earliest starts")?.value).toBeTruthy();
+    expect(d.meta.find((m) => m.label === "Earliest Starts")?.value).toBeTruthy();
   });
 });
 
@@ -130,7 +130,7 @@ describe("buildVacanciesDrill", () => {
   it("counts only OPEN vacancies — a closed role is not one being hired for", () => {
     const d = buildVacanciesDrill(vacancies);
     expect(d.meta.find((m) => m.label === "Open")?.value).toBe("1");
-    expect(d.meta.find((m) => m.label === "On the website")?.value).toBe("1");
+    expect(d.meta.find((m) => m.label === "On the Website")?.value).toBe("1");
     expect(d.rows[0].cells[0]).toBe("Customs broker");
   });
 });
@@ -153,7 +153,7 @@ describe("buildPayrollDrill", () => {
   it("renders the payslip figures when the reader may see them", () => {
     const detail = { items: [{ employee_name: "A", net_pay: 250000 }, { employee_name: "B", net_pay: 300000 }] };
     const d = buildPayrollDrill(runs, detail, "XAF");
-    expect(d.meta.find((m) => m.label === "Payslips (in flight)")?.value).toBe("2");
+    expect(d.meta.find((m) => m.label === "Payslips (in Flight)")?.value).toBe("2");
     // `grouped` formats with a locale narrow space — assert the significant
     // digits, not the separator (same discipline as the revenue drill tests).
     expect(d.meta.find((m) => m.label === "Net (in flight), XAF")?.value).toContain("550");
@@ -172,7 +172,7 @@ describe("buildPayrollDrill", () => {
 
   it("degrades to em-dash figures when the run detail is unreadable or uncomputed", () => {
     const d = buildPayrollDrill(runs, null, "XAF");
-    expect(d.meta.find((m) => m.label === "Payslips (in flight)")?.value).toBe("—");
+    expect(d.meta.find((m) => m.label === "Payslips (in Flight)")?.value).toBe("—");
     expect(d.meta.find((m) => m.label === "Net (in flight), XAF")?.value).toBe("—");
   });
 
@@ -183,7 +183,7 @@ describe("buildPayrollDrill", () => {
       "XAF",
     );
     expect(d.badge.text).toBe("All runs settled");
-    expect(d.meta.find((m) => m.label === "In flight")?.value).toBe("0");
+    expect(d.meta.find((m) => m.label === "In Flight")?.value).toBe("0");
   });
 });
 
@@ -196,8 +196,8 @@ describe("buildAttritionDrill", () => {
       { employee_id: "e2", full_name: "Clarisse Fotso", status: "TERMINATED", terminated_on: outside },
       { employee_id: "e3", full_name: "Paul Mbarga", status: "SUSPENDED", terminated_on: null },
     ]);
-    expect(d.meta.find((m) => m.label === "Left within 90 days")?.value).toBe("1");
-    expect(d.meta.find((m) => m.label === "Off the active register")?.value).toBe("3");
+    expect(d.meta.find((m) => m.label === "Left Within 90 Days")?.value).toBe("1");
+    expect(d.meta.find((m) => m.label === "Off the Active Register")?.value).toBe("3");
     // The tile counts EVENTS; the table is the register — the note says so.
     expect(d.note).toMatch(/employee\.deactivated events/);
     expect(d.note).toMatch(/register/);

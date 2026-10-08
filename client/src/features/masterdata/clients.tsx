@@ -145,7 +145,7 @@ export function ClientForm({
     <Modal
       open
       onClose={onClose}
-      title={isNew ? "New client" : "Edit client"}
+      title={isNew ? "New Client" : "Edit Client"}
       description="Customer master record: country, registrations, contact and terms."
     >
       <Form

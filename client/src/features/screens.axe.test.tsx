@@ -1460,7 +1460,7 @@ const AREAS: Area[] = [
         },
       },
       {
-        name: "Purchase orders",
+        name: "Purchase Orders",
         render: () => <PurchaseOrdersPage />,
         routes: {
           "/purchase-orders": [
@@ -1480,7 +1480,7 @@ const AREAS: Area[] = [
         },
       },
       {
-        name: "Supplier invoices",
+        name: "Supplier Invoices",
         render: () => <SupplierInvoicesPage />,
         routes: {
           "/supplier-invoices": [
@@ -1577,7 +1577,7 @@ const AREAS: Area[] = [
         rendersRows: false,
       },
       {
-        name: "Website pages",
+        name: "Website Pages",
         render: () => <WebsitePagesPage />,
         routes: {
           "/site/meta": { website_enabled: true, metrics: [] },
@@ -1723,7 +1723,7 @@ const AREAS: Area[] = [
         states: ["loading", "error", "populated"],
       },
       {
-        name: "Email signatures",
+        name: "Email Signatures",
         render: () => <EmailSignaturesPage />,
         routes: {
           "/mail/signature": {

@@ -599,7 +599,7 @@ export function MySecurityPage() {
       {promptDialog}
       <PageHeader
         eyebrow={<HubCrumb area="Security & Access" to="/security" />}
-        title="My security"
+        title="My Security"
         description="How you get into your account: a passkey on this device, a Quick PIN, your password and an authenticator app."
       />
       <HubTabs />

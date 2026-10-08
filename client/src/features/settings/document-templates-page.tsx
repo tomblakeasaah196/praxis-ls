@@ -211,7 +211,7 @@ export function TemplateStudioPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Document templates"
+        title="Document Templates"
         description="Beautify and live-preview every generated document — per corporate entity."
         action={
           <div className="flex gap-2">

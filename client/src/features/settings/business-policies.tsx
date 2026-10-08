@@ -73,7 +73,7 @@ function PolicyForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit policy" : "New policy"}
+      title={editing ? "Edit Policy" : "New Policy"}
       description="A named policy document — privacy, refund, QMS, terms and the like."
       size="xl"
     >
@@ -152,7 +152,7 @@ export function BusinessPoliciesPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Business policies"
+        title="Business Policies"
         description="Named policy documents — privacy, refund, QMS, terms and more."
         action={<Button onClick={() => edit(null)}>New policy</Button>}
       />

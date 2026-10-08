@@ -104,8 +104,7 @@ function ChannelConfig() {
           <div>
             <h3 className="font-display text-base">Shared SMTP login</h3>
             <p className="micro">
-              Transport for system emails (OTP, invoices, notifications) sent
-              from the section senders above. Password encrypted.
+              Transport for system emails: OTP, invoices, notifications.
             </p>
           </div>
           <Pill tone={em?.pass_set ? "ok" : "warn"}>
@@ -221,12 +220,10 @@ export function SetupPage() {
         <div>
           <div className="micro uppercase tracking-wide">Comms</div>
           <h1 className="font-display text-2xl tracking-tight text-foreground">
-            Setup &amp; channels
+            Setup &amp; Channels
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Shared credentials, channels and the DNS setup guide. Which address
-            each part of the product sends from lives under{" "}
-            <strong>Send points</strong>.
+            Shared credentials, channels and the DNS setup guide.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

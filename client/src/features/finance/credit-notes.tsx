@@ -137,7 +137,7 @@ export function CreditNotesPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
-        title={tr("Credit notes")}
+        title={tr("Credit Notes")}
         description="Reverse a finalised invoice — draft, then post the contra entry."
         action={
           <Button onClick={() => setCreateOpen(true)}>New credit note</Button>

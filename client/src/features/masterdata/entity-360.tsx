@@ -4096,7 +4096,7 @@ function DocumentsTab({
 
       {adding && (
         <ChildModal
-          title={adding === "new" ? "Add document" : "Edit document"}
+          title={adding === "new" ? "Add Document" : "Edit Document"}
           fields={fields}
           initial={
             adding === "new"

@@ -227,7 +227,7 @@ export function WebsiteSocialPage() {
     <div className="space-y-5">
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title={tr("Social links")}
+        title={tr("Social Links")}
         description={tr(
           "Paste a link and it appears in your website footer. Leave one blank and it does not.",
         )}

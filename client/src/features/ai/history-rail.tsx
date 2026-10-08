@@ -111,7 +111,9 @@ function PurgeChoice({ onChange }: { onChange: (on: boolean) => void }) {
         onChange(v);
       }}
       label="Also erase it permanently"
-      hint="Destroys the transcript and any action the assistant proposed but never carried out. Actions it did carry out are kept, detached — they are the record of a real change. This cannot be undone."
+      hint="Cannot be undone."
+      about="Destroys the transcript and any action the assistant proposed but never carried out. Actions it did carry out are kept, detached: they are the record of a real change."
+      aboutLabel="About erasing it permanently"
     />
   );
 }
@@ -210,7 +212,7 @@ export function AiHistoryRail({
 
   async function rename(c: AiConversationMeta) {
     const next = await prompt({
-      title: "Rename this conversation",
+      title: "Rename This Conversation",
       label: "Title",
       defaultValue: c.title || "",
       // Not "required": clearing it is a real intention, and it restores the

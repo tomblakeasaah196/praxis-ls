@@ -69,11 +69,11 @@ describe("the Calls list", () => {
       },
     });
     // Each row can render in more than one layout, hence getAll.
-    expect((await screen.findAllByText("Summary to review")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Summary to Review")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Bruno Kamga").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Awa Diallo").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Not recorded").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Transcript failed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Not Recorded").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Transcript Failed").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Missed").length).toBeGreaterThan(0);
     expect(screen.getAllByText("5:12").length).toBeGreaterThan(0);
     // Day first ("24 Sep 2026", or "24 Sept 2026" on newer ICU), never "Sep 24".
@@ -207,7 +207,7 @@ describe("a call's page", () => {
       routes: { "/smartcomm/calls/c1": row({ transcription_state: "NO_RECORDING", recording_enabled: true }) },
     });
     expect(await screen.findByText("This call was not recorded, so there is no summary.")).toBeTruthy();
-    expect(screen.getAllByText("Not recorded").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Not Recorded").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Show transcript" })).toBeNull();
   });
 

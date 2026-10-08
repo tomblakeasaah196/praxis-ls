@@ -372,7 +372,7 @@ describe("PR-09 · the corporate-entities list is server-side", () => {
     expect(pages.paths.length).toBe(1); // the list page, and nothing else
 
     await user.click(screen.getByRole("button", { name: "New entity" }));
-    await screen.findByRole("dialog", { name: "New corporate entity" });
+    await screen.findByRole("dialog", { name: "New Corporate Entity" });
 
     // No entity list was fetched to render this form — the fetch happens when
     // the parent picker is opened, and it is a bounded ACTIVE-only search.
@@ -408,7 +408,7 @@ describe("PR-09 · the client form's entity link", () => {
 
     renderScreen(<ClientsPage />, { routes: { "/clients": [] } });
     await user.click(screen.getByRole("button", { name: /new client/i }));
-    await screen.findByRole("dialog", { name: "New client" });
+    await screen.findByRole("dialog", { name: "New Client" });
 
     // THE OLD DEFECT: this form fetched the whole entity list on open, once
     // per modal. Now nothing is fetched until the picker is opened.
