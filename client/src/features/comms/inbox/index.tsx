@@ -54,7 +54,7 @@ function emptyHintFor(sel: RailSelection, query: string): string {
   if (sel.view === "VIP") return tr("No VIP conversations. A client or supplier marked VIP in their record lands here.");
   if (sel.view === "ATTACHMENT") return tr("No conversation here carries a file.");
   if (sel.label) return `${tr("Nothing carries the label")} “${sel.label}” ${tr("yet.")}`;
-  if (sel.stream === "SYSTEM") return tr("No automated mail — carrier notices and system reports will collect here.");
+  if (sel.stream === "SYSTEM") return tr("No automated mail. Carrier notices and system reports will collect here.");
   if (sel.stream === "HUMAN") return tr("No mail from people yet.");
   if (sel.folder === "SENT") return tr("Nothing sent from this mailbox yet.");
   return tr("This folder is empty. If a mailbox was just connected, give the first sync a moment.");
@@ -300,7 +300,7 @@ export function InboxPage() {
       const res = await api.deleteThread(id);
       setNote(
         res.retained_archived
-          ? `${res.deleted} ${tr("deleted.")} ${res.retained_archived} ${tr("kept — sealed into the compliance archive.")}`
+          ? `${res.deleted} ${tr("deleted.")} ${res.retained_archived} ${tr("kept: sealed into the compliance archive.")}`
           : `${res.deleted} ${tr("deleted.")}`,
       );
       // Only drop the open thread when the row itself went. A conversation
@@ -338,7 +338,7 @@ export function InboxPage() {
       const res = await api.emptyFolder(folder);
       setNote(
         res.retained_archived
-          ? `${res.deleted} ${tr("deleted.")} ${res.retained_archived} ${tr("kept — sealed into the compliance archive.")}`
+          ? `${res.deleted} ${tr("deleted.")} ${res.retained_archived} ${tr("kept: sealed into the compliance archive.")}`
           : `${res.deleted} ${tr("deleted.")}`,
       );
       setBulkFailures(res.failed || []);
@@ -368,202 +368,263 @@ export function InboxPage() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+    /* ── THE HEIGHT CHAIN, AND WHY EVERY CLASS HERE IS `lg:` ────────────────
+     *
+     * From `lg` up this screen is a three-pane workstation: the folder rail,
+     * the conversation list and the reading pane each scroll themselves, and
+     * the page does not scroll at all. Below `lg` the panes stack and the page
+     * scrolls, which is what the rail is laid out for and what every phone mail
+     * client does.
+     *
+     * The chain runs <main> (already `min-h-0 flex-1 overflow-y-auto`) → the
+     * hub's section → this div → the grid → the pane column → `SplitPane` →
+     * `ThreadList` / `ThreadView`. A single `height: auto` link anywhere along
+     * it and `flex-1` becomes `flex-basis: 0` against an unconstrained parent,
+     * every `overflow-y-auto` below stops doing anything, and the panes go back
+     * to growing to their content — which is the state this screen shipped in.
+     * `min-h-0` on each link is not decoration: a flex item's default
+     * `min-height: auto` refuses to shrink below its content, so one missing
+     * `min-h-0` pushes the overflow back up to the page.
+     */
+    <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1">
       {confirmDialog}
-      <aside className="lg:sticky lg:top-4 lg:self-start">
-        <FolderRail
-          mailboxes={boxes}
-          folders={folderRows}
-          labels={labels.data || []}
-          selection={{ ...sel, connectionId }}
-          onChange={(next) => {
-            setSel(next);
-            setOpenId(null);
-          }}
-          humanUnread={streams.HUMAN}
-          systemUnread={streams.SYSTEM}
-        />
-      </aside>
+      {/* The page's NAME, for anything that navigates by heading: a screen
+          reader's heading list, the h1-per-page rule the layout gate asserts
+          elsewhere, and the browser's own "skip to heading". The mailbox has
+          never had one — the hub draws a tab bar and the inbox starts at the
+          folder rail — and the right fix is not a <PageHeader>, which would put
+          a title and a paragraph back above a list this change spent its whole
+          effort getting the chrome off. `sr-only` costs no pixels and the
+          registry already has the word. */}
+      <h1 className="sr-only">{tr("Mail")}</h1>
 
-      <div className="min-w-0 space-y-3">
-        {/* Compose entry — labelled, matching the Comms hub (WS feedback). The
-            Mailbox tab's message log had one but this default inbox had none,
-            so there was no obvious way to start an email from the screen you
-            read on. Disabled while no mailbox is connected. */}
-        <div className="flex items-center justify-end">
-          <Button
-            size="sm"
-            onClick={() => setComposeOpen(true)}
-            disabled={!boxes.some((b) => b.status === "CONNECTED")}
-            title={
-              boxes.some((b) => b.status === "CONNECTED")
-                ? tr("Write a new email")
-                : tr("Connect a mailbox first")
-            }
-            icon={<PencilIcon width={16} height={16} />}
-          >
-            <span className="hidden sm:inline">{tr("Compose")}</span>
-          </Button>
-        </div>
-        {!sel.pending && (
-        <form
-          role="search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setApplied(query);
-            setMeaning("");
-          }}
-          className="flex gap-2"
+      {/* ── ONE COMMAND STRIP ───────────────────────────────────────────────
+       *
+       * Compose and the search box, on one line. They were two full-width rows
+       * — a right-aligned button alone on the first, the search form on the
+       * second — under a hub tab bar that was itself a copy of the tab bar six
+       * inches above it. Four strips of chrome stood between the top of the
+       * screen and the first conversation, and at 1080p that left room for six
+       * rows of a fifty-row list.
+       *
+       * Compose goes FIRST, at the left edge, because it is the only command
+       * here that is not about the list: a mail client's write button is the one
+       * control people go to without reading, and the far right of a row that
+       * also holds a search field is where it is hardest to find. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          onClick={() => setComposeOpen(true)}
+          disabled={!boxes.some((b) => b.status === "CONNECTED")}
+          title={
+            boxes.some((b) => b.status === "CONNECTED")
+              ? tr("Write a new email")
+              : tr("Connect a mailbox first")
+          }
+          icon={<PencilIcon width={16} height={16} />}
         >
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={tr("Search — try from:maersk has:attachment demurrage")}
-            aria-label={tr("Search mail")}
-          />
-          <Button type="submit" variant="outline" size="sm">
-            {tr("Search")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={query.trim().length < 2}
-            onClick={() => { setMeaning(query); setApplied(""); }}
-            title={tr("Find conversations that read like this, even if they do not use these words")}
+          {tr("Compose")}
+        </Button>
+
+        {!sel.pending && (
+          <form
+            role="search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setApplied(query);
+              setMeaning("");
+            }}
+            className="flex min-w-0 flex-1 items-center gap-2"
           >
-            {tr("By meaning")}
-          </Button>
-          {applied && (
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={tr("Search mail: from:maersk has:attachment demurrage")}
+              aria-label={tr("Search mail")}
+              className="min-w-0"
+            />
+            <Button type="submit" variant="outline" size="sm">
+              {tr("Search")}
+            </Button>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setQuery("");
-                setApplied("");
-                setMeaning("");
-              }}
+              disabled={query.trim().length < 2}
+              onClick={() => { setMeaning(query); setApplied(""); }}
+              title={tr("Find conversations that read like this, even if they do not use these words")}
             >
-              {tr("Clear")}
+              {tr("By Meaning")}
             </Button>
-          )}
-        </form>
+            {applied && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setQuery("");
+                  setApplied("");
+                  setMeaning("");
+                }}
+              >
+                {tr("Clear")}
+              </Button>
+            )}
+          </form>
         )}
+      </div>
 
-        {note && (
-          <p role="status" className="rounded-md bg-muted px-3 py-2 text-xs">
-            {note}
-          </p>
-        )}
-
-        {meaning && !sel.pending && (
-          <SemanticResults
-            query={meaning}
-            onOpen={(id) => { setMeaning(""); open(id); }}
-            onClear={() => setMeaning("")}
-          />
-        )}
-
-        {/* Neither of these is a conversation, so neither goes through the
-            thread list: a draft has no read state, no star, no folder and no
-            counterparty yet, and a queued send has a status and an error
-            instead. See `pending.tsx`. */}
-        {sel.pending === "DRAFTS" && (
-          <div className="rounded-xl border border-border">
-            <DraftList onOpen={(d) => setResuming(d)} />
-          </div>
-        )}
-        {sel.pending === "OUTBOX" && (
-          <div className="rounded-xl border border-border">
-            <OutboxList />
-          </div>
-        )}
-
-        {!sel.pending && (
-        <SplitPane
-          storageKey="comms.inbox"
-          label={tr("Conversation list width")}
-          defaultSize={380}
-          min={280}
-          max={620}
-          className="rounded-xl border border-border"
-          activeKind={tr("Conversation")}
-          active={!!openId}
-        >
-          <ThreadList
-            threads={rows}
-            loading={threads.loading}
-            error={threads.error}
-            activeId={openId}
-            selected={selected}
-            onSelectedChange={setSelected}
-            onOpen={(t) => open(t.email_thread_id)}
-            onStar={(t, on) => star(t.email_thread_id, on)}
-            onBulk={bulk}
-            folder={sel.view || sel.label ? undefined : sel.folder}
-            onEmptyFolder={
-              sel.folder === "TRASH" || sel.folder === "SPAM"
-                ? () => emptyFolder(sel.folder as "TRASH" | "SPAM")
-                : undefined
-            }
-            bulkBusy={busy}
-            bulkFailures={bulkFailures}
-            onLoadMore={() => setLimit((n) => n + PAGE)}
-            hasMore={(threads.data || []).length >= limit}
-            emptyHint={emptyHintFor(sel, applied)}
-          />
-          <ThreadView
-            thread={thread.data ?? null}
-            loading={thread.loading}
-            error={thread.error}
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[220px_1fr]">
+        {/* The rail scrolls ITSELF now rather than sticking to the top of a
+            scrolling page. `lg:sticky lg:top-4` was the workaround for the
+            missing height chain: it kept the rail on screen while the page
+            carried everything else past it, and a tenant with thirty labels
+            still could not reach the bottom of it. */}
+        <aside className="lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+          <FolderRail
+            mailboxes={boxes}
+            folders={folderRows}
             labels={labels.data || []}
-            busy={busy}
-            onClose={() => setOpenId(null)}
-            onMove={(folder) =>
-              openId && run(() => api.moveThread(openId, folder))
-            }
-            onStream={(stream) =>
-              openId && run(() => api.setThreadStream(openId, stream))
-            }
-            onLabel={(labelId) =>
-              openId && run(() => api.setThreadLabel(openId, labelId, true))
-            }
-            onToggleRead={(read) =>
-              openId && run(() => api.setThreadRead(openId, read))
-            }
-            onDelete={
-              openId && (sel.folder === "TRASH" || sel.folder === "SPAM") && !sel.view
-                ? () => deleteOne(openId)
-                : undefined
-            }
-            onReplied={reload}
-            onWorkChanged={reload}
-          />
-        </SplitPane>
-        )}
-
-        {(composeOpen || resuming) && (
-          <NewMessageDialog
-            open
-            draft={resuming}
-            // The mailbox this screen is showing. Pressing Compose while
-            // reading admin@ means writing from admin@ — the dialog used to
-            // open on the tenant default regardless, so a second mailbox could
-            // be read from but never, in practice, sent from.
-            connectionId={connectionId}
-            onClose={() => { setComposeOpen(false); setResuming(null); }}
-            onSent={() => {
-              setResuming(null);
-              // The Drafts list has one fewer row after a send, and the Outbox
-              // has one more. Remounting the pane is what refreshes both.
-              setSel((cur) => ({ ...cur }));
-              reload();
+            selection={{ ...sel, connectionId }}
+            onChange={(next) => {
+              setSel(next);
+              setOpenId(null);
             }}
+            humanUnread={streams.HUMAN}
+            systemUnread={streams.SYSTEM}
           />
-        )}
+        </aside>
 
-        {threads.error && <ErrorState message={threads.error} />}
+        <div className="flex min-w-0 flex-col gap-3 lg:min-h-0">
+          {note && (
+            <p role="status" className="shrink-0 rounded-md bg-muted px-3 py-2 text-xs">
+              {note}
+            </p>
+          )}
+
+          {meaning && !sel.pending && (
+            <SemanticResults
+              query={meaning}
+              onOpen={(id) => { setMeaning(""); open(id); }}
+              onClear={() => setMeaning("")}
+            />
+          )}
+
+          {/* Neither of these is a conversation, so neither goes through the
+              thread list: a draft has no read state, no star, no folder and no
+              counterparty yet, and a queued send has a status and an error
+              instead. See `pending.tsx`. */}
+          {sel.pending === "DRAFTS" && (
+            <div className="min-h-0 overflow-y-auto rounded-xl border border-border lg:flex-1">
+              <DraftList onOpen={(d) => setResuming(d)} />
+            </div>
+          )}
+          {sel.pending === "OUTBOX" && (
+            <div className="min-h-0 overflow-y-auto rounded-xl border border-border lg:flex-1">
+              <OutboxList />
+            </div>
+          )}
+
+          {!sel.pending && (
+          <SplitPane
+            storageKey="comms.inbox"
+            label={tr("Conversation list width")}
+            defaultSize={380}
+            min={280}
+            max={620}
+            className="overflow-hidden rounded-xl border border-border lg:min-h-0 lg:flex-1"
+            activeKind={tr("Conversation")}
+            active={!!openId}
+            /* Below `lg` the conversation opens in a full-screen sheet over the
+               list instead of stacking UNDER it. Without `onClose` the panes
+               stacked, so a phone reader tapped a conversation and then
+               scrolled past every other conversation to reach it — the exact
+               case split-pane.tsx documents `onClose` as existing for. The
+               inbox never auto-opens a row, so the sheet cannot cover the list
+               on arrival; a `?thread=` deep link from a push notification is
+               supposed to open it, and does. */
+            onClose={() => setOpenId(null)}
+            sheetTitle={thread.data?.subject || tr("Conversation")}
+          >
+            <ThreadList
+              threads={rows}
+              loading={threads.loading}
+              error={threads.error}
+              activeId={openId}
+              selected={selected}
+              onSelectedChange={setSelected}
+              onOpen={(t) => open(t.email_thread_id)}
+              onStar={(t, on) => star(t.email_thread_id, on)}
+              onBulk={bulk}
+              folder={sel.view || sel.label ? undefined : sel.folder}
+              onEmptyFolder={
+                sel.folder === "TRASH" || sel.folder === "SPAM"
+                  ? () => emptyFolder(sel.folder as "TRASH" | "SPAM")
+                  : undefined
+              }
+              bulkBusy={busy}
+              bulkFailures={bulkFailures}
+              onLoadMore={() => setLimit((n) => n + PAGE)}
+              hasMore={(threads.data || []).length >= limit}
+              emptyHint={emptyHintFor(sel, applied)}
+            />
+            <ThreadView
+              thread={thread.data ?? null}
+              loading={thread.loading}
+              error={thread.error}
+              labels={labels.data || []}
+              /* The same value the list gets, for the same reason: it decides
+                 which of Archive and the four "Move to" items are real
+                 actions rather than no-ops. Undefined under a saved view or a
+                 label, which cut across folders. */
+              folder={sel.view || sel.label ? undefined : sel.folder}
+              busy={busy}
+              onClose={() => setOpenId(null)}
+              onMove={(folder) =>
+                openId && run(() => api.moveThread(openId, folder))
+              }
+              onStream={(stream) =>
+                openId && run(() => api.setThreadStream(openId, stream))
+              }
+              onLabel={(labelId) =>
+                openId && run(() => api.setThreadLabel(openId, labelId, true))
+              }
+              onToggleRead={(read) =>
+                openId && run(() => api.setThreadRead(openId, read))
+              }
+              onDelete={
+                openId && (sel.folder === "TRASH" || sel.folder === "SPAM") && !sel.view
+                  ? () => deleteOne(openId)
+                  : undefined
+              }
+              onReplied={reload}
+              onWorkChanged={reload}
+            />
+          </SplitPane>
+          )}
+
+          {(composeOpen || resuming) && (
+            <NewMessageDialog
+              open
+              draft={resuming}
+              // The mailbox this screen is showing. Pressing Compose while
+              // reading admin@ means writing from admin@ — the dialog used to
+              // open on the tenant default regardless, so a second mailbox could
+              // be read from but never, in practice, sent from.
+              connectionId={connectionId}
+              onClose={() => { setComposeOpen(false); setResuming(null); }}
+              onSent={() => {
+                setResuming(null);
+                // The Drafts list has one fewer row after a send, and the Outbox
+                // has one more. Remounting the pane is what refreshes both.
+                setSel((cur) => ({ ...cur }));
+                reload();
+              }}
+            />
+          )}
+
+          {threads.error && <ErrorState message={threads.error} />}
+        </div>
       </div>
     </div>
   );

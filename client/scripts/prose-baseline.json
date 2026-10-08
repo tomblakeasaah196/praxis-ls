@@ -239,7 +239,7 @@
     "client/src/features/wms/inbound.tsx": 1,
     "client/src/features/wms/location-360.tsx": 3,
     "client/src/features/wms/locations.tsx": 1,
-    "client/src/features/workspace/analytics/analytics-page.tsx": 5,
+    "client/src/features/workspace/analytics/analytics-page.tsx": 1,
     "client/src/features/workspace/calendar/calendar-page.tsx": 1,
     "client/src/features/workspace/calendar/day-agenda.tsx": 1,
     "client/src/features/workspace/calendar/event-dialog.tsx": 1,
@@ -248,7 +248,6 @@
     "client/src/features/workspace/repeat-field.tsx": 3,
     "client/src/features/workspace/tasks/task-blockage.tsx": 2,
     "client/src/features/workspace/tasks/task-board.tsx": 2,
-    "client/src/features/workspace/tasks/task-dialog.tsx": 2,
     "client/src/features/workspace/tasks/task-panel.tsx": 5,
     "client/src/features/workspace/today.tsx": 4
   },
@@ -355,10 +354,8 @@
     "client/src/features/vault/reports.tsx": 2,
     "client/src/features/vault/sign-document.tsx": 1,
     "client/src/features/vault/signatures.tsx": 2,
-    "client/src/features/workspace/analytics/analytics-page.tsx": 1,
     "client/src/features/workspace/file-link-field.tsx": 2,
     "client/src/features/workspace/tasks/task-board.tsx": 2,
-    "client/src/features/workspace/tasks/task-dialog.tsx": 1,
     "client/src/features/workspace/tasks/task-panel.tsx": 1,
     "client/src/features/workspace/today.tsx": 2
   }

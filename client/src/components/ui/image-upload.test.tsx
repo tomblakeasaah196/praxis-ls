@@ -217,7 +217,7 @@ describe("FilePicker paste", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText("That file type isn't accepted here — choose a file instead."),
+        screen.getByText("That file type isn't accepted here: choose a file instead."),
       ).toBeInTheDocument(),
     );
     expect(onPick).not.toHaveBeenCalled();

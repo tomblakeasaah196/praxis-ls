@@ -26,7 +26,8 @@ import * as React from "react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
-import { Select } from "@/components/ui/modal";
+import { MoreMenu } from "@/components/ui/more-menu";
+import { DropdownItem, DropdownSeparator } from "@/components/ui/dropdown-menu";
 import { ErrorState, LoadingRow } from "@/components/ui/states";
 import { dateTimeFmt } from "@/lib/format";
 import { tr } from "@/lib/i18n";
@@ -211,8 +212,8 @@ function MessageBody({ message }: { message: Message }) {
         <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
           <span>
             {blocked === 1
-              ? tr("One image was not loaded — remote images can tell the sender when you opened this.")
-              : `${blocked} ${tr("images were not loaded — remote images can tell the sender when you opened this.")}`}
+              ? tr("One image was not loaded. Remote images can tell the sender when you opened this.")
+              : `${blocked} ${tr("images were not loaded. Remote images can tell the sender when you opened this.")}`}
           </span>
           <button
             type="button"
@@ -364,6 +365,7 @@ export function ThreadView({
   loading,
   error,
   labels,
+  folder,
   onMove,
   onStream,
   onLabel,
@@ -378,6 +380,15 @@ export function ThreadView({
   loading: boolean;
   error?: string | null;
   labels: Label[];
+  /**
+   * Which folder is being read. Decides whether Archive and each "Move to" are
+   * offered — moving a conversation to the folder it is already in is a no-op
+   * dressed as an action, which is the rule `ThreadList`'s BULK list already
+   * applies to the same four verbs. Undefined while reading a saved view or a
+   * label, which cut across folders: everything is then offered, because there
+   * is no current folder for anything to be a no-op in.
+   */
+  folder?: MailFolder;
   onMove: (folder: MailFolder) => void;
   onStream: (stream: MailStream) => void;
   onLabel: (labelId: string) => void;
@@ -441,7 +452,7 @@ export function ThreadView({
     return (
       <div className="flex h-full items-center justify-center p-8 text-center">
         <p className="max-w-reading text-sm text-muted-foreground">
-          {tr("Choose a conversation to read it. Everything here is scoped to you — what you have read, what you have starred, and the labels you made.")}
+          {tr("Choose a conversation to read it. Everything here is scoped to you: what you have read, what you have starred, and the labels you made.")}
         </p>
       </div>
     );
@@ -498,87 +509,148 @@ export function ThreadView({
   const forwardSubject = /^fwd?:/i.test(subj) ? subj : `Fwd: ${subj}`.trim();
 
   return (
-    <div className="flex min-h-0 flex-col">
-      <header className="space-y-2 border-b border-border px-4 py-3">
+    /* `h-full`: the last link in the height chain — see inbox/index.tsx and the
+       note on ThreadList's root. */
+    <div className="flex h-full min-h-0 flex-col">
+      {/* ── THE COMMAND STRIP ───────────────────────────────────────────────
+       *
+       * One compact row holding the four things a reader does to the
+       * conversation in front of them, with the rest behind `⋯`.
+       *
+       * WHAT IT REPLACES. A wrapping row of two buttons and two bare
+       * `<select>`s — "Move to…" and "Label…" as placeholder options — mixed in
+       * with "This is a person", a full sentence on a button. Six controls of
+       * four different shapes, wrapping to three rows at the widths a split
+       * reading pane actually gets, above a header that spent `space-y-2` and
+       * `py-3` on two lines of text.
+       *
+       * REPLY IS HERE, NOT ONLY IN THE FOOTER. Reply, Reply all and Forward
+       * were the footer's whole contents, which was defensible while the footer
+       * was pinned and is the convention Gmail uses — except the footer was
+       * never pinned, because nothing on this screen had a height (see
+       * inbox/index.tsx). On a forty-message thread the reply buttons sat
+       * forty messages down a scrolling page. The footer still holds the
+       * composer, and it no longer holds a second copy of these three buttons.
+       *
+       * ARCHIVE IS NEW HERE AND IS THE POINT OF THE STRIP. It is the most-used
+       * triage verb in any mail client and the open conversation had no way to
+       * reach it: you closed the thread, found its row again, ticked its
+       * checkbox and pressed the bulk Archive. It is hidden while reading the
+       * Archive, where it is a no-op dressed as an action — the same rule
+       * `ThreadList`'s BULK filter already applies.
+       */}
+      <header className="shrink-0 border-b border-border px-4 py-2">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="text-base font-semibold">
-            {thread.subject || tr("(no subject)")}
-          </h2>
-          <Button size="sm" variant="ghost" onClick={onClose} className="lg:hidden">
-            {tr("Close")}
-          </Button>
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold">
+              {thread.subject || tr("(no subject)")}
+            </h2>
+            <p className="num truncate text-xs text-muted-foreground">
+              {(Array.isArray(thread.participants) ? thread.participants : []).join(", ")}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {thread.entity_ref && (
+              <span title={thread.entity_ref}>
+                <Pill tone="blue">{thread.entity_label || thread.entity_ref}</Pill>
+              </span>
+            )}
+            <Button size="sm" variant="ghost" onClick={onClose} className="lg:hidden">
+              {tr("Close")}
+            </Button>
+          </div>
         </div>
-        <p className="num text-xs text-muted-foreground">
-          {(Array.isArray(thread.participants) ? thread.participants : []).join(", ")}
-        </p>
 
-        {/* WHY the classifier put this here, in words, next to the control that
-            overrides it. A verdict without a reason is one people learn to
-            distrust; a reason without a way to correct it is worse. */}
-        {thread.stream === "SYSTEM" && thread.stream_reason && (
-          <p className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
-            {tr("Filed as a notice:")} {thread.stream_reason}
-          </p>
-        )}
+        <div className="mt-2 flex items-center gap-1.5">
+          <Button size="sm" onClick={() => setReplying("REPLY")}>
+            {tr("Reply")}
+          </Button>
+          {/* Offered only when there IS somebody else on it. A "Reply all"
+              that produces the same message as "Reply" is a button that
+              teaches people the two are interchangeable — and then they use
+              it on the thread where they are not. */}
+          {replyAllCc.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setReplying("REPLY_ALL")}
+              title={`${tr("Also copies")} ${replyAllCc.join(", ")}`}
+            >
+              {`${tr("Reply All")} (${replyAllCc.length + replyTo.length})`}
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={() => setReplying("FORWARD")}>
+            {tr("Forward")}
+          </Button>
 
-        <div className="flex flex-wrap items-center gap-2">
+          <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />
+
+          {folder !== "ARCHIVE" && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => onMove("ARCHIVE")}
+            >
+              {tr("Archive")}
+            </Button>
+          )}
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             disabled={busy}
             onClick={() => onToggleRead(thread.unread_count > 0)}
           >
             {thread.unread_count > 0 ? tr("Mark read") : tr("Mark unread")}
           </Button>
-          <Select
-            aria-label={tr("Move to folder")}
-            value=""
-            disabled={busy}
-            onChange={(e) => e.target.value && onMove(e.target.value as MailFolder)}
-            className="h-8 w-auto text-xs"
-          >
-            <option value="">{tr("Move to…")}</option>
-            {MOVE_TO.map((f) => (
-              <option key={f} value={f}>
-                {tr(f.charAt(0) + f.slice(1).toLowerCase())}
-              </option>
+
+          {/* Everything a reader does once in a while, most-used first and the
+              irreversible one last behind a separator — more-menu.tsx's own
+              rule. The two `<select>`s became real menu items: a placeholder
+              option is not a label, and "Move to…" announced as the control's
+              value rather than its purpose. */}
+          <MoreMenu label={tr("Conversation actions")} className="ml-auto" disabled={busy}>
+            {MOVE_TO.filter((f) => f !== folder).map((f) => (
+              <DropdownItem key={f} onSelect={() => onMove(f)}>
+                {`${tr("Move to")} ${tr(f.charAt(0) + f.slice(1).toLowerCase())}`}
+              </DropdownItem>
             ))}
-          </Select>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busy}
-            onClick={() => onStream(thread.stream === "SYSTEM" ? "HUMAN" : "SYSTEM")}
-          >
-            {thread.stream === "SYSTEM" ? tr("This is a person") : tr("This is a notice")}
-          </Button>
-          {onDelete && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={onDelete}>
-              {tr("Delete for ever")}
-            </Button>
-          )}
-          {labels.length > 0 && (
-            <Select
-              aria-label={tr("Add a label")}
-              value=""
-              disabled={busy}
-              onChange={(e) => e.target.value && onLabel(e.target.value)}
-              className="h-8 w-auto text-xs"
+            {labels.length > 0 && <DropdownSeparator />}
+            {labels.map((l) => (
+              <DropdownItem
+                key={l.email_label_id}
+                onSelect={() => onLabel(l.email_label_id)}
+              >
+                {`${tr("Label as")} ${l.name}`}
+              </DropdownItem>
+            ))}
+            <DropdownSeparator />
+            <DropdownItem
+              onSelect={() => onStream(thread.stream === "SYSTEM" ? "HUMAN" : "SYSTEM")}
             >
-              <option value="">{tr("Label…")}</option>
-              {labels.map((l) => (
-                <option key={l.email_label_id} value={l.email_label_id}>
-                  {l.name}
-                </option>
-              ))}
-            </Select>
-          )}
-          {thread.entity_ref && (
-            <span title={thread.entity_ref}>
-              <Pill tone="blue">{thread.entity_label || thread.entity_ref}</Pill>
-            </span>
-          )}
+              {thread.stream === "SYSTEM"
+                ? tr("Reclassify as mail from a person")
+                : tr("Reclassify as an automated notice")}
+            </DropdownItem>
+            {onDelete && (
+              <>
+                <DropdownSeparator />
+                <DropdownItem destructive onSelect={onDelete}>
+                  {tr("Delete for ever")}
+                </DropdownItem>
+              </>
+            )}
+          </MoreMenu>
         </div>
+
+        {/* WHY the classifier put this here, in words. A verdict without a
+            reason is one people learn to distrust, and the control that
+            overrides it is one item down the `⋯` menu. */}
+        {thread.stream === "SYSTEM" && thread.stream_reason && (
+          <p className="mt-2 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+            {tr("Filed as a notice:")} {thread.stream_reason}
+          </p>
+        )}
       </header>
 
       {/* The conversation and the work rail, side by side on a wide screen and
@@ -644,11 +716,17 @@ export function ThreadView({
         )}
       </div>
 
-      {/* The composer, when the reader opens it. Lazily: TipTap and ProseMirror
-          are ~150 kB gzipped and most of the time somebody is reading, not
-          writing — see the isEditorPackage note in vite.config.ts. */}
-      <footer className="border-t border-border px-4 py-3">
-        {replying ? (
+      {/* The composer, when the reader opens it, and NOTHING when they have
+          not. Lazily: TipTap and ProseMirror are ~150 kB gzipped and most of
+          the time somebody is reading, not writing — see the isEditorPackage
+          note in vite.config.ts.
+
+          The Reply / Reply all / Forward row that used to live here has moved
+          to the command strip at the top of the pane; see the note on it. An
+          empty footer renders no border and takes no height, so the
+          correspondence gets the space back. */}
+      {replying && (
+        <footer className="shrink-0 border-t border-border px-4 py-3">
           <React.Suspense fallback={<LoadingRow label={tr("Opening the composer…")} />}>
             <Composer
               // Remounted when the mode changes, so switching from Reply to
@@ -671,29 +749,8 @@ export function ThreadView({
               slots={{ "composer.footer.left": <SignatureSlot /> }}
             />
           </React.Suspense>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => setReplying("REPLY")}>{tr("Reply")}</Button>
-            {/* Offered only when there IS somebody else on it. A "Reply all"
-                that produces the same message as "Reply" is a button that
-                teaches people the two are interchangeable — and then they use
-                it on the thread where they are not. */}
-            {replyAllCc.length > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setReplying("REPLY_ALL")}
-                title={`${tr("Also copies")} ${replyAllCc.join(", ")}`}
-              >
-                {`${tr("Reply all")} (${replyAllCc.length + replyTo.length})`}
-              </Button>
-            )}
-            <Button size="sm" variant="outline" onClick={() => setReplying("FORWARD")}>
-              {tr("Forward")}
-            </Button>
-          </div>
-        )}
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

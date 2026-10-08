@@ -94,6 +94,35 @@ export function tv(label: string, vars: Record<string, string | number>): string
 }
 
 /**
+ * tr() for a word whose English is ambiguous and whose French is not.
+ *
+ * `tr()` keys on the exact English text. That is what makes it cheap, and it is
+ * also its one blind spot: "Open" is a VERB on a button ("Ouvrir") and an
+ * ADJECTIVE on a count ("Ouvert"), and one key cannot hold both. The tree has
+ * had the wrong one for as long as both uses have existed — `strings."Open"` is
+ * "Ouvrir", and `hr/discipline.tsx`, `support-page.tsx` and
+ * `service-type-dossier.tsx` all render it as the label of a number, where the
+ * French build says "Ouvrir" over a count of open items. `split-pane.tsx`
+ * documents hitting the same wall and worked around it by not rendering the
+ * word at all.
+ *
+ * `trc("Open", "state")` looks for `strings."Open_state"` and falls back to
+ * `tr("Open")`, so a context nothing has translated yet costs nothing and a
+ * screen that has never asked for one is unaffected. The lookup is explicit
+ * rather than i18next's implicit context resolution, because a fallback you can
+ * read in four lines is one nobody has to go and confirm.
+ *
+ * Use it ONLY where one English word genuinely carries two meanings. Everything
+ * else stays on `tr()`, where the key is the copy and a reader of the source can
+ * see what will render.
+ */
+export function trc(label: string, context: string): string {
+  const out = i18n.t(`strings.${label}_${context}`, { defaultValue: "" });
+  if (typeof out === "string" && out) return out;
+  return tr(label);
+}
+
+/**
  * Subscribe the calling component (usually an app root) to language changes.
  * tr() reads the global i18next instance, so without this a component would
  * keep its first language until remount.

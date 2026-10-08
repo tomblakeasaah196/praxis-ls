@@ -42,7 +42,7 @@ import type { Audience, Task } from "../api";
 import { useRaiseBlockage, useResolveBlockage } from "../hooks";
 
 const EXPLAINER =
-  "Are you blocked in the execution of this file? Register the blockage — it counts " +
+  "Are you blocked in the execution of this file? Register the blockage: it counts " +
   "for your performance review even when the task is overdue, and resolving it moves " +
   "the due date by the time you were blocked.";
 
@@ -137,7 +137,7 @@ export function BlockageSection({ task, audience }: { task: Task; audience?: Aud
   const submitRaise = async () => {
     const trimmed = note.trim();
     if (!trimmed) {
-      toast.error("Say what is blocking the work — a blockage with no note is a badge with nothing behind it.");
+      toast.error("Say what is blocking the work. A blockage with no note is a badge with nothing behind it.");
       return;
     }
     try {
@@ -151,8 +151,8 @@ export function BlockageSection({ task, audience }: { task: Task; audience?: Aud
       });
       toast.success(
         res.notified > 0
-          ? `Blockage registered — ${res.notified} ${res.notified === 1 ? "person" : "people"} told by notification and SmartComm${res.channels_posted.length ? `, ${res.channels_posted.length} channel(s) posted` : ""}.`
-          : "Blockage registered — the task now carries the hold.",
+          ? `Blockage registered. ${res.notified} ${res.notified === 1 ? "person" : "people"} told by notification and SmartComm${res.channels_posted.length ? `, ${res.channels_posted.length} channel(s) posted` : ""}.`
+          : "Blockage registered. The task now carries the hold.",
       );
       setComposing(false);
       setNote("");
@@ -175,8 +175,8 @@ export function BlockageSection({ task, audience }: { task: Task; audience?: Aud
       });
       toast.success(
         res.new_due_at
-          ? `Blockage resolved — due date moved to ${dateTimeFmt(res.new_due_at)} by the blocked time.`
-          : "Blockage resolved — the task is unblocked.",
+          ? `Blockage resolved. The due date moved to ${dateTimeFmt(res.new_due_at)} by the blocked time.`
+          : "Blockage resolved. The task is unblocked.",
       );
       setResolving(false);
       setResolveNote("");
@@ -228,7 +228,7 @@ export function BlockageSection({ task, audience }: { task: Task; audience?: Aud
                     <Input
                       value={resolveNote}
                       onChange={(e) => setResolveNote(e.target.value)}
-                      placeholder="Resolution note (optional) — e.g. network restored at Douala customs"
+                      placeholder="Optional: network restored at Douala customs"
                       aria-label="Resolution note"
                     />
                     <div className="flex gap-2">
@@ -295,7 +295,7 @@ export function BlockageSection({ task, audience }: { task: Task; audience?: Aud
           <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="What is blocking the work? e.g. held at customs — network down since Tuesday"
+            placeholder="Held at customs, network down since Tuesday"
             aria-label="Blockage note"
             rows={2}
           />
@@ -312,7 +312,7 @@ export function BlockageSection({ task, audience }: { task: Task; audience?: Aud
             </p>
             <EmployeePicker
               requireAccount
-              label="Add person"
+              label="Add Person"
               exclude={new Set(people.map((p) => p.user_id))}
               onPick={(emp) => {
                 const id = emp.account_user_id;

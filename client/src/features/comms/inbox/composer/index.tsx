@@ -220,7 +220,7 @@ export function Composer({
     // caret. Reopening a different draft therefore needs a new component, which
     // is what the `key` on the composer's call sites provides.
     initial: (draft?.body_json as JSONContent | undefined) || undefined,
-    placeholder: tr("Write your message — type / to insert from the system"),
+    placeholder: tr("Write your message: type / to insert from the system"),
     onChange: (doc) => {
       docRef.current = doc;
       dirtyRef.current.body_json = doc;
@@ -832,7 +832,7 @@ export function Composer({
           if (result.kind === "rejected") {
             e.preventDefault();
             setPasteMessage(
-              tr("That file type isn't accepted here — choose a file instead."),
+              tr("That file type isn't accepted here: choose a file instead."),
             );
           }
         }}
@@ -890,7 +890,7 @@ export function Composer({
       {heldByOther && (
         <div role="status" className="border-t border-border bg-warning/10 px-3 py-2 text-xs">
           <p>
-            {`${heldByOther.locked_by_name || tr("A colleague")} ${tr("started replying to this conversation")}${heldByOther.seconds_remaining ? ` ${tr("a moment ago")}` : ""}. ${tr("You can carry on — this is a heads-up, not a lock on the reply.")}`}
+            {`${heldByOther.locked_by_name || tr("A colleague")} ${tr("started replying to this conversation")}${heldByOther.seconds_remaining ? ` ${tr("a moment ago")}` : ""}. ${tr("You can carry on: this is a heads-up, not a lock on the reply.")}`}
           </p>
         </div>
       )}
@@ -903,12 +903,12 @@ export function Composer({
         <div role="status" className="border-t border-border bg-warning/10 px-3 py-2 text-xs">
           {recipients.hard.map((r) => (
             <p key={r.email}>
-              <strong>{r.email}</strong> {tr("has hard-bounced — the mailbox does not exist. Sending again will not reach anyone.")}
+              <strong>{r.email}</strong> {tr("has hard-bounced: the mailbox does not exist. Sending again will not reach anyone.")}
             </p>
           ))}
           {recipients.soft.map((r) => (
             <p key={r.email}>
-              <strong>{r.email}</strong> {tr("has been failing — mail to it may not arrive.")}
+              <strong>{r.email}</strong> {tr("has been failing: mail to it may not arrive.")}
             </p>
           ))}
         </div>

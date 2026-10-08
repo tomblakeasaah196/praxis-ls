@@ -67,6 +67,7 @@ function ListHarness({
   bulkFailures = [],
   onBulk = vi.fn(),
   onStar = vi.fn(),
+  onOpen = vi.fn(),
   folder,
   onEmptyFolder,
 }: {
@@ -74,6 +75,7 @@ function ListHarness({
   bulkFailures?: { email_thread_id: string; error: string }[];
   onBulk?: (op: never, folder?: never) => void;
   onStar?: (t: Thread, on: boolean) => void;
+  onOpen?: (t: Thread) => void;
   folder?: "INBOX" | "TRASH" | "SPAM";
   onEmptyFolder?: () => void;
 }) {
@@ -85,7 +87,7 @@ function ListHarness({
       activeId={null}
       selected={selected}
       onSelectedChange={setSelected}
-      onOpen={vi.fn()}
+      onOpen={onOpen}
       onStar={onStar}
       onBulk={onBulk as never}
       folder={folder}
@@ -249,6 +251,116 @@ const detail = (over: Partial<ThreadDetail> = {}): ThreadDetail => ({
  * and `thread.service`'s own comment called the endpoint "the Empty Trash the
  * product did not have".
  */
+/**
+ * THE KEYBOARD — the composite-widget pattern the list had none of.
+ *
+ * Before this there was no way to move down the list, open a conversation or
+ * star one without a pointer, and every row carried three tab stops, so the
+ * bottom of a fifty-row list was a hundred and fifty presses of Tab away. The
+ * two halves of the fix have to be pinned TOGETHER: the roving tabindex is only
+ * sound because `x` and `s` keep the controls it un-tabbed reachable.
+ */
+describe("the conversation list's keyboard", () => {
+  const rows = [
+    thread({ email_thread_id: "a", subject: "First" }),
+    thread({ email_thread_id: "b", subject: "Second" }),
+    thread({ email_thread_id: "c", subject: "Third" }),
+  ];
+
+  /** The row buttons, in list order. Named by their own subject. */
+  const rowButtons = () =>
+    screen
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-keyshortcuts") === "Enter x s");
+
+  it("IS ONE TAB STOP, not three per row", async () => {
+    render(<ListHarness threads={rows} />);
+    const buttons = rowButtons();
+    expect(buttons).toHaveLength(3);
+    // Exactly one row is reachable by Tab; the other two are reached with the
+    // arrow keys, and the checkbox and star are reached with x and s.
+    expect(buttons.filter((b) => b.tabIndex === 0)).toHaveLength(1);
+    expect(buttons[0].tabIndex).toBe(0);
+    expect(screen.getAllByRole("button", { name: /^Star / })).toHaveLength(3);
+    for (const star of screen.getAllByRole("button", { name: /^Star / })) {
+      expect(star.tabIndex).toBe(-1);
+    }
+    // The header's "Select all" is a genuine tab stop; a ROW's checkbox is not.
+    const [, ...rowBoxes] = screen.getAllByRole("checkbox");
+    for (const box of rowBoxes) expect(box.tabIndex).toBe(-1);
+  });
+
+  it("moves with the arrow keys and with j / k", async () => {
+    render(<ListHarness threads={rows} />);
+    rowButtons()[0].focus();
+    await userEvent.keyboard("{ArrowDown}");
+    expect(rowButtons()[1]).toHaveFocus();
+    await userEvent.keyboard("j");
+    expect(rowButtons()[2]).toHaveFocus();
+    // And stops at the end rather than wrapping: a cursor that wraps makes a
+    // held key cycle for ever with no way to tell you have reached the bottom.
+    await userEvent.keyboard("j");
+    expect(rowButtons()[2]).toHaveFocus();
+    await userEvent.keyboard("k{ArrowUp}");
+    expect(rowButtons()[0]).toHaveFocus();
+    await userEvent.keyboard("{End}");
+    expect(rowButtons()[2]).toHaveFocus();
+    await userEvent.keyboard("{Home}");
+    expect(rowButtons()[0]).toHaveFocus();
+  });
+
+  it("opens with Enter and with o", async () => {
+    const onOpen = vi.fn();
+    render(<ListHarness threads={rows} onOpen={onOpen} />);
+    rowButtons()[0].focus();
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ subject: "Second" }));
+    await userEvent.keyboard("{ArrowDown}o");
+    expect(onOpen).toHaveBeenLastCalledWith(
+      expect.objectContaining({ subject: "Third" }),
+    );
+  });
+
+  it("x SELECTS AND s STARS the row under the cursor", async () => {
+    // These are what the roving tabindex is paid for with. Drop either and the
+    // checkbox and the star become mouse-only.
+    const onStar = vi.fn();
+    render(<ListHarness threads={rows} onStar={onStar} />);
+    rowButtons()[0].focus();
+    await userEvent.keyboard("x");
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+    await userEvent.keyboard("x");
+    expect(screen.queryByText("1 selected")).toBeNull();
+    await userEvent.keyboard("{ArrowDown}s");
+    expect(onStar).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: "Second" }),
+      true,
+    );
+  });
+
+  it("CLAMPS THE CURSOR when the list reloads shorter under it", async () => {
+    // `mail:new` reloads the list, a folder change replaces every row. A cursor
+    // held as an index past the end would move focus to whatever slid into the
+    // slot; held as an id it would point at a row that is gone.
+    const { rerender } = render(<ListHarness threads={rows} />);
+    rowButtons()[0].focus();
+    await userEvent.keyboard("{End}");
+    expect(rowButtons()[2]).toHaveFocus();
+    rerender(<ListHarness threads={rows.slice(0, 1)} />);
+    expect(rowButtons()).toHaveLength(1);
+    expect(rowButtons()[0].tabIndex).toBe(0);
+  });
+
+  it("leaves a modified arrow key to the browser", async () => {
+    // Ctrl/Cmd/Alt + arrow is a word jump, a history move or an OS gesture. A
+    // list that swallows them is a list that breaks the shortcuts around it.
+    render(<ListHarness threads={rows} />);
+    rowButtons()[0].focus();
+    await userEvent.keyboard("{Control>}{ArrowDown}{/Control}");
+    expect(rowButtons()[0]).toHaveFocus();
+  });
+});
+
 describe("deleting for ever", () => {
   it("is offered in Trash, where moving to Trash is a no-op", async () => {
     const onBulk = vi.fn();
@@ -313,15 +425,55 @@ describe("the conversation view", () => {
     onClose: vi.fn(),
   };
 
-  it("offers permanent deletion only when the caller supplies it", () => {
+  /** Open the `⋯` menu that holds the pane's less-used commands. */
+  async function openMoreMenu() {
+    await userEvent.click(
+      screen.getByRole("button", { name: "Conversation actions" }),
+    );
+  }
+
+  it("offers permanent deletion only when the caller supplies it", async () => {
     // The inbox passes `onDelete` only while reading Trash or Spam; everywhere
-    // else "Move to… Trash" is the reversible verb and this must not appear.
+    // else "Move to Trash" is the reversible verb and this must not appear.
+    //
+    // Both assertions go through the `⋯` menu, which is where the command moved
+    // when the command strip replaced the wrapping row of buttons and selects.
+    // `menuitem`, not `button`: Radix's menu items carry the menu role, and
+    // asserting on `button` here would pass for a plain button that had
+    // escaped the menu back onto the strip.
     const { unmount } = renderView(<ThreadView thread={detail()} {...props} />);
-    expect(screen.queryByRole("button", { name: "Delete for ever" })).toBeNull();
+    await openMoreMenu();
+    expect(screen.queryByRole("menuitem", { name: "Delete for ever" })).toBeNull();
     unmount();
 
     renderView(<ThreadView thread={detail()} {...props} onDelete={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Delete for ever" })).toBeInTheDocument();
+    await openMoreMenu();
+    expect(
+      screen.getByRole("menuitem", { name: "Delete for ever" }),
+    ).toBeInTheDocument();
+  });
+
+  it("PROMOTES REPLY AND ARCHIVE TO THE TOP OF THE PANE", async () => {
+    // The three reply verbs were the footer's whole contents, forty messages
+    // down a page that scrolled; Archive could not be reached from the open
+    // conversation at all — you closed it, found its row and ticked a checkbox.
+    renderView(<ThreadView thread={detail()} {...props} folder="INBOX" />);
+    expect(screen.getByRole("button", { name: "Reply" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Forward" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Archive" }));
+    expect(props.onMove).toHaveBeenCalledWith("ARCHIVE");
+  });
+
+  it("does not offer a move to the folder already being read", async () => {
+    // The same rule ThreadList's BULK list applies: moving a conversation to
+    // the folder it is in is a no-op dressed as an action.
+    renderView(<ThreadView thread={detail()} {...props} folder="ARCHIVE" />);
+    expect(screen.queryByRole("button", { name: "Archive" })).toBeNull();
+    await openMoreMenu();
+    expect(screen.queryByRole("menuitem", { name: "Move to Archive" })).toBeNull();
+    expect(
+      screen.getByRole("menuitem", { name: "Move to Inbox" }),
+    ).toBeInTheDocument();
   });
 
   it("opens the newest message and leaves the history collapsed", () => {
@@ -367,7 +519,13 @@ describe("the conversation view", () => {
       />,
     );
     expect(screen.getByText(/RFC 3834/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "This is a person" }));
+    // The reason stays printed on the pane; the override moved into the `⋯`
+    // menu, one item away, and says what it will do rather than asserting what
+    // the conversation is ("This is a person" on a button).
+    await openMoreMenu();
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Reclassify as mail from a person" }),
+    );
     expect(props.onStream).toHaveBeenCalledWith("HUMAN");
   });
 

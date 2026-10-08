@@ -78,8 +78,8 @@ test("mobile analytics cards fit the viewport and blocked bars reveal full notes
 
   // On a phone the chart help is a bottom sheet, with actionable copy rather
   // than a title repeated in a tooltip.
-  await page.getByRole("button", { name: "About Overdue aging" }).click();
-  const help = page.getByRole("dialog", { name: "About Overdue aging" });
+  await page.getByRole("button", { name: "About Overdue Aging" }).click();
+  const help = page.getByRole("dialog", { name: "About Overdue Aging" });
   await expect(help).toBeVisible();
   await expect(help.getByText("What it shows")).toBeVisible();
   await expect(help.getByText("Why it matters")).toBeVisible();

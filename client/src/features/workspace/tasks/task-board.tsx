@@ -382,7 +382,7 @@ export function TaskBoard({
           {query?.trim() ? (
             <EmptyState
               title={tr("No tasks match “{q}”").replace("{q}", query.trim())}
-              hint={tr("Try another word — the search covers titles, notes, the linked file's reference, its client and step titles.")}
+              hint={tr("Try another word. The search covers titles, notes, the linked file's reference, its client and step titles.")}
               action={
                 onClearQuery ? (
                   <button type="button" className="btn-primary" onClick={onClearQuery}>
@@ -427,7 +427,7 @@ function Column({
   return (
     <section
       ref={setNodeRef}
-      aria-label={`${COLUMN_LABEL[column]} — ${tasks.length} task${tasks.length === 1 ? "" : "s"}`}
+      aria-label={`${COLUMN_LABEL[column]}: ${tasks.length} task${tasks.length === 1 ? "" : "s"}`}
       className={cn(
         "flex min-h-[12rem] flex-col rounded-lg border bg-card/40 p-3 transition-colors",
         isOver && "border-primary bg-accent ring-1 ring-primary",

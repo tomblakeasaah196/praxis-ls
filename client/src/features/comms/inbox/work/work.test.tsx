@@ -307,7 +307,7 @@ describe("scheduled send offers two shapes and no third", () => {
   it("it promises not to guess a timezone", async () => {
     renderScreen(<SchedulePicker value={{ kind: "NOW" }} onChange={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: "Send later" }));
-    expect(screen.getByText(/we will not guess one/)).toBeInTheDocument();
+    expect(screen.getByText(/We will not guess one/)).toBeInTheDocument();
   });
 
   it.each<[ScheduleChoice, Record<string, unknown>]>([
