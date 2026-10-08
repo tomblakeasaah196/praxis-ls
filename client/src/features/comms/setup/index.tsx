@@ -72,14 +72,14 @@ const TABS: { key: TabKey; label: string; adminOnly: boolean; hint: string }[] =
   { key: "mine", label: "My Mailbox", adminOnly: false, hint: "Your own professional address" },
   { key: "connections", label: "Connections", adminOnly: false, hint: "Connect, test and sync the mailboxes you send from" },
   { key: "followups", label: "Follow-ups", adminOnly: false, hint: "Conversations waiting to come back" },
-  { key: "secure-links", label: "Secure links", adminOnly: true, hint: "Every expiring link the company has sent, and who opened it" },
+  { key: "secure-links", label: "Secure Links", adminOnly: true, hint: "Every expiring link the company has sent, and who opened it" },
   { key: "mailboxes", label: "Mailboxes", adminOnly: true, hint: "Every mailbox in the company" },
   { key: "sla", label: "Response Times", adminOnly: true, hint: "How fast a first reply must be, and which hours count" },
-  { key: "trust", label: "Trust & Archive", adminOnly: true, hint: "Confirmed domains, bounces, and the archive seal" },
-  { key: "send-points", label: "Send points", adminOnly: true, hint: "Which address each part of the product sends from" },
+  { key: "trust", label: "Trust & Archives", adminOnly: true, hint: "Confirmed domains, bounces, and the archive seal" },
+  { key: "send-points", label: "Send Points", adminOnly: true, hint: "Which address each part of the product sends from" },
   { key: "senders", label: "Senders & Channels", adminOnly: true, hint: "System senders, shared SMTP, WhatsApp, DNS" },
   // Calls audit PR-7 (O5): offered to the Test right on MOD-64, not to admins.
-  { key: "test-calls", label: "Test calls", adminOnly: false, hint: "Check every step of a call on this device and the server" },
+  { key: "test-calls", label: "Test Calls", adminOnly: false, hint: "Check every step of a call on this device and the server" },
 ];
 
 export function CommsSetupPage() {
@@ -144,7 +144,7 @@ export function CommsSetupPage() {
       // THEIR directory, and the mailbox that was refused can now connect.
       setOauthNote({
         ok: true,
-        text: tr("Admin consent recorded in Microsoft 365. Connect the mailbox again — it should go through now."),
+        text: tr("Admin consent recorded in Microsoft 365. Connect the mailbox again: it should go through now."),
       });
     } else if (consent === "denied") {
       setOauthNote({
@@ -159,14 +159,14 @@ export function CommsSetupPage() {
       const guidance: Record<string, { tone?: "warn" | "info"; text: string }> = {
         OAUTH_CANCELLED: {
           tone: "info",
-          text: tr("The connection was cancelled at Microsoft's sign-in screen. Nothing was changed — try again whenever you are ready."),
+          text: tr("The connection was cancelled at Microsoft's sign-in screen. Nothing was changed: try again whenever you are ready."),
         },
         MS_CONSENT_REQUIRED: {
           tone: "warn",
           text: tr("Your organisation requires an administrator's approval before anyone may connect a mailbox. Ask your Microsoft 365 administrator to open the consent link below (or grant it in Entra → Enterprise applications → Permissions), then connect again."),
         },
         MS_BAD_SECRET: {
-          text: tr("Microsoft rejected the platform's app credentials — the client secret is wrong or has expired. This is not something retrying fixes: an administrator needs to check Platform Console → Integrations → Microsoft 365."),
+          text: tr("Microsoft rejected the platform's app credentials: the client secret is wrong or has expired. This is not something retrying fixes: an administrator needs to check Platform Console → Integrations → Microsoft 365."),
         },
         MS_REDIRECT_MISMATCH: {
           text: tr("Microsoft rejected the return address for this sign-in. An administrator needs to check that the Redirect URI registered on the Entra app matches Platform Console → Integrations → Microsoft 365."),
@@ -182,7 +182,7 @@ export function CommsSetupPage() {
         code: bad,
         text: g
           ? g.text
-          : `${who} ${tr("did not connect the mailbox")} (${bad}). ${tr("Nothing was changed — try again, or connect it with its own server settings instead.")}`,
+          : `${who} ${tr("did not connect the mailbox")} (${bad}). ${tr("Nothing was changed: try again, or connect it with its own server settings instead.")}`,
       });
     }
     const wanted = p.get("mail_tab");
@@ -205,7 +205,7 @@ export function CommsSetupPage() {
         setOauthNote({
           ok: false,
           code: "MS_CONSENT_REQUIRED",
-          text: tr("Could not build the consent link — try again in a moment. Your administrator can also grant consent directly in Entra → Enterprise applications → Permissions."),
+          text: tr("Could not build the consent link. Try again in a moment. Your administrator can also grant consent directly in Entra → Enterprise applications → Permissions."),
         });
       })
       .finally(() => setConsentBusy(false));

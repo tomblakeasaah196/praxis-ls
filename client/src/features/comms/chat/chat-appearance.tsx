@@ -93,7 +93,7 @@ export function ChatAppearanceButton({ appearance }: { appearance: ChatAppearanc
               {tr("Accent colour")}
             </h3>
             <p className="mb-3 mt-1 text-[12px] text-muted-foreground">
-              {tr("Only your brand's colours — nothing new is created.")}
+              {tr("Only your brand's colours: nothing new is created.")}
             </p>
             <div className="flex flex-wrap gap-2">
               <SwatchChip

@@ -159,7 +159,7 @@ export function LiveShipments({
         <div className="p-4">
           <EmptyState
             title="No live shipments"
-            hint="Files appear here while they are open or in progress. Create an operations file to start tracking one."
+            hint="Create an operations file to start tracking one."
             className="border-0 p-6"
           />
         </div>

@@ -345,7 +345,7 @@ export function AccountModal({
       <Modal
         open={open}
         onClose={onClose}
-        title={isEdit ? "Edit treasury account" : "New treasury account"}
+        title={isEdit ? "Edit Treasury Account" : "New Treasury Account"}
         description={
           isEdit
             ? "Correct the account's identity, opening balance or statement day. The entity, category and CoA leaf are fixed once the account exists."

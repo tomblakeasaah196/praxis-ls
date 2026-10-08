@@ -694,7 +694,7 @@ export function DictForm({
         onClose();
       }}
       size="lg"
-      title={isNew ? "New dictionary item" : `Edit ${row?.code}`}
+      title={isNew ? "New Dictionary Item" : `Edit ${row?.code}`}
       description="A priced line with its OHADA posting rules: the single source every quote, invoice and costing reads."
     >
       {/* Progress */}

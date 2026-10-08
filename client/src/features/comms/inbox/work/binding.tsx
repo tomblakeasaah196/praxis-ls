@@ -50,7 +50,7 @@ import * as api from "@/lib/mail-api";
  * actually offers.
  */
 function confidenceBand(c: number): { label: string; tone: Tone } {
-  if (c >= 0.85) return { label: tr("Strong match"), tone: "ok" };
+  if (c >= 0.85) return { label: tr("Strong Match"), tone: "ok" };
   if (c >= 0.6) return { label: tr("Likely"), tone: "warn" };
   return { label: tr("Weak"), tone: "mute" };
 }

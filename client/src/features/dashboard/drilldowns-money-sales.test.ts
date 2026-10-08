@@ -97,7 +97,7 @@ describe("buildMarginDrill", () => {
   it("shows the TILE's average, not one recomputed off the page", () => {
     const d = buildMarginDrill(sims, 24, 12);
     expect(d.badge.text).toBe("24 %");
-    expect(d.meta[0]).toEqual({ label: "Closed files measured", value: "12" });
+    expect(d.meta[0]).toEqual({ label: "Closed Files Measured", value: "12" });
     // Only the approved simulation is listed; the draft is a what-if.
     expect(d.rows).toHaveLength(1);
   });

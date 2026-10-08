@@ -62,17 +62,27 @@ export type Ticket = {
   replies?: TicketReply[];
 };
 
-/** Dropdown order is triage order: the everyday kinds first, the rare ones last. */
+/**
+ * Dropdown order is triage order: the everyday kinds first, the rare ones last.
+ *
+ * WHY FOUR OF THESE ARE NOT TITLE CASE. §3.18 makes a select option chrome, so
+ * an option that NAMES a kind is Title Case ("Billing & Account"). The first
+ * four do not name a kind, they finish a sentence the person is saying about
+ * themselves, and "Support: I Need Help" reads machine-written — which is the
+ * complaint the no-dashes rule came from in the first place. The boundary is
+ * written into §3.18: a name is Title Cased, a complete statement is left in
+ * sentence case and says why.
+ */
 export const KIND_OPTIONS: { value: TicketKind; label: string }[] = [
-  { value: "SUPPORT", label: "Support — I need help" },
-  { value: "BUG", label: "Bug — something's broken" },
-  { value: "FEATURE", label: "Feature — I'd like an improvement" },
-  { value: "URGENT", label: "Urgent — this is blocking us now" },
-  { value: "BILLING", label: "Billing & account" },
-  { value: "SECURITY", label: "Security & access" },
-  { value: "DATA", label: "Data & import" },
-  { value: "COMMS", label: "Communication & notifications" },
-  { value: "REQUEST", label: "Something else" },
+  { value: "SUPPORT", label: "Support: I need help" }, // @prose:keep a statement, not a name
+  { value: "BUG", label: "Bug: something's broken" }, // @prose:keep a statement, not a name
+  { value: "FEATURE", label: "Feature: I'd like an improvement" }, // @prose:keep a statement, not a name
+  { value: "URGENT", label: "Urgent: this is blocking us now" }, // @prose:keep a statement, not a name
+  { value: "BILLING", label: "Billing & Account" },
+  { value: "SECURITY", label: "Security & Access" },
+  { value: "DATA", label: "Data & Import" },
+  { value: "COMMS", label: "Communication & Notifications" },
+  { value: "REQUEST", label: "Something Else" },
 ];
 
 export const KIND_LABEL: Record<TicketKind, string> = {

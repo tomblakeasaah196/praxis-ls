@@ -94,7 +94,7 @@ function ExpenseForm({
     <Modal
       open
       onClose={onClose}
-      title={isNew ? "New office expense" : "Edit office expense"}
+      title={isNew ? "New Office Expense" : "Edit Office Expense"}
       description="A running cost of the office itself — never attached to a client file."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -377,7 +377,7 @@ export function OfficeExpensesPage() {
       {confirmDialog}
       <PageHeader
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
-        title="Office expenses"
+        title="Office Expenses"
         description="Rent, utilities, supplies and the other costs of running the office itself — recorded here, never hung off a client file."
         action={
           <Button onClick={() => setEditing("new")}>New expense</Button>

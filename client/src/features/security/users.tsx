@@ -220,7 +220,7 @@ function UserForm({
       open
       onClose={onClose}
       size="lg"
-      title={editing ? "Edit user" : "New user"}
+      title={editing ? "Edit User" : "New User"}
       description={
         editing
           ? "Changing roles re-resolves this user's grants on their next request."

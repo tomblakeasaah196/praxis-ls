@@ -76,17 +76,17 @@ describe("RoleKpiPanel", () => {
     // The label shows TWICE by design — once as the default-band chip, once as
     // the scope row — so the assertion targets the scope checkbox, which is
     // the unique handle on the loaded draft.
-    expect(await screen.findByRole("checkbox", { name: /Revenue · turnover/ })).toBeChecked();
+    expect(await screen.findByRole("checkbox", { name: /Revenue · Turnover/ })).toBeChecked();
   });
 
   it("narrowing the scope off a defaulted tile drops it from the defaults too", async () => {
     const user = userEvent.setup();
     panel();
-    await screen.findByRole("checkbox", { name: /Revenue · turnover/ });
+    await screen.findByRole("checkbox", { name: /Revenue · Turnover/ });
 
     // Uncheck revenue in the scope list → the save body must carry a default
     // list WITHOUT revenue (the server would reject a default outside scope).
-    await user.click(screen.getByRole("checkbox", { name: /Revenue · turnover/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Revenue · Turnover/ }));
     await user.click(screen.getByRole("button", { name: /^Save/i }));
 
     await waitFor(() =>
@@ -121,10 +121,10 @@ describe("RoleKpiPanel", () => {
 
   it("Save is inert until something actually moved", async () => {
     panel();
-    await screen.findByRole("checkbox", { name: /Revenue · turnover/ });
+    await screen.findByRole("checkbox", { name: /Revenue · Turnover/ });
     expect(screen.getByRole("button", { name: /^Save/i })).toBeDisabled();
     // uncheck → dirty → enabled
-    await userEvent.click(screen.getByRole("checkbox", { name: /Revenue · turnover/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Revenue · Turnover/ }));
     expect(screen.getByRole("button", { name: /^Save/i })).toBeEnabled();
   });
 });

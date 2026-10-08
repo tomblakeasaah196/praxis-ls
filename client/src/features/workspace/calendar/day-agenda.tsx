@@ -108,7 +108,7 @@ export function DayAgenda({
         all_day: true,
       });
       setQuickTitle("");
-      toast.success("Added — all day. Open it to set a time.");
+      toast.success("Added: all day. Open it to set a time.");
     } catch (err) {
       toast.error(errMsg(err));
     }
@@ -135,8 +135,8 @@ export function DayAgenda({
           }}
         >
           <Input
-            aria-label="Quick add — an all-day event"
-            placeholder="Quick add — title only, lands as an all-day event"
+            aria-label="Quick add: an all-day event"
+            placeholder="Quick add: title only, lands as an all-day event"
             value={quickTitle}
             maxLength={TITLE_MAX}
             onChange={(e) => setQuickTitle(e.target.value)}
@@ -176,7 +176,7 @@ export function DayAgenda({
                 <button
                   type="button"
                   onClick={() => onOpenDeadline(d)}
-                  title={`Due — ${dueTitle(d)} — ${tenantDateTimeFmt(d.at, timeZone)}`}
+                  title={`Due: ${dueTitle(d)}, ${tenantDateTimeFmt(d.at, timeZone)}`}
                   className="flex w-full items-center gap-3 py-2.5 text-left transition-colors hover:bg-accent"
                 >
                   <span className="num w-16 shrink-0 text-sm">{tenantTimeFmt(d.at, timeZone)}</span>

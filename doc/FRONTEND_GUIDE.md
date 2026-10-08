@@ -1303,11 +1303,73 @@ case.**
 
 Chrome is what NAMES something: page and hub titles, nav and tab labels, section
 and card titles, dialog titles that open a form ("New Service Type", "Edit
-Expense Rate"), primary buttons, table column headers.
+Expense Rate"), primary buttons, table column headers, **select options, radio
+labels and status pills**.
 
 Messages SPEAK to the user: toasts, empty states, validation, confirmations,
 helper text. "Could not save it" is not improved by becoming "Could Not Save
 It".
+
+#### An option, a radio label and a status pill are chrome
+
+This used to be unwritten, and two sweeps disagreed about it: the second decided
+NOT to Title Case `Last 30 days` or `Most urgent first`, wrote the reasoning in a
+commit message, and the third round was about to decide the other way. It is
+settled here so a fourth round cannot reopen it.
+
+They are chrome. An option names the thing you are choosing and a pill names the
+state a record is in, which is the same job a tab label does: **Last 30 Days**,
+**Most Urgent First**, **Needs a Location**, **Summary Sent**, **Did Not Send**.
+
+#### A name is Title Cased. A complete statement is not.
+
+The one case where an option is NOT Title Cased is when it is not a name at all
+but a sentence the user is saying, with a subject and a finite verb:
+
+| Label | Case | Why |
+| --- | --- | --- |
+| `Billing & Account` | Title | names a kind |
+| `Does Not Repeat`, `Mark Read`, `At the Time` | Title | a bare predicate with no subject is still a name for an option |
+| `What You Can Start` | Title | a noun clause naming a section, not an assertion |
+| `Support: I need help` | sentence | a statement, with a subject |
+| `A first reply is overdue` | sentence | asserts something about this record |
+
+The test is whether it could end in a full stop. "This is blocking us now" could;
+"Mark Read" could not. A statement stays sentence case and carries
+`@prose:keep <reason>`, so the decision is recorded next to the string rather
+than inferred from its shape by the next person.
+
+#### What the gate reads, and what it still does not
+
+Since the 2026-10-08 round it reads, besides JSX `title=`:
+
+- **object-literal `label:` / `title:` / `tabLabel:`** — every tab bar, option
+  set, column list, KPI config and wizard-step list in the app. 991 sites in
+  `client/src`, so this bucket RATCHETS through `prose-baseline.json` rather
+  than failing the tree at once; an area is swept to zero and can never regrow.
+  `--fix-titles` only touches it behind `--only <path>`, because the same
+  property name carries names AND messages ("SMTP login rejected").
+- **a COMPUTED `title=`**, by checking every string literal in the expression
+  against the chrome-prefix rule separately. `title={title || (draft ?
+  tr("Continue this draft") : tr("New message"))}` was dropped silently before.
+- **`<PageHeader title>` and `<ListPage title>`**, which render the page's
+  `<h1>`. The opening tag is read as a brace-and-quote-tracked span, because a
+  header's `eyebrow` prop is JSX containing a ">" and a blob match stopped
+  inside it.
+
+It still does NOT read, and these are the places to look by hand:
+
+- **`<Dialog title>` by component.** A dialog names a form ("New Service Type")
+  or speaks ("Remove the account manager?"), and only the prefix rule separates
+  those, so a dialog titled "Mail setup guide" passes.
+- **`Record<Enum, string>` label maps** (`STATUS_LABEL`, `PRIORITY_LABEL`). A
+  regex cannot tell one from a route or icon map, and "In progress" also comes
+  out of the global `enumLabel()` formatter, so retitling the map alone would
+  disagree with every other enum pill in the product.
+- **the dotted-key `t()` catalogue values** in `i18n-dict.ts` (`dash.*`,
+  `nav.*`). `SKIP_TITLE` excludes a dotted KEY on purpose, which also excludes
+  the VALUE, and those values are card titles. The `dash:` block was swept by
+  hand in that round; the others were not.
 
 French takes sentence case ("Types de service", never "Types De Service"), which
 is correct French typography. `title_fr`, `name_fr` and `fr.strings` are

@@ -186,7 +186,7 @@ export function ForwardDialog({
           )}
         </div>
         <p className="text-micro text-muted-foreground">
-          {tr("Attachments are forwarded as references — the file itself is not copied, and a record card still checks the reader's own access.")}
+          {tr("Attachments are forwarded as references: the file itself is not copied, and a record card still checks the reader's own access.")}
         </p>
       </div>
     </Dialog>

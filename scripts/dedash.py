@@ -41,21 +41,33 @@ APPLY = "--apply" in sys.argv
 # POINT THIS AT THE AREA YOU ARE SWEEPING. Left on the last one worked, so the
 # diff of this line is part of the record of which rounds have been done.
 #   round 1 (master data): features/masterdata/*.tsx, portal/account-manager.tsx
-#   round 2 (Smart Mail + My Workspace): below
-files = subprocess.run(["git","ls-files","client/src/features/comms/inbox/*.tsx",
-                        "client/src/features/comms/inbox/composer/*.tsx",
-                        "client/src/features/comms/inbox/work/*.tsx",
-                        "client/src/features/workspace/tasks/*.tsx"],
+#   round 2 (Smart Mail + My Workspace): comms/inbox/**, workspace/tasks/*
+#   round 3 (the whole Monitor family): below
+files = subprocess.run(["git","ls-files",
+                        "client/src/features/dashboard",
+                        "client/src/features/workspace",
+                        "client/src/features/ai",
+                        "client/src/features/comms",
+                        "client/src/features/support"],
                        capture_output=True, text=True, check=True).stdout.split()
+files = [f for f in files if f.endswith((".ts", ".tsx"))]
 files = [f for f in files if ".test." not in f]
 
 LIT = re.compile(r'(["\'])((?:(?!\1)[^\\]|\\.)*)\1')
 MECH = re.compile(r'var\(\s*--|^\s*(?://|\*|/\*)')
 
+# A coordinating conjunction cannot follow a colon: "...nothing malicious: but
+# from that row" is not a sentence. Those take a comma.
+CONJ = {"but", "and", "so", "or", "yet", "nor"}
+
 def fix(text):
     out = text
-    # en dash between numbers is a RANGE: "10–120" reads as "10 to 120".
-    out = re.sub(r'(\d)\s*[–]\s*(\d)', r'\1 to \2', out)
+    # en dash between numbers is a RANGE: "10–120" reads as "10 to 120". An
+    # INTERPOLATED range is the same thing and was not caught: "{{from}}–{{to}}
+    # on your side" is a time span, and the separator rule below turned it into
+    # "{{from}}: {{to}}", which reads as a label and a value.
+    N = r'(?:\{\{\s*\w+\s*\}\}|\$\{[^}]+\}|\d)'
+    out = re.sub(rf'({N})\s*[–]\s*({N})', r'\1 to \2', out)
     # A string that is ONLY a dash, or a value wrapped in them ("— none —"),
     # is an empty-value GLYPH, not a sentence. Blank reads better in a stat
     # tile and "None" in a dropdown, so those are decided one at a time rather
@@ -76,15 +88,25 @@ def fix(text):
         # full stop when it is a second statement. The tail is NEVER recased
         # downward: "France — Plan Comptable Général" must not become
         # "France: plan Comptable Général".
+        first = tail.split()[0].lower().strip(",")
+        if first in CONJ:
+            # An aside, not an explanation: a comma is the only punctuation that
+            # leaves the clause standing.
+            return f"{head}, {tail}"
         listish = ("," in tail or tail.endswith("…") or len(tail) < 40
-                   or tail.split()[0].lower() in {"the", "a", "an", "one", "each", "every", "its"})
+                   or first in {"the", "a", "an", "one", "each", "every", "its"})
         if listish and ":" not in head and not head.endswith((".", ":", "?", "!")):
             return f"{head}: {tail}"
         return f"{head}. {tail[0].upper() + tail[1:]}"
     out = re.sub(r'([^—–]*?)\s*[—–]\s*([^—–]*)$', repl, out, count=1) if re.search(r'[—–]', out) else out
     return out
 
+def fix_ranges(text):
+    N = r'(?:\{\{\s*\w+\s*\}\}|\$\{[^}]+\}|\d)'
+    return re.sub(rf'({N})\s*[–]\s*({N})', r'\1 to \2', text)
+
 shown = 0
+byhand = {}
 changed_files = {}
 for f in files:
     lines = open(f, encoding="utf-8").read().split("\n")
@@ -98,6 +120,17 @@ for f in files:
             if not re.search(r'[—–]', lit):
                 continue
             fixed = fix(lit)
+            # A string with TWO dashes left is a PARENTHETICAL ("something long
+            # — a proforma, a memo — opens here"), and the separator rule only
+            # ever rewrites the LAST one. That leaves an em dash standing AND
+            # breaks the sentence around it ("a summary: it opens here"), so the
+            # pair is listed for a human instead of half-rewritten. Running the
+            # tool twice does not help: it yields two colons.
+            glyph = (re.fullmatch(r'\s*[—–]\s*', lit)
+                     or re.fullmatch(r'\s*[—–][^—–]*[—–]\s*', lit))
+            if not glyph and len(re.findall(r'[—–]', fix_ranges(lit))) >= 2:
+                byhand.setdefault(f, []).append(lit)
+                continue
             if fixed != lit and "\\" not in lit:
                 new_line = new_line.replace(m.group(0), m.group(1) + fixed + m.group(1), 1)
                 hits += 1
@@ -112,3 +145,10 @@ for f in files:
             open(f, "w", encoding="utf-8").write("\n".join(lines))
 
 print("---- would change", sum(changed_files.values()), "strings in", len(changed_files), "files")
+if byhand:
+    n = sum(len(v) for v in byhand.values())
+    print(f"\n---- {n} PARENTHETICAL strings in {len(byhand)} files, left for a human:")
+    for f, lits in byhand.items():
+        for l in lits:
+            print(f"  {f}\n    {l[:150]}")
+

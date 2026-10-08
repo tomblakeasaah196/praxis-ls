@@ -168,7 +168,7 @@ export function OpportunityForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit opportunity" : "New opportunity"}
+      title={editing ? "Edit Opportunity" : "New Opportunity"}
       description="A deal in the sales pipeline — value × probability drives the weighted forecast."
       size="lg"
     >

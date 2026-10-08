@@ -128,7 +128,7 @@ export function AiFeaturesPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
-        title="Feature flags"
+        title="Feature Flags"
         description="Turn AI capabilities on or off per tenant — the switch every Praxis affordance obeys."
       />
       <HubTabs />
@@ -352,7 +352,7 @@ export function AiGrantsPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
-        title="Access grants"
+        title="Access Grants"
         description="Per-user access to AI features (the feature flag must also be on)."
         action={<Button onClick={() => setOpen(true)}>Grant access</Button>}
       />
@@ -384,7 +384,7 @@ export function AiBudgetPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
-        title="Spend caps"
+        title="Spend Caps"
         description="Monthly AI budget — soft cap warns, hard cap blocks all AI calls."
         action={<Button onClick={() => setOpen(true)}>Set budget</Button>}
       />
@@ -1013,7 +1013,7 @@ export function AiVendorsPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
-        title="Vendors & keys"
+        title="Vendors & Keys"
         description="LLM/vision/voice providers — model, encrypted API key, and a connection test."
         action={<Button onClick={() => setAdding(true)}>Add vendor</Button>}
       />
@@ -1179,40 +1179,40 @@ export function AiUsagePage() {
  */
 const HEALTH_COPY: Record<string, { label: string; meaning: string }> = {
   truncation: {
-    label: "Truncated answers",
+    label: "Truncated Answers",
     meaning:
       "The model ran out of room mid-answer. Above zero means the output ceiling is too low for the questions people are actually asking.",
   },
   fallback: {
-    label: "Fell back to another vendor",
+    label: "Fell Back to Another Vendor",
     meaning:
       "The primary vendor did not answer and a later one did. The turn succeeded — on a different model, at a different cost.",
   },
   vendor_config_error: {
-    label: "Vendor credential rejected",
+    label: "Vendor Credential Rejected",
     meaning:
       "A key or endpoint was refused. Never transient: somebody has to fix it in the platform console.",
   },
   provider_exhausted: {
-    label: "No vendor answered",
+    label: "No Vendor Answered",
     meaning: "Every vendor in the chain failed, so the user got the placeholder reply.",
   },
   timeout: {
-    label: "Vendor timed out",
+    label: "Vendor Timed Out",
     meaning:
       "A call exceeded its budget. Usually means the caps are tighter than a real multi-step question needs.",
   },
   tool_round_cap: {
-    label: "Ran out of steps",
+    label: "Ran Out of Steps",
     meaning:
       "The assistant was still looking things up when the round limit stopped it — it could not find what it needed.",
   },
   groove: {
-    label: "Repeated the same lookups",
+    label: "Repeated the Same Lookups",
     meaning: "The model kept re-requesting reads it had already made, until the guard stopped it.",
   },
   stall_nudge: {
-    label: "Needed prodding",
+    label: "Needed Prodding",
     meaning:
       "The assistant said it would do something and then did not, so it had to be told to go ahead.",
   },

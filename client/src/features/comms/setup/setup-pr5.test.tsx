@@ -261,7 +261,7 @@ describe("response times", () => {
     // elements rather than on the page header, which renders before either
     // request has answered.
     expect(await screen.findByLabelText("Monday opens")).toBeInTheDocument();
-    expect(hasText("Working hours")).toBe(true);
+    expect(hasText("Working Hours")).toBe(true);
     expect(hasText("Public holidays")).toBe(true);
   });
 

@@ -105,7 +105,7 @@ export function LeadForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit lead" : "Capture lead"}
+      title={editing ? "Edit Lead" : "Capture lead"}
       description="Top of the sales funnel — qualify, then convert into a client."
       size="lg"
     >

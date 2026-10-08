@@ -209,7 +209,7 @@ export function ProposalForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit proposal" : "New proposal"}
+      title={editing ? "Edit Proposal" : "New Proposal"}
       description="Narrative sections + priced line items — drafted, reviewed, then sent."
       size="xl"
     >

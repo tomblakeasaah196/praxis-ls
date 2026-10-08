@@ -125,7 +125,7 @@ export function ParticipantsSection({
       hint={
         participants.length
           ? `${participants.length} on the list`
-          : "Nobody invited yet — a meeting that loses its guests is a note to yourself."
+          : "Nobody invited yet: a meeting that loses its guests is a note to yourself."
       }
     >
       <div className="space-y-2">
@@ -204,7 +204,7 @@ export function ParticipantsSection({
                 id="event-external-name"
                 value={externalName}
                 maxLength={EXTERNAL_NAME_MAX}
-                placeholder="Someone outside the company — a name is enough"
+                placeholder="Someone outside the company: a name is enough"
                 onChange={(e) => setExternalName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {

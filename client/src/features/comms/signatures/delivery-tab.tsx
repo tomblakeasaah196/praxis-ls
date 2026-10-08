@@ -100,7 +100,7 @@ export function DeliveryTab() {
     <div className="space-y-4">
       <Callout tone="info" title={tr("What this checks")}>
         {tr(
-          "Your signature card is built, rendered and uploaded in six steps. If the image is missing from sent mail, one of them is failing silently — the mail still sends. This runs them in order and names the first one that breaks.",
+          "Your signature card is built, rendered and uploaded in six steps. If the image is missing from sent mail, one of them is failing silently: the mail still sends. This runs them in order and names the first one that breaks.",
         )}
       </Callout>
 
@@ -125,7 +125,7 @@ export function DeliveryTab() {
           {report.ok ? (
             <Callout tone="ok" title={tr("The card is being delivered")}>
               {tr(
-                "Every step passed. If a recipient still sees no image, the block is in their mail client — check that images are not turned off there.",
+                "Every step passed. If a recipient still sees no image, the block is in their mail client. Check that images are not turned off there.",
               )}
             </Callout>
           ) : (

@@ -235,7 +235,7 @@ export function TicketThreadModal({
             ))
           ) : (
             <p className="micro text-muted-foreground">
-              {tr("No replies yet. When the Praxis team answers, it appears here — and in your notifications.")}
+              {tr("No replies yet. When the Praxis team answers, it appears here, and in your notifications.")}
             </p>
           )}
 

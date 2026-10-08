@@ -12,7 +12,7 @@ const PROVENANCE_LABEL: Record<CallProvenance, string> = {
   groq: "Transcribed from the call recording",
   gemini: "Transcribed from the call recording",
   "browser-live": "Generated from the in-call browser capture (unverified)",
-  "transcript-only": "Summary unavailable — provider down",
+  "transcript-only": "Summary unavailable: provider down",
 };
 
 export function provenanceLabel(provenance: CallProvenance | string | null | undefined): string {

@@ -108,11 +108,11 @@ function MintDialog({ onClose, onMinted }: { onClose: () => void; onMinted: () =
     <Modal
       open
       onClose={onClose}
-      title={minted ? tr("Your link") : tr("Create a secure link")}
+      title={minted ? tr("Your Link") : tr("Create a Secure Link")}
       description={
         minted
           ? undefined
-          : tr("Sends a document as an expiring, revocable link instead of an attachment. Nothing is emailed from here — you paste the link into a message.")
+          : tr("Sends a document as an expiring, revocable link instead of an attachment. Nothing is emailed from here: you paste the link into a message.")
       }
     >
       {minted ? (
@@ -207,7 +207,7 @@ function ViewsDialog({ link, onClose }: { link: Row; onClose: () => void }) {
   const rows = views.data || [];
 
   return (
-    <Modal open onClose={onClose} title={link.label || tr("Link activity")}>
+    <Modal open onClose={onClose} title={link.label || tr("Link Activity")}>
       {views.loading && <p className="text-sm text-muted-foreground">{tr("Loading…")}</p>}
       {!views.loading && rows.length === 0 && (
         <p className="text-sm text-muted-foreground">
@@ -254,7 +254,7 @@ export function SecureLinksTab() {
     { key: "label", label: tr("What"), render: (r) => r.label || tr("(no label)") },
     // The list is tenant-wide, so "who sent this" is the first thing an
     // administrator looking at an unfamiliar row needs.
-    { key: "by", label: tr("Sent by"), render: (r) => r.created_by_name || "—" },
+    { key: "by", label: tr("Sent By"), render: (r) => r.created_by_name || "—" },
     {
       key: "state",
       label: tr("State"),
@@ -299,7 +299,7 @@ export function SecureLinksTab() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title={tr("Secure links")}
+        title={tr("Secure Links")}
         description={tr("Expiring, revocable links to a document, instead of a 20 MB attachment that lives in someone's inbox forever.")}
         action={<Button size="sm" onClick={() => setMinting(true)}>{tr("Create a link")}</Button>}
       />

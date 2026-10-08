@@ -105,7 +105,7 @@ function AccountForm({
     <Modal
       open
       onClose={onClose}
-      title={isNew ? "New account" : `Edit ${row!.code}`}
+      title={isNew ? "New Account" : `Edit ${row!.code}`}
       description="Only leaf/detail accounts are postable; 4731 / 706 / 707 require an operations file."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -298,7 +298,7 @@ export function ChartOfAccountsPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
-        title={tr("Chart of accounts")}
+        title={tr("Chart of Accounts")}
         description="SYSCOHADA/OHADA statutory chart — postable leaves and analytic accounts."
         action={<Button onClick={() => setEditing("new")}>{tr("New account")}</Button>}
       />

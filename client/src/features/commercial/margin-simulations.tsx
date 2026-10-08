@@ -470,7 +470,7 @@ function MarginSimForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? tr("Edit margin simulation") : tr("Margin simulation")}
+      title={editing ? tr("Edit Margin Simulation") : tr("Margin simulation")}
       description="Rapid quote maths — margin on services only, débours pass-through. No GL (KB §6.7)."
       size="wide"
     >
@@ -1104,7 +1104,7 @@ export function MarginSimulationsPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Commercial" to="/commercial" />}
-        title="Margin simulation"
+        title="Margin Simulation"
         description="Cost the file, then price it — margin on services only, no accounting entries. Link a costing to import its lines."
         action={
           <Button onClick={() => setFormOpen(true)}>New simulation</Button>

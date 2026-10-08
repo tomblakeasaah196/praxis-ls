@@ -168,7 +168,7 @@ export function EnquiriesPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Sales & CRM" to="/sales" />}
-        title="Contact enquiries"
+        title="Contact Enquiries"
         description="Messages from the website contact form. One tile per state, and they add up under every filter; replying is recorded separately from having merely read it."
       />
       <HubTabs />

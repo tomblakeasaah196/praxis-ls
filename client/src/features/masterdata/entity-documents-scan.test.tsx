@@ -214,7 +214,7 @@ describe("Corporate entities · Documents — the Add document form", () => {
       await screen.findByRole("button", { name: /add document/i }),
     );
     expect(
-      await screen.findByRole("heading", { name: "Add document" }),
+      await screen.findByRole("heading", { name: "Add Document" }),
     ).toBeInTheDocument();
     return user;
   };

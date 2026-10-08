@@ -21,7 +21,7 @@ export function PipelineStagesPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Pipeline stages"
+        title="Pipeline Stages"
         description="The CRM opportunity pipeline stages. Read-only — stage editing is not yet exposed by the backend."
       />
 

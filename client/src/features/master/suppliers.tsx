@@ -119,7 +119,7 @@ function SupplierForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit supplier" : "New supplier"}
+      title={editing ? "Edit Supplier" : "New Supplier"}
       description="Vendor registry entry — referenced across procurement and payables."
       size="lg"
     >

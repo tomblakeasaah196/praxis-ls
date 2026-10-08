@@ -46,15 +46,15 @@ const TONES: { value: api.AssistTone; label: string }[] = [
   { value: "concise", label: "Concise" },
   { value: "persuasive", label: "Persuasive" },
   { value: "apologetic", label: "Apologetic" },
-  { value: "payment", label: "Payment chase" },
+  { value: "payment", label: "Payment Chase" },
   { value: "escalation", label: "Escalation" },
   { value: "technical", label: "Technical" },
   { value: "followup", label: "Follow-up" },
-  { value: "notice", label: "Formal notice" },
+  { value: "notice", label: "Formal Notice" },
 ];
 
 const ACTIONS: { value: api.AssistAction; label: string }[] = [
-  { value: "grammar", label: "Fix grammar" },
+  { value: "grammar", label: "Fix Grammar" },
   { value: "shorten", label: "Shorten" },
   { value: "expand", label: "Expand" },
 ];

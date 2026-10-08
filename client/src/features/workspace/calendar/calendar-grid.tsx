@@ -207,7 +207,7 @@ export function CalendarGrid({
                           ev.stopPropagation();
                           onSelectDeadline?.(d);
                         }}
-                        title={`Due — ${dueTitle(d)}`}
+                        title={`Due: ${dueTitle(d)}`}
                         className="block w-full truncate rounded px-1 py-0.5 text-left text-xs transition-colors hover:bg-accent"
                       >
                         <Pill tone={d.is_overdue ? "bad" : "warn"}>Due</Pill>{" "}

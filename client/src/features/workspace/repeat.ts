@@ -30,7 +30,7 @@ export type RepeatState = {
 };
 
 export const REPEAT_KINDS: { value: RepeatKind; label: string }[] = [
-  { value: "none", label: "Does not repeat" },
+  { value: "none", label: "Does Not Repeat" },
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },

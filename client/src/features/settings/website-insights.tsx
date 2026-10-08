@@ -471,7 +471,7 @@ function ArticleForm({
     <Modal
       open
       onClose={onClose}
-      title={isAnnouncement ? tr("New announcement") : tr("New article")}
+      title={isAnnouncement ? tr("New Announcement") : tr("New Article")}
       description="It starts as a draft. Nothing is served until you publish it."
     >
       <form className="space-y-4" onSubmit={submit}>

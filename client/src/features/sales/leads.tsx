@@ -319,7 +319,7 @@ export function LeadsPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Sales & CRM" to="/sales" />}
-        title="Leads & intake"
+        title="Leads & Intake"
         description="The top of the sales funnel — capture and qualify leads, and triage inbound enquiries into them."
       />
       <HubTabs />

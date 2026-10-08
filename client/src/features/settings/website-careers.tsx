@@ -113,7 +113,7 @@ export function WebsiteCareersPage() {
   return (
     <>
       <PageHeader
-        title={tr("Careers page")}
+        title={tr("Careers Page")}
         description={tr(
           "What the public careers page offers when no roles are open.",
         )}

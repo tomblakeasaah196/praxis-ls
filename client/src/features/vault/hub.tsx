@@ -109,7 +109,7 @@ function Overview() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Vault & Compliance" to="/vault" />}
-        title="Vault & compliance"
+        title="Vault & Compliance"
         description="Every document carries a SHA-256 content hash, so a stored file can be re-checked against its DNA at any time. Compliance rules run over the same corpus and raise flags for anything missing or aged."
         action={
           <Button onClick={() => navigate("/vault/documents")}>

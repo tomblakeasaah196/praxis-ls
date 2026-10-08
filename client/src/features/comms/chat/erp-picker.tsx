@@ -47,8 +47,8 @@ const KINDS: { key: ErpKind; label: string }[] = [
   { key: "INVOICE", label: "Invoices" },
   { key: "DOSSIER", label: "Files" },
   { key: "CLIENT", label: "Clients" },
-  { key: "PURCHASE_ORDER", label: "Purchase orders" },
-  { key: "SUPPLIER_INVOICE", label: "Supplier invoices" },
+  { key: "PURCHASE_ORDER", label: "Purchase Orders" },
+  { key: "SUPPLIER_INVOICE", label: "Supplier Invoices" },
 ];
 
 export function ErpPicker({
@@ -192,7 +192,7 @@ export function ErpPicker({
         </div>
 
         <p className="text-micro text-muted-foreground">
-          {tr("The card reads live — whoever you send it to sees the record as it stands when they open it, and only if they have access to it.")}
+          {tr("The card reads live: whoever you send it to sees the record as it stands when they open it, and only if they have access to it.")}
         </p>
       </div>
 

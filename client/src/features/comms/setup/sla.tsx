@@ -88,9 +88,9 @@ function PolicyDialog({
   }
 
   return (
-    <Modal open onClose={onClose} title={policy ? tr("Edit response target") : tr("New response target")}>
+    <Modal open onClose={onClose} title={policy ? tr("Edit Response Target") : tr("New Response Target")}>
       <div className="space-y-3">
-        <Field label={tr("Name")} hint={tr("What this covers — “Client enquiries”, “Supplier chasers”.")}>
+        <Field label={tr("Name")} hint={tr("What this covers: “Client enquiries”, “Supplier chasers”.")}>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label={tr("First Reply Within (Minutes)")} hint={tr("Counted in working hours, not clock hours.")}>
@@ -109,7 +109,7 @@ function PolicyDialog({
         {/* Surprising, and true. Better said here than discovered from a breach
             alert that starts or stops firing for no visible reason. */}
         <Callout tone="info" title={tr("This applies to conversations already open.")}>
-          {tr("Saving clears the computed deadlines, and the next sweep re-applies them — so threads in the queue get the new target, not the old one.")}
+          {tr("Saving clears the computed deadlines, and the next sweep re-applies them, so threads in the queue get the new target, not the old one.")}
         </Callout>
 
         <div className="flex justify-end gap-2">
@@ -294,7 +294,7 @@ export function SlaTab() {
     { key: "name", label: tr("Target"), render: (r) => r.name },
     {
       key: "first",
-      label: tr("First reply"),
+      label: tr("First Reply"),
       render: (r) => humanMinutes(r.first_response_minutes),
     },
     {
@@ -342,7 +342,7 @@ export function SlaTab() {
 
       <div className="space-y-3">
         <PageHeader
-          title={tr("Working hours")}
+          title={tr("Working Hours")}
           description={tr("“Four hours” starting at 17:00 on a Friday should mean Monday morning, not Friday evening.")}
         />
         {calendar.loading && <LoadingRow label={tr("Loading the calendar…")} />}

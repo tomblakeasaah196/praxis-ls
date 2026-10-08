@@ -372,7 +372,7 @@ export function WorkOrdersPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Fleet" to="/fleet" />}
-        title="Work orders"
+        title="Work Orders"
         description="Log maintenance jobs, parts and labour; cost rolls up from the parts."
         action={
           <Button onClick={() => setCreating(true)}>New work order</Button>

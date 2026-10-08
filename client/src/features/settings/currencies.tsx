@@ -657,7 +657,7 @@ function EditCurrencyModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={row ? `Edit ${row.code}` : "Edit currency"}
+      title={row ? `Edit ${row.code}` : "Edit Currency"}
       description="Change how this currency is named and formatted. The code is fixed."
       footer={
         <>

@@ -96,7 +96,7 @@ function TranscriptPanel({ callId, onClose }: { callId: string; onClose: () => v
             ))}
           {view.state === "TRANSCRIPTION_FAILED" && (
             <p className="text-micro text-muted-foreground">
-              {tr("The certified transcript could not be produced — this is the in-call capture.")}
+              {tr("The certified transcript could not be produced: this is the in-call capture.")}
             </p>
           )}
         </div>
@@ -125,7 +125,7 @@ export function CallSummaryCardView({
   if (!card || !id) {
     return (
       <div className="rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
-        {label || tr("Call summary")} — {tr("this record is no longer available")}
+        {label || tr("Call summary")}: {tr("this record is no longer available")}
       </div>
     );
   }

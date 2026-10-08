@@ -19,8 +19,8 @@ export function RecordingNotice({ future = false, detail = "", compact = false }
       <span className="min-w-0">
         <span className="block">
           {future
-            ? tr("This call will be recorded and summarised — both parties are informed.")
-            : tr("This call is recorded and summarised — both parties are informed.")}
+            ? tr("This call will be recorded and summarised: both parties are informed.")
+            : tr("This call is recorded and summarised: both parties are informed.")}
         </span>
         {detail && <span className="mt-0.5 block text-muted-foreground">{detail}</span>}
       </span>

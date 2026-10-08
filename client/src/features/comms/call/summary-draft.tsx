@@ -191,7 +191,7 @@ export function CallSummaryEditor({
           )}
           {state.updateAvailable && (
             <Callout tone="info">
-              {tr("The certified transcript is ready — you can post an updated summary.")}
+              {tr("The certified transcript is ready: you can post an updated summary.")}
             </Callout>
           )}
 
@@ -249,7 +249,7 @@ export function CallSummaryEditor({
                   </Button>
                 </div>
               ))}
-              <p className="text-micro text-muted-foreground">{tr("Quoted as spoken — these are never translated.")}</p>
+              <p className="text-micro text-muted-foreground">{tr("Quoted as spoken: these are never translated.")}</p>
             </fieldset>
           )}
 

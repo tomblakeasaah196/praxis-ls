@@ -37,9 +37,9 @@ const STATE_NOTE: Record<
 > = {
   // The normal case says nothing: a badge on every row is a badge nobody reads.
   verified: null,
-  reference: { label: "Reference point", tone: "blue" },
+  reference: { label: "Reference Point", tone: "blue" },
   unverified: { label: "Unverified", tone: "warn" },
-  unknown: { label: "No location", tone: "mute" },
+  unknown: { label: "No Location", tone: "mute" },
 };
 
 function Endpoint({
@@ -186,7 +186,7 @@ export function ItineraryPanel({
         <div className="p-4">
           <EmptyState
             title="No structured itinerary"
-            hint="This file records a route on the file itself rather than as legs. Open it to add pickup, customs or delivery legs."
+            hint="Open the file to add pickup, customs or delivery legs."
             className="border-0 p-6"
           />
         </div>

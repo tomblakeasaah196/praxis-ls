@@ -95,7 +95,7 @@ function TemplateForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit template" : "New document template"}
+      title={editing ? "Edit Template" : "New Document Template"}
       description="A letterhead / document body the issuing module renders. Keyed by document type."
       size="xl"
     >
@@ -196,7 +196,7 @@ export function DocumentTemplatesPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Document templates"
+        title="Document Templates"
         description="Letterhead and body templates per document type — invoices, POs, receipts, contracts."
         action={<Button onClick={() => edit(null)}>New template</Button>}
       />

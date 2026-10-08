@@ -194,7 +194,7 @@ function SupplierForm({
     <Modal
       open
       onClose={onClose}
-      title={isNew ? "New supplier" : "Edit supplier"}
+      title={isNew ? "New Supplier" : "Edit Supplier"}
       description="Vendor master: country, registrations, payment method and WHT."
     >
       <form className="space-y-4" onSubmit={submit}>

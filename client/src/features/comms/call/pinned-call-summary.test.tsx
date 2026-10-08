@@ -59,7 +59,7 @@ describe("the draft pinned above the composer (O3)", () => {
     const { container } = renderScreen(
       <PinnedCallSummary drafts={[draft()]} openCallId={null} onOpenChange={onOpenChange} onChanged={() => {}} />,
     );
-    const region = screen.getByRole("region", { name: "Call summary — Review & send" });
+    const region = screen.getByRole("region", { name: "Call summary: Review & send" });
     expect(region.textContent).toMatch(/24 Sept? 2026/);
     expect(region.textContent).toContain("10:12");
     const open = screen.getByRole("button", { name: "Review & send" });
@@ -79,7 +79,7 @@ describe("the draft pinned above the composer (O3)", () => {
     expect(screen.getByRole("textbox", { name: "Key point 1" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Follow-up 1" })).toBeTruthy();
     expect(screen.getByRole("radiogroup", { name: "Summary language" })).toBeTruthy();
-    expect(screen.getByText(/Not transcribed: 04:00–06:00 on their side/)).toBeTruthy();
+    expect(screen.getByText(/Not transcribed: 04:00 to 06:00 on their side/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Send to conversation/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Discard$/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open the call record" }).getAttribute("href")).toBe("/comms/calls/c1");

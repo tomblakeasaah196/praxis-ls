@@ -145,7 +145,7 @@ describe("DayAgenda — the tenant's day, not the server's", () => {
   it("quick capture posts only an all-day event on this day", async () => {
     tenant.mockResolvedValue({});
     view();
-    const input = screen.getByLabelText("Quick add — an all-day event");
+    const input = screen.getByLabelText("Quick add: an all-day event");
     fireEvent.change(input, { target: { value: "Site visit, Acadia" } });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     await waitFor(() => expect(tenant).toHaveBeenCalledTimes(1));
@@ -164,7 +164,7 @@ describe("DayAgenda — the tenant's day, not the server's", () => {
   it("answers an empty day with its two honest options", () => {
     view({ events: [], deadlines: [] });
     expect(screen.getByText("Nothing on this day yet")).toBeTruthy();
-    expect(screen.getByLabelText("Quick add — an all-day event")).toBeTruthy();
+    expect(screen.getByLabelText("Quick add: an all-day event")).toBeTruthy();
     expect(screen.getByRole("button", { name: "New event on this day" })).toBeTruthy();
   });
 

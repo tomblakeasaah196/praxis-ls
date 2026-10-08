@@ -47,22 +47,22 @@ import * as api from "@/lib/mail-api";
 const VERDICT: Record<api.AuthVerdict, { tone: Tone; label: string; why: string }> = {
   VERIFIED: {
     tone: "ok",
-    label: "Verified sender",
+    label: "Verified Sender",
     why: "This address is on a domain an administrator confirmed for this party.",
   },
   UNVERIFIED: {
     tone: "mute",
-    label: "Not verified",
+    label: "Not Verified",
     why: "We have no confirmation that this domain belongs to the party on this thread. That is normal for a first contact.",
   },
   SUSPICIOUS: {
     tone: "warn",
-    label: "Check this sender",
+    label: "Check This Sender",
     why: "Something about this address does not match what we know about this party.",
   },
   LIKELY_IMPERSONATION: {
     tone: "bad",
-    label: "Likely impersonation",
+    label: "Likely Impersonation",
     why: "This domain closely resembles one we know, without being it. Treat any payment or bank-detail instruction here as false until you confirm it by phone.",
   },
 };
