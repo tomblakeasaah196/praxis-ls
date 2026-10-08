@@ -322,7 +322,7 @@ function FieldRow({
           >
             {(field.options_json || []).length} option
             {(field.options_json || []).length === 1 ? "" : "s"}
-            {!(field.options_json || []).length && " — none yet"}
+            {!(field.options_json || []).length && ": none yet"}
           </Button>
         )}
       </TD>
@@ -477,7 +477,7 @@ export function ServiceTypeFieldsTab({
               value={s.service_type_field_set_id}
             >
               v{s.version}
-              {s.is_active ? " — live" : " — draft"} · {s.field_count ?? 0}{" "}
+              {s.is_active ? " · live" : " · draft"} · {s.field_count ?? 0}{" "}
               fields
               {s.dossier_count ? ` · ${s.dossier_count} files` : ""}
             </option>
@@ -679,7 +679,7 @@ function NewFieldForm({
           label={tr("Key")}
           required
           className="sm:col-span-3"
-          hint="Permanent — values are stored under it."
+          hint="Permanent: values are stored under it."
         >
           <Input
             value={key}

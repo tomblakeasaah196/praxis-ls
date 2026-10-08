@@ -117,7 +117,7 @@ export function FinancialDictionaryPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Master data" to="/master" />}
         title="Financial dictionary"
-        description="Priced lines with their OHADA posting rules — the single source every quote, invoice and costing reads."
+        description="Priced lines with their OHADA posting rules: the single source every quote, invoice and costing reads."
         action={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setSettings(true)}>
@@ -496,7 +496,7 @@ function DictDossier({
             />
             {it.varies_by_equipment && (
               <p className="micro">
-                {tr("Priced per container type — set those in Expense rates.")}
+                {tr("Priced per container type: set those in Expense rates.")}
               </p>
             )}
             <KV
@@ -641,10 +641,10 @@ function DictDossier({
             // more charges (offered unticked) — meeting 5; BASIC = core.
             (
               [
-                { key: "core", title: tr("Core — offered ticked"), core: true },
+                { key: "core", title: tr("Core: offered ticked"), core: true },
                 {
                   key: "more",
-                  title: tr("More charges — offered unticked"),
+                  title: tr("More charges: offered unticked"),
                   core: false,
                 },
               ] as const
@@ -699,7 +699,7 @@ function DictDossier({
               k="Shows upstream VAT"
               v={
                 d.compliance.disbursement_vat_transparent
-                  ? "Yes — client sees VAT paid on their behalf"
+                  ? "Yes: client sees VAT paid on their behalf"
                   : "No"
               }
             />

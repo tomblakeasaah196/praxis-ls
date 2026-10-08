@@ -535,14 +535,14 @@ export function TemplateForm({
                       <Checkbox
                         checked={r.is_anchor}
                         onCheckedChange={(v) => setRow(i, { is_anchor: v })}
-                        label="Anchor — the schedule stays provisional until this happens"
+                        label="Anchor: the schedule stays provisional until this happens"
                       />
                       <Checkbox
                         checked={r.is_target_lock}
                         onCheckedChange={(v) =>
                           setRow(i, { is_target_lock: v })
                         }
-                        label="SLA date — hold this commitment and compress what remains instead of moving it"
+                        label="SLA date. Hold this commitment and compress what remains instead of moving it"
                       />
                       <Checkbox
                         checked={r.is_client_visible}
@@ -554,7 +554,7 @@ export function TemplateForm({
                       <Checkbox
                         checked={r.is_optional}
                         onCheckedChange={(v) => setRow(i, { is_optional: v })}
-                        label="Optional — may be skipped without blocking the chain"
+                        label="Optional. May be skipped without blocking the chain"
                       />
                     </div>
                   </div>

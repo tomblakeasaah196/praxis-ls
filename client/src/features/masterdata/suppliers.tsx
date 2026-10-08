@@ -195,7 +195,7 @@ function SupplierForm({
       open
       onClose={onClose}
       title={isNew ? "New supplier" : "Edit supplier"}
-      description="Vendor master — country, registrations, payment method and WHT."
+      description="Vendor master: country, registrations, payment method and WHT."
     >
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -250,7 +250,7 @@ function SupplierForm({
               right control; SearchSelect earns its keep past ~20 rows. */}
           <Field
             label={tr("Category")}
-            hint={tr("From the supplier categories registry — add one inline if it is missing.")}
+            hint={tr("From the supplier categories registry: add one inline if it is missing.")}
           >
             <div className="flex items-center gap-2">
               <Select
@@ -358,7 +358,7 @@ function SupplierForm({
               placeholder="ap@supplier.cm"
             />
           </Field>
-          <Field label="Rating (1–5)">
+          <Field label="Rating (1 to 5)">
             <Input
               type="number"
               min="1"
@@ -433,7 +433,7 @@ export function SuppliersPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Master data" to="/master" />}
         title={tr("Suppliers")}
-        description="Vendor master with a live 360 — AVL, KYC, banks, WHT and payables."
+        description="Vendor master with a live 360: AVL, KYC, banks, WHT and payables."
         action={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setSettings(true)}>

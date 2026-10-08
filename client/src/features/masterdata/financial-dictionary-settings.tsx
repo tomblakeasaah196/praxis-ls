@@ -80,7 +80,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
       : null;
   const sizeError =
     isContainer && !form.size.trim()
-      ? "Size is the rate-card lookup key — required."
+      ? "Size is the rate-card lookup key: required."
       : null;
 
   const families = React.useMemo(() => {
@@ -254,7 +254,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
                 label="Size key"
                 required
                 error={touched ? sizeError || undefined : undefined}
-                hint="What the rate card calls it — 20, 40, 40HC."
+                hint="What the rate card calls it: 20, 40, 40HC."
               >
                 <Input
                   placeholder="50HC"
@@ -463,7 +463,7 @@ export function SiblingPairing() {
     <div className="space-y-2">
       <p className="micro">
         {tr(
-          "Pickers show a service once and ask whether it is billed to the client at cost or our own cost. These lines could not be paired automatically — link each one, or confirm it stands alone.",
+          "Pickers show a service once and ask whether it is billed to the client at cost or our own cost. These lines could not be paired automatically: link each one, or confirm it stands alone.",
         )}
       </p>
       {list.data.map((r) => (
@@ -670,7 +670,7 @@ export function PostingReviewPanel({
         <p className="micro">
           {unanswered.length}{" "}
           {tr(
-            "line(s) could not be compared this run (no web search answer) — run the review again later.",
+            "line(s) could not be compared this run (no web search answer): run the review again later.",
           )}
         </p>
       )}

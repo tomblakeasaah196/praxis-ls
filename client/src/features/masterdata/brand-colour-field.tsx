@@ -88,7 +88,7 @@ export function BrandColourField({
       </div>
       {invalid && (
         <p className="micro text-destructive">
-          {tr("Not a colour we recognise — use a name like black, or a code like #C2703D.")}
+          {tr("Not a colour we recognise: use a name like black, or a code like #C2703D.")}
         </p>
       )}
       {!invalid && ink && (

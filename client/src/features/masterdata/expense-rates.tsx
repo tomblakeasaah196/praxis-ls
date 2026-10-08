@@ -248,7 +248,7 @@ function RateProviderSettings({
       open
       onClose={onClose}
       title="Carriers & authorities"
-      description="The seeded-but-editable list every rate scope picks from — extend it here or inline from a carrier tab."
+      description="The seeded-but-editable list every rate scope picks from. Extend it here or inline from a carrier tab."
     >
       <SectionTabs
         label="Provider kinds"
@@ -343,7 +343,7 @@ function RateCell({
       onClick={onClick}
       className={`w-full rounded-md px-2 py-1.5 text-right text-xs hover:bg-muted ${cur ? "font-semibold text-foreground" : "text-muted-foreground"}`}
     >
-      {cur ? money(cur.rate, cur.currency || series?.currency) : "— set"}
+      {cur ? money(cur.rate, cur.currency || series?.currency) : tr("Set")}
       {cur?.price_includes_vat && cur.rate_ttc != null && (
         // Meeting 6, F4: typed VAT-inclusive — the HT above is what costing
         // uses; the figure typed is shown with it.
@@ -820,7 +820,7 @@ export function ExpenseRatesPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Master data" to="/master" />}
         title="Expense rates"
-        description="Rates per shipping line, airline and authority — feeds costing and the financial dictionary picker."
+        description="Rates per shipping line, airline and authority. Feeds costing and the financial dictionary picker."
         action={
           <Button variant="ghost" size="sm" onClick={() => setSettings(true)}>
             ⚙ Carriers & authorities

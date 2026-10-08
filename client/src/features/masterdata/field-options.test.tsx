@@ -190,7 +190,7 @@ describe("finding the option list", () => {
     renderTab(withSets({ fields: [field({ options_json: [] })] }));
     await screen.findByLabelText("Form version");
     expect(
-      await screen.findByRole("button", { name: /0 options — none yet/ }),
+      await screen.findByRole("button", { name: /0 options: none yet/ }),
     ).toBeInTheDocument();
   });
 

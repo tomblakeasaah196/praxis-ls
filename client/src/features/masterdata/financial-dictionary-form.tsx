@@ -695,7 +695,7 @@ export function DictForm({
       }}
       size="lg"
       title={isNew ? "New dictionary item" : `Edit ${row?.code}`}
-      description="A priced line with its OHADA posting rules — the single source every quote, invoice and costing reads."
+      description="A priced line with its OHADA posting rules: the single source every quote, invoice and costing reads."
     >
       {/* Progress */}
       <div className="mb-4 flex items-center gap-2">
@@ -862,7 +862,7 @@ export function DictForm({
                   {unconfirmed && (
                     <p className="mt-1 micro text-bad">
                       {tr(
-                        "Tick “I checked this posting” before saving — the suggestion is low confidence.",
+                        "Tick “I checked this posting” before saving: the suggestion is low confidence.",
                       )}
                     </p>
                   )}
@@ -1060,7 +1060,7 @@ export function DictForm({
                 <Field
                   label={tr("Standard rate")}
                   hint={tr(
-                    "Optional. Saved as this line's standard expense rate from today — leave it empty if the price is not known yet.",
+                    "Optional. Saved as this line's standard expense rate from today. Leave it empty if the price is not known yet.",
                   )}
                 >
                   <Input
@@ -1099,7 +1099,7 @@ export function DictForm({
               </Field>
               <Field
                 label="Provider kind"
-                hint="For rate items — shipping line, customs, port authority."
+                hint="For rate items: shipping line, customs, port authority."
               >
                 <Select
                   value={f.provider_kind}
@@ -1200,7 +1200,7 @@ export function DictForm({
               />
             ) : null}
             {!basicValid && (
-              <ErrorState message="Some required fields are missing — go back to Basics." />
+              <ErrorState message="Some required fields are missing: go back to Basics." />
             )}
           </div>
         )}
@@ -1295,7 +1295,7 @@ function ServiceTiersEditor({
               offered under "More charges". */}
           <p className="micro">
             {tr(
-              "Tick Core when this line belongs on almost every file of that service — Suggest charges offers it ticked. Other services list it under More charges.",
+              "Tick Core when this line belongs on almost every file of that service. Suggest charges offers it ticked. Other services list it under More charges.",
             )}
           </p>
         </div>

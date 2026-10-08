@@ -721,7 +721,7 @@ function AddressPanel({
       <p className="text-sm font-medium text-foreground">{tr("Address on documents")}</p>
       {rows.length === 0 ? (
         <p className="micro text-muted-foreground">
-          {tr("No structured address yet — the letterhead prints the free-text address. Add one under Contacts & addresses.")}
+          {tr("No structured address yet: the letterhead prints the free-text address. Add one under Contacts & addresses.")}
         </p>
       ) : (
         <>
@@ -1034,10 +1034,10 @@ export function LetterheadStudio({
         <p className="micro text-muted-foreground">
           {readOnly
             ? tr(
-                "This letterhead is read-only for you. The preview is live — ask an entity administrator to change the arrangement.",
+                "This letterhead is read-only for you. The preview is live. Ask an entity administrator to change the arrangement.",
               )
             : tr(
-                "Drag a block to move it. Click one to edit it. The content comes from the entity's own record — this arranges it.",
+                "Drag a block to move it. Click one to edit it. The content comes from the entity's own record: this arranges it.",
               )}
         </p>
       </div>
@@ -1139,7 +1139,7 @@ export function LetterheadStudio({
           </div>
           <p className="micro text-muted-foreground">
             {tr(
-              "Your own line — a strapline, a licence number. It can quote a fact from the record, so it never goes stale.",
+              "Your own line: a strapline, a licence number. It can quote a fact from the record, so it never goes stale.",
             )}
           </p>
         </div>

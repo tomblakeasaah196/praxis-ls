@@ -125,7 +125,7 @@ function ReadinessChecklist({
     {
       key: "name_en",
       ok: readiness.name_en_present,
-      label: tr("English name — set on the service type"),
+      label: tr("English name: set on the service type"),
       action: canWrite
         ? { label: tr("Edit service type"), onClick: onJumpNameEn }
         : undefined,
@@ -217,7 +217,7 @@ function HighlightsEditor({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="micro text-muted-foreground">
-          {tr("Guided 4–8 highlights · hard cap 8")} · {lang.toUpperCase()}
+          {tr("Guided 4 to 8 highlights · hard cap 8")} · {lang.toUpperCase()}
         </p>
         <span className="micro text-muted-foreground">
           {items.filter((s) => s.trim()).length}/{L.HIGHLIGHTS_MAX}
@@ -952,12 +952,12 @@ export function ServiceTypeWebTab({
         <EmptyState
           title={tr("No web page yet")}
           hint={tr(
-            "Describe this service for your public website — bilingual copy, cover image, SEO slugs and FAQ. Creating a page never changes the operational form, milestones or dictionary.",
+            "Describe this service for your public website: bilingual copy, cover image, SEO slugs and FAQ. Creating a page never changes the operational form, milestones or dictionary.",
           )}
         />
         <p className="micro text-muted-foreground">
           {tr(
-            "Customer-facing copy follows the brand register (BRAND_GLOSSARY_FR_EN.md) — clear, professional, never marketing-speak.",
+            "Customer-facing copy follows the brand register (BRAND_GLOSSARY_FR_EN.md): clear, professional, never marketing-speak.",
           )}
         </p>
         {error && <ErrorState message={error} />}
@@ -1010,8 +1010,8 @@ export function ServiceTypeWebTab({
           if (faq && faq.length) setFaqRows(faq);
           toast.success(
             faq && faq.length
-              ? tr("Draft applied — review it, then Save and Save FAQ.")
-              : tr("Draft applied — review it, then Save."),
+              ? tr("Draft applied: review it, then Save and Save FAQ.")
+              : tr("Draft applied: review it, then Save."),
           );
         }}
       />
@@ -1145,7 +1145,7 @@ export function ServiceTypeWebTab({
         />
         <p className="micro text-muted-foreground max-w-md">
           {tr(
-            "Copy is customer-facing — follow BRAND_GLOSSARY_FR_EN.md register rules in both languages.",
+            "Copy is customer-facing. Follow BRAND_GLOSSARY_FR_EN.md register rules in both languages.",
           )}
         </p>
       </div>
@@ -1207,7 +1207,7 @@ export function ServiceTypeWebTab({
         </h3>
         <Field
           label={`${tr("Closing line")} (${lang.toUpperCase()})`}
-          about={tr("One sentence the card ends on. Not a slogan — say what the service does for them.")}
+          about={tr("One sentence the card ends on. Not a slogan: say what the service does for them.")}
         >
           <Input
             value={String(draft[claimKey] ?? "")}
@@ -1262,7 +1262,7 @@ export function ServiceTypeWebTab({
             )}
             {!pillars.loading && !pillars.error && (pillars.data || []).length === 0 && (
               <p className="micro text-muted-foreground mt-1">
-                {tr("No pillars yet — every published service collects into one unnamed group.")}
+                {tr("No pillars yet: every published service collects into one unnamed group.")}
               </p>
             )}
           </Field>
@@ -1278,7 +1278,7 @@ export function ServiceTypeWebTab({
           </Field>
         </div>
         <p className="micro text-muted-foreground">
-          {tr("The pillar and the accent are the same in both languages — only the closing line is per-language.")}
+          {tr("The pillar and the accent are the same in both languages: only the closing line is per-language.")}
         </p>
       </section>
 

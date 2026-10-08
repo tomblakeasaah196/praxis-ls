@@ -162,7 +162,7 @@ export function MilestoneOwnersDialog({
         title: `Delete the owner "${row.name}"?`,
         body:
           "Stages owned by it keep the code they were saved with, so the chain is not " +
-          "changed — but it stops being offered, and nothing can be assigned to it again. " +
+          "changed: but it stops being offered, and nothing can be assigned to it again. " +
           "If it is already in use, deactivate it instead.",
         confirmLabel: "Delete owner",
         destructive: true,
@@ -312,7 +312,7 @@ export function MilestoneOwnersDialog({
               <Field
                 label="Name (English)"
                 required
-                hint="What a person reads — e.g. Shipping line."
+                hint="What a person reads: e.g. Shipping line."
               >
                 <Input
                   value={draft.name}
@@ -342,7 +342,7 @@ export function MilestoneOwnersDialog({
                 hint="Stored on every stage, and permanent. Uppercase, digits and underscores."
                 error={
                   draft.code && !codeOk
-                    ? "Uppercase letters, digits and underscores; 2–32 characters."
+                    ? "Uppercase letters, digits and underscores; 2 to 32 characters."
                     : draft.code && !codeFree
                       ? "That code is already in the registry."
                       : undefined
@@ -356,7 +356,7 @@ export function MilestoneOwnersDialog({
                   }
                 />
               </Field>
-              <Field label="What they do" hint="Optional — shown as the dropdown's hint.">
+              <Field label="What they do" hint="Optional: shown as the dropdown's hint.">
                 <Input
                   value={draft.description}
                   placeholder="Draft survey and cargo condition reports."

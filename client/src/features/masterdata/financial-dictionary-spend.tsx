@@ -338,17 +338,17 @@ const SPEND_DRILL: Record<
 > = {
   actual: {
     title: "Actual",
-    description: "Ledger cost entries in this period — what was really posted.",
+    description: "Ledger cost entries in this period: what was really posted.",
     viewAll: { label: "View more in Cost tracking", href: "/costing/cost-tracking" },
   },
   committed: {
     title: "Committed",
     description:
-      "Purchase-order lines and approved cash-request lines in this period — promised to a third party, posted or not.",
+      "Purchase-order lines and approved cash-request lines in this period: promised to a third party, posted or not.",
   },
   estimated: {
     title: "Estimated",
-    description: "Costing-sheet lines in this period — what was planned.",
+    description: "Costing-sheet lines in this period: what was planned.",
     viewAll: { label: "View more in Costing", href: COSTING_ROUTE },
   },
   all: {
@@ -515,7 +515,7 @@ export function SpendTab({ id }: { id: string }) {
           <OperationsFilePicker
             id={`spend-file-${id}`}
             label={tr("Operations file")}
-            placeholder={tr("Every file — search ref, client, B/L…")}
+            placeholder={tr("Every file: search ref, client, B/L…")}
             value={file?.dossier_id ?? null}
             onSelect={(f) => setFile(f)}
             onClear={() => setFile(null)}

@@ -218,7 +218,7 @@ export function SetRateModal({
         title ||
         `Set rate — ${providerLabel}${containerTypeLabel ? " · " + containerTypeLabel : ""}`
       }
-      description="Rates are superseded, never edited in place — the prior rate expires the day before this one opens, so history stays intact."
+      description="Rates are superseded, never edited in place: the prior rate expires the day before this one opens, so history stays intact."
     >
       <form className="space-y-4" onSubmit={submit}>
         {current && (

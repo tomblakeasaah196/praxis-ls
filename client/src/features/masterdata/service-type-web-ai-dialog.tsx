@@ -53,7 +53,7 @@ const AXIS_COPY: Record<
   },
   commercial: {
     name: "Commercial",
-    blurb: "The benefit and the reassurance — the reason to call you.",
+    blurb: "The benefit and the reassurance: the reason to call you.",
   },
   seo: {
     name: "Search (SEO)",
@@ -371,7 +371,7 @@ export function ServiceTypeWebAiDialog({
           ) : (
             <Callout tone="warn" title={tr("The assistant rewrote this copy")}>
               {tr(
-                "Read each field before accepting it — the wording is no longer exactly what you wrote.",
+                "Read each field before accepting it: the wording is no longer exactly what you wrote.",
               )}
             </Callout>
           )}
@@ -592,9 +592,9 @@ export function ServiceTypeWebAiDialog({
             <ChoiceCard
               selected={licence === "structure"}
               onSelect={() => setLicence("structure")}
-              title={tr("Structure only — do not reword")}
+              title={tr("Structure only: do not reword")}
               body={tr(
-                "Adds headings between your paragraphs and derives the highlights and meta fields. Your sentences are copied across word for word, guaranteed — the assistant is never given them to rewrite.",
+                "Adds headings between your paragraphs and derives the highlights and meta fields. Your sentences are copied across word for word, guaranteed: the assistant is never given them to rewrite.",
               )}
             />
             <ChoiceCard
@@ -610,7 +610,7 @@ export function ServiceTypeWebAiDialog({
               onSelect={() => setLicence("rewrite")}
               title={tr("Full rewrite")}
               body={tr(
-                "Rewrites freely for the tone below, using your text as source material. Most polished, least yours — the search wording you chose can change.",
+                "Rewrites freely for the tone below, using your text as source material. Most polished, least yours: the search wording you chose can change.",
               )}
             />
           </div>
@@ -671,7 +671,7 @@ export function ServiceTypeWebAiDialog({
 
             <Field
               label={tr("Anything else (optional)")}
-              hint={tr("In your own words — a angle to take, a term to prefer, something to avoid.")}
+              hint={tr("In your own words: a angle to take, a term to prefer, something to avoid.")}
             >
               <Textarea
                 rows={3}

@@ -202,7 +202,7 @@ function PillarForm({
       </label>
       <p className="micro text-muted-foreground">
         {tr(
-          "Switching a section off leaves its services published — they move to the unnamed group at the foot of the page.",
+          "Switching a section off leaves its services published. They move to the unnamed group at the foot of the page.",
         )}
       </p>
       <div className="flex flex-wrap gap-2">

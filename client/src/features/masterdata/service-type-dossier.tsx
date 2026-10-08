@@ -704,8 +704,8 @@ function DictionaryTab({
 
       {/* What Suggest charges offers for a file of this type. */}
       <div className="grid grid-cols-2 gap-2">
-        <Stat label="Core — offered ticked" value={num(counts.core)} />
-        <Stat label="More charges — offered unticked" value={num(counts.more)} />
+        <Stat label="Core: offered ticked" value={num(counts.core)} />
+        <Stat label="More charges: offered unticked" value={num(counts.more)} />
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -721,7 +721,7 @@ function DictionaryTab({
           />
         </div>
         <p className="micro max-w-sm">
-          {tr("Added under More charges — tick Core once it belongs on almost every file of this type.")}
+          {tr("Added under More charges. Tick Core once it belongs on almost every file of this type.")}
         </p>
       </div>
 
@@ -971,7 +971,7 @@ function CommercialTab({ d }: { d: api.ServiceTypeDossier }) {
                     Number(plannedXaf.planned_total);
                   return `${pct.toFixed(1)}%`;
                 })()}
-                hint="XAF only — a cross-currency ratio hides the currency it was booked in."
+                hint="XAF only: a cross-currency ratio hides the currency it was booked in."
               />
             </div>
             <p className="micro">
@@ -1148,12 +1148,12 @@ function QuoteCardPanel({ st, onSaveMode }: { st: api.ServiceType; onSaveMode: (
         </div>
         <div>
           <dt className="micro">{tr("Flow")}</dt>
-          <dd className="mt-0.5">{flow ? flowLabel(flow) : tr("Shown by its name — its territory names no flow")}</dd>
+          <dd className="mt-0.5">{flow ? flowLabel(flow) : tr("Shown by its name: its territory names no flow")}</dd>
         </div>
         <div>
           <dt className="micro">{tr("Incoterms offered")}</dt>
           <dd className="mt-1 flex flex-wrap gap-1">
-            {terms.length ? terms.map((c) => <span key={c} title={incotermLabel(c)}><Pill tone="mute">{c}</Pill></span>) : <span className="text-muted-foreground">{tr("None — a request reads “Not applicable”")}</span>}
+            {terms.length ? terms.map((c) => <span key={c} title={incotermLabel(c)}><Pill tone="mute">{c}</Pill></span>) : <span className="text-muted-foreground">{tr("None: a request reads “Not applicable”")}</span>}
           </dd>
         </div>
       </dl>
@@ -1203,7 +1203,7 @@ function OverviewTab({
             <dt className="micro">System row</dt>
             <dd className="mt-0.5">
               {st.is_system
-                ? "Yes — cannot be archived, but can be renamed."
+                ? "Yes: cannot be archived, but can be renamed."
                 : "No"}
             </dd>
           </div>

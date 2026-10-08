@@ -90,7 +90,7 @@ const FRAMEWORKS: { value: api.AccountingFramework; label: string }[] = [
   { value: "IFRS", label: "IFRS" },
   { value: "IFRS_SME", label: "IFRS for SMEs" },
   { value: "US_GAAP", label: "US GAAP" },
-  { value: "FR_PCG", label: "France — Plan Comptable Général" },
+  { value: "FR_PCG", label: "France: Plan Comptable Général" },
   { value: "UK_GAAP", label: "UK GAAP" },
   { value: "LOCAL_OTHER", label: "Other local framework" },
 ];
@@ -528,7 +528,7 @@ function EntityForm({
           </Field>
           <Field
             label={tr("Phone")}
-            about="Type it however you like — spaces and dashes are removed when you leave the field"
+            about="Type it however you like. Spaces and dashes are removed when you leave the field"
           >
             {/* 16 Sep review (M3-B29): "+237 6 90 00 00 00" was refused by the
                 E.164 rule. The shared schema now strips separators server-side;
@@ -554,7 +554,7 @@ function EntityForm({
           </Field>
           <Field
             label="Headcount"
-            hint="Indicative — HR holds the real establishment"
+            hint="Indicative: HR holds the real establishment"
           >
             <Input
               type="number"
@@ -580,7 +580,7 @@ function EntityForm({
             legend="Registered office"
             hint="Creates the REGISTERED address used on letterheads. Example: 1030, Avenue Douala Manga Bell, PO Box 5120, Douala, CM."
           >
-            <Field label="Address line 1" hint="Street and number — e.g. 1030, Avenue Douala Manga Bell">
+            <Field label="Address line 1" hint="Street and number: e.g. 1030, Avenue Douala Manga Bell">
               <Input
                 value={v.address_line1}
                 onChange={(e) => set("address_line1", e.target.value)}
@@ -882,7 +882,7 @@ function EntityForm({
             {logoField(
               "dark",
               logoDark,
-              "Optional — the light logo is used when this is blank.",
+              "Optional: the light logo is used when this is blank.",
             )}
           </Fieldset>
         )}
@@ -1026,7 +1026,7 @@ export function CorporateEntitiesPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Master data" to="/master" />}
         title="Corporate entities"
-        description="The legal entities we bill and report from — registrations, shareholders, addresses and group structure, per entity."
+        description="The legal entities we bill and report from: registrations, shareholders, addresses and group structure, per entity."
         action={<Button onClick={() => setEditing("new")}>New entity</Button>}
       />
       <HubTabs />

@@ -91,7 +91,7 @@ export function ClientsPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Master data" to="/master" />}
         title={tr("Clients")}
-        description="Customer master with a live 360 — compliance, KYC, banks, terms and receivables."
+        description="Customer master with a live 360: compliance, KYC, banks, terms and receivables."
         action={
           <div className="flex flex-wrap items-center gap-2">
             {showQueue ? (

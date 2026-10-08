@@ -283,7 +283,7 @@ describe("ServiceTypeWebTab", () => {
     );
     const checklist = await screen.findByTestId("web-readiness-checklist");
     expect(
-      within(checklist).getByText(/English name — set on the service type/i),
+      within(checklist).getByText(/English name: set on the service type/i),
     ).toBeTruthy();
     // Publish disabled until readiness.publishable.
     const publish = screen.getByTestId("web-publish");

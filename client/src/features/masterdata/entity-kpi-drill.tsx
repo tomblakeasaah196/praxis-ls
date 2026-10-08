@@ -175,7 +175,7 @@ function EmployeesDrill({
       open
       onClose={onClose}
       title={`Employees · ${entityName}`}
-      description="This entity's roster, in the HR master — including former staff. Click a row to open the person."
+      description="This entity's roster, in the HR master. Including former staff. Click a row to open the person."
       headers={[{ label: "Name" }, { label: "Matricule" }, { label: "Job title" }]}
       rows={rows}
       emptyLabel="No employees are attached to this entity yet."
@@ -274,7 +274,7 @@ export function EntityKpiDrill({
       rows={rows}
       emptyLabel={
         isHolders
-          ? "No shareholders recorded yet — the Shareholding section on the People & shareholding tab is where they are added."
+          ? "No shareholders recorded yet: the Shareholding section on the People & shareholding tab is where they are added."
           : "This entity has no subsidiaries recorded. Set a parent on another entity's Structure tab to add one."
       }
     />

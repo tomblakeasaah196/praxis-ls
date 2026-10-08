@@ -419,7 +419,7 @@ function AddDocumentModal({
           </Field>
           <Field
             label="Physical archive ref"
-            hint="Only for paper originals — where the hard copy is filed."
+            hint="Only for paper originals: where the hard copy is filed."
             className="sm:col-span-2"
           >
             <Input
@@ -439,7 +439,7 @@ function AddDocumentModal({
           error={fileError}
           uploadProgress={uploadProgress}
           uploadSuccess={uploadSuccess}
-          hint="PDF or image (PNG, JPEG, WebP), up to 25 MB. Optional — you can attach it from the row later."
+          hint="PDF or image (PNG, JPEG, WebP), up to 25 MB. Optional: you can attach it from the row later."
         />
 
         {error && <ErrorState message={error} />}
@@ -857,9 +857,9 @@ function SvgBars({
 
 const AGING_COLUMNS: { key: api.AgingBucket; label: string }[] = [
   { key: "current", label: "Current" },
-  { key: "d1_30", label: "1–30" },
-  { key: "d31_60", label: "31–60" },
-  { key: "d61_90", label: "61–90" },
+  { key: "d1_30", label: "1-30" },
+  { key: "d31_60", label: "31-60" },
+  { key: "d61_90", label: "61-90" },
   { key: "d90_plus", label: "90+" },
 ];
 
@@ -1155,7 +1155,7 @@ function isOverdueDue(iso?: string | null): boolean {
  *  computed in SQL. This hint is shown when the list is at the cap so the user
  *  knows to jump into the module for the full history. */
 const RECENT_CAP_HINT =
-  "Showing the 25 most recent — open the module for the full list.";
+  "Showing the 25 most recent: open the module for the full list.";
 
 /** The single component that reads the dossier data + selected KPI, derives
  *  the row set, and renders `KpiDetailsModal`. Kept out of `PartyDossier` so
@@ -1211,7 +1211,7 @@ function KpiDetails({
     if (key === "outstanding") {
       title = `Outstanding · ${partyLabel}`;
       description =
-        "Invoices with an open balance — click a row to open the invoice.";
+        "Invoices with an open balance: click a row to open the invoice.";
       rows = invoices
         .filter((i) => isOpenInvoiceStatus(i.status))
         .map(toInvoiceRow);
@@ -1241,7 +1241,7 @@ function KpiDetails({
     } else if (key === "dossiers") {
       title = `Operations files in progress · ${partyLabel}`;
       description =
-        "Open operations files for this client — click a row to open the file.";
+        "Open operations files for this client: click a row to open the file.";
       headers = [
         { label: "Reference" },
         { label: "Title" },
@@ -1505,7 +1505,7 @@ export function PartyDossier({
     await api.documents.update(kind, partyId, doc.document_id, {
       vault_id: vaultId,
     });
-    toast.success("Scan attached — the document is now marked scanned.");
+    toast.success("Scan attached: the document is now marked scanned.");
     reload();
   }
 
@@ -2539,7 +2539,7 @@ export function PartyDossier({
           onAdded={(fileAttached) => {
             toast.success(
               fileAttached
-                ? "Document added — scan attached."
+                ? "Document added: scan attached."
                 : "Document added.",
             );
             reload();
