@@ -25,12 +25,12 @@ const SECTIONS: Section[] = [
       {
         to: "/workflows",
         label: "Workflows",
-        desc: "Approval chains — steps, roles and amount bands",
+        desc: "Approval chains: steps, roles and amount bands",
         icon: "workflows",
       },
       {
         to: "/audit",
-        label: "Audit ledger",
+        label: "Audit Ledger",
         desc: "Append-only trail of every security-critical action",
         icon: "audit",
       },
@@ -117,7 +117,7 @@ export function GovernanceHub() {
     <section className={pageShell.wide}>
       <PageHeader
         title="Governance"
-        description="Oversight in one place — approvals, workflow chains, the audit trail and your notifications."
+        description="Approvals, workflow chains, the audit trail and your notifications, in one place."
       />
 
       <div className="mt-2 flex flex-col gap-8">

@@ -43,7 +43,7 @@ const actTone = (s?: string | null): Tone => {
 };
 const LEAVE_KIND: Record<string, string> = {
   leave: "Leave",
-  salary_advance: "Salary advance",
+  salary_advance: "Salary Advance",
   mission: "Mission",
 };
 /** Human title + subtitle for an approval row's entity (leave summary, else humanised ref). */
@@ -201,16 +201,16 @@ export function ApprovalsPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Governance" to="/governance" />}
         title={tr("Approvals")}
-        description="Your runtime approval queue — validate or approve/reject items routed to you by workflow."
+        description="Items routed to you by workflow, waiting on your validation or approval."
       />
       <KpiRow>
         <KpiTile label={tr("Pending")} value={num(list.length)} />
         <KpiTile
-          label="To validate"
+          label="To Validate"
           value={num(list.filter((r) => r.step_kind === "VALIDATE").length)}
         />
         <KpiTile
-          label="To approve"
+          label="To Approve"
           value={num(list.filter((r) => r.step_kind === "APPROVE").length)}
         />
       </KpiRow>
