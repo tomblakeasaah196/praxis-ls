@@ -299,7 +299,7 @@ export function SecureLinksTab() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title={tr("Secure links")}
+        title={tr("Secure Links")}
         description={tr("Expiring, revocable links to a document, instead of a 20 MB attachment that lives in someone's inbox forever.")}
         action={<Button size="sm" onClick={() => setMinting(true)}>{tr("Create a link")}</Button>}
       />

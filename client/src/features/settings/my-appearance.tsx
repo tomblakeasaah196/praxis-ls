@@ -167,7 +167,7 @@ export function MyAppearancePage() {
      */
     <section className={pageShell.wide}>
       <PageHeader
-        title="My appearance"
+        title="My Appearance"
         description="Your own typography. Applies to you across every device you sign in on, and to nobody else."
       />
 

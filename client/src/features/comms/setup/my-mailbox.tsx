@@ -317,7 +317,7 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
         onConfirm={() => confirmTarget && void disconnect(confirmTarget)}
       />
       <PageHeader
-        title={tr("My mailbox")}
+        title={tr("My Mailbox")}
         description={tr("Your own professional address, and the team mailboxes you have been given access to.")}
       />
 

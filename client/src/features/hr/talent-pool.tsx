@@ -519,7 +519,7 @@ export function TalentPoolPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={eyebrow}
-        title="Talent & succession"
+        title="Talent & Succession"
         description="Successors for key roles, plus the candidate bench for future hiring."
         action={<Button onClick={() => setPlanning(true)}>New plan</Button>}
       />

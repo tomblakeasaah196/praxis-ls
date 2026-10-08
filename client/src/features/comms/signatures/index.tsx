@@ -72,7 +72,7 @@ export function SignaturesPage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        title={tr("Email signatures")}
+        title={tr("Email Signatures")}
         description={tr(
           "Your signature card, exactly as it goes out. Name and job title come from HR; colours and logo from your brand.",
         )}

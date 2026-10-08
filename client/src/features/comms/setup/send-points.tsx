@@ -158,7 +158,7 @@ export function SendPointsTab() {
   return (
     <section className="space-y-5">
       <PageHeader
-        title={tr("Send points")}
+        title={tr("Send Points")}
         description={tr("Every place the product sends mail, and which address each one goes out from.")}
       />
 

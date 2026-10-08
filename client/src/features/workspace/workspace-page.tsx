@@ -49,6 +49,13 @@ export function WorkspacePage() {
 
   return (
     <section className={pageShell.wide}>
+      {/* A redirect notice, not a page name: this screen navigates to
+          /workspace/today 1.2s after it mounts, and the <h1> exists to say what
+          just happened. Title Case would make it read as the name of a surface
+          the user is arriving at, which is the opposite of true. The marker has
+          to sit on the line ABOVE the component, not at the top of the comment:
+          exempt() reads that line and the one it is on, nothing further up. */}
+      {/* @prose:keep redirect-notice */}
       <PageHeader
         title="My workspace has moved"
         description="Taking you to Today — your tasks and appointments, in one list."

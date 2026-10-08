@@ -650,7 +650,7 @@ export function SopsPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={eyebrow}
-        title="SOPs & onboarding"
+        title="SOPs & Onboarding"
         description="Standard operating procedures, plus per-new-hire onboarding checklists."
       />
       <HubTabs />{" "}

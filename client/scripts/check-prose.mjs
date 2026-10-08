@@ -141,7 +141,23 @@ const CHROME_TITLE = /^(New|Edit|Add|Create|Duplicate|Import|Export|Manage|Assig
  * components (EmptyState, Callout, ErrorState, toast) are deliberately absent.
  */
 const CHROME_COMPONENT =
-  /<(?:Section|SectionCard|Panel|Fieldset|HubCrumb)\b[^>]*?\b(?:title|legend|area)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
+  /<(?:PageHeader|Section|SectionCard|Panel|Fieldset|HubCrumb)\b[^>]*?\b(?:title|legend|area)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
+
+/* `<PageHeader title>` IS THE PAGE'S <h1>, and it was the hole nobody looked
+ * for. §3.18 has named page titles as chrome since it was written, and the
+ * tenant's own words were "titles and major lines should be Title Case
+ * (Service Types, not Service types)" — a page title is the most prominent
+ * chrome on a screen and the first thing he meant. It was unchecked anyway:
+ * CHROME_COMPONENT covered the five components added when the rule was
+ * widened, PageHeader was not one of them, and the generic `title=` rule only
+ * fires on a CHROME_TITLE prefix (New, Edit, Add), which a page title does not
+ * carry. 81 screens rendered a sentence-case <h1>.
+ *
+ * `<Dialog title>` is deliberately NOT here. A dialog names a form ("New
+ * Service Type") or speaks to the user ("Remove the account manager?"), and
+ * only CHROME_TITLE can tell those apart, so it keeps the prefix rule. That
+ * part of §3.18 is still not enforced by component and UI_SIMPLIFICATION.md
+ * says so rather than implying the gate covers it. */
 
 /**
  * Chrome DEFINED IN AN OBJECT LITERAL, which neither gate could see.
@@ -483,7 +499,7 @@ for (const f of files()) {
        section with three other props is rarely on the same line as its name. */
     const openTag = lines.slice(i, Math.min(i + 6, lines.length)).join(" ");
     const chrome = openTag.match(CHROME_COMPONENT);
-    if (chrome && /^<(?:Section|SectionCard|Panel|Fieldset|HubCrumb)\b/.test(line.trim())) {
+    if (chrome && /^<(?:PageHeader|Section|SectionCard|Panel|Fieldset|HubCrumb)\b/.test(line.trim())) {
       const text = chrome[2];
       if (!SKIP_TITLE.test(text) && text.length <= 60 && !isTitleCase(text)) {
         problems.title.push({ key, line: i + 1, text, abs });

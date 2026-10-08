@@ -215,7 +215,7 @@ export function SupportPage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        title="Support & feedback"
+        title="Support & Feedback"
         description="Reach the Praxis team directly. Raise a ticket with a screenshot, and carry the conversation to the end."
         action={
           <Button onClick={() => openRaiseTicket()}>Raise a ticket</Button>

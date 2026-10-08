@@ -1,5 +1,5 @@
 /**
- * Comms → Setup → Trust & archive (§9.6, §9.7, §9.8).
+ * Comms → Setup → Trust & Archives (§9.6, §9.7, §9.8).
  *
  * Three things an administrator needs and one a compliance officer does.
  *
@@ -195,7 +195,7 @@ function Domains() {
   return (
     <div className="space-y-3">
       <PageHeader
-        title={tr("Confirmed domains")}
+        title={tr("Confirmed Domains")}
         description={tr("Which domains genuinely belong to which party. This is the list the financial-document send block compares against.")}
         action={<Button size="sm" onClick={() => setAdding(true)}>{tr("Confirm a domain")}</Button>}
       />
@@ -245,7 +245,7 @@ function Bounces() {
   return (
     <div className="space-y-3">
       <PageHeader
-        title={tr("Undeliverable addresses")}
+        title={tr("Undeliverable Addresses")}
         description={tr("Addresses that bounced. The composer checks this list before a send, so a hard bounce is caught while there is still someone to ask about it.")}
       />
       <DataList
@@ -269,7 +269,7 @@ function Archive() {
   return (
     <div className="space-y-3">
       <PageHeader
-        title={tr("Archive integrity")}
+        title={tr("Archive Integrity")}
         description={tr("Every message is sealed into a hash chain as it arrives or leaves. This walks the chain and reports the first break, if there is one.")}
       />
       <Button
