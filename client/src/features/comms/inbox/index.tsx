@@ -388,6 +388,15 @@ export function InboxPage() {
      */
     <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1">
       {confirmDialog}
+      {/* The page's NAME, for anything that navigates by heading: a screen
+          reader's heading list, the h1-per-page rule the layout gate asserts
+          elsewhere, and the browser's own "skip to heading". The mailbox has
+          never had one — the hub draws a tab bar and the inbox starts at the
+          folder rail — and the right fix is not a <PageHeader>, which would put
+          a title and a paragraph back above a list this change spent its whole
+          effort getting the chrome off. `sr-only` costs no pixels and the
+          registry already has the word. */}
+      <h1 className="sr-only">{tr("Mail")}</h1>
 
       {/* ── ONE COMMAND STRIP ───────────────────────────────────────────────
        *
