@@ -121,7 +121,7 @@ function TabBody({ entityRef, tab }: { entityRef: string; tab: api.ContextTab })
   if (data.not_built) {
     return (
       <p className="rounded-lg border border-dashed border-border px-3 py-4 text-xs text-muted-foreground">
-        {tr(TAB_LABEL[tab])} {tr("is not built for this kind of record yet. This is not the same as it being empty — nothing has been checked.")}
+        {tr(TAB_LABEL[tab])} {tr("is not built for this kind of record yet. This is not the same as it being empty: nothing has been checked.")}
       </p>
     );
   }

@@ -97,7 +97,7 @@ export function DraftProvenance({ draft }: { draft: api.AssistDraft }) {
       {fence && !fence.ok && (
         <Callout tone="warn" title={tr("Check these before you send.")}>
           {tr("Nothing in the record supports")}{" "}
-          <span className="num font-medium">{fence.violations.join(", ")}</span>. {tr("The assistant wrote them anyway — either correct them or delete them.")}
+          <span className="num font-medium">{fence.violations.join(", ")}</span>. {tr("The assistant wrote them anyway: either correct them or delete them.")}
         </Callout>
       )}
 
@@ -287,7 +287,7 @@ export function AssistToolbar({
               what it hears; nothing is stored, on our side or the vendor's. */}
           <div className="flex items-start justify-between gap-3">
             <p className="text-xs text-muted-foreground">
-              {tr("Hold the microphone and speak. What you say is transcribed here — edit it if you like, then turn it into an email.")}
+              {tr("Hold the microphone and speak. What you say is transcribed here: edit it if you like, then turn it into an email.")}
             </p>
             <VoiceInput
               label={tr("Dictate your message")}
@@ -400,7 +400,7 @@ export function ThreadSummary({ threadId }: { threadId: string }) {
       <p className="whitespace-pre-wrap text-sm">{data.summary}</p>
       {data.needs_review && (
         <p className="text-xs text-muted-foreground">
-          {tr("Some figures in this summary are not in the record — read it against the thread.")}
+          {tr("Some figures in this summary are not in the record: read it against the thread.")}
         </p>
       )}
       <Button size="sm" variant="ghost" disabled={busy} onClick={() => load(true)}>

@@ -143,7 +143,7 @@ export function DocumentIntake({ threadId }: { threadId: string }) {
         ))}
       </ul>
       <p className="text-xs text-muted-foreground">
-        {tr("Nothing is filed until you say so — at any confidence.")}
+        {tr("Nothing is filed until you say so, at any confidence.")}
       </p>
     </section>
   );
@@ -186,7 +186,7 @@ function ExtractionRow({ row, onDone }: { row: api.Extraction; onDone: () => voi
       {row.status === "FAILED" ? (
         // Shown rather than hidden. See the header.
         <p className="mt-1 text-xs text-muted-foreground">
-          {tr("We could not read this one. Nothing has been staged from it — open the file and enter the details by hand.")}
+          {tr("We could not read this one. Nothing has been staged from it. Open the file and enter the details by hand.")}
         </p>
       ) : (
         <>
@@ -297,7 +297,7 @@ export function ChaseSnippet({
   if (data.nothing_outstanding) {
     return (
       <p className="text-xs text-muted-foreground">
-        {tr("Every required document has been received — nothing to chase.")}
+        {tr("Every required document has been received: nothing to chase.")}
       </p>
     );
   }

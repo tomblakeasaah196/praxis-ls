@@ -212,8 +212,8 @@ function MessageBody({ message }: { message: Message }) {
         <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
           <span>
             {blocked === 1
-              ? tr("One image was not loaded — remote images can tell the sender when you opened this.")
-              : `${blocked} ${tr("images were not loaded — remote images can tell the sender when you opened this.")}`}
+              ? tr("One image was not loaded. Remote images can tell the sender when you opened this.")
+              : `${blocked} ${tr("images were not loaded. Remote images can tell the sender when you opened this.")}`}
           </span>
           <button
             type="button"
@@ -452,7 +452,7 @@ export function ThreadView({
     return (
       <div className="flex h-full items-center justify-center p-8 text-center">
         <p className="max-w-reading text-sm text-muted-foreground">
-          {tr("Choose a conversation to read it. Everything here is scoped to you — what you have read, what you have starred, and the labels you made.")}
+          {tr("Choose a conversation to read it. Everything here is scoped to you: what you have read, what you have starred, and the labels you made.")}
         </p>
       </div>
     );

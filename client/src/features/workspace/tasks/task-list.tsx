@@ -233,7 +233,7 @@ export function TaskList({
             <OperationsFilePicker
               id="task-list-file"
               label="Operations File"
-              placeholder="Any file — search ref, client, B/L…"
+              placeholder="Any file: search ref, client, B/L…"
               value={dossierId}
               onSelect={(file) => onDossierChange({ dossier_id: file.dossier_id, ref: file.ref })}
               onClear={() => onDossierChange(null)}

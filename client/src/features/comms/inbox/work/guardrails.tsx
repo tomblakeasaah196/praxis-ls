@@ -158,7 +158,7 @@ export function GuardrailBar({
           />
           {overrideReason.trim().length > 0 && overrideReason.trim().length < 10 && (
             <span className="block text-xs text-muted-foreground">
-              {tr("A sentence, please — this is a record of a decision.")}
+              {tr("A sentence, please: this is a record of a decision.")}
             </span>
           )}
         </label>

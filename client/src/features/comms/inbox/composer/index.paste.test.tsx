@@ -168,7 +168,7 @@ describe("mail composer paste", () => {
     expect(uploadAttachment).not.toHaveBeenCalled();
     expect(
       await screen.findByText(
-        "That file type isn't accepted here — choose a file instead.",
+        "That file type isn't accepted here: choose a file instead.",
       ),
     ).toBeInTheDocument();
   });
