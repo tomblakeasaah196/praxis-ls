@@ -122,7 +122,7 @@ function ClientForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit client" : "New client"}
+      title={editing ? "Edit Client" : "New Client"}
       description="Customer registry entry — referenced across sales, operations and receivables."
       size="lg"
     >

@@ -93,7 +93,7 @@ function DebtForm({
     <Modal
       open
       onClose={onClose}
-      title={isNew ? "New financing" : "Edit financing"}
+      title={isNew ? "New Financing" : "Edit Financing"}
       description="A loan or credit facility the business draws down and repays."
     >
       <form className="space-y-4" onSubmit={submit}>

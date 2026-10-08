@@ -122,7 +122,7 @@ function CustomFieldForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? `Fields — ${editing.key}` : "New custom fields"}
+      title={editing ? `Fields — ${editing.key}` : "New Custom Fields"}
       description="Extra field definitions for an entity type (client, supplier, operations file…)."
       size="xl"
     >

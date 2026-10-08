@@ -78,6 +78,19 @@ const appArg = argv.indexOf("--app");
 const app = appArg === -1 ? "client" : argv[appArg + 1];
 const UPDATE = argv.includes("--update-baseline");
 const FIX_TITLES = argv.includes("--fix-titles");
+/* `--only <substring>` narrows --fix-titles to the files whose key contains it.
+ *
+ * It is also what OPTS IN the object-literal bucket. A JSX `title=` that
+ * matches CHROME_TITLE is chrome by a well-tested prefix rule and is safe to
+ * retitle in bulk. An object-literal `label:` is not: the same property name
+ * carries tab labels, select options and column headers (all names, all Title
+ * Case) AND error strings like "SMTP login rejected" and password rules like
+ * "A number" (all messages, all correctly sentence case). 991 of them are in
+ * the tree. Bulk-retitling that set would wreck several hundred messages to fix
+ * a few hundred names, so the object bucket moves one area at a time, behind a
+ * flag, with the diff read afterwards. §3.18. */
+const onlyArg = argv.indexOf("--only");
+const ONLY = onlyArg === -1 ? null : argv[onlyArg + 1];
 const appRoot = join(repoRoot, app);
 const BASELINE = join(here, "prose-baseline.json");
 
@@ -130,6 +143,42 @@ const CHROME_TITLE = /^(New|Edit|Add|Create|Duplicate|Import|Export|Manage|Assig
 const CHROME_COMPONENT =
   /<(?:Section|SectionCard|Panel|Fieldset|HubCrumb)\b[^>]*?\b(?:title|legend|area)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
 
+/**
+ * Chrome DEFINED IN AN OBJECT LITERAL, which neither gate could see.
+ *
+ * THE HOLE THIS CLOSES. Both gates read JSX attributes (`title=`, `hint=`) and
+ * CSS classes (`.micro`, `.hint`). A tab bar, a nav array, a KPI config, a
+ * wizard-step list and an option set are none of those:
+ *
+ *     const TABS = [
+ *       { key: "mine", label: "My mailbox", ... },      // a tab bar
+ *     ];
+ *     const DRILLDOWN = { title: "Revenue · locked invoices" };
+ *
+ * so ten sentence-case tabs on the Smart Comms setup page survived two sweeps
+ * that both reported the area clean on the strength of this gate. The tenant
+ * found them by opening the screen. This is the third round that happened in,
+ * which is why the properties are read now rather than documented as a gap.
+ *
+ * WHY A PROPERTY NAME AND NOT A COMPONENT. Everywhere else this gate classifies
+ * by component, because a component knows what it is and the wording does not.
+ * An object literal has no component: it is consumed somewhere else entirely,
+ * often in another file. What it does have is a property name, and `label`,
+ * `title` and `tabLabel` are the three the codebase uses for "the words a
+ * person reads for this thing". `text`, `name` and `description` are
+ * deliberately absent: `badge.text` is a count ("3 locked invoices"), `name` is
+ * usually a record's own data, and `description` lives behind the ⓘ by
+ * convention and costs the reader nothing.
+ *
+ * MESSAGES ARE STRUCTURALLY EXCLUDED. An `empty: {}` / `emptyState: {}` block
+ * is an <EmptyState>'s props, and <EmptyState> is a message component wherever
+ * it renders, so the whole block is skipped by indent rather than by guessing
+ * at its wording. Everything else that is a message rather than a name carries
+ * `@prose:keep <reason>`, which is where the clause-shaped options live (see
+ * §3.18).
+ */
+const OBJ_CHROME = /\b(?:label|title|tabLabel)\s*:\s*(?:(?:tr|tv|t|trc)\(\s*)?(["'])((?:(?!\1)[^\\]|\\.)*)\1/g;
+
 function files() {
   const out = execFileSync(
     "git",
@@ -140,6 +189,63 @@ function files() {
     .split("\n")
     .filter(Boolean)
     .filter((f) => !/\.(test|spec)\.|\.stories\./.test(f));
+}
+
+/**
+ * The brace-balanced text of a `{...}` attribute value opening at `from`.
+ *
+ * `title={title || (draft ? tr("Continue this draft") : tr("New message"))}`
+ * is one expression spread over as much of the line as it needs, and the first
+ * `}` in it belongs to the inner `tr()` call's argument list in the general
+ * case. Counting braces is the only way to know where the attribute ends; a
+ * non-nesting `\{[^}]*\}` stops in the middle and takes half a ternary with it.
+ */
+function attrExpr(lines, i, from) {
+  let depth = 0;
+  let out = "";
+  for (let j = i; j < Math.min(i + 5, lines.length); j++) {
+    const line = j === i ? lines[j].slice(from) : lines[j];
+    for (const ch of line) {
+      if (ch === "{") depth++;
+      if (depth > 0) out += ch;
+      if (ch === "}") {
+        depth--;
+        if (depth === 0) return out;
+      }
+    }
+    if (depth === 0) break;
+    out += " ";
+  }
+  return out;
+}
+
+/**
+ * EVERY string literal a computed attribute can render, `tr()`-wrapped or bare.
+ *
+ * THE HOLE THIS CLOSES. `literal()` below expects the attribute to OPEN with a
+ * quote or a `tr(`. Anything else returns null and the site was dropped with no
+ * warning at all, so
+ *
+ *     title={tr("New message")}                                    was checked
+ *     title={title || (draft ? tr("Continue this draft")
+ *                            : tr("New message"))}                 was NOT
+ *
+ * and the mail composer's dialog read "New message" through two sweeps that
+ * both reported the area clean. A computed title renders one of its branches,
+ * so every branch is a title and every branch is checked. Tested against
+ * CHROME_TITLE individually, which is what keeps this conservative: "New
+ * message" is chrome by its prefix and is flagged, "Continue this draft" is
+ * not and is left alone.
+ */
+function literals(expr) {
+  const out = [];
+  const re = /(["'])((?:(?!\1)[^\\]|\\.)*)\1/g;
+  let m;
+  while ((m = re.exec(expr)) !== null) {
+    const text = m[2].replace(/\\(["'])/g, "$1");
+    if (text) out.push(text);
+  }
+  return out;
 }
 
 /** `tr("x")`, `tv("x", …)`, `"x"`, `{"x"}` all yield x. Template literals and
@@ -255,7 +361,7 @@ function elementText(lines, i, startCol) {
   return text.length ? text : null;
 }
 
-const problems = { long: [], eyebrow: [], title: [] };
+const problems = { long: [], eyebrow: [], title: [], objTitle: [] };
 const counts = {};
 
 for (const f of files()) {
@@ -264,8 +370,23 @@ for (const f of files()) {
   const lines = src.split("\n");
   const key = `${app}/${f}`;
   let visible = 0;
+  /* Object-literal scan state, per file: whether we are inside a block comment
+     (a JSDoc example of a tab array is not a tab array) and, when inside an
+     `empty: {}` block, the indent that block opened at. */
+  let inBlockComment = false;
+  let emptyIndent = null;
 
   lines.forEach((line, i) => {
+    const trimmed = line.trim();
+    if (inBlockComment) {
+      if (trimmed.includes("*/")) inBlockComment = false;
+    } else if (trimmed.startsWith("/*") && !trimmed.includes("*/")) {
+      inBlockComment = true;
+    }
+    const indent = line.match(/^\s*/)[0].length;
+    if (emptyIndent !== null && indent <= emptyIndent) emptyIndent = null;
+    if (/^\s*(?:empty|emptyState)\s*:\s*\{/.test(line)) emptyIndent = indent;
+
     if (exempt(lines, i)) return;
 
     /* 1 + 2. Visible helper text.
@@ -347,6 +468,16 @@ for (const f of files()) {
         problems.title.push({ key, line: i + 1, text, abs });
       }
     }
+    /* A COMPUTED title, whose branches literal() cannot see. See literals(). */
+    const computed = line.indexOf("title={");
+    if (computed !== -1 && literal(line.slice(computed + 6)) === null) {
+      const expr = attrExpr(lines, i, computed + 6);
+      for (const text of literals(expr)) {
+        if (CHROME_TITLE.test(text) && !isTitleCase(text)) {
+          problems.title.push({ key, line: i + 1, text, abs });
+        }
+      }
+    }
     /* A chrome component's own title, whatever words it carries. Matched
        across the opening tag rather than one line, because the title of a
        section with three other props is rarely on the same line as its name. */
@@ -361,6 +492,19 @@ for (const f of files()) {
     const h = line.match(/<h1[^>]*>\s*\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
     if (h && !SKIP_TITLE.test(h[2]) && h[2].length <= 60 && !isTitleCase(h[2])) {
       problems.title.push({ key, line: i + 1, text: h[2], abs });
+    }
+
+    /* 5. Chrome defined in an object literal. See OBJ_CHROME. */
+    if (!inBlockComment && emptyIndent === null && !trimmed.startsWith("//") && !trimmed.startsWith("*")) {
+      OBJ_CHROME.lastIndex = 0;
+      let m;
+      while ((m = OBJ_CHROME.exec(line)) !== null) {
+        const text = m[2].replace(/\\(["'])/g, "$1");
+        if (SKIP_TITLE.test(text) || text.length > 60) continue;
+        if (!/[A-Za-z]{2}/.test(text)) continue;
+        if (isTitleCase(text)) continue;
+        problems.objTitle.push({ key, line: i + 1, text, abs });
+      }
     }
   });
 
@@ -420,7 +564,10 @@ if (FIX_TITLES) {
    */
   const renames = new Map();
   const byFile = new Map();
-  for (const p of problems.title) {
+  const fixable = ONLY
+    ? [...problems.title, ...problems.objTitle].filter((x) => x.key.includes(ONLY))
+    : problems.title;
+  for (const p of fixable) {
     const next = titleCase(p.text);
     if (next === p.text) continue;
     renames.set(p.text, next);
@@ -474,11 +621,32 @@ if (FIX_TITLES) {
     let en = split === -1 ? dict : dict.slice(0, split);
     let fr = split === -1 ? "" : dict.slice(split);
     for (const [from, to] of renames) {
+      const esc = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       if (sourceBlob.includes(`"${from}"`)) {
-        // Still rendered somewhere under its old spelling: leave the key be.
+        /* STILL RENDERED UNDER ITS OLD SPELLING, so the key may not move. The
+         * new one is ADDED beside it instead, carrying the same translation,
+         * and both call sites keep their French.
+         *
+         * Skipping outright is what this did before, and it was a silent
+         * untranslate: "New message" is a key with a real French value, it
+         * survives in a CODE COMMENT and a scaffold spec (neither of which
+         * renders anything), so the key was held back while the composer's
+         * dialog had already become "New Message" — a spelling with no key at
+         * all, which tr() answers with the English. Seven of the 66 retitles in
+         * this round landed that way. Adding is safe where moving is not:
+         * a key nothing reads is dead weight, a key something reads is a
+         * translation. */
+        const frVal = fr.match(new RegExp(`"${esc}":\\s*"((?:[^"\\\\]|\\\\.)*)"`));
+        const escTo = to.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        if (frVal && !new RegExp(`"${escTo}":`).test(fr)) {
+          fr = fr.replace(frVal[0], `${frVal[0]},\n    "${to}": "${frVal[1]}"`);
+        }
+        const enVal = en.match(new RegExp(`"${esc}":\\s*"(?:[^"\\\\]|\\\\.)*"`));
+        if (enVal && !new RegExp(`"${escTo}":`).test(en)) {
+          en = en.replace(enVal[0], `${enVal[0]},\n    "${to}": "${to}"`);
+        }
         continue;
       }
-      const esc = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // English: move the key and retitle the value, but only where the value
       // is the identity string. A hand-written English override stays.
       en = en.replace(
@@ -498,17 +666,32 @@ if (FIX_TITLES) {
 
 const baselineSrc = readIfPresent(BASELINE);
 const baseline = baselineSrc === null
-  ? { budget: {}, longCopy: {} }
+  ? { budget: {}, longCopy: {}, objTitle: {} }
   : JSON.parse(baselineSrc);
 
 if (UPDATE) {
   const longCopy = {};
   for (const p of problems.long) longCopy[p.key] = (longCopy[p.key] || 0) + 1;
+  /* OBJECT-LITERAL CHROME IS RATCHETED AND THE OTHER TITLE RULES ARE NOT.
+   *
+   * A JSX `title=` has never had a baseline: it is a hard failure, and widening
+   * the extractor to read a computed one (see literals()) surfaced 71 real
+   * sentence-case dialog titles that were all fixed in the same change, so it
+   * keeps that contract.
+   *
+   * The object-literal rule could not land the same way. It reads every option
+   * set, tab bar and column list in three apps, which is 955 sites, and holding
+   * the whole tree to it in one commit is how a gate gets reverted. So it
+   * ratchets, exactly like budget and longCopy: an area is swept to zero and
+   * can never regrow, and new code in a file nobody has excused is held to the
+   * rule immediately. */
+  const objTitle = {};
+  for (const p of problems.objTitle) objTitle[p.key] = (objTitle[p.key] || 0) + 1;
   writeFileSync(
     BASELINE,
-    `${JSON.stringify({ budget: counts, longCopy }, null, 2)}\n`,
+    `${JSON.stringify({ budget: counts, longCopy, objTitle }, null, 2)}\n`,
   );
-  console.log(`prose-baseline.json written: ${Object.keys(counts).length} files with visible prose, ${problems.long.length} long strings.`);
+  console.log(`prose-baseline.json written: ${Object.keys(counts).length} files with visible prose, ${problems.long.length} long strings, ${problems.objTitle.length} object-literal chrome labels.`);
   process.exit(0);
 }
 
@@ -529,6 +712,14 @@ for (const [key, n] of Object.entries(longByFile)) {
   if (n > allowed) {
     longFails.push({ key, n, allowed });
   }
+}
+
+const objByFile = {};
+for (const p of problems.objTitle) objByFile[p.key] = (objByFile[p.key] || 0) + 1;
+const objFails = [];
+for (const [key, n] of Object.entries(objByFile)) {
+  const allowed = baseline.objTitle?.[key] ?? 0;
+  if (n > allowed) objFails.push({ key, n, allowed });
 }
 
 let bad = 0;
@@ -557,6 +748,17 @@ if (problems.title.length) {
   console.error(`\nEnglish titles are Title Case ("Service Types", not "Service types"):\n`);
   for (const p of problems.title.slice(0, 40)) console.error(`  ${p.key}:${p.line}  ${p.text}`);
   if (problems.title.length > 40) console.error(`  ... and ${problems.title.length - 40} more`);
+}
+if (objFails.length) {
+  bad++;
+  console.error(`\nChrome defined in an object literal is Title Case too (tab, option, column, pill and CTA labels):\n`);
+  for (const { key, n, allowed } of objFails) {
+    console.error(`  ${key}: ${n} sentence-case (allowed ${allowed})`);
+    for (const p of problems.objTitle.filter((x) => x.key === key).slice(0, 4)) {
+      console.error(`      L${p.line}  ${p.text}`);
+    }
+  }
+  console.error(`\n  Title Case a name; keep a clause and mark it @prose:keep <reason>. §3.18.`);
 }
 
 if (bad) {

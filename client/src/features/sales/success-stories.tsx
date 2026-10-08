@@ -327,7 +327,7 @@ function StoryForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit success story" : "New success story"}
+      title={editing ? "Edit Success Story" : "New Success Story"}
       description="Choose completed files, draft and review the story, attach governed images, then save for sign-off."
       size="xl"
     >

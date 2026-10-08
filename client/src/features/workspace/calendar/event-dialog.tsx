@@ -232,7 +232,7 @@ export function EventDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={editing ? "Edit event" : "New event"}
+      title={editing ? "Edit Event" : "New Event"}
       size="lg"
       footer={
         <>

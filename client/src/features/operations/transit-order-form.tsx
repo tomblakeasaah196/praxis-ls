@@ -300,7 +300,7 @@ export function TransitForm({
       open
       onClose={onClose}
       size="lg"
-      title={isNew ? "New transit order" : `Transit order ${row!.ref || "(draft)"}`}
+      title={isNew ? "New Transit Order" : `Transit order ${row!.ref || "(draft)"}`}
       description="The client's written authorisation to declare this cargo."
     >
       <form className="space-y-5" onSubmit={(e) => submit(e)}>

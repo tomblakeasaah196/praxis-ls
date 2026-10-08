@@ -470,7 +470,7 @@ function MarginSimForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? tr("Edit margin simulation") : tr("Margin simulation")}
+      title={editing ? tr("Edit Margin Simulation") : tr("Margin simulation")}
       description="Rapid quote maths — margin on services only, débours pass-through. No GL (KB §6.7)."
       size="wide"
     >

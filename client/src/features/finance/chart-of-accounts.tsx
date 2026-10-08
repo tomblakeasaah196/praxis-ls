@@ -105,7 +105,7 @@ function AccountForm({
     <Modal
       open
       onClose={onClose}
-      title={isNew ? "New account" : `Edit ${row!.code}`}
+      title={isNew ? "New Account" : `Edit ${row!.code}`}
       description="Only leaf/detail accounts are postable; 4731 / 706 / 707 require an operations file."
     >
       <form className="space-y-4" onSubmit={submit}>

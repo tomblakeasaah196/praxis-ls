@@ -312,7 +312,7 @@ export function VacancyEditor({
     <Modal
       open
       onClose={onClose}
-      title={drafted ? "Review the draft" : "Edit vacancy"}
+      title={drafted ? "Review the draft" : "Edit Vacancy"}
       description="Nothing is public until you open the role and publish it to the careers page."
       size="xl"
       headerRight={

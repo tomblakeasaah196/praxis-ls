@@ -582,7 +582,7 @@ export function DeliveryForm({
     <Dialog
       open
       onClose={onClose}
-      title={editing ? `Edit ${note?.ref || "delivery note"}` : "New delivery note"}
+      title={editing ? `Edit ${note?.ref || "delivery note"}` : "New Delivery Note"}
       description="Proof-of-delivery for a consignee."
       size="lg"
     >

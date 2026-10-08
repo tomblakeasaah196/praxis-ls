@@ -156,7 +156,7 @@ export function CampaignForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit campaign plan" : "New campaign"}
+      title={editing ? "Edit Campaign Plan" : "New Campaign"}
       description="What it costs and what it is expected to return. The plan locks when the campaign is submitted for approval."
       size="lg"
     >
@@ -738,7 +738,7 @@ export function TemplateForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit template" : "New email template"}
+      title={editing ? "Edit Template" : "New Email Template"}
       description="A reusable campaign email that sends from a chosen sender identity."
       size="lg"
     >
