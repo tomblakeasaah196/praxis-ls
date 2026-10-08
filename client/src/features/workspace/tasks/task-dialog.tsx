@@ -186,7 +186,7 @@ export function TaskDialog({
     // A reminder relative to the due date needs the task to HAVE one — the
     // server's 400 would say so, and it is better said here, at the field.
     if (!dueAt && built.input.some((r) => r.reminder_minutes != null)) {
-      setError("A reminder before the due date needs the task to have one — set the date, or make this reminder an exact time.");
+      setError("A reminder before the due date needs the task to have one. Set the date, or make this reminder an exact time.");
       return;
     }
     const input: TaskInput = {
@@ -250,7 +250,7 @@ export function TaskDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={editing ? "Edit task" : childMode ? "New child task" : "New task"}
+      title={editing ? "Edit Task" : childMode ? "New Child Task" : "New Task"}
       description={
         editing
           ? undefined
@@ -264,7 +264,7 @@ export function TaskDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy || titleTooLong}>
-            {editing ? "Save changes" : childMode ? "Add child task" : "Add task"}
+            {editing ? "Save Changes" : childMode ? "Add Child Task" : "Add Task"}
           </Button>
         </>
       }
@@ -277,12 +277,16 @@ export function TaskDialog({
           required
           htmlFor="task-title"
           error={titleTooLong ? `Keep it under ${TITLE_MAX} characters.` : undefined}
-          hint={!editing ? "Start with the verb — “Chase the BL”, not “BL”." : undefined}
         >
           <Input
             id="task-title"
             value={title}
             maxLength={TITLE_MAX}
+            /* RUNG 2 of the ladder: this was a hint printed under the box
+               reading "Start with the verb: “Chase the BL”, not “BL”." A
+               format belongs in the placeholder, where it is in the box the
+               advice is about and disappears the moment it is followed. */
+            placeholder={!editing ? "Chase the BL" : undefined}
             onChange={(e) => {
               setTitle(e.target.value);
               if (error) setError(null);
@@ -331,11 +335,11 @@ export function TaskDialog({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Due"
-            htmlFor="task-due"
-            hint="No date means no deadline — it stays on your list."
-          >
+          {/* RUNG 1: "No date means no deadline, it stays on your list."
+              under an optional date field restates what leaving a field blank
+              plainly does. The field is not marked `required`, which is the
+              same statement in the form's own vocabulary. */}
+          <Field label="Due" htmlFor="task-due">
             <DateTimeField id="task-due" value={dueAt} onChange={setDueAt} />
           </Field>
 
@@ -436,8 +440,14 @@ export function TaskDialog({
               setAssignedName(null);
             }
           }}
-          label="Personal task"
-          hint="Keeps it off your team's view even where your role would otherwise show them your work."
+          label="Personal Task"
+          /* RUNG 3: a real consequence, longer than a few words, wanted by
+             about one reader in ten. `Checkbox` renders `about` behind an ⓘ
+             beside the label and keeps the text in a visually hidden node
+             pointed at by `aria-describedby`, so hiding it costs a screen
+             reader nothing. */
+          about="Keeps it off your team's view even where your role would otherwise show them your work."
+          aboutLabel="About personal tasks"
         />
         )}
       </div>
