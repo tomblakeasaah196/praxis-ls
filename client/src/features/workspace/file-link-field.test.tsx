@@ -98,7 +98,7 @@ describe("FileLinkField — the stage set", () => {
       "3Customs declaration lodged",
     ]);
     expect(boxes.every((b) => b.getAttribute("aria-checked") === "false")).toBe(true);
-    expect(screen.getByText("No milestone — the work is on the file as a whole")).toBeTruthy();
+    expect(screen.getByText("No milestone: the work is on the file as a whole")).toBeTruthy();
     expect(milestonesByDossier).toHaveBeenCalledWith("d1");
     expect(await axe(container)).toHaveNoViolations();
   });

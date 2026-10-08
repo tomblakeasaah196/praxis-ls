@@ -591,8 +591,8 @@ describe("meeting view", () => {
     const dialog = await screen.findByRole("dialog", {
       name: /operations meeting/i,
     });
-    expect(within(dialog).getByText("Active files")).toBeInTheDocument();
-    expect(within(dialog).getByText("Need a location")).toBeInTheDocument();
+    expect(within(dialog).getByText("Active Files")).toBeInTheDocument();
+    expect(within(dialog).getByText("Need a Location")).toBeInTheDocument();
     // The stat counts FILES at a facility; the legend below counts the same
     // files as "facility only". Two numbers, two labels — the same words on both
     // would read as one figure disagreeing with itself.

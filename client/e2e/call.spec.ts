@@ -764,7 +764,7 @@ test("two devices: the callee's network drops for a few seconds and the call car
     await expect(d.caller.getByRole("timer")).toBeVisible();
     await expect(d.callee.getByRole("timer")).toBeVisible();
     await expect(d.callee.getByText("Could not connect the call")).toHaveCount(0);
-    await expect(d.callee.getByText("The call was lost — the connection ended")).toHaveCount(0);
+    await expect(d.callee.getByText("The call was lost: the connection ended")).toHaveCount(0);
     await expect(d.callee.getByText("Reconnecting…")).toHaveCount(0, { timeout: 25_000 });
     await d.callee.getByRole("button", { name: "End call" }).click();
     await expect(d.callee.getByRole("dialog")).toHaveCount(0, { timeout: 10_000 });

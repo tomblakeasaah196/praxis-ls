@@ -138,7 +138,7 @@ describe("the Client inbox", () => {
     renderScreen(<ClientInboxPage />, {
       routes: { ...ROUTES, "/portal/chat/inbox": { filter: "waiting", counts: { all: 3, waiting: 0, mine: 0 }, items: [] } },
     });
-    expect(await screen.findByText("Nothing waiting — every client has an answer")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing waiting: every client has an answer")).toBeInTheDocument();
     expect(screen.getByText("No conversation open")).toBeInTheDocument();
   });
 
