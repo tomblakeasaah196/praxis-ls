@@ -139,6 +139,101 @@ const CASES = [
     from: 'label: "Current Password"',
     to: 'label: "Current password"',
   },
+  /* ── the ten rules added for the six Configure hubs ───────────────────────
+   * Every one of these reintroduces a defect the gate could not see before
+   * this round, measured on main: the first eight are holes, the last two are
+   * the gate contradicting itself and asking for a message to be Title Cased.
+   */
+  {
+    name: "prose (hole A — a Modal's own title)",
+    defect: "`Modal` is `Dialog` aliased and is what the tree actually says; 11 sentence-case modal titles in the Configure hubs",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/godmode/godmode-page.tsx",
+    from: 'title="Purge Record"',
+    to: 'title="Purge record"',
+  },
+  {
+    name: "prose (hole B — a KPI caption as a JSX prop)",
+    defect: "the object bucket failed `{ label: \"open flags\" }` while `<KpiTile label=\"Open flags\">` passed: same caption, same component",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/vault/hub.tsx",
+    from: 'label="Awaiting Verification"',
+    to: 'label="Awaiting verification"',
+  },
+  {
+    name: "prose (hole C — a label map's values)",
+    defect: "222 sentence-case chrome values in Record<Enum, string> maps, unmeasured because retitling one was argued about",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/governance/notifications.tsx",
+    from: 'IN_APP: "In-App"',
+    to: 'IN_APP: "In app"',
+  },
+  {
+    name: "prose (hole D — a dotted-key catalogue value)",
+    defect: "\"Email signature\", \"Signature templates\", \"Delivery route\" — card and button chrome that SKIP_TITLE excluded with the key",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/lib/i18n-dict.ts",
+    from: 'signatureTitle: "Email Signature"',
+    to: 'signatureTitle: "Email signature"',
+  },
+  {
+    name: "prose (hole E — a hint rendered from a map)",
+    defect: "Tax Jurisdictions printed five hints up to 139 characters from KIND_HINT and the gate reported no long copy",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/settings/tax-jurisdictions.tsx",
+    from: '  VAT: "Collectée sur les ventes, récupérable sur les achats. (VAT.)"',
+    to: '  VAT: "Taxe sur la valeur ajoutée, collectée sur les ventes et récupérable sur les achats, ce qui en fait la taxe la plus courante. (VAT.)"',
+  },
+  {
+    name: "prose (hole F — a hint written as an object property)",
+    defect: "129 `empty={{ hint }}` sites rendering what `<EmptyState hint>` renders, 13 over the cap, none counted",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/settings/website-pages.tsx",
+    from: 'hint: "Create the first one with the key “home”.",',
+    to: 'hint: "Create the first one with the key “home”, because that is the page the marketing site reads its own figures from.",',
+  },
+  {
+    name: "prose (hole G — a hub's eyebrow)",
+    defect: "areas.ts said \"Vault & Compliance\" and the hub page said \"Vault & compliance\": two spellings of one area in the same build",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/vault/hub.tsx",
+    from: 'eyebrow="Vault & Compliance"',
+    to: 'eyebrow="Vault & compliance"',
+  },
+  {
+    name: "prose (hole H — a sentence in a `subtitle` caption slot)",
+    defect: "costing's reconciliation panel put 167 characters in a text-micro UPPERCASE slot documented as an as-of qualifier",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/vault/hub.tsx",
+    from: 'subtitle="Newest First"',
+    to: 'subtitle="The newest uploads to land in the vault, whoever sent them"',
+  },
+  {
+    name: "prose (a prompt's own title is NOT chrome)",
+    defect: "the gate contradicted itself and asked for \"Confirm It's You\" — §3.18's own example of the title that must stay",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/security/my-security.tsx",
+    from: '        title: "Confirm it\'s you",',
+    to: '        title: "Confirm it is you",',
+    expect: "pass",
+  },
+  {
+    name: "prose (a Callout-shaped record's title is NOT chrome)",
+    defect: "pwa/validation.ts builds ten warnings as { tone, title, detail } and the gate asked for \"The Source Image Isn't Square\"",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/settings/pwa/validation.ts",
+    from: 'title: "The source image isn\'t square",',
+    to: 'title: "The source image is not square",',
+    expect: "pass",
+  },
+  {
+    name: "prose (@prose:keep reaches into the block it opened)",
+    defect: "four password-rule `label:` lines, which §3.18 names as the object rule's canonical false positive, needed four markers",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/security/my-security.tsx",
+    from: "   * the array. @prose:keep password rule lines are messages, not names. */",
+    to: "   * the array. (marker removed) */",
+  },
   {
     name: "dashes (an em dash in tenant copy)",
     defect: "tenant 8 Oct 2026 — \"no emdashes anywhere, it screams AI\"",
@@ -317,7 +412,8 @@ if (!cases.length) {
 }
 
 console.warn(
-  `\nProving ${cases.length} gate(s) catch a deliberately introduced regression.\n`,
+  `\nProving ${cases.length} gate(s) catch a deliberately introduced regression` +
+    ` (and, where a case says so, do NOT fire on a message).\n`,
 );
 
 let broken = 0;
@@ -344,10 +440,27 @@ for (const c of cases) {
   }
   clean = run(c.cmd);
 
-  const ok = regressed !== 0 && clean === 0;
+  /* `expect: "pass"` INVERTS THE ASSERTION, and it earns its place.
+   *
+   * Most cases prove a gate CATCHES a defect. A few prove it does NOT fire on
+   * something that only looks like one: a prompt's own title ("Confirm it's
+   * you"), a warning record's title ("The source image isn't square"). Both
+   * were real failures of this gate — it demanded Title Case on two messages,
+   * and §3.18 holds the first up by name as the string that must stay. A fix
+   * for a false positive is only verified by a case that goes red when the
+   * false positive comes back, which an "it still fails" case cannot do.
+   *
+   * So: the edit is applied, the gate must STILL exit 0, and the file is
+   * restored and must exit 0 again. */
+  const ok =
+    c.expect === "pass"
+      ? regressed === 0 && clean === 0
+      : regressed !== 0 && clean === 0;
   if (!ok) broken++;
   console.warn(
-    `  ${ok ? "PASS" : "FAIL"}  ${c.name.padEnd(28)} regressed → exit ${regressed}, restored → exit ${clean}`,
+    `  ${ok ? "PASS" : "FAIL"}  ${c.name.padEnd(52)} ${
+      c.expect === "pass" ? "edited" : "regressed"
+    } → exit ${regressed}, restored → exit ${clean}`,
   );
   console.warn(`        ${c.defect}`);
 }
