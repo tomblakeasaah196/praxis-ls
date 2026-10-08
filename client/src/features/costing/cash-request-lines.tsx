@@ -234,7 +234,7 @@ export function CashTotalsFooter({
     </div>
   );
   return (
-    <Panel title={tr("Amount requested")}>
+    <Panel title={tr("Amount Requested")}>
       <div className="space-y-2">
         {t.vat_total > 0 && row(tr("Subtotal"), t.subtotal)}
         {t.vat_total > 0 && row(tr("VAT"), t.vat_total)}

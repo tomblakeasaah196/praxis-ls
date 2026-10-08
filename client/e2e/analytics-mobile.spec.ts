@@ -46,7 +46,7 @@ test("mobile analytics cards fit the viewport and blocked bars reveal full notes
   // one visible card, with no sideways gesture needed to reach the last one.
   await page.getByRole("button", { name: "Show chart 2 of 7" }).click();
   await expect(
-    active.getByRole("heading", { name: "Overdue aging" }),
+    active.getByRole("heading", { name: "Overdue Aging" }),
   ).toBeVisible();
   const ageChart = active.getByRole("img", {
     name: /overdue tasks grouped into five age bands/i,
@@ -90,7 +90,7 @@ test("mobile analytics cards fit the viewport and blocked bars reveal full notes
   // the assignee and reveals the untruncated note and operational context.
   await page.getByRole("button", { name: "Show chart 7 of 7" }).click();
   await expect(
-    active.getByRole("heading", { name: "Blocked work" }),
+    active.getByRole("heading", { name: "Blocked Work" }),
   ).toBeVisible();
   const blockedBar = active.locator(".recharts-bar-rectangle").first();
   await expect(blockedBar).toBeVisible();

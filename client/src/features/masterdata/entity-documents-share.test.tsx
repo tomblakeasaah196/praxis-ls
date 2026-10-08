@@ -265,7 +265,7 @@ describe("Corporate entities · Documents — sharing a selection", () => {
     await user.click(screen.getByRole("button", { name: "Share" }));
 
     expect(
-      await screen.findByText(/have no scan on file and cannot be sent/i),
+      await screen.findByText(/have no scan and cannot be sent/i),
     ).toBeInTheDocument();
   });
 

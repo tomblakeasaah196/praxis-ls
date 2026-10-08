@@ -83,7 +83,7 @@ export function CommercialSettingsPage() {
       {res.error ? <ErrorState message={res.error} /> : null}
       {!res.data && !res.error ? <PageSkeleton /> : null}
       {res.data ? (
-        <Panel title={tr("Target margin")}>
+        <Panel title={tr("Target Margin")}>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               {tr(

@@ -526,7 +526,7 @@ function EntityForm({
         </Fieldset>
 
         <Fieldset
-          legend="Public contact"
+          legend="Public Contact"
           about="Printed in the letterhead's contact line. The readiness checklist wants at least one of email or phone."
         >
           <Field label={tr("Email")}>
@@ -588,7 +588,7 @@ function EntityForm({
 
         {isNew && (
           <Fieldset
-            legend="Registered office"
+            legend="Registered Office"
             about="Creates the REGISTERED address used on letterheads. Example: 1030, Avenue Douala Manga Bell, PO Box 5120, Douala, CM."
           >
             <Field label="Address line 1" about="Street and number: e.g. 1030, Avenue Douala Manga Bell">
@@ -643,7 +643,7 @@ function EntityForm({
         )}
 
         <Fieldset
-          legend="Incorporation and capital"
+          legend="Incorporation and Capital"
           about="The statutory facts documents print. Share capital is mandatory on French invoices and is on the readiness checklist."
         >
           <Field label="Date of incorporation">
@@ -718,7 +718,7 @@ function EntityForm({
           </Field>
         </Fieldset>
 
-        <Fieldset legend="Documents and reporting">
+        <Fieldset legend="Documents and Reporting">
           <Field
             label={tr("Document prefix")}
             about="Leads this entity's invoice numbers"
@@ -787,7 +787,7 @@ function EntityForm({
         </Fieldset>
 
         <Fieldset
-          legend="Defaults carried into other modules"
+          legend="Defaults Carried into Other Modules"
           about="What HR, payroll and billing inherit when someone picks this entity."
         >
           <Field
@@ -882,7 +882,7 @@ function EntityForm({
 
         {!isNew && (
           <Fieldset
-            legend="Letterhead logos"
+            legend="Letterhead Logos"
             about="PNG/JPG/WebP/SVG, max 512 KB. The dark variant is used on dark document themes and on the app's dark mode."
           >
             {logoField(
@@ -1035,7 +1035,7 @@ export function CorporateEntitiesPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Master data" to="/master" />}
+        eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title="Corporate entities"
         description="The legal entities we bill and report from: registrations, shareholders, addresses and group structure, per entity."
         action={<Button onClick={() => setEditing("new")}>New entity</Button>}

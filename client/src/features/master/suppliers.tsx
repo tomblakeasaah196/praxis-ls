@@ -255,7 +255,7 @@ export function SuppliersPage() {
   return (
     <section className={pageShell.wide}>
       <PageHeader
-        eyebrow={<HubCrumb area="Master data" to="/master" />}
+        eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title={tr("Suppliers")}
         description="Vendor registry referenced across procurement and payables."
         action={<Button onClick={openNew}>New supplier</Button>}

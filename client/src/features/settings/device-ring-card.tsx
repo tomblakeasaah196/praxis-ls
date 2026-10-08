@@ -128,7 +128,7 @@ export function DeviceRingCard({
   const ready = canRingWhenClosed(status);
 
   return (
-    <Panel title={tr("This device")} className="mb-4">
+    <Panel title={tr("This Device")} className="mb-4">
       <p className="text-sm text-muted-foreground">
         {ready
           ? tr("Calls ring on this device, even with the app closed.")

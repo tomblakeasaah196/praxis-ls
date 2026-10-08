@@ -237,7 +237,7 @@ export function MyHrPage() {
             and have nowhere in the product to see the month it came from. The
             widget is the same one HR reads, pointed at `/mine` — so the figure
             an employee disputes is the figure their manager is looking at. */}
-        <Section title={tr("My attendance")}>
+        <Section title={tr("My Attendance")}>
           <AttendanceHistory scope="self" />
         </Section>
 
@@ -338,7 +338,7 @@ export function MyHrPage() {
           )}
         </Section>
 
-        <Section title="Performance reviews" count={rv.length}>
+        <Section title="Performance Reviews" count={rv.length}>
           {reviews.error ? (
             <ErrorState message={reviews.error} />
           ) : rv.length === 0 && !reviews.loading ? (
@@ -407,7 +407,7 @@ export function MyHrPage() {
             </div>
           )}
         </Section>
-        <Section title={tr("Leave balance")} count={bl.length}>
+        <Section title={tr("Leave Balance")} count={bl.length}>
           {balances.error ? (
             <ErrorState message={balances.error} />
           ) : bl.length === 0 && !balances.loading ? (
@@ -438,7 +438,7 @@ export function MyHrPage() {
           )}
         </Section>
 
-        <Section title="Leave & allowances" count={lv.length}>
+        <Section title="Leave & Allowances" count={lv.length}>
           {leave.error ? (
             <ErrorState message={leave.error} />
           ) : lv.length === 0 && !leave.loading ? (

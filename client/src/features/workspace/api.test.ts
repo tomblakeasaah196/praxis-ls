@@ -93,7 +93,7 @@ describe("workspace api — reads return the unwrapped payload, not undefined", 
     const out = await api.getReceiptsOwed();
 
     expect(out).toBe(owed);
-    // The "Cash to account for" surface reads count/total_ttc/items directly.
+    // The "Cash to Account For" surface reads count/total_ttc/items directly.
     expect(mockTenant).toHaveBeenCalledWith("/costing/reconciliations/owed");
   });
 });

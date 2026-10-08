@@ -431,7 +431,7 @@ export function SuppliersPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Master data" to="/master" />}
+        eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title={tr("Suppliers")}
         description="Vendor master with a live 360: AVL, KYC, banks, WHT and payables."
         action={

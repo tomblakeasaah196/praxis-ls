@@ -265,8 +265,7 @@ export function WorkingCalendarTab({
       <section className="space-y-2">
         <h3 className="text-sm font-medium text-foreground">Opening hours</h3>
         <p className="micro">
-          A day that is switched off is closed — no milestone time accrues on
-          it. Sunday is off by default.
+          A day switched off is closed. Sunday is off by default.
         </p>
         <div className="space-y-1">
           {WEEKDAYS.map((label, weekday) => {

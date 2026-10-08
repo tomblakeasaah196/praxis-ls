@@ -11,7 +11,8 @@
  * caller without finance visibility (gate 14); this view never unmasks them.
  */
 import * as React from "react";
-import { tr } from "@/lib/i18n";
+import { tr, tv } from "@/lib/i18n";
+import { InfoHint } from "@/components/ui/info-hint";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -764,9 +765,7 @@ function ConvertModal({
             ))}
           </ul>
           <p className="mt-2 micro">
-            Nothing here copies automatically (Hard Rule 2) — once created, use
-            &quot;Copy from origin&quot; on each section of the new record if
-            you want to reuse the same details.
+            Nothing copies automatically. Use &quot;Copy from origin&quot; per section.
           </p>
         </div>
         <Checkbox
@@ -1922,7 +1921,8 @@ export function PartyDossier({
 
       {tab === "Documents" && (
         <Section
-          title="KYC / compliance documents"
+          title={tr("KYC / Compliance Documents")}
+          about={tr("A PDF or clear photo. Add the details now and attach the file later from the row. Verify once you have checked it against the original.")}
           onAdd={() => setAdding("document")}
           extra={
             // The portal asks the client; the client portal's grant (MOD-29)
@@ -1937,13 +1937,6 @@ export function PartyDossier({
           {/* What the client sent through the portal and nobody has accepted
               yet — accepted files are simply documents below (14260, D1). */}
           {isClient && canClientPortal ? <ClientSentFiles clientId={partyId} onChanged={reload} /> : null}
-          <p className="mb-2 micro text-muted-foreground">
-            Add each compliance document and upload its file — a PDF or a clear
-            photo. No file yet? Add the details now and attach it later from the
-            row. Uploading marks the scan as scanned; use Verify after checking
-            the file against the original so the record's verification status
-            becomes Verified.
-          </p>
           {/* One set of records, two shells (see `responsive-list.tsx`). The
               phone branch is not a squeezed table: it is six columns of data
               re-laid out as four lines, which is the only shape in which a
@@ -2159,7 +2152,7 @@ export function PartyDossier({
 
       {tab === "Banks" && (
         <Section
-          title="Bank accounts"
+          title="Bank Accounts"
           onAdd={() => setAdding("bank")}
           onCopy={linkedId ? () => copySection("banks") : undefined}
         >
@@ -2209,7 +2202,7 @@ export function PartyDossier({
 
       {tab === "Registrations" && (
         <Section
-          title="Registrations / tax IDs"
+          title="Registrations / Tax IDs"
           onAdd={() => setAdding("registration")}
         >
           <MiniTable
@@ -2236,7 +2229,7 @@ export function PartyDossier({
       )}
 
       {tab === "Owners" && (
-        <Section title={tr("Beneficial owners")} onAdd={() => setAdding("owner")}>
+        <Section title={tr("Beneficial Owners")} onAdd={() => setAdding("owner")}>
           <MiniTable
             empty={d.beneficial_owners.length === 0}
             head={
@@ -2713,12 +2706,16 @@ function Empty() {
 
 function Section({
   title,
+  about,
   onAdd,
   onCopy,
   extra,
   children,
 }: {
   title: string;
+  /** What this section is for, behind an ⓘ on the heading rather than as a
+   *  paragraph above the rows. See FRONTEND_GUIDE 3.17. */
+  about?: string;
   onAdd: () => void;
   onCopy?: () => void;
   /** Another action beside "+ Add" — "Request from client" on Documents. */
@@ -2728,7 +2725,16 @@ function Section({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+        {/* Sibling of the <h4>, never a child: nested, the icon's aria-label
+            joins the heading's accessible name. */}
+        <div className="flex items-center gap-1.5">
+          <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+          {about ? (
+            <InfoHint label={tv("About {{section}}", { section: title })}>
+              {about}
+            </InfoHint>
+          ) : null}
+        </div>
         <div className="flex gap-2">
           {/* Copy-from-origin (§6) — explicit, never automatic (Hard Rule 2). */}
           {onCopy && (

@@ -792,7 +792,7 @@ function OverdueAgingPanel({
   const total = rows.reduce((n, r) => n + r.tasks, 0);
   return (
     <Panel
-      title="Overdue aging"
+      title="Overdue Aging"
       subtitle="How long open work has been late. Bands, not an average — one task a year late and nine a day late average to nothing anybody recognises."
       action={
         <ChartActions help={CHART_HELP.overdue}>
@@ -930,7 +930,7 @@ function WorkByFilePanel({
   ];
   return (
     <Panel
-      title="Work by operations file"
+      title="Work by Operations File"
       subtitle="Which shipments have work outstanding on them, most overdue first. Counts only tasks linked to a file — a personal reminder is not work on a shipment."
       action={<ChartActions help={CHART_HELP.byFile} />}
       className="min-w-0 overflow-hidden"
@@ -995,7 +995,7 @@ function ByMilestonePanel({
   ];
   return (
     <Panel
-      title="Work by milestone"
+      title="Work by Milestone"
       subtitle="Where this file's work sits along its chain. Linking a task to a milestone never moves it — the chain is what was promised a client, and a to-do list does not get to advance it."
       action={<ChartActions help={CHART_HELP.milestone} />}
       className="min-w-0 overflow-hidden"
@@ -1049,7 +1049,7 @@ function CycleTimePanel({ data }: { data: AnalyticsResponse }) {
   }));
   return (
     <Panel
-      title="Cycle time"
+      title="Cycle Time"
       subtitle={
         data.cycle_time.median_days === null
           ? "How long finished work took, from writing it down to closing it."
@@ -1148,7 +1148,7 @@ function BlockedPanel({
   if (rows.length === 0) {
     return (
       <Panel
-        title="Blocked work"
+        title="Blocked Work"
         subtitle="Open tasks waiting on something unfinished or carrying a registered blockage, longest wait first."
         action={<ChartActions help={CHART_HELP.blocked} />}
         className="min-w-0 overflow-hidden"
@@ -1173,7 +1173,7 @@ function BlockedPanel({
 
   return (
     <Panel
-      title="Blocked work"
+      title="Blocked Work"
       subtitle="Open tasks waiting on something unfinished or carrying a registered blockage — tap a bar or assignee below to read every note."
       action={<ChartActions help={CHART_HELP.blocked} />}
       className="min-w-0 overflow-hidden"

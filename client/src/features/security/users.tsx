@@ -675,7 +675,7 @@ export function UsersPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Security & access" to="/security" />}
+        eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title={tr("Users")}
         description="Tenant user accounts. Roles decide reach; status decides whether they can sign in at all."
         action={

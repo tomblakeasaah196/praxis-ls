@@ -524,7 +524,7 @@ export function LeavePage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Human capital" to="/hr" />}
+        eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title="Leave & allowances"
         description="Approve or reject leave, salary-advance and mission requests."
         action={<Button onClick={() => setCreating(true)}>{tr("New request")}</Button>}

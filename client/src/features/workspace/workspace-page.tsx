@@ -59,7 +59,7 @@ export function WorkspacePage() {
         <KpiTile label="Unread alerts" value={num(unread)} />
       </KpiRow>
 
-      <Panel title="Where things went" className="mt-4">
+      <Panel title="Where Things Went" className="mt-4">
         <ul className="space-y-2 text-sm">
           <li>
             <Link to="/workspace/today" className="text-primary-ink hover:underline">

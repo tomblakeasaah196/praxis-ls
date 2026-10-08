@@ -175,7 +175,7 @@ export function QueriesPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Human capital" to="/hr" />}
+        eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Queries")}
         description="Disciplinary queries raised to employees, and their responses."
         action={<Button onClick={() => setCreating(true)}>New query</Button>}
@@ -404,7 +404,7 @@ export function SanctionsPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Human capital" to="/hr" />}
+        eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Sanctions")}
         description="Disciplinary sanctions on record — warnings, suspensions, fines and more."
         action={<Button onClick={() => setCreating(true)}>New sanction</Button>}

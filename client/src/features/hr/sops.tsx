@@ -45,7 +45,7 @@ export const READINESS: { value: string; label: string; tone: Tone }[] = [
 export const readinessMeta = (v?: string | null) =>
   READINESS.find((r) => r.value === v);
 
-export const eyebrow = <HubCrumb area="Human capital" to="/hr" />;
+export const eyebrow = <HubCrumb area="Human Capital" to="/hr" />;
 
 const SCOPE_LABEL: Record<string, string> = {
   COMPANY: "All staff",

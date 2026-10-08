@@ -580,7 +580,7 @@ function SignaturesTab({ order }: { order: api.TransitOrder }) {
         title={tr("Signatures on this order")}
       />
       {order.signed_by_name && (
-        <Panel title="Client signature on file">
+        <Panel title="Client Signature on File">
           <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <Fact label="Signed by" value={order.signed_by_name} />
             <Fact
@@ -599,7 +599,7 @@ function DocumentsTab({ order }: { order: api.TransitOrder }) {
   return (
     <div className="space-y-5">
       <Panel
-        title="This order"
+        title="This Order"
         subtitle="The printed instruction, as the declarant receives it."
       >
         <DocButton
@@ -611,7 +611,7 @@ function DocumentsTab({ order }: { order: api.TransitOrder }) {
       </Panel>
       {order.dossier_id && (
         <Panel
-          title="On the operations file"
+          title="On the Operations File"
           subtitle="What is already attached, so the evidence behind this order can be read without leaving it."
         >
           <DossierDocuments dossierId={order.dossier_id} />

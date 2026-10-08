@@ -294,12 +294,12 @@ describe("Analytics — chart guidance and blocked detail", () => {
       screen.getByRole("heading", { name: "Throughput" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Overdue aging" }),
+      screen.queryByRole("heading", { name: "Overdue Aging" }),
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(
-      await screen.findByRole("heading", { name: "Overdue aging" }),
+      await screen.findByRole("heading", { name: "Overdue Aging" }),
     ).toBeInTheDocument();
     expect(screen.getByText("2 / 7")).toBeInTheDocument();
 

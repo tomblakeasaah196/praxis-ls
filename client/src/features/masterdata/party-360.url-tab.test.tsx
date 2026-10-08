@@ -96,14 +96,14 @@ describe("PartyDossier · tab state is URL state", () => {
     expect(lastSearch).toBe("");
 
     await user.click(screen.getByRole("button", { name: /^Banks/ }));
-    expect(await screen.findByText("Bank accounts")).toBeInTheDocument();
+    expect(await screen.findByText("Bank Accounts")).toBeInTheDocument();
     expect(lastSearch).toBe("?tab=Banks");
 
     // The remount is the reload: a fresh tree at the URL the click produced
     // must land on Banks, not Overview.
     first.unmount();
     mount("/?tab=Banks");
-    expect(await screen.findByText("Bank accounts")).toBeInTheDocument();
+    expect(await screen.findByText("Bank Accounts")).toBeInTheDocument();
     expect(screen.queryByText("Compliance")).toBeNull();
   });
 
@@ -111,7 +111,7 @@ describe("PartyDossier · tab state is URL state", () => {
     const user = userEvent.setup();
     mount("/?tab=Registrations");
 
-    expect(await screen.findByText("Registrations / tax IDs")).toBeInTheDocument();
+    expect(await screen.findByText("Registrations / Tax IDs")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /^Overview$/ }));
     expect(await screen.findByText("Compliance")).toBeInTheDocument();

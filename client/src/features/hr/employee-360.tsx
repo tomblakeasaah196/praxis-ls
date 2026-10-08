@@ -1263,7 +1263,7 @@ export function EditEmployeeForm({
           </div>
         </Section>
 
-        <Section title="Identity document">
+        <Section title="Identity Document">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={tr("Type")}>
               <Select
@@ -1368,7 +1368,7 @@ export function EditEmployeeForm({
           </div>
         </Section>
 
-        <Section title="The engagement">
+        <Section title="The Engagement">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={tr("Employer entity")} data-field="entity_id">
               <Select
@@ -2290,7 +2290,7 @@ export function EmployeesPage() {
   return (
     <section className={shell}>
       <PageHeader
-        eyebrow={<HubCrumb area="Human capital" to="/hr" />}
+        eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Employees")}
         description="The staff master — pick a person for their full HR record and history."
         action={<Button onClick={() => setCreating(true)}>New employee</Button>}
