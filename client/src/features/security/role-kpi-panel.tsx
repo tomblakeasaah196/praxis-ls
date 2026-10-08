@@ -19,6 +19,7 @@
  * eligibility answer echoed back (`eligibleIds`), which is the whole point of
  * this screen being one request and one PUT.
  */
+import { InfoHint } from "@/components/ui/info-hint";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -203,9 +204,16 @@ export function RoleKpiPanel({ roleId }: { roleId: string }) {
 
       {/* ── default four ─────────────────────────────────────────────────── */}
       <div className="mb-4">
-        <p className="mb-1.5 text-micro uppercase text-muted-foreground">
-          {t("dash.roleKpiDefaultsLabel")}
-        </p>
+        <span className="mb-1.5 flex items-center gap-2">
+          <span className="text-micro uppercase text-muted-foreground">
+            {t("dash.roleKpiDefaultsLabel")}
+          </span>
+          {/* SIBLING of the caption, never inside it: inside, the ⓘ's
+              aria-label joins the caption's own text. §3.17. */}
+          <InfoHint label={t("dash.roleKpiDefaultsLabel")}>
+            {t("dash.roleKpiDefaultsAbout")}
+          </InfoHint>
+        </span>
         {defaults.length === 0 ? (
           <p className="text-label text-muted-foreground">{t("common.none")}</p>
         ) : (
