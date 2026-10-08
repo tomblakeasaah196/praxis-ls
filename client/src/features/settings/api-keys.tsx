@@ -133,7 +133,7 @@ function KeyForm({
               disabled={locked}
             />
           </Field>
-          <Field label="Key name" hint="Optional label (e.g. env var name)">
+          <Field label="Key Name" hint="Optional label (e.g. env var name)">
             <Input
               value={keyName}
               onChange={(e) => setKeyName(e.target.value)}

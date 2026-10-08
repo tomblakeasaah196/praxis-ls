@@ -200,7 +200,7 @@ function RunDetail({
     },
     {
       key: "net",
-      label: "Net pay",
+      label: "Net Pay",
       className: "num text-right",
       render: (it) => money(it.net_pay),
     },

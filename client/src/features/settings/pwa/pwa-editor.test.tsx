@@ -497,7 +497,7 @@ describe("PwaPage", () => {
     renderPage();
     await user.click(screen.getByRole("tab", { name: "Identity" }));
 
-    const appName = await screen.findByLabelText("App name");
+    const appName = await screen.findByLabelText("App Name");
     // Empty, but the brand name is visible — "unset" reads as "same as the
     // brand", which is what makes this screen safe to open and close.
     expect(appName).toHaveValue("");
@@ -510,7 +510,7 @@ describe("PwaPage", () => {
     renderPage();
 
     await user.click(screen.getByRole("tab", { name: "Identity" }));
-    await user.type(await screen.findByLabelText("App name"), "Acme Go");
+    await user.type(await screen.findByLabelText("App Name"), "Acme Go");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(saveSpy).toHaveBeenCalled());
@@ -529,7 +529,7 @@ describe("PwaPage", () => {
     renderPage();
 
     await user.click(screen.getByRole("tab", { name: "Identity" }));
-    const appName = await screen.findByLabelText("App name");
+    const appName = await screen.findByLabelText("App Name");
     await user.type(appName, "Temp");
     await user.clear(appName);
     await user.click(screen.getByRole("button", { name: "Save" }));

@@ -63,7 +63,7 @@ import { EditEmployeeForm, LiveCopyNotice } from "./employee-360";
  */
 const REQUIREMENTS = {
   fields: [
-    { key: "full_name", label: "Full name", group: "identity", severity: "required" },
+    { key: "full_name", label: "Full Name", group: "identity", severity: "required" },
   ],
   documents: [
     { code: "EMP_ID_CARD", label: "ID card / passport", severity: "required" },
@@ -106,7 +106,7 @@ describe("Edit employee — typing", () => {
     const user = userEvent.setup();
     openForm();
 
-    const input = await screen.findByRole("textbox", { name: /Full name/ });
+    const input = await screen.findByRole("textbox", { name: /Full Name/ });
     await user.click(input);
     expect(document.activeElement).toBe(input);
 
@@ -127,13 +127,13 @@ describe("Edit employee — typing", () => {
     const user = userEvent.setup();
     openForm();
 
-    const input = await screen.findByRole("textbox", { name: /Full name/ });
+    const input = await screen.findByRole("textbox", { name: /Full Name/ });
     await user.clear(input);
     await user.type(input, "Elisha Godwin");
 
     // On the old code this stopped at "E": every character after the first was
     // typed into <body>, because the input it was aimed at no longer existed.
-    expect(screen.getByRole("textbox", { name: /Full name/ })).toHaveValue(
+    expect(screen.getByRole("textbox", { name: /Full Name/ })).toHaveValue(
       "Elisha Godwin",
     );
   });
@@ -144,7 +144,7 @@ describe("Edit employee — typing", () => {
 
     // "Place of birth" lives in Identity, "Place of work" in The engagement —
     // a second section, so this pins the remount rather than one lucky field.
-    const input = await screen.findByRole("textbox", { name: /Place of work/ });
+    const input = await screen.findByRole("textbox", { name: /Place of Work/ });
     await user.click(input);
     await user.type(input, "Douala");
 
@@ -181,20 +181,20 @@ describe("Edit employee — the driving licence", () => {
 
   it("stays out of the way until the box is ticked", async () => {
     openForm();
-    await screen.findByRole("textbox", { name: /Full name/ });
+    await screen.findByRole("textbox", { name: /Full Name/ });
 
-    expect(screen.queryByRole("textbox", { name: /Licence number/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /Licence Number/ })).toBeNull();
     expect(save()).toBeEnabled();
   });
 
   it("blocks the save and names what is still needed", async () => {
     const user = userEvent.setup();
     openForm();
-    await screen.findByRole("textbox", { name: /Full name/ });
+    await screen.findByRole("textbox", { name: /Full Name/ });
 
     await user.click(drives());
 
-    expect(await screen.findByRole("textbox", { name: /Licence number/ })).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: /Licence Number/ })).toBeInTheDocument();
     expect(save()).toBeDisabled();
     // A disabled button with no sentence beside it is a dead end.
     const callout = screen.getByText(/Still needed:/);
@@ -216,17 +216,17 @@ describe("Edit employee — the driving licence", () => {
     });
 
     openForm();
-    await screen.findByRole("textbox", { name: /Full name/ });
+    await screen.findByRole("textbox", { name: /Full Name/ });
     await user.click(drives());
 
     await user.type(
-      await screen.findByRole("textbox", { name: /Licence number/ }),
+      await screen.findByRole("textbox", { name: /Licence Number/ }),
       "CM-000-123",
     );
     // `DateField` is day-first and masks as you type: eight digits, not an ISO
     // string. It stores the ISO date the API wants — see date-field.tsx.
-    await user.type(screen.getByRole("textbox", { name: /Valid from/ }), "14052021");
-    await user.type(screen.getByRole("textbox", { name: /Valid until/ }), "14052031");
+    await user.type(screen.getByRole("textbox", { name: /Valid From/ }), "14052021");
+    await user.type(screen.getByRole("textbox", { name: /Valid Until/ }), "14052031");
 
     expect(save()).toBeEnabled();
     await user.click(save());
@@ -260,7 +260,7 @@ describe("Edit employee — the driving licence", () => {
     openForm({ ...EMPLOYEE, is_driver: true } as api.Employee);
 
     // Seeded from the row on file, so a renewal is an edit and not a re-type.
-    const number = await screen.findByRole("textbox", { name: /Licence number/ });
+    const number = await screen.findByRole("textbox", { name: /Licence Number/ });
     await waitFor(() => expect(number).toHaveValue("CM-OLD-1"));
     expect(save()).toBeEnabled();
 
@@ -279,17 +279,17 @@ describe("Edit employee — the driving licence", () => {
   it("does not require the scan — a licence recorded from paper saves", async () => {
     const user = userEvent.setup();
     openForm();
-    await screen.findByRole("textbox", { name: /Full name/ });
+    await screen.findByRole("textbox", { name: /Full Name/ });
     await user.click(drives());
 
     await user.type(
-      await screen.findByRole("textbox", { name: /Licence number/ }),
+      await screen.findByRole("textbox", { name: /Licence Number/ }),
       "CM-000-123",
     );
     // `DateField` is day-first and masks as you type: eight digits, not an ISO
     // string. It stores the ISO date the API wants — see date-field.tsx.
-    await user.type(screen.getByRole("textbox", { name: /Valid from/ }), "14052021");
-    await user.type(screen.getByRole("textbox", { name: /Valid until/ }), "14052031");
+    await user.type(screen.getByRole("textbox", { name: /Valid From/ }), "14052021");
+    await user.type(screen.getByRole("textbox", { name: /Valid Until/ }), "14052031");
 
     // No file picked, and that is the point: 12764's rule is that a scan is a
     // verification gate, not a creation gate.

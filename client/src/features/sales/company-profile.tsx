@@ -166,7 +166,7 @@ export function CompanyProfilePage() {
             </Field>
           ))}
           <Field
-            label="Company profile PDF"
+            label="Company Profile PDF"
             hint="Upload a profile, copy the extracted facts into the same fields above, then confirm them."
           >
             <ScanAttachment

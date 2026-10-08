@@ -105,7 +105,7 @@ export function AcceptDocumentDialog({
         ) : null}
         {need.issuing_authority ? (
           <Field
-            label={tr("Issuing authority")}
+            label={tr("Issuing Authority")}
             htmlFor="kyc-accept-authority"
             required
             className="sm:col-span-2"

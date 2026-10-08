@@ -231,7 +231,7 @@ export function ShareLocationDialog({
               {tr("This position is approximate. On a computer it can be several kilometres out, so name the place below.")}
             </p>
           ) : null}
-          <Field label={tr("Name of the place")} hint={tr("Optional — e.g. Warehouse B, gate 3")}>
+          <Field label={tr("Name of the Place")} hint={tr("Optional — e.g. Warehouse B, gate 3")}>
             <Input value={label} maxLength={200} onChange={(e) => setLabel(e.target.value)} />
           </Field>
         </div>

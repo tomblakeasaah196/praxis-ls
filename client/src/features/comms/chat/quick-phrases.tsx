@@ -68,7 +68,7 @@ export function QuickPhrases({
   if (editing)
     return (
       <div className="space-y-3 p-3">
-        <Field label={tr("Phrase name")}>
+        <Field label={tr("Phrase Name")}>
           <Input
             value={editing.label || ""}
             maxLength={120}
@@ -76,7 +76,7 @@ export function QuickPhrases({
             onChange={(e) => setEditing({ ...editing, label: e.target.value })}
           />
         </Field>
-        <Field label={tr("Phrase text")}>
+        <Field label={tr("Phrase Text")}>
           <Textarea
             value={editing.body || ""}
             maxLength={10000}

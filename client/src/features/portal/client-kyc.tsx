@@ -239,7 +239,7 @@ export function RequestFromClientDialog({
       }
     >
       <div className="grid gap-4">
-        <Field label={tr("Find a document type")} htmlFor="kyc-req-q">
+        <Field label={tr("Find a Document Type")} htmlFor="kyc-req-q">
           <Input id="kyc-req-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr("RCCM, taxpayer card, attestation…")} />
         </Field>
         {status.error ? <ErrorState message={status.error} /> : null}
@@ -265,16 +265,16 @@ export function RequestFromClientDialog({
         <div className="grid gap-2">
           <Checkbox checked={other} onCheckedChange={setOther} label={tr("Other — describe it")} hint={tr("A document with no type yet. It is filed under Other when you accept it.")} />
           {other ? (
-            <Field label={tr("What you need")} htmlFor="kyc-req-other" required>
+            <Field label={tr("What You Need")} htmlFor="kyc-req-other" required>
               <Input id="kyc-req-other" value={otherText} maxLength={200} onChange={(e) => setOtherText(e.target.value)} placeholder={tr("Lease of the warehouse")} />
             </Field>
           ) : null}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr("Due by (optional)")} htmlFor="kyc-req-due">
+          <Field label={tr("Due by (Optional)")} htmlFor="kyc-req-due">
             <DateField id="kyc-req-due" value={dueOn} onChange={setDueOn} min={todayISO()} />
           </Field>
-          <Field label={tr("Note to the client (optional)")} htmlFor="kyc-req-note" className="sm:col-span-2">
+          <Field label={tr("Note to the Client (Optional)")} htmlFor="kyc-req-note" className="sm:col-span-2">
             <Textarea id="kyc-req-note" value={note} maxLength={2000} rows={3} onChange={(e) => setNote(e.target.value)} />
           </Field>
         </div>

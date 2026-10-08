@@ -597,7 +597,7 @@ export function ExtraChargeSimulationsPage() {
       () => [
         {
           key: "new",
-          label: "New simulation",
+          label: "New Simulation",
           primary: true,
           onSelect: () => newRef.current(),
         },
@@ -655,7 +655,7 @@ export function ExtraChargeSimulationsPage() {
     },
     {
       key: "line",
-      label: "Shipping line",
+      label: "Shipping Line",
       render: (r) => cell(r.shipping_line),
     },
     {
@@ -675,7 +675,7 @@ export function ExtraChargeSimulationsPage() {
     },
     {
       key: "window",
-      label: "ATA → gate-out",
+      label: "ATA → Gate-out",
       className: "hidden lg:table-cell",
       render: (r) =>
         r.ata ? (
@@ -842,10 +842,10 @@ export function ExtraChargeSimulationsPage() {
                 <Field label="Gate-out" hint="Left the port">
                   <DateField value={gateOut} onChange={setGateOut} />
                 </Field>
-                <Field label="Empty return" hint="Drives detention">
+                <Field label="Empty Return" hint="Drives detention">
                   <DateField value={emptyReturn} onChange={setEmptyReturn} />
                 </Field>
-                <Field label="Shipping line">
+                <Field label="Shipping Line">
                   <Input
                     value={shippingLine}
                     onChange={(e) => setShippingLine(e.target.value)}
@@ -855,7 +855,7 @@ export function ExtraChargeSimulationsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <Field label="Free days">
+                <Field label="Free Days">
                   <Input
                     type="number"
                     min="0"
@@ -864,7 +864,7 @@ export function ExtraChargeSimulationsPage() {
                     onChange={(e) => setFreeDays(e.target.value)}
                   />
                 </Field>
-                <Field label="Yard from">
+                <Field label="Yard From">
                   <Input
                     type="number"
                     min="1"

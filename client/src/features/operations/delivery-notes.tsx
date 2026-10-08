@@ -103,7 +103,7 @@ export function DeliveryNotesPage() {
     },
     {
       key: "delivery_date",
-      label: "Delivery date",
+      label: "Delivery Date",
       // Historic notes predate the column, so "—" means "not recorded" rather
       // than "not delivered" — 10694 deliberately did not backfill a date it
       // could not know.
@@ -111,7 +111,7 @@ export function DeliveryNotesPage() {
     },
     {
       key: "received_by_name",
-      label: "Signed by",
+      label: "Signed By",
       render: (r) =>
         r.received_by_name || <span className="text-muted">—</span>,
     },

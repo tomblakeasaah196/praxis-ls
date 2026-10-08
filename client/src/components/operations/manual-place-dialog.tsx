@@ -231,7 +231,7 @@ export function ManualPlaceDialog({
         </div>
 
         <Field
-          label="Address or description"
+          label="Address or Description"
           hint="Optional. Gate number, landmark, whatever the driver needs."
         >
           <Input

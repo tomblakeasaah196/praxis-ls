@@ -1074,7 +1074,7 @@ function UnlockDialog({
           }
         }}
       >
-        <Field label={tr("Why does it need reopening?")} required>
+        <Field label={tr("Why Does It Need Reopening?")} required>
           <Textarea
             rows={3}
             value={reason}

@@ -267,7 +267,7 @@ export function DossierWizard({
               </Select>
             </Field>
             <Field
-              label={tr("Service type")}
+              label={tr("Service Type")}
               required
               className="sm:col-span-2"
               hint="Decides which details this file captures, and its milestone chain."

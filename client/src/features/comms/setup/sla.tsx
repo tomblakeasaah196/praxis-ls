@@ -93,10 +93,10 @@ function PolicyDialog({
         <Field label={tr("Name")} hint={tr("What this covers: “Client enquiries”, “Supplier chasers”.")}>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label={tr("First reply within (minutes)")} hint={tr("Counted in working hours, not clock hours.")}>
+        <Field label={tr("First Reply Within (Minutes)")} hint={tr("Counted in working hours, not clock hours.")}>
           <Input type="number" min={1} value={first} onChange={(e) => setFirst(e.target.value)} />
         </Field>
-        <Field label={tr("Resolved within (minutes)")}>
+        <Field label={tr("Resolved Within (Minutes)")}>
           <Input type="number" min={1} value={resolve} onChange={(e) => setResolve(e.target.value)} />
         </Field>
         <Field label={tr("Active")}>

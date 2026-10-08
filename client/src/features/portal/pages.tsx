@@ -185,7 +185,7 @@ function GrantModal({
         <Field label={tr("Name")} required={invite} hint={tr("Greets them in the email and the portal.")}>
           <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={120} />
         </Field>
-        <Field label={tr("Last day of access")} hint={tr("Optional — recommended for auditors.")}>
+        <Field label={tr("Last Day of Access")} hint={tr("Optional — recommended for auditors.")}>
           <DateField value={expiresAt} onChange={setExpiresAt} min={todayISO()} />
         </Field>
         <Checkbox

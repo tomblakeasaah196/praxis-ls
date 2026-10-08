@@ -153,7 +153,7 @@ describe("the client chat's reply box", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("4.04350, 9.69660")).toBeInTheDocument();
     expect(within(dialog).getByText("± 12 m")).toBeInTheDocument();
-    await user.type(within(dialog).getByLabelText(/Name of the place/), "Warehouse B, gate 3");
+    await user.type(within(dialog).getByLabelText(/Name of the Place/), "Warehouse B, gate 3");
     await user.click(within(dialog).getByRole("button", { name: /Send location/ }));
 
     expect(posts()).toEqual([

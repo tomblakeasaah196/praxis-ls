@@ -401,7 +401,7 @@ export function SignaturesSettingsPage() {
                 </span>
               </label>
               <Field
-                label={tr("Keep verification records for (days)")}
+                label={tr("Keep Verification Records for (Days)")}
                 className="max-w-xs"
                 hint="Verification records include the network address they came from."
               >

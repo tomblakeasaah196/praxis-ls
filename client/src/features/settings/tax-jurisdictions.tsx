@@ -530,7 +530,7 @@ function CodeFormModal({
             />
           </Field>
           <Field
-            label={tr("Applies to")}
+            label={tr("Applies To")}
             hint="sales · purchases · salary · nonresident"
           >
             <Input
@@ -539,14 +539,14 @@ function CodeFormModal({
               placeholder="sales"
             />
           </Field>
-          <Field label="Base rule" hint="service_ht · turnover · net_taxable…">
+          <Field label="Base Rule" hint="service_ht · turnover · net_taxable…">
             <Input
               value={baseRule}
               onChange={(e) => setBaseRule(e.target.value)}
               placeholder="service_ht"
             />
           </Field>
-          <Field label="Legal reference" hint="CGI article / Finance Law year">
+          <Field label="Legal Reference" hint="CGI article / Finance Law year">
             <Input
               value={legalRef}
               onChange={(e) => setLegalRef(e.target.value)}
@@ -569,13 +569,13 @@ function CodeFormModal({
             required
             error={!credit ? "Required — both sides of the entry." : undefined}
           />
-          <Field label={tr("Effective from")} required>
+          <Field label={tr("Effective From")} required>
             <DateField
               value={effectiveFrom}
               onChange={setEffectiveFrom}
             />
           </Field>
-          <Field label="Effective to" hint="Blank = open-ended">
+          <Field label="Effective To" hint="Blank = open-ended">
             <DateField
               value={effectiveTo}
               onChange={setEffectiveTo}

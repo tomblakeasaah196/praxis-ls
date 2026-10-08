@@ -287,7 +287,7 @@ export function OperationsFilesPage() {
             <Select
               value={serviceTypeId}
               onChange={(e) => setServiceTypeId(e.target.value)}
-              aria-label={tr("Service type")}
+              aria-label={tr("Service Type")}
               className="w-full max-w-[14rem]"
             >
               <option value="">All service types</option>

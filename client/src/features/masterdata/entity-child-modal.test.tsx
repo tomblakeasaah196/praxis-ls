@@ -329,10 +329,10 @@ describe("Master Data · entity nested modals", () => {
     // Was blank. A timestamp from the API and a plain date both have to arrive
     // in the one shape the control displays — day-first, dd/mm/yyyy.
     expect(
-      (await screen.findByLabelText("Issued on")).getAttribute("value"),
+      (await screen.findByLabelText("Issued On")).getAttribute("value"),
     ).toBe("21/09/2021");
     expect(
-      (await screen.findByLabelText("Expires on")).getAttribute("value"),
+      (await screen.findByLabelText("Expires On")).getAttribute("value"),
     ).toBe("14/08/2026");
     // The rest of the row is seeded too — the date was the only broken field,
     // and it is worth knowing if that stops being true.
@@ -340,7 +340,7 @@ describe("Master Data · entity nested modals", () => {
       "RC/DLA/2021/B/206",
     );
     expect(
-      (await screen.findByLabelText("Issuing authority")).getAttribute("value"),
+      (await screen.findByLabelText("Issuing Authority")).getAttribute("value"),
     ).toBe("TPI Douala-Bonanjo");
   });
 
@@ -397,7 +397,7 @@ describe("Master Data · entity nested modals", () => {
     const sent = patchSpy();
     try {
       await openRegistrationEdit(user);
-      await user.clear(await screen.findByLabelText("Expires on"));
+      await user.clear(await screen.findByLabelText("Expires On"));
       await user.click(await screen.findByRole("button", { name: /^save$/i }));
 
       await waitFor(() => expect(sent.bodies.length).toBeGreaterThan(0));
@@ -417,7 +417,7 @@ describe("Master Data · entity nested modals", () => {
     const sent = patchSpy();
     try {
       await openRegistrationEdit(user);
-      const expires = await screen.findByLabelText("Expires on");
+      const expires = await screen.findByLabelText("Expires On");
       await user.clear(expires);
       // Typed day-first, as the control reads; stored and sent as ISO.
       await user.type(expires, "14082027");

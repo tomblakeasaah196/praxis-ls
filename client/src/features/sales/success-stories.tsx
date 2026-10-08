@@ -382,7 +382,7 @@ function StoryForm({
 
         <section className="space-y-3 rounded-lg border p-4">
           <h3 className="font-semibold">2. Governed drafting</h3>
-          <Field label="Rough notes" hint="Optional context. Do not include costs, margin or confidential data.">
+          <Field label="Rough Notes" hint="Optional context. Do not include costs, margin or confidential data.">
             <Textarea value={roughNotes} onChange={(event) => setRoughNotes(event.target.value)} rows={3} />
           </Field>
           <Button variant="outline" onClick={generate} loading={generating} disabled={!selected.length || generating}>
@@ -394,14 +394,14 @@ function StoryForm({
         <section className="grid gap-4 rounded-lg border p-4 md:grid-cols-2">
           <h3 className="md:col-span-2 font-semibold">3. Review and structure</h3>
           <Field label={tr("Title")} required><Input value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
-          <Field label="Public slug"><Input value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase())} placeholder="generated-from-title-if-empty" /></Field>
+          <Field label="Public Slug"><Input value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase())} placeholder="generated-from-title-if-empty" /></Field>
           <Field label={tr("Client")} hint="Name and logo appear publicly only with NAMED consent.">
             <select className="h-10 w-full rounded-md border border-input bg-background text-foreground px-3 text-sm [&>option]:bg-background [&>option]:text-foreground" value={clientId} onChange={(event) => setClientId(event.target.value)}>
               <option value="">No named client</option>
               {(clients || []).map((client) => <option key={client.client_id} value={client.client_id}>{client.name || client.client_id}</option>)}
             </select>
           </Field>
-          <Field label={tr("Service category")}><Input value={serviceCategory} onChange={(event) => setServiceCategory(event.target.value)} /></Field>
+          <Field label={tr("Service Category")}><Input value={serviceCategory} onChange={(event) => setServiceCategory(event.target.value)} /></Field>
           <Field label="Headline"><Input value={headline} onChange={(event) => setHeadline(event.target.value)} /></Field>
           <div />
           <div className="md:col-span-2"><Field label="Executive summary"><Textarea value={summary} onChange={(event) => setSummary(event.target.value)} rows={4} /></Field></div>

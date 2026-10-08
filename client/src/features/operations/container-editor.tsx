@@ -274,7 +274,7 @@ export function ContainerEditor({
               >
                 <div className="grid gap-3 sm:grid-cols-12">
                   <Field
-                    label={tr("Container type")}
+                    label={tr("Container Type")}
                     required
                     className="sm:col-span-6"
                   >
@@ -305,7 +305,7 @@ export function ContainerEditor({
                       }
                     />
                   </Field>
-                  <Field label="Load mode" className="sm:col-span-3">
+                  <Field label="Load Mode" className="sm:col-span-3">
                     <Select
                       value={r.load_mode_ref_id}
                       onChange={(e) =>
@@ -392,7 +392,7 @@ export function ContainerEditor({
                         {u.open && (
                           <div className="grid gap-3 border-t border-border pt-2 sm:grid-cols-12">
                             <Field
-                              label={tr("Gross weight (kg)")}
+                              label={tr("Gross Weight (Kg)")}
                               className="sm:col-span-3"
                             >
                               <Input
@@ -408,7 +408,7 @@ export function ContainerEditor({
                               />
                             </Field>
                             <Field
-                              label={tr("Tare (kg)")}
+                              label={tr("Tare (Kg)")}
                               className="sm:col-span-3"
                             >
                               <Input
@@ -439,7 +439,7 @@ export function ContainerEditor({
                               />
                             </Field>
                             <Field
-                              label={tr("IMDG class")}
+                              label={tr("IMDG Class")}
                               className="sm:col-span-3"
                             >
                               <Input
@@ -453,7 +453,7 @@ export function ContainerEditor({
                               />
                             </Field>
                             <Field
-                              label={tr("Out of port")}
+                              label={tr("Out of Port")}
                               className="sm:col-span-4"
                             >
                               <DateField

@@ -104,7 +104,7 @@ function BindModal({
           {point.resolved.why}
         </div>
         <Field
-          label={tr("Send this from")}
+          label={tr("Send This From")}
           hint={tr("Leave unset to inherit the section sender, then the Praxis system sender.")}
         >
           <Select value={choice} onChange={(e) => setChoice(e.target.value)}>

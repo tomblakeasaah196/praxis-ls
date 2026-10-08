@@ -185,7 +185,7 @@ function ItemDetail({
               </Select>
             </Field>
             {isTransfer ? (
-              <Field label="To location">
+              <Field label="To Location">
                 <Select
                   value={toLoc}
                   onChange={(e) => setToLoc(e.target.value)}
@@ -304,7 +304,7 @@ function NewItemForm({
               placeholder="CLI-BRAS-001"
             />
           </Field>
-          <Field label="Unit of measure">
+          <Field label="Unit of Measure">
             <Input
               value={f.uom}
               onChange={(e) => set("uom", e.target.value)}
@@ -313,7 +313,7 @@ function NewItemForm({
           </Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Opening qty">
+          <Field label="Opening Qty">
             <Input
               type="number"
               className="num text-right"
@@ -400,7 +400,7 @@ export function InventoryPage() {
     },
     {
       key: "qty",
-      label: "On hand",
+      label: "On Hand",
       className: "num text-right",
       render: (i) => `${num(i.qty_on_hand)} ${i.uom || ""}`,
     },

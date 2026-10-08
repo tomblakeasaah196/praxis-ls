@@ -435,7 +435,7 @@ function QuestionControl({
 
   if (q.type === "number") {
     return (
-      <Field label="Your answer">
+      <Field label="Your Answer">
         <Input
           type="number"
           min={q.min ?? 1}
@@ -455,7 +455,7 @@ function QuestionControl({
 
   if (q.type === "text") {
     return (
-      <Field label="Your answer">
+      <Field label="Your Answer">
         <Input
           ref={inputRef}
           disabled={disabled}
@@ -481,7 +481,7 @@ function QuestionControl({
         htmlFor={textareaId}
         className="block text-sm font-medium text-foreground"
       >
-        Your answer
+        Your Answer
       </label>
       <div className="flex items-start gap-2">
         <Textarea

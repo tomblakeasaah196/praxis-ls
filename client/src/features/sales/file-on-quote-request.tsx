@@ -108,7 +108,7 @@ export function FileOnQuoteRequestDialog({
           <Field label={tr("File")}>
             <p className="truncate text-sm text-foreground">{file?.name || tr("Document")}</p>
           </Field>
-          <Field label={tr("Quote request")} required>
+          <Field label={tr("Quote Request")} required>
             <NativeSelect value={requestId} onChange={(e) => setRequestId(e.target.value)}>
               {rows.map((r) => {
                 const service = serviceNameOf({ name_en: r.service_name_en as string | null, name_fr: r.service_name_fr as string | null });
@@ -121,7 +121,7 @@ export function FileOnQuoteRequestDialog({
               })}
             </NativeSelect>
           </Field>
-          <Field label={tr("What it is")}>
+          <Field label={tr("What It Is")}>
             <NativeSelect value={kind} onChange={(e) => setKind(e.target.value as QuoteDocumentKind | "")}>
               <option value="">{tr("Not specified")}</option>
               {DOCUMENT_KINDS.map((k) => (

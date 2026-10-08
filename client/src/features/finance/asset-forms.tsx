@@ -162,7 +162,7 @@ export function AssetCreateForm({
               <option value="DECLINING">Declining balance</option>
             </Select>
           </Field>
-          <Field label="Useful life (months)" required>
+          <Field label="Useful Life (Months)" required>
             <Input
               type="number"
               min="1"
@@ -172,7 +172,7 @@ export function AssetCreateForm({
               placeholder="60"
             />
           </Field>
-          <Field label="Acquired on" required className="sm:col-span-2">
+          <Field label="Acquired On" required className="sm:col-span-2">
             <DateField
               value={acquiredOn}
               onChange={setAcquiredOn}
@@ -376,7 +376,7 @@ export function AssetDisposeForm({
     >
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Disposed on" required>
+          <Field label="Disposed On" required>
             <DateField
               value={disposedOn}
               onChange={setDisposedOn}

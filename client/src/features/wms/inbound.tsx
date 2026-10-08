@@ -72,7 +72,7 @@ function PassModal({
       description="Accept the received goods and slot them into a putaway location."
     >
       <form className="space-y-4" onSubmit={submit}>
-        <Field label="Putaway location">
+        <Field label="Putaway Location">
           <Select value={loc} onChange={(e) => setLoc(e.target.value)}>
             <option value="">—</option>
             {locations.map((l) => (
@@ -164,7 +164,7 @@ function NewGrnForm({
     >
       <form className="space-y-4" onSubmit={submit}>
         <Field
-          label={tr("Operations file")}
+          label={tr("Operations File")}
           hint="Optional — the operation this delivery belongs to"
         >
           <OperationsFilePicker

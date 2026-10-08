@@ -133,7 +133,7 @@ function SupplierForm({
             />
           </Field>
           <Field
-            label={tr("Corporate entity")}
+            label={tr("Corporate Entity")}
             hint="Which of your legal entities pays this vendor"
             className="sm:col-span-2"
           >
@@ -177,7 +177,7 @@ function SupplierForm({
               placeholder="RC/DLA/2019/B/5678"
             />
           </Field>
-          <Field label="Payment method">
+          <Field label="Payment Method">
             <Select value={method} onChange={(e) => setMethod(e.target.value)}>
               {PAYMENT_METHODS.map((m) => (
                 <option key={m || "none"} value={m}>
@@ -188,14 +188,14 @@ function SupplierForm({
           </Field>
           {isMomo && (
             <>
-              <Field label="Mobile-money network">
+              <Field label="Mobile-money Network">
                 <Input
                   value={momoNetwork}
                   onChange={(e) => setMomoNetwork(e.target.value)}
                   placeholder="MTN / Orange"
                 />
               </Field>
-              <Field label="Mobile-money number">
+              <Field label="Mobile-money Number">
                 <Input
                   value={momoNumber}
                   onChange={(e) => setMomoNumber(e.target.value)}

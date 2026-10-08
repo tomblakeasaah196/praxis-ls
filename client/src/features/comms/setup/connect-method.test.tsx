@@ -100,7 +100,7 @@ describe("the chooser stands in front of every connect surface", () => {
     await user.click(await screen.findByText("Operations"));
     await user.click(await screen.findByRole("button", { name: CHOOSER_SMTP }));
 
-    expect(await screen.findByLabelText(/IMAP host/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/IMAP Host/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
   });
 

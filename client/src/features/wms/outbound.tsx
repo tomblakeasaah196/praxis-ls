@@ -239,7 +239,7 @@ function OrderDetail({
             onSubmit={add}
             className="grid gap-3 rounded-lg border bg-muted/30 p-4 sm:grid-cols-[1fr_120px_auto] sm:items-end"
           >
-            <Field label="Add item">
+            <Field label="Add Item">
               <Select
                 value={addItem}
                 onChange={(e) => setAddItem(e.target.value)}

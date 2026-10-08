@@ -141,7 +141,7 @@ function AdvancePaymentForm({
             />
           </Field>
           <Field
-            label="Treasury account"
+            label="Treasury Account"
             hint="Bank / cash / mobile-money account that received the funds."
           >
             <Select
@@ -156,13 +156,13 @@ function AdvancePaymentForm({
               ))}
             </Select>
           </Field>
-          <Field label={tr("Entry date")} required>
+          <Field label={tr("Entry Date")} required>
             <DateField
               value={entryDate}
               onChange={setEntryDate}
             />
           </Field>
-          <Field label={tr("Source document ref")} required>
+          <Field label={tr("Source Document Ref")} required>
             <Input
               value={sourceRef}
               onChange={(e) => setSourceRef(e.target.value)}

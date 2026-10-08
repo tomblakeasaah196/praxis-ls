@@ -138,7 +138,7 @@ function NewChecklistForm({ onClose, onSaved }: { onClose: () => void; onSaved: 
               ))}
             </Select>
           </Field>
-          <Field label="Start date" hint="Every due date is an offset from this.">
+          <Field label="Start Date" hint="Every due date is an offset from this.">
             <DateField value={startsOn} onChange={setStartsOn} />
           </Field>
         </div>
@@ -148,7 +148,7 @@ function NewChecklistForm({ onClose, onSaved }: { onClose: () => void; onSaved: 
             chased. Set a start date, or reschedule the checklist later.
           </Callout>
         )}
-        <Field label="Extra steps" hint="One per line. Optional — for anything the template does not cover.">
+        <Field label="Extra Steps" hint="One per line. Optional — for anything the template does not cover.">
           <textarea
             className="w-full resize-y rounded-lg border bg-background px-3 py-2 text-sm"
             rows={3}
@@ -321,7 +321,7 @@ function ChecklistDrawer({
                           title: "Change the start date",
                           description:
                             "Every task in the checklist shifts to keep its offset from day one.",
-                          label: "New start date",
+                          label: "New Start Date",
                           type: "date",
                           defaultValue: c.starts_on || todayISO(),
                           confirmLabel: "Reschedule checklist",
@@ -473,7 +473,7 @@ function TemplateDrawer({ id, onClose, onChanged }: { id: string; onClose: () =>
                 onChange={(e) => setF((s) => ({ ...s, due_days: e.target.value }))}
               />
             </Field>
-            <Field label="Owner role">
+            <Field label="Owner Role">
               <Input
                 value={f.owner_role}
                 placeholder="HR, IT, Finance…"
@@ -544,7 +544,7 @@ function NewTemplateForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <Field label="Department">
             <Input value={f.department} onChange={(e) => setF((s) => ({ ...s, department: e.target.value }))} />
           </Field>
-          <Field label="Job title">
+          <Field label="Job Title">
             <Input value={f.job_title} onChange={(e) => setF((s) => ({ ...s, job_title: e.target.value }))} />
           </Field>
         </div>

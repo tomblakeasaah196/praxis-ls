@@ -11,7 +11,7 @@
  *                                   on every device (14230)
  *     otherwise                   → the password
  *
- *   The others stay one tap away ("Use passkey", "Use PIN", "Use password"),
+ *   The others stay one tap away ("Use passkey", "Use PIN", "Use Password"),
  *   because a credential can be revoked from another session and the person at
  *   the machine must always have a way in.
  *
@@ -152,7 +152,7 @@ describe("SignInPanel — the device leads with the best route it can complete",
     expect(pinBoxes()).toHaveLength(0);
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Use PIN" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Use password" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Use Password" })).toBeInTheDocument();
   });
 
   it("offers the account's PIN on a device where it was never set up — one PIN, every device", () => {
@@ -166,7 +166,7 @@ describe("SignInPanel — the device leads with the best route it can complete",
     // …but the passkey is one tap away, because the record can be erased while
     // the passkey itself is still in the keychain.
     expect(usePasskey()).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Use password" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Use Password" })).toBeInTheDocument();
   });
 
   it("offers no PIN for an account that has none", () => {
@@ -198,7 +198,7 @@ describe("SignInPanel — the device leads with the best route it can complete",
     expect(pinBoxes()).toHaveLength(4);
     expect(orb()).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Use password" }));
+    await user.click(screen.getByRole("button", { name: "Use Password" }));
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
   });
 

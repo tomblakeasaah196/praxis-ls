@@ -197,13 +197,13 @@ function PoForm({
               <option value="EUR">EUR</option>
             </Select>
           </Field>
-          <Field label={tr("Delivery date")}>
+          <Field label={tr("Delivery Date")}>
             <DateField value={f.delivery_on} onChange={(iso) => set("delivery_on", iso)} />
           </Field>
-          <Field label={tr("Delivery location")}>
+          <Field label={tr("Delivery Location")}>
             <Input value={f.delivery_location} onChange={(e) => set("delivery_location", e.target.value)} placeholder="Douala HQ" />
           </Field>
-          <Field label={tr("Payment means")}>
+          <Field label={tr("Payment Means")}>
             <Select
               value={f.payment_means ?? ""}
               onChange={(e) => set("payment_means", e.target.value)}
@@ -214,10 +214,10 @@ function PoForm({
               <option value="CHEQUE">Cheque</option>
             </Select>
           </Field>
-          <Field label={tr("Payment days")}>
+          <Field label={tr("Payment Days")}>
             <Input type="number" min={0} className="num" value={f.pay_days} onChange={(e) => set("pay_days", e.target.value)} placeholder="0" />
           </Field>
-          <Field label="WHT % (air)">
+          <Field label="WHT % (Air)">
             <Input type="number" min={0} step="0.01" className="num" value={f.air_rate} onChange={(e) => set("air_rate", e.target.value)} placeholder="5" />
           </Field>
         </div>
@@ -228,10 +228,10 @@ function PoForm({
                 <Field label="Bank">
                   <Input value={f.bank} onChange={(e) => set("bank", e.target.value)} />
                 </Field>
-                <Field label="Account number">
+                <Field label="Account Number">
                   <Input className="num" value={f.account_number} onChange={(e) => set("account_number", e.target.value)} />
                 </Field>
-                <Field label="Account name">
+                <Field label="Account Name">
                   <Input value={f.account_name} onChange={(e) => set("account_name", e.target.value)} />
                 </Field>
               </>
@@ -244,12 +244,12 @@ function PoForm({
                     <option value="ORANGE">Orange</option>
                   </Select>
                 </Field>
-                <Field label="MoMo number">
+                <Field label="MoMo Number">
                   <Input className="num" value={f.momo_number} onChange={(e) => set("momo_number", e.target.value)} />
                 </Field>
               </>
             )}
-            <Field label={tr("Advance paid")}>
+            <Field label={tr("Advance Paid")}>
               <Input type="number" min={0} className="num" value={f.adv_paid} onChange={(e) => set("adv_paid", e.target.value)} placeholder="0" />
             </Field>
           </div>
@@ -301,7 +301,7 @@ function PoForm({
                     }
                   />
                 </Field>
-                <Field label={tr("Unit price")}>
+                <Field label={tr("Unit Price")}>
                   <Input
                     type="number"
                     className="num text-right"
@@ -398,7 +398,7 @@ function PayForm({
               onChange={(e) => set("amount", e.target.value)}
             />
           </Field>
-          <Field label={tr("Paid on")}>
+          <Field label={tr("Paid On")}>
             <DateField
               value={f.paid_on}
               onChange={(iso) => set("paid_on", iso)}
@@ -565,7 +565,7 @@ export function PurchaseOrdersPage() {
     },
     {
       key: "net_payable",
-      label: "Net payable",
+      label: "Net Payable",
       className: "num text-right",
       render: (r) => (r.net_payable !== null && r.net_payable !== undefined ? money(r.net_payable) : "—"),
     },

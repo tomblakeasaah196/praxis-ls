@@ -128,7 +128,7 @@ function CustomFieldForm({
     >
       <div className="space-y-4">
         <Field
-          label="Entity type"
+          label="Entity Type"
           hint={
             editing
               ? "Locked after creation"

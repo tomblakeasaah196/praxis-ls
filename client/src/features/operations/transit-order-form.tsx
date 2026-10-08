@@ -342,7 +342,7 @@ export function TransitForm({
               onClear={() => void pickDossier("")}
             />
             <Field
-              label="Issuing entity"
+              label="Issuing Entity"
               hint="Whose letterhead this prints on. Defaults to the file's."
             >
               <Select
@@ -420,7 +420,7 @@ export function TransitForm({
             </Field>
             {!f.customs_regime && (
               <Field
-                label="Other regime"
+                label="Other Regime"
                 hint="The write-in line on the printed form."
               >
                 <Input
@@ -431,7 +431,7 @@ export function TransitForm({
               </Field>
             )}
             <Field
-              label="Departure date"
+              label="Departure Date"
               hint="Prints as “Date de départ”. May still change after issue."
             >
               <DateField
@@ -450,7 +450,7 @@ export function TransitForm({
            */}
           <div className="grid gap-4 sm:grid-cols-3">
             <Field
-              label="Declared value"
+              label="Declared Value"
               required
               hint="The customs value of the cargo — the base duty is assessed on. Usually the supplier-invoice value, and not necessarily in XAF."
             >
@@ -522,7 +522,7 @@ export function TransitForm({
           <div className="micro">3 · Liability</div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Insurance carried by"
+              label="Insurance Carried By"
               hint="Prints the “Assurance non couverte…” clause."
             >
               <Select
@@ -535,7 +535,7 @@ export function TransitForm({
               </Select>
             </Field>
             <Field
-              label="Surveyor applied for by"
+              label="Surveyor Applied for By"
               hint="Who calls the expert if the cargo is damaged."
             >
               <Select
@@ -659,7 +659,7 @@ export function TransitForm({
           {f.dossier_id && <DossierDocuments dossierId={f.dossier_id} />}
         </section>
 
-        <Field label="Special instructions">
+        <Field label="Special Instructions">
           <Textarea
             rows={2}
             value={f.instructions}

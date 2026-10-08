@@ -83,7 +83,7 @@ function LogFillForm({
           </Select>
         </Field>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Odometer (km)">
+          <Field label="Odometer (Km)">
             <Input
               type="number"
               className="num text-right"
@@ -111,7 +111,7 @@ function LogFillForm({
           </Field>
         </div>
         <Field
-          label={tr("Operations file")}
+          label={tr("Operations File")}
           hint="Optional — attribute the fuel cost to an operation"
         >
           <OperationsFilePicker

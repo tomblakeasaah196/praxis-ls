@@ -206,7 +206,7 @@ function AddApplicantForm({
       description="Add a candidate to this vacancy's pipeline. The more you fill in, the more the AI score has to read."
     >
       <form className="space-y-4" onSubmit={submit}>
-        <Field label={tr("Full name")} required>
+        <Field label={tr("Full Name")} required>
           <Input
             value={f.full_name}
             onChange={(e) => set("full_name", e.target.value)}
@@ -261,7 +261,7 @@ function AddApplicantForm({
           ))}
         </datalist>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Years of experience">
+          <Field label="Years of Experience">
             <Input
               type="number"
               min={0}
@@ -282,7 +282,7 @@ function AddApplicantForm({
               onChange={(e) => set("expected_salary", e.target.value)}
             />
           </Field>
-          <Field label="Portfolio link">
+          <Field label="Portfolio Link">
             <Input
               type="url"
               placeholder="linkedin.com/in/them"
@@ -329,7 +329,7 @@ function AddApplicantForm({
           disabled={busy}
         />
         <Field
-          label="Cover note"
+          label="Cover Note"
           hint="Anything they sent or said — the AI reads it alongside the CV."
         >
           <Textarea

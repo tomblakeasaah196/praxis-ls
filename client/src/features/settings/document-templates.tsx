@@ -109,7 +109,7 @@ function TemplateForm({
             />
           </Field>
           <Field
-            label="Document type key"
+            label="Document Type Key"
             hint={
               editing
                 ? "Locked after creation"
@@ -142,7 +142,7 @@ function TemplateForm({
           />
         </Field>
         <Field
-          label="CSS variables (JSON)"
+          label="CSS Variables (JSON)"
           hint='Optional — overrides for this template, e.g. {"--brand": "#F5821F"}'
         >
           <Textarea

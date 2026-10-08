@@ -213,7 +213,7 @@ export function ClientForm({
               />
             )}
           </FormField>
-          <FormField form={form} name="legal_name" label={tr("Legal name")} required>
+          <FormField form={form} name="legal_name" label={tr("Legal Name")} required>
             {(field) => (
               <Input
                 {...field}
@@ -222,7 +222,7 @@ export function ClientForm({
               />
             )}
           </FormField>
-          <FormField form={form} name="trading_name" label="Trading / DBA name">
+          <FormField form={form} name="trading_name" label="Trading / DBA Name">
             {(field) => (
               <Input
                 {...field}
@@ -258,7 +258,7 @@ export function ClientForm({
           <FormField
             form={form}
             name="entity_id"
-            label={tr("Corporate entity")}
+            label={tr("Corporate Entity")}
             about="Which of our entities bills this client. Only active entities are offered for a new link; an existing link to a deactivated entity stays as history."
           >
             {(field) => (
@@ -355,7 +355,7 @@ export function ClientForm({
           <FormField
             form={form}
             name="payment_terms_days"
-            label="Payment terms (days)"
+            label="Payment Terms (Days)"
           >
             {(field) => (
               <Input
@@ -368,7 +368,7 @@ export function ClientForm({
               />
             )}
           </FormField>
-          <FormField form={form} name="credit_limit" label="Credit limit (XAF)">
+          <FormField form={form} name="credit_limit" label="Credit Limit (XAF)">
             {(field) => (
               <Input
                 type="number"
@@ -383,7 +383,7 @@ export function ClientForm({
           <FormField
             form={form}
             name="email"
-            label="Billing email"
+            label="Billing Email"
             hint="Used to send invoices & receipts"
           >
             {(field) => (
@@ -418,7 +418,7 @@ export function ClientForm({
           <FormField
             form={form}
             name="is_withholding_agent"
-            label="Withholding agent"
+            label="Withholding Agent"
           >
             {(field) => (
               <Checkbox
@@ -478,7 +478,7 @@ export function ClientsPage() {
     { key: "niu", label: "NIU" },
     {
       key: "address",
-      label: "Registered address",
+      label: "Registered Address",
       render: (r) => {
         const parts = [r.address, r.city].filter(Boolean).join(", ");
         return parts || <span className="text-muted-foreground">—</span>;
@@ -492,7 +492,7 @@ export function ClientsPage() {
     },
     {
       key: "credit_limit",
-      label: "Credit limit",
+      label: "Credit Limit",
       className: "num text-right",
       render: (r) => money(r.credit_limit),
     },

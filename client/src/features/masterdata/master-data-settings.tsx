@@ -467,7 +467,7 @@ export function MasterDataSettings({
             addFields={[
               {
                 key: "applies_to",
-                label: "Applies to",
+                label: "Applies To",
                 options: ["BOTH", "CLIENT", "SUPPLIER"],
               },
             ]}

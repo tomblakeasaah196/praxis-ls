@@ -621,11 +621,11 @@ function InviteSheet({
             />
           </Field>
         </div>
-        <Field label={tr("What they see")}>
+        <Field label={tr("What They See")}>
           <ScopeChoice value={scope} onChange={setScope} />
         </Field>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-start">
-          <Field label={tr("Last day of access")} hint={tr("Leave empty for no end date.")}>
+          <Field label={tr("Last Day of Access")} hint={tr("Leave empty for no end date.")}>
             <DateField value={until} onChange={setUntil} min={todayISO()} />
           </Field>
           <div className="grid grid-cols-1 gap-3 sm:pt-6">
@@ -792,11 +792,11 @@ function PersonSheet({
         >
           <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={120} />
         </Field>
-        <Field label={tr("What they see")}>
+        <Field label={tr("What They See")}>
           <ScopeChoice value={scope} onChange={setScope} />
         </Field>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-start">
-          <Field label={tr("Last day of access")} hint={tr("Leave empty for no end date.")}>
+          <Field label={tr("Last Day of Access")} hint={tr("Leave empty for no end date.")}>
             <div className="flex items-center gap-2">
               <DateField value={until} onChange={setUntil} className="min-w-0 flex-1" />
               {until ? (

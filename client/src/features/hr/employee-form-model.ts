@@ -23,9 +23,9 @@ import type {
 } from "@/lib/hr-api";
 
 export const STEPS = [
-  { key: "identity", label: "Who they are" },
-  { key: "employment", label: "The engagement" },
-  { key: "documents", label: "Papers & access" },
+  { key: "identity", label: "Who They Are" },
+  { key: "employment", label: "The Engagement" },
+  { key: "documents", label: "Papers & Access" },
 ] as const;
 export type StepKey = (typeof STEPS)[number]["key"];
 

@@ -132,6 +132,14 @@ const CASES = [
     to: 'title="Service types"',
   },
   {
+    name: "prose (a field label that is not JSX)",
+    defect: "\"Current password\" in a usePrompt option, twenty lines from three Title Cased password Fields",
+    cmd: ["npm", ["run", "check:prose"]],
+    file: "src/features/security/my-security.tsx",
+    from: 'label: "Current Password"',
+    to: 'label: "Current password"',
+  },
+  {
     name: "dashes (an em dash in tenant copy)",
     defect: "tenant 8 Oct 2026 — \"no emdashes anywhere, it screams AI\"",
     cmd: ["node", ["../scripts/check-dashes.js"]],

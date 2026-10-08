@@ -157,7 +157,7 @@ function ConnectWizard({ onClose, onDone }: { onClose: () => void; onDone: () =>
     >
       {step === 1 && (
         <div className="space-y-3">
-          <Field label={tr("Your work email address")} required hint={tr("The professional address your company gave you.")}>
+          <Field label={tr("Your Work Email Address")} required hint={tr("The professional address your company gave you.")}>
             <Input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -192,16 +192,16 @@ function ConnectWizard({ onClose, onDone }: { onClose: () => void; onDone: () =>
             <div className="rounded-lg border border-border bg-card/40 px-3 py-2 text-sm">{note}</div>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={tr("Incoming server (IMAP)")} required>
+            <Field label={tr("Incoming Server (IMAP)")} required>
               <Input value={f.imap_host} onChange={set("imap_host")} placeholder="mail.yourcompany.cm" />
             </Field>
-            <Field label={tr("IMAP port")} required>
+            <Field label={tr("IMAP Port")} required>
               <Input value={String(f.imap_port)} onChange={set("imap_port")} inputMode="numeric" />
             </Field>
-            <Field label={tr("Outgoing server (SMTP)")} required>
+            <Field label={tr("Outgoing Server (SMTP)")} required>
               <Input value={f.smtp_host} onChange={set("smtp_host")} placeholder="mail.yourcompany.cm" />
             </Field>
-            <Field label={tr("SMTP port")} required>
+            <Field label={tr("SMTP Port")} required>
               <Input value={String(f.smtp_port)} onChange={set("smtp_port")} inputMode="numeric" />
             </Field>
             <Field label={tr("Username")} required hint={tr("On cPanel this is your full email address.")}>
@@ -210,7 +210,7 @@ function ConnectWizard({ onClose, onDone }: { onClose: () => void; onDone: () =>
             <Field label={tr("Password")} required>
               <Input value={f.password} onChange={set("password")} type="password" autoComplete="off" />
             </Field>
-            <Field label={tr("Display name")} hint={tr("What recipients see beside your address.")}>
+            <Field label={tr("Display Name")} hint={tr("What recipients see beside your address.")}>
               <Input value={f.display_name} onChange={set("display_name")} placeholder="Ada Lovelace" />
             </Field>
           </div>

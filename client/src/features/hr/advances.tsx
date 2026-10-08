@@ -125,7 +125,7 @@ function ScheduleModal({
           </Callout>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Over how many months">
+          <Field label="Over How Many Months">
             <Input
               type="number"
               min="1"
@@ -136,7 +136,7 @@ function ScheduleModal({
             />
           </Field>
           <Field
-            label="Each month"
+            label="Each Month"
             error={covers ? undefined : "These instalments never clear the advance."}
           >
             <Input
@@ -247,7 +247,7 @@ function NewAdvanceForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
               onChange={(e) => set("amount", e.target.value)}
             />
           </Field>
-          <Field label="Over how many months" hint="The instalment is worked out from this.">
+          <Field label="Over How Many Months" hint="The instalment is worked out from this.">
             <Input
               type="number"
               min="1"

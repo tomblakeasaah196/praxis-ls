@@ -301,13 +301,13 @@ export function InvoiceSubmitForm({
     >
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Posting date" required>
+          <Field label="Posting Date" required>
             <DateField
               value={entryDate}
               onChange={setEntryDate}
             />
           </Field>
-          <Field label={tr("Source document ref")} required>
+          <Field label={tr("Source Document Ref")} required>
             <Input
               value={sourceRef}
               onChange={(e) => setSourceRef(e.target.value)}

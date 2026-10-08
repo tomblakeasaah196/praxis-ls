@@ -208,7 +208,7 @@ function IdentityStep({
           </Select>
         </Field>
         <Field
-          label={tr("Full name")}
+          label={tr("Full Name")}
           required
           className="sm:col-span-3"
           hint={tr("As it appears on their ID document.")}
@@ -235,7 +235,7 @@ function IdentityStep({
             ))}
           </Select>
         </Field>
-        <Field label={tr("Marital status")}>
+        <Field label={tr("Marital Status")}>
           <Select
             value={f.marital_status}
             onChange={(e) => set("marital_status", e.target.value)}
@@ -249,7 +249,7 @@ function IdentityStep({
           </Select>
         </Field>
         <Field
-          label={tr("Dependent children")}
+          label={tr("Dependent Children")}
           hint={tr("Drives family allowance.")}
         >
           <Input
@@ -263,7 +263,7 @@ function IdentityStep({
 
       {showsMaiden && (
         <Field
-          label={tr("Maiden name")}
+          label={tr("Maiden Name")}
           hint={tr(
             "The birth name, where it differs — the contract states both (« Née … Epse … »).",
           )}
@@ -277,13 +277,13 @@ function IdentityStep({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={tr("Date of birth")}>
+        <Field label={tr("Date of Birth")}>
           <DateField
             value={f.date_of_birth}
             onChange={(v) => set("date_of_birth", v)}
           />
         </Field>
-        <Field label={tr("Place of birth")}>
+        <Field label={tr("Place of Birth")}>
           <Input
             value={f.place_of_birth}
             onChange={(e) => set("place_of_birth", e.target.value)}
@@ -291,7 +291,7 @@ function IdentityStep({
           />
         </Field>
         <Field
-          label={tr("Father's name")}
+          label={tr("Father's Name")}
           hint={tr("Named in the contract's identification clause.")}
         >
           <Input
@@ -299,7 +299,7 @@ function IdentityStep({
             onChange={(e) => set("father_name", e.target.value)}
           />
         </Field>
-        <Field label={tr("Mother's name")}>
+        <Field label={tr("Mother's Name")}>
           <Input
             value={f.mother_name}
             onChange={(e) => set("mother_name", e.target.value)}
@@ -338,13 +338,13 @@ function IdentityStep({
               placeholder="000000000"
             />
           </Field>
-          <Field label={tr("Issued on")}>
+          <Field label={tr("Issued On")}>
             <DateField
               value={f.id_document_issued_on}
               onChange={(v) => set("id_document_issued_on", v)}
             />
           </Field>
-          <Field label={tr("Issued at")} hint={tr("The issuing office.")}>
+          <Field label={tr("Issued At")} hint={tr("The issuing office.")}>
             <Input
               value={f.id_document_issued_at}
               onChange={(e) => set("id_document_issued_at", e.target.value)}
@@ -352,7 +352,7 @@ function IdentityStep({
             />
           </Field>
           <Field
-            label={tr("Expires on")}
+            label={tr("Expires On")}
             hint={tr("Leave blank if it does not expire.")}
           >
             <DateField
@@ -398,14 +398,14 @@ function IdentityStep({
               onChange={(e) => set("phone_whatsapp", e.target.value)}
             />
           </Field>
-          <Field label={tr("Desk phone")}>
+          <Field label={tr("Desk Phone")}>
             <Input
               value={f.phone_desk}
               onChange={(e) => set("phone_desk", e.target.value)}
             />
           </Field>
           <Field
-            label={tr("Personal email")}
+            label={tr("Personal Email")}
             hint={tr("Survives the day the work address is disabled.")}
             className="sm:col-span-2"
           >
@@ -493,7 +493,7 @@ function EmploymentStep({
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
-          label={tr("Employer entity")}
+          label={tr("Employer Entity")}
           hint={tr("The company named as the Employer on the contract.")}
         >
           <Select
@@ -520,14 +520,14 @@ function EmploymentStep({
             onChange={setDept}
           />
         </Field>
-        <Field label={tr("Job title")}>
+        <Field label={tr("Job Title")}>
           <Input
             value={f.job_title}
             onChange={(e) => set("job_title", e.target.value)}
             placeholder={tr("Responsable commercial")}
           />
         </Field>
-        <Field label={tr("Contract type")}>
+        <Field label={tr("Contract Type")}>
           <Select
             value={f.employment_type}
             onChange={(e) => set("employment_type", e.target.value)}
@@ -540,7 +540,7 @@ function EmploymentStep({
           </Select>
         </Field>
         <Field
-          label={tr("Reports to")}
+          label={tr("Reports To")}
           hint={tr("Their line manager — who approves their leave and appraisals.")}
           htmlFor="wizard-reports-to"
         >
@@ -565,7 +565,7 @@ function EmploymentStep({
           />
         </Field>
         <Field
-          label={tr("Work email")}
+          label={tr("Work Email")}
           hint={tr("Payslips, contracts and the account invitation go here.")}
         >
           <Input
@@ -575,14 +575,14 @@ function EmploymentStep({
             placeholder="name@company.cm"
           />
         </Field>
-        <Field label={tr("Start date")}>
+        <Field label={tr("Start Date")}>
           <DateField
             value={f.hired_on}
             onChange={(v) => set("hired_on", v)}
           />
         </Field>
         <Field
-          label={tr("Probation (months)")}
+          label={tr("Probation (Months)")}
           hint={tr("« Une période d'essai de 4 mois … renouvelable une fois »")}
         >
           <Input
@@ -593,14 +593,14 @@ function EmploymentStep({
             onChange={(e) => set("probation_months", e.target.value)}
           />
         </Field>
-        <Field label={tr("Place of work")}>
+        <Field label={tr("Place of Work")}>
           <Input
             value={f.place_of_work}
             onChange={(e) => set("place_of_work", e.target.value)}
             placeholder={tr("Head office, Douala")}
           />
         </Field>
-        <Field label={tr("CNPS number")} hint={tr("Social security.")}>
+        <Field label={tr("CNPS Number")} hint={tr("Social security.")}>
           <Input
             value={f.cnps_number}
             onChange={(e) => set("cnps_number", e.target.value)}
@@ -618,7 +618,7 @@ function EmploymentStep({
           />
         </Field>
         <Field
-          label={tr("Record status")}
+          label={tr("Record Status")}
           hint={tr("Pending keeps them off the payroll roster until they start.")}
         >
           <Select
@@ -639,7 +639,7 @@ function EmploymentStep({
       {/* Full width, outside the two-column grid: seven days of times do not
           fit in half a modal, and the contract's line is worth reading. */}
       <Field
-        label={tr("Working hours")}
+        label={tr("Working Hours")}
         hint={tr("Tick the days, set the hours, and say which are worked from home.")}
       >
         <WorkScheduleField
@@ -662,7 +662,7 @@ function EmploymentStep({
           {tr("Remuneration")}
         </legend>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label={tr("Base salary (monthly)")}>
+          <Field label={tr("Base Salary (Monthly)")}>
             <Input
               type="number"
               min={0}
@@ -684,7 +684,7 @@ function EmploymentStep({
               aria-label={tr("Salary currency")}
             />
           </Field>
-          <Field label={tr("Paid by")}>
+          <Field label={tr("Paid By")}>
             <Select
               value={f.payment_method}
               onChange={(e) => set("payment_method", e.target.value)}
@@ -835,7 +835,7 @@ function EmploymentStep({
               onChange={(e) => set("bank_branch", e.target.value)}
             />
           </Field>
-          <Field label={tr("Account number")}>
+          <Field label={tr("Account Number")}>
             <Input
               value={f.bank_account_number}
               onChange={(e) => set("bank_account_number", e.target.value)}
@@ -990,7 +990,7 @@ function DocumentsStep({
                   validity period off the card, and the labels should be the
                   words printed next to it. */}
               <Field
-                label={tr(licence ? "Licence number" : "Number")}
+                label={tr(licence ? "Licence Number" : "Number")}
                 required={licence}
               >
                 <Input
@@ -1001,7 +1001,7 @@ function DocumentsStep({
                 />
               </Field>
               <Field
-                label={tr(licence ? "Valid from" : "Issued on")}
+                label={tr(licence ? "Valid From" : "Issued on")}
                 required={licence}
               >
                 <DateField
@@ -1010,7 +1010,7 @@ function DocumentsStep({
                 />
               </Field>
               <Field
-                label={tr(licence ? "Valid until" : "Expires on")}
+                label={tr(licence ? "Valid Until" : "Expires On")}
                 required={licence}
               >
                 <DateField
@@ -1019,7 +1019,7 @@ function DocumentsStep({
                 />
               </Field>
               <Field
-                label={tr("Paper reference")}
+                label={tr("Paper Reference")}
                 hint={tr("Box or file number.")}
               >
                 <Input

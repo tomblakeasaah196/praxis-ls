@@ -378,7 +378,7 @@ function AskModal({
     >
       <form id="pt-ask-client" onSubmit={(e) => void save(e)} className="grid gap-4">
         <Segmented<"DOCUMENT" | "INFO">
-          label={tr("What you need")}
+          label={tr("What You Need")}
           value={kind}
           onChange={setKind}
           options={[
@@ -413,10 +413,10 @@ function AskModal({
             </Select>
           </Field>
         ) : null}
-        <Field label={tr("Due by (optional)")} htmlFor="pt-ask-due">
+        <Field label={tr("Due by (Optional)")} htmlFor="pt-ask-due">
           <DateField id="pt-ask-due" value={dueOn} onChange={setDueOn} min={todayISO()} />
         </Field>
-        <Field label={tr("Note to the client (optional)")} htmlFor="pt-ask-note">
+        <Field label={tr("Note to the Client (Optional)")} htmlFor="pt-ask-note">
           <Textarea id="pt-ask-note" value={note} maxLength={2000} rows={3} onChange={(e) => setNote(e.target.value)} />
         </Field>
         {error ? <ErrorState message={error} /> : null}
@@ -605,7 +605,7 @@ function ConfirmProofModal({ proof, onClose, onDone }: { proof: StaffProof | nul
             : tr("The client did not name an invoice, so no receipt is drafted — allocate it from Receivables.")}
         </p>
         {drafts && proof.method !== "CASH" ? (
-          <Field label={tr("Received into")} htmlFor="pt-proof-account">
+          <Field label={tr("Received Into")} htmlFor="pt-proof-account">
             <Select id="pt-proof-account" value={account} onChange={(e) => setAccount(e.target.value)}>
               <option value="">{tr("Choose later")}</option>
               {accounts.map((a) => (

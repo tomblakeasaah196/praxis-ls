@@ -55,7 +55,7 @@ import { EmployeeWizard } from "./employee-wizard";
 /** A slice of the server's real list — enough to score a draft against. */
 const REQUIREMENTS = {
   fields: [
-    { key: "full_name", label: "Full name", group: "identity", severity: "required" },
+    { key: "full_name", label: "Full Name", group: "identity", severity: "required" },
     { key: "place_of_birth", label: "Place of birth", group: "identity", severity: "required" },
     { key: "father_name", label: "Father's name", group: "identity", severity: "required" },
     { key: "staff_no", label: "Matricule", group: "employment", severity: "required" },
@@ -101,7 +101,7 @@ beforeEach(() => {
   createEmployee.mockResolvedValue({ employee_id: "emp-9", full_name: "SPECIMEN Marie" });
 });
 
-const nameBox = () => screen.getByLabelText(/^Full name/i);
+const nameBox = () => screen.getByLabelText(/^Full Name/i);
 
 describe("the progress bar", () => {
   it("is a real progressbar, and it advances with the steps", async () => {
@@ -170,7 +170,7 @@ describe("what blocks and what does not", () => {
 describe("the maiden name only exists where one does", () => {
   it("is hidden by default", async () => {
     render();
-    await screen.findByLabelText(/^Full name/i);
+    await screen.findByLabelText(/^Full Name/i);
     expect(screen.queryByLabelText(/Maiden name/i)).not.toBeInTheDocument();
   });
 
@@ -348,7 +348,7 @@ describe("when the save fails", () => {
       await screen.findByText(/Use a date in the form YYYY-MM-DD/i),
     ).toBeInTheDocument();
     // Back on step 1, where the offending field lives — not two steps away.
-    expect(screen.getByLabelText(/^Full name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Full Name/i)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -480,7 +480,7 @@ describe("the driving licence", () => {
     // The exact string: the slot's own heading. A regex would also match the
     // "still missing" list, which is a different assertion.
     expect(screen.queryByText("Driving licence")).toBeNull();
-    expect(screen.queryByRole("textbox", { name: /Licence number/i })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /Licence Number/i })).toBeNull();
     expect(screen.getByRole("button", { name: /Save/i })).toBeEnabled();
   });
 
@@ -514,9 +514,9 @@ describe("the driving licence", () => {
     const u = setup();
     await toDocuments(u);
 
-    await u.type(screen.getByRole("textbox", { name: /Licence number/i }), "CM-000-123");
+    await u.type(screen.getByRole("textbox", { name: /Licence Number/i }), "CM-000-123");
     // Day-first and masked as you type: eight digits, not an ISO string.
-    await u.type(screen.getByRole("textbox", { name: /Valid from/i }), "14052021");
+    await u.type(screen.getByRole("textbox", { name: /Valid From/i }), "14052021");
     await u.type(screen.getByRole("textbox", { name: /Valid until/i }), "14052031");
 
     const save = screen.getByRole("button", { name: /Save/i });
@@ -544,7 +544,7 @@ describe("the driving licence", () => {
   it("keeps what was typed when the box is unticked and ticked again", async () => {
     const u = setup();
     await toDocuments(u);
-    await u.type(screen.getByRole("textbox", { name: /Licence number/i }), "CM-000-123");
+    await u.type(screen.getByRole("textbox", { name: /Licence Number/i }), "CM-000-123");
 
     // Back to step 2, untick, forward again. Re-typing a licence because you
     // went to check something is the kind of small cruelty forms get away with.
@@ -553,7 +553,7 @@ describe("the driving licence", () => {
     await u.click(drives());
     await u.click(screen.getByRole("button", { name: /Continue/i }));
 
-    expect(screen.getByRole("textbox", { name: /Licence number/i })).toHaveValue(
+    expect(screen.getByRole("textbox", { name: /Licence Number/i })).toHaveValue(
       "CM-000-123",
     );
   });
