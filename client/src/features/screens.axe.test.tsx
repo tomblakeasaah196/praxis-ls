@@ -937,7 +937,7 @@ const AREAS: Area[] = [
     ],
   },
   {
-    area: "Master data",
+    area: "Master Data",
     screens: [
       {
         name: "Clients",
@@ -2164,7 +2164,7 @@ const AREAS: Area[] = [
         states: ["populated"],
       },
       {
-        name: "God mode",
+        name: "God Mode",
         render: () => <GodModePage />,
         routes: {
           "/god-mode/soft-deletes": [

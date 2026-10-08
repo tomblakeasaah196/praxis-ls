@@ -353,7 +353,7 @@ describe("row B is the hub's tabs, in the chrome", () => {
       "Inbound / GRN",
       "Outbound",
       "Equipment",
-      "Cycle counts",
+      "Cycle Counts",
     ]);
   });
 
@@ -388,9 +388,9 @@ describe("row B is the hub's tabs, in the chrome", () => {
         .map((l) => l.textContent),
     ).toEqual([
       "Control Tower",
-      "My workspace",
+      "My Workspace",
       "Praxis AI",
-      "Support & feedback",
+      "Support & Feedback",
     ]);
   });
 
@@ -851,7 +851,7 @@ describe("the phone gets the same families, not a scrolled ribbon", () => {
       within(sheet).getByRole("link", { name: "Warehouse" }),
     ).toBeInTheDocument();
     expect(
-      within(sheet).getByRole("link", { name: "Cycle counts" }),
+      within(sheet).getByRole("link", { name: "Cycle Counts" }),
     ).toBeInTheDocument();
   });
 });

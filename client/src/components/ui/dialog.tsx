@@ -42,6 +42,7 @@ import * as React from "react";
 import * as RadixDialog from "@radix-ui/react-dialog";
 import { cn } from "@/lib/cn";
 import { XIcon, AlertTriangleIcon } from "@/components/ui/icons";
+import { InfoHint } from "@/components/ui/info-hint";
 
 export function Dialog({
   open,
@@ -188,11 +189,40 @@ export function Dialog({
               {/* Radix wires this to aria-labelledby. The old Modal duplicated
                   the text into aria-label instead, so the accessible name and
                   the visible heading were two separate strings that could drift. */}
-              <RadixDialog.Title className="truncate text-h2 tracking-tight">
-                {title}
-              </RadixDialog.Title>
+              {/* The ⓘ is a SIBLING of the title, never a child of it. Nested,
+                  its aria-label joins the title's accessible name and the
+                  dialog announces as "New Client About New Client" (and every
+                  getByRole("dialog", { name }) in the suite stops matching). */}
+              <div className="flex min-w-0 items-center gap-1.5">
+                <RadixDialog.Title className="truncate text-h2 tracking-tight">
+                  {title}
+                </RadixDialog.Title>
+                {description ? (
+                  <InfoHint
+                    label={typeof title === "string" ? `About ${title}` : "About this dialog"}
+                    side="bottom"
+                    iconSize={15}
+                    hiddenText={false}
+                  >
+                    {description}
+                  </InfoHint>
+                ) : null}
+              </div>
+              {/*
+                THE SUBTITLE BECAME AN ⓘ (guide §3.17).
+
+                485 dialogs carried one of these, and a form's subtitle is read
+                at most once: by the time somebody opens New Service Type for
+                the second time, "A service you sell" is a line of grey text
+                between them and the first field, on every single open, forever.
+
+                `RadixDialog.Description` still renders, and still backs
+                aria-describedby, so the dialog announces exactly as it did to
+                a screen reader. It is only hidden from the EYE. That is the
+                whole trick: sr-only, not deleted.
+              */}
               {description && (
-                <RadixDialog.Description className="mt-0.5 text-sm text-muted-foreground">
+                <RadixDialog.Description className="sr-only">
                   {description}
                 </RadixDialog.Description>
               )}

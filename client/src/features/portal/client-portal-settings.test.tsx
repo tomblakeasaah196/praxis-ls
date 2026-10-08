@@ -45,7 +45,7 @@ describe("new invitations", () => {
     const user = userEvent.setup();
     mount();
     expect(await screen.findByRole("radio", { name: "Everything" })).toBeChecked();
-    const block = screen.getByText("New invitations").closest("section")!;
+    const block = screen.getByText("New Invitations").closest("section")!;
     const save = within(block).getByRole("button", { name: "Save" });
     expect(save).toBeDisabled();
 

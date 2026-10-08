@@ -25,7 +25,8 @@
  * what to hide — it renders what it was given and explains the gap.
  */
 import * as React from "react";
-import { tr } from "@/lib/i18n";
+import { tr, tv } from "@/lib/i18n";
+import { InfoHint } from "@/components/ui/info-hint";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useUrlTab, useFieldHighlight, useDeepLinkEdit } from "@/lib/use-url-tab";
 import { LetterheadStudio } from "./letterhead-studio";
@@ -267,6 +268,19 @@ function Section({
   children,
 }: {
   title: string;
+  /**
+   * What this section is for. Rendered behind an ⓘ on the heading, NOT as a
+   * subtitle under it.
+   *
+   * There are twenty-odd of these on this one record. As subtitles they put a
+   * paragraph between every heading and its content, so the page a user
+   * scrolled through was half explanation and half data, and the explanation
+   * was identical on every entity they opened and on every visit. The ⓘ keeps
+   * every word for whoever wants it and gives the section back to the data.
+   *
+   * Changing it here rather than at the call sites is the point: one component,
+   * twenty sections, and no chance of the next one being added as a subtitle.
+   */
   description?: string;
   action?: React.ReactNode;
   field?: string;
@@ -276,11 +290,16 @@ function Section({
   return (
     <section data-field={field} className="space-y-3 rounded-xl border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        {/* Sibling, not child: an ⓘ inside the heading puts its aria-label
+            into the heading's accessible name, so "Shareholding" announces as
+            "Shareholding About Shareholding". */}
+        <div className="flex items-center gap-1.5">
           <H className="text-sm font-semibold text-foreground">{title}</H>
-          {description && (
-            <p className="micro text-muted-foreground">{description}</p>
-          )}
+          {description ? (
+            <InfoHint label={tv("About {{section}}", { section: title })}>
+              {description}
+            </InfoHint>
+          ) : null}
         </div>
         {action}
       </div>
@@ -4565,7 +4584,7 @@ function StructureModal({
       <div className="space-y-3">
         <Field
           label="Parent entity"
-          hint="Leave blank for a standalone or top-level company. Only active entities can be a new parent."
+          about="Leave blank for a standalone or top-level company. Only active entities can be a new parent."
         >
           <EntityPicker
             label="Parent entity"

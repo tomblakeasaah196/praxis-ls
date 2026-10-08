@@ -195,7 +195,11 @@ for (const f of files()) {
     if (para) {
       const after = line.slice(para.index + para[0].length);
       const text = literal(after.replace(/^[^>]*>/, "")) ;
-      if (text !== null && /\s/.test(text)) {
+      /* A SENTENCE, not a label. `.micro` is also the class on "Account
+         Manager" and "Also Notify", which are two-word captions over a value
+         and are not what this gate is about. Counting those made a screen look
+         noisier the more it was cleaned up. */
+      if (text !== null && text.length > MAX_EYEBROW) {
         visible++;
         if (text.length > MAX_VISIBLE) {
           problems.long.push({ key, line: i + 1, len: text.length, text });
@@ -247,12 +251,18 @@ for (const f of files()) {
  * service"), and capitalising every word there would read as broken to the
  * francophone half of this product's users.
  */
-const AREAS = join(appRoot, "src/app/layout/areas.ts");
-if (existsSync(AREAS)) {
+/* BOTH copies of the navigation. areas.ts drives the ribbon and the rail;
+   nav-model.ts drives the shell's drawer, and it holds the SAME labels again.
+   Only areas.ts was checked at first, so the drawer kept the old sentence-case
+   names after the ribbon was retitled, and the two disagreed in the same
+   build. If a third copy appears it goes in this list. */
+for (const rel of ["src/app/layout/areas.ts", "src/app/layout/nav-model.ts"]) {
+  const AREAS = join(appRoot, rel);
+  if (!existsSync(AREAS)) continue;
   readFileSync(AREAS, "utf8").split("\n").forEach((line, i) => {
     const m = line.match(/\blabel:\s*(["'])((?:\\.|(?!\1).)*)\1/);
     if (m && !SKIP_TITLE.test(m[2]) && !isTitleCase(m[2])) {
-      problems.title.push({ key: `${app}/src/app/layout/areas.ts`, line: i + 1, text: m[2], abs: AREAS });
+      problems.title.push({ key: `${app}/${rel}`, line: i + 1, text: m[2], abs: AREAS });
     }
   });
 }

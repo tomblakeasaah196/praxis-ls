@@ -113,8 +113,30 @@ const EXTRA_AREA_ICON: Record<string, (p: IP) => React.JSX.Element> = {
   "Praxis AI": PraxisMark,
 };
 
+/*
+ * LOOKED UP CASE-INSENSITIVELY, because these maps are keyed by a LABEL and a
+ * label is copy.
+ *
+ * Title-casing the navigation ("Master data" to "Master Data") silently missed
+ * every key here, so five areas fell through to the MasterIcon default at once
+ * and the rail drew them identically. Nothing failed at the type level: the
+ * maps are Record<string, …>, so a key that matches nothing is just a miss.
+ *
+ * Normalising means the next copy edit cannot do it again. The real fix is to
+ * key by `Area.key`, which never changes, but `iconForArea` is called with a
+ * label from three places including the shell's group headings, so that is a
+ * refactor rather than a bug fix and does not belong in this change.
+ */
+const normaliseLabel = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+const ICON_BY_LABEL = new Map<string, (p: IP) => React.JSX.Element>(
+  Object.entries({ ...AREA_ICON, ...EXTRA_AREA_ICON }).map(([k, v]) => [
+    normaliseLabel(k),
+    v,
+  ]),
+);
+
 export const iconForArea = (label: string): ((p: IP) => React.JSX.Element) =>
-  AREA_ICON[label] ?? EXTRA_AREA_ICON[label] ?? MasterIcon;
+  ICON_BY_LABEL.get(normaliseLabel(label)) ?? MasterIcon;
 
 export type RibbonArea = {
   area: Area;

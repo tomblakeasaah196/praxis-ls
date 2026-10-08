@@ -1207,7 +1207,7 @@ export function ServiceTypeWebTab({
         </h3>
         <Field
           label={`${tr("Closing line")} (${lang.toUpperCase()})`}
-          hint={tr("One sentence the card ends on. Not a slogan — say what the service does for them.")}
+          about={tr("One sentence the card ends on. Not a slogan — say what the service does for them.")}
         >
           <Input
             value={String(draft[claimKey] ?? "")}

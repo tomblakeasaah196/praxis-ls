@@ -803,7 +803,7 @@ export function DictForm({
 
             <Field
               label="Applicability"
-              hint="Where this line surfaces. Overhead/admin lines never appear in a service pick-list."
+              about="Where this line surfaces. Overhead/admin lines never appear in a service pick-list."
             >
               <Segmented
                 label="Applicability"
@@ -1030,7 +1030,7 @@ export function DictForm({
             </Field>
             <Field
               label={tr("Pricing")}
-              hint="Formula-priced items (Demurrage, Storage…) are calculated by the Extra Charges Simulation module from a tariff; the Expense Rates tab still keeps a reference rate for them."
+              about="Formula-priced items (Demurrage, Storage…) are calculated by the Extra Charges Simulation module from a tariff; the Expense Rates tab still keeps a reference rate for them."
             >
               <Segmented
                 label={tr("Pricing")}

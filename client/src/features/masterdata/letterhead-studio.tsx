@@ -480,7 +480,7 @@ function Inspector({
         <div data-field="logo">
           <Field
             label={tr("Mark height (mm)")}
-            hint={tr("4-60. It does not shrink with the page. The image itself is set on the entity's own form.")}
+            about={tr("4-60. It does not shrink with the page. The image itself is set on the entity's own form.")}
           >
             <Input
               type="number"
@@ -742,7 +742,7 @@ function AddressPanel({
           <div data-field="postal_address_id">
             <Field
               label={tr("PO box / postal block")}
-              hint={tr("Automatic takes a postal (mailing) row with a PO box, else the address block's row.")}
+              about={tr("Automatic takes a postal (mailing) row with a PO box, else the address block's row.")}
             >
               <Select
                 value={cfg.postal_address_id || ""}

@@ -521,7 +521,7 @@ export function TemplateForm({
                     </Field>
                     <Field
                       label="Completed automatically by"
-                      hint="An event key that completes this stage when it fires, e.g. delivery_note.created."
+                      about="An event key that completes this stage when it fires, e.g. delivery_note.created."
                     >
                       <Input
                         value={r.auto_advance_on_event}

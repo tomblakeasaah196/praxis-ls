@@ -260,7 +260,7 @@ export function MilestonePolicyForm({
 
           <Field
             label="When an SLA date can no longer be met"
-            hint="Raised when the remaining stages will not fit before the locked date even at their minimum durations."
+            about="Raised when the remaining stages will not fit before the locked date even at their minimum durations."
           >
             <Select
               value={form.onFloorReached || "HOLD_AND_ALERT"}

@@ -528,7 +528,7 @@ function EntityForm({
           </Field>
           <Field
             label={tr("Phone")}
-            hint="Type it however you like — spaces and dashes are removed when you leave the field"
+            about="Type it however you like — spaces and dashes are removed when you leave the field"
           >
             {/* 16 Sep review (M3-B29): "+237 6 90 00 00 00" was refused by the
                 E.164 rule. The shared schema now strips separators server-side;
@@ -839,7 +839,7 @@ function EntityForm({
         >
           <Field
             label="Parent entity"
-            hint="Leave blank for a standalone or top-level company. Only active entities can be a new parent."
+            about="Leave blank for a standalone or top-level company. Only active entities can be a new parent."
             className="sm:col-span-2"
           >
             <EntityPicker

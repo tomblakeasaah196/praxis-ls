@@ -48,7 +48,7 @@ describe("areaEntries", () => {
     const labels = areaEntries(NAV).map((e) => e.label);
     expect(labels).not.toContain("Overview");
     expect(labels).toContain("Control Tower");
-    expect(labels).toContain("My workspace");
+    expect(labels).toContain("My Workspace");
   });
 
   it("keeps a hub to one entry", () => {

@@ -24,10 +24,10 @@ export const NAV: NavGroup[] = [
     prefix: "/",
     items: [
       { to: "/", label: "Control Tower" },
-      { to: "/workspace", label: "My workspace" },
+      { to: "/workspace", label: "My Workspace" },
       { to: "/ai", label: "Praxis AI" },
-      { to: "/support", label: "Support & feedback" },
-      { to: "/godmode", label: "God mode" },
+      { to: "/support", label: "Support & Feedback" },
+      { to: "/godmode", label: "God Mode" },
     ],
   },
   {
@@ -78,12 +78,12 @@ export const NAV: NavGroup[] = [
   {
     heading: "Master data",
     prefix: "/master",
-    items: [{ to: "/master", label: "Master data" }],
+    items: [{ to: "/master", label: "Master Data" }],
   },
   {
     heading: "Vault",
     prefix: "/vault",
-    items: [{ to: "/vault", label: "Vault & compliance" }],
+    items: [{ to: "/vault", label: "Vault & Compliance" }],
   },
   {
     heading: "Comms",
@@ -96,7 +96,7 @@ export const NAV: NavGroup[] = [
   {
     heading: "Security & Access",
     prefix: "/security",
-    items: [{ to: "/security", label: "Security & access" }],
+    items: [{ to: "/security", label: "Security & Access" }],
   },
   {
     heading: "Governance",
@@ -106,7 +106,7 @@ export const NAV: NavGroup[] = [
   {
     heading: "Settings & Admin",
     prefix: "/settings",
-    items: [{ to: "/settings", label: "Settings & admin" }],
+    items: [{ to: "/settings", label: "Settings & Admin" }],
   },
 ];
 

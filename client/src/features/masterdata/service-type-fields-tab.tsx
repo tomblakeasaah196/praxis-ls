@@ -148,12 +148,16 @@ function ContainerCapture({
 
   return (
     <div className="space-y-3 rounded-md border border-border p-4">
-      <h4 className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-        {tr("Equipment on the File")}
+      {/* Sibling, not child: see dialog.tsx. An ⓘ inside a heading joins its
+          accessible name. */}
+      <div className="flex items-center gap-1.5">
+        <h4 className="text-sm font-medium text-foreground">
+          {tr("Equipment on the File")}
+        </h4>
         <InfoHint label={tr("About equipment on the file")}>
           {tr("Whether files of this service type record the containers they move.")}
         </InfoHint>
-      </h4>
+      </div>
 
       {/*
         The checkbox used to carry whichever of two paragraphs matched its

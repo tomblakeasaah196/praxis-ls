@@ -65,6 +65,7 @@ export function InfoHint({
   className,
   iconSize = 14,
   textId,
+  hiddenText = true,
 }: {
   /** The explanation. One or two short sentences. Keep interactive content out:
    *  a hover-opened panel is awkward to click into, and a user who needs to act
@@ -88,20 +89,23 @@ export function InfoHint({
    * accessibility tree instead of twice. Omit it when InfoHint stands alone.
    */
   textId?: string;
+  /**
+   * Set false when the surrounding component ALREADY exposes this text to
+   * assistive technology by another route, as `<Dialog>` does: Radix mints its
+   * own id for `DialogDescription` and wires the dialog's `aria-describedby`
+   * to it, so a hidden copy here would be the same sentence in the document
+   * twice (and `getByText` would find two of it).
+   */
+  hiddenText?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   /* Opened by click or keyboard rather than by hover. A pointer leaving the
      icon must not close a panel the user deliberately pinned open. */
   const [pinned, setPinned] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  /* Whether the focus about to arrive came from a pointer. Without this, a
-     click on an unfocused icon fires onFocus (which opens) and THEN Radix's own
-     click handler (which toggles), so the panel opened and shut in one gesture
-     and a mouse user could never pin it. Focus-to-open is for the keyboard. */
-  const viaPointer = React.useRef(false);
   const uid = React.useId();
   const ownTextId = `${uid}-hint`;
-  const describedBy = textId ?? ownTextId;
+  const describedBy = hiddenText ? (textId ?? ownTextId) : undefined;
 
   const clearTimer = () => {
     if (timer.current) {
@@ -131,11 +135,11 @@ export function InfoHint({
           survive being hidden: the trigger's aria-describedby points here, so
           the explanation is announced on focus without anything being opened.
           Skipped when the caller already renders the text and lent us its id. */}
-      {textId ? null : (
+      {hiddenText && !textId ? (
         <span id={ownTextId} className="sr-only">
           {children}
         </span>
-      )}
+      ) : null}
       <RadixPopover.Root
         open={open}
         onOpenChange={(next) => {
@@ -151,16 +155,23 @@ export function InfoHint({
             aria-describedby={describedBy}
             onPointerEnter={hoverOpen}
             onPointerLeave={hoverClose}
-            onPointerDown={() => {
-              viaPointer.current = true;
-            }}
-            onFocus={() => {
-              if (!viaPointer.current) setOpen(true);
-            }}
-            onBlur={() => {
-              viaPointer.current = false;
-              if (!pinned) setOpen(false);
-            }}
+            /*
+             * FOCUS ALONE DOES NOT OPEN THIS, deliberately.
+             *
+             * It used to, which read well until this button landed inside a
+             * Dialog. There it can be the first focusable element, so Radix's
+             * open-autofocus put focus straight on it, the panel opened over
+             * the first field of every dialog in the app, and the Escape that
+             * should have closed the DIALOG closed the panel instead.
+             * (:focus-visible does not separate the two: jsdom answers true
+             * for programmatic focus, so the guard that looked right in a
+             * browser was a no-op in the suite.)
+             *
+             * Nothing is lost. This is a <button>: Enter and Space open it, so
+             * a keyboard user reaches the text in one keystroke, and a screen
+             * reader already has it from the control's aria-describedby
+             * without opening anything at all.
+             */
             className={cn(
               "inline-flex shrink-0 items-center justify-center rounded-full text-muted-foreground",
               "align-[-0.125em] transition-colors hover:text-foreground",
@@ -182,6 +193,13 @@ export function InfoHint({
                interrupt typing. Keyboard users still reach it: Escape closes,
                and the sr-only span above already carries the text. */
             onOpenAutoFocus={(e) => e.preventDefault()}
+            /* And it does not take focus BACK on close. Radix returns focus to
+               the trigger by default, which is right for a menu the user
+               opened and wrong here: this panel closes when they click
+               somewhere else, and that somewhere else is usually the field
+               they want to type in. Returning focus to the ⓘ would empty the
+               next keystrokes into nothing. */
+            onCloseAutoFocus={(e) => e.preventDefault()}
             onPointerEnter={() => clearTimer()}
             onPointerLeave={hoverClose}
             aria-hidden
