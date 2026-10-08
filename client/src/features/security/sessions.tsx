@@ -22,9 +22,23 @@ import { dateFmt } from "@/lib/format";
 import { tenant } from "@/lib/api-client";
 import { useAction } from "@/lib/use-action";
 import { RowActions } from "@/components/ui/row-actions";
+import { useConfirm } from "@/components/ui/use-confirm";
 import { type Session, shell } from "./shared";
 
 export function SessionsPage() {
+  /*
+   * REVOKING HAD NO CONFIRMATION, AND ITS CONSEQUENCE WAS ON ANOTHER SCREEN.
+   *
+   * `kill.run(r.session_id)` fired straight from the button, and "Revoke all
+   * mine" the same way. What revoking actually does was written in the hub's
+   * Panel `subtitle` — "Revoking invalidates the refresh token immediately" —
+   * which renders UPPERCASE at caption size, on a panel that has no revoke
+   * button, two screens away from the one that does.
+   *
+   * §3.17 puts a consequence at the moment of commit, so it is in the confirm
+   * body here, and the hub's caption is gone.
+   */
+  const [confirm, confirmDialog] = useConfirm();
   const [tab, setTab] = React.useState<"mine" | "all">("mine");
   const mine = useList<Session>("/sessions/mine");
   const all = useList<Session>(tab === "all" ? "/sessions" : null);
@@ -109,7 +123,15 @@ export function SessionsPage() {
             size="sm"
             variant="outline"
             disabled={!!r.killed_at || !!r.expired || kill.busy}
-            onClick={() => kill.run(r.session_id)}
+            onClick={async () => {
+              const ok = await confirm({
+                title: "Revoke This Session?",
+                body: "That sign-in stops working at once, and the next attempt to refresh it is rejected. Whoever is using it has to sign in again.",
+                confirmLabel: "Revoke Session",
+                destructive: true,
+              });
+              if (ok) kill.run(r.session_id);
+            }}
           >
             Revoke
           </Button>
@@ -136,19 +158,28 @@ export function SessionsPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title={tr("Sessions")}
-        description="Active sign-ins. Revoking a session invalidates its refresh token immediately — the next refresh is rejected as reuse."
+        description="Every sign-in currently active on this account, and where it came from."
         action={
           tab === "mine" ? (
             <Button
               variant="outline"
-              onClick={() => killAllMine.run()}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: "Revoke All Other Sessions?",
+                  body: "Every other sign-in on your account stops working at once, on every device. This session stays.",
+                  confirmLabel: "Revoke All Others",
+                  destructive: true,
+                });
+                if (ok) killAllMine.run();
+              }}
               loading={killAllMine.busy}
             >
-              Revoke all mine
+              Revoke All Mine
             </Button>
           ) : undefined
         }
       />
+      {confirmDialog}
       <HubTabs />
       <Segmented
         label="Session scope"
@@ -157,8 +188,8 @@ export function SessionsPage() {
         value={tab}
         onChange={setTab}
         options={[
-          { value: "mine", label: "My sessions" },
-          { value: "all", label: "All sessions" },
+          { value: "mine", label: "My Sessions" },
+          { value: "all", label: "All Sessions" },
         ]}
       />
       {error && (

@@ -73,7 +73,8 @@ function CapabilityForm({
         <Field
           label={tr("Code")}
           required
-          hint="Fixed set — the database rejects anything outside these four."
+          /* @prose:keep the four are fixed in the database, not a convention. */
+          hint="A fixed set: the database rejects anything outside these four."
         >
           <Select
             value={code}
@@ -158,7 +159,7 @@ export function CapabilitiesPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title={tr("Capabilities")}
-        description="ISSUER / VALIDATOR / APPROVER / LINE_MANAGER — who may act on a document, independent of which module they can see."
+        description="ISSUER, VALIDATOR, APPROVER and LINE_MANAGER decide who may act on a document, independent of which module they can see."
         action={
           <Button onClick={() => setForm({ cap: null })}>New capability</Button>
         }

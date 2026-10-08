@@ -342,7 +342,7 @@ function constMaps(src) {
  * `@prose:keep <reason>`, which is where the clause-shaped options live (see
  * §3.18).
  */
-const OBJ_CHROME = /\b(?:label|title|tabLabel)\s*:\s*(?:(?:tr|tv|t|trc)\(\s*)?(["'])((?:(?!\1)[^\\]|\\.)*)\1/g;
+const OBJ_CHROME = /\b(label|title|tabLabel)\s*:\s*(?:(?:tr|tv|t|trc)\(\s*)?(["'])((?:(?!\2)[^\\]|\\.)*)\2/g;
 
 function files() {
   const out = execFileSync(
@@ -426,11 +426,42 @@ function literal(raw) {
   return m[2].replace(/\\(["'])/g, "$1");
 }
 
+const KEEP = /@prose:keep\s+\S+/;
+
+/**
+ * Is this line excused by a `@prose:keep <reason>`?
+ *
+ * On the line itself, on the line above, or on the line that OPENED the block
+ * it sits in.
+ *
+ * THE BLOCK FORM EXISTS BECAUSE THE DECISION IS SOMETIMES ABOUT THE BLOCK.
+ * `pwRules` in my-security.tsx is four `label:` lines that are password rule
+ * text — the object-literal rule's own docblock names "password rules like 'A
+ * number'" as its canonical false positive. Marking each of the four says the
+ * same thing four times and invites the next person to delete three of them;
+ * marking the array says it once, where the reader is looking when they ask
+ * why. The gate already scopes behaviour to a block this way for `empty: {}`,
+ * so the mechanic is the one in use rather than a new one.
+ *
+ * A marker only opens a block when its line ENDS in `[` or `{`, and the block
+ * closes when the indent comes back, so it cannot reach past what it opened.
+ */
 function exempt(lines, i) {
-  const here = lines[i] || "";
-  const above = lines[i - 1] || "";
-  const re = /@prose:keep\s+\S+/;
-  return re.test(here) || re.test(above);
+  if (KEEP.test(lines[i] || "") || KEEP.test(lines[i - 1] || "")) return true;
+  const indent = (lines[i] || "").match(/^\s*/)[0].length;
+  for (let j = i - 1; j >= 0; j--) {
+    const line = lines[j];
+    if (!line.trim()) continue;
+    const at = line.match(/^\s*/)[0].length;
+    if (at >= indent) continue;
+    /* The nearest line that is less indented is the one that opened this
+       block. If it did not open a block, nothing above it can excuse us. */
+    if (!/[[{]\s*$/.test(line)) return false;
+    /* Recurse so a marker on an OUTER block still reaches in: the opening line
+       is itself a line, and exempt() already knows how to excuse one. */
+    return exempt(lines, j);
+  }
+  return false;
 }
 
 function isTitleCase(s) {
@@ -545,6 +576,16 @@ for (const f of files()) {
      `empty: {}` block, the indent that block opened at. */
   let inBlockComment = false;
   let emptyIndent = null;
+  /* THE INDENT A `prompt({` / `confirm({` CALL OPENED AT, or null.
+   *
+   * The prompt rule below reads a prompt's `label` and deliberately NOT its
+   * `title`, and says why: "A prompt's `title` is often a question ('Confirm
+   * it's you') and its `validate` returns a message, so neither is touched."
+   * The generic object-literal rule then matched that same `title:` and
+   * reported it, so the gate contradicted its own documented decision and
+   * asked for "Confirm It's You" — the exact string §3.18 holds up as the one
+   * that must stay. Tracked the way `empty: {}` is tracked. */
+  let promptIndent = null;
   const maps = constMaps(src);
 
   /* A LABEL MAP'S VALUES ARE CHROME. See LABEL_MAP. Run over the whole file
@@ -580,6 +621,8 @@ for (const f of files()) {
        reported as sentence-case chrome — message copy the rule does not touch,
        and eight @prose:keep markers where the structure already says it. */
     if (/^\s*(?:empty|emptyState)\s*(?::|=\{)\s*\{/.test(line)) emptyIndent = indent;
+    if (promptIndent !== null && indent <= promptIndent) promptIndent = null;
+    if (/\b(?:prompt|confirm)\(\{\s*$/.test(line)) promptIndent = indent;
 
     if (exempt(lines, i)) return;
 
@@ -595,7 +638,18 @@ for (const f of files()) {
        worse than not measuring: it would have had somebody shortening copy to
        satisfy a number that no user can see. The rule the codebase now holds is
        one line: `description` is explanation and lives behind the ⓘ, `hint` is
-       visible and is capped. */
+       visible and is capped.
+
+       THAT CLAIM WAS FALSE FOR ONE COMPONENT, AND IT WAS THE WRONG ONE.
+       `SettingsCard` takes `desc`, not `description`, and PRINTED it under the
+       heading: 50 sites, every one of them in the six Configure hubs, 30 of
+       them over the visible cap and the longest 229 characters. The card the
+       whole Settings family is built from was the largest block of printed
+       supporting text in the product, exempt from this rule by the spelling of
+       its prop and from `description`'s exemption by being the counter-example
+       to it. `SettingsCard` now renders `desc` behind the ⓘ like everything
+       else, so the sentence above is true rather than nearly true, and a
+       consequence belongs in its `notice` slot, which is printed. */
     const hint = line.match(/\bhint=(\{?\s*(?:tr|tv|t)?\(?\s*["'][^]*)/);
     if (hint) {
       const text = literal(hint[1]);
@@ -866,7 +920,9 @@ for (const f of files()) {
       OBJ_CHROME.lastIndex = 0;
       let m;
       while ((m = OBJ_CHROME.exec(line)) !== null) {
-        const text = m[2].replace(/\\(["'])/g, "$1");
+        /* A prompt's own `title`. See promptIndent. */
+        if (m[1] === "title" && promptIndent !== null) continue;
+        const text = m[3].replace(/\\(["'])/g, "$1");
         if (SKIP_TITLE.test(text) || text.length > 60) continue;
         /* A NAME NEVER ENDS IN A QUESTION MARK. `confirm({ title: "Delete this
            conversation?" })` is the one shape that is unmistakably a message

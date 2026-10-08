@@ -86,12 +86,12 @@ function ScopeForm({
       open
       onClose={onClose}
       title={editing ? "Edit Scope" : "New Scope"}
-      description="Scopes confine a user to an entity, branch or department. They nest — that tree is the organigramme."
+      description="Scopes confine a user to an entity, branch or department. They nest, and that tree is the organigramme."
     >
       <form className="space-y-4" onSubmit={submit}>
         <Field
           label={tr("Corporate Entity")}
-          hint="Leave blank for a tenant-wide scope."
+          about="Left blank, the scope covers the whole tenant."
         >
           <Select
             value={entityId}
@@ -116,22 +116,22 @@ function ScopeForm({
               Couldn&rsquo;t load entities: {entitiesQ.error}
             </p>
           ) : !entitiesQ.loading && !entities.length ? (
+            /* @prose:keep says an empty dropdown here is not a fault. */
             <p className="micro mt-1">
-              No entities exist in the live schema. Scopes are stored there, so
-              only live entities can be selected — create the entity in LIVE
-              mode, or leave this blank for a tenant-wide scope.
+              No entities exist in LIVE, and scopes are stored there. Create the
+              entity in LIVE mode, or leave this blank for a tenant-wide scope.
             </p>
           ) : null}
         </Field>
         <Field
           label={tr("Code")}
           required
-          hint="Unique within the entity — e.g. HQ, DLA_BRANCH, CUSTOMS_DESK."
+          about="Must be unique within the entity."
         >
           <Input
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="HQ"
+            placeholder="HQ, DLA_BRANCH, CUSTOMS_DESK"
           />
         </Field>
         <Field label={tr("Name")} required>
@@ -143,7 +143,7 @@ function ScopeForm({
         </Field>
         <Field
           label="Parent Scope"
-          hint="Optional — builds the organigramme tree."
+          about="A parent is what builds the organigramme tree."
         >
           <Select
             value={parentId}
@@ -256,8 +256,9 @@ function ScopeMembers({ scopeId }: { scopeId: string }) {
           ))}
         </ul>
       ) : (
+        /* @prose:keep approvals routed to an empty scope stall silently. */
         <p className="micro">
-          Nobody assigned — approvals routed here have no one to action them.
+          Nobody assigned. Approvals routed here have no one to action them.
         </p>
       )}
       <div className="flex items-center gap-2">
@@ -379,7 +380,7 @@ export function ScopesPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title={tr("Scopes")}
-        description="The entity, branch or department a user belongs to. They nest — that tree is the organigramme, and approval steps route through it. Deleting a scope cascades to its assignments."
+        description="The entity, branch or department a user belongs to. They nest, and that tree is the organigramme that approval steps route through."
         action={
           <Button onClick={() => setForm({ scope: null })}>New scope</Button>
         }

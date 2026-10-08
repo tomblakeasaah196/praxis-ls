@@ -80,7 +80,7 @@ export function PasskeyNudge() {
       <Callout tone="info" title="Unlock with one touch instead">
         <div className="flex flex-col gap-3">
           <p>
-            This device has no passkey yet. Your session locks every two hours — set one up and
+            This device has no passkey yet. Your session locks every two hours. Set one up and
             getting back in is a single touch of Face ID, Touch ID or Windows Hello. Nothing to
             type, so nothing to phish. It lives under <strong>{PASSKEY_SETTING_PATH}</strong>.
           </p>
