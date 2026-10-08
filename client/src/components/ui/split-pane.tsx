@@ -236,8 +236,15 @@ export function SplitPane({
       )}
     >
       {/* overflow-hidden so a collapsed 0px pane clips rather than spilling its
-          content across the detail. */}
-      <div id={`${paneId}-pane`} className="min-w-0 overflow-hidden">
+          content across the detail.
+
+          `min-h-0` is what lets a caller that constrains this grid's HEIGHT get
+          a pane that scrolls itself. A grid item's default `min-height: auto`
+          refuses to shrink below its content, so an index pane holding a long
+          list would push the overflow back up to the page however many
+          `overflow-y-auto`s were set below it. It changes nothing for a caller
+          whose grid is auto-height: the row sizes to its content either way. */}
+      <div id={`${paneId}-pane`} className="min-w-0 min-h-0 overflow-hidden">
         {children[0]}
       </div>
 
@@ -277,7 +284,8 @@ export function SplitPane({
 
       <div
         className={cn(
-          "relative min-w-0",
+          // `min-h-0` for the same reason the index pane carries it, above.
+          "relative min-w-0 min-h-0",
           // The gutter is reserved by `activeKind`, not by `active`: a pane that
           // gained 16px of padding at the moment a record opened would shove its
           // own content sideways on every selection.

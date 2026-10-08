@@ -38,8 +38,14 @@ import re, sys, subprocess
 
 APPLY = "--apply" in sys.argv
 
-files = subprocess.run(["git","ls-files","client/src/features/masterdata/*.tsx",
-                        "client/src/features/portal/account-manager.tsx"],
+# POINT THIS AT THE AREA YOU ARE SWEEPING. Left on the last one worked, so the
+# diff of this line is part of the record of which rounds have been done.
+#   round 1 (master data): features/masterdata/*.tsx, portal/account-manager.tsx
+#   round 2 (Smart Mail + My Workspace): below
+files = subprocess.run(["git","ls-files","client/src/features/comms/inbox/*.tsx",
+                        "client/src/features/comms/inbox/composer/*.tsx",
+                        "client/src/features/comms/inbox/work/*.tsx",
+                        "client/src/features/workspace/tasks/*.tsx"],
                        capture_output=True, text=True, check=True).stdout.split()
 files = [f for f in files if ".test." not in f]
 

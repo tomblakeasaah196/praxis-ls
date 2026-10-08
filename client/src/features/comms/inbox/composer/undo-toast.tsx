@@ -78,7 +78,7 @@ export function UndoSendToast({
       {state === "gone" && (
         <>
           <Pill tone="ok">{tr("Sent")}</Pill>
-          <span className="text-sm">{error || tr("Too late to undo — it has already left.")}</span>
+          <span className="text-sm">{error || tr("Too late to undo: it has already left.")}</span>
         </>
       )}
       <button

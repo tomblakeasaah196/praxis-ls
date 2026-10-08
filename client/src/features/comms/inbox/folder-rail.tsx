@@ -455,7 +455,7 @@ export function FolderRail({
           // is a claim, and for the half-second before the mailbox list arrives
           // there is no mailbox to make it about.
           <p className="px-2.5 text-xs text-muted-foreground">
-            {tr("No folders yet — sync the mailbox to discover them.")}
+            {tr("No folders yet: sync the mailbox to discover them.")}
           </p>
         )}
       </Section>

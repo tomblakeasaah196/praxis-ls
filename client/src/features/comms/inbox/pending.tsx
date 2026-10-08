@@ -210,7 +210,7 @@ const STATUS: Record<api.OutboxEntry["status"], { tone: Tone; label: string; why
   QUEUED: {
     tone: "blue",
     label: "Going out",
-    why: "Released to the mail server — too late to stop.",
+    why: "Released to the mail server: too late to stop.",
   },
   SENDING: {
     tone: "blue",
@@ -269,7 +269,7 @@ export function OutboxList() {
     setNote(null);
     try {
       await api.retrySend(e.email_send_queue_id);
-      setNote(tr("Queued again — it goes out on the next pass."));
+      setNote(tr("Queued again: it goes out on the next pass."));
       outbox.reload();
     } catch (err) {
       // 409: another tab pressed it first, or the flusher already has the row.
@@ -291,7 +291,7 @@ export function OutboxList() {
     setNote(null);
     try {
       await api.cancelSend(e.email_send_queue_id);
-      setNote(tr("Cancelled — it will not be sent."));
+      setNote(tr("Cancelled: it will not be sent."));
       outbox.reload();
     } catch (err) {
       // A 409 is the honest answer, not an apology: the flusher won the race
@@ -299,7 +299,7 @@ export function OutboxList() {
       // status shows what actually happened.
       const msg = (err as { message?: string })?.message;
       if ((err as { status?: number })?.status === 409) {
-        setNote(msg || tr("Too late — that message has already left."));
+        setNote(msg || tr("Too late: that message has already left."));
         outbox.reload();
       } else {
         reportActionError(err);

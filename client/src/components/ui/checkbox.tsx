@@ -40,6 +40,7 @@ export function Checkbox({
   aboutLabel,
   disabled,
   id,
+  tabIndex,
   className,
 }: {
   checked: boolean | "indeterminate";
@@ -56,6 +57,19 @@ export function Checkbox({
   aboutLabel?: string;
   disabled?: boolean;
   id?: string;
+  /**
+   * Pass `-1` ONLY inside a composite widget that owns the keyboard itself.
+   *
+   * A checkbox is a tab stop, and taking that away is normally how a control
+   * becomes unreachable. The one legitimate case is the roving-tabindex
+   * pattern: a list that is a single tab stop, moves between its rows with the
+   * arrow keys, and binds a key to this control so it stays operable —
+   * `inbox/thread-list.tsx` is the one in the tree, where `x` toggles the row's
+   * checkbox and the row declares `aria-keyshortcuts`. Without that binding
+   * this is a keyboard trap with extra steps, so do not reach for it to tidy a
+   * tab order.
+   */
+  tabIndex?: number;
   className?: string;
 }) {
   const uid = React.useId();
@@ -70,6 +84,7 @@ export function Checkbox({
         checked={checked}
         onCheckedChange={(v) => onCheckedChange(v === true)}
         disabled={disabled}
+        tabIndex={tabIndex}
         aria-describedby={[hintId, aboutId].filter(Boolean).join(" ") || undefined}
         className={cn(
           "mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border border-input bg-background transition-colors",
