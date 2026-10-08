@@ -163,7 +163,7 @@ const counts = Object.fromEntries(
 if (UPDATE) {
   writeFileSync(BASELINE, `${JSON.stringify(counts, null, 2)}\n`);
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
-  console.log(`dash-baseline.json written: ${total} dashes in tenant-readable copy across ${Object.keys(counts).length} files.`);
+  console.error(`dash-baseline.json written: ${total} dashes in tenant-readable copy across ${Object.keys(counts).length} files.`);
   process.exit(0);
 }
 
@@ -192,4 +192,4 @@ if (fails.length) {
   process.exit(1);
 }
 const total = Object.values(counts).reduce((a, b) => a + b, 0);
-console.log(`check:dashes clean: ${total} remaining in tenant-readable copy, none added.`);
+console.error(`check:dashes clean: ${total} remaining in tenant-readable copy, none added.`);
