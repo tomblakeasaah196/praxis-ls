@@ -66,7 +66,7 @@ function CapabilityForm({
     <Modal
       open
       onClose={onClose}
-      title={editing ? "Edit capability" : "New capability"}
+      title={editing ? "Edit Capability" : "New Capability"}
       description="The authority overlay that enforces segregation of duties on documents."
     >
       <form className="space-y-4" onSubmit={submit}>

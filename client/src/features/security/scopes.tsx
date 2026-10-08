@@ -85,7 +85,7 @@ function ScopeForm({
     <Modal
       open
       onClose={onClose}
-      title={editing ? "Edit scope" : "New scope"}
+      title={editing ? "Edit Scope" : "New Scope"}
       description="Scopes confine a user to an entity, branch or department. They nest — that tree is the organigramme."
     >
       <form className="space-y-4" onSubmit={submit}>

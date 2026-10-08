@@ -774,7 +774,7 @@ export function ExtraChargeSimulationsPage() {
       <Modal
         open={workbenchOpen}
         onClose={() => setWorkbenchOpen(false)}
-        title={editingId ? tr("Edit simulation") : tr("New simulation")}
+        title={editingId ? tr("Edit Simulation") : tr("New Simulation")}
         description="Demurrage, storage, yard occupancy, plugging and detention across a container list — an estimate, with no accounting entries."
         size="wide"
       >

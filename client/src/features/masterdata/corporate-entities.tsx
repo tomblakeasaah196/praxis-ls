@@ -399,7 +399,7 @@ function EntityForm({
     <Modal
       open
       onClose={onClose}
-      title={isNew ? "New corporate entity" : "Edit corporate entity"}
+      title={isNew ? "New Corporate Entity" : "Edit Corporate Entity"}
       description="A legal entity we bill and report from. Its registrations, shareholders and addresses are collections on the entity's own page."
     >
       <form className="space-y-4" onSubmit={submit}>

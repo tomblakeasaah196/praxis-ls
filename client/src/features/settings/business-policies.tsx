@@ -73,7 +73,7 @@ function PolicyForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit policy" : "New policy"}
+      title={editing ? "Edit Policy" : "New Policy"}
       description="A named policy document — privacy, refund, QMS, terms and the like."
       size="xl"
     >

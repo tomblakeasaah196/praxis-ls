@@ -555,7 +555,7 @@ export function MailboxesTab({
             department: choosing?.department ?? null,
             label: choosing?.label_en ?? null,
           }}
-          title={choosing ? `${tr("Set up")} ${choosing.label_en}` : tr("New shared mailbox")}
+          title={choosing ? `${tr("Set up")} ${choosing.label_en}` : tr("New Shared Mailbox")}
           description={choosing?.description_en || tr("A team address several people work together. First: where does this company's email live?")}
           onClose={() => setChoosing(undefined)}
           onChooseSmtp={() => { setCreating(choosing ?? null); setChoosing(undefined); }}
@@ -1180,7 +1180,7 @@ export function ConnectionsTab({
         }}
         title={
           editConn
-            ? tr("Edit this mailbox")
+            ? tr("Edit This Mailbox")
             : tr("Connect a mailbox")
         }
       >

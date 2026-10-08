@@ -108,7 +108,7 @@ function MintDialog({ onClose, onMinted }: { onClose: () => void; onMinted: () =
     <Modal
       open
       onClose={onClose}
-      title={minted ? tr("Your link") : tr("Create a secure link")}
+      title={minted ? tr("Your link") : tr("Create a Secure Link")}
       description={
         minted
           ? undefined

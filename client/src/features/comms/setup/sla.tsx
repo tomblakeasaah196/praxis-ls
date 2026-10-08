@@ -88,7 +88,7 @@ function PolicyDialog({
   }
 
   return (
-    <Modal open onClose={onClose} title={policy ? tr("Edit response target") : tr("New response target")}>
+    <Modal open onClose={onClose} title={policy ? tr("Edit Response Target") : tr("New Response Target")}>
       <div className="space-y-3">
         <Field label={tr("Name")} hint={tr("What this covers — “Client enquiries”, “Supplier chasers”.")}>
           <Input value={name} onChange={(e) => setName(e.target.value)} />

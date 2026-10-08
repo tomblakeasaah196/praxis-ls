@@ -127,7 +127,7 @@ export function NewMessageDialog({
       open
       onClose={onClose}
       size="lg"
-      title={title || (draft ? tr("Continue this draft") : tr("New message"))}
+      title={title || (draft ? tr("Continue this draft") : tr("New Message"))}
     >
       <div className="space-y-3">
         {conns.error && <ErrorState message={conns.error} />}

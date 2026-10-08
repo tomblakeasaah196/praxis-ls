@@ -80,7 +80,7 @@ function GatewayForm({
       open={open}
       onClose={onClose}
       title={
-        isEdit ? `Configure ${cell(editing?.provider)}` : "Add payment gateway"
+        isEdit ? `Configure ${cell(editing?.provider)}` : "Add Payment Gateway"
       }
       description="Per-tenant gateway config. Credentials are encrypted and write-only — leave blank to keep the existing secret."
     >

@@ -187,7 +187,7 @@ export function DossierForm({
       open
       onClose={onClose}
       size="lg"
-      title={isNew ? "New operations file" : "Edit operations file"}
+      title={isNew ? "New Operations File" : "Edit Operations File"}
       description="An operations file is the anchor everything (costing, transit, invoicing) tags."
     >
       <form className="space-y-5" onSubmit={submit}>

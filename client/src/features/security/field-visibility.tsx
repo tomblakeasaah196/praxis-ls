@@ -79,7 +79,7 @@ function FieldVisForm({
     <Modal
       open
       onClose={onClose}
-      title={editing ? "Edit field rule" : "New field rule"}
+      title={editing ? "Edit Field Rule" : "New Field Rule"}
       description="Masks a confidential field for one role. Enforced server-side on read, so it holds even under the TEST toggle."
     >
       <form className="space-y-4" onSubmit={submit}>
