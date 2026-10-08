@@ -168,7 +168,7 @@ function ConnectWizard({ onClose, onDone }: { onClose: () => void; onDone: () =>
           <div className="rounded-lg border border-border bg-card/40 p-3">
             <div className="text-sm font-medium">{tr("How is your company email hosted?")}</div>
             <p className="micro mt-1 text-muted-foreground">
-              {tr("If you are not sure, try cPanel first — it is what most company mail in the region runs on.")}
+              {tr("If you are not sure, try cPanel first. It is what most company mail in the region runs on.")}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button type="button" onClick={useCpanel} disabled={!email || busy} loading={busy}>
@@ -378,7 +378,7 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
             </div>
           </div>
           <p className="micro mt-3 border-t border-border pt-3 text-muted-foreground">
-            {tr("Each person has one personal mailbox. To move to a different address, disconnect this one and connect the new one — the mail already here stays. If you need another address for a team — billing, operations, support — ask an administrator to set up a shared mailbox and add you to it.")}
+            {tr("Each person has one personal mailbox. To move to a different address, disconnect this one and connect the new one: the mail already here stays. If you need another address for a team, such as billing, operations or support, ask an administrator to set up a shared mailbox and add you to it.")}
           </p>
         </div>
       )}

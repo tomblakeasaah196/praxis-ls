@@ -493,7 +493,7 @@ export function SupplierInvoicesPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Procurement" to="/procurement" />}
-        title="Supplier invoices"
+        title="Supplier Invoices"
         description="Vendor invoices — capture, match, post to the GL."
         action={<Button onClick={() => setOpen(true)}>New invoice</Button>}
       />

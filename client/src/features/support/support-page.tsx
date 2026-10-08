@@ -235,7 +235,7 @@ export function SupportPage() {
         onRowClick={(r) => setThread(r.ticket_id)}
         empty={{
           title: "No tickets yet",
-          hint: "Raise a ticket to reach the Praxis team — support, a bug, a feature request, or anything in between.",
+          hint: "Raise a ticket to reach the Praxis team: support, a bug, a feature request, or anything in between.",
         }}
       />
       {thread && (

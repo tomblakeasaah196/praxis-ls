@@ -92,7 +92,7 @@ export function LoginEditor() {
     <section className={cn(pageShell.reading, "pb-24")}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Login screen"
+        title="Login Screen"
         description="Configure the signed-out door — no code, no redeploy."
       />
 

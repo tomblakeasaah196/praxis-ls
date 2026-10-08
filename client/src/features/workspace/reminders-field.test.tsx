@@ -32,7 +32,7 @@ describe("draftsToInput — one select's string becomes the API's two fields", (
           remind_at: null,
           email: false,
           scope: "this",
-          label: "1 hour before",
+          label: "1 Hour Before",
         },
       ],
     });
@@ -77,7 +77,7 @@ describe("toReminderDrafts — server rows round-trip through the form", () => {
         ordinal: 1,
         email: true,
         scope: "series",
-        label: "1 day before",
+        label: "1 Day Before",
       },
       {
         workspace_reminder_id: "wr2",

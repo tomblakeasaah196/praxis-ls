@@ -298,7 +298,7 @@ export function ChartOfAccountsPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
-        title={tr("Chart of accounts")}
+        title={tr("Chart of Accounts")}
         description="SYSCOHADA/OHADA statutory chart — postable leaves and analytic accounts."
         action={<Button onClick={() => setEditing("new")}>{tr("New account")}</Button>}
       />

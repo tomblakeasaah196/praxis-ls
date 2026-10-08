@@ -261,7 +261,7 @@ export function CycleCountsPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Warehouse" to="/wms" />}
-        title="Cycle counts"
+        title="Cycle Counts"
         description="Count stock against the system by location; variances raise reconciliation."
         action={<Button onClick={() => setOpen(true)}>New count</Button>}
       />

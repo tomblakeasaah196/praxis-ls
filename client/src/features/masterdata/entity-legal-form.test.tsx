@@ -19,7 +19,7 @@ const openNew = async () => {
     routes: { "/entities": [], "/tax-jurisdictions": [] },
   });
   await user.click(await screen.findByRole("button", { name: "New entity" }));
-  await screen.findByRole("dialog", { name: "New corporate entity" });
+  await screen.findByRole("dialog", { name: "New Corporate Entity" });
   return user;
 };
 

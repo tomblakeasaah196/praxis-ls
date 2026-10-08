@@ -558,10 +558,6 @@ export function AiWorkspace() {
                     onSend={(text, opts) => thread.send(text, opts)}
                     busy={thread.busy}
                   />
-                  <p className="micro mt-2 text-center text-muted-foreground">
-                    Praxis acts with your permissions only — writes always ask
-                    first.
-                  </p>
                 </div>
               </div>
             </>
@@ -675,8 +671,7 @@ function Landing({
             {first ? `, ${first}` : ""}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ask about anything on your desk — receivables, operations files,
-            costing, procurement.
+            Ask about receivables, operations files, costing or procurement.
           </p>
         </div>
 
@@ -709,7 +704,7 @@ function Landing({
         </div>
 
         <p className="micro mt-5 text-center text-muted-foreground">
-          Praxis acts with your permissions only — writes always ask first.
+          Praxis acts with your permissions only. Writes always ask first.
         </p>
       </div>
     </div>

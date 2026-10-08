@@ -39,10 +39,10 @@ import type { Visibility, WorkStatus } from "@/lib/mail-api";
 type Section = "record" | "actions" | "documents" | "notes" | "sharing";
 
 const SECTIONS: { key: Section; label: string; needsBinding: boolean }[] = [
-  { key: "record", label: "The record", needsBinding: true },
-  { key: "actions", label: "What you can start", needsBinding: true },
+  { key: "record", label: "The Record", needsBinding: true },
+  { key: "actions", label: "What You Can Start", needsBinding: true },
   { key: "documents", label: "Documents", needsBinding: false },
-  { key: "notes", label: "Team notes", needsBinding: false },
+  { key: "notes", label: "Team Notes", needsBinding: false },
   { key: "sharing", label: "Access", needsBinding: false },
 ];
 

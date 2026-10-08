@@ -59,7 +59,7 @@ function title(p: RingPresentation): string {
  */
 export async function showRingNotification(p: RingPresentation): Promise<boolean> {
   const body = p.recordingEnabled
-    ? tr("This call is recorded and summarized — both parties are informed")
+    ? tr("This call is recorded and summarized: both parties are informed")
     : tr("Tap to answer");
   const options: NotificationOptions & {
     actions?: Array<{ action: string; title: string }>;

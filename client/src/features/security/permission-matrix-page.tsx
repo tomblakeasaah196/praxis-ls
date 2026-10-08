@@ -266,7 +266,7 @@ export function PermissionMatrixPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Security & Access" to="/security" />}
-        title="Permission matrix"
+        title="Permission Matrix"
         description="Role × module access. Each dot is the strongest grant on that pair — click any cell to edit the five underlying permissions. Changes save instantly and are audited."
       />
       <HubTabs />

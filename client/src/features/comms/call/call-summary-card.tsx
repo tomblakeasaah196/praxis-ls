@@ -96,7 +96,7 @@ function TranscriptPanel({ callId, onClose }: { callId: string; onClose: () => v
             ))}
           {view.state === "TRANSCRIPTION_FAILED" && (
             <p className="text-micro text-muted-foreground">
-              {tr("The certified transcript could not be produced — this is the in-call capture.")}
+              {tr("The certified transcript could not be produced: this is the in-call capture.")}
             </p>
           )}
         </div>

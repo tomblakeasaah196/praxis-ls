@@ -59,7 +59,7 @@ export function FollowupsTab() {
   const columns: Column<api.Followup>[] = [
     {
       key: "due_at",
-      label: tr("Comes back"),
+      label: tr("Comes Back"),
       render: (r) => <span className="num">{dateTimeFmt(r.due_at)}</span>,
     },
     {
@@ -116,7 +116,7 @@ export function FollowupsTab() {
     <div className="space-y-4">
       <PageHeader
         title={tr("Follow-ups")}
-        description={tr("Conversations waiting to come back. Cancelling drops the reminder — the conversation itself stays where it is.")}
+        description={tr("Conversations waiting to come back. Cancelling drops the reminder: the conversation itself stays where it is.")}
       />
 
       {/* Said before anyone reports it as a bug. */}

@@ -140,8 +140,64 @@ const CHROME_TITLE = /^(New|Edit|Add|Create|Duplicate|Import|Export|Manage|Assig
  * the component is the reliable axis and the wording is not. Message-bearing
  * components (EmptyState, Callout, ErrorState, toast) are deliberately absent.
  */
-const CHROME_COMPONENT =
-  /<(?:PageHeader|Section|SectionCard|Panel|Fieldset|HubCrumb)\b[^>]*?\b(?:title|legend|area)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
+/* The components whose own title/legend/area is structurally chrome, and the
+   attribute line that carries it. `ListPage` is here with `PageHeader` because
+   it renders one: website-pages.tsx reads <ListPage title={tr("Website
+   pages")}> and that string is the page's <h1>. */
+/**
+ * The text of the JSX opening tag that starts at `lines[i]`, up to the ">"
+ * that closes it — tracking `{}` depth and quotes so a ">" inside a nested
+ * element or a string does not end it early.
+ */
+function openingTag(lines, i) {
+  let depth = 0;
+  let quote = null;
+  let out = "";
+  for (let j = i; j < Math.min(i + 24, lines.length); j++) {
+    for (const ch of lines[j]) {
+      out += ch;
+      if (quote) {
+        if (ch === quote) quote = null;
+        continue;
+      }
+      if (ch === '"' || ch === "'" || ch === "`") { quote = ch; continue; }
+      if (ch === "{") { depth++; continue; }
+      if (ch === "}") { depth--; continue; }
+      if (ch === ">" && depth === 0) return out;
+    }
+    out += "\n";
+  }
+  return out;
+}
+
+/**
+ * The string value of this tag's OWN `title` / `legend` / `area`, or null.
+ *
+ * "Own" means at brace depth 0 of the tag: a `title=` inside `{...}` belongs to
+ * a nested element that will be visited on its own line if it is chrome, and
+ * is a message if it is not.
+ */
+function topLevelAttr(tag) {
+  const re = /\b(?:title|legend|area)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/g;
+  let m;
+  while ((m = re.exec(tag)) !== null) {
+    let depth = 0;
+    let quote = null;
+    for (let k = 0; k < m.index; k++) {
+      const ch = tag[k];
+      if (quote) { if (ch === quote) quote = null; continue; }
+      if (ch === '"' || ch === "'" || ch === "`") { quote = ch; continue; }
+      if (ch === "{") depth++;
+      else if (ch === "}") depth--;
+    }
+    if (depth === 0) return m[2];
+  }
+  return null;
+}
+
+const CHROME_OPEN = /^<(?:PageHeader|ListPage|Section|SectionCard|Panel|Fieldset|HubCrumb)\b/;
+const CHROME_ATTR =
+  /^\s*(?:title|legend|area)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
 
 /* `<PageHeader title>` IS THE PAGE'S <h1>, and it was the hole nobody looked
  * for. §3.18 has named page titles as chrome since it was written, and the
@@ -401,7 +457,12 @@ for (const f of files()) {
     }
     const indent = line.match(/^\s*/)[0].length;
     if (emptyIndent !== null && indent <= emptyIndent) emptyIndent = null;
-    if (/^\s*(?:empty|emptyState)\s*:\s*\{/.test(line)) emptyIndent = indent;
+    /* `empty: {` is the object form and `empty={{` is the JSX prop form, and
+       BOTH are an <EmptyState>'s props. Only the first was matched at first,
+       which let eight "No calls yet" / "Nothing has bounced" empty states be
+       reported as sentence-case chrome — message copy the rule does not touch,
+       and eight @prose:keep markers where the structure already says it. */
+    if (/^\s*(?:empty|emptyState)\s*(?::|=\{)\s*\{/.test(line)) emptyIndent = indent;
 
     if (exempt(lines, i)) return;
 
@@ -494,17 +555,37 @@ for (const f of files()) {
         }
       }
     }
-    /* A chrome component's own title, whatever words it carries. Matched
-       across the opening tag rather than one line, because the title of a
-       section with three other props is rarely on the same line as its name. */
-    const openTag = lines.slice(i, Math.min(i + 6, lines.length)).join(" ");
-    const chrome = openTag.match(CHROME_COMPONENT);
-    if (chrome && /^<(?:PageHeader|Section|SectionCard|Panel|Fieldset|HubCrumb)\b/.test(line.trim())) {
-      const text = chrome[2];
-      if (!SKIP_TITLE.test(text) && text.length <= 60 && !isTitleCase(text)) {
-        problems.title.push({ key, line: i + 1, text, abs });
+    /* A chrome component's own title, whatever words it carries.
+     *
+     * Read the OPENING TAG as a span and take only the attribute that belongs
+     * to this component, which means tracking `{}` nesting and quotes rather
+     * than pattern-matching a joined blob. Two bugs made this necessary and
+     * both hid real failures:
+     *
+     *   `[^>]*?` cannot cross a ">", and a prop's value is often JSX holding
+     *   one — <PageHeader eyebrow={<HubCrumb area="Procurement" ... />}
+     *   title={tr("Purchase orders")}>. The scan stopped inside the eyebrow,
+     *   matched the CRUMB's already-Title-Case `area`, and called the tag
+     *   clean. Every page header carrying a breadcrumb was exempt by accident,
+     *   which is most of the hub pages in the app — including
+     *   masterdata/service-types.tsx, whose "Service types" is the tenant's
+     *   OWN example of the rule, still unfixed three rounds later.
+     *
+     *   Walking forward line by line instead ran PAST the end of the tag, so
+     *   <Section title={tr("Queries")}> picked up the <EmptyState title="No
+     *   queries"> nested inside it and reported a message as chrome.
+     */
+    if (CHROME_OPEN.test(line.trim())) {
+      const tag = openingTag(lines, i);
+      const attr = topLevelAttr(tag);
+      if (attr && !exempt(lines, i)) {
+        const text = attr.replace(/\\(["'])/g, "$1");
+        if (!SKIP_TITLE.test(text) && text.length <= 60 && !isTitleCase(text)) {
+          problems.title.push({ key, line: i + 1, text, abs });
+        }
       }
     }
+
     const h = line.match(/<h1[^>]*>\s*\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
     if (h && !SKIP_TITLE.test(h[2]) && h[2].length <= 60 && !isTitleCase(h[2])) {
       problems.title.push({ key, line: i + 1, text: h[2], abs });
@@ -517,6 +598,13 @@ for (const f of files()) {
       while ((m = OBJ_CHROME.exec(line)) !== null) {
         const text = m[2].replace(/\\(["'])/g, "$1");
         if (SKIP_TITLE.test(text) || text.length > 60) continue;
+        /* A NAME NEVER ENDS IN A QUESTION MARK. `confirm({ title: "Delete this
+           conversation?" })` is the one shape that is unmistakably a message
+           whatever property it arrives under, and §3.17 puts it at the point of
+           commit deliberately: it is the sentence a person reads when they are
+           about to destroy something. Ten of Monitor's sites are these, and
+           ten @prose:keep markers for a rule this mechanical is noise. */
+        if (/[?!]$/.test(text)) continue;
         if (!/[A-Za-z]{2}/.test(text)) continue;
         if (isTitleCase(text)) continue;
         problems.objTitle.push({ key, line: i + 1, text, abs });

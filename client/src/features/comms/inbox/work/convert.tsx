@@ -40,12 +40,12 @@ import { tr } from "@/lib/i18n";
 import * as api from "@/lib/mail-api";
 
 const TARGETS: { value: api.ConvertTarget; label: string }[] = [
-  { value: "lead", label: "A new lead" },
-  { value: "quote_request", label: "A quote request" },
-  { value: "enquiry", label: "An enquiry" },
-  { value: "ticket", label: "A support ticket" },
-  { value: "task", label: "A task" },
-  { value: "purchase_requisition", label: "A purchase requisition" },
+  { value: "lead", label: "A New Lead" },
+  { value: "quote_request", label: "A Quote Request" },
+  { value: "enquiry", label: "An Enquiry" },
+  { value: "ticket", label: "A Support Ticket" },
+  { value: "task", label: "A Task" },
+  { value: "purchase_requisition", label: "A Purchase Requisition" },
 ];
 
 /** Where the operator lands to actually create it, carrying the prefill. */

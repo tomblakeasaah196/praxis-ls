@@ -112,7 +112,7 @@ function MintDialog({ onClose, onMinted }: { onClose: () => void; onMinted: () =
       description={
         minted
           ? undefined
-          : tr("Sends a document as an expiring, revocable link instead of an attachment. Nothing is emailed from here — you paste the link into a message.")
+          : tr("Sends a document as an expiring, revocable link instead of an attachment. Nothing is emailed from here: you paste the link into a message.")
       }
     >
       {minted ? (
@@ -254,7 +254,7 @@ export function SecureLinksTab() {
     { key: "label", label: tr("What"), render: (r) => r.label || tr("(no label)") },
     // The list is tenant-wide, so "who sent this" is the first thing an
     // administrator looking at an unfamiliar row needs.
-    { key: "by", label: tr("Sent by"), render: (r) => r.created_by_name || "—" },
+    { key: "by", label: tr("Sent By"), render: (r) => r.created_by_name || "—" },
     {
       key: "state",
       label: tr("State"),

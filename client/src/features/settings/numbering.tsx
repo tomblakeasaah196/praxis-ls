@@ -251,7 +251,7 @@ export function NumberingPage() {
     <section className={pageShell.reading}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Document numbering"
+        title="Document Numbering"
         description="Per-document numbering schemes — prefix, padding, reset cadence and separator."
       />
 

@@ -170,7 +170,7 @@ function NewChoiceModal({
         <button type="button" className={opt} onClick={() => onPick("email")}>
           <span className="block font-medium text-foreground">{tr("Email")}</span>
           <span className="micro">
-            {tr("Email a client, supplier, colleague or lead — from your mailbox")}
+            {tr("Email a client, supplier, colleague or lead: from your mailbox")}
           </span>
         </button>
       </div>
@@ -248,7 +248,7 @@ function NewChatModal({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ops — Douala corridor"
+              placeholder="Ops: Douala corridor"
             />
           </Field>
         )}
@@ -533,7 +533,7 @@ function InfoPane({ channel }: { channel: api.Channel | null }) {
           <p className="text-muted-foreground">
             {channel.kind === "DIRECT"
               ? "Direct message."
-              : "Group conversation — auditable and exportable."}
+              : "Group conversation: auditable and exportable."}
           </p>
         </div>
         <div className="flex items-center justify-between">
@@ -1159,7 +1159,7 @@ function Thread({
           ))
         ) : (
           <div className="flex h-full items-center justify-center micro">
-            {tr("No messages yet — say hello.")}
+            {tr("No messages yet: say hello.")}
           </div>
         )}
       </div>

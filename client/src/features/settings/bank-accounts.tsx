@@ -232,7 +232,7 @@ export function BankAccountsPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Bank accounts"
+        title="Bank Accounts"
         description="Company bank, cash and mobile-money accounts, each mapped to a chart-of-accounts code."
         action={
           <Button onClick={() => setCreateOpen(true)}>{tr("New account")}</Button>

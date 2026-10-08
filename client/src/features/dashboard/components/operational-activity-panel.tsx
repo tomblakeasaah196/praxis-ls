@@ -69,7 +69,7 @@ function ActivityRow({
               {record.ref}
             </span>
             <Pill tone={needs ? "warn" : record.tone}>
-              {needs ? "Needs a location" : record.status}
+              {needs ? "Needs a Location" : record.status}
             </Pill>
           </span>
           <span className="mt-0.5 block truncate text-micro normal-case text-muted-foreground">
@@ -154,7 +154,7 @@ export function OperationalActivityPanel({
         <div className="p-4">
           <EmptyState
             title="Everything is on the map"
-            hint="No facility-only files, and every open file's origin and destination is verified."
+            hint="Every open file's origin and destination is verified."
             className="border-0 p-6"
           />
         </div>

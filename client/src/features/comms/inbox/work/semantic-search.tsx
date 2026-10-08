@@ -75,7 +75,7 @@ export function SemanticResults({
       {data.hits.length === 0 ? (
         <EmptyState
           title={tr("Nothing came close")}
-          hint={tr("Search by meaning only finds conversations that have been indexed. If this mailbox was connected recently, give the first sync time.")}
+          hint={tr("Only indexed conversations match. A new mailbox needs its first sync.")}
         />
       ) : (
         <ul className="space-y-1">

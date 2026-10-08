@@ -43,7 +43,7 @@ export function PinnedCallSummary({
 
   return (
     <section
-      aria-label={tr("Call summary — Review & send")}
+      aria-label={tr("Call summary: Review & send")}
       className="flex min-h-0 flex-col border-t border-border bg-card px-3 py-2"
     >
       {/* The section may shrink (min-h-0) so on a short screen the editor
@@ -51,7 +51,7 @@ export function PinnedCallSummary({
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <PhoneIcon width={16} height={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">{tr("Call summary — Review & send")}</p>
+          <p className="truncate text-sm font-semibold text-foreground">{tr("Call summary: Review & send")}</p>
           <p className="truncate text-micro text-muted-foreground">
             {meta}
             {draft.provenance ? ` · ${provenanceLabel(draft.provenance)}` : ""}

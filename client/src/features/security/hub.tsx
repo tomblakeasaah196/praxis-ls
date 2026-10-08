@@ -106,7 +106,7 @@ function Overview() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Security & Access" to="/security" />}
-        title="Security & access"
+        title="Security & Access"
         description="Access is data, not code: role × capability × scope × CRUD-per-module × field visibility. Identity resolves against the live schema, so these rows are the same under both LIVE and TEST."
         action={
           <Button onClick={() => navigate("/security/users")}>

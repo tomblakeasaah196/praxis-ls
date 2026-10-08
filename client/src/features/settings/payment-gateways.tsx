@@ -204,7 +204,7 @@ export function PaymentGatewaysPage() {
       {confirmDialog}
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Payment gateways"
+        title="Payment Gateways"
         description="Per-tenant gateway providers and their encrypted credentials. Keys are write-only and never returned."
         action={<Button onClick={openNew}>Add gateway</Button>}
       />

@@ -48,22 +48,22 @@ import * as api from "@/lib/mail-api";
 
 const STATUS: { value: api.WorkStatus; label: string }[] = [
   { value: "OPEN", label: "Open" },
-  { value: "PENDING", label: "Waiting on them" },
+  { value: "PENDING", label: "Waiting on Them" },
   { value: "RESOLVED", label: "Done" },
 ];
 const STATUS_TONE: Record<api.WorkStatus, Tone> = { OPEN: "blue", PENDING: "warn", RESOLVED: "ok" };
 
 const VISIBILITY: { value: api.Visibility; label: string; note: string }[] = [
-  { value: "PRIVATE", label: "Just me", note: "Only you and anyone you share it with." },
-  { value: "TEAM", label: "This mailbox's team", note: "Everyone with access to this mailbox." },
+  { value: "PRIVATE", label: "Just Me", note: "Only you and anyone you share it with." },
+  { value: "TEAM", label: "This Mailbox's Team", note: "Everyone with access to this mailbox." },
   { value: "COMPANY", label: "Everyone", note: "Anyone in the company who opens the mailbox." },
 ];
 
 /** Common relative snooze choices, resolved to an instant at click time. */
 const SNOOZE = [
-  { label: "This afternoon", hours: 4 },
+  { label: "This Afternoon", hours: 4 },
   { label: "Tomorrow", hours: 24 },
-  { label: "Next week", hours: 24 * 7 },
+  { label: "Next Week", hours: 24 * 7 },
 ];
 
 export function TriageBar({
@@ -190,7 +190,7 @@ export function TriageBar({
           {overdue
             ? `${tr("A first reply was due")} ${dateTimeFmt(thread.sla_due_at)}.`
             : dueSoon
-              ? `${tr("A first reply is due within the hour —")} ${dateTimeFmt(thread.sla_due_at)}.`
+              ? `${tr("A first reply is due within the hour:")} ${dateTimeFmt(thread.sla_due_at)}.`
               : `${tr("A first reply is due")} ${dateTimeFmt(thread.sla_due_at)}.`}
         </p>
       )}

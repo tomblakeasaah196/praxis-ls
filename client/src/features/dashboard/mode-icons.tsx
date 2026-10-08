@@ -97,5 +97,5 @@ export const MODE_LABEL: Record<ShipmentMode, string> = {
   air: "Air",
   road: "Road corridor",
   rail: "Rail corridor",
-  other: "No transport",
+  other: "No Transport",
 };

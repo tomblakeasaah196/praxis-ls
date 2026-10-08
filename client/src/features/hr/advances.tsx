@@ -374,7 +374,7 @@ export function AdvancesPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
-        title="Salary advances"
+        title="Salary Advances"
         description="Money paid out ahead of payroll, and the schedule that recovers it. Instalments come off net pay — the salary was already taxed."
         action={<Button onClick={() => setCreating(true)}>Record an advance</Button>}
       />

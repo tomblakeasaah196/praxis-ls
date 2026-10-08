@@ -174,7 +174,7 @@ export function QuoteRequestsPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Sales & CRM" to="/sales" />}
-        title="Quote requests"
+        title="Quote Requests"
         description="Logistics-scope intake register. One tile per intake state, and they add up under every filter; conversion produces a tracked opportunity in the pipeline."
       />
       <HubTabs />

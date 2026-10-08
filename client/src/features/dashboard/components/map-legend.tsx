@@ -67,7 +67,7 @@ export function MapLegend({
       {unresolvedCount > 0 && (
         <span
           className="flex items-center gap-1.5 text-label font-semibold text-[rgb(var(--warn))]"
-          title="These files name a place that is not verified, so there is no coordinate to draw. They are listed instead — drawing them would be a guess."
+          title="These files name a place that is not verified, so there is no coordinate to draw. They are listed instead: drawing them would be a guess."
         >
           <span
             aria-hidden

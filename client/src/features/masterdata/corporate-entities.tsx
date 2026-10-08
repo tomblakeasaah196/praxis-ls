@@ -1036,7 +1036,7 @@ export function CorporateEntitiesPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Master Data" to="/master" />}
-        title="Corporate entities"
+        title="Corporate Entities"
         description="The legal entities we bill and report from: registrations, shareholders, addresses and group structure, per entity."
         action={<Button onClick={() => setEditing("new")}>New entity</Button>}
       />

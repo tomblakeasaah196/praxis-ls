@@ -152,7 +152,7 @@ export function BusinessPoliciesPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Business policies"
+        title="Business Policies"
         description="Named policy documents — privacy, refund, QMS, terms and more."
         action={<Button onClick={() => edit(null)}>New policy</Button>}
       />

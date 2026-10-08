@@ -215,7 +215,7 @@ export function FuelLogPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Fleet" to="/fleet" />}
-        title="Fuel log"
+        title="Fuel Log"
         description="Log fills and track consumption per vehicle."
         action={<Button onClick={() => setLogging(true)}>Log fill</Button>}
       />

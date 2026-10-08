@@ -90,7 +90,7 @@ function PolicyDialog({
   return (
     <Modal open onClose={onClose} title={policy ? tr("Edit Response Target") : tr("New Response Target")}>
       <div className="space-y-3">
-        <Field label={tr("Name")} hint={tr("What this covers — “Client enquiries”, “Supplier chasers”.")}>
+        <Field label={tr("Name")} hint={tr("What this covers: “Client enquiries”, “Supplier chasers”.")}>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label={tr("First reply within (minutes)")} hint={tr("Counted in working hours, not clock hours.")}>
@@ -109,7 +109,7 @@ function PolicyDialog({
         {/* Surprising, and true. Better said here than discovered from a breach
             alert that starts or stops firing for no visible reason. */}
         <Callout tone="info" title={tr("This applies to conversations already open.")}>
-          {tr("Saving clears the computed deadlines, and the next sweep re-applies them — so threads in the queue get the new target, not the old one.")}
+          {tr("Saving clears the computed deadlines, and the next sweep re-applies them, so threads in the queue get the new target, not the old one.")}
         </Callout>
 
         <div className="flex justify-end gap-2">
@@ -294,7 +294,7 @@ export function SlaTab() {
     { key: "name", label: tr("Target"), render: (r) => r.name },
     {
       key: "first",
-      label: tr("First reply"),
+      label: tr("First Reply"),
       render: (r) => humanMinutes(r.first_response_minutes),
     },
     {

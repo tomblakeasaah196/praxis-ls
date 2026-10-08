@@ -21,6 +21,7 @@ import { Modal, Field } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pill } from "@/components/ui/pill";
+import { InfoHint } from "@/components/ui/info-hint";
 import { ErrorState } from "@/components/ui/states";
 import { SmtpErrorGuide } from "@/components/mail/smtp-guide";
 import { useResource, errMsg } from "@/lib/use-resource";
@@ -33,18 +34,18 @@ const domainOf = (addr: string) => addr.split("@")[1] || "";
 const STEPS = [
   {
     id: "sender",
-    title: "Sender address",
+    title: "Sender Address",
     sub: "The From address your email goes out from",
   },
-  { id: "dns", title: "DNS records", sub: "MX, SPF and DKIM for that domain" },
+  { id: "dns", title: "DNS Records", sub: "MX, SPF and DKIM for that domain" },
   {
     id: "smtp",
-    title: "SMTP connection",
+    title: "SMTP Connection",
     sub: "Credentials actually accepted by the server",
   },
   {
     id: "test",
-    title: "Test email",
+    title: "Test Email",
     sub: "A real message leaves the building",
   },
 ] as const;
@@ -271,7 +272,7 @@ export function MailSetupWizard({
       open={open}
       onClose={onClose}
       size="xl"
-      title={summary ? "Mail setup — complete" : "Mail setup guide"}
+      title={summary ? "Mail setup: complete" : "Mail setup guide"}
       description={
         summary
           ? "Your outbound email is verified and working."
@@ -385,8 +386,7 @@ export function MailSetupWizard({
                 </div>
               ))}
               <p className="micro">
-                Your email goes out from the first active sender. Add another
-                section sender below if you need one.
+                Email goes out from the first active sender.
               </p>
             </div>
           )}
@@ -397,34 +397,33 @@ export function MailSetupWizard({
       {/* ── Step 1 — DNS records ── */}
       {step === 1 && (
         <div className="space-y-3">
-          <p className="micro">
-            Checking <span className="num text-foreground">{domain}</span> — the
-            domain of your From address. This is the step that fixes{" "}
-            <span className="num">550 Sender verify failed</span>: the domain
-            must look like a real mail domain to receiving servers.
-          </p>
-          {dnsErr != null && <ErrorState message={errMsg(dnsErr)} />}
-          {!dns && !dnsBusy && !dnsErr && (
+          <div className="flex items-center gap-1.5">
             <p className="micro">
-              Press “Verify now” to check the domain's records.
+              Checking <span className="num text-foreground">{domain}</span>, the
+              domain of your From address.
             </p>
-          )}
+            <InfoHint label="About this step">
+              This is the step that fixes 550 Sender verify failed: the domain
+              must look like a real mail domain to receiving servers.
+            </InfoHint>
+          </div>
+          {dnsErr != null && <ErrorState message={errMsg(dnsErr)} />}
           {dns && (
             <div className="space-y-2">
               <DnsRow
-                label="MX — mail exchange"
+                label="MX: mail exchange"
                 check={dns.mx}
                 manual={manual.mx}
                 onManual={(v) => setManual((m) => ({ ...m, mx: v }))}
               />
               <DnsRow
-                label="SPF — sender policy framework"
+                label="SPF: sender policy framework"
                 check={dns.spf}
                 manual={manual.spf}
                 onManual={(v) => setManual((m) => ({ ...m, spf: v }))}
               />
               <DnsRow
-                label="DKIM — signing key"
+                label="DKIM: signing key"
                 check={dns.dkim}
                 manual={manual.dkim}
                 onManual={(v) => setManual((m) => ({ ...m, dkim: v }))}
@@ -449,11 +448,10 @@ export function MailSetupWizard({
       {step === 2 && (
         <div className="space-y-3">
           <p className="micro">
-            We open a real connection to your SMTP server and authenticate — no
-            message is sent.
+            We connect and authenticate. No message is sent.
           </p>
           {smtpBusy && !smtp && (
-            <p className="micro">Testing the SMTP connection…</p>
+            <p className="micro">Testing…</p>
           )}
           {smtp && smtp.ok && (
             <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-3">
@@ -471,9 +469,8 @@ export function MailSetupWizard({
               <ErrorState message={String(smtp.error || "SMTP test failed")} />
               {smtpUnconfigured && (
                 <p className="micro mt-2">
-                  No SMTP host is configured yet — fill in the{" "}
-                  <strong>Shared SMTP login</strong> card on this page (Comms →
-                  Setup → Credentials), save it, then run the test again.
+                  No SMTP host yet. Fill in <strong>Shared SMTP login</strong>{" "}
+                  below, save, then test again.
                 </p>
               )}
               <SmtpErrorGuide code={smtp.code} message={smtp.error} />
@@ -497,8 +494,7 @@ export function MailSetupWizard({
       {step === 3 && (
         <div className="space-y-3">
           <p className="micro">
-            A real message, through your real sender. Send it to an inbox you
-            can check.
+            Send it to an inbox you can check.
           </p>
           <div className="flex items-end gap-2">
             <div className="flex-1">
@@ -523,12 +519,11 @@ export function MailSetupWizard({
           {send && send.ok && (
             <div className="rounded-xl border border-border bg-card p-3 text-sm">
               <div className="text-[rgb(var(--ok))]">
-                ✓ Sent to {to} — check the inbox{" "}
+                ✓ Sent to {to}. Check the inbox{" "}
                 <strong>and the spam folder</strong>.
               </div>
               <p className="micro mt-1">
-                If it lands in spam, mark it “not spam” and return to step 2 —
-                SPF/DKIM are usually the cause.
+                If it lands in spam, mark it “not spam” and revisit step 1.
               </p>
             </div>
           )}
@@ -559,9 +554,7 @@ export function MailSetupWizard({
             </div>
           ))}
           <p className="micro pt-1">
-            Outbound email is configured and verified. If a send ever fails
-            later, the error will carry the same step-by-step fix guide you just
-            followed.
+            Outbound email is configured and verified.
           </p>
         </div>
       )}

@@ -140,7 +140,7 @@ export function WebsitePartnersPage() {
     <div className="space-y-5">
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title={tr("Partners and credentials")}
+        title={tr("Partners and Credentials")}
         description={tr(
           "Carriers, clients and memberships, and the certifications you publish.",
         )}

@@ -136,7 +136,7 @@ export function ClientInboxPage() {
             <LoadingRow label={tr("Loading conversations…")} />
           ) : !items.length ? (
             <EmptyState
-              title={filter === "waiting" ? tr("Nothing waiting — every client has an answer") : tr("No conversations")}
+              title={filter === "waiting" ? tr("Nothing waiting: every client has an answer") : tr("No conversations")}
               hint={filter === "mine" ? tr("Your clients are the ones you look after, and the files you own.") : undefined}
             />
           ) : (
@@ -164,7 +164,7 @@ export function ClientInboxPage() {
           )}
           {inbox.data?.truncated ? (
             <p className="px-3 py-2 text-xs text-muted-foreground">
-              {tr("Showing the most recent conversations — older ones are on each client's Messages tab.")}
+              {tr("Showing the most recent conversations. Older ones are on each client's Messages tab.")}
             </p>
           ) : null}
         </div>

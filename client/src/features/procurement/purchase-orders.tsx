@@ -680,7 +680,7 @@ export function PurchaseOrdersPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Procurement" to="/procurement" />}
-        title={tr("Purchase orders")}
+        title={tr("Purchase Orders")}
         description="Orders raised to suppliers."
         action={<Button onClick={() => setOpen(true)}>New PO</Button>}
       />

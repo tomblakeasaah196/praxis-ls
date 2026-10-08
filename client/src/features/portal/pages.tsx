@@ -384,7 +384,7 @@ export function PortalAccessPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title={tr("Portal access")}
+        title={tr("Portal Access")}
         description={tr("Investors and auditors: who can open their portal, and until when. Client portal users are managed on each client.")}
         action={
           compact ? (
