@@ -405,7 +405,7 @@ export function WebsiteInsightEditorPage() {
       {data?.kind === "announcement" && (
         <SettingsCard
           title={tr("Home page")}
-          desc="Pinned announcements appear in the band under your hero, newest expiry first. At most five show at once — and the pin lapses on its own, so the band empties itself."
+          desc="Pinned announcements appear in the band under your hero, newest expiry first. At most five show at once, and the pin lapses on its own, so the band empties itself."
         >
           <div className="flex flex-wrap items-center gap-3">
             {api.isPinned(data) ? (
@@ -441,7 +441,7 @@ export function WebsiteInsightEditorPage() {
           </div>
           {!published && !api.isPinned(data) && (
             <p className="mt-3 text-sm text-muted-foreground">
-              {tr("Publish it first — the band links to its page.")}
+              {tr("Publish it first: the band links to its page.")}
             </p>
           )}
         </SettingsCard>
@@ -461,7 +461,7 @@ export function WebsiteInsightEditorPage() {
           </Field>
           <Field
             label={tr("Address (French)")}
-            hint="The last part of the article's URL. Suggested from the headline until you type here."
+            about="The last part of the article's URL, suggested from the headline until you type here."
             error={slugFrBad ? tr("Lowercase letters, digits and hyphens.") : undefined}
           >
             <Input className="font-mono" value={slugFr}
@@ -479,7 +479,7 @@ export function WebsiteInsightEditorPage() {
 
       <SettingsCard
         title={tr("Cover image")}
-        desc="Shown on the Insights index and across the top of the article. Optional — an article without one reads as text, not as broken."
+        desc="Shown on the Insights index and across the top of the article. Optional: an article without one reads as text, not as broken."
       >
         <FileDrop
           {...fileDropProps(coverUpload.items[0])}
@@ -508,7 +508,7 @@ export function WebsiteInsightEditorPage() {
               />
             ) : (
               <div className="flex h-24 w-40 items-center justify-center rounded-[calc(var(--radius)-2px)] border border-dashed text-center text-xs text-muted-foreground">
-                {tr("Stored — visible once the article is published")}
+                {tr("Stored: visible once the article is published")}
               </div>
             )}
             <div className="min-w-0">
@@ -531,7 +531,7 @@ export function WebsiteInsightEditorPage() {
 
       <SettingsCard
         title={tr("Images in the article")}
-        desc="Drawn as a grid below the text, in the order here. They cannot be placed between paragraphs — the article body is plain text on purpose, so images live in one strip underneath."
+        desc="Drawn as a grid below the text, in the order here. They cannot be placed between paragraphs: the article body is plain text on purpose, so images live in one strip underneath."
       >
         <FileDrop
           {...fileDropProps(galleryUpload.items[0])}

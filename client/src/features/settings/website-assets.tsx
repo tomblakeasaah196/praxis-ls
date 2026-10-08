@@ -76,7 +76,7 @@ const SLOT_LABEL: Record<api.AssetSlot, () => string> = {
  *  at the point of choice, not in a document. */
 const EVIDENCE_NOTE = () =>
   tr(
-    "This image sits beside a named person or company, so a visitor reads it as a photograph of your own operation. It must be one — generated imagery is not accepted here.",
+    "This image sits beside a named person or company, so a visitor reads it as a photograph of your own operation. It must be one: generated imagery is not accepted here.",
   );
 
 /**
@@ -286,8 +286,8 @@ export function AssetSlotField({
               disabled={disabled || busy}
               onChange={(e) => setProvenance(e.target.value as api.AssetProvenance)}
             >
-              <option value="owned">{tr("Ours — we took or made it")}</option>
-              <option value="licensed">{tr("Licensed — we have the right to use it")}</option>
+              <option value="owned">{tr("Ours: we took or made it")}</option>
+              <option value="licensed">{tr("Licensed: we have the right to use it")}</option>
               {/* `generated` is deliberately absent. Every slot in the register
                   is an evidence slot; see the header and EVIDENCE_NOTE below. */}
             </select>

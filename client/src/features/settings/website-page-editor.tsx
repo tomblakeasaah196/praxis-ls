@@ -75,8 +75,8 @@ const HERO_FIGURE_COUNT = 3;
 const BLOCK_LABEL: Record<string, string> = {
   hero: "Hero",
   stat_counters: "Figures",
-  feature_list: "How it works",
-  cta_band: "Closing call to action",
+  feature_list: "How It Works",
+  cta_band: "Closing Call to Action",
   stat_chips: "Credentials",
 };
 
@@ -174,7 +174,7 @@ function BiRow({
           placeholder={placeholderFr}
         />
       </Field>
-      <Field label={`${label} ${tr("(English)")}`} hint={tr("Optional — falls back to French.")}>
+      <Field label={`${label} ${tr("(English)")}`} hint={tr("Optional: falls back to French.")}>
         <Input
           value={value.en ?? ""}
           onChange={(e) => onChange({ ...value, en: e.target.value })}
@@ -520,7 +520,7 @@ function BlocksCard({
         {!blocks.length ? (
           <EmptyState
             title={tr("Nothing on this page yet")}
-            hint="Add the figures band to put a number, a certification and a network name on the first screen a visitor sees."
+            hint="Start with the figures band, which draws the first screen a visitor sees."
           />
         ) : (
           <ul className="flex flex-col gap-4">
@@ -908,7 +908,7 @@ function CounterItems({
           design has no answer for (six flagged, or none). */}
       <Callout tone="info" title={tr("The first three are the hero")}>
         {tr(
-          "Figures 01–03 sit under the headline on the homepage; the rest appear in the band below it. Reorder to change which three a visitor sees first.",
+          "Figures 01 to 03 sit under the headline on the homepage; the rest appear in the band below it. Reorder to change which three a visitor sees first.",
         )}
       </Callout>
 
@@ -962,7 +962,7 @@ function CounterItems({
                   });
                 }}
               >
-                <option value="">{tr("Not bound — use the number below")}</option>
+                <option value="">{tr("Not bound: use the number below")}</option>
                 {metrics.map((m) => (
                   <option key={m.key} value={m.key}>
                     {m.key}
@@ -1176,7 +1176,7 @@ function LinkFields({
       />
       <Field
         label={tr("Button Goes To")}
-        hint={tr("A page on your own site, starting with a slash — /quote, /services, /contact.")}
+        hint={tr("A page on your own site, starting with a slash: /quote, /services, /contact.")}
         error={bad ? tr("Start it with a slash.") : undefined}
       >
         <Input

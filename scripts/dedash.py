@@ -42,13 +42,15 @@ APPLY = "--apply" in sys.argv
 # diff of this line is part of the record of which rounds have been done.
 #   round 1 (master data): features/masterdata/*.tsx, portal/account-manager.tsx
 #   round 2 (Smart Mail + My Workspace): comms/inbox/**, workspace/tasks/*
-#   round 3 (the whole Monitor family): below
+#   round 3 (the whole Monitor family): dashboard, workspace, ai, comms, support
+#   round 4 (the six Configure hubs): below
 files = subprocess.run(["git","ls-files",
-                        "client/src/features/dashboard",
-                        "client/src/features/workspace",
-                        "client/src/features/ai",
-                        "client/src/features/comms",
-                        "client/src/features/support"],
+                        "client/src/features/vault",
+                        "client/src/features/security",
+                        "client/src/features/governance",
+                        "client/src/features/ai-control",
+                        "client/src/features/settings",
+                        "client/src/features/godmode"],
                        capture_output=True, text=True, check=True).stdout.split()
 files = [f for f in files if f.endswith((".ts", ".tsx"))]
 files = [f for f in files if ".test." not in f]

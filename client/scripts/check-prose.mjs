@@ -265,6 +265,50 @@ const LABEL_MAP =
   /(?:^|\n)(?:export )?const ([A-Z][A-Z0-9_]*(?:LABEL|LABELS|TITLE|TITLES|NAME|NAMES|COLUMN|COLUMNS|HEADER|HEADERS|KIND|KINDS))\s*:\s*Record<[^>]*,\s*string>\s*=\s*(?:dict\(\s*)?\{/g;
 
 /**
+ * Lines holding a `title:` that belongs to a CALLOUT-SHAPED RECORD, 0-based.
+ *
+ * §3.18 settles chrome-versus-message by the COMPONENT: `<EmptyState>`,
+ * `<Callout>` and `toast` are messages whatever words they carry. The gate
+ * already honours that for an `empty: {}` block, because an EmptyState's props
+ * are written as an object. A warning record is the same thing one step
+ * further out:
+ *
+ *     out.push({ id: "no-icon", tone: "info",
+ *                title: "No app icon set",
+ *                detail: "The home-screen icon falls back to …" });
+ *
+ * `pwa/validation.ts` builds ten of those and renders each as a Callout, so
+ * every one is a message by the rule that is already written down. The object
+ * rule read them as chrome and `--fix-titles` produced "Your Brand Colour
+ * Barely Shows on the Splash Background" and "The Source Image Isn't Square".
+ *
+ * An object that declares `tone:` or `detail:` BESIDE its `title:` is that
+ * shape. Both are Callout props and neither is a name, so the pair is the
+ * record saying what it is, which is the same mechanism the label-map rule
+ * reads a const's name for. A title next to neither is still chrome.
+ */
+function calloutTitleLines(src) {
+  const out = new Set();
+  const stack = [];
+  for (let i = 0; i < src.length; i++) {
+    if (src[i] === "{") stack.push(i);
+    else if (src[i] === "}" && stack.length) {
+      const start = stack.pop();
+      const body = src.slice(start + 1, i);
+      /* Only this object's OWN properties: a nested literal's `tone:` says
+         nothing about the title out here. */
+      const own = body.replace(/\{[^{}]*\}/g, " ");
+      if (!/\b(?:tone|detail)\s*:/.test(own)) continue;
+      for (const m of own.matchAll(/\btitle\s*:/g)) {
+        /* own is a redacted copy of body, same length, so offsets still line up. */
+        out.add(src.slice(0, start + 1 + m.index).split("\n").length - 1);
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Every string a module-level const object in this file can render, by name.
  *
  * Two rules need it. A label map's values are chrome (LABEL_MAP), and a hint
@@ -587,6 +631,7 @@ for (const f of files()) {
    * that must stay. Tracked the way `empty: {}` is tracked. */
   let promptIndent = null;
   const maps = constMaps(src);
+  const calloutTitles = calloutTitleLines(src);
 
   /* A LABEL MAP'S VALUES ARE CHROME. See LABEL_MAP. Run over the whole file
      rather than per line, because the const's name is on one line and its
@@ -620,7 +665,12 @@ for (const f of files()) {
        which let eight "No calls yet" / "Nothing has bounced" empty states be
        reported as sentence-case chrome — message copy the rule does not touch,
        and eight @prose:keep markers where the structure already says it. */
-    if (/^\s*(?:empty|emptyState)\s*(?::|=\{)\s*\{/.test(line)) emptyIndent = indent;
+    /* `empty: {`, `empty={{`, and — added in the Configure round — `empty={`
+       with its object further down. website-insights.tsx opens the prop, puts a
+       docblock on the next line and then a ternary of two EmptyState objects,
+       so the one-line forms missed it and the gate asked for the EmptyState
+       title "No Articles Yet". */
+    if (/^\s*(?:empty|emptyState)\s*(?::|=)\s*\{?\s*(?:\{|$)/.test(line)) emptyIndent = indent;
     if (promptIndent !== null && indent <= promptIndent) promptIndent = null;
     if (/\b(?:prompt|confirm)\(\{\s*$/.test(line)) promptIndent = indent;
 
@@ -922,15 +972,26 @@ for (const f of files()) {
       while ((m = OBJ_CHROME.exec(line)) !== null) {
         /* A prompt's own `title`. See promptIndent. */
         if (m[1] === "title" && promptIndent !== null) continue;
+        /* A warning record's own `title`. See calloutTitleLines(). */
+        if (m[1] === "title" && calloutTitles.has(i)) continue;
         const text = m[3].replace(/\\(["'])/g, "$1");
         if (SKIP_TITLE.test(text) || text.length > 60) continue;
-        /* A NAME NEVER ENDS IN A QUESTION MARK. `confirm({ title: "Delete this
-           conversation?" })` is the one shape that is unmistakably a message
-           whatever property it arrives under, and §3.17 puts it at the point of
-           commit deliberately: it is the sentence a person reads when they are
-           about to destroy something. Ten of Monitor's sites are these, and
-           ten @prose:keep markers for a rule this mechanical is noise. */
-        if (/[?!]$/.test(text)) continue;
+        /* A NAME NEVER ENDS IN SENTENCE PUNCTUATION. `confirm({ title: "Delete
+           this conversation?" })` is the one shape that is unmistakably a
+           message whatever property it arrives under, and §3.17 puts it at the
+           point of commit deliberately: it is the sentence a person reads when
+           they are about to destroy something. Ten of Monitor's sites are
+           these, and ten @prose:keep markers for a rule this mechanical is
+           noise.
+
+           THE FULL STOP WAS ADDED IN THE CONFIGURE ROUND. §3.18's own test for
+           a name is "whether it could end in a full stop" — and pwa-page.tsx
+           has fourteen Callout titles that DO end in one: "Active in this
+           window.", "You're in a browser tab.", "Not supported by this
+           browser." A string that already carries the punctuation is not a
+           borderline call about a name; it is a sentence, and the gate asked
+           for "Active in This Window." before this line existed. */
+        if (/[.?!]$/.test(text)) continue;
         if (!/[A-Za-z]{2}/.test(text)) continue;
         if (isTitleCase(text)) continue;
         problems.objTitle.push({ key, line: i + 1, text, abs });

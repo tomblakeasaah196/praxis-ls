@@ -274,6 +274,7 @@ export function Slider({
   step = 1,
   unit = "",
   hint,
+  about,
 }: {
   label: string;
   value: number;
@@ -282,13 +283,27 @@ export function Slider({
   max: number;
   step?: number;
   unit?: string;
+  /** Printed under the track. A bound is already min/max and a unit is already
+   *  `unit`, so what belongs here is narrow. */
   hint?: string;
+  /** Behind the ⓘ beside the label, for the explanation that used to be a
+   *  printed `hint` on every slider on the PWA screen. */
+  about?: string;
 }) {
   const id = React.useId();
+  const aboutId = `${id}-about`;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-2">
-        <Label htmlFor={id}>{label}</Label>
+        <span className="flex items-center gap-2">
+          {/* SIBLING of the <Label>, never inside it. §3.17. */}
+          <Label htmlFor={id}>{label}</Label>
+          {about && (
+            <InfoHint label={`About ${label}`} textId={aboutId}>
+              {about}
+            </InfoHint>
+          )}
+        </span>
         <span className="text-xs tabular-nums text-muted-foreground">
           {value}
           {unit}
@@ -303,6 +318,7 @@ export function Slider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className="h-5 w-full cursor-pointer accent-primary"
+        aria-describedby={about ? aboutId : undefined}
       />
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>

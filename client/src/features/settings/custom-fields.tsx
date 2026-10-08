@@ -122,7 +122,7 @@ function CustomFieldForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? `Fields — ${editing.key}` : "New Custom Fields"}
+      title={editing ? `Fields: ${editing.key}` : "New Custom Fields"}
       description="Extra field definitions for an entity type (client, supplier, operations file…)."
       size="xl"
     >
@@ -245,7 +245,7 @@ export function CustomFieldsPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Custom Fields"
-        description="Per-entity field definitions — extra fields a consuming module can render and store."
+        description="Per-entity field definitions. Extra fields a consuming module can render and store."
         action={<Button onClick={() => edit(null)}>New definition</Button>}
       />
 

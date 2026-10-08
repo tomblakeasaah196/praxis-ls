@@ -87,7 +87,7 @@ export function CommercialSettingsPage() {
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               {tr(
-                "Applied to our services when \"Create quotation\" is pressed on a costing. Débours are always billed at cost, and our own costs are never billed — they are the floor the services must cover.",
+                "Applied to our services when \"Create quotation\" is pressed on a costing. Débours are always billed at cost. Our own costs are never billed: they are the floor the services must cover.",
               )}
             </p>
             <Field label={tr("Margin on the Price (%)")} error={problem || undefined} hint={tr("From 0 to below 100. The quotation always shows the margin it was priced at.")}>

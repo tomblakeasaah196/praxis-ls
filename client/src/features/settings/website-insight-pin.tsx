@@ -80,7 +80,8 @@ export function PinDialog({
         <Field
           label={tr("Show It Until")}
           required
-          hint="It comes off the home page on its own after this date. It stays published at its own address."
+          /* @prose:keep the pin lapses by itself; the article stays published. */
+          hint="It leaves the home page on its own. The article stays published."
         >
           <DateField
             min={tomorrow()}
