@@ -299,7 +299,8 @@ export function CashCountSheet({
                                 onClick={async () => {
                                   const cancelReason = await prompt({
                                     title: tr("Cancel Cash Count"),
-                                    label: tr("Reason for cancelling count (allows recount)"),
+                                    label: tr("Reason for Cancelling Count"),
+                                    description: tr("Cancelling lets the count be taken again."),
                                     placeholder: tr("e.g. Discrepancy explained, recount requested"),
                                   });
                                   if (cancelReason !== null) {
@@ -345,7 +346,8 @@ export function CashCountSheet({
                                 onClick={async () => {
                                   const cancelReason = await prompt({
                                     title: tr("Cancel Cash Count"),
-                                    label: tr("Reason for cancelling count (allows recount)"),
+                                    label: tr("Reason for Cancelling Count"),
+                                    description: tr("Cancelling lets the count be taken again."),
                                     placeholder: tr("e.g. Discrepancy explained, recount requested"),
                                   });
                                   if (cancelReason !== null) {

@@ -368,6 +368,41 @@ for (const f of files()) {
         problems.title.push({ key, line: i + 1, text, abs });
       }
     }
+    /* A FIELD LABEL THAT IS NOT WRITTEN AS JSX.
+     *
+     * `usePrompt()` takes its label as an option, not a prop:
+     *
+     *     const pw = await prompt({ title: "Confirm it's you",
+     *                               label: "Current password", … })
+     *
+     * and that option is handed straight to <Field label>. It is the same
+     * chrome by every test that matters, and no JSX-shaped rule can see it,
+     * which is how "Current password" survived a sweep that Title Cased the
+     * three password fields twenty lines below it in the SAME FILE.
+     *
+     * Only `label` is read here, and only inside the options object. A
+     * prompt's `title` is often a question ("Confirm it's you") and its
+     * `validate` returns a message, so both stay sentence case. */
+    if (/\bprompt\(\{/.test(line)) {
+      let depth = 0;
+      for (let j = i; j < Math.min(i + 20, lines.length); j++) {
+        for (const ch of j === i ? lines[j].slice(lines[j].indexOf("prompt({") + 7) : lines[j]) {
+          if (ch === "{") depth++;
+          else if (ch === "}") depth--;
+        }
+        /* `label:` at the start of a line, or mid-line in a one-line call.
+           The leading class keeps `confirmLabel:` and `cancelLabel:` out: a
+           button's own word is chrome too, but "Save" and "Cancel" are the
+           defaults and the overrides are already named actions. */
+        const opt = lines[j].match(
+          /(?:^|[\s{(,])label:\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/,
+        );
+        if (opt && !SKIP_TITLE.test(opt[2]) && opt[2].length <= 60 && !isTitleCase(opt[2])) {
+          problems.title.push({ key, line: j + 1, text: opt[2], abs });
+        }
+        if (depth <= 0) break;
+      }
+    }
     const h = line.match(/<h1[^>]*>\s*\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
     if (h && !SKIP_TITLE.test(h[2]) && h[2].length <= 60 && !isTitleCase(h[2])) {
       problems.title.push({ key, line: i + 1, text: h[2], abs });

@@ -393,7 +393,7 @@ export function MySecurityPage() {
       const pw = await prompt({
         title: "Confirm it's you",
         description: why,
-        label: "Current password",
+        label: "Current Password",
         type: "password",
         confirmLabel: "Confirm",
         trim: false,

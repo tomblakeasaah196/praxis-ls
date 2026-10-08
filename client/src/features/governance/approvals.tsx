@@ -83,7 +83,7 @@ export function ApprovalsPage() {
       const typed = await prompt({
         title: "Reject this request?",
         description: "The requester sees this note. Say what would need to change.",
-        label: "Reason for rejection",
+        label: "Reason for Rejection",
         hint: "Optional, but a rejection without one usually comes back.",
         multiline: true,
         confirmLabel: "Reject request",

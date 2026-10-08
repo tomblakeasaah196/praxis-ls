@@ -1332,6 +1332,27 @@ CSS custom properties, CLI flags, SQL comment syntax and decrement operators are
 exempt mechanically. `scripts/dedash.py` works an area down; read its header
 before running it, and read the diff after.
 
+#### Chrome is not always a JSX prop
+
+Two shapes carry chrome without looking like it, and both are checked:
+
+- a FIELD SPEC, `{ key: "issued_on", label: "Issued On", type: "date" }`, which a
+  generic form builder turns into a `<Field label>`; and
+- a `usePrompt()` option, `prompt({ title, label: "Current Password" })`, which
+  goes straight to `<Field label>` inside the dialog.
+
+The second is the one that got away. "Current password" sat in a prompt option
+twenty lines above three `<Field>`s the sweep had Title Cased in the same file,
+because the rule read JSX and this is an object. `check:prose` now reads a
+`label` inside a `prompt({ … })` block. A prompt's `title` is often a question
+("Confirm it's you") and its `validate` returns a message, so neither is
+touched.
+
+A label with a parenthetical is usually two jobs in one string. "Reason for
+cancelling count (allows recount)" became the label `Reason for Cancelling
+Count` plus a `description`, which the dialog renders behind its ⓘ: §3.17's
+ladder applies to a prompt exactly as it does to a page.
+
 #### Renaming a label moves its dictionary key
 
 `tr()` and `navT()` look a translation up **by its exact English text** and fall

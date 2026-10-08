@@ -321,7 +321,7 @@ function ChecklistDrawer({
                           title: "Change the start date",
                           description:
                             "Every task in the checklist shifts to keep its offset from day one.",
-                          label: "New start date",
+                          label: "New Start Date",
                           type: "date",
                           defaultValue: c.starts_on || todayISO(),
                           confirmLabel: "Reschedule checklist",

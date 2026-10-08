@@ -535,6 +535,11 @@ export const en = {
     "Same company domain as": "Same company domain as",
     "This address belongs to": "This address belongs to",
     "Link to": "Link to",
+    /* Two keys, one English phrase. The composer's FIELD LABEL is chrome and
+       is Title Cased; the suggestion line on the quote-request screen reads
+       "Link to Acme Ltd" and is a sentence. Moving the one key would have
+       taken the French off the other. */
+    "Link To": "Link To",
     "A public webmail address — no client is suggested from its domain.": "A public webmail address — no client is suggested from its domain.",
     "Requester name": "Requester name",
     "Requester company": "Requester company",
@@ -3429,7 +3434,7 @@ export const en = {
     "To review": "To review",
     "Until": "Until",
     "Waiting for client": "Waiting for client",
-    "What is wrong with it": "What is wrong with it",
+    "What Is Wrong with It": "What Is Wrong with It",
     "What they see": "What they see",
     "What You Need": "What You Need",
     "What you need to know": "What you need to know",
@@ -4507,6 +4512,7 @@ export const fr: Dict = {
     "Same company domain as": "Même domaine d'entreprise que",
     "This address belongs to": "Cette adresse appartient à",
     "Link to": "Rattacher à",
+    "Link To": "Rattacher à",
     "A public webmail address — no client is suggested from its domain.": "Une adresse de messagerie publique — aucun client n'est suggéré à partir de son domaine.",
     "Requester name": "Nom du demandeur",
     "Requester company": "Société du demandeur",
@@ -7401,7 +7407,7 @@ export const fr: Dict = {
     "To review": "À vérifier",
     "Until": "Jusqu’au",
     "Waiting for client": "En attente du client",
-    "What is wrong with it": "Ce qui ne va pas",
+    "What Is Wrong with It": "Ce qui ne va pas",
     "What they see": "Ce qu’il voit",
     "What You Need": "Ce dont vous avez besoin",
     "What you need to know": "L’information demandée",

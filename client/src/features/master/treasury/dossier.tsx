@@ -206,7 +206,7 @@ export function TreasuryDossier({
   async function generateLetter() {
     const signedBy = await prompt({
       title: tr("Signatory authorisation letter"),
-      label: tr("Signed for the company by"),
+      label: tr("Signed for the Company By"),
       hint: tr("Optional — the legal representative's name, printed under the signature line. Leave blank to sign by hand."),
       confirmLabel: tr("Generate letter"),
     });
@@ -608,7 +608,7 @@ export function TreasuryDossier({
                       onClick={async () => {
                         const reason = await prompt({
                           title: tr("Reverse Journal Entry"),
-                          label: tr("Reason for reversing entry #") + l.entry_no,
+                          label: tr("Reason for Reversing Entry #") + l.entry_no,
                           placeholder: tr("e.g. Inadvertent duplicate or wrong account"),
                         });
                         if (!reason) return;

@@ -275,7 +275,7 @@ export function ComposerToolbar({
           void (async () => {
             const url = await prompt({
               title: tr("Add a link"),
-              label: tr("Link to"),
+              label: tr("Link To"),
               type: "url",
               placeholder: "https://",
               hint: tr("The selected text becomes the link."),
