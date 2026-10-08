@@ -531,7 +531,7 @@ export function ClientChatPanel({
                 void upload.pick([result.file]);
               } else if (result.kind === "rejected") {
                 e.preventDefault();
-                setPasteNote(tr("That file type isn't accepted here — choose a file instead."));
+                setPasteNote(tr("That file type isn't accepted here: choose a file instead."));
               }
             }}
           >

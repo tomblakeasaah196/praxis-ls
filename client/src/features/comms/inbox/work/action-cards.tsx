@@ -160,7 +160,7 @@ export function ActionCards({
   if (!cards.length) {
     return (
       <p className="text-xs text-muted-foreground">
-        {tr("Nothing to start from this thread yet — link it to a client or a file first.")}
+        {tr("Nothing to start from this thread yet: link it to a client or a file first.")}
       </p>
     );
   }

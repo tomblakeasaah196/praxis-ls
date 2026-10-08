@@ -301,7 +301,7 @@ export function FilePicker({
         e.preventDefault();
         setPasteArmed(false);
         setMessage(
-          tr("That file type isn't accepted here — choose a file instead."),
+          tr("That file type isn't accepted here: choose a file instead."),
         );
         return;
       }

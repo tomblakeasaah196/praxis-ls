@@ -222,7 +222,7 @@ export function TaskPanel({
                 <>
                   Blocked by a registered hold: “{task.blockage.note}” It cannot be
                   marked done until the hold is resolved in the Blockages section
-                  below — resolving moves the due date by the blocked time.
+                  below. Resolving it moves the due date by the blocked time.
                 </>
               )}
               {task.blockage && (task.blocking_count ?? 0) > 0 && " "}
@@ -231,8 +231,10 @@ export function TaskPanel({
                   Waiting on {task.blocking_count}{" "}
                   {task.blocking_count === 1 ? "task" : "tasks"} that{" "}
                   {task.blocking_count === 1 ? "is" : "are"} not finished. It cannot be
-                  marked done until {task.blocking_count === 1 ? "it is" : "they are"}{" "}
-                  — or the dependency is overridden below.
+                  marked done until{" "}
+                  {task.blocking_count === 1
+                    ? "it is, or the dependency is overridden below."
+                    : "they are, or the dependency is overridden below."}
                 </>
               )}
             </Callout>
@@ -545,7 +547,7 @@ function ChildTasksSection({
   return (
     <section aria-label="Child tasks">
       <h3 className="mb-2 text-sm font-medium">
-        Child tasks
+        Child Tasks
         {rollup && rollup.child_count > 0 && (
           <span className="num ml-1.5 micro">
             {rollup.child_done_count}/{rollup.child_count}
@@ -630,7 +632,7 @@ function ChildTasksSection({
             <div className="min-w-[12rem] flex-1">
               <EmployeePicker
                 id="child-task-assignee"
-                label="Assign to"
+                label="Assign To"
                 placeholder="Search staff…"
                 requireAccount
                 onPick={(e) => {
@@ -756,7 +758,7 @@ function DependenciesSection({ task, audience }: { task: Task; audience?: Audien
     <section aria-label="Waiting on">
       {confirmDialog}
       <h3 className="mb-2 text-sm font-medium">
-        Waiting on
+        Waiting On
         {task.blocking_count ? <span className="num ml-1.5 micro">{task.blocking_count} unresolved</span> : null}
       </h3>
 
@@ -866,7 +868,7 @@ function DependencyRow({
         // The one case worth its own words: cancelled is not finished, and a
         // reader who sees "Cancelled" beside a blocked task needs to know that
         // is why they are still waiting.
-        <Pill tone="bad">Cancelled — still blocking</Pill>
+        <Pill tone="bad">Cancelled, still blocking</Pill>
       ) : (
         <Pill tone="warn">{dependency.depends_on_status ? STATUS_LABEL[dependency.depends_on_status] : "Not finished"}</Pill>
       )}
@@ -994,7 +996,7 @@ function CollaborationSection({ task, audience }: { task: Task; audience?: Audie
       <div className="mt-2">
         <EmployeePicker
           id="task-watcher"
-          label="Add a watcher"
+          label="Add a Watcher"
           placeholder="Search staff…"
           requireAccount
           exclude={new Set(watchers.map((w) => w.user_id))}

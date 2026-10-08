@@ -97,7 +97,7 @@ function NewShell({
       <h1 className="font-display text-xl font-medium">{title}</h1>
       <p className="text-sm text-muted-foreground">
         {fromMail
-          ? tr("Creating from an email — the details are filled in, and saving links the new record back to the thread.")
+          ? tr("Creating from an email: the details are filled in, and saving links the new record back to the thread.")
           : tr("Nothing is created until you save.")}
       </p>
       {children}
