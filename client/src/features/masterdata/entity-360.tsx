@@ -25,7 +25,8 @@
  * what to hide — it renders what it was given and explains the gap.
  */
 import * as React from "react";
-import { tr } from "@/lib/i18n";
+import { tr, tv } from "@/lib/i18n";
+import { InfoHint } from "@/components/ui/info-hint";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useUrlTab, useFieldHighlight, useDeepLinkEdit } from "@/lib/use-url-tab";
 import { LetterheadStudio } from "./letterhead-studio";
@@ -267,6 +268,19 @@ function Section({
   children,
 }: {
   title: string;
+  /**
+   * What this section is for. Rendered behind an ⓘ on the heading, NOT as a
+   * subtitle under it.
+   *
+   * There are twenty-odd of these on this one record. As subtitles they put a
+   * paragraph between every heading and its content, so the page a user
+   * scrolled through was half explanation and half data, and the explanation
+   * was identical on every entity they opened and on every visit. The ⓘ keeps
+   * every word for whoever wants it and gives the section back to the data.
+   *
+   * Changing it here rather than at the call sites is the point: one component,
+   * twenty sections, and no chance of the next one being added as a subtitle.
+   */
   description?: string;
   action?: React.ReactNode;
   field?: string;
@@ -276,11 +290,16 @@ function Section({
   return (
     <section data-field={field} className="space-y-3 rounded-xl border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        {/* Sibling, not child: an ⓘ inside the heading puts its aria-label
+            into the heading's accessible name, so "Shareholding" announces as
+            "Shareholding About Shareholding". */}
+        <div className="flex items-center gap-1.5">
           <H className="text-sm font-semibold text-foreground">{title}</H>
-          {description && (
-            <p className="micro text-muted-foreground">{description}</p>
-          )}
+          {description ? (
+            <InfoHint label={tv("About {{section}}", { section: title })}>
+              {description}
+            </InfoHint>
+          ) : null}
         </div>
         {action}
       </div>
@@ -611,7 +630,7 @@ function ChildModal({
                       value={(values[f.key] as string) || ""}
                       onChange={(e) => set(f.key, e.target.value)}
                     >
-                      <option value="">—</option>
+                      <option value="">{tr("None")}</option>
                       {(f.options || []).map((o) => (
                         <option key={o.value} value={o.value}>
                           {o.label}
@@ -817,7 +836,7 @@ const personFields = (lk: Lookups): FieldSpec[] => [
     label: "Also acts as",
     type: "multiselect",
     options: opts(entityCommon.PERSON_ROLES),
-    hint: "One person can hold several roles — tick the others here. The Role above stays their primary one.",
+    hint: "One person can hold several roles. Tick the others here. The Role above stays their primary one.",
   },
   {
     key: "holder_type",
@@ -923,7 +942,7 @@ const personFields = (lk: Lookups): FieldSpec[] => [
       (c) => c.client_id,
       (c) => c.name,
     ),
-    hint: "A director who is also a counterparty — a related-party disclosure.",
+    hint: "A director who is also a counterparty: a related-party disclosure.",
   },
   {
     key: "supplier_id",
@@ -966,7 +985,7 @@ const contactFields = (): FieldSpec[] => [
     key: "language",
     label: "Language",
     placeholder: "fr",
-    hint: "Two-letter code — what to write to them in.",
+    hint: "Two-letter code: what to write to them in.",
   },
   {
     key: "timezone",
@@ -998,7 +1017,7 @@ const addressFields = (): FieldSpec[] => [
     key: "is_public",
     label: "Public on the website",
     type: "checkbox",
-    hint: "Publishes this address on the public entity card beside the registered one — only with a public label.",
+    hint: "Publishes this address on the public entity card beside the registered one: only with a public label.",
   },
   { key: "public_label_fr", label: "Public label (FR)", placeholder: "Bureau opérationnel de Douala" },
   { key: "public_label_en", label: "Public label (EN)", placeholder: "Douala operations desk" },
@@ -1065,7 +1084,7 @@ const taxRegistrationFields = (lk: Lookups): FieldSpec[] => [
     ]),
   },
   { key: "tax_number", label: "Tax number", placeholder: "FR12345678901" },
-  { key: "regime", label: "Regime", type: "regime", hint: "Cameroon: REEL, SIMPLIFIE, LIBERATOIRE, FRANCHISE — type to add custom." },
+  { key: "regime", label: "Regime", type: "regime", hint: "Cameroon: REEL, SIMPLIFIE, LIBERATOIRE, FRANCHISE. Type to add custom." },
   {
     key: "filing_frequency",
     label: "Filing frequency",
@@ -1076,7 +1095,7 @@ const taxRegistrationFields = (lk: Lookups): FieldSpec[] => [
     key: "filing_due_day",
     label: "Filing due day",
     type: "number",
-    hint: "Day of the month, 1–31. Needs a frequency to attach to.",
+    hint: "Day of the month, 1 to 31. Needs a frequency to attach to.",
   },
   { key: "currency", label: "Filing currency", placeholder: "XAF" },
   { key: "registered_on", label: "Registered on", type: "date" },
@@ -1154,7 +1173,7 @@ const establishmentFields = (lk: Lookups): FieldSpec[] => [
     label: "Active",
     type: "checkbox",
     defaultValue: true,
-    hint: "A closed site stays on file — old documents still reference it.",
+    hint: "A closed site stays on file: old documents still reference it.",
   },
 ];
 
@@ -1610,7 +1629,7 @@ export function EntityDossier({
                   {x.expired ? "Expired" : "Expiring"}
                 </Pill>{" "}
                 {x.kind}{" "}
-                {x.number ? <span className="num">{x.number}</span> : null} —{" "}
+                {x.number ? <span className="num">{x.number}</span> : null} ·{" "}
                 {dateDmy(x.expires_on)}
               </li>
             ))}
@@ -1986,7 +2005,7 @@ export function EntityDossier({
         <div className="space-y-4">
           <Section
             title="Tax registrations"
-            description="One row per jurisdiction this entity is registered in. Rate cards stay in the Tax module and are shared across entities — what lives here is this entity's own number, regime and filing rhythm."
+            description="One row per jurisdiction this entity is registered in. Rate cards stay in the Tax module and are shared across entities: what lives here is this entity's own number, regime and filing rhythm."
             action={
               <div className="flex gap-2">
                 <Button
@@ -2200,7 +2219,7 @@ export function EntityDossier({
       {tab === "Renewals" && (
         <Section
           title="Renewals"
-          description={`Everything on this entity that has expired or is approaching expiry, as of ${dateDmy(renewalsView.as_of)}. Nothing here blocks anything — these are recommendations for a person to act on.`}
+          description={`Everything on this entity that has expired or is approaching expiry, as of ${dateDmy(renewalsView.as_of)}. Nothing here blocks anything. These are recommendations for a person to act on.`}
           action={
             <div className="flex flex-wrap items-end gap-2">
               {/* Forward, to plan a renewal run; back, to answer "what had already
@@ -2303,7 +2322,7 @@ export function EntityDossier({
           {renewalsView.items.length === 0 && (
             <EmptyState
               title="Nothing expiring"
-              hint="Documents and registrations with an expiry date appear here as their deadline approaches."
+              hint="Anything with an expiry date appears here as its deadline approaches."
             />
           )}
         </Section>
@@ -2326,7 +2345,7 @@ export function EntityDossier({
 
           <Section
             title="Shareholding"
-            description={`Reconciled as of ${dateDmy(capView.as_of)}. Warnings never block saving — a partly-recorded cap table is normal during onboarding.`}
+            description={`Reconciled as of ${dateDmy(capView.as_of)}. Warnings never block saving. A partly-recorded cap table is normal during onboarding.`}
             action={
               <div className="flex flex-wrap items-end gap-2">
                 {/* GET /cap-table?as_of= has always existed and the assistant's
@@ -2499,7 +2518,7 @@ export function EntityDossier({
                             onClick={() =>
                               setEditing({
                                 seg: "people",
-                                title: `Also acts as — ${p.full_name}`,
+                                title: `Also acts as: ${p.full_name}`,
                                 row: p as unknown as Record<string, unknown>,
                               })
                             }
@@ -2548,7 +2567,7 @@ export function EntityDossier({
 
           <Section
             title="Directors, officers and signatories"
-            description="One person can hold several roles — add them once and tick every role they hold, rather than adding a row per role."
+            description="One person can hold several roles: add them once and tick every role they hold, rather than adding a row per role."
             action={
               caps.edit ? (
                 <Button
@@ -2633,7 +2652,7 @@ export function EntityDossier({
                           onClick={() =>
                             setEditing({
                               seg: "people",
-                              title: `Also acts as — ${p.full_name}`,
+                              title: `Also acts as: ${p.full_name}`,
                               row: p as unknown as Record<string, unknown>,
                             })
                           }
@@ -2675,7 +2694,7 @@ export function EntityDossier({
           <Section
             title="Addresses"
             field="address_registered"
-            description="REGISTERED is the statutory office the letterhead prints — often not where people actually work."
+            description="REGISTERED is the statutory office the letterhead prints: often not where people actually work."
             action={
               caps.edit ? (
                 <Button
@@ -2768,7 +2787,7 @@ export function EntityDossier({
 
           <Section
             title="Contacts"
-            description="Departmental contact points for this entity — the AP inbox, the legal contact on a tender."
+            description="Departmental contact points for this entity: the AP inbox, the legal contact on a tender."
             action={
               caps.edit ? (
                 <Button
@@ -2881,7 +2900,7 @@ export function EntityDossier({
         <div className="space-y-4">
           <Section
             title="Position in the group"
-            description="A subsidiary is its own entity with its own books — this records how it relates to the parent."
+            description="A subsidiary is its own entity with its own books. This records how it relates to the parent."
             action={
               caps.edit ? (
                 <Button size="sm" onClick={() => setStructureOpen(true)}>
@@ -2976,7 +2995,7 @@ export function EntityDossier({
           <Section
             title="Establishments"
             field="establishments"
-            description="Sites that are not separate legal persons — a warehouse or branch office with its own tax-office reference but no separate books."
+            description="Sites that are not separate legal persons: a warehouse or branch office with its own tax-office reference but no separate books."
             action={
               caps.edit ? (
                 <Button
@@ -3161,8 +3180,8 @@ export function EntityDossier({
               title="No primary account selected"
             >
               {treasuryPrimary.state === "ambiguous"
-                ? "Several accounts are flagged primary for this entity, so no payment block prints and no single account is shown here. Open Treasury and set one primary account — setting it clears the others."
-                : "This entity has no primary account, so its documents print no payment block. Open Treasury and set a primary account — it is the one the letterhead and this tab will show."}{" "}
+                ? "Several accounts are flagged primary for this entity, so no payment block prints and no single account is shown here. Open Treasury and set one primary account: setting it clears the others."
+                : "This entity has no primary account, so its documents print no payment block. Open Treasury and set a primary account. It is the one the letterhead and this tab will show."}{" "}
               <button
                 type="button"
                 className="underline"
@@ -3225,7 +3244,7 @@ export function EntityDossier({
           {treasury.length === 0 && (
             <EmptyState
               title="No treasury accounts for this entity"
-              hint="Add them in Treasury — they carry the GL mapping this entity's payments post to."
+              hint="Add them in Treasury. They carry the GL mapping this entity's payments post to."
             />
           )}
         </Section>
@@ -3569,7 +3588,7 @@ function ShareDocumentsDialog({
       open
       onClose={onClose}
       title={tr("Share documents")}
-      description={`${documents.length} selected — send them by email, or download them together as a ZIP folder.`}
+      description={`${documents.length} selected: send them by email, or download them together as a ZIP folder.`}
     >
       <div className="space-y-4">
         {error && <ErrorState message={error} />}
@@ -3717,13 +3736,13 @@ function DocumentsTab({
         key: "physical_ref",
         label: "Paper original filed at",
         placeholder: "Box A-12",
-        hint: "Only for paper originals — where the hard copy is filed.",
+        hint: "Only for paper originals: where the hard copy is filed.",
       },
       {
         key: "scan_file",
         label: "Document file",
         type: "file",
-        hint: "PDF or image (PNG, JPEG, WebP), up to 25 MB. Optional — you can attach it from the row later.",
+        hint: "PDF or image (PNG, JPEG, WebP), up to 25 MB. Optional: you can attach it from the row later.",
       },
       {
         key: "is_active",
@@ -3821,7 +3840,7 @@ function DocumentsTab({
     });
     // The API moves PENDING → SCANNED on its own once vault_id lands; saying so
     // explains why the pill changed without the operator touching it.
-    toast.success("Scan attached — the document is now marked scanned.");
+    toast.success("Scan attached: the document is now marked scanned.");
     onSaved();
   }
 
@@ -3851,7 +3870,7 @@ function DocumentsTab({
   return (
     <Section
       title="Administrative documents"
-      description="Statutes, tax clearances, licences and insurance — add each one and upload its file. Anything with an expiry date feeds the Renewals tab. Uploading marks the scan as scanned; use Verify after checking the file against the original. Tick documents to share them by email or download them together as a ZIP."
+      description="Statutes, tax clearances, licences and insurance. Add each one and upload its file. Anything with an expiry date feeds the Renewals tab. Uploading marks the scan as scanned; use Verify after checking the file against the original. Tick documents to share them by email or download them together as a ZIP."
       action={
         canEdit && (
           <Button size="sm" onClick={() => setAdding("new")}>
@@ -3982,11 +4001,11 @@ function DocumentsTab({
               {doc.scan_stored_unlinked ? (
                 <span
                   title={tr(
-                    "The file reached the vault, but the link back to this record did not complete. It finishes automatically on the next reconciliation pass — no need to upload again.",
+                    "The file reached the vault, but the link back to this record did not complete. It finishes automatically on the next reconciliation pass: no need to upload again.",
                   )}
                 >
                   {" "}
-                  <Pill tone="warn">{tr("File stored — link pending")}</Pill>
+                  <Pill tone="warn">{tr("File stored: link pending")}</Pill>
                 </span>
               ) : null}
             </Td>
@@ -4054,7 +4073,7 @@ function DocumentsTab({
       {documents.length === 0 && (
         <EmptyState
           title="No documents recorded"
-          hint="Start with the certificate of incorporation and the statutes — the rest can follow as you gather them. Add document takes the details and the file (PDF or image, up to 25 MB) together; you can also attach the file later from the row."
+          hint="Start with the certificate of incorporation. Attach it later from the row."
         />
       )}
 
@@ -4100,12 +4119,12 @@ function DocumentsTab({
           onClose={() => setSharing(null)}
           onSent={() =>
             toast.success(
-              "Sent — it is in your Sent folder and on the entity's thread.",
+              "Sent. It is in your Sent folder and on the entity's thread.",
             )
           }
           subject={
             entityCode
-              ? `${entityCode} — ${selectedDocs.length} document${selectedDocs.length === 1 ? "" : "s"}`
+              ? `${entityCode}: ${selectedDocs.length} document${selectedDocs.length === 1 ? "" : "s"}`
               : undefined
           }
           vaultAttachments={selectedDocs
@@ -4251,7 +4270,7 @@ function LetterheadTab({
         <Section
           title="Wording"
           field="wording"
-          description="What cannot be derived — a strapline, payment terms, a jurisdiction clause. Per language, so a French document never falls back to English small print."
+          description="What cannot be derived: a strapline, payment terms, a jurisdiction clause. Per language, so a French document never falls back to English small print."
         >
           <p className="micro text-muted-foreground">
             {tr("Editing")} {lang === "fr" ? tr("Français") : tr("English")} —{" "}
@@ -4311,7 +4330,7 @@ function LetterheadTab({
           description="How the sheet is laid out and coloured. The preview is drawn from these, so a change here is visible immediately."
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Paper size" hint="A4 outside North America.">
+            <Field label="Paper size" about="A4 outside North America.">
               <Select
                 value={c.paper_size ?? "A4"}
                 disabled={busy || !canEdit}
@@ -4334,7 +4353,7 @@ function LetterheadTab({
                 ))}
               </Select>
             </Field>
-            <Field label="Brand colour" hint="The rule under the header. Any colour — black included.">
+            <Field label="Brand colour" about="The rule under the header. Any colour: black included.">
               <BrandColourField
                 ariaLabel={tr("Brand colour")}
                 value={draft.brand_color ?? ""}
@@ -4348,7 +4367,7 @@ function LetterheadTab({
             </Field>
             <Field
               label="Accent colour"
-              hint="Secondary rules and table headings."
+              about="Secondary rules and table headings."
             >
               <BrandColourField
                 ariaLabel={tr("Accent colour")}
@@ -4363,7 +4382,7 @@ function LetterheadTab({
             </Field>
             <Field
               label="Header height (mm)"
-              hint="10–120. Blank uses the renderer's default."
+              about="10 to 120. Blank uses the renderer's default."
             >
               <Input
                 type="number"
@@ -4384,7 +4403,7 @@ function LetterheadTab({
             </Field>
             <Field
               label="Footer height (mm)"
-              hint="Reserve enough for the legal mentions, or they are clipped."
+              about="Reserve enough for the legal mentions, or they are clipped."
             >
               <Input
                 type="number"
@@ -4416,7 +4435,7 @@ function LetterheadTab({
 
         <Section
           title="Payment block"
-          description="The primary account — the ONE account this entity's documents print. Accounts themselves live in Treasury."
+          description="The primary account: the ONE account this entity's documents print. Accounts themselves live in Treasury."
         >
           {p.payment_block.source === "bank_block_legacy" && (
             <Callout tone="warn" title="Still using the old bank block">
@@ -4429,7 +4448,7 @@ function LetterheadTab({
           {p.payment_block.source === "no_primary" && (
             <Callout tone="warn" title="No primary account selected">
               No payment block prints until Treasury has one primary account
-              for this entity{remittance ? " — the selected remittance account is inactive or ambiguous" : ""}.
+              for this entity{remittance ? ": the selected remittance account is inactive or ambiguous" : ""}.
               {" "}
               <button
                 type="button"
@@ -4448,7 +4467,7 @@ function LetterheadTab({
             }
           >
             <option value="">
-              {tr("— the account flagged primary in Treasury —")}
+              {tr("(the account flagged primary in Treasury)")}
             </option>
             {accounts.map((a) => (
               <option key={a.treasury_account_id} value={a.treasury_account_id}>
@@ -4565,7 +4584,7 @@ function StructureModal({
       <div className="space-y-3">
         <Field
           label="Parent entity"
-          hint="Leave blank for a standalone or top-level company. Only active entities can be a new parent."
+          about="Leave blank for a standalone or top-level company. Only active entities can be a new parent."
         >
           <EntityPicker
             label="Parent entity"
@@ -4595,7 +4614,7 @@ function StructureModal({
             </Field>
             <Field
               label="Owned by the parent (%)"
-              hint="What the parent holds. The cap table records who holds what in detail."
+              about="What the parent holds. The cap table records who holds what in detail."
             >
               <Input
                 type="number"
@@ -4614,13 +4633,13 @@ function StructureModal({
           checked={consolidates}
           onCheckedChange={setConsolidates}
           label="Consolidates into the parent"
-          hint="Its results are included in the parent's consolidated accounts."
+          about="Its results are included in the parent's consolidated accounts."
         />
         <Checkbox
           checked={isGroupParent}
           onCheckedChange={setIsGroupParent}
           label="This is the group parent"
-          hint="The top of the tree — the entity consolidated reporting is produced for."
+          about="The top of the tree: the entity consolidated reporting is produced for."
         />
 
         {parentId && isGroupParent && (
@@ -4687,7 +4706,7 @@ function OpsReferencePrefixModal({ entityId, current, onClose, onSaved }: {
       description="The two characters every operations file of this entity starts with. Fixed once a file has used it."
     >
       <div className="space-y-3">
-        <Field label="Prefix" hint="Two characters, A–Z or 0–9. Unique across this tenant's entities.">
+        <Field label="Prefix" about="Two characters, A. Z or 0 to 9. Unique across this tenant's entities.">
           <Input
             value={prefix}
             onChange={(ev) => setPrefix(ev.target.value.toUpperCase().slice(0, 2))}
@@ -4776,7 +4795,7 @@ function StatusModal({
           </Select>
         </Field>
         {needsReason && (
-          <Field label={tr("Reason")} required hint="Recorded on the audit trail.">
+          <Field label={tr("Reason")} required about="Recorded on the audit trail.">
             <Input
               value={reason}
               onChange={(ev) => setReason(ev.target.value)}

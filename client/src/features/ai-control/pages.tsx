@@ -793,7 +793,7 @@ function AddVendorForm({
     <Modal
       open
       onClose={onClose}
-      title="Add AI vendor"
+      title="Add AI Vendor"
       description="Register a provider + its API key (encrypted at rest). OpenAI-compatible endpoints."
     >
       <form className="space-y-4" onSubmit={submit}>

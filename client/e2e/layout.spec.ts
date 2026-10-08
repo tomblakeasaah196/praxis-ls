@@ -311,13 +311,13 @@ test.describe("the ribbon's chrome budget", () => {
     expect(row.labels).toEqual([
       "Clients",
       "Suppliers",
-      "Corporate entities",
+      "Corporate Entities",
       "Treasury",
       "Currencies",
-      "Expense rates",
-      "Financial dictionary",
+      "Expense Rates",
+      "Financial Dictionary",
       "Tax",
-      "Service types",
+      "Service Types",
     ]);
     expect(row.clipped, "a section label was cut to fit").toEqual([]);
     expect(row.navOverflow, "the section row overflowed its space").toBe(0);

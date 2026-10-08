@@ -61,7 +61,7 @@ const JOURNALS_ROUTE = "/finance/journals";
 
 /** The roster is read in one page; the module's own list takes it from there. */
 const DRILL_LIMIT = 200;
-const TRUNCATED_HINT = `Showing the first ${DRILL_LIMIT} — open the module for the rest.`;
+const TRUNCATED_HINT = `Showing the first ${DRILL_LIMIT}. Open the module for the rest.`;
 
 const ROLE_LABEL = (r: string) =>
   r === "LEGAL_REPRESENTATIVE" ? "Legal rep." : enumLabel(r);
@@ -175,7 +175,7 @@ function EmployeesDrill({
       open
       onClose={onClose}
       title={`Employees · ${entityName}`}
-      description="This entity's roster, in the HR master — including former staff. Click a row to open the person."
+      description="This entity's roster, in the HR master. Including former staff. Click a row to open the person."
       headers={[{ label: "Name" }, { label: "Matricule" }, { label: "Job title" }]}
       rows={rows}
       emptyLabel="No employees are attached to this entity yet."
@@ -274,7 +274,7 @@ export function EntityKpiDrill({
       rows={rows}
       emptyLabel={
         isHolders
-          ? "No shareholders recorded yet — the Shareholding section on the People & shareholding tab is where they are added."
+          ? "No shareholders recorded yet: the Shareholding section on the People & shareholding tab is where they are added."
           : "This entity has no subsidiaries recorded. Set a parent on another entity's Structure tab to add one."
       }
     />

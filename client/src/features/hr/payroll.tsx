@@ -349,7 +349,7 @@ function NewRunForm({
     <Modal
       open
       onClose={onClose}
-      title="New payroll run"
+      title="New Payroll Run"
       description="One run per entity per month. Compute generates payslips over the active roster."
     >
       <form className="space-y-4" onSubmit={submit}>

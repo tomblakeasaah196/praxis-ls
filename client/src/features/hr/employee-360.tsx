@@ -1156,7 +1156,7 @@ export function EditEmployeeForm({
       open
       onClose={onClose}
       size="wide"
-      title={tr("Edit employee")}
+      title={tr("Edit Employee")}
       description={tr(
         "Everything a contract, a payslip and a dispatch are written from.",
       )}

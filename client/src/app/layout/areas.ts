@@ -59,7 +59,7 @@ export const AREAS: Area[] = [
   { key: "tower", label: "Control Tower", basePath: "", to: "/", sections: [] },
   {
     key: "workspace",
-    label: "My workspace",
+    label: "My Workspace",
     basePath: "/workspace",
     // Four views of one queue. "Today" is the landing because it is the answer
     // to the question the page exists for — what wants me, and when — and it is
@@ -102,7 +102,7 @@ export const AREAS: Area[] = [
   { key: "comms", label: "Smart Comms", basePath: "/comms", sections: [] },
   {
     key: "support",
-    label: "Support & feedback",
+    label: "Support & Feedback",
     basePath: "/support",
     sections: [],
   },
@@ -112,9 +112,9 @@ export const AREAS: Area[] = [
     label: "Sales & CRM",
     basePath: "/sales",
     sections: [
-      { key: "leads", label: "Leads & intake" },
-      { key: "enquiries", label: "Contact enquiries" },
-      { key: "quote-requests", label: "Quote requests" },
+      { key: "leads", label: "Leads & Intake" },
+      { key: "enquiries", label: "Contact Enquiries" },
+      { key: "quote-requests", label: "Quote Requests" },
       { key: "opportunities", label: "Opportunities" },
       { key: "proposals", label: "Proposals" },
       // Meeting 6, G6: Quotations sits after Proposals — Quote requests →
@@ -122,11 +122,11 @@ export const AREAS: Area[] = [
       // Commercial, where nobody in the meeting could find it;
       // `/commercial/quotations` redirects here (app.tsx).
       { key: "quotations", label: "Quotations" },
-      { key: "company-profile", label: "Company profile" },
+      { key: "company-profile", label: "Company Profile" },
       { key: "meetings", label: "Meetings" },
       { key: "campaigns", label: "Campaigns" },
       { key: "partnerships", label: "Partnerships" },
-      { key: "success-stories", label: "Success stories" },
+      { key: "success-stories", label: "Success Stories" },
     ],
   },
   {
@@ -136,9 +136,9 @@ export const AREAS: Area[] = [
     // Commercial keeps the simulators and pricing variance (G6); Quotations
     // moved to Sales & CRM.
     sections: [
-      { key: "margin-simulation", label: "Margin simulation" },
-      { key: "extra-charge-simulation", label: "Extra-charge simulation" },
-      { key: "pricing-variance", label: "Pricing variance" },
+      { key: "margin-simulation", label: "Margin Simulation" },
+      { key: "extra-charge-simulation", label: "Extra-charge Simulation" },
+      { key: "pricing-variance", label: "Pricing Variance" },
     ],
   },
   {
@@ -147,9 +147,9 @@ export const AREAS: Area[] = [
     basePath: "/procurement",
     sections: [
       { key: "purchase-requests", label: "Requests" },
-      { key: "purchase-orders", label: "Purchase orders" },
-      { key: "goods-received", label: "Goods received" },
-      { key: "supplier-invoices", label: "Supplier invoices" },
+      { key: "purchase-orders", label: "Purchase Orders" },
+      { key: "goods-received", label: "Goods Received" },
+      { key: "supplier-invoices", label: "Supplier Invoices" },
     ],
   },
 
@@ -160,8 +160,8 @@ export const AREAS: Area[] = [
     sections: [
       { key: "files", label: "Files" },
       { key: "milestones", label: "Milestones" },
-      { key: "transit-orders", label: "Transit orders" },
-      { key: "delivery-notes", label: "Delivery notes" },
+      { key: "transit-orders", label: "Transit Orders" },
+      { key: "delivery-notes", label: "Delivery Notes" },
       // Service types moved to Master Data — the taxonomy IS master data
       // (0310_operations.sql:7). Backend module stays under operations and
       // rides MOD-29; only the UI regrouped.
@@ -177,7 +177,7 @@ export const AREAS: Area[] = [
       { key: "inbound", label: "Inbound / GRN" },
       { key: "outbound", label: "Outbound" },
       { key: "equipment", label: "Equipment" },
-      { key: "cycle-counts", label: "Cycle counts" },
+      { key: "cycle-counts", label: "Cycle Counts" },
     ],
   },
   {
@@ -187,9 +187,9 @@ export const AREAS: Area[] = [
     sections: [
       { key: "vehicles", label: "Vehicles" },
       { key: "compliance", label: "Compliance" },
-      { key: "work-orders", label: "Work orders" },
+      { key: "work-orders", label: "Work Orders" },
       { key: "dispatch", label: "Dispatch" },
-      { key: "fuel", label: "Fuel log" },
+      { key: "fuel", label: "Fuel Log" },
       { key: "drivers", label: "Drivers" },
       { key: "incidents", label: "Incidents" },
     ],
@@ -201,16 +201,16 @@ export const AREAS: Area[] = [
     basePath: "/finance",
     sections: [
       { key: "invoices", label: "Invoices" },
-      { key: "proformas", label: "Proforma & advances" },
+      { key: "proformas", label: "Proforma & Advances" },
       { key: "receivables", label: "Receivables" },
-      { key: "credit-notes", label: "Credit notes" },
+      { key: "credit-notes", label: "Credit Notes" },
       { key: "journals", label: "Journals" },
-      { key: "chart-of-accounts", label: "Chart of accounts" },
+      { key: "chart-of-accounts", label: "Chart of Accounts" },
       { key: "statements", label: "Statements" },
-      { key: "tax", label: "Tax center" },
+      { key: "tax", label: "Tax Center" },
       { key: "assets", label: "Assets" },
       { key: "debt", label: "Financing" },
-      { key: "office-expenses", label: "Office expenses" },
+      { key: "office-expenses", label: "Office Expenses" },
     ],
   },
   {
@@ -219,9 +219,9 @@ export const AREAS: Area[] = [
     basePath: "/costing",
     sections: [
       { key: "costing", label: "Costing" },
-      { key: "cost-tracking", label: "Cost tracking" },
+      { key: "cost-tracking", label: "Cost Tracking" },
       { key: "reconciliation", label: "Reconciliation" },
-      { key: "cash-requests", label: "Cash requests" },
+      { key: "cash-requests", label: "Cash Requests" },
       { key: "regie", label: "Régie" },
     ],
   },
@@ -243,52 +243,52 @@ export const AREAS: Area[] = [
       { key: "leave", label: "Leave" },
       { key: "trainings", label: "Trainings" },
       { key: "sops", label: "SOPs" },
-      { key: "talent-pool", label: "Talent pool" },
+      { key: "talent-pool", label: "Talent Pool" },
     ],
   },
 
   {
     key: "master",
-    label: "Master data",
+    label: "Master Data",
     basePath: "/master",
     sections: [
       { key: "clients", label: "Clients" },
       { key: "suppliers", label: "Suppliers" },
-      { key: "corporate-entities", label: "Corporate entities" },
+      { key: "corporate-entities", label: "Corporate Entities" },
       { key: "treasury-accounts", label: "Treasury" },
       { key: "currencies", label: "Currencies" },
-      { key: "expense-rates", label: "Expense rates" },
-      { key: "financial-dictionary", label: "Financial dictionary" },
+      { key: "expense-rates", label: "Expense Rates" },
+      { key: "financial-dictionary", label: "Financial Dictionary" },
       { key: "tax-jurisdictions", label: "Tax" },
-      { key: "service-types", label: "Service types" },
+      { key: "service-types", label: "Service Types" },
     ],
   },
   {
     key: "vault",
-    label: "Vault & compliance",
+    label: "Vault & Compliance",
     basePath: "/vault",
     sections: [
       { key: "overview", label: "Overview" },
       { key: "documents", label: "Documents" },
       { key: "signatures", label: "Signatures" },
-      { key: "compliance-flags", label: "Compliance flags" },
+      { key: "compliance-flags", label: "Compliance Flags" },
       { key: "reports", label: "Reports" },
     ],
   },
   {
     key: "security",
-    label: "Security & access",
+    label: "Security & Access",
     basePath: "/security",
     sections: [
       { key: "overview", label: "Overview" },
       { key: "users", label: "Users" },
       { key: "roles", label: "Roles" },
-      { key: "permissions", label: "Permission matrix" },
+      { key: "permissions", label: "Permission Matrix" },
       { key: "capabilities", label: "Capabilities" },
       { key: "scopes", label: "Scopes" },
-      { key: "field-visibility", label: "Field visibility" },
+      { key: "field-visibility", label: "Field Visibility" },
       { key: "sessions", label: "Sessions" },
-      { key: "my-security", label: "My security" },
+      { key: "my-security", label: "My Security" },
     ],
   },
   {
@@ -300,7 +300,7 @@ export const AREAS: Area[] = [
     sections: [
       { key: "approvals", label: "Approvals", to: "/approvals" },
       { key: "workflows", label: "Workflows", to: "/workflows" },
-      { key: "audit", label: "Audit ledger", to: "/audit" },
+      { key: "audit", label: "Audit Ledger", to: "/audit" },
       { key: "notifications", label: "Notifications", to: "/notifications" },
     ],
   },
@@ -320,7 +320,7 @@ export const AREAS: Area[] = [
   },
   {
     key: "settings",
-    label: "Settings & admin",
+    label: "Settings & Admin",
     basePath: "/settings",
     // The Settings hub is a card grid over two dozen editors, and a ribbon row
     // holding two dozen items is a list, not a row. These are the ones an
@@ -334,13 +334,13 @@ export const AREAS: Area[] = [
       // features/settings/settings-hub.tsx). Dropping it here too keeps the
       // ribbon row and the card grid telling the same story — the route and
       // its screen are untouched and still open directly.
-      { key: "pipeline-stages", label: "Pipeline stages" },
-      { key: "scheduled-reports", label: "Scheduled reports" },
-      { key: "api-keys", label: "API keys" },
-      { key: "catalogue", label: "Module catalogue" },
+      { key: "pipeline-stages", label: "Pipeline Stages" },
+      { key: "scheduled-reports", label: "Scheduled Reports" },
+      { key: "api-keys", label: "API Keys" },
+      { key: "catalogue", label: "Module Catalogue" },
     ],
   },
-  { key: "godmode", label: "God mode", basePath: "/godmode", sections: [] },
+  { key: "godmode", label: "God Mode", basePath: "/godmode", sections: [] },
 ];
 
 const BY_PATH = new Map(AREAS.map((a) => [a.basePath, a]));

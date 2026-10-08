@@ -105,7 +105,7 @@ function NewAccountForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="New bank account"
+      title="New Bank Account"
       description="A bank, cash or mobile-money account tied to a corporate entity and a chart-of-accounts code."
     >
       <div className="space-y-4">

@@ -532,7 +532,7 @@ export function SubscriberForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="Add subscriber"
+      title="Add Subscriber"
       description="Add someone to the newsletter audience."
     >
       <div className="space-y-4">
@@ -633,7 +633,7 @@ export function SenderForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="New sender"
+      title="New Sender"
       description="A sending identity a template can use. Verification is a manual admin stamp for now."
       size="lg"
     >

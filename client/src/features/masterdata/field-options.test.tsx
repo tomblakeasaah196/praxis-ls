@@ -165,7 +165,7 @@ async function openOptions(user: ReturnType<typeof userEvent.setup>) {
     "fs-2",
   );
   await user.click(await screen.findByRole("button", { name: /2 options/ }));
-  return screen.findByRole("dialog", { name: /Options — Incoterm/ });
+  return screen.findByRole("dialog", { name: /Options: Incoterm/ });
 }
 
 beforeEach(() => {
@@ -190,7 +190,7 @@ describe("finding the option list", () => {
     renderTab(withSets({ fields: [field({ options_json: [] })] }));
     await screen.findByLabelText("Form version");
     expect(
-      await screen.findByRole("button", { name: /0 options — none yet/ }),
+      await screen.findByRole("button", { name: /0 options: none yet/ }),
     ).toBeInTheDocument();
   });
 
@@ -373,7 +373,7 @@ describe("what it refuses to save", () => {
       "Free on board",
     );
     expect(
-      within(dialog).getByText(/cannot share a value — FOB/),
+      within(dialog).getByText(/cannot share a value: FOB/),
     ).toBeInTheDocument();
     expect(
       within(dialog).getByRole("button", { name: /Save 3 options/ }),
@@ -444,7 +444,7 @@ describe("a published version", () => {
     renderTab(withSets({ draft: false }));
     await user.click(await screen.findByRole("button", { name: /2 options/ }));
     const dialog = await screen.findByRole("dialog", {
-      name: /Options — Incoterm/,
+      name: /Options: Incoterm/,
     });
 
     expect(
@@ -490,7 +490,7 @@ describe("adding a new dropdown field", () => {
 
     await user.click(screen.getByRole("button", { name: /Set the options/ }));
     const dialog = await screen.findByRole("dialog", {
-      name: /Options — Packing type/,
+      name: /Options: Packing type/,
     });
     await user.click(
       within(dialog).getByRole("button", { name: /Add an option/ }),
@@ -601,7 +601,7 @@ describe("the dialog discards on cancel", () => {
 
     await user.click(screen.getByRole("button", { name: /2 options/ }));
     const reopened = await screen.findByRole("dialog", {
-      name: /Options — Incoterm/,
+      name: /Options: Incoterm/,
     });
     expect(within(reopened).getAllByRole("group")).toHaveLength(2);
   });

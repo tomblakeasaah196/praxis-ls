@@ -230,7 +230,7 @@ function NewChatModal({
     <Modal
       open
       onClose={onClose}
-      title={tr("New conversation")}
+      title={tr("New Conversation")}
       description="Start a direct message or a group channel with colleagues."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -690,7 +690,7 @@ export function TeamChatPage() {
               <button
                 type="button"
                 onClick={() => setNewKind("menu")}
-                title={tr("New conversation")}
+                title={tr("New Conversation")}
                 aria-label={tr("New conversation")}
                 className="chat-new-btn inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:px-3.5"
               >

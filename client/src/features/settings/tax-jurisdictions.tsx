@@ -319,7 +319,7 @@ function NewJurisdictionForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="New tax jurisdiction"
+      title="New Tax Jurisdiction"
       description="A jurisdiction groups the effective-dated tax codes (TVA, WHT, IS…) that account determination reads."
     >
       <div className="space-y-4">

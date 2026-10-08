@@ -543,7 +543,55 @@
      --ink-3 measures 5.36:1 on --card and 4.89:1 on --background. Heavy
      tracking on tiny uppercase is an editorial device that cost legibility
      here. */
+
+  /*
+   * THE UPPERCASE CAME OFF (tenant review, 8 Oct 2026).
+   *
+   * `.micro` was written as an EYEBROW: a two-word label sitting above a value,
+   * where small uppercase reads as a caption. It then became the house style
+   * for helper SENTENCES, 790 of them, and uppercase does to a sentence what it
+   * does to an email. "CLOSES THIS SERVICE'S OPERATION-FILE REFERENCES, E.G.
+   * SL7Z3K9QW2M4XBSM. LEAVE BLANK TO GENERATE ONE." is a paragraph shouting at
+   * an operator who only wanted to name a service.
+   *
+   * Uppercase also destroys word shape, which is most of how fluent reading
+   * works, so the very text that was meant to help was the slowest text on the
+   * screen. And because uppercase reads as a HEADING, every hint competed with
+   * the real headings for the eye.
+   *
+   * Removing one declaration quiets every screen in the app at once, which is
+   * why it is done here rather than at 790 call sites. Title Case now carries
+   * the "this is a label" signal that uppercase used to.
+   */
   .micro {
+    font-size: 11px;
+    letter-spacing: 0.01em;
+    color: rgb(var(--ink-3));
+    font-weight: 600;
+  }
+
+  /*
+   * Helper SENTENCES that have earned their place on the page, rather than
+   * behind an ⓘ. Normal case, normal tracking, one notch down from body text:
+   * it should read like an aside, not like a caption or a heading.
+   *
+   * Most guidance should not use this. The ladder in FRONTEND_GUIDE §3.17 is
+   * delete, fold into the control, hide behind `<InfoHint>`, and only then
+   * this. `npm run check:prose` counts how many a screen carries.
+   */
+  .hint {
+    font-size: 12px;
+    line-height: 1.45;
+    color: rgb(var(--ink-3));
+  }
+
+  /*
+   * The genuine eyebrow, kept for the few places that still want the editorial
+   * treatment: a single short word over a figure in a stat block, where there
+   * is no sentence to disfigure. If what you are writing has a verb in it,
+   * this is the wrong class.
+   */
+  .eyebrow {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.06em;

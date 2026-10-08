@@ -109,7 +109,7 @@ export function FieldOptionsDialog({
       open={open}
       onClose={onClose}
       size="lg"
-      title={`Options — ${fieldLabel}`}
+      title={`Options: ${fieldLabel}`}
       description={
         editable
           ? "The value is stored on every file and printed on every document. The labels are what people read."
@@ -199,7 +199,7 @@ export function FieldOptionsDialog({
                       id={`${row._key}-en`}
                       value={row.label_en || ""}
                       disabled={!editable || busy}
-                      placeholder="FOB — Free On Board"
+                      placeholder="FOB: Free On Board"
                       onChange={(e) => patch(i, { label_en: e.target.value })}
                     />
                   </div>
@@ -214,7 +214,7 @@ export function FieldOptionsDialog({
                       id={`${row._key}-fr`}
                       value={row.label_fr || ""}
                       disabled={!editable || busy}
-                      placeholder="FOB — Franco à bord"
+                      placeholder="FOB: Franco à bord"
                       onChange={(e) => patch(i, { label_fr: e.target.value })}
                     />
                   </div>

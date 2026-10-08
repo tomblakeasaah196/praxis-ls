@@ -106,7 +106,7 @@ function NewContractForm({
     <Modal
       open
       onClose={onClose}
-      title="New contract"
+      title="New Contract"
       description="Draft a contract for an employee. It starts in draft."
     >
       <form className="space-y-4" onSubmit={submit}>

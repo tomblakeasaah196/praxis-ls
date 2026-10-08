@@ -146,7 +146,7 @@ export function ClientForm({
       open
       onClose={onClose}
       title={isNew ? "New client" : "Edit client"}
-      description="Customer master record — country, registrations, contact and terms."
+      description="Customer master record: country, registrations, contact and terms."
     >
       <Form
         form={form}
@@ -259,7 +259,7 @@ export function ClientForm({
             form={form}
             name="entity_id"
             label={tr("Corporate entity")}
-            hint="Which of our entities bills this client. Only active entities are offered for a new link; an existing link to a deactivated entity stays as history."
+            about="Which of our entities bills this client. Only active entities are offered for a new link; an existing link to a deactivated entity stays as history."
           >
             {(field) => (
               /*
@@ -404,7 +404,7 @@ export function ClientForm({
             name="phone"
             label={tr("Phone")}
             required
-            hint="The company's own number — contacts carry theirs separately"
+            hint="The company's own number: contacts carry theirs separately"
           >
             {(field) => (
               <Input
@@ -528,7 +528,7 @@ export function ClientsPage() {
     <section className={shell}>
       <PageHeader
         title={tr("Clients")}
-        description="Customer master — terms, credit and withholding status."
+        description="Customer master: terms, credit and withholding status."
         action={<Button onClick={() => setEditing("new")}>{tr("New client")}</Button>}
       />
       <KpiRow>

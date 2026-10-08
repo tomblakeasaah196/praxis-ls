@@ -91,7 +91,7 @@ export function AssetCreateForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="New asset"
+      title="New Asset"
       description="On save, the full monthly depreciation schedule is generated from the cost, residual value, method and useful life."
       size="lg"
     >

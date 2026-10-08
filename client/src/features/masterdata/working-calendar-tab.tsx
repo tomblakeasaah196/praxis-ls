@@ -242,7 +242,7 @@ export function WorkingCalendarTab({
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label="Timezone"
-          hint="Opening hours below are wall-clock time in this zone."
+          about="Opening hours below are wall-clock time in this zone."
         >
           <TimezonePicker
             value={draft.timezone}

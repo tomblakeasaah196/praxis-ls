@@ -870,7 +870,7 @@ export function ReconciliationTab({
         ) : statements.length === 0 ? (
           <EmptyState
             title={tr("No statements imported yet")}
-            hint={tr("Upload your first export above. The layout is confirmed once, then reused for every statement from that institution.")}
+            hint={tr("Upload your first export above. The layout is reused after that.")}
           />
         ) : (
           <div className="overflow-x-auto rounded-lg border">

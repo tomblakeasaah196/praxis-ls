@@ -25,6 +25,7 @@ import { Pill } from "@/components/ui/pill";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { EmployeePicker, type EmployeeHit } from "@/components/employee-picker";
+import { InfoHint } from "@/components/ui/info-hint";
 import { cn } from "@/lib/cn";
 
 export type AccountManager = {
@@ -141,7 +142,7 @@ export function AccountManagerCard({
     <div className={cn("rounded-xl border bg-card p-4", className)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="micro">{tr("Account manager")}</p>
+          <p className="micro">{tr("Account Manager")}</p>
           {res.loading ? (
             <p className="text-sm text-muted-foreground">{tr("Loading…")}</p>
           ) : res.error ? (
@@ -153,7 +154,16 @@ export function AccountManagerCard({
               {!m.reachable ? <Pill tone="bad">{tr("No active login")}</Pill> : null}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">{tr("Nobody yet — messages go to the client inbox team")}</p>
+            /* Was "Nobody yet — messages go to the client inbox team". The
+               first half is the STATE and belongs on screen; the second is what
+               happens because of it, which matters once, to whoever is deciding
+               whether to assign somebody. */
+            <span className="flex items-center gap-1.5">
+              <p className="text-sm text-muted-foreground">{tr("Nobody yet")}</p>
+              <InfoHint label={tr("About having no account manager")}>
+                {tr("Until someone is named, this client's messages go to the client inbox team.")}
+              </InfoHint>
+            </span>
           )}
         </div>
         {!res.loading && !res.error ? (
@@ -181,7 +191,14 @@ export function AccountManagerCard({
             exclude={m?.employee_id ? new Set([m.employee_id]) : undefined}
             onPick={pick}
           />
-          <p className="mt-1 text-xs text-muted-foreground">{tr("Only people with a login can be told when the client writes.")}</p>
+          {/* Why somebody expected is missing from the list. Worth having,
+              not worth a line under every search. */}
+          <span className="mt-1 flex items-center gap-1.5">
+            <p className="hint">{tr("People with a login only.")}</p>
+            <InfoHint label={tr("About who can be an account manager")}>
+              {tr("Only people with a login can be told when the client writes.")}
+            </InfoHint>
+          </span>
         </div>
       ) : null}
 
@@ -189,7 +206,7 @@ export function AccountManagerCard({
       {told.data && Array.isArray(told.data.also_notify) ? (
         <div className="mt-4 border-t pt-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="micro">{tr("Also notify")}</p>
+            <p className="micro">{tr("Also Notify")}</p>
             <Button size="sm" variant="ghost" onClick={() => setAddingAlso((v) => !v)} disabled={busy}>
               {tr("Add a person")}
             </Button>
@@ -218,7 +235,10 @@ export function AccountManagerCard({
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-muted-foreground">{tr("Nobody else — add people who must also hear about this client.")}</p>
+            /* The "Add a person" button is directly above this and already
+               says what to do, so the instruction half was the button's label
+               written out a second time. */
+            <p className="hint">{tr("Nobody else.")}</p>
           )}
           {addingAlso ? (
             <div className="mt-2">
@@ -237,10 +257,20 @@ export function AccountManagerCard({
               />
             </div>
           ) : null}
-          <p className="mt-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{tr("Told about this client:")}</span> {toldSentence(told.data) || "—"}
+          {/*
+            The live list stays: who hears about this client is a fact about
+            the data, it changes as people are added, and somebody assigning an
+            account manager is checking exactly this. The delivery mechanics
+            underneath it never change and were printed on every client in the
+            tenant, so they moved to the ⓘ on the same line.
+          */}
+          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{tr("Told about this client:")}</span>
+            <span>{toldSentence(told.data) || tr("nobody")}</span>
+            <InfoHint label={tr("About how people are told")}>
+              {tr("In-app, by push and by email. Each person can switch the email off in their notification preferences.")}
+            </InfoHint>
           </p>
-          <p className="text-xs text-muted-foreground">{tr("In-app, by push and by email. Each person can switch the email off in their notification preferences.")}</p>
         </div>
       ) : null}
       {confirmDialog}
@@ -264,7 +294,12 @@ export function ClientToldFields({ value, onChange }: { value: ToldPick; onChang
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-foreground">{tr("Account manager")}</p>
+        <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          {tr("Account Manager")}
+          <InfoHint label={tr("About the account manager")}>
+            {tr("The first person told when the client writes, sends a document or asks for a quote.")}
+          </InfoHint>
+        </p>
         {value.manager ? (
           <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm">
             <span className="min-w-0 flex-1 truncate">{value.manager.full_name}</span>
@@ -283,10 +318,14 @@ export function ClientToldFields({ value, onChange }: { value: ToldPick; onChang
             onPick={(hit) => onChange({ ...value, manager: hit })}
           />
         )}
-        <p className="text-xs text-muted-foreground">{tr("The first person told when the client writes, sends a document or asks for a quote.")}</p>
       </div>
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-foreground">{tr("Also notify")}</p>
+        <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          {tr("Also Notify")}
+          <InfoHint label={tr("About also notify")}>
+            {tr("Told too, with the account manager and the CEO.")}
+          </InfoHint>
+        </p>
         {value.also.length ? (
           <ul className="flex flex-wrap gap-2" aria-label={tr("Also notify")}>
             {value.also.map((p) => (
@@ -313,7 +352,6 @@ export function ClientToldFields({ value, onChange }: { value: ToldPick; onChang
           exclude={chosen}
           onPick={(hit) => onChange({ ...value, also: [...value.also, hit] })}
         />
-        <p className="text-xs text-muted-foreground">{tr("Told too, with the account manager and the CEO.")}</p>
       </div>
     </div>
   );

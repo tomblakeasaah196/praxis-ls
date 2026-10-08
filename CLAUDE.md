@@ -170,6 +170,89 @@ ONE synonym list, `packages/shared/schemas/search.js`, never per page.
 unregistered route as ungated) and the AI cannot cite it. None of those fail a
 test. The owner's words for what search must cover were "every single one".
 
+## The fifth frontend rule: a screen explains itself once
+
+**Supporting text does not get printed on the page. It goes behind an ⓘ.**
+
+Enforced by `scripts/check-prose.mjs` (`npm run check:prose` from `client/`), in
+`npm run ci` and CI.
+
+The tenant review of 8 Oct 2026 was blunt: "there is a lot of supporting text on
+pages and they are useless at first glance". The measurement behind it was 805
+`hint=`, 485 `description=` and 790 `.micro` paragraphs in `client/src`, 390 in
+master data alone. Nobody decided a screen should carry nine paragraphs; each
+was added by somebody being helpful about one field, and the whole cost landed
+on a page none of them was looking at.
+
+Work down this ladder and stop at the first rung that fits:
+
+| Rung | When |
+| --- | --- |
+| **Delete it** | it restates the label, the heading or what the control plainly does |
+| **Fold it into the control** | a format is a `placeholder`, a bound is `min`/`max`, a unit is an adornment |
+| **Hide it behind `<Field about>` / `<InfoHint>`** | genuinely useful, more than a few words, wanted by one user in ten |
+| **Leave it visible** | rare, and `@prose:keep <reason>` makes you say why |
+
+**Hiding is not the answer for everything, and the frame matters.** Say it at
+the moment it matters, not on the page. An irreversible choice becomes a
+`Permanent` pill on the label or a disabled input, not a sentence nobody reads.
+What a destructive action destroys goes in the `useConfirm()` body, at the point
+of commit. Nobody should discover "this cannot be changed later" by hovering.
+
+Two mechanical rules that the test suite will enforce for you the hard way:
+
+- **The ⓘ is a SIBLING of what it explains, never a child.** Inside a `<label>`,
+  an `<h2>` or a `RadixDialog.Title` its `aria-label` joins that element's
+  accessible name, and "Shareholding" starts announcing as "Shareholding About
+  Shareholding".
+- **Hidden is not deleted.** `Field` keeps the text in a visually hidden node and
+  points the CONTROL at it with `aria-describedby`. Never drop that.
+
+`.micro` is a short caption ("Account Manager", Title Case). `.hint` is a helper
+SENTENCE that earned its place. `.eyebrow` is the uppercase editorial treatment
+for a single word over a figure. Full detail, the gate's limits, and the
+`<PageHeader>`-versus-`<InfoHint>` split are in **`doc/FRONTEND_GUIDE.md`
+§3.17**.
+
+## The sixth frontend rule: Title Case for chrome, and no dashes anywhere
+
+**Chrome is Title Case. Messages are sentence case. French is always sentence
+case. Nothing a tenant reads contains an em dash.**
+
+Both are enforced: Title Case by `npm run check:prose` (from `client/`), dashes
+by `npm run check:dashes` (from the repo ROOT, covering all three frontends plus
+the document templates and spreadsheet exports).
+
+Chrome NAMES something: page and hub titles, nav and tab labels, section and
+card titles, dialog titles that open a form ("New Service Type"), primary
+buttons, column headers. Messages SPEAK to the user: toasts, empty states,
+validation, helper text. "Could not save it" must not become "Could Not Save
+It".
+
+**French is never title-cased.** "Types de service", not "Types De Service".
+That is correct French typography, and this product serves a corridor where half
+the users read French. `title_fr`, `name_fr` and `fr.strings` are not checked
+and must not be retitled.
+
+The tenant's words on dashes were "No emdashes or double dashes anywhere. It
+screams AI." He is right, and there is a second reason: an em dash in product
+copy is almost always a sentence doing two jobs, which is the same
+over-explaining the fifth rule exists to remove. Use a colon when the second
+half explains the first, a full stop when it is a second thought, a comma when
+it is an aside. A plain hyphen is fine, so a column reads `31-60`. CSS custom
+properties, CLI flags, SQL comments and decrement operators are exempt
+mechanically; code comments and `doc/` are out of scope by decision.
+
+**Renaming any English label moves its dictionary key.** `tr()` and `navT()`
+look a translation up BY its exact English text and fall back to English
+silently, so a renamed string with a stale key renders English in the French
+build with nothing failing anywhere. `node scripts/check-prose.mjs --fix-titles`
+moves the key on both the `en` and `fr` sides and retitles only the English
+value. And watch for copy used as a KEY: `AREA_ICON` is keyed by an area's
+display label, so retitling the navigation silently dropped five areas onto one
+glyph in an icons-only rail, with nothing failing at the type level. Full detail
+in **`doc/FRONTEND_GUIDE.md` §3.18**.
+
 ## Before you write frontend code
 
 `doc/FRONTEND_GUIDE.md` is **the** frontend document — CI fails if it names a
@@ -185,6 +268,9 @@ npm run check:palette   # no raw palette colours — they break white-labelling
 npm run check:contrast  # every text-on-surface token pair clears WCAG AA
 npm run check:docs      # the frontend guide is not lying
 npm run check:motion    # motion budget
+npm run check:prose     # supporting text is behind the ⓘ, and chrome is Title Case
+                        # --fix-titles retitles and moves the dictionary keys
+                        # --update-baseline after a sweep, so the ratchet holds
 npm run check:shared    # the bundler can consume @praxis/shared, on one Zod
 npm run check:schemas   # a shared schema is used by BOTH sides, and migrated
                         # validators have not grown their own rules back
@@ -192,12 +278,13 @@ npm run check:bundle    # chunk graph is acyclic — needs `npm run build` first
 npm test
 ```
 
-Two more run from the repo ROOT rather than `client/`, because they cover the
+Three more run from the repo ROOT rather than `client/`, because they cover the
 backend and the frontends at once:
 
 ```
 npm run check:dates     # no month-first dates anywhere — see the rule above
 npm run check:search    # every route, hub section, tab and record module is findable
+npm run check:dashes    # no em dashes in copy a tenant reads, templates included
 ```
 
 `platform-console/` and `public-web/` each have their own `npm run lint`. All

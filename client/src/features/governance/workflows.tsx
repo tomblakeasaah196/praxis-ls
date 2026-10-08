@@ -131,7 +131,7 @@ function StepForm({
     <Modal
       open
       onClose={onClose}
-      title="Add step"
+      title="Add Step"
       description="A stage in the chain — who acts, where in the company, and (optionally) the amount band it applies to."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -415,7 +415,7 @@ function WorkflowForm({
     <Modal
       open
       onClose={onClose}
-      title="New workflow"
+      title="New Workflow"
       description="Bind an approval chain to an approvable event."
     >
       <form className="space-y-4" onSubmit={submit}>

@@ -147,7 +147,7 @@ function NewDispatchForm({
     <Modal
       open
       onClose={onClose}
-      title="New dispatch"
+      title="New Dispatch"
       description="Assign a vehicle and driver — optionally to an operations file for cost attribution."
     >
       <form className="space-y-4" onSubmit={submit}>

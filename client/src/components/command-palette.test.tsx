@@ -192,7 +192,7 @@ describe("pages, in real words (meeting 6, G5)", () => {
   it("ignores accents and case, and reads the French title", async () => {
     open(shell(["MOD-70"]));
     await type("PARAMETRES commerciaux");
-    expect(within(group("Pages")).getByText("Commercial settings")).toBeInTheDocument();
+    expect(within(group("Pages")).getByText("Commercial Settings")).toBeInTheDocument();
   });
 
   it("finds a hub by its area name", async () => {

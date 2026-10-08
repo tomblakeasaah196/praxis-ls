@@ -195,7 +195,7 @@ export function MilestonePolicyForm({
       size="lg"
       title={
         scoped
-          ? `Scheduling policy — ${serviceTypeName || "this service"}`
+          ? `Scheduling policy: ${serviceTypeName || "this service"}`
           : "Scheduling & SLA policy"
       }
       description={
@@ -225,13 +225,13 @@ export function MilestonePolicyForm({
               checked={overriding}
               onCheckedChange={setOverriding}
               label="Override the tenant default for this service type"
-              hint="Off means this service follows whatever the tenant-wide policy says, including future changes to it."
+              about="Off means this service follows whatever the tenant-wide policy says, including future changes to it."
             />
           )}
 
           <Field
             label="When a stage finishes early"
-            hint="Delays always push the schedule out. This is only about the other direction."
+            about="Delays always push the schedule out. This is only about the other direction."
           >
             <Select
               value={form.earlyCompletion || "HOLD"}
@@ -260,7 +260,7 @@ export function MilestonePolicyForm({
 
           <Field
             label="When an SLA date can no longer be met"
-            hint="Raised when the remaining stages will not fit before the locked date even at their minimum durations."
+            about="Raised when the remaining stages will not fit before the locked date even at their minimum durations."
           >
             <Select
               value={form.onFloorReached || "HOLD_AND_ALERT"}
@@ -331,7 +331,7 @@ export function MilestonePolicyForm({
             checked={form.showForecastToClient !== false}
             onCheckedChange={(v) => set({ showForecastToClient: v })}
             label="Show the client the forecast as well as the committed date"
-            hint="Off shows only the commitment on the portal. The forecast is always visible internally."
+            about="Off shows only the commitment on the portal. The forecast is always visible internally."
             disabled={disabled}
           />
 
