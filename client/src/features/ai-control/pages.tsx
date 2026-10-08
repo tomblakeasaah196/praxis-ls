@@ -129,7 +129,7 @@ export function AiFeaturesPage() {
       <PageHeader
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
         title="Feature Flags"
-        description="Turn AI capabilities on or off per tenant — the switch every Praxis affordance obeys."
+        description="Turns AI capabilities on or off per tenant. Every Praxis affordance obeys these switches."
       />
       <HubTabs />
       <KpiRow>
@@ -151,6 +151,7 @@ export function AiFeaturesPage() {
         rowKey={(f) => f.feature_key}
         empty={{
           title: "No feature flags",
+          /* @prose:keep the Features screen's empty state, and all it shows. */
           hint: "Flags seed on tenant bootstrap.",
         }}
       />
@@ -202,7 +203,7 @@ function GrantForm({
     <Modal
       open
       onClose={onClose}
-      title="Grant AI access"
+      title="Grant AI Access"
       description="Give a user access to a feature, optionally with a personal monthly cap."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -365,6 +366,7 @@ export function AiGrantsPage() {
         rowKey={(g) => g.grant_id || g.user_id + g.feature_key}
         empty={{
           title: "No grants",
+          /* @prose:keep the Access screen's empty state, and all it shows. */
           hint: "Grant a user access to an AI feature.",
         }}
       />
@@ -385,7 +387,7 @@ export function AiBudgetPage() {
       <PageHeader
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
         title="Spend Caps"
-        description="Monthly AI budget — soft cap warns, hard cap blocks all AI calls."
+        description="A monthly budget: the soft cap warns, the hard cap blocks every AI call."
         action={<Button onClick={() => setOpen(true)}>Set budget</Button>}
       />
       <HubTabs />
@@ -395,9 +397,9 @@ export function AiBudgetPage() {
         <ErrorState message={b.error} />
       ) : (
         <KpiRow>
-          <KpiTile label="Spent this period" value={money(d?.spent_xaf)} />
-          <KpiTile label="Soft cap" value={money(d?.soft_cap_xaf)} />
-          <KpiTile label="Hard cap" value={money(d?.hard_cap_xaf)} />
+          <KpiTile label="Spent This Period" value={money(d?.spent_xaf)} />
+          <KpiTile label="Soft Cap" value={money(d?.soft_cap_xaf)} />
+          <KpiTile label="Hard Cap" value={money(d?.hard_cap_xaf)} />
           <KpiTile
             label={tr("State")}
             value={<Pill tone={stateTone}>{d?.state || "OK"}</Pill>}
@@ -464,7 +466,7 @@ function BudgetForm({
     <Modal
       open
       onClose={onClose}
-      title="Set AI budget"
+      title="Set AI Budget"
       description="Caps apply to the whole tenant's AI spend for the period."
     >
       <form className="space-y-4" onSubmit={submit}>
@@ -589,7 +591,7 @@ function VendorKeyForm({
             className="sm:col-span-2"
             hint={
               vendor.has_key
-                ? "A key is already set — leave blank to keep it."
+                ? "A key is already set. Leave blank to keep it."
                 : "Paste the provider API key."
             }
           >
@@ -616,22 +618,23 @@ function VendorKeyForm({
         </div>
         <div className="space-y-1 pt-2">
           <div className="text-sm font-medium">{tr("Pricing")}</div>
+          {/* @prose:keep a rate left at 0 makes every cost report read 0.00. */}
           <p className="text-xs text-muted-foreground">
             {tr(
-              "The provider's list price, in the currency below. Leave a rate at 0 and every call metered against this vendor costs 0 — which is what makes AI Control → Usage read 0.00.",
+              "A rate left at 0 meters every call against this vendor at 0, which is what makes Usage read 0.00.",
             )}
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             label={tr("Cost per 1K Input Tokens")}
-            hint="e.g. 0.00027 for DeepSeek chat ($0.27 per 1M)."
+            about="A provider's per-million price divided by 1,000: $0.27 per 1M is 0.00027."
           >
             <Input
               inputMode="decimal"
               value={f.cost_per_1k_input_tokens}
               onChange={(e) => set("cost_per_1k_input_tokens", e.target.value)}
-              placeholder="0.000000"
+              placeholder="0.00027"
             />
           </Field>
           <Field label={tr("Cost per 1K Output Tokens")}>
@@ -644,7 +647,7 @@ function VendorKeyForm({
           </Field>
           <Field
             label={tr("Cost per Audio Minute")}
-            hint="Transcription vendors only (Whisper/Groq)."
+            about="Transcription vendors only, such as Whisper or Groq."
           >
             <Input
               inputMode="decimal"
@@ -655,7 +658,8 @@ function VendorKeyForm({
           </Field>
           <Field
             label={tr("Price Currency")}
-            hint="Converted to your base currency with the FX rate of the day."
+            /* @prose:keep the rate typed here is converted, not stored as given. */
+            hint="Converted to your base currency at the day's FX rate."
           >
             <Input
               value={f.cost_native_currency}
@@ -701,7 +705,7 @@ const VENDOR_PRESETS: {
     display_name: "Embeddings (OpenAI)",
     endpoint_url: "https://api.openai.com/v1",
     default_model: "text-embedding-3-small",
-    note: "pgvector recall — fixes the embeddings 401",
+    note: "pgvector recall, fixes the embeddings 401",
   },
   {
     vendor: "deepseek",
@@ -801,7 +805,7 @@ function AddVendorForm({
           <Select value={preset} onChange={(e) => applyPreset(e.target.value)}>
             {VENDOR_PRESETS.map((p) => (
               <option key={p.vendor} value={p.vendor}>
-                {p.display_name} — {p.note}
+                {p.display_name}: {p.note}
               </option>
             ))}
             <option value="custom">Custom…</option>
@@ -813,7 +817,7 @@ function AddVendorForm({
             required
             hint={
               dup
-                ? "Already added — this will overwrite it."
+                ? "Already added. This will overwrite it."
                 : "lowercase key, e.g. openai"
             }
           >
@@ -832,7 +836,7 @@ function AddVendorForm({
         </div>
         <Field
           label="Endpoint URL"
-          hint="OpenAI-compatible base; the app appends /embeddings or /chat/completions."
+          about="An OpenAI-compatible base. The app appends /embeddings or /chat/completions."
         >
           <Input
             value={f.endpoint_url}
@@ -1014,7 +1018,7 @@ export function AiVendorsPage() {
       <PageHeader
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
         title="Vendors & Keys"
-        description="LLM/vision/voice providers — model, encrypted API key, and a connection test."
+        description="LLM, vision and voice providers: model, encrypted API key and a connection test."
         action={<Button onClick={() => setAdding(true)}>Add vendor</Button>}
       />
       <HubTabs />
@@ -1041,7 +1045,8 @@ export function AiVendorsPage() {
         rowKey={(v) => v.vendor}
         empty={{
           title: "No vendors yet",
-          hint: "Add a provider (e.g. OpenAI for embeddings) and paste its API key.",
+          /* @prose:keep the Vendors screen's empty state, and all it shows. */
+          hint: "Add a provider, then paste its API key.",
         }}
       />
       {editing && (
@@ -1120,7 +1125,7 @@ export function AiUsagePage() {
         // figure rather than a 0.00 that claims the call was free.
         if (cost === 0 && native > 0)
           return (
-            <span title="No FX rate for this vendor's currency — set one under Currencies.">
+            <span title="No FX rate for this vendor's currency. Set one under Currencies.">
               {native.toFixed(6)} {r.cost_native_currency || ""}
             </span>
           );
@@ -1144,7 +1149,7 @@ export function AiUsagePage() {
       <HubTabs />
       <KpiRow>
         <KpiTile label="Calls" value={num(list.length)} />
-        <KpiTile label={tr("Total cost")} value={money(total)} />
+        <KpiTile label={tr("Total Cost")} value={money(total)} />
       </KpiRow>
       {unpriced > 0 && (
         <p className="mb-4 text-xs text-muted-foreground">
@@ -1163,6 +1168,7 @@ export function AiUsagePage() {
         rowKey={(r, i) => String(r.usage_id || i)}
         empty={{
           title: "No usage yet",
+          /* @prose:keep the Usage screen's empty state, and all it shows. */
           hint: "AI calls are metered here as they happen.",
         }}
       />
@@ -1186,7 +1192,7 @@ const HEALTH_COPY: Record<string, { label: string; meaning: string }> = {
   fallback: {
     label: "Fell Back to Another Vendor",
     meaning:
-      "The primary vendor did not answer and a later one did. The turn succeeded — on a different model, at a different cost.",
+      "The primary vendor did not answer and a later one did. The turn succeeded on a different model, at a different cost.",
   },
   vendor_config_error: {
     label: "Vendor Credential Rejected",
@@ -1205,7 +1211,7 @@ const HEALTH_COPY: Record<string, { label: string; meaning: string }> = {
   tool_round_cap: {
     label: "Ran Out of Steps",
     meaning:
-      "The assistant was still looking things up when the round limit stopped it — it could not find what it needed.",
+      "The assistant was still looking things up when the round limit stopped it, so it could not find what it needed.",
   },
   groove: {
     label: "Repeated the Same Lookups",
@@ -1278,7 +1284,7 @@ export function AiHealthPage() {
       <PageHeader
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
         title="Health"
-        description="How well the assistant is answering — as opposed to what it costs. Every rate here should be trending towards zero."
+        description="How well the assistant is answering, as opposed to what it costs. Every rate here should trend towards zero."
       />
       <HubTabs />
 
@@ -1302,9 +1308,9 @@ export function AiHealthPage() {
       </div>
 
       <KpiRow>
-        <KpiTile label={tr("Chat turns")} value={num(health.data?.turns ?? 0)} />
+        <KpiTile label={tr("Chat Turns")} value={num(health.data?.turns ?? 0)} />
         <KpiTile
-          label={tr("Worst signal")}
+          label={tr("Worst Signal")}
           value={worst ? HEALTH_COPY[worst.kind]?.label || worst.kind : tr("None")}
         />
       </KpiRow>
@@ -1347,9 +1353,8 @@ export function AiHealthPage() {
         rowKey={(r) => String(r.health_event_id)}
         empty={{
           title: tr("Nothing to report"),
-          hint: tr(
-            "No health events in this window. That is the state this panel is trying to reach.",
-          ),
+          /* @prose:keep the Health screen's empty state, and all it shows. */
+          hint: tr("No health events in this window, which is the state to be in."),
         }}
       />
     </section>

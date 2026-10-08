@@ -196,7 +196,7 @@ function ReviewDetail({
         {!done && decided < entries.length && (
           <Field
             label={tr("Note")}
-            hint="Optional — attached to the next decision you record."
+            about="Attached to the next decision you record, not to the ones already made."
           >
             <Input
               value={note}
@@ -253,6 +253,7 @@ function ReviewDetail({
               );
             })}
             {!entries.length && (
+              /* @prose:keep the panel's empty state, and all it then shows. */
               <span className="micro">This review has no entries.</span>
             )}
           </div>
@@ -299,7 +300,7 @@ function NewReviewForm({
       description="Snapshots every user and their roles right now, then asks you to approve, revoke or flag each one."
     >
       <form className="space-y-4" onSubmit={submit}>
-        <Field label={tr("Name")} required hint="e.g. Q3 2026 access recertification">
+        <Field label={tr("Name")} required>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -570,9 +571,9 @@ export function AuditPage() {
         onChange={setTab}
         options={[
           { value: "ledger", label: "Ledger" },
-          { value: "events", label: "Security events" },
-          { value: "reviews", label: "Access reviews" },
-          { value: "restores", label: "Restore queue" },
+          { value: "events", label: "Security Events" },
+          { value: "reviews", label: "Access Reviews" },
+          { value: "restores", label: "Restore Queue" },
         ]}
       />
       {error && (
@@ -600,6 +601,7 @@ export function AuditPage() {
             onRowClick={(r) => setDetail(r)}
             empty={{
               title: "Ledger is empty",
+              /* @prose:keep the Ledger tab's empty state, and all it then shows. */
               hint: "Entries appear as documents are locked, posted or reversed.",
             }}
           />
@@ -611,8 +613,9 @@ export function AuditPage() {
           <KpiRow>
             <KpiTile label={tr("Events")} value={num((events.rows || []).length)} />
             <KpiTile
-              label="High priority"
+              label="High Priority"
               value={num(highEvents)}
+              /* @prose:keep says which alerts the number counts. */
               hint="Watch-the-Watcher alerts"
             />
           </KpiRow>
@@ -632,7 +635,8 @@ export function AuditPage() {
             rowKey={(r) => String(r.event_id)}
             empty={{
               title: "No security events",
-              hint: "Auth and RBAC activity lands here. These read from the live schema, so TEST shows the same rows.",
+              /* @prose:keep the audit ledger is LIVE even in Test mode. */
+              hint: "These read from LIVE, so Test mode shows the same rows.",
             }}
           />
         </>
@@ -648,6 +652,7 @@ export function AuditPage() {
           onRowClick={(r) => setOpenReview(r)}
           empty={{
             title: "No access reviews",
+            /* @prose:keep the Reviews tab's empty state, and all it then shows. */
             hint: "Start one to snapshot every user's roles and recertify them.",
           }}
         />
@@ -667,6 +672,7 @@ export function AuditPage() {
             rowKey={(r) => r.soft_delete_id}
             empty={{
               title: "Nothing soft-deleted",
+              /* @prose:keep where a deleted record goes, and who can destroy it. */
               hint: "Deleted records wait here until restored or purged in God Mode.",
             }}
           />
