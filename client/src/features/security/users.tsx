@@ -26,6 +26,7 @@ import { type EmployeeOption } from "@/lib/employee-search";
 import { PasswordRules } from "@/components/password-rules";
 import { passwordMeetsPolicy } from "@/lib/password-policy";
 import { RowActions } from "@/components/ui/row-actions";
+import { useConfirm } from "@/components/ui/use-confirm";
 import {
   type User,
   type Role,
@@ -514,6 +515,7 @@ function PasswordForm({ user, onClose }: { user: User; onClose: () => void }) {
 
 export function UsersPage() {
   const { rows, error, loading, reload } = useList<User>("/users");
+  const [confirmReset, resetDialog] = useConfirm();
   const rolesQ = useList<Role>("/roles");
   const [q, setQ] = React.useState("");
   const [filter, setFilter] = React.useState<string>("ALL");
@@ -592,6 +594,32 @@ export function UsersPage() {
     }
   }
 
+  /**
+   * Clear somebody's authenticator — the path for a lost phone with no recovery
+   * code left (14401). It hands out NO credential: the account simply goes back
+   * to having no second factor, and its owner re-enrols from My Security.
+   *
+   * Offered only on a row that HAS one, so it is not a button on every line
+   * that does nothing.
+   */
+  async function resetMfa(u: User) {
+    const ok = await confirmReset({
+      title: "Reset this authenticator?",
+      body: `${u.full_name || u.email} will sign in with their password alone until they set a new one up. Their recovery codes stop working.`,
+      confirmLabel: "Reset Authenticator",
+      destructive: true,
+    });
+    if (!ok) return;
+    setNotice(null);
+    try {
+      await tenant(`/users/${u.user_id}/2fa/reset`, { method: "POST", body: {} });
+      setNotice(`Authenticator reset for ${u.email}.`);
+      reload();
+    } catch (err) {
+      setNotice(errMsg(err));
+    }
+  }
+
   const all = React.useMemo(() => rows || [], [rows]);
   const list = all.filter((u) => {
     if (filter !== "ALL" && String(u.status || "").toUpperCase() !== filter)
@@ -655,6 +683,11 @@ export function UsersPage() {
           <Button size="sm" variant="outline" onClick={() => setPwTarget(r)}>
             Password
           </Button>
+          {r.is_2fa_enabled && (
+            <Button size="sm" variant="outline" onClick={() => void resetMfa(r)}>
+              Reset MFA
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -755,6 +788,7 @@ export function UsersPage() {
       {pwTarget && (
         <PasswordForm user={pwTarget} onClose={() => setPwTarget(null)} />
       )}
+      {resetDialog}
     </section>
   );
 }

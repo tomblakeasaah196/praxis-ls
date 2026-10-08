@@ -113,7 +113,7 @@ async function killSession(client, sessionId, killedBy) {
  *  until a 2FA-enabled user has already passed the password check). */
 async function getTotpSecret(client, userId) {
   const { rows } = await client.query(
-    `SELECT user_id, email, full_name, is_2fa_enabled, totp_secret_enc
+    `SELECT user_id, email, full_name, is_2fa_enabled, totp_secret_enc, mfa_frequency
      FROM app_user WHERE user_id = $1`,
     [userId],
   );
@@ -135,6 +135,71 @@ async function setTotpEnabled(client, userId, enabled) {
      WHERE user_id = $1`,
     [userId, enabled],
   );
+}
+
+/** How often the authenticator asks: 'always' | 'daily' | 'monthly' (14401). */
+async function setMfaFrequency(client, userId, frequency) {
+  await client.query(`UPDATE app_user SET mfa_frequency = $2 WHERE user_id = $1`, [
+    userId,
+    frequency,
+  ]);
+}
+
+/* ── Recovery codes (14401) ────────────────────────────────────────────────
+ *
+ * Ten single-use codes, minted when 2FA is enabled and shown exactly once.
+ * Only the argon2id hash is stored. `used_at` BURNS a code rather than
+ * deleting it, so "was a recovery code used, and when" is still answerable
+ * six months later.
+ */
+
+/** Minting is wholesale: a new set replaces the old one, so a code from a
+ *  previous enrolment can never be presented against the current secret. */
+async function replaceRecoveryCodes(client, userId, hashes) {
+  await client.query(`DELETE FROM user_mfa_recovery_code WHERE user_id = $1`, [userId]);
+  for (const hash of hashes) {
+    await client.query(
+      `INSERT INTO user_mfa_recovery_code (user_id, code_hash) VALUES ($1, $2)`,
+      [userId, hash],
+    );
+  }
+}
+
+/** The unused codes, newest first. The caller argon2-verifies each in turn —
+ *  the code is random and the hash is one-way, so there is nothing to look up
+ *  by. Ten rows is the whole set. */
+async function liveRecoveryCodes(client, userId) {
+  const { rows } = await client.query(
+    `SELECT code_id, code_hash FROM user_mfa_recovery_code
+      WHERE user_id = $1 AND used_at IS NULL
+      ORDER BY created_at DESC`,
+    [userId],
+  );
+  return rows;
+}
+
+/** Burn one. The WHERE guards `used_at IS NULL`, so two requests racing on the
+ *  same code see exactly one rowCount of 1 — the other is refused. */
+async function burnRecoveryCode(client, codeId) {
+  const { rowCount } = await client.query(
+    `UPDATE user_mfa_recovery_code SET used_at = now()
+      WHERE code_id = $1 AND used_at IS NULL`,
+    [codeId],
+  );
+  return rowCount === 1;
+}
+
+async function countLiveRecoveryCodes(client, userId) {
+  const { rows } = await client.query(
+    `SELECT count(*)::int AS n FROM user_mfa_recovery_code
+      WHERE user_id = $1 AND used_at IS NULL`,
+    [userId],
+  );
+  return rows[0] ? rows[0].n : 0;
+}
+
+async function deleteRecoveryCodes(client, userId) {
+  await client.query(`DELETE FROM user_mfa_recovery_code WHERE user_id = $1`, [userId]);
 }
 
 
@@ -428,4 +493,10 @@ module.exports = {
   getTotpSecret,
   setTotpSecret,
   setTotpEnabled,
+  setMfaFrequency,
+  replaceRecoveryCodes,
+  liveRecoveryCodes,
+  burnRecoveryCode,
+  countLiveRecoveryCodes,
+  deleteRecoveryCodes,
 };

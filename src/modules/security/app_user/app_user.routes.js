@@ -49,6 +49,11 @@ usersRouter.get("/:id", requirePermission(MODULE, "view"), controller.get);
 usersRouter.patch("/:id", requirePermission(MODULE, "edit"), validator.update, controller.update);
 usersRouter.post("/:id/password", requirePermission(MODULE, "edit"), validator.password, controller.setPassword);
 usersRouter.post("/:id/status", requirePermission(MODULE, "edit"), validator.status, controller.setStatus);
+// Clear somebody else's authenticator — a lost phone with no recovery code
+// left (14401). `edit`, like setting a password directly: the same authority,
+// and like that route it hands the administrator no working credential. The
+// owner re-enrols from their own My Security card.
+usersRouter.post("/:id/2fa/reset", requirePermission(MODULE, "edit"), controller.resetMfa);
 // Re-send an activation link. `edit`, like setting a password directly — it is
 // the same authority, exercised in the safer direction (the administrator never
 // learns the credential).
@@ -84,10 +89,22 @@ authRouter.post("/logout", authMiddleware, controller.logout);
 // Self-service profile picture upload (base64 data URL → /media, sets avatar_ref).
 authRouter.post("/avatar", authMiddleware, validator.avatar, controller.setAvatar);
 // A 6-digit TOTP is a 10^6 space on a ~30s window — the tightest limiter here.
+// A recovery code (14401) rides the SAME route under the SAME limiter, so the
+// way back in is never a quieter door than the one it backs up.
 authRouter.post("/2fa/verify", totpLimiter, validator.verifyTotp, controller.verifyTotp);
-authRouter.post("/2fa/setup", authMiddleware, controller.setupTotp);
+// What the My Security card reads: on/off, how often it asks, how many
+// recovery codes are left. No secret, no code.
+authRouter.get("/2fa", authMiddleware, controller.mfaStatus);
+// Minting a second factor, and removing one, are both credential changes: each
+// carries changePasswordLimiter (keyed on the identity authMiddleware just
+// established) and each may answer REAUTH_REQUIRED on a stale session.
+authRouter.post("/2fa/setup", authMiddleware, changePasswordLimiter, validator.reauth, controller.setupTotp);
 authRouter.post("/2fa/enable", authMiddleware, validator.totpCode, controller.enableTotp);
-authRouter.post("/2fa/disable", authMiddleware, validator.totpCode, controller.disableTotp);
+// No code required to turn it off (14401): a lost phone cannot produce one, and
+// the bar is the same assertFreshAuth every other credential change here uses.
+authRouter.post("/2fa/disable", authMiddleware, changePasswordLimiter, validator.reauth, controller.disableTotp);
+// How often it asks. Changing it drops every device's trust window.
+authRouter.put("/2fa/frequency", authMiddleware, validator.mfaFrequency, controller.setMfaFrequency);
 
 // Quick PIN — ONE per person, valid on any device (14230). /pin/login is public
 // (it is a way to obtain a token). Setting it compares the current password on

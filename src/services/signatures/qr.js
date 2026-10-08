@@ -42,6 +42,38 @@ async function svg(text, { sizeMm = 20, margin = 4 } = {}) {
     .replace("<svg", "<svg shape-rendering=\"crispEdges\"");
 }
 
+/**
+ * Render a QR as an SVG data URL, for a `<img src>` on a SCREEN (14401: the
+ * authenticator enrolment).
+ *
+ * SVG, not PNG, because the enrolment card scales the symbol to whatever a
+ * phone or a laptop gives it and a raster would soften exactly the edges a
+ * camera is looking for. A data URL, not markup, because the consumer is React:
+ * an `<img>` renders it without `dangerouslySetInnerHTML`, and an SVG loaded
+ * through `<img>` cannot run script even if the string were ever attacker-
+ * shaped. base64 rather than percent-encoding so the `#` in every fill colour
+ * survives.
+ *
+ * Error correction M, not the print path's Q: a screen is not photocopied,
+ * stapled through or read at an angle in a warehouse, and M keeps the symbol
+ * at fewer, larger modules, which is what scans quickly across a desk.
+ */
+async function dataUrl(text, { margin = 4 } = {}) {
+  const raw = await QRCode.toString(String(text), {
+    type: "svg",
+    errorCorrectionLevel: "M",
+    margin,
+    width: 512,
+  });
+  // The caller sizes it in CSS; the library's fixed px width/height would fight
+  // that, so they come off the OPEN TAG (one pass over that tag, not a global
+  // replace that stops after the first attribute it finds).
+  const scalable = raw.replace(/<svg\b[^>]*>/, (tag) =>
+    tag.replace(/\s(?:width|height)="[^"]*"/g, ""),
+  );
+  return `data:image/svg+xml;base64,${Buffer.from(scalable, "utf8").toString("base64")}`;
+}
+
 /** Module count on a side, excluding the quiet zone. Used by the size test. */
 async function moduleCount(text) {
   const raw = await QRCode.toString(String(text), { type: "svg", errorCorrectionLevel: "Q", margin: 0 });
@@ -49,4 +81,4 @@ async function moduleCount(text) {
   return m ? Number(m[1]) : 0;
 }
 
-module.exports = { svg, moduleCount };
+module.exports = { svg, dataUrl, moduleCount };

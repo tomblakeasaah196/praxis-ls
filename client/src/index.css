@@ -1717,6 +1717,23 @@
 .login-back:hover {
   color: #fff;
 }
+/* The way out of a stage the user cannot complete: "Lost your phone?" on the
+   two-step screen. Accent rather than muted like .login-back, because it is an
+   ANSWER to the problem in front of them and not a way back. */
+.login-alt-link {
+  align-self: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--primary) 70%, #d8b3bb);
+}
+.login-alt-link:hover {
+  color: var(--primary);
+}
+.login-alt-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 70%, #fff);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
 .login-success {
   border-radius: 0.55rem;
   border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
