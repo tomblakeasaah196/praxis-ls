@@ -43,7 +43,7 @@ files = subprocess.run(["git","ls-files","client/src/features/masterdata/*.tsx",
                        capture_output=True, text=True, check=True).stdout.split()
 files = [f for f in files if ".test." not in f]
 
-LIT = re.compile(r'(["\'])((?:\\.|(?!\1).)*)\1')
+LIT = re.compile(r'(["\'])((?:(?!\1)[^\\]|\\.)*)\1')
 MECH = re.compile(r'var\(\s*--|^\s*(?://|\*|/\*)')
 
 def fix(text):

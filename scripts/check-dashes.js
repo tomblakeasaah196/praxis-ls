@@ -46,7 +46,18 @@
  * case seen so far is a value that genuinely is a dash, such as a range
  * rendered from data the tenant supplied.
  */
-const { readFileSync, writeFileSync, existsSync } = require("node:fs");
+const { readFileSync, writeFileSync } = require("node:fs");
+
+/** See check-prose.mjs: existsSync-then-readFileSync is a check-then-use the
+ *  file can slip through (CodeQL js/file-system-race). Attempt, then handle. */
+function readIfPresent(path) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (err) {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  }
+}
 const { execFileSync } = require("node:child_process");
 const { join } = require("node:path");
 
@@ -66,7 +77,11 @@ const GLOBS = [
   "src/services/spreadsheet/**/*.js",
 ];
 
-const SKIP = /\.(test|spec)\.|\.stories\.|__tests__|node_modules|\.d\.ts$/;
+/* The `$` binds to the LAST alternative only, which is what is wanted: a
+   declaration file ends in .d.ts, while the other four are substrings that
+   can appear anywhere in a path. Grouped explicitly so the precedence is
+   stated rather than relied upon (CodeQL js/regex/missing-regexp-anchor). */
+const SKIP = /\.(?:test|spec)\.|\.stories\.|__tests__|node_modules|(?:\.d\.ts)$/;
 
 /* The dashes themselves: em, en, horizontal bar, and "--" used as punctuation
    (surrounded by whitespace, or sitting between two word characters). */
@@ -102,7 +117,7 @@ function exempt(lines, i) {
  */
 function literals(line) {
   const out = [];
-  const re = /(["'`])((?:\\.|(?!\1).)*)\1/g;
+  const re = /(["'`])((?:(?!\1)[^\\]|\\.)*)\1/g;
   let m;
   while ((m = re.exec(line))) out.push(m[2]);
   const jsx = /> *([^<>{}"'`]*[\u2013\u2014\u2015][^<>{}"'`]*?) *</g;
@@ -167,9 +182,8 @@ if (UPDATE) {
   process.exit(0);
 }
 
-const baseline = existsSync(BASELINE)
-  ? JSON.parse(readFileSync(BASELINE, "utf8"))
-  : {};
+const baselineSrc = readIfPresent(BASELINE);
+const baseline = baselineSrc === null ? {} : JSON.parse(baselineSrc);
 
 /* The ratchet: a file may always lose dashes and may never gain them. A file
    with none today may never acquire one. */

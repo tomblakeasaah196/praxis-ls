@@ -46,7 +46,25 @@
  * are relocated to the control or to the confirm dialog, and where neither is
  * possible they stay visible and say so here.
  */
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+
+/**
+ * Read a file that may not be there, without asking first.
+ *
+ * `existsSync(p)` followed by `readFileSync(p)` is a check-then-use: the file
+ * can vanish between the two calls, and the read then throws the error the
+ * check was meant to prevent (CodeQL js/file-system-race). Attempting the read
+ * and handling its failure has no window to race in, and it is one call rather
+ * than two.
+ */
+function readIfPresent(path) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (err) {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  }
+}
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
@@ -108,8 +126,8 @@ function files() {
  *  knowable here and guessing produces false failures. */
 function literal(raw) {
   if (!raw) return null;
-  const m = raw.match(/^\s*\{?\s*(?:tr|tv|t)\(\s*(["'])((?:\\.|(?!\1).)*)\1/)
-    || raw.match(/^\s*\{?\s*(["'])((?:\\.|(?!\1).)*)\1/);
+  const m = raw.match(/^\s*\{?\s*(?:tr|tv|t)\(\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/)
+    || raw.match(/^\s*\{?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
   if (!m) return null;
   return m[2].replace(/\\(["'])/g, "$1");
 }
@@ -240,7 +258,7 @@ for (const f of files()) {
         problems.title.push({ key, line: i + 1, text, abs });
       }
     }
-    const h = line.match(/<h1[^>]*>\s*\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:\\.|(?!\1).)*)\1/);
+    const h = line.match(/<h1[^>]*>\s*\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
     if (h && !SKIP_TITLE.test(h[2]) && h[2].length <= 60 && !isTitleCase(h[2])) {
       problems.title.push({ key, line: i + 1, text: h[2], abs });
     }
@@ -269,18 +287,20 @@ for (const f of files()) {
    build. If a third copy appears it goes in this list. */
 for (const rel of ["src/app/layout/areas.ts", "src/app/layout/nav-model.ts"]) {
   const AREAS = join(appRoot, rel);
-  if (!existsSync(AREAS)) continue;
-  readFileSync(AREAS, "utf8").split("\n").forEach((line, i) => {
-    const m = line.match(/\blabel:\s*(["'])((?:\\.|(?!\1).)*)\1/);
+  const areasSrc = readIfPresent(AREAS);
+  if (areasSrc === null) continue;
+  areasSrc.split("\n").forEach((line, i) => {
+    const m = line.match(/\blabel:\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
     if (m && !SKIP_TITLE.test(m[2]) && !isTitleCase(m[2])) {
       problems.title.push({ key: `${app}/${rel}`, line: i + 1, text: m[2], abs: AREAS });
     }
   });
 }
 const REGISTRY = join(appRoot, "src/app/screen-registry.json");
-if (existsSync(REGISTRY)) {
-  readFileSync(REGISTRY, "utf8").split("\n").forEach((line, i) => {
-    const m = line.match(/"title":\s*"((?:\\.|[^"])*)"/);
+const registrySrc = readIfPresent(REGISTRY);
+if (registrySrc !== null) {
+  registrySrc.split("\n").forEach((line, i) => {
+    const m = line.match(/"title":\s*"((?:[^"\\]|\\.)*)"/);
     if (m && !SKIP_TITLE.test(m[1]) && !isTitleCase(m[1])) {
       problems.title.push({ key: `${app}/src/app/screen-registry.json`, line: i + 1, text: m[1], abs: REGISTRY });
     }
@@ -324,8 +344,9 @@ if (FIX_TITLES) {
   }
 
   const dictPath = join(appRoot, "src/lib/i18n-dict.ts");
-  if (existsSync(dictPath)) {
-    let dict = readFileSync(dictPath, "utf8");
+  const dictSrc = readIfPresent(dictPath);
+  if (dictSrc !== null) {
+    let dict = dictSrc;
     const split = dict.indexOf("export const fr");
     let en = split === -1 ? dict : dict.slice(0, split);
     let fr = split === -1 ? "" : dict.slice(split);
@@ -348,9 +369,10 @@ if (FIX_TITLES) {
   process.exit(0);
 }
 
-const baseline = existsSync(BASELINE)
-  ? JSON.parse(readFileSync(BASELINE, "utf8"))
-  : { budget: {}, longCopy: {} };
+const baselineSrc = readIfPresent(BASELINE);
+const baseline = baselineSrc === null
+  ? { budget: {}, longCopy: {} }
+  : JSON.parse(baselineSrc);
 
 if (UPDATE) {
   const longCopy = {};
