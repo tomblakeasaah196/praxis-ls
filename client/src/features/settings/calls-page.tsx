@@ -119,10 +119,10 @@ function asObject(v: unknown): Record<string, unknown> {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  first: "First choice",
-  when_first_fails: "When the first fails",
-  last_resort: "Last resort",
-  connection_setup: "Connection set-up only (no audio)",
+  first: "First Choice",
+  when_first_fails: "When the First Fails",
+  last_resort: "Last Resort",
+  connection_setup: "Connection Set-up Only (No Audio)",
 };
 
 function ProcessorList({ title, rows }: { title: string; rows: CallProcessor[] }) {
@@ -365,7 +365,7 @@ export function CallsPage() {
       <Panel title={tr("Yard Noise Filter")} className="mb-4">
         <p className="text-sm text-muted-foreground">
           {tr(
-            "Removes steady background noise — engines, forklifts, a loading bay — from what the other side hears. Every call already has the browser's baseline noise suppression; this is the stronger filter the corridor needs.",
+            "Removes steady background noise (engines, forklifts, a loading bay) from what the other side hears. Every call already has the browser's baseline noise suppression; this is the stronger filter the corridor needs.",
           )}
         </p>
 
@@ -385,9 +385,9 @@ export function CallsPage() {
           >
             <div className="flex flex-wrap items-center gap-2">
               {[
-                { value: null as boolean | null, label: tr("Follow the company") },
-                { value: true, label: tr("Always on") },
-                { value: false, label: tr("Always off") },
+                { value: null as boolean | null, label: tr("Follow the Company") },
+                { value: true, label: tr("Always On") },
+                { value: false, label: tr("Always Off") },
               ].map((opt) => (
                 <Button
                   key={String(opt.value)}
@@ -403,7 +403,7 @@ export function CallsPage() {
             </div>
             {prefsError && (
               <p className="mt-2 text-xs text-warn" role="status">
-                {tr("Your personal preference could not be read — the company default is shown, but your own setting may differ.")}
+                {tr("Your personal preference could not be read: the company default is shown, but your own setting may differ.")}
               </p>
             )}
           </Field>
@@ -436,7 +436,8 @@ export function CallsPage() {
         <div className="mt-4">
           <Field
             label={tr("Relay-only Calls")}
-            hint={tr("Needs the call relay (TURN) set up for your company; without it, calls will not connect.")}
+            /* @prose:keep without the relay, ticking this stops calls connecting. */
+            hint={tr("Without the call relay set up, calls will not connect.")}
           >
             <Checkbox
               checked={tenantSettings?.relayOnly ?? false}
@@ -460,10 +461,14 @@ export function CallsPage() {
             disabled={tenantLocked}
             onCheckedChange={(v) => void saveTenant({ recordingEnabled: v })}
             label={tr("Record and summarise calls")}
-            hint={tr("Off unless your company turns it on. It also needs the call recording feature switched on for your company.")}
+            /* @prose:keep ticking this is not sufficient on its own. */
+            hint={tr("The call recording feature must also be on for your company.")}
           />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={tr("Keep Recordings for (Days)")} hint={tr("1–365 days. Default 30. Audio is kept only long enough to transcribe and summarise it.")}>
+            <Field
+              label={tr("Keep Recordings for (Days)")}
+              about={tr("Audio is kept only long enough to transcribe and summarise it.")}
+            >
               <Input
                 key={`audio-${tenantSettings?.retentionDays ?? 30}`}
                 type="number"
@@ -482,7 +487,7 @@ export function CallsPage() {
             </Field>
             <Field
               label={tr("Keep Transcripts for (Days)")}
-              hint={tv("Empty keeps them with the conversation. {{min}}–{{max}} days otherwise.", { min: TRANSCRIPT_MIN, max: TRANSCRIPT_MAX })}
+              hint={tv("Empty keeps them with the conversation. {{min}} to {{max}} days otherwise.", { min: TRANSCRIPT_MIN, max: TRANSCRIPT_MAX })}
             >
               <Input
                 key={`text-${tenantSettings?.transcriptDays ?? "none"}`}
@@ -546,7 +551,7 @@ export function CallsPage() {
                 disabled={busy}
                 onCheckedChange={(v) => void saveMine({ quietHours: v ? { from: "20:00", to: "07:00" } : null })}
                 label={tr("Quiet hours")}
-                hint={tr("Call summaries still arrive in the app, without an email or a push notification during these hours.")}
+                about={tr("Summaries still arrive in the app, without an email or a push.")}
               />
               {quiet && (
                 <div className="mt-2 grid max-w-sm grid-cols-2 gap-3 pl-6">

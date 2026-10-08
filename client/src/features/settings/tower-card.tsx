@@ -64,7 +64,7 @@ export function TowerCard() {
     >
       {candidates.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nothing to pin yet — this list fills in with the areas your role can
+          Nothing to pin yet. This list fills in with the areas your role can
           open.
         </p>
       ) : (
@@ -95,7 +95,7 @@ export function TowerCard() {
           <div className="mt-4 flex items-center justify-between gap-3">
             <p className="text-[11px] text-muted-foreground">
               {pinned.length} of {MAX_TOWER_PINS} pinned
-              {full ? " — unpin one to add another." : "."}
+              {full ? ". Unpin one to add another." : "."}
             </p>
             {/* null, not [] — "never chosen", which restores the starter set
                 rather than clearing the grid. */}

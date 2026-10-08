@@ -147,7 +147,7 @@ export function WebsiteCareersPage() {
             onChange={(v) => set("alerts_enabled", v)}
             label={tr("Offer job alerts")}
             hint={tr(
-              "A visitor can leave an email address and is written to once a day when roles are published — never otherwise, and every message carries an unsubscribe link.",
+              "A visitor can leave an email address and is written to once a day when roles are published: never otherwise, and every message carries an unsubscribe link.",
             )}
           />
         </div>
@@ -169,7 +169,7 @@ export function WebsiteCareersPage() {
           />
           <p className="text-xs text-muted-foreground">
             {tr(
-              "Published posts carrying this tag appear under “Life here”. Leave it blank for no strip — an empty one reads worse than none.",
+              "Published posts carrying this tag appear under “Life here”. Leave it blank for no strip: an empty one reads worse than none.",
             )}
           </p>
         </Field>

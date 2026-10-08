@@ -427,7 +427,7 @@ export function WebsiteCopyPage() {
                             {bad ? (
                               <p className="text-xs text-bad">
                                 {tr(
-                                  "Add the French too — it is the version the site falls back to.",
+                                  "Add the French too. It is the version the site falls back to.",
                                 )}
                               </p>
                             ) : null}

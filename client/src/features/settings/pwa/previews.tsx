@@ -226,7 +226,7 @@ export function MaskRow({
 export function MaskLegend() {
   return (
     <p className="text-[11px] leading-snug text-muted-foreground">
-      Android launchers crop to their own shape — a circle on Pixel, a squircle
+      Android launchers crop to their own shape: a circle on Pixel, a squircle
       on Samsung, a rounded square elsewhere. iOS uses the plain icon and rounds
       it itself.
     </p>
@@ -274,7 +274,7 @@ export function TitleBarStatus() {
       tone: "ok",
       title: "Active in this window.",
       detail:
-        "The app is drawing its own title bar — what you see at the top of this window is the design below.",
+        "The app is drawing its own title bar. What you see at the top of this window is the design below.",
     },
     windowed: {
       tone: "info",
@@ -286,13 +286,13 @@ export function TitleBarStatus() {
       tone: "info",
       title: "Not supported by this browser.",
       detail:
-        "Window Controls Overlay is desktop Chromium only — Chrome, Edge, Brave. Everywhere else the app keeps its normal header, and the colour below tints the browser or status bar instead.",
+        "Window Controls Overlay is desktop Chromium only: Chrome, Edge, Brave. Everywhere else the app keeps its normal header, and the colour below tints the browser or status bar instead.",
     },
     inactive: {
       tone: "warn",
       title: "Installed, but the overlay is off.",
       detail:
-        "The app is running as a window and this browser supports the overlay, but the operating system is still drawing its own title bar — so you are seeing two. That means the INSTALLED copy of the manifest has no window-controls-overlay in it. Two things cause it: the app was installed before the setting existed and the browser has not refreshed the manifest yet, or it was added with \u201cCreate shortcut\u201d rather than installed as an app. Check chrome://web-app-internals, find this app, and look at display_override.",
+        "The app is running as a window and this browser supports the overlay, but the operating system is still drawing its own title bar, so you are seeing two. That means the INSTALLED copy of the manifest has no window-controls-overlay in it. Two things cause it: the app was installed before the setting existed and the browser has not refreshed the manifest yet, or it was added with \u201cCreate shortcut\u201d rather than installed as an app. Check chrome://web-app-internals, find this app, and look at display_override.",
     },
   };
 

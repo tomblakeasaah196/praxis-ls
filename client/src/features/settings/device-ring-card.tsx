@@ -93,7 +93,7 @@ export function DeviceRingCard({
         ) : undefined,
     },
     {
-      label: tr("Push registration for this device"),
+      label: tr("Push Registration for This Device"),
       ok: status.subscribed === true,
       state: status.subscribed === true ? tr("Registered") : status.subscribed === false ? tr("Not registered") : tr("Unknown"),
       fix:
@@ -104,7 +104,7 @@ export function DeviceRingCard({
         ) : undefined,
     },
     {
-      label: tr("Installed app"),
+      label: tr("Installed App"),
       ok: status.installed || !status.ios,
       state: status.installed ? tr("Installed") : status.ios ? tr("Required on iPhone and iPad") : tr("Optional"),
       fix: install ? (
@@ -114,7 +114,7 @@ export function DeviceRingCard({
       ) : undefined,
     },
     {
-      label: tr("Ring sound in an open tab"),
+      label: tr("Ring Sound in an Open Tab"),
       ok: !status.soundBlocked,
       state: status.soundBlocked ? tr("Silent until you tap the page") : tr("Ready"),
       fix: status.soundBlocked ? (

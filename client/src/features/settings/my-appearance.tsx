@@ -175,7 +175,7 @@ export function MyAppearancePage() {
         <div className="flex min-w-0 flex-col gap-5">
           <SettingsCard
             title={tr("Text size")}
-            desc="Makes everything larger or smaller for you — text, rows and buttons together. Saved to your account, so it follows you to every device."
+            desc="Makes everything larger or smaller for you: text, rows and buttons together. Saved to your account, so it follows you to every device."
           >
             <div className={sizeBusy ? "pointer-events-none opacity-70" : undefined}>
               <Segmented<TextSize>
@@ -265,7 +265,6 @@ export function MyAppearancePage() {
         <div className="lg:sticky lg:top-4 lg:self-start">
           <SettingsCard
             title={tr("Preview")}
-            desc="How the app will read for you once saved."
           >
             <div className="space-y-2 rounded-lg border p-4">
               <div
@@ -281,7 +280,7 @@ export function MyAppearancePage() {
                 style={{ fontFamily: effective.body || "var(--font-body)" }}
               >
                 Body text as you will read it all day. The quick brown fox
-                clears customs at Douala and continues to Yaoundé — 12 pallets,
+                clears customs at Douala and continues to Yaoundé with 12 pallets,
                 4,800 kg, delivered against a signed waybill.
               </p>
               <code

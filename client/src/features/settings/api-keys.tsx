@@ -112,7 +112,7 @@ function KeyForm({
       open={open}
       onClose={onClose}
       title={title}
-      description="Encrypted, write-only third-party key. It is never returned — only the last 4 characters are shown."
+      description="Encrypted, write-only third-party key. It is never returned: only the last 4 characters are shown."
       size="lg"
     >
       <div className="space-y-4">
@@ -264,7 +264,7 @@ export function ApiKeysPage() {
         description={
           <>
             Encrypted, write-only third-party integration keys (FX &amp; more).
-            Keys are never returned — only their last 4 characters. AI provider
+            Keys are never returned, only their last 4 characters. AI provider
             keys are managed in the platform console.
           </>
         }
@@ -288,7 +288,8 @@ export function ApiKeysPage() {
       ) : display.length === 0 ? (
         <EmptyState
           title="No custom keys"
-          hint="FX lives in Currencies & FX, messaging keys in Comms → Setup, and AI keys in AI Control. Use “Add key” for anything else."
+          /* @prose:keep says where the keys that are NOT here live. */
+          hint="FX keys live in Currencies, messaging in Comms and AI in AI Control."
         />
       ) : (
         <Table>

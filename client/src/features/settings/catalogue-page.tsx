@@ -46,7 +46,7 @@ export function ModuleCataloguePage() {
   const groups = React.useMemo(() => {
     const seen = new Set((rows || []).map((r) => String(r.group_key || "")));
     return [
-      { value: "", label: "All groups" },
+      { value: "", label: "All Groups" },
       ...Array.from(seen)
         .filter(Boolean)
         .sort()
@@ -94,7 +94,7 @@ export function ModuleCataloguePage() {
     <section className={pageShell.wide}>
       <PageHeader
         title="Module Catalogue"
-        description="Every MOD-xx the platform knows about — the same list that backs the permission matrix. Read-only."
+        description="Every MOD-xx the platform knows about: the same list that backs the permission matrix. Read-only."
         action={
           <Link to="/security/permissions">
             <Button variant="outline">Permission matrix</Button>

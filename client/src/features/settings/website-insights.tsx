@@ -188,7 +188,7 @@ export function WebsiteInsightsPage() {
     },
     {
       key: "pinned_until",
-      label: tr("Home page"),
+      label: tr("Home Page"),
       /* THE EXPIRY, INLINE. Three states, and the middle one is the reason this
          column exists: an expired pin looks exactly like a live pin in the
          database and means the opposite on the site. Showing "until 4 March"
@@ -257,7 +257,7 @@ export function WebsiteInsightsPage() {
               disabled={!r.is_published && !api.isPinned(r)}
               title={
                 !r.is_published && !api.isPinned(r)
-                  ? tr("Publish it first — the band only shows published announcements.")
+                  ? tr("Publish it first: the band only shows published announcements.")
                   : undefined
               }
               onClick={() => setPinning(r)}
@@ -277,7 +277,7 @@ export function WebsiteInsightsPage() {
     <ListPage<api.InsightArticle>
       eyebrow={<HubCrumb area="Settings" to="/settings" />}
       title={tr("Insights")}
-      description="Articles on your public site — what they are called, whether they are live, and what is in them."
+      description="Articles on your public site: what they are called, whether they are live, and what is in them."
       width="wide"
       tabs={<WebsiteNav />}
       action={<Button onClick={() => setCreating(true)}>{tr("New article")}</Button>}
@@ -320,7 +320,7 @@ export function WebsiteInsightsPage() {
                   : tr("No articles yet"),
               hint:
                 kind === "announcement"
-                  ? "An announcement is an article with its kind set to Announcement — a partnership, a certification, a corridor opening. Pin one and it appears in the band under your home page's hero."
+                  ? "An announcement is an article with its kind set to Announcement: a partnership, a certification, a corridor opening. Pin one and it appears in the band under your home page's hero."
                   : "Everything here is currently an announcement. Clear the filter to see them.",
               action: (
                 <Button variant="outline" onClick={() => setKind("all")}>
@@ -330,7 +330,8 @@ export function WebsiteInsightsPage() {
             }
           : {
               title: tr("No articles yet"),
-              hint: "Insights is in your site's navigation, so the page exists whether or not anything is on it. One article is enough to stop it being a dead link.",
+              /* @prose:keep Insights is already linked from the public site. */
+              hint: "Insights is already in your site's navigation, so it is a live link.",
               action: (
                 <Button onClick={() => setCreating(true)}>{tr("New article")}</Button>
               ),
@@ -498,7 +499,8 @@ function ArticleForm({
         <Field
           label={tr("Headline (French)")}
           required
-          hint="Required — French is what the public page falls back to when there is no translation."
+          /* @prose:keep French is the fallback, so this one cannot be skipped. */
+          hint="French is what the public page falls back to."
         >
           <Input
             value={titleFr}
