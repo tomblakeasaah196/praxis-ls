@@ -649,7 +649,7 @@ test("the summary link opens the conversation with the draft pinned above the co
 
   await page.goto("/comms?channel=ch-e2e-1&summary=call-e2e-1");
 
-  const pinned = page.getByRole("region", { name: "Call Summary — Review & send" });
+  const pinned = page.getByRole("region", { name: "Call summary: Review & send" });
   await expect(pinned).toBeVisible();
   await expect(pinned.getByLabel("Summary", { exact: true })).toHaveValue("We agreed the Friday delivery.");
   await expect(pinned.getByRole("button", { name: /Send to conversation/ })).toBeVisible();
