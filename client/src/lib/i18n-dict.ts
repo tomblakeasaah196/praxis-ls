@@ -3954,6 +3954,9 @@ export const en = {
        in lib/i18n.ts: `strings."Open"` has to stay the verb, because that is
        what every button rendering it means. */
     "Open_state": "Open",
+    /* The mailbox's sr-only page name (comms/inbox/index.tsx). Same word as
+       screen-registry.json's `comms_mail`, so ⌘K and the heading agree. */
+    "Mail": "Mail",
   },
   dataRoom: {
     staffDesc: "Document requests from external auditors — share vault documents in answer.",
@@ -7957,6 +7960,9 @@ export const fr: Dict = {
        in lib/i18n.ts: `strings."Open"` has to stay the verb, because that is
        what every button rendering it means. */
     "Open_state": "Ouvert",
+    /* The mailbox's sr-only page name (comms/inbox/index.tsx). Same word as
+       screen-registry.json's `comms_mail`, so ⌘K and the heading agree. */
+    "Mail": "Messagerie",
   },
   dataRoom: {
     staffDesc: "Demandes de documents des auditeurs externes — partagez les documents du coffre en réponse.",

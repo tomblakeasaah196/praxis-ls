@@ -47,6 +47,30 @@ function accounts(n: number) {
   }));
 }
 
+/** Enough conversations to overflow the list pane at 2560px. */
+function threads(n: number) {
+  return Array.from({ length: n }, (_, i) => ({
+    email_thread_id: `t-${i + 1}`,
+    email_connection_id: "c-1",
+    thread_key: `<root-${i + 1}>`,
+    subject: `Demurrage on MSKU${1234567 + i}`,
+    participants: [`ops${i}@maersk.cm`, "ops@smartls.test"],
+    message_count: (i % 4) + 1,
+    has_attachment: i % 3 === 0,
+    stream: "HUMAN",
+    stream_reason: null,
+    is_vip: i % 7 === 0,
+    entity_ref: null,
+    entity_label: null,
+    last_message_at: "2026-10-07T09:15:00.000Z",
+    mailbox_address: "ops@smartls.test",
+    unread_count: i % 2,
+    is_starred: i % 5 === 0,
+    preview: "Please confirm the charges before Friday so we can release it.",
+    last_from: `ops${i}@maersk.cm`,
+  }));
+}
+
 /**
  * path (after `/api`) → payload. Longest-prefix matched, as the vitest harness
  * does, so `/tenant/chart-of-accounts?limit=50` resolves from the bare key.
@@ -249,6 +273,97 @@ const ROUTES: Record<string, unknown> = {
    * measurements are taken, which is a gate whose numbers depend on when the
    * screenshot happened to land.
    */
+  /*
+   * THE MAILBOX. One connected mailbox (so the rail draws no picker), the two
+   * stream totals, the canonical folders, and 40 conversations — enough to
+   * overflow the list pane at every width the gate measures, which is the whole
+   * point of `mail-workstation.spec.ts`.
+   *
+   * `/mail/threads/` is longer than `/mail/threads`, so `payloadFor`'s
+   * longest-prefix match sends a single-thread read to the detail payload and
+   * the list read to the list. That ordering is load-bearing: swap the two and
+   * the reading pane renders a list.
+   */
+  "/tenant/mail/mailboxes/mine": [
+    {
+      email_connection_id: "c-1",
+      email_address: "ops@smartls.test",
+      status: "CONNECTED",
+      is_primary: true,
+      kind: "SHARED",
+    },
+  ],
+  "/tenant/mail/folders": {
+    folders: [
+      { email_folder_id: "f-1", canonical: "INBOX", display_name: "Inbox", provider_path: "INBOX", unread_count: 12 },
+      { email_folder_id: "f-2", canonical: "SENT", display_name: "Sent", provider_path: "Sent", unread_count: 0 },
+      { email_folder_id: "f-3", canonical: "ARCHIVE", display_name: "Archive", provider_path: "Archive", unread_count: 0 },
+      { email_folder_id: "f-4", canonical: "SPAM", display_name: "Spam", provider_path: "Spam", unread_count: 3 },
+      { email_folder_id: "f-5", canonical: "TRASH", display_name: "Trash", provider_path: "Trash", unread_count: 0 },
+    ],
+    streams: { HUMAN: 12, SYSTEM: 31 },
+  },
+  "/tenant/mail/labels": [],
+  /* The TRAILING SLASH is load-bearing. `payloadFor` matches the longest
+     prefix, so this key answers every `/mail/threads/<id>` read while
+     `/tenant/mail/threads` below answers the list. Without it a single-thread
+     read falls through to the list payload, `getThread` receives an array, and
+     the reading pane renders a conversation with no subject and no messages.
+     Every row opens the SAME conversation, which is right for a gate that
+     measures layout: the pane's geometry must not depend on which row was
+     clicked. */
+  "/tenant/mail/threads/": {
+    email_thread_id: "t-1",
+    email_connection_id: "c-1",
+    thread_key: "<root-1>",
+    subject: "Demurrage on MSKU1234567",
+    participants: ["ops@maersk.cm", "ops@smartls.test"],
+    message_count: 2,
+    has_attachment: true,
+    stream: "HUMAN",
+    is_vip: true,
+    entity_ref: null,
+    entity_label: null,
+    last_message_at: "2026-10-07T09:15:00.000Z",
+    mailbox_address: "ops@smartls.test",
+    unread_count: 0,
+    is_starred: false,
+    preview: "Please confirm the charges before Friday.",
+    last_from: "ops@maersk.cm",
+    messages: [
+      {
+        email_message_id: "m-1",
+        direction: "IN",
+        from_address: "ops@maersk.cm",
+        from_name: "Maersk Ops",
+        to_address: ["ops@smartls.test"],
+        cc_address: [],
+        folder: "INBOX",
+        is_read: true,
+        has_attachment: false,
+        received_at: "2026-10-06T11:00:00.000Z",
+        body_preview: "The container has been sitting since Monday.",
+        body_text: "The container has been sitting since Monday.",
+        body_html: null,
+      },
+      {
+        email_message_id: "m-2",
+        direction: "IN",
+        from_address: "ops@maersk.cm",
+        from_name: "Maersk Ops",
+        to_address: ["ops@smartls.test"],
+        cc_address: ["billing@maersk.cm"],
+        folder: "INBOX",
+        is_read: true,
+        has_attachment: false,
+        received_at: "2026-10-07T09:15:00.000Z",
+        body_preview: "Please confirm the charges before Friday.",
+        body_text: "Please confirm the charges before Friday.",
+        body_html: null,
+      },
+    ],
+  },
+  "/tenant/mail/threads": threads(40),
   "/tenant/me/preferences/shell": {
     ribbonPinned: true,
     railPins: null,
