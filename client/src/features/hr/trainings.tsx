@@ -386,7 +386,7 @@ function ScheduleForm({
           </Field>
         )}
         {needsLink && (
-          <Field label="Join link" required hint="Attendees join from here; the link opens 15 minutes before the start.">
+          <Field label="Join Link" required hint="Attendees join from here; the link opens 15 minutes before the start.">
             <Input
               type="url"
               value={f.join_url}
@@ -399,7 +399,7 @@ function ScheduleForm({
           <Field label="Facilitator">
             <Input value={f.facilitator} onChange={(e) => set("facilitator", e.target.value)} placeholder="External trainer or staff name" />
           </Field>
-          <Field label="Satisfies requirement" hint="Sets the certificate expiry when one is issued.">
+          <Field label="Satisfies Requirement" hint="Sets the certificate expiry when one is issued.">
             <Select value={f.training_requirement_id} onChange={(e) => set("training_requirement_id", e.target.value)}>
               <option value="">{tr("— none —")}</option>
               {requirements.map((r) => (
@@ -769,15 +769,15 @@ function RequirementForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <Field label={tr("Department")} hint="Blank means everybody.">
             <Input value={f.department} onChange={(e) => set("department", e.target.value)} />
           </Field>
-          <Field label={tr("Job title")} hint="Blank means every role in the department.">
+          <Field label={tr("Job Title")} hint="Blank means every role in the department.">
             <Input value={f.job_title} onChange={(e) => set("job_title", e.target.value)} />
           </Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Valid for (months)" hint="Blank means it never lapses.">
+          <Field label="Valid for (Months)" hint="Blank means it never lapses.">
             <Input type="number" min="1" className="num text-right" value={f.valid_months} onChange={(e) => set("valid_months", e.target.value)} />
           </Field>
-          <Field label="Warn (days before)" hint="How much notice you need to book a refresher.">
+          <Field label="Warn (Days Before)" hint="How much notice you need to book a refresher.">
             <Input type="number" min="0" className="num text-right" value={f.warn_days} onChange={(e) => set("warn_days", e.target.value)} />
           </Field>
         </div>
@@ -863,7 +863,7 @@ function CompliancePanel() {
                 { key: "role", label: "Role", render: (p) => <span className="text-muted-foreground">{p.job_title || "—"}</span> },
                 {
                   key: "last",
-                  label: "Last passed",
+                  label: "Last Passed",
                   render: (p) => (
                     <span className="num text-muted-foreground">{p.attended_on ? dateFmt(p.attended_on) : "—"}</span>
                   ),

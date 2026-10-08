@@ -783,7 +783,7 @@ export function DictForm({
                 family ("Customs Formalities"). A pricer can still move a line
                 to another family on one document. */}
             <Field
-              label={tr("Client heading")}
+              label={tr("Client Heading")}
               hint={tr(
                 "What the client reads on a quotation or invoice. Lines under one heading print as one line; disbursements and our fees print separately.",
               )}
@@ -928,7 +928,7 @@ export function DictForm({
                         )}
                       />
                       <Field
-                        label="Tax code"
+                        label="Tax Code"
                         hint={
                           r.is_disbursement
                             ? "Disbursement lines carry no tax of ours."
@@ -983,7 +983,7 @@ export function DictForm({
 
             {/* Compliance controls — Basic per Q4. */}
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Receipt requirement">
+              <Field label="Receipt Requirement">
                 <Select
                   value={f.receipt_requirement}
                   onChange={(e) =>
@@ -1043,7 +1043,7 @@ export function DictForm({
               />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Unit of measure">
+              <Field label="Unit of Measure">
                 <Select
                   value={f.unit_of_measure}
                   onChange={(e) => set({ unit_of_measure: e.target.value })}
@@ -1058,7 +1058,7 @@ export function DictForm({
               </Field>
               {isNew ? (
                 <Field
-                  label={tr("Standard rate")}
+                  label={tr("Standard Rate")}
                   hint={tr(
                     "Optional. Saved as this line's standard expense rate from today. Leave it empty if the price is not known yet.",
                   )}
@@ -1074,7 +1074,7 @@ export function DictForm({
                 </Field>
               ) : (
                 <Field
-                  label={tr("Standard rate")}
+                  label={tr("Standard Rate")}
                   hint={tr(
                     "Changed from the pencil on the overview or from Expense rates, so the price has one home and a history.",
                   )}
@@ -1098,7 +1098,7 @@ export function DictForm({
                 />
               </Field>
               <Field
-                label="Provider kind"
+                label="Provider Kind"
                 about="For rate items: shipping line, customs, port authority."
               >
                 <Select
@@ -1113,7 +1113,7 @@ export function DictForm({
                   ))}
                 </Select>
               </Field>
-              <Field label="Proof source">
+              <Field label="Proof Source">
                 <Select
                   value={f.proof_source}
                   onChange={(e) => set({ proof_source: e.target.value })}

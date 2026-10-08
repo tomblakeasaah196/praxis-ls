@@ -26,8 +26,8 @@ const openNew = async () => {
 describe("Corporate entity · legal form", () => {
   it("renders every visible date day-first rather than using the workstation locale", async () => {
     const user = await openNew();
-    const incorporated = screen.getByLabelText("Date of incorporation");
-    const dissolved = screen.getByLabelText("Dissolution date");
+    const incorporated = screen.getByLabelText("Date of Incorporation");
+    const dissolved = screen.getByLabelText("Dissolution Date");
 
     expect(incorporated).toHaveAttribute("placeholder", "dd/mm/yyyy");
     expect(dissolved).toHaveAttribute("placeholder", "dd/mm/yyyy");

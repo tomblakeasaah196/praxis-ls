@@ -258,7 +258,7 @@ export function SetRateModal({
             checked={inclVat}
             onChange={setInclVat}
           />
-          <Field label={tr("Effective from")} required>
+          <Field label={tr("Effective From")} required>
             <DateField value={from} onChange={setFrom} />
           </Field>
           <Field label={tr("Note")}>
@@ -361,7 +361,7 @@ export function ApplyToCarriersModal({
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           {perBox && (
-            <Field label={tr("Container type")} required>
+            <Field label={tr("Container Type")} required>
               <Select value={typeId} onChange={(e) => setTypeId(e.target.value)}>
                 {containerTypes.map((ct) => (
                   <option key={ct.ref_id} value={ct.ref_id}>
@@ -391,7 +391,7 @@ export function ApplyToCarriersModal({
             checked={inclVat}
             onChange={setInclVat}
           />
-          <Field label={tr("Effective from")} required>
+          <Field label={tr("Effective From")} required>
             <DateField value={from} onChange={setFrom} />
           </Field>
           <Field label={tr("Note")}>

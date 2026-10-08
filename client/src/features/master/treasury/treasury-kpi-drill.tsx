@@ -63,7 +63,7 @@ const SPEC: Record<
     empty: "Nothing has been posted to this account this month.",
   },
   ytd: {
-    title: "This year",
+    title: "This Year",
     period: "ytd",
     description:
       "Validated postings on this account since 1 January, both sides.",

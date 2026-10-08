@@ -856,26 +856,26 @@ const personFields = (lk: Lookups): FieldSpec[] => [
      * as the select above is used.
      */
     key: "role_tags",
-    label: "Also acts as",
+    label: "Also Acts As",
     type: "multiselect",
     options: opts(entityCommon.PERSON_ROLES),
     hint: "One person can hold several roles. Tick the others here. The Role above stays their primary one.",
   },
   {
     key: "holder_type",
-    label: "Holder type",
+    label: "Holder Type",
     type: "select",
     options: opts(entityCommon.HOLDER_TYPES),
     hint: "A shareholder can be a company.",
   },
-  { key: "full_name", label: "Full name" },
+  { key: "full_name", label: "Full Name" },
   { key: "title", label: "Title", placeholder: "Directeur Général" },
   { key: "email", label: "Email", type: "email" },
   { key: "phone", label: "Phone", placeholder: "+237 6 90 00 00 00" },
 
   {
     key: "date_of_birth",
-    label: "Date of birth",
+    label: "Date of Birth",
     type: "date",
     hint: "Natural persons only.",
     group: "Identity (AML/KYC)",
@@ -883,38 +883,38 @@ const personFields = (lk: Lookups): FieldSpec[] => [
   { key: "nationality", label: "Nationality", type: "country" },
   {
     key: "country_of_residence",
-    label: "Country of residence",
+    label: "Country of Residence",
     type: "country",
     hint: "Drives which sanctions and tax-residency checks apply.",
   },
-  { key: "id_type", label: "ID type", placeholder: "PASSPORT / CNI" },
-  { key: "id_number", label: "ID number" },
-  { key: "is_pep", label: "Politically exposed", type: "checkbox" },
+  { key: "id_type", label: "ID Type", placeholder: "PASSPORT / CNI" },
+  { key: "id_number", label: "ID Number" },
+  { key: "is_pep", label: "Politically Exposed", type: "checkbox" },
 
   {
     key: "company_registration_number",
-    label: "Company reg. number",
+    label: "Company Reg. Number",
     hint: "Corporate holders only.",
     group: "Corporate holder",
   },
-  { key: "company_country", label: "Company country", type: "country" },
+  { key: "company_country", label: "Company Country", type: "country" },
   {
     key: "holder_entity_id",
-    label: "Held by one of our entities",
+    label: "Held by One of Our Entities",
     type: "entity",
     hint: "For an intra-group holding. The cap table shows this as a code beside the holder. Only active entities are offered for a new holding.",
   },
 
   {
     key: "share_class",
-    label: "Share class",
+    label: "Share Class",
     placeholder: "ORDINARY",
     group: "Shareholding",
   },
-  { key: "share_count", label: "Number of shares", type: "number" },
+  { key: "share_count", label: "Number of Shares", type: "number" },
   {
     key: "share_nominal_value",
-    label: "Nominal value per share",
+    label: "Nominal Value per Share",
     type: "number",
   },
   { key: "ownership_percent", label: "Ownership %", type: "number" },
@@ -927,17 +927,17 @@ const personFields = (lk: Lookups): FieldSpec[] => [
 
   {
     key: "signature_limit_amount",
-    label: "Signature limit",
+    label: "Signature Limit",
     type: "number",
     hint: "The most this person may commit alone.",
     group: "Authority and term",
   },
   {
     key: "signature_limit_currency",
-    label: "Limit currency",
+    label: "Limit Currency",
     placeholder: "XAF",
   },
-  { key: "effective_from", label: "Held / appointed from", type: "date" },
+  { key: "effective_from", label: "Held / Appointed From", type: "date" },
   {
     key: "effective_to",
     label: "Until",
@@ -947,7 +947,7 @@ const personFields = (lk: Lookups): FieldSpec[] => [
 
   {
     key: "employee_id",
-    label: "Is also an employee",
+    label: "Is Also an Employee",
     type: "select",
     options: nameOpts(
       lk.employees,
@@ -958,7 +958,7 @@ const personFields = (lk: Lookups): FieldSpec[] => [
   },
   {
     key: "client_id",
-    label: "Is also a client",
+    label: "Is Also a Client",
     type: "select",
     options: nameOpts(
       lk.clients,
@@ -969,7 +969,7 @@ const personFields = (lk: Lookups): FieldSpec[] => [
   },
   {
     key: "supplier_id",
-    label: "Is also a supplier",
+    label: "Is Also a Supplier",
     type: "select",
     options: nameOpts(
       lk.suppliers,
@@ -979,7 +979,7 @@ const personFields = (lk: Lookups): FieldSpec[] => [
   },
   {
     key: "is_primary_contact",
-    label: "Primary contact for the entity",
+    label: "Primary Contact for the Entity",
     type: "checkbox",
   },
   {
@@ -1016,7 +1016,7 @@ const contactFields = (): FieldSpec[] => [
     type: "timezone",
     hint: "So a call is not scheduled at 3 a.m. their time.",
   },
-  { key: "is_primary", label: "Primary contact", type: "checkbox" },
+  { key: "is_primary", label: "Primary Contact", type: "checkbox" },
   { key: "is_active", label: "Active", type: "checkbox", defaultValue: true },
 ];
 
@@ -1028,22 +1028,22 @@ const addressFields = (): FieldSpec[] => [
     options: opts(entityCommon.ADDRESS_TYPES),
     hint: "REGISTERED is what the letterhead prints.",
   },
-  { key: "line1", label: "Address line 1" },
-  { key: "line2", label: "Address line 2" },
+  { key: "line1", label: "Address Line 1" },
+  { key: "line2", label: "Address Line 2" },
   { key: "city", label: "City" },
   { key: "region", label: "Region" },
-  { key: "postal_code", label: "Postal code" },
+  { key: "postal_code", label: "Postal Code" },
   { key: "country_code", label: "Country", type: "country" },
-  { key: "po_box", label: "PO box" },
+  { key: "po_box", label: "PO Box" },
   { key: "is_primary", label: "Primary", type: "checkbox" },
   {
     key: "is_public",
-    label: "Public on the website",
+    label: "Public on the Website",
     type: "checkbox",
     hint: "Publishes this address on the public entity card beside the registered one: only with a public label.",
   },
-  { key: "public_label_fr", label: "Public label (FR)", placeholder: "Bureau opérationnel de Douala" },
-  { key: "public_label_en", label: "Public label (EN)", placeholder: "Douala operations desk" },
+  { key: "public_label_fr", label: "Public Label (FR)", placeholder: "Bureau opérationnel de Douala" },
+  { key: "public_label_en", label: "Public Label (EN)", placeholder: "Douala operations desk" },
   {
     key: "is_active",
     label: "Active",
@@ -1062,10 +1062,10 @@ const registrationFields = (): FieldSpec[] => [
     hint: "Whatever the jurisdiction issues.",
   },
   { key: "number", label: "Number" },
-  { key: "issuing_authority", label: "Issuing authority" },
-  { key: "issued_on", label: "Issued on", type: "date" },
-  { key: "expires_on", label: "Expires on", type: "date" },
-  { key: "is_primary", label: "Primary for this country", type: "checkbox" },
+  { key: "issuing_authority", label: "Issuing Authority" },
+  { key: "issued_on", label: "Issued On", type: "date" },
+  { key: "expires_on", label: "Expires On", type: "date" },
+  { key: "is_primary", label: "Primary for This Country", type: "checkbox" },
   {
     key: "notes",
     label: "Notes",
@@ -1083,7 +1083,7 @@ const taxRegistrationFields = (lk: Lookups): FieldSpec[] => [
   },
   {
     key: "jurisdiction_id",
-    label: "Tax jurisdiction",
+    label: "Tax Jurisdiction",
     type: "select",
     options: nameOpts(
       lk.jurisdictions,
@@ -1106,31 +1106,31 @@ const taxRegistrationFields = (lk: Lookups): FieldSpec[] => [
       "OTHER",
     ]),
   },
-  { key: "tax_number", label: "Tax number", placeholder: "FR12345678901" },
+  { key: "tax_number", label: "Tax Number", placeholder: "FR12345678901" },
   { key: "regime", label: "Regime", type: "regime", hint: "Cameroon: REEL, SIMPLIFIE, LIBERATOIRE, FRANCHISE. Type to add custom." },
   {
     key: "filing_frequency",
-    label: "Filing frequency",
+    label: "Filing Frequency",
     type: "select",
     options: opts(["MONTHLY", "QUARTERLY", "BIMONTHLY", "ANNUAL", "ON_EVENT"]),
   },
   {
     key: "filing_due_day",
-    label: "Filing due day",
+    label: "Filing Due Day",
     type: "number",
     hint: "Day of the month, 1 to 31. Needs a frequency to attach to.",
   },
-  { key: "currency", label: "Filing currency", placeholder: "XAF" },
-  { key: "registered_on", label: "Registered on", type: "date" },
+  { key: "currency", label: "Filing Currency", placeholder: "XAF" },
+  { key: "registered_on", label: "Registered On", type: "date" },
   {
     key: "deregistered_on",
-    label: "Deregistered on",
+    label: "Deregistered On",
     type: "date",
     hint: "Leave blank while it is live.",
   },
   {
     key: "filing_portal_url",
-    label: "Filing portal",
+    label: "Filing Portal",
     placeholder: "https://…",
   },
   {
@@ -1146,15 +1146,15 @@ const taxRegistrationFields = (lk: Lookups): FieldSpec[] => [
   },
   {
     key: "is_withholding_agent",
-    label: "We withhold tax here",
+    label: "We Withhold Tax Here",
     type: "checkbox",
   },
   {
     key: "reverse_charge_applies",
-    label: "Reverse charge applies",
+    label: "Reverse Charge Applies",
     type: "checkbox",
   },
-  { key: "is_primary", label: "Primary for this country", type: "checkbox" },
+  { key: "is_primary", label: "Primary for This Country", type: "checkbox" },
   { key: "is_active", label: "Active", type: "checkbox", defaultValue: true },
   { key: "notes", label: "Notes", type: "textarea" },
 ];
@@ -1173,14 +1173,14 @@ const establishmentFields = (lk: Lookups): FieldSpec[] => [
   { key: "address_line", label: "Address" },
   {
     key: "tax_office_ref",
-    label: "Tax office reference",
+    label: "Tax Office Reference",
     hint: "SIRET, centre des impôts…",
   },
-  { key: "registration_ref", label: "Registration reference" },
-  { key: "customs_office", label: "Customs office" },
+  { key: "registration_ref", label: "Registration Reference" },
+  { key: "customs_office", label: "Customs Office" },
   {
     key: "manager_employee_id",
-    label: "Site manager",
+    label: "Site Manager",
     type: "select",
     options: nameOpts(
       lk.employees,
@@ -1189,8 +1189,8 @@ const establishmentFields = (lk: Lookups): FieldSpec[] => [
     ),
     hint: "Who runs it. A site with no named manager is a site nobody is answerable for.",
   },
-  { key: "opened_on", label: "Opened on", type: "date" },
-  { key: "closed_on", label: "Closed on", type: "date" },
+  { key: "opened_on", label: "Opened On", type: "date" },
+  { key: "closed_on", label: "Closed On", type: "date" },
   {
     key: "is_active",
     label: "Active",
@@ -1720,7 +1720,7 @@ export function EntityDossier({
               {e.description || "No description yet."}
             </p>
             <dl className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-              <Detail label="Trading name">{e.trading_name}</Detail>
+              <Detail label="Trading Name">{e.trading_name}</Detail>
               <Detail label="Industry">{e.industry}</Detail>
               <Detail label={tr("Website")}>{e.website}</Detail>
               <Detail label="Headcount">
@@ -1737,18 +1737,18 @@ export function EntityDossier({
             description="The statutory facts printed on documents."
           >
             <dl className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-              <Detail label="Legal form">{e.legal_form}</Detail>
+              <Detail label="Legal Form">{e.legal_form}</Detail>
               <Detail label="Incorporated">
                 {e.incorporation_date ? dateDmy(e.incorporation_date) : null}
               </Detail>
               <Detail label="Place">{e.incorporation_place}</Detail>
               <Detail label={tr("Country")}>{e.incorporation_country}</Detail>
-              <Detail label="Share capital">
+              <Detail label="Share Capital">
                 {e.share_capital != null
                   ? money(e.share_capital, e.share_capital_currency || currency)
                   : null}
               </Detail>
-              <Detail label="Paid up">
+              <Detail label="Paid Up">
                 {e.share_capital_paid_up != null
                   ? money(
                       e.share_capital_paid_up,
@@ -1767,21 +1767,21 @@ export function EntityDossier({
             description="What HR, payroll and billing inherit when someone picks this entity."
           >
             <dl className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-              <Detail label="Accounting framework">
+              <Detail label="Accounting Framework">
                 {e.accounting_framework
                   ? enumLabel(e.accounting_framework)
                   : null}
               </Detail>
-              <Detail label={tr("Default currency")}>{e.default_currency}</Detail>
-              <Detail label={tr("Payroll country")}>{e.payroll_country}</Detail>
-              <Detail label="Default language">
+              <Detail label={tr("Default Currency")}>{e.default_currency}</Detail>
+              <Detail label={tr("Payroll Country")}>{e.payroll_country}</Detail>
+              <Detail label="Default Language">
                 {e.default_language === "fr"
                   ? "Français"
                   : e.default_language === "en"
                     ? "English"
                     : null}
               </Detail>
-              <Detail label="Fiscal year starts">
+              <Detail label="Fiscal Year Starts">
                 {e.fiscal_year_start_month
                   ? new Date(
                       2000,
@@ -1790,7 +1790,7 @@ export function EntityDossier({
                     ).toLocaleString("en", { month: "long" })
                   : null}
               </Detail>
-              <Detail label={tr("Document prefix")}>{e.doc_prefix}</Detail>
+              <Detail label={tr("Document Prefix")}>{e.doc_prefix}</Detail>
               {/*
                 Two prefixes, two audiences. `doc_prefix` leads INVOICE numbers
                 and an accountant reads it; this one leads OPERATION-FILE
@@ -1798,7 +1798,7 @@ export function EntityDossier({
                 nobody edits one believing it is the other — the mistake the
                 single-prefix version of this screen invited.
               */}
-              <Detail label="Operation reference prefix">
+              <Detail label="Operation Reference Prefix">
                 {e.ops_reference_prefix ? (
                   <span className="inline-flex items-center gap-2">
                     <span className="font-mono">{e.ops_reference_prefix}</span>
@@ -1814,10 +1814,10 @@ export function EntityDossier({
                   </span>
                 ) : null}
               </Detail>
-              <Detail label="Numbering resets">
+              <Detail label="Numbering Resets">
                 {e.numbering_reset ? enumLabel(e.numbering_reset) : null}
               </Detail>
-              <Detail label="VAT registered">
+              <Detail label="VAT Registered">
                 {e.vat_registered == null
                   ? null
                   : e.vat_registered
@@ -2949,10 +2949,10 @@ export function EntityDossier({
                   ? `${num(structure.ownership_percent)}%`
                   : null}
               </Detail>
-              <Detail label="Consolidates into parent">
+              <Detail label="Consolidates into Parent">
                 {structure.consolidates ? "Yes" : "No"}
               </Detail>
-              <Detail label="Group parent">
+              <Detail label="Group Parent">
                 {structure.is_group_parent ? "Yes" : "No"}
               </Detail>
             </dl>
@@ -3706,7 +3706,7 @@ function DocumentsTab({
     () => [
       {
         key: "document_type_id",
-        label: "Document type",
+        label: "Document Type",
         type: "select",
         options: typeList.map((t) => ({
           value: t.document_type_id,
@@ -3716,19 +3716,19 @@ function DocumentsTab({
       { key: "title", label: "Title", placeholder: "Customs bond 2026" },
       {
         key: "document_number",
-        label: "Reference number",
+        label: "Reference Number",
         systemGenerated: true,
         hint: "Generated automatically when the document is added.",
       },
       {
         key: "issuing_authority",
-        label: "Issuing authority",
+        label: "Issuing Authority",
         placeholder: "Direction Générale des Douanes",
       },
       { key: "country_code", label: "Country", type: "country" },
       {
         key: "establishment_id",
-        label: "Belongs to establishment",
+        label: "Belongs to Establishment",
         type: "select",
         options: establishments.map((s) => ({
           value: s.establishment_id,
@@ -3736,28 +3736,28 @@ function DocumentsTab({
         })),
         hint: "For a licence issued to one branch rather than the company as a whole.",
       },
-      { key: "issued_on", label: "Issued on", type: "date" },
+      { key: "issued_on", label: "Issued On", type: "date" },
       {
         key: "expires_on",
-        label: "Expires on",
+        label: "Expires On",
         type: "date",
         hint: "Drives the renewals list.",
       },
       {
         key: "renewal_lead_days",
-        label: "Warn this many days ahead",
+        label: "Warn This Many Days Ahead",
         type: "number",
         hint: "Blank uses the document type's own lead time.",
       },
       {
         key: "physical_ref",
-        label: "Paper original filed at",
+        label: "Paper Original Filed At",
         placeholder: "Box A-12",
         hint: "Only for paper originals: where the hard copy is filed.",
       },
       {
         key: "scan_file",
-        label: "Document file",
+        label: "Document File",
         type: "file",
         hint: "PDF or image (PNG, JPEG, WebP), up to 25 MB. Optional: you can attach it from the row later.",
       },
@@ -4347,7 +4347,7 @@ function LetterheadTab({
           description="How the sheet is laid out and coloured. The preview is drawn from these, so a change here is visible immediately."
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Paper size" about="A4 outside North America.">
+            <Field label="Paper Size" about="A4 outside North America.">
               <Select
                 value={c.paper_size ?? "A4"}
                 disabled={busy || !canEdit}
@@ -4357,7 +4357,7 @@ function LetterheadTab({
                 <option value="LETTER">US Letter — 216 × 279 mm</option>
               </Select>
             </Field>
-            <Field label="Logo position">
+            <Field label="Logo Position">
               <Select
                 value={c.logo_position ?? "LEFT"}
                 disabled={busy || !canEdit}
@@ -4370,7 +4370,7 @@ function LetterheadTab({
                 ))}
               </Select>
             </Field>
-            <Field label="Brand colour" about="The rule under the header. Any colour: black included.">
+            <Field label="Brand Colour" about="The rule under the header. Any colour: black included.">
               <BrandColourField
                 ariaLabel={tr("Brand colour")}
                 value={draft.brand_color ?? ""}
@@ -4383,7 +4383,7 @@ function LetterheadTab({
               />
             </Field>
             <Field
-              label="Accent colour"
+              label="Accent Colour"
               about="Secondary rules and table headings."
             >
               <BrandColourField
@@ -4398,7 +4398,7 @@ function LetterheadTab({
               />
             </Field>
             <Field
-              label="Header height (mm)"
+              label="Header Height (Mm)"
               about="10 to 120. Blank uses the renderer's default."
             >
               <Input
@@ -4419,7 +4419,7 @@ function LetterheadTab({
               />
             </Field>
             <Field
-              label="Footer height (mm)"
+              label="Footer Height (Mm)"
               about="Reserve enough for the legal mentions, or they are clipped."
             >
               <Input
@@ -4600,7 +4600,7 @@ function StructureModal({
     >
       <div className="space-y-3">
         <Field
-          label="Parent entity"
+          label="Parent Entity"
           about="Leave blank for a standalone or top-level company. Only active entities can be a new parent."
         >
           <EntityPicker
@@ -4614,7 +4614,7 @@ function StructureModal({
 
         {parentId && (
           <>
-            <Field label="Relationship to parent">
+            <Field label="Relationship to Parent">
               <Select
                 value={relationship}
                 onChange={(ev) => setRelationship(ev.target.value)}
@@ -4630,7 +4630,7 @@ function StructureModal({
               </Select>
             </Field>
             <Field
-              label="Owned by the parent (%)"
+              label="Owned by the Parent (%)"
               about="What the parent holds. The cap table records who holds what in detail."
             >
               <Input
@@ -4799,7 +4799,7 @@ function StatusModal({
       description={`Currently ${enumLabel(current)}.`}
     >
       <div className="space-y-3">
-        <Field label="New status">
+        <Field label="New Status">
           <Select
             value={status}
             onChange={(ev) => setStatus(ev.target.value as api.EntityLifecycle)}

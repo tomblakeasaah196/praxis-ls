@@ -99,7 +99,7 @@ function ReopenDialog({
         </>
       }
     >
-      <Field label="Why is this being reopened?" required>
+      <Field label="Why Is This Being Reopened?" required>
         <Input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -163,10 +163,10 @@ function PublicDetailsDialog({
         <Field label={tr("Location")} hint="Current client-facing place for this stage (maximum 200 characters).">
           <Input maxLength={200} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Port of Douala" />
         </Field>
-        <Field label="Stage reference" hint="Operational reference safe to share with the client (maximum 120 characters).">
+        <Field label="Stage Reference" hint="Operational reference safe to share with the client (maximum 120 characters).">
           <Input maxLength={120} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="BL MEDU1234567" />
         </Field>
-        <Field label="Progress note" hint={`${note.length}/1000 characters · do not copy internal exception commentary.`}>
+        <Field label="Progress Note" hint={`${note.length}/1000 characters · do not copy internal exception commentary.`}>
           <Textarea maxLength={1000} rows={4} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Cargo discharged and awaiting terminal release." />
         </Field>
         {error && <p className="text-sm text-[rgb(var(--bad))]">{error}</p>}
@@ -271,7 +271,7 @@ function InsertDialog({
           </Select>
         </Field>
         <Field
-          label="Minimum duration (hours)"
+          label="Minimum Duration (Hours)"
           hint="The floor this stage cannot be compressed below."
         >
           <Input

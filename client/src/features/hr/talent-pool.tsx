@@ -73,7 +73,7 @@ function TalentForm({
       description="Keep a candidate on file for future roles."
     >
       <form className="space-y-4" onSubmit={submit}>
-        <Field label={tr("Full name")} required>
+        <Field label={tr("Full Name")} required>
           <Input
             value={f.full_name}
             onChange={(e) => set("full_name", e.target.value)}
@@ -297,7 +297,7 @@ function PastApplicants() {
     },
     {
       key: "from",
-      label: "Applied for",
+      label: "Applied For",
       /*
        * An OPEN application has no vacancy (13792): `vacancy_id` is NULL and the
        * status is TALENT_POOL from the moment it arrives, so `searchPool`'s LEFT
@@ -322,7 +322,7 @@ function PastApplicants() {
     },
     {
       key: "score",
-      label: "AI match",
+      label: "AI Match",
       // The provisional marker survives into this table for the same reason it
       // survives onto the pipeline card: the number means two different things
       // and this is a list somebody skims.
@@ -480,7 +480,7 @@ export function TalentPoolPage() {
     },
     {
       key: "last",
-      label: "Last approached",
+      label: "Last Approached",
       // Stops two recruiters ringing the same person about two roles in the
       // same week — the thing that makes a company look disorganised to exactly
       // the people it wants to hire.

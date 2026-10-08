@@ -73,7 +73,7 @@ function CsatModal({
       description={ticket.title}
     >
       <form className="space-y-4" onSubmit={submit}>
-        <Field label="How satisfied are you?" required>
+        <Field label="How Satisfied Are You?" required>
           <div className="flex gap-2">
             {[1, 2, 3, 4, 5].map((n) => (
               <button

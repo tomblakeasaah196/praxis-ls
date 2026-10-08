@@ -255,7 +255,7 @@ export function OpportunityForm({
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Estimated value">
+          <Field label="Estimated Value">
             <Input
               type="number"
               min="0"
@@ -306,7 +306,7 @@ export function OpportunityForm({
             </Select>
           </Field>
           <Field
-            label="Source reference"
+            label="Source Reference"
             hint="The intake or campaign reference this came in on"
           >
             <Input

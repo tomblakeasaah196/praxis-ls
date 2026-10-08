@@ -196,7 +196,7 @@ export function MyAppearancePage() {
             desc="Fifteen self-hosted families. Leave a field on the workspace default to keep following your organisation's brand."
           >
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={tr("Display font")}>
+              <Field label={tr("Display Font")}>
                 <FontPicker
                   slot="display"
                   aria-label={tr("Display font")}
@@ -207,7 +207,7 @@ export function MyAppearancePage() {
                   Workspace default: {inheritedLabel(branding.fontDisplay)}
                 </p>
               </Field>
-              <Field label={tr("Body font")}>
+              <Field label={tr("Body Font")}>
                 <FontPicker
                   slot="body"
                   aria-label={tr("Body font")}
@@ -218,7 +218,7 @@ export function MyAppearancePage() {
                   Workspace default: {inheritedLabel(branding.fontBody)}
                 </p>
               </Field>
-              <Field label={tr("Mono font")}>
+              <Field label={tr("Mono Font")}>
                 <FontPicker
                   slot="mono"
                   aria-label={tr("Mono font")}

@@ -132,20 +132,20 @@ function NewContractForm({
           </Select>
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Effective on">
+          <Field label="Effective On">
             <DateField
               value={f.effective_on}
               onChange={(iso) => set("effective_on", iso)}
             />
           </Field>
-          <Field label="Ends on">
+          <Field label="Ends On">
             <DateField
               value={f.end_on}
               onChange={(iso) => set("end_on", iso)}
             />
           </Field>
         </div>
-        <Field label="Email contract to (optional)">
+        <Field label="Email Contract to (Optional)">
           <Input
             type="email"
             placeholder="employee@company.cm"

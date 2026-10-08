@@ -839,7 +839,7 @@ function SetRateForm({
             placeholder="655.957"
           />
         </Field>
-        <Field label={tr("As of")} required>
+        <Field label={tr("As Of")} required>
           <DateField
             value={asOf}
             onChange={setAsOf}
@@ -953,7 +953,7 @@ function FxSettingsModal({
     >
       <div className="space-y-3">
         <Field
-          label={tr("API key")}
+          label={tr("API Key")}
           hint={
             isSet
               ? "Leave blank to keep the current key."

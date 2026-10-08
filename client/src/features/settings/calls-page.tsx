@@ -370,7 +370,7 @@ export function CallsPage() {
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label={tr("Company default")} hint={tr("Applies to everyone who has not chosen for themselves.")}>
+          <Field label={tr("Company Default")} hint={tr("Applies to everyone who has not chosen for themselves.")}>
             <Checkbox
               checked={tenantSettings?.noiseSuppression ?? false}
               disabled={tenantLocked}
@@ -380,7 +380,7 @@ export function CallsPage() {
           </Field>
 
           <Field
-            label={tr("My preference")}
+            label={tr("My Preference")}
             hint={tr("Your choice follows you to every device and overrides the company default.")}
           >
             <div className="flex flex-wrap items-center gap-2">
@@ -435,7 +435,7 @@ export function CallsPage() {
         )}
         <div className="mt-4">
           <Field
-            label={tr("Relay-only calls")}
+            label={tr("Relay-only Calls")}
             hint={tr("Needs the call relay (TURN) set up for your company; without it, calls will not connect.")}
           >
             <Checkbox
@@ -463,7 +463,7 @@ export function CallsPage() {
             hint={tr("Off unless your company turns it on. It also needs the call recording feature switched on for your company.")}
           />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={tr("Keep recordings for (days)")} hint={tr("1–365 days. Default 30. Audio is kept only long enough to transcribe and summarise it.")}>
+            <Field label={tr("Keep Recordings for (Days)")} hint={tr("1–365 days. Default 30. Audio is kept only long enough to transcribe and summarise it.")}>
               <Input
                 key={`audio-${tenantSettings?.retentionDays ?? 30}`}
                 type="number"
@@ -481,7 +481,7 @@ export function CallsPage() {
               />
             </Field>
             <Field
-              label={tr("Keep transcripts for (days)")}
+              label={tr("Keep Transcripts for (Days)")}
               hint={tv("Empty keeps them with the conversation. {{min}}–{{max}} days otherwise.", { min: TRANSCRIPT_MIN, max: TRANSCRIPT_MAX })}
             >
               <Input

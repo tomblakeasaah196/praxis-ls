@@ -169,7 +169,7 @@ function NewLocationForm({
               placeholder="Y1"
             />
           </Field>
-          <Field label="Capacity (units)">
+          <Field label="Capacity (Units)">
             <Input
               type="number"
               className="num text-right"

@@ -217,7 +217,7 @@ describe("editing", () => {
     // operator to invent data, and the server agrees (SINGLE_POINT_LEGS) — so a
     // leg switched to CUSTOMS must not then fail on a field the form hides.
     await user.selectOptions(
-      screen.getAllByLabelText("Leg type")[0],
+      screen.getAllByLabelText("Leg Type")[0],
       "CUSTOMS",
     );
     await waitFor(() =>
@@ -241,7 +241,7 @@ describe("editing", () => {
     // out loud in the meeting this screen feeds, and a native control renders in
     // the OS locale — so 04/07 was the 4th of July on one operator's machine and
     // the 7th of April on the next.
-    const actual = screen.getByLabelText(/^Actual departure/);
+    const actual = screen.getByLabelText(/^Actual Departure/);
     await user.type(actual, "04072026");
     expect(actual).toHaveValue("04/07/2026");
   });

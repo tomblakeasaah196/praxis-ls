@@ -115,7 +115,7 @@ function FileDeclarationForm({
               ))}
             </Select>
           </Field>
-          <Field label="Return type" required>
+          <Field label="Return Type" required>
             <Select
               value={kind}
               onChange={(e) => setKind(e.target.value as TaxKind)}
@@ -128,7 +128,7 @@ function FileDeclarationForm({
             </Select>
           </Field>
           <Field
-            label="Period code"
+            label="Period Code"
             hint="YYYY or YYYY-MM"
             required
             error={
@@ -141,7 +141,7 @@ function FileDeclarationForm({
               placeholder="2026-06"
             />
           </Field>
-          <Field label={tr("Due on")}>
+          <Field label={tr("Due On")}>
             <DateField
               value={dueOn}
               onChange={setDueOn}
@@ -219,7 +219,7 @@ function SubmitDeclarationForm({
     >
       <div className="space-y-4">
         <Field
-          label="Filed reference"
+          label="Filed Reference"
           hint="Receipt / acknowledgement number from the tax portal"
         >
           <Input
@@ -390,11 +390,11 @@ export const TaxCenterPage = () => (
     title="Tax center"
     description="OHADA/Cameroon tax outputs."
     tabs={[
-      { key: "vat", label: "TVA return", path: "/tax/vat-return" },
-      { key: "is", label: "Corporate tax", path: "/tax/corporate-tax" },
+      { key: "vat", label: "TVA Return", path: "/tax/vat-return" },
+      { key: "is", label: "Corporate Tax", path: "/tax/corporate-tax" },
       {
         key: "declarations",
-        label: "Declarations / filing",
+        label: "Declarations / Filing",
         render: () => <DeclarationsPanel />,
       },
     ]}

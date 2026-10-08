@@ -452,7 +452,7 @@ export function AuditPage() {
     },
     {
       key: "created_by",
-      label: "Opened by",
+      label: "Opened By",
       render: (r) => actor(r.created_by),
     },
     {
@@ -492,7 +492,7 @@ export function AuditPage() {
     },
     {
       key: "deleted_by",
-      label: "Deleted by",
+      label: "Deleted By",
       render: (r) => actor(r.deleted_by),
     },
     {

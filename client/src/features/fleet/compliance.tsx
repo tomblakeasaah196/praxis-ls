@@ -111,7 +111,7 @@ function NewComplianceForm({
               <option value="visite_technique">Visite technique</option>
             </Select>
           </Field>
-          <Field label="Expires on">
+          <Field label="Expires On">
             <DateField
               value={f.expires_on}
               onChange={(iso) => set("expires_on", iso)}
@@ -173,7 +173,7 @@ function RenewModal({
     >
       <form className="space-y-4" onSubmit={submit}>
         <Field
-          label="New expiry date"
+          label="New Expiry Date"
           required
           hint={
             row.expires_on ? `Current: ${dateFmt(row.expires_on)}` : undefined

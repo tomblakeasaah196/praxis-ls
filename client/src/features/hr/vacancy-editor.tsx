@@ -365,7 +365,7 @@ export function VacancyEditor({
           >
             <DepartmentSelect id="vacancy-department" value={dept} onChange={setDept} />
           </Field>
-          <Field label={tr("Employment type")}>
+          <Field label={tr("Employment Type")}>
             <Input
               list="vacancy-employment-types"
               value={f.employment_type}
@@ -383,7 +383,7 @@ export function VacancyEditor({
         </datalist>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Work mode">
+          <Field label="Work Mode">
             <Select
               value={f.work_mode}
               onValueChange={(v) => set("work_mode", v)}
@@ -391,7 +391,7 @@ export function VacancyEditor({
               options={WORK_MODES.map((m) => ({ value: m, label: m }))}
             />
           </Field>
-          <Field label="Working hours" hint="As the advert states them.">
+          <Field label="Working Hours" hint="As the advert states them.">
             <Input
               placeholder="9am–5pm, Mon–Fri"
               value={f.working_hours}
@@ -452,7 +452,7 @@ export function VacancyEditor({
               onChange={(e) => set("location_city", e.target.value)}
             />
           </Field>
-          <Field label="State / region">
+          <Field label="State / Region">
             <Input
               value={f.location_state}
               onChange={(e) => set("location_state", e.target.value)}
@@ -468,7 +468,7 @@ export function VacancyEditor({
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Field
-            label="Location line"
+            label="Location Line"
             hint="Optional. Overrides the three fields above on the careers page."
           >
             <Input
@@ -485,7 +485,7 @@ export function VacancyEditor({
               onChange={(e) => set("headcount", e.target.value)}
             />
           </Field>
-          <Field label="Minimum experience" hint="Years.">
+          <Field label="Minimum Experience" hint="Years.">
             <Input
               type="number"
               min={0}
@@ -529,7 +529,7 @@ export function VacancyEditor({
         <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Target start date"
+              label="Target Start Date"
               hint="When you want them in the seat."
             >
               <DateField
@@ -579,7 +579,7 @@ export function VacancyEditor({
               onChange={(e) => set("skills", e.target.value)}
             />
           </Field>
-          <Field label="Closing date" hint="Shown on the careers page.">
+          <Field label="Closing Date" hint="Shown on the careers page.">
             <DateField
               value={f.closes_on}
               onChange={(iso) => set("closes_on", iso)}

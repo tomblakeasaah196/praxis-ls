@@ -249,7 +249,7 @@ export function ManageEnquiryModal({
 
         {/* Classification + notes. One PATCH, and it cannot move the status. */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Enquiry type">
+          <Field label="Enquiry Type">
             <Select value={type} onChange={(e) => setType(e.target.value)} disabled={closed}>
               {ENQUIRY_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -265,7 +265,7 @@ export function ManageEnquiryModal({
           </div>
         </div>
 
-        <Field label="Internal notes" hint={`Not sent to anyone. ${notes.length}/${NOTES_MAX}.`}>
+        <Field label="Internal Notes" hint={`Not sent to anyone. ${notes.length}/${NOTES_MAX}.`}>
           <Textarea
             rows={3}
             value={notes}

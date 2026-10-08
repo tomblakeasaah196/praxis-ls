@@ -283,7 +283,7 @@ export function PricingVariancePage() {
     },
     {
       key: "computed_at",
-      label: "As of",
+      label: "As Of",
       render: (r) => dateFmt(r.computed_at),
     },
   ];

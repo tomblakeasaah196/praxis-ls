@@ -201,7 +201,7 @@ function NewRuleForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
             </Select>
           </Field>
           {charges && (
-            <Field label="Amount / percentage" required>
+            <Field label="Amount / Percentage" required>
               <Input
                 type="number"
                 min="0"
@@ -219,7 +219,7 @@ function NewRuleForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
              and it would sit in the list looking configured while computing
              nothing. */
           <div className="grid gap-4 rounded-lg border bg-muted/30 p-3 sm:grid-cols-3">
-            <Field label="Measured on" hint="e.g. punctuality_pct, late_days">
+            <Field label="Measured On" hint="e.g. punctuality_pct, late_days">
               <Input value={f.metric} onChange={(e) => set("metric", e.target.value)} placeholder="punctuality_pct" />
             </Field>
             <Field label="Comparison">
@@ -240,7 +240,7 @@ function NewRuleForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
         )}
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Ask the employee">
+          <Field label="Ask the Employee">
             <Checkbox
               checked={f.auto_query}
               onCheckedChange={(v: boolean) => set("auto_query", v === true)}
@@ -254,7 +254,7 @@ function NewRuleForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
               <option value="SERIOUS">Serious</option>
             </Select>
           </Field>
-          <Field label="Days to answer">
+          <Field label="Days to Answer">
             <Input
               type="number"
               min="0"
@@ -266,7 +266,7 @@ function NewRuleForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
           </Field>
         </div>
 
-        <Field label="SOP clause it enforces" hint="A deduction an employee can trace to the handbook is a rule; one they cannot is a surprise.">
+        <Field label="SOP Clause It Enforces" hint="A deduction an employee can trace to the handbook is a rule; one they cannot is a surprise.">
           <Select value={f.sop_document_id} onChange={(e) => set("sop_document_id", e.target.value)}>
             <option value="">— none yet —</option>
             {(sops || []).map((d) => (
@@ -352,7 +352,7 @@ function RuleEditor({
             <Input value={f.name} onChange={(e) => set("name", e.target.value)} />
           </Field>
           <Field
-            label="What it does"
+            label="What It Does"
             required
             hint={
               f.effect === "QUERY_ONLY"
@@ -370,7 +370,7 @@ function RuleEditor({
             </Select>
           </Field>
           {f.effect !== "QUERY_ONLY" && !(isLateness && f.effect === "DEDUCT_PCT_DAY") && (
-            <Field label="Amount or percentage" required>
+            <Field label="Amount or Percentage" required>
               <Input
                 type="number"
                 min="0"
@@ -386,7 +386,7 @@ function RuleEditor({
               employee can trace to a document is a rule, one they cannot is a
               surprise. */}
           <Field
-            label="SOP clause this enforces"
+            label="SOP Clause This Enforces"
             className="sm:col-span-2"
             hint="Shown beside every charge this rule makes."
           >
@@ -482,7 +482,7 @@ function RuleEditor({
                   <option value="SERIOUS">Serious</option>
                 </Select>
               </Field>
-              <Field label="Days to answer">
+              <Field label="Days to Answer">
                 <Input
                   type="number"
                   min="0"

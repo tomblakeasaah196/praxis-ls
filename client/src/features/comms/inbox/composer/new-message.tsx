@@ -142,7 +142,7 @@ export function NewMessageDialog({
         )}
 
         {connected.length > 1 && !draft && (
-          <Field label={tr("From mailbox")}>
+          <Field label={tr("From Mailbox")}>
             <Select value={connId} onChange={(e) => setConnId(e.target.value)}>
               {connected.map((c) => (
                 <option key={c.email_connection_id} value={c.email_connection_id}>

@@ -166,7 +166,7 @@ function ReceiptForm({
           </Field>
           {wantsAccount && (
             <Field
-              label="Receiving account"
+              label="Receiving Account"
               required
               className="sm:col-span-2"
               hint="Bank / mobile-money account the funds landed in."
@@ -197,14 +197,14 @@ function ReceiptForm({
               onChange={(e) => set("amount", e.target.value)}
             />
           </Field>
-          <Field label="Received on">
+          <Field label="Received On">
             <DateField
               value={f.received_on}
               onChange={(iso) => set("received_on", iso)}
             />
           </Field>
           <Field
-            label="Reference / slip"
+            label="Reference / Slip"
             className="sm:col-span-2"
             hint="Attach the bank slip, transfer confirmation or cheque image (optional)."
           >
@@ -296,13 +296,13 @@ function PostForm({
               ))}
             </Select>
           </Field>
-          <Field label={tr("Entry date")} required>
+          <Field label={tr("Entry Date")} required>
             <DateField
               value={f.entry_date}
               onChange={(iso) => set("entry_date", iso)}
             />
           </Field>
-          <Field label={tr("Source doc ref")} className="sm:col-span-2">
+          <Field label={tr("Source Doc Ref")} className="sm:col-span-2">
             <Input
               value={f.source_doc_ref}
               onChange={(e) => set("source_doc_ref", e.target.value)}

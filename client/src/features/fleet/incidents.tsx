@@ -121,7 +121,7 @@ function NewIncidentForm({
           </Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Occurred at">
+          <Field label="Occurred At">
             <DateTimeField
               value={f.occurred_at}
               onChange={(iso) => set("occurred_at", iso)}

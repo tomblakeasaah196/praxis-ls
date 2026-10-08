@@ -319,7 +319,7 @@ function NewSanction({
               placeholder="0"
             />
           </Field>
-          <Field label="Effective date">
+          <Field label="Effective Date">
             <DateField
               value={f.effective_date}
               onChange={(iso) => set("effective_date", iso)}

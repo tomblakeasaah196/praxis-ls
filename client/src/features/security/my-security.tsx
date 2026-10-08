@@ -393,7 +393,7 @@ export function MySecurityPage() {
       const pw = await prompt({
         title: "Confirm it's you",
         description: why,
-        label: "Current password",
+        label: "Current Password",
         type: "password",
         confirmLabel: "Confirm",
         trim: false,
@@ -773,7 +773,7 @@ export function MySecurityPage() {
               readOnly
             />
             <div className="grid gap-3 lg:grid-cols-3">
-              <Field label="Current password">
+              <Field label="Current Password">
                 <Input
                   type="password"
                   autoComplete="current-password"
@@ -782,7 +782,7 @@ export function MySecurityPage() {
                   placeholder="••••••••••••"
                 />
               </Field>
-              <Field label="New password">
+              <Field label="New Password">
                 <Input
                   type="password"
                   autoComplete="new-password"
@@ -791,7 +791,7 @@ export function MySecurityPage() {
                   placeholder="••••••••••••"
                 />
               </Field>
-              <Field label="Confirm new password">
+              <Field label="Confirm New Password">
                 <Input
                   type="password"
                   autoComplete="new-password"

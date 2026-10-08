@@ -638,19 +638,19 @@ export function WebsiteInsightEditorPage() {
             placeholder="douane, transit, conteneur" />
         </Field>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label={tr("Search title (French)")}>
+          <Field label={tr("Search Title (French)")}>
             <Input value={draft.meta_title_fr}
               onChange={(e) => set("meta_title_fr", e.target.value)} />
           </Field>
-          <Field label={tr("Search title (English)")}>
+          <Field label={tr("Search Title (English)")}>
             <Input value={draft.meta_title_en}
               onChange={(e) => set("meta_title_en", e.target.value)} />
           </Field>
-          <Field label={tr("Search description (French)")}>
+          <Field label={tr("Search Description (French)")}>
             <Textarea rows={2} value={draft.meta_description_fr}
               onChange={(e) => set("meta_description_fr", e.target.value)} />
           </Field>
-          <Field label={tr("Search description (English)")}>
+          <Field label={tr("Search Description (English)")}>
             <Textarea rows={2} value={draft.meta_description_en}
               onChange={(e) => set("meta_description_en", e.target.value)} />
           </Field>

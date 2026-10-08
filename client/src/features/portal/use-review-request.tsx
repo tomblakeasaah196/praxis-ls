@@ -57,7 +57,7 @@ export function useReviewRequest(onDone: () => void) {
     const note = await prompt({
       title: tr("Send this back to the client?"),
       description: tr("They see your reason on the request and can send a new file."),
-      label: tr("What is wrong with it"),
+      label: tr("What Is Wrong with It"),
       placeholder: tr("Page 2 is missing"),
       multiline: true,
       confirmLabel: tr("Send back"),

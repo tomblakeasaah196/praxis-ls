@@ -71,13 +71,13 @@ function InvoiceForm({
   });
   return (
     <Form form={form} onSubmit={onSubmit}>
-      <FormField form={form} name="entry_date" label="Entry date" required>
+      <FormField form={form} name="entry_date" label="Entry Date" required>
         {(field) => <Input {...field} />}
       </FormField>
       <FormField
         form={form}
         name="source_doc_ref"
-        label="Document reference"
+        label="Document Reference"
         required
       >
         {(field) => <Input {...field} />}
@@ -136,7 +136,7 @@ function NestedForm() {
       <FormField
         form={form}
         name="contact.email"
-        label="Contact email"
+        label="Contact Email"
         required
       >
         {/* `field.value` types as the union of every path, so coerce as the screens do. */}
@@ -182,7 +182,7 @@ describe("Form", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole("textbox", { name: "Entry date" }),
+        screen.getByRole("textbox", { name: "Entry Date" }),
       ).toHaveAttribute("aria-invalid", "true"),
     );
     expect(onSubmit).not.toHaveBeenCalled();
@@ -190,7 +190,7 @@ describe("Form", () => {
     // screen reader read it when focus lands on the input. Before this, 0 of 565
     // fields had aria-describedby at all.
     expect(
-      screen.getByRole("textbox", { name: "Entry date" }),
+      screen.getByRole("textbox", { name: "Entry Date" }),
     ).toHaveAccessibleDescription(/YYYY-MM-DD/);
   });
 
@@ -200,11 +200,11 @@ describe("Form", () => {
     render(<InvoiceForm onSubmit={onSubmit} />);
 
     await user.type(
-      screen.getByRole("textbox", { name: "Entry date" }),
+      screen.getByRole("textbox", { name: "Entry Date" }),
       "2026-03-21",
     );
     await user.type(
-      screen.getByRole("textbox", { name: "Document reference" }),
+      screen.getByRole("textbox", { name: "Document Reference" }),
       "INV-2026-0041",
     );
     await user.click(screen.getByRole("button", { name: "Submit invoice" }));
@@ -234,22 +234,22 @@ describe("Form", () => {
     render(<InvoiceForm onSubmit={onSubmit} />);
 
     await user.type(
-      screen.getByRole("textbox", { name: "Entry date" }),
+      screen.getByRole("textbox", { name: "Entry Date" }),
       "2026-03-21",
     );
     await user.type(
-      screen.getByRole("textbox", { name: "Document reference" }),
+      screen.getByRole("textbox", { name: "Document Reference" }),
       "INV-2026-0041",
     );
     await user.click(screen.getByRole("button", { name: "Submit invoice" }));
 
     await waitFor(() =>
       expect(
-        screen.getByRole("textbox", { name: "Document reference" }),
+        screen.getByRole("textbox", { name: "Document Reference" }),
       ).toHaveAccessibleDescription(/already used on invoice INV-2026-0038/),
     );
     expect(
-      screen.getByRole("textbox", { name: "Document reference" }),
+      screen.getByRole("textbox", { name: "Document Reference" }),
     ).toHaveAttribute("aria-invalid", "true");
   });
 
@@ -263,11 +263,11 @@ describe("Form", () => {
     render(<InvoiceForm onSubmit={onSubmit} />);
 
     await user.type(
-      screen.getByRole("textbox", { name: "Entry date" }),
+      screen.getByRole("textbox", { name: "Entry Date" }),
       "2026-03-21",
     );
     await user.type(
-      screen.getByRole("textbox", { name: "Document reference" }),
+      screen.getByRole("textbox", { name: "Document Reference" }),
       "INV-2026-0041",
     );
     await user.click(screen.getByRole("button", { name: "Submit invoice" }));
@@ -293,11 +293,11 @@ describe("Form", () => {
     render(<InvoiceForm onSubmit={onSubmit} />);
 
     await user.type(
-      screen.getByRole("textbox", { name: "Entry date" }),
+      screen.getByRole("textbox", { name: "Entry Date" }),
       "2026-03-21",
     );
     await user.type(
-      screen.getByRole("textbox", { name: "Document reference" }),
+      screen.getByRole("textbox", { name: "Document Reference" }),
       "INV-2026-0041",
     );
     await user.click(screen.getByRole("button", { name: "Submit invoice" }));
@@ -374,7 +374,7 @@ describe("Form", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole("textbox", { name: "Contact email" }),
+        screen.getByRole("textbox", { name: "Contact Email" }),
       ).toHaveAttribute("aria-invalid", "true"),
     );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -412,7 +412,7 @@ describe("Form", () => {
     await user.click(screen.getByRole("button", { name: "Submit invoice" }));
     await waitFor(() =>
       expect(
-        screen.getByRole("textbox", { name: "Entry date" }),
+        screen.getByRole("textbox", { name: "Entry Date" }),
       ).toHaveAttribute("aria-invalid", "true"),
     );
     expect(await axe(container)).toHaveNoViolations();

@@ -83,7 +83,7 @@ const openNew = async (u: ReturnType<typeof setup>) => {
   render();
   await u.click(await screen.findByRole("button", { name: /New user/i }));
   const d = dialog();
-  await u.type(d.getByLabelText(/^Full name/i), "Marie NGO");
+  await u.type(d.getByLabelText(/^Full Name/i), "Marie NGO");
   // By role, not by label: "Email them an invitation…" is a checkbox in the
   // same dialog whose accessible name also starts with "Email".
   await u.type(d.getByRole("textbox", { name: /^Email/i }), "marie@tenant.cm");

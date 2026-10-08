@@ -148,7 +148,9 @@ function files() {
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
   });
-  return out.split("\n").filter(Boolean).filter((f) => !SKIP.test(f));
+  /* An unmerged path is printed once per stage, so a conflicted merge
+     counts every dash in it three times. Dedupe. */
+  return [...new Set(out.split("\n").filter(Boolean))].filter((f) => !SKIP.test(f));
 }
 
 /**

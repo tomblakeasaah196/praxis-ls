@@ -256,7 +256,7 @@ export function NumberingPage() {
       />
 
       <div className="space-y-4">
-        <Field label={tr("Document type")}>
+        <Field label={tr("Document Type")}>
           <Select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}

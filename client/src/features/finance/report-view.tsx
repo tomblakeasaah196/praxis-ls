@@ -300,7 +300,7 @@ export function ReportTabs({
               </Field>
             ) : (
               <Field
-                label="Period code"
+                label="Period Code"
                 hint="YYYY or YYYY-MM"
                 className="w-32"
               >

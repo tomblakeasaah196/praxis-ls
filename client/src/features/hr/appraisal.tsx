@@ -72,7 +72,7 @@ function RewardForm({
       description={`${appraisal.employee_name || "Employee"} · ${appraisal.period_code}. Added to gross next payroll run (taxable), then locked once paid.`}
     >
       <form className="space-y-4" onSubmit={submit}>
-        <Field label="Reward amount (XAF)" required>
+        <Field label="Reward Amount (XAF)" required>
           <Input
             type="number"
             min="0"

@@ -161,7 +161,7 @@ export function LoginEditor() {
                 label="Show logo"
                 hint="Display the brand logo on the sign-in screen."
               />
-              <Field label="Accent override (optional)">
+              <Field label="Accent Override (Optional)">
                 <div className="flex items-center gap-2">
                   <ColorRow
                     token="accent"

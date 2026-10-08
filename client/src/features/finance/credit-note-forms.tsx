@@ -228,7 +228,7 @@ export function CreditNoteCreateForm({
             />
           </Field>
           <Field
-            label="Reverses invoice"
+            label="Reverses Invoice"
             hint="Finalised invoice this note credits"
             className="sm:col-span-2"
           >
@@ -398,7 +398,7 @@ export function CreditNoteEditForm({
                 onSelect={(r) => setClientId(String(r.client_id))}
               />
             </Field>
-            <Field label="Reverses invoice">
+            <Field label="Reverses Invoice">
               <SearchSelect
                 path="/final-invoices"
                 value={invoiceLabel}
@@ -497,13 +497,13 @@ export function CreditNotePostForm({
     >
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Posting date">
+          <Field label="Posting Date">
             <DateField
               value={entryDate}
               onChange={setEntryDate}
             />
           </Field>
-          <Field label={tr("Source document ref")}>
+          <Field label={tr("Source Document Ref")}>
             <Input
               value={sourceRef}
               onChange={(e) => setSourceRef(e.target.value)}

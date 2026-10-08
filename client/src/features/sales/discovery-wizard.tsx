@@ -279,7 +279,7 @@ export function DiscoveryWizard({
               }}
             />
           </Field>
-          <Field label="Meeting date">
+          <Field label="Meeting Date">
             <DateField
               value={metOn}
               onChange={setMetOn}

@@ -356,7 +356,7 @@ export function MilestoneOwnersDialog({
                   }
                 />
               </Field>
-              <Field label="What they do" about="Optional: shown as the dropdown's hint.">
+              <Field label="What They Do" about="Optional: shown as the dropdown's hint.">
                 <Input
                   value={draft.description}
                   placeholder="Draft survey and cargo condition reports."

@@ -91,7 +91,7 @@ describe("FileDrop preview", () => {
         file={pdf()}
         onPick={vi.fn()}
         accept="application/pdf,image/png"
-        label="Document file"
+        label="Document File"
       />,
     );
 
@@ -110,7 +110,7 @@ describe("FileDrop preview", () => {
         file={png()}
         onPick={vi.fn()}
         accept="application/pdf,image/png"
-        label="Document file"
+        label="Document File"
       />,
     );
 
@@ -127,7 +127,7 @@ describe("FileDrop preview", () => {
         file={pdf()}
         onPick={vi.fn()}
         accept="application/pdf"
-        label="Document file"
+        label="Document File"
       />,
     );
 
@@ -159,7 +159,7 @@ describe("FileDrop paste", () => {
         file={null}
         onPick={vi.fn()}
         accept="image/png"
-        label="Document file"
+        label="Document File"
       />,
     );
 
@@ -175,11 +175,11 @@ describe("FileDrop paste", () => {
         file={null}
         onPick={onPick}
         accept="application/pdf"
-        label="Document file"
+        label="Document File"
       />,
     );
 
-    fireEvent.paste(screen.getByLabelText("Document file"), {
+    fireEvent.paste(screen.getByLabelText("Document File"), {
       clipboardData: clipboard(pdf()),
     });
 
@@ -193,11 +193,11 @@ describe("FileDrop paste", () => {
         file={null}
         onPick={onPick}
         accept="application/pdf"
-        label="Document file"
+        label="Document File"
       />,
     );
 
-    fireEvent.paste(screen.getByLabelText("Document file"), {
+    fireEvent.paste(screen.getByLabelText("Document File"), {
       clipboardData: clipboard(png()),
     });
 
@@ -216,11 +216,11 @@ describe("FileDrop paste", () => {
         file={null}
         onPick={onPick}
         accept="application/pdf"
-        label="Document file"
+        label="Document File"
       />,
     );
 
-    fireEvent.paste(screen.getByLabelText("Document file"), {
+    fireEvent.paste(screen.getByLabelText("Document File"), {
       clipboardData: { items: [], files: [] },
     });
 

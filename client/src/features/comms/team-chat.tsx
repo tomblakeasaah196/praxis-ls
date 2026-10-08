@@ -244,7 +244,7 @@ function NewChatModal({
           </Select>
         </Field>
         {mode === "GROUP" && (
-          <Field label="Channel name" required>
+          <Field label="Channel Name" required>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}

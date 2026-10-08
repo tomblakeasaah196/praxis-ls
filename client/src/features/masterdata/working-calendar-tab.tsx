@@ -252,7 +252,7 @@ export function WorkingCalendarTab({
             disabled={!canEdit}
           />
         </Field>
-        <Field label="Calendar name">
+        <Field label="Calendar Name">
           <Input
             value={draft.name || ""}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}

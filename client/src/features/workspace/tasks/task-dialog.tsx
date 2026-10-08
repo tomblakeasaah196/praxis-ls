@@ -376,7 +376,7 @@ export function TaskDialog({
         )}
 
         {editing && task?.recurrence_series_id && (
-          <Field label="Apply changes to" htmlFor="task-series-scope">
+          <Field label="Apply Changes To" htmlFor="task-series-scope">
             <NativeSelect
               id="task-series-scope"
               value={seriesScope}
@@ -395,7 +395,7 @@ export function TaskDialog({
             is nobody else's. */}
         {!isPersonal &&
           (assignedTo ? (
-            <Field label="Assigned to" htmlFor="task-assignee">
+            <Field label="Assigned To" htmlFor="task-assignee">
               <div
                 id="task-assignee"
                 className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"

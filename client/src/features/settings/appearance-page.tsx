@@ -225,14 +225,14 @@ export function AppearancePage() {
           desc="Shown across the app and on the login screen."
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={tr("Display name")}>
+            <Field label={tr("Display Name")}>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Smart Logistics"
               />
             </Field>
-            <Field label="Theme mode">
+            <Field label="Theme Mode">
               <Segmented
                 value={theme}
                 onChange={setTheme}
@@ -305,7 +305,7 @@ export function AppearancePage() {
           desc="Fifteen self-hosted families — every user sees exactly what you pick here, on any device. Each user can override these for themselves under My appearance."
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={tr("Display font")}>
+            <Field label={tr("Display Font")}>
               <FontPicker
                 slot="display"
                 value={fontDisplay}
@@ -313,7 +313,7 @@ export function AppearancePage() {
                 aria-label={tr("Display font")}
               />
             </Field>
-            <Field label={tr("Body font")}>
+            <Field label={tr("Body Font")}>
               <FontPicker
                 slot="body"
                 value={fontBody}
@@ -321,7 +321,7 @@ export function AppearancePage() {
                 aria-label={tr("Body font")}
               />
             </Field>
-            <Field label={tr("Mono font")}>
+            <Field label={tr("Mono Font")}>
               <FontPicker
                 slot="mono"
                 value={fontMono}
@@ -329,7 +329,7 @@ export function AppearancePage() {
                 aria-label={tr("Mono font")}
               />
             </Field>
-            <Field label="Corner radius">
+            <Field label="Corner Radius">
               <Input
                 value={radius}
                 onChange={(e) => setRadius(e.target.value)}

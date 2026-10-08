@@ -199,19 +199,19 @@ export const StatementsPage = () => (
     description="SYSCOHADA financial statements, general ledger and the guided monthly close."
     periodMode="period_id"
     tabs={[
-      { key: "tb", label: "Trial balance", path: "/statements/trial-balance" },
+      { key: "tb", label: "Trial Balance", path: "/statements/trial-balance" },
       {
         key: "is",
-        label: "Compte de résultat",
+        label: "Compte De Résultat",
         path: "/statements/income-statement",
       },
       { key: "bs", label: "Bilan", path: "/statements/balance-sheet" },
-      { key: "gl", label: "Grand livre", path: "/statements/grand-livre" },
-      { key: "cf", label: "Cash flow", path: "/statements/cash-flow" },
+      { key: "gl", label: "Grand Livre", path: "/statements/grand-livre" },
+      { key: "cf", label: "Cash Flow", path: "/statements/cash-flow" },
       { key: "notes", label: "Notes", path: "/statements/notes" },
       {
         key: "periods",
-        label: "Periods / close",
+        label: "Periods / Close",
         render: () => <PeriodsPanel />,
       },
     ]}

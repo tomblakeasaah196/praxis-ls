@@ -90,7 +90,7 @@ function ScopeForm({
     >
       <form className="space-y-4" onSubmit={submit}>
         <Field
-          label={tr("Corporate entity")}
+          label={tr("Corporate Entity")}
           hint="Leave blank for a tenant-wide scope."
         >
           <Select
@@ -142,7 +142,7 @@ function ScopeForm({
           />
         </Field>
         <Field
-          label="Parent scope"
+          label="Parent Scope"
           hint="Optional — builds the organigramme tree."
         >
           <Select

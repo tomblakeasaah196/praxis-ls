@@ -351,7 +351,7 @@ export function WebsiteThemePage() {
             desc={tr("A visitor's own light/dark choice always wins after their first visit.")}
           >
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={tr("Corner radius")}>
+              <Field label={tr("Corner Radius")}>
                 <Input
                   type="number"
                   min={0}
@@ -360,7 +360,7 @@ export function WebsiteThemePage() {
                   onChange={(e) => set("radius_px", Number(e.target.value))}
                 />
               </Field>
-              <Field label={tr("Theme on first visit")}>
+              <Field label={tr("Theme on First Visit")}>
                 <Segmented
                   value={form.default_mode}
                   onChange={(v) => set("default_mode", v)}
@@ -382,7 +382,7 @@ export function WebsiteThemePage() {
             title={tr("Labels")}
             desc={tr("Title Case capitalises each word of the links, buttons, headings and field labels on your website and client portal — “Request a Quote”, “Demander un Devis”. Sentences always stay as written.")}
           >
-            <Field label={tr("Label capitalisation")}>
+            <Field label={tr("Label Capitalisation")}>
               <Segmented
                 value={form.label_case === "AS_WRITTEN" ? "AS_WRITTEN" : "TITLE"}
                 onChange={(v) => set("label_case", v)}

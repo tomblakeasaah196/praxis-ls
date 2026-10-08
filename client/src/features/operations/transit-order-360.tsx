@@ -285,7 +285,7 @@ function OrderActions({
               own is not evidence.
             </p>
             <Field
-              label={tr("Signed copy")}
+              label={tr("Signed Copy")}
               required
               error={scanError || undefined}
               hint="PDF or a photo of the stamped page."
@@ -310,7 +310,7 @@ function OrderActions({
                 onRetry={scanUpload.retry}
               />
             </Field>
-            <Field label={tr("Signed by")}>
+            <Field label={tr("Signed By")}>
               <Input
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -334,7 +334,7 @@ function OrderActions({
               This closes the file's “transit declaration lodged” milestone. The
               order becomes final.
             </p>
-            <Field label="Declaration reference" required>
+            <Field label="Declaration Reference" required>
               <Input
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -776,7 +776,7 @@ export function TransitOrder360({
                 : undefined
             }
             onClick={() => setTab("details")}
-            ariaLabel="Declared value in XAF — open the Details tab"
+            ariaLabel="Declared Value in XAF: open the Details tab"
           />
         )}
       </KpiRow>

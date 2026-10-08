@@ -65,7 +65,7 @@ describe("NewMessageDialog", () => {
     const composer = await screen.findByTestId("composer");
     expect(composer).toHaveAttribute("data-connection-id", "c1");
     expect(composer).toHaveAttribute("data-kind", "NEW");
-    expect(screen.queryByLabelText("From mailbox")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("From Mailbox")).not.toBeInTheDocument();
   });
 
   it("WITH TWO CONNECTIONS it shows the chooser and picks the default first", async () => {
@@ -77,7 +77,7 @@ describe("NewMessageDialog", () => {
         ],
       },
     });
-    const chooser = await screen.findByLabelText("From mailbox");
+    const chooser = await screen.findByLabelText("From Mailbox");
     const options = within(chooser as HTMLElement).getAllByRole("option");
     expect(options.map((o) => o.textContent)).toEqual([
       "ops@company.cm",
@@ -106,7 +106,7 @@ describe("NewMessageDialog", () => {
     );
     const composer = await screen.findByTestId("composer");
     expect(composer).toHaveAttribute("data-connection-id", "c1");
-    expect((await screen.findByLabelText("From mailbox") as HTMLSelectElement).value).toBe("c1");
+    expect((await screen.findByLabelText("From Mailbox") as HTMLSelectElement).value).toBe("c1");
   });
 
   it("a preference that is not connected falls back rather than seeding a dead mailbox", async () => {

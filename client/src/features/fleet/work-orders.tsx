@@ -176,7 +176,7 @@ function WorkOrderDetail({
             onSubmit={addPart}
             className="grid gap-3 rounded-lg border bg-muted/30 p-4 sm:grid-cols-[1fr_90px_130px_auto] sm:items-end"
           >
-            <Field label="Part / labour">
+            <Field label="Part / Labour">
               <Input
                 value={p.label}
                 onChange={(e) => setP((s) => ({ ...s, label: e.target.value }))}
@@ -193,7 +193,7 @@ function WorkOrderDetail({
                 onChange={(e) => setP((s) => ({ ...s, qty: e.target.value }))}
               />
             </Field>
-            <Field label={tr("Unit cost")}>
+            <Field label={tr("Unit Cost")}>
               <Input
                 type="number"
                 min="0"
