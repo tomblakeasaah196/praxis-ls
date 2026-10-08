@@ -185,7 +185,7 @@ export function WebsitePartnersPage() {
                       }
                     />
                   </Field>
-                  <Field label={tr("What this claims")}>
+                  <Field label={tr("What This Claims")}>
                     <select
                       className="h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
                       value={p.kind}
@@ -217,7 +217,7 @@ export function WebsitePartnersPage() {
                 </div>
 
                 <div className="mt-3">
-                  <Field label={tr("Who cleared this mark, and when")}>
+                  <Field label={tr("Who Cleared This Mark, and When")}>
                     <Input
                       defaultValue={p.permission_note ?? ""}
                       placeholder={tr("Written clearance by email, 12 March 2026")}
@@ -300,7 +300,7 @@ export function WebsitePartnersPage() {
                       }
                     />
                   </Field>
-                  <Field label={tr("Issued by")}>
+                  <Field label={tr("Issued By")}>
                     <Input
                       defaultValue={c.issuer ?? ""}
                       onBlur={(e) =>
@@ -308,7 +308,7 @@ export function WebsitePartnersPage() {
                       }
                     />
                   </Field>
-                  <Field label={tr("Reference number")}>
+                  <Field label={tr("Reference Number")}>
                     <Input
                       defaultValue={c.identifier ?? ""}
                       onBlur={(e) =>

@@ -347,7 +347,7 @@ function RetireForm({
           </Field>
           {f.kind === "RECEIPT" && (
             <Field
-              label={tr("Operations file")}
+              label={tr("Operations File")}
               required
               hint="4731 is analytical — a receipt must say which operations file it belongs to."
             >
@@ -368,7 +368,7 @@ function RetireForm({
           </Field>
           {f.kind === "RECEIPT" && (
             <Field
-              label={tr("Proof document")}
+              label={tr("Proof Document")}
               hint={tr(
                 "The receipt or invoice for this cash. Required unless the tenant has relaxed require_proof_for_receipt — the server decides, not this form.",
               )}

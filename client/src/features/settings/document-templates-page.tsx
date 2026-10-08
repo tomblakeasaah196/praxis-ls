@@ -317,7 +317,7 @@ export function TemplateStudioPage() {
           <div>
             <div className="micro mb-2">Brand</div>
             <div className="space-y-2">
-              <Field label="Accent colour">
+              <Field label="Accent Colour">
                 <Input
                   type="color"
                   value={s(cfg.accent, "#F5821F")}
@@ -350,7 +350,7 @@ export function TemplateStudioPage() {
                     <option>Letter</option>
                   </Select>
                 </Field>
-                <Field label="Margin (mm)">
+                <Field label="Margin (Mm)">
                   <Input
                     type="number"
                     value={s(cfg.margin_mm, "16")}
@@ -363,7 +363,7 @@ export function TemplateStudioPage() {
                 checked={logo.show !== false}
                 onChange={(v) => setNested("logo", { show: v })}
               />
-              <Field label="Logo align">
+              <Field label="Logo Align">
                 <Select
                   value={s(logo.align, "left")}
                   onChange={(e) => setNested("logo", { align: e.target.value })}
@@ -412,14 +412,14 @@ export function TemplateStudioPage() {
           <div>
             <div className="micro mb-2">Content</div>
             <div className="space-y-2">
-              <Field label="Footer text">
+              <Field label="Footer Text">
                 <Input
                   value={s(cfg.footer_text)}
                   onChange={(e) => set({ footer_text: e.target.value })}
                   placeholder="Thank you for your business"
                 />
               </Field>
-              <Field label="Terms & conditions">
+              <Field label="Terms & Conditions">
                 <Textarea
                   value={s(cfg.terms)}
                   onChange={(e) => set({ terms: e.target.value })}
@@ -428,7 +428,7 @@ export function TemplateStudioPage() {
                 />
               </Field>
               <div className="grid grid-cols-2 gap-2">
-                <Field label="Signatory name">
+                <Field label="Signatory Name">
                   <Input
                     value={s(sig.name)}
                     onChange={(e) =>
@@ -436,7 +436,7 @@ export function TemplateStudioPage() {
                     }
                   />
                 </Field>
-                <Field label="Signatory title">
+                <Field label="Signatory Title">
                   <Input
                     value={s(sig.title)}
                     onChange={(e) =>
@@ -461,7 +461,7 @@ export function TemplateStudioPage() {
                 * house mark. The evidentiary claim on a signed document comes
                 * from the seal printed beneath it.
                 */}
-              <Field label="Company stamp (cachet)">
+              <Field label="Company Stamp (Cachet)">
                 <div className="space-y-2">
                   {sig.image_url ? (
                     <div className="flex items-center gap-3">

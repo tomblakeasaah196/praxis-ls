@@ -134,14 +134,14 @@ function UploadDocumentForm({
           onRetry={upload.retry}
         />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr("Document type")} hint="e.g. invoice, bill_of_lading">
+          <Field label={tr("Document Type")} hint="e.g. invoice, bill_of_lading">
             <Input
               value={docType}
               onChange={(e) => setDocType(e.target.value)}
               placeholder="invoice"
             />
           </Field>
-          <Field label="File context">
+          <Field label="File Context">
             <Select
               value={fileContext}
               onChange={(e) => setFileContext(e.target.value)}

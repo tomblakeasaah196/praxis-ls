@@ -102,7 +102,7 @@ describe("Clients · Documents — the Add document form", () => {
     expect(screen.getByLabelText("Number")).toHaveValue("Assigned on save");
     expect(screen.getByLabelText("Number")).toHaveAttribute("readonly");
     expect(screen.getByText(/generated automatically/i)).toBeInTheDocument();
-    expect(screen.getByLabelText("Physical archive ref")).toBeInTheDocument();
+    expect(screen.getByLabelText("Physical Archive Ref")).toBeInTheDocument();
   });
 
   it("shows the dates day-first and takes the file inline", async () => {
@@ -115,7 +115,7 @@ describe("Clients · Documents — the Add document form", () => {
     await user.type(issued, "03072026");
     expect(issued).toHaveValue("03/07/2026");
 
-    const file = screen.getByLabelText("Document file");
+    const file = screen.getByLabelText("Document File");
     expect(file).toHaveAttribute("type", "file");
     expect(file.getAttribute("accept")).toBe(
       "application/pdf,image/png,image/jpeg,image/webp",
@@ -128,7 +128,7 @@ describe("Clients · Documents — the Add document form", () => {
       "/documents": { doc_id: "vault-1" }, // vault upload returns the file id
     });
 
-    await user.upload(screen.getByLabelText("Document file"), pdf());
+    await user.upload(screen.getByLabelText("Document File"), pdf());
     await user.click(screen.getByRole("button", { name: /^Add document$/i }));
 
     // The success toast only reads "scan attached" when the file branch ran to

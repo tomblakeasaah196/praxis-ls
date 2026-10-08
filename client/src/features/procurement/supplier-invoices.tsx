@@ -126,13 +126,13 @@ function SupplierInvoiceForm({
               ))}
             </Select>
           </Field>
-          <Field label="Supplier ref">
+          <Field label="Supplier Ref">
             <Input
               value={f.supplier_ref}
               onChange={(e) => set("supplier_ref", e.target.value)}
             />
           </Field>
-          <Field label={tr("Due on")}>
+          <Field label={tr("Due On")}>
             <DateField
               value={f.due_on}
               onChange={(iso) => set("due_on", iso)}
@@ -168,7 +168,7 @@ function SupplierInvoiceForm({
                     onChange={(e) => setLine(i, { label: e.target.value })}
                   />
                 </Field>
-                <Field label={tr("Unit price")}>
+                <Field label={tr("Unit Price")}>
                   <Input
                     type="number"
                     className="num text-right"
@@ -178,7 +178,7 @@ function SupplierInvoiceForm({
                     }
                   />
                 </Field>
-                <Field label="Expense acct">
+                <Field label="Expense Acct">
                   <Input
                     className="num"
                     value={l.expense_account ?? ""}
@@ -279,13 +279,13 @@ function PayForm({
               onChange={(e) => set("amount", e.target.value)}
             />
           </Field>
-          <Field label={tr("Paid on")}>
+          <Field label={tr("Paid On")}>
             <DateField
               value={f.entry_date}
               onChange={(iso) => set("entry_date", iso)}
             />
           </Field>
-          <Field label={tr("Treasury account")}>
+          <Field label={tr("Treasury Account")}>
             <Select
               value={f.treasury_account_id}
               onChange={(e) => set("treasury_account_id", e.target.value)}

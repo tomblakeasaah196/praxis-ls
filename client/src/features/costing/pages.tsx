@@ -176,7 +176,7 @@ function CostingForm({
           }
         }}
       >
-        <Field label={tr("Operations file")} required>
+        <Field label={tr("Operations File")} required>
           <OperationsFilePicker
             label={tr("Operations file")}
             required
@@ -846,7 +846,7 @@ function BulkCostSheet({
           <Field label={tr("Date")} required>
             <DateField value={entryDate} onChange={setEntryDate} />
           </Field>
-          <Field label={tr("Source doc ref")} required>
+          <Field label={tr("Source Doc Ref")} required>
             <Input value={docRef} onChange={(e) => setDocRef(e.target.value)} />
           </Field>
         </div>
@@ -1616,7 +1616,7 @@ function CashRequestForm({
             </>
           ) : (
             <>
-              <Field label={tr("Cost centre")}>
+              <Field label={tr("Cost Centre")}>
                 <Input
                   value={costCenter}
                   onChange={(e) => setCostCenter(e.target.value)}
@@ -1642,7 +1642,7 @@ function CashRequestForm({
             :499, :505-514). The server refuses submission without a method. */}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label={tr("Disbursement method")}
+            label={tr("Disbursement Method")}
             hint="Required before the request can be submitted"
           >
             <Select
@@ -1661,19 +1661,19 @@ function CashRequestForm({
           </Field>
           {method === "BANK" && (
             <>
-              <Field label={tr("Bank name")} required>
+              <Field label={tr("Bank Name")} required>
                 <Input
                   value={details.bank_name || ""}
                   onChange={(e) => setDetail("bank_name", e.target.value)}
                 />
               </Field>
-              <Field label={tr("Account number")} required>
+              <Field label={tr("Account Number")} required>
                 <Input
                   value={details.account_number || ""}
                   onChange={(e) => setDetail("account_number", e.target.value)}
                 />
               </Field>
-              <Field label={tr("Account name")} required>
+              <Field label={tr("Account Name")} required>
                 <Input
                   value={details.account_name || ""}
                   onChange={(e) => setDetail("account_name", e.target.value)}
@@ -1683,7 +1683,7 @@ function CashRequestForm({
           )}
           {method === "MOMO" && (
             <>
-              <Field label={tr("MoMo number")} required>
+              <Field label={tr("MoMo Number")} required>
                 <Input
                   value={details.momo_number || ""}
                   onChange={(e) => setDetail("momo_number", e.target.value)}
@@ -1702,7 +1702,7 @@ function CashRequestForm({
             </>
           )}
           {method === "CHEQUE" && (
-            <Field label={tr("Cheque number")} required>
+            <Field label={tr("Cheque Number")} required>
               <Input
                 value={details.cheque_number || ""}
                 onChange={(e) => setDetail("cheque_number", e.target.value)}
@@ -2055,7 +2055,7 @@ function RegieForm({
               onChange={(e) => set("amount", e.target.value)}
             />
           </Field>
-          <Field label={tr("Source doc ref")} required>
+          <Field label={tr("Source Doc Ref")} required>
             <Input
               value={f.source_doc_ref}
               onChange={(e) => set("source_doc_ref", e.target.value)}

@@ -195,7 +195,7 @@ describe("period chips", () => {
     // Opens on the month to date.
     expect(first.from.slice(-2)).toBe("01");
 
-    await user.click(screen.getByRole("button", { name: "7 days" }));
+    await user.click(screen.getByRole("button", { name: "7 Days" }));
     await waitFor(() => expect(myAttendanceAnalytics.mock.calls.length).toBeGreaterThan(1));
     const next = myAttendanceAnalytics.mock.calls.at(-1)![0];
     expect((Date.parse(next.to) - Date.parse(next.from)) / 86400000).toBe(6);
@@ -205,9 +205,9 @@ describe("period chips", () => {
     const user = userEvent.setup();
     renderScreen(<AttendanceHistory scope="self" />);
     await waitFor(() => expect(myAttendanceAnalytics).toHaveBeenCalled());
-    await user.click(screen.getByRole("button", { name: "This year" }));
-    expect(screen.getByRole("button", { name: "This year" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "7 days" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(screen.getByRole("button", { name: "This Year" }));
+    expect(screen.getByRole("button", { name: "This Year" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "7 Days" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("reveals the custom range inputs only when custom is chosen", async () => {

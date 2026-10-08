@@ -251,7 +251,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
                 />
               </Field>
               <Field
-                label="Size key"
+                label="Size Key"
                 required
                 error={touched ? sizeError || undefined : undefined}
                 about="What the rate card calls it: 20, 40, 40HC."
@@ -285,7 +285,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
                 </Select>
               </Field>
               <Field
-                label="Also known as"
+                label="Also Known As"
                 about="Comma-separated, for the finder's search."
               >
                 <Input
@@ -297,7 +297,7 @@ function RefManager({ kind }: { kind: api.DictRefKind }) {
                 />
               </Field>
               <Field
-                label="Marks token"
+                label="Marks Token"
                 className="sm:col-span-2"
                 hint={`How it prints on marks & numbers: e.g. 02*${form.marks_token.trim() || previewToken}. Leave blank to use the derived value.`}
               >

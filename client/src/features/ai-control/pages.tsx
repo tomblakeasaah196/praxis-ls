@@ -82,7 +82,7 @@ export function AiFeaturesPage() {
     },
     {
       key: "description",
-      label: "What it controls",
+      label: "What It Controls",
       render: (f) => (
         <span className="text-muted-foreground">{f.description || "—"}</span>
       ),
@@ -315,7 +315,7 @@ export function AiGrantsPage() {
     },
     {
       key: "cap",
-      label: "Monthly cap",
+      label: "Monthly Cap",
       className: "num text-right",
       render: (g) =>
         g.monthly_cap_xaf != null ? money(g.monthly_cap_xaf) : "—",
@@ -469,13 +469,13 @@ function BudgetForm({
     >
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Period start" required>
+          <Field label="Period Start" required>
             <DateField
               value={f.period_start}
               onChange={(iso) => set("period_start", iso)}
             />
           </Field>
-          <Field label="Period end" required>
+          <Field label="Period End" required>
             <DateField
               value={f.period_end}
               onChange={(iso) => set("period_end", iso)}
@@ -585,7 +585,7 @@ function VendorKeyForm({
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label={tr("API key")}
+            label={tr("API Key")}
             className="sm:col-span-2"
             hint={
               vendor.has_key
@@ -600,7 +600,7 @@ function VendorKeyForm({
               placeholder={vendor.has_key ? "•••••••• (set)" : "sk-…"}
             />
           </Field>
-          <Field label="Default model">
+          <Field label="Default Model">
             <Input
               value={f.default_model}
               onChange={(e) => set("default_model", e.target.value)}
@@ -624,7 +624,7 @@ function VendorKeyForm({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label={tr("Cost per 1k input tokens")}
+            label={tr("Cost per 1K Input Tokens")}
             hint="e.g. 0.00027 for DeepSeek chat ($0.27 per 1M)."
           >
             <Input
@@ -634,7 +634,7 @@ function VendorKeyForm({
               placeholder="0.000000"
             />
           </Field>
-          <Field label={tr("Cost per 1k output tokens")}>
+          <Field label={tr("Cost per 1K Output Tokens")}>
             <Input
               inputMode="decimal"
               value={f.cost_per_1k_output_tokens}
@@ -643,7 +643,7 @@ function VendorKeyForm({
             />
           </Field>
           <Field
-            label={tr("Cost per audio minute")}
+            label={tr("Cost per Audio Minute")}
             hint="Transcription vendors only (Whisper/Groq)."
           >
             <Input
@@ -654,7 +654,7 @@ function VendorKeyForm({
             />
           </Field>
           <Field
-            label={tr("Price currency")}
+            label={tr("Price Currency")}
             hint="Converted to your base currency with the FX rate of the day."
           >
             <Input
@@ -809,7 +809,7 @@ function AddVendorForm({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Vendor id"
+            label="Vendor Id"
             required
             hint={
               dup
@@ -823,7 +823,7 @@ function AddVendorForm({
               disabled={preset !== "custom"}
             />
           </Field>
-          <Field label={tr("Display name")}>
+          <Field label={tr("Display Name")}>
             <Input
               value={f.display_name}
               onChange={(e) => set("display_name", e.target.value)}
@@ -840,14 +840,14 @@ function AddVendorForm({
             placeholder="https://api.openai.com/v1"
           />
         </Field>
-        <Field label="Default model">
+        <Field label="Default Model">
           <Input
             value={f.default_model}
             onChange={(e) => set("default_model", e.target.value)}
             placeholder="text-embedding-3-small"
           />
         </Field>
-        <Field label={tr("API key")} required>
+        <Field label={tr("API Key")} required>
           <Input
             type="password"
             value={f.api_key}

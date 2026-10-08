@@ -228,7 +228,7 @@ function UserForm({
     >
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr("Full name")} required>
+          <Field label={tr("Full Name")} required>
             <Input
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -476,7 +476,7 @@ function PasswordForm({ user, onClose }: { user: User; onClose: () => void }) {
       ) : (
         <form className="space-y-4" onSubmit={submit}>
           <div>
-            <Field label="New password" required>
+            <Field label="New Password" required>
               <Input
                 type="password"
                 value={pw}
@@ -632,7 +632,7 @@ export function UsersPage() {
     },
     {
       key: "last_login_at",
-      label: "Last sign-in",
+      label: "Last Sign-in",
       render: (r) => dateFmt(r.last_login_at),
     },
     {

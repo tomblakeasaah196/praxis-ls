@@ -239,7 +239,7 @@ function NewRequestForm({
           </Field>
           {wantsLeave && (
             <Field
-              label="Leave type"
+              label="Leave Type"
               required
               className="sm:col-span-2"
               hint={

@@ -575,7 +575,7 @@ export function SignInPanel({
   if (pinHere && route !== "pin")
     alternatives.push({ key: "pin", label: "Use PIN", icon: <HashIcon width={14} height={14} /> });
   if (route !== "password")
-    alternatives.push({ key: "password", label: "Use password", icon: <KeyIcon width={14} height={14} /> });
+    alternatives.push({ key: "password", label: "Use Password", icon: <KeyIcon width={14} height={14} /> });
 
   function passwordFields(withEmail: boolean) {
     return (

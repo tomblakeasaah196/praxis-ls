@@ -72,7 +72,7 @@ function OdometerModal({
     >
       <form className="space-y-4" onSubmit={submit}>
         <Field
-          label="Odometer (km)"
+          label="Odometer (Km)"
           hint={
             to === "RETURNED" && dispatch.odometer_out != null
               ? `Out at ${num(dispatch.odometer_out)}`
@@ -179,7 +179,7 @@ function NewDispatchForm({
           </Select>
         </Field>
         <Field
-          label={tr("Operations file")}
+          label={tr("Operations File")}
           hint="Optional — driver time is costed here on return"
         >
           <OperationsFilePicker

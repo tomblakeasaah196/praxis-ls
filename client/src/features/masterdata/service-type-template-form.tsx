@@ -459,7 +459,7 @@ export function TemplateForm({
                     {/* The English label used to be here. It is on the summary
                         row now — see the header. */}
                     <Field
-                      label="Minimum duration (hours)"
+                      label="Minimum Duration (Hours)"
                       about="The floor this stage can never be compressed below, however late the file runs."
                     >
                       <Input
@@ -505,7 +505,7 @@ export function TemplateForm({
                       </Select>
                     </Field>
                     <Field
-                      label="Required evidence"
+                      label="Required Evidence"
                       about="Document type that proves this stage happened."
                     >
                       <Input
@@ -520,7 +520,7 @@ export function TemplateForm({
                       />
                     </Field>
                     <Field
-                      label="Completed automatically by"
+                      label="Completed Automatically By"
                       about="An event key that completes this stage when it fires, e.g. delivery_note.created."
                     >
                       <Input

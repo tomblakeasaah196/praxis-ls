@@ -469,7 +469,7 @@ function DeliveryNoteBody({ d, entity }: { d: DocData; entity?: Entity }) {
               { key: "label", label: "Description" },
               { key: "marks", label: "Marks" },
               { key: "qty", label: d.containerised === false ? "Packages" : "Qty", num: true },
-              { key: "weight", label: "Weight (kg)", num: true },
+              { key: "weight", label: "Weight (Kg)", num: true },
             ]}
             rows={lines.map((l) => ({
               label: l.label ?? "",
@@ -985,7 +985,7 @@ export function DocumentPage() {
                 {d.date && <KV label="Date">{dateFmt(d.date)}</KV>}
                 {d.due && <KV label="Due">{dateFmt(d.due)}</KV>}
                 {d.valid_until && (
-                  <KV label="Valid until">{dateFmt(d.valid_until)}</KV>
+                  <KV label="Valid Until">{dateFmt(d.valid_until)}</KV>
                 )}
                 {d.kind && <KV label="Type">{enumLabel(d.kind)}</KV>}
                 {d.effective_on && (
@@ -1067,9 +1067,9 @@ export function DocumentPage() {
             <Card title="Parts & labour">
               <LineTable
                 cols={[
-                  { key: "label", label: "Part / labour" },
+                  { key: "label", label: "Part / Labour" },
                   { key: "qty", label: "Qty", num: true },
-                  { key: "unit_cost", label: "Unit cost", num: true },
+                  { key: "unit_cost", label: "Unit Cost", num: true },
                   { key: "total", label: "Total", num: true },
                 ]}
                 rows={d.parts.map((p) => ({

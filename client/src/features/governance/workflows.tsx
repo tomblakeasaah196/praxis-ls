@@ -177,7 +177,7 @@ function StepForm({
             </Select>
           </Field>
           <Field
-            label="Part of the company"
+            label="Part of the Company"
             hint="The organigramme node this decision belongs to. Anyone above it in the tree can act; leave blank for company-wide."
           >
             <Select
@@ -207,7 +207,7 @@ function StepForm({
             </Select>
           </Field>
           <div />
-          <Field label="Min amount (XAF)">
+          <Field label="Min Amount (XAF)">
             <Input
               type="number"
               min="0"
@@ -217,7 +217,7 @@ function StepForm({
               placeholder={tr("Any")}
             />
           </Field>
-          <Field label="Max amount (XAF)">
+          <Field label="Max Amount (XAF)">
             <Input
               type="number"
               min="0"
@@ -493,7 +493,7 @@ export function WorkflowsPage() {
     },
     {
       key: "event",
-      label: "On event",
+      label: "On Event",
       render: (w) =>
         w.event_type_key ? <Pill tone="mute">{w.event_type_key}</Pill> : "—",
     },

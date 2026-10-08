@@ -249,7 +249,7 @@ export function TowerFilters({ value, page, onChange }: Props) {
 
   const desktopGrid = (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-      <Field label="Transport mode">
+      <Field label="Transport Mode">
         <Select
           value={draft.mode ?? ""}
           onChange={(event) =>
@@ -275,7 +275,7 @@ export function TowerFilters({ value, page, onChange }: Props) {
         />
       </Field>
 
-      <Field label={tr("Service type")}>
+      <Field label={tr("Service Type")}>
         <Select
           value={draft.service_type_id ?? ""}
           onChange={(event) =>
@@ -294,7 +294,7 @@ export function TowerFilters({ value, page, onChange }: Props) {
         </Select>
       </Field>
 
-      <Field label="Date field">
+      <Field label="Date Field">
         <Select
           value={draft.date_field ?? "created"}
           onChange={(event) =>
@@ -383,7 +383,7 @@ export function TowerFilters({ value, page, onChange }: Props) {
         </Select>
       </Field>
 
-      <Field label="Page size">
+      <Field label="Page Size">
         <Select
           value={String(draft.limit ?? page.limit ?? 50)}
           onChange={(event) => set("limit", Number(event.target.value))}
@@ -599,7 +599,7 @@ export function TowerFilters({ value, page, onChange }: Props) {
               <p className="text-xs text-muted-foreground">How the file moves.</p>
             </div>
             <div className="grid gap-4 p-4 sm:grid-cols-2">
-              <Field label="Transport mode">
+              <Field label="Transport Mode">
                 <Select
                   value={draft.mode ?? ""}
                   onChange={(e) =>
@@ -649,7 +649,7 @@ export function TowerFilters({ value, page, onChange }: Props) {
                   onChange={(e) => set("territory", e.target.value)}
                 />
               </Field>
-              <Field label={tr("Service type")}>
+              <Field label={tr("Service Type")}>
                 <Select
                   value={draft.service_type_id ?? ""}
                   onChange={(e) =>
@@ -707,7 +707,7 @@ export function TowerFilters({ value, page, onChange }: Props) {
               <p className="text-xs text-muted-foreground">Window to filter by.</p>
             </div>
             <div className="grid gap-4 p-4 sm:grid-cols-3">
-              <Field label="Date field">
+              <Field label="Date Field">
                 <Select
                   value={draft.date_field ?? "created"}
                   onChange={(e) =>
@@ -744,7 +744,7 @@ export function TowerFilters({ value, page, onChange }: Props) {
               <h3 className="text-sm font-semibold text-foreground">Results</h3>
             </div>
             <div className="p-4">
-              <Field label="Page size">
+              <Field label="Page Size">
                 <Select
                   value={String(draft.limit ?? page.limit ?? 50)}
                   onChange={(e) => set("limit", Number(e.target.value))}

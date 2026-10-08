@@ -200,7 +200,7 @@ function LineModal({
 
         {editable && (
           <Field
-            label={tr("When the money actually left")}
+            label={tr("When the Money Actually Left")}
             hint={tr("Not when the paperwork was done — a receipt handed in on Friday for a Tuesday payment is dated Tuesday.")}
           >
             <div className="flex items-end gap-2">
@@ -274,7 +274,7 @@ function LineModal({
               <UploadList items={upload.items} onRemove={upload.remove} onRetry={upload.retry} />
               {upload.items.length > 0 && (
                 <>
-                  <Field label={tr("What this document is")} hint={tr("Optional — 'Maersk demurrage, days 1–2'")}>
+                  <Field label={tr("What This Document Is")} hint={tr("Optional — 'Maersk demurrage, days 1–2'")}>
                     <Input value={note} onChange={(e) => setNote(e.target.value)} />
                   </Field>
                   <Button onClick={upload.start} loading={upload.busy}>
@@ -357,7 +357,7 @@ function ReasonModal({
           <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
         </Field>
         {candidates.length > 1 && (
-          <Field label={tr("Lines this explains")}>
+          <Field label={tr("Lines This Explains")}>
             <ul className="space-y-1">
               {candidates.map((l) => (
                 <li key={l.costing_line_id}>
@@ -1111,7 +1111,7 @@ function SendStatementModal({
     >
       <div className="space-y-4">
         {error && <Callout tone="bad">{error}</Callout>}
-        <Field label={tr("Where to")}>
+        <Field label={tr("Where To")}>
           <div className="space-y-2">
             <label className="flex items-start gap-2 text-sm">
               <input

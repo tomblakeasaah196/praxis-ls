@@ -613,7 +613,7 @@ export function MySecurityPage() {
               readOnly
             />
             <div className="grid gap-3 lg:grid-cols-3">
-              <Field label="Current password">
+              <Field label="Current Password">
                 <Input
                   type="password"
                   autoComplete="current-password"
@@ -622,7 +622,7 @@ export function MySecurityPage() {
                   placeholder="••••••••••••"
                 />
               </Field>
-              <Field label="New password">
+              <Field label="New Password">
                 <Input
                   type="password"
                   autoComplete="new-password"
@@ -631,7 +631,7 @@ export function MySecurityPage() {
                   placeholder="••••••••••••"
                 />
               </Field>
-              <Field label="Confirm new password">
+              <Field label="Confirm New Password">
                 <Input
                   type="password"
                   autoComplete="new-password"
@@ -696,7 +696,7 @@ export function MySecurityPage() {
                   enter the key manually, then enter the 6-digit code to
                   confirm.
                 </p>
-                <Field label="Setup key">
+                <Field label="Setup Key">
                   <Input
                     readOnly
                     value={setup.secret}
@@ -704,7 +704,7 @@ export function MySecurityPage() {
                     onFocus={(e) => e.currentTarget.select()}
                   />
                 </Field>
-                <Field label="otpauth link">
+                <Field label="Otpauth Link">
                   <Input
                     readOnly
                     value={setup.otpauth_url}
@@ -712,7 +712,7 @@ export function MySecurityPage() {
                     onFocus={(e) => e.currentTarget.select()}
                   />
                 </Field>
-                <Field label="6-digit code from the app">
+                <Field label="6-Digit Code from the App">
                   <OtpInput
                     value={enrollCode}
                     onChange={setEnrollCode}

@@ -356,7 +356,7 @@ export function AccountModal({
           <div className="grid gap-4 sm:grid-cols-2">
             {isEdit ? (
               <Field
-                label={tr("Corporate entity")}
+                label={tr("Corporate Entity")}
                 className="sm:col-span-2"
                 hint="Fixed after creation — the account belongs to this entity's books."
               >
@@ -364,7 +364,7 @@ export function AccountModal({
               </Field>
             ) : (
               <Field
-                label={tr("Corporate entity")}
+                label={tr("Corporate Entity")}
                 required
                 className="sm:col-span-2"
               >
@@ -466,7 +466,7 @@ export function AccountModal({
               <legend className="px-1 text-sm font-medium">
                 {tr("Bank identity")}
               </legend>
-              <Field label={tr("Bank name")}>
+              <Field label={tr("Bank Name")}>
                 <Input
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
@@ -480,7 +480,7 @@ export function AccountModal({
                   placeholder="Douala — Bonanjo"
                 />
               </Field>
-              <Field label={tr("Account number")}>
+              <Field label={tr("Account Number")}>
                 <Input
                   value={acctNum}
                   onChange={(e) => setAcctNum(e.target.value)}
@@ -500,13 +500,13 @@ export function AccountModal({
                   placeholder="CCEICMCX"
                 />
               </Field>
-              <Field label={tr("Routing code")}>
+              <Field label={tr("Routing Code")}>
                 <Input
                   value={routing}
                   onChange={(e) => setRouting(e.target.value)}
                 />
               </Field>
-              <Field label={tr("Holder name")} className="sm:col-span-2">
+              <Field label={tr("Holder Name")} className="sm:col-span-2">
                 <Input
                   value={holder}
                   onChange={(e) => setHolder(e.target.value)}
@@ -526,7 +526,7 @@ export function AccountModal({
               <legend className="px-1 text-sm font-medium">
                 {tr("Mobile-money identity")}
               </legend>
-              <Field label={tr("MoMo network")} required>
+              <Field label={tr("MoMo Network")} required>
                 <Select
                   value={momoNetwork}
                   onChange={(e) => setMomoNetwork(e.target.value)}
@@ -539,7 +539,7 @@ export function AccountModal({
                   <option value="OTHER">{tr("Other")}</option>
                 </Select>
               </Field>
-              <Field label={tr("MoMo number")}>
+              <Field label={tr("MoMo Number")}>
                 <Input
                   value={momoNumber}
                   onChange={(e) => setMomoNumber(e.target.value)}
@@ -552,14 +552,14 @@ export function AccountModal({
                   onChange={(e) => setMomoTill(e.target.value)}
                 />
               </Field>
-              <Field label={tr("Merchant / Agent code")}>
+              <Field label={tr("Merchant / Agent Code")}>
                 <Input
                   value={momoAgent}
                   onChange={(e) => setMomoAgent(e.target.value)}
                 />
               </Field>
               <Field
-                label={tr("Fee charge account (Class 6)")}
+                label={tr("Fee Charge Account (Class 6)")}
                 hint={tr("For example 6281 or 631")}
               >
                 <Input
@@ -602,7 +602,7 @@ export function AccountModal({
                   placeholder="Yaoundé office"
                 />
               </Field>
-              <Field label={tr("Float limit")} hint={tr("Maximum outstanding cash held")}>
+              <Field label={tr("Float Limit")} hint={tr("Maximum outstanding cash held")}>
                 <Input
                   type="number"
                   value={floatLimit}
@@ -618,7 +618,7 @@ export function AccountModal({
               {tr("Opening & statement")}
             </legend>
             <Field
-              label={tr("Opening balance")}
+              label={tr("Opening Balance")}
               hint={
                 isEdit
                   ? "Not a journal entry — the 360 reads it as the starting point, so correcting it is safe."
@@ -632,14 +632,14 @@ export function AccountModal({
                 placeholder="0"
               />
             </Field>
-            <Field label={tr("Opening date")}>
+            <Field label={tr("Opening Date")}>
               <DateField
                 value={openDate}
                 onChange={setOpenDate}
               />
             </Field>
             <Field
-              label={tr("Statement day")}
+              label={tr("Statement Day")}
               hint={tr("Day of the month the bank issues a statement (1–31)")}
             >
               <Input

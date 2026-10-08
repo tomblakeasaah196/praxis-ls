@@ -419,7 +419,7 @@ function AddDocumentModal({
             />
           </Field>
           <Field
-            label="Physical archive ref"
+            label="Physical Archive Ref"
             about="Only for paper originals: where the hard copy is filed."
             className="sm:col-span-2"
           >
@@ -432,7 +432,7 @@ function AddDocumentModal({
         </div>
 
         <FileDrop
-          label="Document file"
+          label="Document File"
           file={file}
           onPick={pick}
           accept={SCAN_ACCEPT}
@@ -2467,7 +2467,7 @@ export function PartyDossier({
             { key: "line1", label: "Line 1" },
             { key: "city", label: "City" },
             { key: "region", label: "Region" },
-            { key: "postal_code", label: "Postal code" },
+            { key: "postal_code", label: "Postal Code" },
             { key: "country_code", label: "Country", type: "country" },
             {
               key: "type",
@@ -2497,7 +2497,7 @@ export function PartyDossier({
           fields={[
             { key: "beneficiary_name", label: "Beneficiary" },
             { key: "bank_name", label: "Bank" },
-            { key: "account_number", label: "Account number" },
+            { key: "account_number", label: "Account Number" },
             { key: "iban", label: "IBAN" },
             { key: "swift_bic", label: "SWIFT/BIC" },
             { key: "currency", label: "Currency", placeholder: "XAF" },
@@ -2551,7 +2551,7 @@ export function PartyDossier({
             },
             { key: "number", label: "Number" },
             { key: "country_code", label: "Country", type: "country" },
-            { key: "issuing_authority", label: "Issuing authority" },
+            { key: "issuing_authority", label: "Issuing Authority" },
             { key: "expires_on", label: "Expires", type: "date" },
           ]}
           onSubmit={async (v) => {
@@ -2570,11 +2570,11 @@ export function PartyDossier({
           title="Add Beneficial Owner"
           onClose={() => setAdding(null)}
           fields={[
-            { key: "full_name", label: "Full legal name" },
+            { key: "full_name", label: "Full Legal Name" },
             { key: "nationality", label: "Nationality", type: "country" },
             { key: "ownership_percent", label: "Ownership %", type: "number" },
-            { key: "id_number", label: "ID number" },
-            { key: "is_pep", label: "Politically exposed", type: "checkbox" },
+            { key: "id_number", label: "ID Number" },
+            { key: "is_pep", label: "Politically Exposed", type: "checkbox" },
           ]}
           onSubmit={async (v) => {
             await api.beneficialOwners.create(

@@ -128,7 +128,7 @@ function GrnForm({
     >
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr("Purchase order")} required>
+          <Field label={tr("Purchase Order")} required>
             <Select
               value={f.po_id}
               onChange={(e) => set("po_id", e.target.value)}
@@ -154,7 +154,7 @@ function GrnForm({
               ))}
             </Select>
           </Field>
-          <Field label="Supplier invoice ref">
+          <Field label="Supplier Invoice Ref">
             <Input
               value={f.supplier_invoice_ref}
               onChange={(e) => set("supplier_invoice_ref", e.target.value)}
@@ -280,10 +280,10 @@ export function GoodsReceivedPage() {
     },
     {
       key: "po_id",
-      label: "Purchase order",
+      label: "Purchase Order",
       render: (r) => (r.po_id ? poref[r.po_id] || r.po_id.slice(0, 8) : "—"),
     },
-    { key: "supplier_invoice_ref", label: "Supplier inv. ref" },
+    { key: "supplier_invoice_ref", label: "Supplier Inv. Ref" },
     {
       key: "lines",
       label: "Lines",

@@ -469,12 +469,12 @@ export function TreasuryDossier({
               <dl className="grid gap-3 sm:grid-cols-2">
                 <Detail label={tr("Bank")}>{cell(a.bank_name)}</Detail>
                 <Detail label={tr("Branch")}>{cell(a.branch)}</Detail>
-                <Detail label={tr("Account number")}>{cell(a.account_number)}</Detail>
+                <Detail label={tr("Account Number")}>{cell(a.account_number)}</Detail>
                 <Detail label={tr("IBAN")}>{cell(a.iban)}</Detail>
                 <Detail label="SWIFT / BIC">{cell(a.swift_bic)}</Detail>
                 <Detail label="Routing">{cell(a.routing_code)}</Detail>
                 <Detail label="Holder">{cell(a.holder_name)}</Detail>
-                <Detail label="Statement day">
+                <Detail label="Statement Day">
                   {a.statement_day ? String(a.statement_day) : null}
                 </Detail>
               </dl>
@@ -500,7 +500,7 @@ export function TreasuryDossier({
                   {data.custodian ? data.custodian.full_name : null}
                 </Detail>
                 <Detail label={tr("Location")}>{cell(a.location)}</Detail>
-                <Detail label="Float limit">
+                <Detail label="Float Limit">
                   {amount(a.float_limit, a.currency)}
                 </Detail>
                 <Detail label={tr("Contact")}>
@@ -515,7 +515,7 @@ export function TreasuryDossier({
           )}
           <Section title="Last Movements">
             <dl className="grid gap-3 sm:grid-cols-2">
-              <Detail label="Last debit">
+              <Detail label="Last Debit">
                 {data.last_debit ? (
                   <div>
                     <div className="font-medium">
@@ -528,7 +528,7 @@ export function TreasuryDossier({
                   </div>
                 ) : null}
               </Detail>
-              <Detail label="Last credit">
+              <Detail label="Last Credit">
                 {data.last_credit ? (
                   <div>
                     <div className="font-medium">
@@ -548,11 +548,11 @@ export function TreasuryDossier({
               <Detail label={tr("Status")}>
                 {a.is_verified ? "Verified" : "Unverified"}
               </Detail>
-              <Detail label="Verified by">
+              <Detail label="Verified By">
                 {data.verifier ? data.verifier.full_name : null}
               </Detail>
-              <Detail label="Verified at">{dateFmt(a.verified_at)}</Detail>
-              <Detail label="Opening date">{dateFmt(a.opening_date)}</Detail>
+              <Detail label="Verified At">{dateFmt(a.verified_at)}</Detail>
+              <Detail label="Opening Date">{dateFmt(a.opening_date)}</Detail>
             </dl>
           </Section>
         </div>

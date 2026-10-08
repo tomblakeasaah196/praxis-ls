@@ -658,7 +658,7 @@ export function ServiceTypeWebAiDialog({
             )}
 
             {source === "existing" && languageMode === "extend" && (
-              <Field label={tr("Write the other language from")}>
+              <Field label={tr("Write the Other Language From")}>
                 <Select
                   value={primary}
                   onChange={(e) => setPrimary(e.target.value as "en" | "fr")}
@@ -670,7 +670,7 @@ export function ServiceTypeWebAiDialog({
             )}
 
             <Field
-              label={tr("Anything else (optional)")}
+              label={tr("Anything Else (Optional)")}
               about={tr("In your own words: a angle to take, a term to prefer, something to avoid.")}
             >
               <Textarea

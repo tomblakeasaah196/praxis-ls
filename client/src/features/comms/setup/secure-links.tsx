@@ -183,7 +183,7 @@ function MintDialog({ onClose, onMinted }: { onClose: () => void; onMinted: () =
           <Field label={tr("Label")} hint={tr("What this is, for the list. The recipient never sees it.")}>
             <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={tr("Invoice INV-2026-0311")} />
           </Field>
-          <Field label={tr("Expires after")}>
+          <Field label={tr("Expires After")}>
             <Select value={String(days)} onChange={(e) => setDays(Number(e.target.value))}>
               {[1, 3, 7, 14, 30, 90].map((d) => (
                 <option key={d} value={d}>{d} {d === 1 ? tr("day") : tr("days")}</option>

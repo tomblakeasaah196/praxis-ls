@@ -117,13 +117,13 @@ function NewLicenceForm({
           </Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Issued on">
+          <Field label="Issued On">
             <DateField
               value={f.issued_on}
               onChange={(iso) => set("issued_on", iso)}
             />
           </Field>
-          <Field label="Expires on">
+          <Field label="Expires On">
             <DateField
               value={f.expires_on}
               onChange={(iso) => set("expires_on", iso)}
@@ -196,7 +196,7 @@ function RenewModal({
     >
       <form className="space-y-4" onSubmit={submit}>
         <Field
-          label="New expiry date"
+          label="New Expiry Date"
           required
           hint={
             row.expires_on ? `Current: ${dateFmt(row.expires_on)}` : undefined

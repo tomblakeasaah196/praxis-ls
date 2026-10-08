@@ -183,7 +183,7 @@ async function pick(
 async function completeStep1(user: ReturnType<typeof userEvent.setup>) {
   await pick(user, /Entity/, "e1");
   await pick(user, /Client/, "c1");
-  await pick(user, /Service type/, "st1");
+  await pick(user, /Service Type/, "st1");
   await user.click(
     await screen.findByRole("button", { name: "Shipping line" }),
   );
@@ -219,13 +219,13 @@ describe("the creation wizard", () => {
   it("shows five controls on step 1 and not the rest of the form", async () => {
     const user = userEvent.setup();
     view();
-    await pick(user, /Service type/, "st1");
+    await pick(user, /Service Type/, "st1");
     await screen.findByRole("button", { name: "Shipping line" });
 
     // Entity, client, service type, carrier, title.
     expect(screen.getByLabelText(/Entity/)).toBeTruthy();
     expect(screen.getByLabelText(/Client/)).toBeTruthy();
-    expect(screen.getByLabelText(/Service type/)).toBeTruthy();
+    expect(screen.getByLabelText(/Service Type/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Shipping line" })).toBeTruthy();
     expect(screen.getByLabelText(/Title/)).toBeTruthy();
     // The service type defines five more. None of them belong here.
@@ -243,7 +243,7 @@ describe("the creation wizard", () => {
 
     await pick(user, /Entity/, "e1");
     await pick(user, /Client/, "c1");
-    await pick(user, /Service type/, "st1");
+    await pick(user, /Service Type/, "st1");
     // Carrier still missing — and the reason is said out loud, not left to guess.
     await screen.findByRole("button", { name: "Shipping line" });
     expect(cont().disabled).toBe(true);

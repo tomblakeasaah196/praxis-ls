@@ -78,7 +78,7 @@ function VerifyDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       description={tr("Say that this domain genuinely belongs to this party. The send-side check uses it to spot a payment redirected to a lookalike.")}
     >
       <div className="space-y-3">
-        <Field label={tr("Party type")}>
+        <Field label={tr("Party Type")}>
           <Select
             value={kind}
             onChange={(e) => {

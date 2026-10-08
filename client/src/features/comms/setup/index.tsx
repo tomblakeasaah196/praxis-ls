@@ -69,15 +69,15 @@ type TabKey =
  *                 admin-only for that reason rather than by analogy.
  */
 const TABS: { key: TabKey; label: string; adminOnly: boolean; hint: string }[] = [
-  { key: "mine", label: "My mailbox", adminOnly: false, hint: "Your own professional address" },
+  { key: "mine", label: "My Mailbox", adminOnly: false, hint: "Your own professional address" },
   { key: "connections", label: "Connections", adminOnly: false, hint: "Connect, test and sync the mailboxes you send from" },
   { key: "followups", label: "Follow-ups", adminOnly: false, hint: "Conversations waiting to come back" },
   { key: "secure-links", label: "Secure links", adminOnly: true, hint: "Every expiring link the company has sent, and who opened it" },
   { key: "mailboxes", label: "Mailboxes", adminOnly: true, hint: "Every mailbox in the company" },
-  { key: "sla", label: "Response times", adminOnly: true, hint: "How fast a first reply must be, and which hours count" },
-  { key: "trust", label: "Trust & archive", adminOnly: true, hint: "Confirmed domains, bounces, and the archive seal" },
+  { key: "sla", label: "Response Times", adminOnly: true, hint: "How fast a first reply must be, and which hours count" },
+  { key: "trust", label: "Trust & Archive", adminOnly: true, hint: "Confirmed domains, bounces, and the archive seal" },
   { key: "send-points", label: "Send points", adminOnly: true, hint: "Which address each part of the product sends from" },
-  { key: "senders", label: "Senders & channels", adminOnly: true, hint: "System senders, shared SMTP, WhatsApp, DNS" },
+  { key: "senders", label: "Senders & Channels", adminOnly: true, hint: "System senders, shared SMTP, WhatsApp, DNS" },
   // Calls audit PR-7 (O5): offered to the Test right on MOD-64, not to admins.
   { key: "test-calls", label: "Test calls", adminOnly: false, hint: "Check every step of a call on this device and the server" },
 ];

@@ -128,14 +128,14 @@ export function LeadForm({
               onFreeText={(t) => setCompany(t)}
             />
           </Field>
-          <Field label="Contact name">
+          <Field label="Contact Name">
             <Input
               value={contact}
               onChange={(e) => setContact(e.target.value)}
               placeholder={tr("Jane Doe")}
             />
           </Field>
-          <Field label="Service interest" hint="What they're after">
+          <Field label="Service Interest" hint="What they're after">
             <Input
               value={interest}
               onChange={(e) => setInterest(e.target.value)}
@@ -237,7 +237,7 @@ export function ConvertModal({
     >
       <div className="space-y-4">
         <div className="grid gap-4">
-          <Field label={tr("Legal name")} required>
+          <Field label={tr("Legal Name")} required>
             <Input
               value={legalName}
               onChange={(e) => setLegalName(e.target.value)}

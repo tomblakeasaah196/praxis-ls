@@ -381,7 +381,7 @@ export function ProposalDetail({
         }
       >
         <div className="space-y-3">
-          <Field label={tr("Client operations")} hint={tr("What the client actually does day to day.")}>
+          <Field label={tr("Client Operations")} hint={tr("What the client actually does day to day.")}>
             <textarea
               rows={2}
               value={narrative.client_operations}
@@ -389,7 +389,7 @@ export function ProposalDetail({
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </Field>
-          <Field label={tr("Pain points")} hint={tr("What they told you is not working.")}>
+          <Field label={tr("Pain Points")} hint={tr("What they told you is not working.")}>
             <textarea
               rows={2}
               value={narrative.pain_points}
@@ -397,7 +397,7 @@ export function ProposalDetail({
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </Field>
-          <Field label={tr("Proposed strategy")} hint={tr("The shape of the answer you are selling.")}>
+          <Field label={tr("Proposed Strategy")} hint={tr("The shape of the answer you are selling.")}>
             <textarea
               rows={2}
               value={narrative.proposed_strategy}

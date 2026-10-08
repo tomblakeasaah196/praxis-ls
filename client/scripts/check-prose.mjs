@@ -128,7 +128,7 @@ const CHROME_TITLE = /^(New|Edit|Add|Create|Duplicate|Import|Export|Manage|Assig
  * components (EmptyState, Callout, ErrorState, toast) are deliberately absent.
  */
 const CHROME_COMPONENT =
-  /<(?:Section|SectionCard|Panel|Fieldset|HubCrumb)\b[^>]*?\b(?:title|legend|area)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
+  /<(?:Section|SectionCard|Panel|Fieldset|HubCrumb|Field|FormField|Detail)\b[^>]*?\b(?:title|legend|area|label)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
 
 function files() {
   const out = execFileSync(
@@ -173,6 +173,9 @@ function isTitleCase(s) {
     const w = words[i];
     if (!/[a-z]/i.test(w)) continue;          // numbers, glyphs, acronyms
     if (w === w.toUpperCase()) continue;       // XAF, OHADA, B/L
+    if (/[A-Z]/.test(w.slice(1))) continue;    // iOS, eSIM, PgBouncer: a
+                                               // deliberate interior capital is
+                                               // the brand's spelling, not ours
     if (/^[a-z]+\d/.test(w)) continue;         // v1, h2
     const first = i === 0 || i === words.length - 1;
     const minor = MINOR.has(w.toLowerCase());
@@ -352,7 +355,12 @@ for (const f of files()) {
        section with three other props is rarely on the same line as its name. */
     const openTag = lines.slice(i, Math.min(i + 6, lines.length)).join(" ");
     const chrome = openTag.match(CHROME_COMPONENT);
-    if (chrome && /^<(?:Section|SectionCard|Panel|Fieldset|HubCrumb)\b/.test(line.trim())) {
+    if (
+      chrome &&
+      /^<(?:Section|SectionCard|Panel|Fieldset|HubCrumb|Field|FormField|Detail)\b/.test(
+        line.trim(),
+      )
+    ) {
       const text = chrome[2];
       if (!SKIP_TITLE.test(text) && text.length <= 60 && !isTitleCase(text)) {
         problems.title.push({ key, line: i + 1, text, abs });
@@ -462,9 +470,19 @@ if (FIX_TITLES) {
    * Where it has not, the new key is ADDED and the old one stays, and both
    * call sites keep their translation.
    */
+  /* "Still rendered somewhere" means a RENDER SITE, so two things are stripped
+     before asking:
+       - comments, because a docblock quoting the old label ("Sending (SMTP)
+         sign-in" — the choice a mailbox form has to offer) would pin the key
+         for ever; and
+       - i18n-dict.ts itself, which is the catalogue being edited: its own key
+         is the thing under question, not evidence that something renders it. */
   const sourceBlob = files()
+    .filter((rel) => !rel.endsWith("lib/i18n-dict.ts"))
     .map((rel) => readIfPresent(join(appRoot, rel)) ?? "")
-    .join("\n");
+    .join("\n")
+    .replace(/\/\*[^]*?\*\//g, " ")
+    .replace(/^[ \t]*\/\/.*$/gm, " ");
 
   const dictPath = join(appRoot, "src/lib/i18n-dict.ts");
   const dictSrc = readIfPresent(dictPath);

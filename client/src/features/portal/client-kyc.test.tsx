@@ -64,7 +64,7 @@ describe("Accept files a KYC upload with the fields its type requires (D1)", () 
     expect(within(dialog).getByText("This document type is filed with its expiry date.")).toBeInTheDocument();
 
     await user.type(within(dialog).getByLabelText(/Expires/), "01/02/2029");
-    await user.type(within(dialog).getByLabelText(/Issuing authority/), "Greffe de Douala");
+    await user.type(within(dialog).getByLabelText(/Issuing Authority/), "Greffe de Douala");
     await user.click(within(dialog).getByRole("button", { name: "Accept and file" }));
     expect(onAccept).toHaveBeenCalledWith(expect.objectContaining({ expires_on: "2029-02-01", issuing_authority: "Greffe de Douala" }));
   });
@@ -74,7 +74,7 @@ describe("Accept files a KYC upload with the fields its type requires (D1)", () 
     renderScreen(<AcceptDocumentDialog request={plain} onClose={() => {}} onAccept={async () => {}} />);
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).queryByLabelText(/Expires/)).toBeNull();
-    expect(within(dialog).queryByLabelText(/Issuing authority/)).toBeNull();
+    expect(within(dialog).queryByLabelText(/Issuing Authority/)).toBeNull();
   });
 });
 
@@ -119,7 +119,7 @@ describe("Request from client (D2)", () => {
     const dialog = await screen.findByRole("dialog");
     await user.click(await within(dialog).findByRole("checkbox", { name: "Attestation de Conformité Fiscale" }));
     await user.click(within(dialog).getByRole("checkbox", { name: "Other — describe it" }));
-    await user.type(within(dialog).getByLabelText(/What you need/), "Lease of the warehouse");
+    await user.type(within(dialog).getByLabelText(/What You Need/), "Lease of the warehouse");
     await user.click(within(dialog).getByRole("button", { name: "Request 2 documents" }));
     expect(posts()).toEqual([
       {

@@ -479,7 +479,7 @@ function Inspector({
         // new capability every form in the product needs.
         <div data-field="logo">
           <Field
-            label={tr("Mark height (mm)")}
+            label={tr("Mark Height (Mm)")}
             about={tr("4-60. It does not shrink with the page. The image itself is set on the entity's own form.")}
           >
             <Input
@@ -584,7 +584,7 @@ function Inspector({
             <option value="right">{tr("Right")}</option>
           </Select>
         </Field>
-        <Field label={tr("Width (columns)")} about={tr("Of twelve.")}>
+        <Field label={tr("Width (Columns)")} about={tr("Of twelve.")}>
           <Input
             type="number"
             min={1}
@@ -650,7 +650,7 @@ function Inspector({
               <option value="accent">{tr("Brand colour")}</option>
             </Select>
           </Field>
-          <Field label={tr("Letter case")}>
+          <Field label={tr("Letter Case")}>
             <Select
               value={block.transform}
               disabled={busy || readOnly}
@@ -726,7 +726,7 @@ function AddressPanel({
       ) : (
         <>
           <div data-field="address_id">
-            <Field label={tr("Address block")}>
+            <Field label={tr("Address Block")}>
               <Select
                 value={cfg.address_id || ""}
                 disabled={busy || readOnly}
@@ -741,7 +741,7 @@ function AddressPanel({
           </div>
           <div data-field="postal_address_id">
             <Field
-              label={tr("PO box / postal block")}
+              label={tr("PO Box / Postal Block")}
               about={tr("Automatic takes a postal (mailing) row with a PO box, else the address block's row.")}
             >
               <Select

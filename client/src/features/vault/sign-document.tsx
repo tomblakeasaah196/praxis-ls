@@ -147,7 +147,7 @@ export function SignDocumentModal({
           <SkeletonTable />
         ) : menu ? (
           <>
-            <Field label={tr("How do you want to sign?")}>
+            <Field label={tr("How Do You Want to Sign?")}>
               <SignatureCardGrid
                 menu={menu}
                 value={preset}
@@ -544,7 +544,7 @@ export function SendForSignatureModal({
             ) : null}
 
             <Field
-              label={tr("Countersign from your side")}
+              label={tr("Countersign from Your Side")}
               hint="Optional. Adds one of your own people to the chain."
             >
               <Select
@@ -596,7 +596,7 @@ export function SendForSignatureModal({
                   )}
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <Field label={tr("Full name")}>
+                  <Field label={tr("Full Name")}>
                     <Input
                       value={manual.full_name}
                       onChange={(e) =>
@@ -622,7 +622,7 @@ export function SendForSignatureModal({
                     }
                   />
                 </Field>
-                <Field label={tr("Why is this address not on file?")} required>
+                <Field label={tr("Why Is This Address Not on File?")} required>
                   <Input
                     value={manual.override_reason || ""}
                     onChange={(e) =>
@@ -654,7 +654,7 @@ export function SendForSignatureModal({
             )}
 
             <Field
-              label={tr("Signing order")}
+              label={tr("Signing Order")}
               hint="Each link is sent when the one before it is signed."
             >
               {parties.length === 0 ? (
@@ -723,7 +723,7 @@ export function SendForSignatureModal({
             </Field>
 
             <Field
-              label={tr("Message to the signatories")}
+              label={tr("Message to the Signatories")}
               hint="Optional. Appears in the email."
             >
               <Textarea
@@ -755,7 +755,7 @@ export function SendForSignatureModal({
                 />
                 {tr("Allow printing and signing by hand")}
               </label>
-              <Field label={tr("Expires after (days)")}>
+              <Field label={tr("Expires After (Days)")}>
                 <Input
                   type="number"
                   min={1}

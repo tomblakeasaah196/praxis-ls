@@ -94,7 +94,7 @@ function FieldVisForm({
           </Select>
         </Field>
         <Field
-          label="Field key"
+          label="Field Key"
           required
           hint="Dotted path, e.g. dossier.margin. Must match the key the backend masks on."
         >
