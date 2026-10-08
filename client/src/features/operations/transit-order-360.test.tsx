@@ -201,7 +201,7 @@ describe("Transit order 360 · the page", () => {
     // so it exists only when the declared currency is not the reporting one.
     expect(
       await screen.findByRole("button", {
-        name: /Declared value in XAF — open the Details tab/,
+        name: /Declared Value in XAF: open the Details tab/,
       }),
     ).toBeInTheDocument();
   });

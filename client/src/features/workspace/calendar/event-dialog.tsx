@@ -419,7 +419,7 @@ export function EventDialog({
         />
 
         {editing && event?.recurrence_series_id && (
-          <Field label="Apply changes to" htmlFor="event-series-scope">
+          <Field label="Apply Changes To" htmlFor="event-series-scope">
             <NativeSelect
               id="event-series-scope"
               value={seriesScope}

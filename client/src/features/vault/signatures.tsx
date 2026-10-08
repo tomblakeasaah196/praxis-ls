@@ -359,14 +359,14 @@ export function SignaturesPage() {
           setActiveType(typeInput.trim().toUpperCase());
         }}
       >
-        <Field label={tr("Document reference")} className="min-w-64 flex-1">
+        <Field label={tr("Document Reference")} className="min-w-64 flex-1">
           <Input
             value={refInput}
             onChange={(e) => setRefInput(e.target.value)}
             placeholder="invoice:FCT-2026-0001"
           />
         </Field>
-        <Field label={tr("Document type")} className="min-w-56">
+        <Field label={tr("Document Type")} className="min-w-56">
           <Input
             value={typeInput}
             onChange={(e) => setTypeInput(e.target.value)}

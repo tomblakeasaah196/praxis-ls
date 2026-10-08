@@ -177,7 +177,7 @@ function MeetingForm({
               />
             </Field>
           )}
-          <Field label="Scheduled at">
+          <Field label="Scheduled At">
             <DateTimeField
               value={scheduledAt}
               onChange={setScheduledAt}
@@ -313,7 +313,7 @@ function MeetingDetail({
       )}
 
       <div className="space-y-2 border-t pt-4">
-        <Field label="Add note">
+        <Field label="Add Note">
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}

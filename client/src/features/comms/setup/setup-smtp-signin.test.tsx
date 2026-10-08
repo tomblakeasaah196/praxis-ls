@@ -1,5 +1,5 @@
 /**
- * "Sending (SMTP) sign-in" on the mailbox forms.
+ * "Sending (SMTP) Sign-in" on the mailbox forms.
  *
  * ── WHAT THE SCREEN HAS TO CARRY THAT THE API CANNOT ────────────────────────
  *
@@ -71,7 +71,7 @@ async function openEditor(conn: Record<string, unknown>) {
 describe("the choice is on the admin mailbox form", () => {
   it("offers both modes, and defaults to the one almost every mailbox is in", async () => {
     await openEditor(CONN);
-    expect(await screen.findByText("Sending (SMTP) sign-in")).toBeInTheDocument();
+    expect(await screen.findByText("Sending (SMTP) Sign-in")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /Same as IMAP/ })).toBeChecked();
     expect(screen.getByRole("radio", { name: /Use different credentials/ })).not.toBeChecked();
   });
@@ -81,33 +81,33 @@ describe("the choice is on the admin mailbox form", () => {
     // every mailbox form would be two more things to get wrong for the ~all of
     // them that share one login.
     await openEditor(CONN);
-    await screen.findByText("Sending (SMTP) sign-in");
-    expect(screen.queryByText("SMTP username")).not.toBeInTheDocument();
-    expect(screen.queryByText("SMTP password")).not.toBeInTheDocument();
+    await screen.findByText("Sending (SMTP) Sign-in");
+    expect(screen.queryByText("SMTP Username")).not.toBeInTheDocument();
+    expect(screen.queryByText("SMTP Password")).not.toBeInTheDocument();
   });
 
   it("reveals the username and password when different credentials are chosen", async () => {
     const user = await openEditor(CONN);
-    await screen.findByText("Sending (SMTP) sign-in");
+    await screen.findByText("Sending (SMTP) Sign-in");
     await user.click(screen.getByRole("radio", { name: /Use different credentials/ }));
-    expect(await screen.findByText("SMTP username")).toBeInTheDocument();
-    expect(screen.getByText("SMTP password")).toBeInTheDocument();
+    expect(await screen.findByText("SMTP Username")).toBeInTheDocument();
+    expect(screen.getByText("SMTP Password")).toBeInTheDocument();
   });
 
   it("SMTP host and port stay editable in BOTH modes", async () => {
     // A tenant can legitimately point sending at another host while sharing one
     // password. Moving those fields under the radio would make that unreachable.
     const user = await openEditor(CONN);
-    await screen.findByText("Sending (SMTP) sign-in");
-    expect(firstByText("SMTP host")).toBeInTheDocument();
+    await screen.findByText("Sending (SMTP) Sign-in");
+    expect(firstByText("SMTP Host")).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /Use different credentials/ }));
-    expect(firstByText("SMTP host")).toBeInTheDocument();
-    expect(firstByText("SMTP port")).toBeInTheDocument();
+    expect(firstByText("SMTP Host")).toBeInTheDocument();
+    expect(firstByText("SMTP Port")).toBeInTheDocument();
   });
 
   it("will not submit a separate sign-in that is missing half of itself", async () => {
     const user = await openEditor(CONN);
-    await screen.findByText("Sending (SMTP) sign-in");
+    await screen.findByText("Sending (SMTP) Sign-in");
     await user.click(screen.getByRole("radio", { name: /Use different credentials/ }));
     expect(screen.getByRole("button", { name: /Save & test/ })).toBeDisabled();
   });
@@ -118,7 +118,7 @@ describe("reopening a mailbox that already sends through a relay", () => {
 
   it("comes back in separate mode with the username filled in", async () => {
     await openEditor(RELAY_CONN);
-    expect(await screen.findByText("Sending (SMTP) sign-in")).toBeInTheDocument();
+    expect(await screen.findByText("Sending (SMTP) Sign-in")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /Use different credentials/ })).toBeChecked();
     expect(await screen.findByDisplayValue("smtp2go-user")).toBeInTheDocument();
   });
@@ -138,16 +138,16 @@ describe("reopening a mailbox that already sends through a relay", () => {
     // A response carrying just the boolean must not fall back to shared mode —
     // that would offer to delete a working credential.
     await openEditor({ ...CONN, has_smtp_credentials: true, smtp_user: "smtp2go-user" });
-    await screen.findByText("Sending (SMTP) sign-in");
+    await screen.findByText("Sending (SMTP) Sign-in");
     expect(screen.getByRole("radio", { name: /Use different credentials/ })).toBeChecked();
   });
 
   it("switching back to Same as IMAP hides the fields and is submittable at once", async () => {
     // Nothing left to type: the mode alone tells the server to drop the secret.
     const user = await openEditor(RELAY_CONN);
-    await screen.findByText("Sending (SMTP) sign-in");
+    await screen.findByText("Sending (SMTP) Sign-in");
     await user.click(screen.getByRole("radio", { name: /Same as IMAP/ }));
-    expect(screen.queryByText("SMTP username")).not.toBeInTheDocument();
+    expect(screen.queryByText("SMTP Username")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Save & test/ })).toBeEnabled();
   });
 });
@@ -185,15 +185,15 @@ describe("the personal connect wizard", () => {
     // A person who needs a relay needs it BEFORE step 3 tells them their
     // password was rejected — which is the failure that started all of this.
     await openWizardStepTwo();
-    expect(await screen.findByText("Sending (SMTP) sign-in")).toBeInTheDocument();
+    expect(await screen.findByText("Sending (SMTP) Sign-in")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /Same as IMAP/ })).toBeChecked();
   });
 
   it("reveals the relay credentials and blocks the step until both are given", async () => {
     const user = await openWizardStepTwo();
-    await screen.findByText("Sending (SMTP) sign-in");
+    await screen.findByText("Sending (SMTP) Sign-in");
     await user.click(screen.getByRole("radio", { name: /Use different credentials/ }));
-    expect(await screen.findByText("SMTP username")).toBeInTheDocument();
+    expect(await screen.findByText("SMTP Username")).toBeInTheDocument();
     // On a CREATE there is no stored password to keep, so a blank one is a real
     // gap rather than a convention.
     expect(screen.getByRole("button", { name: /Connect and test/ })).toBeDisabled();

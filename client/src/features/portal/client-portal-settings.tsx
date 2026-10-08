@@ -144,7 +144,7 @@ function InviteDefaultsBlock({ value, onSaved }: { value: InviteDefaults; onSave
         {/* Two columns on a desktop — the choice and the rule side by side —
             one in the phone's sheet. */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label={tr("What they see by default")}>
+          <Field label={tr("What They See by Default")}>
             <RadioGroup
               aria-label={tr("What they see by default")}
               value={scope}

@@ -11,10 +11,10 @@
 export type Period = "7d" | "month" | "quarter" | "year" | "custom";
 
 export const PERIODS: { key: Period; label: string }[] = [
-  { key: "7d", label: "7 days" },
-  { key: "month", label: "This month" },
-  { key: "quarter", label: "This quarter" },
-  { key: "year", label: "This year" },
+  { key: "7d", label: "7 Days" },
+  { key: "month", label: "This Month" },
+  { key: "quarter", label: "This Quarter" },
+  { key: "year", label: "This Year" },
   { key: "custom", label: "Custom" },
 ];
 

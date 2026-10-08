@@ -230,7 +230,7 @@ export function MilestonePolicyForm({
           )}
 
           <Field
-            label="When a stage finishes early"
+            label="When a Stage Finishes Early"
             about="Delays always push the schedule out. This is only about the other direction."
           >
             <Select
@@ -259,7 +259,7 @@ export function MilestonePolicyForm({
           </p>
 
           <Field
-            label="When an SLA date can no longer be met"
+            label="When an SLA Date Can No Longer Be Met"
             about="Raised when the remaining stages will not fit before the locked date even at their minimum durations."
           >
             <Select
@@ -299,7 +299,7 @@ export function MilestonePolicyForm({
           )}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Flag as at risk within (working hours)">
+            <Field label="Flag as at Risk Within (Working Hours)">
               <Input
                 value={String(form.riskHours ?? DEFAULTS.riskHours)}
                 onChange={(e) =>
@@ -312,7 +312,7 @@ export function MilestonePolicyForm({
                 disabled={disabled}
               />
             </Field>
-            <Field label="Flag as due within (working hours)">
+            <Field label="Flag as Due Within (Working Hours)">
               <Input
                 value={String(form.dueHours ?? DEFAULTS.dueHours)}
                 onChange={(e) =>

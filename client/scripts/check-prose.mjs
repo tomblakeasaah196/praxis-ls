@@ -128,7 +128,7 @@ const CHROME_TITLE = /^(New|Edit|Add|Create|Duplicate|Import|Export|Manage|Assig
  * components (EmptyState, Callout, ErrorState, toast) are deliberately absent.
  */
 const CHROME_COMPONENT =
-  /<(?:Section|SectionCard|Panel|Fieldset|HubCrumb)\b[^>]*?\b(?:title|legend|area)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
+  /<(?:Section|SectionCard|Panel|Fieldset|HubCrumb|Field|FormField|Detail)\b[^>]*?\b(?:title|legend|area|label)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
 
 function files() {
   const out = execFileSync(
@@ -136,10 +136,12 @@ function files() {
     ["ls-files", "src/**/*.tsx", "src/**/*.ts", "app/**/*.tsx", "components/**/*.tsx"],
     { cwd: appRoot, encoding: "utf8" },
   );
-  return out
-    .split("\n")
-    .filter(Boolean)
-    .filter((f) => !/\.(test|spec)\.|\.stories\./.test(f));
+  /* `git ls-files` prints an unmerged path ONCE PER STAGE, so during a
+     conflicted merge every count in this file triples and the failure reads as
+     new prose somebody wrote. Dedupe. */
+  return [...new Set(out.split("\n").filter(Boolean))].filter(
+    (f) => !/\.(test|spec)\.|\.stories\./.test(f),
+  );
 }
 
 /** `tr("x")`, `tv("x", …)`, `"x"`, `{"x"}` all yield x. Template literals and
@@ -173,6 +175,9 @@ function isTitleCase(s) {
     const w = words[i];
     if (!/[a-z]/i.test(w)) continue;          // numbers, glyphs, acronyms
     if (w === w.toUpperCase()) continue;       // XAF, OHADA, B/L
+    if (/[A-Z]/.test(w.slice(1))) continue;    // iOS, eSIM, PgBouncer: a
+                                               // deliberate interior capital is
+                                               // the brand's spelling, not ours
     if (/^[a-z]+\d/.test(w)) continue;         // v1, h2
     const first = i === 0 || i === words.length - 1;
     const minor = MINOR.has(w.toLowerCase());
@@ -352,10 +357,50 @@ for (const f of files()) {
        section with three other props is rarely on the same line as its name. */
     const openTag = lines.slice(i, Math.min(i + 6, lines.length)).join(" ");
     const chrome = openTag.match(CHROME_COMPONENT);
-    if (chrome && /^<(?:Section|SectionCard|Panel|Fieldset|HubCrumb)\b/.test(line.trim())) {
+    if (
+      chrome &&
+      /^<(?:Section|SectionCard|Panel|Fieldset|HubCrumb|Field|FormField|Detail)\b/.test(
+        line.trim(),
+      )
+    ) {
       const text = chrome[2];
       if (!SKIP_TITLE.test(text) && text.length <= 60 && !isTitleCase(text)) {
         problems.title.push({ key, line: i + 1, text, abs });
+      }
+    }
+    /* A FIELD LABEL THAT IS NOT WRITTEN AS JSX.
+     *
+     * `usePrompt()` takes its label as an option, not a prop:
+     *
+     *     const pw = await prompt({ title: "Confirm it's you",
+     *                               label: "Current password", … })
+     *
+     * and that option is handed straight to <Field label>. It is the same
+     * chrome by every test that matters, and no JSX-shaped rule can see it,
+     * which is how "Current password" survived a sweep that Title Cased the
+     * three password fields twenty lines below it in the SAME FILE.
+     *
+     * Only `label` is read here, and only inside the options object. A
+     * prompt's `title` is often a question ("Confirm it's you") and its
+     * `validate` returns a message, so both stay sentence case. */
+    if (/\bprompt\(\{/.test(line)) {
+      let depth = 0;
+      for (let j = i; j < Math.min(i + 20, lines.length); j++) {
+        for (const ch of j === i ? lines[j].slice(lines[j].indexOf("prompt({") + 7) : lines[j]) {
+          if (ch === "{") depth++;
+          else if (ch === "}") depth--;
+        }
+        /* `label:` at the start of a line, or mid-line in a one-line call.
+           The leading class keeps `confirmLabel:` and `cancelLabel:` out: a
+           button's own word is chrome too, but "Save" and "Cancel" are the
+           defaults and the overrides are already named actions. */
+        const opt = lines[j].match(
+          /(?:^|[\s{(,])label:\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/,
+        );
+        if (opt && !SKIP_TITLE.test(opt[2]) && opt[2].length <= 60 && !isTitleCase(opt[2])) {
+          problems.title.push({ key, line: j + 1, text: opt[2], abs });
+        }
+        if (depth <= 0) break;
       }
     }
     const h = line.match(/<h1[^>]*>\s*\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
@@ -462,9 +507,19 @@ if (FIX_TITLES) {
    * Where it has not, the new key is ADDED and the old one stays, and both
    * call sites keep their translation.
    */
+  /* "Still rendered somewhere" means a RENDER SITE, so two things are stripped
+     before asking:
+       - comments, because a docblock quoting the old label ("Sending (SMTP)
+         sign-in" — the choice a mailbox form has to offer) would pin the key
+         for ever; and
+       - i18n-dict.ts itself, which is the catalogue being edited: its own key
+         is the thing under question, not evidence that something renders it. */
   const sourceBlob = files()
+    .filter((rel) => !rel.endsWith("lib/i18n-dict.ts"))
     .map((rel) => readIfPresent(join(appRoot, rel)) ?? "")
-    .join("\n");
+    .join("\n")
+    .replace(/\/\*[^]*?\*\//g, " ")
+    .replace(/^[ \t]*\/\/.*$/gm, " ");
 
   const dictPath = join(appRoot, "src/lib/i18n-dict.ts");
   const dictSrc = readIfPresent(dictPath);

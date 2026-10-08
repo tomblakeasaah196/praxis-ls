@@ -52,7 +52,7 @@ export function SmtpSignInFields({
   return (
     <div className="space-y-3">
       <Field
-        label={tr("Sending (SMTP) sign-in")}
+        label={tr("Sending (SMTP) Sign-in")}
         hint={tr("Most mailboxes send with the same login they receive with.")}
       >
         <RadioGroup
@@ -78,7 +78,7 @@ export function SmtpSignInFields({
       {value.smtp_auth === "separate" && (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field
-            label={tr("SMTP username")}
+            label={tr("SMTP Username")}
             required
             hint={tr("The relay's own username — often not an email address.")}
           >
@@ -90,7 +90,7 @@ export function SmtpSignInFields({
             />
           </Field>
           <Field
-            label={tr("SMTP password")}
+            label={tr("SMTP Password")}
             required={!hasStoredPassword}
             hint={
               hasStoredPassword

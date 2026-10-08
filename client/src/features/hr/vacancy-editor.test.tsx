@@ -153,7 +153,7 @@ describe("the vacancy editor", () => {
   it("saves the working pattern, the address and the start date", async () => {
     const user = userEvent.setup();
     view();
-    await user.type(screen.getByLabelText("Working hours"), "9am–5pm, Mon–Fri");
+    await user.type(screen.getByLabelText("Working Hours"), "9am–5pm, Mon–Fri");
     await user.type(screen.getByLabelText("Days on-site"), "4");
     await user.type(screen.getByLabelText("City"), "Douala");
     await user.click(screen.getByRole("button", { name: "Save" }));
@@ -171,7 +171,7 @@ describe("the vacancy editor", () => {
   it("clears a field rather than leaving the old value on the advert", async () => {
     const user = userEvent.setup();
     view({ ...DRAFT, working_hours: "9–5", days_on_site: 5 });
-    await user.clear(screen.getByLabelText("Working hours"));
+    await user.clear(screen.getByLabelText("Working Hours"));
     await user.clear(screen.getByLabelText("Days on-site"));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
@@ -216,7 +216,7 @@ describe("the vacancy editor", () => {
     // The country arrives as an ISO code; an advert wants the word, which the
     // formatted line ends with.
     expect(screen.getByLabelText("City")).toHaveValue("Douala");
-    expect(screen.getByLabelText("State / region")).toHaveValue("Littoral");
+    expect(screen.getByLabelText("State / Region")).toHaveValue("Littoral");
     expect(screen.getByLabelText("Country")).toHaveValue("Cameroon");
   });
 

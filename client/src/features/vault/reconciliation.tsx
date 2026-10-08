@@ -110,7 +110,7 @@ function ReconciliationPage() {
         description="Paste or confirm the print job id. Use Search manually from the document detail if the barcode was not readable."
       >
         <div className="space-y-4">
-          <Field label={tr("Print job id")}>
+          <Field label={tr("Print Job Id")}>
             <Input value={printJobId} onChange={(e) => setPrintJobId(e.target.value)} />
           </Field>
           <div className="flex justify-end gap-2">

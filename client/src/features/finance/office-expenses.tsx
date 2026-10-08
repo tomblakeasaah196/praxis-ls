@@ -142,14 +142,14 @@ function ExpenseForm({
               onChange={(e) => set("amount", e.target.value)}
             />
           </Field>
-          <Field label={tr("Expense date")}>
+          <Field label={tr("Expense Date")}>
             <DateField
               value={f.expense_date}
               onChange={(iso) => set("expense_date", iso)}
             />
           </Field>
           <Field
-            label={tr("Expense account")}
+            label={tr("Expense Account")}
             required
             className="sm:col-span-2"
             hint={tr("The postable account this cost debits when posted — from your own chart, because categories are labels, not accounting decisions.")}
@@ -238,14 +238,14 @@ function PostForm({
     >
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr("Entry date")} required>
+          <Field label={tr("Entry Date")} required>
             <DateField
               value={f.entry_date}
               onChange={(iso) => setF((s) => ({ ...s, entry_date: iso }))}
             />
           </Field>
           <Field
-            label={tr("Paid via")}
+            label={tr("Paid Via")}
             hint={tr("Picks the credit side: the bank account or the cash box.")}
           >
             <Select
@@ -261,7 +261,7 @@ function PostForm({
               <option value="CASH">{tr("Cash")}</option>
             </Select>
           </Field>
-          <Field label={tr("Source doc ref")} className="sm:col-span-2">
+          <Field label={tr("Source Doc Ref")} className="sm:col-span-2">
             <Input
               value={f.source_doc_ref}
               onChange={(e) =>
@@ -388,7 +388,7 @@ export function OfficeExpensesPage() {
           label={tr("This month")}
           value={money(totals.data?.mtd ?? 0)}
         />
-        <KpiTile label={tr("This year")} value={money(totals.data?.ytd ?? 0)} />
+        <KpiTile label={tr("This Year")} value={money(totals.data?.ytd ?? 0)} />
         <KpiTile
           label={tr("Awaiting posting")}
           value={num(totals.data?.draft_count ?? 0)}

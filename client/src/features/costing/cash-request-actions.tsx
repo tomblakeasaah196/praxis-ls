@@ -151,7 +151,7 @@ export function DisburseForm({
             />
           </Field>
           <Field
-            label={tr("Source doc ref")}
+            label={tr("Source Doc Ref")}
             hint="Defaults to this cash request's own reference."
           >
             <Input

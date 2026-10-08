@@ -270,7 +270,7 @@ function ContainerPicker({
       {!disabled && (
         <div className="flex items-end gap-2">
           <Field
-            label="Container not on the file"
+            label="Container Not on the File"
             className="flex-1"
             hint="Only for a box that never made it onto the file — otherwise tick it above."
           >
@@ -604,7 +604,7 @@ export function DeliveryForm({
           * exists to ask. Everything below it is derived from the answer.
           */}
         <Field
-          label={tr("Operations file")}
+          label={tr("Operations File")}
           required
           hint="Search by reference, client, B/L or AWB. Everything below fills from the file."
         >
@@ -653,7 +653,7 @@ export function DeliveryForm({
            * the keyed-in location can never quietly disagree.
            */}
           <Field
-            label="City / zone"
+            label="City / Zone"
             hint="Search the verified place catalogue — the address below follows from it."
           >
             <PlacePicker
@@ -674,7 +674,7 @@ export function DeliveryForm({
               }}
             />
           </Field>
-          <Field label="Contact person">
+          <Field label="Contact Person">
             <Input
               value={f.contact_person}
               onChange={(e) => set("contact_person", e.target.value)}
@@ -682,7 +682,7 @@ export function DeliveryForm({
           </Field>
           {/* G23 — a proof-of-delivery with no address proves nothing. */}
           <Field
-            label="Delivery address"
+            label="Delivery Address"
             className="sm:col-span-2"
             hint="Filled from the place above — refine the gate or building, but keep it consistent with the keyed-in location."
           >
@@ -700,7 +700,7 @@ export function DeliveryForm({
             />
           </Field>
           <Field
-            label={tr("Delivery date")}
+            label={tr("Delivery Date")}
             hint="When the goods are expected. Confirmed when somebody signs."
           >
             <DateField
@@ -812,7 +812,7 @@ export function DeliveryForm({
                   */}
                 {!file?.captures_containers && (
                   <>
-                    <Field label={tr("Weight (kg)")} className="w-28">
+                    <Field label={tr("Weight (Kg)")} className="w-28">
                       <Input
                         inputMode="decimal"
                         value={l.gross_weight_kg}

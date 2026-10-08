@@ -78,7 +78,7 @@ export function PinDialog({
       >
         <p className="text-sm text-muted-foreground">{row.title_fr}</p>
         <Field
-          label={tr("Show it until")}
+          label={tr("Show It Until")}
           required
           hint="It comes off the home page on its own after this date. It stays published at its own address."
         >

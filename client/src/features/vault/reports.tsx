@@ -43,9 +43,9 @@ const REPORTS_AI: AiAction[] = [
 const PARAM_FIELDS: { key: string; label: string; placeholder: string }[] = [
   { key: "from", label: "From", placeholder: "2026-01-01" },
   { key: "to", label: "To", placeholder: "2026-03-31" },
-  { key: "as_of", label: "As of", placeholder: "2026-03-31" },
-  { key: "period_code", label: "Period code", placeholder: "2026-Q1" },
-  { key: "dossier_id", label: "Operations file id", placeholder: "uuid (dossier_360)" },
+  { key: "as_of", label: "As Of", placeholder: "2026-03-31" },
+  { key: "period_code", label: "Period Code", placeholder: "2026-Q1" },
+  { key: "dossier_id", label: "Operations File Id", placeholder: "uuid (dossier_360)" },
 ];
 
 function RunReportModal({
@@ -182,7 +182,7 @@ function RunReportModal({
               emptyHint="Adjust the parameters above and run it again."
             />
             <div className="flex flex-wrap items-end gap-2 border-t pt-3">
-              <Field label="Save as" className="flex-1">
+              <Field label="Save As" className="flex-1">
                 <Input
                   value={saveName}
                   onChange={(e) => setSaveName(e.target.value)}

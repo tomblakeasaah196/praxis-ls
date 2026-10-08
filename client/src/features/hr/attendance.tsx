@@ -48,7 +48,7 @@ function AttendanceLog({ date }: { date: string }) {
     },
     {
       key: "in",
-      label: "Clock in",
+      label: "Clock In",
       render: (r) => (
         <span className="flex items-center gap-2">
           <span className="num">{dateFmt(r.clock_in_at)}</span>
@@ -62,7 +62,7 @@ function AttendanceLog({ date }: { date: string }) {
     },
     {
       key: "out",
-      label: "Clock out",
+      label: "Clock Out",
       render: (r) =>
         r.clock_out_at ? (
           <span className="num">{dateFmt(r.clock_out_at)}</span>
@@ -356,7 +356,7 @@ function SiteForm({
     >
       <form className="space-y-4" onSubmit={submit}>
         <Field
-          label="Find the location"
+          label="Find the Location"
           hint="Search for the address, or use your current position."
         >
           <PlaceSearch onPick={pick} />
@@ -389,7 +389,7 @@ function SiteForm({
               placeholder="9.7679"
             />
           </Field>
-          <Field label="Radius (m)">
+          <Field label="Radius (M)">
             <Input
               className="num"
               type="number"
@@ -670,7 +670,7 @@ function Devices() {
     },
     {
       key: "seen",
-      label: "Last used",
+      label: "Last Used",
       /*
        * The PLACE under the time (PR3). Approving a device means deciding
        * whether a machine you have never touched belongs to somebody, and the
@@ -768,9 +768,9 @@ type AttendanceView = "day" | "history" | "map" | "month";
 
 const VIEWS: { key: AttendanceView; label: string }[] = [
   { key: "day", label: "Today" },
-  { key: "history", label: "History & analytics" },
+  { key: "history", label: "History & Analytics" },
   { key: "map", label: "Map" },
-  { key: "month", label: "Reconciled days" },
+  { key: "month", label: "Reconciled Days" },
 ];
 
 /**

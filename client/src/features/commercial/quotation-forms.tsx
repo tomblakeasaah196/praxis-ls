@@ -322,7 +322,7 @@ export function QuotationForm({
               ))}
             </Select>
           </Field>
-          <Field label="Quote model">
+          <Field label="Quote Model">
             <Select
               value={quoteModel}
               onChange={(e) => setQuoteModel(e.target.value)}
@@ -339,14 +339,14 @@ export function QuotationForm({
               placeholder={tr("XAF")}
             />
           </Field>
-          <Field label={tr("Valid until")}>
+          <Field label={tr("Valid Until")}>
             <DateField
               value={validUntil}
               onChange={setValidUntil}
             />
           </Field>
           <Field
-            label={tr("Margin applied (%)")}
+            label={tr("Margin Applied (%)")}
             hint={
               editing?.created_from === "COSTING"
                 ? tr("The margin the services were priced at from the costing.")
@@ -365,7 +365,7 @@ export function QuotationForm({
             />
           </Field>
           <Field
-            label={tr("Answers the quote request")}
+            label={tr("Answers the Quote Request")}
             hint={tr("The client sees this quotation on that request in their portal.")}
           >
             <Select

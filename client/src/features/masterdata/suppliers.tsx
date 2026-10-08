@@ -207,14 +207,14 @@ function SupplierForm({
               allowEmpty={false}
             />
           </Field>
-          <Field label={tr("Legal name")} required>
+          <Field label={tr("Legal Name")} required>
             <Input
               value={legalName}
               onChange={(e) => setLegalName(e.target.value)}
               placeholder="Bolloré Transport SA"
             />
           </Field>
-          <Field label="Trading / DBA name">
+          <Field label="Trading / DBA Name">
             <Input
               value={tradingName}
               onChange={(e) => setTradingName(e.target.value)}
@@ -279,7 +279,7 @@ function SupplierForm({
           {/* #29 — every method the vendor accepts, not one. Checkboxes rather
               than a multi-select listbox: four known options, and a control
               where the current state is readable without opening anything. */}
-          <Field label={tr("Payment methods")} about={tr("Tick every method this vendor accepts.")}>
+          <Field label={tr("Payment Methods")} about={tr("Tick every method this vendor accepts.")}>
             <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1">
               {(["BANK", "CHEQUE", "CASH", "MOBILE_MONEY"] as const).map((m) => (
                 <label key={m} className="flex items-center gap-2 text-sm">
@@ -306,7 +306,7 @@ function SupplierForm({
               <div className="sm:col-span-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Primary contact &amp; address
               </div>
-              <Field label="Contact name">
+              <Field label="Contact Name">
                 <Input
                   value={contact.name}
                   onChange={(e) =>
@@ -315,7 +315,7 @@ function SupplierForm({
                   placeholder="Jean Fotso"
                 />
               </Field>
-              <Field label="Contact email">
+              <Field label="Contact Email">
                 <Input
                   type="email"
                   value={contact.email}
@@ -325,7 +325,7 @@ function SupplierForm({
                   placeholder="ap@supplier.cm"
                 />
               </Field>
-              <Field label="Address line">
+              <Field label="Address Line">
                 <Input
                   value={address.line1}
                   onChange={(e) =>

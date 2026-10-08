@@ -243,8 +243,8 @@ test("personal quick phrases can be created and inserted, scheduling posts durab
   await page.getByRole("button", { name: "Add to message" }).click();
   await page.getByRole("button", { name: "Templates / Quick Phrases" }).click();
   await page.getByRole("button", { name: "Add phrase" }).click();
-  await page.getByLabel("Phrase name").fill("Acknowledgment");
-  await page.getByLabel("Phrase text").fill("Received, thank you.");
+  await page.getByLabel("Phrase Name").fill("Acknowledgment");
+  await page.getByLabel("Phrase Text").fill("Received, thank you.");
   await page.getByRole("button", { name: "Save phrase" }).click();
   await page.getByRole("button", { name: /Acknowledgment.*Received/ }).click();
   const editor = page.getByRole("textbox", {

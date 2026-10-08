@@ -89,7 +89,7 @@ export function TransitOrdersPage() {
   const columns: Column<api.TransitOrder>[] = [
     {
       key: "ref",
-      label: "OT number",
+      label: "OT Number",
       render: (r) =>
         r.ref ? (
           <span className="num font-medium text-foreground">{r.ref}</span>
@@ -118,7 +118,7 @@ export function TransitOrdersPage() {
     { key: "service_direction", label: "Direction" },
     {
       key: "declared_value",
-      label: "Declared value",
+      label: "Declared Value",
       className: "num text-right",
       render: (r) =>
         r.declared_value == null

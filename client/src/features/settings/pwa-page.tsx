@@ -346,7 +346,7 @@ export function PwaPage() {
         desc="What sits behind the artwork in each variant."
       >
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Plain icon background">
+          <Field label="Plain Icon Background">
             <div className="flex items-center gap-2">
               <input
                 type="color"
@@ -378,7 +378,7 @@ export function PwaPage() {
               </Button>
             </div>
           </Field>
-          <Field label="Maskable background">
+          <Field label="Maskable Background">
             <div className="flex items-center gap-2">
               <input
                 type="color"
@@ -436,14 +436,14 @@ export function PwaPage() {
         desc="What the install dialog, the home-screen label and the app switcher show."
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="App name">
+          <FormField label="App Name">
             <Input
               {...text("appName")}
               placeholder={branding.name || "Praxis LS"}
               maxLength={60}
             />
           </FormField>
-          <FormField label="Short name">
+          <FormField label="Short Name">
             <Input
               {...text("shortName")}
               placeholder={cfg.name.slice(0, 12)}
@@ -465,7 +465,7 @@ export function PwaPage() {
 
       <SettingsCard title="Window" desc="How the installed app opens.">
         <div className="flex flex-col gap-4">
-          <FormField label="Display mode">
+          <FormField label="Display Mode">
             <Segmented
               value={cfg.display}
               onChange={(v) => set("display", v)}
@@ -497,7 +497,7 @@ export function PwaPage() {
         desc="The system chrome around the app, and the plate the operating system paints while it launches."
       >
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Theme colour">
+          <Field label="Theme Colour">
             <div className="flex items-center gap-2">
               <input
                 type="color"
@@ -531,7 +531,7 @@ export function PwaPage() {
               window look continuous instead.
             </p>
           </Field>
-          <Field label="Launch background">
+          <Field label="Launch Background">
             <div className="flex items-center gap-2">
               <input
                 type="color"
@@ -787,14 +787,14 @@ export function PwaPage() {
         desc="Wording only. When these appear is decided by the service worker — going offline, and a new build finishing its download — and is not a design choice."
       >
         <div className="flex flex-col gap-4">
-          <FormField label="Offline notice">
+          <FormField label="Offline Notice">
             <Input
               {...text("offlineText")}
               placeholder="You're offline — some data may be out of date."
               maxLength={120}
             />
           </FormField>
-          <FormField label="Ready-offline confirmation">
+          <FormField label="Ready-offline Confirmation">
             <Input
               {...text("offlineReadyText")}
               placeholder="Ready to work offline."
@@ -802,14 +802,14 @@ export function PwaPage() {
             />
           </FormField>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label="Update title">
+            <FormField label="Update Title">
               <Input
                 {...text("updateTitle")}
                 placeholder="New version available"
                 maxLength={60}
               />
             </FormField>
-            <FormField label="Update button">
+            <FormField label="Update Button">
               <Input
                 {...text("updateButton")}
                 placeholder="Reload"
@@ -817,7 +817,7 @@ export function PwaPage() {
               />
             </FormField>
           </div>
-          <FormField label="Update body">
+          <FormField label="Update Body">
             <Input
               {...text("updateBody")}
               placeholder="Reload to get the latest update."
@@ -875,7 +875,7 @@ export function PwaPage() {
 
           {cfg.titlebarMode === "custom" && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Dark theme">
+              <Field label="Dark Theme">
                 <input
                   type="color"
                   aria-label="Title bar colour, dark theme"
@@ -884,7 +884,7 @@ export function PwaPage() {
                   className="h-8 w-full cursor-pointer rounded border bg-transparent p-0.5"
                 />
               </Field>
-              <Field label="Light theme">
+              <Field label="Light Theme">
                 <input
                   type="color"
                   aria-label="Title bar colour, light theme"

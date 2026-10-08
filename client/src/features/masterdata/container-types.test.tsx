@@ -92,7 +92,7 @@ describe("Dictionary settings · Container types", () => {
 
     await user.type(screen.getByLabelText("Code"), "FT50HC");
     await user.type(screen.getByLabelText("Nom (FR)"), "50' HC");
-    await user.type(screen.getByLabelText(/^Size key/), "50HC");
+    await user.type(screen.getByLabelText(/^Size Key/), "50HC");
     await user.click(screen.getByRole("button", { name: "Add" }));
 
     expect(await screen.findByText(/TEU is required/)).toBeTruthy();
@@ -122,8 +122,8 @@ describe("Dictionary settings · Container types", () => {
     await user.type(screen.getByLabelText("Nom (FR)"), "50' HC");
     await user.type(screen.getByLabelText("Name (EN)"), "50' High Cube");
     await user.type(screen.getByLabelText(/^TEU/), "2.5");
-    await user.type(screen.getByLabelText(/^Size key/), "50HC");
-    await user.type(screen.getByLabelText(/^Also known as/), "50hq, 50dc");
+    await user.type(screen.getByLabelText(/^Size Key/), "50HC");
+    await user.type(screen.getByLabelText(/^Also Known As/), "50hq, 50dc");
     await user.click(screen.getByRole("button", { name: "Add" }));
 
     await waitFor(() => expect(createDictRef).toHaveBeenCalledTimes(1));
@@ -153,8 +153,8 @@ describe("Dictionary settings · Container types", () => {
     await user.type(screen.getByLabelText("Code"), "FT50HC");
     await user.type(screen.getByLabelText("Nom (FR)"), "50' HC");
     await user.type(screen.getByLabelText(/^TEU/), "2.5");
-    await user.type(screen.getByLabelText(/^Size key/), "50HC");
-    await user.type(screen.getByLabelText(/Marks token/), "50'HQ");
+    await user.type(screen.getByLabelText(/^Size Key/), "50HC");
+    await user.type(screen.getByLabelText(/Marks Token/), "50'HQ");
     await user.click(screen.getByRole("button", { name: "Add" }));
 
     await waitFor(() => expect(createDictRef).toHaveBeenCalledTimes(1));

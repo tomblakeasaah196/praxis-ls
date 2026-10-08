@@ -338,10 +338,10 @@ export function QuoteRequestForm({
             ) : null}
           </Field>
         </div>
-        <Field label={tr("Requester name")}>
+        <Field label={tr("Requester Name")}>
           <Input value={requesterName} onChange={(e) => setRequesterName(e.target.value)} />
         </Field>
-        <Field label={tr("Requester company")}>
+        <Field label={tr("Requester Company")}>
           <Input value={requesterCompany} onChange={(e) => setRequesterCompany(e.target.value)} />
         </Field>
         <Field label={tr("Email")} error={fieldError(errors, "requester_email")}>
@@ -350,7 +350,7 @@ export function QuoteRequestForm({
         <Field label={tr("Phone")}>
           <Input value={requesterPhone} onChange={(e) => setRequesterPhone(e.target.value)} />
         </Field>
-        <Field label={tr("Intake channel")} error={fieldError(errors, "intake_channel")}>
+        <Field label={tr("Intake Channel")} error={fieldError(errors, "intake_channel")}>
           <NativeSelect value={intakeChannel} onChange={(e) => setIntakeChannel(e.target.value)}>
             {CHANNELS.map((c) => (
               <option key={c} value={c}>
@@ -372,7 +372,7 @@ export function QuoteRequestForm({
           ) : null}
         </Field>
         {service?.flow === "HINTERLAND" ? (
-          <Field label={tr("Hinterland direction")} error={fieldError(errors, "hinterland_direction")}>
+          <Field label={tr("Hinterland Direction")} error={fieldError(errors, "hinterland_direction")}>
             <NativeSelect value={hinterland} onChange={(e) => setHinterland(e.target.value)}>
               <option value="">{tr("Not known yet")}</option>
               <option value="INTO">{hinterlandLabel("INTO")}</option>
@@ -395,16 +395,16 @@ export function QuoteRequestForm({
         <Field label={tr("Destination")}>
           <Input value={destination} onChange={(e) => setDestination(e.target.value)} placeholder={tr("City, Country")} />
         </Field>
-        <Field label={tr("Place of collection")} hint={tr("Door to door: where we collect before the main leg.")}>
+        <Field label={tr("Place of Collection")} hint={tr("Door to door: where we collect before the main leg.")}>
           <Input value={collection} onChange={(e) => setCollection(e.target.value)} placeholder={tr("Address, town or warehouse")} />
         </Field>
-        <Field label={tr("Place of delivery")} hint={tr("Door to door: where we deliver after the main leg.")}>
+        <Field label={tr("Place of Delivery")} hint={tr("Door to door: where we deliver after the main leg.")}>
           <Input value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder={tr("Address, town or warehouse")} />
         </Field>
-        <Field label={tr("Warehouse location")}>
+        <Field label={tr("Warehouse Location")}>
           <Input value={warehouseLocation} onChange={(e) => setWarehouseLocation(e.target.value)} />
         </Field>
-        <Field label={tr("Warehouse duration")}>
+        <Field label={tr("Warehouse Duration")}>
           <NativeSelect value={warehouseDuration} onChange={(e) => setWarehouseDuration(e.target.value)}>
             <option value="">{tr("Select…")}</option>
             {DURATIONS.map((d) => (
@@ -414,17 +414,17 @@ export function QuoteRequestForm({
             ))}
           </NativeSelect>
         </Field>
-        <Field label={tr("Estimated weight (kg)")} error={fieldError(errors, "estimated_weight")}>
+        <Field label={tr("Estimated Weight (Kg)")} error={fieldError(errors, "estimated_weight")}>
           <Input type="number" step="0.01" value={weight} onChange={(e) => setWeight(e.target.value)} />
         </Field>
-        <Field label={tr("Project cargo")}>
+        <Field label={tr("Project Cargo")}>
           <NativeSelect value={projectCargo ? "yes" : "no"} onChange={(e) => setProjectCargo(e.target.value === "yes")}>
             <option value="no">{tr("No")}</option>
             <option value="yes">{tr("Yes")}</option>
           </NativeSelect>
         </Field>
         <div className="sm:col-span-2">
-          <Field label={tr("Cargo description")} hint={tr("Up to 5000 characters.")} error={fieldError(errors, "cargo_description")}>
+          <Field label={tr("Cargo Description")} hint={tr("Up to 5000 characters.")} error={fieldError(errors, "cargo_description")}>
             <Textarea rows={3} value={cargo} onChange={(e) => setCargo(e.target.value)} />
           </Field>
         </div>
@@ -687,11 +687,11 @@ export function ConvertToOpportunityModal({
             </Field>
           </div>
           <div className="sm:col-span-2">
-            <Field label="Opportunity name" required>
+            <Field label="Opportunity Name" required>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
           </div>
-          <Field label="Estimated value">
+          <Field label="Estimated Value">
             <Input
               type="number"
               step="0.01"

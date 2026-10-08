@@ -446,7 +446,7 @@ export function EntityPublicStoryTab({
                   server-side from that key and comes back read-only — the
                   operator classifies, the catalogue decides the colour. */}
               <select
-                aria-label={tr("Service type")}
+                aria-label={tr("Service Type")}
                 className="h-9 rounded-md border border-input bg-card px-2 text-sm"
                 value={f.service_type_key ?? ""}
                 disabled={busy || !canEdit}

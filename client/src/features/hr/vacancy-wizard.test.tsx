@@ -147,20 +147,20 @@ const forward = (user: ReturnType<typeof userEvent.setup>) =>
 
 /** Answer the eight fixed questions, then land wherever Next leads. */
 async function answerFixedSet(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByLabelText("Your answer"), "Senior Stylist");
+  await user.type(await screen.findByLabelText("Your Answer"), "Senior Stylist");
   await forward(user); // title → department
-  await user.type(screen.getByLabelText("Your answer"), "Salon");
+  await user.type(screen.getByLabelText("Your Answer"), "Salon");
   await forward(user); // → headcount
-  await user.type(screen.getByLabelText("Your answer"), "3");
+  await user.type(screen.getByLabelText("Your Answer"), "3");
   await forward(user); // → work pattern
-  await user.type(screen.getByLabelText("Your answer"), "On-site, five days");
+  await user.type(screen.getByLabelText("Your Answer"), "On-site, five days");
   await forward(user); // → location
-  await user.type(screen.getByLabelText("Your answer"), "Douala");
+  await user.type(screen.getByLabelText("Your Answer"), "Douala");
   await forward(user); // → salary
   await user.type(screen.getByLabelText(/^From/), "150000");
   await user.type(screen.getByLabelText(/^To/), "250000");
   await forward(user); // → must-haves
-  await user.type(screen.getByLabelText("Your answer"), "Three years on a salon floor");
+  await user.type(screen.getByLabelText("Your Answer"), "Three years on a salon floor");
   await forward(user); // → extras
   await forward(user); // leaves the fixed set: follow-ups are fetched here
 }
@@ -185,7 +185,7 @@ describe("the vacancy drafting interview", () => {
     const user = setup();
     view();
     expect(await screen.findByText(/JBS Praxis SA/)).toBeInTheDocument();
-    await user.type(await screen.findByLabelText("Your answer"), "Senior Stylist");
+    await user.type(await screen.findByLabelText("Your Answer"), "Senior Stylist");
     for (let i = 0; i < 5; i++) await forward(user);
     expect(screen.getByLabelText("From (XAF/month)")).toBeInTheDocument();
   });
@@ -195,7 +195,7 @@ describe("the vacancy drafting interview", () => {
     view();
     // Nothing typed: the only way on is disabled — there is no advert without a role.
     expect(await screen.findByRole("button", { name: "Skip" })).toBeDisabled();
-    await user.type(screen.getByLabelText("Your answer"), "Senior Stylist");
+    await user.type(screen.getByLabelText("Your Answer"), "Senior Stylist");
     await user.click(screen.getByRole("button", { name: "Next" }));
     // Every question after it can be passed over.
     expect(await screen.findByRole("button", { name: "Skip" })).toBeEnabled();
@@ -204,13 +204,13 @@ describe("the vacancy drafting interview", () => {
   it("adds a spoken answer to what was already typed", async () => {
     const user = setup();
     view();
-    await user.type(await screen.findByLabelText("Your answer"), "Senior Stylist");
+    await user.type(await screen.findByLabelText("Your Answer"), "Senior Stylist");
     await forward(user);
-    await user.type(screen.getByLabelText("Your answer"), "Salon");
+    await user.type(screen.getByLabelText("Your Answer"), "Salon");
     await forward(user);
-    await user.type(screen.getByLabelText("Your answer"), "3");
+    await user.type(screen.getByLabelText("Your Answer"), "3");
     await forward(user); // the first textarea question
-    const box = screen.getByLabelText("Your answer");
+    const box = screen.getByLabelText("Your Answer");
     await user.type(box, "Half typed");
     await user.click(screen.getByRole("button", { name: "Speak your answer" }));
     expect(box).toHaveValue("Half typed spoken words");
@@ -283,7 +283,7 @@ describe("the vacancy drafting interview", () => {
     expect(await axe(container)).toHaveNoViolations();
     // Again on a voice question: the mic and the box it fills are the one
     // control pair here that `Field` could not name on its own.
-    await user.type(screen.getByLabelText("Your answer"), "Senior Stylist");
+    await user.type(screen.getByLabelText("Your Answer"), "Senior Stylist");
     for (let i = 0; i < 3; i++) await forward(user);
     expect(await axe(container)).toHaveNoViolations();
   });
@@ -314,7 +314,7 @@ describe("the vacancy drafting interview", () => {
       view();
       await pickCompany(user, "JBS Praxis Nigeria");
       await forward(user); // → title
-      await user.type(screen.getByLabelText("Your answer"), "Senior Stylist");
+      await user.type(screen.getByLabelText("Your Answer"), "Senior Stylist");
       for (let i = 0; i < 5; i++) await forward(user); // → salary
 
       // XAF is what the server sent as the pre-answer fallback. The pick wins.

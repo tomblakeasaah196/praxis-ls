@@ -451,7 +451,7 @@ function CommandCenter() {
       label: "Date",
       render: (r) => <span className="num">{dateFmt(r.entry_date)}</span>,
     },
-    { key: "ref", label: "Source ref", render: (r) => r.source_doc_ref || "—" },
+    { key: "ref", label: "Source Ref", render: (r) => r.source_doc_ref || "—" },
     {
       key: "source",
       label: "Source",

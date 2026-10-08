@@ -72,7 +72,7 @@ describe("tab gating", () => {
     render(<CommsSetupPage />);
     await waitFor(() => expect(screen.getAllByText("My mailbox").length).toBeGreaterThan(0));
     expect(screen.getAllByText("Follow-ups").length).toBeGreaterThan(0);
-    for (const adminOnly of ["Send points", "Mailboxes", "Response times", "Trust & archive", "Secure links", "Senders & channels"]) {
+    for (const adminOnly of ["Send points", "Mailboxes", "Response Times", "Trust & Archive", "Secure links", "Senders & Channels"]) {
       expect(screen.queryByText(adminOnly)).not.toBeInTheDocument();
     }
   });
@@ -104,7 +104,7 @@ describe("tab gating", () => {
     expect(nav).toBeInTheDocument();
     for (const label of [
       "My mailbox", "Follow-ups", "Mailboxes", "Secure links",
-      "Response times", "Trust & archive", "Send points", "Senders & channels",
+      "Response Times", "Trust & Archive", "Send points", "Senders & Channels",
     ]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }

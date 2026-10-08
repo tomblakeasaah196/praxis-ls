@@ -142,7 +142,7 @@ function DeliverDialog({
       <form onSubmit={submit} className="space-y-4">
         {error && <ErrorState message={error} />}
         <Field
-          label="Received by"
+          label="Received By"
           required
           hint="The name of the person who signed for the goods."
         >
