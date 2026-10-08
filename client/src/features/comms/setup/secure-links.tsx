@@ -108,7 +108,7 @@ function MintDialog({ onClose, onMinted }: { onClose: () => void; onMinted: () =
     <Modal
       open
       onClose={onClose}
-      title={minted ? tr("Your link") : tr("Create a Secure Link")}
+      title={minted ? tr("Your Link") : tr("Create a Secure Link")}
       description={
         minted
           ? undefined
@@ -207,7 +207,7 @@ function ViewsDialog({ link, onClose }: { link: Row; onClose: () => void }) {
   const rows = views.data || [];
 
   return (
-    <Modal open onClose={onClose} title={link.label || tr("Link activity")}>
+    <Modal open onClose={onClose} title={link.label || tr("Link Activity")}>
       {views.loading && <p className="text-sm text-muted-foreground">{tr("Loading…")}</p>}
       {!views.loading && rows.length === 0 && (
         <p className="text-sm text-muted-foreground">

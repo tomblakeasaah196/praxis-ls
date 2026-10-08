@@ -176,7 +176,7 @@ export function DayAgenda({
                 <button
                   type="button"
                   onClick={() => onOpenDeadline(d)}
-                  title={`Due — ${dueTitle(d)} — ${tenantDateTimeFmt(d.at, timeZone)}`}
+                  title={`Due: ${dueTitle(d)}, ${tenantDateTimeFmt(d.at, timeZone)}`}
                   className="flex w-full items-center gap-3 py-2.5 text-left transition-colors hover:bg-accent"
                 >
                   <span className="num w-16 shrink-0 text-sm">{tenantTimeFmt(d.at, timeZone)}</span>

@@ -272,7 +272,7 @@ export function MailSetupWizard({
       open={open}
       onClose={onClose}
       size="xl"
-      title={summary ? "Mail setup: complete" : "Mail setup guide"}
+      title={summary ? "Mail Setup: Complete" : "Mail Setup Guide"}
       description={
         summary
           ? "Your outbound email is verified and working."
