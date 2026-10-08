@@ -50,6 +50,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { NativeSelect } from "@/components/ui/select";
 import { Field } from "@/components/ui/modal";
 import { Callout } from "@/components/ui/callout";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Dialog } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
 import { ArrowLeftIcon, ArrowRightIcon, InfoIcon } from "@/components/ui/icons";
@@ -84,6 +85,9 @@ const RANGES = [
 
 type RangeValue = (typeof RANGES)[number]["value"];
 
+/** Chart or table, for every figure on the page. See `FigureWithTable`. */
+type FigureMode = "chart" | "table";
+
 /** A useful explanation, not a restatement of the chart title. */
 type ChartHelp = {
   title: string;
@@ -92,6 +96,26 @@ type ChartHelp = {
   use: string;
 };
 
+/**
+ * ── THE SUBTITLES LIVE HERE NOW ─────────────────────────────────────────────
+ *
+ * Every panel carried a paragraph `subtitle` AND an ⓘ holding three more
+ * paragraphs, so the same chart was explained twice: once on the page, where
+ * nobody had asked, and once behind a control built for exactly that. Eight
+ * panels times a paragraph is the page of explanation around the numbers.
+ *
+ * The qualifications that were doing real work are folded into `shows` —
+ * which files are excluded, why the bands are not an average, that the
+ * typical figure is a median, that workload is not a rating. Nothing was
+ * dropped except the sentences restating a title ("Tasks completed each day in
+ * this period.", under a heading reading Throughput) and the one instructing
+ * the reader to tap a control directly beneath it.
+ *
+ * Cycle time is the exception and keeps a visible subtitle, because its
+ * subtitle was not explanation: the median is the panel's headline FIGURE. It
+ * stays as a figure, and the sentence about why a median rather than a mean
+ * came here.
+ */
 const CHART_HELP = {
   throughput: {
     title: "Throughput",
@@ -102,9 +126,9 @@ const CHART_HELP = {
     use: "Look for a sustained pattern rather than one exceptional day. Switch to Table for exact daily counts and compare periods when the rhythm changes.",
   },
   overdue: {
-    title: "Overdue aging",
+    title: "Overdue Aging",
     shows:
-      "Open overdue tasks grouped by how long their deadlines have been missed — not averaged together.",
+      "Open overdue tasks grouped by how long their deadlines have been missed. Bands rather than an average: one task a year late and nine a day late average to nothing anybody recognises.",
     matters:
       "Older bands signal growing delivery and escalation risk. A small old backlog can need more attention than a large new one.",
     use: "Start with Over 30 days, then 8 to 30 days. Use Open the list to work from the oldest deadlines first.",
@@ -113,47 +137,47 @@ const CHART_HELP = {
     title: "Workload",
     shows: "Open, overdue, and blocked task counts on each assignee’s desk.",
     matters:
-      "It helps a team rebalance work and offer support before one queue becomes a bottleneck. It is not a performance score.",
+      "It helps a team rebalance work and offer support before one queue becomes a bottleneck. It says how much is on a desk; it is not a performance score, a rating or a pay input.",
     use: "Compare the mix, not only the total: overdue and blocked work needs a different response from healthy open work. Confirm exact counts in Table.",
   },
   byFile: {
-    title: "Work by operations file",
+    title: "Work by Operations File",
     shows:
-      "Open, overdue, and blocked tasks linked to each operations file, with the most overdue files first.",
+      "Open, overdue, and blocked tasks linked to each operations file, with the most overdue files first. A personal reminder is not work on a shipment, so unlinked tasks are excluded and these counts are smaller than the headline figures.",
     matters:
-      "It turns a task backlog into shipment risk, showing which live files need intervention. Unlinked personal tasks are intentionally excluded.",
+      "It turns a task backlog into shipment risk, showing which live files need intervention.",
     use: "Prioritise files with overdue or blocked work, then open that file’s tasks to resolve the specific holds.",
   },
   cycle: {
-    title: "Cycle time",
+    title: "Cycle Time",
     shows:
-      "Completed tasks grouped by elapsed time from creation to closure, plus the typical median duration.",
+      "Completed tasks grouped by elapsed time from creation to closure. The typical figure is the median, not the mean: one task that sat open all year would drag an average past every real value.",
     matters:
       "It shows how predictably work flows. A shift into older bands can expose hand-off or process friction before the backlog grows.",
-    use: "Watch the shape across periods, especially movement into 8–30 and Over 30 days. Read it with throughput; speed alone does not measure quality.",
+    use: "Watch the shape across periods, especially movement into 8 to 30 and Over 30 days. Read it with throughput; speed alone does not measure quality.",
   },
   burndown: {
     title: "Burn-down",
     shows:
-      "The number of open tasks left after each day’s new and completed work.",
+      "The number of open tasks left after each day’s new and completed work. This is volume of work, not money.",
     matters:
       "It answers whether the team is closing work faster than new work arrives. A falling line means the backlog is shrinking.",
     use: "Use Table to distinguish a truly quiet day from one where new and completed work cancelled each other out. Compare like-for-like periods and filters.",
   },
   blocked: {
-    title: "Blocked work",
+    title: "Blocked Work",
     shows:
-      "Blocked open tasks grouped by assignee, including dependency holds and recorded blockage notes.",
+      "Blocked open tasks grouped by assignee, including dependency holds and recorded blockage notes, longest wait first.",
     matters:
       "It locates work that cannot move without help. Removing one shared dependency can release several tasks at once.",
     use: "Tap a bar or assignee button to read every full note, what each task is waiting on, and how long it has been blocked.",
   },
   milestone: {
-    title: "Work by milestone",
+    title: "Work by Milestone",
     shows:
-      "Open and overdue tasks at each milestone of the selected operations file.",
+      "Open and overdue tasks at each milestone of the selected operations file. Linking a task to a milestone never moves it: the chain is what was promised a client, and a to-do list does not get to advance it.",
     matters:
-      "It shows where work is accumulating along this shipment’s chain without pretending that completing a task advances the milestone itself.",
+      "It shows where work is accumulating along this shipment’s chain.",
     use: "Start with stages carrying overdue work, then open their tasks to clear the operational hold in context.",
   },
 } satisfies Record<string, ChartHelp>;
@@ -405,6 +429,11 @@ export function AnalyticsPage() {
    * permission logic of its own, and why the note below explains an empty
    * dashboard instead of the screen pretending the filter did something.
    */
+  /* Chart or table, for the whole page. In the URL for the same reason every
+     other control on this screen is: a dashboard somebody screenshots and
+     pastes into a message has to reproduce for the person who opens it, and
+     "here are the numbers" is a link, not a description of eight clicks. */
+  const mode: FigureMode = params.get("figures") === "table" ? "table" : "chart";
   const assignedTo = params.get("assigned_to");
   const assigneeName = params.get("assignee_name");
   const mineOnly = assignedTo === "me";
@@ -486,7 +515,7 @@ export function AnalyticsPage() {
     <section className={pageShell.wide}>
       <PageHeader
         title="Analytics"
-        description="How operational work is moving: what is open, what is late, how long things take, and what is waiting on something else. These are the same tasks the Tasks list shows, counted — not an appraisal, a rating or a pay decision."
+        description="How operational work is moving: what is open, what is late, how long things take, and what is waiting on something else. Every figure is the same tasks the Tasks list shows, counted, and each one opens that list filtered the way it was counted. It is a report on work moving through a process. It is not an appraisal, a rating or a pay decision: those live in Empower HR, behind their own grants."
       />
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -534,7 +563,7 @@ export function AnalyticsPage() {
           </NativeSelect>
         </Field>
 
-        {/* The switch offers only what the server said it would honour — the
+        {/* The switch offers only what the server said it would honour: the
             same contract the Tasks board uses. Showing "Everyone" to somebody
             the server narrows is a control that appears to work and does not. */}
         {offered.length > 1 && (
@@ -545,6 +574,19 @@ export function AnalyticsPage() {
             options={offered.map((a) => ({ value: a, label: AUDIENCE_LABEL[a] }))}
           />
         )}
+
+        {/* ONE of these, for the page. There were eight, one above every
+            figure. See the note on `FigureWithTable`. */}
+        <Segmented
+          label="How to show the figures"
+          value={mode}
+          onChange={(v) => setParam("figures", v === "table" ? "table" : null)}
+          className="ml-auto"
+          options={[
+            { value: "chart", label: "Charts" },
+            { value: "table", label: "Tables" },
+          ]}
+        />
       </div>
 
       {/* WHOSE work, and on WHICH file. Both narrow every figure below rather
@@ -575,7 +617,7 @@ export function AnalyticsPage() {
             <EmployeePicker
               id="analytics-employee"
               label="Employee"
-              placeholder="Everyone — search staff by name or job title…"
+              placeholder="Everyone. Search staff by name or job title…"
               requireAccount
               onPick={(e) => {
                 // A task is assigned to a LOGIN, so an employee with no account
@@ -594,8 +636,8 @@ export function AnalyticsPage() {
         <div className="min-w-[15rem]">
           <OperationsFilePicker
             id="analytics-file"
-            label="Operations file"
-            placeholder="Every file — search ref, client, B/L…"
+            label="Operations File"
+            placeholder="Every file. Search ref, client, B/L…"
             value={dossierId}
             onSelect={(file) => setParam("dossier_id", file.dossier_id)}
             onClear={() => setParam("dossier_id", null)}
@@ -633,8 +675,9 @@ export function AnalyticsPage() {
         <Panel title="Analytics">
           <ScreenError
             message={
-              "The analytics read — the one authorised query that feeds all six panels " +
-              "(open, overdue, blocked, throughput, cycle time and workload) — could not be answered. " +
+              "The analytics read could not be answered. It is one authorised query, " +
+              "and it feeds every panel on this screen: open, overdue, blocked, throughput, " +
+              "cycle time and workload. " +
               q.error.message
             }
             what="Your analytics"
@@ -657,23 +700,26 @@ export function AnalyticsPage() {
           <SummaryStrip data={data} onDrill={drillDown} />
 
           <AnalyticsPager>
-            <ThroughputPanel data={data} />
-            <OverdueAgingPanel data={data} onDrill={drillDown} />
-            <WorkloadPanel data={data} onDrill={drillDown} />
-            <WorkByFilePanel data={data} onDrill={drillDown} />
-            <CycleTimePanel data={data} />
-            <BurndownPanel data={data} />
-            <BlockedPanel data={data} timeZone={timeZone} />
+            <ThroughputPanel data={data} mode={mode} />
+            <OverdueAgingPanel data={data} onDrill={drillDown} mode={mode} />
+            <WorkloadPanel data={data} onDrill={drillDown} mode={mode} />
+            <WorkByFilePanel data={data} onDrill={drillDown} mode={mode} />
+            <CycleTimePanel data={data} mode={mode} />
+            <BurndownPanel data={data} mode={mode} />
+            <BlockedPanel data={data} timeZone={timeZone} mode={mode} />
           </AnalyticsPager>
 
-          {dossierId && <ByMilestonePanel data={data} onDrill={drillDown} />}
+          {dossierId && (
+            <ByMilestonePanel data={data} onDrill={drillDown} mode={mode} />
+          )}
 
+          {/* Provenance, which is data rather than explanation: which clock and
+              which window these figures were counted on. What they cover, and
+              why they match the Tasks list, is in the page description. */}
           <p className="micro">
             Counted in {data.window.timezone} over{" "}
             {tenantDateTimeFmt(data.window.from, data.window.timezone)} to{" "}
-            {tenantDateTimeFmt(data.window.to, data.window.timezone)}. Figures cover
-            only the work you are authorised to see, so they match the Tasks list
-            filtered the same way.
+            {tenantDateTimeFmt(data.window.to, data.window.timezone)}.
           </p>
         </div>
       )}
@@ -689,6 +735,19 @@ export function AnalyticsPage() {
  * They are buttons rather than read-outs because a figure you cannot open is a
  * figure you cannot check, and "is that really seventeen?" is the first
  * question anybody asks a dashboard.
+ *
+ * ── NUMBERS, WITH THE DEFINITIONS BEHIND ONE ⓘ ─────────────────────────────
+ *
+ * Each tile printed a caption under its figure — "Not done and not cancelled.",
+ * "Open, with a deadline already past." — so the first thing on a dashboard was
+ * four numbers wearing four sentences. The definitions are worth having: what
+ * counts as overdue is a real question, and the answer is why this screen and
+ * the Tasks list agree. They are worth having ONCE, on request, which is what
+ * the ⓘ beside the strip is.
+ *
+ * The ⓘ is a SIBLING of the heading, never a child of it: inside, its
+ * `aria-label` joins the heading's accessible name and "Headline Figures"
+ * starts announcing as "Headline Figures About the headline figures".
  */
 function SummaryStrip({
   data,
@@ -697,70 +756,58 @@ function SummaryStrip({
   data: AnalyticsResponse;
   onDrill: (extra?: Record<string, string>) => void;
 }) {
-  const cards: { key: string; label: string; value: number; hint: string; drill: Record<string, string> }[] = [
-    {
-      key: "open",
-      label: "Open",
-      value: data.summary.open,
-      hint: "Not done and not cancelled.",
-      drill: { status: "TO_DO" },
-    },
-    {
-      key: "overdue",
-      label: "Overdue",
-      value: data.summary.overdue,
-      hint: "Open, with a deadline already past.",
-      drill: { sort: "due_asc" },
-    },
-    {
-      key: "blocked",
-      label: "Blocked",
-      value: data.summary.blocked,
-      hint: "Waiting on a task that is not finished.",
-      drill: {},
-    },
-    {
-      key: "completed",
-      label: "Completed",
-      value: data.summary.completed,
-      hint: "Finished inside this period.",
-      drill: { status: "DONE" },
-    },
+  const cards: { key: string; label: string; value: number; drill: Record<string, string> }[] = [
+    { key: "open", label: "Open", value: data.summary.open, drill: { status: "TO_DO" } },
+    { key: "overdue", label: "Overdue", value: data.summary.overdue, drill: { sort: "due_asc" } },
+    { key: "blocked", label: "Blocked", value: data.summary.blocked, drill: {} },
+    { key: "completed", label: "Completed", value: data.summary.completed, drill: { status: "DONE" } },
   ];
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {cards.map((c) => (
-        <li key={c.key}>
-          <button
-            type="button"
-            onClick={() => onDrill(c.drill)}
-            className="w-full rounded-lg border bg-card/40 p-4 text-left transition-colors hover:border-primary"
-          >
-            <span className="micro block">{c.label}</span>
-            <span className="num block text-2xl font-medium">{c.value}</span>
-            <span className="micro block">{c.hint}</span>
-          </button>
-        </li>
-      ))}
-    </ul>
+    <section aria-labelledby="analytics-headline">
+      <div className="mb-2 flex items-center gap-1.5">
+        <h2 id="analytics-headline" className="micro">
+          Headline Figures
+        </h2>
+        <InfoHint label="About the headline figures">
+          Open is not done and not cancelled. Overdue is open with a deadline
+          already past. Blocked is waiting on a task that is not finished.
+          Completed is finished inside this period. Every one of them opens the
+          Tasks list counted the same way.
+        </InfoHint>
+      </div>
+      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((c) => (
+          <li key={c.key}>
+            <button
+              type="button"
+              onClick={() => onDrill(c.drill)}
+              className="w-full rounded-lg border bg-card/40 px-4 py-3 text-left transition-colors hover:border-primary"
+            >
+              <span className="micro block">{c.label}</span>
+              <span className="num block text-2xl font-medium">{c.value}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
 /* ── the six panels ───────────────────────────────────────────────────────── */
 
-function ThroughputPanel({ data }: { data: AnalyticsResponse }) {
+function ThroughputPanel({ data, mode }: { data: AnalyticsResponse; mode: FigureMode }) {
   const rows = data.throughput;
   const points: BarsPoint[] = rows.map((r) => ({ label: r.day, values: { completed: r.completed } }));
   const series: BarsSeries[] = [{ key: "completed", tone: "accent", label: "Completed" }];
   return (
     <Panel
       title="Throughput"
-      subtitle="Tasks completed each day in this period."
       action={<ChartActions help={CHART_HELP.throughput} />}
       className="min-w-0 overflow-hidden"
     >
       <FigureWithTable
-        chartTitle="Completed per day"
+        mode={mode}
+        chartTitle="Completed per Day"
         ariaLabel={`Tasks completed on each of ${rows.length} days in the selected period.`}
         empty={rows.length === 0}
         emptyTitle="Nothing completed yet"
@@ -777,8 +824,10 @@ function ThroughputPanel({ data }: { data: AnalyticsResponse }) {
 function OverdueAgingPanel({
   data,
   onDrill,
+  mode,
 }: {
   data: AnalyticsResponse;
+  mode: FigureMode;
   onDrill: (extra?: Record<string, string>) => void;
 }) {
   const rows = data.overdue_aging;
@@ -792,13 +841,12 @@ function OverdueAgingPanel({
   const total = rows.reduce((n, r) => n + r.tasks, 0);
   return (
     <Panel
-      title="Overdue aging"
-      subtitle="How long open work has been late. Bands, not an average — one task a year late and nine a day late average to nothing anybody recognises."
+      title="Overdue Aging"
       action={
         <ChartActions help={CHART_HELP.overdue}>
           {total > 0 ? (
             <Button size="sm" variant="outline" onClick={() => onDrill({ sort: "due_asc" })}>
-              Open the list
+              Open the List
             </Button>
           ) : undefined}
         </ChartActions>
@@ -806,13 +854,14 @@ function OverdueAgingPanel({
       className="min-w-0 overflow-hidden"
     >
       <FigureWithTable
-        chartTitle="Overdue by age"
+        mode={mode}
+        chartTitle="Overdue by Age"
         ariaLabel={`${total} overdue tasks grouped into five age bands.`}
         empty={total === 0}
         emptyTitle="Nothing is late"
         emptyHint="Every open task with a deadline is still inside it."
         chart={<SeriesBars data={points} series={[{ key: "tasks", tone: "warn", label: "Overdue tasks" }]} height={200} />}
-        columns={["Days late", "Tasks"]}
+        columns={["Days Late", "Tasks"]}
         rows={rows.map((r) => [BUCKET_LABEL[r.bucket] ?? r.bucket, String(r.tasks)])}
         caption="Overdue tasks by age band"
       />
@@ -823,8 +872,10 @@ function OverdueAgingPanel({
 function WorkloadPanel({
   data,
   onDrill,
+  mode,
 }: {
   data: AnalyticsResponse;
+  mode: FigureMode;
   onDrill: (extra?: Record<string, string>) => void;
 }) {
   const rows = data.workload;
@@ -840,12 +891,12 @@ function WorkloadPanel({
   return (
     <Panel
       title="Workload"
-      subtitle="Open work per person, so it can be levelled. This is how much is on a desk — it is not a rating and it is not a measure of anybody's performance."
       action={<ChartActions help={CHART_HELP.workload} />}
       className="min-w-0 overflow-hidden"
     >
       <FigureWithTable
-        chartTitle="Open work by assignee"
+        mode={mode}
+        chartTitle="Open Work by Assignee"
         ariaLabel={`Open, overdue and blocked task counts for ${rows.length} assignees.`}
         empty={rows.length === 0}
         emptyTitle="No open work"
@@ -906,8 +957,10 @@ function WorkloadPanel({
 function WorkByFilePanel({
   data,
   onDrill,
+  mode,
 }: {
   data: AnalyticsResponse;
+  mode: FigureMode;
   onDrill: (extra: Record<string, string>) => void;
 }) {
   /*
@@ -930,13 +983,13 @@ function WorkByFilePanel({
   ];
   return (
     <Panel
-      title="Work by operations file"
-      subtitle="Which shipments have work outstanding on them, most overdue first. Counts only tasks linked to a file — a personal reminder is not work on a shipment."
+      title="Work by Operations File"
       action={<ChartActions help={CHART_HELP.byFile} />}
       className="min-w-0 overflow-hidden"
     >
       <FigureWithTable
-        chartTitle="Open work by operations file"
+        mode={mode}
+        chartTitle="Open Work by Operations File"
         ariaLabel={`Open, overdue and blocked task counts for ${rows.length} operations files.`}
         empty={rows.length === 0}
         emptyTitle="No work linked to a file"
@@ -980,8 +1033,10 @@ function WorkByFilePanel({
 function ByMilestonePanel({
   data,
   onDrill,
+  mode,
 }: {
   data: AnalyticsResponse;
+  mode: FigureMode;
   onDrill: (extra: Record<string, string>) => void;
 }) {
   const rows = data.by_milestone ?? [];
@@ -995,13 +1050,13 @@ function ByMilestonePanel({
   ];
   return (
     <Panel
-      title="Work by milestone"
-      subtitle="Where this file's work sits along its chain. Linking a task to a milestone never moves it — the chain is what was promised a client, and a to-do list does not get to advance it."
+      title="Work by Milestone"
       action={<ChartActions help={CHART_HELP.milestone} />}
       className="min-w-0 overflow-hidden"
     >
       <FigureWithTable
-        chartTitle="Open work by milestone"
+        mode={mode}
+        chartTitle="Open Work by Milestone"
         ariaLabel={`Open and overdue task counts across ${rows.length} milestones of this file.`}
         empty={rows.length === 0}
         emptyTitle="No work on this file"
@@ -1040,7 +1095,7 @@ function ByMilestonePanel({
   );
 }
 
-function CycleTimePanel({ data }: { data: AnalyticsResponse }) {
+function CycleTimePanel({ data, mode }: { data: AnalyticsResponse; mode: FigureMode }) {
   const rows = data.cycle_time.buckets;
   const total = rows.reduce((n, r) => n + r.tasks, 0);
   const points: BarsPoint[] = rows.map((r) => ({
@@ -1049,23 +1104,27 @@ function CycleTimePanel({ data }: { data: AnalyticsResponse }) {
   }));
   return (
     <Panel
-      title="Cycle time"
+      title="Cycle Time"
+      /* A FIGURE, not a paragraph. The median is this panel's headline and the
+         only subtitle on the screen that was carrying data rather than
+         explanation; why a median and not a mean is in the ⓘ. */
       subtitle={
         data.cycle_time.median_days === null
-          ? "How long finished work took, from writing it down to closing it."
-          : `Typically ${data.cycle_time.median_days} days from writing a task down to closing it. The median, not the mean — one task that sat open all year would drag an average past every real value.`
+          ? undefined
+          : `Median ${data.cycle_time.median_days} days`
       }
       action={<ChartActions help={CHART_HELP.cycle} />}
       className="min-w-0 overflow-hidden"
     >
       <FigureWithTable
-        chartTitle="Time to complete"
+        mode={mode}
+        chartTitle="Time to Complete"
         ariaLabel={`${total} completed tasks grouped by how many days they took.`}
         empty={total === 0}
         emptyTitle="Nothing finished yet"
         emptyHint="Complete a task in this period to see how long work is taking."
         chart={<SeriesBars data={points} series={[{ key: "tasks", tone: "accent", label: "Tasks" }]} height={200} />}
-        columns={["Days to complete", "Tasks", "Average days"]}
+        columns={["Days to Complete", "Tasks", "Average Days"]}
         rows={rows.map((r) => [
           BUCKET_LABEL[r.bucket] ?? r.bucket,
           String(r.tasks),
@@ -1077,24 +1136,24 @@ function CycleTimePanel({ data }: { data: AnalyticsResponse }) {
   );
 }
 
-function BurndownPanel({ data }: { data: AnalyticsResponse }) {
+function BurndownPanel({ data, mode }: { data: AnalyticsResponse; mode: FigureMode }) {
   const rows = data.burndown.days;
   const points: TrendPoint[] = rows.map((d) => ({ label: d.day, value: d.open }));
   return (
     <Panel
       title="Burn-down"
-      subtitle="The open backlog across the period — work arriving against work closing. This is volume of work, not money."
       action={<ChartActions help={CHART_HELP.burndown} />}
       className="min-w-0 overflow-hidden"
     >
       <FigureWithTable
-        chartTitle="Open work over time"
+        mode={mode}
+        chartTitle="Open Work over Time"
         ariaLabel={`Open task backlog across ${rows.length} days, starting from ${data.burndown.open_at_start}.`}
         empty={rows.length === 0}
         emptyTitle="No movement in this period"
         emptyHint="Nothing was created or completed, so the backlog did not move."
         chart={<Trend data={points} height={200} valueLabel="Open work" />}
-        columns={["Day", "Created", "Completed", "Still open"]}
+        columns={["Day", "Created", "Completed", "Still Open"]}
         rows={rows.map((d) => [d.day, String(d.created), String(d.completed), String(d.open)])}
         caption={`Backlog movement, opening at ${data.burndown.open_at_start}`}
       />
@@ -1111,9 +1170,11 @@ function BurndownPanel({ data }: { data: AnalyticsResponse }) {
 function BlockedPanel({
   data,
   timeZone,
+  mode,
 }: {
   data: AnalyticsResponse;
   timeZone: string;
+  mode: FigureMode;
 }) {
   const navigate = useNavigate();
   const rows = data.blocked;
@@ -1148,8 +1209,7 @@ function BlockedPanel({
   if (rows.length === 0) {
     return (
       <Panel
-        title="Blocked work"
-        subtitle="Open tasks waiting on something unfinished or carrying a registered blockage, longest wait first."
+        title="Blocked Work"
         action={<ChartActions help={CHART_HELP.blocked} />}
         className="min-w-0 overflow-hidden"
       >
@@ -1173,19 +1233,19 @@ function BlockedPanel({
 
   return (
     <Panel
-      title="Blocked work"
-      subtitle="Open tasks waiting on something unfinished or carrying a registered blockage — tap a bar or assignee below to read every note."
+      title="Blocked Work"
       action={<ChartActions help={CHART_HELP.blocked} />}
       className="min-w-0 overflow-hidden"
     >
       <FigureWithTable
-        chartTitle="Blocked by assignee"
+        mode={mode}
+        chartTitle="Blocked by Assignee"
         ariaLabel={`${rows.length} blocked tasks across ${byAssignee.length} assignees. Select a bar or assignee button to read the blockage notes.`}
         empty={false}
         emptyTitle="Nothing is blocked"
         emptyHint="No open task is blocked."
         chart={chart}
-        columns={["Task", "Assignee", "Waiting on / note", "Since"]}
+        columns={["Task", "Assignee", "Waiting on / Note", "Since"]}
         rows={visibleRows.map((row) => [
           <button
             key={`${row.task_id}-title`}
@@ -1219,30 +1279,23 @@ function BlockedPanel({
         caption="Blocked tasks and their blockage notes"
       />
 
+      {/* ── THE CHIP ROW, WITHOUT ITS INSTRUCTIONS ────────────────────────────
+       *
+       * It carried an `<h3>Read blockage notes</h3>` and "Choose the assignee
+       * whose bar you want to inspect." above a row of buttons reading
+       * "Marie · 3", and a dashed box below it reading "Tap a chart bar or an
+       * assignee above to reveal full notes and task details here." Three
+       * pieces of copy explaining a row of buttons directly beside them: rung
+       * one of the ladder, which is to delete it. The heading stays as an
+       * accessible name on the group, where it does the work it was added for
+       * and takes no space. What each chip is FOR is in the ⓘ at the top of
+       * the panel ("Tap a bar or assignee button to read every full note").
+       */}
       <div className="mt-4 border-t pt-4">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">
-              Read blockage notes
-            </h3>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Choose the assignee whose bar you want to inspect.
-            </p>
-          </div>
-          {filter && (
-            <button
-              type="button"
-              onClick={() => setFilter(null)}
-              className="shrink-0 text-xs font-medium text-primary-ink underline underline-offset-2"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-
         <div
-          className="mt-3 flex flex-wrap gap-2"
-          aria-label="Blocked assignees"
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Read blockage notes, by assignee"
         >
           {byAssignee.map((group) => (
             <button
@@ -1264,6 +1317,15 @@ function BlockedPanel({
               </span>
             </button>
           ))}
+          {filter && (
+            <button
+              type="button"
+              onClick={() => setFilter(null)}
+              className="min-h-9 shrink-0 px-2 text-xs font-medium text-primary-ink underline underline-offset-2"
+            >
+              Clear
+            </button>
+          )}
         </div>
 
         {filter ? (
@@ -1338,7 +1400,7 @@ function BlockedPanel({
                         )
                       }
                     >
-                      Open task
+                      Open Task
                       <ArrowRightIcon width={15} height={15} />
                     </Button>
                   </div>
@@ -1346,12 +1408,7 @@ function BlockedPanel({
               ))}
             </ul>
           </section>
-        ) : (
-          <p className="mt-4 rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
-            Tap a chart bar or an assignee above to reveal full notes and task
-            details here.
-          </p>
-        )}
+        ) : null}
       </div>
     </Panel>
   );
@@ -1381,8 +1438,18 @@ const BUCKET_LABEL: Record<string, string> = {
  * and is therefore visible to the person maintaining them.
  *
  * The toggle is a real control rather than a screen-reader-only escape hatch
- * because sighted readers want the numbers too — "is that bar 40 or 45" is the
+ * because sighted readers want the numbers too: "is that bar 40 or 45" is the
  * most common question a bar chart provokes.
+ *
+ * ── ONE TOGGLE, FOR THE PAGE ───────────────────────────────────────────────
+ *
+ * It used to be eight: a `<Segmented>` of its own above every figure, each
+ * holding its own `useState`. That is ~32px of chrome repeated eight times on a
+ * screen whose complaint was chrome, and it made the common intent the
+ * expensive one — "show me the numbers" meant eight clicks, and reading the
+ * dashboard as numbers was something nobody did twice. The mode is a property
+ * of how the reader wants to read the PAGE, so it is held once, beside the
+ * filters, and every figure follows it.
  */
 function FigureWithTable({
   chartTitle,
@@ -1394,6 +1461,7 @@ function FigureWithTable({
   empty,
   emptyTitle,
   emptyHint,
+  mode,
 }: {
   chartTitle: string;
   ariaLabel: string;
@@ -1404,53 +1472,44 @@ function FigureWithTable({
   empty: boolean;
   emptyTitle: string;
   emptyHint: string;
+  /** Chart or table, decided ONCE for the page. See `AnalyticsPage`. */
+  mode: FigureMode;
 }) {
-  const [mode, setMode] = React.useState<"chart" | "table">("chart");
   if (empty) return <EmptyState title={emptyTitle} hint={emptyHint} />;
+  if (mode === "chart") {
+    // h3: the panel around it is the h2, so h4 would skip a level and
+    // invent a subsection that is not there.
+    return (
+      <Chart title={chartTitle} ariaLabel={ariaLabel} height={220} titleAs="h3">
+        {chart}
+      </Chart>
+    );
+  }
   return (
-    <div className="space-y-2">
-      <Segmented
-        label={`${chartTitle} — how to show it`}
-        value={mode}
-        onChange={(v) => setMode(v as "chart" | "table")}
-        options={[
-          { value: "chart", label: "Chart" },
-          { value: "table", label: "Table" },
-        ]}
-      />
-      {mode === "chart" ? (
-        // h3: the panel around it is the h2, so h4 would skip a level and
-        // invent a subsection that is not there.
-        <Chart title={chartTitle} ariaLabel={ariaLabel} height={220} titleAs="h3">
-          {chart}
-        </Chart>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <caption className="sr-only">{caption}</caption>
-            <thead>
-              <tr className="border-b text-left">
-                {columns.map((c, i) => (
-                  <th key={c || `col-${i}`} scope="col" className="micro py-1.5 pr-3 font-medium">
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((cells, i) => (
-                <tr key={`row-${i}`} className="border-b last:border-0">
-                  {cells.map((cell, j) => (
-                    <td key={`cell-${i}-${j}`} className={j === 0 ? "py-1.5 pr-3" : "num py-1.5 pr-3"}>
-                      {cell}
-                    </td>
-                  ))}
-                </tr>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <caption className="sr-only">{caption}</caption>
+        <thead>
+          <tr className="border-b text-left">
+            {columns.map((c, i) => (
+              <th key={c || `col-${i}`} scope="col" className="micro py-1.5 pr-3 font-medium">
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((cells, i) => (
+            <tr key={`row-${i}`} className="border-b last:border-0">
+              {cells.map((cell, j) => (
+                <td key={`cell-${i}-${j}`} className={j === 0 ? "py-1.5 pr-3" : "num py-1.5 pr-3"}>
+                  {cell}
+                </td>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

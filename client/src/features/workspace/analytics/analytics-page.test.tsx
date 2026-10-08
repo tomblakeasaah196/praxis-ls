@@ -176,16 +176,26 @@ describe("Analytics — the four states", () => {
 });
 
 describe("Analytics — every chart has a table", () => {
-  it("turns a figure into a real table with headers on demand", async () => {
+  /** The page's one Charts / Tables switch. It used to be eight, one above
+   *  every figure, each with its own state. */
+  const showTables = async (user: ReturnType<typeof userEvent.setup>) => {
+    const group = screen.getByRole("radiogroup", {
+      name: "How to show the figures",
+    });
+    await user.click(within(group).getByRole("radio", { name: "Tables" }));
+  };
+
+  it("turns EVERY figure into a real table from one control", async () => {
     const user = userEvent.setup();
     renderScreen(<AnalyticsPage />, at());
     await screen.findByText("17");
 
-    const toggle = screen.getAllByRole("radio", { name: "Table" })[0]
-      ?? screen.getAllByRole("button", { name: "Table" })[0];
-    await user.click(toggle);
+    // One click, every figure. "Show me the numbers" was eight clicks, which
+    // is why reading this dashboard as numbers was something nobody did twice.
+    await showTables(user);
 
     const tables = await screen.findAllByRole("table");
+    expect(tables.length).toBeGreaterThan(5);
     expect(tables.length).toBeGreaterThan(0);
     // A grid of divs reads as nothing; column headers are what make a table
     // navigable rather than a wall of numbers.
@@ -207,8 +217,7 @@ describe("Analytics — every chart has a table", () => {
     const user = userEvent.setup();
     renderScreen(<AnalyticsPage />, at());
     await screen.findByText("17");
-    const group = screen.getByRole("radiogroup", { name: /Blocked by assignee/i });
-    await user.click(within(group).getByRole("radio", { name: "Table" }));
+    await showTables(user);
     expect(await screen.findByText(/File the customs declaration/)).toBeInTheDocument();
   });
 });
@@ -219,14 +228,24 @@ describe("Analytics — chart guidance and blocked detail", () => {
     renderScreen(<AnalyticsPage />, at());
     await screen.findByText("17");
 
-    // The chart controls only — the page header has its own "About this page".
-    const infoButtons = screen
+    // The chart controls only. The page header has its own "About this page",
+    // and the headline strip has one ⓘ carrying the four definitions that used
+    // to be printed under the four numbers.
+    const chartInfo = screen
       .getAllByRole("button", { name: /^About / })
-      .filter((b) => b.getAttribute("aria-label") !== "About this page");
-    expect(infoButtons).toHaveLength(7);
+      .filter(
+        (b) =>
+          !["About this page", "About the headline figures"].includes(
+            b.getAttribute("aria-label") ?? "",
+          ),
+      );
+    expect(chartInfo).toHaveLength(7);
+    expect(
+      screen.getByRole("button", { name: "About the headline figures" }),
+    ).toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("button", { name: "About Overdue aging" }),
+      screen.getByRole("button", { name: "About Overdue Aging" }),
     );
     expect(await screen.findByText("What it shows")).toBeInTheDocument();
     expect(screen.getByText("Why it matters")).toBeInTheDocument();
@@ -294,20 +313,20 @@ describe("Analytics — chart guidance and blocked detail", () => {
       screen.getByRole("heading", { name: "Throughput" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Overdue aging" }),
+      screen.queryByRole("heading", { name: "Overdue Aging" }),
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(
-      await screen.findByRole("heading", { name: "Overdue aging" }),
+      await screen.findByRole("heading", { name: "Overdue Aging" }),
     ).toBeInTheDocument();
     expect(screen.getByText("2 / 7")).toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("button", { name: "About Overdue aging" }),
+      screen.getByRole("button", { name: "About Overdue Aging" }),
     );
     expect(
-      await screen.findByRole("dialog", { name: "About Overdue aging" }),
+      await screen.findByRole("dialog", { name: "About Overdue Aging" }),
     ).toBeInTheDocument();
   });
 });
@@ -357,8 +376,9 @@ describe("Analytics — filters and drill-downs", () => {
   it("makes each headline figure openable", async () => {
     renderScreen(<AnalyticsPage />, at());
     await screen.findByText("17");
-    // The headline card itself, named by its label, its value and its hint —
-    // a figure you cannot open is a figure you cannot check.
+    // The headline card itself, named by its label and its value. A figure you
+    // cannot open is a figure you cannot check. Its DEFINITION is no longer in
+    // the name: the four of them moved behind the strip's one ⓘ.
     const open = screen.getByRole("button", { name: /^Open\s*17/ });
     expect(open).toBeEnabled();
   });
@@ -367,8 +387,11 @@ describe("Analytics — filters and drill-downs", () => {
     const user = userEvent.setup();
     renderScreen(<AnalyticsPage />, at());
     await screen.findByText("17");
-    const group = screen.getByRole("radiogroup", { name: /Blocked by assignee/i });
-    await user.click(within(group).getByRole("radio", { name: "Table" }));
+    await user.click(
+      within(
+        screen.getByRole("radiogroup", { name: "How to show the figures" }),
+      ).getByRole("radio", { name: "Tables" }),
+    );
     const row = await screen.findByText(/File the customs declaration/);
     expect(row.closest("a")?.getAttribute("href") ?? row.closest("button")?.tagName ?? row.tagName).toBeTruthy();
   });
@@ -379,9 +402,11 @@ describe("Analytics — operational, and nothing else", () => {
     const user = userEvent.setup();
     renderScreen(<AnalyticsPage />, at());
     await screen.findByText("17");
-    for (const toggle of screen.getAllByRole("radio", { name: "Table" })) {
-      await user.click(toggle);
-    }
+    await user.click(
+      within(
+        screen.getByRole("radiogroup", { name: "How to show the figures" }),
+      ).getByRole("radio", { name: "Tables" }),
+    );
     // The recorded boundary, asserted where it would actually be crossed: a
     // "rating" or "score" COLUMN added to the workload panel changes what this
     // screen IS, and would arrive as a one-line diff nobody flagged. The prose
@@ -397,15 +422,19 @@ describe("Analytics — operational, and nothing else", () => {
     const user = userEvent.setup();
     renderScreen(<AnalyticsPage />, at());
     await screen.findByText("17");
-    // Each figure's toggle is named after its own figure, so the workload one
-    // can be picked out of the six without depending on panel order.
+    // The page's one toggle shows every table at once; the workload one is
+    // then found by its own caption rather than by panel order.
     // The toggle group is named after its own figure, so the workload one can
     // be picked out of the six without depending on panel order.
-    const group = screen.getByRole("radiogroup", { name: /Open work by assignee/i });
-    await user.click(within(group).getByRole("radio", { name: "Table" }));
-    const table = within(
-      screen.getByRole("radiogroup", { name: /Open work by assignee/i }).parentElement as HTMLElement,
-    ).getByRole("table");
+    const group = screen.getByRole("radiogroup", {
+      name: "How to show the figures",
+    });
+    await user.click(within(group).getByRole("radio", { name: "Tables" }));
+    // Scoped by the caption rather than by a sibling toggle that no longer
+    // exists: the caption is the figure's own name and cannot drift from it.
+    const table = screen
+      .getAllByRole("table")
+      .find((t) => /Open work by assignee/i.test(t.textContent ?? "")) as HTMLElement;
     expect(within(table).getByText("JBS Praxis")).toBeInTheDocument();
     // And an unowned pile is a sentence, not a null: "Unassigned" is somebody's
     // problem to pick up, an empty cell is nobody's.
