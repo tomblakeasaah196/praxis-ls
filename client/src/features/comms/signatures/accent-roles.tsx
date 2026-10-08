@@ -66,15 +66,15 @@ const ROLE_COPY: Record<
   { title: string; paints: string }
 > = {
   ink: {
-    title: "Name and headline",
+    title: "Name and Headline",
     paints: "The person's name, the website, the motto and the divider rule.",
   },
   glow: {
-    title: "Edges and background",
+    title: "Edges and Background",
     paints: "The card's border, its background tint and the middle of the top bar.",
   },
   warm: {
-    title: "Accent marks",
+    title: "Accent Marks",
     paints: "The dash beside the job title, and the phone and website icons.",
   },
 };

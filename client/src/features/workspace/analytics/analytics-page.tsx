@@ -78,10 +78,10 @@ import { useIsDesktop, useMediaQuery } from "@/lib/use-media-query";
  * server clamps anything wider than a year regardless and says when it did.
  */
 const RANGES = [
-  { value: "7", label: "Last 7 days" },
-  { value: "30", label: "Last 30 days" },
-  { value: "90", label: "Last 90 days" },
-  { value: "365", label: "Last 12 months" },
+  { value: "7", label: "Last 7 Days" },
+  { value: "30", label: "Last 30 Days" },
+  { value: "90", label: "Last 90 Days" },
+  { value: "365", label: "Last 12 Months" },
 ] as const;
 
 type RangeValue = (typeof RANGES)[number]["value"];
@@ -871,7 +871,7 @@ function OverdueAgingPanel({
         empty={total === 0}
         emptyTitle={tr("Nothing is late")}
         emptyHint={tr("Every open task with a deadline is still inside it.")}
-        chart={<SeriesBars data={points} series={[{ key: "tasks", tone: "warn", label: tr("Overdue tasks") }]} height={200} />}
+        chart={<SeriesBars data={points} series={[{ key: "tasks", tone: "warn", label: tr("Overdue Tasks") }]} height={200} />}
         columns={[tr("Days Late"), tr("Tasks")]}
         rows={rows.map((r) => [bucketLabel(r.bucket), String(r.tasks)])}
         caption={tr("Overdue tasks by age band")}

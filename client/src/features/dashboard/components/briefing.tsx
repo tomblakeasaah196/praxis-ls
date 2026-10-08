@@ -99,8 +99,7 @@ export function Briefing({
           </ul>
         ) : (
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Nothing is waiting on you — no open files, approvals, compliance
-            flags or unposted journals.
+            Nothing is waiting on you.
           </p>
         )}
         <p className="mt-1.5 text-label text-muted-foreground">

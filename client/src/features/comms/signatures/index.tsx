@@ -35,7 +35,7 @@ type TabKey = "designer" | "batch" | "templates" | "delivery";
 const TABS: { key: TabKey; label: string; adminOnly: boolean; hint: string }[] = [
   {
     key: "designer",
-    label: "My signature",
+    label: "My Signature",
     adminOnly: false,
     hint: "Your own card, and the image to paste into Outlook or Gmail",
   },
@@ -53,7 +53,7 @@ const TABS: { key: TabKey; label: string; adminOnly: boolean; hint: string }[] =
   },
   {
     key: "delivery",
-    label: "Delivery check",
+    label: "Delivery Check",
     adminOnly: true,
     hint: "Why the card image is missing from sent mail",
   },

@@ -73,7 +73,7 @@ function IntakeRow({ row, onDone }: { row: api.IntakeSuggestion; onDone: () => v
         {row.suggested_entity_ref ? (
           <> {tr("for")} {row.entity_label || humanizeRef(row.suggested_entity_ref)}</>
         ) : (
-          <> {tr("— but nothing says whose it is yet")}</>
+          <> {tr(", but nothing says whose it is yet")}</>
         )}
         {row.matched_on ? <> ({tr("from the")} {row.matched_on})</> : null}.
       </p>

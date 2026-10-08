@@ -111,7 +111,7 @@ export function FileLinkField({
   const pickedCount = picked.length;
   const summary =
     pickedCount === 0
-      ? tr("No milestone — the work is on the file as a whole")
+      ? tr("No milestone: the work is on the file as a whole")
       : pickedCount === 1
         ? tr("1 stage selected")
         : tr("{n} stages selected").replace("{n}", String(pickedCount));
@@ -128,7 +128,7 @@ export function FileLinkField({
         label="Operations file"
         value={dossierId}
         disabled={disabled}
-        hint="The work still belongs to whoever it is assigned to — linking it only makes it visible on the file."
+        hint="Linking does not reassign it; it only makes it visible on the file."
         onSelect={pick}
         onClear={() => onChange(EMPTY_LINK)}
       />
@@ -138,7 +138,8 @@ export function FileLinkField({
       {dossierId && (loadingStages || stages.length > 0) && (
         <Field
           label="Milestones"
-          hint="Optional — tick every stage of the chain this work belongs to. Leave them all unticked when it is on the file as a whole."
+          about="Tick every stage of the chain this work belongs to. Leave them all unticked when it is on the file as a whole."
+          aboutLabel="About milestones"
         >
           {/* `Field` clones its single child with the label's id, so this
               wrapper IS the labelled group — every chip inside is a checkbox

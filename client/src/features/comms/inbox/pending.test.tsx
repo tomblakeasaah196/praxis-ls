@@ -156,7 +156,7 @@ describe("Outbox", () => {
         ],
       },
     });
-    expect(await screen.findByText("Did not send")).toBeInTheDocument();
+    expect(await screen.findByText("Did Not Send")).toBeInTheDocument();
     // Paraphrasing this into "something went wrong" is what makes a failure
     // unfixable: only the raw refusal tells the operator to change the From.
     expect(
@@ -206,7 +206,7 @@ describe("Outbox", () => {
         ],
       },
     });
-    await screen.findByText("Going out");
+    await screen.findByText("Going Out");
     // `repo.cancel` is `UPDATE … WHERE status = 'HELD'`. A button on any of
     // these three can only ever 409, and a control that always fails teaches
     // people to distrust the ones that work.
@@ -234,7 +234,7 @@ describe("Outbox", () => {
         "/mail/outbox": [queued({ status: "FAILED", last_error: "550 nope" })],
       },
     });
-    await screen.findByText("Did not send");
+    await screen.findByText("Did Not Send");
     await userEvent.click(screen.getByRole("button", { name: "Send again" }));
     expect(await screen.findByText(/Queued again/)).toBeInTheDocument();
   });
@@ -254,7 +254,7 @@ describe("Outbox", () => {
         ],
       },
     });
-    await screen.findByText("Did not send");
+    await screen.findByText("Did Not Send");
     expect(screen.getByRole("button", { name: "Send again" })).toBeInTheDocument();
   });
 
@@ -270,7 +270,7 @@ describe("Outbox", () => {
         ],
       },
     });
-    await screen.findByText("Going out");
+    await screen.findByText("Going Out");
     expect(screen.queryByRole("button", { name: "Send again" })).toBeNull();
   });
 
@@ -285,7 +285,7 @@ describe("Outbox", () => {
         "/mail/send/q1/retry": apiError(409, "That message is already on its way.", "BAD_STATE"),
       },
     });
-    await screen.findByText("Did not send");
+    await screen.findByText("Did Not Send");
     await userEvent.click(screen.getByRole("button", { name: "Send again" }));
     expect(await screen.findByText("That message is already on its way.")).toBeInTheDocument();
   });

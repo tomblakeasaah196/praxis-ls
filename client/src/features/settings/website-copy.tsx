@@ -275,7 +275,7 @@ export function WebsiteCopyPage() {
     <div className="space-y-5">
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title={tr("Website wording")}
+        title={tr("Website Wording")}
         description={tr(
           "Every heading, label and sentence the site shows around your content. Leave a field blank to keep the wording Praxis ships.",
         )}

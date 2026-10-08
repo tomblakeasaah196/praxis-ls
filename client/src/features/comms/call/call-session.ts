@@ -182,7 +182,7 @@ function errText(err: unknown): string {
 function micErrText(err: unknown): string {
   const name = err instanceof Error ? err.name : "";
   if (name === "NotAllowedError" || name === "SecurityError") {
-    return tr("Microphone blocked — allow it for this site to make and take calls");
+    return tr("Microphone blocked. Allow it for this site to make and take calls");
   }
   if (name === "NotFoundError" || (err instanceof Error && err.message === "no-media-device")) {
     return tr("No microphone found on this device");

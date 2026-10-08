@@ -70,7 +70,7 @@ const MODE_LABEL: Record<api.LegMode, string> = {
   SEA: "Sea",
   LAND: "Land",
   RAIL: "Rail",
-  OTHER: "No transport",
+  OTHER: "No Transport",
 };
 
 const STATUS_LABEL: Record<api.LegStatus, string> = {

@@ -159,7 +159,7 @@ export function WebsiteAboutPage() {
     <div className="space-y-5">
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title={tr("About your company")}
+        title={tr("About Your Company")}
         description={tr(
           "The story on your public About page. What each legal company does is edited in its own dossier.",
         )}

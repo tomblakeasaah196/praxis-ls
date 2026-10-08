@@ -106,7 +106,7 @@ export function CompanyProfilePage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Sales & CRM" to="/sales" />}
-        title={tr("Company profile")}
+        title={tr("Company Profile")}
         description="Declared facts and SQL-derived operating evidence used to ground proposals."
         action={
           <Button onClick={refresh} loading={busy}>

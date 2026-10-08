@@ -244,7 +244,7 @@ export function CustomFieldsPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Custom fields"
+        title="Custom Fields"
         description="Per-entity field definitions — extra fields a consuming module can render and store."
         action={<Button onClick={() => edit(null)}>New definition</Button>}
       />

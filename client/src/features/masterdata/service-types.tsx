@@ -120,7 +120,7 @@ export function ServiceTypesPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Master Data" to="/master" />}
-        title="Service types"
+        title="Service Types"
         description="The services you sell. Operations files are classified by service type, and each one carries the milestone chain new files start with."
         action={
           <Button onClick={() => setEditing(null)}>New service type</Button>

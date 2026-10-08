@@ -155,7 +155,7 @@ const SHIPMENTS: LiveShipment[] = [
     mode: "sea",
     from: "Shanghai",
     to: "Douala",
-    status: "In progress",
+    status: "In Progress",
     tone: "blue",
     stage: "Costing approval",
     eta: "04 Jul 2026",
@@ -185,7 +185,7 @@ const LANES: Lane[] = [
     dossierId: "d-142",
     ref: "SBX-OPS-2026-0142",
     mode: "sea",
-    status: "In progress",
+    status: "In Progress",
     legType: "MAIN_CARRIAGE",
     seq: 1,
     from: {
@@ -350,7 +350,7 @@ describe("KpiStrip", () => {
         onEditTiles={vi.fn()}
       />,
     );
-    expect(screen.getByText("Fleet utilisation")).toBeInTheDocument();
+    expect(screen.getByText("Fleet Utilisation")).toBeInTheDocument();
   });
 
   it("a selected tile that is unavailable here shows as a counted gap, not a card", () => {

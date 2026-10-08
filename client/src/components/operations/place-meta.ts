@@ -45,7 +45,7 @@ export const VERIFICATION_COPY: Record<
     hint: "This place is in the catalogue with a confirmed coordinate.",
   },
   reference: {
-    label: "Reference point",
+    label: "Reference Point",
     hint: "A verified point near the real address, agreed as a stand-in for the map. Delivery instructions on the file still describe the exact spot.",
   },
   unverified: {
@@ -53,7 +53,7 @@ export const VERIFICATION_COPY: Record<
     hint: "A coordinate was resolved automatically and nobody has confirmed it. Open the place search to check or replace it.",
   },
   unknown: {
-    label: "No place record",
+    label: "No Place Record",
     hint: "This is text only — it is not linked to a place, so it cannot be mapped. Pick a place to fix that.",
   },
 };

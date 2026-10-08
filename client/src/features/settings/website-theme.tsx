@@ -248,7 +248,7 @@ export function WebsiteThemePage() {
     <div className="space-y-5">
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title={tr("Website theme")}
+        title={tr("Website Theme")}
         description={tr(
           "The colours and faces of your public site. Pick up to three brand colours; everything else is derived so it stays readable.",
         )}

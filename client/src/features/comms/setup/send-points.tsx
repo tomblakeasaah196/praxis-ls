@@ -165,7 +165,7 @@ export function SendPointsTab() {
       {points.error && <ErrorState message={points.error} />}
 
       <div className="rounded-lg border border-border bg-card/40 px-3 py-2 text-sm">
-        {tr("A send point with no sender of its own falls back — first to the section sender for its purpose, then to the company's shared SMTP, then to the Praxis system sender. Nothing ever fails to send because a send point is unset.")}
+        {tr("A send point with no sender of its own falls back: first to the section sender for its purpose, then to the company's shared SMTP, then to the Praxis system sender. Nothing ever fails to send because a send point is unset.")}
         {unconfigured > 0 && (
           <>
             {" "}

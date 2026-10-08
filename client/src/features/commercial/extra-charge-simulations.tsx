@@ -724,7 +724,7 @@ export function ExtraChargeSimulationsPage() {
     <PageContainer>
       <PageHeader
         eyebrow={<HubCrumb area="Commercial" to="/commercial" />}
-        title="Extra-charge simulator"
+        title="Extra-charge Simulator"
         description="Demurrage, storage, yard occupancy, plugging and detention across a container list — an estimate, with no accounting entries."
         action={
           <Button onClick={() => startNew()}>{tr("New simulation")}</Button>

@@ -382,7 +382,7 @@ export function TaskBoard({
           {query?.trim() ? (
             <EmptyState
               title={tr("No tasks match “{q}”").replace("{q}", query.trim())}
-              hint={tr("Try another word. The search covers titles, notes, the linked file's reference, its client and step titles.")}
+              hint={tr("Searches titles, notes, the file reference, its client and step titles.")}
               action={
                 onClearQuery ? (
                   <button type="button" className="btn-primary" onClick={onClearQuery}>
@@ -394,7 +394,7 @@ export function TaskBoard({
           ) : (
             <EmptyState
               title="Nothing on the board"
-              hint="Tasks you write, or that are assigned to you, land here in the column that matches how far along they are."
+              hint="Tasks you write or are assigned land here."
               action={
                 <button type="button" className="btn-primary" onClick={onCreate}>
                   Add the first task

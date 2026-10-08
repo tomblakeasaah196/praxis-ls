@@ -136,11 +136,11 @@ export function humanizeType(type: string | null | undefined): string {
  * the anchor, so a preset that moves the due date moves the reminder with it.
  */
 export const REMINDER_PRESETS = [
-  { value: "", label: "No reminder" },
-  { value: "0", label: "At the time" },
-  { value: "15", label: "15 minutes before" },
-  { value: "60", label: "1 hour before" },
-  { value: "180", label: "3 hours before" },
-  { value: "1440", label: "1 day before" },
-  { value: "10080", label: "1 week before" },
+  { value: "", label: "No Reminder" },
+  { value: "0", label: "At the Time" },
+  { value: "15", label: "15 Minutes Before" },
+  { value: "60", label: "1 Hour Before" },
+  { value: "180", label: "3 Hours Before" },
+  { value: "1440", label: "1 Day Before" },
+  { value: "10080", label: "1 Week Before" },
 ] as const;

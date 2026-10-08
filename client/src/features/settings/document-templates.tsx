@@ -196,7 +196,7 @@ export function DocumentTemplatesPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
-        title="Document templates"
+        title="Document Templates"
         description="Letterhead and body templates per document type — invoices, POs, receipts, contracts."
         action={<Button onClick={() => edit(null)}>New template</Button>}
       />

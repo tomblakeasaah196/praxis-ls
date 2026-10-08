@@ -96,7 +96,7 @@ export function CallOverlay({
         {recordingEnabled && <RecordingNotice detail={processors} />}
         {recordingLost > 0 && (
           <Callout tone="warn">
-            {tr("Part of this call's audio could not be uploaded — the transcript may be incomplete.")}
+            {tr("Part of this call's audio could not be uploaded: the transcript may be incomplete.")}
           </Callout>
         )}
         {warning && phase === "in_call" && <Callout tone="warn">{tr("1 minute left")}</Callout>}
@@ -105,7 +105,7 @@ export function CallOverlay({
         )}
         {peerOffline && (phase === "outgoing" || phase === "connecting") && (
           <p className="text-xs text-muted-foreground" aria-live="polite">
-            {tr("Their device looks offline — it may not ring until they open the app")}
+            {tr("Their device looks offline: it may not ring until they open the app")}
           </p>
         )}
         {audioBlocked && (

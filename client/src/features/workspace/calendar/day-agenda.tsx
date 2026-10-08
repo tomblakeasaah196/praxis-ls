@@ -108,7 +108,7 @@ export function DayAgenda({
         all_day: true,
       });
       setQuickTitle("");
-      toast.success("Added — all day. Open it to set a time.");
+      toast.success("Added: all day. Open it to set a time.");
     } catch (err) {
       toast.error(errMsg(err));
     }
@@ -135,8 +135,8 @@ export function DayAgenda({
           }}
         >
           <Input
-            aria-label="Quick add — an all-day event"
-            placeholder="Quick add — title only, lands as an all-day event"
+            aria-label="Quick add: an all-day event"
+            placeholder="Quick add: title only, lands as an all-day event"
             value={quickTitle}
             maxLength={TITLE_MAX}
             onChange={(e) => setQuickTitle(e.target.value)}

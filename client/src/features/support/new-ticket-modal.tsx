@@ -162,7 +162,7 @@ export function NewTicketModal({
       open
       onClose={onClose}
       title={tr("Raise a ticket")}
-      description="Reach the Praxis team directly — ask for help, report a bug, or request a feature."
+      description="Reach the Praxis team directly: ask for help, report a bug, or request a feature."
     >
       <form className="space-y-4" onSubmit={submit}>
         <Field label={tr("Type")} required>

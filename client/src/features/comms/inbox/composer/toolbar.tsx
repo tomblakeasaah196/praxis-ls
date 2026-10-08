@@ -274,8 +274,8 @@ export function ComposerToolbar({
            */
           void (async () => {
             const url = await prompt({
-              title: tr("Add a link"),
-              label: tr("Link to"),
+              title: tr("Add a Link"),
+              label: tr("Link To"),
               type: "url",
               placeholder: "https://",
               hint: tr("The selected text becomes the link."),
@@ -323,9 +323,9 @@ export function ComposerToolbar({
           `compose.js` (`align()`) since PR-1B; there was simply no control, so
           a centred heading was reachable only by pasting one in. */}
       {([
-        { v: "left", glyph: "⯇", label: "Align left" },
+        { v: "left", glyph: "⯇", label: "Align Left" },
         { v: "center", glyph: "≡", label: "Centre" },
-        { v: "right", glyph: "⯈", label: "Align right" },
+        { v: "right", glyph: "⯈", label: "Align Right" },
       ] as const).map((a) => (
         <Tool
           key={a.v}

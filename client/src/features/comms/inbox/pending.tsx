@@ -209,7 +209,7 @@ const STATUS: Record<api.OutboxEntry["status"], { tone: Tone; label: string; why
   },
   QUEUED: {
     tone: "blue",
-    label: "Going out",
+    label: "Going Out",
     why: "Released to the mail server: too late to stop.",
   },
   SENDING: {
@@ -219,7 +219,7 @@ const STATUS: Record<api.OutboxEntry["status"], { tone: Tone; label: string; why
   },
   FAILED: {
     tone: "bad",
-    label: "Did not send",
+    label: "Did Not Send",
     // The queue has stopped on its own — that part has not changed, and saying
     // so is what stops somebody waiting for a delivery that is never coming.
     // What changed is that the sentence now ends somewhere: fix what the server

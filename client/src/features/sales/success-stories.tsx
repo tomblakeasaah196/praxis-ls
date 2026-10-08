@@ -558,7 +558,7 @@ export function SuccessStoriesPage() {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Sales & CRM" to="/sales" />}
-        title="Success stories"
+        title="Success Stories"
         description="Build from completed operations files, sign off, then publish to the portfolio."
         action={<Button onClick={() => { setEditing(null); setFormOpen(true); }}>New story</Button>}
       />

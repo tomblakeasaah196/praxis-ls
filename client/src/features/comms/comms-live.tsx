@@ -203,7 +203,7 @@ export function CommsLive() {
       toast.info(tr("Answered on another device"));
     } else if (r === "no_answer") {
       if (iWasCaller) toast.info(tv("No answer", {}));
-      else toast.info(tv("Missed call — {{name}}", { name }));
+      else toast.info(tv("Missed call: {{name}}", { name }));
     } else if (r === "cancelled") {
       toast.info(tr("Call cancelled"));
     } else if (r === "declined") {
@@ -211,7 +211,7 @@ export function CommsLive() {
     } else if (r === "ice_failed" || r === "busy") {
       toast.error(tr("Could not connect the call"));
     } else if (r === "disconnected") {
-      toast.info(tr("The call was lost — the connection ended"));
+      toast.info(tr("The call was lost: the connection ended"));
     } else {
       toast.info(tr("Call ended"));
     }

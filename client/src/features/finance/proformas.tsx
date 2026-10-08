@@ -323,7 +323,7 @@ export const ProformasPage = () => {
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
-        title="Proforma & advances"
+        title="Proforma & Advances"
         description="Advance payments received against a proforma — posts to 4191 (customer advances), not revenue. Priced offers with line items live in Quotations."
         action={
           <div className="flex items-center gap-3">

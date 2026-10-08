@@ -340,7 +340,7 @@ export function ShipmentMap({
         aria-label={
           laneCount
             ? `Live shipment map — ${counts.sea} sea, ${counts.road} road and ${counts.air} air legs across ${fileCount} operations ${fileCount === 1 ? "file" : "files"}`
-            : "Live shipment map — no plottable routes"
+            : "Live shipment map: no plottable routes"
         }
       >
         <defs>

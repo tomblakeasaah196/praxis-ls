@@ -297,7 +297,7 @@ export function DriversPage() {
     <section className={shell}>
       <PageHeader
         eyebrow={<HubCrumb area="Fleet" to="/fleet" />}
-        title="Driver licences"
+        title="Driver Licences"
         description="Licences and certifications per driver — renew before they expire."
         action={<Button onClick={() => setCreating(true)}>New licence</Button>}
       />

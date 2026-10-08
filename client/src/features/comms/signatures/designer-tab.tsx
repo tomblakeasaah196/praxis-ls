@@ -49,7 +49,7 @@ type PhoneKey = "phone_desk" | "phone_mobile";
 type ProfileKey = "whatsapp" | "pronouns";
 
 const PHONES: { key: PhoneKey; label: string }[] = [
-  { key: "phone_desk", label: "Desk phone" },
+  { key: "phone_desk", label: "Desk Phone" },
   { key: "phone_mobile", label: "Mobile" },
 ];
 
