@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1878 |
+| Routes | 1881 |
 | Modules mounted | 143 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1878 mounted routes, grouped by path prefix.
+All 1881 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -365,8 +365,10 @@ All 1878 mounted routes, grouped by path prefix.
 
 | Method | Path | Body validated |
 |---|---|---|
+| GET | `/api/tenant/auth/2fa` | — |
 | POST | `/api/tenant/auth/2fa/disable` | — |
 | POST | `/api/tenant/auth/2fa/enable` | — |
+| PUT | `/api/tenant/auth/2fa/frequency` | — |
 | POST | `/api/tenant/auth/2fa/setup` | — |
 | POST | `/api/tenant/auth/2fa/verify` | — |
 | POST | `/api/tenant/auth/avatar` | — |
@@ -2499,6 +2501,7 @@ All 1878 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/users/` | — |
 | GET | `/api/tenant/users/:id` | — |
 | PATCH | `/api/tenant/users/:id` | — |
+| POST | `/api/tenant/users/:id/2fa/reset` | — |
 | GET | `/api/tenant/users/:id/email-signature` | — |
 | PUT | `/api/tenant/users/:id/email-signature` | — |
 | POST | `/api/tenant/users/:id/invite` | — |

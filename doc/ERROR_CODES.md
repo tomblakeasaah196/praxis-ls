@@ -287,7 +287,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `INCOTERM_NOT_OFFERED` | 422 | 1× | — |
 | `INELIGIBLE_DOSSIER` | — | 1× | — |
 | `INSUFFICIENT_LEAVE` | — | 1× | — |
-| `INVALID_2FA_CODE` | 401 | 3× | — |
+| `INVALID_2FA_CODE` | 401 | 2× | — |
 | `INVALID_AMOUNT` | 422 | 7× | — |
 | `INVALID_CHALLENGE` | 400 | 12× | — |
 | `INVALID_CODE` | — | 1× | — |
@@ -387,8 +387,8 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_DONE` | 422 | 1× | — |
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
-| `NOT_ENABLED` | 400 | 3× | — |
-| `NOT_FOUND` | 404, 422 | 761× | — |
+| `NOT_ENABLED` | 400 | 4× | — |
+| `NOT_FOUND` | 404, 422 | 763× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -723,7 +723,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `USE_APPROVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 422 | 291× | — |
+| `VALIDATION_ERROR` | 400, 422 | 292× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |
