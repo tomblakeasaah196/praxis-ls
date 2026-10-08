@@ -134,8 +134,8 @@ describe("KpiPicker", () => {
   it("lists only the offered set and never names what the grants hide", () => {
     open(catalog());
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("Revenue · turnover")).toBeInTheDocument();
-    expect(within(dialog).getByText("Approvals · awaiting")).toBeInTheDocument();
+    expect(within(dialog).getByText("Revenue · Turnover")).toBeInTheDocument();
+    expect(within(dialog).getByText("Approvals · Awaiting")).toBeInTheDocument();
     // totalLive is five here by fixture; a hidden tile (say payroll) is not
     // even a row — it does not appear greyed either.
     expect(within(dialog).queryByText(/Payroll/)).not.toBeInTheDocument();
@@ -144,7 +144,7 @@ describe("KpiPicker", () => {
   it("toggles write nothing until Apply, and Cancel writes nothing at all", async () => {
     const user = userEvent.setup();
     open(catalog());
-    await user.click(screen.getByRole("button", { name: /Operations · active/ }));
+    await user.click(screen.getByRole("button", { name: /Operations · Active/ }));
     expect(saveShellPrefs).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: /Cancel/i }));
     expect(saveShellPrefs).not.toHaveBeenCalled();
@@ -153,13 +153,13 @@ describe("KpiPicker", () => {
   it("Apply persists the ordered four, then closes", async () => {
     const user = userEvent.setup();
     const { onClose } = open(catalog());
-    for (const label of [/Operations · active/, /Compliance · open/]) {
+    for (const label of [/Operations · Active/, /Compliance · Open/]) {
       await user.click(await screen.findByRole("button", { name: label }));
     }
     const apply = screen.getByRole("button", { name: /^Apply/i });
     expect(apply).toBeEnabled(); // the draft differs from the (empty) stored answer
-    await user.click(screen.getByRole("button", { name: /Approvals · awaiting/ }));
-    await user.click(screen.getByRole("button", { name: /Location queue/ }));
+    await user.click(screen.getByRole("button", { name: /Approvals · Awaiting/ }));
+    await user.click(screen.getByRole("button", { name: /Location Queue/ }));
     expect(apply).toBeEnabled();
     await user.click(apply);
     expect(saveShellPrefs).toHaveBeenCalledWith({
@@ -175,7 +175,7 @@ describe("KpiPicker", () => {
       }),
     );
     expect(
-      screen.getByRole("button", { name: /Approvals · awaiting/ }),
+      screen.getByRole("button", { name: /Approvals · Awaiting/ }),
     ).toBeDisabled();
   });
 
@@ -192,7 +192,7 @@ describe("KpiPicker", () => {
     const removes = screen.getAllByRole("button", { name: /Remove/i });
     expect(removes[0]).toBeDisabled();
     // And its catalog row still shows it as picked (clicking would remove → draftRemove refuses).
-    await user.click(screen.getByRole("button", { name: /Revenue · turnover/ }));
+    await user.click(screen.getByRole("button", { name: /Revenue · Turnover/ }));
     expect(saveShellPrefs).not.toHaveBeenCalled();
     const apply = screen.getByRole("button", { name: /^Apply/i });
     // Draft unchanged by the refused removal, so Apply is not dirty.
@@ -207,7 +207,7 @@ describe("KpiPicker", () => {
         roleDefaultIds: ["revenue", "files_active"],
       }),
     );
-    await user.click(screen.getByRole("button", { name: /Restore role default/i }));
+    await user.click(screen.getByRole("button", { name: /Restore Role Default/i }));
     await user.click(screen.getByRole("button", { name: /^Apply/i }));
     expect(saveShellPrefs).toHaveBeenCalledWith({ kpiPins: null });
   });
@@ -215,7 +215,7 @@ describe("KpiPicker", () => {
   it("Clear my choice writes null immediately — the door back to following the role", async () => {
     const user = userEvent.setup();
     open(catalog({ currentIds: ["files_active"] }));
-    await user.click(screen.getByRole("button", { name: /Clear my choice/i }));
+    await user.click(screen.getByRole("button", { name: /Clear My Choice/i }));
     await vi.waitFor(() =>
       expect(saveShellPrefs).toHaveBeenCalledWith({ kpiPins: null }),
     );

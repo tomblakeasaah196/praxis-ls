@@ -752,10 +752,9 @@ function ImapConnectForm({
         </Field>
         <Field label="Login user">
           <Input
-            placeholder="Defaults to the email address"
             value={f.auth_user}
             onChange={(e) => set("auth_user", e.target.value)}
-            placeholder={tr("optional")}
+            placeholder={tr("Defaults to the email address")}
           />
         </Field>
         <Field

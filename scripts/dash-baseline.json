@@ -283,7 +283,7 @@
   "client/src/lib/finance-api.ts": 1,
   "client/src/lib/fonts.ts": 1,
   "client/src/lib/hr-api.ts": 3,
-  "client/src/lib/i18n-dict.ts": 217,
+  "client/src/lib/i18n-dict.ts": 216,
   "client/src/lib/push-sync.ts": 1,
   "client/src/lib/quote-request-api.ts": 2,
   "client/src/lib/rbac.ts": 4,

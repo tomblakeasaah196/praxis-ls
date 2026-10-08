@@ -93,7 +93,7 @@ export function clockOf(seconds: number): string {
 
 /**
  * The minutes with no transcript, for the caller (the editor is the caller's):
- * "02:00–04:00 on your side". Empty when nothing is missing.
+ * "02:00 to 04:00 on your side". Empty when nothing is missing.
  */
 export function gapsSentence(gaps: CallTranscriptGap[]): string {
   if (!gaps.length) return "";

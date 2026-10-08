@@ -578,7 +578,7 @@ for (const f of files()) {
     if (CHROME_OPEN.test(line.trim())) {
       const tag = openingTag(lines, i);
       const attr = topLevelAttr(tag);
-      if (attr && !exempt(lines, i)) {
+      if (attr) {
         const text = attr.replace(/\\(["'])/g, "$1");
         if (!SKIP_TITLE.test(text) && text.length <= 60 && !isTitleCase(text)) {
           problems.title.push({ key, line: i + 1, text, abs });
