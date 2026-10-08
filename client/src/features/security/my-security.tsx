@@ -29,6 +29,7 @@ import { useAuth } from "@/app/auth/auth-context";
 import { ApiError, tenantWithProgress } from "@/lib/api-client";
 import { FilePicker } from "@/components/ui/image-upload";
 import { UploadProgress } from "@/components/ui/upload-progress";
+import { Callout } from "@/components/ui/callout";
 import { useUpload } from "@/lib/use-upload";
 import { fileToDataUrl } from "@/lib/image-compress";
 import { PIN_LENGTH } from "@/components/ui/pin-input";
@@ -97,7 +98,7 @@ type Msg = { kind: "ok" | "err"; text: string } | null;
 function errText(e: unknown): string {
   if (e instanceof ApiError) {
     if (e.code === "INVALID_2FA_CODE")
-      return "That code isn't right — check your authenticator and retry.";
+      return "That code isn't right. Check your authenticator and retry.";
     return e.message;
   }
   return "Something went wrong. Try again.";
@@ -156,6 +157,16 @@ export function MySecurityPage() {
   const [pwBusy, setPwBusy] = React.useState(false);
   const [pwMsg, setPwMsg] = React.useState<Msg>(null);
 
+  /* PASSWORD RULES ARE MESSAGES, AND §3.18 SAYS SO BY NAME.
+   *
+   * The object-literal rule's own docblock gives "password rules like 'A
+   * number'" as its canonical false positive: `label:` carries tab labels and
+   * column headers, which are names, AND rule lines like these, which are
+   * things the product is telling the user about what they typed. Title Casing
+   * them would produce "An Uppercase and a Lowercase Letter".
+   *
+   * One marker for the array rather than four, because the decision is about
+   * the array. @prose:keep password rule lines are messages, not names. */
   const pwRules = [
     { label: "At least 12 characters", ok: newPw.length >= 12 },
     {
@@ -449,7 +460,7 @@ export function MySecurityPage() {
         kind: "ok",
         text: hasPin
           ? "Your Quick PIN was changed. The old one no longer works on any device."
-          : "Quick PIN is set up. It signs you in on this device and every other one — your phone, your laptop, anywhere.",
+          : "Quick PIN is set up. It signs you in on this device and every other one: your phone, your laptop, anywhere.",
       });
     } catch (err) {
       setPinMsg({ kind: "err", text: errText(err) });
@@ -545,12 +556,12 @@ export function MySecurityPage() {
     try {
       const r = await withReauth((pw) => registerPasskey({ email, label: deviceLabel(), currentPassword: pw }));
       if (!r) return;
-      setPkMsg({ kind: "ok", text: `Done — ${bio} now signs you in on this device.` });
+      setPkMsg({ kind: "ok", text: `Done. ${bio} now signs you in on this device.` });
       loadPasskeys();
     } catch (err) {
       const code = (err as { code?: string } | null)?.code;
       if (code === "PASSKEY_ALREADY_ON_DEVICE") {
-        setPkMsg({ kind: "ok", text: "This device already has a passkey for your account — you're all set." });
+        setPkMsg({ kind: "ok", text: "This device already has a passkey for your account. You're all set." });
         bumpDevice();
       } else if (isPasskeyCancel(err)) {
         setPkMsg({ kind: "err", text: "Passkey setup was cancelled." });
@@ -607,7 +618,7 @@ export function MySecurityPage() {
       <div className="mt-2 flex flex-col gap-5">
         {/* Profile picture */}
         <SettingsCard
-          title="Profile picture"
+          title="Profile Picture"
           desc="Shown on your account menu across the app."
         >
           <div className="flex items-center gap-4">
@@ -675,13 +686,15 @@ export function MySecurityPage() {
           )}
         >
           <SettingsCard
-            title={`Passkey — ${bio === "your passkey" ? "one-touch sign-in" : bio}`}
-            desc="One touch signs you in, unlocks your session and signs documents. It belongs to this device alone — your laptop uses the laptop's, your phone uses the phone's — and it stays until you remove it here: signing out never removes it."
+            title={`Passkey: ${bio === "your passkey" ? "One-Touch Sign-In" : bio}`}
+            desc="One touch signs you in, unlocks your session and signs documents. A passkey belongs to one device: your laptop uses the laptop's, your phone uses the phone's. It stays until you remove it here, and signing out never removes it."
           >
             {!passkeySupported || platformOk === false ? (
+              /* @prose:keep the card's only content when the device cannot hold a passkey. */
               <p className="text-sm text-muted-foreground">
-                This browser or device has no built-in fingerprint, face or Windows Hello sign-in it can use, so it can&apos;t hold a
-                passkey. Use your Quick PIN or password here, and set a passkey up on your phone or laptop.
+                This device has no fingerprint, face or Windows Hello sign-in,
+                so it cannot hold a passkey. Use your Quick PIN or password
+                here, and set a passkey up on your phone or laptop.
               </p>
             ) : passkeyHere ? (
               <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
@@ -703,8 +716,10 @@ export function MySecurityPage() {
                     Set up {bio} on this device
                     <span className="status st-ok !py-0.5 !text-[9px]">recommended</span>
                   </p>
+                  /* @prose:keep says what the button beside it buys. */
                   <p className="text-xs text-muted-foreground">
-                    Your session locks every two hours. With a passkey, getting back in is a single touch.
+                    Your session locks every two hours. A passkey makes getting
+                    back in one touch.
                   </p>
                 </div>
                 <Button onClick={() => void onRegisterPasskey()} loading={pkBusy}>
@@ -760,7 +775,15 @@ export function MySecurityPage() {
         {/* Password */}
         <SettingsCard
           title={tr("Password")}
-          desc="Change it here whenever you like — you'll need your current one. Your other sessions are signed out; this one stays."
+          notice={
+            /* CHANGING A PASSWORD SIGNS OTHER DEVICES OUT. That is a
+               consequence of pressing the button below, so it is printed above
+               the button and not folded behind the card's ⓘ. §3.17. */
+            <Callout tone="warn">
+              Saving a new password signs out your other sessions. This one
+              stays.
+            </Callout>
+          }
         >
           <form onSubmit={onChangePassword} className="flex flex-col gap-3">
             {/* username hint: gives password managers the account to file the new
@@ -773,7 +796,10 @@ export function MySecurityPage() {
               readOnly
             />
             <div className="grid gap-3 lg:grid-cols-3">
-              <Field label="Current Password">
+              <Field
+                label="Current Password"
+                about="Forgotten it? Sign out and use Forgot Password on the sign-in screen: we email you a single-use link."
+              >
                 <Input
                   type="password"
                   autoComplete="current-password"
@@ -822,13 +848,8 @@ export function MySecurityPage() {
 
             <div>
               <Button type="submit" loading={pwBusy} disabled={!pwReady}>
-                Change password
+                Change Password
               </Button>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Can&apos;t remember your current password? Sign out and use
-                &ldquo;Forgot password&rdquo; on the sign-in screen — we&apos;ll
-                email you a single-use link.
-              </p>
             </div>
           </form>
 
@@ -992,7 +1013,14 @@ export function MySecurityPage() {
           {/* Quick PIN — one per person, every device */}
           <SettingsCard
             title="Quick PIN"
-            desc="Four digits that sign you in on any device — your phone, your laptop, anywhere. Five wrong tries in a row switch it off everywhere. If you use an authenticator app, it still asks for its code after the PIN."
+            desc="Four digits that sign you in on any device: your phone, your laptop, anywhere. If you use an authenticator app, it still asks for its code after the PIN."
+            notice={
+              /* @prose:keep five wrong tries disables the PIN on every device. */
+              <Callout tone="warn">
+                Five wrong tries in a row switch the PIN off everywhere, on
+                every device.
+              </Callout>
+            }
           >
             {pinStatus === null ? (
               <p className="text-sm text-muted-foreground">{tr("Loading…")}</p>

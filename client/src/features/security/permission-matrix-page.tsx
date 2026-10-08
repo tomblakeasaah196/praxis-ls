@@ -267,7 +267,7 @@ export function PermissionMatrixPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title="Permission Matrix"
-        description="Role × module access. Each dot is the strongest grant on that pair — click any cell to edit the five underlying permissions. Changes save instantly and are audited."
+        description="Role × module access. Each dot is the strongest grant on that pair. Click any cell to edit the five underlying permissions."
       />
       <HubTabs />
 
@@ -391,7 +391,7 @@ export function PermissionMatrixPage() {
                             className="border-l px-1 py-2 text-center"
                           >
                             <span
-                              title={`CEO bypasses RBAC — full access to ${m.name} regardless of grants`}
+                              title={`The CEO has full access to ${m.name} regardless of grants`}
                               className="inline-block h-2.5 w-2.5 rounded-full opacity-90"
                               style={{ background: PERM_COLOR.can_approve }}
                             />
@@ -522,16 +522,18 @@ export function PermissionMatrixPage() {
           document.body,
         )}
 
+      {/* Seeded defaults come from migrations/9021_seed_default_permissions.sql.
+          That filename was PRINTED here, inside a 400-character paragraph at the
+          foot of the matrix, and neither gate counted a word of it: elementText()
+          returns null once a paragraph holds JSX interpolations, because its
+          rendered length is then not knowable from the source. The two rules an
+          administrator cannot work the screen without are kept; the migration
+          name is a note for us and belongs here. */}
+      {/* @prose:keep two rules the grid itself cannot show. */}
       <p className="mt-3 text-xs text-muted-foreground">
-        CEO bypasses RBAC by design (
-        <span className="font-mono">role.code = &apos;CEO&apos;</span>), so its
-        row is shown as full access and isn&apos;t editable — the CEO holds
-        every right, Test included. Seeded defaults
-        come from{" "}
-        <span className="font-mono">9021_seed_default_permissions.sql</span>.
-        Note that a granted module can still return 403 if its <em>feature</em>{" "}
-        is off for the tenant — that gate is separate from RBAC and applies to
-        everyone.
+        The CEO row is full access and cannot be edited, Test included. A
+        granted module can still refuse a request if its feature is switched
+        off for the tenant: that gate is separate from these grants.
       </p>
     </section>
   );

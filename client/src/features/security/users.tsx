@@ -246,7 +246,7 @@ function UserForm({
           </Field>
           <Field
             label="Username"
-            hint="Optional — email is the sign-in identifier."
+            about="Email is the sign-in identifier, not this."
           >
             <Input
               value={username}
@@ -263,7 +263,7 @@ function UserForm({
           </Field>
           <Field
             label={tr("Employee")}
-            hint="Link this login to a staff record — picks up their name and work email."
+            about="Linking a staff record picks up their name and work email."
             className="sm:col-span-2"
             // The picker renders a trigger AND a note, so `Field` cannot label
             // it by cloning; it is told the id the trigger carries instead.
@@ -282,7 +282,7 @@ function UserForm({
               note={
                 inSandbox
                   ? tr(
-                      "You are in Test mode, but logins are always live — this is your LIVE staff list, not the sandbox roster the other screens show.",
+                      "You are in Test mode, but logins are always live. This is your LIVE staff list, not the sandbox roster the other screens show.",
                     )
                   : null
               }
@@ -307,7 +307,7 @@ function UserForm({
               ) && (
                 <p className="micro mt-1 text-[rgb(var(--warn))]">
                   {tr(
-                    "This person already has a login. Creating a second one is allowed but rarely meant — check the list below first.",
+                    "This person already has a login. Creating a second one is allowed but rarely meant: check the list below first.",
                   )}
                 </p>
               )}
@@ -327,7 +327,7 @@ function UserForm({
                   <Field
                     label={tr("Password")}
                     required
-                    hint="The user should change it after first sign-in."
+                    about="The user should change it after their first sign-in."
                   >
                     <Input
                       type="password"
@@ -348,6 +348,8 @@ function UserForm({
 
         <Field
           label={tr("Roles")}
+          /* @prose:keep roles ADD UP; reading this as an intersection grants
+             more than was meant. It is the one thing the chip row cannot show. */
           hint={
             hydrating
               ? "Loading current roles…"
@@ -357,7 +359,7 @@ function UserForm({
           <div className="flex flex-wrap gap-1.5 rounded-lg border p-2">
             {roles.length === 0 && (
               <span className="micro">
-                No roles defined yet — create one on the Roles tab.
+                No roles defined yet. Create one on the Roles tab.
               </span>
             )}
             {roles.map((r) => {
@@ -378,12 +380,14 @@ function UserForm({
 
         <Field
           label={tr("Capabilities")}
-          hint="Authority overlay (segregation of duties) — required on high-authority actions like disbursing cash, on top of the role grant. CEO always has all."
+          about="A segregation-of-duties overlay. High-authority actions such as disbursing cash need one on top of the role grant."
+          /* @prose:keep the CEO holds every capability whatever is ticked here. */
+          hint="The CEO always has all of them."
         >
           <div className="flex flex-wrap gap-1.5 rounded-lg border p-2">
             {(allCaps.rows || []).length === 0 && (
               <span className="micro">
-                No capabilities defined — normally the four standard ones are
+                No capabilities defined. Normally the four standard ones are
                 seeded.
               </span>
             )}
@@ -462,14 +466,26 @@ function PasswordForm({ user, onClose }: { user: User; onClose: () => void }) {
     <Modal
       open
       onClose={onClose}
-      title="Set password"
-      description={`Replaces the password for ${user.email}. Their existing sessions stay valid — revoke them separately if this is a compromise.`}
+      title="Set Password"
+      description={`Replaces the password for ${user.email}.`}
     >
       {done ? (
         <div className="space-y-4">
-          <div className="rounded-lg border border-[rgb(var(--ok))]/40 bg-[rgb(var(--ok)/0.08)] px-3 py-2 text-sm">
+          <div className="rounded-lg border border-ok/40 bg-ok-fill/10 px-3 py-2 text-sm">
             Password updated.
           </div>
+          {/* WHAT SETTING A PASSWORD DOES NOT DO.
+            *
+            * This was the second half of the Modal's `description`, which
+            * renders behind the ⓘ on the title. An administrator setting a
+            * password because an account is compromised needs to know that the
+            * attacker's existing session is still live, and that is the one
+            * sentence they must not have to hover for. It is printed, after
+            * the act, next to what to do about it. @prose:keep */}
+          <Callout tone="warn" title="Existing Sessions Stay Valid">
+            A new password does not sign anyone out. If this is a compromise,
+            revoke the account's sessions as well.
+          </Callout>
           <div className="flex justify-end">
             <Button onClick={onClose}>{tr("Close")}</Button>
           </div>
@@ -558,7 +574,7 @@ export function UsersPage() {
         if (acc.suggested) setForm({ user: null, seed: acc.suggested });
         else
           setNotice(
-            "That employee already has a login — it is in the list below.",
+            "That employee already has a login. It is in the list below.",
           );
       })
       .catch((err) => {
@@ -732,9 +748,9 @@ export function UsersPage() {
       <KpiRow>
         <KpiTile label={tr("Users")} value={num(all.length)} />
         <KpiTile label={tr("Active")} value={num(active)} />
-        <KpiTile label="Suspended / locked" value={num(all.length - active)} />
+        <KpiTile label="Suspended / Locked" value={num(all.length - active)} />
         <KpiTile
-          label="2FA enrolled"
+          label="2FA Enrolled"
           value={
             all.length ? `${Math.round((twofa / all.length) * 100)}%` : "—"
           }
