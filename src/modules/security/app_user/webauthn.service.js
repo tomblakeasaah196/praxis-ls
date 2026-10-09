@@ -423,7 +423,14 @@ async function authenticationOptions(_client, { email, credentialIds, req }) {
   return { ...opts, _challengeToken: token };
 }
 
-async function verifyAuthentication(client, { assertion, challengeToken, req, ip, userAgent, environment }) {
+/**
+ * `deviceHash` is this device's identity from its cookie, handed in by the
+ * controller. It is resolved against the account the assertion proved, on the
+ * client already open here — so a discoverable credential, which sends no
+ * email, is covered too. See known-device.js for what the trust may stand in
+ * for and what it may not.
+ */
+async function verifyAuthentication(client, { assertion, challengeToken, req, ip, userAgent, environment, deviceHash = null }) {
   if (!assertion) throw new AppError("BAD_REQUEST", "Missing assertion", 400);
   if (!challengeToken) throw new AppError("INVALID_CHALLENGE", "Missing passkey challenge", 400);
 
@@ -501,11 +508,39 @@ async function verifyAuthentication(client, { assertion, challengeToken, req, ip
   const newCounter = verification.authenticationInfo?.newCounter ?? stored.counter;
   await repo.updateCounter(client, stored.credential_id, newCounter);
 
-  // Same path as password / PIN; skips 2FA because a user-verified passkey is
-  // already two factors (decision 1).
-  const { issueSessionTokens } = require("./app_user.service");
+  /* ── THE AUTHENTICATOR APPLIES HERE TOO (owner decision, 9 Oct 2026) ──────
+   *
+   * This used to read "skips 2FA because a user-verified passkey is already two
+   * factors (decision 1)", and that argument still holds on its own terms: a
+   * passkey proves possession of the device AND user verification, so a TOTP
+   * after it is a third factor, not a second.
+   *
+   * It was overruled for one reason that outranks it. The My Security card lets
+   * somebody choose "Every Sign-In", and a sign-in that did not ask made the
+   * control a lie. A security setting that does not do what its label says is
+   * worse than the friction it was avoiding: the owner, having set it, has no
+   * way to tell whether it is working.
+   *
+   * So every first factor now lands in the same place. The frequency still
+   * decides: on 'daily' or 'monthly' a device that has already proved a code
+   * passes straight through, which is what keeps the passkey fast for anyone
+   * who wants it fast.
+   */
+  const { issueSessionTokens, twoFaChallenge } = require("./app_user.service");
   const fullUser = await userRepo.findByEmail(client, user.email);
   if (!fullUser) throw new AppError("USER_INACTIVE", "Account is suspended", 401);
+
+  const deviceTrusted = fullUser.is_2fa_enabled && deviceHash
+    ? await knownDeviceRepo.mfaTrusted(client, { deviceHash, userId: fullUser.user_id })
+    : false;
+
+  if (fullUser.is_2fa_enabled && !deviceTrusted) {
+    // The credential rides the challenge so the device still learns which
+    // passkey signed, once the code completes the sign-in.
+    logger.info({ user_id: fullUser.user_id }, "[webauthn] passkey verified; authenticator code still required");
+    return twoFaChallenge(fullUser.user_id, "passkey", stored.credential_id);
+  }
+
   const tokens = await issueSessionTokens(client, fullUser, {
     ip: ip || null,
     userAgent: userAgent || null,
