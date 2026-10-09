@@ -257,7 +257,7 @@ export function EmailSignaturesPage() {
                 <div className="space-y-2 border-t border-border px-3 py-2">
                   <p className="text-xs text-muted-foreground">
                     {tr(
-                      "Outlook and Gmail block remote images from senders they do not know yet. Your mail carries the card as a picture AND as live text, so this is what arrives until the recipient allows images — and it is what a screen reader reads either way.",
+                      "Outlook and Gmail block remote images from senders they do not know yet. Your mail carries the card as a picture AND as live text, so this is what arrives until the recipient allows images, and it is what a screen reader reads either way.",
                     )}
                   </p>
                   {/* The broken image icon in here is the card PNG, which only

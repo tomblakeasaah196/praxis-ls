@@ -106,7 +106,7 @@ function ReconciliationPage() {
         </Table>
       )}
 
-      <Modal open={Boolean(bindRow)} onClose={() => setBindRow(null)} title={tr("Bind returned scan")}
+      <Modal open={Boolean(bindRow)} onClose={() => setBindRow(null)} title={tr("Bind Returned Scan")}
         description="Paste or confirm the print job id. Use Search manually from the document detail if the barcode was not readable."
       >
         <div className="space-y-4">

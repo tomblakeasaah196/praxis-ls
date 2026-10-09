@@ -105,7 +105,7 @@ function TemplateForm({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Invoice — default"
+              placeholder="Invoice: default"
             />
           </Field>
           <Field
@@ -143,7 +143,7 @@ function TemplateForm({
         </Field>
         <Field
           label="CSS Variables (JSON)"
-          hint='Optional — overrides for this template, e.g. {"--brand": "#F5821F"}'
+          hint='Optional: overrides for this template, e.g. {"--brand": "#F5821F"}'
         >
           <Textarea
             value={cssVars}
@@ -197,7 +197,7 @@ export function DocumentTemplatesPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Document Templates"
-        description="Letterhead and body templates per document type — invoices, POs, receipts, contracts."
+        description="Letterhead and body templates per document type: invoices, POs, receipts, contracts."
         action={<Button onClick={() => edit(null)}>New template</Button>}
       />
 

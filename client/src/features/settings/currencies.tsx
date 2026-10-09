@@ -541,7 +541,7 @@ function AddCurrencyModal({
       open={open}
       onClose={onClose}
       title="Add Currency"
-      description="Search the ISO-4217 library — by currency or by country ('Holland' finds EUR). Details prefill from the catalogue and stay editable."
+      description="Search the ISO-4217 library. By currency or by country ('Holland' finds EUR). Details prefill from the catalogue and stay editable."
       size="lg"
       footer={
         <>
@@ -771,7 +771,7 @@ function SetRateForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="Set FX rate"
+      title="Set FX Rate"
       description="Record a manual rate for a currency pair (as-of dated). It stands over the daily feed until a newer rate replaces it or you choose “Follow the feed again”."
       footer={
         <>
@@ -824,7 +824,7 @@ function SetRateForm({
           }
           error={
             tooLarge
-              ? "Too large to store — set this pair the other way round"
+              ? "Too large to store: set this pair the other way round"
               : undefined
           }
           required
@@ -928,8 +928,8 @@ function FxSettingsModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Automatic FX sync"
-      description="Daily rates from exchangerate-api.com. The key is encrypted — only the last 4 characters are ever shown."
+      title="Automatic FX Sync"
+      description="Daily rates from exchangerate-api.com. The key is encrypted. Only the last 4 characters are ever shown."
       headerRight={
         <Pill tone={isSet ? "ok" : "mute"}>
           {isSet ? `key set · …${last4}` : "no key"}
@@ -973,9 +973,7 @@ function FxSettingsModal({
           </div>
         )}
         <p className="text-xs text-muted-foreground">
-          Rates sync every night; use “Sync now” on the page to pull
-          immediately. The base currency is quoted against every active
-          currency.
+          Rates sync every night, against every active currency.
         </p>
       </div>
     </Modal>
@@ -1044,7 +1042,7 @@ function CurrencyDossier({
           body: { base: d?.base, quote: code },
         });
         setActionNote(
-          tr("The manual rate is released — the daily feed applies from today."),
+          tr("The manual rate is released: the daily feed applies from today."),
         );
       } else if (kind === "base") {
         const r = await tenant<{
@@ -1055,7 +1053,7 @@ function CurrencyDossier({
         const n = r.rebased?.length ?? 0;
         if (n > 0)
           setActionNote(
-            `${code} is now the base. ${n} ${n === 1 ? "rate was" : "rates were"} rebased from ${r.previous_base ?? "the old base"} — dated history is unchanged.`,
+            `${code} is now the base. ${n} ${n === 1 ? "rate was" : "rates were"} rebased from ${r.previous_base ?? "the old base"}. Dated history is unchanged.`,
           );
       } else if (kind === "delete")
         await tenant(`/currencies/${code}`, { method: "DELETE" });
@@ -1222,9 +1220,9 @@ function CurrencyDossier({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label={tr("Symbol")} value={symbol || "—"} />
           <Stat label={tr("Decimals")} value={String(decimals)} />
-          <Stat label="ISO numeric" value={cat?.numeric ?? "—"} />
+          <Stat label="ISO Numeric" value={cat?.numeric ?? "—"} />
           <Stat
-            label="Amount preview"
+            label="Amount Preview"
             value={`${symbol ? symbol + " " : ""}${fmtSample(decimals)}`}
             mono
           />
@@ -1235,7 +1233,7 @@ function CurrencyDossier({
             value={c.created_at ? dateFmt(c.created_at) : "—"}
           />
           <Stat
-            label="Last changed"
+            label="Last Changed"
             value={c.updated_at ? dateTimeFmt(c.updated_at) : "—"}
           />
         </div>
@@ -1263,9 +1261,9 @@ function CurrencyDossier({
         }
       >
         {c.is_base ? (
+          /* @prose:keep says why a base currency has no rate to set. */
           <p className="text-sm text-muted-foreground">
-            This is the base currency — every amount is expressed relative to it
-            (1:1 with itself).
+            This is the base currency. Every amount is expressed relative to it.
           </p>
         ) : !d.base ? (
           <p className="text-sm text-muted-foreground">
@@ -1297,7 +1295,7 @@ function CurrencyDossier({
               {fixed ? (
                 <div className="text-xs text-muted-foreground">
                   {tr(
-                    "Set by treaty — the daily feed never updates it and it cannot be set by hand.",
+                    "Set by treaty: the daily feed never updates it and it cannot be set by hand.",
                   )}
                 </div>
               ) : (
@@ -1476,7 +1474,7 @@ function CurrencyDossier({
             ) : (
               <div className="text-sm text-muted-foreground">
                 {c.is_base
-                  ? "Base currency — nothing to sync."
+                  ? "Base currency: nothing to sync."
                   : "Never synced."}
               </div>
             )}
@@ -1525,7 +1523,7 @@ function CurrencyDossier({
             (each pair is converted through the existing{" "}
             {d.base ?? "base"}→{code} rate), so quotes stay correct immediately.
             Dated rate history is preserved as-is and posted transactions keep
-            the rate they were stamped with — nothing historical is
+            the rate they were stamped with. Nothing historical is
             reinterpreted. This needs a current {d.base ?? "base"}→{code} rate;
             if none exists, sync or set it first.
           </>
@@ -1628,7 +1626,7 @@ function SyncStatusBanner({ status }: { status: SyncStatus | null }) {
   if (!status.key_configured) {
     return (
       <Callout tone="warn" className="mb-3">
-        Automatic FX sync is off — no provider key is configured. Add one under ⚙
+        Automatic FX sync is off: no provider key is configured. Add one under ⚙
         Settings, or keep setting rates manually.
       </Callout>
     );
@@ -1638,7 +1636,7 @@ function SyncStatusBanner({ status }: { status: SyncStatus | null }) {
   const tone = run && run.status === "error" ? "bad" : stale || !status.scheduler_enabled ? "warn" : "ok";
   const bits: string[] = [];
   if (!status.scheduler_enabled)
-    bits.push("Nightly sync is disabled (FX_SYNC_CRON empty) — use “Sync now”.");
+    bits.push("Nightly sync is disabled (FX_SYNC_CRON empty): use “Sync now”.");
   if (run) {
     if (run.status === "error")
       bits.push(`Last sync failed${lastAt ? ` ${dateTimeFmt(lastAt)}` : ""}${run.reason ? `: ${run.reason}` : "."}`);
@@ -1650,7 +1648,7 @@ function SyncStatusBanner({ status }: { status: SyncStatus | null }) {
       );
     if (stale && okRun) bits.push("Rates may be stale.");
   } else {
-    bits.push("No sync has run yet — use “Sync now” to pull live rates.");
+    bits.push("No sync has run yet: use “Sync now” to pull live rates.");
   }
   if (bits.length === 0) return null;
   return (
@@ -1750,7 +1748,7 @@ export function CurrenciesPage() {
       if (r.skipped === true)
         setSyncMsg({
           ok: false,
-          text: r.reason || "Sync skipped — no API key configured.",
+          text: r.reason || "Sync skipped: no API key configured.",
         });
       else {
         const n = r.updated?.length ?? 0;
@@ -1759,7 +1757,7 @@ export function CurrenciesPage() {
           ? ` (no rate from provider for ${r.unsupported!.join(", ")})`
           : "";
         const fixedTail = r.fixed?.length
-          ? ` ${r.fixed.map((f) => `${f.quote} (${f.authority})`).join(", ")} ${tr("at fixed parity — not synced.")}`
+          ? ` ${r.fixed.map((f) => `${f.quote} (${f.authority})`).join(", ")} ${tr("at fixed parity: not synced.")}`
           : "";
         setSyncMsg({
           ok: true,

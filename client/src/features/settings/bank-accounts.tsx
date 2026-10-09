@@ -94,7 +94,7 @@ function NewAccountForm({
 
   const entityText = (en: Row) =>
     en.code
-      ? `${cell(en.code)} — ${cell(en.legal_name ?? en.name ?? en.entity_id)}`
+      ? `${cell(en.code)} · ${cell(en.legal_name ?? en.name ?? en.entity_id)}`
       : cell(en.legal_name ?? en.name ?? en.entity_id);
   const entityLabel = (() => {
     const en = entities.find((e) => String(e.entity_id) === entityId);
@@ -140,7 +140,7 @@ function NewAccountForm({
             <Input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Afriland — Main XAF"
+              placeholder="Afriland: Main XAF"
             />
           </Field>
           <Field
@@ -175,9 +175,9 @@ function NewAccountForm({
           )}
         </div>
         {entities.length === 0 && (
+          /* @prose:keep says why the entity picker above is empty. */
           <p className="text-xs text-muted-foreground">
-            No corporate entities found — create one under Master data →
-            Corporate entities first.
+            No corporate entities yet. Create one under Master Data.
           </p>
         )}
         {error && <ErrorState message={error} />}

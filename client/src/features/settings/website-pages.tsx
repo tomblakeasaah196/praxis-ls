@@ -181,7 +181,7 @@ export function WebsitePagesPage() {
     <ListPage<api.SitePage>
       eyebrow={<HubCrumb area="Settings" to="/settings" />}
       title={tr("Website pages")}
-      description="The pages of your public site — what they are called, whether they are live, and what is on them."
+      description="The pages of your public site: what they are called, whether they are live, and what is on them."
       width="wide"
       tabs={<WebsiteNav />}
       action={<Button onClick={() => setCreating(true)}>{tr("New page")}</Button>}
@@ -205,7 +205,8 @@ export function WebsitePagesPage() {
       onRowClick={(r) => nav(`/settings/website/${r.page_id}`)}
       empty={{
         title: tr("No pages yet"),
-        hint: "The home page is the one the marketing site reads its figures from — create it with the key “home”.",
+        /* @prose:keep the key "home" is what the marketing site reads. */
+        hint: "Create the first one with the key “home”.",
         action: (
           <Button onClick={() => setCreating(true)}>{tr("New page")}</Button>
         ),
@@ -226,7 +227,7 @@ export function WebsitePagesPage() {
         }
         body={
           publishing?.is_published
-            ? "It will answer 404 to visitors immediately. Nothing is deleted — republishing puts it back as it was."
+            ? "It will answer 404 to visitors immediately. Nothing is deleted: republishing puts it back as it was."
             : "It becomes readable by anyone with the address, in both languages, as soon as you confirm."
         }
         confirmLabel={
@@ -327,7 +328,8 @@ function PageForm({
         <Field
           label={tr("Key")}
           required
-          hint="Lowercase letters, digits and hyphens. The marketing site reads its figures from the page keyed “home”."
+          /* @prose:keep only the page keyed "home" feeds the marketing site. */
+          hint="The marketing site reads its figures from the page keyed “home”."
           error={
             key && !keyOk ? tr("Use lowercase letters, digits and hyphens.") : undefined
           }
@@ -339,7 +341,7 @@ function PageForm({
             className="font-mono"
           />
         </Field>
-        <Field label={tr("Title (French)")} required hint="Required — French is the fallback every page falls back to.">
+        <Field label={tr("Title (French)")} required hint="Required. French is the fallback every page falls back to.">
           <Input
             value={titleFr}
             onChange={(e) => setTitleFr(e.target.value)}

@@ -76,7 +76,7 @@ function RoleForm({
         <Field
           label={tr("Code")}
           required
-          hint="Short uppercase key, unique per tenant — e.g. FINANCE, CUSTOMS_DESK."
+          about="A short uppercase key, unique per tenant."
         >
           <Input
             value={code}
@@ -106,7 +106,7 @@ function RoleForm({
             onChange={(e) => setIsLineManager(e.target.checked)}
             className="h-4 w-4 rounded border-input"
           />
-          <span>Line manager — layers approval authority over this role</span>
+          <span>Line manager: layers approval authority over this role</span>
         </label>
         {error && <ErrorState message={error} />}
         <div className="flex justify-end gap-2 pt-2">
@@ -230,7 +230,7 @@ export function RolesPage() {
           value={num(all.filter((r) => !r.is_system).length)}
         />
         <KpiTile
-          label="Line-manager roles"
+          label="Line-manager Roles"
           value={num(all.filter((r) => r.is_line_manager).length)}
         />
       </KpiRow>

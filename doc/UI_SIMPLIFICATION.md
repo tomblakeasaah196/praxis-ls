@@ -1,8 +1,15 @@
 # UI simplification: the playbook and what is left
 
 **Status: master data swept (round 1). Smart Mail restructured and the Analytics
-tab cut (round 2). The other areas are listed at the bottom, with the command
+tab cut (round 2). Monitor finished (round 3). The six Configure hubs swept
+(round 4). The areas still to do are listed at the bottom, with the command
 that tells you how much is left in each.**
+
+**If you are starting round 5, read "What each round's gate missed" first.**
+Four rounds have now reported an area clean and had the tenant find
+sentence-case chrome by opening the screen. The gate has grown eighteen rules
+across those four rounds, every one of them because a sweep trusted a number
+the gate could not produce. Grep before you sweep.
 
 This document exists so the sweep can be continued by somebody who was not
 there for the first one. The RULES live in `CLAUDE.md` (fifth and sixth
@@ -58,6 +65,22 @@ node scripts/check-dashes.js --update-baseline     # from the root
 
 Both files only ever shrink, so reseeding mid-sweep locks in a worse number
 than you are about to achieve.
+
+## What each round's gate missed, and why
+
+Four rounds, eighteen rules. Every one was added because a sweep trusted a
+number the gate could not produce, and in three of the four rounds the tenant
+or the next round found the miss by OPENING THE SCREEN. The pattern is stable
+enough to act on: **the gate reads what the last person who wrote it thought of,
+and the app writes half its chrome in a shape nobody has thought of yet.** So
+grep the shapes before you sweep, and close a hole in the same commit as the
+sweep that depends on it.
+
+Rounds 1 and 2's four misses are below. Round 3 found four more. Round 4 found
+ten, of which the most expensive was a prop spelled `desc` on one component.
+The full current list of what the gate reads and what it still does not is
+`doc/FRONTEND_GUIDE.md` §3.18, which is the one to trust; this section is the
+history of how it got there.
 
 ## What the first gate missed, and why
 
@@ -555,6 +578,39 @@ Round 2:
 - `scripts/dedash.py`'s `FILES` now points at round 2's area, so the diff of
   that one line is the record of which rounds have been done.
 
+Round 4 — the six Configure hubs (Vault & Compliance, Security & Access,
+Governance, AI Control, Settings & Admin, God Mode):
+
+- **ten new gate rules**, every one with a `prove-gates.mjs` case. Measured on
+  the round's own base with the FINISHED gate, the holes had been hiding, in
+  these six hubs alone: 24 visible prose sites, 4 over-cap paragraphs, 36
+  sentence-case component titles, 11 label-map values and 5 over-cap captions.
+  §3.18 has the list; the short version is that `<Dialog title>` is spelled
+  `Modal` in this tree, a KPI caption was gated in its object form and not its
+  JSX form, `eyebrow` is an area name nothing read, and `subtitle` is the
+  `.eyebrow` slot under a second name.
+- **`SettingsCard.desc` now renders behind the ⓘ**, which is the single
+  highest-leverage edit in the round and the fourth time "change the CONTAINER,
+  not the call sites" has been the answer. 50 sites, every one of them in these
+  six hubs, 30 over the visible cap, the longest 229 characters — and
+  `check:prose` skips `description=` on the stated grounds that "every component
+  that takes one now renders it behind an ⓘ", which was true of Dialog,
+  PageHeader, Section and Chart and false of the card the whole Settings family
+  is built from. `SettingsCard` also gained `notice`, printed in the card body,
+  for the opposite case.
+- the settings `Field` gained `about` (the modal `Field` has had it all along)
+  and `Slider` gained `about`, so a settings screen with something to say about
+  one control no longer has to print a paragraph.
+- **two destructive actions gained a confirm they never had.** Revoking a
+  session, and revoking every other session, fired straight from the button;
+  what revoking does was written in the hub's Panel `subtitle`, UPPERCASED, on a
+  panel with no revoke button. Both go through `useConfirm()` now with the
+  consequence in the body.
+- all six hubs to **zero dashes** (193), zero over-cap copy (41), zero
+  object-literal chrome (49), zero component titles (36), zero label-map values
+  (11), zero over-cap captions (5). Visible-hint budget 192 → 115.
+- `dedash.py`'s `FILES` now points at round 4's areas.
+
 ## What is left
 
 Run these for the current numbers; they are the backlog, ranked:
@@ -590,6 +646,17 @@ starts rather than after:
 
 `platform-console/` and `public-web/` have their own copies of nothing here yet:
 `check:prose` takes `--app`, so point it at them when their turn comes.
+
+### Measured and deliberately not done in round 4
+
+| | what is left | why it was left |
+| --- | --- | --- |
+| **`enumLabel()` versus the label maps** | 197 label-map values baselined outside these six hubs | The maps are measured now, but `lib/format.ts`'s `enumLabel()` still sentence-cases an enum token mechanically, so a Title Cased map and a pill rendered through `enumLabel` disagree. The fix is a Title Casing `enumLabel` plus an `ACRONYMS`-style exception list, and it touches every enum pill in the product. Retitling the maps without it trades one inconsistency for a worse, product-wide one. |
+| **the visible-hint budget in Settings** | 79 of the 101 remain, all under the 80-character cap | The decision for this round was titles and dashes on all 33 screens and the full ladder on the seven an administrator opens repeatedly (Appearance, Numbering, Templates, Pipeline Stages, Scheduled Reports, API Keys, Module Catalogue), which are at zero. The other 26 are rarely-opened editors where a deleted sentence has the least payoff per hour. |
+| **`"— none —"`** | the product-wide empty-option label, 10+ sites | `entity-picker.tsx`, `department-select.tsx` and nine sales forms render the same string, one of them pinned by name in `entity-picker.test.tsx`. Retitling the one copy in `vault/documents.tsx` would put two spellings of one option in the product, so it is marked and left. `check:dashes` does not count it. Its em dashes are a separate job of the same size. |
+| **a paragraph holding JSX interpolations** | unmeasurable by design | `elementText()` returns null once a `<p>` holds `{" "}` or a nested `<span>`. The Permission Matrix's 400-character footer was found by reading the screen, not the report. §3.18 records it as a limit. |
+| **i18n coverage** | still ~923 from round 3's measurement | Explicitly out of scope again. Settings is where most of it is: the dedash sweep changed 86 strings in 32 files and **not one of them had a dictionary key**, which is the same finding from the other end. |
+| **God Mode's layout** | one page, three Callouts | Its warnings are load-bearing, so the round quietened the layout (two duplicate warnings became one, the header now says what the screen is for) and made the destructive ones louder rather than hiding any. Nothing is behind an ⓘ there. |
 
 ## One open decision
 

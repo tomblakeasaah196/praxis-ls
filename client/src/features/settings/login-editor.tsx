@@ -93,7 +93,7 @@ export function LoginEditor() {
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Login Screen"
-        description="Configure the signed-out door — no code, no redeploy."
+        description="Configure the signed-out door: no code, no redeploy."
       />
 
       {!loaded ? (

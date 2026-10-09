@@ -97,7 +97,7 @@ function ScheduleForm({
     <Modal
       open={open}
       onClose={onClose}
-      title="Schedule a report"
+      title="Schedule a Report"
       description="Automated report delivery on a cadence. Recipients receive the generated file by email."
       size="lg"
     >
@@ -243,7 +243,7 @@ export function ScheduledReportsPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Scheduled Reports"
-        description="Automated report delivery — pick a report, a cadence and recipients."
+        description="Automated report delivery: pick a report, a cadence and recipients."
         action={
           <Button onClick={() => setCreateOpen(true)}>Schedule report</Button>
         }

@@ -5,6 +5,7 @@
  * every field persists. Saving re-applies branding live via the branding
  * context (primary/foreground re-tint immediately through theme.ts).
  */
+import { Callout } from "@/components/ui/callout";
 import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
@@ -193,7 +194,7 @@ export function AppearancePage() {
         <PageHeader
           eyebrow={<HubCrumb area="Settings" to="/settings" />}
           title="Appearance"
-          description="White-label the workspace — identity, colours, logos, type. Changes apply on save."
+          description="White-label the workspace: identity, colours, logos, type. Changes apply on save."
           action={
             <Button
               loading={busy}
@@ -247,7 +248,13 @@ export function AppearancePage() {
 
         <SettingsCard
           title="Colours"
-          desc="The brand token set. Primary re-tints the app immediately on save."
+          desc="The brand token set."
+          notice={
+            /* @prose:keep saving re-tints the live app for every user. */
+            <Callout tone="warn">
+              Saving applies the accent to the live app at once, for everyone.
+            </Callout>
+          }
         >
           <div className="grid gap-2 sm:grid-cols-2">
             {COLORS.map(({ key, token, fallback }) => (
@@ -301,8 +308,8 @@ export function AppearancePage() {
         </SettingsCard>
 
         <SettingsCard
-          title="Typography & shape"
-          desc="Fifteen self-hosted families — every user sees exactly what you pick here, on any device. Each user can override these for themselves under My appearance."
+          title="Typography & Shape"
+          desc="Fifteen self-hosted families, so every user renders exactly what you pick. Each can override it for themselves under My Appearance."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={tr("Display Font")}>
@@ -341,7 +348,6 @@ export function AppearancePage() {
 
         <SettingsCard
           title={tr("Preview")}
-          desc="Live — reflects name, colours, logos, typography, corner radius and theme mode."
         >
           {(() => {
             const c = (k: string, fb: string) => colors[k] || fb;

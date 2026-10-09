@@ -79,7 +79,7 @@ import {
 const TABS = [
   { value: "icon", label: "Icon" },
   { value: "identity", label: "Identity" },
-  { value: "titlebar", label: "Title bar" },
+  { value: "titlebar", label: "Title Bar" },
   { value: "splash", label: "Splash" },
   { value: "install", label: "Install" },
   { value: "offline", label: "Offline" },
@@ -272,7 +272,7 @@ export function PwaPage() {
     >
       <SettingsCard
         title="Source image"
-        desc="A square PNG or SVG, at least 512×512. This is the mark the operating system puts on a home screen — it does not have to be your sidebar logo, and usually shouldn't be."
+        desc="A square PNG or SVG, at least 512×512. This is the mark the operating system puts on a home screen: it does not have to be your sidebar logo, and usually shouldn't be."
       >
         <div className="flex flex-col gap-4">
           <ImageField
@@ -292,7 +292,7 @@ export function PwaPage() {
             hint={
               draft.iconUrl
                 ? undefined
-                : `Not set — inheriting your brand logo${branding.logoUrl ? "" : " (which isn't set either, so a letter mark is used)"}.`
+                : `Not set, inheriting your brand logo${branding.logoUrl ? "" : " (which isn't set either, so a letter mark is used)"}.`
             }
           />
           <Warnings items={iconIssues} />
@@ -301,7 +301,7 @@ export function PwaPage() {
 
       <SettingsCard
         title="Framing"
-        desc="How the artwork sits inside the tile. The safe-zone padding applies to the maskable variant — the one Android crops."
+        desc="How the artwork sits inside the tile. The safe-zone padding applies to the maskable variant: the one Android crops."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <Slider
@@ -330,7 +330,7 @@ export function PwaPage() {
             label="Padding (plain icon)"
             unit="%"
             {...num("iconPadding", cfg.iconPadding)}
-            hint="Used where the icon isn't cropped — iOS, desktop, the install dialog."
+            hint="Used where the icon isn't cropped: iOS, desktop, the install dialog."
           />
           <Slider
             label="Corner rounding (plain icon)"
@@ -397,7 +397,7 @@ export function PwaPage() {
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Always opaque — a transparent maskable icon shows the wallpaper
+              Always opaque: a transparent maskable icon shows the wallpaper
               through the crop.
             </p>
           </Field>
@@ -471,7 +471,7 @@ export function PwaPage() {
               onChange={(v) => set("display", v)}
               options={[
                 { value: "standalone", label: "Standalone" },
-                { value: "fullscreen", label: "Full screen" },
+                { value: "fullscreen", label: "Full Screen" },
                 { value: "minimal-ui", label: "Minimal UI" },
                 { value: "browser", label: "Browser" },
               ]}
@@ -580,7 +580,6 @@ export function PwaPage() {
         <>
           <SettingsCard
             title="Animation"
-            desc="Pick one and watch it in the preview."
           >
             <div className="grid gap-2 sm:grid-cols-2">
               {SPLASH_PRESETS.map((p) => (
@@ -649,7 +648,7 @@ export function PwaPage() {
                 unit="ms"
                 step={50}
                 {...num("splashDuration", cfg.splashDuration)}
-                hint="How long it stays up even when the app is ready sooner. This is waiting time, so keep it short."
+                about="It stays up this long even when the app is ready sooner, so keep it short."
               />
               <Toggle
                 checked={cfg.splashShowProgress}
@@ -691,7 +690,7 @@ export function PwaPage() {
           <p className="micro mb-2 mt-5">On iOS</p>
           <div className="rounded-2xl border bg-popover p-3.5 text-[13px] leading-snug text-muted-foreground shadow-l">
             {cfg.installIosBody ||
-              `Tap Share, then Add to Home Screen to use ${cfg.name} like an app — full screen, on your home screen.`}
+              `Tap Share, then Add to Home Screen to use ${cfg.name} like an app: full screen, on your home screen.`}
           </div>
         </div>
       }
@@ -754,7 +753,7 @@ export function PwaPage() {
                 aria-hidden
               />
               {cfg.offlineText ||
-                "You're offline — some data may be out of date."}
+                "You're offline: some data may be out of date."}
             </div>
           </div>
           <div>
@@ -784,13 +783,13 @@ export function PwaPage() {
     >
       <SettingsCard
         title="Offline & updates"
-        desc="Wording only. When these appear is decided by the service worker — going offline, and a new build finishing its download — and is not a design choice."
+        desc="Wording only. When these appear is decided by the service worker (going offline, or a new build finishing its download) and is not a design choice."
       >
         <div className="flex flex-col gap-4">
           <FormField label="Offline Notice">
             <Input
               {...text("offlineText")}
-              placeholder="You're offline — some data may be out of date."
+              placeholder="You're offline: some data may be out of date."
               maxLength={120}
             />
           </FormField>
@@ -844,7 +843,7 @@ export function PwaPage() {
           <TitleBarPreview cfg={cfg} theme="light" caption="Light theme" />
           <p className="text-[11px] leading-snug text-muted-foreground">
             Both are shown because the bar follows whichever theme the user is
-            in — it is not one colour for everyone.
+            in. It is not one colour for everyone.
           </p>
         </div>
       }
@@ -859,16 +858,16 @@ export function PwaPage() {
               value={cfg.titlebarMode}
               onChange={(v) => set("titlebarMode", v)}
               options={[
-                { value: "surface", label: "Match app" },
-                { value: "brand", label: "Brand colour" },
+                { value: "surface", label: "Match App" },
+                { value: "brand", label: "Brand Colour" },
                 { value: "custom", label: "Custom" },
               ]}
             />
             <p className="text-[11px] text-muted-foreground">
               {cfg.titlebarMode === "surface"
-                ? "Follows your app's own surface in each theme — the window reads as one continuous instrument."
+                ? "Follows your app's own surface in each theme: the window reads as one continuous instrument."
                 : cfg.titlebarMode === "brand"
-                  ? "Your brand colour, edge to edge. Bold, and the same in both themes — check it against dark below."
+                  ? "Your brand colour, edge to edge. Bold, and the same in both themes: check it against dark below."
                   : "Two explicit colours, one per theme."}
             </p>
           </Field>
@@ -900,7 +899,7 @@ export function PwaPage() {
 
       <SettingsCard
         title="Artwork"
-        desc="An optional image behind the bar. It sits on its own layer under the text, so keep it as texture — a low opacity and a wide, quiet image. Anything busy competes with the controls sitting on top of it."
+        desc="An optional image behind the bar. It sits on its own layer under the text, so keep it as texture: a low opacity and a wide, quiet image. Anything busy competes with the controls sitting on top of it."
       >
         <div className="flex flex-col gap-4">
           <ImageField
@@ -911,7 +910,7 @@ export function PwaPage() {
             maxBytes={2_000_000}
             profile="photo"
             upload={uploadTitlebarImage}
-            hint="Wide and low — the bar is roughly 1600×44 on a laptop, so a tall image will only ever show its middle band."
+            hint="Wide and low: roughly 1600×44 on a laptop."
           />
           {cfg.titlebarImageUrl && (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -919,7 +918,7 @@ export function PwaPage() {
                 label="Opacity"
                 unit="%"
                 {...num("titlebarImageOpacity", cfg.titlebarImageOpacity)}
-                hint="Capped at 60% — above that, text on the bar starts to lose contrast."
+                hint="Capped at 60%: above that, text on the bar starts to lose contrast."
               />
               <Slider
                 label="Blur"
@@ -943,12 +942,9 @@ export function PwaPage() {
             )}
           />
           <TitleBarStatus />
+          {/* @prose:keep nothing on this screen can break the app's header. */}
           <p className="text-sm text-muted-foreground">
-            In a browser tab there is no title bar to take over, so this row
-            renders as the app's ordinary utility bar and the colour applies to
-            the browser's own theming instead. On mobile the same colour tints
-            the status bar. Nothing here can leave the app without a usable
-            header.
+            Nothing here can leave the app without a usable header.
           </p>
         </div>
       </SettingsCard>
@@ -969,7 +965,7 @@ export function PwaPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="App & PWA"
-        description="How your workspace looks once it's installed — the home-screen icon, the launch screen, and the prompts around installing and going offline."
+        description="How your workspace looks once it's installed: the home-screen icon, the launch screen, and the prompts around installing and going offline."
         action={
           <Button onClick={onSave} disabled={busy}>
             {busy ? "Saving…" : "Save"}
@@ -984,8 +980,8 @@ export function PwaPage() {
           truth. */}
       <div className="mb-4">
         <Callout tone="info" title="Same in Test and Live.">
-          A workspace has one installed app, so there is nothing to sandbox here
-          — saving applies to the real app in both environments.
+          A workspace has one installed app, so there is nothing to sandbox
+          here: saving applies to the real app in both environments.
         </Callout>
       </div>
 

@@ -74,7 +74,7 @@ function PolicyForm({
       open={open}
       onClose={onClose}
       title={editing ? "Edit Policy" : "New Policy"}
-      description="A named policy document — privacy, refund, QMS, terms and the like."
+      description="A named policy document: privacy, refund, QMS, terms and the like."
       size="xl"
     >
       <div className="space-y-4">
@@ -153,7 +153,7 @@ export function BusinessPoliciesPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Business Policies"
-        description="Named policy documents — privacy, refund, QMS, terms and more."
+        description="Named policy documents: privacy, refund, QMS, terms and more."
         action={<Button onClick={() => edit(null)}>New policy</Button>}
       />
 

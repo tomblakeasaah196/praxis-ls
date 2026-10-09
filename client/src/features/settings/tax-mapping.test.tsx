@@ -144,7 +144,14 @@ describe("the tax screen · the gap is named at the top (finding 3.1)", () => {
     // The quiet state matters: a banner that is always there is a banner nobody
     // reads, and the repaired tenant must open clean.
     view([]);
-    await screen.findByText(/The current effective rate for every code/i);
+    // Waits on the Overview tab's own copy so the absence below is a real
+    // absence and not a page that has not rendered yet. The sentence it used to
+    // wait on ("The current effective rate for every code in this
+    // jurisdiction") was the first half of a 159-character paragraph and said
+    // what the table under it shows; the half that survived the prose sweep is
+    // the one a reader needs, that a rate is amended into a new version rather
+    // than edited.
+    await screen.findByText(/Rates are versioned/i);
     expect(screen.queryByText(/not fully mapped/i)).not.toBeInTheDocument();
   });
 

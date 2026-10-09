@@ -27,13 +27,13 @@ import { isGated } from "./shared";
 
 const REPORTS_AI: AiAction[] = [
   {
-    label: "Run a report",
+    label: "Run a Report",
     kind: "read",
     describe:
       "Run any catalogue report and summarise the result in plain language.",
   },
   {
-    label: "Explain a movement",
+    label: "Explain a Movement",
     kind: "assist",
     describe:
       "Explain a change in a report (e.g. why receivables ageing shifted).",
@@ -132,7 +132,7 @@ function RunReportModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Run — ${key}`}
+      title={`Run: ${key}`}
       description={report ? String(report.describe) : ""}
       size="xl"
     >
@@ -367,7 +367,7 @@ export function ReportsPage() {
             options={[
               { value: "catalogue", label: "Catalogue" },
               { value: "saved", label: "Saved" },
-              { value: "tiles", label: "Dashboard tiles" },
+              { value: "tiles", label: "Dashboard Tiles" },
             ]}
           />
         }
@@ -378,7 +378,7 @@ export function ReportsPage() {
         isGated(errorCode) ? (
           <EmptyState
             title="Reporting isn't enabled for this tenant"
-            hint="The reporting feature flag is off. Enable it in the developer dashboard to run reports."
+            hint="Turn it on in the developer dashboard."
           />
         ) : (
           <ErrorState message={error} />
@@ -387,10 +387,6 @@ export function ReportsPage() {
         <SkeletonTable />
       ) : tab === "tiles" ? (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Choose which reports appear as tiles on your Control Tower, toggle
-            their visibility and order.
-          </p>
           {catalogue.map((r) => {
             const key = String(r.report_key);
             const t = tileByKey.get(key);

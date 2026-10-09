@@ -14,6 +14,7 @@
 import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import { Panel } from "@/components/ui/panel";
+import { InfoHint } from "@/components/ui/info-hint";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/data-list";
@@ -120,8 +121,9 @@ function Overview() {
       <HubTabs />
 
       {bothFailed && (
-        <div className="mb-5 rounded-xl border border-[rgb(var(--warn))]/40 bg-[rgb(var(--warn)/0.08)] px-4 py-3 text-sm">
-          Vault reads are unavailable — you may not have the document or
+        /* @prose:keep says why the whole hub is empty, and nothing else is. */
+        <div className="mb-5 rounded-xl border border-warn/40 bg-warn-fill/10 px-4 py-3 text-sm">
+          Vault reads are unavailable. You may not have the document or
           compliance grant on this tenant.
         </div>
       )}
@@ -133,19 +135,17 @@ function Overview() {
           hint={docs.error ? "No access" : `${verified} verified`}
         />
         <KpiTile
-          label="Awaiting verification"
+          label="Awaiting Verification"
           value={docs.error ? "—" : num(pending)}
-          hint="Status PENDING"
         />
         <KpiTile
-          label="Open flags"
+          label="Open Flags"
           value={flags.error ? "—" : num(open.length)}
           hint={flags.error ? "No access" : `${red} red · ${warn} warn`}
         />
         <KpiTile
-          label="Resolved flags"
+          label="Resolved Flags"
           value={flags.error ? "—" : num(allFlags.length - open.length)}
-          hint="Cleared by a reviewer"
         />
       </KpiRow>
 
@@ -166,10 +166,9 @@ function Overview() {
         <KpiTile
           label="Revoked"
           value={sigStats.error ? "—" : num(Number(sigStats.data?.revoked ?? 0))}
-          hint="Withdrawn after signing"
         />
         <KpiTile
-          label="No longer covering"
+          label="No Longer Covering"
           value={sigStats.error ? "—" : num(staleCount(sigStats.data))}
           hint="Document changed after signing"
         />
@@ -199,12 +198,14 @@ function Overview() {
           }
         >
           {flags.error ? (
+            /* @prose:keep the panel's refused state, and all it then shows. */
             <span className="micro">
               Compliance flags aren't readable with your current grants.
             </span>
           ) : open.length === 0 ? (
+            /* @prose:keep the panel's empty state, and all it then shows. */
             <span className="micro">
-              Nothing open — every rule that ran came back clean.
+              Nothing open. Every rule that ran came back clean.
             </span>
           ) : (
             <>
@@ -275,7 +276,7 @@ function Overview() {
 
         <Panel
           title="Recent Documents"
-          subtitle="Newest uploads into the vault"
+          subtitle="Newest First"
           action={
             <Button
               size="sm"
@@ -287,6 +288,7 @@ function Overview() {
           }
         >
           {docs.error ? (
+            /* @prose:keep the panel's refused state, and all it then shows. */
             <span className="micro">
               The document vault isn't readable with your current grants.
             </span>
@@ -343,23 +345,41 @@ function Overview() {
           lives on the signature itself now. */}
       <Panel
         title="Verification Portal"
-        subtitle="What a counterparty sees when they scan a document"
         action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => window.open("/verify", "_blank", "noopener")}
-          >
-            Open
-          </Button>
+          /* The ⓘ IS A SIBLING of the heading, not a child of it.
+             Panel's `title` is a ReactNode, so putting the icon in there would
+             fold its aria-label into the <h2>'s accessible name and the
+             heading would announce as "Verification Portal About the
+             Verification Portal". §3.17. */
+          <div className="flex items-center gap-2">
+            <InfoHint label="About the Verification Portal">
+              Every signed document prints a QR code with a twelve-character
+              code beneath it. Who has checked a given document is recorded on
+              the signature itself.
+            </InfoHint>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.open("/verify", "_blank", "noopener")}
+            >
+              Open
+            </Button>
+          </div>
         }
       >
+        {/* WHAT THE PORTAL GUARANTEES, KEPT ON THE PAGE.
+          *
+          * The paragraph this replaces ran 290 characters and mixed two things:
+          * how the check works (a QR code and a twelve-character code), which
+          * is explanation and is now behind the ⓘ, and what the check PROVES,
+          * which is the reason anyone trusts a signed document from this vault.
+          * The second is a guarantee, so it is shortened rather than hidden.
+          * the second is a guarantee, so it is shortened rather than hidden. */}
+        {/* @prose:keep what a counterparty can verify without an account. */}
         <p className="text-sm text-muted-foreground">
-          Every signed document is printed with a QR code and a twelve-character
-          code beneath it. Anyone holding the paper can check it without an
-          account — the page shows what was signed, by whom, and whether the
-          record has changed since. Who has checked a given document is on the
-          signature itself.
+          Anyone holding the paper can check it without an account: the page
+          shows what was signed, by whom, and whether the record has changed
+          since.
         </p>
       </Panel>
 
@@ -379,6 +399,6 @@ const TABS = hubTabs("/vault", {
 
 export function VaultHub() {
   return (
-    <TabbedHub eyebrow="Vault & compliance" basePath="/vault" tabs={TABS} />
+    <TabbedHub eyebrow="Vault & Compliance" basePath="/vault" tabs={TABS} />
   );
 }
