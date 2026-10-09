@@ -201,6 +201,7 @@ async function assertDocumentAccess(docClient, identityClient, docId, user, acti
   );
 }
 const list = (client, q) => repo.list(client, q);
+const listPaged = (client, q) => repo.listPaged(client, q);
 
 /**
  * Upload a document (base64 data URL) into the vault: store the bytes, record
@@ -326,4 +327,4 @@ async function archiveDocument(client, { id, actor = {} }) {
   return row;
 }
 
-module.exports = { capture, fetchBytes, getByRef, get, list, assertDocumentAccess, createDocument, archiveDocument, resolveStatus, hasBytes };
+module.exports = { capture, fetchBytes, getByRef, get, list, listPaged, assertDocumentAccess, createDocument, archiveDocument, resolveStatus, hasBytes };

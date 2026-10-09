@@ -26,6 +26,31 @@ describe("Compliance Checker rules (MOD-65)", () => {
   });
 });
 
+describe("Compliance Checker listing", () => {
+  test("server paging keeps the selected severity and includes resolved rows when requested", async () => {
+    const client = {
+      query: async (sql, params) => {
+        expect(sql).toContain("severity = $3");
+        expect(sql).not.toContain("resolved_at IS NULL");
+        expect(params).toEqual([25, 25, "RED"]);
+        return { rows: [{ flag_id: "f1", severity: "RED", _total: "26" }] };
+      },
+    };
+
+    await expect(
+      service.listPaged(client, {
+        severity: "RED",
+        include_resolved: "true",
+        limit: "25",
+        offset: "25",
+      }),
+    ).resolves.toEqual({
+      rows: [{ flag_id: "f1", severity: "RED" }],
+      total: 26,
+    });
+  });
+});
+
 describe("Compliance Checker run (MOD-65)", () => {
   test("raises a RED flag for a débours-with-tax violation", async () => {
     const client = {

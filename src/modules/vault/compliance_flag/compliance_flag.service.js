@@ -47,7 +47,15 @@ async function run(client, { rules = null, actor = {} } = {}) {
 }
 
 const catalogue = () => ruleKeys().map((k) => ({ rule_key: k, severity: severityOf(k), describe: describeOf(k) }));
-const list = (client, q) => repo.listFlags(client, { severity: q.severity, includeResolved: q.include_resolved === "true" || q.include_resolved === true });
+function listFilters(q = {}) {
+  return {
+    severity: q.severity || null,
+    includeResolved: q.include_resolved === "true" || q.include_resolved === true,
+  };
+}
+
+const list = (client, q) => repo.listFlags(client, listFilters(q));
+const listPaged = (client, q = {}) => repo.listFlagsPaged(client, { ...q, ...listFilters(q) });
 
 async function resolve(client, { id, actor = {} }) {
   const row = await repo.resolveFlag(client, id);
@@ -56,4 +64,4 @@ async function resolve(client, { id, actor = {} }) {
   return row;
 }
 
-module.exports = { run, catalogue, list, resolve };
+module.exports = { run, catalogue, list, listPaged, resolve };

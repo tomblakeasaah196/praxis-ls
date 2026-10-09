@@ -502,6 +502,56 @@ test.describe("phone", () => {
     expect(errors).toEqual([]);
   });
 
+  test("vault summary cards stay inside the phone with long row labels", async ({
+    page,
+  }) => {
+    const viewport = { width: 360, height: 800 };
+    await page.setViewportSize(viewport);
+    const { errors } = await openScreen(page, "/vault", /Vault & Compliance/i);
+
+    await expect(
+      page.getByText(/Missing Attestation of Fiscal Compliance/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Recent Documents" }),
+    ).toBeVisible();
+    await expect(page.getByText("QUOTE_REQUEST_ATTACHMENT")).toBeVisible();
+
+    /*
+     * The shell hides horizontal overflow, so `scrollWidth` alone cannot catch
+     * a panel whose min-content width pushes its right edge off-screen. Measure
+     * the actual card boxes with long compliance copy and a long document ref.
+     */
+    const result = await page.evaluate(() => {
+      const titles = new Set(["Open Compliance Flags", "Recent Documents"]);
+      const cards = Array.from(document.querySelectorAll("main h2"))
+        .filter((heading) => titles.has(heading.textContent?.trim() ?? ""))
+        .map((heading) => {
+          const card = heading.closest(".bg-card");
+          const rect = card?.getBoundingClientRect();
+          return {
+            title: heading.textContent?.trim() ?? "",
+            left: rect?.left ?? -1,
+            right: rect?.right ?? Number.POSITIVE_INFINITY,
+          };
+        });
+      return { viewportWidth: document.documentElement.clientWidth, cards };
+    });
+
+    expect(result.cards.map((card) => card.title).sort()).toEqual([
+      "Open Compliance Flags",
+      "Recent Documents",
+    ]);
+    for (const card of result.cards) {
+      expect(card.left, `${card.title} left edge`).toBeGreaterThanOrEqual(0);
+      expect(
+        card.right,
+        `${card.title} right edge at ${card.right}px`,
+      ).toBeLessThanOrEqual(result.viewportWidth);
+    }
+    expect(errors).toEqual([]);
+  });
+
   test("EVERY tap target clears the 24px minimum", async ({ page }) => {
     await page.setViewportSize(PHONE);
     await openScreen(page, "/finance/chart-of-accounts", /Chart of accounts/i);
