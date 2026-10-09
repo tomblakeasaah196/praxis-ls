@@ -124,7 +124,7 @@ export function CommsHub() {
       )}
     >
       <nav
-        className="mb-4 flex shrink-0 items-end gap-1 border-b border-border"
+        className="mb-4 flex shrink-0 items-end gap-1 overflow-x-auto border-b border-border whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         aria-label="Comms sections"
       >
         {tabs.map((t) => (
