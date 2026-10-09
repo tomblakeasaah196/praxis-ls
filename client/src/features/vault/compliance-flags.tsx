@@ -14,7 +14,14 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { AiActions } from "@/components/ai-actions";
 import type { AiAction } from "@/features/scaffold/screen-specs";
-import { errMsg, useList, useRefresh, type Row } from "@/lib/use-resource";
+import {
+  errMsg,
+  useList,
+  useListPaged,
+  useRefresh,
+  type Row,
+} from "@/lib/use-resource";
+import { Pagination } from "@/components/ui/pagination";
 import { cell, smartCell } from "@/lib/format";
 import { StatusPill } from "@/components/ui/pill";
 import { Chips } from "@/components/ui/chips";
@@ -32,27 +39,45 @@ const COMPLIANCE_AI: AiAction[] = [
 const SEVERITY_FILTERS = [
   { value: "", label: "All" },
   { value: "RED", label: "Red" },
-  { value: "YELLOW", label: "Yellow" },
-  { value: "GREEN", label: "Green" },
+  { value: "WARN", label: "Warning" },
+  { value: "INFO", label: "Info" },
+  { value: "ESCALATED", label: "Escalated" },
+  { value: "SOFT_BLOCK_RECOMMENDATION", label: "Soft block" },
+  { value: "HARD_BLOCK", label: "Hard block" },
 ];
+const PAGE_SIZE = 25;
 
 export function ComplianceFlagsPage() {
   const [tab, setTab] = React.useState<"flags" | "rules">("flags");
   const reload = useRefresh();
   const [severity, setSeverity] = React.useState("");
   const [includeResolved, setIncludeResolved] = React.useState(false);
+  const [page, setPage] = React.useState(0);
   const [running, setRunning] = React.useState(false);
   const [summary, setSummary] = React.useState<string | null>(null);
   const [rowBusy, setRowBusy] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
 
-  // Was a Promise.all in a useEffect keyed on a local nonce (F8). Toggling
-  // "include resolved" refetched BOTH lists, including the catalogue that never
-  // changes; as separate cached queries only the flags list moves, and flipping
-  // the toggle back is instant because the previous URL is still in cache.
-  const { rows: flags, error: flagsError } = useList<Row>(
-    `/compliance${includeResolved ? "?include_resolved=true" : ""}`,
-  );
+  // Filters are applied by the server before the page limit, so older flags do
+  // not disappear behind the first page. The catalogue remains an ordinary
+  // list because it is small and never changes with the flag filters.
+  React.useEffect(() => {
+    setPage(0);
+  }, [severity, includeResolved]);
+  const {
+    rows: flags,
+    error: flagsError,
+    total: flagsTotal,
+  } = useListPaged<Row>("/compliance", {
+    page,
+    pageSize: PAGE_SIZE,
+    severity: severity || undefined,
+    include_resolved: includeResolved ? "true" : undefined,
+  });
+  React.useEffect(() => {
+    // Resolving the last flag on the last page should land on the page before it.
+    if (flags?.length === 0 && page > 0) setPage(page - 1);
+  }, [flags, page]);
   const { rows: rules, error: rulesError } = useList<Row>(
     "/compliance/catalogue",
   );
@@ -90,12 +115,6 @@ export function ComplianceFlagsPage() {
       setRowBusy(null);
     }
   }
-
-  const filtered = React.useMemo(
-    () =>
-      (flags || []).filter((f) => !severity || String(f.severity) === severity),
-    [flags, severity],
-  );
 
   return (
     <section className={pageShell.wide}>
@@ -155,55 +174,72 @@ export function ComplianceFlagsPage() {
           </div>
           {flags === null ? (
             <SkeletonTable />
-          ) : filtered.length === 0 ? (
+          ) : flags.length === 0 ? (
             <EmptyState
-              title={flags.length ? "No flags match" : "No open flags"}
+              title={
+                flagsTotal > 0
+                  ? "No flags on this page"
+                  : severity
+                    ? "No flags match"
+                    : includeResolved
+                      ? "No flags to show"
+                      : "No open flags"
+              }
               hint={
-                flags.length
+                severity
                   ? "Try another severity."
                   : "Run the checks to scan for compliance issues."
               }
             />
           ) : (
-            <div className="space-y-2">
-              {filtered.map((f) => {
-                const id = String(f.compliance_flag_id ?? f.flag_id);
-                const resolved = f.resolved_at || f.is_resolved;
-                return (
-                  <div
-                    key={id}
-                    className="lux-card flex items-center gap-3 p-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {cell(f.rule_key)}
+            <>
+              <div className="space-y-2">
+                {flags.map((f) => {
+                  const id = String(f.compliance_flag_id ?? f.flag_id);
+                  const resolved = f.resolved_at || f.is_resolved;
+                  return (
+                    <div
+                      key={id}
+                      className="lux-card flex items-center gap-3 p-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {cell(f.rule_key)}
+                          </p>
+                          <StatusPill status={String(f.severity || "—")} />
+                          {resolved ? (
+                            <span className="text-xs text-muted-foreground">
+                              resolved
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {cell(f.message)} · {cell(f.entity_ref)}
                         </p>
-                        <StatusPill status={String(f.severity || "—")} />
-                        {resolved ? (
-                          <span className="text-xs text-muted-foreground">
-                            resolved
-                          </span>
-                        ) : null}
                       </div>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {cell(f.message)} · {cell(f.entity_ref)}
-                      </p>
+                      {!resolved && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={rowBusy === id}
+                          onClick={() => resolve(id)}
+                        >
+                          Resolve
+                        </Button>
+                      )}
                     </div>
-                    {!resolved && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        loading={rowBusy === id}
-                        onClick={() => resolve(id)}
-                      >
-                        Resolve
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+              <Pagination
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={flagsTotal}
+                onPageChange={setPage}
+                className="flex-col items-start sm:flex-row sm:items-center"
+              />
+            </>
           )}
         </>
       ) : rules === null ? (

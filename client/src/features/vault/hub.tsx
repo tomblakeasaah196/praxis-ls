@@ -183,8 +183,11 @@ function Overview() {
         />
       </KpiRow>
 
+      {/* Keep grid items shrinkable on phones so long messages and references
+          truncate inside their cards instead of widening the implicit column. */}
       <div className="mb-6 grid gap-4 md:grid-cols-2">
         <Panel
+          className="min-w-0"
           title="Open Compliance Flags"
           subtitle="Highest severity first"
           action={
@@ -275,6 +278,7 @@ function Overview() {
         </Panel>
 
         <Panel
+          className="min-w-0"
           title="Recent Documents"
           subtitle="Newest First"
           action={

@@ -1,7 +1,7 @@
 /** Compliance-checker repository (MOD-65). The rule scans + flag persistence.
  *  Each scan returns [{ entity_ref, message }] of offenders. All SQL is here. */
 "use strict";
-const { insertOne } = require("../../../shared/db/query-helpers");
+const { insertOne, page, TOTAL_COL, splitTotal } = require("../../../shared/db/query-helpers");
 // One sentence for the flag and the notification, shared with the inline hook so
 // a user never sees two differently-worded versions of the same warning.
 const { proofMessage } = require("../../master/financial_dictionary/financial_dictionary.rules");
@@ -108,17 +108,40 @@ const insertFlag = (client, data) => insertOne(client, "compliance_flag", data);
 async function clearOpenByRule(client, ruleKey) {
   await client.query("DELETE FROM compliance_flag WHERE rule_key = $1 AND resolved_at IS NULL", [ruleKey]);
 }
-async function listFlags(client, { severity = null, includeResolved = false } = {}) {
-  const params = []; const wh = [];
+function flagFilters(params, { severity = null, includeResolved = false } = {}) {
+  const wh = [];
   if (!includeResolved) wh.push("resolved_at IS NULL");
   if (severity) { params.push(severity); wh.push("severity = $" + params.length); }
-  const where = wh.length ? "WHERE " + wh.join(" AND ") : "";
-  const { rows } = await client.query("SELECT * FROM compliance_flag " + where + " ORDER BY severity DESC, created_at DESC", params);
+  return wh.length ? "WHERE " + wh.join(" AND ") : "";
+}
+
+// Legacy/service consumers still receive every matching flag as an array.
+async function listFlags(client, filters = {}) {
+  const params = [];
+  const where = flagFilters(params, filters);
+  const { rows } = await client.query(
+    "SELECT * FROM compliance_flag " + where + " ORDER BY severity DESC, created_at DESC, flag_id DESC",
+    params,
+  );
   return rows;
+}
+
+// The Vault UI opts into this page explicitly; keeping it separate preserves
+// the existing unbounded list contract used by AI/service consumers.
+async function listFlagsPaged(client, filters = {}) {
+  const { limit, offset } = page(filters);
+  const params = [limit, offset];
+  const where = flagFilters(params, filters);
+  const { rows } = await client.query(
+    `SELECT *, ${TOTAL_COL} FROM compliance_flag ${where} ` +
+      "ORDER BY severity DESC, created_at DESC, flag_id DESC LIMIT $1 OFFSET $2",
+    params,
+  );
+  return splitTotal(rows);
 }
 async function resolveFlag(client, id) {
   const { rows } = await client.query("UPDATE compliance_flag SET resolved_at = now() WHERE flag_id = $1 AND resolved_at IS NULL RETURNING *", [id]);
   return rows[0] || null;
 }
 
-module.exports = { scan, insertFlag, clearOpenByRule, listFlags, resolveFlag };
+module.exports = { scan, insertFlag, clearOpenByRule, listFlags, listFlagsPaged, resolveFlag };
