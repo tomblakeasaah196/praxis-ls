@@ -42,8 +42,8 @@ const SEVERITY_FILTERS = [
   { value: "WARN", label: "Warning" },
   { value: "INFO", label: "Info" },
   { value: "ESCALATED", label: "Escalated" },
-  { value: "SOFT_BLOCK_RECOMMENDATION", label: "Soft block" },
-  { value: "HARD_BLOCK", label: "Hard block" },
+  { value: "SOFT_BLOCK_RECOMMENDATION", label: "Soft Block" },
+  { value: "HARD_BLOCK", label: "Hard Block" },
 ];
 const PAGE_SIZE = 25;
 
