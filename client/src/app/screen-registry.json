@@ -1718,8 +1718,10 @@
       "route": "/vault/overview",
       "area": "vault",
       "module_key": "MOD-64",
-      "purpose": "Document vault summary.",
-      "actions": [],
+      "purpose": "Document vault summary, and the address of the public verification portal to pass to a counterparty.",
+      "actions": [
+        "verification_portal"
+      ],
       "title_fr": "Vue d'ensemble"
     },
     {
@@ -2216,6 +2218,18 @@
       "app": "public-web"
     },
     {
+      "id": "public_verify",
+      "title": "Authenticate Our Documents",
+      "route": "/public/verify",
+      "area": "public",
+      "module_key": null,
+      "public": true,
+      "purpose": "The verification portal on the tenant's own website: type the code printed beneath a document's QR and read what was signed, by whom, and whether the record has changed. Linked from the site footer; the QR itself opens /v/:code.",
+      "actions": [],
+      "title_fr": "Authentifier nos documents",
+      "app": "public-web"
+    },
+    {
       "id": "reset_password",
       "title": "Reset Password",
       "title_fr": "Réinitialiser le mot de passe",
@@ -2233,7 +2247,7 @@
       "route": "/v/:code",
       "area": "public",
       "module_key": null,
-      "purpose": "The verification portal a printed QR code opens: is this document genuine, and who signed it.",
+      "purpose": "The verification portal a printed QR code opens: is this document genuine, and who signed it. Served here only for a tenant with no public website on file; otherwise this host redirects to theirs.",
       "actions": [],
       "public": true
     },
@@ -2244,7 +2258,7 @@
       "route": "/verify",
       "area": "public",
       "module_key": null,
-      "purpose": "Type a verification code to check a document's signatures.",
+      "purpose": "Type a verification code to check a document's signatures. Served here only for a tenant with no public website on file; the public site's own /public/verify is the one linked from its footer.",
       "actions": [],
       "public": true
     },

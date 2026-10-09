@@ -272,3 +272,87 @@ describe("public-web mount path", () => {
     }
   });
 });
+
+/**
+ * The verification portal on a WORKSPACE host.
+ *
+ * The portal moved to the tenant's public website, but `/v/{code}` is printed
+ * inside QR codes on invoices, waybills and contracts already in circulation,
+ * all of them addressed to the workspace host. That host therefore answers
+ * those two paths forever. A regression here does not fail a page load: it
+ * fails a customs officer scanning a document at a border post, months from
+ * now, with no way back to the paper.
+ *
+ * Source assertions rather than a booted app, for the reason this file's header
+ * gives — but the path assembly itself is a real function, called directly.
+ */
+describe("the verification portal on a workspace host", () => {
+  const { VERIFY_PATHS, verifyPortalPath } = paths;
+
+  test("both printed paths are claimed by the redirect", () => {
+    expect(VERIFY_PATHS).toEqual(["/v/:code", "/verify"]);
+    // ...and `src/server.js` registers exactly these, from this module, rather
+    // than a second copy of the strings.
+    expect(serverSrc).toMatch(/app\.get\(publicWebPaths\.VERIFY_PATHS/);
+  });
+
+  test("the mount matcher does not claim them — the ERP and this redirect do", () => {
+    // `/v/` must NOT route into public-web on a workspace host: the ERP's own
+    // copy of the portal is what serves a tenant with no public domain there.
+    expect(mountMatcher().test("/v/A4B7K92MXQ1P")).toBe(false);
+    expect(mountMatcher().test("/verify")).toBe(false);
+  });
+
+  test("a tenant cannot be given a prefix that shadows either path", () => {
+    expect(paths.RESERVED_BASES.has("v")).toBe(true);
+    expect(paths.RESERVED_BASES.has("verify")).toBe(true);
+  });
+
+  test("the redirect path is built from the route param, not the request URL", () => {
+    expect(verifyPortalPath("A4B7K92MXQ1P")).toBe("/v/A4B7K92MXQ1P");
+    // `/verify` carries no param: the manual-entry form is a real target.
+    expect(verifyPortalPath(undefined)).toBe("/verify");
+    expect(verifyPortalPath("")).toBe("/verify");
+  });
+
+  test("a protocol-relative code cannot escape into the Location header", () => {
+    // `//evil.com/x` in a Location is read by the browser as the HOST
+    // evil.com. Encoding the param is what makes the output always one of two
+    // shapes, whatever arrived.
+    const out = verifyPortalPath("//evil.com/x");
+    expect(out.startsWith("/v/")).toBe(true);
+    expect(out).not.toContain("//evil.com");
+    for (const hostile of ["../../etc", "a/b", "?x=1", "#frag"]) {
+      expect(verifyPortalPath(hostile).startsWith("/v/")).toBe(true);
+      expect(verifyPortalPath(hostile).slice(3)).not.toMatch(/[/?#]/);
+    }
+  });
+
+  test("it is a 302, so a tenant can still add or change a domain", () => {
+    // A 301 is cached by the browser indefinitely and would outlive the
+    // registry row it was derived from, stranding the one path that must never
+    // break.
+    expect(serverSrc).toMatch(/res\.redirect\(302/);
+    expect(serverSrc).not.toMatch(/res\.redirect\(301,\s*`\$\{target\}/);
+  });
+
+  test("the query string is carried across", () => {
+    // `?e=sandbox` pins a test-environment document to the right schema,
+    // `?lang=` is the reader's language and `?via=` separates a scan from a
+    // typed code. Dropping them turns a working QR into a 404 on the far side.
+    expect(serverSrc).toMatch(/const search = qs === -1 \? "" : req\.originalUrl\.slice\(qs\)/);
+    expect(serverSrc).toMatch(/\$\{target\}\$\{publicWebPaths\.verifyPortalPath\(req\.params\.code\)\}\$\{search\}/);
+  });
+
+  test("a tenant with no public website falls through to the ERP's own copy", () => {
+    // `next()`, never a 404 and never a redirect to the apex: the ERP still
+    // routes /v/:code and /verify, which is why those routes were kept.
+    expect(serverSrc).toMatch(/if \(!target\) return next\(\); \/\/ no public domain/);
+    // ...and a registry failure degrades the same way rather than 500ing.
+    expect(serverSrc).toMatch(/verify redirect lookup failed/);
+  });
+
+  test("a public-surface host never reaches the redirect — it serves the page", () => {
+    expect(serverSrc).toMatch(/if \(isPublicSurface\(req\)\) return next\(\); \/\/ \(a\) already served the page/);
+  });
+});

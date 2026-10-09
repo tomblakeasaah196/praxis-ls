@@ -15,7 +15,7 @@ export const LABEL_KEYS: Readonly<Record<string, true | readonly string[]>> = {
   "site.corridor": ["eyebrow","title"],
   "site.crash": ["home","reload","title"],
   "site.esg": ["environment","governance","kicker","social","title","titleAccent"],
-  "site.footer": ["about","careers","clients","company","contact","legal","newsletterCta","newsletterEmail","portal","portfolio","powered","privacy","quote","services","social","terms","track"],
+  "site.footer": ["about","careers","clients","company","contact","legal","newsletterCta","newsletterEmail","portal","portfolio","powered","privacy","quote","services","social","terms","track","verify"],
   "site.hero": ["cta","cta2","eyebrow","scrollCue","title","titleAccent","titleMain"],
   "site.how": ["eyebrow","steps.*.t","title"],
   "site.insights": ["all","backToIndex","by","filterLabel","gallery","gone","kicker","kindAll","kindAnnouncement","kindArticle","kindLabel","next","none","noneForTag","pageOf","pagination","previous","showAll","title","titleAccent","titleMain"],
@@ -32,4 +32,5 @@ export const LABEL_KEYS: Readonly<Record<string, true | readonly string[]>> = {
   "site.servicesPage": ["back","coverage","cta","faq","gallery","highlights","onThisPage","readLess","readMore","related","title","titleAccent","titleMain","updated","video"],
   "site.track": ["current","kicker","label","reference","submit","title"],
   "site.trackPage": ["askDesk","current","destination","failedTitle","lastUpdate","noMatch","noStages","openPortal","origin","progress","scheduled","searchAgain","service","theAnswer","timeline","title","titleAccent","titleMain","tooMany","verdictDone","verdictMoving","verdictOpened"],
+  "site.verify": ["asSigned","changed","close","code","codeLabel","contentHash","device","enterTitle","howTitle","identityH","integrityH","issuer","langSwitch","method","network","onBehalf","reason","revokedReasonLabel","signatureH","signedAt","signedBy","signingWindow","submit","title","traceH"],
 };

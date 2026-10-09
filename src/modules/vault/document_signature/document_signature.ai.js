@@ -27,6 +27,15 @@ module.exports = {
       permission: { module: "MOD-64", action: "view" },
       describe: "The signature methods available for a document type.",
     },
+    {
+      key: "verification_portal",
+      /* No `args`: there is nothing to look up. The answer is a property of the
+         tenant, and the service resolves the host itself (portalUrl). */
+      service: (client) => service.portalUrl(client),
+      permission: { module: "MOD-64", action: "view" },
+      describe:
+        "The public web address where anyone holding a signed document can authenticate it by typing the code printed beneath its QR.",
+    },
   ],
   /*
    * No writes. Signing needs the signer's fingerprint or face (or an emailed

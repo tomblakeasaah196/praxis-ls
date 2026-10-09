@@ -192,6 +192,42 @@ function matcherFor(base) {
   return re;
 }
 
+/**
+ * The verification portal's two paths, and how a redirect to them is built.
+ *
+ * ── WHY THEY LIVE HERE ────────────────────────────────────────────────────
+ * `RESERVED_BASES` above already reserves "v" and "verify" so a tenant cannot
+ * be given a marketing prefix that shadows them. These are the other half of
+ * the same fact: WHICH paths those are, in one place, so `src/server.js`'s
+ * redirect and the reservation cannot drift into disagreeing about what the
+ * portal is called.
+ *
+ * The portal itself moved to the tenant's public website (public-web). The
+ * workspace host keeps answering these forever anyway, because they are printed
+ * inside QR codes on paper that cannot be re-issued: it redirects to the
+ * tenant's own domain when they have one, and serves the ERP's own copy of the
+ * page when they do not.
+ */
+const VERIFY_PATHS = ["/v/:code", "/verify"];
+
+/**
+ * The path half of a redirect to the portal, built from the MATCHED ROUTE's
+ * params rather than from the request URL.
+ *
+ * ⚠ NEVER PASTE `req.originalUrl` INTO A `Location` HEADER. A request for
+ *   `//evil.com/x` is a protocol-relative URL: a browser reads it as the HOST
+ *   `evil.com`, so echoing a caller-supplied path back into a redirect is an
+ *   open redirect. Taking only `:code` and running it through
+ *   `encodeURIComponent` means the output is always exactly one of two shapes,
+ *   whatever arrived.
+ *
+ * A falsy code is the `/verify` route, which carries no param: that is the
+ * manual-entry form and is a legitimate target, not a missing value.
+ */
+function verifyPortalPath(code) {
+  return code ? `/v/${encodeURIComponent(code)}` : "/verify";
+}
+
 module.exports = {
   DEFAULT_BASE,
   ROOT_BASE,
@@ -202,4 +238,6 @@ module.exports = {
   normaliseBase,
   baseProblem,
   matcherFor,
+  VERIFY_PATHS,
+  verifyPortalPath,
 };

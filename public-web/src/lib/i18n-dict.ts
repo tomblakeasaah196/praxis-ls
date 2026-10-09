@@ -628,6 +628,11 @@ export const en = {
       track: "Track a shipment",
       portal: "Client portal",
       quote: "Request a quote",
+      /* The verification portal. "Authenticate" rather than "verify" is the
+         owner's word and the better one: a reader who has been handed a
+         document is asking whether it is genuine, not asking to perform a
+         check. */
+      verify: "Authenticate our documents",
       privacy: "Privacy",
       terms: "Terms of service",
       newsletter:
@@ -1364,6 +1369,7 @@ export const fr = {
       track: "Suivre un envoi",
       portal: "Portail client",
       quote: "Demander un devis",
+      verify: "Authentifier nos documents",
       privacy: "Confidentialité",
       terms: "Conditions d’utilisation",
       newsletter:
