@@ -434,14 +434,16 @@ export function InboxPage() {
               setApplied(query);
               setMeaning("");
             }}
-            className="flex min-w-0 flex-1 items-center gap-2"
+            className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
           >
+            {/* Full width on a phone, so the buttons wrap onto the next line
+                instead of squeezing the field to a few letters. */}
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={tr("Search mail: from:maersk has:attachment demurrage")}
               aria-label={tr("Search mail")}
-              className="min-w-0"
+              className="min-w-0 basis-full sm:basis-auto sm:flex-1"
             />
             <Button type="submit" variant="outline" size="sm">
               {tr("Search")}
