@@ -106,7 +106,9 @@ type AuthState = {
   /** Email + Quick PIN, from any device. `pending2fa` when the account's
    *  authenticator app must follow — the PIN replaces the password, not the code. */
   pinLogin: (email: string, pin: string) => Promise<LoginResult>;
-  passkeyLogin: (email?: string) => Promise<void>;
+  /** A passkey is a first factor like any other: `pending2fa` when the
+   *  account's authenticator must follow (owner decision, 9 Oct 2026). */
+  passkeyLogin: (email?: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   /** Lock the screen now and end the session server-side ("I'm stepping away"). */
   lockNow: () => Promise<void>;
@@ -153,7 +155,8 @@ type TokenResponse = {
   session_expires_in?: number;
   user: User;
 };
-type LoginResponse = { pending_2fa: true; pending_token: string } | TokenResponse;
+type PendingTwoFa = { pending_2fa: true; pending_token: string; expires_in?: string };
+type LoginResponse = PendingTwoFa | TokenResponse;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<User | null>(null);
@@ -461,12 +464,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verify2fa: AuthState["verify2fa"] = React.useCallback(
     async (code) => {
       if (!pendingToken) throw new Error("No 2FA challenge in progress");
-      const r = await tenant<TokenResponse>("/auth/2fa/verify", {
+      const r = await tenant<TokenResponse & { credential_id?: string }>("/auth/2fa/verify", {
         method: "POST",
         auth: false,
         body: { pending_token: pendingToken, code },
       });
-      acceptTokens(r);
+      const accepted = acceptTokens(r);
+      // A passkey that opened this challenge comes back named here, so the
+      // device still learns which credential it holds (see twoFaChallenge).
+      if (accepted && r.credential_id) {
+        passkeyDeviceStore.add(r.user.email, r.credential_id);
+        void keepDeviceStorage();
+      }
       // `pendingToken`, NOT []: an empty array captures `null` from the first
       // render forever, and 2FA would never complete.
     },
@@ -507,9 +516,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: who,
         credentialIds: who ? passkeyDeviceStore.ids(who) : [],
       });
-      let r: TokenResponse & { credential_id?: string };
+      let r: (TokenResponse & { credential_id?: string }) | PendingTwoFa;
       try {
-        r = await tenant<TokenResponse & { credential_id?: string }>("/auth/passkey/login/verify", {
+        r = await tenant<(TokenResponse & { credential_id?: string }) | PendingTwoFa>("/auth/passkey/login/verify", {
           method: "POST",
           auth: false,
           body: { assertion, challengeToken, ...(who ? { email: who } : {}) },
@@ -527,12 +536,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         throw e;
       }
-      if (!acceptTokens(r)) return;
+      if ("pending_2fa" in r) {
+        // The ceremony passed; the account still wants its code. The credential
+        // is remembered on the other side of that, where the account's email is
+        // known — the challenge carries the credential id for us.
+        setPendingToken(r.pending_token);
+        return { pending2fa: true };
+      }
+      if (!acceptTokens(r)) return { pending2fa: false };
       // A ceremony that COMPLETED is proof this device holds the credential:
       // lead with it next time, scoped to exactly this one — and ask the
       // browser never to evict the record of it.
       passkeyDeviceStore.add(r.user.email, r.credential_id || String(assertion.id));
       void keepDeviceStorage();
+      return { pending2fa: false };
     },
     [acceptTokens],
   );

@@ -159,6 +159,7 @@ describe("recovery codes", () => {
     jest.spyOn(repo, "replaceRecoveryCodes").mockImplementation(async (c, u, hashes) => {
       stored = hashes;
     });
+    const killOthers = jest.spyOn(repo, "killOtherSessionsForUser").mockResolvedValue(2);
 
     const out = await service.enableTotp({}, USER, "123456", { frequency: "daily" });
 
@@ -175,6 +176,10 @@ describe("recovery codes", () => {
     for (const h of stored) expect(h.startsWith("$argon2id$")).toBe(true);
     // Enrolling does not earn a window; proving a code at a sign-in does.
     expect(revoke).toHaveBeenCalled();
+    // And every OTHER session ends, the way a password change ends them: a
+    // session opened before the factor existed carries the old protection.
+    expect(killOthers).toHaveBeenCalled();
+    expect(out.sessions_signed_out).toBe(2);
     jest.restoreAllMocks();
   });
 
@@ -341,6 +346,105 @@ describe("the device, between asks", () => {
   });
 });
 
+describe("the second step, after whatever came first", () => {
+  const jwt = require("jsonwebtoken");
+  const { config } = require("../../src/config/env");
+
+  test("the challenge names the first factor, so the login record can too", () => {
+    for (const via of ["password", "pin", "passkey"]) {
+      const out = service.twoFaChallenge(USER, via);
+      expect(out.pending_2fa).toBe(true);
+      const payload = jwt.verify(out.pending_token, config.JWT_ACCESS_SECRET);
+      expect(payload.via).toBe(via);
+      expect(payload.typ).toBe("2fa_pending");
+      expect(payload.sub).toBe(USER);
+    }
+  });
+
+  test("a passkey's credential rides the challenge, so the device still learns it", () => {
+    const out = service.twoFaChallenge(USER, "passkey", "cred-abc");
+    const payload = jwt.verify(out.pending_token, config.JWT_ACCESS_SECRET);
+    expect(payload.cid).toBe("cred-abc");
+    // And is absent, not null, when there was no passkey.
+    const plain = jwt.verify(service.twoFaChallenge(USER, "password").pending_token, config.JWT_ACCESS_SECRET);
+    expect("cid" in plain).toBe(false);
+  });
+
+  test("the challenge carries no session: it is not a sign-in", () => {
+    const out = service.twoFaChallenge(USER, "passkey", "cred-abc");
+    expect(out.access_token).toBeUndefined();
+    expect(out.refresh_token).toBeUndefined();
+    const payload = jwt.verify(out.pending_token, config.JWT_ACCESS_SECRET);
+    expect(payload.sid).toBeUndefined();
+  });
+
+  test("completing it after a passkey hands the credential back and names the method", async () => {
+    const { authenticator } = require("otplib");
+    const encryption = require("../../src/services/encryption.service");
+    const sessionStore = require("../../src/shared/cache/session-store");
+    const { emitEvent } = require("../../src/shared/events/emit");
+
+    jest.spyOn(repo, "getTotpSecret").mockResolvedValue({
+      user_id: USER, email: "ama@example.com", full_name: "Ama",
+      is_2fa_enabled: true, totp_secret_enc: "enc", mfa_frequency: "always",
+    });
+    jest.spyOn(encryption, "decrypt").mockReturnValue("JBSWY3DPEHPK3PXP");
+    jest.spyOn(authenticator, "verify").mockReturnValue(true);
+    jest.spyOn(repo, "recordLoginSuccess").mockResolvedValue(undefined);
+    jest.spyOn(repo, "createSession").mockResolvedValue("55555555-5555-5555-5555-555555555555");
+    jest.spyOn(repo, "setRefreshJti").mockResolvedValue(undefined);
+    jest.spyOn(repo, "roleNames").mockResolvedValue([]);
+    jest.spyOn(sessionStore, "indexSession").mockResolvedValue(undefined);
+    emitEvent.mockClear();
+
+    const { pending_token } = service.twoFaChallenge(USER, "passkey", "cred-abc");
+    const out = await service.verifyTotp(
+      { query: async () => ({ rows: [] }) },
+      { pendingToken: pending_token, code: "123456" },
+    );
+
+    expect(out.access_token).toEqual(expect.any(String));
+    expect(out.credential_id).toBe("cred-abc");
+    // "passkey+totp", so the audit trail says a passkey AND a code were proved.
+    expect(emitEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ payload: expect.objectContaining({ method: "passkey+totp" }) }),
+    );
+    jest.restoreAllMocks();
+  });
+
+  test("an unknown or absent `via` reads as a password rather than crashing", async () => {
+    const { authenticator } = require("otplib");
+    const encryption = require("../../src/services/encryption.service");
+    const sessionStore = require("../../src/shared/cache/session-store");
+    const { emitEvent } = require("../../src/shared/events/emit");
+
+    jest.spyOn(repo, "getTotpSecret").mockResolvedValue({
+      user_id: USER, email: "a@b.com", is_2fa_enabled: true, totp_secret_enc: "enc", mfa_frequency: "always",
+    });
+    jest.spyOn(encryption, "decrypt").mockReturnValue("JBSWY3DPEHPK3PXP");
+    jest.spyOn(authenticator, "verify").mockReturnValue(true);
+    jest.spyOn(repo, "recordLoginSuccess").mockResolvedValue(undefined);
+    jest.spyOn(repo, "createSession").mockResolvedValue("55555555-5555-5555-5555-555555555555");
+    jest.spyOn(repo, "setRefreshJti").mockResolvedValue(undefined);
+    jest.spyOn(repo, "roleNames").mockResolvedValue([]);
+    jest.spyOn(sessionStore, "indexSession").mockResolvedValue(undefined);
+    emitEvent.mockClear();
+
+    // A token minted before `via` existed, which is what a rolling deploy has
+    // in flight the moment this ships.
+    const legacy = jwt.sign({ sub: USER, typ: "2fa_pending" }, config.JWT_ACCESS_SECRET, { expiresIn: 300 });
+    const out = await service.verifyTotp({ query: async () => ({ rows: [] }) }, { pendingToken: legacy, code: "123456" });
+
+    expect(out.access_token).toEqual(expect.any(String));
+    expect(emitEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ payload: expect.objectContaining({ method: "password+totp" }) }),
+    );
+    jest.restoreAllMocks();
+  });
+});
+
 describe("an administrator's reset", () => {
   test("clears the factor, the codes and every device's window — and hands out nothing", async () => {
     jest.spyOn(repo, "getTotpSecret").mockResolvedValue({
@@ -349,11 +453,15 @@ describe("an administrator's reset", () => {
     const disabled = jest.spyOn(repo, "setTotpEnabled").mockResolvedValue(undefined);
     const codes = jest.spyOn(repo, "deleteRecoveryCodes").mockResolvedValue(undefined);
     const revoke = jest.spyOn(knownDeviceRepo, "revokeMfaTrust").mockResolvedValue(undefined);
+    const killAll = jest.spyOn(repo, "killAllSessionsForUser").mockResolvedValue(3);
     audit.mockClear();
 
     const out = await service.resetMfaForUser({}, { id: USER, actor: { user_id: "admin" } });
 
-    expect(out).toEqual({ is_2fa_enabled: false, reset: true });
+    expect(out).toEqual({ is_2fa_enabled: false, reset: true, sessions_signed_out: 3 });
+    // EVERY session, not every OTHER one: the administrator is not the account
+    // holder, and the phone may be in somebody else's hands.
+    expect(killAll).toHaveBeenCalledWith({}, USER, "admin");
     expect(disabled).toHaveBeenCalledWith({}, USER, false);
     expect(codes).toHaveBeenCalledWith({}, USER);
     expect(revoke).toHaveBeenCalledWith({}, USER);
