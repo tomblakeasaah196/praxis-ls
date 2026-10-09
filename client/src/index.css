@@ -1717,6 +1717,25 @@
 .login-back:hover {
   color: #fff;
 }
+/* The first step, already behind them, on the two-step screen. Quiet and
+   positive: it is not an instruction, it is the reason the screen changed.
+
+   NOT `rgb(var(--ok))`. `.login-card` paints its own near-black background in
+   BOTH themes, so the theme-scoped token would resolve to the light-mode green
+   (25 117 73) on that dark card and land at 3.5:1 — under AA, and invisible to
+   exactly the people who need to read it. This is the dark-mode value, pinned,
+   because the surface is always dark. The same reason `.login-success` next to
+   it pins its own foreground. */
+.login-verified {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgb(74 176 120);
+}
+
 /* The way out of a stage the user cannot complete: "Lost your phone?" on the
    two-step screen. Accent rather than muted like .login-back, because it is an
    ANSWER to the problem in front of them and not a way back. */

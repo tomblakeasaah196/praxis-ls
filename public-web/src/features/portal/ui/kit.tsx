@@ -225,10 +225,37 @@ const ToastContext = React.createContext<(text: string, tone?: "ok" | "bad") => 
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<Toast[]>([]);
+  /**
+   * Every auto-dismiss still armed, so unmount can cancel them.
+   *
+   * The timer used to outlive the tree it updates. Under test that is a hard
+   * failure: vitest tears jsdom down, the 3.6s timer fires into nothing, and
+   * `ReferenceError: window is not defined` reddens a run in which all 541
+   * tests passed — intermittently, because it depends on whether the suite
+   * finishes inside 3.6s of the last toast.
+   *
+   * The browser has the quieter version of the same bug: leave the portal
+   * within 3.6s of a toast and React takes a setState into an unmounted tree.
+   * Cancelling on unmount fixes both.
+   */
+  const timers = React.useRef<ReturnType<typeof setTimeout>[]>([]);
+  React.useEffect(
+    () => () => {
+      timers.current.forEach(clearTimeout);
+      timers.current = [];
+    },
+    [],
+  );
   const push = React.useCallback((text: string, tone: "ok" | "bad" = "ok") => {
     const id = Date.now() + Math.random();
     setToasts((l) => [...l.slice(-2), { id, text, tone }]);
-    window.setTimeout(() => setToasts((l) => l.filter((x) => x.id !== id)), 3600);
+    const timer = setTimeout(() => {
+      setToasts((l) => l.filter((x) => x.id !== id));
+      // Drop the one that just fired, so a long session does not accumulate
+      // ids that can never be cleared.
+      timers.current = timers.current.filter((t) => t !== timer);
+    }, 3600);
+    timers.current.push(timer);
   }, []);
   return (
     <ToastContext.Provider value={push}>

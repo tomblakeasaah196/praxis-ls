@@ -71,17 +71,28 @@ const loginOptions = asyncHandler(async (req, res) => {
 // LIVE/TEST toggle, so in TEST mode this looked for the passkey in the sandbox
 // schema, where it does not exist.
 const loginVerify = asyncHandler(async (req, res) => {
+  // The device's identity from its cookie, resolved against the account the
+  // ASSERTION proves inside the service — not against req.body.email, which a
+  // discoverable-credential sign-in does not send at all (known-device.js).
+  const token = knownDevice.readToken(req);
+  const deviceHash = token ? knownDevice.hashToken(token) : null;
   const data = await req.identityDb((c) =>
     service.verifyAuthentication(c, {
       assertion: req.body.assertion,
       challengeToken: req.body.challengeToken,
+      deviceHash,
       req,
       ip: req.ip,
       userAgent: req.headers["user-agent"],
       environment: req.env || "live",
     }),
   );
-  await knownDevice.remember(req, res, { userId: data.user.user_id, credentialId: data.credential_id });
+  // A pending 2FA challenge is not a sign-in yet, and carries no `user` — the
+  // code that completes it is what remembers the device (and the credential,
+  // which rides the challenge token to get there).
+  if (data && data.access_token) {
+    await knownDevice.remember(req, res, { userId: data.user.user_id, credentialId: data.credential_id });
+  }
   res.json({ data });
 });
 

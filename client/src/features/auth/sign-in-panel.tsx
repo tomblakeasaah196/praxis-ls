@@ -205,6 +205,10 @@ export function SignInPanel({
      a screen that offers both at once makes the common case read as a choice. */
   const [recovery, setRecovery] = React.useState("");
   const [useRecovery, setUseRecovery] = React.useState(false);
+  /* Which first factor opened the challenge. Two jobs: the code screen says so
+     out loud, and afterSignIn needs it — handing it "password" after a passkey
+     would offer to set up a passkey to somebody who just used one. */
+  const [twofaVia, setTwofaVia] = React.useState<"password" | "pin" | "passkey">("password");
   const [pin, setPin] = React.useState("");
   const [showKeypad, setShowKeypad] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -318,7 +322,10 @@ export function SignInPanel({
     clearErrors();
     try {
       const { pending2fa } = await login(target, password);
-      if (pending2fa) setStage("twofa");
+      if (pending2fa) {
+        setTwofaVia("password");
+        setStage("twofa");
+      }
       else {
         setRemembered(lastSessionStore.get() ?? remembered);
         await afterSignIn(target, "password");
@@ -335,7 +342,7 @@ export function SignInPanel({
     clearErrors();
     try {
       await verify2fa(value.trim());
-      await afterSignIn(rememberedEmail || email.trim(), "password");
+      await afterSignIn(rememberedEmail || email.trim(), twofaVia);
     } catch (err) {
       setError(friendly(err));
       // Only the 6-digit field is cleared on a miss: a mistyped recovery code
@@ -430,7 +437,10 @@ export function SignInPanel({
       const { pending2fa } = await pinLogin(target, entered);
       // An account with an authenticator app: the code follows the PIN, as it
       // follows the password.
-      if (pending2fa) setStage("twofa");
+      if (pending2fa) {
+        setTwofaVia("pin");
+        setStage("twofa");
+      }
       else {
         setRemembered(lastSessionStore.get() ?? remembered);
         await afterSignIn(target, "pin");
@@ -457,8 +467,16 @@ export function SignInPanel({
     try {
       // Scoped to the person this screen is for: their credentials on this
       // device, and a ceremony nobody else's passkey can answer.
-      await passkeyLogin(rememberedEmail || undefined);
+      // `?.` deliberately: this returned void until the authenticator became a
+      // second step, and a sign-in screen is the worst place in the product to
+      // throw a TypeError over a shape change.
+      const passkeyResult = await passkeyLogin(rememberedEmail || undefined);
       setRemembered(lastSessionStore.get() ?? remembered);
+      if (passkeyResult?.pending2fa) {
+        setTwofaVia("passkey");
+        setStage("twofa");
+        return;
+      }
       await afterSignIn(rememberedEmail, "passkey");
     } catch (err) {
       if (isPasskeyCancel(err)) {
@@ -563,7 +581,9 @@ export function SignInPanel({
     stage === "twofa"
       ? useRecovery
         ? "Enter one of your recovery codes."
-        : "Enter the 6-digit code from your authenticator app."
+        : // The heading plus six boxes say this already, and the screen now
+          // carries the account and the step that passed. §3.17: delete first.
+          ""
       : stage === "forgot"
         ? "We'll email you a link to choose a new password."
         : stage === "forgot-sent"
@@ -711,7 +731,7 @@ export function SignInPanel({
       <h2 id={titleId} className="login-card-title">
         {title}
       </h2>
-      <p className="login-card-sub">{sub}</p>
+      {sub && <p className="login-card-sub">{sub}</p>}
 
       {/* ── IDENTITY-FIRST: the device knows whose it is ─────────────────── */}
       {stage === "credentials" && remembered && (
@@ -988,6 +1008,36 @@ export function SignInPanel({
       {/* ── 2FA ─────────────────────────────────────────────────────────── */}
       {stage === "twofa" && (
         <form onSubmit={(e) => e.preventDefault()} className="mt-6 flex flex-col gap-5" noValidate>
+          {/* Whose account, and which step is already behind them — so the two
+              screens read as one sequence rather than a failed first attempt.
+              No "Not you?" here: the way out of a half-finished sign-in is
+              Back, and switching account mid-challenge would strand the
+              pending token. */}
+          {remembered && (
+            <div className="login-identity">
+              <div className="login-identity-row">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="login-identity-avatar" />
+                ) : (
+                  <span className="login-identity-initial" aria-hidden>
+                    {(fullName || rememberedEmail || "?").charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="login-identity-name">{fullName}</p>
+                  <p className="login-identity-email">{rememberedEmail}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <p className="login-verified">
+            <CheckIcon width={13} height={13} />
+            {twofaVia === "passkey"
+              ? tr("Passkey verified")
+              : twofaVia === "pin"
+                ? tr("PIN verified")
+                : tr("Password verified")}
+          </p>
           {useRecovery ? (
             <div className="login-field">
               <input
