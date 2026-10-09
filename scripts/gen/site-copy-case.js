@@ -427,11 +427,27 @@ const CASES = {
       "figureAlt",
     ],
   },
+  /*
+   * The verification portal. LABEL is only what NAMES something — the field
+   * labels, the section headings, the submit button. The callout titles
+   * ("Signature verified", "This signature has been revoked") are PROSE
+   * because the gate classifies by COMPONENT and those render in a callout,
+   * which is a message whatever words it carries; so is "How is this
+   * verified?", which ends in a question mark and is therefore a sentence.
+   */
+  "site.verify": {
+    LABEL: [
+      "title", "enterTitle", "codeLabel", "submit", "signatureH", "signedBy", "onBehalf", "method", "signingWindow", "reason", "signedAt", "network", "device", "asSigned", "changed", "issuer", "code", "contentHash", "howTitle", "close", "identityH", "integrityH", "traceH", "revokedReasonLabel", "langSwitch",
+    ],
+    PROSE: [
+      "lead", "testEnvTitle", "testEnvBody", "enterLead", "checking", "notFoundTitle", "notFoundBody", "revokedTitle", "revokedBody", "amendedTitle", "amendedBody", "validTitle", "internal", "external", "asSignedNote", "noSummary", "howLink", "identityB", "integrityB", "traceB", "privacy",
+    ],
+  },
   "site.footer": {
     LABEL: [
       "company", "services", "clients", "legal", "powered", "about", "contact",
       "portfolio", "careers", "track", "portal", "quote", "privacy", "terms",
-      "newsletterCta", "newsletterEmail", "social",
+      "newsletterCta", "newsletterEmail", "social", "verify",
     ],
     PROSE: [
       "rights", "newsletter", "sending", "newsletterOk", "newsletterLimited",

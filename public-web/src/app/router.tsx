@@ -76,6 +76,10 @@ const Marketing = lazy(
    it. */
 const About = lazy(() => import("@/features/about/about-page"), "AboutPage");
 const Track = lazy(() => import("@/features/tracking/track-page"), "TrackPage");
+/* The verification portal. Lazy like every other route and it matters here:
+   the audience is a phone at a border post that came for ONE lookup, and the
+   marketing chunk is nothing to them. */
+const Verify = lazy(() => import("@/features/verify/verify-page"), "VerifyPage");
 const ServicesIndex = lazy(
   () => import("@/features/services/services-page"),
   "ServicesIndexPage",
@@ -260,6 +264,31 @@ export function AppRouter() {
         {/* ── the public site ── */}
         <Route path={p()} element={<Marketing />} />
         <Route path={p("/track")} element={<Track />} />
+
+        {/* ── the verification portal ──────────────────────────────────────
+            TWO PATHS, and only one of them is prefixed.
+
+            `/v/:code` is UNPREFIXED on purpose, and it is the only route here
+            that is. It is printed inside a QR that has 22mm to live in and has
+            to survive a photocopier, a fax and a phone camera in a badly-lit
+            warehouse. §3.7 measured it: `https://{host}/v/{12-char code}` is 40
+            characters and needs a 33-module symbol at 0.67mm per module; put it
+            under this app's `/public` and it is 52 characters, which costs a
+            whole QR version and drops to 0.59mm. Lengthening this path degrades
+            a printed artefact that cannot be re-issued, so it does not take the
+            prefix to match a convention.
+
+            It only ever ANSWERS on a host this app owns at its root, because a
+            workspace host routes `/v/` to the ERP (src/shared/http/public-web-
+            paths.js reserves it). That is the correct split: on a workspace
+            host the ERP's own copy of the portal answers, and src/server.js
+            302s here instead when the tenant has a public domain.
+
+            `/verify` is the manual-entry form and is NOT printed anywhere, so
+            it takes the prefix like every other page and is what the site
+            footer links to. */}
+        <Route path="/v/:code" element={<Verify />} />
+        <Route path={p("/verify")} element={<Verify />} />
         <Route path={p("/about")} element={<About />} />
         <Route path={p("/services")} element={<ServicesIndex />} />
         <Route path={p("/services/:slug")} element={<ServiceDetail />} />

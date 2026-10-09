@@ -44,6 +44,15 @@ import { Dialog } from "@/components/ui/dialog";
 import { Pill } from "@/components/ui/pill";
 import { Spinner } from "@/components/ui/states";
 import { SignatureCard } from "@/features/vault/signature-cards";
+/* The code rule, from `packages/shared` — the SAME module the server folds a
+   typed code with (src/services/signatures/tokens.js). One definition: see the
+   header of verify-code.js for what a second one costs. */
+import {
+  CODE_LENGTH,
+  formatPartial,
+  isValidCode,
+  normaliseCode,
+} from "@praxis/shared/rules/verify-code";
 
 type Lang = "fr" | "en";
 
@@ -168,7 +177,7 @@ const COPY = {
       "Qui a signé, et comment cette personne l'a prouvé. Un nom confirmé par un compte authentifié et un nom simplement déclaré sont deux affirmations différentes, et cette page indique laquelle vous lisez.",
     integrityH: "Intégrité",
     integrityB:
-      "Deux empreintes, deux questions. La première porte sur le contenu du document — les montants, les parties, les références — et permet de savoir s'il a été modifié après signature. La seconde porte sur le fichier lui-même et confirme qu'il s'agit exactement du fichier émis.",
+      "Deux empreintes, deux questions. La première porte sur le contenu du document, les montants, les parties et les références, et permet de savoir s'il a été modifié après signature. La seconde porte sur le fichier lui-même et confirme qu'il s'agit exactement du fichier émis.",
     traceH: "Traçabilité",
     traceB:
       "Chaque signature et chaque vérification sont inscrites dans un registre en ajout seul, conservé par l'émetteur. Votre consultation d'aujourd'hui en fait partie.",
@@ -227,7 +236,7 @@ const COPY = {
       "Who signed, and how they proved it. A name confirmed by an authenticated account and a name simply declared are two different claims, and this page tells you which one you are reading.",
     integrityH: "Integrity",
     integrityB:
-      "Two fingerprints, two questions. The first covers the document's contents — the amounts, the parties, the references — and answers whether it changed after signing. The second covers the file itself and confirms it is the exact file that was issued.",
+      "Two fingerprints, two questions. The first covers the document's contents, the amounts, the parties and the references, and answers whether it changed after signing. The second covers the file itself and confirms it is the exact file that was issued.",
     traceH: "Traceability",
     traceB:
       "Every signature and every verification is written to an append-only record kept by the issuer. Your visit today is part of it.",
@@ -341,7 +350,25 @@ function HowDialog({
   );
 }
 
-/** Manual entry — the `/verify` route, and where a 404 lands you. */
+/**
+ * Manual entry — the `/verify` route, and where a 404 lands you.
+ *
+ * ── WHAT THIS FIELD ACCEPTS, AND WHY IT IS THAT NARROW ─────────────────────
+ *
+ * Exactly one thing: the twelve-character code printed beneath the QR. Not an
+ * invoice number, not a shipment reference, not an internal id, not a hash
+ * prefix. `@praxis/shared/rules/verify-code` is where that rule lives and why,
+ * and it is the SAME module the server normalises with — a second spelling of
+ * the rule here would send codes that cannot match, and a real document would
+ * read as unknown.
+ *
+ * Submit stays disabled until the shape is valid. That is not politeness about
+ * typos: the portal's limiter is 60 lookups per IP per 15 minutes and is the
+ * sole defence against enumerating a plaintext code
+ * (document_verification.routes.js), an office behind one NAT shares that
+ * ceiling, and a round trip spent on eleven characters is one the next
+ * colleague does not get.
+ */
 function CodeEntry({
   c,
   initial,
@@ -353,13 +380,15 @@ function CodeEntry({
   onSubmit: (code: string) => void;
   busy: boolean;
 }) {
-  const [value, setValue] = React.useState(initial);
+  const [value, setValue] = React.useState(() => formatPartial(initial));
+  const normalised = normaliseCode(value);
+  const ready = isValidCode(normalised);
   return (
     <form
       className="lux-card space-y-3 p-5"
       onSubmit={(e) => {
         e.preventDefault();
-        if (value.trim()) onSubmit(value.trim());
+        if (ready) onSubmit(normalised);
       }}
     >
       <h2 className="text-title font-semibold">{c.enterTitle}</h2>
@@ -371,12 +400,19 @@ function CodeEntry({
         id="verify-code"
         value={value}
         autoComplete="off"
+        autoCapitalize="characters"
         spellCheck={false}
+        /* The format is a placeholder, not a sentence under the field: a worked
+           example teaches the shape in the place the shape is needed. §3.17. */
         placeholder="A4B7-K92M-XQ1P"
-        onChange={(e) => setValue(e.target.value)}
+        /* Twelve characters plus the two printed separators. `formatPartial`
+           has already dropped anything past twelve, so a pasted URL cannot
+           overflow it. */
+        maxLength={CODE_LENGTH + 2}
+        onChange={(e) => setValue(formatPartial(e.target.value))}
         className="font-mono uppercase"
       />
-      <Button type="submit" loading={busy} disabled={!value.trim()}>
+      <Button type="submit" loading={busy} disabled={!ready}>
         {c.submit}
       </Button>
     </form>

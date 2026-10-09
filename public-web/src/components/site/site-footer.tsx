@@ -84,6 +84,14 @@ export function SiteFooter() {
       // §9.1: About was absent from the footer as well as from the nav, and
       // `site.footer.about` has been in the dictionary unused since PR 1.
       { to: p("/about"), label: t("site.footer.about") },
+      // The verification portal, and the footer is the RIGHT place for it
+      // rather than the nav: nobody browses here. A reader arrives holding a
+      // document, and the footer is where you look for the thing a company
+      // publishes about itself. It sits under Company and not under "For
+      // clients" because the people who use it are mostly not clients — a
+      // customs officer, a bank, a buyer's lawyer — and the column headed
+      // "Espace client" would read as a door they are not allowed through.
+      { to: p("/verify"), label: t("site.footer.verify") },
       { to: p("#how"), label: t("site.how.title") },
       { to: p("/portfolio"), label: t("site.footer.portfolio") },
       { to: p("/careers"), label: t("site.footer.careers") },
