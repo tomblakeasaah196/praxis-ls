@@ -380,15 +380,15 @@ export function WebsiteThemePage() {
               the words exactly as they are typed. */}
           <SettingsCard
             title={tr("Labels")}
-            desc={tr("Title Case capitalises each word of the links, buttons, headings and field labels on your website and client portal — “Request a Quote”, “Demander un Devis”. Sentences always stay as written.")}
+            desc={tr("Title Case capitalises each word of the links, buttons, headings and field labels on your website and client portal: “Request a Quote”, “Demander un Devis”. Sentences always stay as written.")}
           >
             <Field label={tr("Label Capitalisation")}>
               <Segmented
                 value={form.label_case === "AS_WRITTEN" ? "AS_WRITTEN" : "TITLE"}
                 onChange={(v) => set("label_case", v)}
                 options={[
-                  { value: "TITLE", label: tr("Title Case (standard)") },
-                  { value: "AS_WRITTEN", label: tr("As written") },
+                  { value: "TITLE", label: tr("Title Case (Standard)") },
+                  { value: "AS_WRITTEN", label: tr("As Written") },
                 ]}
               />
             </Field>
@@ -396,7 +396,6 @@ export function WebsiteThemePage() {
 
           <SettingsCard
             title={tr("Preview")}
-            desc={tr("Both themes, painted from the same values your site will use.")}
           >
             <div className="flex flex-col gap-4 sm:flex-row">
               <Preview tokens={preview.light} fonts={preview.fonts} label={tr("Light")} />

@@ -54,7 +54,7 @@ function Toggle({
 function band(s: wf.WorkflowStep): string {
   if (s.min_amount_xaf == null && s.max_amount_xaf == null) return "any amount";
   if (s.min_amount_xaf != null && s.max_amount_xaf != null)
-    return `${money(s.min_amount_xaf)} – ${money(s.max_amount_xaf)}`;
+    return `${money(s.min_amount_xaf)} to ${money(s.max_amount_xaf)}`;
   if (s.min_amount_xaf != null) return `≥ ${money(s.min_amount_xaf)}`;
   return `≤ ${money(s.max_amount_xaf)}`;
 }
@@ -132,7 +132,7 @@ function StepForm({
       open
       onClose={onClose}
       title="Add Step"
-      description="A stage in the chain — who acts, where in the company, and (optionally) the amount band it applies to."
+      description="A stage in the chain: who acts, where in the company, and the amount band it applies to."
     >
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -178,7 +178,9 @@ function StepForm({
           </Field>
           <Field
             label="Part of the Company"
-            hint="The organigramme node this decision belongs to. Anyone above it in the tree can act; leave blank for company-wide."
+            about="Left blank, the step is company-wide."
+            /* @prose:keep the choice also grants everyone ABOVE this node. */
+            hint="Anyone above this node in the tree can act on the step."
           >
             <Select
               value={f.scope_id}
@@ -196,7 +198,8 @@ function StepForm({
           <Field
             label={tr("Capability")}
             required
-            hint="Segregation-of-duties overlay — the actor must hold this authority."
+            /* @prose:keep a role grant alone will not pass this step. */
+            hint="The actor must hold this authority, not just the role grant."
           >
             <Select
               value={f.capability_code}
@@ -229,9 +232,10 @@ function StepForm({
           </Field>
         </div>
         {!scopes.loading && !flatScopes.length && (
+          /* @prose:keep says where to go when the dropdown above is empty. */
           <p className="micro">
-            No scopes defined yet — build the tree under Security &rsaquo;
-            Scopes to route steps to a branch or department.
+            No scopes defined yet. Build the tree under Security &rsaquo; Scopes
+            to route steps to a branch or department.
           </p>
         )}
         {error && <ErrorState message={error} />}
@@ -362,7 +366,7 @@ function WorkflowDrawer({
           </ol>
         ) : (
           <p className="micro">
-            No steps yet — add the first stage of the chain.
+            No steps yet. Add the first stage of the chain.
           </p>
         )}
       </div>
@@ -532,7 +536,7 @@ export function WorkflowsPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Governance" to="/governance" />}
         title={tr("Workflows")}
-        description="Validate/approve chains bound to approvable events — the org's approval routing."
+        description="Validate and approve chains, bound to the events they route."
         action={<Button onClick={() => setCreating(true)}>New workflow</Button>}
       />
       <KpiRow>

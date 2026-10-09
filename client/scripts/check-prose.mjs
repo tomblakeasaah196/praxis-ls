@@ -199,6 +199,143 @@ const CHROME_OPEN = /^<(?:PageHeader|ListPage|Section|SectionCard|Panel|Fieldset
 const CHROME_ATTR =
   /^\s*(?:title|legend|area|label)=\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/;
 
+/* COMPONENTS WHOSE OWN TITLE OR LABEL IS CHROME, AND THAT NOTHING READ.
+ *
+ * §3.18 listed `<Dialog title>` as unread and left it there. Two things made
+ * that understatement expensive:
+ *
+ *   THE COMPONENT IS SPELLED `Modal`. `components/ui/modal.tsx` is one line of
+ *   `export { Dialog as Modal }`, kept so that 56 importers did not have to
+ *   change, and the tree says `Modal` 106 times to `Dialog`'s 17. A rule
+ *   written against the name in the guide would have matched almost nothing,
+ *   and every one of the six Configure hubs calls it `Modal` exclusively.
+ *
+ *   A KPI CAPTION IS THE SAME CHROME WRITTEN TWICE. The object bucket has read
+ *   `label:` inside a KPI config since that rule was widened, so
+ *   `{ label: "open flags" }` fails the build while `<KpiTile label="Open
+ *   flags">` — the same caption, rendered by the same component, on the same
+ *   screen — passed. 152 of those in `client/src`. `.micro` is documented as a
+ *   Title Case caption; this is where captions actually live.
+ *
+ * Both are the one-line fix of naming the component, so they share a bucket:
+ * it is one code path. It RATCHETS for the reason objTitle does — 258 sites
+ * across the tree is not one commit, and a swept area can never regrow.
+ */
+const CHROME_RATCHET = /^<(?:Modal|Dialog|KpiTile|Stat)\b/;
+
+/* A DIALOG IS THE ONE CHROME COMPONENT THAT ALSO SPEAKS.
+ *
+ * "New Service Type" names a form. "Remove the account manager?" is the
+ * sentence a person reads with their finger over the button, and §3.17 puts it
+ * there on purpose. The question mark is the mechanical difference between the
+ * two, and the object bucket has used exactly this test since it was written
+ * ("a name never ends in a question mark"), so this is one rule in a second
+ * place rather than a second rule.
+ *
+ * `ConfirmDialog` is deliberately absent from CHROME_RATCHET: confirming IS
+ * speaking, so its title is a message whatever punctuation it carries.
+ */
+const DIALOG_OPEN = /^<(?:Modal|Dialog)\b/;
+
+/* A `Record<Enum, string>` LABEL MAP.
+ *
+ * §3.18 listed this as unread too, with a real reason for not simply
+ * retitling it: "In progress" also comes out of the global `enumLabel()`, so a
+ * map Title Cased on its own disagrees with every other enum pill in the
+ * product. That is an argument about the FIX, and it was allowed to stop the
+ * MEASUREMENT, which cost the predictable thing — 222 sentence-case chrome
+ * values, among them four of the five rows of the call-routing picker and two
+ * block names in the website page editor. So this measures and ratchets, and
+ * the enumLabel half is written up in UI_SIMPLIFICATION.md as its own job.
+ *
+ * Only a const whose NAME declares what it holds is read, and only when it is
+ * annotated `Record<…, string>`. A regex cannot tell a label map from a route
+ * map or an icon map; the name and the annotation are what tell it, and a map
+ * that does not say what it holds is left alone rather than guessed at.
+ *
+ * `…_WORDS` IS NOT ON THE LIST, and the vault is why. `STATUS_WORDS` holds
+ * status pills, which §3.18 calls chrome outright; `ASSURANCE_WORDS` three
+ * lines below it holds "Confirmed with a fingerprint or face (passkey)", which
+ * is a sentence explaining what a signature method proves. One suffix, both
+ * meanings, so the suffix says nothing. The map that held chrome was renamed to
+ * `STATUS_LABEL` instead, which is the name saying what it holds — and that is
+ * the whole mechanism this rule runs on.
+ */
+const LABEL_MAP =
+  /(?:^|\n)(?:export )?const ([A-Z][A-Z0-9_]*(?:LABEL|LABELS|TITLE|TITLES|NAME|NAMES|COLUMN|COLUMNS|HEADER|HEADERS|KIND|KINDS))\s*:\s*Record<[^>]*,\s*string>\s*=\s*(?:dict\(\s*)?\{/g;
+
+/**
+ * Lines holding a `title:` that belongs to a CALLOUT-SHAPED RECORD, 0-based.
+ *
+ * §3.18 settles chrome-versus-message by the COMPONENT: `<EmptyState>`,
+ * `<Callout>` and `toast` are messages whatever words they carry. The gate
+ * already honours that for an `empty: {}` block, because an EmptyState's props
+ * are written as an object. A warning record is the same thing one step
+ * further out:
+ *
+ *     out.push({ id: "no-icon", tone: "info",
+ *                title: "No app icon set",
+ *                detail: "The home-screen icon falls back to …" });
+ *
+ * `pwa/validation.ts` builds ten of those and renders each as a Callout, so
+ * every one is a message by the rule that is already written down. The object
+ * rule read them as chrome and `--fix-titles` produced "Your Brand Colour
+ * Barely Shows on the Splash Background" and "The Source Image Isn't Square".
+ *
+ * An object that declares `tone:` or `detail:` BESIDE its `title:` is that
+ * shape. Both are Callout props and neither is a name, so the pair is the
+ * record saying what it is, which is the same mechanism the label-map rule
+ * reads a const's name for. A title next to neither is still chrome.
+ */
+function calloutTitleLines(src) {
+  const out = new Set();
+  const stack = [];
+  for (let i = 0; i < src.length; i++) {
+    if (src[i] === "{") stack.push(i);
+    else if (src[i] === "}" && stack.length) {
+      const start = stack.pop();
+      const body = src.slice(start + 1, i);
+      /* Only this object's OWN properties: a nested literal's `tone:` says
+         nothing about the title out here. */
+      const own = body.replace(/\{[^{}]*\}/g, " ");
+      if (!/\b(?:tone|detail)\s*:/.test(own)) continue;
+      for (const m of own.matchAll(/\btitle\s*:/g)) {
+        /* own is a redacted copy of body, same length, so offsets still line up. */
+        out.add(src.slice(0, start + 1 + m.index).split("\n").length - 1);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Every string a module-level const object in this file can render, by name.
+ *
+ * Two rules need it. A label map's values are chrome (LABEL_MAP), and a hint
+ * rendered FROM a map is visible prose whose length `literal()` reports as
+ * unknowable when it is sitting twelve lines up in the same file.
+ */
+function constMaps(src) {
+  const out = new Map();
+  const re = /(?:^|\n)(?:export )?const ([A-Z][A-Z0-9_]*)\s*(?::[^=\n]*)?=\s*(?:dict\(\s*)?\{/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const start = m.index + m[0].length;
+    let i = start;
+    let depth = 1;
+    while (i < src.length && depth) {
+      if (src[i] === "{") depth++;
+      else if (src[i] === "}") depth--;
+      i++;
+    }
+    out.set(m[1], {
+      line: src.slice(0, m.index).split("\n").length,
+      values: [...src.slice(start, i - 1).matchAll(/:\s*"((?:[^"\\]|\\.)*)"/g)].map((v) => v[1]),
+    });
+  }
+  return out;
+}
+
 /* `<PageHeader title>` IS THE PAGE'S <h1>, and it was the hole nobody looked
  * for. §3.18 has named page titles as chrome since it was written, and the
  * tenant's own words were "titles and major lines should be Title Case
@@ -249,7 +386,7 @@ const CHROME_ATTR =
  * `@prose:keep <reason>`, which is where the clause-shaped options live (see
  * §3.18).
  */
-const OBJ_CHROME = /\b(?:label|title|tabLabel)\s*:\s*(?:(?:tr|tv|t|trc)\(\s*)?(["'])((?:(?!\1)[^\\]|\\.)*)\1/g;
+const OBJ_CHROME = /\b(label|title|tabLabel)\s*:\s*(?:(?:tr|tv|t|trc)\(\s*)?(["'])((?:(?!\2)[^\\]|\\.)*)\2/g;
 
 function files() {
   const out = execFileSync(
@@ -333,11 +470,42 @@ function literal(raw) {
   return m[2].replace(/\\(["'])/g, "$1");
 }
 
+const KEEP = /@prose:keep\s+\S+/;
+
+/**
+ * Is this line excused by a `@prose:keep <reason>`?
+ *
+ * On the line itself, on the line above, or on the line that OPENED the block
+ * it sits in.
+ *
+ * THE BLOCK FORM EXISTS BECAUSE THE DECISION IS SOMETIMES ABOUT THE BLOCK.
+ * `pwRules` in my-security.tsx is four `label:` lines that are password rule
+ * text — the object-literal rule's own docblock names "password rules like 'A
+ * number'" as its canonical false positive. Marking each of the four says the
+ * same thing four times and invites the next person to delete three of them;
+ * marking the array says it once, where the reader is looking when they ask
+ * why. The gate already scopes behaviour to a block this way for `empty: {}`,
+ * so the mechanic is the one in use rather than a new one.
+ *
+ * A marker only opens a block when its line ENDS in `[` or `{`, and the block
+ * closes when the indent comes back, so it cannot reach past what it opened.
+ */
 function exempt(lines, i) {
-  const here = lines[i] || "";
-  const above = lines[i - 1] || "";
-  const re = /@prose:keep\s+\S+/;
-  return re.test(here) || re.test(above);
+  if (KEEP.test(lines[i] || "") || KEEP.test(lines[i - 1] || "")) return true;
+  const indent = (lines[i] || "").match(/^\s*/)[0].length;
+  for (let j = i - 1; j >= 0; j--) {
+    const line = lines[j];
+    if (!line.trim()) continue;
+    const at = line.match(/^\s*/)[0].length;
+    if (at >= indent) continue;
+    /* The nearest line that is less indented is the one that opened this
+       block. If it did not open a block, nothing above it can excuse us. */
+    if (!/[[{]\s*$/.test(line)) return false;
+    /* Recurse so a marker on an OUTER block still reaches in: the opening line
+       is itself a line, and exempt() already knows how to excuse one. */
+    return exempt(lines, j);
+  }
+  return false;
 }
 
 function isTitleCase(s) {
@@ -438,7 +606,7 @@ function elementText(lines, i, startCol) {
   return text.length ? text : null;
 }
 
-const problems = { long: [], eyebrow: [], title: [], objTitle: [] };
+const problems = { long: [], eyebrow: [], title: [], objTitle: [], compChrome: [], mapLabel: [], catalogue: [] };
 const counts = {};
 
 for (const f of files()) {
@@ -452,6 +620,36 @@ for (const f of files()) {
      `empty: {}` block, the indent that block opened at. */
   let inBlockComment = false;
   let emptyIndent = null;
+  /* THE INDENT A `prompt({` / `confirm({` CALL OPENED AT, or null.
+   *
+   * The prompt rule below reads a prompt's `label` and deliberately NOT its
+   * `title`, and says why: "A prompt's `title` is often a question ('Confirm
+   * it's you') and its `validate` returns a message, so neither is touched."
+   * The generic object-literal rule then matched that same `title:` and
+   * reported it, so the gate contradicted its own documented decision and
+   * asked for "Confirm It's You" — the exact string §3.18 holds up as the one
+   * that must stay. Tracked the way `empty: {}` is tracked. */
+  let promptIndent = null;
+  const maps = constMaps(src);
+  const calloutTitles = calloutTitleLines(src);
+
+  /* A LABEL MAP'S VALUES ARE CHROME. See LABEL_MAP. Run over the whole file
+     rather than per line, because the const's name is on one line and its
+     values are on the next five. */
+  LABEL_MAP.lastIndex = 0;
+  let lm;
+  while ((lm = LABEL_MAP.exec(src)) !== null) {
+    const entry = maps.get(lm[1]);
+    if (!entry) continue;
+    if (exempt(lines, entry.line - 1)) continue;
+    for (const raw of entry.values) {
+      const text = raw.replace(/\\(["'])/g, "$1");
+      if (SKIP_TITLE.test(text) || text.length > 60) continue;
+      if (!/[A-Za-z]{2}/.test(text) || /[?!]$/.test(text)) continue;
+      if (isTitleCase(text)) continue;
+      problems.mapLabel.push({ key, line: entry.line, text, abs, map: lm[1] });
+    }
+  }
 
   lines.forEach((line, i) => {
     const trimmed = line.trim();
@@ -467,7 +665,14 @@ for (const f of files()) {
        which let eight "No calls yet" / "Nothing has bounced" empty states be
        reported as sentence-case chrome — message copy the rule does not touch,
        and eight @prose:keep markers where the structure already says it. */
-    if (/^\s*(?:empty|emptyState)\s*(?::|=\{)\s*\{/.test(line)) emptyIndent = indent;
+    /* `empty: {`, `empty={{`, and — added in the Configure round — `empty={`
+       with its object further down. website-insights.tsx opens the prop, puts a
+       docblock on the next line and then a ternary of two EmptyState objects,
+       so the one-line forms missed it and the gate asked for the EmptyState
+       title "No Articles Yet". */
+    if (/^\s*(?:empty|emptyState)\s*(?::|=)\s*\{?\s*(?:\{|$)/.test(line)) emptyIndent = indent;
+    if (promptIndent !== null && indent <= promptIndent) promptIndent = null;
+    if (/\b(?:prompt|confirm)\(\{\s*$/.test(line)) promptIndent = indent;
 
     if (exempt(lines, i)) return;
 
@@ -483,11 +688,69 @@ for (const f of files()) {
        worse than not measuring: it would have had somebody shortening copy to
        satisfy a number that no user can see. The rule the codebase now holds is
        one line: `description` is explanation and lives behind the ⓘ, `hint` is
-       visible and is capped. */
+       visible and is capped.
+
+       THAT CLAIM WAS FALSE FOR ONE COMPONENT, AND IT WAS THE WRONG ONE.
+       `SettingsCard` takes `desc`, not `description`, and PRINTED it under the
+       heading: 50 sites, every one of them in the six Configure hubs, 30 of
+       them over the visible cap and the longest 229 characters. The card the
+       whole Settings family is built from was the largest block of printed
+       supporting text in the product, exempt from this rule by the spelling of
+       its prop and from `description`'s exemption by being the counter-example
+       to it. `SettingsCard` now renders `desc` behind the ⓘ like everything
+       else, so the sentence above is true rather than nearly true, and a
+       consequence belongs in its `notice` slot, which is printed. */
     const hint = line.match(/\bhint=(\{?\s*(?:tr|tv|t)?\(?\s*["'][^]*)/);
     if (hint) {
       const text = literal(hint[1]);
       if (text !== null) {
+        visible++;
+        if (text.length > MAX_VISIBLE) {
+          problems.long.push({ key, line: i + 1, len: text.length, text });
+        }
+      }
+    } else {
+      /* A HINT RENDERED FROM A MAP IN THIS FILE.
+       *
+       * `literal()` returns null for a computed hint and the site is then not
+       * counted at all. That is the right call for `hint={`${n} left`}`: its
+       * rendered length genuinely is not in the source, and measuring it anyway
+       * is how a gate starts reporting things nobody can act on.
+       *
+       * It is the wrong call for `hint={KIND_HINT[kind]}`, where every string
+       * the control can print is a module const in the same file. Tax
+       * Jurisdictions rendered five of those under its Kind field, the longest
+       * 139 characters with an em dash in the middle of it, and both gates
+       * reported the screen as carrying no long copy and no dashes to fix.
+       *
+       * The longest value is what gets measured, because that is the one a user
+       * will eventually see. */
+      const fromMap = line.match(/\bhint=\{([A-Z][A-Z0-9_]*)(?:\[[^\]]*\])?\s*\}/);
+      const entry = fromMap && maps.get(fromMap[1]);
+      if (entry && entry.values.length) {
+        visible++;
+        const longest = entry.values.reduce((a, b) => (b.length > a.length ? b : a));
+        if (longest.length > MAX_VISIBLE) {
+          problems.long.push({ key, line: i + 1, len: longest.length, text: longest });
+        }
+      }
+      /* THE SAME HINT, WRITTEN AS AN OBJECT PROPERTY.
+       *
+       * `empty={{ title: "No stages", hint: "Add the stages a deal moves
+       * through…" }}` renders exactly what `<EmptyState hint="…">` renders, and
+       * only the second spelling was counted. 129 sites in `client/src`, 13 of
+       * them over the cap.
+       *
+       * This is the identical oversight the object-literal CHROME rule was
+       * added to fix, one bucket over: the rule was written against JSX and the
+       * app writes half its props in config objects. A `hint` is visible
+       * supporting text wherever it is declared, so it is counted wherever it is
+       * declared. */
+      const objHint = line.match(
+        /(?:^|[\s{(,])hint:\s*(?:tr|tv|trc|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/,
+      );
+      if (objHint) {
+        const text = objHint[2].replace(/\\(["'])/g, "$1");
         visible++;
         if (text.length > MAX_VISIBLE) {
           problems.long.push({ key, line: i + 1, len: text.length, text });
@@ -533,6 +796,32 @@ for (const f of files()) {
     if (eye) {
       const text = literal(line.slice(eye.index + eye[0].length).replace(/^[^>]*>/, ""));
       if (text !== null && text.length > MAX_EYEBROW) {
+        problems.eyebrow.push({ key, line: i + 1, text });
+      }
+    }
+    /* 3b. THE SAME SLOT, UNDER THE NAME `subtitle`.
+     *
+     * `<Panel subtitle>` and `<Section subtitle>` render into
+     * `text-micro uppercase text-muted-foreground`, and the prop is documented
+     * as "Units / scope / as-of qualifier under the title" — a caption. The
+     * .eyebrow rule exists because a sentence in a caption's slot is a
+     * paragraph in a caption's clothes, and it read only the CLASS, so the slot
+     * spelled as a prop went unmeasured.
+     *
+     * Costing's reconciliation panel put 167 characters there. Rendered
+     * UPPERCASE, at caption size, above the table it describes. That is the
+     * tenant's complaint in its strongest form, and both gates called it clean.
+     *
+     * 18 in the tree, so it ratchets: the eyebrow bucket gains a baseline here
+     * for the first time, which costs nothing because it was empty. */
+    /* Not a docblock's example of the prop. `panel.tsx`'s own JSDoc shows
+       `subtitle="Smart receivables ledger · XAF"`, which renders nowhere. */
+    const sub = inBlockComment || trimmed.startsWith("*") || trimmed.startsWith("//")
+      ? null
+      : line.match(/\bsubtitle=\{?\s*(?:tr|tv|trc|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
+    if (sub) {
+      const text = sub[2].replace(/\\(["'])/g, "$1");
+      if (text.length > MAX_EYEBROW) {
         problems.eyebrow.push({ key, line: i + 1, text });
       }
     }
@@ -591,6 +880,25 @@ for (const f of files()) {
       }
     }
 
+    /* A chrome component the list above does not name. See CHROME_RATCHET. */
+    if (CHROME_RATCHET.test(trimmed)) {
+      const tag = openingTag(lines, i);
+      const attr = topLevelAttr(tag);
+      if (attr) {
+        const text = attr.replace(/\\(["'])/g, "$1");
+        const speaking = DIALOG_OPEN.test(trimmed) && /[?!]$/.test(text);
+        if (
+          !speaking &&
+          !SKIP_TITLE.test(text) &&
+          text.length <= 60 &&
+          /[A-Za-z]{2}/.test(text) &&
+          !isTitleCase(text)
+        ) {
+          problems.compChrome.push({ key, line: i + 1, text, abs });
+        }
+      }
+    }
+
     /* A FIELD LABEL THAT IS NOT WRITTEN AS JSX.
      *
      * `usePrompt()` takes its label as an option, not a prop:
@@ -626,6 +934,32 @@ for (const f of files()) {
         if (depth <= 0) break;
       }
     }
+    /* AN `eyebrow` IS THE AREA'S NAME, AND THE RIBBON AND THE PAGE DISAGREED.
+     *
+     * `areas.ts` is checked and has said "Vault & Compliance" and "Security &
+     * Access" since round 1. `<TabbedHub eyebrow="Vault & compliance">` is the
+     * line the hub page itself renders above its title, and nothing read it, so
+     * the ribbon and the page carried two spellings of one area name in the same
+     * build. That is the defect this gate's own areas.ts/nav-model.ts comment
+     * describes, in a third copy nobody had found.
+     *
+     * `ribbon-model.ts` is the receipt: it holds an EXTRA_AREA_ICON entry
+     * `"Security & access": AREA_ICON["Security & Access"]`, written to paper
+     * over this exact mismatch, and a case-insensitive lookup added after
+     * retitling the navigation dropped five areas onto one glyph.
+     *
+     * There are 14 of these in the tree and 4 were sentence case, including
+     * Master Data's — an area round 1 reported finished. Small enough to be a
+     * hard failure rather than a ratchet, like areas.ts itself. */
+    const eyebrow = line.match(
+      /\beyebrow=\{?\s*(?:tr|tv|navT|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/,
+    );
+    if (eyebrow) {
+      const text = eyebrow[2].replace(/\\(["'])/g, "$1");
+      if (!SKIP_TITLE.test(text) && text.length <= 60 && !isTitleCase(text)) {
+        problems.title.push({ key, line: i + 1, text, abs });
+      }
+    }
     const h = line.match(/<h1[^>]*>\s*\{?\s*(?:tr|tv|t)?\(?\s*(["'])((?:(?!\1)[^\\]|\\.)*)\1/);
     if (h && !SKIP_TITLE.test(h[2]) && h[2].length <= 60 && !isTitleCase(h[2])) {
       problems.title.push({ key, line: i + 1, text: h[2], abs });
@@ -636,15 +970,28 @@ for (const f of files()) {
       OBJ_CHROME.lastIndex = 0;
       let m;
       while ((m = OBJ_CHROME.exec(line)) !== null) {
-        const text = m[2].replace(/\\(["'])/g, "$1");
+        /* A prompt's own `title`. See promptIndent. */
+        if (m[1] === "title" && promptIndent !== null) continue;
+        /* A warning record's own `title`. See calloutTitleLines(). */
+        if (m[1] === "title" && calloutTitles.has(i)) continue;
+        const text = m[3].replace(/\\(["'])/g, "$1");
         if (SKIP_TITLE.test(text) || text.length > 60) continue;
-        /* A NAME NEVER ENDS IN A QUESTION MARK. `confirm({ title: "Delete this
-           conversation?" })` is the one shape that is unmistakably a message
-           whatever property it arrives under, and §3.17 puts it at the point of
-           commit deliberately: it is the sentence a person reads when they are
-           about to destroy something. Ten of Monitor's sites are these, and
-           ten @prose:keep markers for a rule this mechanical is noise. */
-        if (/[?!]$/.test(text)) continue;
+        /* A NAME NEVER ENDS IN SENTENCE PUNCTUATION. `confirm({ title: "Delete
+           this conversation?" })` is the one shape that is unmistakably a
+           message whatever property it arrives under, and §3.17 puts it at the
+           point of commit deliberately: it is the sentence a person reads when
+           they are about to destroy something. Ten of Monitor's sites are
+           these, and ten @prose:keep markers for a rule this mechanical is
+           noise.
+
+           THE FULL STOP WAS ADDED IN THE CONFIGURE ROUND. §3.18's own test for
+           a name is "whether it could end in a full stop" — and pwa-page.tsx
+           has fourteen Callout titles that DO end in one: "Active in this
+           window.", "You're in a browser tab.", "Not supported by this
+           browser." A string that already carries the punctuation is not a
+           borderline call about a name; it is a sentence, and the gate asked
+           for "Active in This Window." before this line existed. */
+        if (/[.?!]$/.test(text)) continue;
         if (!/[A-Za-z]{2}/.test(text)) continue;
         if (isTitleCase(text)) continue;
         problems.objTitle.push({ key, line: i + 1, text, abs });
@@ -695,6 +1042,51 @@ if (registrySrc !== null) {
   });
 }
 
+/*
+ * THE DOTTED-KEY CATALOGUE'S OWN VALUES.
+ *
+ * `t("mail.signatureTitle")` resolves through `i18n-dict.ts`, so the English a
+ * reader sees is the VALUE in that file and not the string at the call site.
+ * SKIP_TITLE excludes a dotted key on purpose — capitalising `mail.foo` would
+ * only break the lookup — and excluding the key excluded the value with it.
+ * §3.18 said the `dash:` block had been swept by hand and the others had not.
+ * They had not: "Email signature", "Signature templates", "Delivery route" and
+ * "Copy record" were all card and button chrome rendering in sentence case.
+ *
+ * TWO THINGS KEEP THIS NARROW.
+ *
+ * Only the `en` half is read. The file holds `fr` under the SAME key names
+ * twenty-two hundred lines further down, and French takes sentence case
+ * ("Délivrabilité", "Modèles de signature"), so checking the whole file would
+ * have demanded exactly the retitling §3.18 forbids.
+ *
+ * Only a key whose own NAME declares chrome is read: `…Title`, `…Label`,
+ * `…Heading`, `…Col`, `…Column`, `…Section`, `…Tab`, `…Btn`, `…Button`,
+ * `…Action`, `…Header`. The catalogue is mostly messages — `routeCheckDesc` is
+ * a paragraph, `roleKpiSaved` is a toast — and there is no way to tell a name
+ * from a message by looking at the string. The key name is the author saying
+ * which it is, so that is what the rule reads. A chrome value the suffix does
+ * not reach is missed; a message is never wrecked. That is the right way round.
+ */
+const DICT = join(appRoot, "src/lib/i18n-dict.ts");
+const dictScan = readIfPresent(DICT);
+if (dictScan !== null) {
+  const frAt = dictScan.indexOf("export const fr");
+  const enHalf = frAt === -1 ? dictScan : dictScan.slice(0, frAt);
+  const enLines = enHalf.split("\n");
+  const CHROME_KEY = /(?:Title|Label|Heading|Col|Column|Section|Tab|Btn|Button|Action|Header)$/;
+  enLines.forEach((line, i) => {
+    const m = line.match(/^\s{2,}([A-Za-z][A-Za-z0-9]*)\s*:\s*"((?:[^"\\]|\\.)*)"\s*,?\s*$/);
+    if (!m || !CHROME_KEY.test(m[1])) return;
+    const text = m[2].replace(/\\(["'])/g, "$1");
+    if (SKIP_TITLE.test(text) || text.length > 60) return;
+    if (!/[A-Za-z]{2}/.test(text) || /[?!]$/.test(text)) return;
+    if (isTitleCase(text)) return;
+    if (exempt(enLines, i)) return;
+    problems.catalogue.push({ key: `${app}/src/lib/i18n-dict.ts`, line: i + 1, text, abs: DICT });
+  });
+}
+
 if (FIX_TITLES) {
   /*
    * Rewrites the English chrome label AND moves its dictionary key with it.
@@ -708,8 +1100,18 @@ if (FIX_TITLES) {
    */
   const renames = new Map();
   const byFile = new Map();
+  /* The ratcheted buckets join `objTitle` behind `--only`, and for the same
+     reason: a JSX `title=` that matched CHROME_TITLE is chrome by a tested
+     prefix rule and is safe in bulk, while `<Modal title>`, a KPI caption and a
+     label map's values are judgement calls that move one area at a time with
+     the diff read afterwards. `catalogue` is NOT fixable here — a dotted key's
+     value is one half of an en/fr pair and the rewriter below moves keys in the
+     flat tr() dictionary, which is a different structure. Those are edited by
+     hand, and there were fourteen of them. */
   const fixable = ONLY
-    ? [...problems.title, ...problems.objTitle].filter((x) => x.key.includes(ONLY))
+    ? [...problems.title, ...problems.objTitle, ...problems.compChrome, ...problems.mapLabel].filter((x) =>
+        x.key.includes(ONLY),
+      )
     : problems.title;
   for (const p of fixable) {
     const next = titleCase(p.text);
@@ -820,7 +1222,7 @@ if (FIX_TITLES) {
 
 const baselineSrc = readIfPresent(BASELINE);
 const baseline = baselineSrc === null
-  ? { budget: {}, longCopy: {}, objTitle: {} }
+  ? { budget: {}, longCopy: {}, objTitle: {}, compChrome: {}, mapLabel: {}, catalogue: {} }
   : JSON.parse(baselineSrc);
 
 if (UPDATE) {
@@ -841,11 +1243,27 @@ if (UPDATE) {
    * rule immediately. */
   const objTitle = {};
   for (const p of problems.objTitle) objTitle[p.key] = (objTitle[p.key] || 0) + 1;
+  /* The three buckets added in the Configure-hub round, each ratcheting for the
+     same reason objTitle does: a rule that reads the whole tree at once cannot
+     land in one commit, and an area swept to zero can never regrow. */
+  const compChrome = {};
+  for (const p of problems.compChrome) compChrome[p.key] = (compChrome[p.key] || 0) + 1;
+  const mapLabel = {};
+  for (const p of problems.mapLabel) mapLabel[p.key] = (mapLabel[p.key] || 0) + 1;
+  const catalogue = {};
+  for (const p of problems.catalogue) catalogue[p.key] = (catalogue[p.key] || 0) + 1;
+  const eyebrow = {};
+  for (const p of problems.eyebrow) eyebrow[p.key] = (eyebrow[p.key] || 0) + 1;
   writeFileSync(
     BASELINE,
-    `${JSON.stringify({ budget: counts, longCopy, objTitle }, null, 2)}\n`,
+    `${JSON.stringify({ budget: counts, longCopy, objTitle, compChrome, mapLabel, catalogue, eyebrow }, null, 2)}\n`,
   );
-  console.log(`prose-baseline.json written: ${Object.keys(counts).length} files with visible prose, ${problems.long.length} long strings, ${problems.objTitle.length} object-literal chrome labels.`);
+  console.log(
+    `prose-baseline.json written: ${Object.keys(counts).length} files with visible prose, ` +
+      `${problems.long.length} long strings, ${problems.objTitle.length} object-literal chrome labels, ` +
+      `${problems.compChrome.length} component titles, ${problems.mapLabel.length} label-map values, ` +
+      `${problems.catalogue.length} catalogue values.`,
+  );
   process.exit(0);
 }
 
@@ -876,6 +1294,21 @@ for (const [key, n] of Object.entries(objByFile)) {
   if (n > allowed) objFails.push({ key, n, allowed });
 }
 
+/** One ratchet for the three buckets that share its shape. */
+function ratchet(found, allowance) {
+  const byFile = {};
+  for (const p of found) byFile[p.key] = (byFile[p.key] || 0) + 1;
+  const out = [];
+  for (const [key, n] of Object.entries(byFile)) {
+    const allowed = allowance?.[key] ?? 0;
+    if (n > allowed) out.push({ key, n, allowed });
+  }
+  return out;
+}
+const compFails = ratchet(problems.compChrome, baseline.compChrome);
+const mapFails = ratchet(problems.mapLabel, baseline.mapLabel);
+const catFails = ratchet(problems.catalogue, baseline.catalogue);
+
 let bad = 0;
 if (longFails.length) {
   bad++;
@@ -892,10 +1325,18 @@ if (fails.length) {
   console.error(`\nToo much text printed on the page:\n${fails.join("\n")}`);
   console.error(`\n  Shorten it, fold it into the control, or move it behind <Field about>.`);
 }
-if (problems.eyebrow.length) {
+const eyeFails = ratchet(problems.eyebrow, baseline.eyebrow);
+if (eyeFails.length) {
   bad++;
-  console.error(`\nA sentence in an .eyebrow (that class is for a two-word label):\n`);
-  for (const p of problems.eyebrow) console.error(`  ${p.key}:${p.line}  ${p.text.slice(0, 80)}`);
+  console.error(
+    `\nA sentence in a caption slot (.eyebrow and \`subtitle\` are for a two-word label, max ${MAX_EYEBROW}):\n`,
+  );
+  for (const { key, n, allowed } of eyeFails) {
+    console.error(`  ${key}: ${n} over the caption cap (allowed ${allowed})`);
+    for (const q of problems.eyebrow.filter((x) => x.key === key).slice(0, 4)) {
+      console.error(`      L${q.line} (${q.text.length}) ${q.text.slice(0, 80)}`);
+    }
+  }
 }
 if (problems.title.length) {
   bad++;
@@ -913,6 +1354,50 @@ if (objFails.length) {
     }
   }
   console.error(`\n  Title Case a name; keep a clause and mark it @prose:keep <reason>. §3.18.`);
+}
+
+/** Report one ratcheted bucket. */
+function report(failures, found, headline, footer) {
+  if (!failures.length) return false;
+  console.error(`\n${headline}\n`);
+  for (const { key, n, allowed } of failures) {
+    console.error(`  ${key}: ${n} sentence-case (allowed ${allowed})`);
+    for (const q of found.filter((x) => x.key === key).slice(0, 4)) {
+      console.error(`      L${q.line}  ${q.map ? `${q.map}: ` : ""}${q.text}`);
+    }
+  }
+  console.error(`\n  ${footer}`);
+  return true;
+}
+if (
+  report(
+    compFails,
+    problems.compChrome,
+    'A chrome component\'s own title or label is Title Case ("Set FX Rate", not "Set FX rate"):',
+    "A <Modal> that NAMES a form is chrome; one that asks a question is a message and needs no marker. §3.18.",
+  )
+) {
+  bad++;
+}
+if (
+  report(
+    mapFails,
+    problems.mapLabel,
+    "A label map's values are the chrome a pill, column or option renders:",
+    "French statutory vocabulary is NOT title-cased: mark those @prose:keep <reason>. §3.18.",
+  )
+) {
+  bad++;
+}
+if (
+  report(
+    catFails,
+    problems.catalogue,
+    "A dotted-key catalogue value is the English a reader sees, so chrome there is Title Case too:",
+    "Only the `en` half is checked, and only keys named …Title/…Label/…Button. §3.18.",
+  )
+) {
+  bad++;
 }
 
 if (bad) {

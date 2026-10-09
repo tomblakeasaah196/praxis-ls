@@ -22,7 +22,7 @@ export function PipelineStagesPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Pipeline Stages"
-        description="The CRM opportunity pipeline stages. Read-only — stage editing is not yet exposed by the backend."
+        description="The CRM opportunity pipeline stages. Read-only. Stage editing is not yet exposed by the backend."
       />
 
       {error ? (

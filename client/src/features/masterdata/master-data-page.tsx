@@ -48,5 +48,5 @@ const TABS = hubTabs("/master", {
 export function MasterDataPage() {
   // Costing pattern: each tab page renders its own PageHeader then the HubTabs
   // bar, so the tab strip sits under the page header (not above the breadcrumb).
-  return <TabbedHub eyebrow="Master data" basePath="/master" tabs={TABS} />;
+  return <TabbedHub eyebrow="Master Data" basePath="/master" tabs={TABS} />;
 }

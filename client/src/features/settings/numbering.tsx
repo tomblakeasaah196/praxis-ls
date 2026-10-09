@@ -206,34 +206,34 @@ const DOC_NUMBER_MODULES: {
   {
     group: "Documents",
     items: [
-      { key: "MOD-51", label: "Final invoice" },
-      { key: "MOD-51-CN", label: "Credit note" },
-      { key: "MOD-50", label: "Proforma / customer advance" },
-      { key: "MOD-52", label: "Payment receipt" },
+      { key: "MOD-51", label: "Final Invoice" },
+      { key: "MOD-51-CN", label: "Credit Note" },
+      { key: "MOD-50", label: "Proforma / Customer Advance" },
+      { key: "MOD-52", label: "Payment Receipt" },
       { key: "MOD-27", label: "Quotation" },
       { key: "MOD-23", label: "Proposal" },
-      { key: "MOD-60", label: "Purchase order" },
-      { key: "MOD-62", label: "Purchase request" },
-      { key: "MOD-61", label: "Supplier invoice" },
-      { key: "MOD-30", label: "Transit order" },
-      { key: "MOD-32", label: "Delivery note" },
-      { key: "MOD-29", label: "Operations file" },
-      { key: "MOD-49", label: "Cash request / régie advance" },
+      { key: "MOD-60", label: "Purchase Order" },
+      { key: "MOD-62", label: "Purchase Request" },
+      { key: "MOD-61", label: "Supplier Invoice" },
+      { key: "MOD-30", label: "Transit Order" },
+      { key: "MOD-32", label: "Delivery Note" },
+      { key: "MOD-29", label: "Operations File" },
+      { key: "MOD-49", label: "Cash Request / Régie Advance" },
     ],
   },
   {
     group: "Master codes",
     items: [
-      { key: "MOD-04", label: "Supplier code" },
-      { key: "MOD-03", label: "Client code" },
+      { key: "MOD-04", label: "Supplier Code" },
+      { key: "MOD-03", label: "Client Code" },
     ],
   },
   {
     group: "Master documents",
     items: [
-      { key: "MOD-01-DOC", label: "Corporate entity document" },
-      { key: "MOD-04-DOC", label: "Supplier KYC document" },
-      { key: "MOD-03-DOC", label: "Client KYC document" },
+      { key: "MOD-01-DOC", label: "Corporate Entity Document" },
+      { key: "MOD-04-DOC", label: "Supplier KYC Document" },
+      { key: "MOD-03-DOC", label: "Client KYC Document" },
     ],
   },
 ];
@@ -252,7 +252,7 @@ export function NumberingPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Document Numbering"
-        description="Per-document numbering schemes — prefix, padding, reset cadence and separator."
+        description="Per-document numbering schemes: prefix, padding, reset cadence and separator."
       />
 
       <div className="space-y-4">

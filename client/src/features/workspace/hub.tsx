@@ -30,7 +30,7 @@ import { AnalyticsPage } from "./analytics/analytics-page";
 export function WorkspaceHub() {
   return (
     <TabbedHub
-      eyebrow="My workspace"
+      eyebrow="My Workspace"
       basePath="/workspace"
       tabs={hubTabs("/workspace", {
         today: TodayPage,

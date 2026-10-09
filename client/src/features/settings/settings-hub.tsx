@@ -50,7 +50,7 @@ const SECTIONS: Section[] = [
       {
         to: "/master/corporate-entities",
         label: "Business Setup",
-        desc: "Legal entities — profile, NIU/RCCM, fiscal year, bank block",
+        desc: "Legal entities: profile, NIU/RCCM, fiscal year, bank block",
         icon: "id",
       },
       {
@@ -62,7 +62,7 @@ const SECTIONS: Section[] = [
       {
         to: "/my-appearance",
         label: "My Appearance",
-        desc: "Your own fonts — overrides the workspace, for you only",
+        desc: "Your own fonts: overrides the workspace, for you only",
         icon: "palette",
       },
       {
@@ -86,7 +86,7 @@ const SECTIONS: Section[] = [
       {
         to: "/settings/website",
         label: "Website Pages",
-        desc: "Public site content — figures, credentials & publishing",
+        desc: "Public site content: figures, credentials & publishing",
         icon: "doc",
       },
       {
@@ -109,7 +109,7 @@ const SECTIONS: Section[] = [
       {
         to: "/master/tax-jurisdictions",
         label: "Tax Rates",
-        desc: "VAT, WHT & more — enabled system-wide",
+        desc: "VAT, WHT & more: enabled system-wide",
         icon: "money",
       },
       {
@@ -163,7 +163,7 @@ const SECTIONS: Section[] = [
       {
         to: "/settings/factory-languages",
         label: "Factory Languages",
-        desc: "Manage translations for factory screens — no code",
+        desc: "Manage translations for factory screens: no code",
         icon: "ops",
       },
     ],
@@ -268,7 +268,7 @@ const SECTIONS: Section[] = [
       },
       {
         to: "/settings/audit-room",
-        label: "Auditor data room",
+        label: "Auditor Data Room",
         desc: "Auditor document requests & shared files",
         icon: "doc",
       },
@@ -437,15 +437,12 @@ export function SettingsHub() {
   return (
     <section className={pageShell.wide}>
       <h1 className="font-display text-2xl tracking-tight">{tr("Settings")}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Configure the hub. Business identity, money, operations, communication
-        &amp; integrations.
-      </p>
+
 
       {sections.length === 0 && (
+        /* @prose:keep the hub's refused state, and all it then shows. */
         <p className="mt-8 text-sm text-muted-foreground">
-          None of the workspace settings are part of your access. Ask an
-          administrator if you need one of them.
+          No workspace settings are part of your access. Ask an administrator.
         </p>
       )}
 

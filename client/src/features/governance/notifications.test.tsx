@@ -72,7 +72,7 @@ describe("email defaults in the Preferences matrix", () => {
     show();
     await openPreferences(user);
     expect(
-      await screen.findByRole("checkbox", { name: "Email — Tasks" }),
+      await screen.findByRole("checkbox", { name: "Email: Tasks" }),
     ).toBeChecked();
   });
 
@@ -81,17 +81,17 @@ describe("email defaults in the Preferences matrix", () => {
     show();
     await openPreferences(user);
     // In-app is on for everything; email stays opt-in everywhere except tasks.
-    for (const label of ["Email — Operations", "Email — Finance", "Email — Sales & CRM"]) {
+    for (const label of ["Email: Operations", "Email: Finance", "Email: Sales & CRM"]) {
       expect(screen.getByRole("checkbox", { name: label })).not.toBeChecked();
     }
-    expect(screen.getByRole("checkbox", { name: "In-app — Tasks" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "In-app: Tasks" })).toBeChecked();
   });
 
   it("writes the opt-out row when Tasks email is unticked and saved", async () => {
     const user = userEvent.setup();
     show();
     await openPreferences(user);
-    await user.click(await screen.findByRole("checkbox", { name: "Email — Tasks" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Email: Tasks" }));
     await user.click(screen.getByRole("button", { name: "Save preferences" }));
     await waitFor(() => {
       const put = calls().find(

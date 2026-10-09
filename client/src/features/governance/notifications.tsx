@@ -190,15 +190,7 @@ function PreferencesPanel() {
     <div className="space-y-4">
       <PushOptIn />
       <p className="text-sm text-muted-foreground">
-        Choose how you're told about each kind of event. These are yours alone —
-        no grant needed, and they don't affect anyone else.
-      </p>
-      <p className="text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">Interrupt</span> is the one
-        that makes sure you don't miss something: it plays a sound, keeps the
-        notification on screen until you deal with it, and vibrates your phone.
-        It's on by default for approvals, mail and messages, and for anything
-        marked high priority. Security alerts always interrupt.
+        These settings are yours alone. They do not affect anyone else.
       </p>
       <div className="overflow-x-auto rounded-xl border">
         <table className="w-full text-sm">
@@ -242,7 +234,7 @@ function PreferencesPanel() {
                         className="h-4 w-4 rounded border-input"
                         checked={locked ? true : !!value[key(c, ch)]}
                         disabled={locked}
-                        aria-label={`${COLUMN_LABEL[ch] || ch} — ${labelOf(c)}`}
+                        aria-label={`${COLUMN_LABEL[ch] || ch}: ${labelOf(c)}`}
                         title={
                           locked
                             ? "Security alerts can't be turned off"
@@ -447,7 +439,7 @@ export function NotificationsPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Governance" to="/governance" />}
         title={tr("Notifications")}
-        description="Your inbox. System-generated only — Watch-the-Watcher writes HIGH alerts here on security-critical changes."
+        description="Your inbox, system-generated only. Watch-the-Watcher writes high alerts here on security-critical changes."
         action={
           tab === "inbox" && unread.length > 0 ? (
             <Button
@@ -486,7 +478,7 @@ export function NotificationsPage() {
             <KpiTile label={tr("Unread")} value={num(unread.length)} />
             <KpiTile label={tr("Total")} value={num(all.length)} />
             <KpiTile
-              label="High priority"
+              label="High Priority"
               value={num(
                 all.filter((n) => String(n.priority).toUpperCase() === "HIGH")
                   .length,

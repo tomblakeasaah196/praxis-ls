@@ -77,7 +77,7 @@ export function iconWarnings(
       tone: "info",
       title: "No app icon set",
       detail:
-        "The home-screen icon falls back to a letter mark on your brand colour. That installs fine — upload a square image to replace it.",
+        "The home-screen icon falls back to a letter mark on your brand colour. That installs fine: upload a square image to replace it.",
     });
     return out; // the checks below are all about a source that isn't there
   }
@@ -92,7 +92,7 @@ export function iconWarnings(
         id: "not-square",
         tone: "warn",
         title: "The source image isn't square",
-        detail: `It's ${source.width}×${source.height}. App icons are square, so it will be fitted inside one with empty space on two sides — a wide wordmark ends up as a thin strip in the middle of the tile.`,
+        detail: `It's ${source.width}×${source.height}. App icons are square, so it will be fitted inside one with empty space on two sides, and a wide wordmark ends up as a thin strip in the middle of the tile.`,
       });
     }
     if (Math.min(source.width, source.height) < MIN_SOURCE_PX) {
@@ -100,7 +100,7 @@ export function iconWarnings(
         id: "too-small",
         tone: "warn",
         title: `Smaller than ${MIN_SOURCE_PX}px`,
-        detail: `It's ${source.width}×${source.height}. Chrome needs a 512px icon to offer the install prompt, and it's also what the launch screen scales up — below that it will look soft.`,
+        detail: `It's ${source.width}×${source.height}. Chrome needs a 512px icon to offer the install prompt, and it's also what the launch screen scales up. Below that it will look soft.`,
       });
     }
   }
@@ -111,7 +111,7 @@ export function iconWarnings(
       tone: "warn",
       title: "Artwork reaches outside the maskable safe zone",
       detail:
-        "Android crops the icon to the launcher's shape — a circle on Pixel, a squircle on Samsung. Anything outside the dashed circle may be cut off. Raise the safe-zone padding, or reduce the zoom.",
+        "Android crops the icon to the launcher's shape: a circle on Pixel, a squircle on Samsung. Anything outside the dashed circle may be cut off. Raise the safe-zone padding, or reduce the zoom.",
     });
   }
 
@@ -134,7 +134,7 @@ export function iconWarnings(
       tone: "info",
       title: "Both icon backgrounds are the same colour",
       detail:
-        "Not a problem — just confirming the maskable variant won't look different from the plain one.",
+        "Not a problem. Just confirming the maskable variant won't look different from the plain one.",
     });
   }
 
@@ -153,7 +153,7 @@ export function splashWarnings(cfg: EffectivePwa): PwaWarning[] {
       tone: "warn",
       title: "Your brand colour barely shows on the splash background",
       detail:
-        "The progress bar, the glow and the ring preset are all drawn in the brand colour. Against this background they'll be close to invisible — pick a different splash background, or a preset that doesn't rely on the accent.",
+        "The progress bar, the glow and the ring preset are all drawn in the brand colour. Against this background they'll be close to invisible: pick a different splash background, or a preset that doesn't rely on the accent.",
     });
   }
 
@@ -186,7 +186,7 @@ export function manifestWarnings(cfg: EffectivePwa): PwaWarning[] {
       tone: "warn",
       title: "Display mode 'browser' is not installable",
       detail:
-        "Chrome and Edge won't offer the install prompt for a manifest in browser mode — the app opens as a normal tab. Use standalone unless you specifically want that.",
+        "Chrome and Edge won't offer the install prompt for a manifest in browser mode: the app opens as a normal tab. Use standalone unless you specifically want that.",
     });
   }
   /**

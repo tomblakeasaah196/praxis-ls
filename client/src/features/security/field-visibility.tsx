@@ -212,7 +212,7 @@ export function FieldVisibilityPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title="Field Visibility"
-        description="Per-role masking of confidential fields — margins, salaries, cost rates. Editing these needs the approve action, not just edit."
+        description="Per-role masking of confidential fields such as margins, salaries and cost rates. Editing these needs the approve action, not just edit."
         action={<Button onClick={() => setForm({ fv: null })}>New rule</Button>}
       />
       <HubTabs />

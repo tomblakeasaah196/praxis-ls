@@ -88,6 +88,16 @@ type Kind = (typeof KINDS)[number];
  * the tenant asked for by name, twice: "that put it other taxes. Yes. Put it other
  * taxes."
  */
+/* FRENCH STATUTORY VOCABULARY, WITH THE ENGLISH IN BRACKETS, AND NOT TITLE
+ * CASED. §3.18: "French is never title-cased. Types de service, not Types De
+ * Service." These are the names the Cameroon tax code uses and the names a
+ * Douala accountant says out loud, so "Retenue à la source" is the spelling
+ * whatever side of the dictionary it is stored on.
+ *
+ * The gate decides English by WHERE a string lives — title_fr, name_fr,
+ * fr.strings are skipped — and these are French strings living in an
+ * English-side label map, which no convention about file layout can see.
+ * @prose:keep French tax vocabulary; English glosses are the bracketed half. */
 const KIND_LABEL: Record<Kind, string> = {
   VAT: "TVA (VAT)",
   WHT: "Retenue à la source (Withholding)",
@@ -95,12 +105,18 @@ const KIND_LABEL: Record<Kind, string> = {
   PAYROLL: "Paie & social (Payroll)",
   OTHER: "Autres taxes (Other taxes)",
 };
+/* WHAT EACH FAMILY COVERS. These are rendered by `<Field hint>` on the Kind
+ * selector and printed under it, which no gate could measure until a hint read
+ * from a map in the same file started being counted: all five ran past the
+ * visible cap, the longest at 139 characters, and check:prose reported this
+ * screen as carrying no long copy at all. Shortened to the cap, French first
+ * with the English gloss in brackets, em dashes gone. */
 const KIND_HINT: Record<Kind, string> = {
-  VAT: "Taxe sur la valeur ajoutée — collectée sur les ventes, récupérable sur les achats. (VAT: collected on sales, recoverable on purchases.)",
-  WHT: "Précompte / acompte / retenue à la source (SIT non-résident…). (Withholding at source, including the 15% on non-residents.)",
-  INCOME: "Impôt sur les sociétés et minimum de perception. (Corporate income tax and the minimum levy.)",
-  PAYROLL: "CNPS, CFC, FNE, CAC, IRPP — retenues et charges sur salaires. (Payroll withholdings and employer charges — these drive the payroll engine.)",
-  OTHER: "Patente, droit de timbre, taxe foncière et toute autre taxe à payer. (Business licence, stamp duty, property tax and any other tax due.)",
+  VAT: "Collectée sur les ventes, récupérable sur les achats. (VAT.)",
+  WHT: "Retenue à la source, dont les 15% non-résidents. (Withholding.)",
+  INCOME: "Impôt sur les sociétés et minimum de perception. (Corporate tax.)",
+  PAYROLL: "CNPS, CFC, FNE, CAC, IRPP. (Payroll charges; these drive payroll.)",
+  OTHER: "Patente, timbre, taxe foncière et le reste. (Other taxes due.)",
 };
 const RATE_REQUIRED: ReadonlySet<Kind> = new Set(["VAT", "WHT", "INCOME"]);
 
@@ -239,27 +255,32 @@ type UnmappedBy = Map<string, UnmappedCode["reason"]>;
 function AccountField({
   label,
   hint,
+  about,
   value,
   onChange,
   required,
   error,
 }: {
   label: string;
-  hint: string;
+  hint?: string;
+  /** Which OHADA account to pick, behind the ⓘ. The three worked examples are
+   *  the fastest way to choose one and are reference rather than instruction,
+   *  so they are not printed under every picker. */
+  about?: string;
   value: string;
   onChange: (v: string) => void;
   required?: boolean;
   error?: string;
 }) {
   return (
-    <Field label={label} hint={hint} required={required} error={error}>
+    <Field label={label} hint={hint} about={about} required={required} error={error}>
       <SearchSelect
         path="/chart-of-accounts"
         label={label}
         value={value}
         placeholder={value || tr("Search account…")}
         getKey={(r) => String(r.code)}
-        getLabel={(r) => `${r.code} — ${r.label_fr ?? r.label_en ?? ""}`.trim()}
+        getLabel={(r) => `${r.code} · ${r.label_fr ?? r.label_en ?? ""}`.trim()}
         filter={(r) => r.is_postable !== false}
         onSelect={(r) => onChange(String(r.code))}
       />
@@ -474,10 +495,10 @@ function CodeFormModal({
   }
 
   const title =
-    mode === "amend" ? `Amend rate — ${target?.code ?? ""}` : "Add tax code";
+    mode === "amend" ? `Amend Rate: ${target?.code ?? ""}` : "Add Tax Code";
   const description =
     mode === "amend"
-      ? "Enter the new values and the date they take effect. The current version is expired the day before and this one opens — history is preserved, never overwritten."
+      ? "Enter the new values and the date they take effect. The current version is expired the day before and this one opens: history is preserved, never overwritten."
       : "An effective-dated rate card. Store the instrument in the Code (e.g. TVA_STD, IS_MIN_REEL); pick the family in Kind.";
 
   return (
@@ -554,20 +575,20 @@ function CodeFormModal({
             />
           </Field>
           <AccountField
-            label="Posts — debit account (compte débité)"
-            hint="Input VAT 4452 on a purchase; the client 4111 on a sale; net pay 422 for an employee withholding."
+            label="Posts: Debit Account (compte débité)"
+            about="Input VAT 4452 on a purchase; the client 4111 on a sale; net pay 422 for an employee withholding."
             value={debit}
             onChange={setDebit}
             required
-            error={!debit ? "Required — both sides of the entry." : undefined}
+            error={!debit ? "Required: both sides of the entry." : undefined}
           />
           <AccountField
-            label="Posts — credit account (compte crédité)"
-            hint="Output VAT 4432 on a sale; the supplier 4011 on a purchase; the State or CNPS account for a withholding."
+            label="Posts: Credit Account (compte crédité)"
+            about="Output VAT 4432 on a sale; the supplier 4011 on a purchase; the State or CNPS account for a withholding."
             value={credit}
             onChange={setCredit}
             required
-            error={!credit ? "Required — both sides of the entry." : undefined}
+            error={!credit ? "Required: both sides of the entry." : undefined}
           />
           <Field label={tr("Effective From")} required>
             <DateField
@@ -620,7 +641,7 @@ function CodeFormModal({
           <Callout tone="warn" title="Both accounts are required">
             A tax code says which account it <strong>debits</strong> and which it{" "}
             <strong>credits</strong>. A line mapped on one side only looks
-            configured and posts nowhere — the gap found in the 1 October review.
+            configured and posts nowhere.
           </Callout>
         )}
         {error && <ErrorState message={error} />}
@@ -808,9 +829,9 @@ function TaxCodesDrill({
       headers={[
         { label: tr("Code") },
         { label: "Family" },
-        { label: tr("Current rate") },
-        { label: tr("Applies to") },
-        { label: tr("Effective from") },
+        { label: tr("Current Rate") },
+        { label: tr("Applies To") },
+        { label: tr("Effective From") },
         { label: "Versions", right: true },
       ]}
       rows={groups.map(([key, versions]) => {
@@ -985,12 +1006,12 @@ function JurisdictionDossier({ id }: { id: string }) {
 
       <KpiRow stack>
         <KpiTile
-          label="Tax codes"
+          label="Tax Codes"
           value={num(groups.size)}
           onClick={() => setDrill("all")}
         />
         <KpiTile
-          label="TVA standard"
+          label="TVA Standard"
           value={
             vatStd?.rate_percent != null
               ? `${num(vatStd.rate_percent as number)}%`
@@ -1012,6 +1033,7 @@ function JurisdictionDossier({ id }: { id: string }) {
           value={num(countByKind("WHT"))}
           onClick={() => setDrill("WHT")}
         />
+        {/* @prose:keep French, like "Retenues" beside it. Not title-cased. */}
         <KpiTile
           label="Paie & social"
           value={num(countByKind("PAYROLL"))}
@@ -1048,9 +1070,9 @@ function JurisdictionDossier({ id }: { id: string }) {
 
       {tab === "Overview" ? (
         <div className="space-y-3">
+          {/* @prose:keep a rate is amended into a new version, never edited. */}
           <p className="text-sm text-muted-foreground">
-            The current effective rate for every code in this jurisdiction.
-            Rates are versioned — to change one for a new Finance Law, open its
+            Rates are versioned. To change one for a new Finance Law, open its
             family and use{" "}
             <span className="font-medium text-foreground">Amend rate</span>.
           </p>

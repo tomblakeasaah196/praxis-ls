@@ -302,7 +302,7 @@ export function SignaturesSettingsPage() {
           <Callout tone="info" title={tr("How the choice narrows")}>
             You set what each document type <em>may</em> offer. The person sending a document can
             narrow it further for one dispatch, and the person signing picks from what is left.
-            Options greyed out here are fixed in the product — a payslip is never signed on paper,
+            Options greyed out here are fixed in the product: a payslip is never signed on paper,
             and a delivery note never needs a certified signature.
           </Callout>
 
@@ -339,10 +339,11 @@ export function SignaturesSettingsPage() {
                   <span className="block font-medium">
                     {tr("Ask staff for an emailed code on high-value documents")}
                   </span>
+                  {/* @prose:keep this switch does NOT govern outside signers. */}
                   <span className="block text-xs text-muted-foreground">
-                    Staff always sign from their own account. Above the amount below, they also
-                    enter a code sent to their work address. People outside your company always
-                    enter a code, whatever this is set to.
+                    Above the amount below, staff also enter a code sent to
+                    their work address. People outside your company always
+                    enter one, whatever this is set to.
                   </span>
                 </span>
               </label>

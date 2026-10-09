@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { InfoHint } from "@/components/ui/info-hint";
 import { FilePicker } from "@/components/ui/image-upload";
 import { UploadProgress } from "@/components/ui/upload-progress";
 import { useUpload } from "@/lib/use-upload";
@@ -32,25 +33,56 @@ export function Soon({ className }: { className?: string }) {
 }
 
 /**
- * `action` is the card's top-right slot: an `<InfoHint>`, or a control that
- * belongs to the whole card rather than to one field.
+ * A Settings card: a heading, its explanation behind an ⓘ, and its controls.
  *
- * It exists because `desc` is PRINTED under the title, on every visit, to every
- * operator (§3.17: the fifth frontend rule). A card whose explanation runs past
- * a few words puts it behind an ⓘ here instead and drops `desc`, which is what
- * this slot is for; `desc` stays for the short captions that genuinely read
- * better in the open.
+ * `desc` IS NO LONGER PRINTED. It renders behind the ⓘ on the card, the way
+ * `Dialog`, `PageHeader`, entity 360's `Section` and `Chart` already render
+ * theirs, and this docblock used to ask call sites to do that by hand: "a card
+ * whose explanation runs past a few words puts it behind an ⓘ here instead and
+ * drops `desc`".
+ *
+ * 30 OF THE 50 DID NOT. They printed 80 to 229 characters under the heading,
+ * on every visit, and the prose gate could not see any of it: it reads `hint=`
+ * and deliberately skips `description=`, on the stated grounds that "every
+ * component that takes one now renders it behind an ⓘ". That was true of every
+ * component except this one, and this one is the card the entire Settings
+ * family is built from. It is the single largest block of printed supporting
+ * text in the product, which is the tenant's complaint almost exactly.
+ *
+ * So the CONTAINER changed rather than the call sites, which is what
+ * doc/UI_SIMPLIFICATION.md records as the highest-leverage edit available: one
+ * component, 50 sites, no call-site churn. A short `desc` that merely restated
+ * its heading was deleted in the same sweep rather than hidden, because §3.17's
+ * ladder deletes before it hides.
+ *
+ * HIDDEN IS NOT DELETED. `InfoHint` keeps the text in a visually hidden node
+ * and points the trigger at it with `aria-describedby`, so a screen reader
+ * still reaches it.
+ *
+ * WHAT MUST NOT GO IN `desc`. A consequence — what a switch will destroy, that
+ * a choice cannot be undone, that five wrong tries lock an account. Nobody
+ * hovers before they act. Those go in `notice`, which is printed in the card
+ * body above the controls, or in the `useConfirm()` at the point of commit.
+ * §3.17 calls this point-of-action disclosure.
+ *
+ * `action` remains the card's top-right slot for a control that belongs to the
+ * whole card. A call site that already passes its own `<InfoHint>` there keeps
+ * working: none of the 55 call sites passes both.
  */
 export function SettingsCard({
   title,
   desc,
+  notice,
   soon,
   action,
   children,
   className,
 }: {
   title: string;
+  /** The explanation, behind the ⓘ. Never a consequence — see `notice`. */
   desc?: string;
+  /** A consequence the reader must see BEFORE they touch the controls. */
+  notice?: React.ReactNode;
   soon?: boolean;
   action?: React.ReactNode;
   children: React.ReactNode;
@@ -64,15 +96,14 @@ export function SettingsCard({
               <h2> its aria-label joins the accessible name and the card starts
               announcing as "Authenticator App About Authenticator App". */}
           <h2 className="font-display text-lg tracking-tight">{title}</h2>
-          {desc && (
-            <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p>
-          )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {desc && <InfoHint label={`About ${title}`}>{desc}</InfoHint>}
           {action}
           {soon && <Soon />}
         </div>
       </div>
+      {notice && <div className="mb-4">{notice}</div>}
       {children}
     </div>
   );
@@ -80,10 +111,16 @@ export function SettingsCard({
 
 export function Field({
   label,
+  about,
   soon,
   children,
 }: {
   label: string;
+  /** The field's explanation, behind an ⓘ beside the label. The modal `Field`
+   *  (ui/modal.tsx) has had this since §3.17 was written; this one did not, so
+   *  a settings screen with something to say about one control had nowhere to
+   *  put it but a printed paragraph. */
+  about?: string;
   soon?: boolean;
   children: React.ReactNode;
 }) {
@@ -110,13 +147,29 @@ export function Field({
     single && typeof single.props.id === "string"
       ? single.props.id
       : `${uid}-control`;
+  const aboutId = `${uid}-about`;
   return (
     <div className="flex flex-col gap-1.5">
       <span className="flex items-center gap-2">
+        {/* The ⓘ is a SIBLING of the <Label>, never inside it: inside, its
+            aria-label joins the label's accessible name and the field starts
+            announcing as "Current Password About Current Password". §3.17. */}
         <Label htmlFor={single ? controlId : undefined}>{label}</Label>
+        {about && (
+          <InfoHint label={`About ${label}`} textId={aboutId}>
+            {about}
+          </InfoHint>
+        )}
         {soon && <Soon />}
       </span>
-      {single ? React.cloneElement(single, { id: controlId }) : children}
+      {/* HIDDEN IS NOT DELETED: the control points at the hidden copy of the
+          text, so a screen reader reaching the input announces it. */}
+      {single
+        ? React.cloneElement(single, {
+            id: controlId,
+            ...(about ? { "aria-describedby": aboutId } : {}),
+          })
+        : children}
     </div>
   );
 }
@@ -221,6 +274,7 @@ export function Slider({
   step = 1,
   unit = "",
   hint,
+  about,
 }: {
   label: string;
   value: number;
@@ -229,13 +283,27 @@ export function Slider({
   max: number;
   step?: number;
   unit?: string;
+  /** Printed under the track. A bound is already min/max and a unit is already
+   *  `unit`, so what belongs here is narrow. */
   hint?: string;
+  /** Behind the ⓘ beside the label, for the explanation that used to be a
+   *  printed `hint` on every slider on the PWA screen. */
+  about?: string;
 }) {
   const id = React.useId();
+  const aboutId = `${id}-about`;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-2">
-        <Label htmlFor={id}>{label}</Label>
+        <span className="flex items-center gap-2">
+          {/* SIBLING of the <Label>, never inside it. §3.17. */}
+          <Label htmlFor={id}>{label}</Label>
+          {about && (
+            <InfoHint label={`About ${label}`} textId={aboutId}>
+              {about}
+            </InfoHint>
+          )}
+        </span>
         <span className="text-xs tabular-nums text-muted-foreground">
           {value}
           {unit}
@@ -250,6 +318,7 @@ export function Slider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className="h-5 w-full cursor-pointer accent-primary"
+        aria-describedby={about ? aboutId : undefined}
       />
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>

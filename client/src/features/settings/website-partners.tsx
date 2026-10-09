@@ -48,9 +48,9 @@ import { WebsiteNav } from "./website-nav";
 import { AssetSlotField } from "./website-assets";
 
 const KIND_HELP: Record<api.PartnerKind, string> = {
-  carrier: "We move cargo on these lines — a capability.",
-  client: "These organisations trust us — a reference.",
-  network: "We are a member of this — a membership.",
+  carrier: "We move cargo on these lines: a capability.",
+  client: "These organisations trust us: a reference.",
+  network: "We are a member of this: a membership.",
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -164,10 +164,15 @@ export function WebsitePartnersPage() {
       )}
 
       <SettingsCard
-        title={tr("Partners and clients")}
-        desc={tr(
-          "A mark cannot be shown until you record who cleared it. These are other companies' trademarks.",
-        )}
+        title={tr("Partners and Clients")}
+        notice={
+          /* @prose:keep these are other companies' trademarks. */
+          <Callout tone="warn">
+            {tr(
+              "A mark cannot be shown until you record who cleared it. These are other companies' trademarks.",
+            )}
+          </Callout>
+        }
       >
         {!partners?.length ? (
           <p className="text-sm text-muted-foreground">{tr("None yet.")}</p>
@@ -269,10 +274,18 @@ export function WebsitePartnersPage() {
       </SettingsCard>
 
       <SettingsCard
-        title={tr("Certifications and licences")}
+        title={tr("Certifications and Licences")}
         desc={tr(
-          "Earned, dated and verifiable — the most persuasive thing on a forwarder's site. An expired one is removed from the site automatically.",
+          "Earned, dated and verifiable: the most persuasive thing on a forwarder's site.",
         )}
+        notice={
+          /* @prose:keep an expired certification leaves the public site by itself. */
+          <Callout tone="info">
+            {tr(
+              "An expired certification is removed from the public site automatically.",
+            )}
+          </Callout>
+        }
       >
         <div className="mb-4">
           <Button
@@ -343,7 +356,7 @@ export function WebsitePartnersPage() {
 
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   {isExpired(c) ? (
-                    <Pill tone="bad">{tr("Expired — not shown on the site")}</Pill>
+                    <Pill tone="bad">{tr("Expired: not shown on the site")}</Pill>
                   ) : c.is_active ? (
                     <Pill tone="ok">{tr("Shown")}</Pill>
                   ) : (

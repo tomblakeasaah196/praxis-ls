@@ -239,10 +239,9 @@ export function BracketsEditor({
 
   return (
     <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+      {/* @prose:keep says a simple percentage code needs none of this. */}
       <p className="micro text-muted-foreground">
-        Advanced parameters that don&apos;t fit a single rate — the IRPP scale,
-        a contribution cap, or work-injury risk classes. Leave all off for a
-        simple percentage code.
+        Leave all of these off for a simple percentage code.
       </p>
 
       {/* Progressive scale (IRPP) */}
@@ -251,7 +250,7 @@ export function BracketsEditor({
           on={state.scaleOn}
           onChange={(v) => set({ scaleOn: v })}
           title="Progressive scale (barème)"
-          hint="e.g. IRPP annual brackets — a rate per income band."
+          hint="e.g. IRPP annual brackets: a rate per income band."
         />
         {state.scaleOn && (
           <div className="space-y-2 pl-6">

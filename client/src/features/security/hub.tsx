@@ -128,19 +128,19 @@ function Overview() {
           hint={`${(roles.rows || []).filter((r) => !r.is_system).length} tenant-defined`}
         />
         <KpiTile
-          label="2FA coverage"
+          label="2FA Coverage"
           value={all.length ? `${twofaPct}%` : "—"}
           hint={`${twofa} of ${all.length} enrolled`}
         />
         <KpiTile
-          label="Masking rules"
+          label="Masking Rules"
           value={num((fieldVis.rows || []).length)}
           hint="Confidential fields"
         />
       </KpiRow>
 
       <div className="mb-6 grid gap-4 md:grid-cols-2">
-        <Panel title="Account Posture" subtitle="Who can sign in right now">
+        <Panel title="Account Posture" subtitle="Right Now">
           <Bar
             parts={[
               { label: "Active", value: active, tone: "--ok" },
@@ -159,8 +159,8 @@ function Overview() {
         </Panel>
 
         <Panel
-          title="Two-factor Authentication"
-          subtitle="Enrolment across tenant users"
+          title="Two-Factor Authentication"
+          subtitle="All Users"
         >
           <div className="flex items-center gap-5">
             <div
@@ -199,7 +199,7 @@ function Overview() {
 
       <Panel
         title="My Active Sessions"
-        subtitle="Revoking invalidates the refresh token immediately"
+        subtitle="Newest First"
       >
         {sessions.error ? (
           <span className="micro">{sessions.error}</span>
@@ -257,6 +257,6 @@ const TABS = hubTabs("/security", {
 
 export function SecurityHub() {
   return (
-    <TabbedHub eyebrow="Security & access" basePath="/security" tabs={TABS} />
+    <TabbedHub eyebrow="Security & Access" basePath="/security" tabs={TABS} />
   );
 }

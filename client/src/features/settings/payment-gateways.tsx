@@ -82,7 +82,7 @@ function GatewayForm({
       title={
         isEdit ? `Configure ${cell(editing?.provider)}` : "Add Payment Gateway"
       }
-      description="Per-tenant gateway config. Credentials are encrypted and write-only — leave blank to keep the existing secret."
+      description="Per-tenant gateway config. Credentials are encrypted and write-only. Leave blank to keep the existing secret."
     >
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -107,7 +107,7 @@ function GatewayForm({
           hint={
             isEdit
               ? "Leave blank to keep the current key. JSON or token string."
-              : "JSON or token string — stored encrypted."
+              : "JSON or token string: stored encrypted."
           }
         >
           <Textarea
