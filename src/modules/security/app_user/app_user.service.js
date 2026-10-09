@@ -158,10 +158,33 @@ function sessionClock(remaining) {
 
 /** `via` names the first factor ("password" | "pin"), so the audit trail of the
  *  session the code completes says how it began. */
-function signPendingTwoFaToken(userId, via = "password") {
-  return jwt.sign({ sub: userId, typ: "2fa_pending", via }, config.JWT_ACCESS_SECRET, {
-    expiresIn: TWOFA_PENDING_TTL,
-  });
+/**
+ * The 5-minute challenge token that stands between a passed FIRST factor and a
+ * session. `via` names that first factor (password | pin | passkey) so the
+ * login event can say how somebody actually got in.
+ *
+ * `cid` carries the passkey's credential id across the challenge. Without it
+ * the device would forget WHICH passkey signed: `knownDevice.remember` runs on
+ * the leg that issues tokens, and for a 2FA account that leg is now
+ * /2fa/verify, which has no assertion in hand. It is an identifier, not a
+ * secret, and the token is signed.
+ */
+function signPendingTwoFaToken(userId, via = "password", credentialId = null) {
+  return jwt.sign(
+    { sub: userId, typ: "2fa_pending", via, ...(credentialId ? { cid: String(credentialId) } : {}) },
+    config.JWT_ACCESS_SECRET,
+    { expiresIn: TWOFA_PENDING_TTL },
+  );
+}
+
+/** The whole "prove a second factor first" answer, so every first factor
+ *  returns the identical shape — the client branches on `pending_2fa` alone. */
+function twoFaChallenge(userId, via, credentialId = null) {
+  return {
+    pending_2fa: true,
+    pending_token: signPendingTwoFaToken(userId, via, credentialId),
+    expires_in: TWOFA_PENDING_TTL,
+  };
 }
 
 /** Shared by every way in — password, 2FA, Quick PIN and passkey — the
@@ -332,13 +355,7 @@ async function login(client, { email, password, ip, userAgent, environment, devi
   const passwordOk = await argon2.verify(user.password_hash, password || "").catch(() => false);
   if (!passwordOk) return fail("bad_password");
 
-  if (user.is_2fa_enabled && !deviceTrusted) {
-    return {
-      pending_2fa: true,
-      pending_token: signPendingTwoFaToken(user.user_id),
-      expires_in: TWOFA_PENDING_TTL,
-    };
-  }
+  if (user.is_2fa_enabled && !deviceTrusted) return twoFaChallenge(user.user_id, "password");
 
   return issueSessionTokens(client, user, {
     ip,
@@ -379,9 +396,15 @@ async function verifyTotp(client, { pendingToken, code, ip, userAgent, environme
     throw new AppError("INVALID_2FA_CODE", "Invalid authentication code", 401);
   }
 
-  const base = payload.via === "pin" ? "pin+totp" : "password+totp";
-  const method = viaRecovery ? `${base.split("+")[0]}+recovery_code` : base;
+  // Whatever passed first: password, pin or passkey (14401 + the second-step
+  // decision of 9 Oct). An unknown `via` reads as a password, which is the
+  // conservative label rather than a crash on an old token.
+  const via = ["password", "pin", "passkey"].includes(payload.via) ? payload.via : "password";
+  const method = `${via}+${viaRecovery ? "recovery_code" : "totp"}`;
   const tokens = await issueSessionTokens(client, user, { ip, userAgent, environment, method });
+  // The passkey that signed on the first leg, so the device can still record
+  // which of its passkeys this account uses.
+  if (payload.cid) tokens.credential_id = String(payload.cid);
 
   if (viaRecovery) {
     const left = await repo.countLiveRecoveryCodes(client, user.user_id);
@@ -509,7 +532,15 @@ async function setupTotp(client, userId, { sessionId = null, currentPassword = n
   return { secret, otpauth_url: otpauthUrl, qr_svg: await qr.dataUrl(otpauthUrl) };
 }
 
-async function enableTotp(client, userId, code, { frequency = null } = {}) {
+/**
+ * `sessionId` is the session doing the enrolling, so it is the one kept alive.
+ * Every OTHER live session ends here (owner decision, 9 Oct 2026), for the same
+ * reason changing a password ends them: turning on a second factor is usually a
+ * reaction to a worry, and a session opened before it was on carries the old,
+ * weaker protection until it expires on its own. Leaving one running is leaving
+ * the door you just locked propped open.
+ */
+async function enableTotp(client, userId, code, { frequency = null, sessionId = null } = {}) {
   const user = await repo.getTotpSecret(client, userId);
   if (!user || !user.totp_secret_enc) {
     throw new AppError("SETUP_REQUIRED", "Run 2FA setup before enabling", 400);
@@ -525,6 +556,7 @@ async function enableTotp(client, userId, code, { frequency = null } = {}) {
   await knownDeviceRepo.revokeMfaTrust(client, userId);
   // Shown once, here, and nowhere else ever again.
   const recoveryCodes = await mintRecoveryCodes(client, userId);
+  const signedOut = await repo.killOtherSessionsForUser(client, userId, sessionId, userId);
   await identityCache.invalidateUser(userId);
   await emitEvent(client, {
     eventTypeKey: events.TWOFA_ENABLED,
@@ -546,6 +578,7 @@ async function enableTotp(client, userId, code, { frequency = null } = {}) {
     is_2fa_enabled: true,
     mfa_frequency: frequency || user.mfa_frequency || "always",
     recovery_codes: recoveryCodes,
+    sessions_signed_out: signedOut,
   };
 }
 
@@ -660,6 +693,10 @@ async function resetMfaForUser(client, { id, actor }) {
   await repo.setTotpEnabled(client, id, false);
   await repo.deleteRecoveryCodes(client, id);
   await knownDeviceRepo.revokeMfaTrust(client, id);
+  // EVERY session, not every other one: the administrator is not the account
+  // holder, and the usual reason for this call is a phone that is now in
+  // somebody else's hands. Whoever is signed in as this person signs in again.
+  const signedOut = await repo.killAllSessionsForUser(client, id, actor ? actor.user_id : null);
   await identityCache.invalidateUser(id);
   await emitEvent(client, {
     eventTypeKey: events.TWOFA_RESET,
@@ -678,7 +715,7 @@ async function resetMfaForUser(client, { id, actor }) {
     isSensitive: true,
     payload: { subject_email: user.email || null },
   });
-  return { is_2fa_enabled: false, reset: true };
+  return { is_2fa_enabled: false, reset: true, sessions_signed_out: signedOut };
 }
 
 /** Pure reuse-detection predicate (exported for tests): true when the presented
@@ -1699,13 +1736,7 @@ async function pinLogin(client, { email, pin, ip, userAgent, environment, device
   }
   await repo.recordQuickPinSuccess(client, user.user_id);
 
-  if (user.is_2fa_enabled && !deviceTrusted) {
-    return {
-      pending_2fa: true,
-      pending_token: signPendingTwoFaToken(user.user_id, "pin"),
-      expires_in: TWOFA_PENDING_TTL,
-    };
-  }
+  if (user.is_2fa_enabled && !deviceTrusted) return twoFaChallenge(user.user_id, "pin");
   return issueSessionTokens(client, user, {
     ip,
     userAgent,
@@ -1725,6 +1756,7 @@ module.exports = {
   // here, and it should be assertable without standing up a database.
   throttleFor,
   verifyTotp,
+  twoFaChallenge,
   setupTotp,
   enableTotp,
   disableTotp,

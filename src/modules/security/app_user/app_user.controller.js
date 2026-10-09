@@ -211,7 +211,11 @@ const setupTotp = asyncHandler(async (req, res) => {
 const enableTotp = asyncHandler(async (req, res) => {
   res.json({
     data: await req.identityDb((client) =>
-      service.enableTotp(client, req.user.user_id, req.body.code, { frequency: req.body.frequency || null }),
+      service.enableTotp(client, req.user.user_id, req.body.code, {
+        frequency: req.body.frequency || null,
+        // Kept alive; every other session of this person ends.
+        sessionId: req.user.session_id || null,
+      }),
     ),
   });
 });

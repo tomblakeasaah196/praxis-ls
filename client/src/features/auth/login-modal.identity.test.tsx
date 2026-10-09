@@ -36,7 +36,7 @@ import { lastSessionStore } from "@/lib/last-session";
 import { passkeyDeviceStore } from "@/lib/passkey-devices";
 import { passkeyOfferStore } from "@/lib/passkey-offer";
 
-const passkeyLoginMock = vi.fn(async (_email?: string) => {});
+const passkeyLoginMock = vi.fn(async (_email?: string) => ({ pending2fa: false }));
 const pinLoginMock = vi.fn(async (_email: string, _pin: string) => ({ pending2fa: false }));
 const recallDeviceMock = vi.fn(async () => null as unknown);
 const platformMock = vi.fn(async () => true);
@@ -113,7 +113,7 @@ beforeEach(() => {
   platformMock.mockReset();
   platformMock.mockResolvedValue(true);
   passkeyLoginMock.mockReset();
-  passkeyLoginMock.mockResolvedValue(undefined);
+  passkeyLoginMock.mockResolvedValue({ pending2fa: false });
   pinLoginMock.mockReset();
   pinLoginMock.mockResolvedValue({ pending2fa: false });
   loginMock.mockClear();
@@ -237,6 +237,40 @@ describe("SignInPanel — each route runs the right ceremony", () => {
     await user.click(orb() as HTMLElement);
     expect(passkeyLoginMock).toHaveBeenCalledWith(EMAIL);
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/", { replace: true }));
+  });
+
+  /*
+   * The authenticator is a second step after EVERY first factor (9 Oct 2026),
+   * passkey included. Before that, a passkey went straight to a session and
+   * "Every Sign-In" was a lie on the My Security card.
+   */
+  it("a passkey on a 2FA account leads to the code screen, not to a session", async () => {
+    const user = userEvent.setup();
+    passkeyDeviceStore.add(EMAIL, "cred-1");
+    passkeyLoginMock.mockResolvedValue({ pending2fa: true });
+    renderModal();
+
+    await user.click(orb() as HTMLElement);
+    expect(passkeyLoginMock).toHaveBeenCalledWith(EMAIL);
+
+    // The second step, and NOT a sign-in: nothing navigated.
+    expect(
+      await screen.findByRole("heading", { name: "Two-step verification" }),
+    ).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("the code screen says which step already passed, so the two read as one sequence", async () => {
+    const user = userEvent.setup();
+    passkeyDeviceStore.add(EMAIL, "cred-1");
+    passkeyLoginMock.mockResolvedValue({ pending2fa: true });
+    renderModal();
+
+    await user.click(orb() as HTMLElement);
+    await screen.findByRole("heading", { name: "Two-step verification" });
+    // Named by the factor that actually passed — "Password verified" here would
+    // be a lie, and would also offer to set up a passkey afterwards.
+    expect(screen.getByText("Passkey verified")).toBeInTheDocument();
   });
 
   it("starts the passkey by itself when the window has focus — the primary means of connection", async () => {

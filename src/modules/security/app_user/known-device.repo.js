@@ -92,6 +92,23 @@ async function trustForMfa(client, { deviceHash, userId, until }) {
  * not already infer. `email` is citext, so the comparison is case-insensitive
  * in the column's own collation rather than by lowercasing here.
  */
+async function mfaTrusted(client, { deviceHash, userId }) {
+  const { rows } = await client.query(
+    `SELECT 1 FROM user_known_device
+      WHERE device_hash = $1 AND user_id = $2
+        AND mfa_trusted_until IS NOT NULL AND mfa_trusted_until > now()`,
+    [deviceHash, userId],
+  );
+  return rows.length > 0;
+}
+
+/**
+ * The same question keyed on the EMAIL, for the password and Quick PIN routes,
+ * which have no user id yet and must not acquire one before the first factor is
+ * checked. The passkey route uses `mfaTrusted` above instead: its assertion
+ * identifies the account cryptographically, and it may carry no email at all
+ * (a discoverable credential signs in with nothing typed).
+ */
 async function mfaTrustedForEmail(client, { deviceHash, email }) {
   const { rows } = await client.query(
     `SELECT 1
@@ -124,6 +141,7 @@ module.exports = {
   latestAccount,
   forgetPasskey,
   trustForMfa,
+  mfaTrusted,
   mfaTrustedForEmail,
   revokeMfaTrust,
   MAX_IDS,

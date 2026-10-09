@@ -430,6 +430,9 @@ export const en = {
     "Recovery codes copied.": "Recovery codes copied.",
     "Recovery code": "Recovery code",
     "Lost your phone?": "Lost your phone?",
+    "Passkey verified": "Passkey verified",
+    "PIN verified": "PIN verified",
+    "Password verified": "Password verified",
     "Use a code from the app": "Use a code from the app",
     // Meeting 6, PR 4: quotations from a costing, families, the chat
     // reference chip, Settings › Commercial and the ⌘K palette.
@@ -4502,6 +4505,9 @@ export const fr: Dict = {
     "Recovery codes copied.": "Codes de secours copiés.",
     "Recovery code": "Code de secours",
     "Lost your phone?": "Téléphone perdu ?",
+    "Passkey verified": "Clé d'accès vérifiée",
+    "PIN verified": "Code PIN vérifié",
+    "Password verified": "Mot de passe vérifié",
     "Use a code from the app": "Utiliser un code de l'application",
     // Meeting 6, PR 4: quotations from a costing, families, the chat
     // reference chip, Settings › Commercial and the ⌘K palette.
