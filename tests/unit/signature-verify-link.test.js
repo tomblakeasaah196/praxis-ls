@@ -79,6 +79,88 @@ describe("the URL the QR encodes", () => {
   });
 });
 
+/**
+ * Rung 1 of the host chain: the tenant's own public website.
+ *
+ * ── WHY THIS IS A TEST AND NOT A COMMENT ──────────────────────────────────
+ *
+ * The QR is printed on paper that cannot be re-issued. Before this rung
+ * existed every code resolved on the STAFF workspace host, which put a tenant's
+ * internal ERP hostname on their customer's invoice — and, for a tenant serving
+ * their own domain, pointed at a host where `/v/` is not served at all
+ * (src/server.js mounts public-web at the root of a `surface='public'` host and
+ * the ERP not at all). A regression here is invisible until somebody scans a
+ * document at a border post.
+ *
+ * `registry.service` is mocked rather than stood up: `verify-link` requires it
+ * lazily by design (the cycle note in `publicSiteOrigin`), so the mock is what
+ * that deferred require resolves to.
+ */
+describe("the host the QR resolves on", () => {
+  const registry = require("../../src/services/tenant/registry.service");
+
+  /** A tenant connection carrying the id `registry.tenantIdOf` reads. */
+  const clientFor = (tenantId) => {
+    const c = { query: async () => ({ rows: [] }) };
+    c[registry.TENANT_ID] = tenantId;
+    return c;
+  };
+
+  afterEach(() => jest.restoreAllMocks());
+
+  test("the tenant's own public website wins over the workspace host", async () => {
+    jest.spyOn(registry, "publicSurfaceOrigin").mockResolvedValue("https://staging.smartls.cm");
+    const ctx = await verifyLink.verifyContext(clientFor("t-1"), {
+      code: "A4B7K92MXQ1P", slug: "smartls", origin: "https://smartls.praxisls.com",
+    });
+    // NOT smartls.praxisls.com, although the caller named it: a stranger's
+    // verification belongs on the surface the tenant publishes to strangers.
+    expect(ctx.url).toBe("https://staging.smartls.cm/v/A4B7K92MXQ1P");
+  });
+
+  test("a tenant with no public website keeps today's workspace host", async () => {
+    jest.spyOn(registry, "publicSurfaceOrigin").mockResolvedValue(null);
+    const ctx = await verifyLink.verifyContext(clientFor("t-2"), {
+      code: "A4B7K92MXQ1P", slug: "smartls", origin: "https://smartls.praxisls.com",
+    });
+    // The ERP still answers /v/ there, which is why this fallback is kept
+    // rather than the public domain being made a requirement for signing.
+    expect(ctx.url).toBe("https://smartls.praxisls.com/v/A4B7K92MXQ1P");
+  });
+
+  test("a registry failure degrades the host — it never fails the render", async () => {
+    // A document that does not exist is strictly worse than one whose QR points
+    // at the workspace host, so the lookup swallows and falls through.
+    jest.spyOn(registry, "publicSurfaceOrigin").mockRejectedValue(new Error("platform db down"));
+    const ctx = await verifyLink.verifyContext(clientFor("t-3"), {
+      code: "A4B7K92MXQ1P", slug: "smartls", origin: "https://smartls.praxisls.com",
+    });
+    expect(ctx.url).toBe("https://smartls.praxisls.com/v/A4B7K92MXQ1P");
+  });
+
+  test("a connection with no tenant id never reaches the registry", async () => {
+    // The mocked clients the rest of this file uses are this shape, and a
+    // lookup on `undefined` would be a query per render for nothing.
+    const spy = jest.spyOn(registry, "publicSurfaceOrigin");
+    const ctx = await verifyLink.verifyContext({ query: async () => ({ rows: [] }) }, {
+      code: "A4B7K92MXQ1P", slug: "smartls",
+    });
+    expect(spy).not.toHaveBeenCalled();
+    expect(ctx.url).toBe("https://smartls.praxisls.com/v/A4B7K92MXQ1P");
+  });
+
+  test("the public host is used as-is — no /public prefix on a printed path", async () => {
+    // `publicSiteBaseUrl` next door appends `/public` on a workspace host; this
+    // chain must not, because the path length is the QR's density budget
+    // (§3.7). Pinned so a later "simplification" to the neighbouring function
+    // fails here rather than in a warehouse.
+    jest.spyOn(registry, "publicSurfaceOrigin").mockResolvedValue("https://staging.smartls.cm");
+    const ctx = await verifyLink.verifyContext(clientFor("t-4"), { code: "A4B7K92MXQ1P" });
+    expect(ctx.url).not.toContain("/public");
+    expect(ctx.url).toBe("https://staging.smartls.cm/v/A4B7K92MXQ1P");
+  });
+});
+
 describe("the symbol itself", () => {
   const url = "https://smartls.praxisls.com/v/A4B7K92MXQ1P";
 

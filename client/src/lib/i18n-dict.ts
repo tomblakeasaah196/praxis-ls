@@ -4003,6 +4003,26 @@ export const en = {
     /* The mailbox's sr-only page name (comms/inbox/index.tsx). Same word as
        screen-registry.json's `comms_mail`, so ⌘K and the heading agree. */
     "Mail": "Mail",
+
+    // ── The verification portal card (vault hub) ──────────────────────────
+    // The portal itself lives on the tenant's public website (public-web);
+    // these are the words the ERP uses to hand its address to a counterparty.
+    // French stays SENTENCE case even where the English is Title Case chrome:
+    // that is correct French typography, and half this corridor reads French.
+    "Verification Portal": "Verification Portal",
+    "Verification Portal Address": "Verification Portal Address",
+    "Authenticate our documents": "Authenticate our documents",
+    "Send on WhatsApp": "Send on WhatsApp",
+    "Send by email": "Send by email",
+    "Link copied.": "Link copied.",
+    "The link could not be copied. Select it and copy it yourself.":
+      "The link could not be copied. Select it and copy it yourself.",
+    "Anyone holding the paper can check it without an account: the page shows what was signed, by whom, and whether the record has changed since.":
+      "Anyone holding the paper can check it without an account: the page shows what was signed, by whom, and whether the record has changed since.",
+    "Every signed document prints a QR code with a twelve-character code beneath it. The QR opens this page on your public website. Who has checked a given document is recorded on the signature itself.":
+      "Every signed document prints a QR code with a twelve-character code beneath it. The QR opens this page on your public website. Who has checked a given document is recorded on the signature itself.",
+    "You can check that any document we issued is genuine. Open {{url}} and enter the twelve-character code printed beneath the QR code on the document.":
+      "You can check that any document we issued is genuine. Open {{url}} and enter the twelve-character code printed beneath the QR code on the document.",
   },
   dataRoom: {
     staffDesc: "Document requests from external auditors — share vault documents in answer.",
@@ -8049,6 +8069,22 @@ export const fr: Dict = {
     /* The mailbox's sr-only page name (comms/inbox/index.tsx). Same word as
        screen-registry.json's `comms_mail`, so ⌘K and the heading agree. */
     "Mail": "Messagerie",
+
+    // ── The verification portal card (vault hub) ──────────────────────────
+    "Verification Portal": "Portail de vérification",
+    "Verification Portal Address": "Adresse du portail de vérification",
+    "Authenticate our documents": "Authentifier nos documents",
+    "Send on WhatsApp": "Envoyer sur WhatsApp",
+    "Send by email": "Envoyer par courriel",
+    "Link copied.": "Lien copié.",
+    "The link could not be copied. Select it and copy it yourself.":
+      "Le lien n'a pas pu être copié. Sélectionnez-le et copiez-le vous-même.",
+    "Anyone holding the paper can check it without an account: the page shows what was signed, by whom, and whether the record has changed since.":
+      "Toute personne qui détient le document peut le contrôler sans compte : la page indique ce qui a été signé, par qui, et si le dossier a changé depuis.",
+    "Every signed document prints a QR code with a twelve-character code beneath it. The QR opens this page on your public website. Who has checked a given document is recorded on the signature itself.":
+      "Chaque document signé imprime un QR code avec un code à douze caractères en dessous. Le QR ouvre cette page sur votre site public. Les consultations d'un document sont enregistrées sur la signature elle-même.",
+    "You can check that any document we issued is genuine. Open {{url}} and enter the twelve-character code printed beneath the QR code on the document.":
+      "Vous pouvez vérifier l'authenticité de tout document que nous avons émis. Ouvrez {{url}} et saisissez le code à douze caractères imprimé sous le QR code du document.",
   },
   dataRoom: {
     staffDesc: "Demandes de documents des auditeurs externes — partagez les documents du coffre en réponse.",

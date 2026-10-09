@@ -14,7 +14,6 @@
 import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import { Panel } from "@/components/ui/panel";
-import { InfoHint } from "@/components/ui/info-hint";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/data-list";
@@ -32,6 +31,7 @@ import { SignaturesPage } from "./signatures";
 import { ReconciliationPage } from "./reconciliation";
 import * as React from "react";
 import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
+import { VerificationPortalCard } from "./verification-portal-card";
 
 const shell = pageShell.wide;
 
@@ -337,51 +337,19 @@ function Overview() {
         </Panel>
       </div>
 
-      {/* Replaced the "paste a hash" screen (guide §5.7, addition i). That
-          screen asked an operator to type a fingerprint into a box and told
-          them whether it matched — a mechanism this programme removes, and one
-          that never answered a question anybody had. The question people do
-          have is whether the counterparty ever checked the document, and that
-          lives on the signature itself now. */}
-      <Panel
-        title="Verification Portal"
-        action={
-          /* The ⓘ IS A SIBLING of the heading, not a child of it.
-             Panel's `title` is a ReactNode, so putting the icon in there would
-             fold its aria-label into the <h2>'s accessible name and the
-             heading would announce as "Verification Portal About the
-             Verification Portal". §3.17. */
-          <div className="flex items-center gap-2">
-            <InfoHint label="About the Verification Portal">
-              Every signed document prints a QR code with a twelve-character
-              code beneath it. Who has checked a given document is recorded on
-              the signature itself.
-            </InfoHint>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => window.open("/verify", "_blank", "noopener")}
-            >
-              Open
-            </Button>
-          </div>
-        }
-      >
-        {/* WHAT THE PORTAL GUARANTEES, KEPT ON THE PAGE.
-          *
-          * The paragraph this replaces ran 290 characters and mixed two things:
-          * how the check works (a QR code and a twelve-character code), which
-          * is explanation and is now behind the ⓘ, and what the check PROVES,
-          * which is the reason anyone trusts a signed document from this vault.
-          * The second is a guarantee, so it is shortened rather than hidden.
-          * the second is a guarantee, so it is shortened rather than hidden. */}
-        {/* @prose:keep what a counterparty can verify without an account. */}
-        <p className="text-sm text-muted-foreground">
-          Anyone holding the paper can check it without an account: the page
-          shows what was signed, by whom, and whether the record has changed
-          since.
-        </p>
-      </Panel>
+      {/* The verification portal lives on the tenant's PUBLIC WEBSITE now
+          (public-web/src/features/verify), not in this app. This card hands
+          staff the address so they can pass it to a counterparty who asked how
+          to check a document. See verification-portal-card.tsx for why it is
+          not an "Open" button any more.
+
+          It also replaced the "paste a hash" screen (guide §5.7, addition i),
+          which asked an operator to type a fingerprint into a box and told them
+          whether it matched: a mechanism this programme removes, and one that
+          never answered a question anybody had. The question people do have is
+          whether the counterparty ever checked the document, and that lives on
+          the signature itself now. */}
+      <VerificationPortalCard />
 
       <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </section>

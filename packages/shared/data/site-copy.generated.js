@@ -2,14 +2,14 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * The site copy catalogue: every `site.*` string a tenant may override.
- * 536 keys in 25 sections.
+ * 583 keys in 26 sections.
  * Source: public-web/src/lib/i18n-dict.ts
  * Regenerate with: node scripts/gen/gen-site-copy-catalogue.js
  *
  * SITE_COPY_ENTRIES rows are [key, section, label, en, fr].
  */
 
-exports.SITE_COPY_SECTIONS = [{"key":"about","label":"About page","pages":["About"]},{"key":"announce","label":"Announcements band","pages":["Home"]},{"key":"careers","label":"Careers","pages":["Careers"]},{"key":"chrome","label":"Site chrome","pages":["Home","About","Track","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"contact","label":"Contact","pages":["Home","Contact"]},{"key":"corridor","label":"Corridor set piece","pages":["Home"]},{"key":"crash","label":"Error screen","pages":["Every page"]},{"key":"esg","label":"About — ESG pillars","pages":["About","Services"]},{"key":"footer","label":"Footer","pages":["Home","About","Track","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"hero","label":"Hero and shared calls to action","pages":["Home","About","Track","Services","Our work","Quote","Insights","Proposals","Careers","Contact","Client portal","Page not found"]},{"key":"how","label":"How it works","pages":["Home","About","Track","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"insights","label":"Insights","pages":["Insights"]},{"key":"nav","label":"Header navigation","pages":["Home","About","Track","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"notFound","label":"Page not found","pages":["Page not found"]},{"key":"portalBand","label":"Client portal band","pages":["Home"]},{"key":"portfolioPage","label":"Our work (case notes)","pages":["Our work"]},{"key":"preview","label":"Shipment preview","pages":["Home"]},{"key":"proof","label":"Proof and lanes","pages":["Home","Our work"]},{"key":"proposals","label":"Proposals","pages":["Proposals"]},{"key":"quote","label":"Quote request","pages":["Home","Services","Our work","Quote","Careers","Contact","Client portal"]},{"key":"quoteSteps","label":"Quote Steps","pages":["Services","Quote","Client portal"]},{"key":"services","label":"Services — band and cards","pages":["Home","About","Track","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"servicesPage","label":"Services page","pages":["Home","Services","Our work"]},{"key":"track","label":"Tracking widget","pages":["Home","Track","Page not found"]},{"key":"trackPage","label":"Tracking page","pages":["Track"]}];
+exports.SITE_COPY_SECTIONS = [{"key":"about","label":"About page","pages":["About"]},{"key":"announce","label":"Announcements band","pages":["Home"]},{"key":"careers","label":"Careers","pages":["Careers"]},{"key":"chrome","label":"Site chrome","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"contact","label":"Contact","pages":["Home","Contact"]},{"key":"corridor","label":"Corridor set piece","pages":["Home"]},{"key":"crash","label":"Error screen","pages":["Every page"]},{"key":"esg","label":"About — ESG pillars","pages":["About","Services"]},{"key":"footer","label":"Footer","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"hero","label":"Hero and shared calls to action","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Proposals","Careers","Contact","Client portal","Page not found"]},{"key":"how","label":"How it works","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"insights","label":"Insights","pages":["Insights"]},{"key":"nav","label":"Header navigation","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"notFound","label":"Page not found","pages":["Page not found"]},{"key":"portalBand","label":"Client portal band","pages":["Home"]},{"key":"portfolioPage","label":"Our work (case notes)","pages":["Our work"]},{"key":"preview","label":"Shipment preview","pages":["Home"]},{"key":"proof","label":"Proof and lanes","pages":["Home","Our work"]},{"key":"proposals","label":"Proposals","pages":["Proposals"]},{"key":"quote","label":"Quote request","pages":["Home","Services","Our work","Quote","Careers","Contact","Client portal"]},{"key":"quoteSteps","label":"Quote Steps","pages":["Services","Quote","Client portal"]},{"key":"services","label":"Services — band and cards","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"servicesPage","label":"Services page","pages":["Home","Services","Our work"]},{"key":"track","label":"Tracking widget","pages":["Home","Track","Page not found"]},{"key":"trackPage","label":"Tracking page","pages":["Track"]},{"key":"verify","label":"Verify","pages":["Verify"]}];
 
 exports.SITE_COPY_ENTRIES = [
   ["site.about.carriersLead","about","Carriers Lead","Carriers and networks we book capacity with. Their marks are theirs; we show them with permission.","Les transporteurs et réseaux auprès desquels nous réservons de la capacité. Leurs marques leur appartiennent ; nous les affichons avec leur accord."],
@@ -222,6 +222,7 @@ exports.SITE_COPY_ENTRIES = [
   ["site.footer.socialOn","footer","Social On","{{platform}}, in a new tab","{{platform}}, dans un nouvel onglet"],
   ["site.footer.terms","footer","Terms","Terms of service","Conditions d’utilisation"],
   ["site.footer.track","footer","Track","Track a shipment","Suivre un envoi"],
+  ["site.footer.verify","footer","Verify","Authenticate our documents","Authentifier nos documents"],
   ["site.hero.cta","hero","Cta","Request a quote","Demander un devis"],
   ["site.hero.cta2","hero","Cta2","Track a shipment","Suivre un envoi"],
   ["site.hero.eyebrow","hero","Eyebrow","Logistics · Customs · Warehousing","Logistique · Douane · Entreposage"],
@@ -548,6 +549,52 @@ exports.SITE_COPY_ENTRIES = [
   ["site.trackPage.verdictMoving","trackPage","Verdict Moving","On the move","En mouvement"],
   ["site.trackPage.verdictOpened","trackPage","Verdict Opened","Opened, not yet moving","Ouvert, pas encore en mouvement"],
   ["site.trackPage.whereRef","trackPage","Where Ref","The reference is on the documents your account manager sent you — the booking confirmation, the transport order or the invoice.","La référence figure sur les documents transmis par votre gestionnaire de compte : la confirmation de réservation, l’ordre de transport ou la facture."],
+  ["site.verify.amendedBody","verify","Amended Body","The signature below is genuine, but it no longer covers what the document says today. What changed is listed below.","La signature ci-dessous est authentique, mais elle ne couvre plus ce que le document dit aujourd’hui. Ce qui a changé est indiqué ci-dessous."],
+  ["site.verify.amendedTitle","verify","Amended Title","This document has changed since it was signed","Ce document a changé depuis sa signature"],
+  ["site.verify.asSigned","verify","As Signed","The document as signed","Le document tel que signé"],
+  ["site.verify.asSignedNote","verify","As Signed Note","These details were frozen at the moment of signing. They never change, even if the file moves on afterwards.","Ces informations sont figées au moment de la signature. Elles ne changent jamais, même si le dossier évolue ensuite."],
+  ["site.verify.changed","verify","Changed","What has changed since","Ce qui a changé depuis"],
+  ["site.verify.checking","verify","Checking","Checking…","Vérification…"],
+  ["site.verify.close","verify","Close","Close","Fermer"],
+  ["site.verify.code","verify","Code","Code","Code"],
+  ["site.verify.codeLabel","verify","Code Label","Verification code","Code de vérification"],
+  ["site.verify.contentHash","verify","Content Hash","Content fingerprint","Empreinte du contenu"],
+  ["site.verify.device","verify","Device","Device","Appareil"],
+  ["site.verify.enterLead","verify","Enter Lead","Enter the twelve-character code printed beneath the QR code on the document.","Saisissez le code à douze caractères imprimé sous le QR code du document."],
+  ["site.verify.enterTitle","verify","Enter Title","Verify a document","Vérifier un document"],
+  ["site.verify.external","verify","External","the counterparty","la contrepartie"],
+  ["site.verify.howLink","verify","How Link","How is this verified?","Comment cela est-il vérifié ?"],
+  ["site.verify.howTitle","verify","How Title","How this verification works","Comment cette vérification fonctionne"],
+  ["site.verify.identityB","verify","Identity B","Who signed, and how they proved it. A name confirmed by an authenticated account and a name simply declared are two different claims, and this page tells you which one you are reading.","Qui a signé, et comment cette personne l’a prouvé. Un nom confirmé par un compte authentifié et un nom simplement déclaré sont deux affirmations différentes, et cette page indique laquelle vous lisez."],
+  ["site.verify.identityH","verify","Identity H","Identity","Identité"],
+  ["site.verify.integrityB","verify","Integrity B","Two fingerprints, two questions. The first covers the document's contents — the amounts, the parties, the references — and answers whether it changed after signing. The second covers the file itself and confirms it is the exact file that was issued.","Deux empreintes, deux questions. La première porte sur le contenu du document — les montants, les parties, les références — et permet de savoir s’il a été modifié après signature. La seconde porte sur le fichier lui-même et confirme qu’il s’agit exactement du fichier émis."],
+  ["site.verify.integrityH","verify","Integrity H","Integrity","Intégrité"],
+  ["site.verify.internal","verify","Internal","the issuing company","l’entreprise émettrice"],
+  ["site.verify.issuer","verify","Issuer","Issued by","Émetteur"],
+  ["site.verify.langSwitch","verify","Lang Switch","Français","English"],
+  ["site.verify.lead","verify","Lead","This document carries an electronic signature. Here is what it attests to.","Ce document porte une signature électronique. Voici ce qu’elle atteste."],
+  ["site.verify.method","verify","Method","Method","Méthode"],
+  ["site.verify.network","verify","Network","Network","Réseau"],
+  ["site.verify.noSummary","verify","No Summary","This kind of document does not publish a summary. The signature and the checks above still stand.","Ce type de document ne publie pas de résumé. La signature et les contrôles ci-dessus restent valables."],
+  ["site.verify.notFoundBody","verify","Not Found Body","Check the twelve characters printed beneath the QR code. If the code is right and this page persists, contact the issuer of the document directly.","Vérifiez les douze caractères imprimés sous le QR code. Si le code est correct et que cette page persiste, contactez directement l’émetteur du document."],
+  ["site.verify.notFoundTitle","verify","Not Found Title","No verification matches that code","Aucune vérification ne correspond à ce code"],
+  ["site.verify.onBehalf","verify","On Behalf","On behalf of","Pour le compte de"],
+  ["site.verify.privacy","verify","Privacy","Verifications of this document are logged, including the network address they came from.","Les vérifications de ce document sont enregistrées, y compris l’adresse réseau d’où elles proviennent."],
+  ["site.verify.reason","verify","Reason","Reason","Motif"],
+  ["site.verify.revokedBody","verify","Revoked Body","It was genuinely applied, and then withdrawn by the issuer. The document should no longer be treated as signed.","Elle a bien été apposée, puis retirée par l’émetteur. Le document ne doit plus être considéré comme signé."],
+  ["site.verify.revokedReasonLabel","verify","Revoked Reason Label","Reason for revocation","Motif de la révocation"],
+  ["site.verify.revokedTitle","verify","Revoked Title","This signature has been revoked","Cette signature a été révoquée"],
+  ["site.verify.signatureH","verify","Signature H","The signature","La signature"],
+  ["site.verify.signedAt","verify","Signed At","Signed","Date de signature"],
+  ["site.verify.signedBy","verify","Signed By","Signed by","Signé par"],
+  ["site.verify.signingWindow","verify","Signing Window","Signing window","Fenêtre de signature"],
+  ["site.verify.submit","verify","Submit","Verify","Vérifier"],
+  ["site.verify.testEnvBody","verify","Test Env Body","This code was minted in the issuer's test environment. The check below is genuine, but the document itself is not a real document.","Ce code a été émis dans l’environnement de test de l’émetteur. Le contrôle ci-dessous est authentique, mais le document lui-même n’est pas un document réel."],
+  ["site.verify.testEnvTitle","verify","Test Env Title","Test-environment document","Document d’environnement de test"],
+  ["site.verify.title","verify","Title","Document verification","Vérification de document"],
+  ["site.verify.traceB","verify","Trace B","Every signature and every verification is written to an append-only record kept by the issuer. Your visit today is part of it.","Chaque signature et chaque vérification sont inscrites dans un registre en ajout seul, conservé par l’émetteur. Votre consultation d’aujourd’hui en fait partie."],
+  ["site.verify.traceH","verify","Trace H","Traceability","Traçabilité"],
+  ["site.verify.validTitle","verify","Valid Title","Signature verified","Signature vérifiée"],
 ];
 
 const KEYS = new Set(exports.SITE_COPY_ENTRIES.map((e) => e[0]));

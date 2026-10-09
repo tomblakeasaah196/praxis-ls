@@ -105,4 +105,28 @@ module.exports = {
   stats: asyncHandler(async (req, res) => {
     res.json({ data: await req.tenantDb((c) => service.stats(c)) });
   }),
+
+  /**
+   * Where this tenant's verification portal lives, for staff who need to hand
+   * the address to somebody.
+   *
+   * ── WHY THIS IS AN ENDPOINT AND NOT A STRING IN THE FRONTEND ─────────────
+   * The browser cannot work it out. The portal is on the tenant's own PUBLIC
+   * website when they have one and on this workspace host when they do not,
+   * and which of those is true lives in `platform.subdomain`, a platform-
+   * database table no tenant-side screen can read.
+   *
+   * It resolves through `verifyLink.baseUrl` — THE SAME function that builds
+   * the URL printed inside every QR — so the address an operator reads off the
+   * hub and the address on the paper cannot disagree. A second derivation here
+   * is exactly how a staff member ends up reading out a host that 404s.
+   *
+   * `/verify` and not `/v/`: this is the manual-entry form, for a counterparty
+   * who will type a code. `/v/{code}` is for a scanner and is meaningless
+   * without a code after it.
+   */
+  portal: asyncHandler(async (req, res) => {
+    const data = await req.tenantDb((c) => service.portalUrl(c, { origin: req.get("host") }));
+    res.json({ data });
+  }),
 };

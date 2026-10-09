@@ -24,6 +24,8 @@ const events = require("./document_signature.events");
 const canonical = require("../../../services/signatures/canonical");
 const tokens = require("../../../services/signatures/tokens");
 const presets = require("../../../services/signatures/presets");
+const verifyLink = require("../../../services/signatures/verify-link");
+const registry = require("../../../services/tenant/registry.service");
 const { maskIp, coarseUserAgent } = require("../../../services/signatures/mask");
 const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emit");
 const { getSetting } = require("../../../shared/config/settings");
@@ -536,6 +538,49 @@ async function pruneScans(client) {
 const stats = (client) => repo.stats(client);
 
 /**
+ * The address of this tenant's verification portal, for staff who need to hand
+ * it to a counterparty.
+ *
+ * ── ONE DERIVATION, SHARED WITH THE PRINTED QR ────────────────────────────
+ * It calls `verifyLink.baseUrl`, which is the function that builds the URL
+ * baked into every QR we print. That is the entire point of routing through it
+ * rather than assembling a host here: an operator reading the address off the
+ * vault hub and a customs officer scanning the paper must arrive at the same
+ * place, and two derivations of "the tenant's verify host" is how they stop
+ * doing so.
+ *
+ * ── WHY THE SLUG IS RESOLVED WHEN NO ORIGIN IS GIVEN ──────────────────────
+ * An HTTP caller passes `req.get("host")` and the chain has a real host to
+ * fall back to. The AI manifest has no request at all, and without a slug the
+ * chain would skip past the workspace host to the APEX — a platform hostname
+ * that resolves no tenant, handed to a staff member as their own address.
+ * Resolving the slug costs one cached registry read and keeps the two callers
+ * answering identically.
+ *
+ * Never throws: a tenant with nothing on file gets the apex, which is wrong but
+ * harmless, where an exception would redden a hub card over a hostname.
+ */
+async function portalUrl(client, { origin = null } = {}) {
+  let slug = null;
+  if (!origin) {
+    try {
+      const tenantId = registry.tenantIdOf(client);
+      const meta = tenantId ? await registry.workspaceOrigin(tenantId) : null;
+      slug = (meta && meta.slug) || null;
+    } catch (err) {
+      // Logged rather than swallowed. A tenant with no subdomain row resolves
+      // to null WITHOUT throwing, so reaching here means the platform lookup
+      // itself failed — not an ordinary absence. The call still continues,
+      // because a hub card must not redden over a hostname, but a staff member
+      // being shown a less specific address than their own is worth a line.
+      logger.warn({ err }, "portal URL: tenant slug lookup failed — falling back");
+    }
+  }
+  const base = await verifyLink.baseUrl(client, { origin, slug });
+  return { url: `${base}/verify` };
+}
+
+/**
  * Is the internal step-up OTP required for this document? (Q9 = C, §6.5.)
  *
  * The total is DERIVED from the document rather than passed in. PR-1's version
@@ -591,7 +636,7 @@ async function stepUpRequired(client, { totalXaf }) {
 
 module.exports = {
   listByRef, get, menu, reasons, signInternal, revoke, supersedeAll, setArtifact, stats,
-  scans, pruneScans,
+  scans, pruneScans, portalUrl,
   presets: presetCatalogue,
   // Exported for the public portal, which detects the same amendment from the
   // other side of the wall and must raise the same flag. One detector, two

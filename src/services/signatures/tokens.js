@@ -34,22 +34,24 @@
 const crypto = require("crypto");
 
 /**
- * Crockford base32: no I, L, O or U. The first three because they are
- * indistinguishable from 1/1/0 in the 5 pt type this prints at; U because
- * excluding it makes accidental profanity in a random code far less likely,
- * which matters on a document that goes to a customer.
+ * The alphabet, the length and the read-side rules come from
+ * `@praxis/shared/rules/verify-code` and are NOT redeclared here.
+ *
+ * ── WHY THEY MOVED OUT OF THIS FILE ───────────────────────────────────────
+ * This module mints and resolves the code; the two verification portals
+ * (public-web, and the ERP's copy for tenants with no public website) accept it
+ * from a keyboard. All three have to fold a typed code identically, because
+ * THIS side normalises before the lookup: a browser that folded differently
+ * would send a code that cannot match, and the visitor would be told no
+ * verification matches a document they are holding in their hand. Nothing
+ * fails in either half while that is true, which is why it is one definition
+ * and not three agreeing copies.
+ *
+ * `mintVerifyCode` stays here: it needs `crypto`, and the shared module is
+ * reached by public-web through a door that must require nothing.
  */
-const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const CODE_LENGTH = 12; // 32^12 = 2^60. Safe ONLY with the portal rate limiter.
-
-/**
- * Crockford's canonical read-side substitutions, applied before lookup.
- * Null-prototype for the same reason as the maps in canonical.js and
- * presets.js: the input is already filtered to [0-9A-Z] below, so a prototype
- * member cannot reach it today — but that safety lives in a regex three
- * functions away, and this costs nothing to make local.
- */
-const NORMALISE = Object.assign(Object.create(null), { I: "1", L: "1", O: "0", U: "V" });
+const { ALPHABET, CODE_LENGTH, normaliseCode, isValidCode, formatCode } =
+  require("@praxis/shared/rules/verify-code");
 
 /**
  * Generate a verify code, uniformly.
@@ -80,29 +82,6 @@ function mintVerifyCode() {
   }
   return out;
 }
-
-/**
- * Accept what a human actually types: lower case, Crockford's confusable
- * substitutions, and any separator they felt like using. A verification code
- * read down a phone line must not fail because someone typed a space.
- */
-function normaliseCode(input) {
-  const raw = String(input || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
-  let out = "";
-  for (const ch of raw) out += NORMALISE[ch] || ch;
-  return out;
-}
-
-/** Valid shape? Checked before a database round-trip, so junk costs nothing. */
-function isValidCode(input) {
-  const c = normaliseCode(input);
-  if (c.length !== CODE_LENGTH) return false;
-  for (const ch of c) if (!ALPHABET.includes(ch)) return false;
-  return true;
-}
-
-/** `A4B7K92MXQ1P` → `A4B7-K92M-XQ1P`. Grouping is display-only; never stored. */
-const formatCode = (code) => normaliseCode(code).replace(/(.{4})(?=.)/g, "$1-");
 
 /** The URL the QR encodes. Short by design — see the header.
  *

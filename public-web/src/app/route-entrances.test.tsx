@@ -49,6 +49,8 @@ const DOCUMENT_HEADER: Record<string, string> = {
     "a priced document addressed to one recipient, reached by a token and often printed. Its own comment argues the case: the badge pill and the accent word are marketing grammar, and colouring half of somebody's proposal title is a liberty a quote does not get to take.",
   "features/insights/insight-page.tsx":
     "long-form, which §1.5 exempts in as many words — a reader who clicked an article wants an article. It opens with the date, the title and the byline, and §8.6's reading rail is its affordance. A marketing plate on an essay is how a serious piece starts reading as an advertisement.",
+  "features/verify/verify-page.tsx":
+    "a verification result, reached by scanning a QR on paper, and the one page on this site that is evidence rather than publishing. Its reader is a customs officer or a lawyer deciding whether a document is genuine, and they often print or screenshot what they see. A marketing plate above that verdict would do real harm rather than merely look wrong: a branded hero over a REVOKED signature reads as reassurance, and the page's whole job is to be believed when it says no. It opens with the verdict instead, which is the entrance its audience came for.",
 };
 
 /** Every `element={<X />}` the router mounts, paired with the module it lazily
