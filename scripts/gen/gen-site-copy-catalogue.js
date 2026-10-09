@@ -82,6 +82,13 @@ const FEATURE_DICTS = [
     file: path.join(WEB_SRC, "components", "quote", "quote-steps-copy.ts"),
     mount: "quoteSteps",
   },
+  {
+    // The verification portal — ~46 keys of legal-adjacent prose only a
+    // stranger holding a signed document can reach. Split out when it pushed
+    // first paint past its budget, the same wall careers hit.
+    file: path.join(WEB_SRC, "features", "verify", "verify-copy.ts"),
+    mount: "verify",
+  },
 ];
 const ROUTER = path.join(WEB_SRC, "app", "router.tsx");
 const OUT = path.join(ROOT, "packages", "shared", "data", "site-copy.generated.js");

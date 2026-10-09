@@ -60,6 +60,10 @@ import * as React from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import i18n from "i18next";
 import { useTranslation } from "react-i18next";
+/* Side-effect import: registers `site.verify.*` as this chunk is evaluated,
+   strictly before anything here renders. The copy rides this chunk rather than
+   the entry dictionary — see verify-copy.ts for what that costs everyone else. */
+import "./verify-i18n";
 import { PublicApiError, publicGet } from "@/lib/api";
 import { useBranding } from "@/app/branding";
 import { useDocumentMeta } from "@/lib/use-document-meta";
