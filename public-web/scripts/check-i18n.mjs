@@ -79,6 +79,12 @@ const FEATURE_DICTS = [
     file: path.join(SRC, "components/quote/quote-steps-copy.ts"),
     mount: "site.quoteSteps",
   },
+  {
+    // The verification portal — ~46 keys only a stranger holding a signed
+    // document can reach, split out of the entry dictionary on a bundle budget.
+    file: path.join(SRC, "features/verify/verify-copy.ts"),
+    mount: "site.verify",
+  },
 ];
 
 /** True for any file that IS copy rather than a component that contains copy.
