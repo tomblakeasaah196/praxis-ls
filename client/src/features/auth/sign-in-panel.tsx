@@ -467,9 +467,12 @@ export function SignInPanel({
     try {
       // Scoped to the person this screen is for: their credentials on this
       // device, and a ceremony nobody else's passkey can answer.
-      const { pending2fa } = await passkeyLogin(rememberedEmail || undefined);
+      // `?.` deliberately: this returned void until the authenticator became a
+      // second step, and a sign-in screen is the worst place in the product to
+      // throw a TypeError over a shape change.
+      const passkeyResult = await passkeyLogin(rememberedEmail || undefined);
       setRemembered(lastSessionStore.get() ?? remembered);
-      if (pending2fa) {
+      if (passkeyResult?.pending2fa) {
         setTwofaVia("passkey");
         setStage("twofa");
         return;
