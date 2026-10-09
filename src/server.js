@@ -734,6 +734,64 @@ function buildApp() {
       return serveApp(req, res);
     });
 
+    /**
+     * (a2) THE VERIFICATION PORTAL, ON A WORKSPACE HOST.
+     *
+     * `/v/{code}` is printed inside a QR on paper that cannot be re-issued, and
+     * every document rendered before the portal moved carries the WORKSPACE
+     * host. So this host keeps answering it forever. The only question is
+     * whether it answers itself or hands over to the tenant's public site.
+     *
+     * When the tenant has a public-surface host, redirect there: that is where
+     * the portal lives now, it is the host the QR will carry on everything
+     * rendered from here on (services/signatures/verify-link.js), and it is the
+     * one wearing the tenant's own site chrome rather than the staff app's.
+     *
+     * When they do NOT, fall through — the ERP's own copy of the page answers,
+     * outside RequireAuth and outside AppShell, exactly as it does today. A
+     * tenant who has not bought a domain still gets a working portal, which is
+     * the whole reason that copy is kept rather than deleted.
+     *
+     * ── WHY THIS IS SERVER-SIDE AND NOT A <Route> ────────────────────────────
+     * The visitor is a stranger with no account, often on a phone at a border
+     * post. A client-side redirect would make them download the ERP bundle,
+     * boot it, and only then be told to go somewhere else — and it would route
+     * them through the staff app's service worker to do it. A 302 costs one
+     * round trip and runs before any JavaScript exists.
+     *
+     * ── 302, NOT 301 ─────────────────────────────────────────────────────────
+     * A 301 is cached by the browser indefinitely and survives the tenant
+     * dropping or changing their domain, which would strand the one path that
+     * must never break. This mapping is a fact about today's registry row.
+     *
+     * The query string is carried across verbatim: `?e=sandbox` is what pins a
+     * test-environment document to the right schema, `?lang=` is the reader's
+     * language, and `?via=` separates a scan from a typed code. Dropping them
+     * turns a working QR into a 404 on the other side.
+     */
+    app.get(publicWebPaths.VERIFY_PATHS, async (req, res, next) => {
+      if (isPublicSurface(req)) return next(); // (a) already served the page
+      const host = String(req.headers.host || "").toLowerCase().split(":")[0];
+      try {
+        const meta = await registry.resolveByHost(host);
+        const target = meta && meta.tenant_id
+          ? await registry.publicSurfaceOrigin(meta.tenant_id)
+          : null;
+        if (!target) return next(); // no public domain — the ERP's copy answers
+        const qs = req.originalUrl.indexOf("?");
+        const search = qs === -1 ? "" : req.originalUrl.slice(qs);
+        // Built from the MATCHED ROUTE's param, never pasted from
+        // req.originalUrl — `verifyPortalPath` records why that distinction is
+        // an open redirect and not a style preference.
+        return res.redirect(302, `${target}${publicWebPaths.verifyPortalPath(req.params.code)}${search}`);
+      } catch (err) {
+        // A registry failure must not take the portal down: fall through to the
+        // ERP's own copy, which is a working page on this very host.
+        logger.warn({ err, host }, "verify redirect lookup failed — serving the ERP copy");
+        return next();
+      }
+    });
+
     // (b) the path prefix, on workspace hosts.
     if (config.SERVE_PUBLIC_WEB) {
       app.use((req, res, next) => {

@@ -29,7 +29,9 @@ router.get("/menu", requirePermission(MODULE, "view"), validator.menuQuery, cont
 router.get("/stats", requirePermission(MODULE, "view"), controller.stats);
 router.get("/reasons", requirePermission(MODULE, "view"), controller.reasons);
 router.get("/presets", requirePermission(MODULE, "view"), controller.presets);
-// After /menu and /stats: an :id route declared first would swallow both.
+// The tenant's own verification portal address, for staff to pass on.
+router.get("/portal", requirePermission(MODULE, "view"), controller.portal);
+// After /menu, /stats and /portal: an :id route declared first would swallow them.
 router.get("/:id", requirePermission(MODULE, "view"), controller.get);
 // The verification history for one signature — the internal half of the public
 // portal, and what replaced the deleted "paste a hash" screen (guide §5.7).
