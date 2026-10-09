@@ -182,6 +182,15 @@ function AttachmentStrip({ messageId }: { messageId: string }) {
  *
  * Sanitized on ingest (see the file header); this is privacy, not safety.
  */
+/**
+ * Email HTML is someone else's markup: fixed-width tables, long unbroken URLs,
+ * images wider than the phone. Left alone it pushes the reading pane wider
+ * than the screen and the text is clipped at both edges. Wrap long words,
+ * let images and tables shrink to the column, and keep the prose sizing.
+ */
+const BODY_PROSE =
+  "prose prose-sm max-w-full min-w-0 break-words [overflow-wrap:anywhere] [&_img]:h-auto [&_img]:max-w-full [&_table]:max-w-full [&_pre]:whitespace-pre-wrap";
+
 function MessageBody({ message }: { message: Message }) {
   const [showImages, setShowImages] = React.useState(false);
   const [showQuote, setShowQuote] = React.useState(false);
@@ -227,7 +236,7 @@ function MessageBody({ message }: { message: Message }) {
 
       {html ? (
         <div
-          className="prose prose-sm max-w-none"
+          className={BODY_PROSE}
           // Sanitized on ingest — see the file header.
           dangerouslySetInnerHTML={{ __html: render(scan) }}
         />
@@ -254,7 +263,7 @@ function MessageBody({ message }: { message: Message }) {
           {showQuote && (
             html ? (
               <div
-                className="prose prose-sm mt-2 max-w-none border-l-2 border-border pl-3 text-muted-foreground"
+                className={cn(BODY_PROSE, "mt-2 border-l-2 border-border pl-3 text-muted-foreground")}
                 dangerouslySetInnerHTML={{ __html: render(quoteScan) }}
               />
             ) : (
@@ -290,7 +299,7 @@ function MessageBlock({
   return (
     <article
       className={cn(
-        "rounded-lg border border-border",
+        "min-w-0 rounded-lg border border-border",
         message.is_read ? "bg-card/40" : "bg-card",
       )}
     >
@@ -561,7 +570,7 @@ export function ThreadView({
           </div>
         </div>
 
-        <div className="mt-2 flex items-center gap-1.5">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <Button size="sm" onClick={() => setReplying("REPLY")}>
             {tr("Reply")}
           </Button>
@@ -658,7 +667,7 @@ export function ThreadView({
           screen-reader user reaches the correspondence first — it is what they
           opened the thread for. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden xl:flex-row">
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+        <div className="min-h-0 min-w-0 flex-1 space-y-2 overflow-y-auto p-3">
           {messages.map((m, i) => (
             <MessageBlock
               key={m.email_message_id}
