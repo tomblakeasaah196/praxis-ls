@@ -10,6 +10,7 @@ const path = require("path");
 const service = require("./document_vault.service");
 const outbox = require("./attachment_outbox.service");
 const { asyncHandler, AppError } = require("../../../utils/errors");
+const { sendPaged } = require("../../../shared/http/paged");
 const { readUpload } = require("../../../shared/http/upload.middleware");
 const { logger } = require("../../../config/logger");
 
@@ -114,7 +115,11 @@ function fileMeta(doc) {
 
 module.exports = {
   fileMeta,
-  list: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.list(c, req.query)) })),
+  // Keep the body contract ({ data: [...] }); X-Total-Count lets the Vault
+  // register page without making existing array consumers parse a new shape.
+  list: asyncHandler(async (req, res) =>
+    sendPaged(res, await req.tenantDb((c) => service.listPaged(c, req.query)))),
+
   get: asyncHandler(async (req, res) => {
     const r = await req.tenantDb((c) => service.get(c, req.params.id));
     if (!r) throw new AppError("NOT_FOUND", "Document not found", 404);

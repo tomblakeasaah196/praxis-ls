@@ -17,7 +17,9 @@ import { PageHeader } from "@/components/data-list";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
-import { errMsg, useList, useRefresh } from "@/lib/use-resource";
+import { errMsg, useListPaged, useRefresh, type Row } from "@/lib/use-resource";
+import { useDebounced } from "@/lib/use-debounced";
+import { Pagination } from "@/components/ui/pagination";
 import { cell, dateFmt } from "@/lib/format";
 import { StatusPill } from "@/components/ui/pill";
 import { Chips } from "@/components/ui/chips";
@@ -190,13 +192,28 @@ const DOC_FILTERS = [
   { value: "VERIFIED", label: "Verified" },
   { value: "ARCHIVED", label: "Archived" },
 ];
+const PAGE_SIZE = 25;
 
 export function DocumentsPage() {
   const reload = useRefresh();
-  const { rows, error } = useList("/documents");
+  const [page, setPage] = React.useState(0);
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const [filter, setFilter] = React.useState("");
   const [q, setQ] = React.useState("");
+  const search = useDebounced(q, 300);
+  React.useEffect(() => {
+    setPage(0);
+  }, [filter, search]);
+  const { rows, error, total } = useListPaged<Row>("/documents", {
+    page,
+    pageSize: PAGE_SIZE,
+    status: filter || undefined,
+    q: search,
+  });
+  React.useEffect(() => {
+    // Archiving the last row on the last page should land on the page before it.
+    if (rows?.length === 0 && page > 0) setPage(page - 1);
+  }, [rows, page]);
   const [rowBusy, setRowBusy] = React.useState<string | null>(null);
   const [rowError, setRowError] = React.useState<string | null>(null);
   // In-app preview — the same dialog the operations file's Documents tab uses,
@@ -268,20 +285,6 @@ export function DocumentsPage() {
       return downloadVaultDoc(String(r.doc_id), `${base}.pdf`);
     });
 
-  const shown = React.useMemo(() => {
-    const term = q.trim().toLowerCase();
-    return (rows || []).filter((r) => {
-      if (filter && String(r.status ?? "").toUpperCase() !== filter)
-        return false;
-      if (!term) return true;
-      return [r.doc_type, r.entity_ref, r.folder_ref].some((v) =>
-        String(v ?? "")
-          .toLowerCase()
-          .includes(term),
-      );
-    });
-  }, [rows, filter, q]);
-
   return (
     <section className={pageShell.wide}>
       <PageHeader
@@ -319,103 +322,115 @@ export function DocumentsPage() {
         <ErrorState message={error} />
       ) : rows === null ? (
         <SkeletonTable />
-      ) : shown.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
-          title={rows.length ? "No documents match" : "No documents yet"}
+          title={filter || search.trim() ? "No documents match" : "No documents yet"}
           hint={
-            rows.length
-              ? "Try another filter."
+            filter || search.trim()
+              ? "Try another filter or search."
               : "Upload a document to the vault."
           }
         />
       ) : (
-        <Table>
-          <THead>
-            <TR>
-              <TH>{tr("Type")}</TH>
-              <TH>{tr("Reference")}</TH>
-              <TH>Ver.</TH>
-              <TH>{tr("Status")}</TH>
-              <TH>Uploaded</TH>
-              <TH>{tr("Actions")}</TH>
-            </TR>
-          </THead>
-          <TBody>
-            {shown.map((r) => {
-              const id = String(r.doc_id);
-              const archived =
-                String(r.status ?? "").toUpperCase() === "ARCHIVED";
-              return (
-                <TR key={id}>
-                  <TD className="text-sm font-medium">{cell(r.doc_type)}</TD>
-                  <TD className="text-sm">{cell(r.entity_ref)}</TD>
-                  <TD className="num text-sm">{cell(r.version_no)}</TD>
-                  <TD className="text-sm">
-                    <StatusPill status={String(r.status ?? "—")} />
-                  </TD>
-                  <TD className="text-sm">{dateFmt(r.created_at)}</TD>
-                  <TD>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={archived}
-                        onClick={() =>
-                          setPreview({
-                            doc_id: id,
-                            title: r.original_name
-                              ? String(r.original_name)
-                              : r.doc_type
-                                ? String(r.doc_type)
-                                : tr("Document"),
-                            filename:
-                              r.original_name == null
-                                ? null
-                                : String(r.original_name),
-                          })
-                        }
-                      >
-                        {tr("Preview")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        loading={rowBusy === id}
-                        onClick={() =>
-                          download({
-                            doc_id: String(r.doc_id),
-                            doc_type:
-                              r.doc_type == null ? undefined : String(r.doc_type),
-                            entity_ref:
-                              r.entity_ref == null ? undefined : String(r.entity_ref),
-                          })
-                        }
-                      >
-                        Download
-                      </Button>
-                      {!archived && (
+        <>
+          <Table>
+            <THead>
+              <TR>
+                <TH>{tr("Type")}</TH>
+                <TH>{tr("Reference")}</TH>
+                <TH>Ver.</TH>
+                <TH>{tr("Status")}</TH>
+                <TH>Uploaded</TH>
+                <TH>{tr("Actions")}</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {rows.map((r) => {
+                const id = String(r.doc_id);
+                const archived =
+                  String(r.status ?? "").toUpperCase() === "ARCHIVED";
+                return (
+                  <TR key={id}>
+                    <TD className="text-sm font-medium">{cell(r.doc_type)}</TD>
+                    <TD className="text-sm">{cell(r.entity_ref)}</TD>
+                    <TD className="num text-sm">{cell(r.version_no)}</TD>
+                    <TD className="text-sm">
+                      <StatusPill status={String(r.status ?? "—")} />
+                    </TD>
+                    <TD className="text-sm">{dateFmt(r.created_at)}</TD>
+                    <TD>
+                      <div className="flex gap-2">
                         <Button
                           size="sm"
                           variant="ghost"
-                          loading={rowBusy === id}
-                          onClick={() => archive(id)}
+                          disabled={archived}
+                          onClick={() =>
+                            setPreview({
+                              doc_id: id,
+                              title: r.original_name
+                                ? String(r.original_name)
+                                : r.doc_type
+                                  ? String(r.doc_type)
+                                  : tr("Document"),
+                              filename:
+                                r.original_name == null
+                                  ? null
+                                  : String(r.original_name),
+                            })
+                          }
                         >
-                          Archive
+                          {tr("Preview")}
                         </Button>
-                      )}
-                    </div>
-                  </TD>
-                </TR>
-              );
-            })}
-          </TBody>
-        </Table>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={rowBusy === id}
+                          onClick={() =>
+                            download({
+                              doc_id: String(r.doc_id),
+                              doc_type:
+                                r.doc_type == null ? undefined : String(r.doc_type),
+                              entity_ref:
+                                r.entity_ref == null ? undefined : String(r.entity_ref),
+                            })
+                          }
+                        >
+                          Download
+                        </Button>
+                        {!archived && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            loading={rowBusy === id}
+                            onClick={() => archive(id)}
+                          >
+                            Archive
+                          </Button>
+                        )}
+                      </div>
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </Table>
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
+            className="flex-col items-start sm:flex-row sm:items-center"
+          />
+        </>
       )}
 
       <UploadDocumentForm
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
-        onSaved={reload}
+        onSaved={() => {
+          setPage(0);
+          reload();
+        }}
       />
 
       <VaultPreviewDialog
