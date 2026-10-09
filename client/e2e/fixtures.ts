@@ -265,6 +265,28 @@ const ROUTES: Record<string, unknown> = {
   "/tenant/comms/unread-count": { count: 0 },
   "/tenant/ai/status": { enabled: false },
   "/tenant/permissions/mine": NAV_ACCESS,
+  "/tenant/documents": [
+    {
+      doc_id: "doc-long-reference",
+      doc_type: "QUOTE_REQUEST_ATTACHMENT",
+      status: "PENDING",
+      entity_ref:
+        "quote_request:7904cd9e-5df-40a8-b1a7-2f8e66dd9c77:attachment:commercial-proposal-final.pdf",
+      original_name: "commercial-proposal-final.pdf",
+      created_at: "2026-10-08T09:15:00.000Z",
+    },
+  ],
+  "/tenant/compliance": [
+    {
+      flag_id: "flag-long-message",
+      rule_key: "party.doc_missing",
+      severity: "WARN",
+      message:
+        "Missing Attestation of Fiscal Compliance (Attestation de conformité fiscale) for the selected counterparty dossier.",
+      created_at: "2026-10-08T09:10:00.000Z",
+      resolved_at: null,
+    },
+  ],
   "/tenant/workspace/context": { timeZone: "Africa/Lagos" },
   "/tenant/workspace/analytics": ANALYTICS,
   /*
