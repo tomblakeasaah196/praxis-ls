@@ -280,9 +280,9 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
     link: { href: "/sales/quotations", label: "Open Quotations →" },
     empty: "No quotation has been raised on a file of this service type.",
     subtotal: [
-      { key: "doc_count", label: "quotes", money: false },
-      { key: "total_ttc", label: "quoted", money: true },
-      { key: "won_ttc", label: "won", money: true },
+      { key: "doc_count", label: "Quotes", money: false },
+      { key: "total_ttc", label: "Quoted", money: true },
+      { key: "won_ttc", label: "Won", money: true },
     ],
     head: (
       <>
@@ -328,8 +328,8 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
     link: { href: "/finance/proformas", label: "Open Proforma →" },
     empty: "No proforma has been issued on a file of this service type.",
     subtotal: [
-      { key: "doc_count", label: "proforma", money: false },
-      { key: "total_ttc", label: "issued", money: true },
+      { key: "doc_count", label: "Proforma", money: false },
+      { key: "total_ttc", label: "Issued", money: true },
     ],
     head: (
       <>
@@ -369,12 +369,12 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
 
   margin_sims: spec<api.CommercialMarginSimRow>({
     title: "Margin Simulations",
-    link: { href: "/commercial/margin-simulation", label: "Open Margin simulation →" },
+    link: { href: "/commercial/margin-simulation", label: "Open Margin Simulation →" },
     empty: "No margin simulation has ever been filed under this service type.",
     subtotal: [
-      { key: "doc_count", label: "sims", money: false },
-      { key: "total_price", label: "price", money: true },
-      { key: "total_cost", label: "cost", money: true },
+      { key: "doc_count", label: "Sims", money: false },
+      { key: "total_price", label: "Price", money: true },
+      { key: "total_cost", label: "Cost", money: true },
     ],
     head: (
       <>
@@ -411,11 +411,11 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
 
   extra_charges: spec<api.CommercialExtraChargeRow>({
     title: "Extra Charges",
-    link: { href: "/commercial/extra-charge-simulation", label: "Open Extra-charge simulation →" },
+    link: { href: "/commercial/extra-charge-simulation", label: "Open Extra-charge Simulation →" },
     empty: "No demurrage or detention has been simulated on a file of this service type.",
     subtotal: [
-      { key: "doc_count", label: "sims", money: false },
-      { key: "total_amount", label: "charges", money: true },
+      { key: "doc_count", label: "Sims", money: false },
+      { key: "total_amount", label: "Charges", money: true },
     ],
     head: (
       <>
@@ -453,13 +453,13 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
 
   pricing_variance: spec<api.CommercialPricingVarianceRow>({
     title: "Pricing Variance",
-    link: { href: "/commercial/pricing-variance", label: "Open Pricing variance →" },
+    link: { href: "/commercial/pricing-variance", label: "Open Pricing Variance →" },
     empty: "No pricing variance has been computed for this service type.",
     subtotal: [
-      { key: "doc_count", label: "files", money: false },
-      { key: "red_count", label: "red", money: false },
-      { key: "yellow_count", label: "yellow", money: false },
-      { key: "green_count", label: "green", money: false },
+      { key: "doc_count", label: "Files", money: false },
+      { key: "red_count", label: "Red", money: false },
+      { key: "yellow_count", label: "Yellow", money: false },
+      { key: "green_count", label: "Green", money: false },
     ],
     head: (
       <>
@@ -515,9 +515,9 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
     link: { href: "/finance/invoices", label: "Open Finance → Invoices →" },
     empty: "No FINAL invoice has been raised on a file of this service type.",
     subtotal: [
-      { key: "invoice_count", label: "locked", money: false },
-      { key: "billed_ttc", label: "billed", money: true },
-      { key: "revenue_ht", label: "revenue HT", money: true },
+      { key: "invoice_count", label: "Locked", money: false },
+      { key: "billed_ttc", label: "Billed", money: true },
+      { key: "revenue_ht", label: "Revenue HT", money: true },
     ],
     head: (
       <>
@@ -560,11 +560,13 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
 
   credit_notes: spec<api.CommercialCreditNoteRow>({
     title: "Credit Notes",
-    link: { href: "/finance/credit-notes", label: "Open Credit notes →" },
+    link: { href: "/finance/credit-notes", label: "Open Credit Notes →" },
     empty: "No credit note has been raised against this service type.",
     subtotal: [
-      { key: "doc_count", label: "notes", money: false },
-      { key: "credit_ttc", label: "credited", money: true },
+      // "Credit Notes", not "Notes": the shared `Notes` dictionary key means
+      // remarks, and renders as "Notes" in French where this needs "Avoirs".
+      { key: "doc_count", label: "Credit Notes", money: false },
+      { key: "credit_ttc", label: "Credited", money: true },
     ],
     head: (
       <>
@@ -607,8 +609,8 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
     link: { href: "/finance/receivables", label: "Open Receivables →" },
     empty: "Nothing has been collected against this service type yet.",
     subtotal: [
-      { key: "receipt_count", label: "receipts", money: false },
-      { key: "collected", label: "collected", money: true },
+      { key: "receipt_count", label: "Receipts", money: false },
+      { key: "collected", label: "Collected", money: true },
     ],
     head: (
       <>
@@ -652,9 +654,9 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
     link: { href: "/costing/costing", label: "Open Costing →" },
     empty: "No costing sheet has been opened on a file of this service type.",
     subtotal: [
-      { key: "doc_count", label: "sheets", money: false },
-      { key: "planned_total", label: "planned", money: true },
-      { key: "planned_disbursement", label: "of which débours", money: true },
+      { key: "doc_count", label: "Sheets", money: false },
+      { key: "planned_total", label: "Planned", money: true },
+      { key: "planned_disbursement", label: "Débours", money: true },
     ],
     head: (
       <>
@@ -694,13 +696,13 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
 
   cash_requests: spec<api.CommercialCashRequestRow>({
     title: "Cash Requests",
-    link: { href: "/costing/cash-requests", label: "Open Cash requests →" },
+    link: { href: "/costing/cash-requests", label: "Open Cash Requests →" },
     empty: "No cash has been requested on a file of this service type.",
     subtotal: [
-      { key: "doc_count", label: "requests", money: false },
-      { key: "requested", label: "requested", money: true },
-      { key: "disbursed", label: "disbursed", money: true },
-      { key: "justified", label: "justified", money: true },
+      { key: "doc_count", label: "Requests", money: false },
+      { key: "requested", label: "Requested", money: true },
+      { key: "disbursed", label: "Disbursed", money: true },
+      { key: "justified", label: "Justified", money: true },
     ],
     head: (
       <>
@@ -740,12 +742,12 @@ const SPECS: Record<api.CommercialBlock, BlockSpec<unknown>> = {
 
   supplier_invoices: spec<api.CommercialSupplierInvoiceRow>({
     title: "Supplier Invoices",
-    link: { href: "/procurement/supplier-invoices", label: "Open Supplier invoices →" },
+    link: { href: "/procurement/supplier-invoices", label: "Open Supplier Invoices →" },
     empty: "No supplier invoice has been booked to a file of this service type.",
     subtotal: [
-      { key: "doc_count", label: "invoices", money: false },
-      { key: "amount_ttc", label: "bought in", money: true },
-      { key: "wht_total", label: "withheld", money: true },
+      { key: "doc_count", label: "Invoices", money: false },
+      { key: "amount_ttc", label: "Purchased", money: true },
+      { key: "wht_total", label: "Withheld", money: true },
     ],
     head: (
       <>
