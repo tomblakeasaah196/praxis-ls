@@ -182,7 +182,11 @@ export function ThreadRow({
           // of pills — measured ~100px, so a 1080p screen under three bars of
           // chrome held six of a fifty-row list. Two lines at the density the
           // reader already chose is 48 / 52 / 60px.
-          "relative flex items-center gap-2 border-b border-border px-3 py-row transition-colors",
+          // Below `sm` each row is a card: a rounded, bordered tile with a gap
+          // between tiles, so the list reads as a set of conversations rather
+          // than one long ruled table. From `sm` up it is the flush ruled row
+          // it always was.
+          "relative mx-2 my-1.5 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 transition-colors sm:mx-0 sm:my-0 sm:rounded-none sm:border-x-0 sm:border-b sm:border-t-0 sm:bg-transparent sm:px-3 sm:py-row",
           // Flush list, so the rail sits on the row's very edge rather than
           // inset the way `<IndexRow>`'s does on a rounded one. The colour is
           // INDEX_ROW_OPEN either way — one meaning of "this is the open one".
@@ -221,10 +225,10 @@ export function ThreadRow({
           aria-current={active ? "true" : undefined}
           aria-keyshortcuts="Enter x s"
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center justify-between gap-2">
             <span
               className={cn(
-                "truncate text-sm",
+                "min-w-0 truncate text-sm",
                 unread
                   ? "font-semibold text-foreground"
                   : "text-muted-foreground",
@@ -242,7 +246,11 @@ export function ThreadRow({
           {/* Subject and preview on ONE line, the subject carrying the weight.
               They were two, and the preview is the line a reader skims past:
               it earns a share of a line, not a line of its own. */}
-          <div className="flex items-baseline gap-1.5">
+          {/* Below `sm` the subject and preview wrap onto their own lines inside
+              the card: a long subject is truncated to the card, not pushed past
+              the screen edge (the old `shrink-0` on it did exactly that). From
+              `sm` the preview shares the subject's line, as before. */}
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
             {thread.entity_ref && (
               <span className="shrink-0" title={thread.entity_ref}>
                 <Pill tone="blue">{thread.entity_label || thread.entity_ref}</Pill>
@@ -250,7 +258,7 @@ export function ThreadRow({
             )}
             <span
               className={cn(
-                "shrink-0 truncate text-sm",
+                "min-w-0 max-w-full truncate text-sm",
                 unread ? "font-medium text-foreground" : "text-muted-foreground",
               )}
             >
@@ -262,7 +270,7 @@ export function ThreadRow({
               </span>
             )}
             {thread.preview && (
-              <span className="truncate text-xs text-muted-foreground">
+              <span className="block w-full min-w-0 truncate text-xs text-muted-foreground sm:inline sm:w-auto sm:flex-1">
                 {thread.preview}
               </span>
             )}
