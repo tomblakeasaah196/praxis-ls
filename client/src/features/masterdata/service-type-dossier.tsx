@@ -15,8 +15,12 @@
  *                     any service" section. Rows deep-link to the dictionary.
  *   Dossiers        — 25 most-recent files of this type with client / status /
  *                     milestone progress. Row → /operations/files?focus=<id>.
- *   Commercial      — margin sims, FINAL invoices, planned/actual money.
- *                     Money keys mask for callers without MOD-09 read.
+ *   Commercial      — eleven money blocks under Sell / Bill / Spend, each
+ *                     paged server-side at 25, plus a six-tile KPI strip.
+ *                     Lives in service-type-commercial-tab.tsx and fetches its
+ *                     own data; each block is gated on the module that owns
+ *                     it, so a refusal reads as one rather than as an empty
+ *                     table.
  *   Automation & AI — the two AI reads + a note on the auto-instantiation
  *                     handler; a deep link to the RBAC matrix filtered by MOD-29.
  *
@@ -53,6 +57,10 @@ import { ServiceTypeAssumptions } from "./service-type-assumptions";
 import { ServiceTypeFieldsTab } from "./service-type-fields-tab";
 // Website tab (PR2) — ninth tab, only when the `website` feature is on.
 import { ServiceTypeWebTab } from "./service-type-web-tab";
+// Commercial: eleven money blocks, each paged server-side, under three
+// sub-tabs. Its own file because it fetches its own data — none of it rides
+// the /360 payload any more. See service-type-commercial-tab.tsx.
+import { ServiceTypeCommercialTab } from "./service-type-commercial-tab";
 import { reportActionError } from "@/lib/action-error";
 import { tenant, ApiError } from "@/lib/api-client";
 
@@ -873,234 +881,6 @@ function DossiersTab({
   );
 }
 
-/* ── Commercial tab (margin sims + invoices + money rollup) ─────────────── */
-
-function CommercialTab({ d }: { d: api.ServiceTypeDossier }) {
-  const money_ = d.money;
-  const masked = money_.masked;
-  return (
-    <div className="space-y-5">
-      {/* Money rollup — masked message rather than silent zeros for callers
-          without MOD-09 read, per the party-360 convention. */}
-      <div className="rounded-xl border bg-card p-4">
-        <h3 className="mb-3 text-sm font-semibold text-foreground">Money</h3>
-        {masked ? (
-          <p className="micro">
-            Money figures are restricted — needs finance visibility (Treasury
-            read, MOD-09).
-          </p>
-        ) : money_.planned.length === 0 &&
-          money_.billed.length === 0 &&
-          !money_.actual_total ? (
-          <p className="micro">
-            No planned costings or FINAL invoices booked to this service type
-            yet.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {money_.billed.length > 0 && (
-              <div>
-                <p className="mb-1.5 micro font-medium text-foreground">
-                  Billed (locked FINAL invoices)
-                </p>
-                <MiniTable
-                  empty={false}
-                  head={
-                    <>
-                      <Th>{tr("Currency")}</Th>
-                      <Th r>{tr("Invoices")}</Th>
-                      <Th r>Revenue HT</Th>
-                      <Th r>{tr("Total TTC")}</Th>
-                    </>
-                  }
-                >
-                  {money_.billed.map((b) => (
-                    <tr key={b.currency}>
-                      <Td>{b.currency}</Td>
-                      <Td r>{num(b.invoice_count)}</Td>
-                      <Td r>{money(b.revenue_ht)}</Td>
-                      <Td r>{money(b.billed_ttc)}</Td>
-                    </tr>
-                  ))}
-                </MiniTable>
-              </div>
-            )}
-            {money_.planned.length > 0 && (
-              <div>
-                <p className="mb-1.5 micro font-medium text-foreground">
-                  Planned (from costing sheets)
-                </p>
-                <MiniTable
-                  empty={false}
-                  head={
-                    <>
-                      <Th>{tr("Currency")}</Th>
-                      <Th r>Planned total</Th>
-                      <Th r>Of which débours</Th>
-                    </>
-                  }
-                >
-                  {money_.planned.map((p) => (
-                    <tr key={p.currency}>
-                      <Td>{p.currency}</Td>
-                      <Td r>{money(p.planned_total)}</Td>
-                      <Td r>{money(p.planned_disbursement)}</Td>
-                    </tr>
-                  ))}
-                </MiniTable>
-              </div>
-            )}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Stat
-                label="Actuals (GL, XAF)"
-                value={money(money_.actual_total)}
-              />
-              <Stat
-                label="Ratio (actual / planned XAF)"
-                value={(() => {
-                  const plannedXaf = money_.planned.find(
-                    (p) => p.currency === "XAF",
-                  );
-                  if (!plannedXaf || Number(plannedXaf.planned_total) === 0)
-                    return "—";
-                  const pct =
-                    (money_.actual_total * 100) /
-                    Number(plannedXaf.planned_total);
-                  return `${pct.toFixed(1)}%`;
-                })()}
-                hint="XAF only: a cross-currency ratio hides the currency it was booked in."
-              />
-            </div>
-            <p className="micro">
-              Planned from{" "}
-              <DeepLink href="/costing/costing">{tr("Costing")}</DeepLink>, actuals from
-              the ledger.{" "}
-              <DeepLink href="/costing/cost-tracking">Cost tracking</DeepLink>{" "}
-              has the breakdown.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Margin simulations. */}
-      <div>
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-foreground">
-            Margin simulations
-          </h3>
-          <DeepLink href="/commercial/margin-simulation">
-            Open Margin simulation →
-          </DeepLink>
-        </div>
-        <MiniTable
-          empty={d.margin_simulations.length === 0}
-          emptyLabel="No margin simulation has ever been filed under this service type."
-          head={
-            <>
-              <Th>{tr("File")}</Th>
-              <Th>{tr("Currency")}</Th>
-              <Th r>{tr("Total cost")}</Th>
-              <Th r>Total price</Th>
-              <Th r>{tr("Margin %")}</Th>
-              <Th>{tr("Created")}</Th>
-            </>
-          }
-        >
-          {d.margin_simulations.map((m) => (
-            <tr key={m.margin_simulation_id}>
-              <Td>
-                {m.dossier_ref ? (
-                  <DeepLink
-                    href={`/operations/files?ref=${encodeURIComponent(m.dossier_ref)}`}
-                  >
-                    {m.dossier_ref}
-                  </DeepLink>
-                ) : (
-                  "—"
-                )}
-              </Td>
-              <Td>{m.currency}</Td>
-              <Td r>{money(m.total_cost)}</Td>
-              <Td r>{money(m.total_price)}</Td>
-              <Td r>
-                {m.margin_percent != null
-                  ? `${Number(m.margin_percent).toFixed(2)}%`
-                  : "—"}
-              </Td>
-              <Td>{dateFmt(m.created_at)}</Td>
-            </tr>
-          ))}
-        </MiniTable>
-        {d.margin_simulations_more > 0 && (
-          <p className="mt-2 micro">
-            Showing 25 most recent — {d.margin_simulations_more} older not
-            listed here.
-          </p>
-        )}
-      </div>
-
-      {/* Invoices — only rendered if finance visibility is granted (the server
-          returns [] otherwise, so a masked user does not see even the doc
-          numbers, which are cross-referenced to counterparties). */}
-      {!masked && (
-        <div>
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-foreground">
-              FINAL invoices
-            </h3>
-            <DeepLink href="/finance/invoices">
-              Open Finance → Invoices →
-            </DeepLink>
-          </div>
-          <MiniTable
-            empty={d.invoices.length === 0}
-            emptyLabel="No FINAL invoice has been raised on a file of this service type."
-            head={
-              <>
-                <Th>{tr("Number")}</Th>
-                <Th>{tr("File")}</Th>
-                <Th>{tr("Client")}</Th>
-                <Th>{tr("Status")}</Th>
-                <Th>{tr("Due")}</Th>
-                <Th r>{tr("Total TTC")}</Th>
-              </>
-            }
-          >
-            {d.invoices.map((i) => (
-              <tr key={i.invoice_id}>
-                <Td>
-                  <DeepLink
-                    href={`/finance/invoices?focus=${encodeURIComponent(i.invoice_id)}`}
-                  >
-                    {i.doc_number || i.invoice_id.slice(0, 8)}
-                  </DeepLink>
-                </Td>
-                <Td>
-                  {i.dossier_ref ? (
-                    <DeepLink
-                      href={`/operations/files?ref=${encodeURIComponent(i.dossier_ref)}`}
-                    >
-                      {i.dossier_ref}
-                    </DeepLink>
-                  ) : (
-                    "—"
-                  )}
-                </Td>
-                <Td>{i.client_name || "—"}</Td>
-                <Td>{i.status}</Td>
-                <Td>{dateFmt(i.payment_due_on)}</Td>
-                <Td r>
-                  {money(i.total_ttc)} {i.currency}
-                </Td>
-              </tr>
-            ))}
-          </MiniTable>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ── Overview tab ───────────────────────────────────────────────────────── */
 
 /**
@@ -1520,7 +1300,9 @@ export function ServiceTypeDossier({
           stats={d.stats}
         />
       )}
-      {tab === "Commercial" && <CommercialTab d={d} />}
+      {tab === "Commercial" && (
+        <ServiceTypeCommercialTab serviceTypeId={d.service_type.service_type_id} />
+      )}
       {tab === "Automation" && <AutomationTab st={st} />}
       {tab === "Website" && websiteOn && (
         <ServiceTypeWebTab
