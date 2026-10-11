@@ -140,6 +140,54 @@ describe("the careers page with roles open", () => {
     );
     expect(screen.getByText("Every week, on the floor.")).toBeInTheDocument();
   });
+
+  /**
+   * The thing the feature exists for: a visitor who scrolled a list that HAD
+   * roles, none of them theirs, can still ask to hear about the next one. The
+   * empty-state tests below guard the same offer when nothing is open; this
+   * guards it on the populated page, where the only way to it used to be not
+   * existing.
+   */
+  it("offers the alert band under the list when the tenant has alerts on", async () => {
+    stubReads({
+      "/careers/settings/public": { ...OFF, alerts_enabled: true },
+      "/careers": [VACANCY],
+      "/site/pages/careers": CAREERS_BLOCKS,
+    });
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("Customs declarant")).toBeInTheDocument(),
+    );
+    // The tailored band heading, and the alert CTA that reveals the form.
+    expect(screen.getByText(/Not the right role this time/i)).toBeInTheDocument();
+    const cta = await screen.findByRole("button", {
+      name: /Tell me when a role opens/i,
+    });
+    await userEvent.click(cta);
+    await waitFor(() =>
+      expect(screen.getByText("Hear about the next one")).toBeInTheDocument(),
+    );
+  });
+
+  it("draws no under-list band when both switches are off", async () => {
+    stubReads({
+      "/careers/settings/public": OFF,
+      "/careers": [VACANCY],
+      "/site/pages/careers": CAREERS_BLOCKS,
+    });
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("Customs declarant")).toBeInTheDocument(),
+    );
+    // The band follows the tenant's switches on the populated page exactly as it
+    // does on the empty one: both off means no invitation, not an empty heading.
+    expect(screen.queryByText(/Not the right role this time/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Tell me when a role opens/i }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("the careers page with nothing open", () => {
