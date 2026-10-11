@@ -37,7 +37,7 @@ import { useDocumentMeta } from "@/lib/use-document-meta";
 import { useSitePage } from "@/lib/use-site-page";
 import { CAREERS_PAGE_KEY, featureList, pickBilingual } from "@/lib/site-api";
 import { LazyCandidateForm } from "./candidate-form-lazy";
-import { NotHiring, UnsubscribePage } from "./careers-empty";
+import { NotHiring, StillLooking, UnsubscribePage } from "./careers-empty";
 import { p } from "@/lib/base-path";
 // Registers `site.careers.*`, which lives in this chunk rather than in the
 // entry dictionary. Imported for the side effect; see careers-i18n.ts.
@@ -200,6 +200,20 @@ export function CareersPage() {
           </ul>
         )}
       </Section>
+
+      {/* ── already looking, and nothing fit ──────────────────────────────
+          The subscribe / open-CV invitation for the POPULATED page: a visitor
+          who scrolled every open role and found none for them. The empty state
+          (`NotHiring`) already offers this when there is nothing at all; this is
+          the same offer at the natural end of a list that had roles, none of
+          them a match. Held until the switches land, and absent entirely when
+          the tenant has both off, so it never paints an empty band. */}
+      {rows && rows.length > 0 && settings &&
+        (settings.alerts_enabled || settings.open_applications) && (
+          <Section divided>
+            <StillLooking settings={settings} />
+          </Section>
+        )}
 
       {/* ── why work here, in the tenant's own words ──────────────────────
           Rendered whether or not roles are open, which is the point: a candidate
