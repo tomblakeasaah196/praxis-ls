@@ -259,7 +259,11 @@ const RESOLVERS = new Map(Object.entries({
    * entered the payload in the first place (canonical.js maps to `heading`).
    */
   EMPLOYMENT_CONTRACT: (p) => ({
-    title: { fr: "Contrat de travail", en: "Employment contract" },
+    /* Title Case in English, sentence case in French — the same split the
+       printed contract uses (registry.CONTRACT_TITLE), so the name a holder
+       reads on the verification portal matches the name on the paper in front
+       of them. */
+    title: { fr: "Contrat de travail", en: "Employment Contract" },
     fields: [
       f("number", "Référence", "Reference", dash(p.number)),
       f("job_title", "Poste", "Role", dash(p.job_title)),

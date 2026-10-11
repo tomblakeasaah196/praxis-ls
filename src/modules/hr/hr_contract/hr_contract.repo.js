@@ -21,12 +21,22 @@ module.exports = {
     const { rows } = await client.query(
       `SELECT hc.*, e.full_name AS employee_name, e.department, e.job_title AS employee_job_title,
               e.base_salary, e.hired_on,
+              -- The employee's own CNPS affiliation number. It belongs in the
+              -- parties clause: a Cameroonian contract names both sides of the
+              -- social-security relationship, not just the employer's side.
+              e.cnps_number AS employee_cnps,
               -- country_code, not country: 0100 named it that, and 0515 built
               -- payroll_country / incorporation_country on top of it. The alias
               -- stays entity_country -- hr_contract.draft prints it beside the
               -- employer name, and a two-letter code is what that line has
               -- always shown.
               ce.legal_name AS entity_name, ce.country_code AS entity_country,
+              -- The employer's registrations, for the parties clause. The
+              -- letterhead already prints them at the top of the page; the
+              -- clause states them inside the agreement, which is where a
+              -- labour inspector reads them from.
+              ce.address AS entity_address, ce.rccm AS entity_rccm, ce.niu AS entity_niu,
+              ce.default_language AS entity_language,
               v.title AS vacancy_title
          FROM hr_contract hc
          LEFT JOIN employee e ON e.employee_id = hc.employee_id

@@ -8,6 +8,9 @@ const geo = require("../../../services/geoapify.service");
 // Only for `fileMeta` — the content type and filename a stored document should
 // be served with, which has one correct answer and belongs in one place.
 const vaultController = require("../../vault/document_vault/document_vault.controller");
+// The careers page's own address, resolved once so the link a recruiter copies
+// and the link an alert subscriber is emailed cannot disagree.
+const careersLink = require("../careers/careers.link");
 
 const actor = (req) => req.user || { user_id: null };
 const base = makeController(service, "Vacancy");
@@ -188,5 +191,22 @@ module.exports = {
     const row = await req.tenantDb((c) => service.setPublished(c, { id: req.params.id, published: req.body.published, actor: actor(req) }));
     if (!row) throw new AppError("NOT_FOUND", "Vacancy not found", 404);
     res.json({ data: row });
+  }),
+
+  /**
+   * Where this tenant's careers page lives, so the screen can show the link a
+   * published role is actually reachable at.
+   *
+   * The BASE and not one role's URL: the screen holds a list and the recruiter
+   * switches between roles without a round trip. `careers.link` owns the path
+   * shape either way, so the two halves cannot drift.
+   *
+   * `req.get("host")` is passed as the last-resort origin, never as the answer
+   * — see the precedence in `careers.link`. It is the ERP's own hostname, which
+   * is the host this endpoint exists to stop appearing in a job advert.
+   */
+  careersLink: asyncHandler(async (req, res) => {
+    const base = await req.tenantDb((c) => careersLink.careersBase(c, { origin: req.get("host") }));
+    res.json({ data: { base, url: careersLink.careersIndexUrl(base) } });
   }),
 };

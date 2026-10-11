@@ -269,14 +269,38 @@ async function savedConfig(client, docType, entityId) {
  */
 const DOC_DEFAULT_LANGUAGE = { COSTING: "en" };
 
-function resolveDocLanguage(picked, saved, entityDefault, docType = null) {
+function resolveDocLanguage(picked, saved, entityDefault, docType = null, recordLanguage = null) {
   return (
-    asLang(picked)
+    asLang(recordLanguage)
+    || asLang(picked)
     || (docType && DOC_DEFAULT_LANGUAGE[docType])
     || asLang(saved && saved.language)
     || asLang(entityDefault)
     || "en"
   );
+}
+
+/**
+ * The language a RECORD fixes for itself, ahead of everything including the
+ * operator's pick at print time (14402).
+ *
+ * Exactly one doc type does this today and the reason is specific to it. An
+ * invoice is a statement OF something: re-rendering it in French for a
+ * francophone consignee changes the labels and not one fact, which is why the
+ * operator's pick wins everywhere else. A contract is not a statement of
+ * anything. Its body IS the agreement, drafted and stored in one language
+ * (`hr_contract.language`), and the clauses do not translate themselves when
+ * somebody downloads it again. Letting the picker win would print French
+ * chrome over English articles, which is exactly the document the tenant was
+ * holding when they said "no english/french, only english or french" — and it
+ * would do it under the same document number and the same verification code.
+ *
+ * Null for a contract issued before 14402, which has no recorded language and
+ * falls through to the ordinary chain, exactly as it does today.
+ */
+function recordLanguageFor(docType, data) {
+  if (docType !== "EMPLOYMENT_CONTRACT") return null;
+  return (data && data.language) || null;
 }
 
 /**
@@ -307,14 +331,14 @@ async function peekEntityDefaultLanguage(client, entityId) {
   }
 }
 
-async function resolveCfg(client, docType, entityId, override, { language = null } = {}) {
+async function resolveCfg(client, docType, entityId, override, { language = null, recordLanguage = null } = {}) {
   const saved = await savedConfig(client, docType, entityId);
   // Language, decided BEFORE the entity, in one call rather than two: operator's
   // pick, then the Studio's saved doc-type language, then the entity's own
   // default_language, then 'en'. The entity is then resolved IN that language,
   // so address_lines and identifiers come out matching the sheet they print on.
   const entityDefault = await peekEntityDefaultLanguage(client, entityId);
-  const picked = resolveDocLanguage(language, saved, entityDefault, docType);
+  const picked = resolveDocLanguage(language, saved, entityDefault, docType, recordLanguage);
   const { entity, brand } = await resolveEntity(client, entityId, { language: picked });
   const fromEntity = entityLetterheadCfg(entity);
   // `language` is forced onto the merged cfg (rather than spread conditionally
@@ -1693,7 +1717,8 @@ async function loadRecord(client, docType, recordId) {
 
   if (docType === "EMPLOYMENT_CONTRACT") {
     const { rows } = await client.query(
-      `SELECT c.*, e.full_name, e.job_title AS employee_job_title, coalesce(c.entity_id, e.entity_id) AS entity_id
+      `SELECT c.*, e.full_name, e.job_title AS employee_job_title, e.cnps_number AS employee_cnps,
+              coalesce(c.entity_id, e.entity_id) AS entity_id
          FROM hr_contract c LEFT JOIN employee e ON e.employee_id = c.employee_id
         WHERE c.hr_contract_id = $1`,
       [recordId],
@@ -1726,7 +1751,19 @@ async function loadRecord(client, docType, recordId) {
         end_on: c.end_on,
         employee_name: c.full_name || "—",
         job_title: c.job_title || c.employee_job_title,
-        party: { name: c.full_name || "—", lines: [c.job_title || c.employee_job_title].filter(Boolean) },
+        /* The classification under the collective agreement (14402). It prints
+         * beside the employee's name because that is where a labour inspector
+         * looks for it, and the clause that states it in full is in the body. */
+        professional_category: c.professional_category || null,
+        employee_cnps: c.employee_cnps || null,
+        /* The language this contract was DRAFTED in, which fixes the language
+         * it renders in — see recordLanguageFor. Null for a contract issued
+         * before 14402. */
+        language: c.language || null,
+        party: {
+          name: c.full_name || "—",
+          lines: [c.job_title || c.employee_job_title, c.professional_category, c.employee_cnps && `CNPS ${c.employee_cnps}`].filter(Boolean),
+        },
         articles: contractArticles(c.body_md),
         // The terms, so a template that wants them beside the clauses has them
         // rather than having to parse the prose back out.
@@ -2047,7 +2084,7 @@ async function preview(client, { docType, entityId, recordId, config, origin = n
       signedRef = `${docType.toLowerCase()}:${recordId}`;
     }
   }
-  const { cfg, entity } = await resolveCfg(client, docType, ent, config, { language });
+  const { cfg, entity } = await resolveCfg(client, docType, ent, config, { language, recordLanguage: recordLanguageFor(docType, data) });
   cfg.wet_print = await wetPrintBlockFor(client, { entityRef: signedRef });
   const verify = await verifyBlockFor(client, { entityRef: signedRef, origin, env });
   // The preview must show the seal the PDF will carry, or the operator checks
@@ -2091,7 +2128,7 @@ async function generate(client, { docType, entityId, recordId, actor, origin = n
   const rec = recordId ? await loadRecord(client, docType, recordId) : null;
   const data = rec ? rec.data : tpl.sampleData;
   const ent = entityId || (rec && rec.entity_id);
-  const { cfg, entity } = await resolveCfg(client, docType, ent, null, { language });
+  const { cfg, entity } = await resolveCfg(client, docType, ent, null, { language, recordLanguage: recordLanguageFor(docType, data) });
   const entityRef = `${docType.toLowerCase()}:${recordId || "adhoc"}`;
   const key = `documents/${docType}/${recordId || "adhoc"}-${Date.now()}.pdf`;
   // G2 — sandbox renders are watermarked TEST SANDBOX regardless of config.
@@ -2233,7 +2270,7 @@ async function composePrefill(client, { docType, recordId, entityId = null, acto
   if (!rec) throw new AppError("NOT_FOUND", `No ${docType} ${recordId}`, 404);
   const data = rec.data;
   const ent = entityId || rec.entity_id;
-  const { cfg, entity } = await resolveCfg(client, docType, ent, null, { language });
+  const { cfg, entity } = await resolveCfg(client, docType, ent, null, { language, recordLanguage: recordLanguageFor(docType, data) });
 
   // The artifact, vaulted. Not best-effort: a compose window that opens with
   // nothing attached is worse than an error, because the operator will write

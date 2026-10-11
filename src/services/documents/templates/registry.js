@@ -14,6 +14,22 @@ const costingDocument = require("./costing-document");
 
 const has = (v) => v !== undefined && v !== null;
 
+/**
+ * What an employment document is CALLED, per kind and per language (14402).
+ *
+ * Resolved to one string before it reaches `standardHead`, so the contract
+ * template never hands `k.t` a pair it could join with a slash. English is
+ * Title Case because a title names the document; French is sentence case,
+ * which is correct French typography and the house rule, so "Contrat de
+ * travail" is not "Contrat De Travail".
+ */
+const CONTRACT_TITLE = {
+  EMPLOYMENT: { en: "Employment Contract", fr: "Contrat de travail" },
+  OFFER_LETTER: { en: "Offer of Employment", fr: "Offre d'emploi" },
+  CONFIRMATION: { en: "Certificate of Employment", fr: "Attestation d'emploi" },
+  TERMINATION: { en: "Notice of Termination", fr: "Notification de rupture" },
+};
+
 /* ── shared column sets ──────────────────────────────────────────────────── */
 const LINE_COLS = [
   { key: "label", label: { fr: "Désignation", en: "Description" } },
@@ -1681,23 +1697,66 @@ const TEMPLATES = {
     sampleData: { number: "BP-2026-07-014", period: "Juillet 2026", staff_no: "EMP-014", employee_name: "Jean Mballa", job_title: "Chef de quai", cnps_number: "CM-88231", earnings: [{ label: "Salaire de base", amount: 750000 }, { label: "Prime de rendement", amount: 100000 }], deductions: [{ label: "CNPS pension (4,2%)", amount: 31500 }, { label: "IRPP", amount: 62000 }, { label: "CAC (10% IRPP)", amount: 6200 }, { label: "CFC (1%)", amount: 8500 }], gross: 850000, total_deductions: 108200, net: 741800, currency: "XAF" },
   },
 
+  /**
+   * The employment document, in ONE language (14402).
+   *
+   * ── WHY THE TITLE IS NOT A {fr, en} PAIR LIKE EVERY OTHER TEMPLATE'S ──────
+   *
+   * `k.t` prints a pair as "Contrat de travail / Employment contract" whenever
+   * it is handed a language it does not recognise, and the contract a tenant
+   * was holding on 11 Oct 2026 had exactly that across its heading, its party
+   * labels and its meta line, over articles written in English. Every other
+   * template survives that: an invoice with both labels is ugly. A CONTRACT
+   * with both is a document whose own heading cannot say which language the
+   * agreement is in.
+   *
+   * So this template never builds a pair. `TITLE` resolves the document's kind
+   * and language to one string before `standardHead` sees it, and there is
+   * nothing left for a slash to join. English is Title Case because it names
+   * the document; French is sentence case, which is correct French typography
+   * and the house rule.
+   *
+   * ── ONE TEMPLATE, FOUR KINDS ──────────────────────────────────────────────
+   *
+   * `hr_contract.kind` is one of four and they all render here. A termination
+   * letter titled "Employment Contract" is not a cosmetic error, so the title
+   * follows the kind rather than the doc type.
+   */
   EMPLOYMENT_CONTRACT: {
-    docType: "EMPLOYMENT_CONTRACT", title: { fr: "Contrat de travail", en: "Employment contract" }, module: "hr/hr_contract", fields: ["clauses", "replace-with-signed"],
+    docType: "EMPLOYMENT_CONTRACT", title: { fr: "Contrat de travail", en: "Employment Contract" }, module: "hr/hr_contract", fields: ["clauses", "replace-with-signed"],
     build: (d, cfg, entity, verify) => {
-      const arts = (d.articles || []).map((a, i) => k.section({ fr: `Article ${i + 1} — ${a.title}`, en: `Article ${i + 1} — ${a.title}` }, `<div class="box">${k.esc(a.body).replace(/\n/g, "<br>")}</div>`, cfg)).join("");
+      const lang = cfg.language === "fr" ? "fr" : "en";
+      const title = CONTRACT_TITLE[d.kind] ? CONTRACT_TITLE[d.kind][lang] : CONTRACT_TITLE.EMPLOYMENT[lang];
+      /* `Article 1. Engagement`, not `Article 1 — Engagement`. The em dash is
+       * banned in anything a tenant reads (check:dashes covers the templates),
+       * and a numbered article is the one place a full stop reads better than a
+       * dash anyway. The pair is identical on both sides because the heading is
+       * already in the document's language — it comes out of `body_md`. */
+      const arts = (d.articles || []).map((a, i) => {
+        const heading = a.title ? `Article ${i + 1}. ${a.title}` : `Article ${i + 1}`;
+        return k.section({ fr: heading, en: heading }, `<div class="box">${k.esc(a.body).replace(/\n/g, "<br>")}</div>`, cfg);
+      }).join("");
+      /* No "Reference" row: `number` is already printed under the title by
+       * `docName`, and the old "Type: EMPLOYMENT" row is gone because the
+       * title now says which of the four kinds this is. What is left is the
+       * two dates a reader actually looks for at the top of a contract. */
+      const meta = [
+        [lang === "fr" ? "Date d'effet" : "Effective", k.dateFmt(d.effective_on)],
+        d.end_on ? [lang === "fr" ? "Échéance" : "Ends", k.dateFmt(d.end_on)] : null,
+      ].filter(Boolean);
       const body = [
-        k.standardHead(entity, cfg, { title: { fr: "Contrat de travail", en: "Employment contract" }, number: d.number, meta: [[{ fr: "Type", en: "Type" }, d.kind], [{ fr: "Date d'effet", en: "Effective" }, k.dateFmt(d.effective_on)]] }),
+        k.standardHead(entity, cfg, { title: { fr: title, en: title }, number: d.number, meta }),
         k.parties([
-          { label: { fr: "Employeur", en: "Employer" }, name: entity.legal_name, lines: [entity.address, entity.rccm && `RCCM ${entity.rccm}`].filter(Boolean) },
-          { label: { fr: "Salarié", en: "Employee" }, name: d.employee_name, lines: [d.job_title].filter(Boolean) },
+          { label: lang === "fr" ? "Employeur" : "Employer", name: entity.legal_name, lines: [entity.address, entity.rccm && `RCCM ${entity.rccm}`, entity.niu && (lang === "fr" ? `NIU ${entity.niu}` : `Taxpayer number ${entity.niu}`)].filter(Boolean) },
+          { label: lang === "fr" ? "Salarié" : "Employee", name: d.employee_name, lines: (d.party && d.party.lines) || [d.job_title].filter(Boolean) },
         ], cfg),
         arts,
         k.signatureBlock({ ...cfg, show: { ...cfg.show, signature: true } }),
         k.standardFoot(entity, cfg, verify),
       ].join("");
-      return k.shell("Contract " + (d.number || ""), body, cfg);
+      return k.shell(title + " " + (d.number || ""), body, cfg);
     },
-    sampleData: { number: "CT-2026-0007", kind: "CDI", effective_on: "2026-08-01", employee_name: "Jean Mballa", job_title: "Chef de quai", articles: [{ title: "Fonctions / Duties", body: "Le salarié est engagé en qualité de Chef de quai et exercera ses fonctions au port de Douala." }, { title: "Rémunération / Pay", body: "Le salaire brut mensuel est fixé à 850 000 XAF, payable en fin de mois." }, { title: "Durée / Term", body: "Le présent contrat est conclu pour une durée indéterminée (CDI)." }], currency: "XAF" },
+    sampleData: { number: "SLAS-CTR-2026-0001", kind: "EMPLOYMENT", language: "en", effective_on: "2026-08-23", employee_name: "Jean Mballa", job_title: "Quay Supervisor", professional_category: "Cadre, category 10, step A", party: { name: "Jean Mballa", lines: ["Quay Supervisor", "Cadre, category 10, step A", "CNPS CM-88231"] }, articles: [{ title: "Parties", body: "This contract is made between Smart Logistics & Services Ltd, Douala, Trade register RC/DLA/2019/B/1234 (the \"Employer\") of the one part and Jean Mballa, CNPS number CM-88231 (the \"Employee\") of the other part." }, { title: "Engagement and Duties", body: "Smart Logistics & Services Ltd engages the Employee as Quay Supervisor in the Operations department, which the Employee accepts." }, { title: "Remuneration", body: "The Employee shall receive a gross monthly remuneration of 850,000 XAF, payable in arrears no later than the last working day of the month." }], currency: "XAF" },
   },
 
   SOP_DOCUMENT: {

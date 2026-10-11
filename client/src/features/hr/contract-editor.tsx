@@ -50,6 +50,8 @@ export function ContractEditor({
 }) {
   const [f, setF] = React.useState({
     title: contract.title || "",
+    language: contract.language || "en",
+    professional_category: contract.professional_category || "",
     job_title: contract.job_title || "",
     effective_on: contract.effective_on || "",
     end_on: contract.end_on || "",
@@ -66,6 +68,17 @@ export function ContractEditor({
     ai_model: contract.ai_model || null,
     probation_ends_on: contract.probation_ends_on || null,
   });
+  /**
+   * What the drafter found wrong with these terms, as of the last draft.
+   *
+   * Server-side and recomputed every time, never stored: it is a reading of
+   * the terms as they stand, so fixing the category makes the warning go away
+   * on the next draft rather than lingering on the row. Nothing here was
+   * corrected on anybody's behalf — each one is a term the parties set, and a
+   * product that quietly shortened a fixed term to the statutory maximum would
+   * be changing an agreement rather than reporting on it.
+   */
+  const [review, setReview] = React.useState<api.ContractWarning[]>([]);
   const [preview, setPreview] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -73,6 +86,8 @@ export function ContractEditor({
 
   const terms = () => ({
     title: f.title || undefined,
+    language: f.language === "fr" ? ("fr" as const) : ("en" as const),
+    professional_category: f.professional_category || undefined,
     job_title: f.job_title || undefined,
     effective_on: f.effective_on || undefined,
     end_on: f.end_on || undefined,
@@ -90,6 +105,7 @@ export function ContractEditor({
     try {
       const row = await api.draftContract(contract.hr_contract_id, terms());
       setBody(row.body_md || "");
+      setReview(row.review || []);
       setMeta({
         ai_generated: !!row.ai_generated,
         ai_model: row.ai_model || null,
@@ -164,11 +180,30 @@ export function ContractEditor({
                 value={f.title}
                 disabled={locked}
                 onChange={(e) => set("title", e.target.value)}
-                placeholder="Employment contract"
+                placeholder="Employment Contract"
               />
+            </Field>
+            <Field
+              label={tr("Language")}
+              about="The contract is written and printed in this language. It is not a print setting: the clauses are stored in the language you pick, so changing it means drafting the text again."
+            >
+              <Select value={f.language} disabled={locked} onChange={(e) => set("language", e.target.value)}>
+                <option value="en">{tr("English")}</option>
+                <option value="fr">{tr("French")}</option>
+              </Select>
             </Field>
             <Field label={tr("Job Title")}>
               <Input value={f.job_title} onChange={(e) => set("job_title", e.target.value)} />
+            </Field>
+            <Field
+              label={tr("Professional Category")}
+              about="The category and step under the collective agreement covering your sector. The notice period, the leave entitlement and the minimum wage are all read off it, and a Cameroonian contract is expected to state it."
+            >
+              <Input
+                value={f.professional_category}
+                onChange={(e) => set("professional_category", e.target.value)}
+                placeholder="Cadre, category 10, step A"
+              />
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={tr("Starts")}>
@@ -234,6 +269,18 @@ export function ContractEditor({
               <p className="text-xs text-muted-foreground">
                 {money(Number(f.gross_salary))} appears in the text exactly as typed.
               </p>
+            )}
+            {review.length > 0 && (
+              /* Said at the point of commit, not on the page: these are facts
+                 about THIS contract, they appear only once it has been drafted,
+                 and they go away as the terms are fixed. */
+              <Callout tone="warn" title={tr("Check before you issue this")}>
+                <ul className="ml-4 list-disc space-y-1">
+                  {review.map((w) => (
+                    <li key={w.code}>{w.message}</li>
+                  ))}
+                </ul>
+              </Callout>
             )}
           </div>
 

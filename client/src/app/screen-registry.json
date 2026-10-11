@@ -758,6 +758,7 @@
         "list_vacancies",
         "get_vacancy",
         "list_applicants",
+    "careers_link",
         "create_vacancy",
         "update_vacancy",
         "set_vacancy_status",
