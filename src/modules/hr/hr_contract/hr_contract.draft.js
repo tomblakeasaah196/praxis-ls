@@ -1,39 +1,46 @@
 /**
- * Drafting an employment contract (MOD-12 / 0700).
+ * Drafting an employment document (MOD-12 / 0700, rewritten 14402).
  *
- * ── WHAT THE MODEL IS AND IS NOT ASKED TO DO ───────────────────────────────
+ * ── WHAT CHANGED, AND WHY IT HAD TO ────────────────────────────────────────
  *
- * It is asked to WRITE, not to DECIDE. Every term that binds either party —
- * the salary, the start date, the probation length, the notice period, the
- * job title, the entity — is passed in and echoed back verbatim. The model's
- * job is the prose around them: the clauses, the ordering, the register.
+ * This used to hand the whole document to a model: here are the agreed terms,
+ * write "the clauses, the ordering, the register". The split was terms versus
+ * prose, and it was the wrong line. What came back on 11 Oct 2026 was five
+ * articles — engagement, term, pay, hours, place — with no professional
+ * classification, no CNPS, no paid leave, no medical cover, no notice schedule
+ * and no dispute route, on a company's headed paper, under a signature block.
+ * It read perfectly. Nothing failed.
  *
- * That split is the whole design. A model that "adjusts" a salary band or
- * rounds a notice period has invented a term the employer never agreed, on a
- * document the employer will sign. So the terms go into the prompt as facts,
- * `shape()` overwrites whatever came back with the same facts, and the caller
- * stores those columns from its own input rather than from the draft.
+ * The real line is not terms versus prose. It is WHAT THE PARTIES AGREE TO
+ * versus WHAT THIS PARTICULAR PERSON DOES ALL DAY. The first is a library
+ * (`hr_contract.clauses`): reviewed once, versioned with the code, the same
+ * wording in every contract the product issues, with a tenant layer over it for
+ * their own collective agreement and their own clauses. The second is the one
+ * thing no library can know, and it is all the model is asked for now.
  *
- * ── GROUNDED IN THE TENANT'S OWN HANDBOOK ──────────────────────────────────
+ * So the model writes ONE clause body — the duties — and the rest of the
+ * document is assembled around it. The blast radius of a bad generation is a
+ * paragraph about loading containers, not a missing leave entitlement.
  *
- * The SOP titles are passed in so the contract can refer to the documents the
- * employee is actually given ("as set out in the Staff Handbook"), rather than
- * inventing policies. Titles only — the bodies live in the vault as PDFs and
- * feeding them in would cost a great deal of context to produce a contract that
- * restates the handbook instead of referring to it.
+ * ── ONE LANGUAGE, CHOSEN, NOT RESOLVED ─────────────────────────────────────
+ *
+ * The clauses are written in the contract's own language (`hr_contract.language`,
+ * 14402) and the model is told to answer in it. A contract is not an invoice:
+ * the text is what somebody signed, so it cannot be re-rendered into the other
+ * language by whoever next presses Download.
  *
  * ── IT NEVER THROWS ────────────────────────────────────────────────────────
  *
- * A template draft is a real, editable contract that no model saw. An HR
- * manager with no AI vendor configured must still get a document to edit —
- * failing here would mean the feature simply does not exist for them — and the
- * caller records WHICH produced it so nobody signs a template believing a model
- * reviewed it.
+ * A tenant with no AI vendor still gets a complete, signable contract — now
+ * MORE complete than the model's, because only the duties clause is missing its
+ * author and even that has a written fallback. The row records which produced
+ * the duties so nobody believes a model reviewed a document it never saw.
  */
 "use strict";
 
 const llm = require("../../../services/ai/llm.service");
 const { logger } = require("../../../config/logger");
+const clauses = require("./hr_contract.clauses");
 
 /** Cameroon's statutory default. A tenant's own figure always wins. */
 const DEFAULT_NOTICE_DAYS = 30;
@@ -48,27 +55,67 @@ const KIND_LABEL = {
   TERMINATION: "termination letter",
 };
 
-/** The facts, in one place, so the prompt and the fallback cannot disagree. */
-function terms(input = {}) {
+/** 'en' | 'fr', and nothing else ever reaches a clause. */
+const asLang = (v) => (String(v || "").trim().toLowerCase() === "fr" ? "fr" : "en");
+
+/**
+ * The facts, in one place, so the library, the prompt and the fallback cannot
+ * disagree about what was agreed.
+ *
+ * `config` is the tenant's own layer (`clauses.tenantConfig`), folded in here
+ * rather than read inside a clause: a clause is a pure function of this object,
+ * which is what makes the whole set testable without a database.
+ */
+function terms(input = {}, config = {}) {
+  const tenant = clauses.tenantConfig(config);
   return {
     kind: input.kind || "EMPLOYMENT",
+    lang: asLang(input.language || input.lang),
     employee_name: input.employee_name || "the employee",
+    employee_cnps: input.employee_cnps || null,
     job_title: input.job_title || null,
     department: input.department || null,
+    reports_to: input.reports_to || null,
+    professional_category: input.professional_category || null,
     entity_name: input.entity_name || null,
     entity_country: input.entity_country || null,
+    entity_address: input.entity_address || null,
+    entity_rccm: input.entity_rccm || null,
+    entity_niu: input.entity_niu || null,
     effective_on: input.effective_on || null,
     end_on: input.end_on || null,
+    probation_ends_on: input.probation_ends_on || null,
+    offer_valid_until: input.offer_valid_until || null,
+    termination_reason: input.termination_reason || null,
     gross_salary: money(input.gross_salary),
     salary_currency: input.salary_currency || "XAF",
+    allowances: (input.allowances || []).filter(Boolean).slice(0, 8),
     probation_months: input.probation_months ?? null,
     notice_days: input.notice_days ?? DEFAULT_NOTICE_DAYS,
     working_hours: input.working_hours || null,
     place_of_work: input.place_of_work || null,
     sop_titles: (input.sop_titles || []).filter(Boolean).slice(0, 12),
+    // The tenant layer. Named individually rather than spread so a clause
+    // reading `t.weekly_hours` has one obvious place to look for where it came
+    // from, and so a stray settings key cannot shadow an agreed term.
+    collective_agreement: tenant.collective_agreement,
+    employer_cnps: input.employer_cnps || tenant.employer_cnps,
+    weekly_hours: tenant.weekly_hours,
+    leave_days_per_month: tenant.leave_days_per_month,
+    // Filled by the model (or the fallback) before the clauses are built.
+    duties_md: null,
   };
 }
 
+/**
+ * What the model is asked for: the duties, and nothing else.
+ *
+ * The facts still travel with the request, and the first rule still says they
+ * are agreed terms — not because the model is writing them any more, but
+ * because a duties paragraph for a Chief of Operations on 500,000 XAF should
+ * not describe a job that pays twice that. It is context for the register, and
+ * repeating a figure back into the prose is explicitly refused.
+ */
 function promptMessages(t) {
   const facts = [
     `Document type: ${KIND_LABEL[t.kind] || "employment contract"}`,
@@ -76,37 +123,38 @@ function promptMessages(t) {
     `Employee: ${t.employee_name}`,
     t.job_title ? `Job title: ${t.job_title}` : null,
     t.department ? `Department: ${t.department}` : null,
-    t.effective_on ? `Start date: ${t.effective_on}` : null,
-    t.end_on ? `Fixed term ending: ${t.end_on}` : "Term: indefinite",
-    t.gross_salary !== null ? `Gross monthly salary: ${t.gross_salary} ${t.salary_currency}` : null,
-    t.probation_months ? `Probation: ${t.probation_months} month(s)` : null,
-    `Notice period: ${t.notice_days} days`,
-    t.working_hours ? `Working hours: ${t.working_hours}` : null,
+    t.professional_category ? `Professional category: ${t.professional_category}` : null,
+    t.reports_to ? `Reports to: ${t.reports_to}` : null,
     t.place_of_work ? `Place of work: ${t.place_of_work}` : null,
-    t.sop_titles.length ? `Company policies the employee is bound by: ${t.sop_titles.join("; ")}` : null,
+    t.gross_salary !== null ? `Gross monthly salary (context only, do not restate): ${t.gross_salary} ${t.salary_currency}` : null,
+    t.sop_titles.length ? `Company procedures that already cover how the work is done: ${t.sop_titles.join("; ")}` : null,
   ]
     .filter(Boolean)
     .join("\n");
+
+  const language = t.lang === "fr"
+    ? "Write in FRENCH, in the register of a Cameroonian employment contract."
+    : "Write in ENGLISH, in the register of a Cameroonian employment contract.";
 
   return [
     {
       role: "system",
       content: [
-        "You draft employment documents for an employer in the OHADA/CEMAC region (Cameroon labour law).",
+        "You write ONE clause of an employment contract for an employer in the OHADA/CEMAC region (Cameroon labour law): the DUTIES of the role, and nothing else.",
         "",
-        "Write the document body as MARKDOWN. Use `##` for clause headings and numbered or plain paragraphs beneath them.",
+        language,
         "",
         "RULES, in order of importance:",
-        "1. Every figure, date and name given to you is a term the parties have agreed. Reproduce them EXACTLY. Never round, adjust, convert or omit one, and never introduce a term that was not given to you.",
-        "2. Where a fact was not given, do not invent it and do not leave a blank line — omit the clause entirely. A contract with a fabricated clause is worse than one that is short.",
-        "3. Refer to the company policies by the names given; do not restate or summarise their contents.",
-        "4. No preamble, no commentary, no signature block, no letterhead, no date line — those are added by the template that renders this. Start at the first clause heading.",
-        "5. Plain professional English. No placeholders like [NAME] or TBD.",
+        "1. Output ONLY the duties. No heading, no clause number, no title, no preamble, no signature block. The surrounding contract is assembled around what you return.",
+        "2. Do NOT restate the salary, the dates, the notice period, the probation, the working hours or the place of work. Every one of those is a clause of its own and repeating it creates two statements of the same term that can disagree.",
+        "3. Describe what this person actually does: 4 to 8 duties, as a markdown bullet list, each one a single sentence beginning with a verb.",
+        "4. Invent nothing. Where you were given no detail about the role, write the duties that the job title plainly implies and stop.",
+        "5. No placeholders like [NAME] or TBD. No commentary about what you have written.",
       ].join("\n"),
     },
     {
       role: "user",
-      content: `Draft the body of this document.\n\n${facts}`,
+      content: `Write the duties clause for this role.\n\n${facts}`,
     },
   ];
 }
@@ -114,10 +162,11 @@ function promptMessages(t) {
 /**
  * Strip what the model was told not to produce.
  *
- * Models reliably add a title line and a signature block however firmly they
- * are asked not to, and both are supplied by the letterhead template — leaving
- * them in produces a document with the company name twice and two places to
- * sign, which is precisely the sort of thing nobody notices until it is printed.
+ * Kept from the version that drafted whole contracts, because models reliably
+ * add a title line and a signature block however firmly they are asked not to,
+ * and both are supplied by the letterhead template — leaving them in produces a
+ * document with the company name twice and two places to sign, which is
+ * precisely the sort of thing nobody notices until it is printed.
  */
 function tidy(text) {
   if (!text) return null;
@@ -139,93 +188,111 @@ function tidy(text) {
   return out || null;
 }
 
+/** The longest duties clause worth printing. Past this the model has stopped
+ *  describing a job and started writing a contract of its own. */
+const MAX_DUTIES_CHARS = 2400;
+
 /**
- * A real contract, written without a model.
+ * `tidy`, plus the things that only matter when the answer is a CLAUSE BODY
+ * rather than a whole document.
  *
- * Deliberately complete rather than a stub: this is what a tenant with no AI
- * vendor gets, and it has to be signable after editing. It is short because
- * every clause here is one the facts support — the same rule the model is held
- * to.
+ * A stray `## Duties` heading is the common one: left in, the renderer splits
+ * on it and the contract gains a phantom article in the middle of the
+ * engagement clause, numbered as if it were agreed.
  */
-function templateDraft(t) {
-  const s = [];
-  const p = (heading, body) => {
-    if (body) s.push(`## ${heading}\n\n${body}`);
-  };
-
-  p(
-    "Parties",
-    `This ${KIND_LABEL[t.kind] || "agreement"} is made between ${t.entity_name || "the Employer"} ("the Employer") and ${t.employee_name} ("the Employee").`,
-  );
-  p(
-    "Position",
-    t.job_title
-      ? `The Employee is engaged as ${t.job_title}${t.department ? ` in the ${t.department} department` : ""}, and shall carry out the duties reasonably associated with that role.`
-      : null,
-  );
-  p(
-    "Term",
-    t.effective_on
-      ? t.end_on
-        ? `Employment begins on ${t.effective_on} and ends on ${t.end_on} unless renewed in writing.`
-        : `Employment begins on ${t.effective_on} and continues for an indefinite period.`
-      : null,
-  );
-  p(
-    "Probation",
-    t.probation_months
-      ? `The first ${t.probation_months} month(s) are a probationary period, during which either party may end this agreement on shorter notice as permitted by law. Confirmation in the role is by written notice from the Employer.`
-      : null,
-  );
-  p(
-    "Remuneration",
-    t.gross_salary !== null
-      ? `The Employee's gross monthly salary is ${t.gross_salary} ${t.salary_currency}, payable monthly in arrears, subject to the statutory deductions the Employer is required to make.`
-      : null,
-  );
-  p("Hours of work", t.working_hours ? `Normal working hours are ${t.working_hours}.` : null);
-  p("Place of work", t.place_of_work ? `The Employee's place of work is ${t.place_of_work}.` : null);
-  p(
-    "Notice",
-    `Either party may end this agreement by giving ${t.notice_days} days' written notice, or such longer period as the law requires.`,
-  );
-  p(
-    "Company policies",
-    t.sop_titles.length
-      ? `The Employee is bound by the Employer's policies and procedures, including: ${t.sop_titles.join("; ")}. These are provided to the Employee and may be amended from time to time.`
-      : null,
-  );
-
-  return s.join("\n\n");
+function tidyDuties(text) {
+  const base = tidy(text);
+  if (!base) return null;
+  const out = base
+    .split("\n")
+    .filter((line) => !/^\s*#{1,6}\s/.test(line))
+    .join("\n")
+    .trim();
+  if (!out) return null;
+  return out.length > MAX_DUTIES_CHARS ? `${out.slice(0, MAX_DUTIES_CHARS).trimEnd()}.` : out;
 }
 
 /**
- * Draft a contract body. NEVER throws.
+ * The duties clause, written without a model.
+ *
+ * Deliberately a real sentence rather than a stub: this is what a tenant with
+ * no AI vendor gets, and the clause it sits in is the one a line manager reads
+ * first. It says what the job title already says and stops, which is the same
+ * rule the model is held to for a role it was told nothing about.
+ */
+function templateDuties(t) {
+  if (!t.job_title) return null;
+  const where = t.department
+    ? t.lang === "fr" ? ` du département ${t.department}` : ` of the ${t.department} department`
+    : "";
+  return t.lang === "fr"
+    ? `Le Salarié exerce les fonctions attachées au poste de ${t.job_title}${where}, telles qu'elles résultent de sa qualification et des instructions de l'Employeur.`
+    : `The Employee shall carry out the duties attaching to the post of ${t.job_title}${where}, as they follow from their classification and from the Employer's instructions.`;
+}
+
+/**
+ * Draft a document body. NEVER throws.
  *
  * Call OUTSIDE a transaction — it is a model call of several seconds, and this
  * deployment runs a 12-connection-per-tenant ceiling.
  *
- * @returns { body_md, ai_generated, ai_model }
+ * `config` is the tenant's `hr_contract` settings section, read by the caller
+ * so this function makes exactly one round trip of its own (the model call).
+ *
+ * @returns { body_md, ai_generated, ai_model, language, review }
  */
-async function draft(client, input = {}) {
-  const t = terms(input);
-  try {
-    const { text, provider } = await llm.chat({
-      client,
-      messages: promptMessages(t),
-      temperature: 0.3, // A contract is not a place for invention.
-    });
-    const body = tidy(text);
-    // A model that returned three lines has not written a contract. Falling
-    // back beats handing somebody a document that looks finished and is not.
-    if (body && body.length > 200) {
-      return { body_md: body, ai_generated: true, ai_model: provider || "ai" };
+async function draft(client, input = {}, { config = {} } = {}) {
+  const t = terms(input, config);
+  let aiGenerated = false;
+  let aiModel = "template";
+
+  // The duties clause is the only thing a model is asked for, and only for the
+  // documents that have one. A confirmation letter and a termination letter
+  // describe a status, not a job.
+  const wantsDuties = t.kind === "EMPLOYMENT" || t.kind === "OFFER_LETTER";
+  if (wantsDuties) {
+    try {
+      const { text, provider } = await llm.chat({
+        client,
+        messages: promptMessages(t),
+        temperature: 0.3, // A contract is not a place for invention.
+      });
+      const duties = tidyDuties(text);
+      // Under this, the model has not described a job. The written fallback is
+      // better than one line that looks finished.
+      if (duties && duties.length > 80) {
+        t.duties_md = duties;
+        aiGenerated = true;
+        aiModel = provider || "ai";
+      } else {
+        logger.warn({ provider, length: duties ? duties.length : 0 }, "[hr_contract] duties too short — falling back to the written clause");
+      }
+    } catch (err) {
+      logger.warn({ err }, "[hr_contract] AI drafting failed — falling back to the written clause");
     }
-    logger.warn({ provider, length: body ? body.length : 0 }, "[hr_contract] draft too short — falling back to the template");
-  } catch (err) {
-    logger.warn({ err }, "[hr_contract] AI drafting failed — falling back to the template");
   }
-  return { body_md: templateDraft(t), ai_generated: false, ai_model: "template" };
+  if (!t.duties_md) t.duties_md = templateDuties(t);
+
+  const set = clauses.clausesFor(t, { kind: t.kind, lang: t.lang, config });
+  return {
+    body_md: clauses.toMarkdown(set),
+    ai_generated: aiGenerated,
+    ai_model: aiModel,
+    language: t.lang,
+    // What a human should look at before issuing it. Warnings, never edits —
+    // see `clauses.review`.
+    review: clauses.review(t, { kind: t.kind }),
+  };
 }
 
-module.exports = { draft, templateDraft, terms, tidy, promptMessages, DEFAULT_NOTICE_DAYS, KIND_LABEL };
+module.exports = {
+  draft,
+  terms,
+  tidy,
+  tidyDuties,
+  templateDuties,
+  promptMessages,
+  DEFAULT_NOTICE_DAYS,
+  KIND_LABEL,
+  MAX_DUTIES_CHARS,
+};

@@ -5,8 +5,19 @@ const { asyncHandler, AppError } = require("../../../utils/errors");
 const service = require("./hr_contract.service");
 const repo = require("./hr_contract.repo");
 const drafter = require("./hr_contract.draft");
+const clauses = require("./hr_contract.clauses");
+const { getSection } = require("../../../shared/config/settings");
 
 const base = makeController(service, "Contract");
+
+/** The probation end date, computed the SAME way the service computes it.
+ *  Shared through `service.addMonths` rather than re-derived, so the date the
+ *  probation clause prints and the date the watcher scans cannot differ. */
+function probationEndsFor(terms) {
+  return terms.effective_on && terms.probation_months
+    ? service.addMonths(terms.effective_on, terms.probation_months)
+    : null;
+}
 
 module.exports = {
   ...base,
@@ -31,9 +42,16 @@ module.exports = {
    */
   draftFor: asyncHandler(async (req, res) => {
     const id = req.params.id;
+    /* The tenant's own contract configuration rides along with the context read
+     * (14402). It is what makes the statutory library tenant-specific — their
+     * collective agreement, their CNPS employer number, their working week,
+     * their own extra clauses — and reading it here rather than inside the
+     * drafter keeps the model call holding no connection, which is the whole
+     * reason this handler is three db calls and not one. */
     const context = await req.tenantDb(async (c) => ({
       row: await repo.context(c, id),
       sopTitles: await repo.sopTitles(c),
+      config: await getSection(c, clauses.SETTINGS_SECTION),
     }));
     if (!context.row) throw new AppError("NOT_FOUND", "Contract not found", 404);
     const row = context.row;
@@ -46,6 +64,13 @@ module.exports = {
     const terms = {
       title: body.title,
       entity_id: body.entity_id ?? row.entity_id ?? null,
+      /* The language the contract is WRITTEN in. The caller's pick, then
+       * whatever this contract was last drafted in, then the hiring entity's
+       * own default. Never the operator's UI language: a Cameroonian employer
+       * whose staff read French does not issue English contracts because the
+       * HR officer happens to have the app in English. */
+      language: body.language ?? row.language ?? (row.entity_language === "fr" ? "fr" : "en"),
+      professional_category: body.professional_category ?? row.professional_category ?? null,
       job_title: body.job_title ?? row.employee_job_title ?? row.vacancy_title ?? null,
       effective_on: body.effective_on ?? row.effective_on ?? null,
       end_on: body.end_on ?? row.end_on ?? null,
@@ -63,16 +88,32 @@ module.exports = {
         ...terms,
         kind: row.kind,
         employee_name: row.employee_name,
+        employee_cnps: row.employee_cnps,
         department: row.department,
+        reports_to: body.reports_to ?? null,
         entity_name: row.entity_name,
         entity_country: row.entity_country,
+        entity_address: row.entity_address,
+        entity_rccm: row.entity_rccm,
+        entity_niu: row.entity_niu,
+        // The probation end date the service is about to compute, so the
+        // clause can state it rather than leaving the reader to count months.
+        probation_ends_on: probationEndsFor(terms),
         sop_titles: context.sopTitles,
-      }));
+      }, { config: context.config }));
 
     const saved = await req.tenantDb((c) =>
       service.applyDraft(c, { id, draft, terms, actor: req.user || { user_id: null } }));
     if (!saved) throw new AppError("NOT_FOUND", "Contract not found", 404);
-    res.json({ data: saved });
+    /* `review` rides ON the row rather than beside it, because `api-client`
+     * hands the caller `json.data` and nothing else — a sibling key would be
+     * dropped before the screen ever saw it.
+     *
+     * It is NOT a column and is deliberately not stored. It is a reading of the
+     * terms as they are right now: change the salary and it changes, fill in
+     * the category and it goes away. Persisting it would mean showing an HR
+     * officer a warning about a figure somebody has since corrected. */
+    res.json({ data: { ...saved, review: draft.review } });
   }),
 
   /**

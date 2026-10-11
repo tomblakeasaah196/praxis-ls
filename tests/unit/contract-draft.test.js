@@ -1,88 +1,151 @@
 "use strict";
 /**
- * Drafting a contract (0700).
+ * Drafting a contract (0700, rewritten 14402).
  *
  * ── WHAT THESE PROTECT ─────────────────────────────────────────────────────
  *
- * A contract is the one document where a helpful model is dangerous. Rounding a
- * salary, "tidying" a notice period or filling in a probation length nobody
- * agreed invents a term the employer will then SIGN. So:
+ * A contract is the one document where a helpful model is dangerous, and the
+ * old split — terms from the caller, every clause from the model — was the
+ * wrong line. What it produced was a five-article contract with no
+ * classification, no CNPS, no leave, no medical cover and no dispute route,
+ * which read perfectly and failed nothing.
  *
- *   · the terms are passed in as facts and written to their own columns by the
- *     caller, never parsed back out of the prose;
+ * The line now is: the AGREEMENT comes from the library, and the DUTIES come
+ * from the model. So these hold that
+ *
+ *   · the model is asked for the duties and told not to restate a term;
+ *   · a model that fails, or returns one line, falls back to a written duties
+ *     clause and the contract is otherwise unchanged — the row records which
+ *     produced it, so nobody signs a template believing a model reviewed it;
  *   · a fact that was not given produces NO CLAUSE rather than a guess;
- *   · a model that fails, or returns three lines, falls back to a template that
- *     is itself a real contract — and the row records which produced it, so
- *     nobody signs a template believing a model reviewed it.
- *
- * The template path is the one exercised in full here: it is what a tenant with
- * no AI vendor actually gets, and it has to be signable after editing.
+ *   · the document comes out in ONE language, the one it was drafted in.
  */
 
 const drafter = require("../../src/modules/hr/hr_contract/hr_contract.draft");
+const clauses = require("../../src/modules/hr/hr_contract/hr_contract.clauses");
 const llm = require("../../src/services/ai/llm.service");
 const { addMonths } = require("../../src/modules/hr/hr_contract/hr_contract.service");
 
 const FULL = {
   kind: "EMPLOYMENT",
+  language: "en",
   employee_name: "Ada Mbarga",
+  employee_cnps: "CM-88231",
   job_title: "Customs Clearance Officer",
   department: "Operations",
+  professional_category: "Agent de maîtrise, category 8, step B",
   entity_name: "Praxis Logistics SARL",
   entity_country: "CM",
+  entity_address: "Douala, Cameroun",
+  entity_rccm: "RC/DLA/2019/B/1234",
   effective_on: "2026-09-01",
   gross_salary: 450000,
   salary_currency: "XAF",
   probation_months: 3,
   notice_days: 30,
-  working_hours: "08:00–17:00, Monday to Friday",
+  working_hours: "08:00 to 17:00, Monday to Friday",
   place_of_work: "Douala",
   sop_titles: ["Staff Handbook", "Code of Conduct"],
 };
 
-describe("the template draft", () => {
-  it("states every term it was given, verbatim", () => {
-    const body = drafter.templateDraft(drafter.terms(FULL));
+/** The whole document, assembled the way `draft` assembles it, without a model
+ *  in the way. This is what a tenant with no AI vendor gets. */
+const assemble = (input = FULL, config = {}) => {
+  const t = drafter.terms(input, config);
+  t.duties_md = drafter.templateDuties(t);
+  return clauses.toMarkdown(clauses.clausesFor(t, { kind: t.kind, lang: t.lang, config }));
+};
+
+describe("the assembled contract", () => {
+  it("states every term it was given, and states it the way a person reads it", () => {
+    const body = assemble();
 
     expect(body).toContain("Ada Mbarga");
     expect(body).toContain("Praxis Logistics SARL");
     expect(body).toContain("Customs Clearance Officer");
-    expect(body).toContain("2026-09-01");
-    // The figure exactly as agreed — not rounded, not reformatted into words.
-    expect(body).toContain("450000 XAF");
+    // DAY FIRST. The contract the tenant was holding printed "2026-08-23" in
+    // its term clause, which is the month-first trap the date gate exists for
+    // everywhere else in the product.
+    expect(body).toContain("01/09/2026");
+    expect(body).not.toContain("2026-09-01");
+    // The figure exactly as agreed — grouped for reading, never rounded.
+    expect(body).toContain("450,000 XAF");
     expect(body).toContain("3 month(s)");
     expect(body).toContain("30 days");
-    expect(body).toContain("Staff Handbook; Code of Conduct");
+    expect(body).toContain("Staff Handbook and Code of Conduct");
+  });
+
+  it("settles every subject the Labour Code expects a contract to settle", () => {
+    // THE DEFECT THIS CLOSES. The contract in front of the tenant on
+    // 11 Oct 2026 had five articles: engagement, term, pay, hours, place. No
+    // classification, no CNPS, no leave, no medical cover, no notice schedule,
+    // no dispute route. It read perfectly and nothing failed.
+    const body = assemble();
+
+    expect(body).toMatch(/## Parties/);
+    expect(body).toMatch(/## Professional Classification/);
+    expect(body).toMatch(/## Term/);
+    expect(body).toMatch(/## Probationary Period/);
+    expect(body).toMatch(/## Remuneration/);
+    expect(body).toMatch(/## Social Security and Medical Cover/);
+    expect(body).toMatch(/## Paid Leave/);
+    expect(body).toMatch(/## Working Hours/);
+    expect(body).toMatch(/## Notice and Termination/);
+    expect(body).toMatch(/## Final Settlement/);
+    expect(body).toMatch(/## Governing Law and Disputes/);
+    expect(body).toContain("Caisse Nationale de Prévoyance Sociale");
+    expect(body).toContain("labour inspector");
+  });
+
+  it("is long enough to be a contract rather than a form", () => {
+    // The one-pager is the symptom the tenant actually reported. A real
+    // employment contract runs to several pages; this is the floor that keeps
+    // a future edit from quietly returning to five short articles.
+    expect(assemble().length).toBeGreaterThan(5000);
   });
 
   it("omits the clause entirely when the fact is missing", () => {
     // The failure this prevents: a salary clause reading "the Employee's gross
     // monthly salary is null XAF", or worse, a plausible number.
-    const body = drafter.templateDraft(
-      drafter.terms({ employee_name: "Bo Nkemi", entity_name: "Praxis Logistics SARL" }),
-    );
+    const body = assemble({ kind: "EMPLOYMENT", language: "en", employee_name: "Bo Nkemi", entity_name: "Praxis Logistics SARL" });
 
-    expect(body).not.toMatch(/salary/i);
-    expect(body).not.toMatch(/probation/i);
-    expect(body).not.toMatch(/hours/i);
+    expect(body).not.toMatch(/## Remuneration/);
+    expect(body).not.toMatch(/## Probationary Period/);
+    expect(body).not.toMatch(/## Term$/m);
     expect(body).not.toMatch(/null|undefined|\[|TBD/i);
-    // …but the clauses whose facts ARE known still appear.
+    // …but the clauses whose facts ARE known still appear, and the statutory
+    // ones that depend on no fact at all appear always.
     expect(body).toContain("Bo Nkemi");
-    expect(body).toMatch(/## Notice/);
+    expect(body).toMatch(/## Notice and Termination/);
+    expect(body).toMatch(/## Paid Leave/);
   });
 
   it("says the term is indefinite rather than leaving it unstated", () => {
-    const open = drafter.templateDraft(drafter.terms(FULL));
-    expect(open).toMatch(/indefinite period/);
+    const open = assemble();
+    expect(open).toMatch(/indefinite term/);
 
-    const fixed = drafter.templateDraft(drafter.terms({ ...FULL, end_on: "2027-08-31" }));
-    expect(fixed).toContain("2027-08-31");
-    expect(fixed).not.toMatch(/indefinite/);
+    const fixed = assemble({ ...FULL, end_on: "2027-08-31" });
+    expect(fixed).toContain("31/08/2027");
+    expect(fixed).toMatch(/fixed term/);
   });
 
   it("falls back to the statutory notice period when none was agreed", () => {
-    const body = drafter.templateDraft(drafter.terms({ ...FULL, notice_days: undefined }));
+    const body = assemble({ ...FULL, notice_days: undefined });
     expect(body).toContain(`${drafter.DEFAULT_NOTICE_DAYS} days`);
+  });
+
+  it("writes the whole document in one language, never both", () => {
+    const fr = assemble({ ...FULL, language: "fr" });
+
+    expect(fr).toMatch(/## Rémunération/);
+    expect(fr).toContain("Caisse Nationale de Prévoyance Sociale");
+    // Not one English heading survives, which is the property the tenant asked
+    // for: "only english or french".
+    expect(fr).not.toMatch(/## Remuneration/);
+    expect(fr).not.toMatch(/## Paid Leave/);
+    // And French formats its own numbers and dates.
+    expect(fr).toContain("01/09/2026");
+    expect(fr).toMatch(/450\u00a0000 XAF/);
   });
 });
 
@@ -126,18 +189,23 @@ describe("tidying what a model returns", () => {
 describe("drafting", () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it("uses the model's text when it wrote a contract", async () => {
-    const body = `## Parties\n\n${"This agreement is made between the parties named above. ".repeat(12)}`;
-    jest.spyOn(llm, "chat").mockResolvedValue({ text: body, provider: "deepseek" });
+  it("uses the model's duties and records which model wrote them", async () => {
+    const duties = "- Clear import declarations at the Douala customs office.\n- Track container releases and report delays daily.\n- Keep the dossier file complete for every consignment.";
+    jest.spyOn(llm, "chat").mockResolvedValue({ text: duties, provider: "gemini" });
 
     const out = await drafter.draft({}, FULL);
 
     expect(out.ai_generated).toBe(true);
-    expect(out.ai_model).toBe("deepseek");
-    expect(out.body_md).toContain("## Parties");
+    expect(out.ai_model).toBe("gemini");
+    // The duties land INSIDE the engagement clause, not as an article of their
+    // own — a phantom numbered article is what a stray `## Duties` produces.
+    expect(out.body_md).toContain("Clear import declarations");
+    expect(out.body_md).not.toMatch(/## Duties/);
+    // …and the rest of the contract is the library's, whatever the model said.
+    expect(out.body_md).toMatch(/## Paid Leave/);
   });
 
-  it("falls back to the template when the model fails, and says so", async () => {
+  it("falls back to the written duties when the model fails, and says so", async () => {
     jest.spyOn(llm, "chat").mockRejectedValue(new Error("no vendor configured"));
 
     const out = await drafter.draft({}, FULL);
@@ -145,47 +213,84 @@ describe("drafting", () => {
     // Never throws: an HR manager with no AI vendor must still get a document.
     expect(out.ai_generated).toBe(false);
     expect(out.ai_model).toBe("template");
-    // And it is a real contract, not a stub.
-    expect(out.body_md).toContain("450000 XAF");
-    expect(out.body_md).toMatch(/## Notice/);
+    // And it is the SAME contract, missing only its author. That is the gain
+    // over the old design, where losing the model lost every clause with it.
+    expect(out.body_md).toContain("450,000 XAF");
+    expect(out.body_md).toMatch(/## Notice and Termination/);
+    expect(out.body_md).toMatch(/## Governing Law and Disputes/);
+    expect(out.body_md).toContain("Customs Clearance Officer");
   });
 
-  it("falls back when the model returns something too short to be a contract", async () => {
-    // Handing somebody three lines that LOOK finished is worse than a template.
-    jest.spyOn(llm, "chat").mockResolvedValue({ text: "## Parties\n\nSee attached.", provider: "gemini" });
+  it("falls back when the model returns something too short to be a job", async () => {
+    jest.spyOn(llm, "chat").mockResolvedValue({ text: "- Various duties.", provider: "gemini" });
 
     const out = await drafter.draft({}, FULL);
     expect(out.ai_generated).toBe(false);
     expect(out.ai_model).toBe("template");
+    expect(out.body_md).not.toContain("Various duties");
   });
 
-  it("tells the model the terms are agreed and must not be altered", async () => {
+  it("asks for the duties only, and forbids restating a term", async () => {
     let captured = null;
     jest.spyOn(llm, "chat").mockImplementation(async ({ messages }) => {
       captured = messages;
-      return { text: "x".repeat(300), provider: "deepseek" };
+      return { text: "x".repeat(300), provider: "gemini" };
     });
 
     await drafter.draft({}, FULL);
 
     const system = captured.find((m) => m.role === "system").content;
-    expect(system).toMatch(/Reproduce them EXACTLY/);
-    expect(system).toMatch(/never introduce a term that was not given/i);
-    // The facts reach the model as facts, not as suggestions.
+    expect(system).toMatch(/the DUTIES of the role, and nothing else/);
+    expect(system).toMatch(/Do NOT restate the salary/);
+    expect(system).toMatch(/Write in ENGLISH/);
+    // The role reaches the model; the agreed figure travels only as context.
     const user = captured.find((m) => m.role === "user").content;
-    expect(user).toContain("450000 XAF");
-    expect(user).toContain("2026-09-01");
-    expect(user).toContain("Staff Handbook");
+    expect(user).toContain("Customs Clearance Officer");
+    expect(user).toContain("do not restate");
+  });
+
+  it("asks for French when the contract is French", async () => {
+    let captured = null;
+    jest.spyOn(llm, "chat").mockImplementation(async ({ messages }) => {
+      captured = messages;
+      return { text: "x".repeat(300), provider: "gemini" };
+    });
+
+    await drafter.draft({}, { ...FULL, language: "fr" });
+
+    expect(captured.find((m) => m.role === "system").content).toMatch(/Write in FRENCH/);
   });
 
   it("keeps the temperature low — a contract is not a place for invention", async () => {
     let opts = null;
     jest.spyOn(llm, "chat").mockImplementation(async (o) => {
       opts = o;
-      return { text: "x".repeat(300), provider: "deepseek" };
+      return { text: "x".repeat(300), provider: "gemini" };
     });
     await drafter.draft({}, FULL);
     expect(opts.temperature).toBeLessThanOrEqual(0.3);
+  });
+
+  it("does not spend a model call on a document that describes no job", async () => {
+    // A certificate of employment and a termination letter state a status.
+    // There is nothing for a duties clause to say, and a model call against the
+    // tenant's AI budget would buy nothing.
+    jest.spyOn(llm, "chat").mockResolvedValue({ text: "x".repeat(300), provider: "gemini" });
+
+    await drafter.draft({}, { ...FULL, kind: "CONFIRMATION" });
+    expect(llm.chat).not.toHaveBeenCalled();
+  });
+
+  it("returns the review rather than correcting the terms", async () => {
+    jest.spyOn(llm, "chat").mockRejectedValue(new Error("no vendor"));
+
+    // The twenty-year fixed term from the contract the tenant was holding.
+    const out = await drafter.draft({}, { ...FULL, effective_on: "2026-08-23", end_on: "2046-08-18" });
+
+    expect(out.review.map((r) => r.code)).toContain("fixed_term_too_long");
+    // And the term it prints is STILL the one the parties set. A product that
+    // silently shortened it would be amending an agreement, not reporting.
+    expect(out.body_md).toContain("18/08/2046");
   });
 });
 
@@ -193,17 +298,17 @@ describe("the clauses that reach the PDF", () => {
   const { contractArticles } = require("../../src/modules/documents/template/template.service");
 
   it("turns the drafted body into the articles the renderer wants", () => {
-    // THE BUG THIS CLOSES. The EMPLOYMENT_CONTRACT data builder said
-    // `articles: []`, so every contract this system generated rendered a
-    // letterhead, both parties, a signature block — and NOT ONE CLAUSE. A blank
-    // form that looks entirely correct until somebody reads it.
-    const body = drafter.templateDraft(drafter.terms(FULL));
-    const arts = contractArticles(body);
+    // THE OLDER BUG THIS STILL CLOSES. The EMPLOYMENT_CONTRACT data builder
+    // said `articles: []`, so every contract this system generated rendered a
+    // letterhead, both parties, a signature block — and NOT ONE CLAUSE.
+    const arts = contractArticles(assemble());
 
-    expect(arts.length).toBeGreaterThan(3);
-    expect(arts.map((a) => a.title)).toEqual(expect.arrayContaining(["Parties", "Term", "Notice"]));
+    expect(arts.length).toBeGreaterThan(12);
+    expect(arts.map((a) => a.title)).toEqual(
+      expect.arrayContaining(["Parties", "Term", "Paid Leave", "Notice and Termination"]),
+    );
     // The terms survive the split — this is what actually lands on the page.
-    expect(arts.map((a) => a.body).join("\n")).toContain("450000 XAF");
+    expect(arts.map((a) => a.body).join("\n")).toContain("450,000 XAF");
   });
 
   it("keeps text written above the first heading", () => {

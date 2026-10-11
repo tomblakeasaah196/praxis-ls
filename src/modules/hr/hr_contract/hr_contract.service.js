@@ -86,6 +86,11 @@ module.exports = {
       ai_generated: draft.ai_generated,
       ai_model: draft.ai_model,
       entity_id: terms.entity_id ?? before.entity_id ?? null,
+      /* The language the clauses were written in (14402). Stored so the
+       * renderer prints the contract in the language it was drafted in rather
+       * than in whichever one the next operator happens to pick. */
+      language: terms.language ?? before.language ?? null,
+      professional_category: terms.professional_category ?? before.professional_category ?? null,
       job_title: terms.job_title ?? null,
       gross_salary: terms.gross_salary ?? null,
       salary_currency: terms.salary_currency || "XAF",

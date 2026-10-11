@@ -1332,6 +1332,17 @@ export type Contract = {
   ai_generated?: boolean;
   ai_model?: string | null;
   entity_id?: string | null;
+  /**
+   * The language the clauses are WRITTEN in (14402) — not a print preference.
+   *
+   * The contract renders in this language whatever the operator picks at
+   * download time, because the body is the agreement and it does not translate
+   * itself. Null for a contract issued before the column existed; those fall
+   * back to the entity default at render time.
+   */
+  language?: "en" | "fr" | null;
+  /** Category and echelon under the applicable collective agreement. */
+  professional_category?: string | null;
   job_title?: string | null;
   gross_salary?: number | string | null;
   salary_currency?: string | null;
@@ -1347,7 +1358,22 @@ export type Contract = {
   doc_number?: string | null;
   /** Set on a renewal: the contract this one supersedes. */
   renews_contract_id?: string | null;
+  /**
+   * What a human should look at before issuing this contract, returned by the
+   * DRAFT endpoint only.
+   *
+   * Not a column and never stored: it is a reading of the terms as they stand,
+   * so it changes the moment somebody fills in the category or shortens the
+   * fixed term. Warnings only, nothing is blocked, and nothing here was
+   * corrected on the tenant's behalf — every one of these is a term the
+   * parties set.
+   */
+  review?: ContractWarning[];
 };
+
+/** One finding from the contract review. `code` is stable; `message` is the
+ *  sentence an HR officer reads. */
+export type ContractWarning = { code: string; message: string };
 
 /** A contract whose term or probation runs out soon — the question nothing
  *  could answer before 0700, because nothing had ever read `end_on`. */
@@ -1394,6 +1420,11 @@ export const draftContract = (
   id: string,
   body: {
     title?: string;
+    /** Which language to WRITE it in. The clauses come back in this language
+     *  and the PDF prints in it; there is no bilingual contract. */
+    language?: "en" | "fr";
+    professional_category?: string;
+    reports_to?: string;
     job_title?: string;
     effective_on?: string;
     end_on?: string;
