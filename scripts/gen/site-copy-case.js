@@ -370,7 +370,7 @@ const CASES = {
       "cultureMore", "apply", "seeOther", "lookingFor", "back", "published",
       "applyTitle", "fullName", "email", "phone", "address", "experience",
       "expectedSalary", "portfolio", "coverNote", "cv", "optional", "submit",
-      "anotherRole",
+      "anotherRole", "moreTitle",
     ],
     PROSE: [
       "sub", "emptyHint", "quietNote", "openLead", "openWantedHint", "openSentTitle",
@@ -378,7 +378,7 @@ const CASES = {
       "alertSentTitle", "alertSentNote", "alertConsent", "unsubBusy", "unsubDone",
       "unsubNote", "closeNote", "closed", "closedHint", "testPosting", "salaryFrom",
       "salaryUpTo", "years", "coverHint", "cvHint", "cvRequired", "sending",
-      "sentTitle", "sentCv", "sentNoCv", "sentNote", "err", "limited",
+      "sentTitle", "sentCv", "sentNoCv", "sentNote", "err", "limited", "moreLead",
     ],
   },
   "site.chrome": {

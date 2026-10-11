@@ -528,7 +528,12 @@ function poolStats() {
  */
 async function listActiveTenants() {
   const { rows } = await platform().query(
-    `SELECT t.slug, t.tenant_id, t.status, t.is_live, t.sandbox_wipe_days,
+    // `display_name` rides along for the fan-outs that put the tenant's own
+    // name in front of an outsider — the careers job-alert digest names the
+    // company in its subject and greeting. It is one NOT NULL column already on
+    // the row, so every scheduler gets it for free and the ones that do not
+    // care simply ignore it, the same way they ignore the schema columns.
+    `SELECT t.slug, t.display_name, t.tenant_id, t.status, t.is_live, t.sandbox_wipe_days,
             t.last_sandbox_wipe_at,
             td.db_host, td.db_port, td.db_name, td.app_role, td.secret_ref,
             td.live_schema, td.sandbox_schema, td.pool_max

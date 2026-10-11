@@ -77,6 +77,13 @@ export const en = {
       alertSentTitle: "You are on the list.",
       alertSentNote: "You will hear from us when something opens, and not otherwise.",
       alertConsent: "Used for job alerts and nothing else.",
+      // The band under a populated list: someone scrolled every open role and
+      // none fits. The promise stays unfiltered and honest (the digest sends
+      // whatever opens next, not a role matched to them), and the buttons below
+      // it decide whether that is an alert, a CV on file, or both.
+      moreTitle: "Not the right role this time?",
+      moreLead:
+        "These are all the roles open right now. Tell us you are interested and we will be in touch when the next one opens.",
       unsubTitle: "Job alerts",
       unsubBusy: "Taking you off the list…",
       unsubDone: "You are off the list.",
@@ -162,6 +169,9 @@ export const fr = {
       alertSentTitle: "Vous êtes inscrit.",
       alertSentNote: "Vous aurez de nos nouvelles quand un poste s’ouvrira, et pas autrement.",
       alertConsent: "Sert aux alertes emploi et à rien d’autre.",
+      moreTitle: "Pas le bon poste cette fois ?",
+      moreLead:
+        "Voici tous les postes ouverts en ce moment. Dites-nous que cela vous intéresse et nous reviendrons vers vous à la prochaine ouverture.",
       unsubTitle: "Alertes emploi",
       unsubBusy: "Désinscription en cours…",
       unsubDone: "Vous êtes désinscrit.",

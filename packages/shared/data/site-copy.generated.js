@@ -2,7 +2,7 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * The site copy catalogue: every `site.*` string a tenant may override.
- * 583 keys in 26 sections.
+ * 585 keys in 26 sections.
  * Source: public-web/src/lib/i18n-dict.ts
  * Regenerate with: node scripts/gen/gen-site-copy-catalogue.js
  *
@@ -92,6 +92,8 @@ exports.SITE_COPY_ENTRIES = [
   ["site.careers.limited","careers","Limited","Too many attempts from this connection. Please try again in an hour.","Trop de tentatives depuis cette connexion. Réessayez dans une heure."],
   ["site.careers.list","careers","List","Open roles","Postes ouverts"],
   ["site.careers.lookingFor","careers","Looking For","What we are looking for","Ce que nous cherchons"],
+  ["site.careers.moreLead","careers","More Lead","These are all the roles open right now. Tell us you are interested and we will be in touch when the next one opens.","Voici tous les postes ouverts en ce moment. Dites-nous que cela vous intéresse et nous reviendrons vers vous à la prochaine ouverture."],
+  ["site.careers.moreTitle","careers","More Title","Not the right role this time?","Pas le bon poste cette fois ?"],
   ["site.careers.openCta","careers","Open Cta","Send your CV","Envoyer votre CV"],
   ["site.careers.openFormTitle","careers","Open Form Title","Send us your CV","Envoyez-nous votre CV"],
   ["site.careers.openLead","careers","Open Lead","The right person rarely turns up the day a job is posted. Send your CV — it goes on file with the people who hire, and that file is where they look first.","La bonne personne se présente rarement le jour de l’annonce. Envoyez votre CV : il rejoint le dossier des personnes qui recrutent, et c’est là qu’elles cherchent d’abord."],

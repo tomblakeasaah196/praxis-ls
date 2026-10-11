@@ -111,6 +111,68 @@ export function NotHiring({ settings }: { settings: api.CareersSettings }) {
 }
 
 /**
+ * The same invitation as `NotHiring`, but for the page that DID have roles —
+ * someone scrolled every open vacancy and none was theirs.
+ *
+ * It reuses the empty state's two forms rather than reimplementing them: the
+ * decision a visitor makes here ("tell me when the next one opens" / "send my CV
+ * anyway") is identical to the one the empty page offers, and only the framing
+ * is new — the empty page says "nothing is open", this one says "nothing here is
+ * for you". Renders NOTHING when a tenant has switched both off, so the band is
+ * never an empty heading under the list.
+ *
+ * The alert is the PRIMARY action here, the reverse of `NotHiring`: a visitor
+ * who just read a full list and kept scrolling has shown they want the next
+ * opening, not to send a speculative CV against roles they already passed over.
+ */
+export function StillLooking({ settings }: { settings: api.CareersSettings }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = React.useState<"cv" | "alert" | null>(null);
+
+  const canCv = settings.open_applications;
+  const canAlert = settings.alerts_enabled;
+  if (!canCv && !canAlert) return null;
+
+  return (
+    <div className="mx-auto max-w-3xl">
+      <Card className="p-8 sm:p-10">
+        <h2 className="text-title font-semibold tracking-tight">
+          {t("site.careers.moreTitle")}
+        </h2>
+        <p className="mt-2 max-w-measure text-sm text-muted-foreground">
+          {t("site.careers.moreLead")}
+        </p>
+
+        <div className="mt-6 flex flex-wrap gap-2">
+          {canAlert && (
+            <Button
+              size="lg"
+              onClick={() => setOpen((o) => (o === "alert" ? null : "alert"))}
+              aria-expanded={open === "alert"}
+            >
+              {t("site.careers.alertCta")}
+            </Button>
+          )}
+          {canCv && (
+            <Button
+              size="lg"
+              variant={canAlert ? "outline" : "default"}
+              onClick={() => setOpen((o) => (o === "cv" ? null : "cv"))}
+              aria-expanded={open === "cv"}
+            >
+              {t("site.careers.openCta")}
+            </Button>
+          )}
+        </div>
+
+        {open === "alert" && canAlert && <JobAlertForm />}
+        {open === "cv" && canCv && <OpenApplication />}
+      </Card>
+    </div>
+  );
+}
+
+/**
  * An application with no role attached.
  *
  * The confirmation is deliberately NOT the one a role application gets. That
