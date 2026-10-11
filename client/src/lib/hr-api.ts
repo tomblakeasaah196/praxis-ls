@@ -1863,6 +1863,22 @@ export const searchTalentPool = (params?: { q?: string; limit?: number }) =>
       }),
   );
 
+/**
+ * Where this tenant's careers page lives.
+ *
+ * Fetched, never built from `window.location.origin`. The ERP is served on the
+ * WORKSPACE host, and a tenant who brought their own domain has their careers
+ * page on that instead — the row that decides lives in the platform database.
+ * Building it here would print the company's internal ERP hostname on every job
+ * advert they post, which is what it used to do.
+ *
+ * `base` is "" when no host could be resolved. Show no link rather than a
+ * guessed one.
+ */
+export type CareersLink = { base: string; url: string | null };
+export const getCareersLink = () =>
+  tenant<CareersLink>("/vacancies/careers-link");
+
 /** Publishing MINTS a token; unpublishing DISCARDS it. Re-publishing produces a
  *  DIFFERENT link — every URL handed out under the old one stops working. */
 export const setVacancyPublished = (id: string, published: boolean) =>

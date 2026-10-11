@@ -42,6 +42,9 @@
 const registry = require("../../services/tenant/registry.service");
 const careersRepo = require("../../modules/hr/careers/careers.repo");
 const vacancyRepo = require("../../modules/hr/vacancy/vacancy.repo");
+// The path shape of a careers link, shared with the recruiter-facing screen
+// so the URL a subscriber is mailed and the one a recruiter copies agree.
+const { careersUrl } = require("../../modules/hr/careers/careers.link");
 const email = require("../../services/email.service");
 const { logger } = require("../../config/logger");
 
@@ -129,7 +132,7 @@ function digest({ rows, locale, baseUrl, token, company, name }) {
   const items = rows.map((v) => {
     const facts = [v.department, v.location].filter(Boolean).map(escapeHtml).join(" · ");
     const closes = v.closes_on ? `<br><small>${t.closes} ${dmy(v.closes_on)}</small>` : "";
-    const href = `${baseUrl}/careers/${encodeURIComponent(v.public_token)}`;
+    const href = careersUrl(baseUrl, v.public_token);
     // The title stays a link AND there is an explicit "View role" action below
     // it: a linked heading alone is easy to read past, and the one thing this
     // mail wants is the click through to the advert.
@@ -153,7 +156,7 @@ function digest({ rows, locale, baseUrl, token, company, name }) {
     "",
     t.intro(company),
     "",
-    ...rows.map((v) => `- ${v.title}${v.closes_on ? ` (${t.closes} ${dmy(v.closes_on)})` : ""}\n  ${t.viewRole}: ${baseUrl}/careers/${encodeURIComponent(v.public_token)}`),
+    ...rows.map((v) => `- ${v.title}${v.closes_on ? ` (${t.closes} ${dmy(v.closes_on)})` : ""}\n  ${t.viewRole}: ${careersUrl(baseUrl, v.public_token)}`),
     "",
     `${t.unsubscribe}: ${unsubHref}`,
   ].join("\n");

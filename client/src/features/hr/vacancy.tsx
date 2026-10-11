@@ -470,12 +470,17 @@ function Pipeline({
   vacancy: initial,
   onChanged,
   onEdit,
+  careersBase,
 }: {
   vacancy: api.Vacancy;
   onChanged: () => void;
   /** Opens the advert itself. The kanban shows a title and a pipeline; the
    *  description a candidate reads is only reachable through here. */
   onEdit: () => void;
+  /** The careers page's origin, resolved by the server and passed down from the
+   *  list so switching roles costs no round trip. "" until it has loaded, or
+   *  for good if the tenant has no host on file. */
+  careersBase: string;
 }) {
   const [vacancy, setVacancy] = React.useState(initial);
   React.useEffect(() => setVacancy(initial), [initial]);
@@ -506,13 +511,26 @@ function Pipeline({
    * public, which is a discovery best not made through a candidate.
    */
   const inSandbox = tokenStore.getEnv() === "sandbox";
-  const publicUrl = vacancy.public_token
-    ? // Same origin: the tenant is resolved from the HOST, so the careers page for
-      // this workspace is on this workspace's own domain. Building it from
-      // window.location rather than a configured base means a tenant on a custom
-      // domain gets their own domain in the link.
-      `${window.location.origin}/careers/${vacancy.public_token}`
-    : null;
+  /**
+   * NOT `window.location.origin`, which is what this used to be.
+   *
+   * That origin is the WORKSPACE host the staff app is served on. A tenant who
+   * brought their own domain has their careers page there instead, so the
+   * recruiter was being handed `smartls.praxisls.com/careers/…` to paste into a
+   * job board while their careers page was at `smartls.cm`. The link worked —
+   * the workspace host still answers `/careers/*` — which is what made it
+   * expensive: nothing failed, and the company's internal ERP hostname went out
+   * on the advert, on the job board and into every candidate's address bar.
+   *
+   * `careersBase` is resolved server-side from the same registry row that
+   * decides where the site is actually served (`GET /vacancies/careers-link`).
+   * Empty until it loads, and empty for good if the tenant has no host on file
+   * — in both cases the link is not rendered, because a guessed one is worse.
+   */
+  const publicUrl =
+    vacancy.public_token && careersBase
+      ? `${careersBase}/careers/${encodeURIComponent(vacancy.public_token)}`
+      : null;
 
   async function togglePublish() {
     const next = !vacancy.public_token;
@@ -874,6 +892,9 @@ function Pipeline({
 
 export function VacanciesPage() {
   const vacancies = useResource(() => api.listVacancies(), []);
+  /* Once for the screen, not once per role: it is a fact about the tenant, not
+     about the vacancy, and a recruiter clicks through a list of them. */
+  const careers = useResource(() => api.getCareersLink(), []);
   const [selId, setSelId] = React.useState<string | null>(null);
   // Three ways in, deliberately: the interview (default), the plain form it can
   // be escaped to, and the editor — which the interview lands in, and which is
@@ -983,6 +1004,7 @@ export function VacanciesPage() {
               vacancy={selected}
               onChanged={vacancies.reload}
               onEdit={() => setEditing(selected)}
+              careersBase={careers.data?.base || ""}
             />
           ) : (
             <EmptyState
