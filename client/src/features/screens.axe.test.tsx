@@ -1400,20 +1400,8 @@ const AREAS: Area[] = [
               },
             ],
             dossiers_more: 3,
-            margin_simulations: [
-              {
-                margin_simulation_id: "m1",
-                dossier_id: "d1",
-                dossier_ref: "SBX-2026-0007",
-                currency: "XAF",
-                margin_percent: 18.5,
-                total_cost: 690000,
-                total_price: 850000,
-                created_at: "2026-08-04T00:00:00Z",
-              },
-            ],
-            margin_simulations_more: 1,
-            invoices: [],
+            // Margin sims and invoices are no longer in this payload: the
+            // Commercial tab pages them from /service-types/:id/commercial/*.
             money: {
               planned: [
                 {
@@ -1435,9 +1423,9 @@ const AREAS: Area[] = [
             },
           },
         },
-        // Populated state has data but the "invoices" sub-table is legitimately
-        // empty in this fixture (finance visibility on, no invoice rows). The
-        // dossier row and dictionary row prove data reached the screen.
+        // The dossier row and the dictionary row prove data reached the
+        // screen; the money blocks live behind the Commercial tab and fetch
+        // themselves, so they are not part of this render.
         populatedProof: /SBX-2026-0007|SEA_HANDLING|Sea import/,
       },
     ],

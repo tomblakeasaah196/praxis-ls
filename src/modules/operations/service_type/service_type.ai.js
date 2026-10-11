@@ -22,7 +22,23 @@
  */
 const service = require("./service_type.service");
 const dossier360 = require("./service_type_360.service");
+const commercial = require("./service_type_commercial.service");
 const { serviceScope } = require("@praxis/shared");
+
+/**
+ * The Commercial tab reads are declared on MOD-09 `view`, not MOD-29.
+ *
+ * On the HTTP path each of the eleven money blocks is gated on the module that
+ * owns it, and finance visibility (a Treasury read, MOD-09) is the OR that
+ * unlocks all of them — see service_type_commercial.service.js. The AI
+ * executor has one `required_permission` per action and no request to resolve
+ * eleven grants against, so the honest mapping is the single grant that would
+ * open every block anyway. Declaring these on MOD-29 instead would hand the
+ * assistant's every caller the invoice and supplier-invoice figures that the
+ * screen refuses them, which is the exact bypass action-authz.js was written
+ * to close.
+ */
+const ALL_BLOCKS = Object.fromEntries(commercial.BLOCKS.map((b) => [b, true]));
 
 /**
  * Where each active service lands in a quote request (meeting 6, PR 2): its
@@ -75,6 +91,23 @@ module.exports = {
       key: "get_service_type_360",
       service: (c, p) => dossier360.dossier(c, (p && p.service_type_id) || p, { canSeeFinancials: false }), permission: { module: "MOD-29", action: "view" },
       describe: "Full 360 for one service type: milestone templates and their stages, applicable financial dictionary items, recent operations files and margin simulations, and the money rollup (billed / planned / actual — masked without finance visibility).",
+    },
+    {
+      // Same payload convention as the 360 read above: `service_type_id`, or
+      // the bare id. Every block is allowed because the declared permission IS
+      // the finance-visibility grant that allows them all.
+      key: "get_service_type_commercial",
+      service: (c, p) => commercial.overview(c, (p && p.service_type_id) || p, { allowed: ALL_BLOCKS, finance: true }),
+      permission: { module: "MOD-09", action: "view" },
+      describe: "The money rollup for one service type: quoted value and win rate, planned and actual cost, billed net of credit notes, realised margin, and the per-currency subtotal under each of the eleven commercial blocks (quotations, proforma, margin simulations, extra charges, pricing variance, FINAL invoices, credit notes, collections, costings, cash requests, supplier invoices). Figures are reported per currency and never converted.",
+    },
+    {
+      key: "list_service_type_commercial_block",
+      service: (c, p) => commercial.blockPage(c, p && p.service_type_id, p && p.block, {
+        limit: p && p.limit, offset: p && p.offset,
+      }),
+      permission: { module: "MOD-09", action: "view" },
+      describe: `One page of one money block for a service type. \`block\` is one of: ${commercial.BLOCKS.join(", ")}. Takes service_type_id, block, and optional limit (default 50, max 100) and offset; returns { rows, total } so the caller can page rather than see a truncated prefix.`,
     },
   ],
   writes: [],

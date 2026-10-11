@@ -1412,7 +1412,9 @@
         "list_service_types",
         "get_service_type",
         "get_service_type_360",
-        "list_service_quote_cards"
+        "list_service_quote_cards",
+        "get_service_type_commercial",
+        "list_service_type_commercial_block"
       ],
       "title_fr": "Types de service"
     },
@@ -3265,6 +3267,36 @@
       "value": "Commercial",
       "title": "Commercial",
       "title_fr": "Commercial",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_commercial_sell",
+      "source": "client/src/features/masterdata/service-type-commercial-tab.tsx",
+      "value": "Sell",
+      "title": "Sell",
+      "title_fr": "Vente",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_commercial_bill",
+      "source": "client/src/features/masterdata/service-type-commercial-tab.tsx",
+      "value": "Bill",
+      "title": "Bill",
+      "title_fr": "Facturation",
+      "record_types": [
+        "service_type"
+      ]
+    },
+    {
+      "id": "service_type_360_commercial_spend",
+      "source": "client/src/features/masterdata/service-type-commercial-tab.tsx",
+      "value": "Spend",
+      "title": "Spend",
+      "title_fr": "Dépenses",
       "record_types": [
         "service_type"
       ]

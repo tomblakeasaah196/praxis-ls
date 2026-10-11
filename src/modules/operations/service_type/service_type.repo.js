@@ -149,42 +149,12 @@ async function dossiersFor(client, serviceTypeId, { limit = 25 } = {}) {
   return rows;
 }
 
-/**
- * The N most recent margin simulations filed under this service type. Each row
- * carries its dossier ref (for the deep-link), currency and margin_percent — no
- * lines: those belong to the margin-sim screen the row links out to.
+/*
+ * The margin-simulation and FINAL-invoice readers that used to live here have
+ * moved to `service_type_commercial.repo.js`, which pages them server-side
+ * along with the nine other money blocks the Commercial tab now renders. They
+ * are not duplicated: one query per shape, in the file that owns it.
  */
-async function marginSimulationsFor(client, serviceTypeId, { limit = 25 } = {}) {
-  const { rows } = await client.query(
-    "SELECT ms.margin_simulation_id, ms.dossier_id, d.ref AS dossier_ref, " +
-      "  ms.currency, ms.margin_percent, ms.total_cost, ms.total_price, ms.created_at " +
-      "FROM margin_simulation ms " +
-      "LEFT JOIN dossier_visible d ON d.dossier_id = ms.dossier_id " +
-      "WHERE ms.service_type_id = $1 ORDER BY ms.created_at DESC LIMIT $2",
-    [serviceTypeId, limit],
-  );
-  return rows;
-}
-
-/**
- * The N most recent FINAL invoices whose dossier carries this service type.
- * Read-only rows for the Commercial tab — dossier ref, client, TTC, status.
- * Filtered to `FINAL` type only: proforma isn't revenue (§8.2).
- */
-async function invoicesFor(client, serviceTypeId, { limit = 25 } = {}) {
-  const { rows } = await client.query(
-    "SELECT i.invoice_id, i.doc_number, i.currency, i.total_ttc, i.status, " +
-      "  i.payment_due_on, i.created_at, i.dossier_id, d.ref AS dossier_ref, " +
-      "  cm.name AS client_name " +
-      "FROM invoice i " +
-      "JOIN dossier_visible d ON d.dossier_id = i.dossier_id " +
-      "LEFT JOIN client_master cm ON cm.client_id = i.client_id " +
-      "WHERE d.service_type_id = $1 AND i.type = 'FINAL' " +
-      "ORDER BY i.created_at DESC LIMIT $2",
-    [serviceTypeId, limit],
-  );
-  return rows;
-}
 
 /**
  * Money rollup across every dossier of this service type: planned (costing
@@ -324,8 +294,6 @@ module.exports = {
   templatesWithStages,
   dictionaryItemsFor,
   dossiersFor,
-  marginSimulationsFor,
-  invoicesFor,
   moneyRollup,
   stats,
 };
