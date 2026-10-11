@@ -1736,8 +1736,11 @@ const TEMPLATES = {
         const heading = a.title ? `Article ${i + 1}. ${a.title}` : `Article ${i + 1}`;
         return k.section({ fr: heading, en: heading }, `<div class="box">${k.esc(a.body).replace(/\n/g, "<br>")}</div>`, cfg);
       }).join("");
+      /* No "Reference" row: `number` is already printed under the title by
+       * `docName`, and the old "Type: EMPLOYMENT" row is gone because the
+       * title now says which of the four kinds this is. What is left is the
+       * two dates a reader actually looks for at the top of a contract. */
       const meta = [
-        [lang === "fr" ? "Référence" : "Reference", d.number],
         [lang === "fr" ? "Date d'effet" : "Effective", k.dateFmt(d.effective_on)],
         d.end_on ? [lang === "fr" ? "Échéance" : "Ends", k.dateFmt(d.end_on)] : null,
       ].filter(Boolean);
