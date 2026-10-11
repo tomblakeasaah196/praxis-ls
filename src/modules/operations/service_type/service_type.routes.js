@@ -9,13 +9,17 @@
  */
 "use strict";
 const express = require("express");
-const { asyncHandler } = require("../../../utils/errors");
+const { asyncHandler, AppError } = require("../../../utils/errors");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const controller = require("./service_type.controller");
 const service = require("./service_type.service");
 const validator = require("./service_type.validator");
 const dossier360 = require("./service_type_360.service");
+// The Commercial tab's eleven paged money blocks and its KPI strip. Separate
+// from the /360 payload on purpose — see service_type_commercial.repo.js.
+const commercial = require("./service_type_commercial.service");
+const { sendPaged } = require("../../../shared/http/paged");
 const { MODULE } = require("./service_type.events");
 // The shipment/service-detail form lives on the service type, so its routes
 // hang off this router rather than claiming a second basePath — `/service-types
@@ -54,6 +58,56 @@ router.get(
     res.json({ data });
   }),
 );
+/* ── Commercial tab (ST-360) ──────────────────────────────────────────────
+ *
+ * Two routes, not twelve. The first answers "what is on this tab" — which of
+ * the eleven money blocks this caller may open, the per-currency subtotal
+ * under each and the KPI strip. The second returns ONE page of ONE block.
+ *
+ * Nothing here rides the /360 payload: a service type sold for three years has
+ * thousands of invoices and costings, and shipping the first 25 of each to
+ * every caller who opens any tab is work done for a page most of them never
+ * look at. The tab fetches its summary when it opens and a block's rows when
+ * the sub-tab holding it opens.
+ *
+ * Gated MOD-29 `view` at the door, like every other route on this router —
+ * that is the grant to READ A SERVICE TYPE. Which money a caller then sees is
+ * a second question with eleven answers, resolved by `commercial.access` from
+ * the module that owns each block. The route refuses a block the caller may
+ * not read rather than returning an empty page, so "nothing here" and "not for
+ * you" stay distinguishable.
+ */
+router.get(
+  "/:id/commercial",
+  requirePermission(MODULE, "view"),
+  asyncHandler(async (req, res) => {
+    const access = await commercial.access(req);
+    const data = await req.tenantDb((c) => commercial.overview(c, req.params.id, access));
+    if (!data) throw new AppError("NOT_FOUND", "Service type not found", 404);
+    res.json({ data });
+  }),
+);
+router.get(
+  "/:id/commercial/:block",
+  requirePermission(MODULE, "view"),
+  validator.commercialBlock,
+  asyncHandler(async (req, res) => {
+    const { block } = req.params;
+    const { allowed } = await commercial.access(req);
+    if (!allowed[block]) {
+      const gate = commercial.BLOCK_GATE[block];
+      throw new AppError(
+        "PERMISSION_DENIED",
+        `No permission to read ${gate ? gate.name : block} on this service type`,
+        403,
+      );
+    }
+    const data = await req.tenantDb((c) => commercial.blockPage(c, req.params.id, block, req.query));
+    if (!data) throw new AppError("NOT_FOUND", "Service type not found", 404);
+    sendPaged(res, data);
+  }),
+);
+
 /**
  * The tier matrix (ST-360 → Dictionary). PUT is an upsert: setting a tier on a
  * line that is not yet scoped to this service ADDS it, which is what "add a

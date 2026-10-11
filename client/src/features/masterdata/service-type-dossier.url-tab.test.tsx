@@ -65,9 +65,6 @@ const DOSSIER_360 = {
   dictionary_items_generic: [],
   dossiers: [],
   dossiers_more: 0,
-  margin_simulations: [],
-  margin_simulations_more: 0,
-  invoices: [],
   money: { planned: [], billed: [], actual_total: 0, masked: true },
   containers: {
     captures_containers: false,

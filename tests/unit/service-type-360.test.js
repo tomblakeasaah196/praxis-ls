@@ -63,8 +63,6 @@ function stubRepo({
   templates = [],
   dictionary = { scoped: [], generic: [] },
   dossiers = [],
-  margin = [],
-  invoices = [],
   money = { planned: [], billed: [], actual_total: 0 },
   stats = {},
 } = {}) {
@@ -74,8 +72,6 @@ function stubRepo({
     templatesWithStages: () => Promise.resolve(templates),
     dictionaryItemsFor: () => Promise.resolve(dictionary),
     dossiersFor: () => Promise.resolve(dossiers),
-    marginSimulationsFor: () => Promise.resolve(margin),
-    invoicesFor: () => Promise.resolve(invoices),
     moneyRollup: () => Promise.resolve(money),
     stats: () => Promise.resolve(stats),
   };
@@ -113,8 +109,10 @@ describe("service_type_360.dossier", () => {
       expect(out.dictionary_items_generic).toEqual([]);
       expect(out.dossiers).toEqual([]);
       expect(out.dossiers_more).toBe(0);
-      expect(out.margin_simulations).toEqual([]);
-      expect(out.margin_simulations_more).toBe(0);
+      // Margin sims and invoices are NOT in this payload any more: they are two
+      // of the eleven blocks the Commercial tab pages server-side.
+      expect(out.margin_simulations).toBeUndefined();
+      expect(out.invoices).toBeUndefined();
       // stats fills in the zero defaults for every count when the repo returned {}.
       expect(out.stats.dossiers_total).toBe(0);
       expect(out.stats.template_versions).toBe(0);
@@ -174,9 +172,6 @@ describe("service_type_360.dossier", () => {
         ],
         actual_total: 42,
       },
-      // invoicesFor won't even be called by the aggregator when canSee=false,
-      // but the stub is here in case that changes.
-      invoices: [{ invoice_id: "i1" }],
     });
     try {
       const out = await service_360.dossier(fakeClient(), "st-1", {
@@ -186,9 +181,8 @@ describe("service_type_360.dossier", () => {
       expect(out.money.planned).toEqual([]);
       expect(out.money.billed).toEqual([]);
       expect(out.money.actual_total).toBe(0);
-      // The invoices list is fetched only for callers who can see them —
-      // aggregator skipped it, so nothing leaks even though the stub had rows.
-      expect(out.invoices).toEqual([]);
+      // The invoice ROWS are the Commercial tab's, gated per block there. What
+      // this payload still owes a masked caller is zeros with the flag set.
       // ever_billed is null (not false) so the UI does not imply "no revenue"
       // from a masked view.
       expect(out.readiness.ever_billed).toBeNull();
@@ -211,7 +205,6 @@ describe("service_type_360.dossier", () => {
         ],
         actual_total: 42,
       },
-      invoices: [{ invoice_id: "i1", doc_number: "INV-1" }],
     });
     try {
       const out = await service_360.dossier(fakeClient(), "st-1", {
@@ -223,7 +216,6 @@ describe("service_type_360.dossier", () => {
       ]);
       expect(out.money.actual_total).toBe(42);
       expect(out.readiness.ever_billed).toBe(true);
-      expect(out.invoices).toHaveLength(1);
     } finally {
       restore();
     }
