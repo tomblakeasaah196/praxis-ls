@@ -168,7 +168,7 @@ describe("ServiceTypeCommercialTab", () => {
     expect(await screen.findByText("DEV-0001")).toBeInTheDocument();
     expect(screen.getByText("Bolloré Logistics")).toBeInTheDocument();
     // The subtotal is the SERVER's figure, not a sum of the loaded page.
-    expect(screen.getByText(/quoted 2,146,500\.00 XAF/)).toBeInTheDocument();
+    expect(screen.getByText(/Quoted 2,146,500\.00 XAF/)).toBeInTheDocument();
   });
 
   it("a refused block says so instead of rendering an empty table", async () => {
