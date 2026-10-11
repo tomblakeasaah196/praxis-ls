@@ -55,18 +55,45 @@ const BATCH = 200;
  *  is not thereby rewriting their outbound mail. */
 const COPY = {
   fr: {
-    subject: (n) => (n === 1 ? "Une nouvelle offre d'emploi" : `${n} nouvelles offres d'emploi`),
-    intro: "Voici ce qui a été publié depuis votre dernière notification :",
+    // The company's name in the subject and the greeting, because "Une nouvelle
+    // offre d'emploi" from no one named is what an inbox files as spam. `company`
+    // can be null (a tenant whose registry row somehow carries no display name),
+    // and every line below falls back to the un-named wording rather than
+    // printing an empty "chez ".
+    subjectOne: (company, title) =>
+      company ? `Nouveau poste chez ${company} : ${title}` : `Une nouvelle offre d'emploi : ${title}`,
+    subjectMany: (company, n) =>
+      company ? `${n} nouveaux postes chez ${company}` : `${n} nouvelles offres d'emploi`,
+    greeting: (name) => (name ? `Bonjour ${name},` : "Bonjour,"),
+    intro: (company) =>
+      company
+        ? `Voici ce que ${company} a publié depuis votre dernière notification :`
+        : "Voici ce qui a été publié depuis votre dernière notification :",
+    viewRole: "Voir le poste",
     closes: "Candidatures jusqu'au",
     unsubscribe: "Se désinscrire de ces alertes",
   },
   en: {
-    subject: (n) => (n === 1 ? "A new job opening" : `${n} new job openings`),
-    intro: "Here is what has been posted since we last wrote:",
+    subjectOne: (company, title) =>
+      company ? `New role at ${company}: ${title}` : `A new job opening: ${title}`,
+    subjectMany: (company, n) =>
+      company ? `${n} new roles at ${company}` : `${n} new job openings`,
+    greeting: (name) => (name ? `Hello ${name},` : "Hello,"),
+    intro: (company) =>
+      company
+        ? `Here is what ${company} has posted since we last wrote:`
+        : "Here is what has been posted since we last wrote:",
+    viewRole: "View role",
     closes: "Applications close",
     unsubscribe: "Unsubscribe from these alerts",
   },
 };
+
+/** Subjects are a mail HEADER, not a body: collapse any whitespace a recruiter's
+ *  role title or the display name carries so a stray newline cannot become a
+ *  second header line. nodemailer encodes the value too, but defence in depth on
+ *  the one field a stranger-adjacent string reaches a header through is cheap. */
+const oneLine = (s) => String(s === null || s === undefined ? "" : s).replace(/\s+/g, " ").trim();
 
 /**
  * A date a PERSON reads, so day-first — the rule in CLAUDE.md and the gate in
@@ -87,31 +114,50 @@ const escapeHtml = (s) =>
  * One digest.
  *
  * Every interpolated value is escaped: `title`, `department` and `location` are
- * typed by a recruiter into an admin form, and this is the one place they are
- * rendered as HTML rather than as React text. A role titled `Déclarant <b>` is
- * a formatting bug; the same field is also the obvious place to put a tag that
- * is not one.
+ * typed by a recruiter into an admin form, the subscriber's `name` is typed on a
+ * public form, and `company` is the tenant's display name — this is the one
+ * place any of them is rendered as HTML rather than as React text. A role titled
+ * `Déclarant <b>` is a formatting bug; the same field is also the obvious place
+ * to put a tag that is not one.
  */
-function digest({ rows, locale, baseUrl, token }) {
+function digest({ rows, locale, baseUrl, token, company, name }) {
   const t = COPY[locale] || COPY.fr;
+  const one = rows.length === 1;
+  const subject = oneLine(
+    one ? t.subjectOne(company, rows[0].title) : t.subjectMany(company, rows.length),
+  );
   const items = rows.map((v) => {
     const facts = [v.department, v.location].filter(Boolean).map(escapeHtml).join(" · ");
     const closes = v.closes_on ? `<br><small>${t.closes} ${dmy(v.closes_on)}</small>` : "";
     const href = `${baseUrl}/careers/${encodeURIComponent(v.public_token)}`;
-    return `<li style="margin:0 0 12px"><a href="${href}">${escapeHtml(v.title)}</a>`
-      + (facts ? `<br><small>${facts}</small>` : "") + closes + "</li>";
+    // The title stays a link AND there is an explicit "View role" action below
+    // it: a linked heading alone is easy to read past, and the one thing this
+    // mail wants is the click through to the advert.
+    return `<li style="margin:0 0 16px">`
+      + `<a href="${href}" style="font-weight:600">${escapeHtml(v.title)}</a>`
+      + (facts ? `<br><small>${facts}</small>` : "")
+      + closes
+      + `<br><a href="${href}">${t.viewRole} &rarr;</a>`
+      + `</li>`;
   });
   const unsubHref = `${baseUrl}/careers/alerts/unsubscribe/${encodeURIComponent(token)}`;
-  const html = `<p>${t.intro}</p><ul style="padding-left:18px">${items.join("")}</ul>`
+  // `name` is typed by the subscriber on a public form and `company` is the
+  // tenant's display name: both are escaped here for the same reason the role
+  // fields are — this is where they become HTML.
+  const html = `<p>${escapeHtml(t.greeting(name))}</p>`
+    + `<p>${escapeHtml(t.intro(company))}</p>`
+    + `<ul style="padding-left:18px">${items.join("")}</ul>`
     + `<p style="margin-top:24px"><small><a href="${unsubHref}">${t.unsubscribe}</a></small></p>`;
   const text = [
-    t.intro,
+    t.greeting(name),
     "",
-    ...rows.map((v) => `- ${v.title}${v.closes_on ? ` (${t.closes} ${dmy(v.closes_on)})` : ""}\n  ${baseUrl}/careers/${encodeURIComponent(v.public_token)}`),
+    t.intro(company),
+    "",
+    ...rows.map((v) => `- ${v.title}${v.closes_on ? ` (${t.closes} ${dmy(v.closes_on)})` : ""}\n  ${t.viewRole}: ${baseUrl}/careers/${encodeURIComponent(v.public_token)}`),
     "",
     `${t.unsubscribe}: ${unsubHref}`,
   ].join("\n");
-  return { subject: t.subject(rows.length), html, text };
+  return { subject, html, text };
 }
 
 module.exports = async function careersAlerts(job) {
@@ -140,6 +186,13 @@ module.exports = async function careersAlerts(job) {
       return { skipped: "no base url" };
     }
 
+    // The tenant's own name for the subject and greeting. `display_name` is NOT
+    // NULL in the registry (provisioning seeds it), so this is populated for
+    // every real tenant; null only if the fan-out was handed a hand-built meta,
+    // in which case the copy falls back to the un-named wording. The slug is NOT
+    // a fallback — "smartls" in a subject line is worse than no name at all.
+    const company = tenantMeta.display_name || null;
+
     const sentIds = [];
     const at = new Date();
     for (const sub of subscribers) {
@@ -153,6 +206,8 @@ module.exports = async function careersAlerts(job) {
         locale: sub.locale === "en" ? "en" : "fr",
         baseUrl,
         token: sub.unsubscribe_token,
+        company,
+        name: sub.name,
       });
       try {
         await email.send(client, {
