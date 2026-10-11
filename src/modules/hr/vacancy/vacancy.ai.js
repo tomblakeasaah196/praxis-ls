@@ -3,6 +3,7 @@
 
 const service = require("./vacancy.service");
 const validator = require("./vacancy.validator");
+const careersLink = require("../careers/careers.link");
 
 module.exports = {
   entity: "vacancy",
@@ -13,6 +14,19 @@ module.exports = {
     { key: "list_vacancies", service: service.list, permission: { module: "MOD-11", action: "view" }, describe: "List job vacancies." },
     { key: "get_vacancy", service: service.get, permission: { module: "MOD-11", action: "view" }, describe: "Get one vacancy by id." },
     { key: "list_applicants", service: service.listApplicants, permission: { module: "MOD-11", action: "view" }, describe: "List applicants for a vacancy." },
+    /* No `origin` to pass — there is no request here — which is exactly why the
+       resolver reads the registry first rather than trusting a caller's host:
+       the assistant must not answer "where is our careers page?" with the ERP's
+       own hostname. */
+    {
+      key: "careers_link",
+      service: async (c) => {
+        const base = await careersLink.careersBase(c);
+        return { base, url: careersLink.careersIndexUrl(base) };
+      },
+      permission: { module: "MOD-11", action: "view" },
+      describe: "Where this tenant's public careers page is published.",
+    },
   ],
 
   writes: [

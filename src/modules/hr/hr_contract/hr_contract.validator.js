@@ -18,6 +18,13 @@ const create = z.object({
   title: z.string().max(200).optional(),
   body_md: z.string().max(60000).optional(),
   entity_id: z.string().uuid().optional(),
+  /* The language the contract is WRITTEN in (14402), not a rendering
+   * preference: the clauses are stored in it, so changing it after drafting
+   * only re-labels the letterhead. Redraft to change the text. */
+  language: z.enum(["en", "fr"]).optional(),
+  /* Category and echelon under the applicable collective agreement. Free text
+   * because the grid belongs to the sector agreement, not to this product. */
+  professional_category: z.string().max(160).optional(),
   job_title: z.string().max(160).optional(),
   gross_salary: z.number().nonnegative().optional(),
   salary_currency: z.string().length(3).optional(),
@@ -41,6 +48,9 @@ const status = z.object({ status: z.enum(["DRAFT", "ISSUED", "SIGNED", "ENDED"])
 const draft = z.object({
   title: z.string().max(200).optional(),
   entity_id: z.string().uuid().optional(),
+  language: z.enum(["en", "fr"]).optional(),
+  professional_category: z.string().max(160).optional(),
+  reports_to: z.string().max(160).optional(),
   job_title: z.string().max(160).optional(),
   effective_on: d.optional(),
   end_on: d.optional(),

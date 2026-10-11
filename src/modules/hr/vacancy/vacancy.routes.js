@@ -35,6 +35,10 @@ router.post("/", requirePermission(M, "create"), validator.create, controller.cr
 // Literal paths BEFORE /:id, or `/talent-pool` is read as a vacancy id and the
 // id guard rejects it as a malformed uuid.
 router.get("/talent-pool", requirePermission(M, "view"), controller.searchPool);
+/* The careers page's own address. `view`, and literal-before-/:id for the same
+ * reason `/talent-pool` is: anyone who can see a vacancy can see where it is
+ * published, and the screen needs it before a role is even selected. */
+router.get("/careers-link", requirePermission(M, "view"), controller.careersLink);
 
 /* ── The drafting interview (0526) ────────────────────────────────────────
  *
