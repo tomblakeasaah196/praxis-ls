@@ -388,7 +388,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 763× | — |
+| `NOT_FOUND` | 404, 422 | 766× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -524,7 +524,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `PAYLOAD_TOO_LARGE` | 413 | 1× | — |
 | `PERIOD_CLOSED` | 422 | 1× | — |
 | `PERIOD_NOT_OPEN` | 422 | 1× | — |
-| `PERMISSION_DENIED` | 403 | 10× | — |
+| `PERMISSION_DENIED` | 403 | 11× | — |
 | `PERSONAL_MAILBOX` | — | 1× | — |
 | `PERSONAL_MAILBOX_EXISTS` | — | 1× | — |
 | `PIN_EXPIRED` | 422 | 1× | — |
@@ -723,7 +723,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `USE_APPROVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 400, 422 | 292× | — |
+| `VALIDATION_ERROR` | 400, 422 | 293× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |

@@ -2,9 +2,22 @@
  * Service type 360° aggregation. One call returns everything the service-type
  * page renders: the row itself, the header stat strip, every milestone template
  * version with its stages, the financial dictionary items scoped to this
- * service (plus the generic bucket), the recent dossiers, the margin sims and
- * a per-currency money rollup (planned costing / actual GL / billed FINAL
- * invoices), and a small readiness checklist.
+ * service (plus the generic bucket), the recent dossiers, a per-currency money
+ * rollup (planned costing / actual GL / billed FINAL invoices), and a small
+ * readiness checklist.
+ *
+ * WHAT IT NO LONGER RETURNS, AND WHY. The margin simulations and the FINAL
+ * invoices used to ride this payload, 25 of each, with a `_more` count beside
+ * them. They are now two of the ELEVEN blocks the Commercial tab pages
+ * server-side (service_type_commercial.repo.js), because a service type sold
+ * for three years carries thousands of each and "25 most recent, 4,117 older
+ * not listed here" is a sentence telling the reader the screen cannot answer
+ * their question. Shipping them here also charged every caller who opened
+ * Milestones for a tab they did not open.
+ *
+ * The `money` rollup STAYS. It is three small aggregates, the dossier's header
+ * tile reads it, and the Commercial tab's own summary is computed to agree
+ * with it to the franc.
  *
  * Built to render for a BRAND-NEW service type with zero downstream data — every
  * collection defaults to `[]` and every figure to `0`, so the page after
@@ -90,8 +103,6 @@ async function dossier(c, serviceTypeId, { canSeeFinancials: canSee = false } = 
     : [];
   const dictionary = await repo.dictionaryItemsFor(c, row.key);
   const dossiers = await repo.dossiersFor(c, serviceTypeId, { limit: 25 });
-  const margin_simulations = await repo.marginSimulationsFor(c, serviceTypeId, { limit: 25 });
-  const invoices = canSee ? await repo.invoicesFor(c, serviceTypeId, { limit: 25 }) : [];
   const money = maskMoney(await repo.moneyRollup(c, serviceTypeId), canSee);
 
   const activeTemplate = templates.find((t) => t.is_active === true) || null;
@@ -133,9 +144,6 @@ async function dossier(c, serviceTypeId, { canSeeFinancials: canSee = false } = 
     dictionary_items_generic: dictionary.generic,
     dossiers,
     dossiers_more: Math.max(0, (stats.dossiers_total || 0) - dossiers.length),
-    margin_simulations,
-    margin_simulations_more: Math.max(0, (stats.margin_simulations || 0) - margin_simulations.length),
-    invoices,
     money,
   };
 }

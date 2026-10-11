@@ -752,28 +752,6 @@ export type ServiceTypeDossierRow = {
   milestone_done: number;
   current_milestone?: string | null;
 };
-export type ServiceTypeMarginSim = {
-  margin_simulation_id: string;
-  dossier_id?: string | null;
-  dossier_ref?: string | null;
-  currency: string;
-  margin_percent?: number | string | null;
-  total_cost: number | string;
-  total_price: number | string;
-  created_at?: string;
-};
-export type ServiceTypeInvoiceRow = {
-  invoice_id: string;
-  doc_number?: string | null;
-  currency: string;
-  total_ttc: number | string;
-  status: string;
-  payment_due_on?: string | null;
-  created_at?: string;
-  dossier_id?: string | null;
-  dossier_ref?: string | null;
-  client_name?: string | null;
-};
 export type ServiceTypeMoneyRollup = {
   planned: {
     currency: string;
@@ -820,9 +798,9 @@ export type ServiceTypeDossier = {
   dictionary_items_generic: ServiceTypeDictionaryItem[];
   dossiers: ServiceTypeDossierRow[];
   dossiers_more: number;
-  margin_simulations: ServiceTypeMarginSim[];
-  margin_simulations_more: number;
-  invoices: ServiceTypeInvoiceRow[];
+  /** Margin sims and FINAL invoices are no longer here: they are two of the
+   *  eleven blocks the Commercial tab pages server-side. `money` stays, because
+   *  the header's Billed tile reads it. */
   money: ServiceTypeMoneyRollup;
   /** The shipment/service-detail form (0660): every version, plus the fields of
    *  whichever one is live. */
@@ -836,6 +814,167 @@ export type ServiceTypeDossier = {
 
 export const getServiceTypeDossier = (id: string) =>
   tenant<ServiceTypeDossier>(`/service-types/${id}/360`);
+
+/* ── The Commercial tab ────────────────────────────────────────────────────
+ *
+ * Eleven money blocks, each PAGED SERVER-SIDE at 25 and fetched only when the
+ * sub-tab holding it opens. None of them rides the /360 payload: a service
+ * type sold for three years carries thousands of invoices, and "25 most
+ * recent, 4,117 not listed" is a sentence telling the reader the screen cannot
+ * answer their question.
+ *
+ * Two endpoints. `getServiceTypeCommercial` is the summary the strip and the
+ * per-block subtotals draw from, and it says which blocks this caller may open
+ * at all. The rows come from `/commercial/:block`, which `useListPaged` calls
+ * directly because it already builds `?limit=&offset=` and reads the true
+ * total off `X-Total-Count`.
+ *
+ * A figure can arrive as a string: Postgres `numeric` comes back as a string
+ * through the row queries and as a JSON number through the summary's
+ * `json_build_object`. Both are real, so every money field is typed for both
+ * and goes through `money()` / `Number()` rather than being trusted as one.
+ */
+export type CommercialBlock =
+  | "quotations"
+  | "proforma"
+  | "margin_sims"
+  | "extra_charges"
+  | "pricing_variance"
+  | "invoices"
+  | "credit_notes"
+  | "collections"
+  | "costings"
+  | "cash_requests"
+  | "supplier_invoices";
+
+export type CommercialGroup = "sell" | "bill" | "spend";
+
+/** Postgres numeric: a JSON number from the summary, a string from a row. */
+export type Money = number | string;
+
+/** One per-currency subtotal row. The columns differ per block, so the shape
+ *  is open beyond the currency every one of them carries. */
+export type CommercialTotal = { currency: string } & Record<string, Money | null>;
+
+/** A tile on the strip. `allowed: false` means refused, never zero — the two
+ *  look identical on a tile and mean opposite things. */
+export type CommercialTile = {
+  allowed: boolean;
+  xaf: number | null;
+  count?: number | null;
+  by_currency: CommercialTotal[];
+};
+
+export type ServiceTypeCommercial = {
+  blocks: {
+    block: CommercialBlock;
+    group: CommercialGroup;
+    allowed: boolean;
+    /** The module whose `view` grant opens it; null for the ungated one. */
+    gate: string | null;
+  }[];
+  /** Per-currency subtotals, or null where the caller may not read the block. */
+  totals: Record<CommercialBlock, CommercialTotal[] | null>;
+  actual_xaf: number | null;
+  kpis: {
+    quoted: CommercialTile;
+    win_rate: {
+      allowed: boolean;
+      /** Null when nothing has been decided yet, which is not a loss rate. */
+      percent: number | null;
+      won: number | null;
+      decided: number | null;
+    };
+    planned: CommercialTile;
+    actual: CommercialTile;
+    billed_net: CommercialTile;
+    margin: { allowed: boolean; percent: number | null };
+  };
+  finance_visibility: boolean;
+};
+
+export const getServiceTypeCommercial = (id: string) =>
+  tenant<ServiceTypeCommercial>(`/service-types/${id}/commercial`);
+
+/** The path `useListPaged` pages through for one block's rows. */
+export const serviceTypeCommercialPath = (id: string, block: CommercialBlock) =>
+  `/service-types/${id}/commercial/${block}`;
+
+/* The eleven row shapes. Every one carries `row_id` — the server aliases each
+ * table's own primary key to it so one component can render all eleven. */
+type CommercialRowBase = {
+  row_id: string;
+  dossier_id?: string | null;
+  dossier_ref?: string | null;
+  created_at?: string;
+};
+export type CommercialQuotationRow = CommercialRowBase & {
+  doc_number?: string | null; status: string; currency: string;
+  total_ht: Money; total_ttc: Money; margin_percent?: Money | null;
+  valid_until?: string | null; client_name?: string | null;
+};
+export type CommercialProformaRow = CommercialRowBase & {
+  doc_number?: string | null; status: string; currency: string;
+  service_ht: Money; total_ttc: Money; payment_due_on?: string | null;
+  client_name?: string | null;
+};
+export type CommercialMarginSimRow = CommercialRowBase & {
+  currency: string; margin_percent?: Money | null; total_cost: Money; total_price: Money;
+};
+export type CommercialExtraChargeRow = CommercialRowBase & {
+  shipping_line?: string | null; container_variant?: string | null;
+  free_days?: number | null; out_of_port_on?: string | null;
+  total_amount: Money; currency: string;
+};
+export type CommercialPricingVarianceRow = CommercialRowBase & {
+  quoted_price?: Money | null; actual_cost?: Money | null;
+  variance_percent?: Money | null; flag?: "GREEN" | "YELLOW" | "RED" | null;
+  computed_at?: string; quotation_number?: string | null;
+};
+export type CommercialInvoiceRow = CommercialRowBase & {
+  doc_number?: string | null; status: string; currency: string;
+  service_ht: Money; disbursement_total: Money; vat_total: Money; total_ttc: Money;
+  paid: Money; outstanding: Money;
+  payment_due_on?: string | null; client_name?: string | null;
+};
+export type CommercialCreditNoteRow = CommercialRowBase & {
+  doc_number?: string | null; status: string; currency: string;
+  service_ht: Money; total_ttc: Money; client_name?: string | null;
+};
+export type CommercialCollectionRow = CommercialRowBase & {
+  amount: Money; method: string; received_on?: string | null; status: string;
+  invoice_id: string; invoice_number?: string | null; currency: string;
+  client_name?: string | null;
+};
+export type CommercialCostingRow = CommercialRowBase & {
+  doc_number?: string | null; status: string; currency: string;
+  margin_percent?: Money | null; exchange_rate_to_xaf?: Money | null;
+  planned_total: Money; planned_disbursement: Money; client_name?: string | null;
+};
+export type CommercialCashRequestRow = CommercialRowBase & {
+  doc_number?: string | null; status: string; currency: string;
+  amount: Money; amount_xaf: Money; disbursed: Money; justified: Money;
+};
+export type CommercialSupplierInvoiceRow = CommercialRowBase & {
+  doc_number?: string | null; supplier_ref?: string | null; status: string;
+  currency: string; amount_ht: Money; vat_total: Money; wht_total: Money;
+  amount_ttc: Money; due_on?: string | null; supplier_name?: string | null;
+};
+
+/** Block → the row shape its endpoint returns. */
+export type CommercialRowMap = {
+  quotations: CommercialQuotationRow;
+  proforma: CommercialProformaRow;
+  margin_sims: CommercialMarginSimRow;
+  extra_charges: CommercialExtraChargeRow;
+  pricing_variance: CommercialPricingVarianceRow;
+  invoices: CommercialInvoiceRow;
+  credit_notes: CommercialCreditNoteRow;
+  collections: CommercialCollectionRow;
+  costings: CommercialCostingRow;
+  cash_requests: CommercialCashRequestRow;
+  supplier_invoices: CommercialSupplierInvoiceRow;
+};
 
 /* ── The tier matrix (ST-360 → Dictionary) ─────────────────────────────────
  * `tier` is the LOWEST bundle a line appears in: the sets nest, so moving a

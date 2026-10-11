@@ -2,6 +2,8 @@
 const { z } = require("zod");
 const { serviceScope, incoterms } = require("@praxis/shared");
 const { AppError } = require("../../../utils/errors");
+// The block names are the repo's, never a second list — see `commercialBlock`.
+const commercialRepo = require("./service_type_commercial.repo");
 
 /**
  * `key` is the stable machine identifier (citext UNIQUE). It ends up in
@@ -119,12 +121,50 @@ const dictionaryTier = z.object({
   tier: z.enum(["BASIC", "ADVANCED", "FULL"]),
 });
 
-const schemas = { create, update, dictionaryTier };
+/**
+ * The Commercial tab's page window. 25 is what the tab asks for; the ceiling is
+ * 100 rather than the shared `page()` default of 200 because every one of the
+ * eleven blocks carries money columns a reader scans by eye, and a 200-row
+ * money table is a scroll, not a report. A caller that wants more pages them.
+ */
+const commercialQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
+const schemas = { create, update, dictionaryTier, commercialQuery };
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);
   if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors));
   req.body = p.data;
   return next();
 };
+/** Query-string validator — same shape as `mw`, but reads req.query. */
+const qmw = (k) => (req, _res, next) => {
+  const p = schemas[k].safeParse(req.query);
+  if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid query", 422, p.error.flatten().fieldErrors));
+  req.query = { ...req.query, ...p.data };
+  return next();
+};
 
-module.exports = { create: mw("create"), update: mw("update"), dictionaryTier: mw("dictionaryTier"), schemas, TERRITORIES: TERRITORY.options, ENQUIRY_SHAPES: ENQUIRY_SHAPE.options };
+/**
+ * `:block` is one of the eleven the Commercial tab renders; anything else is a
+ * route that does not exist, so 404 rather than 422 — same call the dictionary
+ * makes for its usage tiles (financial_dictionary.validator.js:229).
+ *
+ * The name is checked against the repo's own frozen map rather than a list
+ * re-typed here, so adding a twelfth block cannot leave the two disagreeing.
+ * It is also the reason no block name ever reaches SQL as a string.
+ */
+const commercialBlock = (req, res, next) => {
+  if (!commercialRepo.BLOCKS.includes(req.params.block)) {
+    return next(new AppError("NOT_FOUND", "Unknown commercial block", 404));
+  }
+  return qmw("commercialQuery")(req, res, next);
+};
+
+module.exports = {
+  create: mw("create"), update: mw("update"), dictionaryTier: mw("dictionaryTier"),
+  commercialBlock, commercialQuery: qmw("commercialQuery"),
+  schemas, TERRITORIES: TERRITORY.options, ENQUIRY_SHAPES: ENQUIRY_SHAPE.options,
+};
