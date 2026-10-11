@@ -43,12 +43,32 @@
 -- ============================================================================
 
 /* 'en' | 'fr'. The same two-letter shape as corporate_entity.default_language,
- * so the renderer can take either without a translation step. */
-ALTER TABLE hr_contract ADD COLUMN IF NOT EXISTS language char(2)
-  CHECK (language IS NULL OR language IN ('en','fr'));
+ * so the renderer can take either without a translation step.
+ *
+ * NO CHECK CONSTRAINT, and that is the 13791 rule rather than an oversight.
+ * `hr_contract` is a pre-existing table (0360), and a migration above 13791 may
+ * add PLAIN columns to one and nothing else: 13791 repairs sandbox by mirroring
+ * the constraints it finds in live, and in the SANDBOX pass of a fresh
+ * provision it sees live at the head of the list while sandbox is only at
+ * 13791. It guards that the TABLE exists in the target, not that the COLUMN
+ * does, so a CHECK here aborts provisioning with
+ *
+ *     Failed applying tenant/13791_sandbox_constraint_repair.sql [sandbox]:
+ *       column "language" does not exist
+ *
+ * `tests/unit/migration-constraint-ordering.test.js` pins this, and it caught
+ * exactly that on the first draft of this file.
+ *
+ * The two values are enforced where every other post-13791 enum is:
+ * `hr_contract.validator` (`z.enum(["en","fr"])` on create, update and draft),
+ * the drafter's `asLang`, and the controller, which resolves the caller's pick
+ * against the row and then the entity's own CHECKed `default_language`. The
+ * renderer treats anything else as English, so the failure mode of a value
+ * arriving another way is an English contract, not a corrupted one. */
+ALTER TABLE hr_contract ADD COLUMN IF NOT EXISTS language char(2);
 
 COMMENT ON COLUMN hr_contract.language IS
-  'The language this contract is drafted and printed in, chosen once at drafting. NULL for contracts issued before 14402, which fall back to the entity default at render time.';
+  'The language this contract is drafted and printed in (en|fr), chosen once at drafting. Enforced in hr_contract.validator + the drafter, NOT by a CHECK (13791 rule). NULL for contracts issued before 14402, which fall back to the entity default at render time.';
 
 ALTER TABLE hr_contract ADD COLUMN IF NOT EXISTS professional_category text;
 
