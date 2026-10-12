@@ -173,6 +173,12 @@ const WarehouseHub = lazyNamed(
   "WarehouseHub",
 );
 const HrHub = lazyNamed(() => import("@/features/hr/hub"), "HrHub");
+// Contract 360 — the page a contract is drafted on. Its own chunk: it carries
+// the rich text editor, which nothing else in the HR hub needs.
+const ContractPage = lazyNamed(
+  () => import("@/features/hr/contract-page"),
+  "ContractPage",
+);
 const FinanceHub = lazyNamed(
   () => import("@/features/finance/hub"),
   "FinanceHub",
@@ -634,6 +640,11 @@ export function App() {
               <Route path="wms/:section" element={<WarehouseHub />} />
               {/* People & HR — one hub, deep-linkable tabs (old /hr/<screen> paths resolve) */}
               <Route path="hr" element={<HrHub />} />
+              {/* Contract 360, BEFORE the hub's `:section`. Two static segments
+                  outrank one param under the router's own ranking, so the order
+                  here is for the reader rather than the matcher — but a
+                  contract id must never be read as a hub section. */}
+              <Route path="hr/contracts/:contractId" element={<ContractPage />} />
               <Route path="hr/:section" element={<HrHub />} />
               {/* Finance — one hub, deep-linkable tabs (per-section routes still resolve) */}
               <Route path="finance" element={<FinanceHub />} />

@@ -48,6 +48,43 @@ module.exports = {
     return rows[0] || null;
   },
 
+  /**
+   * The chain this contract sits in, and the employee's other contracts.
+   *
+   * `renews` is the one it supersedes and `supersededBy` is the one that
+   * supersedes IT — the reverse of the same column, which nothing has ever
+   * read. A renewal was visible only from the new contract looking back, so an
+   * HR officer opening last year's contract had no way to see it had been
+   * replaced, and the obvious mistake was to amend the superseded one.
+   *
+   * `siblings` is everything else on file for this employee, newest first, so
+   * drafting a renewal does not mean leaving the page to check what the last
+   * one said. Capped: an employee with a long history is a list to scroll, not
+   * a reason to load every contract they have ever had.
+   */
+  async chain(client, id) {
+    const { rows } = await client.query(
+      `WITH me AS (SELECT employee_id, renews_contract_id FROM hr_contract WHERE hr_contract_id = $1)
+       SELECT c.hr_contract_id, c.kind, c.status, c.doc_number, c.title,
+              c.effective_on, c.end_on, c.signed_on, c.gross_salary, c.salary_currency,
+              c.job_title, c.created_at,
+              CASE
+                WHEN c.hr_contract_id = (SELECT renews_contract_id FROM me) THEN 'renews'
+                WHEN c.renews_contract_id = $1 THEN 'superseded_by'
+                ELSE 'sibling'
+              END AS relation
+         FROM hr_contract c, me
+        WHERE c.hr_contract_id <> $1
+          AND (c.employee_id = me.employee_id
+               OR c.hr_contract_id = me.renews_contract_id
+               OR c.renews_contract_id = $1)
+        ORDER BY coalesce(c.effective_on, c.created_at::date) DESC
+        LIMIT 25`,
+      [id],
+    );
+    return rows;
+  },
+
   /** The handbook, by title. Titles only — see hr_contract.draft for why. */
   async sopTitles(client) {
     const { rows } = await client.query(

@@ -311,3 +311,73 @@ describe("which language a contract renders in", () => {
     expect(resolveDocLanguage(null, { language: "fr" }, "en", "INVOICE", null)).toBe("fr");
   });
 });
+
+describe("the grammar the editor has to carry", () => {
+  /**
+   * The contract body is edited in a rich text editor whose document model
+   * covers exactly one grammar: article heading, paragraph, bullet list,
+   * ordered list, bold, italic, and a hard break inside a paragraph
+   * (`client/src/lib/contract-md.ts`).
+   *
+   * Every save round-trips the agreed text through that model. A construct the
+   * library emits and the editor cannot represent is formatting that vanishes
+   * the first time somebody opens the contract and presses save — on the one
+   * document where losing a line matters, with nothing failing anywhere.
+   *
+   * So this is the library's half of the contract: it may only write what the
+   * editor can carry. The editor's half is `contract-md.test.ts`, which
+   * round-trips this library's verbatim output.
+   */
+  const FORBIDDEN = [
+    [/^\s{0,3}\|/m, "a table row"],
+    [/^\s{0,3}```/m, "a fenced code block"],
+    [/^\s{0,3}>/m, "a block quote"],
+    [/^\s{0,3}(?:[-*_]\s*){3,}$/m, "a horizontal rule"],
+    [/!\[[^\]]*\]\(/, "an image"],
+    [/\[[^\]]+\]\([^)]+\)/, "a link"],
+    [/^#(?!#)\s/m, "a level-one heading"],
+    [/^#{3,}\s/m, "a heading below the article level"],
+    [/~~/, "strikethrough"],
+    [/`[^`]+`/, "inline code"],
+  ];
+
+  const EVERY_TERMS = {
+    ...TERMS,
+    end_on: "2027-08-18",
+    allowances: ["a transport allowance of 50,000 XAF", "a housing allowance"],
+    offer_valid_until: "2026-09-30",
+    termination_reason: "redundancy",
+    collective_agreement: "the Convention Collective Nationale des Transports",
+    duties_md: "- Take charge of import operations.\n- Clear declarations at Douala.",
+  };
+
+  it("emits nothing the editor cannot represent, for any kind or language", () => {
+    const offences = [];
+    for (const kind of clauses.KINDS) {
+      for (const lang of ["en", "fr"]) {
+        for (const c of clauses.clausesFor(EVERY_TERMS, { kind, lang })) {
+          for (const [pattern, what] of FORBIDDEN) {
+            if (pattern.test(c.body) || pattern.test(c.title)) {
+              offences.push(`${kind}/${lang}/${c.key}: ${what}`);
+            }
+          }
+        }
+      }
+    }
+    expect(offences).toEqual([]);
+  });
+
+  it("separates paragraphs with a blank line and nothing else", () => {
+    // `contract-md` splits blocks on a blank line and the PDF turns each
+    // newline into a <br>. Three consecutive newlines would round-trip to two
+    // and quietly close up a gap in a signed document.
+    for (const kind of clauses.KINDS) {
+      for (const lang of ["en", "fr"]) {
+        for (const c of clauses.clausesFor(EVERY_TERMS, { kind, lang })) {
+          expect(c.body).not.toMatch(/\n{3,}/);
+          expect(c.body).toBe(c.body.trim());
+        }
+      }
+    }
+  });
+});
