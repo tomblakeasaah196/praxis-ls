@@ -6,6 +6,7 @@
 import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { DocButton } from "@/components/doc-button";
@@ -20,7 +21,6 @@ import { PageHeader, DataList, type Column } from "@/components/data-list";
 import { TransitionButtons } from "@/components/ui/workflow";
 import { ScreenAi } from "@/components/screen-ai";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
-import { ContractEditor } from "./contract-editor";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { reportActionError } from "@/lib/action-error";
 import { dateFmt, enumLabel } from "@/lib/format";
@@ -319,8 +319,16 @@ export function ContractsPage() {
   // table, because "six contracts lapse this month" is the thing somebody
   // opening this screen most needs to know and it was previously unanswerable.
   const lapsing = useResource(() => api.lapsingContracts(60), []);
+  const navigate = useNavigate();
   const [creating, setCreating] = React.useState(false);
-  const [editing, setEditing] = React.useState<api.Contract | null>(null);
+  /** Opening a contract is a NAVIGATION now, not a dialog. A four-page
+   *  document does not fit in one, and a contract needs an address: a URL you
+   *  can send, a page that survives a refresh, and a route the shell can
+   *  permission-filter. See features/hr/contract-page. */
+  const openContract = React.useCallback(
+    (c: api.Contract) => navigate(`/hr/contracts/${c.hr_contract_id}`),
+    [navigate],
+  );
   const [busy, setBusy] = React.useState<string | null>(null);
   const [renewing, setRenewing] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -378,7 +386,9 @@ export function ContractsPage() {
       const renewed = await api.renewContract(c.hr_contract_id);
       rows.reload();
       lapsing.reload();
-      setEditing(renewed);
+      // Straight onto the renewal's own page, which is where the next thing to
+      // do — redraft it against the new dates — actually happens.
+      navigate(`/hr/contracts/${renewed.hr_contract_id}`);
     } catch (e) {
       setError(errMsg(e));
     } finally {
@@ -507,7 +517,7 @@ export function ContractsPage() {
        * signed paper says is what puts it in front of the expiry watcher. */
       render: (c) => (
         <div className="flex justify-end">
-          <Button size="sm" variant="outline" onClick={() => setEditing(c)}>
+          <Button size="sm" variant="outline" onClick={() => openContract(c)}>
             {c.status !== "DRAFT" ? "Record terms" : c.body_md ? "Edit text" : "Draft text"}
           </Button>
         </div>
@@ -524,7 +534,7 @@ export function ContractsPage() {
         action={<Button onClick={() => setCreating(true)}>New contract</Button>}
       />
       <HubTabs />{" "}
-      <LapsingPanel data={lapsing.data} onOpen={setEditing} rows={rows.data} />
+      <LapsingPanel data={lapsing.data} onOpen={openContract} rows={rows.data} />
       {error && (
         <div className="mb-3">
           <ErrorState message={error} />
@@ -545,16 +555,6 @@ export function ContractsPage() {
         <NewContractForm
           onClose={() => setCreating(false)}
           onSaved={rows.reload}
-        />
-      )}
-      {editing && (
-        <ContractEditor
-          contract={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            rows.reload();
-            lapsing.reload();
-          }}
         />
       )}
       <ScreenAi path="hr/contracts" />

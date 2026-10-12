@@ -768,6 +768,18 @@
       "title_fr": "Postes vacants"
     },
     {
+      "id": "hr_contract_dossier",
+      "title": "Contract 360",
+      "route": "/hr/contracts/:contractId",
+      "area": "hr",
+      "module_key": "MOD-12",
+      "purpose": "One contract, on its own page: the agreed terms, the clauses as editable text, the printed preview on the tenant's letterhead, the compliance review of the terms as they stand, the signatures, and the renewal chain with the employee's other contracts. Replaces the 512px dialog a four-page document used to be edited in. `get_contract` is the dossier's unique read (ai-readiness); the list above keeps the registers.",
+      "actions": [
+        "get_contract"
+      ],
+      "title_fr": "Contrat 360"
+    },
+    {
       "id": "hr_contracts",
       "title": "Contracts",
       "route": "/hr/contracts",
@@ -776,7 +788,6 @@
       "purpose": "HR contracts: offer, employment, confirmation, termination.",
       "actions": [
         "list_contracts",
-        "get_contract",
         "create_contract",
         "update_contract",
         "set_contract_status"
