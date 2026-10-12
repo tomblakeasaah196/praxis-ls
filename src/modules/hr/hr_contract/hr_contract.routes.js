@@ -56,6 +56,14 @@ router.post("/:id/status", validator.status, requireTransitionPermission(M, TRAN
  * signature block and the verify footer every other issued document gets. A
  * second renderer in this module would be a second letterhead to keep in step. */
 router.post("/:id/draft", requirePermission(M, "edit"), validator.draft, controller.draftFor);
+/* The compliance review of terms as they stand. `view`, not `edit`: it writes
+ * nothing and spends no model call, and an HR officer who may read a contract
+ * should be told a fixed term runs past the statutory ceiling. Same validator
+ * as the draft, because it is scoring the same facts. */
+router.post("/:id/review", requirePermission(M, "view"), validator.draft, controller.reviewTerms);
+/* The renewal chain, the employee's other contracts and the signatures, in one
+ * read. `view` — it is the page's own furniture. */
+router.get("/:id/dossier", requirePermission(M, "view"), controller.dossier);
 /* Renewal (10708): creates a NEW DRAFT contract that supersedes this one —
  * `create`, not `edit`, because it is the birth of a record, not a change to
  * one. The renewed contract's own lifecycle gates then apply as usual. */

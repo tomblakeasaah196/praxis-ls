@@ -1437,8 +1437,75 @@ export const draftContract = (
   },
 ) => tenant<Contract>(`/contracts/${id}/draft`, { method: "POST", body });
 
+export const getContract = (id: string) => tenant<Contract>(`/contracts/${id}`);
+
 export const updateContract = (id: string, body: Partial<Contract>) =>
   tenant<Contract>(`/contracts/${id}`, { method: "PATCH", body });
+
+/** Terms the review is scored against. The same shape the drafter is told. */
+export type ContractTerms = {
+  language?: "en" | "fr";
+  professional_category?: string;
+  job_title?: string;
+  effective_on?: string;
+  end_on?: string;
+  gross_salary?: number;
+  probation_months?: number;
+  place_of_work?: string;
+};
+
+/**
+ * What is wrong with these terms, without drafting anything.
+ *
+ * Server-side because two of the rules read the tenant's own configuration
+ * (the working week, whether a CNPS employer number is on file) and because a
+ * second copy of the statutory limits in TypeScript is a second thing to keep
+ * current. Called as the terms change, so a fixed term past the ceiling is
+ * flagged while somebody is setting it.
+ */
+export const reviewContractTerms = (id: string, body: ContractTerms) =>
+  tenant<{ review: ContractWarning[] }>(`/contracts/${id}/review`, { method: "POST", body });
+
+/** Where a contract sits relative to its neighbours. */
+export type ContractChainRow = {
+  hr_contract_id: string;
+  kind?: string | null;
+  status: string;
+  doc_number?: string | null;
+  title?: string | null;
+  effective_on?: string | null;
+  end_on?: string | null;
+  signed_on?: string | null;
+  gross_salary?: number | string | null;
+  salary_currency?: string | null;
+  job_title?: string | null;
+  /** `renews` is the one this supersedes, `superseded_by` the one that
+   *  supersedes it, `sibling` any other contract the employee has. */
+  relation: "renews" | "superseded_by" | "sibling";
+};
+
+/** A signature as the page shows it. Deliberately not the whole row — the
+ *  canonical payload and the base64 mark stay on the server. */
+export type ContractSignature = {
+  signature_id: string;
+  signer_name?: string | null;
+  signer_role?: string | null;
+  party?: string | null;
+  assurance_level?: string | null;
+  sign_reason?: string | null;
+  signed_at?: string | null;
+  /** Set when the signature was withdrawn. A revoked signature still shows:
+   *  "nobody signed this" and "somebody signed it and it was revoked" are
+   *  different facts. */
+  revoked_at?: string | null;
+};
+
+/** The page's furniture: the chain, the siblings and the signatures, in one
+ *  read rather than three round trips against a 12-connection ceiling. */
+export const contractDossier = (id: string) =>
+  tenant<{ chain: ContractChainRow[]; signatures: ContractSignature[] }>(
+    `/contracts/${id}/dossier`,
+  );
 
 export const lapsingContracts = (days?: number) =>
   tenant<{ expiring: LapsingContract[]; probation: LapsingContract[] }>(
