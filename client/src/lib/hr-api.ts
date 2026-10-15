@@ -6,6 +6,7 @@ import type { WorkSchedule } from "@shared";
 import { tenant, tenantDownload, tenantWithProgress } from "./api-client";
 import { tokenStore } from "./token-store";
 import { deviceId } from "./device-id";
+import { submitQueued, type SubmitResult } from "./outbox";
 
 export type WorkSite = {
   work_site_id: string;
@@ -35,10 +36,28 @@ export type AttendanceRow = {
   /** TRANSIENT, on the clock-in response only: this punch registered a device
    *  nobody has met before, so the clock offers to name it — once. */
   device_new?: boolean;
-  /** What the punch presented, independent of whether a worksite exists. */
-  location_source?: "gps" | "none" | null;
-  /** Decorated: on_site | off_site | no_gps | unfenced */
-  location_status?: "on_site" | "off_site" | "no_gps" | "unfenced";
+  /** What the punch presented, independent of whether a worksite exists.
+   *  `late` (14403): a reading that arrived after the judging window. */
+  location_source?: "gps" | "late" | "none" | null;
+  /** Decorated: on_site | off_site | no_gps | unfenced | delayed_gps */
+  location_status?: "on_site" | "off_site" | "no_gps" | "unfenced" | "delayed_gps";
+  /** Why the phone had no location at the tap (14403). */
+  location_error?: LocationErrorCode | null;
+  /** When a reading that arrived after the punch was attached. */
+  fix_at?: string | null;
+  /** The phone's own id for the punch; how a late reading finds it. */
+  client_ref?: string | null;
+  /** Held on the phone while offline and sent later; `received_at` is when. */
+  punched_offline?: boolean;
+  out_punched_offline?: boolean;
+  received_at?: string | null;
+  /** 14403: a punch a `block` policy holds instead of refusing. */
+  review_status?: "PENDING" | "APPROVED" | "REJECTED" | null;
+  review_reasons?: ReviewReason[];
+  review_note?: string | null;
+  reviewed_at?: string | null;
+  device_label?: string | null;
+  device_status?: HrDevice["status"] | null;
   is_late?: boolean;
   minutes_late?: number;
   department?: string | null;
@@ -62,6 +81,11 @@ export type AbsenceResult = {
 
 export type Fix = { latitude: number; longitude: number; accuracy?: number };
 
+/** Why a punch had no location — the server's words (14403). */
+export type LocationErrorCode = "denied" | "os_off" | "unavailable" | "timeout" | "unsupported";
+/** Why a punch was held or flagged for a manager (14403). */
+export type ReviewReason = "off_site" | "device" | "offline_time";
+
 function qs(params?: Record<string, string | undefined>) {
   if (!params) return "";
   const q = new URLSearchParams();
@@ -84,6 +108,9 @@ export type DeviceInfo = {
   fingerprint: string;
   label?: string;
   platform?: string;
+  /** What the browser says about location, so HR can see which phones will
+   *  punch without one before they do (14403). */
+  location_permission?: "granted" | "denied" | "prompt" | "unsupported";
 };
 /** The device block sent with a punch, or null when this browser can't keep an
  *  id. `user_agent` is deliberately absent — the server reads the real header. */
@@ -113,6 +140,9 @@ export type HrDevice = {
    *  without GPS has nothing to show, which is itself worth seeing. */
   last_geo_label?: string | null;
   last_punch_at?: string | null;
+  /** What the phone last said about location permission, and when (14403). */
+  location_permission?: "granted" | "denied" | "prompt" | "unsupported" | null;
+  location_checked_at?: string | null;
 };
 export const listDevices = (params?: { employee_id?: string }) =>
   tenant<HrDevice[]>("/attendance/devices" + qs(params));
@@ -139,12 +169,50 @@ export const renameOwnDevice = (id: string, label: string) =>
   tenant<HrDevice>(`/attendance/devices/${id}/name`, { method: "PATCH", body: { label } });
 
 export const openPunch = () => tenant<AttendanceRow | null>("/attendance/open");
-export const clockIn = (
-  body: Partial<Fix> & { employee_id?: string; device?: DeviceInfo | null },
-) => tenant<AttendanceRow>("/attendance/clock-in", { method: "POST", body });
-export const clockOut = (
-  body: { latitude?: number; longitude?: number; id?: string } = {},
-) => tenant<AttendanceRow>("/attendance/clock-out", { method: "POST", body });
+/** The clock's state for the caller (14403): `linked` tells "not an employee"
+ *  apart from "not on shift", which `openPunch` answers identically (null). */
+export const clockState = () =>
+  tenant<{ linked: boolean; open: AttendanceRow | null }>("/attendance/me");
+export type ClockInBody = Partial<Fix> & {
+  employee_id?: string;
+  device?: DeviceInfo | null;
+  location_error?: LocationErrorCode;
+  client_ref?: string;
+  tapped_at?: string;
+};
+export const clockIn = (body: ClockInBody) =>
+  tenant<AttendanceRow>("/attendance/clock-in", { method: "POST", body });
+export type ClockOutBody = { latitude?: number; longitude?: number; id?: string; tapped_at?: string };
+export const clockOut = (body: ClockOutBody = {}) =>
+  tenant<AttendanceRow>("/attendance/clock-out", { method: "POST", body });
+
+/**
+ * The clock's own punches, held on the phone when there is no network (14403).
+ *
+ * Through the outbox, so a punch made in a dead zone is not "Failed" and gone:
+ * it is queued with its `Idempotency-Key`, keeps the moment it was tapped in
+ * `tapped_at`, and goes out by itself on reconnect. A 4xx still throws — the
+ * server's decisions are not retried.
+ */
+export const punchIn = (body: ClockInBody): Promise<SubmitResult<AttendanceRow>> =>
+  submitQueued<AttendanceRow>({ path: "/attendance/clock-in", method: "POST", body, label: "Clock In" });
+export const punchOut = (body: ClockOutBody = {}): Promise<SubmitResult<AttendanceRow>> =>
+  submitQueued<AttendanceRow>({ path: "/attendance/clock-out", method: "POST", body, label: "Clock Out" });
+
+/** A location reading that arrived after its punch, addressed by `client_ref`. */
+export type AttachFixBody = Fix & {
+  client_ref?: string;
+  attendance_id?: string;
+  phase?: "in" | "out";
+  fix_at?: string;
+};
+export const attachFix = (body: AttachFixBody): Promise<SubmitResult<AttendanceRow>> =>
+  submitQueued<AttendanceRow>({ path: "/attendance/fix", method: "POST", body, label: "Clock Location" });
+
+/** Punches held for a manager's decision (14403). */
+export const reviewQueue = () => tenant<AttendanceRow[]>("/attendance/review");
+export const reviewPunch = (id: string, body: { decision: "APPROVED" | "REJECTED"; note?: string }) =>
+  tenant<AttendanceRow>(`/attendance/${id}/review`, { method: "POST", body });
 export const listAttendance = (params?: {
   date?: string;
   from?: string;
@@ -410,7 +478,7 @@ export type MapPunch = {
   geo_label?: string | null;
   work_site_id?: string | null;
   device_label?: string | null;
-  location_status?: "on_site" | "off_site" | "no_gps" | "unfenced";
+  location_status?: AttendanceRow["location_status"];
 };
 
 export type MapWorkSite = {

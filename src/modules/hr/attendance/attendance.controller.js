@@ -71,6 +71,20 @@ module.exports = {
     const row = await req.tenantDb((c) => service.clockOut(c, { ...req.body, actor: actor(req) }));
     res.json({ data: row });
   }),
+  attachFix: asyncHandler(async (req, res) => {
+    const row = await req.tenantDb((c) => service.attachFix(c, { ...req.body, actor: actor(req) }));
+    res.json({ data: row });
+  }),
+  reviewQueue: asyncHandler(async (req, res) =>
+    res.json({ data: await req.tenantDb((c) => service.reviewQueue(c)) })),
+  reviewPunch: asyncHandler(async (req, res) => {
+    const row = await req.tenantDb((c) => service.reviewPunch(c, {
+      id: req.params.id, decision: req.body.decision, note: req.body.note || null, actor: actor(req),
+    }));
+    res.json({ data: row });
+  }),
+  me: asyncHandler(async (req, res) =>
+    res.json({ data: await req.tenantDb((c) => service.me(c, { actor: actor(req) })) })),
   open: asyncHandler(async (req, res) => {
     const row = await req.tenantDb((c) => service.open(c, { employeeId: req.query.employee_id || null, actor: actor(req) }));
     res.json({ data: row });

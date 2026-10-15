@@ -13,4 +13,10 @@ describe("SitePill", () => {
     rerender(<SitePill status="unfenced" />);
     expect(screen.getByText("No worksite")).toBeInTheDocument();
   });
+
+  it("labels a reading that arrived after the tap, never as an on-site verdict", () => {
+    render(<SitePill within status="delayed_gps" />);
+    expect(screen.getByText("Delayed GPS")).toBeInTheDocument();
+    expect(screen.queryByText("On-site")).toBeNull();
+  });
 });

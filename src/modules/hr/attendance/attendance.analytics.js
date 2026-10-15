@@ -141,7 +141,9 @@ function addPunch(t, punch) {
   const where = punch.location_status || locationStatus(punch);
   if (where === "on_site") t.on_site_punches += 1;
   else if (where === "off_site") t.off_site_punches += 1;
-  else if (where === "no_gps") t.no_gps_punches += 1;
+  // A delayed reading is still a punch with no location AT THE TAP, which is
+  // the question this count answers. It must not fall into `unfenced` below.
+  else if (where === "no_gps" || where === "delayed_gps") t.no_gps_punches += 1;
   else t.unfenced_punches += 1;
 }
 

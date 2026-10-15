@@ -119,11 +119,18 @@ async function reconcileDate(client, { date = null, actor = {} } = {}) {
   // ALL punches in the window, not DISTINCT ON employee. The earliest punch in
   // a ±1 day window is often YESTERDAY's — filtering to today's local date
   // afterwards then looked like the person never arrived.
+  //
+  // A punch HELD for review (14403) is not presence yet, and a rejected one
+  // never is. That is the whole of what a `block` policy now means: the punch
+  // is written, and it is not paid on its own say-so. Approving it re-runs
+  // this date (attendance.service.reviewPunch), so the day moves the moment a
+  // manager decides rather than at the next nightly run.
   const { rows: punches } = await client.query(
     `SELECT employee_id, attendance_id, clock_in_at, clock_out_at
        FROM attendance_log
       WHERE clock_in_at >= ($1::date)::timestamptz - interval '1 day'
         AND clock_in_at <  ($1::date)::timestamptz + interval '2 days'
+        AND (review_status IS NULL OR review_status = 'APPROVED')
       ORDER BY employee_id, clock_in_at`,
     [day],
   );

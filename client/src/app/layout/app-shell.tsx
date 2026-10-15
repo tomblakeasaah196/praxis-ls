@@ -74,7 +74,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { LangToggle } from "@/components/lang-toggle";
 import { navT, tr } from "@/lib/i18n";
 import { getMode, setMode, resolved } from "@/lib/theme-mode";
-import { ClockPunchChip } from "@/components/clock-punch";
+import { ClockPunchChip, ClockPunchProvider } from "@/components/clock-punch";
 import { openInstallUi, isStandalone } from "@/lib/pwa-install";
 import { NotificationBell } from "@/components/notification-bell";
 import { SigningWindowBadge } from "@/components/signing/signing-window-badge";
@@ -933,6 +933,10 @@ export function AppShell() {
   return (
     <CommandPaletteProvider value={paletteApi}>
       <RibbonCommandsProvider>
+        {/* ONE clock for the shell: the title-bar chip and the touch cluster
+            read the same punch state, so the page runs one location watcher
+            and one location card, not two (clock-punch.tsx). */}
+        <ClockPunchProvider>
         <div className="flex h-full flex-col">
           {/*
         Skip link (audit F13, WCAG 2.4.1). With 12 of 16 areas behind the More
@@ -1298,6 +1302,7 @@ export function AppShell() {
             <EnvSwitchOverlay to={switchingTo} onReload={() => window.location.reload()} />
           )}
         </div>
+        </ClockPunchProvider>
       </RibbonCommandsProvider>
     </CommandPaletteProvider>
   );

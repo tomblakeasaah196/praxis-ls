@@ -24,6 +24,46 @@ module.exports = {
     const { rows } = await client.query("SELECT entity_id FROM employee WHERE employee_id = $1", [employeeId]);
     return rows[0] ? rows[0].entity_id : null;
   },
+  /** The employee's most recent punch, open or closed (14403: an offline
+   *  clock-in may not claim a moment before the last one ended). */
+  async lastForEmployee(client, employeeId) {
+    const { rows } = await client.query(
+      "SELECT * FROM attendance_log WHERE employee_id = $1 ORDER BY clock_in_at DESC LIMIT 1",
+      [employeeId],
+    );
+    return rows[0] || null;
+  },
+  /** A punch by the phone's own reference, scoped to the employee who made it. */
+  async findByClientRef(client, employeeId, clientRef) {
+    const { rows } = await client.query(
+      "SELECT * FROM attendance_log WHERE employee_id = $1 AND client_ref = $2 LIMIT 1",
+      [employeeId, clientRef],
+    );
+    return rows[0] || null;
+  },
+  /** Punches held for a manager, oldest first, with what the manager needs to decide. */
+  async reviewQueue(client, { limit = 200 } = {}) {
+    const { rows } = await client.query(
+      `SELECT al.*, e.full_name AS employee_name, e.department, dev.label AS device_label,
+              dev.status AS device_status
+         FROM attendance_log al
+         LEFT JOIN employee e ON e.employee_id = al.employee_id
+         LEFT JOIN hr_device dev ON dev.hr_device_id = al.hr_device_id
+        WHERE al.review_status = 'PENDING'
+        ORDER BY al.clock_in_at ASC
+        LIMIT $1`,
+      [Math.min(Math.max(Number(limit) || 200, 1), 500)],
+    );
+    return rows;
+  },
+  /** Has this employee's day already been settled? Then a decision re-runs it. */
+  async dayReconciled(client, employeeId, workDate) {
+    const { rows } = await client.query(
+      "SELECT 1 FROM attendance_day WHERE employee_id = $1 AND work_date = $2 LIMIT 1",
+      [employeeId, workDate],
+    );
+    return !!rows[0];
+  },
   async openForEmployee(client, employeeId) {
     const { rows } = await client.query(
       "SELECT * FROM attendance_log WHERE employee_id = $1 AND clock_out_at IS NULL ORDER BY clock_in_at DESC LIMIT 1",
@@ -86,18 +126,27 @@ module.exports = {
    * label is only refreshed while it is still the auto-seeded one, so an
    * employee's rename survives them opening the app on a new browser version.
    */
-  upsertDevice(client, { employeeId, fingerprint, label, userAgent = null, platform = null }) {
+  upsertDevice(client, { employeeId, fingerprint, label, userAgent = null, platform = null, locationPermission = null }) {
     return client
       .query(
-        `INSERT INTO hr_device (employee_id, fingerprint, label, user_agent, platform)
-              VALUES ($1,$2,$3,$4,$5)
+        /*
+         * `location_permission` (14403) is what the phone last said about
+         * location, so HR can see which devices will punch without one BEFORE
+         * they do. Only overwritten when the phone actually said something: an
+         * older client that sends nothing must not erase what a newer one
+         * reported.
+         */
+        `INSERT INTO hr_device (employee_id, fingerprint, label, user_agent, platform, location_permission, location_checked_at)
+              VALUES ($1,$2,$3,$4,$5,$6, CASE WHEN $6::text IS NULL THEN NULL ELSE now() END)
          ON CONFLICT (employee_id, fingerprint) DO UPDATE
             SET last_seen_at = now(),
                 updated_at   = now(),
                 user_agent   = COALESCE(EXCLUDED.user_agent, hr_device.user_agent),
-                platform     = COALESCE(EXCLUDED.platform, hr_device.platform)
+                platform     = COALESCE(EXCLUDED.platform, hr_device.platform),
+                location_permission = COALESCE(EXCLUDED.location_permission, hr_device.location_permission),
+                location_checked_at = COALESCE(EXCLUDED.location_checked_at, hr_device.location_checked_at)
           RETURNING *, (xmax = 0) AS inserted`,
-        [employeeId, fingerprint, label, userAgent, platform],
+        [employeeId, fingerprint, label, userAgent, platform, locationPermission],
       )
       .then((r) => r.rows[0]);
   },
