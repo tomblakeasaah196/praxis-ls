@@ -44,6 +44,24 @@ function bareAddress(value) {
   return (m ? m[1] : String(value)).trim() || null;
 }
 
+/**
+ * How mailparser is asked to read a message.
+ *
+ * `keepCidLinks`: by default `simpleParser` rewrites every `cid:` image in the
+ * HTML into a base64 `data:` URI. That inflated the stored body by the size of
+ * every inline image, and then the ingest sanitizer, which did not allow
+ * `data:` on images, deleted the `src` outright, so inline images on IMAP
+ * mailboxes simply vanished. Keeping the link keeps the image where it is (a
+ * stored attachment with its `content_id`) and the body the size of its text.
+ */
+const PARSE = Object.freeze({ keepCidLinks: true });
+
+/** RFC 2392 Content-ID without its angle brackets, or null. */
+function contentIdOf(raw) {
+  const v = String(raw || "").trim().replace(/^<|>$/g, "");
+  return v || null;
+}
+
 class ImapSmtpProvider {
   constructor(conn) {
     this.conn = conn || {};
@@ -332,7 +350,7 @@ class ImapSmtpProvider {
       // range is a UID range because options.uid = true.
       for await (const item of imap.fetch(range, { uid: true, source: true, flags: true }, { uid: true })) {
         if (item.uid <= lastUid) continue; // `n:*` can echo the last uid when none are newer
-        const parsed = await simpleParser(item.source);
+        const parsed = await simpleParser(item.source, PARSE);
         messages.push({ ...this._normalize(parsed, item), direction: outbound ? "OUT" : "IN" });
         if (item.uid > maxUid) maxUid = item.uid;
       }
@@ -344,24 +362,65 @@ class ImapSmtpProvider {
     return { messages, nextCursor };
   }
 
-  async getMessage(externalMessageId) {
-     
+  /**
+   * One message by id, looked up in the folder it was synced FROM.
+   *
+   * This only ever searched INBOX, which was enough while its one caller was a
+   * fresh arrival. Repair on open (14410) asks for mail that has since been
+   * archived, or that was synced from Sent, and an INBOX-only search answers
+   * "no such message" for every one of them. INBOX stays as the fallback for a
+   * row stored before `provider_folder` was recorded.
+   */
+  async getMessage(externalMessageId, { folderPath = null } = {}) {
     const { simpleParser } = require("mailparser");
+    const item = await this._fetchSource(externalMessageId, folderPath);
+    return item ? this._normalize(await simpleParser(item.source, PARSE), item) : null;
+  }
+
+  /** The message exactly as the server holds it, for View source / Download original. */
+  async getRawMessage(externalMessageId, { folderPath = null } = {}) {
+    const item = await this._fetchSource(externalMessageId, folderPath);
+    return item && item.source ? Buffer.from(item.source) : null;
+  }
+
+  /** Find a message by Message-ID (or by `uid:N`) in its folder, then INBOX. */
+  async _fetchSource(externalMessageId, folderPath) {
+    if (!externalMessageId) return null;
     const imap = this._imapClient();
-    let out = null;
     await imap.connect();
-    const lock = await imap.getMailboxLock("INBOX");
     try {
-      const uid = await imap.search({ header: { "message-id": externalMessageId } }, { uid: true });
-      if (uid && uid.length) {
-        const item = await imap.fetchOne(String(uid[uid.length - 1]), { uid: true, source: true, flags: true }, { uid: true });
-        if (item) out = this._normalize(await simpleParser(item.source), item);
+      for (const box of [...new Set([folderPath || "INBOX", "INBOX"])]) {
+        let lock;
+        try {
+          lock = await imap.getMailboxLock(box);
+        } catch {
+          continue; /* @silent:fallback the folder was renamed or removed since sync; try INBOX */
+        }
+        try {
+          const uid = await this._findUid(imap, externalMessageId);
+          if (!uid) continue;
+          const item = await imap.fetchOne(String(uid), { uid: true, source: true, flags: true }, { uid: true });
+          if (item) return item;
+        } finally {
+          lock.release();
+        }
       }
+      return null;
     } finally {
-      lock.release();
-      await imap.logout();
+      try { await imap.logout(); } catch { /* @silent:teardown the fetch already finished or failed */ }
     }
-    return out;
+  }
+
+  /**
+   * The UID of a message in the locked mailbox. `uid:N` is the id `_normalize`
+   * mints for a message that carried no Message-ID; it is only meaningful in
+   * the folder it came from, which is the folder searched first.
+   */
+  async _findUid(imap, externalMessageId) {
+    const bare = /^uid:(\d+)$/.exec(String(externalMessageId));
+    if (bare) return Number(bare[1]);
+    const uids = await imap.search({ header: { "message-id": externalMessageId } }, { uid: true });
+    return uids && uids.length ? uids[uids.length - 1] : null;
   }
 
   async markAsRead(externalMessageId) {
@@ -393,7 +452,14 @@ class ImapSmtpProvider {
       subject: parsed.subject || null,
       bodyHtml: parsed.html || null,
       bodyText: parsed.text || null,
-      attachments: (parsed.attachments || []).map((a) => ({ filename: a.filename, content_type: a.contentType, size_bytes: a.size, content: a.content })),
+      // `cid` and `related` are what tie an inline image to the `cid:` in the
+      // HTML. Dropping them stored the logo in a signature as a file nobody had
+      // attached and left a broken image where the sender had put it.
+      attachments: (parsed.attachments || []).map((a) => ({
+        filename: a.filename, content_type: a.contentType, size_bytes: a.size, content: a.content,
+        content_id: contentIdOf(a.cid || a.contentId),
+        disposition: a.related || a.contentDisposition === "inline" ? "inline" : "attachment",
+      })),
       inReplyTo: parsed.inReplyTo || null,
       references,
       receivedAt: parsed.date || (item && item.internalDate) || new Date(),

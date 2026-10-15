@@ -360,8 +360,9 @@ const insertMessage = (client, row) =>
        (email_thread_id, email_connection_id, email_identity_id, external_message_id, message_id_header,
         direction, folder, provider_folder, from_address, from_name, to_address, cc_address,
         subject, body_html, body_text, body_preview, in_reply_to, references_header,
-        size_bytes, has_attachment, sent_via, origin_user_id, origin_send_point, received_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+        size_bytes, has_attachment, sent_via, origin_user_id, origin_send_point, received_at,
+        body_html_original, body_policy)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
      ON CONFLICT (email_connection_id, external_message_id) WHERE external_message_id IS NOT NULL DO NOTHING
      RETURNING email_message_id, email_thread_id, received_at`,
     [row.email_thread_id, row.email_connection_id, row.email_identity_id || null,
@@ -374,7 +375,8 @@ const insertMessage = (client, row) =>
      row.in_reply_to || null, row.references_header || null,
      row.size_bytes || null, row.has_attachment === true,
      row.sent_via || null, row.origin_user_id || null, row.origin_send_point || null,
-     row.received_at || new Date()],
+     row.received_at || new Date(),
+     row.body_html_original || null, row.body_policy == null ? null : row.body_policy],
   ).then((r) => r.rows[0] || null);
 
 const getMessage = (client, userId, id) =>

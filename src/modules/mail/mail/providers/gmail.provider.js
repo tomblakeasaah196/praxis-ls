@@ -143,6 +143,16 @@ class GmailProvider {
     return n;
   }
 
+  /**
+   * The message as Gmail holds it (RFC 822), for View source / Download
+   * original. `format=raw` is the whole MIME tree, base64url-encoded. A Gmail
+   * id is stable across labels, so no folder is needed.
+   */
+  async getRawMessage(externalMessageId) {
+    const r = await this._req("GET", `/messages/${externalMessageId}`, { params: { format: "raw" } });
+    return r.data && r.data.raw ? b64urlDecode(r.data.raw) : null;
+  }
+
   /** Download attachment bytes for the refs collected in _normalize. */
   async _hydrateAttachments(messageId, refs) {
     const out = [];
@@ -152,7 +162,12 @@ class GmailProvider {
          
         const r = await this._req("GET", `/messages/${messageId}/attachments/${a.attachmentId}`);
         const content = b64urlDecode(r.data.data);
-        if (content.length <= ATTACH_MAX_BYTES) out.push({ filename: a.filename, content_type: a.content_type, size_bytes: content.length, content });
+        if (content.length <= ATTACH_MAX_BYTES) {
+          out.push({
+            filename: a.filename, content_type: a.content_type, size_bytes: content.length, content,
+            content_id: a.content_id || null, disposition: a.disposition || "attachment",
+          });
+        }
       } catch { /* skip this attachment */ }
     }
     return out;
@@ -185,8 +200,22 @@ class GmailProvider {
     const walk = (part) => {
       if (!part) return;
       const mime = part.mimeType || "";
-      if (part.filename && part.body && part.body.attachmentId) {
-        attachments.push({ filename: part.filename, content_type: mime || "application/octet-stream", size_bytes: part.body.size, attachmentId: part.body.attachmentId });
+      // An inline image is a part with a Content-ID, and Gmail often sends one
+      // with no filename at all. Requiring a filename dropped exactly those, so
+      // the `cid:` in the HTML pointed at a part that was never stored.
+      const ph = (n) => {
+        const f = (part.headers || []).find((x) => String(x.name).toLowerCase() === n);
+        return f ? String(f.value) : "";
+      };
+      const contentId = ph("content-id").trim().replace(/^<|>$/g, "") || null;
+      if ((part.filename || contentId) && part.body && part.body.attachmentId) {
+        attachments.push({
+          filename: part.filename || contentId, content_type: mime || "application/octet-stream",
+          size_bytes: part.body.size, attachmentId: part.body.attachmentId,
+          content_id: contentId,
+          disposition: /^\s*inline/i.test(ph("content-disposition")) || (contentId && !/^\s*attachment/i.test(ph("content-disposition")))
+            ? "inline" : "attachment",
+        });
       } else if (mime === "text/plain" && part.body && part.body.data) bodyText = b64urlDecode(part.body.data).toString("utf8");
       else if (mime === "text/html" && part.body && part.body.data) bodyHtml = b64urlDecode(part.body.data).toString("utf8");
       (part.parts || []).forEach(walk);

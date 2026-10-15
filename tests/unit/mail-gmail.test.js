@@ -139,3 +139,38 @@ test("fetchSince(no cursor) seeds from profile historyId + recent INBOX list", a
   expect(messages).toHaveLength(1);
   expect(nextCursor).toEqual({ history_id: "555" });
 });
+
+test("an inline image with a Content-ID and no filename is kept, and marked inline", async () => {
+  // Requiring a filename dropped exactly these parts, so the cid: in the HTML
+  // pointed at nothing that was ever stored.
+  const withInline = {
+    id: "m3", threadId: "t3", labelIds: ["INBOX"], internalDate: "1754040000000",
+    payload: {
+      mimeType: "multipart/related",
+      headers: [{ name: "From", value: "s@ext.com" }],
+      parts: [
+        { mimeType: "text/html", body: { data: b64url('<img src="cid:logo@x">') } },
+        {
+          mimeType: "image/png", filename: "",
+          headers: [{ name: "Content-ID", value: "<logo@x>" }, { name: "Content-Disposition", value: "inline" }],
+          body: { attachmentId: "att9", size: 3 },
+        },
+      ],
+    },
+  };
+  axios
+    .mockResolvedValueOnce({ data: withInline })
+    .mockResolvedValueOnce({ data: { data: b64url("PNG") } });
+
+  const n = await provider().getMessage("m3");
+
+  expect(n.attachments).toHaveLength(1);
+  expect(n.attachments[0]).toMatchObject({ content_id: "logo@x", disposition: "inline", filename: "logo@x" });
+});
+
+test("getRawMessage asks for format=raw and decodes the base64url MIME", async () => {
+  axios.mockResolvedValueOnce({ data: { raw: b64url("From: a@b\r\n\r\nhi") } });
+  const raw = await provider().getRawMessage("m4");
+  expect(raw.toString()).toBe("From: a@b\r\n\r\nhi");
+  expect(axios.mock.calls.at(-1)[0]).toMatchObject({ params: { format: "raw" } });
+});
