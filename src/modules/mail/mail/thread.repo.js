@@ -288,7 +288,7 @@ async function getThreadUnrestricted(client, threadId) {
     `SELECT m.email_message_id, m.direction, m.folder, m.from_address, m.from_name,
             m.to_address::text[] AS to_address, m.cc_address::text[] AS cc_address,
             m.subject, m.body_html, m.body_text, m.body_preview, m.received_at,
-            m.has_attachment, m.sent_via, m.origin_send_point
+            m.has_attachment, m.sent_via, m.origin_send_point, m.body_policy
        FROM email_message m
       WHERE m.email_thread_id = $1
       ORDER BY m.received_at`,
