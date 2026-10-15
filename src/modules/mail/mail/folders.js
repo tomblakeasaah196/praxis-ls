@@ -26,6 +26,10 @@ const CANONICAL = ["INBOX", "SENT", "DRAFTS", "SPAM", "ARCHIVE", "TRASH"];
 
 /** RFC 6154 special-use attribute → our name. The authoritative path. */
 const BY_FLAG = {
+  // Not RFC 6154, but imapflow reports INBOX's special use as \Inbox, and the
+  // Microsoft and Google adapters name their inbox the same way, because their
+  // inbox's id is not the string "INBOX".
+  "\\inbox": "INBOX",
   "\\sent": "SENT",
   "\\drafts": "DRAFTS",
   "\\junk": "SPAM",
@@ -98,7 +102,9 @@ function mapFolders(list = [], { limit = 25 } = {}) {
     rows.push({
       provider_path: path,
       canonical,
-      display_name: leafName(path, f.delimiter) || path,
+      // Microsoft and Google give a display name beside an opaque id; an IMAP
+      // path is its own name.
+      display_name: String(f.displayName || "").trim() || leafName(path, f.delimiter) || path,
       is_syncable: Boolean(canonical),
     });
   }

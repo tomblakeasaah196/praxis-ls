@@ -33,6 +33,7 @@ import { PencilIcon } from "@/components/ui/icons";
 import { ErrorState } from "@/components/ui/states";
 import { SplitPane } from "@/components/ui/split-pane";
 import { NewMessageDialog } from "./composer/new-message";
+import { canWriteFrom } from "./composer/can-write-from";
 import { useResource } from "@/lib/use-resource";
 import { getCommsSocket } from "@/lib/comms-socket";
 import { reportActionError } from "@/lib/action-error";
@@ -59,6 +60,9 @@ function emptyHintFor(sel: RailSelection, query: string): string {
   if (sel.folder === "SENT") return tr("Nothing sent from this mailbox yet.");
   return tr("This folder is empty. If a mailbox was just connected, give the first sync a moment.");
 }
+
+/** Outbox rows that have not gone yet: held, queued, going, or refused. */
+const PENDING_OUT = new Set<string>(["HELD", "QUEUED", "SENDING", "FAILED"]);
 
 export function InboxPage() {
   const mailboxes = useResource(() => api.myMailboxes(), []);
@@ -140,6 +144,10 @@ export function InboxPage() {
     [connectionId],
   );
   const labels = useResource(() => api.listLabels(), []);
+  /* What is still waiting to go, for the rail's Outbox count. Re-read with the
+   * rest after a send, which is when it changes. */
+  const outbox = useResource(() => api.listOutbox(), []);
+  const outboxWaiting = (outbox.data || []).filter((o) => PENDING_OUT.has(o.status)).length;
 
   /* A saved view cuts ACROSS folders — a starred conversation that has been
    * archived is still starred — so it sends its flag and NO folder. Pinning it
@@ -175,8 +183,9 @@ export function InboxPage() {
     threads.reload();
     folders.reload();
     labels.reload();
+    outbox.reload();
     if (openId) thread.reload();
-  }, [threads, folders, labels, thread, openId]);
+  }, [threads, folders, labels, outbox, thread, openId]);
   const reloadRef = React.useRef(reload);
   reloadRef.current = reload;
   React.useEffect(() => {
@@ -415,9 +424,11 @@ export function InboxPage() {
         <Button
           size="sm"
           onClick={() => setComposeOpen(true)}
-          disabled={!boxes.some((b) => b.status === "CONNECTED")}
+          // Any mailbox this person can write from, ERROR included: a failed
+          // sync does not stop a send (see `canWriteFrom`).
+          disabled={!boxes.some(canWriteFrom)}
           title={
-            boxes.some((b) => b.status === "CONNECTED")
+            boxes.some(canWriteFrom)
               ? tr("Write a new email")
               : tr("Connect a mailbox first")
           }
@@ -494,6 +505,7 @@ export function InboxPage() {
             }}
             humanUnread={streams.HUMAN}
             systemUnread={streams.SYSTEM}
+            outboxWaiting={outboxWaiting}
           />
         </aside>
 

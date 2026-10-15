@@ -135,7 +135,9 @@ describe("no feature calls a method its capabilities deny", () => {
     const path = require("path");
     const src = fs.readFileSync(path.resolve(__dirname, "../../src/modules/mail/mail/thread.service.js"), "utf8");
     expect(src).toMatch(/markAsRead[\s\S]{0,80}"serverFlags"/);
-    expect(src).toMatch(/moveMessage[\s\S]{0,120}"folderMove"/);
+    // Wider than the read's window: the move call site also records where the
+    // server put each message before the capability name closes the call.
+    expect(src).toMatch(/moveMessage[\s\S]{0,600}"folderMove"/);
   });
 
   test("gmail and graph keep their adapters (§3.5 rule 2)", () => {

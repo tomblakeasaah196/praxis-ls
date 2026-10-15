@@ -450,7 +450,7 @@ module.exports = {
   }),
   msWebhook: asyncHandler(async (req, res) => {
     if (req.query && req.query.validationToken) return res.type("text/plain").status(200).send(req.query.validationToken);
-    const data = await req.identityDb((c) => service.handleGraphNotification(c, req.body, { slug: slugOf(req) }));
+    const data = await req.identityDb((c) => service.handleGraphNotification(c, req.body, { slug: slugOf(req), tenantMeta: req.tenant }));
     return res.status(202).json({ data });
   }),
 
@@ -459,7 +459,7 @@ module.exports = {
   ggOAuthCallback: asyncHandler((req, res) => finishOAuth(req, res, "google", (c) =>
     service.completeGoogleOAuth(c, { code: req.query.code, state: req.query.state, slug: slugOf(req) }))),
   ggWebhook: asyncHandler(async (req, res) => {
-    await req.identityDb((c) => service.handleGmailNotification(c, req.body));
+    await req.identityDb((c) => service.handleGmailNotification(c, req.body, { slug: slugOf(req), tenantMeta: req.tenant }));
     return res.status(204).send(); // ack the Pub/Sub push
   }),
 };

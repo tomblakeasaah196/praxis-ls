@@ -164,6 +164,22 @@ describe("cleanHtml: an empty result is stored as null", () => {
   });
 });
 
+describe("cleanCss: Outlook's stylesheet keeps its first rule", () => {
+  // Outlook wraps every <style> in <!-- -->. Escaped rather than removed, the
+  // opener became the start of the first selector, and `p.MsoNormal` (the
+  // paragraph style of every Outlook message) was dropped as invalid.
+  const [out] = run("cleanCss", ["<!--\np.MsoNormal{margin:0}\n-->"]);
+
+  test("the comment markers go and the rule is untouched", () => {
+    expect(out).toBe("p.MsoNormal{margin:0}");
+  });
+
+  test("a stray < is still escaped", () => {
+    const [esc] = run("cleanCss", ["a{content:'<'}"]);
+    expect(esc).toContain("\\3c ");
+  });
+});
+
 describe("cleanCss stays linear on hostile input", () => {
   test("unterminated comments and long whitespace runs", () => {
     const t0 = Date.now();

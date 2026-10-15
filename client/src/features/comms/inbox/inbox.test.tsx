@@ -789,9 +789,11 @@ const mailbox = (over: Partial<Mailbox> = {}): Mailbox =>
 function RailHarness({
   folders,
   mailboxes = [mailbox()],
+  outboxWaiting = 0,
 }: {
   folders: Folder[];
   mailboxes?: Mailbox[];
+  outboxWaiting?: number;
 }) {
   const [sel, setSel] = React.useState<RailSelection>({ folder: "INBOX", stream: "HUMAN" });
   return (
@@ -803,6 +805,7 @@ function RailHarness({
       onChange={setSel}
       humanUnread={4}
       systemUnread={11}
+      outboxWaiting={outboxWaiting}
     />
   );
 }
@@ -906,7 +909,16 @@ describe("the folder rail", () => {
       />,
     );
     expect(screen.getByText("Some folders did not sync")).toBeInTheDocument();
-    expect(screen.getByText("Junk")).toBeInTheDocument();
+    // Which folder, by the name the rail gives it, AND the server's reason: a
+    // list of names said which and left nobody able to say why.
+    expect(screen.getByText(/SELECT failed/).closest("li")).toHaveTextContent("Spam: SELECT failed");
+  });
+
+  it("opens Not Sent Yet when something is waiting in the Outbox, with its count", async () => {
+    const { rerender } = render(<RailHarness folders={[folder()]} />);
+    expect(screen.queryByRole("button", { name: /Outbox/ })).not.toBeInTheDocument();
+    rerender(<RailHarness folders={[folder()]} outboxWaiting={2} />);
+    expect(await screen.findByRole("button", { name: /Outbox/ })).toHaveTextContent("2");
   });
 
   it("marks the selected entry for assistive technology, not just visually", async () => {

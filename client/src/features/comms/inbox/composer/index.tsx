@@ -715,9 +715,10 @@ export function Composer({
                   chosen, which stays visible so a draft written from a mailbox
                   that has since been retired still shows where it was going
                   from instead of a blank row. The send itself is still refused
-                  server-side with MAILBOX_ARCHIVED. */}
+                  server-side with MAILBOX_ARCHIVED. A mailbox whose last SYNC
+                  failed can still send, and is offered (see `canWriteFrom`). */}
               {mailboxes
-                .filter((m) => m.status === "CONNECTED" || m.email_connection_id === from)
+                .filter((m) => m.status === "CONNECTED" || m.status === "ERROR" || m.email_connection_id === from)
                 .map((m) => (
                   <option key={m.email_connection_id} value={m.email_connection_id}>{m.email_address}</option>
                 ))}

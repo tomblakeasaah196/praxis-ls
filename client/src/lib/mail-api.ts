@@ -484,6 +484,9 @@ export type Mailbox = {
   last_success_at?: string | null;
   last_error?: string | null;
   consecutive_failures?: number;
+  /** The most recent failed sync, kept after the mailbox recovers (14420). */
+  last_failure_at?: string | null;
+  last_failure_reason?: string | null;
   archived_at?: string | null;
   send_limit_hourly?: number | null;
   send_limit_daily?: number | null;

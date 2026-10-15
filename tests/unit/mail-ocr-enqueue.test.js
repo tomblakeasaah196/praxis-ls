@@ -184,6 +184,9 @@ describe("extraction is an enrichment, never a liability", () => {
     const svc = fs.readFileSync(
       path.resolve(__dirname, "../../src/modules/mail/mail/mail.service.js"), "utf8",
     );
-    expect(svc).toMatch(/isFirstSync: !folder\.last_sync_at/);
+    // And from the folder's CURSOR while a first read spans many syncs, as it
+    // does on Microsoft and Google: `last_sync_at` is set after the first one.
+    expect(svc).toMatch(/isFirstSync = !folder\.last_sync_at \|\| Boolean\(folder\.sync_cursor && folder\.sync_cursor\.backfill\)/);
+    expect(svc).toMatch(/isFirstSync,\s*\}\)/);
   });
 });

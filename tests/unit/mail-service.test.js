@@ -87,6 +87,7 @@ jest.mock("../../src/modules/mail/binding/binding.service", () => ({
 }));
 jest.mock("../../src/modules/mail/mail/mail.repo", () => ({
   getConnection: jest.fn(),
+  updateConnection: jest.fn(async () => ({})),
   setError: jest.fn(async () => {}),
   addAttachment: jest.fn(async () => ({})),
   findClientByEmail: jest.fn(async () => null),
@@ -116,6 +117,17 @@ jest.mock("../../src/modules/mail/mail/thread.repo", () => ({
   insertMessage: jest.fn(),
   seedStateForMembers: jest.fn(async () => 0),
   setThreadRead: jest.fn(async () => 0),
+  // 14420: the engine looks a message up before it stores it, adopts the row
+  // Praxis wrote when it sent one, and follows a message the server moved.
+  findMessageByExternal: jest.fn(async () => null),
+  adoptLocalSend: jest.fn(async () => null),
+  adoptLegacyCopy: jest.fn(async () => null),
+  deleteThreadIfEmpty: jest.fn(async () => ({})),
+  relocateMessage: jest.fn(async () => ({})),
+  markReadForOwner: jest.fn(async () => ({})),
+  foldersByPath: jest.fn(async () => new Map()),
+  externalIdsFor: jest.fn(async () => []),
+  translateExternalIds: jest.fn(async () => 0),
   getMessage: jest.fn(),
   listThreads: jest.fn(async () => []),
   timelineByEntity: jest.fn(async () => []),
@@ -451,20 +463,44 @@ test("one failing folder does not abort its siblings", async () => {
   expect(res.error).toBeUndefined();
 });
 
+/*
+ * A failed sync is COUNTED, and only the third in a row turns the mailbox to
+ * ERROR (mailbox.repo `bumpFailure`). The loop also called `repo.setError`,
+ * which set ERROR on the first one: one wobble at 17:36 read as "No mailbox
+ * connected" in Compose until the next good poll. So these assert the count,
+ * and that the immediate ERROR write is gone.
+ */
+const mailboxRepo = require("../../src/modules/mail/mail/mailbox.repo");
+
 test("records the error on the connection and does not throw", async () => {
   mockFetchSince.mockRejectedValue(new Error("IMAP auth failed"));
   const res = await service.syncConnection(DB, "conn-1", {});
   expect(res.error).toBe("IMAP auth failed"); // every folder failed; surface it to Sync now
   expect(res.folders).toEqual([{ folder: "INBOX", error: "IMAP auth failed" }]);
-  expect(repo.setError).toHaveBeenCalledWith(DB, "conn-1", "IMAP auth failed");
+  expect(mailboxRepo.bumpFailure).toHaveBeenCalledWith(DB, "conn-1", "IMAP auth failed");
+  expect(repo.setError).not.toHaveBeenCalled();
 });
 
 test("a folder listing that fails stops the sync and records it on the connection", async () => {
   mockListFolders.mockRejectedValue(new Error("LIST refused"));
   const res = await service.syncConnection(DB, "conn-1", {});
   expect(res.error).toBe("LIST refused");
-  expect(repo.setError).toHaveBeenCalledWith(DB, "conn-1", "LIST refused");
+  expect(mailboxRepo.bumpFailure).toHaveBeenCalledWith(DB, "conn-1", "LIST refused");
+  expect(repo.setError).not.toHaveBeenCalled();
   expect(mockFetchSince).not.toHaveBeenCalled();
+});
+
+test("the third failure in a row raises the health event; the first does not", async () => {
+  mockFetchSince.mockRejectedValue(new Error("token refused"));
+  await service.syncConnection(DB, "conn-1", {});
+  expect(mockEmitEvent.mock.calls.map((c) => c[1].eventTypeKey)).not.toContain("mailbox.health.failed");
+
+  mailboxRepo.bumpFailure.mockResolvedValueOnce({ consecutive_failures: 3, status: "ERROR" });
+  await service.syncConnection(DB, "conn-1", {});
+  expect(mockEmitEvent).toHaveBeenCalledWith(DB, expect.objectContaining({
+    eventTypeKey: "mailbox.health.failed",
+    payload: expect.objectContaining({ error: "token refused", failures: 3 }),
+  }));
 });
 
 /*
@@ -554,4 +590,202 @@ test("linkEntity binds the CONVERSATION, not the one message it was called on", 
   const res = await service.linkEntity(DB, { inboundId: "msg-9", entity_ref: "dossier:dos-2" });
   expect(threads.updateThread).toHaveBeenCalledWith(DB, "thr-9", { entity_ref: "dossier:dos-2" });
   expect(res).toEqual({ email_thread_id: "thr-9", entity_ref: "dossier:dos-2" });
+});
+
+/* ── 14420: what the engine does with a server that says where mail is ────────
+ *
+ * The same IMAP mock, given the two methods a Microsoft or Google adapter has:
+ * `locateMessage` (its promise that a message is in one folder at a time and
+ * keeps its id when it moves) and, for Microsoft, `translateIds`.
+ */
+const { ImapSmtpProvider } = require("../../src/modules/mail/mail/providers/imapSmtp.provider");
+const mailNotify = require("../../src/modules/mail/mail/mail-notify.service");
+const mockLocate = jest.fn();
+const mockTranslate = jest.fn();
+const followingAdapter = (extra = {}) => ({
+  fetchSince: mockFetchSince, listFolders: mockListFolders, verify: mockVerify,
+  markAsRead: mockMarkAsRead, sendEmail: mockSendEmail,
+  capabilities: () => ({ folders: true, folderMove: true, serverFlags: true }),
+  locateMessage: mockLocate,
+  ...extra,
+});
+
+describe("a server that says where its mail is", () => {
+  beforeEach(() => {
+    ImapSmtpProvider.mockImplementation(() => followingAdapter());
+    jest.spyOn(mailNotify, "onInboundMessage").mockResolvedValue(undefined);
+  });
+  afterAll(() => {
+    ImapSmtpProvider.mockImplementation(() => followingAdapter({ locateMessage: undefined }));
+  });
+
+  test("a stored message seen in another folder is moved there, not stored twice", async () => {
+    threads.syncableFolders.mockResolvedValue([ARCHIVE]);
+    threads.findMessageByExternal.mockResolvedValueOnce({
+      email_message_id: "msg-1", email_thread_id: "thr-1", folder: "INBOX", provider_folder: "INBOX", direction: "IN",
+    });
+    mockFetchSince.mockResolvedValue({ messages: [inbound({ externalMessageId: "<a>", isRead: true })], nextCursor: {} });
+
+    const res = await service.syncConnection(DB, "conn-1", {});
+
+    expect(res.inserted).toBe(0);
+    expect(threads.insertMessage).not.toHaveBeenCalled();
+    expect(threads.upsertThread).not.toHaveBeenCalled(); // no empty conversation left behind
+    expect(threads.relocateMessage).toHaveBeenCalledWith(DB, "msg-1", expect.objectContaining({
+      // direction null: a message keeps IN or OUT when it is archived.
+      folder: "ARCHIVE", providerPath: "Archive", direction: null, refresh: null,
+    }));
+    // Gmail and Microsoft-after-14420 have no legacy ids to look for.
+    expect(threads.adoptLegacyCopy).not.toHaveBeenCalled();
+    // Read in Outlook is read here, for the owner of a personal mailbox.
+    expect(threads.markReadForOwner).toHaveBeenCalledWith(DB, "msg-1", "conn-1");
+  });
+
+  test("IMAP is NOT followed: a Message-ID can sit in two folders at once", async () => {
+    ImapSmtpProvider.mockImplementation(() => followingAdapter({ locateMessage: undefined }));
+    threads.syncableFolders.mockResolvedValue([ARCHIVE]);
+    threads.findMessageByExternal.mockResolvedValueOnce({
+      email_message_id: "msg-1", folder: "INBOX", provider_folder: "INBOX", direction: "IN",
+    });
+    mockFetchSince.mockResolvedValue({ messages: [inbound({ externalMessageId: "<a>" })], nextCursor: {} });
+
+    await service.syncConnection(DB, "conn-1", {});
+
+    expect(threads.relocateMessage).not.toHaveBeenCalled();
+    expect(threads.insertMessage).not.toHaveBeenCalled();
+  });
+
+  test("a draft that has since been sent takes the sent content with it", async () => {
+    const SENT = { ...INBOX, email_folder_id: "fold-SENT", canonical: "SENT", provider_path: "SentItems" };
+    threads.syncableFolders.mockResolvedValue([SENT]);
+    threads.findMessageByExternal.mockResolvedValueOnce({
+      email_message_id: "msg-d", email_thread_id: "thr-d", folder: "DRAFTS", provider_folder: "Drafts", direction: "OUT",
+    });
+    mockFetchSince.mockResolvedValue({
+      messages: [inbound({ externalMessageId: "<d>", subject: "Final", bodyText: "as sent" })], nextCursor: {},
+    });
+
+    await service.syncConnection(DB, "conn-1", {});
+
+    expect(threads.relocateMessage).toHaveBeenCalledWith(DB, "msg-d", expect.objectContaining({
+      folder: "SENT", direction: "OUT",
+      refresh: expect.objectContaining({ subject: "Final", body_text: "as sent" }),
+    }));
+  });
+
+  test("Gmail's mailbox-wide history: each message goes where its labels say", async () => {
+    threads.syncableFolders.mockResolvedValue([INBOX]);
+    mockFetchSince.mockResolvedValue({
+      messages: [inbound({ externalMessageId: "g1", folder: "SPAM", providerPath: "SPAM" })], nextCursor: {},
+    });
+
+    await service.syncConnection(DB, "conn-1", {});
+
+    expect(threads.insertMessage).toHaveBeenCalledWith(DB, expect.objectContaining({ folder: "SPAM", provider_folder: "SPAM" }));
+    // Junk is not news.
+    expect(mailNotify.onInboundMessage).not.toHaveBeenCalled();
+  });
+
+  test("a message that left a folder for one Praxis does not sync is followed after the sync", async () => {
+    threads.syncableFolders.mockResolvedValue([INBOX]);
+    mockFetchSince.mockResolvedValue({ messages: [], nextCursor: {}, removed: [{ externalMessageId: "<a>", fromPath: "INBOX" }] });
+    threads.findMessageByExternal.mockResolvedValueOnce({ email_message_id: "msg-1", folder: "INBOX", provider_folder: "INBOX" });
+    threads.foldersByPath.mockResolvedValueOnce(new Map([["U1", { provider_path: "U1", canonical: null }]]));
+    mockLocate.mockResolvedValueOnce({ path: "U1" });
+
+    await service.syncConnection(DB, "conn-1", {});
+
+    expect(mockLocate).toHaveBeenCalledWith("<a>");
+    expect(threads.relocateMessage).toHaveBeenCalledWith(DB, "msg-1", { folder: "ARCHIVE", providerPath: "U1" });
+  });
+
+  test("one the server no longer has goes to Trash, never deleted", async () => {
+    threads.syncableFolders.mockResolvedValue([INBOX]);
+    mockFetchSince.mockResolvedValue({ messages: [], nextCursor: {}, removed: [{ externalMessageId: "<a>", fromPath: null }] });
+    threads.findMessageByExternal.mockResolvedValueOnce({ email_message_id: "msg-1", folder: "INBOX", provider_folder: "INBOX" });
+    mockLocate.mockResolvedValueOnce(null);
+
+    await service.syncConnection(DB, "conn-1", {});
+
+    expect(threads.relocateMessage).toHaveBeenCalledWith(DB, "msg-1", { folder: "TRASH", providerPath: null });
+  });
+
+  test("one another folder already claimed this sync costs no call", async () => {
+    threads.syncableFolders.mockResolvedValue([INBOX]);
+    mockFetchSince.mockResolvedValue({ messages: [], nextCursor: {}, removed: [{ externalMessageId: "<a>", fromPath: "INBOX" }] });
+    threads.findMessageByExternal.mockResolvedValueOnce({ email_message_id: "msg-1", folder: "ARCHIVE", provider_folder: "Archive" });
+
+    await service.syncConnection(DB, "conn-1", {});
+
+    expect(mockLocate).not.toHaveBeenCalled();
+  });
+
+  test("Microsoft ids are translated once, before the first immutable sync", async () => {
+    ImapSmtpProvider.mockImplementation(() => followingAdapter({ translateIds: mockTranslate }));
+    threads.externalIdsFor.mockResolvedValueOnce(["old-1", "old-2"]);
+    mockTranslate.mockResolvedValueOnce(new Map([["old-1", "IMM-1"]]));
+
+    await service.syncConnection(DB, "conn-1", {});
+
+    expect(threads.translateExternalIds).toHaveBeenCalledWith(DB, "conn-1", [["old-1", "IMM-1"]]);
+    expect(repo.updateConnection).toHaveBeenCalledWith(DB, "conn-1", { provider_id_scheme: "immutable" });
+
+    // And never again.
+    jest.clearAllMocks();
+    repo.getConnection.mockResolvedValue({ ...CONN, provider_id_scheme: "immutable" });
+    threads.syncableFolders.mockResolvedValue([INBOX]);
+    mockFetchSince.mockResolvedValue({ messages: [], nextCursor: null });
+    mockListFolders.mockResolvedValue([]);
+    await service.syncConnection(DB, "conn-1", {});
+    expect(mockTranslate).not.toHaveBeenCalled();
+  });
+});
+
+describe("whatever the provider", () => {
+  test("the server's copy of a message Praxis sent adopts Praxis's row", async () => {
+    const SENT = { ...INBOX, email_folder_id: "fold-SENT", canonical: "SENT", provider_path: "Sent Messages" };
+    threads.syncableFolders.mockResolvedValue([SENT]);
+    threads.adoptLocalSend.mockResolvedValueOnce({ email_message_id: "local-1" });
+    mockFetchSince.mockResolvedValue({
+      messages: [inbound({ externalMessageId: "srv-1", messageIdHeader: "<p@co.cm>", to: ["Client@X.cm"] })], nextCursor: {},
+    });
+
+    const res = await service.syncConnection(DB, "conn-1", {});
+
+    expect(threads.adoptLocalSend).toHaveBeenCalledWith(DB, "conn-1", expect.objectContaining({
+      externalMessageId: "srv-1", messageIdHeader: "<p@co.cm>", to: ["client@x.cm"], providerPath: "Sent Messages",
+    }));
+    expect(threads.insertMessage).not.toHaveBeenCalled();
+    expect(res.inserted).toBe(0);
+  });
+
+  test("anything in Sent or Drafts is ours, whatever the adapter guessed", async () => {
+    // "Éléments envoyés" never matched the IMAP adapter's name test.
+    const SENT = { ...INBOX, email_folder_id: "fold-SENT", canonical: "SENT", provider_path: "Éléments envoyés" };
+    threads.syncableFolders.mockResolvedValue([SENT]);
+    mockFetchSince.mockResolvedValue({ messages: [inbound({ direction: "IN" })], nextCursor: {} });
+    await service.syncConnection(DB, "conn-1", {});
+    expect(threads.insertMessage).toHaveBeenCalledWith(DB, expect.objectContaining({ direction: "OUT", folder: "SENT" }));
+  });
+
+  test("mail the server says was read arrives read", async () => {
+    mockFetchSince.mockResolvedValue({ messages: [inbound({ isRead: true }), inbound({ externalMessageId: "<b>" })], nextCursor: {} });
+    threads.insertMessage.mockResolvedValueOnce({ email_message_id: "m-read" }).mockResolvedValueOnce({ email_message_id: "m-new" });
+    await service.syncConnection(DB, "conn-1", {});
+    expect(threads.seedStateForMembers).toHaveBeenCalledWith(DB, "m-read", "conn-1", { isRead: true });
+    expect(threads.seedStateForMembers).toHaveBeenCalledWith(DB, "m-new", "conn-1", { isRead: false });
+  });
+
+  test("a folder still on its first read keeps the backfill narrowing for extraction", async () => {
+    const ocr = require("../../src/modules/mail/assist/ocr.enqueue");
+    const spy = jest.spyOn(ocr, "forMessage").mockResolvedValue({ queued: 0 });
+    threads.syncableFolders.mockResolvedValue([{ ...INBOX, last_sync_at: "2026-10-15T10:00:00Z", sync_cursor: { v: 2, backfill: true } }]);
+    mockFetchSince.mockResolvedValue({
+      messages: [inbound({ attachments: [{ filename: "f.pdf", content_type: "application/pdf", content: Buffer.from("x") }] })],
+      nextCursor: {},
+    });
+    await service.syncConnection(DB, "conn-1", {});
+    expect(spy).toHaveBeenCalledWith(DB, expect.objectContaining({ isFirstSync: true }));
+    spy.mockRestore();
+  });
 });
