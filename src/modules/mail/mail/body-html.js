@@ -109,6 +109,11 @@ const ATTRS = {
  * `<` is escaped as the CSS escape `\3c `. It can only appear in a string or a
  * comment in valid CSS, both of which accept the escape, and it is the one
  * character that could close the `<style>` element this text goes back into.
+ *
+ * The `<!--` and `-->` that Outlook wraps every stylesheet in are removed first.
+ * CSS reads them as tokens to skip, but escaped they stop being those tokens and
+ * become the start of the first selector, so the first rule of every Outlook
+ * message (its `p.MsoNormal`, usually) was thrown away as invalid.
  */
 function cleanCss(css) {
   let out = stripComments(String(css || ""));
@@ -120,6 +125,7 @@ function cleanCss(css) {
     // The scheme is replaced, not the whole `url(…)`: a script URL routinely
     // contains its own parentheses, so "up to the first `)`" is not the token.
     .replace(/url\(\s*(["']?)(?:javascript|vbscript|data:text\/html)/gi, "url($1about:invalid")
+    .replace(/<!--|-->/g, " ")
     .replace(/</g, "\\3c ");
   return out.trim();
 }

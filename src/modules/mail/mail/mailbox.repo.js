@@ -48,6 +48,7 @@ async function listAll(client, { kind = null, includeArchived = false } = {}) {
             c.visibility, c.status, c.catalogue_key, c.department, c.entity_id,
             c.owner_user_id, c.is_default, c.last_sync_at, c.last_success_at,
             c.last_error, c.consecutive_failures, c.archived_at,
+            c.last_failure_at, c.last_failure_reason,
             c.send_limit_hourly, c.send_limit_daily, c.sync_depth_days, c.history_imported_at,
             c.created_at,
             u.full_name AS owner_name,
@@ -74,7 +75,7 @@ async function listForUser(client, userId) {
   const { rows } = await client.query(
     `SELECT c.email_connection_id, c.email_address, c.display_name, c.provider, c.kind,
             c.status, c.catalogue_key, c.is_default, c.last_sync_at, c.last_success_at,
-            c.last_error, c.consecutive_failures,
+            c.last_error, c.consecutive_failures, c.last_failure_at, c.last_failure_reason,
             cat.label_en AS catalogue_label,
             CASE WHEN c.kind = 'PERSONAL' THEN 'OWNER' ELSE m.member_role END AS access_role
        FROM email_connection c
@@ -220,12 +221,21 @@ const clearFailures = (client, id) =>
  * Count a failed sync and, at the third in a row, flip a CONNECTED mailbox to
  * ERROR. Three rather than one because a single missed poll is a wobble, and an
  * indicator that cries at every wobble is one people learn to ignore.
+ *
+ * This is the ONLY writer of a sync's ERROR status. The sync loop also called
+ * `mail.repo.setError` first, which set ERROR on the first failure, so the rule
+ * above never held: one wobble at 17:36 turned Compose into "No mailbox
+ * connected" until the next good poll, and the good poll then wiped the reason.
+ *
+ * `last_failure_*` outlive the recovery (14420); `last_error` does not.
  */
 const bumpFailure = (client, id, message) =>
   client.query(
     `UPDATE email_connection
         SET consecutive_failures = consecutive_failures + 1,
             last_error = $2,
+            last_failure_reason = $2,
+            last_failure_at = now(),
             status = CASE WHEN consecutive_failures + 1 >= 3 AND status = 'CONNECTED'
                           THEN 'ERROR' ELSE status END
       WHERE email_connection_id = $1

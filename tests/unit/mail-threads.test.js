@@ -33,15 +33,24 @@ const { emitEvent } = require("../../src/shared/events/emit");
 const service = require("../../src/modules/mail/mail/thread.service");
 
 const ME = { user_id: "user-1" };
+// Shaped like the REAL `getThread`, which carries neither the server's id nor
+// the folder a message came from. This fixture used to hand them over, so it
+// proved propagation worked against a read that never supplied them: in the
+// product, no move and no mark-read ever reached the mail server.
 const THREAD = {
   email_thread_id: "thr-1",
   email_connection_id: "conn-1",
   subject: "Demurrage",
   messages: [
-    { email_message_id: "m1", external_message_id: "<a>" },
-    { email_message_id: "m2", external_message_id: "<b>" },
+    { email_message_id: "m1" },
+    { email_message_id: "m2" },
   ],
 };
+/** What the server knows them by: `messagesForServer` and `moveThread` RETURNING. */
+const ON_SERVER = [
+  { email_message_id: "m1", external_message_id: "<a>", provider_folder: "INBOX" },
+  { email_message_id: "m2", external_message_id: "<b>", provider_folder: "INBOX" },
+];
 
 const mockMarkAsRead = jest.fn(async () => ({}));
 const mockMoveMessage = jest.fn(async () => ({}));
@@ -52,7 +61,9 @@ beforeEach(() => {
   repo.getThreadById.mockResolvedValue(THREAD);
   repo.setThreadRead.mockResolvedValue(2);
   repo.setThreadStarred.mockResolvedValue(2);
-  repo.moveThread.mockResolvedValue([{ email_message_id: "m1" }, { email_message_id: "m2" }]);
+  repo.moveThread.mockResolvedValue(ON_SERVER);
+  repo.messagesForServer.mockResolvedValue(ON_SERVER);
+  repo.setMessageLocation.mockResolvedValue({});
   repo.updateThread.mockResolvedValue({ email_thread_id: "thr-1", stream: "HUMAN" });
   repo.syncableFolders.mockResolvedValue([{ canonical: "ARCHIVE", provider_path: "Archive" }]);
   repo.ensureCanonicalFolder.mockResolvedValue({ email_folder_id: "fold-ARCHIVE", canonical: "ARCHIVE" });
@@ -119,6 +130,8 @@ describe("read state is per user", () => {
   test("marking read tells the mail server so the user's phone agrees", async () => {
     await service.markRead({}, ME, "thr-1", true);
     await new Promise(setImmediate); // propagation is fire-and-forget
+    await new Promise(setImmediate);
+    expect(repo.messagesForServer).toHaveBeenCalledWith({}, "thr-1");
     expect(mockMarkAsRead).toHaveBeenCalledWith("<a>");
     expect(mockMarkAsRead).toHaveBeenCalledWith("<b>");
   });
@@ -162,8 +175,26 @@ describe("move", () => {
     const res = await service.move({}, ME, "thr-1", "archive");
     expect(repo.moveThread).toHaveBeenCalledWith({}, "user-1", "thr-1", "ARCHIVE");
     await new Promise(setImmediate);
-    expect(mockMoveMessage).toHaveBeenCalledWith("<a>", "Archive");
+    // From the folder each message is LEAVING: IMAP cannot find it otherwise.
+    expect(mockMoveMessage).toHaveBeenCalledWith("<a>", "Archive", "INBOX");
+    expect(mockMoveMessage).toHaveBeenCalledWith("<b>", "Archive", "INBOX");
     expect(res).toMatchObject({ folder: "ARCHIVE", messages: 2 });
+  });
+
+  test("the row then records where the server put it, and a new id if it gave one", async () => {
+    mockMoveMessage.mockResolvedValueOnce({ moved: true, externalMessageId: "<a2>" });
+    await service.move({}, ME, "thr-1", "archive");
+    await new Promise(setImmediate);
+    await new Promise(setImmediate);
+    expect(repo.setMessageLocation).toHaveBeenCalledWith({}, "m1", { providerPath: "Archive", externalMessageId: "<a2>" });
+    expect(repo.setMessageLocation).toHaveBeenCalledWith({}, "m2", { providerPath: "Archive", externalMessageId: null });
+  });
+
+  test("a message already in the destination is not moved again", async () => {
+    repo.moveThread.mockResolvedValueOnce([{ email_message_id: "m1", external_message_id: "<a>", provider_folder: "Archive" }]);
+    await service.move({}, ME, "thr-1", "archive");
+    await new Promise(setImmediate);
+    expect(mockMoveMessage).not.toHaveBeenCalled();
   });
 
   test("a mailbox with no such folder still moves locally, and the rail gets a row for it", async () => {
