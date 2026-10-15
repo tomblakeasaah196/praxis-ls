@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 143,
-  "route_count": 1884,
+  "route_count": 1891,
   "tiers": {
     "public": 75,
-    "self-scoped": 117,
-    "gated": 1692
+    "self-scoped": 118,
+    "gated": 1698
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -1317,6 +1317,12 @@
       "validated": false,
       "tier": "self-scoped"
     },
+    "GET /api/tenant/attendance/me": {
+      "auth": true,
+      "rbac": false,
+      "validated": false,
+      "tier": "self-scoped"
+    },
     "GET /api/tenant/attendance/open": {
       "auth": true,
       "rbac": true,
@@ -1334,6 +1340,12 @@
       "rbac": false,
       "validated": false,
       "tier": "self-scoped"
+    },
+    "GET /api/tenant/attendance/review": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
     },
     "GET /api/tenant/attendance/work-sites": {
       "auth": true,
@@ -1684,6 +1696,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/contracts/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/contracts/:id/dossier": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -5451,6 +5469,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/vacancies/careers-link": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/vacancies/hiring-entities": {
       "auth": true,
       "rbac": true,
@@ -6951,6 +6975,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/attendance/:id/review": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/attendance/clock-in": {
       "auth": true,
       "rbac": true,
@@ -6970,6 +7000,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/attendance/devices": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/attendance/fix": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -7432,6 +7468,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/contracts/:id/renew": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/contracts/:id/review": {
       "auth": true,
       "rbac": true,
       "validated": false,

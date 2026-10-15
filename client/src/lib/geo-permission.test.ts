@@ -1,5 +1,12 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { geoRecoverySteps, queryGeoPermission, watchGeoFix, watchGeoPermission } from "./geo-permission";
+import {
+  classifyGeoError,
+  deviceLocationSteps,
+  geoRecoverySteps,
+  queryGeoPermission,
+  watchGeoFix,
+  watchGeoPermission,
+} from "./geo-permission";
 
 describe("geoRecoverySteps", () => {
   it("names Safari settings on iOS", () => {
@@ -132,5 +139,47 @@ describe("queryGeoPermission", () => {
       value: { query: async () => { throw new Error("not supported"); } },
     });
     expect(await queryGeoPermission()).toBe("prompt");
+  });
+});
+
+describe("classifyGeoError (14403)", () => {
+  it("calls a denial with the SITE allowed what it is: the device said no", () => {
+    // The screenshot behind this: Chrome showed "Location access allowed" and
+    // the clock still sent the person to allow it. The system switch was off.
+    expect(classifyGeoError({ code: 1, message: "User denied Geolocation" }, "granted")).toBe("os_off");
+  });
+
+  it("calls a denial with the site blocked or never answered a blocked site", () => {
+    expect(classifyGeoError({ code: 1 }, "denied")).toBe("denied");
+    expect(classifyGeoError({ code: 1 }, "prompt")).toBe("denied");
+  });
+
+  it("keeps a slow GPS apart from a missing one", () => {
+    expect(classifyGeoError({ code: 3 }, "granted")).toBe("timeout");
+    expect(classifyGeoError({ code: 2 }, "granted")).toBe("unavailable");
+  });
+
+  it("reads a message-only rejection by its words", () => {
+    expect(classifyGeoError(new Error("Location permission denied"), null)).toBe("denied");
+    expect(classifyGeoError(new Error("kaboom"), null)).toBe("unavailable");
+  });
+});
+
+describe("deviceLocationSteps", () => {
+  it("names the Windows setting on Windows", () => {
+    const steps = deviceLocationSteps("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/140.0.0.0");
+    expect(steps.join(" ")).toMatch(/Windows Settings.*Location/);
+    expect(steps.join(" ")).toMatch(/Let desktop apps access your location/);
+  });
+
+  it("names Location Services on a Mac and the quick settings on Android", () => {
+    expect(deviceLocationSteps("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)").join(" ")).toMatch(/Location Services/);
+    expect(deviceLocationSteps("Mozilla/5.0 (Linux; Android 14; Pixel 8)").join(" ")).toMatch(/Swipe down/);
+  });
+
+  it("never sends anybody back to the site permission they already granted", () => {
+    for (const ua of ["Windows NT 10.0", "Macintosh", "Android 14", "iPhone"]) {
+      expect(deviceLocationSteps(ua).join(" ")).not.toMatch(/Set Location to Allow|address bar/);
+    }
   });
 });
