@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1884 |
+| Routes | 1891 |
 | Modules mounted | 143 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1884 mounted routes, grouped by path prefix.
+All 1891 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -320,6 +320,7 @@ All 1884 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/attendance/:id` | — |
 | PATCH | `/api/tenant/attendance/:id` | — |
 | POST | `/api/tenant/attendance/:id/clock-out` | — |
+| POST | `/api/tenant/attendance/:id/review` | — |
 | GET | `/api/tenant/attendance/absence` | — |
 | GET | `/api/tenant/attendance/analytics` | — |
 | GET | `/api/tenant/attendance/analytics/mine` | — |
@@ -334,11 +335,14 @@ All 1884 mounted routes, grouped by path prefix.
 | PATCH | `/api/tenant/attendance/devices/:deviceId/name` | — |
 | GET | `/api/tenant/attendance/export` | — |
 | GET | `/api/tenant/attendance/export/mine` | — |
+| POST | `/api/tenant/attendance/fix` | — |
 | GET | `/api/tenant/attendance/map` | — |
+| GET | `/api/tenant/attendance/me` | — |
 | GET | `/api/tenant/attendance/open` | — |
 | GET | `/api/tenant/attendance/place-search` | — |
 | GET | `/api/tenant/attendance/punches/mine` | — |
 | POST | `/api/tenant/attendance/reconcile` | — |
+| GET | `/api/tenant/attendance/review` | — |
 | POST | `/api/tenant/attendance/weekly-summaries` | — |
 | GET | `/api/tenant/attendance/work-sites` | — |
 | POST | `/api/tenant/attendance/work-sites` | — |
@@ -585,8 +589,10 @@ All 1884 mounted routes, grouped by path prefix.
 | DELETE | `/api/tenant/contracts/:id` | — |
 | GET | `/api/tenant/contracts/:id` | — |
 | PATCH | `/api/tenant/contracts/:id` | — |
+| GET | `/api/tenant/contracts/:id/dossier` | — |
 | POST | `/api/tenant/contracts/:id/draft` | — |
 | POST | `/api/tenant/contracts/:id/renew` | — |
+| POST | `/api/tenant/contracts/:id/review` | — |
 | POST | `/api/tenant/contracts/:id/status` | — |
 | GET | `/api/tenant/contracts/lapsing` | — |
 | GET | `/api/tenant/contracts/mine` | — |
@@ -2545,6 +2551,7 @@ All 1884 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/vacancies/:id/questions/generate` | — |
 | POST | `/api/tenant/vacancies/:id/score-all` | — |
 | POST | `/api/tenant/vacancies/:id/status` | — |
+| GET | `/api/tenant/vacancies/careers-link` | — |
 | POST | `/api/tenant/vacancies/draft` | — |
 | GET | `/api/tenant/vacancies/hiring-entities` | — |
 | POST | `/api/tenant/vacancies/intake/follow-ups` | — |
