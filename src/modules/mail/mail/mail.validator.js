@@ -390,6 +390,11 @@ const schemas = {
     on: z.coerce.boolean().default(true),
   }),
 
+  /** §5.6.3 "always show images from this sender". Lowercased: one sender, one row. */
+  imageTrust: z.object({
+    sender: z.string().trim().toLowerCase().email().max(320),
+  }),
+
   /* ── PR-1B: composing ─────────────────────────────────────────────────── */
 
   /**
@@ -591,6 +596,7 @@ module.exports = {
   threadBulk: mw("threadBulk"), threadMove: mw("threadMove"), threadFlag: mw("threadFlag"),
   folderEmpty: mw("folderEmpty"),
   threadStream: mw("threadStream"), label: mw("label"), labelApply: mw("labelApply"),
+  imageTrust: mw("imageTrust"),
   draft: mw("draft"), send: mw("send"),
   attachmentUpload, attachmentFromVault: mw("attachmentFromVault"),
   runCommand: mw("runCommand"),

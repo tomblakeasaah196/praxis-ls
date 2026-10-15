@@ -394,7 +394,8 @@ class ImapSmtpProvider {
         try {
           lock = await imap.getMailboxLock(box);
         } catch {
-          continue; /* @silent:fallback the folder was renamed or removed since sync; try INBOX */
+          // Renamed or removed since it was synced: INBOX is tried next.
+          continue;
         }
         try {
           const uid = await this._findUid(imap, externalMessageId);

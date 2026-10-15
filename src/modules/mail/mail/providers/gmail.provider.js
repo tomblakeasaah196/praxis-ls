@@ -14,6 +14,7 @@
 
 const axios = require("axios");
 const { baseCapabilities } = require("./provider.interface");
+const { logger } = require("../../../../config/logger");
 
 const BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 const SEED_MAX = 25;
@@ -168,7 +169,12 @@ class GmailProvider {
             content_id: a.content_id || null, disposition: a.disposition || "attachment",
           });
         }
-      } catch { /* skip this attachment */ }
+      } catch (err) {
+        // One part that will not download must not cost the message. Logged,
+        // not swallowed: an inline image skipped here is a broken picture in
+        // the reading pane, and this line is the only trace of why.
+        logger.warn({ err: gmailError(err), message: messageId, part: a.attachmentId }, "[mail] gmail attachment skipped");
+      }
     }
     return out;
   }

@@ -249,6 +249,10 @@ async function getThread(client, userId, threadId) {
             m.to_address::text[] AS to_address, m.cc_address::text[] AS cc_address,
             m.subject, m.body_html, m.body_text, m.body_preview,
             m.received_at, m.has_attachment, m.sent_via, m.origin_send_point,
+            -- body_policy tells the pane a stored body predates 14410 and can
+            -- be repaired on open; auth_verdict feeds the verdict pill and the
+            -- image-trust rule. Never body_html_original: it is not rendered.
+            m.body_policy, m.auth_verdict,
             u.full_name AS origin_user_name,
             COALESCE(s.is_read, false) AS is_read, COALESCE(s.is_starred, false) AS is_starred
        FROM email_message m
@@ -376,7 +380,7 @@ const insertMessage = (client, row) =>
      row.size_bytes || null, row.has_attachment === true,
      row.sent_via || null, row.origin_user_id || null, row.origin_send_point || null,
      row.received_at || new Date(),
-     row.body_html_original || null, row.body_policy == null ? null : row.body_policy],
+     row.body_html_original || null, Number.isInteger(row.body_policy) ? row.body_policy : null],
   ).then((r) => r.rows[0] || null);
 
 const getMessage = (client, userId, id) =>
