@@ -8,6 +8,8 @@ const threads = require("./thread.service");
 const outbox = require("./outbox.service");
 const attachments = require("./attachment.service");
 const commands = require("./commands.service");
+const body = require("./body.service");
+const imageTrust = require("./image-trust.service");
 const { cpanelPreset } = require("./autodiscover");
 const msOAuth = require("./providers/microsoftOAuth");
 const { asyncHandler, AppError } = require("../../../utils/errors");
@@ -160,6 +162,20 @@ module.exports = {
   thread: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.listThread(c, { ...req.query, user_id: req.user && req.user.user_id })) })),
   message: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.getMessage(c, req.params.id)) })),
   attachments: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.listAttachments(c, req.params.id)) })),
+  /* ── 14410: the body, repaired on open, and the original on request ───── */
+  messageBody: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => body.getBody(c, req.params.id)) })),
+  messageSource: asyncHandler(async (req, res) => {
+    const { buffer, filename } = await req.identityDb((c) => body.getSource(c, req.params.id));
+    res.setHeader("Content-Type", "message/rfc822");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename.replace(/[\r\n"]/g, "")}"`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(buffer);
+  }),
+  /* ── §5.6.3: whose remote images load without asking ────────────────── */
+  imageTrustList: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => imageTrust.list(c, actor(req))) })),
+  imageTrustAdd: asyncHandler(async (req, res) => res.status(201).json({ data: await req.identityDb((c) => imageTrust.add(c, actor(req), req.body)) })),
+  imageTrustRemove: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => imageTrust.remove(c, actor(req), req.params.id)) })),
   clientTimeline: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.clientTimeline(c, { client_id: req.params.id, limit: req.query.limit, user_id: req.user && req.user.user_id })) })),
   linkThread: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.linkEntity(c, { inboundId: req.params.id, entity_ref: req.body && req.body.entity_ref })) })),
   markRead: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.markRead(c, req.params.id)) })),

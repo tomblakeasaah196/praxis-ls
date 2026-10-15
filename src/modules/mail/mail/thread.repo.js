@@ -249,6 +249,10 @@ async function getThread(client, userId, threadId) {
             m.to_address::text[] AS to_address, m.cc_address::text[] AS cc_address,
             m.subject, m.body_html, m.body_text, m.body_preview,
             m.received_at, m.has_attachment, m.sent_via, m.origin_send_point,
+            -- body_policy tells the pane a stored body predates 14410 and can
+            -- be repaired on open; auth_verdict feeds the verdict pill and the
+            -- image-trust rule. Never body_html_original: it is not rendered.
+            m.body_policy, m.auth_verdict,
             u.full_name AS origin_user_name,
             COALESCE(s.is_read, false) AS is_read, COALESCE(s.is_starred, false) AS is_starred
        FROM email_message m
@@ -284,7 +288,7 @@ async function getThreadUnrestricted(client, threadId) {
     `SELECT m.email_message_id, m.direction, m.folder, m.from_address, m.from_name,
             m.to_address::text[] AS to_address, m.cc_address::text[] AS cc_address,
             m.subject, m.body_html, m.body_text, m.body_preview, m.received_at,
-            m.has_attachment, m.sent_via, m.origin_send_point
+            m.has_attachment, m.sent_via, m.origin_send_point, m.body_policy
        FROM email_message m
       WHERE m.email_thread_id = $1
       ORDER BY m.received_at`,
@@ -360,8 +364,9 @@ const insertMessage = (client, row) =>
        (email_thread_id, email_connection_id, email_identity_id, external_message_id, message_id_header,
         direction, folder, provider_folder, from_address, from_name, to_address, cc_address,
         subject, body_html, body_text, body_preview, in_reply_to, references_header,
-        size_bytes, has_attachment, sent_via, origin_user_id, origin_send_point, received_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+        size_bytes, has_attachment, sent_via, origin_user_id, origin_send_point, received_at,
+        body_html_original, body_policy)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
      ON CONFLICT (email_connection_id, external_message_id) WHERE external_message_id IS NOT NULL DO NOTHING
      RETURNING email_message_id, email_thread_id, received_at`,
     [row.email_thread_id, row.email_connection_id, row.email_identity_id || null,
@@ -374,7 +379,8 @@ const insertMessage = (client, row) =>
      row.in_reply_to || null, row.references_header || null,
      row.size_bytes || null, row.has_attachment === true,
      row.sent_via || null, row.origin_user_id || null, row.origin_send_point || null,
-     row.received_at || new Date()],
+     row.received_at || new Date(),
+     row.body_html_original || null, Number.isInteger(row.body_policy) ? row.body_policy : null],
   ).then((r) => r.rows[0] || null);
 
 const getMessage = (client, userId, id) =>

@@ -7,6 +7,8 @@
  * A NormalizedEmail (what fetch/get return, what send/reply accept) is:
  *   { externalMessageId, threadKey, direction ('IN'|'OUT'),
  *     from, to[], cc[], subject, bodyHtml, bodyText, attachments[],
+ *     (each attachment: filename, content_type, size_bytes, content, and for an
+ *      inline image its RFC 2392 content_id with disposition 'inline')
  *     inReplyTo, references[], receivedAt, isRead, provider }
  *
  * Phase 1 ships ImapSmtpProvider. MicrosoftGraphProvider / GmailProvider (Phase 2)
@@ -64,7 +66,12 @@ const EmailProvider = {
 
   // Inbound
   async fetchSince(/* cursor */) { throw new Error("fetchSince() not implemented"); },
-  async getMessage(/* externalMessageId */) { throw new Error("getMessage() not implemented"); },
+  // `opts.folderPath` is the provider folder the message was synced from. Only
+  // IMAP needs it (a message id is per mailbox there); Graph and Gmail ignore it.
+  async getMessage(/* externalMessageId, opts */) { throw new Error("getMessage() not implemented"); },
+  // The message as the provider holds it (RFC 822 bytes), or null if it has
+  // gone. View source and Download original read it; it is never stored.
+  async getRawMessage(/* externalMessageId, opts */) { throw new Error("getRawMessage() not implemented"); },
   async markAsRead(/* externalMessageId */) { throw new Error("markAsRead() not implemented"); },
   // Only called when capabilities().serverDelete is true.
   async deleteMessage(/* externalMessageId, fromPath */) { throw new Error("deleteMessage() not implemented"); },

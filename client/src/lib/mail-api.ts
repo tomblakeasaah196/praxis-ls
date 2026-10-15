@@ -171,6 +171,10 @@ export type Attachment = {
   filename?: string | null;
   content_type?: string | null;
   size_bytes?: number | null;
+  /** RFC 2392: what a `cid:` in the body resolves against. Null for an ordinary file. */
+  content_id?: string | null;
+  /** `inline` for an image the body draws in place; such a part is not listed as a file. */
+  disposition?: "attachment" | "inline" | null;
 };
 
 export type TestResult = {
@@ -345,6 +349,56 @@ export async function downloadAttachment(attachmentId: string, filename?: string
     filename || "attachment",
   );
 }
+
+/**
+ * An attachment's bytes as an object URL: an inline image for the reading pane,
+ * or an image attachment's thumbnail. The caller revokes it (see
+ * `fetchObjectUrl`).
+ */
+export async function attachmentObjectUrl(attachmentId: string, signal?: AbortSignal): Promise<string> {
+  const { tenantObjectUrl } = await import("./api-client");
+  return tenantObjectUrl(`/mail/attachments/${attachmentId}/download`, signal);
+}
+
+/* ── 14410: the body, repaired on open, and the original on request ─────── */
+
+export type MessageBody = {
+  email_message_id: string;
+  body_html: string | null;
+  body_policy: number | null;
+  /** Which road the server took. Only `recleaned` and `provider` changed anything. */
+  source: "stored" | "recleaned" | "provider" | "unavailable";
+};
+
+/**
+ * The body of a message stored before formatting was kept, repaired if the
+ * server can: re-cleaned from its original, or fetched once from the provider.
+ * Never an error for a provider problem; `source: "unavailable"` says so.
+ */
+export const getMessageBody = (messageId: string) =>
+  tenant<MessageBody>(`/mail/thread/${messageId}/body`);
+
+/** The message as the provider holds it (RFC 822), as text, for View source. */
+export async function messageSourceText(messageId: string, signal?: AbortSignal): Promise<string> {
+  const { tenantBlob } = await import("./api-client");
+  return (await tenantBlob(`/mail/thread/${messageId}/source`, signal)).text();
+}
+
+/** The same bytes, saved as an `.eml` that any mail client can open. */
+export async function downloadMessageSource(messageId: string, filename: string) {
+  const { tenantDownload } = await import("./api-client");
+  await tenantDownload(`/mail/thread/${messageId}/source`, filename);
+}
+
+/* ── §5.6.3: whose remote images load without asking ──────────────────── */
+
+export type ImageTrustEntry = { email_image_trust_id: string; sender_address: string; created_at: string };
+
+export const listImageTrust = () => tenant<ImageTrustEntry[]>("/mail/image-trust");
+export const trustImageSender = (sender: string) =>
+  tenant<ImageTrustEntry>("/mail/image-trust", { method: "POST", body: { sender } });
+export const untrustImageSender = (id: string) =>
+  tenant<{ email_image_trust_id: string; removed: boolean }>(`/mail/image-trust/${id}`, { method: "DELETE" });
 export const linkThread = (id: string, entity_ref: string) =>
   tenant<{ entity_ref: string }>(`/mail/thread/${id}/link`, {
     method: "POST",
@@ -779,6 +833,24 @@ export type Message = {
    * nothing rather than a green tick. */
   auth_verdict?: AuthVerdict | null;
   auth_detail?: Record<string, unknown> | null;
+
+  /**
+   * Which sanitizer produced `body_html`. Null: stored before formatting was
+   * kept (14410), so the pane asks `getMessageBody` to repair it on open.
+   */
+  body_policy?: number | null;
+  /** Whether this reader sees this message's remote images without asking, and why. */
+  image_trust?: ImageTrust;
+};
+
+export type ImageTrust = {
+  trusted: boolean;
+  /**
+   * `sender` the reader's own list · `party` a client, supplier or employee ·
+   * `own_domain` one of our mailbox domains · `sent` we sent it · `held` the
+   * sender failed verification, so nothing is trusted · null a stranger.
+   */
+  reason: "sender" | "party" | "own_domain" | "sent" | "held" | null;
 };
 
 export type ThreadDetail = Thread & { messages: Message[] };
