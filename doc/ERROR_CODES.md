@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (714)
+## All codes (712)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -202,7 +202,6 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `DATE_REQUIRED` | 422 | 1× | — |
 | `DEBOURS_ALWAYS_HT` | — | 1× | — |
 | `DEFAULT_OUT_OF_SCOPE` | — | 1× | — |
-| `DEVICE_NOT_REGISTERED` | 422 | 1× | — |
 | `DEVICE_REVOKED` | 422 | 1× | — |
 | `DIAGNOSTICS_BAD_SIGNAL` | 409 | 1× | — |
 | `DIAGNOSTICS_DAILY_CAP` | 429 | 1× | — |
@@ -389,13 +388,13 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 771× | — |
+| `NOT_FOUND` | 404, 422 | 773× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
 | `NOT_OPEN` | 409, 422 | 3× | — |
 | `NOT_OPERATIONAL` | 422 | 1× | — |
-| `NOT_PENDING` | 422 | 2× | — |
+| `NOT_PENDING` | 409, 422 | 3× | — |
 | `NOT_PERSONAL` | 422 | 1× | — |
 | `NOT_PRICED_BY_QUOTATION` | — | 1× | — |
 | `NOT_PUBLISHED` | 422 | 1× | — |
@@ -501,7 +500,6 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `OTP_INVALID` | 422 | 2× | — |
 | `OTP_NOT_ISSUED` | 409 | 1× | — |
 | `OTP_REQUIRED` | 403 | 1× | — |
-| `OUT_OF_GEOFENCE` | 422 | 1× | — |
 | `OVERHEAD_JUSTIFICATION_REQUIRED` | 422 | 1× | — |
 | `OVERRIDE_NOT_VIA_AI` | — | 1× | — |
 | `OVERRIDE_REASON_REQUIRED` | 422 | 2× | — |
@@ -724,7 +722,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `USE_APPROVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 400, 422 | 294× | — |
+| `VALIDATION_ERROR` | 400, 422 | 296× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |

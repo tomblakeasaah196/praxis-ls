@@ -821,7 +821,9 @@
         "get_attendance",
         "create_attendance",
         "update_attendance",
-        "clock_out_attendance"
+        "clock_out_attendance",
+        "list_held_punches",
+        "review_held_punch"
       ],
       "title_fr": "Présences"
     },

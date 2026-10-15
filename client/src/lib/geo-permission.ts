@@ -8,6 +8,51 @@
 
 export type GeoPermission = "granted" | "denied" | "prompt" | "unsupported";
 
+/**
+ * WHY a punch had no location, in the words the server stores (14403).
+ *
+ * The old clock had one answer for every failure, "Location is off", with the
+ * steps for unblocking a site permission. Most failures were not that: a GPS
+ * still warming up indoors, or the phone's own Location switch, got told to go
+ * and change a permission that was already granted. Each of these has a
+ * different fix, and two of them have no fix the person can make at all.
+ *
+ *   denied       the site is blocked in the browser (or the prompt was dismissed)
+ *   os_off       the site is allowed, but the phone or the browser app is not
+ *   unavailable  the browser could not work out a position
+ *   timeout      no reading arrived in time (usually a cold GPS indoors)
+ *   unsupported  this browser has no geolocation at all
+ */
+export type LocationError = "denied" | "os_off" | "unavailable" | "timeout" | "unsupported";
+
+/**
+ * Turn a GeolocationPositionError into a reason, using the permission state to
+ * split the one case the error code cannot: PERMISSION_DENIED while the site
+ * permission reads `granted` means something BELOW the browser said no — the
+ * phone's Location switch, or the OS permission for the browser app itself.
+ */
+export function classifyGeoError(err: unknown, permission: GeoPermission | null): LocationError {
+  const e = err as { code?: number; message?: string } | null;
+  const code = e && typeof e.code === "number" ? e.code : null;
+  const denied = code === 1 || (code === null && /denied/i.test(String(e?.message || "")));
+  if (denied) return permission === "granted" ? "os_off" : "denied";
+  if (code === 3) return "timeout";
+  return "unavailable";
+}
+
+/**
+ * Does this browser have the `<geolocation>` element (Chromium 144+)?
+ *
+ * It matters because it is the ONLY way back from a blocked site that does not
+ * send the person into settings: the browser draws the button itself, so a tap
+ * on it is trusted enough to ask again even after a block. Scripts cannot do
+ * that — `getCurrentPosition` on a blocked site fails at once, and no API,
+ * service worker included, can re-ask.
+ */
+export function supportsGeolocationElement(): boolean {
+  return typeof window !== "undefined" && "HTMLGeolocationElement" in window;
+}
+
 export async function queryGeoPermission(): Promise<GeoPermission> {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     return "unsupported";
@@ -85,6 +130,51 @@ export function watchGeoPermission(onChange: (state: GeoPermission) => void): ()
     cancelled = true;
     stop?.();
   };
+}
+
+/**
+ * Steps for when the SITE is allowed but the DEVICE is not (`os_off`).
+ *
+ * This is the case behind "the site says Allow and the card still appears":
+ * Chrome on Windows and macOS asks the operating system for a position, and
+ * when the system's location services are off (or off for the browser) the
+ * site permission is granted and every reading still fails. Nothing in the
+ * browser fixes that, so the steps name the system setting by its real name.
+ */
+export function deviceLocationSteps(ua = typeof navigator === "undefined" ? "" : navigator.userAgent): string[] {
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return [
+      "Open Settings, then Privacy & Security.",
+      "Turn on Location Services, and allow it for your browser.",
+      "Come back here and tap Retry.",
+    ];
+  }
+  if (/Android/i.test(ua)) {
+    return [
+      "Swipe down from the top of the screen.",
+      "Tap Location to turn it on.",
+      "Come back here and tap Retry.",
+    ];
+  }
+  if (/Windows/i.test(ua)) {
+    return [
+      "Open Windows Settings, then Privacy & security, then Location.",
+      "Turn on Location services and Let desktop apps access your location.",
+      "Come back here and tap Retry.",
+    ];
+  }
+  if (/Mac OS X|Macintosh/i.test(ua)) {
+    return [
+      "Open System Settings, then Privacy & Security, then Location Services.",
+      "Turn on Location Services, and turn it on for your browser.",
+      "Come back here and tap Retry.",
+    ];
+  }
+  return [
+    "Open your computer's privacy settings.",
+    "Turn on location services for this browser.",
+    "Come back here and tap Retry.",
+  ];
 }
 
 /** OS/browser steps when the permission was revoked. Plain words, no markup. */

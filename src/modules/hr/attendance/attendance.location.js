@@ -31,6 +31,14 @@ function locationStatus({ location_source = null, latitude = null, longitude = n
    * so there is no separate "refused" test to make. Every path that is not
    * `presented` is `no_gps`, whatever the reason.
    */
+  /*
+   * A reading that arrived AFTER the judging window (14403) has coordinates and
+   * is worth showing, but it is not where the tap happened: it can be two
+   * minutes' drive from there. It gets its own word so nobody reads it as an
+   * on-site or off-site verdict, and so a manager can tell "the phone found
+   * itself late" from "the phone never found itself".
+   */
+  if (location_source === "late") return hasCoords ? "delayed_gps" : "no_gps";
   const presented = location_source === "gps" || (location_source === null && hasCoords);
   if (!presented) return "no_gps";
 

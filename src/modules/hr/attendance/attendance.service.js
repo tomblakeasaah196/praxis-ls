@@ -24,6 +24,8 @@ const geoapify = require("../../../services/geoapify.service");
 const rules = require("./attendance.rules");
 const reconcile = require("./attendance.reconcile");
 const { locationStatus, locationSourceFromFix } = require("./attendance.location");
+// 14403: how a punch is recorded when it used to be refused.
+const review = require("./attendance.review");
 // PR2: the pure summarizer and the payroll-shaped export. Both are pure — the
 // I/O to feed them lives in `reportScope` below.
 const analytics = require("./attendance.analytics");
@@ -121,23 +123,22 @@ function deviceLabelFrom(userAgent, fingerprint) {
 /**
  * Resolve the device presented with a punch against the register + the policy.
  *
- * Returns { device, trusted, blocked, reason }. `trusted` is null when no
+ * Returns { device, trusted, presented, isNew }. `trusted` is null when no
  * device was presented at all (an older client, or the policy is off) — the
  * same three-valued convention `within_geofence` uses, and for the same reason:
  * "we did not check" must not be recorded as "we checked and it failed".
+ *
+ * IT NEVER REFUSES (14403). Under `block` this used to return `blocked: true`
+ * and the punch was turned away with a 422, which left a person at work with
+ * no record and a manager with nothing to approve. What `block` means now is
+ * decided by `review.reviewFor`: the punch is written and held.
  */
 async function resolveDevice(client, { employeeId, device }) {
   const mode = await devicePolicy(client);
   const fingerprint = device && typeof device.fingerprint === "string" ? device.fingerprint.trim() : "";
 
   if (!fingerprint) {
-    // Under `block`, a client that sends nothing must not sail through — that
-    // is the whole point of the setting, and "my app is old" is not a defence
-    // an attendance policy can accept.
-    if (mode === "block") {
-      return { device: null, trusted: null, blocked: true, reason: "This device isn't registered — register it before clocking in" };
-    }
-    return { device: null, trusted: null, blocked: false, reason: null };
+    return { mode, device: null, trusted: null, presented: false, isNew: false };
   }
 
   /*
@@ -160,27 +161,15 @@ async function resolveDevice(client, { employeeId, device }) {
     label: (device.label && String(device.label).trim()) || deviceLabelFrom(device.user_agent, fingerprint),
     userAgent: device.user_agent || null,
     platform: device.platform || null,
+    locationPermission: device.location_permission || null,
   });
 
   // Three-valued, like `within_geofence`. Under `off` we recorded WHICH device
   // this was but formed no opinion about it, and writing `false` there would
   // paint every historic punch "Unapproved" the moment somebody enables the
   // policy — the retrospective flag the snapshot column exists to prevent.
-  if (mode === "off") return { device: row, trusted: null, blocked: false, reason: null, isNew: row.inserted === true };
-
-  const trusted = row.status === "TRUSTED";
-  if (mode === "block" && !trusted) {
-    return {
-      device: row,
-      trusted,
-      isNew: row.inserted === true,
-      blocked: true,
-      reason: row.status === "REVOKED"
-        ? "This device has been blocked for clocking in — speak to HR"
-        : "This device is waiting for approval before it can clock you in",
-    };
-  }
-  return { device: row, trusted, blocked: false, reason: null, isNew: row.inserted === true };
+  if (mode === "off") return { mode, device: row, trusted: null, presented: true, isNew: row.inserted === true };
+  return { mode, device: row, trusted: row.status === "TRUSTED", presented: true, isNew: row.inserted === true };
 }
 
 /**
@@ -619,46 +608,86 @@ module.exports = {
     return repo.openForEmployee(client, empId);
   },
 
-  /** Clock in: geofenced, device-checked, one open shift at a time. */
-  async clockIn(client, { employeeId = null, latitude = null, longitude = null, accuracy = null, device = null, actor = {} }) {
+  /**
+   * The clock's own question, answered in one call: is the caller an employee
+   * at all, and if so, are they on the clock (14403).
+   *
+   * `open` answers null for both "not an employee" and "not on shift", and the
+   * clock needs to tell those apart: only an employee should ever be asked for
+   * location. No grant beyond being signed in, for the same reason as the
+   * `/mine` routes — it only ever describes the caller.
+   */
+  async me(client, { actor = {} }) {
+    const empId = actor && actor.user_id ? await repo.employeeIdForUser(client, actor.user_id) : null;
+    if (!empId) return { linked: false, open: null };
+    const open = await repo.openForEmployee(client, empId);
+    return { linked: true, open: open ? { ...open, location_status: locationStatus(open) } : null };
+  },
+
+  /**
+   * Clock in: geofenced, device-checked, one open shift at a time — and NEVER
+   * refused for where, on what, or when (14403).
+   *
+   * `block` policies hold the punch for a manager (`review_status = 'PENDING'`)
+   * instead of throwing. The 422s this used to raise — OUT_OF_GEOFENCE and
+   * DEVICE_NOT_REGISTERED — turned a person standing at work into a person
+   * with no record, which is the one outcome strictly worse than a flagged
+   * punch. The only refusals left are the ones a punch cannot exist without:
+   * no employee behind the login, an inactive employee, and a shift that is
+   * already open.
+   *
+   * The snake_case keys are the request body as the controller passes it; the
+   * camelCase ones are for callers inside the backend. Both are accepted
+   * because the body has always been spread straight in.
+   */
+  async clockIn(client, {
+    employeeId = null, latitude = null, longitude = null, accuracy = null, device = null,
+    location_error = null, client_ref = null, tapped_at = null,
+    locationError = location_error, clientRef = client_ref, tappedAt = tapped_at,
+    actor = {},
+  }) {
     const empId = await resolveEmployee(client, employeeId, actor);
     await employeeService.assertActive(client, empId);
-    if (await repo.openForEmployee(client, empId)) {
+    const open = await repo.openForEmployee(client, empId);
+    if (open) {
+      /*
+       * The same punch, sent again. A phone that queued a clock-in offline
+       * replays it with the same reference, and if the idempotency record has
+       * expired by then this is the only thing standing between that replay
+       * and a 409 that strands the punch in the outbox as "rejected" — while
+       * the shift it describes is right here.
+       */
+      if (clientRef && open.client_ref === clientRef) {
+        return { ...open, device_new: false, location_status: locationStatus(open) };
+      }
       throw new AppError("ALREADY_CLOCKED_IN", "You already have an open shift — clock out first", 409);
     }
+
+    const receivedAt = new Date();
+    const last = await repo.lastForEmployee(client, empId);
+    const tap = review.resolveTapTime({
+      tappedAt,
+      receivedAt,
+      notBefore: last ? last.clock_out_at || last.clock_in_at : null,
+    });
+
     const entityId = await repo.entityForEmployee(client, empId);
     const geo = await resolveGeo(client, { entityId, lat: latitude, lng: longitude });
     const mode = await geofenceMode(client);
-    if (mode === "block" && geo.within === false) {
-      throw new AppError(
-        "OUT_OF_GEOFENCE",
-        "You are outside the allowed worksite" + (geo.distance_m !== null && geo.distance_m !== undefined ? ` (${geo.distance_m} m away)` : ""),
-        422,
-      );
-    }
     /*
-     * The device is resolved BEFORE the refusal below, not after, and that
-     * ordering is the point: an unapproved device that is turned away must
-     * still be ON THE REGISTER, dated, for the manager who has to decide about
-     * it. Refusing first would mean the only devices anyone could ever see are
-     * the ones that were already allowed — the register would list exactly the
-     * rows nobody needed to look at.
+     * The device is resolved BEFORE the verdict, and recorded at every policy:
+     * an unapproved device must be ON THE REGISTER, dated, for the manager who
+     * has to decide about it.
      */
     const dev = await resolveDevice(client, { employeeId: empId, device });
-    if (dev.blocked) throw new AppError("DEVICE_NOT_REGISTERED", dev.reason, 422);
-    /*
-     * `repo.create`, not `repo.insert`.
-     *
-     * The factory in shared/crud/resource.js exposes `create` (line 149) and has
-     * never exposed `insert`, so this line threw `repo.insert is not a function`
-     * on EVERY clock-in — the endpoint had never once worked. It surfaced today
-     * only because the punch moved into the title bar: while it was buried in a
-     * dropdown on desktop and a `md:hidden` FAB on touch, nobody pressed it.
-     *
-     * Worth stating plainly, because a "no traffic" endpoint and a "no such
-     * function" endpoint look identical in the error dashboard until somebody
-     * makes the button visible.
-     */
+    const verdict = review.reviewFor({
+      geofenceMode: mode,
+      within: geo.within,
+      devicePolicy: dev.mode,
+      devicePresented: dev.presented,
+      deviceTrusted: dev.trusted,
+      timeImplausible: tap.implausible,
+    });
 
     /*
      * One source of truth for "did a fix arrive". `locationSourceFromFix` is
@@ -668,16 +697,27 @@ module.exports = {
      */
     const location_source = locationSourceFromFix(latitude, longitude);
     const hasFix = location_source === "gps";
+    // `repo.create`, not `repo.insert`: the factory has never exposed `insert`,
+    // and calling it threw on EVERY clock-in until the punch was made visible
+    // enough for somebody to press it.
     const row = await repo.create(client, {
       employee_id: empId,
-      clock_in_at: new Date(),
+      clock_in_at: tap.at,
+      received_at: receivedAt,
+      punched_offline: tap.offline,
+      client_ref: clientRef || null,
       latitude, longitude, accuracy_m: accuracy,
       work_site_id: geo.work_site_id, distance_m: geo.distance_m,
       within_geofence: geo.within, geo_label: geo.label,
       location_source,
+      // The phone's reason is kept only when there is nothing to explain away:
+      // a punch that carried a location has no "why not".
+      location_error: hasFix ? null : (review.LOCATION_ERRORS.includes(locationError) ? locationError : null),
       hr_device_id: dev.device ? dev.device.hr_device_id : null,
       device_trusted: dev.trusted,
       location: hasFix ? { lat: latitude, lng: longitude, accuracy } : null,
+      review_status: verdict.status,
+      review_reasons: verdict.reasons,
     });
     const entityRef = `attendance:${row.attendance_id}`;
     await emitEvent(client, { eventTypeKey: events.CLOCKED_IN, moduleKey: events.MODULE, entityRef, actorUserId: actor.user_id || null, payload: { within_geofence: geo.within, work_site_id: geo.work_site_id } });
@@ -696,6 +736,13 @@ module.exports = {
         eventTypeKey: events.UNTRUSTED_DEVICE, moduleKey: events.MODULE, entityRef,
         actorUserId: actor.user_id || null,
         payload: { hr_device_id: dev.device.hr_device_id, status: dev.device.status },
+      });
+    }
+    if (verdict.held) {
+      await emitEvent(client, {
+        eventTypeKey: events.HELD, moduleKey: events.MODULE, entityRef,
+        actorUserId: actor.user_id || null,
+        payload: { reasons: verdict.reasons },
       });
     }
     await audit(client, { actorUserId: actor.user_id || null, action: events.CLOCKED_IN, moduleKey: events.MODULE, entityRef, after: row });
@@ -786,8 +833,19 @@ module.exports = {
     return row;
   },
 
-  /** Clock out the caller's (or a given) open shift, optionally with geo. */
-  async clockOut(client, { id = null, employeeId = null, latitude = null, longitude = null, actor = {} }) {
+  /**
+   * Clock out the caller's (or a given) open shift, optionally with geo.
+   *
+   * `tapped_at` is honoured the same way as on the way in (14403): a clock-out
+   * held on the phone while offline keeps the moment it was tapped, and one
+   * whose time does not add up — before the clock-in it closes, more than a day
+   * old, or in the future — is written anyway and held for a manager.
+   */
+  async clockOut(client, {
+    id = null, employeeId = null, latitude = null, longitude = null,
+    tapped_at = null, tappedAt = tapped_at,
+    actor = {},
+  }) {
     let before = null;
     if (id) before = await repo.findById(client, id);
     else {
@@ -797,21 +855,183 @@ module.exports = {
     if (!before) throw new AppError("NO_OPEN_SHIFT", "No open shift to clock out", 404);
     if (before.clock_out_at) throw new AppError("ALREADY_CLOSED", "Attendance already clocked out", 422);
 
+    const tap = review.resolveTapTime({ tappedAt, receivedAt: new Date(), notBefore: before.clock_in_at });
+    // A clock-out cannot precede its own clock-in, whatever the phone's clock
+    // says. The claimed time is kept in the audit row below; the stored one is
+    // the earliest moment that is not a contradiction.
+    const at = before.clock_in_at && tap.at < new Date(before.clock_in_at) ? new Date(before.clock_in_at) : tap.at;
+
     let outGeo = { within: null, label: null };
     if (latitude !== null && latitude !== undefined && longitude !== null && longitude !== undefined) {
       const entityId = await repo.entityForEmployee(client, before.employee_id);
       const g = await resolveGeo(client, { entityId, lat: latitude, lng: longitude });
       outGeo = { within: g.within, label: g.label };
     }
+    const held = tap.implausible
+      ? review.mergeReview(before, { reasons: ["offline_time"], held: true })
+      : {};
     const row = await repo.update(client, before.attendance_id, {
-      clock_out_at: new Date(),
+      clock_out_at: at,
+      out_punched_offline: tap.offline,
       out_latitude: latitude, out_longitude: longitude,
       out_within_geofence: outGeo.within, out_geo_label: outGeo.label,
+      ...held,
     });
     const entityRef = `attendance:${before.attendance_id}`;
     await emitEvent(client, { eventTypeKey: events.CLOCKED_OUT, moduleKey: events.MODULE, entityRef, actorUserId: actor.user_id || null });
     await audit(client, { actorUserId: actor.user_id || null, action: events.CLOCKED_OUT, moduleKey: events.MODULE, entityRef, before, after: row });
     return row;
+  },
+
+  /**
+   * Attach a location reading that reached the server AFTER its punch (14403).
+   *
+   * The clock no longer makes somebody wait on a slow GPS: it punches after at
+   * most five seconds and keeps listening. When a reading lands it is sent
+   * here, addressed by the phone's own `client_ref` because a punch queued
+   * offline has no server id the phone ever learned.
+   *
+   * WHAT THE DELAY IS MEASURED AGAINST. For a live punch, the server's own
+   * clock: the moment this request arrived, which a client cannot dress up as
+   * earlier. For a punch that was held offline the arrival time means nothing,
+   * so the phone's `fix_at` is used, bounded to the punch and to now.
+   *
+   * Inside the judging window the reading is where the tap happened and decides
+   * on-site exactly as if it had come with the punch, including holding it
+   * under `block`. Later, it is shown and labelled `late` and decides nothing.
+   * Later still, it is dropped. None of these can fail the punch: the worst a
+   * late reading can do is nothing.
+   */
+  async attachFix(client, {
+    client_ref = null, attendance_id = null, phase = "in",
+    latitude, longitude, accuracy = null, fix_at = null,
+    actor = {},
+  }) {
+    const empId = await resolveEmployee(client, null, actor);
+    const before = client_ref
+      ? await repo.findByClientRef(client, empId, client_ref)
+      : attendance_id ? await repo.findById(client, attendance_id) : null;
+    if (!before || before.employee_id !== empId) {
+      throw new AppError("NOT_FOUND", "Punch not found", 404);
+    }
+
+    const out = phase === "out";
+    const punchAt = out ? before.clock_out_at : before.clock_in_at;
+    const already = out
+      ? before.out_latitude !== null && before.out_latitude !== undefined
+      : before.location_source === "gps";
+    if (!punchAt || already) return { ...before, location_status: locationStatus(before) };
+
+    const now = new Date();
+    const offline = out ? before.out_punched_offline : before.punched_offline;
+    let seenAt = now;
+    if (offline && fix_at) {
+      const claimed = new Date(fix_at);
+      if (!Number.isNaN(claimed.getTime())) {
+        seenAt = new Date(Math.min(Math.max(claimed.getTime(), new Date(punchAt).getTime()), now.getTime()));
+      }
+    }
+    const { kind } = review.classifyLateFix({ punchAt, fixAt: seenAt });
+    if (kind === "ignore") return { ...before, location_status: locationStatus(before) };
+
+    const entityId = await repo.entityForEmployee(client, empId);
+    const geo = await resolveGeo(client, { entityId, lat: latitude, lng: longitude });
+    let patch;
+    if (out) {
+      // The way out has no policy behind it, so only a timely reading is kept.
+      if (kind !== "judge") return { ...before, location_status: locationStatus(before) };
+      patch = { out_latitude: latitude, out_longitude: longitude, out_within_geofence: geo.within, out_geo_label: geo.label };
+    } else if (kind === "judge") {
+      const mode = await geofenceMode(client);
+      const verdict = review.reviewFor({ geofenceMode: mode, within: geo.within, devicePolicy: "off" });
+      patch = {
+        latitude, longitude, accuracy_m: accuracy,
+        location_source: "gps",
+        location: { lat: latitude, lng: longitude, accuracy },
+        work_site_id: geo.work_site_id, distance_m: geo.distance_m,
+        within_geofence: geo.within, geo_label: geo.label,
+        fix_at: seenAt,
+        ...review.mergeReview(before, verdict),
+      };
+    } else {
+      // Shown, never judged: no worksite, no distance, no on-site verdict.
+      patch = {
+        latitude, longitude, accuracy_m: accuracy,
+        location_source: "late",
+        geo_label: geo.label,
+        fix_at: seenAt,
+      };
+    }
+    const row = await repo.update(client, before.attendance_id, patch);
+    const entityRef = `attendance:${before.attendance_id}`;
+    await emitEvent(client, {
+      eventTypeKey: events.LOCATION_ATTACHED, moduleKey: events.MODULE, entityRef,
+      actorUserId: actor.user_id || null,
+      payload: { phase: out ? "out" : "in", kind, within_geofence: out ? null : row.within_geofence },
+    });
+    if (!out && kind === "judge" && geo.within === false) {
+      await emitEvent(client, { eventTypeKey: events.OFFSITE, moduleKey: events.MODULE, entityRef, actorUserId: actor.user_id || null, payload: { distance_m: geo.distance_m } });
+    }
+    await audit(client, { actorUserId: actor.user_id || null, action: events.LOCATION_ATTACHED, moduleKey: events.MODULE, entityRef, before, after: row });
+    return { ...row, location_status: locationStatus(row) };
+  },
+
+  /**
+   * Punches held for a manager (14403), oldest first: the queue a `block`
+   * policy fills instead of refusing people at the door.
+   */
+  async reviewQueue(client) {
+    const rows = await repo.reviewQueue(client);
+    return rows.map((r) => ({ ...r, location_status: locationStatus(r) }));
+  },
+
+  /**
+   * Approve or reject a held punch.
+   *
+   * `approve`, not `edit`, at the route: this decides whether a day is paid,
+   * the same authority as waiving one. Only a PENDING punch can be decided, so
+   * two managers working the queue at once cannot overwrite each other.
+   *
+   * If the day has already been reconciled it is reconciled again, at once:
+   * "counts once approved" must mean the payslip moves when the button is
+   * pressed, not after a nightly run nobody is watching.
+   */
+  async reviewPunch(client, { id, decision, note = null, actor = {} }) {
+    // Restated here, not only in the route's validator: the AI write reaches
+    // this function through its own schema, and a rejection with no reason is
+    // a deduction nobody can explain to the employee.
+    if (decision !== "APPROVED" && decision !== "REJECTED") {
+      throw new AppError("VALIDATION_ERROR", "Approve or reject the punch", 422, { decision: ["Approve or reject the punch"] });
+    }
+    if (decision === "REJECTED" && !(note && String(note).trim())) {
+      throw new AppError("VALIDATION_ERROR", "Say why this punch is rejected", 422, { note: ["Say why this punch is rejected"] });
+    }
+    const before = await repo.findById(client, id);
+    if (!before) throw new AppError("NOT_FOUND", "Punch not found", 404);
+    if (before.review_status !== "PENDING") {
+      throw new AppError("NOT_PENDING", "This punch is not waiting for a decision", 409);
+    }
+    const reviewer = await resolveActorId(client, actor.user_id);
+    const row = await repo.update(client, id, {
+      review_status: decision,
+      review_note: note ? String(note).trim() || null : null,
+      reviewed_by: reviewer,
+      reviewed_at: new Date(),
+    });
+    const entityRef = `attendance:${id}`;
+    await emitEvent(client, {
+      eventTypeKey: events.REVIEWED, moduleKey: events.MODULE, entityRef,
+      actorUserId: actor.user_id || null,
+      payload: { decision, reasons: before.review_reasons || [] },
+    });
+    await audit(client, { actorUserId: actor.user_id || null, action: events.REVIEWED, moduleKey: events.MODULE, entityRef, before, after: row });
+
+    const policy = await attendancePolicy(client);
+    const workDate = rules.localDate(row.clock_in_at, policy.timeZone);
+    if (await repo.dayReconciled(client, row.employee_id, workDate)) {
+      await reconcile.reconcileDate(client, { date: workDate, actor });
+    }
+    return { ...row, location_status: locationStatus(row) };
   },
 
   /**
@@ -853,6 +1073,7 @@ module.exports = {
       label: (device.label && String(device.label).trim()) || deviceLabelFrom(device.user_agent, fingerprint),
       userAgent: device.user_agent || null,
       platform: device.platform || null,
+      locationPermission: device.location_permission || null,
     });
     await audit(client, { actorUserId: actor.user_id || null, action: events.DEVICE_CHANGED, moduleKey: events.MODULE, entityRef: `hr_device:${row.hr_device_id}`, after: row });
     return row;

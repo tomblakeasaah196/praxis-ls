@@ -22,16 +22,159 @@ import { AttendanceMapTab } from "./attendance-map";
 import { periodRange, type Period } from "./attendance-period";
 import { SitePill } from "./attendance-site-pill";
 import { useResource, errMsg } from "@/lib/use-resource";
-import { dateFmt } from "@/lib/format";
+import { dateFmt, dateTimeFmt } from "@/lib/format";
 import * as api from "@/lib/hr-api";
 import { reportActionError } from "@/lib/action-error";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { usePrompt } from "@/components/ui/use-prompt";
 
 const shell = pageShell.wide;
 const today = () => new Date().toISOString().slice(0, 10);
 
 const metres = (v: unknown) =>
   v == null ? null : `${Math.round(Number(v))} m`;
+
+/**
+ * Why a punch had no location, in a manager's words (14403).
+ *
+ * "No GPS" used to be the whole story, so a phone with its Location switched
+ * off, a site somebody blocked and a GPS that was simply slow indoors all read
+ * the same. They are different conversations with the employee, and only one
+ * of them is something the employee did.
+ */
+const LOCATION_ERROR_LABEL: Record<api.LocationErrorCode, string> = {
+  denied: "Site Blocked",
+  os_off: "Device Location Off",
+  unavailable: "Position Not Found",
+  timeout: "Slow GPS",
+  unsupported: "No GPS On Device",
+};
+
+/** Why a punch was held, as the pill that says so. */
+const REVIEW_REASON_LABEL: Record<api.ReviewReason, string> = {
+  off_site: "Off-site",
+  device: "Unapproved Device",
+  offline_time: "Offline Time",
+};
+
+/**
+ * Held punches (14403) — the queue a `block` policy fills.
+ *
+ * A `block` setting used to refuse the punch outright: the person stood at the
+ * gate with no record and the manager had nothing to decide. Now the punch is
+ * written and waits here, and the day is not paid until somebody approves it.
+ * Approving re-runs a day that was already reconciled, so the payslip moves the
+ * moment the button is pressed.
+ *
+ * Rendered only when something is waiting: an empty queue is not news.
+ */
+export function HeldPunches() {
+  const queue = useResource(() => api.reviewQueue(), []);
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const [prompt, promptDialog] = usePrompt();
+
+  async function decide(r: api.AttendanceRow, decision: "APPROVED" | "REJECTED") {
+    let note: string | undefined;
+    if (decision === "REJECTED") {
+      const why = await prompt({
+        title: r.employee_name ? `Reject the punch from ${r.employee_name}?` : "Reject this punch?",
+        label: "Reason Shown to the Employee",
+        multiline: true,
+        confirmLabel: "Reject Punch",
+        validate: (v) => (v.trim() ? null : "Say why."),
+      });
+      if (why === null) return;
+      note = why;
+    }
+    setBusy(r.attendance_id);
+    try {
+      await api.reviewPunch(r.attendance_id, { decision, ...(note ? { note } : {}) });
+      queue.reload();
+    } catch (e) {
+      reportActionError(e);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const rows = queue.data || [];
+  if (!queue.loading && !queue.error && rows.length === 0) return null;
+
+  const cols: Column<api.AttendanceRow>[] = [
+    {
+      key: "emp",
+      label: "Employee",
+      render: (r) => <span className="font-medium text-foreground">{r.employee_name || "—"}</span>,
+    },
+    {
+      key: "in",
+      label: "Clock In",
+      render: (r) => (
+        <span className="flex items-center gap-2">
+          <span className="num">{dateTimeFmt(r.clock_in_at)}</span>
+          {r.punched_offline && <Pill tone="mute">Offline</Pill>}
+        </span>
+      ),
+    },
+    {
+      key: "why",
+      label: "Held For",
+      render: (r) => (
+        <span className="flex flex-wrap gap-1">
+          {(r.review_reasons || []).map((k) => (
+            <Pill key={k} tone="warn">{REVIEW_REASON_LABEL[k] || k}</Pill>
+          ))}
+        </span>
+      ),
+    },
+    {
+      key: "where",
+      label: "Where",
+      render: (r) => (
+        <span className="text-muted-foreground">
+          {r.geo_label || "—"}
+          {metres(r.distance_m) ? ` · ${metres(r.distance_m)}` : ""}
+          {r.device_label ? ` · ${r.device_label}` : ""}
+        </span>
+      ),
+    },
+    {
+      key: "_a",
+      label: "",
+      render: (r) => (
+        <div className="flex justify-end gap-1">
+          <Button size="sm" loading={busy === r.attendance_id} onClick={() => decide(r, "APPROVED")}>
+            Approve
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy === r.attendance_id}
+            onClick={() => decide(r, "REJECTED")}
+          >
+            Reject
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="mb-6">
+      {promptDialog}
+      <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+        Held for Approval <Pill tone="warn">{rows.length}</Pill>
+      </h2>
+      <DataList
+        columns={cols}
+        rows={queue.data}
+        error={queue.error}
+        loading={queue.loading}
+        rowKey={(r) => r.attendance_id}
+      />
+    </div>
+  );
+}
 
 /* ── Day's clock-ins with lateness ── */
 function AttendanceLog({ date }: { date: string }) {
@@ -57,6 +200,9 @@ function AttendanceLog({ date }: { date: string }) {
               Late{r.minutes_late ? ` ${r.minutes_late}m` : ""}
             </Pill>
           )}
+          {r.review_status === "PENDING" && <Pill tone="warn">Held</Pill>}
+          {r.review_status === "REJECTED" && <Pill tone="bad">Rejected</Pill>}
+          {r.punched_offline && <Pill tone="mute">Offline</Pill>}
         </span>
       ),
     },
@@ -73,7 +219,15 @@ function AttendanceLog({ date }: { date: string }) {
     {
       key: "site",
       label: "On-site",
-      render: (r) => <SitePill within={r.within_geofence} status={r.location_status} />,
+      render: (r) => (
+        <span className="flex flex-wrap items-center gap-1">
+          <SitePill within={r.within_geofence} status={r.location_status} />
+          {(r.location_status === "no_gps" || r.location_status === "delayed_gps") &&
+            r.location_error && (
+              <span className="micro normal-case">{LOCATION_ERROR_LABEL[r.location_error]}</span>
+            )}
+        </span>
+      ),
     },
     {
       key: "device",
@@ -694,6 +848,27 @@ function Devices() {
       ),
     },
     {
+      key: "location",
+      label: "Location",
+      /*
+       * What the phone last said about location permission (14403), so the
+       * devices that will punch WITHOUT a location are visible before they do.
+       * Reported with each punch; blank until the first one.
+       */
+      render: (d) =>
+        d.location_permission === "granted" ? (
+          <Pill tone="ok">Allowed</Pill>
+        ) : d.location_permission === "denied" ? (
+          <Pill tone="bad">Blocked</Pill>
+        ) : d.location_permission === "prompt" ? (
+          <Pill tone="warn">Not Asked</Pill>
+        ) : d.location_permission === "unsupported" ? (
+          <Pill tone="mute">No GPS</Pill>
+        ) : (
+          <span className="micro">—</span>
+        ),
+    },
+    {
       key: "status",
       label: "Status",
       render: (d) => (
@@ -739,14 +914,13 @@ function Devices() {
           Registered devices
         </h2>
         <p className="micro normal-case text-muted-foreground">
-          Each device an employee clocks in from. A second one appearing is
-          worth a look. Names are generated — click one to rename it to
-          something you&rsquo;ll recognise. Enforcement is set by
+          Each device an employee clocks in from. Click a name to rename it.
+          Under
           <span className="font-medium text-foreground">
             {" "}
             hr.device_policy
           </span>{" "}
-          — off, warn, or block.
+          block, an unapproved device&rsquo;s punches wait for approval.
         </p>
       </div>
       <DataList
@@ -845,6 +1019,7 @@ export function AttendancePage() {
               className="w-auto"
             />
           </div>
+          <HeldPunches />
           <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
             <AttendanceLog date={date} />
             <AbsencePanel date={date} />

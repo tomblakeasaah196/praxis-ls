@@ -85,7 +85,7 @@ const daysColumns = () => [
     header: "Location",
     key: "on_site",
     width: 12,
-    note: "on_site / off_site / no_gps / unfenced. A word rather than yes/no: 'no' would merge a punch taken elsewhere with one that carried no fix at all, and telling those apart is the point of the location_source column.",
+    note: "on_site / off_site / no_gps / delayed_gps / unfenced. A word rather than yes/no: 'no' would merge a punch taken elsewhere with one that carried no fix at all, and telling those apart is the point of the location_source column.",
   },
   { header: "Place", key: "geo_label", width: 28 },
   { header: "Device", key: "device_label", width: 20 },

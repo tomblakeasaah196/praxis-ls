@@ -26,7 +26,17 @@ const deviceInfo = z.object({
   label: z.string().max(80).optional(),
   user_agent: z.string().max(400).optional(),
   platform: z.string().max(80).optional(),
+  // 14403: what the browser says about location permission, so HR can see
+  // which phones will punch without one. Self-reported and only advisory.
+  location_permission: z.enum(["granted", "denied", "prompt", "unsupported"]).optional(),
 });
+
+/**
+ * The moment of the tap, from the phone (14403). An ISO instant with a zone,
+ * because a punch held offline across a timezone boundary must not move.
+ * Never trusted blindly: `attendance.review.resolveTapTime` bounds it.
+ */
+const tappedAt = z.string().datetime({ offset: true });
 
 const clockIn = z.object({
   employee_id: z.string().uuid().optional(), // omitted = self (from the auth'd user)
@@ -38,7 +48,42 @@ const clockIn = z.object({
   // client that predates the register, including the installed PWA people are
   // already clocking in from.
   device: deviceInfo.optional(),
+  // 14403. Why the phone had no location at the tap, the phone's own id for
+  // this punch (how a late reading finds it), and when the tap happened.
+  location_error: z.enum(["denied", "os_off", "unavailable", "timeout", "unsupported"]).optional(),
+  client_ref: z.string().uuid().optional(),
+  tapped_at: tappedAt.optional(),
 });
+
+/**
+ * A location reading that arrived after its punch (14403). Addressed by the
+ * phone's `client_ref`, or by the server id when the phone has one.
+ */
+const attachFix = z
+  .object({
+    client_ref: z.string().uuid().optional(),
+    attendance_id: z.string().uuid().optional(),
+    phase: z.enum(["in", "out"]).optional(),
+    latitude: lat,
+    longitude: lng,
+    accuracy: z.number().nonnegative().optional(),
+    fix_at: tappedAt.optional(),
+  })
+  .refine((v) => !!v.client_ref || !!v.attendance_id, {
+    path: ["client_ref"],
+    message: "Say which punch this reading belongs to.",
+  });
+
+/** A manager's decision on a held punch. A rejection says why. */
+const reviewDecision = z
+  .object({
+    decision: z.enum(["APPROVED", "REJECTED"]),
+    note: z.string().max(1000).optional(),
+  })
+  .refine((v) => v.decision !== "REJECTED" || !!(v.note && v.note.trim()), {
+    path: ["note"],
+    message: "Say why this punch is rejected.",
+  });
 
 const deviceRegister = z.object({
   employee_id: z.string().uuid().optional(),
@@ -59,6 +104,7 @@ const clockOut = z.object({
   employee_id: z.string().uuid().optional(),
   latitude: lat.optional(),
   longitude: lng.optional(),
+  tapped_at: tappedAt.optional(),
 });
 
 const workSite = z.object({
@@ -229,7 +275,7 @@ const update = create.partial();
 const workSiteUpdate = workSite.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
 const aiUpdate = update.extend({ attendance_id: z.string().uuid() });
-const schemas = { create, update, clockIn, clockOut, workSite, workSiteUpdate, placeSearch, deviceRegister, deviceUpdate, deviceRename, dayWindow, analyticsWindow, exportWindow, punchWindow, mapWindow, weeklyRun, justify, reconcileRun, aiUpdate };
+const schemas = { create, update, clockIn, clockOut, attachFix, reviewDecision, workSite, workSiteUpdate, placeSearch, deviceRegister, deviceUpdate, deviceRename, dayWindow, analyticsWindow, exportWindow, punchWindow, mapWindow, weeklyRun, justify, reconcileRun, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);
@@ -251,6 +297,8 @@ module.exports = {
   update: mw("update"),
   clockIn: mw("clockIn"),
   clockOut: mw("clockOut"),
+  attachFix: mw("attachFix"),
+  reviewDecision: mw("reviewDecision"),
   workSite: mw("workSite"),
   workSiteUpdate: mw("workSiteUpdate"),
   placeSearch: qmw("placeSearch"),

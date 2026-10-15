@@ -3,6 +3,7 @@
 
 const service = require("./attendance.service");
 const validator = require("./attendance.validator");
+const { z } = require("zod");
 
 module.exports = {
   entity: "attendance",
@@ -12,6 +13,12 @@ module.exports = {
   reads: [
     { key: "list_attendance", service: service.list, permission: { module: "MOD-14", action: "view" }, describe: "List attendance logs (clock-in/out)." },
     { key: "get_attendance", service: service.get, permission: { module: "MOD-14", action: "view" }, describe: "Get one attendance log by id." },
+    {
+      key: "list_held_punches",
+      service: (c) => service.reviewQueue(c),
+      permission: { module: "MOD-14", action: "view" },
+      describe: "List clock-ins held for a manager's decision (off-site or unapproved device under a block policy, or an offline time that does not add up). A held punch is not paid until approved.",
+    },
   ],
 
   writes: [
@@ -30,6 +37,14 @@ module.exports = {
       permission: { module: "MOD-14", action: "edit" },
       confirm: true,
       describe: "Update an attendance log.",
+    },
+    {
+      key: "review_held_punch",
+      service: (c, p, actor) => service.reviewPunch(c, { id: p.attendance_id, decision: p.decision, note: p.note || null, actor }),
+      schema: validator.schemas.reviewDecision.innerType().extend({ attendance_id: z.string().uuid() }),
+      permission: { module: "MOD-14", action: "approve" },
+      confirm: true,
+      describe: "Approve or reject a held clock-in. Approving makes the day count for pay; rejecting needs a reason.",
     },
     {
       key: "clock_out_attendance",

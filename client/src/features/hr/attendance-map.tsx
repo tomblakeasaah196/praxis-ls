@@ -60,6 +60,9 @@ const PIN_FILL: Record<string, string> = {
   on_site: "rgb(var(--ok))",
   off_site: "rgb(var(--bad))",
   unfenced: "rgb(var(--warn))",
+  // A reading that arrived after the tap (14403): drawn, but in the warning
+  // colour, because it is where the phone found itself LATER, not a verdict.
+  delayed_gps: "rgb(var(--warn))",
   no_gps: "rgb(var(--muted-foreground))",
 };
 

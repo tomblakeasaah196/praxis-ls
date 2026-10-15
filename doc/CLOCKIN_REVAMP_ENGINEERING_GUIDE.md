@@ -27,7 +27,8 @@ This is the senior-engineer audit plus the locked product decisions from ten que
 
 **Routes that matter** (`src/modules/hr/attendance/attendance.routes.js`):
 
-- Self: `GET /open`, `POST /clock-in`, `POST /clock-out`, `GET /days/mine`, `PATCH /devices/:id/name`
+- Self: `GET /open`, `GET /me` (linked + open shift), `POST /clock-in`, `POST /clock-out`, `POST /fix` (a reading that arrived after its punch, by `client_ref`), `GET /days/mine`, `PATCH /devices/:id/name`
+- Held punches (14403): `GET /review`, `POST /:id/review`
 - HR: `GET /`, `GET /absence`, `GET /days`, `POST /days/:id/justify`, `POST /reconcile`
 - Devices: `GET|POST /devices`, `PATCH /devices/:id`
 - Worksites: `GET /place-search` (Geoapify, edit grant), `GET|POST /work-sites`, `PATCH /work-sites/:id`
@@ -36,15 +37,17 @@ This is the senior-engineer audit plus the locked product decisions from ten que
 
 **Policies (settings):**
 
-- `hr.geofence` = `off | warn | block` (default **warn**). Punch is accepted without GPS under warn; `within_geofence` is `null`.
+- `hr.geofence` = `off | warn | block` (default **warn**). Punch is accepted without GPS; `within_geofence` is `null`.
 - `hr.device_policy` = `off | warn | block` (default **off**). Devices still **register** on every punch; `off` means “do not judge”.
+- **Since 14403 `block` never refuses a punch.** It writes it with `review_status = 'PENDING'` and `review_reasons` (`off_site`, `device`, `offline_time`); the reconciler does not count a held or rejected punch as presence, and `POST /:id/review` (approve grant) re-runs an already-reconciled day. `OUT_OF_GEOFENCE` and `DEVICE_NOT_REGISTERED` no longer exist. Rules in `attendance.review.js`.
 - `hr.attendance_policy` = `{ work_start, grace_minutes }` + `hr.timezone` (default Africa/Douala).
 - `hr.weekend_days` + `employee.work_days` + `public_holiday` drive reconciliation.
 
 **Clock-in path is already strong:**
 
-- GPS optional at the client; server owns block/warn.
-- Device upsert happens **before** a block refusal so the queue fills.
+- GPS optional at the client; server owns block/warn, and neither refuses.
+- The client waits at most 5 s for a reading (warm GPS first, `lib/clock-location.ts`), punches, and attaches a late reading via `/fix`: within 20 s it judges on-site; later it is stored as `location_source = 'late'` and judges nothing. A punch with no location carries `location_error` (`denied | os_off | unavailable | timeout | unsupported`).
+- Offline punches go through the outbox with `tapped_at`; the server keeps the tap time, sets `punched_offline`, and holds a time that does not add up.
 - Late punch raises a **same-day** auto-query (`attendance.query` upsert on `(employee, work_date, rule)`); reconciler **adopts** it and must not reopen `status` / `response`.
 - Lateness uses workplace timezone (`attendance.rules.wallClock`), not the host clock.
 

@@ -12,4 +12,10 @@ module.exports = {
   // policy accepted it — under `warn` this event is the only trace.
   UNTRUSTED_DEVICE: "attendance.untrusted_device",
   DEVICE_CHANGED: "hr_device.changed",
+  // 14403. A punch a `block` policy used to refuse, written and held instead.
+  HELD: "attendance.held_for_review",
+  // A manager approved or rejected a held punch.
+  REVIEWED: "attendance.reviewed",
+  // A location reading that reached the server after its punch.
+  LOCATION_ATTACHED: "attendance.location_attached",
 };

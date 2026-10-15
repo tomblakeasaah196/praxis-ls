@@ -19,8 +19,23 @@ router.use(authMiddleware);
 
 // Self-service time clock
 router.get("/open", view, controller.open);
+// The clock's state for the caller (14403): linked to an employee, and on the
+// clock or not. No grant: like `/days/mine`, it only ever describes the caller.
+router.get("/me", controller.me);
 router.post("/clock-in", create, validator.clockIn, controller.clockIn);
 router.post("/clock-out", create, validator.clockOut, controller.clockOut);
+// A location reading that arrived after its punch (14403). `create`, the grant
+// that made the punch: the service only ever lets it touch the caller's own.
+router.post("/fix", create, validator.attachFix, controller.attachFix);
+
+/* ── Held punches (14403) ──────────────────────────────────────────────────
+ *
+ * A `block` policy no longer refuses a punch; it holds it here. READING the
+ * queue is `view`. DECIDING is `approve`, not `edit`, for the reason waiving a
+ * day is: it settles whether that day is paid.
+ */
+router.get("/review", view, controller.reviewQueue);
+router.post("/:id/review", requirePermission(M, "approve"), validator.reviewDecision, controller.reviewPunch);
 
 // Manager view — absences for a day
 router.get("/absence", view, controller.absence);
