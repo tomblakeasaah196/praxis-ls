@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1891 |
+| Routes | 1896 |
 | Modules mounted | 143 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1891 mounted routes, grouped by path prefix.
+All 1896 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1216,6 +1216,9 @@ All 1891 mounted routes, grouped by path prefix.
 | DELETE | `/api/tenant/mail/followup/:id` | — |
 | GET | `/api/tenant/mail/followups` | — |
 | PUT | `/api/tenant/mail/holidays` | — |
+| GET | `/api/tenant/mail/image-trust` | — |
+| POST | `/api/tenant/mail/image-trust` | — |
+| DELETE | `/api/tenant/mail/image-trust/:id` | — |
 | GET | `/api/tenant/mail/inbox` | — |
 | POST | `/api/tenant/mail/intake/:id/file` | — |
 | POST | `/api/tenant/mail/intake/:id/reject` | — |
@@ -1280,9 +1283,11 @@ All 1891 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/mail/thread` | — |
 | GET | `/api/tenant/mail/thread/:id` | — |
 | GET | `/api/tenant/mail/thread/:id/attachments` | — |
+| GET | `/api/tenant/mail/thread/:id/body` | — |
 | POST | `/api/tenant/mail/thread/:id/link` | — |
 | POST | `/api/tenant/mail/thread/:id/read` | — |
 | POST | `/api/tenant/mail/thread/:id/reply` | — |
+| GET | `/api/tenant/mail/thread/:id/source` | — |
 | GET | `/api/tenant/mail/threads` | — |
 | DELETE | `/api/tenant/mail/threads/:id` | — |
 | GET | `/api/tenant/mail/threads/:id` | — |
