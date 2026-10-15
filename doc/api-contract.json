@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 143,
-  "route_count": 1891,
+  "route_count": 1896,
   "tiers": {
     "public": 75,
     "self-scoped": 118,
-    "gated": 1698
+    "gated": 1703
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -376,6 +376,12 @@
       "tier": "gated"
     },
     "DELETE /api/tenant/mail/followup/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/mail/image-trust/:id": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -2835,6 +2841,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/mail/image-trust": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/mail/inbox": {
       "auth": true,
       "rbac": true,
@@ -3046,6 +3058,18 @@
       "tier": "gated"
     },
     "GET /api/tenant/mail/thread/:id/attachments": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/mail/thread/:id/body": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/mail/thread/:id/source": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8398,6 +8422,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/mail/folders/empty": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/mail/image-trust": {
       "auth": true,
       "rbac": true,
       "validated": false,

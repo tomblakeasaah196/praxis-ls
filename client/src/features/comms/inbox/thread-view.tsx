@@ -15,12 +15,14 @@
  * "did anyone reply to this?" without anyone having to ask in chat — which was
  * the actual request behind the whole origin-tagging design.
  *
- * ── HTML BODIES ARE SANITIZED ON INGEST, NOT HERE ───────────────────────────
+ * ── HTML BODIES ARE SANITIZED ON INGEST, AND RENDERED IN A SEALED FRAME ─────
  *
- * `mail.service.cleanHtml` runs once when the message is stored, so what is in
- * the database is already safe. Sanitizing again on every render would be
- * cheaper to argue for and slower to run; the invariant to protect is that
- * NOTHING reaches `email_message.body_html` without passing the ingest filter.
+ * `body-html.js` (`cleanHtml`) runs once when the message is stored, so what
+ * is in the database is already safe to keep. Since 14410 it keeps the
+ * sender's styling, `<style>` blocks included, which makes the second half of
+ * the invariant as important as the first: `body_html` is NEVER handed to
+ * `dangerouslySetInnerHTML` in the app's own document. It goes through
+ * `EmailFrame`, where its CSS can only reach itself and nothing in it runs.
  */
 import * as React from "react";
 import { cn } from "@/lib/cn";
@@ -31,18 +33,35 @@ import { DropdownItem, DropdownSeparator } from "@/components/ui/dropdown-menu";
 import { ErrorState, LoadingRow } from "@/components/ui/states";
 import { dateTimeFmt } from "@/lib/format";
 import { tr } from "@/lib/i18n";
+import { Dialog } from "@/components/ui/dialog";
+import { ResponsiveImage } from "@/components/ui/responsive-image";
 import type { Attachment, Label, MailFolder, MailStream, Message, ThreadDetail } from "@/lib/mail-api";
-import { downloadAttachment, listMsgAttachments } from "@/lib/mail-api";
+import {
+  attachmentObjectUrl,
+  downloadAttachment,
+  downloadMessageSource,
+  getMessageBody,
+  listMsgAttachments,
+  messageSourceText,
+  trustImageSender,
+} from "@/lib/mail-api";
+import { useObjectUrl } from "../chat/use-object-url";
+import { NewMessageDialog } from "./composer/new-message";
 import { SignatureSlot } from "./composer/signature-slot";
 import { WorkRail } from "./work";
 import { VerdictBanner, VerdictPill } from "./work/guardrails";
 import { Extractions } from "./work/intake";
 import {
-  blockRemoteContent,
-  restoreRemoteContent,
+  matchInlineParts,
+  referencedCids,
+  renderBody,
   splitQuotedHtml,
   splitQuotedText,
+  styleBlocks,
 } from "./message-body";
+import { EmailFrame } from "./email-frame";
+import type { Mailto } from "./email-doc";
+import { useEmailPalette, type EmailPalette } from "./email-ink";
 
 const Composer = React.lazy(() => import("./composer"));
 
@@ -94,35 +113,110 @@ function sizeLabel(bytes?: number | null): string {
 }
 
 /**
- * The attachment strip (audit H-2).
+ * A message's attachments, fetched once when it is opened (audit H-2).
  *
- * Before this, `has_attachment` rendered a pill reading "Attachment" and that
+ * Before H-2, `has_attachment` rendered a pill reading "Attachment" and that
  * was the entire feature: the product could tell you a bill of lading had
- * arrived and could not show it to you. Acceptance criterion 8 was half met —
- * storage and hashing yes, retrieval no.
+ * arrived and could not show it to you.
  *
  * Fetched lazily, per message, only when the message is expanded and only when
  * it actually has one. A thread of forty messages must not fire forty requests
- * to draw a pane where thirty-nine of them are collapsed.
- *
- * A failure renders as a readable line rather than an empty space, because the
- * empty space is indistinguishable from "this message has no attachments" —
- * and that is the state the user has already been living with.
+ * to draw a pane where thirty-nine of them are collapsed. The one list feeds
+ * both the strip and the inline images in the body, so it is fetched once.
  */
-function AttachmentStrip({ messageId }: { messageId: string }) {
+function useMessageAttachments(messageId: string, wanted: boolean) {
   const [rows, setRows] = React.useState<Attachment[] | null>(null);
   const [failed, setFailed] = React.useState(false);
-  const [busy, setBusy] = React.useState<string | null>(null);
-
   React.useEffect(() => {
+    if (!wanted) return undefined;
     let live = true;
     listMsgAttachments(messageId)
       .then((r) => { if (live) setRows(r || []); })
       .catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
-  }, [messageId]);
+  }, [messageId, wanted]);
+  return { rows, failed };
+}
 
-  if (failed) {
+/**
+ * Object URLs for the inline images the body references, revoked on unmount.
+ *
+ * Only the parts the body actually draws are fetched, and they are fetched
+ * whether or not remote images are allowed: an inline part arrived WITH the
+ * message and is served from our own store, so it reports to nobody.
+ */
+function useInlineImages(rows: Attachment[] | null, html: string) {
+  const cids = React.useMemo(() => referencedCids(html), [html]);
+  const matches = React.useMemo(() => matchInlineParts(rows || [], cids), [rows, cids]);
+  const [urls, setUrls] = React.useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    if (!matches.length) {
+      setUrls({});
+      return undefined;
+    }
+    let live = true;
+    const controller = new AbortController();
+    const made: string[] = [];
+    Promise.all(
+      matches.map(({ cid, part }) =>
+        attachmentObjectUrl(part.email_attachment_id, controller.signal)
+          .then((url) => {
+            made.push(url);
+            return [cid, url] as const;
+          })
+          .catch(() => {
+            /* @silent:parse the defined fallback: this cid stays unresolved and
+               draws as the broken image it always was, without costing the
+               other images in the message */
+            return null;
+          }),
+      ),
+    ).then((pairs) => {
+      if (!live) return;
+      setUrls(Object.fromEntries(pairs.filter((p): p is readonly [string, string] => p !== null)));
+    });
+    return () => {
+      live = false;
+      controller.abort();
+      for (const u of made) URL.revokeObjectURL(u);
+    };
+  }, [matches]);
+
+  const drawn = React.useMemo(() => new Set(matches.map((m) => m.part.email_attachment_id)), [matches]);
+  return { urls, drawn };
+}
+
+const isImage = (a: Attachment) => /^image\//i.test(String(a.content_type || ""));
+
+/** An image attachment shows itself, as Outlook does, so the wrong scan is caught at a glance. */
+function AttachmentThumb({ attachment }: { attachment: Attachment }) {
+  const { url } = useObjectUrl((signal) => attachmentObjectUrl(attachment.email_attachment_id, signal));
+  if (!url) return <span aria-hidden className="block h-16 w-24 rounded bg-muted" />;
+  return (
+    <ResponsiveImage
+      src={url}
+      alt=""
+      className="h-16 w-24 rounded object-cover"
+    />
+  );
+}
+
+/**
+ * The strip of files on a message.
+ *
+ * Inline images the body draws in place are not listed: they are part of the
+ * message, not something the sender attached. An inline part the body does
+ * NOT reference is listed, because otherwise it would be nowhere.
+ *
+ * A failure renders as a readable line rather than an empty space, because the
+ * empty space is indistinguishable from "this message has no attachments".
+ */
+function AttachmentStrip({ rows, failed, drawn }: { rows: Attachment[] | null; failed: boolean; drawn: Set<string> }) {
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const [downloadFailed, setDownloadFailed] = React.useState(false);
+
+  if (failed || downloadFailed) {
     return (
       <p className="text-xs text-muted-foreground">
         {tr("Could not load the attachments on this message.")}
@@ -130,24 +224,44 @@ function AttachmentStrip({ messageId }: { messageId: string }) {
     );
   }
   if (!rows) return <LoadingRow />;
-  if (!rows.length) return null;
+  const files = rows.filter((a) => !drawn.has(a.email_attachment_id));
+  if (!files.length) return null;
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      {rows.map((a) => {
+      {files.map((a) => {
         const size = sizeLabel(a.size_bytes);
+        const open = () => {
+          setBusy(a.email_attachment_id);
+          downloadAttachment(a.email_attachment_id, a.filename)
+            .catch(() => setDownloadFailed(true))
+            .finally(() => setBusy(null));
+        };
+        if (isImage(a) && Number(a.size_bytes || 0) <= 10 * 1024 * 1024) {
+          return (
+            <button
+              key={a.email_attachment_id}
+              type="button"
+              disabled={busy === a.email_attachment_id}
+              onClick={open}
+              title={a.filename || tr("Attachment")}
+              className="flex flex-col items-start gap-1 rounded-md border border-border p-1 text-left hover:bg-muted disabled:opacity-60"
+            >
+              <AttachmentThumb attachment={a} />
+              <span className="flex max-w-[6rem] items-baseline gap-1 text-xs">
+                <span className="truncate">{a.filename || tr("Attachment")}</span>
+                {size && <span className="num shrink-0 text-muted-foreground">{size}</span>}
+              </span>
+            </button>
+          );
+        }
         return (
           <Button
             key={a.email_attachment_id}
             size="sm"
             variant="outline"
             disabled={busy === a.email_attachment_id}
-            onClick={() => {
-              setBusy(a.email_attachment_id);
-              downloadAttachment(a.email_attachment_id, a.filename)
-                .catch(() => setFailed(true))
-                .finally(() => setBusy(null));
-            }}
+            onClick={open}
           >
             <span className="truncate max-w-[16rem]">{a.filename || tr("Attachment")}</span>
             {size && <span className="num ml-1.5 text-xs text-muted-foreground">{size}</span>}
@@ -159,89 +273,171 @@ function AttachmentStrip({ messageId }: { messageId: string }) {
 }
 
 /**
- * The message itself: images held back, history folded.
+ * The message itself: drawn as its sender made it, images held back until
+ * trusted or asked for, history folded.
  *
- * ── WHY BOTH DECISIONS LIVE IN ONE COMPONENT ────────────────────────────────
+ * ── A SEALED FRAME, NOT THE APP'S OWN DOCUMENT ──────────────────────────────
  *
- * They are the same decision seen twice — "do not render everything this
- * message would like you to render until the reader has asked". §5.6.3
- * specifies both, and neither existed: the pane handed `body_html` straight to
- * `dangerouslySetInnerHTML`, so every tracking pixel in every supplier footer
- * fired on open, and a ten-message thread rendered the previous nine inside the
- * tenth.
+ * The pane used to hand `body_html` to `dangerouslySetInnerHTML`, inside a
+ * Tailwind `prose` wrapper, so a sender's email arrived in our fonts and our
+ * colours with the layout stripped (and the ingest sanitizer had already taken
+ * the styling off before it was stored). Bodies now keep their CSS, and CSS
+ * that shares our document can restyle or cover it, so every HTML body goes
+ * through `EmailFrame`. See that file for the sandbox and its policy.
  *
- * ── THE STATE IS PER MESSAGE, AND DELIBERATELY NOT REMEMBERED ───────────────
+ * ── LIGHT MODE IS THE ORIGINAL; DARK MODE IS RECOLOURED ─────────────────────
  *
- * §5.6.3 offers a per-sender "always show" stored per user. That is a
- * preference table and a settings surface; this is the control it would sit on
- * top of, and it is the half that stops the pixels. Showing images is one click
- * per message until that lands, which is the same trade Gmail shipped for
- * years. What must not happen is the reverse — a remembered "always show" with
- * no way to see or withdraw it — so the persistence waits for the screen that
- * can show what has been allowed.
+ * Owner decision, 15 Oct 2026: follow the reader's mode, recolour like new
+ * Outlook in dark, and no per-message switch. `email-dark.ts` has the rules.
  *
- * Sanitized on ingest (see the file header); this is privacy, not safety.
+ * ── IMAGES ──────────────────────────────────────────────────────────────────
+ *
+ * Remote images stay blocked until the reader asks, unless the server says
+ * this reader trusts the sender (their own list, a party we know, our own
+ * domain, or mail we sent; never a sender who failed verification). "Always
+ * show from this sender" is §5.6.3's per-sender switch, stored per user and
+ * withdrawn from My Mailbox. Inline `cid:` images are always drawn: they came
+ * with the message.
+ *
+ * ── REPAIR ON OPEN ──────────────────────────────────────────────────────────
+ *
+ * A body stored before formatting was kept has no `body_policy`. It is drawn as
+ * stored at once, the server is asked to repair it, and the repaired body
+ * replaces it when it lands. A failed repair changes nothing on screen.
  */
-/**
- * Email HTML is someone else's markup: fixed-width tables, long unbroken URLs,
- * images wider than the phone. Left alone it pushes the reading pane wider
- * than the screen and the text is clipped at both edges. Wrap long words,
- * let images and tables shrink to the column, and keep the prose sizing.
- */
-const BODY_PROSE =
-  "prose prose-sm max-w-full min-w-0 break-words [overflow-wrap:anywhere] [&_img]:h-auto [&_img]:max-w-full [&_table]:max-w-full [&_pre]:whitespace-pre-wrap";
-
-function MessageBody({ message }: { message: Message }) {
-  const [showImages, setShowImages] = React.useState(false);
+function MessageBody({
+  message,
+  palette,
+  attachments,
+  trustedSenders,
+  onTrust,
+  onMailto,
+  onRepaired,
+}: {
+  message: Message;
+  palette: EmailPalette;
+  attachments: Attachment[] | null;
+  trustedSenders: Set<string>;
+  onTrust: (sender: string) => Promise<void>;
+  onMailto: (m: Mailto) => void;
+  onRepaired: (messageId: string, html: string) => void;
+}) {
+  const [asked, setAsked] = React.useState(false);
   const [showQuote, setShowQuote] = React.useState(false);
+  const [trusting, setTrusting] = React.useState<"idle" | "busy" | "failed">("idle");
+  const [repaired, setRepaired] = React.useState<string | null>(null);
+  const [, setRepair] = React.useState<"idle" | "done" | "failed">("idle");
 
-  const html = message.body_html || "";
+  const stored = message.body_html || "";
+  const html = repaired ?? stored;
+  const needsRepair = Boolean(stored) && (message.body_policy === null || message.body_policy === undefined);
+
+  React.useEffect(() => {
+    if (!needsRepair) return undefined;
+    let live = true;
+    getMessageBody(message.email_message_id)
+      .then((r) => {
+        if (!live) return;
+        setRepair("done");
+        if (r && r.body_html && (r.source === "recleaned" || r.source === "provider")) {
+          setRepaired(r.body_html);
+          onRepaired(message.email_message_id, r.body_html);
+        }
+      })
+      // The stored body is already on screen; a repair that did not happen
+      // leaves it there, which is the state the reader had before.
+      .catch(() => { if (live) setRepair("failed"); });
+    return () => { live = false; };
+    // onRepaired is the parent's setter wrapper; re-running on its identity
+    // would re-request the repair on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message.email_message_id, needsRepair]);
+
+  const sender = String(message.from_address || "").toLowerCase();
+  const trust = message.image_trust;
+  const held = trust?.reason === "held";
+  const trusted = !held && (Boolean(trust?.trusted) || trustedSenders.has(sender));
+  const showRemote = asked || trusted;
+
+  const { urls } = useInlineImages(attachments, html);
   const parts = React.useMemo(
     () => (html ? splitQuotedHtml(html) : splitQuotedText(message.body_text || "")),
     [html, message.body_text],
   );
-  const scan = React.useMemo(
-    () => (html ? blockRemoteContent(parts.visible) : { html: parts.visible, blocked: 0 }),
-    [html, parts.visible],
+  const styles = React.useMemo(() => (html ? styleBlocks(html) : ""), [html]);
+  const opts = { showRemote, cidUrls: urls, dark: palette.dark };
+  const visible = React.useMemo(
+    () => (html ? renderBody(parts.visible, opts) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [html, parts.visible, showRemote, urls, palette],
   );
-  const quoteScan = React.useMemo(
-    () => (html && parts.quoted ? blockRemoteContent(parts.quoted) : { html: parts.quoted || "", blocked: 0 }),
-    [html, parts.quoted],
+  const quoted = React.useMemo(
+    () => (html && parts.quoted ? renderBody(styles + parts.quoted, opts) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [html, parts.quoted, styles, showRemote, urls, palette],
   );
 
-  const blocked = scan.blocked + quoteScan.blocked;
-  const render = (frag: { html: string; blocked: number }) =>
-    showImages ? restoreRemoteContent(frag.html) : frag.html;
+  const blocked = (visible?.blocked || 0) + (quoted?.blocked || 0);
+  const scheme = palette.scheme;
+  const who = message.direction === "OUT"
+    ? tr("Your message")
+    : `${tr("Message from")} ${message.from_name || message.from_address}`;
+  // Offered for a stranger only. Mail we sent needs no trust, and a sender who
+  // failed verification must not be one click from permanent trust.
+  const canTrust = message.direction === "IN" && !held && Boolean(sender);
+
+  const trustSender = () => {
+    setTrusting("busy");
+    onTrust(sender)
+      .then(() => setTrusting("idle"))
+      .catch(() => setTrusting("failed"));
+  };
 
   return (
     <div className="space-y-2">
-      {blocked > 0 && !showImages && (
+      {blocked > 0 && !showRemote && (
         // Named and counted. "Images blocked" with no number reads as a setting;
         // "3 images" reads as a message that has something in it.
-        <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
           <span>
-            {blocked === 1
-              ? tr("One image was not loaded. Remote images can tell the sender when you opened this.")
-              : `${blocked} ${tr("images were not loaded. Remote images can tell the sender when you opened this.")}`}
+            {held
+              ? tr("Images are held back: this sender could not be verified.")
+              : blocked === 1
+                ? tr("One image was not loaded. Remote images can tell the sender you opened this.")
+                : `${blocked} ${tr("images were not loaded. Remote images can tell the sender you opened this.")}`}
           </span>
           <button
             type="button"
-            onClick={() => setShowImages(true)}
+            onClick={() => setAsked(true)}
             className="font-medium text-foreground underline underline-offset-2"
           >
             {tr("Show images")}
           </button>
+          {canTrust && (
+            <button
+              type="button"
+              onClick={trustSender}
+              disabled={trusting === "busy"}
+              className="font-medium text-foreground underline underline-offset-2 disabled:opacity-60"
+            >
+              {`${tr("Always show from")} ${message.from_address}`}
+            </button>
+          )}
+          {trusting === "failed" && <span>{tr("Could not remember this sender. Try again.")}</span>}
         </div>
       )}
 
-      {html ? (
-        <div
-          className={BODY_PROSE}
-          // Sanitized on ingest — see the file header.
-          dangerouslySetInnerHTML={{ __html: render(scan) }}
+      {visible ? (
+        <EmailFrame
+          html={visible.html}
+          title={who}
+          showRemote={showRemote}
+          ink={palette.ink}
+          scheme={scheme}
+          onMailto={onMailto}
         />
       ) : (
-        <div className="whitespace-pre-wrap text-sm">
+        <div className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">
           {parts.visible || message.body_preview || tr("(no content)")}
         </div>
       )}
@@ -261,13 +457,19 @@ function MessageBody({ message }: { message: Message }) {
             {showQuote ? tr("Hide earlier messages") : "···"}
           </button>
           {showQuote && (
-            html ? (
-              <div
-                className={cn(BODY_PROSE, "mt-2 border-l-2 border-border pl-3 text-muted-foreground")}
-                dangerouslySetInnerHTML={{ __html: render(quoteScan) }}
-              />
+            quoted ? (
+              <div className="mt-2 border-l-2 border-border pl-3">
+                <EmailFrame
+                  html={quoted.html}
+                  title={tr("Earlier messages")}
+                  showRemote={showRemote}
+                  ink={palette.ink}
+                  scheme={scheme}
+                  onMailto={onMailto}
+                />
+              </div>
             ) : (
-              <div className="mt-2 whitespace-pre-wrap border-l-2 border-border pl-3 text-sm text-muted-foreground">
+              <div className="mt-2 whitespace-pre-wrap break-words border-l-2 border-border pl-3 text-sm text-muted-foreground [overflow-wrap:anywhere]">
                 {parts.quoted}
               </div>
             )
@@ -278,14 +480,99 @@ function MessageBody({ message }: { message: Message }) {
   );
 }
 
+/**
+ * View source: the message exactly as the mail server holds it.
+ *
+ * Read from the provider each time, never stored (see body.service). Shown as
+ * text with a size limit, because a message with a 20 MB attachment is 27 MB of
+ * base64 and a `<pre>` of that hangs the tab; the download has all of it.
+ */
+const SOURCE_SHOWN = 2 * 1024 * 1024;
+
+function SourceDialog({ message, onClose }: { message: Message; onClose: () => void }) {
+  const [text, setText] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const filename = emlName(message.subject);
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    messageSourceText(message.email_message_id, controller.signal)
+      .then(setText)
+      .catch((e: unknown) => {
+        if (controller.signal.aborted) return;
+        const status = (e as { status?: number } | null)?.status;
+        setError(status === 404
+          ? tr("The mail server no longer has the original of this message.")
+          : tr("Could not load the original of this message."));
+      });
+    return () => controller.abort();
+  }, [message.email_message_id]);
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={tr("Message Source")}
+      size="wide"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>{tr("Close")}</Button>
+          <Button
+            disabled={!text}
+            onClick={() => { downloadMessageSource(message.email_message_id, filename).catch(() => setError(tr("Could not load the original of this message."))); }}
+          >
+            {tr("Download Original")}
+          </Button>
+        </>
+      }
+    >
+      {error ? (
+        <ErrorState message={error} />
+      ) : text === null ? (
+        <LoadingRow label={tr("Loading the original…")} />
+      ) : (
+        <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs">
+          {text.length > SOURCE_SHOWN ? text.slice(0, SOURCE_SHOWN) : text}
+        </pre>
+      )}
+    </Dialog>
+  );
+}
+
+/** The downloaded original's name: the subject, folded to what a file system accepts. */
+function emlName(subject?: string | null): string {
+  const base = String(subject || "")
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7e]/g, "")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return `${base || "message"}.eml`;
+}
+
 function MessageBlock({
   message,
   defaultOpen,
+  repairedHtml,
+  palette,
+  trustedSenders,
+  onTrust,
+  onMailto,
+  onRepaired,
 }: {
   message: Message;
   defaultOpen: boolean;
+  /** The body as repaired on open, once it has landed; decides which inline parts the body draws. */
+  repairedHtml?: string;
+  palette: EmailPalette;
+  trustedSenders: Set<string>;
+  onTrust: (sender: string) => Promise<void>;
+  onMailto: (m: Mailto) => void;
+  onRepaired: (messageId: string, html: string) => void;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
+  const [source, setSource] = React.useState(false);
   const origin = originNote(message);
   // Same reasoning as counterparties() in thread-list: guard the shape rather
   // than trust it, because the cost of being wrong here is the whole screen.
@@ -295,6 +582,18 @@ function MessageBlock({
     message.direction === "OUT"
       ? `${tr("To")} ${to.join(", ") || "—"}`
       : `${tr("From")} ${message.from_name ? `${message.from_name} <${message.from_address}>` : message.from_address}`;
+
+  // Wanted for the strip AND for inline images, which can exist on a message
+  // whose only "attachments" are the pictures in its signature. Read off the
+  // repaired body when there is one: a pre-14410 IMAP body lost its `cid:`
+  // references, and only the repaired copy says which parts it draws.
+  const bodyHtml = repairedHtml || message.body_html || "";
+  const wantsParts = open && (message.has_attachment || /cid:/i.test(bodyHtml));
+  const { rows, failed } = useMessageAttachments(message.email_message_id, wantsParts);
+  const drawn = React.useMemo(
+    () => new Set(matchInlineParts(rows || [], referencedCids(bodyHtml)).map((m) => m.part.email_attachment_id)),
+    [rows, bodyHtml],
+  );
 
   return (
     <article
@@ -337,11 +636,19 @@ function MessageBlock({
                 tick for "we did not check" would be the worst of the three
                 possible outputs. */}
             <VerdictPill verdict={message.auth_verdict} />
+            {/* Outlook's "View message source" and Gmail's "Show original":
+                the message as the server holds it, read live, never stored. */}
+            <MoreMenu label={tr("Message actions")} className="ml-auto">
+              <DropdownItem onSelect={() => setSource(true)}>{tr("View source")}</DropdownItem>
+              <DropdownItem
+                onSelect={() => { downloadMessageSource(message.email_message_id, emlName(message.subject)).catch(() => setSource(true)); }}
+              >
+                {tr("Download original")}
+              </DropdownItem>
+            </MoreMenu>
           </div>
 
-          {message.has_attachment && (
-            <AttachmentStrip messageId={message.email_message_id} />
-          )}
+          {message.has_attachment && <AttachmentStrip rows={rows} failed={failed} drawn={drawn} />}
 
           <VerdictBanner
             verdict={message.auth_verdict}
@@ -356,7 +663,15 @@ function MessageBlock({
               {tr("Cc")}: <span className="num">{cc.join(", ")}</span>
             </p>
           )}
-          <MessageBody message={message} />
+          <MessageBody
+            message={message}
+            palette={palette}
+            attachments={rows}
+            trustedSenders={trustedSenders}
+            onTrust={onTrust}
+            onMailto={onMailto}
+            onRepaired={onRepaired}
+          />
 
           {/* §8.6 — whatever was read off this message's attachments, staged
               and awaiting a person. Renders nothing when there is nothing. */}
@@ -365,6 +680,7 @@ function MessageBlock({
           )}
         </div>
       )}
+      {source && <SourceDialog message={message} onClose={() => setSource(false)} />}
     </article>
   );
 }
@@ -454,6 +770,32 @@ export function ThreadView({
     try { localStorage.setItem(RAIL_PREF, String(railOpen)); }
     catch { /* @silent:storage — the toggle still works for this visit */ }
   }, [railOpen]);
+
+  // The colours every message frame is drawn against, read once per theme.
+  const palette = useEmailPalette();
+
+  // Senders trusted from THIS pane, so "Always show from…" on one message
+  // shows the images on every other message from them without a reload. The
+  // server's own stamp (`image_trust`) covers the rest on the next open.
+  const [trustedSenders, setTrustedSenders] = React.useState<Set<string>>(() => new Set());
+  // Bodies repaired on open, so Reply quotes the sender's formatting rather
+  // than the flattened copy the thread was loaded with.
+  const [repaired, setRepaired] = React.useState<Record<string, string>>({});
+  // A `mailto:` clicked inside a message, opened in the Praxis composer.
+  const [mailto, setMailto] = React.useState<Mailto | null>(null);
+  React.useEffect(() => {
+    setTrustedSenders(new Set());
+    setRepaired({});
+    setMailto(null);
+  }, [thread?.email_thread_id]);
+
+  const onTrust = React.useCallback(async (sender: string) => {
+    await trustImageSender(sender);
+    setTrustedSenders((prev) => new Set(prev).add(sender));
+  }, []);
+  const onRepaired = React.useCallback((id: string, html: string) => {
+    setRepaired((prev) => ({ ...prev, [id]: html }));
+  }, []);
 
   if (error) return <ErrorState message={error} />;
   if (loading && !thread) return <LoadingRow label={tr("Opening conversation…")} />;
@@ -673,6 +1015,12 @@ export function ThreadView({
               key={m.email_message_id}
               message={m}
               defaultOpen={i === lastIndex}
+              repairedHtml={repaired[m.email_message_id]}
+              palette={palette}
+              trustedSenders={trustedSenders}
+              onTrust={onTrust}
+              onMailto={setMailto}
+              onRepaired={onRepaired}
             />
           ))}
         </div>
@@ -734,6 +1082,21 @@ export function ThreadView({
           to the command strip at the top of the pane; see the note on it. An
           empty footer renders no border and takes no height, so the
           correspondence gets the space back. */}
+      {/* A `mailto:` link inside a message, as Outlook and Gmail handle one:
+          their own composer, from the mailbox this conversation is on. */}
+      {mailto && (
+        <NewMessageDialog
+          open
+          onClose={() => setMailto(null)}
+          onSent={() => setMailto(null)}
+          to={mailto.to}
+          cc={mailto.cc}
+          subject={mailto.subject}
+          bodyText={mailto.body}
+          connectionId={thread.email_connection_id}
+        />
+      )}
+
       {replying && (
         <footer className="shrink-0 border-t border-border px-4 py-3">
           <React.Suspense fallback={<LoadingRow label={tr("Opening the composer…")} />}>
@@ -750,7 +1113,11 @@ export function ThreadView({
               initialTo={replying === "FORWARD" ? [] : replyTo}
               initialCc={replying === "REPLY_ALL" ? replyAllCc : []}
               initialSubject={replying === "FORWARD" ? forwardSubject : replySubject}
-              quotedHtml={messages[lastIndex]?.body_html || null}
+              quotedHtml={
+                (messages[lastIndex] && repaired[messages[lastIndex].email_message_id])
+                || messages[lastIndex]?.body_html
+                || null
+              }
               quotedText={messages[lastIndex]?.body_text || null}
               entityRef={thread.entity_ref || null}
               onClose={() => setReplying(null)}

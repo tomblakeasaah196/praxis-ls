@@ -176,7 +176,10 @@ async function appendToArchive(client, { messageId, message }) {
       subject: message.subject || null,
       date: message.received_at || null,
     },
-    body: `${message.body_html || ""}\n${message.body_text || ""}`,
+    // What ARRIVED, when we have it: the sender's original HTML rather than our
+    // cleaned copy of it. The chain is evidence of what the other party sent,
+    // and the cleaned copy is a rendering decision that can change (14410).
+    body: `${message.body_html_original || message.body_html || ""}\n${message.body_text || ""}`,
     attachments: message.attachment_hashes || [],
   });
   await client.query(
@@ -256,6 +259,7 @@ async function onMessageIngested(client, row, { raw = {}, attachmentHashes = [],
     subject: row.subject,
     body_text: row.body_text,
     body_html: row.body_html,
+    body_html_original: row.body_html_original,
     message_id_header: row.message_id_header,
     received_at: row.received_at,
     headers: raw.headers || {},

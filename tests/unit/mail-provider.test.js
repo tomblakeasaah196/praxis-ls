@@ -7,8 +7,12 @@
 "use strict";
 
 // mailparser: our mock just parses the JSON we stashed in `source`.
+const mockParseOpts = [];
 jest.mock("mailparser", () => ({
-  simpleParser: async (src) => JSON.parse(src.toString()),
+  simpleParser: async (src, opts) => {
+    mockParseOpts.push(opts);
+    return JSON.parse(src.toString());
+  },
 }));
 
 // imapflow: a fake ImapFlow driven by static __mailbox / __messages.
@@ -20,9 +24,21 @@ jest.mock("imapflow", () => {
     }
     async connect() {}
     async logout() {}
-    async getMailboxLock() {
-      this.mailbox = ImapFlow.__mailbox;
+    async getMailboxLock(path) {
+      ImapFlow.__locked.push(path);
+      if (ImapFlow.__missing.includes(path)) throw new Error(`no such mailbox ${path}`);
+      this.mailbox = { ...ImapFlow.__mailbox, path };
       return { release() {} };
+    }
+    async search(q) {
+      const want = q && q.header && q.header["message-id"];
+      const box = (this.mailbox && this.mailbox.path) || "INBOX";
+      return (ImapFlow.__byFolder[box] || []).filter((m) => m.id === want).map((m) => m.uid);
+    }
+    async fetchOne(uid) {
+      const box = (this.mailbox && this.mailbox.path) || "INBOX";
+      const hit = (ImapFlow.__byFolder[box] || []).find((m) => String(m.uid) === String(uid));
+      return hit ? hit.item : null;
     }
 
     async *fetch() {
@@ -35,6 +51,9 @@ jest.mock("imapflow", () => {
   }
   ImapFlow.__mailbox = { uidValidity: 10 };
   ImapFlow.__messages = [];
+  ImapFlow.__locked = [];
+  ImapFlow.__missing = [];
+  ImapFlow.__byFolder = {};
   return { ImapFlow };
 });
 
@@ -165,5 +184,67 @@ describe("ImapSmtpProvider.createReply", () => {
         references: ["<root>", "<orig>"],
       }),
     );
+  });
+});
+
+describe("ImapSmtpProvider inline images (cid)", () => {
+  const p = new ImapSmtpProvider(conn);
+
+  it("keeps cid: links in the HTML instead of letting mailparser inline them as data: URIs", async () => {
+    // The default rewrote every inline image into base64 in the body, and the
+    // old sanitizer then deleted the src. keepCidLinks is the fix's first half.
+    mockParseOpts.length = 0;
+    ImapFlow.__mailbox = { uidValidity: 10 };
+    ImapFlow.__messages = [msg(7)];
+    await p.fetchSince(null);
+    expect(mockParseOpts[0]).toEqual(expect.objectContaining({ keepCidLinks: true }));
+  });
+
+  it("carries each part's Content-ID and marks related parts inline", () => {
+    const n = p._normalize({
+      messageId: "<m>",
+      attachments: [
+        { filename: "logo.png", contentType: "image/png", size: 3, content: Buffer.from("png"), cid: "logo@x", related: true },
+        { filename: "b.pdf", contentType: "application/pdf", size: 3, content: Buffer.from("pdf"), contentId: "<b@x>", related: false },
+      ],
+    }, { uid: 1 });
+    expect(n.attachments[0]).toMatchObject({ content_id: "logo@x", disposition: "inline" });
+    expect(n.attachments[1]).toMatchObject({ content_id: "b@x", disposition: "attachment" });
+  });
+});
+
+describe("ImapSmtpProvider.getMessage looks where the message was synced from", () => {
+  const item = (id, uid) => ({ uid, flags: new Set(), source: Buffer.from(JSON.stringify({ messageId: id, html: "<p>x</p>", attachments: [] })) });
+
+  beforeEach(() => {
+    ImapFlow.__locked = [];
+    ImapFlow.__missing = [];
+    ImapFlow.__byFolder = {};
+  });
+
+  it("opens the message's own folder first, not INBOX", async () => {
+    ImapFlow.__byFolder = { Archive: [{ id: "<a@x>", uid: 4, item: item("<a@x>", 4) }] };
+    const n = await new ImapSmtpProvider(conn).getMessage("<a@x>", { folderPath: "Archive" });
+    expect(n && n.externalMessageId).toBe("<a@x>");
+    expect(ImapFlow.__locked[0]).toBe("Archive");
+  });
+
+  it("falls back to INBOX when the folder has gone", async () => {
+    ImapFlow.__missing = ["Old"];
+    ImapFlow.__byFolder = { INBOX: [{ id: "<b@x>", uid: 2, item: item("<b@x>", 2) }] };
+    const n = await new ImapSmtpProvider(conn).getMessage("<b@x>", { folderPath: "Old" });
+    expect(n && n.externalMessageId).toBe("<b@x>");
+    expect(ImapFlow.__locked).toEqual(["Old", "INBOX"]);
+  });
+
+  it("answers null, not a throw, when the server no longer has it", async () => {
+    expect(await new ImapSmtpProvider(conn).getMessage("<gone@x>", { folderPath: "INBOX" })).toBeNull();
+  });
+
+  it("getRawMessage returns the source bytes untouched", async () => {
+    ImapFlow.__byFolder = { INBOX: [{ id: "<r@x>", uid: 9, item: item("<r@x>", 9) }] };
+    const raw = await new ImapSmtpProvider(conn).getRawMessage("<r@x>", {});
+    expect(Buffer.isBuffer(raw)).toBe(true);
+    expect(JSON.parse(raw.toString()).messageId).toBe("<r@x>");
   });
 });

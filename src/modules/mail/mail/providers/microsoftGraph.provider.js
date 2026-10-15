@@ -32,10 +32,10 @@ class MicrosoftGraphProvider {
     return { ...baseCapabilities(), push: true, delta: true, serverThreads: true, appendSent: false };
   }
 
-  async _req(method, url, { data, params } = {}) {
+  async _req(method, url, { data, params, responseType } = {}) {
     const token = await this._getToken();
     const full = url.startsWith("http") ? url : GRAPH + url;
-    return axios({ method, url: full, params, data, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+    return axios({ method, url: full, params, data, responseType, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
   }
 
   async verify() {
@@ -113,6 +113,16 @@ class MicrosoftGraphProvider {
     return n;
   }
 
+  /**
+   * The message as Exchange holds it (RFC 822), for View source / Download
+   * original. `$value` on a message is its MIME content; asked for as bytes so
+   * axios does not try to read a mail as JSON.
+   */
+  async getRawMessage(externalMessageId) {
+    const r = await this._req("GET", `/me/messages/${externalMessageId}/$value`, { responseType: "arraybuffer" });
+    return r.data ? Buffer.from(r.data) : null;
+  }
+
   /** Fetch file attachments (contentBytes) for a message. Item/reference
    *  attachments are skipped (no inline bytes). Oversized ones are dropped. */
   async _fetchAttachments(graphId) {
@@ -120,7 +130,15 @@ class MicrosoftGraphProvider {
       const r = await this._req("GET", `/me/messages/${graphId}/attachments`);
       return (r.data.value || [])
         .filter((a) => a["@odata.type"] === "#microsoft.graph.fileAttachment" && a.contentBytes)
-        .map((a) => ({ filename: a.name, content_type: a.contentType || "application/octet-stream", size_bytes: a.size, content: Buffer.from(a.contentBytes, "base64") }))
+        // `isInline` + `contentId` are what the `cid:` in the HTML resolves
+        // against. Without them the signature logo was stored as an ordinary
+        // attachment and drawn as a broken image where the sender put it.
+        .map((a) => ({
+          filename: a.name, content_type: a.contentType || "application/octet-stream", size_bytes: a.size,
+          content: Buffer.from(a.contentBytes, "base64"),
+          content_id: String(a.contentId || "").trim().replace(/^<|>$/g, "") || null,
+          disposition: a.isInline ? "inline" : "attachment",
+        }))
         .filter((a) => a.content.length <= ATTACH_MAX_BYTES);
     } catch {
       return [];
