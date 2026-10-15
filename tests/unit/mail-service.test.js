@@ -367,6 +367,71 @@ test("sanitizes the inbound HTML body before storing (stored-XSS guard)", async 
   expect(row.body_html).toBe("SANITIZED:<script>evil()</script><p>hi</p>"); // passed through the sanitizer
 });
 
+test("stores the sender's original HTML beside the cleaned copy, stamped with the policy", async () => {
+  mockFetchSince.mockResolvedValue({
+    messages: [inbound({ externalMessageId: "<o>", bodyHtml: '<td style="background:#0b3d2e">Brief</td>' })],
+    nextCursor: null,
+  });
+
+  await service.syncConnection(DB, "conn-1", {});
+
+  const row = threads.insertMessage.mock.calls[0][1];
+  // Never rendered; it is what the next sanitizer change re-runs over (14410).
+  expect(row.body_html_original).toBe('<td style="background:#0b3d2e">Brief</td>');
+  expect(row.body_policy).toBe(require("../../src/modules/mail/mail/body-html").BODY_POLICY);
+});
+
+test("the archive seals what ARRIVED: sender, subject and original body, not three ids from RETURNING", async () => {
+  // The real hook, the real chain module, the real sync loop. The wiring test in
+  // tests/security hands the hook a complete fixture; this is the path that
+  // handed it `{ email_message_id, email_thread_id, received_at }` and sealed
+  // every message with no sender and an empty body.
+  const chain = require("../../src/modules/mail/triage/archive-chain");
+  const spy = jest.spyOn(chain, "append");
+  mockFetchSince.mockResolvedValue({
+    messages: [inbound({
+      externalMessageId: "<arc>", from: "lola@beautiful-fabrics.com", subject: "Build request",
+      bodyHtml: '<p style="color:#c9a227">Hello</p>', bodyText: "Hello",
+    })],
+    nextCursor: null,
+  });
+
+  try {
+    await service.syncConnection(DB, "conn-1", {});
+    expect(spy).toHaveBeenCalledTimes(1);
+    const sealed = spy.mock.calls[0][1];
+    expect(sealed.headers.from).toBe("lola@beautiful-fabrics.com");
+    expect(sealed.headers.subject).toBe("Build request");
+    expect(sealed.body).toBe('<p style="color:#c9a227">Hello</p>\nHello');
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+test("an inline part is stored with its Content-ID; a repeated Content-ID stays a plain attachment", async () => {
+  const png = Buffer.from("png");
+  mockFetchSince.mockResolvedValue({
+    messages: [inbound({
+      externalMessageId: "<cid>",
+      attachments: [
+        { filename: "logo.png", content_type: "image/png", content: png, content_id: "logo@x", disposition: "inline" },
+        { filename: "logo2.png", content_type: "image/png", content: png, content_id: "logo@x", disposition: "inline" },
+        { filename: "b.pdf", content_type: "application/pdf", content: Buffer.from("pdf"), content_id: null, disposition: "attachment" },
+      ],
+    })],
+    nextCursor: null,
+  });
+
+  await service.syncConnection(DB, "conn-1", { slug: "t" });
+
+  const rows = repo.addAttachment.mock.calls.map((c) => c[1]);
+  expect(rows[0]).toMatchObject({ content_id: "logo@x", disposition: "inline" });
+  // ux_email_attachment_cid_message would refuse the repeat inside a silent
+  // catch and the file would vanish; it is kept, unlinked from the cid.
+  expect(rows[1]).toMatchObject({ content_id: null, disposition: "attachment" });
+  expect(rows[2]).toMatchObject({ content_id: null, disposition: "attachment" });
+});
+
 test("one failing folder does not abort its siblings", async () => {
   threads.syncableFolders.mockResolvedValue([INBOX, ARCHIVE]);
   mockFetchSince

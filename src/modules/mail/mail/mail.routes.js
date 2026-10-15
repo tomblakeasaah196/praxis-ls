@@ -241,6 +241,13 @@ router.get("/labels", core, requirePermission(M, "view"), c.mailLabels);
 router.post("/labels", core, requirePermission(M, "create"), v.label, c.createLabel);
 router.delete("/labels/:id", core, requirePermission(M, "edit"), c.deleteLabel);
 
+/* §5.6.3 "always show images from this sender", per user. `edit`, like read
+ * state and stars: it changes how this person's mail behaves, not what
+ * correspondence exists. */
+router.get("/image-trust", core, requirePermission(M, "view"), c.imageTrustList);
+router.post("/image-trust", core, requirePermission(M, "edit"), v.imageTrust, c.imageTrustAdd);
+router.delete("/image-trust/:id", core, requirePermission(M, "edit"), c.imageTrustRemove);
+
 router.get("/threads", core, requirePermission(M, "view"), c.threads);
 router.post("/threads/bulk", core, requirePermission(M, "edit"), v.threadBulk, c.threadBulk);
 
@@ -284,6 +291,12 @@ router.get("/thread", core, requirePermission(M, "view"), c.thread);
  * inside a shared mailbox it opened a thread the new surface would 404. */
 router.get("/thread/:id", core, requirePermission(M, "view"), requireVisibleMessage("id"), c.message);
 router.get("/thread/:id/attachments", core, requirePermission(M, "view"), requireVisibleMessage("id"), c.attachments);
+/* 14410. `body` is a read that may heal the stored copy (repair on open): the
+ * write is a derived cache of what the provider already holds, so it rides the
+ * same `view` as reading the message. `source` is the message as the provider
+ * holds it, for View source and Download original. */
+router.get("/thread/:id/body", core, requirePermission(M, "view"), requireVisibleMessage("id"), c.messageBody);
+router.get("/thread/:id/source", core, requirePermission(M, "view"), requireVisibleMessage("id"), c.messageSource);
 router.get("/client/:id/timeline", core, requirePermission(M, "view"), c.clientTimeline);
 router.post("/thread/:id/link", core, requirePermission(M, "create"), requireVisibleMessage("id"), v.threadLink, c.linkThread);
 router.post("/thread/:id/read", core, requirePermission(M, "edit"), requireVisibleMessage("id"), c.markRead);

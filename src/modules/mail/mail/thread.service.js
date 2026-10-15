@@ -27,6 +27,7 @@ const events = require("./mail.events");
 const { AppError } = require("../../../utils/errors");
 const { emitEvent, audit } = require("../../../shared/events/emit");
 const { logger } = require("../../../config/logger");
+const imageTrust = require("./image-trust.service");
 
 const MODULE = "MOD-72";
 const ref = (id) => `email_thread:${id}`;
@@ -81,7 +82,8 @@ async function get(client, actor, threadId) {
   const t = await repo.getThread(client, actor.user_id, threadId);
   if (!t) throw new AppError("NOT_FOUND", "conversation not found", 404);
   const [withLabel] = await attachLabels(client, actor, [t]);
-  return withLabel;
+  // Whose remote images load without asking, per message, for THIS reader.
+  return imageTrust.annotate(client, actor, withLabel);
 }
 
 /**

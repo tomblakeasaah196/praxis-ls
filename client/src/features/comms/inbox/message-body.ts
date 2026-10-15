@@ -65,6 +65,8 @@
  * one you cannot use to settle an argument about who said what.
  */
 
+import { hasOwnDarkMode, recolourFragment, type DarkTheme } from "./email-dark";
+
 /** The attributes that make a browser fetch something while rendering. */
 const URL_ATTRS = ["src", "srcset", "poster", "background"] as const;
 
@@ -178,9 +180,55 @@ export function blockRemoteContent(html: string): BodyScan {
   if (!html) return { html: "", blocked: 0 };
 
   const { doc, root } = parseBody(html);
+  const blocked = blockIn(root);
+  return { html: serialize(doc, root), blocked };
+}
+
+/**
+ * A remote `url()` in a stylesheet, and an `@import`.
+ *
+ * Bodies stored since 14410 keep their `<style>` blocks, and a stylesheet can
+ * fetch as surely as an `<img>` can: a `background-image`, an `@font-face`
+ * `src`, an `@import`. The frame's CSP refuses all three anyway; neutralising
+ * them here is what makes the banner's count honest, so "Show images" is
+ * offered for a message whose only remote content is in its CSS.
+ *
+ * The original text is kept on the element, as the attributes above are, so
+ * showing images restores rather than re-fetches.
+ */
+const CSS_URL = /url\([^)]*\)/gi;
+const CSS_IMPORT = /@import\b[^;]*;?/gi;
+
+function blockStyle(el: Element): number {
+  const css = el.textContent || "";
+  let blocked = 0;
+  const cleaned = css
+    .replace(CSS_IMPORT, () => {
+      blocked += 1;
+      return "";
+    })
+    .replace(CSS_URL, (whole) => {
+      const inner = whole.slice(4, -1).trim().replace(/^['"]|['"]$/g, "");
+      if (!isRemote(inner)) return whole;
+      blocked += 1;
+      return "none";
+    });
+  if (blocked) {
+    el.setAttribute("data-blocked-css", css);
+    el.textContent = cleaned;
+  }
+  return blocked;
+}
+
+/** The blocking pass over an already-parsed fragment. Returns how many it held. */
+function blockIn(root: ParentNode): number {
   let blocked = 0;
 
   for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
+    if (el.tagName.toLowerCase() === "style") {
+      blocked += blockStyle(el);
+      continue;
+    }
     for (const attr of URL_ATTRS) {
       const value = el.getAttribute(attr);
       if (value == null || !referencesRemote(attr, value)) continue;
@@ -206,13 +254,17 @@ export function blockRemoteContent(html: string): BodyScan {
     }
   }
 
-  return { html: serialize(doc, root), blocked };
+  return blocked;
 }
 
 /** Put back what `blockRemoteContent` held, for "Show images". */
 export function restoreRemoteContent(html: string): string {
   if (!html) return "";
   const { doc, root } = parseBody(html);
+  for (const el of Array.from(root.querySelectorAll("style[data-blocked-css]"))) {
+    el.textContent = el.getAttribute("data-blocked-css") || "";
+    el.removeAttribute("data-blocked-css");
+  }
   for (const attr of URL_ATTRS) {
     for (const el of Array.from(
       root.querySelectorAll<HTMLElement>(`[data-blocked-${attr}]`),
@@ -303,6 +355,19 @@ function trimEnd(s: string): string {
 }
 
 /**
+ * The words a reader would see in a node. A `<style>` element's CSS is text
+ * to the DOM and nothing to a reader, and since 14410 every styled body starts
+ * with one, so "is there anything above the quotation" must not count it.
+ */
+function readable(node: Node): string {
+  if (node.nodeType === 1 && (node as Element).tagName.toLowerCase() === "style") return "";
+  if (node.nodeType !== 1 && node.nodeType !== 11) return node.textContent || "";
+  const copy = node.cloneNode(true) as Element | DocumentFragment;
+  for (const s of Array.from(copy.querySelectorAll("style"))) s.remove();
+  return copy.textContent || "";
+}
+
+/**
  * Split an HTML body at the FIRST `<blockquote>`, or at an attribution line.
  *
  * The first blockquote is the right cut and nesting needs no counting: a thread
@@ -332,8 +397,9 @@ export function splitQuotedHtml(html: string): SplitBody {
     const before = doc.createRange();
     before.setStart(root, 0);
     before.setEndBefore(bq);
-    // Text, not markup: a wrapper `<div>` above the quotation is not a reply.
-    if (!before.toString().trim()) return { visible: body, quoted: null };
+    // Text, not markup: a wrapper `<div>` above the quotation is not a reply,
+    // and neither is the stylesheet the sanitizer puts at the front.
+    if (!readable(before.cloneContents()).trim()) return { visible: body, quoted: null };
 
     const rest = doc.createRange();
     rest.setStartBefore(bq);
@@ -351,7 +417,7 @@ export function splitQuotedHtml(html: string): SplitBody {
   for (let i = 1; i < nodes.length; i += 1) {
     if (!isAttribution(nodes[i].textContent || "")) continue;
     const head = nodes.slice(0, i);
-    if (!head.map((n) => n.textContent || "").join("").trim()) break;
+    if (!head.map(readable).join("").trim()) break;
 
     const rest = doc.createRange();
     rest.setStartBefore(nodes[i]);
@@ -362,4 +428,128 @@ export function splitQuotedHtml(html: string): SplitBody {
   }
 
   return { visible: body, quoted: null };
+}
+
+
+/* ── What the sealed frame is handed ─────────────────────────────────────── */
+
+export type RenderOptions = {
+  /** The reader asked for remote images, or the sender is trusted for them. */
+  showRemote: boolean;
+  /** Inline parts already fetched as blob URLs, keyed by Content-ID. */
+  cidUrls?: Record<string, string>;
+  /** Recolour for dark mode against these anchors; null in light mode. */
+  dark?: DarkTheme | null;
+};
+
+export type RenderedBody = {
+  html: string;
+  /** Remote references held back; 0 when images are shown or there were none. */
+  blocked: number;
+  /** The message carries its own `prefers-color-scheme` design and was not recoloured. */
+  ownDark: boolean;
+};
+
+/** `cid:Foo@x` → the blob URL for that part, matching case-insensitively as a fallback. */
+function resolveCid(value: string, cidUrls: Record<string, string>): string | null {
+  const id = value.trim().replace(/^cid:/i, "").replace(/^<|>$/g, "");
+  if (!id) return null;
+  if (cidUrls[id]) return cidUrls[id];
+  const lower = id.toLowerCase();
+  const key = Object.keys(cidUrls).find((k) => k.toLowerCase() === lower);
+  return key ? cidUrls[key] : null;
+}
+
+function resolveCidsIn(root: ParentNode, cidUrls: Record<string, string>): void {
+  if (!Object.keys(cidUrls).length) return;
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("[src], [background]"))) {
+    for (const attr of ["src", "background"]) {
+      const v = el.getAttribute(attr);
+      if (!v || !/^cid:/i.test(v.trim())) continue;
+      const url = resolveCid(v, cidUrls);
+      if (url) el.setAttribute(attr, url);
+    }
+  }
+}
+
+/**
+ * The HTML the sealed frame renders: parsed ONCE, then blocked, resolved and
+ * recoloured on that one fragment.
+ *
+ * Order matters in one place: blocking runs before `cid:` resolution, because a
+ * resolved inline part is a `blob:` URL and is local by definition, and running
+ * the other way round would only work by the accident that `isRemote` also
+ * passes `blob:`.
+ */
+export function renderBody(html: string, { showRemote, cidUrls = {}, dark = null }: RenderOptions): RenderedBody {
+  if (!html) return { html: "", blocked: 0, ownDark: false };
+  const { doc, root } = parseBody(html);
+  const blocked = showRemote ? 0 : blockIn(root);
+  resolveCidsIn(root, cidUrls);
+  const ownDark = hasOwnDarkMode(root);
+  if (dark && !ownDark) recolourFragment(root, dark);
+  return { html: serialize(doc, root), blocked, ownDark };
+}
+
+/**
+ * The `<style>` blocks of a body, as markup.
+ *
+ * The quoted history is cut out of the body below the reply, and the sanitizer
+ * moves every stylesheet to the front, so the cut leaves the history's classes
+ * with no rules. The folded history is rendered with these prepended.
+ */
+export function styleBlocks(html: string): string {
+  if (!html) return "";
+  const { doc, root } = parseBody(html);
+  const box = doc.createElement("div");
+  for (const s of Array.from(root.querySelectorAll("style"))) box.appendChild(s.cloneNode(true));
+  return box.innerHTML;
+}
+
+/** The Content-IDs a body references, so only those parts are fetched. */
+export function referencedCids(html: string): string[] {
+  if (!html || !/cid:/i.test(html)) return [];
+  const { root } = parseBody(html);
+  const out = new Set<string>();
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("[src], [background]"))) {
+    for (const attr of ["src", "background"]) {
+      const v = (el.getAttribute(attr) || "").trim();
+      if (/^cid:/i.test(v)) out.add(v.replace(/^cid:/i, "").replace(/^<|>$/g, ""));
+    }
+  }
+  return [...out];
+}
+
+/** The part of an attachment row `matchInlineParts` reads. */
+export type InlineCandidate = {
+  email_attachment_id: string;
+  filename?: string | null;
+  content_id?: string | null;
+};
+
+/**
+ * Which stored attachment each `cid:` in the body is.
+ *
+ * By Content-ID first, as RFC 2392 intends. Then, for parts stored before the
+ * id was recorded (every inbound attachment until 14410), by filename: Outlook
+ * names its inline parts `image001.png@01DB…`, Gmail `ii_…`, and in both the
+ * part before the `@` is the filename the part was stored under. A cid that
+ * matches nothing stays a cid, and draws as the broken image it always was.
+ */
+export function matchInlineParts<T extends InlineCandidate>(rows: T[], cids: string[]): { cid: string; part: T }[] {
+  const out: { cid: string; part: T }[] = [];
+  const used = new Set<string>();
+  for (const cid of cids) {
+    const lower = cid.toLowerCase();
+    const stem = lower.split("@")[0];
+    const free = rows.filter((r) => !used.has(r.email_attachment_id));
+    const hit =
+      free.find((r) => r.content_id === cid)
+      || free.find((r) => String(r.content_id || "").toLowerCase() === lower)
+      || free.find((r) => !r.content_id && stem && String(r.filename || "").toLowerCase() === stem);
+    if (!hit) continue;
+    used.add(hit.email_attachment_id);
+    out.push({ cid, part: hit });
+  }
+  return out;
 }

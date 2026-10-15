@@ -676,6 +676,93 @@ describe("the conversation view", () => {
   });
 });
 
+/**
+ * ── THE SENDER'S EMAIL, AS THEY MADE IT (14410) ─────────────────────────────
+ *
+ * The reading pane flattened every message: the ingest sanitizer took the
+ * styling off, and the pane drew what was left inside the app's own document
+ * in the app's own fonts. These pin the four behaviours that replaced it, at
+ * the level a person would notice them.
+ */
+describe("the reading pane draws the sender's email", () => {
+  const BRANDED = '<style>.hd{color:#c9a227}</style><table width="600" style="background-color:#0b3d2e"><tr><td class="hd">DEMO BUILD BRIEF</td></tr></table><img src="https://track.example/p.gif">';
+
+  const htmlThread = (over: Partial<ThreadDetail["messages"][number]> = {}): ThreadDetail => {
+    const d = detail();
+    d.messages = [{ ...d.messages[0], body_html: BRANDED, body_policy: 1, ...over }];
+    return d;
+  };
+
+  const props = {
+    loading: false,
+    labels: [],
+    busy: false,
+    onMove: vi.fn(),
+    onStream: vi.fn(),
+    onLabel: vi.fn(),
+    onToggleRead: vi.fn(),
+    onClose: vi.fn(),
+  };
+
+  const view = (d: ThreadDetail, routes: Record<string, unknown> = {}) =>
+    renderScreen(<ThreadView thread={d} {...props} />, {
+      routes: {
+        "/mail/threads/t1/suggestions": [],
+        "/mail/threads/t1/notes": [],
+        "/mail/threads/t1/intake": [],
+        "/mail/threads/t1/cards": { thread_id: "t1", cards: [] },
+        ...routes,
+      },
+    });
+
+  const frameOf = (name: RegExp) => screen.getByTitle(name) as HTMLIFrameElement;
+
+  it("renders an HTML body in a sealed frame, with its styling, and not in the app's document", () => {
+    view(htmlThread());
+    const frame = frameOf(/Message from client@maersk\.cm/);
+    const doc = frame.getAttribute("srcdoc") || "";
+    expect(doc).toContain("background-color:#0b3d2e");
+    expect(doc).toContain(".hd{color:#c9a227}");
+    // Nothing in the message runs, and none of its CSS reaches the app.
+    expect(frame.getAttribute("sandbox")).not.toContain("allow-scripts");
+    expect(screen.queryByText("DEMO BUILD BRIEF")).toBeNull();
+  });
+
+  it("holds remote images back and offers to trust a stranger", async () => {
+    view(htmlThread(), { "/mail/image-trust": { email_image_trust_id: "x", sender_address: "client@maersk.cm" } });
+    expect(frameOf(/Message from/).getAttribute("srcdoc")).not.toContain(' src="https://track.example/p.gif"');
+    await userEvent.click(screen.getByRole("button", { name: "Always show from client@maersk.cm" }));
+    // Trusted from here on: the banner goes and the frame may fetch https.
+    expect(await screen.findByTitle(/Message from/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show images" })).toBeNull();
+    expect(frameOf(/Message from/).getAttribute("srcdoc")).toContain("img-src data: blob: https:");
+  });
+
+  it("never offers permanent trust to a sender who failed verification", () => {
+    view(htmlThread({ auth_verdict: "LIKELY_IMPERSONATION", image_trust: { trusted: false, reason: "held" } }));
+    expect(screen.getByText("Images are held back: this sender could not be verified.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Always show from/ })).toBeNull();
+  });
+
+  it("shows a trusted sender's images without asking", () => {
+    view(htmlThread({ image_trust: { trusted: true, reason: "party" } }));
+    expect(screen.queryByRole("button", { name: "Show images" })).toBeNull();
+    expect(frameOf(/Message from/).getAttribute("srcdoc")).toContain(' src="https://track.example/p.gif"');
+  });
+
+  it("repairs a body stored before formatting was kept, and swaps it in", async () => {
+    view(htmlThread({ body_html: "<p>flat copy</p>", body_policy: null }), {
+      "/mail/thread/m1/body": {
+        email_message_id: "m1", body_html: "<p style=\"color:#c9a227\">repaired copy</p>", body_policy: 1, source: "provider",
+      },
+    });
+    // Drawn as stored at once, then replaced when the repair lands.
+    await vi.waitFor(() => {
+      expect(frameOf(/Message from/).getAttribute("srcdoc")).toContain("repaired copy");
+    });
+  });
+});
+
 const folder = (over: Partial<Folder> = {}): Folder => ({
   email_folder_id: "f1",
   email_connection_id: "c1",

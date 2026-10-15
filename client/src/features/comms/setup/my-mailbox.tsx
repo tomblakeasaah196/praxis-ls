@@ -51,7 +51,8 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, Modal } from "@/components/ui/modal";
-import { ErrorState } from "@/components/ui/states";
+import { ErrorState, LoadingRow } from "@/components/ui/states";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { PageHeader } from "@/components/data-list";
 import { useResource, errMsg } from "@/lib/use-resource";
@@ -262,6 +263,72 @@ function ConnectWizard({ onClose, onDone }: { onClose: () => void; onDone: () =>
 const tone = (s?: string | null): Tone =>
   String(s).toUpperCase() === "CONNECTED" ? "ok" : String(s).toUpperCase() === "PENDING" ? "warn" : "bad";
 
+/**
+ * Whose remote images load without asking, for this person (§5.6.3).
+ *
+ * The spec's per-sender "always show" came with a condition stated in the
+ * reading pane's own header: a remembered choice must have a screen that shows
+ * what has been allowed and lets it be withdrawn. This is that screen. Only the
+ * reader's OWN choices are listed; the automatic trust (clients, suppliers,
+ * colleagues, our own domains) follows master data and is not a list anyone
+ * keeps.
+ */
+function TrustedSenders() {
+  const list = useResource(() => api.listImageTrust(), []);
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const rows = list.data || [];
+
+  async function remove(id: string) {
+    setBusy(id);
+    setError(null);
+    try {
+      await api.untrustImageSender(id);
+      list.reload();
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-1.5">
+        <h3 className="text-sm font-medium">{tr("Trusted Senders")}</h3>
+        <InfoHint label={tr("About trusted senders")}>
+          {tr("Remote images from these senders load without asking. Clients, suppliers and colleagues are trusted automatically, and a sender who fails verification never is.")}
+        </InfoHint>
+      </div>
+      {list.error && <ErrorState message={list.error} />}
+      {error && <ErrorState message={error} />}
+      {list.loading && !list.data ? (
+        <LoadingRow />
+      ) : rows.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">{tr("None yet.")}</p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {rows.map((r) => (
+            <li key={r.email_image_trust_id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2">
+              <span className="num text-sm">{r.sender_address}</span>
+              <span className="num text-xs text-muted-foreground">{dateFmt(r.created_at)}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto"
+                disabled={busy === r.email_image_trust_id}
+                onClick={() => void remove(r.email_image_trust_id)}
+              >
+                {tr("Remove")}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
   const mine = useResource(() => api.myMailboxes(), []);
   /**
@@ -405,6 +472,8 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
           </ul>
         </div>
       )}
+
+      {personal && <TrustedSenders />}
 
       {managedMailbox && (
         <MembersModal

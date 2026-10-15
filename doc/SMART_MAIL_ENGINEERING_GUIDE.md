@@ -1159,6 +1159,28 @@ and the `On … wrote:` / `Le … a écrit :` patterns — both languages). Remo
 default** with a per-sender "always show" that is stored per user. Blocking remote images is also the
 only privacy control we have left after Q32 removed telemetry — it stops _other people's_ pixels too.
 
+**As built (14410, owner decisions of 15 Oct 2026).**
+
+- **The sender's formatting is kept.** `mail/body-html.js` keeps inline styles, presentational table
+  attributes, classes and cleaned `<style>` blocks; script, handlers, forms, frames and script schemes
+  still go. The untouched original is stored in `body_html_original` (never rendered), stamped with
+  `body_policy`, so a later policy change is a re-run, not a re-fetch.
+- **Rendered in a sealed frame**, `inbox/email-frame.tsx`: `srcdoc`, `sandbox` without
+  `allow-scripts`, its own CSP (images from `data:`/`blob:` until allowed). `body_html` is never put in
+  the app's own document again.
+- **Dark mode recolours like new Outlook** (`inbox/email-dark.ts`): light backgrounds go dark and dark
+  text goes light, anchored to the tenant's card and foreground; colours already right for dark, accent
+  borders and images are untouched; a sender's own `prefers-color-scheme` design is left alone. Light
+  mode is the original. No per-message switch.
+- **Old mail is repaired on open**: `GET /mail/thread/:id/body` re-cleans from the original, or fetches
+  a pre-14410 message once from its provider, and backs off a day after a failure.
+- **Images**: inline `cid:` parts resolve (Content-ID and disposition are now captured on all three
+  providers). Remote images load without asking for the reader's own list (`email_image_trust`,
+  managed in My Mailbox), clients/suppliers/employees in master data, our own non-consumer domains, and
+  mail we sent; never for a SUSPICIOUS or LIKELY_IMPERSONATION verdict.
+- **View source / Download original** read the RFC 822 message live from the provider
+  (`GET /mail/thread/:id/source`); it is not stored. `mailto:` links open the Praxis composer.
+
 #### 5.6.4 Slash commands — and how to add one later (Q10)
 
 `src/modules/mail/mail/mail.commands.js`:

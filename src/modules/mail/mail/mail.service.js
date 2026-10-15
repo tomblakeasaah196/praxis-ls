@@ -55,24 +55,10 @@ const ocrQueue = require("../assist/ocr.enqueue");
 const ATTACH_MAX_BYTES = 25 * 1024 * 1024; // matches document_vault.createDocument
 const OAUTH_STATE_TTL = "10m";
 
-/** Sanitize an inbound HTML body before it is ever stored/rendered (stored-XSS
- *  guard — plan §7). Keeps common formatting + inline images (cid:), drops
- *  scripts/handlers/unsafe schemes. Done once on ingest. */
-function cleanHtml(html) {
-  if (!html) return null;
-
-  const sanitize = require("sanitize-html");
-  return sanitize(html, {
-    allowedTags: sanitize.defaults.allowedTags.concat(["img"]),
-    allowedAttributes: {
-      ...sanitize.defaults.allowedAttributes,
-      img: ["src", "alt", "width", "height"],
-      a: ["href", "name", "target", "rel"],
-    },
-    allowedSchemes: ["http", "https", "mailto", "cid"],
-    allowedSchemesByTag: { img: ["http", "https", "cid"] },
-  });
-}
+// The ingest sanitizer (stored-XSS guard, plan §7) and the version stamp that
+// goes beside its output. It used to be sanitize-html's default allow-list and
+// flattened every message; see body-html.js for what it keeps now and why.
+const { cleanHtml, BODY_POLICY } = require("./body-html");
 
 // ── Original read-only view ──
 const listIdentities = (client) => repo.listIdentities(client);
@@ -732,7 +718,7 @@ async function ingestMessage(client, conn, m, { folder = "INBOX", providerPath =
     streamFields = { stream: verdict.stream, stream_reason: verdict.reason, is_vip: Boolean(party && party.is_vip) };
   }
 
-  const row = await threadRepo.insertMessage(client, {
+  const fields = {
     email_thread_id: existing.email_thread_id,
     email_connection_id: conn.email_connection_id,
     email_identity_id: conn.email_identity_id,
@@ -746,7 +732,11 @@ async function ingestMessage(client, conn, m, { folder = "INBOX", providerPath =
     to_address: m.to || [],
     cc_address: m.cc || [],
     subject: m.subject,
+    // Both: what the reader sees, and what the sender sent. The original is
+    // never rendered; it is what the next sanitizer change re-runs over.
     body_html: cleanHtml(m.bodyHtml),
+    body_html_original: m.bodyHtml || null,
+    body_policy: BODY_POLICY,
     body_text: m.bodyText,
     in_reply_to: m.inReplyTo,
     references_header: threading.normaliseReferences(m.references),
@@ -756,7 +746,8 @@ async function ingestMessage(client, conn, m, { folder = "INBOX", providerPath =
     origin_user_id: originFields.origin_user_id,
     origin_send_point: originFields.origin_send_point,
     received_at: m.receivedAt,
-  });
+  };
+  const row = await threadRepo.insertMessage(client, fields);
   if (!row) return null;
 
   // Fold the message into its thread, then recount from the messages so the
@@ -773,7 +764,14 @@ async function ingestMessage(client, conn, m, { folder = "INBOX", providerPath =
       /* @silent:storage read state is a convenience here, not the record */
     });
   }
-  return { ...row, thread_id: existing.email_thread_id, is_new_thread: existing.message_count === 0 };
+  // The FIELDS, not only what INSERT … RETURNING handed back. The archive and
+  // anti-spoof hook reads `from_address`, `subject` and the body off this object,
+  // and RETURNING carries three ids and a date: so from the day the hook was
+  // wired, every message was sealed into the §9.6 chain with an empty body and no
+  // sender, and every verdict was computed against an empty domain. The wiring
+  // test passed a complete fixture straight to the hook, which is why it never
+  // saw what the sync loop was actually passing.
+  return { ...fields, ...row, thread_id: existing.email_thread_id, is_new_thread: existing.message_count === 0 };
 }
 
 /** Pull new mail for one connection, folder by folder. */
@@ -972,8 +970,14 @@ async function persistAttachments(client, inboundId, list, ctx = {}) {
   const crypto = require("crypto");
   let saved = 0;
   const hashes = [];
+  // `ux_email_attachment_cid_message` allows one part per Content-ID, and a
+  // malformed message can repeat one. The repeat is kept as a plain attachment
+  // rather than failing its INSERT inside the catch below and vanishing.
+  const cids = new Set();
   for (const a of list) {
     if (!a || !a.content || !a.content.length || a.content.length > ATTACH_MAX_BYTES) continue;
+    const cid = a.content_id && !cids.has(a.content_id) ? a.content_id : null;
+    if (cid) cids.add(cid);
     try {
       const contentType = a.content_type || "application/octet-stream";
       const checksum = crypto.createHash("sha256").update(a.content).digest("hex");
@@ -990,6 +994,11 @@ async function persistAttachments(client, inboundId, list, ctx = {}) {
         email_message_id: inboundId, direction: "IN", vault_id: doc.doc_id,
         filename: a.filename || null, content_type: contentType, size_bytes: a.content.length,
         checksum_sha256: checksum,
+        // What a `cid:` in the body resolves against (RFC 2392). Recorded only
+        // with an id to resolve, so a part that merely SAYS inline stays an
+        // attachment the reader can find in the strip.
+        disposition: a.disposition === "inline" && cid ? "inline" : "attachment",
+        content_id: cid,
       });
       hashes.push(checksum);
       saved += 1;
@@ -1306,7 +1315,7 @@ async function recordOutbound(client, conn, m) {
     message_count: 0,
   });
 
-  const row = await threadRepo.insertMessage(client, {
+  const fields = {
     email_thread_id: thread.email_thread_id,
     email_connection_id: conn.email_connection_id,
     email_identity_id: conn.email_identity_id,
@@ -1317,19 +1326,28 @@ async function recordOutbound(client, conn, m) {
     from_address: conn.email_address,
     to_address: to,
     subject: m.subject,
-    body_html: m.html,
+    // Our own serializer wrote this, but its quoted history is another party's
+    // HTML, so it takes the same road as inbound: cleaned for the pane, kept
+    // whole beside it. One rule for `body_html` is easier to hold than two.
+    body_html: cleanHtml(m.html),
+    body_html_original: m.html || null,
+    body_policy: BODY_POLICY,
     body_text: m.text,
     sent_via: m.sentVia || null,
     origin_user_id: m.originUserId || null,
     origin_send_point: m.originSendPoint || null,
     received_at: new Date(),
-  });
+  };
+  const row = await threadRepo.insertMessage(client, fields);
   if (row) {
     // §9.6 archives "every message, in and out". Outbound is the half that
     // matters most to an auditor asking what we told a client and when, so it
     // is archived at the moment of record and, like ingest, is allowed to fail
     // the operation rather than leave a hole in the chain.
-    await triageHooks.onMessageSent(client, { ...row, thread_id: thread.email_thread_id });
+    //
+    // The fields go in with the ids, for the reason given in ingestMessage:
+    // RETURNING alone sealed every sent message with no recipient and no body.
+    await triageHooks.onMessageSent(client, { ...fields, ...row, thread_id: thread.email_thread_id });
     await threadRepo.refreshThreadCounts(client, thread.email_thread_id);
     await threadRepo.seedStateForMembers(client, row.email_message_id, conn.email_connection_id);
     if (m.originUserId) {

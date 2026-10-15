@@ -146,3 +146,32 @@ test("createReply: createReply → patch body → send, returns new id + convers
     }),
   );
 });
+
+test("an inline file attachment keeps its contentId and is marked inline", async () => {
+  axios
+    .mockResolvedValueOnce({
+      data: {
+        value: [{ id: "m2", conversationId: "c2", hasAttachments: true, body: { contentType: "HTML", content: '<img src="cid:image001.png@01DB">' } }],
+        "@odata.deltaLink": "https://graph/delta",
+      },
+    })
+    .mockResolvedValueOnce({
+      data: {
+        value: [{
+          "@odata.type": "#microsoft.graph.fileAttachment", name: "image001.png", contentType: "image/png",
+          size: 3, isInline: true, contentId: "image001.png@01DB", contentBytes: Buffer.from("png").toString("base64"),
+        }],
+      },
+    });
+
+  const { messages } = await provider().fetchSince(null);
+
+  expect(messages[0].attachments[0]).toMatchObject({ content_id: "image001.png@01DB", disposition: "inline" });
+});
+
+test("getRawMessage reads $value as bytes", async () => {
+  axios.mockResolvedValueOnce({ data: Buffer.from("From: a@b\r\n\r\nhi") });
+  const raw = await provider().getRawMessage("m9");
+  expect(raw.toString()).toBe("From: a@b\r\n\r\nhi");
+  expect(axios.mock.calls.at(-1)[0]).toMatchObject({ url: expect.stringContaining("/me/messages/m9/$value"), responseType: "arraybuffer" });
+});

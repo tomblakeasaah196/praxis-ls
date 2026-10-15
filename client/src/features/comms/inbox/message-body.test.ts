@@ -170,3 +170,87 @@ describe("quoted history", () => {
     expect(splitQuotedHtml("<p>Just a note.</p>").quoted).toBeNull();
   });
 });
+
+/* ── 14410: bodies keep their stylesheets, and the frame is handed one parse ── */
+
+import { matchInlineParts, referencedCids, renderBody, styleBlocks } from "./message-body";
+
+describe("remote content inside a <style> block", () => {
+  it("holds back a remote url() and @import, counts them, and restores them", () => {
+    const html = "<style>@import url(https://t.example/a.css);.h{background:url(https://t.example/p.gif)}.l{background:url(cid:logo)}</style><p>x</p>";
+    const out = blockRemoteContent(html);
+    expect(out.blocked).toBe(2);
+    // The live stylesheet fetches nothing; the original waits on the element,
+    // as `data-blocked-src` does for an image, so Show images can restore it.
+    expect(out.html).toContain(">.h{background:none}.l{background:url(cid:logo)}</style>");
+    expect(out.html).toContain('data-blocked-css="@import url(https://t.example/a.css)');
+    expect(restoreRemoteContent(out.html)).toContain(".h{background:url(https://t.example/p.gif)}");
+  });
+});
+
+describe("renderBody", () => {
+  const DARK = { bg: [24, 27, 31] as [number, number, number], fg: [230, 230, 233] as [number, number, number] };
+
+  it("resolves cid: to the fetched part, and counts it as nothing to block", () => {
+    const out = renderBody('<img src="cid:Logo@X"><img src="https://t.example/p.gif">', {
+      showRemote: false,
+      cidUrls: { "logo@x": "blob:https://app/1" },
+    });
+    expect(out.html).toContain('src="blob:https://app/1"');
+    expect(out.blocked).toBe(1);
+  });
+
+  it("blocks nothing once the reader or a trusted sender allows remote images", () => {
+    const out = renderBody('<img src="https://t.example/p.gif">', { showRemote: true });
+    expect(out.blocked).toBe(0);
+    expect(out.html).toContain(' src="https://t.example/p.gif"');
+  });
+
+  it("light mode is the original; dark mode recolours", () => {
+    const html = '<td style="background-color:#ffffff;color:#000000">x</td>';
+    expect(renderBody(html, { showRemote: true, dark: null }).html).toContain("#ffffff");
+    expect(renderBody(html, { showRemote: true, dark: DARK }).html).not.toContain("#ffffff");
+  });
+
+  it("leaves a sender's own dark design alone", () => {
+    const html = "<style>@media (prefers-color-scheme: dark){p{color:#eee}}</style><p style=\"color:#000\">x</p>";
+    const out = renderBody(html, { showRemote: true, dark: DARK });
+    expect(out.ownDark).toBe(true);
+    expect(out.html).toContain("color:#000");
+  });
+});
+
+describe("the parts a body references", () => {
+  it("referencedCids lists each cid once, without the scheme or brackets", () => {
+    expect(referencedCids('<img src="cid:a@x"><img src="cid:<b@x>"><td background="cid:a@x">')).toEqual(["a@x", "b@x"]);
+    expect(referencedCids("<p>no images</p>")).toEqual([]);
+  });
+
+  it("matchInlineParts prefers the Content-ID and falls back to the filename for legacy rows", () => {
+    const rows = [
+      { email_attachment_id: "1", filename: "image001.png", content_id: null },
+      { email_attachment_id: "2", filename: "x.png", content_id: "logo@x" },
+      { email_attachment_id: "3", filename: "b.pdf", content_id: null },
+    ];
+    expect(matchInlineParts(rows, ["logo@x", "image001.png@01DB1234", "missing@x"])).toEqual([
+      { cid: "logo@x", part: rows[1] },
+      { cid: "image001.png@01DB1234", part: rows[0] },
+    ]);
+  });
+
+  it("styleBlocks hands the folded history the stylesheet it was cut away from", () => {
+    expect(styleBlocks("<style>.q{color:red}</style><p>a</p><blockquote class=q>b</blockquote>")).toBe("<style>.q{color:red}</style>");
+  });
+});
+
+describe("splitQuotedHtml does not mistake a stylesheet for a reply", () => {
+  it("a forward that is all quotation, behind a <style>, is not folded", () => {
+    const html = "<style>p{color:red}</style><blockquote>forwarded</blockquote>";
+    expect(splitQuotedHtml(html).quoted).toBeNull();
+  });
+
+  it("a real reply behind a <style> still folds its history", () => {
+    const html = "<style>p{color:red}</style><p>new words</p><blockquote>old</blockquote>";
+    expect(splitQuotedHtml(html).quoted).toContain("old");
+  });
+});
