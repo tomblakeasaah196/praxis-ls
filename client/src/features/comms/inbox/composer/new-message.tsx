@@ -26,10 +26,65 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Select } from "@/components/ui/modal";
 import { ErrorState, LoadingRow } from "@/components/ui/states";
 import { Callout } from "@/components/ui/callout";
+import { Button } from "@/components/ui/button";
 import { useResource } from "@/lib/use-resource";
-import { tr } from "@/lib/i18n";
+import { tr, tv } from "@/lib/i18n";
+import { dateTimeFmt } from "@/lib/format";
 import * as api from "@/lib/mail-api";
 import type { ExtraRecipient } from "./recipient-field";
+import { canWriteFrom } from "./can-write-from";
+
+/** "17:34" today, a date and time otherwise. */
+function whenFailed(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const today = new Date();
+  const sameDay = d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  return sameDay
+    ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+    : dateTimeFmt(d);
+}
+
+/**
+ * One line, at the point of sending, saying the mailbox did not sync and why,
+ * with the way to try again. Sending is not blocked by it.
+ */
+export function SyncWarning({ mailbox, onRetried }: { mailbox: api.Mailbox; onRetried?: () => void }) {
+  const [busy, setBusy] = React.useState(false);
+  const [failed, setFailed] = React.useState<string | null>(null);
+  if (mailbox.status !== "ERROR") return null;
+  const reason = mailbox.last_error || mailbox.last_failure_reason || tr("No reason was given.");
+  const at = whenFailed(mailbox.last_failure_at || mailbox.last_sync_at);
+  const retry = async () => {
+    setBusy(true);
+    setFailed(null);
+    try {
+      const r = await api.syncConnection(mailbox.email_connection_id);
+      if (r && r.error) setFailed(r.error);
+      else onRetried?.();
+    } catch (e) {
+      setFailed(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Callout
+      tone="warn"
+      action={mailbox.kind === "PERSONAL" ? (
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => void retry()}>
+          {busy ? tr("Syncing…") : tr("Retry Sync")}
+        </Button>
+      ) : undefined}
+    >
+      {at
+        ? tv("This mailbox did not sync at {{time}}: {{reason}}", { time: at, reason })
+        : tv("This mailbox did not sync: {{reason}}", { reason })}
+      {failed && <span className="block">{tv("Still failing: {{reason}}", { reason: failed })}</span>}
+    </Callout>
+  );
+}
 
 /* TipTap and ProseMirror are ~150 kB gzipped. A document page that nobody
    emails should not pay for them — same reasoning as thread-view's lazy
@@ -98,9 +153,13 @@ export function NewMessageDialog({
    */
   connectionId?: string | null;
 }) {
-  const conns = useResource(() => api.listConnections(), []);
-  const connected = (conns.data || []).filter((c) => c.status === "CONNECTED");
+  // `myMailboxes`, not `listConnections`: the latter is the caller's OWN
+  // connections only, so a shared mailbox they had been given could be read in
+  // the inbox and never chosen here.
+  const conns = useResource(() => api.myMailboxes(), []);
+  const connected = (conns.data || []).filter(canWriteFrom);
   const [connId, setConnId] = React.useState("");
+  const chosen = connected.find((c) => c.email_connection_id === connId) || null;
 
   React.useEffect(() => {
     if (connId) return;
@@ -152,6 +211,8 @@ export function NewMessageDialog({
             </Select>
           </Field>
         )}
+
+        {chosen && <SyncWarning mailbox={chosen} onRetried={conns.reload} />}
 
         {languageNote && (
           <p className="text-xs text-muted-foreground">{languageNote}</p>

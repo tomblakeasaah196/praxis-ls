@@ -427,11 +427,18 @@ const setThreadStarred = (client, userId, threadId, isStarred = true) =>
     [userId, threadId, isStarred],
   ).then((r) => r.rows.length);
 
-/** Seed unread state for a newly synced message, for everyone who can see it. */
-const seedStateForMembers = (client, messageId, connectionId) =>
+/**
+ * Seed read state for a newly synced message, for everyone who can see it.
+ *
+ * `isRead` is what the mail server says. It used to be ignored and every synced
+ * message started unread, which was invisible while a sync only brought in new
+ * mail and is not once a first sync reads a whole Sent or Archive folder: ten
+ * years of mail somebody read long ago would arrive as ten thousand unread.
+ */
+const seedStateForMembers = (client, messageId, connectionId, { isRead = false } = {}) =>
   client.query(
-    `INSERT INTO email_message_state (email_message_id, user_id, is_read)
-     SELECT $1, u.user_id, false FROM (
+    `INSERT INTO email_message_state (email_message_id, user_id, is_read, read_at)
+     SELECT $1, u.user_id, $3, CASE WHEN $3 THEN now() ELSE NULL END FROM (
        SELECT c.owner_user_id AS user_id FROM email_connection c
         WHERE c.email_connection_id = $2 AND c.owner_user_id IS NOT NULL
        UNION
@@ -439,7 +446,184 @@ const seedStateForMembers = (client, messageId, connectionId) =>
         WHERE m.email_connection_id = $2 AND m.revoked_at IS NULL
      ) u
      ON CONFLICT (email_message_id, user_id) DO NOTHING`,
+    [messageId, connectionId, isRead === true],
+  );
+
+/**
+ * A message the mailbox's owner read somewhere else (Outlook, the Gmail app).
+ * Personal mailboxes only: on a shared one, "read on the server" says that
+ * somebody read it, not that each member did, and marking it read for all of
+ * them would hide it from the colleague who has not.
+ */
+const markReadForOwner = (client, messageId, connectionId) =>
+  client.query(
+    `INSERT INTO email_message_state (email_message_id, user_id, is_read, read_at)
+     SELECT $1, c.owner_user_id, true, now()
+       FROM email_connection c
+      WHERE c.email_connection_id = $2 AND c.kind = 'PERSONAL' AND c.owner_user_id IS NOT NULL
+     ON CONFLICT (email_message_id, user_id) DO UPDATE
+        SET is_read = true, read_at = COALESCE(email_message_state.read_at, now())
+      WHERE NOT email_message_state.is_read`,
     [messageId, connectionId],
+  );
+
+/**
+ * Every message on a thread with what the mail server knows it by.
+ *
+ * `getThread` is the reading pane's read and deliberately carries neither the
+ * provider id nor the folder, so the server calls that were handed its messages
+ * (mark read, move) skipped every one of them on `!m.external_message_id`: a
+ * move or a read in Praxis never reached Outlook, Gmail or the IMAP server.
+ */
+const messagesForServer = (client, threadId) =>
+  client.query(
+    `SELECT email_message_id, external_message_id, provider_folder, folder
+       FROM email_message WHERE email_thread_id = $1 AND external_message_id IS NOT NULL`,
+    [threadId],
+  ).then((r) => r.rows);
+
+/** After a server move: where the message is now, and its id if the server changed it. */
+const setMessageLocation = (client, messageId, { providerPath = null, externalMessageId = null } = {}) =>
+  client.query(
+    `UPDATE email_message
+        SET provider_folder = COALESCE($2, provider_folder),
+            external_message_id = CASE
+              WHEN $3::text IS NULL OR $3 = external_message_id THEN external_message_id
+              WHEN EXISTS (SELECT 1 FROM email_message o
+                            WHERE o.email_connection_id = email_message.email_connection_id
+                              AND o.external_message_id = $3) THEN external_message_id
+              ELSE $3 END
+      WHERE email_message_id = $1`,
+    [messageId, providerPath, externalMessageId],
+  );
+
+/** The stored copy of a provider message, if there is one. */
+const findMessageByExternal = (client, connectionId, externalMessageId) =>
+  client.query(
+    `SELECT email_message_id, email_thread_id, folder, provider_folder, direction
+       FROM email_message WHERE email_connection_id = $1 AND external_message_id = $2`,
+    [connectionId, externalMessageId],
+  ).then((r) => r.rows[0] || null);
+
+/**
+ * Put a stored message where the mail server now says it is.
+ *
+ * `refresh` carries the message's content when it is coming OUT of Drafts: a
+ * draft is saved over and over before it is sent, so the stored copy is
+ * whatever it said at the first sync that saw it, not what was sent.
+ */
+const relocateMessage = (client, messageId, { folder, providerPath = null, direction = null, refresh = null }) =>
+  client.query(
+    `UPDATE email_message
+        SET folder = $2,
+            provider_folder = COALESCE($3, provider_folder),
+            direction = COALESCE($4, direction),
+            subject = CASE WHEN $5 THEN $6 ELSE subject END,
+            body_html = CASE WHEN $5 THEN $7 ELSE body_html END,
+            body_html_original = CASE WHEN $5 THEN $8 ELSE body_html_original END,
+            body_text = CASE WHEN $5 THEN $9 ELSE body_text END,
+            body_preview = CASE WHEN $5 THEN left(COALESCE($9, ''), 500) ELSE body_preview END,
+            to_address = CASE WHEN $5 THEN $10::citext[] ELSE to_address END,
+            cc_address = CASE WHEN $5 THEN $11::citext[] ELSE cc_address END,
+            received_at = CASE WHEN $5 THEN COALESCE($12, received_at) ELSE received_at END
+      WHERE email_message_id = $1
+      RETURNING email_message_id, email_thread_id`,
+    [messageId, folder, providerPath, direction, Boolean(refresh),
+     refresh ? refresh.subject || null : null,
+     refresh ? refresh.body_html || null : null,
+     refresh ? refresh.body_html_original || null : null,
+     refresh ? refresh.body_text || null : null,
+     refresh ? refresh.to_address || [] : [],
+     refresh ? refresh.cc_address || [] : [],
+     refresh ? refresh.received_at || null : null],
+  ).then((r) => r.rows[0] || null);
+
+/**
+ * The row Praxis wrote when it SENT this message, if the server's Sent copy is
+ * arriving under an id that row does not carry.
+ *
+ * Matched on what both copies are guaranteed to share: the Message-ID when the
+ * provider kept ours, otherwise the subject, a recipient, and a send time
+ * within ten minutes. Only rows Praxis wrote itself (no `provider_folder`) and
+ * only outbound, so an incoming reply with the same subject is never taken.
+ * The nearest in time wins when two fit.
+ */
+const adoptLocalSend = (client, connectionId, { externalMessageId, messageIdHeader, subject, to, receivedAt, providerPath }) =>
+  client.query(
+    `UPDATE email_message SET external_message_id = $2, provider_folder = $7,
+            message_id_header = COALESCE(message_id_header, $3)
+      WHERE email_message_id = (
+        SELECT m.email_message_id FROM email_message m
+         WHERE m.email_connection_id = $1 AND m.direction = 'OUT' AND m.provider_folder IS NULL
+           AND m.external_message_id IS DISTINCT FROM $2
+           AND (
+             ($3::text IS NOT NULL AND m.message_id_header = $3)
+             OR (lower(COALESCE(m.subject, '')) = lower(COALESCE($4, ''))
+                 AND m.to_address && $5::citext[]
+                 AND m.received_at BETWEEN $6::timestamptz - interval '10 minutes'
+                                       AND $6::timestamptz + interval '10 minutes')
+           )
+         ORDER BY ($3::text IS NOT NULL AND m.message_id_header = $3) DESC,
+                  abs(extract(epoch FROM (m.received_at - $6::timestamptz)))
+         LIMIT 1)
+        AND NOT EXISTS (SELECT 1 FROM email_message o WHERE o.email_connection_id = $1 AND o.external_message_id = $2)
+      RETURNING email_message_id, email_thread_id`,
+    [connectionId, externalMessageId, messageIdHeader || null, subject || null, to || [],
+     receivedAt || new Date(), providerPath || null],
+  ).then((r) => r.rows[0] || null);
+
+/**
+ * A copy stored by the inbox-only Microsoft adapter, under a mutable id that
+ * `translateExternalIds` could not move. Those rows carry the literal
+ * `provider_folder = 'INBOX'` the old adapter wrote, which no Microsoft folder
+ * id ever is, and an exact `received_at`, `from` and subject together are not
+ * something two different messages share.
+ */
+const adoptLegacyCopy = (client, connectionId, { externalMessageId, from, subject, receivedAt, providerPath }) =>
+  client.query(
+    `UPDATE email_message SET external_message_id = $2, provider_folder = $6
+      WHERE email_message_id = (
+        SELECT m.email_message_id FROM email_message m
+         WHERE m.email_connection_id = $1 AND m.provider_folder = 'INBOX'
+           AND m.external_message_id IS DISTINCT FROM $2
+           AND m.received_at = $5::timestamptz
+           AND lower(m.from_address) = lower($3)
+           AND COALESCE(m.subject, '') = COALESCE($4, '')
+         LIMIT 1)
+        AND NOT EXISTS (SELECT 1 FROM email_message o WHERE o.email_connection_id = $1 AND o.external_message_id = $2)
+      RETURNING email_message_id, email_thread_id`,
+    [connectionId, externalMessageId, from || "", subject || null, receivedAt || null, providerPath || null],
+  ).then((r) => r.rows[0] || null);
+
+/**
+ * Old ids → new ids, for one mailbox, in one statement. A new id some other row
+ * already holds is skipped: that row is the message, and this one was a
+ * duplicate the old ids had let in.
+ */
+const translateExternalIds = (client, connectionId, pairs) => {
+  if (!pairs.length) return Promise.resolve(0);
+  return client.query(
+    `UPDATE email_message m SET external_message_id = t.new_id
+       FROM unnest($2::text[], $3::text[]) AS t(old_id, new_id)
+      WHERE m.email_connection_id = $1 AND m.external_message_id = t.old_id AND t.old_id <> t.new_id
+        AND NOT EXISTS (SELECT 1 FROM email_message o
+                         WHERE o.email_connection_id = $1 AND o.external_message_id = t.new_id)`,
+    [connectionId, pairs.map((p) => p[0]), pairs.map((p) => p[1])],
+  ).then((r) => r.rowCount || 0);
+};
+
+const externalIdsFor = (client, connectionId) =>
+  client.query(
+    "SELECT external_message_id FROM email_message WHERE email_connection_id = $1 AND external_message_id IS NOT NULL",
+    [connectionId],
+  ).then((r) => r.rows.map((x) => x.external_message_id));
+
+/** A thread the dedup left empty: created for a message that turned out to be stored already. */
+const deleteThreadIfEmpty = (client, threadId) =>
+  client.query(
+    `DELETE FROM email_thread t WHERE t.email_thread_id = $1
+        AND NOT EXISTS (SELECT 1 FROM email_message m WHERE m.email_thread_id = t.email_thread_id)`,
+    [threadId],
   );
 
 /* ── Folders ──────────────────────────────────────────────────────────────── */
@@ -538,16 +722,60 @@ const streamUnread = (client, userId, connectionId = null) =>
     return out;
   });
 
-const upsertFolder = (client, connectionId, row) =>
-  client.query(
-    `INSERT INTO email_folder (email_connection_id, canonical, provider_path, display_name, is_syncable)
-     VALUES ($1,$2,$3,$4,$5)
+/**
+ * Record a folder the server reported, and return its row.
+ *
+ * ── A ROLE BELONGS TO ONE ROW ───────────────────────────────────────────────
+ *
+ * `ux_email_folder_canonical` allows one Sent per mailbox, and two kinds of row
+ * can already hold a role under a different path when discovery finds the real
+ * folder: the placeholder `ensureCanonicalFolder` writes when mail is moved to a
+ * folder the server never advertised, and the `INBOX` row written for an adapter
+ * with no folder listing (every Microsoft and Google mailbox before 14420).
+ * Inserting the real folder beside either violated the index and failed the
+ * whole sync. The real folder CLAIMS the row instead: same row, so the mail
+ * already filed under that role stays where it is, now pointing at the server's
+ * path, and its cursor starts again because a cursor belongs to a path.
+ *
+ * A path that already has a row of its own keeps it, and is given the role
+ * only if no other row holds it, for the same reason.
+ */
+async function upsertFolder(client, connectionId, row) {
+  const canonical = row.canonical || null;
+  if (canonical) {
+    const { rows } = await client.query(
+      `UPDATE email_folder f
+          SET provider_path = $3, display_name = COALESCE($4, f.display_name),
+              is_syncable = f.is_syncable OR $5, sync_cursor = NULL, last_error = NULL, updated_at = now()
+        WHERE f.email_connection_id = $1 AND f.canonical = $2 AND f.provider_path <> $3
+          AND NOT EXISTS (SELECT 1 FROM email_folder o WHERE o.email_connection_id = $1 AND o.provider_path = $3)
+        RETURNING *`,
+      [connectionId, canonical, row.provider_path, row.display_name || null, row.is_syncable === true],
+    );
+    if (rows[0]) return rows[0];
+  }
+  const { rows } = await client.query(
+    `WITH role AS (
+       SELECT CASE WHEN $2::text IS NOT NULL AND NOT EXISTS (
+                SELECT 1 FROM email_folder o
+                 WHERE o.email_connection_id = $1 AND o.canonical = $2 AND o.provider_path <> $3)
+              THEN $2::text END AS canonical)
+     INSERT INTO email_folder (email_connection_id, canonical, provider_path, display_name, is_syncable)
+     SELECT $1, role.canonical, $3, $4, $5 AND role.canonical IS NOT NULL FROM role
      ON CONFLICT (email_connection_id, provider_path) DO UPDATE
         SET canonical = COALESCE(email_folder.canonical, EXCLUDED.canonical),
-            display_name = EXCLUDED.display_name
+            display_name = EXCLUDED.display_name,
+            is_syncable = email_folder.is_syncable OR EXCLUDED.is_syncable
       RETURNING *`,
-    [connectionId, row.canonical || null, row.provider_path, row.display_name || null, row.is_syncable === true],
-  ).then((r) => r.rows[0]);
+    [connectionId, canonical, row.provider_path, row.display_name || null, row.is_syncable === true],
+  );
+  return rows[0];
+}
+
+/** Every folder row for a mailbox, synced or not, keyed by the server's path. */
+const foldersByPath = (client, connectionId) =>
+  client.query("SELECT * FROM email_folder WHERE email_connection_id = $1", [connectionId])
+    .then((r) => new Map(r.rows.map((f) => [f.provider_path, f])));
 
 /**
  * Guarantee a row for a canonical folder, whether or not the server has one.
@@ -864,7 +1092,9 @@ module.exports = {
   listThreads, getThread, getThreadUnrestricted, getThreadById, updateThread, upsertThread, refreshThreadCounts,
   insertMessage, getMessage, moveThread,
   setThreadRead, setThreadStarred, seedStateForMembers,
-  listFolders, defaultConnectionFor, streamUnread, upsertFolder, ensureCanonicalFolder, syncableFolders, setFolderCursor, setFolderError,
+  listFolders, defaultConnectionFor, streamUnread, upsertFolder, foldersByPath, ensureCanonicalFolder, syncableFolders, setFolderCursor, setFolderError,
+  markReadForOwner, messagesForServer, setMessageLocation, findMessageByExternal, relocateMessage,
+  adoptLocalSend, adoptLegacyCopy, translateExternalIds, externalIdsFor, deleteThreadIfEmpty,
   listLabels, createLabel, deleteLabel, applyLabel,
   streamRules, knownParty, timelineByEntity,
   headIfVisible, messageIfVisible, attachmentIfVisible, filterVisibleThreadIds,

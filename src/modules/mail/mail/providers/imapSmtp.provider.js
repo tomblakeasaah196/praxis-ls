@@ -448,6 +448,9 @@ class ImapSmtpProvider {
       threadKey,
       direction: "IN",
       from: parsed.from && parsed.from.value && parsed.from.value[0] ? parsed.from.value[0].address : null,
+      // The display name the sender's client wrote, so the list reads "Angela
+      // Lau" and not the left half of an address. Absent is null, not "".
+      fromName: (parsed.from && parsed.from.value && parsed.from.value[0] && String(parsed.from.value[0].name || "").trim()) || null,
       to: addrs(parsed.to),
       cc: addrs(parsed.cc),
       subject: parsed.subject || null,

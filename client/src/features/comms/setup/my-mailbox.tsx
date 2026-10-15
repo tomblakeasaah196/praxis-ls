@@ -56,8 +56,8 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { PageHeader } from "@/components/data-list";
 import { useResource, errMsg } from "@/lib/use-resource";
-import { dateFmt } from "@/lib/format";
-import { tr } from "@/lib/i18n";
+import { dateFmt, dateTimeFmt } from "@/lib/format";
+import { tr, tv } from "@/lib/i18n";
 import { SmtpErrorGuide } from "@/components/mail/smtp-guide";
 import { DisconnectMailboxDialog } from "@/components/mail/disconnect-mailbox-dialog";
 import { SmtpSignInFields } from "@/components/mail/smtp-sign-in-fields";
@@ -416,12 +416,24 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
               </div>
               <p className="micro mt-1 text-muted-foreground">
                 {personal.display_name ? `${tr("Sending as")} “${personal.display_name}”. ` : ""}
+                {/* With the time: "15 Oct 2026" could not say whether the last
+                    good sync was a minute ago or this morning. */}
                 {personal.last_success_at
-                  ? `${tr("Last synced")} ${dateFmt(personal.last_success_at)}.`
+                  ? `${tr("Last synced")} ${dateTimeFmt(personal.last_success_at)}.`
                   : tr("Not synced yet.")}
               </p>
               {personal.last_error && (
                 <p className="micro mt-1 text-[rgb(var(--danger))]">{personal.last_error}</p>
+              )}
+              {/* The last failure outlives the recovery (14420), so "why did it
+                  say no mailbox an hour ago?" has an answer after the fact. */}
+              {!personal.last_error && personal.last_failure_at && personal.last_failure_reason && (
+                <p className="micro mt-1 text-muted-foreground">
+                  {tv("Last failed sync {{time}}: {{reason}}", {
+                    time: dateTimeFmt(personal.last_failure_at),
+                    reason: personal.last_failure_reason,
+                  })}
+                </p>
               )}
             </div>
             <div className="flex flex-col items-end gap-2 text-right">

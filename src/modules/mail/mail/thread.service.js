@@ -96,9 +96,13 @@ async function markRead(client, actor, threadId, isRead = true) {
   const touched = await repo.setThreadRead(client, actor.user_id, threadId, isRead);
 
   if (isRead) {
-    propagateToServer(client, thread, async (adapter, m) => {
-      if (m.external_message_id) await adapter.markAsRead(m.external_message_id);
-    }, "serverFlags").catch(() => { /* @silent:teardown propagation is best-effort; the local flip already happened */ });
+    // The server's ids, not `thread.messages`: the pane's read carries none,
+    // so this skipped every message and never told the server anything.
+    repo.messagesForServer(client, threadId)
+      .then((messages) => propagateToServer(client, { ...thread, messages }, async (adapter, m) => {
+        await adapter.markAsRead(m.external_message_id);
+      }, "serverFlags"))
+      .catch(() => { /* @silent:teardown propagation is best-effort; the local flip already happened */ });
     await emitEvent(client, {
       eventTypeKey: "email.thread.read", moduleKey: MODULE, entityRef: ref(threadId),
       actorUserId: actor.user_id || null, payload: { messages: touched },
@@ -126,8 +130,19 @@ async function move(client, actor, threadId, folder) {
   const moved = await repo.moveThread(client, actor.user_id, threadId, target);
   const dest = (await repo.syncableFolders(client, thread.email_connection_id)).find((f) => f.canonical === target);
   if (dest) {
-    propagateToServer(client, thread, async (adapter, m) => {
-      if (adapter.moveMessage && m.external_message_id) await adapter.moveMessage(m.external_message_id, dest.provider_path);
+    // The MOVED rows, which carry the server id and the folder each message is
+    // leaving. `thread.messages` carries neither, so no move ever reached the
+    // server, and IMAP needs the source folder to find the message at all.
+    // The row then records where the server put it, so the next sync does not
+    // read the move as a message that vanished.
+    propagateToServer(client, { ...thread, messages: moved }, async (adapter, m) => {
+      if (!m.external_message_id || m.provider_folder === dest.provider_path) return;
+      const res = await adapter.moveMessage(m.external_message_id, dest.provider_path, m.provider_folder);
+      if (res && res.moved !== false) {
+        await repo.setMessageLocation(client, m.email_message_id, {
+          providerPath: dest.provider_path, externalMessageId: res.externalMessageId || null,
+        });
+      }
     }, "folderMove").catch(() => { /* @silent:teardown the local move stands even if the server refuses */ });
   }
   await emitEvent(client, {

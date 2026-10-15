@@ -265,6 +265,7 @@ export function FolderRail({
   onChange,
   humanUnread,
   systemUnread,
+  outboxWaiting = 0,
 }: {
   mailboxes: Mailbox[];
   folders: Folder[];
@@ -273,6 +274,8 @@ export function FolderRail({
   onChange: (next: RailSelection) => void;
   humanUnread: number;
   systemUnread: number;
+  /** Messages in the Outbox that have not gone yet. */
+  outboxWaiting?: number;
 }) {
   const set = (patch: Partial<RailSelection>) =>
     onChange({ ...selection, ...patch });
@@ -305,13 +308,29 @@ export function FolderRail({
     setOpen((o) => (o[key] ? o : { ...o, [key]: true }));
   }, [selection]);
 
+  // Mail waiting to go opens its section. It was easy to miss shut: the
+  // Outbox is where a refused send waits for somebody to notice it. Only on
+  // the way up from nothing, so shutting it again with mail still waiting is
+  // a choice that holds.
+  const waitingBefore = React.useRef(outboxWaiting);
+  React.useEffect(() => {
+    if (outboxWaiting > 0 && waitingBefore.current === 0) {
+      setOpen((o) => (o.pending ? o : { ...o, pending: true }));
+    }
+    waitingBefore.current = outboxWaiting;
+  }, [outboxWaiting]);
+
   const canonical = folders.filter((f) => f.canonical);
   const inboxUnread =
     canonical.find((f) => f.canonical === "INBOX")?.unread_count ?? 0;
 
   // A shut section names the selection it holds; an open one shows it.
-  const caption = (key: SectionKey) =>
-    open[key] ? null : captionFor(selection, key, folders);
+  const caption = (key: SectionKey) => {
+    if (open[key]) return null;
+    const held = captionFor(selection, key, folders);
+    if (held || key !== "pending" || !outboxWaiting) return held;
+    return `${tr("Outbox")} ${outboxWaiting}`;
+  };
 
   return (
     <nav aria-label={tr("Mail folders")} className="space-y-1">
@@ -417,6 +436,7 @@ export function FolderRail({
         <RailButton
           active={selection.pending === "OUTBOX"}
           onClick={() => set({ pending: "OUTBOX", view: undefined, label: undefined, stream: undefined })}
+          count={outboxWaiting}
           indent
         >
           {tr("Outbox")}
@@ -484,15 +504,20 @@ export function FolderRail({
 
       {/* A folder the server refused is worth surfacing here rather than in a
           log: the user is looking at a list that is quietly incomplete. */}
+      {/* With the server's reason, per folder: a list of names said WHICH
+          folders and left nobody able to say why. */}
       {folders.some((f) => f.last_error) && (
         <div className="mt-4 px-2.5">
           <Pill tone="warn">{tr("Some folders did not sync")}</Pill>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
             {folders
               .filter((f) => f.last_error)
-              .map((f) => f.display_name || f.provider_path)
-              .join(", ")}
-          </p>
+              .map((f) => (
+                <li key={f.email_folder_id} className="break-words">
+                  <span className="font-medium text-foreground">{folderLabel(f)}</span>: {f.last_error}
+                </li>
+              ))}
+          </ul>
         </div>
       )}
     </nav>

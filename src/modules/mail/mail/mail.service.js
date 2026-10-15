@@ -18,6 +18,7 @@ const jwt = require("jsonwebtoken");
 const { emitEvent } = require("../../../shared/events/emit");
 const mailNotify = require("./mail-notify.service");
 const { AppError } = require("../../../utils/errors");
+const { logger } = require("../../../config/logger");
 // Shared SMTP-error classifier — the connection-test path and the system-email
 // paths (email.service, platform probes) share one map so the UI's fix guides
 // key off the same codes everywhere. See smtp-error.map.js.
@@ -121,29 +122,66 @@ async function resolveAdapter(client, conn) {
   throw new AppError("PROVIDER_UNSUPPORTED", `Provider '${conn.provider}' not available yet`, 400);
 }
 
-/** Read the vault token bundle for an OAuth connection; refresh + persist when the
- *  access token is within 60s of expiry. `idp` is the provider's OAuth helper
- *  (microsoftOAuth | googleOAuth) — both expose refresh({refreshToken}). */
-async function oauthAccessToken(client, conn, idp) {
+/** An access token with more than a minute left is used as it is. */
+const FRESH_MS = 60000;
+
+/** Refreshes running in THIS process, by connection, so concurrent callers share one. */
+const refreshing = new Map();
+
+async function readTokenBundle(client, conn) {
   const raw = conn.secret_key ? await settings.readSecret(client, conn.secret_key) : null;
   if (!raw) throw new AppError("NOT_CONNECTED", "no OAuth token bundle for this mailbox", 409);
-  let bundle;
-  try { bundle = JSON.parse(raw); } catch { throw new AppError("BAD_TOKEN", "corrupt token bundle", 500); }
-  if (bundle.expires_at && bundle.expires_at - Date.now() > 60000) return bundle.access_token;
+  try { return JSON.parse(raw); } catch { throw new AppError("BAD_TOKEN", "corrupt token bundle", 500); }
+}
 
-  const refreshed = await idp.refresh({ refreshToken: bundle.refresh_token });
-  const next = {
-    access_token: refreshed.access_token,
-    refresh_token: refreshed.refresh_token || bundle.refresh_token, // MS/Google may omit on refresh
-    expires_at: Date.now() + (Number(refreshed.expires_in) || 3600) * 1000,
-  };
-  await settings.put(client, {
-    section: settings.SECRET_SECTION, key: conn.secret_key,
-    value: { provider: conn.provider, key_name: "MAIL_CONN", secret: JSON.stringify(next) },
-    actor: { user_id: null },
+const isFresh = (bundle) => Boolean(bundle.expires_at && bundle.expires_at - Date.now() > FRESH_MS);
+
+/**
+ * A currently valid access token for an OAuth mailbox, refreshed when it is
+ * within a minute of expiry. `idp` is the provider's OAuth helper
+ * (microsoftOAuth | googleOAuth); both expose refresh({refreshToken}).
+ *
+ * ── ONE REFRESH AT A TIME ───────────────────────────────────────────────────
+ *
+ * The sync worker, repair on open, a send and a webhook can all reach this in
+ * the same second, and each used to refresh on its own and write the bundle it
+ * got back. Whichever write landed last won, and a provider that rotates refresh
+ * tokens can by then have retired the one it holds. So a refresh happens once:
+ * callers in this process share the one in flight, and across processes the
+ * refresh runs under an advisory lock and re-reads the bundle once it holds it,
+ * because the process that held the lock first has usually refreshed already.
+ */
+async function oauthAccessToken(client, conn, idp) {
+  const bundle = await readTokenBundle(client, conn);
+  if (isFresh(bundle)) return bundle.access_token;
+
+  const key = conn.email_connection_id;
+  if (refreshing.has(key)) return refreshing.get(key);
+  const pending = refreshUnderLock(client, conn, idp).finally(() => refreshing.delete(key));
+  refreshing.set(key, pending);
+  return pending;
+}
+
+function refreshUnderLock(client, conn, idp) {
+  return atomically(client, async () => {
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`mail_oauth:${conn.email_connection_id}`]);
+    const bundle = await readTokenBundle(client, conn);
+    if (isFresh(bundle)) return bundle.access_token;
+
+    const refreshed = await idp.refresh({ refreshToken: bundle.refresh_token });
+    const next = {
+      access_token: refreshed.access_token,
+      refresh_token: refreshed.refresh_token || bundle.refresh_token, // MS/Google may omit on refresh
+      expires_at: Date.now() + (Number(refreshed.expires_in) || 3600) * 1000,
+    };
+    await settings.put(client, {
+      section: settings.SECRET_SECTION, key: conn.secret_key,
+      value: { provider: conn.provider, key_name: "MAIL_CONN", secret: JSON.stringify(next) },
+      actor: { user_id: null },
+    });
+    await repo.updateConnection(client, conn.email_connection_id, { token_expires_at: new Date(next.expires_at) });
+    return next.access_token;
   });
-  await repo.updateConnection(client, conn.email_connection_id, { token_expires_at: new Date(next.expires_at) });
-  return next.access_token;
 }
 
 const listConnections = (client, q = {}) => repo.listConnections(client, q);
@@ -686,8 +724,44 @@ async function discoverFolders(client, conn, adapter, ctx = {}) {
  * dedup index is what makes a re-scan after a UIDVALIDITY change cheap instead of
  * duplicating a mailbox.
  */
-async function ingestMessage(client, conn, m, { folder = "INBOX", providerPath = null, rules = [], ctx = {} }) {
-  const direction = m.direction === "OUT" ? "OUT" : "IN";
+async function ingestMessage(client, conn, m, {
+  folder = "INBOX", providerPath = null, rules = [], ctx = {}, movesFollow = false, legacyIds = false,
+}) {
+  // Sent and Drafts are ours whatever the adapter guessed: the IMAP adapter
+  // guessed from the folder's NAME, so "Éléments envoyés" came in as received
+  // mail, and the Microsoft and Google adapters cannot know at all.
+  const direction = m.direction === "OUT" || OUR_FOLDERS.has(folder) ? "OUT" : "IN";
+
+  // Already stored. The dedup index would refuse it anyway, but only after a
+  // thread had been upserted for it, and a message whose thread key changed
+  // (a Microsoft message stored before 14420 was keyed on its old id) left an
+  // empty conversation behind each time.
+  if (m.externalMessageId) {
+    const stored = await threadRepo.findMessageByExternal(client, conn.email_connection_id, m.externalMessageId);
+    if (stored) {
+      if (movesFollow) await followServer(client, conn, stored, m, { folder, providerPath });
+      return null;
+    }
+  }
+
+  // The server's copy of something Praxis sent, arriving under an id the row
+  // Praxis wrote does not carry: adopt that row rather than store it twice.
+  if (direction === "OUT" && folder === "SENT" && m.externalMessageId) {
+    const adopted = await threadRepo.adoptLocalSend(client, conn.email_connection_id, {
+      externalMessageId: m.externalMessageId, messageIdHeader: m.messageIdHeader || null,
+      subject: m.subject, to: [].concat(m.to || []).map((a) => String(a).toLowerCase()),
+      receivedAt: m.receivedAt, providerPath,
+    });
+    if (adopted) return null;
+  }
+  if (legacyIds && m.externalMessageId && m.from) {
+    const legacy = await threadRepo.adoptLegacyCopy(client, conn.email_connection_id, {
+      externalMessageId: m.externalMessageId, from: m.from, subject: m.subject,
+      receivedAt: m.receivedAt, providerPath,
+    });
+    if (legacy) return null;
+  }
+
   const originFields = origin.originFieldsFor({
     direction, headers: m.headers, messageIdHeader: m.messageIdHeader || m.externalMessageId || null,
   });
@@ -748,7 +822,11 @@ async function ingestMessage(client, conn, m, { folder = "INBOX", providerPath =
     received_at: m.receivedAt,
   };
   const row = await threadRepo.insertMessage(client, fields);
-  if (!row) return null;
+  if (!row) {
+    // A concurrent sync stored it between the lookup above and here.
+    if (existing.message_count === 0) await threadRepo.deleteThreadIfEmpty(client, existing.email_thread_id);
+    return null;
+  }
 
   // Fold the message into its thread, then recount from the messages so the
   // summary is derived and cannot drift out of step with what is actually there.
@@ -757,7 +835,7 @@ async function ingestMessage(client, conn, m, { folder = "INBOX", providerPath =
     ...streamFields,
   });
   await threadRepo.refreshThreadCounts(client, existing.email_thread_id);
-  await threadRepo.seedStateForMembers(client, row.email_message_id, conn.email_connection_id);
+  await threadRepo.seedStateForMembers(client, row.email_message_id, conn.email_connection_id, { isRead: m.isRead === true });
   // The sender already read what they sent; only inbound arrives unread.
   if (direction === "OUT" && originFields.origin_user_id) {
     await threadRepo.setThreadRead(client, originFields.origin_user_id, existing.email_thread_id, true).catch(() => {
@@ -774,27 +852,156 @@ async function ingestMessage(client, conn, m, { folder = "INBOX", providerPath =
   return { ...fields, ...row, thread_id: existing.email_thread_id, is_new_thread: existing.message_count === 0 };
 }
 
+/** Folders whose mail this mailbox sent or is writing. */
+const OUR_FOLDERS = new Set(["SENT", "DRAFTS"]);
+/** Folders whose new arrivals are not news: nobody is told about junk. */
+const QUIET_FOLDERS = new Set(["SPAM", "TRASH"]);
+/** How many messages one sync may look up after they left a folder; see `followRemovals`. */
+const LOCATE_MAX = 300;
+
+/**
+ * A message the server reported again, already stored: put it where the server
+ * says it is now.
+ *
+ * Only for an adapter that can say where a message lives (`locateMessage`),
+ * which is its promise that a message is in ONE folder at a time and keeps its
+ * id when it moves. Microsoft and Google make that promise. IMAP cannot: a
+ * Message-ID can sit in two folders at once (a message sent to yourself is in
+ * Sent and in Inbox), and following it would flip the row between them.
+ *
+ * Also carries the read state across, for a personal mailbox, and refreshes the
+ * content of a draft that has since been sent.
+ */
+async function followServer(client, conn, stored, m, { folder, providerPath }) {
+  const moved = stored.folder !== folder || (providerPath && stored.provider_folder !== providerPath);
+  if (moved) {
+    const wasDraft = stored.folder === "DRAFTS" && folder !== "DRAFTS";
+    await threadRepo.relocateMessage(client, stored.email_message_id, {
+      folder, providerPath,
+      // Into Sent or Drafts it is ours; anywhere else it keeps what it was. A
+      // message we sent and then archived is still one we sent.
+      direction: OUR_FOLDERS.has(folder) ? "OUT" : null,
+      refresh: wasDraft ? {
+        subject: m.subject, body_html: cleanHtml(m.bodyHtml), body_html_original: m.bodyHtml || null,
+        body_text: m.bodyText, to_address: m.to || [], cc_address: m.cc || [], received_at: m.receivedAt,
+      } : null,
+    });
+    if (wasDraft) await threadRepo.refreshThreadCounts(client, stored.email_thread_id);
+  }
+  if (m.isRead === true) await threadRepo.markReadForOwner(client, stored.email_message_id, conn.email_connection_id);
+  return moved;
+}
+
+/**
+ * Messages that left a synced folder and did not turn up in another one by the
+ * end of the sync: moved into a folder Praxis does not sync, or deleted on the
+ * server for good.
+ *
+ * Asked about one at a time, which is why it waits for the end: a message moved
+ * between two synced folders has already been put right by the second folder's
+ * read and costs nothing here. Bounded per sync, because a bulk move of
+ * thousands is not worth thousands of calls to learn that they were archived.
+ *
+ * A message the server no longer has goes to Trash here, and is not deleted.
+ * Deleting it would follow the server literally, but a 404 is also what a
+ * message moved to an online archive mailbox, or a transient fault, looks like,
+ * and a mistaken delete cannot be taken back. Trash can be emptied.
+ */
+async function followRemovals(client, conn, adapter, removed) {
+  if (!removed.length || typeof adapter.locateMessage !== "function") return 0;
+  const byPath = await threadRepo.foldersByPath(client, conn.email_connection_id);
+  let followed = 0;
+  for (const r of removed.slice(0, LOCATE_MAX)) {
+    const stored = await threadRepo.findMessageByExternal(client, conn.email_connection_id, r.externalMessageId);
+    // Not ours, or already followed into another folder during this sync.
+    if (!stored || (r.fromPath && stored.provider_folder !== r.fromPath)) continue;
+    let where;
+    try {
+      where = await adapter.locateMessage(r.externalMessageId);
+    } catch (err) {
+      logger.warn({ err, message_id: stored.email_message_id }, "[mail] could not locate a message that left its folder");
+      continue;
+    }
+    if (where && where.path === stored.provider_folder) continue;
+    const target = where ? byPath.get(where.path) : null;
+    const folder = where ? (target && target.canonical) || "ARCHIVE" : "TRASH";
+    if (folder === stored.folder && !where) continue;
+    await threadRepo.relocateMessage(client, stored.email_message_id, {
+      folder, providerPath: where ? where.path : null,
+    });
+    followed += 1;
+  }
+  if (removed.length > LOCATE_MAX) {
+    logger.info({ connection: conn.email_connection_id, removed: removed.length, followed: LOCATE_MAX },
+      "[mail] more messages left their folders than one sync follows; the rest stay where they were");
+  }
+  return followed;
+}
+
+/**
+ * Move this mailbox's stored message ids to the provider's immutable kind, once,
+ * before the first sync that asks for immutable ids (see 14420).
+ *
+ * Without it, the first such sync re-reads every folder from the top and every
+ * message comes back under a new id, so every stored message would be stored a
+ * second time. A batch the provider refuses is left as it is; `adoptLegacyCopy`
+ * matches those rows when their message is read again.
+ */
+async function moveToImmutableIds(client, conn, adapter) {
+  if (conn.provider_id_scheme || typeof adapter.translateIds !== "function") return null;
+  const ids = await threadRepo.externalIdsFor(client, conn.email_connection_id);
+  let moved = 0;
+  const CHUNK = 1000;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    try {
+      const map = await adapter.translateIds(ids.slice(i, i + CHUNK));
+      moved += await threadRepo.translateExternalIds(client, conn.email_connection_id, [...map.entries()]);
+    } catch (err) {
+      logger.warn({ err, connection: conn.email_connection_id, from: i }, "[mail] id translation batch skipped");
+    }
+  }
+  await repo.updateConnection(client, conn.email_connection_id, { provider_id_scheme: "immutable" });
+  return { ids: ids.length, moved };
+}
+
+/**
+ * Count one failed sync, and raise the health event on the third in a row,
+ * which is when `bumpFailure` turns the mailbox to ERROR.
+ */
+async function syncFailed(client, conn, message) {
+  const h = await mailbox.markSyncFailure(client, conn.email_connection_id, message);
+  if (h && h.consecutive_failures === 3) {
+    await emitEvent(client, {
+      eventTypeKey: "mailbox.health.failed", moduleKey: events.MODULE,
+      entityRef: events.ref(conn.email_connection_id), actorUserId: null,
+      payload: { address: conn.email_address, error: message, failures: h.consecutive_failures },
+    }).catch(() => { /* @silent:storage the sync error is already recorded on the row */ });
+  }
+  return h;
+}
+
 /** Pull new mail for one connection, folder by folder. */
 async function syncConnection(client, id, ctx = {}) {
   const conn = await repo.getConnection(client, id);
   if (!conn || conn.status === "ARCHIVED" || conn.status === "DISABLED") return { skipped: true };
+  // Failures are COUNTED (`markSyncFailure`), never written straight to ERROR.
+  // `repo.setError` here turned the first wobble into "No mailbox connected"
+  // in Compose; three in a row is the rule, see mailbox.repo `bumpFailure`.
   let adapter;
-  try {
-    adapter = await resolveAdapter(client, conn);
-  } catch (err) {
-    await repo.setError(client, conn.email_connection_id, err.message);
-    await mailbox.markSyncFailure(client, conn.email_connection_id, err.message);
-    return { connection: conn.email_connection_id, error: err.message };
-  }
-
   let syncFolders;
   try {
+    adapter = await resolveAdapter(client, conn);
+    await moveToImmutableIds(client, conn, adapter);
     syncFolders = await discoverFolders(client, conn, adapter, ctx);
   } catch (err) {
-    await repo.setError(client, conn.email_connection_id, err.message);
-    await mailbox.markSyncFailure(client, conn.email_connection_id, err.message);
+    await syncFailed(client, conn, err.message);
     return { connection: conn.email_connection_id, error: err.message };
   }
+  const movesFollow = typeof adapter.locateMessage === "function";
+  // Only a provider whose ids used to be the mutable kind can hold a copy
+  // stored under one (see `adoptLegacyCopy`).
+  const legacyIds = typeof adapter.translateIds === "function";
+  const removed = [];
 
   const rules = await threadRepo.streamRules(client);
   let inserted = 0;
@@ -809,13 +1016,21 @@ async function syncConnection(client, id, ctx = {}) {
       // Per-folder cursor. UIDVALIDITY is a per-mailbox value in IMAP, so one
       // cursor shared across folders makes a renumber in Spam look like a
       // renumber in Inbox — see folders.js and migration 10732.
-      const { messages, nextCursor } = await adapter.fetchSince(folder.sync_cursor, folder.provider_path);
+      const { messages, nextCursor, removed: left = [] } = await adapter.fetchSince(folder.sync_cursor, folder.provider_path);
       fetched += messages.length;
+      removed.push(...left);
+      // Still on its first read, which on Microsoft and Google now spans many
+      // syncs: `last_sync_at` is set after the first of them.
+      const isFirstSync = !folder.last_sync_at || Boolean(folder.sync_cursor && folder.sync_cursor.backfill);
       for (const m of messages) {
+        // Where the message lives: the folder that was read, unless the
+        // adapter says otherwise. Gmail's history is mailbox-wide, so every
+        // message from it names its own folder.
+        const where = m.folder || folder.canonical || "ARCHIVE";
         const row = await ingestMessage(client, conn, m, {
-          folder: folder.canonical || "ARCHIVE",
-          providerPath: folder.provider_path,
-          rules, ctx,
+          folder: where,
+          providerPath: m.providerPath || folder.provider_path,
+          rules, ctx, movesFollow, legacyIds,
         });
         if (!row) continue;
         inserted += 1;
@@ -847,7 +1062,7 @@ async function syncConnection(client, id, ctx = {}) {
             messageId: row.email_message_id,
             subject: m.subject,
             ctx,
-            isFirstSync: !folder.last_sync_at,
+            isFirstSync,
           }).catch(() => { /* @silent:storage extraction is an enrichment */ });
         }
         await autoLink(client, {
@@ -864,7 +1079,7 @@ async function syncConnection(client, id, ctx = {}) {
         // The `typeof client.query === "function"` guard that also stood here
         // was shaped by a unit-test fixture with no `query`, not by anything the
         // runtime does; the fixture now answers, so the guard has gone with it.
-        if (m.direction !== "OUT") {
+        if (row.direction !== "OUT") {
           await followupService.cancelOnReply(client, row.thread_id)
             .catch(() => { /* @silent:storage a missing table during rollout must not abort ingest */ });
         }
@@ -890,7 +1105,7 @@ async function syncConnection(client, id, ctx = {}) {
           entityRef: events.msgRef(row.email_message_id),
           actorUserId: null,
           payload: {
-            from: m.from, subject: m.subject, folder: folder.canonical,
+            from: m.from, subject: m.subject, folder: where,
             connection: conn.email_connection_id, attachments: (m.attachments || []).length,
           },
         });
@@ -904,7 +1119,9 @@ async function syncConnection(client, id, ctx = {}) {
         // Best-effort by contract — it swallows its own failures — but awaited,
         // so the in-app row joins the sync's transaction exactly as every other
         // producer's does.
-        await mailNotify.onInboundMessage(client, { conn, message: m, row, ctx });
+        if (row.direction !== "OUT" && !QUIET_FOLDERS.has(where)) {
+          await mailNotify.onInboundMessage(client, { conn, message: m, row, ctx });
+        }
       }
       await threadRepo.setFolderCursor(client, folder.email_folder_id, nextCursor);
       perFolder.push({ folder: folder.canonical || folder.provider_path, fetched: messages.length });
@@ -918,6 +1135,14 @@ async function syncConnection(client, id, ctx = {}) {
     }
   }
 
+  if (anyFolderSucceeded) {
+    try {
+      await followRemovals(client, conn, adapter, removed);
+    } catch (err) {
+      logger.warn({ err, connection: conn.email_connection_id }, "[mail] following moved messages failed");
+    }
+  }
+
   // Anything the per-run cap held back goes out now, as one digest for this
   // mailbox. After the folder loop because the cap is per mailbox per run, not
   // per folder — a runaway spread over four folders is still one runaway.
@@ -926,15 +1151,7 @@ async function syncConnection(client, id, ctx = {}) {
   if (anyFolderSucceeded) {
     await mailbox.markSyncSuccess(client, conn.email_connection_id);
   } else if (lastError) {
-    await repo.setError(client, conn.email_connection_id, lastError);
-    const h = await mailbox.markSyncFailure(client, conn.email_connection_id, lastError);
-    if (h && h.consecutive_failures === 3) {
-      await emitEvent(client, {
-        eventTypeKey: "mailbox.health.failed", moduleKey: events.MODULE,
-        entityRef: events.ref(conn.email_connection_id), actorUserId: null,
-        payload: { address: conn.email_address, error: lastError, failures: h.consecutive_failures },
-      }).catch(() => { /* @silent:storage the sync error is already recorded on the row */ });
-    }
+    await syncFailed(client, conn, lastError);
   }
 
   if (inserted > 0 && ctx.slug) publishMailEvent(ctx.slug, { connection: conn.email_connection_id, inserted });
@@ -1681,9 +1898,14 @@ async function renewSubscriptions(client) {
 
       const adapter = await resolveAdapter(client, conn);
 
-      const r = await adapter.renewSubscription(conn.push_subscription_id);
+      const r = await adapter.renewSubscription(conn.push_subscription_id, { clientState: conn.email_connection_id });
 
-      if (r && r.expiresAt) await repo.updateConnection(client, conn.email_connection_id, { push_expires_at: new Date(r.expiresAt) });
+      // A renewal can hand back a NEW subscription: Graph replaces an
+      // Inbox-only one with one on every folder (see the adapter).
+      const patch = {};
+      if (r && r.expiresAt) patch.push_expires_at = new Date(r.expiresAt);
+      if (r && r.subscriptionId && r.subscriptionId !== conn.push_subscription_id) patch.push_subscription_id = r.subscriptionId;
+      if (Object.keys(patch).length) await repo.updateConnection(client, conn.email_connection_id, patch);
       results.push({ connection: conn.email_connection_id, ok: true });
     } catch (err) {
       results.push({ connection: conn.email_connection_id, error: err.message });
@@ -1693,7 +1915,7 @@ async function renewSubscriptions(client) {
 }
 
 /** Gmail Cloud Pub/Sub push → sync the mailbox named in the decoded payload. */
-async function handleGmailNotification(client, body) {
+async function handleGmailNotification(client, body, ctx = {}) {
   const dataB64 = body && body.message && body.message.data;
   if (!dataB64) return { ignored: true };
   // G-6: a Gmail Pub/Sub push carries the `subscription` we watched. Only accept
@@ -1708,7 +1930,33 @@ async function handleGmailNotification(client, body) {
   try { payload = JSON.parse(Buffer.from(dataB64, "base64").toString("utf8")); } catch { return { ignored: true }; }
   const conn = await repo.findByAddress(client, payload.emailAddress, "google_gmail");
   if (!conn) return { ignored: true };
-  return syncConnection(client, conn.email_connection_id, {});
+  if (await queueSync(ctx)) return { queued: true };
+  return syncConnection(client, conn.email_connection_id, ctx);
+}
+
+/**
+ * Hand a webhook's sync to the worker and answer at once.
+ *
+ * Microsoft expects a notification answered within three seconds and slows or
+ * drops the subscription of an endpoint that does not; Pub/Sub redelivers one
+ * not acknowledged in time. A sync that reads six folders, or a first read
+ * resuming its next five hundred messages, is minutes. The per-tenant job id
+ * folds a burst of notifications into one sync, the same id the scheduler and
+ * IMAP IDLE use. False when there is no worker queue to hand it to (a request
+ * without tenant meta, a test), and the caller syncs inline as it always did.
+ */
+async function queueSync(ctx = {}) {
+  const meta = ctx.tenantMeta;
+  if (!meta || !meta.db_name) return false;
+  try {
+    const { enqueue } = require("../../../jobs/queue-producer");
+    await enqueue("mail-sync", "sync", { tenantMeta: meta, env: "live" },
+      { jobId: `mailsync:${meta.db_name}:live`, removeOnComplete: true, removeOnFail: 100 });
+    return true;
+  } catch (err) {
+    logger.warn({ err }, "[mail] could not queue a webhook sync; syncing inline");
+    return false;
+  }
 }
 
 const startMicrosoftOAuth = (client, opts) => startOAuth(client, "microsoft_graph", opts);
@@ -1732,6 +1980,7 @@ async function handleGraphNotification(client, body, ctx = {}) {
       let conn = null;
       try { conn = await repo.getConnection(client, id); } catch { /* @silent:storage — a stale/forged connection id in a batch is skipped, not fatal */ }
       if (!conn || conn.status !== "CONNECTED") continue;
+      if (await queueSync(ctx)) return { notified: notes.length, queued: true };
       results.push(await syncConnection(client, conn.email_connection_id, ctx));
     }
   }
@@ -1778,7 +2027,6 @@ async function markRead(client, id, actorUserId = null) {
     } catch (err) {
       // server mark is best-effort; still record the local read state
       try {
-        const { logger } = require("../../../config/logger");
         logger.warn({ err, id }, "[mail] markAsRead propagation skipped");
       } catch { /* @silent:teardown — logging a warn must never mask the original error */ }
     }

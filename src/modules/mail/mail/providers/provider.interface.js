@@ -6,10 +6,17 @@
  *
  * A NormalizedEmail (what fetch/get return, what send/reply accept) is:
  *   { externalMessageId, threadKey, direction ('IN'|'OUT'),
- *     from, to[], cc[], subject, bodyHtml, bodyText, attachments[],
+ *     from, fromName, to[], cc[], subject, bodyHtml, bodyText, attachments[],
  *     (each attachment: filename, content_type, size_bytes, content, and for an
  *      inline image its RFC 2392 content_id with disposition 'inline')
- *     inReplyTo, references[], receivedAt, isRead, provider }
+ *     inReplyTo, references[], messageIdHeader, receivedAt, isRead, provider }
+ *   plus, optionally, `folder` (canonical) and `providerPath`: where the
+ *   provider says the message lives NOW, when that is not the folder that was
+ *   read. Gmail sets both, because its history is one stream for the mailbox.
+ *
+ * `isRead` is honoured: a message the server says was read is stored read.
+ * The engine decides IN or OUT from the folder as well (Sent and Drafts are
+ * ours), so an adapter that cannot tell may leave `direction` as 'IN'.
  *
  * Phase 1 ships ImapSmtpProvider. MicrosoftGraphProvider / GmailProvider (Phase 2)
  * slot in behind the same contract.
@@ -64,8 +71,28 @@ const EmailProvider = {
   async sendEmail(/* msg */) { throw new Error("sendEmail() not implemented"); },
   async createReply(/* externalMessageId, msg */) { throw new Error("createReply() not implemented"); },
 
-  // Inbound
-  async fetchSince(/* cursor */) { throw new Error("fetchSince() not implemented"); },
+  // Inbound.
+  //
+  // `fetchSince(cursor, folderPath)` → { messages, nextCursor, removed?, more? }
+  //   one folder's share of a sync. `removed` lists { externalMessageId,
+  //   fromPath } for mail that LEFT the folder (fromPath null: left the
+  //   mailbox); `more` says a first read stopped part way and resumes from
+  //   `nextCursor`. A cursor carrying `backfill: true` is still on that first
+  //   read, which the engine reads as "do not bill extraction for history".
+  async fetchSince(/* cursor, folderPath */) { throw new Error("fetchSince() not implemented"); },
+  // OPTIONAL, and deliberately not stubbed here, because the engine reads
+  // their PRESENCE (an adapter spreading this object must not acquire them):
+  //
+  //   listFolders() → [{ path, name, displayName?, flags[] }], with RFC 6154
+  //     flags (\Sent, \Junk…) where the server says which is which. Without
+  //     it the engine syncs a single INBOX.
+  //   locateMessage(externalMessageId) → { path } | null. A PROMISE when
+  //     present: a message lives in one folder at a time and keeps its id when
+  //     it moves, so the engine moves a stored copy to wherever `fetchSince`
+  //     next reports it. IMAP does not have it: a Message-ID can sit in two
+  //     folders at once.
+  //   translateIds(ids) → Map(old → new). The provider's stored ids were a kind
+  //     that changes; see migration 14420.
   // `opts.folderPath` is the provider folder the message was synced from. Only
   // IMAP needs it (a message id is per mailbox there); Graph and Gmail ignore it.
   async getMessage(/* externalMessageId, opts */) { throw new Error("getMessage() not implemented"); },
@@ -73,6 +100,10 @@ const EmailProvider = {
   // gone. View source and Download original read it; it is never stored.
   async getRawMessage(/* externalMessageId, opts */) { throw new Error("getRawMessage() not implemented"); },
   async markAsRead(/* externalMessageId */) { throw new Error("markAsRead() not implemented"); },
+  // Only called when capabilities().folderMove is true. `fromPath` is where the
+  // message is now; returns { moved, externalMessageId? } with the id the
+  // server gave it, when that changed.
+  async moveMessage(/* externalMessageId, destinationPath, fromPath */) { throw new Error("moveMessage() not implemented"); },
   // Only called when capabilities().serverDelete is true.
   async deleteMessage(/* externalMessageId, fromPath */) { throw new Error("deleteMessage() not implemented"); },
 
