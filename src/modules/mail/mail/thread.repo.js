@@ -634,9 +634,12 @@ const threadInConnection = (client, threadId, connectionId) =>
  * lock. What is left (an AI summary, open binding suggestions) is a cache or
  * moves with the message.
  */
-const PLAIN_THREAD = `(t.entity_ref IS NULL AND t.assigned_user_id IS NULL AND t.work_status = 'OPEN'
+// Notes are asked about through their own module, the only reader of that
+// table (mail-notes-containment.test.js). Required here, not at the top: it
+// brings the notification stack, which a repo has no other use for.
+const plainThread = () => `(t.entity_ref IS NULL AND t.assigned_user_id IS NULL AND t.work_status = 'OPEN'
   AND NOT EXISTS (SELECT 1 FROM email_thread_label x WHERE x.email_thread_id = t.email_thread_id)
-  AND NOT EXISTS (SELECT 1 FROM email_thread_note x WHERE x.email_thread_id = t.email_thread_id)
+  AND NOT ${require("../binding/notes.service").threadHasNotesSql("t.email_thread_id")}
   AND NOT EXISTS (SELECT 1 FROM email_followup x WHERE x.email_thread_id = t.email_thread_id)
   AND NOT EXISTS (SELECT 1 FROM email_thread_share x WHERE x.email_thread_id = t.email_thread_id)
   AND NOT EXISTS (SELECT 1 FROM email_draft x WHERE x.email_thread_id = t.email_thread_id)
@@ -663,7 +666,7 @@ async function joinConversation(client, connectionId, { externalMessageId, threa
   if (!externalMessageId || !threadKey) return null;
   const { rows } = await client.query(
     `SELECT m.email_message_id, t.email_thread_id, t.thread_key, t.message_count, t.visibility,
-            m.from_address, m.to_address::text[] AS to_address, ${PLAIN_THREAD} AS plain
+            m.from_address, m.to_address::text[] AS to_address, ${plainThread()} AS plain
        FROM email_message m
        JOIN email_thread t ON t.email_thread_id = m.email_thread_id
       WHERE m.email_connection_id = $1 AND m.external_message_id = $2`,
