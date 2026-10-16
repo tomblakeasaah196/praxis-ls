@@ -333,3 +333,21 @@ test("getRawMessage asks for format=raw and decodes the base64url MIME", async (
   expect(raw.toString()).toBe("From: a@b\r\n\r\nhi");
   expect(axios.mock.calls.at(-1)[0]).toMatchObject({ params: { format: "raw" } });
 });
+
+test("a synced message's attachments wait until the engine knows it is new", async () => {
+  const withAtt = {
+    ...GMSG, id: "m5",
+    payload: { ...GMSG.payload, parts: [...GMSG.payload.parts, { mimeType: "application/pdf", filename: "f.pdf", body: { attachmentId: "a1", size: 3 } }] },
+  };
+  axios
+    .mockResolvedValueOnce({ data: { history: [{ id: "5", messagesAdded: [{ message: { id: "m5" } }] }], historyId: "6" } })
+    .mockResolvedValueOnce({ data: withAtt });
+  const { messages } = await provider().fetchSince({ v: 2, history_id: "1", backfill: false }, "INBOX");
+  expect(messages[0].attachments).toEqual([]);
+  expect(axios).toHaveBeenCalledTimes(2);
+
+  axios.mockResolvedValueOnce({ data: { data: b64url("PDF") } });
+  const files = await messages[0].loadAttachments();
+  expect(files[0]).toMatchObject({ filename: "f.pdf" });
+  expect(files[0].content.toString()).toBe("PDF");
+});

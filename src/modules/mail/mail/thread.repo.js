@@ -35,6 +35,7 @@
 "use strict";
 
 const { updateOne, getById } = require("../../../shared/db/query-helpers");
+const { atomically } = require("../../../shared/db/tx");
 const visibility = require("../triage/visibility");
 
 /**
@@ -618,6 +619,100 @@ const externalIdsFor = (client, connectionId) =>
     [connectionId],
   ).then((r) => r.rows.map((x) => x.external_message_id));
 
+/** A thread by id, only if it belongs to this mailbox. */
+const threadInConnection = (client, threadId, connectionId) =>
+  client.query(
+    "SELECT * FROM email_thread WHERE email_thread_id = $1 AND email_connection_id = $2",
+    [threadId, connectionId],
+  ).then((r) => r.rows[0] || null);
+
+/**
+ * Nothing has been done to this thread by a person or a workflow, so a message
+ * in it can move to its conversation and the thread can go. Anything that
+ * hangs off a thread on purpose keeps it: a record link, an assignee, a status,
+ * a label, a note, a follow-up, a share, a draft or a send written in it, a
+ * lock. What is left (an AI summary, open binding suggestions) is a cache or
+ * moves with the message.
+ */
+const PLAIN_THREAD = `(t.entity_ref IS NULL AND t.assigned_user_id IS NULL AND t.work_status = 'OPEN'
+  AND NOT EXISTS (SELECT 1 FROM email_thread_label x WHERE x.email_thread_id = t.email_thread_id)
+  AND NOT EXISTS (SELECT 1 FROM email_thread_note x WHERE x.email_thread_id = t.email_thread_id)
+  AND NOT EXISTS (SELECT 1 FROM email_followup x WHERE x.email_thread_id = t.email_thread_id)
+  AND NOT EXISTS (SELECT 1 FROM email_thread_share x WHERE x.email_thread_id = t.email_thread_id)
+  AND NOT EXISTS (SELECT 1 FROM email_draft x WHERE x.email_thread_id = t.email_thread_id)
+  AND NOT EXISTS (SELECT 1 FROM email_send_queue x WHERE x.email_thread_id = t.email_thread_id)
+  AND NOT EXISTS (SELECT 1 FROM email_thread_lock x WHERE x.email_thread_id = t.email_thread_id))`;
+
+/**
+ * Put one stored message in the conversation `threadKey` names (14430).
+ *
+ *   - Its thread already has that key: nothing to do.
+ *   - The conversation has no thread yet: the message's thread BECOMES it, by
+ *     its key alone. Nothing moves and nothing a person did to the thread is
+ *     touched, and later replies join it. Only for a thread of one message:
+ *     a thread holding other mail was keyed that way by its own headers.
+ *   - The conversation has a thread: the message moves there, and its old
+ *     thread goes, only if that old thread is PLAIN (see above), holds this
+ *     one message, and is visible to the same people. Otherwise it is left
+ *     exactly as it was.
+ *
+ * One transaction, with the conversation's thread locked, so two syncs cannot
+ * both make a home for the same conversation.
+ */
+async function joinConversation(client, connectionId, { externalMessageId, threadKey }) {
+  if (!externalMessageId || !threadKey) return null;
+  const { rows } = await client.query(
+    `SELECT m.email_message_id, t.email_thread_id, t.thread_key, t.message_count, t.visibility,
+            m.from_address, m.to_address::text[] AS to_address, ${PLAIN_THREAD} AS plain
+       FROM email_message m
+       JOIN email_thread t ON t.email_thread_id = m.email_thread_id
+      WHERE m.email_connection_id = $1 AND m.external_message_id = $2`,
+    [connectionId, externalMessageId],
+  );
+  const cur = rows[0];
+  if (!cur || cur.thread_key === threadKey) return null;
+
+  return atomically(client, async () => {
+    const { rows: homes } = await client.query(
+      `SELECT email_thread_id, visibility FROM email_thread
+        WHERE email_connection_id = $1 AND thread_key = $2 FOR UPDATE`,
+      [connectionId, threadKey],
+    );
+    const home = homes[0];
+    if (!home) {
+      if (Number(cur.message_count) !== 1) return { joined: false, reason: "shared" };
+      await client.query(
+        "UPDATE email_thread SET thread_key = $2, updated_at = now() WHERE email_thread_id = $1",
+        [cur.email_thread_id, threadKey],
+      );
+      return { joined: true, rekeyed: true };
+    }
+    if (!cur.plain) return { joined: false, reason: "kept" };
+    if (Number(cur.message_count) !== 1) return { joined: false, reason: "shared" };
+    if (home.visibility !== cur.visibility) return { joined: false, reason: "visibility" };
+
+    await client.query(
+      "UPDATE email_message SET email_thread_id = $2 WHERE email_message_id = $1",
+      [cur.email_message_id, home.email_thread_id],
+    );
+    await client.query(
+      "UPDATE email_binding_suggestion SET email_thread_id = $2 WHERE email_thread_id = $1",
+      [cur.email_thread_id, home.email_thread_id],
+    );
+    // Its people join the conversation's, unioned as upsertThread does.
+    await client.query(
+      `UPDATE email_thread h
+          SET participants = ARRAY(SELECT DISTINCT p FROM unnest(h.participants || $2::citext[]) AS p ORDER BY p),
+              updated_at = now()
+        WHERE h.email_thread_id = $1`,
+      [home.email_thread_id, [cur.from_address, ...(cur.to_address || [])].filter(Boolean).map((a) => String(a).toLowerCase())],
+    );
+    await refreshThreadCounts(client, home.email_thread_id);
+    await deleteThreadIfEmpty(client, cur.email_thread_id);
+    return { joined: true, moved: true, into: home.email_thread_id };
+  });
+}
+
 /** A thread the dedup left empty: created for a message that turned out to be stored already. */
 const deleteThreadIfEmpty = (client, threadId) =>
   client.query(
@@ -1095,6 +1190,7 @@ module.exports = {
   listFolders, defaultConnectionFor, streamUnread, upsertFolder, foldersByPath, ensureCanonicalFolder, syncableFolders, setFolderCursor, setFolderError,
   markReadForOwner, messagesForServer, setMessageLocation, findMessageByExternal, relocateMessage,
   adoptLocalSend, adoptLegacyCopy, translateExternalIds, externalIdsFor, deleteThreadIfEmpty,
+  threadInConnection, joinConversation,
   listLabels, createLabel, deleteLabel, applyLabel,
   streamRules, knownParty, timelineByEntity,
   headIfVisible, messageIfVisible, attachmentIfVisible, filterVisibleThreadIds,

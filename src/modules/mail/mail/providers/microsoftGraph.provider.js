@@ -145,7 +145,7 @@ class MicrosoftGraphProvider {
     const created = await this._req("POST", "/me/messages", { data: this._draftBody(msg) });
     const { id, conversationId } = created.data;
     await this._req("POST", `/me/messages/${id}/send`);
-    return { externalMessageId: id, threadKey: conversationId };
+    return { externalMessageId: id, threadKey: conversationId, providerThreadId: conversationId || null };
   }
 
   /** Reply in-thread: Graph createReply → draft, patch our body, send. */
@@ -156,7 +156,10 @@ class MicrosoftGraphProvider {
       data: { body: { contentType: msg.bodyHtml ? "HTML" : "Text", content: msg.bodyHtml || msg.bodyText || "" } },
     });
     await this._req("POST", `/me/messages/${id}/send`);
-    return { externalMessageId: id, threadKey: draft.data.conversationId };
+    return {
+      externalMessageId: id, threadKey: draft.data.conversationId,
+      providerThreadId: draft.data.conversationId || null,
+    };
   }
 
   /**
@@ -250,7 +253,7 @@ class MicrosoftGraphProvider {
         `$top=${PAGE_SIZE}`,
       ].join("&");
       const r = await this._req("GET", `/me/mailFolders/${encodeURIComponent(folder)}/messages?${query}`);
-      for (const m of r.data.value || []) messages.push(await this._hydrate(m));
+      for (const m of r.data.value || []) messages.push(this._hydrate(m));
     }
 
     for (let page = 0; page < PAGES_PER_RUN; page += 1) {
@@ -271,7 +274,7 @@ class MicrosoftGraphProvider {
           if (m.id) removed.push({ externalMessageId: m.id, fromPath: folder });
           continue;
         }
-        messages.push(await this._hydrate(m));
+        messages.push(this._hydrate(m));
       }
       if (r.data["@odata.nextLink"]) { url = r.data["@odata.nextLink"]; continue; }
       return { messages, removed, nextCursor: { v: CURSOR_V, delta_link: r.data["@odata.deltaLink"] || deltaLink } };
@@ -285,9 +288,18 @@ class MicrosoftGraphProvider {
     };
   }
 
-  async _hydrate(m) {
+  /**
+   * One synced message, with its attachments left for the engine to ask for.
+   *
+   * A first read walks every message in a folder, and most of them are already
+   * stored: the inbox the old adapter had read, or a message seen again in the
+   * folder it was moved to. Downloading every attachment of every one of them
+   * to throw it away was the bulk of a first read's traffic. The engine calls
+   * `loadAttachments` only for a message it is about to store.
+   */
+  _hydrate(m) {
     const n = this._normalize(m);
-    if (m.hasAttachments) n.attachments = await this._fetchAttachments(m.id);
+    if (m.hasAttachments) n.loadAttachments = () => this._fetchAttachments(m.id);
     return n;
   }
 
@@ -304,6 +316,21 @@ class MicrosoftGraphProvider {
       if (status(err) === 404) return null;
       throw err;
     }
+  }
+
+  /**
+   * Every message in a folder as [id, conversationId, receivedDateTime], and
+   * nothing else, for the one-time conversation pass (14430). A thousand to a
+   * page and no bodies, so a mailbox of tens of thousands is a few dozen calls.
+   */
+  async listConversationIds(folderPath, nextLink = null) {
+    const url = nextLink
+      || `/me/mailFolders/${encodeURIComponent(folderPath)}/messages?$select=id,conversationId,receivedDateTime&$top=1000`;
+    const r = await this._req("GET", url);
+    const rows = (r.data.value || [])
+      .filter((m) => m && m.id && m.conversationId)
+      .map((m) => [m.id, m.conversationId, m.receivedDateTime || null]);
+    return { rows, nextLink: r.data["@odata.nextLink"] || null };
   }
 
   /**
@@ -355,7 +382,9 @@ class MicrosoftGraphProvider {
 
   async getMessage(externalMessageId) {
     const r = await this._req("GET", `/me/messages/${externalMessageId}?$select=${SELECT}`);
-    return this._hydrate(r.data);
+    const n = this._normalize(r.data);
+    if (r.data.hasAttachments) n.attachments = await this._fetchAttachments(r.data.id);
+    return n;
   }
 
   /**
@@ -451,6 +480,9 @@ class MicrosoftGraphProvider {
     return {
       externalMessageId: m.id,
       threadKey: m.conversationId || m.internetMessageId || m.id,
+      // What the engine threads on (14430). Outlook has no In-Reply-To or
+      // References here, so without it every message was a conversation of one.
+      providerThreadId: m.conversationId || null,
       // The engine decides direction from the folder (Sent and Drafts are ours).
       direction: "IN",
       from: m.from ? addr(m.from) : null,
