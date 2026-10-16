@@ -77,4 +77,13 @@ async function create(client, { threadId, body, mentions = [], actor = {} }) {
   return note;
 }
 
-module.exports = { list, create, mentionContext };
+/**
+ * SQL that is true when a thread carries internal notes. WHETHER, never what:
+ * this module stays the only reader of the table (see
+ * mail-notes-containment.test.js). Its one caller is the Outlook conversation
+ * pass (14430), which must not merge away a thread somebody wrote notes on.
+ */
+const threadHasNotesSql = (threadIdExpr) =>
+  `EXISTS (SELECT 1 FROM email_thread_note n WHERE n.email_thread_id = ${threadIdExpr})`;
+
+module.exports = { list, create, mentionContext, threadHasNotesSql };
