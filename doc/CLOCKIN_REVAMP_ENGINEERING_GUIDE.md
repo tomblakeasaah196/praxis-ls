@@ -29,6 +29,8 @@ This is the senior-engineer audit plus the locked product decisions from ten que
 
 - Self: `GET /open`, `GET /me` (linked + open shift), `POST /clock-in`, `POST /clock-out`, `POST /fix` (a reading that arrived after its punch, by `client_ref`), `GET /days/mine`, `PATCH /devices/:id/name`
 - Held punches (14403): `GET /review`, `POST /:id/review`
+- One shift a day (Oct 2026): `POST /undo-clock-out` (the employee, within 2 minutes), `POST /:id/reopen` (a manager, edit grant). A second clock-in on a day already clocked out is `409 SHIFT_DONE_TODAY`; "the day" is the clock-in's local date in the employee's entity timezone.
+- The clock's own endpoints (`/me`, `/clock-in`, `/clock-out`, `/fix`, `/undo-clock-out`, `/devices/:id/name`) always run in LIVE (`req.tenantDbIn("live")`), whatever `X-Praxis-Env` says; the manager screens follow the header.
 - HR: `GET /`, `GET /absence`, `GET /days`, `POST /days/:id/justify`, `POST /reconcile`
 - Devices: `GET|POST /devices`, `PATCH /devices/:id`
 - Worksites: `GET /place-search` (Geoapify, edit grant), `GET|POST /work-sites`, `PATCH /work-sites/:id`
@@ -48,6 +50,7 @@ This is the senior-engineer audit plus the locked product decisions from ten que
 - GPS optional at the client; server owns block/warn, and neither refuses.
 - The client waits at most 5 s for a reading (warm GPS first, `lib/clock-location.ts`), punches, and attaches a late reading via `/fix`: within 20 s it judges on-site; later it is stored as `location_source = 'late'` and judges nothing. A punch with no location carries `location_error` (`denied | os_off | unavailable | timeout | unsupported`).
 - Offline punches go through the outbox with `tapped_at`; the server keeps the tap time, sets `punched_offline`, and holds a time that does not add up.
+- The clock has three faces: "Clock In"; the running HH:MM:SS (tap to confirm clock-out: time worked against today's target, clock-in location, device); a disabled "Done" with a 2-minute Undo. Today's target is `attendance.calendar.expectedMinutes`: the employee's `work_schedule` day, else the entity calendar's open-to-close, else 8 h; none on a day off or holiday.
 - Late punch raises a **same-day** auto-query (`attendance.query` upsert on `(employee, work_date, rule)`); reconciler **adopts** it and must not reopen `status` / `response`.
 - Lateness uses workplace timezone (`attendance.rules.wallClock`), not the host clock.
 

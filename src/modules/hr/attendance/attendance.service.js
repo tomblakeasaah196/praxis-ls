@@ -193,6 +193,63 @@ async function resolveGeo(client, { entityId, lat, lng }) {
   return { work_site_id: nearest.site.work_site_id, distance_m: Math.round(nearest.distance), within, label };
 }
 
+/** How long after clocking out the person can take it back themselves. */
+const UNDO_MS = 2 * 60_000;
+/** Network and clock slack on the undo window, so a tap at 1:59 still counts. */
+const UNDO_SLACK_MS = 30_000;
+
+/**
+ * The working day a moment belongs to, for ONE employee: their entity's
+ * timezone (the working calendar's, else `hr.timezone`), the local date, and
+ * what that date expects of them. One resolver for the clock's three
+ * questions — has today's shift been done, how long is today, and is this
+ * second clock-in on the same day as the first — so they cannot disagree
+ * about where midnight falls.
+ */
+async function employeeDay(client, empId, at = new Date()) {
+  const emp = await repo.employeeForClock(client, empId);
+  const ctx = await calendar.loadContext(client, { entityIds: emp && emp.entity_id ? [emp.entity_id] : [] });
+  const cal = ctx.calendarFor(emp ? emp.entity_id : null);
+  const timezone = (cal && cal.timezone) || ctx.fallbackTimezone;
+  const date = rules.localDate(at, timezone);
+  const exp = emp ? calendar.forEmployee(ctx, emp, date) : null;
+  const expected = calendar.expectedMinutes({
+    isoDate: date,
+    schedule: emp ? emp.work_schedule : null,
+    calendar: cal,
+    isWorkingDay: exp ? exp.isWorkingDay : true,
+    isHoliday: exp ? exp.isHoliday : false,
+  });
+  return { timezone, date, expectedMinutes: expected.minutes };
+}
+
+/** A punch as the clock shows it: the device's name and the location word. */
+async function forClock(client, row) {
+  if (!row) return null;
+  const device = row.hr_device_id ? await repo.getDevice(client, row.hr_device_id) : null;
+  return { ...row, device_label: device ? device.label : null, location_status: locationStatus(row) };
+}
+
+/**
+ * Take a clock-out back: the shift is running again, as if it had not been
+ * closed. Shared by the employee's own two-minute Undo and a manager's Reopen,
+ * so the two cannot clear different fields.
+ */
+async function clearClockOut(client, before, { actor = {}, eventKey }) {
+  const row = await repo.update(client, before.attendance_id, {
+    clock_out_at: null,
+    out_latitude: null,
+    out_longitude: null,
+    out_within_geofence: null,
+    out_geo_label: null,
+    out_punched_offline: false,
+  });
+  const entityRef = `attendance:${before.attendance_id}`;
+  await emitEvent(client, { eventTypeKey: eventKey, moduleKey: events.MODULE, entityRef, actorUserId: actor.user_id || null });
+  await audit(client, { actorUserId: actor.user_id || null, action: eventKey, moduleKey: events.MODULE, entityRef, before, after: row });
+  return row;
+}
+
 async function resolveEmployee(client, employeeId, actor) {
   const id = employeeId || (actor && actor.user_id ? await repo.employeeIdForUser(client, actor.user_id) : null);
   if (!id) throw new AppError("NO_EMPLOYEE", "No employee is linked to your user — ask HR to link your profile", 422);
@@ -619,9 +676,72 @@ module.exports = {
    */
   async me(client, { actor = {} }) {
     const empId = actor && actor.user_id ? await repo.employeeIdForUser(client, actor.user_id) : null;
-    if (!empId) return { linked: false, open: null };
+    if (!empId) return { linked: false, open: null, done: null, expected_minutes: null, undo_until: null };
     const open = await repo.openForEmployee(client, empId);
-    return { linked: true, open: open ? { ...open, location_status: locationStatus(open) } : null };
+    /*
+     * The day is the OPEN shift's day when there is one — a night shift that
+     * started yesterday is still yesterday's shift — and today otherwise.
+     */
+    const day = await employeeDay(client, empId, open ? new Date(open.clock_in_at) : new Date());
+    let done = null;
+    let undoUntil = null;
+    if (!open) {
+      const last = await repo.lastForEmployee(client, empId);
+      if (last && last.clock_out_at && rules.localDate(last.clock_in_at, day.timezone) === day.date) {
+        done = await forClock(client, last);
+        const until = new Date(last.clock_out_at).getTime() + UNDO_MS;
+        if (until > Date.now()) undoUntil = new Date(until).toISOString();
+      }
+    }
+    return {
+      linked: true,
+      open: await forClock(client, open),
+      done,
+      expected_minutes: day.expectedMinutes,
+      undo_until: undoUntil,
+    };
+  },
+
+  /**
+   * The employee's own two-minute Undo after a clock-out (owner's decision).
+   *
+   * Clocking out locks the clock for the rest of the day, so a mis-tap needs a
+   * way back that does not involve finding a manager. Two minutes on the
+   * server's clock, plus slack for the network; after that only a manager can
+   * reopen the shift.
+   */
+  async undoClockOut(client, { actor = {} }) {
+    const empId = await resolveEmployee(client, null, actor);
+    if (await repo.openForEmployee(client, empId)) {
+      throw new AppError("ALREADY_CLOCKED_IN", "You are already on the clock", 409);
+    }
+    const last = await repo.lastForEmployee(client, empId);
+    if (!last || !last.clock_out_at) throw new AppError("NOTHING_TO_UNDO", "There is no clock-out to undo", 409);
+    if (Date.now() - new Date(last.clock_out_at).getTime() > UNDO_MS + UNDO_SLACK_MS) {
+      throw new AppError("UNDO_EXPIRED", "It is too late to undo. Ask a manager to reopen the shift", 409);
+    }
+    return forClock(client, await clearClockOut(client, last, { actor, eventKey: events.CLOCK_OUT_UNDONE }));
+  },
+
+  /**
+   * A manager reopens a closed shift: the clock-out is removed and the shift
+   * runs again. The way back from a mistaken clock-out once the employee's own
+   * two minutes have passed. Re-runs the day if it was already reconciled.
+   */
+  async reopen(client, { id, actor = {} }) {
+    const before = await repo.findById(client, id);
+    if (!before) throw new AppError("NOT_FOUND", "Punch not found", 404);
+    if (!before.clock_out_at) throw new AppError("NOT_CLOSED", "This shift is still running", 409);
+    if (await repo.openForEmployee(client, before.employee_id)) {
+      throw new AppError("ALREADY_CLOCKED_IN", "This employee already has a shift running", 409);
+    }
+    const row = await clearClockOut(client, before, { actor, eventKey: events.REOPENED });
+    const policy = await attendancePolicy(client);
+    const workDate = rules.localDate(row.clock_in_at, policy.timeZone);
+    if (await repo.dayReconciled(client, row.employee_id, workDate)) {
+      await reconcile.reconcileDate(client, { date: workDate, actor });
+    }
+    return { ...row, location_status: locationStatus(row) };
   },
 
   /**
@@ -670,6 +790,21 @@ module.exports = {
       receivedAt,
       notBefore: last ? last.clock_out_at || last.clock_in_at : null,
     });
+
+    /*
+     * ONE SHIFT A DAY (owner's decision). Once today's shift is clocked out,
+     * the clock is done until tomorrow: the button is disabled, and this is
+     * the same rule for a second device, an old tab or a replayed queue. The
+     * way back from a mistaken clock-out is the two-minute Undo, then a
+     * manager's Reopen — never a second shift. "Today" is the day of the
+     * CLOCK-IN, so somebody who worked through midnight starts a new day.
+     */
+    if (last && last.clock_out_at) {
+      const day = await employeeDay(client, empId, tap.at);
+      if (rules.localDate(last.clock_in_at, day.timezone) === day.date) {
+        throw new AppError("SHIFT_DONE_TODAY", "You have already clocked out today", 409);
+      }
+    }
 
     const entityId = await repo.entityForEmployee(client, empId);
     const geo = await resolveGeo(client, { entityId, lat: latitude, lng: longitude });

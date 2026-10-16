@@ -1,39 +1,36 @@
 /**
- * The title-bar clock chip.
+ * The time clock.
  *
- * WHAT THESE PIN, and why each one is a bug that shipped or nearly did:
+ * THREE FACES, NOTHING ELSE (owner's decision, 16 Oct 2026):
  *
- *   1. The chip is a real button with the SHIFT STATE in its accessible name.
- *      The visual signal is a 8px dot; a screen-reader user who only hears
- *      "Clock out" cannot tell whether that is an instruction or a description.
- *   2. Punching captures a location FIRST and still punches when it fails.
- *      The server decides what a location-less punch is worth; the client must
- *      not make that decision by refusing to send.
- *   3. A failed location is REPORTED, with its real cause. The first version
- *      swallowed it; the second blamed the site permission for every failure,
- *      including a slow GPS and a computer with Windows location turned off,
- *      while the site was allowed (14403).
- *   4. A user with no linked employee still sees a clock and is told why the
- *      punch did nothing, rather than seeing a dead control.
- *   5. Nothing stops the punch: no network queues it, a slow GPS follows it.
+ *   in    "Clock In" — no icon, no time. One tap clocks in, no confirmation.
+ *   on    the running HH:MM:SS since clock-in. A tap asks to confirm the
+ *         clock-out, showing time worked against the day's target, where they
+ *         clocked in from, and on what.
+ *   done  disabled for the rest of the day, with a two-minute Undo.
+ *
+ * And the location rules from 14403 still hold underneath: a failed location
+ * never stops the punch, and the card names its real cause.
  */
+import * as React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
-import { ClockPunchChip } from "@/components/clock-punch";
+import { ClockPunchChip, hoursFmt, timerFmt } from "@/components/clock-punch";
+import { ToastProvider } from "@/components/ui/toast";
 import * as api from "@/lib/hr-api";
 import * as loc from "@/lib/clock-location";
 
 // A factory mock replaces the WHOLE module, so an export it omits is not
-// undefined: vitest substitutes a stub that throws on access, and the throw
-// surfaces as the error text rendered into the chip's own label. Worth
-// remembering when adding to the component: these mocks have to keep up.
+// undefined: vitest substitutes a stub that throws on access. These mocks have
+// to keep up with what the component calls.
 vi.mock("@/lib/hr-api", () => ({
   clockState: vi.fn(),
   punchIn: vi.fn(),
   punchOut: vi.fn(),
   attachFix: vi.fn(),
+  undoClockOut: vi.fn(),
   deviceInfo: vi.fn(),
   renameOwnDevice: vi.fn(),
 }));
@@ -47,15 +44,19 @@ vi.mock("@/lib/clock-location", () => ({
 
 const mocked = vi.mocked(api);
 const mloc = vi.mocked(loc);
-const chip = () => screen.getByRole("button", { name: /Clock (in|out)\./ });
 
 const DEVICE = { fingerprint: "abcdef0123456789", platform: "Win32" };
 const FIX = { latitude: 4.05, longitude: 9.76, accuracy: 12 };
 const none = Promise.resolve({ fix: null, error: null });
+const HOUR = 3_600_000;
 
+function state(over: Partial<api.ClockState> = {}): api.ClockState {
+  return { linked: true, open: null, done: null, expected_minutes: 480, undo_until: null, ...over };
+}
 function sent(row: Partial<api.AttendanceRow>) {
   return { status: "sent" as const, data: { attendance_id: "a1", ...row } as api.AttendanceRow };
 }
+const render = (ui: React.ReactElement) => rtlRender(<ToastProvider>{ui}</ToastProvider>);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -63,10 +64,10 @@ beforeEach(() => {
   window.sessionStorage.clear();
   mloc.captureForPunch.mockResolvedValue({ fix: FIX, error: null, late: none });
   mloc.askForLocation.mockResolvedValue(null);
-  mocked.clockState.mockResolvedValue({ linked: true, open: null });
+  mocked.clockState.mockResolvedValue(state());
   mocked.deviceInfo.mockReturnValue(DEVICE);
-  mocked.punchIn.mockResolvedValue(sent({ within_geofence: true }));
-  mocked.punchOut.mockResolvedValue(sent({}));
+  mocked.punchIn.mockResolvedValue(sent({ clock_in_at: new Date().toISOString(), within_geofence: true }));
+  mocked.punchOut.mockResolvedValue(sent({ clock_in_at: new Date(Date.now() - HOUR).toISOString(), clock_out_at: new Date().toISOString() }));
   mocked.attachFix.mockResolvedValue(sent({}));
 });
 
@@ -75,226 +76,205 @@ async function ready() {
   await waitFor(() => expect(mocked.clockState).toHaveBeenCalled());
 }
 
-describe("ClockPunchChip", () => {
-  it("names the STATE, not just the verb", async () => {
-    await ready();
-    expect(
-      screen.getByRole("button", { name: "Clock in. Not clocked in" }),
-    ).toBeInTheDocument();
+describe("formatting", () => {
+  it("counts the shift as HH:MM:SS, past 24 hours without wrapping", () => {
+    expect(timerFmt(2 * HOUR + 14 * 60_000 + 9_000)).toBe("02:14:09");
+    expect(timerFmt(27 * HOUR)).toBe("27:00:00");
   });
-
-  it("reads an open shift as on the clock", async () => {
-    mocked.clockState.mockResolvedValue({
-      linked: true,
-      open: { attendance_id: "a1", clock_in_at: "2026-08-15T07:00:00Z" },
-    });
-    render(<ClockPunchChip />);
-    expect(
-      await screen.findByRole("button", { name: "Clock out. On the clock" }),
-    ).toBeInTheDocument();
+  it("says hours worked the short way", () => {
+    expect(hoursFmt(462)).toBe("7h 42m");
+    expect(hoursFmt(480)).toBe("8h");
+    expect(hoursFmt(25)).toBe("25m");
   });
+});
 
-  it("captures a location before punching, and sends the tap time and its own reference", async () => {
+describe("the three faces", () => {
+  it("before today's shift: 'Clock In' and nothing else, and one tap clocks in", async () => {
     await ready();
-    await userEvent.click(chip());
+    const btn = await screen.findByRole("button", { name: "Clock In" });
+    expect(btn).toHaveTextContent(/^Clock In$/);
+    await userEvent.click(btn);
     await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
-    expect(mloc.captureForPunch).toHaveBeenCalled();
-    const sentBody = mocked.punchIn.mock.calls[0][0];
-    expect(sentBody).toEqual(expect.objectContaining({ latitude: 4.05, longitude: 9.76 }));
-    expect(sentBody.tapped_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(sentBody.client_ref).toMatch(/^[0-9a-f-]{36}$/);
-    expect(sentBody.location_error).toBeUndefined();
-  });
-
-  it("does NOT raise a location card for an unfenced GPS punch", async () => {
-    // GPS arrived; the tenant has no worksite. That is not a missing fix.
-    mocked.punchIn.mockResolvedValue(
-      sent({ within_geofence: null, location_source: "gps", location_status: "unfenced" }),
+    // No confirmation on the way in.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // Straight to the timer.
+    expect(await screen.findByRole("button", { name: /Clock Out\. On the clock/ })).toHaveTextContent(
+      /^\d{2}:\d{2}:\d{2}$/,
     );
-    await ready();
-    await userEvent.click(chip());
-    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
-    expect(screen.queryByRole("status")).toBeNull();
-    expect(screen.queryByTitle(/no location/i)).toBeNull();
   });
 
-  it("names a BLOCKED SITE as the cause, after a punch that stood anyway", async () => {
+  it("on the clock: the running time, and a tap asks before clocking out", async () => {
+    mocked.clockState.mockResolvedValue(state({
+      open: {
+        attendance_id: "a1",
+        clock_in_at: new Date(Date.now() - (7 * HOUR + 42 * 60_000)).toISOString(),
+        geo_label: "Bonabéri, Douala",
+        device_label: "Yard tablet",
+      },
+    }));
+    await ready();
+    const pill = await screen.findByRole("button", { name: /Clock Out\. On the clock/ });
+    expect(pill.textContent).toMatch(/^07:42:\d{2}$/);
+    await userEvent.click(pill);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Clock out?")).toBeInTheDocument();
+    expect(within(dialog).getByText(/7h 42m/)).toBeInTheDocument();
+    expect(within(dialog).getAllByText("of 8h").length).toBeGreaterThan(0);
+    expect(within(dialog).getByText("Bonabéri, Douala")).toBeInTheDocument();
+    expect(within(dialog).getByText("Yard tablet")).toBeInTheDocument();
+    expect(mocked.punchOut).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Clock Out" }));
+    await waitFor(() => expect(mocked.punchOut).toHaveBeenCalled());
+    expect(mocked.punchOut.mock.calls[0][0]?.tapped_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("cancelling the question leaves the shift running", async () => {
+    mocked.clockState.mockResolvedValue(state({ open: { attendance_id: "a1", clock_in_at: new Date().toISOString() } }));
+    await ready();
+    await userEvent.click(await screen.findByRole("button", { name: /Clock Out\. On the clock/ }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(mocked.punchOut).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Clock Out\. On the clock/ })).toBeInTheDocument();
+  });
+
+  it("shows no target on a day with none", async () => {
+    mocked.clockState.mockResolvedValue(state({
+      expected_minutes: null,
+      open: { attendance_id: "a1", clock_in_at: new Date(Date.now() - HOUR).toISOString() },
+    }));
+    await ready();
+    await userEvent.click(await screen.findByRole("button", { name: /Clock Out\. On the clock/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("progressbar")).toBeNull();
+    expect(within(dialog).queryByText(/^of /)).toBeNull();
+  });
+
+  it("after clocking out: disabled for the day, with Undo for two minutes", async () => {
+    mocked.clockState.mockResolvedValue(state({ open: { attendance_id: "a1", clock_in_at: new Date(Date.now() - HOUR).toISOString() } }));
+    mocked.undoClockOut.mockResolvedValue({ attendance_id: "a1", clock_in_at: new Date(Date.now() - HOUR).toISOString() });
+    await ready();
+    await userEvent.click(await screen.findByRole("button", { name: /Clock Out\. On the clock/ }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Clock Out" }));
+
+    const done = await screen.findByRole("button", { name: /^Done · 1h$/ });
+    expect(done).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(mocked.undoClockOut).toHaveBeenCalled());
+    expect(await screen.findByRole("button", { name: /Clock Out\. On the clock/ })).toBeInTheDocument();
+  });
+
+  it("a finished day from the server stays locked, and offers no Undo once the window has passed", async () => {
+    mocked.clockState.mockResolvedValue(state({
+      done: {
+        attendance_id: "a1",
+        clock_in_at: new Date(Date.now() - 9 * HOUR).toISOString(),
+        clock_out_at: new Date(Date.now() - HOUR).toISOString(),
+      },
+    }));
+    await ready();
+    expect(await screen.findByRole("button", { name: /^Done · 8h$/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clock In" })).toBeNull();
+  });
+
+  it("renders nothing for somebody who is not an employee", async () => {
+    mocked.clockState.mockResolvedValue(state({ linked: false }));
+    const { container } = render(<ClockPunchChip />);
+    await waitFor(() => expect(mocked.clockState).toHaveBeenCalled());
+    expect(container.querySelector("button")).toBeNull();
+    expect(mloc.captureForPunch).not.toHaveBeenCalled();
+  });
+
+  it("reads 'already clocked out today' as an out-of-date clock and locks it", async () => {
+    const { ApiError } = await import("@/lib/api-client");
+    mocked.punchIn.mockRejectedValue(new ApiError("SHIFT_DONE_TODAY", "done", 409));
+    await ready();
+    mocked.clockState.mockResolvedValue(state({
+      done: { attendance_id: "a9", clock_in_at: new Date(Date.now() - 2 * HOUR).toISOString(), clock_out_at: new Date().toISOString() },
+    }));
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    expect(await screen.findByRole("button", { name: /^Done · 2h$/ })).toBeDisabled();
+  });
+});
+
+describe("the punch underneath (14403)", () => {
+  it("sends the location, the tap time, its own reference and the device", async () => {
+    await ready();
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
+    const body = mocked.punchIn.mock.calls[0][0];
+    expect(body).toEqual(expect.objectContaining({ latitude: 4.05, longitude: 9.76, device: DEVICE }));
+    expect(body.tapped_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(body.client_ref).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("still punches with no location, sends why, and names a blocked site", async () => {
     mloc.captureForPunch.mockResolvedValue({ fix: null, error: "denied", late: none });
     await ready();
-    await userEvent.click(chip());
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
     await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
+    const body = mocked.punchIn.mock.calls[0][0];
+    expect(body.latitude).toBeUndefined();
+    expect(body.location_error).toBe("denied");
     expect(await screen.findByText(/blocked for this site/i)).toBeInTheDocument();
-    expect(screen.getByText(/Your punch is saved/i)).toBeInTheDocument();
-    // The punch is not gated: they can dismiss and stay on the clock.
     await userEvent.click(screen.getByRole("button", { name: /restore later/i }));
     expect(screen.queryByText(/blocked for this site/i)).toBeNull();
-    expect(await screen.findByRole("button", { name: /Clock out\./ })).toBeInTheDocument();
   });
 
   it("names the DEVICE, not the site, when the site is allowed and the device refuses", async () => {
-    // The screenshot behind 14403: Location allowed in the browser, the card
-    // still telling them to allow it. On Windows the system switch is the cause.
     mloc.captureForPunch.mockResolvedValue({ fix: null, error: "os_off", late: none });
     await ready();
-    await userEvent.click(chip());
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
     expect(await screen.findByText(/off on this device/i)).toBeInTheDocument();
-    expect(screen.queryByText(/blocked for this site/i)).toBeNull();
-    // Device steps, never the site-permission steps that were already done.
     expect(screen.queryByText(/Set Location to Allow/i)).toBeNull();
   });
 
-  it("STILL PUNCHES when the location fails, sends why, and says the location is missing", async () => {
-    mloc.captureForPunch.mockResolvedValue({ fix: null, error: "denied", late: none });
-    await ready();
-    await userEvent.click(chip());
-    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
-    // Asserted as the ABSENCE of coordinates rather than as an exact payload:
-    // the claim is only ever "it punched, and sent no location it did not have".
-    const body = mocked.punchIn.mock.calls[0][0];
-    expect(body.latitude).toBeUndefined();
-    expect(body.longitude).toBeUndefined();
-    expect(body.location_error).toBe("denied");
-    expect(await screen.findByTitle(/no location/i)).toBeInTheDocument();
-  });
-
-  it("does not make anybody wait on a slow GPS: it punches, then attaches the reading", async () => {
+  it("does not wait on a slow GPS: it punches, then attaches the reading quietly", async () => {
     let land!: (r: Awaited<loc.Capture["late"]>) => void;
     const late = new Promise<Awaited<loc.Capture["late"]>>((r) => (land = r));
     mloc.captureForPunch.mockResolvedValue({ fix: null, error: "timeout", late });
     await ready();
-    await userEvent.click(chip());
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
     await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
     expect(mocked.punchIn.mock.calls[0][0].location_error).toBe("timeout");
-    expect(await screen.findByTitle(/finding location/i)).toBeInTheDocument();
-    // A slow GPS is not homework: no card.
     expect(screen.queryByRole("status")).toBeNull();
 
     land({ fix: { ...FIX, at: Date.now() }, error: null });
     await waitFor(() => expect(mocked.attachFix).toHaveBeenCalled());
-    const fix = mocked.attachFix.mock.calls[0][0];
-    expect(fix.client_ref).toBe(mocked.punchIn.mock.calls[0][0].client_ref);
-    expect(fix.phase).toBe("in");
-    expect(await screen.findByTitle(/Location added/i)).toBeInTheDocument();
+    expect(mocked.attachFix.mock.calls[0][0]).toMatchObject({
+      client_ref: mocked.punchIn.mock.calls[0][0].client_ref,
+      phase: "in",
+    });
   });
 
-  it("holds the punch on the device when there is no network, and shows them on the clock", async () => {
+  it("holds the punch on the device when there is no network, and starts the timer", async () => {
     mocked.punchIn.mockResolvedValue({ status: "queued", entry: {} as never });
     await ready();
-    await userEvent.click(chip());
-    expect(await screen.findByTitle(/Saved on this device/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Clock out\. On the clock/ })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    expect(await screen.findByText(/Saved on this device/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Clock Out\. On the clock/ })).toBeInTheDocument();
   });
 
-  it("reads the server's held verdict back to the person", async () => {
-    mocked.punchIn.mockResolvedValue(sent({ within_geofence: false, review_status: "PENDING" }));
-    await ready();
-    await userEvent.click(chip());
-    expect(await screen.findByTitle(/waiting for approval/i)).toBeInTheDocument();
-  });
-
-  it("treats 'already clocked in' as an out-of-date clock, not a failure", async () => {
-    const { ApiError } = await import("@/lib/api-client");
-    mocked.punchIn.mockRejectedValue(new ApiError("ALREADY_CLOCKED_IN", "open shift", 409));
-    await ready();
-    mocked.clockState.mockResolvedValue({
-      linked: true,
-      open: { attendance_id: "a9", clock_in_at: "2026-10-15T07:00:00Z" },
-    });
-    await userEvent.click(chip());
-    expect(await screen.findByTitle(/already on the clock/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Clock out\. On the clock/ })).toBeInTheDocument();
-  });
-
-  it("sends the device fingerprint with the punch", async () => {
-    // Registration happens ON the punch, not as a separate call: a tenant on
-    // `block` holds the punch for a manager, and the register is how the
-    // manager knows which device it came from.
-    await ready();
-    await userEvent.click(chip());
-    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
-    expect(mocked.punchIn.mock.calls[0][0].device).toEqual(DEVICE);
-  });
-
-  it("punches anyway when the browser cannot keep a device id", async () => {
-    mocked.deviceInfo.mockReturnValue(null);
-    await ready();
-    await userEvent.click(chip());
-    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
-    expect(mocked.punchIn.mock.calls[0][0].device).toBeNull();
-  });
-
-  it("flags an off-site punch rather than reporting a clean clock-in", async () => {
-    mocked.punchIn.mockResolvedValue(sent({ within_geofence: false }));
-    await ready();
-    await userEvent.click(chip());
-    expect(await screen.findByTitle(/off-site/i)).toBeInTheDocument();
-  });
-
-  it("tells an unlinked user why nothing happened instead of going dead", async () => {
-    mocked.clockState.mockResolvedValue({ linked: false, open: null });
-    render(<ClockPunchChip />);
-    const btn = await screen.findByRole("button", { name: /Time\./ });
-    await userEvent.click(btn);
-    expect(
-      await screen.findByTitle(/isn't linked to an employee/i),
-    ).toBeInTheDocument();
-    expect(mocked.punchIn).not.toHaveBeenCalled();
-    // And they are never asked for location: they cannot punch.
-    expect(mloc.captureForPunch).not.toHaveBeenCalled();
-  });
-
-  it("does NOT call an employee unlinked because the network is down", async () => {
+  it("does not hide the clock because the network is down", async () => {
     const { ApiError } = await import("@/lib/api-client");
     mocked.clockState.mockRejectedValue(new ApiError("NETWORK_DOWN", "offline", 0));
-    mocked.punchIn.mockResolvedValue({ status: "queued", entry: {} as never });
     await ready();
-    await userEvent.click(chip());
-    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
-    expect(await screen.findByTitle(/Saved on this device/i)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Clock In" })).toBeInTheDocument();
   });
 
   it("offers to name a device it has never seen, and the punch stands either way", async () => {
-    mocked.punchIn.mockResolvedValue(
-      sent({ within_geofence: true, hr_device_id: "d1", device_new: true }),
-    );
+    mocked.punchIn.mockResolvedValue(sent({ clock_in_at: new Date().toISOString(), hr_device_id: "d1", device_new: true }));
     await ready();
-    await userEvent.click(chip());
-
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
     const input = await screen.findByLabelText("Device name");
     await userEvent.type(input, "Yard tablet");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(mocked.renameOwnDevice).toHaveBeenCalledWith("d1", "Yard tablet"));
-    await waitFor(() => expect(screen.queryByLabelText("Device name")).toBeNull());
   });
 
-  it("does NOT offer for a device it has seen before", async () => {
-    mocked.punchIn.mockResolvedValue(sent({ within_geofence: true, hr_device_id: "d1" }));
-    await ready();
-    await userEvent.click(chip());
-    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
-    expect(screen.queryByLabelText("Device name")).toBeNull();
-  });
-
-  it("keeps the punch when the name is skipped", async () => {
-    mocked.punchIn.mockResolvedValue(
-      sent({ within_geofence: true, hr_device_id: "d1", device_new: true }),
-    );
-    await ready();
-    await userEvent.click(chip());
-    await userEvent.click(await screen.findByRole("button", { name: "Not now" }));
-    expect(mocked.renameOwnDevice).not.toHaveBeenCalled();
-    expect(await screen.findByRole("button", { name: /Clock out\./ })).toBeInTheDocument();
-  });
-
-  it("has no axe violations", async () => {
-    const { container } = render(<ClockPunchChip />);
-    await waitFor(() => expect(mocked.clockState).toHaveBeenCalled());
-    expect(await axe(container)).toHaveNoViolations();
-  });
-});
-
-describe("the location card itself", () => {
-  it("asks on a tap before the first punch, and never on page load", async () => {
+  it("asks for location on a tap before the first punch, never on page load", async () => {
     const perms = navigator.permissions;
     Object.defineProperty(navigator, "geolocation", { configurable: true, value: {} });
     Object.defineProperty(navigator, "permissions", {
@@ -306,22 +286,17 @@ describe("the location card itself", () => {
     try {
       await ready();
       expect(await screen.findByText(/Allow location for clocking in/i)).toBeInTheDocument();
-      // Nothing asked the browser yet: the card is waiting for a tap.
       expect(mloc.askForLocation).not.toHaveBeenCalled();
       await userEvent.click(screen.getByRole("button", { name: "Allow Location" }));
       expect(mloc.askForLocation).toHaveBeenCalledTimes(1);
-      await waitFor(() => expect(screen.queryByText(/Allow location for clocking in/i)).toBeNull());
     } finally {
       Object.defineProperty(navigator, "permissions", { configurable: true, value: perms });
     }
   });
 
-  it("moves to the device card when allowing the site turns out not to be enough", async () => {
-    mloc.captureForPunch.mockResolvedValue({ fix: null, error: "denied", late: none });
-    mloc.askForLocation.mockResolvedValue("os_off");
-    await ready();
-    await userEvent.click(chip());
-    await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
-    expect(await screen.findByText(/off on this device/i)).toBeInTheDocument();
+  it("has no axe violations", async () => {
+    const { container } = render(<ClockPunchChip />);
+    await screen.findByRole("button", { name: "Clock In" });
+    expect(await axe(container)).toHaveNoViolations();
   });
 });

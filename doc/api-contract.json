@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 143,
-  "route_count": 1896,
+  "route_count": 1898,
   "tiers": {
     "public": 75,
     "self-scoped": 118,
-    "gated": 1703
+    "gated": 1705
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -6999,6 +6999,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/attendance/:id/reopen": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/attendance/:id/review": {
       "auth": true,
       "rbac": true,
@@ -7036,6 +7042,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/attendance/reconcile": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/attendance/undo-clock-out": {
       "auth": true,
       "rbac": true,
       "validated": false,

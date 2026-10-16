@@ -18,4 +18,8 @@ module.exports = {
   REVIEWED: "attendance.reviewed",
   // A location reading that reached the server after its punch.
   LOCATION_ATTACHED: "attendance.location_attached",
+  // The employee took back their own clock-out inside the two minutes.
+  CLOCK_OUT_UNDONE: "attendance.clock_out_undone",
+  // A manager removed a clock-out so the shift runs again.
+  REOPENED: "attendance.reopened",
 };

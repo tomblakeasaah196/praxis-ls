@@ -74,6 +74,10 @@ const attachFix = z
     message: "Say which punch this reading belongs to.",
   });
 
+/** A write that takes nothing: undo and reopen act on the punch the URL or the
+ *  caller already names, so a body that carries anything is refused. */
+const noBody = z.object({}).strict();
+
 /** A manager's decision on a held punch. A rejection says why. */
 const reviewDecision = z
   .object({
@@ -275,7 +279,7 @@ const update = create.partial();
 const workSiteUpdate = workSite.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
 const aiUpdate = update.extend({ attendance_id: z.string().uuid() });
-const schemas = { create, update, clockIn, clockOut, attachFix, reviewDecision, workSite, workSiteUpdate, placeSearch, deviceRegister, deviceUpdate, deviceRename, dayWindow, analyticsWindow, exportWindow, punchWindow, mapWindow, weeklyRun, justify, reconcileRun, aiUpdate };
+const schemas = { create, update, clockIn, clockOut, attachFix, reviewDecision, noBody, workSite, workSiteUpdate, placeSearch, deviceRegister, deviceUpdate, deviceRename, dayWindow, analyticsWindow, exportWindow, punchWindow, mapWindow, weeklyRun, justify, reconcileRun, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);
@@ -299,6 +303,7 @@ module.exports = {
   clockOut: mw("clockOut"),
   attachFix: mw("attachFix"),
   reviewDecision: mw("reviewDecision"),
+  noBody: mw("noBody"),
   workSite: mw("workSite"),
   workSiteUpdate: mw("workSiteUpdate"),
   placeSearch: qmw("placeSearch"),
