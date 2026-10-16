@@ -48,6 +48,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { GeolocationAllow } from "@/components/geolocation-allow";
 import i18n from "@/lib/i18n";
+import { hoursFmt, timerFmt } from "@/lib/clock-format";
 
 /**
  * The location card the clock is showing, if any.
@@ -174,21 +175,6 @@ function minutesBetween(from: string | null | undefined, to: Date | string | nul
   if (!from || !to) return 0;
   const ms = new Date(to).getTime() - new Date(from).getTime();
   return Number.isFinite(ms) && ms > 0 ? Math.floor(ms / 60_000) : 0;
-}
-
-/** "7h 42m", "8h", "25m". */
-export function hoursFmt(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h && m) return `${h}h ${m}m`;
-  return h ? `${h}h` : `${m}m`;
-}
-
-/** "02:14:09" — hours keep counting past 24 rather than wrapping. */
-export function timerFmt(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
 }
 
 /**
