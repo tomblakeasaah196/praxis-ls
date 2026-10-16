@@ -13,6 +13,10 @@
  *   plus, optionally, `folder` (canonical) and `providerPath`: where the
  *   provider says the message lives NOW, when that is not the folder that was
  *   read. Gmail sets both, because its history is one stream for the mailbox.
+ *   `providerThreadId` is the provider's own conversation id, used only when
+ *   capabilities().serverThreads is true (Outlook sets it; it has no headers to
+ *   thread on). `loadAttachments()`, when present, fetches the attachments the
+ *   engine left out: it calls it only for a message it is about to store.
  *
  * `isRead` is honoured: a message the server says was read is stored read.
  * The engine decides IN or OUT from the folder as well (Sent and Drafts are
@@ -93,6 +97,8 @@ const EmailProvider = {
   //     folders at once.
   //   translateIds(ids) → Map(old → new). The provider's stored ids were a kind
   //     that changes; see migration 14420.
+  //   listConversationIds(folderPath, nextLink?) → { rows: [[id, conversationId,
+  //     receivedAt]], nextLink }. For the one-time conversation pass (14430).
   // `opts.folderPath` is the provider folder the message was synced from. Only
   // IMAP needs it (a message id is per mailbox there); Graph and Gmail ignore it.
   async getMessage(/* externalMessageId, opts */) { throw new Error("getMessage() not implemented"); },

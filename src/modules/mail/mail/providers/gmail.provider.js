@@ -339,13 +339,25 @@ class GmailProvider {
     const out = [];
     for (const id of ids) {
       try {
-        const m = await this.getMessage(id);
-        if (m) out.push(m);
+        const r = await this._req("GET", `/messages/${id}`, { params: { format: "full" } });
+        out.push(this._lazy(id, this._normalize(r.data)));
       } catch (err) {
         if (status(err) !== 404) throw err;
       }
     }
     return out;
+  }
+
+  /**
+   * Attachments left for the engine to ask for. A first read lists a whole
+   * label, and most of what it lists is already stored (the inbox the old
+   * adapter read, a message seen again under another label): downloading every
+   * attachment to throw it away was the bulk of the traffic, and of the quota.
+   */
+  _lazy(id, n) {
+    const refs = n.attachments;
+    if (!refs.length) return n;
+    return { ...n, attachments: [], loadAttachments: () => this._hydrateAttachments(id, refs) };
   }
 
   async getMessage(externalMessageId) {
