@@ -184,10 +184,13 @@ function tenantContext(req, res, next) {
   req.identityDb = (fn) => withPinned("live", fn);
   /**
    * Business data in a NAMED environment, rather than the one the request asked
-   * for. One caller: the public careers page, which has no session and no
-   * `X-Praxis-Env` to read, so it finds the environment a careers token belongs
-   * to and then stays in it. Everything else must use `req.tenantDb` — the
-   * environment a request runs in is the header's decision, not a handler's.
+   * for. The public pages, which have no session and no `X-Praxis-Env` to
+   * read (the careers page finds the environment a careers token belongs to
+   * and then stays in it). And the employee's own time clock, which is always
+   * LIVE: a shift is one record payroll pays on, whatever chip is on screen
+   * (attendance.controller `clockDb`). Everything else must use
+   * `req.tenantDb` — the environment a request runs in is the header's
+   * decision, not a handler's.
    */
   req.tenantDbIn = (wantEnv, fn) => withPinned(wantEnv === "sandbox" ? "sandbox" : "live", fn);
 

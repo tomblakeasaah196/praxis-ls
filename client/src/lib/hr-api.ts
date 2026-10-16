@@ -169,10 +169,29 @@ export const renameOwnDevice = (id: string, label: string) =>
   tenant<HrDevice>(`/attendance/devices/${id}/name`, { method: "PATCH", body: { label } });
 
 export const openPunch = () => tenant<AttendanceRow | null>("/attendance/open");
-/** The clock's state for the caller (14403): `linked` tells "not an employee"
- *  apart from "not on shift", which `openPunch` answers identically (null). */
-export const clockState = () =>
-  tenant<{ linked: boolean; open: AttendanceRow | null }>("/attendance/me");
+/**
+ * The clock's state for the caller, always from LIVE (the server pins it).
+ *
+ * `linked` tells "not an employee" apart from "not on shift", which
+ * `openPunch` answers identically (null). `done` is today's finished shift,
+ * which locks the clock until tomorrow; `undo_until` is the end of the
+ * two-minute window in which the person can take that clock-out back.
+ * `expected_minutes` is today's target from their schedule, null on a day off.
+ */
+export type ClockState = {
+  linked: boolean;
+  open: AttendanceRow | null;
+  done: AttendanceRow | null;
+  expected_minutes: number | null;
+  undo_until: string | null;
+};
+export const clockState = () => tenant<ClockState>("/attendance/me");
+/** Take back a clock-out made in the last two minutes. */
+export const undoClockOut = () =>
+  tenant<AttendanceRow>("/attendance/undo-clock-out", { method: "POST", body: {} });
+/** A manager reopens a closed shift: the clock-out is removed. */
+export const reopenPunch = (id: string) =>
+  tenant<AttendanceRow>(`/attendance/${id}/reopen`, { method: "POST", body: {} });
 export type ClockInBody = Partial<Fix> & {
   employee_id?: string;
   device?: DeviceInfo | null;
@@ -195,9 +214,9 @@ export const clockOut = (body: ClockOutBody = {}) =>
  * server's decisions are not retried.
  */
 export const punchIn = (body: ClockInBody): Promise<SubmitResult<AttendanceRow>> =>
-  submitQueued<AttendanceRow>({ path: "/attendance/clock-in", method: "POST", body, label: "Clock In" });
+  submitQueued<AttendanceRow>({ path: "/attendance/clock-in", method: "POST", body, label: "Clock In", anyEnv: true });
 export const punchOut = (body: ClockOutBody = {}): Promise<SubmitResult<AttendanceRow>> =>
-  submitQueued<AttendanceRow>({ path: "/attendance/clock-out", method: "POST", body, label: "Clock Out" });
+  submitQueued<AttendanceRow>({ path: "/attendance/clock-out", method: "POST", body, label: "Clock Out", anyEnv: true });
 
 /** A location reading that arrived after its punch, addressed by `client_ref`. */
 export type AttachFixBody = Fix & {
@@ -207,7 +226,7 @@ export type AttachFixBody = Fix & {
   fix_at?: string;
 };
 export const attachFix = (body: AttachFixBody): Promise<SubmitResult<AttendanceRow>> =>
-  submitQueued<AttendanceRow>({ path: "/attendance/fix", method: "POST", body, label: "Clock Location" });
+  submitQueued<AttendanceRow>({ path: "/attendance/fix", method: "POST", body, label: "Clock Location", anyEnv: true });
 
 /** Punches held for a manager's decision (14403). */
 export const reviewQueue = () => tenant<AttendanceRow[]>("/attendance/review");

@@ -27,6 +27,9 @@ router.post("/clock-out", create, validator.clockOut, controller.clockOut);
 // A location reading that arrived after its punch (14403). `create`, the grant
 // that made the punch: the service only ever lets it touch the caller's own.
 router.post("/fix", create, validator.attachFix, controller.attachFix);
+// The employee's own two-minute Undo after clocking out (`create`, the grant
+// that made the punch; the service only ever touches the caller's own).
+router.post("/undo-clock-out", create, validator.noBody, controller.undoClockOut);
 
 /* ── Held punches (14403) ──────────────────────────────────────────────────
  *
@@ -36,6 +39,8 @@ router.post("/fix", create, validator.attachFix, controller.attachFix);
  */
 router.get("/review", view, controller.reviewQueue);
 router.post("/:id/review", requirePermission(M, "approve"), validator.reviewDecision, controller.reviewPunch);
+// A manager reopens a closed shift: `edit`, the grant that corrects a punch.
+router.post("/:id/reopen", edit, validator.noBody, controller.reopen);
 
 // Manager view — absences for a day
 router.get("/absence", view, controller.absence);

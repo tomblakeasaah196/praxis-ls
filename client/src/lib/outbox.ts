@@ -71,6 +71,13 @@ export type OutboxEntry = {
    * with an unreadable token) still replays rather than being stranded.
    */
   user?: string;
+  /**
+   * Replays whatever the current LIVE/TEST mode is. Set for writes the server
+   * pins to one environment itself — the time clock is always LIVE — so a
+   * punch queued with the TEST chip on is not stranded until somebody happens
+   * to switch back.
+   */
+  anyEnv?: boolean;
   attempts: number;
   lastError?: string;
   /** `queued` will be retried; `rejected` needs a person. */
@@ -205,11 +212,13 @@ export async function submitQueued<T>({
   method = "POST",
   body,
   label,
+  anyEnv = false,
 }: {
   path: string;
   method?: OutboxMethod;
   body?: unknown;
   label: string;
+  anyEnv?: boolean;
 }): Promise<SubmitResult<T>> {
   load();
   const id = newId();
@@ -231,6 +240,7 @@ export async function submitQueued<T>({
       queuedAt: Date.now(),
       env: tokenStore.getEnv(),
       user: currentUserRef(),
+      ...(anyEnv ? { anyEnv: true } : {}),
       attempts: 1,
       state: "queued",
       lastError: e instanceof Error ? e.message : undefined,
@@ -279,7 +289,7 @@ async function runFlush(): Promise<FlushSummary> {
       if (entry.state !== "queued") continue;
       // Switching LIVE ↔ TEST must not carry the other environment's writes
       // with it. They stay queued for whenever the user switches back.
-      if (entry.env !== env) continue;
+      if (!entry.anyEnv && entry.env !== env) continue;
       // Same argument for the person. A queue that survives a sign-out would
       // otherwise replay the previous user's write under the next user's
       // session — wrong `created_by`, wrong audit trail, and on a shared

@@ -823,7 +823,8 @@
         "update_attendance",
         "clock_out_attendance",
         "list_held_punches",
-        "review_held_punch"
+        "review_held_punch",
+        "reopen_attendance"
       ],
       "title_fr": "Présences"
     },

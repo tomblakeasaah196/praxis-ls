@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (712)
+## All codes (716)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -46,7 +46,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ALREADY_ANSWERED` | 409 | 1× | — |
 | `ALREADY_APPROVED` | 422 | 2× | — |
 | `ALREADY_CLAIMED` | 409 | 1× | — |
-| `ALREADY_CLOCKED_IN` | 409 | 1× | — |
+| `ALREADY_CLOCKED_IN` | 409 | 3× | — |
 | `ALREADY_CLOSED` | 422 | 3× | — |
 | `ALREADY_CONVERTED` | 422 | 1× | — |
 | `ALREADY_DECIDED` | 409, 422 | 3× | — |
@@ -367,6 +367,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOTHING_TO_DISPATCH` | 409 | 1× | — |
 | `NOTHING_TO_REVIEW` | 409 | 1× | — |
 | `NOTHING_TO_SUMMARISE` | 422 | 1× | — |
+| `NOTHING_TO_UNDO` | 409 | 1× | — |
 | `NOT_ACTIVE` | 422 | 2× | — |
 | `NOT_AGED` | 422 | 1× | — |
 | `NOT_AN_ANNOUNCEMENT` | 422 | 1× | — |
@@ -379,6 +380,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_BINDABLE` | 409 | 1× | — |
 | `NOT_CALLER` | 403 | 1× | — |
 | `NOT_CASH_ACCOUNT` | 422 | 1× | — |
+| `NOT_CLOSED` | 409 | 1× | — |
 | `NOT_COMPLETED` | 409 | 1× | — |
 | `NOT_CONFIGURED` | 400 | 2× | — |
 | `NOT_CONNECTED` | 409 | 2× | — |
@@ -388,7 +390,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 773× | — |
+| `NOT_FOUND` | 404, 422 | 774× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -634,6 +636,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SESSION_EXPIRED` | 401 | 3× | — |
 | `SESSION_REVOKED` | 401 | 8× | — |
 | `SETUP_REQUIRED` | 400 | 1× | — |
+| `SHIFT_DONE_TODAY` | 409 | 1× | — |
 | `SIBLING_MODE_TAKEN` | — | 1× | — |
 | `SIDE_ALREADY_COMPLETE` | 409 | 1× | — |
 | `SIGNATURE_REQUIRED` | 409 | 2× | — |
@@ -689,6 +692,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `TRAINING_NOT_JOINABLE` | 422 | 1× | — |
 | `TRANSCRIPTION_UNAVAILABLE` | 502 | 3× | — |
 | `UNACCOUNTED_SPEND` | — | 1× | — |
+| `UNDO_EXPIRED` | 409 | 1× | — |
 | `UNEXPECTED_FIELD` | 422 | 2× | — |
 | `UNKNOWN_ACTION` | 422 | 2× | — |
 | `UNKNOWN_CLIENT_TYPE` | 422 | 1× | — |

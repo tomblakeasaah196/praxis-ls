@@ -37,6 +37,8 @@ jest.mock("../../src/modules/hr/attendance/attendance.repo", () => ({
   lastForEmployee: jest.fn(async () => null),
   findByClientRef: jest.fn(async () => null),
   dayReconciled: jest.fn(async () => false),
+  employeeForClock: jest.fn(async () => ({ employee_id: "emp-1", entity_id: null, work_schedule: null })),
+  getDevice: jest.fn(async () => null),
 }));
 jest.mock("../../src/modules/hr/attendance/attendance.reconcile", () => ({
   reconcileDate: jest.fn(async () => ({})),
@@ -357,13 +359,127 @@ describe("reviewPunch (14403)", () => {
   });
 });
 
-describe("me (14403)", () => {
+describe("me (14403, one shift a day)", () => {
+  const actor = { user_id: "user-1" };
+
   it("tells the clock an unlinked user apart from an employee off shift", async () => {
     repo.employeeIdForUser.mockResolvedValueOnce(null);
-    expect(await service.me(client, { actor: { user_id: "admin-1" } })).toEqual({ linked: false, open: null });
+    expect(await service.me(client, { actor: { user_id: "admin-1" } })).toMatchObject({ linked: false, open: null, done: null });
 
     repo.employeeIdForUser.mockResolvedValueOnce("emp-1");
     repo.openForEmployee.mockResolvedValueOnce(null);
-    expect(await service.me(client, { actor: { user_id: "user-1" } })).toEqual({ linked: true, open: null });
+    repo.lastForEmployee.mockResolvedValueOnce(null);
+    const out = await service.me(client, { actor });
+    expect(out).toMatchObject({ linked: true, open: null, done: null, undo_until: null });
+    // A working day with no schedule anywhere is a plain eight hours.
+    expect([480, null]).toContain(out.expected_minutes);
+  });
+
+  it("reports today's finished shift, with the device's name, and the undo window while it lasts", async () => {
+    repo.employeeIdForUser.mockResolvedValueOnce("emp-1");
+    repo.openForEmployee.mockResolvedValueOnce(null);
+    const outAt = new Date(Date.now() - 30_000);
+    repo.lastForEmployee.mockResolvedValueOnce({
+      attendance_id: "att-1", clock_in_at: new Date(Date.now() - 60_000), clock_out_at: outAt,
+      hr_device_id: "dev-1", geo_label: "Bonabéri, Douala", location_source: "gps", latitude: 4, longitude: 9,
+    });
+    repo.getDevice.mockResolvedValueOnce({ hr_device_id: "dev-1", label: "Yard tablet" });
+    const out = await service.me(client, { actor });
+    expect(out.done).toMatchObject({ attendance_id: "att-1", device_label: "Yard tablet", geo_label: "Bonabéri, Douala" });
+    expect(new Date(out.undo_until).getTime()).toBe(outAt.getTime() + 120_000);
+  });
+
+  it("refuses a second clock-in on a day already clocked out", async () => {
+    // Midday in Douala, so "earlier today" is unambiguously today.
+    jest.useFakeTimers({ now: new Date("2026-10-16T12:00:00Z"), doNotFake: ["nextTick", "setImmediate", "queueMicrotask"] });
+    try {
+      repo.lastForEmployee.mockResolvedValueOnce({
+        attendance_id: "att-1", clock_in_at: new Date("2026-10-16T07:00:00Z"), clock_out_at: new Date("2026-10-16T11:00:00Z"),
+      });
+      await expect(service.clockIn(client, { employeeId: "emp-1" })).rejects.toMatchObject({
+        code: "SHIFT_DONE_TODAY", status: 409,
+      });
+      expect(repo.create).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("starts a new day for somebody whose last shift began yesterday", async () => {
+    repo.lastForEmployee.mockResolvedValueOnce({
+      attendance_id: "att-0", clock_in_at: new Date(Date.now() - 30 * 3_600_000), clock_out_at: new Date(Date.now() - 20 * 3_600_000),
+    });
+    repo.create.mockImplementation(async (_c, data) => ({ attendance_id: "att-2", ...data }));
+    await service.clockIn(client, { employeeId: "emp-1" });
+    expect(repo.create).toHaveBeenCalled();
+  });
+});
+
+describe("undoClockOut and reopen (two-minute undo, then a manager)", () => {
+  const actor = { user_id: "user-1" };
+  beforeEach(() => {
+    repo.employeeIdForUser.mockResolvedValue("emp-1");
+    repo.update.mockImplementation(async (_c, id, patch) => ({ attendance_id: id, employee_id: "emp-1", clock_in_at: new Date(), ...patch }));
+  });
+
+  it("takes back a clock-out inside two minutes", async () => {
+    repo.lastForEmployee.mockResolvedValueOnce({ attendance_id: "att-1", employee_id: "emp-1", clock_out_at: new Date(Date.now() - 60_000) });
+    const out = await service.undoClockOut(client, { actor });
+    expect(repo.update.mock.calls[0][2]).toMatchObject({ clock_out_at: null, out_latitude: null });
+    expect(out.clock_out_at).toBeNull();
+  });
+
+  it("refuses after the window, and says who can help", async () => {
+    repo.lastForEmployee.mockResolvedValueOnce({ attendance_id: "att-1", clock_out_at: new Date(Date.now() - 5 * 60_000) });
+    await expect(service.undoClockOut(client, { actor })).rejects.toMatchObject({ code: "UNDO_EXPIRED", status: 409 });
+  });
+
+  it("lets a manager reopen a closed shift, and re-runs a settled day", async () => {
+    const reconcile = require("../../src/modules/hr/attendance/attendance.reconcile");
+    repo.findById.mockResolvedValueOnce({
+      attendance_id: "att-1", employee_id: "emp-1", clock_in_at: new Date("2026-10-14T07:00:00Z"), clock_out_at: new Date("2026-10-14T09:00:00Z"),
+    });
+    repo.update.mockImplementationOnce(async (_c, id, patch) => ({
+      attendance_id: id, employee_id: "emp-1", clock_in_at: new Date("2026-10-14T07:00:00Z"), ...patch,
+    }));
+    repo.dayReconciled.mockResolvedValueOnce(true);
+    await service.reopen(client, { id: "att-1", actor: { user_id: "mgr-1" } });
+    expect(repo.update.mock.calls[0][2].clock_out_at).toBeNull();
+    expect(reconcile.reconcileDate).toHaveBeenCalledWith(client, { date: "2026-10-14", actor: { user_id: "mgr-1" } });
+  });
+
+  it("will not reopen while another shift is running", async () => {
+    repo.findById.mockResolvedValueOnce({ attendance_id: "att-1", employee_id: "emp-1", clock_out_at: new Date() });
+    repo.openForEmployee.mockResolvedValueOnce({ attendance_id: "att-2" });
+    await expect(service.reopen(client, { id: "att-1", actor })).rejects.toMatchObject({ code: "ALREADY_CLOCKED_IN" });
+  });
+});
+
+describe("expectedMinutes", () => {
+  const calendar = require("../../src/modules/hr/attendance/attendance.calendar");
+  it("reads the employee's own schedule first, then the entity calendar, then eight hours", () => {
+    const friday = "2026-10-16";
+    expect(calendar.expectedMinutes({
+      isoDate: friday,
+      schedule: { days: [{ day: "FRI", worked: true, start: "09:00", end: "17:30", mode: "ON_SITE" }] },
+    }).minutes).toBe(510);
+    expect(calendar.expectedMinutes({
+      isoDate: friday,
+      calendar: { days: [{ weekday: 5, opens_at: "08:00:00", closes_at: "16:00:00" }] },
+    }).minutes).toBe(480);
+    expect(calendar.expectedMinutes({ isoDate: friday }).minutes).toBe(480);
+  });
+
+  it("has no target on a day off or a holiday", () => {
+    expect(calendar.expectedMinutes({
+      isoDate: "2026-10-17",
+      schedule: { days: [{ day: "FRI", worked: true, start: "09:00", end: "17:00", mode: "ON_SITE" }] },
+    }).minutes).toBeNull();
+    expect(calendar.expectedMinutes({ isoDate: "2026-10-16", isHoliday: true }).minutes).toBeNull();
+    expect(calendar.expectedMinutes({ isoDate: "2026-10-16", isWorkingDay: false }).minutes).toBeNull();
+  });
+
+  it("wraps a night shift past midnight", () => {
+    expect(calendar.minutesBetween("22:00", "06:00")).toBe(480);
   });
 });

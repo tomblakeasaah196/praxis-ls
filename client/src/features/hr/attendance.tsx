@@ -179,6 +179,33 @@ export function HeldPunches() {
 /* ── Day's clock-ins with lateness ── */
 function AttendanceLog({ date }: { date: string }) {
   const log = useResource(() => api.listAttendance({ date }), [date]);
+  const [confirm, confirmDialog] = useConfirm();
+  const [reopening, setReopening] = React.useState<string | null>(null);
+
+  /*
+   * Reopen a closed shift. The employee's own Undo lasts two minutes after a
+   * clock-out; past that a mistaken clock-out locks their clock for the day,
+   * and this is the way back.
+   */
+  async function reopen(r: api.AttendanceRow) {
+    const ok = await confirm({
+      title: r.employee_name ? `Reopen the shift for ${r.employee_name}?` : "Reopen this shift?",
+      body: "The clock-out is removed and the shift runs again until they clock out.",
+      confirmLabel: "Reopen Shift",
+      cancelLabel: "Keep It Closed",
+    });
+    if (!ok) return;
+    setReopening(r.attendance_id);
+    try {
+      await api.reopenPunch(r.attendance_id);
+      log.reload();
+    } catch (e) {
+      reportActionError(e);
+    } finally {
+      setReopening(null);
+    }
+  }
+
   const cols: Column<api.AttendanceRow>[] = [
     {
       key: "emp",
@@ -263,9 +290,27 @@ function AttendanceLog({ date }: { date: string }) {
         </span>
       ),
     },
+    {
+      key: "_a",
+      label: "",
+      render: (r) =>
+        r.clock_out_at ? (
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              variant="outline"
+              loading={reopening === r.attendance_id}
+              onClick={() => reopen(r)}
+            >
+              Reopen
+            </Button>
+          </div>
+        ) : null,
+    },
   ];
   return (
     <div>
+      {confirmDialog}
       <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
         Clock-ins
       </h2>
