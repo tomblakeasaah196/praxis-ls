@@ -663,6 +663,8 @@ async function flushOne(client, row, deps = {}) {
         ? `TEST MODE: No message was delivered to these recipients. This is a sandbox sink record.\n\n${p.text || ""}`
         : p.text,
       references: p.references, inReplyTo: p.inReplyTo,
+      // The conversation it was written in, for a reply (see recordOutbound).
+      threadId: row.email_thread_id || null,
       messageIdHeader: p.messageId, sentVia: origin.SENT_VIA.PRAXIS,
       originUserId: row.user_id || null, originSendPoint: p.sendPoint || "user.compose",
     });

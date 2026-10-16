@@ -128,6 +128,8 @@ jest.mock("../../src/modules/mail/mail/thread.repo", () => ({
   foldersByPath: jest.fn(async () => new Map()),
   externalIdsFor: jest.fn(async () => []),
   translateExternalIds: jest.fn(async () => 0),
+  joinConversation: jest.fn(async () => ({ joined: true })),
+  threadInConnection: jest.fn(async () => null),
   getMessage: jest.fn(),
   listThreads: jest.fn(async () => []),
   timelineByEntity: jest.fn(async () => []),
@@ -787,5 +789,119 @@ describe("whatever the provider", () => {
     await service.syncConnection(DB, "conn-1", {});
     expect(spy).toHaveBeenCalledWith(DB, expect.objectContaining({ isFirstSync: true }));
     spy.mockRestore();
+  });
+});
+
+/* ── 14430: Outlook conversations ──────────────────────────────────────────── */
+
+describe("Outlook mail joins its conversation", () => {
+  const mockList = jest.fn();
+  const outlook = (extra = {}) => followingAdapter({
+    capabilities: () => ({ folders: true, folderMove: true, serverFlags: true, serverThreads: true }),
+    ...extra,
+  });
+  beforeEach(() => {
+    ImapSmtpProvider.mockImplementation(() => outlook());
+    jest.spyOn(mailNotify, "onInboundMessage").mockResolvedValue(undefined);
+  });
+  afterAll(() => {
+    ImapSmtpProvider.mockImplementation(() => followingAdapter({ locateMessage: undefined }));
+  });
+
+  test("a message is threaded on the provider's conversation when the ADAPTER says it has them", async () => {
+    // `conn.capabilities` was read instead: the database row, which has no
+    // such method, so Outlook's conversation id was never used.
+    mockFetchSince.mockResolvedValue({ messages: [inbound({ providerThreadId: "AAQk-conv" })], nextCursor: {} });
+    await service.syncConnection(DB, "conn-1", {});
+    expect(threads.upsertThread).toHaveBeenCalledWith(DB, expect.objectContaining({ thread_key: "provider:AAQk-conv" }));
+  });
+
+  test("an adapter without server threads keeps header threading", async () => {
+    ImapSmtpProvider.mockImplementation(() => followingAdapter({ locateMessage: undefined }));
+    mockFetchSince.mockResolvedValue({ messages: [inbound({ providerThreadId: "ignored" })], nextCursor: {} });
+    await service.syncConnection(DB, "conn-1", {});
+    expect(threads.upsertThread).toHaveBeenCalledWith(DB, expect.objectContaining({ thread_key: "<a>" }));
+  });
+
+  test("attachments are downloaded for a new message and never for one already stored", async () => {
+    const loadNew = jest.fn(async () => [{ filename: "f.pdf", content_type: "application/pdf", content: Buffer.from("x") }]);
+    const loadOld = jest.fn(async () => []);
+    threads.findMessageByExternal.mockImplementation(async (_c, _id, ext) => (ext === "<old>"
+      ? { email_message_id: "m-old", folder: "INBOX", provider_folder: "INBOX" } : null));
+    mockFetchSince.mockResolvedValue({
+      messages: [
+        inbound({ externalMessageId: "<old>", loadAttachments: loadOld }),
+        inbound({ externalMessageId: "<new>", loadAttachments: loadNew }),
+      ],
+      nextCursor: {},
+    });
+    await service.syncConnection(DB, "conn-1", {});
+    expect(loadOld).not.toHaveBeenCalled();
+    expect(loadNew).toHaveBeenCalledTimes(1);
+    expect(threads.insertMessage).toHaveBeenCalledWith(DB, expect.objectContaining({ external_message_id: "<new>", has_attachment: true }));
+    threads.findMessageByExternal.mockReset();
+    threads.findMessageByExternal.mockResolvedValue(null);
+  });
+
+  test("the one-time pass groups stored mail, oldest first, and records where it got to", async () => {
+    ImapSmtpProvider.mockImplementation(() => outlook({ listConversationIds: mockList }));
+    mockList.mockResolvedValueOnce({
+      rows: [["m2", "conv-1", "2026-10-02T00:00:00Z"], ["m1", "conv-1", "2026-10-01T00:00:00Z"]],
+      nextLink: null,
+    });
+    await service.syncConnection(DB, "conn-1", {});
+    expect(mockList).toHaveBeenCalledWith("INBOX", null);
+    expect(threads.joinConversation.mock.calls.map((c) => c[2].externalMessageId)).toEqual(["m1", "m2"]);
+    expect(threads.joinConversation).toHaveBeenCalledWith(DB, "conn-1", { externalMessageId: "m1", threadKey: "provider:conv-1" });
+    expect(repo.updateConnection).toHaveBeenCalledWith(DB, "conn-1", { conversation_pass: { folders: { INBOX: "done" } } });
+    expect(repo.updateConnection).toHaveBeenCalledWith(DB, "conn-1", { conversation_pass: { done: true } });
+  });
+
+  test("a large folder stops after its page budget and resumes from the link", async () => {
+    ImapSmtpProvider.mockImplementation(() => outlook({ listConversationIds: mockList }));
+    mockList.mockResolvedValue({ rows: [], nextLink: "https://graph/next" });
+    await service.syncConnection(DB, "conn-1", {});
+    expect(mockList).toHaveBeenCalledTimes(5);
+    expect(repo.updateConnection).toHaveBeenCalledWith(DB, "conn-1", { conversation_pass: { folders: { INBOX: "https://graph/next" } } });
+    expect(repo.updateConnection).not.toHaveBeenCalledWith(DB, "conn-1", { conversation_pass: { done: true } });
+
+    jest.clearAllMocks();
+    repo.getConnection.mockResolvedValue({ ...CONN, conversation_pass: { folders: { INBOX: "https://graph/next" } } });
+    mockList.mockResolvedValue({ rows: [], nextLink: null });
+    await service.syncConnection(DB, "conn-1", {});
+    expect(mockList).toHaveBeenCalledWith("INBOX", "https://graph/next");
+  });
+
+  test("a finished pass never runs again, and a failing one never fails the sync", async () => {
+    ImapSmtpProvider.mockImplementation(() => outlook({ listConversationIds: mockList }));
+    repo.getConnection.mockResolvedValue({ ...CONN, conversation_pass: { done: true } });
+    await service.syncConnection(DB, "conn-1", {});
+    expect(mockList).not.toHaveBeenCalled();
+
+    repo.getConnection.mockResolvedValue(CONN);
+    mockList.mockRejectedValueOnce(new Error("429"));
+    mockFetchSince.mockResolvedValue({ messages: [inbound()], nextCursor: {} });
+    const res = await service.syncConnection(DB, "conn-1", {});
+    expect(res.error).toBeUndefined();
+    expect(res.inserted).toBe(1);
+  });
+});
+
+describe("a reply is recorded in the conversation it was written in", () => {
+  test("the thread it came from wins over a computed key", async () => {
+    threads.threadInConnection.mockResolvedValueOnce({ email_thread_id: "thr-written" });
+    threads.insertMessage.mockResolvedValueOnce(null);
+    await service.recordOutbound(DB, CONN, {
+      externalMessageId: "out-1", providerThreadId: "conv-9", threadId: "thr-written", to: ["a@b.cm"], subject: "Re: x",
+    });
+    expect(threads.threadInConnection).toHaveBeenCalledWith(DB, "thr-written", "conn-1");
+    expect(threads.upsertThread).not.toHaveBeenCalled();
+    expect(threads.insertMessage).toHaveBeenCalledWith(DB, expect.objectContaining({ email_thread_id: "thr-written" }));
+  });
+
+  test("without one, a provider conversation is the key", async () => {
+    threads.insertMessage.mockResolvedValueOnce(null);
+    await service.recordOutbound(DB, CONN, { externalMessageId: "out-2", providerThreadId: "conv-9", to: ["a@b.cm"], subject: "Hi" });
+    expect(threads.upsertThread).toHaveBeenCalledWith(DB, expect.objectContaining({ thread_key: "provider:conv-9" }));
   });
 });
