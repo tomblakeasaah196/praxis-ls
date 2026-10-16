@@ -254,12 +254,18 @@ test("fetchSince hydrates file attachments when hasAttachments is set", async ()
 
   const { messages } = await provider().fetchSince(null, "f1");
 
-  expect(messages[0].attachments).toHaveLength(1);
-  expect(messages[0].attachments[0]).toMatchObject({
+  // Not downloaded until the engine knows the message is new (14430): a first
+  // read sees thousands that are already stored.
+  expect(messages[0].attachments).toEqual([]);
+  expect(axios).toHaveBeenCalledTimes(1);
+
+  const files = await messages[0].loadAttachments();
+  expect(files).toHaveLength(1);
+  expect(files[0]).toMatchObject({
     filename: "f.pdf",
     content_type: "application/pdf",
   });
-  expect(messages[0].attachments[0].content.toString()).toBe("abc");
+  expect(files[0].content.toString()).toBe("abc");
   expect(axios).toHaveBeenCalledTimes(2); // delta + attachments
 });
 
@@ -273,7 +279,7 @@ test("createReply: createReply → patch body → send, returns new id + convers
 
   const res = await provider().createReply("orig-id", { bodyText: "thanks" });
 
-  expect(res).toEqual({ externalMessageId: "draft-1", threadKey: "conv-1" });
+  expect(res).toEqual({ externalMessageId: "draft-1", threadKey: "conv-1", providerThreadId: "conv-1" });
   expect(axios).toHaveBeenNthCalledWith(
     1,
     expect.objectContaining({
@@ -307,9 +313,9 @@ test("an inline file attachment keeps its contentId and is marked inline", async
       },
     });
 
-  const { messages } = await provider().fetchSince(null);
+  const { messages } = await provider().fetchSince(null, "f1");
 
-  expect(messages[0].attachments[0]).toMatchObject({ content_id: "image001.png@01DB", disposition: "inline" });
+  expect((await messages[0].loadAttachments())[0]).toMatchObject({ content_id: "image001.png@01DB", disposition: "inline" });
 });
 
 test("getRawMessage reads $value as bytes", async () => {
@@ -317,4 +323,37 @@ test("getRawMessage reads $value as bytes", async () => {
   const raw = await provider().getRawMessage("m9");
   expect(raw.toString()).toBe("From: a@b\r\n\r\nhi");
   expect(axios.mock.calls.at(-1)[0]).toMatchObject({ url: expect.stringContaining("/me/messages/m9/$value"), responseType: "arraybuffer" });
+});
+
+test("each message names its conversation, which is what the engine threads on (14430)", () => {
+  expect(provider()._normalize(msg("1", { conversationId: "AAQk-conv" })).providerThreadId).toBe("AAQk-conv");
+});
+
+test("listConversationIds reads ids and conversations only, a thousand to a page", async () => {
+  axios.mockResolvedValueOnce(page(
+    [{ id: "a", conversationId: "c1", receivedDateTime: "2026-10-01T00:00:00Z" }, { id: "b" }],
+    { "@odata.nextLink": "https://graph/p2" },
+  ));
+  const out = await provider().listConversationIds("INBOX-ID");
+  expect(axios.mock.calls[0][0].url).toContain("/me/mailFolders/INBOX-ID/messages?$select=id,conversationId,receivedDateTime&$top=1000");
+  expect(out).toEqual({ rows: [["a", "c1", "2026-10-01T00:00:00Z"]], nextLink: "https://graph/p2" });
+
+  axios.mockResolvedValueOnce(page([]));
+  await provider().listConversationIds("INBOX-ID", "https://graph/p2");
+  expect(axios.mock.calls[1][0].url).toBe("https://graph/p2");
+});
+
+test("a send hands back its conversation, so the Sent row joins it", async () => {
+  axios.mockResolvedValueOnce({ data: { id: "d1", conversationId: "conv-7" } }).mockResolvedValueOnce({ data: {} });
+  expect(await provider().sendEmail({ to: "a@b.cm", subject: "x", bodyText: "y" }))
+    .toEqual({ externalMessageId: "d1", threadKey: "conv-7", providerThreadId: "conv-7" });
+});
+
+test("getMessage, which repair on open uses, still brings its attachments at once", async () => {
+  axios
+    .mockResolvedValueOnce({ data: msg("m1", { hasAttachments: true }) })
+    .mockResolvedValueOnce(page([{ "@odata.type": "#microsoft.graph.fileAttachment", name: "f", contentType: "text/plain", size: 1, contentBytes: Buffer.from("x").toString("base64") }]));
+  const n = await provider().getMessage("m1");
+  expect(n.attachments).toHaveLength(1);
+  expect(n.loadAttachments).toBeUndefined();
 });

@@ -726,6 +726,7 @@ async function discoverFolders(client, conn, adapter, ctx = {}) {
  */
 async function ingestMessage(client, conn, m, {
   folder = "INBOX", providerPath = null, rules = [], ctx = {}, movesFollow = false, legacyIds = false,
+  capabilities = {},
 }) {
   // Sent and Drafts are ours whatever the adapter guessed: the IMAP adapter
   // guessed from the folder's NAME, so "Éléments envoyés" came in as received
@@ -762,13 +763,18 @@ async function ingestMessage(client, conn, m, {
     if (legacy) return null;
   }
 
+  // New, so now its attachments are worth downloading (see the adapters'
+  // `loadAttachments`: a first read sees thousands of messages already stored).
+  if (typeof m.loadAttachments === "function") m.attachments = await m.loadAttachments();
+
   const originFields = origin.originFieldsFor({
     direction, headers: m.headers, messageIdHeader: m.messageIdHeader || m.externalMessageId || null,
   });
 
   // The conversation this belongs to. Provider thread ids are trusted only when
-  // the adapter says it really has them.
-  const capabilities = typeof conn.capabilities === "function" ? conn.capabilities() : {};
+  // the ADAPTER says it really has them. This read `conn.capabilities`, which is
+  // the database row and has no such method, so it was always {} and Outlook's
+  // conversation id was never used: every Outlook message was a thread of one.
   const threadKey = threading.threadKeyFor(
     { ...m, messageIdHeader: originFields.message_id_header }, capabilities,
   ) || m.externalMessageId;
@@ -964,6 +970,55 @@ async function moveToImmutableIds(client, conn, adapter) {
   return { ids: ids.length, moved };
 }
 
+/** Listing pages the conversation pass reads per folder per sync. */
+const PASS_PAGES = 5;
+
+/**
+ * Put the Outlook mail stored before 14430 into its conversations, once.
+ *
+ * Every message was keyed on its own id, so each was a thread of one. This
+ * reads each synced folder's ids and conversation ids (no bodies: a thousand to
+ * a page) and hands them to `threadRepo.joinConversation`, which decides per
+ * message what is safe. In short: a thread nothing has been done to joins its
+ * conversation; one that carries a record link, an assignee, a label, a note or
+ * a follow-up is left exactly as it is, and becomes the conversation's home if
+ * the conversation has none yet, so later replies join IT rather than start a
+ * new thread beside it (owner decision, 15 Oct 2026).
+ *
+ * Resumable (`conversation_pass`, see 14430) and bounded per sync, so a large
+ * mailbox is grouped over several syncs rather than holding one up.
+ */
+async function groupConversations(client, conn, adapter, synced = []) {
+  if (typeof adapter.listConversationIds !== "function") return null;
+  const state = conn.conversation_pass || { folders: {} };
+  if (state.done) return null;
+  const progress = { ...(state.folders || {}) };
+  let joined = 0;
+  for (const folder of synced) {
+    const path = folder.provider_path;
+    if (progress[path] === "done") continue;
+    let link = progress[path] || null;
+    for (let page = 0; page < PASS_PAGES; page += 1) {
+      const { rows, nextLink } = await adapter.listConversationIds(path, link);
+      // Oldest first, so the first message of a conversation is its home.
+      rows.sort((a, b) => String(a[2] || "").localeCompare(String(b[2] || "")));
+      for (const [externalMessageId, conversationId] of rows) {
+        const r = await threadRepo.joinConversation(client, conn.email_connection_id, {
+          externalMessageId, threadKey: threading.threadKeyFor({ providerThreadId: conversationId }, { serverThreads: true }),
+        });
+        if (r && r.joined) joined += 1;
+      }
+      link = nextLink;
+      if (!link) break;
+    }
+    progress[path] = link || "done";
+    await repo.updateConnection(client, conn.email_connection_id, { conversation_pass: { folders: progress } });
+  }
+  const done = synced.length > 0 && synced.every((f) => progress[f.provider_path] === "done");
+  if (done) await repo.updateConnection(client, conn.email_connection_id, { conversation_pass: { done: true } });
+  return { joined, done };
+}
+
 /**
  * Count one failed sync, and raise the health event on the third in a row,
  * which is when `bumpFailure` turns the mailbox to ERROR.
@@ -996,6 +1051,14 @@ async function syncConnection(client, id, ctx = {}) {
   } catch (err) {
     await syncFailed(client, conn, err.message);
     return { connection: conn.email_connection_id, error: err.message };
+  }
+  const capabilities = typeof adapter.capabilities === "function" ? adapter.capabilities() : {};
+  // Outlook mail stored before 14430, one conversation per message, grouped
+  // once. Never what fails a sync: it resumes on the next one.
+  try {
+    await groupConversations(client, conn, adapter, syncFolders);
+  } catch (err) {
+    logger.warn({ err, connection: conn.email_connection_id }, "[mail] conversation pass paused");
   }
   const movesFollow = typeof adapter.locateMessage === "function";
   // Only a provider whose ids used to be the mutable kind can hold a copy
@@ -1030,7 +1093,7 @@ async function syncConnection(client, id, ctx = {}) {
         const row = await ingestMessage(client, conn, m, {
           folder: where,
           providerPath: m.providerPath || folder.provider_path,
-          rules, ctx, movesFollow, legacyIds,
+          rules, ctx, movesFollow, legacyIds, capabilities,
         });
         if (!row) continue;
         inserted += 1;
@@ -1501,6 +1564,7 @@ async function reply(client, input = {}) {
   await afterSend(client, conn, prep);
   await recordOutbound(client, conn, {
     ...res, to: original.from_address, subject, html, text,
+    threadId: original.email_thread_id || null,
     messageIdHeader: prep.messageId, sentVia: origin.SENT_VIA.PRAXIS,
     originUserId: actor.user_id || null, originSendPoint: prep.sendPoint || "user.compose",
   });
@@ -1519,11 +1583,20 @@ async function recordOutbound(client, conn, m) {
   // brings back a minute later.
   const to = Array.isArray(m.to) ? m.to : String(m.to || "").split(/[,;]\s*/).filter(Boolean);
   const threadKey = threading.threadKeyFor({
+    providerThreadId: m.providerThreadId,
     references: m.references, inReplyTo: m.inReplyTo,
     messageIdHeader: m.messageIdHeader || m.externalMessageId,
-  }) || m.threadKey || m.externalMessageId;
+  }, { serverThreads: Boolean(m.providerThreadId) }) || m.threadKey || m.externalMessageId;
 
-  const thread = await threadRepo.upsertThread(client, {
+  // A reply belongs in the conversation it was written in. Computing the key
+  // again usually lands there, but not when that conversation was keyed some
+  // other way (an Outlook thread kept apart by the 14430 pass because it is
+  // linked to a record): the reply would open a second thread beside the one
+  // the person was looking at.
+  const written = m.threadId
+    ? await threadRepo.threadInConnection(client, m.threadId, conn.email_connection_id)
+    : null;
+  const thread = written || await threadRepo.upsertThread(client, {
     email_connection_id: conn.email_connection_id,
     thread_key: threadKey,
     subject: threading.baseSubject(m.subject),
