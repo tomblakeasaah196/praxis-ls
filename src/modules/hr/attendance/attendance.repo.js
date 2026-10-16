@@ -33,6 +33,15 @@ module.exports = {
     );
     return rows[0] || null;
   },
+  /** What the clock needs to know about an employee to find their day. */
+  async employeeForClock(client, employeeId) {
+    const { rows } = await client.query(
+      `SELECT employee_id, entity_id, work_schedule, work_days, expected_start_time, grace_minutes
+         FROM employee WHERE employee_id = $1`,
+      [employeeId],
+    );
+    return rows[0] || null;
+  },
   /** A punch by the phone's own reference, scoped to the employee who made it. */
   async findByClientRef(client, employeeId, clientRef) {
     const { rows } = await client.query(

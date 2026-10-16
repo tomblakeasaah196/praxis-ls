@@ -205,6 +205,22 @@ describe("flushOutbox", () => {
     expect(queuedCount()).toBe(1);
   });
 
+  it("replays a write the server pins to LIVE whatever mode the user is in now", async () => {
+    // The time clock is always LIVE on the server, so a punch queued with the
+    // TEST chip on must not be stranded until somebody switches back.
+    vi.spyOn(tokenStore, "getEnv").mockReturnValue("sandbox");
+    tenantMock.mockRejectedValueOnce(offline());
+    await submitQueued({ path: "/attendance/clock-in", body: {}, label: "Clock In", anyEnv: true });
+
+    vi.spyOn(tokenStore, "getEnv").mockReturnValue("live");
+    tenantMock.mockReset();
+    tenantMock.mockResolvedValueOnce({ attendance_id: "a1" });
+    const summary = await flushOutbox();
+
+    expect(summary.sent).toBe(1);
+    expect(queuedCount()).toBe(0);
+  });
+
   it("shares one flush between racing callers, and tells them both the truth", async () => {
     tenantMock.mockRejectedValueOnce(offline());
     await submitQueued({

@@ -10,6 +10,18 @@ const identityCache = require("../../../shared/cache/identity-cache");
 const { resolveContext } = require("../../../services/spreadsheet");
 const { canSeeRegistrations } = require("../../master/_shared/confidential");
 
+/**
+ * The clock always works in LIVE (owner's decision, 16 Oct 2026).
+ *
+ * TEST is where a tenant tries things on a copy of its data, and every other
+ * handler here follows the header. The time clock must not: a punch made with
+ * the TEST chip on landed in the sandbox, LIVE still said "Clock in", and the
+ * shift payroll pays on was never recorded. One person, one shift, one record,
+ * whatever the rest of the screen is showing — so the employee's own clock
+ * reads and writes LIVE, and the manager screens keep following the header.
+ */
+const clockDb = (req, fn) => req.tenantDbIn("live", fn);
+
 const base = makeController(service, "Attendance");
 const actor = (req) => req.user || { user_id: null };
 
@@ -64,15 +76,15 @@ module.exports = {
     const body = req.body.device
       ? { ...req.body, device: { ...req.body.device, user_agent: req.get("user-agent") || req.body.device.user_agent || null } }
       : req.body;
-    const row = await req.tenantDb((c) => service.clockIn(c, { ...body, actor: actor(req) }));
+    const row = await clockDb(req, (c) => service.clockIn(c, { ...body, actor: actor(req) }));
     res.status(201).json({ data: row });
   }),
   clockOut: asyncHandler(async (req, res) => {
-    const row = await req.tenantDb((c) => service.clockOut(c, { ...req.body, actor: actor(req) }));
+    const row = await clockDb(req, (c) => service.clockOut(c, { ...req.body, actor: actor(req) }));
     res.json({ data: row });
   }),
   attachFix: asyncHandler(async (req, res) => {
-    const row = await req.tenantDb((c) => service.attachFix(c, { ...req.body, actor: actor(req) }));
+    const row = await clockDb(req, (c) => service.attachFix(c, { ...req.body, actor: actor(req) }));
     res.json({ data: row });
   }),
   reviewQueue: asyncHandler(async (req, res) =>
@@ -84,7 +96,11 @@ module.exports = {
     res.json({ data: row });
   }),
   me: asyncHandler(async (req, res) =>
-    res.json({ data: await req.tenantDb((c) => service.me(c, { actor: actor(req) })) })),
+    res.json({ data: await clockDb(req, (c) => service.me(c, { actor: actor(req) })) })),
+  undoClockOut: asyncHandler(async (req, res) =>
+    res.json({ data: await clockDb(req, (c) => service.undoClockOut(c, { actor: actor(req) })) })),
+  reopen: asyncHandler(async (req, res) =>
+    res.json({ data: await req.tenantDb((c) => service.reopen(c, { id: req.params.id, actor: actor(req) })) })),
   open: asyncHandler(async (req, res) => {
     const row = await req.tenantDb((c) => service.open(c, { employeeId: req.query.employee_id || null, actor: actor(req) }));
     res.json({ data: row });
@@ -123,7 +139,7 @@ module.exports = {
     res.status(201).json({ data: row });
   }),
   renameOwnDevice: asyncHandler(async (req, res) =>
-    res.json({ data: await req.tenantDb((c) => service.renameOwnDevice(c, { id: req.params.deviceId, label: req.body.label, actor: actor(req) })) })),
+    res.json({ data: await clockDb(req, (c) => service.renameOwnDevice(c, { id: req.params.deviceId, label: req.body.label, actor: actor(req) })) })),
   updateDevice: asyncHandler(async (req, res) =>
     res.json({ data: await req.tenantDb((c) => service.setDeviceStatus(c, { id: req.params.deviceId, patch: req.body, actor: actor(req) })) })),
 

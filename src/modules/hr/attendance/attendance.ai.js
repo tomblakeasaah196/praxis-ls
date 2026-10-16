@@ -47,6 +47,14 @@ module.exports = {
       describe: "Approve or reject a held clock-in. Approving makes the day count for pay; rejecting needs a reason.",
     },
     {
+      key: "reopen_attendance",
+      service: (c, p, actor) => service.reopen(c, { id: p.attendance_id, actor }),
+      schema: z.object({ attendance_id: z.string().uuid() }),
+      permission: { module: "MOD-14", action: "edit" },
+      confirm: true,
+      describe: "Reopen a closed shift: remove its clock-out so it runs again. For a mistaken clock-out once the employee's own two-minute undo has passed.",
+    },
+    {
       key: "clock_out_attendance",
       service: (c, p, actor) => service.clockOut(c, { id: p.id || null, employeeId: p.employee_id || null, latitude: p.latitude, longitude: p.longitude, actor }),
       schema: validator.schemas.clockOut,
