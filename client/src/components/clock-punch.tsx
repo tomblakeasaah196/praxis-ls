@@ -1,13 +1,16 @@
 /**
- * Clock-punch chip for the bottom-right floating cluster — THE place employees
- * clock in/out (not the Attendance screen, which is the manager view). Always
- * shows the time; tapping captures the device GPS and clocks in or out, with a
- * dot for on-shift and a transient result. Users not linked to an employee still
- * see the clock — tapping just tells them their account isn't linked.
+ * The time clock: THE place employees clock in and out (the Attendance screen
+ * is the manager's view). The title bar carries it on desktop and the floating
+ * toolbar on a phone; both render the same pill from one shared state.
  *
- * NOTHING STOPS A PUNCH (14403). Not a missing location, not a slow GPS, not a
- * dead network, not a tenant's `block` policy. What used to stop one, and what
- * each now does instead:
+ * THREE FACES, NOTHING ELSE (owner's decision, 16 Oct 2026): "Clock In" before
+ * today's shift, the running HH:MM:SS during it, and a disabled "Done" after
+ * it, with a two-minute Undo. Clock-in has no confirmation; clock-out does,
+ * showing the time worked against the day's target. The clock is the same in
+ * LIVE and TEST because the server always keeps it in LIVE.
+ *
+ * NOTHING STOPS THE FIRST PUNCH OF THE DAY (14403). Not a missing location, not
+ * a slow GPS, not a dead network, not a tenant's `block` policy:
  *
  *   slow GPS       the tap waits at most five seconds, punches, and attaches
  *                  the reading when it lands (lib/clock-location);
@@ -40,26 +43,12 @@ import {
 import { getOutbox, subscribeOutbox } from "@/lib/outbox";
 import { openInstallUi } from "@/lib/pwa-install";
 import { Callout } from "@/components/ui/callout";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 import { GeolocationAllow } from "@/components/geolocation-allow";
 import i18n from "@/lib/i18n";
-
-const ClockIcon = (p: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={1.8}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    width={20}
-    height={20}
-    aria-hidden
-    {...p}
-  >
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 7v5l3 2" />
-  </svg>
-);
+import { hoursFmt, timerFmt } from "@/lib/clock-format";
 
 /**
  * The location card the clock is showing, if any.
@@ -80,6 +69,9 @@ export type LocationNotice = {
 };
 
 const CARD_KINDS: ReadonlySet<LocationError> = new Set(["denied", "os_off", "unavailable"]);
+
+/** How long after clocking out the Undo is offered. The server allows the same. */
+const UNDO_MS = 2 * 60_000;
 
 const PRIMER_KEY = "praxis.clock.locationPrimer";
 const BLOCKED_SEEN_KEY = "praxis.clock.blockedShown";
@@ -117,13 +109,16 @@ function newRef(): string {
  * read an older answer, and show "Clock in" to somebody whose clock-in is
  * sitting on their phone waiting to go. The newest queued punch wins.
  */
-function queuedPunch(): { state: "in"; row: api.AttendanceRow } | { state: "out" } | null {
+function queuedPunch(): { state: "in"; row: api.AttendanceRow } | { state: "out"; at: string } | null {
   const mine = getOutbox().filter(
     (e) => e.state === "queued" && (e.path === "/attendance/clock-in" || e.path === "/attendance/clock-out"),
   );
   const lastEntry = mine[mine.length - 1];
   if (!lastEntry) return null;
-  if (lastEntry.path === "/attendance/clock-out") return { state: "out" };
+  if (lastEntry.path === "/attendance/clock-out") {
+    const out = (lastEntry.body || {}) as api.ClockOutBody;
+    return { state: "out", at: out.tapped_at || new Date(lastEntry.queuedAt).toISOString() };
+  }
   const body = (lastEntry.body || {}) as api.ClockInBody;
   return {
     state: "in",
@@ -151,7 +146,15 @@ const ClockContext = React.createContext<ClockState | null>(null);
  */
 export function ClockPunchProvider({ children }: { children: React.ReactNode }) {
   const state = useClockState(true);
-  return <ClockContext.Provider value={state}>{children}</ClockContext.Provider>;
+  return (
+    <ClockContext.Provider value={state}>
+      {children}
+      {/* ONE clock-out dialog for the shell. It renders into a portal, so a
+          copy per surface would open twice: the title-bar chip is hidden with
+          CSS on a phone, not unmounted. */}
+      <ClockOutDialog clock={state} />
+    </ClockContext.Provider>
+  );
 }
 
 /**
@@ -160,18 +163,50 @@ export function ClockPunchProvider({ children }: { children: React.ReactNode }) 
  * Inside the shell this reads the provider. Outside one (a test, a storybook)
  * it runs its own copy, so a surface rendered on its own still works.
  */
-export function useClockPunch(): ClockState {
+export function useClockPunch(): ClockState & { ownsDialog: boolean } {
   const shared = React.useContext(ClockContext);
   const local = useClockState(shared === null);
-  return shared ?? local;
+  // Outside a provider the surface has to bring its own dialog.
+  return shared ? { ...shared, ownsDialog: false } : { ...local, ownsDialog: true };
 }
 
+/** Whole minutes between two moments, never negative. */
+function minutesBetween(from: string | null | undefined, to: Date | string | null | undefined): number {
+  if (!from || !to) return 0;
+  const ms = new Date(to).getTime() - new Date(from).getTime();
+  return Number.isFinite(ms) && ms > 0 ? Math.floor(ms / 60_000) : 0;
+}
+
+/**
+ * The clock has exactly three faces (owner's decision, 16 Oct 2026), the same
+ * in LIVE and in TEST because the clock itself is always LIVE:
+ *
+ *   in    not clocked in today: "Clock In", nothing else. Tapping clocks in at
+ *         once, no confirmation.
+ *   on    on the clock: the running time since clock-in, HH:MM:SS. Tapping asks
+ *         to confirm the clock-out, with the time worked against the day's
+ *         target, where they clocked in from and on what.
+ *   done  clocked out today: disabled until tomorrow, so nobody clocks in twice
+ *         in a day. For two minutes it offers Undo, for a mis-tap; after that
+ *         only a manager can reopen the shift.
+ *
+ * `loading` and `unlinked` render nothing: a person who is not an employee has
+ * no clock, and a clock that flickers "Clock In" before saying so is worse.
+ */
+export type ClockPhase = "loading" | "unlinked" | "in" | "on" | "done";
+
 function useClockState(enabled: boolean) {
-  const [now, setNow] = React.useState(() => new Date());
+  const toast = useToast();
   const [punch, setPunch] = React.useState<api.AttendanceRow | null>(null);
+  /** Today's finished shift: the clock is done until tomorrow. */
+  const [done, setDone] = React.useState<api.AttendanceRow | null>(null);
+  const [expected, setExpected] = React.useState<number | null>(null);
+  /** Epoch ms until which the person may take their clock-out back. */
+  const [undoUntil, setUndoUntil] = React.useState<number | null>(null);
   /** null until the server has answered: an unlinked user must never be asked for location. */
   const [linked, setLinked] = React.useState<boolean | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
   /**
    * The device this punch just registered, when it had never been seen before.
    *
@@ -184,40 +219,33 @@ function useClockState(enabled: boolean) {
   const [newDevice, setNewDevice] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<LocationNotice | null>(null);
   const [permission, setPermission] = React.useState<GeoPermission | null>(null);
-  /** The site is allowed but the device refused a warm-up: OS location is off. */
-  const [deviceOff, setDeviceOff] = React.useState(false);
-  const [msg, setMsg] = React.useState<{ text: string; bad?: boolean } | null>(null);
-  const msgTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const say = React.useCallback((text: string, bad = false, holdMs: number | null = 4000) => {
-    if (msgTimer.current) clearTimeout(msgTimer.current);
-    setMsg({ text, bad });
-    msgTimer.current = holdMs === null ? null : setTimeout(() => setMsg(null), holdMs);
-  }, []);
-  React.useEffect(() => () => {
-    if (msgTimer.current) clearTimeout(msgTimer.current);
-  }, []);
-
-  React.useEffect(() => {
-    if (!enabled) return;
-    const id = setInterval(() => setNow(new Date()), 15000);
-    return () => clearInterval(id);
-  }, [enabled]);
 
   /** Server state, with any punch still queued on this phone laid over it. */
   const refresh = React.useCallback(async () => {
     try {
       const st = await api.clockState();
       setLinked(st.linked);
+      setExpected(st.expected_minutes ?? null);
       const q = st.linked ? queuedPunch() : null;
-      setPunch(q ? (q.state === "in" ? q.row : null) : st.open);
+      if (q) {
+        setPunch(q.state === "in" ? q.row : null);
+        // A clock-out still queued on this device: the shift the server thinks
+        // is open is, as far as this person is concerned, done.
+        if (q.state === "out") {
+          setDone((d) => d ?? (st.open ? { ...st.open, clock_out_at: q.at } : st.done));
+        }
+      } else {
+        setPunch(st.open);
+        setDone(st.open ? null : st.done);
+        setUndoUntil(st.undo_until ? new Date(st.undo_until).getTime() : null);
+      }
     } catch (e) {
       /*
        * Offline is not "not an employee". Treating every failure as unlinked
        * would turn the one case the outbox exists for, punching in a dead zone,
-       * into "your account isn't linked", which is exactly the kind of thing
-       * that must never stop a clock-in. Only an answer from the server can say
-       * the person is not an employee; anything else keeps what we knew, and
+       * into a missing clock, which is exactly the kind of thing that must
+       * never stop a clock-in. Only an answer from the server can say the
+       * person is not an employee; anything else keeps what we knew, and
        * assumes they can punch when we knew nothing.
        */
       const q = queuedPunch();
@@ -230,9 +258,32 @@ function useClockState(enabled: boolean) {
   React.useEffect(() => {
     if (!enabled) return;
     void refresh();
-    // A queued punch going out (or being refused) changes what the clock shows.
-    return subscribeOutbox(() => void refresh());
+    // A queued punch going out (or being refused) changes what the clock shows,
+    // and so does midnight: a periodic re-read is what unlocks tomorrow.
+    const id = setInterval(() => void refresh(), 5 * 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    const stopOutbox = subscribeOutbox(() => void refresh());
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      stopOutbox();
+    };
   }, [enabled, refresh]);
+
+  // The Undo offer disappears by itself when its two minutes are up.
+  React.useEffect(() => {
+    if (!undoUntil) return;
+    const left = undoUntil - Date.now();
+    if (left <= 0) {
+      setUndoUntil(null);
+      return;
+    }
+    const id = setTimeout(() => setUndoUntil(null), left);
+    return () => clearTimeout(id);
+  }, [undoUntil]);
 
   /*
    * Location permission, watched — never asked for.
@@ -254,7 +305,6 @@ function useClockState(enabled: boolean) {
      */
     onWarmError((why) => {
       if (!live || why !== "os_off") return;
-      setDeviceOff(true);
       if (!readFlag("session", DEVICE_OFF_SEEN_KEY)) {
         writeFlag("session", DEVICE_OFF_SEEN_KEY);
         setNotice((n) => n ?? { kind: "os_off", context: "open" });
@@ -300,8 +350,12 @@ function useClockState(enabled: boolean) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, linked, permission]);
 
-  const canPunch = linked !== false;
-  const clockedIn = canPunch && !!punch && !punch.clock_out_at;
+  const phase: ClockPhase =
+    linked === null ? "loading"
+      : linked === false ? "unlinked"
+        : punch && !punch.clock_out_at ? "on"
+          : done ? "done"
+            : "in";
 
   /**
    * A reading that missed the punch, attached when it lands.
@@ -309,7 +363,7 @@ function useClockState(enabled: boolean) {
    * Addressed by the punch's `client_ref`, so it works for a punch that was
    * queued offline and has no server id yet. Through the outbox too, so a
    * reading that lands in a dead zone follows the punch out instead of being
-   * dropped.
+   * dropped. Silent either way: the clock shows a state, not a commentary.
    */
   const follow = React.useCallback(
     async (late: Promise<LateResult>, target: { client_ref?: string; attendance_id?: string; phase: "in" | "out" }) => {
@@ -323,150 +377,165 @@ function useClockState(enabled: boolean) {
             accuracy: r.fix.accuracy,
             fix_at: new Date(r.fix.at).toISOString(),
           });
-          setDeviceOff(false);
-          say(i18n.t("hr.locationAdded"));
         } catch {
-          // The punch stands without it, and the server already records why
-          // it had no location. Telling them twice adds nothing.
-          setMsg(null);
+          /* @silent:teardown — the punch stands without it, and the server already records why it had none */
         }
         return;
       }
-      setMsg(null);
       if (r.error && CARD_KINDS.has(r.error)) {
         setNotice({ kind: r.error as LocationNotice["kind"], context: "punch" });
       }
     },
-    [say],
+    [],
   );
 
-  async function toggle() {
-    if (!canPunch) {
-      say(i18n.t("hr.notLinked"), true);
+  /** The two refusals that are not refusals: the clock was simply out of date. */
+  async function handleRefusal(e: unknown) {
+    const code = e instanceof ApiError ? e.code : "";
+    if (code === "ALREADY_CLOCKED_IN" || code === "NO_OPEN_SHIFT" || code === "SHIFT_DONE_TODAY") {
+      await refresh();
+      toast.info(
+        code === "ALREADY_CLOCKED_IN"
+          ? i18n.t("hr.alreadyIn")
+          : code === "NO_OPEN_SHIFT"
+            ? i18n.t("hr.alreadyOut")
+            : i18n.t("hr.shiftDoneToday"),
+      );
       return;
     }
+    toast.error(e instanceof Error ? e.message : i18n.t("hr.punchFailed"));
+  }
+
+  /** Clock in: no confirmation, straight to the timer. */
+  async function clockIn() {
+    if (phase !== "in" || busy) return;
     setBusy(true);
-    setMsg(null);
     if (notice?.kind === "primer") setNotice(null);
     const tappedAt = new Date().toISOString();
     const cap = await captureForPunch();
-    if (cap.fix) setDeviceOff(false);
-    const coords = cap.fix ? { latitude: cap.fix.latitude, longitude: cap.fix.longitude } : {};
     const finding = !cap.fix && cap.error === "timeout";
-    let followTarget: { client_ref?: string; attendance_id?: string; phase: "in" | "out" } | null = null;
+    const ref = newRef();
+    let following = false;
     try {
-      if (clockedIn) {
-        const r = await api.punchOut({ ...coords, tapped_at: tappedAt });
-        const target = punch?.client_ref
-          ? { client_ref: punch.client_ref }
-          : punch && !punch.attendance_id.startsWith("queued:")
-            ? { attendance_id: punch.attendance_id }
-            : null;
-        setPunch(null);
-        if (r.status === "queued") say(i18n.t("hr.savedOffline"), false, 6000);
-        else if (finding) say(i18n.t("hr.clockedOutFindingLocation"), false, null);
-        else say(cap.fix ? i18n.t("hr.clockedOut") : i18n.t("hr.clockedOutNoLocation"), !cap.fix);
-        if (finding && target) followTarget = { ...target, phase: "out" };
+      // The device rides with the punch, not as a separate registration call:
+      // registering has to happen on first use or a tenant on `block` would
+      // have nothing to hold — the server puts the row down either way.
+      const device = api.deviceInfo();
+      const r = await api.punchIn({
+        ...(cap.fix || {}),
+        device: device
+          ? { ...device, ...(permission ? { location_permission: permission } : {}) }
+          : null,
+        client_ref: ref,
+        tapped_at: tappedAt,
+        ...(cap.error ? { location_error: cap.error } : {}),
+      });
+      setDone(null);
+      setUndoUntil(null);
+      if (r.status === "queued") {
+        setPunch({ attendance_id: `queued:${ref}`, client_ref: ref, clock_in_at: tappedAt, punched_offline: true });
+        toast.info(i18n.t("hr.savedOffline"));
       } else {
-        // The device rides with the punch, not as a separate registration call:
-        // registering has to happen on first use or a tenant on `block` would
-        // have nothing to hold — the server puts the row down either way.
-        const device = api.deviceInfo();
-        const ref = newRef();
-        const r = await api.punchIn({
-          ...(cap.fix || {}),
-          device: device
-            ? { ...device, ...(permission ? { location_permission: permission } : {}) }
-            : null,
-          client_ref: ref,
-          tapped_at: tappedAt,
-          ...(cap.error ? { location_error: cap.error } : {}),
-        });
-        if (r.status === "queued") {
-          setPunch({ attendance_id: `queued:${ref}`, client_ref: ref, clock_in_at: tappedAt, punched_offline: true });
-          say(i18n.t("hr.savedOffline"), false, 6000);
-        } else {
-          const row = r.data;
-          setPunch(row);
-          // Offered only on the punch that created the row — `device_new` is
-          // transient and true exactly once, so this cannot become a nag.
-          if (row.device_new && row.hr_device_id) setNewDevice(row.hr_device_id);
-          // Unfenced (GPS, no worksite) is NOT a missing fix. Using
-          // `within_geofence === null` here would nag every tenant that has not
-          // placed a fence yet.
-          const offSite = row.within_geofence === false || row.location_status === "off_site";
-          const held = row.review_status === "PENDING";
-          const noLoc = !cap.fix && !finding;
-          say(
-            held
-              ? i18n.t("hr.clockedInHeld")
-              : offSite
-                ? i18n.t("hr.clockedInOffSite")
-                : finding
-                  ? i18n.t("hr.clockedInFindingLocation")
-                  : noLoc
-                    ? i18n.t("hr.clockedInNoLocation")
-                    : i18n.t("hr.clockedIn"),
-            offSite || noLoc || held,
-            finding ? null : held ? 6000 : 4000,
-          );
+        const row = r.data;
+        setPunch(row);
+        // Offered only on the punch that created the row — `device_new` is
+        // transient and true exactly once, so this cannot become a nag.
+        if (row.device_new && row.hr_device_id) setNewDevice(row.hr_device_id);
+        if (row.review_status === "PENDING") toast.info(i18n.t("hr.clockedInHeld"));
+        else if (row.within_geofence === false || row.location_status === "off_site") {
+          toast.info(i18n.t("hr.clockedInOffSite"));
         }
-        if (finding) followTarget = { client_ref: ref, phase: "in" };
       }
+      following = finding;
       if (cap.error && CARD_KINDS.has(cap.error)) {
         setNotice({ kind: cap.error as LocationNotice["kind"], context: "punch" });
       }
     } catch (e) {
-      /*
-       * The two refusals that are not refusals: the server already has this
-       * person on (or off) the clock — from another device, or from a punch
-       * this one queued. Nothing is wrong with them; the clock was out of date.
-       */
+      await handleRefusal(e);
+    } finally {
+      setBusy(false);
+    }
+    if (following) void follow(cap.late, { client_ref: ref, phase: "in" });
+  }
+
+  /** Clock out, after the person confirmed it in the dialog. */
+  async function clockOut() {
+    if (phase !== "on" || busy || !punch) return;
+    setBusy(true);
+    const shift = punch;
+    const tappedAt = new Date().toISOString();
+    const cap = await captureForPunch();
+    const coords = cap.fix ? { latitude: cap.fix.latitude, longitude: cap.fix.longitude } : {};
+    const finding = !cap.fix && cap.error === "timeout";
+    let following = false;
+    try {
+      const r = await api.punchOut({ ...coords, tapped_at: tappedAt });
+      setConfirming(false);
+      setPunch(null);
+      setDone(r.status === "sent" ? r.data : { ...shift, clock_out_at: tappedAt });
+      setUndoUntil(Date.now() + UNDO_MS);
+      if (r.status === "queued") toast.info(i18n.t("hr.savedOffline"));
+      following = finding;
+    } catch (e) {
+      setConfirming(false);
+      await handleRefusal(e);
+    } finally {
+      setBusy(false);
+    }
+    const target = shift.client_ref
+      ? { client_ref: shift.client_ref }
+      : !shift.attendance_id.startsWith("queued:")
+        ? { attendance_id: shift.attendance_id }
+        : null;
+    if (following && target) void follow(cap.late, { ...target, phase: "out" });
+  }
+
+  /** The two-minute Undo: the shift runs again, as if it had not been closed. */
+  async function undo() {
+    if (phase !== "done" || busy) return;
+    setBusy(true);
+    try {
+      const row = await api.undoClockOut();
+      setPunch(row);
+      setDone(null);
+      setUndoUntil(null);
+    } catch (e) {
+      setUndoUntil(null);
       const code = e instanceof ApiError ? e.code : "";
-      if (code === "ALREADY_CLOCKED_IN") {
+      if (code === "UNDO_EXPIRED" || code === "NOTHING_TO_UNDO") {
+        toast.info(e instanceof Error ? e.message : i18n.t("hr.punchFailed"));
         await refresh();
-        say(i18n.t("hr.alreadyIn"));
-      } else if (code === "NO_OPEN_SHIFT") {
-        setPunch(null);
-        say(i18n.t("hr.alreadyOut"));
       } else {
-        say(e instanceof Error ? e.message : i18n.t("hr.punchFailed"), true, 6000);
+        await handleRefusal(e);
       }
     } finally {
       setBusy(false);
     }
-    if (followTarget) void follow(cap.late, followTarget);
   }
 
-  const timeStr = now.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  // The pill states the action when off-shift ("Clock in") and only reveals the
-  // timer when on-shift ("03:23 • On the clock"). The transient `msg` (off-site,
-  // no location…) wins over both, because it is the result of the last punch.
-  const label = msg
-    ? msg.text
-    : clockedIn
-      ? `${timeStr} • On the clock`
-      : "Clock in";
-  const action = canPunch ? (clockedIn ? "Clock out" : "Clock in") : "Time";
-
   return {
-    label, action, clockedIn, canPunch, busy, toggle, msg, timeStr,
+    phase,
+    busy,
+    /** The open shift (phase `on`) or today's finished one (phase `done`). */
+    shift: phase === "on" ? punch : phase === "done" ? done : null,
+    expectedMinutes: expected,
+    canUndo: phase === "done" && !!undoUntil && undoUntil > Date.now(),
+    clockIn,
+    confirming,
+    askClockOut: () => {
+      if (phase === "on") setConfirming(true);
+    },
+    cancelClockOut: () => setConfirming(false),
+    clockOut,
+    undo,
     newDevice,
     dismissNewDevice: () => setNewDevice(null),
     notice,
-    /** Location is blocked or off right now: the clock shows a small warning. */
-    locationBlocked: permission === "denied" || deviceOff,
     dismissNotice: () => {
       if (notice?.kind === "primer") writeFlag("local", PRIMER_KEY);
       setNotice(null);
     },
-    replaceNotice: (n: LocationNotice | null) => {
-      if (n === null) setDeviceOff(false);
-      setNotice(n);
-    },
+    replaceNotice: (n: LocationNotice | null) => setNotice(n),
     /** The person reached for the clock: warm the GPS for the tap that follows. */
     warm: () => warmGps(),
   };
@@ -678,25 +747,170 @@ function NameDeviceOffer({ deviceId, onDone }: { deviceId: string; onDone: () =>
   );
 }
 
+/** The running time since clock-in, ticking each second. */
+function Elapsed({ since }: { since: string | null | undefined }) {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <>{timerFmt(since ? now - new Date(since).getTime() : 0)}</>;
+}
+
+/**
+ * The clock-out question: how long, against what, from where, on what.
+ *
+ * Deliberately short. One figure, one bar, two facts, two buttons. The time is
+ * worked so far, measured to the moment the dialog opened; the bar fills
+ * against the day's target from the person's own schedule, and there is no bar
+ * on a day with no target.
+ */
+function ClockOutDialog({ clock }: { clock: ClockState }) {
+  const shift = clock.shift;
+  const worked = minutesBetween(shift?.clock_in_at, new Date());
+  const target = clock.expectedMinutes;
+  const pct = target ? Math.min(100, Math.round((worked / target) * 100)) : 0;
+  const short = !!target && worked < target;
+  return (
+    <Dialog
+      open={clock.confirming}
+      onClose={clock.cancelClockOut}
+      title={i18n.t("hr.clockOutQuestion")}
+      footer={
+        <>
+          <Button variant="outline" onClick={clock.cancelClockOut} disabled={clock.busy}>
+            {i18n.t("common.cancel")}
+          </Button>
+          <Button onClick={() => void clock.clockOut()} loading={clock.busy}>
+            {i18n.t("hr.clockOutButton")}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <p className="num text-3xl font-semibold text-foreground">
+            {hoursFmt(worked)}
+            {target ? (
+              <span className="num ml-2 text-lg font-normal text-[rgb(var(--ink-3))]">
+                {i18n.t("hr.ofTarget", { target: hoursFmt(target) })}
+              </span>
+            ) : null}
+          </p>
+          {target ? (
+            <div
+              className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={pct}
+              aria-label={i18n.t("hr.ofTarget", { target: hoursFmt(target) })}
+            >
+              <div
+                className={cn("h-full rounded-full", short ? "bg-warn-fill" : "bg-ok-fill")}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          ) : null}
+        </div>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+          <dt className="text-[rgb(var(--ink-3))]">{i18n.t("hr.locationCaption")}</dt>
+          <dd className="text-foreground">{shift?.geo_label || i18n.t("hr.notRecorded")}</dd>
+          <dt className="text-[rgb(var(--ink-3))]">{i18n.t("hr.deviceCaption")}</dt>
+          <dd className="text-foreground">{shift?.device_label || i18n.t("hr.thisDevice")}</dd>
+        </dl>
+      </div>
+    </Dialog>
+  );
+}
+
+/**
+ * The one control, in its three faces. Both homes render this — the title bar
+ * on desktop, the floating toolbar on a phone — so they cannot drift apart.
+ */
+function ClockPill({ clock, touch = false }: { clock: ClockState; touch?: boolean }) {
+  const shape = touch
+    ? "h-11 rounded-full px-4 text-sm shadow-lg bg-card"
+    : "h-9 rounded-md px-3 text-xs";
+  const base = cn(
+    "inline-flex items-center justify-center border font-semibold tabular-nums transition-colors disabled:cursor-not-allowed",
+    shape,
+  );
+
+  if (clock.phase === "in") {
+    return (
+      <button
+        type="button"
+        onClick={() => void clock.clockIn()}
+        onPointerEnter={clock.warm}
+        onFocus={clock.warm}
+        disabled={clock.busy}
+        className={cn(base, "border-input text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-60")}
+      >
+        {i18n.t("hr.clockInButton")}
+      </button>
+    );
+  }
+
+  if (clock.phase === "on") {
+    return (
+      <button
+        type="button"
+        onClick={clock.askClockOut}
+        onPointerEnter={clock.warm}
+        onFocus={clock.warm}
+        disabled={clock.busy}
+        // Named with the state, not just the digits: a screen-reader user
+        // should hear that tapping clocks them out.
+        aria-label={`${i18n.t("hr.clockOutButton")}. ${i18n.t("hr.onTheClock")}`}
+        className={cn(base, "border-[rgb(var(--ok)_/_0.4)] text-[rgb(var(--ok))] hover:bg-accent disabled:opacity-60")}
+      >
+        <Elapsed since={clock.shift?.clock_in_at} />
+      </button>
+    );
+  }
+
+  if (clock.phase === "done") {
+    const worked = minutesBetween(clock.shift?.clock_in_at, clock.shift?.clock_out_at);
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <button
+          type="button"
+          disabled
+          className={cn(base, "border-input text-muted-foreground opacity-70")}
+        >
+          {i18n.t("hr.doneLabel")} · {hoursFmt(worked)}
+        </button>
+        {clock.canUndo && (
+          <button
+            type="button"
+            onClick={() => void clock.undo()}
+            className={cn(
+              "rounded-md px-2 font-semibold text-primary-ink hover:underline",
+              touch ? "h-11 text-sm" : "h-9 text-xs",
+            )}
+          >
+            {i18n.t("hr.undoButton")}
+          </button>
+        )}
+      </span>
+    );
+  }
+
+  return null;
+}
+
 /**
  * Title-bar clock chip — the DESKTOP home for the punch, beside LIVE/TEST.
  *
- * WHY A THIRD RENDERING. The punch had two homes and neither was reachable at a
- * glance on desktop: the FAB is `md:hidden` (audit F9), and the quick-actions
- * menu hides it one click deep behind a burst icon that gives no hint a shift is
- * running. Clocking in is not a "quick action" — it is a state the person is in
- * for eight hours, and the chrome should say so without being opened. The
- * utility strip is where the app already keeps the other always-true facts
- * (which environment, which account), so it belongs there.
- *
- * The label collapses below `lg` so it cannot push the search field off the row;
- * the dot and the icon still carry on-shift/off-shift at every width.
+ * Clocking in is not a "quick action" — it is a state the person is in for
+ * eight hours, and the chrome should say so without being opened. The utility
+ * strip is where the app already keeps the other always-true facts (which
+ * environment, which account), so it belongs there.
  */
 export function ClockPunchChip() {
-  const {
-    label, action, clockedIn, canPunch, busy, toggle, msg, newDevice, dismissNewDevice,
-    notice, dismissNotice, replaceNotice, locationBlocked, warm,
-  } = useClockPunch();
+  const clock = useClockPunch();
+  if (clock.phase === "loading" || clock.phase === "unlinked") return null;
 
   return (
     /*
@@ -705,121 +919,57 @@ export function ClockPunchChip() {
      * positioned against the window rather than the control that raised it.
      *
      * THE BREAKPOINT LIVES HERE, NOT ONLY ON THE BUTTON. This wrapper is a flex
-     * child of a `gap-2` row, so while the button inside was hidden below `sm`
-     * the wrapper still consumed a gap — eight pixels stolen from the title
-     * bar's drag handle at 320px, which the layout gate caught as a 10px spacer
-     * against a 16px floor. A hidden control must take no space at all,
+     * child of a `gap-2` row, so a hidden control must take no space at all,
      * including the space BETWEEN it and its neighbour.
      */
     <span className="relative hidden sm:inline-flex">
-    <button
-      type="button"
-      onClick={() => {
-        void toggle();
-      }}
-      // Reaching for the clock warms the GPS, so the tap that follows finds a
-      // fresh reading instead of starting one cold.
-      onPointerEnter={warm}
-      onFocus={warm}
-      disabled={busy}
-      title={`${action} · ${label}`}
-      // Named with the state, not just the verb: a screen-reader user should
-      // hear whether they are on the clock without activating the control.
-      aria-label={`${action}. ${clockedIn ? "On the clock" : "Not clocked in"}`}
-      className={cn(
-        "inline-flex h-9 items-center gap-2 rounded-md border border-input px-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-60",
-        clockedIn && "border-[rgb(var(--ok)_/_0.4)] text-[rgb(var(--ok))]",
-        msg?.bad && "border-[rgb(var(--bad)_/_0.4)] text-[rgb(var(--bad))]",
+      <ClockPill clock={clock} />
+      {clock.ownsDialog && <ClockOutDialog clock={clock} />}
+      {clock.newDevice && (
+        <div className="absolute right-0 top-full z-50 mt-2">
+          <NameDeviceOffer deviceId={clock.newDevice} onDone={clock.dismissNewDevice} />
+        </div>
       )}
-    >
-      <span className="relative inline-grid place-items-center">
-        <ClockIcon width={16} height={16} />
-        {canPunch && (
-          <span
-            aria-hidden
-            className={cn(
-              "absolute -right-1 -top-1 h-2 w-2 rounded-full ring-2 ring-background",
-              locationBlocked ? "bg-warn-fill" : clockedIn ? "bg-ok-fill" : "bg-[rgb(var(--ink-3)/0.4)]",
-            )}
-          />
-        )}
-      </span>
-      <span className="hidden text-[11px] font-semibold tabular-nums lg:inline">
-        {label}
-      </span>
-    </button>
-    {newDevice && (
-      <div className="absolute right-0 top-full z-50 mt-2">
-        <NameDeviceOffer deviceId={newDevice} onDone={dismissNewDevice} />
-      </div>
-    )}
-    {/*
-     * `md:block`: between `sm` and `md` the touch cluster is ALSO on screen and
-     * reads the same clock, and one card is enough. Below `md` the cluster owns
-     * the card; from `md` up the chip does.
-     */}
-    {notice && !newDevice && (
-      <div className="absolute right-0 top-full z-50 mt-2 hidden md:block">
-        <LocationNoticeCard notice={notice} onDone={dismissNotice} onReplace={replaceNotice} />
-      </div>
-    )}
+      {/* `md:block`: between `sm` and `md` the floating toolbar is ALSO on
+          screen and reads the same clock, and one card is enough. */}
+      {clock.notice && !clock.newDevice && (
+        <div className="absolute right-0 top-full z-50 mt-2 hidden md:block">
+          <LocationNoticeCard notice={clock.notice} onDone={clock.dismissNotice} onReplace={clock.replaceNotice} />
+        </div>
+      )}
     </span>
   );
 }
 
+/** The phone's home for the clock: the same pill, in the floating toolbar. */
 export function ClockPunch() {
-  const {
-    label, action, clockedIn, canPunch, busy, toggle, msg, newDevice, dismissNewDevice,
-    notice, dismissNotice, replaceNotice, locationBlocked, warm,
-  } = useClockPunch();
+  const clock = useClockPunch();
 
-  // This renders inside the cluster only once somebody has opened it, which on
+  // This renders inside the toolbar only once somebody has opened it, which on
   // a phone is the moment they are about to clock in or out. Warm the GPS now.
   React.useEffect(() => {
-    warm();
+    clock.warm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  if (clock.phase === "loading" || clock.phase === "unlinked") return null;
+
   return (
-    // `relative` for the same reason as the chip: the offers anchor to this
-    // cluster. On touch they sit above the FAB rather than below, which is
-    // where there is room — the cluster is already at the bottom of the screen.
+    // `relative`: the offers anchor to the toolbar. On touch they sit above it,
+    // which is where there is room — the toolbar is at the bottom of the screen.
     <div className="relative flex items-center gap-2 animate-fade-in">
-      {newDevice && (
+      {clock.newDevice && (
         <div className="absolute bottom-full right-0 z-50 mb-2">
-          <NameDeviceOffer deviceId={newDevice} onDone={dismissNewDevice} />
+          <NameDeviceOffer deviceId={clock.newDevice} onDone={clock.dismissNewDevice} />
         </div>
       )}
-      {notice && !newDevice && (
+      {clock.notice && !clock.newDevice && (
         <div className="absolute bottom-full right-0 z-50 mb-2">
-          <LocationNoticeCard notice={notice} onDone={dismissNotice} onReplace={replaceNotice} />
+          <LocationNoticeCard notice={clock.notice} onDone={clock.dismissNotice} onReplace={clock.replaceNotice} />
         </div>
       )}
-      <span
-        className={cn(
-          "rounded-md border bg-popover px-2 py-1 text-xs font-medium tabular-nums shadow-md",
-          msg?.bad ? "text-[rgb(var(--bad))]" : "text-foreground",
-        )}
-      >
-        {label}
-      </span>
-      <button
-        onClick={toggle}
-        disabled={busy}
-        title={`${action} · ${label}`}
-        aria-label={`${action}. ${clockedIn ? "On the clock" : "Not clocked in"}`}
-        className="relative grid h-11 w-11 place-items-center rounded-full border bg-card text-foreground shadow-lg transition-colors duration-150 hover:bg-accent hover:text-primary-ink disabled:opacity-60"
-      >
-        <ClockIcon />
-        {canPunch && (
-          <span
-            className={cn(
-              "absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full ring-2 ring-background",
-              locationBlocked ? "bg-warn-fill" : clockedIn ? "bg-ok-fill" : "bg-[rgb(var(--ink-3)/0.4)]",
-            )}
-          />
-        )}
-      </button>
+      {clock.ownsDialog && <ClockOutDialog clock={clock} />}
+      <ClockPill clock={clock} touch />
     </div>
   );
 }

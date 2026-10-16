@@ -33,6 +33,7 @@
 "use strict";
 
 const entityCalendar = require("../../master/corporate_entity/corporate_entity.calendar");
+const { workSchedule } = require("@praxis/shared");
 const { getSetting } = require("../../../shared/config/settings");
 const leaveRules = require("../leave_allowance/leave.rules");
 const rules = require("./attendance.rules");
@@ -213,8 +214,54 @@ function forEmployee(ctx, emp, isoDate) {
   });
 }
 
+/** getUTCDay() order, which is the order `working_calendar_day.weekday` uses. */
+const DAY_CODE = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+/** A full working day when nothing says otherwise. */
+const DEFAULT_DAY_MINUTES = 8 * 60;
+
+/** Minutes from one `HH:MM` to another; a shift that ends past midnight wraps. */
+function minutesBetween(start, end) {
+  const a = hhmm(start);
+  const b = hhmm(end);
+  if (!a || !b) return null;
+  const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const diff = toMin(b) - toMin(a);
+  return diff > 0 ? diff : diff + 24 * 60;
+}
+
+/**
+ * How long this person is expected to work on this date, in minutes — the
+ * figure the clock-out confirmation compares the shift against.
+ *
+ * Their OWN schedule first (`employee.work_schedule`, the grid the contract
+ * prints), then the entity's working calendar for that weekday, then a plain
+ * eight hours on a working day. A day off, a holiday, or a weekday the
+ * schedule does not work answers `null`: there is no target, and the clock
+ * says so rather than inventing one. Pure.
+ */
+function expectedMinutes({ isoDate, schedule = null, calendar = null, isWorkingDay = true, isHoliday = false } = {}) {
+  if (isHoliday) return { minutes: null, source: "holiday" };
+  const weekday = weekdayOf(isoDate);
+  if (weekday === null) return { minutes: null, source: "none" };
+  const own = workSchedule.normalise(schedule);
+  if (own) {
+    const day = own.days.find((d) => d.day === DAY_CODE[weekday]);
+    if (!day || !day.worked) return { minutes: null, source: "schedule" };
+    return { minutes: minutesBetween(day.start, day.end), source: "schedule" };
+  }
+  if (!isWorkingDay) return { minutes: null, source: "calendar" };
+  const calDay = calendar && (calendar.days || []).find((d) => Number(d.weekday) === weekday);
+  const fromCalendar = calDay ? minutesBetween(calDay.opens_at, calDay.closes_at) : null;
+  if (fromCalendar) return { minutes: fromCalendar, source: "entity" };
+  return { minutes: DEFAULT_DAY_MINUTES, source: "default" };
+}
+
 module.exports = {
   hhmm,
+  expectedMinutes,
+  minutesBetween,
+  DEFAULT_DAY_MINUTES,
   weekdayOf,
   decideExpected,
   workingDaysInMonth,

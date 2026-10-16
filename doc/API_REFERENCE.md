@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1896 |
+| Routes | 1898 |
 | Modules mounted | 143 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1896 mounted routes, grouped by path prefix.
+All 1898 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -320,6 +320,7 @@ All 1896 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/attendance/:id` | — |
 | PATCH | `/api/tenant/attendance/:id` | — |
 | POST | `/api/tenant/attendance/:id/clock-out` | — |
+| POST | `/api/tenant/attendance/:id/reopen` | — |
 | POST | `/api/tenant/attendance/:id/review` | — |
 | GET | `/api/tenant/attendance/absence` | — |
 | GET | `/api/tenant/attendance/analytics` | — |
@@ -343,6 +344,7 @@ All 1896 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/attendance/punches/mine` | — |
 | POST | `/api/tenant/attendance/reconcile` | — |
 | GET | `/api/tenant/attendance/review` | — |
+| POST | `/api/tenant/attendance/undo-clock-out` | — |
 | POST | `/api/tenant/attendance/weekly-summaries` | — |
 | GET | `/api/tenant/attendance/work-sites` | — |
 | POST | `/api/tenant/attendance/work-sites` | — |
