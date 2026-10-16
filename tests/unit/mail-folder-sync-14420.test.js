@@ -110,3 +110,76 @@ describe("the sent copy is matched on what both copies share", () => {
     expect(params).toEqual(["conn-1", "srv", null, "Quote", ["a@b.cm"], at, "SE"]);
   });
 });
+
+/* ── 14430: joinConversation, the rules for grouping stored Outlook mail ───── */
+
+describe("joinConversation", () => {
+  // Answers by what the SQL is doing, so the transaction probe and the
+  // statement order do not have to be scripted one by one.
+  const db = ({ cur, home }) => {
+    const calls = [];
+    return {
+      calls,
+      query: jest.fn(async (sql, params) => {
+        const q = String(sql);
+        calls.push({ sql: q, params });
+        if (/FROM email_message m\s+JOIN email_thread t/.test(q)) return { rows: cur ? [cur] : [] };
+        if (/FOR UPDATE/.test(q)) return { rows: home ? [home] : [] };
+        if (/RETURNING t\.message_count/.test(q)) return { rows: [{ message_count: 2 }] };
+        return { rows: [], rowCount: 1 };
+      }),
+    };
+  };
+  const CUR = {
+    email_message_id: "m1", email_thread_id: "old", thread_key: "<own-id>", message_count: 1,
+    visibility: "PRIVATE", from_address: "Client@X.cm", to_address: ["me@co.cm"], plain: true,
+  };
+  const KEY = "provider:conv-1";
+  const ran = (c, re) => c.calls.some((x) => re.test(x.sql));
+
+  test("already in its conversation: nothing", async () => {
+    const c = db({ cur: { ...CUR, thread_key: KEY } });
+    expect(await threadRepo.joinConversation(c, "conn-1", { externalMessageId: "e1", threadKey: KEY })).toBeNull();
+    expect(ran(c, /UPDATE/)).toBe(false);
+  });
+
+  test("no home yet: the thread becomes it by its key, even one a person has filed", async () => {
+    const c = db({ cur: { ...CUR, plain: false }, home: null });
+    const r = await threadRepo.joinConversation(c, "conn-1", { externalMessageId: "e1", threadKey: KEY });
+    expect(r).toEqual({ joined: true, rekeyed: true });
+    const rekey = c.calls.find((x) => /UPDATE email_thread SET thread_key/.test(x.sql));
+    expect(rekey.params).toEqual(["old", KEY]);
+    expect(ran(c, /UPDATE email_message SET email_thread_id/)).toBe(false);
+  });
+
+  test("a home exists and the thread is plain: the message moves and the empty thread goes", async () => {
+    const c = db({ cur: CUR, home: { email_thread_id: "home", visibility: "PRIVATE" } });
+    const r = await threadRepo.joinConversation(c, "conn-1", { externalMessageId: "e1", threadKey: KEY });
+    expect(r).toEqual({ joined: true, moved: true, into: "home" });
+    expect(c.calls.find((x) => /UPDATE email_message SET email_thread_id/.test(x.sql)).params).toEqual(["m1", "home"]);
+    expect(c.calls.find((x) => /UPDATE email_binding_suggestion/.test(x.sql)).params).toEqual(["old", "home"]);
+    expect(c.calls.find((x) => /participants = ARRAY/.test(x.sql)).params[1]).toEqual(["client@x.cm", "me@co.cm"]);
+    expect(ran(c, /DELETE FROM email_thread/)).toBe(true);
+  });
+
+  test.each([
+    ["linked, labelled, noted or assigned", { plain: false }, "kept"],
+    ["holding other mail", { message_count: 2 }, "shared"],
+    ["visible to different people", { visibility: "COMPANY" }, "visibility"],
+  ])("a thread %s is left exactly as it was", async (_what, over, reason) => {
+    const c = db({ cur: { ...CUR, ...over }, home: { email_thread_id: "home", visibility: "PRIVATE" } });
+    expect(await threadRepo.joinConversation(c, "conn-1", { externalMessageId: "e1", threadKey: KEY }))
+      .toEqual({ joined: false, reason });
+    expect(ran(c, /UPDATE email_message|DELETE FROM email_thread/)).toBe(false);
+  });
+
+  test("plain means nothing hangs off it on purpose", async () => {
+    const c = db({ cur: null });
+    await threadRepo.joinConversation(c, "conn-1", { externalMessageId: "e1", threadKey: KEY });
+    const sql = c.calls[0].sql;
+    for (const t of ["entity_ref IS NULL", "assigned_user_id IS NULL", "work_status = 'OPEN'", "email_thread_label",
+      "email_thread_note", "email_followup", "email_thread_share", "email_draft", "email_send_queue", "email_thread_lock"]) {
+      expect(sql).toContain(t);
+    }
+  });
+});
