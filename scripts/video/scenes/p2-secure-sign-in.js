@@ -108,7 +108,7 @@ module.exports = {
         lines: [
           { fr: "Nadège se connecte comme d'habitude, avec son e-mail et son mot de passe. Appuyez sur «Enter Workspace».",
             en: "Nadège signs in as usual, with her email and password. Press “Enter Workspace”.",
-            do: (s) => s.click("Enter workspace") },
+            do: async (s) => { await s.wait(4.6); await s.click("Enter workspace"); } },
           { fr: "Elle saisit son e-mail et son mot de passe, puis appuie sur «Sign In».",
             en: "She types her email and password, then presses “Sign In”.",
             do: async (s) => {
@@ -243,6 +243,9 @@ module.exports = {
       en: "The lock screen",
       shots: [{
         kind: "desktop", as: "nadege", start: "/security/my-security", authenticator: true,
+        // The lock screen offers the PIN beside the passkey only when the account has one when she signs in (the sign-in
+        // carries the flag), so a retake of this chapter alone gives her one first.
+        ground: async () => { await ground.resetSecurity([NADEGE], ["pin"]); await ground.setQuickPin(NADEGE, PIN); },
         async setup(s) {
           await mySecurity(s, NADEGE, ["passkeys"]);
           await enrolPasskey(s);
@@ -262,12 +265,13 @@ module.exports = {
             do: (s) => soft(s, s.page.getByText(/session locked/i).first()) },
           { fr: "Pour rouvrir, la clé d'accès passe en premier : l'ordinateur attend votre geste.",
             en: "To reopen, the passkey comes first: the computer waits for your touch." },
+          { fr: "Sans clé d'accès, le même écran propose «Use PIN», pour votre «Quick PIN», ou «Use Password».",
+            en: "Without a passkey, the same screen offers “Use PIN”, for your Quick PIN, or “Use Password”.",
+            do: async (s) => { await soft(s, s.find("Use PIN")); await s.wait(0.4); await soft(s, s.find("Use Password")); } },
           { fr: "Posez le doigt sur le lecteur. L'écran se déverrouille, exactement là où vous vous étiez arrêté.",
             en: "Put your finger on the reader. The screen unlocks, exactly where you left off.",
             do: (s) => s.touch(),
             after: async (s) => { await s.page.locator("#praxis-lock-root").waitFor({ state: "detached", timeout: 20000 }); await s.settle(900); } },
-          { fr: "Sans clé d'accès, le même écran propose votre «Quick PIN», ou «Use Password».",
-            en: "Without a passkey, the same screen offers your Quick PIN, or “Use Password”." },
         ],
       }],
     },
@@ -334,7 +338,7 @@ module.exports = {
         lines: [
           { fr: "Sur son téléphone, Serge se connecte comme avant. Appuyez sur «Enter Workspace».",
             en: "On his phone, Serge signs in as before. Tap “Enter Workspace”.",
-            do: (s) => s.click("Enter workspace") },
+            do: async (s) => { await s.wait(3.4); await s.click("Enter workspace"); } },
           { fr: "Il saisit son e-mail et son mot de passe, puis appuie sur «Sign In».",
             en: "He types his email and password, then taps “Sign In”.",
             do: async (s) => {
@@ -345,6 +349,8 @@ module.exports = {
           { fr: "Le mot de passe est vérifié, mais l'accès n'est pas encore ouvert : l'écran demande le code, «Two-step verification».",
             en: "The password is verified, but access is not open yet: the screen asks for the code, “Two-step verification”.",
             before: (s) => s.page.getByText(/two-step verification/i).first().waitFor({ state: "visible", timeout: 20000 }).then(() => s.settle(500)) },
+          { fr: "Téléphone perdu ? Sur cet écran, «Lost your phone?» permet d'utiliser un code de secours à la place.",
+            en: "Lost your phone? On this screen, “Lost your phone?” lets you use a recovery code instead." },
           { fr: "Il ouvre son application d'authentification, et saisit les six chiffres affichés.",
             en: "He opens his authenticator app and types the six digits shown.",
             // Five digits here and the sixth with the next line: the sixth is what verifies it.
@@ -357,8 +363,6 @@ module.exports = {
             en: "The last digit checks the code, and Serge is in his workspace.",
             do: (s) => s.page.keyboard.type(s.code.slice(5), { delay: 100 }),
             after: async (s) => { await s.page.getByRole("button", { name: /^Account:/ }).waitFor({ state: "visible", timeout: 30000 }); await s.settle(900); } },
-          { fr: "Téléphone perdu ? Sur cet écran, «Lost your phone?» permet d'utiliser un code de secours à la place.",
-            en: "Lost your phone? On that screen, “Lost your phone?” lets you use a recovery code instead." },
         ],
       }],
     },

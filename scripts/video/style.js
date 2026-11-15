@@ -86,12 +86,20 @@ function page(height, css, body) {
  * `subtitle` are French; `english` repeats them in English under the rule, so a viewer who does not
  * read French knows what they are about to watch.
  */
+/**
+ * The title is one line at 128 px, as wide as the picture allows (1520 px between the margins): a longer one
+ * shrinks to fit, its foot staying where a full-size title's would be. Plus Jakarta Sans ExtraBold sets about
+ * 0.5 em a letter and the estimate leaves room for the wider ones (W, M): "Premiers pas" keeps 128 px and "Se connecter en toute sécurité" sets at 92.
+ */
+const titleSize = (title) => Math.min(128, Math.floor(1520 / (String(title).length * 0.55)));
+
 function card({ eyebrow, title, subtitle, english, left, right = "JBS Praxis", rightLabel = "Conçu par", closing = false }) {
+  const size = titleSize(title);
   const css = `
 .logo{position:absolute;left:200px;top:96px;height:132px;padding:16px 30px;border-radius:26px;background:#fff;display:flex;align-items:center;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 .logo img{height:100px;width:auto;display:block}
 .eyebrow{position:absolute;left:200px;top:292px;font:700 29px "Plus Jakarta Sans";letter-spacing:.16em;color:${COLOUR.primary};text-transform:uppercase}
-h1{position:absolute;left:200px;top:352px;font:800 128px/1.05 "Plus Jakarta Sans";letter-spacing:-.01em;white-space:nowrap}
+h1{position:absolute;left:200px;top:${352 + Math.round((128 - size) * 1.05)}px;font:800 ${size}px/1.05 "Plus Jakarta Sans";letter-spacing:-.01em;white-space:nowrap}
 .sub{position:absolute;left:200px;top:528px;font:500 42px "Public Sans";color:${COLOUR.soft}}
 .en{position:absolute;left:200px;top:596px;font:400 33px "Public Sans";color:${COLOUR.muted}}
 .rule{position:absolute;left:200px;top:672px;width:175px;height:10px;border-radius:5px;background:${COLOUR.primary}}
@@ -150,4 +158,4 @@ function bar({ number, total, chapter, chapterEn, caption }) {
 <div class="caption">${esc(caption)}</div>`);
 }
 
-module.exports = { ROOT, SIZE, DESKTOP, PHONE, COLOUR, card, phoneGround, phoneRim, bar, esc };
+module.exports = { ROOT, SIZE, DESKTOP, PHONE, COLOUR, card, titleSize, phoneGround, phoneRim, bar, esc };

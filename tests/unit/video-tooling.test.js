@@ -46,6 +46,21 @@ describe("the plan of a scene", () => {
   });
 });
 
+describe("the title on a card", () => {
+  const { titleSize } = require("../../scripts/video/style");
+
+  it("keeps full size when it fits and shrinks a long one so it stays inside the picture", () => {
+    expect(titleSize("Premiers pas")).toBe(128);
+    expect(titleSize("Merci")).toBe(128);
+    // "Se connecter en toute sécurité" ran off the right edge of the picture at a fixed 128 px.
+    const long = titleSize("Se connecter en toute sécurité");
+    expect(long).toBeLessThan(128);
+    expect(long).toBeGreaterThanOrEqual(80);
+    // The same letters at the same size never take more than the 1520 px between the margins.
+    expect(long * 0.55 * "Se connecter en toute sécurité".length).toBeLessThanOrEqual(1520);
+  });
+});
+
 describe("subtitles", () => {
   it("keeps a short caption whole, splits at the mark, and splits a long one at the comma nearest its middle", () => {
     expect(captionParts("Press Sign In.")).toEqual(["Press Sign In."]);

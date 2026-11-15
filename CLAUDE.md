@@ -359,8 +359,7 @@ CI.
 
 ## Training videos
 
-Asked for a training or introduction video ("make part 2 of the introduction", "make the finance
-video")? **Read `doc/TRAINING_VIDEOS.md` in full first.** It holds the pattern every video follows,
+Asked for a training or introduction video ("make the finance video", "make the warehouse video")? **Read `doc/TRAINING_VIDEOS.md` in full first.** It holds the pattern every video follows,
 the tooling in `scripts/video/`, the invented cast, how to stand up a throwaway filming copy, the
 pitfalls met and where the work stands. The short version:
 
