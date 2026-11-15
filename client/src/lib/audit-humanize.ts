@@ -138,6 +138,38 @@ const SPECIALS: Record<string, SpecialText> = {
     text: "You disabled two-factor auth",
     kind: "security",
   },
+  // The ways in. Their last segment ("registered", "set") is not a verb VERBS knows, so each
+  // fell to the generic layer and read "You did registered on a passkey".
+  "app_user.passkey.registered": {
+    text: "You added a passkey",
+    kind: "security",
+    sensitive: true,
+  },
+  "app_user.passkey.removed": {
+    text: "You removed a passkey",
+    kind: "security",
+    sensitive: true,
+  },
+  "app_user.quick_pin.set": {
+    text: "You set up your Quick PIN",
+    kind: "security",
+    sensitive: true,
+  },
+  "app_user.quick_pin.changed": {
+    text: "You changed your Quick PIN",
+    kind: "security",
+    sensitive: true,
+  },
+  "app_user.quick_pin.removed": {
+    text: "You turned off your Quick PIN",
+    kind: "security",
+    sensitive: true,
+  },
+  "app_user.quick_pin.locked_out": {
+    text: "Your Quick PIN was switched off after too many wrong tries",
+    kind: "security",
+    sensitive: true,
+  },
 
   // ── attendance ────────────────────────────────────────────────────────
   "attendance.clocked_in": { text: "You clocked in", kind: "create" },

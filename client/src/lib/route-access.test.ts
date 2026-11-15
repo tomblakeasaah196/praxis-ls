@@ -134,6 +134,22 @@ describe("a hub landing page is gated by its sections, not by one module", () =>
   });
 });
 
+describe("a person's own account page needs no module grant", () => {
+  // Someone with Finance and nothing from Security & Access.
+  const finance = user(["MOD-51"]);
+
+  it("opens My Security for anyone, as the account menu offers it to everyone", () => {
+    expect(canOpenRoute(finance, "/security/my-security")).toBe(true);
+    expect(canOpenRoute(finance, "/security/my-security?highlight=passkey")).toBe(true);
+  });
+
+  it("still refuses the rest of Security & Access", () => {
+    expect(canOpenRoute(finance, "/security/users")).toBe(false);
+    expect(canOpenRoute(finance, "/security/roles")).toBe(false);
+    expect(canOpenRoute(finance, "/security")).toBe(false);
+  });
+});
+
 describe("canOpenRoute", () => {
   it("allows a granted module", () => {
     expect(canOpenRoute(user(["MOD-51"]), "/finance/invoices")).toBe(true);

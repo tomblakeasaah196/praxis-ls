@@ -44,16 +44,16 @@ function weakPinReason(pin) {
   if (!PIN_PATTERN.test(p)) return `Your PIN must be exactly ${PIN_LENGTH} digits.`;
 
   const d = p.split("").map(Number);
-  if (d.every((x) => x === d[0])) return "A PIN can't be one digit repeated — pick something less guessable.";
+  if (d.every((x) => x === d[0])) return "A PIN can't be one digit repeated. Pick something less guessable.";
 
   const up = d.every((x, i) => i === 0 || x === d[i - 1] + 1);
   const down = d.every((x, i) => i === 0 || x === d[i - 1] - 1);
-  if (up || down) return "A PIN can't be a straight run like 1234 or 9876 — pick something less guessable.";
+  if (up || down) return "A PIN can't be a straight run like 1234 or 9876. Pick something less guessable.";
 
-  if (d[0] === d[2] && d[1] === d[3]) return "A PIN can't be a repeated pair like 1212 — pick something less guessable.";
-  if (d[0] === d[1] && d[2] === d[3]) return "A PIN can't be two doubles like 1122 — pick something less guessable.";
+  if (d[0] === d[2] && d[1] === d[3]) return "A PIN can't be a repeated pair like 1212. Pick something less guessable.";
+  if (d[0] === d[1] && d[2] === d[3]) return "A PIN can't be two doubles like 1122. Pick something less guessable.";
 
-  if (COMMON.has(p)) return "That PIN is one of the most commonly used — pick something less guessable.";
+  if (COMMON.has(p)) return "That PIN is one of the most commonly used. Pick something less guessable.";
   return null;
 }
 

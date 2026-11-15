@@ -229,4 +229,82 @@ async function ready(emails) {
   }
 }
 
-module.exports = { SLUG, ORIGIN, PASSWORD, guard, tenantClient, applyBranding, ensureEntity, ensureCast, ensureSandboxData, invite, ready };
+/**
+ * Put people back to "no way in but the password". `what` names the ways to take away (all three by
+ * default): "passkeys", "pin" and "authenticator" (the app and its recovery codes). A chapter about
+ * setting one up films it from this state, so a retake meets what a first time does. Their sessions
+ * and the devices the product has seen them on are left alone.
+ */
+async function resetSecurity(emails, what = ["passkeys", "pin", "authenticator"]) {
+  const client = await tenantClient(SLUG, "live");
+  try {
+    for (const email of emails) {
+      const { rows } = await client.query("SELECT user_id FROM app_user WHERE lower(email::text) = lower($1)", [email]);
+      if (!rows[0]) throw new Error(`No login for ${email}: run the prepare step first.`);
+      const id = rows[0].user_id;
+      if (what.includes("passkeys")) await client.query("DELETE FROM webauthn_credential WHERE user_id = $1", [id]);
+      if (what.includes("pin")) await client.query("DELETE FROM user_quick_pin WHERE user_id = $1", [id]);
+      if (what.includes("authenticator")) {
+        await client.query("DELETE FROM user_mfa_recovery_code WHERE user_id = $1", [id]);
+        await client.query("UPDATE app_user SET is_2fa_enabled = false, totp_secret_enc = NULL WHERE user_id = $1", [id]);
+      }
+    }
+  } finally {
+    await client.end();
+  }
+}
+
+/** Give someone a Quick PIN through the product's own service (as My Security's form does), off camera. */
+async function setQuickPin(email, pin) {
+  const appUser = require("../../src/modules/security/app_user/app_user.service");
+  const client = await tenantClient(SLUG, "live");
+  // Setting a PIN tells the person by notification and email: nothing may leave this machine.
+  const emailService = require("../../src/services/email.service");
+  const realSend = emailService.send;
+  emailService.send = async () => ({ suppressed: true });
+  try {
+    const { rows } = await client.query("SELECT user_id FROM app_user WHERE lower(email::text) = lower($1)", [email]);
+    if (!rows[0]) throw new Error(`No login for ${email}: run the prepare step first.`);
+    await appUser.setQuickPin(client, { userId: rows[0].user_id, pin, currentPassword: PASSWORD });
+  } finally {
+    emailService.send = realSend;
+    await client.end();
+  }
+}
+
+/**
+ * Turn the authenticator app on for someone, as if they had scanned the square, so a later shot can
+ * show the sign-in that asks for a code. Returns the secret (the key under "No camera?").
+ */
+async function enableAuthenticator(email, frequency = "always") {
+  const { authenticator } = require("otplib");
+  const encryption = require("../../src/services/encryption.service");
+  const secret = authenticator.generateSecret();
+  const client = await tenantClient(SLUG, "live");
+  try {
+    const { rowCount } = await client.query(
+      "UPDATE app_user SET is_2fa_enabled = true, totp_secret_enc = $1, mfa_frequency = $2 WHERE lower(email::text) = lower($3)",
+      [encryption.encrypt(secret), frequency, email],
+    );
+    if (!rowCount) throw new Error(`No login for ${email}: run the prepare step first.`);
+  } finally {
+    await client.end();
+  }
+  return secret;
+}
+
+/** The six-digit code an authenticator app would show right now for `secret`. */
+const codeFor = (secret) => require("otplib").authenticator.generate(secret);
+
+/**
+ * A code with at least `margin` seconds left before it changes. A code is typed over several seconds and the
+ * product checks it against the current thirty-second step only, so one typed across the change is refused:
+ * wait for the next step when too little of this one is left.
+ */
+async function freshCode(secret, margin = 14) {
+  const left = () => require("otplib").authenticator.timeRemaining();
+  if (left() < margin) await new Promise((r) => setTimeout(r, (left() + 0.5) * 1000));
+  return codeFor(secret);
+}
+
+module.exports = { SLUG, ORIGIN, PASSWORD, guard, tenantClient, applyBranding, ensureEntity, ensureCast, ensureSandboxData, invite, ready, resetSecurity, setQuickPin, enableAuthenticator, codeFor, freshCode };

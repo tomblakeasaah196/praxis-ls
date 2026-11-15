@@ -1,7 +1,7 @@
 # Training videos
 
-**Start here when asked for a training or introduction video** ("make part 2 of the Praxis LS
-introduction", "make the finance video"). Every video looks and sounds like the first one: the same
+**Start here when asked for a training or introduction video** ("make the finance video", "make the
+warehouse video"). Every video looks and sounds like the first one: the same
 cards, the same caption bar, the same phone frame, the same voice at the same pace. This file is how
 any session, in any chat, makes one, in order, and what has been learnt so far. Read all of it
 before filming.
@@ -13,7 +13,7 @@ paper (how a line is spoken, how a subtitle splits, the cast, that a scene is wh
 | Video | Scene | Status |
 | --- | --- | --- |
 | Introduction, part 1: Premiers pas (sign-in and the shell, desktop and phone) | `p1-first-steps.js` | Made 15/11/2026, 8:19, 10 chapters, sent to JBS Praxis; to upload (§5) |
-| Introduction, part 2: Se connecter en toute sécurité (Quick PIN, passkeys, lock screen, two-step) | not written yet | Next (§8) |
+| Introduction, part 2: Se connecter en toute sécurité (passkey, Quick PIN, lock screen, two-step) | `p2-secure-sign-in.js` | Made 15/11/2026, 5:46, 9 chapters, sent to JBS Praxis; to upload (§5) |
 
 ---
 
@@ -158,13 +158,17 @@ module.exports = {
 };
 ```
 
+A shot can also carry `authenticator: true` (a built-in reader in the browser, and `s.touch()`, §6.13), `still: true`
+(reduced motion, for a page whose photograph drifts), `env: "sandbox"` (starts in TEST), `setup(s)` (after the sign-in) and
+`ground()` (BEFORE the sign-in: what the database must hold for the sign-in itself to work).
+
 A line is `{ fr, en, do?, before?, after?, hold?, speech? }`. `fr` is spoken (and is the French transcript),
 `en` is the subtitle, `speech` overrides what the voice reads. A line's `do` starts as its narration
 starts; the next line waits for both. `before` runs first and `after` once the line is said. A shot with
 no `as` is filmed signed out, a sign-in or an invitation shown on camera; `as` signs the person in off
 camera first. The hands (`s`): `click(name or Locator)` (a button, link, tab, menu item or option by its
 exact name, in any case), `hover`, `type(label, text)`, `key("Control+K")`, `scroll(dy)`, `go(path)`,
-`wait(seconds)`, `settle()`, `clearOffers()` and `s.page` for anything else. `helpers.js` has the
+`wait(seconds)`, `settle()`, `clearOffers()`, `touch()` and `s.page` for anything else. `helpers.js` has the
 finders (`button`, `link`, `dialog`, `heading`), `soft` (glide there if it shows within a few seconds, so
 a line that only points never costs a take), `tour` and `mailPage` (the invitation as the product wrote it).
 
@@ -220,6 +224,32 @@ sent as a file in the chat and uploaded by a person. Add the link to the table a
     set `page.setDefaultTimeout(6000)`, and a probe that signs in as someone who has no password yet (an
     invited colleague) stays on the sign-in page and every later click times out.
 
+13. **A passkey on camera.** Chromium's virtual authenticator answers at once, so the screen would flash "Waiting for
+    your device" for no time. `film.js` holds each `navigator.credentials` call until `s.touch()` and then lets the
+    reader answer, so the viewer sees the wait, then the finger (`automaticPresenceSimulation: false` does not help:
+    enabling it later does not release a request already waiting). Chrome allows one built-in reader per browser, and
+    the app asks the browser whether there is one when a page opens, so the reader is added before anything loads
+    (`authenticator: true` on the shot). Password-manager autofill (conditional mediation) is not held.
+14. **A reader changes the sign-in window.** It shows "Sign in with a passkey" under the button, so a finder for the
+    last button named "Sign in" presses the wrong one: match the exact name. After a password sign-in on such a
+    browser the window offers "One touch next time" before the app opens; `signIn` answers **Not now**. The button
+    carries the device's own name, from the user agent: **Set up Windows Hello** on filming's Windows browser.
+15. **The Quick PIN signs in on its fourth digit.** There is no button to press. Type three digits with one line and
+    the fourth with the next, so the sign-in lands with the words that say so. The lock screen's PIN works the same.
+16. **A code is checked against the current thirty-second step only.** One typed over several seconds can cross the
+    change and be refused. `ground.freshCode(secret)` waits for a step with time left. The key under "No camera?" is
+    the secret, so the video types a real code.
+17. **A colleague with two-step on cannot be signed in off camera.** `setup` runs after the sign-in; a shot's `ground`
+    runs before it (`resetSecurity`). Likewise the lock screen offers the PIN beside the passkey only if the account
+    HAD one at sign-in, so a chapter that needs it gives it first.
+18. **Chapters must not depend on each other.** Each starts from its own ground (`resetSecurity(emails, ["pin"])`,
+    `setQuickPin`, `enableAuthenticator`), so `--only=c06s01` meets what a full run meets.
+19. **Say a screen while it is on screen.** The lock screen's other buttons were narrated after the unlock, and the
+    phone's "Lost your phone?" after the sign-in. Review every take on a timeline (a frame every few seconds), not on
+    one frame per line: `ffmpeg` tiles are in §4.3.
+20. **A card title is one line.** A long one ran off the picture ("Se connecter en toute sécur"); `style.titleSize`
+    now shrinks it to fit.
+
 ## 7 · Bugs found while filming
 
 Each is fixed on the video's branch, in the screen's own code, and listed here.
@@ -231,6 +261,11 @@ Each is fixed on the video's branch, in the screen's own code, and listed here.
 | 15/11/2026 | Home page, TEST banner, Reset Your Password | Em dashes in copy a tenant reads: the sign-in sentence ("end to end — from the floor"), the TEST banner ("TEST MODE — you're viewing sandbox data"), English and French, and the reset confirmation ("30 minutes — check your spam folder") | Fixed the same day: a comma, a colon and a full stop (`i18n-dict.ts`, `landing-page.tsx`, `sign-in-panel.tsx`). About 1,100 others remain in the dash baseline (`npm run check:dashes`) |
 | 15/11/2026 | The invitation email and the password-reset email | A new colleague's first message from the product carried em dashes ("Choose a password to activate it — this link expires…", "Not expecting this? Tell your administrator — the account cannot…"), in the HTML and in the plain-text part, as did the reset email | Fixed the same day: full stops (`app_user.service.js`) |
 | 15/11/2026 | `scripts/tenant/seed-sandbox.sql` | The TEST seed stopped with "financial dictionary not present": it looked up `#R002` (Documentation Fee), which the catalogue no longer has | Fixed the same day: the item is `#D028` |
+| 15/11/2026 | My Security (the account menu's "My security") | A finance officer or an operations lead was shown "Security & Access is not part of your access" on the one page that is theirs, where every employee sets a passkey, a Quick PIN and the authenticator: the page is gated by the hub's module | Fixed the same day: `OWN_ACCOUNT` in `route-access.ts` opens it to anyone signed in, the hub and the other Security screens stay gated; `route-access.test.ts` |
+| 15/11/2026 | My Security, the passkey card | A code comment printed under the card's heading: `/* @prose:keep ... */` sat between two elements outside braces, so React drew it as text | Fixed the same day: braces; `src/test/no-printed-comments.test.ts` keeps a bare comment between two elements from reaching a screen |
+| 15/11/2026 | The activity feed (Control Tower, My Workspace) | "You did registered on a passkey just now": the last segment of the action is not a verb the humaniser knows, so it fell to its generic sentence; the same for a Quick PIN being set, changed or turned off | Fixed the same day: sentences for the passkey and Quick PIN events (`audit-humanize.ts`, marked sensitive); `audit-humanize.test.ts` |
+| 15/11/2026 | My Security, after setting a passkey | "Done. your fingerprint now signs you in on this device." began in lower case when the device is named by what it reads ("your fingerprint", "your passkey") | Fixed the same day: the first letter is capitalised |
+| 15/11/2026 | The passkey offer, the lock screen, the weak-PIN messages | Em dashes in what a tenant reads: "one touch — no password, no PIN", "Your work is safe behind the lock — nothing ...", "A PIN can't be a straight run ... — pick something less guessable", and two passkey messages | Fixed the same day: full stops, commas and a colon (`sign-in-panel.tsx`, `lock-screen.tsx`, `packages/shared/rules/quick-pin.js`) |
 
 ## 8 · Where the work stands
 
@@ -249,10 +284,19 @@ and its confirmation, the orange banner); the Control Tower; the desktop workspa
 account menu, the ribbon's six families and their tabs, the left column, Help); on the phone (Serge Ndzana's
 sign-in, the bottom bar, the LIVE button); signing out; Wrapping Up.
 
-Part 2 is not written. Plan: Quick PIN (set up in My security, then **Quick PIN** on the sign-in window),
-passkeys (the offer after a first sign-in, **Set up your passkey**, **Not now**; filmed with Chromium's
-virtual authenticator, `WebAuthn.addVirtualAuthenticator`), the lock screen (**Lock screen**, unlocking), and
-the sign-in code of two-step verification. Each needs the ground to enrol the person first.
+**15/11/2026 · The introduction, part 2** (`p2-secure-sign-in.js`), filmed on the same copy the same day. Nadège
+Tchouameni signs in and is offered a passkey (**One touch next time**, **Set up Windows Hello**, the wait, the finger);
+My Security (the passkey card, **Your passkeys**, **Remove**, the Quick PIN and authenticator cards); the Quick PIN
+(a weak one refused, a good one set with **Set up Quick PIN**, then used on her returning device, which signs her in on the
+fourth digit); the lock screen (**Lock screen**, the blur, the passkey waiting, **Use PIN** and **Use Password**, the touch).
+Serge Ndzana turns on two-step verification (**Authenticator App**, **Set Up**, the square, **No camera?**, a real code,
+the ten recovery codes, **Done** and **Yes, Saved**, **Ask for a Code**) and signs in on his phone with a code (**Two-step
+verification**, **Lost your phone?**). Wrap-up: keep the password, add one quick way in, the passkey being the most convenient.
+
+Part 2: 53 lines of narration (869 French words), 7 filmed shots and two cards, 5 minutes 46 seconds, 1920 × 1080,
+-16.3 LUFS, 9 chapters, 14 MB. Narration took about 5 minutes on a CPU, filming about 8, assembly about 4. Five bugs
+fixed on the branch (§7), one of them (My Security refused to people without the Security module) a real defect in the
+product. The tooling learnt §6.13 to §6.20: a built-in reader and `touch()`, the `ground` hook, a code with time left.
 
 Made on one development database in one sitting: 82 lines of narration (7.1 minutes of speech), 8 filmed
 shots and two cards, 8 minutes 19 seconds, 1920 × 1080, -16.3 LUFS, 10 chapters, 22 MB. Narration takes
@@ -264,5 +308,7 @@ Sample data on screen. The Control Tower and Fulfil screens show the sandbox see
 fictional data, the video says so, and a tenant that prefers invented company names changes the seed once.
 
 - [x] Plan, build the tooling, write, film and check part 1.
-- [ ] Part 2.
+- [x] Part 2 (safer sign-in), the same day.
+- [ ] What follows is JBS Praxis's to choose (the day-to-day modules). The closing card says "le travail de tous les jours"
+      and promises no particular video.
 - [ ] A per-tenant switch that turns TEST off, and on for a period (the owner's follow-up).
