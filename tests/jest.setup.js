@@ -153,3 +153,10 @@ afterAll(() => {
        to reset, and a failure to tidy up must not fail a passing suite. */
   }
 });
+
+/**
+ * Zod 3's default error wording, on the Zod 4 the code runs on. A validator required directly by a
+ * test never touches `src/config/env.js` or the shared package, so the wording is installed here too
+ * (packages/shared/zod-messages.js says why it must not change).
+ */
+require("../packages/shared/zod-messages");

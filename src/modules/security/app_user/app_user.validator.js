@@ -62,24 +62,24 @@ const schemas = {
     password: z.string().min(1).optional(),
     invite: z.boolean().optional(),
     username: z.string().optional().nullable(),
-    employee_id: z.string().uuid().optional().nullable(),
+    employee_id: z.string().guid().optional().nullable(),
     status: z.enum(["ACTIVE", "SUSPENDED", "LOCKED"]).optional(),
-    role_ids: z.array(z.string().uuid()).optional(),
+    role_ids: z.array(z.string().guid()).optional(),
   }),
   update: z.object({
     full_name: z.string().optional(),
     username: z.string().optional().nullable(),
     email: z.string().trim().email().optional(),
-    employee_id: z.string().uuid().optional().nullable(),
+    employee_id: z.string().guid().optional().nullable(),
     whatsapp_number: z.string().min(6).max(20).optional().nullable(),
-    role_ids: z.array(z.string().uuid()).optional(),
+    role_ids: z.array(z.string().guid()).optional(),
   }),
   // Same reasoning as `create.password`: the policy owns the length.
   password: z.object({ new_password: z.string().min(1) }),
   status: z.object({ status: z.enum(["ACTIVE", "SUSPENDED", "LOCKED"]) }),
   // AI-facing: user_id in the payload → list_users picker.
-  aiUpdate: z.object({ user_id: z.string().uuid(), full_name: z.string().optional(), username: z.string().optional().nullable(), email: z.string().trim().email().optional(), employee_id: z.string().uuid().optional().nullable(), whatsapp_number: z.string().min(6).max(20).optional().nullable(), role_ids: z.array(z.string().uuid()).optional() }),
-  aiStatus: z.object({ user_id: z.string().uuid(), status: z.enum(["ACTIVE", "SUSPENDED", "LOCKED"]) }),
+  aiUpdate: z.object({ user_id: z.string().guid(), full_name: z.string().optional(), username: z.string().optional().nullable(), email: z.string().trim().email().optional(), employee_id: z.string().guid().optional().nullable(), whatsapp_number: z.string().min(6).max(20).optional().nullable(), role_ids: z.array(z.string().guid()).optional() }),
+  aiStatus: z.object({ user_id: z.string().guid(), status: z.enum(["ACTIVE", "SUSPENDED", "LOCKED"]) }),
 };
 
 // Self-service reset. Full strength policy (length/complexity + HIBP) is enforced
@@ -122,7 +122,7 @@ const credentialEnvelope = {
   id: credentialId,
   rawId: credentialId,
   type: z.literal("public-key"),
-  clientExtensionResults: z.record(z.unknown()).optional(),
+  clientExtensionResults: z.record(z.string(), z.unknown()).optional(),
   authenticatorAttachment: z.string().max(40).optional().nullable(),
 };
 const passkeyRegisterOptions = zValidate(z.object({

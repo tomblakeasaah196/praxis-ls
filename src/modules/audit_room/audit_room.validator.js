@@ -3,7 +3,7 @@
 const { z } = require("zod");
 const { AppError } = require("../../utils/errors");
 
-const UUID = z.string().uuid();
+const UUID = z.string().guid();
 
 const schemas = {
   create: z.object({

@@ -5,7 +5,7 @@ const schemas = {
   grant: z.object({
     portal: z.enum(["CLIENT", "INVESTOR", "AUDITOR"]),
     subject_email: z.string().email(),
-    client_id: z.string().uuid().optional().nullable(),
+    client_id: z.string().guid().optional().nullable(),
     expires_at: z.string().optional().nullable(),
     // Client team (14150): what this person may see, and whether they may
     // invite colleagues. Omitted = everything, and admin only if they are the
@@ -23,34 +23,34 @@ const schemas = {
   // aiReviewRequest is clientPortal.reviewRequest (packages/shared) + the id
   // (portal.ai.js, 14260), so the Accept fields cannot drift from the route's.
   aiConfirmProof: z.object({
-    payment_proof_id: z.string().uuid(),
-    treasury_account_id: z.string().uuid().optional().nullable(),
+    payment_proof_id: z.string().guid(),
+    treasury_account_id: z.string().guid().optional().nullable(),
   }),
   aiPublishBundle: z.object({
-    invoice_id: z.string().uuid(),
-    doc_ids: z.array(z.string().uuid()).max(200),
+    invoice_id: z.string().guid(),
+    doc_ids: z.array(z.string().guid()).max(200),
   }),
-  aiWithdrawBundle: z.object({ invoice_id: z.string().uuid() }),
+  aiWithdrawBundle: z.object({ invoice_id: z.string().guid() }),
   // A reply to a client in their portal chat (14170): General, or one shipment's thread.
   aiChatReply: z.object({
-    client_id: z.string().uuid(),
-    thread: z.union([z.literal("general"), z.string().uuid()]).optional(),
+    client_id: z.string().guid(),
+    thread: z.union([z.literal("general"), z.string().guid()]).optional(),
     body: z.string().trim().min(1).max(4000),
   }),
   // A client's portal, managed from the Client 360 (MOD-29).
   aiClientPersonUpdate: z.object({
-    client_id: z.string().uuid(),
-    portal_access_id: z.string().uuid(),
+    client_id: z.string().guid(),
+    portal_access_id: z.string().guid(),
     access_scope: z.enum(["ALL", "OPERATIONS", "BILLING"]).optional(),
     is_client_admin: z.boolean().optional(),
     // The last day they may sign in (YYYY-MM-DD); null removes the end date.
     expires_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).transform((d) => `${d}T23:59:59.999Z`).nullable().optional(),
   }),
-  aiClientPersonRevoke: z.object({ client_id: z.string().uuid(), portal_access_id: z.string().uuid() }),
-  aiOnboardingToggle: z.object({ client_id: z.string().uuid(), step_key: z.string().trim().min(1).max(60) }),
+  aiClientPersonRevoke: z.object({ client_id: z.string().guid(), portal_access_id: z.string().guid() }),
+  aiOnboardingToggle: z.object({ client_id: z.string().guid(), step_key: z.string().trim().min(1).max(60) }),
   aiInviteDefaults: z.object({ access_scope: z.enum(["ALL", "OPERATIONS", "BILLING"]), first_is_admin: z.boolean() }),
   aiRejectProof: z.object({
-    payment_proof_id: z.string().uuid(),
+    payment_proof_id: z.string().guid(),
     note: z.string().trim().min(1).max(1000),
   }),
 };

@@ -62,7 +62,7 @@ router.post("/threads/:id/claim", requireFeature("mail.shared_inbox"), requirePe
   })));
 
 router.post("/threads/:id/assign", requireFeature("mail.shared_inbox"), requirePermission(M, "edit"), requireVisibleThread(),
-  body(z.object({ user_id: z.string().uuid() }).strict()),
+  body(z.object({ user_id: z.string().guid() }).strict()),
   asyncHandler(async (req, res) => res.json({
     data: await req.identityDb(async (c) => {
       // Assignment targets app users, while the UI searches employee records.
@@ -165,7 +165,7 @@ router.post("/secure-links", requireFeature("mail.secure_links"), requirePermiss
     // Refused here instead, where the message can say what to do. The dialog
     // now picks the document rather than asking anyone to type a UUID, so this
     // is the backstop for an API caller and for a paste that lost characters.
-    target_ref: z.string().uuid("must be the id of a document in the vault — pick the document rather than typing its name"),
+    target_ref: z.string().guid("must be the id of a document in the vault — pick the document rather than typing its name"),
     entity_ref: z.string().max(128).optional(),
     label: z.string().max(200).optional(),
     days: z.coerce.number().int().min(1).max(90).optional(),
@@ -221,7 +221,7 @@ router.get("/sla-policies", requireFeature("mail.shared_inbox"), requirePermissi
 router.post("/sla-policies", requireFeature("mail.shared_inbox"), requirePermission(M, "edit"),
   body(z.object({
     name: z.string().trim().min(1).max(120),
-    email_connection_id: z.string().uuid().nullish(),
+    email_connection_id: z.string().guid().nullish(),
     applies_to_vip: z.boolean().optional(),
     first_response_minutes: z.coerce.number().int().min(1).max(100000),
     resolution_minutes: z.coerce.number().int().min(1).max(1000000),
@@ -235,7 +235,7 @@ router.post("/sla-policies", requireFeature("mail.shared_inbox"), requirePermiss
 router.patch("/sla-policies/:id", requireFeature("mail.shared_inbox"), requirePermission(M, "edit"),
   body(z.object({
     name: z.string().trim().min(1).max(120).optional(),
-    email_connection_id: z.string().uuid().nullish(),
+    email_connection_id: z.string().guid().nullish(),
     applies_to_vip: z.boolean().optional(),
     first_response_minutes: z.coerce.number().int().min(1).max(100000).optional(),
     resolution_minutes: z.coerce.number().int().min(1).max(1000000).optional(),
@@ -316,7 +316,7 @@ router.get("/threads/:id/shares", requireFeature("mail.archive"), requirePermiss
   asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => workflow.listShares(c, req.params.id, actor(req))) })));
 
 router.post("/threads/:id/share", requireFeature("mail.archive"), requirePermission(M, "edit"), requireVisibleThread(),
-  body(z.object({ user_id: z.string().uuid() }).strict()),
+  body(z.object({ user_id: z.string().guid() }).strict()),
   asyncHandler(async (req, res) => res.status(201).json({
     data: await req.identityDb((c) => workflow.shareThread(c, req.params.id, req.body.user_id, actor(req))),
   })));
@@ -342,7 +342,7 @@ router.get("/verified-domains", requireFeature("mail.antispoof"), requirePermiss
 router.post("/verified-domains", requireFeature("mail.antispoof"), requirePermission(M, "edit"),
   body(z.object({
     party_kind: z.enum(["CLIENT", "SUPPLIER", "client", "supplier"]),
-    party_id: z.string().uuid(),
+    party_id: z.string().guid(),
     domain: z.string().trim().min(3).max(253),
   }).strict()),
   asyncHandler(async (req, res) => res.status(201).json({

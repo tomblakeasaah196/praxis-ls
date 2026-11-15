@@ -2,9 +2,9 @@
 const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 const create = z.object({
-  entity_id: z.string().uuid(),
-  client_id: z.string().uuid().optional(),
-  service_type_id: z.string().uuid().optional(),
+  entity_id: z.string().guid(),
+  client_id: z.string().guid().optional(),
+  service_type_id: z.string().guid().optional(),
   // The human label for the job, as opposed to `ref` (the allocated number).
   // Added with migration 0508: both places that open a dossier from a won
   // opportunity have always passed `opportunity.name` here, against a column
@@ -14,14 +14,14 @@ const create = z.object({
   // pol/pod stay free text (display snapshot + the path old dossiers use);
   // *_place_id is the real reference into geo_place when the user picked one.
   pol: z.string().optional(), pod: z.string().optional(),
-  pol_place_id: z.string().uuid().nullable().optional(),
-  pod_place_id: z.string().uuid().nullable().optional(),
+  pol_place_id: z.string().guid().nullable().optional(),
+  pod_place_id: z.string().guid().nullable().optional(),
   customs_regime: z.string().optional(),
-  owner_ops_id: z.string().uuid().optional(), owner_sales_id: z.string().uuid().optional(),
+  owner_ops_id: z.string().guid().optional(), owner_sales_id: z.string().guid().optional(),
   // The carrier this job moves on (MOD-10 rate_provider) — scopes every
   // costing line's expense-rate lookup. Nullable so it can be cleared, same
   // convention as pol_place_id/pod_place_id above.
-  rate_provider_id: z.string().uuid().nullable().optional(),
+  rate_provider_id: z.string().guid().nullable().optional(),
   /**
    * The service type's own shipment/service details, keyed by field key
    * (migration 0660). Intentionally NOT typed further here: the shape is
@@ -51,8 +51,8 @@ const promote = create.partial();
 // routes keep using `update`/`transition` (id comes from req.params).
 // `dossier_id` (not a bare `id`) so the copilot's field resolver maps it to the
 // list_dossiers picker, and the payload is self-documenting.
-const aiUpdate = update.extend({ dossier_id: z.string().uuid() });
-const aiTransition = transition.extend({ dossier_id: z.string().uuid() });
+const aiUpdate = update.extend({ dossier_id: z.string().guid() });
+const aiTransition = transition.extend({ dossier_id: z.string().guid() });
 const schemas = { create, update, transition, promote, aiUpdate, aiTransition };
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);

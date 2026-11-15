@@ -15,13 +15,13 @@ const { quotation: sharedQuotation } = require("@praxis/shared");
 // on a line that is not a disbursement rather than storing a number that could
 // later be mistaken for tax we charged.
 const line = z.object({
-  dictionary_item_id: z.string().uuid().optional(),
+  dictionary_item_id: z.string().guid().optional(),
   label: z.string().optional(),
   qty: z.number().positive().optional(),
   unit_cost: z.number().nonnegative().optional(),
   is_disbursement: z.boolean().optional(),
-  tax_code_id: z.string().uuid().optional(),
-  container_type_ref_id: z.string().uuid().nullish(),
+  tax_code_id: z.string().guid().optional(),
+  container_type_ref_id: z.string().guid().nullish(),
   upstream_vat_amount: z.number().nonnegative().nullish(),
   // 12768: the rate a débours was priced at (default TVA_STD 19.25). When set,
   // the server derives the amount from it; the client sends both.
@@ -34,8 +34,8 @@ const line = z.object({
 // (an old client still sending it is silently stripped, not errored).
 // §3.3: remarks (legacy save.php:29) + validator_id (save.php:6 — the person
 // the sheet is submitted TO; the service stamps validator_assigned_at).
-const create = z.object({ dossier_id: z.string().uuid(), currency: z.string().length(3).optional(), exchange_rate_to_xaf: z.number().positive().optional(), remarks: z.string().max(4000).optional().nullable(), validator_id: z.string().uuid().optional().nullable(), lines: z.array(line).optional() });
-const update = z.object({ currency: z.string().length(3).optional(), exchange_rate_to_xaf: z.number().positive().optional(), remarks: z.string().max(4000).optional().nullable(), validator_id: z.string().uuid().optional().nullable(), lines: z.array(line).optional(), family_order: sharedQuotation.familyOrder.optional().nullable() });
+const create = z.object({ dossier_id: z.string().guid(), currency: z.string().length(3).optional(), exchange_rate_to_xaf: z.number().positive().optional(), remarks: z.string().max(4000).optional().nullable(), validator_id: z.string().guid().optional().nullable(), lines: z.array(line).optional() });
+const update = z.object({ currency: z.string().length(3).optional(), exchange_rate_to_xaf: z.number().positive().optional(), remarks: z.string().max(4000).optional().nullable(), validator_id: z.string().guid().optional().nullable(), lines: z.array(line).optional(), family_order: sharedQuotation.familyOrder.optional().nullable() });
 const setStatus = z.object({ to: z.enum(["SUBMIT_VALIDATION", "SUBMIT_APPROVAL", "APPROVE", "REJECT"]), proof: signingProofSchema.optional() });
 // The unlock loop (10718). Kept OFF `setStatus` deliberately: `to` on that
 // schema names an ordinary transition and is what the RBAC middleware keys on,
@@ -56,7 +56,7 @@ const unlock = z.object({
  * that has to be extended every time somebody wants a new range.
  */
 const listQuery = z.object({
-  dossier_id: z.string().uuid().optional(),
+  dossier_id: z.string().guid().optional(),
   status: z.enum([
     "DRAFT", "SUBMITTED_FOR_VALIDATION", "SUBMITTED_FOR_APPROVAL",
     "APPROVED_LOCKED", "UNLOCK_REQUESTED", "REJECTED",
@@ -82,7 +82,7 @@ const sheetCurrency = {
   exchange_rate_to_xaf: z.coerce.number().positive().optional(),
 };
 const suggestQuery = z.object({
-  dossier_id: z.string().uuid(),
+  dossier_id: z.string().guid(),
   tier: z.enum(["BASIC", "ADVANCED", "FULL"]).optional(),
   on_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   ...sheetCurrency,
@@ -95,9 +95,9 @@ const fxQuery = z.object({
 // One hand-picked line, priced (meeting 5). dossier_id is optional: a sheet
 // drafted before it is linked to a file prices from the item's own rates.
 const priceLineQuery = z.object({
-  dictionary_item_id: z.string().uuid(),
-  dossier_id: z.string().uuid().optional(),
-  container_type_ref_id: z.string().uuid().optional(),
+  dictionary_item_id: z.string().guid(),
+  dossier_id: z.string().guid().optional(),
+  container_type_ref_id: z.string().guid().optional(),
   on_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   ...sheetCurrency,
 });
@@ -110,20 +110,20 @@ const priceLineQuery = z.object({
  * now". A worksheet asks the first; the registry asks the second.
  */
 const budgetQuery = z.object({
-  for_cash_request: z.string().uuid().optional(),
+  for_cash_request: z.string().guid().optional(),
 });
 
 // 12774 — the costing gate for one operations file. Required, not optional:
 // this endpoint answers "what is THIS file's budget doing", and without a file
 // there is no question.
 const gateQuery = z.object({
-  dossier_id: z.string().uuid(),
+  dossier_id: z.string().guid(),
 });
 
 // AI-facing: costing_id in the payload → list_costings picker.
-const aiUpdate = update.extend({ costing_id: z.string().uuid() });
-const aiSetStatus = setStatus.extend({ costing_id: z.string().uuid() });
-const aiUnlock = unlock.extend({ costing_id: z.string().uuid() });
+const aiUpdate = update.extend({ costing_id: z.string().guid() });
+const aiSetStatus = setStatus.extend({ costing_id: z.string().guid() });
+const aiUnlock = unlock.extend({ costing_id: z.string().guid() });
 const schemas = { create, update, setStatus, unlock, listQuery, suggestQuery, priceLineQuery, fxQuery, budgetQuery, gateQuery, aiUpdate, aiSetStatus, aiUnlock };
 const mw = (k) => (req, _res, next) => { const p = schemas[k].safeParse(req.body); if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors)); req.body = p.data; return next(); };
 /** Query-string variant: parses `req.query`, which Express makes read-only on

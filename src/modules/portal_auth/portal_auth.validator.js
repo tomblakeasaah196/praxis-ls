@@ -17,7 +17,7 @@ const credentialEnvelope = {
   id: credentialId,
   rawId: credentialId,
   type: z.literal("public-key"),
-  clientExtensionResults: z.record(z.unknown()).optional(),
+  clientExtensionResults: z.record(z.string(), z.unknown()).optional(),
   authenticatorAttachment: z.string().max(40).optional().nullable(),
 };
 /** "Keep me signed in" — optional everywhere a sign-in can happen, off by default. */
@@ -31,7 +31,7 @@ const trust = z.boolean().optional();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const blankToUndefined = (v) => (v === "" || v === "null" || v === null ? undefined : v);
 const optText = (max) => z.preprocess(blankToUndefined, z.string().trim().max(max).optional());
-const optUuid = z.preprocess(blankToUndefined, z.string().uuid().optional());
+const optUuid = z.preprocess(blankToUndefined, z.string().guid().optional());
 const money = z.preprocess(
   (v) => (typeof v === "string" && v.trim() !== "" ? Number(v.replace(/\s/g, "").replace(",", ".")) : v),
   z.number().finite().positive().max(1e12),
@@ -62,7 +62,7 @@ const optInt = (min, max) =>
 // team has to know WHO at a client wrote to them or sent a file, and an email
 // address is not a person. 120 is the column the staff list and email greet from.
 const personName = z.string().trim().min(1, "Enter their name").max(120);
-const chatThread = z.preprocess(blankToUndefined, z.union([z.literal("general"), z.string().uuid()]).optional());
+const chatThread = z.preprocess(blankToUndefined, z.union([z.literal("general"), z.string().guid()]).optional());
 /**
  * What a chat message may carry besides its file (14170). The text is
  * optional — a photo, a voice note or a pin can stand alone — and bounded here
@@ -201,7 +201,7 @@ const schemas = {
     reference: optText(120),
     note: optText(1000),
     dossier_id: optUuid,
-    allocations: jsonField(z.array(z.object({ invoice_id: z.string().uuid(), amount: money })).max(50)).optional(),
+    allocations: jsonField(z.array(z.object({ invoice_id: z.string().guid(), amount: money })).max(50)).optional(),
   }),
   teamInvite: z.object({
     email: z.string().trim().email(),
@@ -212,8 +212,8 @@ const schemas = {
   teamUpdate: z.object({ access_scope: z.enum(SCOPES).optional(), is_client_admin: flag.optional() }),
   // Staff side of the same (MOD-29 requests, MOD-52 payment claims).
   staffCreateRequest: z.object({
-    client_id: z.string().uuid(),
-    dossier_id: z.string().uuid().optional().nullable(),
+    client_id: z.string().guid(),
+    dossier_id: z.string().guid().optional().nullable(),
     kind: z.enum(["DOCUMENT", "INFO"]),
     doc_type_code: z.string().trim().max(60).optional().nullable(),
     title: z.string().trim().max(200).optional().nullable(),
@@ -222,7 +222,7 @@ const schemas = {
   }),
   // staffReviewRequest moved to clientPortal.reviewRequest in packages/shared
   // (14260): the Accept dialog's fields are the API's.
-  staffConfirmProof: z.object({ treasury_account_id: z.string().uuid().optional().nullable() }),
+  staffConfirmProof: z.object({ treasury_account_id: z.string().guid().optional().nullable() }),
   // A client's portal, managed from the Client 360 (MOD-29). `expires_at` is
   // the LAST DAY they may sign in, so it is stored as the end of that day.
   staffPersonAdd: z.object({
@@ -253,12 +253,12 @@ const schemas = {
   onboardingStepMove: z.object({ direction: z.enum(["up", "down"]) }).strict(),
   // An invoice's supporting documents, shared with the client (14160). The
   // service refuses any id that is not on the invoice's own file.
-  staffPublishBundle: z.object({ doc_ids: z.array(z.string().uuid()).max(200) }),
+  staffPublishBundle: z.object({ doc_ids: z.array(z.string().guid()).max(200) }),
   staffRejectProof: z.object({ note: z.string().trim().min(1).max(1000) }),
   // A portal message — the body is the only thing the caller supplies.
-  message: z.object({ body: z.string().trim().min(1).max(4000), dossier_id: z.string().uuid().optional() }),
+  message: z.object({ body: z.string().trim().min(1).max(4000), dossier_id: z.string().guid().optional() }),
   // Staff reply — client_id comes from the caller (staff route).
-  staffMessage: z.object({ client_id: z.string().uuid(), body: z.string().trim().min(1).max(4000), dossier_id: z.string().uuid().optional() }),
+  staffMessage: z.object({ client_id: z.string().guid(), body: z.string().trim().min(1).max(4000), dossier_id: z.string().guid().optional() }),
   // The chat (14170). Multipart when a file rides along, so every field may
   // arrive as a string.
   chatSend: z
@@ -280,14 +280,14 @@ const schemas = {
   // tools can share where someone is (client portal PR 3).
   staffChatSend: z
     .object({
-      client_id: z.string().uuid(),
+      client_id: z.string().guid(),
       ...chatFields,
       lat: optNum(-90, 90),
       lng: optNum(-180, 180),
       location_label: optText(200),
     })
     .refine(pinBoth, { message: "A location needs both latitude and longitude", path: ["lat"] }),
-  staffChatRead: z.object({ client_id: z.string().uuid(), thread: chatThread }),
+  staffChatRead: z.object({ client_id: z.string().guid(), thread: chatThread }),
   // A proposal in the portal. Declining takes a reason from the signing
   // programme's DECLINE list; free text is appended to a reason, never instead
   // of one (signature_public.validator.js, the same rule).

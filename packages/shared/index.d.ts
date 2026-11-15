@@ -11,13 +11,9 @@
 import type { z } from "zod";
 
 /** `YYYY-MM-DD`, round-trip validated (see schemas/common.js). */
-type IsoDate = z.ZodEffects<z.ZodString, string, string>;
+type IsoDate = z.ZodType<string, string>;
 /** Number or numeric string in, number out. */
-type Amount = z.ZodEffects<
-  z.ZodEffects<z.ZodUnion<[z.ZodNumber, z.ZodString]>, number, number | string>,
-  number,
-  number | string
->;
+type Amount = z.ZodType<number, number | string>;
 
 /**
  * Raw `setting` section='pwa' values as the API stores and returns them. Every
@@ -171,7 +167,7 @@ export declare namespace common {
   const currency: z.ZodString;
   function blankToUndefined<T>(schema: z.ZodType<T>): Blankable<T>;
   const optionalText: Blankable<string>;
-  const ianaTimezone: z.ZodType<string, z.ZodTypeDef, string>;
+  const ianaTimezone: z.ZodType<string, string>;
   const optionalTimezone: Blankable<string>;
   const email: Blankable<string>;
   const countryCode: Blankable<string>;
@@ -226,15 +222,7 @@ export declare namespace finalInvoice {
  * `debit` / `credit` on a journal line. Number or numeric string in — and `""`,
  * which is how a form represents "this side is empty" — `number | undefined` out.
  */
-type Side = z.ZodEffects<
-  z.ZodEffects<
-    z.ZodOptional<z.ZodUnion<[z.ZodNumber, z.ZodString]>>,
-    number | undefined,
-    number | string | undefined
-  >,
-  number | undefined,
-  number | string | undefined
->;
+type Side = z.ZodType<number | undefined, number | string | undefined>;
 
 export declare namespace journalEntry {
   const line: z.ZodObject<{
@@ -250,12 +238,11 @@ export declare namespace journalEntry {
   }>;
 
   /**
-   * `ZodEffects`, not `ZodObject` — `post` carries an object-level `.refine()`
+   * A bare `ZodType`, not a `ZodObject` — `post` carries an object-level `.refine()`
    * for "journal_code or journal_id". Declaring it as a plain object would
    * compile and then let a caller pass neither.
    */
-  const post: z.ZodEffects<
-    z.ZodObject<{
+  const post: z.ZodType<z.output<z.ZodObject<{
       journal_code: z.ZodOptional<z.ZodString>;
       journal_id: z.ZodOptional<z.ZodString>;
       entity_id: z.ZodString;
@@ -263,14 +250,23 @@ export declare namespace journalEntry {
       description: z.ZodOptional<z.ZodString>;
       source_doc_ref: z.ZodOptional<z.ZodString>;
       source: z.ZodOptional<
-        z.ZodEnum<
-          ["SYSTEM_AUTO", "SYSTEM_RULE", "HUMAN_MANUAL", "HUMAN_CORRECTION"]
-        >
+        z.ZodEnum<{ SYSTEM_AUTO: "SYSTEM_AUTO"; SYSTEM_RULE: "SYSTEM_RULE"; HUMAN_MANUAL: "HUMAN_MANUAL"; HUMAN_CORRECTION: "HUMAN_CORRECTION" }>
       >;
       validate: z.ZodOptional<z.ZodBoolean>;
       lines: z.ZodArray<typeof line>;
-    }>
-  >;
+    }>>, z.input<z.ZodObject<{
+      journal_code: z.ZodOptional<z.ZodString>;
+      journal_id: z.ZodOptional<z.ZodString>;
+      entity_id: z.ZodString;
+      entry_date: IsoDate;
+      description: z.ZodOptional<z.ZodString>;
+      source_doc_ref: z.ZodOptional<z.ZodString>;
+      source: z.ZodOptional<
+        z.ZodEnum<{ SYSTEM_AUTO: "SYSTEM_AUTO"; SYSTEM_RULE: "SYSTEM_RULE"; HUMAN_MANUAL: "HUMAN_MANUAL"; HUMAN_CORRECTION: "HUMAN_CORRECTION" }>
+      >;
+      validate: z.ZodOptional<z.ZodBoolean>;
+      lines: z.ZodArray<typeof line>;
+    }>>>;
 
   const reverse: z.ZodObject<{
     reason: z.ZodOptional<z.ZodString>;
@@ -329,11 +325,7 @@ export declare namespace ledger {
  * pass `""` (which every untouched input does) and must NOT be able to read `""`
  * back out, because normalising blanks to `undefined` is the point.
  */
-type Blankable<T> = z.ZodEffects<
-  z.ZodOptional<z.ZodUnion<[z.ZodType<T>, z.ZodLiteral<"">]>>,
-  T | undefined,
-  T | "" | undefined
->;
+type Blankable<T> = z.ZodType<T | undefined, T | "" | undefined>;
 
 /**
  * The numeric version. Its INPUT accepts a string, because that is what an
@@ -341,13 +333,7 @@ type Blankable<T> = z.ZodEffects<
  * then rejected `defaultValues: { credit_limit: String(row.credit_limit) }`,
  * which is the only way a form can seed one.
  */
-type BlankableNumeric = z.ZodEffects<
-  z.ZodOptional<
-    z.ZodUnion<[z.ZodUnion<[z.ZodNumber, z.ZodString]>, z.ZodLiteral<"">]>
-  >,
-  number | undefined,
-  number | string | undefined
->;
+type BlankableNumeric = z.ZodType<number | undefined, number | string | undefined>;
 
 /**
  * The shared identity/terms fields of a client payload. `create` uses it as-is;
@@ -393,16 +379,7 @@ type ClientBaseShape = {
 };
 
 type RegistrationStatus = z.ZodOptional<
-  z.ZodEnum<
-    [
-      "DRAFT",
-      "PENDING_REVIEW",
-      "ACTIVE",
-      "SUSPENDED",
-      "DEACTIVATED",
-      "ARCHIVED",
-    ]
-  >
+  z.ZodEnum<{ DRAFT: "DRAFT"; PENDING_REVIEW: "PENDING_REVIEW"; ACTIVE: "ACTIVE"; SUSPENDED: "SUSPENDED"; DEACTIVATED: "DEACTIVATED"; ARCHIVED: "ARCHIVED" }>
 >;
 
 export declare namespace clientMaster {
@@ -431,16 +408,12 @@ export declare namespace clientPortal {
   type DocumentRequestItem = { document_type_id: string } | { other: string };
   const documentRequestItem: z.ZodType<DocumentRequestItem>;
   const documentRequests: z.ZodType<
-    { items: DocumentRequestItem[]; note?: string; due_on?: string },
-    z.ZodTypeDef,
-    { items: DocumentRequestItem[]; note?: string | null; due_on?: string | null }
+    { items: DocumentRequestItem[]; note?: string; due_on?: string }, { items: DocumentRequestItem[]; note?: string | null; due_on?: string | null }
   >;
   type AcceptDocument = { issued_on?: string; expires_on?: string; issuing_authority?: string };
-  const acceptDocument: z.ZodType<AcceptDocument, z.ZodTypeDef, Record<string, string | null | undefined>>;
+  const acceptDocument: z.ZodType<AcceptDocument, Record<string, string | null | undefined>>;
   const reviewRequest: z.ZodType<
-    { decision: "ACCEPT" | "REJECT" | "CANCEL"; note?: string | null; document?: AcceptDocument | null },
-    z.ZodTypeDef,
-    unknown
+    { decision: "ACCEPT" | "REJECT" | "CANCEL"; note?: string | null; document?: AcceptDocument | null }, unknown
   >;
   type AcceptFields = { asks: boolean; issued_on: boolean; expires_on: boolean; issuing_authority: boolean };
   function acceptFieldsFor(
@@ -451,9 +424,7 @@ export declare namespace clientPortal {
     document: Partial<Record<"issued_on" | "expires_on" | "issuing_authority", string | null>> | null | undefined,
   ): Array<"expires_on" | "issuing_authority">;
   const messageEmail: z.ZodType<
-    { recipients: string[]; request_key: string },
-    z.ZodTypeDef,
-    { recipients: string[]; request_key: string }
+    { recipients: string[]; request_key: string }, { recipients: string[]; request_key: string }
   >;
 }
 
@@ -979,10 +950,10 @@ export type WorkSchedule = { days: WorkDay[] };
 
 export declare namespace workSchedule {
   /** One day, as the API accepts it. */
-  const daySchema: z.ZodType<WorkDay, z.ZodTypeDef, unknown>;
+  const daySchema: z.ZodType<WorkDay, unknown>;
   /** The week — `employee.work_schedule`'s wire shape. Nullable: clearing the
    *  grid is a real edit, and it takes the derived line with it. */
-  const schema: z.ZodType<WorkSchedule | null | undefined, z.ZodTypeDef, unknown>;
+  const schema: z.ZodType<WorkSchedule | null | undefined, unknown>;
   const DAYS: ReadonlyArray<{
     code: WorkDayCode;
     label: string;
@@ -1024,8 +995,8 @@ export declare const siteSettings: {
     font_body: z.ZodString;
     font_mono: z.ZodString;
     radius_px: z.ZodTypeAny;
-    default_mode: z.ZodEnum<["light", "dark"]>;
-    label_case: z.ZodOptional<z.ZodEnum<["TITLE", "AS_WRITTEN"]>>;
+    default_mode: z.ZodEnum<{ light: "light"; dark: "dark" }>;
+    label_case: z.ZodOptional<z.ZodEnum<{ TITLE: "TITLE"; AS_WRITTEN: "AS_WRITTEN" }>>;
   }>;
   socialLink: z.ZodTypeAny;
   partner: z.ZodTypeAny;
@@ -1090,18 +1061,18 @@ export declare namespace callSummary {
     textMax: number;
   };
 
-  const language: z.ZodEnum<["en", "fr"]>;
+  const language: z.ZodEnum<{ en: "en"; fr: "fr" }>;
 
   const schema: z.ZodObject<{
     summary: z.ZodString;
     key_points: z.ZodArray<
-      z.ZodObject<{ text: z.ZodString; raised_by: z.ZodEnum<["caller", "callee"]> }>
+      z.ZodObject<{ text: z.ZodString; raised_by: z.ZodEnum<{ caller: "caller"; callee: "callee" }> }>
     >;
     follow_ups: z.ZodArray<
       z.ZodObject<{
         text: z.ZodString;
-        owner: z.ZodEnum<["caller", "callee"]>;
-        due: z.ZodNullable<z.ZodEffects<z.ZodString, string, string>>;
+        owner: z.ZodEnum<{ caller: "caller"; callee: "callee" }>;
+        due: z.ZodNullable<z.ZodType<string, string>>;
       }>
     >;
   }>;
@@ -1404,15 +1375,13 @@ export declare namespace quoteRequest {
   const PORTAL_DOCUMENTS_MAX: number;
   /** False once a request is converted or closed — it keeps the client it had. */
   function canRelink(status: string | null | undefined): boolean;
-  const staffCreate: z.ZodType<StaffQuoteRequest & { incoterm: string }, z.ZodTypeDef, unknown>;
-  const staffUpdate: z.ZodType<StaffQuoteRequest, z.ZodTypeDef, unknown>;
-  const transition: z.ZodType<{ to: QuoteRequestStatus }, z.ZodTypeDef, unknown>;
+  const staffCreate: z.ZodType<StaffQuoteRequest & { incoterm: string }, unknown>;
+  const staffUpdate: z.ZodType<StaffQuoteRequest, unknown>;
+  const transition: z.ZodType<{ to: QuoteRequestStatus }, unknown>;
   const fromChat: z.ZodType<
-    { chat_attachment_id: string; document_kind?: QuoteDocumentKind | null },
-    z.ZodTypeDef,
-    unknown
+    { chat_attachment_id: string; document_kind?: QuoteDocumentKind | null }, unknown
   >;
-  const clientMatchQuery: z.ZodType<{ email: string }, z.ZodTypeDef, unknown>;
+  const clientMatchQuery: z.ZodType<{ email: string }, unknown>;
   // The remaining shapes (convert, attachment, the AI variants, publicQuote,
   // portalCreate, portalDocumentUpload) are read by the API only; typed loosely
   // here on purpose so the client cannot mistake them for its own forms.
@@ -1436,10 +1405,10 @@ export type QuotationFromCosting = {
 export declare namespace quotation {
   /** The costing statuses "Create quotation" is offered on (validated or approved). */
   const COSTING_QUOTABLE: ReadonlyArray<string>;
-  const familyOrder: z.ZodType<string[], z.ZodTypeDef, unknown>;
-  const fromCosting: z.ZodType<QuotationFromCosting, z.ZodTypeDef, unknown>;
-  const targetMargin: z.ZodType<number, z.ZodTypeDef, unknown>;
-  const commercialSettings: z.ZodType<{ target_margin_percent: number }, z.ZodTypeDef, unknown>;
+  const familyOrder: z.ZodType<string[], unknown>;
+  const fromCosting: z.ZodType<QuotationFromCosting, unknown>;
+  const targetMargin: z.ZodType<number, unknown>;
+  const commercialSettings: z.ZodType<{ target_margin_percent: number }, unknown>;
   // Read by the API's portal routes only.
   const decline: z.ZodTypeAny;
 }
@@ -1448,7 +1417,7 @@ export type SearchQuery = { q: string; types?: string; limit?: number };
 
 export declare namespace search {
   /** GET /search — what the palette may send and the API accepts. */
-  const query: z.ZodType<SearchQuery, z.ZodTypeDef, unknown>;
+  const query: z.ZodType<SearchQuery, unknown>;
   /** The one maintained synonym list: each group is one thing, EN and FR. */
   const SYNONYMS: ReadonlyArray<{ key: string; words: ReadonlyArray<string> }>;
   /** The group a word or phrase belongs to (folded), or null. */

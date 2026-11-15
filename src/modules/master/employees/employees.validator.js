@@ -27,14 +27,14 @@ const dateStr = z
 const text = (max) => z.string().trim().max(max).optional().nullable();
 
 const base = {
-  entity_id: z.string().uuid().optional(),
+  entity_id: z.string().guid().optional(),
   full_name: z.string().min(2),
   // Department is a scope (0490): scope_id is the reference, department the
   // display snapshot the controller keeps in step with it.
-  scope_id: z.string().uuid().optional().nullable(),
+  scope_id: z.string().guid().optional().nullable(),
   // Line manager (0493). Cycles are rejected in the service, not here — the
   // check needs the tree.
-  reports_to: z.string().uuid().optional().nullable(),
+  reports_to: z.string().guid().optional().nullable(),
   department: z.string().max(120).optional(),
   job_title: z.string().max(120).optional(),
   email: z.string().email().optional().or(z.literal("")),
@@ -128,7 +128,7 @@ const updateMine = z.object({
 
 /** One row of `employee_document` (12764), as the wizard and the docs tab post it. */
 const documentBody = z.object({
-  document_type_id: z.string().uuid().optional().nullable(),
+  document_type_id: z.string().guid().optional().nullable(),
   // Accepted as an alternative to the uuid so a caller can say EMP_ID_CARD
   // without first resolving the registry.
   document_type_code: z.string().trim().max(60).optional().nullable(),
@@ -150,7 +150,7 @@ const documentBody = z.object({
   // fits. document_vault re-checks the decoded bytes and the content type.
   file_data_url: z.string().max(8_000_000, "That file is too large — 6 MB is the limit").optional().nullable(),
   file_name: text(260),
-  vault_id: z.string().uuid().optional().nullable(),
+  vault_id: z.string().guid().optional().nullable(),
 });
 
 /** One row of `employee_allowance` (12765). */
@@ -185,8 +185,8 @@ const setStatus = z.object({
   termination_reason: text(400),
 });
 // AI-facing: employee_id in the payload → list_employees picker.
-const aiUpdate = update.extend({ employee_id: z.string().uuid() });
-const aiSetActive = setActive.extend({ employee_id: z.string().uuid() });
+const aiUpdate = update.extend({ employee_id: z.string().guid() });
+const aiSetActive = setActive.extend({ employee_id: z.string().guid() });
 
 // PATCH is a partial edit: requiring `label` and `amount` to change an end date
 // would make the caller resend fields it was not touching, which is how a

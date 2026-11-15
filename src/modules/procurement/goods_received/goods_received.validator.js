@@ -2,7 +2,7 @@
 const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 const line = z.object({
-  dictionary_item_id: z.string().uuid().optional().nullable(),
+  dictionary_item_id: z.string().guid().optional().nullable(),
   label: z.string().optional(),
   ordered: z.number().nonnegative().optional(),
   received: z.number().nonnegative().optional(),
@@ -13,16 +13,16 @@ const schemas = {
   // condition), a note, and the entity that lets it allocate its own document
   // number (MOD-33 "GRN").
   create: z.object({
-    po_id: z.string().uuid(),
-    received_by: z.string().uuid().optional().nullable(),
+    po_id: z.string().guid(),
+    received_by: z.string().guid().optional().nullable(),
     supplier_invoice_ref: z.string().optional(),
-    entity_id: z.string().uuid().optional().nullable(),
+    entity_id: z.string().guid().optional().nullable(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     note: z.string().optional(),
     lines: z.array(line).optional(),
   }),
   sendToWarehouse: z.object({}).strict(),
-  aiSendToWarehouse: z.object({ grn_id: z.string().uuid() }),
+  aiSendToWarehouse: z.object({ grn_id: z.string().guid() }),
 };
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);

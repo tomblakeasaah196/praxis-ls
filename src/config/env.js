@@ -26,6 +26,9 @@
  * does: real environment variables, not a file.
  */
 if (process.env.PRAXIS_SKIP_DOTENV !== "1") require("dotenv").config();
+// Zod 3's default error wording, on Zod 4: installed first, so the very first schema this process
+// builds (this one) and every validator after it speak the words the API and the forms always have.
+require("@praxis/shared/zod-messages");
 const { z } = require("zod");
 
 /**

@@ -28,14 +28,15 @@
  * CAPTURE_HEIGHT (1000), CAPTURE_DPR (2), CAPTURE_ONLY (comma-separated screen
  * ids), CAPTURE_TIMEOUT_MS (30000).
  *
- * Chromium comes from puppeteer, which this repo already depends on. If it is
- * not installed: `npx puppeteer browsers install chrome`.
+ * Chromium is driven by playwright-core, which this repo already depends on,
+ * and is the system one named by PUPPETEER_EXECUTABLE_PATH (the name predates
+ * the move from Puppeteer). With none set: `npx playwright install chromium`.
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-/* puppeteer is imported LAZILY, in main(). A top-level import runs before the
+/* playwright-core is imported LAZILY, in main(). A top-level import runs before the
  * argument checks below, so a machine without `npm install` answered a missing
  * CAPTURE_BASE_URL with a module-resolution stack trace — the least useful of
  * the two errors, reported first. */
@@ -123,15 +124,15 @@ if (/\/\/(admin|console|api)\./.test(BASE)) {
  * than disabling the rule: `no-undef` stays live for the rest of this file, so
  * a genuine typo in Node code is still caught.
  *
- * It also has to stay self-contained. Puppeteer serialises the function and
+ * It also has to stay self-contained. Playwright serialises the function and
  * evaluates it in a fresh context, so it closes over NOTHING from this
- * module — every value it needs arrives as an argument. That is why the keys
- * are passed in rather than read from the constants a few lines up.
+ * module — every value it needs arrives as the one argument. That is why the
+ * keys are passed in rather than read from the constants a few lines up.
  */
 /* global localStorage */
 async function seedPreferences(page, theme, lang) {
-  await page.evaluateOnNewDocument(
-    (themeKey, themeValue, langKey, langValue) => {
+  await page.addInitScript(
+    ({ themeKey, themeValue, langKey, langValue }) => {
       try {
         localStorage.setItem(themeKey, themeValue);
         localStorage.setItem(langKey, langValue);
@@ -141,10 +142,7 @@ async function seedPreferences(page, theme, lang) {
            output rather than silent. */
       }
     },
-    THEME_KEY,
-    theme,
-    LANG_KEY,
-    lang,
+    { themeKey: THEME_KEY, themeValue: theme, langKey: LANG_KEY, langValue: lang },
   );
 }
 
@@ -156,7 +154,7 @@ async function seedPreferences(page, theme, lang) {
  * working loudly if the login UI does.
  */
 async function signIn(page) {
-  await page.goto(`${BASE}/login`, { waitUntil: "networkidle2", timeout: TIMEOUT });
+  await page.goto(`${BASE}/login`, { waitUntil: "networkidle", timeout: TIMEOUT });
 
   const enter = await page.$("button[aria-label='Sign in']");
   if (enter) await enter.click();
@@ -168,7 +166,7 @@ async function signIn(page) {
   await Promise.all([
     page.keyboard.press("Enter"),
     page
-      .waitForNavigation({ waitUntil: "networkidle2", timeout: TIMEOUT })
+      .waitForNavigation({ waitUntil: "networkidle", timeout: TIMEOUT })
       .catch(() => {
         /* SPA login swaps state without navigating; the readiness wait below is
            the real check. */
@@ -182,21 +180,21 @@ async function signIn(page) {
 }
 
 async function capture(browser, screen, theme, lang) {
-  const context = await browser.createBrowserContext();
+  // The viewport and the device scale belong to the context in Playwright (there is no
+  // `page.setViewport`), so each capture gets its own context sized for it.
+  const context = await browser.newContext({
+    viewport: { width: WIDTH, height: HEIGHT },
+    deviceScaleFactor: DPR,
+  });
   const page = await context.newPage();
   const name = `${screen.id}--${theme}--${lang}.png`;
 
   try {
-    await page.setViewport({
-      width: WIDTH,
-      height: HEIGHT,
-      deviceScaleFactor: DPR,
-    });
     await seedPreferences(page, theme, lang);
     await signIn(page);
 
     await page.goto(`${BASE}${screen.route}`, {
-      waitUntil: "networkidle2",
+      waitUntil: "networkidle",
       timeout: TIMEOUT,
     });
     await page.waitForSelector(screen.ready, { timeout: TIMEOUT });
@@ -227,19 +225,19 @@ async function main() {
     fail(`CAPTURE_ONLY matched no screens. Known ids: ${SCREENS.map((s) => s.id).join(", ")}`);
   }
 
-  const puppeteer = await import("puppeteer").then((m) => m.default).catch(() => {
-    fail(
-      "puppeteer is not installed. Run `npm install`, and if Chromium is still\n" +
-        "  missing: `npx puppeteer browsers install chrome`.",
-    );
+  const { chromium } = await import("playwright-core").then((m) => m.chromium ? m : m.default).catch(() => {
+    fail("playwright-core is not installed. Run `npm install`.");
   });
 
   await mkdir(OUT, { recursive: true });
   console.log(`capture-screens: ${BASE} → ${OUT}`);
   console.log(`  ${screens.length} screens x ${THEMES.length} themes x ${LANGS.length} languages\n`);
 
-  const browser = await puppeteer.launch({
-    headless: "new",
+  const browser = await chromium.launch({
+    headless: true,
+    // The system Chromium when one is named (the image's, or a developer's); otherwise the
+    // browser `npx playwright install chromium` put in Playwright's own cache.
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     args: ["--no-sandbox", "--disable-dev-shm-usage", "--force-color-profile=srgb"],
   });
 

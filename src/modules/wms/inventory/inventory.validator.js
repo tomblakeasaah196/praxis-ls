@@ -8,9 +8,9 @@ const KINDS = ["INBOUND", "PUTAWAY", "PICK", "PACK", "DISPATCH", "ADJUST", "COUN
 const create = z.object({
   sku: z.string().optional(),
   description: z.string().min(1),
-  owner_client_id: z.string().uuid().optional(),
-  dossier_id: z.string().uuid().optional(),
-  location_id: z.string().uuid().optional(),
+  owner_client_id: z.string().guid().optional(),
+  dossier_id: z.string().guid().optional(),
+  location_id: z.string().guid().optional(),
   qty_on_hand: z.number().optional(),
   uom: z.string().optional(),
   state: z.enum(STATES).optional(),
@@ -20,14 +20,14 @@ const state = z.object({ state: z.enum(STATES) });
 const move = z.object({
   movement_kind: z.enum(KINDS),
   qty: z.number(), // signed delta applied to qty_on_hand
-  from_location: z.string().uuid().optional(),
-  to_location: z.string().uuid().optional(),
+  from_location: z.string().guid().optional(),
+  to_location: z.string().guid().optional(),
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ inventory_item_id: z.string().uuid() });
-const aiState = state.extend({ inventory_item_id: z.string().uuid() });
-const aiMove = move.extend({ inventory_item_id: z.string().uuid() });
+const aiUpdate = update.extend({ inventory_item_id: z.string().guid() });
+const aiState = state.extend({ inventory_item_id: z.string().guid() });
+const aiMove = move.extend({ inventory_item_id: z.string().guid() });
 const schemas = { create, update, state, move, aiUpdate, aiState, aiMove };
 
 const mw = (k) => (req, _res, next) => {

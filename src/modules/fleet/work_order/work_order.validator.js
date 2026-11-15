@@ -3,12 +3,12 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  vehicle_id: z.string().uuid().optional(),
-  wms_equipment_id: z.string().uuid().optional(),
+  vehicle_id: z.string().guid().optional(),
+  wms_equipment_id: z.string().guid().optional(),
   kind: z.enum(["PREVENTIVE", "CORRECTIVE"]),
   description: z.string().optional(),
   cost: z.number().nonnegative().optional(),
-  dossier_id: z.string().uuid().optional(),
+  dossier_id: z.string().guid().optional(),
   opened_on: z.string().optional(),
 });
 const status = z.object({ status: z.enum(["OPEN", "IN_PROGRESS", "DONE", "CANCELLED"]) });
@@ -16,12 +16,12 @@ const part = z.object({
   label: z.string().min(1),
   qty: z.number().positive(),
   unit_cost: z.number().nonnegative(),
-  inventory_item_id: z.string().uuid().optional(),
+  inventory_item_id: z.string().guid().optional(),
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ work_order_id: z.string().uuid() });
-const aiStatus = status.extend({ work_order_id: z.string().uuid() });
+const aiUpdate = update.extend({ work_order_id: z.string().guid() });
+const aiStatus = status.extend({ work_order_id: z.string().guid() });
 const schemas = { create, update, status, part, aiUpdate, aiStatus };
 
 const mw = (k) => (req, _res, next) => {

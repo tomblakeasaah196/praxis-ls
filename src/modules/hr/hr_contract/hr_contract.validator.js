@@ -7,17 +7,17 @@ const { AppError } = require("../../../utils/errors");
 const d = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date in the form YYYY-MM-DD");
 
 const create = z.object({
-  employee_id: z.string().uuid().optional(),
+  employee_id: z.string().guid().optional(),
   kind: z.enum(["OFFER_LETTER", "EMPLOYMENT", "CONFIRMATION", "TERMINATION"]),
   effective_on: d.optional(),
   end_on: d.optional(),
   status: z.enum(["DRAFT", "ISSUED", "SIGNED", "ENDED"]).optional(),
-  pdf_vault_id: z.string().uuid().optional(),
+  pdf_vault_id: z.string().guid().optional(),
   // Terms (0700). Editable directly as well as through a draft, because an HR
   // officer correcting a notice period should not have to re-run the model.
   title: z.string().max(200).optional(),
   body_md: z.string().max(60000).optional(),
-  entity_id: z.string().uuid().optional(),
+  entity_id: z.string().guid().optional(),
   /* The language the contract is WRITTEN in (14402), not a rendering
    * preference: the clauses are stored in it, so changing it after drafting
    * only re-labels the letterhead. Redraft to change the text. */
@@ -32,8 +32,8 @@ const create = z.object({
   notice_days: z.number().int().min(0).max(365).optional(),
   working_hours: z.string().max(200).optional(),
   place_of_work: z.string().max(200).optional(),
-  vacancy_id: z.string().uuid().optional(),
-  renews_contract_id: z.string().uuid().optional(),
+  vacancy_id: z.string().guid().optional(),
+  renews_contract_id: z.string().guid().optional(),
   signed_on: d.optional(),
   signed_by_name: z.string().max(160).optional(),
   countersigned_by_name: z.string().max(160).optional(),
@@ -47,7 +47,7 @@ const status = z.object({ status: z.enum(["DRAFT", "ISSUED", "SIGNED", "ENDED"])
  * invented. */
 const draft = z.object({
   title: z.string().max(200).optional(),
-  entity_id: z.string().uuid().optional(),
+  entity_id: z.string().guid().optional(),
   language: z.enum(["en", "fr"]).optional(),
   professional_category: z.string().max(160).optional(),
   reports_to: z.string().max(160).optional(),
@@ -60,7 +60,7 @@ const draft = z.object({
   notice_days: z.number().int().min(0).max(365).optional(),
   working_hours: z.string().max(200).optional(),
   place_of_work: z.string().max(200).optional(),
-  vacancy_id: z.string().uuid().optional(),
+  vacancy_id: z.string().guid().optional(),
 });
 
 /** A renewal (10708). Only the two dates a caller may override — everything
@@ -73,8 +73,8 @@ const renew = z.object({
 
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ hr_contract_id: z.string().uuid() });
-const aiStatus = status.extend({ hr_contract_id: z.string().uuid() });
+const aiUpdate = update.extend({ hr_contract_id: z.string().guid() });
+const aiStatus = status.extend({ hr_contract_id: z.string().guid() });
 const schemas = { create, update, status, draft, renew, aiUpdate, aiStatus };
 
 const mw = (k) => (req, _res, next) => {

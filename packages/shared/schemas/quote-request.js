@@ -102,11 +102,11 @@ const staffFields = {
   // Which corporate entity the enquiry belongs to. Optional: the service
   // resolves it from the linked lead, or from the tenant's only active entity,
   // and 422s naming this field when a tenant has several.
-  entity_id: z.string().uuid().optional().nullable(),
-  lead_id: z.string().uuid().optional().nullable(),
+  entity_id: z.string().guid().optional().nullable(),
+  lead_id: z.string().guid().optional().nullable(),
   // The client a request is FOR (owner decision Q5). A linked request appears
   // in that client's portal and takes their account manager as owner.
-  client_id: z.string().uuid().optional().nullable(),
+  client_id: z.string().guid().optional().nullable(),
   intake_channel: z.enum(INTAKE_CHANNELS).optional(),
   requester_name: text(255),
   requester_company: text(255),
@@ -115,7 +115,7 @@ const staffFields = {
   // The service, structured. `service_category` is written by the server from
   // its name; a caller that sends only the words (an older client, the AI)
   // still lands, as free text.
-  service_type_id: z.string().uuid().optional().nullable(),
+  service_type_id: z.string().guid().optional().nullable(),
   hinterland_direction: hinterlandDirection.optional().nullable(),
   service_category: text(255),
   service_type: text(255),
@@ -131,7 +131,7 @@ const staffFields = {
   cargo_description: text(5000),
   additional_notes: text(5000),
   incoterm: incoterm.optional(),
-  owner_user_id: z.string().uuid().optional().nullable(),
+  owner_user_id: z.string().guid().optional().nullable(),
   // origin_place_id / destination_place_id / attachment_doc_id (and 14220's
   // collection_place_id / delivery_place_id) are deliberately NOT here. They
   // are written by the intake paths that earn them — the coordinates come from
@@ -151,7 +151,7 @@ const opportunity = z.object({
   name: z.string().min(1),
   estimated_value: z.number().nonnegative().optional().nullable(),
   currency: z.string().length(3).optional(),
-  owner_user_id: z.string().uuid().optional().nullable(),
+  owner_user_id: z.string().guid().optional().nullable(),
 });
 const convert = z.object({ opportunity });
 
@@ -169,7 +169,7 @@ const attachment = z.object({
 
 /** "File on a quote request" — a file a client sent in the chat, linked, not copied. */
 const fromChat = z.object({
-  chat_attachment_id: z.string().uuid(),
+  chat_attachment_id: z.string().guid(),
   document_kind: z.enum(DOCUMENT_KINDS).optional().nullable(),
 }).strict();
 
@@ -178,12 +178,12 @@ const clientMatchQuery = z.object({ email: z.string().trim().email().max(255) })
 
 /* ── the AI (each carries the request id in its payload) ─────────────────── */
 
-const aiTransition = z.object({ quote_request_id: z.string().uuid(), to: z.enum(STATUSES) });
-const aiConvert = z.object({ quote_request_id: z.string().uuid(), opportunity });
-const aiLinkClient = z.object({ quote_request_id: z.string().uuid(), client_id: z.string().uuid() });
+const aiTransition = z.object({ quote_request_id: z.string().guid(), to: z.enum(STATUSES) });
+const aiConvert = z.object({ quote_request_id: z.string().guid(), opportunity });
+const aiLinkClient = z.object({ quote_request_id: z.string().guid(), client_id: z.string().guid() });
 const aiFileFromChat = z.object({
-  quote_request_id: z.string().uuid(),
-  chat_attachment_id: z.string().uuid(),
+  quote_request_id: z.string().guid(),
+  chat_attachment_id: z.string().guid(),
   document_kind: z.enum(DOCUMENT_KINDS).optional().nullable(),
 });
 
@@ -224,14 +224,14 @@ const publicQuote = z.object({
   requester_phone: z.string().max(60).optional(),
   // The published service the visitor picked. Validated server-side as an
   // ACTIVE, PUBLISHED service — anything else is a 422 naming this field.
-  service_type_id: z.string().uuid().optional(),
+  service_type_id: z.string().guid().optional(),
   hinterland_direction: hinterlandDirection.optional(),
   service_category: z.string().max(255).optional(),
   origin_location: z.string().max(255).optional(),
   destination_location: z.string().max(255).optional(),
   cargo_description: z.string().max(5000).optional(),
   incoterm: z.string().min(1).max(30),
-  entity_id: z.string().uuid().optional(),
+  entity_id: z.string().guid().optional(),
   estimated_weight: z.coerce.number().nonnegative().max(1e9).optional(),
   project_cargo_flag: z.boolean().optional(),
   warehouse_location: z.string().max(255).optional(),
@@ -255,7 +255,7 @@ const publicQuote = z.object({
  */
 const portalPlacePick = z
   .union([
-    z.object({ geo_place_id: z.string().uuid() }).strict(),
+    z.object({ geo_place_id: z.string().guid() }).strict(),
     z.object({
       provider_place_id: z.string().trim().min(1).max(300),
       query: z.string().trim().min(1).max(200),
@@ -267,7 +267,7 @@ const portalPlacePick = z
 
 /** A document the client uploaded first (staged), then named here by id. */
 const portalDocument = z.object({
-  doc_id: z.string().uuid(),
+  doc_id: z.string().guid(),
   document_kind: z.enum(DOCUMENT_KINDS),
 }).strict();
 
@@ -291,7 +291,7 @@ const portalPlaceText = z.preprocess(
 );
 
 const portalCreate = z.object({
-  service_type_id: z.string().uuid(),
+  service_type_id: z.string().guid(),
   hinterland_direction: hinterlandDirection.optional().nullable(),
   // 200, not 120: a picked address arrives as the provider's formatted line.
   // Optional here because a STORAGE or a no-movement service has no route —

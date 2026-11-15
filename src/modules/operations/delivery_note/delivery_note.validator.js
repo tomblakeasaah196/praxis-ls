@@ -10,7 +10,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
  * the service check stays as a backstop for the AI-action path.
  */
 const lineSchema = z.object({
-  inventory_item_id: z.string().uuid().optional().nullable(),
+  inventory_item_id: z.string().guid().optional().nullable(),
   label: z.string().min(1).optional(),
   qty: z.number().nonnegative().optional(),
   /* 12749 — what a note says about PACKAGES, which is the whole document on a
@@ -26,11 +26,11 @@ const lineSchema = z.object({
  * the message, which is a better error than Zod can produce for a union.
  */
 const containerSchema = z.object({
-  dossier_container_unit_id: z.string().uuid().optional().nullable(),
+  dossier_container_unit_id: z.string().guid().optional().nullable(),
   // 10708 — the GROUPED shape: a container line ("3 × 40' HC") from a file
   // with no per-box numbers yet. Either a unit, a line or a typed number
   // identifies the row; the service checks the combination.
-  dossier_container_line_id: z.string().uuid().optional().nullable(),
+  dossier_container_line_id: z.string().guid().optional().nullable(),
   container_type_code: z.string().max(60).optional().nullable(),
   qty: z.number().int().positive().max(10000).optional().nullable(),
   container_no: z.string().max(40).optional().nullable(),
@@ -44,8 +44,8 @@ const containerSchema = z.object({
 });
 
 const headerFields = {
-  dossier_id: z.string().uuid().optional().nullable(),
-  entity_id: z.string().uuid().optional().nullable(),
+  dossier_id: z.string().guid().optional().nullable(),
+  entity_id: z.string().guid().optional().nullable(),
   consignee: z.string().max(200).optional().nullable(),
   city_zone: z.string().max(120).optional().nullable(),
   contact_person: z.string().max(120).optional().nullable(),
@@ -77,7 +77,7 @@ const schemas = {
     received_by_name: z.string().min(1, "who received the goods"),
     received_at: z.string().datetime({ offset: true }).optional().nullable(),
     reservations: z.string().max(2000).optional().nullable(),
-    signature_vault_id: z.string().uuid().optional().nullable(),
+    signature_vault_id: z.string().guid().optional().nullable(),
   }),
 
   cancel: z.object({ reason: z.string().min(1, "a cancellation needs a reason") }),
@@ -91,8 +91,8 @@ const schemas = {
 
 // AI-facing: the note is in the URL for the HTTP routes, but an assistant call
 // has no URL — it passes one flat object, so the id must be IN the schema.
-schemas.aiIssue = z.object({ delivery_note_id: z.string().uuid() });
-schemas.aiDeliver = schemas.deliver.extend({ delivery_note_id: z.string().uuid() });
+schemas.aiIssue = z.object({ delivery_note_id: z.string().guid() });
+schemas.aiDeliver = schemas.deliver.extend({ delivery_note_id: z.string().guid() });
 
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);

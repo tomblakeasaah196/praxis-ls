@@ -32,23 +32,23 @@ const check = (schema) => (req, _res, next) => {
 const create = z.object({
   code: z.string().min(1).max(40).transform((s) => s.trim().toUpperCase()),
   name: z.string().min(1).max(160),
-  entity_id: z.string().uuid().nullish(),
-  parent_scope_id: z.string().uuid().nullish(),
+  entity_id: z.string().guid().nullish(),
+  parent_scope_id: z.string().guid().nullish(),
 });
 
 // Everything optional on update, but code/name may not be blanked to "".
 const update = z.object({
   code: z.string().min(1).max(40).transform((s) => s.trim().toUpperCase()).optional(),
   name: z.string().min(1).max(160).optional(),
-  entity_id: z.string().uuid().nullish(),
-  parent_scope_id: z.string().uuid().nullish(),
+  entity_id: z.string().guid().nullish(),
+  parent_scope_id: z.string().guid().nullish(),
 });
 
 // API F-15: POST /scopes/:id/members read `req.body.user_id` unvalidated.
 // A non-UUID reached Postgres as 22P02 -> 400 INVALID_VALUE with no fields,
 // and an ABSENT user_id inserted NULL or raised 23502 depending on the
 // column — two different errors for the same mistake.
-const member = z.object({ user_id: z.string().uuid() }).strict();
+const member = z.object({ user_id: z.string().guid() }).strict();
 
 module.exports = {
   create: check(create), update: check(update), member: check(member),

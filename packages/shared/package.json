@@ -9,6 +9,7 @@
   "types": "index.d.ts",
   "files": [
     "index.js",
+    "zod-messages.js",
     "index.d.ts",
     "design",
     "schemas",
@@ -18,6 +19,6 @@
     "pwa-design.js"
   ],
   "peerDependencies": {
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   }
 }

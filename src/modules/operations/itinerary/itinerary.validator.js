@@ -17,22 +17,22 @@ const leg = z.object({
   // array order is what "the itinerary is in this order" means. Declared so a
   // client that round-trips a leg it just read is not rejected for it.
   seq: z.number().optional(),
-  itinerary_leg_id: z.string().uuid().optional(),
+  itinerary_leg_id: z.string().guid().optional(),
   leg_type: z.enum(["PICKUP", "MAIN_CARRIAGE", "CUSTOMS", "INLAND_TRANSIT", "WAREHOUSE", "FINAL_DELIVERY", "OTHER"]),
   mode: z.enum(["AIR", "SEA", "LAND", "RAIL", "OTHER"]).default("OTHER"),
   origin: z.string().trim().max(500).optional().nullable(),
   destination: z.string().trim().max(500).optional().nullable(),
-  origin_place_id: z.string().uuid().optional().nullable(),
-  destination_place_id: z.string().uuid().optional().nullable(),
+  origin_place_id: z.string().guid().optional().nullable(),
+  destination_place_id: z.string().guid().optional().nullable(),
   planned_departure: dateish,
   planned_arrival: dateish,
   actual_departure: dateish,
   actual_arrival: dateish,
   status: z.enum(["PLANNED", "IN_PROGRESS", "COMPLETED", "BLOCKED", "CANCELLED"]).default("PLANNED"),
-  provider_id: z.string().uuid().optional().nullable(),
+  provider_id: z.string().guid().optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   is_optional: z.boolean().default(false),
-  milestone_instance_id: z.string().uuid().optional().nullable(),
+  milestone_instance_id: z.string().guid().optional().nullable(),
   // TEMPLATE is preserved on a round trip so the editor can keep telling the
   // operator which legs came from the service type. It grants nothing: the
   // required-leg rule reads the template itself, not this field.

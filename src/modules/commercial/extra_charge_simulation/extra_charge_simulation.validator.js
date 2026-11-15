@@ -13,7 +13,7 @@ const container = z.object({
 
 const schemas = {
   compute: z.object({
-    dossier_id: z.string().uuid().optional().nullable(),
+    dossier_id: z.string().guid().optional().nullable(),
     shipping_line: z.string().optional(),
     container_variant: z.string().optional(),
     // G16 — full model: a container list, the three dates, and optional rates.
@@ -43,8 +43,8 @@ const schemas = {
       plug: z.record(z.string(), z.number().nonnegative()).optional(),
     }).strict(),
   }),
-  dossierParam: z.object({ dossierId: z.string().uuid() }),
-  idParam: z.object({ id: z.string().uuid() }),
+  dossierParam: z.object({ dossierId: z.string().guid() }),
+  idParam: z.object({ id: z.string().guid() }),
 };
 
 const mw = (k, fromParams = false) => (req, _res, next) => {

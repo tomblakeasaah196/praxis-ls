@@ -3,8 +3,8 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  kpi_target_id: z.string().uuid().optional(),
-  employee_id: z.string().uuid().optional(),
+  kpi_target_id: z.string().guid().optional(),
+  employee_id: z.string().guid().optional(),
   period_code: z.string().min(1),
   actual_value: z.number().optional(),
   rating: z.number().optional(),
@@ -31,7 +31,7 @@ const cycleStatus = z.object({
   status: z.enum(["DRAFT", "OPEN", "SCORING", "CALIBRATION", "RELEASED", "CLOSED"]),
 });
 
-const reviewOpen = z.object({ employee_id: z.string().uuid() });
+const reviewOpen = z.object({ employee_id: z.string().guid() });
 const reviewSubmit = z.object({ manager_comment: z.string().max(8000).optional() });
 
 /**
@@ -55,11 +55,11 @@ const reviewRespond = z
     message: "Say why you disagree — this is the part that gets read later.",
   });
 
-const scoreRun = z.object({ employee_id: z.string().uuid().optional() });
+const scoreRun = z.object({ employee_id: z.string().guid().optional() });
 
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ appraisal_id: z.string().uuid() });
+const aiUpdate = update.extend({ appraisal_id: z.string().guid() });
 const schemas = { create, update, reward, cycle, cycleStatus, reviewOpen, reviewSubmit, lineRate, reviewRespond, scoreRun, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {

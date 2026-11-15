@@ -20,19 +20,19 @@ const schemas = {
   // writes it now.
   create: z.object({
     subject: z.string().min(1).max(300),
-    lead_id: z.string().uuid().optional().nullable(),
-    client_id: z.string().uuid().optional().nullable(),
+    lead_id: z.string().guid().optional().nullable(),
+    client_id: z.string().guid().optional().nullable(),
     scheduled_at: z.string().optional().nullable(),
     location: z.string().max(300).optional().nullable(),
-    organiser_id: z.string().uuid().optional().nullable(),
+    organiser_id: z.string().guid().optional().nullable(),
   }),
   update: z.object({
     subject: z.string().min(1).max(300).optional(),
-    lead_id: z.string().uuid().optional().nullable(),
-    client_id: z.string().uuid().optional().nullable(),
+    lead_id: z.string().guid().optional().nullable(),
+    client_id: z.string().guid().optional().nullable(),
     scheduled_at: z.string().optional().nullable(),
     location: z.string().max(300).optional().nullable(),
-    organiser_id: z.string().uuid().optional().nullable(),
+    organiser_id: z.string().guid().optional().nullable(),
   }),
   note: z.object({ body: z.string().min(1), is_minutes: z.boolean().optional() }),
   // A section may be emptied — clearing an answer is an answer — so min(0).
@@ -52,9 +52,9 @@ const schemas = {
     is_active: z.boolean().optional(),
   }),
   // AI-facing: meeting_id in the payload → list_meetings picker.
-  aiNote: z.object({ meeting_id: z.string().uuid(), body: z.string().min(1), is_minutes: z.boolean().optional() }),
-  aiSection: z.object({ meeting_id: z.string().uuid(), section_key: sectionKey, body: z.string().max(20000) }),
-  aiDiscovery: z.object({ lead_id: z.string().uuid() }),
+  aiNote: z.object({ meeting_id: z.string().guid(), body: z.string().min(1), is_minutes: z.boolean().optional() }),
+  aiSection: z.object({ meeting_id: z.string().guid(), section_key: sectionKey, body: z.string().max(20000) }),
+  aiDiscovery: z.object({ lead_id: z.string().guid() }),
 };
 
 const mw = (k) => (req, _res, next) => {

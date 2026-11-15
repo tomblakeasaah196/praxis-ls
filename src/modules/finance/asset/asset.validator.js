@@ -4,7 +4,7 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  entity_id: z.string().uuid(),
+  entity_id: z.string().guid(),
   label: z.string().min(1),
   tag: z.string().optional(),
   coa_asset_code: z.string().optional(),
@@ -28,9 +28,9 @@ const dispose = z.object({
 });
 
 // AI-facing: asset_id in the payload → list_assets picker.
-const aiUpdate = update.extend({ asset_id: z.string().uuid() });
-const aiDepreciate = depreciate.extend({ asset_id: z.string().uuid() });
-const aiDispose = dispose.extend({ asset_id: z.string().uuid() });
+const aiUpdate = update.extend({ asset_id: z.string().guid() });
+const aiDepreciate = depreciate.extend({ asset_id: z.string().guid() });
+const aiDispose = dispose.extend({ asset_id: z.string().guid() });
 const schemas = { create, update, depreciate, dispose, aiUpdate, aiDepreciate, aiDispose };
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body || {});

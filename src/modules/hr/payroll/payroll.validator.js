@@ -4,7 +4,7 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const createRun = z.object({
-  entity_id: z.string().uuid(),
+  entity_id: z.string().guid(),
   period_code: z.string().regex(/^\d{4}-\d{2}$/, "period_code must be YYYY-MM"),
 });
 const compute = z.object({ config: z.record(z.string(), z.any()).optional() });
@@ -12,7 +12,7 @@ const compute = z.object({ config: z.record(z.string(), z.any()).optional() });
 // G18 — saving an effective-dated rate config. Keys are checked against the
 // known rate keys in the service (a typo must not silently ride along).
 const saveConfig = z.object({
-  entity_id: z.string().uuid(),
+  entity_id: z.string().guid(),
   effective_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   config: z.record(z.string(), z.any()).default({}),
 });
@@ -28,9 +28,9 @@ const status = z.object({
  * reach the amount — a plan that never finishes is worse than no plan.
  */
 const advance = z.object({
-  employee_id: z.string().uuid(),
-  entity_id: z.string().uuid().optional(),
-  leave_request_id: z.string().uuid().optional(),
+  employee_id: z.string().guid(),
+  entity_id: z.string().guid().optional(),
+  leave_request_id: z.string().guid().optional(),
   amount: z.number().positive(),
   instalments: z.number().int().min(1).max(60).optional(),
   instalment_amount: z.number().positive().optional(),
@@ -49,8 +49,8 @@ const advanceUpdate = z.object({
 });
 
 // AI-facing: payroll_run_id in the payload → list_payroll_runs picker.
-const aiStatus = status.extend({ payroll_run_id: z.string().uuid() });
-const aiCompute = compute.extend({ payroll_run_id: z.string().uuid() });
+const aiStatus = status.extend({ payroll_run_id: z.string().guid() });
+const aiCompute = compute.extend({ payroll_run_id: z.string().guid() });
 const schemas = { createRun, compute, status, aiStatus, aiCompute, advance, advanceUpdate };
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body || {});

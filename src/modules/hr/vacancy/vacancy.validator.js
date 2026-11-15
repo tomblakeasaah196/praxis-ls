@@ -22,7 +22,7 @@ const skills = z.array(z.string().trim().min(1).max(80)).max(40)
 const createShape = z.object({
   title: z.string().min(1),
   // Department is a scope (0490) — carried onto the employee record at hire.
-  scope_id: z.string().uuid().optional().nullable(),
+  scope_id: z.string().guid().optional().nullable(),
   department: z.string().optional(),
   description: z.string().optional(),
   ai_generated: z.boolean().optional(),
@@ -43,7 +43,7 @@ const createShape = z.object({
   // is not asked a question with one possible answer (the service resolves the
   // sole active entity). It decides the salary currency and grounds the AI, so
   // the blank-form path must be able to set it too, not just the wizard.
-  entity_id: z.string().uuid().optional().nullable(),
+  entity_id: z.string().guid().optional().nullable(),
   headcount: z.coerce.number().int().min(1).max(500).optional(),
   // 0684 — the detail a candidate reads before deciding to apply. All optional
   // and all nullish: an advert that says none of it still publishes, and
@@ -93,8 +93,8 @@ const applicant = z.object({
   full_name: z.string().min(1),
   email: z.string().email().optional(),
   phone: z.string().optional(),
-  cv_vault_id: z.string().uuid().optional(),
-  answers_json: z.record(z.any()).optional(),
+  cv_vault_id: z.string().guid().optional(),
+  answers_json: z.record(z.string(), z.any()).optional(),
   // 0525 — what the provisional score reads.
   address: z.string().max(300).optional(),
   skills: skills.optional(),
@@ -122,8 +122,8 @@ const applicantStatus = z.object({
 /** Put a bench candidate in front of this vacancy. Exactly one source — a past
  *  applicant or a hand-entered bench row; the service refuses neither and both. */
 const consider = z.object({
-  applicant_id: z.string().uuid().optional(),
-  talent_pool_id: z.string().uuid().optional(),
+  applicant_id: z.string().guid().optional(),
+  talent_pool_id: z.string().guid().optional(),
 });
 
 const criterion = z.object({
@@ -142,7 +142,7 @@ const question = z.object({
  *  clearing a rating they entered by mistake must be able to, and omitting the
  *  key would instead leave the old value in place. */
 const answer = z.object({
-  vacancy_question_id: z.string().uuid(),
+  vacancy_question_id: z.string().guid(),
   rating: z.coerce.number().min(0).max(5).multipleOf(0.5).nullable(),
   notes: z.string().max(4000).optional(),
 });
@@ -157,11 +157,11 @@ const publish = z.object({ published: z.boolean() });
  * these are free text from a human, they are stored verbatim in `intake_json`,
  * and they are forwarded to a model, so length is the control that matters.
  */
-const intakeAnswers = z.record(
+const intakeAnswers = z.record(z.string(), 
   z.union([z.string().max(4000), z.number(), z.boolean(), z.null()]),
 );
 const intake = z.object({
-  entity_id: z.string().uuid().optional().nullable(),
+  entity_id: z.string().guid().optional().nullable(),
   answers: intakeAnswers,
 });
 
@@ -189,10 +189,10 @@ const placeSearch = z.object({
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
 // `update` is a ZodEffects (it carries the salary-order refinement), which has
 // no `.extend()` — so the AI variant is built from the object and re-refined.
-const aiUpdate = createShape.partial().extend({ vacancy_id: z.string().uuid() }).refine(salaryOrder, SALARY_ORDER_ERROR);
-const aiStatus = status.extend({ vacancy_id: z.string().uuid() });
-const aiApplicant = applicant.extend({ vacancy_id: z.string().uuid() });
-const aiApplicantStatus = applicantStatus.extend({ vacancy_id: z.string().uuid(), applicant_id: z.string().uuid() });
+const aiUpdate = createShape.partial().extend({ vacancy_id: z.string().guid() }).refine(salaryOrder, SALARY_ORDER_ERROR);
+const aiStatus = status.extend({ vacancy_id: z.string().guid() });
+const aiApplicant = applicant.extend({ vacancy_id: z.string().guid() });
+const aiApplicantStatus = applicantStatus.extend({ vacancy_id: z.string().guid(), applicant_id: z.string().guid() });
 const schemas = { create, update, status, applicant, applicantStatus, consider, criterion, question, answer, publish, intake, transcribe, placeSearch, aiUpdate, aiStatus, aiApplicant, aiApplicantStatus };
 
 const mw = (k) => (req, _res, next) => {

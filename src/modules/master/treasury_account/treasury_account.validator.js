@@ -21,7 +21,7 @@ const richFields = {
   opening_date:    z.string().optional().nullable(),        // YYYY-MM-DD; pg parses
   statement_day:   z.number().int().min(1).max(31).optional().nullable(),
 
-  custodian_user_id: z.string().uuid().optional().nullable(),
+  custodian_user_id: z.string().guid().optional().nullable(),
   location:        z.string().max(200).optional().nullable(),
   float_limit:     z.number().nonnegative().optional().nullable(),
 
@@ -34,8 +34,8 @@ const richFields = {
 
 const schemas = {
   create: z.object({
-    entity_id:   z.string().uuid(),
-    category_id: z.string().uuid(),
+    entity_id:   z.string().guid(),
+    category_id: z.string().guid(),
     ...richFields,
   }),
   // Update body cannot change entity, category, or coa_code; those are managed.
@@ -47,22 +47,22 @@ const schemas = {
   setActive: z.object({
     active: z.boolean(),
     force_clear_primary: z.boolean().optional(),
-    replacement_account_id: z.string().uuid().optional().nullable(),
+    replacement_account_id: z.string().guid().optional().nullable(),
   }),
 
   // AI-facing shapes (id in the payload → picker action).
   aiUpdate: z.object({
-    treasury_account_id: z.string().uuid(),
+    treasury_account_id: z.string().guid(),
     ...Object.fromEntries(Object.entries(richFields).map(([k, v]) => [k, v.optional()])),
     label: richFields.label.optional(),
   }),
-  aiSetActive: z.object({ treasury_account_id: z.string().uuid(), active: z.boolean() }),
+  aiSetActive: z.object({ treasury_account_id: z.string().guid(), active: z.boolean() }),
 
   createDocument: z.object({
     document_type: z.enum(["BANK_RIB", "BANK_MANDATE", "KYC_DOCUMENT", "SIGNATURE_CARD", "ACCOUNT_LETTER", "OTHER"]),
     title: z.string().min(1).max(200),
     document_number: z.string().max(100).optional().nullable(),
-    vault_id: z.string().uuid().optional().nullable(),
+    vault_id: z.string().guid().optional().nullable(),
     file_name: z.string().max(255).optional().nullable(),
     file_size: z.number().int().nonnegative().optional().nullable(),
     mime_type: z.string().max(100).optional().nullable(),
@@ -72,7 +72,7 @@ const schemas = {
   }),
 
   attachDocumentScan: z.object({
-    vault_id: z.string().uuid(),
+    vault_id: z.string().guid(),
     file_name: z.string().max(255).optional().nullable(),
     file_size: z.number().int().nonnegative().optional().nullable(),
     mime_type: z.string().max(100).optional().nullable(),
@@ -82,13 +82,13 @@ const schemas = {
     signed_by: z.string().trim().max(200).optional().nullable(),
   }),
   aiAuthorisationLetter: z.object({
-    treasury_account_id: z.string().uuid(),
+    treasury_account_id: z.string().guid(),
     signed_by: z.string().trim().max(200).optional().nullable(),
   }),
 
   createSignatory: z.object({
-    user_id: z.string().uuid().optional().nullable(),
-    person_id: z.string().uuid().optional().nullable(),
+    user_id: z.string().guid().optional().nullable(),
+    person_id: z.string().guid().optional().nullable(),
     full_name: z.string().min(1).max(200),
     email: z.string().email().optional().nullable(),
     phone: z.string().max(50).optional().nullable(),
@@ -100,13 +100,13 @@ const schemas = {
     effective_from: z.string().optional().nullable(),
     effective_to: z.string().optional().nullable(),
     is_active: z.boolean().optional(),
-    signature_card_doc_id: z.string().uuid().optional().nullable(),
+    signature_card_doc_id: z.string().guid().optional().nullable(),
     notes: z.string().max(1000).optional().nullable(),
   }),
 
   updateSignatory: z.object({
-    user_id: z.string().uuid().optional().nullable(),
-    person_id: z.string().uuid().optional().nullable(),
+    user_id: z.string().guid().optional().nullable(),
+    person_id: z.string().guid().optional().nullable(),
     full_name: z.string().min(1).max(200).optional(),
     email: z.string().email().optional().nullable(),
     phone: z.string().max(50).optional().nullable(),
@@ -118,12 +118,12 @@ const schemas = {
     effective_from: z.string().optional().nullable(),
     effective_to: z.string().optional().nullable(),
     is_active: z.boolean().optional(),
-    signature_card_doc_id: z.string().uuid().optional().nullable(),
+    signature_card_doc_id: z.string().guid().optional().nullable(),
     notes: z.string().max(1000).optional().nullable(),
   }),
 
   reverseEntry: z.object({
-    entry_id: z.string().uuid(),
+    entry_id: z.string().guid(),
     reason: z.string().min(1).max(500),
   }),
 
@@ -131,7 +131,7 @@ const schemas = {
     provider: z.string().min(1).max(64),
     active: z.boolean().optional(),
     role: z.string().max(64).optional().nullable(),
-    credentials: z.union([z.string().min(1).max(8000), z.record(z.any())]).optional(),
+    credentials: z.union([z.string().min(1).max(8000), z.record(z.string(), z.any())]).optional(),
   }),
   gatewayActive: z.object({ active: z.boolean() }),
   gatewayRole:   z.object({ role: z.string().min(1).max(64) }),

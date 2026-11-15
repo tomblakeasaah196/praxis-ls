@@ -69,7 +69,7 @@ const subtask = z
 
 const participant = z
   .object({
-    user_id: z.string().uuid().optional(),
+    user_id: z.string().guid().optional(),
     external_name: z.string().trim().min(1).max(160).optional(),
     is_organiser: z.boolean().optional(),
   })
@@ -110,7 +110,7 @@ const reminders = z.array(reminder).max(3, "at most three reminders per record")
 /* ══════════════════════════════════ TASKS ════════════════════════════════ */
 
 /** The stage set of 13950 — uuids, deduplicated by the service, bounded here. */
-const stageSet = z.array(z.string().uuid()).max(20).optional();
+const stageSet = z.array(z.string().guid()).max(20).optional();
 
 const taskCreate = z
   .object({
@@ -120,17 +120,17 @@ const taskCreate = z
     description: z.string().trim().max(4000).nullable().optional(),
     status: z.enum(STATUSES).optional(),
     priority: z.enum(PRIORITIES).optional(),
-    assigned_to: z.string().uuid().nullable().optional(),
+    assigned_to: z.string().guid().nullable().optional(),
     due_at: dt(DATETIME_MSG).nullable().optional(),
-    parent_task_id: z.string().uuid().optional(),
+    parent_task_id: z.string().guid().optional(),
     entity_type: z.string().trim().max(40).optional(),
-    entity_id: z.string().uuid().optional(),
+    entity_id: z.string().guid().optional(),
     // The operations file this work is IN, and optionally the stage of its
     // chain (13920). Distinct from the pair above, which is what the task
     // POINTS AT — a task can legitimately have both. Nullable because the
     // dialog sends an explicit null when the picker is cleared.
-    dossier_id: z.string().uuid().nullable().optional(),
-    milestone_instance_id: z.string().uuid().nullable().optional(),
+    dossier_id: z.string().guid().nullable().optional(),
+    milestone_instance_id: z.string().guid().nullable().optional(),
     // The stages of the file's chain the work belongs to — one or several
     // (13950). Supersedes the single column above when present; an empty list
     // is a real statement ("no stage"). Twenty is more than any chain has.
@@ -156,12 +156,12 @@ const taskUpdateShape = z
     description: z.string().trim().max(4000).nullable().optional(),
     status: z.enum(STATUSES).optional(),
     priority: z.enum(PRIORITIES).optional(),
-    assigned_to: z.string().uuid().nullable().optional(),
+    assigned_to: z.string().guid().nullable().optional(),
     due_at: dt(DATETIME_MSG).nullable().optional(),
     entity_type: z.string().trim().max(40).nullable().optional(),
-    entity_id: z.string().uuid().nullable().optional(),
-    dossier_id: z.string().uuid().nullable().optional(),
-    milestone_instance_id: z.string().uuid().nullable().optional(),
+    entity_id: z.string().guid().nullable().optional(),
+    dossier_id: z.string().guid().nullable().optional(),
+    milestone_instance_id: z.string().guid().nullable().optional(),
     milestone_instance_ids: stageSet,
     is_personal: z.boolean().optional(),
     reminder_minutes: z.number().int().min(0).max(525600).nullable().optional(),
@@ -201,7 +201,7 @@ const subtaskPatch = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: "nothing to update" });
 
-const watcherAdd = z.object({ user_id: z.string().uuid() }).strict();
+const watcherAdd = z.object({ user_id: z.string().guid() }).strict();
 
 /* ── hierarchy, dependencies and collaboration (PR 2) ────────────────────── */
 
@@ -221,17 +221,17 @@ const childCreate = z
     description: z.string().trim().max(4000).nullable().optional(),
     status: z.enum(STATUSES).optional(),
     priority: z.enum(PRIORITIES).optional(),
-    assigned_to: z.string().uuid().nullable().optional(),
+    assigned_to: z.string().guid().nullable().optional(),
     due_at: dt(DATETIME_MSG).nullable().optional(),
     // Omit both and the child inherits the parent's linked record; send them to
     // point the child at a different one.
     entity_type: z.string().trim().max(40).nullable().optional(),
-    entity_id: z.string().uuid().nullable().optional(),
+    entity_id: z.string().guid().nullable().optional(),
     // Same terms for the operations file and its stages (13920, 13950):
     // omitted means inherit, an explicit null (or []) means "this piece is
     // not on that file / those stages".
-    dossier_id: z.string().uuid().nullable().optional(),
-    milestone_instance_id: z.string().uuid().nullable().optional(),
+    dossier_id: z.string().guid().nullable().optional(),
+    milestone_instance_id: z.string().guid().nullable().optional(),
     milestone_instance_ids: stageSet,
     reminder_minutes: z.number().int().min(0).max(525600).nullable().optional(),
     remind_at: dt(DATETIME_MSG).nullable().optional(),
@@ -242,7 +242,7 @@ const childCreate = z
 
 /** One blocked-by edge. The blocked task is the route; this names the other end. */
 const dependencyAdd = z
-  .object({ depends_on_task_id: z.string().uuid() })
+  .object({ depends_on_task_id: z.string().guid() })
   .strict();
 
 /**
@@ -269,7 +269,7 @@ const dependencyOverride = z
  */
 const taskPing = z
   .object({
-    user_ids: z.array(z.string().uuid()).max(50).optional(),
+    user_ids: z.array(z.string().guid()).max(50).optional(),
     message: z.string().trim().max(500).nullable().optional(),
   })
   .strict();
@@ -292,8 +292,8 @@ const blockageRaise = z
   .object({
     note: z.string().trim().min(1, "a blockage needs an explanation").max(1000),
     estimated_resolve_at: dt(DATETIME_MSG).nullable().optional(),
-    notify_user_ids: z.array(z.string().uuid()).max(50).optional(),
-    channel_ids: z.array(z.string().uuid()).max(10).optional(),
+    notify_user_ids: z.array(z.string().guid()).max(50).optional(),
+    channel_ids: z.array(z.string().guid()).max(10).optional(),
     audience: z.enum(AUDIENCES).optional(),
   })
   .strict();
@@ -393,8 +393,8 @@ const eventCreate = z
     all_day: z.boolean().optional(),
     recurrence_rule: recurrenceRule.nullable().optional(),
     entity_type: z.string().trim().max(40).optional(),
-    entity_id: z.string().uuid().optional(),
-    scope_id: z.string().uuid().nullable().optional(),
+    entity_id: z.string().guid().optional(),
+    scope_id: z.string().guid().nullable().optional(),
     reminder_minutes: z.number().int().min(0).max(525600).nullable().optional(),
     remind_at: dt(DATETIME_MSG).nullable().optional(),
     reminders: reminders.optional(),
@@ -416,8 +416,8 @@ const eventUpdateShape = z
     all_day: z.boolean().optional(),
     recurrence_rule: recurrenceRule.nullable().optional(),
     entity_type: z.string().trim().max(40).nullable().optional(),
-    entity_id: z.string().uuid().nullable().optional(),
-    scope_id: z.string().uuid().nullable().optional(),
+    entity_id: z.string().guid().nullable().optional(),
+    scope_id: z.string().guid().nullable().optional(),
     reminder_minutes: z.number().int().min(0).max(525600).nullable().optional(),
     remind_at: dt(DATETIME_MSG).nullable().optional(),
     reminders: reminders.optional(),
@@ -429,7 +429,7 @@ const eventUpdate = eventUpdateShape.refine((v) => Object.keys(v).length > 0, NO
 
 const participantAdd = z
   .object({
-    user_id: z.string().uuid().optional(),
+    user_id: z.string().guid().optional(),
     external_name: z.string().trim().min(1).max(160).optional(),
     is_organiser: z.boolean().optional(),
   })
@@ -482,11 +482,11 @@ module.exports = {
     // copilot call has no URL — it passes one flat object, so the id must be IN
     // the schema. `nothing to update` becomes "nothing BUT the id".
     aiTaskUpdate: taskUpdateShape
-      .extend({ task_id: z.string().uuid() })
+      .extend({ task_id: z.string().guid() })
       .refine((v) => Object.keys(v).length > 1, NOTHING_TO_UPDATE),
-    aiStatusChange: statusChange.extend({ task_id: z.string().uuid() }),
+    aiStatusChange: statusChange.extend({ task_id: z.string().guid() }),
     aiEventUpdate: eventUpdateShape
-      .extend({ event_id: z.string().uuid() })
+      .extend({ event_id: z.string().guid() })
       .refine((v) => Object.keys(v).length > 1, NOTHING_TO_UPDATE),
     taskCreate, taskUpdate, statusChange, subtaskAdd, subtaskPatch, watcherAdd,
     childCreate, dependencyAdd, dependencyOverride, taskPing,

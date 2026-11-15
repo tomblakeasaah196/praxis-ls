@@ -7,10 +7,10 @@ const d = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const category = z.enum(["RENT", "UTILITIES", "SUPPLIES", "CONNECTIVITY", "MAINTENANCE", "CLEANING", "OTHER"]);
 const schemas = {
   create: z.object({
-    entity_id: z.string().uuid(),
+    entity_id: z.string().guid(),
     category,
     label: z.string().trim().min(1),
-    supplier_id: z.string().uuid().optional().nullable(),
+    supplier_id: z.string().guid().optional().nullable(),
     expense_date: d.optional(),
     amount: z.number().positive(),
     currency: z.string().length(3).optional(),
@@ -20,7 +20,7 @@ const schemas = {
   update: z.object({
     category: category.optional(),
     label: z.string().trim().min(1).optional(),
-    supplier_id: z.string().uuid().optional().nullable(),
+    supplier_id: z.string().guid().optional().nullable(),
     expense_date: d.optional(),
     amount: z.number().positive().optional(),
     currency: z.string().length(3).optional(),
@@ -35,7 +35,7 @@ const schemas = {
   }),
   // AI-facing: expense_id in the payload → list_office_expenses picker.
   aiPost: z.object({
-    expense_id: z.string().uuid(),
+    expense_id: z.string().guid(),
     entry_date: d.optional(),
     paid_via: z.enum(["BANK", "CASH"]).optional(),
     credit_coa: z.string().optional(),

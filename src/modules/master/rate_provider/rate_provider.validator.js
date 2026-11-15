@@ -36,7 +36,7 @@ const schemas = {
 };
 // AI-facing: the provider is in the URL for the HTTP routes, but a copilot call
 // has no URL — it passes one flat object, so the id must be IN the schema.
-schemas.aiUpdate = schemas.update.extend({ rate_provider_id: z.string().uuid() });
+schemas.aiUpdate = schemas.update.extend({ rate_provider_id: z.string().guid() });
 
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);

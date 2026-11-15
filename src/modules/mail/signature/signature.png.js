@@ -1,7 +1,7 @@
 /**
  * Signature PNG — screenshots the SAME HTML `signature.html.js` produces.
  *
- * Puppeteer is already a dependency (pdf.service.js). The renderer is injected
+ * playwright-core is already a dependency (pdf.service.js). The renderer is injected
  * so unit tests never launch Chromium. Dimensions match the standalone tool:
  * 650 × 325 CSS px at 1×, 1300 × 650 at 2×, 1950 × 975 at 3×.
  */
@@ -112,20 +112,19 @@ let browserPromise = null;
 
 async function getBrowser() {
   if (!browserPromise) {
-    const puppeteer = require("puppeteer");
+    const { chromium } = require("playwright-core");
     // `resolveChromiumPath()`, NOT `config.PUPPETEER_EXECUTABLE_PATH || undefined`.
     //
     // That expression is what broke every signature card in production. The env
     // schema defaults the key to `""`, so on any deployment that does not set it
-    // the value is `undefined`; Puppeteer then looks for the Chromium it
-    // downloads at install time, and the Dockerfile sets
-    // PUPPETEER_SKIP_DOWNLOAD=true because the image installs Alpine's package
-    // instead. Launch threw on every send, the catch in signature.service
+    // the value is `undefined`; the engine (Puppeteer then, playwright-core now) then looks for a
+    // Chromium it downloaded at install time, and the image has none because it installs Alpine's
+    // package instead. Launch threw on every send, the catch in signature.service
     // swallowed it, and recipients got the text fallback with no card — while
     // PDFs rendered perfectly, because pdf.service had always probed for the
     // binary. The browser was at /usr/bin/chromium the whole time.
     const { resolveChromiumPath } = require("../../../services/chromium");
-    browserPromise = puppeteer.launch({
+    browserPromise = chromium.launch({
       headless: true,
       executablePath: resolveChromiumPath(),
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -142,14 +141,14 @@ async function getBrowser() {
 
 async function defaultShot(pageHtml, d) {
   const browser = await getBrowser();
-  const page = await browser.newPage();
+  // The viewport and the device scale are fixed when the page is made (Playwright has no
+  // `page.setViewport`); `browser.newPage` gives this render its own context, closed with the page.
+  const page = await browser.newPage({
+    viewport: { width: d.cssWidth, height: d.cssHeight },
+    deviceScaleFactor: d.scale,
+  });
   try {
-    await page.setViewport({
-      width: d.cssWidth,
-      height: d.cssHeight,
-      deviceScaleFactor: d.scale,
-    });
-    await page.setContent(pageHtml, { waitUntil: "networkidle0" });
+    await page.setContent(pageHtml, { waitUntil: "networkidle" });
     // Buffer.from, for the reason pdf.service.js records at length
     // (BAD_STORAGE_BUFFER, live 22 Aug 2026): Puppeteer 23 resolves a
     // Uint8Array where it used to resolve a Buffer, `storage.put` requires a

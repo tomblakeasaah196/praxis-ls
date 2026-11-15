@@ -3,8 +3,8 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  employee_id: z.string().uuid(),
-  hr_query_id: z.string().uuid().optional().nullable(),
+  employee_id: z.string().guid(),
+  hr_query_id: z.string().guid().optional().nullable(),
   type: z.enum(["WARNING", "SUSPENSION", "DEMOTION", "FINE", "DISMISSAL"]),
   reason: z.string().min(1).max(5000),
   amount_xaf: z.number().nonnegative().optional().nullable(),
@@ -13,8 +13,8 @@ const create = z.object({
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ hr_sanction_id: z.string().uuid() });
-const aiLift = z.object({ hr_sanction_id: z.string().uuid() });
+const aiUpdate = update.extend({ hr_sanction_id: z.string().guid() });
+const aiLift = z.object({ hr_sanction_id: z.string().guid() });
 const schemas = { create, update, aiUpdate, aiLift };
 
 const mw = (k) => (req, _res, next) => {

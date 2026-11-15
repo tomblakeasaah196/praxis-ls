@@ -14,19 +14,19 @@ const schemas = {
     entity_ref: z.string().max(200).optional().nullable(),
     file_context: z.enum(["OPS", "OVH"]).optional().nullable(),
     folder_ref: z.string().max(200).optional().nullable(),
-    dossier_id: z.string().uuid().optional().nullable(),
+    dossier_id: z.string().guid().optional().nullable(),
     // 0669 — the typed filing an operations upload carries. The reference is
     // what reports group by; `doc_type` (text) is derived from it server-side so
     // the two cannot disagree.
-    doc_type_ref_id: z.string().uuid().optional().nullable(),
-    client_id: z.string().uuid().optional().nullable(),
+    doc_type_ref_id: z.string().guid().optional().nullable(),
+    client_id: z.string().guid().optional().nullable(),
     // What the person called the file. `storage_path` is a random key, so
     // without this the vault cannot answer "where is the one I uploaded".
     original_name: z.string().max(255).optional().nullable(),
   }),
   // AI-facing: the document is in the URL for the HTTP routes, but a copilot
   // call has no URL — it passes one flat object, so the id must be IN the schema.
-  aiArchive: z.object({ document_vault_id: z.string().uuid() }),
+  aiArchive: z.object({ document_vault_id: z.string().guid() }),
 };
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body ?? {});

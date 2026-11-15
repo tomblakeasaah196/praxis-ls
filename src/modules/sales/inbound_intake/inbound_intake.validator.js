@@ -62,10 +62,10 @@ const schemas = {
   }),
 
   // AI-facing variants carry the id in the payload.
-  aiTransition: z.object({ contact_enquiry_id: z.string().uuid(), to: z.enum(STATUSES) }),
-  aiRespond: z.object({ contact_enquiry_id: z.string().uuid(), body: z.string().trim().min(1).max(20000), subject: text255 }),
+  aiTransition: z.object({ contact_enquiry_id: z.string().guid(), to: z.enum(STATUSES) }),
+  aiRespond: z.object({ contact_enquiry_id: z.string().guid(), body: z.string().trim().min(1).max(20000), subject: text255 }),
   aiTriage: z.object({
-    contact_enquiry_id: z.string().uuid(),
+    contact_enquiry_id: z.string().guid(),
     to_lead: z.boolean().optional(),
     to_partnership: z.boolean().optional(),
     close: z.boolean().optional(),

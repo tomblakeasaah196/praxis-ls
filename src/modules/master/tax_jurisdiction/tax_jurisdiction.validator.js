@@ -23,7 +23,7 @@ const schemas = {
   }),
 };
 // AI-facing: the jurisdiction is in the URL for HTTP, in the payload for the copilot.
-schemas.aiAddCode = schemas.addCode.extend({ jurisdiction_id: z.string().uuid() });
+schemas.aiAddCode = schemas.addCode.extend({ jurisdiction_id: z.string().guid() });
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);
   if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors));

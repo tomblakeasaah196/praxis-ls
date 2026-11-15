@@ -501,7 +501,7 @@ describe("the write surface refuses what it cannot honour", () => {
     // Refused on purpose — see the tests above.
     const REFUSED = new Set(["declared_fx_to_xaf", "date"]);
 
-    const accepted = Object.keys(validator.schemas.create._def.schema.shape);
+    const accepted = Object.keys(validator.schemas.create.shape);
     for (const key of accepted) {
       expect(
         WRITTEN.has(key) || CONTROL.has(key) || REFUSED.has(key),

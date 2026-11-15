@@ -5,7 +5,7 @@
  * ── THE BUG, IN ONE SENTENCE ────────────────────────────────────────────────
  *
  * `zodToJsonSchema` derived each field's top-level TYPE and threw away every
- * refinement, so `owner_user_id: z.string().uuid()` reached the model as
+ * refinement, so `owner_user_id: z.string().guid()` reached the model as
  * `{ type: "string" }`. The model — correctly, given what it was told — sent a
  * person's name. `validatePayload` compared it against the same lossy schema
  * and passed it. The rejection then happened at the module's real Zod validator,
@@ -40,7 +40,7 @@ describe("Zod → JSON Schema keeps the constraints the validator enforces", () 
   test("string formats survive: uuid, email, url, datetime", () => {
     const js = registrar.zodToJsonSchema(
       z.object({
-        owner_user_id: z.string().uuid(),
+        owner_user_id: z.string().guid(),
         email: z.string().email(),
         site: z.string().url(),
         when: z.string().datetime(),
@@ -86,7 +86,7 @@ describe("Zod → JSON Schema keeps the constraints the validator enforces", () 
     // every real field is wrapped in at least one of these.
     const js = registrar.zodToJsonSchema(
       z.object({
-        a: z.string().uuid().optional(),
+        a: z.string().guid().optional(),
         b: z.string().email().nullable(),
         c: z.number().int().min(1).default(1),
       }),
@@ -122,5 +122,46 @@ describe("Zod → JSON Schema keeps the constraints the validator enforces", () 
     // The required set is unchanged — this fix adds fidelity, it does not make
     // previously-optional fields mandatory.
     expect(js.required).toEqual(["company_name"]);
+  });
+});
+
+describe("Zod 4 shapes reach the model too", () => {
+  test("a refined or transformed object still exposes its fields", () => {
+    const base = z.object({ name: z.string().min(1), qty: z.number().int().optional() });
+    const refined = base.refine((v) => v.name !== "x", "no");
+    const transformed = base.transform((v) => ({ ...v, extra: true }));
+    for (const schema of [refined, transformed]) {
+      const js = registrar.zodToJsonSchema(schema);
+      expect(Object.keys(js.properties)).toEqual(["name", "qty"]);
+      expect(js.properties.name.minLength).toBe(1);
+      expect(js.properties.qty.type).toBe("integer");
+      expect(js.required).toEqual(["name"]);
+    }
+  });
+
+  test("a field that is refined keeps the constraints written before the refine", () => {
+    const js = registrar.zodToJsonSchema(z.object({ url: z.string().url().max(500).refine((u) => u.startsWith("https")) }));
+    expect(js.properties.url).toEqual({ type: "string", format: "uri", maxLength: 500 });
+  });
+
+  test("a transform or preprocess is read through to the schema that parses the input", () => {
+    const js = registrar.zodToJsonSchema(z.object({
+      code: z.string().max(8).transform((s) => s.toUpperCase()),
+      n: z.preprocess((v) => Number(v), z.number().min(1)),
+    }));
+    expect(js.properties.code).toEqual({ type: "string", maxLength: 8 });
+    expect(js.properties.n).toEqual({ type: "number", minimum: 1 });
+  });
+
+  test("top-level format and integer schemas are read as their own check", () => {
+    const js = registrar.zodToJsonSchema(z.object({ mail: z.email(), id: z.uuid(), count: z.int() }));
+    expect(js.properties.mail.format).toBe("email");
+    expect(js.properties.id.format).toBe("uuid");
+    expect(js.properties.count.type).toBe("integer");
+  });
+
+  test("a numeric TS enum lists its members, not its reverse mapping", () => {
+    const Level = { Low: 1, High: 2 };
+    expect(registrar.zodToJsonSchema(z.object({ level: z.enum(Level) })).properties.level.enum).toEqual([1, 2]);
   });
 });

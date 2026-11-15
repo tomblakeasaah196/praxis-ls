@@ -12,7 +12,7 @@ const create = z.object({
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ location_id: z.string().uuid() });
+const aiUpdate = update.extend({ location_id: z.string().guid() });
 const schemas = { create, update, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {

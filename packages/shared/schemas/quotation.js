@@ -39,7 +39,11 @@ const fromCosting = z
   .strict();
 
 const targetMargin = z
-  .number({ invalid_type_error: "Enter the margin as a number." })
+  .number({
+    // Zod 4's `error` replaces `invalid_type_error`: a present value of the wrong type gets this
+    // sentence, a missing one still reads "Required".
+    error: (iss) => (iss.code === "invalid_type" && iss.input !== undefined ? "Enter the margin as a number." : undefined),
+  })
   .min(0, "The margin cannot be negative.")
   .lt(100, "The margin must be below 100 %.");
 

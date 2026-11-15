@@ -5,8 +5,8 @@ const { AppError } = require("../../../utils/errors");
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
 
 const create = z.object({
-  employee_id: z.string().uuid().optional(),
-  template_id: z.string().uuid().optional(),
+  employee_id: z.string().guid().optional(),
+  template_id: z.string().guid().optional(),
   starts_on: ymd.optional().nullable(),
   // Plain labels, still accepted (0360) — a one-off checklist for a contractor
   // should not require a template first.
@@ -23,8 +23,8 @@ const item = z.object({
   // date the caller has to work out from the start date themselves.
   due_days: z.number().int().min(-365).max(365).optional(),
   owner_role: z.string().max(120).optional().nullable(),
-  assigned_to: z.string().uuid().optional().nullable(),
-  sop_document_id: z.string().uuid().optional().nullable(),
+  assigned_to: z.string().guid().optional().nullable(),
+  sop_document_id: z.string().guid().optional().nullable(),
   is_mandatory: z.boolean().optional(),
   sort_order: z.number().int().min(0).max(100000).optional(),
 });
@@ -56,7 +56,7 @@ const templateItem = z.object({
   // walks in is most of what good onboarding is.
   due_days: z.number().int().min(-365).max(365).optional(),
   owner_role: z.string().max(120).optional().nullable(),
-  sop_document_id: z.string().uuid().optional().nullable(),
+  sop_document_id: z.string().guid().optional().nullable(),
   is_mandatory: z.boolean().optional(),
   sort_order: z.number().int().min(0).max(100000).optional(),
 });
@@ -64,10 +64,10 @@ const templateItem = z.object({
 // AI-facing: the checklist or item is in the URL for the HTTP routes, but a
 // copilot call has no URL — it passes one flat object, so the id must be IN the
 // schema.
-const checklistId = z.string().uuid();
+const checklistId = z.string().guid();
 const aiAddItem = item.extend({ onboarding_checklist_id: checklistId });
-const aiItemUpdate = itemUpdate.extend({ onboarding_item_id: z.string().uuid() });
-const aiToggle = toggle.extend({ onboarding_item_id: z.string().uuid() });
+const aiItemUpdate = itemUpdate.extend({ onboarding_item_id: z.string().guid() });
+const aiToggle = toggle.extend({ onboarding_item_id: z.string().guid() });
 const aiReschedule = reschedule.extend({ onboarding_checklist_id: checklistId });
 const aiComplete = z.object({ onboarding_checklist_id: checklistId });
 

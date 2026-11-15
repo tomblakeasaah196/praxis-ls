@@ -15,18 +15,18 @@ const KIND = ["leave", "salary_advance", "mission"];
  * the service refuses a backwards range with the field named.
  */
 const create = z.object({
-  employee_id: z.string().uuid(),
+  employee_id: z.string().guid(),
   kind: z.enum(KIND).default("leave"),
   // Which entitlement this draws on. Omitted for a salary advance or a mission,
   // and defaulted to ANNUAL by the service for a leave request that omits it.
-  leave_type_id: z.string().uuid().optional(),
+  leave_type_id: z.string().guid().optional(),
   starts_on: d.optional(),
   ends_on: d.optional(),
   half_day_start: z.boolean().optional(),
   half_day_end: z.boolean().optional(),
   reason: z.string().max(2000).optional(),
   // The sick note, for types with requires_document.
-  document_vault_id: z.string().uuid().optional(),
+  document_vault_id: z.string().guid().optional(),
   amount: z.number().nonnegative().optional(), // salary advance -> 4211 (posting deferred)
   status: z.enum(["REQUESTED", "APPROVED", "REJECTED", "CANCELLED", "TAKEN"]).optional(),
 });
@@ -61,8 +61,8 @@ const holiday = z.object({
 /** A correction to someone's balance. Signed — a negative figure takes days
  *  away — and the reason is required by the service, not merely encouraged. */
 const adjust = z.object({
-  employee_id: z.string().uuid(),
-  leave_type_id: z.string().uuid(),
+  employee_id: z.string().guid(),
+  leave_type_id: z.string().guid(),
   days: z.number().refine((n) => n !== 0, "An adjustment of zero days changes nothing"),
   note: z.string().min(1).max(500),
   period_year: z.number().int().min(2000).max(2200).optional(),
@@ -75,8 +75,8 @@ const mineCreate = create.omit({ employee_id: true });
 const update = create.partial();
 const leaveTypeUpdate = leaveType.partial().omit({ code: true });
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ leave_request_id: z.string().uuid() });
-const aiDecision = decision.extend({ leave_request_id: z.string().uuid() });
+const aiUpdate = update.extend({ leave_request_id: z.string().guid() });
+const aiDecision = decision.extend({ leave_request_id: z.string().guid() });
 const schemas = { create, mineCreate, update, decision, leaveType, leaveTypeUpdate, holiday, adjust, aiUpdate, aiDecision };
 
 const mw = (k) => (req, _res, next) => {

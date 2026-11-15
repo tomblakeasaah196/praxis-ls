@@ -70,7 +70,7 @@ function chromium() {
 }
 
 async function main() {
-  const puppeteer = require("puppeteer");
+  const { chromium: engine } = require("playwright-core");
   const docType = process.env.DOC || "TRANSIT_ORDER";
   const tpl = registry.get(docType);
   if (!tpl) throw new Error(`no template '${docType}'`);
@@ -80,11 +80,11 @@ async function main() {
   const verify = { url, code: "A4B7K92MXQ1P", qrSvg: await qr.svg(url, { sizeMm: 20 }) };
   const sealQr = await qr.svg(url, { sizeMm: 22 });
 
-  const browser = await puppeteer.launch({ executablePath: chromium(), args: ["--no-sandbox", "--disable-gpu"] });
+  const browser = await engine.launch({ executablePath: chromium(), args: ["--no-sandbox", "--disable-gpu"] });
   const page = await browser.newPage();
   // print, not screen: the sheet's own media rules and the page box only apply
   // in print, and measuring the screen render is measuring a different document.
-  await page.emulateMediaType("print");
+  await page.emulateMedia({ media: "print" });
 
   const cases = (process.env.CASES || "1,2,3,5,8,12,20,30,40,60").split(",").map(Number).sort((a, b) => a - b);
   // The FIRST case that spills, not the last — the ceiling is where it starts.

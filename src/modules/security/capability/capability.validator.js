@@ -5,7 +5,7 @@ const { passthrough } = require("../../../shared/http/validate");
 
 // Assignment body: a plain list of capability_ids (blanket authority). An empty
 // array is valid — it clears the user's blanket capabilities.
-const setForUser = z.object({ capability_ids: z.array(z.string().uuid()) });
+const setForUser = z.object({ capability_ids: z.array(z.string().guid()) });
 
 const mw = (schema) => (req, _res, next) => {
   const p = schema.safeParse(req.body);

@@ -79,16 +79,16 @@ const profileFields = {
   meta_title_en: z.string().trim().max(META_TITLE_MAX).nullable().optional(),
   meta_description_fr: z.string().trim().max(META_DESCRIPTION_MAX).nullable().optional(),
   meta_description_en: z.string().trim().max(META_DESCRIPTION_MAX).nullable().optional(),
-  cover_vault_id: z.string().uuid().nullable().optional(),
-  icon_vault_id: z.string().uuid().nullable().optional(),
-  gallery_vault_ids: z.array(z.string().uuid()).max(GALLERY_MAX).optional(),
+  cover_vault_id: z.string().guid().nullable().optional(),
+  icon_vault_id: z.string().guid().nullable().optional(),
+  gallery_vault_ids: z.array(z.string().guid()).max(GALLERY_MAX).optional(),
   video_url: VIDEO_URL.nullable().optional(),
   sort_order: z.number().int().min(0).max(10000).optional(),
   // 12755 — the pillar, the closing claim, and the brand token that tints the
   // card. `group_id` is nullable on purpose: clearing it returns the service to
   // the trailing unnamed group, which still renders. `accent` mirrors the CHECK
   // on the column; a hex here would bake one tenant's palette into the data.
-  group_id: z.string().uuid().nullable().optional(),
+  group_id: z.string().guid().nullable().optional(),
   claim_fr: z.string().trim().max(CLAIM_MAX).nullable().optional(),
   claim_en: z.string().trim().max(CLAIM_MAX).nullable().optional(),
   accent: z.enum(["PRIMARY", "ACCENT", "SUCCESS"]).optional(),
@@ -112,7 +112,7 @@ const replaceFaq = z.object({
     .max(FAQ_MAX),
 }).strict();
 const replaceRelated = z.object({
-  related_service_type_ids: z.array(z.string().uuid()).max(50),
+  related_service_type_ids: z.array(z.string().guid()).max(50),
 }).strict().refine(
   (v) => new Set(v.related_service_type_ids).size === v.related_service_type_ids.length,
   { message: "duplicate related service ids are not allowed", path: ["related_service_type_ids"] },

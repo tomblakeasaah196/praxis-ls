@@ -46,9 +46,9 @@ const base = {
   meta_title_en: text(200),
   meta_description_fr: text(320),
   meta_description_en: text(320),
-  cover_vault_id: z.string().uuid().optional().nullable(),
+  cover_vault_id: z.string().guid().optional().nullable(),
   tags,
-  author_user_id: z.string().uuid().optional().nullable(),
+  author_user_id: z.string().guid().optional().nullable(),
   sort_order: z.coerce.number().int().min(0).max(100000).optional(),
   /* 13784. An enum rather than free text, and the list comes from
      `insight.kinds` rather than being retyped here — `ck_insight_kind` is the
@@ -76,7 +76,7 @@ const cover = z.object({
  *  display order. The service ignores any id that was not already the
  *  article's, so this cannot bind a foreign document to a public page. */
 const gallery = z.object({
-  ids: z.array(z.string().uuid()).max(12),
+  ids: z.array(z.string().guid()).max(12),
 }).strict();
 
 const schemas = {
