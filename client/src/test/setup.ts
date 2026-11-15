@@ -7,6 +7,8 @@
  * only permanently fixed if a regression fails the build.
  */
 import "@testing-library/jest-dom/vitest";
+// The wording the forms show for a failed schema (packages/shared/zod-messages.js).
+import "@praxis/shared/zod-messages";
 import { expect, afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { toHaveNoViolations } from "jest-axe";

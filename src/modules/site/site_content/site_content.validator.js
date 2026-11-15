@@ -64,7 +64,7 @@ const updateBlock = z.object({
 });
 
 const reorderBlocks = z.object({
-  block_ids: z.array(z.string().uuid()).min(1).max(200),
+  block_ids: z.array(z.string().guid()).min(1).max(200),
 }).strict();
 
 const schemas = { createPage, updatePage, setPublished, createBlock, updateBlock, reorderBlocks };

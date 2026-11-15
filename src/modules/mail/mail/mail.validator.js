@@ -113,7 +113,8 @@ const EMAIL = z.string().email();
 
 /** One address, refused by name rather than by field. */
 const address = z.string().trim().max(320)
-  .refine((v) => EMAIL.safeParse(v).success, (v) => ({ message: `"${v}" is not an email address` }));
+  // Zod 4 takes `{ error }` where Zod 3 took a function returning `{ message }`; the issue carries the value.
+  .refine((v) => EMAIL.safeParse(v).success, { error: (iss) => `"${iss.input}" is not an email address` });
 
 /** A recipient list that has to hold real addresses — a send, not a draft. */
 const addressList = ({ min = 0, max = 100 } = {}) => z.preprocess(
@@ -272,14 +273,14 @@ const schemas = {
   // `send` keys in this object would have silently kept the last one, which is
   // the kind of thing that passes review and then rejects a real request.
   reply: z.object({
-    connectionId: z.string().uuid(),
+    connectionId: z.string().guid(),
     html: z.string().optional(),
     text: z.string().optional(),
   }),
   // AI copilot reply carries the target message id in the body (no route param).
   aiReply: z.object({
-    connectionId: z.string().uuid(),
-    inboundId: z.string().uuid(),
+    connectionId: z.string().guid(),
+    inboundId: z.string().guid(),
     html: z.string().optional(),
     text: z.string().optional(),
   }),
@@ -294,7 +295,7 @@ const schemas = {
     email_address: z.string().email(),
     display_name: z.string().trim().max(200).optional(),
     department: z.string().trim().max(120).nullable().optional(),
-    entity_id: z.string().uuid().nullable().optional(),
+    entity_id: z.string().guid().nullable().optional(),
     imap_host: z.string().trim().max(255).optional(),
     imap_port: z.coerce.number().int().min(1).max(65535).optional(),
     imap_secure: z.coerce.boolean().optional(),
@@ -323,7 +324,7 @@ const schemas = {
   // that silently produced a weaker or stronger grant than intended is exactly
   // the kind of access bug nobody notices until an audit.
   memberGrant: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.string().guid(),
     member_role: z.enum(["VIEWER", "AGENT", "MANAGER"]).default("AGENT"),
   }),
 
@@ -354,14 +355,14 @@ const schemas = {
   // the service because an unbounded id list is a request-size problem before it
   // is a business one.
   threadBulk: z.object({
-    ids: z.array(z.string().uuid()).min(1).max(500),
+    ids: z.array(z.string().guid()).min(1).max(500),
     // H-1: `delete` was absent from this list and from the whole module — there
     // was no deletion path anywhere, so Trash accumulated forever and §9.6's
     // "deletion of an archived message is blocked in the service layer" was
     // vacuous. The block is real now; see thread.service.remove.
     op: z.enum(["read", "unread", "star", "unstar", "move", "label", "unlabel", "delete"]),
     folder: z.enum(["INBOX", "SENT", "DRAFTS", "SPAM", "ARCHIVE", "TRASH"]).optional(),
-    label_id: z.string().uuid().optional(),
+    label_id: z.string().guid().optional(),
   }).refine((v) => v.op !== "move" || Boolean(v.folder), { message: "move needs a folder" })
     .refine((v) => !["label", "unlabel"].includes(v.op) || Boolean(v.label_id), { message: "label needs a label_id" }),
 
@@ -386,7 +387,7 @@ const schemas = {
   }),
 
   labelApply: z.object({
-    label_id: z.string().uuid(),
+    label_id: z.string().guid(),
     on: z.coerce.boolean().default(true),
   }),
 
@@ -414,10 +415,10 @@ const schemas = {
   }).passthrough(),
 
   draft: z.object({
-    email_draft_id: z.string().uuid().optional(),
-    email_connection_id: z.string().uuid().nullable().optional(),
-    email_thread_id: z.string().uuid().nullable().optional(),
-    reply_to_message_id: z.string().uuid().nullable().optional(),
+    email_draft_id: z.string().guid().optional(),
+    email_connection_id: z.string().guid().nullable().optional(),
+    email_thread_id: z.string().guid().nullable().optional(),
+    reply_to_message_id: z.string().guid().nullable().optional(),
     kind: z.enum(["NEW", "REPLY", "REPLY_ALL", "FORWARD"]).optional(),
     // Half an address is normal here — the field is being typed into — so these
     // only get the SHAPE parse: a string is split into a list, a cleared field
@@ -441,10 +442,10 @@ const schemas = {
    * from a mail server, phrased by the mail server.
    */
   send: z.object({
-    connectionId: z.string().uuid(),
-    email_draft_id: z.string().uuid().nullable().optional(),
-    email_thread_id: z.string().uuid().nullable().optional(),
-    reply_to_message_id: z.string().uuid().nullable().optional(),
+    connectionId: z.string().guid(),
+    email_draft_id: z.string().guid().nullable().optional(),
+    email_thread_id: z.string().guid().nullable().optional(),
+    reply_to_message_id: z.string().guid().nullable().optional(),
     to: addressList({ min: 1 }),
     // Optional, and `null` is one of the things "optional" has to mean: a Cc
     // row the operator opened and then cleared arrives as null from more than
@@ -500,7 +501,7 @@ const schemas = {
   // this schema runs; accepting data_url here would quietly restore the base64
   // transport and its 33% request inflation.
   attachmentUpload: z.object({
-    email_draft_id: z.string().uuid(),
+    email_draft_id: z.string().guid(),
     disposition: z.enum(["attachment", "inline"]).optional(),
     content_id: z.string().trim().max(128).nullable().optional(),
   }).strict(),
@@ -510,15 +511,15 @@ const schemas = {
     // the one or two keys it named in its manifest, and a strict schema here
     // would be a second definition of every command's signature, kept in a
     // different file from the command.
-    params: z.record(z.union([z.string().max(200), z.number()])).optional(),
+    params: z.record(z.string(), z.union([z.string().max(200), z.number()])).optional(),
     lang: z.enum(["en", "fr"]).optional(),
     entity_ref: z.string().trim().max(128).regex(/^[a-z_]+:[A-Za-z0-9-]+$/).nullable().optional(),
-    email_thread_id: z.string().uuid().nullable().optional(),
+    email_thread_id: z.string().guid().nullable().optional(),
   }).strict(),
 
   attachmentFromVault: z.object({
-    email_draft_id: z.string().uuid(),
-    vault_id: z.string().uuid(),
+    email_draft_id: z.string().guid(),
+    vault_id: z.string().guid(),
     filename: z.string().trim().max(255).nullable().optional(),
     disposition: z.enum(["attachment", "inline"]).optional(),
   }).strict(),
@@ -526,9 +527,9 @@ const schemas = {
   // Exactly one target. Enforced here as well as in the service so the API says
   // no before a half-formed binding reaches the database.
   sendPointBinding: z.object({
-    entity_id: z.string().uuid().nullable().optional(),
-    email_identity_id: z.string().uuid().nullable().optional(),
-    email_connection_id: z.string().uuid().nullable().optional(),
+    entity_id: z.string().guid().nullable().optional(),
+    email_identity_id: z.string().guid().nullable().optional(),
+    email_connection_id: z.string().guid().nullable().optional(),
   }).refine(
     (v) => Boolean(v.email_identity_id) !== Boolean(v.email_connection_id),
     { message: "Choose either a sender identity or a mailbox to send from — one, not both." },

@@ -37,8 +37,8 @@ const unit = z.object({
 
 const line = z.object({
   seq: z.number().int().optional(),
-  container_type_ref_id: z.string().uuid(),
-  load_mode_ref_id: z.string().uuid().nullable().optional(),
+  container_type_ref_id: z.string().guid(),
+  load_mode_ref_id: z.string().guid().nullable().optional(),
   // A quantity of zero is a line that should have been deleted; the cap is a
   // typo guard, not a business limit — no single file moves 1000 boxes.
   qty: z.number().int().positive().max(1000),

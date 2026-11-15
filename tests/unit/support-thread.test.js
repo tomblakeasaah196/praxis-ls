@@ -30,7 +30,7 @@ jest.mock("../../src/services/platform/db", () => {
   let seq = 0;
   // UUID-SHAPED, NOT `t_1`. Every id column here is `uuid DEFAULT
   // gen_random_uuid()`, and the API validators reject anything that is not a
-  // UUID — so an id this mock hands back has to survive `z.string().uuid()`
+  // UUID — so an id this mock hands back has to survive `z.string().guid()`
   // for a test to be able to send it through a real validated route. The
   // prefix letter is kept in the first block so a failure is still readable.
   const uid = (p) => {

@@ -2,7 +2,7 @@
 const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 const query = z.object({
-  entity_id: z.string().uuid().optional(),
+  entity_id: z.string().guid().optional(),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   period_code: z.string().regex(/^\d{4}(-\d{2})?$/).optional(),
@@ -17,7 +17,7 @@ const mw = (req, _res, next) => {
 const KINDS = ["TVA", "IS", "MIN_TAX", "WHT", "DSF", "CNPS", "DIPE", "PATENTE"];
 const bodySchemas = {
   file: z.object({
-    entity_id: z.string().uuid().optional(),
+    entity_id: z.string().guid().optional(),
     kind: z.enum(KINDS),
     period_code: z.string().regex(/^\d{4}(-\d{2})?$/),
     from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

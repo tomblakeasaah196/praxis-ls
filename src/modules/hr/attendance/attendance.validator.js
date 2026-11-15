@@ -6,10 +6,10 @@ const lat = z.number().min(-90).max(90);
 const lng = z.number().min(-180).max(180);
 
 const create = z.object({
-  employee_id: z.string().uuid().optional(),
+  employee_id: z.string().guid().optional(),
   clock_in_at: z.string().optional(),
   clock_out_at: z.string().optional(),
-  location: z.record(z.any()).optional(),
+  location: z.record(z.string(), z.any()).optional(),
 });
 
 /**
@@ -39,7 +39,7 @@ const deviceInfo = z.object({
 const tappedAt = z.string().datetime({ offset: true });
 
 const clockIn = z.object({
-  employee_id: z.string().uuid().optional(), // omitted = self (from the auth'd user)
+  employee_id: z.string().guid().optional(), // omitted = self (from the auth'd user)
   latitude: lat.optional(),
   longitude: lng.optional(),
   accuracy: z.number().nonnegative().optional(),
@@ -51,7 +51,7 @@ const clockIn = z.object({
   // 14403. Why the phone had no location at the tap, the phone's own id for
   // this punch (how a late reading finds it), and when the tap happened.
   location_error: z.enum(["denied", "os_off", "unavailable", "timeout", "unsupported"]).optional(),
-  client_ref: z.string().uuid().optional(),
+  client_ref: z.string().guid().optional(),
   tapped_at: tappedAt.optional(),
 });
 
@@ -61,8 +61,8 @@ const clockIn = z.object({
  */
 const attachFix = z
   .object({
-    client_ref: z.string().uuid().optional(),
-    attendance_id: z.string().uuid().optional(),
+    client_ref: z.string().guid().optional(),
+    attendance_id: z.string().guid().optional(),
     phase: z.enum(["in", "out"]).optional(),
     latitude: lat,
     longitude: lng,
@@ -90,7 +90,7 @@ const reviewDecision = z
   });
 
 const deviceRegister = z.object({
-  employee_id: z.string().uuid().optional(),
+  employee_id: z.string().guid().optional(),
   device: deviceInfo,
 });
 
@@ -104,8 +104,8 @@ const deviceUpdate = z.object({
 });
 
 const clockOut = z.object({
-  id: z.string().uuid().optional(), // omitted = the caller's open shift
-  employee_id: z.string().uuid().optional(),
+  id: z.string().guid().optional(), // omitted = the caller's open shift
+  employee_id: z.string().guid().optional(),
   latitude: lat.optional(),
   longitude: lng.optional(),
   tapped_at: tappedAt.optional(),
@@ -116,7 +116,7 @@ const workSite = z.object({
   latitude: lat,
   longitude: lng,
   radius_m: z.coerce.number().int().positive().max(50000).optional(),
-  entity_id: z.string().uuid().optional().nullable(),
+  entity_id: z.string().guid().optional().nullable(),
   is_active: z.boolean().optional(),
 });
 
@@ -174,7 +174,7 @@ const windowShape = (shape) =>
       { path: ["to"], message: "Ask for at most a year at a time." },
     );
 
-const dayWindow = windowShape({ employee_id: z.string().uuid().optional() });
+const dayWindow = windowShape({ employee_id: z.string().guid().optional() });
 
 /**
  * `employee_ids` off a query string.
@@ -195,7 +195,7 @@ const employeeIds = z
     if (v === undefined || v === null || v === "") return undefined;
     const list = Array.isArray(v) ? v : String(v).split(",");
     return list.map((x) => String(x).trim()).filter(Boolean);
-  }, z.array(z.string().uuid()).max(MAX_EMPLOYEE_IDS, `Compare at most ${MAX_EMPLOYEE_IDS} employees at a time.`))
+  }, z.array(z.string().guid()).max(MAX_EMPLOYEE_IDS, `Compare at most ${MAX_EMPLOYEE_IDS} employees at a time.`))
   .optional();
 
 /** Free text on the employee row (0490 keeps it as the display snapshot beside
@@ -205,7 +205,7 @@ const department = z.string().trim().min(1).max(120).optional();
 
 /** History + analytics: a window, a compare set, a department. */
 const analyticsWindow = windowShape({
-  employee_id: z.string().uuid().optional(),
+  employee_id: z.string().guid().optional(),
   employee_ids: employeeIds,
   department,
 });
@@ -217,7 +217,7 @@ const analyticsWindow = windowShape({
  * payroll asks for.
  */
 const exportWindow = windowShape({
-  employee_id: z.string().uuid().optional(),
+  employee_id: z.string().guid().optional(),
   employee_ids: employeeIds,
   department,
   format: z.enum(["csv", "xlsx"]).optional(),
@@ -278,7 +278,7 @@ const deviceRename = z.object({ label: z.string().trim().min(1).max(80) });
 const update = create.partial();
 const workSiteUpdate = workSite.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ attendance_id: z.string().uuid() });
+const aiUpdate = update.extend({ attendance_id: z.string().guid() });
 const schemas = { create, update, clockIn, clockOut, attachFix, reviewDecision, noBody, workSite, workSiteUpdate, placeSearch, deviceRegister, deviceUpdate, deviceRename, dayWindow, analyticsWindow, exportWindow, punchWindow, mapWindow, weeklyRun, justify, reconcileRun, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {

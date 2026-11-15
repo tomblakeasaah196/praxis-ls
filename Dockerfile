@@ -1,11 +1,13 @@
 FROM node:20-alpine AS base
 # chromium + shared libs/fonts: PDF rendering (invoices, reports, payslips) goes
-# through src/services/pdf.service.js (Puppeteer) from both the API process
+# through src/services/pdf.service.js (playwright-core) from both the API process
 # (runtime) and the BullMQ worker (report-processor.js), so both stages need a
-# working headless Chromium. Alpine's puppeteer-bundled Chromium download is
-# glibc-only and fails to launch on musl, so we install the distro package
-# instead and point Puppeteer at it (PUPPETEER_EXECUTABLE_PATH below) while
-# skipping its own download during `npm ci`. ttf-freefont gives PDF output
+# working headless Chromium. A downloaded Chromium is glibc-only and fails to
+# launch on musl, so we install the distro package instead and point the
+# renderer at it (PUPPETEER_EXECUTABLE_PATH below; the name is left over from
+# Puppeteer, which playwright-core replaced, so no deployed .env has to change).
+# playwright-core never downloads a browser, so there is nothing to skip during
+# `npm ci`. ttf-freefont gives PDF output
 # (e.g. the ₦ Naira sign in pdf.templates.js) broad glyph coverage.
 # postgresql16-client is PINNED TO THE SERVER MAJOR (docker-compose runs
 # pgvector/pgvector:pg16), not left as the floating `postgresql-client`.
@@ -28,9 +30,7 @@ RUN apk add --no-cache \
 # Alpine's chromium package installs the binary at /usr/bin/chromium (the legacy
 # /usr/bin/chromium-browser name no longer exists on current Alpine). pdf.service
 # also auto-detects the real path, so a mismatch here no longer breaks rendering.
-ENV PUPPETEER_SKIP_DOWNLOAD=true \
-    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 WORKDIR /app
 
 FROM base AS deps

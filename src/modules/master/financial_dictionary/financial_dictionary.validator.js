@@ -6,12 +6,12 @@ const rule = z.object({
   applies_context: z.enum(["sale", "purchase", "disbursement"]),
   debit_account: z.string().nullish(),
   credit_account: z.string().nullish(),
-  tax_code_id: z.string().uuid().nullish(),
+  tax_code_id: z.string().guid().nullish(),
   is_disbursement: z.boolean().optional(),
 });
 
 const tier = z.object({
-  service_type_id: z.string().uuid(),
+  service_type_id: z.string().guid(),
   service_key: z.string().nullish(),
   tier: z.enum(["BASIC", "ADVANCED", "FULL"]).default("BASIC"),
   sort_order: z.number().int().optional(),
@@ -33,7 +33,7 @@ const create = z.object({
   currency: z.string().length(3).optional(),
   // The family a client document prints this line under (14130). Validated
   // against the CLIENT_HEADING registry by the service.
-  client_heading_ref_id: z.string().uuid().nullish(),
+  client_heading_ref_id: z.string().guid().nullish(),
   shipping_line: z.string().nullish(),
   provider_kind: z.enum(["SHIPPING_LINE", "CUSTOMS_AUTHORITY", "PORT_TERMINAL", "OTHER"]).nullish(),
   proof_source: z.string().nullish(),
@@ -49,7 +49,7 @@ const create = z.object({
   // Where the posting came from when the AI suggested it (meeting 6, F3):
   // audit only — checked strictly against the shared package's
   // dictionaryPosting.provenance by the service, never stored on the line.
-  posting_suggestion: z.record(z.any()).nullish(),
+  posting_suggestion: z.record(z.string(), z.any()).nullish(),
 });
 
 // CONTAINER_TYPE and LOAD_MODE were seed-only kinds: the registry held them,
@@ -90,7 +90,7 @@ const refCreate = z.object({
   code: z.string().min(1).max(64),
   name_fr: z.string().min(1),
   name_en: z.string().nullish(),
-  extra: z.record(z.any()).optional(),
+  extra: z.record(z.string(), z.any()).optional(),
   sort_order: z.number().int().optional(),
 }).superRefine(requireContainerExtra);
 
@@ -102,7 +102,7 @@ const refCreate = z.object({
 const refUpdate = z.object({
   name_fr: z.string().min(1).optional(),
   name_en: z.string().nullish(),
-  extra: z.record(z.any()).optional(),
+  extra: z.record(z.string(), z.any()).optional(),
   sort_order: z.number().int().optional(),
   is_active: z.boolean().optional(),
 });
@@ -121,7 +121,7 @@ const searchQuery = z.object({
   q: z.string().min(1).max(80),
   limit: z.coerce.number().int().min(1).max(50).optional(),
   direction: z.enum(["REVENUE", "EXPENSE", "DISBURSEMENT", "ASSET"]).optional(),
-  service_type_id: z.string().uuid().optional(),
+  service_type_id: z.string().guid().optional(),
   include_inactive: z.enum(["true", "false"]).optional(),
   // "false" lists each fulfilment mode as its own row (the service-type
   // mapping); the default shows a service once with its siblings (F2).
@@ -140,7 +140,7 @@ const siblingsQuery = z.object({
 // "Lines to pair": link this line to another of the same service, or confirm
 // it stands alone. Exactly one of the two.
 const siblingLinkShape = z.object({
-  link_to: z.string().uuid().nullish(),
+  link_to: z.string().guid().nullish(),
   stands_alone: z.boolean().optional(),
 });
 const oneOfLinkOrAlone = [
@@ -148,13 +148,13 @@ const oneOfLinkOrAlone = [
   { message: "Send either link_to or stands_alone: true" },
 ];
 const siblingLink = siblingLinkShape.refine(...oneOfLinkOrAlone);
-const aiSiblingLink = siblingLinkShape.extend({ dictionary_item_id: z.string().uuid() }).refine(...oneOfLinkOrAlone);
+const aiSiblingLink = siblingLinkShape.extend({ dictionary_item_id: z.string().guid() }).refine(...oneOfLinkOrAlone);
 
 const spendQuery = z.object({
   from: day.optional(),
   to: day.optional(),
   // One operations file only (meeting 5). Absent = every file.
-  dossier_id: z.string().uuid().optional(),
+  dossier_id: z.string().guid().optional(),
   include_documents: z.enum(["true", "false"]).optional(),
 });
 
@@ -189,21 +189,21 @@ const importUpload = z.object({
 // normalised `data`, so a tampered or stale payload cannot bypass the rules.
 const importRow = z.object({
   row: z.number().int().optional(),
-  raw: z.record(z.any()),
-  data: z.record(z.any()).optional(),
+  raw: z.record(z.string(), z.any()),
+  data: z.record(z.string(), z.any()).optional(),
   reasons: z.array(z.string()).optional(),
   // The AI-suggested posting the person accepted in the preview (meeting 6,
   // F8). Re-checked against the tenant's accounts by the service.
   accept_posting: z
     .object({
       rules: z.array(rule).min(1).max(3),
-      provenance: z.record(z.any()).nullish(),
+      provenance: z.record(z.string(), z.any()).nullish(),
     })
     .nullish(),
 });
 const importCommit = z.object({ rows: z.array(importRow).min(1).max(2000) });
 const importErrors = z.object({
-  rows: z.array(z.object({ row: z.number().int().optional(), reasons: z.array(z.string()).default([]), raw: z.record(z.any()) })).min(1).max(2000),
+  rows: z.array(z.object({ row: z.number().int().optional(), reasons: z.array(z.string()).default([]), raw: z.record(z.string(), z.any()) })).min(1).max(2000),
 });
 
 // An item's price is its standard expense rate (14120), set through the rate
@@ -211,7 +211,7 @@ const importErrors = z.object({
 // form that still sends the field does not fail the whole save.
 const update = create.omit({ default_price: true }).partial();
 // AI-facing: the item is in the URL for HTTP, in the payload for the copilot.
-const aiUpdate = update.extend({ dictionary_item_id: z.string().uuid() });
+const aiUpdate = update.extend({ dictionary_item_id: z.string().guid() });
 const schemas = {
   create, update, aiUpdate, refCreate, refUpdate,
   searchQuery, spendQuery, spendDocsQuery, usageQuery, importUpload, importCommit, importErrors,

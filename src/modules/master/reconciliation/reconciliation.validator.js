@@ -11,7 +11,7 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 const { FIELD_ORDER } = require("./reconciliation.rules");
 
-const uuid = z.string().uuid();
+const uuid = z.string().guid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "expected YYYY-MM-DD");
 
 const upload = z.object({

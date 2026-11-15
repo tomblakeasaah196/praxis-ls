@@ -20,10 +20,16 @@ const { AppError } = require("../../../utils/errors");
 // relative require would satisfy Node while leaving the gate blind.
 const { siteSettings: shared } = require("@praxis/shared");
 
+/** Zod 4 refuses `.partial()` on an object that carries a `.refine()` (a cross-field
+ *  rule over the whole shape cannot survive a partial one), where Zod 3 wrapped it
+ *  in a ZodEffects that simply had no `.partial()`. Same outcome either way: a
+ *  refined schema is used as it stands. */
+const hasRefinements = (schema) => Boolean(schema && schema._zod && schema._zod.def.checks && schema._zod.def.checks.length);
+
 /** PATCH bodies are partial: a settings form sends the fields it changed. The
  *  shared schema describes a WHOLE resource, so `.partial()` derives the patch
  *  from it rather than a second hand-written shape drifting beside it. */
-const partial = (schema) => (schema._def.typeName === "ZodEffects" ? schema : schema.partial());
+const partial = (schema) => (hasRefinements(schema) ? schema : schema.partial());
 
 const schemas = {
   // `theme` is sent whole by its screen (it is one form of eight fields), so it

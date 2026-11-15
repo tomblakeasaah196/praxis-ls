@@ -3,28 +3,28 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const line = z.object({
-  dictionary_item_id: z.string().uuid().optional().nullable(),
+  dictionary_item_id: z.string().guid().optional().nullable(),
   label: z.string().min(1),
   amount: z.number().nonnegative(),
   is_disbursement: z.boolean().optional(),
   // A credit note writes into invoice_line, so it carries the same equipment
   // dimension (0663) — crediting "Port Charges" without saying which box is
   // the reconciliation problem the column exists to solve, one document later.
-  container_type_ref_id: z.string().uuid().nullish(),
+  container_type_ref_id: z.string().guid().nullish(),
 });
 
 const schemas = {
   create: z.object({
-    entity_id: z.string().uuid(),
-    client_id: z.string().uuid().optional().nullable(),
-    dossier_id: z.string().uuid().optional().nullable(),
-    reverses_invoice_id: z.string().uuid().optional().nullable(),
+    entity_id: z.string().guid(),
+    client_id: z.string().guid().optional().nullable(),
+    dossier_id: z.string().guid().optional().nullable(),
+    reverses_invoice_id: z.string().guid().optional().nullable(),
     lines: z.array(line).optional(),
   }),
   update: z.object({
-    client_id: z.string().uuid().optional().nullable(),
-    dossier_id: z.string().uuid().optional().nullable(),
-    reverses_invoice_id: z.string().uuid().optional().nullable(),
+    client_id: z.string().guid().optional().nullable(),
+    dossier_id: z.string().guid().optional().nullable(),
+    reverses_invoice_id: z.string().guid().optional().nullable(),
     lines: z.array(line).optional(),
   }),
   post: z.object({
@@ -34,8 +34,8 @@ const schemas = {
 };
 // AI-facing: the note is in the URL for the HTTP routes, but a copilot call has
 // no URL — it passes one flat object, so the id must be IN the schema.
-schemas.aiUpdate = schemas.update.extend({ credit_note_id: z.string().uuid() });
-schemas.aiPost = schemas.post.extend({ credit_note_id: z.string().uuid() });
+schemas.aiUpdate = schemas.update.extend({ credit_note_id: z.string().guid() });
+schemas.aiPost = schemas.post.extend({ credit_note_id: z.string().guid() });
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body ?? {});
   if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors));

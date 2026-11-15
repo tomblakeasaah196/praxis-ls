@@ -7,7 +7,7 @@ const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
 const create = z.object({
   title: z.string().min(1),
   category: z.string().optional(),
-  vault_id: z.string().uuid().optional(),
+  vault_id: z.string().guid().optional(),
   version_no: z.number().int().positive().optional(),
   is_active: z.boolean().optional(),
   // 0704 — an SOP with a document in it. `body_md` is the source of truth; the
@@ -64,7 +64,7 @@ const ruleShape = {
   query_due_days: z.number().int().min(0).max(30).optional(),
   // The clause this enforces — nullable, because a tenant may configure the
   // rule before writing the document.
-  sop_document_id: z.string().uuid().optional().nullable(),
+  sop_document_id: z.string().guid().optional().nullable(),
   is_active: z.boolean().optional(),
 };
 
@@ -84,7 +84,7 @@ const ruleUpdate = withValueCheck(z.object(ruleShape).partial());
 
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ sop_document_id: z.string().uuid() });
+const aiUpdate = update.extend({ sop_document_id: z.string().guid() });
 const schemas = { create, update, draft, rule, ruleUpdate, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {

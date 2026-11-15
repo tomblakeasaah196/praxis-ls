@@ -3,8 +3,8 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  vehicle_id: z.string().uuid().optional(),
-  driver_employee_id: z.string().uuid().optional(),
+  vehicle_id: z.string().guid().optional(),
+  driver_employee_id: z.string().guid().optional(),
   occurred_at: z.string().optional(),
   description: z.string().optional(),
   severity: z.enum(["MINOR", "MAJOR", "TOTAL"]).optional(),
@@ -12,8 +12,8 @@ const create = z.object({
 const status = z.object({ status: z.enum(["OPEN", "UNDER_REVIEW", "CLOSED"]) });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ fleet_incident_id: z.string().uuid() });
-const aiStatus = status.extend({ fleet_incident_id: z.string().uuid() });
+const aiUpdate = update.extend({ fleet_incident_id: z.string().guid() });
+const aiStatus = status.extend({ fleet_incident_id: z.string().guid() });
 const schemas = { create, update, status, aiUpdate, aiStatus };
 
 const mw = (k) => (req, _res, next) => {

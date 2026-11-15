@@ -217,7 +217,7 @@ const about = z.object({
  * entire two-tier mechanism — see 13786.
  */
 const leader = z.object({
-  entity_id: z.string().uuid().nullable().optional(),
+  entity_id: z.string().guid().nullable().optional(),
   full_name: z.string().trim().min(1).max(TITLE),
   role_fr: text(TITLE),
   role_en: text(TITLE),
@@ -408,7 +408,7 @@ const SITE_MEDIA_PROVENANCE = ["owned", "licensed", "generated"];
 const siteMediaUpload = z
   .object({
     slot: z.enum(SITE_MEDIA_SLOT_IDS),
-    owner_id: z.string().uuid(),
+    owner_id: z.string().guid(),
     provenance: z.enum(SITE_MEDIA_PROVENANCE),
     data_url: z.string().min(1).max(14_000_000),
     original_name: z.string().trim().max(200).optional(),

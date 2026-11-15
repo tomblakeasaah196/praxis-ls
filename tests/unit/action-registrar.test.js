@@ -54,7 +54,7 @@ describe("AI action registrar", () => {
 
   test("zodToJsonSchema derives top-level shape + required", () => {
     const schema = z.object({
-      entity_id: z.string().uuid(),
+      entity_id: z.string().guid(),
       amount: z.number().positive(),
       note: z.string().optional(),
       kind: z.enum(["A", "B"]),

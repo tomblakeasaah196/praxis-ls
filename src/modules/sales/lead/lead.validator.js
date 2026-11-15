@@ -15,7 +15,7 @@ const CLIENT_TYPE = ["SHIPPER", "CONSIGNEE", "BOTH", "CARRIER", "AGENT"];
 
 const schemas = {
   create: z.object({
-    entity_id: z.string().uuid().optional().nullable(),
+    entity_id: z.string().guid().optional().nullable(),
     company_name: z.string().min(1),
     contact_name: z.string().optional(),
     email: z.string().email().optional(),
@@ -29,12 +29,12 @@ const schemas = {
     service_interest: z.string().optional(),
     client_type_hint: z.enum(CLIENT_TYPE).optional().nullable(),
     payment_terms_days: z.number().int().min(0).max(365).optional().nullable(),
-    owner_user_id: z.string().uuid().optional().nullable(),
-    details: z.record(z.any()).optional(),
+    owner_user_id: z.string().guid().optional().nullable(),
+    details: z.record(z.string(), z.any()).optional(),
   }),
 
   update: z.object({
-    entity_id: z.string().uuid().optional().nullable(),
+    entity_id: z.string().guid().optional().nullable(),
     company_name: z.string().optional(),
     contact_name: z.string().optional(),
     email: z.string().email().optional(),
@@ -48,7 +48,7 @@ const schemas = {
     service_interest: z.string().optional(),
     client_type_hint: z.enum(CLIENT_TYPE).optional().nullable(),
     payment_terms_days: z.number().int().min(0).max(365).optional().nullable(),
-    owner_user_id: z.string().uuid().optional().nullable(),
+    owner_user_id: z.string().guid().optional().nullable(),
   }),
 
   transition: z.object({ to: z.enum(["CONTACTED", "QUALIFIED", "LOST"]) }),
@@ -62,7 +62,7 @@ const schemas = {
    */
   convert: z.object({
     client: z.object({
-      entity_id: z.string().uuid().optional().nullable(),
+      entity_id: z.string().guid().optional().nullable(),
       name: z.string().min(1).optional(),
       legal_name: z.string().optional(),
       contact_name: z.string().optional(),
@@ -79,9 +79,9 @@ const schemas = {
 
   // AI-facing variants carry lead_id in the payload (REST gets it from the URL).
   // `lead_id` resolves to a list_leads picker in the copilot form.
-  aiTransition: z.object({ lead_id: z.string().uuid(), to: z.enum(["CONTACTED", "QUALIFIED", "LOST"]) }),
-  aiConvert: z.object({ lead_id: z.string().uuid(), client: z.object({
-    entity_id: z.string().uuid().optional().nullable(),
+  aiTransition: z.object({ lead_id: z.string().guid(), to: z.enum(["CONTACTED", "QUALIFIED", "LOST"]) }),
+  aiConvert: z.object({ lead_id: z.string().guid(), client: z.object({
+    entity_id: z.string().guid().optional().nullable(),
     name: z.string().min(1).optional(),
     legal_name: z.string().optional(),
     contact_name: z.string().optional(),

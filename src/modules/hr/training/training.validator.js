@@ -20,8 +20,8 @@ const create = z.object({
   join_url: z.string().url().max(1000).optional().nullable(),
   capacity: z.number().int().positive().max(10000).optional().nullable(),
   facilitator: z.string().max(200).optional().nullable(),
-  facilitator_employee_id: z.string().uuid().optional().nullable(),
-  training_requirement_id: z.string().uuid().optional().nullable(),
+  facilitator_employee_id: z.string().guid().optional().nullable(),
+  training_requirement_id: z.string().guid().optional().nullable(),
   status: z.enum(["SCHEDULED", "LIVE", "DONE", "CANCELLED"]).optional(),
 });
 
@@ -33,15 +33,15 @@ const status = z.object({ status: z.enum(["SCHEDULED", "LIVE", "DONE", "CANCELLE
 // schema below keeps it optional, because a PATCH that only ticks `attended`
 // must not have to resend it.
 const attendee = z.object({
-  employee_id: z.string().uuid(),
+  employee_id: z.string().guid(),
   attended: z.boolean().optional(),
-  certificate_vault_id: z.string().uuid().optional().nullable(),
+  certificate_vault_id: z.string().guid().optional().nullable(),
   certificate_issued_on: ymd.optional().nullable(),
   certificate_expires_on: ymd.optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
 });
 
-const presence = z.object({ employee_id: z.string().uuid() });
+const presence = z.object({ employee_id: z.string().guid() });
 
 const note = z.object({
   body: z.string().min(1).max(20000),
@@ -74,10 +74,10 @@ const update = create.partial();
 const attendeeUpdate = attendee.partial();
 const requirementUpdate = requirement.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ training_id: z.string().uuid() });
-const aiStatus = status.extend({ training_id: z.string().uuid() });
-const aiAttendee = attendee.extend({ training_id: z.string().uuid() });
-const aiAttendeeUpdate = attendeeUpdate.extend({ training_id: z.string().uuid(), training_attendance_id: z.string().uuid() });
+const aiUpdate = update.extend({ training_id: z.string().guid() });
+const aiStatus = status.extend({ training_id: z.string().guid() });
+const aiAttendee = attendee.extend({ training_id: z.string().guid() });
+const aiAttendeeUpdate = attendeeUpdate.extend({ training_id: z.string().guid(), training_attendance_id: z.string().guid() });
 const schemas = { create, update, status, attendee, attendeeUpdate, presence, note, dictate, requirement, requirementUpdate, aiUpdate, aiStatus, aiAttendee, aiAttendeeUpdate };
 
 const mw = (k) => (req, _res, next) => {

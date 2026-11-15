@@ -84,7 +84,7 @@ async function diagnose(client, { userId, write = false } = {}) {
   const chromium = chromiumReport();
   steps.push(chromium.resolved
     ? ok("chromium_found", { path: chromium.resolved })
-    : bad("chromium_found", "no Chromium executable found — Puppeteer will try its own download, which the image does not ship", chromium));
+    : bad("chromium_found", "no Chromium executable found — the renderer (playwright-core) will look for a Playwright-installed browser, which the image does not ship", chromium));
 
   // 4. Fonts. A missing face degrades rather than fails, so this is a warning
   //    the report carries rather than a step that can stop the chain.

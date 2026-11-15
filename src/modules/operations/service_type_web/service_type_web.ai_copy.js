@@ -138,7 +138,9 @@ const aiCopySchema = z
       // know is a caller that thinks it is asking for something, and dropping
       // it silently means the draft comes back in a tone nobody chose.
       .strict()
-      .default({}),
+      // `prefault`, not `default`: Zod 4's `default` returns its value as-is and never
+      // parses it, so `{}` would arrive without the five axis defaults above.
+      .prefault({}),
     /** Anything the author wants to say to the model in their own words. */
     instructions: z.string().trim().max(2000).optional(),
   })

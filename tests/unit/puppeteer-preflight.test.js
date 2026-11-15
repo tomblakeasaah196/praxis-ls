@@ -5,7 +5,7 @@ const {
   checkPuppeteer,
 } = require("../../scripts/ops/puppeteer-preflight");
 
-function fakePuppeteer({
+function fakeEngine({
   pdf = Buffer.from("%PDF-1.7 test"),
   fail = null,
 } = {}) {
@@ -33,7 +33,7 @@ function fakePuppeteer({
   };
 }
 
-describe("Puppeteer deployment preflight", () => {
+describe("PDF renderer deployment preflight (playwright-core)", () => {
   test("prefers the configured executable when it exists", () => {
     const found = resolveExecutablePath({
       env: { PUPPETEER_EXECUTABLE_PATH: "/custom/chrome" },
@@ -51,20 +51,20 @@ describe("Puppeteer deployment preflight", () => {
   });
 
   test("launches Chromium and proves the rendered bytes are a PDF", async () => {
-    const engine = fakePuppeteer();
+    const engine = fakeEngine();
     const result = await checkPuppeteer({
-      puppeteer: engine,
+      engine,
       executablePath: "/usr/bin/chromium",
     });
 
     expect(engine.launch).toHaveBeenCalledWith({
       executablePath: "/usr/bin/chromium",
-      headless: "new",
+      headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     expect(engine.page.setContent).toHaveBeenCalledWith(
       expect.stringContaining("Praxis PDF preflight"),
-      { waitUntil: "networkidle0" },
+      { waitUntil: "networkidle" },
     );
     expect(engine.page.pdf).toHaveBeenCalledWith({
       format: "A4",
@@ -82,7 +82,7 @@ describe("Puppeteer deployment preflight", () => {
   test("fails clearly before launch when no browser executable exists", async () => {
     await expect(
       checkPuppeteer({
-        puppeteer: fakePuppeteer(),
+        engine: fakeEngine(),
         existsSync: () => false,
         env: {},
       }),
@@ -90,10 +90,10 @@ describe("Puppeteer deployment preflight", () => {
   });
 
   test("rejects non-PDF output and still closes the browser", async () => {
-    const engine = fakePuppeteer({ pdf: Buffer.from("not a pdf") });
+    const engine = fakeEngine({ pdf: Buffer.from("not a pdf") });
     await expect(
       checkPuppeteer({
-        puppeteer: engine,
+        engine,
         executablePath: "/usr/bin/chromium",
       }),
     ).rejects.toThrow(/valid PDF/);
@@ -101,10 +101,10 @@ describe("Puppeteer deployment preflight", () => {
   });
 
   test("closes Chromium when rendering fails", async () => {
-    const engine = fakePuppeteer({ fail: "pdf" });
+    const engine = fakeEngine({ fail: "pdf" });
     await expect(
       checkPuppeteer({
-        puppeteer: engine,
+        engine,
         executablePath: "/usr/bin/chromium",
       }),
     ).rejects.toThrow(/pdf failed/);

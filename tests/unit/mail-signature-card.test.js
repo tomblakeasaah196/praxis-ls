@@ -223,7 +223,7 @@ describe("palette — pointing a role at another brand colour", () => {
    */
   test("the wire schema accepts exactly the brand colours the palette knows", () => {
     const { schemas } = require("../../src/modules/mail/signature/signature.validator");
-    const accepted = schemas.palette.innerType().shape.ink.unwrap().unwrap().options;
+    const accepted = schemas.palette.shape.ink.unwrap().unwrap().options;
     expect([...accepted].sort()).toEqual([...palette.BRAND_KEYS].sort());
   });
 

@@ -42,7 +42,6 @@ const pkg = require("../../package.json");
 const REQUIRED = [
   ["pdfjs-dist", "renders page 1 of a returned PDF to a canvas (§8.4 step 1)"],
   ["@napi-rs/canvas", "the canvas backend pdfjs draws into under Node"],
-  ["canvas", "pdfjs resolves its backend by this bare name; package.json aliases it to @napi-rs/canvas"],
 ];
 
 describe("the PDF raster stack ships in production", () => {
@@ -54,12 +53,12 @@ describe("the PDF raster stack ships in production", () => {
     expect(Object.keys(pkg.devDependencies || {})).not.toContain(name);
   });
 
-  test("the canvas alias points at the napi build, not the native one", () => {
-    // `canvas` proper needs a C++ toolchain and system Cairo at install time;
-    // @napi-rs/canvas ships prebuilt binaries. The alias is what lets pdfjs
-    // find a backend by its expected name without that build step, and
-    // dropping it turns every PDF scan into PDF_RASTERIZE_FAILED.
-    expect(pkg.dependencies.canvas).toMatch(/^npm:@napi-rs\/canvas@/);
+  test("there is no `canvas` package: pdfjs-dist 4 reaches @napi-rs/canvas by its own name", () => {
+    // pdfjs-dist 3 resolved its backend by the bare name `canvas`, so package.json aliased `canvas` to
+    // @napi-rs/canvas, and pdfjs still installed its own nested native `canvas` (and the vulnerable
+    // node-tar behind it) next to the alias. pdfjs-dist 4 asks for @napi-rs/canvas directly, the alias
+    // is gone, and a `canvas` entry coming back would bring that native build and its tar chain with it.
+    expect(Object.keys(pkg.dependencies)).not.toContain("canvas");
   });
 
   test.each(REQUIRED)("%s resolves", (name) => {
@@ -68,12 +67,12 @@ describe("the PDF raster stack ships in production", () => {
     expect(() => require.resolve(name)).not.toThrow();
   });
 
-  test("the exact entry point rasterisePdf requires is resolvable", () => {
-    // Not the package root. `pdfjs-dist/legacy/build/pdf.js` is the CommonJS
-    // legacy build; the package's modern ESM entry does not load under our
-    // require(), and a major-version bump that drops the legacy path would
-    // leave the root resolving perfectly while decode fails on every scan.
-    const entry = "pdfjs-dist/legacy/build/pdf.js";
+  test("the exact entry point rasterisePdf imports is resolvable", () => {
+    // Not the package root. `pdfjs-dist/legacy/build/pdf.mjs` is the build that runs on the Node versions
+    // we support (the modern build needs newer syntax), and it is ESM only, so it is loaded with a dynamic
+    // import. A major-version bump that drops the legacy path would leave the root resolving perfectly
+    // while decode fails on every scan.
+    const entry = "pdfjs-dist/legacy/build/pdf.mjs";
     expect(() => require.resolve(entry)).not.toThrow();
     expect(path.isAbsolute(require.resolve(entry))).toBe(true);
   });
@@ -85,7 +84,7 @@ describe("the PDF raster stack ships in production", () => {
     const fs = require("fs");
     const src = fs.readFileSync(require.resolve("../../src/services/signatures/barcode.js"), "utf8");
     const builtins = new Set(require("module").builtinModules);
-    const required = [...src.matchAll(/require\(["']([^"']+)["']\)/g)].map((m) => m[1]);
+    const required = [...src.matchAll(/(?:require\(|import\()["']([^"']+)["']\)/g)].map((m) => m[1]);
     const external = required.filter((r) => !r.startsWith(".") && !builtins.has(r.replace(/^node:/, "")));
 
     for (const r of external) {
@@ -94,6 +93,6 @@ describe("the PDF raster stack ships in production", () => {
       const root = r.startsWith("@") ? r.split("/").slice(0, 2).join("/") : r.split("/")[0];
       expect(Object.keys(pkg.dependencies)).toContain(root);
     }
-    expect(external).toEqual(expect.arrayContaining(["pdfjs-dist/legacy/build/pdf.js", "@napi-rs/canvas"]));
+    expect(external).toEqual(expect.arrayContaining(["pdfjs-dist/legacy/build/pdf.mjs", "@napi-rs/canvas"]));
   });
 });

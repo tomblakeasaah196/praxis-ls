@@ -14,7 +14,7 @@ const { AppError } = require("../../../utils/errors");
 const KINDS = ["SUPPORT", "BUG", "FEATURE", "BILLING", "SECURITY", "DATA", "COMMS", "URGENT", "REQUEST"];
 
 const attachmentIds = z
-  .array(z.string().uuid())
+  .array(z.string().guid())
   .max(5)
   .optional()
   .default([]);
@@ -25,7 +25,7 @@ const schemas = {
     title: z.string().trim().min(3).max(200),
     body: z.string().trim().max(5000).optional().default(""),
     // Free-form UI breadcrumb (hub/area/page/action/screenshot ref).
-    context: z.record(z.any()).optional().default({}),
+    context: z.record(z.string(), z.any()).optional().default({}),
     // Pre-uploaded screenshot ids (POST /support/attachments) — linked, not
     // moved: the upload already happened on its own request.
     attachment_ids: attachmentIds,

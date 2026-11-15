@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 /**
- * Deployment preflight for Puppeteer + Chromium.
+ * Deployment preflight for the PDF renderer (playwright-core) + Chromium.
  *
- * The Docker image owns installation: package.json installs Puppeteer and the
- * Dockerfile installs Alpine's system Chromium at /usr/bin/chromium. This check
- * proves the resulting image can do the real job before migrations or a rollout:
- * require Puppeteer, launch Chromium, render HTML, and receive PDF bytes.
+ * The file and its compose service keep their Puppeteer-era names so nothing
+ * that calls them has to change; the engine underneath is playwright-core.
+ *
+ * The Docker image owns installation: package.json installs playwright-core and
+ * the Dockerfile installs Alpine's system Chromium at /usr/bin/chromium. This
+ * check proves the resulting image can do the real job before migrations or a
+ * rollout: require the engine, launch Chromium, render HTML, and receive PDF
+ * bytes.
  *
  * It deliberately does not install packages at container startup. Runtime
  * containers run as the unprivileged `node` user and are immutable; installing
@@ -52,7 +56,7 @@ function resolveExecutablePath({
 }
 
 async function checkPuppeteer({
-  puppeteer = null,
+  engine: injectedEngine = null,
   executablePath = null,
   existsSync = fs.existsSync,
   env = process.env,
@@ -66,18 +70,18 @@ async function checkPuppeteer({
 
   // Kept inside the function so a missing npm package produces a preflight
   // failure, while unit tests can inject a lightweight fake browser.
-  const engine = puppeteer || require("puppeteer");
+  const engine = injectedEngine || require("playwright-core").chromium;
   let browser = null;
   try {
     browser = await engine.launch({
       executablePath: browserPath,
-      headless: "new",
+      headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     const page = await browser.newPage();
     await page.setContent(
       "<!doctype html><html><head><meta charset=\"utf-8\"></head><body><h1>Praxis PDF preflight</h1></body></html>",
-      { waitUntil: "networkidle0" },
+      { waitUntil: "networkidle" },
     );
     const pdf = Buffer.from(await page.pdf({ format: "A4", printBackground: true }));
     if (pdf.length < 5 || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {

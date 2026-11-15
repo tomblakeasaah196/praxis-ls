@@ -112,20 +112,19 @@ function serve(dir) {
 }
 
 async function shoot() {
-  const puppeteer = require("puppeteer");
+  const { chromium } = require("playwright-core");
   const { server, port } = await serve(DIST);
-  const browser = await puppeteer.launch({
+  const browser = await chromium.launch({
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
   try {
-    const page = await browser.newPage();
-    await page.setViewport({ width, height: 1200, deviceScaleFactor: dpr });
-    await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: "networkidle0" });
+    const page = await browser.newPage({ viewport: { width, height: 1200 }, deviceScaleFactor: dpr });
+    await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: "networkidle" });
     // The page fetches through a stubbed client, so "networkidle" says nothing
     // about whether React has painted the resolved states. Wait for the thing
     // that only exists once the scenes have rendered their verdicts.
-    await page.waitForFunction(() => document.querySelectorAll("dl").length >= 4, { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelectorAll("dl").length >= 4, undefined, { timeout: 15000 });
 
     /*
      * ONE FILE PER SCENE, not one tall strip.
@@ -147,7 +146,7 @@ async function shoot() {
     // The dark theme is not decoration: the viewer's OS decides it, and a page
     // that reads as authoritative in light and washed out in dark has failed
     // for half its readers. One representative scene is enough to see that.
-    await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
+    await page.emulateMedia({ colorScheme: "dark" });
     await page.evaluate(() => document.documentElement.classList.add("dark"));
     const dark = await page.$("[data-scene='valid']");
     if (dark) {

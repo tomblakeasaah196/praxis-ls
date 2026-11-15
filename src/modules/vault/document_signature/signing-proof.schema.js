@@ -16,7 +16,7 @@ const signingProofSchema = z.union([
     passkey: z.object({
       // The browser's PublicKeyCredential, serialised (lib/webauthn.ts
       // fromCredential). Verified field by field by SimpleWebAuthn.
-      assertion: z.record(z.unknown()),
+      assertion: z.record(z.string(), z.unknown()),
       challenge_token: z.string().min(10).max(4000),
     }).strict(),
   }).strict(),

@@ -10,7 +10,7 @@ const { z } = require("zod");
 const timezones = require("../data/timezones");
 
 /** A UUID primary key. */
-const uuid = z.string().uuid("Must be a valid id.");
+const uuid = z.string().guid("Must be a valid id.");
 
 /**
  * Calendar date, `YYYY-MM-DD`. The wire format the API uses everywhere.
@@ -41,8 +41,10 @@ const isoDate = z
  */
 const requiredString = (label = "This field") =>
   z.string({
-    required_error: `${label} is required.`,
-    invalid_type_error: `${label} is required.`,
+    // Zod 3 took `required_error` and `invalid_type_error`; Zod 4 has the one `error`, which
+    // sees every issue this constructor raises. Only the wrong-type ones (undefined, null, a
+    // number) say "is required"; a failed `.min()` etc. keeps its own words.
+    error: (iss) => (iss.code === "invalid_type" ? `${label} is required.` : undefined),
   });
 
 /**
@@ -63,8 +65,9 @@ const requiredText = (label = "This field") =>
  */
 const requiredEnum = (values, label = "This field") =>
   z.enum(values, {
-    required_error: `${label} is required.`,
-    invalid_type_error: `${label} is required.`,
+    // As requiredString: "is required" for a missing or wrong-typed value; a string that is simply
+    // not one of the members keeps the enum wording (which names the members).
+    error: (iss) => (iss.code === "invalid_type" ? `${label} is required.` : undefined),
   });
 
 /**

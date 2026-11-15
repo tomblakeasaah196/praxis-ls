@@ -177,7 +177,7 @@ describe("every <module>.ai.js manifest is well-formed", () => {
    * EVERY UUID-ISH FIELD IN THE LIVE CATALOGUE DECLARES ITS FORMAT.
    * Review 16 Sep 2026 #17, generalised.
    *
-   * The specific bug — `owner_user_id: z.string().uuid()` reaching the model as
+   * The specific bug — `owner_user_id: z.string().guid()` reaching the model as
    * a bare `{ type: "string" }`, so it sent a person's name and the rejection
    * landed after the user had confirmed — is pinned against `create_lead` in
    * `ai-tool-contract-fidelity.test.js`. THIS is the sweep: if any shipped

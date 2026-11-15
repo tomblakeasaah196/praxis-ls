@@ -110,7 +110,7 @@ router.post("/assist/compose", requireAi, requirePermission("MOD-72", "view"),
     // fall through to "formal" silently when they typo one.
     tone: TONE.optional(),
     action: ACTION.optional(),
-    thread_id: z.string().uuid().optional(),
+    thread_id: z.string().guid().optional(),
     draft: z.string().max(20000).optional(),
     /* The subject line, the recipients and a free-text brief — §8.3's
      * "Other…". Without these a compose on a blank new message had no material
@@ -128,7 +128,7 @@ router.post("/assist/compose", requireAi, requirePermission("MOD-72", "view"),
 
 router.post("/assist/draft", requireAi, requirePermission("MOD-72", "view"),
   body(z.object({
-    thread_id: z.string().uuid(),
+    thread_id: z.string().guid(),
     language: z.enum(["en", "fr"]).optional(),
     tone: TONE.optional(),
     instruction: z.string().max(2000).optional(),
@@ -145,7 +145,7 @@ router.post("/assist/draft", requireAi, requirePermission("MOD-72", "view"),
 
 router.post("/assist/rewrite", requireAi, requirePermission("MOD-72", "view"),
   body(z.object({
-    thread_id: z.string().uuid().optional(),
+    thread_id: z.string().guid().optional(),
     text: z.string().min(1).max(20000),
     action: ACTION,
     language: z.enum(["en", "fr"]).optional(),
@@ -160,7 +160,7 @@ router.post("/assist/rewrite", requireAi, requirePermission("MOD-72", "view"),
 
 router.post("/assist/translate", requireAi, requirePermission("MOD-72", "view"),
   body(z.object({
-    thread_id: z.string().uuid().optional(),
+    thread_id: z.string().guid().optional(),
     text: z.string().min(1).max(20000),
     to: z.enum(["en", "fr"]),
     language: z.enum(["en", "fr"]).optional(),
@@ -180,7 +180,7 @@ router.post("/assist/translate", requireAi, requirePermission("MOD-72", "view"),
  */
 router.post("/assist/summary", requireAi, requirePermission("MOD-72", "view"),
   body(z.object({
-    thread_id: z.string().uuid(),
+    thread_id: z.string().guid(),
     language: z.enum(["en", "fr"]).optional(),
     force: z.boolean().optional(),
   }).strict()),
@@ -222,7 +222,7 @@ router.post("/assist/transcribe", requireAi, requirePermission("MOD-72", "view")
  */
 router.post("/assist/voice", requireAi, requirePermission("MOD-72", "view"),
   body(z.object({
-    thread_id: z.string().uuid().optional(),
+    thread_id: z.string().guid().optional(),
     transcript: z.string().min(1).max(20000),
     tone: TONE.optional(),
     language: z.enum(["en", "fr"]).optional(),
@@ -249,7 +249,7 @@ router.post("/assist/guardrails", requireAi, requirePermission("MOD-72", "view")
     to: z.array(z.string()).max(50).optional(),
     attachments: z.array(z.object({ filename: z.string().max(500).optional() }).strict()).max(50).optional(),
     htmlBytes: z.number().optional(),
-    ctx: z.record(z.unknown()).optional(),
+    ctx: z.record(z.string(), z.unknown()).optional(),
   }).strict()),
   asyncHandler(async (req, res) => res.json({ data: service.runGuardrails(req.body, req.body.ctx || {}) })));
 
@@ -329,7 +329,7 @@ router.get("/messages/:id/extractions", requireOcr, requirePermission("MOD-72", 
  * created here.
  */
 router.post("/assist/extractions/:id/review", requireAi, requireOcr, requirePermission("MOD-72", "edit"), requireVisibleExtraction(),
-  body(z.object({ fields: z.record(z.unknown()).nullable().optional() }).strict()),
+  body(z.object({ fields: z.record(z.string(), z.unknown()).nullable().optional() }).strict()),
   asyncHandler(async (req, res) => res.json({
     data: await req.identityDb((c) => ocr.review(c, req.params.id, { fields: req.body.fields }, actor(req))),
   })));
@@ -341,7 +341,7 @@ router.post("/assist/extractions/:id/review", requireAi, requireOcr, requirePerm
  * driver on a malformed uuid.
  */
 router.post("/assist/extractions/:id/dismiss", requireAi, requireOcr, requirePermission("MOD-72", "edit"), requireVisibleExtraction(),
-  params(z.object({ id: z.string().uuid() })),
+  params(z.object({ id: z.string().guid() })),
   asyncHandler(async (req, res) => res.json({
     data: await req.identityDb((c) => ocr.dismiss(c, req.params.id, actor(req))),
   })));

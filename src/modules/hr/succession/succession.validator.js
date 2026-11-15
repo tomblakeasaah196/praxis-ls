@@ -4,14 +4,14 @@ const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
   role_title: z.string().min(1),
-  incumbent_id: z.string().uuid().optional(),
-  successor_id: z.string().uuid().optional(),
+  incumbent_id: z.string().guid().optional(),
+  successor_id: z.string().guid().optional(),
   readiness: z.string().optional(),
   notes: z.string().optional(),
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ succession_plan_id: z.string().uuid() });
+const aiUpdate = update.extend({ succession_plan_id: z.string().guid() });
 const schemas = { create, update, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {

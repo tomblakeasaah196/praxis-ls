@@ -15,7 +15,7 @@ const { body, passthrough } = require("../../../shared/http/validate");
 
 const purge = z
   .object({
-    soft_delete_id: z.string().uuid(),
+    soft_delete_id: z.string().guid(),
     // Bounded, not shaped: the PIN format is the identity module's business,
     // and duplicating the rule here would create a second place to change it.
     // What this stops is an unbounded string, or a non-string that makes the

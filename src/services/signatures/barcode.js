@@ -74,7 +74,9 @@ async function rasterisePdf(buffer, { density = 300 } = {}) {
     global.DOMMatrix = global.DOMMatrix || DOMMatrix;
     global.Path2D = global.Path2D || Path2D;
     global.ImageData = global.ImageData || ImageData;
-    const pdfjs = require("pdfjs-dist/legacy/build/pdf.js");
+    // pdfjs-dist 4 is ESM only (there is no CommonJS build any more), so it is loaded with a dynamic
+    // import. Lazy, inside this function, for the reason signature-pdf-raster-deps.test.js gives.
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
     const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer), disableWorker: true }).promise;
     const page = await doc.getPage(1);
     const scale = density / 72;

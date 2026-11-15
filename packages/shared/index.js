@@ -4,6 +4,9 @@
  * the API/client boundary. See README.md in this directory for why it is
  * CommonJS, why Zod is a peer dependency, and how to add a schema.
  */
+// Zod 3's default wording on the Zod 4 this package runs on, installed once for every schema below
+// (see zod-messages.js for why validation messages are product copy and must not change).
+require("./zod-messages");
 const common = require("./schemas/common");
 const finalInvoice = require("./schemas/final-invoice");
 const journalEntry = require("./schemas/journal-entry");

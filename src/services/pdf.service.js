@@ -1,5 +1,5 @@
 /**
- * PDF service (KB §8.4). Renders HTML → PDF (Puppeteer/Chromium, lazily required
+ * PDF service (KB §8.4). Renders HTML → PDF (playwright-core/Chromium, lazily required
  * so importing this module never launches a browser), stores it via the storage
  * driver, computes the SHA-256 content DNA, and captures it in document_vault
  * with a QR-verifiable token. Runs from the `pdf` worker job.
@@ -46,23 +46,30 @@ function contentHash(buffer) {
  * the QR drawn into the page by `kit.verifyBlock`.
  */
 
-/** Render HTML to a PDF Buffer. Chromium comes from PUPPETEER_EXECUTABLE_PATH. */
+/**
+ * Render HTML to a PDF Buffer. Chromium is the system one, from
+ * PUPPETEER_EXECUTABLE_PATH (the name is historical: the renderer was Puppeteer until 15/11/2026, when
+ * it became playwright-core, which drives the same Chromium and has no dependencies of its own. The
+ * variable keeps its name so no deployed .env, compose file or runbook has to change).
+ */
 async function renderHtml(html) {
   /// eslint-disable-next-line global-require
-  const puppeteer = require("puppeteer");
+  const { chromium } = require("playwright-core");
   const executablePath = resolveChromiumPath();
-  const browser = await puppeteer.launch({
+  const browser = await chromium.launch({
     executablePath,
-    headless: "new",
+    headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: "networkidle" });
     // Buffer.from IS the fix (BAD_STORAGE_BUFFER, live 22 Aug 2026).
     //
     // Puppeteer 23 changed `page.pdf()` to resolve a **Uint8Array** where it
-    // used to resolve a Node Buffer. Every byte is identical and every
+    // used to resolve a Node Buffer. (Playwright returns a Buffer, but the wrapper stays: it is what
+    // `storage.put` requires, it costs one copy, and it keeps the boundary correct whichever engine
+    // renders.) Every byte is identical and every
     // downstream consumer that only reads bytes kept working — crypto's
     // .update() takes a Uint8Array happily, so the content hash was computed
     // fine — but `storage.put` requires a real Buffer, deliberately, and

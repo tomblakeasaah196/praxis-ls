@@ -153,7 +153,7 @@ function strictQuery(filters = {}) {
 
 /** Common filter shapes, so 60 repos spell `status` the same way. */
 const filters = {
-  uuid: z.string().uuid().optional(),
+  uuid: z.string().guid().optional(),
   text: z.string().trim().max(200).optional(),
   bool: z
     .enum(["true", "false", "1", "0"])

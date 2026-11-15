@@ -1,5 +1,9 @@
 "use strict";
 
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { execFileSync } = require("child_process");
 const bwipjs = require("bwip-js");
 const PDFDocument = require("pdfkit");
 const barcode = require("../../src/services/signatures/barcode");
@@ -67,7 +71,21 @@ describe("wet-signature DataMatrix", () => {
     doc.image(png, 36, 680, { width: 80, height: 80 });
     const pdf = await collectPdf(doc);
 
-    await expect(barcode.decode(pdf)).resolves.toEqual({ status: "DECODED", code });
+    // pdfjs-dist 4 is an ES module, which Jest's module system cannot import without a Node flag, so the
+    // decoder runs in a child process exactly as the server loads it (no Jest between the two).
+    const file = path.join(os.tmpdir(), `praxis-wet-${process.pid}-${Date.now()}.pdf`);
+    fs.writeFileSync(file, pdf);
+    try {
+      const script = `
+        const fs = require("fs");
+        require(${JSON.stringify(require.resolve("../../src/services/signatures/barcode"))})
+          .decode(fs.readFileSync(process.argv[1]))
+          .then((r) => console.log(JSON.stringify(r)), (e) => { console.error(e.stack); process.exit(1); });`;
+      const out = execFileSync(process.execPath, ["-e", script, file], { encoding: "utf8", timeout: 60_000 });
+      expect(JSON.parse(out.trim().split("\n").pop())).toEqual({ status: "DECODED", code });
+    } finally {
+      fs.rmSync(file, { force: true });
+    }
   });
 
   test("a scan with no DataMatrix queues as NO_BARCODE instead of inventing a match", async () => {

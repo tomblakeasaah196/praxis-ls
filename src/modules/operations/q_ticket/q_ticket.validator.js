@@ -3,8 +3,8 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const raise = z.object({
-  dossier_id: z.string().uuid(),
-  milestone_instance_id: z.string().uuid().optional(),
+  dossier_id: z.string().guid(),
+  milestone_instance_id: z.string().guid().optional(),
   subject: z.string().min(1).max(200),
   body: z.string().max(4000).optional(),
   raised_by: z.string().max(160).optional(),
@@ -13,14 +13,14 @@ const reply = z.object({
   body: z.string().min(1).max(4000),
   // Staff-only: a client reply is flagged by the portal route, never the body.
   internal: z.boolean().optional(),
-  evidence_vault_id: z.string().uuid().optional(),
+  evidence_vault_id: z.string().guid().optional(),
 });
 const resolve = z.object({}).passthrough();
 
 // AI-facing: the ticket is in the URL for the HTTP routes, but a copilot call
 // has no URL — it passes one flat object, so the id must be IN the schema.
-const aiReply = reply.extend({ q_ticket_id: z.string().uuid() });
-const aiResolve = z.object({ q_ticket_id: z.string().uuid() });
+const aiReply = reply.extend({ q_ticket_id: z.string().guid() });
+const aiResolve = z.object({ q_ticket_id: z.string().guid() });
 
 const schemas = { raise, reply, resolve, aiReply, aiResolve };
 const mw = (k) => (req, _res, next) => {

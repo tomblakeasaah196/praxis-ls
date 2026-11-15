@@ -3,13 +3,13 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  dossier_id: z.string().uuid().optional(),
-  client_id: z.string().uuid().optional(),
+  dossier_id: z.string().guid().optional(),
+  client_id: z.string().guid().optional(),
   status: z.enum(["CREATED", "PICKING", "PACKED", "DISPATCHED", "CANCELLED"]).optional(),
 });
 const status = z.object({ status: z.enum(["CREATED", "PICKING", "PACKED", "DISPATCHED", "CANCELLED"]) });
 const line = z.object({
-  inventory_item_id: z.string().uuid().optional(),
+  inventory_item_id: z.string().guid().optional(),
   qty: z.number().positive().optional(),
 });
 const lineFlags = z.object({
@@ -18,10 +18,10 @@ const lineFlags = z.object({
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ outbound_order_id: z.string().uuid() });
-const aiStatus = status.extend({ outbound_order_id: z.string().uuid() });
-const aiLine = line.extend({ outbound_order_id: z.string().uuid() });
-const aiLineFlags = lineFlags.extend({ outbound_order_id: z.string().uuid(), outbound_line_id: z.string().uuid() });
+const aiUpdate = update.extend({ outbound_order_id: z.string().guid() });
+const aiStatus = status.extend({ outbound_order_id: z.string().guid() });
+const aiLine = line.extend({ outbound_order_id: z.string().guid() });
+const aiLineFlags = lineFlags.extend({ outbound_order_id: z.string().guid(), outbound_line_id: z.string().guid() });
 const schemas = { create, update, status, line, lineFlags, aiUpdate, aiStatus, aiLine, aiLineFlags };
 
 const mw = (k) => (req, _res, next) => {

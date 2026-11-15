@@ -25,7 +25,7 @@
 const { z } = require("zod");
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const uuid = z.string().uuid();
+const uuid = z.string().guid();
 
 /** "The figure I typed includes VAT." Off unless said. */
 const vatBasis = { price_includes_vat: z.boolean().optional() };

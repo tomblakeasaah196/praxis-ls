@@ -11,6 +11,8 @@ import { initDensity } from "@/lib/density";
 // i18n bootstraps before the first render so the initial paint is already in
 // the right language (PRD §605 — full EN/FR UI).
 import "@/lib/i18n";
+// Zod 3's default wording on Zod 4 ("Required" under an empty field): see packages/shared/zod-messages.js.
+import "@praxis/shared/zod-messages";
 import { queryClient } from "@/lib/query-client";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToastProvider } from "@/components/ui/toast";

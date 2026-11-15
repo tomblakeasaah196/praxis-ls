@@ -33,9 +33,9 @@ const updateWorkflow = z.object({
 const addStep = z.object({
   step_seq: z.number().int().positive(),
   step_kind: z.enum(["VALIDATE", "APPROVE"]),
-  role_id: z.string().uuid().optional(),
+  role_id: z.string().guid().optional(),
   capability_code: z.enum(["VALIDATOR", "APPROVER"]).optional(),
-  scope_id: z.string().uuid().optional(),
+  scope_id: z.string().guid().optional(),
   min_amount_xaf: z.number().nonnegative().optional(),
   max_amount_xaf: z.number().nonnegative().optional(),
 });
@@ -46,7 +46,7 @@ const actApproval = z.object({
 });
 
 // AI-facing: the task is in the URL for HTTP, in the payload for the copilot.
-const aiActApproval = actApproval.extend({ approval_task_id: z.string().uuid() });
+const aiActApproval = actApproval.extend({ approval_task_id: z.string().guid() });
 
 module.exports = {
   registerEventType: check(registerEventType),
