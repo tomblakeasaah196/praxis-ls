@@ -1119,7 +1119,14 @@ jobs:
     # The client and platform-console were never built in CI, so a FE type error
     # or broken import could merge green. Both have their own toolchain (and, as
     # of session 15, their own ESLint flat config), hence a separate job.
-    runs-on: ubuntu-latest
+    #
+    # PINNED, not `ubuntu-latest`. On 15/11/2026 `ubuntu-latest` resolved to
+    # Ubuntu 26.04, and the desktop layout gate's `playwright install --with-deps
+    # chromium` failed there with "Playwright does not support chromium on
+    # ubuntu26.04-x64" (Playwright 1.56.1), which reddened every PR that reached
+    # that step while the gate itself never ran. Move the pin only together with
+    # the Playwright version that supports the newer image.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
