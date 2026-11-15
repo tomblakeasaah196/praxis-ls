@@ -88,6 +88,17 @@ describe("humanize", () => {
     );
   });
 
+  it("reads the ways in (passkey, Quick PIN) as sentences, not 'You did registered on a passkey'", () => {
+    const said = (a: string) => humanize(row(a)).text;
+    expect(said("app_user.passkey.registered")).toBe("You added a passkey");
+    expect(said("app_user.passkey.removed")).toBe("You removed a passkey");
+    expect(said("app_user.quick_pin.set")).toBe("You set up your Quick PIN");
+    expect(said("app_user.quick_pin.changed")).toBe("You changed your Quick PIN");
+    expect(said("app_user.quick_pin.removed")).toBe("You turned off your Quick PIN");
+    expect(said("app_user.quick_pin.locked_out")).toMatch(/^Your Quick PIN was switched off/);
+    expect(humanize(row("app_user.passkey.registered")).sensitive).toBe(true);
+  });
+
   it("still falls back to readable English for a genuinely unknown action", () => {
     // No domain segment and no entity_ref — nothing to name as the noun, so
     // this exercises the bare "You did <verb>" tail of the generic fallback.

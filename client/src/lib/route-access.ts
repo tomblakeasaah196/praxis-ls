@@ -101,6 +101,17 @@ export function moduleForPath(pathname: string): string | null | undefined {
 }
 
 /**
+ * Pages about the signed-in person's OWN account. They sit in the Security & Access hub (so the
+ * ribbon and ⌘K find them there) but they are not Security administration: every employee sets
+ * their own passkey, Quick PIN and authenticator there, and the account menu offers it to all.
+ * Gated by the hub's module, a finance officer or an operations lead was told "Security & Access
+ * is not part of your access" on the one page that is theirs. The calls the page makes are the
+ * sign-in routes, which need a session and nothing else; the registry keeps its module so the
+ * hub's own gating (a hub opens for anyone who can open one of its sections) does not move.
+ */
+const OWN_ACCOUNT = ["/security/my-security"];
+
+/**
  * Every module that would open this path. EMPTY means "no grant is required" —
  * an ungated route, an unregistered one, or an area with nothing gated in it.
  *
@@ -110,6 +121,8 @@ export function moduleForPath(pathname: string): string | null | undefined {
  * own section order rather than being a set.
  */
 export function gatingModulesForPath(pathname: string): string[] {
+  const path = pathname.split("?")[0].split("#")[0].replace(/\/+$/, "");
+  if (OWN_ACCOUNT.some((p) => path === p || path.startsWith(p + "/"))) return [];
   const direct = moduleForPath(pathname);
   if (direct) return [direct];
   if (direct === null) return []; // registered and deliberately ungated

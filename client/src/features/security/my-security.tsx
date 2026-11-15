@@ -556,7 +556,7 @@ export function MySecurityPage() {
     try {
       const r = await withReauth((pw) => registerPasskey({ email, label: deviceLabel(), currentPassword: pw }));
       if (!r) return;
-      setPkMsg({ kind: "ok", text: `Done. ${bio} now signs you in on this device.` });
+      setPkMsg({ kind: "ok", text: `Done. ${bio.charAt(0).toUpperCase()}${bio.slice(1)} now signs you in on this device.` });
       loadPasskeys();
     } catch (err) {
       const code = (err as { code?: string } | null)?.code;
@@ -716,7 +716,7 @@ export function MySecurityPage() {
                     Set up {bio} on this device
                     <span className="status st-ok !py-0.5 !text-[9px]">recommended</span>
                   </p>
-                  /* @prose:keep says what the button beside it buys. */
+                  {/* @prose:keep says what the button beside it buys. */}
                   <p className="text-xs text-muted-foreground">
                     Your session locks every two hours. A passkey makes getting
                     back in one touch.

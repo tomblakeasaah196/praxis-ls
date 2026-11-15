@@ -129,7 +129,7 @@ function friendly(err: unknown): string {
       case "RATE_LIMITED":
         return "Too many attempts from this network. Wait a few minutes, then try again.";
       case "PIN_LOGIN_UNAVAILABLE":
-        return "There's no Quick PIN on this account. Sign in with your password, then set one up in My security — it works on every device.";
+        return "There's no Quick PIN on this account. Sign in with your password, then set one up in My security. It works on every device.";
       case "WEBAUTHN_NOT_SUPPORTED":
         return "Passkeys aren't supported on this browser yet.";
       default:
@@ -542,7 +542,7 @@ export function SignInPanel({
     } catch (err) {
       const e = err as { code?: string } | null;
       if (e?.code === "PASSKEY_ALREADY_ON_DEVICE") {
-        setOfferMsg({ kind: "ok", text: "This device already has a passkey for your account — you're all set." });
+        setOfferMsg({ kind: "ok", text: "This device already has a passkey for your account. You're all set." });
         window.setTimeout(onDone, 1200);
       } else if (isPasskeyCancel(err)) {
         setOfferMsg({ kind: "err", text: `Setup was cancelled. You can add one any time under ${PASSKEY_SETTING_PATH}.` });
@@ -764,7 +764,7 @@ export function SignInPanel({
                 data-busy={passkeyBusy || undefined}
                 onClick={() => void onPasskey(false)}
                 disabled={busy}
-                aria-label={`${mode === "unlock" ? "Unlock" : "Sign in"} with your passkey — ${bio}`}
+                aria-label={`${mode === "unlock" ? "Unlock" : "Sign in"} with your passkey: ${bio}`}
               >
                 <span className="login-orb-ring" data-active={passkeyBusy || undefined} aria-hidden />
                 <FingerprintIcon width={46} height={46} />
@@ -978,7 +978,7 @@ export function SignInPanel({
             </span>
             <ul className="login-offer-points">
               <li>
-                <CheckIcon width={14} height={14} /> {mode === "unlock" ? "Unlock" : "Sign in"} with one touch — no password, no PIN
+                <CheckIcon width={14} height={14} /> {mode === "unlock" ? "Unlock" : "Sign in"} with one touch, no password, no PIN
               </li>
               <li>
                 <CheckIcon width={14} height={14} /> Belongs to this device only; your fingerprint never leaves it

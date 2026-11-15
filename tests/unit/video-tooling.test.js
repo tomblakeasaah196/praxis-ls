@@ -90,6 +90,36 @@ describe("the cast", () => {
   });
 });
 
+describe("a two-step code typed on camera", () => {
+  const { authenticator } = require("otplib");
+  const { freshCode, codeFor } = require("../../scripts/video/ground");
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it("is the six digits an authenticator app shows for the key", () => {
+    const secret = authenticator.generateSecret();
+    expect(codeFor(secret)).toMatch(/^\d{6}$/);
+    expect(codeFor(secret)).toBe(authenticator.generate(secret));
+  });
+
+  it("is taken at once when the step has time left, and waits out a step that is nearly over", async () => {
+    const secret = authenticator.generateSecret();
+    const left = jest.spyOn(authenticator, "timeRemaining");
+    left.mockReturnValue(25);
+    const started = Date.now();
+    expect(await freshCode(secret, 14)).toBe(codeFor(secret));
+    expect(Date.now() - started).toBeLessThan(500);
+
+    // Two seconds left: it waits for the next step, so a code typed over several seconds is not refused.
+    jest.useFakeTimers();
+    left.mockReturnValue(2);
+    const waiting = freshCode(secret, 14);
+    await jest.advanceTimersByTimeAsync(2600);
+    await expect(waiting).resolves.toMatch(/^\d{6}$/);
+    jest.useRealTimers();
+  });
+});
+
 describe("every scene", () => {
   const files = fs.readdirSync(SCENES).filter((f) => f.endsWith(".js"));
 

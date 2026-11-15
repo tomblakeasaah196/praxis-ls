@@ -47,6 +47,25 @@ const CURSOR = `(() => {
   if (document.readyState === "loading") addEventListener("DOMContentLoaded", draw); else draw();
 })();`;
 
+/**
+ * A passkey held until the person "touches" the reader. The browser's virtual authenticator answers
+ * at once, so the screen would flash "Waiting for your device..." for no time at all. This holds
+ * each passkey call until `window.__touch()` (the hand's `touch`), so the viewer sees the wait, then
+ * the finger, then the answer. Password-manager autofill (conditional mediation) is not held.
+ */
+const TOUCH_GATE = `(() => {
+  let release = null, early = false;
+  window.__touch = () => { if (release) { release(); release = null; } else early = true; };
+  const gate = () => new Promise((resolve) => { if (early) { early = false; resolve(); } else release = resolve; });
+  const creds = navigator.credentials;
+  if (!creds) return;
+  for (const name of ["create", "get"]) {
+    if (!creds[name]) continue;
+    const real = creds[name].bind(creds);
+    creds[name] = async (opts) => { if (opts && opts.publicKey && opts.mediation !== "conditional") await gate(); return real(opts); };
+  }
+})();`;
+
 /** Let a screen finish drawing: the page loaded, and a beat for the data and the entrance animations. */
 async function settle(page, ms = 450) {
   await page.waitForLoadState("domcontentloaded").catch(() => null);
@@ -151,8 +170,18 @@ async function signIn(page, origin, email, password) {
   if (await enter.isVisible().catch(() => false)) await enter.click();
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: /^sign in/i }).last().click();
-  await page.getByRole("button", { name: /^Account:/ }).waitFor({ state: "visible", timeout: 30000 });
+  // The window's own button, not "Sign in with a passkey" (shown once the browser has an authenticator).
+  await page.getByRole("button", { name: /^sign in$/i }).last().click();
+  // On a browser with a built-in reader, the sign-in window offers a passkey before the app opens: a person who
+  // is not setting one up answers "Not now", as filming does here.
+  const account = page.getByRole("button", { name: /^Account:/ });
+  const offer = page.getByRole("button", { name: /^not now$/i });
+  const until = now() + 30;
+  while (now() < until && !(await account.isVisible().catch(() => false))) {
+    if (await offer.isVisible().catch(() => false)) await offer.click({ timeout: 2000 }).catch(() => null);
+    await sleep(0.4);
+  }
+  await account.waitFor({ state: "visible", timeout: 5000 });
   await settle(page, 700);
   await clearOffers(page);
 }
@@ -160,7 +189,9 @@ async function signIn(page, origin, email, password) {
 /**
  * Film one shot. `shot` is { kind: "desktop"|"phone", as, start, env, setup, lines }, each line
  * { id, duration, before, do, after, hold }. A shot with no `as` is filmed signed out (a sign-in
- * shown on camera). `env: "sandbox"` starts it in TEST. `still` asks for reduced motion.
+ * shown on camera). `env: "sandbox"` starts it in TEST. `still` asks for reduced motion. `authenticator: true`
+ * gives the browser a built-in reader and the hand a `touch()`, for a shot about passkeys. `ground` runs before
+ * the sign-in, `setup` after it.
  */
 async function filmShot(browser, shot, dir, { origin, password, emailOf }) {
   const phone = shot.kind === "phone";
@@ -182,11 +213,25 @@ async function filmShot(browser, shot, dir, { origin, password, emailOf }) {
     ...(shot.still ? { reducedMotion: "reduce" } : {}),
   });
   if (!phone) await context.addInitScript(CURSOR);
+  if (shot.authenticator) await context.addInitScript(TOUCH_GATE);
   // No red underline under words the dictionary lacks as a person types.
   await context.addInitScript(() => document.addEventListener("DOMContentLoaded", () => document.documentElement.setAttribute("spellcheck", "false")));
   if (shot.env === "sandbox") await context.addInitScript(() => { try { window.localStorage.setItem("praxis.env", "sandbox"); } catch { /* storage unavailable */ } });
   const page = await context.newPage();
   page.setDefaultTimeout(20000);
+  // A built-in reader (Windows Hello, Touch ID, a phone's fingerprint) for a shot about passkeys. It is added
+  // before anything loads, because the app asks the browser whether it has one when a page opens.
+  let reader = null;
+  if (shot.authenticator) {
+    reader = await context.newCDPSession(page);
+    await reader.send("WebAuthn.enable");
+    await reader.send("WebAuthn.addVirtualAuthenticator", {
+      options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+    });
+  }
+  // What a shot needs from the database BEFORE anyone signs in (a colleague who has two-step verification on cannot be signed in
+  // off camera): `setup` runs after the sign-in, so this is the one that can put such a person back.
+  if (shot.ground) await shot.ground();
   if (shot.as) await signIn(page, origin, emailOf(shot.as), password);
   if (shot.start) { await page.goto(origin + shot.start); await settle(page, 700); }
   if (shot.as) await clearOffers(page);
@@ -194,6 +239,12 @@ async function filmShot(browser, shot, dir, { origin, password, emailOf }) {
   const s = hands(page, { phone, origin });
   s.password = password;
   s.clearOffers = () => clearOffers(page);
+  /** Put a finger on the reader: releases the passkey the screen is waiting for (a shot with `authenticator: true`). */
+  s.touch = async () => {
+    if (!reader) throw new Error("touch() needs a shot with authenticator: true");
+    await page.evaluate(() => window.__touch && window.__touch());
+    await settle(page, 700);
+  };
   if (shot.setup) await shot.setup(s);
   await sleep(0.6);
 

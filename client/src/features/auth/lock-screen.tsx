@@ -216,7 +216,7 @@ export function LockLayer({ maxAgeMin = 120 }: { maxAgeMin?: number }) {
 
       <p className="login-lock-foot">
         <ShieldIcon width={13} height={13} />
-        Your work is safe behind the lock — nothing on this screen can be seen or used until you sign in.
+        Your work is safe behind the lock. Nothing on this screen can be seen or used until you sign in.
       </p>
     </div>,
     host,
