@@ -1,0 +1,10 @@
+# The narration's Python (scripts/video/narrate.py; doc/TRAINING_VIDEOS.md section 1).
+# Python 3.12: spaCy, which Kokoro needs, does not build on 3.13. The French voice also needs
+# espeak-ng on the machine (apt-get install espeak-ng).
+#   uv venv -p 3.12 ~/.video-venv && . ~/.video-venv/bin/activate && uv pip install -r scripts/video/requirements.txt
+# With no GPU, install torch's CPU build first (the default pulls several gigabytes of CUDA):
+#   uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+kokoro==0.9.4
+misaki==0.9.4
+soundfile==0.14.0
+numpy==2.5.4

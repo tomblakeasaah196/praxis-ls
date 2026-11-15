@@ -101,6 +101,10 @@ Brand & go-to-market (added 2026-08):
 - `BRAND_GLOSSARY_FR_EN.md` — every customer-facing term in both languages, plus the French style rules
 - `WEB_BUILD_BRIEF.md` — the implementation brief for the marketing site, built in a separate repo
 
+Training videos (added 2026-11):
+
+- `TRAINING_VIDEOS.md` — how to make a French-narrated, English-subtitled training video of the app, from any chat: the tooling in `scripts/video/`, the invented cast, the filming copy, pitfalls and where the series stands
+
 ## 6a. Frontend non-negotiables
 
 Before writing a line of frontend code, read `doc/FRONTEND_GUIDE.md` — it is the
