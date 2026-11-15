@@ -8,10 +8,11 @@
  *     executablePath: config.PUPPETEER_EXECUTABLE_PATH || undefined
  *
  * `PUPPETEER_EXECUTABLE_PATH` defaults to `""` in the env schema, so on any
- * deployment that does not set it the expression is `undefined`, Puppeteer
- * looks for the Chromium it downloads at install time, and the Dockerfile sets
- * `PUPPETEER_SKIP_DOWNLOAD=true` because the image installs Alpine's package
- * instead. The launch threw on every single send. Chromium was sitting at
+ * deployment that does not set it the expression is `undefined`, the engine
+ * (Puppeteer then, playwright-core now) looks for a Chromium it downloaded at
+ * install time, and the image has none because it installs Alpine's package
+ * instead. (The variable keeps its Puppeteer-era name so no deployed .env,
+ * compose file or runbook has to change.) The launch threw on every single send. Chromium was sitting at
  * /usr/bin/chromium the whole time — PDFs were using it — and the signature
  * renderer was the one caller that never looked.
  *
@@ -54,7 +55,8 @@ const usable = (p) => {
 
 /**
  * @returns {string|undefined} an executable that exists, or undefined to let
- *   Puppeteer try its own bundled download (correct in dev, where it has one).
+ *   playwright-core look for a browser installed by `npx playwright install`
+ *   (correct on a developer machine that ran it; the image installs none).
  */
 function resolveChromiumPath() {
   return usable(config.PUPPETEER_EXECUTABLE_PATH)

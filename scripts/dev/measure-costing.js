@@ -46,7 +46,7 @@ function chromium() {
 const pageCount = (buf) => (buf.toString("latin1").match(/\/Type\s*\/Page(?![s\w])/g) || []).length;
 
 async function main() {
-  const puppeteer = require("puppeteer");
+  const { chromium: engine } = require("playwright-core");
   const tpl = registry.get("COSTING");
   const language = process.env.LANG_DOC || "en";
   const cases = (process.env.CASES || "1,5,12,15,16,17,18,22,30,34,35,40,52,60").split(",").map(Number);
@@ -55,7 +55,7 @@ async function main() {
 
   const url = "https://smartlogistics.example/v/TFQB5KV05XY2";
   const qrSvg = await qr.svg(url, { sizeMm: 22 });
-  const browser = await puppeteer.launch({ executablePath: chromium(), args: ["--no-sandbox", "--disable-gpu"] });
+  const browser = await engine.launch({ executablePath: chromium(), args: ["--no-sandbox", "--disable-gpu"] });
   const page = await browser.newPage();
   let bad = 0;
   try {

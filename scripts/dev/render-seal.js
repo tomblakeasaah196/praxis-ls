@@ -61,11 +61,10 @@ const fs = require("fs");
   const out = process.env.OUT || process.cwd();
   fs.writeFileSync(out + "/seal-preview.html", html);
 
-  const puppeteer = require("puppeteer");
-  const browser = await puppeteer.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ["--no-sandbox"] });
-  const page = await browser.newPage();
-  await page.setViewport({ width: 900, height: 1200, deviceScaleFactor: 3 });
-  await page.setContent(html, { waitUntil: "networkidle0" });
+  const { chromium } = require("playwright-core");
+  const browser = await chromium.launch({ executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ["--no-sandbox"] });
+  const page = await browser.newPage({ viewport: { width: 900, height: 1200 }, deviceScaleFactor: 3 });
+  await page.setContent(html, { waitUntil: "networkidle" });
   const el = await page.$("body");
   await el.screenshot({ path: out + "/seal-preview.png" });
   await browser.close();
