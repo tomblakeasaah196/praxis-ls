@@ -1230,6 +1230,13 @@
   -webkit-backdrop-filter: blur(6px);
   animation: fade-in 0.25s ease-out both;
 }
+/* A page that opens outside the landing hero (the emailed set-password link) wears the tenant's
+   login photograph under the same tint, so the first thing a new colleague sees is theirs. */
+.login-scrim[data-photo] {
+  background-image: linear-gradient(rgb(6 3 4 / 0.62), rgb(6 3 4 / 0.62)), var(--login-photo);
+  background-size: cover;
+  background-position: center 28%;
+}
 .login-card {
   position: relative;
   width: 100%;

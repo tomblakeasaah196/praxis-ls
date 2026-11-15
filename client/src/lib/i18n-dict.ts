@@ -24,7 +24,7 @@ export const en = {
   },
   shell: {
     testMode:
-      "TEST MODE — you're viewing sandbox data. Changes here do not affect live operations.",
+      "TEST MODE: you're viewing sandbox data. Changes here do not affect live operations.",
     switchToLive: "Switch to Live",
     // The environment-switch dialog and overlay (app/layout/env-switcher.tsx).
     // `{{env}}` is the destination's badge text, LIVE or TEST, never translated.
@@ -61,7 +61,7 @@ export const en = {
   },
   auth: {
     signInTitle: "Sign in",
-    signInSub: "Sign in to manage operations end to end — from the floor to global dispatch.",
+    signInSub: "Sign in to manage operations end to end, from the floor to global dispatch.",
     email: "Email",
     password: "Password",
     signIn: "Sign in",
@@ -4236,7 +4236,7 @@ export const fr: Dict = {
   },
   shell: {
     testMode:
-      "MODE TEST — vous consultez les données sandbox. Les modifications ici n'affectent pas l'exploitation réelle.",
+      "MODE TEST : vous consultez les données sandbox. Les modifications ici n'affectent pas l'exploitation réelle.",
     switchToLive: "Passer en Live",
     envSwitchToTestTitle: "Passer en TEST ?",
     envSwitchToLiveTitle: "Passer en LIVE ?",
@@ -4272,7 +4272,7 @@ export const fr: Dict = {
   auth: {
     signInTitle: "Connexion",
     signInSub:
-      "Connectez-vous pour gérer vos opérations de bout en bout — du terrain à la répartition mondiale.",
+      "Connectez-vous pour gérer vos opérations de bout en bout, du terrain à la répartition mondiale.",
     email: "Courriel",
     password: "Mot de passe",
     signIn: "Se connecter",

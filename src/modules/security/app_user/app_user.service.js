@@ -969,7 +969,7 @@ function resetEmailHtml({ name, link }) {
       <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#4e6280">Hi ${name}, we received a request to reset your Praxis LS password. Click the button below to choose a new one. This link expires in ${RESET_TTL_MIN} minutes and can be used once.</p>
       <p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#F5821F;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;font-size:15px">Reset password</a></p>
       <p style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#84a0b0">If the button doesn't work, paste this link into your browser:<br><span style="word-break:break-all;color:#1c9bd7">${link}</span></p>
-      <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#84a0b0">Didn't request this? You can safely ignore this email — your password won't change.</p>
+      <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#84a0b0">Didn't request this? You can safely ignore this email. Your password won't change.</p>
     </div>
   </div></body></html>`;
 }
@@ -978,7 +978,7 @@ async function sendResetEmail(client, { to, name, token, origin }) {
   const base = origin || `https://app.${config.APP_BASE_DOMAIN}`;
   const link = `${base}/reset-password?token=${encodeURIComponent(token)}`;
   const firstName = name ? String(name).trim().split(/\s+/)[0] : "there";
-  const text = `Hi ${firstName},\n\nWe received a request to reset your Praxis LS password. Open the link below within ${RESET_TTL_MIN} minutes to choose a new one (single use):\n\n${link}\n\nIf you didn't request this, ignore this email — your password won't change.`;
+  const text = `Hi ${firstName},\n\nWe received a request to reset your Praxis LS password. Open the link below within ${RESET_TTL_MIN} minutes to choose a new one (single use):\n\n${link}\n\nIf you didn't request this, ignore this email. Your password won't change.`;
   await emailService.send(client, {
     to,
     subject: "Reset your Praxis LS password",
@@ -1009,10 +1009,10 @@ function inviteEmailHtml({ name, link, orgName, hours }) {
   <div style="max-width:520px;margin:0 auto;padding:32px 24px">
     <div style="background:#ffffff;border-radius:14px;padding:32px;box-shadow:0 4px 12px rgba(16,30,52,.06)">
       <h1 style="margin:0 0 12px;font-size:20px;color:#101e34">Your ${orgName} account is ready</h1>
-      <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#4e6280">Hi ${name}, an account has been created for you. Choose a password to activate it — this link expires in ${hours} hours and can be used once.</p>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#4e6280">Hi ${name}, an account has been created for you. Choose a password to activate it. This link expires in ${hours} hours and can be used once.</p>
       <p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#F5821F;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;font-size:15px">Set my password</a></p>
       <p style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#84a0b0">If the button doesn't work, paste this link into your browser:<br><span style="word-break:break-all;color:#1c9bd7">${link}</span></p>
-      <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#84a0b0">Not expecting this? Tell your administrator — the account cannot be used until a password is set.</p>
+      <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#84a0b0">Not expecting this? Tell your administrator. The account cannot be used until a password is set.</p>
     </div>
   </div></body></html>`;
 }
@@ -1055,7 +1055,7 @@ async function issueInvite(client, { userId, origin, actor = {} }) {
     logger.warn({ err }, "[auth] could not resolve entity name for invitation");
   }
   const hours = Math.round(INVITE_TTL_MIN / 60);
-  const text = `Hi ${firstName},\n\nAn account has been created for you on ${orgName}. Open the link below within ${hours} hours to choose your password (single use):\n\n${link}\n\nNot expecting this? Tell your administrator — the account cannot be used until a password is set.`;
+  const text = `Hi ${firstName},\n\nAn account has been created for you on ${orgName}. Open the link below within ${hours} hours to choose your password (single use):\n\n${link}\n\nNot expecting this? Tell your administrator. The account cannot be used until a password is set.`;
   await emailService.send(client, {
     to: user.email,
     subject: `Activate your ${orgName} account`,

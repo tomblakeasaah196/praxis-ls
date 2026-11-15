@@ -10,6 +10,9 @@
 import * as React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ApiError, tenant } from "@/lib/api-client";
+import { fetchLogin } from "@/lib/branding";
+import { reportClientError } from "@/lib/error-reporting";
+import { passwordMeetsPolicy, passwordRules } from "@/lib/password-policy";
 import { useBranding } from "@/app/branding/branding-context";
 import {
   LockIcon,
@@ -18,8 +21,6 @@ import {
   ArrowRightIcon,
   CheckIcon,
 } from "@/components/ui/icons";
-
-const MIN_LENGTH = 12;
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -35,9 +36,33 @@ export function ResetPasswordPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [done, setDone] = React.useState(false);
 
-  const meetsLength = password.length >= MIN_LENGTH;
+  // The shared statement of the policy (lib/password-policy.ts), not a local one: this page used to
+  // check the length alone, so the sentence under the title promised five rules and the list
+  // under the fields ticked two. The server keeps the last word (breach check, name in the email).
+  const meetsPolicy = passwordMeetsPolicy(password);
   const matches = confirm.length > 0 && password === confirm;
-  const canSubmit = !!token && meetsLength && matches && !busy;
+  const canSubmit = !!token && meetsPolicy && matches && !busy;
+
+  // The tenant's login photograph behind the card: the page opens from an emailed link, often on
+  // a browser that has never seen the tenant, and a bare grey screen is its first impression.
+  const [photo, setPhoto] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let alive = true;
+    fetchLogin()
+      .then((cfg) => alive && setPhoto(cfg.backgroundUrl || null))
+      .catch((err: unknown) => {
+        // A read that failed where plain is acceptable (class D, doc/ERROR_HANDLING.md): the
+        // scrim alone is enough for the person, and the failure is recorded for us.
+        reportClientError({
+          message: `login photograph unavailable: ${err instanceof Error ? err.message : String(err)}`,
+          kind: "unhandledrejection",
+          route: "/reset-password",
+        });
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   function friendly(err: unknown): string {
     if (err instanceof ApiError) {
@@ -78,7 +103,15 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="login-scrim" style={{ position: "fixed", inset: 0 }}>
+    <div
+      className="login-scrim"
+      data-photo={photo ? "" : undefined}
+      style={{
+        position: "fixed",
+        inset: 0,
+        ...(photo ? { ["--login-photo" as string]: `url(${photo})` } : {}),
+      }}
+    >
       <div className="login-card">
         <p className="login-card-kicker">{brandName}</p>
 
@@ -121,10 +154,6 @@ export function ResetPasswordPage() {
         ) : (
           <>
             <h2 className="login-card-title">Choose a new password</h2>
-            <p className="login-card-sub">
-              At least {MIN_LENGTH} characters, with a mix of cases, a number
-              and a symbol.
-            </p>
 
             <form
               onSubmit={onSubmit}
@@ -182,22 +211,31 @@ export function ResetPasswordPage() {
                 className="flex flex-col gap-1"
                 style={{ listStyle: "none", padding: 0, margin: 0 }}
               >
-                <li
-                  className="login-note"
-                  data-ok={meetsLength}
-                  style={{ opacity: meetsLength ? 1 : 0.55 }}
-                >
-                  {meetsLength ? <CheckIcon width={13} height={13} /> : "•"} At
-                  least {MIN_LENGTH} characters
-                </li>
-                <li
-                  className="login-note"
-                  data-ok={matches}
-                  style={{ opacity: matches ? 1 : 0.55 }}
-                >
-                  {matches ? <CheckIcon width={13} height={13} /> : "•"}{" "}
-                  Passwords match
-                </li>
+                {[
+                  ...passwordRules(password).map((r) => ({
+                    text: r.label,
+                    ok: r.ok,
+                  })),
+                  { text: "Passwords match", ok: matches },
+                ].map((r) => (
+                  <li
+                    key={r.text}
+                    className="login-note flex items-center justify-center gap-2"
+                    data-ok={r.ok}
+                    style={{ opacity: r.ok ? 1 : 0.55 }}
+                  >
+                    <span
+                      aria-hidden
+                      className="grid h-3.5 w-3.5 place-items-center"
+                    >
+                      {r.ok ? <CheckIcon width={13} height={13} /> : "•"}
+                    </span>
+                    {r.text}
+                    <span className="sr-only">
+                      {r.ok ? " (met)" : " (not yet)"}
+                    </span>
+                  </li>
+                ))}
               </ul>
 
               {error && <p className="login-error">{error}</p>}
