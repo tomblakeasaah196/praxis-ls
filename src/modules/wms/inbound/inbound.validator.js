@@ -3,19 +3,19 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  dossier_id: z.string().uuid().optional(),
+  dossier_id: z.string().guid().optional(),
   qa_status: z.enum(["HOLD", "PASSED", "REJECTED"]).optional(),
-  putaway_location: z.string().uuid().optional(),
-  lines: z.array(z.object({ inventory_item_id: z.string().uuid().optional().nullable(), item: z.string().optional(), ordered: z.number().nonnegative().optional(), received: z.number().nonnegative().optional(), condition: z.string().optional() })).optional(),
+  putaway_location: z.string().guid().optional(),
+  lines: z.array(z.object({ inventory_item_id: z.string().guid().optional().nullable(), item: z.string().optional(), ordered: z.number().nonnegative().optional(), received: z.number().nonnegative().optional(), condition: z.string().optional() })).optional(),
 });
 const qa = z.object({
   qa_status: z.enum(["PASSED", "REJECTED"]),
-  putaway_location: z.string().uuid().optional(),
+  putaway_location: z.string().guid().optional(),
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ grn_inbound_id: z.string().uuid() });
-const aiQa = qa.extend({ grn_inbound_id: z.string().uuid() });
+const aiUpdate = update.extend({ grn_inbound_id: z.string().guid() });
+const aiQa = qa.extend({ grn_inbound_id: z.string().guid() });
 const schemas = { create, update, qa, aiUpdate, aiQa };
 
 const mw = (k) => (req, _res, next) => {

@@ -10,7 +10,7 @@
  * See `components/ui/form.tsx` for the full worked example and the
  * best-practices note.
  */
-import { useForm, type UseFormProps, type FieldValues } from "react-hook-form";
+import { useForm, type UseFormProps, type FieldValues, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 
@@ -22,12 +22,22 @@ import type { z } from "zod";
  * user leaves it. Not onChange: telling someone their date is malformed while
  * they are still typing it is the single most disliked form behaviour there is.
  */
-export function useZodForm<TSchema extends z.ZodType<FieldValues>>(
+/**
+ * What the form holds: the schema's INPUT (a text box holds a string, a date box
+ * an empty string), narrowed to the object shapes `useForm` accepts. `Extract`
+ * rather than a bare `z.input<>` so a schema picked at run time between two
+ * shapes (`isNew ? create : update`) stays a union the field paths distribute over.
+ */
+type FormValues<TSchema extends z.ZodType> = Extract<z.input<TSchema>, FieldValues>;
+
+export function useZodForm<TSchema extends z.ZodType<FieldValues, FieldValues>>(
   schema: TSchema,
-  options?: Omit<UseFormProps<z.input<TSchema>>, "resolver">,
+  options?: Omit<UseFormProps<FormValues<TSchema>>, "resolver">,
 ) {
-  return useForm<z.input<TSchema>>({
-    resolver: zodResolver(schema),
+  return useForm<FormValues<TSchema>>({
+    // The resolver hands back the schema's OUTPUT, `useForm` is typed on one shape,
+    // so the cast says so once here rather than at every call site.
+    resolver: zodResolver(schema) as unknown as Resolver<FormValues<TSchema>>,
     // See the header: validate on submit, then re-validate a field as the user
     // leaves it. Not onChange.
     mode: "onTouched",

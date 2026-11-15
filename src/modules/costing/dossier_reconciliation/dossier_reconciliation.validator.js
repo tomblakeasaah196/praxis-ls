@@ -2,7 +2,7 @@
 const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
-const UUID = z.string().uuid();
+const UUID = z.string().guid();
 const MONEY = z.coerce.number().min(0).max(1e15);
 // The wire format is ISO — that is what every `date` column and the @shared
 // validators are built on. dd/mm/yyyy is what a PERSON reads (DateField does

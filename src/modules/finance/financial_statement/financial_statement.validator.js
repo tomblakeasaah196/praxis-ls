@@ -3,8 +3,8 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 const query = z.object({
   account: z.string().optional(),
-  entity_id: z.string().uuid().optional(),
-  period_id: z.string().uuid().optional(),
+  entity_id: z.string().guid().optional(),
+  period_id: z.string().guid().optional(),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
@@ -16,7 +16,7 @@ const mw = (req, _res, next) => {
 };
 
 const closePeriod = z.object({
-  period_id: z.string().uuid(),
+  period_id: z.string().guid(),
   to: z.enum(["FROZEN", "CLOSED"]).optional(),
 });
 const closeMw = (req, _res, next) => {

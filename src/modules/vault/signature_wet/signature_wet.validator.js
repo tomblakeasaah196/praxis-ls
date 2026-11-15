@@ -6,11 +6,11 @@ const { body, query } = require("../../../shared/http/validate");
 const dataUrl = z.string().min(20).max(40_000_000).refine((v) => /^data:[^;]+;base64,/i.test(v), "Expected a base64 data URL");
 
 const issueShape = z.object({
-  request_id: z.string().uuid().optional().nullable(),
-  party_id: z.string().uuid().optional().nullable(),
+  request_id: z.string().guid().optional().nullable(),
+  party_id: z.string().guid().optional().nullable(),
   entity_ref: z.string().min(1).max(200),
   doc_type: z.string().min(1).max(80),
-  document_vault_id: z.string().uuid().optional().nullable(),
+  document_vault_id: z.string().guid().optional().nullable(),
 }).strict();
 const issue = body(issueShape);
 
@@ -27,7 +27,7 @@ const decode = body(z.object({
 const empty = body(z.object({}).strict());
 
 const bind = body(z.object({
-  print_job_id: z.string().uuid(),
+  print_job_id: z.string().guid(),
 }).strict());
 
 const reject = body(z.object({
@@ -44,7 +44,7 @@ const listQuery = query(listQueryShape);
 const schemas = {
   issue: issueShape,
   listQuery: listQueryShape,
-  aiPrinted: z.object({ print_job_id: z.string().uuid() }),
+  aiPrinted: z.object({ print_job_id: z.string().guid() }),
 };
 
 module.exports = { issue, ingest, decode, bind, reject, listQuery, empty, schemas };

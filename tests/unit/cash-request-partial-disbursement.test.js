@@ -264,7 +264,7 @@ describe("the AI can actually target a request", () => {
     expect(ai).toContain("id: p.cash_request_id");
     const line = validator.split("\n").find((l) => l.includes("aiDisburse:"));
     expect(line).toBeDefined();
-    expect(line).toContain("cash_request_id: z.string().uuid()");
+    expect(line).toContain("cash_request_id: z.string().guid()");
   });
 
   test("an amount is optional on both schemas, and positive when given", () => {

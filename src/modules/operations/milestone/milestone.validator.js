@@ -49,19 +49,19 @@ const stage = z.object({
  * row-level DB constraint.
  */
 const publishTemplate = z.object({
-  service_type_id: z.string().uuid(),
+  service_type_id: z.string().guid(),
   stages: z.array(stage).min(3, "a template needs at least 3 stages").max(15, "a template cannot exceed 15 stages"),
 });
 
 const instantiate = z.object({
-  dossier_id: z.string().uuid(),
-  service_type_id: z.string().uuid(),
+  dossier_id: z.string().guid(),
+  service_type_id: z.string().guid(),
   base_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 const advance = z.object({
   to: z.enum(["IN_PROGRESS", "DONE", "BLOCKED", "PENDING"]),
-  evidence_vault_id: z.string().uuid().optional(),
+  evidence_vault_id: z.string().guid().optional(),
   // Force majeure. Recorded alongside the measured variance, never instead of
   // it, so an excused delay is still a delay in the numbers.
   cause_reason_code: z.string().max(64).optional(),
@@ -128,7 +128,7 @@ const publicDetails = z.object({
 }).strict().refine((value) => Object.keys(value).length > 0, "at least one public field is required");
 
 // AI-facing: the stage instance is in the URL for HTTP, in the payload for the copilot.
-const aiAdvance = advance.extend({ milestone_instance_id: z.string().uuid() });
+const aiAdvance = advance.extend({ milestone_instance_id: z.string().guid() });
 const schemas = { publishTemplate, instantiate, advance, aiAdvance, reopen, addStage, renameStage, recalculate, saveAssumptions, publicDetails };
 const mw = (k) => (req, _res, next) => { const p = schemas[k].safeParse(req.body); if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors)); req.body = p.data; return next(); };
 module.exports = {

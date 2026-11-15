@@ -3,17 +3,17 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  location_id: z.string().uuid().optional(),
-  counted_by: z.string().uuid().optional(),
+  location_id: z.string().guid().optional(),
+  counted_by: z.string().guid().optional(),
   // jsonb — an array of count lines { inventory_item_id?, expected, counted }
   // (what summariseDiscrepancy consumes); a keyed object is still accepted for
   // back-compat with any older payloads.
-  discrepancy: z.union([z.array(z.any()), z.record(z.any())]).optional(),
-  certified_report_vault_id: z.string().uuid().optional(), // Rapport d'Audit
+  discrepancy: z.union([z.array(z.any()), z.record(z.string(), z.any())]).optional(),
+  certified_report_vault_id: z.string().guid().optional(), // Rapport d'Audit
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ cycle_count_id: z.string().uuid() });
+const aiUpdate = update.extend({ cycle_count_id: z.string().guid() });
 const schemas = { create, update, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {

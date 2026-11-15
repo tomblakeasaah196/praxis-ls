@@ -3,17 +3,17 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  employee_id: z.string().uuid(),
+  employee_id: z.string().guid(),
   license_class: z.string().min(1), // e.g. special low-bed carrier class
   license_number: z.string().optional(),
   issued_on: z.string().optional(),
   expires_on: z.string().optional(), // expiry alerts via event engine
   certification: z.string().optional(),
-  document_vault_id: z.string().uuid().optional(),
+  document_vault_id: z.string().guid().optional(),
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ driver_license_id: z.string().uuid() });
+const aiUpdate = update.extend({ driver_license_id: z.string().guid() });
 const schemas = { create, update, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {

@@ -88,7 +88,7 @@ const schemas = {
   ticketReply: z.object({
     body: z.string().trim().min(1).max(5000),
     internal: z.boolean().optional().default(false),
-    attachment_ids: z.array(z.string().uuid()).max(5).optional().default([]),
+    attachment_ids: z.array(z.string().guid()).max(5).optional().default([]),
   }),
   // Platform users
   userCreate: z.object({
@@ -127,7 +127,7 @@ const schemas = {
   }),
   rolePerms: z.object({ capabilities: z.array(z.string()) }),
   platformSetting: z.object({
-    value: z.record(z.any()).optional(),
+    value: z.record(z.string(), z.any()).optional(),
     secret: z.string().min(1).max(4000).optional(),
   }),
   vapidGenerate: z.object({ subject: z.string().min(3).optional() }),

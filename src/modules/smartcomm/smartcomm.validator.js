@@ -20,16 +20,16 @@ const { AppError } = require("../../utils/errors");
  */
 const attachment = z.object({
   attachment_kind: z.enum(["VAULT", "MEDIA", "ERP", "CALL"]).optional(),
-  vault_id: z.string().uuid().optional().nullable(),
-  media_id: z.string().uuid().optional().nullable(),
+  vault_id: z.string().guid().optional().nullable(),
+  media_id: z.string().guid().optional().nullable(),
   erp_kind: z.enum(["INVOICE", "DOSSIER", "CLIENT", "PURCHASE_ORDER", "SUPPLIER_INVOICE"]).optional().nullable(),
-  erp_id: z.string().uuid().optional().nullable(),
+  erp_id: z.string().guid().optional().nullable(),
   // The fallback caption only. Bounded because it is stored verbatim and
   // rendered to every member who cannot resolve the record.
   erp_label: z.string().max(120).optional().nullable(),
   // A call summary card (PR-2). The message carries only the pointer; the card
   // (summary, key points, follow-ups, transcript link) resolves at read time.
-  call_id: z.string().uuid().optional().nullable(),
+  call_id: z.string().guid().optional().nullable(),
   filename: z.string().max(255).optional().nullable(),
   content_type: z.string().max(128).optional().nullable(),
   size_bytes: z.number().int().nonnegative().optional().nullable(),
@@ -65,10 +65,10 @@ const schemas = {
   // is any address the admin wants the test message delivered to.
   emailDnsCheck: z.object({ domain: z.string().trim().min(4).max(253).regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i, "not a domain name") }).strict(),
   emailTestSend: z.object({ to: z.string().trim().email().max(254), purpose: z.string().trim().min(1).max(64).optional() }).strict(),
-  channel: z.object({ name: z.string().min(1), kind: z.enum(["DEPARTMENT", "PROJECT", "DOSSIER", "DIRECT", "CLIENT"]).optional(), dossier_id: z.string().uuid().optional().nullable(), client_id: z.string().uuid().optional().nullable(), topic: z.string().optional(), member_ids: z.array(z.string().uuid()).optional() }),
-  member: z.object({ user_id: z.string().uuid(), member_role: z.enum(["OWNER", "ADMIN", "MEMBER"]).optional() }),
-  message: z.object({ body: z.string().optional(), media_vault_id: z.string().uuid().optional().nullable(), reply_to: z.string().uuid().optional().nullable(), attachments: z.array(postedAttachment).optional() }),
-  scheduled: z.object({ request_id: z.string().uuid(), body: z.string().max(10000).default(""), attachments: z.array(scheduledAttachment).max(20).default([]), reply_to: z.string().uuid().nullable().optional(), send_at: z.string().datetime({ offset: true }), timezone: z.string().min(1).max(100) }).strict(),
+  channel: z.object({ name: z.string().min(1), kind: z.enum(["DEPARTMENT", "PROJECT", "DOSSIER", "DIRECT", "CLIENT"]).optional(), dossier_id: z.string().guid().optional().nullable(), client_id: z.string().guid().optional().nullable(), topic: z.string().optional(), member_ids: z.array(z.string().guid()).optional() }),
+  member: z.object({ user_id: z.string().guid(), member_role: z.enum(["OWNER", "ADMIN", "MEMBER"]).optional() }),
+  message: z.object({ body: z.string().optional(), media_vault_id: z.string().guid().optional().nullable(), reply_to: z.string().guid().optional().nullable(), attachments: z.array(postedAttachment).optional() }),
+  scheduled: z.object({ request_id: z.string().guid(), body: z.string().max(10000).default(""), attachments: z.array(scheduledAttachment).max(20).default([]), reply_to: z.string().guid().nullable().optional(), send_at: z.string().datetime({ offset: true }), timezone: z.string().min(1).max(100) }).strict(),
   reschedule: z.object({ send_at: z.string().datetime({ offset: true }), timezone: z.string().min(1).max(100) }).strict(),
   // An edit changes the words only; attachments are never edited (C4).
   editMessage: z.object({ body: z.string().min(1) }).strict(),
@@ -146,7 +146,7 @@ const schemas = {
    * conversation the icon sits on — never a person, so the callee is resolved
    * server-side and there is no user id to spoof.
    */
-  callCreate: z.object({ group_id: z.string().uuid() }).strict(),
+  callCreate: z.object({ group_id: z.string().guid() }).strict(),
   // Clients built before PR-3 send a `reason`; it is accepted and ignored
   // (audit B9: the server decides how a call ended).
   callHangup: z.object({ reason: z.string().max(32).optional() }).strict(),
@@ -154,7 +154,7 @@ const schemas = {
   // record as the tenant has it; a client from before PR-6 sends no body.
   callAccept: z.object({ record: z.boolean().optional() }).strict(),
   // PR-6 (audit G3): whose call records to erase.
-  callEraseUser: z.object({ user_id: z.string().uuid() }).strict(),
+  callEraseUser: z.object({ user_id: z.string().guid() }).strict(),
   // A test ring goes to one of the caller's OWN subscriptions, named by its
   // push endpoint (the service looks it up under the caller's user id).
   callTestRing: z.object({ endpoint: z.string().url().max(2048) }).strict(),

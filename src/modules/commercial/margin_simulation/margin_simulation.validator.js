@@ -3,7 +3,7 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const line = z.object({
-  dictionary_item_id: z.string().uuid().optional().nullable(),
+  dictionary_item_id: z.string().guid().optional().nullable(),
   label: z.string().optional(),
   qty: z.number().positive().optional(),
   unit_cost: z.number().nonnegative().optional(),
@@ -18,7 +18,7 @@ const line = z.object({
   client_heading: z.string().trim().max(120).nullish(),
 });
 
-const UUID = z.string().uuid();
+const UUID = z.string().guid();
 
 const schemas = {
   compute: z.object({

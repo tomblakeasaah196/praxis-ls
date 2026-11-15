@@ -15,7 +15,7 @@
 const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
-const uuid = z.string().uuid();
+const uuid = z.string().guid();
 /** Metric keys are storage keys and SQL parameters, so they are constrained. */
 const METRIC = z.string().regex(/^[a-z][a-z0-9_]{1,39}$/, "invalid metric key");
 /** Same shape the provisioning validator enforces; a slug is a DB name here. */

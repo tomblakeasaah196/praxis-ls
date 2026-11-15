@@ -4,7 +4,7 @@ const { AppError } = require("../../../utils/errors");
 
 const schemas = {
   profile: z.object({
-    signature_template_id: z.string().uuid().nullable().optional(),
+    signature_template_id: z.string().guid().nullable().optional(),
     phone_desk: z.string().trim().max(40).nullable().optional(),
     phone_mobile: z.string().trim().max(40).nullable().optional(),
     whatsapp: z.string().trim().max(40).nullable().optional(),
@@ -12,7 +12,7 @@ const schemas = {
     credentials: z.string().trim().max(120).nullable().optional(),
     booking_url: z.string().trim().max(500).nullable().optional(),
     language: z.enum(["en", "fr"]).nullable().optional(),
-    extra: z.record(z.unknown()).optional(),
+    extra: z.record(z.string(), z.unknown()).optional(),
     is_enabled: z.boolean().optional(),
   }).strict(),
   // A motto is one line of display copy in a script face; it wraps badly and
@@ -47,9 +47,9 @@ const schemas = {
   templatePatch: z.object({
     name: z.string().trim().min(1).max(200).optional(),
     description: z.string().trim().max(2000).nullable().optional(),
-    layout: z.record(z.unknown()).optional(),
-    copy_en: z.record(z.unknown()).optional(),
-    copy_fr: z.record(z.unknown()).optional(),
+    layout: z.record(z.string(), z.unknown()).optional(),
+    copy_en: z.record(z.string(), z.unknown()).optional(),
+    copy_fr: z.record(z.string(), z.unknown()).optional(),
     scope_kind: z.enum(["TENANT", "DEPARTMENT", "ENTITY"]).optional(),
     scope_value: z.string().trim().max(200).nullable().optional(),
     is_default: z.boolean().optional(),
@@ -63,7 +63,7 @@ const schemas = {
   // memory until the archive is built. The service enforces the same bound —
   // this one keeps an absurd request from reaching it at all.
   batch: z.object({
-    user_ids: z.array(z.string().uuid()).min(1).max(200),
+    user_ids: z.array(z.string().guid()).min(1).max(200),
     language: z.enum(["en", "fr"]).optional(),
     scale: z.coerce.number().refine((n) => [1, 2, 3].includes(n), { message: "scale must be 1, 2 or 3" }).optional(),
   }).strict(),

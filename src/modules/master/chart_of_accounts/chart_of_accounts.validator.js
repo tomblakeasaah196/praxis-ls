@@ -10,7 +10,7 @@ const create = z.object({
   normal_balance: z.enum(["D", "C"]),
   is_postable: z.boolean().optional(),
   requires_analytic: z.boolean().optional(),
-  entity_id: z.string().uuid().optional(),
+  entity_id: z.string().guid().optional(),
 });
 const update = z.object({
   label_fr: z.string().min(1).optional(),

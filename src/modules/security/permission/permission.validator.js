@@ -21,7 +21,7 @@ const { body, passthrough } = require("../../../shared/http/validate");
 
 const grant = z
   .object({
-    role_id: z.string().uuid(),
+    role_id: z.string().guid(),
     // "MOD-67" — the shape used everywhere in this codebase.
     module_key: z
       .string()

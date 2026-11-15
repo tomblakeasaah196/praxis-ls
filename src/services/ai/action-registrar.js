@@ -48,7 +48,7 @@ function loadManifests(files = discoverManifestFiles()) {
  * the review's "new-lead creation rejected on data-type validation" is that
  * omission reported from the outside.
  *
- * `create_lead`'s validator says `owner_user_id: z.string().uuid()` and
+ * `create_lead`'s validator says `owner_user_id: z.string().guid()` and
  * `email: z.string().email()`. What reached the model was `{ type: "string" }`
  * for both. So the model was told, accurately as far as it could tell, that any
  * string would do — it sent the owner's NAME, or an email it had inferred —
@@ -74,15 +74,32 @@ function loadManifests(files = discoverManifestFiles()) {
  * stay where they are, enforced by the service, and the failure they produce is
  * a genuine one the user should see.
  */
+/** A Zod 4 schema's definition (`schema._zod.def`), or null for anything else. */
+const defOf = (t) => (t && t._zod && t._zod.def) || null;
+
+/** Wrappers that change WHETHER a value is required, never WHAT it looks like. */
+const WRAPPERS = new Set(["optional", "nullable", "default", "prefault", "nonoptional", "readonly", "catch"]);
+
+/**
+ * Peel a field to the schema that describes its value.
+ *
+ * Optional / nullable / default and friends hold the real type in `innerType`.
+ * A `.transform()` or `z.preprocess()` is a PIPE: the side worth showing the
+ * model is the one that parses the incoming value, which is `in` for a transform
+ * and `out` for a preprocess (whose `in` is a bare function).
+ */
 function unwrap(zt) {
   let t = zt;
-  // peel ZodOptional / ZodNullable / ZodDefault to the inner type
-  while (t && t._def && ["ZodOptional", "ZodNullable", "ZodDefault"].includes(t._def.typeName)) {
-    t = t._def.innerType;
+  for (let guard = 0; guard < 20; guard += 1) {
+    const d = defOf(t);
+    if (!d) break;
+    if (WRAPPERS.has(d.type) && d.innerType) t = d.innerType;
+    else if (d.type === "pipe" && d.in && d.out) t = defOf(d.in) && defOf(d.in).type === "transform" ? d.out : d.in;
+    else break;
   }
   return t;
 }
-const TYPE_MAP = { ZodString: "string", ZodNumber: "number", ZodBoolean: "boolean", ZodArray: "array", ZodObject: "object", ZodEnum: "string", ZodNativeEnum: "string", ZodRecord: "object", ZodAny: undefined };
+const TYPE_MAP = { string: "string", number: "number", boolean: "boolean", array: "array", object: "object", enum: "string", record: "object", any: undefined };
 
 /**
  * The string checks worth telling the model about, as JSON Schema `format`.
@@ -90,46 +107,71 @@ const TYPE_MAP = { ZodString: "string", ZodNumber: "number", ZodBoolean: "boolea
  * Only the ones with a canonical JSON Schema spelling AND a validator that can
  * check them cheaply — a format nothing enforces is decoration. `regex` is
  * carried as `pattern` because Zod stores the real RegExp and the model reads
- * it usefully; `startsWith`/`endsWith`/`includes` have no JSON Schema keyword
+ * it usefully; `starts_with`/`ends_with`/`includes` have no JSON Schema keyword
  * and are folded into the description instead, where they still reach the model.
+ *
+ * `guid` is what `.uuid()` became in this codebase on Zod 4 (the strict `uuid`
+ * rejects the all-zero and nil-style ids some fixtures use), so it is a "uuid"
+ * to the model all the same.
  */
-const STRING_FORMAT = { uuid: "uuid", email: "email", url: "uri", datetime: "date-time", date: "date", time: "time", ip: "ipv4", cuid: null, cuid2: null, ulid: null, emoji: null };
+const STRING_FORMAT = { uuid: "uuid", guid: "uuid", email: "email", url: "uri", datetime: "date-time", date: "date", time: "time", ipv4: "ipv4", ipv6: "ipv6", cuid: null, cuid2: null, ulid: null, emoji: null, nanoid: null };
+
+/**
+ * The check definitions on a schema, in order.
+ *
+ * Zod 4 keeps `.min()` / `.email()` / `.int()` as entries of `def.checks`, but a
+ * top-level `z.email()` / `z.int()` IS its own check: the format is on the schema's
+ * definition and `checks` is empty. Both shapes are read so neither is lost.
+ */
+function checkDefs(def) {
+  const out = [];
+  if (def && def.check) out.push(def);
+  for (const c of (def && def.checks) || []) {
+    const cd = defOf(c);
+    if (cd) out.push(cd);
+  }
+  return out;
+}
 
 /** Fold a ZodString's checks onto its JSON-schema node. */
 function applyStringChecks(node, checks) {
   const notes = [];
   for (const c of checks) {
-    switch (c.kind) {
-      case "min": node.minLength = c.value; break;
-      case "max": node.maxLength = c.value; break;
-      case "length": node.minLength = c.value; node.maxLength = c.value; break;
-      case "regex": if (c.regex && c.regex.source) node.pattern = c.regex.source; break;
-      case "startsWith": notes.push(`must start with "${c.value}"`); break;
-      case "endsWith": notes.push(`must end with "${c.value}"`); break;
-      case "includes": notes.push(`must contain "${c.value}"`); break;
-      default: {
+    switch (c.check) {
+      case "min_length": node.minLength = c.minimum; break;
+      case "max_length": node.maxLength = c.maximum; break;
+      case "length_equals": node.minLength = c.length; node.maxLength = c.length; break;
+      case "string_format": {
+        if (c.format === "regex") { if (c.pattern && c.pattern.source) node.pattern = c.pattern.source; break; }
+        if (c.format === "starts_with") { notes.push(`must start with "${c.prefix}"`); break; }
+        if (c.format === "ends_with") { notes.push(`must end with "${c.suffix}"`); break; }
+        if (c.format === "includes") { notes.push(`must contain "${c.includes}"`); break; }
         // uuid / email / url / datetime / … — a named check with a format.
-        if (Object.prototype.hasOwnProperty.call(STRING_FORMAT, c.kind)) {
-          const fmt = STRING_FORMAT[c.kind];
+        if (Object.prototype.hasOwnProperty.call(STRING_FORMAT, c.format)) {
+          const fmt = STRING_FORMAT[c.format];
           if (fmt) node.format = fmt;
-          else notes.push(`must be a valid ${c.kind}`);
+          else notes.push(`must be a valid ${c.format}`);
         }
         break;
       }
+      default: break;
     }
   }
   if (notes.length) node.description = notes.join("; ");
   return node;
 }
 
-/** Fold a ZodNumber's checks on. `int` is a JSON Schema TYPE, not a keyword. */
+/** Number formats that are whole numbers. `int` is a JSON Schema TYPE, not a keyword. */
+const INTEGER_FORMATS = new Set(["safeint", "int32", "uint32"]);
+
+/** Fold a ZodNumber's checks on. */
 function applyNumberChecks(node, checks) {
   for (const c of checks) {
-    switch (c.kind) {
-      case "min": if (c.inclusive === false) node.exclusiveMinimum = c.value; else node.minimum = c.value; break;
-      case "max": if (c.inclusive === false) node.exclusiveMaximum = c.value; else node.maximum = c.value; break;
-      case "int": node.type = "integer"; break;
-      case "multipleOf": node.multipleOf = c.value; break;
+    switch (c.check) {
+      case "greater_than": if (c.inclusive === false) node.exclusiveMinimum = c.value; else node.minimum = c.value; break;
+      case "less_than": if (c.inclusive === false) node.exclusiveMaximum = c.value; else node.maximum = c.value; break;
+      case "number_format": if (INTEGER_FORMATS.has(c.format)) node.type = "integer"; break;
+      case "multiple_of": node.multipleOf = c.value; break;
       default: break;
     }
   }
@@ -137,49 +179,56 @@ function applyNumberChecks(node, checks) {
 }
 
 /** Fold a ZodArray's length constraints on. */
-function applyArrayChecks(node, def) {
-  if (def.minLength && typeof def.minLength.value === "number") node.minItems = def.minLength.value;
-  if (def.maxLength && typeof def.maxLength.value === "number") node.maxItems = def.maxLength.value;
-  if (def.exactLength && typeof def.exactLength.value === "number") {
-    node.minItems = def.exactLength.value;
-    node.maxItems = def.exactLength.value;
+function applyArrayChecks(node, checks) {
+  for (const c of checks) {
+    switch (c.check) {
+      case "min_length": node.minItems = c.minimum; break;
+      case "max_length": node.maxItems = c.maximum; break;
+      case "length_equals": node.minItems = c.length; node.maxItems = c.length; break;
+      default: break;
+    }
   }
   return node;
 }
 
-function zodToJsonSchema(schema) {
-  // Unwrap a .refine()/.superRefine() (ZodEffects) to the inner object so refined
-  // schemas (e.g. journal_entry post) still expose their fields to the form.
-  if (schema && !schema.shape && schema._def && schema._def.schema && schema._def.schema.shape) schema = schema._def.schema;
+function zodToJsonSchema(input) {
+  // A refined object is still an object in Zod 4 (`.refine()` adds a check, it no
+  // longer wraps), so its fields are on `.shape` already. A `.transform()` is a
+  // pipe whose input side is the object, which `unwrap` reaches.
+  const schema = unwrap(input);
   if (!schema || !schema.shape) return { type: "object", properties: {} };
   const properties = {};
   const required = [];
   for (const [key, field] of Object.entries(schema.shape)) {
     const inner = unwrap(field);
-    const tn = inner && inner._def ? inner._def.typeName : undefined;
-    if (tn === "ZodArray") {
+    const def = defOf(inner);
+    const tn = def ? def.type : undefined;
+    if (tn === "array") {
       // Recurse one level into the element so array-of-objects (line items,
       // narratives) carry their item shape — the copilot renders repeatable rows.
-      const el = unwrap(inner._def.type);
+      const el = unwrap(def.element);
       properties[key] = applyArrayChecks(
         el && el.shape ? { type: "array", items: zodToJsonSchema(el) } : { type: "array" },
-        inner._def,
+        checkDefs(def),
       );
-    } else if (tn === "ZodObject" && inner.shape) {
+    } else if (tn === "object" && inner.shape) {
       properties[key] = zodToJsonSchema(inner);
     } else {
       const jsonType = TYPE_MAP[tn];
       const node = jsonType ? { type: jsonType } : {};
-      if (tn === "ZodEnum" && Array.isArray(inner._def.values)) node.enum = inner._def.values;
-      // ZodNativeEnum stores its members as an object, not an array — without
-      // this a TS-enum field reached the model as a bare string and the model
-      // had to guess a member name it was never shown.
-      if (tn === "ZodNativeEnum" && inner._def.values && typeof inner._def.values === "object") {
-        const vals = Object.values(inner._def.values).filter((v) => typeof v === "string" || typeof v === "number");
+      // `.options` is the member list for a string enum AND a TS enum: Zod 4 has
+      // one enum type, and for a numeric TS enum `def.entries` also carries the
+      // reverse mapping, which `.options` already filters out. Without this a
+      // TS-enum field reached the model as a bare string and the model had to
+      // guess a member name it was never shown.
+      if (tn === "enum") {
+        const vals = Array.isArray(inner.options)
+          ? inner.options
+          : Object.values(def.entries || {}).filter((v) => typeof v === "string" || typeof v === "number");
         if (vals.length) node.enum = vals;
       }
-      if (tn === "ZodString" && Array.isArray(inner._def.checks)) applyStringChecks(node, inner._def.checks);
-      if (tn === "ZodNumber" && Array.isArray(inner._def.checks)) applyNumberChecks(node, inner._def.checks);
+      if (tn === "string") applyStringChecks(node, checkDefs(def));
+      if (tn === "number") applyNumberChecks(node, checkDefs(def));
       properties[key] = node;
     }
     if (typeof field.isOptional === "function" ? !field.isOptional() : true) required.push(key);

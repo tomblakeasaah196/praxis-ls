@@ -15,14 +15,14 @@ const schemas = {
   // bounded (short scalar values only) rather than enumerated.
   runPdf: z.object({
     params: z.record(z.string().max(64), z.union([z.string().max(500), z.number(), z.boolean(), z.null()])).optional(),
-    entity_id: z.string().uuid().nullish(),
+    entity_id: z.string().guid().nullish(),
   }).strict(),
-  save: z.object({ name: z.string().min(1), report_key: z.string().min(1), params: z.record(z.any()).optional(), is_shared: z.boolean().optional() }),
-  setTile: z.object({ tile_key: z.string().min(1), position: z.number().int().nonnegative().optional(), is_visible: z.boolean().optional(), config: z.record(z.any()).optional() }),
+  save: z.object({ name: z.string().min(1), report_key: z.string().min(1), params: z.record(z.string(), z.any()).optional(), is_shared: z.boolean().optional() }),
+  setTile: z.object({ tile_key: z.string().min(1), position: z.number().int().nonnegative().optional(), is_visible: z.boolean().optional(), config: z.record(z.string(), z.any()).optional() }),
   schedule: z.object({
     name: z.string().min(1),
     report_key: z.string().min(1),
-    params: z.record(z.any()).optional(),
+    params: z.record(z.string(), z.any()).optional(),
     cadence: z.enum(CADENCE),
     recipients: z.array(z.string().email()).max(100).optional(),
     formats: z.array(z.enum(FORMATS)).optional(),
@@ -31,7 +31,7 @@ const schemas = {
   scheduleUpdate: z.object({
     name: z.string().min(1).optional(),
     report_key: z.string().min(1).optional(),
-    params: z.record(z.any()).optional(),
+    params: z.record(z.string(), z.any()).optional(),
     cadence: z.enum(CADENCE).optional(),
     recipients: z.array(z.string().email()).max(100).optional(),
     formats: z.array(z.enum(FORMATS)).optional(),

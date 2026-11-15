@@ -4,19 +4,19 @@ const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
   label: z.string().min(1), // forklift, reach-stacker
-  asset_id: z.string().uuid().optional(),
+  asset_id: z.string().guid().optional(),
   status: z.enum(["AVAILABLE", "IN_USE", "MAINTENANCE", "OUT_OF_SERVICE"]).optional(),
-  assigned_to: z.string().uuid().optional(),
-  location_id: z.string().uuid().optional(),
+  assigned_to: z.string().guid().optional(),
+  location_id: z.string().guid().optional(),
 });
 const status = z.object({
   status: z.enum(["AVAILABLE", "IN_USE", "MAINTENANCE", "OUT_OF_SERVICE"]),
-  assigned_to: z.string().uuid().nullable().optional(),
+  assigned_to: z.string().guid().nullable().optional(),
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ wms_equipment_id: z.string().uuid() });
-const aiStatus = status.extend({ wms_equipment_id: z.string().uuid() });
+const aiUpdate = update.extend({ wms_equipment_id: z.string().guid() });
+const aiStatus = status.extend({ wms_equipment_id: z.string().guid() });
 const schemas = { create, update, status, aiUpdate, aiStatus };
 
 const mw = (k) => (req, _res, next) => {

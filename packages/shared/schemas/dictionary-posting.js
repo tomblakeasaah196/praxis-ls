@@ -85,7 +85,7 @@ const provenance = z
   .object({
     source: z.enum(SOURCES),
     model: z.string().max(120).nullish(),
-    cache_entry_id: z.string().uuid().nullish(),
+    cache_entry_id: z.string().guid().nullish(),
     confidence: z.enum(CONFIDENCES),
     direction: z.enum(DIRECTIONS),
     suggested_rules: z

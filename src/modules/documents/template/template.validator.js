@@ -3,7 +3,7 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const setConfig = z.object({
-  entity_id: z.string().uuid().nullish(),
+  entity_id: z.string().guid().nullish(),
   config: z.record(z.string(), z.any()).optional(),
 });
 /**
@@ -17,28 +17,28 @@ const setConfig = z.object({
 const docLanguage = z.enum(["fr", "en"]).nullish();
 
 const preview = z.object({
-  entity_id: z.string().uuid().nullish(),
-  record_id: z.string().uuid().nullish(),
+  entity_id: z.string().guid().nullish(),
+  record_id: z.string().guid().nullish(),
   config: z.record(z.string(), z.any()).optional(),
   language: docLanguage,
 });
 const sendDoc = z.object({
   to: z.string().email(),
   subject: z.string().optional(),
-  entity_id: z.string().uuid().nullish(),
+  entity_id: z.string().guid().nullish(),
   language: docLanguage,
 });
 /* Opening the composer. The record is the URL's `:id`, so the body carries only
    the two things the operator chose: which entity issues it, and the language
    the sheet and its covering email both come out in. */
 const composePrefill = z.object({
-  entity_id: z.string().uuid().nullish(),
+  entity_id: z.string().guid().nullish(),
   language: docLanguage,
 });
 // AI-facing: the doc type is in the URL for the HTTP routes, but a copilot call
 // has no URL — it passes one flat object, so it must be IN the schema.
 const docType = z.string().min(1).max(64);
-const aiGetConfig = z.object({ doc_type: docType, entity_id: z.string().uuid().nullish() });
+const aiGetConfig = z.object({ doc_type: docType, entity_id: z.string().guid().nullish() });
 const aiSetConfig = setConfig.extend({ doc_type: docType });
 
 const schemas = { setConfig, preview, sendDoc, composePrefill, aiGetConfig, aiSetConfig };

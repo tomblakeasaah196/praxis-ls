@@ -12,11 +12,11 @@ const { clientPortal } = require("@praxis/shared");
 
 // The staff half's shared forms (14260), with the ids the routes take from
 // their paths. One definition of a valid Accept or "Request from client".
-const aiReviewRequest = clientPortal.reviewRequest.extend({ client_request_id: z.string().uuid() });
-const aiRequestDocuments = clientPortal.documentRequests.extend({ client_id: z.string().uuid() });
+const aiReviewRequest = clientPortal.reviewRequest.extend({ client_request_id: z.string().guid() });
+const aiRequestDocuments = clientPortal.documentRequests.extend({ client_id: z.string().guid() });
 // "Send by email" (D8): the key that makes a retry send once is the
 // assistant's to pass, or minted for this one call.
-const aiMessageEmail = clientPortal.messageEmail.extend({ message_id: z.string().uuid(), request_key: z.string().uuid().optional() });
+const aiMessageEmail = clientPortal.messageEmail.extend({ message_id: z.string().guid(), request_key: z.string().guid().optional() });
 module.exports = {
   entity: "portal_access", module_key: "MOD-67", screens: [],
   reads: [

@@ -41,7 +41,7 @@ module.exports = {
     {
       key: "review_held_punch",
       service: (c, p, actor) => service.reviewPunch(c, { id: p.attendance_id, decision: p.decision, note: p.note || null, actor }),
-      schema: validator.schemas.reviewDecision.innerType().extend({ attendance_id: z.string().uuid() }),
+      schema: validator.schemas.reviewDecision.extend({ attendance_id: z.string().guid() }),
       permission: { module: "MOD-14", action: "approve" },
       confirm: true,
       describe: "Approve or reject a held clock-in. Approving makes the day count for pay; rejecting needs a reason.",
@@ -49,7 +49,7 @@ module.exports = {
     {
       key: "reopen_attendance",
       service: (c, p, actor) => service.reopen(c, { id: p.attendance_id, actor }),
-      schema: z.object({ attendance_id: z.string().uuid() }),
+      schema: z.object({ attendance_id: z.string().guid() }),
       permission: { module: "MOD-14", action: "edit" },
       confirm: true,
       describe: "Reopen a closed shift: remove its clock-out so it runs again. For a mistaken clock-out once the employee's own two-minute undo has passed.",

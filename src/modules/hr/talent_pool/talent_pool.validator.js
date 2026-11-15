@@ -3,14 +3,14 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  applicant_id: z.string().uuid().optional(),
+  applicant_id: z.string().guid().optional(),
   full_name: z.string().min(1),
   skills: z.string().optional(),
   notes: z.string().optional(),
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ talent_pool_id: z.string().uuid() });
+const aiUpdate = update.extend({ talent_pool_id: z.string().guid() });
 const schemas = { create, update, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {

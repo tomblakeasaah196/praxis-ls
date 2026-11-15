@@ -117,7 +117,7 @@ const createField = z.object({ key: KEY, ...fieldBase }).superRefine((v, ctx) =>
 const updateField = z.object({ key: z.string().optional(), ...fieldBase }).partial();
 
 const createVersion = z.object({
-  from: z.string().uuid().optional(),
+  from: z.string().guid().optional(),
   name: z.string().min(1).max(120).optional(),
 });
 

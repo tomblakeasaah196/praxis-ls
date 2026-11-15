@@ -50,7 +50,7 @@ const applicant = {
  * is the authority on what is actually needed and answers with the field names.
  */
 const supplierBlock = z.object({
-  entity_id: z.string().uuid().optional().nullable(),
+  entity_id: z.string().guid().optional().nullable(),
   name: z.string().trim().min(1).max(255).optional(),
   legal_name: text255,
   country_code: z.string().trim().length(2).optional(),
@@ -59,7 +59,7 @@ const supplierBlock = z.object({
   address: text255,
   city: text255,
   supplier_type: text255,
-  supplier_type_id: z.string().uuid().optional().nullable(),
+  supplier_type_id: z.string().guid().optional().nullable(),
   notes: text5000,
   registrations: z.array(z.object({
     country_code: z.string().trim().length(2).optional(),
@@ -115,12 +115,12 @@ const schemas = {
 
   // AI-facing variants carry the id in the payload (REST takes it from the URL).
   aiTransition: z.object({
-    partnership_request_id: z.string().uuid(),
+    partnership_request_id: z.string().guid(),
     to: z.enum(STATUSES.filter((s) => s !== "APPROVED")),
     reason: text5000,
   }),
   aiApprove: z.object({
-    partnership_request_id: z.string().uuid(),
+    partnership_request_id: z.string().guid(),
     create_supplier: z.boolean().optional(),
     supplier: supplierBlock,
   }),

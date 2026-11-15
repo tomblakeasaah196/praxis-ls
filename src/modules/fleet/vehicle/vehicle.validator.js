@@ -4,14 +4,14 @@ const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
   registration: z.string().min(1),
-  entity_id: z.string().uuid().optional(),
-  asset_id: z.string().uuid().optional(),
+  entity_id: z.string().guid().optional(),
+  asset_id: z.string().guid().optional(),
   category: z.string().optional(), // low-bed | truck | company_car
   status: z.enum(["ACTIVE", "INACTIVE", "DISPOSED"]).optional(),
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ vehicle_id: z.string().uuid() });
+const aiUpdate = update.extend({ vehicle_id: z.string().guid() });
 const schemas = { create, update, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {

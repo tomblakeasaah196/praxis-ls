@@ -5,9 +5,9 @@ const { AppError } = require("../../../utils/errors");
 const DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const issue = z.object({
-  holder_user_id: z.string().uuid().optional(),
+  holder_user_id: z.string().guid().optional(),
   amount: z.number().positive(),
-  entity_id: z.string().uuid(),
+  entity_id: z.string().guid(),
   entry_date: DATE,
   source_doc_ref: z.string().min(1),
   policy_window_days: z.number().int().positive().optional(),
@@ -29,11 +29,11 @@ const issue = z.object({
 const retire = z
   .object({
     kind: z.enum(["RECEIPT", "CASH_RETURN", "WRITE_OFF"]),
-    dossier_id: z.string().uuid().optional(),
+    dossier_id: z.string().guid().optional(),
     amount: z.number().positive(),
-    proof_vault_id: z.string().uuid().optional(),
+    proof_vault_id: z.string().guid().optional(),
     memo: z.string().max(2000).optional(),
-    entity_id: z.string().uuid().optional(),
+    entity_id: z.string().guid().optional(),
     entry_date: DATE.optional(),
     source_doc_ref: z.string().min(1).optional(),
   })
@@ -47,7 +47,7 @@ const queryAdvance = z.object({ reason: z.string().min(1).max(2000) });
 const writeOff = z.object({
   amount: z.number().positive().optional(), // defaults to the whole open balance
   memo: z.string().max(2000).optional(),
-  entity_id: z.string().uuid().optional(),
+  entity_id: z.string().guid().optional(),
   entry_date: DATE.optional(),
   source_doc_ref: z.string().min(1).optional(),
 });
@@ -58,7 +58,7 @@ const unage = z.object({
 });
 
 const ageDue = z.object({
-  entity_id: z.string().uuid().optional(), // now stored on the advance (10717)
+  entity_id: z.string().guid().optional(), // now stored on the advance (10717)
   entry_date: DATE,
   source_doc_ref: z.string().min(1),
 });
@@ -71,13 +71,13 @@ const ageDue = z.object({
  */
 const aiRetire = z
   .object({
-    regie_advance_id: z.string().uuid(),
+    regie_advance_id: z.string().guid(),
     kind: z.enum(["RECEIPT", "CASH_RETURN", "WRITE_OFF"]),
-    dossier_id: z.string().uuid().optional(),
+    dossier_id: z.string().guid().optional(),
     amount: z.number().positive(),
-    proof_vault_id: z.string().uuid().optional(),
+    proof_vault_id: z.string().guid().optional(),
     memo: z.string().max(2000).optional(),
-    entity_id: z.string().uuid().optional(),
+    entity_id: z.string().guid().optional(),
     entry_date: DATE.optional(),
     source_doc_ref: z.string().min(1).optional(),
   })
@@ -87,21 +87,21 @@ const aiRetire = z
   });
 
 const aiQuery = z.object({
-  regie_advance_id: z.string().uuid(),
+  regie_advance_id: z.string().guid(),
   reason: z.string().min(1).max(2000),
 });
 
 const aiWriteOff = z.object({
-  regie_advance_id: z.string().uuid(),
+  regie_advance_id: z.string().guid(),
   amount: z.number().positive().optional(),
   memo: z.string().max(2000).optional(),
-  entity_id: z.string().uuid().optional(),
+  entity_id: z.string().guid().optional(),
   entry_date: DATE.optional(),
   source_doc_ref: z.string().min(1).optional(),
 });
 
 const aiUnage = z.object({
-  regie_advance_id: z.string().uuid(),
+  regie_advance_id: z.string().guid(),
   reason: z.string().max(2000).optional(),
   entry_date: DATE.optional(),
 });

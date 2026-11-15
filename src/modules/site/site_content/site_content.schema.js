@@ -52,7 +52,7 @@ const bi = (max) => z.object({
 const biOpt = (max) => bi(max).nullable().optional();
 
 /** An image is a vault document id, never a URL. */
-const image = z.string().uuid().nullable().optional();
+const image = z.string().guid().nullable().optional();
 
 /** Icon NAME, resolved by the renderer against its own set. Never markup. */
 const icon = z.string().trim().max(60).nullable().optional();
@@ -117,7 +117,7 @@ const BLOCKS = {
       // Alt text is required, not optional: a strip of unlabelled logos is
       // unreadable to a screen reader and worthless to a crawler.
       alt: z.string().trim().min(1).max(120),
-      image: z.string().uuid(),
+      image: z.string().guid(),
     }).strict()),
   }).strict(),
 

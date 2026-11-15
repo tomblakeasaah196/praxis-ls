@@ -23,7 +23,7 @@ const levelList = z
     "unknown level",
   );
 
-const uuid = z.string().uuid();
+const uuid = z.string().guid();
 const isoDate = z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/));
 
 const QUERY_SCHEMAS = {

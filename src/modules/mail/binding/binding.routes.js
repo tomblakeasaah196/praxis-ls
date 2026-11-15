@@ -62,7 +62,7 @@ router.delete("/threads/:id/bind", requireFeature("mail.binding"), requirePermis
  * cannot be walked as an existence oracle, and reported rather than silent, so
  * it is a stated limit and not a quiet cap. */
 router.post("/suggestions/accept-batch", requireFeature("mail.binding"), requirePermission(M, "edit"),
-  body(z.object({ thread_ids: z.array(z.string().uuid()).min(1).max(200), min_confidence: z.coerce.number().min(0).max(1).optional() }).strict()),
+  body(z.object({ thread_ids: z.array(z.string().guid()).min(1).max(200), min_confidence: z.coerce.number().min(0).max(1).optional() }).strict()),
   restrictThreadIdsBody("thread_ids"),
   // One expression, no interior semicolon: check-write-route-validators.js
   // captures the middleware chain as `[^;]*`, so a `const out = …;` inside the
@@ -92,7 +92,7 @@ router.get("/threads/:id/cards/:card/readiness", requireFeature("mail.binding"),
 router.get("/threads/:id/notes", requireFeature("mail.notes"), requirePermission(M, "view"), requireVisibleThread(),
   asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => notes.list(c, req.params.id)) })));
 router.post("/threads/:id/notes", requireFeature("mail.notes"), requirePermission(M, "create"), requireVisibleThread(),
-  body(z.object({ body: z.string().trim().min(1).max(20000), mentions: z.array(z.string().uuid()).max(20).optional() }).strict()),
+  body(z.object({ body: z.string().trim().min(1).max(20000), mentions: z.array(z.string().guid()).max(20).optional() }).strict()),
   asyncHandler(async (req, res) => res.status(201).json({ data: await req.identityDb((c) => notes.create(c, { threadId: req.params.id, body: req.body.body, mentions: req.body.mentions, actor: actor(req) })) })));
 
 /* Preview only — Q23 "always confirm". The record is created by the TARGET

@@ -23,7 +23,7 @@ const schemas = {
   // alone. The streaming endpoint shares this schema.
   ask: z.object({
     message: z.string().min(1).max(10000),
-    conversation_id: z.string().uuid().optional(),
+    conversation_id: z.string().guid().optional(),
     // The composer's posture (Ask/Draft/Analyse/Act) and the chosen Space. These
     // were sent by the client and silently stripped, so all four modes behaved
     // identically (audit D1/D5). Accepted here so the orchestrator can honour
@@ -70,8 +70,8 @@ const schemas = {
     }),
   // AI answer feedback (thumbs up/down). Bounded comment, required vote.
   feedback: z.object({
-    conversation_id: z.string().uuid().optional(),
-    message_id: z.string().uuid().optional(),
+    conversation_id: z.string().guid().optional(),
+    message_id: z.string().guid().optional(),
     question: z.string().max(10000).optional(),
     answer: z.string().max(50000).optional(),
     vote: z.enum(["up", "down"]),

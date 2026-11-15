@@ -78,7 +78,7 @@ const nullableEmail = email.nullable();
 const nullablePhone = phone.nullable();
 /** A foreign key that can be set, changed and unset. */
 const nullableId = (message) =>
-  blankToUndefined(z.string().uuid(message)).nullable();
+  blankToUndefined(z.string().guid(message)).nullable();
 
 // ── Enumerations shared with the migration's CHECK constraints ──────────────
 // Kept in step with 0515 by hand. A value here that the database rejects is a
@@ -445,7 +445,7 @@ const masterShape = {
   share_capital_currency: nullableCurrency,
   share_capital_paid_up: nullableAmount,
 
-  bank_block: z.record(z.any()).optional(),
+  bank_block: z.record(z.string(), z.any()).optional(),
   doc_prefix: optionalText,
   default_language: z.enum(["fr", "en"]).optional(),
   fiscal_year_start_month: blankToUndefined(
@@ -755,8 +755,8 @@ exports.letterheadUpdate = z.object({
   show_po_box: z.boolean().optional(),
   // 14140 (meeting 5) — which entity_address rows print, and whether the trade
   // identifiers share one line.
-  address_id: blankToUndefined(z.string().uuid("Must be a valid address id.")).nullable(),
-  postal_address_id: blankToUndefined(z.string().uuid("Must be a valid address id.")).nullable(),
+  address_id: blankToUndefined(z.string().guid("Must be a valid address id.")).nullable(),
+  postal_address_id: blankToUndefined(z.string().guid("Must be a valid address id.")).nullable(),
   identifiers_inline: z.boolean().optional(),
   header_note_fr: optionalText.nullable(),
   header_note_en: optionalText.nullable(),
@@ -804,7 +804,7 @@ exports.letterheadUpdate = z.object({
     .nullable()
     .optional(),
   remittance_account_id: blankToUndefined(
-    z.string().uuid("Must be a valid treasury account id."),
+    z.string().guid("Must be a valid treasury account id."),
   ).nullable(),
 });
 
@@ -856,7 +856,7 @@ exports.setStatus = z.object({
 
 exports.setStructure = z.object({
   parent_entity_id: blankToUndefined(
-    z.string().uuid("Must be a valid entity id."),
+    z.string().guid("Must be a valid entity id."),
   )
     .nullable()
     .optional(),
@@ -958,7 +958,7 @@ exports.taxObligationAssign = z.object({
 // `.refine()` cross-field rules, which makes them ZodEffects — those have no
 // `.shape` to extend, and reaching for the inner object would drop the refine.
 const entityIdField = {
-  entity_id: z.string().uuid("Must be a valid entity id."),
+  entity_id: z.string().guid("Must be a valid entity id."),
 };
 const withEntityId = (schema) => z.object(entityIdField).and(schema);
 

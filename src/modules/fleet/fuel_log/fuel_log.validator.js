@@ -3,15 +3,15 @@ const { z } = require("zod");
 const { AppError } = require("../../../utils/errors");
 
 const create = z.object({
-  vehicle_id: z.string().uuid(),
+  vehicle_id: z.string().guid(),
   odometer: z.number().int().nonnegative().optional(),
   litres: z.number().nonnegative().optional(),
   cost: z.number().nonnegative().optional(),
-  dossier_id: z.string().uuid().optional(), // fuel posts to 6053 tagged to dossier (deferred)
+  dossier_id: z.string().guid().optional(), // fuel posts to 6053 tagged to dossier (deferred)
 });
 const update = create.partial();
 // AI-facing: the record id travels IN the payload — the copilot has no route param.
-const aiUpdate = update.extend({ fuel_log_id: z.string().uuid() });
+const aiUpdate = update.extend({ fuel_log_id: z.string().guid() });
 const schemas = { create, update, aiUpdate };
 
 const mw = (k) => (req, _res, next) => {
