@@ -1,0 +1,20 @@
+{
+  "appearance": {
+    "name": "Smart Logistics & Services Ltd",
+    "primary": "#F5821F",
+    "primaryForeground": "#FFFFFF",
+    "accentDeep": "#D06410",
+    "success": "#28945E",
+    "warn": "#D06410",
+    "danger": "#D2443A",
+    "fontDisplay": "\"Plus Jakarta Sans Variable\", \"Plus Jakarta Sans\", sans-serif",
+    "fontBody": "\"Public Sans Variable\", \"Public Sans\", sans-serif",
+    "fontMono": "\"JetBrains Mono Variable\", \"JetBrains Mono\", monospace",
+    "radius": "0.9rem",
+    "theme": "light"
+  },
+  "login": {
+    "layout": "split",
+    "showLogo": true
+  }
+}

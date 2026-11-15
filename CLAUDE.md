@@ -357,6 +357,24 @@ Node 20 (`.nvmrc`), npm. Backend lint and tests run from the repo root; each
 frontend app has its own toolchain and is linted, tested and built separately in
 CI.
 
+## Training videos
+
+Asked for a training or introduction video ("make part 2 of the introduction", "make the finance
+video")? **Read `doc/TRAINING_VIDEOS.md` in full first.** It holds the pattern every video follows,
+the tooling in `scripts/video/`, the invented cast, how to stand up a throwaway filming copy, the
+pitfalls met and where the work stands. The short version:
+
+- **French narration, English subtitles, and the application stays in English.** The voice says every
+  button and menu name in English (between « » in a line's `fr`), exactly as the screen reads it.
+- **Never film a deployed site or a real tenant**, and never put a real person on screen: the cast is
+  invented (`scripts/video/cast.js`). `scripts/video/ground.js` refuses anything but a development
+  database on this machine.
+- **The tenant's look is its real, published one** (`scripts/video/brand/<tenant>/`), applied through the
+  product's own branding service. Tour screens in TEST, where the sample data is; LIVE of a tenant that
+  has not gone live is empty.
+- **Bugs found while filming are fixed in the same PR** and listed in §7 of that file, with a test.
+- No em dash anywhere in a scene (`tests/unit/video-tooling.test.js` pins it), as everywhere a tenant reads.
+
 ## Before you push: `npm run ci`
 
 **Not `npm run lint && npx jest`.** That is two of the thirty-odd gates CI runs,

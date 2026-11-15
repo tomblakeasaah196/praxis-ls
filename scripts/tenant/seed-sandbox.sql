@@ -311,7 +311,7 @@ BEGIN
   -- deliberately sandbox-local for that reason.
   SELECT dictionary_item_id INTO v_di_freight  FROM dictionary_item WHERE code = '#D081';  -- Ocean Freight
   SELECT dictionary_item_id INTO v_di_transit  FROM dictionary_item WHERE code = '#R010';  -- Service Charges
-  SELECT dictionary_item_id INTO v_di_doc      FROM dictionary_item WHERE code = '#R002';  -- Documentation Fee
+  SELECT dictionary_item_id INTO v_di_doc      FROM dictionary_item WHERE code = '#D028';  -- Documentation Fee
   SELECT dictionary_item_id INTO v_di_handling FROM dictionary_item WHERE code = '#D049';  -- Equipment & Cargo Handling
   SELECT dictionary_item_id INTO v_di_customs  FROM dictionary_item WHERE code = '#D030';  -- Customs Duties & Taxes
   SELECT dictionary_item_id INTO v_di_thc      FROM dictionary_item WHERE code = '#D114';  -- Terminal Handling Charges
@@ -330,7 +330,7 @@ BEGIN
   -- Sandbox-local demo pricing on the shared catalogue rows.
   UPDATE dictionary_item SET default_price = v.price, service_type_key = v.svc
     FROM (VALUES ('#D081',1800000::numeric,'SEA_FREIGHT_IMPORT'),
-                 ('#R010', 350000,NULL), ('#R002',  75000,NULL),
+                 ('#R010', 350000,NULL), ('#D028',  75000,NULL),
                  ('#D049', 220000,NULL), ('#D078', 120000,NULL))
          AS v(code, price, svc)
    WHERE dictionary_item.code = v.code;

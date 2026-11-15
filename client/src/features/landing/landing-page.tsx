@@ -119,7 +119,7 @@ export function LandingPage() {
   const subheadline =
     login?.subtext ||
     hero.subheadline ||
-    "Sign in to manage operations end to end — from the floor to global dispatch.";
+    "Sign in to manage operations end to end, from the floor to global dispatch.";
   const body = hero.body || null;
   const pills = hero.pills || [];
   const backgroundUrl = login?.backgroundUrl || hero.imageUrl || null;

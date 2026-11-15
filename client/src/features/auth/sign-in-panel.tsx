@@ -954,7 +954,7 @@ export function SignInPanel({
         <div className="mt-6 flex flex-col gap-5">
           <p className="login-note">
             If an account exists for <strong>{(email || rememberedEmail).trim()}</strong>, a reset link is on its way. It expires in
-            30 minutes — check your spam folder too.
+            30 minutes. Check your spam folder too.
           </p>
           <button
             type="button"
