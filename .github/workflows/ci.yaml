@@ -1525,7 +1525,7 @@ jobs:
           set -euo pipefail
 
           out=$(docker exec -w /app praxis-ci node -e "
-            const wanted = ['pdfjs-dist/legacy/build/pdf.js', '@napi-rs/canvas', 'canvas'];
+            const wanted = ['pdfjs-dist/legacy/build/pdf.mjs', '@napi-rs/canvas'];
             const missing = [];
             for (const m of wanted) {
               try { require.resolve(m); } catch (err) { missing.push({ module: m, error: err.code || err.message }); }
