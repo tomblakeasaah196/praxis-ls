@@ -932,6 +932,11 @@ export function ConnectionsTab({
   onCreateShared?: (seed: SharedMailboxSeed) => void;
 } = {}) {
   const conns = useResource(() => api.listConnections(), []);
+  // Only to decide whether the Google button is drawn: it appears where an
+  // administrator has switched Google on for this company (see
+  // ConnectMethodModal for why Google is hidden rather than explained until then).
+  const methods = useResource(() => api.connectMethods(), []);
+  const google = methods.data?.google_gmail;
   const [busyId, setBusyId] = React.useState<string>("");
   const [note, setNote] = React.useState<string>("");
   const [imapOpen, setImapOpen] = React.useState(false);
@@ -964,11 +969,10 @@ export function ConnectionsTab({
    * this is now the ONLY way to connect one at all. There is no password that
    * works, and `connect()` refuses to pretend otherwise.
    *
-   * Google stays out for now: its restricted mail scopes need a security
-   * assessment that runs for weeks, and 12775 split the flags so waiting for
-   * Google no longer holds Microsoft back. `api.startGoogle` is still exported
-   * and the adapter still has its CI tests, so turning it on is this function
-   * plus a second button.
+   * Google sits beside it, but only for a company where the per-provider flag
+   * `mail.provider.google` is on: until Google approves the app (its restricted
+   * mail scope needs verification and a security assessment) it admits only
+   * listed test users, so it is switched on company by company.
    *
    * The gate remains on the SERVER — `startOAuth` and `completeOAuth` both call
    * `assertProviderEnabled` — so a tenant without the flag gets a clear refusal
@@ -977,6 +981,14 @@ export function ConnectionsTab({
   async function connectMicrosoft() {
     try {
       const r = await api.startMicrosoft();
+      window.location.href = r.url;
+    } catch (err) {
+      setNote(errMsg(err));
+    }
+  }
+  async function connectGoogle() {
+    try {
+      const r = await api.startGoogle();
       window.location.href = r.url;
     } catch (err) {
       setNote(errMsg(err));
@@ -1071,12 +1083,22 @@ export function ConnectionsTab({
        * the only route that exists, while "Connect a Mailbox" (IMAP/SMTP) is
        * for a mailbox on the company's own mail server. Offering the password
        * form first to a Microsoft tenant sends them down a road that ends in an
-       * authentication failure they cannot fix. Google Workspace returns here
-       * once its scope verification clears — see `oauth()` above. */}
+       * authentication failure they cannot fix. Google Workspace sits beside it
+       * where the company has Google switched on — see `connectGoogle()` above. */}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" onClick={() => void connectMicrosoft()}>
           {tr("Connect Microsoft 365")}
         </Button>
+        {google?.enabled && (
+          <Button
+            variant="outline"
+            onClick={() => void connectGoogle()}
+            disabled={!google.available}
+            title={google.available ? undefined : tr("Google sign-in is not set up on this deployment yet.")}
+          >
+            {tr("Connect Google Workspace")}
+          </Button>
+        )}
         <Button variant="outline" onClick={() => setImapOpen(true)}>
           {tr("Connect a Mailbox")}
         </Button>
@@ -1111,9 +1133,8 @@ export function ConnectionsTab({
               {c.status === "ARCHIVED" ? (
                 <Button size="sm" onClick={() => {
                   if (c.provider === "microsoft_graph") void connectMicrosoft();
-                  else if (c.provider === "google_gmail") {
-                    void api.startGoogle().then((r) => { window.location.href = r.url; }).catch(reportActionError);
-                  } else setImapOpen(true);
+                  else if (c.provider === "google_gmail") void connectGoogle();
+                  else setImapOpen(true);
                 }}>
                   {tr("Connect")}
                 </Button>

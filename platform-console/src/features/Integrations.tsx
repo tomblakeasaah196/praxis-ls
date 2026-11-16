@@ -29,6 +29,7 @@ export function Integrations() {
           <VapidCard row={byKey["push.vapid"]} onSaved={reload} />
           <MailFallbackCard row={byKey["mail.fallback"]} onSaved={reload} />
           <MicrosoftGraphCard row={byKey["mail.microsoft_graph"]} onSaved={reload} />
+          <GoogleGmailCard row={byKey["mail.google_gmail"]} onSaved={reload} />
           <BackupStorageCard row={byKey["storage.backup"]} onSaved={reload} />
           <TurnCard />
           <SignwellCard rows={byKey} onSaved={reload} />
@@ -842,6 +843,78 @@ function MicrosoftGraphCard({ row, onSaved }: { row?: PlatformSetting; onSaved: 
           checks that during a real sign-in, and a mismatch shows as
           <code> AADSTS50011</code>), nor that a customer&rsquo;s own administrator has consented
           in <em>their</em> directory, which is separate from consent in ours.
+        </div>
+      </details>
+    </Card>
+  );
+}
+
+/**
+ * Google OAuth client for Gmail / Google Workspace mailboxes.
+ *
+ * The counterpart of the Microsoft card. Before it existed these values lived
+ * only in the server's GOOGLE_* environment variables, so nobody could see from
+ * here whether Gmail was configured, let alone whether the secret still worked.
+ * Values set here win over those variables; blank fields fall back to them.
+ */
+function GoogleGmailCard({ row, onSaved }: { row?: PlatformSetting; onSaved: () => void }) {
+  const v = (row?.value || {}) as Record<string, string>;
+  const { toast } = useToast();
+  const [f, setF] = useState({
+    client_id: v.client_id || "",
+    redirect_uri: v.redirect_uri || "",
+    scopes: v.scopes || "openid email https://www.googleapis.com/auth/gmail.modify",
+    secret: "",
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
+  const save = async () => {
+    setBusy(true);
+    try {
+      const { secret, ...value } = f;
+      await platform.putSetting("mail", "google_gmail", { value, secret: secret || undefined });
+      toast("Google credentials saved");
+      setF({ ...f, secret: "" });
+      onSaved();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card title="Google Workspace / Gmail mailboxes (OAuth client)" actions={<TestButton section="mail" keyName="google_gmail" />}>
+      <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+        The Google Cloud OAuth client users consent to when they connect a Gmail or Google
+        Workspace mailbox. One client serves every tenant. Google no longer accepts a password
+        from outside mail apps, so this is the only way a Google mailbox can be connected.
+        Values set here override the <code>GOOGLE_*</code> environment variables.
+      </p>
+      <div className="form-grid" style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
+        <Field label="Client ID">
+          <input className="in" value={f.client_id} onChange={set("client_id")} placeholder="000000000000-xxxx.apps.googleusercontent.com" />
+        </Field>
+        <Field label="Client secret" hint={<SecretHint row={row} label="Client secret" />}>
+          <input className="in" type="password" value={f.secret} onChange={set("secret")} placeholder="••••••••" />
+        </Field>
+        <Field label="Redirect URI" hint="Must match an Authorized redirect URI on the OAuth client, exactly. One canonical URI serves every tenant.">
+          <input className="in" value={f.redirect_uri} onChange={set("redirect_uri")} placeholder="https://praxisls.com/api/tenant/mail/oauth/google/callback" />
+        </Field>
+        <Field label="Scopes">
+          <input className="in" value={f.scopes} onChange={set("scopes")} />
+        </Field>
+      </div>
+      <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
+        <Button variant="primary" onClick={save} loading={busy}>Save</Button>
+      </div>
+      <details style={{ marginTop: 10, fontSize: 12, color: "var(--ink-2)" }}>
+        <summary style={{ cursor: "pointer", color: "var(--ink)", fontWeight: 600 }}>What the Test proves, and what it cannot</summary>
+        <div style={{ marginTop: 6, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--panel-2)", lineHeight: 1.55 }}>
+          The Test sends Google a made-up sign-in code with the saved client ID and secret. Google
+          checks the client before the code, so a pass means the ID and secret are right. It does
+          <strong> not</strong> prove the redirect URI is registered, nor that the app is
+          published: while the Google app is in <em>Testing</em>, only its listed test users can
+          sign in, and Google ends their sign-in after 7 days.
         </div>
       </details>
     </Card>

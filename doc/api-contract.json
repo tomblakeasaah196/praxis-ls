@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 143,
-  "route_count": 1898,
+  "route_count": 1899,
   "tiers": {
     "public": 75,
     "self-scoped": 118,
-    "gated": 1705
+    "gated": 1706
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -2908,6 +2908,12 @@
       "tier": "public"
     },
     "GET /api/tenant/mail/oauth/google/start": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/mail/oauth/google/start/shared": {
       "auth": true,
       "rbac": true,
       "validated": false,

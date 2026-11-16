@@ -299,13 +299,13 @@ async function providerEnabled(client, provider) {
  * function` — so the chooser could not be drawn at all, on every surface, for
  * every tenant.
  *
- * The two adapters do not agree on the shape. Microsoft's is `async` because
- * it resolves its credentials from the platform vault (a DB read); Google's is
- * a synchronous `Boolean(config.GOOGLE_CLIENT_ID && …)` off `.env`, and a
- * boolean has no `.catch`. `startOAuth` already knew this and says so — "await
- * on the still-synchronous Google adapter is a no-op, so one call shape keeps
- * serving both" — and `await` is exactly the operator that does not care.
- * `.catch()` is not: it is a Promise method, reached before any await.
+ * The two adapters did not agree on the shape. Microsoft's was `async`
+ * because it resolves its credentials from the platform vault (a DB read);
+ * Google's was then a synchronous `Boolean(config.GOOGLE_CLIENT_ID && …)` off
+ * `.env`, and a boolean has no `.catch`. Both read the vault now, but the
+ * lesson stands for any adapter added later: `await` is the operator that does
+ * not care which shape comes back. `.catch()` is not: it is a Promise method,
+ * reached before any await.
  *
  * So: `await` inside `try`, which normalises both return shapes AND both
  * failure shapes — a rejected promise from the vault read, and a synchronous
@@ -1754,9 +1754,8 @@ async function startOAuth(client, provider, {
   // before anyone is redirected to Microsoft, rather than after they have
   // consented and come back.
   await assertProviderEnabled(client, provider);
-  // Microsoft resolves these from the platform vault, so they are async now.
-  // `await` on the still-synchronous Google adapter is a no-op, so one call
-  // shape keeps serving both.
+  // Both adapters resolve their credentials from the platform vault (env as
+  // the fallback), so these are async.
   if (!(await o.idp.isConfigured())) throw new AppError("NOT_CONFIGURED", `${provider} OAuth is not configured`, 400);
   if (!slug || !redirectUri) throw new AppError("VALIDATION_ERROR", "slug and redirectUri are required", 422);
   // Before the consent URL is built, so a misconfigured return address is a

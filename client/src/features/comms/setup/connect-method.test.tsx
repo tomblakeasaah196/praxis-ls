@@ -310,3 +310,95 @@ describe("the outcome of a consent round trip", () => {
     expect(screen.queryByText(/Connected to/i)).not.toBeInTheDocument();
   });
 });
+
+/* ── The Google answer ────────────────────────────────────────────────────── */
+
+describe("choosing Google", () => {
+  /* Google is switched on company by company: until Google approves the app it
+   * admits only listed test users, so a company without the flag sees nothing
+   * new — no disabled card to wonder about. */
+  const withGoogle = (google: Record<string, unknown>) => ({
+    ...methods(MS_READY),
+    google_gmail: google,
+  });
+  const CHOOSER_GG = /Sign in with Google/i;
+  const GG_READY = { available: true, enabled: true, configured: true, reason: null };
+
+  it("is not offered where the company has not switched it on", async () => {
+    const user = userEvent.setup();
+    renderScreen(<MailboxesTab canCreate />, adminRoutes());
+
+    await user.click(await screen.findByRole("button", { name: /new shared mailbox/i }));
+
+    expect(await screen.findByRole("button", { name: CHOOSER_MS })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: CHOOSER_GG })).not.toBeInTheDocument();
+  });
+
+  it("sends a catalogue slot to Google's shared endpoint, carrying the slot", async () => {
+    const user = userEvent.setup();
+    const tenant = vi.spyOn(apiClient, "tenant");
+    renderScreen(<MailboxesTab canCreate />, {
+      routes: {
+        "/mail/mailboxes": [],
+        "/mail/catalogue": CATALOGUE,
+        "/mail/connect-methods": withGoogle(GG_READY),
+        "/mail/oauth/google/start/shared": { url: "https://accounts.google.com/consent" },
+      },
+    });
+
+    await user.click(await screen.findByText("Operations"));
+    await user.click(await screen.findByRole("button", { name: CHOOSER_GG }));
+
+    const start = tenant.mock.calls
+      .map((c) => String(c[0]))
+      .find((u) => u.includes("/mail/oauth/google/start/shared"));
+    expect(start).toContain("catalogue_key=OPERATIONS");
+    expect(href).toBe("https://accounts.google.com/consent");
+  });
+
+  it("sends a personal connect to Google's personal endpoint", async () => {
+    const user = userEvent.setup();
+    const tenant = vi.spyOn(apiClient, "tenant");
+    renderScreen(<MyMailboxTab />, {
+      routes: {
+        "/mail/mailboxes/mine": [],
+        "/mail/connect-methods": withGoogle(GG_READY),
+        "/mail/oauth/google/start": { url: "https://accounts.google.com/personal" },
+      },
+    });
+
+    await user.click(await screen.findByRole("button", { name: /Connect my mailbox/i }));
+    await user.click(await screen.findByRole("button", { name: CHOOSER_GG }));
+
+    const called = tenant.mock.calls.map((c) => String(c[0]));
+    expect(called.some((u) => u.includes("/mail/oauth/google/start") && !u.includes("/shared"))).toBe(true);
+    expect(href).toBe("https://accounts.google.com/personal");
+  });
+
+  it("switched on but not set up: shown, disabled, and says who fixes it", async () => {
+    const user = userEvent.setup();
+    renderScreen(<MyMailboxTab />, {
+      routes: {
+        "/mail/mailboxes/mine": [],
+        "/mail/connect-methods": withGoogle({ available: false, enabled: true, configured: false, reason: "NOT_CONFIGURED" }),
+      },
+    });
+
+    await user.click(await screen.findByRole("button", { name: /Connect my mailbox/i }));
+
+    expect(await screen.findByRole("button", { name: CHOOSER_GG })).toBeDisabled();
+    expect(screen.getByText(/Platform Console → Integrations/)).toBeInTheDocument();
+  });
+});
+
+describe("returning from Google", () => {
+  it("a cancel at Google reads as a cancel at Google, not as a failure", async () => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...realLocation, search: "?mail_error=OAUTH_CANCELLED&provider=google&mail_tab=mine", pathname: "/comms/setup" },
+    });
+    renderScreen(<CommsSetupPage />, { routes: { "/mail/mailboxes/mine": [], "/mail/connect-methods": methods(MS_READY) } });
+
+    expect(await screen.findByText(/cancelled at Google's sign-in screen/i)).toBeInTheDocument();
+  });
+});

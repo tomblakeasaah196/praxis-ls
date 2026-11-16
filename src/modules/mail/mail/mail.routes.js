@@ -107,6 +107,7 @@ router.get("/oauth/microsoft/start/shared", requirePermission(M, "create"), c.ms
 // like the connect it rescues — the consent itself is given in Entra, not here.
 router.get("/oauth/microsoft/admin-consent", requirePermission(M, "edit"), c.msAdminConsentStart);
 router.get("/oauth/google/start", requirePermission(M, "edit"), c.ggOAuthStart);
+router.get("/oauth/google/start/shared", requirePermission(M, "create"), c.ggOAuthStartShared);
 
 // Read-only view (original)
 router.get("/senders", requirePermission(M, "view"), c.senders);

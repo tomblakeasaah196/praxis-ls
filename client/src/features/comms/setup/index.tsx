@@ -159,7 +159,22 @@ export function CommsSetupPage() {
       const guidance: Record<string, { tone?: "warn" | "info"; text: string }> = {
         OAUTH_CANCELLED: {
           tone: "info",
-          text: tr("The connection was cancelled at Microsoft's sign-in screen. Nothing was changed: try again whenever you are ready."),
+          text: who === "Google"
+            ? tr("The connection was cancelled at Google's sign-in screen. Nothing was changed: try again whenever you are ready.")
+            : tr("The connection was cancelled at Microsoft's sign-in screen. Nothing was changed: try again whenever you are ready."),
+        },
+        GOOGLE_BAD_CLIENT: {
+          text: tr("Google rejected the platform's OAuth client: the client ID or secret is wrong. This is not something retrying fixes: an administrator needs to check Platform Console → Integrations → Google Workspace / Gmail."),
+        },
+        GOOGLE_REDIRECT_MISMATCH: {
+          text: tr("Google rejected the return address for this sign-in. An administrator needs to check that the redirect URI on the Google OAuth client matches Platform Console → Integrations → Google Workspace / Gmail."),
+        },
+        GOOGLE_GRANT_EXPIRED: {
+          tone: "warn",
+          text: tr("Google did not accept that sign-in because it had already been used or had expired. Connect the mailbox again."),
+        },
+        GOOGLE_AUTH_FAILED: {
+          text: tr("Google refused the sign-in. Try again; if it keeps failing, note the time and ask an administrator to check the mail logs."),
         },
         MS_CONSENT_REQUIRED: {
           tone: "warn",
