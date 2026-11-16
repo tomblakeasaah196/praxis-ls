@@ -9,7 +9,7 @@
  * brand name — so an un-set-up tenant still gets a presentable landing.
  */
 import * as React from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/app/auth/auth-context";
 import { useBranding } from "@/app/branding/branding-context";
 import { LoginModal } from "@/features/auth/login-modal";
@@ -210,6 +210,16 @@ export function LandingPage() {
           Same placement and styling as the client portal's footer. */}
       <footer className="px-6 pb-8 pt-2 text-center text-xs text-muted-foreground">
         Powered by JBS Praxis LLC
+        {/* Google's OAuth verification requires the home page — which is this
+            page on praxisls.com — to link to the privacy policy. */}
+        <nav aria-label="Legal" className="mt-2 flex justify-center gap-4">
+          <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground">
+            Privacy Policy
+          </Link>
+          <Link to="/terms" className="underline underline-offset-2 hover:text-foreground">
+            Terms of Service
+          </Link>
+        </nav>
       </footer>
 
       {open && <LoginModal onClose={() => setOpen(false)} />}

@@ -31,7 +31,7 @@
  */
 const RESERVED_BASES = new Set([
   // outside the ERP's shell
-  "login", "reset-password", "sign", "v", "verify",
+  "login", "reset-password", "sign", "v", "verify", "privacy", "terms",
   // the ERP's sections
   "ai", "ai-control", "appearance", "approvals", "audit", "commercial", "comms",
   "costing", "documents", "finance", "fleet", "godmode", "governance", "help",
