@@ -86,6 +86,10 @@ const SecureLinkPage = lazyNamed(
   () => import("@/features/public/secure-link-page"),
   "SecureLinkPage",
 );
+// The public legal pages. Google's OAuth consent screen (Gmail) links to both,
+// and its verification review reads the privacy policy — see legal-content.ts.
+const PrivacyPage = lazyNamed(() => import("@/features/legal/legal-page"), "PrivacyPage");
+const TermsPage = lazyNamed(() => import("@/features/legal/legal-page"), "TermsPage");
 const PortalAccessPage = lazyNamed(
   () => import("@/features/portal/pages"),
   "PortalAccessPage",
@@ -593,6 +597,13 @@ export function App() {
             endpoint accepts. Without this route every `/s/:token` fell through
             to the catch-all, landed on `/`, and met a sign-in screen. */}
             <Route path="/s/:token" element={<SecureLinkPage />} />
+
+            {/* The privacy policy and terms of service. Outside RequireAuth and
+            outside AppShell for the same reason as the three above: the reader
+            has no account. They are JBS Praxis's own documents, so every host
+            answers them; Google's consent screen links to the praxisls.com copies. */}
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
 
             {/* The old public slugs (/track, /portfolio, /proposal/:token,
             /careers, /client-portal/*) are redirected by public-web's router now,
