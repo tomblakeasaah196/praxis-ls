@@ -72,7 +72,7 @@ export const PRIVACY: LegalDoc = {
     {
       heading: "2. Our Role",
       blocks: [
-        "Praxis LS is used by companies (our \"customers\") for their own business. When a customer or its staff put information into Praxis LS — shipments, clients, invoices, documents, emails — the customer decides what that information is for. For that data the customer is the controller and we act as its processor: we handle it only to provide the service, on the customer's instructions.",
+        "Praxis LS is used by companies (our \"customers\") for their own business. When a customer or its staff put information into Praxis LS (shipments, clients, invoices, documents, emails), the customer decides what that information is for. For that data the customer is the controller and we act as its processor: we handle it only to provide the service, on the customer's instructions.",
         "For the account details we need to run the service, for our own websites, and for our relationship with customers, we are the controller.",
         "If you use Praxis LS through your employer, your employer's administrator manages your account and can also help with requests about your data.",
       ],
@@ -103,7 +103,7 @@ export const PRIVACY: LegalDoc = {
         [
           "showing your mailbox, messages, attachments and labels inside Praxis LS, and keeping them in step with Gmail;",
           "sending emails and replies that you write or approve, from your own address;",
-          "applying the actions you take — marking read, moving, labelling, archiving;",
+          "applying the actions you take, such as marking read, moving, labelling or archiving;",
           "linking messages to the records you choose (a shipment, a client, an invoice) and finding them again by search;",
           "AI features you choose to use on a message, such as a summary or a suggested reply.",
         ],
@@ -125,7 +125,7 @@ export const PRIVACY: LegalDoc = {
           "to send service messages, such as sign-in codes, security alerts and notices about changes;",
           "to meet our legal, tax and accounting obligations.",
         ],
-        "We rely on the performance of our contract with customers, our legitimate interest in running a secure and reliable service, our legal obligations, and — where the law requires it — your consent.",
+        "We rely on the performance of our contract with customers, our legitimate interest in running a secure and reliable service, our legal obligations and, where the law requires it, your consent.",
       ],
     },
     {
@@ -133,7 +133,7 @@ export const PRIVACY: LegalDoc = {
       blocks: [
         [
           "people in your own organisation who are authorised to see it in Praxis LS;",
-          "service providers that help us run the service — hosting, email delivery, messaging and AI services — bound by contract to use the data only for that purpose;",
+          "service providers that help us run the service (hosting, email delivery, messaging and AI services), bound by contract to use the data only for that purpose;",
           "authorities, where the law requires us to;",
           "a buyer or successor, if our business is merged or sold, under the same protections.",
         ],
@@ -233,7 +233,7 @@ export const TERMS: LegalDoc = {
     {
       heading: "6. AI Features",
       blocks: [
-        "Some features use artificial intelligence to draft, summarise or suggest. Their results can be wrong. Check them before relying on them — especially for accounting, tax, customs or legal matters, where the decision stays yours.",
+        "Some features use artificial intelligence to draft, summarise or suggest. Their results can be wrong. Check them before relying on them, especially for accounting, tax, customs or legal matters, where the decision stays yours.",
       ],
     },
     {
