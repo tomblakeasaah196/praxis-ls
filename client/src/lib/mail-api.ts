@@ -456,7 +456,7 @@ export const updateImapConnection = (
 
 export type MailboxKind = "PERSONAL" | "SHARED" | "DELEGATED";
 export type MemberRole = "VIEWER" | "AGENT" | "MANAGER";
-export type HealthLevel = "OK" | "WARN" | "DOWN" | "PENDING" | "OFF" | "ARCHIVED";
+export type HealthLevel = "OK" | "WARN" | "DOWN" | "PENDING" | "SYNCING" | "OFF" | "ARCHIVED";
 
 export type MailboxHealth = {
   level: HealthLevel;

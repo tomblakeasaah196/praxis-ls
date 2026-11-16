@@ -15,6 +15,7 @@ const TONE: Record<string, Tone> = {
   WARN: "warn",
   DOWN: "bad",
   PENDING: "warn",
+  SYNCING: "blue",
   OFF: "mute",
   ARCHIVED: "mute",
 };
@@ -24,6 +25,7 @@ const LABEL: Record<string, string> = {
   WARN: "Needs a look",
   DOWN: "Not working",
   PENDING: "Not verified",
+  SYNCING: "Waiting for first sync",
   OFF: "Paused",
   ARCHIVED: "Retired",
 };
