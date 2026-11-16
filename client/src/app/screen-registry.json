@@ -2302,6 +2302,28 @@
       "public": true
     },
     {
+      "id": "privacy_policy",
+      "title": "Privacy Policy",
+      "title_fr": "Politique de confidentialité",
+      "route": "/privacy",
+      "area": "public",
+      "module_key": null,
+      "purpose": "JBS Praxis's privacy policy, including how Google (Gmail) user data is handled. Linked from the sign-in page and Google's consent screen.",
+      "actions": [],
+      "public": true
+    },
+    {
+      "id": "terms_of_service",
+      "title": "Terms of Service",
+      "title_fr": "Conditions d'utilisation",
+      "route": "/terms",
+      "area": "public",
+      "module_key": null,
+      "purpose": "The terms that govern use of Praxis LS. Linked from the sign-in page and Google's consent screen.",
+      "actions": [],
+      "public": true
+    },
+    {
       "id": "my_hr_queries",
       "title": "My HR: Queries and Appraisals",
       "title_fr": "Mon RH : demandes et évaluations",
