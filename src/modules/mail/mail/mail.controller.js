@@ -12,6 +12,7 @@ const body = require("./body.service");
 const imageTrust = require("./image-trust.service");
 const { cpanelPreset } = require("./autodiscover");
 const msOAuth = require("./providers/microsoftOAuth");
+const googleOAuth = require("./providers/googleOAuth");
 const { asyncHandler, AppError } = require("../../../utils/errors");
 const documentVault = require("../../vault/document_vault/document_vault.service");
 const { config } = require("../../../config/env");
@@ -44,7 +45,14 @@ const msAdminConsentRedirect = async (req) => {
   if (fromStore) return fromStore.replace(/\/oauth\/microsoft\/callback\/?$/, "/oauth/microsoft/admin-consent/callback");
   return `${req.protocol}://${req.get("host")}${req.baseUrl}/oauth/microsoft/admin-consent/callback`;
 };
-const ggRedirect = (req) => config.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get("host")}${req.baseUrl}/oauth/google/callback`;
+// Google, the same order as Microsoft: the platform vault, then GOOGLE_REDIRECT_URI
+// (both inside googleOAuth.credentials()), and only then the request host.
+// Google matches redirect URIs exactly and forbids wildcards, so the derived
+// fallback is wrong on every tenant subdomain — it exists for local development.
+const ggRedirect = async (req) => {
+  const { redirect_uri: configured } = await googleOAuth.credentials();
+  return configured || `${req.protocol}://${req.get("host")}${req.baseUrl}/oauth/google/callback`;
+};
 const { URLSearchParams } = require('url');
 
 // Build the Graph push-notification URL from the TENANT's canonical subdomain,
@@ -455,9 +463,44 @@ module.exports = {
   }),
 
   // ── Google Gmail OAuth (start authed; callback pre-auth) ──
-  ggOAuthStart: asyncHandler(async (req, res) => res.json({ data: await req.identityDb((c) => service.startGoogleOAuth(c, { slug: slugOf(req), redirectUri: ggRedirect(req), display_name: req.query.display_name, actor: actor(req) })) })),
-  ggOAuthCallback: asyncHandler((req, res) => finishOAuth(req, res, "google", (c) =>
-    service.completeGoogleOAuth(c, { code: req.query.code, state: req.query.state, slug: slugOf(req) }))),
+  ggOAuthStart: asyncHandler(async (req, res) => {
+    // Resolved BEFORE the db callback, as for Microsoft: ggRedirect reads the
+    // platform vault, and the callback it is passed to is not async.
+    const redirectUri = await ggRedirect(req);
+    return res.json({
+      data: await req.identityDb((c) => service.startGoogleOAuth(c, {
+        slug: slugOf(req), redirectUri, display_name: req.query.display_name, actor: actor(req),
+      })),
+    });
+  }),
+  /* A TEAM address over Google — the counterpart of msOAuthStartShared, on its
+   * own route for the same reason: standing up `operations@` is MOD-72 `create`,
+   * a different right from connecting your own mailbox (`edit`). */
+  ggOAuthStartShared: asyncHandler(async (req, res) => {
+    const redirectUri = await ggRedirect(req);
+    return res.json({
+      data: await req.identityDb((c) => service.startGoogleOAuth(c, {
+        slug: slugOf(req), redirectUri, actor: actor(req),
+        kind: "SHARED",
+        display_name: req.query.display_name,
+        catalogue_key: req.query.catalogue_key,
+        department: req.query.department,
+      })),
+    });
+  }),
+  ggOAuthCallback: asyncHandler((req, res) => finishOAuth(req, res, "google", (c) => {
+    // Google's error redirect — Cancel pressed, or consent refused — arrives
+    // WITHOUT a code. Exchanging `undefined` would fail at the token endpoint
+    // as a generic error; name what Google said instead, so the setup page can
+    // tell a cancel from a misconfiguration.
+    if (req.query.error) {
+      throw googleOAuth.classifyProviderError({
+        error: req.query.error,
+        description: req.query.error_description,
+      });
+    }
+    return service.completeGoogleOAuth(c, { code: req.query.code, state: req.query.state, slug: slugOf(req) });
+  })),
   ggWebhook: asyncHandler(async (req, res) => {
     await req.identityDb((c) => service.handleGmailNotification(c, req.body, { slug: slugOf(req), tenantMeta: req.tenant }));
     return res.status(204).send(); // ack the Pub/Sub push

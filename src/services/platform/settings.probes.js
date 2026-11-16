@@ -368,4 +368,51 @@ async function turn() {
   };
 }
 
-module.exports = { s3, geoapify, smtp, vapid, signwell, alertWebhook, alertEmail, backupStorage, microsoftGraph, turn };
+/**
+ * Google OAuth client for Gmail mailboxes.
+ *
+ * Google has no client-credentials grant for a user-consent app, so there is
+ * no token to ask for with the client's own credentials. What it DOES do is
+ * check the client before the grant: a code exchange with a deliberately
+ * invalid code answers `invalid_client` when the ID or secret is wrong, and
+ * `invalid_grant` when they are right and only the (fake) code is not. That
+ * distinction is exactly what this Test needs to prove, and it costs one POST
+ * that cannot succeed and cannot touch any account.
+ */
+async function googleGmail(cfg) {
+  if (!cfg.client_id) throw new Error("No OAuth client ID configured.");
+  if (!cfg.client_secret) throw new Error("No client secret configured.");
+  const qs = require("querystring");
+  try {
+    await axios.post(
+      "https://oauth2.googleapis.com/token",
+      qs.stringify({
+        grant_type: "authorization_code",
+        code: "praxis-credential-probe",
+        client_id: cfg.client_id,
+        client_secret: cfg.client_secret,
+        redirect_uri: cfg.redirect_uri || "https://praxisls.com/api/tenant/mail/oauth/google/callback",
+      }),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" }, timeout: 10000 },
+    );
+  } catch (err) {
+    const d = (err.response && err.response.data) || {};
+    if (d.error === "invalid_grant") {
+      return { client_id: cfg.client_id, credentials: "accepted" };
+    }
+    if (d.error) {
+      const e = new Error(
+        d.error === "invalid_client"
+          ? `Google rejected the client ID or secret (${d.error_description || "invalid_client"}).`
+          : `${d.error}${d.error_description ? `: ${d.error_description}` : ""}`,
+      );
+      e.response = err.response;
+      throw e;
+    }
+    throw err;
+  }
+  // A 200 for a made-up code would be a Google bug; say so rather than pass.
+  throw new Error("Google accepted a made-up authorisation code, so this test cannot tell anything.");
+}
+
+module.exports = { s3, geoapify, smtp, vapid, signwell, alertWebhook, alertEmail, backupStorage, microsoftGraph, googleGmail, turn };

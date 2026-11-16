@@ -65,7 +65,7 @@ const GRANDFATHERED = new Map(
     microsoftStartUrl:
       "duplicate of startMicrosoft, which the setup screen uses",
     googleStartUrl:
-      "duplicate of startGoogle, which has no button yet — see below",
+      "duplicate of startGoogle, which the setup screen uses",
     /* Endpoints ahead of their screen. */
     getDraft:
       "the Drafts list opens the row it already has, so nothing re-fetches by id",

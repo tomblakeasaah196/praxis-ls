@@ -313,8 +313,17 @@ export const startMicrosoftShared = (opts: {
 } = {}) =>
   tenant<{ url: string }>(`/mail/oauth/microsoft/start/shared${qs(opts)}`);
 
-export const startGoogle = () =>
-  tenant<{ url: string }>("/mail/oauth/google/start");
+/** Consent for the caller's OWN Gmail / Google Workspace mailbox. MOD-72 `edit`. */
+export const startGoogle = (opts: { display_name?: string } = {}) =>
+  tenant<{ url: string }>(`/mail/oauth/google/start${qs(opts)}`);
+
+/** Consent for a TEAM address over Google. MOD-72 `create` — see startMicrosoftShared. */
+export const startGoogleShared = (opts: {
+  catalogue_key?: string | null;
+  department?: string | null;
+  display_name?: string | null;
+} = {}) =>
+  tenant<{ url: string }>(`/mail/oauth/google/start/shared${qs(opts)}`);
 
 /**
  * The Entra admin-consent URL, fetched after an MS_CONSENT_REQUIRED refusal.

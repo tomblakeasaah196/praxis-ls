@@ -75,6 +75,18 @@ const SPEC = {
       client_secret: secret,
     }),
   },
+  // Google OAuth client for Gmail / Google Workspace mailboxes. Deploy-wide for
+  // the same reason as the Entra app: one Google Cloud OAuth client serves every
+  // tenant. The client secret is the SECRET; the client ID, redirect URI and
+  // scopes are plain config. See googleOAuth.credentials() for the env fallback.
+  "mail.google_gmail": {
+    probe: probes.googleGmail,
+    cfg: (value, secret) => ({
+      client_id: value.client_id,
+      redirect_uri: value.redirect_uri,
+      client_secret: secret,
+    }),
+  },
   // The call relay, API side (FN-2 follow-up). The probe takes no cfg: it
   // exercises what the runtime config has in force, which is the only way to
   // catch the drift this panel can create — see settings.probes.turn.

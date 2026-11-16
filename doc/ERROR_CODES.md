@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (716)
+## All codes (720)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -267,6 +267,10 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `GENERATION_WINDOW_TOO_LARGE` | 500 | 1× | — |
 | `GL_POST_FAILED` | 422, 500 | 2× | — |
 | `GONE` | 410 | 1× | — |
+| `GOOGLE_AUTH_FAILED` | 502 | 1× | — |
+| `GOOGLE_BAD_CLIENT` | 502 | 1× | — |
+| `GOOGLE_GRANT_EXPIRED` | 401 | 1× | — |
+| `GOOGLE_REDIRECT_MISMATCH` | 502 | 1× | — |
 | `GUARDRAIL_BLOCKED` | 422 | 1× | — |
 | `GUARDRAIL_REASON_TOO_SHORT` | 422 | 1× | — |
 | `HARD_BLOCKED` | 409 | 1× | — |
@@ -484,7 +488,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NO_VAT_RATE` | — | 1× | — |
 | `NO_WORKING_DAYS` | 422 | 1× | — |
 | `NUDGE_QUOTA_EXHAUSTED` | 429 | 1× | — |
-| `OAUTH_CANCELLED` | 400 | 1× | — |
+| `OAUTH_CANCELLED` | 400 | 2× | — |
 | `OAUTH_PROBE_FAILED` | 502 | 1× | — |
 | `OAUTH_REDIRECT_MISCONFIGURED` | — | 1× | — |
 | `ODOMETER_BACKWARDS` | 422 | 1× | — |

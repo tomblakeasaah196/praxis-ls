@@ -131,24 +131,38 @@ export function ConnectMethodModal({
   const [error, setError] = React.useState<unknown>(null);
 
   const ms = methods.data?.microsoft_graph;
+  const gg = methods.data?.google_gmail;
+  // Google is offered only where an administrator has switched it on for this
+  // company. Unlike Microsoft — the only route a Microsoft 365 tenant has, so a
+  // closed one is explained rather than hidden — Google stays out of sight
+  // until it is enabled, because before Google approves the app it can only
+  // admit listed test users. Once enabled but not configured, it is shown with
+  // the reason, like Microsoft.
+  const showGoogle = !!gg?.enabled;
+  const [busyWith, setBusyWith] = React.useState<"microsoft" | "google" | null>(null);
 
-  async function chooseMicrosoft() {
+  async function chooseProvider(provider: "microsoft" | "google") {
     setBusy(true);
+    setBusyWith(provider);
     setError(null);
     try {
-      const r = scope.kind === "shared"
-        ? await api.startMicrosoftShared({
+      const sharedOpts = scope.kind === "shared"
+        ? {
             catalogue_key: scope.catalogue_key ?? null,
             department: scope.department ?? null,
             display_name: scope.label ?? null,
-          })
-        : await api.startMicrosoft();
+          }
+        : null;
+      const r = provider === "google"
+        ? sharedOpts ? await api.startGoogleShared(sharedOpts) : await api.startGoogle()
+        : sharedOpts ? await api.startMicrosoftShared(sharedOpts) : await api.startMicrosoft();
       // A full navigation, not a popup: consent lands back on our own callback,
       // which redirects to Comms → Setup with the outcome in the query.
       window.location.href = r.url;
     } catch (err) {
       setError(err);
       setBusy(false);
+      setBusyWith(null);
     }
   }
 
@@ -162,7 +176,7 @@ export function ConnectMethodModal({
       title={title || (shared ? tr("Set up a team address") : tr("Connect your mailbox"))}
       description={
         description
-        || tr("Two ways in. Pick the one that matches where this company's email actually lives.")
+        || tr("Pick the one that matches where this company's email actually lives.")
       }
     >
       <div className="space-y-3">
@@ -183,9 +197,9 @@ export function ConnectMethodModal({
               ? tr("Sign in AS the team address. Microsoft connects whichever mailbox signs in, and this fills the slot with it — no password is stored here.")
               : tr("Microsoft asks you to sign in and approve; nothing is typed here and no password is stored.")
           }
-          onClick={() => void chooseMicrosoft()}
-          disabled={methods.loading || !ms?.available}
-          busy={busy}
+          onClick={() => void chooseProvider("microsoft")}
+          disabled={methods.loading || !ms?.available || busy}
+          busy={busyWith === "microsoft"}
           footnote={
             ms && !ms.available ? (
               <Callout tone="warn" className="mt-2">
@@ -200,6 +214,29 @@ export function ConnectMethodModal({
             ) : undefined
           }
         />
+
+        {showGoogle && (
+          <MethodCard
+            icon={<MailIcon />}
+            title={tr("Sign in with Google")}
+            lede={tr("The company's email is on Gmail or Google Workspace, including a custom domain hosted there.")}
+            detail={
+              shared
+                ? tr("Sign in AS the team address. Google connects whichever account signs in, and this fills the slot with it. No password is stored here.")
+                : tr("Google asks you to sign in and approve; nothing is typed here and no password is stored.")
+            }
+            onClick={() => void chooseProvider("google")}
+            disabled={methods.loading || !gg?.available || busy}
+            busy={busyWith === "google"}
+            footnote={
+              gg && !gg.available ? (
+                <Callout tone="warn" className="mt-2">
+                  {tr("Google sign-in is not set up on this deployment yet. Whoever runs the server adds the Google OAuth client in Platform Console → Integrations.")}
+                </Callout>
+              ) : undefined
+            }
+          />
+        )}
 
         <MethodCard
           icon={<KeyIcon />}
