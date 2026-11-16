@@ -34,6 +34,31 @@
  * The inbox's own first read is paged the same way, and the history catch-up
  * runs before it on every sync, so mail that arrives during a long first read
  * appears straight away rather than when the backfill finishes.
+ *
+ * ── GOOGLE'S BUDGET, AND WHY A SYNC STOPS EARLY ON PURPOSE ──────────────────
+ *
+ * Gmail meters every call in quota units, per user, per minute. Since May 2026
+ * a new Cloud project gets 6,000 units (it was 15,000), and one full message
+ * read costs 60: about a hundred message reads a minute for a mailbox, shared
+ * by the sync AND by whatever its owner is doing in the reading pane.
+ *
+ * A first read used to list 300 messages and read them all before handing any
+ * back. Around the hundredth, Google answered 403, the whole folder threw,
+ * nothing was stored and the cursor did not move: the next minute read the same
+ * hundred messages and threw them away again. A mailbox with more than about a
+ * hundred messages in a folder never synced, and all the screen said was
+ * "Request failed with status code 403".
+ *
+ * So a sync now SPENDS A BUDGET and KEEPS WHAT IT READ:
+ *
+ *   · one run may spend RUN_BUDGET units, shared by every folder it visits
+ *     (`_allowance`), which leaves the rest of the minute for sends and opens;
+ *   · ids that were listed but not read ride in the cursor (`pending`), so the
+ *     next run carries on from there, not from the top;
+ *   · when Google says "slow down" anyway (a second run, a busy user), the read
+ *     stops, hands back what it has, and the cursor says where it stopped.
+ *
+ * New mail (the history) is read before the backlog on every run.
  */
 "use strict";
 
@@ -55,6 +80,29 @@ const HISTORY_PAGES = 20;
 /** See `fetchSince`. A cursor without it was written by the inbox-only adapter. */
 const CURSOR_V = 2;
 const HISTORY_TYPES = ["messageAdded", "messageDeleted", "labelAdded", "labelRemoved"];
+
+/**
+ * What each call costs, in Google's quota units
+ * (developers.google.com/workspace/gmail/api/reference/quota). `read` is
+ * `messages.get` with `format=full`; the same call with `format=minimal` is 20.
+ */
+const UNITS = Object.freeze({ read: 60, list: 5, history: 2, profile: 1, attachment: 20 });
+/** Per user, per minute, per Cloud project. */
+const UNITS_PER_MINUTE = 6000;
+/**
+ * What one sync run may spend. The scheduler runs a mailbox once a minute, so
+ * this is the sync's share of the minute; the rest is for the person using the
+ * mailbox (a send alone is 100 units).
+ */
+const RUN_BUDGET = Math.floor(UNITS_PER_MINUTE * 0.7);
+/** Folders assumed in a run before `listFolders` has said how many there are. */
+const DEFAULT_FOLDERS = 6;
+/** Retries on a rate limit for a call a person is waiting on, and for an
+ *  attachment a sync has already committed to (long enough to outlast the
+ *  minute the limit is counted over). */
+const PATIENCE = 2;
+const ATTACHMENT_PATIENCE = 5;
+const MAX_BACKOFF_MS = 32000;
 
 /** Gmail's system labels, as the RFC 6154 flag `folders.js` reads. */
 const SYSTEM_FOLDERS = {
@@ -82,6 +130,34 @@ function folderOf(labelIds = []) {
 
 const status = (err) => (err && err.response ? err.response.status : null);
 
+/**
+ * Google is saying "slow down", not "no".
+ *
+ * Gmail answers a spent quota with 403 as often as 429, and a 403 is also what
+ * a missing permission looks like, so the status alone cannot tell "wait a
+ * minute" from "this will never work". The body can: a quota refusal carries
+ * the `usageLimits` domain, a `rateLimitExceeded` / `userRateLimitExceeded`
+ * reason, or (newer shape) `RATE_LIMIT_EXCEEDED` / `RESOURCE_EXHAUSTED`.
+ */
+function isRateLimit(err) {
+  const s = status(err);
+  if (s === 429) return true;
+  if (s !== 403) return false;
+  const e = err.response.data && err.response.data.error;
+  if (!e) return false;
+  let text = "";
+  try {
+    text = JSON.stringify(e);
+  } catch {
+    /* @silent:parse an error body that will not serialise is not a quota body */
+  }
+  return /usageLimits|rateLimitExceeded|RATE_LIMIT_EXCEEDED|RESOURCE_EXHAUSTED|quota exceeded|rate limit exceeded/i.test(text);
+}
+
+/** Truncated exponential backoff with jitter, as Google's quota guide asks. */
+const backoffMs = (attempt) => Math.min(2 ** attempt * 1000 + Math.floor(Math.random() * 1000), MAX_BACKOFF_MS);
+const realSleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
 /** `"Angela Lau" <angela@x>` → `Angela Lau`; a bare address has no name. */
 function displayNameOf(header) {
   const m = /^\s*"?([^"<]*?)"?\s*<[^>]+>\s*$/.exec(String(header || ""));
@@ -94,11 +170,23 @@ const b64urlEncode = (buf) => buf.toString("base64").replace(/\+/g, "-").replace
 const emailsIn = (s) => (String(s || "").match(/[^\s<>@,]+@[^\s<>@,]+/g) || []);
 
 class GmailProvider {
-  constructor({ getAccessToken, emailAddress } = {}) {
+  /**
+   * One instance serves one sync run (`mail.service.resolveAdapter`), which is
+   * what makes the budget below "per run": every folder the run visits draws on
+   * the same `_budget`. `runBudget` and `sleep` exist for the tests.
+   */
+  constructor({ getAccessToken, emailAddress, runBudget, sleep } = {}) {
     if (typeof getAccessToken !== "function") throw new Error("GmailProvider needs getAccessToken()");
     this._getToken = getAccessToken;
     this.emailAddress = emailAddress;
     this.provider = "google_gmail";
+    this._budget = Number.isFinite(runBudget) ? runBudget : RUN_BUDGET;
+    this._sleep = typeof sleep === "function" ? sleep : realSleep;
+    /** Google said "slow down" during this run: no more reads until the next. */
+    this._limited = false;
+    /** Folders this run has visited, and how many it will (from `listFolders`). */
+    this._turn = 0;
+    this._folders = 0;
   }
 
   /**
@@ -115,16 +203,62 @@ class GmailProvider {
     };
   }
 
-  async _req(method, path, { data, params } = {}) {
-    const token = await this._getToken();
+  /**
+   * One Gmail call.
+   *
+   * `patience` is how many times a RATE LIMIT is waited out before giving up.
+   * A call somebody is waiting on (a send, an open, a move) gets a couple of
+   * short waits, so a click during a busy minute works instead of failing. The
+   * sync's own reads pass 0: they do not wait, they stop and carry on next run
+   * (see `fetchSince`).
+   *
+   * A failure leaves with Google's own sentence as its message. Without that
+   * the only thing anyone saw was axios's "Request failed with status code
+   * 403", which is the same for a spent quota and a missing permission.
+   */
+  async _req(method, path, { data, params, patience = PATIENCE } = {}) {
     const url = path.startsWith("http") ? path : BASE + path;
-    // `indexes: null` sends an array as `historyTypes=a&historyTypes=b`, which
-    // is what Google reads. axios's default is `historyTypes[]=a`, which it
-    // does not, so a list parameter was silently dropped.
-    return axios({
-      method, url, params, data, paramsSerializer: { indexes: null },
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    });
+    for (let attempt = 0; ; attempt += 1) {
+      const token = await this._getToken();
+      try {
+        // `indexes: null` sends an array as `historyTypes=a&historyTypes=b`,
+        // which is what Google reads. axios's default is `historyTypes[]=a`,
+        // which it does not, so a list parameter was silently dropped.
+        return await axios({
+          method, url, params, data, paramsSerializer: { indexes: null },
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        if (attempt < patience && isRateLimit(err)) {
+          await this._sleep(backoffMs(attempt));
+          continue;
+        }
+        const said = err && err.response && err.response.data && err.response.data.error
+          && err.response.data.error.message;
+        if (said) err.message = `Gmail: ${said}`;
+        throw err;
+      }
+    }
+  }
+
+  _spend(units) {
+    this._budget -= units;
+  }
+
+  /**
+   * How many messages this folder may read now.
+   *
+   * What is left of the run's budget is shared by the folders still to come, so
+   * a deep Inbox cannot leave Sent, Drafts and Spam with nothing; what a small
+   * folder does not use rolls forward to the next. The Inbox takes up to half,
+   * because it is the folder people are waiting for.
+   */
+  _allowance(path) {
+    const affordable = Math.floor(this._budget / UNITS.read);
+    if (affordable <= 0) return 0;
+    const left = Math.max(1, (this._folders || DEFAULT_FOLDERS) - this._turn + 1);
+    const share = Math.ceil(affordable / left);
+    return Math.min(affordable, path === "INBOX" ? Math.max(share, Math.ceil(affordable / 2)) : share);
   }
 
   async verify() {
@@ -196,66 +330,150 @@ class GmailProvider {
       else if (l.type === "user") out.push({ path: l.id, name: l.name, displayName: l.name, flags: [] });
     }
     out.push({ path: ARCHIVE_PATH, name: "Archive", displayName: "Archive", flags: ["\\archive"] });
+    // How many folders this run will visit, for `_allowance`.
+    this._folders = out.length;
     return out;
   }
 
   /**
    * One folder's share of a sync.
    *
-   *   cursor = { v: 2, history_id, page_token, backfill }
+   *   cursor = { v: 2, history_id, page_token, backfill, pending?, listed? }
    *
    * `history_id` is where the mailbox-wide history resumes (INBOX only; see ONE
    * HISTORY above). It is taken from the profile BEFORE a first read starts,
-   * so nothing that changes during the read is missed. `page_token` and
-   * `backfill` are the first read's place, until it is finished.
+   * so nothing that changes during the read is missed. `page_token` is the
+   * first read's place in the LISTING. `pending` is the ids already known and
+   * not read yet, because the run that found them had spent its budget;
+   * `listed` says the listing reached its end while some were still waiting.
+   * `backfill` stays true until both are done, and a finished folder's cursor
+   * carries neither extra key.
    *
    * Each message comes back with `folder` and `providerPath` set from its
    * labels, because the history hands back mail from every folder at once.
    * `removed` lists the messages Gmail has deleted for good.
+   *
+   * See GOOGLE'S BUDGET above for why this stops early and what it keeps.
    */
   async fetchSince(cursor, folderPath) {
     const path = folderPath || "INBOX";
     const prior = cursor && Number(cursor.v) === CURSOR_V ? cursor : null;
-    const next = prior
-      ? { ...prior }
-      : { v: CURSOR_V, history_id: String((await this._req("GET", "/profile")).data.historyId), page_token: null, backfill: true };
-    const ids = new Set();
+    this._turn += 1;
+    // Nothing was changed, so nothing is claimed: the cursor goes back exactly
+    // as it came and the next run starts from it.
+    const wait = () => ({ messages: [], removed: [], nextCursor: cursor || null, more: true });
+    if (this._limited) return wait();
+
+    let next;
     const removed = [];
+    const fresh = [];
+    try {
+      next = prior
+        ? { ...prior }
+        : { v: CURSOR_V, history_id: await this._anchor(), page_token: null, backfill: true };
+      if (path === "INBOX" && prior && prior.history_id) {
+        try {
+          const h = await this._history(prior.history_id);
+          fresh.push(...h.added);
+          removed.push(...h.removed);
+          next.history_id = h.historyId;
+        } catch (err) {
+          // 404: the stored historyId aged out of Gmail's window. Read the inbox
+          // again from the top; the engine's dedup absorbs what it already has.
+          if (status(err) !== 404) throw err;
+          next.history_id = await this._anchor();
+          next.page_token = null;
+          next.backfill = true;
+          delete next.pending;
+          delete next.listed;
+        }
+      }
+    } catch (err) {
+      if (!isRateLimit(err)) throw err;
+      this._limited = true;
+      return wait();
+    }
 
-    if (path === "INBOX" && prior && prior.history_id) {
+    // What is waiting to be read: new mail first, then what an earlier run
+    // listed and could not afford.
+    const queue = [...new Set([...fresh, ...(next.pending || [])])];
+    const allowance = this._allowance(path);
+
+    // Top the queue up from the listing, but only as far as this run can read:
+    // a page nobody can afford yet is a hundred ids of cursor for nothing.
+    let listing = Boolean(next.backfill && !next.listed);
+    let pageToken = next.page_token || undefined;
+    for (let page = 0; listing && queue.length < allowance && page < PAGES_PER_RUN; page += 1) {
+      const params = path === ARCHIVE_PATH
+        ? { q: ARCHIVE_QUERY, maxResults: PAGE_SIZE, pageToken }
+        : { labelIds: path, maxResults: PAGE_SIZE, pageToken, includeSpamTrash: path === "SPAM" || path === "TRASH" };
+      let list;
       try {
-        const h = await this._history(prior.history_id);
-        h.added.forEach((id) => ids.add(id));
-        removed.push(...h.removed);
-        next.history_id = h.historyId;
+        list = await this._req("GET", "/messages", { params, patience: 0 });
       } catch (err) {
-        // 404: the stored historyId aged out of Gmail's window. Read the inbox
-        // again from the top; the engine's dedup absorbs what it already has.
-        if (status(err) !== 404) throw err;
-        next.history_id = String((await this._req("GET", "/profile")).data.historyId);
-        next.page_token = null;
-        next.backfill = true;
+        if (!isRateLimit(err)) throw err;
+        this._limited = true;
+        break;
       }
+      this._spend(UNITS.list);
+      const known = new Set(queue);
+      for (const m of list.data.messages || []) if (!known.has(m.id)) queue.push(m.id);
+      pageToken = list.data.nextPageToken || undefined;
+      if (!pageToken) listing = false;
     }
 
-    if (next.backfill) {
-      let pageToken = next.page_token || undefined;
-      let done = false;
-      for (let page = 0; page < PAGES_PER_RUN; page += 1) {
-        const params = path === ARCHIVE_PATH
-          ? { q: ARCHIVE_QUERY, maxResults: PAGE_SIZE, pageToken }
-          : { labelIds: path, maxResults: PAGE_SIZE, pageToken, includeSpamTrash: path === "SPAM" || path === "TRASH" };
-        const list = await this._req("GET", "/messages", { params });
-        for (const m of list.data.messages || []) ids.add(m.id);
-        pageToken = list.data.nextPageToken || undefined;
-        if (!pageToken) { done = true; break; }
-      }
-      next.page_token = done ? null : pageToken;
-      next.backfill = !done;
-    }
+    const { messages, done } = await this._readSome(queue, allowance);
+    const waiting = queue.slice(done);
 
-    const messages = (await this._getMany([...ids])).filter((m) => !m.isChat);
-    return { messages, removed, nextCursor: next, more: next.backfill };
+    next.page_token = listing ? pageToken || null : null;
+    if (waiting.length) next.pending = waiting; else delete next.pending;
+    if (!listing && waiting.length) next.listed = true; else delete next.listed;
+    next.backfill = listing || waiting.length > 0;
+    return { messages: messages.filter((m) => !m.isChat), removed, nextCursor: next, more: next.backfill };
+  }
+
+  /** The profile's history id: where a first read anchors itself. */
+  async _anchor() {
+    const r = await this._req("GET", "/profile", { patience: 0 });
+    this._spend(UNITS.profile);
+    return String(r.data.historyId);
+  }
+
+  /**
+   * Read up to `allowance` of these messages, in order, and say how many of the
+   * ids are dealt with (`done`): read, or gone from Gmail.
+   *
+   * It stops, without failing, in three cases: the allowance or the budget is
+   * spent; Google says slow down (which also stops every later folder in this
+   * run); or a read fails after others succeeded, where throwing would discard
+   * mail already in hand for an error the next run will meet anyway. Only a
+   * failure with nothing read is thrown, so a mailbox that cannot be read at
+   * all still says so.
+   *
+   * A message deleted between the listing and the read (a history entry can
+   * outlive its message) is skipped, not fatal: it used to fail the whole
+   * folder for one message nobody could open any more.
+   */
+  async _readSome(ids, allowance) {
+    const messages = [];
+    let done = 0;
+    for (const id of ids) {
+      if (messages.length >= allowance || this._budget < UNITS.read || this._limited) break;
+      try {
+        const r = await this._req("GET", `/messages/${id}`, { params: { format: "full" }, patience: 0 });
+        this._spend(UNITS.read);
+        messages.push(this._lazy(id, this._normalize(r.data)));
+      } catch (err) {
+        if (isRateLimit(err)) { this._limited = true; break; }
+        if (status(err) !== 404) {
+          if (!messages.length) throw err;
+          logger.warn({ err: gmailError(err), message: id }, "[mail] gmail read stopped early; the rest waits for the next sync");
+          break;
+        }
+      }
+      done += 1;
+    }
+    return { messages, done };
   }
 
   /**
@@ -270,8 +488,9 @@ class GmailProvider {
     let pageToken;
     for (let page = 0; page < HISTORY_PAGES; page += 1) {
       const r = await this._req("GET", "/history", {
-        params: { startHistoryId, historyTypes: HISTORY_TYPES, pageToken },
+        params: { startHistoryId, historyTypes: HISTORY_TYPES, pageToken }, patience: 0,
       });
+      this._spend(UNITS.history);
       for (const rec of r.data.history || []) {
         for (const x of [...(rec.messagesAdded || []), ...(rec.labelsAdded || []), ...(rec.labelsRemoved || [])]) {
           if (x.message && x.message.id) added.add(x.message.id);
@@ -331,24 +550,6 @@ class GmailProvider {
   }
 
   /**
-   * Full messages for these ids. One deleted between the listing and the read
-   * (a history entry can outlive its message) is skipped, not fatal: it used to
-   * fail the whole folder for one message nobody could open any more.
-   */
-  async _getMany(ids) {
-    const out = [];
-    for (const id of ids) {
-      try {
-        const r = await this._req("GET", `/messages/${id}`, { params: { format: "full" } });
-        out.push(this._lazy(id, this._normalize(r.data)));
-      } catch (err) {
-        if (status(err) !== 404) throw err;
-      }
-    }
-    return out;
-  }
-
-  /**
    * Attachments left for the engine to ask for. A first read lists a whole
    * label, and most of what it lists is already stored (the inbox the old
    * adapter read, a message seen again under another label): downloading every
@@ -384,7 +585,11 @@ class GmailProvider {
       if (!a.attachmentId) continue;
       try {
          
-        const r = await this._req("GET", `/messages/${messageId}/attachments/${a.attachmentId}`);
+        // A message the sync has already read is committed to: its attachment
+        // waits a rate limit out (up to about a minute, the window the limit is
+        // counted over) rather than being skipped and lost.
+        const r = await this._req("GET", `/messages/${messageId}/attachments/${a.attachmentId}`, { patience: ATTACHMENT_PATIENCE });
+        this._spend(UNITS.attachment);
         const content = b64urlDecode(r.data.data);
         if (content.length <= ATTACH_MAX_BYTES) {
           out.push({
@@ -495,4 +700,4 @@ function gmailError(err) {
   return err && err.message ? err.message : "gmail request failed";
 }
 
-module.exports = { GmailProvider, gmailError, folderOf, ARCHIVE_PATH, CURSOR_V };
+module.exports = { GmailProvider, gmailError, isRateLimit, folderOf, ARCHIVE_PATH, CURSOR_V, UNITS, RUN_BUDGET };
