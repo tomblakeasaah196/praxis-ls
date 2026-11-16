@@ -222,7 +222,7 @@ export function ConnectMethodModal({
             lede={tr("The company's email is on Gmail or Google Workspace, including a custom domain hosted there.")}
             detail={
               shared
-                ? tr("Sign in AS the team address. Google connects whichever account signs in, and this fills the slot with it — no password is stored here.")
+                ? tr("Sign in AS the team address. Google connects whichever account signs in, and this fills the slot with it. No password is stored here.")
                 : tr("Google asks you to sign in and approve; nothing is typed here and no password is stored.")
             }
             onClick={() => void chooseProvider("google")}
