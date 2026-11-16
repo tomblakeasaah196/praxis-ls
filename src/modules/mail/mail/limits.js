@@ -115,7 +115,11 @@ function health(connection = {}, { now = new Date(), staleAfterHours = 6 } = {})
   }
 
   const last = connection.last_success_at || connection.last_sync_at;
-  if (!last) return { level: "PENDING", reason: "Connected, but it has not synced yet." };
+  // Its own level, not PENDING: PENDING is a mailbox whose settings were never
+  // tested, which needs a person. This one is fine and only waiting for the
+  // sync worker (every minute), and labelling it "Not verified" read as a fault
+  // to the first person who connected Gmail.
+  if (!last) return { level: "SYNCING", reason: "Connected. The first sync is on its way." };
   const hours = (new Date(now).getTime() - new Date(last).getTime()) / HOUR_MS;
   if (hours > staleAfterHours) {
     return { level: "WARN", reason: `No successful sync for ${Math.floor(hours)} hours.`, stale_hours: Math.floor(hours) };

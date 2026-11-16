@@ -151,10 +151,10 @@ describe("health", () => {
     expect(limits.health({ status: "PENDING" }, { now }).level).toBe("PENDING");
   });
 
-  test("connected but never synced is PENDING, not OK", () => {
+  test("connected but never synced is SYNCING: not OK, and not the PENDING of an untested mailbox", () => {
     expect(
       limits.health({ status: "CONNECTED", consecutive_failures: 0 }, { now })
         .level,
-    ).toBe("PENDING");
+    ).toBe("SYNCING");
   });
 });
