@@ -15,6 +15,7 @@ import {
   PART_TARGET_MS,
   RECORDER_BITS_PER_SECOND,
   MAX_PART_BYTES,
+  MAX_RETARGETS,
   type RecorderPart,
 } from "./call-recorder";
 
@@ -228,5 +229,123 @@ describe("the recorder on a live call", () => {
 
   it("prefers WebM/Opus when the browser has it", () => {
     expect(pickMimeType()).toBe("audio/webm;codecs=opus");
+  });
+});
+
+/* ── The call moved to another microphone (Speaker / Earpiece on a phone) ── */
+
+describe("the recorder follows the call to another microphone", () => {
+  /** A second microphone: its own track, its own clones. */
+  function otherMic() {
+    const track = new FakeTrack();
+    return { track, stream: { getAudioTracks: () => [track] } as unknown as MediaStream };
+  }
+  const tracksOf = (m: FakeMediaRecorder) => (m.stream as { tracks: unknown[] }).tracks;
+
+  it("starts the next part on a clone of the new microphone before the old recorder stops", async () => {
+    const { rec } = makeRecorder();
+    await rec.arm(micStream);
+    const oldClone = FakeTrack.clones[0];
+    const next = otherMic();
+    log.length = 0;
+
+    expect(await rec.retarget(next.stream)).toBe(true);
+
+    expect(log).toEqual(["start 2", "stop 1"]);
+    const newClone = FakeTrack.clones[1];
+    expect(tracksOf(FakeMediaRecorder.made[0])).toEqual([oldClone]);
+    expect(tracksOf(FakeMediaRecorder.made[1])).toEqual([newClone]);
+    // The recorder's own clone again, asked for mono; the call's track is left alone.
+    expect(newClone.applyConstraints).toHaveBeenCalledWith({ channelCount: 1 });
+    expect(next.track.applyConstraints).not.toHaveBeenCalled();
+    expect(rec.isRecording).toBe(true);
+    await rec.finish();
+  });
+
+  it("the part that closes at the move is a whole file, and the numbering has no gap", async () => {
+    const { rec, parts } = makeRecorder();
+    await rec.arm(micStream);
+    clock = 45_000;
+    await rec.retarget(otherMic().stream);
+    clock = 45_000 + 20_000;
+    const out = await rec.finish();
+
+    expect(out).toEqual({ parts: 2, lost: 0 });
+    expect(parts.map((p) => p.index)).toEqual([1, 2]);
+    expect(parts.map((p) => p.durationMs)).toEqual([45_000, 20_000]);
+    vi.useRealTimers(); // jsdom's FileReader runs on timers
+    for (const p of parts) expect(await firstBytes(p.blob)).toEqual(HEADER);
+  });
+
+  it("releases the old microphone's clone once its part is delivered, and never the call's own tracks", async () => {
+    const { rec } = makeRecorder();
+    await rec.arm(micStream);
+    const oldClone = FakeTrack.clones[0];
+    const next = otherMic();
+    await rec.retarget(next.stream);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(oldClone.stop).toHaveBeenCalledTimes(1);
+    expect(FakeTrack.clones[1].stop).not.toHaveBeenCalled();
+    await rec.finish();
+    expect(FakeTrack.clones[1].stop).toHaveBeenCalledTimes(1);
+    expect(micTrack.stop).not.toHaveBeenCalled();
+    expect(next.track.stop).not.toHaveBeenCalled();
+  });
+
+  it("the 120 s timer restarts from the move, so the part after it is not cut short", async () => {
+    const { rec, onPart } = makeRecorder();
+    await rec.arm(micStream);
+    await vi.advanceTimersByTimeAsync(PART_TARGET_MS - 10_000);
+    await rec.retarget(otherMic().stream);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onPart).toHaveBeenCalledTimes(1);
+    // The old timer would have fired 10 s after the move.
+    await vi.advanceTimersByTimeAsync(PART_TARGET_MS - 1);
+    expect(onPart).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(onPart).toHaveBeenCalledTimes(2);
+    await rec.finish();
+  });
+
+  it("a new microphone that will not record leaves the running recorder on the old one", async () => {
+    const { rec, parts } = makeRecorder();
+    await rec.arm(micStream);
+    const Real = FakeMediaRecorder;
+    vi.stubGlobal("MediaRecorder", class extends Real {
+      constructor(stream: unknown, opts: Record<string, unknown> = {}) {
+        if (Real.made.length >= 1) throw new DOMException("no", "NotSupportedError");
+        super(stream, opts);
+      }
+    });
+    expect(await rec.retarget(otherMic().stream)).toBe(false);
+    vi.stubGlobal("MediaRecorder", Real);
+    expect(rec.isRecording).toBe(true);
+    expect(FakeTrack.clones[0].stop).not.toHaveBeenCalled();
+    // The clone made for the microphone that could not be recorded is let go.
+    expect(FakeTrack.clones[1].stop).toHaveBeenCalledTimes(1);
+    const out = await rec.finish();
+    expect(out).toEqual({ parts: 1, lost: 0 });
+    expect(parts.map((p) => p.index)).toEqual([1]);
+  });
+
+  it("does nothing before it is armed and after it has finished", async () => {
+    const { rec } = makeRecorder();
+    expect(await rec.retarget(otherMic().stream)).toBe(false);
+    await rec.arm(micStream);
+    await rec.finish();
+    expect(await rec.retarget(otherMic().stream)).toBe(false);
+    expect(FakeMediaRecorder.made).toHaveLength(1);
+  });
+
+  it("stops moving at the budget, so the part count can never pass the server's ceiling", async () => {
+    const { rec } = makeRecorder();
+    await rec.arm(micStream);
+    for (let i = 0; i < MAX_RETARGETS; i += 1) expect(await rec.retarget(otherMic().stream)).toBe(true);
+    expect(await rec.retarget(otherMic().stream)).toBe(false);
+    const out = await rec.finish();
+    // 40 moves + the first part = 41; with the timer's 15 in a 30-minute call
+    // that is 56, under the server's 60.
+    expect(out.parts).toBe(MAX_RETARGETS + 1);
+    expect(MAX_RETARGETS + 1 + 15).toBeLessThanOrEqual(60);
   });
 });

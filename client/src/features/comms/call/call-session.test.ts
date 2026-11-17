@@ -1054,3 +1054,580 @@ describe("answer without recording (PR-6, audit G5)", () => {
     expect(result.current.call?.recording_enabled).toBe(false);
   });
 });
+
+/* ── The other side's microphone (call:mute) ─────────────────────────────── */
+
+/** A microphone whose one track is the SAME object every time it is asked
+ *  for, so a mute set on it can be read back (the default fake's is not). */
+function stableMic(deviceId: string) {
+  const track = { enabled: true, stop: vi.fn(), getSettings: () => ({ deviceId }) };
+  const stream = { getAudioTracks: () => [track], getTracks: () => [track] };
+  return { track, stream };
+}
+
+type Listed = { kind: string; deviceId: string; label: string };
+
+/**
+ * The browser's media devices for one test: which microphone each
+ * getUserMedia opens, what enumerateDevices lists, and the devicechange
+ * listeners the session registered. Install BEFORE wireCallSocket().
+ */
+function stubMedia(list: Listed[], mics: Record<string, ReturnType<typeof stableMic>> = {}) {
+  const world = { list, changed: [] as Array<() => void>, refuse: null as null | string };
+  const first = stableMic("default");
+  const getUserMedia = vi.fn(async (c: { audio?: { deviceId?: { exact?: string } } }) => {
+    const id = c?.audio?.deviceId?.exact;
+    if (!id) return first.stream;
+    if (world.refuse === id) throw new DOMException("in use", "NotReadableError");
+    return (mics[id] ||= stableMic(id)).stream;
+  });
+  Object.defineProperty(window.navigator, "mediaDevices", {
+    configurable: true,
+    value: {
+      getUserMedia,
+      enumerateDevices: vi.fn(async () => world.list),
+      addEventListener: (ev: string, fn: () => void) => {
+        if (ev === "devicechange") world.changed.push(fn);
+      },
+    },
+  });
+  return { world, first, mics, getUserMedia };
+}
+
+/** Answer the ring and bring the media up: this tab is the callee, in_call. */
+async function connectAsCallee(mod: Awaited<ReturnType<typeof fresh>>) {
+  act(() => mod.wireCallSocket());
+  const hook = renderHook(() => mod.useCall());
+  await ringIn();
+  await act(async () => {
+    await mod.answer();
+  });
+  await act(async () => {
+    pcs[0].setIceState("connected");
+    await settle(3);
+  });
+  return hook;
+}
+
+describe("the other side's microphone (call:mute)", () => {
+  it("says where this microphone stands the moment media connects", async () => {
+    stubMedia([]);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    expect(result.current.phase).toBe("in_call");
+    expect(emitted("call:mute")).toEqual([{ callId: "c1", muted: false }]);
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("tells the other side on every mute and unmute", async () => {
+    const { first } = stubMedia([]);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    W.calls.length = 0;
+
+    act(() => mod.setMuted(true));
+    expect(first.track.enabled).toBe(false);
+    expect(result.current.muted).toBe(true);
+    act(() => mod.setMuted(false));
+    expect(result.current.muted).toBe(false);
+
+    expect(emitted("call:mute")).toEqual([
+      { callId: "c1", muted: true },
+      { callId: "c1", muted: false },
+    ]);
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("shows the other side as muted when they say so, and live again when they unmute", async () => {
+    stubMedia([]);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    expect(result.current.peerMuted).toBe(false);
+
+    act(() => fire("call:mute", { call_id: "c1", muted: true }));
+    expect(result.current.peerMuted).toBe(true);
+    act(() => fire("call:mute", { call_id: "c1", muted: false }));
+    expect(result.current.peerMuted).toBe(false);
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("ignores another call's event, a state that is not a boolean, and anything before this tab is in the call", async () => {
+    stubMedia([]);
+    const mod = await fresh();
+    act(() => mod.wireCallSocket());
+    const { result } = renderHook(() => mod.useCall());
+    await ringIn();
+    // Still ringing here: no engine, so nothing to be muted on.
+    act(() => fire("call:mute", { call_id: "c1", muted: true }));
+    expect(result.current.peerMuted).toBe(false);
+
+    await act(async () => {
+      await mod.answer();
+    });
+    act(() => {
+      fire("call:mute", { call_id: "another-call", muted: true });
+      fire("call:mute", { call_id: "c1", muted: "true" });
+      fire("call:mute", { call_id: "c1" });
+      fire("call:mute", null);
+    });
+    expect(result.current.peerMuted).toBe(false);
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("the indicator goes when the call ends, whoever ended it, and a late event cannot bring it back", async () => {
+    stubMedia([]);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    act(() => fire("call:mute", { call_id: "c1", muted: true }));
+    expect(result.current.peerMuted).toBe(true);
+
+    act(() => fire("call:ended", { call_id: "c1", status: "ENDED", reason: "hangup" }));
+    expect(result.current.phase).toBe("ended");
+    expect(result.current.peerMuted).toBe(false);
+
+    act(() => fire("call:mute", { call_id: "c1", muted: true }));
+    expect(result.current.peerMuted).toBe(false);
+  });
+
+  it("hanging up here clears it too, and the next call starts clean", async () => {
+    stubMedia([]);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    act(() => fire("call:mute", { call_id: "c1", muted: true }));
+    await act(async () => {
+      await mod.hangup();
+    });
+    expect(result.current.peerMuted).toBe(false);
+    await act(async () => {
+      await mod.dial("g1", "Aïcha");
+    });
+    expect(result.current.peerMuted).toBe(false);
+    expect(result.current.muted).toBe(false);
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("after the socket reconnects mid-call it repeats its state and asks for theirs", async () => {
+    stubMedia([]);
+    const mod = await fresh();
+    await connectAsCallee(mod);
+    act(() => mod.setMuted(true));
+    W.calls.length = 0;
+
+    act(() => fire("connect", undefined));
+    expect(emitted("call:mute")).toEqual([{ callId: "c1", muted: true, sync: true }]);
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("a reconnect outside a call says nothing", async () => {
+    stubMedia([]);
+    const mod = await fresh();
+    act(() => mod.wireCallSocket());
+    await ringIn();
+    W.calls.length = 0;
+    act(() => fire("connect", undefined));
+    expect(emitted("call:mute")).toEqual([]);
+  });
+
+  it("answers a side that asks, with its own state and without asking back", async () => {
+    stubMedia([]);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    act(() => mod.setMuted(true));
+    W.calls.length = 0;
+
+    act(() => fire("call:mute", { call_id: "c1", muted: false, sync: true }));
+    expect(result.current.peerMuted).toBe(false);
+    expect(emitted("call:mute")).toEqual([{ callId: "c1", muted: true }]);
+
+    // A plain event is never answered: two tabs cannot ping each other for ever.
+    W.calls.length = 0;
+    act(() => fire("call:mute", { call_id: "c1", muted: true }));
+    expect(emitted("call:mute")).toEqual([]);
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("after the media path recovers (an ICE restart) it repeats its state and asks for theirs", async () => {
+    stubMedia([]);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    W.calls.length = 0;
+
+    await act(async () => {
+      pcs[0].setIceState("disconnected");
+      await settle(3);
+    });
+    expect(result.current.recovering).toBe(true);
+    expect(emitted("call:mute")).toEqual([]);
+    await act(async () => {
+      pcs[0].setIceState("connected");
+      await settle(3);
+    });
+    expect(result.current.recovering).toBe(false);
+    expect(emitted("call:mute")).toEqual([{ callId: "c1", muted: false, sync: true }]);
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+});
+
+/* ── Where the sound plays (audio-route.ts) ──────────────────────────────── */
+
+const ANDROID: Listed[] = [
+  { kind: "audioinput", deviceId: "default", label: "Default" },
+  { kind: "audioinput", deviceId: "spk", label: "Speakerphone" },
+  { kind: "audioinput", deviceId: "ear", label: "Headset earpiece" },
+];
+const IPHONE: Listed[] = [{ kind: "audioinput", deviceId: "abc", label: "iPhone Microphone" }];
+const DESKTOP: Listed[] = [
+  { kind: "audioinput", deviceId: "mic1", label: "Microphone (Realtek)" },
+  { kind: "audiooutput", deviceId: "default", label: "Default - Speakers (Realtek)" },
+  { kind: "audiooutput", deviceId: "out1", label: "Speakers (Realtek)" },
+  { kind: "audiooutput", deviceId: "out2", label: "Headset (Jabra)" },
+];
+
+describe("the phone's Speaker / Earpiece switch (Android Chrome)", () => {
+  it("is offered once media is up, on the route Chrome starts a call on", async () => {
+    stubMedia(ANDROID);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    expect(result.current.audio).toEqual({
+      kind: "route",
+      routes: [{ route: "speaker", deviceId: "spk" }, { route: "earpiece", deviceId: "ear" }],
+      current: "speaker",
+      busy: false,
+      failed: false,
+    });
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("is not offered on an iPhone, or where the browser lists no devices", async () => {
+    stubMedia(IPHONE);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    expect(result.current.audio.kind).toBe("none");
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("Earpiece moves the call onto the earpiece's microphone, in place, and stays muted if it was", async () => {
+    const { first, mics, getUserMedia } = stubMedia(ANDROID);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    act(() => mod.setMuted(true));
+    const offers = emitted("call:offer").length;
+
+    await act(async () => {
+      await mod.setAudioRoute("earpiece");
+    });
+
+    expect(getUserMedia).toHaveBeenLastCalledWith({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, deviceId: { exact: "ear" } },
+      video: false,
+    });
+    expect(pcs[0].senders[0].track).toBe(mics.ear.track);
+    expect(mics.ear.track.enabled).toBe(false);
+    expect(first.track.stop).toHaveBeenCalled();
+    expect(result.current.audio).toMatchObject({ kind: "route", current: "earpiece", busy: false, failed: false });
+    expect(result.current.muted).toBe(true);
+    expect(result.current.phase).toBe("in_call");
+    // No renegotiation, and the call was never reported as failed or ended.
+    expect(emitted("call:offer")).toHaveLength(offers);
+    expect(W.hits.reportCallFailure).toBeUndefined();
+    expect(W.hits.hangupCall).toBeUndefined();
+
+    // Unmuting reaches the NEW microphone.
+    act(() => mod.setMuted(false));
+    expect(mics.ear.track.enabled).toBe(true);
+
+    // And back to the loudspeaker.
+    await act(async () => {
+      await mod.setAudioRoute("speaker");
+    });
+    expect(pcs[0].senders[0].track).toBe(mics.spk.track);
+    expect(result.current.audio).toMatchObject({ current: "speaker", failed: false });
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("a device that will not open keeps the route and the call, and says so quietly", async () => {
+    const { world, first } = stubMedia(ANDROID);
+    world.refuse = "ear";
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+
+    await act(async () => {
+      await mod.setAudioRoute("earpiece");
+    });
+
+    expect(result.current.audio).toMatchObject({ kind: "route", current: "speaker", busy: false, failed: true });
+    expect(pcs[0].senders[0].track).toBe(first.track);
+    expect(first.track.stop).not.toHaveBeenCalled();
+    expect(result.current.phase).toBe("in_call");
+    expect(result.current.lastError).toBeNull();
+    expect(W.hits.reportCallFailure).toBeUndefined();
+    expect(W.hits.hangupCall).toBeUndefined();
+
+    // The next attempt that works clears the line.
+    world.refuse = null;
+    await act(async () => {
+      await mod.setAudioRoute("earpiece");
+    });
+    expect(result.current.audio).toMatchObject({ current: "earpiece", failed: false });
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("choosing the route already in use opens nothing", async () => {
+    const { getUserMedia } = stubMedia(ANDROID);
+    const mod = await fresh();
+    await connectAsCallee(mod);
+    const before = getUserMedia.mock.calls.length;
+    await act(async () => {
+      await mod.setAudioRoute("speaker");
+    });
+    expect(getUserMedia.mock.calls.length).toBe(before);
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("a device list that loses the earpiece mid-call takes the switch away; getting it back brings it back", async () => {
+    const { world } = stubMedia(ANDROID);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    expect(result.current.audio.kind).toBe("route");
+
+    // Android 11 and below: Chrome drops the earpiece from its list while a
+    // wired headset is in. (Android 12 keeps it, and shows a third choice.)
+    world.list = [ANDROID[0], ANDROID[1], { kind: "audioinput", deviceId: "wired", label: "Wired headset" }];
+    await act(async () => {
+      world.changed.forEach((fn) => fn());
+      await settle(3);
+    });
+    expect(result.current.audio.kind).toBe("none");
+
+    world.list = ANDROID;
+    await act(async () => {
+      world.changed.forEach((fn) => fn());
+      await settle(3);
+    });
+    expect(result.current.audio.kind).toBe("route");
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("the control goes with the call", async () => {
+    stubMedia(ANDROID);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    expect(result.current.audio.kind).toBe("route");
+    act(() => fire("call:ended", { call_id: "c1", status: "ENDED", reason: "hangup" }));
+    expect(result.current.audio).toEqual({ kind: "none", busy: false, failed: false });
+  });
+
+  it("the recorder follows: its next part is recorded from the new microphone", async () => {
+    class FakeRecorder {
+      static made: FakeRecorder[] = [];
+      static isTypeSupported = () => true;
+      state = "inactive";
+      ondataavailable: unknown = null;
+      onstop: (() => void) | null = null;
+      onerror: unknown = null;
+      constructor(public stream: unknown) {
+        FakeRecorder.made.push(this);
+      }
+      start() {
+        this.state = "recording";
+      }
+      stop() {
+        this.state = "inactive";
+        queueMicrotask(() => this.onstop?.());
+      }
+    }
+    vi.stubGlobal("MediaRecorder", FakeRecorder);
+    const { first, mics } = stubMedia(ANDROID);
+    const mod = await fresh();
+    W.api.acceptCall = async () =>
+      W.row({ status: "IN_CALL", connected_at: new Date().toISOString(), ice: W.ICE, recording_enabled: true });
+    await connectAsCallee(mod);
+    // These fake tracks cannot be cloned, so the recorder records the call's
+    // own stream: the first recorder is on the first microphone.
+    expect(FakeRecorder.made).toHaveLength(1);
+    expect(FakeRecorder.made[0].stream).toBe(first.stream);
+
+    await act(async () => {
+      await mod.setAudioRoute("earpiece");
+      await settle(3);
+    });
+    expect(FakeRecorder.made).toHaveLength(2);
+    expect(FakeRecorder.made[1].stream).toBe(mics.ear.stream);
+    expect(FakeRecorder.made[1].state).toBe("recording");
+    expect(FakeRecorder.made[0].state).toBe("inactive");
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+});
+
+describe("the desktop's output device chooser", () => {
+  /** jsdom has no setSinkId: give the prototype one, and the call's element. */
+  function withSetSinkId(setSinkId: (id: string) => Promise<void>) {
+    const proto = HTMLMediaElement.prototype as { setSinkId?: unknown };
+    proto.setSinkId = async () => {};
+    vi.stubGlobal("Audio", class {
+      autoplay = false;
+      srcObject: unknown = null;
+      setAttribute() {}
+      async play() {}
+      pause() {}
+      setSinkId = setSinkId;
+    });
+    return () => {
+      delete proto.setSinkId;
+    };
+  }
+
+  it("is offered where setSinkId exists and there is more than one output, starting on the system default", async () => {
+    const undo = withSetSinkId(async () => {});
+    try {
+      stubMedia(DESKTOP);
+      const mod = await fresh();
+      const { result } = await connectAsCallee(mod);
+      expect(result.current.audio).toEqual({
+        kind: "output",
+        outputs: [
+          { deviceId: "", label: "" },
+          { deviceId: "out1", label: "Speakers (Realtek)" },
+          { deviceId: "out2", label: "Headset (Jabra)" },
+        ],
+        current: "",
+        busy: false,
+        failed: false,
+      });
+      await act(async () => {
+        await mod.hangup();
+      });
+    } finally {
+      undo();
+    }
+  });
+
+  it("is not offered without setSinkId (Safari), whatever is listed", async () => {
+    stubMedia(DESKTOP);
+    const mod = await fresh();
+    const { result } = await connectAsCallee(mod);
+    expect(result.current.audio.kind).toBe("none");
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("choosing a device applies it to the call's audio element; a refusal keeps the one it had", async () => {
+    const sink = vi.fn(async (id: string) => {
+      if (id === "out1") throw new DOMException("gone", "NotFoundError");
+    });
+    const undo = withSetSinkId(sink);
+    try {
+      stubMedia(DESKTOP);
+      const mod = await fresh();
+      const { result } = await connectAsCallee(mod);
+
+      await act(async () => {
+        await mod.setAudioOutput("out2");
+      });
+      expect(sink).toHaveBeenLastCalledWith("out2");
+      expect(result.current.audio).toMatchObject({ kind: "output", current: "out2", failed: false });
+
+      await act(async () => {
+        await mod.setAudioOutput("out1");
+      });
+      expect(result.current.audio).toMatchObject({ current: "out2", failed: true, busy: false });
+      expect(result.current.phase).toBe("in_call");
+
+      // A device the chooser never listed is not sent to the element at all.
+      const calls = sink.mock.calls.length;
+      await act(async () => {
+        await mod.setAudioOutput("not-listed");
+      });
+      expect(sink.mock.calls.length).toBe(calls);
+      await act(async () => {
+        await mod.hangup();
+      });
+    } finally {
+      undo();
+    }
+  });
+
+  it("a chosen device that is unplugged sends the call back to the system default", async () => {
+    const sink = vi.fn(async (_id: string) => {});
+    const undo = withSetSinkId(sink);
+    try {
+      const { world } = stubMedia(DESKTOP);
+      const mod = await fresh();
+      const { result } = await connectAsCallee(mod);
+      await act(async () => {
+        await mod.setAudioOutput("out2");
+      });
+
+      world.list = [...DESKTOP.filter((d) => d.deviceId !== "out2"), { kind: "audiooutput", deviceId: "out3", label: "Monitor" }];
+      await act(async () => {
+        world.changed.forEach((fn) => fn());
+        await settle(3);
+      });
+      expect(sink).toHaveBeenLastCalledWith("");
+      expect(result.current.audio).toMatchObject({ kind: "output", current: "" });
+      await act(async () => {
+        await mod.hangup();
+      });
+    } finally {
+      undo();
+    }
+  });
+
+  it("a device list that comes back empty moves nothing: the chosen output stays", async () => {
+    const sink = vi.fn(async (_id: string) => {});
+    const undo = withSetSinkId(sink);
+    try {
+      const { world } = stubMedia(DESKTOP);
+      const mod = await fresh();
+      await connectAsCallee(mod);
+      await act(async () => {
+        await mod.setAudioOutput("out2");
+      });
+      const calls = sink.mock.calls.length;
+
+      world.list = [];
+      await act(async () => {
+        world.changed.forEach((fn) => fn());
+        await settle(3);
+      });
+      expect(sink.mock.calls.length).toBe(calls);
+      expect(sink).toHaveBeenLastCalledWith("out2");
+      await act(async () => {
+        await mod.hangup();
+      });
+    } finally {
+      undo();
+    }
+  });
+});

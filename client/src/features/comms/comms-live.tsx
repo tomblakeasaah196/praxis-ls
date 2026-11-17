@@ -32,7 +32,7 @@ import { unlockAudio, playNotifSound, isAudioBlocked } from "@/lib/notif-sound";
 import {
   useCall, answer, decline, hangup, setMuted, setNoise, wireCallSocket, myUserId,
   clearSummaryNotice, initCallDeepLink, redial, dismissRedial, resumeAudio, clearElsewhere,
-  clearTranscriptionIssue,
+  clearTranscriptionIssue, setAudioRoute, setAudioOutput,
 } from "./call/call-session";
 import { transcriptionReasonSentence } from "./call/call-labels";
 import { parseSummaryLink } from "./call/ring-surface";
@@ -278,6 +278,7 @@ export function CommsLive() {
           phase={call.phase}
           elapsedS={call.elapsedS}
           muted={call.muted}
+          peerMuted={call.peerMuted}
           recordingEnabled={call.recordingEnabled}
           onMute={() => setMuted(!call.muted)}
           onHangup={() => void hangup()}
@@ -297,6 +298,10 @@ export function CommsLive() {
           elapsedS={call.elapsedS}
           warning={call.warning}
           muted={call.muted}
+          peerMuted={call.peerMuted}
+          audio={call.audio}
+          onAudioRoute={(route) => void setAudioRoute(route)}
+          onAudioOutput={(deviceId) => void setAudioOutput(deviceId)}
           recordingEnabled={call.recordingEnabled}
           recordingLost={call.recordingLost}
           quality={call.quality}
