@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 141,
-  "route_count": 1865,
+  "route_count": 1867,
   "tiers": {
     "public": 73,
     "self-scoped": 117,
-    "gated": 1675
+    "gated": 1677
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -2572,6 +2572,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/leads/:id/360": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/leads/duplicates": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -6123,12 +6129,6 @@
       "validated": false,
       "tier": "gated"
     },
-    "PATCH /api/tenant/opportunities/:id": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
     "PATCH /api/tenant/outbound/:id": {
       "auth": true,
       "rbac": true,
@@ -8067,13 +8067,37 @@
       "validated": false,
       "tier": "gated"
     },
-    "POST /api/tenant/leads/:id/convert": {
+    "POST /api/tenant/leads/:id/activities": {
       "auth": true,
       "rbac": true,
       "validated": false,
       "tier": "gated"
     },
-    "POST /api/tenant/leads/:id/transition": {
+    "POST /api/tenant/leads/:id/archive": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/leads/:id/make-client": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/leads/:id/next-step/done": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/leads/:id/reopen": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/leads/clients/:clientId/row": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8764,30 +8788,6 @@
       "tier": "gated"
     },
     "POST /api/tenant/operations/drafts": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/opportunities/": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/opportunities/:id/lose": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/opportunities/:id/move": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/opportunities/:id/win": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -9489,7 +9489,13 @@
       "validated": false,
       "tier": "gated"
     },
-    "POST /api/tenant/quote-requests/:id/convert-to-opportunity": {
+    "POST /api/tenant/quote-requests/:id/mark-won": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/quote-requests/:id/stage": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -10990,6 +10996,12 @@
       "tier": "gated"
     },
     "PUT /api/tenant/insights/:id/gallery": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/leads/:id/next-step": {
       "auth": true,
       "rbac": true,
       "validated": false,
