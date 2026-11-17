@@ -21,6 +21,7 @@ import { num, dateFmt, enumLabel } from "@/lib/format";
 import { RowActions } from "@/components/ui/row-actions";
 import { AuditDetailModal } from "@/components/audit/audit-detail-modal";
 import { shell, shortId } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 /** Resolve actor ids → names. A 403 on /users is normal for non-IAM roles. */
 function useActorNames() {
@@ -327,6 +328,7 @@ function NewReviewForm({
 }
 
 export function AuditPage() {
+  const can = useCan("MOD-69");
   const [tab, setTab] = React.useState<
     "ledger" | "events" | "reviews" | "restores"
   >("ledger");
@@ -558,7 +560,7 @@ export function AuditPage() {
         title="Audit Ledger"
         description="Append-only trail of every create, lock, post, reverse, permission change and AI action. Writes are blocked at the database, not just the API."
         action={
-          tab === "reviews" ? (
+          tab === "reviews" && can("create") ? (
             <Button onClick={() => setNewReview(true)}>New review</Button>
           ) : undefined
         }

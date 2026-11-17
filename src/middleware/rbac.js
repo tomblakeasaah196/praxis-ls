@@ -365,4 +365,4 @@ async function readPermissions(req, specs = []) {
   }
 }
 
-module.exports = { requirePermission, requireAnyPermission, requireCapability, requireCeo, readPermissions };
+module.exports = { requirePermission, requireAnyPermission, requireCapability, requireCeo, readPermissions, ACTION_COLUMN };

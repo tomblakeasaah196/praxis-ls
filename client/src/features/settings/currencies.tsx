@@ -37,6 +37,7 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { Input } from "@/components/ui/input";
 import { Modal, Field, Select, ConfirmDialog } from "@/components/ui/modal";
 import { smartCell, num, dateTimeFmt, dateFmt, todayISO } from "@/lib/format";
+import { useCan } from "@/lib/route-access";
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
 
@@ -1661,6 +1662,7 @@ function SyncStatusBanner({ status }: { status: SyncStatus | null }) {
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 
 export function CurrenciesPage() {
+  const can = useCan("MOD-08");
   const cur = useList<Currency>("/currencies?all=1&usage=1");
   // Sync-status drives the freshness banner (audit #6). The old unused
   // `/currencies/rates` prefetch (audit #10) was removed — the page never
@@ -1796,7 +1798,7 @@ export function CurrenciesPage() {
             >
               Sync now
             </Button>
-            <Button onClick={() => setAddOpen(true)}>Add currency</Button>
+            {can("edit") && <Button onClick={() => setAddOpen(true)}>Add currency</Button>}
           </div>
         }
       />

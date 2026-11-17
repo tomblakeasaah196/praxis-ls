@@ -29,6 +29,7 @@ import { exportCsv } from "@/lib/export-csv";
 import { useList, errMsg } from "@/lib/use-resource";
 import { num } from "@/lib/format";
 import * as api from "@/lib/finance-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const CLASS_NAMES: Record<number, string> = {
@@ -191,6 +192,7 @@ function AccountForm({
 }
 
 export function ChartOfAccountsPage() {
+  const can = useCan("MOD-06");
   const { rows, error, loading, reload } =
     useList<api.Account>("/chart-of-accounts");
   const [editing, setEditing] = React.useState<api.Account | "new" | null>(
@@ -300,7 +302,7 @@ export function ChartOfAccountsPage() {
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
         title={tr("Chart of Accounts")}
         description="SYSCOHADA/OHADA statutory chart — postable leaves and analytic accounts."
-        action={<Button onClick={() => setEditing("new")}>{tr("New account")}</Button>}
+        action={can("create") && <Button onClick={() => setEditing("new")}>{tr("New account")}</Button>}
       />
       <KpiRow>
         <KpiTile label={tr("Accounts")} value={num(accounts.length)} />

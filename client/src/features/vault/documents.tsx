@@ -30,6 +30,7 @@ import {
   VaultPreviewDialog,
   type VaultPreviewDocument,
 } from "@/components/vault-preview-dialog";
+import { useCan } from "@/lib/route-access";
 
 const FILE_CONTEXTS = [
   /* The product-wide spelling of an empty option, and NOT title-cased here.
@@ -195,6 +196,7 @@ const DOC_FILTERS = [
 const PAGE_SIZE = 25;
 
 export function DocumentsPage() {
+  const can = useCan("MOD-64");
   const reload = useRefresh();
   const [page, setPage] = React.useState(0);
   const [uploadOpen, setUploadOpen] = React.useState(false);
@@ -292,7 +294,7 @@ export function DocumentsPage() {
         title={tr("Documents")}
         description="Uploaded evidence, held with a tamper-evident fingerprint for each file."
         action={
-          <Button onClick={() => setUploadOpen(true)}>Upload document</Button>
+          can("create") && <Button onClick={() => setUploadOpen(true)}>Upload document</Button>
         }
       />
       <HubTabs />

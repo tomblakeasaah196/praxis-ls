@@ -21,6 +21,7 @@ import { useFocusRow } from "@/lib/use-focus-row";
 import { cn } from "@/lib/cn";
 import { reportActionError } from "@/lib/action-error";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const COLUMNS = ["AVAILABLE", "IN_USE", "MAINTENANCE", "OUT_OF_SERVICE"];
@@ -187,6 +188,7 @@ function NewEquipmentForm({
 }
 
 export function EquipmentPage() {
+  const can = useCan("MOD-37");
   const equipment = useResource(() => api.listEquipment(), []);
   const locs = useResource(() => api.listLocations(), []);
   // `?focus=<wms_equipment_id>` — a location 360's drill-in lands on that card:
@@ -268,7 +270,7 @@ export function EquipmentPage() {
         title={tr("Equipment")}
         description="Handling equipment allocation — check out, return, maintain."
         action={
-          <Button onClick={() => setCreating(true)}>New equipment</Button>
+          can("create") && <Button onClick={() => setCreating(true)}>New equipment</Button>
         }
       />
       <HubTabs />

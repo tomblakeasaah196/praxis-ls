@@ -29,10 +29,12 @@ import {
   DeliveryNote360Modal,
 } from "./delivery-note-360";
 import { deliveryTone } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 /* ── List ───────────────────────────────────────────────────────────────── */
 
 export function DeliveryNotesPage() {
+  const can = useCan("MOD-32");
   const [status, setStatus] = React.useState("");
   const { rows, error, loading, reload } = useList<api.DeliveryNote>(
     `/delivery-notes${status ? `?status=${status}` : ""}`,
@@ -141,7 +143,7 @@ export function DeliveryNotesPage() {
       eyebrow={<HubCrumb area="Operations" to="/operations" />}
       title={tr("Delivery notes")}
       description="Proof that goods reached the consignee — and who signed for them."
-      action={<Button onClick={() => setOpen(true)}>New note</Button>}
+      action={can("create") && <Button onClick={() => setOpen(true)}>New note</Button>}
       tabs={<HubTabs />}
       kpis={
         <KpiRow>
@@ -170,7 +172,7 @@ export function DeliveryNotesPage() {
       empty={{
         title: "No delivery notes",
         hint: "Raise one when goods go out — it is the record of what the client accepted.",
-        action: <Button onClick={() => setOpen(true)}>New note</Button>,
+        action: can("create") ? <Button onClick={() => setOpen(true)}>New note</Button> : undefined,
       }}
     >
       {open && <DeliveryForm onClose={() => setOpen(false)} onSaved={refresh} />}

@@ -22,6 +22,7 @@ import {
   type ExpiryLevel,
 } from "@/lib/format";
 import * as api from "@/lib/fleet-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const EXP_TONE: Record<ExpiryLevel, Tone> = {
@@ -204,6 +205,7 @@ function RenewModal({
 }
 
 export function VehicleCompliancePage() {
+  const can = useCan("MOD-40");
   const rows = useResource(() => api.listVehicleCompliance(), []);
   const [creating, setCreating] = React.useState(false);
   const [renewing, setRenewing] = React.useState<api.VehicleCompliance | null>(
@@ -262,7 +264,7 @@ export function VehicleCompliancePage() {
         eyebrow={<HubCrumb area="Fleet" to="/fleet" />}
         title="Vehicle Compliance"
         description="Insurance and visite-technique expiry — renew before they lapse."
-        action={<Button onClick={() => setCreating(true)}>New record</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New record</Button>}
       />
       <HubTabs />
       <DataList

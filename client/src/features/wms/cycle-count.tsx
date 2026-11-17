@@ -19,6 +19,7 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/wms-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 
@@ -196,6 +197,7 @@ function CountSheet({
 }
 
 export function CycleCountsPage() {
+  const can = useCan("MOD-38");
   const counts = useResource(() => api.listCycleCounts(), []);
   const locs = useResource(() => api.listLocations(), []);
   const [open, setOpen] = React.useState(false);
@@ -263,7 +265,7 @@ export function CycleCountsPage() {
         eyebrow={<HubCrumb area="Warehouse" to="/wms" />}
         title="Cycle Counts"
         description="Count stock against the system by location; variances raise reconciliation."
-        action={<Button onClick={() => setOpen(true)}>New count</Button>}
+        action={can("create") && <Button onClick={() => setOpen(true)}>New count</Button>}
       />
       <HubTabs />
       <DataList

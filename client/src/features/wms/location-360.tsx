@@ -31,6 +31,7 @@ import {
   KPI_PAGE_SIZE,
   type KpiDetailRow,
 } from "@/components/kpi-details-modal";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const STATE_TONE: Record<string, Tone> = {
@@ -563,6 +564,7 @@ function LocationDetail({ location }: { location: api.WarehouseLocation }) {
 const RAIL_PAGE = 50;
 
 export function LocationsPage() {
+  const can = useCan("MOD-34");
   /*
    * SEARCHED AND PAGED ON THE SERVER. The rail used to read the first 50 slots
    * (the list default) and filter those in the browser, so a warehouse with
@@ -638,9 +640,11 @@ export function LocationsPage() {
         title="Locations"
         description="Warehouse slotting with a per-location 360 — stock, equipment, counts and capacity."
         action={
-          <Button onClick={() => setCreating(true)}>
-            {tr("New location")}
-          </Button>
+          can("create") && (
+            <Button onClick={() => setCreating(true)}>
+              {tr("New location")}
+            </Button>
+          )
         }
       />
       <HubTabs />

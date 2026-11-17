@@ -23,6 +23,7 @@ import {
   AssetDisposeForm,
   AssetDetailModal,
 } from "./asset-forms";
+import { useCan } from "@/lib/route-access";
 
 /* NOTE: the `ReceivablesPage` and `ChartOfAccountsPage` ResourceList stubs that
    used to live here were deleted (2026-07-20) — they had no importers. FinanceHub
@@ -36,6 +37,7 @@ const assetStatusTone = (s?: string | null) => {
 };
 
 export function AssetsPage() {
+  const can = useCan("MOD-54");
   const [rows, setRows] = React.useState<Asset[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [nonce, setNonce] = React.useState(0);
@@ -157,7 +159,7 @@ export function AssetsPage() {
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
         title={tr("Assets")}
         description="Fixed-asset register — acquisition builds the monthly depreciation schedule; post a period's dotation to the ledger or dispose an asset and recognise the gain/loss."
-        action={<Button onClick={() => setCreateOpen(true)}>New asset</Button>}
+        action={can("create") && <Button onClick={() => setCreateOpen(true)}>New asset</Button>}
       />
       <KpiRow>
         <KpiTile label={tr("Assets")} value={String(list.length)} />

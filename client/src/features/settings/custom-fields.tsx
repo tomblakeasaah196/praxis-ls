@@ -20,6 +20,7 @@ import { errMsg, useList, type Row } from "@/lib/use-resource";
 import { PageError } from "./shared";
 import { type Entry } from "./store-shared";
 import { slug } from "./store-shared";
+import { useCan } from "@/lib/route-access";
 
 const FIELD_TYPES = [
   "text",
@@ -215,6 +216,7 @@ function CustomFieldForm({
 }
 
 export function CustomFieldsPage() {
+  const can = useCan("MOD-70");
   const { rows, error, reload } = useList("/settings/custom_field");
   const [editing, setEditing] = React.useState<Entry | null>(null);
   const [open, setOpen] = React.useState(false);
@@ -246,7 +248,7 @@ export function CustomFieldsPage() {
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Custom Fields"
         description="Per-entity field definitions. Extra fields a consuming module can render and store."
-        action={<Button onClick={() => edit(null)}>New definition</Button>}
+        action={can("edit") && <Button onClick={() => edit(null)}>New definition</Button>}
       />
 
       <PageError message={rowError} />

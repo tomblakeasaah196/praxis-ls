@@ -29,6 +29,7 @@ import { Pill, StatusPill } from "@/components/ui/pill";
 import { Chips } from "@/components/ui/chips";
 import { QuotationForm } from "./quotation-forms";
 import { QuotationDetail } from "./quotation-detail";
+import { useCan } from "@/lib/route-access";
 
 const QUOTATION_AI: AiAction[] = [
   {
@@ -62,6 +63,7 @@ const QUOTE_FILTERS = [
 ];
 
 export function QuotationsPage() {
+  const can = useCan("MOD-27");
   const reload = useRefresh();
   const { rows, error } = useList("/quotations");
   const { rows: entities } = useList("/entities");
@@ -95,14 +97,16 @@ export function QuotationsPage() {
         title={tr("Quotations")}
         description={tr("Priced offers between opportunity and invoice — draft, send, accept.")}
         action={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            {tr("New quotation")}
-          </Button>
+          can("create") && (
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              {tr("New quotation")}
+            </Button>
+          )
         }
       />
       <HubTabs />

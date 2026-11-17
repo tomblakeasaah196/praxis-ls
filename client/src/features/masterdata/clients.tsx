@@ -33,6 +33,7 @@ import { money, num, enumLabel } from "@/lib/format";
 import { EntityPicker } from "@/components/entity-picker";
 import * as api from "@/lib/masterdata-api";
 import { shell } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 const STATUS_TONE: Record<string, "ok" | "mute" | "blue" | "orange" | "warn"> = {
   ACTIVE: "ok",
@@ -459,6 +460,7 @@ export function ClientForm({
 }
 
 export function ClientsPage() {
+  const can = useCan("MOD-03");
   const { rows, error, loading, reload } = useList<api.Client>("/clients");
   const [editing, setEditing] = React.useState<api.Client | "new" | null>(null);
   const clients = rows || [];
@@ -529,7 +531,7 @@ export function ClientsPage() {
       <PageHeader
         title={tr("Clients")}
         description="Customer master: terms, credit and withholding status."
-        action={<Button onClick={() => setEditing("new")}>{tr("New client")}</Button>}
+        action={can("create") && <Button onClick={() => setEditing("new")}>{tr("New client")}</Button>}
       />
       <KpiRow>
         <KpiTile label={tr("Clients")} value={num(clients.length)} />

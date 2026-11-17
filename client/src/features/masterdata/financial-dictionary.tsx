@@ -42,6 +42,7 @@ import { vatBasisLine } from "@/lib/vat-basis";
 import { PencilIcon } from "@/components/ui/icons";
 import { dictLabel } from "@/lib/dict-label";
 import { isDesktopNow } from "@/lib/use-media-query";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 
@@ -61,6 +62,7 @@ const DIR_FILTER = [
 ];
 
 export function FinancialDictionaryPage() {
+  const can = useCan("MOD-05");
   const [q, setQ] = React.useState("");
   const [dir, setDir] = React.useState<string>("");
   const list = useResource(
@@ -123,14 +125,16 @@ export function FinancialDictionaryPage() {
             <Button variant="ghost" size="sm" onClick={() => setSettings(true)}>
               ⚙ Settings
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setImporting(true)}
-            >
-              Import
-            </Button>
-            <Button onClick={() => setEditing("new")}>New item</Button>
+            {can("create") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setImporting(true)}
+              >
+                Import
+              </Button>
+            )}
+            {can("create") && <Button onClick={() => setEditing("new")}>New item</Button>}
           </div>
         }
       />

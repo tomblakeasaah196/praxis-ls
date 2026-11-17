@@ -5,7 +5,7 @@
  * drives the `is_active` lifecycle the rest of the system checks (payroll,
  * contracts, dispatch).
  */
-import { useCanOpenRoute } from "@/lib/route-access";
+import { useCanOpenRoute, useCan } from "@/lib/route-access";
 import { pageShell } from "@/lib/layout";
 import { SplitPane } from "@/components/ui/split-pane";
 import { isDesktopNow } from "@/lib/use-media-query";
@@ -2237,6 +2237,7 @@ function EmployeeDetail({
 }
 
 export function EmployeesPage() {
+  const can = useCan("MOD-02");
   const employees = useResource(() => api.listEmployees(), []);
   const [q, setQ] = React.useState("");
   const [creating, setCreating] = React.useState(false);
@@ -2296,7 +2297,7 @@ export function EmployeesPage() {
         eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Employees")}
         description="The staff master — pick a person for their full HR record and history."
-        action={<Button onClick={() => setCreating(true)}>New employee</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New employee</Button>}
       />
       <HubTabs />{" "}
       {employees.error ? (

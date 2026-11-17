@@ -18,6 +18,7 @@ import { useList, errMsg } from "@/lib/use-resource";
 import { tenant } from "@/lib/api-client";
 import { RowActions } from "@/components/ui/row-actions";
 import { type Capability, ConfirmDelete, shell } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 const CAPABILITY_CODES = [
   "ISSUER",
@@ -115,6 +116,7 @@ function CapabilityForm({
 }
 
 export function CapabilitiesPage() {
+  const can = useCan("MOD-67");
   const { rows, error, loading, reload } = useList<Capability>("/capabilities");
   const [form, setForm] = React.useState<{ cap: Capability | null } | null>(
     null,
@@ -161,7 +163,7 @@ export function CapabilitiesPage() {
         title={tr("Capabilities")}
         description="ISSUER, VALIDATOR, APPROVER and LINE_MANAGER decide who may act on a document, independent of which module they can see."
         action={
-          <Button onClick={() => setForm({ cap: null })}>New capability</Button>
+          can("create") && <Button onClick={() => setForm({ cap: null })}>New capability</Button>
         }
       />
       <HubTabs />

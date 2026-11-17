@@ -35,6 +35,7 @@ import { OfficeExpensesPage } from "./office-expenses";
 import { ChartOfAccountsPage } from "./chart-of-accounts";
 import { hubTabs } from "@/app/layout/areas";
 import { useRibbonCommands } from "@/app/layout/ribbon-commands";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const statusTone = (s?: string | null): Tone => {
@@ -94,27 +95,35 @@ type ChipKey = "invoices" | "proformas" | "receipts" | "journals";
 /* per-chip: table-switch label + top-right create button noun + create route */
 const CHIP_META: Record<
   ChipKey,
-  { label: string; noun: string; route: string }
+  { label: string; noun: string; route: string; module: string }
 > = {
   invoices: {
     label: "Invoices",
     noun: "New invoice",
     route: "/finance/invoices",
+    // The module POST is guarded with, which is not always the screen's own.
+    module: "MOD-51",
   },
   proformas: {
     label: "Proforma",
     noun: "New proforma",
     route: "/finance/proformas",
+    // The module POST is guarded with, which is not always the screen's own.
+    module: "MOD-50",
   },
   receipts: {
     label: "Receipts",
     noun: "New receipt",
     route: "/finance/receivables",
+    // The module POST is guarded with, which is not always the screen's own.
+    module: "MOD-52",
   },
   journals: {
     label: "Journals",
     noun: "New journal",
     route: "/finance/journals",
+    // The module POST is guarded with, which is not always the screen's own.
+    module: "MOD-55",
   },
 };
 
@@ -240,6 +249,7 @@ function CashPanel({
 }
 
 function CommandCenter() {
+  const can = useCan("MOD-51");
   const navigate = useNavigate();
   const { rows: clients } = useList<Client>("/clients");
   const clientName = nameMap(clients);
@@ -326,17 +336,23 @@ function CommandCenter() {
    *
    * Below `md` there is no ribbon, so the header keeps its own button there.
    */
+  // Offered only to a role that may create what the active chip lists: the
+  // screen it opens hides its own "New" button from anyone else.
+  const mayCreate = can("create", active.module);
   useRibbonCommands(
     React.useMemo(
-      () => [
-        {
-          key: "create",
-          label: active.noun,
-          primary: true,
-          onSelect: () => navigate(active.route),
-        },
-      ],
-      [active.noun, active.route, navigate],
+      () =>
+        mayCreate
+          ? [
+              {
+                key: "create",
+                label: active.noun,
+                primary: true,
+                onSelect: () => navigate(active.route),
+              },
+            ]
+          : [],
+      [active.noun, active.route, navigate, mayCreate],
     ),
   );
 
@@ -494,9 +510,11 @@ function CommandCenter() {
             ))}
           </div>
           {/* The ribbon carries this on desktop — see useRibbonCommands above. */}
-          <Button className="md:hidden" onClick={() => navigate(active.route)}>
-            {active.noun}
-          </Button>
+          {mayCreate && (
+            <Button className="md:hidden" onClick={() => navigate(active.route)}>
+              {active.noun}
+            </Button>
+          )}
         </div>
       </header>
 

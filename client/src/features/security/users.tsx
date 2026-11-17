@@ -34,6 +34,7 @@ import {
   statusTone,
   shell,
 } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 /** What "Provision account" on an employee record hands over: the person to
  *  create the login for, resolved server-side from their employee row. Passed as
@@ -530,6 +531,7 @@ function PasswordForm({ user, onClose }: { user: User; onClose: () => void }) {
 }
 
 export function UsersPage() {
+  const can = useCan("MOD-67");
   const { rows, error, loading, reload } = useList<User>("/users");
   const [confirmReset, resetDialog] = useConfirm();
   const rolesQ = useList<Role>("/roles");
@@ -728,7 +730,7 @@ export function UsersPage() {
         title={tr("Users")}
         description="Tenant user accounts. Roles decide reach; status decides whether they can sign in at all."
         action={
-          <Button onClick={() => setForm({ user: null })}>New user</Button>
+          can("create") && <Button onClick={() => setForm({ user: null })}>New user</Button>
         }
       />
       <HubTabs />

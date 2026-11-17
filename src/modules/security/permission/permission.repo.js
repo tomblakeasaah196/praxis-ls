@@ -81,6 +81,55 @@ async function visibleModuleKeys(client, roleIds) {
 }
 
 /**
+ * What each module lets these roles DO, beyond reading it.
+ *
+ * `visibleModuleKeys` answers "which screens may this person open". This
+ * answers the next question a screen has: "which of my buttons will the server
+ * accept". The action names are `requirePermission`'s own (rbac.js `ACTION_COLUMN`),
+ * so the client asks in the words the routes are guarded in: `edit`, never
+ * `update`.
+ *
+ * `bool_or` across the caller's roles is the same disjunction rbac.js applies
+ * (`grants.some((g) => g[column] === true)`): any one role holding the action is
+ * enough. No `can_read` filter, for the same reason: the enforcement path does
+ * not look at `can_read` when it checks `create`, so neither does this.
+ *
+ * `read` is not an action here. It is `visibleModuleKeys`, and saying it twice
+ * would be two answers that can disagree.
+ */
+const WRITE_ACTIONS = {
+  create: "can_create",
+  edit: "can_update",
+  delete: "can_delete",
+  approve: "can_approve",
+  export: "can_export",
+  validate: "can_validate",
+  disburse: "can_disburse",
+  test: "can_test",
+};
+
+async function grantedActions(client, roleIds) {
+  if (!roleIds || roleIds.length === 0) return {};
+  const cols = Object.entries(WRITE_ACTIONS)
+    .map(([action, col]) => `bool_or(${col}) AS "${action}"`)
+    .join(", ");
+  const { rows } = await client.query(
+    `SELECT module_key, ${cols}
+       FROM permission
+      WHERE role_id = ANY($1::uuid[])
+      GROUP BY module_key
+      ORDER BY module_key`,
+    [roleIds],
+  );
+  const out = {};
+  for (const r of rows) {
+    const held = Object.keys(WRITE_ACTIONS).filter((action) => r[action] === true);
+    if (held.length) out[String(r.module_key).toUpperCase()] = held;
+  }
+  return out;
+}
+
+/**
  * Upsert a grant by its natural key (role_id, module_key) — the grant-matrix
  * edits by role×module, not by permission_id. Relies on the table's
  * UNIQUE(role_id, module_key). Returns the resulting row.
@@ -120,4 +169,4 @@ async function upsertGrant(client, g) {
   return rows[0];
 }
 
-module.exports = { ...base, listAll, upsertGrant, visibleModuleKeys };
+module.exports = { ...base, listAll, upsertGrant, visibleModuleKeys, grantedActions, WRITE_ACTIONS };

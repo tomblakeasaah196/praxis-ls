@@ -24,6 +24,7 @@ import { Modal, Field } from "@/components/ui/modal";
 import { AiActions } from "@/components/ai-actions";
 import type { AiAction } from "@/features/scaffold/screen-specs";
 import { EntityPicker } from "@/components/entity-picker";
+import { useCan } from "@/lib/route-access";
 
 const CLIENT_AI: AiAction[] = [
   {
@@ -283,6 +284,7 @@ function CreditModal({
 }
 
 export function ClientsPage() {
+  const can = useCan("MOD-03");
   const reload = useRefresh();
   const { rows, error } = useList("/clients");
   const [formOpen, setFormOpen] = React.useState(false);
@@ -304,7 +306,7 @@ export function ClientsPage() {
         eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title={tr("Clients")}
         description="Customer registry referenced across sales, operations and receivables."
-        action={<Button onClick={openNew}>{tr("New client")}</Button>}
+        action={can("create") && <Button onClick={openNew}>{tr("New client")}</Button>}
       />
 
       {error ? (

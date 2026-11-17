@@ -58,7 +58,7 @@ function regrouped(moduleKey, verb) {
   );
 }
 
-function load({ granted = [], catalogue = CATALOGUE } = {}) {
+function load({ granted = [], catalogue = CATALOGUE, actions = {} } = {}) {
   jest.resetModules();
   jest.doMock("../../src/modules/catalogue/catalogue.repo", () => ({
     listModules: async () => catalogue,
@@ -72,6 +72,7 @@ function load({ granted = [], catalogue = CATALOGUE } = {}) {
       "../../src/modules/security/permission/permission.repo",
     ),
     visibleModuleKeys: async () => granted,
+    grantedActions: async () => actions,
   }));
   jest.doMock("../../src/shared/events/emit", () => ({
     audit: jest.fn(),
@@ -263,5 +264,117 @@ describe("navAccess — `version` is the client's cache key", () => {
     const withStale = await forRoles(["MOD-29", "MOD-999"]);
     const without = await forRoles(["MOD-29"]);
     expect(withStale.version).not.toBe(without.version);
+  });
+});
+
+/**
+ * `actions` — WHAT A SCREEN'S BUTTONS ARE ALLOWED TO OFFER.
+ *
+ * `modules` stopped the shell offering a screen that would be refused. It said
+ * nothing about a button on a screen the caller may open: read invoices, cannot
+ * create one, still shown "New draft". The answer now carries which actions
+ * each module's grant holds, in `requirePermission`'s own words.
+ */
+describe("navAccess: `actions` says what the caller may do beyond reading", () => {
+  const rbac = require("../../src/middleware/rbac");
+  const realRepo = jest.requireActual(
+    "../../src/modules/security/permission/permission.repo",
+  );
+
+  it("returns the actions held per module, as the repo resolved them", async () => {
+    const access = await load({
+      granted: ["MOD-29", "MOD-51"],
+      actions: { "MOD-51": ["create", "edit"] },
+    }).navAccess(CLIENT, { role_ids: ["r1"] });
+    expect(access.actions).toEqual({ "MOD-51": ["create", "edit"] });
+  });
+
+  it("gives the CEO every action on every module, because rbac.js does", async () => {
+    // The same bug as the empty CEO ribbon, one level down: a CEO with no grant
+    // rows would otherwise be told that no button on any screen is theirs.
+    const access = await load({ granted: [] }).navAccess(CLIENT, {
+      is_ceo: true,
+      role_ids: [],
+    });
+    expect(Object.keys(access.actions).sort()).toEqual(access.modules);
+    for (const key of access.modules)
+      expect(access.actions[key]).toEqual(Object.keys(realRepo.WRITE_ACTIONS));
+  });
+
+  it("names every action by the column rbac.js checks for it", () => {
+    // TWO LISTS THAT MUST AGREE. If `edit` here read `can_create`, the client
+    // would draw an Edit button for someone the route then refuses, and nothing
+    // else in the tree would notice.
+    for (const [action, column] of Object.entries(realRepo.WRITE_ACTIONS))
+      expect(rbac.ACTION_COLUMN[action]).toBe(column);
+  });
+
+  it("uses `edit`, never `update`, and does not repeat `read`", () => {
+    const names = Object.keys(realRepo.WRITE_ACTIONS);
+    expect(names).toContain("edit");
+    expect(names).not.toContain("update");
+    expect(names).not.toContain("read");
+    expect(names).not.toContain("view");
+  });
+
+  it("moves the digest when an action is granted or revoked on a module still held", async () => {
+    const readOnly = await load({ granted: ["MOD-51"] }).navAccess(CLIENT, {
+      role_ids: ["r1"],
+    });
+    const canCreate = await load({
+      granted: ["MOD-51"],
+      actions: { "MOD-51": ["create"] },
+    }).navAccess(CLIENT, { role_ids: ["r1"] });
+    expect(canCreate.modules).toEqual(readOnly.modules);
+    expect(canCreate.version).not.toBe(readOnly.version);
+  });
+
+  it("hashes the same whatever order the actions came back in", async () => {
+    const a = await load({
+      granted: ["MOD-51"],
+      actions: { "MOD-51": ["create", "edit"] },
+    }).navAccess(CLIENT, { role_ids: ["r1"] });
+    const b = await load({
+      granted: ["MOD-51"],
+      actions: { "MOD-51": ["edit", "create"] },
+    }).navAccess(CLIENT, { role_ids: ["r1"] });
+    expect(a.version).toBe(b.version);
+  });
+});
+
+describe("grantedActions: the query behind `actions`", () => {
+  const realRepo = jest.requireActual(
+    "../../src/modules/security/permission/permission.repo",
+  );
+
+  it("asks nothing of the database for a caller with no roles", async () => {
+    const query = jest.fn();
+    expect(await realRepo.grantedActions({ query }, [])).toEqual({});
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("is a disjunction across roles, over every action column", async () => {
+    const query = jest.fn(async () => ({ rows: [] }));
+    await realRepo.grantedActions({ query }, ["r1", "r2"]);
+    const [sql, params] = query.mock.calls[0];
+    for (const column of Object.values(realRepo.WRITE_ACTIONS))
+      expect(sql).toContain(`bool_or(${column})`);
+    expect(sql).toMatch(/GROUP BY module_key/);
+    expect(params).toEqual([["r1", "r2"]]);
+  });
+
+  it("lists only what is held, and drops a module with nothing but read", async () => {
+    const row = (module_key, held) => ({
+      module_key,
+      ...Object.fromEntries(
+        Object.keys(realRepo.WRITE_ACTIONS).map((a) => [a, held.includes(a)]),
+      ),
+    });
+    const query = async () => ({
+      rows: [row("mod-51", ["create", "approve"]), row("MOD-29", [])],
+    });
+    expect(await realRepo.grantedActions({ query }, ["r1"])).toEqual({
+      "MOD-51": ["create", "approve"],
+    });
   });
 });

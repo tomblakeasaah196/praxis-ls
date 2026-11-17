@@ -22,6 +22,7 @@ import {
   InvoiceEditForm,
 } from "./invoice-forms";
 import { InvoiceBundleModal } from "@/features/portal/invoice-bundle-modal";
+import { useCan } from "@/lib/route-access";
 
 function invField(r: Record<string, unknown>, keys: string[]): unknown {
   for (const k of keys) if (r[k] !== undefined && r[k] !== null) return r[k];
@@ -29,6 +30,7 @@ function invField(r: Record<string, unknown>, keys: string[]): unknown {
 }
 
 export function InvoicesPage() {
+  const can = useCan("MOD-51");
   const [rows, setRows] = React.useState<Record<string, unknown>[] | null>(
     null,
   );
@@ -204,7 +206,7 @@ export function InvoicesPage() {
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
         title={tr("Invoices")}
         description="Final invoices — revenue recognition, clears advance + débours."
-        action={<Button onClick={() => setDraftOpen(true)}>New draft</Button>}
+        action={can("create") && <Button onClick={() => setDraftOpen(true)}>New draft</Button>}
       />
       <KpiRow>
         <KpiTile label={tr("Invoices")} value={String(list.length)} />

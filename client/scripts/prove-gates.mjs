@@ -76,6 +76,22 @@ const CASES = [
     to: "{true && (",
   },
   {
+    name: "access (a write button that does not ask for its grant)",
+    defect: "audit 17 Nov 2026 — New draft, for a role that can read invoices and not create one",
+    cmd: ["npm", ["run", "check:access"]],
+    file: "src/features/finance/invoices.tsx",
+    from: 'action={can("create") && <Button onClick={() => setDraftOpen(true)}>New draft</Button>}',
+    to: "action={<Button onClick={() => setDraftOpen(true)}>New draft</Button>}",
+  },
+  {
+    name: "access (the same, on a screen built with ListPage)",
+    defect: "audit 17 Nov 2026 — New file, on the list every operations role opens first",
+    cmd: ["npm", ["run", "check:access"]],
+    file: "src/features/operations/operation-files.tsx",
+    from: 'action={can("create") && <Button onClick={() => setEditing("new")}>New file</Button>}',
+    to: 'action={<Button onClick={() => setEditing("new")}>New file</Button>}',
+  },
+  {
     name: "contrast",
     defect: "F13 — a status ink that fails AA on its own pill ground",
     cmd: ["npm", ["run", "check:contrast"]],

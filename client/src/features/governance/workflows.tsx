@@ -26,6 +26,7 @@ import {
 } from "@/lib/scope-api";
 import { reportActionError } from "@/lib/action-error";
 import { RowActions } from "@/components/ui/row-actions";
+import { useCan } from "@/lib/route-access";
 
 function Toggle({
   on,
@@ -469,6 +470,7 @@ function WorkflowForm({
 }
 
 export function WorkflowsPage() {
+  const can = useCan("MOD-67");
   const { rows, error, loading, reload } = useList<wf.Workflow>("/workflows");
   const [creating, setCreating] = React.useState(false);
   const [view, setView] = React.useState<wf.Workflow | null>(null);
@@ -537,7 +539,7 @@ export function WorkflowsPage() {
         eyebrow={<HubCrumb area="Governance" to="/governance" />}
         title={tr("Workflows")}
         description="Validate and approve chains, bound to the events they route."
-        action={<Button onClick={() => setCreating(true)}>New workflow</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New workflow</Button>}
       />
       <KpiRow>
         <KpiTile label={tr("Workflows")} value={num(list.length)} />

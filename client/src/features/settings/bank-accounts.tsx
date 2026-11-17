@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
 import { SearchSelect } from "@/components/ui/search-select";
 import { PageError } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 const TREASURY_KINDS = ["BANK", "CASH", "MOMO"];
 
@@ -195,6 +196,7 @@ function NewAccountForm({
 }
 
 export function BankAccountsPage() {
+  const can = useCan("MOD-09");
   const reload = useRefresh();
   const { rows, error } = useList("/treasury-accounts");
   const { rows: entities } = useList("/entities");
@@ -235,7 +237,7 @@ export function BankAccountsPage() {
         title="Bank Accounts"
         description="Company bank, cash and mobile-money accounts, each mapped to a chart-of-accounts code."
         action={
-          <Button onClick={() => setCreateOpen(true)}>{tr("New account")}</Button>
+          can("create") && <Button onClick={() => setCreateOpen(true)}>{tr("New account")}</Button>
         }
       />
       <HubTabs />

@@ -305,11 +305,13 @@ in **`doc/FRONTEND_GUIDE.md` §3.18**.
 ## The seventh frontend rule: offer only what the reader can open
 
 **A link, button, card or tab into a module is drawn only for a role that holds
-it. Use `<AccessLink>` or `useCanOpenRoute()`.**
+it, and a write button only for a role that holds the action. Use `<AccessLink>`,
+`useCanOpenRoute()` or `useCan()`.**
 
 Enforced by `scripts/check-access-links.mjs` (`npm run check:access` from
 `client/`), in `npm run ci` and CI. It fails a literal link from one area into
-another that does not ask first.
+another that does not ask first, and a page-header write button that does not
+ask for its grant.
 
 The server is the security boundary: every API route checks the grant and a
 refusal carries no data. This rule is about not offering what will be refused.
@@ -322,6 +324,13 @@ your access", and the tenant's instruction was to hide what a person cannot use.
 | a link | `<AccessLink to>` from `@/components/ui/access-link`: draws nothing when denied |
 | a link whose words are data (a reference, a name, a number) | `<AccessLink whenDenied="text">`: the words stay, the link goes |
 | a button, a `navigate()`, a list of cards | `useCanOpenRoute()` from `@/lib/route-access` |
+
+**A write button asks too, by action.** `const can = useCan("MOD-51")` then
+`action={can("create") && <Button…>}`. The module and the action are the ones the
+ROUTE is guarded with (`requirePermission` in its routes file), which is not
+always what the label suggests: "Record an advance" is `approve`. The gate reads
+the `action` of every `<PageHeader>` and `<ListPage>`; row actions and 360
+buttons are not read yet and are being swept by hand.
 
 `<HubCrumb>` and `<TabbedHub>` ask for themselves. While access is unknown,
 everything is offered: a link that vanishes and returns is worse than one frame

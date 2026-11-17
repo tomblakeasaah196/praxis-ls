@@ -39,10 +39,12 @@ import { ServiceTypeForm } from "./service-type-form";
 import { TemplateForm } from "./service-type-template-form";
 import { MilestonePolicyForm } from "./milestone-policy-form";
 import { ServiceTypeDossier } from "./service-type-dossier";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 
 export function ServiceTypesPage() {
+  const can = useCan("MOD-29");
   const [includeInactive, setIncludeInactive] = React.useState(false);
   const list = useResource(
     () => api.listServiceTypes({ includeInactive }),
@@ -123,7 +125,7 @@ export function ServiceTypesPage() {
         title="Service Types"
         description="The services you sell. Operations files are classified by service type, and each one carries the milestone chain new files start with."
         action={
-          <Button onClick={() => setEditing(null)}>New service type</Button>
+          can("create") && <Button onClick={() => setEditing(null)}>New service type</Button>
         }
       />
       <HubTabs />

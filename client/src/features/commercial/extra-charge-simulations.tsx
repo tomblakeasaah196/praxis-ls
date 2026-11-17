@@ -727,6 +727,7 @@ export function ExtraChargeSimulationsPage() {
         title="Extra-charge Simulator"
         description="Demurrage, storage, yard occupancy, plugging and detention across a container list — an estimate, with no accounting entries."
         action={
+          // @access:open opens the calculator, which previews with `view` alone. Saving a simulation is the write, and it is inside.
           <Button onClick={() => startNew()}>{tr("New simulation")}</Button>
         }
       />

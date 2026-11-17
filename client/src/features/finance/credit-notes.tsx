@@ -22,8 +22,10 @@ import {
   CreditNoteEditForm,
   CreditNotePostForm,
 } from "./credit-note-forms";
+import { useCan } from "@/lib/route-access";
 
 export function CreditNotesPage() {
+  const can = useCan("MOD-51");
   const [rows, setRows] = React.useState<CreditNote[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [nonce, setNonce] = React.useState(0);
@@ -140,7 +142,7 @@ export function CreditNotesPage() {
         title={tr("Credit Notes")}
         description="Reverse a finalised invoice — draft, then post the contra entry."
         action={
-          <Button onClick={() => setCreateOpen(true)}>New credit note</Button>
+          can("create") && <Button onClick={() => setCreateOpen(true)}>New credit note</Button>
         }
       />
       <KpiRow>

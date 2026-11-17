@@ -20,6 +20,7 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 
@@ -398,6 +399,7 @@ function NewRunForm({
 }
 
 export function PayrollPage() {
+  const can = useCan("MOD-17");
   const runs = useResource(() => api.listPayrollRuns(), []);
   const [view, setView] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -455,7 +457,7 @@ export function PayrollPage() {
         eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Payroll")}
         description="Monthly runs — compute payslips, run the approval chain, and post the payroll journal."
-        action={<Button onClick={() => setCreating(true)}>New run</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New run</Button>}
       />
       <HubTabs />
       <DataList

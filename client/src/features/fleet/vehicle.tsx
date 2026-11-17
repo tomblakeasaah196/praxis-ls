@@ -23,6 +23,7 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt, dateTimeFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/fleet-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const VSTATUS_TONE: Record<string, Tone> = {
@@ -421,6 +422,7 @@ function NewVehicleForm({
 }
 
 export function VehiclesPage() {
+  const can = useCan("MOD-39");
   const vehicles = useResource(() => api.listVehicles(), []);
   const [q, setQ] = React.useState("");
   const [creating, setCreating] = React.useState(false);
@@ -454,7 +456,7 @@ export function VehiclesPage() {
         eyebrow={<HubCrumb area="Fleet" to="/fleet" />}
         title={tr("Vehicles")}
         description="The fleet registry — pick a vehicle for its full maintenance, dispatch and compliance history."
-        action={<Button onClick={() => setCreating(true)}>New vehicle</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New vehicle</Button>}
       />
       <HubTabs />
       {creating && (

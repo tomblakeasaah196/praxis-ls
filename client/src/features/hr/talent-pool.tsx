@@ -22,6 +22,7 @@ import { READINESS, eyebrow, readinessMeta } from "./sops";
 import { shell } from "./shared";
 import { EmployeePicker } from "@/components/employee-picker";
 import { ConsiderDialog, type ConsiderSource } from "./consider-dialog";
+import { useCan } from "@/lib/route-access";
 
 type Talent = {
   talent_pool_id: string;
@@ -425,6 +426,7 @@ function PastApplicants() {
 }
 
 export function TalentPoolPage() {
+  const can = useCan("MOD-19");
   const { rows, error, loading, reload } = useList<Talent>("/talent-pool");
   const plans = useResource(
     () => tenant<Succession[]>("/succession").then((r) => r),
@@ -521,7 +523,7 @@ export function TalentPoolPage() {
         eyebrow={eyebrow}
         title="Talent & Succession"
         description="Successors for key roles, plus the candidate bench for future hiring."
-        action={<Button onClick={() => setPlanning(true)}>New plan</Button>}
+        action={can("create") && <Button onClick={() => setPlanning(true)}>New plan</Button>}
       />
       <HubTabs />{" "}
       <KpiRow>

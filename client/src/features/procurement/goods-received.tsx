@@ -29,6 +29,7 @@ import { num, dateFmt, todayISO } from "@/lib/format";
 import type { Entity } from "@/lib/masterdata-api";
 import * as api from "@/lib/procurement-api";
 import { map, shell } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 type GrnLineDraft = {
   dictionary_item_id?: string | null;
@@ -264,6 +265,7 @@ function GrnForm({
 }
 
 export function GoodsReceivedPage() {
+  const can = useCan("MOD-61");
   const { rows, error, loading, reload } = useList<api.Grn>("/goods-received");
   const { rows: pos } = useList<api.PurchaseOrder>("/purchase-orders");
   const [open, setOpen] = React.useState(false);
@@ -344,7 +346,7 @@ export function GoodsReceivedPage() {
         eyebrow={<HubCrumb area="Procurement" to="/procurement" />}
         title="Goods Received"
         description="Receipt notes (GRN) against purchase orders."
-        action={<Button onClick={() => setOpen(true)}>New GRN</Button>}
+        action={can("create") && <Button onClick={() => setOpen(true)}>New GRN</Button>}
       />
       <HubTabs />
       <KpiRow>

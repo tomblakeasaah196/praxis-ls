@@ -17,6 +17,7 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { dateFmt, expiryStatus, type ExpiryLevel } from "@/lib/format";
 import * as api from "@/lib/fleet-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const EXP_TONE: Record<ExpiryLevel, Tone> = {
@@ -227,6 +228,7 @@ function RenewModal({
 }
 
 export function DriversPage() {
+  const can = useCan("MOD-44");
   const rows = useResource(() => api.listLicenses(), []);
   const [creating, setCreating] = React.useState(false);
   const [renewing, setRenewing] = React.useState<api.DriverLicense | null>(
@@ -299,7 +301,7 @@ export function DriversPage() {
         eyebrow={<HubCrumb area="Fleet" to="/fleet" />}
         title="Driver Licences"
         description="Licences and certifications per driver — renew before they expire."
-        action={<Button onClick={() => setCreating(true)}>New licence</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New licence</Button>}
       />
       <HubTabs />
       <DataList

@@ -42,8 +42,10 @@ import { WebsiteNav } from "./website-nav";
 import { useList, useRefresh, errMsg } from "@/lib/use-resource";
 import { tr } from "@/lib/i18n";
 import * as api from "@/lib/site-content-api";
+import { useCan } from "@/lib/route-access";
 
 export function WebsitePagesPage() {
+  const can = useCan("MOD-29");
   const { rows: allRows, error, loading } = useList<api.SitePage>("/site/pages");
 
   /**
@@ -184,7 +186,7 @@ export function WebsitePagesPage() {
       description="The pages of your public site: what they are called, whether they are live, and what is on them."
       width="wide"
       tabs={<WebsiteNav />}
-      action={<Button onClick={() => setCreating(true)}>{tr("New page")}</Button>}
+      action={can("edit") && <Button onClick={() => setCreating(true)}>{tr("New page")}</Button>}
       toolbar={
         /* The commercial switch, stated rather than enforced. This screen is
            deliberately reachable with the package off — a site has to be
@@ -207,9 +209,9 @@ export function WebsitePagesPage() {
         title: tr("No pages yet"),
         /* @prose:keep the key "home" is what the marketing site reads. */
         hint: "Create the first one with the key “home”.",
-        action: (
+        action: can("edit") ? (
           <Button onClick={() => setCreating(true)}>{tr("New page")}</Button>
-        ),
+        ) : undefined,
       }}
     >
       {creating && (

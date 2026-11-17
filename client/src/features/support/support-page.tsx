@@ -218,6 +218,7 @@ export function SupportPage() {
         title="Support & Feedback"
         description="Reach the Praxis team directly. Raise a ticket with a screenshot, and carry the conversation to the end."
         action={
+          // @access:open a ticket to Praxis needs a session and no grant: every signed-in person may raise one.
           <Button onClick={() => openRaiseTicket()}>Raise a ticket</Button>
         }
       />

@@ -32,6 +32,7 @@
  *   const { rows, error, loading, reload } = useList<Client>("/clients");
  *   const [q, setQ] = React.useState("");
  *   const [open, setOpen] = React.useState(false);
+ *   const can = useCan("MOD-03"); // the module POST /clients is guarded with
  *   const shown = React.useMemo(
  *     () => (rows ?? []).filter((r) => r.name.toLowerCase().includes(q.toLowerCase())),
  *     [rows, q],
@@ -41,7 +42,7 @@
  *     <ListPage
  *       title="Clients"
  *       description="Every party you invoice. Credit limits come from the master record."
- *       action={<Button onClick={() => setOpen(true)}>New client</Button>}
+ *       action={can("create") && <Button onClick={() => setOpen(true)}>New client</Button>}
  *       toolbar={<Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search clients…" className="max-w-xs" />}
  *       columns={columns}
  *       rows={shown}

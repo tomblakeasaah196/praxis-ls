@@ -28,6 +28,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { DiscoveryCapture } from "@/features/sales/meeting-discovery";
 import { DiscoveryWizard } from "@/features/sales/discovery-wizard";
 import { useFocusOpen } from "@/lib/use-focus-row";
+import { useCan } from "@/lib/route-access";
 
 /* ═══════════════════════════════════ MEETINGS ═══════════════════════════════════ */
 
@@ -385,6 +386,7 @@ function MeetingDetail({
 }
 
 export function MeetingsPage() {
+  const can = useCan("MOD-21");
   const reload = useRefresh();
   const { rows, error } = useList("/meetings");
   const { rows: leads } = useList("/leads");
@@ -435,10 +437,12 @@ export function MeetingsPage() {
                 the people using it already have a word for. First, and primary:
                 the diagnostic is the reason to be on this screen after a client
                 visit. Scheduling is the lesser action. */}
-            <Button onClick={() => setWizardOpen(true)}>Live meeting</Button>
-            <Button variant="outline" onClick={() => setFormOpen(true)}>
-              Schedule meeting
-            </Button>
+            {can("create") && <Button onClick={() => setWizardOpen(true)}>Live meeting</Button>}
+            {can("create") && (
+              <Button variant="outline" onClick={() => setFormOpen(true)}>
+                Schedule meeting
+              </Button>
+            )}
           </div>
         }
       />

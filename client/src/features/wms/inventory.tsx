@@ -18,6 +18,7 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/wms-api";
 import { useFocusOpen } from "@/lib/use-focus-row";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const STATE_TONE: Record<string, Tone> = {
@@ -360,6 +361,7 @@ function NewItemForm({
 }
 
 export function InventoryPage() {
+  const can = useCan("MOD-35");
   const items = useResource(() => api.listInventory(), []);
   const locs = useResource(() => api.listLocations(), []);
   const [view, setView] = React.useState<api.InventoryItem | null>(null);
@@ -430,7 +432,7 @@ export function InventoryPage() {
         eyebrow={<HubCrumb area="Warehouse" to="/wms" />}
         title={tr("Inventory")}
         description="Stock on hand by item and state — receive, issue, adjust, transfer, and the movement journal."
-        action={<Button onClick={() => setCreating(true)}>New item</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New item</Button>}
       />
       <HubTabs />
       <DataList

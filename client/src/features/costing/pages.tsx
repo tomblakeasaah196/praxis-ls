@@ -56,6 +56,7 @@ import { useSigningProof } from "@/components/signing/use-signing-proof";
 import type { SigningProof } from "@/lib/signing-proof";
 import { useRecordOpener, recordPath, recordSheetPath } from "@/lib/record-360";
 import { isDesktopNow } from "@/lib/use-media-query";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const TONES: Record<string, Tone> = {
@@ -291,6 +292,7 @@ function CostingForm({
  * copying exactly.
  */
 export function CostingPage() {
+  const can = useCan("MOD-46");
   const [q, setQ] = React.useState("");
   const [status, setStatus] = React.useState<string>("");
   const debouncedQ = useDebounced(q, 300);
@@ -380,7 +382,7 @@ export function CostingPage() {
           "What each operations file will cost us — HT / VAT / TTC. Pricing lives in the margin simulator and the quotation.",
         )}
         action={
-          <Button onClick={() => setCreating(true)}>{tr("New costing")}</Button>
+          can("create") && <Button onClick={() => setCreating(true)}>{tr("New costing")}</Button>
         }
       />
       <HubTabs />
@@ -444,7 +446,7 @@ export function CostingPage() {
               ? tr("Clear the filters to see the rest.")
               : tr("Build a costing for an operations file."),
           action:
-            q || status ? undefined : (
+            q || status || !can("create") ? undefined : (
               <Button onClick={() => setCreating(true)}>
                 {tr("New costing")}
               </Button>
@@ -1726,6 +1728,7 @@ function CashRequestForm({
 }
 
 export function CashRequestsPage() {
+  const can = useCan("MOD-49");
   const navigate = useNavigate();
   const { rows, error, loading, reload } =
     useList<api.CashRequest>("/cash-requests");
@@ -1892,7 +1895,7 @@ export function CashRequestsPage() {
         title="Cash Requests"
         description="Advances requested against operations file budgets."
         action={
-          <Button onClick={() => setOpen(true)}>{tr("New request")}</Button>
+          can("create") && <Button onClick={() => setOpen(true)}>{tr("New request")}</Button>
         }
       />
       <HubTabs />
@@ -2093,6 +2096,7 @@ function RegieForm({
  * reimplementing `isDueSoon` in TSX.
  */
 export function RegiePage() {
+  const can = useCan("MOD-49");
   const { rows, error, loading, reload } = useList<api.Regie>("/regie");
   // `error` and `loading` are destructured because DataList REQUIRES them —
   // they are not optional props. Passing the real ones (rather than nulls to
@@ -2221,7 +2225,7 @@ export function RegiePage() {
         eyebrow={<HubCrumb area="Costing" to="/costing" />}
         title="Régie d'avance"
         description="Cash advances (floats), their justification and their ageing."
-        action={<Button onClick={() => setOpen(true)}>Issue advance</Button>}
+        action={can("create") && <Button onClick={() => setOpen(true)}>Issue advance</Button>}
       />
       <HubTabs />
       <KpiRow>

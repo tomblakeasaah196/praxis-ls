@@ -29,8 +29,12 @@ const catalogueRepo = require("../../catalogue/catalogue.repo");
  * do by clicking it and getting a 403. A ribbon whose tabs differ per role
  * cannot be built on that.
  *
- * SHAPE. `{ modules, groups, byGroup, isCeo, version }`:
+ * SHAPE. `{ modules, actions, groups, byGroup, isCeo, version }`:
  *   modules  the MOD-xx keys this caller can read
+ *   actions  MOD-xx -> what this caller may do on it beyond reading
+ *            (`create`, `edit`, `delete`, `approve`, `export`, `validate`,
+ *            `disburse`, `test`), in `requirePermission`'s own words. A module
+ *            the caller can only read has no entry. See WHY `actions` below.
  *   groups   the six workflow verbs those keys fall into, in catalogue order —
  *            resolved here rather than in the browser so the taxonomy has one
  *            definition (platform.module_catalogue.group_key) and the client
@@ -50,6 +54,16 @@ const catalogueRepo = require("../../catalogue/catalogue.repo");
  * and it would go stale silently the first time a module is regrouped. So the
  * partition travels with the answer. The client still owns which ICON and which
  * ROUTE a key gets, because those are drawings and URLs, not taxonomy.
+ *
+ * WHY `actions`. `modules` lets the shell stop offering a SCREEN that would be
+ * refused. It said nothing about the buttons on a screen the caller may open:
+ * someone who can read invoices and not create them still saw "New draft",
+ * filled the form in, and was refused on Save. An access audit (17 Nov 2026)
+ * counted about seventy such buttons, and the tenant's instruction was to hide
+ * them. The client cannot work the answer out, so it travels with this one.
+ * It is the same disjunction across roles rbac.js applies, and the CEO holds
+ * every action on every module because rbac.js says so. This is a courtesy to
+ * the reader, never the control: every route still checks its own grant.
  *
  * WHAT `version` IS FOR. The client renders its LAST KNOWN ribbon immediately
  * from cache and revalidates in the background, so switching pages never
@@ -73,6 +87,14 @@ async function navAccess(client, user) {
     : await repo.visibleModuleKeys(client, user.role_ids || []);
 
   const visible = new Set(modules.map((k) => String(k).toUpperCase()));
+
+  // The CEO branch mirrors the one above: rbac.js lets the CEO through every
+  // action whatever the permission table holds, so reading grant rows would tell
+  // a CEO with none that every button on every screen is not theirs.
+  const everyAction = Object.keys(repo.WRITE_ACTIONS);
+  const actions = user.is_ceo
+    ? Object.fromEntries([...visible].sort().map((k) => [k, everyAction]))
+    : await repo.grantedActions(client, user.role_ids || []);
   const groups = [];
   const byGroup = {};
   for (const m of catalogue) {
@@ -106,18 +128,29 @@ async function navAccess(client, user) {
    * whose coming and going has to move the digest.
    */
   const verbOf = new Map(catalogue.map((m) => [String(m.module_key).toUpperCase(), m.group_key]));
+  /*
+   * AND THE ACTIONS. A role that loses `create` on a module it can still read has
+   * the same key set under the same tabs, and a different set of buttons. The
+   * digest is the "did anything move" hint, so it has to move for that too.
+   * Appended after the partition and only when there is something to append,
+   * so a caller with read-only grants hashes exactly as it did before.
+   */
+  const held = Object.keys(actions)
+    .sort()
+    .map((key) => `${key}=${[...actions[key]].sort().join("+")}`)
+    .join(",");
   const version = crypto
     .createHash("sha1")
     .update(
       [...visible]
         .map((key) => `${verbOf.get(key) ?? ""}:${key}`)
         .sort()
-        .join(","),
+        .join(",") + (held ? `|${held}` : ""),
     )
     .digest("hex")
     .slice(0, 12);
 
-  return { modules: [...visible].sort(), groups, byGroup, isCeo: Boolean(user.is_ceo), version };
+  return { modules: [...visible].sort(), actions, groups, byGroup, isCeo: Boolean(user.is_ceo), version };
 }
 
 const { makeService } = require("../../../shared/crud/resource");

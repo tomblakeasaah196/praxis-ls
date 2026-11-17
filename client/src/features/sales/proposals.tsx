@@ -22,6 +22,7 @@ import { Chips } from "@/components/ui/chips";
 import { ProposalForm } from "./proposal-forms";
 import { ProposalDetail } from "./proposal-detail";
 import { useFocusOpen } from "@/lib/use-focus-row";
+import { useCan } from "@/lib/route-access";
 
 /* ═══════════════════════════════════ PROPOSALS ═══════════════════════════════════ */
 
@@ -55,6 +56,7 @@ const PROPOSAL_FILTERS = [
 ];
 
 export function ProposalsPage() {
+  const can = useCan("MOD-23");
   const reload = useRefresh();
   const { rows, error } = useList("/proposals");
   const { rows: leads } = useList("/leads");
@@ -111,14 +113,16 @@ export function ProposalsPage() {
         title={tr("Proposals")}
         description="Formal proposals with narrative + line items — drafted, reviewed, sent, then accepted."
         action={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            New proposal
-          </Button>
+          can("create") && (
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              New proposal
+            </Button>
+          )
         }
       />
       <HubTabs />

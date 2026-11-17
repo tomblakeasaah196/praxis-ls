@@ -61,7 +61,7 @@
 import * as React from "react";
 import { SCREENS, moduleForRoute } from "@/app/screen-registry";
 import { areaForPath, sectionRoute } from "@/app/layout/areas";
-import type { NavAccess } from "@/lib/nav-access";
+import type { GrantAction, NavAccess } from "@/lib/nav-access";
 import { useShell } from "@/app/layout/shell-context";
 
 /**
@@ -173,6 +173,52 @@ export function useCanOpenRoute(): (pathname: string) => boolean {
 }
 
 /**
+ * "Will the server accept this ACTION on this module?"
+ *
+ * `canOpenRoute` decides whether a screen is offered. This decides whether a
+ * BUTTON on it is: New, Edit, Delete, Approve, Post. Until 17 Nov 2026 nothing
+ * did. Someone who could read invoices and not create them was shown "New
+ * draft", filled the form in, and was refused on Save, and the access audit of
+ * that day counted about seventy such buttons. The tenant's instruction was to
+ * hide them.
+ *
+ * WHEN IN DOUBT, OFFER. Three cases answer true without looking:
+ *   the CEO          rbac.js lets them through every check
+ *   no `actions`     an API or a cached record that predates the field. Absent
+ *                    is "unknown", not "nothing" (see NavAccess.actions)
+ *   (the hook) an unresolved shell, for the reason `useCanOpenRoute` gives
+ * Hiding a button from someone who could have used it is the failure nobody
+ * reports. Showing one that is refused is the failure this removes, and the
+ * server refuses it either way: this is a courtesy, never the control.
+ */
+export function canDo(access: NavAccess, moduleKey: string, action: GrantAction): boolean {
+  if (access.isCeo) return true;
+  if (!access.actions) return true;
+  const held = access.actions[moduleKey.toUpperCase()];
+  return Array.isArray(held) && held.includes(action);
+}
+
+/**
+ * The hook a screen uses for its write buttons.
+ *
+ *     const can = useCan("MOD-51");
+ *     action={can("create") && <Button …>{tr("New Draft")}</Button>}
+ *
+ * The module is the one the ROUTE HANDLER checks (`requirePermission("MOD-51",
+ * "create")`), which is usually the screen's own and is worth reading off the
+ * route file when it is not. `can("edit", "MOD-10")` asks about a different
+ * module for one button without a second hook.
+ */
+export function useCan(moduleKey: string): (action: GrantAction, otherModule?: string) => boolean {
+  const { access, resolved } = useShell();
+  return React.useCallback(
+    (action: GrantAction, otherModule?: string) =>
+      resolved ? canDo(access, otherModule || moduleKey, action) : true,
+    [access, resolved, moduleKey],
+  );
+}
+
+/**
  * "Can this user see module MOD-xx at all?"
  *
  * For an affordance that belongs to a DIFFERENT module than the screen it sits
@@ -181,13 +227,11 @@ export function useCanOpenRoute(): (pathname: string) => boolean {
  * is a button that always 403s, and a control that only ever fails teaches
  * people not to trust the ones that work.
  *
- * READ VISIBILITY, NOT THE CREATE VERB. `NavAccess` carries the modules a user
- * can READ; the catalogue's create/edit/delete verbs are enforced server-side
- * and are not in this payload. So this is a coarser gate than the route it
- * guards — someone with view-but-not-create still sees the action and still
- * gets a clean 422/403 from the API. That is the right direction to be wrong
- * in: hiding an action from someone who could have used it is the failure
- * nobody reports, and the API remains the authority either way.
+ * READ VISIBILITY, NOT THE CREATE ACTION. This asks only whether the module is
+ * one the user can read, so someone with view-but-not-create still sees the
+ * action. When the button is a write, `useCan(moduleKey)("create")` above is
+ * the finer question and the one to ask; this one stays for the affordances
+ * that only need the module to be there at all.
  *
  * Unresolved shell answers TRUE, for the same reason `useCanOpenRoute` does —
  * over-offering for one frame beats an interface that flickers into existence.

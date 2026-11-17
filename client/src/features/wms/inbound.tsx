@@ -22,6 +22,7 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { dateFmt } from "@/lib/format";
 import * as api from "@/lib/wms-api";
 import { reportActionError } from "@/lib/action-error";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const QA_TONE: Record<string, Tone> = {
@@ -253,6 +254,7 @@ function NewGrnForm({
 }
 
 export function InboundPage() {
+  const can = useCan("MOD-33");
   const grns = useResource(() => api.listInbound(), []);
   const locs = useResource(() => api.listLocations(), []);
   const [creating, setCreating] = React.useState(false);
@@ -357,7 +359,7 @@ export function InboundPage() {
         eyebrow={<HubCrumb area="Warehouse" to="/wms" />}
         title="Inbound / GRN"
         description="Receive goods and clear them through QA before putaway."
-        action={<Button onClick={() => setCreating(true)}>{tr("New receipt")}</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>{tr("New receipt")}</Button>}
       />
       <HubTabs />
       <DataList

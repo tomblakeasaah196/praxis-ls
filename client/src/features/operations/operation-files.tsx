@@ -44,6 +44,7 @@ import { DossierWizard } from "./dossier-wizard";
 import { OperationFile360Modal } from "./file-360";
 import { routeLabel, serviceLabel, tone } from "./shared";
 import { MilestoneCell } from "./components";
+import { useCan } from "@/lib/route-access";
 
 const OPS_FILES_AI: AiAction[] = [
   {
@@ -68,6 +69,7 @@ const STATUS_CHIPS: { key: string; label: string; status?: string }[] = [
 ];
 
 export function OperationsFilesPage() {
+  const can = useCan("MOD-29");
   // `?ref=` seeds the search box with a file reference — the Control Tower's
   // live-shipment rows use it, and it stays the friendlier half of the pair now
   // that `?focus=<id>` opens the 360 outright. The user can clear or change it
@@ -266,7 +268,7 @@ export function OperationsFilesPage() {
       eyebrow={<HubCrumb area="Operations" to="/operations" />}
       title="Operations files"
       description="The operations file is the centre of gravity — route, milestones, costing, money and documents in one 360° view."
-      action={<Button onClick={() => setEditing("new")}>New file</Button>}
+      action={can("create") && <Button onClick={() => setEditing("new")}>New file</Button>}
       tabs={<HubTabs />}
       toolbar={
         <>
@@ -317,7 +319,7 @@ export function OperationsFilesPage() {
       empty={{
         title: "No operations files yet",
         hint: "Open a file to start moving a shipment — route, milestones, costing and invoicing all hang off it.",
-        action: <Button onClick={() => setEditing("new")}>New file</Button>,
+        action: can("create") ? <Button onClick={() => setEditing("new")}>New file</Button> : undefined,
       }}
       filtered={filtered}
       emptyFiltered={{

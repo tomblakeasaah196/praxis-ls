@@ -45,6 +45,7 @@ import { cn } from "@/lib/cn";
 import * as api from "@/lib/hr-api";
 import { reportActionError } from "@/lib/action-error";
 import { usePrompt } from "@/components/ui/use-prompt";
+import { useCan } from "@/lib/route-access";
 
 /** Five states, not a boolean `is_late`. DUE_SOON is the only one where acting
  *  now still prevents lateness, and UNDATED is its own thing — an item nobody
@@ -569,6 +570,7 @@ function NewTemplateForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
 /* ══ The view ══════════════════════════════════════════════════════════════ */
 
 export function OnboardingView() {
+  const can = useCan("MOD-16");
   const board = useResource(() => api.listChecklists(), []);
   const templates = useResource(() => api.listOnboardingTemplates(true), []);
   const [tab, setTab] = React.useState<"checklists" | "templates">("checklists");
@@ -601,9 +603,13 @@ export function OnboardingView() {
             Templates
           </button>
         </div>
-        <Button onClick={() => (tab === "templates" ? setNewTemplate(true) : setCreating(true))}>
-          {tab === "templates" ? "New template" : "New checklist"}
-        </Button>
+        {/* Two grants on one button: the server asks `approve` for a template
+            and `create` for a checklist, so the button asks the same. */}
+        {can(tab === "templates" ? "approve" : "create") && (
+          <Button onClick={() => (tab === "templates" ? setNewTemplate(true) : setCreating(true))}>
+            {tab === "templates" ? "New template" : "New checklist"}
+          </Button>
+        )}
       </div>
 
       {tab === "templates" ? (
@@ -613,7 +619,7 @@ export function OnboardingView() {
           <EmptyState
             title="No onboarding templates"
             hint="A template states what every new hire is asked to do, with each step dated from their start day. Without one, every checklist is retyped and the step somebody forgets is the one that gets missed."
-            action={<Button onClick={() => setNewTemplate(true)}>New template</Button>}
+            action={can("approve") && <Button onClick={() => setNewTemplate(true)}>New template</Button>}
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

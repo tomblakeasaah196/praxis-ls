@@ -23,6 +23,7 @@ import { money, num, dateFmt, todayISO } from "@/lib/format";
 import * as api from "@/lib/ai-governance-api";
 import { reportActionError } from "@/lib/action-error";
 import { Callout } from "@/components/ui/callout";
+import { useCan } from "@/lib/route-access";
 
 type GovUser = { user_id: string; full_name?: string | null; email: string };
 
@@ -270,6 +271,7 @@ function GrantForm({
 }
 
 export function AiGrantsPage() {
+  const can = useCan("MOD-70");
   const { rows, error, loading, reload } = useList<api.Grant>(
     "/ai/governance/grants",
   );
@@ -355,7 +357,7 @@ export function AiGrantsPage() {
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
         title="Access Grants"
         description="Per-user access to AI features (the feature flag must also be on)."
-        action={<Button onClick={() => setOpen(true)}>Grant access</Button>}
+        action={can("edit") && <Button onClick={() => setOpen(true)}>Grant access</Button>}
       />
       <HubTabs />
       <DataList
@@ -377,6 +379,7 @@ export function AiGrantsPage() {
 
 /* ═══════════════════════ Budget / spend caps ═══════════════════════ */
 export function AiBudgetPage() {
+  const can = useCan("MOD-70");
   const b = useResource(() => api.getBudget(), []);
   const [open, setOpen] = React.useState(false);
   const d = b.data;
@@ -388,7 +391,7 @@ export function AiBudgetPage() {
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
         title="Spend Caps"
         description="A monthly budget: the soft cap warns, the hard cap blocks every AI call."
-        action={<Button onClick={() => setOpen(true)}>Set budget</Button>}
+        action={can("edit") && <Button onClick={() => setOpen(true)}>Set budget</Button>}
       />
       <HubTabs />
       {b.loading ? (
@@ -1019,7 +1022,10 @@ export function AiVendorsPage() {
         eyebrow={<HubCrumb area="AI Control" to="/ai-control" />}
         title="Vendors & Keys"
         description="LLM, vision and voice providers: model, encrypted API key and a connection test."
-        action={<Button onClick={() => setAdding(true)}>Add vendor</Button>}
+        action={
+          // @access:open this screen is no longer routed: vendor keys moved to the platform console, so there is no tenant grant to ask about.
+          <Button onClick={() => setAdding(true)}>Add vendor</Button>
+        }
       />
       <HubTabs />
       {vendorTest && (

@@ -20,6 +20,7 @@ import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { dateTimeFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/fleet-api";
 import { reportActionError } from "@/lib/action-error";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const STATUS_TONE: Record<string, Tone> = {
@@ -165,6 +166,7 @@ function NewIncidentForm({
 }
 
 export function IncidentsPage() {
+  const can = useCan("MOD-45");
   const inc = useResource(() => api.listIncidents(), []);
   const [creating, setCreating] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -249,7 +251,7 @@ export function IncidentsPage() {
         title="Incidents"
         description="Report fleet incidents and work them through review to closure."
         action={
-          <Button onClick={() => setCreating(true)}>Report incident</Button>
+          can("create") && <Button onClick={() => setCreating(true)}>Report incident</Button>
         }
       />
       <HubTabs />

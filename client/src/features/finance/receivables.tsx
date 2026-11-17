@@ -27,6 +27,7 @@ import { money, dateFmt, todayISO, enumLabel } from "@/lib/format";
 import type { Client, Entity } from "@/lib/masterdata-api";
 import * as api from "@/lib/finance-api";
 import { PaymentProofQueue } from "@/features/portal/client-portal-staff";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const TONES: Record<string, Tone> = {
@@ -422,6 +423,7 @@ function ReceiptDrawer({
 }
 
 export function ReceivablesPage() {
+  const can = useCan("MOD-52");
   const { rows, error, loading, reload } = useList<api.Receipt>("/receivables");
   const { rows: clients } = useList<Client>("/clients");
   const ageing = useResource(() => api.getAgeing(), []);
@@ -494,7 +496,7 @@ export function ReceivablesPage() {
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
         title={tr("Receivables")}
         description="Ageing, receipts and dunning — the collections side of the money loop."
-        action={<Button onClick={() => setCreating(true)}>{tr("New receipt")}</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>{tr("New receipt")}</Button>}
       />
       <KpiRow>
         <KpiTile label="Current" value={money(a?.current)} />

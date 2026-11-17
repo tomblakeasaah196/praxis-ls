@@ -19,6 +19,7 @@ import { useList, errMsg } from "@/lib/use-resource";
 import { tenant } from "@/lib/api-client";
 import { RowActions } from "@/components/ui/row-actions";
 import { type FieldVis, type Role, ConfirmDelete, shell } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 const VISIBILITY = ["visible", "masked", "hidden"] as const;
 const visTone = (v: string): Tone =>
@@ -150,6 +151,7 @@ function FieldVisForm({
 }
 
 export function FieldVisibilityPage() {
+  const can = useCan("MOD-67");
   const { rows, error, loading, reload } =
     useList<FieldVis>("/field-visibility");
   const rolesQ = useList<Role>("/roles");
@@ -213,7 +215,7 @@ export function FieldVisibilityPage() {
         eyebrow={<HubCrumb area="Security & Access" to="/security" />}
         title="Field Visibility"
         description="Per-role masking of confidential fields such as margins, salaries and cost rates. Editing these needs the approve action, not just edit."
-        action={<Button onClick={() => setForm({ fv: null })}>New rule</Button>}
+        action={can("approve") && <Button onClick={() => setForm({ fv: null })}>New rule</Button>}
       />
       <HubTabs />
       <DataList
