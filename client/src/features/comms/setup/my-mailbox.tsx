@@ -500,7 +500,9 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
                   </DropdownItem>
                 </MoreMenu>
               </div>
-              {allowance.data && !allowance.data.allowed && (
+              {/* Only when sending is actually paused. `=== false`, not a
+                  falsy check: an answer with no verdict in it is not a pause. */}
+              {allowance.data?.allowed === false && (
                 <p className="micro text-muted-foreground">
                   {`${tr("Sending paused until")} ${dateFmt(allowance.data.retryAt || undefined)}`}
                 </p>
