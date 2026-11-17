@@ -14,10 +14,18 @@
  *           the output route follows the one in use: opening the microphone
  *           as "Speakerphone" plays the call on the loudspeaker, as "Headset
  *           earpiece" on the earpiece. The labels are Chrome's own fixed
- *           English names (AudioManagerAndroid DEVICE_NAMES), not localised.
+ *           English names, not localised (Chromium, media/base/android:
+ *           CommunicationDeviceSelector DEVICE_NAMES, read on main when this
+ *           was written; not confirmed on a device).
  *           Offered ONLY when both a speakerphone and an earpiece are listed,
  *           which is what keeps it off an iPhone (one "iPhone Microphone",
  *           no route to choose) and off every desktop.
+ *
+ *           What a headset does to that list depends on the Android version
+ *           (same source): on Android 11 and below a wired or USB headset
+ *           takes the earpiece OFF the list, so the switch goes; on Android
+ *           12 and later the earpiece stays listed beside it, and the
+ *           headset is the third choice.
  *
  *   output  Desktop. `HTMLMediaElement.setSinkId` exists and more than one
  *           real output device is listed.
@@ -73,7 +81,8 @@ export function classifyInput(label: string): InputClass {
   return null;
 }
 
-/** Chrome's own preference when several headsets are connected. */
+/** Chrome's own preference when several headsets are connected (Chromium's
+ *  `selectDefaultDevice`: wired, then USB, then Bluetooth, last the speaker). */
 const HEADSET_ORDER: InputClass[] = ["wired", "usb", "bluetooth"];
 
 /**

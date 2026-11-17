@@ -24,8 +24,10 @@ const ANDROID = [
 ];
 /** The same phone with a Bluetooth headset connected. */
 const ANDROID_BT = [...ANDROID, input("bt", "Bluetooth headset")];
-/** A wired headset takes the earpiece off Chrome's list. */
+/** Android 11 and below: a wired headset takes the earpiece off Chrome's list. */
 const ANDROID_WIRED = [input("default", "Default"), input("spk", "Speakerphone"), input("wired", "Wired headset")];
+/** Android 12 and later: the earpiece stays listed beside the wired headset. */
+const ANDROID_12_WIRED = [...ANDROID, input("wired", "Wired headset")];
 /** Safari on an iPhone: one microphone, no outputs listed. */
 const IPHONE = [input("abc", "iPhone Microphone")];
 /** Chrome on a Windows desktop with speakers and a USB headset. */
@@ -83,10 +85,22 @@ describe("the phone's Speaker / Earpiece switch", () => {
     expect(phoneRoutes(DESKTOP)).toEqual([]);
   });
 
-  it("needs BOTH: a speakerphone alone (wired headset in) is no switch", () => {
+  it("needs BOTH: a speakerphone with no earpiece (Android 11 with a wired headset in) is no switch", () => {
     expect(phoneRoutes(ANDROID_WIRED)).toEqual([]);
     expect(phoneRoutes([input("ear", "Headset earpiece")])).toEqual([]);
     expect(audioControl(ANDROID_WIRED, env({ canSetSink: false }))).toEqual({ kind: "none" });
+  });
+
+  it("Android 12 with a wired headset in keeps the earpiece listed: three choices, on the headset", () => {
+    expect(phoneRoutes(ANDROID_12_WIRED)).toEqual([
+      { route: "speaker", deviceId: "spk" },
+      { route: "earpiece", deviceId: "ear" },
+      { route: "headset", deviceId: "wired" },
+    ]);
+    // A call started on the default microphone is on the headset there.
+    expect(audioControl(ANDROID_12_WIRED, env({ micDeviceId: "default" }))).toMatchObject({
+      kind: "route", current: "headset",
+    });
   });
 
   it("is not offered before the labels are known (no microphone permission yet)", () => {

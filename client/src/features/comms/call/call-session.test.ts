@@ -1410,13 +1410,14 @@ describe("the phone's Speaker / Earpiece switch (Android Chrome)", () => {
     });
   });
 
-  it("a headset plugged in mid-call takes the switch away; taking it out brings it back", async () => {
+  it("a device list that loses the earpiece mid-call takes the switch away; getting it back brings it back", async () => {
     const { world } = stubMedia(ANDROID);
     const mod = await fresh();
     const { result } = await connectAsCallee(mod);
     expect(result.current.audio.kind).toBe("route");
 
-    // Chrome drops the earpiece from its list while a wired headset is in.
+    // Android 11 and below: Chrome drops the earpiece from its list while a
+    // wired headset is in. (Android 12 keeps it, and shows a third choice.)
     world.list = [ANDROID[0], ANDROID[1], { kind: "audioinput", deviceId: "wired", label: "Wired headset" }];
     await act(async () => {
       world.changed.forEach((fn) => fn());
