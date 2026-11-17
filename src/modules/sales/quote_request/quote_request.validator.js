@@ -25,6 +25,7 @@ const schemas = {
   clientMatch: quoteRequest.clientMatchQuery,
   // AI-facing variants carry quote_request_id in the payload.
   aiMoveStage: quoteRequest.aiMoveStage,
+  aiMarkLost: quoteRequest.aiMarkLost,
   aiMarkWon: quoteRequest.aiMarkWon,
   aiLinkClient: quoteRequest.aiLinkClient,
   aiFileFromChat: quoteRequest.aiFileFromChat,

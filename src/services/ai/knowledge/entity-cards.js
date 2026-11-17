@@ -172,24 +172,27 @@ const BUILDERS = [
   },
   {
     key: "lead",
-    sql: `SELECT lead_id, company_name, contact_name, status, source FROM lead ORDER BY created_at DESC LIMIT $1`,
+    sql: `SELECT lead_id, company_name, contact_name, status, source, client_id FROM lead
+           WHERE merged_into_lead_id IS NULL ORDER BY created_at DESC LIMIT $1`,
     card: (r) => ({
       ref: `lead:${r.company_name || r.contact_name}`,
       title: `Lead ${r.company_name || r.contact_name}`,
       confidentiality: "normal",
-      text: `Lead: ${r.company_name || "?"} (contact ${r.contact_name || "?"}), source ${r.source || "?"}, status ${r.status || "?"}.`,
+      text: `Company ${r.company_name || "?"} (contact ${r.contact_name || "?"}), ${r.client_id ? "client" : "prospect"}, source ${r.source || "?"}, ${r.status === "ARCHIVED" ? "archived" : "open"}.`,
     }),
   },
   {
-    key: "opportunity",
-    sql: `SELECT o.opportunity_id, o.title, o.status, o.expected_value, c.name AS client
-            FROM opportunity o LEFT JOIN client_master c ON c.client_id = o.client_id
-           ORDER BY o.created_at DESC LIMIT $1`,
+    // The deal, since the Sales lean revamp: a request and its stage. The
+    // value stays off the card, as money stays off every AI read of Sales.
+    key: "quote_request",
+    sql: `SELECT q.quote_request_id, q.public_ref, q.title, q.stage, l.company_name
+            FROM quote_request q LEFT JOIN lead l ON l.lead_id = q.lead_id
+           ORDER BY q.created_at DESC LIMIT $1`,
     card: (r) => ({
-      ref: `opportunity:${r.title}`,
-      title: `Opportunity ${r.title}`,
+      ref: `quote_request:${r.public_ref || r.quote_request_id}`,
+      title: `Request ${r.public_ref || r.title || "without a reference"}`,
       confidentiality: "normal",
-      text: `Opportunity "${r.title}" with ${r.client || "?"} — status ${r.status}, expected value ${r.expected_value || 0} XAF.`,
+      text: `Request ${r.public_ref || r.title || "?"} from ${r.company_name || "?"}: stage ${r.stage}.`,
     }),
   },
   // ── Operations & logistics ──

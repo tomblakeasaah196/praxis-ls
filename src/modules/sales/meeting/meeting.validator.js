@@ -18,11 +18,16 @@ const schemas = {
   // accepted from the body, which made the flag "this meeting has a transcript"
   // an assertion the caller made about itself. Only the ai-transcribe worker
   // writes it now.
+  // Schedule Meeting (lean revamp §3.2): a time, a duration and the staff
+  // attendees put it on the calendar; a request makes it about that request.
   create: z.object({
     subject: z.string().min(1).max(300),
     lead_id: z.string().guid().optional().nullable(),
     client_id: z.string().guid().optional().nullable(),
+    quote_request_id: z.string().guid().optional().nullable(),
     scheduled_at: z.string().optional().nullable(),
+    duration_minutes: z.number().int().min(5).max(1440).optional(),
+    attendee_user_ids: z.array(z.string().guid()).max(20).optional(),
     location: z.string().max(300).optional().nullable(),
     organiser_id: z.string().guid().optional().nullable(),
   }),

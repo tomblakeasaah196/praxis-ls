@@ -1405,6 +1405,7 @@ export declare namespace quoteRequest {
   // here on purpose so the client cannot mistake them for its own forms.
   const attachment: z.ZodTypeAny;
   const aiMoveStage: z.ZodTypeAny;
+  const aiMarkLost: z.ZodTypeAny;
   const aiMarkWon: z.ZodTypeAny;
   const aiLinkClient: z.ZodTypeAny;
   const aiFileFromChat: z.ZodTypeAny;
@@ -1468,6 +1469,8 @@ export declare namespace lead {
   const done: z.ZodType<{ task_id?: string; activity: LeadActivity; next_step: LeadNextStep | null }, unknown>;
   const archive: z.ZodType<{ reason: string; reason_code?: LostReason }, unknown>;
   const reopen: z.ZodType<{ next_step: LeadNextStep }, unknown>;
+  /** Settings › the default sales owner (`sales.default_owner`). */
+  const defaultOwnerSetting: z.ZodType<{ user_id: string | null }, unknown>;
   // Read by the API only; typed loosely so a form does not mistake them for its own.
   const listQuery: z.ZodTypeAny;
   const makeClient: z.ZodTypeAny;

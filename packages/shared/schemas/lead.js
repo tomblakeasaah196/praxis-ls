@@ -167,6 +167,13 @@ const clientBlock = z.object({
 }).strict();
 const makeClient = z.object({ client: clientBlock }).strict();
 
+/**
+ * Settings & Admin › the default sales owner (setting `sales.default_owner`):
+ * who owns a website lead no existing row claims (§3.2). Null hands it back to
+ * the first CEO-role user.
+ */
+const defaultOwnerSetting = z.object({ user_id: guid.nullable() }).strict();
+
 /* ── the AI (each names the lead in its payload) ─────────────────────────── */
 
 const aiActivity = activity.extend({ lead_id: guid });
@@ -192,6 +199,7 @@ module.exports = {
   archive,
   reopen,
   makeClient,
+  defaultOwnerSetting,
   aiActivity,
   aiNextStep,
   aiArchive,

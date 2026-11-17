@@ -224,7 +224,10 @@ async function tab(client, entityRef, tabName, opts = {}) {
  * Batched by kind (one grant check + one query per kind present), so a list of
  * fifty threads costs at most a handful of statements however many are bound.
  */
-const LABEL_MODULE = Object.freeze({ client: "MOD-03", supplier: "MOD-04", dossier: "MOD-29", lead: "MOD-26" });
+// A lead's name is MOD-20's (lead.routes). It was MOD-26 (Success Stories), so a
+// person who works leads saw a bound thread's raw ref, and a person who only
+// curates case stories saw the company (Sales lean revamp, gap 11).
+const LABEL_MODULE = Object.freeze({ client: "MOD-03", supplier: "MOD-04", dossier: "MOD-29", lead: "MOD-20" });
 const LABEL_COLUMN = Object.freeze({
   client: { table: "client_master", pk: "client_id", col: "name" },
   supplier: { table: "supplier_master", pk: "supplier_id", col: "name" },

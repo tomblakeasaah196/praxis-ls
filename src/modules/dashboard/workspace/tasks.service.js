@@ -2685,6 +2685,9 @@ module.exports = {
   addSubtask, patchSubtask, deleteSubtask, addWatcher, removeWatcher, notifyAssignee,
   listEvents, getEvent, createEvent, updateEvent, deleteEvent,
   addParticipant, respondParticipant, removeParticipant,
+  // Sales schedules a meeting onto the calendar on its own transaction (lean
+  // revamp PR 2) and owes its attendees the same invite this sends.
+  notifyInvitation,
   mergeTimeline, dayTimeline, deadlinesInRange,
   spawnDue,
   // PR 2 — hierarchy, dependencies, collaboration and operational Analytics.

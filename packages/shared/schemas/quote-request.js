@@ -224,7 +224,14 @@ const clientMatchQuery = z.object({ email: z.string().trim().email().max(255) })
 
 /* ── the AI (each carries the request id in its payload) ─────────────────── */
 
-const aiMoveStage = z.object({ quote_request_id: z.string().guid(), stage: z.enum(MOVABLE_STAGES), ...lostReason }).strict().superRefine(requireReasonWhenLost);
+// The AI moves a deal between WORKING stages under `edit`; losing one is its
+// own action under `approve`, as the stage route gates LOST.
+const aiMoveStage = z.object({ quote_request_id: z.string().guid(), stage: z.enum(OPEN_STAGES) }).strict();
+const aiMarkLost = z.object({
+  quote_request_id: z.string().guid(),
+  lost_reason_code: z.enum(LOST_REASONS),
+  lost_reason: z.string().trim().max(500).optional().nullable(),
+}).strict();
 const aiMarkWon = z.object({ quote_request_id: z.string().guid(), entity_id: z.string().guid().optional().nullable() }).strict();
 const aiLinkClient = z.object({ quote_request_id: z.string().guid(), client_id: z.string().guid() });
 const aiFileFromChat = z.object({
@@ -387,6 +394,7 @@ module.exports = {
   fromChat,
   clientMatchQuery,
   aiMoveStage,
+  aiMarkLost,
   aiMarkWon,
   aiLinkClient,
   aiFileFromChat,

@@ -541,7 +541,7 @@ const TOOL_LIMIT = 64;
 // present in the manifests.
 const CORE_TOOLS = new Set([
   "create_client", "open_dossier", "list_dossiers", "list_clients", "list_leads",
-  "list_opportunities", "list_quotations", "list_final_invoices", "receivables_ageing", "get_trial_balance",
+  "list_quote_requests", "list_quotations", "list_final_invoices", "receivables_ageing", "get_trial_balance",
   "list_suppliers", "list_purchase_orders", "list_employees", "list_vehicles", "list_inventory", "list_costings",
 ]);
 
@@ -566,7 +566,9 @@ const SYNONYMS = {
   cr: "cash_request", cash: "cash_request",
   costing: "costing", cost: "costing",
   lead: "lead", prospect: "lead",
-  opportunity: "opportunity", deal: "opportunity",
+  // Since the Sales lean revamp (PR 2) a deal is its request: there is no
+  // opportunity record to scope to.
+  opportunity: "quote_request", deal: "quote_request", pipeline: "quote_request", request: "quote_request",
   driver: "driver", fuel: "fuel_log",
   compliance: "compliance_flag", document: "document_vault",
 };

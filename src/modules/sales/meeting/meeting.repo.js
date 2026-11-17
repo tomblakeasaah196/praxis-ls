@@ -7,7 +7,9 @@ const insert = (client, data) => insertOne(client, "meeting", data);
 const get = (client, id) => getById(client, "meeting", "meeting_id", id);
 const insertNote = (client, data) => insertOne(client, "meeting_note", data);
 
-const MEETING_WRITABLE = ["subject", "lead_id", "client_id", "scheduled_at", "location", "organiser_id", "transcript_vault_id"];
+const MEETING_WRITABLE = ["subject", "lead_id", "client_id", "scheduled_at", "location", "organiser_id", "transcript_vault_id",
+  // 14514 — its calendar event, and the request it is about.
+  "calendar_event_id", "quote_request_id"];
 async function update(client, id, fields = {}) {
   if (!Object.keys(fields).length) return get(client, id);
   return updateOne(client, "meeting", "meeting_id", id, fields, "*", MEETING_WRITABLE);
@@ -21,6 +23,7 @@ async function list(client, q = {}) {
   const { limit, offset } = page(q); const params = [limit, offset]; const wh = [];
   if (q.lead_id) { params.push(q.lead_id); wh.push("lead_id = $" + params.length); }
   if (q.client_id) { params.push(q.client_id); wh.push("client_id = $" + params.length); }
+  if (q.quote_request_id) { params.push(q.quote_request_id); wh.push("quote_request_id = $" + params.length); }
   const where = wh.length ? "WHERE " + wh.join(" AND ") : "";
   return (await client.query("SELECT * FROM meeting " + where + " ORDER BY scheduled_at DESC NULLS LAST, created_at DESC LIMIT $1 OFFSET $2", params)).rows;
 }
