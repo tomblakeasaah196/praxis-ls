@@ -287,6 +287,21 @@ Call-specific strategy per chapter; the standing matrix:
   only the tenants with recent calls (Redis set `praxis:comms:call-tenants`).
   The client's half of the same rule: a page closing mid-call sends a
   keep-alive hang-up, so a deliberate close ends the call at once.
+- **The client's ring countdown (field note FN-3, 17 Nov 2026):** each tab
+  counts the ring down locally and re-reads the row at zero. That countdown
+  stops when the call is answered (`call:accepted`, or media connecting,
+  whichever the tab sees first), and a row that reads `IN_CALL` at zero is an
+  answered call, never a ring that ended. Until this was fixed the CALLER's
+  countdown ran on under the live call and stopped its engine sixty seconds
+  after dialling, on every answered call, without telling the server. In the
+  field records each of those is `FAILED(ice_failed)` about twenty-six seconds
+  later: that is the other side's ICE recovery window running out, not a
+  network fault. Pinned in `call-session.test.ts`, which now also dials as the
+  caller (every earlier helper connected as the callee).
+- **End Call ends the call on this screen (FN-3):** a hang-up the server
+  refuses (409, the row already closed) or cannot receive still lands the tab
+  in `ended`. The terminal event, if it comes, replaces the local ending with
+  the row's own.
 - `FAILED`: terminal, set when media never connected (ICE exhaustion with
   TURN). The UI says the plain sentence (§4.7).
 - Every transition is a DB write **then** a socket publish (the house
