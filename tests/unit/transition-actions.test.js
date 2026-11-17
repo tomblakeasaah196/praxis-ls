@@ -101,6 +101,26 @@ describe("the routes mount the shared map, not a copy", () => {
       for (const m of src.matchAll(/transitionActions\.(\w+)/g)) expect(MAPS).toContain(m[1]);
   });
 
+  it("a lifecycle with its own route per step agrees with its map", () => {
+    // Transit orders and delivery notes have POST /:id/issue, /sign, /lodge,
+    // /deliver and /cancel beside the generic /transition. The screens gate
+    // those buttons with the MAP, so the map and the dedicated routes must ask
+    // for the same grant or a button is offered that its route refuses.
+    const pairs = [
+      ["src/modules/operations/transit_order/transit_order.routes.js", "transitOrderTransition",
+        { issue: "ISSUED", sign: "SIGNED", lodge: "LODGED", cancel: "CANCELLED" }],
+      ["src/modules/operations/delivery_note/delivery_note.routes.js", "deliveryNoteTransition",
+        { issue: "ISSUED", deliver: "DELIVERED", cancel: "CANCELLED" }],
+    ];
+    for (const [file, map, steps] of pairs) {
+      const src = read(file);
+      for (const [step, target] of Object.entries(steps)) {
+        const m = src.match(new RegExp(`"/:id/${step}",\\s*requirePermission\\(\\w+,\\s*"(\\w+)"\\)`));
+        expect([file, step, m && m[1]]).toEqual([file, step, transitionActions[map][target]]);
+      }
+    }
+  });
+
   it("the screens read the same maps", () => {
     const SCREENS = {
       "client/src/features/hr/payroll.tsx": "payrollStatus",
@@ -118,6 +138,12 @@ describe("the routes mount the shared map, not a copy", () => {
       "client/src/features/operations/file-360.tsx": "operationsFileTransition",
       "client/src/features/costing/cash-request-actions.tsx": "cashRequestTransition",
       "client/src/features/costing/cash-request-360.tsx": "cashRequestTransition",
+      "client/src/features/costing/costing-sheet-360.tsx": "costingTransition",
+      "client/src/features/operations/transit-order-360.tsx": "transitOrderTransition",
+      "client/src/features/operations/delivery-note-360.tsx": "deliveryNoteTransition",
+      "client/src/features/sales/proposal-detail.tsx": "proposalTransition",
+      "client/src/features/commercial/quotation-detail.tsx": "quotationTransition",
+      "client/src/features/sales/enquiry-forms.tsx": "inboundIntakeTransition",
     };
     for (const [file, map] of Object.entries(SCREENS))
       expect(read(file)).toContain(`transitionActions.${map}`);

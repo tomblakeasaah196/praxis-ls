@@ -68,6 +68,8 @@ import { ShipmentDetailsPanel } from "./shipment-details";
 import { TransitForm } from "./transit-order-form";
 import { DossierDocuments, Fact } from "./components";
 import { transitTone, TRANSIT_STATUS_HINT } from "./shared";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 export type TransitOrder360Tab =
   | "details"
@@ -103,6 +105,9 @@ function OrderActions({
   row: api.TransitOrder;
   onDone: () => void;
 }) {
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-30", transitionActions.transitOrderTransition);
   const allowed = new Set(row.allowed_transitions || []);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -160,7 +165,7 @@ function OrderActions({
     <div className="space-y-2">
       {error && <ErrorState message={error} />}
       <div className="flex flex-wrap gap-2">
-        {allowed.has("ISSUED") && (
+        {allowed.has("ISSUED") && mayMove("ISSUED") && (
           <Button
             size="sm"
             disabled={busy || blockers.length > 0}
@@ -174,7 +179,7 @@ function OrderActions({
             Issue &amp; number
           </Button>
         )}
-        {allowed.has("SIGNED") && (
+        {allowed.has("SIGNED") && mayMove("SIGNED") && (
           <Button size="sm" variant="outline" disabled={busy} onClick={() => setAsk("sign")}>
             Record client signature
           </Button>
@@ -217,12 +222,12 @@ function OrderActions({
             Send for signature
           </Button>
         )}
-        {allowed.has("LODGED") && (
+        {allowed.has("LODGED") && mayMove("LODGED") && (
           <Button size="sm" variant="outline" disabled={busy} onClick={() => setAsk("lodge")}>
             Record declaration
           </Button>
         )}
-        {allowed.has("CANCELLED") && (
+        {allowed.has("CANCELLED") && mayMove("CANCELLED") && (
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => setAsk("cancel")}>
             Cancel order
           </Button>
@@ -640,6 +645,7 @@ export function TransitOrder360({
   /** The list behind this view reloads when the order's status changes. */
   onChanged?: () => void;
 }) {
+  const mayWrite = useCan("MOD-30");
   const order = useResource(() => api.getTransitOrder(id), [id]);
   const [tab, setTab] = useUrlTab<TransitOrder360Tab>(
     TRANSIT_360_TABS,
@@ -693,7 +699,7 @@ export function TransitOrder360({
 
   const actions = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      {data.status !== "LODGED" && data.status !== "CANCELLED" && (
+      {data.status !== "LODGED" && data.status !== "CANCELLED" && mayWrite("edit") && (
         <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
           {tr("Edit")}
         </Button>

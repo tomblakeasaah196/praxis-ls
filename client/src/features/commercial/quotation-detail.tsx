@@ -25,6 +25,8 @@ import { Callout } from "@/components/ui/callout";
 import { Segmented } from "@/components/ui/segmented";
 import { ClientFamilies } from "@/components/client-families";
 import { entityLabelOf, entityText, qLineTotal } from "./quotation-forms";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 export function QuotationDetail({
   quotation,
@@ -41,6 +43,10 @@ export function QuotationDetail({
   onChanged: () => void;
   onEdit: (q: Row) => void;
 }) {
+  // Each step asks for its own grant: the map is the one the route mounts, and
+  // Accept is its own route. Only what this role may do is offered.
+  const mayWrite = useCan("MOD-27");
+  const mayMove = useCanMove("MOD-27", transitionActions.quotationTransition);
   const open = !!quotation;
   const [data, setData] = React.useState<Row | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -279,13 +285,15 @@ export function QuotationDetail({
                 </Button>
                 {status === "DRAFT" && (
                   <>
-                    <Button
-                      variant="outline"
-                      onClick={() => onEdit(data ?? (quotation as Row))}
-                    >
-                      Edit
-                    </Button>
-                    {data?.entity_id ? (
+                    {mayWrite("edit") && (
+                      <Button
+                        variant="outline"
+                        onClick={() => onEdit(data ?? (quotation as Row))}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                    {!mayMove("SENT") ? null : data?.entity_id ? (
                       <Button
                         loading={busy}
                         onClick={() => transitionTo("SENT")}
@@ -297,7 +305,7 @@ export function QuotationDetail({
                     )}
                   </>
                 )}
-                {status === "ACCEPTED" && (
+                {status === "ACCEPTED" && mayWrite("edit") && (
                   // G4: a client's acceptance never converts on its own —
                   // turning it into an invoice draft is the team's step.
                   <Button
@@ -311,21 +319,25 @@ export function QuotationDetail({
                 )}
                 {status === "SENT" && (
                   <>
-                    <Button
-                      variant="ghost"
-                      loading={busy}
-                      onClick={() => transitionTo("EXPIRED")}
-                    >
-                      Expire
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      loading={busy}
-                      onClick={() => transitionTo("REJECTED")}
-                    >
-                      Reject
-                    </Button>
-                    <Button onClick={() => setAction("accept")}>Accept…</Button>
+                    {mayMove("EXPIRED") && (
+                      <Button
+                        variant="ghost"
+                        loading={busy}
+                        onClick={() => transitionTo("EXPIRED")}
+                      >
+                        Expire
+                      </Button>
+                    )}
+                    {mayMove("REJECTED") && (
+                      <Button
+                        variant="ghost"
+                        loading={busy}
+                        onClick={() => transitionTo("REJECTED")}
+                      >
+                        Reject
+                      </Button>
+                    )}
+                    {mayWrite("approve") && <Button onClick={() => setAction("accept")}>Accept…</Button>}
                   </>
                 )}
               </div>

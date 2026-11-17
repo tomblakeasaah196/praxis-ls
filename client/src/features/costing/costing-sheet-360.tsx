@@ -79,6 +79,8 @@ import {
 } from "./costing-model";
 import { SuggestDialog } from "./costing-suggest";
 import { CreateQuotationButton } from "./create-quotation";
+import { useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const TONES: Record<string, Tone> = {
   DRAFT: "mute",
@@ -186,6 +188,11 @@ export function CostingSheet360({
 }) {
   const res = useResource(() => api.getCosting(id), [id]);
   const c = res.data;
+  // Each step asks for its own grant, read from the maps the routes mount:
+  // sending a costing on is the author's work, approving, rejecting and
+  // granting an unlock are decisions.
+  const mayMove = useCanMove("MOD-46", transitionActions.costingTransition);
+  const mayUnlock = useCanMove("MOD-46", transitionActions.costingUnlock);
   const vat = useResource(() => listSalesTaxCodes(), []);
   const vatCodes = React.useMemo(() => vat.data?.codes || [], [vat.data]);
   const { rows: users } = useList<{
@@ -471,6 +478,7 @@ export function CostingSheet360({
           <Button onClick={save} loading={busy} disabled={!dirty || !canSave}>
             {tr("Save")}
           </Button>
+          {mayMove("SUBMIT_VALIDATION") && (
           <Button
             variant="outline"
             loading={busy}
@@ -492,9 +500,10 @@ export function CostingSheet360({
           >
             {tr("Submit for validation")}
           </Button>
+          )}
         </>
       )}
-      {c.status === "SUBMITTED_FOR_VALIDATION" && (
+      {c.status === "SUBMITTED_FOR_VALIDATION" && mayMove("SUBMIT_APPROVAL") && (
         <Button
           loading={busy}
           onClick={() =>
@@ -504,7 +513,7 @@ export function CostingSheet360({
           {tr("Validate")}
         </Button>
       )}
-      {c.status === "SUBMITTED_FOR_APPROVAL" && (
+      {c.status === "SUBMITTED_FOR_APPROVAL" && mayMove("APPROVE") && (
         <Button
           loading={busy}
           onClick={() => transition("APPROVE", tr("Costing approved"))}
@@ -514,7 +523,7 @@ export function CostingSheet360({
       )}
       {["SUBMITTED_FOR_VALIDATION", "SUBMITTED_FOR_APPROVAL"].includes(
         c.status,
-      ) && (
+      ) && mayMove("REJECT") && (
         <Button
           variant="outline"
           loading={busy}
@@ -533,12 +542,12 @@ export function CostingSheet360({
           {tr("Reject")}
         </Button>
       )}
-      {c.status === "APPROVED_LOCKED" && (
+      {c.status === "APPROVED_LOCKED" && mayUnlock("REQUEST_UNLOCK") && (
         <Button variant="outline" onClick={requestUnlock}>
           {tr("Request unlock")}
         </Button>
       )}
-      {c.status === "UNLOCK_REQUESTED" && (
+      {c.status === "UNLOCK_REQUESTED" && mayUnlock("UNLOCK") && (
         <>
           <Button
             loading={busy}

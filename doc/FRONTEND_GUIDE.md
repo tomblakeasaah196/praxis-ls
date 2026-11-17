@@ -1604,9 +1604,10 @@ sit behind a `can(…)`, or carry `// @access:open <reason>` inside the action.
 It does not read row actions, form footers or the buttons inside a 360: there a
 label does not tell a write from a read. Those are swept by hand, module by
 module. Done so far: invoices, journals, payroll runs, purchase orders and
-requests, cash requests, operations files, employment contracts, vacancies,
-training sessions, outbound orders, warehouse equipment, and fleet work
-orders, dispatch and incidents.
+requests, cash requests, costings, quotations, proposals, enquiries,
+operations files, transit orders, delivery notes, employment contracts,
+vacancies, training sessions, outbound orders, warehouse equipment, and fleet
+work orders, dispatch and incidents.
 
 **A status change asks for a different grant per target state.** `POST
 /payroll/:id/status` is `edit` to submit a run and `approve` to approve it, so
