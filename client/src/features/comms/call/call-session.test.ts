@@ -1631,3 +1631,229 @@ describe("the desktop's output device chooser", () => {
     }
   });
 });
+
+/* ── The ring window never ends an answered call ─────────────────────────── */
+
+/**
+ * Dial, under fake timers. The fake peer connection's "network" is a
+ * macrotask, so the clock is moved a little for the offer to be minted.
+ */
+async function dialOut(mod: Awaited<ReturnType<typeof fresh>>) {
+  act(() => mod.wireCallSocket());
+  const hook = renderHook(() => mod.useCall());
+  await act(async () => {
+    const dialled = mod.dial("g1", "Aïcha");
+    await vi.advanceTimersByTimeAsync(50);
+    await dialled;
+  });
+  return hook;
+}
+
+/** What the server says about an answered call, whenever it is asked. */
+const answeredRow = () => W.row({ status: "IN_CALL", connected_at: new Date().toISOString() });
+
+/**
+ * The defect: the caller's sixty-second ring countdown was never stopped when
+ * the callee answered. At zero it re-read the row, found IN_CALL rather than
+ * RINGING, took that for "the ring is over" and stopped the engine, so every
+ * answered call died sixty seconds after the caller pressed Call. The server
+ * was never told; the other side tried to reconnect for twenty seconds and
+ * reported "Connection failed". Every helper above this block connects as the
+ * CALLEE, whose countdown answer() does stop, which is how it went unseen.
+ */
+describe("the ring window never ends an answered call", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("the caller is still on the call long after the sixty seconds the ring was given", async () => {
+    const mod = await fresh();
+    W.api.getCall = async () => answeredRow();
+    const { result } = await dialOut(mod);
+    expect(result.current.phase).toBe("outgoing");
+
+    // Ten seconds of ringing, then they answer and the media comes up.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    await act(async () => {
+      fire("call:accepted", { call_id: "c1" });
+      fire("call:answer", { call_id: "c1", sdp: "answer-remote-1" });
+      await vi.advanceTimersByTimeAsync(50);
+      pcs[0].setIceState("connected");
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(result.current.phase).toBe("in_call");
+
+    // Past the ring window, past its grace, and then some.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000 + mod.RING_EXPIRY_GRACE_MS + 30_000);
+    });
+    expect(result.current.phase).toBe("in_call");
+    expect(pcs[0].closed).toBe(false);
+    expect(W.hits.hangupCall || 0).toBe(0);
+    expect(W.hits.reportCallFailure || 0).toBe(0);
+
+    await act(async () => {
+      await mod.hangup();
+    });
+    expect(result.current.phase).toBe("ended");
+    expect(result.current.endedReason).toBe("hangup");
+  });
+
+  it("media coming up ends the ring by itself, when call:accepted never reached this tab", async () => {
+    const mod = await fresh();
+    W.api.getCall = async () => answeredRow();
+    const { result } = await dialOut(mod);
+
+    await act(async () => {
+      fire("call:answer", { call_id: "c1", sdp: "answer-remote-1" });
+      await vi.advanceTimersByTimeAsync(50);
+      pcs[0].setIceState("connected");
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(result.current.phase).toBe("in_call");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000 + mod.RING_EXPIRY_GRACE_MS + 30_000);
+    });
+    expect(result.current.phase).toBe("in_call");
+    expect(pcs[0].closed).toBe(false);
+
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("answered but not connected yet when the ring window closes: it is left to connect, not ended", async () => {
+    const mod = await fresh();
+    W.api.getCall = async () => answeredRow();
+    const { result } = await dialOut(mod);
+
+    // Nothing reaches this tab: its socket is away. The row says IN_CALL.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(result.current.phase).toBe("connecting");
+    expect(pcs[0].closed).toBe(false);
+
+    // The media arrives late: the call is simply on.
+    await act(async () => {
+      fire("call:answer", { call_id: "c1", sdp: "answer-remote-1" });
+      await vi.advanceTimersByTimeAsync(50);
+      pcs[0].setIceState("connected");
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(result.current.phase).toBe("in_call");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(mod.RING_EXPIRY_GRACE_MS * 3);
+    });
+    expect(result.current.phase).toBe("in_call");
+
+    await act(async () => {
+      await mod.hangup();
+    });
+  });
+
+  it("answered, never connected, and the row closes with nobody telling this tab: it follows the row", async () => {
+    const mod = await fresh();
+    W.api.getCall = async () => answeredRow();
+    const { result } = await dialOut(mod);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(result.current.phase).toBe("connecting");
+
+    // The other side gave up on the media and the server closed the row. No
+    // terminal event arrives here (the socket is still away).
+    W.api.getCall = async () => W.row({ status: "FAILED", end_reason: "ice_failed" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(mod.RING_EXPIRY_GRACE_MS);
+    });
+    expect(result.current.phase).toBe("ended");
+    expect(result.current.endedReason).toBe("ice_failed");
+    expect(pcs[0].closed).toBe(true);
+  });
+
+  it("a ring nobody answered still ends at the end of its window", async () => {
+    const mod = await fresh();
+    // The default row for a read: NO_ANSWER.
+    const { result } = await dialOut(mod);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(result.current.phase).toBe("ended");
+    expect(result.current.endedReason).toBe("no_answer");
+  });
+});
+
+/**
+ * The second defect from the same field test: End Call that did nothing. The
+ * hang-up was refused (the row had already closed) and the screen waited for a
+ * terminal event to tell it so, over a socket that was down. The strip stayed
+ * up, on "Calling…", with a button that could not end anything.
+ */
+describe("End Call always ends the call on this screen", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("a hang-up the server refuses, because the row already closed, still ends it here", async () => {
+    const mod = await fresh();
+    const { ApiError } = await import("@/lib/api-client");
+    W.api.hangupCall = async () => {
+      throw new ApiError("CALL_MOVED_ON", "This call has already ended", 409);
+    };
+    const { result } = await dialOut(mod);
+    expect(result.current.phase).toBe("outgoing");
+
+    await act(async () => {
+      await mod.hangup();
+    });
+    expect(result.current.phase).toBe("ended");
+    expect(result.current.endedReason).toBe("hangup");
+    expect(pcs[0].closed).toBe(true);
+
+    // ...and the strip goes, as after any ended call.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+    expect(result.current.phase).toBe("idle");
+  });
+
+  it("a hang-up that cannot reach the server at all still ends it here", async () => {
+    const mod = await fresh();
+    W.api.hangupCall = async () => {
+      throw new Error("Network Error");
+    };
+    const { result } = await dialOut(mod);
+
+    await act(async () => {
+      await mod.hangup();
+    });
+    expect(result.current.phase).toBe("ended");
+    expect(result.current.endedReason).toBe("hangup");
+  });
+
+  it("the row's own ending, when it does arrive, replaces the local one", async () => {
+    const mod = await fresh();
+    const { ApiError } = await import("@/lib/api-client");
+    W.api.hangupCall = async () => {
+      throw new ApiError("CALL_MOVED_ON", "This call has already ended", 409);
+    };
+    const { result } = await dialOut(mod);
+    await act(async () => {
+      await mod.hangup();
+    });
+    act(() => fire("call:ended", { call_id: "c1", status: "FAILED", reason: "ice_failed" }));
+    expect(result.current.phase).toBe("ended");
+    expect(result.current.endedReason).toBe("ice_failed");
+  });
+});
