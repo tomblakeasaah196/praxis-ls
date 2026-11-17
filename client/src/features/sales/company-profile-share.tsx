@@ -71,9 +71,10 @@ export function ShareDialog({
   const load = React.useCallback(async (at: number) => {
     setListError(null);
     try {
-      const page = await api.listShares(at);
-      setRows(page.data);
-      setTotal(page.total ?? page.data.length);
+      const page = await api.listProfileShares(at);
+      const list = Array.isArray(page.data) ? page.data : [];
+      setRows(list);
+      setTotal(page.total ?? list.length);
       setOffset(at);
     } catch (e) {
       setListError(errMsg(e));
@@ -106,7 +107,7 @@ export function ShareDialog({
     }
     setErrors({});
     try {
-      const res = await api.createShare(body);
+      const res = await api.createProfileShare(body);
       setMade({ url: `${window.location.origin}${res.path}`, share: res.share });
       setLeadId(null);
       setLeadName("");
@@ -139,7 +140,7 @@ export function ShareDialog({
     });
     if (!ok) return;
     try {
-      await api.revokeShare(row.share_id);
+      await api.revokeProfileShare(row.share_id);
       await load(offset);
     } catch (e) {
       setListError(errMsg(e));
@@ -154,7 +155,7 @@ export function ShareDialog({
     setOpenRow(row.share_id);
     setOpens(null);
     try {
-      setOpens((await api.shareOpens(row.share_id)).opens);
+      setOpens((await api.profileShareOpens(row.share_id)).opens);
     } catch (e) {
       setListError(errMsg(e));
     }

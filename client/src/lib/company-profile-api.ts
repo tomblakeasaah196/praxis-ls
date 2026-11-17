@@ -163,10 +163,10 @@ export const addLogo = (name: string, dataUrl: string, onProgress: (p: number) =
 export const retireLogo = (id: string) =>
   tenant<{ id: string; retired: true }>(`${BASE}/logos/${id}/retire`, { method: "POST" });
 
-export const listShares = (offset: number, leadId?: string | null) =>
+export const listProfileShares = (offset: number, leadId?: string | null) =>
   tenantPaged<Share[]>(`${BASE}/shares${qs({ limit: 25, offset, lead_id: leadId })}`);
 
-export const createShare = (body: {
+export const createProfileShare = (body: {
   lead_id?: string | null;
   recipient_name?: string | null;
   recipient_email?: string | null;
@@ -175,7 +175,7 @@ export const createShare = (body: {
   pin_version: boolean;
 }) => tenant<{ share: Share; token: string; path: string }>(`${BASE}/shares`, { method: "POST", body });
 
-export const revokeShare = (id: string) => tenant<Share>(`${BASE}/shares/${id}/revoke`, { method: "POST" });
+export const revokeProfileShare = (id: string) => tenant<Share>(`${BASE}/shares/${id}/revoke`, { method: "POST" });
 
-export const shareOpens = (id: string) =>
+export const profileShareOpens = (id: string) =>
   tenant<{ share: Share; opens: ShareOpen[] }>(`${BASE}/shares/${id}/opens`);

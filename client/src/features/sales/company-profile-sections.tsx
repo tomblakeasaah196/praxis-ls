@@ -9,7 +9,7 @@
  */
 import * as React from "react";
 import { companyProfile } from "@shared";
-import { tr } from "@/lib/i18n";
+import { tr, currentLocale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +23,7 @@ import { useConfirm } from "@/components/ui/use-confirm";
 import { useUpload } from "@/lib/use-upload";
 import { fileToDataUrl } from "@/lib/image-compress";
 import { ScanAttachment } from "@/components/scan-attachment";
-import { dateFmt } from "@/lib/format";
+import { dateFmt, num } from "@/lib/format";
 import { errMsg } from "@/lib/use-resource";
 import * as api from "@/lib/company-profile-api";
 import type { Editor, Item, Section, Structure, Words } from "@/lib/company-profile-api";
@@ -266,15 +266,25 @@ const FIGURES: { key: string; label: string }[] = [
   { key: "regions", label: "Countries Served" },
 ];
 
+/** A country code as its name in the screen's language; the code if the browser has no names. */
+function countryName(code: string): string {
+  try {
+    return new Intl.DisplayNames([currentLocale()], { type: "region" }).of(code) || code;
+  } catch {
+    /* @silent:parse: a browser without region names shows the ISO code */
+    return code;
+  }
+}
+
 function figureValue(key: string, d: Editor["derived"]): string {
   if (!d) return "";
   switch (key) {
-    case "fleet_size": return String(d.fleet_count || 0);
-    case "fleet_mix": return Object.entries(d.fleet_composition || {}).map(([k, n]) => `${k} ${n}`).join(", ");
-    case "warehouse": return [Number(d.warehouse_capacity) || 0, d.warehouse_count ? `${d.warehouse_count} ${tr("sites")}` : ""].filter(Boolean).join(" · ");
-    case "offices": return String(d.offices || 0);
+    case "fleet_size": return num(d.fleet_count || 0);
+    case "fleet_mix": return Object.entries(d.fleet_composition || {}).map(([k, n]) => `${k} ${num(n)}`).join(", ");
+    case "warehouse": return [Number(d.warehouse_capacity) ? num(d.warehouse_capacity) : "", d.warehouse_count ? `${num(d.warehouse_count)} ${tr("sites")}` : ""].filter(Boolean).join(" · ");
+    case "offices": return num(d.offices || 0);
     case "gateways": return (d.gateways || []).join(", ");
-    case "regions": return (d.regions || []).join(", ");
+    case "regions": return (d.regions || []).map(countryName).join(", ");
     default: return "";
   }
 }

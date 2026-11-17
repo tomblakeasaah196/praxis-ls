@@ -36,6 +36,10 @@ const PUBLIC_BY_DESIGN = new Map([
     "Expiring proposal links are intentionally readable by prospects without accounts; every route is limited and every refusal is a uniform 404.",
   ],
   [
+    "sales/company_profile_public",
+    "Company Profile share links (Sales lean revamp PR 5) are intentionally readable by the recipient without an account; lookup is by a random token stored only as a hash, revoked, expired and unknown links are the same 404, both routes are pinned to LIVE and rate-limited (the PDF far tighter), and the read is the published, already-stripped profile.",
+  ],
+  [
     "sales/portfolio_public",
     "Published marketing stories are intentionally public; responses are allow-listed, consent-aware and every route is limited.",
   ],

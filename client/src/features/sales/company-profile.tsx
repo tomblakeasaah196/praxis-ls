@@ -25,6 +25,9 @@ import { Pill } from "@/components/ui/pill";
 import { SplitPane } from "@/components/ui/split-pane";
 import { IndexRow } from "@/components/ui/index-row";
 import { InfoHint } from "@/components/ui/info-hint";
+import { MoreMenu } from "@/components/ui/more-menu";
+import { DropdownItem } from "@/components/ui/dropdown-menu";
+import { useIsDesktop } from "@/lib/use-media-query";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingRow, EmptyState } from "@/components/ui/states";
 import { PageHeader } from "@/components/data-list";
@@ -84,6 +87,7 @@ function shortValue(v: unknown): string {
 
 export function CompanyProfilePage() {
   const toast = useToast();
+  const isDesktop = useIsDesktop();
   const [editor, setEditor] = React.useState<api.Editor | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [selKey, setSelKey] = React.useState<api.SectionKey | null>(null);
@@ -197,13 +201,25 @@ export function CompanyProfilePage() {
         title={tr("Company Profile")}
         description={tr("Write each section once in English and French. Publish to make it what proposals, the PDF and shared links show.")}
         action={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
             <Pill tone={editor.draft ? "warn" : editor.published ? "ok" : "mute"}>{status}</Pill>
             <Segmented label={tr("Output language")} value={lang} options={[{ value: "EN", label: "EN" }, { value: "FR", label: "FR" }]} onChange={setLang} />
-            <Button variant="outline" size="sm" disabled={!showing} onClick={() => setDialog("preview")}>{tr("Preview")}</Button>
-            <Button variant="outline" size="sm" disabled={!showing} loading={downloading} onClick={downloadPdf}>{tr("Download PDF")}</Button>
-            <Button variant="outline" size="sm" onClick={() => setDialog("history")}>{tr("History")}</Button>
-            <Button variant="outline" size="sm" onClick={() => setDialog("share")}>{tr("Share")}</Button>
+            {isDesktop ? (
+              <>
+                <Button variant="outline" size="sm" disabled={!showing} onClick={() => setDialog("preview")}>{tr("Preview")}</Button>
+                <Button variant="outline" size="sm" disabled={!showing} loading={downloading} onClick={downloadPdf}>{tr("Download PDF")}</Button>
+                <Button variant="outline" size="sm" onClick={() => setDialog("history")}>{tr("History")}</Button>
+                <Button variant="outline" size="sm" onClick={() => setDialog("share")}>{tr("Share")}</Button>
+              </>
+            ) : (
+              // A phone has room for the status and one action; the rest are a tap away.
+              <MoreMenu label={tr("Profile actions")}>
+                <DropdownItem disabled={!showing} onSelect={() => setDialog("preview")}>{tr("Preview")}</DropdownItem>
+                <DropdownItem disabled={!showing || downloading} onSelect={() => void downloadPdf()}>{tr("Download PDF")}</DropdownItem>
+                <DropdownItem onSelect={() => setDialog("history")}>{tr("History")}</DropdownItem>
+                <DropdownItem onSelect={() => setDialog("share")}>{tr("Share")}</DropdownItem>
+              </MoreMenu>
+            )}
             <Button size="sm" disabled={!editor.draft} onClick={() => setDialog("publish")}>{tr("Publish")}</Button>
           </div>
         }
@@ -240,7 +256,7 @@ export function CompanyProfilePage() {
                   </span>
                 )}
                 <IndexRow
-                  selected={effective === key}
+                  selected={(selKey ?? (isDesktop ? "cover" : null)) === key}
                   onClick={() => setSelKey(key)}
                   className={cn("flex-1 items-center justify-between gap-2", !on && "text-muted-foreground")}
                 >
@@ -268,7 +284,10 @@ export function CompanyProfilePage() {
           </div>
           {saving === "error" && saveError ? <ErrorState message={saveError} /> : null}
           <SectionEditor
-            key={`${effective}:${editor.draft?.version_id || editor.published?.version_id || "none"}`}
+            // By section only: the first save after a publish opens a new
+            // draft, and remounting then would drop what is being typed in
+            // the next field. Each field re-syncs with its saved value anyway.
+            key={effective}
             section={section}
             editor={editor}
             coverUrl={editor.cover_url}
