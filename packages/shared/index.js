@@ -44,6 +44,7 @@ const lead = require("./schemas/lead");
 const quotation = require("./schemas/quotation");
 const search = require("./schemas/search");
 const companyProfile = require("./schemas/company-profile");
+const transitionActions = require("./rules/transition-actions");
 
 // Named `exports.x =` assignments, NOT `module.exports = { x }`.
 //
@@ -222,3 +223,6 @@ exports.search = search;
 // because the editor saves each field as it is left and must refuse exactly
 // what the API refuses, or a tenant learns a promise was too long from a 422.
 exports.companyProfile = companyProfile;
+// Which grant a status change asks for, by target state: mounted by the routes
+// and read by the screens, so a button and its route cannot disagree.
+exports.transitionActions = transitionActions;

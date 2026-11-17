@@ -33,6 +33,7 @@ import type { Entity, Supplier } from "@/lib/masterdata-api";
 import * as api from "@/lib/procurement-api";
 import { map, shell, tone } from "./shared";
 import { useCan } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const EMPTY_FORM = {
   supplier_id: "",
@@ -486,6 +487,13 @@ function UnlockRequestForm({
 
 export function PurchaseOrdersPage() {
   const can = useCan("MOD-60");
+  // A status change asks for a different grant per target state. The map is
+  // the one the route mounts (@praxis/shared), so a row offers only the moves
+  // the server will accept from this role.
+  const mayMove = (to: string) =>
+    can(transitionActions.actionFor(transitionActions.purchaseOrderTransition, to));
+  const mayUnlock = (action: string) =>
+    can(transitionActions.actionFor(transitionActions.purchaseOrderUnlock, action));
   const { rows, error, loading, reload } =
     useList<api.PurchaseOrder>("/purchase-orders");
   const { rows: suppliers } = useList<Supplier>("/suppliers");
@@ -597,7 +605,7 @@ export function PurchaseOrdersPage() {
             title={r.ref || `PO ${r.po_id.slice(0, 8)}`}
             label={tr("View")}
           />
-          {r.status === "DRAFT" && (
+          {r.status === "DRAFT" && can("edit") && (
             <Button
               size="sm"
               variant="outline"
@@ -606,7 +614,7 @@ export function PurchaseOrdersPage() {
               {tr("Edit")}
             </Button>
           )}
-          {(r.status === "DRAFT" || !r.status) && (
+          {(r.status === "DRAFT" || !r.status) && mayMove("ISSUED_LOCKED") && (
             <Button
               size="sm"
               variant="outline"
@@ -616,7 +624,7 @@ export function PurchaseOrdersPage() {
               Issue
             </Button>
           )}
-          {r.status === "ISSUED_LOCKED" && (
+          {r.status === "ISSUED_LOCKED" && mayMove("APPROVED_LOCKED") && (
             <Button
               size="sm"
               variant="outline"
@@ -628,23 +636,28 @@ export function PurchaseOrdersPage() {
           )}
           {r.status === "APPROVED_LOCKED" && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setPaying(r)}
-              >
-                Record payment
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setUnlocking(r)}
-              >
-                Request unlock
-              </Button>
+              {/* Paying moves money out of the treasury: the route asks `approve`. */}
+              {can("approve") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPaying(r)}
+                >
+                  Record payment
+                </Button>
+              )}
+              {mayUnlock("REQUEST_UNLOCK") && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setUnlocking(r)}
+                >
+                  Request unlock
+                </Button>
+              )}
             </>
           )}
-          {["PARTIAL", "RECEIVED"].includes(r.status) && (
+          {["PARTIAL", "RECEIVED"].includes(r.status) && can("approve") && (
             <Button
               size="sm"
               variant="outline"
@@ -653,7 +666,7 @@ export function PurchaseOrdersPage() {
               Record payment
             </Button>
           )}
-          {r.status === "UNLOCK_REQUESTED" && (
+          {r.status === "UNLOCK_REQUESTED" && mayUnlock("UNLOCK") && (
             <>
               <Button
                 size="sm"
