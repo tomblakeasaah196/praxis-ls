@@ -20,6 +20,13 @@ export const PART_TARGET_MS = 120_000;
 export const RECORDER_BITS_PER_SECOND = 32_000;
 /** The server's per-part ceiling. A bigger part is a device fault, not audio. */
 export const MAX_PART_BYTES = 12 * 1024 * 1024;
+/**
+ * How many times one recording may move to another microphone (`retarget`).
+ * Each move closes a part early, and the server takes at most 60 parts a side:
+ * a 30-minute call cuts 15 on the timer, so 40 moves cannot reach the ceiling.
+ * Past it the recorder stays on the microphone it has.
+ */
+export const MAX_RETARGETS = 40;
 
 export type RecorderPart = {
   /** 1-based, in recording order, with no gaps. */
@@ -106,6 +113,7 @@ export class CallRecorder {
   private lost = 0;
   private armed = false;
   private stopped = false;
+  private retargets = 0;
 
   constructor(opts: {
     callId: string;
@@ -178,6 +186,55 @@ export class CallRecorder {
 
   private schedule(): void {
     this.timer = setTimeout(() => this.rotate(), this.deps.partMs ?? PART_TARGET_MS);
+  }
+
+  /**
+   * The call moved to another microphone (call-engine.ts switchMicrophone):
+   * record the new one from here on.
+   *
+   * A MediaRecorder cannot follow that move. It records the tracks its stream
+   * had when it started, and the clone it holds is of the OLD microphone,
+   * which would go on capturing the old input device for the rest of the
+   * call. So the move is a part boundary, the same shape as the timed one:
+   * a new recorder starts on a clone of the new microphone before the old one
+   * stops, and the part that closes is a complete file like every other. The
+   * 120 s timer restarts from the move.
+   *
+   * Fail safe: where the new microphone cannot be recorded (or the move
+   * budget is spent) this resolves false and the recorder carries on with the
+   * clone it has. Never rejects.
+   */
+  async retarget(stream: MediaStream): Promise<boolean> {
+    if (!this.armed || this.stopped || !this.current) return false;
+    if (this.retargets >= MAX_RETARGETS) return false;
+    const source = await recordingStream(stream);
+    if (this.stopped || !this.current) {
+      source.own?.stop();
+      return false;
+    }
+    const old = this.current;
+    const oldTrack = this.ownTrack;
+    const oldStream = this.stream;
+    this.stream = source.stream;
+    let next: Segment;
+    try {
+      next = this.startSegment();
+    } catch {
+      /* @silent:teardown — the new microphone will not record: the recorder
+         that is running keeps going on the clone it has. */
+      this.stream = oldStream;
+      source.own?.stop();
+      return false;
+    }
+    this.retargets += 1;
+    this.ownTrack = source.own;
+    this.current = next;
+    if (this.timer) clearTimeout(this.timer);
+    this.schedule();
+    this.close(old);
+    // The old clone is released once its recorder has delivered its part.
+    void old.stopped.then(() => oldTrack?.stop());
+    return true;
   }
 
   /** A part boundary: the next recorder is running before this one stops. */

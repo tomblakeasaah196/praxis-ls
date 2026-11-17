@@ -4,7 +4,8 @@
  * While the caller's conversation is open, this strip at the top of the thread
  * replaces the ring card, so there is only ever one Answer button; once
  * answered it becomes the live-call strip (name, clock, mute, open the call,
- * hang up), and the docked bar steps aside. "Open the call" shows the full
+ * hang up, and a line when the other side's microphone is muted), and the
+ * docked bar steps aside. "Open the call" shows the full
  * call screen (quality, noise filter, the recording notice); while it is open
  * the strip steps aside in turn, so End call is never on screen twice
  * (call-view.ts). It sits in the thread's layout flow.
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneIcon, PhoneDownIcon, MicIcon, MicOffIcon, ExpandIcon } from "@/components/ui/icons";
 import { useCall, answer, decline, hangup, setMuted } from "./call-session";
 import { useCallProcessing, processorsSentence } from "./call-capabilities";
-import { RecordingNotice } from "./call-parts";
+import { RecordingNotice, PeerMutedLine } from "./call-parts";
 import { fmtClock, ringingFor, RING_WINDOW_S } from "./call-time";
 import { useCallView, setCallView } from "./call-view";
 
@@ -68,30 +69,35 @@ export function ThreadCallStrip({ groupId }: { groupId: string | null | undefine
     <section
       aria-label={`${tr("Voice call")} — ${who}`}
       data-call-surface="thread-live"
-      className="flex items-center gap-2 border-b border-border bg-card px-4 py-2"
+      className="flex flex-col border-b border-border bg-card px-4 py-2"
     >
-      {call.recordingEnabled && (
-        <span className="inline-block h-2 w-2 flex-none rounded-full bg-destructive" title={tr("Recorded")}>
-          <span className="sr-only">{tr("Recorded")}</span>
-        </span>
-      )}
-      <p className="min-w-0 flex-1 truncate text-sm">
-        <span className="font-semibold">{who}</span>{" "}
-        <span className="font-mono tabular-nums text-muted-foreground">{status}</span>
-      </p>
-      {call.phase === "in_call" && (
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMuted(!call.muted)}
-          aria-pressed={call.muted} aria-label={call.muted ? tr("Unmute") : tr("Mute")} icon={null}>
-          {call.muted ? <MicOffIcon width={15} height={15} /> : <MicIcon width={15} height={15} />}
+      <div className="flex items-center gap-2">
+        {call.recordingEnabled && (
+          <span className="inline-block h-2 w-2 flex-none rounded-full bg-destructive" title={tr("Recorded")}>
+            <span className="sr-only">{tr("Recorded")}</span>
+          </span>
+        )}
+        <p className="min-w-0 flex-1 truncate text-sm">
+          <span className="font-semibold">{who}</span>{" "}
+          <span className="font-mono tabular-nums text-muted-foreground">{status}</span>
+        </p>
+        {call.phase === "in_call" && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMuted(!call.muted)}
+            aria-pressed={call.muted} aria-label={call.muted ? tr("Unmute") : tr("Mute")} icon={null}>
+            {call.muted ? <MicOffIcon width={15} height={15} /> : <MicIcon width={15} height={15} />}
+          </Button>
+        )}
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCallView("full")}
+          aria-label={tr("Open the call")} icon={null}>
+          <ExpandIcon width={15} height={15} />
         </Button>
-      )}
-      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCallView("full")}
-        aria-label={tr("Open the call")} icon={null}>
-        <ExpandIcon width={15} height={15} />
-      </Button>
-      <Button variant="destructive" size="sm" onClick={() => void hangup()} icon={<PhoneDownIcon width={14} height={14} />}>
-        {tr("End call")}
-      </Button>
+        <Button variant="destructive" size="sm" onClick={() => void hangup()} icon={<PhoneDownIcon width={14} height={14} />}>
+          {tr("End call")}
+        </Button>
+      </div>
+      {/* Under the row, in the flow: the other side's microphone. The name is
+          on the row above, so the short form is enough. */}
+      <PeerMutedLine muted={call.peerMuted === true && call.phase === "in_call"} />
     </section>
   );
 }

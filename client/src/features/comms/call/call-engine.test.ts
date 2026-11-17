@@ -24,10 +24,13 @@ const W = vi.hoisted(() => ({
     stream: unknown,
   ) => Promise<unknown>,
   onSilent: null as null | (() => void),
+  /** The context the engine handed the filter, per call. */
+  contexts: [] as unknown[],
 }));
 vi.mock("./noise-suppression", () => ({
-  applyNoiseSuppression: (stream: unknown, _deps: unknown, opts?: { onSilent?: () => void }) => {
+  applyNoiseSuppression: (stream: unknown, deps: { createContext?: () => unknown } | undefined, opts?: { onSilent?: () => void }) => {
     W.onSilent = opts?.onSilent ?? null;
+    W.contexts.push(deps?.createContext ? deps.createContext() : null);
     return W.apply(stream);
   },
 }));
@@ -693,6 +696,418 @@ describe("the noise filter (PR-3)", () => {
     // The mic indicator on a phone follows the AudioContext: leaving one open
     // after the call is a battery and privacy cost (§4.8).
     expect(stopFilter).toHaveBeenCalledTimes(1);
+  });
+});
+
+/* ── Where the sound plays: another microphone, another output device ───── */
+
+describe("moving the call to another microphone (the phone's Speaker / Earpiece)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    W.contexts.length = 0;
+  });
+
+  /** A microphone as the browser hands it over: one track that names its device. */
+  function mic(deviceId: string) {
+    const track = { enabled: true, stop: vi.fn(), getSettings: () => ({ deviceId }) };
+    const stream = { getAudioTracks: () => [track], getTracks: () => [track] } as unknown as MediaStream;
+    return { track, stream };
+  }
+
+  /** An AudioContext, as far as the engine touches one. */
+  function fakeContext() {
+    const ctx: { state: string; close: ReturnType<typeof vi.fn> } = { state: "running", close: vi.fn() };
+    ctx.close.mockImplementation(async () => {
+      ctx.state = "closed";
+    });
+    return ctx as unknown as AudioContext & { close: ReturnType<typeof vi.fn> };
+  }
+
+  /** A call in progress on `first`, whose next getUserMedia yields `next`. */
+  async function inCall(opts: { noise?: boolean; open?: (c: MediaStreamConstraints) => Promise<MediaStream> } = {}) {
+    const first = mic("default");
+    const next = mic("ear");
+    const pc = new FakePeerConnection();
+    const signals: string[] = [];
+    const statuses: string[] = [];
+    const muted: boolean[] = [];
+    const e = new CallEngine(
+      {
+        onSignal: (sdp, kind) => signals.push(`${kind}:${sdp}`),
+        onNoiseFilter: (status) => statuses.push(status),
+        onLocalMuted: (m) => muted.push(m),
+      },
+      true,
+    );
+    e.connectionFactory = () => pc as never;
+    e.noiseWanted = opts.noise === true;
+    const getUserMedia = vi.fn(opts.open ?? (async () => next.stream));
+    vi.stubGlobal("navigator", { mediaDevices: { getUserMedia } });
+    await e.start(ICE, first.stream);
+    await settle();
+    pc.setIceState("connected");
+    const sender = pc.senders[0];
+    const replaceTrack = vi.spyOn(sender, "replaceTrack");
+    return { e, pc, first, next, sender, replaceTrack, getUserMedia, signals, statuses, muted };
+  }
+
+  it("opens exactly that device, with the call's own audio constraints, and swaps it in place", async () => {
+    const { e, first, next, sender, replaceTrack, getUserMedia, signals } = await inCall();
+    const offers = signals.filter((s) => s.startsWith("offer:")).length;
+
+    expect(await e.switchMicrophone("ear")).toBe(true);
+
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, deviceId: { exact: "ear" } },
+      video: false,
+    });
+    expect(replaceTrack).toHaveBeenCalledTimes(1);
+    expect(replaceTrack).toHaveBeenCalledWith(next.track);
+    expect(sender.track).toBe(next.track);
+    // replaceTrack, not a new negotiation: no SDP left this side.
+    expect(signals.filter((s) => s.startsWith("offer:"))).toHaveLength(offers);
+    // The old microphone is released only now, and the engine's stream is the
+    // new one (which is what the recorder is handed).
+    expect(first.track.stop).toHaveBeenCalledTimes(1);
+    expect(next.track.stop).not.toHaveBeenCalled();
+    expect(e.stream).toBe(next.stream);
+    expect(e.micDeviceId).toBe("ear");
+    expect(e.phase).toBe("in_call");
+    e.stop();
+    expect(next.track.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("a muted call stays muted on the new microphone, and unmuting works on it", async () => {
+    const { e, first, next } = await inCall();
+    e.setMuted(true);
+    expect(first.track.enabled).toBe(false);
+
+    expect(await e.switchMicrophone("ear")).toBe(true);
+    expect(next.track.enabled).toBe(false);
+    expect(e.localMuted).toBe(true);
+
+    e.setMuted(false);
+    expect(next.track.enabled).toBe(true);
+    expect(e.localMuted).toBe(false);
+    e.stop();
+  });
+
+  it("an unmuted call stays unmuted", async () => {
+    const { e, next } = await inCall();
+    expect(await e.switchMicrophone("ear")).toBe(true);
+    expect(next.track.enabled).toBe(true);
+    expect(e.localMuted).toBe(false);
+    e.stop();
+  });
+
+  it("muting while the device is still opening is not lost", async () => {
+    let open!: (s: MediaStream) => void;
+    const { e, next } = await inCall({ open: () => new Promise<MediaStream>((r) => { open = r; }) });
+    const moving = e.switchMicrophone("ear");
+    e.setMuted(true);
+    open(next.stream);
+    expect(await moving).toBe(true);
+    expect(next.track.enabled).toBe(false);
+    e.stop();
+  });
+
+  it("muting while the sender is taking the track is not lost either", async () => {
+    const { e, next, sender } = await inCall();
+    let release!: () => void;
+    sender.replaceTrack = (async (t: unknown) => {
+      await new Promise<void>((r) => { release = r; });
+      sender.track = t;
+    }) as never;
+    const moving = e.switchMicrophone("ear");
+    await settle(3);
+    e.setMuted(true);
+    release();
+    expect(await moving).toBe(true);
+    expect(next.track.enabled).toBe(false);
+    e.stop();
+  });
+
+  it("a device that will not open changes nothing: same microphone, same call", async () => {
+    const { e, first, sender, replaceTrack } = await inCall({
+      open: async () => {
+        throw new DOMException("in use", "NotReadableError");
+      },
+    });
+    expect(await e.switchMicrophone("ear")).toBe(false);
+    expect(replaceTrack).not.toHaveBeenCalled();
+    expect(sender.track).toBe(first.track);
+    expect(first.track.stop).not.toHaveBeenCalled();
+    expect(e.stream).toBe(first.stream);
+    expect(e.micDeviceId).toBe("default");
+    expect(e.phase).toBe("in_call");
+    // And the call is still fully usable: mute still reaches the live track.
+    e.setMuted(true);
+    expect(first.track.enabled).toBe(false);
+    e.stop();
+  });
+
+  it("a sender that refuses the track keeps the old one, and the new device is let go", async () => {
+    const { e, first, next, sender } = await inCall();
+    sender.replaceTrack = (async () => {
+      throw new Error("InvalidModificationError");
+    }) as never;
+    expect(await e.switchMicrophone("ear")).toBe(false);
+    expect(sender.track).toBe(first.track);
+    expect(next.track.stop).toHaveBeenCalledTimes(1);
+    expect(first.track.stop).not.toHaveBeenCalled();
+    expect(e.stream).toBe(first.stream);
+    e.stop();
+  });
+
+  it("a call that ends while the device is opening lets the new device go", async () => {
+    let open!: (s: MediaStream) => void;
+    const { e, next, replaceTrack } = await inCall({ open: () => new Promise<MediaStream>((r) => { open = r; }) });
+    const moving = e.switchMicrophone("ear");
+    e.stop();
+    open(next.stream);
+    expect(await moving).toBe(false);
+    expect(replaceTrack).not.toHaveBeenCalled();
+    expect(next.track.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("one swap at a time: a second tap during the first does nothing", async () => {
+    let open!: (s: MediaStream) => void;
+    const { e, next, getUserMedia } = await inCall({ open: () => new Promise<MediaStream>((r) => { open = r; }) });
+    const moving = e.switchMicrophone("ear");
+    expect(await e.switchMicrophone("spk")).toBe(false);
+    open(next.stream);
+    expect(await moving).toBe(true);
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+    e.stop();
+  });
+
+  it("before the call has a connection, or with no device named, it does nothing", async () => {
+    const e = new CallEngine({}, true);
+    expect(await e.switchMicrophone("ear")).toBe(false);
+    const { e: live, getUserMedia } = await inCall();
+    expect(await live.switchMicrophone("")).toBe(false);
+    expect(getUserMedia).not.toHaveBeenCalled();
+    live.stop();
+  });
+
+  describe("with the noise filter on", () => {
+    /** Each build of the filter: its own output track and its own stop(). */
+    function filterBuilds() {
+      const builds: Array<{ source: unknown; track: { enabled: boolean; stop: ReturnType<typeof vi.fn> }; stop: ReturnType<typeof vi.fn> }> = [];
+      W.apply = async (source: unknown) => {
+        const track = { enabled: true, stop: vi.fn() };
+        const stop = vi.fn();
+        builds.push({ source, track, stop });
+        return { status: "on", stream: { getAudioTracks: () => [track], getTracks: () => [track] }, reason: null, stop };
+      };
+      return builds;
+    }
+
+    it("the filter is rebuilt on the new microphone, and the raw new microphone is sent meanwhile", async () => {
+      const builds = filterBuilds();
+      const { e, first, next, sender, replaceTrack, statuses } = await inCall({ noise: true });
+      await settle();
+      expect(builds).toHaveLength(1);
+      expect(builds[0].source).toBe(first.stream);
+      expect(sender.track).toBe(builds[0].track);
+      replaceTrack.mockClear();
+
+      const ctx = fakeContext();
+      expect(await e.switchMicrophone("ear", { noiseContext: ctx })).toBe(true);
+      // First the raw new microphone (never silence, never the dead graph)...
+      expect(replaceTrack.mock.calls[0][0]).toBe(next.track);
+      expect(builds[0].stop).toHaveBeenCalledTimes(1);
+      await settle();
+      // ...then the filter again, built on the NEW stream, in the tap's context.
+      expect(builds).toHaveLength(2);
+      expect(builds[1].source).toBe(next.stream);
+      expect(W.contexts.at(-1)).toBe(ctx);
+      expect(sender.track).toBe(builds[1].track);
+      expect(e.noiseFilter).toEqual({ status: "on", reason: null });
+      expect(statuses).toEqual(["on", "on"]);
+      expect(ctx.close).not.toHaveBeenCalled();
+
+      // Turning the filter off afterwards goes back to the NEW raw microphone.
+      await e.setNoiseSuppression(false);
+      expect(sender.track).toBe(next.track);
+      expect(builds[1].stop).toHaveBeenCalledTimes(1);
+      e.stop();
+    });
+
+    it("mute survives the swap through the filter: the new microphone feeds it disabled", async () => {
+      filterBuilds();
+      const { e, next } = await inCall({ noise: true });
+      await settle();
+      e.setMuted(true);
+      expect(await e.switchMicrophone("ear", { noiseContext: fakeContext() })).toBe(true);
+      await settle();
+      // The graph's source is the microphone track: disabled, it emits silence.
+      expect(next.track.enabled).toBe(false);
+      expect(e.localMuted).toBe(true);
+      e.stop();
+    });
+
+    it("a filter that cannot be rebuilt says unavailable, and the raw microphone carries the call", async () => {
+      const builds = filterBuilds();
+      const { e, next, sender, statuses } = await inCall({ noise: true });
+      await settle();
+      W.apply = async (source: unknown) => ({ status: "unavailable", stream: source, reason: "suspended", stop: () => {} });
+      expect(await e.switchMicrophone("ear")).toBe(true);
+      await settle();
+      expect(builds[0].stop).toHaveBeenCalledTimes(1);
+      expect(sender.track).toBe(next.track);
+      expect(e.noiseFilter).toEqual({ status: "unavailable", reason: "suspended" });
+      expect(statuses).toEqual(["on", "unavailable"]);
+      e.stop();
+    });
+
+    it("turning the filter off in the middle of a swap puts back the NEW microphone, not the one being released", async () => {
+      const builds = filterBuilds();
+      const { e, first, next, sender } = await inCall({ noise: true });
+      await settle();
+      expect(sender.track).toBe(builds[0].track);
+      // The sender is slow to take the swap's track: the window the tap lands in.
+      let release!: () => void;
+      let slow = true;
+      sender.replaceTrack = (async (t: unknown) => {
+        sender.track = t;
+        if (slow) {
+          slow = false;
+          await new Promise<void>((r) => { release = r; });
+        }
+      }) as never;
+
+      const moving = e.switchMicrophone("ear");
+      await settle(3);
+      expect(sender.track).toBe(next.track);
+      const off = e.setNoiseSuppression(false);
+      await settle(3);
+      release();
+      expect(await moving).toBe(true);
+      expect(await off).toBe("off");
+
+      // The old raw track is stopped by now: had the filter's detach put it
+      // back on the sender, the rest of the call would have been silence.
+      expect(first.track.stop).toHaveBeenCalled();
+      expect(sender.track).toBe(next.track);
+      expect(builds[0].stop).toHaveBeenCalled();
+      expect(builds).toHaveLength(1);
+      expect(e.noiseFilter).toEqual({ status: "off", reason: null });
+      e.stop();
+    });
+
+    it("a filter that finishes loading in the middle of a swap is dropped and rebuilt on the new microphone", async () => {
+      const builds = filterBuilds();
+      const instant = W.apply;
+      let release!: () => void;
+      let held = false;
+      // The first build (on the old microphone) is slow: a wasm still loading.
+      W.apply = async (source: unknown) => {
+        const built = await instant(source);
+        if (!held) {
+          held = true;
+          await new Promise<void>((r) => { release = r; });
+        }
+        return built;
+      };
+      let open!: (s: MediaStream) => void;
+      const { e, first, next, sender, statuses } = await inCall({
+        noise: true,
+        open: () => new Promise<MediaStream>((r) => { open = r; }),
+      });
+      await settle();
+      expect(sender.track).toBe(first.track);
+
+      const moving = e.switchMicrophone("ear");
+      release();
+      await settle();
+      // Built, but it may not touch the sender while the swap is in flight.
+      expect(sender.track).toBe(first.track);
+      open(next.stream);
+      expect(await moving).toBe(true);
+      await settle();
+
+      expect(builds.map((b) => b.source)).toEqual([first.stream, next.stream]);
+      expect(builds[0].stop).toHaveBeenCalledTimes(1);
+      expect(sender.track).toBe(builds[1].track);
+      expect(e.noiseFilter).toEqual({ status: "on", reason: null });
+      expect(statuses).toEqual(["on"]);
+      e.stop();
+    });
+
+    it("a failed swap leaves the running filter alone, and closes the spare context", async () => {
+      const builds = filterBuilds();
+      const { e, sender } = await inCall({
+        noise: true,
+        open: async () => {
+          throw new DOMException("in use", "NotReadableError");
+        },
+      });
+      await settle();
+      const ctx = fakeContext();
+      expect(await e.switchMicrophone("ear", { noiseContext: ctx })).toBe(false);
+      expect(builds[0].stop).not.toHaveBeenCalled();
+      expect(sender.track).toBe(builds[0].track);
+      expect(e.noiseFilter).toEqual({ status: "on", reason: null });
+      expect(ctx.close).toHaveBeenCalledTimes(1);
+      e.stop();
+    });
+  });
+
+  it("with the filter off, a context handed over is closed rather than leaked", async () => {
+    const { e } = await inCall();
+    const ctx = fakeContext();
+    expect(await e.switchMicrophone("ear", { noiseContext: ctx })).toBe(true);
+    expect(ctx.close).toHaveBeenCalledTimes(1);
+    expect(W.contexts).toHaveLength(0);
+    e.stop();
+  });
+
+  it("a filter that was already unavailable is not retried on every swap", async () => {
+    W.apply = async (source: unknown) => ({ status: "unavailable", stream: source, reason: "worklet_unsupported", stop: () => {} });
+    const { e, statuses } = await inCall({ noise: true });
+    await settle();
+    expect(statuses).toEqual(["unavailable"]);
+    expect(await e.switchMicrophone("ear")).toBe(true);
+    await settle();
+    expect(statuses).toEqual(["unavailable"]);
+    e.stop();
+  });
+});
+
+describe("sending the voice to another output device (the desktop chooser)", () => {
+  function engineWith(setSinkId?: (id: string) => Promise<void>) {
+    const e = new CallEngine({}, true);
+    e.audioElement = { pause: vi.fn(), srcObject: null, ...(setSinkId ? { setSinkId } : {}) } as unknown as HTMLAudioElement;
+    return e;
+  }
+
+  it("applies the device to the call's audio element", async () => {
+    const setSinkId = vi.fn(async () => {});
+    const e = engineWith(setSinkId);
+    expect(e.outputDeviceId).toBe("");
+    expect(await e.setOutputDevice("out2")).toBe(true);
+    expect(setSinkId).toHaveBeenCalledWith("out2");
+    expect(e.outputDeviceId).toBe("out2");
+    // Back to the system default is the empty id.
+    expect(await e.setOutputDevice("")).toBe(true);
+    expect(e.outputDeviceId).toBe("");
+  });
+
+  it("a refused device keeps the output it had", async () => {
+    let refuse = false;
+    const e = engineWith(async () => {
+      if (refuse) throw new DOMException("gone", "NotFoundError");
+    });
+    await e.setOutputDevice("out1");
+    refuse = true;
+    expect(await e.setOutputDevice("out2")).toBe(false);
+    expect(e.outputDeviceId).toBe("out1");
+  });
+
+  it("a browser without setSinkId, or a call with no element yet, is a quiet no", async () => {
+    expect(await engineWith().setOutputDevice("out2")).toBe(false);
+    expect(await new CallEngine({}, true).setOutputDevice("out2")).toBe(false);
   });
 });
 

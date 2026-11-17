@@ -25,6 +25,9 @@ import {
   type Call, type CallStatus, type RingingCall,
 } from "@/lib/smartcomm-api";
 import { CallRecorder } from "./call-recorder";
+import {
+  audioControl, canSetSinkId, listAudioDevices, type AudioState, type PhoneRoute,
+} from "./audio-route";
 import { UploadOutbox, indexedDbStore, itemId, type OutboxItem } from "./call-upload-outbox";
 import i18n from "@/lib/i18n";
 import { getCommsSocket } from "@/lib/comms-socket";
@@ -49,6 +52,9 @@ export type SessionState = {
   /** Seconds since media connected — the UI clock. */
   elapsedS: number;
   muted: boolean;
+  /** The other side's microphone is muted, as they last told us (`call:mute`).
+   *  False again the moment the call's engine stops. */
+  peerMuted: boolean;
   /** True from 29:00 (the one-minute warning). */
   warning: boolean;
   /** Terminal reason for the toast; cleared when the session returns to idle. */
@@ -75,6 +81,9 @@ export type SessionState = {
   /** The browser refused to play the other side's voice (audit E4): the call
    *  screen shows "Tap to hear". */
   audioBlocked: boolean;
+  /** Where the call's sound plays, and the one control this device can offer
+   *  for it (audio-route.ts). `none` on an iPhone and most browsers. */
+  audio: AudioState;
   /** An expired ring link opened a call that is already over: one-tap redial. */
   redial: { groupId: string; name: string | null } | null;
   /** A call this user is making or taking on ANOTHER device
@@ -85,13 +94,15 @@ export type SessionState = {
   callsAvailable: boolean | null;
 };
 
+const NO_AUDIO: AudioState = { kind: "none", busy: false, failed: false };
+
 const INITIAL: SessionState = {
   phase: "idle", call: null, peerName: null, ringSecondsLeft: 0,
-  elapsedS: 0, muted: false, warning: false, endedReason: null, lastError: null,
+  elapsedS: 0, muted: false, peerMuted: false, warning: false, endedReason: null, lastError: null,
   recordingEnabled: false, recordingLost: 0, summaryNotice: null, summaryTick: 0, transcriptionIssue: null,
   noise: { enabled: false, status: "off", reason: null },
   quality: { state: "good", rttMs: null, jitterMs: null, lossPct: null },
-  recovering: false, audioBlocked: false, redial: null, elsewhere: null, callsAvailable: null,
+  recovering: false, audioBlocked: false, audio: NO_AUDIO, redial: null, elsewhere: null, callsAvailable: null,
 };
 
 /** After the local countdown reaches zero, how long a still-RINGING row is
@@ -299,6 +310,101 @@ function stopEngine() {
   pendingIce = null;
   stopMediaBeat();
   clearRing();
+  // What was only true of the live media goes with it: the other side's
+  // microphone, and this device's sound control.
+  if (state.peerMuted || state.audio !== NO_AUDIO) set({ peerMuted: false, audio: NO_AUDIO });
+}
+
+/* ── The other side's microphone (call:mute) ─────────────────────────────── */
+
+/**
+ * Tell the other side whether this microphone is muted. Mute itself is local
+ * (the track is disabled and they hear silence); this is only so their screen
+ * can say why. Sent on every change, when media connects, and again after the
+ * media path or the socket came back, because an event sent while either side
+ * was away is simply gone. `sync` asks them to answer with their own state:
+ * the side that was away is the one that missed something.
+ */
+function announceMute(callId: string, sync = false): void {
+  if (!engine || state.call?.call_id !== callId) return;
+  const payload = { callId, muted: state.muted };
+  getCommsSocket().emit("call:mute", sync ? { ...payload, sync: true } : payload);
+}
+
+/* ── Where the sound plays (audio-route.ts) ──────────────────────────────── */
+
+/**
+ * Read the device list and work out which sound control, if any, this device
+ * can offer. Runs when media connects and whenever the list changes (a
+ * headset plugged in or taken out). Never throws: no list is no control.
+ */
+async function refreshAudio(): Promise<void> {
+  const e = engine;
+  if (!e || state.phase !== "in_call") return;
+  const devices = await listAudioDevices();
+  if (engine !== e || phaseNow() !== "in_call") return;
+  // The chosen output device was unplugged: back to the system default,
+  // rather than a call that plays into a device that is gone. Only on a list
+  // that came back with something in it: an empty one is a browser that would
+  // not answer, and that is no reason to move the sound.
+  const sink = e.outputDeviceId;
+  if (sink && devices.length > 0 && !devices.some((d) => d.kind === "audiooutput" && d.deviceId === sink)) {
+    await e.setOutputDevice("");
+    if (engine !== e) return;
+  }
+  const control = audioControl(devices, {
+    canSetSink: canSetSinkId(),
+    micDeviceId: e.micDeviceId,
+    sinkId: e.outputDeviceId,
+  });
+  set({ audio: { ...control, busy: state.audio.busy, failed: state.audio.failed } });
+}
+
+/**
+ * Speaker, earpiece or headset on a phone (Android Chrome). Called from the
+ * tap. The route follows the microphone device in use, so this moves the call
+ * onto another microphone; the engine keeps the mute state and rebuilds the
+ * noise filter, and the recorder starts its next part on the new microphone.
+ * Any failure leaves the call and its sound exactly where they were.
+ */
+export async function setAudioRoute(route: PhoneRoute): Promise<void> {
+  const e = engine;
+  const audio = state.audio;
+  if (!e || state.phase !== "in_call" || audio.kind !== "route" || audio.busy) return;
+  const target = audio.routes.find((r) => r.route === route);
+  if (!target || audio.current === route) return;
+  // Inside the tap: a running context for the filter's rebuilt graph (E5).
+  const noiseContext = e.noiseWanted && e.noiseFilter.status !== "unavailable" ? primeNoiseContext() : null;
+  set({ audio: { ...audio, busy: true, failed: false } });
+  const ok = await e.switchMicrophone(target.deviceId, { noiseContext });
+  if (engine !== e) return;
+  // The recorder follows the microphone: its next part is the new one.
+  if (ok && e.stream) void recorder?.retarget(e.stream);
+  // The device list may have changed under the swap (a headset plugged in):
+  // `busy` is cleared whatever the control has become.
+  const now = state.audio;
+  if (now.kind === "route") {
+    set({ audio: { ...now, busy: false, failed: !ok, current: ok ? route : now.current } });
+  } else {
+    set({ audio: { ...now, busy: false, failed: false } });
+  }
+}
+
+/** The output device on a desktop (setSinkId). Called from the chooser. */
+export async function setAudioOutput(deviceId: string): Promise<void> {
+  const e = engine;
+  const audio = state.audio;
+  if (!e || audio.kind !== "output" || audio.busy || audio.current === deviceId) return;
+  if (!audio.outputs.some((o) => o.deviceId === deviceId)) return;
+  set({ audio: { ...audio, busy: true, failed: false } });
+  const ok = await e.setOutputDevice(deviceId);
+  if (engine !== e) return;
+  const now = state.audio;
+  if (now.kind === "output") {
+    set({ audio: { ...now, busy: false, failed: !ok, current: ok ? deviceId : now.current } });
+  } else {
+    set({ audio: { ...now, busy: false, failed: false } });
+  }
 }
 
 /** Things primed inside the tap that no engine took over: release them. */
@@ -803,6 +909,10 @@ function makeEngine(
         if (state.call) armRecording(state.call, isCaller ? "caller" : "callee");
         // ...and the moment the server can be told so (FN-2).
         startMediaBeat(callId);
+        // The other side learns this microphone's state from the start, and
+        // this device finds out which sound control it can offer.
+        announceMute(callId);
+        void refreshAudio();
       },
       onFailed: () => {
         void (async () => {
@@ -823,11 +933,19 @@ function makeEngine(
       onQuality: (sample) => set({ quality: sample }),
       onNoiseFilter: (status, reason) =>
         set({ noise: { enabled: e.noiseWanted, status, reason } }),
-      onRecovering: (recovering) => set({ recovering }),
+      onRecovering: (recovering) => {
+        set({ recovering });
+        // Back after a drop: whatever was said about a microphone meanwhile
+        // may not have arrived, in either direction.
+        if (!recovering) announceMute(callId, true);
+      },
       onAudioBlocked: (blocked) => set({ audioBlocked: blocked }),
       onWarnMaxDuration: () => set({ warning: true }),
       onMaxDuration: () => void hangup(),
-      onLocalMuted: (m) => set({ muted: m }),
+      onLocalMuted: (m) => {
+        set({ muted: m });
+        announceMute(callId);
+      },
     },
     isCaller,
   );
@@ -1019,6 +1137,15 @@ export function wireCallSocket(): void {
     engine?.peerReady();
   });
 
+  // The other side muted or unmuted. Only for the call this tab is in, and
+  // only while its engine is up: a late event cannot mark an ended call.
+  s.on("call:mute", (p: { call_id: string; muted?: unknown; sync?: unknown }) => {
+    if (!p || !engine || state.call?.call_id !== p.call_id || typeof p.muted !== "boolean") return;
+    if (state.peerMuted !== p.muted) set({ peerMuted: p.muted });
+    // They were away and ask where we stand. The answer never asks back.
+    if (p.sync === true) announceMute(p.call_id);
+  });
+
   s.on("call:accepted", (p: { call_id: string; recording_enabled?: boolean }) => {
     const id = p && p.call_id;
     if (!id) return;
@@ -1077,6 +1204,11 @@ export function wireCallSocket(): void {
   // socket may have connected before these handlers existed), each
   // (re)connect, the return to the foreground, and the network coming back.
   s.on("connect", () => void reconcileRinging(true));
+  // The socket came back mid-call: what the other side sent meanwhile is
+  // gone, so say where this microphone stands and ask for theirs.
+  s.on("connect", () => {
+    if (engine && state.call && state.phase === "in_call") announceMute(state.call.call_id, true);
+  });
   void reconcileRinging(true);
   if (typeof document !== "undefined") {
     document.addEventListener("visibilitychange", () => {
@@ -1089,6 +1221,10 @@ export function wireCallSocket(): void {
   }
   if (typeof navigator !== "undefined" && navigator.serviceWorker?.addEventListener) {
     navigator.serviceWorker.addEventListener("message", (ev: MessageEvent) => onWorkerMessage(ev.data as WorkerMessage));
+  }
+  // A headset plugged in or taken out changes which sound control is honest.
+  if (typeof navigator !== "undefined" && typeof navigator.mediaDevices?.addEventListener === "function") {
+    navigator.mediaDevices.addEventListener("devicechange", () => void refreshAudio());
   }
 }
 
