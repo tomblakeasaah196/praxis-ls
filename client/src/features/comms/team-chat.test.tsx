@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useNavigate } from "react-router-dom";
 import { TeamChatPage } from "./team-chat";
 
 const fixture = vi.hoisted(() => ({
-  channel: { group_id: "one", name: "Operations", kind: "DIRECT", unread: 0 },
+  channel: { group_id: "one", name: "Operations", kind: "DIRECT", unread: 0 } as Record<string, unknown>,
+  /** What `GET /channels/:id` answers. `undefined` = the same record as the list. */
+  detail: undefined as unknown,
+  colleagues: [] as { user_id: string; full_name: string; email: string }[],
+  created: [] as unknown[],
   messages: [{ message_id: "m1", body: "Hello" }],
   /**
    * The preview map the server attaches to a thread response. `undefined` is a
@@ -24,8 +28,9 @@ vi.mock("@/lib/comms-socket", () => ({
   getCommsSocket: () => ({ connected: false, on: vi.fn(), off: vi.fn(), emit: vi.fn() }),
 }));
 vi.mock("@/lib/smartcomm-api", () => ({
-  listChannels: () => [fixture.channel], listColleagues: () => [],
-  getChannel: () => fixture.channel, getThread: () => ({ messages: fixture.messages, links: fixture.links }),
+  listChannels: () => [fixture.channel], listColleagues: () => fixture.colleagues,
+  createChannel: async (body: unknown) => { fixture.created.push(body); return { group_id: "new" }; },
+  getChannel: () => (fixture.detail === undefined ? fixture.channel : fixture.detail), getThread: () => ({ messages: fixture.messages, links: fixture.links }),
   markRead: () => Promise.resolve(),
   fetchCallCapabilities: async () => fixture.caps,
   fetchCallProcessing: async () => ({ recording_enabled: false, transcription: [], summary: [], network: [] }),
@@ -34,14 +39,12 @@ vi.mock("@/lib/use-resource", () => ({
   useResource: (load: () => unknown) => ({ data: load(), loading: false, reload: vi.fn() }),
   errMsg: String,
 }));
-vi.mock("./inbox/composer/new-message", () => ({ NewMessageDialog: () => null }));
 vi.mock("./chat/composer", () => ({ Composer: () => <div>Message composer</div> }));
 vi.mock("./chat/forward-dialog", () => ({ ForwardDialog: () => null }));
 // The thread reads the tenant's hero image for its backdrop; with no provider in
 // this harness, a null branding falls back to the default static wash.
 vi.mock("@/app/branding/branding-context", () => ({ useBranding: () => ({ branding: null }) }));
-// The appearance control (beside "New") toasts on wallpaper changes; there is no
-// ToastProvider in this isolated render, so stub the hook.
+// No ToastProvider in this isolated render, so stub the hook.
 vi.mock("@/components/ui/toast", () => ({
   useToast: () => ({ success: () => {}, error: () => {}, info: () => {} }),
 }));
@@ -73,6 +76,10 @@ beforeEach(async () => {
   (await import("./call/call-capabilities")).resetCallCapabilities();
   fixture.caps = { calls: true, can_dial: true, recording: false, settings_admin: false };
   localStorage.clear();
+  fixture.channel = { group_id: "one", name: "Operations", kind: "DIRECT", unread: 0 };
+  fixture.colleagues = [];
+  fixture.detail = undefined;
+  fixture.created = [];
   fixture.messages = [{ message_id: "m1", body: "Hello" }];
   fixture.links = undefined;
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
@@ -93,39 +100,120 @@ describe("the phone icon is offered only where it works (audit F10)", () => {
   });
 });
 
-describe("chat containment and information panel", () => {
-  it("toggles and remembers the desktop info pane from the ⋮ menu", async () => {
-    // Desktop: the "Conversation info" item toggles the persistent side pane.
+/**
+ * THE PAGE IS TWO PANES (tenant clean-up, 17 Nov 2026).
+ *
+ * A third pane used to sit on the right, open by default, repeating the name,
+ * the partner's status and the call button, and reachable from a ⋮ menu that
+ * also repeated the call button. The list carried four filter pills and a
+ * per-device appearance control, and New asked the same question twice. These
+ * pin what replaced all of that, and that none of it has come back.
+ */
+describe("the chat page is a list and a conversation", () => {
+  it("HAS NO INFO PANEL AND NO CONVERSATION MENU", async () => {
     vi.stubGlobal(
       "matchMedia",
       vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
     );
-    const user = userEvent.setup();
-    const view = render(chat());
-    expect(localStorage.getItem("comms:info-open")).toBeNull(); // default open
-    await user.click(screen.getByRole("button", { name: "Conversation menu" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Conversation info" }));
-    expect(localStorage.getItem("comms:info-open")).toBe("false");
-    view.unmount();
     render(chat());
-    expect(localStorage.getItem("comms:info-open")).toBe("false");
-  });
-
-  it("opens a right-edge dialog from the ⋮ menu on a phone, closes with Escape", async () => {
-    // matchMedia defaults to matches:false (phone) from beforeEach, so the same
-    // menu item opens the drawer rather than toggling the side pane.
-    const user = userEvent.setup();
-    render(chat());
-    const composer = screen.getByText("Message composer");
-    await user.click(screen.getByRole("button", { name: "Conversation menu" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Conversation info" }));
-    expect(await screen.findByRole("dialog", { name: "Conversation info" })).toHaveClass("right-0", "h-dvh");
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.getByText("Message composer")).toBe(composer);
+    await screen.findByText("Message composer");
+    expect(document.getElementById("chat-info-panel")).toBeNull();
+    expect(screen.queryByText("Conversation info")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Conversation menu" })).not.toBeInTheDocument();
+    // Nothing is remembered about a panel that no longer exists.
     expect(localStorage.getItem("comms:info-open")).toBeNull();
   });
 
+  it("OFFERS ONE CALL BUTTON, not three", async () => {
+    render(chat());
+    expect(await screen.findAllByRole("button", { name: "Start a voice call" })).toHaveLength(1);
+    expect(screen.queryByText("Start a voice call")).not.toBeInTheDocument();
+  });
+
+  it("THE HEADER DOES NOT WAIT ON A SECOND REQUEST to say who this is or to offer the call", async () => {
+    // The list already holds the conversation. While `getChannel` is in
+    // flight, or when it comes back with nothing, the header used to read
+    // "Conversation" with no call button; the removed info panel had been
+    // covering for it with a button of its own.
+    fixture.detail = null;
+    render(chat());
+    await screen.findByText("Message composer");
+    expect(screen.getAllByText("Operations").length).toBeGreaterThan(1); // the row AND the header
+    expect(screen.queryByText("Conversation")).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Start a voice call" })).toBeInTheDocument();
+  });
+
+  it("a group says how many people are in it, in the header", async () => {
+    // The one fact the info panel held that the header did not.
+    fixture.channel = { group_id: "one", name: "Ops Task Force", kind: "DEPARTMENT", unread: 0, member_count: 7 };
+    render(chat());
+    expect(await screen.findByText("7 members")).toBeInTheDocument();
+  });
+
+  it("THE LIST IS SEARCH AND NEW: no filter pills, no appearance control", async () => {
+    render(chat());
+    await screen.findByText("Message composer");
+    expect(screen.getByPlaceholderText("Search conversations…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New conversation" })).toBeInTheDocument();
+    for (const gone of ["All", "Unread", "In-house", "Groups"]) {
+      expect(screen.queryByRole("button", { name: gone })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: /appearance/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("New is one dialog: pick people", () => {
+  const people = () => {
+    fixture.colleagues = [
+      { user_id: "u1", full_name: "Awa Ndiaye", email: "awa@smartls.test" },
+      { user_id: "u2", full_name: "Paul Mbarga", email: "paul@smartls.test" },
+    ];
+  };
+
+  it("ASKS NOTHING FIRST: no in-house / group / email chooser, no type select", async () => {
+    people();
+    const user = userEvent.setup();
+    render(chat());
+    await user.click(screen.getByRole("button", { name: "New conversation" }));
+    const dialog = await screen.findByRole("dialog", { name: "New Conversation" });
+    expect(within(dialog).getByRole("checkbox", { name: /Awa Ndiaye/ })).toBeInTheDocument();
+    expect(within(dialog).queryByText("Email")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("In-house message")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  it("one person is a direct message and needs no name", async () => {
+    people();
+    const user = userEvent.setup();
+    render(chat());
+    await user.click(screen.getByRole("button", { name: "New conversation" }));
+    const dialog = await screen.findByRole("dialog", { name: "New Conversation" });
+    await user.click(within(dialog).getByRole("checkbox", { name: /Awa Ndiaye/ }));
+    expect(within(dialog).queryByLabelText(/Group Name/)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Start chat" }));
+    await waitFor(() => expect(fixture.created).toHaveLength(1));
+    expect(fixture.created[0]).toEqual({ name: "Awa Ndiaye", kind: "DIRECT", member_ids: ["u1"] });
+  });
+
+  it("SEVERAL PEOPLE IS A GROUP, and a group must be named", async () => {
+    people();
+    const user = userEvent.setup();
+    render(chat());
+    await user.click(screen.getByRole("button", { name: "New conversation" }));
+    const dialog = await screen.findByRole("dialog", { name: "New Conversation" });
+    await user.click(within(dialog).getByRole("checkbox", { name: /Awa Ndiaye/ }));
+    await user.click(within(dialog).getByRole("checkbox", { name: /Paul Mbarga/ }));
+    // The name field arrives with the second tick, and nothing is sent without it.
+    const start = within(dialog).getByRole("button", { name: "Start group" });
+    expect(start).toBeDisabled();
+    await user.type(within(dialog).getByLabelText(/Group Name/), "Douala corridor");
+    await user.click(start);
+    await waitFor(() => expect(fixture.created).toHaveLength(1));
+    expect(fixture.created[0]).toEqual({ name: "Douala corridor", kind: "DEPARTMENT", member_ids: ["u1", "u2"] });
+  });
+});
+
+describe("chat containment", () => {
   it("scrolls only the message pane, following new messages unless reading history", () => {
     const outerScroll = vi.spyOn(Element.prototype, "scrollIntoView");
     const view = render(chat());

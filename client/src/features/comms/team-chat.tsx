@@ -1,33 +1,48 @@
 /**
- * Team chat — the internal Smart Comms workstation, matching pixie's SmartComm
- * ChannelList/thread UI: hashed-colour avatars, search, filter tabs, rows with
- * pin/mute + accent-when-unread time + unread badge, and a message thread.
- * Conversation rides in the URL (?channel=…). On our Control-Tower skin.
+ * Team chat: the list of conversations and the one that is open.
+ *
+ * ── TWO PANES, AND WHAT LEFT (tenant clean-up, 17 Nov 2026) ─────────────────
+ *
+ * After the mail and Setup screens were cut down, the tenant asked for the
+ * same here. Three answers shaped this file:
+ *
+ *   The info panel is gone. It was a third pane, open by default, that held
+ *   the conversation's name, the partner's status, a member count and a second
+ *   call button. The header already had the name, the status and the call
+ *   button; a group now shows its member count there too.
+ *
+ *   The list is Search and New. The four filter pills (All, Unread, In-house,
+ *   Groups) and the per-device Chat Appearance control are gone. Unread
+ *   conversations already carry a count and an accent time, and the list is
+ *   short enough to search.
+ *
+ *   New is one dialog. It used to ask "in-house, group or email", then open a
+ *   second dialog that asked "direct or group" again. Now you pick people: one
+ *   is a direct message, several is a group you name. Email is written from
+ *   the Mailbox tab.
+ *
+ * Conversation rides in the URL (?channel=…).
  */
 import * as React from "react";
-import { dateDmy } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { Link, useSearchParams } from "react-router-dom";
-import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Modal, Field, Select } from "@/components/ui/modal";
+import { Modal, Field } from "@/components/ui/modal";
 import { ErrorState } from "@/components/ui/states";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { useAuth } from "@/app/auth/auth-context";
 import { cn } from "@/lib/cn";
-import { PlusIcon, PhoneIcon, MoreVerticalIcon, InfoIcon } from "@/components/ui/icons";
+import { PlusIcon, PhoneIcon } from "@/components/ui/icons";
 import { ThreadCallStrip } from "./call/thread-call-strip";
 import { useCallCapabilities } from "./call/call-capabilities";
-import { DropdownMenu, DropdownItem } from "@/components/ui/dropdown-menu";
-import { useChatAppearance } from "./chat/chat-appearance-store";
-import { ChatAppearanceButton } from "./chat/chat-appearance";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useBranding } from "@/app/branding/branding-context";
 import * as api from "@/lib/smartcomm-api";
 import { getCommsSocket, useCommsChannel } from "@/lib/comms-socket";
 import { useOnline, lastSeenText } from "./presence";
 import { dial, useCall } from "./call/call-session";
 import { PinnedCallSummary } from "./call/pinned-call-summary";
-import { NewMessageDialog } from "./inbox/composer/new-message";
 import { Composer } from "./chat/composer";
 import { MessageBubble } from "./chat/message-bubble";
 import { ForwardDialog } from "./chat/forward-dialog";
@@ -110,111 +125,49 @@ function fmtRelative(iso?: string | null) {
 }
 
 /**
- * ── THE "EMAIL" CHIP IS GONE, AND WHY ───────────────────────────────────────
+ * Start a conversation: pick people.
  *
- * There used to be a fifth filter here labelled "Email", and selecting it ran
- * `if (EXTERNAL.includes(filter)) return false` over every channel — which is
- * to say it filtered out everything, always, and drew "No conversations match."
- * It could never do anything else: this list is `comms_channel` rows, in-house
- * chat, and there has never been an email conversation in it to show.
- *
- * It was not a bug so much as a wrong answer to a real question. Somebody
- * arriving at Comms sees "Inbox" with an "Email" tab under it and reasonably
- * concludes this is where their email is; then it is empty, and now the product
- * appears to have two email sections, one of which is broken. Email lives one
- * tab over, in Mailbox, and the empty state below says so with a link rather
- * than a chip that leads nowhere.
- *
- * The "Email" option in the New (+) chooser stays — that one always worked. It
- * opens the mail composer, which is a genuinely useful thing to reach from a
- * chat about a client.
+ * ONE person is a direct message and needs nothing else. SEVERAL is a group,
+ * and a group needs a name, so the name field appears with the second tick.
+ * There is no "direct or group?" question because the selection already
+ * answers it, and no way to make a group of one by mistake.
  */
-type Filter = "all" | "unread" | "inhouse" | "groups";
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "unread", label: "Unread" },
-  { key: "inhouse", label: "In-house" },
-  { key: "groups", label: "Groups" },
-];
-
-/* The New (+) chooser: in-house message, group channel, or email. */
-function NewChoiceModal({
-  onPick,
-  onClose,
-}: {
-  onPick: (k: "direct" | "group" | "email") => void;
-  onClose: () => void;
-}) {
-  const opt =
-    "block w-full rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary hover:bg-primary/5";
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={tr("New")}
-      description={tr("Start an in-house message, a group channel, or an email.")}
-    >
-      <div className="space-y-2">
-        <button type="button" className={opt} onClick={() => onPick("direct")}>
-          <span className="block font-medium text-foreground">
-            {tr("In-house message")}
-          </span>
-          <span className="micro">{tr("Direct message a colleague")}</span>
-        </button>
-        <button type="button" className={opt} onClick={() => onPick("group")}>
-          <span className="block font-medium text-foreground">
-            {tr("Group channel")}
-          </span>
-          <span className="micro">{tr("A shared channel with your team")}</span>
-        </button>
-        <button type="button" className={opt} onClick={() => onPick("email")}>
-          <span className="block font-medium text-foreground">{tr("Email")}</span>
-          <span className="micro">
-            {tr("Email a client, supplier, colleague or lead: from your mailbox")}
-          </span>
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
 function NewChatModal({
   colleagues,
-  initialMode,
   onClose,
   onCreated,
 }: {
   colleagues: api.Colleague[];
-  initialMode?: "DIRECT" | "GROUP";
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
-  const [mode, setMode] = React.useState<"DIRECT" | "GROUP">(
-    initialMode || "DIRECT",
-  );
   const [name, setName] = React.useState("");
   const [selected, setSelected] = React.useState<string[]>([]);
+  const [find, setFind] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const toggle = (id: string) =>
     setSelected((s) =>
       s.includes(id) ? s.filter((x) => x !== id) : [...s, id],
     );
+  const group = selected.length > 1;
+  const shown = colleagues.filter((c) =>
+    `${c.full_name || ""} ${c.email || ""}`.toLowerCase().includes(find.trim().toLowerCase()),
+  );
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const body =
-        mode === "DIRECT"
-          ? {
-              name:
-                colleagues.find((c) => c.user_id === selected[0])?.full_name ||
-                "Direct message",
-              kind: "DIRECT" as const,
-              member_ids: selected.slice(0, 1),
-            }
-          : { name, kind: "DEPARTMENT" as const, member_ids: selected };
+      const body = group
+        ? { name: name.trim(), kind: "DEPARTMENT" as const, member_ids: selected }
+        : {
+            name:
+              colleagues.find((c) => c.user_id === selected[0])?.full_name ||
+              "Direct message",
+            kind: "DIRECT" as const,
+            member_ids: selected.slice(0, 1),
+          };
       const ch = await api.createChannel(body);
       onCreated(ch.group_id);
       onClose();
@@ -224,27 +177,43 @@ function NewChatModal({
       setBusy(false);
     }
   }
-  const canSubmit =
-    mode === "DIRECT" ? selected.length === 1 : !!name && selected.length > 0;
+  const canSubmit = selected.length === 1 || (group && !!name.trim());
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={tr("New Conversation")}
-      description="Start a direct message or a group channel with colleagues."
-    >
+    <Modal open onClose={onClose} title={tr("New Conversation")}>
       <form className="space-y-4" onSubmit={submit}>
-        <Field label={tr("Type")}>
-          <Select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as "DIRECT" | "GROUP")}
-          >
-            <option value="DIRECT">Direct message</option>
-            <option value="GROUP">Group channel</option>
-          </Select>
+        <Field label={tr("People")}>
+          <div className="space-y-2">
+            {colleagues.length > 8 && (
+              <Input
+                value={find}
+                onChange={(e) => setFind(e.target.value)}
+                placeholder={tr("Search colleagues…")}
+                aria-label={tr("Search colleagues")}
+              />
+            )}
+            <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
+              {shown.map((c) => (
+                <div
+                  key={c.user_id}
+                  className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent"
+                >
+                  <Checkbox
+                    checked={selected.includes(c.user_id)}
+                    onCheckedChange={() => toggle(c.user_id)}
+                    label={
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Avatar name={c.full_name} src={c.avatar_ref} size="sm" />
+                        <span className="min-w-0 truncate">{c.full_name || c.email}</span>
+                      </span>
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         </Field>
-        {mode === "GROUP" && (
-          <Field label="Channel Name" required>
+        {group && (
+          <Field label={tr("Group Name")} required>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -252,31 +221,6 @@ function NewChatModal({
             />
           </Field>
         )}
-        <Field label={mode === "DIRECT" ? "Colleague" : "Members"}>
-          <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
-            {colleagues.map((c) => (
-              <label
-                key={c.user_id}
-                className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent"
-              >
-                <input
-                  type={mode === "DIRECT" ? "radio" : "checkbox"}
-                  name="member"
-                  checked={selected.includes(c.user_id)}
-                  onChange={() =>
-                    mode === "DIRECT"
-                      ? setSelected([c.user_id])
-                      : toggle(c.user_id)
-                  }
-                />
-                <Avatar name={c.full_name} src={c.avatar_ref} size="sm" />
-                <span className="min-w-0 truncate">
-                  {c.full_name || c.email}
-                </span>
-              </label>
-            ))}
-          </div>
-        </Field>
         {error && <ErrorState message={error} />}
         <div className="flex justify-end gap-2 pt-2">
           <Button
@@ -285,10 +229,10 @@ function NewChatModal({
             onClick={onClose}
             disabled={busy}
           >
-            Cancel
+            {tr("Cancel")}
           </Button>
           <Button type="submit" loading={busy} disabled={!canSubmit || busy}>
-            Start
+            {group ? tr("Start group") : tr("Start chat")}
           </Button>
         </div>
       </form>
@@ -487,93 +431,13 @@ function PartnerPresence({
   );
 }
 
-function InfoPane({ channel }: { channel: api.Channel | null }) {
-  const canDial = useCallCapabilities()?.can_dial === true;
-  if (!channel)
-    return (
-      <div className="flex flex-1 items-center justify-center p-6 text-center micro">
-        Details appear here.
-      </div>
-    );
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-      <div className="flex flex-col items-center gap-2 border-b border-border pb-4 text-center">
-        <Avatar
-          name={channel.name}
-          src={channel.kind === "DIRECT" ? channel.partner_avatar_ref : null}
-          size="lg"
-        />
-        <div className="text-sm font-semibold">{channel.name}</div>
-        {channel.kind && (
-          <span className="micro">{channel.kind.toLowerCase()}</span>
-        )}
-        {channel.kind === "DIRECT" && channel.partner_user_id && (
-          <>
-            <PartnerPresence
-              userId={channel.partner_user_id}
-              lastSeenAt={channel.partner_last_seen_at}
-            />
-            {/* The member-area dial affordance (the top one lives on the
-                thread header) — the same action, the same row it sits on.
-                Only where calls are on and this person may dial (F10). */}
-            {canDial && <button
-              type="button"
-              onClick={() => void dial(channel.group_id, channel.name)}
-              className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent"
-            >
-              <PhoneIcon width={14} height={14} />
-              {tr("Start a voice call")}
-            </button>}
-          </>
-        )}
-      </div>
-      <div className="space-y-3 pt-4 text-sm">
-        <div>
-          <div className="micro mb-1 uppercase tracking-wide">About</div>
-          <p className="text-muted-foreground">
-            {channel.kind === "DIRECT"
-              ? "Direct message."
-              : "Group conversation: auditable and exportable."}
-          </p>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Members</span>
-          <span className="num">{channel.member_count ?? "—"}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">{tr("Opened")}</span>
-          <span className="num">
-            {channel.created_at
-              ? dateDmy(channel.created_at)
-              : "—"}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function TeamChatPage() {
-  const [infoOpen, setInfoOpen] = React.useState(() => {
-    try { return localStorage.getItem("comms:info-open") !== "false"; }
-    catch { return true; /* @silent:storage — use the first-visit default */ }
-  });
-  const [mobileInfoOpen, setMobileInfoOpen] = React.useState(false);
-  // Per-device wallpaper + brand accent (see chat-appearance). Read once here and
-  // threaded down: the accent recolours the shell, the wallpaper the thread.
-  const appearance = useChatAppearance();
-  const toggleInfo = () => {
-    const next = !infoOpen;
-    setInfoOpen(next);
-    try { localStorage.setItem("comms:info-open", String(next)); }
-    catch { /* @silent:storage — the toggle still works for this visit */ }
-  };
-  React.useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 1024px)");
-    const closeDrawer = () => { if (desktop.matches) setMobileInfoOpen(false); };
-    desktop.addEventListener("change", closeDrawer);
-    return () => desktop.removeEventListener("change", closeDrawer);
-  }, []);
+  /* The thread's backdrop is the tenant's own hero image when their branding
+     has one. A per-device wallpaper and accent used to override it from a Chat
+     Appearance control; that control left with the clean-up, so the chat wears
+     the tenant's brand and nothing else. */
+  const { branding } = useBranding();
+  const wallpaper = branding?.hero?.imageUrl || null;
   const { user } = useAuth();
   const meId =
     (user as { user_id?: string; id?: string } | null)?.user_id ||
@@ -583,11 +447,8 @@ export function TeamChatPage() {
   const activeId = params.get("channel");
   const channels = useResource(() => api.listChannels(), []);
   const colleagues = useResource(() => api.listColleagues(), []);
-  const [newKind, setNewKind] = React.useState<
-    "" | "menu" | "direct" | "group" | "email"
-  >("");
+  const [creating, setCreating] = React.useState(false);
   const [q, setQ] = React.useState("");
-  const [filter, setFilter] = React.useState<Filter>("all");
 
   const nameOf = React.useMemo(() => {
     const m: Record<string, string> = {};
@@ -639,9 +500,6 @@ export function TeamChatPage() {
     return () => window.clearInterval(t);
   }, []);
   const filtered = all.filter((c) => {
-    if (filter === "unread" && !c.unread) return false;
-    if (filter === "inhouse" && c.kind !== "DIRECT") return false;
-    if (filter === "groups" && c.kind === "DIRECT") return false;
     if (q.trim()) {
       const hay = `${c.name} ${channelPreview(c)}`.toLowerCase();
       if (!hay.includes(q.trim().toLowerCase())) return false;
@@ -658,13 +516,7 @@ export function TeamChatPage() {
   return (
     <section className="animate-fade-in flex min-h-0 flex-1 flex-col">
       {/* Size from the shell's remaining space, never from a guessed viewport offset. */}
-      <div
-        style={appearance.shellStyle}
-        className={cn(
-          "chat-shell grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-[320px_minmax(0,1fr)]",
-          infoOpen && "lg:grid-cols-[320px_minmax(0,1fr)_300px]",
-        )}
-      >
+      <div className="chat-shell grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-[320px_minmax(0,1fr)]">
         {/* conversation list */}
         <div
           className={cn(
@@ -682,14 +534,12 @@ export function TeamChatPage() {
               )}
             </div>
             <div className="flex items-center gap-1.5">
-              {/* Wallpaper + brand accent, WhatsApp-style, right where the eye is. */}
-              <ChatAppearanceButton appearance={appearance} />
               {/* A sleek accent-gradient pill in place of the solid orange block —
                   icon-only on a phone, icon + label from md up (WS feedback that a
                   bare "+" read as a generic "add"). */}
               <button
                 type="button"
-                onClick={() => setNewKind("menu")}
+                onClick={() => setCreating(true)}
                 title={tr("New Conversation")}
                 aria-label={tr("New conversation")}
                 className="chat-new-btn inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:px-3.5"
@@ -705,22 +555,6 @@ export function TeamChatPage() {
               onChange={(e) => setQ(e.target.value)}
               placeholder={tr("Search conversations…")}
             />
-          </div>
-          <div className="flex gap-1 overflow-x-auto px-3 pb-2">
-            {FILTERS.map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={cn(
-                  "shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors",
-                  filter === f.key
-                    ? "chat-pill--solid"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                {tr(f.label)}
-              </button>
-            ))}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3">
             {channels.loading ? (
@@ -757,14 +591,12 @@ export function TeamChatPage() {
             ) : (
               <div className="space-y-2 px-4 py-12 text-center micro">
                 <p>
-                  {q || filter !== "all"
-                    ? tr("No conversations match.")
-                    : tr("No conversations yet")}
+                  {q ? tr("No conversations match.") : tr("No conversations yet")}
                 </p>
                 {/* The question this answers is "where is my email?", and it is
                     asked here because the header says Inbox. One sentence and a
                     link beats the chip that used to sit above and go nowhere. */}
-                {!q && filter === "all" && (
+                {!q && (
                   <p>
                     {tr("This is in-house chat.")}{" "}
                     <Link to="/comms/mail" className="font-medium text-foreground underline underline-offset-2">
@@ -796,10 +628,8 @@ export function TeamChatPage() {
                 n.delete("channel");
                 setParams(n);
               }}
-              onToggleInfo={toggleInfo}
-              onOpenMobileInfo={() => setMobileInfoOpen(true)}
               onSent={() => channels.reload()}
-              wallpaper={appearance.wallpaper}
+              wallpaper={wallpaper}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center p-6 text-center micro">
@@ -808,45 +638,16 @@ export function TeamChatPage() {
           )}
         </div>
 
-        {/* customer / channel 360 — third pane on wide screens */}
-        <div id="chat-info-panel" className={cn("hidden min-h-0 flex-col overflow-hidden border-l border-border", infoOpen && "lg:flex")}>
-          <div className="flex shrink-0 items-center justify-between border-b border-border p-3">
-            <span className="text-sm font-semibold">{tr("Conversation info")}</span>
-            <Button size="sm" variant="ghost" onClick={toggleInfo}>{tr("Hide")}</Button>
-          </div>
-          <InfoPane
-            channel={all.find((c) => c.group_id === activeId) || null}
-          />
-        </div>
       </div>
 
-      <Dialog open={mobileInfoOpen} onClose={() => setMobileInfoOpen(false)}
-        title={tr("Conversation info")} placement="right" bodyClassName="p-0">
-        <InfoPane channel={all.find((c) => c.group_id === activeId) || null} />
-      </Dialog>
-
-      {newKind === "menu" && (
-        <NewChoiceModal
-          onPick={(k) => setNewKind(k)}
-          onClose={() => setNewKind("")}
-        />
-      )}
-      {(newKind === "direct" || newKind === "group") && (
+      {creating && (
         <NewChatModal
           colleagues={colleagues.data || []}
-          initialMode={newKind === "group" ? "GROUP" : "DIRECT"}
-          onClose={() => setNewKind("")}
+          onClose={() => setCreating(false)}
           onCreated={(id) => {
             channels.reload();
             select(id);
           }}
-        />
-      )}
-      {newKind === "email" && (
-        <NewMessageDialog
-          open
-          onClose={() => setNewKind("")}
-          onSent={() => setNewKind("")}
         />
       )}
     </section>
@@ -860,12 +661,8 @@ function Thread({
   channels,
   onBack,
   onSent,
-  onToggleInfo,
-  onOpenMobileInfo,
   wallpaper,
 }: {
-  onToggleInfo: () => void;
-  onOpenMobileInfo: () => void;
   channelId: string;
   meId: string;
   nameOf: Record<string, string>;
@@ -873,10 +670,26 @@ function Thread({
   channels: api.Channel[];
   onBack: () => void;
   onSent: () => void;
-  /** The per-device chat wallpaper (data URL) or tenant hero image, if any. */
+  /** The tenant's hero image, when their branding has one. */
   wallpaper?: string | null;
 }) {
-  const ch = useResource(() => api.getChannel(channelId), [channelId]);
+  const detail = useResource(() => api.getChannel(channelId), [channelId]);
+  /* WHO THIS IS, FROM THE LIST FIRST.
+   *
+   * The header used to wait on `getChannel` for the name, the status and the
+   * call button, while the list one pane to the left already held the same
+   * record. For as long as that second request was in flight, or if it failed,
+   * the header read "Conversation" with no way to call. Nobody noticed, because
+   * the info panel drew its own call button from the list's copy; when the
+   * panel was removed (17 Nov 2026) the browser suite could no longer dial.
+   *
+   * So the header is drawn from the list's record at once, and the detail
+   * replaces it when it lands. A detail without a `kind` is not a detail. */
+  const fromList = React.useMemo(
+    () => channels.find((c) => c.group_id === channelId) || null,
+    [channels, channelId],
+  );
+  const ch = { data: detail.data && detail.data.kind ? detail.data : fromList };
   const thread = useResource(() => api.getThread(channelId), [channelId]);
   // The phone icon only where calls are on and this person may dial (F10).
   const canDial = useCallCapabilities()?.can_dial === true;
@@ -1042,9 +855,17 @@ function Thread({
               lastSeenAt={ch.data.partner_last_seen_at}
             />
           )}
+          {/* A group says how many people are in it. This is the one fact the
+              info panel held that the header did not. */}
+          {ch.data && ch.data.kind !== "DIRECT" && ch.data.member_count != null && (
+            <span className="text-[11px] text-muted-foreground">
+              {ch.data.member_count} {ch.data.member_count === 1 ? tr("member") : tr("members")}
+            </span>
+          )}
         </div>
-        {/* The call icon stays out front (WhatsApp keeps the phone on the header),
-            as a clean circular icon button. The partner is resolved server-side
+        {/* THE call button: one, here. It was also an item in a ⋮ menu beside
+            it and a pill in the info panel, three ways to do one thing on one
+            screen. The partner is resolved server-side
             from the channel; the UI only names the channel (guide D8). */}
         {ch.data?.kind === "DIRECT" && canDial && (
           <button
@@ -1059,44 +880,6 @@ function Thread({
             <PhoneIcon width={18} height={18} />
           </button>
         )}
-        {/* Everything else folds into the WhatsApp ⋮ menu. The info pane toggle
-            used to be two always-visible buttons; it is one menu item now, which
-            opens the side pane on desktop and the drawer on a phone. */}
-        <DropdownMenu
-          trigger={
-            <button
-              type="button"
-              aria-label={tr("Conversation menu")}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <MoreVerticalIcon width={18} height={18} />
-            </button>
-          }
-        >
-          <DropdownItem
-            onSelect={() => {
-              if (window.matchMedia("(min-width: 1024px)").matches) onToggleInfo();
-              else onOpenMobileInfo();
-            }}
-          >
-            <span className="flex items-center gap-2">
-              <InfoIcon width={15} height={15} />
-              {tr("Conversation info")}
-            </span>
-          </DropdownItem>
-          {ch.data?.kind === "DIRECT" && canDial && (
-            <DropdownItem
-              onSelect={() => {
-                if (ch.data) void dial(ch.data.group_id, ch.data.name);
-              }}
-            >
-              <span className="flex items-center gap-2">
-                <PhoneIcon width={15} height={15} />
-                {tr("Start a voice call")}
-              </span>
-            </DropdownItem>
-          )}
-        </DropdownMenu>
       </div>
 
       {/* The call of this conversation: the ring banner, then the live strip (O4). */}
