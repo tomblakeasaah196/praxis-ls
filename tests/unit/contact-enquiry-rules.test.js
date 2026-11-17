@@ -51,10 +51,12 @@ describe("Contact enquiry correspondence lifecycle (F9, MOD-25)", () => {
     expect(events.enquiryTransition("NEW", "READ")).toBe("contact_enquiry.read");
   });
 
-  test("'was this triaged' is answered by the FKs and nothing else", () => {
+  test("'was this triaged' is answered by the lead FK and nothing else", () => {
     expect(rules.isTriaged({ status: "READ" })).toBe(false);
     expect(rules.isTriaged({ lead_id: "abc" })).toBe(true);
-    expect(rules.isTriaged({ partnership_request_id: "def" })).toBe(true);
+    // The partnership register was removed (Sales lean revamp, D10); a stray
+    // link from an old payload no longer counts as routing the enquiry.
+    expect(rules.isTriaged({ partnership_request_id: "def" })).toBe(false);
     // Not by a status value — there is no status that means "triaged".
     expect(rules.isTriaged({ status: "RESPONDED" })).toBe(false);
   });

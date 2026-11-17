@@ -270,7 +270,7 @@ export const SPECS: ScreenSpec[] = [
     area: "Sales & CRM",
     title: "Inbound intake",
     purpose:
-      "Contact enquiries captured from the website/email, triaged into leads. Partnership and vendor applications left this screen in F10 — they are vetted rather than triaged, and approving one can open a supplier, so they have their own register at /sales/partnerships.",
+      "Contact enquiries captured from the website/email, triaged into leads. A partnership offer is an enquiry of type Partnership.",
     module: "sales/inbound_intake",
     status: "ready",
     tabs: [
@@ -371,38 +371,6 @@ export const SPECS: ScreenSpec[] = [
         label: "Add note / minutes",
         kind: "write",
         describe: "Add a note or minutes to a meeting.",
-      },
-    ],
-  },
-  {
-    path: "sales/campaigns",
-    area: "Sales & CRM",
-    title: "Marketing campaigns",
-    purpose:
-      "Outbound campaigns and newsletter audiences — create, activate, pause, measure.",
-    module: "sales/marketing_campaign",
-    status: "ready",
-    tabs: [
-      {
-        label: "Campaigns",
-        columns: ["Name", "Channel", "Status", "Audience", "Start"],
-        actions: ["New campaign", "Activate / pause"],
-      },
-      {
-        label: "Subscribers",
-        columns: ["Email", "Segment", "Subscribed", "Status"],
-      },
-    ],
-    ai: [
-      {
-        label: "Create campaign",
-        kind: "write",
-        describe: "Create a marketing campaign.",
-      },
-      {
-        label: "List subscribers",
-        kind: "read",
-        describe: "List active newsletter subscribers.",
       },
     ],
   },

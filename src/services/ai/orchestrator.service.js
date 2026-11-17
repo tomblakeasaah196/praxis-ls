@@ -567,7 +567,6 @@ const SYNONYMS = {
   costing: "costing", cost: "costing",
   lead: "lead", prospect: "lead",
   opportunity: "opportunity", deal: "opportunity",
-  campaign: "marketing_campaign", marketing: "marketing_campaign",
   driver: "driver", fuel: "fuel_log",
   compliance: "compliance_flag", document: "document_vault",
 };

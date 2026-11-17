@@ -10,7 +10,7 @@
  *    exact: with TRIAGED occupying the vocabulary there was nowhere to record
  *    that anyone had REPLIED, so the KPI row this desk exists to show could not
  *    be computed. Whether an enquiry was triaged is now ONE query —
- *    `lead_id IS NOT NULL OR partnership_request_id IS NOT NULL` — see
+ *    `lead_id IS NOT NULL` — see
  *    `isTriaged` below, which is the only place that question is answered.
  *
  * 2. THE TILES PARTITION THE SET. Every status belongs to exactly one tile, and
@@ -84,7 +84,7 @@ const isClosed = (status) => status === "CLOSED";
  * recomputed in a renderer. The legacy's analogue was computed two different
  * ways and the two disagreed.
  */
-const isTriaged = (row = {}) => Boolean(row.lead_id || row.partnership_request_id);
+const isTriaged = (row = {}) => Boolean(row.lead_id);
 
 /** One tile per status, in lifecycle order, plus TOTAL. Derived — see rule 2. */
 const TILE_LABELS = {

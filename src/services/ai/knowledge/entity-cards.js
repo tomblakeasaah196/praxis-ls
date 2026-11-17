@@ -429,22 +429,6 @@ const BUILDERS = [
       text: `Proposal ${r.doc_number || "draft"} for ${r.client || "?"} — status ${r.status}, total ${r.total_ttc || 0} XAF.`,
     }),
   },
-  {
-    key: "marketing_campaign",
-    // F8: this SELECT named mc.budget / mc.start_date / mc.end_date, and none of
-    // the three has ever existed on this table — the card threw on every
-    // reindex. The real columns are budget_amount (added by 0685) and
-    // starts_on / ends_on.
-    sql: `SELECT mc.campaign_id, mc.name, mc.status, mc.budget_amount, mc.budget_currency,
-                 mc.starts_on, mc.ends_on, mc.actual_leads, mc.actual_won
-            FROM marketing_campaign mc ORDER BY mc.created_at DESC LIMIT $1`,
-    card: (r) => ({
-      ref: `campaign:${r.name}`,
-      title: `Campaign: ${r.name}`,
-      confidentiality: "normal",
-      text: `Marketing campaign "${r.name}" — status ${r.status}, budget ${r.budget_amount || 0} ${r.budget_currency || "XAF"}${r.starts_on ? `, ${dmy(r.starts_on)}` : ""}${r.ends_on ? ` to ${dmy(r.ends_on)}` : ""}. Recorded (hand-entered) performance: ${r.actual_leads || 0} leads, ${r.actual_won || 0} won.`,
-    }),
-  },
   // ── Master data ──
   {
     key: "chart_of_accounts",

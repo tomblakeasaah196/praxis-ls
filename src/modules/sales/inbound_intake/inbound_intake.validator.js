@@ -53,11 +53,9 @@ const schemas = {
     subject: text255,
   }),
 
-  /** Back-compatible with the pre-F9 body `{to_lead, close}`; `to_partnership`
-   *  is the addition. */
+  /** The pre-F9 body `{to_lead, close}`. */
   triage: z.object({
     to_lead: z.boolean().optional(),
-    to_partnership: z.boolean().optional(),
     close: z.boolean().optional(),
   }),
 
@@ -67,13 +65,8 @@ const schemas = {
   aiTriage: z.object({
     contact_enquiry_id: z.string().guid(),
     to_lead: z.boolean().optional(),
-    to_partnership: z.boolean().optional(),
     close: z.boolean().optional(),
   }),
-
-  // Partnership payloads moved to sales/partnership_request in F10, and their
-  // status enum went with them: 0688 replaces REVIEWING / ACCEPTED / DECLINED
-  // with the legacy API's own NEW / IN_REVIEW / APPROVED / REJECTED.
 };
 
 const mw = (k) => (req, _res, next) => {

@@ -62,6 +62,12 @@ function registry() {
     const sql = fs.readFileSync(path.join(MIGRATIONS, f), "utf8")
       .split(/^-- DOWN\s*$/m)[0]
       .replace(/^\s*--.*$/gm, "");
+    // A later migration may also retire a row outright — 14500 deletes
+    // `campaign.send` with the module that sent it. A deleted row claims
+    // nothing, so it leaves the registry this gate checks.
+    for (const m of sql.matchAll(/DELETE FROM mail_send_point WHERE send_point_key = '([a-z0-9_.]+)'/g)) {
+      rows.delete(m[1]);
+    }
     if (!/UPDATE mail_send_point\b/.test(sql)) continue;
     for (const m of sql.matchAll(/UPDATE mail_send_point[\s\S]*?SET[\s\S]*?is_wired\s*=\s*(true|false)[\s\S]*?WHERE send_point_key = '([a-z0-9_.]+)'/g)) {
       rows.set(m[2], m[1] === "true");
@@ -87,6 +93,8 @@ describe("the send-point registry describes the code", () => {
   test("the registry is readable and has the rows this gate thinks it does", () => {
     expect(ROWS.size).toBeGreaterThan(15);
     expect(ROWS.has("document.share")).toBe(true);
+    // Retired with Campaigns (14500): a DELETE in a later migration counts.
+    expect(ROWS.has("campaign.send")).toBe(false);
   });
 
   /**
@@ -120,7 +128,7 @@ describe("the send-point registry describes the code", () => {
 
   test("the queue handler carries the key through Redis", () => {
     const handler = fs.readFileSync(path.join(ROOT, "src/jobs/handlers/email-send.js"), "utf8");
-    // Campaigns and scheduled reports send from the worker. Without this, their
+    // Scheduled reports send from the worker. Without this, their
     // bindings are stored and dropped on the way to the send.
     expect(handler).toMatch(/sendPoint/);
     expect(handler).toMatch(/entityId/);

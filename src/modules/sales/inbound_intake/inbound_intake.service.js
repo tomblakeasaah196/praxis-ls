@@ -1,10 +1,11 @@
 /**
  * Inbound intake (MOD-25) — the contact enquiry desk (F9,
- * doc/SALES_CRM_FEATURES.md), plus the partnership functions F10 is moving out.
+ * doc/SALES_CRM_FEATURES.md), shown as General Enquiries.
  *
  * A message from the website's contact form arrives, gets classified, gets
- * answered, and either closes or becomes a lead — or, when it is a partnership
- * offer, a partnership request in F10's register.
+ * answered, and either closes or becomes a lead. A partnership offer is an
+ * enquiry of type PARTNERSHIP: the partnership register was removed in the
+ * Sales lean revamp (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md, D10).
  *
  * FOUR THINGS THIS LAYER IS RESPONSIBLE FOR.
  *
@@ -18,9 +19,8 @@
  * 2. TRIAGE DOES NOT TOUCH THE STATUS. Raising a lead from an enquiry is not an
  *    answer to the person who wrote in. Under the old shape it silently moved
  *    the row out of the unread pile, so an enquiry could be "handled" with
- *    nobody ever replying. Triage now writes `lead_id` /
- *    `partnership_request_id` and leaves the correspondence exactly where it
- *    was.
+ *    nobody ever replying. Triage now writes `lead_id` and leaves the
+ *    correspondence exactly where it was.
  *
  * 3. A REPLY IS SENT, AND THE ATTEMPT SURVIVES ITS OWN FAILURE. `respond` puts
  *    a PENDING row down and COMMITS it before calling the mail engine, then
@@ -45,7 +45,7 @@
 const repo = require("./inbound_intake.repo");
 const events = require("./inbound_intake.events");
 const rules = require("./inbound_intake.rules");
-// BOTH destinations are reached through their REPO, never their service, and
+// The lead is reached through its REPO, never its service, and
 // this is not a style choice. `lead.service.create` and every other create in
 // this codebase open and COMMIT their own BEGIN/COMMIT — calling one from
 // inside the transaction below would commit the outer transaction at the lead
@@ -57,8 +57,6 @@ const rules = require("./inbound_intake.rules");
 // record.
 const leadRepo = require("../lead/lead.repo");
 const leadEvents = require("../lead/lead.events");
-const partnershipRepo = require("../partnership_request/partnership_request.repo");
-const partnershipEvents = require("../partnership_request/partnership_request.events");
 const emailService = require("../../../services/email.service");
 const { mapSmtpError, isSmtpError } = require("../../mail/mail/smtp-error.map");
 const { emitEvent, audit } = require("../../../shared/events/emit");
@@ -265,14 +263,6 @@ function htmlBody(text) {
  * Route an enquiry into the funnel.
  *
  * `to_lead` keeps the conversion this system has and the legacy does not.
- * `to_partnership` is new: a PARTNERSHIP-typed message belongs in F10's
- * register, and without this the same enquiry gets worked twice — once here and
- * once by whoever re-keys it into the partnership desk.
- *
- * ROUTING TO PARTNERSHIP IS ALSO A CLASSIFICATION. If the enquiry was not typed
- * PARTNERSHIP, this sets the type as part of the same act: deciding it belongs
- * in the partnership register IS deciding what kind of message it is, and
- * leaving the two to disagree would make the type filter lie about the row.
  *
  * `close` is NOT a status write here — it goes through `transition`, so the
  * guard applies, and it is skipped silently when the move is not legal rather
@@ -280,7 +270,7 @@ function htmlBody(text) {
  *
  * Both writes and the status move share ONE transaction.
  */
-async function triageEnquiry(client, { id, toLead = false, toPartnership = false, close = false, actor = {} }) {
+async function triageEnquiry(client, { id, toLead = false, close = false, actor = {} }) {
   const e = await repo.getEnquiry(client, id);
   if (!e) throw new AppError("NOT_FOUND", "Enquiry not found", 404);
 
@@ -288,7 +278,6 @@ async function triageEnquiry(client, { id, toLead = false, toPartnership = false
   try {
     const fields = {};
     let leadId = e.lead_id;
-    let partnershipId = e.partnership_request_id;
 
     if (toLead && !leadId) {
       const lead = await leadRepo.insert(client, {
@@ -316,32 +305,12 @@ async function triageEnquiry(client, { id, toLead = false, toPartnership = false
       await audit(client, { actorUserId: actor.user_id || null, action: leadEvents.CREATED, moduleKey: leadEvents.MODULE, entityRef: "lead:" + leadId, after: lead });
     }
 
-    if (toPartnership && !partnershipId) {
-      const pr = await partnershipRepo.insert(client, {
-        company_name: e.company_name || e.name || "Website enquiry",
-        contact_name: e.name || null,
-        email: e.email,
-        contact_phone: e.phone,
-        proposal_text: e.message,
-        intake_channel: "WEBSITE",
-      });
-      partnershipId = pr.partnership_request_id;
-      fields.partnership_request_id = partnershipId;
-      // The classification and the routing agree, always — see the note above.
-      if (e.enquiry_type !== "PARTNERSHIP") fields.enquiry_type = "PARTNERSHIP";
-      await emitEvent(client, { eventTypeKey: partnershipEvents.CREATED, moduleKey: partnershipEvents.MODULE, entityRef: "partnership_request:" + partnershipId, actorUserId: actor.user_id || null });
-      await audit(client, { actorUserId: actor.user_id || null, action: partnershipEvents.CREATED, moduleKey: partnershipEvents.MODULE, entityRef: "partnership_request:" + partnershipId, after: pr });
-    }
-
     let row = Object.keys(fields).length ? await repo.updEnquiry(client, id, fields) : e;
 
     if (fields.lead_id) {
       await emitEvent(client, { eventTypeKey: events.ENQUIRY_ROUTED_TO_LEAD, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null });
     }
-    if (fields.partnership_request_id) {
-      await emitEvent(client, { eventTypeKey: events.ENQUIRY_ROUTED_TO_PARTNERSHIP, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null });
-    }
-    await audit(client, { actorUserId: actor.user_id || null, action: "contact_enquiry.triaged", moduleKey: events.MODULE, entityRef: ref(id), before: e, after: { lead_id: leadId, partnership_request_id: partnershipId } });
+    await audit(client, { actorUserId: actor.user_id || null, action: "contact_enquiry.triaged", moduleKey: events.MODULE, entityRef: ref(id), before: e, after: { lead_id: leadId } });
 
     // The status move, guarded like every other. Not legal from here (already
     // CLOSED) means there is nothing to do, not that the triage failed.
@@ -350,7 +319,7 @@ async function triageEnquiry(client, { id, toLead = false, toPartnership = false
     }
 
     await client.query("COMMIT");
-    return { enquiry: row, lead_id: leadId, partnership_request_id: partnershipId };
+    return { enquiry: row, lead_id: leadId };
   } catch (err) { await client.query("ROLLBACK"); throw err; }
 }
 
@@ -380,22 +349,6 @@ async function getEnquiry(client, id) {
 
 /** Every matching row, for the CSV export. `truncated` is reported, never hidden. */
 const listEnquiriesForExport = (client, q = {}) => repo.listEnquiriesForExport(client, q, EXPORT_CAP);
-
-/* ─── partnership requests ────────────────────────────────────────────────
- *
- * MOVED in F10 to src/modules/sales/partnership_request/ (basePath
- * /partnership-requests). F9 left these here marked "F10 territory"; this is
- * F10 collecting them.
- *
- * They could not stay: migration 0688 replaces the table's status vocabulary
- * with the legacy API's own NEW / IN_REVIEW / APPROVED / REJECTED, so the
- * `review` validator below — REVIEWING / ACCEPTED / DECLINED — now writes
- * values the CHECK constraint refuses. An endpoint that 23514s on every call
- * is not a back-compatible alias.
- *
- * Triage still raises a partnership request: it does it through
- * partnership_request.repo, above, which is the F10 register.
- */
 
 module.exports = {
   submitEnquiry, transition, markRead, updateEnquiry, respond, triageEnquiry,

@@ -12,10 +12,6 @@ jest.mock("../../src/modules/sales/inbound_intake/inbound_intake.repo", () => ({
   updateEnquiry: jest.fn(),
   kpis: jest.fn(),
 }));
-jest.mock("../../src/modules/sales/marketing_campaign/marketing_campaign.repo", () => ({
-  subscribe: jest.fn(),
-  unsubscribe: jest.fn(),
-}));
 jest.mock("../../src/shared/events/emit", () => ({
   emitEvent: jest.fn(),
   audit: jest.fn(),
@@ -24,11 +20,9 @@ jest.mock("../../src/shared/events/emit", () => ({
 const lead = require("../../src/modules/sales/lead/lead.service");
 const quote = require("../../src/modules/sales/quote_request/quote_request.service");
 const inboundRepo = require("../../src/modules/sales/inbound_intake/inbound_intake.repo");
-const campaignRepo = require("../../src/modules/sales/marketing_campaign/marketing_campaign.repo");
 const emit = require("../../src/shared/events/emit");
 const publicIntake = require("../../src/modules/sales/public_intake/public_intake.service");
 const inbound = require("../../src/modules/sales/inbound_intake/inbound_intake.service");
-const campaign = require("../../src/modules/sales/marketing_campaign/marketing_campaign.service");
 
 function client() {
   return {
@@ -108,17 +102,6 @@ describe("F13 intake persistence and event atomicity", () => {
     await expect(inbound.submitEnquiry(c, { data: { message: "Hello" }, actor: {} }))
       .rejects.toThrow("event failed");
     expect(inboundRepo.insertEnquiry).toHaveBeenCalledTimes(1);
-    expect(verbs(c)).toContain("ROLLBACK");
-    expect(verbs(c)).not.toContain("COMMIT");
-  });
-
-  test("newsletter upsert rolls back when event emission fails", async () => {
-    campaignRepo.subscribe.mockResolvedValue({ email: "ada@example.com" });
-    emit.emitEvent.mockRejectedValueOnce(new Error("event failed"));
-    const c = client();
-    await expect(campaign.subscribe(c, { email: "ada@example.com", actor: {} }))
-      .rejects.toThrow("event failed");
-    expect(campaignRepo.subscribe).toHaveBeenCalledTimes(1);
     expect(verbs(c)).toContain("ROLLBACK");
     expect(verbs(c)).not.toContain("COMMIT");
   });

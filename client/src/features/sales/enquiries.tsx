@@ -2,8 +2,9 @@
  * Sales & CRM — Contact enquiries (F9, doc/SALES_CRM_FEATURES.md#F9).
  *
  * The desk for messages from the website's contact form: they arrive, get
- * classified, get answered, and either close or become a lead — or, when they
- * are a partnership offer, a partnership request in F10's register.
+ * classified, get answered, and either close or become a lead. A partnership
+ * offer is an enquiry of type Partnership: the partnership register was removed
+ * in the Sales lean revamp (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md, D10).
  *
  * THE TILES PARTITION THE SET. One tile per correspondence status plus TOTAL,
  * and they add up under every filter combination with no row left over.
@@ -101,10 +102,10 @@ const ENQUIRY_AI: AiAction[] = [
       "Suggest an enquiry_type (GENERAL_ENQUIRY / PARTNERSHIP / CAREERS / MEDIA) for every message still sitting in New.",
   },
   {
-    label: "Route to lead or partnership",
+    label: "Route to a lead",
     kind: "write",
     describe:
-      "Raise a lead, or a partnership request, from an enquiry (human-confirmed before the write runs).",
+      "Raise a lead from an enquiry (human-confirmed before the write runs).",
   },
 ];
 
@@ -215,7 +216,7 @@ export function EnquiriesPage() {
             // ONE source of truth for "was this triaged" — the FKs, never a
             // status value. The legacy computed its analogue two different ways
             // and the two disagreed.
-            const routed = Boolean(r.lead_id || r.partnership_request_id);
+            const routed = Boolean(r.lead_id);
             return (
               <div key={id} className="lux-card flex items-center gap-3 p-3">
                 <Avatar name={String(r.name || r.company_name || r.email || "?")} />
@@ -230,11 +231,7 @@ export function EnquiriesPage() {
                     </span>
                     {routed && (
                       <span className="rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary-ink">
-                        {r.lead_id && r.partnership_request_id
-                          ? "lead + partnership"
-                          : r.lead_id
-                            ? "lead raised"
-                            : "partnership raised"}
+                        lead raised
                       </span>
                     )}
                   </div>

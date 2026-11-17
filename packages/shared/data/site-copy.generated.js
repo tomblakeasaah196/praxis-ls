@@ -2,7 +2,7 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * The site copy catalogue: every `site.*` string a tenant may override.
- * 585 keys in 26 sections.
+ * 578 keys in 26 sections.
  * Source: public-web/src/lib/i18n-dict.ts
  * Regenerate with: node scripts/gen/gen-site-copy-catalogue.js
  *
@@ -206,19 +206,12 @@ exports.SITE_COPY_ENTRIES = [
   ["site.footer.credentials","footer","Credentials","Accredited:","Agréments :"],
   ["site.footer.legal","footer","Legal","Legal","Mentions légales"],
   ["site.footer.legalEntity","footer","Legal Entity","Legal entity:","Entité juridique :"],
-  ["site.footer.newsletter","footer","Newsletter","One occasional note on routes, capacity and customs changes. No marketing.","Une note occasionnelle sur les routes, la capacité et les changements douaniers. Pas de marketing."],
-  ["site.footer.newsletterCta","footer","Newsletter Cta","Subscribe","S’abonner"],
-  ["site.footer.newsletterEmail","footer","Newsletter Email","Email address","Adresse de courriel"],
-  ["site.footer.newsletterErr","footer","Newsletter Err","That address did not work. Please try again.","Cette adresse n’a pas fonctionné. Veuillez réessayer."],
-  ["site.footer.newsletterLimited","footer","Newsletter Limited","Too many sign-ups from this connection. Please try again in an hour.","Trop d’inscriptions depuis cette connexion. Réessayez dans une heure."],
-  ["site.footer.newsletterOk","footer","Newsletter Ok","You're on the list.","Vous êtes inscrit."],
   ["site.footer.portal","footer","Portal","Client portal","Portail client"],
   ["site.footer.portfolio","footer","Portfolio","Success stories","Nos réalisations"],
   ["site.footer.powered","footer","Powered","Powered by JBS Praxis","Propulsé par JBS Praxis"],
   ["site.footer.privacy","footer","Privacy","Privacy","Confidentialité"],
   ["site.footer.quote","footer","Quote","Request a quote","Demander un devis"],
   ["site.footer.rights","footer","Rights","All rights reserved.","Tous droits réservés."],
-  ["site.footer.sending","footer","Sending","Sending…","Envoi…"],
   ["site.footer.services","footer","Services","Services","Services"],
   ["site.footer.social","footer","Social","Social","Réseaux sociaux"],
   ["site.footer.socialOn","footer","Social On","{{platform}}, in a new tab","{{platform}}, dans un nouvel onglet"],

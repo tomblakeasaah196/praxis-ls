@@ -8,7 +8,6 @@ import { usePublishedServices } from "@/lib/use-services";
 import { BrandGlyph } from "@/components/ui/icons";
 import { LangToggle } from "./site-header";
 import { ThemeToggle } from "./theme-toggle";
-import { NewsletterForm } from "./newsletter-form";
 import { afterPaint } from "@/lib/after-paint";
 import { p } from "@/lib/base-path";
 
@@ -153,10 +152,6 @@ export function SiteFooter() {
               {withServices ? <PublishedServiceLinks /> : null}
             </nav>
           ))}
-        </div>
-
-        <div className="mt-10 border-t border-[var(--hero-line)] pt-8">
-          <NewsletterForm />
         </div>
 
         <FooterExtras />

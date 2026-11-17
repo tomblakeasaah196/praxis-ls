@@ -2,7 +2,6 @@
 const lead = require("../../src/modules/sales/lead/lead.rules");
 const opp = require("../../src/modules/sales/opportunity/opportunity.events");
 const proposal = require("../../src/modules/sales/proposal/proposal.rules");
-const campaign = require("../../src/modules/sales/marketing_campaign/marketing_campaign.rules");
 const qr = require("../../src/modules/sales/quote_request/quote_request.rules");
 
 describe("Sales funnel rules (MOD-20–26)", () => {
@@ -23,17 +22,6 @@ describe("Sales funnel rules (MOD-20–26)", () => {
         { qty: 1, unit_price: 50.5 },
       ]),
     ).toBe(250.5);
-  });
-  // F8 put approval in front of ACTIVE: DRAFT -> ACTIVE no longer exists, and
-  // PENDING_APPROVAL is left through approve/reject rather than a transition.
-  // The full lifecycle, field locks and KPI arithmetic are in
-  // tests/unit/campaign-lifecycle.test.js.
-  test("campaign lifecycle", () => {
-    expect(campaign.assertTransition("DRAFT", "PENDING_APPROVAL")).toBe(true);
-    expect(campaign.assertDecision("PENDING_APPROVAL", "APPROVE")).toBe("ACTIVE");
-    expect(campaign.assertTransition("ACTIVE", "PAUSED")).toBe(true);
-    expect(() => campaign.assertTransition("DRAFT", "ACTIVE")).toThrow();
-    expect(() => campaign.assertTransition("ENDED", "ACTIVE")).toThrow();
   });
   test("opportunity emits stage/won/lost events", () => {
     expect(opp.WON).toBe("opportunity.won");

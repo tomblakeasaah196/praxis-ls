@@ -154,7 +154,7 @@ describe("F9 respond — refusals that happen before anything is sent", () => {
 
 describe("F9 triage does not answer anybody", () => {
   test("raising a lead leaves the correspondence status exactly where it was", async () => {
-    const row = enquiry({ status: "NEW", lead_id: null, partnership_request_id: null });
+    const row = enquiry({ status: "NEW", lead_id: null });
     repo.getEnquiry.mockResolvedValue(row);
     repo.updEnquiry.mockImplementation((_c, id, fields) => Promise.resolve({ ...row, ...fields }));
     const leadRepo = require("../../src/modules/sales/lead/lead.repo");

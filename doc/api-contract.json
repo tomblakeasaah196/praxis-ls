@@ -1,12 +1,12 @@
 {
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
-  "modules_mounted": 143,
-  "route_count": 1899,
+  "modules_mounted": 141,
+  "route_count": 1865,
   "tiers": {
-    "public": 75,
-    "self-scoped": 118,
-    "gated": 1706
+    "public": 73,
+    "self-scoped": 117,
+    "gated": 1675
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -86,18 +86,6 @@
       "rbac": false,
       "validated": true,
       "tier": "self-scoped"
-    },
-    "DELETE /api/tenant/campaigns/senders/:id": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "DELETE /api/tenant/campaigns/templates/:id": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
     },
     "DELETE /api/tenant/capabilities/:id": {
       "auth": true,
@@ -1454,54 +1442,6 @@
       "rbac": false,
       "validated": false,
       "tier": "public"
-    },
-    "GET /api/tenant/campaigns/": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/campaigns/:id": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/campaigns/export.csv": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/campaigns/senders": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/campaigns/subscribers": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/campaigns/templates": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/campaigns/templates/:id": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/campaigns/tiles": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
     },
     "GET /api/tenant/capabilities/": {
       "auth": true,
@@ -3436,30 +3376,6 @@
       "tier": "gated"
     },
     "GET /api/tenant/outbound/:id/lines": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/partnership-requests/": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/partnership-requests/:id": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/partnership-requests/export.csv": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/partnership-requests/tiles": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -5787,18 +5703,6 @@
       "validated": false,
       "tier": "gated"
     },
-    "PATCH /api/tenant/campaigns/:id": {
-      "auth": true,
-      "rbac": false,
-      "validated": false,
-      "tier": "self-scoped"
-    },
-    "PATCH /api/tenant/campaigns/templates/:id": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
     "PATCH /api/tenant/capabilities/:id": {
       "auth": true,
       "rbac": true,
@@ -6232,12 +6136,6 @@
       "tier": "gated"
     },
     "PATCH /api/tenant/outbound/:id/lines/:lineId": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "PATCH /api/tenant/partnership-requests/:id": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -7210,66 +7108,6 @@
       "tier": "gated"
     },
     "POST /api/tenant/branding/site/hero": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/campaigns/": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/campaigns/:id/approve": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/campaigns/:id/reject": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/campaigns/:id/send": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/campaigns/:id/transition": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/campaigns/senders": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/campaigns/senders/:id/verify": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/campaigns/subscribers": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/campaigns/subscribers/unsubscribe": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/campaigns/templates": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8973,36 +8811,6 @@
       "validated": false,
       "tier": "gated"
     },
-    "POST /api/tenant/partnership-requests/": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/partnership-requests/:id/approve": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/partnership-requests/:id/profile": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/partnership-requests/:id/reject": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/partnership-requests/:id/transition": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
     "POST /api/tenant/party-document-types/": {
       "auth": true,
       "rbac": true,
@@ -9538,18 +9346,6 @@
       "tier": "gated"
     },
     "POST /api/tenant/public/intake/contact-enquiries": {
-      "auth": false,
-      "rbac": false,
-      "validated": false,
-      "tier": "public"
-    },
-    "POST /api/tenant/public/intake/newsletter": {
-      "auth": false,
-      "rbac": false,
-      "validated": false,
-      "tier": "public"
-    },
-    "POST /api/tenant/public/intake/partnerships": {
       "auth": false,
       "rbac": false,
       "validated": false,

@@ -69,3 +69,34 @@ take several weeks; Google replies by email to the developer contact
 - Tokens are encrypted at rest (they are, in the tenant vault).
 - Deletion on request within 30 days.
 - No human reads mail except on request, for security, or by law.
+
+## 5. Google's quota, and how fast a mailbox loads
+
+Google meters the Gmail API in quota units, **per mailbox, per minute**. For a
+Cloud project created after 1 May 2026 (this one) the limit is **6,000 units**;
+it was 15,000 before. Reading one full message costs **60**, an attachment 20,
+a send 100
+([reference](https://developers.google.com/workspace/gmail/api/reference/quota)).
+That is about **100 message reads a minute** for a mailbox, shared between the
+sync and whatever its owner is doing.
+
+What follows from that:
+
+- **A first load is gradual, newest first.** A sync run spends at most 70% of
+  the minute (about 70 messages across all folders, the Inbox getting up to
+  half) and carries on next minute from where it stopped. A mailbox with
+  10,000 messages takes a few hours to load fully. New mail still arrives
+  within a minute, because it is read before the backlog.
+- **"Slow down" from Google is not an error.** If the limit is hit anyway (two
+  runs in a minute, a busy user), the run keeps what it read and resumes. A
+  folder shows an error only for a failure that is not about rate, and then in
+  Google's own words.
+- **To load faster, ask Google for more.** Google Cloud → APIs & Services →
+  Gmail API → *Quotas & System Limits* → "Units per minute per user" → edit and
+  request a higher value (15,000 was the old default). Approval is Google's
+  decision. If it is granted, raise `UNITS_PER_MINUTE` in
+  `src/modules/mail/mail/providers/gmail.provider.js` to match.
+
+Where to look when a Gmail mailbox misbehaves: Google Cloud → Gmail API →
+*Metrics* shows every call by method and response code. A burst of 403s on
+`GetMessage` / `GetProfile` with `ListLabels` still succeeding is the quota.
