@@ -5,8 +5,9 @@
  *                   search, the Master Composer). Connecting and managing
  *                   mailboxes (Microsoft 365 / Google / IMAP-SMTP) lives under
  *                   Comms → Setup.
- *   /comms/clients → the Client inbox: every client's portal conversations,
- *                   waiting first (client portal PR 3, MOD-64C).
+ *   /comms/clients → the Client inbox: one row per client and the open
+ *                   conversation beside it, laid out as Chat is (client portal
+ *                   PR 3, MOD-64C).
  *   /comms/calls  → the user's calls, and /comms/calls/:callId one call's
  *                   summary and transcript. Call settings live at
  *                   /settings/calls.
@@ -22,7 +23,6 @@
  */
 import { useParams, NavLink, Navigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/cn";
-import { pageShell } from "@/lib/layout";
 import { TeamChatPage } from "./team-chat";
 import { InboxPage } from "./inbox";
 import { CommsSetupPage } from "./setup/index";
@@ -70,6 +70,11 @@ export function CommsHub() {
      <main> does not scroll, which is the property, rather than the class that
      was going to force it. */
   const isMail = section === "mail";
+  /* The Client inbox is laid out as Chat is (17 Nov 2026): a list and a
+     conversation that each scroll inside the space the shell has left, so it
+     takes the same full-height chain Chat does, at every width. It used to be
+     a width-capped page that grew with its content. */
+  const isClients = section === "clients";
   // F10: no Calls tab while the tenant has calls off. A deep link to a call
   // still opens it — its record answers for itself.
   const callsOn = useCallCapabilities()?.calls === true;
@@ -87,9 +92,7 @@ export function CommsHub() {
     ) : section === "calls" ? (
       callId ? <CallRecordPage /> : <CallsListPage />
     ) : section === "clients" ? (
-      <section className={pageShell.wide}>
-        <ClientInboxPage />
-      </section>
+      <ClientInboxPage />
     ) : section === "mail" ? (
       /* The legacy Mail page's mode switcher (inbox / message log / mailboxes)
          was deleted with the legacy composer: the inbox IS the mailbox now.
@@ -123,7 +126,7 @@ export function CommsHub() {
     <section
       className={cn(
         "animate-fade-in",
-        isChat && "flex h-full min-h-0 flex-col",
+        (isChat || isClients) && "flex h-full min-h-0 flex-col",
         isMail && "lg:flex lg:h-full lg:min-h-0 lg:flex-col",
       )}
     >

@@ -743,6 +743,13 @@ export const en = {
     "Photo": "Photo",
     "Video": "Video",
     "Conversation info": "Conversation info",
+    // The Client inbox, laid out as Chat is (17 Nov 2026): the panel behind
+    // the info button, and the short "how long ago" on a row of the list.
+    "Conversation Info": "Conversation Info",
+    "now": "now",
+    "{{n}}m": "{{n}}m",
+    "{{n}}h": "{{n}}h",
+    "{{n}}d": "{{n}}d",
     "Conversation menu": "Conversation menu",
     "No messages yet: say hello.": "No messages yet: say hello.",
     "is typing…": "is typing…",
@@ -5160,6 +5167,12 @@ export const fr: Dict = {
     "Photo": "Photo",
     "Video": "Vidéo",
     "Conversation info": "Infos de la conversation",
+    // La boîte Clients, disposée comme le Chat (17 nov. 2026).
+    "Conversation Info": "Infos de la conversation",
+    "now": "à l'instant",
+    "{{n}}m": "{{n}} min",
+    "{{n}}h": "{{n}} h",
+    "{{n}}d": "{{n}} j",
     "Conversation menu": "Menu de la conversation",
     "No messages yet: say hello.": "Pas encore de messages: dites bonjour.",
     "is typing…": "est en train d'écrire…",

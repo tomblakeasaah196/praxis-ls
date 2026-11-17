@@ -6,9 +6,14 @@
  *
  * The recorder itself needs a microphone, so it is stood in for by a button
  * that "records" a clip; everything after the recording is the real panel.
+ *
+ * And the conversation around the box, as a client's own Messages tab mounts it
+ * (the panel with nothing but a client id): Chat's bubbles, the conversations as
+ * tabs, and the account manager behind an info button (tenant review, 17 Nov
+ * 2026).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderScreen } from "@/test/screen-harness";
 
@@ -47,6 +52,10 @@ vi.mock("@/features/comms/chat/voice-recorder", () => ({
     </button>
   ),
 }));
+
+// The conversation's backdrop is the tenant's hero image when their branding has
+// one; with no provider in this harness, no branding is the default wash.
+vi.mock("@/app/branding/branding-context", () => ({ useBranding: () => ({ branding: null }) }));
 
 import { ClientChatPanel } from "./client-chat-panel";
 
@@ -177,5 +186,106 @@ describe("the client chat's reply box", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("alert")).toHaveTextContent("Location is blocked for this site");
     expect(within(dialog).getByRole("button", { name: /Send location/ })).toBeDisabled();
+  });
+});
+
+const SHIP = "d1111111-1111-4111-8111-111111111111";
+const TALK = {
+  ...ROUTES,
+  "/portal/chat/threads": [
+    { dossier_id: null, dossier_ref: null, last_at: "2026-09-27T12:00:00Z", unread: 0 },
+    { dossier_id: SHIP, dossier_ref: "PRX-1", last_at: "2026-09-28T12:00:00Z", unread: 2 },
+  ],
+  "/portal/chat/messages": {
+    thread: "general", dossier_ref: null, has_more: false,
+    messages: [
+      {
+        message_id: "m1", direction: "CLIENT", body: "Is it out of port?", created_at: "2026-09-28T12:00:00Z",
+        author: { name: "Jean Mballa", email: "jean@acme.cm" }, seen: null, milestone: null, location: null, attachments: [],
+      },
+      {
+        message_id: "m2", direction: "STAFF", body: "It left this morning.", created_at: "2026-09-28T12:05:00Z",
+        author: { name: "Awa Ndiaye", email: null }, seen: true, milestone: null, location: null, attachments: [],
+      },
+    ],
+  },
+  "/portal/chat/read": {},
+  "/clients/c1/account-manager": {
+    client_id: "c1",
+    manager: { user_id: "u-awa", name: "Awa Ndiaye", job_title: "Key account manager", email: null, employee_id: "e-awa", reachable: true },
+  },
+};
+const talk = () => renderScreen(<ClientChatPanel clientId="c1" />, { routes: TALK });
+
+describe("the client conversation, as a client's Messages tab shows it", () => {
+  it("draws the messages in Chat's bubbles: the client's on one side, the team's on the other", async () => {
+    talk();
+    const theirs = (await screen.findByText("Is it out of port?")).closest(".msg-bubble");
+    const ours = screen.getByText("It left this morning.").closest(".msg-bubble");
+    expect(theirs).toHaveClass("msg-bubble--theirs");
+    expect(ours).toHaveClass("msg-bubble--mine");
+    // Who wrote each one is on the bubble, on both sides: the team is several people.
+    expect(within(theirs as HTMLElement).getByText("Jean Mballa")).toBeInTheDocument();
+    expect(within(ours as HTMLElement).getByText("Awa Ndiaye")).toBeInTheDocument();
+    // On Chat's backdrop, in a pane that scrolls by itself.
+    const pane = screen.getByRole("list").parentElement as HTMLElement;
+    expect(pane).toHaveClass("chat-thread-bg", "min-h-0", "overflow-y-auto");
+  });
+
+  it("follows a new message by moving its own pane, never the page around it", async () => {
+    const outer = vi.spyOn(Element.prototype, "scrollIntoView");
+    talk();
+    await screen.findByText("Is it out of port?");
+    expect(outer).not.toHaveBeenCalled();
+    outer.mockRestore();
+  });
+
+  it("has the conversations as tabs, and a reply goes to the one that is open", async () => {
+    const user = userEvent.setup();
+    talk();
+    const tabs = await screen.findByRole("tablist", { name: "Conversation" });
+    await waitFor(() => expect(within(tabs).getAllByRole("tab")).toHaveLength(2));
+    expect(within(tabs).getByRole("tab", { name: /General/ })).toHaveAttribute("aria-selected", "true");
+    expect(within(tabs).getByRole("tab", { name: /PRX-1/ })).toHaveTextContent("2");
+
+    await user.click(within(tabs).getByRole("tab", { name: /PRX-1/ }));
+    expect(within(tabs).getByRole("tab", { name: /PRX-1/ })).toHaveAttribute("aria-selected", "true");
+    await user.type(screen.getByRole("textbox"), "On its way{Enter}");
+    expect(posts()).toEqual([
+      { path: "/portal/chat/messages", method: "POST", body: { client_id: "c1", thread: SHIP, body: "On its way" } },
+    ]);
+  });
+
+  it("keeps the account manager behind the info button, closed until asked for", async () => {
+    const user = userEvent.setup();
+    talk();
+    const info = await screen.findByRole("button", { name: "Conversation Info" });
+    expect(info).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Account Manager")).toBeNull();
+    expect(calls.some((c) => c.path.startsWith("/clients/c1/account-manager"))).toBe(false);
+
+    await user.click(info);
+    // With no room given beside the messages it is a sheet over them.
+    const sheet = await screen.findByRole("dialog", { name: "Conversation Info" });
+    expect(await within(sheet).findByText("Account Manager")).toBeInTheDocument();
+    expect(await within(sheet).findByText("Key account manager")).toBeInTheDocument();
+  });
+
+  it("opens that panel beside the messages where the screen gives it the room", async () => {
+    const user = userEvent.setup();
+    renderScreen(<ClientChatPanel clientId="c1" infoBeside />, { routes: TALK });
+    await user.click(await screen.findByRole("button", { name: "Conversation Info" }));
+    const panel = screen.getByRole("complementary", { name: "Conversation Info" });
+    expect(await within(panel).findByText("Account Manager")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("drops the hint from the message box once the box is clicked into, as Chat's does", async () => {
+    talk();
+    const box = await screen.findByRole("textbox");
+    expect(box).toHaveAttribute("placeholder", "Reply to the client…");
+    // The rule itself is CSS, which this harness does not apply: what is pinned
+    // is that the box carries it, and Chat's round corners with it.
+    expect(box).toHaveClass("focus:placeholder:text-transparent", "rounded-2xl");
   });
 });
