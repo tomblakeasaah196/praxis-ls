@@ -1870,7 +1870,7 @@
       "route": "/comms",
       "area": "comms",
       "module_key": "MOD-64",
-      "purpose": "Unified inbox — team chat and email in one conversation list.",
+      "purpose": "Team chat with colleagues: direct messages and named groups, with files, voice notes and records attached to a message, and a call button on a direct conversation. Email is in Mailbox.",
       "actions": [
         "list_comms_channels",
         "comms_unread",

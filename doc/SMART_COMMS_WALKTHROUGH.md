@@ -15,6 +15,10 @@
 >   Response Times and Trust & Archives are off the screen; Test Calls is under Settings → Calls.
 > - **Signatures.** No longer a Comms tab or a Settings screen: it is part of Setup, as above.
 > - **Search.** One Search button. **By Meaning** is gone.
+> - **Chat (17 Nov 2026).** Two panes: the list and the conversation. No info panel, no filter pills,
+>   no Chat Appearance. **New** is one dialog: pick people (one is a direct message, several is a
+>   group you name). The composer's **+** holds Emoji, Attach File and Attach Record; Schedule
+>   Message and Quick Phrases are gone, and so are the two hint lines under the box.
 >
 > Acts 5 to 8 below describe the screens as they were.
 

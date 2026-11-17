@@ -24,9 +24,7 @@ import { VoiceRecorder, type Recording } from "./voice-recorder";
 import { ErpCardView } from "./erp-card";
 import { ComposerActions } from "./composer-actions";
 import { MessageEditor } from "./message-editor";
-import { parseMessage } from "./message-format";
 import { LinkPreviewStrip } from "./link-card";
-import { ScheduledMessages } from "./scheduled-messages";
 
 const ACCEPT =
   "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,application/pdf";
@@ -97,7 +95,6 @@ export function Composer({
   };
   const busyRef = React.useRef(false);
   const [records, setRecords] = React.useState<ErpCard[]>([]);
-  const [scheduleOpen, setScheduleOpen] = React.useState(false);
   const editorRef = React.useRef<Editor | null>(null);
   const fileOpenRef = React.useRef<(() => void) | null>(null);
   const untouched = React.useRef(true);
@@ -108,10 +105,6 @@ export function Composer({
   editRef.current = editingMessage;
   const draftTimer = React.useRef<number | null>(null);
   const draftWrites = React.useRef<Promise<unknown>>(Promise.resolve());
-  const scheduleRequest = React.useRef<{
-    signature: string;
-    id: string;
-  } | null>(null);
   const [draftReady, setDraftReady] = React.useState(false);
   const [pasteMessage, setPasteMessage] = React.useState<string | null>(null);
 
@@ -245,23 +238,15 @@ export function Composer({
     if (!editRef.current) untouched.current = false;
     setPasteMessage(null);
     setText(value);
-    scheduleRequest.current = null;
     onTyping?.();
   }
-  function insertText(value: string, formatted = false) {
+  function insertText(value: string) {
     untouched.current = false;
-    if (formatted)
-      editorRef.current
-        ?.chain()
-        .focus()
-        .insertContent(parseMessage(value).content || [])
-        .run();
-    else
-      editorRef.current
-        ?.chain()
-        .focus()
-        .insertContent({ type: "text", text: value })
-        .run();
+    editorRef.current
+      ?.chain()
+      .focus()
+      .insertContent({ type: "text", text: value })
+      .run();
   }
   async function clearDraft() {
     stopDraftTimer();
@@ -270,7 +255,7 @@ export function Composer({
       /* @silent:storage — successful send is authoritative */
     });
   }
-  async function submit(sendAt?: string, tz?: string): Promise<boolean> {
+  async function submit(): Promise<boolean> {
     if (!canSend || busyRef.current) return false;
     busyRef.current = true;
     setBusy(true);
@@ -282,35 +267,6 @@ export function Composer({
           await api.editMessage(editingMessage.message_id, text.trim());
         onCancelEdit?.();
       } else {
-        if (sendAt && tz) {
-          const payload = {
-            body: text.trim(),
-            attachments: attachments(),
-            reply_to: replyTo?.message_id || null,
-            send_at: sendAt,
-            timezone: tz,
-          };
-          const signature = JSON.stringify(payload);
-          if (scheduleRequest.current?.signature !== signature)
-            scheduleRequest.current = { signature, id: crypto.randomUUID() };
-          const result = await api.scheduleMessage(channelId, {
-            ...payload,
-            request_id: scheduleRequest.current.id,
-          });
-          if (result.status === "CANCELLED" || result.status === "FAILED")
-            throw new Error(
-              tr(
-                "This scheduling request is no longer pending. Choose a new time to schedule again.",
-              ),
-            );
-          toast.success(
-            tr(
-              result.status === "SENT"
-                ? "Message was already delivered."
-                : "Message scheduled.",
-            ),
-          );
-        } else
           await api.postMessage(channelId, text.trim(), {
             attachments: attachments(),
             reply_to: replyTo?.message_id || null,
@@ -319,7 +275,6 @@ export function Composer({
         replaceText("");
         setRecords([]);
         upload.reset();
-        scheduleRequest.current = null;
         onCancelReply?.();
       }
       onSent();
@@ -417,7 +372,6 @@ export function Composer({
             items={upload.items}
             onRemove={(id) => {
               if (!busyRef.current) {
-                scheduleRequest.current = null;
                 upload.remove(id);
               }
             }}
@@ -476,15 +430,12 @@ export function Composer({
             fileOpenRef.current?.();
           }}
           onRecord={(card) => {
-            scheduleRequest.current = null;
             setRecords((r) =>
               r.some((x) => x.kind === card.kind && x.id === card.id)
                 ? r
                 : [...r, card],
             );
           }}
-          onPhrase={(body) => insertText(body, true)}
-          onSchedule={() => setScheduleOpen(true)}
         />
         <div className="hidden">
           <FilePicker
@@ -496,7 +447,6 @@ export function Composer({
             label={tr("Attach a file")}
             onPick={(files) => {
               setPasteMessage(null);
-              scheduleRequest.current = null;
               upload.pick(files);
             }}
           />
@@ -509,7 +459,6 @@ export function Composer({
             if (result.kind === "accepted") {
               e.preventDefault();
               setPasteMessage(null);
-              scheduleRequest.current = null;
               void upload.pick([result.file]);
               return;
             }
@@ -561,25 +510,16 @@ export function Composer({
           <VoiceRecorder onRecorded={sendVoiceNote} disabled={busy} />
         )}
       </div>
-      <p className="px-14 pb-1 text-[10px] text-muted-foreground">
-        {tr("Enter to send · Shift + Enter for a new line")}
-      </p>
-      <p
-        className={`px-14 pb-2 text-[10px] ${
-          pasteMessage ? "text-destructive" : "text-muted-foreground"
-        }`}
-        role={pasteMessage ? "status" : undefined}
-      >
-        {pasteMessage || tr("Drop a file here or press Ctrl+V to attach it.")}
-      </p>
-      <ScheduledMessages
-        channelId={channelId}
-        open={scheduleOpen}
-        onClose={() => setScheduleOpen(false)}
-        canSchedule={canSend && !editingMessage}
-        onSchedule={submit}
-        busy={busy}
-      />
+      {/* Only when a paste was refused. Two standing lines used to sit here,
+          "Enter to send · Shift + Enter for a new line" and "Drop a file here
+          or press Ctrl+V to attach it", under every message anyone ever wrote.
+          The tenant asked for both to go (17 Nov 2026): Enter sending is what
+          every chat does, and attaching is the + beside the box. */}
+      {pasteMessage && (
+        <p className="px-14 pb-2 text-[10px] text-destructive" role="status">
+          {pasteMessage}
+        </p>
+      )}
     </div>
   );
 }

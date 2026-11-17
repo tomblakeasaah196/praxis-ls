@@ -4,30 +4,31 @@ import { PickerPanel } from "@/components/ui/emoji-picker";
 import {
   PlusIcon,
   UploadIcon,
-  CalendarIcon,
-  PencilIcon,
   HashIcon,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { tr } from "@/lib/i18n";
 import type { ErpCard } from "@/lib/smartcomm-api";
 import { ErpPicker } from "./erp-picker";
-import { QuickPhrases } from "./quick-phrases";
 
+/**
+ * The composer's + menu: three things to add to a message.
+ *
+ * It held five. Templates / Quick Phrases and Schedule Message left with the
+ * chat clean-up of 17 Nov 2026, when the tenant was asked which of the tools
+ * people use and kept voice notes and Attach Record. Emoji and Attach File are
+ * what a chat cannot do without.
+ */
 export function ComposerActions({
   disabled,
   onEmoji,
   onFile,
   onRecord,
-  onPhrase,
-  onSchedule,
 }: {
   disabled?: boolean;
   onEmoji: (glyph: string) => void;
   onFile: () => void;
   onRecord: (card: ErpCard) => void;
-  onPhrase: (body: string) => void;
-  onSchedule: () => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const [panel, setPanel] = React.useState("menu");
@@ -102,26 +103,7 @@ export function ComposerActions({
             onClick={() => setPanel("record")}
           >
             <HashIcon />
-            {tr("Attach Record / Context")}
-          </button>
-          <button
-            type="button"
-            className={itemClass}
-            onClick={() => setPanel("phrases")}
-          >
-            <PencilIcon />
-            {tr("Templates / Quick Phrases")}
-          </button>
-          <button
-            type="button"
-            className={itemClass}
-            onClick={() => {
-              close();
-              onSchedule();
-            }}
-          >
-            <CalendarIcon />
-            {tr("Schedule Message")}
+            {tr("Attach Record")}
           </button>
         </div>
       )}
@@ -130,14 +112,6 @@ export function ComposerActions({
         <div className="p-3">
           <ErpPicker embedded open onClose={close} onPick={onRecord} />
         </div>
-      )}
-      {panel === "phrases" && (
-        <QuickPhrases
-          onInsert={(body) => {
-            onPhrase(body);
-            close();
-          }}
-        />
       )}
     </Popover>
   );

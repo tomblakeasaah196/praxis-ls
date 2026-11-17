@@ -81,7 +81,6 @@ vi.mock("./composer-actions", () => ({
 }));
 vi.mock("./voice-recorder", () => ({ VoiceRecorder: () => null }));
 vi.mock("./erp-card", () => ({ ErpCardView: () => null }));
-vi.mock("./scheduled-messages", () => ({ ScheduledMessages: () => null }));
 vi.mock("./message-format", () => ({ parseMessage: () => ({ content: [] }) }));
 
 const pdf = () =>
@@ -120,6 +119,17 @@ describe("chat composer paste", () => {
     expect(pick).toHaveBeenCalledWith([
       expect.objectContaining({ name: "clip.pdf", type: "application/pdf" }),
     ]);
+  });
+
+  it("PRINTS NOTHING UNDER THE BOX until there is something to say", async () => {
+    // Two standing lines used to sit under every message anyone wrote. The
+    // tenant asked for both to go; the only thing that may appear there now
+    // is a refused paste.
+    render(<Composer channelId="channel-1" onSent={vi.fn()} />);
+    await screen.findByTestId("composer-actions");
+    expect(screen.queryByText(/Enter to send/)).toBeNull();
+    expect(screen.queryByText(/Drop a file here/)).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("shows a local error when the pasted file type is not accepted", async () => {
