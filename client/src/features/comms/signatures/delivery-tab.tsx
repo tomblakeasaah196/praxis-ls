@@ -1,5 +1,5 @@
 /**
- * Signatures → Delivery check. "Why is the card not showing in my email?"
+ * Setup → Company Mail → Signatures → Delivery Check. "Why is the card not showing in my email?"
  *
  * WHY THIS SCREEN EXISTS AT ALL. The card reaches a recipient through six
  * steps, and when any one of them breaks the symptom is identical: the mail

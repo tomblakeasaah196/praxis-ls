@@ -105,19 +105,19 @@ const SOURCES = {
     label: "Desk phone",
     scope: "self",
     owner: "you",
-    route: "/comms/signatures",
+    route: "/comms/setup",
     field: "phone_desk",
     hint: "You can set this yourself, right here.",
-    where: "Comms → Signatures → My signature",
+    where: "Comms → Setup → My Mailbox → My Signature",
   },
   phone_mobile: {
     label: "Mobile",
     scope: "self",
     owner: "you",
-    route: "/comms/signatures",
+    route: "/comms/setup",
     field: "phone_mobile",
     hint: "You can set this yourself, right here.",
-    where: "Comms → Signatures → My signature",
+    where: "Comms → Setup → My Mailbox → My Signature",
   },
 
   // ── The company. `legal_name` and `website` are entity SCALARS, and the
@@ -206,7 +206,7 @@ const SOURCES = {
     label: "Motto",
     scope: "template",
     owner: "an administrator",
-    route: "/comms/signatures",
+    route: "/comms/setup",
     tab: "Templates",
     // `needs`, so this never degrades to `row=new`: a motto is authored ON the
     // active template, and "create a template" is not what a missing motto asks
@@ -216,7 +216,7 @@ const SOURCES = {
     row: "templateId",
     field: "motto",
     hint: "Authored on the signature template, per language.",
-    where: "Comms → Signatures → Templates",
+    where: "Comms → Setup → Company Mail → Signatures",
   },
 };
 

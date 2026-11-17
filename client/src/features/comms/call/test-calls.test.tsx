@@ -33,7 +33,7 @@ vi.mock("@/lib/smartcomm-api", async (orig) => ({
 }));
 vi.mock("@/lib/comms-socket", () => ({ getCommsSocket: () => ({ on: vi.fn(), off: vi.fn() }) }));
 
-import { TestCallsTab } from "./test-calls";
+import { TestCalls } from "./test-calls";
 import type { DeviceDeps } from "./test-calls-runner";
 
 const STEPS = [
@@ -64,7 +64,7 @@ const quick: DeviceDeps = {
   now: () => Date.now(),
 };
 
-const renderTab = () => render(<ToastProvider><TestCallsTab deps={quick} /></ToastProvider>);
+const renderTab = () => render(<ToastProvider><TestCalls deps={quick} /></ToastProvider>);
 
 beforeEach(() => {
   A.cap = { limit: 3, used: 0, remaining: 3, next_available_at: null };

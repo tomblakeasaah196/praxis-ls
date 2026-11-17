@@ -70,6 +70,7 @@ import {
   type CallProcessor,
 } from "@/lib/smartcomm-api";
 import { DeviceRingCard } from "./device-ring-card";
+import { TestCalls } from "@/features/comms/call/test-calls";
 
 type TenantCallSettings = {
   noiseSuppression: boolean;
@@ -361,6 +362,16 @@ export function CallsPage() {
       ) : null}
 
       <DeviceRingCard />
+
+      {/* The end-to-end call test, for whoever holds the Test right on Smart
+          Comms. It lived on Comms → Setup, an email page; this is where
+          somebody with a call problem looks. Directly under the ring check,
+          because the two answer the same question from either end. */}
+      {caps?.can_test && (
+        <div className="mb-4 space-y-4">
+          <TestCalls />
+        </div>
+      )}
 
       <Panel title={tr("Yard Noise Filter")} className="mb-4">
         <p className="text-sm text-muted-foreground">

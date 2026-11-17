@@ -345,22 +345,26 @@ export function AssistToolbar({
 }
 
 /**
- * The executive summary slot in the reading pane.
+ * The summary block at the top of the reading pane.
  *
- * Never generated on open. A thread under five messages says so instead of
- * spending a model call on something the operator can read faster than we can
- * summarise it.
+ * Never generated on open: the reading pane mounts this when "Summarise" is
+ * pressed, and the mount is the request. A thread under five messages says so
+ * instead of spending a model call on something the operator can read faster
+ * than we can summarise it.
  */
-export function ThreadSummary({ threadId }: { threadId: string }) {
+export function ThreadSummary({
+  threadId,
+  onClose,
+}: {
+  threadId: string;
+  /** Put the summary away again. */
+  onClose: () => void;
+}) {
   const [data, setData] = React.useState<api.ThreadSummary | null>(null);
   const [busy, setBusy] = React.useState(false);
-  const [asked, setAsked] = React.useState(false);
 
-  React.useEffect(() => { setData(null); setAsked(false); }, [threadId]);
-
-  async function load(force = false) {
+  const load = React.useCallback(async (force: boolean) => {
     setBusy(true);
-    setAsked(true);
     try {
       setData(await api.assistSummary({ thread_id: threadId, force }));
     } catch (err) {
@@ -368,44 +372,49 @@ export function ThreadSummary({ threadId }: { threadId: string }) {
     } finally {
       setBusy(false);
     }
-  }
+  }, [threadId]);
 
-  if (!asked) {
-    return (
-      <Button size="sm" variant="outline" onClick={() => load(false)}>
-        {tr("Summarise this thread")}
-      </Button>
-    );
-  }
+  React.useEffect(() => {
+    setData(null);
+    void load(false);
+  }, [load]);
+
   if (busy && !data) return <LoadingRow label={tr("Reading the thread…")} />;
   if (!data) return null;
-
-  if (data.not_needed) {
-    return <p className="text-xs text-muted-foreground">{data.note}</p>;
-  }
 
   return (
     <div className="space-y-1.5 rounded-lg border border-border bg-card/40 px-3 py-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-muted-foreground">{tr("Summary")}</span>
-        {data.cached && <Pill tone="mute">{tr("Saved")}</Pill>}
+        {!data.not_needed && data.cached && <Pill tone="mute">{tr("Saved")}</Pill>}
         {/* Visible staleness, so refreshing is the operator's decision rather
-            than something we do — and bill for — on every open. */}
-        {data.stale_by ? (
+            than something we do, and bill for, on every open. */}
+        {!data.not_needed && data.stale_by ? (
           <Pill tone="warn">
             {`${data.stale_by} ${data.stale_by === 1 ? tr("newer message") : tr("newer messages")}`}
           </Pill>
         ) : null}
+        <span className="ml-auto flex items-center gap-1">
+          {!data.not_needed && (
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => load(true)}>
+              {busy ? tr("Rewriting…") : tr("Rewrite it")}
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            {tr("Hide")}
+          </Button>
+        </span>
       </div>
-      <p className="whitespace-pre-wrap text-sm">{data.summary}</p>
-      {data.needs_review && (
+      {data.not_needed ? (
+        <p className="text-xs text-muted-foreground">{data.note}</p>
+      ) : (
+        <p className="whitespace-pre-wrap text-sm">{data.summary}</p>
+      )}
+      {!data.not_needed && data.needs_review && (
         <p className="text-xs text-muted-foreground">
           {tr("Some figures in this summary are not in the record: read it against the thread.")}
         </p>
       )}
-      <Button size="sm" variant="ghost" disabled={busy} onClick={() => load(true)}>
-        {busy ? tr("Rewriting…") : tr("Rewrite it")}
-      </Button>
     </div>
   );
 }

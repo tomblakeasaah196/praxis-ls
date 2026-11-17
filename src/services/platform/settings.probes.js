@@ -7,6 +7,7 @@
 "use strict";
 
 const axios = require("axios");
+const { smtpTimeouts } = require("../../shared/mail/smtp-timeouts");
 
 /** S3 / S3-compatible: HeadBucket verifies creds authenticate + bucket exists. */
 async function s3(cfg) {
@@ -55,6 +56,13 @@ async function signwell(cfg) {
   };
 }
 
+/** A failure before any SMTP reply: DNS, TCP, TLS or the greeting. */
+const UNREACHABLE_CODES = new Set(["ETIMEDOUT", "ECONNECTION", "ECONNREFUSED", "ESOCKET", "EDNS", "ENOTFOUND", "EHOSTUNREACH", "ENETUNREACH", "ECONNRESET"]);
+function isUnreachable(err) {
+  if (!err || err.responseCode) return false;
+  return UNREACHABLE_CODES.has(err.code) || /timeout|getaddrinfo/i.test(String(err.message || ""));
+}
+
 /**
  * SMTP (system-email fallback): nodemailer verify() — opens a connection, runs
  * EHLO/AUTH, sends nothing. Auth is optional (some relays use IP allowlists).
@@ -68,10 +76,25 @@ async function smtp(cfg) {
     port,
     secure: cfg.smtp_secure === true || port === 465,
     auth: cfg.smtp_user && cfg.smtp_pass ? { user: cfg.smtp_user, pass: cfg.smtp_pass } : undefined,
+    // A Test that hangs for two minutes and ends in the proxy's 504 tells
+    // nobody anything; see shared/mail/smtp-timeouts.
+    ...smtpTimeouts("probe"),
   });
   try {
     await transport.verify();
   } catch (err) {
+    // Never got as far as the server saying anything: the host name, the port,
+    // or a firewall between this server and that one. Said as that, because
+    // "Connection timeout" on a credentials card reads as a wrong password,
+    // and no password is involved yet.
+    if (isUnreachable(err)) {
+      const wrapped = new Error(
+        `Could not reach ${cfg.smtp_host} on port ${port} from this server (${err.code || err.message}). `
+          + "This is the host name, the port, or a firewall between the two servers. The password was never tried.",
+      );
+      wrapped.code = "SMTP_UNREACHABLE";
+      throw wrapped;
+    }
     // Classify the SMTP verdict (550 sender verify, 535 auth, …) so the
     // platform console can render the same fix guide the tenant console does.
     const { mapSmtpError, isSmtpError } = require("../../modules/mail/mail/smtp-error.map");

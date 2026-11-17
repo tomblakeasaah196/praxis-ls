@@ -282,14 +282,17 @@ describe("the outcome of a consent round trip", () => {
     await waitFor(() => expect(screen.getByText(/operations@smartls\.cm/i)).toBeInTheDocument());
   });
 
-  /* A team address is set up from Mailboxes; landing an administrator on their
+  /* A team address is set up from Company Mail; landing an administrator on their
    * own My mailbox screen with a message about `operations@` is the confusion
    * this closes. */
   it("returns to the tab the flow started from", async () => {
     landOn("?mail_connected=microsoft&email=operations%40smartls.cm&mail_tab=mailboxes");
     renderScreen(<CommsSetupPage />, setupRoutes);
 
-    expect(await screen.findByText(/every mailbox in the company/i)).toBeInTheDocument();
+    // "mailboxes" is the name the signed OAuth state carries; it means the
+    // Company Mail tab, whose first section is the mailbox list.
+    const tab = await screen.findByRole("button", { name: "Company Mail" });
+    await waitFor(() => expect(tab).toHaveAttribute("aria-current", "page"));
   });
 
   /* A failure has to be said too — otherwise the person sees an unchanged

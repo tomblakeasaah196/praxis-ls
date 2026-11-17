@@ -41,7 +41,7 @@ import { reportActionError } from "@/lib/action-error";
 import * as api from "@/lib/mail-api";
 import { useComposerEditor, type JSONContent } from "./use-editor";
 import { EditorSurface } from "./editor";
-import { ComposerToolbar, FontNote } from "./toolbar";
+import { ComposerToolbar } from "./toolbar";
 import { SlashMenu } from "./slash-menu";
 import {
   AttachmentTray,
@@ -204,6 +204,8 @@ export function Composer({
    * reads as the composer being broken rather than as a feature that is
    * missing. `dragging` only draws the ring; the drop handler does the work. */
   const [dragging, setDragging] = React.useState(false);
+  // The AI tools are shut until asked for; see the one button on the toolbar.
+  const [aiOpen, setAiOpen] = React.useState(false);
   const [pasteMessage, setPasteMessage] = React.useState<string | null>(null);
 
   const [slash, setSlash] = React.useState<{ open: boolean; query: string }>({ open: false, query: "" });
@@ -794,7 +796,27 @@ export function Composer({
         </div>
       </header>
 
-      <ComposerToolbar editor={editor} slotRight={slots["composer.toolbar.right"]} />
+      <ComposerToolbar
+        editor={editor}
+        slotRight={
+          <>
+            {/* THE one AI control. Tones, drafting, rewriting, translation and
+                dictation used to sit open under every draft, ten controls a
+                person writing two lines scrolled past. They are all still
+                there, behind this. */}
+            <Button
+              size="sm"
+              variant={aiOpen ? "outline" : "ghost"}
+              aria-expanded={aiOpen}
+              aria-controls="composer-ai"
+              onClick={() => setAiOpen((v) => !v)}
+            >
+              {tr("Write With AI")}
+            </Button>
+            {slots["composer.toolbar.right"]}
+          </>
+        }
+      />
 
       {/* Drag-and-drop layered over the Attach button below, which is what a
           keyboard or AT user activates — the same bargain `ui/file-drop.tsx`
@@ -858,30 +880,28 @@ export function Composer({
           />
         )}
       </div>
-      <FontNote />
-      <div className="px-3 pt-1">
-        {pasteMessage ? (
-          <p className="text-[0.6875rem] text-destructive" role="status">
-            {pasteMessage}
-          </p>
-        ) : (
-          <p className="text-[0.6875rem] text-muted-foreground">
-            {tr("Drop a file here or press Ctrl+V to attach it.")}
-          </p>
-        )}
-      </div>
+      {/* Only when a paste was refused. The standing "drop a file here" line
+          that used to share this slot explained the Attach button two rows
+          below it; dragging a file over the editor says "Drop to attach". */}
+      {pasteMessage && (
+        <p className="px-3 pt-1 text-[0.6875rem] text-destructive" role="status">
+          {pasteMessage}
+        </p>
+      )}
 
       {/* §8. Everything it produces lands in THIS editor. Nothing is sent, and
           nothing is written to a record. */}
-      <div className="px-3 pt-2">
-        <AssistToolbar
-          threadId={threadId}
-          getText={getBodyText}
-          setText={setBodyText}
-          getSubject={() => subject}
-          getRecipients={() => splitAddresses(to)}
-        />
-      </div>
+      {aiOpen && (
+        <div id="composer-ai" className="px-3 pt-2">
+          <AssistToolbar
+            threadId={threadId}
+            getText={getBodyText}
+            setText={setBodyText}
+            getSubject={() => subject}
+            getRecipients={() => splitAddresses(to)}
+          />
+        </div>
+      )}
 
       <AttachmentTray tray={tray} onRemove={detach} onSecureLink={sendAsSecureLink} busy={busy} />
 
@@ -963,7 +983,7 @@ export function Composer({
           {slots["composer.footer.right"]}
           {savedAt && <Pill tone="mute">{tr("Draft saved")}</Pill>}
           {/* Close KEEPS the draft — that is what autosave is for, and it is now
-              findable in My drafts. Discard is the other half of that bargain,
+              findable in Drafts. Discard is the other half of that bargain,
               offered here so somebody who has decided against a message does
               not have to go and find it in a list to throw it away. */}
           {draftId && (

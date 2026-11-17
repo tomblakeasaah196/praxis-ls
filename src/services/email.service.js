@@ -38,6 +38,7 @@ const origin = require("../modules/mail/mail/origin");
 const mailFallback = require("./platform/mail-fallback.service");
 const registry = require("./tenant/registry.service");
 const entitlement = require("./platform/entitlement.service");
+const { smtpTimeouts } = require("../shared/mail/smtp-timeouts");
 
 const fmtFrom = (id) => (id.from_name ? `"${id.from_name}" <${id.from_address}>` : id.from_address);
 
@@ -197,6 +198,9 @@ function transportFrom(cfg) {
     port: cfg.smtp_port,
     secure: cfg.smtp_port === 465,
     auth: cfg.smtp_user ? { user: cfg.smtp_user, pass: cfg.smtp_pass } : undefined,
+    // Without these a dead mail server hangs the request for two minutes and
+    // the proxy answers 504 before the mailer says anything. See the module.
+    ...smtpTimeouts("send"),
     // HELO/EHLO. Unset, nodemailer offers the container hostname, which in this
     // deployment resolves to a loopback literal — mail from here was arriving as
     // `helo=[127.0.0.1]`, a spam signal both Microsoft and Google weigh. Only

@@ -67,8 +67,27 @@ describe("the shared checks", () => {
   });
 
   test("the signal check fails when no API instance listens for the worker's events", async () => {
-    expect((await canary.signalCheck({ call: async () => ["socket.io#/#", 0] })).ok).toBe(false);
-    expect((await canary.signalCheck({ call: async () => ["socket.io#/#", 3] })).ok).toBe(true);
+    expect((await canary.signalCheck({ call: async () => ["socket.io-request#/#", 0] })).ok).toBe(false);
+    expect((await canary.signalCheck({ call: async () => ["socket.io-request#/#", 3] })).ok).toBe(true);
+  });
+
+  /* It asked `PUBSUB NUMSUB socket.io#/#` and was red on a healthy fleet for a
+   * month: the adapter listens there with a PATTERN, which NUMSUB never counts.
+   * This Redis behaves like the real one for the two channels involved, so the
+   * check has to ask about the one the adapter subscribes to exactly. */
+  test("it asks about a channel the adapter subscribes to exactly, as the adapter itself names it", async () => {
+    const redis = {
+      call: jest.fn(async (_cmd, _sub, channel) => [channel, channel === "socket.io-request#/#" ? 1 : 0]),
+    };
+    expect((await canary.signalCheck(redis)).ok).toBe(true);
+    expect(redis.call).toHaveBeenCalledWith("PUBSUB", "NUMSUB", "socket.io-request#/#");
+
+    // The name is the adapter's own, read from the installed package rather
+    // than assumed: an upgrade that renames it turns this red, not production.
+    const fs = require("fs");
+    const adapter = fs.readFileSync(require.resolve("@socket.io/redis-adapter"), "utf8");
+    expect(adapter).toMatch(/requestChannel = prefix \+ "-request#" \+ this\.nsp\.name \+ "#"/);
+    expect(adapter).toMatch(/psubscribe\(this\.channel \+ "\*"\)/);
   });
 
   test("the relay check names a secret mismatch", async () => {

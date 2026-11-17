@@ -89,7 +89,7 @@ import { ScheduledReportsPage } from "./settings/scheduled-reports";
 import { ApiKeysPage } from "./settings/api-keys";
 import { PipelineStagesPage } from "./settings/pipeline-stages";
 import { CustomFieldsPage } from "./settings/custom-fields";
-import { EmailSignaturesPage } from "./settings/email-signatures";
+import { CommsSetupPage } from "./comms/setup/index";
 import { CallsPage } from "./settings/calls-page";
 import { BusinessPoliciesPage } from "./settings/business-policies";
 import { CurrenciesPage } from "./settings/currencies";
@@ -1669,9 +1669,24 @@ const AREAS: Area[] = [
         states: ["loading", "error", "populated"],
       },
       {
-        name: "Email Signatures",
-        render: () => <EmailSignaturesPage />,
+        /* Comms → Setup, on the tab everyone gets: the caller's mailbox and,
+           under it, their signature. This entry used to render Settings →
+           Email Signatures, which folded into Setup on 16 Nov 2026; the
+           signature fixtures below are the same ones, now reaching the
+           designer where it lives. */
+        name: "Email Setup",
+        render: () => <CommsSetupPage />,
         routes: {
+          "/mail/mailboxes/mine": [
+            {
+              email_connection_id: "c1",
+              email_address: "amina@smartls.test",
+              provider: "imap_smtp",
+              kind: "PERSONAL",
+              status: "CONNECTED",
+              health: { level: "OK", reason: "Syncing normally" },
+            },
+          ],
           "/mail/signature": {
             person: {
               user_full_name: "Amina Ndoumbe",

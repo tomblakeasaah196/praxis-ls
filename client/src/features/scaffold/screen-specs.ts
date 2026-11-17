@@ -1011,17 +1011,6 @@ export const SPECS: ScreenSpec[] = [
     actions: ["New template"],
   },
   {
-    path: "settings/email-signatures",
-    area: "Settings",
-    title: "Email signatures",
-    purpose:
-      "Per-staff email signature HTML. Endpoint exists per-user (app_user) but is admin-gated with no self-service route yet.",
-    module: "MOD-67",
-    status: "partial",
-    columns: ["User", "Signature", "Updated"],
-    actions: ["Edit signature"],
-  },
-  {
     path: "settings/help-center",
     area: "Settings",
     title: "Help center",
