@@ -33,6 +33,7 @@ import { ErrorState } from "@/components/ui/states";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { useAuth } from "@/app/auth/auth-context";
 import { cn } from "@/lib/cn";
+import { INDEX_ROW_IDLE, INDEX_ROW_OPEN } from "@/components/ui/index-row";
 import { PlusIcon, PhoneIcon } from "@/components/ui/icons";
 import { ThreadCallStrip } from "./call/thread-call-strip";
 import { useCallCapabilities } from "./call/call-capabilities";
@@ -323,11 +324,19 @@ function ChannelRow({
     <button
       type="button"
       onClick={onClick}
+      // The current item of a set, said to assistive technology as IndexRow says it.
+      aria-current={active ? "true" : undefined}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-2xl px-2.5 py-2.5 text-left transition-colors",
-        active
-          ? "bg-primary/10 ring-1 ring-inset ring-primary/25"
-          : "hover:bg-accent/60",
+        "relative flex w-full items-center gap-2.5 rounded-2xl px-2.5 py-2.5 text-left transition-colors",
+        // The open conversation is marked the way every other list in the
+        // product marks its open row (IndexRow): the tinted ground and the
+        // rail. It used `bg-primary/10 ring-primary/25`, and neither compiles:
+        // `--primary` is a plain colour variable, which takes no opacity. So
+        // the open row had NO ground, and its ring fell back to Tailwind's
+        // default blue, on a white-label product. Seen 17 Nov 2026, when the
+        // Client inbox beside it marked its open row and this one did not.
+        "before:absolute before:inset-y-1 before:left-1 before:w-[3px] before:rounded-full before:transition-colors before:content-['']",
+        active ? INDEX_ROW_OPEN : INDEX_ROW_IDLE,
       )}
     >
       <Avatar
