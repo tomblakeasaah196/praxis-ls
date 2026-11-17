@@ -6,6 +6,9 @@ const { requirePermission, requireCapability } = require("../../../middleware/rb
 const {
   requireTransitionPermission, requireTransitionCapability,
 } = require("../../../shared/http/transition-permission");
+// The maps below live in @praxis/shared so the screens offer exactly the buttons
+// these routes accept (rules/transition-actions.js).
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./cash_request.controller");
 const validator = require("./cash_request.validator");
 
@@ -38,7 +41,7 @@ router.post("/:id/import-costing", requirePermission(MODULE, "edit"), validator.
 // hand over cash up to 500 000" and a role that can approve is not necessarily
 // a role that holds the till. DRAFT is the reopen of a rejected request: the
 // author's own act, so `edit`.
-const TRANSITION_ACTION = { DRAFT: "edit", SUBMITTED: "edit", JUSTIFIED: "edit", VALIDATED: "validate", APPROVED: "approve", REJECTED: "approve", DISBURSED: "disburse" };
+const TRANSITION_ACTION = transitionActions.cashRequestTransition;
 // APPROVER stays on the decisions that authorise money, and on disbursement
 // (see the route below). It is NOT demanded for validation: the owner's
 // decision is explicit that validating is a VISA, not a signature — the three

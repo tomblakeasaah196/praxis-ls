@@ -21,7 +21,8 @@ import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/fleet-api";
 import { reportActionError } from "@/lib/action-error";
-import { useCan } from "@/lib/route-access";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const shell = pageShell.wide;
 const STATUS_TONE: Record<string, Tone> = {
@@ -211,6 +212,9 @@ function NewDispatchForm({
 
 export function DispatchPage() {
   const can = useCan("MOD-42");
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-42", transitionActions.dispatchStatus);
   const disp = useResource(() => api.listDispatch(), []);
   const [creating, setCreating] = React.useState(false);
   const [odo, setOdo] = React.useState<{
@@ -304,7 +308,7 @@ export function DispatchPage() {
               label={tr("View")}
             />
             <TransitionButtons
-              items={items}
+              items={items.filter((it) => mayMove(it.to))}
               onTransition={(to) =>
                 to === "CANCELLED"
                   ? cancel(d)

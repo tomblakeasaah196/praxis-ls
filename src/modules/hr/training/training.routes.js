@@ -14,6 +14,9 @@ const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const { requireTransitionPermission, requireLifecyclePermissionOnPatch } = require("../../../shared/http/transition-permission");
+// The maps below live in @praxis/shared so the screens offer exactly the buttons
+// these routes accept (rules/transition-actions.js).
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./training.controller");
 const validator = require("./training.validator");
 
@@ -29,12 +32,7 @@ const M = "MOD-18";
  * LIVE is `edit`: opening a session is advancing it, and requiring an approval
  * grant to press Start would mean the facilitator cannot start their own class.
  */
-const TRANSITION_ACTION = {
-  SCHEDULED: "edit",
-  LIVE: "edit",
-  DONE: "approve",
-  CANCELLED: "approve",
-};
+const TRANSITION_ACTION = transitionActions.trainingStatus;
 
 const router = express.Router();
 router.use(authMiddleware);

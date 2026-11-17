@@ -21,7 +21,8 @@ import { useFocusRow } from "@/lib/use-focus-row";
 import { cn } from "@/lib/cn";
 import { reportActionError } from "@/lib/action-error";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCan } from "@/lib/route-access";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const shell = pageShell.wide;
 const COLUMNS = ["AVAILABLE", "IN_USE", "MAINTENANCE", "OUT_OF_SERVICE"];
@@ -189,6 +190,9 @@ function NewEquipmentForm({
 
 export function EquipmentPage() {
   const can = useCan("MOD-37");
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-37", transitionActions.equipmentStatus);
   const equipment = useResource(() => api.listEquipment(), []);
   const locs = useResource(() => api.listLocations(), []);
   // `?focus=<wms_equipment_id>` — a location 360's drill-in lands on that card:
@@ -254,7 +258,8 @@ export function EquipmentPage() {
     ];
     return (
       <TransitionButtons
-        items={items}
+        // "Check out" is a move to IN_USE with a name attached.
+        items={items.filter((it) => mayMove(it.to === "CHECKOUT" ? "IN_USE" : it.to))}
         onTransition={(to) =>
           to === "CHECKOUT" ? setCheckout(e) : move(e, to)
         }

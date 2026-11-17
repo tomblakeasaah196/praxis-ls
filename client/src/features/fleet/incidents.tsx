@@ -20,7 +20,8 @@ import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { dateTimeFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/fleet-api";
 import { reportActionError } from "@/lib/action-error";
-import { useCan } from "@/lib/route-access";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const shell = pageShell.wide;
 const STATUS_TONE: Record<string, Tone> = {
@@ -167,6 +168,9 @@ function NewIncidentForm({
 
 export function IncidentsPage() {
   const can = useCan("MOD-45");
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-45", transitionActions.incidentStatus);
   const inc = useResource(() => api.listIncidents(), []);
   const [creating, setCreating] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -232,7 +236,7 @@ export function IncidentsPage() {
       label: "",
       render: (i) => (
         <TransitionButtons
-          items={(TRANSITIONS[i.status || ""] || []).map((s) => ({
+          items={(TRANSITIONS[i.status || ""] || []).filter(mayMove).map((s) => ({
             to: s,
             label: STATUS_LABEL[s] || s,
             variant: s === "CLOSED" ? "outline" : "default",

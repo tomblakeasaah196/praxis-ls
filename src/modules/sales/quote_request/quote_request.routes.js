@@ -3,6 +3,9 @@ const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const { requireTransitionPermission, requireLifecyclePermissionOnPatch } = require("../../../shared/http/transition-permission");
+// The maps below live in @praxis/shared so the screens offer exactly the buttons
+// these routes accept (rules/transition-actions.js).
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./quote_request.controller");
 const validator = require("./quote_request.validator");
 const MODULE = "MOD-20";
@@ -16,25 +19,14 @@ const MODULE = "MOD-20";
  * unmapped falls back to `approve` so a state added later fails closed —
  * the same pattern lead.routes.js uses.
  */
-const TRANSITION_ACTION = {
-  UNDER_REVIEW: "edit",
-  CLARIFICATION_REQUIRED: "edit",
-  QUOTED: "edit",
-  CLOSED_NO_ACTION: "approve",
-};
+const TRANSITION_ACTION = transitionActions.quoteRequestTransition;
 
 /**
  * The deal's stage bar (lean revamp PR 2): a working stage is `edit`; LOST ends
  * the deal and takes `approve`, as closing an intake always did. Mark Won is
  * `approve` too, on its own route: it opens the operations file.
  */
-const STAGE_ACTION = {
-  NEW: "edit",
-  CONTACTED: "edit",
-  MEETING: "edit",
-  QUOTED: "edit",
-  LOST: "approve",
-};
+const STAGE_ACTION = transitionActions.quoteRequestStage;
 
 const router = express.Router();
 router.use(authMiddleware);

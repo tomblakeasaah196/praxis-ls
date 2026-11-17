@@ -6,6 +6,9 @@ const { requirePermission } = require("../../../middleware/rbac");
 const {
   requireTransitionPermission, requireTransitionCapability,
 } = require("../../../shared/http/transition-permission");
+// The maps below live in @praxis/shared so the screens offer exactly the buttons
+// these routes accept (rules/transition-actions.js).
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./costing.controller");
 const validator = require("./costing.validator");
 const MODULE = "MOD-46";
@@ -63,7 +66,7 @@ router.patch("/:id", requirePermission(MODULE, "edit"), validator.update, contro
 //               top of the module grant. Applied ONLY to the decision states:
 //               demanding APPROVER to submit would be the same bug as demanding
 //               `approve` to submit. CEO bypasses both.
-const TRANSITION_ACTION = { SUBMIT_VALIDATION: "edit", SUBMIT_APPROVAL: "edit", APPROVE: "approve", REJECT: "approve" };
+const TRANSITION_ACTION = transitionActions.costingTransition;
 const TRANSITION_CAPABILITY = { APPROVE: "APPROVER", REJECT: "APPROVER" };
 
 router.post(
@@ -80,7 +83,7 @@ router.post(
 // refusing is a decision (`approve` + the APPROVER capability). The legacy role
 // lists are NOT ported — hardcoded role names are strictly less expressive than
 // module grants plus the SoD overlay, and CEO already bypasses both.
-const UNLOCK_ACTION = { REQUEST_UNLOCK: "edit", UNLOCK: "approve", DENY_UNLOCK: "approve" };
+const UNLOCK_ACTION = transitionActions.costingUnlock;
 const UNLOCK_CAPABILITY = { UNLOCK: "APPROVER", DENY_UNLOCK: "APPROVER" };
 
 router.post(

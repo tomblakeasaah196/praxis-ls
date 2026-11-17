@@ -46,7 +46,8 @@ import { useResource, errMsg, isFeatureDisabled } from "@/lib/use-resource";
 import { dateTimeFmt, dateFmt, enumLabel } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/hr-api";
-import { useCan } from "@/lib/route-access";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const shell = pageShell.wide;
 
@@ -478,6 +479,9 @@ function SessionPanel({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-18", transitionActions.trainingStatus);
   const session = useResource(() => api.getTraining(trainingId), [trainingId]);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -560,12 +564,12 @@ function SessionPanel({
       {t.location && <p className="text-xs text-muted-foreground">Location: {t.location}</p>}
 
       <div className="flex flex-wrap gap-2">
-        {canOpen && (
+        {canOpen && mayMove("LIVE") && (
           <Button size="sm" loading={busy === "LIVE"} onClick={() => run("LIVE", () => api.setTrainingStatus(t.training_id, "LIVE"))}>
             Start session
           </Button>
         )}
-        {canClose && (
+        {canClose && mayMove("DONE") && (
           <Button
             size="sm"
             variant="outline"
@@ -575,7 +579,7 @@ function SessionPanel({
             End &amp; settle attendance
           </Button>
         )}
-        {t.status !== "CANCELLED" && t.status !== "DONE" && (
+        {t.status !== "CANCELLED" && t.status !== "DONE" && mayMove("CANCELLED") && (
           <Button
             size="sm"
             variant="outline"

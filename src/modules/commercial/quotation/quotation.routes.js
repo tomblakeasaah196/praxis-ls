@@ -4,6 +4,9 @@ const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const { requireTransitionPermission } = require("../../../shared/http/transition-permission");
+// The maps below live in @praxis/shared so the screens offer exactly the buttons
+// these routes accept (rules/transition-actions.js).
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./quotation.controller");
 const validator = require("./quotation.validator");
 
@@ -22,7 +25,7 @@ router.post("/", requirePermission(MODULE, "create"), validator.create, controll
 router.patch("/:id", requirePermission(MODULE, "edit"), validator.update, controller.update);
 // Sending your own quotation out is not a decision; accepting or rejecting one
 // is. See shared/http/transition-permission.js.
-const TRANSITION_ACTION = { SENT: "edit", CONVERTED: "edit", EXPIRED: "edit", ACCEPTED: "approve", REJECTED: "approve" };
+const TRANSITION_ACTION = transitionActions.quotationTransition;
 
 router.post("/:id/transition", validator.transition, requireTransitionPermission(MODULE, TRANSITION_ACTION), controller.transition);
 router.post("/:id/accept", requirePermission(MODULE, "approve"), validator.accept, controller.accept);

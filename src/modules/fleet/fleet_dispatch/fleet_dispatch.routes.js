@@ -7,6 +7,9 @@ const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const { requireTransitionPermission, requireLifecyclePermissionOnPatch } = require("../../../shared/http/transition-permission");
+// The maps below live in @praxis/shared so the screens offer exactly the buttons
+// these routes accept (rules/transition-actions.js).
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./fleet_dispatch.controller");
 const validator = require("./fleet_dispatch.validator");
 
@@ -19,12 +22,7 @@ const M = "MOD-42";
  * outside the system, is `approve`. Anything not listed falls back to `approve`
  * so a state added later fails closed.
  */
-const TRANSITION_ACTION = {
-  ASSIGNED: "edit",
-  OUT: "edit",
-  RETURNED: "edit",
-  CANCELLED: "approve",
-};
+const TRANSITION_ACTION = transitionActions.dispatchStatus;
 
 const router = express.Router();
 router.use(authMiddleware);

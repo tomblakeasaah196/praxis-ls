@@ -21,7 +21,10 @@ const rbac = require("../../src/middleware/rbac");
 const ROOT = path.resolve(__dirname, "../..");
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8");
 
-const MAPS = ["payrollStatus", "purchaseOrderTransition", "purchaseOrderUnlock", "workOrderStatus"];
+/** Every map the package exports: whatever is a frozen object of strings. */
+const MAPS = Object.keys(transitionActions).filter(
+  (k) => transitionActions[k] && typeof transitionActions[k] === "object",
+);
 
 describe("transitionActions", () => {
   it("names only actions rbac.js knows", () => {
@@ -66,28 +69,55 @@ describe("transitionActions", () => {
 });
 
 describe("the routes mount the shared map, not a copy", () => {
-  const ROUTES = [
-    ["src/modules/hr/payroll/payroll.routes.js", ["transitionActions.payrollStatus"]],
-    [
-      "src/modules/procurement/purchase_order/purchase_order.routes.js",
-      ["transitionActions.purchaseOrderTransition", "transitionActions.purchaseOrderUnlock"],
-    ],
-    ["src/modules/fleet/work_order/work_order.routes.js", ["transitionActions.workOrderStatus"]],
-  ];
+  /** Every routes file that gates a lifecycle by target state. */
+  function routeFiles(dir, out = []) {
+    for (const name of fs.readdirSync(dir)) {
+      const full = path.join(dir, name);
+      if (fs.statSync(full).isDirectory()) routeFiles(full, out);
+      else if (/\.routes\.js$/.test(name)) {
+        const src = fs.readFileSync(full, "utf8");
+        if (/requireTransitionPermission\(|requireLifecyclePermissionOnPatch\(/.test(src))
+          out.push([path.relative(ROOT, full).split(path.sep).join("/"), src]);
+      }
+    }
+    return out;
+  }
+  const FILES = routeFiles(path.join(ROOT, "src/modules"));
 
-  it.each(ROUTES)("%s", (file, refs) => {
-    const src = read(file);
-    for (const ref of refs) expect(src).toContain(ref);
-    // A literal `{ SUBMITTED: "edit", … }` beside the import would be the
-    // second list this file exists to prevent.
+  it("finds the lifecycle routes it is meant to be reading", () => {
+    // A walk that silently found nothing would pass every assertion below.
+    expect(FILES.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it.each(FILES)("%s", (_file, src) => {
+    expect(src).toMatch(/transitionActions\.\w+/);
+    // A literal `{ SUBMITTED: "edit", … }` in a routes file is the second list
+    // this exists to prevent: the screen would be reading a different one.
     expect(src).not.toMatch(/_ACTION\s*=\s*\{/);
   });
 
+  it("every map a routes file mounts is one the package exports", () => {
+    for (const [, src] of FILES)
+      for (const m of src.matchAll(/transitionActions\.(\w+)/g)) expect(MAPS).toContain(m[1]);
+  });
+
   it("the screens read the same maps", () => {
-    expect(read("client/src/features/hr/payroll.tsx")).toContain("transitionActions.payrollStatus");
-    expect(read("client/src/features/procurement/purchase-orders.tsx")).toContain(
-      "transitionActions.purchaseOrderTransition",
-    );
-    expect(read("client/src/features/fleet/work-orders.tsx")).toContain("transitionActions.workOrderStatus");
+    const SCREENS = {
+      "client/src/features/hr/payroll.tsx": "payrollStatus",
+      "client/src/features/procurement/purchase-orders.tsx": "purchaseOrderTransition",
+      "client/src/features/procurement/purchase-requests.tsx": "purchaseRequestTransition",
+      "client/src/features/fleet/work-orders.tsx": "workOrderStatus",
+      "client/src/features/fleet/incidents.tsx": "incidentStatus",
+      "client/src/features/fleet/dispatch.tsx": "dispatchStatus",
+      "client/src/features/wms/equipment.tsx": "equipmentStatus",
+      "client/src/features/wms/outbound.tsx": "outboundStatus",
+      "client/src/features/hr/contracts.tsx": "contractStatus",
+      "client/src/features/hr/vacancy.tsx": "vacancyStatus",
+      "client/src/features/hr/trainings.tsx": "trainingStatus",
+      "client/src/features/operations/operation-files.tsx": "operationsFileTransition",
+      "client/src/features/operations/file-360.tsx": "operationsFileTransition",
+    };
+    for (const [file, map] of Object.entries(SCREENS))
+      expect(read(file)).toContain(`transitionActions.${map}`);
   });
 });

@@ -12,7 +12,8 @@
 import * as React from "react";
 import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { canDo, useCan } from "./route-access";
+import { canDo, useCan, useCanMove } from "./route-access";
+import { transitionActions } from "@praxis/shared";
 import { coerceNavAccess, type NavAccess } from "./nav-access";
 import { ShellContext } from "@/app/layout/shell-context";
 import { EMPTY_SHELL_PREFS } from "@/lib/preferences";
@@ -130,5 +131,43 @@ describe("useCan", () => {
   it("offers everything outside the app shell, where nothing has answered", () => {
     const { result } = renderHook(() => useCan("MOD-51"));
     expect(result.current("create")).toBe(true);
+  });
+  /**
+   * A STATUS MOVE ASKS FOR A DIFFERENT GRANT PER TARGET STATE. One
+   * `can("approve")` over a whole button row would hide Submit from the clerk
+   * and one `can("edit")` would show Approve to them. The map is the one the
+   * route mounts, so these are the server's own answers.
+   */
+  describe("useCanMove", () => {
+    const move = (actions: Record<string, string[]>, resolved = true) =>
+      renderHook(() => useCanMove("MOD-45", transitionActions.incidentStatus), {
+        wrapper: wrapper(user(actions), resolved),
+      }).result.current;
+
+    it("a role with `edit` may start a review and may not close", () => {
+      const mayMove = move({ "MOD-45": ["edit"] });
+      expect(mayMove("UNDER_REVIEW")).toBe(true);
+      expect(mayMove("CLOSED")).toBe(false);
+    });
+
+    it("an approver without `edit` may close and may not start a review", () => {
+      const mayMove = move({ "MOD-45": ["approve"] });
+      expect(mayMove("CLOSED")).toBe(true);
+      expect(mayMove("UNDER_REVIEW")).toBe(false);
+    });
+
+    it("a state the map does not list asks for `approve`, the strict end", () => {
+      expect(move({ "MOD-45": ["edit"] })("A_STATE_ADDED_LATER")).toBe(false);
+      expect(move({ "MOD-45": ["approve"] })("A_STATE_ADDED_LATER")).toBe(true);
+    });
+
+    it("filters a list of targets, which is how the screens use it", () => {
+      const mayMove = move({ "MOD-45": ["edit"] });
+      expect(["UNDER_REVIEW", "CLOSED"].filter(mayMove)).toEqual(["UNDER_REVIEW"]);
+    });
+
+    it("offers every move while access is unknown", () => {
+      expect(move({}, false)("CLOSED")).toBe(true);
+    });
   });
 });

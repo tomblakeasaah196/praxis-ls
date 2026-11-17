@@ -4,6 +4,9 @@ const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const { requireTransitionPermission } = require("../../../shared/http/transition-permission");
+// The maps below live in @praxis/shared so the screens offer exactly the buttons
+// these routes accept (rules/transition-actions.js).
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./transit_order.controller");
 const validator = require("./transit_order.validator");
 
@@ -20,12 +23,7 @@ const MODULE = "MOD-30";
  * Anything not listed falls back to `approve` (see transition-permission.js), so
  * a state added later without updating this map fails closed.
  */
-const TRANSITION_ACTION = {
-  ISSUED: "create",
-  SIGNED: "edit",
-  LODGED: "edit",
-  CANCELLED: "approve",
-};
+const TRANSITION_ACTION = transitionActions.transitOrderTransition;
 
 const router = express.Router();
 router.use(authMiddleware);

@@ -4,6 +4,9 @@ const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const { requireTransitionPermission, requireLifecyclePermissionOnPatch } = require("../../../shared/http/transition-permission");
+// The maps below live in @praxis/shared so the screens offer exactly the buttons
+// these routes accept (rules/transition-actions.js).
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./operations_file.controller");
 const validator = require("./operations_file.validator");
 // `validateX` naming so scripts/check-write-route-validators.js can see it —
@@ -19,11 +22,7 @@ const MODULE = "MOD-29";
  * outside the system, is `approve`. Anything not listed falls back to `approve`
  * so a state added later fails closed.
  */
-const TRANSITION_ACTION = {
-  IN_PROGRESS: "edit",
-  COMPLETED: "approve",
-  CANCELLED: "approve",
-};
+const TRANSITION_ACTION = transitionActions.operationsFileTransition;
 
 const router = express.Router();
 router.use(authMiddleware);

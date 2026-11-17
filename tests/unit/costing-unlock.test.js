@@ -341,9 +341,16 @@ describe("the wiring around it", () => {
   });
 
   test("asking is `edit`; deciding is `approve` + APPROVER", () => {
-    expect(routes).toMatch(/REQUEST_UNLOCK:\s*"edit"/);
-    expect(routes).toMatch(/UNLOCK:\s*"approve"/);
-    expect(routes).toMatch(/DENY_UNLOCK:\s*"approve"/);
+    // The map moved to @praxis/shared so the costing screen reads the one the
+    // route mounts. The VALUES are what this pins, and they are the same; what
+    // changed is where they are read from, and that the route mounts that object.
+    const { transitionActions } = require("@praxis/shared");
+    expect(transitionActions.costingUnlock).toEqual({
+      REQUEST_UNLOCK: "edit",
+      UNLOCK: "approve",
+      DENY_UNLOCK: "approve",
+    });
+    expect(routes).toMatch(/UNLOCK_ACTION\s*=\s*transitionActions\.costingUnlock\b/);
     // The SoD overlay applies to the decisions only — demanding APPROVER to
     // ASK would be the same bug as demanding `approve` to submit.
     expect(routes).toMatch(
