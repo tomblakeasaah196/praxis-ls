@@ -597,16 +597,25 @@ function MessageBlock({
 
       {open && (
         <div className="space-y-2 border-t border-border px-3 py-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {/* One pill, and only when it says something the header does not.
-                Sent or Received is the "To" or "From" two lines up, the folder
-                is the row selected in the rail, the attachment is the strip
-                below and the sender check is the banner below that: four
-                pills that each repeated something already on screen. */}
-            {origin && <Pill tone="warn">{origin}</Pill>}
+          {/* ONE row: who was copied on the left, the message menu on the
+              right. This used to be a row of four pills with the Cc line under
+              it. Sent or Received is the "To" or "From" two lines up, the
+              folder is the row selected in the rail, the attachment is the
+              strip below and the sender check is the banner below that: each
+              pill repeated something already on screen. The one that stays is
+              the one that says something new. */}
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1 space-y-1 pt-2">
+              {origin && <Pill tone="warn">{origin}</Pill>}
+              {cc.length > 0 && (
+                <p className="break-words text-xs text-muted-foreground">
+                  {tr("Cc")}: <span className="num">{cc.join(", ")}</span>
+                </p>
+              )}
+            </div>
             {/* Outlook's "View message source" and Gmail's "Show original":
                 the message as the server holds it, read live, never stored. */}
-            <MoreMenu label={tr("Message actions")} className="ml-auto">
+            <MoreMenu label={tr("Message actions")} className="shrink-0">
               <DropdownItem onSelect={() => setSource(true)}>{tr("View source")}</DropdownItem>
               <DropdownItem
                 onSelect={() => { downloadMessageSource(message.email_message_id, emlName(message.subject)).catch(() => setSource(true)); }}
@@ -626,11 +635,6 @@ function MessageBlock({
                 : null
             }
           />
-          {cc.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {tr("Cc")}: <span className="num">{cc.join(", ")}</span>
-            </p>
-          )}
           <MessageBody
             message={message}
             palette={palette}
