@@ -853,7 +853,7 @@ async function clientHeadingRegistry(client) {
   return rows;
 }
 
-async function loadRecord(client, docType, recordId) {
+async function loadRecord(client, docType, recordId, opts = {}) {
   if (INVOICE_TYPE[docType]) {
     const { rows } = await client.query(
       "SELECT i.*, cm.name AS client_name, cm.niu AS client_niu, cm.rccm AS client_rccm " +
@@ -908,17 +908,26 @@ async function loadRecord(client, docType, recordId) {
         WHERE ql.quotation_id = $1 ORDER BY ql.line_no`,
       [recordId],
     );
+    // A prospect's quotation (lean revamp, PR 4) is addressed to its company
+    // row. A client's prints exactly as it always has, so no signed party moves.
+    const quotationDoc = require("../../commercial/quotation/quotation.document");
+    const party = q.client_id || !q.lead_id
+      ? { name: q.client_name || "—", lines: clientLines(q) }
+      : (await quotationDoc.prospectParty(client, q.lead_id)) || { name: "—", lines: [] };
     return {
       entity_id: q.entity_id,
       data: {
         number: q.doc_number || String(q.quotation_id).slice(0, 8), date: q.created_at, valid_until: q.valid_until,
-        party: { name: q.client_name || "—", lines: clientLines(q) },
+        party,
         lines: lr.rows.map((l) => ({ label: l.label, qty: Number(l.qty), unit: Number(l.unit_price), tax: 19.25, tax_rate: lineTaxRate(l), amount: Number(l.qty) * Number(l.unit_price), ...headingFields(l) })),
         client_headings: await clientHeadingRegistry(client),
         // G2: this quotation's own family order. Render only, like the grouping.
         family_order: Array.isArray(q.family_order) ? q.family_order : null,
         totals: { service_ht: Number(q.total_ht), vat_total: Number(q.total_ttc) - Number(q.total_ht), total_ttc: Number(q.total_ttc) },
         currency: q.currency,
+        // The one document's own fields (Full or Extract, sections, About Us):
+        // render only, never hashed (canonical.js reads the fields above).
+        ...(await quotationDoc.extras(client, q, opts.variant || {})),
       },
     };
   }
@@ -2050,7 +2059,7 @@ async function verifyBlockFor(client, { entityRef, origin = null, signatures = n
 }
 
 /** Live preview → HTML (no PDF). Real record when recordId + a loader exist, else sample. */
-async function preview(client, { docType, entityId, recordId, config, origin = null, language = null, env = "live" }) {
+async function preview(client, { docType, entityId, recordId, config, origin = null, language = null, env = "live", variant = null }) {
   const tpl = registry.get(docType);
   if (!tpl) throw new AppError("UNKNOWN_DOC", `No template '${docType}'`, 404);
   let data = tpl.sampleData;
@@ -2076,7 +2085,8 @@ async function preview(client, { docType, entityId, recordId, config, origin = n
    */
   let signedRef = null;
   if (recordId) {
-    const rec = await loadRecord(client, docType, recordId);
+    // `variant`: which printing of a record (a quotation's Full or Extract).
+    const rec = await loadRecord(client, docType, recordId, { variant });
     if (rec) {
       data = rec.data;
       ent = ent || rec.entity_id;
@@ -2122,10 +2132,10 @@ async function preview(client, { docType, entityId, recordId, config, origin = n
  * `origin` is the host the QR should resolve on. The HTTP path passes the
  * request's own host; the worker passes the tenant's. See verify-link.js.
  */
-async function generate(client, { docType, entityId, recordId, actor, origin = null, language = null, env = "live" }) {
+async function generate(client, { docType, entityId, recordId, actor, origin = null, language = null, env = "live", variant = null }) {
   const tpl = registry.get(docType);
   if (!tpl) throw new AppError("UNKNOWN_DOC", `No template '${docType}'`, 404);
-  const rec = recordId ? await loadRecord(client, docType, recordId) : null;
+  const rec = recordId ? await loadRecord(client, docType, recordId, { variant }) : null;
   const data = rec ? rec.data : tpl.sampleData;
   const ent = entityId || (rec && rec.entity_id);
   const { cfg, entity } = await resolveCfg(client, docType, ent, null, { language, recordLanguage: recordLanguageFor(docType, data) });

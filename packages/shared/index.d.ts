@@ -1531,7 +1531,62 @@ export declare namespace quotation {
   const commercialSettings: z.ZodType<{ target_margin_percent: number }, unknown>;
   // Read by the API's portal routes only.
   const decline: z.ZodTypeAny;
+  /** The section library, in its fixed print order (lean revamp §3.4). */
+  const SECTION_KEYS: ReadonlyArray<QuotationSectionKey>;
+  /** What a Commercial Extract prints. */
+  const EXTRACT_SECTIONS: ReadonlyArray<QuotationSectionKey>;
+  /** Sections whose words a person writes on the quotation. */
+  const TEXT_SECTIONS: ReadonlyArray<QuotationSectionKey>;
+  /** Sections a template carries default words for. */
+  const TEMPLATE_TEXT_SECTIONS: ReadonlyArray<QuotationSectionKey>;
+  const ALWAYS_ON: ReadonlyArray<QuotationSectionKey>;
+  const LANGUAGES: ReadonlyArray<QuotationLanguage>;
+  const OUTPUTS: ReadonlyArray<QuotationOutput>;
+  const MAX_STORIES: number;
+  const section: z.ZodType<QuotationSectionInput, unknown>;
+  const sections: z.ZodType<QuotationSectionInput[], unknown>;
+  const documentFields: Record<string, z.ZodTypeAny>;
+  const templateSection: z.ZodTypeAny;
+  const templateSections: z.ZodTypeAny;
+  const template: z.ZodType<QuotationTemplateInput, unknown>;
+  const templatePatch: z.ZodType<Partial<QuotationTemplateInput> & { active?: boolean }, unknown>;
+  const send: z.ZodType<QuotationSendInput, unknown>;
+  const revise: z.ZodTypeAny;
+  const share: z.ZodType<{ expires_on?: string | null }, unknown>;
+  const recordAcceptance: z.ZodType<{ convert?: boolean; by_name?: string | null; by_email?: string | null }, unknown>;
+  const linkAcceptStart: z.ZodType<{ full_name: string; role?: string | null }, unknown>;
+  const linkAcceptComplete: z.ZodType<{ code: string; preset_code: "STAMP" | "DRAWN"; full_name: string; role?: string | null; mark_image?: string | null }, unknown>;
+  const linkAcceptConfirm: z.ZodType<{ full_name: string; role?: string | null }, unknown>;
+  const draftSections: z.ZodTypeAny;
 }
+
+export type QuotationSectionKey =
+  | "cover" | "about_us" | "needs" | "solution" | "scope" | "pricing" | "terms" | "case_stories" | "next_steps";
+export type QuotationLanguage = "EN" | "FR" | "BILINGUAL";
+export type QuotationOutput = "FULL" | "EXTRACT";
+export type QuotationSectionInput = {
+  section_key: QuotationSectionKey;
+  enabled?: boolean;
+  body_en?: string | null;
+  body_fr?: string | null;
+  story_ids?: string[];
+};
+export type QuotationTemplateInput = {
+  name: string;
+  service_type_ids?: string[];
+  is_default?: boolean;
+  sections?: Partial<Record<QuotationSectionKey, { enabled?: boolean; body_en?: string | null; body_fr?: string | null }>>;
+};
+export type QuotationSendInput = {
+  to: string;
+  cc?: string[];
+  subject: string;
+  message?: string | null;
+  output?: QuotationOutput;
+  language?: "EN" | "FR";
+  entity_id?: string | null;
+  follow_up?: boolean;
+};
 
 export type SearchQuery = { q: string; types?: string; limit?: number };
 
