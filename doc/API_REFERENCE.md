@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1899 |
-| Modules mounted | 143 |
+| Routes | 1865 |
+| Modules mounted | 141 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1899 mounted routes, grouped by path prefix.
+All 1865 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -414,33 +414,6 @@ All 1899 mounted routes, grouped by path prefix.
 | PUT | `/api/tenant/branding/pwa` | — |
 | POST | `/api/tenant/branding/pwa/icon` | — |
 | POST | `/api/tenant/branding/site/hero` | — |
-
-### `tenant/campaigns`
-
-| Method | Path | Body validated |
-|---|---|---|
-| GET | `/api/tenant/campaigns/` | — |
-| POST | `/api/tenant/campaigns/` | — |
-| GET | `/api/tenant/campaigns/:id` | — |
-| PATCH | `/api/tenant/campaigns/:id` | — |
-| POST | `/api/tenant/campaigns/:id/approve` | — |
-| POST | `/api/tenant/campaigns/:id/reject` | — |
-| POST | `/api/tenant/campaigns/:id/send` | — |
-| POST | `/api/tenant/campaigns/:id/transition` | — |
-| GET | `/api/tenant/campaigns/export.csv` | — |
-| GET | `/api/tenant/campaigns/senders` | — |
-| POST | `/api/tenant/campaigns/senders` | — |
-| DELETE | `/api/tenant/campaigns/senders/:id` | — |
-| POST | `/api/tenant/campaigns/senders/:id/verify` | — |
-| GET | `/api/tenant/campaigns/subscribers` | — |
-| POST | `/api/tenant/campaigns/subscribers` | — |
-| POST | `/api/tenant/campaigns/subscribers/unsubscribe` | — |
-| GET | `/api/tenant/campaigns/templates` | — |
-| POST | `/api/tenant/campaigns/templates` | — |
-| DELETE | `/api/tenant/campaigns/templates/:id` | — |
-| GET | `/api/tenant/campaigns/templates/:id` | — |
-| PATCH | `/api/tenant/campaigns/templates/:id` | — |
-| GET | `/api/tenant/campaigns/tiles` | — |
 
 ### `tenant/capabilities`
 
@@ -1519,21 +1492,6 @@ All 1899 mounted routes, grouped by path prefix.
 | PATCH | `/api/tenant/outbound/:id/lines/:lineId` | — |
 | POST | `/api/tenant/outbound/:id/status` | — |
 
-### `tenant/partnership-requests`
-
-| Method | Path | Body validated |
-|---|---|---|
-| GET | `/api/tenant/partnership-requests/` | — |
-| POST | `/api/tenant/partnership-requests/` | — |
-| GET | `/api/tenant/partnership-requests/:id` | — |
-| PATCH | `/api/tenant/partnership-requests/:id` | — |
-| POST | `/api/tenant/partnership-requests/:id/approve` | — |
-| POST | `/api/tenant/partnership-requests/:id/profile` | — |
-| POST | `/api/tenant/partnership-requests/:id/reject` | — |
-| POST | `/api/tenant/partnership-requests/:id/transition` | — |
-| GET | `/api/tenant/partnership-requests/export.csv` | — |
-| GET | `/api/tenant/partnership-requests/tiles` | — |
-
 ### `tenant/party-document-types`
 
 | Method | Path | Body validated |
@@ -1788,8 +1746,6 @@ All 1899 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/public/insights/:slug` | — |
 | GET | `/api/tenant/public/insights/media/:id` | — |
 | POST | `/api/tenant/public/intake/contact-enquiries` | — |
-| POST | `/api/tenant/public/intake/newsletter` | — |
-| POST | `/api/tenant/public/intake/partnerships` | — |
 | POST | `/api/tenant/public/intake/quote-requests` | — |
 | GET | `/api/tenant/public/places/` | — |
 | GET | `/api/tenant/public/portfolio/` | — |

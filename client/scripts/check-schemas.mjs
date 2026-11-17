@@ -189,9 +189,8 @@ const ALLOW_LOCAL_SCHEMA = {
   "src/modules/sales/public_intake/public_intake.validator.js":
     "Partly migrated (meeting 6, PR 2). The website's QUOTE shape is "
     + "`@praxis/shared` quoteRequest.publicQuote — one definition of a quote "
-    + "request for the website, the portal and the desk. The contact, "
-    + "partnership and newsletter shapes (and the spam trap they share) have "
-    + "never been shared and are still declared here.",
+    + "request for the website, the portal and the desk. The contact shape "
+    + "(and its spam trap) has never been shared and is still declared here.",
   "src/modules/commercial/quotation/quotation.validator.js":
     "Partly migrated (meeting 6, PR 4). \"Create quotation\" on a costing and "
     + "the per-document family order are `@praxis/shared` quotation.fromCosting / "

@@ -705,11 +705,22 @@ export function App() {
                 element={<KeepQueryRedirect to="/sales/quotations" />}
               />
               <Route path="commercial/:section" element={<CommercialHub />} />
-              {/* Sales & CRM — one hub, deep-linkable tabs (intake is a Leads tab) */}
+              {/* Sales & CRM — one hub, deep-linkable tabs */}
               <Route path="sales" element={<SalesHub />} />
               <Route
                 path="sales/inbound-intake"
-                element={<Navigate to="/sales/leads?tab=intake" replace />}
+                element={<Navigate to="/sales/enquiries" replace />}
+              />
+              {/* Campaigns and Partnerships & Vendors were removed in the Sales
+                  lean revamp (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md, D10). Their
+                  old addresses land on Leads rather than on an empty hub tab. */}
+              <Route
+                path="sales/campaigns"
+                element={<Navigate to="/sales/leads" replace />}
+              />
+              <Route
+                path="sales/partnerships"
+                element={<Navigate to="/sales/leads" replace />}
               />
               {/* The two front-of-funnel 360s get their own routes for the same
             reason the entity and treasury dossiers have theirs: a dossier gets

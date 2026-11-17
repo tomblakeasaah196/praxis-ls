@@ -19,13 +19,13 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | Alias | Prefer | Raised |
 |---|---|---|
 | `BAD_AMOUNT` | `INVALID_AMOUNT` | 16× |
-| `BAD_STATE` | `BAD_STATUS` | 39× |
+| `BAD_STATE` | `BAD_STATUS` | 36× |
 | `EMPLOYEE_NOT_FOUND` | `NOT_FOUND` | 3× |
 | `FORBIDDEN` | `PERMISSION_DENIED` | 7× |
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (720)
+## All codes (713)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -36,7 +36,6 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ACCOUNT_NOT_CASH_CAPABLE` | 422 | 1× | — |
 | `ACCOUNT_NOT_POSTABLE` | 422 | 1× | — |
 | `ACTIVATION_REQUIREMENTS_MISSING` | 422 | 1× | — |
-| `ACTUALS_LOCKED` | — | 1× | — |
 | `ADVANCE_NOT_CLEARED` | 422 | 2× | — |
 | `AI_ACTION_FORBIDDEN` | 403 | 1× | — |
 | `AI_UNAVAILABLE` | 403, 503 | 7× | — |
@@ -44,7 +43,6 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ALREADY_ACKNOWLEDGED` | 409 | 1× | — |
 | `ALREADY_ACTED` | 422 | 1× | — |
 | `ALREADY_ANSWERED` | 409 | 1× | — |
-| `ALREADY_APPROVED` | 422 | 2× | — |
 | `ALREADY_CLAIMED` | 409 | 1× | — |
 | `ALREADY_CLOCKED_IN` | 409 | 3× | — |
 | `ALREADY_CLOSED` | 422 | 3× | — |
@@ -80,7 +78,6 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ATTACHMENT_TOO_LARGE` | — | 1× | — |
 | `AUDIO_TOO_LARGE` | 413 | 1× | — |
 | `AUTH_REQUIRED` | 401 | 16× | — |
-| `AWAITING_DECISION` | — | 1× | — |
 | `BAD_ACTION` | 422 | 4× | — |
 | `BAD_AMOUNT` | 422 | 16× | `INVALID_AMOUNT` |
 | `BAD_APPLIES_TO` | 422 | 1× | — |
@@ -95,7 +92,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_CREDENTIALS` | 401 | 1× | — |
 | `BAD_CUSTOM_FIELD` | 422 | 5× | — |
 | `BAD_DATE` | 422 | 1× | — |
-| `BAD_DECISION` | 422 | 3× | — |
+| `BAD_DECISION` | 422 | 2× | — |
 | `BAD_DOC_TYPE` | 422 | 3× | — |
 | `BAD_FEE_ACCOUNT` | 422 | 1× | — |
 | `BAD_FILE` | 400, 422 | 17× | — |
@@ -134,17 +131,16 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_SEARCH` | 422 | 2× | — |
 | `BAD_SECRET` | 422 | 2× | — |
 | `BAD_SECTION` | — | 1× | — |
-| `BAD_SENDER` | 422 | 1× | — |
 | `BAD_SIGNATURE` | 422 | 1× | — |
 | `BAD_SNAPSHOT_TARGET` | 500 | 1× | — |
 | `BAD_STAGE` | 422 | 2× | — |
-| `BAD_STATE` | 400, 409, 422 | 39× | `BAD_STATUS` |
+| `BAD_STATE` | 400, 409, 422 | 36× | `BAD_STATUS` |
 | `BAD_STATUS` | 422 | 6× | — |
 | `BAD_STEP` | 422 | 1× | — |
 | `BAD_STORAGE_BUFFER` | 400 | 2× | — |
 | `BAD_STORAGE_KEY` | 400 | 2× | — |
 | `BAD_TARGET` | 422 | 1× | — |
-| `BAD_TEMPLATE` | 422 | 5× | — |
+| `BAD_TEMPLATE` | 422 | 4× | — |
 | `BAD_TEXT_SIZE` | — | 1× | — |
 | `BAD_THEME` | 422 | 1× | — |
 | `BAD_TIMEZONE` | — | 2× | — |
@@ -165,7 +161,6 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `CALLER_BUSY` | 409 | 1× | — |
 | `CALL_MOVED_ON` | 409 | 4× | — |
 | `CALL_NOT_STARTED` | 409 | 1× | — |
-| `CAMPAIGN_ENDED` | 422 | 1× | — |
 | `CAPABILITY_REQUIRED` | 403 | 1× | — |
 | `CATALOGUE_TAKEN` | 409 | 1× | — |
 | `CATEGORY_INACTIVE` | 422 | 1× | — |
@@ -246,7 +241,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ENTITLEMENT_EXCEEDED` | — | 1× | — |
 | `ENTITY_MISMATCH` | 422 | 1× | — |
 | `ENTITY_NOT_IN_IDENTITY_SCHEMA` | — | 1× | — |
-| `ENTITY_REQUIRED` | 422 | 12× | — |
+| `ENTITY_REQUIRED` | 422 | 11× | — |
 | `ENTRY_NOT_ON_ACCOUNT` | 400 | 1× | — |
 | `ENVELOPE_IN_FLIGHT` | 409 | 1× | — |
 | `ESIGN_UNAVAILABLE` | 409 | 1× | — |
@@ -326,7 +321,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `KEY_RESERVED` | 422 | 2× | — |
 | `KEY_TAKEN` | 422 | 4× | — |
 | `KPI_NOT_LIVE` | — | 1× | — |
-| `KPI_NOT_PARTITIONED` | 500 | 4× | — |
+| `KPI_NOT_PARTITIONED` | 500 | 2× | — |
 | `KPI_NOT_READABLE` | — | 1× | — |
 | `LAST_ADMIN` | 409 | 1× | — |
 | `LAST_CEO` | 409 | 2× | — |
@@ -338,7 +333,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `LINE_HAS_CLAIMS` | — | 1× | — |
 | `LINE_REQUIRED` | 422 | 1× | — |
 | `LOCATION_REQUIRED` | — | 1× | — |
-| `LOCKED` | 422 | 38× | — |
+| `LOCKED` | 422 | 36× | — |
 | `LOCKED_NOT_DEFAULT` | — | 1× | — |
 | `LOGIN_THROTTLED` | 429 | 1× | — |
 | `LOW_MARGIN_JUSTIFICATION_REQUIRED` | 422 | 1× | — |
@@ -394,13 +389,13 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 774× | — |
+| `NOT_FOUND` | 404, 422 | 757× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
 | `NOT_OPEN` | 409, 422 | 3× | — |
 | `NOT_OPERATIONAL` | 422 | 1× | — |
-| `NOT_PENDING` | 409, 422 | 3× | — |
+| `NOT_PENDING` | 409, 422 | 2× | — |
 | `NOT_PERSONAL` | 422 | 1× | — |
 | `NOT_PRICED_BY_QUOTATION` | — | 1× | — |
 | `NOT_PUBLISHED` | 422 | 1× | — |
@@ -539,7 +534,6 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `PLACE_PROVIDER_UNAVAILABLE` | 502 | 1× | — |
 | `PLACE_SUGGESTION_EXPIRED` | 409 | 1× | — |
 | `PLAN_IN_USE` | 409 | 1× | — |
-| `PLAN_LOCKED` | — | 1× | — |
 | `POOL_EXHAUSTED` | 500 | 1× | — |
 | `PORTAL_ADMIN_REQUIRED` | 403 | 1× | — |
 | `PORTAL_FORBIDDEN` | 403 | 1× | — |
@@ -575,7 +569,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `QUOTE_REQUEST_NOT_FOUND` | 422 | 1× | — |
 | `QUOTE_REQUEST_OTHER_CLIENT` | 422 | 1× | — |
 | `RATE_LIMITED` | 429 | 1× | — |
-| `REASON_REQUIRED` | 422 | 10× | — |
+| `REASON_REQUIRED` | 422 | 9× | — |
 | `REAUTH_REQUIRED` | 403 | 2× | — |
 | `RECIPIENT_NOT_ALLOWED` | — | 1× | — |
 | `RECIPIENT_REJECTED` | 422 | 2× | — |
@@ -728,9 +722,8 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `UNVERIFIED_PLACE` | — | 1× | — |
 | `USER_INACTIVE` | 401 | 5× | — |
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
-| `USE_APPROVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 400, 422 | 296× | — |
+| `VALIDATION_ERROR` | 400, 422 | 291× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |

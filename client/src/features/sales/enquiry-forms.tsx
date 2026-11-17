@@ -9,9 +9,8 @@
  *   - Classify and annotate      -> PATCH   (never touches status)
  *   - Reply                      -> POST /respond  (sends the email; the
  *                                  enquiry becomes RESPONDED only if it lands)
- *   - Route into the funnel      -> POST /triage   (raises a lead and/or a
- *                                  partnership request; does NOT mark it
- *                                  answered)
+ *   - Route into the funnel      -> POST /triage   (raises a lead; does NOT
+ *                                  mark it answered)
  *
  * OPENING THE DRAWER MARKS IT READ. The legacy does this too, and it is what
  * makes the "New (unread)" tile mean unread. It is fired once per open, is
@@ -102,7 +101,6 @@ export function ManageEnquiryModal({
   const [reply, setReply] = React.useState("");
   const [subject, setSubject] = React.useState("");
   const [toLead, setToLead] = React.useState(false);
-  const [toPartnership, setToPartnership] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -127,7 +125,6 @@ export function ManageEnquiryModal({
     setNotice(null);
     setReply("");
     setToLead(false);
-    setToPartnership(String(enquiry.enquiry_type) === "PARTNERSHIP");
     void load();
     // Mark read on open. Fire-and-forget by design — see the header. The list
     // is refreshed by whichever real action follows, or on close.
@@ -145,7 +142,6 @@ export function ManageEnquiryModal({
   const closed = status === "CLOSED";
   const responses = Array.isArray(detail?.responses) ? (detail!.responses as Row[]) : [];
   const alreadyLead = !!detail?.lead_id;
-  const alreadyPartnership = !!detail?.partnership_request_id;
 
   /** Returns whether the action succeeded — callers must not discard the
    *  operator's typing on a failure. */
@@ -189,7 +185,7 @@ export function ManageEnquiryModal({
   const triage = () =>
     run(
       "triage",
-      () => tenant(`/intake/enquiries/${id}/triage`, { method: "POST", body: { to_lead: toLead, to_partnership: toPartnership } }),
+      () => tenant(`/intake/enquiries/${id}/triage`, { method: "POST", body: { to_lead: toLead } }),
       "Routed.",
     );
 
@@ -360,22 +356,12 @@ export function ManageEnquiryModal({
               onCheckedChange={(v) => setToLead(v === true)}
               label={alreadyLead ? "Lead already raised" : "Raise a lead"}
             />
-            <Checkbox
-              checked={alreadyPartnership || toPartnership}
-              disabled={alreadyPartnership || closed}
-              onCheckedChange={(v) => setToPartnership(v === true)}
-              label={
-                alreadyPartnership
-                  ? "Partnership request already raised"
-                  : "Raise a partnership request (also classifies this as Partnership)"
-              }
-            />
           </div>
           <Button
             className="mt-3"
             variant="outline"
             loading={busy === "triage"}
-            disabled={closed || (!toLead && !toPartnership) || (alreadyLead && alreadyPartnership)}
+            disabled={closed || !toLead || alreadyLead}
             onClick={triage}
           >
             Route

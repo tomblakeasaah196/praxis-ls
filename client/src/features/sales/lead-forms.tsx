@@ -2,12 +2,11 @@
  * Leads & intake — the write surfaces.
  *
  * Split out of `features/sales/leads.tsx` in Phase 4 (audit F7: no file over
- * 400 lines). Three modals, all of which mutate the funnel: create/edit a lead,
- * convert one into a client, and review a partnership request.
+ * 400 lines). The modals that mutate the funnel: create/edit a lead and
+ * convert one into a client.
  *
  * TriageModal was removed by F9. The enquiry desk is its own screen now
- * (features/sales/enquiries.tsx), and its Manage drawer owns triage — including
- * the route-to-partnership path this modal never had. Leaving it here would
+ * (features/sales/enquiries.tsx), and its Manage drawer owns triage. Leaving it here would
  * have left a second write surface posting the pre-F9 payload at the same
  * endpoint, which is the duplication F9 exists to remove.
  */
@@ -274,13 +273,3 @@ export function ConvertModal({
     </Modal>
   );
 }
-
-/**
- * ReviewModal lived here and posted /intake/partnerships/:id/review with
- * REVIEWING / ACCEPTED / DECLINED. F10 removed it: the route moved to
- * /partnership-requests and migration 0688 replaced that status vocabulary with
- * NEW / IN_REVIEW / APPROVED / REJECTED, so every call it made would now be
- * refused by the CHECK constraint. Reviewing happens in
- * features/sales/partnership-forms.tsx, where approving can also open a draft
- * supplier — which is the decision this modal could not express.
- */

@@ -90,8 +90,6 @@ DECLARE
   v_pp1 uuid; v_pp2 uuid;
   -- meetings
   v_mtg1 uuid;
-  -- campaigns
-  v_cmp1 uuid; v_cmp2 uuid;
   -- quotations / costings
   v_q1 uuid; v_q2 uuid; v_co1 uuid; v_co2 uuid; v_ms1 uuid;
   -- invoices
@@ -523,16 +521,6 @@ BEGIN
   INSERT INTO meeting (subject,lead_id,scheduled_at) VALUES ('Découverte besoins fret — SABC',v_ld1,now()+interval '2 days') RETURNING meeting_id INTO v_mtg1;
   INSERT INTO meeting_note (meeting_id,body,is_minutes) VALUES (v_mtg1,'Client importe ~40 conteneurs/an depuis Anvers. Sensible aux délais de dédouanement.',true);
 
-  INSERT INTO marketing_campaign (name,channel,status,starts_on,ends_on)
-    VALUES ('Newsletter Q1 2026','email','ACTIVE',CURRENT_DATE-15,CURRENT_DATE+15) RETURNING campaign_id INTO v_cmp1;
-  INSERT INTO marketing_campaign (name,channel,status)
-    VALUES ('Salon Transport & Logistique Douala','event','DRAFT') RETURNING campaign_id INTO v_cmp2;
-  INSERT INTO newsletter_subscriber (email,name,source) VALUES
-    ('contact@sabc.cm','SABC',' website'),
-    ('logistics@chococam.cm','Chococam','website'),
-    ('info@prometal.cm','Prometal','manual')
-    ON CONFLICT DO NOTHING;
-
   INSERT INTO opportunity (name,lead_id,client_id,dossier_id,pipeline_stage_id,estimated_value,probability,status)
     VALUES ('SABC — contrat cadre fret maritime',v_ld1,v_cl1,v_do1,v_ps_neg,72000000,60,'OPEN') RETURNING opportunity_id INTO v_op1;
   INSERT INTO opportunity (name,client_id,pipeline_stage_id,estimated_value,probability,status)
@@ -557,8 +545,6 @@ BEGIN
     VALUES ('Dédouanement express pour Dangote',v_do2,'Réduction du délai de dédouanement de 30%.',true,true);
   INSERT INTO contact_enquiry (name,email,subject,message,status)
     VALUES ('Visiteur Web','prospect@example.cm','Demande de devis','Nous cherchons un transitaire pour import Chine.','NEW');
-  INSERT INTO partnership_request (company_name,contact_name,email,proposal_text,status)
-    VALUES ('AGL Cameroun','Direction','partenariat@agl.cm','Proposition de sous-traitance transport hinterland.','NEW');
 
   -- ==========================================================================
   -- 4. COMMERCIAL — costing, quotations, simulators

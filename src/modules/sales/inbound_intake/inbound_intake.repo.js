@@ -1,10 +1,5 @@
-/** Inbound intake (MOD-25) — repository. All SQL lives here.
- *
- * Two registers share this file today: contact enquiries (F9, rebuilt below)
- * and partnership requests (F10 is moving those into
- * src/modules/sales/partnership_request/ — the functions at the bottom are left
- * exactly as they were so that move is a deletion, not a merge).
- */
+/** Inbound intake (MOD-25) — repository for the contact enquiry desk (F9).
+ *  All SQL lives here. */
 "use strict";
 const { insertOne, updateOne, getById, page } = require("../../../shared/db/query-helpers");
 
@@ -22,7 +17,7 @@ const blankToNull = (v) => (v === "" || v === undefined ? null : v);
 /**
  * Columns a caller may write.
  *
- * `status`, `lead_id`, `partnership_request_id`, `responded_at` and
+ * `status`, `lead_id`, `responded_at` and
  * `responded_by_user_id` are NOT here on purpose: each is set by exactly one
  * service operation (transition, triage, respond), and every one of them is the
  * answer to a question the register asks. A generic PATCH that could set
@@ -80,8 +75,8 @@ function buildWhere(q = {}, { includeStatus = true } = {}) {
   if (q.source) { params.push(q.source); wh.push("source = $" + params.length); }
   // "Show me the ones that produced something" / "the ones that did not" — the
   // triage question, asked of the FK rather than of a status value.
-  if (q.triaged === "true") wh.push("(lead_id IS NOT NULL OR partnership_request_id IS NOT NULL)");
-  if (q.triaged === "false") wh.push("(lead_id IS NULL AND partnership_request_id IS NULL)");
+  if (q.triaged === "true") wh.push("lead_id IS NOT NULL");
+  if (q.triaged === "false") wh.push("lead_id IS NULL");
   if (q.month) { params.push(Number(q.month)); wh.push("EXTRACT(MONTH FROM created_at) = $" + params.length); }
   if (q.year) { params.push(Number(q.year)); wh.push("EXTRACT(YEAR FROM created_at) = $" + params.length); }
   if (q.q) {
@@ -176,22 +171,6 @@ async function listResponses(client, contact_enquiry_id) {
   );
   return rows;
 }
-
-/* ─── partnership requests ────────────────────────────────────────────────
- *
- * MOVED in F10 to src/modules/sales/partnership_request/ (basePath
- * /partnership-requests). F9 left these here marked "F10 territory"; this is
- * F10 collecting them.
- *
- * They could not stay: migration 0688 replaces the table's status vocabulary
- * with the legacy API's own NEW / IN_REVIEW / APPROVED / REJECTED, so the
- * `review` validator below — REVIEWING / ACCEPTED / DECLINED — now writes
- * values the CHECK constraint refuses. An endpoint that 23514s on every call
- * is not a back-compatible alias.
- *
- * Triage still raises a partnership request: it does it through
- * partnership_request.repo, above, which is the F10 register.
- */
 
 module.exports = {
   insertEnquiry, getEnquiry, updEnquiry, listEnquiries, listEnquiriesForExport,

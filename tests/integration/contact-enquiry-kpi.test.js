@@ -42,9 +42,11 @@ d("F9 contact_enquiry KPI partition (real Postgres)", () => {
     const { rows } = await pool.query(
       `SELECT column_name FROM information_schema.columns
         WHERE table_name = 'contact_enquiry'
-          AND column_name IN ('enquiry_type','company_name','internal_notes','responded_at','partnership_request_id')`,
+          AND column_name IN ('enquiry_type','company_name','internal_notes','responded_at')`,
     );
-    if (rows.length < 5) {
+    // partnership_request_id was 0689's fifth column; 14500 dropped it with the
+    // partnership register (Sales lean revamp, D10).
+    if (rows.length < 4) {
       throw new Error(
         "contact_enquiry is missing F9 columns — apply migrations/tenant/0689_sales_crm_f9_contact_enquiries.sql first.",
       );

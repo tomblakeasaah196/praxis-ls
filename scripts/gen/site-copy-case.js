@@ -447,11 +447,10 @@ const CASES = {
     LABEL: [
       "company", "services", "clients", "legal", "powered", "about", "contact",
       "portfolio", "careers", "track", "portal", "quote", "privacy", "terms",
-      "newsletterCta", "newsletterEmail", "social", "verify",
+      "social", "verify",
     ],
     PROSE: [
-      "rights", "newsletter", "sending", "newsletterOk", "newsletterLimited",
-      "newsletterErr", "socialOn", "credentials", "legalEntity",
+      "rights", "socialOn", "credentials", "legalEntity",
     ],
   },
   "site.hero": {

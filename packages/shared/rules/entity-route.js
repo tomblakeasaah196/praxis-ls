@@ -129,8 +129,6 @@ const SECTION = {
   opportunity: "/sales/opportunities",
   proposal: "/sales/proposals",
   contact_enquiry: "/sales/enquiries",
-  partnership_request: "/sales/partnerships",
-  campaign: "/sales/campaigns",
   // Procurement
   purchase_request: "/procurement/purchase-requests",
   purchase_order: "/procurement/purchase-orders",

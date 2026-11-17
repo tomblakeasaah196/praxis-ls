@@ -1,15 +1,12 @@
 /**
- * Sales & CRM — Leads, and the inbound intake feed that supplies them.
+ * Sales & CRM — Leads.
  *
  * Split out of `features/sales/pages.tsx` (2,596 lines) in Phase 4, audit F7.
  *
- * Intake is a TAB here rather than a screen of its own: the leads list is the
- * funnel and inbound enquiries/partnerships are its raw feed, so triage flows
- * straight from one into the other. `/sales/inbound-intake` redirects to
- * `?tab=intake`.
- *
- * NOTE: the API prefix moved /inbound → /intake on 2026-08-04 (audit API F-6),
- * because wms/inbound already owned /inbound.
+ * The "Inbound intake" tab that used to sit here was a signpost to the enquiry
+ * desk and the partnership register; the register was removed in the Sales lean
+ * revamp (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md, D10), so the signpost went too.
+ * `/sales/inbound-intake` redirects to the enquiry desk.
  */
 
 import { pageShell } from "@/lib/layout";
@@ -26,7 +23,6 @@ import type { AiAction } from "@/features/scaffold/screen-specs";
 import { useList, useRefresh, type Row } from "@/lib/use-resource";
 import { cell, num } from "@/lib/format";
 import { StatusPill } from "@/components/ui/pill";
-import { Segmented } from "@/components/ui/segmented";
 import { Chips } from "@/components/ui/chips";
 import { SplitPane } from "@/components/ui/split-pane";
 import { isDesktopNow, useIsDesktop } from "@/lib/use-media-query";
@@ -269,52 +265,9 @@ function LeadsTab() {
   );
 }
 
-/* ═══════════════════════════════ INBOUND INTAKE ═══════════════════════════════ */
-
-/**
- * Both halves of the old intake feed now have a register of their own — F9 gave
- * the enquiry desk one, F10 the partnership register — so this tab is two
- * signposts rather than two second copies.
- *
- * F9 replaced the enquiries list here with a signpost and wrote the reason on
- * it: "Two live lists over one register is the defect this build exists to
- * remove." The partnership list was the other one. It was also, as of migration
- * 0688, broken: it read /intake/partnerships (moved) and its Review modal wrote
- * REVIEWING / ACCEPTED / DECLINED, which the status CHECK no longer accepts.
- */
-function IntakeTab() {
-  return (
-    <div className="space-y-4">
-      <EmptyState
-        title="Inbound intake has moved into two desks"
-        hint="Contact enquiries are classified, answered and closed on their own screen. Partnership and vendor applications are vetted on theirs — where approving a vendor opens a draft supplier."
-        action={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => { window.location.href = "/sales/enquiries"; }}>
-              Open contact enquiries
-            </Button>
-            <Button variant="outline" onClick={() => { window.location.href = "/sales/partnerships"; }}>
-              Open partnerships & vendors
-            </Button>
-          </div>
-        }
-      />
-    </div>
-  );
-}
-
-/* ─────────────────────────────── Leads page (tabbed) ─────────────────────────────── */
+/* ─────────────────────────────────── Leads page ─────────────────────────────────── */
 
 export function LeadsPage() {
-  const initialTab =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("tab") === "intake"
-      ? "intake"
-      : "leads";
-  const [tab, setTab] = React.useState<"leads" | "intake">(
-    initialTab as "leads" | "intake",
-  );
-
   return (
     <section className={pageShell.wide}>
       <PageHeader
@@ -324,19 +277,7 @@ export function LeadsPage() {
       />
       <HubTabs />
 
-      <div className="mb-5">
-        <Segmented
-          label="Lead pipeline section"
-          value={tab}
-          onChange={setTab}
-          options={[
-            { value: "leads", label: "Leads" },
-            { value: "intake", label: "Inbound intake" },
-          ]}
-        />
-      </div>
-
-      {tab === "leads" ? <LeadsTab /> : <IntakeTab />}
+      <LeadsTab />
 
       <AiActions actions={LEADS_AI} />
     </section>

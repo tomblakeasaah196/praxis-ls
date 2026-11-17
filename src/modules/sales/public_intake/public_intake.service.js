@@ -3,8 +3,6 @@
 const lead = require("../lead/lead.service");
 const quote = require("../quote_request/quote_request.service");
 const enquiry = require("../inbound_intake/inbound_intake.service");
-const partnership = require("../partnership_request/partnership_request.service");
-const campaign = require("../marketing_campaign/marketing_campaign.service");
 const geoPlace = require("../../operations/geo_place/geo_place.service");
 const vault = require("../../vault/document_vault/document_vault.service");
 const { quoteRequest } = require("@praxis/shared");
@@ -27,8 +25,7 @@ const ATTACHMENT_TYPES = ["application/pdf", "image/png", "image/jpeg"];
 
 const receipt = (row) => ({
   received: true,
-  reference: row.public_ref || row.quote_request_id || row.contact_enquiry_id
-    || row.partnership_request_id || row.email,
+  reference: row.public_ref || row.quote_request_id || row.contact_enquiry_id,
 });
 
 /**
@@ -234,26 +231,8 @@ async function submitContact(client, data) {
   return receipt(row);
 }
 
-async function submitPartnership(client, data) {
-  const row = await partnership.create(client, {
-    data: { ...data, intake_channel: "WEBSITE" },
-    actor: {},
-  });
-  return receipt(row);
-}
-
-async function subscribe(client, data) {
-  const row = await campaign.subscribe(client, {
-    email: data.email,
-    name: data.name,
-    source: "website",
-    actor: {},
-  });
-  return receipt(row);
-}
-
 module.exports = {
-  submitQuote, submitContact, submitPartnership, subscribe, receipt,
+  submitQuote, submitContact, receipt,
   // Exported for the tests, which assert the two failure asymmetries directly:
   // a place that cannot be resolved must not cost the enquiry, and a file the
   // requester can fix must reach them rather than being swallowed.

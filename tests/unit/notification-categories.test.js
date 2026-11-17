@@ -25,7 +25,7 @@ describe("categoryFor — event domain → category", () => {
     // make one switch govern two meanings.
     ["calendar_event.created", "system"],
     ["client.created", "sales"],
-    ["campaign.created", "sales"],
+    ["contact_enquiry.created", "sales"],
     ["document.signed", "compliance"],
     ["approval.opened", "approvals"],
     ["ai.action.executed", "system"],
