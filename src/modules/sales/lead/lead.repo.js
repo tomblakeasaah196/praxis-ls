@@ -31,18 +31,6 @@ async function update(client, id, fields) {
 
 /* ─── the duplicate keys (14510) ──────────────────────────────────────────── */
 
-/**
- * The three keys, computed in SQL so they are byte-for-byte the expressions
- * 14510 indexed: folded email; the last nine digits of a phone with at least
- * seven; the folded company name with everything but letters and digits gone.
- */
-const KEYS_CTE = `k AS (
-  SELECT NULLIF(search_fold($1::text), '') AS ekey,
-         CASE WHEN length(regexp_replace(COALESCE($2::text, ''), '[^0-9]', '', 'g')) >= 7
-              THEN right(regexp_replace($2::text, '[^0-9]', '', 'g'), 9) END AS pkey,
-         NULLIF(regexp_replace(search_fold($3::text), '[^a-z0-9]+', '', 'g'), '') AS ckey,
-         NULLIF(btrim(search_fold($3::text)), '') AS cfold
-)`;
 
 const EMAIL_MATCH = (col) => `(k.ekey IS NOT NULL AND ${col} IS NOT NULL AND search_fold(${col}::text) = k.ekey)`;
 const PHONE_MATCH = (col) =>
@@ -63,7 +51,17 @@ const COMPANY_SIMILAR = (col) =>
  */
 async function duplicates(client, { company = null, email = null, phone = null, excludeId = null, limit = 6 }) {
   const { rows } = await client.query(
-    `WITH ${KEYS_CTE},
+    `WITH
+     -- The three keys, computed in SQL so they are byte-for-byte the
+     -- expressions 14510 indexed: folded email; the last nine digits of a
+     -- phone with at least seven; the folded name, letters and digits only.
+     k AS (
+       SELECT NULLIF(search_fold($1::text), '') AS ekey,
+              CASE WHEN length(regexp_replace(COALESCE($2::text, ''), '[^0-9]', '', 'g')) >= 7
+                   THEN right(regexp_replace($2::text, '[^0-9]', '', 'g'), 9) END AS pkey,
+              NULLIF(regexp_replace(search_fold($3::text), '[^a-z0-9]+', '', 'g'), '') AS ckey,
+              NULLIF(btrim(search_fold($3::text)), '') AS cfold
+     ),
      leads AS (
        SELECT l.lead_id, l.client_id, l.company_name, l.contact_name, l.email::text AS email, l.phone,
               l.status, l.created_at, cm.name AS client_name,
