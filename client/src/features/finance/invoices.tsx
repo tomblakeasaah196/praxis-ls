@@ -154,7 +154,8 @@ export function InvoicesPage() {
       label: "",
       render: (r) => (
         <div className="flex flex-wrap justify-end gap-2">
-          {isDraft(r) && (
+          {/* Editing a draft and submitting it are both `edit` on the route. */}
+          {isDraft(r) && can("edit") && (
             <>
               <Button
                 size="sm"

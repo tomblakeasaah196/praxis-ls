@@ -1602,8 +1602,31 @@ the field) all draw the button. Absent means unknown, not nothing.
 Log, Issue, Schedule, Upload, Report, Raise, Grant, Set, Invite, Import) must
 sit behind a `can(…)`, or carry `// @access:open <reason>` inside the action.
 It does not read row actions, form footers or the buttons inside a 360: there a
-label does not tell a write from a read. Those are still to be swept, by hand,
-module by module.
+label does not tell a write from a read. Those are swept by hand, module by
+module. Done so far: invoices, journals, payroll runs, purchase orders and
+fleet work orders.
+
+**A status change asks for a different grant per target state.** `POST
+/payroll/:id/status` is `edit` to submit a run and `approve` to approve it, so
+one `can("approve")` over the whole button row would be wrong in both
+directions. The map of target state to action lives in
+`@praxis/shared` (`transitionActions`, `rules/transition-actions.js`): the
+routes file mounts it and the screen reads it, so a button and the route that
+accepts it cannot disagree.
+
+```tsx
+import { transitionActions } from "@praxis/shared";
+const mayMove = (to: string) =>
+  can(transitionActions.actionFor(transitionActions.purchaseOrderTransition, to));
+…
+{r.status === "ISSUED_LOCKED" && mayMove("APPROVED_LOCKED") && <Button…>Approve</Button>}
+```
+
+When you sweep a screen whose route still keeps its `TRANSITION_ACTION` as a
+local constant, move the constant into that file first. Do not copy it into the
+client. A button that remains can still be refused: a decision may also need
+the APPROVER capability, and maker-checker forbids approving what you
+submitted. Neither is in the client's access answer.
 
 **Own-account pages** (`/security/my-security`, `/notifications`) need no grant:
 they are about the signed-in person, and their APIs need a session and nothing

@@ -1114,6 +1114,23 @@ export declare namespace dictionarySibling {
   ): { to: T; to_mode: SiblingMode; reason: { en: string; fr: string } } | null;
 }
 
+/**
+ * Which grant a lifecycle transition asks for, by TARGET state. The routes
+ * mount these maps and the screens read them, so the button a role is offered
+ * and the route that accepts it cannot disagree. See rules/transition-actions.js.
+ */
+export declare namespace transitionActions {
+  type Action = "create" | "edit" | "delete" | "approve" | "export" | "validate" | "disburse" | "test";
+  type Map = Readonly<Record<string, Action>>;
+  const FALLBACK: Action;
+  const payrollStatus: Map;
+  const purchaseOrderTransition: Map;
+  const purchaseOrderUnlock: Map;
+  const workOrderStatus: Map;
+  /** The action a transition to `target` asks for. Unlisted is `approve`. */
+  function actionFor(map: Map, target: string | null | undefined): Action;
+}
+
 export declare namespace coverage {
   type Row = { country_code?: string | null; label_fr?: string | null; label_en?: string | null };
   type Flag = {

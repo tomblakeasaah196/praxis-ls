@@ -21,6 +21,7 @@ import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/hr-api";
 import { useCan } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const shell = pageShell.wide;
 
@@ -153,6 +154,7 @@ function RunDetail({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const can = useCan("MOD-17");
   const run = useResource(() => api.getPayrollRun(runId), [runId]);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -239,10 +241,21 @@ function RunDetail({
     </div>
   ) : undefined;
 
+  // Computing is `edit`; a status change asks for whatever its target state
+  // asks for on the route. A clerk who may submit is not shown Approve.
+  const offered = d
+    ? actionsFor(d.status).filter((a) =>
+        can(
+          a.kind === "compute"
+            ? "edit"
+            : transitionActions.actionFor(transitionActions.payrollStatus, a.to),
+        ),
+      )
+    : [];
   const footer =
-    d && actionsFor(d.status).length ? (
+    d && offered.length ? (
       <>
-        {actionsFor(d.status).map((a) => (
+        {offered.map((a) => (
           <Button
             key={a.label}
             variant={a.variant || "default"}

@@ -519,7 +519,8 @@ export function JournalsPage() {
       key: "_a",
       label: "",
       render: (r) =>
-        isValidated(r) && !isReversal(r) ? (
+        // Reversing is a decision: the route asks `approve`, not `create`.
+        isValidated(r) && !isReversal(r) && can("approve") ? (
           <div className="flex justify-end">
             <Button
               size="sm"

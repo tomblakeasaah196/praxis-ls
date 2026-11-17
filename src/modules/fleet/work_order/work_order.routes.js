@@ -7,6 +7,7 @@ const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const { requireTransitionPermission, requireLifecyclePermissionOnPatch } = require("../../../shared/http/transition-permission");
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./work_order.controller");
 const validator = require("./work_order.validator");
 
@@ -19,12 +20,9 @@ const M = "MOD-41";
  * outside the system, is `approve`. Anything not listed falls back to `approve`
  * so a state added later fails closed.
  */
-const TRANSITION_ACTION = {
-  OPEN: "edit",
-  IN_PROGRESS: "edit",
-  DONE: "approve",
-  CANCELLED: "approve",
-};
+// The map itself lives in @praxis/shared, so the work-order screen offers
+// exactly the buttons this route accepts (rules/transition-actions.js).
+const TRANSITION_ACTION = transitionActions.workOrderStatus;
 
 const router = express.Router();
 router.use(authMiddleware);

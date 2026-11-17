@@ -8,6 +8,7 @@ const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const { requireTransitionPermission } = require("../../../shared/http/transition-permission");
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./payroll.controller");
 const validator = require("./payroll.validator");
 
@@ -54,7 +55,9 @@ router.post("/:id/compute", requirePermission(M, "edit"), validator.compute, con
 // Computing and submitting a run is payroll's own work; approving, validating
 // and disbursing are decisions. The SoD note above still holds — compute and
 // approve remain different permissions. See shared/http/transition-permission.js.
-const TRANSITION_ACTION = { COMPUTED: "edit", SUBMITTED: "edit", OPEN: "edit", APPROVED: "approve", VALIDATED: "approve", DISBURSED: "approve", REJECTED: "approve" };
+// The map lives in @praxis/shared so the payroll screen offers exactly the
+// buttons this route accepts (rules/transition-actions.js).
+const TRANSITION_ACTION = transitionActions.payrollStatus;
 
 router.post("/:id/status", validator.status, requireTransitionPermission(M, TRANSITION_ACTION, { field: "status" }), controller.setStatus);
 

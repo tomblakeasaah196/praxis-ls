@@ -25,6 +25,7 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/fleet-api";
 import { useCan } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const shell = pageShell.wide;
 const STATUS_TONE: Record<string, Tone> = {
@@ -54,6 +55,7 @@ function WorkOrderDetail({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const can = useCan("MOD-41");
   const [order, setOrder] = React.useState(initial);
   const parts = useResource(
     () => api.getWorkOrderParts(order.work_order_id),
@@ -62,7 +64,8 @@ function WorkOrderDetail({
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [p, setP] = React.useState({ label: "", qty: "1", unit_cost: "" });
-  const canEdit = ["OPEN", "IN_PROGRESS"].includes(order.status);
+  // Logging a part is `edit` on the route, as well as a matter of status.
+  const canEdit = ["OPEN", "IN_PROGRESS"].includes(order.status) && can("edit");
 
   async function toState(s: string) {
     setBusy("st:" + s);
@@ -99,13 +102,15 @@ function WorkOrderDetail({
   }
 
   const rows = parts.data || [];
-  const transitions: Transition[] = (TRANSITIONS[order.status] || []).map(
-    (s) => ({
+  // Advancing is `edit`, ending the record is `approve`: the same map the
+  // route mounts, so only the moves this role may make are offered.
+  const transitions: Transition[] = (TRANSITIONS[order.status] || [])
+    .filter((s) => can(transitionActions.actionFor(transitionActions.workOrderStatus, s)))
+    .map((s) => ({
       to: s,
       label: STATUS_LABEL[s] || s,
       variant: s === "CANCELLED" ? "outline" : "default",
-    }),
-  );
+    }));
 
   return (
     <Modal
