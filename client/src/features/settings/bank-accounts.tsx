@@ -283,6 +283,7 @@ export function BankAccountsPage() {
                     </Pill>
                   </TD>
                   <TD>
+                    {can("edit") && (
                     <Button
                       size="sm"
                       variant={active ? "outline" : "default"}
@@ -291,6 +292,7 @@ export function BankAccountsPage() {
                     >
                       {active ? "Deactivate" : "Activate"}
                     </Button>
+                    )}
                   </TD>
                 </TR>
               );

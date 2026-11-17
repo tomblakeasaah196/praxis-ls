@@ -671,6 +671,7 @@ function CodeGroupTable({
   /** The server's verdict per code — see PostingCell for why it is not derived. */
   unmapped: UnmappedBy;
 }) {
+  const can = useCan("MOD-07");
   const [openKey, setOpenKey] = React.useState<string | null>(null);
   if (!groups.length)
     return (
@@ -721,6 +722,7 @@ function CodeGroupTable({
                 </TD>
                 <TD>
                   <div className="flex gap-2">
+                    {can("edit") && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -728,6 +730,7 @@ function CodeGroupTable({
                     >
                       Amend rate
                     </Button>
+                    )}
                     {versions.length > 1 && (
                       <Button
                         size="sm"
@@ -867,6 +870,7 @@ type JurisdictionDossierData = Record<string, unknown> & {
 };
 
 function JurisdictionDossier({ id }: { id: string }) {
+  const can = useCan("MOD-07");
   const reloadList = useRefresh();
   const d = useResource<JurisdictionDossierData>(
     () => tenant<JurisdictionDossierData>(`/tax-jurisdictions/${id}`),
@@ -945,9 +949,12 @@ function JurisdictionDossier({ id }: { id: string }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {can("create") && (
             <Button size="sm" onClick={() => setAddOpen(true)}>
               Add code
             </Button>
+            )}
+            {can("edit") && (
             <Button
               size="sm"
               variant={active ? "outline" : "default"}
@@ -956,6 +963,7 @@ function JurisdictionDossier({ id }: { id: string }) {
             >
               {active ? "Deactivate" : "Activate"}
             </Button>
+            )}
           </div>
         </div>
       </div>

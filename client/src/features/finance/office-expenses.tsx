@@ -358,17 +358,24 @@ export function OfficeExpensesPage() {
       key: "_a",
       label: "",
       render: (r) =>
-        r.status === "DRAFT" ? (
+        r.status === "DRAFT" && (can("edit") || can("approve") || can("delete")) ? (
           <RowActions>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>
-              Edit
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setPosting(r)}>
-              Post
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => removeDraft(r)}>
-              Delete
-            </Button>
+            {can("edit") && (
+              <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>
+                Edit
+              </Button>
+            )}
+            {/* Posting to the ledger is `approve` on the route. */}
+            {can("approve") && (
+              <Button size="sm" variant="outline" onClick={() => setPosting(r)}>
+                Post
+              </Button>
+            )}
+            {can("delete") && (
+              <Button size="sm" variant="ghost" onClick={() => removeDraft(r)}>
+                Delete
+              </Button>
+            )}
           </RowActions>
         ) : null,
     },

@@ -56,6 +56,7 @@ import { EmptyState, LoadingRow } from "@/components/ui/states";
 import { ScreenError } from "@/components/connection/screen-error";
 import { useToast } from "@/components/ui/toast";
 import { errMsg } from "@/lib/use-resource";
+import { useCan } from "@/lib/route-access";
 import { dateFmt } from "@/lib/format";
 import { OperationsFilePicker } from "@/components/operations/file-picker";
 import { BOARD_COLUMNS, TASK_PRIORITIES, TASK_STATUSES } from "../api";
@@ -118,6 +119,8 @@ export function TaskList({
 }) {
   const toast = useToast();
   const move = useMoveTask();
+  // A move is POST /workspace/tasks/:id/status (`edit`); a new task is `create`.
+  const can = useCan("MOD-00A");
   const ownSearch = search === undefined;
   const [ownQ, setOwnQ] = React.useState("");
   const q = (ownSearch ? ownQ : search).trim();
@@ -328,7 +331,7 @@ export function TaskList({
                   : undefined
           }
           action={
-            !filtered ? (
+            !filtered && can("create") ? (
               <button type="button" className="btn-primary" onClick={onCreate}>
                 Add the first task
               </button>
@@ -343,7 +346,7 @@ export function TaskList({
                 task={task}
                 selected={task.task_id === selectedId}
                 onOpen={() => onOpen(task.task_id)}
-                onMove={(next) => moveTo(task, next)}
+                onMove={can("edit") ? (next) => moveTo(task, next) : undefined}
               />
             </li>
           ))}
@@ -391,7 +394,8 @@ function TaskRow({
   task: Task;
   selected: boolean;
   onOpen: () => void;
-  onMove: (next: TaskStatus) => Promise<void>;
+  /** Absent when the reader may not move a task: no Move menu is drawn. */
+  onMove?: (next: TaskStatus) => Promise<void>;
 }) {
   const titleRef = React.useRef<HTMLSpanElement>(null);
   // True while the title overflows the two-line clamp, and kept through the
@@ -491,6 +495,7 @@ function TaskRow({
         )}
         <Pill tone={PRIORITY_TONE[task.priority]}>{PRIORITY_LABEL[task.priority]}</Pill>
         <Pill tone={STATUS_TONE[task.status]}>{STATUS_LABEL[task.status]}</Pill>
+        {onMove && (
         <DropdownMenu
           align="end"
           trigger={
@@ -509,6 +514,7 @@ function TaskRow({
             </DropdownItem>
           ))}
         </DropdownMenu>
+        )}
       </div>
     </div>
   );

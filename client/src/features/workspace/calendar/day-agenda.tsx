@@ -37,6 +37,7 @@ import { EmptyState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { errMsg } from "@/lib/use-resource";
+import { useCan } from "@/lib/route-access";
 import type { CalendarEvent, Deadline } from "../api";
 import { useCreateEvent } from "../hooks";
 import { eventTypeTone, humanizeType } from "../labels";
@@ -71,6 +72,7 @@ export function DayAgenda({
   onNewEvent: (day: string) => void;
 }) {
   const toast = useToast();
+  const can = useCan("MOD-00A");
   const create = useCreateEvent();
   const [quickTitle, setQuickTitle] = React.useState("");
 
@@ -121,12 +123,15 @@ export function DayAgenda({
       title={dayLabel()}
       size="md"
       footer={
-        <Button onClick={() => day && onNewEvent(day)} disabled={create.isPending}>
-          New event on this day
-        </Button>
+        can("create") && (
+          <Button onClick={() => day && onNewEvent(day)} disabled={create.isPending}>
+            New event on this day
+          </Button>
+        )
       }
     >
       <div className="space-y-4">
+        {can("create") && (
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -145,11 +150,12 @@ export function DayAgenda({
             Add
           </Button>
         </form>
+        )}
 
         {dayEvents.length === 0 && dayDue.length === 0 ? (
           <EmptyState
             title="Nothing on this day yet"
-            hint="Quick add above for the one-liner, or New event for the full form."
+            hint={can("create") ? "Quick add above for the one-liner, or New event for the full form." : undefined}
           />
         ) : (
           <ul className="divide-y divide-border/60">

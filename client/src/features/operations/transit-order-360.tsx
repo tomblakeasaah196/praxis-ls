@@ -108,6 +108,9 @@ function OrderActions({
   // A status move asks for a different grant per target state. The map is the
   // one the route mounts, so only the moves this role may make are offered.
   const mayMove = useCanMove("MOD-30", transitionActions.transitOrderTransition);
+  // The two signing buttons belong to the signatures engine (MOD-64), not to
+  // transit orders: countersigning is `approve` there, sending is `create`.
+  const can = useCan("MOD-30");
   const allowed = new Set(row.allowed_transitions || []);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -199,7 +202,7 @@ function OrderActions({
           * sealing a draft would attest to a document that does not exist yet
           * and would go stale the moment it was issued.
           */}
-        {row.status !== "DRAFT" && row.status !== "CANCELLED" && (
+        {row.status !== "DRAFT" && row.status !== "CANCELLED" && can("approve", "MOD-64") && (
           <Button size="sm" variant="outline" disabled={busy} onClick={() => setSignOpen(true)}>
             Sign electronically
           </Button>
@@ -217,7 +220,7 @@ function OrderActions({
           * chain's hash covers the issued figures and its email names the
           * order's own reference.
           */}
-        {row.status !== "DRAFT" && row.status !== "CANCELLED" && (
+        {row.status !== "DRAFT" && row.status !== "CANCELLED" && can("create", "MOD-64") && (
           <Button size="sm" variant="outline" disabled={busy} onClick={() => setSendOpen(true)}>
             Send for signature
           </Button>

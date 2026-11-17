@@ -268,7 +268,8 @@ export function VehicleCompliancePage() {
       />
       <HubTabs />
       <DataList
-        columns={cols}
+        // Renew is the row's only action, so the column goes with the grant.
+        columns={can("edit") ? cols : cols.filter((c) => c.key !== "_a")}
         rows={rows.data}
         error={rows.error}
         loading={rows.loading}

@@ -154,6 +154,7 @@ function DetailsTab({
   header: FileHeader;
   onJump: (tab: File360Tab) => void;
 }) {
+  const can = useCan("MOD-29");
   const [editing, setEditing] = React.useState(false);
   const details = useResource(() => api.getShipmentDetails(fileId), [fileId]);
   const block = details.data?.containers;
@@ -163,7 +164,7 @@ function DetailsTab({
       <ShipmentDetailsPanel
         data={details.data}
         action={
-          block?.enabled ? (
+          block?.enabled && can("edit") ? (
             <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
               {block.lines.length ? "Edit containers" : "Add containers"}
             </Button>
@@ -191,6 +192,7 @@ function DetailsTab({
  * display and opens the same editor the Details tab does.
  */
 function ContainersTab({ fileId }: { fileId: string }) {
+  const can = useCan("MOD-29");
   const [editing, setEditing] = React.useState(false);
   const details = useResource(() => api.getShipmentDetails(fileId), [fileId]);
   const block = details.data?.containers;
@@ -208,11 +210,13 @@ function ContainersTab({ fileId }: { fileId: string }) {
 
   return (
     <div className="space-y-4">
+      {can("edit") && (
       <div className="flex justify-end">
         <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
           {block.lines.length ? tr("Edit containers") : tr("Add containers")}
         </Button>
       </div>
+      )}
       {block.lines.length ? (
         <ContainerSummary block={block} />
       ) : (
@@ -220,9 +224,11 @@ function ContainersTab({ fileId }: { fileId: string }) {
           title={tr("No containers recorded yet")}
           hint="Add a line for each type on the file. Container numbers can follow when the Bill of Lading arrives."
           action={
+            can("edit") && (
             <Button size="sm" onClick={() => setEditing(true)}>
               {tr("Add containers")}
             </Button>
+            )
           }
         />
       )}

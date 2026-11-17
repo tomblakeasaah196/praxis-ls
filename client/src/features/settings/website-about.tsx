@@ -46,6 +46,7 @@ import { ErrorState } from "@/components/ui/states";
 import { tr } from "@/lib/i18n";
 import { errMsg } from "@/lib/use-resource";
 import * as api from "@/lib/site-settings-api";
+import { useCan } from "@/lib/route-access";
 import { WebsiteNav } from "./website-nav";
 import { AssetSlotField } from "./website-assets";
 
@@ -95,6 +96,7 @@ const PILLAR_LABEL: Record<(typeof PILLARS)[number], string> = {
 };
 
 export function WebsiteAboutPage() {
+  const can = useCan("MOD-29");
   const [about, setAbout] = React.useState<api.SiteAbout | null>(null);
   const [leaders, setLeaders] = React.useState<api.Leader[] | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
@@ -288,6 +290,7 @@ export function WebsiteAboutPage() {
         title={tr("Group leadership")}
         desc={tr("The people who lead the group. A company's own team is edited in its dossier.")}
       >
+        {can("edit") && (
         <div className="mb-4">
           <Button
             variant="outline"
@@ -298,6 +301,7 @@ export function WebsiteAboutPage() {
             {tr("Add person")}
           </Button>
         </div>
+        )}
         {!leaders?.length ? (
           <p className="text-sm text-muted-foreground">{tr("None yet.")}</p>
         ) : (
@@ -352,6 +356,8 @@ export function WebsiteAboutPage() {
                   />
                 </div>
 
+                {/* Removing a person is `edit` on the route, not `delete`. */}
+                {can("edit") && (
                 <div className="mt-3 flex justify-end">
                   <Button
                     size="sm"
@@ -362,6 +368,7 @@ export function WebsiteAboutPage() {
                     {tr("Remove")}
                   </Button>
                 </div>
+                )}
               </li>
             ))}
           </ul>

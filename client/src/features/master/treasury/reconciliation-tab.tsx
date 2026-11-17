@@ -31,6 +31,7 @@ import { FileDrop } from "@/components/ui/file-drop";
 import { Callout } from "@/components/ui/callout";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { errMsg } from "@/lib/use-resource";
+import { useCan } from "@/lib/route-access";
 import { money, dateFmt, cell } from "@/lib/format";
 import * as recon from "@/lib/reconciliation-api";
 import { CashCountSheet } from "./cash-count-sheet";
@@ -309,6 +310,7 @@ function MatchQueue({
   const [open, setOpen] = React.useState<string | null>(null);
   const [matches, setMatches] = React.useState<recon.ReconciliationMatch[]>([]);
   const [busy, setBusy] = React.useState(false);
+  const can = useCan("MOD-09");
 
   const load = React.useCallback(async () => {
     try {
@@ -376,11 +378,14 @@ function MatchQueue({
         <Pill tone="warn">{counts.suggested} {tr("to review")}</Pill>
         <Pill tone="bad">{counts.unmatched} {tr("unmatched")}</Pill>
         {counts.ignored > 0 && <Pill tone="mute">{counts.ignored} {tr("set aside")}</Pill>}
-        <div className="ml-auto">
-          <Button onClick={runMatcher} disabled={busy}>
-            {busy ? tr("Matching…") : tr("Find matches")}
-          </Button>
-        </div>
+        {/* Running the matcher is `create` on the route. */}
+        {can("create") && (
+          <div className="ml-auto">
+            <Button onClick={runMatcher} disabled={busy}>
+              {busy ? tr("Matching…") : tr("Find matches")}
+            </Button>
+          </div>
+        )}
       </div>
 
       {error && <ErrorState message={error} />}
@@ -441,7 +446,7 @@ function MatchQueue({
                           <div className="flex items-center gap-2">
                             {l.proposed_entry_id ? (
                               <Pill tone="blue">{tr("Draft entry proposed")}</Pill>
-                            ) : (
+                            ) : can("edit") ? (
                               <Button
                                 size="sm"
                                 onClick={() => void act(() => recon.proposeEntry(l.statement_line_id))}
@@ -449,15 +454,17 @@ function MatchQueue({
                               >
                                 {tr("Propose draft entry")}
                               </Button>
+                            ) : null}
+                            {can("edit") && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void act(() => recon.ignoreLine(l.statement_line_id, "set aside by the treasurer"))}
+                                disabled={busy}
+                              >
+                                {tr("Set aside")}
+                              </Button>
                             )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => void act(() => recon.ignoreLine(l.statement_line_id, "set aside by the treasurer"))}
-                              disabled={busy}
-                            >
-                              {tr("Set aside")}
-                            </Button>
                           </div>
                         </div>
                       ) : (
@@ -478,7 +485,7 @@ function MatchQueue({
                               <span className="micro w-full text-muted-foreground">
                                 {(m.reasons || []).join(" · ")}
                               </span>
-                              {m.status !== "CONFIRMED" && (
+                              {m.status !== "CONFIRMED" && can("edit") && (
                                 <span className="ml-auto flex gap-2">
                                   <Button onClick={() => void act(() => recon.confirmMatch(m.match_id))} disabled={busy}>
                                     {tr("Confirm")}
@@ -517,6 +524,7 @@ function ReconciliationPane({
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [issued, setIssued] = React.useState<string | null>(null);
+  const can = useCan("MOD-09");
 
   const build = async () => {
     setBusy(true); setError(null);
@@ -564,10 +572,12 @@ function ReconciliationPane({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Button onClick={build} disabled={busy || !statement}>
-          {busy ? tr("Working…") : tr("Build reconciliation")}
-        </Button>
-        {row && row.status !== "APPROVED_LOCKED" && (
+        {can("create") && (
+          <Button onClick={build} disabled={busy || !statement}>
+            {busy ? tr("Working…") : tr("Build reconciliation")}
+          </Button>
+        )}
+        {row && row.status !== "APPROVED_LOCKED" && can("approve") && (
           <Button variant="outline" onClick={approve} disabled={busy || gap !== 0}>
             {tr("Approve")}
           </Button>
@@ -660,6 +670,7 @@ export function ReconciliationTab({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const can = useCan("MOD-09");
 
   const load = React.useCallback(async () => {
     try {
@@ -734,133 +745,138 @@ export function ReconciliationTab({
   return (
     <div className="space-y-6">
       {/* ── 1. import ─────────────────────────────────────────────────────── */}
-      <section className="space-y-3 rounded-xl border bg-card p-4">
-        <div>
-          <h3 className="text-sm font-medium">{tr("Import a statement")}</h3>
-          <p className="micro text-muted-foreground">
-            {tr("CSV, Excel, PDF, camt.053 or MT940. The file is checked before anything is stored — nothing is imported until you accept the preview.")}
-          </p>
-        </div>
-
-        <FileDrop
-          file={file}
-          uploadProgress={statementProgress}
-          uploadSuccess={statementDone}
-          onPick={(f) => {
-            setFile(f);
-            setPreview(null);
-            setStatementProgress(null);
-            setStatementDone(false);
-            if (f) void doPreview(f);
-          }}
-          accept={ACCEPT}
-          hint={tr("Drop the export from your bank or mobile-money portal")}
-          disabled={busy}
-        />
-
-        {busy && !preview && <LoadingRow />}
-        {error && <ErrorState message={error} />}
-        {notice && (
-          <Callout tone="ok">{notice}</Callout>
-        )}
-
-        {preview && preview.status === "NEEDS_MAPPING" && (
-          <MappingPane
-            result={preview}
-            entityId={entityId}
-            onConfirmed={() => { setPreview(null); if (file) void doPreview(file); }}
-            onCancel={() => { setPreview(null); setFile(null); }}
-          />
-        )}
-
-        {preview && preview.status === "READY" && (
-          <div className="space-y-3">
-            {preview.already_imported && (
-              <Callout tone="warn">
-                {tr("You have already imported this exact file on")} {dateFmt(preview.already_imported.imported_at)}.
-              </Callout>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              <Pill tone="mute">{preview.file.source_kind}</Pill>
-              <Pill tone="mute">{preview.line_count} {tr("lines")}</Pill>
-              {preview.duplicate_count > 0 && (
-                <Pill tone="warn">{preview.duplicate_count} {tr("already present")}</Pill>
-              )}
-              {preview.rejected.length > 0 && (
-                <Pill tone="bad">{preview.rejected.length} {tr("unreadable")}</Pill>
-              )}
-              {preview.profile && <Pill tone="ok">{preview.profile.label}</Pill>}
-            </div>
-
-            {preview.ocr && preview.ocr.used && (
-              <Callout tone="warn" title={tr("These figures were read off a scan")}>
-                <p className="micro text-muted-foreground">
-                  {tr("This PDF had no text layer, so it was read by OCR — the numbers below are our reading of a picture, not an export the institution produced.")}{" "}
-                  {preview.ocr.pages_read}/{preview.ocr.pages} {tr("page(s) read.")}{" "}
-                  {tr("Check them against the paper; the totals check below is the arithmetic backstop.")}
-                </p>
-              </Callout>
-            )}
-
-            <FootingBanner footing={preview.footing} currency={preview.account.currency} />
-
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium">{tr("Date")}</th>
-                    <th className="px-3 py-2 text-right font-medium">{tr("Amount")}</th>
-                    <th className="px-3 py-2 text-left font-medium">{tr("Description")}</th>
-                    <th className="px-3 py-2 text-left font-medium">{tr("Reference")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.preview.map((r, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="px-3 py-1.5">{cell(r.booking_date as string)}</td>
-                      <td className={`px-3 py-1.5 text-right tabular-nums ${num(r.amount) < 0 ? "text-bad" : ""}`}>
-                        {money(num(r.amount), preview.account.currency)}
-                      </td>
-                      <td className="px-3 py-1.5">{cell((r.description ?? r.counterparty) as string)}</td>
-                      <td className="px-3 py-1.5">{cell(r.external_ref as string)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* A statement that does not foot has been misread, and every
-                number derived from it would be fiction. No import button. */}
-            {preview.already_imported ? (
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const existing = statements?.find(
-                      (s) => s.statement_id === preview.already_imported?.statement_id,
-                    );
-                    if (existing) setSelected(existing);
-                  }}
-                >
-                  {tr("View existing statement")}
-                </Button>
-                <p className="micro text-muted-foreground">
-                  {tr("This exact file was already imported. Re-importing is disabled.")}
-                </p>
-              </div>
-            ) : preview.footing.foots === false ? (
-              <p className="micro text-muted-foreground">
-                {tr("Fix the file or the column mapping and upload again — importing a statement that does not add up would reconcile your books against a mis-parse.")}
-              </p>
-            ) : (
-              <Button onClick={doImport} disabled={busy}>
-                {busy ? tr("Importing…") : tr("Import this statement")}
-              </Button>
-            )}
+      {/* The drop previews at once, and the preview route asks for `create`.
+          The load error is drawn in this section, so it keeps a place. */}
+      {!can("create") && error && <ErrorState message={error} />}
+      {can("create") && (
+        <section className="space-y-3 rounded-xl border bg-card p-4">
+          <div>
+            <h3 className="text-sm font-medium">{tr("Import a statement")}</h3>
+            <p className="micro text-muted-foreground">
+              {tr("CSV, Excel, PDF, camt.053 or MT940. The file is checked before anything is stored — nothing is imported until you accept the preview.")}
+            </p>
           </div>
-        )}
-      </section>
+
+          <FileDrop
+            file={file}
+            uploadProgress={statementProgress}
+            uploadSuccess={statementDone}
+            onPick={(f) => {
+              setFile(f);
+              setPreview(null);
+              setStatementProgress(null);
+              setStatementDone(false);
+              if (f) void doPreview(f);
+            }}
+            accept={ACCEPT}
+            hint={tr("Drop the export from your bank or mobile-money portal")}
+            disabled={busy}
+          />
+
+          {busy && !preview && <LoadingRow />}
+          {error && <ErrorState message={error} />}
+          {notice && (
+            <Callout tone="ok">{notice}</Callout>
+          )}
+
+          {preview && preview.status === "NEEDS_MAPPING" && (
+            <MappingPane
+              result={preview}
+              entityId={entityId}
+              onConfirmed={() => { setPreview(null); if (file) void doPreview(file); }}
+              onCancel={() => { setPreview(null); setFile(null); }}
+            />
+          )}
+
+          {preview && preview.status === "READY" && (
+            <div className="space-y-3">
+              {preview.already_imported && (
+                <Callout tone="warn">
+                  {tr("You have already imported this exact file on")} {dateFmt(preview.already_imported.imported_at)}.
+                </Callout>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <Pill tone="mute">{preview.file.source_kind}</Pill>
+                <Pill tone="mute">{preview.line_count} {tr("lines")}</Pill>
+                {preview.duplicate_count > 0 && (
+                  <Pill tone="warn">{preview.duplicate_count} {tr("already present")}</Pill>
+                )}
+                {preview.rejected.length > 0 && (
+                  <Pill tone="bad">{preview.rejected.length} {tr("unreadable")}</Pill>
+                )}
+                {preview.profile && <Pill tone="ok">{preview.profile.label}</Pill>}
+              </div>
+
+              {preview.ocr && preview.ocr.used && (
+                <Callout tone="warn" title={tr("These figures were read off a scan")}>
+                  <p className="micro text-muted-foreground">
+                    {tr("This PDF had no text layer, so it was read by OCR — the numbers below are our reading of a picture, not an export the institution produced.")}{" "}
+                    {preview.ocr.pages_read}/{preview.ocr.pages} {tr("page(s) read.")}{" "}
+                    {tr("Check them against the paper; the totals check below is the arithmetic backstop.")}
+                  </p>
+                </Callout>
+              )}
+
+              <FootingBanner footing={preview.footing} currency={preview.account.currency} />
+
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">{tr("Date")}</th>
+                      <th className="px-3 py-2 text-right font-medium">{tr("Amount")}</th>
+                      <th className="px-3 py-2 text-left font-medium">{tr("Description")}</th>
+                      <th className="px-3 py-2 text-left font-medium">{tr("Reference")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.preview.map((r, i) => (
+                      <tr key={i} className="border-t">
+                        <td className="px-3 py-1.5">{cell(r.booking_date as string)}</td>
+                        <td className={`px-3 py-1.5 text-right tabular-nums ${num(r.amount) < 0 ? "text-bad" : ""}`}>
+                          {money(num(r.amount), preview.account.currency)}
+                        </td>
+                        <td className="px-3 py-1.5">{cell((r.description ?? r.counterparty) as string)}</td>
+                        <td className="px-3 py-1.5">{cell(r.external_ref as string)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* A statement that does not foot has been misread, and every
+                  number derived from it would be fiction. No import button. */}
+              {preview.already_imported ? (
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const existing = statements?.find(
+                        (s) => s.statement_id === preview.already_imported?.statement_id,
+                      );
+                      if (existing) setSelected(existing);
+                    }}
+                  >
+                    {tr("View existing statement")}
+                  </Button>
+                  <p className="micro text-muted-foreground">
+                    {tr("This exact file was already imported. Re-importing is disabled.")}
+                  </p>
+                </div>
+              ) : preview.footing.foots === false ? (
+                <p className="micro text-muted-foreground">
+                  {tr("Fix the file or the column mapping and upload again — importing a statement that does not add up would reconcile your books against a mis-parse.")}
+                </p>
+              ) : (
+                <Button onClick={doImport} disabled={busy}>
+                  {busy ? tr("Importing…") : tr("Import this statement")}
+                </Button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ── 2. history ────────────────────────────────────────────────────── */}
       <section className="space-y-3 rounded-xl border bg-card p-4">

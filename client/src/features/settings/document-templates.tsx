@@ -237,6 +237,7 @@ export function DocumentTemplatesPage() {
                   </TD>
                   <TD>
                     <div className="flex gap-2">
+                      {can("edit") && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -244,6 +245,8 @@ export function DocumentTemplatesPage() {
                       >
                         Edit
                       </Button>
+                      )}
+                      {can("delete") && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -252,6 +255,7 @@ export function DocumentTemplatesPage() {
                       >
                         Delete
                       </Button>
+                      )}
                     </div>
                   </TD>
                 </TR>

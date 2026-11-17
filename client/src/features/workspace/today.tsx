@@ -280,7 +280,7 @@ export function TodayPage() {
                 title="Nothing due today"
                 hint="Add a task with a date, or an appointment in the diary."
                 action={
-                  <Button onClick={() => setTaskOpen(true)}>New Task</Button>
+                  can("create") && <Button onClick={() => setTaskOpen(true)}>New Task</Button>
                 }
               />
             ) : (

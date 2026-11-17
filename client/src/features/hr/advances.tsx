@@ -354,7 +354,8 @@ export function AdvancesPage() {
       key: "_a",
       label: "",
       render: (a) =>
-        a.status === "SETTLED" || a.status === "WRITTEN_OFF" ? null : (
+        // Pausing and rescheduling both PATCH the advance, which is `approve` on the route.
+        a.status === "SETTLED" || a.status === "WRITTEN_OFF" || !can("approve") ? null : (
           <div className="flex justify-end gap-2">
             <Button
               size="sm"

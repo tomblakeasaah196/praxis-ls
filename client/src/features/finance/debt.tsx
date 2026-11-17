@@ -293,6 +293,7 @@ function DebtDrawer({
     [debt.debt_engagement_id],
   );
   const x = d.data;
+  const can = useCan("MOD-53");
   return (
     <Modal
       open
@@ -328,7 +329,7 @@ function DebtDrawer({
             </div>
           </div>
           <div className="flex justify-end">
-            {x.status === "ACTIVE" && (
+            {x.status === "ACTIVE" && can("approve") && (
               <Button size="sm" onClick={onRepay}>
                 Record repayment
               </Button>
@@ -423,10 +424,13 @@ export function DebtPage() {
         // row-action button height is bounded so the row honours the density
         // preference (Phase 5).
         <RowActions>
-          <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>
-            Edit
-          </Button>
-          {r.status === "ACTIVE" && (
+          {can("edit") && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>
+              Edit
+            </Button>
+          )}
+          {/* Recording a repayment is `approve` on the route. */}
+          {r.status === "ACTIVE" && can("approve") && (
             <Button size="sm" variant="outline" onClick={() => setRepay(r)}>
               Repay
             </Button>

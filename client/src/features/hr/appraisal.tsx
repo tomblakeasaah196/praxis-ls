@@ -19,6 +19,7 @@ import { AppraisalReviewModal } from "./appraisal-review";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const rate = (v: string | number | null | undefined) =>
@@ -117,6 +118,7 @@ function RewardForm({
  * system already knows instead of leaving a manager to remember twelve people.
  */
 function CyclesPanel({ onOpenReview }: { onOpenReview: (id: string) => void }) {
+  const can = useCan("MOD-13");
   const cycles = useResource(() => api.appraisalCycles(), []);
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -190,7 +192,7 @@ function CyclesPanel({ onOpenReview }: { onOpenReview: (id: string) => void }) {
               >
                 {openId === c.appraisal_cycle_id ? "Hide reviews" : "Reviews"}
               </Button>
-              {["OPEN", "SCORING", "CALIBRATION"].includes(c.status) && (
+              {["OPEN", "SCORING", "CALIBRATION"].includes(c.status) && can("edit") && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -200,7 +202,7 @@ function CyclesPanel({ onOpenReview }: { onOpenReview: (id: string) => void }) {
                   Score from evidence
                 </Button>
               )}
-              {c.status === "SCORING" && (
+              {c.status === "SCORING" && can("approve") && (
                 <Button
                   size="sm"
                   loading={busy === c.appraisal_cycle_id + "RELEASED"}
@@ -244,6 +246,7 @@ function CyclesPanel({ onOpenReview }: { onOpenReview: (id: string) => void }) {
 }
 
 export function AppraisalsPage() {
+  const can = useCan("MOD-13");
   const list = useResource(() => api.listAppraisals(), []);
   const [reward, setReward] = React.useState<api.Appraisal | null>(null);
   const [reviewId, setReviewId] = React.useState<string | null>(null);
@@ -290,7 +293,7 @@ export function AppraisalsPage() {
         <div className="flex justify-end">
           {a.reward_status === "APPLIED" ? (
             <span className="micro">locked</span>
-          ) : (
+          ) : can("approve") ? (
             <Button
               size="sm"
               variant={a.reward_status === "PENDING" ? "outline" : "default"}
@@ -300,7 +303,7 @@ export function AppraisalsPage() {
                 ? "Adjust reward"
                 : "Recommend reward"}
             </Button>
-          )}
+          ) : null}
         </div>
       ),
     },

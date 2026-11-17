@@ -253,6 +253,7 @@ export function PaymentGatewaysPage() {
                   <TD className="text-sm">{dateFmt(r.updated_at)}</TD>
                   <TD>
                     <div className="flex gap-2">
+                      {can("edit") && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -260,6 +261,8 @@ export function PaymentGatewaysPage() {
                       >
                         Configure
                       </Button>
+                      )}
+                      {can("edit") && (
                       <Button
                         size="sm"
                         variant={active ? "outline" : "default"}
@@ -268,6 +271,8 @@ export function PaymentGatewaysPage() {
                       >
                         {active ? "Disable" : "Enable"}
                       </Button>
+                      )}
+                      {can("delete") && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -277,6 +282,7 @@ export function PaymentGatewaysPage() {
                       >
                         Delete
                       </Button>
+                      )}
                     </div>
                   </TD>
                 </TR>

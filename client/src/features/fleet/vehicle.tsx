@@ -116,6 +116,7 @@ function VehicleDetail({
   const [tab, setTab] = React.useState<Tab>("Work orders");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const can = useCan("MOD-39");
 
   const vid = vehicle.vehicle_id;
   // Server-side per-vehicle filters so history is complete (not just the first
@@ -175,7 +176,8 @@ function VehicleDetail({
             </p>
           </div>
           <TransitionButtons
-            items={(LADDER[vehicle.status || ""] || []).map(
+            // A vehicle's status is a plain PATCH: `edit` whatever the target.
+            items={(can("edit") ? LADDER[vehicle.status || ""] || [] : []).map(
               (s): Transition => ({
                 to: s,
                 label:

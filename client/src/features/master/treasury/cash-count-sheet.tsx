@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { errMsg } from "@/lib/use-resource";
+import { useCan } from "@/lib/route-access";
 import { money, dateFmt } from "@/lib/format";
 import * as recon from "@/lib/reconciliation-api";
 import { usePrompt } from "@/components/ui/use-prompt";
@@ -65,6 +66,7 @@ export function CashCountSheet({
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [prompt, promptDialog] = usePrompt();
+  const can = useCan("MOD-09");
 
   const activeDenominations = React.useMemo(() => getDenominationsForCurrency(currency), [currency]);
 
@@ -279,7 +281,7 @@ export function CashCountSheet({
                       </td>
                       <td className="px-3 py-1.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {row.status === "DRAFT" && (
+                          {row.status === "DRAFT" && can("edit") && (
                             <>
                               <Button
                                 variant="outline"
@@ -317,17 +319,19 @@ export function CashCountSheet({
                           )}
                           {row.status === "ATTESTED" && (
                             <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={busy}
-                                onClick={() => void act(
-                                  () => recon.approveCashCount(row.cash_count_id, true),
-                                  tr("Cash count approved and locked."),
-                                )}
-                              >
-                                {tr("Approve")}
-                              </Button>
+                              {can("approve") && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() => void act(
+                                    () => recon.approveCashCount(row.cash_count_id, true),
+                                    tr("Cash count approved and locked."),
+                                  )}
+                                >
+                                  {tr("Approve")}
+                                </Button>
+                              )}
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -339,27 +343,29 @@ export function CashCountSheet({
                               >
                                 {tr("Issue sheet")}
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={busy}
-                                onClick={async () => {
-                                  const cancelReason = await prompt({
-                                    title: tr("Cancel Cash Count"),
-                                    label: tr("Reason for Cancelling Count"),
-                                    description: tr("Cancelling lets the count be taken again."),
-                                    placeholder: tr("e.g. Discrepancy explained, recount requested"),
-                                  });
-                                  if (cancelReason !== null) {
-                                    void act(
-                                      () => recon.cancelCashCount(row.cash_count_id, cancelReason || undefined),
-                                      tr("Count cancelled."),
-                                    );
-                                  }
-                                }}
-                              >
-                                {tr("Cancel")}
-                              </Button>
+                              {can("edit") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={async () => {
+                                    const cancelReason = await prompt({
+                                      title: tr("Cancel Cash Count"),
+                                      label: tr("Reason for Cancelling Count"),
+                                      description: tr("Cancelling lets the count be taken again."),
+                                      placeholder: tr("e.g. Discrepancy explained, recount requested"),
+                                    });
+                                    if (cancelReason !== null) {
+                                      void act(
+                                        () => recon.cancelCashCount(row.cash_count_id, cancelReason || undefined),
+                                        tr("Count cancelled."),
+                                      );
+                                    }
+                                  }}
+                                >
+                                  {tr("Cancel")}
+                                </Button>
+                              )}
                             </>
                           )}
                           {row.status === "APPROVED_LOCKED" && (

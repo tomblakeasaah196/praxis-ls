@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { useUrlTab } from "@/lib/use-url-tab";
+import { useCan } from "@/lib/route-access";
 import { money, dateFmt, cell } from "@/lib/format";
 import * as api from "@/lib/treasury-api";
 import { useConfirm } from "@/components/ui/use-confirm";
@@ -197,6 +198,7 @@ export function TreasuryDossier({
   const [confirm, confirmDialog] = useConfirm();
   const [prompt, promptDialog] = usePrompt();
   const toast = useToast();
+  const can = useCan("MOD-09");
 
   /**
    * Generate the bank's signatory letter and file it under Documents. The name
@@ -285,55 +287,57 @@ export function TreasuryDossier({
             {cell(a.currency)}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Corrections live here. A treasury account is never deleted — its
-              CoA leaf is referenced by journal history — so a typo'd account
-              number or a missing zero on the opening balance is fixed in
-              place, not by creating a second account. */}
-          <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-            {tr("Edit")}
-          </Button>
-          {!a.is_primary && (
+        {can("edit") && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Corrections live here. A treasury account is never deleted: its
+                CoA leaf is referenced by journal history, so a typo'd account
+                number or a missing zero on the opening balance is fixed in
+                place, not by creating a second account. */}
+            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+              {tr("Edit")}
+            </Button>
+            {!a.is_primary && (
+              <Button
+                size="sm"
+                variant="outline"
+                loading={busy === "primary"}
+                onClick={() =>
+                  doAction("primary", () => api.setAccountPrimary(id))
+                }
+              >
+                Set primary
+              </Button>
+            )}
+            {a.is_verified ? (
+              <Button
+                size="sm"
+                variant="outline"
+                loading={busy === "verify"}
+                onClick={() => doAction("verify", () => api.unverifyAccount(id))}
+              >
+                Un-verify
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                loading={busy === "verify"}
+                onClick={() => doAction("verify", () => api.verifyAccount(id))}
+              >
+                Verify
+              </Button>
+            )}
             <Button
               size="sm"
-              variant="outline"
-              loading={busy === "primary"}
+              variant={a.is_active ? "outline" : "default"}
+              loading={busy === "active"}
               onClick={() =>
-                doAction("primary", () => api.setAccountPrimary(id))
+                doAction("active", () => api.setAccountActive(id, !a.is_active))
               }
             >
-              Set primary
+              {a.is_active ? "Deactivate" : "Activate"}
             </Button>
-          )}
-          {a.is_verified ? (
-            <Button
-              size="sm"
-              variant="outline"
-              loading={busy === "verify"}
-              onClick={() => doAction("verify", () => api.unverifyAccount(id))}
-            >
-              Un-verify
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              loading={busy === "verify"}
-              onClick={() => doAction("verify", () => api.verifyAccount(id))}
-            >
-              Verify
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant={a.is_active ? "outline" : "default"}
-            loading={busy === "active"}
-            onClick={() =>
-              doAction("active", () => api.setAccountActive(id, !a.is_active))
-            }
-          >
-            {a.is_active ? "Deactivate" : "Activate"}
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
       {actionError && <ErrorState message={actionError} />}
 
@@ -601,7 +605,8 @@ export function TreasuryDossier({
                     <Pill tone="mute">{tr("Reversed by #")}{l.reversed_by_entry_no}</Pill>
                   ) : l.reverses_entry_no ? (
                     <Pill tone="blue">{tr("Reversal of #")}{l.reverses_entry_no}</Pill>
-                  ) : l.status === "validated" ? (
+                  ) : l.status === "validated" && can("approve") ? (
+                    // Reversing a posting is `approve` on the route.
                     <Button
                       variant="ghost"
                       size="sm"
@@ -680,21 +685,23 @@ export function TreasuryDossier({
           title="Authorized Signatories"
           description="Single- and joint-signature limits, effective dates and authority rules"
           action={
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Meeting 5: the letter the bank asks for, from these rows. */}
-              <Button
-                size="sm"
-                variant="outline"
-                loading={busy === "letter"}
-                disabled={busy !== null || !(data.signatories || []).some((s) => s.is_active)}
-                onClick={() => void generateLetter()}
-              >
-                {tr("Authorisation letter")}
-              </Button>
-              <Button size="sm" onClick={() => setSigModalOpen(true)}>
-                Add signatory
-              </Button>
-            </div>
+            can("edit") && (
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Meeting 5: the letter the bank asks for, from these rows. */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  loading={busy === "letter"}
+                  disabled={busy !== null || !(data.signatories || []).some((s) => s.is_active)}
+                  onClick={() => void generateLetter()}
+                >
+                  {tr("Authorisation letter")}
+                </Button>
+                <Button size="sm" onClick={() => setSigModalOpen(true)}>
+                  Add signatory
+                </Button>
+              </div>
+            )
           }
         >
           <MiniTable
@@ -747,23 +754,25 @@ export function TreasuryDossier({
                   </span>
                 </Td>
                 <Td r>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={async () => {
-                      const ok = await confirm({
-                        title: "Remove signatory",
-                        body: `Remove ${sig.full_name} from authorized signatories?`,
-                        confirmLabel: "Remove",
-                        destructive: true,
-                      });
-                      if (!ok) return;
-                      await api.removeSignatory(id, sig.signatory_id);
-                      reload();
-                    }}
-                  >
-                    Remove
-                  </Button>
+                  {can("edit") && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: "Remove signatory",
+                          body: `Remove ${sig.full_name} from authorized signatories?`,
+                          confirmLabel: "Remove",
+                          destructive: true,
+                        });
+                        if (!ok) return;
+                        await api.removeSignatory(id, sig.signatory_id);
+                        reload();
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  )}
                 </Td>
               </tr>
             ))}
@@ -776,9 +785,11 @@ export function TreasuryDossier({
           title="Attached Documents"
           description="Bank confirmation, RIB, mandates, KYC and signature cards"
           action={
-            <Button size="sm" onClick={() => setDocModalOpen(true)}>
-              Attach document
-            </Button>
+            can("edit") && (
+              <Button size="sm" onClick={() => setDocModalOpen(true)}>
+                Attach document
+              </Button>
+            )
           }
         >
           {docError && <ErrorState message={docError} />}
@@ -819,17 +830,23 @@ export function TreasuryDossier({
                   </span>
                 </Td>
                 <Td>
-                  <ScanAttachment
-                    vaultId={doc.vault_id}
-                    docType={TREASURY_VAULT_TYPE}
-                    entityRef={`treasury_account_document:${doc.document_id}`}
-                    labelWhenEmpty={tr("Attach file")}
-                    onError={setDocError}
-                    onAttached={async (vaultId) => {
-                      await api.attachDocumentScan(id, doc.document_id, { vault_id: vaultId });
-                      reload();
-                    }}
-                  />
+                  {/* Without the grant the cell keeps View and loses Attach and
+                      Replace, the same read-only shape entity-360 uses. */}
+                  {(can("edit") || doc.vault_id) && (
+                    <ScanAttachment
+                      compact={!can("edit")}
+                      disabled={!can("edit")}
+                      vaultId={doc.vault_id}
+                      docType={TREASURY_VAULT_TYPE}
+                      entityRef={`treasury_account_document:${doc.document_id}`}
+                      labelWhenEmpty={tr("Attach file")}
+                      onError={setDocError}
+                      onAttached={async (vaultId) => {
+                        await api.attachDocumentScan(id, doc.document_id, { vault_id: vaultId });
+                        reload();
+                      }}
+                    />
+                  )}
                 </Td>
                 <Td>
                   <Pill tone={doc.is_verified ? "ok" : "warn"}>
@@ -837,37 +854,39 @@ export function TreasuryDossier({
                   </Pill>
                 </Td>
                 <Td r>
-                  <div className="flex items-center justify-end gap-1">
-                    {!doc.is_verified && (
+                  {can("edit") && (
+                    <div className="flex items-center justify-end gap-1">
+                      {!doc.is_verified && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            await api.verifyDocument(id, doc.document_id);
+                            reload();
+                          }}
+                        >
+                          Verify
+                        </Button>
+                      )}
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="ghost"
                         onClick={async () => {
-                          await api.verifyDocument(id, doc.document_id);
+                          const ok = await confirm({
+                            title: "Remove document",
+                            body: `Remove ${doc.title}?`,
+                            confirmLabel: "Remove",
+                            destructive: true,
+                          });
+                          if (!ok) return;
+                          await api.removeDocument(id, doc.document_id);
                           reload();
                         }}
                       >
-                        Verify
+                        Remove
                       </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={async () => {
-                        const ok = await confirm({
-                          title: "Remove document",
-                          body: `Remove ${doc.title}?`,
-                          confirmLabel: "Remove",
-                          destructive: true,
-                        });
-                        if (!ok) return;
-                        await api.removeDocument(id, doc.document_id);
-                        reload();
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </div>
+                    </div>
+                  )}
                 </Td>
               </tr>
             ))}

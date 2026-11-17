@@ -31,6 +31,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
 import { LeadForm } from "./lead-forms";
 import { LeadDossier } from "./sales-360";
+import { useCan } from "@/lib/route-access";
 
 /* ═══════════════════════════════════ LEADS ═══════════════════════════════════ */
 
@@ -86,6 +87,7 @@ function LeadsTab() {
   const [formOpen, setFormOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [selId, setSelId] = React.useState<string | null>(null);
+  const can = useCan("MOD-20");
 
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -138,14 +140,16 @@ function LeadsTab() {
           options={LEAD_FILTERS}
           onChange={setFilter}
         />
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          Capture lead
-        </Button>
+        {can("create") && (
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            Capture lead
+          </Button>
+        )}
       </div>
 
       <KpiRow>

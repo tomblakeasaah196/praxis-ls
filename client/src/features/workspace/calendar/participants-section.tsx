@@ -36,6 +36,7 @@ import { EmployeePicker } from "@/components/employee-picker";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/app/auth/auth-context";
 import { errMsg } from "@/lib/use-resource";
+import { useCan } from "@/lib/route-access";
 import type { CalendarEvent, ParticipantResponse } from "../api";
 import {
   useAddParticipant,
@@ -62,6 +63,8 @@ export function ParticipantsSection({
   timeZone?: string;
 }) {
   const toast = useToast();
+  // Inviting, removing and answering are all `edit` on the event's routes.
+  const can = useCan("MOD-00A");
   const { user } = useAuth();
   const me = user?.user_id ?? null;
   const addP = useAddParticipant();
@@ -149,7 +152,7 @@ export function ParticipantsSection({
                     )}
                   </span>
                   <span className="micro">{RESPONSE_BADGE[p.response_status]}</span>
-                  {isMe && (
+                  {isMe && can("edit") && (
                     <span className="flex gap-1">
                       {(["ACCEPTED", "DECLINED", "TENTATIVE"] as const).map((s) =>
                         p.response_status === s ? null : (
@@ -167,7 +170,7 @@ export function ParticipantsSection({
                       )}
                     </span>
                   )}
-                  {iAmOrganiser && !p.is_organiser && (
+                  {iAmOrganiser && !p.is_organiser && can("edit") && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -186,7 +189,7 @@ export function ParticipantsSection({
           </ul>
         )}
 
-        {iAmOrganiser && (
+        {iAmOrganiser && can("edit") && (
           <>
             <EmployeePicker
               id="event-invitee"

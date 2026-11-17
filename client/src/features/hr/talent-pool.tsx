@@ -262,6 +262,8 @@ function SuccessionForm({
  * the information that makes going back to somebody worthwhile.
  */
 function PastApplicants() {
+  // Considering somebody writes to the VACANCY, so it is Recruitment's `edit`.
+  const can = useCan("MOD-11");
   const [term, setTerm] = React.useState("");
   const [q, setQ] = React.useState("");
   const [considering, setConsidering] = React.useState<ConsiderSource | null>(null);
@@ -351,7 +353,7 @@ function PastApplicants() {
       // never the hard part; going back to them was.
       key: "_a",
       label: "",
-      render: (r) => (
+      render: (r) => !can("edit") ? null : (
         <div className="flex justify-end">
           <Button
             size="sm"
@@ -498,7 +500,8 @@ export function TalentPoolPage() {
     {
       key: "_a",
       label: "",
-      render: (r) => (
+      // Considering somebody writes to the VACANCY, so it is Recruitment's `edit`.
+      render: (r) => !can("edit", "MOD-11") ? null : (
         <div className="flex justify-end">
           <Button
             size="sm"
@@ -582,9 +585,11 @@ export function TalentPoolPage() {
       <div className="sec">
         <h2>{tr("Talent pool")}</h2>
         <span className="ln" />
+        {can("create") && (
         <button className="text-primary-ink" onClick={() => setCreating(true)}>
           Add candidate
         </button>
+        )}
       </div>
       <DataList
         columns={cols}

@@ -16,6 +16,7 @@ import { cn } from "@/lib/cn";
 import { Modal } from "@/components/ui/modal";
 import * as fin from "@/lib/finance-api";
 import type { Period } from "@/lib/finance-api";
+import { useCan } from "@/lib/route-access";
 import { ReportTabs } from "./report-view";
 
 /* Guided monthly close: list accounting periods, freeze/close the open ones. */
@@ -35,6 +36,8 @@ function PeriodStatusPill({ status }: { status: string }) {
 }
 
 function PeriodsPanel() {
+  // Freezing and closing are one route, and it asks `edit` on MOD-59.
+  const can = useCan("MOD-59");
   const [periods, setPeriods] = React.useState<Period[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [nonce, setNonce] = React.useState(0);
@@ -120,7 +123,7 @@ function PeriodsPanel() {
                   </TD>
                   <TD>
                     <div className="flex gap-2">
-                      {s === "OPEN" && (
+                      {s === "OPEN" && can("edit") && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -131,7 +134,7 @@ function PeriodsPanel() {
                           Freeze
                         </Button>
                       )}
-                      {(s === "OPEN" || s === "FROZEN") && (
+                      {(s === "OPEN" || s === "FROZEN") && can("edit") && (
                         <Button
                           size="sm"
                           variant="destructive"

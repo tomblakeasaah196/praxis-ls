@@ -175,7 +175,7 @@ export function InvoicesPage() {
               </Button>
             </>
           )}
-          {!isDraft(r) && String(invField(r, ["type"]) ?? "FINAL").toUpperCase() === "FINAL" && (
+          {!isDraft(r) && String(invField(r, ["type"]) ?? "FINAL").toUpperCase() === "FINAL" && can("edit") && (
             <Button
               size="sm"
               variant="outline"

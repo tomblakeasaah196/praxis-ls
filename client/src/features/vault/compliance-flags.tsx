@@ -26,6 +26,7 @@ import { cell, smartCell } from "@/lib/format";
 import { StatusPill } from "@/components/ui/pill";
 import { Chips } from "@/components/ui/chips";
 import { Segmented } from "@/components/ui/segmented";
+import { useCan } from "@/lib/route-access";
 
 const COMPLIANCE_AI: AiAction[] = [
   {
@@ -48,6 +49,7 @@ const SEVERITY_FILTERS = [
 const PAGE_SIZE = 25;
 
 export function ComplianceFlagsPage() {
+  const can = useCan("MOD-65");
   const [tab, setTab] = React.useState<"flags" | "rules">("flags");
   const reload = useRefresh();
   const [severity, setSeverity] = React.useState("");
@@ -133,7 +135,7 @@ export function ComplianceFlagsPage() {
                 { value: "rules", label: "Rules" },
               ]}
             />
-            {tab === "flags" && (
+            {tab === "flags" && can("edit") && (
               <Button onClick={runChecks} loading={running}>
                 Run checks
               </Button>
@@ -218,7 +220,7 @@ export function ComplianceFlagsPage() {
                           {cell(f.message)} · {cell(f.entity_ref)}
                         </p>
                       </div>
-                      {!resolved && (
+                      {!resolved && can("edit") && (
                         <Button
                           size="sm"
                           variant="outline"

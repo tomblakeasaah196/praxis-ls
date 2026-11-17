@@ -579,6 +579,9 @@ export function SuccessStoriesPage() {
           {filtered.map((row) => {
             const id = String(row.success_story_id);
             const status = storyStatus(row);
+            const showEdit = !row.is_published && can("edit");
+            // Signing off, publishing and unpublishing are all `approve` on the route.
+            const mayDecide = can("approve");
             return (
               <div key={id} className="lux-card flex flex-col p-4">
                 <div className="flex items-start justify-between gap-2">
@@ -589,18 +592,20 @@ export function SuccessStoriesPage() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   {row.is_published ? `Published ${dateFmt(row.published_at)}` : `Created ${dateFmt(row.created_at)}`}
                 </p>
+                {(showEdit || mayDecide) && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {!row.is_published && <Button size="sm" variant="ghost" loading={rowBusy === id} onClick={() => openEdit(id)}>{tr("Edit")}</Button>}
-                  {status === "DRAFT" && (
+                  {showEdit && <Button size="sm" variant="ghost" loading={rowBusy === id} onClick={() => openEdit(id)}>{tr("Edit")}</Button>}
+                  {status === "DRAFT" && mayDecide && (
                     <Button size="sm" variant="outline" loading={rowBusy === id} onClick={() => act(id, () => tenant(`/success-stories/${id}/sign-off`, { method: "POST", body: {} }))}>{tr("Sign off")}</Button>
                   )}
-                  {status === "SIGNED_OFF" && (
+                  {status === "SIGNED_OFF" && mayDecide && (
                     <Button size="sm" loading={rowBusy === id} onClick={() => act(id, () => tenant(`/success-stories/${id}/publish`, { method: "POST", body: {} }))}>Publish</Button>
                   )}
-                  {status === "PUBLISHED" && (
+                  {status === "PUBLISHED" && mayDecide && (
                     <Button size="sm" variant="ghost" loading={rowBusy === id} onClick={() => act(id, () => tenant(`/success-stories/${id}/unpublish`, { method: "POST", body: {} }))}>Unpublish</Button>
                   )}
                 </div>
+                )}
               </div>
             );
           })}

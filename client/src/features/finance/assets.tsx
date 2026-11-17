@@ -132,20 +132,25 @@ export function AssetsPage() {
           </Button>
           {String(r.status).toUpperCase() === "ACTIVE" && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setDeprTarget(r)}
-              >
-                Depreciate
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setDisposeTarget(r)}
-              >
-                Dispose
-              </Button>
+              {can("edit") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setDeprTarget(r)}
+                >
+                  Depreciate
+                </Button>
+              )}
+              {/* Disposing is `approve` on the route. */}
+              {can("approve") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setDisposeTarget(r)}
+                >
+                  Dispose
+                </Button>
+              )}
             </>
           )}
         </RowActions>

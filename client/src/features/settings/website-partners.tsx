@@ -241,6 +241,7 @@ export function WebsitePartnersPage() {
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {can("edit") && (
                   <Button
                     size="sm"
                     variant={p.is_active ? "outline" : "default"}
@@ -252,16 +253,19 @@ export function WebsitePartnersPage() {
                   >
                     {p.is_active ? tr("Hide from website") : tr("Show on website")}
                   </Button>
+                  )}
                   {p.is_active ? (
                     <Pill tone="ok">{tr("Shown")}</Pill>
                   ) : (
                     <Pill>{tr("Not shown")}</Pill>
                   )}
-                  {!p.is_active && !String(p.permission_note || "").trim() && (
+                  {can("edit") && !p.is_active && !String(p.permission_note || "").trim() && (
                     <span className="text-xs text-muted-foreground">
                       {tr("Record who cleared it before showing it.")}
                     </span>
                   )}
+                  {/* Removing is `edit` on the route, not `delete`. */}
+                  {can("edit") && (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -270,6 +274,7 @@ export function WebsitePartnersPage() {
                   >
                     {tr("Remove")}
                   </Button>
+                  )}
                 </div>
               </li>
             ))}
@@ -291,6 +296,7 @@ export function WebsitePartnersPage() {
           </Callout>
         }
       >
+        {can("edit") && (
         <div className="mb-4">
           <Button
             variant="outline"
@@ -301,6 +307,7 @@ export function WebsitePartnersPage() {
             {tr("Add certification")}
           </Button>
         </div>
+        )}
         {!creds?.length ? (
           <p className="text-sm text-muted-foreground">{tr("None yet.")}</p>
         ) : (
@@ -366,6 +373,7 @@ export function WebsitePartnersPage() {
                   ) : (
                     <Pill>{tr("Not shown")}</Pill>
                   )}
+                  {can("edit") && (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -374,6 +382,7 @@ export function WebsitePartnersPage() {
                   >
                     {tr("Remove")}
                   </Button>
+                  )}
                 </div>
               </li>
             ))}

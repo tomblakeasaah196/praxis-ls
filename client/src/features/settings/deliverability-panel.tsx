@@ -14,6 +14,7 @@ import { ErrorState } from "@/components/ui/states";
 import { useTranslation } from "react-i18next";
 import * as api from "@/lib/mail-api";
 import { reportActionError } from "@/lib/action-error";
+import { useCan } from "@/lib/route-access";
 
 const TONE: Record<string, "ok" | "warn" | "bad" | "mute"> = {
   PASS: "ok", FAIL: "bad", UNKNOWN: "warn",
@@ -95,6 +96,7 @@ function DeliveryRouteCard() {
 
 export function DeliverabilityPage() {
   const { t } = useTranslation();
+  const can = useCan("MOD-70");
   const [rows, setRows] = React.useState<api.DomainHealthRow[]>([]);
   const [open, setOpen] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -135,9 +137,12 @@ export function DeliverabilityPage() {
         description={t("mail.deliverabilityDesc")}
       />
       <DeliveryRouteCard />
+      {/* Re-running the checks is `edit` on the route. */}
+      {can("edit") && (
       <div className="mb-3 flex justify-end">
         <Button size="sm" onClick={recheck} loading={busy}>{t("mail.recheckNow")}</Button>
       </div>
+      )}
       {error && (
         <div className="mb-4">
           <ErrorState message={error} />

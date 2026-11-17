@@ -322,7 +322,7 @@ export function InboundPage() {
       label: "",
       render: (g) => {
         const items: Transition[] =
-          g.qa_status === "HOLD"
+          g.qa_status === "HOLD" && can("edit")
             ? [
                 {
                   to: "REJECTED",

@@ -164,6 +164,7 @@ import { DropdownMenu, DropdownItem } from "@/components/ui/dropdown-menu";
 import { INDEX_ROW_OPEN } from "@/components/ui/index-row";
 import { useToast } from "@/components/ui/toast";
 import { errMsg } from "@/lib/use-resource";
+import { useCan } from "@/lib/route-access";
 import { dateFmt } from "@/lib/format";
 import { BOARD_COLUMNS } from "../api";
 import type { Audience, BoardColumn, BoardCompleteness, Task, TaskBoard, TaskStatus } from "../api";
@@ -265,6 +266,8 @@ export function TaskBoard({
   onClearQuery?: () => void;
 }) {
   const move = useMoveTask();
+  // A move is POST /workspace/tasks/:id/status (`edit`); a new card is `create`.
+  const can = useCan("MOD-00A");
   const toast = useToast();
   const [activeId, setActiveId] = React.useState<string | null>(null);
 
@@ -334,14 +337,19 @@ export function TaskBoard({
             tasks={board?.[column] ?? []}
             selectedId={selectedId}
             onOpen={onOpen}
-            onMove={async (id, status) => {
-              try {
-                await move.mutateAsync({ id, status, audience });
-              } catch (err) {
-                toast.error(errMsg(err));
-              }
-            }}
-            onCreate={onCreate}
+            // No handler is the card's own read-only shape: no drag, no menu.
+            onMove={
+              can("edit")
+                ? async (id, status) => {
+                    try {
+                      await move.mutateAsync({ id, status, audience });
+                    } catch (err) {
+                      toast.error(errMsg(err));
+                    }
+                  }
+                : undefined
+            }
+            onCreate={can("create") ? onCreate : undefined}
           />
         ))}
       </div>
@@ -396,9 +404,11 @@ export function TaskBoard({
               title="Nothing on the board"
               hint="Tasks you write or are assigned land here."
               action={
-                <button type="button" className="btn-primary" onClick={onCreate}>
-                  Add the first task
-                </button>
+                can("create") ? (
+                  <button type="button" className="btn-primary" onClick={onCreate}>
+                    Add the first task
+                  </button>
+                ) : undefined
               }
             />
           )}
@@ -420,8 +430,10 @@ function Column({
   tasks: Task[];
   selectedId: string | null;
   onOpen: (id: string) => void;
-  onMove: (id: string, status: TaskStatus) => Promise<void>;
-  onCreate: () => void;
+  /** Absent when the reader may not move a task: the cards are read-only. */
+  onMove?: (id: string, status: TaskStatus) => Promise<void>;
+  /** Absent when the reader may not add one. */
+  onCreate?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column });
   return (
@@ -457,7 +469,7 @@ function Column({
           />
         ))}
 
-        {tasks.length === 0 && (
+        {tasks.length === 0 && onCreate && (
           <button
             type="button"
             onClick={onCreate}

@@ -40,6 +40,7 @@ import { Modal, Field, Select } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { useDeepLinkEdit, useFieldHighlight } from "@/lib/use-url-tab";
 import { useToast } from "@/components/ui/toast";
+import { useCan } from "@/lib/route-access";
 import { tr } from "@/lib/i18n";
 import * as api from "@/lib/mail-api";
 import { errMsg, useResource } from "@/lib/use-resource";
@@ -156,6 +157,7 @@ export function TemplatesTab() {
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const [busy, setBusy] = React.useState(false);
+  const can = useCan("MOD-70");
   const { data, error, reload } = useResource(() => api.listSignatureTemplates(), []);
   const templates = React.useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const layouts = React.useMemo(() => companyLayouts(templates), [templates]);
@@ -211,7 +213,7 @@ export function TemplatesTab() {
       <Field label={tr("Layout")}>
         <Select
           value={current?.signature_template_id ?? ""}
-          disabled={busy || layouts.length === 0}
+          disabled={busy || layouts.length === 0 || !can("edit")}
           onChange={(e) => void choose(e.target.value)}
         >
           {/* Only when nothing is in force, which is a company with no default
@@ -231,14 +233,16 @@ export function TemplatesTab() {
           <span className="min-w-0 flex-1 truncate text-sm" title={mottoText || undefined}>
             {mottoText || <span className="text-muted-foreground">{tr("No motto")}</span>}
           </span>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!current}
-            onClick={() => current && setMotto(current)}
-          >
-            {tr("Edit Motto")}
-          </Button>
+          {can("edit") && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!current}
+              onClick={() => current && setMotto(current)}
+            >
+              {tr("Edit Motto")}
+            </Button>
+          )}
         </div>
       </Field>
 

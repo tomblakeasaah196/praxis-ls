@@ -320,7 +320,7 @@ export function GoodsReceivedPage() {
             title={r.ref || `GRN ${r.grn_id.slice(0, 8)}`}
             label={tr("View")}
           />
-          {!r.wms_inbound_id && (
+          {!r.wms_inbound_id && can("edit") && (
             <Button
               size="sm"
               variant="outline"

@@ -32,6 +32,7 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { money, dateFmt } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 
 const STATUS_TONE: Record<string, Tone> = {
   PRESENT: "ok",
@@ -125,6 +126,7 @@ export function WaiveModal({
 }
 
 export function AttendanceDaysView() {
+  const can = useCan("MOD-14");
   const [win, setWin] = React.useState(defaultWindow);
   const [waiving, setWaiving] = React.useState<api.AttendanceDay | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -235,7 +237,7 @@ export function AttendanceDaysView() {
               : "Reconciliation runs overnight on completed days. Run it now to see this window."
           }
           action={
-            onlyCharged ? undefined : (
+            onlyCharged || !can("edit") ? undefined : (
               <Button loading={busy === "reconcile"} onClick={reconcile}>
                 Reconcile {dateFmt(win.to)}
               </Button>
@@ -303,7 +305,9 @@ export function AttendanceDaysView() {
                       {d.sop_title && <span className="block opacity-70">{d.sop_title}</span>}
                     </td>
                     <td className="whitespace-nowrap px-3 py-1.5 text-right">
+                      {/* Waiving or upholding a deduction is `approve` on the route. */}
                       {num(d.deduction_amount) > 0 &&
+                        can("approve") &&
                         (d.justified ? (
                           <Button
                             size="sm"

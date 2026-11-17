@@ -30,6 +30,7 @@ import { ErrorState, LoadingRow } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api-client";
 import { errMsg } from "@/lib/use-resource";
+import { useCan } from "@/lib/route-access";
 import { useConfirm } from "@/components/ui/use-confirm";
 import type { CalendarEvent, EventInput, RepeatScope } from "../api";
 import {
@@ -71,6 +72,7 @@ export function EventDialog({
   defaultDay?: string | null;
 }) {
   const toast = useToast();
+  const can = useCan("MOD-00A");
   const create = useCreateEvent();
   const update = useUpdateEvent();
   const del = useDeleteEvent();
@@ -236,7 +238,7 @@ export function EventDialog({
       size="lg"
       footer={
         <>
-          {editing && (
+          {editing && can("delete") && (
             <Button
               variant="ghost"
               onClick={() => void remove()}

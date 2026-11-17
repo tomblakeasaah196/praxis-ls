@@ -114,20 +114,25 @@ export function CreditNotesPage() {
           />
           {isDraft(r) && (
             <>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setEditId(String(r.credit_note_id))}
-              >
-                Edit
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setPostTarget(r)}
-              >
-                Post
-              </Button>
+              {can("edit") && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setEditId(String(r.credit_note_id))}
+                >
+                  Edit
+                </Button>
+              )}
+              {/* Posting to the ledger is `approve` on the route. */}
+              {can("approve") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPostTarget(r)}
+                >
+                  Post
+                </Button>
+              )}
             </>
           )}
         </div>

@@ -31,6 +31,7 @@ import { DropdownItem } from "@/components/ui/dropdown-menu";
 import { MoreMenu } from "@/components/ui/more-menu";
 import { Panel } from "@/components/ui/panel";
 import { tr } from "@/lib/i18n";
+import { useCan } from "@/lib/route-access";
 import { AccentRoles } from "./accent-roles";
 import { BatchTab } from "./batch-tab";
 import { DeliveryTab } from "./delivery-tab";
@@ -40,17 +41,24 @@ export function SignaturesSection() {
   const [batch, setBatch] = React.useState(false);
   const [check, setCheck] = React.useState(false);
   const [colours, setColours] = React.useState(false);
+  // The section is offered on a mail grant (MOD-72 edit); the signature routes
+  // ask MOD-70. The ZIP is a download, and its route still asks `edit`.
+  const can = useCan("MOD-70");
 
   return (
     <Panel
       title={tr("Signatures")}
       action={
         <span className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setBatch(true)}>
-            {tr("Generate for Staff")}
-          </Button>
+          {can("edit") && (
+            <Button size="sm" variant="outline" onClick={() => setBatch(true)}>
+              {tr("Generate for Staff")}
+            </Button>
+          )}
           <MoreMenu label={tr("Signature actions")}>
-            <DropdownItem onSelect={() => setColours(true)}>{tr("Card Colours")}</DropdownItem>
+            {can("edit") && (
+              <DropdownItem onSelect={() => setColours(true)}>{tr("Card Colours")}</DropdownItem>
+            )}
             <DropdownItem onSelect={() => setCheck(true)}>{tr("Delivery Check")}</DropdownItem>
           </MoreMenu>
         </span>

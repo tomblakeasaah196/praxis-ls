@@ -55,6 +55,7 @@ function Toggle({
 
 /* ═══════════════════════ Features (flags) ═══════════════════════ */
 export function AiFeaturesPage() {
+  const can = useCan("MOD-70");
   const { rows, error, loading, reload } = useList<api.FeatureFlag>(
     "/ai/governance/features",
   );
@@ -113,15 +114,17 @@ export function AiFeaturesPage() {
     {
       key: "_a",
       label: "",
-      render: (f) => (
-        <div className="flex justify-end">
-          <Toggle
-            on={f.is_enabled}
-            busy={busy === f.feature_key}
-            onClick={() => toggle(f)}
-          />
-        </div>
-      ),
+      // The State pill beside it still says On or Off to a reader without `edit`.
+      render: (f) =>
+        can("edit") ? (
+          <div className="flex justify-end">
+            <Toggle
+              on={f.is_enabled}
+              busy={busy === f.feature_key}
+              onClick={() => toggle(f)}
+            />
+          </div>
+        ) : null,
     },
   ];
 
@@ -336,7 +339,7 @@ export function AiGrantsPage() {
       key: "_a",
       label: "",
       render: (g) =>
-        !g.revoked_at ? (
+        !g.revoked_at && can("edit") ? (
           <div className="flex justify-end">
             <Button
               size="sm"

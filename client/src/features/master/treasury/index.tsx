@@ -144,15 +144,17 @@ export function TreasuryMasterPage() {
               {c.label} ({countByCat[c.treasury_category_id] || 0})
             </button>
           ))}
-        <div className="ml-auto">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setNewCatOpen(true)}
-          >
-            + New category
-          </Button>
-        </div>
+        {can("create") && (
+          <div className="ml-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setNewCatOpen(true)}
+            >
+              + New category
+            </Button>
+          </div>
+        )}
       </div>
 
       {rowError && <ErrorState message={rowError} />}

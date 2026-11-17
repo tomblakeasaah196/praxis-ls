@@ -459,7 +459,8 @@ export function SupplierInvoicesPage() {
             title={r.ref || `Invoice ${r.supplier_invoice_id.slice(0, 8)}`}
             label={tr("View")}
           />
-          {!String(r.status).includes("POSTED") && (
+          {/* Post, pay and reverse all write to the ledger: the routes ask `approve`. */}
+          {!String(r.status).includes("POSTED") && can("approve") && (
             <Button
               size="sm"
               variant="outline"
@@ -469,7 +470,7 @@ export function SupplierInvoicesPage() {
               Post
             </Button>
           )}
-          {String(r.status) === "POSTED_LOCKED" && (
+          {String(r.status) === "POSTED_LOCKED" && can("approve") && (
             <Button
               size="sm"
               variant="outline"
@@ -478,7 +479,7 @@ export function SupplierInvoicesPage() {
               Record payment
             </Button>
           )}
-          {["POSTED_LOCKED", "PAID"].includes(String(r.status)) && (
+          {["POSTED_LOCKED", "PAID"].includes(String(r.status)) && can("approve") && (
             <Button
               size="sm"
               variant="ghost"

@@ -1,5 +1,5 @@
 /**
- * Chart of accounts (MOD-58) — SYSCOHADA/OHADA statutory chart. Class filter chips,
+ * Chart of accounts (MOD-06) — SYSCOHADA/OHADA statutory chart. Class filter chips,
  * search, and sub-account create/edit. Read-heavy master screen on the locked kit;
  * accents resolve to --primary (settings-driven).
  *
@@ -271,17 +271,18 @@ export function ChartOfAccountsPage() {
     {
       key: "_a",
       label: "",
-      render: (a) => (
+      render: (a) =>
         // <RowActions> rather than the hand-rolled click shield these five
         // screens carried: it is the same six lines, and it is also where the
         // row-action button height is bounded so the row honours the density
         // preference (Phase 5).
-        <RowActions>
-          <Button size="sm" variant="ghost" onClick={() => setEditing(a)}>
-            Edit
-          </Button>
-        </RowActions>
-      ),
+        can("edit") && (
+          <RowActions>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(a)}>
+              Edit
+            </Button>
+          </RowActions>
+        ),
     },
   ];
 

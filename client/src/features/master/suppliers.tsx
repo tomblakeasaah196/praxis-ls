@@ -303,13 +303,15 @@ export function SuppliersPage() {
                   <ActivePill active={r.is_active !== false} />
                 </TD>
                 <TD>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openEdit(r)}
-                  >
-                    Edit
-                  </Button>
+                  {can("edit") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEdit(r)}
+                    >
+                      Edit
+                    </Button>
+                  )}
                 </TD>
               </TR>
             ))}

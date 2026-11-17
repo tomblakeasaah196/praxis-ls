@@ -29,6 +29,7 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { Callout } from "@/components/ui/callout";
 import { errMsg, type Row } from "@/lib/use-resource";
+import { useCan } from "@/lib/route-access";
 import { BLOCKED_REASON, ASSURANCE_WORDS, look } from "@/features/vault/signature-vocab";
 
 type Preset = {
@@ -235,6 +236,7 @@ function CertifiedPanel() {
 }
 
 export function SignaturesSettingsPage() {
+  const can = useCan("MOD-70");
   const [presets, setPresets] = React.useState<Preset[] | null>(null);
   const [policies, setPolicies] = React.useState<Record<string, Policy>>({});
   const [behaviour, setBehaviour] = React.useState<Record<string, unknown>>({});
@@ -333,6 +335,8 @@ export function SignaturesSettingsPage() {
                   type="checkbox"
                   className="mt-1"
                   checked={behaviour.stepup_enabled === true}
+                  // Saves on the tick, so it is locked (not hidden: it also shows the state).
+                  disabled={!can("edit")}
                   onChange={(e) => saveBehaviour("stepup_enabled", e.target.checked)}
                 />
                 <span>
@@ -390,6 +394,7 @@ export function SignaturesSettingsPage() {
                   type="checkbox"
                   className="mt-1"
                   checked={behaviour.notify_on_scan === true}
+                  disabled={!can("edit")}
                   onChange={(e) => saveBehaviour("notify_on_scan", e.target.checked)}
                 />
                 <span>

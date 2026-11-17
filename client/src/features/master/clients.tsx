@@ -359,13 +359,15 @@ export function ClientsPage() {
                     >
                       Credit
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openEdit(r)}
-                    >
-                      Edit
-                    </Button>
+                    {can("edit") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEdit(r)}
+                      >
+                        Edit
+                      </Button>
+                    )}
                   </div>
                 </TD>
               </TR>

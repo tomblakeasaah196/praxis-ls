@@ -399,7 +399,7 @@ export function DocumentsPage() {
                         >
                           Download
                         </Button>
-                        {!archived && (
+                        {!archived && can("delete") && (
                           <Button
                             size="sm"
                             variant="ghost"

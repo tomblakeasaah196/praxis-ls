@@ -30,6 +30,7 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { dateFmt } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 
 const STATUS_TONE: Record<string, Tone> = {
   DRAFT: "mute",
@@ -78,6 +79,7 @@ export function AppraisalReviewModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const can = useCan("MOD-13");
   const q = useResource(() => api.getReview(reviewId), [reviewId]);
   const [comment, setComment] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -164,7 +166,9 @@ export function AppraisalReviewModal({
     }
   }
 
-  const locked = !!r && r.status !== "DRAFT";
+  // Rating a line, drafting the narrative and submitting are all `edit` on the
+  // route, so a role without it gets the same read-only review a submitted one shows.
+  const locked = (!!r && r.status !== "DRAFT") || !can("edit");
 
   return (
     <Modal

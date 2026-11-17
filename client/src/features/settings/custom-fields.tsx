@@ -283,6 +283,7 @@ export function CustomFieldsPage() {
                   </TD>
                   <TD>
                     <div className="flex gap-2">
+                      {can("edit") && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -290,6 +291,8 @@ export function CustomFieldsPage() {
                       >
                         Edit
                       </Button>
+                      )}
+                      {can("delete") && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -298,6 +301,7 @@ export function CustomFieldsPage() {
                       >
                         Delete
                       </Button>
+                      )}
                     </div>
                   </TD>
                 </TR>

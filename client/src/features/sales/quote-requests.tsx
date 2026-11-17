@@ -48,6 +48,7 @@ import { Link } from "react-router-dom";
 import { QuoteRequestForm } from "./quote-request-forms";
 import { CHANNELS, channelLabel, serviceNameOf } from "@/lib/quote-request-api";
 import { IntakeDossier } from "./sales-360";
+import { useCan } from "@/lib/route-access";
 
 /** TOTAL plus one count per intake status; `OTHER` only ever appears if a row
  *  carries a status the API does not know, which the screen shows rather than
@@ -126,6 +127,7 @@ export function QuoteRequestsPage() {
   const [editing, setEditing] = React.useState<any | null>(null);
   /** The request whose 360 fills the right-hand pane. */
   const [selId, setSelId] = React.useState<string | null>(null);
+  const can = useCan("MOD-20");
 
   const reload = React.useCallback(async () => {
     setError(null);
@@ -201,14 +203,16 @@ export function QuoteRequestsPage() {
           <Button variant="outline" onClick={exportCsv} disabled={!rows.length}>
             Export CSV
           </Button>
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            Capture request
-          </Button>
+          {can("create") && (
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              Capture request
+            </Button>
+          )}
         </div>
       </div>
 

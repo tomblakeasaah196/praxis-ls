@@ -333,6 +333,8 @@ export function ApiKeysPage() {
                   </TD>
                   <TD className="text-sm">{dateFmt(d.row?.updated_at)}</TD>
                   <TD>
+                    {/* Testing a key is `edit` on the route, like rotating it. */}
+                    {can("edit") && (
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -352,6 +354,7 @@ export function ApiKeysPage() {
                         </Button>
                       )}
                     </div>
+                    )}
                   </TD>
                 </TR>
               );

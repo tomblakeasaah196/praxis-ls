@@ -480,7 +480,8 @@ export function ReceivablesPage() {
         // row-action button height is bounded so the row honours the density
         // preference (Phase 5).
         <RowActions>
-          {r.status === "DRAFT" && (
+          {/* Posting a receipt is `approve` on the route. */}
+          {r.status === "DRAFT" && can("approve") && (
             <Button size="sm" variant="outline" onClick={() => setPosting(r)}>
               Post
             </Button>

@@ -66,6 +66,7 @@ function ItemDetail({
   const [toLoc, setToLoc] = React.useState("");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const can = useCan("MOD-35");
   const isTransfer = type === "transfer";
 
   async function applyMove(e: React.FormEvent) {
@@ -154,7 +155,7 @@ function ItemDetail({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Pill tone={STATE_TONE[item.state] || "mute"}>{item.state}</Pill>
           <div className="flex flex-wrap gap-2">
-            {(TRANSITIONS[item.state] || []).map((s) => (
+            {(can("edit") ? TRANSITIONS[item.state] || [] : []).map((s) => (
               <Button
                 key={s}
                 size="sm"
@@ -168,6 +169,7 @@ function ItemDetail({
           </div>
         </div>
 
+        {can("edit") && (
         <form
           onSubmit={applyMove}
           className="rounded-lg border bg-muted/30 p-4"
@@ -219,6 +221,7 @@ function ItemDetail({
             </Button>
           </div>
         </form>
+        )}
 
         {error && <ErrorState message={error} />}
 

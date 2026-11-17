@@ -18,7 +18,7 @@
  * one click here rather than an edit form. The count in the header (`3/5`) is
  * the progress read; the checkboxes are the write.
  */
-import { useCanOpenRoute } from "@/lib/route-access";
+import { useCan, useCanOpenRoute } from "@/lib/route-access";
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { Panel } from "@/components/ui/panel";
@@ -117,6 +117,8 @@ export function TaskPanel({
 }) {
   const navigate = useNavigate();
   const canOpen = useCanOpenRoute();
+  // Every write below is a /workspace/tasks route, all guarded with MOD-00A.
+  const can = useCan("MOD-00A");
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const q = useTask(taskId, audience);
@@ -188,9 +190,11 @@ export function TaskPanel({
         subtitle={`Added ${fmtRelative(task.created_at)}${task.created_by_name ? ` by ${task.created_by_name}` : ""}`}
         action={
           <div className="flex gap-1.5">
-            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-              Edit
-            </Button>
+            {can("edit") && (
+              <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                Edit
+              </Button>
+            )}
             <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close task">
               Close
             </Button>
@@ -345,6 +349,8 @@ export function TaskPanel({
                 value={task.status}
                 aria-label="Status"
                 options={STATUS_OPTIONS}
+                // The picker is also the read-out, so it stays and is disabled.
+                disabled={!can("edit")}
                 onValueChange={(v) =>
                   void move
                     .mutateAsync({
@@ -396,6 +402,7 @@ export function TaskPanel({
                   <SubtaskRow
                     key={s.task_subtask_id}
                     subtask={s}
+                    readOnly={!can("edit")}
                     onToggle={(checked) =>
                       void toggle
                         .mutateAsync({ taskId: task.task_id, subtaskId: s.task_subtask_id, isDone: checked })
@@ -420,6 +427,7 @@ export function TaskPanel({
 
             {/* A step can be added with its own deadline — the "milestones with
                 their own dates" the calendar then shows alongside the task. */}
+            {can("edit") && (
             <div className="mt-2 space-y-2">
               <div className="flex gap-2">
                 <Input
@@ -452,6 +460,7 @@ export function TaskPanel({
                 />
               </div>
             </div>
+            )}
           </section>
 
 {/* ── children ─────────────────────────────────────────────────── */}
@@ -472,11 +481,13 @@ export function TaskPanel({
           {/* ── watchers and pings ───────────────────────────────────────── */}
           <CollaborationSection task={task} audience={audience} />
 
-          <div className="border-t pt-3">
-            <Button size="sm" variant="destructive" onClick={() => void removeTask()}>
-              Delete task
-            </Button>
-          </div>
+          {can("delete") && (
+            <div className="border-t pt-3">
+              <Button size="sm" variant="destructive" onClick={() => void removeTask()}>
+                Delete task
+              </Button>
+            </div>
+          )}
         </div>
       </Panel>
 
@@ -519,6 +530,8 @@ function ChildTasksSection({
   onOpenChild?: (taskId: string) => void;
 }) {
   const navigate = useNavigate();
+  // A child IS a task: POST /workspace/tasks/:id/children is `create`.
+  const can = useCan("MOD-00A");
   const toast = useToast();
   const addChild = useAddChildTask();
   const [title, setTitle] = React.useState("");
@@ -595,6 +608,7 @@ function ChildTasksSection({
         </p>
       )}
 
+      {can("create") && (
       <div className="mt-2 space-y-2">
         <div className="flex gap-2">
           <Input
@@ -650,6 +664,7 @@ function ChildTasksSection({
           Add one with notes, priority or steps…
         </Button>
       </div>
+      )}
 
       {/* The full form, seeded with the parent so the dialog's own POST carries
           the relationship. One endpoint, two entry points. */}
@@ -683,6 +698,7 @@ function ChildTasksSection({
  * act rather than an inference. The row says so and offers the override.
  */
 function DependenciesSection({ task, audience }: { task: Task; audience?: Audience }) {
+  const can = useCan("MOD-00A");
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const add = useAddDependency();
@@ -771,6 +787,7 @@ function DependenciesSection({ task, audience }: { task: Task; audience?: Audien
             <DependencyRow
               key={d.task_dependency_id}
               dependency={d}
+              readOnly={!can("edit")}
               onOverride={() => void toggleOverride(d)}
               onRemove={() =>
                 void remove
@@ -784,7 +801,7 @@ function DependenciesSection({ task, audience }: { task: Task; audience?: Audien
         <p className="micro">Nothing is holding this task up.</p>
       )}
 
-      {picking ? (
+      {!can("edit") ? null : picking ? (
         <div className="mt-2 space-y-2">
           <Input
             ref={searchRef}
@@ -836,10 +853,13 @@ function DependenciesSection({ task, audience }: { task: Task; audience?: Audien
 
 function DependencyRow({
   dependency,
+  readOnly = false,
   onOverride,
   onRemove,
 }: {
   dependency: Dependency;
+  /** The reader holds no `edit` on tasks: the row is shown, its writes are not. */
+  readOnly?: boolean;
   onOverride: () => void;
   onRemove: () => void;
 }) {
@@ -876,6 +896,7 @@ function DependencyRow({
         <Pill tone="warn">{dependency.depends_on_status ? STATUS_LABEL[dependency.depends_on_status] : "Not finished"}</Pill>
       )}
 
+      {!readOnly && (
       <div className="ml-auto flex shrink-0 items-center gap-2">
         {(blocking || dependency.is_overridden) && (
           <button type="button" className="micro text-muted-foreground hover:text-primary-ink" onClick={onOverride}>
@@ -886,6 +907,7 @@ function DependencyRow({
           Remove
         </button>
       </div>
+      )}
 
       {dependency.is_overridden && (
         <p className="micro w-full">
@@ -939,6 +961,8 @@ function pingRecipientsOf(task: Task, me: string | null | undefined) {
 }
 
 function CollaborationSection({ task, audience }: { task: Task; audience?: Audience }) {
+  // Watchers and the ping are `edit` on the task, not `create`.
+  const can = useCan("MOD-00A");
   const toast = useToast();
   const { user } = useAuth();
   const addWatcher = useAddWatcher();
@@ -978,6 +1002,7 @@ function CollaborationSection({ task, audience }: { task: Task; audience?: Audie
           {watchers.map((w) => (
             <li key={w.user_id} className="flex items-center gap-2 text-sm">
               <span className="min-w-0 flex-1 truncate">{w.full_name || w.email}</span>
+              {can("edit") && (
               <button
                 type="button"
                 className="micro shrink-0 text-muted-foreground hover:text-destructive"
@@ -989,6 +1014,7 @@ function CollaborationSection({ task, audience }: { task: Task; audience?: Audie
               >
                 Stop watching
               </button>
+              )}
             </li>
           ))}
         </ul>
@@ -996,6 +1022,7 @@ function CollaborationSection({ task, audience }: { task: Task; audience?: Audie
         <p className="micro">Nobody else is following this task.</p>
       )}
 
+      {can("edit") && (
       <div className="mt-2">
         <EmployeePicker
           id="task-watcher"
@@ -1011,8 +1038,9 @@ function CollaborationSection({ task, audience }: { task: Task; audience?: Audie
           }}
         />
       </div>
+      )}
 
-      {composing && recipients.length > 0 ? (
+      {!can("edit") ? null : composing && recipients.length > 0 ? (
         <div className="mt-2 space-y-2">
           {/* WHO before WHEN: "everyone" was a black box until after the send,
               and the count in the toast is an audit, not a preview. The list
@@ -1082,11 +1110,14 @@ function CollaborationSection({ task, audience }: { task: Task; audience?: Audie
  */
 function SubtaskRow({
   subtask,
+  readOnly = false,
   onToggle,
   onSetDeadline,
   onRemove,
 }: {
   subtask: Subtask;
+  /** The reader holds no `edit` on tasks: the step is shown, its writes are not. */
+  readOnly?: boolean;
   onToggle: (checked: boolean) => void;
   onSetDeadline: (iso: string | null) => void;
   onRemove: () => void;
@@ -1100,7 +1131,7 @@ function SubtaskRow({
 
   return (
     <li className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <Checkbox checked={subtask.is_done} label={subtask.title} onCheckedChange={onToggle} />
+      <Checkbox checked={subtask.is_done} label={subtask.title} onCheckedChange={onToggle} disabled={readOnly} />
       <div className="ml-auto flex items-center gap-1.5">
         <DateField
           value={due}
@@ -1110,8 +1141,10 @@ function SubtaskRow({
           }}
           aria-label={`Deadline for “${subtask.title}”`}
           className="max-w-[8.5rem]"
+          disabled={readOnly}
         />
         {overdue && <span className="shrink-0 text-xs text-destructive">Overdue</span>}
+        {!readOnly && (
         <button
           type="button"
           className="micro shrink-0 text-muted-foreground hover:text-destructive"
@@ -1119,6 +1152,7 @@ function SubtaskRow({
         >
           Remove
         </button>
+        )}
       </div>
     </li>
   );

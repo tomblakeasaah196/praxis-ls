@@ -295,6 +295,7 @@ export function ScheduledReportsPage() {
                   </TD>
                   <TD>
                     <div className="flex gap-2">
+                      {can("edit") && (
                       <Button
                         size="sm"
                         variant={active ? "outline" : "default"}
@@ -303,6 +304,8 @@ export function ScheduledReportsPage() {
                       >
                         {active ? "Pause" : "Resume"}
                       </Button>
+                      )}
+                      {can("delete") && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -312,6 +315,7 @@ export function ScheduledReportsPage() {
                       >
                         Delete
                       </Button>
+                      )}
                     </div>
                   </TD>
                 </TR>

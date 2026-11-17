@@ -93,6 +93,7 @@ function OrderDetail({
   // A status move asks for a different grant per target state. The map is the
   // one the route mounts, so only the moves this role may make are offered.
   const mayMove = useCanMove("MOD-36", transitionActions.outboundStatus);
+  const can = useCan("MOD-36");
   const [order, setOrder] = React.useState(initial);
   const lines = useResource(
     () => api.getOutboundLines(order.outbound_order_id),
@@ -102,7 +103,7 @@ function OrderDetail({
   const [error, setError] = React.useState<string | null>(null);
   const [addItem, setAddItem] = React.useState("");
   const [addQty, setAddQty] = React.useState("1");
-  const canEditLines = ["CREATED", "PICKING"].includes(order.status);
+  const canEditLines = ["CREATED", "PICKING"].includes(order.status) && can("edit");
 
   async function toState(s: string) {
     setBusy("st:" + s);
@@ -160,7 +161,10 @@ function OrderDetail({
       label: STATUS_LABEL[s] || s,
       variant: s === "CANCELLED" ? "outline" : "default",
     }));
-  const locked = order.status === "DISPATCHED" || order.status === "CANCELLED";
+  // Pick and Pack also SHOW the line's state, so without the grant they stay
+  // on screen, disabled like a dispatched order's, and are not hidden.
+  const locked =
+    order.status === "DISPATCHED" || order.status === "CANCELLED" || !can("edit");
 
   return (
     <Modal

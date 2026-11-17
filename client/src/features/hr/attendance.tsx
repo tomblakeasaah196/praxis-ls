@@ -24,6 +24,7 @@ import { SitePill } from "./attendance-site-pill";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { dateFmt, dateTimeFmt } from "@/lib/format";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 import { reportActionError } from "@/lib/action-error";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { usePrompt } from "@/components/ui/use-prompt";
@@ -69,6 +70,7 @@ const REVIEW_REASON_LABEL: Record<api.ReviewReason, string> = {
  * Rendered only when something is waiting: an empty queue is not news.
  */
 export function HeldPunches() {
+  const can = useCan("MOD-14");
   const queue = useResource(() => api.reviewQueue(), []);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [prompt, promptDialog] = usePrompt();
@@ -141,7 +143,7 @@ export function HeldPunches() {
     {
       key: "_a",
       label: "",
-      render: (r) => (
+      render: (r) => !can("approve") ? null : (
         <div className="flex justify-end gap-1">
           <Button size="sm" loading={busy === r.attendance_id} onClick={() => decide(r, "APPROVED")}>
             Approve
@@ -178,6 +180,7 @@ export function HeldPunches() {
 
 /* ── Day's clock-ins with lateness ── */
 function AttendanceLog({ date }: { date: string }) {
+  const can = useCan("MOD-14");
   const log = useResource(() => api.listAttendance({ date }), [date]);
   const [confirm, confirmDialog] = useConfirm();
   const [reopening, setReopening] = React.useState<string | null>(null);
@@ -294,7 +297,7 @@ function AttendanceLog({ date }: { date: string }) {
       key: "_a",
       label: "",
       render: (r) =>
-        r.clock_out_at ? (
+        r.clock_out_at && can("edit") ? (
           <div className="flex justify-end">
             <Button
               size="sm"
@@ -617,6 +620,7 @@ function SiteForm({
 }
 
 function Worksites() {
+  const can = useCan("MOD-14");
   const sites = useResource(() => api.listSites(), []);
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -665,7 +669,7 @@ function Worksites() {
     {
       key: "_a",
       label: "",
-      render: (s) => (
+      render: (s) => !can("edit") ? null : (
         <div className="flex justify-end">
           <Button
             size="sm"
@@ -685,9 +689,12 @@ function Worksites() {
         <h2 className="text-sm font-semibold text-muted-foreground">
           Worksites (geofences)
         </h2>
+        {/* Adding a worksite is `edit` on the route, not create. */}
+        {can("edit") && (
         <Button size="sm" onClick={() => setOpen(true)}>
           New worksite
         </Button>
+        )}
       </div>
       <DataList
         columns={cols}
@@ -737,6 +744,7 @@ function EditableLabel({
   device: api.HrDevice;
   onSaved: () => void;
 }) {
+  const can = useCan("MOD-14");
   const [editing, setEditing] = React.useState(false);
   const [value, setValue] = React.useState(device.label);
   const [busy, setBusy] = React.useState(false);
@@ -760,6 +768,10 @@ function EditableLabel({
     }
   }
 
+  // The name stays, the rename goes: it saves through the same `edit` route.
+  if (!can("edit")) {
+    return <span className="block max-w-full truncate text-foreground">{value}</span>;
+  }
   if (!editing) {
     return (
       <button
@@ -799,6 +811,7 @@ function EditableLabel({
 }
 
 function Devices() {
+  const can = useCan("MOD-14");
   const devices = useResource(() => api.listDevices(), []);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [confirm, confirmDialog] = useConfirm();
@@ -925,7 +938,7 @@ function Devices() {
     {
       key: "_a",
       label: "",
-      render: (d) => (
+      render: (d) => !can("edit") ? null : (
         <div className="flex justify-end gap-1">
           {d.status !== "TRUSTED" && d.status !== "REVOKED" && (
             <Button

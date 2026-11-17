@@ -38,6 +38,7 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { dateFmt } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 
 const DIMENSION_LABEL: Record<string, string> = {
   skills: "Skills",
@@ -189,6 +190,7 @@ function Assessment({
   applicant: api.Applicant;
   onScored: (next: api.Applicant) => void;
 }) {
+  const can = useCan("MOD-11");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const b = applicant.ai_breakdown || {};
@@ -309,6 +311,7 @@ function Assessment({
         </div>
       )}
 
+      {can("edit") && (
       <div className="mt-4">
         <Button
           size="sm"
@@ -323,6 +326,7 @@ function Assessment({
           criteria. Takes a few seconds.
         </p>
       </div>
+      )}
     </section>
   );
 }
@@ -337,6 +341,7 @@ function Scorecard({
   onRated: (overall: number | null) => void;
 }) {
   const vacancyId = applicant.vacancy_id;
+  const can = useCan("MOD-11");
   const questions = useResource(
     () => api.listQuestions(vacancyId),
     [vacancyId],
@@ -404,6 +409,7 @@ function Scorecard({
             these.
           </p>
         </div>
+        {can("edit") && (
         <Button
           size="sm"
           variant="outline"
@@ -412,6 +418,7 @@ function Scorecard({
         >
           {rows.length ? "Redraft with AI" : "Draft with AI"}
         </Button>
+        )}
       </div>
 
       {error && (
@@ -459,7 +466,7 @@ function Scorecard({
                         name={`q-${q.vacancy_question_id}`}
                         value={val}
                         onChange={(v) => void rate(q.vacancy_question_id, v)}
-                        disabled={answers.loading}
+                        disabled={answers.loading || !can("edit")}
                       />
                     </div>
                   </div>
@@ -634,6 +641,7 @@ export function ApplicantDrawer({
 /* ── Custom scoring criteria (vacancy-level) ─────────────────────────────── */
 
 export function CriteriaEditor({ vacancyId }: { vacancyId: string }) {
+  const can = useCan("MOD-11");
   const criteria = useResource(() => api.listCriteria(vacancyId), [vacancyId]);
   const [f, setF] = React.useState({ label: "", guidance: "", weight: "1" });
   const [busy, setBusy] = React.useState(false);
@@ -696,6 +704,7 @@ export function CriteriaEditor({ vacancyId }: { vacancyId: string }) {
                 )}
               </div>
               <Pill tone="mute">×{Number(c.weight)}</Pill>
+              {can("edit") && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -703,6 +712,7 @@ export function CriteriaEditor({ vacancyId }: { vacancyId: string }) {
               >
                 Remove
               </Button>
+              )}
             </li>
           ))}
         </ul>

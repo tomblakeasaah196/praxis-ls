@@ -550,6 +550,9 @@ export function DeliveryNote360({
       )}
       {data.status !== "DRAFT" && data.status !== "CANCELLED" && (
         <>
+          {/* Both belong to the signatures engine (MOD-64), not to delivery
+              notes: countersigning is `approve` there, sending is `create`. */}
+          {mayWrite("approve", "MOD-64") && (
           <Button
             size="sm"
             variant="outline"
@@ -558,6 +561,8 @@ export function DeliveryNote360({
           >
             Sign electronically
           </Button>
+          )}
+          {mayWrite("create", "MOD-64") && (
           <Button
             size="sm"
             variant="outline"
@@ -566,6 +571,7 @@ export function DeliveryNote360({
           >
             Send for signature
           </Button>
+          )}
         </>
       )}
       {can("CANCELLED") && (

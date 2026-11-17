@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { EmployeePicker } from "@/components/employee-picker";
 import { errMsg } from "@/lib/use-resource";
+import { useCan } from "@/lib/route-access";
 import { dateTimeFmt } from "@/lib/format";
 import { listChannels, type Channel } from "@/lib/smartcomm-api";
 import type { Audience, Task } from "../api";
@@ -51,6 +52,8 @@ type ChannelPick = { group_id: string; name: string };
 
 export function BlockageSection({ task, audience }: { task: Task; audience?: Audience }) {
   const toast = useToast();
+  // Raising and resolving a hold are both `edit` on the task (MOD-00A).
+  const can = useCan("MOD-00A");
   const raise = useRaiseBlockage();
   const resolve = useResolveBlockage();
 
@@ -132,7 +135,8 @@ export function BlockageSection({ task, audience }: { task: Task; audience?: Aud
     };
   }, [composing]);
 
-  if (!active && history.length === 0 && closed) return null;
+  // Nothing to read and nothing this reader may add: no empty box.
+  if (!active && history.length === 0 && (closed || !can("edit"))) return null;
 
   const submitRaise = async () => {
     const trimmed = note.trim();
@@ -219,6 +223,7 @@ export function BlockageSection({ task, audience }: { task: Task; audience?: Aud
               </p>
 
               {!closed &&
+                can("edit") &&
                 (resolving ? (
                   <div className="space-y-2 rounded-md border border-border p-2">
                     <p className="text-sm">
@@ -249,7 +254,8 @@ export function BlockageSection({ task, audience }: { task: Task; audience?: Aud
           )}
         </>
       ) : (
-        !closed && (
+        !closed &&
+        can("edit") && (
           <div className="flex flex-wrap items-center gap-2">
             {/* Hover (desktop) and the ⓘ tap (touch) drive ONE popover state —
                 see the header: one explainer, two gestures. The span only

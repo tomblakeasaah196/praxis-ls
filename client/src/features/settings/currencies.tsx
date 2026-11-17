@@ -999,6 +999,7 @@ function CurrencyDossier({
   onSetRate: (base: string, quote: string) => void;
   allCodes: string[];
 }) {
+  const can = useCan("MOD-08");
   const res = useResource<Dossier | null>(
     () => tenant<Dossier>(`/currencies/${code}/360`),
     [code, syncTick],
@@ -1151,7 +1152,7 @@ function CurrencyDossier({
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {!c.is_base && (
+            {!c.is_base && can("edit") && (
               <Button
                 size="sm"
                 variant="outline"
@@ -1160,10 +1161,13 @@ function CurrencyDossier({
                 Set as base
               </Button>
             )}
+            {can("edit") && (
             <Button size="sm" variant="outline" onClick={() => onEdit(c)}>
               Edit
             </Button>
+            )}
             {!c.is_base &&
+              can("edit") &&
               (c.is_active ? (
                 <Button
                   size="sm"
@@ -1181,7 +1185,7 @@ function CurrencyDossier({
                   Activate
                 </Button>
               ))}
-            {!c.is_base && (
+            {!c.is_base && can("delete") && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -1309,7 +1313,7 @@ function CurrencyDossier({
                   </div>
                 )
               )}
-              {!fixed && (
+              {!fixed && can("edit") && (
                 <div className="ml-auto">
                   <Button
                     size="sm"
@@ -1326,6 +1330,7 @@ function CurrencyDossier({
                 tone="warn"
                 className="mb-3"
                 action={
+                  can("edit") && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -1333,6 +1338,7 @@ function CurrencyDossier({
                   >
                     {tr("Follow the feed again")}
                   </Button>
+                  )
                 }
               >
                 {`${tr("A manual rate stands")}: 1 ${code} = ${fmtQuoted(standing.rate)} ${d.base} (${dateFmt(standing.as_of_date)}${standing.set_by_name ? ` · ${standing.set_by_name}` : ""}). ${tr("The daily feed does not replace it until you release it.")}`}
@@ -1782,6 +1788,8 @@ export function CurrenciesPage() {
         description="Add currencies from the world library, set your base, sync live rates, and open a 360 on any one. A manual rate stands until you release it; the CFA franc ↔ euro parity is fixed."
         action={
           <div className="flex flex-wrap items-center gap-2">
+            {/* The sync key is an integration secret: `edit` on MOD-70, not on currencies. */}
+            {can("edit", "MOD-70") && (
             <Button
               variant="ghost"
               size="sm"
@@ -1789,6 +1797,8 @@ export function CurrenciesPage() {
             >
               ⚙ Settings
             </Button>
+            )}
+            {can("edit") && (
             <Button
               variant="outline"
               size="sm"
@@ -1798,6 +1808,7 @@ export function CurrenciesPage() {
             >
               Sync now
             </Button>
+            )}
             {can("edit") && <Button onClick={() => setAddOpen(true)}>Add currency</Button>}
           </div>
         }

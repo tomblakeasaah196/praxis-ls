@@ -40,6 +40,7 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { money, dateFmt, enumLabel } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 import { SitePill } from "./attendance-site-pill";
 import { MyAttendanceMap } from "./attendance-map";
 import { WaiveModal } from "./attendance-days";
@@ -419,6 +420,7 @@ export function AttendanceHistory({
   /** Pins the HR view to one person (employee 360). */
   employeeId?: string | null;
 }) {
+  const can = useCan("MOD-14");
   const [period, setPeriod] = React.useState<Period>("month");
   const [win, setWin] = React.useState(() => periodRange("month"));
   const [picked, setPicked] = React.useState<string[]>([]);
@@ -592,7 +594,8 @@ export function AttendanceHistory({
             <DayTable
               days={days}
               showEmployee={!self && !employeeId}
-              canDecide={!self}
+              // Waiving or upholding a deduction is `approve` on the route.
+              canDecide={!self && can("approve")}
               busy={busy}
               onWaive={setWaiving}
               onUphold={uphold}

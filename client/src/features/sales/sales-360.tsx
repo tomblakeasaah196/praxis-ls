@@ -42,6 +42,8 @@ import { money, moneyCompact, num, dateFmt, dateTimeFmt, enumLabel, cell } from 
 import { pageShell } from "@/lib/layout";
 import { ConvertModal } from "./lead-forms";
 import { serviceScope } from "@shared";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 import {
   channelLabel,
   documentKindLabel,
@@ -605,6 +607,7 @@ export function LeadDossier({
     [leadId],
   );
   const { busy, error: actionError, run } = useTransition(res.reload, onChanged);
+  const can = useCan("MOD-20");
 
   if (res.error) return <ErrorState message={errMsg(res.error)} />;
   if (!res.data)
@@ -659,12 +662,13 @@ export function LeadDossier({
                 </Button>
               </AccessLink>
             ) : null}
-            {!terminal && !d.client ? (
+            {!terminal && !d.client && can("edit") ? (
               <Button size="sm" onClick={() => setConverting(true)}>
                 Convert
               </Button>
             ) : null}
-            {!terminal ? (
+            {/* Archiving a lead is `approve` on the route. */}
+            {!terminal && can("approve") ? (
               <Button
                 size="sm"
                 variant="ghost"
@@ -674,7 +678,7 @@ export function LeadDossier({
                 Lost
               </Button>
             ) : null}
-            {onEdit ? (
+            {onEdit && can("edit") ? (
               <Button size="sm" variant="outline" onClick={onEdit}>
                 Edit
               </Button>
@@ -1059,6 +1063,8 @@ export function IntakeDossier({
     [quoteRequestId],
   );
   const { busy, error: actionError, run } = useTransition(res.reload, onChanged);
+  const can = useCan("MOD-20");
+  const mayMove = useCanMove("MOD-20", transitionActions.quoteRequestTransition);
 
   if (res.error) return <ErrorState message={errMsg(res.error)} />;
   if (!res.data)
@@ -1110,7 +1116,7 @@ export function IntakeDossier({
                 </Button>
               </Link>
             ) : null}
-            {!locked && next ? (
+            {!locked && next && mayMove(next) ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -1120,12 +1126,12 @@ export function IntakeDossier({
                 {next === "UNDER_REVIEW" ? "Start review" : "Mark quoted"}
               </Button>
             ) : null}
-            {onEdit ? (
+            {onEdit && can("edit") ? (
               <Button size="sm" variant="outline" onClick={onEdit}>
                 Edit
               </Button>
             ) : null}
-            {!locked && status !== "QUOTED" ? (
+            {!locked && status !== "QUOTED" && mayMove("CLOSED_NO_ACTION") ? (
               <Button
                 size="sm"
                 variant="ghost"

@@ -19,6 +19,7 @@ import { Modal, Field, Select } from "@/components/ui/modal";
 import { SearchSelect } from "@/components/ui/search-select";
 import * as fin from "@/lib/finance-api";
 import { useBaseCurrency } from "@/lib/use-base-currency";
+import { useCan } from "@/lib/route-access";
 import type { Asset, AssetDetail, AssetScheduleRow } from "@/lib/finance-api";
 
 export function AssetCreateForm({
@@ -436,6 +437,7 @@ export function AssetDetailModal({
   onChanged: () => void;
 }) {
   const open = !!assetId;
+  const can = useCan("MOD-54");
   const [detail, setDetail] = React.useState<AssetDetail | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [posting, setPosting] = React.useState<string | null>(null);
@@ -533,7 +535,7 @@ export function AssetDetailModal({
                         )}
                       </TD>
                       <TD className="text-right">
-                        {!row.posted && isActive && (
+                        {!row.posted && isActive && can("edit") && (
                           <Button
                             size="sm"
                             variant="outline"

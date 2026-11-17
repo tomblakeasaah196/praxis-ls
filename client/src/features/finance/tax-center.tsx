@@ -18,6 +18,7 @@ import { cn } from "@/lib/cn";
 import { Modal, Field, Select } from "@/components/ui/modal";
 import * as fin from "@/lib/finance-api";
 import type { TaxKind, TaxDeclaration } from "@/lib/finance-api";
+import { useCan } from "@/lib/route-access";
 import { useOptions, optionLabel } from "./shared";
 import { ReportTabs } from "./report-view";
 
@@ -243,6 +244,7 @@ function SubmitDeclarationForm({
 }
 
 function DeclarationsPanel() {
+  const can = useCan("MOD-07");
   const [rows, setRows] = React.useState<TaxDeclaration[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [nonce, setNonce] = React.useState(0);
@@ -290,9 +292,11 @@ function DeclarationsPanel() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-end">
-        <Button onClick={() => setFileOpen(true)}>File a return</Button>
-      </div>
+      {can("create") && (
+        <div className="mb-4 flex justify-end">
+          <Button onClick={() => setFileOpen(true)}>File a return</Button>
+        </div>
+      )}
 
       {rowError && (
         <div className="mb-3">
@@ -342,7 +346,7 @@ function DeclarationsPanel() {
                   </TD>
                   <TD>
                     <div className="flex gap-2">
-                      {(s === "COMPUTED" || s === "DRAFT") && (
+                      {(s === "COMPUTED" || s === "DRAFT") && can("approve") && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -352,7 +356,8 @@ function DeclarationsPanel() {
                           Approve
                         </Button>
                       )}
-                      {s === "APPROVED" && (
+                      {/* Recording the filing is `edit` on the route. */}
+                      {s === "APPROVED" && can("edit") && (
                         <Button size="sm" onClick={() => setSubmitTarget(r)}>
                           Submit
                         </Button>

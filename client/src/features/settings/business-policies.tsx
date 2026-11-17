@@ -189,6 +189,7 @@ export function BusinessPoliciesPage() {
                   <TD className="num text-sm">{key}</TD>
                   <TD>
                     <div className="flex gap-2">
+                      {can("edit") && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -196,6 +197,8 @@ export function BusinessPoliciesPage() {
                       >
                         Edit
                       </Button>
+                      )}
+                      {can("delete") && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -204,6 +207,7 @@ export function BusinessPoliciesPage() {
                       >
                         Delete
                       </Button>
+                      )}
                     </div>
                   </TD>
                 </TR>

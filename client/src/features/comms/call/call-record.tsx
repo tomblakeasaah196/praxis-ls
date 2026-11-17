@@ -17,7 +17,7 @@ import { Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { useToast } from "@/components/ui/toast";
-import { useCanUseModule } from "@/lib/route-access";
+import { useCan, useCanUseModule } from "@/lib/route-access";
 import { LoadingRow } from "@/components/ui/states";
 import { ScreenError } from "@/components/connection/screen-error";
 import { Record360Header, Record360Page } from "@/components/record-360";
@@ -43,6 +43,8 @@ function MissingMinutes({ callId, view, onRerun }: {
 }) {
   const toast = useToast();
   const canRerun = useCanUseModule("MOD-70");
+  // Seeing Settings is not enough: the re-run route asks `edit` on MOD-70.
+  const can = useCan("MOD-70");
   const [queued, setQueued] = React.useState<string[]>([]);
   const gaps = view.gaps || [];
   if (!gaps.length) return null;
@@ -67,7 +69,7 @@ function MissingMinutes({ callId, view, onRerun }: {
             <span>
               {g.side === "caller" ? tr("Caller") : tr("Callee")} · {clockOf(g.from_s)}–{clockOf(g.to_s)}
             </span>
-            {canRerun && g.parts.map((n) => {
+            {canRerun && can("edit") && g.parts.map((n) => {
               const p = partOf(g.side, n);
               if (!p || p.status !== "FAILED" || p.purged) return null;
               const done = queued.includes(`${g.side}:${n}`);
