@@ -1127,6 +1127,25 @@ export declare namespace transitionActions {
   const purchaseOrderTransition: Map;
   const purchaseOrderUnlock: Map;
   const workOrderStatus: Map;
+  const vacancyStatus: Map;
+  const contractStatus: Map;
+  const trainingStatus: Map;
+  const quoteRequestTransition: Map;
+  const quoteRequestStage: Map;
+  const proposalTransition: Map;
+  const inboundIntakeTransition: Map;
+  const quotationTransition: Map;
+  const operationsFileTransition: Map;
+  const transitOrderTransition: Map;
+  const deliveryNoteTransition: Map;
+  const outboundStatus: Map;
+  const equipmentStatus: Map;
+  const dispatchStatus: Map;
+  const incidentStatus: Map;
+  const costingTransition: Map;
+  const costingUnlock: Map;
+  const cashRequestTransition: Map;
+  const purchaseRequestTransition: Map;
   /** The action a transition to `target` asks for. Unlisted is `approve`. */
   function actionFor(map: Map, target: string | null | undefined): Action;
 }

@@ -83,6 +83,8 @@ import { ShipmentDetailsPanel, ContainerSummary } from "./shipment-details";
 import { ContainerEditor } from "./container-editor";
 import { ItineraryEditor } from "./itinerary-editor";
 import { DossierForm } from "./dossier-form";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 /** The file's own header, as the 360 response returns it. */
 type FileHeader = api.DossierOverview["dossier"];
@@ -307,6 +309,9 @@ function ReadinessBanner({
   fileId: string;
   onChanged: () => void;
 }) {
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-29", transitionActions.operationsFileTransition);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
   const done = status === "COMPLETED";
@@ -340,7 +345,7 @@ function ReadinessBanner({
                 : "In progress."}
           </span>
         </div>
-        {readiness.ready_to_complete && !done && (
+        {readiness.ready_to_complete && !done && mayMove("COMPLETED") && (
           <Button size="sm" onClick={complete} loading={busy}>
             {tr("Mark complete")}
           </Button>
@@ -783,6 +788,10 @@ function FileActions({
   onEdit?: () => void;
   onChanged: () => void;
 }) {
+  const can = useCan("MOD-29");
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-29", transitionActions.operationsFileTransition);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
   const next =
@@ -813,12 +822,12 @@ function FileActions({
           {err}
         </span>
       )}
-      {onEdit && (
+      {onEdit && can("edit") && (
         <Button size="sm" variant="ghost" onClick={onEdit}>
           {tr("Edit")}
         </Button>
       )}
-      {next && (
+      {next && mayMove(next) && (
         <Button size="sm" variant="outline" loading={busy} onClick={advance}>
           {next === "IN_PROGRESS" ? "Start" : "Complete"}
         </Button>

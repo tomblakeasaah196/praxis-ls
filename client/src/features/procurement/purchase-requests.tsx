@@ -27,7 +27,8 @@ import { RowActions } from "@/components/ui/row-actions";
 import { num } from "@/lib/format";
 import * as api from "@/lib/procurement-api";
 import { shell, tone } from "./shared";
-import { useCan } from "@/lib/route-access";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 /* ═══════════════════ Purchase requests ═══════════════════ */
 
@@ -186,6 +187,9 @@ export function PrForm({
 
 export function PurchaseRequestsPage() {
   const can = useCan("MOD-62");
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-62", transitionActions.purchaseRequestTransition);
   const { rows, error, loading, reload } =
     useList<api.PurchaseRequest>("/purchase-requests");
   const [open, setOpen] = React.useState(false);
@@ -235,7 +239,7 @@ export function PurchaseRequestsPage() {
             title={r.ref || `Request ${r.pr_id.slice(0, 8)}`}
             label={tr("View")}
           />
-          {(r.status === "DRAFT" || !r.status) && (
+          {(r.status === "DRAFT" || !r.status) && mayMove("SUBMITTED") && (
             <Button
               size="sm"
               variant="outline"

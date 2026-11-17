@@ -62,6 +62,7 @@ import * as React from "react";
 import { SCREENS, moduleForRoute } from "@/app/screen-registry";
 import { areaForPath, sectionRoute } from "@/app/layout/areas";
 import type { GrantAction, NavAccess } from "@/lib/nav-access";
+import { transitionActions } from "@praxis/shared";
 import { useShell } from "@/app/layout/shell-context";
 
 /**
@@ -215,6 +216,28 @@ export function useCan(moduleKey: string): (action: GrantAction, otherModule?: s
     (action: GrantAction, otherModule?: string) =>
       resolved ? canDo(access, otherModule || moduleKey, action) : true,
     [access, resolved, moduleKey],
+  );
+}
+
+/**
+ * The same question for a STATUS CHANGE, which asks for a different action per
+ * target state: submitting a payroll run is `edit`, approving it is `approve`.
+ *
+ *     const mayMove = useCanMove("MOD-45", transitionActions.incidentStatus);
+ *     …(TRANSITIONS[status] || []).filter(mayMove)
+ *
+ * The map is the one the route mounts (`@praxis/shared`, `transitionActions`),
+ * never a copy kept here, so a button and the route that accepts it cannot
+ * disagree. A state the map does not list asks for `approve` on both sides.
+ */
+export function useCanMove(
+  moduleKey: string,
+  map: transitionActions.Map,
+): (target: string | null | undefined) => boolean {
+  const can = useCan(moduleKey);
+  return React.useCallback(
+    (target: string | null | undefined) => can(transitionActions.actionFor(map, target)),
+    [can, map],
   );
 }
 

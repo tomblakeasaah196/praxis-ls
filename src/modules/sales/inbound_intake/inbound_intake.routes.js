@@ -3,6 +3,9 @@ const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
 const { requireTransitionPermission, requireLifecyclePermissionOnPatch } = require("../../../shared/http/transition-permission");
+// The maps below live in @praxis/shared so the screens offer exactly the buttons
+// these routes accept (rules/transition-actions.js).
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./inbound_intake.controller");
 const validator = require("./inbound_intake.validator");
 const MODULE = "MOD-25";
@@ -19,11 +22,7 @@ const MODULE = "MOD-25";
  * Anything unmapped still falls back to `approve`, so a state added later fails
  * closed.
  */
-const TRANSITION_ACTION = {
-  READ: "edit",
-  RESPONDED: "edit",
-  CLOSED: "edit",
-};
+const TRANSITION_ACTION = transitionActions.inboundIntakeTransition;
 
 const router = express.Router();
 router.use(authMiddleware);

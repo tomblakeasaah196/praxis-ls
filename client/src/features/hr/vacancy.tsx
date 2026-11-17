@@ -36,7 +36,8 @@ import { ApplicantDrawer, CriteriaEditor } from "./applicant-drawer";
 import { VacancyWizard } from "./vacancy-wizard";
 import { VacancyEditor } from "./vacancy-editor";
 import { useConfirm } from "@/components/ui/use-confirm";
-import { useCan } from "@/lib/route-access";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const shell = pageShell.wide;
 const VAC_TONE: Record<string, Tone> = {
@@ -483,6 +484,9 @@ function Pipeline({
    *  for good if the tenant has no host on file. */
   careersBase: string;
 }) {
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-11", transitionActions.vacancyStatus);
   const [vacancy, setVacancy] = React.useState(initial);
   React.useEffect(() => setVacancy(initial), [initial]);
   const applicants = useResource(
@@ -698,7 +702,7 @@ function Pipeline({
           >
             {vacancy.status === "DRAFT" ? "Review the draft" : "Edit advert"}
           </Button>
-          {(VAC_TRANSITIONS[vacancy.status] || []).map((s) => (
+          {(VAC_TRANSITIONS[vacancy.status] || []).filter(mayMove).map((s) => (
             <Button
               key={s}
               size="sm"

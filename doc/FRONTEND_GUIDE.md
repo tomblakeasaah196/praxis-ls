@@ -1604,7 +1604,9 @@ sit behind a `can(…)`, or carry `// @access:open <reason>` inside the action.
 It does not read row actions, form footers or the buttons inside a 360: there a
 label does not tell a write from a read. Those are swept by hand, module by
 module. Done so far: invoices, journals, payroll runs, purchase orders and
-fleet work orders.
+requests, operations files, employment contracts, vacancies, training
+sessions, outbound orders, warehouse equipment, and fleet work orders,
+dispatch and incidents.
 
 **A status change asks for a different grant per target state.** `POST
 /payroll/:id/status` is `edit` to submit a run and `approve` to approve it, so
@@ -1616,14 +1618,14 @@ accepts it cannot disagree.
 
 ```tsx
 import { transitionActions } from "@praxis/shared";
-const mayMove = (to: string) =>
-  can(transitionActions.actionFor(transitionActions.purchaseOrderTransition, to));
+const mayMove = useCanMove("MOD-45", transitionActions.incidentStatus); // @/lib/route-access
 …
+<TransitionButtons items={(TRANSITIONS[i.status] || []).filter(mayMove).map(…)} />
 {r.status === "ISSUED_LOCKED" && mayMove("APPROVED_LOCKED") && <Button…>Approve</Button>}
 ```
 
-When you sweep a screen whose route still keeps its `TRANSITION_ACTION` as a
-local constant, move the constant into that file first. Do not copy it into the
+Every lifecycle route's map is in that file, and a test fails a routes file
+that grows a local `…_ACTION = {` literal again. Never copy a map into the
 client. A button that remains can still be refused: a decision may also need
 the APPROVER capability, and maker-checker forbids approving what you
 submitted. Neither is in the client's access answer.

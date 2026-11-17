@@ -44,7 +44,8 @@ import { DossierWizard } from "./dossier-wizard";
 import { OperationFile360Modal } from "./file-360";
 import { routeLabel, serviceLabel, tone } from "./shared";
 import { MilestoneCell } from "./components";
-import { useCan } from "@/lib/route-access";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const OPS_FILES_AI: AiAction[] = [
   {
@@ -70,6 +71,9 @@ const STATUS_CHIPS: { key: string; label: string; status?: string }[] = [
 
 export function OperationsFilesPage() {
   const can = useCan("MOD-29");
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-29", transitionActions.operationsFileTransition);
   // `?ref=` seeds the search box with a file reference — the Control Tower's
   // live-shipment rows use it, and it stays the friendlier half of the pair now
   // that `?focus=<id>` opens the 360 outright. The user can clear or change it
@@ -243,10 +247,13 @@ export function OperationsFilesPage() {
           onClick={(e) => e.stopPropagation()}
           role="presentation"
         >
-          <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>
-            Edit
-          </Button>
-          {(r.status === "OPEN" || r.status === "IN_PROGRESS") && (
+          {can("edit") && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>
+              Edit
+            </Button>
+          )}
+          {(r.status === "OPEN" || r.status === "IN_PROGRESS") &&
+            mayMove(r.status === "OPEN" ? "IN_PROGRESS" : "COMPLETED") && (
             <Button
               size="sm"
               variant="outline"

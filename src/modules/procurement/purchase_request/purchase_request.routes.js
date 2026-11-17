@@ -6,6 +6,9 @@ const { requirePermission } = require("../../../middleware/rbac");
 // API F-21: this file reimplemented requireTransitionPermission locally —
 // same behaviour, duplicated. Uses the shared helper now.
 const { requireTransitionPermission } = require("../../../shared/http/transition-permission");
+// The maps below live in @praxis/shared so the screens offer exactly the buttons
+// these routes accept (rules/transition-actions.js).
+const { transitionActions } = require("@praxis/shared");
 const controller = require("./purchase_request.controller");
 const validator = require("./purchase_request.validator");
 
@@ -28,12 +31,7 @@ router.use(authMiddleware);
  *   APPROVED   → approve  a real decision
  *   REJECTED   → approve  also a decision
  */
-const TRANSITION_ACTION = {
-  SUBMITTED: "edit",
-  ORDERED: "edit",
-  APPROVED: "approve",
-  REJECTED: "approve",
-};
+const TRANSITION_ACTION = transitionActions.purchaseRequestTransition;
 
 
 router.get("/", requirePermission(MODULE, "view"), controller.list);

@@ -26,7 +26,8 @@ import { reportActionError } from "@/lib/action-error";
 import { dateFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/hr-api";
 import { groupContracts, type ContractGroup } from "./contracts-grouping";
-import { useCan } from "@/lib/route-access";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const shell = pageShell.wide;
 const STATUS_TONE: Record<string, Tone> = {
@@ -316,6 +317,9 @@ function LapsingPanel({
 
 export function ContractsPage() {
   const can = useCan("MOD-12");
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-12", transitionActions.contractStatus);
   const rows = useResource(() => api.listContracts(), []);
   // The two dates nothing has ever read (0700). Asked for once, above the
   // table, because "six contracts lapse this month" is the thing somebody
@@ -496,7 +500,7 @@ export function ContractsPage() {
             </Button>
           )}
           <TransitionButtons
-            items={(TRANSITIONS[c.status] || []).map((s) => ({
+            items={(TRANSITIONS[c.status] || []).filter(mayMove).map((s) => ({
               to: s,
               label: STATUS_LABEL[s] || s,
               variant: s === "ENDED" ? "outline" : "default",

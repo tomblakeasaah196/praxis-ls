@@ -24,7 +24,8 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/wms-api";
 import { reportActionError } from "@/lib/action-error";
-import { useCan } from "@/lib/route-access";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const shell = pageShell.wide;
 const STATUS_TONE: Record<string, Tone> = {
@@ -89,6 +90,9 @@ function OrderDetail({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  // A status move asks for a different grant per target state. The map is the
+  // one the route mounts, so only the moves this role may make are offered.
+  const mayMove = useCanMove("MOD-36", transitionActions.outboundStatus);
   const [order, setOrder] = React.useState(initial);
   const lines = useResource(
     () => api.getOutboundLines(order.outbound_order_id),
@@ -149,13 +153,13 @@ function OrderDetail({
   }
 
   const rows = lines.data || [];
-  const transitions: Transition[] = (TRANSITIONS[order.status] || []).map(
-    (s) => ({
+  const transitions: Transition[] = (TRANSITIONS[order.status] || [])
+    .filter(mayMove)
+    .map((s) => ({
       to: s,
       label: STATUS_LABEL[s] || s,
       variant: s === "CANCELLED" ? "outline" : "default",
-    }),
-  );
+    }));
   const locked = order.status === "DISPATCHED" || order.status === "CANCELLED";
 
   return (
