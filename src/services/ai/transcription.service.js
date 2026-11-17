@@ -87,11 +87,45 @@ async function transcribe({
       // field is what the vendor HEARD, and conflating them would defeat the
       // whole point of per-part detection).
       detected_language: (res && (res.language || null)) || null,
+      // WHEN each sentence was said, in seconds from the start of this audio.
+      // `verbose_json` has always carried it and it was dropped here, which is
+      // why a call's transcript could only be two blocks, one per person: with
+      // no times there is no order between what the two of them said. Null
+      // when the format was not asked for or the vendor sent none.
+      segments: detectLanguage ? cleanSegments(res && res.segments) : null,
     };
   } catch (err) {
     logger.warn({ err }, "transcription failed");
     throw err;
   }
+}
+
+/** The most segments kept for one part. A two-minute part is a few dozen. */
+const MAX_SEGMENTS = 400;
+
+/**
+ * The vendor's segments, reduced to what is kept: `{ start, end, text }`, in
+ * seconds, in order. Anything that is not a usable time and some words is
+ * dropped, so a caller never has to check again. Null when there are none.
+ */
+function cleanSegments(raw) {
+  if (!Array.isArray(raw)) return null;
+  const out = [];
+  for (const s of raw) {
+    if (!s) continue;
+    const start = Number(s.start);
+    const end = Number(s.end);
+    const text = String(s.text || "").replace(/\s+/g, " ").trim();
+    if (!Number.isFinite(start) || start < 0 || !text) continue;
+    out.push({
+      start: Math.round(start * 100) / 100,
+      end: Math.round((Number.isFinite(end) && end >= start ? end : start) * 100) / 100,
+      text: text.slice(0, 2000),
+    });
+    if (out.length >= MAX_SEGMENTS) break;
+  }
+  out.sort((a, b) => a.start - b.start);
+  return out.length ? out : null;
 }
 
 /** The language hints this deployment accepts. Two, because two is what the
@@ -128,4 +162,4 @@ async function toFile(buffer, name, type) {
   return tf(buffer, name, { type });
 }
 
-module.exports = { transcribe };
+module.exports = { transcribe, cleanSegments };

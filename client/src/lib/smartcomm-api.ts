@@ -186,6 +186,9 @@ export type Channel = {
   last_message?: CommMessage | null;
   /** The other member's user id — DIRECT channels only. The dial target key. */
   partner_user_id?: string | null;
+  /** The other member's name — DIRECT channels only. What the conversation is
+   *  called for the person looking at it (features/comms/channel-title.ts). */
+  partner_name?: string | null;
   /** The other member's uploaded profile photo (/media URL) — DIRECT channels only. */
   partner_avatar_ref?: string | null;
   /** The other member's last presence beat — DIRECT channels only. Render
@@ -684,6 +687,21 @@ export type CallTranscriptSide = {
   }[];
 };
 
+/** One turn of a call read as a conversation (the server's `buildTurns`). */
+export type CallTranscriptTurn = {
+  side: CallRecordSide;
+  name: string | null;
+  /** Seconds from the start of the call's recording to when the turn began. */
+  at_s: number;
+  text?: string;
+  language?: "en" | "fr";
+  /** false: this part had no sentence times; the turn sits where its part began. */
+  exact?: boolean;
+  /** A stretch with no transcript, ending at `to_s`. */
+  gap?: boolean;
+  to_s?: number;
+};
+
 export type CallTranscriptView = {
   call_id: string;
   state: CallTranscriptState;
@@ -692,6 +710,10 @@ export type CallTranscriptView = {
   provenance: CallTranscriptProvider;
   text: string;
   sides: CallTranscriptSide[];
+  /** True when the times of the sentences were kept, so `turns` is the call in
+   *  order. False (or absent, from an older server): read `sides`. */
+  timed?: boolean;
+  turns?: CallTranscriptTurn[];
   parts: {
     side: CallRecordSide;
     part_index: number;

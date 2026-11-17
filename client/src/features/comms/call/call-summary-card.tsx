@@ -34,6 +34,8 @@ import { dateDmy } from "@/lib/format";
 import * as api from "@/lib/smartcomm-api";
 import type { CallCard, CallTranscriptView } from "@/lib/smartcomm-api";
 import { provenanceLabel } from "./call-provenance";
+import { TranscriptConversation } from "./transcript-conversation";
+import { isConversation } from "./call-labels";
 
 function minutes(seconds?: number | null): string | null {
   const s = Number(seconds) || 0;
@@ -84,16 +86,20 @@ function TranscriptPanel({ callId, onClose }: { callId: string; onClose: () => v
       )}
       {view && (
         <div className="mt-1 space-y-2">
-          {view.sides
-            .filter((s) => s.parts.length)
-            .map((s) => (
-              <div key={s.side}>
-                <p className="text-micro font-medium text-foreground">
-                  {s.name || (s.side === "caller" ? tr("Caller") : tr("Callee"))}
-                </p>
-                <p className="whitespace-pre-wrap text-xs text-muted-foreground">{s.text}</p>
-              </div>
-            ))}
+          {isConversation(view) ? (
+            <TranscriptConversation turns={view.turns || []} compact />
+          ) : (
+            view.sides
+              .filter((s) => s.parts.length)
+              .map((s) => (
+                <div key={s.side}>
+                  <p className="text-micro font-medium text-foreground">
+                    {s.name || (s.side === "caller" ? tr("Caller") : tr("Callee"))}
+                  </p>
+                  <p className="whitespace-pre-wrap text-xs text-muted-foreground">{s.text}</p>
+                </div>
+              ))
+          )}
           {view.state === "TRANSCRIPTION_FAILED" && (
             <p className="text-micro text-muted-foreground">
               {tr("The certified transcript could not be produced: this is the in-call capture.")}

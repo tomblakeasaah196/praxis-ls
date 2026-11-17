@@ -33,6 +33,7 @@ import { useToast } from "@/components/ui/toast";
 import { tr } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/smartcomm-api";
+import { channelTitle } from "../channel-title";
 import type { Channel, CommMessage } from "@/lib/smartcomm-api";
 import { forwardableAttachments } from "./forward-attachments";
 
@@ -81,7 +82,7 @@ export function ForwardDialog({
 
   const options = channels
     .filter((c) => c.group_id !== currentChannelId)
-    .filter((c) => !term.trim() || c.name.toLowerCase().includes(term.trim().toLowerCase()));
+    .filter((c) => !term.trim() || channelTitle(c).toLowerCase().includes(term.trim().toLowerCase()));
 
   const attachments = forwardableAttachments(message);
   const body = message.body
@@ -105,7 +106,7 @@ export function ForwardDialog({
         await api.postMessage(groupId, body, { attachments });
       } catch {
         /* @silent:network — collected and reported together below */
-        failures.push(channels.find((c) => c.group_id === groupId)?.name || groupId);
+        failures.push(channelTitle(channels.find((c) => c.group_id === groupId)) || groupId);
       }
     }
     setBusy(false);
@@ -172,7 +173,7 @@ export function ForwardDialog({
                       )}
                     >
                       <span aria-hidden className="w-4 shrink-0">{on ? "✓" : ""}</span>
-                      <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                      <span className="min-w-0 flex-1 truncate">{channelTitle(c)}</span>
                       {c.kind && (
                         <span className="shrink-0 text-micro text-muted-foreground">
                           {c.kind.toLowerCase()}

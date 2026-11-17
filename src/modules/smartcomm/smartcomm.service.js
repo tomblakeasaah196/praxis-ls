@@ -46,7 +46,7 @@ const listChannels = (client, actor, q) => repo.listChannelsForUser(client, acto
 async function getChannel(client, { id, actor }) {
   await assertMember(client, id, actor.user_id);
   await repo.touchPresence(client, id, actor.user_id);
-  return repo.getChannelEnriched(client, id);
+  return repo.getChannelEnriched(client, id, actor.user_id);
 }
 async function createChannel(client, { data, actor = {} }) {
   await client.query("BEGIN");

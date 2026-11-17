@@ -49,7 +49,7 @@ export function MessageEditor({
           "aria-multiline": "true",
           "aria-label": tr("Write a message"),
           class:
-            "min-h-10 max-h-32 overflow-y-auto px-3 py-2 text-sm focus:outline-none [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)] [&_p.is-editor-empty:first-child]:before:text-muted-foreground [&_p.is-editor-empty:first-child]:before:float-left [&_p.is-editor-empty:first-child]:before:pointer-events-none",
+            "min-h-10 max-h-32 overflow-y-auto px-3 py-2 text-sm focus:outline-none [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)] [&_p.is-editor-empty:first-child]:before:text-muted-foreground [&_p.is-editor-empty:first-child]:before:float-left [&_p.is-editor-empty:first-child]:before:h-0 [&_p.is-editor-empty:first-child]:before:pointer-events-none [&.ProseMirror-focused_p.is-editor-empty:first-child]:before:content-none",
         },
         handleKeyDown: (view, event) => {
           if (event.isComposing || view.composing || event.keyCode === 229)

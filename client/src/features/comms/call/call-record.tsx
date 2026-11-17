@@ -25,8 +25,9 @@ import * as api from "@/lib/smartcomm-api";
 import type { Call, CallRecordSide, CallTranscriptView } from "@/lib/smartcomm-api";
 import { myUserId } from "./call-session";
 import { CallSummaryEditor } from "./summary-draft";
-import { callDuration, callOutcome, clockOf, endReasonSentence, peerOf } from "./call-labels";
+import { callDuration, callOutcome, clockOf, endReasonSentence, isConversation, peerOf } from "./call-labels";
 import { CallStatePill } from "./call-state-pill";
+import { TranscriptConversation } from "./transcript-conversation";
 
 export const CALLS_PATH = "/comms/calls";
 
@@ -117,6 +118,10 @@ function TranscriptSection({ callId }: { callId: string }) {
       {open && view && (
         view.sides.every((s) => !s.parts.length) ? (
           <p className="text-sm text-muted-foreground">{tr("No words were transcribed for this call.")}</p>
+        ) : isConversation(view) ? (
+          // Who said what, in order. A call with no sentence times keeps the
+          // two blocks below (transcript-conversation.tsx).
+          <TranscriptConversation turns={view.turns || []} />
         ) : (
           <div className="space-y-4">
             {view.sides.filter((s) => s.parts.length).map((s) => (
