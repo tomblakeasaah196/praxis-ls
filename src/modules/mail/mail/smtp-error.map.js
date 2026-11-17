@@ -166,16 +166,47 @@ function isSmtpError(err) {
  * leg names itself too, and says that the sending credential is not what was
  * refused.
  *
- * Only an AUTH failure is renamed. A DNS failure, a refused connection or a TLS
- * error is a fact about the HOST, and dressing one up as a credential problem
- * would send somebody to retype a password that is perfectly correct — so those
- * keep imapflow's own text and carry no code.
+ * Only an AUTH failure is renamed as a credential problem. A DNS failure, a
+ * refused connection or a TLS error is a fact about the HOST, and dressing one
+ * up as a credential problem would send somebody to retype a password that is
+ * perfectly correct.
+ *
+ * A host that could not be REACHED is said as that, when the caller passes the
+ * host it tried (`where`). imapflow's own sentence for it is "Failed to
+ * establish connection in required time", which names no server and reads as
+ * the product being slow; the truth is that the server never answered, and the
+ * usual cause is the mail host's firewall blocking this server's address. The
+ * sentence ends by ruling the password out, because that is what an operator
+ * retypes first. Without `where` the text is left exactly as imapflow gave it.
  */
 const IMAP_AUTH_SNIFF = /authenticationfailed|invalid credentials|login failed|\[auth\]|authentication failed/i;
 
-function describeImapFailure(err) {
+/** A failure before the server said anything: DNS, TCP, TLS or the greeting. */
+const IMAP_UNREACHABLE_CODES = new Set([
+  "CONNECT_TIMEOUT", "GREETING_TIMEOUT", "ETIMEDOUT", "ECONNREFUSED", "ENOTFOUND",
+  "EAI_AGAIN", "EHOSTUNREACH", "ENETUNREACH", "ECONNRESET",
+]);
+const IMAP_UNREACHABLE_SNIFF = /in required time|getaddrinfo|ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH/i;
+
+function isImapUnreachable(err, raw) {
+  return IMAP_UNREACHABLE_CODES.has(err && err.code) || IMAP_UNREACHABLE_SNIFF.test(raw);
+}
+
+function describeImapFailure(err, where) {
   const raw = String((err && err.message) || err || "");
-  if (!IMAP_AUTH_SNIFF.test(raw)) return { message: raw, code: null };
+  if (!IMAP_AUTH_SNIFF.test(raw)) {
+    if (where && where.host && isImapUnreachable(err, raw)) {
+      const reason = (err && err.code) || raw.slice(0, 80);
+      return {
+        message:
+          `Could not reach ${where.host} on port ${where.port || 993} from this server (${reason}). `
+          + "This is the incoming (IMAP) host name, the port, or a firewall at the mail host blocking this server. "
+          + "The password was never tried.",
+        code: "IMAP_UNREACHABLE",
+      };
+    }
+    return { message: raw, code: null };
+  }
   return {
     message:
       "Receiving (IMAP) was refused: the mail server rejected this mailbox's sign-in "
