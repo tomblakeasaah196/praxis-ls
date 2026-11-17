@@ -24,6 +24,7 @@ const mailRepo = require("../modules/mail/mail/mail.repo");
 const { enqueue } = require("./queue-producer");
 const { initRedis, closeRedis } = require("../config/redis");
 const { logger } = require("../config/logger");
+const { imapTimeouts } = require("../shared/mail/imap-timeouts");
 
 const RECONNECT_MS = 15000;
 const idlers = new Map(); // key → ImapFlow
@@ -48,6 +49,9 @@ async function idleConnection(meta, conn) {
   const imap = new ImapFlow({
     host: conn.imap_host, port: conn.imap_port || 993, secure: conn.imap_secure !== false,
     auth: { user: conn.auth_user || conn.email_address, pass: password }, logger: false,
+    // Reaching the server only: an idling connection is quiet by design, so the
+    // silence timeout is left to imapflow. See shared/mail/imap-timeouts.
+    ...imapTimeouts(),
   });
   idlers.set(key, imap);
 

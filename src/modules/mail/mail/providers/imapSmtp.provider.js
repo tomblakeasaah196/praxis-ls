@@ -29,6 +29,7 @@ const crypto = require("crypto");
 const { baseCapabilities } = require("./provider.interface");
 const { config } = require("../../../../config/env");
 const { smtpTimeouts } = require("../../../../shared/mail/smtp-timeouts");
+const { imapTimeouts } = require("../../../../shared/mail/imap-timeouts");
 
 const SENT_MAILBOX_CANDIDATES = ["Sent", "Sent Items", "Sent Mail", "INBOX.Sent"];
 
@@ -88,6 +89,9 @@ class ImapSmtpProvider {
       secure: c.imap_secure !== false,
       auth: { user: c.auth_user || c.email_address, pass: c.password },
       logger: false,
+      // A server that has stopped answering is reported in seconds, not after
+      // imapflow's ninety-second default. See shared/mail/imap-timeouts.
+      ...imapTimeouts(),
     });
   }
 
@@ -165,7 +169,9 @@ class ImapSmtpProvider {
       await imap.logout();
     } catch (err) {
       const { describeImapFailure } = require("../smtp-error.map");
-      const described = describeImapFailure(err);
+      // The host and port go with it, so "could not reach" can name the server
+      // that did not answer rather than repeat imapflow's bare sentence.
+      const described = describeImapFailure(err, { host: this.conn.imap_host, port: this.conn.imap_port || 993 });
       return { ok: false, stage: "imap", error: described.message, code: described.code };
     }
     try {
