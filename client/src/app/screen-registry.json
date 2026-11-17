@@ -1504,13 +1504,17 @@
       "route": "/sales/leads",
       "area": "sales",
       "module_key": "MOD-20",
-      "purpose": "Inbound leads and their qualification.",
+      "purpose": "One row per company, Prospect or Client, each with a dated next step: capture with a duplicate check, log what happened, set and complete the next step, archive, make a client.",
       "actions": [
         "list_leads",
         "get_lead",
-        "create_lead",
-        "transition_lead",
-        "convert_lead"
+        "get_lead_360",
+        "find_duplicate_leads",
+        "capture_lead",
+        "log_lead_activity",
+        "set_lead_next_step",
+        "archive_lead",
+        "make_lead_client"
       ],
       "title_fr": "Prospects & réception"
     },
@@ -1546,13 +1550,14 @@
       "route": "/sales/quote-requests",
       "area": "sales",
       "module_key": "MOD-20",
-      "purpose": "Logistics-scope intake register (MOD-20-intake). 5 KPI tiles (TOTAL / RECEIVED / UNDER_REVIEW / QUOTED / CONVERTED) partition the result set under every filter; conversion produces an opportunity in the pipeline.",
+      "purpose": "The requests, each of which is also the deal: its stage (New, Contacted, Meeting, Quoted, Won, Lost), value and Lost reason. Winning one, by an accepted quotation or Mark Won, makes the client and opens the operations file. KPI tiles of the intake status partition the result set under every filter.",
       "actions": [
         "list_quote_requests",
         "get_quote_request",
         "create_quote_request",
-        "transition_quote_request",
-        "convert_quote_request",
+        "move_quote_request_stage",
+        "mark_quote_request_lost",
+        "mark_quote_request_won",
         "list_quote_request_services",
         "suggest_quote_request_client",
         "link_quote_request_client",
@@ -1596,15 +1601,12 @@
       "route": "/sales/opportunities",
       "area": "sales",
       "module_key": "MOD-24",
-      "purpose": "Kanban of open opportunities by stage (seven stages, each with a win probability). KPI strip is server-computed: open pipeline value, weighted forecast, won value, and BOTH win rates — settled (won / won+lost) and all-deals (the legacy denominator). Filter by source and search; CSV export carries the money columns as numbers.",
+      "purpose": "The opportunities as they stood before the Sales lean revamp, read only: every one became a request (14512), and a deal moves and is won on its request. Kanban by stage, KPI strip and CSV export.",
       "actions": [
         "list_opportunities",
         "pipeline_board",
         "pipeline_metrics",
-        "get_opportunity",
-        "create_opportunity",
-        "move_opportunity",
-        "win_opportunity"
+        "get_opportunity"
       ],
       "title_fr": "Opportunités"
     },

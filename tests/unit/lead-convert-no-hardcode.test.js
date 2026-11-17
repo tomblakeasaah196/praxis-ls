@@ -23,6 +23,9 @@ const EMIT_PATH = path.resolve(__dirname, "../../src/shared/events/emit.js");
 // graph is wired by the same loader jest uses for the rest of the suite.
 jest.doMock(REPO_PATH, () => ({
   get: jest.fn(),
+  // Make Client locks the row in its transaction (lean revamp PR 2); it is
+  // the same row `get` answers with in this suite.
+  getForUpdate: jest.fn(),
   update: jest.fn(),
   // Added with the column fix: the convert path resolves the client_type CODE
   // to its FK and stamps the corporate entity, because `client_master` has
@@ -50,6 +53,7 @@ jest.doMock(EMIT_PATH, () => ({
 const repo = require(REPO_PATH);
 const clientMaster = require(CLIENT_MASTER_PATH);
 const service = require(SERVICE_PATH);
+repo.getForUpdate.mockImplementation((...args) => repo.get(...args));
 
 function makeClient() {
   return {
@@ -60,7 +64,7 @@ function makeClient() {
   };
 }
 
-describe("lead.service.convert — F6 anti-hardcode", () => {
+describe("lead.service.makeClient — F6 anti-hardcode (Make Client, lean revamp PR 2)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -72,7 +76,7 @@ describe("lead.service.convert — F6 anti-hardcode", () => {
       address: null, niu: null, rccm: null, client_type_hint: null, payment_terms_days: null,
     });
     const c = makeClient();
-    await expect(service.convert(c, { id: "L1", clientData: { payment_terms_days: 30 } }))
+    await expect(service.makeClient(c, { id: "L1", clientData: { payment_terms_days: 30 } }))
       .rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(clientMaster.create).not.toHaveBeenCalled();
   });
@@ -84,7 +88,7 @@ describe("lead.service.convert — F6 anti-hardcode", () => {
       address: null, niu: null, rccm: null, client_type_hint: "BOTH", payment_terms_days: null,
     });
     const c = makeClient();
-    await expect(service.convert(c, { id: "L1", clientData: { client_type: "BOTH" } }))
+    await expect(service.makeClient(c, { id: "L1", clientData: { client_type: "BOTH" } }))
       .rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(clientMaster.create).not.toHaveBeenCalled();
   });
@@ -99,7 +103,7 @@ describe("lead.service.convert — F6 anti-hardcode", () => {
     clientMaster.create.mockResolvedValue({ client_id: "C1" });
     repo.update.mockResolvedValue({ lead_id: "L1", status: "CONVERTED", client_id: "C1" });
     const c = makeClient();
-    const out = await service.convert(c, {
+    const out = await service.makeClient(c, {
       id: "L1",
       clientData: { client_type: "SHIPPER", payment_terms_days: 45, name: "Acme SARL" },
     });
@@ -133,7 +137,7 @@ describe("lead.service.convert — F6 anti-hardcode", () => {
     clientMaster.create.mockResolvedValue({ client_id: "C2" });
     repo.update.mockResolvedValue({ lead_id: "L1", status: "CONVERTED", client_id: "C2" });
     const c = makeClient();
-    const out = await service.convert(c, { id: "L1", clientData: { client_type: "CONSIGNEE", payment_terms_days: 60 } });
+    const out = await service.makeClient(c, { id: "L1", clientData: { client_type: "CONSIGNEE", payment_terms_days: 60 } });
     expect(out.client_type).toBe("CONSIGNEE");
     expect(out.payment_terms_days).toBe(60);
   });
@@ -148,19 +152,43 @@ describe("lead.service.convert — F6 anti-hardcode", () => {
     clientMaster.create.mockResolvedValue({ client_id: "C3" });
     repo.update.mockResolvedValue({ lead_id: "L1", status: "CONVERTED", client_id: "C3" });
     const c = makeClient();
-    const out = await service.convert(c, { id: "L1", clientData: { client_type: "SHIPPER", payment_terms_days: 14 } });
+    const out = await service.makeClient(c, { id: "L1", clientData: { client_type: "SHIPPER", payment_terms_days: 14 } });
     expect(out.client_type).toBe("SHIPPER");
     expect(out.payment_terms_days).toBe(14);
   });
 
-  test("refuses to convert a non-QUALIFIED lead", async () => {
+  test("no longer waits for QUALIFIED: an OPEN prospect can be made a client", async () => {
     repo.get.mockResolvedValue({
-      lead_id: "L1", status: "NEW", company_name: "Acme",
+      lead_id: "L1", status: "OPEN", company_name: "Acme", country: "CM",
       client_type_hint: "BOTH", payment_terms_days: 30,
     });
-    const c = makeClient();
-    await expect(service.convert(c, { id: "L1", clientData: { client_type: "BOTH", payment_terms_days: 30 } }))
-      .rejects.toMatchObject({ code: "NOT_QUALIFIED" });
+    clientMaster.create.mockResolvedValue({ client_id: "C4" });
+    repo.update.mockResolvedValue({ lead_id: "L1", status: "OPEN", client_id: "C4" });
+    const out = await service.makeClient(makeClient(), { id: "L1", clientData: { client_type: "BOTH", payment_terms_days: 30 } });
+    expect(out.client_id).toBe("C4");
+  });
+
+  test("refuses a company that is already a client, by hand", async () => {
+    repo.get.mockResolvedValue({ lead_id: "L1", status: "OPEN", company_name: "Acme", client_id: "C9" });
+    await expect(service.makeClient(makeClient(), { id: "L1", clientData: { client_type: "BOTH", payment_terms_days: 30 } }))
+      .rejects.toMatchObject({ code: "ALREADY_CLIENT" });
     expect(clientMaster.create).not.toHaveBeenCalled();
+  });
+
+  test("an ACCEPTANCE (strict: false) makes the DRAFT client from what the row knows, and never fails over a missing type or terms", async () => {
+    repo.get.mockResolvedValue({
+      lead_id: "L1", status: "OPEN", company_name: "Acme", country: "CM",
+      contact_name: null, email: "a@acme.cm", phone: null, address: null, niu: null, rccm: null,
+      client_type_hint: null, payment_terms_days: null,
+    });
+    clientMaster.create.mockResolvedValue({ client_id: "C5" });
+    repo.update.mockResolvedValue({ lead_id: "L1", status: "OPEN", client_id: "C5" });
+    const out = await service.makeClient(makeClient(), { id: "L1", strict: false });
+    expect(out.client_id).toBe("C5");
+    const arg = clientMaster.create.mock.calls[0][1].data;
+    // Nothing invented: the type and the terms stay for Finance to complete.
+    expect(arg).not.toHaveProperty("client_type_id");
+    expect(arg).not.toHaveProperty("payment_terms_days");
+    expect(arg.name).toBe("Acme");
   });
 });

@@ -45,18 +45,12 @@
 const repo = require("./inbound_intake.repo");
 const events = require("./inbound_intake.events");
 const rules = require("./inbound_intake.rules");
-// The lead is reached through its REPO, never its service, and
-// this is not a style choice. `lead.service.create` and every other create in
-// this codebase open and COMMIT their own BEGIN/COMMIT — calling one from
-// inside the transaction below would commit the outer transaction at the lead
-// insert, so a failure on the enquiry update afterwards would leave a lead in
-// the funnel that no enquiry points at. That is the "converted computed two
-// ways" defect F6 spent a slice correcting, and the shape this file had before
-// F9 reproduced it exactly. The events and audit rows those services would have
-// emitted are emitted here under the SAME keys, so nothing downstream loses a
-// record.
-const leadRepo = require("../lead/lead.repo");
-const leadEvents = require("../lead/lead.events");
+// The lead is reached through its SERVICE since the lean revamp (PR 2): Raise
+// Lead runs the duplicate check and lands on the company's one row
+// (`findOrCreateForIntake`). That service joins this transaction through
+// `atomically` rather than opening its own, which was the reason the repo was
+// used before: a nested BEGIN/COMMIT that committed the outer transaction early.
+const leads = require("../lead/lead.service");
 const emailService = require("../../../services/email.service");
 const { mapSmtpError, isSmtpError } = require("../../mail/mail/smtp-error.map");
 const { emitEvent, audit } = require("../../../shared/events/emit");
@@ -274,35 +268,33 @@ async function triageEnquiry(client, { id, toLead = false, close = false, actor 
   const e = await repo.getEnquiry(client, id);
   if (!e) throw new AppError("NOT_FOUND", "Enquiry not found", 404);
 
-  await client.query("BEGIN");
-  try {
+  return atomically(client, async () => {
     const fields = {};
     let leadId = e.lead_id;
+    let found = null;
 
+    // Raise Lead (§3.3): the same duplicate check as capture. The enquiry
+    // lands on the company already on file, or makes its row, and whoever
+    // raised it gets the next step: following it up.
     if (toLead && !leadId) {
-      const lead = await leadRepo.insert(client, {
-        entity_id: null,
-        company_name: e.company_name || e.name || "Website enquiry",
-        contact_name: e.name || null,
-        email: e.email || null,
-        phone: e.phone || null,
-        country: null,
-        address: null,
-        niu: null,
-        rccm: null,
-        source: "WEBSITE",
-        intake_channel: "WEBSITE",
-        service_interest: e.subject || null,
-        client_type_hint: null,
-        payment_terms_days: null,
-        status: "NEW",
-        owner_user_id: actor.user_id || null,
-        details_json: JSON.stringify({ from_contact_enquiry: id }),
+      found = await leads.findOrCreateForIntake(client, {
+        requester: {
+          company: e.company_name || null,
+          name: e.name || null,
+          email: e.email || null,
+          phone: e.phone || null,
+          service: e.subject || null,
+          details: { from_contact_enquiry: id },
+        },
+        channel: e.source === "WEBSITE" ? "WEBSITE" : "MANUAL",
+        actor,
       });
-      leadId = lead.lead_id;
+      leadId = found.lead.lead_id;
       fields.lead_id = leadId;
-      await emitEvent(client, { eventTypeKey: leadEvents.CREATED, moduleKey: leadEvents.MODULE, entityRef: "lead:" + leadId, actorUserId: actor.user_id || null });
-      await audit(client, { actorUserId: actor.user_id || null, action: leadEvents.CREATED, moduleKey: leadEvents.MODULE, entityRef: "lead:" + leadId, after: lead });
+      await leads.ensureStepBy(client, {
+        leadId, action: "Follow up enquiry", dueAt: await leads.answerBy(client),
+        assignedTo: actor.user_id || null, actor,
+      });
     }
 
     let row = Object.keys(fields).length ? await repo.updEnquiry(client, id, fields) : e;
@@ -310,7 +302,7 @@ async function triageEnquiry(client, { id, toLead = false, close = false, actor 
     if (fields.lead_id) {
       await emitEvent(client, { eventTypeKey: events.ENQUIRY_ROUTED_TO_LEAD, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null });
     }
-    await audit(client, { actorUserId: actor.user_id || null, action: "contact_enquiry.triaged", moduleKey: events.MODULE, entityRef: ref(id), before: e, after: { lead_id: leadId } });
+    await audit(client, { actorUserId: actor.user_id || null, action: "contact_enquiry.triaged", moduleKey: events.MODULE, entityRef: ref(id), before: e, after: { lead_id: leadId, lead_created: Boolean(found && found.created) } });
 
     // The status move, guarded like every other. Not legal from here (already
     // CLOSED) means there is nothing to do, not that the triage failed.
@@ -318,9 +310,8 @@ async function triageEnquiry(client, { id, toLead = false, close = false, actor 
       row = await transition(client, { id, to: "CLOSED", actor });
     }
 
-    await client.query("COMMIT");
-    return { enquiry: row, lead_id: leadId };
-  } catch (err) { await client.query("ROLLBACK"); throw err; }
+    return { enquiry: row, lead_id: leadId, lead_created: Boolean(found && found.created) };
+  });
 }
 
 /* ─── reads ───────────────────────────────────────────────────────────────── */

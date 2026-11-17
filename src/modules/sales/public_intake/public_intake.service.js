@@ -1,6 +1,5 @@
 "use strict";
 
-const lead = require("../lead/lead.service");
 const quote = require("../quote_request/quote_request.service");
 const enquiry = require("../inbound_intake/inbound_intake.service");
 const geoPlace = require("../../operations/geo_place/geo_place.service");
@@ -149,7 +148,17 @@ async function storeDocuments(client, data) {
   return out;
 }
 
-/** A website quote is one funnel intake: lead + linked quote or nothing. */
+/**
+ * A website quote: ONE request, on the company's ONE row (lean revamp §3.8).
+ *
+ * The row is found, not made, when the company is already on file: by the
+ * requester's email, then phone, then the folded company name. A company that
+ * sends three requests is one row with three requests, where it used to be
+ * three leads (gap 4). A new company gets a new prospect row. Either way the
+ * request arrives at New, its owner (the row's, else the default sales owner)
+ * gets "Answer website request" on their desk, due within four working hours,
+ * and is told. All of that is `quote.create`'s, in this transaction.
+ */
 async function submitQuote(client, data) {
   const entityId = await quote.resolveEntityId(client, { data });
 
@@ -164,38 +173,15 @@ async function submitQuote(client, data) {
     ? await quote.resolveService(client, data.service_type_id, { publishedOnly: true })
     : null;
   if (st) quote.assertIncotermOffered(st, data.incoterm);
-  // What the lead calls the service — the same display copy the request gets.
-  const serviceInterest = st ? st.name_en || st.name_fr : data.service_category || null;
   const documents = await storeDocuments(client, data);
   const originPlaceId = await resolvePlace(client, data.origin_place, "origin");
   const destinationPlaceId = await resolvePlace(client, data.destination_place, "destination");
 
   return atomically(client, async () => {
-    const createdLead = await lead.create(client, {
-      data: {
-        entity_id: entityId,
-        company_name: data.requester_company || data.requester_name
-          || data.requester_email || "Website quote request",
-        contact_name: data.requester_name || null,
-        email: data.requester_email || null,
-        phone: data.requester_phone || null,
-        source: "WEBSITE",
-        intake_channel: "WEBSITE",
-        service_interest: serviceInterest,
-        details: {
-          origin_location: data.origin_location || null,
-          destination_location: data.destination_location || null,
-          cargo_description: data.cargo_description || null,
-          incoterm: data.incoterm,
-        },
-      },
-      actor: {},
-    });
     const request = await quote.create(client, {
       data: {
         ...data,
         entity_id: entityId,
-        lead_id: createdLead.lead_id,
         intake_channel: "WEBSITE",
         origin_place_id: originPlaceId,
         destination_place_id: destinationPlaceId,

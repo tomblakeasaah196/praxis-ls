@@ -39,6 +39,7 @@
 "use strict";
 
 const { AppError } = require("../../utils/errors");
+const mailVisibility = require("../mail/triage/visibility");
 
 /** Collections are capped so one pathological record cannot make the page slow. */
 const LIMIT = 25;
@@ -211,8 +212,162 @@ function leadKpis({ meetings, proposals, opportunities, quoteRequests, enquiries
   };
 }
 
+/* ═══════════════ THE COMPANY ROW (lean revamp PR 2, guide §3.2) ═══════════ */
+
+/**
+ * The Requests tab: one card per request, its stage, service, route and value.
+ * Every request of the company, newest first, capped like every collection here.
+ */
+async function leadRequests(c, leadId, canSee) {
+  const rows = await rowsOf(
+    c,
+    `SELECT q.quote_request_id, q.public_ref, q.title, q.stage, q.intake_channel,
+            q.service_type_id, st.name_en AS service_name_en, st.name_fr AS service_name_fr,
+            q.service_category, q.incoterm, q.origin_location, q.destination_location,
+            q.estimated_weight, q.estimated_value, q.currency, q.lost_reason_code, q.lost_reason,
+            q.settled_at, q.dossier_id, d.ref AS dossier_ref, q.owner_user_id, q.created_at,
+            (SELECT count(*)::int FROM quotation qt WHERE qt.quote_request_id = q.quote_request_id) AS quotations
+       FROM quote_request q
+       LEFT JOIN service_type st ON st.service_type_id = q.service_type_id
+       LEFT JOIN dossier_visible d ON d.dossier_id = q.dossier_id
+      WHERE q.lead_id = $1
+      ORDER BY (q.stage IN ('WON', 'LOST')), q.created_at DESC
+      LIMIT $2`,
+    [leadId, LIMIT],
+  );
+  return rows.map((r) => ({ ...r, estimated_value: r.estimated_value === null ? null : money(r.estimated_value, canSee) }));
+}
+
+/**
+ * The Quotations tab: every quotation answering one of the company's requests,
+ * or written for it as a client. Number, request, total, status, viewed, valid
+ * until. A SENT one past its date reads EXPIRED, as the portal reads it.
+ */
+async function leadQuotations(c, lead, canSee) {
+  const rows = await rowsOf(
+    c,
+    `SELECT qt.quotation_id, qt.doc_number, qt.status, qt.currency, qt.total_ttc, qt.valid_until,
+            qt.sent_at, qt.viewed_at, qt.answered_at, qt.created_at,
+            qt.quote_request_id, q.public_ref AS request_ref, q.title AS request_title
+       FROM quotation qt
+       LEFT JOIN quote_request q ON q.quote_request_id = qt.quote_request_id
+      WHERE q.lead_id = $1 OR ($2::uuid IS NOT NULL AND qt.client_id = $2::uuid)
+      ORDER BY COALESCE(qt.sent_at, qt.created_at) DESC
+      LIMIT $3`,
+    [lead.lead_id, lead.client_id || null, LIMIT],
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  return rows.map((r) => {
+    const until = r.valid_until ? String(r.valid_until instanceof Date ? r.valid_until.toISOString() : r.valid_until).slice(0, 10) : null;
+    return {
+      ...r,
+      status: r.status === "SENT" && until && until < today ? "EXPIRED" : r.status,
+      total_ttc: money(r.total_ttc, canSee),
+    };
+  });
+}
+
+/**
+ * The Activity tab: ONE timeline, read where each thing lives (§4.3), newest
+ * first. Activities logged on the row; meetings; mail threads bound to it that
+ * the caller may read (mail's own visibility rule, never a second copy); the
+ * quotations' sends, opens and answers; the requests' stage moves, wins and
+ * losses from the audit ledger.
+ */
+async function leadActivity(c, lead, { user = null, quotations = [] } = {}) {
+  const leadId = lead.lead_id;
+  const items = [];
+
+  const activities = await rowsOf(
+    c,
+    `SELECT a.lead_activity_id, a.kind, a.body, a.occurred_at, a.quote_request_id,
+            u.full_name AS author_name
+       FROM lead_activity a
+       LEFT JOIN app_user u ON u.user_id = a.author_user_id
+      WHERE a.lead_id = $1
+      ORDER BY a.occurred_at DESC
+      LIMIT $2`,
+    [leadId, TIMELINE_LIMIT],
+  );
+  for (const a of activities) {
+    items.push({
+      type: "activity", at: a.occurred_at, kind: a.kind, title: a.kind, body: a.body,
+      author_name: a.author_name, quote_request_id: a.quote_request_id, ref: { type: "lead_activity", id: a.lead_activity_id },
+    });
+  }
+
+  const meetings = await rowsOf(
+    c,
+    `SELECT m.meeting_id, m.subject, m.location, m.scheduled_at, m.created_at, m.quote_request_id
+       FROM meeting m
+      WHERE m.lead_id = $1
+      ORDER BY COALESCE(m.scheduled_at, m.created_at) DESC
+      LIMIT $2`,
+    [leadId, LIMIT],
+  );
+  for (const m of meetings) {
+    items.push({
+      type: "meeting", at: m.scheduled_at || m.created_at, title: m.subject, body: m.location || null,
+      quote_request_id: m.quote_request_id, ref: { type: "meeting", id: m.meeting_id },
+    });
+  }
+
+  if (user && user.user_id) {
+    const threads = await rowsOf(
+      c,
+      `SELECT t.email_thread_id, t.subject, t.message_count, t.last_message_at
+         FROM email_thread t
+         JOIN email_connection c ON c.email_connection_id = t.email_connection_id
+        WHERE t.entity_ref = $1
+          AND (${mailVisibility.clause("$2")})
+        ORDER BY t.last_message_at DESC NULLS LAST
+        LIMIT $3`,
+      ["lead:" + leadId, user.user_id, LIMIT],
+    );
+    for (const t of threads) {
+      items.push({
+        type: "mail", at: t.last_message_at, title: t.subject, body: null, count: t.message_count,
+        ref: { type: "email_thread", id: t.email_thread_id },
+      });
+    }
+  }
+
+  for (const q of quotations) {
+    const head = { type: "quotation", ref: { type: "quotation", id: q.quotation_id }, quote_request_id: q.quote_request_id, title: q.doc_number || "Quotation" };
+    if (q.sent_at) items.push({ ...head, at: q.sent_at, kind: "SENT" });
+    if (q.viewed_at) items.push({ ...head, at: q.viewed_at, kind: "VIEWED" });
+    if (q.answered_at && ["ACCEPTED", "REJECTED", "CONVERTED"].includes(q.status)) {
+      items.push({ ...head, at: q.answered_at, kind: q.status === "REJECTED" ? "DECLINED" : "ACCEPTED" });
+    }
+  }
+
+  const moves = await rowsOf(
+    c,
+    `SELECT l.ledger_id, l.action, l.entity_ref, l.after_json, l.created_at, l.actor_name_snapshot
+       FROM immutable_ledger l
+      WHERE l.entity_ref IN (SELECT 'quote_request:' || q.quote_request_id FROM quote_request q WHERE q.lead_id = $1)
+        AND l.action IN ('quote_request.stage_moved', 'quote_request.won', 'quote_request.lost', 'quote_request.created')
+      ORDER BY l.created_at DESC
+      LIMIT $2`,
+    [leadId, TIMELINE_LIMIT],
+  );
+  for (const m of moves) {
+    const after = m.after_json || {};
+    items.push({
+      type: "stage", at: m.created_at, kind: m.action.replace(/^quote_request\./, "").toUpperCase(),
+      title: after.stage || (m.action === "quote_request.created" ? "NEW" : null), author_name: m.actor_name_snapshot || null,
+      quote_request_id: String(m.entity_ref).slice("quote_request:".length), ref: { type: "quote_request", id: String(m.entity_ref).slice("quote_request:".length) },
+    });
+  }
+
+  return items
+    .filter((i) => i.at)
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+    .slice(0, TIMELINE_LIMIT);
+}
+
 /** GET /leads/:id/360 */
-async function leadDossier(c, { leadId, canSeeFinancials = false }) {
+async function leadDossier(c, { leadId, canSeeFinancials = false, user = null }) {
   const lead = (
     await c.query(
       `SELECT l.*, u.full_name AS owner_name, e.legal_name AS entity_name,
@@ -226,6 +381,12 @@ async function leadDossier(c, { leadId, canSeeFinancials = false }) {
     )
   ).rows[0];
   if (!lead) throw new AppError("NOT_FOUND", "Lead not found", 404);
+
+  // The row's own reading: its live next step and whether it owes one.
+  const row = await require("./lead/lead.service").get(c, leadId);
+  const requests = await leadRequests(c, leadId, canSeeFinancials);
+  const quotations = await leadQuotations(c, lead, canSeeFinancials);
+  const activity = await leadActivity(c, lead, { user, quotations });
 
   const meetings = await leadMeetings(c, leadId);
   const proposals = await leadProposals(c, leadId, canSeeFinancials);
@@ -254,16 +415,30 @@ async function leadDossier(c, { leadId, canSeeFinancials = false }) {
     [leadId, LIMIT],
   );
 
-  return {
-    lead,
-    kpis: leadKpis({
+  const openRequests = requests.filter((r) => !["WON", "LOST"].includes(r.stage));
+  const kpisBase = leadKpis({
       meetings,
       proposals,
       opportunities,
       quoteRequests: quote_requests,
       enquiries,
       canSee: canSeeFinancials,
-    }),
+    });
+  return {
+    lead: { ...lead, is_client: Boolean(lead.client_id) },
+    next_step: row ? row.next_step : null,
+    next_step_required: row ? row.next_step_required : false,
+    // The four tabs (§3.2): counts first, so a tab's badge needs no second read.
+    counts: { activity: activity.length, requests: requests.length, quotations: quotations.length },
+    activity,
+    requests,
+    quotations,
+    kpis: {
+      ...kpisBase,
+      open_requests: openRequests.length,
+      won_requests: requests.filter((r) => r.stage === "WON").length,
+      open_value: canSeeFinancials ? openRequests.reduce((n, r) => n + Number(r.estimated_value || 0), 0) : null,
+    },
     meetings,
     quote_requests,
     proposals,
@@ -400,6 +575,9 @@ async function intakeDossier(c, { quoteRequestId, canSeeFinancials = false }) {
 
 module.exports = {
   leadDossier,
+  leadRequests,
+  leadQuotations,
+  leadActivity,
   intakeDossier,
   // Exported for tests and for reuse by the intake dossier.
   leadKpis,

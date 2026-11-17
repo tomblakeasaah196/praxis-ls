@@ -35,9 +35,14 @@ const query = z
  * API); the words are matched folded. Multi-word entries match as a phrase.
  */
 const SYNONYMS = Object.freeze([
-  { key: "quotation", words: ["quotation", "quotations", "quote", "quotes", "devis", "cotation", "cotations", "offer", "offers", "offre", "offres", "estimate", "estimation"] },
-  { key: "quote_request", words: ["quote request", "quote requests", "request for quotation", "requests for quotation", "rfq", "demande de devis", "demandes de devis", "demande de cotation", "demande de prix"] },
-  { key: "proposal", words: ["proposal", "proposals", "proposition", "propositions", "offre commerciale", "proposition commerciale"] },
+  // Since the Sales lean revamp (PR 2) the quotation is the one priced
+  // document, printed as a Full Proposal (proposition commerciale) or a
+  // Commercial Extract: the French words for both name it.
+  { key: "quotation", words: ["quotation", "quotations", "quote", "quotes", "devis", "cotation", "cotations", "offer", "offers", "offre", "offres", "estimate", "estimation", "proposition", "propositions", "offre commerciale", "proposition commerciale"] },
+  // The request is also the deal: an opportunity, a deal and the pipeline are
+  // all its words now (the opportunity record is retired).
+  { key: "quote_request", words: ["quote request", "quote requests", "request", "requests", "request for quotation", "requests for quotation", "rfq", "demande", "demandes", "demande de devis", "demandes de devis", "demande de cotation", "demande de prix", "opportunity", "opportunities", "opportunite", "opportunites", "deal", "deals", "affaire", "affaires", "pipeline"] },
+  { key: "proposal", words: ["proposal", "proposals"] },
   { key: "invoice", words: ["invoice", "invoices", "facture", "factures", "bill", "billing", "facturation"] },
   { key: "proforma", words: ["proforma", "proformas", "pro forma", "pro-forma", "facture proforma", "advance invoice", "avance"] },
   { key: "receipt", words: ["receipt", "receipts", "recu", "recus", "encaissement", "encaissements", "payment received", "paiement recu"] },
@@ -53,7 +58,6 @@ const SYNONYMS = Object.freeze([
   { key: "service_type", words: ["service type", "service types", "type de service", "types de service", "prestation", "prestations"] },
   { key: "document", words: ["document", "documents", "vault", "coffre", "coffre-fort", "piece", "pieces", "piece jointe", "scan", "scans"] },
   { key: "lead", words: ["lead", "leads", "prospect", "prospects", "piste", "pistes"] },
-  { key: "opportunity", words: ["opportunity", "opportunities", "opportunite", "opportunites", "deal", "deals", "affaire", "affaires", "pipeline"] },
   { key: "transit_order", words: ["transit order", "transit orders", "ordre de transit", "ordres de transit", "ot"] },
   { key: "delivery_note", words: ["delivery note", "delivery notes", "bon de livraison", "bons de livraison", "proof of delivery"] },
   { key: "cash_request", words: ["cash request", "cash requests", "demande de fonds", "demandes de fonds", "df", "decaissement"] },

@@ -10,13 +10,14 @@
  *
  * Where each queue ENDS, stated because every one of these is a definition:
  *
- *   pipeline_won         `opportunity` WON, settled this calendar month. The
- *                        settle date, not created_at: the month you win it in
- *                        is the month it counts for.
- *   quote_requests_open  RECEIVED / UNDER_REVIEW / CLARIFICATION_REQUIRED —
- *                        everything a client is still waiting on us for.
- *                        QUOTED has been answered; CONVERTED and
- *                        CLOSED_NO_ACTION are done.
+ *   pipeline_won         requests WON, settled this calendar month, at their
+ *                        estimated value (the request is the deal since the
+ *                        Sales lean revamp, PR 2; there is no opportunity).
+ *                        The settle date, not created_at: the month you win it
+ *                        in is the month it counts for.
+ *   quote_requests_open  stage NEW / CONTACTED / MEETING — everything a client
+ *                        is still waiting on us for. QUOTED has been answered;
+ *                        WON and LOST are done.
  *   pos_in_flight        issued and not yet received: a PO the supplier owes
  *                        goods against, measured by the absence of a
  *                        `grn_inbound` row rather than by status alone, so a
@@ -34,15 +35,15 @@ const ENTRIES = [
     id: "pipeline_won",
     domain: "sales_procurement",
     unit: "money",
-    module: "MOD-24",
-    sourceRelation: "opportunity",
+    module: "MOD-20",
+    sourceRelation: "quote_request",
     status: "live",
     labelKey: "dash.pipelineWon",
     hintKey: "dash.pipelineWonHint",
     badgeKey: "dash.pipelineWonBadge",
     tone: "ok",
     icon: "revenue",
-    drillTo: "/sales/opportunities",
+    drillTo: "/sales/leads?view=board",
     sensitive_field: null,
   },
   {
@@ -96,13 +97,13 @@ async function values(client, { num, count }) {
   const out = {};
   out.pipeline_won = await num(
     client,
-    "SELECT COALESCE(SUM(estimated_value), 0) n FROM opportunity " +
-      "WHERE status = 'WON' AND settled_at >= date_trunc('month', CURRENT_DATE)",
+    "SELECT COALESCE(SUM(estimated_value), 0) n FROM quote_request " +
+      "WHERE stage = 'WON' AND settled_at >= date_trunc('month', CURRENT_DATE)",
   );
   out.quote_requests_open = await count(
     client,
     "SELECT count(*) n FROM quote_request " +
-      "WHERE status IN ('RECEIVED','UNDER_REVIEW','CLARIFICATION_REQUIRED')",
+      "WHERE stage IN ('NEW','CONTACTED','MEETING')",
   );
   out.pos_in_flight = await count(
     client,

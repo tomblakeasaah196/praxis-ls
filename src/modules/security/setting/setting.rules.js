@@ -9,7 +9,7 @@ const { AppError } = require("../../../utils/errors");
 
 const KNOWN_SECTIONS = [
   "appearance", "legal", "finance", "comms", "email", "fx", "workflow",
-  "numbering", "commercial", "procurement", "security", "ai", "hr",
+  "numbering", "commercial", "procurement", "security", "ai", "hr", "sales",
   // Pixie-parity gap-fixes hosted in the generic setting store:
   "document_template", "custom_field", "integration_secret", "email_signature",
 ];
@@ -63,6 +63,15 @@ function assertValue(section, key, value) {
     const parsed = require("@praxis/shared").quotation.commercialSettings.safeParse(value);
     if (!parsed.success) {
       throw new AppError("BAD_MARGIN", "commercial.quotation.target_margin_percent must be a number from 0 to below 100", 422);
+    }
+  }
+  // Settings & Admin › the default sales owner (lean revamp PR 2): who owns a
+  // website lead no existing company row claims. The shared definition, so the
+  // settings form refuses exactly what this refuses.
+  if (section === "sales" && key === "default_owner") {
+    const parsed = require("@praxis/shared").lead.defaultOwnerSetting.safeParse(value);
+    if (!parsed.success) {
+      throw new AppError("BAD_VALUE", "sales.default_owner must be { user_id: <a user id or null> }", 422);
     }
   }
   if (section === "numbering" && value && typeof value === "object" && !Array.isArray(value)) {

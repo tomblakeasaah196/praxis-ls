@@ -20,8 +20,21 @@ import { Modal, Field, Select } from "@/components/ui/modal";
 import { ErrorState } from "@/components/ui/states";
 import { errMsg, type Row } from "@/lib/use-resource";
 import { SearchSelect } from "@/components/ui/search-select";
+import { lead as leadShape } from "@shared";
 
-const LEAD_SOURCES = ["MANUAL", "WEBSITE", "REFERRAL", "CAMPAIGN"];
+/** The source vocabulary is the shared one (CAMPAIGN left with Campaigns). */
+const LEAD_SOURCES = leadShape.SOURCES;
+
+/**
+ * Tomorrow as a bare day: the API reads it as 09:00 on the tenant's clock.
+ * Built from the local calendar, not toISOString(), which is a UTC day.
+ */
+function tomorrowIsoDay(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 export type LeadInitial = {
   company_name?: string | null;
@@ -68,7 +81,8 @@ export function LeadForm({
     setError(null);
   }, [open, editing, initial]);
 
-  const canSubmit = !!company.trim() && !busy;
+  // A new company needs one way to reach it (lean revamp, D5).
+  const canSubmit = !!company.trim() && (!!editing || !!email.trim() || !!phone.trim()) && !busy;
 
   async function submit() {
     setBusy(true);
@@ -89,7 +103,19 @@ export function LeadForm({
         });
         onSaved(editing.lead_id ? String(editing.lead_id) : null);
       } else {
-        const created = (await tenant("/leads", { method: "POST", body })) as Row | null;
+        // Every open lead has a dated next step (D4): this screen does not ask
+        // for one yet (the Leads screens of PR 3 do), so it proposes the
+        // capture's default, Call back tomorrow morning.
+        const capture = {
+          ...body,
+          next_step: { action: leadShape.DEFAULT_NEXT_STEP_ACTION, due_at: tomorrowIsoDay() },
+        };
+        const parsed = leadShape.capture.safeParse(capture);
+        if (!parsed.success) {
+          setError(parsed.error.issues[0]?.message || "Check the form");
+          return;
+        }
+        const created = (await tenant("/leads", { method: "POST", body: capture })) as Row | null;
         onSaved(created?.lead_id ? String(created.lead_id) : null);
       }
       onClose();
@@ -214,7 +240,7 @@ export function ConvertModal({
       phone: phone.trim() || undefined,
     };
     try {
-      await tenant(`/leads/${String(lead.lead_id)}/convert`, {
+      await tenant(`/leads/${String(lead.lead_id)}/make-client`, {
         method: "POST",
         body: { client },
       });

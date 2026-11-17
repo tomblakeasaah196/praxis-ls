@@ -10,7 +10,12 @@
  * `quote_request.rules`, because the KPI arithmetic is the feature.
  */
 jest.mock("../../src/modules/sales/quote_request/quote_request.repo");
-jest.mock("../../src/modules/sales/opportunity/opportunity.repo");
+// The company row a request lands on is the lead service's business (its own
+// tests hold it); here it is found, so the request's own rules are under test.
+jest.mock("../../src/modules/sales/lead/lead.service", () => ({
+  findOrCreateForIntake: jest.fn(async () => ({ lead: { lead_id: "LEAD-1" }, created: false })),
+  stepForArrival: jest.fn(async () => null),
+}));
 jest.mock("../../src/modules/vault/document_vault/document_vault.service");
 jest.mock("../../src/services/storage.service");
 jest.mock("../../src/shared/events/emit", () => ({
@@ -20,7 +25,6 @@ jest.mock("../../src/shared/events/emit", () => ({
 }));
 
 const repo = require("../../src/modules/sales/quote_request/quote_request.repo");
-const opportunityRepo = require("../../src/modules/sales/opportunity/opportunity.repo");
 const vault = require("../../src/modules/vault/document_vault/document_vault.service");
 const storage = require("../../src/services/storage.service");
 const service = require("../../src/modules/sales/quote_request/quote_request.service");
@@ -30,7 +34,6 @@ const { atomically } = require("../../src/shared/db/tx");
 
 const QR = "11111111-1111-4111-8111-111111111111";
 const ENTITY = "22222222-2222-4222-8222-222222222222";
-const OPP = "33333333-3333-4333-8333-333333333333";
 
 /** A client that records the transaction verbs it was asked to run. */
 function makeClient() {
@@ -50,6 +53,11 @@ function makeClient() {
       if (/FROM corporate_entity/i.test(sql)) return { rows: [{ doc_prefix: null }] };
       if (/FROM setting/i.test(sql)) return { rows: [] };
       if (/FROM lead/i.test(sql)) return { rows: [{ entity_id: null }] };
+      // The stage writes lock their row first; it is the row `repo.get` answers.
+      if (/FROM quote_request WHERE quote_request_id = \$1 FOR UPDATE/i.test(sql)) {
+        const row = await repo.get(null, params && params[0]);
+        return { rows: row ? [row] : [] };
+      }
       return { rows: [] };
     }),
   };
@@ -60,13 +68,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   client = makeClient();
   repo.defaultEntityId.mockResolvedValue(ENTITY);
-  repo.get.mockResolvedValue({ quote_request_id: QR, status: "QUOTED", lead_id: null, owner_user_id: null, converted_opportunity_id: null });
+  repo.get.mockResolvedValue({ quote_request_id: QR, status: "QUOTED", stage: "QUOTED", lead_id: "LEAD-1", owner_user_id: null, converted_opportunity_id: null });
   repo.insert.mockImplementation(async (_c, data) => ({ quote_request_id: QR, ...data }));
   repo.update.mockImplementation(async (_c, id, fields) => ({ quote_request_id: id, ...fields }));
   repo.addAttachment.mockImplementation(async (_c, d) => ({ quote_request_attachment_id: "att-1", ...d }));
   repo.demotePrimary.mockResolvedValue(undefined);
   repo.WRITABLE = jest.requireActual("../../src/modules/sales/quote_request/quote_request.repo").WRITABLE;
-  opportunityRepo.insert.mockImplementation(async (_c, d) => ({ opportunity_id: OPP, ...d }));
 });
 
 /* ── 1. The reference. Create used to 422 on every call. ─────────────────── */
@@ -165,55 +172,57 @@ describe("KPI tiles", () => {
   });
 });
 
-/* ── 3. Conversion is one transaction. ───────────────────────────────────── */
+/* ── 3. The request is the deal (lean revamp PR 2): its stage. ───────────── */
 
-describe("convert to opportunity", () => {
-  test("the opportunity is written inside this function's transaction", async () => {
-    await service.convertToOpportunity(client, { id: QR, opportunity: { name: "Douala reefer" }, actor: {} });
-    const begin = client.calls.indexOf("BEGIN");
-    expect(begin).toBeGreaterThanOrEqual(0);
-    expect(client.calls).toContain("COMMIT");
-    // opportunity.service is NOT used: it opens its own BEGIN/COMMIT, which
-    // would commit the opportunity before this function's own write.
-    expect(opportunityRepo.insert).toHaveBeenCalledTimes(1);
+describe("the deal's stage", () => {
+  const row = (stage, extra = {}) => ({ quote_request_id: QR, lead_id: "LEAD-1", stage, status: rules.statusForStage(stage), ...extra });
+
+  test("a click on the bar moves the stage, and the old status follows it", async () => {
+    repo.get.mockResolvedValue(row("CONTACTED"));
+    await service.moveStage(client, { id: QR, stage: "MEETING", actor: {} });
+    expect(repo.update).toHaveBeenCalledWith(client, QR, { stage: "MEETING", status: "UNDER_REVIEW" });
   });
 
-  test("joining an outer lead-conversion transaction never commits it early", async () => {
-    await atomically(client, () => service.convertToOpportunity(client, {
-      id: QR, opportunity: { name: "Nested conversion" }, actor: {},
-    }));
+  test("an automatic move only goes forward, and is nothing on a request further along", async () => {
+    repo.get.mockResolvedValue(row("QUOTED"));
+    await service.moveStage(client, { id: QR, stage: "MEETING", actor: {}, auto: true });
+    expect(repo.update).not.toHaveBeenCalled();
+    repo.get.mockResolvedValue(row("WON", { settled_at: "2026-11-01" }));
+    await service.moveStage(client, { id: QR, stage: "QUOTED", actor: {}, auto: true });
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  test("nothing leaves Won or Lost, and nothing clicks into Won", async () => {
+    repo.get.mockResolvedValue(row("LOST", { settled_at: "2026-11-01" }));
+    await expect(service.moveStage(client, { id: QR, stage: "CONTACTED", actor: {} })).rejects.toMatchObject({ code: "REQUEST_SETTLED" });
+    repo.get.mockResolvedValue(row("QUOTED"));
+    await expect(service.moveStage(client, { id: QR, stage: "WON", actor: {} })).rejects.toMatchObject({ code: "BAD_STATE" });
+  });
+
+  test("Lost says why, and is dated", async () => {
+    repo.get.mockResolvedValue(row("QUOTED"));
+    await expect(service.markLost(client, { id: QR, reasonCode: null, actor: {} })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await service.markLost(client, { id: QR, reasonCode: "PRICE", reason: "Cheaper elsewhere", actor: {} });
+    const fields = repo.update.mock.calls[0][2];
+    expect(fields).toMatchObject({ stage: "LOST", status: "CLOSED_NO_ACTION", lost_reason_code: "PRICE", lost_reason: "Cheaper elsewhere" });
+    expect(fields.settled_at).toBeTruthy();
+  });
+
+  test("an old intake transition moves the stage forward with it", async () => {
+    repo.get.mockResolvedValue(row("NEW", { status: "RECEIVED" }));
+    await service.transition(client, { id: QR, to: "UNDER_REVIEW", actor: {} });
+    expect(repo.update.mock.calls[0][2]).toMatchObject({ status: "UNDER_REVIEW", stage: "CONTACTED" });
+  });
+
+  test("joining an outer transaction never commits it early", async () => {
+    repo.get.mockResolvedValue(row("NEW"));
+    await atomically(client, () => service.moveStage(client, { id: QR, stage: "CONTACTED", actor: {} }));
     expect(client.calls.filter((v) => v === "BEGIN")).toHaveLength(1);
     expect(client.calls.filter((v) => v === "COMMIT")).toHaveLength(1);
   });
 
-  test("a nested failure rolls back the outer transaction with no early commit", async () => {
-    repo.update.mockRejectedValueOnce(new Error("update failed"));
-    await expect(atomically(client, () => service.convertToOpportunity(client, {
-      id: QR, opportunity: { name: "Nested failure" }, actor: {},
-    }))).rejects.toThrow("update failed");
-    expect(client.calls.filter((v) => v === "BEGIN")).toHaveLength(1);
-    expect(client.calls).toContain("ROLLBACK");
-    expect(client.calls).not.toContain("COMMIT");
-  });
-
-  test("a failure after the opportunity insert leaves no orphan opportunity", async () => {
-    repo.update.mockRejectedValueOnce(new Error("update failed"));
-    await expect(service.convertToOpportunity(client, { id: QR, opportunity: { name: "X" }, actor: {} }))
-      .rejects.toThrow("update failed");
-    expect(client.calls).toContain("ROLLBACK");
-    expect(client.calls).not.toContain("COMMIT");
-  });
-
-  test("converting twice is refused on the FK, not on the status string", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "QUOTED", converted_opportunity_id: OPP });
-    await expect(service.convertToOpportunity(client, { id: QR, opportunity: { name: "X" }, actor: {} }))
-      .rejects.toMatchObject({ code: "ALREADY_CONVERTED" });
-  });
-
-  test("a request that has not been quoted cannot skip straight to converted", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "RECEIVED", converted_opportunity_id: null });
-    await expect(service.convertToOpportunity(client, { id: QR, opportunity: { name: "X" }, actor: {} }))
-      .rejects.toMatchObject({ code: "BAD_STATE" });
+  test("convert-to-opportunity is gone: the request is won, not converted", () => {
+    expect(service.convertToOpportunity).toBeUndefined();
   });
 });
 
@@ -265,8 +274,8 @@ describe("attachments", () => {
     expect(repo.demotePrimary).toHaveBeenCalledWith(client, QR);
   });
 
-  test("a converted request refuses new attachments", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "CONVERTED_TO_OPPORTUNITY" });
+  test("a won request refuses new attachments", async () => {
+    repo.get.mockResolvedValue({ quote_request_id: QR, status: "CONVERTED_TO_OPPORTUNITY", stage: "WON" });
     await expect(service.uploadAttachment(client, { id: QR, dataUrl, slug: "x", actor: {} }))
       .rejects.toMatchObject({ code: "LOCKED" });
     expect(vault.createDocument).not.toHaveBeenCalled();
@@ -304,14 +313,14 @@ describe("intake status is not a pipeline stage", () => {
     for (const s of rules.STATUSES) expect(LEAD).not.toContain(s);
   });
 
-  test("terminal states are locked against edits", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "CLOSED_NO_ACTION" });
+  test("a settled deal (won or lost) is locked against edits", async () => {
+    repo.get.mockResolvedValue({ quote_request_id: QR, status: "CLOSED_NO_ACTION", stage: "LOST" });
     await expect(service.update(client, { id: QR, patch: { incoterm: "CIF" }, actor: {} }))
       .rejects.toMatchObject({ code: "LOCKED" });
   });
 
   test("the reference and the entity are not patchable after allocation", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "RECEIVED" });
+    repo.get.mockResolvedValue({ quote_request_id: QR, status: "RECEIVED", stage: "NEW" });
     await service.update(client, { id: QR, patch: { public_ref: "SQ-9999", entity_id: ENTITY, incoterm: "CIF" }, actor: {} });
     const fields = repo.update.mock.calls[0][2];
     expect(fields).not.toHaveProperty("public_ref");

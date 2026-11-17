@@ -157,10 +157,22 @@ describe("F9 triage does not answer anybody", () => {
     const row = enquiry({ status: "NEW", lead_id: null });
     repo.getEnquiry.mockResolvedValue(row);
     repo.updEnquiry.mockImplementation((_c, id, fields) => Promise.resolve({ ...row, ...fields }));
-    const leadRepo = require("../../src/modules/sales/lead/lead.repo");
-    jest.spyOn(leadRepo, "insert").mockResolvedValue({ lead_id: "44444444-4444-4444-8444-444444444444" });
+    // Raise Lead goes through the lead service's duplicate check and lands on
+    // the company's one row (lean revamp PR 2); its own rules are tested there.
+    const leads = require("../../src/modules/sales/lead/lead.service");
+    jest.spyOn(leads, "findOrCreateForIntake").mockResolvedValue({
+      lead: { lead_id: "44444444-4444-4444-8444-444444444444" }, created: true,
+    });
+    jest.spyOn(leads, "answerBy").mockResolvedValue("2026-11-18T08:00:00.000Z");
+    const ensure = jest.spyOn(leads, "ensureStepBy").mockResolvedValue(null);
 
     const out = await service.triageEnquiry(client, { id: ID, toLead: true, actor });
+
+    // Whoever raised it is given the next step: following it up.
+    expect(ensure).toHaveBeenCalledWith(client, expect.objectContaining({
+      leadId: "44444444-4444-4444-8444-444444444444", action: "Follow up enquiry",
+    }));
+    expect(out.lead_created).toBe(true);
 
     // The lead FK is written; `status` is not among the fields touched.
     const fields = repo.updEnquiry.mock.calls[0][2];

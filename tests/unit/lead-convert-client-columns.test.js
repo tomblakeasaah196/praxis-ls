@@ -88,6 +88,7 @@ const LEAD_ID = "11111111-1111-4111-8111-111111111111";
 
 jest.doMock(REPO_PATH, () => ({
   get: jest.fn(),
+  getForUpdate: jest.fn(),
   update: jest.fn(),
   insert: jest.fn(),
   list: jest.fn(),
@@ -105,8 +106,10 @@ const repo = require(REPO_PATH);
 const clientMaster = require(CLIENT_MASTER_PATH);
 const emit = require(EMIT_PATH);
 const service = require("../../src/modules/sales/lead/lead.service");
+// Make Client locks the row in its transaction (lean revamp PR 2): the same row.
+repo.getForUpdate.mockImplementation((...args) => repo.get(...args));
 
-describe("lead convert -> client_master payload", () => {
+describe("Make Client (lead convert) -> client_master payload", () => {
   const client = { query: jest.fn() };
   // `clientMaster.create(client, { data, actor })` — TWO arguments. calls[0][0]
   // is the tenant client; the payload is calls[0][1].data. Reading [0][0].data
@@ -129,7 +132,7 @@ describe("lead convert -> client_master payload", () => {
     repo.clientTypeIdByCode.mockImplementation(async (_c, code) => (code === "BOTH" ? TYPE_ID : null));
     repo.defaultEntityId.mockResolvedValue(ENTITY);
     repo.get.mockResolvedValue({
-      lead_id: LEAD_ID, status: "QUALIFIED", company_name: "Sahel Traders",
+      lead_id: LEAD_ID, status: "OPEN", company_name: "Sahel Traders",
       contact_name: "A. Njoya", email: "a@sahel.cm", phone: "+237600000000",
       country: "CM", address: "Bonanjo, Douala", niu: "M0123", rccm: "RC/DLA/2020/B/999",
       client_type_hint: "BOTH", payment_terms_days: 45, entity_id: null,
@@ -137,25 +140,25 @@ describe("lead convert -> client_master payload", () => {
   });
 
   test("every key handed to client_master is a real column or a child block", async () => {
-    await service.convert(client, { id: LEAD_ID, clientData: {}, actor: {} });
+    await service.makeClient(client, { id: LEAD_ID, clientData: {}, actor: {} });
     const unknown = Object.keys(payload()).filter((k) => !COLUMNS.has(k) && !CHILD_BLOCKS.has(k));
     expect(unknown).toEqual([]);
   });
 
   test("the client type arrives as the FK, never as the code", async () => {
-    await service.convert(client, { id: LEAD_ID, clientData: {}, actor: {} });
+    await service.makeClient(client, { id: LEAD_ID, clientData: {}, actor: {} });
     expect(payload().client_type_id).toBe(TYPE_ID);
     expect(payload()).not.toHaveProperty("client_type");
   });
 
   test("a code the tenant has not configured is refused, not written as null", async () => {
-    await expect(service.convert(client, { id: LEAD_ID, clientData: { client_type: "CARRIER", payment_terms_days: 30 }, actor: {} }))
+    await expect(service.makeClient(client, { id: LEAD_ID, clientData: { client_type: "CARRIER", payment_terms_days: 30 }, actor: {} }))
       .rejects.toMatchObject({ code: "UNKNOWN_CLIENT_TYPE", status: 422 });
     expect(clientMaster.create).not.toHaveBeenCalled();
   });
 
   test("the phone lands in BOTH places — the company column (13900, review #26) and the primary contact", async () => {
-    await service.convert(client, { id: LEAD_ID, clientData: {}, actor: {} });
+    await service.makeClient(client, { id: LEAD_ID, clientData: {}, actor: {} });
     // Since 13900 client_master has a company-level `phone` that tenant policy
     // requires on create — the convert path must satisfy it, not trip 422.
     expect(payload().phone).toBe("+237600000000");
@@ -163,19 +166,19 @@ describe("lead convert -> client_master payload", () => {
   });
 
   test("the entity is stamped, so the client gets its own reference number", async () => {
-    await service.convert(client, { id: LEAD_ID, clientData: {}, actor: {} });
+    await service.makeClient(client, { id: LEAD_ID, clientData: {}, actor: {} });
     // client_master.service allocates `ref` only when entity_id is present.
     expect(payload().entity_id).toBe(ENTITY);
   });
 
   test("a multi-entity tenant is asked which company the client belongs to", async () => {
     repo.defaultEntityId.mockResolvedValue(null);
-    await expect(service.convert(client, { id: LEAD_ID, clientData: {}, actor: {} }))
+    await expect(service.makeClient(client, { id: LEAD_ID, clientData: {}, actor: {} }))
       .rejects.toMatchObject({ code: "ENTITY_REQUIRED", status: 422 });
   });
 
   test("NIU and RCCM travel as registrations, so Finance does not re-key them", async () => {
-    await service.convert(client, { id: LEAD_ID, clientData: {}, actor: {} });
+    await service.makeClient(client, { id: LEAD_ID, clientData: {}, actor: {} });
     expect(payload().registrations).toEqual([
       { country_code: "CM", kind: "NIU", number: "M0123" },
       { country_code: "CM", kind: "RCCM", number: "RC/DLA/2020/B/999" },
@@ -184,7 +187,7 @@ describe("lead convert -> client_master payload", () => {
 
   test("the conversion is one transaction", async () => {
     clientMaster.create.mockRejectedValueOnce(new Error("nope"));
-    await expect(service.convert(client, { id: LEAD_ID, clientData: {}, actor: {} })).rejects.toThrow("nope");
+    await expect(service.makeClient(client, { id: LEAD_ID, clientData: {}, actor: {} })).rejects.toThrow("nope");
     const verbs = client.query.mock.calls.map((c) => String(c[0]).trim().toUpperCase());
     expect(verbs).toContain("BEGIN");
     expect(verbs).toContain("ROLLBACK");

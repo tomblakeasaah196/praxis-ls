@@ -3,8 +3,8 @@
  *
  * The intake register from F6 (doc/SALES_CRM_FEATURES.md): a request for a
  * quote arrives from the website or is keyed in by staff, carrying the whole
- * logistics scope; staff work it; when it becomes real it converts into a
- * tracked opportunity.
+ * logistics scope; staff work it; since the lean revamp it is also the deal,
+ * won or lost.
  *
  * THREE THINGS THIS LAYER IS RESPONSIBLE FOR, EACH OF WHICH WAS WRONG BEFORE:
  *
@@ -16,13 +16,9 @@
  *    the tenant's only active entity) and the number is allocated BEFORE the
  *    insert, so the row and its reference are one statement, not two.
  *
- * 2. CONVERSION IS ONE TRANSACTION. The opportunity used to be created — and
- *    COMMITTED, since opportunity.service opens its own BEGIN/COMMIT — before
- *    this function opened its transaction. A failure on the quote_request
- *    update then left an opportunity in the pipeline that no request pointed
- *    at, which is exactly the "converted computed two ways" defect F6 exists to
- *    correct. Both writes now share one transaction, opened here, and the
- *    opportunity repo is called directly so no nested BEGIN can commit early.
+ * 2. (Retired with the opportunity, PR 2 of the lean revamp: a request is no
+ *    longer converted into anything. It is won, through quote_request.win.js,
+ *    which owns its one transaction the same way.)
  *
  * 3. AN ATTACHMENT THAT FAILS LEAVES NOTHING BEHIND. There was no upload path
  *    at all — the controller took a `vault_id` from the request body and linked
@@ -53,13 +49,28 @@
  *    checking each one is theirs; staged files nobody sent are swept by the
  *    media-reconcile pass (`sweepStagedDocuments`). A file a client sent in the
  *    chat can be filed on a request — the same vault file, linked, not copied.
+ *
+ * AND, SINCE THE SALES LEAN REVAMP (PR 2, doc/SALES_CRM_LEAN_REVAMP_GUIDE.md):
+ *
+ * 7. THE REQUEST IS THE DEAL. It carries the stage (NEW, CONTACTED, MEETING,
+ *    QUOTED, WON, LOST), the value and the Lost reason; there is no separate
+ *    opportunity any more, and "convert to opportunity" is gone. A win goes
+ *    through ONE function (`quote_request.win.js`), whether a quotation was
+ *    accepted or a person pressed Mark Won.
+ *
+ * 8. EVERY REQUEST SITS ON A COMPANY ROW. `lead_id` is NOT NULL (14512). A
+ *    create that names no lead is filed on the client's row, or on the row
+ *    whose email, phone or company matches the requester, or on a new one
+ *    (`lead.findOrCreateForIntake`). A website or portal arrival puts "Answer
+ *    website request" on the owner's desk.
+ *
+ * 9. `status` IS KEPT IN STEP WITH `stage` until PR 7 drops it, so the
+ *    register before PR 3 keeps reading the truth (rules.statusForStage).
  */
 "use strict";
 const repo = require("./quote_request.repo");
 const events = require("./quote_request.events");
 const rules = require("./quote_request.rules");
-const opportunityRepo = require("../opportunity/opportunity.repo");
-const opportunityEvents = require("../opportunity/opportunity.events");
 const vault = require("../../vault/document_vault/document_vault.service");
 const storage = require("../../../services/storage.service");
 const numbering = require("../../../services/documents/numbering.service");
@@ -70,6 +81,12 @@ const { atomically } = require("../../../shared/db/tx");
 const { serviceScope, incoterms, emailDomain, quoteRequest: shape } = require("@praxis/shared");
 
 const ref = (id) => "quote_request:" + id;
+
+/** The lead service requires this one; reached lazily to keep the cycle out of load order. */
+const leads = () => require("../lead/lead.service");
+
+/** The channels whose arrival puts "Answer … request" on the owner's desk. */
+const ARRIVAL_CHANNELS = ["WEBSITE", "PORTAL"];
 
 /** An enquiry attachment: a packing list, a photo of the cargo, a spec sheet. */
 const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
@@ -102,6 +119,19 @@ async function resolveEntityId(client, { data = {} }) {
     422,
     { entity_id: ["required when the tenant has several corporate entities"] },
   );
+}
+
+/**
+ * A deal's currency must be one the tenant has. 14511 could not give the
+ * column a foreign key (a constraint on an existing table above 13791 breaks
+ * provisioning), so this is where that rule lives.
+ */
+async function assertCurrency(client, code) {
+  if (!code) return;
+  const { rows } = await client.query("SELECT 1 FROM currency WHERE code = $1", [String(code).toUpperCase()]);
+  if (!rows.length) {
+    throw new AppError("CURRENCY_UNKNOWN", `${code} is not a currency this company uses`, 422, { currency: ["not a configured currency"] });
+  }
 }
 
 /* ─── the service a request names ─────────────────────────────────────────── */
@@ -226,6 +256,13 @@ async function linkDocuments(client, { quoteRequestId, docs, fromRef, clientId =
  *                     linked in the same transaction as the row.
  */
 async function create(client, { data, actor = {}, options = {} }) {
+  await assertCurrency(client, data.currency);
+  if (data.lead_id) {
+    const { rows } = await client.query("SELECT lead_id, merged_into_lead_id FROM lead WHERE lead_id = $1", [data.lead_id]);
+    if (!rows[0]) throw new AppError("LEAD_NOT_FOUND", "That company does not exist", 422, { lead_id: ["no such company"] });
+    // An old link to a row folded into its company's main row files there.
+    if (rows[0].merged_into_lead_id) data = { ...data, lead_id: rows[0].merged_into_lead_id };
+  }
   const entityId = await resolveEntityId(client, { data });
   const st = data.service_type_id
     ? await resolveService(client, data.service_type_id, { publishedOnly: options.publishedOnly === true })
@@ -237,6 +274,25 @@ async function create(client, { data, actor = {}, options = {} }) {
     ? await clientLink(client, { clientId: data.client_id, ownerUserId: data.owner_user_id, requesterCompany: data.requester_company })
     : {};
   return atomically(client, async () => {
+    // The company row it sits on (§3.8): named, or found by the client, the
+    // requester's email, phone or company, or made.
+    let leadId = data.lead_id || null;
+    if (!leadId) {
+      const found = await leads().findOrCreateForIntake(client, {
+        requester: {
+          company: data.requester_company || (link.requester_company || null),
+          name: data.requester_name || null,
+          email: data.requester_email || null,
+          phone: data.requester_phone || null,
+          service: st ? serviceName(st) : data.service_category || null,
+        },
+        clientId: data.client_id || null,
+        channel: data.intake_channel || "MANUAL",
+        entityId,
+        actor,
+      });
+      leadId = found.lead.lead_id;
+    }
     // Allocated INSIDE the transaction (BUILD_CONVENTIONS §3) so the number and
     // the row commit together — a rolled-back create must not burn a reference.
     const { number } = await numbering.allocate(client, {
@@ -248,6 +304,7 @@ async function create(client, { data, actor = {}, options = {} }) {
       ...data,
       ...scope,
       ...link,
+      lead_id: leadId,
       entity_id: entityId,
       public_ref: data.public_ref || number,
       created_by_user_id: actor.user_id || null,
@@ -258,6 +315,10 @@ async function create(client, { data, actor = {}, options = {} }) {
         quoteRequestId: row.quote_request_id, docs: docs.docs, fromRef: docs.fromRef, clientId: docs.clientId || null, actor,
       })
       : [];
+    // A website or portal arrival is due an answer: the owner's next step.
+    if (ARRIVAL_CHANNELS.includes(row.intake_channel)) {
+      await leads().stepForArrival(client, { leadId, channel: row.intake_channel, actor });
+    }
     await emitEvent(client, { eventTypeKey: events.CREATED, moduleKey: events.MODULE, entityRef: ref(row.quote_request_id), actorUserId: actor.user_id || null });
     await audit(client, { actorUserId: actor.user_id || null, action: events.CREATED, moduleKey: events.MODULE, entityRef: ref(row.quote_request_id), after: { ...row, documents: attached.length } });
     return row;
@@ -267,9 +328,10 @@ async function create(client, { data, actor = {}, options = {} }) {
 async function update(client, { id, patch = {}, actor = {} }) {
   const before = await repo.get(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Quote request not found", 404);
-  if (rules.isTerminal(before.status)) {
-    throw new AppError("LOCKED", "A " + before.status + " quote request cannot be edited", 422);
+  if (rules.isSettled(before.stage)) {
+    throw new AppError("LOCKED", "A " + before.stage.toLowerCase() + " request cannot be edited", 422);
   }
+  await assertCurrency(client, patch.currency);
   const fields = {};
   for (const k of repo.WRITABLE) {
     // public_ref is allocated once and is history; entity_id decides the
@@ -300,8 +362,8 @@ async function update(client, { id, patch = {}, actor = {} }) {
   // The client: re-linking follows the same rule as a create's link, and is
   // refused once the request is converted or closed (also locked above).
   if (patch.client_id !== undefined && patch.client_id !== before.client_id) {
-    if (!shape.canRelink(before.status)) {
-      throw new AppError("LOCKED", "A " + before.status + " quote request keeps the client it had", 422, { client_id: ["cannot be changed now"] });
+    if (!shape.canRelink(before.stage)) {
+      throw new AppError("LOCKED", "A " + before.stage.toLowerCase() + " request keeps the client it had", 422, { client_id: ["cannot be changed now"] });
     }
     if (patch.client_id) {
       Object.assign(fields, await clientLink(client, {
@@ -316,64 +378,88 @@ async function update(client, { id, patch = {}, actor = {} }) {
   return row;
 }
 
+/**
+ * An intake transition from the register before PR 3 (`/transition`). It still
+ * moves `status` through the guard it always had, and now moves the deal's
+ * stage with it (rules.STAGE_FOR_STATUS), forward only: "Start review" on a
+ * request already at Meeting does not drag it back to Contacted.
+ */
 async function transition(client, { id, to, actor = {} }) {
   const before = await repo.get(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Quote request not found", 404);
+  if (rules.isSettled(before.stage)) throw new AppError("REQUEST_SETTLED", "This request is already " + before.stage.toLowerCase(), 409);
   rules.assertTransition(before.status, to);
+  const fields = { status: to };
+  const stage = rules.STAGE_FOR_STATUS[to];
+  if (stage === "LOST") {
+    Object.assign(fields, { stage, lost_reason_code: "NO_RESPONSE", lost_reason: "No response", settled_at: new Date().toISOString() });
+  } else if (stage && rules.STAGE_RANK[stage] > rules.STAGE_RANK[before.stage]) {
+    fields.stage = stage;
+  }
   // "Start review" makes the reviewer the owner of a request nobody owns yet —
   // a prospect's, which no account manager was there to take (auditor default).
-  const owner = to === "UNDER_REVIEW" && !before.owner_user_id && actor.user_id ? { owner_user_id: actor.user_id } : {};
-  const row = await repo.update(client, id, { status: to, ...owner });
-  await emitEvent(client, { eventTypeKey: events.transition(to), moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null });
-  await audit(client, { actorUserId: actor.user_id || null, action: events.transition(to), moduleKey: events.MODULE, entityRef: ref(id), before, after: row });
-  return row;
+  if (to === "UNDER_REVIEW" && !before.owner_user_id && actor.user_id) fields.owner_user_id = actor.user_id;
+  return atomically(client, async () => {
+    const row = await repo.update(client, id, fields);
+    await emitEvent(client, { eventTypeKey: events.transition(to), moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null });
+    if (fields.stage && fields.stage !== before.stage) {
+      await emitEvent(client, { eventTypeKey: fields.stage === "LOST" ? events.LOST : events.STAGE_MOVED, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null, payload: { from: before.stage, to: fields.stage, lead_id: before.lead_id } });
+    }
+    await audit(client, { actorUserId: actor.user_id || null, action: events.transition(to), moduleKey: events.MODULE, entityRef: ref(id), before, after: row });
+    return row;
+  });
 }
 
 /**
- * Convert a quote request into an opportunity — ONE transaction.
- *
- * The opportunity row is written through its own repo rather than through
- * opportunity.service.create, precisely because that service opens and commits
- * its own transaction: calling it here would commit the opportunity before this
- * function's own write, and a failure afterwards would strand it. The events
- * and audit rows the opportunity module would have emitted are emitted here
- * with the same keys, so nothing downstream loses a record.
- *
- * `converted_opportunity_id` is the single source of truth for "is converted";
- * the trg_quote_request_sync_converted trigger keeps `status` and `converted_at`
- * in step with it, so the two can never disagree the way the legacy's did.
+ * Move the deal on the stage bar (§3.2). Any open stage to any other; Lost asks
+ * why; nothing leaves Won or Lost; Won is a win's. `auto` is the system's own
+ * move (a meeting scheduled on the request, a quotation sent for it): it only
+ * ever goes FORWARD, and is silently nothing when the request is already
+ * further along or settled.
  */
-async function convertToOpportunity(client, { id, opportunity = {}, actor = {} }) {
-  const before = await repo.get(client, id);
-  if (!before) throw new AppError("NOT_FOUND", "Quote request not found", 404);
-  if (before.converted_opportunity_id) {
-    throw new AppError("ALREADY_CONVERTED", "Quote request is already converted", 422);
-  }
-  rules.assertTransition(before.status, "CONVERTED_TO_OPPORTUNITY");
-
+async function moveStage(client, { id, stage, lostReasonCode = null, lostReason = null, actor = {}, auto = false }) {
   return atomically(client, async () => {
-    const opp = await opportunityRepo.insert(client, {
-      name: opportunity.name,
-      lead_id: before.lead_id || null,
-      client_id: opportunity.client_id || null,
-      pipeline_stage_id: opportunity.pipeline_stage_id || null,
-      estimated_value: opportunity.estimated_value ?? null,
-      currency: opportunity.currency || "XAF",
-      owner_user_id: opportunity.owner_user_id || before.owner_user_id || actor.user_id || null,
-      probability: opportunity.probability ?? null,
-      status: "OPEN",
-    });
-    await emitEvent(client, { eventTypeKey: opportunityEvents.CREATED, moduleKey: opportunityEvents.MODULE, entityRef: "opportunity:" + opp.opportunity_id, actorUserId: actor.user_id || null });
-    await audit(client, { actorUserId: actor.user_id || null, action: opportunityEvents.CREATED, moduleKey: opportunityEvents.MODULE, entityRef: "opportunity:" + opp.opportunity_id, after: opp });
-
-    const row = await repo.update(client, id, {
-      converted_opportunity_id: opp.opportunity_id,
-      status: "CONVERTED_TO_OPPORTUNITY",
-    });
-    await emitEvent(client, { eventTypeKey: events.CONVERTED, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null });
-    await audit(client, { actorUserId: actor.user_id || null, action: events.CONVERTED, moduleKey: events.MODULE, entityRef: ref(id), before, after: { opportunity_id: opp.opportunity_id } });
-    return { quote_request: row, opportunity: opp };
+    const { rows } = await client.query("SELECT * FROM quote_request WHERE quote_request_id = $1 FOR UPDATE", [id]);
+    const before = rows[0];
+    if (!before) throw new AppError("NOT_FOUND", "Quote request not found", 404);
+    if (auto && (rules.isSettled(before.stage) || rules.STAGE_RANK[stage] <= rules.STAGE_RANK[before.stage])) return before;
+    if (stage === "LOST") return markLost(client, { id, reasonCode: lostReasonCode, reason: lostReason, actor });
+    rules.assertMovable(before.stage, stage);
+    if (stage === before.stage) return before;
+    const row = await repo.update(client, id, { stage, status: rules.statusForStage(stage, before.status) });
+    await emitEvent(client, { eventTypeKey: events.STAGE_MOVED, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null, payload: { from: before.stage, to: stage, lead_id: before.lead_id, auto } });
+    await audit(client, { actorUserId: actor.user_id || null, action: events.STAGE_MOVED, moduleKey: events.MODULE, entityRef: ref(id), before: { stage: before.stage }, after: { stage, auto } });
+    return row;
   });
+}
+
+/**
+ * Lost, with a reason (§3.2): Price, Timing, Competitor, No Response or Other,
+ * and a line. Archiving a company loses its open requests through here.
+ */
+async function markLost(client, { id, reasonCode, reason = null, actor = {}, viaArchive = false }) {
+  if (!reasonCode) throw new AppError("VALIDATION_ERROR", "Say why it was lost", 422, { lost_reason_code: ["required"] });
+  return atomically(client, async () => {
+    const { rows } = await client.query("SELECT * FROM quote_request WHERE quote_request_id = $1 FOR UPDATE", [id]);
+    const before = rows[0];
+    if (!before) throw new AppError("NOT_FOUND", "Quote request not found", 404);
+    if (rules.isSettled(before.stage)) throw new AppError("REQUEST_SETTLED", "This request is already " + before.stage.toLowerCase(), 409);
+    const row = await repo.update(client, id, {
+      stage: "LOST",
+      status: rules.statusForStage("LOST", before.status),
+      lost_reason_code: reasonCode,
+      lost_reason: reason ? String(reason).slice(0, 500) : null,
+      settled_at: new Date().toISOString(),
+    });
+    await emitEvent(client, { eventTypeKey: events.LOST, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null, payload: { from: before.stage, reason_code: reasonCode, lead_id: before.lead_id, via_archive: viaArchive } });
+    await audit(client, { actorUserId: actor.user_id || null, action: events.LOST, moduleKey: events.MODULE, entityRef: ref(id), before: { stage: before.stage }, after: { stage: "LOST", lost_reason_code: reasonCode, lost_reason: reason } });
+    return row;
+  });
+}
+
+/** Mark Won by hand: the same win an accepted quotation makes (§5.2). */
+async function markWon(client, { id, entityId = null, actor = {} }) {
+  return require("./quote_request.win").win(client, { id, entityId, actor, via: "MANUAL" });
 }
 
 /* ─── attachments ─────────────────────────────────────────────────────────── */
@@ -395,8 +481,8 @@ async function convertToOpportunity(client, { id, opportunity = {}, actor = {} }
 async function uploadAttachment(client, { id, dataUrl, filename = null, kind = "ADDITIONAL", documentKind = null, slug, actor = {} }) {
   const before = await repo.get(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Quote request not found", 404);
-  if (rules.isTerminal(before.status)) {
-    throw new AppError("LOCKED", "Cannot add attachments to a " + before.status + " quote request", 422);
+  if (rules.isSettled(before.stage)) {
+    throw new AppError("LOCKED", "Cannot add attachments to a " + before.stage.toLowerCase() + " request", 422);
   }
 
   let storedPath = null;
@@ -435,8 +521,8 @@ async function uploadAttachment(client, { id, dataUrl, filename = null, kind = "
 async function removeAttachment(client, { id, attachment_id, actor = {} }) {
   const before = await repo.get(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Quote request not found", 404);
-  if (rules.isTerminal(before.status)) {
-    throw new AppError("LOCKED", "Cannot remove attachments from a " + before.status + " quote request", 422);
+  if (rules.isSettled(before.stage)) {
+    throw new AppError("LOCKED", "Cannot remove attachments from a " + before.stage.toLowerCase() + " request", 422);
   }
   const link = await repo.getAttachment(client, { quote_request_id: id, attachment_id });
   if (!link) throw new AppError("NOT_FOUND", "Attachment not found", 404);
@@ -472,8 +558,8 @@ async function listAttachments(client, id) {
 async function fileFromChat(client, { id, chatAttachmentId, documentKind = null, actor = {} }) {
   const before = await repo.get(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Quote request not found", 404);
-  if (rules.isTerminal(before.status)) {
-    throw new AppError("LOCKED", "Cannot add attachments to a " + before.status + " quote request", 422);
+  if (rules.isSettled(before.stage)) {
+    throw new AppError("LOCKED", "Cannot add attachments to a " + before.stage.toLowerCase() + " request", 422);
   }
   if (!before.client_id) {
     throw new AppError("NOT_LINKED", "Tie this request to the client first — only their own files can be filed on it", 422, {
@@ -681,6 +767,7 @@ async function clientView(client, { clientId, id }) {
     quote_request_id: row.quote_request_id,
     public_ref: row.public_ref,
     status: row.status,
+    stage: row.stage,
     created_at: row.created_at,
     service: st ? quoteServiceCard(st) : null,
     service_category: row.service_category,
@@ -749,7 +836,7 @@ async function list(client, q = {}) {
 const listForExport = (client, q = {}) => repo.listForExport(client, q, EXPORT_CAP);
 
 module.exports = {
-  create, update, transition, convertToOpportunity,
+  create, update, transition, moveStage, markLost, markWon,
   uploadAttachment, removeAttachment, listAttachments, fileFromChat,
   clientMatch, quoteServices, quoteServiceCard,
   stageClientDocument, addClientDocument, sweepStagedDocuments, clientView, clientDocument,

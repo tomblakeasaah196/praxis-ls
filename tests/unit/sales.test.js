@@ -5,12 +5,33 @@ const proposal = require("../../src/modules/sales/proposal/proposal.rules");
 const qr = require("../../src/modules/sales/quote_request/quote_request.rules");
 
 describe("Sales funnel rules (MOD-20–26)", () => {
-  test("lead lifecycle", () => {
-    expect(lead.assertTransition("NEW", "CONTACTED")).toBe(true);
-    expect(lead.assertTransition("CONTACTED", "QUALIFIED")).toBe(true);
-    expect(lead.assertTransition("QUALIFIED", "CONVERTED")).toBe(true);
-    expect(() => lead.assertTransition("NEW", "CONVERTED")).toThrow();
-    expect(() => lead.assertTransition("LOST", "CONTACTED")).toThrow();
+  test("a lead is OPEN or ARCHIVED, and every open one owes a next step but a client with nothing open", () => {
+    // Lean revamp PR 2: the funnel moved onto each request's stage.
+    expect(lead.STATUSES).toEqual(["OPEN", "ARCHIVED"]);
+    expect(lead.owesNextStep({ status: "OPEN", client_id: null }, 0)).toBe(true);
+    expect(lead.owesNextStep({ status: "OPEN", client_id: "c1" }, 1)).toBe(true);
+    expect(lead.owesNextStep({ status: "OPEN", client_id: "c1" }, 0)).toBe(false);
+    expect(lead.owesNextStep({ status: "ARCHIVED", client_id: null }, 3)).toBe(false);
+  });
+
+  test("a website request is due an answer within four WORKING hours", () => {
+    // A UTC wall clock, so the arithmetic is the only thing under test.
+    const parts = (at) => {
+      const d = new Date(at);
+      return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate(), hour: d.getUTCHours(), minute: d.getUTCMinutes(), weekday: d.getUTCDay() || 7 };
+    };
+    const instant = (x) => new Date(Date.UTC(x.year, x.month - 1, x.day, x.hour, x.minute));
+    const at = (iso) => lead.addWorkingHours(new Date(iso), 4, { parts, instant }).toISOString();
+    // Tuesday 10:00 → 14:00 the same day.
+    expect(at("2026-11-17T10:00:00Z")).toBe("2026-11-17T14:00:00.000Z");
+    // Tuesday 15:30 → 1.5 h today, 2.5 h tomorrow → Wednesday 10:30.
+    expect(at("2026-11-17T15:30:00Z")).toBe("2026-11-18T10:30:00.000Z");
+    // Friday 15:30 → Monday 10:30, never the weekend.
+    expect(at("2026-11-20T15:30:00Z")).toBe("2026-11-23T10:30:00.000Z");
+    // Saturday → the clock starts Monday at 08:00.
+    expect(at("2026-11-21T11:00:00Z")).toBe("2026-11-23T12:00:00.000Z");
+    // Before opening → the clock starts at 08:00.
+    expect(at("2026-11-17T06:00:00Z")).toBe("2026-11-17T12:00:00.000Z");
   });
   test("proposal lifecycle + total", () => {
     expect(proposal.assertTransition("DRAFT", "IN_REVIEW")).toBe(true);

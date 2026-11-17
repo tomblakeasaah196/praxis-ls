@@ -56,6 +56,62 @@ function assertTransition(from, to) {
 
 const isTerminal = (status) => TERMINAL.includes(status);
 
+/* ── the deal's stage (14511, doc/SALES_CRM_LEAN_REVAMP_GUIDE.md §3.2, §4.2) ─
+ *
+ * Since the lean revamp the request carries the deal: NEW, CONTACTED, MEETING,
+ * QUOTED, then WON or LOST. `status` above is the intake vocabulary the screens
+ * before the revamp read; until PR 7 drops it, it is kept in step with the
+ * stage by the two maps below, so the old register keeps telling the truth.
+ */
+const STAGES = [...quoteRequest.STAGES];
+const OPEN_STAGES = [...quoteRequest.OPEN_STAGES];
+const SETTLED_STAGES = ["WON", "LOST"];
+const isSettled = (stage) => SETTLED_STAGES.includes(stage);
+
+/** How far along a stage is, so an automatic move never goes backwards. */
+const STAGE_RANK = { NEW: 0, CONTACTED: 1, MEETING: 2, QUOTED: 3, WON: 4, LOST: 4 };
+
+/** The intake status a stage reads as on the old register. */
+function statusForStage(stage, current = null) {
+  switch (stage) {
+    case "NEW": return "RECEIVED";
+    case "CONTACTED":
+    case "MEETING":
+      // Waiting on the client for an answer is still being worked.
+      return current === "CLARIFICATION_REQUIRED" ? current : "UNDER_REVIEW";
+    case "QUOTED": return "QUOTED";
+    case "WON": return "CONVERTED_TO_OPPORTUNITY";
+    case "LOST": return "CLOSED_NO_ACTION";
+    default: return current;
+  }
+}
+
+/** The stage an old intake transition means (the register before PR 3 still sends them). */
+const STAGE_FOR_STATUS = {
+  RECEIVED: "NEW",
+  UNDER_REVIEW: "CONTACTED",
+  CLARIFICATION_REQUIRED: "CONTACTED",
+  QUOTED: "QUOTED",
+  CLOSED_NO_ACTION: "LOST",
+};
+
+/**
+ * May a person move a request from `from` to `to` on the stage bar? Any open
+ * stage to any other (a click is a correction as often as a step forward);
+ * nothing out of WON or LOST; never INTO Won, which is a win's (it opens the
+ * operations file).
+ */
+function assertMovable(from, to) {
+  if (isSettled(from)) {
+    throw new AppError("REQUEST_SETTLED", `This request is already ${from === "WON" ? "won" : "lost"}`, 409);
+  }
+  if (to === "WON") {
+    throw new AppError("BAD_STATE", "A request is won by an accepted quotation or Mark Won", 422);
+  }
+  if (!STAGES.includes(to)) throw new AppError("BAD_STATE", `Unknown stage ${to}`, 422);
+  return true;
+}
+
 /**
  * One tile per status, in lifecycle order, plus TOTAL. Derived — see rule 2.
  * `key` is the status value (TOTAL is the sum); `label` is the English caption
@@ -114,5 +170,6 @@ function assertPartitions(kpi) {
 
 module.exports = {
   STATUSES, TERMINAL, NEXT, assertTransition, isTerminal,
+  STAGES, OPEN_STAGES, SETTLED_STAGES, STAGE_RANK, STAGE_FOR_STATUS, isSettled, statusForStage, assertMovable,
   KPI_TILES, TILE_LABELS, emptyKpi, kpiFrom, assertPartitions,
 };

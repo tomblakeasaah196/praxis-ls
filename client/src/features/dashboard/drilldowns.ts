@@ -14,7 +14,7 @@
  * it, `escHtml` is gone, and the whole class of bug goes with it.
  */
 import type { Tone } from "@/components/ui/pill";
-import { dateFmt } from "@/lib/format";
+import { dateFmt, enumLabel } from "@/lib/format";
 import { daysBetween, grouped, isLockedFinal, str, type Row } from "./model";
 
 export type DrillCell = string | { text: string; tone: Tone };
@@ -73,7 +73,7 @@ export const KPI_ROUTE: Record<string, string> = {
   cash_requests_awaiting: "/costing/cash-requests",
   margin_closed: "/commercial/margin-simulation",
   dso: "/finance/receivables",
-  pipeline_won: "/sales/opportunities",
+  pipeline_won: "/sales/leads?view=board",
   quote_requests_open: "/sales/quote-requests",
   pos_in_flight: "/procurement/purchase-orders",
   purchase_requests: "/procurement/purchase-requests",
@@ -1323,39 +1323,44 @@ export function buildDsoDrill(rows: Row[] | null, dsoDays: number | null, curren
   };
 }
 
-/** Won · this month → opportunities settled won (`/opportunities`). */
+/** Won · this month → requests settled won (`/quote-requests?stage=WON`). */
 export function buildPipelineWonDrill(rows: Row[] | null, currency: string): Drill {
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
   const won = (rows || []).filter(
-    (r) => str(r.status) === "WON" && r.settled_at && new Date(str(r.settled_at)) >= monthStart,
+    (r) => str(r.stage) === "WON" && r.settled_at && new Date(str(r.settled_at)) >= monthStart,
   );
   const total = won.reduce((sum, r) => sum + (Number(r.estimated_value) || 0), 0);
   return {
     title: "Won This Month",
     badge: { tone: "ok", text: `${grouped(total)} ${currency}` },
     meta: [
-      { label: "Opportunities", value: String(won.length) },
+      { label: "Requests", value: String(won.length) },
       { label: `Value (${currency})`, value: grouped(total) },
     ],
-    columns: [{ label: "Opportunity" }, { label: "Settled" }, { label: currency, align: "right" }],
+    columns: [{ label: "Request" }, { label: "Settled" }, { label: currency, align: "right" }],
     rows: won.slice(0, 8).map((r) => ({
-      key: str(r.opportunity_id) || str(r.name),
-      cells: [str(r.name) || "—", dateFmt(r.settled_at), grouped(Number(r.estimated_value) || 0)],
+      key: str(r.quote_request_id) || str(r.public_ref),
+      cells: [
+        str(r.title) || str(r.lead_company_name) || str(r.public_ref) || "—",
+        dateFmt(r.settled_at),
+        grouped(Number(r.estimated_value) || 0),
+      ],
     })),
-    cta: { label: "Open Opportunities", to: KPI_ROUTE.pipeline_won },
+    cta: { label: "Open Leads", to: KPI_ROUTE.pipeline_won },
     empty: {
       title: "Nothing won yet this month",
-      hint: "Opportunities appear here as they are settled won. The month is young, not empty.",
+      hint: "Requests appear here as they are won. The month is young, not empty.",
     },
   };
 }
 
 /** Quote requests · open → what a client is still waiting on (`/quote-requests`). */
 export function buildQuoteRequestsDrill(rows: Row[] | null): Drill {
-  const OPEN = ["RECEIVED", "UNDER_REVIEW", "CLARIFICATION_REQUIRED"];
-  const open = (rows || []).filter((r) => OPEN.includes(str(r.status)));
+  // The stages still waiting on us (the KPI's own definition, lean revamp PR 2).
+  const OPEN = ["NEW", "CONTACTED", "MEETING"];
+  const open = (rows || []).filter((r) => OPEN.includes(str(r.stage)));
   const today = new Date();
   const waiting = (r: Row) => daysBetween(new Date(str(r.created_at)), today);
   const ranked = [...open].sort((a, b) => waiting(b) - waiting(a));
@@ -1371,8 +1376,8 @@ export function buildQuoteRequestsDrill(rows: Row[] | null): Drill {
       key: str(r.quote_request_id) || str(r.public_ref),
       cells: [
         str(r.public_ref) || str(r.quote_request_id).slice(0, 8),
-        str(r.requester_company) || str(r.requester_name) || "—",
-        str(r.status) || "—",
+        str(r.lead_company_name) || str(r.requester_company) || str(r.requester_name) || "—",
+        enumLabel(str(r.stage)) || "—",
         `${waiting(r)} d`,
       ],
     })),

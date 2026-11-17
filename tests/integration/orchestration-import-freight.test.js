@@ -1,9 +1,12 @@
 "use strict";
 /**
  * DB-backed proof of the orchestration outbox (Plan A) on the import-freight lane
- * (A7 #1). Walks: won opportunity → (dispatcher) opens & links a dossier →
- * approve a costing — and proves the whole thing is idempotent (re-dispatch
- * creates nothing new).
+ * (A7 #1). Walks: accepted quotation → (dispatcher) wins its request, opens &
+ * links a dossier → approve a costing — and proves the whole thing is
+ * idempotent (re-dispatch creates nothing new). Since the Sales lean revamp
+ * (PR 2) the hand-off starts from the accepted quotation, not a won
+ * opportunity: `quotation.accepted:win-request` replaced
+ * `opportunity.won:open-dossier`.
  *
  * THE LANE STOPS AT THE COSTING (12766). It used to end at "a DRAFT final
  * invoice appears for the dossier", asserted here both as a synchronous handoff
@@ -30,14 +33,14 @@ const d = hasDb ? describe : describe.skip;
 
 d("orchestration — import-freight lane (real Postgres)", () => {
   let pool;
-  let opportunity;
+  let emit;
   let costing;
   let dispatcher;
 
   beforeAll(() => {
     const { Pool } = require("pg");
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    opportunity = require("../../src/modules/sales/opportunity/opportunity.service");
+    emit = require("../../src/shared/events/emit");
     costing = require("../../src/modules/costing/costing/costing.service");
 
     // Approving is signing (28 Sep 2026): the approver confirms with a passkey
@@ -61,28 +64,35 @@ d("orchestration — import-freight lane (real Postgres)", () => {
     }
   };
 
-  let opportunityId;
+  let requestId;
   let dossierId;
 
-  it("won opportunity → the dispatcher opens & links a dossier (async)", async () => {
-    const created = await withClient((c) =>
-      opportunity.create(c, {
-        data: { name: "IMPORT FREIGHT lane " + Date.now() },
-        actor: {},
-      }),
-    );
-    opportunityId = created.opportunity_id;
-
-    // Win WITHOUT the manual createDossier flag — the handoff must be automatic.
-    await withClient((c) =>
-      opportunity.win(c, { id: opportunityId, actor: {} }),
-    );
+  it("accepted quotation → the dispatcher wins its request and opens & links a dossier (async)", async () => {
+    const stamp = Date.now();
+    requestId = await withClient(async (c) => {
+      await c.query("SET search_path = live, public");
+      const lead = (await c.query(
+        `INSERT INTO lead (company_name, phone, status, entity_id)
+         VALUES ($1, $2, 'OPEN', $3) RETURNING lead_id`,
+        ["IMPORT FREIGHT lane " + stamp, "+237 6" + String(stamp).slice(-8), process.env.TEST_ENTITY_ID],
+      )).rows[0];
+      const request = (await c.query(
+        `INSERT INTO quote_request (lead_id, entity_id, intake_channel, title, stage, status)
+         VALUES ($1, $2, 'MANUAL', $3, 'QUOTED', 'QUOTED') RETURNING quote_request_id`,
+        [lead.lead_id, process.env.TEST_ENTITY_ID, "IMPORT FREIGHT lane " + stamp],
+      )).rows[0];
+      const quotation = (await c.query(
+        `INSERT INTO quotation (entity_id, quote_request_id, status) VALUES ($1, $2, 'ACCEPTED') RETURNING quotation_id`,
+        [process.env.TEST_ENTITY_ID, request.quote_request_id],
+      )).rows[0];
+      // What quotation.accept emits once the acceptance has committed.
+      await emit.emitEvent(c, { eventTypeKey: "quotation.accepted", moduleKey: "MOD-27", entityRef: "quotation:" + quotation.quotation_id });
+      return request.quote_request_id;
+    });
 
     // Not linked yet: the handler runs off the outbox, not in-request.
     let row = await withClient((c) =>
-      c.query("SELECT dossier_id FROM opportunity WHERE opportunity_id = $1", [
-        opportunityId,
-      ]),
+      c.query("SELECT dossier_id, stage FROM quote_request WHERE quote_request_id = $1", [requestId]),
     );
     expect(row.rows[0].dossier_id).toBeFalsy();
 
@@ -90,10 +100,9 @@ d("orchestration — import-freight lane (real Postgres)", () => {
     await withClient((c) => dispatcher.dispatchPending(c, {}));
 
     row = await withClient((c) =>
-      c.query("SELECT dossier_id FROM opportunity WHERE opportunity_id = $1", [
-        opportunityId,
-      ]),
+      c.query("SELECT dossier_id, stage FROM quote_request WHERE quote_request_id = $1", [requestId]),
     );
+    expect(row.rows[0].stage).toBe("WON");
     dossierId = row.rows[0].dossier_id;
     expect(dossierId).toBeTruthy();
 
@@ -106,9 +115,7 @@ d("orchestration — import-freight lane (real Postgres)", () => {
   it("is idempotent — re-dispatch does not create a second dossier", async () => {
     await withClient((c) => dispatcher.dispatchPending(c, {}));
     const row = await withClient((c) =>
-      c.query("SELECT dossier_id FROM opportunity WHERE opportunity_id = $1", [
-        opportunityId,
-      ]),
+      c.query("SELECT dossier_id FROM quote_request WHERE quote_request_id = $1", [requestId]),
     );
     expect(row.rows[0].dossier_id).toBe(dossierId);
   });

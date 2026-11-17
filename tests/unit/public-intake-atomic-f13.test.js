@@ -60,35 +60,31 @@ describe("F13 public quote composition", () => {
     incoterm: "CIF",
   };
 
-  test("creates a WEBSITE lead and linked quote under the same resolved entity", async () => {
+  test("files ONE website request under the resolved entity; the request finds or makes the company row", async () => {
+    // Lean revamp PR 2: no lead is made here any more. quote.create files the
+    // request on the company's one row (lead.findOrCreateForIntake), so a
+    // company that writes three times is one row with three requests.
     const c = client();
     await expect(publicIntake.submitQuote(c, body)).resolves.toEqual({ received: true, reference: "QR-1" });
     expect(quote.resolveEntityId).toHaveBeenCalledTimes(1);
-    expect(lead.create).toHaveBeenCalledWith(c, expect.objectContaining({
-      data: expect.objectContaining({
-        entity_id: "entity-1",
-        company_name: "Ada Trading",
-        contact_name: "Ada N.",
-        source: "WEBSITE",
-        intake_channel: "WEBSITE",
-      }),
-    }));
+    expect(lead.create).not.toHaveBeenCalled();
     expect(quote.create).toHaveBeenCalledWith(c, expect.objectContaining({
       data: expect.objectContaining({
         entity_id: "entity-1",
-        lead_id: "lead-1",
         intake_channel: "WEBSITE",
+        requester_company: "Ada Trading",
+        requester_email: "ada@example.com",
       }),
     }));
+    expect(quote.create.mock.calls[0][1].data.lead_id).toBeUndefined();
     expect(verbs(c)).toEqual(expect.arrayContaining(["BEGIN", "COMMIT"]));
     expect(verbs(c)).not.toContain("ROLLBACK");
   });
 
-  test("rolls the lead back when linked quote creation fails", async () => {
+  test("rolls everything back when the request cannot be created", async () => {
     quote.create.mockRejectedValueOnce(new Error("quote insert failed"));
     const c = client();
     await expect(publicIntake.submitQuote(c, body)).rejects.toThrow("quote insert failed");
-    expect(lead.create).toHaveBeenCalledTimes(1);
     expect(verbs(c)).toContain("ROLLBACK");
     expect(verbs(c)).not.toContain("COMMIT");
   });

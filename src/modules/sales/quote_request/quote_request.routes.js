@@ -20,8 +20,20 @@ const TRANSITION_ACTION = {
   UNDER_REVIEW: "edit",
   CLARIFICATION_REQUIRED: "edit",
   QUOTED: "edit",
-  CONVERTED_TO_OPPORTUNITY: "approve",
   CLOSED_NO_ACTION: "approve",
+};
+
+/**
+ * The deal's stage bar (lean revamp PR 2): a working stage is `edit`; LOST ends
+ * the deal and takes `approve`, as closing an intake always did. Mark Won is
+ * `approve` too, on its own route: it opens the operations file.
+ */
+const STAGE_ACTION = {
+  NEW: "edit",
+  CONTACTED: "edit",
+  MEETING: "edit",
+  QUOTED: "edit",
+  LOST: "approve",
 };
 
 const router = express.Router();
@@ -48,7 +60,8 @@ router.post("/", requirePermission(MODULE, "create"), validator.create, controll
 router.patch("/:id", requirePermission(MODULE, "edit"), validator.update,
   requireLifecyclePermissionOnPatch(MODULE, TRANSITION_ACTION, { field: "status" }), controller.update);
 router.post("/:id/transition", validator.transition, requireTransitionPermission(MODULE, TRANSITION_ACTION), controller.transition);
-router.post("/:id/convert-to-opportunity", requirePermission(MODULE, "approve"), validator.convertToOpportunity, controller.convertToOpportunity);
+router.post("/:id/stage", validator.moveStage, requireTransitionPermission(MODULE, STAGE_ACTION, { field: "stage" }), controller.moveStage);
+router.post("/:id/mark-won", requirePermission(MODULE, "approve"), validator.markWon, controller.markWon);
 
 // Attachments
 router.get("/:id/attachments", requirePermission(MODULE, "view"), controller.listAttachments);

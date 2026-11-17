@@ -26,6 +26,8 @@ const WRITABLE = [
   // 14310 — the service type the request asks for, which way a hinterland
   // transit runs, and the client the request is FOR (meeting 6, PR 2).
   "service_type_id", "hinterland_direction", "client_id",
+  // 14511 — the deal the request carries.
+  "title", "estimated_value", "currency",
 ];
 
 /**
@@ -79,8 +81,13 @@ function insert(client, data) {
     delivery_location: blankToNull(data.delivery_location),
     delivery_place_id: blankToNull(data.delivery_place_id),
     attachment_doc_id: blankToNull(data.attachment_doc_id),
-    incoterm: data.incoterm,
+    // Nullable since 14511: a phone request may not know one yet.
+    incoterm: blankToNull(data.incoterm),
     status: "RECEIVED",
+    stage: "NEW",
+    title: blankToNull(data.title),
+    estimated_value: data.estimated_value ?? null,
+    currency: blankToNull(data.currency) || (data.estimated_value !== undefined && data.estimated_value !== null ? "XAF" : null),
     owner_user_id: blankToNull(data.owner_user_id),
     created_by_user_id: blankToNull(data.created_by_user_id),
   };
@@ -128,6 +135,9 @@ function buildWhere(q = {}, { includeStatus = true } = {}) {
   // Qualified with `q.` because the list joins service_type and client_master,
   // both of which have a created_at — an unqualified one is "ambiguous".
   if (includeStatus && q.status) { params.push(q.status); wh.push("q.status = $" + params.length); }
+  // 14511 — the deal's stage, and the company row it sits on.
+  if (q.stage) { params.push(q.stage); wh.push("q.stage = $" + params.length); }
+  if (q.lead_id) { params.push(q.lead_id); wh.push("q.lead_id = $" + params.length); }
   if (q.intake_channel) { params.push(q.intake_channel); wh.push("q.intake_channel = $" + params.length); }
   if (q.service_category) { params.push(q.service_category); wh.push("q.service_category = $" + params.length); }
   if (q.service_type_id) { params.push(q.service_type_id); wh.push("q.service_type_id = $" + params.length); }
@@ -137,7 +147,7 @@ function buildWhere(q = {}, { includeStatus = true } = {}) {
   // Still being worked: neither converted nor closed. The chat files onto
   // these, and only these — a closed request is history.
   if (q.open === true || q.open === "1" || q.open === "true") {
-    wh.push("q.status NOT IN ('CONVERTED_TO_OPPORTUNITY', 'CLOSED_NO_ACTION')");
+    wh.push("q.stage NOT IN ('WON', 'LOST')");
   }
   if (q.month) { params.push(Number(q.month)); wh.push("EXTRACT(MONTH FROM q.created_at) = $" + params.length); }
   if (q.year) { params.push(Number(q.year)); wh.push("EXTRACT(YEAR FROM q.created_at) = $" + params.length); }
@@ -153,7 +163,7 @@ function buildWhere(q = {}, { includeStatus = true } = {}) {
   return { where: wh.length ? "WHERE " + wh.join(" AND ") : "", params };
 }
 
-const SORTABLE = ["created_at", "public_ref", "status", "requester_name"];
+const SORTABLE = ["created_at", "public_ref", "status", "stage", "requester_name", "settled_at"];
 const orderBy = (q = {}) =>
   `ORDER BY q.${SORTABLE.includes(q.sort) ? q.sort : "created_at"} ${q.dir === "asc" ? "ASC" : "DESC"}`;
 
@@ -164,9 +174,11 @@ const orderBy = (q = {}) =>
  */
 const LIST_FROM = `quote_request q
   LEFT JOIN service_type st ON st.service_type_id = q.service_type_id
-  LEFT JOIN client_master cm ON cm.client_id = q.client_id`;
+  LEFT JOIN client_master cm ON cm.client_id = q.client_id
+  LEFT JOIN lead ld ON ld.lead_id = q.lead_id`;
 const LIST_COLUMNS = `q.*, st.name_en AS service_name_en, st.name_fr AS service_name_fr,
-  st.transport_mode AS service_mode, st.territory AS service_territory, cm.name AS client_name`;
+  st.transport_mode AS service_mode, st.territory AS service_territory, cm.name AS client_name,
+  ld.company_name AS lead_company_name`;
 
 /**
  * List + total + the KPI GROUP BY.

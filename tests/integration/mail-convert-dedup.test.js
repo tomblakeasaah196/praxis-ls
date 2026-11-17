@@ -72,15 +72,16 @@ describe("conversion previews and never creates", () => {
 
   test("it names the module whose rights govern the create", async () => {
     const out = await convert.preview(fakeClient(thread()), "t-1", "lead");
-    // §3.4: "a lead is created under MOD-26's rights, not mail's". Returned so
-    // the UI can grey the option rather than letting someone fill a form and be
-    // refused at the end.
-    expect(out.target_module).toBe("MOD-26");
+    // §3.4: a lead is created under the LEAD module's rights, not mail's. That
+    // is MOD-20; §3.4 named MOD-26 (Success Stories) and this test pinned it,
+    // which is the Sales lean revamp's gap 11. Returned so the UI can grey the
+    // option rather than letting someone fill a form and be refused at the end.
+    expect(out.target_module).toBe("MOD-20");
     expect(out.target_route).toMatch(/leads/);
   });
 
   test.each([
-    ["lead", "MOD-26"], ["quote_request", "MOD-25"], ["enquiry", "MOD-25"],
+    ["lead", "MOD-20"], ["quote_request", "MOD-20"], ["enquiry", "MOD-25"],
     ["ticket", "MOD-25"], ["task", "MOD-72"], ["purchase_requisition", "MOD-56"],
   ])("%s is a declared target owned by %s", async (target, module) => {
     const out = await convert.preview(fakeClient(thread()), "t-1", target);

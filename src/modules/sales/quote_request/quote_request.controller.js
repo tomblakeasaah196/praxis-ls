@@ -8,7 +8,7 @@ const actor = (req) => req.user || { user_id: null };
 
 /** The export's columns, in the order an operator expects to read them. */
 const EXPORT_COLUMNS = [
-  "public_ref", "status", "intake_channel", "service_category", "service_type", "hinterland_direction",
+  "public_ref", "stage", "status", "lead_company_name", "title", "estimated_value", "currency", "intake_channel", "service_category", "service_type", "hinterland_direction",
   // The client the request is for (14310), by name — an id means nothing in Excel.
   "client_name",
   // The route in the order the cargo travels it: door, port, port, door (14220).
@@ -44,9 +44,9 @@ module.exports = {
   /**
    * The 360° dossier (GET /quote-requests/:id/360).
    *
-   * `get` above already folds in attachments; this goes further — the lead the
-   * request came from, the opportunity it became, the proposals reached through
-   * that lead, and the audit history. Money follows the party masters' rule:
+   * `get` above already folds in attachments; this goes further — the company
+   * row it sits on, the deal it carries, the proposals reached through that row,
+   * and the audit history. Money follows the party masters' rule:
    * `canSeeFinancials` decides, and it is null rather than zero when refused.
    */
   dossier: asyncHandler(async (req, res) => {
@@ -80,8 +80,19 @@ module.exports = {
     res.json({ data: await req.tenantDb((c) => service.transition(c, { id: req.params.id, to: req.body.to, actor: actor(req) })) }),
   ),
 
-  convertToOpportunity: asyncHandler(async (req, res) =>
-    res.json({ data: await req.tenantDb((c) => service.convertToOpportunity(c, { id: req.params.id, opportunity: req.body.opportunity, actor: actor(req) })) }),
+  /** Click a stage on the bar; Lost carries its reason. */
+  moveStage: asyncHandler(async (req, res) =>
+    res.json({
+      data: await req.tenantDb((c) => service.moveStage(c, {
+        id: req.params.id, stage: req.body.stage, lostReasonCode: req.body.lost_reason_code || null,
+        lostReason: req.body.lost_reason || null, actor: actor(req),
+      })),
+    }),
+  ),
+
+  /** Mark Won: the request won, the client made, the operations file opened. */
+  markWon: asyncHandler(async (req, res) =>
+    res.json({ data: await req.tenantDb((c) => service.markWon(c, { id: req.params.id, entityId: req.body.entity_id || null, actor: actor(req) })) }),
   ),
 
   /** The tile vocabulary, so the register does not hard-code its own copy. */

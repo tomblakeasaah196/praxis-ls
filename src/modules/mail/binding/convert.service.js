@@ -5,8 +5,11 @@
  *
  * Q23 = B, "always confirm": this returns a prefill and a duplicate list, the
  * user reviews a form, and the record is saved through the TARGET module's own
- * service and validator. §3.4 is explicit that "a lead is created under MOD-26's
- * rights, not mail's" — so nothing here writes a business record. The only
+ * service and validator. §3.4 is explicit that a lead is created under the
+ * LEAD module's rights, not mail's — so nothing here writes a business record.
+ * (That module is MOD-20. §3.4 named MOD-26, which is Success Stories, and this
+ * map followed it: a person with lead access could not turn a mail into a lead
+ * and a person with only portfolio access could. Sales lean revamp, gap 11.) The only
  * thing it writes is the back-reference, once the target module reports what it
  * made.
  *
@@ -42,8 +45,9 @@ const M = "MOD-72";
  * company name would merge two unrelated problems.
  */
 const TARGETS = {
-  lead: { module: "MOD-26", route: "/sales/leads/new", party: "client", label_en: "Lead", label_fr: "Piste" },
-  quote_request: { module: "MOD-25", route: "/sales/quote-requests/new", party: "client", label_en: "Quote request", label_fr: "Demande de devis" },
+  // Leads and their requests are MOD-20's (lead.routes, quote_request.routes).
+  lead: { module: "MOD-20", route: "/sales/leads/new", party: "client", label_en: "Lead", label_fr: "Piste" },
+  quote_request: { module: "MOD-20", route: "/sales/quote-requests/new", party: "client", label_en: "Quote request", label_fr: "Demande de devis" },
   enquiry: { module: "MOD-25", route: "/sales/enquiries/new", party: "client", label_en: "Contact enquiry", label_fr: "Demande de contact" },
   ticket: { module: "MOD-25", route: "/support/tickets/new", party: null, label_en: "Support ticket", label_fr: "Ticket" },
   // Tasks live in the workspace hub (`/workspace/tasks`) — there is no

@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1880 |
+| Routes | 1882 |
 | Modules mounted | 142 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1880 mounted routes, grouped by path prefix.
+All 1882 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1101,8 +1101,14 @@ All 1880 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/leads/:id` | — |
 | PATCH | `/api/tenant/leads/:id` | — |
 | GET | `/api/tenant/leads/:id/360` | — |
-| POST | `/api/tenant/leads/:id/convert` | — |
-| POST | `/api/tenant/leads/:id/transition` | — |
+| POST | `/api/tenant/leads/:id/activities` | — |
+| POST | `/api/tenant/leads/:id/archive` | — |
+| POST | `/api/tenant/leads/:id/make-client` | — |
+| PUT | `/api/tenant/leads/:id/next-step` | — |
+| POST | `/api/tenant/leads/:id/next-step/done` | — |
+| POST | `/api/tenant/leads/:id/reopen` | — |
+| POST | `/api/tenant/leads/clients/:clientId/row` | — |
+| GET | `/api/tenant/leads/duplicates` | — |
 
 ### `tenant/leave`
 
@@ -1480,12 +1486,7 @@ All 1880 mounted routes, grouped by path prefix.
 | Method | Path | Body validated |
 |---|---|---|
 | GET | `/api/tenant/opportunities/` | — |
-| POST | `/api/tenant/opportunities/` | — |
 | GET | `/api/tenant/opportunities/:id` | — |
-| PATCH | `/api/tenant/opportunities/:id` | — |
-| POST | `/api/tenant/opportunities/:id/lose` | — |
-| POST | `/api/tenant/opportunities/:id/move` | — |
-| POST | `/api/tenant/opportunities/:id/win` | — |
 | GET | `/api/tenant/opportunities/board` | — |
 | GET | `/api/tenant/opportunities/export.csv` | — |
 | GET | `/api/tenant/opportunities/metrics` | — |
@@ -1854,7 +1855,8 @@ All 1880 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/quote-requests/:id/attachments` | — |
 | DELETE | `/api/tenant/quote-requests/:id/attachments/:attachmentId` | — |
 | POST | `/api/tenant/quote-requests/:id/attachments/from-chat` | — |
-| POST | `/api/tenant/quote-requests/:id/convert-to-opportunity` | — |
+| POST | `/api/tenant/quote-requests/:id/mark-won` | — |
+| POST | `/api/tenant/quote-requests/:id/stage` | — |
 | POST | `/api/tenant/quote-requests/:id/transition` | — |
 | GET | `/api/tenant/quote-requests/client-match` | — |
 | GET | `/api/tenant/quote-requests/export.csv` | — |

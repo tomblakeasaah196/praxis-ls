@@ -27,23 +27,112 @@ const vault = require("../../vault/document_vault/document_vault.service");
 const { enqueue } = require("../../../jobs/queue-producer");
 const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
+const { atomically } = require("../../../shared/db/tx");
+const tasksRepo = require("../../dashboard/workspace/tasks.repo");
+const tasksService = require("../../dashboard/workspace/tasks.service");
+const workspaceEvents = require("../../dashboard/workspace/workspace.events");
+const { timezoneOf } = require("../../dashboard/workspace/workspace.time");
 
 const ref = (id) => "meeting:" + id;
 const sectionRef = (id, key) => `meeting:${id}#${key}`;
 
-async function create(client, { data, actor = {} }) {
-  const row = await repo.insert(client, {
-    subject: data.subject,
-    lead_id: data.lead_id || null,
-    client_id: data.client_id || null,
-    scheduled_at: data.scheduled_at || null,
-    // The legacy discovery wizard asks for it (meetLocation) and this schema had
-    // nowhere to put it, so it was being lost at the point of capture.
-    location: data.location || null,
-    organiser_id: data.organiser_id || actor.user_id || null,
+/** How long a meeting lasts when nobody said, and when its reminder fires. */
+const DEFAULT_DURATION_MINUTES = 60;
+const REMINDER_MINUTES = 30;
+
+/** The request service, reached lazily: it requires the lead service, which reads meetings. */
+const requests = () => require("../quote_request/quote_request.service");
+
+/**
+ * Put a meeting on the calendar (lean revamp §3.2 "Meetings", gap 5): a My
+ * Workspace event at its time, for its duration, at its place, with the
+ * organiser and the staff attendees invited and a reminder before it. Linked to
+ * the company row, so the event opens the Lead 360.
+ */
+async function writeCalendarEvent(client, { meeting, durationMinutes, attendeeIds = [], actor }) {
+  const start = new Date(meeting.scheduled_at);
+  const end = new Date(start.getTime() + (durationMinutes || DEFAULT_DURATION_MINUTES) * 60000);
+  const organiser = await resolveActorId(client, meeting.organiser_id || actor.user_id);
+  const event = await tasksRepo.insertEvent(client, {
+    title: meeting.subject.slice(0, 200),
+    event_type: "meeting",
+    location: meeting.location || null,
+    start_at: start.toISOString(),
+    end_at: end.toISOString(),
+    created_by: organiser,
+    entity_type: meeting.lead_id ? "lead" : null,
+    entity_id: meeting.lead_id || null,
   });
-  await emitEvent(client, { eventTypeKey: events.CREATED, moduleKey: events.MODULE, entityRef: ref(row.meeting_id), actorUserId: actor.user_id || null });
-  await audit(client, { actorUserId: actor.user_id || null, action: events.CREATED, moduleKey: events.MODULE, entityRef: ref(row.meeting_id), after: row });
+  const invited = [];
+  if (organiser) {
+    await tasksRepo.insertParticipant(client, { calendar_event_id: event.calendar_event_id, user_id: organiser, is_organiser: true });
+  }
+  for (const userId of [...new Set(attendeeIds)]) {
+    if (userId === organiser) continue;
+    const known = await resolveActorId(client, userId);
+    if (!known) continue;
+    const row = await tasksRepo.insertParticipant(client, { calendar_event_id: event.calendar_event_id, user_id: known });
+    if (row) invited.push(row);
+  }
+  await tasksService.writeReminders(client, {
+    ownerType: "calendar_event", ownerId: event.calendar_event_id,
+    input: { reminders: [{ reminder_minutes: REMINDER_MINUTES }] },
+    anchor: event.start_at, timeZone: await timezoneOf(client), actor: { user_id: organiser },
+  });
+  await emitEvent(client, {
+    eventTypeKey: workspaceEvents.EVENT_CREATED, moduleKey: workspaceEvents.MODULE,
+    entityRef: `calendar_event:${event.calendar_event_id}`, actorUserId: actor.user_id || null,
+    payload: { meeting_id: meeting.meeting_id },
+  });
+  return { event, invited, organiser };
+}
+
+/**
+ * Schedule a meeting. With a time, it goes on the calendar (above); with a
+ * request, it is about that request, which moves to Meeting (never backwards).
+ * The meeting, its event and the stage move commit together.
+ */
+async function create(client, { data, actor = {} }) {
+  let leadId = data.lead_id || null;
+  if (data.quote_request_id) {
+    const { rows } = await client.query("SELECT quote_request_id, lead_id FROM quote_request WHERE quote_request_id = $1", [data.quote_request_id]);
+    if (!rows[0]) throw new AppError("VALIDATION_ERROR", "That request does not exist", 422, { quote_request_id: ["no such request"] });
+    if (leadId && rows[0].lead_id !== leadId) {
+      throw new AppError("VALIDATION_ERROR", "That request is not this company's", 422, { quote_request_id: ["not a request of this company"] });
+    }
+    leadId = rows[0].lead_id;
+  }
+  let calendar = null;
+  const row = await atomically(client, async () => {
+    const m = await repo.insert(client, {
+      subject: data.subject,
+      lead_id: leadId,
+      client_id: data.client_id || null,
+      scheduled_at: data.scheduled_at || null,
+      // The legacy discovery wizard asks for it (meetLocation) and this schema had
+      // nowhere to put it, so it was being lost at the point of capture.
+      location: data.location || null,
+      organiser_id: data.organiser_id || actor.user_id || null,
+      quote_request_id: data.quote_request_id || null,
+    });
+    let out = m;
+    if (m.scheduled_at) {
+      calendar = await writeCalendarEvent(client, {
+        meeting: m, durationMinutes: data.duration_minutes, attendeeIds: data.attendee_user_ids || [], actor,
+      });
+      out = await repo.update(client, m.meeting_id, { calendar_event_id: calendar.event.calendar_event_id });
+    }
+    if (m.quote_request_id) {
+      await requests().moveStage(client, { id: m.quote_request_id, stage: "MEETING", actor, auto: true });
+    }
+    await emitEvent(client, { eventTypeKey: events.CREATED, moduleKey: events.MODULE, entityRef: ref(m.meeting_id), actorUserId: actor.user_id || null });
+    await audit(client, { actorUserId: actor.user_id || null, action: events.CREATED, moduleKey: events.MODULE, entityRef: ref(m.meeting_id), after: out });
+    return out;
+  });
+  // The invites are a courtesy about rows that have committed.
+  if (calendar) {
+    for (const p of calendar.invited) await tasksService.notifyInvitation(client, calendar.event, p, calendar.organiser);
+  }
   return row;
 }
 
@@ -54,9 +143,31 @@ async function update(client, { id, patch = {}, actor = {} }) {
   for (const k of ["subject", "lead_id", "client_id", "scheduled_at", "location", "organiser_id"]) {
     if (patch[k] !== undefined) fields[k] = patch[k];
   }
-  const row = await repo.update(client, id, fields);
-  await audit(client, { actorUserId: actor.user_id || null, action: events.UPDATED, moduleKey: events.MODULE, entityRef: ref(id), before, after: row });
-  return row;
+  return atomically(client, async () => {
+    const row = await repo.update(client, id, fields);
+    // The calendar follows the meeting: a moved meeting moves its event, and
+    // its reminder re-arms for the new time.
+    if (row.calendar_event_id && (fields.scheduled_at !== undefined || fields.subject !== undefined || fields.location !== undefined)) {
+      const ev = await tasksRepo.findEvent(client, row.calendar_event_id);
+      if (ev) {
+        const evPatch = {};
+        if (fields.subject !== undefined) evPatch.title = String(row.subject).slice(0, 200);
+        if (fields.location !== undefined) evPatch.location = row.location || null;
+        if (fields.scheduled_at && row.scheduled_at) {
+          const length = new Date(ev.end_at).getTime() - new Date(ev.start_at).getTime();
+          evPatch.start_at = new Date(row.scheduled_at).toISOString();
+          evPatch.end_at = new Date(new Date(row.scheduled_at).getTime() + length).toISOString();
+        }
+        await tasksRepo.updateEvent(client, row.calendar_event_id, evPatch);
+        if (evPatch.start_at) await tasksRepo.rearmOwnerReminders(client, "calendar_event", row.calendar_event_id);
+      }
+    } else if (!row.calendar_event_id && fields.scheduled_at && row.scheduled_at) {
+      const calendar = await writeCalendarEvent(client, { meeting: row, actor });
+      await repo.update(client, id, { calendar_event_id: calendar.event.calendar_event_id });
+    }
+    await audit(client, { actorUserId: actor.user_id || null, action: events.UPDATED, moduleKey: events.MODULE, entityRef: ref(id), before, after: row });
+    return repo.get(client, id);
+  });
 }
 
 async function addNote(client, { meetingId, body, isMinutes = false, actor = {} }) {

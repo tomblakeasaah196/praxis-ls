@@ -189,9 +189,35 @@ describe("leadDossier", () => {
   test("the timeline reads this lead's own ref from the immutable ledger", async () => {
     const c = clientOf([[/FROM lead l/, [LEAD_ROW]]]);
     await svc.leadDossier(c, { leadId: "L1" });
-    const ledger = c.calls.find((x) => /immutable_ledger/.test(x.sql));
+    // The History tab's read: this lead's own ref. (The Activity timeline also
+    // reads the ledger, for its requests' stage moves; that query is keyed on
+    // the requests, below.)
+    const ledger = c.calls.find((x) => /immutable_ledger/.test(x.sql) && /entity_ref = \$1/.test(x.sql));
     expect(ledger).toBeTruthy();
     expect(ledger.params[0]).toBe("lead:L1");
+  });
+
+  test("the Activity timeline merges what happened, where it lives, newest first", async () => {
+    const c = clientOf([
+      [/FROM lead l/, [LEAD_ROW]],
+      [/FROM lead_activity a/, [{ lead_activity_id: "A1", kind: "CALL", body: "Rang Ada", occurred_at: "2026-11-10T09:00:00Z" }]],
+      [/FROM meeting m\s+WHERE m.lead_id/, [{ meeting_id: "M1", subject: "Visit", scheduled_at: "2026-11-12T09:00:00Z" }]],
+      [/stage_moved/, [{ ledger_id: 9, action: "quote_request.stage_moved", entity_ref: "quote_request:Q1", after_json: { stage: "QUOTED" }, created_at: "2026-11-11T09:00:00Z" }]],
+    ]);
+    const d = await svc.leadDossier(c, { leadId: "L1", canSeeFinancials: true });
+    expect(d.activity.map((i) => i.type)).toEqual(["meeting", "stage", "activity"]);
+    expect(d.activity[1]).toMatchObject({ kind: "STAGE_MOVED", title: "QUOTED", quote_request_id: "Q1" });
+    // No caller, no mail: a thread is shown only to someone mail's own rule lets read it.
+    expect(c.calls.some((x) => /email_thread/.test(x.sql))).toBe(false);
+    expect(d.counts).toEqual({ activity: 3, requests: 0, quotations: 0 });
+  });
+
+  test("bound mail threads go through mail's visibility rule for the caller", async () => {
+    const c = clientOf([[/FROM lead l/, [LEAD_ROW]]]);
+    await svc.leadDossier(c, { leadId: "L1", user: { user_id: "U1" } });
+    const mail = c.calls.find((x) => /email_thread/.test(x.sql));
+    expect(mail.sql).toMatch(/t\.visibility = 'PRIVATE'/);
+    expect(mail.params).toEqual(["lead:L1", "U1", 25]);
   });
 
   test("discovery sections land on the meeting they belong to", async () => {

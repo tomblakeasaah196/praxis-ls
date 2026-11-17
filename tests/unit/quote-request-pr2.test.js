@@ -19,6 +19,12 @@
  * quote-request-f6.test.js; the shared rules are real.
  */
 jest.mock("../../src/modules/sales/quote_request/quote_request.repo");
+// The company row a request lands on is the lead service's (lean revamp PR 2);
+// its own tests hold it. Here it is found, so the request's rules are under test.
+jest.mock("../../src/modules/sales/lead/lead.service", () => ({
+  findOrCreateForIntake: jest.fn(async () => ({ lead: { lead_id: "LEAD-1" }, created: false })),
+  stepForArrival: jest.fn(async () => null),
+}));
 jest.mock("../../src/modules/vault/document_vault/document_vault.service");
 jest.mock("../../src/services/storage.service");
 jest.mock("../../src/shared/events/emit", () => ({
@@ -213,8 +219,8 @@ describe("client link", () => {
     expect(row.client_id).toBe(CLIENT);
   });
 
-  test.each(["CONVERTED_TO_OPPORTUNITY", "CLOSED_NO_ACTION"])("a %s request keeps the client it had", async (status) => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status, client_id: OTHER_CLIENT });
+  test.each([["WON", "CONVERTED_TO_OPPORTUNITY"], ["LOST", "CLOSED_NO_ACTION"]])("a %s request keeps the client it had", async (stage, status) => {
+    repo.get.mockResolvedValue({ quote_request_id: QR, stage, status, client_id: OTHER_CLIENT, settled_at: "2026-11-01" });
     const e = await refusal(() => service.update(client, { id: QR, patch: { client_id: CLIENT } }));
     expect(e.code).toBe("LOCKED");
     expect(repo.update).not.toHaveBeenCalled();
