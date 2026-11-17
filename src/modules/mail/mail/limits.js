@@ -22,6 +22,8 @@
  */
 "use strict";
 
+const brake = require("./sync-brake");
+
 const HOUR_MS = 60 * 60 * 1000;
 
 /** Conservative defaults. A tenant that knows its host's real ceiling raises them. */
@@ -102,13 +104,33 @@ function health(connection = {}, { now = new Date(), staleAfterHours = 6 } = {})
 
   const failures = Number(connection.consecutive_failures || 0);
   if (status === "ERROR" || failures >= 3) {
-    return {
-      level: "DOWN",
-      reason: connection.last_error
-        ? `Failing to connect: ${connection.last_error}`
-        : `Failed to connect ${failures} times in a row.`,
-      failures,
-    };
+    // What the scheduled sync is doing about it (sync-brake.js). A red dot that
+    // does not say "nothing is retrying this, it is waiting for you" leaves the
+    // one person who can fix a refused password waiting for it to fix itself.
+    const held = brake.verdict(connection, now);
+    if (!held.due && held.kind === "signin") {
+      return {
+        level: "DOWN",
+        reason:
+          "Paused: the mail server refused this mailbox's password, so automatic syncing has stopped. "
+          + "Enter the password again to resume.",
+        failures,
+        paused: true,
+      };
+    }
+    const base = connection.last_error
+      ? `Failing to connect: ${connection.last_error}`
+      : `Failed to connect ${failures} times in a row.`;
+    if (!held.due && held.retryAt) {
+      const stop = /[.!?]$/.test(base) ? "" : ".";
+      return {
+        level: "DOWN",
+        reason: `${base}${stop} Trying again in ${brake.waitInWords(held.retryAt, now)}.`,
+        failures,
+        retry_at: held.retryAt.toISOString(),
+      };
+    }
+    return { level: "DOWN", reason: base, failures };
   }
   if (failures > 0) {
     return { level: "WARN", reason: `Last ${failures === 1 ? "attempt" : `${failures} attempts`} failed; still retrying.`, failures };

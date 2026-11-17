@@ -905,3 +905,79 @@ describe("a reply is recorded in the conversation it was written in", () => {
     expect(threads.upsertThread).toHaveBeenCalledWith(DB, expect.objectContaining({ thread_key: "provider:conv-9" }));
   });
 });
+
+/*
+ * What a failure leaves on the row is what the sync brake reads (sync-brake.js;
+ * mail-sync-brake.test.js runs the schedule against it). A reason that cannot
+ * be told apart from any other cannot be braked correctly, and the row used to
+ * get imapflow's raw text: "Command failed" for a refused password.
+ */
+describe("a failing IMAP mailbox is remembered in words the sync brake can read", () => {
+  const { isSignInRefusal } = require("../../src/modules/mail/mail/smtp-error.map");
+  const HOSTED = { ...CONN, imap_host: "mail.co.cm", imap_port: 993 };
+  /** imapflow's refused LOGIN, as it really arrives. */
+  const refusedLogin = () => Object.assign(new Error("Command failed"), {
+    authenticationFailed: true, serverResponseCode: "AUTHENTICATIONFAILED",
+    response: "[AUTHENTICATIONFAILED] Authentication failed.",
+  });
+
+  test("a refused sign-in is stored as one, with the server's words and not 'Command failed'", async () => {
+    repo.getConnection.mockResolvedValue(HOSTED);
+    mockListFolders.mockRejectedValue(refusedLogin());
+    const res = await service.syncConnection(DB, "conn-1", {});
+    const stored = mailboxRepo.bumpFailure.mock.calls[0][2];
+    expect(isSignInRefusal(stored)).toBe(true);
+    expect(stored).toContain("Authentication failed.");
+    expect(stored).not.toContain("Command failed");
+    expect(res.error).toBe(stored);
+  });
+
+  test("a host that cannot be reached is stored as that, naming the host and port", async () => {
+    repo.getConnection.mockResolvedValue(HOSTED);
+    mockListFolders.mockRejectedValue(Object.assign(new Error("Failed to establish connection in required time"), { code: "CONNECT_TIMEOUT" }));
+    await service.syncConnection(DB, "conn-1", {});
+    const stored = mailboxRepo.bumpFailure.mock.calls[0][2];
+    expect(stored).toMatch(/Could not reach mail\.co\.cm on port 993/);
+    expect(isSignInRefusal(stored)).toBe(false);
+  });
+
+  test("a folder that fails for a refused sign-in is stored the same way", async () => {
+    repo.getConnection.mockResolvedValue(HOSTED);
+    mockFetchSince.mockRejectedValue(refusedLogin());
+    await service.syncConnection(DB, "conn-1", {});
+    expect(isSignInRefusal(mailboxRepo.bumpFailure.mock.calls[0][2])).toBe(true);
+    expect(isSignInRefusal(threads.setFolderError.mock.calls[0][2])).toBe(true);
+  });
+});
+
+describe("Test and the sync brake", () => {
+  // Not in this file's mail.repo mock: nothing above runs a Test.
+  beforeEach(() => {
+    repo.hasSmtpCredentials = jest.fn(async () => false);
+  });
+
+  test("a Test that passes puts the failure count back to zero, which releases the brake", async () => {
+    mockVerify.mockResolvedValue({ ok: true });
+    await service.testConnection(DB, "conn-1");
+    expect(repo.updateConnection).toHaveBeenCalledWith(DB, "conn-1", {
+      status: "CONNECTED", last_error: null, consecutive_failures: 0,
+    });
+    expect(mailboxRepo.bumpFailure).not.toHaveBeenCalled();
+  });
+
+  test("a Test the server refuses is counted, so the schedule's own tries do not start from zero", async () => {
+    const refusal = "Receiving (IMAP) was refused: the mail server rejected this mailbox's sign-in (Authentication failed.).";
+    mockVerify.mockResolvedValue({ ok: false, stage: "imap", code: "IMAP_AUTH_FAILED", error: refusal });
+    const result = await service.testConnection(DB, "conn-1");
+    expect(result.ok).toBe(false);
+    expect(repo.setError).toHaveBeenCalledWith(DB, "conn-1", refusal);
+    expect(mailboxRepo.bumpFailure).toHaveBeenCalledWith(DB, "conn-1", refusal);
+  });
+
+  test("a Test that fails for any other reason is not counted against the mailbox", async () => {
+    mockVerify.mockResolvedValue({ ok: false, stage: "imap", code: "IMAP_UNREACHABLE", error: "Could not reach mail.co.cm on port 993" });
+    await service.testConnection(DB, "conn-1");
+    expect(repo.setError).toHaveBeenCalled();
+    expect(mailboxRepo.bumpFailure).not.toHaveBeenCalled();
+  });
+});

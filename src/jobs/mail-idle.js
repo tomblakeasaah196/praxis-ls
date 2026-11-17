@@ -25,10 +25,27 @@ const { enqueue } = require("./queue-producer");
 const { initRedis, closeRedis } = require("../config/redis");
 const { logger } = require("../config/logger");
 const { imapTimeouts } = require("../shared/mail/imap-timeouts");
+const { isImapAuthFailure } = require("../modules/mail/mail/smtp-error.map");
 
 const RECONNECT_MS = 15000;
+/** The longest a reconnect is ever put off. */
+const RECONNECT_MAX_MS = 15 * 60_000;
 const idlers = new Map(); // key → ImapFlow
+/** key → connections in a row that closed before they were ever idling. */
+const failed = new Map();
+/** Keys whose sign-in the server refused: never reconnected by this process. */
+const refused = new Set();
 let stopping = false;
+
+/**
+ * How long to wait before reconnecting. A connection that had been idling and
+ * dropped comes straight back (15 s). One that never got as far as idling
+ * waits twice as long each time, to a ceiling: a host that is down, or is
+ * blocking this server, gains nothing from four knocks a minute.
+ */
+function reconnectDelay(failures) {
+  return Math.min(RECONNECT_MS * 2 ** Math.max(0, failures), RECONNECT_MAX_MS);
+}
 
 function triggerSync(meta) {
   enqueue("mail-sync", "sync", { tenantMeta: meta, env: "live" },
@@ -38,7 +55,7 @@ function triggerSync(meta) {
 
 async function idleConnection(meta, conn) {
   const key = `${meta.db_name}:${conn.email_connection_id}`;
-  if (idlers.has(key) || stopping) return;
+  if (idlers.has(key) || stopping || refused.has(key)) return;
 
   let password = null;
   await registry.withTenantConnection(meta, "live", async (c) => {
@@ -55,14 +72,37 @@ async function idleConnection(meta, conn) {
   });
   idlers.set(key, imap);
 
+  let idling = false;
   imap.on("exists", () => triggerSync(meta));
   imap.on("close", () => {
     idlers.delete(key);
-    if (!stopping) setTimeout(() => idleConnection(meta, conn).catch(() => {}), RECONNECT_MS);
+    if (stopping || refused.has(key)) return;
+    const failures = idling ? 0 : (failed.get(key) || 0) + 1;
+    if (failures) failed.set(key, failures); else failed.delete(key);
+    setTimeout(() => idleConnection(meta, conn).catch(() => {}), reconnectDelay(failures));
   });
 
-  await imap.connect();
+  try {
+    await imap.connect();
+  } catch (err) {
+    // A refused sign-in is refused again fifteen seconds later, and every try
+    // counts towards the mail host's limit for this server's ADDRESS: ten in an
+    // hour and the host blocks it, for every mailbox and every tenant (see
+    // sync-brake.js). So this process stops trying that mailbox. The scheduled
+    // sync is what shows the fault on the mailbox, and a restart of this worker
+    // is what brings a repaired one back.
+    if (isImapAuthFailure(err)) {
+      refused.add(key);
+      idlers.delete(key);
+      logger.warn({ conn: conn.email_connection_id, mailbox: conn.email_address },
+        "[mail-idle] sign-in refused: not reconnecting this mailbox");
+      return;
+    }
+    throw err;
+  }
   await imap.mailboxOpen("INBOX"); // imapflow auto-maintains IDLE while open
+  idling = true;
+  failed.delete(key);
   triggerSync(meta); // catch anything that arrived before we connected
   logger.info({ conn: conn.email_connection_id, mailbox: conn.email_address }, "[mail-idle] idling");
 }
@@ -99,4 +139,4 @@ if (require.main === module) {
   main().catch((err) => { logger.error({ err }, "[mail-idle] failed to start"); process.exit(1); });
 }
 
-module.exports = { main };
+module.exports = { main, reconnectDelay };
