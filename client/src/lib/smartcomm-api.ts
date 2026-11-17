@@ -687,6 +687,21 @@ export type CallTranscriptSide = {
   }[];
 };
 
+/** One turn of a call read as a conversation (the server's `buildTurns`). */
+export type CallTranscriptTurn = {
+  side: CallRecordSide;
+  name: string | null;
+  /** Seconds from the start of the call's recording to when the turn began. */
+  at_s: number;
+  text?: string;
+  language?: "en" | "fr";
+  /** false: this part had no sentence times; the turn sits where its part began. */
+  exact?: boolean;
+  /** A stretch with no transcript, ending at `to_s`. */
+  gap?: boolean;
+  to_s?: number;
+};
+
 export type CallTranscriptView = {
   call_id: string;
   state: CallTranscriptState;
@@ -695,6 +710,10 @@ export type CallTranscriptView = {
   provenance: CallTranscriptProvider;
   text: string;
   sides: CallTranscriptSide[];
+  /** True when the times of the sentences were kept, so `turns` is the call in
+   *  order. False (or absent, from an older server): read `sides`. */
+  timed?: boolean;
+  turns?: CallTranscriptTurn[];
   parts: {
     side: CallRecordSide;
     part_index: number;

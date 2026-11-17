@@ -220,7 +220,7 @@ function gapNote({ gaps, unrecorded = [], names = {}, language = "en" }) {
  * The attributed transcript (guide §4.2): `Caller:` then `Callee:`, each part
  * labelled with its detected language, and each gap marked where it falls.
  */
-function buildAttributedTranscript({ rows, names = {}, gaps = [] }) {
+function buildAttributedTranscript({ rows, names = {}, gaps = [], parts = [] }) {
   const sides = SIDES.map((side) => {
     const mine = rows
       .filter((r) => r.side === side)
@@ -253,7 +253,128 @@ function buildAttributedTranscript({ rows, names = {}, gaps = [] }) {
     .filter((s) => s.parts.length)
     .map((s) => `${s.label}${s.name ? ` (${s.name})` : ""}:\n${s.text}`)
     .join("\n\n");
-  return { sides, text };
+  return { sides, text, ...buildTurns({ rows, parts, names, gaps }) };
+}
+
+/** A pause this long inside one person's speech starts a new turn. */
+const TURN_PAUSE_SECONDS = 6;
+
+/**
+ * Seconds from the start of a side's recording to the start of each of its
+ * parts: the recorded durations of the parts before it, or the nominal length
+ * for one that never arrived. Keyed `side:part_index`.
+ */
+function partOffsets(parts = []) {
+  const at = new Map();
+  for (const side of SIDES) {
+    const mine = parts.filter((p) => p.side === side);
+    const highest = mine.reduce((m, p) => Math.max(m, Number(p.part_index)), 0);
+    let offset = 0;
+    for (let i = 1; i <= highest; i += 1) {
+      at.set(`${side}:${i}`, offset);
+      const p = mine.find((x) => Number(x.part_index) === i);
+      offset += p ? Number(p.duration_seconds) || 0 : PART_NOMINAL_SECONDS;
+    }
+  }
+  return at;
+}
+
+/** The segments a transcript row holds, if they can be used. */
+function usableSegments(row) {
+  const raw = typeof row.segments === "string" ? safeParse(row.segments) : row.segments;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((s) => ({ start: Number(s && s.start), end: Number(s && s.end), text: String((s && s.text) || "").trim() }))
+    .filter((s) => Number.isFinite(s.start) && s.start >= 0 && s.text);
+}
+
+function safeParse(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    /* @silent:parse a segments value that is not JSON is a row with no times:
+       it is shown as its part's words, which is what the row always was. */
+    return null;
+  }
+}
+
+/**
+ * The call as a CONVERSATION: who said what, in order, with when.
+ *
+ * Each side is recorded and transcribed on its own, so the two transcripts
+ * know nothing of each other; what joins them is time. A part starts a known
+ * number of seconds into its side (`partOffsets`), and the speech service
+ * says how far into the part each sentence was said (`segments`, 14510). Both
+ * sides start recording when the media connects, so the two clocks are one to
+ * within about a second, which is enough to say who spoke after whom.
+ *
+ * Sentences are laid on that one clock and gathered into turns: a turn runs
+ * until the other person speaks, or the same person pauses for more than
+ * `TURN_PAUSE_SECONDS`.
+ *
+ * `timed` is false, with no turns, when NO row has times: a call transcribed
+ * before the times were kept. Those are shown as they always were, one block
+ * per person (owner decision, 17 Nov 2026: old calls are left as they are),
+ * because an order invented from two-minute blocks would look like a
+ * conversation and not be one. When SOME parts have no times (a part that went
+ * to the fallback provider) the part appears as one turn at the moment it
+ * began, marked `exact: false`.
+ *
+ * A stretch with no transcript is a turn of its own (`gap: true`), where it
+ * falls, so a missing answer reads as missing rather than as silence.
+ */
+function buildTurns({ rows = [], parts = [], names = {}, gaps = [] }) {
+  const offsets = partOffsets(parts);
+  const pieces = [];
+  let timed = false;
+  for (const r of rows) {
+    const index = Number(r.part_index);
+    const key = `${r.side}:${index}`;
+    const base = offsets.has(key) ? offsets.get(key) : (index - 1) * PART_NOMINAL_SECONDS;
+    const segments = usableSegments(r);
+    if (segments.length) {
+      timed = true;
+      for (const s of segments) {
+        pieces.push({
+          side: r.side, at: base + s.start, end: base + (Number.isFinite(s.end) && s.end >= s.start ? s.end : s.start),
+          text: s.text, language: r.language, exact: true,
+        });
+      }
+    } else if (String(r.text || "").trim()) {
+      pieces.push({ side: r.side, at: base, end: base, text: String(r.text).trim(), language: r.language, exact: false });
+    }
+  }
+  if (!timed) return { timed: false, turns: [] };
+  for (const g of gaps) {
+    pieces.push({ side: g.side, at: Number(g.from_s) || 0, end: Number(g.to_s) || 0, gap: true });
+  }
+  // Earliest first. At the same instant the caller is listed first, so the
+  // order never depends on which side's rows the database returned first.
+  pieces.sort((a, b) => a.at - b.at || (a.side === b.side ? 0 : a.side === "caller" ? -1 : 1));
+
+  const turns = [];
+  for (const p of pieces) {
+    const last = turns[turns.length - 1];
+    if (p.gap) {
+      turns.push({ side: p.side, name: names[p.side] || null, at_s: Math.round(p.at), to_s: Math.round(p.end), gap: true });
+      continue;
+    }
+    const continues = last && !last.gap && last.side === p.side && last.exact === p.exact
+      && p.at - last.end_s <= TURN_PAUSE_SECONDS;
+    if (continues) {
+      last.text = `${last.text} ${p.text}`;
+      last.end_s = Math.max(last.end_s, p.end);
+    } else {
+      turns.push({
+        side: p.side, name: names[p.side] || null, at_s: Math.max(0, Math.round(p.at)), end_s: p.end,
+        text: p.text, language: p.language, exact: p.exact,
+      });
+    }
+  }
+  return {
+    timed: true,
+    turns: turns.map(({ end_s: _end, ...t }) => t),
+  };
 }
 
 /**
@@ -769,6 +890,8 @@ async function transcribePartJob({ withDb, callId, side, partIndex, tenantMeta =
             language,
             provider: outcome.result.provider,
             certified: true,
+            // When each sentence was said (Groq's segments; Gemini gives none).
+            segments: outcome.result.segments || null,
           }],
         });
         return { status: "OK", provider: outcome.result.provider, language };
@@ -1298,6 +1421,7 @@ async function getTranscript(client, { callId, actor }) {
     rows,
     names: { caller: names.caller, callee: names.callee },
     gaps: recording.gaps,
+    parts,
   });
   const anyFlagged = rows.some((r) => r.certified !== true);
   return {
@@ -1308,6 +1432,10 @@ async function getTranscript(client, { callId, actor }) {
     provenance: transcriptProvenance(rows),
     text: built.text,
     sides: built.sides,
+    // The call as a conversation, when the times were kept (see buildTurns).
+    // `timed: false` means read `sides` instead: one block per person.
+    timed: built.timed,
+    turns: built.turns,
     parts: rows.map((r) => ({
       side: r.side,
       part_index: r.part_index,
@@ -1800,6 +1928,8 @@ module.exports = {
   transcriptGaps,
   gapNote,
   buildAttributedTranscript,
+  buildTurns,
+  partOffsets,
   transcriptProvenance,
   provenanceOf,
   summaryPrompt,

@@ -123,3 +123,12 @@ export function transcriptionReasonSentence(reason: string | null | undefined): 
       return null;
   }
 }
+
+/**
+ * True when a transcript should be drawn as a conversation: the times of its
+ * sentences were kept, so there are turns in order. A call transcribed before
+ * that has none and keeps its two blocks (transcript-conversation.tsx).
+ */
+export function isConversation(view: { timed?: boolean; turns?: unknown[] } | null | undefined): boolean {
+  return !!view && view.timed === true && Array.isArray(view.turns) && view.turns.length > 0;
+}

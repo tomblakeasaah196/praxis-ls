@@ -1,0 +1,35 @@
+-- ============================================================================
+-- TENANT DB — 14510 A call transcript keeps WHEN each sentence was said.
+--
+-- A call is recorded per side, in parts of up to two minutes, and each part is
+-- transcribed on its own. The transcript row held the part's words and nothing
+-- about when they were said, so the only honest way to show a call was two
+-- blocks: everything the caller said, then everything the callee said. A
+-- tenant asked for what a transcript is supposed to be (17 Nov 2026): who said
+-- what, in order. "X said this, then Y said this."
+--
+-- The speech service has always returned the time of each sentence with the
+-- words (`verbose_json` segments); it was read for the detected language and
+-- the rest was dropped. This column keeps it.
+--
+-- ── comms_call_transcript.segments ──────────────────────────────────────────
+--
+--   NULL                                     no times: a row written before
+--                                            this, or by a provider that gives
+--                                            none. Shown as it always was.
+--   [{"start": 0.0, "end": 3.4, "text": ""}]  seconds from the start of THIS
+--                                            part's audio, in order.
+--
+-- The offset of a part within its side comes from the recorded durations of
+-- the parts before it (comms_call_recording.duration_seconds), so the two
+-- sides can be laid on one clock when the transcript is read.
+--
+-- No backfill: the audio of older calls is not re-sent to the provider (owner
+-- decision, 17 Nov 2026), and NULL is the honest state of every existing row.
+-- No CHECK: the pipeline is the only writer and cleans what it stores.
+-- ============================================================================
+
+ALTER TABLE comms_call_transcript ADD COLUMN IF NOT EXISTS segments jsonb;
+
+-- DOWN
+-- ALTER TABLE comms_call_transcript DROP COLUMN IF EXISTS segments;

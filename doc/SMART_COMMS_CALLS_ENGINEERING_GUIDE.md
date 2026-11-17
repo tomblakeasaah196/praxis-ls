@@ -298,6 +298,22 @@ Call-specific strategy per chapter; the standing matrix:
   later: that is the other side's ICE recovery window running out, not a
   network fault. Pinned in `call-session.test.ts`, which now also dials as the
   caller (every earlier helper connected as the callee).
+- **The transcript is a conversation (field note FN-4, 17 Nov 2026):** each
+  side is recorded and transcribed on its own, so for a long time a call could
+  only be shown as two blocks, one per person. The speech service has always
+  returned the time of each sentence (`verbose_json` segments); they are now
+  kept on `comms_call_transcript.segments` (14510). `buildTurns` lays both
+  sides on one clock (a part's offset in its side, plus the sentence's offset
+  in the part) and gathers sentences into turns, returned as `timed` and
+  `turns` beside the unchanged `sides`. A call with NO stored times is not
+  given an invented order: `timed` is false and the two blocks are drawn as
+  before. The summary prompt still reads the two-block text: giving it the
+  conversation instead is a separate change, to be judged on the summaries it
+  produces.
+- **A direct conversation is the other person (FN-4):** `comms_group.name`
+  holds what the person who started a DIRECT channel saw, so the other member
+  read their own name on it. The partner is resolved against the viewer
+  (`partner_name`), and the client names a channel with `channelTitle`.
 - **End Call ends the call on this screen (FN-3):** a hang-up the server
   refuses (409, the row already closed) or cannot receive still lands the tab
   in `ended`. The terminal event, if it comes, replaces the local ending with
