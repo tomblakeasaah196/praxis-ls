@@ -13,7 +13,7 @@
  * the carrier. That is the set an operator is asked about; anything less sends
  * them to another screen mid-sentence.
  */
-import { Link } from "react-router-dom";
+import { AccessLink } from "@/components/ui/access-link";
 import { tr } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -201,12 +201,12 @@ export function ItineraryPanel({
           string — so the link landed on a filtered LIST and the operator had to
           click the row they had already chosen on the map.
         */}
-        <Link
+        <AccessLink
           to={`/operations/files?ref=${encodeURIComponent(shipment.ref)}&focus=${encodeURIComponent(shipment.dossierId)}`}
           className="flex w-full items-center justify-center rounded-[11px] border px-3 py-2 text-[13px] font-semibold text-primary-ink transition-colors hover:bg-accent/60"
         >
           Open the operations file
-        </Link>
+        </AccessLink>
       </div>
     </Card>
   );

@@ -59,6 +59,7 @@ export function FileTasksTab({ fileId }: { fileId: string }) {
       // still narrows it), and the file keeps the page behind the panel on
       // the same rows the reader just left.
       const params = new URLSearchParams({ task: id, audience: "all", dossier_id: fileId });
+      // @access:open the task board is where a task opens; a person who can see this file's tasks was given them there
       navigate(`/workspace/tasks?${params.toString()}`);
     },
     [navigate, fileId],

@@ -10,8 +10,8 @@
  * instead of offering a button that cannot work. "Not now" is remembered on
  * this device; Settings → Calls keeps the full check and a Test ring.
  */
+import { AccessLink } from "@/components/ui/access-link";
 import * as React from "react";
-import { Link } from "react-router-dom";
 import { tr } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -93,9 +93,9 @@ export function CallRingPrompt({ callsAvailable }: { callsAvailable: boolean | n
         {install
           ? tr("On iPhone and iPad, calls ring only in the installed app: tap Share, then Add to Home Screen, and open Praxis from the new icon.")
           : tr("Without this, a call rings here only while the app is open on screen.")}{" "}
-        <Link to="/settings/calls" className="text-primary-ink underline-offset-2 hover:underline">
+        <AccessLink to="/settings/calls" className="text-primary-ink underline-offset-2 hover:underline">
           {tr("Check this device")}
-        </Link>
+        </AccessLink>
       </p>
       <div className="mt-2.5 flex items-center gap-2">
         {!install && (

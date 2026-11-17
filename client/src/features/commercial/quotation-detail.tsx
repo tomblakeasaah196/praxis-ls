@@ -7,6 +7,7 @@
  * to a dossier) are different jobs opened at different moments.
  */
 
+import { AccessLink } from "@/components/ui/access-link";
 import * as React from "react";
 import { tr } from "@/lib/i18n";
 import { tenant } from "@/lib/api-client";
@@ -351,16 +352,16 @@ function Provenance({ data }: { data: Row | null }) {
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {request ? (
-          <Link className="text-primary-ink underline" to={`/sales/quote-requests/${request.quote_request_id}`}>
+          <AccessLink className="text-primary-ink underline" whenDenied="text" to={`/sales/quote-requests/${request.quote_request_id}`}>
             {tr("Answers")} {request.public_ref || tr("a quote request")}
-          </Link>
+          </AccessLink>
         ) : (
           <span className="text-muted-foreground">{tr("Not linked to a quote request")}</span>
         )}
         {costing ? (
-          <Link className="text-primary-ink underline" to={`/costing/costing/${costing.costing_id}`}>
+          <AccessLink className="text-primary-ink underline" whenDenied="text" to={`/costing/costing/${costing.costing_id}`}>
             {tr("Priced from costing")} {costing.doc_number || ""}
-          </Link>
+          </AccessLink>
         ) : null}
         {data.margin_percent != null ? (
           <Pill tone="blue">

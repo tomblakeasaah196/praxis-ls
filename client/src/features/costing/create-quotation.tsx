@@ -21,6 +21,7 @@
  * Offered on a costing that has been validated or approved (auditor default):
  * on any other the button is disabled and says why.
  */
+import { AccessLink } from "@/components/ui/access-link";
 import * as React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { quotation as shared } from "@shared";
@@ -200,9 +201,9 @@ function PreviewBody({
         <div className="rounded-lg border p-3">
           <p className="micro">{tr("Margin applied to services")}</p>
           <p className="num text-lg font-semibold text-foreground">{p.target_margin_percent} %</p>
-          <Link className="micro text-primary-ink underline" to="/settings/commercial">
+          <AccessLink className="micro text-primary-ink underline" to="/settings/commercial">
             {tr("Change it in Settings › Commercial")}
-          </Link>
+          </AccessLink>
         </div>
         <div className="rounded-lg border p-3">
           <p className="micro">{tr("Total (HT)")}</p>

@@ -3,13 +3,13 @@
  *
  * Split out of `features/finance/pages.tsx` in Phase 3 (audit F7).
  */
+import { AccessLink } from "@/components/ui/access-link";
 import { OperationsFilePicker } from "@/components/operations/file-picker";
 import { useDossierRefs } from "@/lib/use-dossier-refs";
 import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { useFocusRow } from "@/lib/use-focus-row";
-import { Link } from "react-router-dom";
 import { tenant, ApiError } from "@/lib/api-client";
 import { dateFmt, money as moneyFmt } from "@/lib/format";
 import { errMsg } from "@/lib/use-resource";
@@ -327,12 +327,12 @@ export const ProformasPage = () => {
         description="Advance payments received against a proforma — posts to 4191 (customer advances), not revenue. Priced offers with line items live in Quotations."
         action={
           <div className="flex items-center gap-3">
-            <Link
+            <AccessLink
               to="/sales/quotations"
               className="text-sm text-muted-foreground transition-colors hover:text-primary-ink"
             >
               View quotations →
-            </Link>
+            </AccessLink>
             <Button onClick={() => setOpen(true)}>Record advance</Button>
           </div>
         }

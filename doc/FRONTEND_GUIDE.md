@@ -1516,6 +1516,59 @@ the type level, because the maps are `Record<string, …>`. The lookup now
 normalises, but the lesson is the general one: if copy is a key somewhere, grep
 for it before you change it.
 
+### 3.19 Offer a destination only to someone who can open it
+
+**A link, button, card or tab that leads into a module is drawn only for a role
+that holds it.** Enforced by `npm run check:access` (from `client/`), in
+`npm run ci` and CI.
+
+The server is the security boundary and always was: every API route checks the
+grant, and a refusal carries no data. This rule is about not OFFERING what will
+be refused. The ribbon, the rail, the phone drawer, the ⌘K palette, the Settings
+cards and the Control Tower launcher all ask before they draw. An audit on
+17 Nov 2026 found the links inside screens did not: 67 of them, each ending for
+the wrong role on "… is not part of your access". The tenant's instruction was
+to hide what a person cannot use.
+
+Three ways to ask, in order of preference:
+
+| You have | Use |
+| --- | --- |
+| a link | `<AccessLink to="/master/clients">`: draws nothing when the reader cannot open it |
+| a link whose words are DATA (a file reference, a client's name, a document number) | `<AccessLink whenDenied="text">`: the words stay, the link goes |
+| a button, a `navigate()` call, or a list of cards | `const canOpen = useCanOpenRoute()` then `canOpen("/finance/invoices") && <Button…>`, or `cards.filter((c) => canOpen(c.to))` |
+
+`<HubCrumb>` and `<TabbedHub>` ask for themselves: a breadcrumb names its area
+for everyone and links it only where it can be opened, and a hub draws only the
+tabs the role holds. That last one closes three holes at once. The strip used to
+show every section; the bare hub address rendered the first tab whatever its
+module; and an `inPlace` hub (Warehouse, Fleet) switched tabs without changing
+the address, so the route gate never looked again.
+
+**Hide or keep the words?** Hide an ACTION ("Open Appearance", "New invoice").
+Keep DATA as plain text: removing a costing number from a quotation because the
+reader cannot open Costing takes a fact off the screen, not a door.
+
+**While access is unknown, offer everything.** `useCanOpenRoute` answers yes
+until `/permissions/mine` has come back, and outside the app shell altogether.
+Over-offering for one frame is recoverable; a screen whose links vanish and
+return is not.
+
+**A deliberate exception** takes `// @access:open <reason>` on the line or the
+one above, and the reason is required.
+
+**What the gate cannot see.** It reads literal paths, so a destination built
+entirely at run time is invisible to it. It compares AREAS, so a link between
+two modules of the same area is not flagged. And it checks that the file asks
+about the right path, not that the answer is wired to the right element. It is
+a floor. The page that says "not part of your access" is still there behind it,
+for an address somebody typed or a link somebody sent them.
+
+**Own-account pages** (`/security/my-security`, `/notifications`) need no grant:
+they are about the signed-in person, and their APIs need a session and nothing
+else. The list is `OWN_ACCOUNT` in `lib/route-access.ts`, and it is short on
+purpose.
+
 ## 4. Accessibility — the floor, not the aspiration
 
 WCAG 2.1 AA is the minimum. `eslint-plugin-jsx-a11y` runs on every build and the primitives

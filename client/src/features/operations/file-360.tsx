@@ -36,8 +36,9 @@
  * field mask, PRD §7.3/§11.3), so the Money tab shows a "restricted" note rather
  * than a number in that case. Do not "fix" a blank margin here — it is a grant.
  */
+import { AccessLink } from "@/components/ui/access-link";
 import * as React from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { tr } from "@/lib/i18n";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -452,12 +453,13 @@ function PeopleTab({
               a file has a costing was the one place you could not open it. */}
           {people?.costing?.doc_number &&
             (people.costing.costing_id ? (
-              <Link
+              <AccessLink
                 className="num micro underline-offset-2 hover:underline"
+                whenDenied="text"
                 to={`/costing/costing/${people.costing.costing_id}`}
               >
                 {people.costing.doc_number}
-              </Link>
+              </AccessLink>
             ) : (
               <span className="num micro">{people.costing.doc_number}</span>
             ))}
@@ -550,9 +552,9 @@ function DocumentsTab({ d }: { d: api.DossierOverview }) {
         render={(r) => (
           <DocRow
             label={
-              <Link className="num text-sm font-medium text-primary-ink underline underline-offset-2" to={`/costing/costing/${r.costing_id}`}>
+              <AccessLink whenDenied="text" className="num text-sm font-medium text-primary-ink underline underline-offset-2" to={`/costing/costing/${r.costing_id}`}>
                 {r.ref || r.costing_id.slice(0, 8)}
-              </Link>
+              </AccessLink>
             }
           >
             <Pill tone={tone(r.status)}>{r.status ? statusLabel(r.status) : "—"}</Pill>
@@ -569,9 +571,9 @@ function DocumentsTab({ d }: { d: api.DossierOverview }) {
         render={(r) => (
           <DocRow
             label={
-              <Link className="num text-sm font-medium text-primary-ink underline underline-offset-2" to={`/costing/cash-requests/${r.cash_request_id}`}>
+              <AccessLink whenDenied="text" className="num text-sm font-medium text-primary-ink underline underline-offset-2" to={`/costing/cash-requests/${r.cash_request_id}`}>
                 {r.ref || r.cash_request_id.slice(0, 8)}
-              </Link>
+              </AccessLink>
             }
           >
             <Pill tone={tone(r.status)}>{r.status || "—"}</Pill>

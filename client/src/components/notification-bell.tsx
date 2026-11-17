@@ -7,6 +7,7 @@
  */
 import * as React from "react";
 import { Link } from "react-router-dom";
+import { useCanOpenRoute } from "@/lib/route-access";
 import { useQueryClient } from "@tanstack/react-query";
 import { refreshScreen, samePlace } from "@/lib/open-in-app";
 import { notificationLink } from "@/lib/notification-link";
@@ -89,7 +90,13 @@ function NotificationRow({
   onMarkRead: () => void;
 }) {
   const queryClient = useQueryClient();
-  const target = notificationLink(n);
+  // A notification is information and is always shown. It is a LINK only
+  // when the reader can open where it points: the address comes from the
+  // server, and a row that opened "… is not part of your access" told the
+  // reader about something and then refused to show it.
+  const canOpen = useCanOpenRoute();
+  const linked = notificationLink(n);
+  const target = linked && canOpen(linked.url) ? linked : null;
   const dot = (
     <span
       aria-hidden

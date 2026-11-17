@@ -25,7 +25,11 @@ const prefs = vi.hoisted(() => ({
   stored: { noiseSuppression: null, doNotDisturb: null, quietHours: null, hideLastSeen: null } as Record<string, unknown>,
   save: vi.fn(),
 }));
-vi.mock("@/lib/preferences", () => ({
+// The real module, with the two call-preference calls replaced. A stub of the
+// WHOLE module broke the page's breadcrumb, which asks the shell what the
+// reader can open and the shell's default reads `EMPTY_SHELL_PREFS` from here.
+vi.mock("@/lib/preferences", async (orig) => ({
+  ...(await orig<typeof import("@/lib/preferences")>()),
   fetchCallPrefs: vi.fn(async () => ({ ...prefs.stored })),
   saveCallPrefs: vi.fn(async (p: Record<string, unknown>) => {
     prefs.save(p);

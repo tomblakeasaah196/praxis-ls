@@ -4,6 +4,7 @@
  * workflows / approvals) into one entry that opens this hub; each card routes to
  * its screen.
  */
+import { useCanOpenRoute } from "@/lib/route-access";
 import { pageShell } from "@/lib/layout";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/data-list";
@@ -113,6 +114,13 @@ function ChevIcon() {
 }
 
 export function GovernanceHub() {
+  // A card only for a destination this person can open, and a heading only
+  // while it still has a card under it.
+  const canOpen = useCanOpenRoute();
+  const sections = SECTIONS.map((s) => ({
+    ...s,
+    cards: s.cards.filter((c) => canOpen(c.to)),
+  })).filter((s) => s.cards.length > 0);
   return (
     <section className={pageShell.wide}>
       <PageHeader
@@ -121,7 +129,7 @@ export function GovernanceHub() {
       />
 
       <div className="mt-2 flex flex-col gap-8">
-        {SECTIONS.map((s) => (
+        {sections.map((s) => (
           <div key={s.heading}>
             <p className="micro mb-3">{s.heading}</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

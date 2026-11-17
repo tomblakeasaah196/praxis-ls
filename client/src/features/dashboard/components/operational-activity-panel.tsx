@@ -18,7 +18,7 @@
  * EXCEPTION-FIRST ORDER. Files needing a location come before ordinary activity,
  * because one is a thing to fix and the other is a thing to note.
  */
-import { Link } from "react-router-dom";
+import { AccessLink } from "@/components/ui/access-link";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { Pill } from "@/components/ui/pill";
@@ -141,12 +141,12 @@ export function OperationalActivityPanel({
           </ul>
           {needsCount > 0 && (
             <div className="border-t px-4 py-2.5">
-              <Link
+              <AccessLink
                 to="/operations/files"
                 className="flex w-full items-center justify-center rounded-[11px] border px-3 py-2 text-[13px] font-semibold text-primary-ink transition-colors hover:bg-accent/60"
               >
                 Fix locations in Operations
-              </Link>
+              </AccessLink>
             </div>
           )}
         </>

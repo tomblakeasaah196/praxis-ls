@@ -47,6 +47,7 @@
  *    rows on the loaded page — which is the defect `<Pagination>`'s own header
  *    comment was written about.
  */
+import { useCanOpenRoute } from "@/lib/route-access";
 import * as React from "react";
 import { tr } from "@/lib/i18n";
 import { useNavigate } from "react-router-dom";
@@ -89,6 +90,10 @@ const SUB_OF_GROUP: Record<api.CommercialGroup, SubTab> = {
  *  its detail stacked in a modal over this one. */
 function DeepLink({ href, children }: { href: string; children: React.ReactNode }) {
   const navigate = useNavigate();
+  // The number or reference is a fact about the row and is always shown. It
+  // opens its record only for someone who can open that module.
+  const canOpen = useCanOpenRoute();
+  if (!canOpen(href)) return <>{children}</>;
   return (
     <button
       type="button"

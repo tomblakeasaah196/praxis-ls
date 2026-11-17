@@ -19,6 +19,7 @@
  * so it exists for the deep links and for anyone reading the history of this
  * folder. Deleting it is fine once you are confident nothing points here.
  */
+import { AccessLink } from "@/components/ui/access-link";
 import { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { pageShell } from "@/lib/layout";
@@ -87,9 +88,9 @@ export function WorkspacePage() {
             : the month.
           </li>
           <li>
-            <Link to="/approvals" className="text-primary-ink hover:underline">
+            <AccessLink to="/approvals" whenDenied="text" className="text-primary-ink hover:underline">
               Approvals
-            </Link>
+            </AccessLink>
             : the queue this page used to summarise.
           </li>
           <li>

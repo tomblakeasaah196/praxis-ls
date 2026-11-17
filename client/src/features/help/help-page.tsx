@@ -2,6 +2,7 @@
  * Help center (example). A simple in-app guide + FAQ + shortcuts + contact.
  * Reachable from the floating action cluster's Help button and /help.
  */
+import { useCanOpenRoute } from "@/lib/route-access";
 import { pageShell } from "@/lib/layout";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/cn";
@@ -55,6 +56,10 @@ const SHORTCUTS: { keys: string; what: string }[] = [
 ];
 
 export function HelpPage() {
+  // A guide is offered for a part of the product the reader can open. One
+  // that points nowhere (`to` unset) is reading, and is always shown.
+  const canOpen = useCanOpenRoute();
+  const guides = GUIDES.filter((g) => !g.to || canOpen(g.to));
   return (
     <section className={cn(pageShell.reading, "pb-16")}>
       <header className="mb-6 border-b border-border pb-4">
@@ -73,7 +78,7 @@ export function HelpPage() {
       </header>
 
       <div className="mb-8 grid gap-3 sm:grid-cols-2">
-        {GUIDES.map((g) => (
+        {guides.map((g) => (
           <Link
             key={g.title}
             to={g.to || "/"}

@@ -5,6 +5,7 @@
  * drives the `is_active` lifecycle the rest of the system checks (payroll,
  * contracts, dispatch).
  */
+import { useCanOpenRoute } from "@/lib/route-access";
 import { pageShell } from "@/lib/layout";
 import { SplitPane } from "@/components/ui/split-pane";
 import { isDesktopNow } from "@/lib/use-media-query";
@@ -1665,6 +1666,7 @@ function EmployeeDetail({
   const active = employee.is_active !== false;
 
   const navigate = useNavigate();
+  const canOpen = useCanOpenRoute();
   /*
    * ── WHAT LOADS EAGERLY, AND WHAT WAITS ─────────────────────────────────
    *
@@ -1859,7 +1861,7 @@ function EmployeeDetail({
                 the login they already have. Only the employee id travels in
                 the URL; the target screen reads the record itself, so the form
                 cannot be pre-filled with whatever a hand-edited link says.  */}
-            {account.data &&
+            {account.data && canOpen("/security/users") &&
               (account.data.provisioned ? (
                 <Button
                   size="sm"
@@ -2239,6 +2241,7 @@ export function EmployeesPage() {
   const [q, setQ] = React.useState("");
   const [creating, setCreating] = React.useState(false);
   const navigate = useNavigate();
+  const canOpen = useCanOpenRoute();
 
   const rows = React.useMemo(() => employees.data || [], [employees.data]);
   /*
@@ -2408,7 +2411,8 @@ export function EmployeesPage() {
             // person's details filled in. The navigation belongs here, not in
             // the wizard: it leaves the HR area, and the screen that owns the
             // route is the one that should decide to leave it.
-            if (provision) navigate(`/security/users?provision=${e.employee_id}`);
+            if (provision && canOpen("/security/users"))
+              navigate(`/security/users?provision=${e.employee_id}`);
           }}
         />
       )}
