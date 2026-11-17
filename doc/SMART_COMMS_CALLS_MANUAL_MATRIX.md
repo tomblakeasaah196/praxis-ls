@@ -168,6 +168,33 @@ Permission matrix, "T"). Each run counts against the tenant's 3 a day.
 
 ---
 
+## 5e. The other side's microphone, and where the sound plays
+
+**Nothing in this section has been run on a real device.** The mute signal is
+covered by unit tests on both sides. The sound controls rest on how each
+browser lists and routes audio devices, which a test runner cannot observe:
+the unit tests pin the DECISIONS against the documented device lists
+(`client/src/features/comms/call/audio-route.test.ts`), and these rows are the
+only proof that a phone actually moves the sound.
+
+| # | Script | A | B | C | D |
+| --- | --- | --- | --- | --- | --- |
+| M1 | In a call, the OTHER person taps **Mute**. Within about a second this screen says *"<name>'s microphone is muted"* under "Your microphone is on"; they unmute and the line goes. Repeat with the call minimised (docked bar) and from the call's own conversation (thread strip): both say *"Their microphone is muted"*. | PENDING | PENDING | PENDING | PENDING |
+| M2 | The other person mutes, then this device loses its network for ~15 s (airplane mode) and comes back. After *"Reconnecting…"* clears, the muted line is correct, whichever way the other person changed it meanwhile. | PENDING | PENDING | PENDING | PENDING |
+| M3 | With a screen reader on (VoiceOver, TalkBack, NVDA): the other person mutes and unmutes. The sentence is read out once each time, without stealing focus. | PENDING | PENDING | PENDING | PENDING |
+| M4 | Hang up while the other person is muted, then call them again. The new call starts with no muted line. | PENDING | PENDING | PENDING | PENDING |
+| A1 | **Android Chrome, nothing plugged in.** In a call the screen shows **Speaker / Earpiece** with Speaker selected, and the voice is on the loudspeaker. Tap **Earpiece**: the voice moves to the earpiece within about a second, the call does not drop, the timer keeps counting, the other side hears no gap longer than a moment. Tap **Speaker**: it moves back. Write down the Android and Chrome versions. | — | PENDING | — | — |
+| A2 | Android: mute, then switch route. Still muted (the other side hears nothing and sees the muted line); unmute works on the new route. | — | PENDING | — | — |
+| A3 | Android, recording on, **Yard noise filter** on: switch route twice mid-call, speaking before and after each switch. After hang-up the transcript has the words from before, between and after the switches, and the other side heard the filter keep working. | — | PENDING | — | — |
+| A4 | Android, Bluetooth headset connected: a third choice **Headset** shows and is selected. Speaker and Earpiece each move the sound; Headset moves it back. Plug in a wired headset instead. On Android 12 and later, expect the same three choices with Headset selected. On Android 11 and below, expect the switch to disappear (that Chrome takes the earpiece off its list while a wired or USB headset is in). Either way the call carries on. Write down which you saw and the Android version. | — | PENDING | — | — |
+| A5 | **iPhone (installed app and Safari tab):** no Speaker / Earpiece switch and no output chooser appear at any point in a call. | PENDING | — | — | — |
+| A6 | If a switch does not take on a device (the line *"The sound could not be switched. It is still playing where it was."* appears): the call is still up, both sides still hear each other, and the sound is where it was. Write down the device. | — | PENDING | — | — |
+| O1 | **Desktop with two output devices** (speakers and a headset): a **Sound Output** chooser shows, on System Default. Pick the headset: the voice moves to it and the call does not drop. Pick the speakers: it moves back. | — | — | PENDING | PENDING |
+| O2 | Desktop with ONE output device: no chooser. Desktop Safari (no `setSinkId`): no chooser, whatever is plugged in. | — | — | PENDING | PENDING |
+| O3 | Desktop: choose the headset, then unplug it mid-call. The voice comes back on the system default and the chooser shows System Default. | — | — | PENDING | PENDING |
+
+---
+
 ## 6. Sign-off
 
 A row is only signed by a human who did it on the device in that column. Copy

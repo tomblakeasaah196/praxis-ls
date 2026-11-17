@@ -250,7 +250,7 @@ function initSocket(httpServer) {
  *     reaches this socket (on whichever replica holds it) or after
  *     `cacheMs`, whichever is first;
  *   - an SDP is a string of at most 64 KB; a candidate is its four known
- *     fields, at most 2 KB, or null;
+ *     fields, at most 2 KB, or null; a mute state is one boolean;
  *   - a token bucket per socket, shared by every call event.
  * A dropped signal gets no reply: an error would tell a prober there is a
  * call it is not in.
@@ -356,6 +356,16 @@ function attachCallSignals(socket) {
   // offer if it has no answer. No payload beyond the call id.
   socket.on("call:ready", (p) => {
     relay("call:ready", asObject(p).callId, {});
+  });
+  // The sender's microphone is muted or live, for the other party's call
+  // screen. Relayed like every signal above: only a party to the live call,
+  // only to the other party, never stored. `muted` must be a boolean and is
+  // the only state that travels; `sync: true` asks the receiver to answer
+  // with its own state (a socket that was away missed the last one).
+  socket.on("call:mute", (p) => {
+    const { callId, muted, sync } = asObject(p);
+    if (typeof muted !== "boolean") return;
+    relay("call:mute", callId, sync === true ? { muted, sync: true } : { muted });
   });
   socket.on("call:ring_ack", (p) => {
     const { callId, channel } = asObject(p);

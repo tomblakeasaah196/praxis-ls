@@ -317,6 +317,7 @@ export function ThreadList({
   onLoadMore,
   hasMore,
   emptyHint,
+  filter,
 }: {
   threads: Thread[];
   loading: boolean;
@@ -336,6 +337,12 @@ export function ThreadList({
   onLoadMore: () => void;
   hasMore: boolean;
   emptyHint: string;
+  /**
+   * The Filter control, drawn at the right of this bar while nothing is
+   * selected. Passed in whole rather than as a value and a callback: the list
+   * renders rows, and what narrows them is the page's business.
+   */
+  filter?: React.ReactNode;
 }) {
   const allSelected = threads.length > 0 && selected.size === threads.length;
   const toggleAll = (on: boolean) =>
@@ -482,13 +489,13 @@ export function ThreadList({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="ml-auto"
                   disabled={bulkBusy}
                   onClick={onEmptyFolder}
                 >
                   {folder === "TRASH" ? tr("Empty the bin") : tr("Empty spam")}
                 </Button>
               )}
+            {filter && <span className="ml-auto flex items-center">{filter}</span>}
           </>
         )}
       </div>

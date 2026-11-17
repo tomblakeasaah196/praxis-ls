@@ -189,6 +189,91 @@ describe("PR-4: the callee's `call:ready` (E3)", () => {
   });
 });
 
+describe("`call:mute`: the other party's microphone state", () => {
+  const U3 = "33333333-3333-3333-3333-333333333333";
+  const mutesTo = (uid) => mockEmits.filter((e) => e.room === `t:acme:live:u:${uid}` && e.event === "call:mute");
+
+  test("is relayed to the other participant only, with the call id and the boolean and nothing else", async () => {
+    const s = fakeSocket();
+    realtime.attachCallSignals(s);
+    s.emit("call:mute", { callId: CALL, muted: true, name: "smuggled", sdp: "v=0" });
+    await flush();
+    expect(mutesTo(U2)).toHaveLength(1);
+    expect(mutesTo(U2)[0].payload).toEqual({ call_id: CALL, muted: true });
+    // Nobody else hears it: not the sender's own devices, not a third person.
+    expect(mockEmits).toHaveLength(1);
+  });
+
+  test("unmuting travels the same way, in either direction", async () => {
+    const s = fakeSocket();
+    s.data.userId = U2;
+    realtime.attachCallSignals(s);
+    s.emit("call:mute", { callId: CALL, muted: false });
+    await flush();
+    expect(mutesTo(U1).map((e) => e.payload)).toEqual([{ call_id: CALL, muted: false }]);
+    expect(mutesTo(U2)).toHaveLength(0);
+  });
+
+  test("`sync` passes only as the literal true (the request to be answered)", async () => {
+    const s = fakeSocket();
+    realtime.attachCallSignals(s);
+    s.emit("call:mute", { callId: CALL, muted: false, sync: true });
+    s.emit("call:mute", { callId: CALL, muted: false, sync: "yes" });
+    s.emit("call:mute", { callId: CALL, muted: false, sync: 1 });
+    await flush();
+    expect(mutesTo(U2).map((e) => e.payload)).toEqual([
+      { call_id: CALL, muted: false, sync: true },
+      { call_id: CALL, muted: false },
+      { call_id: CALL, muted: false },
+    ]);
+  });
+
+  test("a state that is not a boolean is dropped before the database is asked", async () => {
+    const s = fakeSocket();
+    realtime.attachCallSignals(s);
+    for (const muted of ["true", 1, 0, null, undefined, {}, []]) s.emit("call:mute", { callId: CALL, muted });
+    await flush();
+    expect(mockEmits).toHaveLength(0);
+    expect(mockDb.connections).toBe(0);
+  });
+
+  test("someone who is not a party to the call reaches nobody", async () => {
+    const s = fakeSocket();
+    s.data.userId = U3;
+    realtime.attachCallSignals(s);
+    s.emit("call:mute", { callId: CALL, muted: true });
+    await flush();
+    expect(mockEmits).toHaveLength(0);
+  });
+
+  test.each(["ENDED", "FAILED", "DECLINED", "NO_ANSWER", "CANCELLED"])("is dropped once the call is %s", async (status) => {
+    mockDb.call.status = status;
+    const s = fakeSocket();
+    realtime.attachCallSignals(s);
+    s.emit("call:mute", { callId: CALL, muted: true });
+    await flush();
+    expect(mockEmits).toHaveLength(0);
+  });
+
+  test("a call id that is not a uuid never reaches the database", async () => {
+    const s = fakeSocket();
+    realtime.attachCallSignals(s);
+    s.emit("call:mute", { callId: "'; drop table", muted: true });
+    await flush();
+    expect(mockDb.connections).toBe(0);
+    expect(mockEmits).toHaveLength(0);
+  });
+
+  test("shares the socket's rate limit with every other call signal", async () => {
+    const s = fakeSocket();
+    realtime.attachCallSignals(s);
+    for (let i = 0; i < 500; i += 1) s.emit("call:mute", { callId: CALL, muted: i % 2 === 0 });
+    await flush();
+    expect(mutesTo(U2).length).toBeGreaterThan(0);
+    expect(mutesTo(U2).length).toBeLessThanOrEqual(realtime.SIGNAL_LIMITS.burst);
+  });
+});
+
 describe("C5: the socket server's buffer is bounded", () => {
   test("maxHttpBufferSize is far below socket.io's 1 MB default and fits a 64 KB SDP", () => {
     const http = require("http");
@@ -208,7 +293,7 @@ describe("a malformed event cannot take the process down", () => {
   test.each([null, 42, "x", [1], true])("payload %p on every call event is ignored without throwing", async (payload) => {
     const s = fakeSocket();
     realtime.attachCallSignals(s);
-    for (const event of ["call:offer", "call:answer", "call:ice", "call:ring_ack"]) {
+    for (const event of ["call:offer", "call:answer", "call:ice", "call:ring_ack", "call:ready", "call:mute"]) {
       expect(() => s.emit(event, payload)).not.toThrow();
     }
     await flush();

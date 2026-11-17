@@ -307,22 +307,25 @@ describe("Outbox", () => {
 describe("the rail reaches both", () => {
   it("names them where somebody looking for a lost email would look", async () => {
     const { FolderRail } = await import("./folder-rail");
+    const onChange = vi.fn();
     renderScreen(
       <FolderRail
         mailboxes={[]}
         folders={[]}
-        labels={[]}
         selection={{ folder: "INBOX" }}
-        onChange={vi.fn()}
+        onChange={onChange}
         humanUnread={0}
         systemUnread={0}
+        outboxWaiting={1}
       />,
       {},
     );
-    // The "Not Sent Yet" section starts shut: open it first, as the operator would.
-    await userEvent.click(screen.getByRole("button", { name: "Not Sent Yet" }));
+    // Both are plain rows of the flat rail: nothing to open first. Drafts is
+    // always there; the Outbox is there because something is waiting in it.
     const nav = screen.getByRole("navigation", { name: "Mail folders" });
-    expect(within(nav).getByRole("button", { name: "My drafts" })).toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: "Outbox" })).toBeInTheDocument();
+    await userEvent.click(within(nav).getByRole("button", { name: "Drafts" }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ pending: "DRAFTS" }));
+    await userEvent.click(within(nav).getByRole("button", { name: /Outbox/ }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ pending: "OUTBOX" }));
   });
 });

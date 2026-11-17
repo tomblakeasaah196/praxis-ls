@@ -1,5 +1,5 @@
 /**
- * Signatures → Designer. One person's own signature: the fields they type, a
+ * Setup → My Mailbox → My Signature. One person's own signature: the fields they type, a
  * live card, and the PNG download.
  *
  * WHAT IS NOT EDITABLE HERE, AND WHY. Name, job title, company, address, P.O.

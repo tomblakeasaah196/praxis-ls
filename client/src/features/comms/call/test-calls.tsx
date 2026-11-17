@@ -1,5 +1,9 @@
 /**
- * Comms → Setup → Test calls (calls audit PR-7; owner decision O5).
+ * Settings → Calls → Test Calls (calls audit PR-7; owner decision O5).
+ *
+ * Moved here from Comms → Setup on 16 Nov 2026: it was the one tab of an
+ * email setup page that was about calls, and Call Settings is where somebody
+ * with a call problem looks.
  *
  * Proves, from this device and the server, that every step of a call works,
  * and names the one that does not. Offered only to someone holding the Test
@@ -98,7 +102,7 @@ function StepRow({ step }: { step: DiagStep }) {
   );
 }
 
-export function TestCallsTab({ deps = browserDeps }: { deps?: DeviceDeps }) {
+export function TestCalls({ deps = browserDeps }: { deps?: DeviceDeps }) {
   const toast = useToast();
   const [runs, setRuns] = React.useState<DiagRunRow[] | null>(null);
   const [cap, setCap] = React.useState<DiagCap | null>(null);

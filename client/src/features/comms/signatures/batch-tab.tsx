@@ -1,5 +1,5 @@
 /**
- * Signatures → Batch. Render one PNG per selected member of staff and hand back
+ * Setup → Company Mail → Signatures → Generate for Staff. Render one PNG per selected member of staff and hand back
  * a single ZIP.
  *
  * WHY THE LIST IS STAFF AND NOT A TYPING GRID. The generator this replaces had

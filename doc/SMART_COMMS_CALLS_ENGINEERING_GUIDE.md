@@ -375,6 +375,7 @@ echoed back as errors — silence for lies).
 | `call:declined` / `call:busy` (callee → server) | `{ callId, reason? }` | terminal status; notifies caller |
 | `call:offer` / `call:answer` (participant → server) | `{ callId, sdp }` | relay to the other participant; **never stored** |
 | `call:ice` (participant → server) | `{ callId, candidate }`        | relay; never stored                             |
+| `call:mute` (participant → server) | `{ callId, muted, sync? }`    | relay to the other participant as `{ call_id, muted, sync? }`; never stored. `muted` must be a boolean or the event is dropped. Display only: mute itself stays local (the track is disabled), this is so the other screen can say why it is silent. `sync: true` asks the receiver to answer with its own state |
 | `call:hangup` (either → server) | `{ callId, reason }`             | status ENDED (or terminal if earlier); both notified |
 | `call:ended` (server → both)  | `{ callId, durationSeconds, reason }` | UI closes; (PR-2) pipeline starts            |
 | `call:summary_ready` (server → caller) | `{ callId, status }`       | a toast pointing at Comms › Calls; the draft is on `/comms/calls/:id` |
@@ -403,6 +404,35 @@ remote track ─▶ <audio autoplay playsinline> (keep-alive, §4.8)
   outbound track, per-user toggle (default ON — the corridor has forklifts),
   off-switch in the call overlay. This is the "better than a phone in a yard"
   layer; the baseline AEC/NS/AGC is what every app ships.
+- **The other side's microphone:** mute is local (`track.enabled`), so the
+  other party hears silence and cannot tell a muted colleague from a dead
+  line. Each side therefore tells the other with `call:mute` (§4.3): on every
+  change, when media connects, and again with `sync: true` after an ICE
+  restart recovers or the socket reconnects, because an event relayed while a
+  socket was away is gone. The receiver shows "<name>'s microphone is muted"
+  in a polite live region on the call screen, the docked bar and the thread
+  strip. The state lives only while the call's engine does
+  (`call-session.ts` `peerMuted`).
+- **Where the sound plays** (`call/audio-route.ts`, pure and unit-tested; the
+  device decisions cannot be checked on real phones from CI, see the manual
+  matrix §5e). One control or none:
+  - *Android Chrome, Speaker / Earpiece.* A page cannot choose a phone's
+    output route. Chrome lists communication INPUT devices ("Speakerphone",
+    "Headset earpiece", "Wired headset", "Bluetooth headset") and the output
+    route follows the one in use, so the engine opens the microphone on that
+    `deviceId` (exact) and swaps it in with `replaceTrack`
+    (`CallEngine.switchMicrophone`). Offered only when both a speakerphone and
+    an earpiece are listed, so it never shows on an iPhone or a desktop. The
+    new microphone is opened before the old one is released, so any failure
+    leaves the call as it was. Mute carries over; the noise filter's graph is
+    rebuilt on the new microphone (the raw new microphone is sent meanwhile);
+    the recorder starts its next part on it (`CallRecorder.retarget`, one
+    early part boundary per move).
+  - *Desktop, output device.* Offered only where
+    `HTMLMediaElement.prototype.setSinkId` exists and more than one real
+    output device is listed (Chrome's `default` and `communications` alias
+    entries are not counted); applied to the call's audio element
+    (`CallEngine.setOutputDevice`).
 
 ### 4.5 The transcript pipeline
 

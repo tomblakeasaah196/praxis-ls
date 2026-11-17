@@ -12,7 +12,7 @@
  *      two is the failure the per-id result shape exists to prevent.
  */
 import * as React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
@@ -524,7 +524,7 @@ describe("the conversation view", () => {
     // the conversation is ("This is a person" on a button).
     await openMoreMenu();
     await userEvent.click(
-      screen.getByRole("menuitem", { name: "Reclassify as mail from a person" }),
+      screen.getByRole("menuitem", { name: "Not a notice: move to Inbox" }),
     );
     expect(props.onStream).toHaveBeenCalledWith("HUMAN");
   });
@@ -558,120 +558,86 @@ describe("the conversation view", () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 
-  /* ── THE WORK RAIL IS COLLAPSIBLE (review §2 #22) ───────────────────────────
+  /* ── WHAT IS LEFT OF THE WORK PANEL (tenant review, 16 Nov 2026) ────────────
    *
-   * The rail was a fixed 22rem column that nothing could shut. On a 1280px
-   * laptop — what the operations desk actually runs — that is a third of the
-   * pane permanently spent, and long quoted correspondence became a column of
-   * six words. The fix has to hold four things at once, and each is a way the
-   * obvious implementation goes wrong:
+   * A 22rem column used to sit beside every conversation, or a spine marked
+   * "Work panel" when it was shut: claim, assign, status, snooze, a record with
+   * six tabs, action cards, document filing, team notes and sharing. The
+   * review kept two things and asked for the rest off the screen:
    *
-   *   1. There is ALWAYS A WAY BACK. Hiding a panel with no affordance to
-   *      restore it is how a feature gets lost; the binding chip lives in this
-   *      rail and it is the most consequential control in the mailbox.
-   *   2. COLLAPSED STILL SPEAKS. Unbound and overdue are what an operator scans
-   *      for, so they survive the collapse as a badge. Hiding the panel must
-   *      not hide the queue.
-   *   3. IT IS A PREFERENCE, NOT PER-THREAD STATE. Reset it on thread change
-   *      and someone reading forty threads re-collapses it forty times.
-   *   4. THE PANEL OUTLIVES A BROKEN localStorage. Safari's private mode throws
-   *      on `setItem`; a toggle that throws is worse than one that forgets.
+   *   1. LINKING the conversation to a file or a client, as two plain items in
+   *      the `⋯` menu.
+   *   2. THE SUMMARY, as one button.
+   *
+   * These pin both the two that stayed and the absence of what went, because a
+   * panel removed by deleting its mount point comes back the first time
+   * somebody finds the component and wonders why nothing renders it.
    */
-  describe("collapsing the work rail", () => {
-    beforeEach(() => localStorage.clear());
-
-    it("starts collapsed, so the reading pane gets the width by default", () => {
-      renderView(<ThreadView thread={detail()} {...props} />);
-      // The rail's own landmark is absent, not merely narrow.
-      expect(document.getElementById("mail-work-rail")).toBeNull();
-      expect(screen.getByRole("button", { expanded: false, name: /Work panel/ })).toBeInTheDocument();
-    });
-
-    it("OPENS AND SHUTS AGAIN — the way back is on screen in both states", async () => {
-      renderView(<ThreadView thread={detail()} {...props} />);
-
-      await userEvent.click(screen.getByRole("button", { name: /Work panel/ }));
-      expect(document.getElementById("mail-work-rail")).not.toBeNull();
-
-      // …and the open rail carries its own collapse control. A panel you can
-      // only shut from outside itself is one people shut by reloading.
-      await userEvent.click(screen.getByRole("button", { name: /Hide/ }));
-      expect(document.getElementById("mail-work-rail")).toBeNull();
-      expect(screen.getByRole("button", { name: /Work panel/ })).toBeInTheDocument();
-    });
-
-    it("REMEMBERS THE CHOICE ACROSS THREADS, because it is a preference", async () => {
-      const { unmount } = renderView(<ThreadView thread={detail()} {...props} />);
-      await userEvent.click(screen.getByRole("button", { name: /Work panel/ }));
-      expect(localStorage.getItem("comms:work-rail-open")).toBe("true");
-      unmount();
-
-      // A different thread, freshly mounted — the rail is still open. This is
-      // the assertion that fails if someone "tidies up" by resetting the state
-      // in the thread-change effect next to `replying`.
-      renderView(<ThreadView thread={detail({ email_thread_id: "t1", subject: "Another" })} {...props} />);
-      expect(document.getElementById("mail-work-rail")).not.toBeNull();
-    });
-
-    it("says, while collapsed, that the thread is not bound to anything", () => {
-      renderView(<ThreadView thread={detail({ entity_ref: null })} {...props} />);
-      expect(screen.getByTitle("Not linked to a client or a file yet")).toBeInTheDocument();
-    });
-
-    it("lets an overdue reply outrank the unbound mark", () => {
-      // Both conditions at once: a deadline beats a classification, because a
-      // deadline is the one with a consequence attached to the clock.
+  describe("what is left of the work panel", () => {
+    it("THERE IS NO WORK PANEL, open or shut", () => {
       renderView(<ThreadView thread={detail({ entity_ref: null, sla_breached: true })} {...props} />);
-      expect(screen.getByTitle("A first reply is overdue")).toBeInTheDocument();
-      expect(screen.queryByTitle("Not linked to a client or a file yet")).toBeNull();
-    });
-
-    it("shows NO badge when the thread is bound and on time", () => {
-      // A badge that is always there is not a signal.
-      renderView(<ThreadView thread={detail({ entity_ref: "CLI-1", sla_breached: false })} {...props} />);
+      expect(document.getElementById("mail-work-rail")).toBeNull();
+      expect(screen.queryByRole("button", { name: /Work panel/ })).toBeNull();
+      for (const gone of [/Claim this/, /Hand over/, /Bring it back/, /Team Notes/, /The Record/, /What You Can Start/, /^Access$/]) {
+        expect(screen.queryByText(gone)).toBeNull();
+      }
+      // Nothing scans the thread for a deadline any more, so nothing badges it.
       expect(screen.queryByTitle(/overdue|Not linked/)).toBeNull();
     });
 
-    it("still toggles when localStorage is unavailable", async () => {
-      // Safari private mode, and any browser with site data blocked. The
-      // preference is expendable; the panel is not.
-      //
-      // Scoped to THIS key rather than the whole Storage prototype: a blanket
-      // throw also takes out `token-store`, and the test would then be proving
-      // that an unauthenticated screen fails to render.
-      const realGet = Storage.prototype.getItem;
-      const realSet = Storage.prototype.setItem;
-      const denied = (k: string) => k === "comms:work-rail-open";
-      const setItem = vi
-        .spyOn(Storage.prototype, "setItem")
-        .mockImplementation(function (this: Storage, k: string, v: string) {
-          if (denied(k)) throw new Error("QuotaExceededError");
-          return realSet.call(this, k, v);
-        });
-      const getItem = vi
-        .spyOn(Storage.prototype, "getItem")
-        .mockImplementation(function (this: Storage, k: string) {
-          if (denied(k)) throw new Error("SecurityError");
-          return realGet.call(this, k);
-        });
-      try {
-        renderView(<ThreadView thread={detail()} {...props} />);
-        await userEvent.click(screen.getByRole("button", { name: /Work panel/ }));
-        expect(document.getElementById("mail-work-rail")).not.toBeNull();
-      } finally {
-        setItem.mockRestore();
-        getItem.mockRestore();
-      }
+    it("summarises ONLY when asked, and can be put away again", async () => {
+      renderScreen(<ThreadView thread={detail()} {...props} />, {
+        routes: {
+          "/mail/assist/summary": {
+            email_thread_id: "t1", summary: "Maersk wants the demurrage waived.",
+            language: "en", cached: false, message_count: 6,
+          },
+        },
+      });
+      // Opening a conversation spends no model call: the fixture above would
+      // be on screen by now if anything had asked for it.
+      await screen.findByText("The latest reply.");
+      expect(screen.queryByText("Maersk wants the demurrage waived.")).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: "Summarise" }));
+      expect(await screen.findByText("Maersk wants the demurrage waived.")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Hide" }));
+      expect(screen.queryByText("Maersk wants the demurrage waived.")).toBeNull();
     });
 
-    it("has no accessibility violations in either state", async () => {
-      const { container, unmount } = renderView(<ThreadView thread={detail()} {...props} />);
-      expect(await axe(container)).toHaveNoViolations();
-      // `aria-controls` points at an element that only exists when open, which
-      // is exactly why the collapsed button carries `aria-expanded={false}`.
-      await userEvent.click(screen.getByRole("button", { name: /Work panel/ }));
-      expect(await axe(container)).toHaveNoViolations();
-      unmount();
+    it("offers linking as TWO PLAIN ITEMS on a conversation that is not linked", async () => {
+      renderView(<ThreadView thread={detail({ entity_ref: null })} {...props} />);
+      await openMoreMenu();
+      expect(screen.getByRole("menuitem", { name: "Link to a file or client" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Turn into a record" })).toBeInTheDocument();
+    });
+
+    it("opens the link dialog on the picker, not on a button that reveals it", async () => {
+      renderView(<ThreadView thread={detail({ entity_ref: null })} {...props} />);
+      await openMoreMenu();
+      await userEvent.click(screen.getByRole("menuitem", { name: "Link to a file or client" }));
+      const dialog = await screen.findByRole("dialog", { name: "Link to a File or Client" });
+      expect(within(dialog).getByLabelText("Record reference")).toBeInTheDocument();
+    });
+
+    it("a linked conversation offers to change the link, and not to become a second record", async () => {
+      renderView(
+        <ThreadView thread={detail({ entity_ref: "client:c-1", entity_label: "Maersk Cameroun" })} {...props} />,
+      );
+      // What it is linked to stays on the header, where it always was.
+      expect(screen.getByText("Maersk Cameroun")).toBeInTheDocument();
+      await openMoreMenu();
+      expect(screen.getByRole("menuitem", { name: "Change the linked record" })).toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: "Turn into a record" })).toBeNull();
+    });
+
+    it("does not offer Archive twice", async () => {
+      // It has its own button on the strip; "Move to Archive" one click away
+      // in the menu was the same action a second time.
+      renderView(<ThreadView thread={detail()} {...props} folder="INBOX" />);
+      expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+      await openMoreMenu();
+      expect(screen.queryByRole("menuitem", { name: "Move to Archive" })).toBeNull();
+      expect(screen.getByRole("menuitem", { name: "Move to Trash" })).toBeInTheDocument();
     });
   });
 });
@@ -800,7 +766,6 @@ function RailHarness({
     <FolderRail
       mailboxes={mailboxes}
       folders={folders}
-      labels={[]}
       selection={sel}
       onChange={setSel}
       humanUnread={4}
@@ -811,60 +776,52 @@ function RailHarness({
 }
 
 describe("the folder rail", () => {
-  // The rail remembers open sections in localStorage: clear it so each test
-  // starts from the default — everything shut except the folders.
-  beforeEach(() => window.localStorage.clear());
+  const ALL = [
+    folder(),
+    folder({ email_folder_id: "f-d", canonical: "DRAFTS", display_name: "Drafts", unread_count: 0 }),
+    folder({ email_folder_id: "f-s", canonical: "SENT", display_name: "Sent", unread_count: 0 }),
+    folder({ email_folder_id: "f-a", canonical: "ARCHIVE", display_name: "Archive", unread_count: 0 }),
+    folder({ email_folder_id: "f-j", canonical: "SPAM", display_name: "Junk", unread_count: 0 }),
+    folder({ email_folder_id: "f-t", canonical: "TRASH", display_name: "Bin", unread_count: 0 }),
+  ];
+  const rows = () =>
+    within(screen.getByRole("navigation", { name: "Mail folders" }))
+      .getAllByRole("button")
+      .map((b) => (b.textContent || "").replace(/\d+$/, ""));
 
-  it("puts triage above the folders, because it is the decision that matters", () => {
-    render(<RailHarness folders={[folder()]} />);
+  it("IS ONE FLAT LIST OF FOLDERS, and nothing else", () => {
+    // Tenant review, 16 Nov 2026. The rail was five collapsible sections
+    // holding sixteen rows. It is the folders, in the order every mail client
+    // uses, with no section to open and nothing to expand.
+    render(<RailHarness folders={ALL} />);
+    expect(rows()).toEqual(["Inbox", "Notices", "Drafts", "Sent", "Archive", "Spam", "Trash"]);
     const nav = screen.getByRole("navigation", { name: "Mail folders" });
-    const text = nav.textContent || "";
-    expect(text.indexOf("Triage")).toBeLessThan(text.indexOf("Folders"));
+    expect(nav.querySelector("[aria-expanded]")).toBeNull();
   });
 
-  it("starts with every section shut except the folders", () => {
-    render(<RailHarness folders={[folder()]} />);
-    expect(screen.getByRole("button", { name: "Triage" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: "Views" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: "Not Sent Yet" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: "Folders" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.queryByRole("button", { name: /People/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Starred/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /My drafts/ })).toBeNull();
-    expect(screen.getByRole("button", { name: /Inbox/ })).toBeInTheDocument();
+  it("HOLDS NO FILTERS: no views, no triage lanes, no labels", () => {
+    // "These are filters, right?" They are, and they live behind the one
+    // Filter control above the conversation list.
+    render(<RailHarness folders={ALL} />);
+    for (const gone of ["Triage", "Views", "Not Sent Yet", "Folders", "My Labels", "People", "Everything", "Unread", "Starred", "VIP", "With Attachments", "My drafts"]) {
+      expect(screen.queryByRole("button", { name: gone })).toBeNull();
+    }
   });
 
-  it("opens a shut section from its header", async () => {
-    render(<RailHarness folders={[folder()]} />);
-    expect(screen.queryByRole("button", { name: /Notices/ })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Triage" }));
-    expect(screen.getByRole("button", { name: /Notices/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Triage" })).toHaveAttribute("aria-expanded", "true");
+  it("draws ONE Drafts row, the composer's own, not the mail server's folder", async () => {
+    // The server's DRAFTS folder is where our drafts are NOT (no provider
+    // draft sync), so offering both was two rows called Drafts, one of them
+    // always empty.
+    render(<RailHarness folders={ALL} />);
+    expect(screen.getAllByRole("button", { name: "Drafts" })).toHaveLength(1);
+    await userEvent.click(screen.getByRole("button", { name: "Drafts" }));
+    expect(screen.getByRole("button", { name: "Drafts" })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: /Inbox/ })).not.toHaveAttribute("aria-current");
   });
 
-  it("names the current selection on a shut section that holds it", () => {
-    // The default selection is Triage's People, and Triage starts shut — the
-    // header says where you are rather than leaving the rail with nothing
-    // visibly active.
+  it("shows the caller's unread counts on Inbox and Notices", () => {
     render(<RailHarness folders={[folder()]} />);
-    const nav = screen.getByRole("navigation", { name: "Mail folders" });
-    expect(nav.textContent || "").toContain("People");
-  });
-
-  it("remembers open sections across visits", async () => {
-    const { unmount } = render(<RailHarness folders={[folder()]} />);
-    await userEvent.click(screen.getByRole("button", { name: "Triage" }));
-    unmount();
-    render(<RailHarness folders={[folder()]} />);
-    expect(screen.getByRole("button", { name: "Triage" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: /People/ })).toBeInTheDocument();
-  });
-
-  it("shows the caller's unread counts on both streams", async () => {
-    render(<RailHarness folders={[folder()]} />);
-    await userEvent.click(screen.getByRole("button", { name: "Triage" }));
-    const people = screen.getByRole("button", { name: /People/ });
-    expect(people).toHaveTextContent("4");
+    expect(screen.getByRole("button", { name: /Inbox/ })).toHaveTextContent("4");
     expect(screen.getByRole("button", { name: /Notices/ })).toHaveTextContent("11");
   });
 
@@ -914,20 +871,25 @@ describe("the folder rail", () => {
     expect(screen.getByText(/SELECT failed/).closest("li")).toHaveTextContent("Spam: SELECT failed");
   });
 
-  it("opens Not Sent Yet when something is waiting in the Outbox, with its count", async () => {
+  it("shows the Outbox only while something is waiting in it, with its count", async () => {
     const { rerender } = render(<RailHarness folders={[folder()]} />);
     expect(screen.queryByRole("button", { name: /Outbox/ })).not.toBeInTheDocument();
     rerender(<RailHarness folders={[folder()]} outboxWaiting={2} />);
     expect(await screen.findByRole("button", { name: /Outbox/ })).toHaveTextContent("2");
+    // And it stays while it is the row being read, even once it has emptied:
+    // a row that vanishes from under the person reading it is a worse surprise
+    // than an empty list.
+    await userEvent.click(screen.getByRole("button", { name: /Outbox/ }));
+    rerender(<RailHarness folders={[folder()]} outboxWaiting={0} />);
+    expect(screen.getByRole("button", { name: /Outbox/ })).toHaveAttribute("aria-current", "true");
   });
 
   it("marks the selected entry for assistive technology, not just visually", async () => {
     render(<RailHarness folders={[folder()]} />);
-    await userEvent.click(screen.getByRole("button", { name: "Triage" }));
-    expect(screen.getByRole("button", { name: /People/ })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: /Inbox/ })).toHaveAttribute("aria-current", "true");
     await userEvent.click(screen.getByRole("button", { name: /Notices/ }));
     expect(screen.getByRole("button", { name: /Notices/ })).toHaveAttribute("aria-current", "true");
-    expect(screen.getByRole("button", { name: /People/ })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("button", { name: /Inbox/ })).not.toHaveAttribute("aria-current");
   });
 
   it("has no accessibility violations", async () => {

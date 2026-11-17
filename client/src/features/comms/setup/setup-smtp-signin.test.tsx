@@ -24,7 +24,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderScreen } from "@/test/screen-harness";
-import { ConnectionsTab } from "./mailboxes";
+import { EditMailboxSettings } from "./mailboxes";
 import { MyMailboxTab } from "./my-mailbox";
 import {
   smtpSignInFrom,
@@ -59,12 +59,20 @@ const CONN = {
   auth_user: "ops@jbspraxis.com",
 };
 
-/** Open the admin edit drawer for one connection. */
+/**
+ * Open the settings dialog for one connection.
+ *
+ * It takes an id and looks the connection up itself (`GET /mail/connections`
+ * answers only for the owner), which is the path both setup tabs go through
+ * since the Connections tab was folded into them.
+ */
 async function openEditor(conn: Record<string, unknown>) {
   const user = userEvent.setup();
-  renderScreen(<ConnectionsTab />, { routes: { "/mail/connections": [conn] } });
-  await screen.findAllByText("ops@jbspraxis.com");
-  await user.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+  renderScreen(
+    <EditMailboxSettings connectionId="c-1" onClose={() => {}} onDone={() => {}} />,
+    { routes: { "/mail/connections": [conn] } },
+  );
+  await screen.findAllByDisplayValue("ops@jbspraxis.com");
   return user;
 }
 

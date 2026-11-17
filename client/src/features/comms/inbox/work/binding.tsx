@@ -74,20 +74,20 @@ export function BindingChip({
   entityRef,
   entityLabel,
   onChanged,
-  onOpenRecord,
+  startOpen = false,
 }: {
   threadId: string;
   entityRef: string | null;
   /** Display name for the bound record, when the server resolved one. */
   entityLabel?: string | null;
   onChanged: () => void;
-  /** Opens the dossier drawer. Only offered once something is bound. */
-  onOpenRecord: (ref: string) => void;
+  /** Open on the picker rather than on the button that reveals it. */
+  startOpen?: boolean;
 }) {
   const suggestions = useResource(() => api.listSuggestions(threadId), [threadId]);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [manual, setManual] = React.useState("");
-  const [showManual, setShowManual] = React.useState(false);
+  const [showManual, setShowManual] = React.useState(startOpen);
 
   const open = (suggestions.data || []).filter((s) => s.status === "SUGGESTED");
 
@@ -108,14 +108,12 @@ export function BindingChip({
     <section className="space-y-2" aria-label={tr("What this thread is about")}>
       {entityRef ? (
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onOpenRecord(entityRef)}
+          <span
             title={entityRef}
-            className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium hover:border-primary"
+            className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium"
           >
             {entityLabel || humanizeRef(entityRef)}
-          </button>
+          </span>
           <Button
             size="sm"
             variant="ghost"
@@ -127,7 +125,7 @@ export function BindingChip({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          {tr("This thread is not linked to a record yet, so the drawer, the action cards and the assistant have nothing to work from.")}
+          {tr("This conversation is not linked to a record yet.")}
         </p>
       )}
 

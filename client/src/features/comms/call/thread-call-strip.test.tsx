@@ -81,6 +81,28 @@ describe("the thread strip", () => {
     await userEvent.click(screen.getByRole("button", { name: "End call" }));
     expect(S.hangup).toHaveBeenCalled();
   });
+
+  it("says when the other side's microphone is muted, in a live region under the row", () => {
+    S.state.phase = "in_call";
+    S.state.peerMuted = false;
+    const view = render(<ThreadCallStrip groupId="g1" />);
+    const region = view.container.querySelector("[data-call-peer-muted]") as HTMLElement;
+    expect(region.getAttribute("aria-live")).toBe("polite");
+    expect(region).toBeEmptyDOMElement();
+
+    S.state.peerMuted = true;
+    view.rerender(<ThreadCallStrip groupId="g1" />);
+    expect(view.container.querySelector("[data-call-peer-muted]")).toBe(region);
+    expect(screen.getByText("Their microphone is muted")).toBeInTheDocument();
+    // In the strip's flow, not floated over the thread.
+    expect(view.container.innerHTML).not.toMatch(/absolute/);
+
+    // Not while the call is still connecting, whatever a stale flag says.
+    S.state.phase = "connecting";
+    view.rerender(<ThreadCallStrip groupId="g1" />);
+    expect(screen.queryByText("Their microphone is muted")).not.toBeInTheDocument();
+    S.state.peerMuted = false;
+  });
 });
 
 const live = (path: string) => render(

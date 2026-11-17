@@ -22,7 +22,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { PhoneDownIcon, MicIcon, MicOffIcon, MinimizeIcon } from "@/components/ui/icons";
 import type { QualitySample } from "./call-engine";
 import type { Phase } from "./call-session";
-import { RecordingNotice, QualityLine } from "./call-parts";
+import type { AudioState, PhoneRoute } from "./audio-route";
+import { RecordingNotice, QualityLine, PeerMutedLine, SoundControl } from "./call-parts";
 import { fmtClock, noiseUnavailable } from "./call-time";
 
 type Props = {
@@ -31,6 +32,12 @@ type Props = {
   elapsedS: number;
   warning: boolean;
   muted: boolean;
+  /** The other side's microphone is muted (`call:mute`). */
+  peerMuted?: boolean;
+  /** The sound control this device can offer, if any (audio-route.ts). */
+  audio?: AudioState;
+  onAudioRoute?: (route: PhoneRoute) => void;
+  onAudioOutput?: (deviceId: string) => void;
   /** Is this call being recorded (the tenant's switch, and not declined). */
   recordingEnabled?: boolean;
   /** Who processes the audio, for the recording notice (G2). */
@@ -53,10 +60,10 @@ type Props = {
 };
 
 export function CallOverlay({
-  name, phase, elapsedS, warning, muted,
+  name, phase, elapsedS, warning, muted, peerMuted = false, audio,
   recordingEnabled = false, processors = "", recordingLost = 0,
   quality, recovering = false, noise, peerOffline = false, audioBlocked = false,
-  onTapToHear, onHangup, onMute, onToggleNoise, onMinimise,
+  onTapToHear, onHangup, onMute, onToggleNoise, onMinimise, onAudioRoute, onAudioOutput,
 }: Props) {
   const who = name || tr("Someone");
   const status =
@@ -115,11 +122,21 @@ export function CallOverlay({
         )}
         {quality && phase === "in_call" && <QualityLine quality={quality} />}
         {phase === "in_call" && (
-          <p className="text-xs text-muted-foreground" aria-live="polite">
-            {muted ? tr("Your microphone is muted") : tr("Your microphone is on")}
-          </p>
+          // Both microphones, one under the other: mine, then theirs when it
+          // is muted. One block, so the second line adds no banner gap while
+          // it is empty.
+          <div className="flex flex-col">
+            <p className="text-xs text-muted-foreground" aria-live="polite">
+              {muted ? tr("Your microphone is muted") : tr("Your microphone is on")}
+            </p>
+            <PeerMutedLine muted={peerMuted} name={name} />
+          </div>
         )}
       </div>
+
+      {audio && phase === "in_call" && (
+        <SoundControl audio={audio} onRoute={onAudioRoute} onOutput={onAudioOutput} />
+      )}
 
       {noise && phase === "in_call" && (
         <div className="flex flex-col gap-1">

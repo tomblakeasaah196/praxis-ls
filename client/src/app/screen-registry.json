@@ -281,7 +281,7 @@
       "route": "/settings/calls",
       "area": "settings",
       "module_key": "MOD-64",
-      "purpose": "Set the company's yard noise-filter default, the recording retention window, and your own noise-filter preference.",
+      "purpose": "Set the company's yard noise-filter default, the recording retention window, and your own noise-filter preference. Test Calls checks every step of a call on this device and the server.",
       "actions": [],
       "title_fr": "Appels"
     },
@@ -1893,21 +1893,20 @@
       "route": "/comms/setup",
       "area": "comms",
       "module_key": "MOD-72",
-      "purpose": "How this company's email is configured: personal and shared mailboxes, who may work each one, and which sender every part of the product mails from.",
-      "actions": [],
-      "title_fr": "Configuration e-mail"
-    },
-    {
-      "id": "comms_signatures",
-      "title": "Email Signatures",
-      "route": "/comms/signatures",
-      "area": "comms",
-      "module_key": "MOD-70",
-      "purpose": "The signature card as it goes out: a person's own typed fields and PNG download, plus (MOD-70) batch generation for staff and which template each part of the company gets. Name, title, address and logo are derived; colours follow tenant branding.",
+      "purpose": "How this company's email is configured, in two tabs. My Mailbox: connect, test, sync and disconnect your own address, and set your own email signature (typed phones, pronouns, PNG download). Company Mail: every mailbox and who may work it, which address each section of the product sends from, the system email login, and the signature templates with batch generation for staff.",
       "actions": [
-        "save_my_signature"
+        "save_my_signature",
+        "list_signature_staff",
+        "list_signature_templates"
       ],
-      "title_fr": "Signatures e-mail"
+      "synonyms": [
+        "signature",
+        "signatures",
+        "email signature",
+        "signature e-mail",
+        "mailbox setup"
+      ],
+      "title_fr": "Configuration e-mail"
     },
     {
       "id": "comms_calls",
@@ -1956,19 +1955,6 @@
         "comms_call_summary"
       ],
       "title_fr": "Appel"
-    },
-    {
-      "id": "settings_email_signatures",
-      "title": "Email Signatures",
-      "route": "/settings/email-signatures",
-      "area": "settings",
-      "module_key": "MOD-70",
-      "purpose": "Own signature profile (typed phones, pronouns) plus admin template list. Derived fields come from HR and update on the next send.",
-      "actions": [
-        "list_signature_staff",
-        "list_signature_templates"
-      ],
-      "title_fr": "Signatures e-mail"
     },
     {
       "id": "settings_deliverability",
@@ -2554,7 +2540,7 @@
       "route": "/comms/mail",
       "area": "comms",
       "module_key": "MOD-64",
-      "purpose": "Email: the shared inbox, threads and conversions to leads, tasks and requests.",
+      "purpose": "Email: read and answer mail by folder (Inbox, Notices, Drafts, Sent, Archive, Spam, Trash), filter by unread, starred or attachment, link a conversation to a file or client, and summarise it.",
       "actions": [],
       "synonyms": [
         "e-mail",
@@ -2731,6 +2717,11 @@
       "route": "/settings/client-support",
       "to": "/comms/clients",
       "why": "Client support became the Client inbox; client and thread are carried."
+    },
+    {
+      "route": "/settings/email-signatures",
+      "to": "/comms/setup",
+      "why": "Email signatures folded into Comms Setup (2026-11-16); the query string is kept."
     }
   ],
   "section_hubs": [
@@ -2739,7 +2730,6 @@
       "source": "client/src/features/comms/hub.tsx",
       "sections": [
         "setup",
-        "signatures",
         "mail",
         "calls",
         "clients"
