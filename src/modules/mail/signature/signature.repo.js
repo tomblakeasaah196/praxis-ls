@@ -16,17 +16,29 @@ const getTemplateByKey = (client, key) =>
   client.query(`SELECT * FROM signature_template WHERE key = $1`, [key])
     .then((r) => r.rows[0] || null);
 
+/**
+ * The template a person's signature is drawn from.
+ *
+ * ── ONE SIGNATURE FOR THE COMPANY (tenant decision, 17 Nov 2026) ────────────
+ *
+ * This used to look for a DEPARTMENT default first: Customer Support, HR,
+ * Operations and Sales were seeded onto copies of the classic layout and
+ * Finance onto Formal / legal, so only people outside those five departments
+ * ever got the layout the company had chosen. Nobody had decided that; it was
+ * a seed, and the screen that showed it was a list of eight templates the
+ * tenant asked to have taken away.
+ *
+ * So a department no longer changes the answer. `department` is still
+ * accepted, because every caller passes the person it is resolving for, and
+ * it is deliberately not read. The DEPARTMENT rows stay in the table untouched:
+ * this is a rule in code, not a rewrite of tenant data, and putting the lookup
+ * back is all it takes to reverse it.
+ *
+ * An ENTITY default still wins over the company's. A second legal entity has a
+ * different name, address and registration, which is not a matter of taste.
+ */
+// eslint-disable-next-line no-unused-vars -- see the note above: accepted, not read
 async function defaultTemplate(client, { department = null, entityId = null } = {}) {
-  if (department) {
-    const d = await client.query(
-      `SELECT * FROM signature_template
-        WHERE is_active AND is_default AND scope_kind = 'DEPARTMENT'
-          AND lower(scope_value) = lower($1)
-        LIMIT 1`,
-      [department],
-    );
-    if (d.rows[0]) return d.rows[0];
-  }
   if (entityId) {
     const e = await client.query(
       `SELECT * FROM signature_template
@@ -62,6 +74,45 @@ async function updateTemplate(client, id, fields) {
     vals,
   );
   return rows[0] || null;
+}
+
+/**
+ * Make one template THE company layout.
+ *
+ * `ux_signature_template_default` allows one default per scope and is not
+ * deferrable, so setting `is_default` on a second TENANT row while the first
+ * still holds it is refused by the database. That is what the plain PATCH did,
+ * which is why "Make default" could never have worked. The old default is
+ * cleared first and the two statements are one transaction: between them the
+ * company has no default at all, and a signature resolved in that gap would
+ * come back empty.
+ *
+ * The scope is set too. Formal / legal is seeded as Finance's department
+ * template, and a company that wants it for everyone is choosing a layout, not
+ * a department.
+ */
+async function setCompanyDefault(client, id) {
+  await client.query("BEGIN");
+  try {
+    await client.query(
+      `UPDATE signature_template SET is_default = false, updated_at = now()
+        WHERE scope_kind = 'TENANT' AND scope_value IS NULL AND is_default
+          AND signature_template_id <> $1`,
+      [id],
+    );
+    const { rows } = await client.query(
+      `UPDATE signature_template
+          SET is_default = true, scope_kind = 'TENANT', scope_value = NULL, updated_at = now()
+        WHERE signature_template_id = $1
+        RETURNING *`,
+      [id],
+    );
+    await client.query("COMMIT");
+    return rows[0] || null;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  }
 }
 
 const getProfile = (client, userId) =>
@@ -315,6 +366,7 @@ const usersForEntity = (client, entityId) =>
 
 module.exports = {
   listTemplates, getTemplate, getTemplateByKey, defaultTemplate, updateTemplate,
+  setCompanyDefault,
   getProfile, upsertProfile, loadPerson, loadEntity, loadBranding, listSignatureStaff,
   getCached, putCached, deleteCachedForUser, deleteCachedForIdentity,
   deleteAllIdentityCached, deleteAllCached,

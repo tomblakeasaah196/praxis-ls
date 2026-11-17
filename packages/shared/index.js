@@ -43,6 +43,7 @@ const quoteRequest = require("./schemas/quote-request");
 const lead = require("./schemas/lead");
 const quotation = require("./schemas/quotation");
 const search = require("./schemas/search");
+const companyProfile = require("./schemas/company-profile");
 
 // Named `exports.x =` assignments, NOT `module.exports = { x }`.
 //
@@ -216,3 +217,8 @@ exports.quotation = quotation;
 // palette to match pages, the API to read "facture 0042" as a type hint), and
 // the accent fold both compare with — the same table as 14382's search_fold().
 exports.search = search;
+// Company Profile (Sales lean revamp, PR 5): the nine sections' shapes and word
+// limits, a share link, publishing, and the logo and cover uploads. Shared
+// because the editor saves each field as it is left and must refuse exactly
+// what the API refuses, or a tenant learns a promise was too long from a 422.
+exports.companyProfile = companyProfile;

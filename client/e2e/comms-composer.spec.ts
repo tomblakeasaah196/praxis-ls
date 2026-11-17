@@ -166,16 +166,13 @@ for (const width of [320, 390, 1440]) {
     expect(popup!.y + popup!.height).toBeLessThanOrEqual(
       (await plus.boundingBox())!.y + 1,
     );
-    for (const name of [
-      "Insert Emoji",
-      "Attach File",
-      "Attach Record / Context",
-      "Templates / Quick Phrases",
-      "Schedule Message",
-    ])
+    for (const name of ["Insert Emoji", "Attach File", "Attach Record"])
       await expect(
         menu.getByRole("button", { name, exact: true }),
       ).toBeVisible();
+    // Three tools, not five. Quick phrases and scheduling left the chat
+    // composer with the clean-up of 17 Nov 2026.
+    await expect(menu.getByRole("button")).toHaveCount(3);
     await page.screenshot({
       path: test.info().outputPath("composer-tools.png"),
     });
@@ -235,48 +232,43 @@ test("send, up-arrow edit, edited marker, and failure keep the words", async ({
   await expect(editor).toHaveText("Keep me after network failure");
 });
 
-test("personal quick phrases can be created and inserted, scheduling posts durable payload", async ({
-  page,
-}) => {
+/**
+ * THE CHAT PAGE IS A LIST AND A CONVERSATION (tenant clean-up, 17 Nov 2026).
+ *
+ * Two tests stood here and below: creating a quick phrase and scheduling a
+ * message, then rescheduling and cancelling one. Both tools were removed from
+ * the chat composer on the tenant's choice, with the info panel, the list's
+ * filter pills, the appearance control and the two hint lines under the box.
+ * This asserts the absence in a real browser at desktop width, which is where
+ * the third pane used to be drawn and where jsdom cannot say whether it is.
+ */
+test("the chat page is two panes with no standing hints", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const { requests } = await openChat(page);
-  await page.getByRole("button", { name: "Add to message" }).click();
-  await page.getByRole("button", { name: "Templates / Quick Phrases" }).click();
-  await page.getByRole("button", { name: "Add phrase" }).click();
-  await page.getByLabel("Phrase Name").fill("Acknowledgment");
-  await page.getByLabel("Phrase Text").fill("Received, thank you.");
-  await page.getByRole("button", { name: "Save phrase" }).click();
-  await page.getByRole("button", { name: /Acknowledgment.*Received/ }).click();
-  const editor = page.getByRole("textbox", {
-    name: "Write a message",
-    exact: true,
-  });
-  await expect(editor).toContainText("Received, thank you.");
-  await page.getByRole("button", { name: "Add to message" }).click();
-  await page
-    .getByRole("button", { name: "Schedule Message", exact: true })
-    .click();
-  await expect(
-    page.getByRole("dialog", { name: "Scheduled messages" }),
-  ).toBeVisible();
-  const tomorrow = new Date(Date.now() + 86400000);
-  const value = `${String(tomorrow.getDate()).padStart(2, "0")}/${String(tomorrow.getMonth() + 1).padStart(2, "0")}/${tomorrow.getFullYear()} 12:00`;
-  await page.getByRole("textbox", { name: /Send at/ }).fill(value);
-  await page
-    .getByRole("button", { name: "Schedule message", exact: true })
-    .click();
-  await expect(
-    page.getByRole("dialog", { name: "Scheduled messages" }),
-  ).not.toBeVisible();
-  const scheduled = requests.find(
-    (r) => r.method === "POST" && r.path.endsWith("/scheduled"),
+  await openChat(page);
+  const shell = page.locator(".chat-shell");
+  await expect(shell).toBeVisible();
+  // Two grid columns: the list and the conversation. Three was the info panel.
+  const columns = await shell.evaluate(
+    (el) => getComputedStyle(el).gridTemplateColumns.split(" ").length,
   );
-  expect(scheduled?.body.body).toBe("Received, thank you.");
-  expect(scheduled?.body.request_id).toBeTruthy();
-  expect(scheduled?.body.timezone).toBeTruthy();
-  expect(
-    requests.filter((r) => r.method === "POST" && r.path.endsWith("/messages")),
-  ).toHaveLength(0);
+  expect(columns).toBe(2);
+  await expect(page.locator("#chat-info-panel")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Conversation menu" }),
+  ).toHaveCount(0);
+  // The list: search and New, and nothing between them and the rows.
+  await expect(page.getByPlaceholder("Search conversations…")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "New conversation" }),
+  ).toBeVisible();
+  for (const name of ["Unread", "In-house", "Groups"])
+    await expect(
+      page.getByRole("button", { name, exact: true }),
+    ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /appearance/i })).toHaveCount(0);
+  // Nothing printed under the composer.
+  await expect(page.getByText("Enter to send")).toHaveCount(0);
+  await expect(page.getByText("Drop a file here")).toHaveCount(0);
 });
 
 test("editing from a bubble preserves an existing draft, IME Enter never sends", async ({
@@ -356,60 +348,4 @@ test("file tool opens the native picker and a failed send preserves uploaded fil
   );
   expect(posts).toHaveLength(2);
   expect(posts[0].body.attachments).toEqual(posts[1].body.attachments);
-});
-
-test("pending messages can be rescheduled and cancelled", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await openChat(page);
-  const scheduled = [
-    {
-      schedule_id: "s-1",
-      group_id: "group",
-      body: "Send later",
-      attachments: [],
-      send_at: new Date(Date.now() + 3600000).toISOString(),
-      timezone: "UTC",
-      status: "PENDING",
-    },
-  ];
-  let rescheduled = false;
-  await page.route(
-    "**/api/tenant/smartcomm/channels/group/scheduled",
-    (route) => route.fulfill({ json: { data: scheduled } }),
-  );
-  await page.route("**/api/tenant/smartcomm/scheduled/s-1", async (route) => {
-    if (route.request().method() === "PATCH") {
-      Object.assign(scheduled[0], route.request().postDataJSON());
-      rescheduled = true;
-    } else scheduled[0].status = "CANCELLED";
-    await route.fulfill({ json: { data: scheduled[0] } });
-  });
-  await page.getByRole("button", { name: "Add to message" }).click();
-  await page
-    .getByRole("button", { name: "Schedule Message", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Reschedule", exact: true }).click();
-  const date = new Date(Date.now() + 2 * 86400000);
-  await page
-    .getByRole("textbox", { name: /Send at/ })
-    .fill(
-      `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()} 12:00`,
-    );
-  await page
-    .getByRole("button", { name: "Save schedule", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", {
-      name: "Schedule current message",
-      exact: true,
-    }),
-  ).toBeVisible();
-  expect(rescheduled).toBe(true);
-  await page
-    .getByRole("button", { name: "Cancel scheduled message", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Cancel scheduled message", exact: true }),
-  ).not.toBeVisible();
-  await expect(page.getByText(/UTC.*cancelled/)).toBeVisible();
 });

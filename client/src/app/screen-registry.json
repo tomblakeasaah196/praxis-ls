@@ -1580,12 +1580,20 @@
       "title": "Company Profile",
       "route": "/sales/company-profile",
       "area": "sales",
-      "module_key": "MOD-23",
-      "purpose": "Tenant-owned declared and SQL-derived fact sheet used to ground proposals and case studies.",
+      "module_key": "MOD-26",
+      "purpose": "The tenant's company profile: nine fixed sections written in English and French, versions with publish and history, a branded PDF, and tracked share links per recipient or lead. Capacity figures come from the tenant's own data; case stories from published Success Stories.",
       "actions": [
         "get_company_profile"
       ],
-      "title_fr": "Profil d'entreprise"
+      "title_fr": "Profil d'entreprise",
+      "synonyms": [
+        "plaquette",
+        "plaquette commerciale",
+        "brochure",
+        "company brochure",
+        "présentation de l'entreprise",
+        "about us"
+      ]
     },
     {
       "id": "sales_opportunities",
@@ -1872,7 +1880,7 @@
       "route": "/comms",
       "area": "comms",
       "module_key": "MOD-64",
-      "purpose": "Unified inbox — team chat and email in one conversation list.",
+      "purpose": "Team chat with colleagues: direct messages and named groups, with files, voice notes and records attached to a message, and a call button on a direct conversation. Email is in Mailbox.",
       "actions": [
         "list_comms_channels",
         "comms_unread",

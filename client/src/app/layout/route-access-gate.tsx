@@ -19,8 +19,25 @@
  * content column, which is the shift the rest of this work exists to remove.
  * This is a first-login-only state — every later load resolves from the cache
  * before the first paint.
+ *
+ * A REFUSAL NOBODY ASKED FOR IS NOT SHOWN. Signing in sends a person back to
+ * the address the last session on that device was at when it ended, and that
+ * session may have been somebody else's. An administrator sets up a new
+ * colleague on Security → Users, their session ends there, and the colleague
+ * signs in on the same machine: the first screen of the product, for an
+ * operations officer on their first day, was "Security & Access is not part of
+ * your access" (tenant report, 17 Nov 2026). They had not tried to open
+ * anything.
+ *
+ * So when the arrival was that restore (`state.restored`, set by the sign-in
+ * dialog and by nothing else) and the person may not open the address, they go
+ * to their own home instead, with no refusal. A link they followed, an address
+ * they typed and a click in the app all carry no such mark and still get the
+ * page, because there the person DID ask, and the page is what tells them what
+ * the screen is and how to request it.
  */
 import * as React from "react";
+import { Navigate, useLocation } from "react-router-dom";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { canOpenRoute, gatingModulesForPath } from "@/lib/route-access";
 import { NoAccessPage } from "@/features/access/no-access-page";
@@ -34,6 +51,9 @@ export function RouteAccessGate({
   children: React.ReactNode;
 }) {
   const { access, resolved } = useShell();
+  const location = useLocation();
+  const restored =
+    (location.state as { restored?: boolean } | null)?.restored === true;
   const wanted = React.useMemo(
     () => gatingModulesForPath(pathname),
     [pathname],
@@ -41,6 +61,10 @@ export function RouteAccessGate({
 
   if (!resolved) return <PageSkeleton />;
   if (canOpenRoute(access, pathname)) return <>{children}</>;
+  // Put back at an address this person may not open: home, quietly. `/` is the
+  // one place this cannot loop, because the mark is not carried across and a
+  // refusal there would be a real one.
+  if (restored && pathname !== "/") return <Navigate to="/" replace />;
   // `canOpenRoute` only ever refuses once it has found at least one real module
   // key, so `wanted[0]` is present here — this is narrowing rather than a
   // fallback for a missing value. It is the module the page NAMES; for a hub

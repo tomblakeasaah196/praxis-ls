@@ -22,7 +22,7 @@ const { logger } = require("../../../config/logger");
 // Shared SMTP-error classifier — the connection-test path and the system-email
 // paths (email.service, platform probes) share one map so the UI's fix guides
 // key off the same codes everywhere. See smtp-error.map.js.
-const { mapSmtpError, isSmtpError } = require("./smtp-error.map");
+const { mapSmtpError, isSmtpError, describeImapFailure } = require("./smtp-error.map");
 const { config } = require("../../../config/env");
 const { ImapSmtpProvider } = require("./providers/imapSmtp.provider");
 const { MicrosoftGraphProvider } = require("./providers/microsoftGraph.provider");
@@ -677,8 +677,19 @@ async function testConnection(client, id) {
     if (mapped) result.code = mapped.code;
   }
   if (!result.ok) result.smtp_auth = separateSmtpCredentials ? "separate" : "same";
-  if (result.ok) await repo.updateConnection(client, id, { status: "CONNECTED", last_error: null });
-  else await repo.setError(client, id, result.error || result.stage || "verify failed");
+  if (result.ok) {
+    // A test that passes is a success like any other: the failure count goes
+    // back to zero, which is what releases the sync brake (sync-brake.js). It
+    // used to clear only the status, so a mailbox paused for a refused
+    // password would have stayed paused after the password was put right.
+    await repo.updateConnection(client, id, { status: "CONNECTED", last_error: null, consecutive_failures: 0 });
+  } else {
+    await repo.setError(client, id, result.error || result.stage || "verify failed");
+    // A refused sign-in is counted here too, so the schedule's own tries after
+    // a wrong password start from one and not from zero: each one is a refused
+    // sign-in at the mail host, and the host is counting.
+    if (result.code === "IMAP_AUTH_FAILED") await mailbox.markSyncFailure(client, id, result.error);
+  }
   return result;
 }
 
@@ -1020,6 +1031,24 @@ async function groupConversations(client, conn, adapter, synced = []) {
 }
 
 /**
+ * A sync failure as the row should remember it.
+ *
+ * For an IMAP mailbox the adapter's error goes through `describeImapFailure`
+ * first. Two reasons. The raw text is not fit to show: imapflow's refused
+ * sign-in is the bare "Command failed", and its unreachable host is "Failed to
+ * establish connection in required time". And `last_failure_reason` is what
+ * the sync brake reads to tell a refused password, which waits for a person,
+ * from a host that is down, which is tried again later (sync-brake.js). A
+ * reason that did not say which it was could not be braked correctly.
+ */
+function failureText(conn, err) {
+  if (conn && conn.provider === "imap_smtp") {
+    return describeImapFailure(err, { host: conn.imap_host, port: conn.imap_port || 993 }).message;
+  }
+  return String((err && err.message) || err || "sync failed");
+}
+
+/**
  * Count one failed sync, and raise the health event on the third in a row,
  * which is when `bumpFailure` turns the mailbox to ERROR.
  */
@@ -1049,8 +1078,9 @@ async function syncConnection(client, id, ctx = {}) {
     await moveToImmutableIds(client, conn, adapter);
     syncFolders = await discoverFolders(client, conn, adapter, ctx);
   } catch (err) {
-    await syncFailed(client, conn, err.message);
-    return { connection: conn.email_connection_id, error: err.message };
+    const reason = failureText(conn, err);
+    await syncFailed(client, conn, reason);
+    return { connection: conn.email_connection_id, error: reason };
   }
   const capabilities = typeof adapter.capabilities === "function" ? adapter.capabilities() : {};
   // Outlook mail stored before 14430, one conversation per message, grouped
@@ -1192,9 +1222,10 @@ async function syncConnection(client, id, ctx = {}) {
     } catch (err) {
       // One bad folder must never abort its siblings — the same per-connection
       // discipline the engine already had, one level down.
-      lastError = err.message;
-      await threadRepo.setFolderError(client, folder.email_folder_id, err.message);
-      perFolder.push({ folder: folder.canonical || folder.provider_path, error: err.message });
+      const reason = failureText(conn, err);
+      lastError = reason;
+      await threadRepo.setFolderError(client, folder.email_folder_id, reason);
+      perFolder.push({ folder: folder.canonical || folder.provider_path, error: reason });
     }
   }
 

@@ -236,7 +236,7 @@ describe("SignInPanel — each route runs the right ceremony", () => {
 
     await user.click(orb() as HTMLElement);
     expect(passkeyLoginMock).toHaveBeenCalledWith(EMAIL);
-    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/", { replace: true }));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/", { replace: true, state: { restored: true } }));
   });
 
   /*
@@ -388,7 +388,7 @@ describe("SignInPanel — urging a passkey after a PIN or password sign-in", () 
     expect(navigateMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Not now" }));
-    expect(navigateMock).toHaveBeenCalledWith("/", { replace: true });
+    expect(navigateMock).toHaveBeenCalledWith("/", { replace: true, state: { restored: true } });
     expect(passkeyOfferStore.declined(EMAIL)).toBe(true);
   });
 
@@ -412,7 +412,7 @@ describe("SignInPanel — urging a passkey after a PIN or password sign-in", () 
     await user.type(screen.getByLabelText("Password"), "correct horse");
     await user.click(screen.getByRole("button", { name: /^Sign in$/ }));
 
-    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/", { replace: true }));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/", { replace: true, state: { restored: true } }));
     expect(screen.queryByRole("heading", { name: "One touch next time" })).not.toBeInTheDocument();
   });
 });

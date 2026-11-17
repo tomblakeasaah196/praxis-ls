@@ -1511,3 +1511,46 @@ export declare namespace search {
   const FOLD_FROM: string;
   const FOLD_TO: string;
 }
+
+export type CompanyProfileSectionKey =
+  | "cover" | "who_we_are" | "services" | "capacity" | "certifications"
+  | "case_stories" | "clients" | "why_us" | "contact";
+export type CompanyProfileText = Record<string, string>;
+export type CompanyProfileShareInput = {
+  lead_id?: string | null;
+  recipient_name?: string | null;
+  recipient_email?: string | null;
+  language?: "EN" | "FR";
+  expires_on: string;
+  pin_version?: boolean;
+};
+
+export declare namespace companyProfile {
+  /** The nine sections, in the fixed order they print in. */
+  const SECTION_KEYS: ReadonlyArray<CompanyProfileSectionKey>;
+  const CAPACITY_FIGURES: ReadonlyArray<"fleet_size" | "fleet_mix" | "warehouse" | "offices" | "gateways" | "regions">;
+  const WHO_FIELDS: ReadonlyArray<"positioning" | "history" | "mission">;
+  const CONTACT_FIELDS: ReadonlyArray<"address" | "phone" | "email" | "website">;
+  const CERTIFICATION_KINDS: ReadonlyArray<"CERTIFICATION" | "MEMBERSHIP">;
+  const LANGUAGES: ReadonlyArray<"EN" | "FR">;
+  const LIMITS: Readonly<{
+    tagline: number; paragraph: number; service_sentence: number; network: number;
+    certification_name: number; promise_title: number; promise_body: number;
+    promises: number; stories: number; certifications: number; services: number;
+    logos: number; change_note: number; share_days: number;
+  }>;
+  /** The text keys a section may hold, with the limit of each. */
+  const TEXT_KEYS: Readonly<Record<CompanyProfileSectionKey, (structure: Record<string, unknown>) => Record<string, number>>>;
+  /** The PATCH body for one section of the draft. */
+  function section(key: CompanyProfileSectionKey): z.ZodTypeAny | null;
+  /** Keep only the words a section names, trimmed and within their limit. */
+  function cleanText(
+    key: CompanyProfileSectionKey,
+    structure: Record<string, unknown>,
+    text: CompanyProfileText,
+  ): { text: CompanyProfileText; errors: Record<string, string[]> };
+  const share: z.ZodType<CompanyProfileShareInput & { language: "EN" | "FR"; pin_version: boolean }, CompanyProfileShareInput>;
+  const publish: z.ZodType<{ change_note?: string | null }, { change_note?: string | null }>;
+  const logo: z.ZodType<{ name: string; data_url: string }, { name: string; data_url: string }>;
+  const cover: z.ZodType<{ data_url: string }, { data_url: string }>;
+}

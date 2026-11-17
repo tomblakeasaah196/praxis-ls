@@ -725,7 +725,7 @@ title §7 gives it. In §9, tick PR <N> and add one line to the log: date, what 
 - [x] PR 2 · One company row, the request carries the deal
 - [ ] PR 3 · The Lead 360 screens
 - [ ] PR 4 · Quotations absorb Proposals
-- [ ] PR 5 · Company Profile
+- [x] PR 5 · Company Profile
 - [ ] PR 6 · Quotation editor, templates, public link and portal
 - [ ] PR 7 · Drop the retired tables
 
@@ -733,4 +733,5 @@ title §7 gives it. In §9, tick PR <N> and add one line to the log: date, what 
 |---|---|---|
 | 17/11/2026 | plan | Audit, eleven owner decisions, this plan. Nothing built yet. |
 | 17/11/2026 | PR 1 | Campaigns (MOD-22), Partnerships & Vendors, the website newsletter and the Inbound intake signpost removed; migration 14500, seeds 9026 and 9160; old URLs redirect. MOD-22 retired; MOD-23 and MOD-24 stay until PR 7. Next: PR 2 and PR 5 in parallel. |
+| 17/11/2026 | PR 5 | Company Profile rebuilt (D9): migrations 14560 (versions, sections, logos, shares, opens, frozen-version triggers), 14561 (the fact sheet becomes v1) and 14562 (profile projects become draft Success Stories); editor with EN and FR side by side, publish, history diff, derived figures, `brand` logo library and `photo` cover; `COMPANY_PROFILE` PDF template; tracked share links and public `/profile/<token>`; AI reads the published version only; moved from MOD-23 to MOD-26. PR 2 had not merged, so a share stores `lead_id` (listable with `GET /company-profile/shares?lead_id=`) and **PR 6 adds the share and its opens to the lead's Activity**. PR 7 drops the declared `company_profile` columns and `company_profile_project`. |
 | 17/11/2026 | PR 2 | Company row (OPEN/ARCHIVED, next step as a workspace task, duplicate check, capture, Done, Archive/Reopen, Make Client, paged list, 360 with Activity/Requests/Quotations), request as the deal (stage machine, Lost reasons, Mark Won, auto moves), one win function + `quotation.accepted:win-request` (replaces `opportunity-won-open-dossier`), website/portal/enquiry find-or-create, meetings on the calendar, `sales.default_owner`, gap 11, KPIs, AI, search; migrations 14510 to 14516. Opportunity writes retired, its screen read only. No CHECK or FK on the existing tables (13791 rule): the vocabularies are held by the services. Left for PR 3: the Settings field for the default sales owner, `?done=` and `?request=` deep links, redirects and `entity-route` for old opportunity links. |

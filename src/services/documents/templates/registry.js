@@ -11,6 +11,7 @@
 const k = require("./kit");
 const { groupLines } = require("./client-headings");
 const costingDocument = require("./costing-document");
+const companyProfileDocument = require("./company-profile-document");
 
 const has = (v) => v !== undefined && v !== null;
 
@@ -2331,6 +2332,20 @@ TEMPLATES.SIGNATURE_CERTIFICATE = {
     verification: { url: "https://smartls.praxisls.com/v/A4B7K92MXQ1P", code: "A4B7-K92M-XQ1P", instructions: "Enter this code on the issuer's verification page." },
     issuer: { legal_name: "SMART LOGISTICS SARL", rccm: "RC/DLA/2019/B/1234", niu: "M011912345678K", address: "Bonanjo, Douala" },
   },
+};
+
+/**
+ * The Company Profile (Sales lean revamp, PR 5). It prints the profile's one
+ * presentation object, so the PDF, the public page and the staff preview show
+ * the same sections, words and figures. See company-profile-document.js.
+ */
+TEMPLATES.COMPANY_PROFILE = {
+  docType: "COMPANY_PROFILE",
+  title: { fr: "Profil d'entreprise", en: "Company Profile" },
+  module: "sales/company_profile",
+  fields: ["sections (fixed)", "cover image"],
+  build: (data, cfg, entity) => companyProfileDocument.build(data, cfg, entity),
+  sampleData: companyProfileDocument.sampleData,
 };
 
 TEMPLATES.VAT_RETURN.build = vatReturnBuild;

@@ -271,7 +271,8 @@ export function MessageBubble({
                 </button>
               }
             >
-              <DropdownItem onSelect={() => onReply(message)}>{tr("Reply")}</DropdownItem>
+              {/* Reply is the ↩ button beside this menu, so it is not offered
+                  a second time inside it. */}
               <DropdownItem onSelect={() => onForward(message)}>{tr("Forward")}</DropdownItem>
               <DropdownItem onSelect={toggleStar}>
                 {message.starred_by_me ? tr("Remove star") : tr("Star")}

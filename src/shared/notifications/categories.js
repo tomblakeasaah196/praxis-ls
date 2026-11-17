@@ -101,7 +101,7 @@ const DOMAIN_TO_CATEGORY = {
   // claim is finance work.
   client_request: "operations", payment_proof: "finance",
   opportunity: "sales", proposal: "sales", quotation: "sales", meeting: "sales",
-  success_story: "sales",
+  success_story: "sales", company_profile: "sales",
 
   // compliance & documents
   compliance_flag: "compliance", document: "compliance", document_vault: "compliance", vault: "compliance",

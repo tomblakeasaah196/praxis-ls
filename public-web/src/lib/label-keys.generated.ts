@@ -24,6 +24,7 @@ export const LABEL_KEYS: Readonly<Record<string, true | readonly string[]>> = {
   "site.portalBand": ["cta","eyebrow","title"],
   "site.portfolioPage": ["back","client","execution","results","summary","title","titleAccent","titleMain","unavailable"],
   "site.preview": ["stages.*.label","status"],
+  "site.profile": ["download","langSwitch","print","title","version"],
   "site.proof": ["eyebrow","lanes","more","stripLabel","title"],
   "site.proposals": ["client","download","lines","print","route","title"],
   "site.quote": ["attachment","bandCta","bandTrack","cargo","company","destination","destinationAirport","destinationPlace","destinationPort","durationDAYS_15_TO_30","durationDAYS_7_TO_14","durationLESS_THAN_7_DAYS","durationOVER_30_DAYS","durationPick","durationUNKNOWN","email","fileRemove","incoterm","incotermPick","kicker","mode","modeAIR","modeCUSTOMS","modeMore","modeRAIL","modeROAD","modeSEA","modeSTORAGE","name","next","notes","origin","originAirport","originPlace","originPort","phone","placeSuggestions","projectCargo","service","servicePick","stepContact","stepCounter","stepDetails","stepDocuments","stepNeed","stepRoute","stepStorage","steps.*.t","stepsLabel","submit","title","titleAccent","titleMain","warehouseDuration","warehouseLocation","weight","whatHappens"],

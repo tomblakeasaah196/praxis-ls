@@ -547,9 +547,20 @@ function endRingLocally(callId: string, reason: EndedReason) {
   toIdleIfEnded(callId);
 }
 
-/** Re-read the row after the local countdown reached zero. A row that still
- *  says RINGING is believed for one sweep interval more, then the ring ends
- *  here regardless (audit A13: a ring can never stick). */
+/**
+ * Re-read the row after the local countdown reached zero. A row that still
+ * says RINGING is believed for one sweep interval more, then the ring ends
+ * here regardless (audit A13: a ring can never stick).
+ *
+ * A row that says IN_CALL is an ANSWERED call, and this must never end one.
+ * It used to: anything that was not RINGING fell through to "the ring is
+ * over, stop the engine", and the caller's countdown was never stopped when
+ * the callee answered. So sixty seconds after pressing Call, on every call
+ * that had been answered, the caller's own device read the row, saw IN_CALL,
+ * and hung up its side of a live conversation without telling the server. The
+ * other side then spent twenty seconds trying to reconnect and reported
+ * "Connection failed". Every answered call in the field records ends that way.
+ */
 async function syncFromRow(callId: string) {
   let row: Call | null = null;
   try {
@@ -559,7 +570,26 @@ async function syncFromRow(callId: string) {
        expiry below ends the ring. */
   }
   if (state.call?.call_id !== callId) return;
+  // Media is up. Whatever this read was for, the ring it belonged to is long
+  // over, and a call that is being spoken on is ended by the people on it, the
+  // engine, or a terminal event. Never by a ring timer.
+  if (phaseNow() === "in_call") return;
   if (row) applyRow(row);
+  if (row && row.status === "IN_CALL") {
+    // Answered, and this tab did not hear `call:accepted` (a socket that was
+    // away). The media path is still forming: say so, and look again shortly,
+    // because a socket that missed the answer can miss the ending too.
+    if (state.phase === "outgoing") set({ phase: "connecting" });
+    if (!ringExpiryTimer) {
+      ringExpiryTimer = setTimeout(() => {
+        ringExpiryTimer = null;
+        if (state.call?.call_id !== callId) return;
+        const p = phaseNow();
+        if (p === "outgoing" || p === "connecting") void syncFromRow(callId);
+      }, RING_EXPIRY_GRACE_MS);
+    }
+    return;
+  }
   if (row && row.status === "RINGING") {
     if (!ringExpiryTimer) {
       ringExpiryTimer = setTimeout(() => {
@@ -826,6 +856,16 @@ export async function hangup(): Promise<void> {
     }
   } catch (err) {
     swallowServerEnded(err);
+    // End Call always ends the call ON THIS SCREEN. This device has already
+    // let go (the engine is stopped above), so a refused or unreachable
+    // hang-up must not leave the strip up with a button that does nothing:
+    // that happened when the row had already closed (409) and the terminal
+    // event never came, because the socket that would carry it was down. If
+    // that event does arrive, it replaces this with the row's own ending.
+    const p = phaseNow();
+    if (state.call?.call_id === id && p !== "ended" && p !== "idle") {
+      set({ phase: "ended", endedReason: "hangup" });
+    }
   }
   toIdleIfEnded(id);
 }
@@ -904,6 +944,9 @@ function makeEngine(
       onIce: (candidate) => socket.emit("call:ice", { callId, candidate }),
       onConnected: () => {
         if (state.call?.call_id !== callId) return;
+        // Media is up: no ring is in progress, whatever this tab was told.
+        // Without this the caller's countdown ran on under a live call.
+        clearRing();
         set({ phase: "in_call" });
         // Media is up: this is the moment the record starts (PR-2)...
         if (state.call) armRecording(state.call, isCaller ? "caller" : "callee");
@@ -1163,6 +1206,9 @@ export function wireCallSocket(): void {
       endRingLocally(id, "answered_elsewhere");
       return;
     }
+    // Answered: the ring is over, so its countdown stops here. Left running,
+    // it reaches zero under the live call and re-reads the row (syncFromRow).
+    clearRing();
     if (state.phase === "outgoing") set({ phase: "connecting" });
   });
 
