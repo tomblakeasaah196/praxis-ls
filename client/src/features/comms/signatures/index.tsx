@@ -1,9 +1,10 @@
 /**
  * Company Mail → Signatures (administrators).
  *
- * Which signature template each part of the company gets, with two things an
- * administrator does once in a while behind the section's own controls:
- * generating signatures for several people, and checking why a card image is
+ * The company's signature: one layout and one motto (`TemplatesTab`), with
+ * three things an administrator does once in a while behind the section's own
+ * controls: generating signatures for several people, choosing which brand
+ * colour paints which part of the card, and checking why a card image is
  * missing from sent mail.
  *
  * ── WHERE THE SIGNATURES TAB WENT ───────────────────────────────────────────
@@ -15,7 +16,8 @@
  *
  *   My Signature     a section of the My Mailbox tab (`DesignerTab`), because
  *                    it is the caller's own, like the mailbox above it.
- *   Templates        this section.
+ *   Templates        this section, as one layout dropdown and one motto.
+ *   Card colours     the section's menu, in a dialog.
  *   Batch            the "Generate for Staff" button here, in a dialog.
  *   Delivery Check   the section's menu, in a dialog. It is a diagnostic.
  *
@@ -29,6 +31,7 @@ import { DropdownItem } from "@/components/ui/dropdown-menu";
 import { MoreMenu } from "@/components/ui/more-menu";
 import { Panel } from "@/components/ui/panel";
 import { tr } from "@/lib/i18n";
+import { AccentRoles } from "./accent-roles";
 import { BatchTab } from "./batch-tab";
 import { DeliveryTab } from "./delivery-tab";
 import { TemplatesTab } from "./templates-tab";
@@ -36,6 +39,7 @@ import { TemplatesTab } from "./templates-tab";
 export function SignaturesSection() {
   const [batch, setBatch] = React.useState(false);
   const [check, setCheck] = React.useState(false);
+  const [colours, setColours] = React.useState(false);
 
   return (
     <Panel
@@ -46,6 +50,7 @@ export function SignaturesSection() {
             {tr("Generate for Staff")}
           </Button>
           <MoreMenu label={tr("Signature actions")}>
+            <DropdownItem onSelect={() => setColours(true)}>{tr("Card Colours")}</DropdownItem>
             <DropdownItem onSelect={() => setCheck(true)}>{tr("Delivery Check")}</DropdownItem>
           </MoreMenu>
         </span>
@@ -61,6 +66,11 @@ export function SignaturesSection() {
           size="xl"
         >
           <BatchTab />
+        </Dialog>
+      )}
+      {colours && (
+        <Dialog open onClose={() => setColours(false)} title={tr("Card Colours")} size="lg">
+          <AccentRoles />
         </Dialog>
       )}
       {check && (

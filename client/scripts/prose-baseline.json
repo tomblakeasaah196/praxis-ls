@@ -45,7 +45,6 @@
     "client/src/features/comms/setup/my-mailbox.tsx": 3,
     "client/src/features/comms/signatures/batch-tab.tsx": 1,
     "client/src/features/comms/signatures/designer-tab.tsx": 3,
-    "client/src/features/comms/signatures/templates-tab.tsx": 1,
     "client/src/features/costing/cash-request-360.tsx": 2,
     "client/src/features/costing/cash-request-actions.tsx": 1,
     "client/src/features/costing/costing-sheet-360.tsx": 3,

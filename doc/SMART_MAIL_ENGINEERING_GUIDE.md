@@ -1428,6 +1428,12 @@ Seeds three templates, `is_system = true` (a fourth, `signature_card`, arrives i
 Department defaults (`scope_kind='DEPARTMENT'`) are seeded for Operations, Commercial/Sales, Finance,
 HR and Customer Support, all pointing at `smartls_classic` except Finance → `formal_legal`.
 
+> **Superseded on 17 Nov 2026.** A department no longer chooses a signature layout: the tenant asked
+> for one signature for the whole company. `signature.repo.defaultTemplate` skips the DEPARTMENT lookup
+> (an ENTITY default still wins), the seeded DEPARTMENT rows are left in place and unread, and the admin
+> screen is one layout dropdown and one motto under Comms → Setup → Company Mail → Signatures.
+> `tests/unit/mail-signature-one-layout.test.js` pins it.
+
 #### `10742_party_language.sql` (addition d)
 
 ```sql

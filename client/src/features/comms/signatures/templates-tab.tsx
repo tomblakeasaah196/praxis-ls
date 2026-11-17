@@ -1,32 +1,42 @@
 /**
- * Setup → Company Mail → Signatures. Which layout each part of the company gets.
+ * Setup → Company Mail → Signatures. The company's signature: one layout and
+ * one motto.
  *
- * READ-MOSTLY, DELIBERATELY. What an admin can do here is choose the tenant-wide
- * default, turn a template off, write its motto, and say which brand colour
- * paints which part of the card. What they still cannot do is RETYPE a colour,
- * because the card takes them from Appearance — one brand, set once, used by
- * the app, the documents and the signature alike. A colour picker here would be
- * a second place to set the brand and a first place for the two to disagree.
+ * ── ONE ROW, WHERE THERE WAS A LIST OF EIGHT ────────────────────────────────
  *
- * `<AccentRoles>` is not that picker, and the difference is worth being exact
- * about: it moves a ROLE between brand colours the tenant has already chosen
- * and stores the colour's NAME, so Appearance stays the only place a hex is
- * ever typed and the card keeps following it. What it fixes is a tenant whose
- * deep accent is their orange, who until now could not get a blue name on the
- * card without changing that orange everywhere else in the product.
+ * This section used to list every signature template: three company layouts,
+ * four department copies of the classic one, and Formal / legal for Finance,
+ * each with its own Motto button and some with Make Default. The tenant's
+ * question on 17 Nov 2026 was "what are all of these? What do we need it for?",
+ * and the honest answer was that two of the things on that screen did something
+ * a company needs: choosing the layout, and writing the motto.
  *
- * The link to Appearance is still the whole answer to "how do I change the
- * blue?", so it is on the screen rather than in a document nobody opens.
+ * So that is the screen. The layout is one dropdown. The motto is one line and
+ * one Edit button, and it belongs to the company rather than to a template: the
+ * server carries it across when the layout changes.
+ *
+ * ── WHAT IS NOT OFFERED, AND WHY ────────────────────────────────────────────
+ *
+ * The four "Classic — <department>" rows are not layouts. They are copies of
+ * the classic layout that existed to give a department its own default, and a
+ * department no longer chooses a signature (see `defaultTemplate` in
+ * signature.repo.js). Offering them would be four entries that all draw the
+ * same card. Formal / legal IS offered: it is a different layout, and a company
+ * that wants its registration lines on every signature can choose it.
+ *
+ * ── COLOURS ARE NOT HERE ────────────────────────────────────────────────────
+ *
+ * The card takes its colours from Appearance: one brand, set once. Which brand
+ * colour paints which part of the card is `<AccentRoles>`, opened from this
+ * section's menu as Card Colours.
  */
 import * as React from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Pill } from "@/components/ui/pill";
 import { Callout } from "@/components/ui/callout";
-import { ErrorState, EmptyState } from "@/components/ui/states";
+import { ErrorState } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { useConfirm } from "@/components/ui/use-confirm";
-import { Modal, Field } from "@/components/ui/modal";
+import { Modal, Field, Select } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { useDeepLinkEdit, useFieldHighlight } from "@/lib/use-url-tab";
 import { useToast } from "@/components/ui/toast";
@@ -34,7 +44,7 @@ import { tr } from "@/lib/i18n";
 import * as api from "@/lib/mail-api";
 import { errMsg, useResource } from "@/lib/use-resource";
 import { reportActionError } from "@/lib/action-error";
-import { AccentRoles } from "./accent-roles";
+import { companyLayout, companyLayouts } from "./layouts";
 
 /**
  * THE MOTTO / SLOGAN EDITOR.
@@ -148,33 +158,37 @@ export function TemplatesTab() {
   const [busy, setBusy] = React.useState(false);
   const { data, error, reload } = useResource(() => api.listSignatureTemplates(), []);
   const templates = React.useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const layouts = React.useMemo(() => companyLayouts(templates), [templates]);
+  const current = React.useMemo(() => companyLayout(templates), [templates]);
 
   // `?edit=motto&row=<templateId>` — where a "no motto" signature gap lands.
+  // The row it names is the template that drew that person's signature, which
+  // is the company layout now, so it opens the same motto either way.
   const [motto, setMotto] = React.useState<api.SignatureTemplate | null>(null);
   const deepEdit = useDeepLinkEdit("motto");
   React.useEffect(() => {
     if (!deepEdit.open || !templates.length) return;
-    const found = templates.find(
-      (t) => t.signature_template_id === deepEdit.row,
-    );
+    const found =
+      templates.find((t) => t.signature_template_id === deepEdit.row) || current;
     if (!found) return;
     setMotto(found);
     deepEdit.clear();
-  }, [deepEdit, templates]);
+  }, [deepEdit, templates, current]);
 
-  async function makeDefault(tpl: api.SignatureTemplate) {
+  async function choose(id: string) {
+    const tpl = layouts.find((t) => t.signature_template_id === id);
+    if (!tpl || tpl.signature_template_id === current?.signature_template_id) return;
     const ok = await confirm({
-      title: tr("Make this the company default?"),
-      body: tr(
-        "New signatures across the company will use “{name}”. Anyone on a department template keeps theirs.",
-      ).replace("{name}", tpl.name),
-      confirmLabel: tr("Make default"),
+      title: `${tr("Use")} “${tpl.name}” ${tr("for every signature?")}`,
+      body: tr("Everyone's signature changes to this layout on their next email. The motto carries over."),
+      confirmLabel: tr("Use this layout"),
+      cancelLabel: tr("Keep the current one"),
     });
     if (!ok) return;
     setBusy(true);
     try {
       await api.updateSignatureTemplate(tpl.signature_template_id, { is_default: true });
-      toast.success(tr("Default updated"));
+      toast.success(tr("Signature layout updated"));
       reload();
     } catch (err) {
       reportActionError(err);
@@ -187,60 +201,47 @@ export function TemplatesTab() {
   if (error) return <ErrorState message={error} />;
   if (data === null) return <SkeletonTable />;
 
+  const mottoText =
+    (current && typeof current.copy_en?.motto === "string" && current.copy_en.motto) ||
+    (current && typeof current.copy_fr?.motto === "string" && current.copy_fr.motto) ||
+    "";
+
   return (
-    <div className="space-y-4">
-      <Callout tone="info" title={tr("Colours come from your brand")}>
-        {tr(
-          "The card uses your brand colours and logo. Change them once in Appearance and every signature follows.",
-        )}{" "}
-        <Link className="underline" to="/settings/appearance">
-          {tr("Open Appearance")}
-        </Link>
-      </Callout>
-
-      <AccentRoles />
-
-      {templates.length === 0 ? (
-        <EmptyState title={tr("No templates")} hint={tr("Nothing is configured yet.")} />
-      ) : (
-        <ul className="space-y-2">
-          {templates.map((tpl) => (
-            <li key={tpl.signature_template_id} className="lux-card flex flex-wrap items-center gap-3 p-4">
-              <div className="min-w-[200px] flex-1">
-                <p className="text-sm font-medium">
-                  {tpl.name}
-                  {tpl.is_system && <Pill tone="mute" className="ml-2">{tr("built in")}</Pill>}
-                  {tpl.is_default && <Pill tone="blue" className="ml-2">{tr("default")}</Pill>}
-                </p>
-                {tpl.description && (
-                  <p className="mt-1 text-xs text-muted-foreground">{tpl.description}</p>
-                )}
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {tpl.scope_kind}
-                {tpl.scope_value ? ` · ${tpl.scope_value}` : ""}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setMotto(tpl)}
-              >
-                {tr("Motto")}
-              </Button>
-              {!tpl.is_default && tpl.scope_kind === "TENANT" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => makeDefault(tpl)}
-                >
-                  {tr("Make default")}
-                </Button>
-              )}
-            </li>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label={tr("Layout")}>
+        <Select
+          value={current?.signature_template_id ?? ""}
+          disabled={busy || layouts.length === 0}
+          onChange={(e) => void choose(e.target.value)}
+        >
+          {/* Only when nothing is in force, which is a company with no default
+              at all: say so in the control rather than show a layout as chosen
+              that is not. */}
+          {!current && <option value="">{tr("Choose a layout")}</option>}
+          {layouts.map((t) => (
+            <option key={t.signature_template_id} value={t.signature_template_id}>
+              {t.name}
+            </option>
           ))}
-        </ul>
-      )}
+        </Select>
+      </Field>
+
+      <Field label={tr("Motto")}>
+        <div className="flex items-center gap-2">
+          <span className="min-w-0 flex-1 truncate text-sm" title={mottoText || undefined}>
+            {mottoText || <span className="text-muted-foreground">{tr("No motto")}</span>}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!current}
+            onClick={() => current && setMotto(current)}
+          >
+            {tr("Edit Motto")}
+          </Button>
+        </div>
+      </Field>
+
       {motto && (
         <MottoModal
           template={motto}
