@@ -2086,7 +2086,10 @@ downgrade) · `mail-binding-suggest-only.test.js` (**ingest never writes `entity
 `tests/integration/`: `mail-context-budget.test.js` (**≤ 6 statements, p95 assertions**) ·
 `mail-convert-dedup.test.js`.
 `tests/security/`: `mail-notes-containment.test.js`.
-Client: `dossier-drawer.test.tsx`, `notes-tab.test.tsx`, `mention-picker.test.tsx`.
+Client: none. The dossier drawer, the notes tab and the mention picker left the reading pane in the
+mail simplification of 16 Nov 2026, and their client tests went with them. The server tests above
+still hold; what is left on screen (the link dialog and the summary) is covered by
+`inbox.test.tsx`.
 
 ### 7.11 Task list
 

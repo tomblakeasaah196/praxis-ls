@@ -10,6 +10,10 @@
  *
  * ── SEARCH IS THE LIST, NOT A MODE ──────────────────────────────────────────
  *
+ * One box and one Search button. A second button, "By Meaning", used to sit
+ * beside it and answer the same box from a semantic index in a separate panel;
+ * it left with the mail simplification of 16 Nov 2026.
+ *
  * Typing in the box narrows the same list the folder rail narrows. There is no
  * separate results screen, so every filter, every selection and every bulk
  * action keeps working on a search result exactly as it does on a folder. An
@@ -40,8 +44,8 @@ import { reportActionError } from "@/lib/action-error";
 import * as api from "@/lib/mail-api";
 import { FolderRail, type RailSelection } from "./folder-rail";
 import { ThreadList } from "./thread-list";
+import { ThreadFilter } from "./thread-filter";
 import { ThreadView } from "./thread-view";
-import { SemanticResults } from "./work/semantic-search";
 import { DraftList, OutboxList } from "./pending";
 import { useConfirm } from "@/components/ui/use-confirm";
 
@@ -50,10 +54,9 @@ const PAGE = 50;
 /** What an empty list means depends on why it is empty. Say the right thing. */
 function emptyHintFor(sel: RailSelection, query: string): string {
   if (query.trim()) return `${tr("Nothing matches")} “${query.trim()}”. ${tr("Try fewer words, or drop an operator like from: or has:.")}`;
-  if (sel.view === "STARRED") return tr("Nothing is starred. Tap the star on a conversation to keep it here.");
-  if (sel.view === "UNREAD") return tr("Everything is read.");
-  if (sel.view === "VIP") return tr("No VIP conversations. A client or supplier marked VIP in their record lands here.");
-  if (sel.view === "ATTACHMENT") return tr("No conversation here carries a file.");
+  if (sel.view === "STARRED") return tr("Nothing in this folder is starred.");
+  if (sel.view === "UNREAD") return tr("Everything in this folder is read.");
+  if (sel.view === "ATTACHMENT") return tr("No conversation in this folder carries a file.");
   if (sel.label) return `${tr("Nothing carries the label")} “${sel.label}” ${tr("yet.")}`;
   if (sel.stream === "SYSTEM") return tr("No automated mail. Carrier notices and system reports will collect here.");
   if (sel.stream === "HUMAN") return tr("No mail from people yet.");
@@ -69,9 +72,6 @@ export function InboxPage() {
   const [sel, setSel] = React.useState<RailSelection>({ folder: "INBOX", stream: "HUMAN" });
   const [query, setQuery] = React.useState("");
   const [applied, setApplied] = React.useState("");
-  /* §8.9. A second ANSWER to the same box, not a second screen — results open
-   * the same thread view the keyword list does. */
-  const [meaning, setMeaning] = React.useState("");
   /* `?thread=<id>` opens that conversation on arrival. This is what a push
    * notification taps through to (server side: mail-notify.service.js builds
    * `/comms/mail?thread=…`) — without it every mail alert landed on the folder
@@ -149,22 +149,20 @@ export function InboxPage() {
   const outbox = useResource(() => api.listOutbox(), []);
   const outboxWaiting = (outbox.data || []).filter((o) => PENDING_OUT.has(o.status)).length;
 
-  /* A saved view cuts ACROSS folders — a starred conversation that has been
-   * archived is still starred — so it sends its flag and NO folder. Pinning it
-   * to the inbox would rebuild the dead end it exists to remove. The four flags
-   * have been supported by `listThreads` since PR-1A; only the rail was
-   * missing. See `RailSelection.view`. */
+  /* The Filter control narrows the folder that is OPEN: its flag is sent WITH
+   * the folder, not instead of it. It used to be a rail row that cut across
+   * every folder, which made "Starred" a place and left nobody able to say
+   * which folder they were looking at. See `thread-filter.tsx`. */
   const threads = useResource(
     () =>
       api.listThreads({
         q: applied || undefined,
         connection_id: connectionId,
-        folder: sel.view ? undefined : sel.folder,
+        folder: sel.folder,
         stream: sel.stream,
         label: sel.label,
         starred: sel.view === "STARRED" || undefined,
         unread: sel.view === "UNREAD" || undefined,
-        vip: sel.view === "VIP" || undefined,
         has_attachment: sel.view === "ATTACHMENT" || undefined,
         limit,
       }),
@@ -443,7 +441,6 @@ export function InboxPage() {
             onSubmit={(e) => {
               e.preventDefault();
               setApplied(query);
-              setMeaning("");
             }}
             className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
           >
@@ -459,16 +456,6 @@ export function InboxPage() {
             <Button type="submit" variant="outline" size="sm">
               {tr("Search")}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={query.trim().length < 2}
-              onClick={() => { setMeaning(query); setApplied(""); }}
-              title={tr("Find conversations that read like this, even if they do not use these words")}
-            >
-              {tr("By Meaning")}
-            </Button>
             {applied && (
               <Button
                 type="button"
@@ -477,7 +464,6 @@ export function InboxPage() {
                 onClick={() => {
                   setQuery("");
                   setApplied("");
-                  setMeaning("");
                 }}
               >
                 {tr("Clear")}
@@ -497,7 +483,6 @@ export function InboxPage() {
           <FolderRail
             mailboxes={boxes}
             folders={folderRows}
-            labels={labels.data || []}
             selection={{ ...sel, connectionId }}
             onChange={(next) => {
               setSel(next);
@@ -514,14 +499,6 @@ export function InboxPage() {
             <p role="status" className="shrink-0 rounded-md bg-muted px-3 py-2 text-xs">
               {note}
             </p>
-          )}
-
-          {meaning && !sel.pending && (
-            <SemanticResults
-              query={meaning}
-              onOpen={(id) => { setMeaning(""); open(id); }}
-              onClear={() => setMeaning("")}
-            />
           )}
 
           {/* Neither of these is a conversation, so neither goes through the
@@ -570,7 +547,17 @@ export function InboxPage() {
               onOpen={(t) => open(t.email_thread_id)}
               onStar={(t, on) => star(t.email_thread_id, on)}
               onBulk={bulk}
-              folder={sel.view || sel.label ? undefined : sel.folder}
+              folder={sel.folder}
+              filter={
+                <ThreadFilter
+                  value={{ view: sel.view, label: sel.label }}
+                  labels={labels.data || []}
+                  onChange={(next) => {
+                    setSel((cur) => ({ ...cur, view: next.view, label: next.label }));
+                    setOpenId(null);
+                  }}
+                />
+              }
               onEmptyFolder={
                 sel.folder === "TRASH" || sel.folder === "SPAM"
                   ? () => emptyFolder(sel.folder as "TRASH" | "SPAM")
@@ -588,10 +575,9 @@ export function InboxPage() {
               error={thread.error}
               labels={labels.data || []}
               /* The same value the list gets, for the same reason: it decides
-                 which of Archive and the four "Move to" items are real
-                 actions rather than no-ops. Undefined under a saved view or a
-                 label, which cut across folders. */
-              folder={sel.view || sel.label ? undefined : sel.folder}
+                 which of Archive and the "Move to" items are real actions
+                 rather than no-ops. */
+              folder={sel.folder}
               busy={busy}
               onClose={() => setOpenId(null)}
               onMove={(folder) =>
@@ -607,12 +593,12 @@ export function InboxPage() {
                 openId && run(() => api.setThreadRead(openId, read))
               }
               onDelete={
-                openId && (sel.folder === "TRASH" || sel.folder === "SPAM") && !sel.view
+                openId && (sel.folder === "TRASH" || sel.folder === "SPAM")
                   ? () => deleteOne(openId)
                   : undefined
               }
               onReplied={reload}
-              onWorkChanged={reload}
+              onLinked={reload}
             />
           </SplitPane>
           )}

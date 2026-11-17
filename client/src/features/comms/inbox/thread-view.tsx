@@ -48,9 +48,10 @@ import {
 import { useObjectUrl } from "../chat/use-object-url";
 import { NewMessageDialog } from "./composer/new-message";
 import { SignatureSlot } from "./composer/signature-slot";
-import { WorkRail } from "./work";
-import { VerdictBanner, VerdictPill } from "./work/guardrails";
-import { Extractions } from "./work/intake";
+import { ThreadSummary } from "./work/assist";
+import { BindingChip } from "./work/binding";
+import { ConvertDialog } from "./work/convert";
+import { VerdictBanner } from "./work/guardrails";
 import {
   matchInlineParts,
   referencedCids,
@@ -66,33 +67,6 @@ import { useEmailPalette, type EmailPalette } from "./email-ink";
 const Composer = React.lazy(() => import("./composer"));
 
 const MOVE_TO: MailFolder[] = ["INBOX", "ARCHIVE", "SPAM", "TRASH"];
-
-/** Where the work rail's open/closed preference lives. Sibling of
- *  `comms:info-open`, which the chat's info panel already uses. */
-const RAIL_PREF = "comms:work-rail-open";
-
-/**
- * What a COLLAPSED rail still has to say.
- *
- * Collapsing the panel must not collapse the two facts an operator scans a
- * thread for. An overdue first reply is the one with a deadline attached, so it
- * wins; an unbound thread is the one where everything downstream — the dossier,
- * the action cards, the 360 timeline — is empty until somebody says what this
- * is about (§7.1). Either way the mark is a glyph rather than a count: there is
- * no number here, and a "1" would invite the reader to look for a list.
- *
- * Returns null when the thread is bound and on time — a badge that is always
- * present is not a signal.
- */
-function railAttention(thread: ThreadDetail): { mark: string; tone: "bad" | "info"; label: string } | null {
-  if (thread.sla_breached) {
-    return { mark: "!", tone: "bad", label: tr("A first reply is overdue") }; // @prose:keep a statement about this thread, not a name
-  }
-  if (!thread.entity_ref) {
-    return { mark: "?", tone: "info", label: tr("Not linked to a client or a file yet") }; // @prose:keep a statement about this thread, not a name
-  }
-  return null;
-}
 
 /** PR-0 origin tag → what to actually show a person. */
 function originNote(m: Message): string | null {
@@ -623,22 +597,25 @@ function MessageBlock({
 
       {open && (
         <div className="space-y-2 border-t border-border px-3 py-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Pill tone={message.direction === "OUT" ? "blue" : "mute"}>
-              {message.direction === "OUT" ? tr("Sent") : tr("Received")}
-            </Pill>
-            <Pill tone="mute">{message.folder}</Pill>
-            {origin && <Pill tone="warn">{origin}</Pill>}
-            {/* The pill stays as the at-a-glance marker; the strip below is the
-                part that was missing (H-2). */}
-            {message.has_attachment && <Pill tone="mute">{tr("Attachment")}</Pill>}
-            {/* §9.7. Absent verdict renders nothing — see the type. A green
-                tick for "we did not check" would be the worst of the three
-                possible outputs. */}
-            <VerdictPill verdict={message.auth_verdict} />
+          {/* ONE row: who was copied on the left, the message menu on the
+              right. This used to be a row of four pills with the Cc line under
+              it. Sent or Received is the "To" or "From" two lines up, the
+              folder is the row selected in the rail, the attachment is the
+              strip below and the sender check is the banner below that: each
+              pill repeated something already on screen. The one that stays is
+              the one that says something new. */}
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1 space-y-1 pt-2">
+              {origin && <Pill tone="warn">{origin}</Pill>}
+              {cc.length > 0 && (
+                <p className="break-words text-xs text-muted-foreground">
+                  {tr("Cc")}: <span className="num">{cc.join(", ")}</span>
+                </p>
+              )}
+            </div>
             {/* Outlook's "View message source" and Gmail's "Show original":
                 the message as the server holds it, read live, never stored. */}
-            <MoreMenu label={tr("Message actions")} className="ml-auto">
+            <MoreMenu label={tr("Message actions")} className="shrink-0">
               <DropdownItem onSelect={() => setSource(true)}>{tr("View source")}</DropdownItem>
               <DropdownItem
                 onSelect={() => { downloadMessageSource(message.email_message_id, emlName(message.subject)).catch(() => setSource(true)); }}
@@ -658,11 +635,6 @@ function MessageBlock({
                 : null
             }
           />
-          {cc.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {tr("Cc")}: <span className="num">{cc.join(", ")}</span>
-            </p>
-          )}
           <MessageBody
             message={message}
             palette={palette}
@@ -672,12 +644,6 @@ function MessageBlock({
             onMailto={onMailto}
             onRepaired={onRepaired}
           />
-
-          {/* §8.6 — whatever was read off this message's attachments, staged
-              and awaiting a person. Renders nothing when there is nothing. */}
-          {message.has_attachment && (
-            <Extractions messageId={message.email_message_id} />
-          )}
         </div>
       )}
       {source && <SourceDialog message={message} onClose={() => setSource(false)} />}
@@ -698,7 +664,7 @@ export function ThreadView({
   onDelete,
   onClose,
   onReplied,
-  onWorkChanged,
+  onLinked,
   busy,
 }: {
   thread: ThreadDetail | null;
@@ -732,44 +698,34 @@ export function ThreadView({
   /** Called once a reply is accepted into the send queue, so the list refreshes. */
   onReplied?: () => void;
   /**
-   * Anything in the work rail changed the thread — a binding, a claim, a
-   * status, a visibility. Reloads the thread AND the list, because most of
-   * these are visible in both and a rail that updated only its own half would
-   * leave the list showing the previous assignee.
+   * The conversation was linked to a record, unlinked, or turned into one.
+   * Reloads the thread AND the list, because the linked-record pill is drawn
+   * in both.
    */
-  onWorkChanged?: () => void;
+  onLinked?: () => void;
   busy: boolean;
 }) {
   // Declared before the early returns below, because hooks cannot be conditional.
   const [replying, setReplying] = React.useState<null | "REPLY" | "REPLY_ALL" | "FORWARD">(null);
   React.useEffect(() => { setReplying(null); }, [thread?.email_thread_id]);
 
-  /* ── THE WORK RAIL COLLAPSES AS A WHOLE (review 16 Sep 2026 #22) ───────────
+  /* ── WHAT IS LEFT OF THE WORK PANEL (tenant review, 16 Nov 2026) ───────────
    *
-   * The rail's SECTIONS already collapse — it is an accordion and opens closed.
-   * The rail itself did not, so 22rem of every wide screen was spent on triage
-   * controls whether or not the reader was triaging, and the correspondence —
-   * the thing they opened the thread for — got what was left.
-   *
-   * DEFAULT COLLAPSED, as asked. Reading is the common case and the rail's
-   * contents are an action, not context.
-   *
-   * The choice is a PREFERENCE, not per-thread state: someone who works the
-   * queue wants it open on every thread, and someone who reads wants it shut on
-   * every thread. It is therefore NOT reset when the thread changes (unlike
-   * `replying` above, which must be) and it is remembered across sessions in
-   * localStorage, beside `comms:info-open` which the chat's info panel already
-   * uses. A storage failure costs the preference for this visit and nothing
-   * else — never the panel.
-   */
-  const [railOpen, setRailOpen] = React.useState(() => {
-    try { return localStorage.getItem(RAIL_PREF) === "true"; }
-    catch { return false; /* @silent:storage — default collapsed, as specified */ }
-  });
+   * There was a 22rem column beside every conversation: claim, assign, status,
+   * snooze, a record with six tabs, action cards, document filing, team notes
+   * and sharing. The review kept two things out of it and asked for the rest
+   * off the screen: linking a conversation to a file or a client, and the
+   * summary. Neither needs a column. Linking is two items in the `⋯` menu and
+   * a dialog; the summary is one button and a block above the messages. All
+   * three are per-conversation, so they reset when the conversation changes. */
+  const [linking, setLinking] = React.useState(false);
+  const [converting, setConverting] = React.useState(false);
+  const [summarising, setSummarising] = React.useState(false);
   React.useEffect(() => {
-    try { localStorage.setItem(RAIL_PREF, String(railOpen)); }
-    catch { /* @silent:storage — the toggle still works for this visit */ }
-  }, [railOpen]);
+    setLinking(false);
+    setConverting(false);
+    setSummarising(false);
+  }, [thread?.email_thread_id]);
 
   // The colours every message frame is drawn against, read once per theme.
   const palette = useEmailPalette();
@@ -811,8 +767,6 @@ export function ThreadView({
 
   const messages = thread.messages || [];
   const lastIndex = messages.length - 1;
-  // Computed after the null-guard above, so the collapsed spine can carry it.
-  const railBadge = railAttention(thread);
 
   // Who a reply goes to: the last INBOUND sender, not simply the last message.
   // Replying to your own last message would address the mail to yourself.
@@ -954,6 +908,14 @@ export function ThreadView({
           >
             {thread.unread_count > 0 ? tr("Mark Read") : tr("Mark Unread")}
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={summarising}
+            onClick={() => setSummarising(true)}
+          >
+            {tr("Summarise")}
+          </Button>
 
           {/* Everything a reader does once in a while, most-used first and the
               irreversible one last behind a separator — more-menu.tsx's own
@@ -961,7 +923,9 @@ export function ThreadView({
               option is not a label, and "Move to…" announced as the control's
               value rather than its purpose. */}
           <MoreMenu label={tr("Conversation actions")} className="ml-auto" disabled={busy}>
-            {MOVE_TO.filter((f) => f !== folder).map((f) => (
+            {/* Archive has its own button on the strip, so it is not offered
+                a second time here. */}
+            {MOVE_TO.filter((f) => f !== folder && f !== "ARCHIVE").map((f) => (
               <DropdownItem key={f} onSelect={() => onMove(f)}>
                 {`${tr("Move to")} ${tr(f.charAt(0) + f.slice(1).toLowerCase())}`}
               </DropdownItem>
@@ -980,9 +944,18 @@ export function ThreadView({
               onSelect={() => onStream(thread.stream === "SYSTEM" ? "HUMAN" : "SYSTEM")}
             >
               {thread.stream === "SYSTEM"
-                ? tr("Reclassify as mail from a person")
-                : tr("Reclassify as an automated notice")}
+                ? tr("Not a notice: move to Inbox")
+                : tr("Move to Notices")}
             </DropdownItem>
+            <DropdownSeparator />
+            <DropdownItem onSelect={() => setLinking(true)}>
+              {thread.entity_ref ? tr("Change the linked record") : tr("Link to a file or client")}
+            </DropdownItem>
+            {!thread.entity_ref && (
+              <DropdownItem onSelect={() => setConverting(true)}>
+                {tr("Turn into a record")}
+              </DropdownItem>
+            )}
             {onDelete && (
               <>
                 <DropdownSeparator />
@@ -1004,74 +977,53 @@ export function ThreadView({
         )}
       </header>
 
-      {/* The conversation and the work rail, side by side on a wide screen and
-          stacked below one. The rail is second in the DOM so a keyboard or
-          screen-reader user reaches the correspondence first — it is what they
-          opened the thread for. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden xl:flex-row">
-        <div className="min-h-0 min-w-0 flex-1 space-y-2 overflow-y-auto p-3">
-          {messages.map((m, i) => (
-            <MessageBlock
-              key={m.email_message_id}
-              message={m}
-              defaultOpen={i === lastIndex}
-              repairedHtml={repaired[m.email_message_id]}
-              palette={palette}
-              trustedSenders={trustedSenders}
-              onTrust={onTrust}
-              onMailto={setMailto}
-              onRepaired={onRepaired}
-            />
-          ))}
-        </div>
-        {railOpen ? (
-          <div className="min-h-0 shrink-0 xl:w-[22rem]">
-            <WorkRail
-              thread={thread}
-              onChanged={onWorkChanged || (() => {})}
-              onCollapse={() => setRailOpen(false)}
-            />
-          </div>
-        ) : (
-          /* COLLAPSED: a full-height spine on wide screens, a plain bar when
-             the layout has already stacked. Never nothing — a rail that can be
-             hidden with no way back is a feature people lose, and the binding
-             chip inside it is the most consequential control in the mailbox. */
-          <div className="shrink-0 border-t border-border xl:border-l xl:border-t-0">
-            <button
-              type="button"
-              onClick={() => setRailOpen(true)}
-              aria-expanded={false}
-              aria-controls="mail-work-rail"
-              title={tr("Show the work panel")}
-              className="flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground xl:h-full xl:w-11 xl:flex-col xl:py-4"
-            >
-              <span aria-hidden className="text-sm leading-none">‹</span>
-              {/* Vertical on the desktop spine, horizontal in the stacked bar.
-                  `writing-mode` rather than a rotate: a rotated element keeps
-                  its original box, so the spine would reserve a full label's
-                  width and the reading pane would not get the space back. */}
-              <span className="xl:[writing-mode:vertical-rl]">{tr("Work panel")}</span>
-              {/* Unread work is visible from the collapsed state. Hiding the
-                  rail must not hide that the thread is unbound or overdue —
-                  those are the two facts an operator is scanning for. */}
-              {railBadge && (
-                <span
-                  className={cn(
-                    "grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold",
-                    railBadge.tone === "bad"
-                      ? "bg-[rgb(var(--bad))] text-white"
-                      : "bg-primary text-primary-foreground",
-                  )}
-                  title={railBadge.label}
-                >
-                  {railBadge.mark}
-                </span>
-              )}
-            </button>
-          </div>
+      <div className="min-h-0 min-w-0 flex-1 space-y-2 overflow-y-auto p-3">
+        {/* Asked for, never generated on open: a model call per conversation
+            opened would be a bill nobody chose. */}
+        {summarising && (
+          <ThreadSummary
+            threadId={thread.email_thread_id}
+            onClose={() => setSummarising(false)}
+          />
         )}
+        {messages.map((m, i) => (
+          <MessageBlock
+            key={m.email_message_id}
+            message={m}
+            defaultOpen={i === lastIndex}
+            repairedHtml={repaired[m.email_message_id]}
+            palette={palette}
+            trustedSenders={trustedSenders}
+            onTrust={onTrust}
+            onMailto={setMailto}
+            onRepaired={onRepaired}
+          />
+        ))}
       </div>
+
+      {linking && (
+        <Dialog
+          open
+          onClose={() => setLinking(false)}
+          title={tr("Link to a File or Client")}
+          footer={<Button variant="outline" onClick={() => setLinking(false)}>{tr("Close")}</Button>}
+        >
+          <BindingChip
+            threadId={thread.email_thread_id}
+            entityRef={thread.entity_ref || null}
+            entityLabel={thread.entity_label}
+            onChanged={onLinked || (() => {})}
+            startOpen={!thread.entity_ref}
+          />
+        </Dialog>
+      )}
+      {converting && (
+        <ConvertDialog
+          threadId={thread.email_thread_id}
+          onClose={() => setConverting(false)}
+          onConverted={onLinked || (() => {})}
+        />
+      )}
 
       {/* The composer, when the reader opens it, and NOTHING when they have
           not. Lazily: TipTap and ProseMirror are ~150 kB gzipped and most of

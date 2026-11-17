@@ -541,7 +541,7 @@ export type CallCapabilities = {
   can_dial: boolean;
   recording: boolean;
   settings_admin: boolean;
-  /** May run Comms → Setup → Test calls (MOD-64 Test right, PR-7). */
+  /** May run Settings → Calls → Test Calls (MOD-64 Test right, PR-7). */
   can_test?: boolean;
 };
 export const fetchCallCapabilities = () => tenant<CallCapabilities>(`/smartcomm/calls/capabilities`);

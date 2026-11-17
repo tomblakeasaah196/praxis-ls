@@ -150,7 +150,7 @@ describe("gaps — what is missing and where to fix it", () => {
     // WITH the anchor: the designer holds both phone inputs, and landing on the
     // tab without saying which one is the section-level miss this whole change
     // exists to remove.
-    expect(g.href).toBe("/comms/signatures?field=phone_desk");
+    expect(g.href).toBe("/comms/setup?field=phone_desk");
   });
 
   test("a SYSTEM block reports no missing person", () => {

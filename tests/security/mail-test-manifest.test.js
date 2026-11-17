@@ -58,11 +58,11 @@ const COVERED_ELSEWHERE = {
   // §3.7's outbound-HTML row — 61 tests including the 102 KB clip threshold and
   // the plain-text part. Recorded in the audit at §11.2.
   "mail-html-serializer.test.js": "tests/unit/mail-compose.test.js",
-  // The notes panel and its mention pre-flight are one component and one test.
-  "notes-tab.test.tsx": "client/src/features/comms/inbox/work/notes.test.tsx",
-  "mention-picker.test.tsx": "client/src/features/comms/inbox/work/notes.test.tsx",
-  // The drawer is rendered and asserted inside the work-rail suite.
-  "dossier-drawer.test.tsx": "client/src/features/comms/inbox/work/work.test.tsx",
+  // Three rows left here on 16 Nov 2026: the notes tab, the mention picker and
+  // the dossier drawer. Their screens were removed from the reading pane by the
+  // mail simplification, the guide's §7.10 stopped naming their client tests,
+  // and a mapping to a file that no longer asserts the thing would be the lie
+  // this map exists to prevent.
   // The signature screen goes through the per-screen sweep, which renders it in
   // all four states and runs axe over each.
   "signature-profile.test.tsx": "client/src/features/screens.axe.test.tsx",
@@ -142,7 +142,8 @@ describe("the guide's test plan is a manifest, not a wish", () => {
     // Same ratchet as every other allowance in this directory: it exists so
     // names get reconciled, not so new plans can be written against files that
     // will not be created.
-    expect(Object.keys(COVERED_ELSEWHERE)).toHaveLength(9);
+    // 9 → 6 when the work rail's three client tests left with their screens.
+    expect(Object.keys(COVERED_ELSEWHERE)).toHaveLength(6);
   });
 });
 

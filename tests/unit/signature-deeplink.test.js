@@ -143,7 +143,7 @@ describe("a gap the caller cannot act on", () => {
 
   test("a personal field is always the caller's to fix", () => {
     expect(find(full(), "phone_desk", {}).href).toBe(
-      "/comms/signatures?field=phone_desk",
+      "/comms/setup?field=phone_desk",
     );
   });
 });

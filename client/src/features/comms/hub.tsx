@@ -10,24 +10,22 @@
  *   /comms/calls  → the user's calls, and /comms/calls/:callId one call's
  *                   summary and transcript. Call settings live at
  *                   /settings/calls.
- *   /comms/setup  → everything about how email is configured, in sub-tabs:
- *                   My mailbox (everyone) · Mailboxes, Send points and
- *                   Senders & channels (administrators). PR-0 moved tenant mail
- *                   configuration here rather than into Settings: it used to be
- *                   spread across three surfaces and nobody could find it.
+ *   /comms/setup  → everything about how email is configured, in two tabs:
+ *                   My Mailbox (everyone, with your signature) and Company
+ *                   Mail (administrators: mailboxes, sending addresses, system
+ *                   email, signature templates).
  *
  * The hub draws its own Chat / Mailbox / Setup tab bar: `areas.ts` defines no
  * sections for Comms (so the ribbon's second row carries nothing here), and the
  * mailbox is a product surface that used to be reachable only by URL. The bar
  * is persistent — every page keeps it, so Mailbox is always one click away.
  */
-import { useParams, NavLink } from "react-router-dom";
+import { useParams, NavLink, Navigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { pageShell } from "@/lib/layout";
 import { TeamChatPage } from "./team-chat";
 import { InboxPage } from "./inbox";
 import { CommsSetupPage } from "./setup/index";
-import { SignaturesPage } from "./signatures";
 import { CallsListPage } from "./call/calls-list";
 import { CallRecordPage } from "./call/call-record";
 import { useCallCapabilities } from "./call/call-capabilities";
@@ -39,16 +37,16 @@ const TABS = [
   { to: "/comms/mail", label: "Mailbox", end: false },
   // Client portal PR 3: every client's portal conversations (MOD-64C).
   { to: "/comms/clients", label: "Clients", end: false },
-  { to: "/comms/signatures", label: "Signatures", end: false },
   { to: "/comms/calls", label: "Calls", end: false },
   { to: "/comms/setup", label: "Setup", end: false },
 ] as const;
 
 export function CommsHub() {
   const { section: sectionParam, callId } = useParams();
+  const { search, hash } = useLocation();
   // `/comms/calls/:callId` has no `:section`; it is the Calls tab all the same.
   const section = callId ? "calls" : sectionParam;
-  const isChat = !section || !["setup", "signatures", "mail", "calls", "clients"].includes(section);
+  const isChat = !section || !["setup", "mail", "calls", "clients"].includes(section);
   /* The mailbox is a three-pane workstation from `lg` up and a scrolling page
      below it, so every class below is `lg:`-prefixed.
      
@@ -92,8 +90,6 @@ export function CommsHub() {
       <section className={pageShell.wide}>
         <ClientInboxPage />
       </section>
-    ) : section === "signatures" ? (
-      <SignaturesPage />
     ) : section === "mail" ? (
       /* The legacy Mail page's mode switcher (inbox / message log / mailboxes)
          was deleted with the legacy composer: the inbox IS the mailbox now.
@@ -115,6 +111,14 @@ export function CommsHub() {
     ) : (
       <TeamChatPage />
     );
+  /* Signatures was a tab of its own here, with four sub-tabs. It is part of
+     Setup now (16 Nov 2026): My Signature under My Mailbox, the templates
+     under Company Mail. The old address still arrives, query string and all,
+     because the server's "fix this field" links and people's bookmarks point
+     at it. */
+  if (sectionParam === "signatures") {
+    return <Navigate to={`/comms/setup${search}${hash}`} replace />;
+  }
   return (
     <section
       className={cn(

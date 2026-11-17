@@ -20,27 +20,8 @@ import {
   AttachButton,
   MAIL_ATTACHMENT_ACCEPT,
 } from "./attachment-tray";
-import { FONTS } from "./fonts";
 import { newIdempotencyKey, replayPending } from "./offline-queue";
 import type { AttachmentTray as Tray, CommandDescriptor } from "@/lib/mail-api";
-
-/* ── The extension set is a contract with the server's serializer ─────────── */
-
-describe("the editor's font list", () => {
-  it("OFFERS ONLY WHAT THE SERIALIZER CAN EMIT", () => {
-    // compose.js FONT_STACKS. Adding a family here without adding it there
-    // renders as Times New Roman at the recipient with nobody able to say why —
-    // the @font-face lesson from notification.service.js.
-    expect(FONTS.map((f) => f.value).sort()).toEqual([
-      "arial", "courier", "georgia", "helvetica", "tahoma", "times", "trebuchet", "verdana",
-    ]);
-  });
-
-  it("names each one the way a person would recognise it", () => {
-    expect(FONTS.find((f) => f.value === "times")?.label).toBe("Times New Roman");
-    expect(FONTS.find((f) => f.value === "trebuchet")?.label).toBe("Trebuchet MS");
-  });
-});
 
 /* ── Slash menu ───────────────────────────────────────────────────────────── */
 
