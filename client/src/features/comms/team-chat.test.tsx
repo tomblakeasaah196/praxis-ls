@@ -164,6 +164,19 @@ describe("the chat page is a list and a conversation", () => {
     expect(screen.queryByText("JBS Praxis")).not.toBeInTheDocument();
   });
 
+  it("THE OPEN CONVERSATION IS MARKED IN THE LIST, the way every other list marks its open row", async () => {
+    // It was `bg-primary/10 ring-primary/25`: neither class compiles, because
+    // `--primary` is a plain colour variable. The open row had no ground and a
+    // default blue ring, on a white-label product.
+    render(chat());
+    await screen.findByText("Message composer");
+    const row = screen.getAllByText("Operations")[0].closest("button") as HTMLElement;
+    expect(row).toHaveAttribute("aria-current", "true");
+    expect(row.className).toContain("index-row-open");
+    expect(row.className).not.toContain("bg-primary/10");
+    expect(row.className).not.toContain("ring-primary/25");
+  });
+
   it("a group, and a direct conversation the server did not name the partner of, keep their stored name", async () => {
     fixture.channel = { group_id: "one", name: "Ops Task Force", kind: "DEPARTMENT", unread: 0, partner_name: "Nobody" };
     const { unmount } = render(chat());

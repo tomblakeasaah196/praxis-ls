@@ -6,7 +6,7 @@
  * supplier has no portal conversation to show.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { apiClientMock, authContextMock, renderScreen } from "@/test/screen-harness";
@@ -19,6 +19,10 @@ vi.mock("@/lib/route-access", async () => {
   const actual = await vi.importActual<typeof import("@/lib/route-access")>("@/lib/route-access");
   return { ...actual, useCanUseModule: (key: string) => (key.toUpperCase() === "MOD-64C" ? access.inbox : true) };
 });
+
+// The conversation's backdrop is the tenant's hero image when their branding has
+// one; with no provider in this harness, no branding is the default wash.
+vi.mock("@/app/branding/branding-context", () => ({ useBranding: () => ({ branding: null }) }));
 
 import { PartyDossier } from "./party-360";
 
@@ -71,10 +75,16 @@ describe("a client's 360 · account manager and Messages", () => {
     const user = userEvent.setup();
     renderScreen(<PartyDossier kind="client" partyId="c1" onEdit={() => {}} />, { routes: ROUTES });
     await user.click(await screen.findByRole("button", { name: /^Messages/ }));
-    // The same panel as the Client inbox: the conversation chips and the reply box.
-    expect(await screen.findByRole("radiogroup", { name: "Conversation" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /General/ })).toBeInTheDocument();
-    expect(await screen.findByText("Awa Ndiaye")).toBeInTheDocument();
+    // The same conversation as the Client inbox: its tabs and Chat's message box.
+    const tabs = await screen.findByRole("tablist", { name: "Conversation" });
+    expect(within(tabs).getByRole("tab", { name: /General/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("textbox", { name: "Reply to the client…" })).toBeInTheDocument();
+    // The account manager no longer stands above the messages. It is behind the
+    // info button, as it is in the inbox.
+    expect(screen.queryByText("Awa Ndiaye")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Conversation Info" }));
+    const info = await screen.findByRole("dialog", { name: "Conversation Info" });
+    expect(await within(info).findByText("Awa Ndiaye")).toBeInTheDocument();
   });
 
   it("offers no Messages tab without the Client inbox permission, even by link", async () => {
@@ -83,7 +93,7 @@ describe("a client's 360 · account manager and Messages", () => {
     // The link falls back to the Overview rather than a tab of refusals.
     expect(await screen.findByText("Compliance")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Messages/ })).toBeNull();
-    expect(screen.queryByRole("radiogroup", { name: "Conversation" })).toBeNull();
+    expect(screen.queryByRole("tablist", { name: "Conversation" })).toBeNull();
   });
 
   it("gives a supplier neither", async () => {

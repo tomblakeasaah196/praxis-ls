@@ -37,7 +37,6 @@
     "client/src/features/commercial/quotation-forms.tsx": 4,
     "client/src/features/commercial/quotations.tsx": 1,
     "client/src/features/comms/call/calls-list.tsx": 1,
-    "client/src/features/comms/client-inbox.tsx": 1,
     "client/src/features/comms/inbox/composer/toolbar.tsx": 1,
     "client/src/features/comms/inbox/pending.tsx": 2,
     "client/src/features/comms/mail-setup-wizard.tsx": 7,

@@ -48,6 +48,18 @@ i18n.use(initReactI18next).init({
   fallbackLng: "en",
   interpolation: { escapeValue: false },
   returnNull: false,
+  /*
+   * There is ONE namespace here, and the keys of `strings` are whole English
+   * sentences. i18next reads a colon in a key as "namespace:key" unless told
+   * otherwise, so `tr("Nothing waiting: every client has an answer")` looked
+   * for the key " every client has an answer" in a namespace called
+   * "strings.Nothing waiting", found neither, and fell back to English with
+   * nothing failing anywhere. Every sentence with a colon in it did that in
+   * the French build, and the house rule for copy is to USE a colon where an
+   * em dash used to be, so their number only grew. Found on the Client inbox,
+   * 17 Nov 2026, whose own empty state was one of them.
+   */
+  nsSeparator: false,
 });
 
 export function setLang(lang: "en" | "fr") {
