@@ -121,6 +121,19 @@ async function resolveEntityId(client, { data = {} }) {
   );
 }
 
+/**
+ * A deal's currency must be one the tenant has. 14511 could not give the
+ * column a foreign key (a constraint on an existing table above 13791 breaks
+ * provisioning), so this is where that rule lives.
+ */
+async function assertCurrency(client, code) {
+  if (!code) return;
+  const { rows } = await client.query("SELECT 1 FROM currency WHERE code = $1", [String(code).toUpperCase()]);
+  if (!rows.length) {
+    throw new AppError("CURRENCY_UNKNOWN", `${code} is not a currency this company uses`, 422, { currency: ["not a configured currency"] });
+  }
+}
+
 /* ─── the service a request names ─────────────────────────────────────────── */
 
 /** The display copy written to `service_category` on every write. */
@@ -243,6 +256,7 @@ async function linkDocuments(client, { quoteRequestId, docs, fromRef, clientId =
  *                     linked in the same transaction as the row.
  */
 async function create(client, { data, actor = {}, options = {} }) {
+  await assertCurrency(client, data.currency);
   if (data.lead_id) {
     const { rows } = await client.query("SELECT lead_id, merged_into_lead_id FROM lead WHERE lead_id = $1", [data.lead_id]);
     if (!rows[0]) throw new AppError("LEAD_NOT_FOUND", "That company does not exist", 422, { lead_id: ["no such company"] });
@@ -317,6 +331,7 @@ async function update(client, { id, patch = {}, actor = {} }) {
   if (rules.isSettled(before.stage)) {
     throw new AppError("LOCKED", "A " + before.stage.toLowerCase() + " request cannot be edited", 422);
   }
+  await assertCurrency(client, patch.currency);
   const fields = {};
   for (const k of repo.WRITABLE) {
     // public_ref is allocated once and is history; entity_id decides the

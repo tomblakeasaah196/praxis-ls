@@ -207,17 +207,23 @@ describe("email domains — never suggest a client from public webmail", () => {
 });
 
 describe("the shared quote-request rules", () => {
-  test("a converted or closed request cannot be re-linked to another client", () => {
+  test("a won or lost request (or a converted or closed one) cannot be re-linked to another client", () => {
     expect(quoteRequest.canRelink("RECEIVED")).toBe(true);
     expect(quoteRequest.canRelink("UNDER_REVIEW")).toBe(true);
+    expect(quoteRequest.canRelink("QUOTED")).toBe(true);
     expect(quoteRequest.canRelink("CONVERTED_TO_OPPORTUNITY")).toBe(false);
     expect(quoteRequest.canRelink("CLOSED_NO_ACTION")).toBe(false);
+    expect(quoteRequest.canRelink("WON")).toBe(false);
+    expect(quoteRequest.canRelink("LOST")).toBe(false);
   });
 
-  test("the desk must name an Incoterm — TBD is a valid answer", () => {
+  test("a phone request may wait for its Incoterm; the website and the portal owe one — TBD is a valid answer", () => {
+    // 14511: a request typed by hand from a call may not know its term yet.
     const base = { requester_name: "Ada", service_type_id: "6b0a1f2e-1c1d-4b8e-9d55-0a0b0c0d0e0f" };
-    expect(quoteRequest.staffCreate.safeParse(base).success).toBe(false);
-    const tbd = quoteRequest.staffCreate.safeParse({ ...base, incoterm: "tbd" });
+    expect(quoteRequest.staffCreate.safeParse(base).success).toBe(true);
+    expect(quoteRequest.staffCreate.safeParse({ ...base, intake_channel: "WEBSITE" }).success).toBe(false);
+    expect(quoteRequest.staffCreate.safeParse({ ...base, intake_channel: "PORTAL" }).success).toBe(false);
+    const tbd = quoteRequest.staffCreate.safeParse({ ...base, intake_channel: "WEBSITE", incoterm: "tbd" });
     expect(tbd.success).toBe(true);
     expect(tbd.data.incoterm).toBe("TBD");
   });

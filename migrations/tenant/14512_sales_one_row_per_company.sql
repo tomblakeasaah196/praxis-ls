@@ -8,7 +8,8 @@
 --   1. The source vocabulary is redrawn (PR 1 left it to this PR): CAMPAIGN
 --      leaves with Campaigns, PORTAL and EMAIL arrive because a row can now be
 --      created by a portal request or a converted mail. A row that said
---      CAMPAIGN becomes MANUAL and keeps the old word in details_json.
+--      CAMPAIGN becomes MANUAL and keeps the old word in details_json. The
+--      CHECKs are dropped, not redrawn (see below).
 --   2. A client that a request or an opportunity names, and that has no row,
 --      gets one (as a Client: client_id set, its account manager the owner).
 --   3. A request with neither a row nor a client is filed on the row whose
@@ -35,39 +36,23 @@
 
 -- ── 1. the source vocabulary ───────────────────────────────────────────────
 
+-- The old CHECKs go FIRST: rewriting a value while the check that governs it
+-- is in force is how 13801 failed on rows (migration-value-rewrite-ordering).
+-- They are not re-added: a constraint on an existing table above 13791 aborts
+-- provisioning a fresh tenant (see 14510). The vocabulary is
+-- @praxis/shared lead.SOURCES, read by the lead validator, and the intake
+-- doors set the channel themselves and never take it from a body.
+-- DESTRUCTIVE: CAMPAIGN leaves the lead source vocabulary with Campaigns (D10); lead.SOURCES holds it from here
+ALTER TABLE lead DROP CONSTRAINT IF EXISTS lead_source_check;
+-- DESTRUCTIVE: CAMPAIGN leaves the lead channel vocabulary with Campaigns (D10); lead.SOURCES holds it from here
+ALTER TABLE lead DROP CONSTRAINT IF EXISTS ck_lead_intake_channel;
+
 UPDATE lead
    SET details_json = COALESCE(details_json, '{}'::jsonb) || jsonb_build_object('source_before_14512', 'CAMPAIGN'),
        source = 'MANUAL'
  WHERE source = 'CAMPAIGN';
 UPDATE lead SET intake_channel = 'MANUAL' WHERE intake_channel = 'CAMPAIGN';
 UPDATE quote_request SET intake_channel = 'MANUAL' WHERE intake_channel = 'CAMPAIGN';
-
--- DESTRUCTIVE: CAMPAIGN leaves the lead source vocabulary with Campaigns (D10); ck_lead_source below replaces the check
-ALTER TABLE lead DROP CONSTRAINT IF EXISTS lead_source_check;
--- DESTRUCTIVE: CAMPAIGN leaves the lead channel vocabulary with Campaigns (D10); the check is re-added below with PORTAL and EMAIL
-ALTER TABLE lead DROP CONSTRAINT IF EXISTS ck_lead_intake_channel;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint c
-      JOIN pg_class t     ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'ck_lead_source' AND t.relname = 'lead' AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE lead ADD CONSTRAINT ck_lead_source
-      CHECK (source IN ('MANUAL', 'WEBSITE', 'PORTAL', 'EMAIL', 'REFERRAL'));
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint c
-      JOIN pg_class t     ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'ck_lead_intake_channel' AND t.relname = 'lead' AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE lead ADD CONSTRAINT ck_lead_intake_channel
-      CHECK (intake_channel IN ('MANUAL', 'WEBSITE', 'PORTAL', 'EMAIL', 'REFERRAL'));
-  END IF;
-END $$;
 
 -- ── 2. a row for every client a request or an opportunity names ────────────
 
@@ -306,8 +291,6 @@ UPDATE lead l
 -- DOWN
 -- DROP INDEX IF EXISTS ux_lead_client;
 -- ALTER TABLE quote_request ALTER COLUMN lead_id DROP NOT NULL;
--- ALTER TABLE lead DROP CONSTRAINT IF EXISTS ck_lead_intake_channel;
--- ALTER TABLE lead DROP CONSTRAINT IF EXISTS ck_lead_source;
 -- ALTER TABLE lead ADD CONSTRAINT lead_source_check
 --   CHECK (source IN ('MANUAL', 'WEBSITE', 'REFERRAL', 'CAMPAIGN'));
 -- ALTER TABLE lead ADD CONSTRAINT ck_lead_intake_channel

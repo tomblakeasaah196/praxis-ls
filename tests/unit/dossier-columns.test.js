@@ -10,7 +10,7 @@
  * only ALTER before 0508 (0479) adds pol_place_id/pod_place_id. Two services
  * passed `title: opp.name` anyway:
  *
- *   src/orchestration/handlers/opportunity-won-open-dossier.js
+ *   src/modules/sales/quote_request/quote_request.win.js
  *   src/modules/sales/opportunity/opportunity.service.js   (win({createDossier}))
  *
  * `insertOne` builds its column list from `Object.keys(data)` and validates each
@@ -194,8 +194,9 @@ describe("dossier create payloads name real columns", () => {
   const schema = columnsOfDossier();
 
   const CALL_SITES = [
-    "src/orchestration/handlers/opportunity-won-open-dossier.js",
-    "src/modules/sales/opportunity/opportunity.service.js",
+    // The one sales → operations handoff since the Sales lean revamp (PR 2):
+    // a won request opens its file (Mark Won and an accepted quotation alike).
+    "src/modules/sales/quote_request/quote_request.win.js",
   ];
 
   it.each(CALL_SITES)("%s", (relPath) => {
@@ -208,7 +209,7 @@ describe("dossier create payloads name real columns", () => {
     expect(keys.filter((k) => !WRITABLE.has(k))).toEqual([]);
   });
 
-  it("still carries the opportunity name across the handoff", () => {
+  it("still carries the deal's name across the handoff", () => {
     // The alternative fix was to delete `title:` from both call sites, which
     // would have made the flow work and lost the deal name at the one boundary
     // where Operations needs to know what the job is. Migration 0508 chose the

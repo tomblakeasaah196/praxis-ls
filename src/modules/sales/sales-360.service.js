@@ -229,7 +229,7 @@ async function leadRequests(c, leadId, canSee) {
             (SELECT count(*)::int FROM quotation qt WHERE qt.quote_request_id = q.quote_request_id) AS quotations
        FROM quote_request q
        LEFT JOIN service_type st ON st.service_type_id = q.service_type_id
-       LEFT JOIN dossier d ON d.dossier_id = q.dossier_id
+       LEFT JOIN dossier_visible d ON d.dossier_id = q.dossier_id
       WHERE q.lead_id = $1
       ORDER BY (q.stage IN ('WON', 'LOST')), q.created_at DESC
       LIMIT $2`,

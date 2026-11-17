@@ -119,9 +119,11 @@ describe("Zod → JSON Schema keeps the constraints the validator enforces", () 
     expect(js.properties.email.format).toBe("email");
     expect(js.properties.company_name.minLength).toBe(1);
     expect(js.properties.payment_terms_days.type).toBe("integer");
-    // The required set is unchanged — this fix adds fidelity, it does not make
-    // previously-optional fields mandatory.
-    expect(js.required).toEqual(["company_name"]);
+    // The required set: the company, and since the Sales lean revamp (PR 2)
+    // its dated next step (every open lead has one, D4). The one-contact-way
+    // rule is a refinement the model is told in the action's description.
+    expect(js.required).toEqual(["company_name", "next_step"]);
+    expect(js.properties.next_step.required).toEqual(["action", "due_at"]);
   });
 });
 

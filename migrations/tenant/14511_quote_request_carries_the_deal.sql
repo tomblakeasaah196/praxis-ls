@@ -40,6 +40,19 @@
 --
 -- Opportunities that no request points at become requests in 14512, once every
 -- request has a company row to sit on.
+--
+-- NO CHECK AND NO FOREIGN KEY ON THESE COLUMNS: a constraint added to an
+-- existing table above 13791 aborts provisioning a fresh tenant (see 14510).
+-- The rules are held where every write passes, which is the request service:
+--
+--   stage                 rules.STAGES; moved only by moveStage, markLost and
+--                         the win (quote_request.win.js)
+--   lost reason           required when LOST (shared moveStage / aiMarkLost,
+--                         and markLost refuses without one); one of five codes
+--   settled_at            set by the same three writes that settle a deal
+--   estimated_value       nonnegative (the shared shape)
+--   currency              a currency the tenant has (the service checks it)
+--   dossier_id            written only by the win, from the file it opened
 -- ============================================================================
 
 -- ── 1. the columns ─────────────────────────────────────────────────────────
@@ -47,11 +60,11 @@
 ALTER TABLE quote_request ADD COLUMN IF NOT EXISTS stage text NOT NULL DEFAULT 'NEW';
 ALTER TABLE quote_request ADD COLUMN IF NOT EXISTS title text;
 ALTER TABLE quote_request ADD COLUMN IF NOT EXISTS estimated_value numeric(18,2);
-ALTER TABLE quote_request ADD COLUMN IF NOT EXISTS currency char(3) REFERENCES currency(code);
+ALTER TABLE quote_request ADD COLUMN IF NOT EXISTS currency char(3);
 ALTER TABLE quote_request ADD COLUMN IF NOT EXISTS lost_reason_code text;
 ALTER TABLE quote_request ADD COLUMN IF NOT EXISTS lost_reason text;
 ALTER TABLE quote_request ADD COLUMN IF NOT EXISTS settled_at timestamptz;
-ALTER TABLE quote_request ADD COLUMN IF NOT EXISTS dossier_id uuid REFERENCES dossier(dossier_id);
+ALTER TABLE quote_request ADD COLUMN IF NOT EXISTS dossier_id uuid;
 
 -- A phone request may not know its Incoterm yet (the validator still demands
 -- one from the website and the portal, whose wizards ask).
@@ -108,55 +121,7 @@ UPDATE quote_request q
    AND q.stage = 'NEW'
    AND q.status = 'CONVERTED_TO_OPPORTUNITY';
 
--- ── 3. the rules, now that every row satisfies them ────────────────────────
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint c
-      JOIN pg_class t     ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'ck_quote_request_stage' AND t.relname = 'quote_request' AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE quote_request ADD CONSTRAINT ck_quote_request_stage
-      CHECK (stage IN ('NEW', 'CONTACTED', 'MEETING', 'QUOTED', 'WON', 'LOST'));
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint c
-      JOIN pg_class t     ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'ck_quote_request_lost_reason' AND t.relname = 'quote_request' AND n.nspname = current_schema()
-  ) THEN
-    -- A lost deal says why. The code is one of five; the line is optional.
-    ALTER TABLE quote_request ADD CONSTRAINT ck_quote_request_lost_reason
-      CHECK (
-        (lost_reason_code IS NULL OR lost_reason_code IN ('PRICE', 'TIMING', 'COMPETITOR', 'NO_RESPONSE', 'OTHER'))
-        AND (stage <> 'LOST' OR lost_reason_code IS NOT NULL)
-      );
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint c
-      JOIN pg_class t     ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'ck_quote_request_settled' AND t.relname = 'quote_request' AND n.nspname = current_schema()
-  ) THEN
-    -- Won and lost are dated; an open stage is not.
-    ALTER TABLE quote_request ADD CONSTRAINT ck_quote_request_settled
-      CHECK ((stage IN ('WON', 'LOST')) = (settled_at IS NOT NULL));
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint c
-      JOIN pg_class t     ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'ck_quote_request_value' AND t.relname = 'quote_request' AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE quote_request ADD CONSTRAINT ck_quote_request_value
-      CHECK (estimated_value IS NULL OR estimated_value >= 0);
-  END IF;
-END $$;
+-- ── 3. what the columns mean ───────────────────────────────────────────────
 
 COMMENT ON COLUMN quote_request.stage IS
   'The deal''s stage (14511): NEW, CONTACTED, MEETING, QUOTED, WON, LOST. Fixed, never configurable. WON comes from an accepted quotation or Mark Won, which opens the operations file.';
@@ -175,10 +140,6 @@ CREATE INDEX IF NOT EXISTS ix_quote_request_dossier ON quote_request (dossier_id
 -- DROP INDEX IF EXISTS ix_quote_request_settled_won;
 -- DROP INDEX IF EXISTS ix_quote_request_lead_stage;
 -- DROP INDEX IF EXISTS ix_quote_request_stage;
--- ALTER TABLE quote_request DROP CONSTRAINT IF EXISTS ck_quote_request_value;
--- ALTER TABLE quote_request DROP CONSTRAINT IF EXISTS ck_quote_request_settled;
--- ALTER TABLE quote_request DROP CONSTRAINT IF EXISTS ck_quote_request_lost_reason;
--- ALTER TABLE quote_request DROP CONSTRAINT IF EXISTS ck_quote_request_stage;
 -- UPDATE quote_request SET incoterm = 'TBD' WHERE incoterm IS NULL;
 -- ALTER TABLE quote_request ALTER COLUMN incoterm SET NOT NULL;
 -- ALTER TABLE quote_request DROP COLUMN IF EXISTS dossier_id;

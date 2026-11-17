@@ -33,17 +33,32 @@
 --                                                           "TOTALENERGIES" meet
 --
 -- search_fold is 14382's, the same fold ⌘K searches with.
+--
+-- NO CHECK AND NO FOREIGN KEY ON THESE COLUMNS. A constraint added to an
+-- existing table above 13791 aborts provisioning a fresh tenant (13791's
+-- sandbox repair mirrors live's constraints before sandbox has the columns;
+-- tests/unit/migration-constraint-ordering.test.js, 13794 and 14310 explain).
+-- So the old five-value CHECK is dropped and not replaced, and the rules are
+-- held where every write already passes:
+--
+--   status OPEN | ARCHIVED     @praxis/shared lead.STATUSES, lead.rules, and the
+--                              lead service, the only writer of `status`
+--   an archive has a reason    lead.archive validator (required) and service
+--   next_step_task_id          written only by the lead service, from a task it
+--                              has just created; a deleted task reads as no
+--                              next step (every read joins on a live task)
+--   merged_into_lead_id        written only by 14512, from a row it has just read
 -- ============================================================================
 
 -- ── 1. status: OPEN or ARCHIVED ────────────────────────────────────────────
 
 ALTER TABLE lead ADD COLUMN IF NOT EXISTS archived_reason text;
 ALTER TABLE lead ADD COLUMN IF NOT EXISTS archived_at timestamptz;
-ALTER TABLE lead ADD COLUMN IF NOT EXISTS merged_into_lead_id uuid REFERENCES lead(lead_id);
-ALTER TABLE lead ADD COLUMN IF NOT EXISTS next_step_task_id uuid REFERENCES task(task_id) ON DELETE SET NULL;
+ALTER TABLE lead ADD COLUMN IF NOT EXISTS merged_into_lead_id uuid;
+ALTER TABLE lead ADD COLUMN IF NOT EXISTS next_step_task_id uuid;
 
 -- The old five-value CHECK goes first, or the backfill below cannot write OPEN.
--- DESTRUCTIVE: the five-step lead funnel is retired (D3); ck_lead_status below replaces the check, and the backfill keeps LOST as ARCHIVED
+-- DESTRUCTIVE: the five-step lead funnel is retired (D3); the lead service holds OPEN | ARCHIVED from here, and the backfill keeps LOST as ARCHIVED
 ALTER TABLE lead DROP CONSTRAINT IF EXISTS lead_status_check;
 
 UPDATE lead
@@ -55,41 +70,8 @@ UPDATE lead SET status = 'OPEN' WHERE status IN ('NEW', 'CONTACTED', 'QUALIFIED'
 
 ALTER TABLE lead ALTER COLUMN status SET DEFAULT 'OPEN';
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-      FROM pg_constraint c
-      JOIN pg_class t     ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'ck_lead_status'
-       AND t.relname = 'lead'
-       AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE lead ADD CONSTRAINT ck_lead_status CHECK (status IN ('OPEN', 'ARCHIVED'));
-  END IF;
-END $$;
-
--- An archived row says why. Checked as a constraint so no code path can archive
--- silently; the backfill above gave every old LOST row its reason first.
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-      FROM pg_constraint c
-      JOIN pg_class t     ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-     WHERE c.conname = 'ck_lead_archived_reason'
-       AND t.relname = 'lead'
-       AND n.nspname = current_schema()
-  ) THEN
-    ALTER TABLE lead ADD CONSTRAINT ck_lead_archived_reason
-      CHECK (status <> 'ARCHIVED' OR char_length(btrim(COALESCE(archived_reason, ''))) > 0);
-  END IF;
-END $$;
-
 COMMENT ON COLUMN lead.status IS
-  'OPEN or ARCHIVED (14510). The stage of a deal lives on its request (quote_request.stage); Prospect or Client is client_id IS NULL.';
+  'OPEN or ARCHIVED (14510), held by the lead service (no CHECK above 13791). The stage of a deal lives on its request (quote_request.stage); Prospect or Client is client_id IS NULL.';
 COMMENT ON COLUMN lead.next_step_task_id IS
   'The current next step: a workspace task (entity_type lead). Written only by the lead service, which refuses an OPEN lead without one unless it is a client with no open request (14510, guide §4.4).';
 COMMENT ON COLUMN lead.merged_into_lead_id IS
@@ -119,8 +101,6 @@ CREATE INDEX IF NOT EXISTS ix_lead_dup_company
 -- DROP INDEX IF EXISTS ix_lead_dup_email;
 -- DROP INDEX IF EXISTS ix_lead_next_step;
 -- DROP INDEX IF EXISTS ix_lead_status_owner;
--- ALTER TABLE lead DROP CONSTRAINT IF EXISTS ck_lead_archived_reason;
--- ALTER TABLE lead DROP CONSTRAINT IF EXISTS ck_lead_status;
 -- UPDATE lead SET status = 'LOST' WHERE status = 'ARCHIVED';
 -- UPDATE lead SET status = CASE WHEN client_id IS NOT NULL THEN 'CONVERTED' ELSE 'NEW' END WHERE status = 'OPEN';
 -- ALTER TABLE lead ALTER COLUMN status SET DEFAULT 'NEW';

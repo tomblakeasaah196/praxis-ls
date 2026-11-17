@@ -37,8 +37,10 @@ const isPayables = (sql) => /supplier_invoice/.test(sql);
 const isCashReq = (sql) => /FROM cash_request/.test(sql);
 const isMargin = (sql) => /margin_simulation/.test(sql);
 const isDso = (sql) => /payment_allocation/.test(sql);
-const isWon = (sql) => /FROM opportunity/.test(sql);
-const isQuotes = (sql) => /quote_request/.test(sql);
+// Since the Sales lean revamp (PR 2) both tiles read the request: a WON one is
+// the deal, an open one is the queue.
+const isWon = (sql) => /FROM quote_request/.test(sql) && /stage = 'WON'/.test(sql);
+const isQuotes = (sql) => /quote_request/.test(sql) && !/stage = 'WON'/.test(sql);
 const isPos = (sql) => /grn_inbound/.test(sql);
 const isPr = (sql) => /FROM purchase_request/.test(sql);
 

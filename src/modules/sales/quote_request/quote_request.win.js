@@ -77,18 +77,17 @@ const fileIncoterm = (term) => {
   return t && t !== incoterms.NOT_SURE && t !== incoterms.NOT_APPLICABLE ? t : null;
 };
 
+/** What the file is called: the deal's own title, else the company and the service. */
+const fileTitle = (q, companyName) =>
+  q.title || [companyName, q.service_category].filter(Boolean).join(" · ") || q.public_ref || "Won request";
+
 /**
- * What the operations file opens with: everything the request already knows,
- * so nothing is typed twice (§0, "turn a yes into work").
+ * The route and cargo the file opens with: everything the request already
+ * knows, so nothing is typed twice (§0, "turn a yes into work"). Only what the
+ * request holds; a field it does not hold stays off the file.
  */
-function dossierData(q, { entityId, clientId, companyName }) {
-  const data = {
-    entity_id: entityId,
-    client_id: clientId || null,
-    service_type_id: q.service_type_id || null,
-    title: q.title || [companyName, q.service_category].filter(Boolean).join(" · ") || q.public_ref || "Won request",
-    owner_sales_id: q.owner_user_id || null,
-  };
+function routeOf(q) {
+  const data = {};
   const term = fileIncoterm(q.incoterm);
   if (term) data.incoterm = term;
   if (q.origin_location) data.pol = q.origin_location;
@@ -189,7 +188,14 @@ async function win(client, { id, via = "MANUAL", quotationId = null, entityId = 
     } else {
       const opened = await step(client, "win_open_file", () =>
         dossierSvc.insertForCreate(client, {
-          data: dossierData(request, { entityId: fileEntity, clientId, companyName: lead && lead.company_name }),
+          data: {
+            entity_id: fileEntity,
+            client_id: clientId,
+            service_type_id: request.service_type_id || null,
+            title: fileTitle(request, lead && lead.company_name),
+            owner_sales_id: request.owner_user_id || null,
+            ...routeOf(request),
+          },
           actor,
         }));
       if (opened.ok) {
@@ -237,4 +243,4 @@ async function win(client, { id, via = "MANUAL", quotationId = null, entityId = 
   return result;
 }
 
-module.exports = { win, dossierData, fileIncoterm };
+module.exports = { win, routeOf, fileTitle, fileIncoterm };

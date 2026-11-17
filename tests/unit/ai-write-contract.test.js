@@ -5,7 +5,8 @@
  * Three guarantees:
  *   1. Every ai_enabled write resolves to a runnable executor (completeness).
  *   2. The write actions the audit names — create client / supplier / lead /
- *      opportunity / purchase-request / purchase-order — run end-to-end through
+ *      purchase-request / purchase-order (the opportunity's writes were retired
+ *      by the Sales lean revamp, PR 2) — run end-to-end through
  *      the real executor with the FULL actor and a correctly-shaped payload
  *      (closes C1/C2/C3, and proves the generic adapter now passes the actor).
  *   3. A ratchet: the set of writes that do NOT yet forward the actor equals the
@@ -27,16 +28,16 @@ jest.mock("../../src/modules/master/supplier_master/supplier_master.service", ()
   get: jest.fn(),
 }));
 jest.mock("../../src/modules/sales/lead/lead.service", () => ({
-  create: jest.fn(async () => ({ lead_id: "le-1" })),
-  transition: jest.fn(),
-  convert: jest.fn(),
+  capture: jest.fn(async () => ({ lead_id: "le-1" })),
+  logActivity: jest.fn(),
+  setNextStep: jest.fn(),
+  archive: jest.fn(),
+  makeClient: jest.fn(),
+  duplicates: jest.fn(),
   list: jest.fn(),
   get: jest.fn(),
 }));
 jest.mock("../../src/modules/sales/opportunity/opportunity.service", () => ({
-  create: jest.fn(async () => ({ opportunity_id: "op-1" })),
-  moveStage: jest.fn(),
-  win: jest.fn(),
   list: jest.fn(),
   board: jest.fn(),
   metrics: jest.fn(),
@@ -55,7 +56,6 @@ jest.mock("../../src/modules/procurement/purchase_order/purchase_order.service",
 const clientMaster = require("../../src/modules/master/client_master/client_master.service");
 const supplier = require("../../src/modules/master/supplier_master/supplier_master.service");
 const lead = require("../../src/modules/sales/lead/lead.service");
-const opportunity = require("../../src/modules/sales/opportunity/opportunity.service");
 const purchaseRequest = require("../../src/modules/procurement/purchase_request/purchase_request.service");
 const purchaseOrder = require("../../src/modules/procurement/purchase_order/purchase_order.service");
 
@@ -90,16 +90,21 @@ describe("the named create actions run with the FULL actor and correct payload",
     expect(supplier.create).toHaveBeenCalledWith({}, { data: payload, actor: ACTOR });
   });
 
-  it("create_lead (C2: actor was dropped) now forwards the actor", async () => {
-    const payload = { company_name: "Lead Co" };
-    await run(map, "create_lead", payload);
-    expect(lead.create).toHaveBeenCalledWith({}, { data: payload, actor: ACTOR });
+  it("capture_lead (C2: actor was dropped) forwards the actor", async () => {
+    const payload = { company_name: "Lead Co", phone: "699001122", next_step: { action: "Call back", due_at: "2026-11-18" } };
+    await run(map, "capture_lead", payload);
+    expect(lead.capture).toHaveBeenCalledWith({}, { data: payload, actor: ACTOR });
   });
 
-  it("create_opportunity (C2: actor was dropped) now forwards the actor", async () => {
-    const payload = { name: "Big deal", amount: 5000 };
-    await run(map, "create_opportunity", payload);
-    expect(opportunity.create).toHaveBeenCalledWith({}, { data: payload, actor: ACTOR });
+  it("set_lead_next_step maps the flat payload onto the lead and its step, with the actor", async () => {
+    await run(map, "set_lead_next_step", { lead_id: "le-1", action: "Visit", due_at: "2026-11-20T10:00" });
+    expect(lead.setNextStep).toHaveBeenCalledWith({}, {
+      id: "le-1", step: { action: "Visit", due_at: "2026-11-20T10:00", assigned_to: undefined }, actor: ACTOR,
+    });
+  });
+
+  it("the opportunity has no writes left: a deal is moved and won on its request (lean revamp PR 2)", () => {
+    expect(buildCatalogue().filter((r) => r.is_write && /opportunit/.test(r.action_key))).toEqual([]);
   });
 
   it("create_purchase_request (C3: snake→camel mismatch) maps fields and forwards the actor", async () => {
