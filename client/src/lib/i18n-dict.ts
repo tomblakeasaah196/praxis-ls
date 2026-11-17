@@ -3204,6 +3204,11 @@ export const en = {
     "Not Sent Yet": "Not Sent Yet",
     "My drafts": "My drafts",
     // Mail and Setup simplification (16 Nov 2026).
+    "Generate for Staff": "Generate for Staff",
+    "Signature actions": "Signature actions",
+    "Generate Signatures for Staff": "Generate Signatures for Staff",
+    "My Signature": "My Signature",
+    "Delivery Check": "Delivery Check",
     "Write With AI": "Write With AI",
     "Nothing in this folder is starred.": "Nothing in this folder is starred.",
     "Everything in this folder is read.": "Everything in this folder is read.",
@@ -7461,6 +7466,11 @@ export const fr: Dict = {
     "Not Sent Yet": "Pas encore envoyé",
     "My drafts": "Mes brouillons",
     // Mail and Setup simplification (16 Nov 2026).
+    "Generate for Staff": "Générer pour le personnel",
+    "Signature actions": "Actions sur les signatures",
+    "Generate Signatures for Staff": "Générer les signatures du personnel",
+    "My Signature": "Ma signature",
+    "Delivery Check": "Vérification de livraison",
     "Write With AI": "Écrire avec l'IA",
     "Nothing in this folder is starred.": "Rien n'est marqué d'une étoile dans ce dossier.",
     "Everything in this folder is read.": "Tout est lu dans ce dossier.",

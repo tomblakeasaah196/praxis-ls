@@ -1,114 +1,73 @@
 /**
- * Comms → Signatures. The signature workstation.
+ * Company Mail → Signatures (administrators).
  *
- * WHY IT IS HERE AND NOT ONLY IN SETTINGS. A signature is part of how mail goes
- * out, and this is where mail lives. Settings → Email signatures still works and
- * still appears on the Settings hub — the route was not moved, because a
- * bookmark and a hub card that stop working are their own small betrayal — but
- * this is the surface with room for the preview, the batch and the templates
- * side by side.
+ * Which signature template each part of the company gets, with two things an
+ * administrator does once in a while behind the section's own controls:
+ * generating signatures for several people, and checking why a card image is
+ * missing from sent mail.
  *
- * DESIGNER IS VISIBLE TO EVERYONE. It is the caller's own signature, the same
- * personal-preference rule that governs /mail/signature on the server. Batch and
- * Templates are MOD-70: generating other people's identity assets, and choosing
- * what the company's mail looks like, are brand governance.
+ * ── WHERE THE SIGNATURES TAB WENT ───────────────────────────────────────────
  *
- * The admin tabs are hidden until the capability answer arrives rather than
- * shown and retracted — the pattern the Setup hub next door already uses, and
- * for the same reason: offering a tab and taking it away teaches people to
- * distrust the ones that work.
+ * Signatures was a tab of Comms with four sub-tabs (My Signature, Batch,
+ * Templates, Delivery Check), and Settings carried a second Email Signatures
+ * screen that did part of the same job. The tenant review of 16 Nov 2026
+ * folded all of it into Setup:
+ *
+ *   My Signature     a section of the My Mailbox tab (`DesignerTab`), because
+ *                    it is the caller's own, like the mailbox above it.
+ *   Templates        this section.
+ *   Batch            the "Generate for Staff" button here, in a dialog.
+ *   Delivery Check   the section's menu, in a dialog. It is a diagnostic.
+ *
+ * `/comms/signatures` and `/settings/email-signatures` both redirect to Setup
+ * with their query string, so the server's "fix this field" links still land.
  */
 import * as React from "react";
-import { cn } from "@/lib/cn";
-import { pageShell } from "@/lib/layout";
-import { PageHeader } from "@/components/data-list";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { DropdownItem } from "@/components/ui/dropdown-menu";
+import { MoreMenu } from "@/components/ui/more-menu";
+import { Panel } from "@/components/ui/panel";
 import { tr } from "@/lib/i18n";
-import * as api from "@/lib/mail-api";
-import { useResource } from "@/lib/use-resource";
-import { DesignerTab } from "./designer-tab";
 import { BatchTab } from "./batch-tab";
-import { TemplatesTab } from "./templates-tab";
 import { DeliveryTab } from "./delivery-tab";
+import { TemplatesTab } from "./templates-tab";
 
-type TabKey = "designer" | "batch" | "templates" | "delivery";
-
-const TABS: { key: TabKey; label: string; adminOnly: boolean; hint: string }[] = [
-  {
-    key: "designer",
-    label: "My Signature",
-    adminOnly: false,
-    hint: "Your own card, and the image to paste into Outlook or Gmail",
-  },
-  {
-    key: "batch",
-    label: "Batch",
-    adminOnly: true,
-    hint: "Generate signatures for several people at once",
-  },
-  {
-    key: "templates",
-    label: "Templates",
-    adminOnly: true,
-    hint: "Which layout each part of the company gets",
-  },
-  {
-    key: "delivery",
-    label: "Delivery Check",
-    adminOnly: true,
-    hint: "Why the card image is missing from sent mail",
-  },
-];
-
-export function SignaturesPage() {
-  const caps = useResource(() => api.mailCapabilities(), []);
-  const isAdmin = caps.data?.can_administer === true;
-  const visible = TABS.filter((t) => !t.adminOnly || isAdmin);
-
-  const [tab, setTab] = React.useState<TabKey>("designer");
-  React.useEffect(() => {
-    if (!visible.some((t) => t.key === tab)) setTab("designer");
-  }, [visible, tab]);
+export function SignaturesSection() {
+  const [batch, setBatch] = React.useState(false);
+  const [check, setCheck] = React.useState(false);
 
   return (
-    <section className={pageShell.wide}>
-      <PageHeader
-        title={tr("Email Signatures")}
-        description={tr(
-          "Your signature card, exactly as it goes out. Name and job title come from HR; colours and logo from your brand.",
-        )}
-      />
+    <Panel
+      title={tr("Signatures")}
+      action={
+        <span className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setBatch(true)}>
+            {tr("Generate for Staff")}
+          </Button>
+          <MoreMenu label={tr("Signature actions")}>
+            <DropdownItem onSelect={() => setCheck(true)}>{tr("Delivery Check")}</DropdownItem>
+          </MoreMenu>
+        </span>
+      }
+    >
+      <TemplatesTab />
 
-      {visible.length > 1 && (
-        <nav
-          className="mb-4 flex flex-wrap items-end gap-1 border-b border-border"
-          aria-label={tr("Signature sections")}
+      {batch && (
+        <Dialog
+          open
+          onClose={() => setBatch(false)}
+          title={tr("Generate Signatures for Staff")}
+          size="xl"
         >
-          {visible.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              title={tr(t.hint)}
-              aria-current={tab === t.key ? "page" : undefined}
-              className={cn(
-                "-mb-px border-b-2 px-3 pb-2 pt-1 text-sm font-medium transition-colors",
-                tab === t.key
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
-              )}
-            >
-              {tr(t.label)}
-            </button>
-          ))}
-        </nav>
+          <BatchTab />
+        </Dialog>
       )}
-
-      {tab === "designer" && <DesignerTab />}
-      {tab === "batch" && isAdmin && <BatchTab />}
-      {tab === "templates" && isAdmin && <TemplatesTab />}
-      {tab === "delivery" && isAdmin && <DeliveryTab />}
-    </section>
+      {check && (
+        <Dialog open onClose={() => setCheck(false)} title={tr("Delivery Check")} size="lg">
+          <DeliveryTab />
+        </Dialog>
+      )}
+    </Panel>
   );
 }
-
-export default SignaturesPage;

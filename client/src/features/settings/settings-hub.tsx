@@ -178,12 +178,6 @@ const SECTIONS: Section[] = [
         icon: "comms",
       },
       {
-        to: "/settings/email-signatures",
-        label: "Email Signatures",
-        desc: "Brand template & per-staff render",
-        icon: "comms",
-      },
-      {
         to: "/settings/deliverability",
         label: "Deliverability",
         desc: "SPF, DKIM, DMARC, MX, reverse DNS and public blocklists",

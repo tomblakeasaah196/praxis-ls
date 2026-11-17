@@ -33,6 +33,8 @@ vi.mock("../setup", () => ({ SystemEmailSection: () => <div>system email</div> }
 vi.mock("./my-mailbox", () => ({ MyMailboxTab: () => <h2>My mailbox</h2> }));
 vi.mock("./mailboxes", () => ({ MailboxesTab: () => <div>mailbox inventory</div> }));
 vi.mock("./send-points", () => ({ SendPointsSection: () => <div>sending addresses</div> }));
+vi.mock("../signatures/designer-tab", () => ({ DesignerTab: () => <div>my signature card</div> }));
+vi.mock("../signatures", () => ({ SignaturesSection: () => <div>signature templates</div> }));
 
 import { CommsSetupPage } from "./index";
 
@@ -61,6 +63,7 @@ beforeEach(() => {
 const REMOVED = [
   "Connections", "Follow-ups", "Secure Links", "Mailboxes", "Response Times",
   "Trust & Archives", "Send Points", "Senders & Channels", "Test Calls",
+  "Signatures", "Batch", "Templates", "Delivery Check",
 ];
 
 describe("tab gating", () => {
@@ -88,13 +91,24 @@ describe("tab gating", () => {
     }
   });
 
-  test("Company Mail is ONE page: mailboxes, sending addresses and system email together", async () => {
+  test("My Mailbox carries the caller's own signature", async () => {
+    // Signatures was a Comms tab of its own with four sub-tabs. The caller's
+    // own card is under their mailbox now; the rest is on Company Mail.
+    caps.mockResolvedValue({ can_view: true, can_create: false, can_edit: false, can_administer: false, is_ceo: false });
+    render(<CommsSetupPage />);
+    expect(await screen.findByRole("heading", { name: "My Signature" })).toBeInTheDocument();
+    expect(screen.getByText("my signature card")).toBeInTheDocument();
+    expect(screen.queryByText("signature templates")).not.toBeInTheDocument();
+  });
+
+  test("Company Mail is ONE page: mailboxes, sending addresses, system email and signatures together", async () => {
     caps.mockResolvedValue({ can_view: true, can_create: true, can_edit: true, can_administer: true, is_ceo: false });
     render(<CommsSetupPage />);
     (await screen.findByRole("button", { name: "Company Mail" })).click();
     await screen.findByText("mailbox inventory");
     expect(screen.getByText("sending addresses")).toBeInTheDocument();
     expect(screen.getByText("system email")).toBeInTheDocument();
+    expect(screen.getByText("signature templates")).toBeInTheDocument();
   });
 
   test("while capabilities are unknown, nothing admin-only is offered", () => {

@@ -8,10 +8,12 @@
  * screens for setup", "at most two tabs", and everything else cleared off.
  *
  *   My Mailbox     everyone. Your own address: connect it, test it, sync it,
- *                  disconnect it, and the shared mailboxes you can work.
+ *                  disconnect it, the shared mailboxes you can work, and your
+ *                  own signature.
  *   Company Mail   administrators. Every mailbox and who can work it, which
- *                  address each part of the product sends from, and the system
- *                  email login. One page, three sections.
+ *                  address each part of the product sends from, the system
+ *                  email login, and the signature templates. One page, four
+ *                  sections.
  *
  * Where the rest went:
  *
@@ -22,6 +24,8 @@
  *   Send Points        the second section, one row per section of the product.
  *   Senders & Channels the third section, as System Email.
  *   Test Calls         Settings → Calls. It was the one tab not about email.
+ *   Signatures         was a Comms tab of its own with four sub-tabs; see
+ *                      `../signatures/index.tsx` for where each one went.
  *   Follow-ups, Secure Links, Response Times, Trust & Archives
  *                      removed from the product's screens by the review. Their
  *                      endpoints are untouched.
@@ -43,6 +47,8 @@ import { MyMailboxTab } from "./my-mailbox";
 import { MailboxesTab } from "./mailboxes";
 import { SendPointsSection } from "./send-points";
 import { SystemEmailSection } from "../setup";
+import { DesignerTab } from "../signatures/designer-tab";
+import { SignaturesSection } from "../signatures";
 
 type TabKey = "mine" | "company";
 
@@ -96,6 +102,12 @@ export function CommsSetupPage() {
   >(null);
   React.useEffect(() => {
     const p = new URLSearchParams(window.location.search);
+    /* A signature "fix this" link for something an administrator owns: the
+     * motto lives on a template, and the templates are on Company Mail. A
+     * link to the caller's own field (`?field=phone_desk`) needs nothing here,
+     * because My Signature is on the tab this page opens on. Not stripped from
+     * the URL: the templates section reads `edit` and `row` itself. */
+    if (p.get("tab") === "Templates" || p.get("edit") === "motto") setPendingTab("company");
     const ok = p.get("mail_connected");
     const bad = p.get("mail_error");
     const consent = p.get("mail_adminconsent");
@@ -282,12 +294,23 @@ export function CommsSetupPage() {
         </nav>
       )}
 
-      {tab === "mine" && <MyMailboxTab notice={notice} />}
+      {tab === "mine" && (
+        <div className="space-y-6">
+          <MyMailboxTab notice={notice} />
+          <section aria-labelledby="my-signature-heading" className="space-y-3">
+            <h2 id="my-signature-heading" className="text-title font-semibold leading-tight tracking-tight">
+              {tr("My Signature")}
+            </h2>
+            <DesignerTab />
+          </section>
+        </div>
+      )}
       {tab === "company" && isAdmin && (
         <div className="space-y-5">
           <MailboxesTab canCreate={canCreate} notice={notice} />
           <SendPointsSection />
           <SystemEmailSection />
+          <SignaturesSection />
         </div>
       )}
     </div>

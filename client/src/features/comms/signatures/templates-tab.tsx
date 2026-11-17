@@ -1,5 +1,5 @@
 /**
- * Signatures → Templates. Which layout each part of the company gets.
+ * Setup → Company Mail → Signatures. Which layout each part of the company gets.
  *
  * READ-MOSTLY, DELIBERATELY. What an admin can do here is choose the tenant-wide
  * default, turn a template off, write its motto, and say which brand colour

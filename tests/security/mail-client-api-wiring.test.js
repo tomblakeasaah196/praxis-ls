@@ -99,7 +99,7 @@ const GRANDFATHERED = new Map(
  * "managing mail should be the simplest thing ever"). The reading pane's work
  * rail lost claim, assign, status, snooze, sharing, the record tabs, action
  * cards, document filing and team notes; Setup lost Follow-ups, Secure Links,
- * Response Times and Trust & Archives.
+ * Response Times and Trust & Archives; the mail page lost By Meaning.
  *
  * The endpoints still exist and still work, and the wrappers are kept so a
  * screen that comes back has something to call. What this gate exists to catch
@@ -131,6 +131,8 @@ const RETIRED_SCREENS_2026_11_16 = new Map(
     listShares: "conversation sharing was removed from the reading pane",
     shareThread: "conversation sharing was removed from the reading pane",
     unshareThread: "conversation sharing was removed from the reading pane",
+    /* The mail page's second search button. */
+    assistSearch: "the By Meaning search was removed from the mail page",
     /* Setup → Follow-ups. Nothing creates one once snooze is gone. */
     listFollowups: "the Follow-ups tab was removed from Setup",
     cancelFollowup: "the Follow-ups tab was removed from Setup",
@@ -223,7 +225,7 @@ describe("every mail endpoint with a client wrapper is reachable from a screen",
   });
 
   test("the retired-screens list can only shrink, and holds nothing that is wired or gone", () => {
-    expect(RETIRED_SCREENS_2026_11_16.size).toBeLessThanOrEqual(34);
+    expect(RETIRED_SCREENS_2026_11_16.size).toBeLessThanOrEqual(35);
     const names = [...RETIRED_SCREENS_2026_11_16.keys()];
     // A wrapper that got its screen back must come off the list...
     expect(names.filter((n) => calledSomewhere(n))).toEqual([]);

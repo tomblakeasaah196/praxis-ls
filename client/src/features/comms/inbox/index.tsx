@@ -10,6 +10,10 @@
  *
  * ── SEARCH IS THE LIST, NOT A MODE ──────────────────────────────────────────
  *
+ * One box and one Search button. A second button, "By Meaning", used to sit
+ * beside it and answer the same box from a semantic index in a separate panel;
+ * it left with the mail simplification of 16 Nov 2026.
+ *
  * Typing in the box narrows the same list the folder rail narrows. There is no
  * separate results screen, so every filter, every selection and every bulk
  * action keeps working on a search result exactly as it does on a folder. An
@@ -42,7 +46,6 @@ import { FolderRail, type RailSelection } from "./folder-rail";
 import { ThreadList } from "./thread-list";
 import { ThreadFilter } from "./thread-filter";
 import { ThreadView } from "./thread-view";
-import { SemanticResults } from "./work/semantic-search";
 import { DraftList, OutboxList } from "./pending";
 import { useConfirm } from "@/components/ui/use-confirm";
 
@@ -69,9 +72,6 @@ export function InboxPage() {
   const [sel, setSel] = React.useState<RailSelection>({ folder: "INBOX", stream: "HUMAN" });
   const [query, setQuery] = React.useState("");
   const [applied, setApplied] = React.useState("");
-  /* §8.9. A second ANSWER to the same box, not a second screen — results open
-   * the same thread view the keyword list does. */
-  const [meaning, setMeaning] = React.useState("");
   /* `?thread=<id>` opens that conversation on arrival. This is what a push
    * notification taps through to (server side: mail-notify.service.js builds
    * `/comms/mail?thread=…`) — without it every mail alert landed on the folder
@@ -441,7 +441,6 @@ export function InboxPage() {
             onSubmit={(e) => {
               e.preventDefault();
               setApplied(query);
-              setMeaning("");
             }}
             className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
           >
@@ -457,16 +456,6 @@ export function InboxPage() {
             <Button type="submit" variant="outline" size="sm">
               {tr("Search")}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={query.trim().length < 2}
-              onClick={() => { setMeaning(query); setApplied(""); }}
-              title={tr("Find conversations that read like this, even if they do not use these words")}
-            >
-              {tr("By Meaning")}
-            </Button>
             {applied && (
               <Button
                 type="button"
@@ -475,7 +464,6 @@ export function InboxPage() {
                 onClick={() => {
                   setQuery("");
                   setApplied("");
-                  setMeaning("");
                 }}
               >
                 {tr("Clear")}
@@ -511,14 +499,6 @@ export function InboxPage() {
             <p role="status" className="shrink-0 rounded-md bg-muted px-3 py-2 text-xs">
               {note}
             </p>
-          )}
-
-          {meaning && !sel.pending && (
-            <SemanticResults
-              query={meaning}
-              onOpen={(id) => { setMeaning(""); open(id); }}
-              onClear={() => setMeaning("")}
-            />
           )}
 
           {/* Neither of these is a conversation, so neither goes through the

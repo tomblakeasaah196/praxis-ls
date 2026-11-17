@@ -418,10 +418,6 @@ const CustomFieldsPage = lazyNamed(
   () => import("@/features/settings/custom-fields"),
   "CustomFieldsPage",
 );
-const EmailSignaturesPage = lazyNamed(
-  () => import("@/features/settings/email-signatures"),
-  "EmailSignaturesPage",
-);
 const DeliverabilityPage = lazyNamed(
   () => import("@/features/settings/deliverability-panel"),
   "DeliverabilityPage",
@@ -899,9 +895,11 @@ export function App() {
                 element={<TemplateStudioPage />}
               />
               <Route path="documents/:docType/:id" element={<DocumentPage />} />
+              {/* Email signatures are part of Comms → Setup now. The old
+                  address keeps working, query string included. */}
               <Route
                 path="settings/email-signatures"
-                element={<EmailSignaturesPage />}
+                element={<KeepQueryRedirect to="/comms/setup" />}
               />
               <Route
                 path="settings/deliverability"

@@ -10,9 +10,11 @@
 >   client** and **Turn into a record** are in its `⋯` menu. Claim, hand over, status, snooze,
 >   the record tabs, action cards, document filing, team notes and Access are off the screen.
 > - **Composer.** Six formatting buttons, and one **Write With AI** button that opens the AI tools.
-> - **Setup.** Two tabs: **My Mailbox** and **Company Mail** (mailboxes, sending addresses, system
->   email). Follow-ups, Secure Links, Response Times and Trust & Archives are off the screen;
->   Test Calls is under Settings → Calls.
+> - **Setup.** Two tabs: **My Mailbox** (with **My Signature** under it) and **Company Mail**
+>   (mailboxes, sending addresses, system email, signature templates). Follow-ups, Secure Links,
+>   Response Times and Trust & Archives are off the screen; Test Calls is under Settings → Calls.
+> - **Signatures.** No longer a Comms tab or a Settings screen: it is part of Setup, as above.
+> - **Search.** One Search button. **By Meaning** is gone.
 >
 > Acts 5 to 8 below describe the screens as they were.
 
