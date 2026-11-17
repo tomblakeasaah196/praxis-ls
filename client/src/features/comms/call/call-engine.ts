@@ -251,6 +251,15 @@ export class CallEngine {
    *  so autoplay rules let it play the remote track later. */
   audioElement: HTMLAudioElement | null = null;
 
+  /* ── Where the sound plays (audio-route.ts) ────────────────────────────── */
+  /** The input device the microphone was last moved to; null = as opened. */
+  private micDevice: string | null = null;
+  /** The output device the audio element was sent to; "" = system default. */
+  private sinkId = "";
+  /** A microphone swap in flight. One at a time, and it owns the sender until
+   *  it settles: the noise filter's own track swaps wait for it. */
+  private micSwap: Promise<boolean> | null = null;
+
   /* ── Noise filter, quality sampler, recovery (PR-3) ────────────────────── */
   /** What the tenant default + the user's preference asked for. */
   noiseWanted = false;
@@ -319,6 +328,155 @@ export class CallEngine {
     if (t) {
       t.enabled = !muted;
       this.events.onLocalMuted?.(muted);
+    }
+  }
+
+  /** The input device the microphone is open on, as far as it can be known:
+   *  the one it was moved to, else what the track itself reports. */
+  get micDeviceId(): string | null {
+    if (this.micDevice) return this.micDevice;
+    const t = this.localStream?.getAudioTracks()[0];
+    const id = typeof t?.getSettings === "function" ? t.getSettings().deviceId : undefined;
+    return typeof id === "string" && id ? id : null;
+  }
+
+  /** The output device the remote voice is sent to; "" is the system default. */
+  get outputDeviceId(): string {
+    return this.sinkId;
+  }
+
+  /**
+   * Move the call onto another microphone device, live (audio-route.ts: on
+   * Android Chrome the output route follows the communication input in use,
+   * so this is how Speaker and Earpiece are chosen).
+   *
+   * The new microphone is opened FIRST and swapped in with replaceTrack (no
+   * renegotiation); only then is the old one released. So every failure, at
+   * any step, leaves the call exactly as it was: same microphone, same route,
+   * nothing to recover. Resolves false for those, and never rejects.
+   *
+   * What follows the swap:
+   *   mute      the new track takes the state the old one has at the moment
+   *             of the swap, so a muted call stays muted;
+   *   filter    the noise filter's graph is built on one microphone and cannot
+   *             be re-pointed, so it is torn down and rebuilt on the new one;
+   *             the raw new microphone is sent in between, never silence;
+   *   recorder  `stream` is a new object afterwards: the session hands it to
+   *             the recorder, which starts its next part on it.
+   *
+   * `noiseContext` is an AudioContext made inside the tap, for the rebuilt
+   * filter (audit E5). The engine owns it from here and closes it if unused.
+   */
+  async switchMicrophone(deviceId: string, opts: { noiseContext?: AudioContext | null } = {}): Promise<boolean> {
+    const spare = opts.noiseContext ?? null;
+    const discard = () => {
+      if (spare && spare !== this.noiseContext && spare.state !== "closed") {
+        void spare.close().catch(() => {
+          /* @silent:teardown — a context that was never used. */
+        });
+      }
+      return false;
+    };
+    const old = this.localStream;
+    const sender = this.pc?.getSenders?.()?.[0];
+    if (!deviceId || !old || this.isOver() || this.micSwap) return discard();
+    if (!sender || typeof sender.replaceTrack !== "function") return discard();
+    const replace = sender.replaceTrack.bind(sender);
+
+    const swap = (async (): Promise<boolean> => {
+      let fresh: MediaStream | null = null;
+      try {
+        fresh = await openMic(deviceId);
+        const track = fresh.getAudioTracks()[0];
+        // The call ended, or was torn down, while the device was opening.
+        if (!track || this.localStream !== old || this.isOver()) throw new Error("call moved on");
+        track.enabled = !this.localMuted;
+        await replace(track);
+        if (this.localStream !== old || this.isOver()) throw new Error("call moved on");
+        // Muted or unmuted during the swap: the old track is still the truth.
+        track.enabled = !this.localMuted;
+      } catch {
+        /* @silent:teardown — the device would not open, the sender refused the
+           track, or the call ended meanwhile. The old microphone was never
+           released, so the call carries on as it was; the caller is told
+           `false` and says so calmly. */
+        fresh?.getTracks().forEach((t) => t.stop());
+        return discard();
+      }
+
+      // The swap is done. The sender now carries the raw new microphone, so
+      // the old filter graph (built on the old one) is dead weight: stop it.
+      const refilter = this.noiseWanted && this.noiseStatus !== "unavailable";
+      this.noiseStop?.();
+      this.noiseStop = null;
+      if (this.noiseStatus === "on") this.noiseStatus = "off";
+      this.localStream = fresh;
+      this.originalTrack = fresh.getAudioTracks()[0] || null;
+      this.micDevice = deviceId;
+      old.getTracks().forEach((t) => t.stop());
+
+      if (!refilter) {
+        discard();
+        return true;
+      }
+      // The old graph's context goes with it (an attach still loading on the
+      // old microphone finds the stream changed and gives up). The rebuilt
+      // graph gets the context made in this tap, or none, and then reports
+      // "suspended" rather than sending silence (audit E5).
+      const stale = this.noiseContext;
+      if (stale && stale !== spare && stale.state !== "closed") {
+        void stale.close().catch(() => {
+          /* @silent:teardown — closing a context that is already closing. */
+        });
+      }
+      this.noiseContext = spare;
+      // Not awaited, like start(): the swap is finished and the recorder is
+      // waiting for the new stream; the filter reports through onNoiseFilter.
+      void this.attachNoise();
+      return true;
+    })();
+
+    this.micSwap = swap;
+    try {
+      return await swap;
+    } finally {
+      if (this.micSwap === swap) this.micSwap = null;
+    }
+  }
+
+  /**
+   * Wait out a microphone swap before touching the sender. The filter puts
+   * its own track on the sender (attach) and takes it off again (detach); if
+   * either landed in the middle of a swap, the sender could be left carrying
+   * a track the swap is about to stop, which is silence for the rest of the
+   * call. A swap never rejects, so neither does this.
+   */
+  private async afterMicSwap(): Promise<void> {
+    while (this.micSwap) await this.micSwap;
+  }
+
+  /** Read through a call: TypeScript keeps a narrowing of `phase` across an
+   *  await that the world does not. */
+  private isOver(): boolean {
+    return this.phase === "ended";
+  }
+
+  /**
+   * Send the remote voice to another output device (desktop: setSinkId).
+   * False, and the sound stays where it was, when the browser has no such
+   * control or refuses the device. Never rejects.
+   */
+  async setOutputDevice(deviceId: string): Promise<boolean> {
+    const el = this.audioElement as (HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> }) | null;
+    if (!el || typeof el.setSinkId !== "function") return false;
+    try {
+      await el.setSinkId(deviceId);
+      this.sinkId = deviceId;
+      return true;
+    } catch {
+      /* @silent:parse — the device was unplugged or the browser refused it:
+         the element keeps the output it had, which is the defined fallback. */
+      return false;
     }
   }
 
@@ -726,6 +884,13 @@ export class CallEngine {
       this.events.onNoiseFilter?.("unavailable", result.reason);
       return "unavailable";
     }
+    // A microphone swap that started while the graph was building owns the
+    // sender; once it settles this graph is on the old microphone: drop it.
+    await this.afterMicSwap();
+    if (this.localStream !== stream) {
+      result.stop();
+      return "off";
+    }
     this.noiseStop = result.stop;
     const filteredTrack = result.stream.getAudioTracks()[0];
     const sender = this.pc?.getSenders?.()?.[0];
@@ -759,6 +924,8 @@ export class CallEngine {
 
   /** Back to the raw mic (the overlay switch, a silent filter, teardown). */
   private async detachNoise(): Promise<void> {
+    // After a swap in flight, so the raw track put back is the current one.
+    await this.afterMicSwap();
     this.noiseStop?.();
     this.noiseStop = null;
     const sender = this.pc?.getSenders?.()?.[0];
@@ -914,10 +1081,16 @@ export function readStats(report: unknown): QualitySample {
 
 /** The mic, once. The constraints are the baseline (guide §4.3): a call on
  *  an open floor without echoCancellation is feedback, and feedback is how
- *  "better than WhatsApp" dies in the first five minutes of a trial. */
-export async function openMic(): Promise<MediaStream> {
+ *  "better than WhatsApp" dies in the first five minutes of a trial.
+ *  `deviceId` asks for exactly that input device, with the same baseline
+ *  (switchMicrophone); it rejects rather than fall back to another device. */
+export async function openMic(deviceId?: string): Promise<MediaStream> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     throw new Error("no-media-device");
   }
-  return navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+  if (!deviceId) return navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+  return navigator.mediaDevices.getUserMedia({
+    audio: { ...(MIC_CONSTRAINTS.audio as MediaTrackConstraints), deviceId: { exact: deviceId } },
+    video: false,
+  });
 }
