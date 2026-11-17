@@ -302,7 +302,7 @@ Call-specific strategy per chapter; the standing matrix:
   side is recorded and transcribed on its own, so for a long time a call could
   only be shown as two blocks, one per person. The speech service has always
   returned the time of each sentence (`verbose_json` segments); they are now
-  kept on `comms_call_transcript.segments` (14510). `buildTurns` lays both
+  kept on `comms_call_transcript.segments` (14570). `buildTurns` lays both
   sides on one clock (a part's offset in its side, plus the sentence's offset
   in the part) and gathers sentences into turns, returned as `timed` and
   `turns` beside the unchanged `sides`. A call with NO stored times is not

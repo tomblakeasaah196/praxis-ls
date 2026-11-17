@@ -304,7 +304,7 @@ function safeParse(text) {
  * Each side is recorded and transcribed on its own, so the two transcripts
  * know nothing of each other; what joins them is time. A part starts a known
  * number of seconds into its side (`partOffsets`), and the speech service
- * says how far into the part each sentence was said (`segments`, 14510). Both
+ * says how far into the part each sentence was said (`segments`, 14570). Both
  * sides start recording when the media connects, so the two clocks are one to
  * within about a second, which is enough to say who spoke after whom.
  *

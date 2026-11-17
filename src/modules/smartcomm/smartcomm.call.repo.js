@@ -657,7 +657,7 @@ async function insertTranscriptRows(client, { callId, side, rows: parts }) {
     const params = [callId, side];
     for (const p of parts) {
       const base = params.length;
-      // `segments` (14510): when each sentence of the part was said, or NULL.
+      // `segments` (14570): when each sentence of the part was said, or NULL.
       const segments = Array.isArray(p.segments) && p.segments.length ? JSON.stringify(p.segments) : null;
       params.push(p.partIndex, p.text, p.language, p.provider, p.certified, segments);
       values.push(`($1, $2, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}::jsonb)`);
