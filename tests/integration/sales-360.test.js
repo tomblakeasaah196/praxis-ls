@@ -40,7 +40,7 @@ d("Sales 360 aggregations (real Postgres)", () => {
   async function makeLead() {
     const { rows } = await client.query(
       `INSERT INTO lead (company_name, contact_name, email, status, country, niu, rccm)
-       VALUES ('360 Integration Co', 'Test Contact', 'i360@example.test', 'NEW', 'CM', 'NIU-360', 'RCCM-360')
+       VALUES ('360 Integration Co', 'Test Contact', 'i360@example.test', 'OPEN', 'CM', 'NIU-360', 'RCCM-360')
        RETURNING lead_id`,
     );
     return rows[0].lead_id;
@@ -138,11 +138,13 @@ d("Sales 360 aggregations (real Postgres)", () => {
 
   test("every query in the intake dossier executes against the real schema", async () => {
     const entity = (await client.query("SELECT entity_id FROM corporate_entity LIMIT 1")).rows[0];
+    // Every request sits on a company row since the Sales lean revamp (14512).
+    const leadId = await makeLead();
     const q = (
       await client.query(
-        `INSERT INTO quote_request (incoterm, requester_name, status, entity_id)
-         VALUES ('FOB', '360 Integration', 'RECEIVED', $1) RETURNING quote_request_id`,
-        [entity ? entity.entity_id : null],
+        `INSERT INTO quote_request (incoterm, requester_name, status, entity_id, lead_id)
+         VALUES ('FOB', '360 Integration', 'RECEIVED', $1, $2) RETURNING quote_request_id`,
+        [entity ? entity.entity_id : null, leadId],
       )
     ).rows[0].quote_request_id;
 
@@ -152,7 +154,8 @@ d("Sales 360 aggregations (real Postgres)", () => {
     expect(Array.isArray(dossier.timeline)).toBe(true);
     expect(dossier.kpis.is_converted).toBe(false);
     expect(dossier.converted_opportunity).toBeNull();
-    expect(dossier.lead).toBeNull();
+    // Every request sits on its company's row (14512): the dossier names it.
+    expect(dossier.lead).toMatchObject({ lead_id: leadId, status: "OPEN" });
     expect(dossier.kpis.age_days).toBe(0);
   });
 

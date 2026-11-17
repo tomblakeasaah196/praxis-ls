@@ -70,10 +70,12 @@ d("F6 quote_request KPI partition (real Postgres)", () => {
       { status: "CLOSED_NO_ACTION", channel: "MANUAL", ref: marker + "-X1" },
       { status: "CLARIFICATION_REQUIRED", channel: "WEBSITE", ref: marker + "-L1" },
     ];
+    // Every request sits on a company row since the Sales lean revamp (14512).
+    const lead = (await pool.query("INSERT INTO lead (company_name, status) VALUES ($1, 'OPEN') RETURNING lead_id", [marker])).rows[0].lead_id;
     for (const r of seed) {
       await pool.query(
-        "INSERT INTO quote_request (public_ref, intake_channel, requester_name, incoterm, status) VALUES ($1, $2, $3, $4, $5)",
-        [r.ref, r.channel, "Test " + r.ref, "FOB", r.status],
+        "INSERT INTO quote_request (public_ref, intake_channel, requester_name, incoterm, status, lead_id) VALUES ($1, $2, $3, $4, $5, $6)",
+        [r.ref, r.channel, "Test " + r.ref, "FOB", r.status, lead],
       );
     }
     try {
@@ -146,13 +148,14 @@ d("F6 quote_request KPI partition (real Postgres)", () => {
     const { conname: name, def } = con[0];
     await pool.query(`ALTER TABLE quote_request DROP CONSTRAINT ${name}`);
     try {
+      const lead = (await pool.query("INSERT INTO lead (company_name, status) VALUES ($1, 'OPEN') RETURNING lead_id", [marker])).rows[0].lead_id;
       await pool.query(
-        "INSERT INTO quote_request (public_ref, intake_channel, requester_name, incoterm, status) VALUES ($1,$2,$3,$4,$5)",
-        [marker + "-SP", "MANUAL", "Test legacy", "FOB", "SP-NEW"],
+        "INSERT INTO quote_request (public_ref, intake_channel, requester_name, incoterm, status, lead_id) VALUES ($1,$2,$3,$4,$5,$6)",
+        [marker + "-SP", "MANUAL", "Test legacy", "FOB", "SP-NEW", lead],
       );
       await pool.query(
-        "INSERT INTO quote_request (public_ref, intake_channel, requester_name, incoterm, status) VALUES ($1,$2,$3,$4,$5)",
-        [marker + "-R1", "MANUAL", "Test ok", "FOB", "RECEIVED"],
+        "INSERT INTO quote_request (public_ref, intake_channel, requester_name, incoterm, status, lead_id) VALUES ($1,$2,$3,$4,$5,$6)",
+        [marker + "-R1", "MANUAL", "Test ok", "FOB", "RECEIVED", lead],
       );
       const out = await service.list(pool, { q: marker });
       expect(out.kpi.TOTAL).toBe(2);
