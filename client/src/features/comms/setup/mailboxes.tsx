@@ -1,7 +1,7 @@
 /**
- * Comms → Setup → Mailboxes (administrators).
+ * Comms → Setup → Company Mail → Mailboxes (administrators).
  *
- * The whole inventory in one table, and above it the catalogue of team addresses
+ * The first section of the Company Mail tab. The whole inventory in one table, and above it the catalogue of team addresses
  * the company SHOULD have — because an empty table tells a new tenant nothing,
  * while a list of seven slots with five unfilled tells them exactly what to do
  * next.
@@ -31,22 +31,22 @@
  * the question the name alone does not answer.
  */
 import * as React from "react";
-import * as RadixDialog from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, Modal, Select } from "@/components/ui/modal";
 import { ErrorState } from "@/components/ui/states";
-import { Callout } from "@/components/ui/callout";
 import { Pill, type Tone } from "@/components/ui/pill";
-import { XIcon } from "@/components/ui/icons";
-import { DataList, PageHeader, type Column } from "@/components/data-list";
+import { DataList, type Column } from "@/components/data-list";
+import { Panel } from "@/components/ui/panel";
+import { InfoHint } from "@/components/ui/info-hint";
+import { MoreMenu } from "@/components/ui/more-menu";
+import { DropdownItem, DropdownSeparator } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/ui/use-confirm";
 import { EmployeePicker } from "@/components/employee-picker";
 import { useResource, errMsg } from "@/lib/use-resource";
-import { dateFmt } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { reportActionError } from "@/lib/action-error";
 import { SmtpErrorGuide } from "@/components/mail/smtp-guide";
-import { DisconnectMailboxDialog } from "@/components/mail/disconnect-mailbox-dialog";
 import { SmtpSignInFields } from "@/components/mail/smtp-sign-in-fields";
 import { ConnectMethodModal } from "@/components/mail/connect-method-modal";
 import {
@@ -58,6 +58,7 @@ import {
 } from "@/lib/smtp-sign-in";
 import * as api from "@/lib/mail-api";
 import { HealthPill } from "./health-pill";
+import { useMailboxOps } from "./use-mailbox-ops";
 
 const ROLE_LABEL: Record<api.MemberRole, string> = {
   VIEWER: "Read only",
@@ -80,38 +81,19 @@ const statusTone = (s?: string | null): Tone => {
 
 /* ── Create a shared mailbox from a catalogue slot ───────────────────────── */
 
-/**
- * Transport details already typed into the Connections drawer, carried across
- * when somebody discovers there that what they actually wanted was a team
- * address. Everything except the password: it crosses a tab boundary and would
- * then sit in the hub's state after this modal closed, and one field to retype
- * is a smaller cost than a credential kept alive longer than the form that
- * collected it.
- */
-export type SharedMailboxSeed = {
-  email_address?: string;
-  display_name?: string;
-  imap_host?: string;
-  imap_port?: number;
-  smtp_host?: string;
-  smtp_port?: number;
-  auth_user?: string;
-};
-
 function CreateSharedModal({
-  slot, seed, onClose, onDone,
+  slot, onClose, onDone,
 }: {
   slot: api.CatalogueEntry | null;
-  seed?: SharedMailboxSeed;
   onClose: () => void;
   onDone: () => void;
 }) {
   const [f, setF] = React.useState({
-    email_address: seed?.email_address || "",
-    display_name: seed?.display_name || slot?.label_en || "",
-    imap_host: seed?.imap_host || "", imap_port: seed?.imap_port || 993,
-    smtp_host: seed?.smtp_host || "", smtp_port: seed?.smtp_port || 465,
-    auth_user: seed?.auth_user || "", password: "",
+    email_address: "",
+    display_name: slot?.label_en || "",
+    imap_host: "", imap_port: 993,
+    smtp_host: "", smtp_port: 465,
+    auth_user: "", password: "",
     department: slot?.department || "",
   });
   const [smtpAuth, setSmtpAuth] = React.useState<SmtpSignInValue>(BLANK_SMTP_SIGN_IN);
@@ -422,47 +404,61 @@ function HandoverModal({
  */
 export function MailboxesTab({
   canCreate = true,
-  seed,
-  onSeedConsumed,
   notice,
 }: {
   canCreate?: boolean;
-  /** Transport details handed over from the Connections tab; opens the modal. */
-  seed?: SharedMailboxSeed | null;
-  onSeedConsumed?: () => void;
   /** The outcome of a Microsoft consent round trip, read off the query string by the page. */
   notice?: React.ReactNode;
 } = {}) {
   const boxes = useResource(() => api.allMailboxes(), []);
   const catalogue = useResource(() => api.listCatalogue(), []);
+  /* Which of these the caller connected themselves, and so may edit the server
+   * settings of. Only the owner is told the transport fields, so the answer to
+   * "is Edit Settings offered" is "is it in this list". */
+  const owned = useResource(() => api.listConnections(), []);
   /**
    * Two steps to set up a team address, and the ORDER is the fix.
    *
-   * `choosing` is the how — Microsoft sign-in or the company's own server —
-   * and `creating` is the IMAP/SMTP form, which is now only one of the two
-   * answers rather than the whole flow. `undefined` means neither is open;
-   * `null` inside either means "no catalogue slot", i.e. a free-form address.
-   *
-   * A seed from the Connections tab skips the question: somebody who has
-   * already typed an IMAP host has answered it.
+   * `choosing` is the how (Microsoft sign-in or the company's own server) and
+   * `creating` is the IMAP/SMTP form, which is only one of the two answers
+   * rather than the whole flow. `undefined` means neither is open; `null`
+   * inside either means "no catalogue slot", i.e. a free-form address.
    */
   const [choosing, setChoosing] = React.useState<api.CatalogueEntry | null | undefined>(undefined);
-  const [creating, setCreating] = React.useState<api.CatalogueEntry | null | undefined>(
-    seed ? null : undefined,
-  );
+  const [creating, setCreating] = React.useState<api.CatalogueEntry | null | undefined>(undefined);
   const [members, setMembers] = React.useState<api.Mailbox | null>(null);
   const [limits, setLimits] = React.useState<api.Mailbox | null>(null);
   const [handover, setHandover] = React.useState<api.Mailbox | null>(null);
+  const [editing, setEditing] = React.useState<api.Mailbox | null>(null);
   const [error, setError] = React.useState<unknown>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
-  const reload = () => { boxes.reload(); catalogue.reload(); };
+  const reload = () => { boxes.reload(); catalogue.reload(); owned.reload(); };
+  const ops = useMailboxOps(reload);
 
+  /* Retiring ends the sync and takes the mailbox out of everybody's rail. It
+   * used to fire on one click of a button sitting beside three harmless ones. */
   async function archive(m: api.Mailbox) {
+    const ok = await confirm({
+      title: `${tr("Retire")} ${m.email_address}?`,
+      body: tr("It stops syncing and nobody can send from it. The mail already here stays."),
+      confirmLabel: tr("Retire mailbox"),
+      cancelLabel: tr("Keep it"),
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     try { await api.archiveMailbox(m.email_connection_id); reload(); }
     catch (err) { setError(err); reportActionError(err); }
   }
 
+  const canEdit = (m: api.Mailbox) =>
+    m.provider === "imap_smtp" &&
+    (owned.data || []).some((c) => c.email_connection_id === m.email_connection_id);
+
+  /* FOUR columns and one menu. This was seven columns and up to four buttons a
+   * row: Kind repeated the line under the address, Status and Health were two
+   * pills about one fact, and Last Sync is in the health pill's own reason. */
   const columns: Column<api.Mailbox & Record<string, unknown>>[] = [
     {
       key: "email_address", label: tr("Address"),
@@ -470,31 +466,49 @@ export function MailboxesTab({
         <div className="min-w-0">
           <div className="num truncate text-sm">{m.email_address}</div>
           <div className="micro truncate text-muted-foreground">
-            {m.kind === "PERSONAL" ? m.owner_name || tr("personal") : m.catalogue_label || tr("shared")}
+            {m.kind === "PERSONAL" ? m.owner_name || tr("Personal") : m.catalogue_label || tr("Shared")}
           </div>
+          <MailboxOpsNote ops={ops} id={m.email_connection_id} />
         </div>
       ),
     },
-    { key: "kind", label: tr("Kind"), render: (m) => <Pill tone={m.kind === "PERSONAL" ? "mute" : "blue"}>{m.kind}</Pill> },
-    { key: "status", label: tr("Status"), render: (m) => <Pill tone={statusTone(m.status)}>{m.status}</Pill> },
-    { key: "health", label: tr("Health"), render: (m) => <HealthPill health={m.health} /> },
+    {
+      key: "status", label: tr("Status"),
+      render: (m) =>
+        m.status === "CONNECTED"
+          ? <HealthPill health={m.health} showReason />
+          : <Pill tone={statusTone(m.status)}>{m.status}</Pill>,
+    },
     {
       key: "member_count", label: tr("People"),
-      render: (m) => (m.kind === "PERSONAL" ? <span className="text-muted-foreground">—</span> : <span className="num">{m.member_count ?? 0}</span>),
+      render: (m) => (m.kind === "PERSONAL" ? <span className="text-muted-foreground">-</span> : <span className="num">{m.member_count ?? 0}</span>),
     },
-    { key: "last_success_at", label: tr("Last Sync"), render: (m) => <span className="num">{m.last_success_at ? dateFmt(m.last_success_at) : "—"}</span> },
     {
       key: "_a", label: "",
       render: (m) => (
-        <div className="flex flex-wrap justify-end gap-1">
-          {m.kind !== "PERSONAL" && (
-            <Button type="button" variant="outline" onClick={() => setMembers(m)}>{tr("People")}</Button>
-          )}
-          {m.kind === "PERSONAL" && (
-            <Button type="button" variant="outline" onClick={() => setHandover(m)}>{tr("Hand over")}</Button>
-          )}
-          <Button type="button" variant="outline" onClick={() => setLimits(m)}>{tr("Limits")}</Button>
-          <Button type="button" variant="outline" onClick={() => archive(m)}>{tr("Retire")}</Button>
+        <div className="flex justify-end">
+          <MoreMenu label={tr("Mailbox actions")} disabled={ops.busyId === m.email_connection_id}>
+            {m.kind !== "PERSONAL" && (
+              <DropdownItem onSelect={() => setMembers(m)}>{tr("People")}</DropdownItem>
+            )}
+            {/* A personal mailbox is its owner's to test and sync; the server
+                refuses anybody else, so it is not offered to anybody else. */}
+            {m.kind !== "PERSONAL" && (
+              <>
+                <DropdownItem onSelect={() => void ops.test(m.email_connection_id)}>{tr("Test")}</DropdownItem>
+                <DropdownItem onSelect={() => void ops.sync(m.email_connection_id)}>{tr("Sync Now")}</DropdownItem>
+              </>
+            )}
+            {canEdit(m) && (
+              <DropdownItem onSelect={() => setEditing(m)}>{tr("Edit Settings")}</DropdownItem>
+            )}
+            <DropdownItem onSelect={() => setLimits(m)}>{tr("Limits")}</DropdownItem>
+            {m.kind === "PERSONAL" && (
+              <DropdownItem onSelect={() => setHandover(m)}>{tr("Hand Over")}</DropdownItem>
+            )}
+            <DropdownSeparator />
+            <DropdownItem destructive onSelect={() => void archive(m)}>{tr("Retire")}</DropdownItem>
+          </MoreMenu>
         </div>
       ),
     },
@@ -503,52 +517,53 @@ export function MailboxesTab({
   const unfilled = (catalogue.data || []).filter((c) => !c.configured && c.is_enabled);
 
   return (
-    <section className="space-y-5">
-      <PageHeader
-        title={tr("Mailboxes")}
-        description={tr("Every mailbox in the company: the personal ones people connect themselves, and the team addresses you set up for them.")}
-        action={canCreate ? <Button onClick={() => setChoosing(null)}>{tr("New shared mailbox")}</Button> : undefined}
-      />
+    <Panel
+      title={tr("Mailboxes")}
+      action={canCreate ? <Button size="sm" onClick={() => setChoosing(null)}>{tr("New Shared Mailbox")}</Button> : undefined}
+    >
+      {confirmDialog}
+      <div className="space-y-4">
+        {notice}
 
-      {notice}
+        {error != null && <ErrorState message={errMsg(error)} />}
 
-      {error != null && <ErrorState message={errMsg(error)} />}
-
-      {canCreate && unfilled.length > 0 && (
-        <div className="rounded-xl border border-border p-4">
-          <div className="text-sm font-medium">{tr("Team addresses not set up yet")}</div>
-          <p className="micro mt-1 text-muted-foreground">
-            {tr("These are the addresses a logistics business normally runs. Set one up and the parts of the product that belong to it can send from it.")}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {unfilled.map((c) => (
-              <button
-                key={c.catalogue_key}
-                type="button"
-                onClick={() => setChoosing(c)}
-                title={c.description_en || undefined}
-                className="rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm transition-colors hover:border-primary hover:bg-accent"
-              >
-                <div className="font-medium">{c.label_en}</div>
-                <div className="micro text-muted-foreground">{c.suggested_local_part}@…</div>
-              </button>
-            ))}
+        {canCreate && unfilled.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="micro">{tr("Not Set Up Yet")}</span>
+              <InfoHint label={tr("About team addresses")}>
+                {tr("These are the addresses a logistics business normally runs. Set one up and the parts of the product that belong to it can send from it.")}
+              </InfoHint>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {unfilled.map((c) => (
+                <button
+                  key={c.catalogue_key}
+                  type="button"
+                  onClick={() => setChoosing(c)}
+                  title={c.description_en || undefined}
+                  className="rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm transition-colors hover:border-primary hover:bg-accent"
+                >
+                  <div className="font-medium">{c.label_en}</div>
+                  <div className="micro text-muted-foreground">{c.suggested_local_part}@…</div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <DataList
-        columns={columns}
-        rows={(boxes.data || []) as (api.Mailbox & Record<string, unknown>)[]}
-        error={boxes.error}
-        loading={boxes.loading}
-        rowKey={(m) => m.email_connection_id}
-        empty={{
-          title: tr("No mailboxes yet"),
-          hint: tr("People connect their own from the My mailbox tab. Team addresses are set up here."),
-          action: canCreate ? <Button onClick={() => setChoosing(null)}>{tr("New shared mailbox")}</Button> : undefined,
-        }}
-      />
+        <DataList
+          columns={columns}
+          rows={(boxes.data || []) as (api.Mailbox & Record<string, unknown>)[]}
+          error={boxes.error}
+          loading={boxes.loading}
+          rowKey={(m) => m.email_connection_id}
+          empty={{
+            title: tr("No mailboxes yet"),
+            action: canCreate ? <Button onClick={() => setChoosing(null)}>{tr("New Shared Mailbox")}</Button> : undefined,
+          }}
+        />
+      </div>
 
       {choosing !== undefined && canCreate && (
         <ConnectMethodModal
@@ -568,8 +583,7 @@ export function MailboxesTab({
       {creating !== undefined && canCreate && (
         <CreateSharedModal
           slot={creating}
-          seed={seed || undefined}
-          onClose={() => { setCreating(undefined); onSeedConsumed?.(); }}
+          onClose={() => setCreating(undefined)}
           onDone={reload}
         />
       )}
@@ -579,53 +593,62 @@ export function MailboxesTab({
         <HandoverModal mailbox={handover} catalogue={catalogue.data || []}
           onClose={() => setHandover(null)} onDone={reload} />
       )}
-    </section>
+      {editing && (
+        <EditMailboxSettings
+          connectionId={editing.email_connection_id}
+          onClose={() => setEditing(null)}
+          onDone={reload}
+        />
+      )}
+    </Panel>
   );
 }
 
-/* ── Mailbox connections (moved from the removed features/comms/mail.tsx) ── */
+/* ── Looking after a mailbox that is already connected ───────────────────── */
 /*
- * The connect/test/sync surface for the mailboxes a user sends from —
- * IMAP/SMTP, Microsoft 365 and Google Workspace. It lived on the legacy
- * Mail page's "Mailboxes" mode; when that page was reduced to the inbox
- * (PR-1B), the management UI moved here rather than being deleted, because
- * connecting a mailbox is still how a person gets into the product's mail.
+ * Test, Sync Now and Edit Settings.
+ *
+ * These lived on a third tab, "Connections", which listed the same mailboxes
+ * as My Mailbox and Mailboxes a third way and was the only place any of the
+ * three could be reached. The tab is gone (tenant review, 16 Nov 2026: "at
+ * most two tabs"); the actions are on the mailbox they act on, in both
+ * surviving tabs, through the one hook and the one dialog below.
+ *
+ * CONNECTING a mailbox is not here. Both tabs already open
+ * `<ConnectMethodModal>`, which asks how the mailbox is hosted before it asks
+ * for a password; the Connections form was a third copy of the IMAP form that
+ * skipped the question.
  */
 
-/**
- * The server's refusal of a second personal mailbox, by CODE rather than by
- * matching its prose — the message is one `tr()` away from being French.
- */
-const isPersonalMailboxConflict = (e: unknown): boolean =>
-  typeof e === "object" && e !== null && (e as { code?: string }).code === "PERSONAL_MAILBOX_EXISTS";
+/** The line `useMailboxOps` produced, when it is about this mailbox. */
+export function MailboxOpsNote({
+  ops,
+  id,
+}: {
+  ops: ReturnType<typeof useMailboxOps>;
+  id: string;
+}) {
+  if (!ops.note || ops.note.id !== id) return null;
+  return (
+    <div className="space-y-2">
+      <p
+        role="status"
+        className={ops.note.ok ? "micro text-[rgb(var(--ok))]" : "micro text-[rgb(var(--bad))]"}
+      >
+        {ops.note.ok ? "✓" : "✗"} {ops.note.text}
+      </p>
+      {ops.failure && <SmtpErrorGuide code={ops.failure.code} message={ops.failure.message} />}
+    </div>
+  );
+}
 
-const connTone = (s?: string | null): Tone => {
-  const u = String(s || "").toUpperCase();
-  if (u === "CONNECTED") return "ok";
-  if (u === "PENDING") return "warn";
-  return "bad";
-};
-const providerLabel: Record<api.Provider, string> = {
-  imap_smtp: "IMAP / SMTP",
-  microsoft_graph: "Microsoft 365",
-  google_gmail: "Google Workspace",
-};
-
-function ImapConnectForm({
+function MailboxSettingsForm({
   existing,
   onDone,
-  onSharedInstead,
 }: {
-  existing?: api.Connection;
+  existing: api.Connection;
   onDone: () => void;
-  /**
-   * Offered when the server refuses a SECOND personal mailbox. Undefined when
-   * the caller may not create shared mailboxes — pointing somebody at a screen
-   * that will 403 is worse than the dead end it replaces.
-   */
-  onSharedInstead?: (seed: SharedMailboxSeed) => void;
 }) {
-  const editing = !!existing;
   const [f, setF] = React.useState({
     email_address: existing?.email_address || "",
     display_name: existing?.display_name || "",
@@ -663,8 +686,8 @@ function ImapConnectForm({
       }));
       setHint(
         cfg.oauth_hint
-          ? `Tip: ${cfg.oauth_hint === "google_gmail" ? "Google" : "Microsoft"} — consider OAuth above instead of a password.`
-          : `Settings from ${cfg.source}. Verify, then connect.`,
+          ? `${cfg.oauth_hint === "google_gmail" ? "Google" : "Microsoft"}: ${tr("this address signs in with its provider, not a password.")}`
+          : `${tr("Settings from")} ${cfg.source}.`,
       );
     } catch (err) {
       setError(err);
@@ -690,9 +713,7 @@ function ImapConnectForm({
         password: f.password || undefined,
         ...smtpSignInBody(smtpAuth),
       };
-      const r = existing
-        ? await api.updateImapConnection(existing.email_connection_id, body)
-        : await api.connectImap({ ...body, password: f.password });
+      const r = await api.updateImapConnection(existing.email_connection_id, body);
       setResult(r.test || { ok: r.status === "CONNECTED" });
       onDone();
     } catch (err) {
@@ -704,9 +725,8 @@ function ImapConnectForm({
 
   return (
     <form onSubmit={submit}>
-      <p className="micro mb-3">Any host: cPanel, private server, provider.</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Email Address" required>
+        <Field label={tr("Email Address")} required>
           <Input
             value={f.email_address}
             onChange={(e) => set("email_address", e.target.value)}
@@ -720,14 +740,14 @@ function ImapConnectForm({
             placeholder="Company Info"
           />
         </Field>
-        <Field label="IMAP Host" required>
+        <Field label={tr("IMAP Host")} required>
           <Input
             value={f.imap_host}
             onChange={(e) => set("imap_host", e.target.value)}
             placeholder="mail.company.cm"
           />
         </Field>
-        <Field label="IMAP Port">
+        <Field label={tr("IMAP Port")}>
           <Input
             type="number"
             className="num"
@@ -750,7 +770,7 @@ function ImapConnectForm({
             onChange={(e) => set("smtp_port", e.target.value)}
           />
         </Field>
-        <Field label="Login User">
+        <Field label={tr("Login User")}>
           <Input
             value={f.auth_user}
             onChange={(e) => set("auth_user", e.target.value)}
@@ -759,10 +779,7 @@ function ImapConnectForm({
         </Field>
         <Field
           label={tr("Password")}
-          required={!editing}
-          hint={
-            editing ? "Leave blank to keep the current password." : undefined
-          }
+          hint={tr("Leave blank to keep the current password.")}
         >
           <Input
             type="password"
@@ -787,51 +804,13 @@ function ImapConnectForm({
       {error != null && (
         <div className="mt-2 space-y-2">
           <ErrorState message={errMsg(error)} />
-          {/*
-           * PERSONAL_MAILBOX_EXISTS used to end here, and the sentence it ends
-           * with is "ask an administrator to set up a shared mailbox" — which
-           * an administrator reads while BEING the administrator, on the only
-           * screen in the product that says "Connect a Mailbox". The mailbox
-           * they want is a team address, that is a different object created on
-           * a different tab, and nothing here said so. This is the missing
-           * half: name the rule, then hand over what they have already typed.
-           */}
-          {isPersonalMailboxConflict(error) && onSharedInstead && (
-            <Callout
-              tone="info"
-              title={tr("Setting up a team address?")}
-              action={
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() =>
-                    onSharedInstead({
-                      email_address: f.email_address,
-                      display_name: f.display_name,
-                      imap_host: f.imap_host,
-                      imap_port: Number(f.imap_port) || undefined,
-                      smtp_host: f.smtp_host,
-                      smtp_port: Number(f.smtp_port) || undefined,
-                      auth_user: f.auth_user,
-                    })
-                  }
-                >
-                  {tr("Set up a shared mailbox")}
-                </Button>
-              }
-            >
-              {tr(
-                "A personal mailbox is one per person. An address a team works together, such as invoicing@ or operations@, is a shared mailbox, set up on the Mailboxes tab. What you have typed carries over; you will re-enter the password.",
-              )}
-            </Callout>
-          )}
           <SmtpErrorGuide err={error} />
         </div>
       )}
       {result && (
         <div className="mt-2 micro">
           {result.ok ? (
-            <span className="text-[rgb(var(--ok))]">✓ Connected</span>
+            <span className="text-[rgb(var(--ok))]">✓ {tr("Connected")}</span>
           ) : (
             <span className="text-[rgb(var(--bad))]">
               ✗ {String(result.error || "Failed").slice(0, 90)}
@@ -851,7 +830,7 @@ function ImapConnectForm({
           loading={discovering}
           disabled={discovering || !f.email_address}
         >
-          Autodiscover
+          {tr("Autodiscover")}
         </Button>
         <Button
           type="submit"
@@ -862,361 +841,50 @@ function ImapConnectForm({
             !f.email_address ||
             !f.imap_host ||
             !f.smtp_host ||
-            (!editing && !f.password) ||
             !smtpSignInReady(smtpAuth, storedSmtpPassword)
           }
         >
-          {editing ? "Save & test" : "Connect & test"}
+          {tr("Save & test")}
         </Button>
       </div>
     </form>
   );
 }
 
-/* Right-side sheet — a lightweight drawer (Radix dialog pinned to the right edge,
-   overlay not push) for the connect form. Distinct from the AI copilot drawer,
-   which is copilot-specific. */
-function RightDrawer({
-  open,
-  onOpenChange,
-  title,
-  children,
+/**
+ * Edit the server settings of a mailbox the caller owns: host, port, login,
+ * password. The password changing on the mail server is the usual reason
+ * anybody opens this.
+ *
+ * Takes an ID and looks the connection up, because the two tabs hold
+ * `Mailbox` rows and the transport fields live on `Connection`, which the
+ * server only returns to the owner (`GET /mail/connections`). A mailbox that
+ * is not in that answer is not the caller's to edit, and says so.
+ */
+export function EditMailboxSettings({
+  connectionId,
+  onClose,
+  onDone,
 }: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  title: string;
-  children: React.ReactNode;
+  connectionId: string;
+  onClose: () => void;
+  onDone: () => void;
 }) {
-  return (
-    <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
-      <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-fade-in" />
-        {/* Starts at `--titlebar-h`, not at 0, for the reason the Praxis drawer
-            does (see praxis-drawer.tsx): pinned to the right edge, a full-height
-            sheet puts its own close button underneath the OS caption buttons in
-            an installed window. Any right-edge sheet inherits that problem, so
-            it inherits the same one-variable answer. */}
-        <RadixDialog.Content
-          aria-describedby={undefined}
-          className="fixed bottom-0 right-0 top-[var(--titlebar-h)] z-50 flex w-[min(560px,100vw)] flex-col border-l border-t border-border bg-card shadow-2xl outline-none data-[state=open]:animate-fade-in"
-        >
-          <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
-            <RadixDialog.Title className="font-display text-base">
-              {title}
-            </RadixDialog.Title>
-            <RadixDialog.Close asChild>
-              <button
-                type="button"
-                aria-label={tr("Close")}
-                className="tap-24 grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <XIcon width={16} height={16} />
-              </button>
-            </RadixDialog.Close>
-          </div>
-          <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
-        </RadixDialog.Content>
-      </RadixDialog.Portal>
-    </RadixDialog.Root>
-  );
-}
-
-export function ConnectionsTab({
-  onCreateShared,
-}: {
-  /**
-   * Present only when the caller holds MOD-72 create — see `MailboxesTab`. The
-   * hub switches to the Mailboxes tab and opens the shared-mailbox form seeded
-   * with what was already typed here.
-   */
-  onCreateShared?: (seed: SharedMailboxSeed) => void;
-} = {}) {
   const conns = useResource(() => api.listConnections(), []);
-  // Only to decide whether the Google button is drawn: it appears where an
-  // administrator has switched Google on for this company (see
-  // ConnectMethodModal for why Google is hidden rather than explained until then).
-  const methods = useResource(() => api.connectMethods(), []);
-  const google = methods.data?.google_gmail;
-  const [busyId, setBusyId] = React.useState<string>("");
-  const [note, setNote] = React.useState<string>("");
-  const [imapOpen, setImapOpen] = React.useState(false);
-  const [editConn, setEditConn] = React.useState<api.Connection | null>(null);
-  // A failed connection test with a classified SMTP code — renders the fix guide.
-  const [testFail, setTestFail] = React.useState<{
-    code?: string;
-    message?: string;
-  } | null>(null);
-
-  /*
-   * The OAuth callback result used to be read HERE, and never was.
-   *
-   * The callback redirected to `/comms/mail`, which renders the inbox and does
-   * not mount this tab, so this effect ran on no page that a returning user
-   * ever saw: consent succeeded, the browser came back, and the person was
-   * shown an inbox with a stray `?mail_connected=microsoft` in the URL and no
-   * confirmation of any kind. The callback now lands on `/comms/setup`, and
-   * `CommsSetupPage` reads the query once, opens the tab the flow started from
-   * (personal → My mailbox, team address → Mailboxes) and renders the outcome
-   * there. Reading it in two places would race: whichever ran second would find
-   * the query already stripped.
-   */
-
-  /* ── The OAuth kick-off ───────────────────────────────────────────────────
-   *
-   * Restored for Microsoft. It is no longer a "nice to have alongside IMAP":
-   * Exchange Online removed Basic auth for IMAP and POP in 2022 and retired it
-   * for SMTP AUTH on 30 April 2026, so for a mailbox hosted on Microsoft 365
-   * this is now the ONLY way to connect one at all. There is no password that
-   * works, and `connect()` refuses to pretend otherwise.
-   *
-   * Google sits beside it, but only for a company where the per-provider flag
-   * `mail.provider.google` is on: until Google approves the app (its restricted
-   * mail scope needs verification and a security assessment) it admits only
-   * listed test users, so it is switched on company by company.
-   *
-   * The gate remains on the SERVER — `startOAuth` and `completeOAuth` both call
-   * `assertProviderEnabled` — so a tenant without the flag gets a clear refusal
-   * rather than a redirect to a provider we would then turn away.
-   */
-  async function connectMicrosoft() {
-    try {
-      const r = await api.startMicrosoft();
-      window.location.href = r.url;
-    } catch (err) {
-      setNote(errMsg(err));
-    }
-  }
-  async function connectGoogle() {
-    try {
-      const r = await api.startGoogle();
-      window.location.href = r.url;
-    } catch (err) {
-      setNote(errMsg(err));
-    }
-  }
-  async function test(id: string) {
-    setBusyId(id);
-    setNote("");
-    setTestFail(null);
-    try {
-      const r = await api.testConnection(id);
-      setNote(r.ok ? `✓ ${tr("Connection OK")}` : `✗ ${r.error || tr("failed")}`);
-      if (!r.ok) setTestFail({ code: r.code, message: r.error });
-      conns.reload();
-    } catch (e) {
-      reportActionError(e);
-    } finally {
-      setBusyId("");
-    }
-  }
-  async function sync(id: string) {
-    setBusyId(id);
-    setNote("");
-    try {
-      const r = await api.syncConnection(id);
-      setNote(r.error ? `✗ ${r.error}` : `✓ ${tr("Synced")} — ${r.inserted ?? 0} ${tr("new")}`);
-      conns.reload();
-    } catch (e) {
-      reportActionError(e);
-    } finally {
-      setBusyId("");
-    }
-  }
-  /**
-   * Disconnect — the action a person could not reach at all.
-   *
-   * It used to be a `window.confirm`, deliberately, for one reason: this is
-   * destructive of a credential, the sentence has to be READ, and every dialog
-   * in this app is dismissible by clicking outside it. What the sentence says
-   * is the point — most people read "disconnect" as "delete my mail", and the
-   * difference matters the first time somebody needs last March's bill of
-   * lading.
-   *
-   * The reason was right; the remedy was the browser's. A native confirm has no
-   * brand, no type scale, no warning red and an OK/Cancel pair that does not
-   * name the action, and it is the only dialog in the product that looks like a
-   * different piece of software. `<DisconnectMailboxDialog>` keeps the property
-   * that mattered — `dismissible={false}`, so clicking away does not answer it
-   * — and states the consequences in the product's own voice and colour.
-   */
-  const [confirmTarget, setConfirmTarget] = React.useState<api.Connection | null>(null);
-
-  async function disconnect(c: api.Connection) {
-    setBusyId(c.email_connection_id);
-    setNote("");
-    try {
-      await api.disconnectMailbox(c.email_connection_id);
-      setConfirmTarget(null);
-      setNote(`✓ ${tr("Disconnected")} — ${c.email_address}`);
-      conns.reload();
-    } catch (e) {
-      reportActionError(e);
-    } finally {
-      setBusyId("");
-    }
-  }
-
-  async function makeDefault(id: string) {
-    setBusyId(id);
-    setNote("");
-    try {
-      await api.setDefaultMailbox(id);
-      setNote(`✓ ${tr("Default mailbox updated")}`);
-      conns.reload();
-    } catch (e) {
-      reportActionError(e);
-    } finally {
-      setBusyId("");
-    }
-  }
-
+  const existing = (conns.data || []).find((c) => c.email_connection_id === connectionId);
   return (
-    <div className="space-y-5">
-      <DisconnectMailboxDialog
-        open={!!confirmTarget}
-        address={confirmTarget?.email_address || ""}
-        busy={!!confirmTarget && busyId === confirmTarget.email_connection_id}
-        onClose={() => setConfirmTarget(null)}
-        onConfirm={() => confirmTarget && void disconnect(confirmTarget)}
-      />
-      {/* Microsoft first, and deliberately so: for a Microsoft 365 mailbox it is
-       * the only route that exists, while "Connect a Mailbox" (IMAP/SMTP) is
-       * for a mailbox on the company's own mail server. Offering the password
-       * form first to a Microsoft tenant sends them down a road that ends in an
-       * authentication failure they cannot fix. Google Workspace sits beside it
-       * where the company has Google switched on — see `connectGoogle()` above. */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="outline" onClick={() => void connectMicrosoft()}>
-          {tr("Connect Microsoft 365")}
-        </Button>
-        {google?.enabled && (
-          <Button
-            variant="outline"
-            onClick={() => void connectGoogle()}
-            disabled={!google.available}
-            title={google.available ? undefined : tr("Google sign-in is not set up on this deployment yet.")}
-          >
-            {tr("Connect Google Workspace")}
-          </Button>
-        )}
-        <Button variant="outline" onClick={() => setImapOpen(true)}>
-          {tr("Connect a Mailbox")}
-        </Button>
-        {note && <span className="micro">{note}</span>}
-      </div>
-
-      {testFail && (
-        <SmtpErrorGuide code={testFail.code} message={testFail.message} />
-      )}
+    <Modal open onClose={onClose} title={tr("Edit Mailbox Settings")}>
       {conns.error && <ErrorState message={conns.error} />}
-      <div className="grid gap-3">
-        {(conns.data || []).map((c) => (
-          <div
-            key={c.email_connection_id}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="num font-medium text-foreground">
-                  {c.email_address}
-                </span>
-                <Pill tone="mute">{providerLabel[c.provider]}</Pill>
-                <Pill tone={connTone(c.status)}>{c.status}</Pill>
-                {c.is_default && <Pill tone="ok">{tr("Default")}</Pill>}
-              </div>
-              <p className="micro mt-0.5">
-                {tr("Last sync")} {dateFmt(c.last_sync_at)}
-                {c.last_error ? ` · ${c.last_error.slice(0, 60)}` : ""}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {c.status === "ARCHIVED" ? (
-                <Button size="sm" onClick={() => {
-                  if (c.provider === "microsoft_graph") void connectMicrosoft();
-                  else if (c.provider === "google_gmail") void connectGoogle();
-                  else setImapOpen(true);
-                }}>
-                  {tr("Connect")}
-                </Button>
-              ) : (<>
-                {!c.is_default && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => makeDefault(c.email_connection_id)}
-                    disabled={busyId === c.email_connection_id}
-                  >
-                    {tr("Make default")}
-                  </Button>
-                )}
-                {c.provider === "imap_smtp" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setEditConn(c)}
-                  >
-                    {tr("Edit")}
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => test(c.email_connection_id)}
-                  disabled={busyId === c.email_connection_id}
-                >
-                  {tr("Test")}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => sync(c.email_connection_id)}
-                  loading={busyId === c.email_connection_id}
-                >
-                  {tr("Sync now")}
-                </Button>
-                {/* Last, and quiet. It is the one control here that cannot be
-                    undone by pressing it again. */}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setConfirmTarget(c)}
-                  disabled={busyId === c.email_connection_id}
-                >
-                  {tr("Disconnect")}
-                </Button>
-              </>)}
-            </div>
-          </div>
-        ))}
-        {(conns.data || []).length === 0 && !conns.loading && (
-          <p className="micro">{tr("No mailboxes connected yet.")}</p>
-        )}
-      </div>
-
-      <RightDrawer
-        open={imapOpen || !!editConn}
-        onOpenChange={(v) => {
-          if (!v) {
-            setImapOpen(false);
-            setEditConn(null);
-          }
-        }}
-        title={
-          editConn
-            ? tr("Edit This Mailbox")
-            : tr("Connect a Mailbox")
-        }
-      >
-        <ImapConnectForm
-          key={editConn?.email_connection_id ?? "new"}
-          existing={editConn ?? undefined}
-          onSharedInstead={editConn ? undefined : onCreateShared}
-          onDone={() => {
-            conns.reload();
-            setImapOpen(false);
-            setEditConn(null);
-          }}
+      {!conns.loading && !conns.error && !existing && (
+        <ErrorState message={tr("Only the person who connected this mailbox can edit its settings.")} />
+      )}
+      {existing && (
+        <MailboxSettingsForm
+          key={existing.email_connection_id}
+          existing={existing}
+          onDone={() => { onDone(); onClose(); }}
         />
-      </RightDrawer>
-    </div>
+      )}
+    </Modal>
   );
 }

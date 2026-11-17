@@ -30,8 +30,8 @@
  * Online retired Basic auth for IMAP/POP in 2022 and for SMTP AUTH in April
  * 2026 — so every field in that wizard was answerable and the result could only
  * ever be an authentication failure. Microsoft consent existed, but only on the
- * Connections tab, which is not where a person is sent to connect their
- * mailbox. `<ConnectMethodModal>` asks the one question that decides which of
+ * Connections tab (since removed), which is not where a person is sent to
+ * connect their mailbox. `<ConnectMethodModal>` asks the one question that decides which of
  * the two routes is even possible, and it is the same component the shared
  * mailbox screens use.
  *
@@ -46,12 +46,19 @@
  * AND deletes the credential, and it says plainly that no mail is deleted —
  * because "disconnect" reads as "delete my email" to most people, and the
  * difference matters the first time somebody needs last March's bill of lading.
+ *
+ * ── TEST, SYNC AND SETTINGS ARE ON THE MAILBOX ──────────────────────────────
+ *
+ * They were on a separate "Connections" tab that listed this same mailbox a
+ * second time (tenant review, 16 Nov 2026: "at most two tabs for setup").
+ * Test and Sync Now are the two buttons a person with a mail problem presses;
+ * Edit Settings is for the day the password changes on the mail server.
  */
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, Modal } from "@/components/ui/modal";
-import { ErrorState, LoadingRow } from "@/components/ui/states";
+import { ErrorState } from "@/components/ui/states";
 import { InfoHint } from "@/components/ui/info-hint";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { PageHeader } from "@/components/data-list";
@@ -70,7 +77,11 @@ import {
 } from "@/lib/smtp-sign-in";
 import * as api from "@/lib/mail-api";
 import { HealthPill } from "./health-pill";
-import { MembersModal } from "./mailboxes";
+import { MoreMenu } from "@/components/ui/more-menu";
+import { DropdownItem, DropdownSeparator } from "@/components/ui/dropdown-menu";
+import { reportActionError } from "@/lib/action-error";
+import { EditMailboxSettings, MailboxOpsNote, MembersModal } from "./mailboxes";
+import { useMailboxOps } from "./use-mailbox-ops";
 
 /* ── The three-step personal connect ─────────────────────────────────────── */
 
@@ -292,6 +303,10 @@ function TrustedSenders() {
     }
   }
 
+  // Nothing trusted is nothing to withdraw, and a heading over "None yet" is a
+  // section about nothing on a page everybody has to read.
+  if (!list.error && !error && rows.length === 0) return null;
+
   return (
     <div>
       <div className="flex items-center gap-1.5">
@@ -302,11 +317,7 @@ function TrustedSenders() {
       </div>
       {list.error && <ErrorState message={list.error} />}
       {error && <ErrorState message={error} />}
-      {list.loading && !list.data ? (
-        <LoadingRow />
-      ) : rows.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">{tr("None yet.")}</p>
-      ) : (
+      {rows.length > 0 && (
         <ul className="mt-2 space-y-2">
           {rows.map((r) => (
             <li key={r.email_image_trust_id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2">
@@ -339,6 +350,8 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
   const [chooser, setChooser] = React.useState(false);
   const [wizard, setWizard] = React.useState(false);
   const [managedMailbox, setManagedMailbox] = React.useState<api.Mailbox | null>(null);
+  const [editing, setEditing] = React.useState<api.Mailbox | null>(null);
+  const ops = useMailboxOps(() => mine.reload());
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -365,6 +378,20 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
     }
   }
 
+  /* Which mailbox the mail page opens on. Only worth offering to somebody who
+   * has more than one. */
+  async function makeDefault(m: api.Mailbox) {
+    setBusy(true);
+    try {
+      await api.setDefaultMailbox(m.email_connection_id);
+      mine.reload();
+    } catch (err) {
+      reportActionError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const rows = mine.data || [];
   const personal = rows.find((m) => m.kind === "PERSONAL") || null;
   const shared = rows.filter((m) => m.kind !== "PERSONAL");
@@ -385,7 +412,7 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
       />
       <PageHeader
         title={tr("My Mailbox")}
-        description={tr("Your own professional address, and the team mailboxes you have been given access to.")}
+        description={tr("Your own professional address, and the team mailboxes you have been given access to. Each person has one personal mailbox: to move to a different address, disconnect this one and connect the new one, and the mail already here stays.")}
       />
 
       {/* The outcome of a Microsoft consent round trip, handed down by the page
@@ -411,8 +438,12 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
             <div>
               <div className="flex items-center gap-2">
                 <span className="num text-base font-medium">{personal.email_address}</span>
-                <Pill tone={tone(personal.status)}>{personal.status}</Pill>
-                <HealthPill health={personal.health} showReason />
+                {/* One pill. A connected mailbox says how it is doing; one
+                    that is not says what state it is in instead. */}
+                {personal.status === "CONNECTED"
+                  ? <HealthPill health={personal.health} showReason />
+                  : <Pill tone={tone(personal.status)}>{personal.status}</Pill>}
+                {personal.is_default && rows.length > 1 && <Pill tone="mute">{tr("Default")}</Pill>}
               </div>
               <p className="micro mt-1 text-muted-foreground">
                 {personal.display_name ? `${tr("Sending as")} “${personal.display_name}”. ` : ""}
@@ -437,28 +468,46 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
               )}
             </div>
             <div className="flex flex-col items-end gap-2 text-right">
-              {allowance.data && (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={ops.busyId === personal.email_connection_id}
+                  onClick={() => void ops.test(personal.email_connection_id)}
+                >
+                  {tr("Test")}
+                </Button>
+                <Button
+                  size="sm"
+                  loading={ops.busyId === personal.email_connection_id}
+                  onClick={() => void ops.sync(personal.email_connection_id)}
+                >
+                  {tr("Sync Now")}
+                </Button>
+                {/* The once-in-a-while actions, the irreversible one last. */}
+                <MoreMenu label={tr("Mailbox actions")} disabled={busy}>
+                  {personal.provider === "imap_smtp" && (
+                    <DropdownItem onSelect={() => setEditing(personal)}>{tr("Edit Settings")}</DropdownItem>
+                  )}
+                  {!personal.is_default && rows.length > 1 && (
+                    <DropdownItem onSelect={() => void makeDefault(personal)}>{tr("Make Default")}</DropdownItem>
+                  )}
+                  {(personal.provider === "imap_smtp" || (!personal.is_default && rows.length > 1)) && (
+                    <DropdownSeparator />
+                  )}
+                  <DropdownItem destructive onSelect={() => setConfirmTarget(personal)}>
+                    {tr("Disconnect")}
+                  </DropdownItem>
+                </MoreMenu>
+              </div>
+              {allowance.data && !allowance.data.allowed && (
                 <p className="micro text-muted-foreground">
-                  {allowance.data.allowed
-                    ? `${allowance.data.remaining_hour} ${tr("more messages this hour")}`
-                    : `${tr("Sending paused until")} ${dateFmt(allowance.data.retryAt || undefined)}`}
+                  {`${tr("Sending paused until")} ${dateFmt(allowance.data.retryAt || undefined)}`}
                 </p>
               )}
-              {/* Quiet, and last. It is the only control on this page that
-                  cannot be undone by pressing it again. */}
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => setConfirmTarget(personal)}
-              >
-                {tr("Disconnect")}
-              </Button>
             </div>
           </div>
-          <p className="micro mt-3 border-t border-border pt-3 text-muted-foreground">
-            {tr("Each person has one personal mailbox. To move to a different address, disconnect this one and connect the new one: the mail already here stays. If you need another address for a team, such as billing, operations or support, ask an administrator to set up a shared mailbox and add you to it.")}
-          </p>
+          <MailboxOpsNote ops={ops} id={personal.email_connection_id} />
         </div>
       )}
 
@@ -474,11 +523,19 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
                   {m.access_role === "VIEWER" ? tr("Read only") : m.access_role === "MANAGER" ? tr("Manager") : tr("Can send")}
                 </Pill>
                 <HealthPill health={m.health} showReason />
-                {m.access_role === "MANAGER" && (
-                  <Button size="sm" variant="outline" className="ml-auto" onClick={() => setManagedMailbox(m)}>
-                    {tr("Manage members")}
-                  </Button>
-                )}
+                {m.is_default && <Pill tone="mute">{tr("Default")}</Pill>}
+                <span className="ml-auto flex items-center gap-2">
+                  {m.access_role === "MANAGER" && (
+                    <Button size="sm" variant="outline" onClick={() => setManagedMailbox(m)}>
+                      {tr("Manage members")}
+                    </Button>
+                  )}
+                  {!m.is_default && (
+                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => void makeDefault(m)}>
+                      {tr("Make Default")}
+                    </Button>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
@@ -500,6 +557,13 @@ export function MyMailboxTab({ notice }: { notice?: React.ReactNode } = {}) {
         onChooseSmtp={() => { setChooser(false); setWizard(true); }}
       />
       {wizard && <ConnectWizard onClose={() => setWizard(false)} onDone={() => mine.reload()} />}
+      {editing && (
+        <EditMailboxSettings
+          connectionId={editing.email_connection_id}
+          onClose={() => setEditing(null)}
+          onDone={() => mine.reload()}
+        />
+      )}
     </section>
   );
 }

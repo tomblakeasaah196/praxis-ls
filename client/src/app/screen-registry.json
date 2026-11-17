@@ -281,7 +281,7 @@
       "route": "/settings/calls",
       "area": "settings",
       "module_key": "MOD-64",
-      "purpose": "Set the company's yard noise-filter default, the recording retention window, and your own noise-filter preference.",
+      "purpose": "Set the company's yard noise-filter default, the recording retention window, and your own noise-filter preference. Test Calls checks every step of a call on this device and the server.",
       "actions": [],
       "title_fr": "Appels"
     },
@@ -1924,7 +1924,7 @@
       "route": "/comms/setup",
       "area": "comms",
       "module_key": "MOD-72",
-      "purpose": "How this company's email is configured: personal and shared mailboxes, who may work each one, and which sender every part of the product mails from.",
+      "purpose": "How this company's email is configured, in two tabs. My Mailbox: connect, test, sync and disconnect your own address. Company Mail: every mailbox and who may work it, which address each section of the product sends from, and the system email login.",
       "actions": [],
       "title_fr": "Configuration e-mail"
     },
@@ -2585,7 +2585,7 @@
       "route": "/comms/mail",
       "area": "comms",
       "module_key": "MOD-64",
-      "purpose": "Email: the shared inbox, threads and conversions to leads, tasks and requests.",
+      "purpose": "Email: read and answer mail by folder (Inbox, Notices, Drafts, Sent, Archive, Spam, Trash), filter by unread, starred or attachment, link a conversation to a file or client, and summarise it.",
       "actions": [],
       "synonyms": [
         "e-mail",

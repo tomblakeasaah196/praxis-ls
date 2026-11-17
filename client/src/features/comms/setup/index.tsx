@@ -1,27 +1,32 @@
 /**
- * Comms → Setup — everything about how this company's email is configured, in
- * one place, split by WHO is doing it.
+ * Comms → Setup: how this company's email is configured, in two tabs split by
+ * WHO is doing it.
  *
- * ── WHY THIS LIVES IN COMMS AND NOT IN SETTINGS ─────────────────────────────
+ * ── TWO TABS, AND WHAT HAPPENED TO THE OTHER EIGHT ──────────────────────────
  *
- * Email configuration used to be spread across three surfaces: section senders
- * and the shared SMTP login under Comms → Setup, mailbox connections inside the
- * Mailbox tab, and a signature blob under Settings. Nobody could hold that map
- * in their head, and "where do I change the address invoices come from?" had no
- * findable answer. It is all here now, and Comms is where people already are
- * when they think about mail.
+ * This page had ten tabs. The tenant review of 16 Nov 2026 was "ten different
+ * screens for setup", "at most two tabs", and everything else cleared off.
  *
- * ── THE SUB-TABS, AND WHO SEES THEM ─────────────────────────────────────────
+ *   My Mailbox     everyone. Your own address: connect it, test it, sync it,
+ *                  disconnect it, and the shared mailboxes you can work.
+ *   Company Mail   administrators. Every mailbox and who can work it, which
+ *                  address each part of the product sends from, and the system
+ *                  email login. One page, three sections.
  *
- *   My mailbox        everyone. Connect and look after your own one address.
- *   Mailboxes         administrators. The whole inventory: personal and shared,
- *                     health, members, limits, handover.
- *   Send points       administrators. Which sender each part of the product
- *                     mails from — and, next to every row, WHY.
- *   Senders & channels administrators. The existing per-purpose identities, the
- *                     shared SMTP login, WhatsApp and the DNS setup guide.
+ * Where the rest went:
  *
- * A non-administrator sees ONE tab and therefore no tab strip at all — a strip
+ *   Connections        folded into My Mailbox. It listed the same mailboxes a
+ *                      third way; its Test, Sync Now and Edit Settings are now
+ *                      on the mailbox they act on.
+ *   Mailboxes          the first section of Company Mail.
+ *   Send Points        the second section, one row per section of the product.
+ *   Senders & Channels the third section, as System Email.
+ *   Test Calls         Settings → Calls. It was the one tab not about email.
+ *   Follow-ups, Secure Links, Response Times, Trust & Archives
+ *                      removed from the product's screens by the review. Their
+ *                      endpoints are untouched.
+ *
+ * A non-administrator sees ONE tab and therefore no tab strip at all: a strip
  * with a single item is noise. What they may do is answered by the server
  * (`GET /mail/me`) rather than guessed from the modules they can read: read
  * visibility is not the same right as edit, and a tab that always 403s teaches
@@ -35,51 +40,15 @@ import { useResource } from "@/lib/use-resource";
 import { tr } from "@/lib/i18n";
 import * as api from "@/lib/mail-api";
 import { MyMailboxTab } from "./my-mailbox";
-import { MailboxesTab, ConnectionsTab, type SharedMailboxSeed } from "./mailboxes";
-import { SendPointsTab } from "./send-points";
-import { SetupPage as SendersAndChannelsTab } from "../setup";
-import { SecureLinksTab } from "./secure-links";
-import { SlaTab } from "./sla";
-import { TrustTab } from "./trust";
-import { FollowupsTab } from "./followups";
-import { TestCallsTab } from "./test-calls";
-import { useCallCapabilities } from "../call/call-capabilities";
+import { MailboxesTab } from "./mailboxes";
+import { SendPointsSection } from "./send-points";
+import { SystemEmailSection } from "../setup";
 
-type TabKey =
-  | "mine" | "connections" | "mailboxes" | "send-points" | "senders"
-  | "secure-links" | "sla" | "trust" | "followups" | "test-calls";
+type TabKey = "mine" | "company";
 
-/**
- * The four tabs after "Senders & channels" are PR-5's surfaces, which had a
- * complete server side and no screen at all — twenty-three endpoints reachable
- * only from a terminal. Ordered by who opens them and how often: follow-ups and
- * secure links are day-to-day operator work; response times and trust are
- * things an administrator sets up once and revisits when something is wrong.
- *
- * The two gating decisions are drawn from what the SERVER actually returns, not
- * from how administrative each one feels:
- *
- *   Follow-ups    `workflow.listFollowups` filters on `f.user_id = $1`, so the
- *                 list is the caller's own pending boomerangs. Everyone gets it
- *                 — an operator needs to see what is about to reappear in their
- *                 mailbox, and nobody else's rows are in it.
- *   Secure links  `secure-link.list` has no `created_by` filter: it is every
- *                 link in the tenant. Labels name clients and invoices
- *                 ("Invoice INV-2026-0311"), so that is a disclosure, and it is
- *                 admin-only for that reason rather than by analogy.
- */
-const TABS: { key: TabKey; label: string; adminOnly: boolean; hint: string }[] = [
-  { key: "mine", label: "My Mailbox", adminOnly: false, hint: "Your own professional address" },
-  { key: "connections", label: "Connections", adminOnly: false, hint: "Connect, test and sync the mailboxes you send from" },
-  { key: "followups", label: "Follow-ups", adminOnly: false, hint: "Conversations waiting to come back" },
-  { key: "secure-links", label: "Secure Links", adminOnly: true, hint: "Every expiring link the company has sent, and who opened it" },
-  { key: "mailboxes", label: "Mailboxes", adminOnly: true, hint: "Every mailbox in the company" },
-  { key: "sla", label: "Response Times", adminOnly: true, hint: "How fast a first reply must be, and which hours count" },
-  { key: "trust", label: "Trust & Archives", adminOnly: true, hint: "Confirmed domains, bounces, and the archive seal" },
-  { key: "send-points", label: "Send Points", adminOnly: true, hint: "Which address each part of the product sends from" },
-  { key: "senders", label: "Senders & Channels", adminOnly: true, hint: "System senders, shared SMTP, WhatsApp, DNS" },
-  // Calls audit PR-7 (O5): offered to the Test right on MOD-64, not to admins.
-  { key: "test-calls", label: "Test Calls", adminOnly: false, hint: "Check every step of a call on this device and the server" },
+const TABS: { key: TabKey; label: string; adminOnly: boolean }[] = [
+  { key: "mine", label: "My Mailbox", adminOnly: false },
+  { key: "company", label: "Company Mail", adminOnly: true },
 ];
 
 export function CommsSetupPage() {
@@ -87,13 +56,12 @@ export function CommsSetupPage() {
   // Until the answer arrives, offer only the tab everyone has. Over-offering for
   // a frame and then retracting is worse than a tab appearing a moment later.
   const isAdmin = caps.data?.can_administer === true;
-  const canTest = useCallCapabilities()?.can_test === true;
-  const visible = TABS.filter((t) => (t.key === "test-calls" ? canTest : !t.adminOnly || isAdmin));
+  const visible = TABS.filter((t) => !t.adminOnly || isAdmin);
 
   /**
    * Creating a shared mailbox is MOD-72 **create**, which is a different right
    * from the `can_administer` (= edit) that decides whether the tab is offered
-   * at all. Resolved once here and handed down, so both tabs agree on it.
+   * at all.
    */
   const canCreate = caps.data?.can_create === true;
 
@@ -200,8 +168,11 @@ export function CommsSetupPage() {
           : `${who} ${tr("did not connect the mailbox")} (${bad}). ${tr("Nothing was changed: try again, or connect it with its own server settings instead.")}`,
       });
     }
+    // The server still says "mailboxes" for a team address: that is the name
+    // the signed OAuth state was minted with, and it means Company Mail here.
     const wanted = p.get("mail_tab");
-    if (wanted === "mailboxes" || wanted === "mine") setPendingTab(wanted);
+    if (wanted === "mailboxes") setPendingTab("company");
+    else if (wanted === "mine") setPendingTab("mine");
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
@@ -230,11 +201,11 @@ export function CommsSetupPage() {
    * HELD until the tab is actually offered, rather than selected on the spot.
    *
    * `visible` is derived from `GET /mail/me`, which has not answered on the
-   * frame this component mounts — so "Mailboxes" is not in it yet, and the
+   * frame this component mounts — so "Company Mail" is not in it yet, and the
    * guard effect above, whose whole job is to bounce an impossible tab back to
    * "mine", would immediately undo the selection. Setting it a frame later,
    * once the capability answer has arrived, is the difference between an
-   * administrator landing on the Mailboxes tab they started from and landing on
+   * administrator landing on the Company Mail tab they started from and landing on
    * their own mailbox with a message about a team address.
    *
    * Cleared once applied, so it is a one-shot and not a tab the user cannot
@@ -285,26 +256,6 @@ export function CommsSetupPage() {
     </Callout>
   ) : null;
 
-  /**
-   * ── THE HAND-OFF FROM CONNECTIONS TO MAILBOXES ──────────────────────────
-   *
-   * "Connect a mailbox" creates a PERSONAL mailbox, of which everyone gets
-   * exactly one. Somebody setting up `invoicing@` goes there anyway — it is the
-   * only button in Comms that says "connect a mailbox" — types the whole form,
-   * and is told they already have one and should ask an administrator, which
-   * they frequently ARE. The team address they wanted is a different object on
-   * a different tab, and the refusal named neither.
-   *
-   * So the refusal now offers the crossing, and this carries it: switch tabs
-   * and open the shared-mailbox form with the transport details already filled
-   * in. Cleared once the modal closes so a later visit to the tab starts blank.
-   */
-  const [sharedSeed, setSharedSeed] = React.useState<SharedMailboxSeed | null>(null);
-  const startSharedMailbox = React.useCallback((seed: SharedMailboxSeed) => {
-    setSharedSeed(seed);
-    setTab("mailboxes");
-  }, []);
-
   return (
     <div className="space-y-4">
       {visible.length > 1 && (
@@ -317,7 +268,6 @@ export function CommsSetupPage() {
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
-              title={tr(t.hint)}
               aria-current={tab === t.key ? "page" : undefined}
               className={cn(
                 "-mb-px border-b-2 px-3 pb-2 pt-1 text-sm font-medium transition-colors",
@@ -333,26 +283,13 @@ export function CommsSetupPage() {
       )}
 
       {tab === "mine" && <MyMailboxTab notice={notice} />}
-      {tab === "connections" && (
-        <ConnectionsTab
-          onCreateShared={isAdmin && canCreate ? startSharedMailbox : undefined}
-        />
+      {tab === "company" && isAdmin && (
+        <div className="space-y-5">
+          <MailboxesTab canCreate={canCreate} notice={notice} />
+          <SendPointsSection />
+          <SystemEmailSection />
+        </div>
       )}
-      {tab === "followups" && <FollowupsTab />}
-      {tab === "secure-links" && <SecureLinksTab />}
-      {tab === "mailboxes" && isAdmin && (
-        <MailboxesTab
-          canCreate={canCreate}
-          seed={sharedSeed}
-          onSeedConsumed={() => setSharedSeed(null)}
-          notice={notice}
-        />
-      )}
-      {tab === "sla" && isAdmin && <SlaTab />}
-      {tab === "trust" && isAdmin && <TrustTab />}
-      {tab === "send-points" && isAdmin && <SendPointsTab />}
-      {tab === "senders" && isAdmin && <SendersAndChannelsTab />}
-      {tab === "test-calls" && canTest && <TestCallsTab />}
     </div>
   );
 }

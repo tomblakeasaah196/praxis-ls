@@ -88,6 +88,72 @@ const GRANDFATHERED = new Map(
   }),
 );
 
+/**
+ * Wrappers whose screen was REMOVED, on purpose, by the tenant.
+ *
+ * ── WHY THIS IS A SECOND LIST AND NOT THIRTY-FOUR MORE ROWS ABOVE ───────────
+ *
+ * `GRANDFATHERED` is "an endpoint ahead of its screen", found by accident. This
+ * is the opposite thing: each of these HAD a screen, and the tenant review of
+ * 16 Nov 2026 asked for it off the product ("at most two tabs for setup",
+ * "managing mail should be the simplest thing ever"). The reading pane's work
+ * rail lost claim, assign, status, snooze, sharing, the record tabs, action
+ * cards, document filing and team notes; Setup lost Follow-ups, Secure Links,
+ * Response Times and Trust & Archives.
+ *
+ * The endpoints still exist and still work, and the wrappers are kept so a
+ * screen that comes back has something to call. What this gate exists to catch
+ * is NOT KNOWING which wrappers nothing reaches, and that is exactly what this
+ * list records: which, since when, and by whose decision.
+ *
+ * It is capped at its size on the day it was written. It shrinks when one of
+ * these gets a screen again, and it does not grow: a new wrapper with no
+ * caller is still refused by the test below, the same as before.
+ */
+const RETIRED_SCREENS_2026_11_16 = new Map(
+  Object.entries({
+    /* The reading pane's work rail. */
+    mailContext: "the record drawer was removed from the reading pane",
+    mailContextTab: "the record drawer was removed from the reading pane",
+    listCards: "the action cards were removed from the reading pane",
+    listNotes: "team notes were removed from the reading pane",
+    listIntake: "document filing was removed from the reading pane",
+    fileIntake: "document filing was removed from the reading pane",
+    rejectIntake: "document filing was removed from the reading pane",
+    chaseList: "document filing was removed from the reading pane",
+    listMessageExtractions: "the per-message extraction panel was removed",
+    reviewExtraction: "the per-message extraction panel was removed",
+    dismissExtraction: "the per-message extraction panel was removed",
+    claimThread: "assign and status were removed from the reading pane",
+    assignThread: "assign and status were removed from the reading pane",
+    setWorkStatus: "assign and status were removed from the reading pane",
+    snoozeThread: "assign and status were removed from the reading pane",
+    listShares: "conversation sharing was removed from the reading pane",
+    shareThread: "conversation sharing was removed from the reading pane",
+    unshareThread: "conversation sharing was removed from the reading pane",
+    /* Setup → Follow-ups. Nothing creates one once snooze is gone. */
+    listFollowups: "the Follow-ups tab was removed from Setup",
+    cancelFollowup: "the Follow-ups tab was removed from Setup",
+    /* Setup → Secure Links. Sent links keep working; only the log left. */
+    listSecureLinks: "the Secure Links tab was removed from Setup",
+    secureLinkViews: "the Secure Links tab was removed from Setup",
+    revokeSecureLink: "the Secure Links tab was removed from Setup",
+    /* Setup → Response Times. */
+    listSlaPolicies: "the Response Times tab was removed from Setup",
+    createSlaPolicy: "the Response Times tab was removed from Setup",
+    updateSlaPolicy: "the Response Times tab was removed from Setup",
+    getBusinessCalendar: "the Response Times tab was removed from Setup",
+    putBusinessHours: "the Response Times tab was removed from Setup",
+    putHolidays: "the Response Times tab was removed from Setup",
+    /* Setup → Trust & Archives. */
+    listVerifiedDomains: "the Trust & Archives tab was removed from Setup",
+    verifyDomain: "the Trust & Archives tab was removed from Setup",
+    unverifyDomain: "the Trust & Archives tab was removed from Setup",
+    listBounces: "the Trust & Archives tab was removed from Setup",
+    verifyArchive: "the Trust & Archives tab was removed from Setup",
+  }),
+);
+
 /** Files a caller may live in: a screen, not the API layer and not a test. */
 function screenFiles(dir, acc = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -148,9 +214,23 @@ describe("every mail endpoint with a client wrapper is reachable from a screen",
 
   test("NO WRAPPER IS CALLED BY NOTHING", () => {
     const unreached = ALL.filter(
-      (n) => !GRANDFATHERED.has(n) && !calledSomewhere(n),
+      (n) =>
+        !GRANDFATHERED.has(n) &&
+        !RETIRED_SCREENS_2026_11_16.has(n) &&
+        !calledSomewhere(n),
     );
     expect(unreached).toEqual([]);
+  });
+
+  test("the retired-screens list can only shrink, and holds nothing that is wired or gone", () => {
+    expect(RETIRED_SCREENS_2026_11_16.size).toBeLessThanOrEqual(34);
+    const names = [...RETIRED_SCREENS_2026_11_16.keys()];
+    // A wrapper that got its screen back must come off the list...
+    expect(names.filter((n) => calledSomewhere(n))).toEqual([]);
+    // ...and so must one that was deleted.
+    expect(names.filter((n) => !ALL.includes(n))).toEqual([]);
+    // One name, one list.
+    expect(names.filter((n) => GRANDFATHERED.has(n))).toEqual([]);
   });
 
   test("the grandfathered list can only shrink", () => {
@@ -246,14 +326,11 @@ describe("§9.8 · the composer checks the recipients", () => {
     expect(composer).not.toMatch(/canSend[^\n]*recipients/);
   });
 
-  test("THE TRUST TAB'S CLAIM IS NOW TRUE", () => {
-    // "The composer checks this list before a send." It did not, for two PRs.
-    // If the caller is ever removed, this sentence becomes a lie again — so
-    // the sentence and the call site are pinned together.
-    const trust = read("features/comms/setup/trust.tsx");
-    expect(trust).toMatch(/composer checks this list before a send/i);
-    expect(composer).toMatch(/useRecipientHealth/);
-  });
+  /* A fourth test stood here: the Trust tab said, on screen, "the composer
+   * checks this list before a send", and this pinned the sentence to the call
+   * site so the one could not outlive the other. The Trust tab left Setup on
+   * 16 Nov 2026 and took the sentence with it. The call site is still pinned,
+   * by THE COMPOSER CALLS useRecipientHealth above. */
 
   test("the server no longer answers a broken check with an empty list", () => {
     const service = fs.readFileSync(
@@ -265,14 +342,10 @@ describe("§9.8 · the composer checks the recipients", () => {
   });
 });
 
-describe("§9.1 · a lead can hand a thread over", () => {
-  test("THE TRIAGE BAR CALLS assignThread", () => {
-    const triage = read("features/comms/inbox/work/triage.tsx");
-    expect(triage).toMatch(/api\.assignThread\(/);
-    // And says what it is, in the words the panel's own header uses.
-    expect(triage).toMatch(/Hand over/);
-  });
-});
+/* §9.1's test stood here: "THE TRIAGE BAR CALLS assignThread". The triage bar
+ * (claim, hand over, status, snooze) was removed from the reading pane on
+ * 16 Nov 2026 by the tenant's own choice, so `assignThread` is on
+ * RETIRED_SCREENS_2026_11_16 above with the rest of it. */
 
 /* ── The blind spot this gate had, and what now covers it ─────────────────── */
 
