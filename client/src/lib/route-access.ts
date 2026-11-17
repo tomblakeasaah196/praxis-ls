@@ -108,8 +108,16 @@ export function moduleForPath(pathname: string): string | null | undefined {
  * is not part of your access" on the one page that is theirs. The calls the page makes are the
  * sign-in routes, which need a session and nothing else; the registry keeps its module so the
  * hub's own gating (a hub opens for anyone who can open one of its sections) does not move.
+ *
+ * `/notifications` is here for the same reason, and it was the more visible case. The page lists
+ * the signed-in person's own notifications and their own delivery preferences, and every call it
+ * makes (`/notifications`, `/notifications/preferences`, `/:id/read`, `/read-all`) needs a session
+ * and nothing else. It is registered under Security & Access because that is where it sits in the
+ * ribbon, so "View All" in the bell, which every user has, opened "Security & Access is not part
+ * of your access" for anyone who is not an administrator: the first thing a new operations officer
+ * with sixty-seven unread notifications is likely to press (tenant report, 17 Nov 2026).
  */
-const OWN_ACCOUNT = ["/security/my-security"];
+const OWN_ACCOUNT = ["/security/my-security", "/notifications"];
 
 /**
  * Every module that would open this path. EMPTY means "no grant is required" —
