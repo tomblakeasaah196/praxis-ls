@@ -35,6 +35,8 @@ import { money, todayISO } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import type { Entity } from "@/lib/masterdata-api";
 import * as api from "@/lib/costing-api";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 /**
  * Disburse an APPROVED request — issues the régie advance.
@@ -344,6 +346,12 @@ export function JustifyForm({
  * /REJECTED, APPROVED→DISBURSED, DISBURSED→JUSTIFIED. The server re-checks every
  * one via `assertTransition`, so this decides what to OFFER, never what is
  * allowed — a 422 from the API is still the authority.
+ *
+ * AND BY GRANT. This is the one lifecycle in the product with four different
+ * people in it: the requester submits and justifies (`edit`), finance gives
+ * its visa (`validate`), a manager approves or rejects (`approve`) and the
+ * cashier pays (`disburse`). Each used to be shown all of it. The map is the
+ * one the route mounts, and Disburse and Justify are their own routes.
  */
 export function CashRequestActions({
   request,
@@ -359,9 +367,11 @@ export function CashRequestActions({
   onJustify: () => void;
 }) {
   const st = String(request.status || "DRAFT").toUpperCase();
+  const can = useCan("MOD-49");
+  const mayMove = useCanMove("MOD-49", transitionActions.cashRequestTransition);
   return (
     <>
-      {st === "DRAFT" && (
+      {st === "DRAFT" && mayMove("SUBMITTED") && (
         <Button
           size="sm"
           variant="outline"
@@ -374,55 +384,65 @@ export function CashRequestActions({
       {st === "SUBMITTED" && (
         <>
           {/* 10721: the legacy two-step — finance validates first. */}
-          <Button
-            size="sm"
-            variant="outline"
-            loading={busy}
-            onClick={() => onTransition("VALIDATED")}
-          >
-            {tr("Validate")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            loading={busy}
-            onClick={() => onTransition("REJECTED")}
-          >
-            {tr("Reject")}
-          </Button>
+          {mayMove("VALIDATED") && (
+            <Button
+              size="sm"
+              variant="outline"
+              loading={busy}
+              onClick={() => onTransition("VALIDATED")}
+            >
+              {tr("Validate")}
+            </Button>
+          )}
+          {mayMove("REJECTED") && (
+            <Button
+              size="sm"
+              variant="outline"
+              loading={busy}
+              onClick={() => onTransition("REJECTED")}
+            >
+              {tr("Reject")}
+            </Button>
+          )}
         </>
       )}
       {st === "VALIDATED" && (
         <>
-          <Button
-            size="sm"
-            variant="outline"
-            loading={busy}
-            onClick={() => onTransition("APPROVED")}
-          >
-            {tr("Approve")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            loading={busy}
-            onClick={() => onTransition("REJECTED")}
-          >
-            {tr("Reject")}
-          </Button>
+          {mayMove("APPROVED") && (
+            <Button
+              size="sm"
+              variant="outline"
+              loading={busy}
+              onClick={() => onTransition("APPROVED")}
+            >
+              {tr("Approve")}
+            </Button>
+          )}
+          {mayMove("REJECTED") && (
+            <Button
+              size="sm"
+              variant="outline"
+              loading={busy}
+              onClick={() => onTransition("REJECTED")}
+            >
+              {tr("Reject")}
+            </Button>
+          )}
         </>
       )}
-      {st === "APPROVED" && (
+      {/* Paying is its own route and its own grant: POST /:id/disburse. */}
+      {st === "APPROVED" && can("disburse") && (
         <Button size="sm" variant="outline" onClick={onDisburse}>
           {tr("Disburse")}
         </Button>
       )}
-      {st === "PARTIALLY_DISBURSED" && (
+      {st === "PARTIALLY_DISBURSED" && can("disburse") && (
         <Button size="sm" variant="outline" onClick={onDisburse}>
           {tr("Pay instalment")}
         </Button>
       )}
-      {st === "DISBURSED" && (
+      {/* Justifying is the requester's own act: POST /:id/justify asks `edit`. */}
+      {st === "DISBURSED" && can("edit") && (
         <Button size="sm" variant="outline" onClick={onJustify}>
           {tr("Justify")}
         </Button>
