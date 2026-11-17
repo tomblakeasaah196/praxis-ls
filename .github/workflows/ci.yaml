@@ -999,10 +999,21 @@ jobs:
         # EXPIRY below is the change: past that date this step fails on any high,
         # which forces the exceljs decision to be made rather than deferred
         # again. Move the date only together with a note saying why.
+        #
+        # 2026-11-17: EXPIRY moved from 2026-10-31 to 2027-03-31 (owner's
+        # decision, Sales lean revamp PR 2). The exceljs/uuid findings are gone:
+        # #573 cleared them and uuid now rates moderate. What failed this step
+        # from 1 November, on main and every PR, is a NEW high, GHSA-fc5q-39xc-vjpf
+        # (picomatch ReDoS). Its range, <=4.0.7, is every release published, so no
+        # upgrade clears it. It is reached only through jest and nodemon, which
+        # are dev tooling: the runtime image installs with --omit=dev, and
+        # `npm audit --omit=dev --audit-level=high` is clean. While this step
+        # failed, the secret scan below was skipped on every run. Recheck once a
+        # fixed picomatch ships; the window covers any other high until then too.
         continue-on-error: false
         run: |
           set -uo pipefail
-          EXPIRY="2026-10-31"
+          EXPIRY="2027-03-31"
           if npm audit --audit-level=high; then
             echo "npm audit: clean at high and above."
             exit 0
@@ -1010,12 +1021,12 @@ jobs:
           TODAY="$(date -u +%Y-%m-%d)"
           if [ "$TODAY" \< "$EXPIRY" ]; then
             echo "::warning::npm audit reports high-severity findings. KNOWN, and accepted until $EXPIRY:"
-            echo "::warning::transitive uuid via exceljs/node-cron — clearing it needs a breaking exceljs major (TC-CI4)."
-            echo "::warning::After $EXPIRY this step FAILS. Schedule the upgrade."
+            echo "::warning::picomatch ReDoS GHSA-fc5q-39xc-vjpf via jest/nodemon (dev only). No fixed release exists yet."
+            echo "::warning::After $EXPIRY this step FAILS. Upgrade picomatch once a fix ships."
             exit 0
           fi
           echo "::error::npm audit has high-severity findings and the accepted-risk window expired on $EXPIRY."
-          echo "::error::Either do the exceljs upgrade or move the EXPIRY in ci.yaml with a written reason."
+          echo "::error::Either upgrade the flagged packages or move the EXPIRY in ci.yaml with a written reason."
           exit 1
 
       - name: Secret scan
