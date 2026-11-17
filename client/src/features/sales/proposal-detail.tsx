@@ -20,6 +20,8 @@ import { cell, money } from "@/lib/format";
 import { StatusPill } from "@/components/ui/pill";
 import { SearchSelect } from "@/components/ui/search-select";
 import { lineTotal } from "./proposal-forms";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 export function ProposalDetail({
   proposal,
@@ -34,6 +36,10 @@ export function ProposalDetail({
   onChanged: () => void;
   onEdit: (p: Row) => void;
 }) {
+  // Each step asks for its own grant: the map is the one the route mounts, and
+  // Accept is its own route. Only what this role may do is offered.
+  const mayWrite = useCan("MOD-23");
+  const mayMove = useCanMove("MOD-23", transitionActions.proposalTransition);
   const open = !!proposal;
   const [data, setData] = React.useState<Row | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -307,49 +313,59 @@ export function ProposalDetail({
             {/* Lifecycle actions */}
             {!action && (
               <div className="flex flex-wrap justify-end gap-2 border-t pt-3">
-                {status === "SENT" && <><Button variant="outline" loading={busy} onClick={()=>void shareProposal()}>Share link</Button>{shareUrl&&<><Button variant="ghost" onClick={()=>void navigator.clipboard?.writeText(shareUrl)}>Copy link</Button><Button variant="ghost" onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent(`Please review our proposal: ${shareUrl}`)}`,"_blank")}>WhatsApp</Button></>}</>}
+                {status === "SENT" && mayWrite("edit") && <><Button variant="outline" loading={busy} onClick={()=>void shareProposal()}>Share link</Button>{shareUrl&&<><Button variant="ghost" onClick={()=>void navigator.clipboard?.writeText(shareUrl)}>Copy link</Button><Button variant="ghost" onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent(`Please review our proposal: ${shareUrl}`)}`,"_blank")}>WhatsApp</Button></>}</>}
                 <Button variant="outline" onClick={onClose}>
                   Close
                 </Button>
                 {status === "DRAFT" && proposal && (
                   <>
-                    <Button variant="outline" loading={busy} onClick={() => setNarrativeOpen(true)}>Generate bilingual narrative</Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => onEdit(data ?? proposal)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      loading={busy}
-                      onClick={() => transitionTo("IN_REVIEW")}
-                    >
-                      Submit for review
-                    </Button>
+                    {mayWrite("edit") && (
+                      <Button variant="outline" loading={busy} onClick={() => setNarrativeOpen(true)}>Generate bilingual narrative</Button>
+                    )}
+                    {mayWrite("edit") && (
+                      <Button
+                        variant="outline"
+                        onClick={() => onEdit(data ?? proposal)}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                    {mayMove("IN_REVIEW") && (
+                      <Button
+                        loading={busy}
+                        onClick={() => transitionTo("IN_REVIEW")}
+                      >
+                        Submit for review
+                      </Button>
+                    )}
                   </>
                 )}
                 {status === "IN_REVIEW" && (
                   <>
-                    <Button
-                      variant="ghost"
-                      loading={busy}
-                      onClick={() => transitionTo("DRAFT")}
-                    >
-                      Back to draft
-                    </Button>
-                    <Button onClick={() => setAction("send")}>Send…</Button>
+                    {mayMove("DRAFT") && (
+                      <Button
+                        variant="ghost"
+                        loading={busy}
+                        onClick={() => transitionTo("DRAFT")}
+                      >
+                        Back to draft
+                      </Button>
+                    )}
+                    {mayMove("SENT") && <Button onClick={() => setAction("send")}>Send…</Button>}
                   </>
                 )}
                 {status === "SENT" && (
                   <>
-                    <Button
-                      variant="ghost"
-                      loading={busy}
-                      onClick={() => transitionTo("REJECTED")}
-                    >
-                      Reject
-                    </Button>
-                    <Button onClick={() => setAction("accept")}>Accept…</Button>
+                    {mayMove("REJECTED") && (
+                      <Button
+                        variant="ghost"
+                        loading={busy}
+                        onClick={() => transitionTo("REJECTED")}
+                      >
+                        Reject
+                      </Button>
+                    )}
+                    {mayWrite("approve") && <Button onClick={() => setAction("accept")}>Accept…</Button>}
                   </>
                 )}
               </div>

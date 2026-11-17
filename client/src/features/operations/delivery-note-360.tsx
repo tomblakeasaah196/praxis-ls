@@ -65,6 +65,8 @@ import { DeliveryProgressPanel } from "./delivery-progress";
 import { useDeliveryProgress } from "./use-delivery-progress";
 import { Fact } from "./components";
 import { deliveryTone } from "./shared";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 export type DeliveryNote360Tab =
   | "details"
@@ -426,6 +428,11 @@ export function DeliveryNote360({
 }) {
   const note = useResource(() => api.getDeliveryNote(id), [id]);
   const data = note.data;
+  // Issuing is `create`, confirming delivery is `edit`, cancelling is
+  // `approve`: the map the route mounts, so each is offered only to a role
+  // that may do it. Hooks, so above the early returns below.
+  const mayWrite = useCan("MOD-32");
+  const mayMove = useCanMove("MOD-32", transitionActions.deliveryNoteTransition);
   // Before the early returns below: the file is not known until `data` lands,
   // and a hook cannot be called conditionally. An empty id fetches nothing.
   const progress = useDeliveryProgress(data?.dossier_id || "");
@@ -485,8 +492,9 @@ export function DeliveryNote360({
       />
     );
 
+  // What the record's status allows AND what this role's grant allows.
   const can = (s: api.DeliveryStatus) =>
-    (data.allowed_transitions || []).includes(s);
+    (data.allowed_transitions || []).includes(s) && mayMove(s);
   const p = progress.data;
   // A file whose service type captures no containers has no boxes to count, and
   // a strip of zeros is a strip that teaches operators to ignore strips.
@@ -525,7 +533,7 @@ export function DeliveryNote360({
    */
   const actions = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      {data.status === "DRAFT" && (
+      {data.status === "DRAFT" && mayWrite("edit") && (
         <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
           {tr("Edit")}
         </Button>

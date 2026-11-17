@@ -36,6 +36,8 @@ import { ErrorState } from "@/components/ui/states";
 import { StatusPill } from "@/components/ui/pill";
 import { cell, dateFmt } from "@/lib/format";
 import { errMsg, type Row } from "@/lib/use-resource";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 const ENQUIRY_TYPES = ["GENERAL_ENQUIRY", "PARTNERSHIP", "CAREERS", "MEDIA"];
 
@@ -92,6 +94,9 @@ export function ManageEnquiryModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  // Reply, triage, close and reopen are all `edit` on the enquiry routes.
+  const mayEdit = useCan("MOD-25")("edit");
+  const mayMove = useCanMove("MOD-25", transitionActions.inboundIntakeTransition);
   const open = !!enquiry;
   const id = enquiry ? String(enquiry.contact_enquiry_id) : "";
 
@@ -203,15 +208,17 @@ export function ManageEnquiryModal({
       footer={
         <div className="flex w-full items-center justify-between gap-2">
           <div className="flex gap-2">
-            {closed ? (
-              <Button variant="outline" loading={busy === "move"} onClick={() => move("READ", "Reopened.")}>
-                Reopen
-              </Button>
-            ) : (
-              <Button variant="ghost" loading={busy === "move"} onClick={() => move("CLOSED", "Closed.")}>
-                Close enquiry
-              </Button>
-            )}
+            {closed
+              ? mayMove("READ") && (
+                  <Button variant="outline" loading={busy === "move"} onClick={() => move("READ", "Reopened.")}>
+                    Reopen
+                  </Button>
+                )
+              : mayMove("CLOSED") && (
+                  <Button variant="ghost" loading={busy === "move"} onClick={() => move("CLOSED", "Closed.")}>
+                    Close enquiry
+                  </Button>
+                )}
           </div>
           <Button variant="outline" onClick={onClose}>
             Done
@@ -255,9 +262,11 @@ export function ManageEnquiryModal({
             </Select>
           </Field>
           <div className="flex items-end">
-            <Button variant="outline" loading={busy === "save"} disabled={closed} onClick={saveDetails}>
-              Save details
-            </Button>
+            {mayEdit && (
+              <Button variant="outline" loading={busy === "save"} disabled={closed} onClick={saveDetails}>
+                Save details
+              </Button>
+            )}
           </div>
         </div>
 
@@ -298,9 +307,11 @@ export function ManageEnquiryModal({
                   placeholder="Write the reply that will be emailed to this person…"
                 />
               </Field>
-              <Button loading={busy === "reply"} disabled={closed || !reply.trim()} onClick={sendReply}>
-                Send reply
-              </Button>
+              {mayEdit && (
+                <Button loading={busy === "reply"} disabled={closed || !reply.trim()} onClick={sendReply}>
+                  Send reply
+                </Button>
+              )}
             </div>
           )}
 
@@ -357,15 +368,17 @@ export function ManageEnquiryModal({
               label={alreadyLead ? "Lead already raised" : "Raise a lead"}
             />
           </div>
-          <Button
-            className="mt-3"
-            variant="outline"
-            loading={busy === "triage"}
-            disabled={closed || !toLead || alreadyLead}
-            onClick={triage}
-          >
-            Route
-          </Button>
+          {mayEdit && (
+            <Button
+              className="mt-3"
+              variant="outline"
+              loading={busy === "triage"}
+              disabled={closed || !toLead || alreadyLead}
+              onClick={triage}
+            >
+              Route
+            </Button>
+          )}
         </div>
       </div>
     </Modal>
