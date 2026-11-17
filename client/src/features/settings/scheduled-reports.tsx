@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
 import { PageError } from "./shared";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { useCan } from "@/lib/route-access";
 
 const CADENCES = ["daily", "weekly", "monthly", "quarterly", "on_event"];
 const REPORT_FORMATS = ["pdf", "csv", "xlsx"];
@@ -193,6 +194,7 @@ function ScheduleForm({
 }
 
 export function ScheduledReportsPage() {
+  const can = useCan("MOD-63");
   const reload = useRefresh();
   const { rows, error } = useList("/reports/scheduled");
   const { rows: catalogue } = useList("/reports/catalogue");
@@ -245,7 +247,7 @@ export function ScheduledReportsPage() {
         title="Scheduled Reports"
         description="Automated report delivery: pick a report, a cadence and recipients."
         action={
-          <Button onClick={() => setCreateOpen(true)}>Schedule report</Button>
+          can("create") && <Button onClick={() => setCreateOpen(true)}>Schedule report</Button>
         }
       />
 

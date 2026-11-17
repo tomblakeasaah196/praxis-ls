@@ -22,6 +22,7 @@ import { Modal, Field, Select } from "@/components/ui/modal";
 import { AiActions } from "@/components/ai-actions";
 import type { AiAction } from "@/features/scaffold/screen-specs";
 import { EntityPicker } from "@/components/entity-picker";
+import { useCan } from "@/lib/route-access";
 
 const SUPPLIER_AI: AiAction[] = [
   {
@@ -238,6 +239,7 @@ function SupplierForm({
 }
 
 export function SuppliersPage() {
+  const can = useCan("MOD-04");
   const reload = useRefresh();
   const { rows, error } = useList("/suppliers");
   const [formOpen, setFormOpen] = React.useState(false);
@@ -258,7 +260,7 @@ export function SuppliersPage() {
         eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title={tr("Suppliers")}
         description="Vendor registry referenced across procurement and payables."
-        action={<Button onClick={openNew}>New supplier</Button>}
+        action={can("create") && <Button onClick={openNew}>New supplier</Button>}
       />
 
       {error ? (

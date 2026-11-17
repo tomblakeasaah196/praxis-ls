@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
 import * as fin from "@/lib/finance-api";
 import { useOptions, optionLabel } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 /**
  * Post a journal entry — the first form on `<Form>` + a shared schema.
@@ -462,6 +463,7 @@ const JOURNAL_COLS = [
 ];
 
 export function JournalsPage() {
+  const can = useCan("MOD-55");
   const [rows, setRows] = React.useState<Record<string, unknown>[] | null>(
     null,
   );
@@ -539,7 +541,7 @@ export function JournalsPage() {
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
         title={tr("Journals")}
         description="General ledger journal entries — balanced-or-rejected, reversal-not-edit."
-        action={<Button onClick={() => setPostOpen(true)}>Post entry</Button>}
+        action={can("create") && <Button onClick={() => setPostOpen(true)}>Post entry</Button>}
       />
       <KpiRow>
         <KpiTile label="Entries" value={String(list.length)} />

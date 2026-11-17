@@ -36,6 +36,7 @@ import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money, dateFmt } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 
@@ -341,6 +342,7 @@ function NewRequestForm({
 }
 
 export function LeavePage() {
+  const can = useCan("MOD-15");
   const [pendingOnly, setPendingOnly] = React.useState(true);
   const q = useResource(
     // Advances have had their own tab since 0698, and were appearing here as
@@ -527,7 +529,7 @@ export function LeavePage() {
         eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title="Leave & Allowances"
         description="Approve or reject leave, salary-advance and mission requests."
-        action={<Button onClick={() => setCreating(true)}>{tr("New request")}</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>{tr("New request")}</Button>}
       />
       <HubTabs />{" "}
       <div className="mb-4 inline-flex rounded-lg border p-0.5 text-sm">

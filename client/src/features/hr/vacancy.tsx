@@ -36,6 +36,7 @@ import { ApplicantDrawer, CriteriaEditor } from "./applicant-drawer";
 import { VacancyWizard } from "./vacancy-wizard";
 import { VacancyEditor } from "./vacancy-editor";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const VAC_TONE: Record<string, Tone> = {
@@ -891,6 +892,7 @@ function Pipeline({
 }
 
 export function VacanciesPage() {
+  const can = useCan("MOD-11");
   const vacancies = useResource(() => api.listVacancies(), []);
   /* Once for the screen, not once per role: it is a fact about the tenant, not
      about the vacancy, and a recruiter clicks through a list of them. */
@@ -927,7 +929,7 @@ export function VacanciesPage() {
         eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Vacancies")}
         description="Recruitment pipeline — move applicants through the hiring stages."
-        action={<Button onClick={() => setCreating(true)}>{tr("New vacancy")}</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>{tr("New vacancy")}</Button>}
       />
       <HubTabs />{" "}
       {vacancies.error ? (

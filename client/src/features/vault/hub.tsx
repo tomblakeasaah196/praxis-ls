@@ -32,6 +32,7 @@ import { ReconciliationPage } from "./reconciliation";
 import * as React from "react";
 import { VaultPreviewDialog, type VaultPreviewDocument } from "@/components/vault-preview-dialog";
 import { VerificationPortalCard } from "./verification-portal-card";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 
@@ -73,6 +74,7 @@ function staleCount(stats: Row | null | undefined): number {
 }
 
 function Overview() {
+  const can = useCan("MOD-64");
   const navigate = useNavigate();
   const [preview, setPreview] = React.useState<VaultPreviewDocument | null>(null);
   const docs = useList<Doc>("/documents");
@@ -113,9 +115,11 @@ function Overview() {
         title="Vault & Compliance"
         description="Every document carries a SHA-256 content hash, so a stored file can be re-checked against its DNA at any time. Compliance rules run over the same corpus and raise flags for anything missing or aged."
         action={
-          <Button onClick={() => navigate("/vault/documents")}>
-            Upload document
-          </Button>
+          can("create") && (
+            <Button onClick={() => navigate("/vault/documents")}>
+              Upload document
+            </Button>
+          )
         }
       />
       <HubTabs />

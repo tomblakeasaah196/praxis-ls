@@ -44,6 +44,7 @@ import { errMsg, useList, useRefresh, type Row } from "@/lib/use-resource";
 import { cell, dateFmt, todayISO } from "@/lib/format";
 import { useIsCompact } from "@/lib/use-media-query";
 import { DataView } from "@/components/ui/data-view";
+import { useCan } from "@/lib/route-access";
 
 const PORTAL_AI: AiAction[] = [
   {
@@ -272,6 +273,7 @@ function PreviewModal({
 }
 
 export function PortalAccessPage() {
+  const can = useCan("MOD-67");
   const reload = useRefresh();
   const toast = useToast();
   const compact = useIsCompact();
@@ -392,7 +394,7 @@ export function PortalAccessPage() {
             // Three header buttons do not fit a phone's width; the primary one
             // stays, the two previews go behind ⋯ (FRONTEND_GUIDE §3.16).
             <div className="flex items-center gap-2">
-              <Button onClick={() => setGrantOpen(true)}>{tr("Grant access")}</Button>
+              {can("edit") && <Button onClick={() => setGrantOpen(true)}>{tr("Grant access")}</Button>}
               <MoreMenu label={tr("More portal actions")}>
                 <DropdownItem onSelect={() => setPreview({ title: tr("Investor portal preview"), path: "/portals/investor" })}>
                   {tr("Preview investor")}
@@ -410,7 +412,7 @@ export function PortalAccessPage() {
               <Button variant="outline" onClick={() => setPreview({ title: tr("Auditor portal preview"), path: "/portals/auditor" })}>
                 {tr("Preview auditor")}
               </Button>
-              <Button onClick={() => setGrantOpen(true)}>{tr("Grant access")}</Button>
+              {can("edit") && <Button onClick={() => setGrantOpen(true)}>{tr("Grant access")}</Button>}
             </div>
           )
         }

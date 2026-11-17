@@ -58,8 +58,10 @@ import { TaskBoard } from "./task-board";
 import { TaskDialog } from "./task-dialog";
 import { TaskList } from "./task-list";
 import { TaskPanel } from "./task-panel";
+import { useCan } from "@/lib/route-access";
 
 export function TasksPage() {
+  const can = useCan("MOD-00A");
   const [params, setParams] = useSearchParams();
   const isWide = useIsWide();
 
@@ -190,7 +192,7 @@ export function TasksPage() {
       <PageHeader
         title="Tasks"
         description="What has to happen, in the order it has to happen in. Drag a card to move it, or use the Move menu."
-        action={<Button onClick={() => setCreateOpen(true)}>New Task</Button>}
+        action={can("create") && <Button onClick={() => setCreateOpen(true)}>New Task</Button>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">

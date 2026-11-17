@@ -18,9 +18,35 @@
  */
 import { tenant } from "./api-client";
 
+/**
+ * What a grant lets someone do beyond reading. `requirePermission`'s own words
+ * (`src/middleware/rbac.js`), so a screen asks about a button in the same word
+ * its route is guarded with: `edit`, never `update`.
+ */
+export type GrantAction =
+  | "create"
+  | "edit"
+  | "delete"
+  | "approve"
+  | "export"
+  | "validate"
+  | "disburse"
+  | "test";
+
 export type NavAccess = {
   /** MOD-xx keys this user can read, sorted. */
   modules: string[];
+  /**
+   * MOD-xx → what this user may do on it beyond reading. A module they can
+   * only read has no entry.
+   *
+   * OPTIONAL, AND ABSENT IS NOT EMPTY. An API that predates this field, or a
+   * cached record written by a build that did, has no `actions` at all. Reading
+   * that as "holds nothing" would strip every write button from every screen
+   * for everybody on the first paint after a deploy. Absent means "unknown",
+   * and unknown is offered (`canDo` in route-access.ts).
+   */
+  actions?: Record<string, string[]>;
   /** The workflow verbs those keys fall into, in catalogue order. */
   groups: string[];
   /** verb → its visible module keys. Same partition as `groups`, spelled out. */
@@ -73,7 +99,20 @@ export function coerceNavAccess(raw: unknown): NavAccess {
         : {},
     isCeo: Boolean(a.isCeo),
     version: typeof a.version === "string" ? a.version : "",
+    ...coerceActions(a.actions),
   };
+}
+
+/** `{ actions }` when the response carried a usable map, `{}` when it did not,
+ *  so an older API stays "unknown" instead of becoming "nothing". */
+function coerceActions(raw: unknown): { actions?: Record<string, string[]> } {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const actions: Record<string, string[]> = {};
+  for (const [key, held] of Object.entries(raw as Record<string, unknown>)) {
+    if (Array.isArray(held))
+      actions[key.toUpperCase()] = held.filter((h): h is string => typeof h === "string");
+  }
+  return { actions };
 }
 
 export const fetchNavAccess = async (): Promise<NavAccess> =>

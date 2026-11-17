@@ -32,6 +32,7 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money } from "@/lib/format";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 
@@ -282,6 +283,7 @@ function NewAdvanceForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 }
 
 export function AdvancesPage() {
+  const can = useCan("MOD-17");
   const q = useResource(() => api.listAdvances(), []);
   const [scheduling, setScheduling] = React.useState<api.SalaryAdvance | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -376,7 +378,7 @@ export function AdvancesPage() {
         eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title="Salary Advances"
         description="Money paid out ahead of payroll, and the schedule that recovers it. Instalments come off net pay — the salary was already taxed."
-        action={<Button onClick={() => setCreating(true)}>Record an advance</Button>}
+        action={can("approve") && <Button onClick={() => setCreating(true)}>Record an advance</Button>}
       />
       <HubTabs />{" "}
 

@@ -37,6 +37,27 @@
  *                                     that is deliberately always offered. The
  *                                     reason is required.
  *
+ * ── THE SECOND HALF: A WRITE BUTTON ASKS TOO ────────────────────────────────
+ *
+ * Opening a screen and being allowed to change what is on it are two grants.
+ * Someone who could read invoices and not create them was shown "New draft",
+ * filled the form in and was refused on Save. The same audit counted about
+ * seventy such buttons, and the answer was the same: hide it.
+ *
+ * So: a `<Button>` in the `action` of a `<PageHeader>` or a `<ListPage>` whose
+ * label opens with a write (New, Add, Create, Post, Record, Log, Issue,
+ * Schedule, Upload, Report, Raise, Grant, Set, Invite, Import) must sit behind
+ *
+ *   can("create") && <Button…>     `const can = useCan("MOD-51")`, the module
+ *                                  and action the ROUTE is guarded with
+ *   // @access:open <reason>       inside the action, for a button every
+ *                                  signed-in person may use
+ *
+ * It reads the page header because that is where a screen's primary write
+ * lives and where a label is a reliable signal. Row actions, form footers and
+ * the buttons inside a 360 are not read: there a label is not enough to know a
+ * write from a read, and a gate that guesses gets switched off.
+ *
  * ── ITS LIMITS, SAID PLAINLY ────────────────────────────────────────────────
  *
  * It reads literal paths. A destination built entirely at run time (the
@@ -203,13 +224,78 @@ for (const { file, inFeatures } of files) {
   }
 }
 
+/* ── The second half: a write button in a page header asks too ───────────── */
+
+const WRITE_LABEL =
+  /^(New|Add|Create|Post|Record|Log|Issue|Schedule|Upload|Report|Raise|Grant|Set|Invite|Import)\b/;
+
+/** The text between a `{` at `from` and its matching `}`. */
+function braced(text, from) {
+  let depth = 1;
+  let i = from;
+  while (i < text.length && depth > 0) {
+    if (text[i] === "{") depth += 1;
+    else if (text[i] === "}") depth -= 1;
+    i += 1;
+  }
+  return text.slice(from, i - 1);
+}
+
+/** What a button says: `{tr("New client")}` and `{a ? "New template" : …}` read
+ *  as their first literal, which is what the person sees first. */
+function labelOf(inner) {
+  return inner
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, " ")
+    .replace(/\{\s*tr\(\s*["'`]([^"'`]*)["'`]\s*\)\s*\}/g, "$1")
+    .replace(/\{[^{}]*?\?\s*["'`]([^"'`]*)["'`][^{}]*\}/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const writes = [];
+for (const { file } of files.filter((f) => f.inFeatures)) {
+  const rel = relative(client, file).split(sep).join("/");
+  const text = readFileSync(file, "utf8");
+  // `<ListPage<api.Dossier>` carries a type argument. Its `>` is not the end of
+  // the tag, and reading it as one skipped every screen built that way.
+  for (const head of text.matchAll(/<(?:PageHeader|ListPage)\b(?:<[^<>]*>)?/g)) {
+    // The opening tag: up to the first `>` that is not inside a `{…}`.
+    let depth = 0;
+    let end = head.index + head[0].length;
+    for (; end < text.length; end += 1) {
+      const c = text[end];
+      if (c === "{") depth += 1;
+      else if (c === "}") depth -= 1;
+      else if (c === ">" && depth === 0) break;
+    }
+    const tag = text.slice(head.index, end);
+    const at = tag.search(/\baction=\{/);
+    if (at < 0) continue;
+    const bodyFrom = at + tag.slice(at).indexOf("{") + 1;
+    const body = braced(tag, bodyFrom);
+    const BUTTON = /<Button\b((?:[^>{]|\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})*)>([\s\S]*?)<\/Button>/g;
+    for (const b of body.matchAll(BUTTON)) {
+      const label = labelOf(b[2]);
+      if (!WRITE_LABEL.test(label)) continue;
+      const before = body.slice(0, b.index);
+      const guarded = /\bcan\(/.test(before) || MARKER.test(before);
+      const line = text.slice(0, head.index + bodyFrom + b.index).split("\n").length;
+      writes.push({ file: rel, line, label, guarded });
+    }
+  }
+}
+
 const list = process.argv.includes("--list");
 const open = found.filter((f) => !f.guarded);
+const openWrites = writes.filter((w) => !w.guarded);
 
 if (list) {
   for (const f of found)
     console.log(`${f.guarded ? "ok  " : "OPEN"}  ${f.file}:${f.line}  →  ${f.target}  (${f.gate})`);
-  console.log(`\n${found.length} cross-area links, ${found.length - open.length} guarded, ${open.length} open.`);
+  console.log(`\n${found.length} cross-area links, ${found.length - open.length} guarded, ${open.length} open.\n`);
+  for (const w of writes)
+    console.log(`${w.guarded ? "ok  " : "OPEN"}  ${w.file}:${w.line}  ${w.label}`);
+  console.log(`\n${writes.length} page-header write buttons, ${writes.length - openWrites.length} guarded, ${openWrites.length} open.`);
   process.exit(0);
 }
 
@@ -227,6 +313,20 @@ if (open.length) {
   process.exit(1);
 }
 
+if (openWrites.length) {
+  console.error(
+    `\n✗ ${openWrites.length} page-header write button(s) are offered without asking whether the reader holds the grant:\n`,
+  );
+  for (const w of openWrites) console.error(`    ${w.file}:${w.line}  ${w.label}`);
+  console.error(
+    `\n  Ask first: const can = useCan("MOD-xx"); … action={can("create") && <Button…>},` +
+      `\n  with the module and action the ROUTE is guarded with (requirePermission in its routes file).` +
+      `\n  A button every signed-in person may use takes // @access:open <reason> inside the action.` +
+      `\n  doc/FRONTEND_GUIDE.md §3.19.\n`,
+  );
+  process.exit(1);
+}
+
 console.log(
-  `check:access clean: ${found.length} links into another area, every one asks before it is offered.`,
+  `check:access clean: ${found.length} links into another area and ${writes.length} page-header write buttons, every one asks before it is offered.`,
 );

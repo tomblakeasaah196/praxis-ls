@@ -1107,6 +1107,7 @@ export function MarginSimulationsPage() {
         title="Margin Simulation"
         description="Cost the file, then price it — margin on services only, no accounting entries. Link a costing to import its lines."
         action={
+          // @access:open opens the simulator, which previews with `view` alone. Saving a simulation is the write, and it is inside.
           <Button onClick={() => setFormOpen(true)}>New simulation</Button>
         }
       />

@@ -34,6 +34,7 @@ import { enumLabel } from "@/lib/format";
 import type { Entity } from "@/lib/masterdata-api";
 import * as api from "@/lib/finance-api";
 import { useOptions, optionLabel } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const tone = (s?: string | null): Tone =>
@@ -284,6 +285,7 @@ function PostForm({
 }
 
 export function OfficeExpensesPage() {
+  const can = useCan("MOD-77");
   const { rows, error, loading, reload } =
     useList<api.OfficeExpense>("/office-expenses");
   const totals = useResource(() => api.officeExpenseTotals(), []);
@@ -380,7 +382,7 @@ export function OfficeExpensesPage() {
         title="Office Expenses"
         description="Rent, utilities, supplies and the other costs of running the office itself — recorded here, never hung off a client file."
         action={
-          <Button onClick={() => setEditing("new")}>New expense</Button>
+          can("create") && <Button onClick={() => setEditing("new")}>New expense</Button>
         }
       />
       <KpiRow>

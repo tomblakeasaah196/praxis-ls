@@ -58,6 +58,7 @@ import {
 } from "./labels";
 import { TaskDialog } from "./tasks/task-dialog";
 import { EventDialog } from "./calendar/event-dialog";
+import { useCan } from "@/lib/route-access";
 
 /* ── focused Today panel reads ──────────────────────────────────────────── */
 
@@ -76,6 +77,7 @@ const reconLineLink = (r: ReceiptOwed) =>
   `/costing/reconciliation/${r.dossier_id}?line=${r.costing_line_id}`;
 
 export function TodayPage() {
+  const can = useCan("MOD-00A");
   const navigate = useNavigate();
   const q = useDay();
   const items = q.data?.items ?? [];
@@ -107,10 +109,12 @@ export function TodayPage() {
         description="Everything that wants you today, in the order it wants you: tasks and appointments in one list."
         action={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setEventOpen(true)}>
-              New event
-            </Button>
-            <Button onClick={() => setTaskOpen(true)}>New Task</Button>
+            {can("create") && (
+              <Button variant="outline" onClick={() => setEventOpen(true)}>
+                New event
+              </Button>
+            )}
+            {can("create") && <Button onClick={() => setTaskOpen(true)}>New Task</Button>}
           </div>
         }
       />

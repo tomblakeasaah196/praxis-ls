@@ -54,6 +54,7 @@ import { WeekView } from "./week-view";
 import { DayAgenda } from "./day-agenda";
 import { isoDay, monthCells, weekCells } from "./dates";
 import { EventDialog } from "./event-dialog";
+import { useCan } from "@/lib/route-access";
 
 const MONTHS = [
   "January",
@@ -74,6 +75,7 @@ const MON = MONTHS.map((m) => m.slice(0, 3));
 type View = "month" | "week";
 
 export function CalendarPage() {
+  const can = useCan("MOD-00A");
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const contextQ = useWorkspaceContext();
@@ -224,7 +226,7 @@ export function CalendarPage() {
       <PageHeader
         title="Calendar"
         description="Appointments, deadlines and meetings: the dated half of your workspace."
-        action={<Button onClick={() => openNew()}>New event</Button>}
+        action={can("create") && <Button onClick={() => openNew()}>New event</Button>}
       />
 
       {contextQ.error && (
@@ -348,7 +350,7 @@ export function CalendarPage() {
                 <EmptyState
                   title="Nothing booked this month"
                   hint="Click any day on the grid to put something in the diary."
-                  action={<Button onClick={() => openNew()}>New event</Button>}
+                  action={can("create") && <Button onClick={() => openNew()}>New event</Button>}
                 />
               ) : (
                 <ul className="divide-y">

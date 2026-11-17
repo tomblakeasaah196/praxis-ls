@@ -32,6 +32,7 @@ import { TreasuryDossier } from "./dossier";
 import { AccountModal } from "./account-modal";
 import { NewCategoryModal } from "./new-category-modal";
 import { Pagination } from "@/components/ui/pagination";
+import { useCan } from "@/lib/route-access";
 
 const KIND_TONE: Record<string, Tone> = {
   BANK: "blue",
@@ -40,6 +41,7 @@ const KIND_TONE: Record<string, Tone> = {
 };
 
 export function TreasuryMasterPage() {
+  const can = useCan("MOD-09");
   const reload = useRefresh();
   const [page, setPage] = React.useState(0);
   const pageSize = 20;
@@ -118,7 +120,7 @@ export function TreasuryMasterPage() {
         title="Treasury"
         description="Bank, cash, petty-cash and mobile-money accounts. Every account owns an auto-minted class-5 CoA leaf, so balances, statements and reconciliation come from one source of truth."
         action={
-          <Button onClick={() => setCreateOpen(true)}>{tr("New account")}</Button>
+          can("create") && <Button onClick={() => setCreateOpen(true)}>{tr("New account")}</Button>
         }
       />
       <HubTabs />

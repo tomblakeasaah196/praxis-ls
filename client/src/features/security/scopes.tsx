@@ -28,6 +28,7 @@ import {
   removeScopeMember,
 } from "@/lib/scope-api";
 import { type Scope, ConfirmDelete, shell } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 function ScopeForm({
   scope,
@@ -291,6 +292,7 @@ function ScopeMembers({ scopeId }: { scopeId: string }) {
 }
 
 export function ScopesPage() {
+  const can = useCan("MOD-67");
   const { rows, error, loading, reload } = useList<Scope>("/scopes");
   // Identity-schema entities, same source the form and the FK use — under TEST,
   // /entities would resolve these ids to nothing and the column would read "—".
@@ -382,7 +384,7 @@ export function ScopesPage() {
         title={tr("Scopes")}
         description="The entity, branch or department a user belongs to. They nest, and that tree is the organigramme that approval steps route through."
         action={
-          <Button onClick={() => setForm({ scope: null })}>New scope</Button>
+          can("create") && <Button onClick={() => setForm({ scope: null })}>New scope</Button>
         }
       />
       <HubTabs />

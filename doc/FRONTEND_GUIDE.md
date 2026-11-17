@@ -1564,6 +1564,47 @@ about the right path, not that the answer is wired to the right element. It is
 a floor. The page that says "not part of your access" is still there behind it,
 for an address somebody typed or a link somebody sent them.
 
+#### A write button asks for its grant too
+
+Opening a screen and being allowed to change what is on it are two grants. The
+same audit counted about seventy "New …" buttons drawn for a role that could
+read the list and not add to it: the person filled the form in and was refused
+on Save. Those are hidden the same way, by the action instead of the route.
+
+```tsx
+const can = useCan("MOD-51");            // from @/lib/route-access
+…
+<PageHeader action={can("create") && <Button onClick={…}>{tr("New Draft")}</Button>} />
+```
+
+`GET /permissions/mine` carries `actions`: for each module, what the role may do
+beyond reading it, in `requirePermission`'s own words (`create`, `edit`,
+`delete`, `approve`, `export`, `validate`, `disburse`, `test`). The action is
+`edit`, never `update`.
+
+**Read the module and the action off the route, not off the screen.** They are
+whatever `requirePermission(…)` says in the module's routes file, and it is not
+always what the button's label suggests: "Record an advance" posts to a route
+guarded with `approve`, "Post entry" on Journals is `MOD-55` although the screen
+is registered under another key, and a setting is `edit` on `MOD-70` however
+much the button says "New". `can("edit", "MOD-10")` asks about a second module
+for one button without a second hook.
+
+**The same button in an empty state takes the same guard.** "No invoices yet"
+with a "New invoice" under it is the header button again.
+
+**When in doubt, it is offered.** The CEO, a shell that has not answered yet,
+and an answer with no `actions` at all (an API or a cached record that predates
+the field) all draw the button. Absent means unknown, not nothing.
+
+**What the gate reads.** A `<Button>` in the `action` of a `<PageHeader>` or a
+`<ListPage>` whose label opens with a write (New, Add, Create, Post, Record,
+Log, Issue, Schedule, Upload, Report, Raise, Grant, Set, Invite, Import) must
+sit behind a `can(…)`, or carry `// @access:open <reason>` inside the action.
+It does not read row actions, form footers or the buttons inside a 360: there a
+label does not tell a write from a read. Those are still to be swept, by hand,
+module by module.
+
 **Own-account pages** (`/security/my-security`, `/notifications`) need no grant:
 they are about the signed-in person, and their APIs need a session and nothing
 else. The list is `OWN_ACCOUNT` in `lib/route-access.ts`, and it is short on

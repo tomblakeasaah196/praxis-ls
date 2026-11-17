@@ -32,6 +32,7 @@ import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 
 const KIND_TONE: Record<string, Tone> = {
   LATENESS: "warn",
@@ -511,6 +512,7 @@ function RuleEditor({
 }
 
 export function HouseRulesView() {
+  const can = useCan("MOD-16");
   const q = useResource(() => api.listHrRules(), []);
   const [editing, setEditing] = React.useState<api.HrRule | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -539,7 +541,7 @@ export function HouseRulesView() {
           Rules apply the handbook evenly. Rewards pay, conduct asks, lateness
           and absence charge.
         </p>
-        <Button onClick={() => setCreating(true)}>New rule</Button>
+        {can("approve") && <Button onClick={() => setCreating(true)}>New rule</Button>}
       </div>
       {/* Stated, not implied. Nothing charges anybody until somebody here
           decides it should, and that is worth saying once at the top. */}
@@ -557,7 +559,7 @@ export function HouseRulesView() {
         <EmptyState
           title="No house rules"
           hint="Rules turn a clause in the handbook into something the system applies evenly."
-          action={<Button onClick={() => setCreating(true)}>New rule</Button>}
+          action={can("approve") && <Button onClick={() => setCreating(true)}>New rule</Button>}
         />
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">

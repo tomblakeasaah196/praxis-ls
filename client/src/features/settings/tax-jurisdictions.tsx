@@ -73,6 +73,7 @@ import {
   emptyBracketsState,
   type BracketsState,
 } from "./tax-brackets-editor";
+import { useCan } from "@/lib/route-access";
 
 /* ─────────────────────────── kinds & helpers ─────────────────────────── */
 
@@ -1155,6 +1156,7 @@ function JurisdictionDossier({ id }: { id: string }) {
 /* ───────────────────────────── the page ───────────────────────────────── */
 
 export function TaxJurisdictionsPage() {
+  const can = useCan("MOD-07");
   const reload = useRefresh();
   const { rows, error, loading } = useList("/tax-jurisdictions");
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -1185,7 +1187,7 @@ export function TaxJurisdictionsPage() {
         title="Tax Rates & Jurisdictions"
         description="Jurisdictions and their effective-dated tax codes (TVA/WHT/IS…) read by account determination."
         action={
-          <Button onClick={() => setCreateOpen(true)}>New jurisdiction</Button>
+          can("create") && <Button onClick={() => setCreateOpen(true)}>New jurisdiction</Button>
         }
       />
       <HubTabs />

@@ -23,6 +23,7 @@ import { StatusPill } from "@/components/ui/pill";
 import { PageError } from "./shared";
 import { type Entry, entryValue } from "./store-shared";
 import { slug } from "./store-shared";
+import { useCan } from "@/lib/route-access";
 
 const TEMPLATE_STATUS = ["draft", "published", "archived"];
 
@@ -167,6 +168,7 @@ function TemplateForm({
 }
 
 export function DocumentTemplatesPage() {
+  const can = useCan("MOD-70");
   const { rows, error, reload } = useList("/settings/document_template");
   const [editing, setEditing] = React.useState<Entry | null>(null);
   const [open, setOpen] = React.useState(false);
@@ -198,7 +200,7 @@ export function DocumentTemplatesPage() {
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Document Templates"
         description="Letterhead and body templates per document type: invoices, POs, receipts, contracts."
-        action={<Button onClick={() => edit(null)}>New template</Button>}
+        action={can("edit") && <Button onClick={() => edit(null)}>New template</Button>}
       />
 
       <PageError message={rowError} />

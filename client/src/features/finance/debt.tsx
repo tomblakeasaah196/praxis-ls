@@ -21,6 +21,7 @@ import { useList, useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt, todayISO } from "@/lib/format";
 import type { Entity } from "@/lib/masterdata-api";
 import * as api from "@/lib/finance-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const TONES: Record<string, Tone> = {
@@ -365,6 +366,7 @@ function DebtDrawer({
 }
 
 export function DebtPage() {
+  const can = useCan("MOD-53");
   const { rows, error, loading, reload } =
     useList<api.DebtEngagement>("/financing");
   const [editing, setEditing] = React.useState<
@@ -440,7 +442,7 @@ export function DebtPage() {
         eyebrow={<HubCrumb area="Finance" to="/finance" />}
         title="Financing"
         description="Loan facilities — drawdowns, repayments and outstanding principal."
-        action={<Button onClick={() => setEditing("new")}>New facility</Button>}
+        action={can("create") && <Button onClick={() => setEditing("new")}>New facility</Button>}
       />
       <KpiRow>
         <KpiTile label="Facilities" value={num(list.length)} />

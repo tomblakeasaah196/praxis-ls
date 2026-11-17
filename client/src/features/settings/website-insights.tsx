@@ -65,6 +65,7 @@ import { WebsiteNav } from "./website-nav";
    on the home page. See website-insight-pin.tsx. */
 import { PinDialog } from "./website-insight-pin";
 import { fmtDay } from "./website-insight-dates";
+import { useCan } from "@/lib/route-access";
 
 /** Publishing needs a slug and a body, and the server refuses without them.
  *  Saying so in the list is cheaper than a 422 the writer reads after pressing
@@ -77,6 +78,7 @@ const readyToPublish = (r: api.InsightArticle) =>
 type KindFilter = "all" | api.InsightKind;
 
 export function WebsiteInsightsPage() {
+  const can = useCan("MOD-29");
   const { rows, error, loading } = useList<api.InsightArticle>("/insights");
   const refresh = useRefresh();
   const nav = useNavigate();
@@ -280,7 +282,7 @@ export function WebsiteInsightsPage() {
       description="Articles on your public site: what they are called, whether they are live, and what is in them."
       width="wide"
       tabs={<WebsiteNav />}
-      action={<Button onClick={() => setCreating(true)}>{tr("New article")}</Button>}
+      action={can("edit") && <Button onClick={() => setCreating(true)}>{tr("New article")}</Button>}
       toolbar={
         <div className="flex w-full flex-col gap-3">
           <Segmented<KindFilter>
@@ -332,9 +334,9 @@ export function WebsiteInsightsPage() {
               title: tr("No articles yet"),
               /* @prose:keep Insights is already linked from the public site. */
               hint: "Insights is already in your site's navigation, so it is a live link.",
-              action: (
+              action: can("edit") ? (
                 <Button onClick={() => setCreating(true)}>{tr("New article")}</Button>
-              ),
+              ) : undefined,
             }
       }
     >

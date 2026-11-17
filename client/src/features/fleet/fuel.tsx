@@ -18,6 +18,7 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/fleet-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 function LogFillForm({
@@ -141,6 +142,7 @@ function LogFillForm({
 }
 
 export function FuelLogPage() {
+  const can = useCan("MOD-43");
   const vehicles = useResource(() => api.listVehicles(), []);
   const [veh, setVeh] = React.useState("");
   const fills = useResource(() => api.listFuel(veh || undefined), [veh]);
@@ -217,7 +219,7 @@ export function FuelLogPage() {
         eyebrow={<HubCrumb area="Fleet" to="/fleet" />}
         title="Fuel Log"
         description="Log fills and track consumption per vehicle."
-        action={<Button onClick={() => setLogging(true)}>Log fill</Button>}
+        action={can("create") && <Button onClick={() => setLogging(true)}>Log fill</Button>}
       />
       <HubTabs />
 

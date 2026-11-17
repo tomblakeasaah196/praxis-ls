@@ -19,6 +19,7 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useList, errMsg } from "@/lib/use-resource";
 import { tenant } from "@/lib/api-client";
 import { num, money, dateFmt } from "@/lib/format";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 type EmployeeLite = { employee_id: string; full_name?: string | null };
@@ -143,6 +144,7 @@ function NewQuery({
 }
 
 export function QueriesPage() {
+  const can = useCan("MOD-71");
   const { rows, error, loading, reload } = useList<Query>("/hr/queries");
   const [creating, setCreating] = React.useState(false);
   const all = rows || [];
@@ -178,7 +180,7 @@ export function QueriesPage() {
         eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Queries")}
         description="Disciplinary queries raised to employees, and their responses."
-        action={<Button onClick={() => setCreating(true)}>New query</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New query</Button>}
       />
       <HubTabs />{" "}
       <KpiRow>
@@ -333,6 +335,7 @@ function NewSanction({
 }
 
 export function SanctionsPage() {
+  const can = useCan("MOD-71");
   const { rows, error, loading, reload } = useList<Sanction>("/hr/sanctions");
   const [creating, setCreating] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -407,7 +410,7 @@ export function SanctionsPage() {
         eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Sanctions")}
         description="Disciplinary sanctions on record — warnings, suspensions, fines and more."
-        action={<Button onClick={() => setCreating(true)}>New sanction</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New sanction</Button>}
       />
       <HubTabs />{" "}
       <KpiRow>

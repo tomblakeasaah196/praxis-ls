@@ -24,6 +24,7 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/wms-api";
 import { reportActionError } from "@/lib/action-error";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const STATUS_TONE: Record<string, Tone> = {
@@ -273,6 +274,7 @@ function OrderDetail({
 }
 
 export function OutboundPage() {
+  const can = useCan("MOD-36");
   const orders = useResource(() => api.listOutbound(), []);
   const inv = useResource(() => api.listInventory(), []);
   const [view, setView] = React.useState<api.OutboundOrder | null>(null);
@@ -350,9 +352,11 @@ export function OutboundPage() {
         title={tr("Outbound")}
         description="Pick, pack and dispatch outbound orders."
         action={
-          <Button onClick={newOrder} loading={creating}>
-            New order
-          </Button>
+          can("create") && (
+            <Button onClick={newOrder} loading={creating}>
+              New order
+            </Button>
+          )
         }
       />
       <HubTabs />

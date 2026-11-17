@@ -20,6 +20,7 @@ import type { Client } from "@/lib/masterdata-api";
 import { cell, dateFmt } from "@/lib/format";
 import { StatusPill } from "@/components/ui/pill";
 import { Chips } from "@/components/ui/chips";
+import { useCan } from "@/lib/route-access";
 
 const STORY_FILTERS = [
   { value: "", label: "All" },
@@ -515,6 +516,7 @@ function StoryForm({
 }
 
 export function SuccessStoriesPage() {
+  const can = useCan("MOD-26");
   const reload = useRefresh();
   const { rows, error } = useList("/success-stories");
   const [filter, setFilter] = React.useState("");
@@ -560,7 +562,7 @@ export function SuccessStoriesPage() {
         eyebrow={<HubCrumb area="Sales & CRM" to="/sales" />}
         title="Success Stories"
         description="Build from completed operations files, sign off, then publish to the portfolio."
-        action={<Button onClick={() => { setEditing(null); setFormOpen(true); }}>New story</Button>}
+        action={can("create") && <Button onClick={() => { setEditing(null); setFormOpen(true); }}>New story</Button>}
       />
       <HubTabs />
       <div className="mb-4">

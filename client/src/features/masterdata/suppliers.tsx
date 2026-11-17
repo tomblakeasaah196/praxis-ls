@@ -45,6 +45,7 @@ const STATUS_TONE: Record<string, "ok" | "mute" | "blue" | "orange" | "warn"> = 
 };
 import { PartyDossier } from "./party-360";
 import { MasterDataSettings } from "./master-data-settings";
+import { useCan } from "@/lib/route-access";
 
 function SupplierForm({
   row,
@@ -401,6 +402,7 @@ function SupplierForm({
 }
 
 export function SuppliersPage() {
+  const can = useCan("MOD-04");
   const suppliers = useResource(() => api.listSuppliers(), []);
   const [q, setQ] = React.useState("");
   const [editing, setEditing] = React.useState<api.Supplier | "new" | null>(
@@ -439,7 +441,7 @@ export function SuppliersPage() {
             <Button variant="ghost" size="sm" onClick={() => setSettings(true)}>
               ⚙ Settings
             </Button>
-            <Button onClick={() => setEditing("new")}>New supplier</Button>
+            {can("create") && <Button onClick={() => setEditing("new")}>New supplier</Button>}
           </div>
         }
       />

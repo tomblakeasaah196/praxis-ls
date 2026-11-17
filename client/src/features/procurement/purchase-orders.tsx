@@ -32,6 +32,7 @@ import { money, num, dateFmt, todayISO } from "@/lib/format";
 import type { Entity, Supplier } from "@/lib/masterdata-api";
 import * as api from "@/lib/procurement-api";
 import { map, shell, tone } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 const EMPTY_FORM = {
   supplier_id: "",
@@ -484,6 +485,7 @@ function UnlockRequestForm({
 }
 
 export function PurchaseOrdersPage() {
+  const can = useCan("MOD-60");
   const { rows, error, loading, reload } =
     useList<api.PurchaseOrder>("/purchase-orders");
   const { rows: suppliers } = useList<Supplier>("/suppliers");
@@ -682,7 +684,7 @@ export function PurchaseOrdersPage() {
         eyebrow={<HubCrumb area="Procurement" to="/procurement" />}
         title={tr("Purchase Orders")}
         description="Orders raised to suppliers."
-        action={<Button onClick={() => setOpen(true)}>New PO</Button>}
+        action={can("create") && <Button onClick={() => setOpen(true)}>New PO</Button>}
       />
       <HubTabs />
       <KpiRow>

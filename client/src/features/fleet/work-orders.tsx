@@ -24,6 +24,7 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { money, num, dateFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/fleet-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const STATUS_TONE: Record<string, Tone> = {
@@ -303,6 +304,7 @@ function NewWorkOrderForm({
 }
 
 export function WorkOrdersPage() {
+  const can = useCan("MOD-41");
   const orders = useResource(() => api.listWorkOrders(), []);
   const [view, setView] = React.useState<api.WorkOrder | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -375,7 +377,7 @@ export function WorkOrdersPage() {
         title="Work Orders"
         description="Log maintenance jobs, parts and labour; cost rolls up from the parts."
         action={
-          <Button onClick={() => setCreating(true)}>New work order</Button>
+          can("create") && <Button onClick={() => setCreating(true)}>New work order</Button>
         }
       />
       <HubTabs />

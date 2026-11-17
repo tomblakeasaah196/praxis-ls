@@ -27,7 +27,7 @@ import { PartyDossier } from "./party-360";
 import { MasterDataSettings } from "./master-data-settings";
 import { Modal } from "@/components/ui/modal";
 import { tenant } from "@/lib/api-client";
-import { useCanUseModule } from "@/lib/route-access";
+import { useCanUseModule, useCan } from "@/lib/route-access";
 import {
   ClientRequestsPanel,
   type StaffRequest,
@@ -36,6 +36,7 @@ import {
 const shell = pageShell.wide;
 
 export function ClientsPage() {
+  const can = useCan("MOD-03");
   const clients = useResource(() => api.listClients(), []);
   const [q, setQ] = React.useState("");
   const [editing, setEditing] = React.useState<api.Client | "new" | null>(null);
@@ -109,9 +110,11 @@ export function ClientsPage() {
             <Button variant="ghost" size="sm" onClick={() => setSettings(true)}>
               ⚙ {tr("Settings")}
             </Button>
-            <Button onClick={() => setEditing("new")}>
-              {tr("New client")}
-            </Button>
+            {can("create") && (
+              <Button onClick={() => setEditing("new")}>
+                {tr("New client")}
+              </Button>
+            )}
           </div>
         }
       />

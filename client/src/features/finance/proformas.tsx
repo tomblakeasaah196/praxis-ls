@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Modal, Field, Select } from "@/components/ui/modal";
 import * as fin from "@/lib/finance-api";
 import { useOptions, optionLabel } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 function AdvancePaymentForm({
   open,
@@ -187,6 +188,7 @@ function AdvancePaymentForm({
 }
 
 export const ProformasPage = () => {
+  const can = useCan("MOD-50");
   const [open, setOpen] = React.useState(false);
   const [rows, setRows] = React.useState<Record<string, unknown>[] | null>(
     null,
@@ -333,7 +335,7 @@ export const ProformasPage = () => {
             >
               View quotations →
             </AccessLink>
-            <Button onClick={() => setOpen(true)}>Record advance</Button>
+            {can("create") && <Button onClick={() => setOpen(true)}>Record advance</Button>}
           </div>
         }
       />

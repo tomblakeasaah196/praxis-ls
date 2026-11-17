@@ -76,6 +76,7 @@ import {
   valuesFrom,
   type EntityFormValues,
 } from "./entity-form-fields";
+import { useCan } from "@/lib/route-access";
 
 const LIFECYCLE_TONE: Record<string, Tone> = {
   DRAFT: "mute",
@@ -915,6 +916,7 @@ function EntityForm({
 }
 
 export function CorporateEntitiesPage() {
+  const can = useCan("MOD-01");
   /*
    * PR-09 (CE-03 / CE-35): the list is searched and paged SERVER-SIDE. This
    * screen used to fetch `?limit=200` — `page()`'s own maximum — and filter
@@ -1038,7 +1040,7 @@ export function CorporateEntitiesPage() {
         eyebrow={<HubCrumb area="Master Data" to="/master" />}
         title="Corporate Entities"
         description="The legal entities we bill and report from: registrations, shareholders, addresses and group structure, per entity."
-        action={<Button onClick={() => setEditing("new")}>New entity</Button>}
+        action={can("create") && <Button onClick={() => setEditing("new")}>New entity</Button>}
       />
       <HubTabs />
       {error ? (

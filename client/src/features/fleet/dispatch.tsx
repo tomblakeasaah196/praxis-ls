@@ -21,6 +21,7 @@ import { useResource, useList, errMsg } from "@/lib/use-resource";
 import { num, dateFmt } from "@/lib/format";
 import * as api from "@/lib/fleet-api";
 import { reportActionError } from "@/lib/action-error";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const STATUS_TONE: Record<string, Tone> = {
@@ -209,6 +210,7 @@ function NewDispatchForm({
 }
 
 export function DispatchPage() {
+  const can = useCan("MOD-42");
   const disp = useResource(() => api.listDispatch(), []);
   const [creating, setCreating] = React.useState(false);
   const [odo, setOdo] = React.useState<{
@@ -321,7 +323,7 @@ export function DispatchPage() {
         eyebrow={<HubCrumb area="Fleet" to="/fleet" />}
         title={tr("Dispatch")}
         description="Assign vehicles and drivers; check out and in with odometer readings."
-        action={<Button onClick={() => setCreating(true)}>New dispatch</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New dispatch</Button>}
       />
       <HubTabs />
       <DataList

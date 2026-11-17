@@ -21,6 +21,7 @@ import { RowActions } from "@/components/ui/row-actions";
 import i18n from "@/lib/i18n";
 import { RoleKpiPanel } from "./role-kpi-panel";
 import { type Role, ConfirmDelete, shell } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 function RoleForm({
   role,
@@ -144,6 +145,7 @@ function RoleForm({
 }
 
 export function RolesPage() {
+  const can = useCan("MOD-67");
   const { rows, error, loading, reload } = useList<Role>("/roles");
   const [form, setForm] = React.useState<{ role: Role | null } | null>(null);
   const [del, setDel] = React.useState<Role | null>(null);
@@ -219,7 +221,7 @@ export function RolesPage() {
         title={tr("Roles")}
         description="Job areas, stored as rows rather than code. Seeded system roles can't be deleted."
         action={
-          <Button onClick={() => setForm({ role: null })}>New role</Button>
+          can("create") && <Button onClick={() => setForm({ role: null })}>New role</Button>
         }
       />
       <HubTabs />

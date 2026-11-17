@@ -26,6 +26,7 @@ import { reportActionError } from "@/lib/action-error";
 import type { Entity, Supplier } from "@/lib/masterdata-api";
 import * as api from "@/lib/procurement-api";
 import { map, shell, tone } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 function SupplierInvoiceForm({
   onClose,
@@ -384,6 +385,7 @@ function ReverseForm({
 }
 
 export function SupplierInvoicesPage() {
+  const can = useCan("MOD-61");
   const { rows, error, loading, reload } =
     useList<api.SupplierInvoice>("/supplier-invoices");
   const { rows: suppliers } = useList<Supplier>("/suppliers");
@@ -495,7 +497,7 @@ export function SupplierInvoicesPage() {
         eyebrow={<HubCrumb area="Procurement" to="/procurement" />}
         title="Supplier Invoices"
         description="Vendor invoices — capture, match, post to the GL."
-        action={<Button onClick={() => setOpen(true)}>New invoice</Button>}
+        action={can("create") && <Button onClick={() => setOpen(true)}>New invoice</Button>}
       />
       <HubTabs />
       <KpiRow>

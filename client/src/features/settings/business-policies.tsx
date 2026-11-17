@@ -22,6 +22,7 @@ import { cell } from "@/lib/format";
 import { PageError } from "./shared";
 import { type Entry, entryValue } from "./store-shared";
 import { slug } from "./store-shared";
+import { useCan } from "@/lib/route-access";
 
 function PolicyForm({
   open,
@@ -123,6 +124,7 @@ function PolicyForm({
 }
 
 export function BusinessPoliciesPage() {
+  const can = useCan("MOD-70");
   const { rows, error, reload } = useList("/settings/policy");
   const [editing, setEditing] = React.useState<Entry | null>(null);
   const [open, setOpen] = React.useState(false);
@@ -154,7 +156,7 @@ export function BusinessPoliciesPage() {
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Business Policies"
         description="Named policy documents: privacy, refund, QMS, terms and more."
-        action={<Button onClick={() => edit(null)}>New policy</Button>}
+        action={can("edit") && <Button onClick={() => edit(null)}>New policy</Button>}
       />
 
       <PageError message={rowError} />

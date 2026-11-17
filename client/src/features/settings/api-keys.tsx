@@ -22,6 +22,7 @@ import { PageHeader } from "@/components/data-list";
 import { HubCrumb } from "@/components/tabbed-hub";
 import { Input } from "@/components/ui/input";
 import { Modal, Field } from "@/components/ui/modal";
+import { useCan } from "@/lib/route-access";
 
 type Integration = {
   key: string;
@@ -172,6 +173,7 @@ function KeyForm({
 }
 
 export function ApiKeysPage() {
+  const can = useCan("MOD-70");
   const reload = useRefresh();
   const { rows, error } = useList("/settings/integration_secret");
   const [formOpen, setFormOpen] = React.useState(false);
@@ -268,7 +270,7 @@ export function ApiKeysPage() {
             keys are managed in the platform console.
           </>
         }
-        action={<Button onClick={openAdd}>Add key</Button>}
+        action={can("edit") && <Button onClick={openAdd}>Add key</Button>}
       />
 
       {testResult && (

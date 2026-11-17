@@ -15,6 +15,7 @@ import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { num } from "@/lib/format";
 import * as api from "@/lib/wms-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 
@@ -131,6 +132,7 @@ function NewLocationForm({
 }
 
 export function LocationsPage() {
+  const can = useCan("MOD-34");
   const locs = useResource(() => api.listLocations(), []);
   const [creating, setCreating] = React.useState(false);
 
@@ -156,7 +158,7 @@ export function LocationsPage() {
         eyebrow={<HubCrumb area="Warehouse" to="/wms" />}
         title="Locations"
         description="Warehouse slotting by zone, aisle, rack and bin."
-        action={<Button onClick={() => setCreating(true)}>{tr("New location")}</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>{tr("New location")}</Button>}
       />
       <HubTabs />
       {locs.error ? (

@@ -27,6 +27,7 @@ import { RowActions } from "@/components/ui/row-actions";
 import { num } from "@/lib/format";
 import * as api from "@/lib/procurement-api";
 import { shell, tone } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 /* ═══════════════════ Purchase requests ═══════════════════ */
 
@@ -184,6 +185,7 @@ export function PrForm({
 }
 
 export function PurchaseRequestsPage() {
+  const can = useCan("MOD-62");
   const { rows, error, loading, reload } =
     useList<api.PurchaseRequest>("/purchase-requests");
   const [open, setOpen] = React.useState(false);
@@ -253,7 +255,7 @@ export function PurchaseRequestsPage() {
         eyebrow={<HubCrumb area="Procurement" to="/procurement" />}
         title="Purchase Requests"
         description="Requests to buy, before a PO is raised."
-        action={<Button onClick={() => setOpen(true)}>{tr("New request")}</Button>}
+        action={can("create") && <Button onClick={() => setOpen(true)}>{tr("New request")}</Button>}
       />
       <HubTabs />
       <KpiRow>

@@ -46,6 +46,7 @@ import { errMsg } from "@/lib/use-resource";
 import * as api from "@/lib/site-settings-api";
 import { WebsiteNav } from "./website-nav";
 import { AssetSlotField } from "./website-assets";
+import { useCan } from "@/lib/route-access";
 
 const KIND_HELP: Record<api.PartnerKind, string> = {
   carrier: "We move cargo on these lines: a capability.",
@@ -89,6 +90,7 @@ function CredentialExpiry({
 }
 
 export function WebsitePartnersPage() {
+  const can = useCan("MOD-29");
   const [partners, setPartners] = React.useState<api.Partner[] | null>(null);
   const [creds, setCreds] = React.useState<api.Credential[] | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
@@ -145,14 +147,16 @@ export function WebsitePartnersPage() {
           "Carriers, clients and memberships, and the certifications you publish.",
         )}
         action={
-          <Button
-            onClick={() =>
-              run(() => api.createPartner({ name: tr("New partner"), kind: "client" }))
-            }
-            disabled={busy}
-          >
-            {tr("Add partner")}
-          </Button>
+          can("edit") && (
+            <Button
+              onClick={() =>
+                run(() => api.createPartner({ name: tr("New partner"), kind: "client" }))
+              }
+              disabled={busy}
+            >
+              {tr("Add partner")}
+            </Button>
+          )
         }
       />
       <WebsiteNav />

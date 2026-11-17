@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Modal, Field } from "@/components/ui/modal";
 import { PageError } from "./shared";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { useCan } from "@/lib/route-access";
 
 function GatewayForm({
   open,
@@ -144,6 +145,7 @@ function GatewayForm({
 }
 
 export function PaymentGatewaysPage() {
+  const can = useCan("MOD-09");
   const reload = useRefresh();
   const { rows, error } = useList("/payment-gateways");
   const [formOpen, setFormOpen] = React.useState(false);
@@ -206,7 +208,7 @@ export function PaymentGatewaysPage() {
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title="Payment Gateways"
         description="Per-tenant gateway providers and their encrypted credentials. Keys are write-only and never returned."
-        action={<Button onClick={openNew}>Add gateway</Button>}
+        action={can("edit") && <Button onClick={openNew}>Add gateway</Button>}
       />
 
       <PageError message={rowError} />

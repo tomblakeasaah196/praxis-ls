@@ -46,6 +46,7 @@ import { useResource, errMsg, isFeatureDisabled } from "@/lib/use-resource";
 import { dateTimeFmt, dateFmt, enumLabel } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/hr-api";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 
@@ -796,6 +797,7 @@ function RequirementForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
 }
 
 function CompliancePanel() {
+  const can = useCan("MOD-18");
   const reqs = useResource(() => api.listTrainingRequirements(), []);
   const [picked, setPicked] = React.useState<string>("");
   const [creating, setCreating] = React.useState(false);
@@ -825,16 +827,18 @@ function CompliancePanel() {
             ))}
           </Select>
         </div>
-        <Button variant="outline" onClick={() => setCreating(true)}>
-          New requirement
-        </Button>
+        {can("create") && (
+          <Button variant="outline" onClick={() => setCreating(true)}>
+            New requirement
+          </Button>
+        )}
       </div>
 
       {rows.length === 0 ? (
         <EmptyState
           title="No training requirements"
           hint="A requirement states who must hold a qualification and how long it lasts. Without one, compliance can only be answered backwards — who came to a course — never who was supposed to."
-          action={<Button onClick={() => setCreating(true)}>New requirement</Button>}
+          action={can("create") && <Button onClick={() => setCreating(true)}>New requirement</Button>}
         />
       ) : compliance.loading ? (
         <p className="micro">Working out who is current…</p>
@@ -909,6 +913,7 @@ function CompliancePanel() {
 /* ══ Page ══════════════════════════════════════════════════════════════════ */
 
 export function TrainingsPage() {
+  const can = useCan("MOD-18");
   const trainings = useResource(() => api.listTrainings(), []);
   const requirements = useResource(() => api.listTrainingRequirements(), []);
   const [tab, setTab] = React.useState<"sessions" | "compliance">("sessions");
@@ -988,7 +993,7 @@ export function TrainingsPage() {
         eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Trainings")}
         description="Schedule sessions, run them, and see who holds a current qualification."
-        action={<Button onClick={() => setEditing(null)}>Schedule training</Button>}
+        action={can("create") && <Button onClick={() => setEditing(null)}>Schedule training</Button>}
       />
       <HubTabs />
 

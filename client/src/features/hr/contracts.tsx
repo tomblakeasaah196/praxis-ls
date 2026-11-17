@@ -26,6 +26,7 @@ import { reportActionError } from "@/lib/action-error";
 import { dateFmt, enumLabel } from "@/lib/format";
 import * as api from "@/lib/hr-api";
 import { groupContracts, type ContractGroup } from "./contracts-grouping";
+import { useCan } from "@/lib/route-access";
 
 const shell = pageShell.wide;
 const STATUS_TONE: Record<string, Tone> = {
@@ -314,6 +315,7 @@ function LapsingPanel({
 }
 
 export function ContractsPage() {
+  const can = useCan("MOD-12");
   const rows = useResource(() => api.listContracts(), []);
   // The two dates nothing has ever read (0700). Asked for once, above the
   // table, because "six contracts lapse this month" is the thing somebody
@@ -531,7 +533,7 @@ export function ContractsPage() {
         eyebrow={<HubCrumb area="Human Capital" to="/hr" />}
         title={tr("Contracts")}
         description="Issue and progress employee contracts through their lifecycle."
-        action={<Button onClick={() => setCreating(true)}>New contract</Button>}
+        action={can("create") && <Button onClick={() => setCreating(true)}>New contract</Button>}
       />
       <HubTabs />{" "}
       <LapsingPanel data={lapsing.data} onOpen={openContract} rows={rows.data} />

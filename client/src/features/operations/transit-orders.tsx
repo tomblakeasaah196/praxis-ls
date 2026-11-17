@@ -36,10 +36,12 @@ import {
   TransitOrder360Modal,
 } from "./transit-order-360";
 import { transitTone } from "./shared";
+import { useCan } from "@/lib/route-access";
 
 /* ── The list ──────────────────────────────────────────────────────────────── */
 
 export function TransitOrdersPage() {
+  const can = useCan("MOD-30");
   const [status, setStatus] = React.useState<string>("");
   const { rows, error, loading, reload } = useList<api.TransitOrder>(
     `/transit-orders${status ? `?status=${status}` : ""}`,
@@ -151,7 +153,7 @@ export function TransitOrdersPage() {
       eyebrow={<HubCrumb area="Operations" to="/operations" />}
       title={tr("Transit orders")}
       description="The client's written authorisation to declare their cargo."
-      action={<Button onClick={() => setCreating(true)}>New order</Button>}
+      action={can("create") && <Button onClick={() => setCreating(true)}>New order</Button>}
       tabs={<HubTabs />}
       kpis={
         <KpiRow>
@@ -196,7 +198,7 @@ export function TransitOrdersPage() {
       empty={{
         title: status ? `No ${status.toLowerCase()} orders` : "No transit orders",
         hint: "Raise a transit order against a file to authorise a customs declaration.",
-        action: <Button onClick={() => setCreating(true)}>New order</Button>,
+        action: can("create") ? <Button onClick={() => setCreating(true)}>New order</Button> : undefined,
       }}
     >
       {creating && (
