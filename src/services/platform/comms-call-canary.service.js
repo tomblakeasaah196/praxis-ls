@@ -67,9 +67,29 @@ function queueCheck(job, now = Date.now()) {
     : { ok: false, error: `the job ran ${Math.round(late / 1000)} s after it was due`, detail: { late_ms: late } };
 }
 
-/** Someone is listening on the adapter channel the worker's emitter publishes to. */
+/**
+ * An API instance has the socket.io Redis adapter attached, so an event the
+ * worker's emitter publishes reaches a screen.
+ *
+ * ── WHY IT ASKS ABOUT THE REQUEST CHANNEL ───────────────────────────────────
+ *
+ * The emitter publishes on `socket.io#/#…`, and this used to ask
+ * `PUBSUB NUMSUB socket.io#/#`. That answered 0 on a healthy fleet, every day,
+ * so the console's "Calls pipeline" stood red for a month over nothing and
+ * stopped meaning anything: the adapter listens for those messages with a
+ * PATTERN (`PSUBSCRIBE socket.io#/#*`), and NUMSUB counts exact-channel
+ * subscribers only. A pattern has no per-pattern count to ask for
+ * (`PUBSUB NUMPAT` is one number for every pattern on the server).
+ *
+ * The same adapter constructor that issues that PSUBSCRIBE also SUBSCRIBEs,
+ * exactly, to its request channel (`@socket.io/redis-adapter`, `requestChannel`),
+ * and an exact subscription is countable. One subscriber there is one API
+ * instance with the adapter attached, which is the thing this check is for.
+ */
+const ADAPTER_REQUEST_CHANNEL = "socket.io-request#/#";
+
 async function signalCheck(redis) {
-  const channel = "socket.io#/#";
+  const channel = ADAPTER_REQUEST_CHANNEL;
   const res = await redis.call("PUBSUB", "NUMSUB", channel);
   const listeners = Number(Array.isArray(res) ? res[1] : 0);
   return listeners > 0
