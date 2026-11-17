@@ -40,7 +40,6 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { money, moneyCompact, num, dateFmt, dateTimeFmt, enumLabel, cell } from "@/lib/format";
 import { pageShell } from "@/lib/layout";
 import { ConvertModal } from "./lead-forms";
-import { ConvertToOpportunityModal } from "./quote-request-forms";
 import { serviceScope } from "@shared";
 import {
   channelLabel,
@@ -625,9 +624,10 @@ export function LeadDossier({
   const l = d.lead;
   const k = d.kpis || ({} as LeadDossierData["kpis"]);
 
-  const status = String(l.status || "NEW");
-  const terminal = status === "CONVERTED" || status === "LOST";
-  const next = status === "NEW" ? "CONTACTED" : status === "CONTACTED" ? "QUALIFIED" : null;
+  // OPEN or ARCHIVED since the lean revamp (PR 2): the funnel steps moved onto
+  // each request's stage, which the Leads screens of PR 3 show.
+  const status = String(l.status || "OPEN");
+  const terminal = status === "ARCHIVED";
 
   const counts: Partial<Record<LeadTab, number>> = {
     Meetings: d.meetings?.length ?? 0,
@@ -658,17 +658,7 @@ export function LeadDossier({
                 </Button>
               </Link>
             ) : null}
-            {!terminal && next ? (
-              <Button
-                size="sm"
-                variant="outline"
-                loading={busy}
-                onClick={() => run(`/leads/${leadId}/transition`, { to: next })}
-              >
-                {next === "CONTACTED" ? "Mark contacted" : "Qualify"}
-              </Button>
-            ) : null}
-            {status === "QUALIFIED" ? (
+            {!terminal && !d.client ? (
               <Button size="sm" onClick={() => setConverting(true)}>
                 Convert
               </Button>
@@ -678,7 +668,7 @@ export function LeadDossier({
                 size="sm"
                 variant="ghost"
                 disabled={busy}
-                onClick={() => run(`/leads/${leadId}/transition`, { to: "LOST" })}
+                onClick={() => run(`/leads/${leadId}/archive`, { reason: "Lost", reason_code: "OTHER" })}
               >
                 Lost
               </Button>
@@ -1059,7 +1049,6 @@ export function IntakeDossier({
   placeholder?: { title?: string | null; status?: string | null };
 }) {
   const [tab, setTab] = React.useState<IntakeTab>("Overview");
-  const [converting, setConverting] = React.useState(false);
   // Which tile's rows are open, if any (./sales-kpi-drill).
   const [drill, setDrill] = React.useState<IntakeKpiKind | null>(null);
   // The attachment currently open in the vault preview dialog, if any.
@@ -1128,11 +1117,6 @@ export function IntakeDossier({
                 onClick={() => run(`/quote-requests/${quoteRequestId}/transition`, { to: next })}
               >
                 {next === "UNDER_REVIEW" ? "Start review" : "Mark quoted"}
-              </Button>
-            ) : null}
-            {status === "QUOTED" ? (
-              <Button size="sm" onClick={() => setConverting(true)}>
-                Open opportunity
               </Button>
             ) : null}
             {onEdit ? (
@@ -1398,15 +1382,6 @@ export function IntakeDossier({
 
       {tab === "History" && <Timeline entries={d.timeline || []} />}
 
-      <ConvertToOpportunityModal
-        request={converting ? (q as Record<string, unknown>) : null}
-        onClose={() => setConverting(false)}
-        onDone={() => {
-          setConverting(false);
-          res.reload();
-          onChanged?.();
-        }}
-      />
     </div>
   );
 }

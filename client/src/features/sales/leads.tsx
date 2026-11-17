@@ -55,13 +55,12 @@ const LEADS_AI: AiAction[] = [
   },
 ];
 
+// A lead is OPEN or ARCHIVED since the lean revamp (PR 2): where a deal
+// stands is its request's stage, which the Leads screens of PR 3 show.
 const LEAD_FILTERS = [
   { value: "", label: "All leads" },
-  { value: "NEW", label: "New" },
-  { value: "CONTACTED", label: "Contacted" },
-  { value: "QUALIFIED", label: "Qualified" },
-  { value: "CONVERTED", label: "Converted" },
-  { value: "LOST", label: "Lost" },
+  { value: "OPEN", label: "Open" },
+  { value: "ARCHIVED", label: "Archived" },
 ];
 
 /**
@@ -108,14 +107,12 @@ function LeadsTab() {
    */
   const tiles = React.useMemo(() => {
     const all = rows || [];
-    const by = (st: string) => all.filter((r) => String(r.status || "NEW") === st).length;
+    const open = all.filter((r) => String(r.status || "OPEN") === "OPEN");
     return {
       TOTAL: all.length,
-      NEW: by("NEW"),
-      CONTACTED: by("CONTACTED"),
-      QUALIFIED: by("QUALIFIED"),
-      CONVERTED: by("CONVERTED"),
-      LOST: by("LOST"),
+      PROSPECTS: open.filter((r) => !r.client_id).length,
+      CLIENTS: open.filter((r) => !!r.client_id).length,
+      ARCHIVED: all.length - open.length,
     };
   }, [rows]);
 
@@ -153,11 +150,9 @@ function LeadsTab() {
 
       <KpiRow>
         <KpiTile label={tr("Leads")} value={num(tiles.TOTAL)} />
-        <KpiTile label="New" value={num(tiles.NEW)} />
-        <KpiTile label="Contacted" value={num(tiles.CONTACTED)} />
-        <KpiTile label={tr("Qualified")} value={num(tiles.QUALIFIED)} />
-        <KpiTile label={tr("Converted")} value={num(tiles.CONVERTED)} />
-        <KpiTile label={tr("Lost")} value={num(tiles.LOST)} />
+        <KpiTile label={tr("Prospects")} value={num(tiles.PROSPECTS)} />
+        <KpiTile label={tr("Clients")} value={num(tiles.CLIENTS)} />
+        <KpiTile label={tr("Archived")} value={num(tiles.ARCHIVED)} />
       </KpiRow>
 
       {error ? (
@@ -203,7 +198,7 @@ function LeadsTab() {
                           {cell(r.company_name)}
                         </span>
                       </span>
-                      <StatusPill status={String(r.status || "NEW")} />
+                      <StatusPill status={String(r.status || "OPEN")} />
                     </IndexRow>
                   );
                 })
@@ -233,7 +228,7 @@ function LeadsTab() {
                 // the reader. See DossierSkeleton.
                 placeholder={{
                   title: String(selected.company_name || ""),
-                  status: String(selected.status || "NEW"),
+                  status: String(selected.status || "OPEN"),
                 }}
                 onEdit={() => {
                   setEditing(selected);

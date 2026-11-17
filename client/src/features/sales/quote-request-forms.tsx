@@ -1,15 +1,13 @@
 /**
  * Quote request — write surfaces.
  *
- * Two modals:
- *   - QuoteRequestForm: create / edit. All logistics-scope fields. The
- *     `incoterm` field is required at the validator level (matches the
- *     legacy drawer's required mark). A converted or closed request
- *     cannot be edited — the service rejects it and the form just won't
- *     be openable from the list (the row hides the Edit button).
- *   - ConvertToOpportunityModal: opens a pipeline opportunity from a
- *     QUOTED request. The opportunity starts in NEW — staff move it
- *     through the pipeline from there.
+ * The modal:
+ *   - QuoteRequestForm: create / edit. All logistics-scope fields. A won or
+ *     lost request cannot be edited — the service rejects it and the form
+ *     just won't be openable from the list (the row hides the Edit button).
+ *
+ * ConvertToOpportunityModal left with the opportunity (Sales lean revamp,
+ * PR 2): the request IS the deal, and it is won, not converted.
  *
  * Plus AttachmentsPanel, which only appears once the request has been saved:
  * an attachment is linked to a row, and there is nothing to link it to while
@@ -166,7 +164,7 @@ export function QuoteRequestForm({
   const list = services.data || [];
   const service = list.find((x) => x.service_type_id === serviceTypeId) || null;
   // A request converted or closed keeps the client it had (shared rule).
-  const relinkable = quoteRequest.canRelink(editing ? String(editing.status || "") : "RECEIVED");
+  const relinkable = quoteRequest.canRelink(editing ? String(editing.stage || editing.status || "") : "NEW");
 
   /**
    * The client a requester's address belongs to (owner decision Q5): an exact
@@ -600,113 +598,5 @@ export function AttachmentsPanel({ requestId }: { requestId: string }) {
       />
       <VaultPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </div>
-  );
-}
-
-export function ConvertToOpportunityModal({
-  request,
-  onClose,
-  onDone,
-}: {
-  request: Row | null;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [name, setName] = React.useState("");
-  const [estimatedValue, setEstimatedValue] = React.useState("");
-  const [currency, setCurrency] = React.useState("XAF");
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!request) return;
-    setName(String(request.requester_company || request.requester_name || "Opportunity"));
-    setEstimatedValue("");
-    setCurrency("XAF");
-    setError(null);
-  }, [request]);
-
-  async function convert() {
-    if (!request) return;
-    if (!name.trim()) {
-      setError("Opportunity name is required.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await tenant(`/quote-requests/${request.quote_request_id}/convert-to-opportunity`, {
-        method: "POST",
-        body: {
-          opportunity: {
-            name,
-            estimated_value: estimatedValue ? Number(estimatedValue) : undefined,
-            currency,
-          },
-        },
-      });
-      onDone();
-      onClose();
-    } catch (e) {
-      setError(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal
-      open={!!request}
-      onClose={onClose}
-      title="Open opportunity from request"
-      description="Creates a tracked opportunity in the pipeline. The opportunity starts in NEW — staff move it from there."
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={convert} loading={busy}>
-            Open opportunity
-          </Button>
-        </div>
-      }
-    >
-      {error && <ErrorState message={error} />}
-      {request && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Field label="Request">
-              <p className="font-mono text-sm text-foreground">
-                {String(request.public_ref || request.quote_request_id || "—")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {String(request.requester_company || "")}
-                {request.service_category ? ` · ${String(request.service_category)}` : ""}
-                {request.incoterm ? ` · ${String(request.incoterm)}` : ""}
-              </p>
-            </Field>
-          </div>
-          <div className="sm:col-span-2">
-            <Field label="Opportunity Name" required>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </Field>
-          </div>
-          <Field label="Estimated Value">
-            <Input
-              type="number"
-              step="0.01"
-              value={estimatedValue}
-              onChange={(e) => setEstimatedValue(e.target.value)}
-            />
-          </Field>
-          <Field label={tr("Currency")}>
-            <Input
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value.toUpperCase().slice(0, 3))}
-            />
-          </Field>
-        </div>
-      )}
-    </Modal>
   );
 }

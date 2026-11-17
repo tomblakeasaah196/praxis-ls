@@ -1,12 +1,11 @@
 /**
- * Sales & CRM — the opportunity pipeline: Kanban board, list view, win/lose.
+ * Sales & CRM — the opportunity pipeline: Kanban board and list view, READ
+ * ONLY since the Sales lean revamp (PR 2, doc/SALES_CRM_LEAN_REVAMP_GUIDE.md).
  *
- * Split out of `features/sales/pages.tsx` in Phase 4 (audit F7), then extended
- * by SALES_CRM_FEATURES.md#F7 (the sales pipeline feature).
- *
- * The board's drag-and-drop is a POINTER gesture. Every card also carries a
- * "Move" menu calling the same `/move` endpoint, because until Phase 4 added it
- * the CRM's primary screen could not be worked without a mouse at all.
+ * Every opportunity became a request (migration 14512), and a deal now moves,
+ * is lost and is won on its request. The create, edit, move, win and lose
+ * controls left with the API's opportunity writes; the Leads board of PR 3
+ * replaces this screen and PR 7 removes it.
  *
  * ── THE KPI ROW IS SERVER-COMPUTED (F7) ─────────────────────────────────────
  * It used to be summed in this component from `useList("/opportunities")` —
@@ -31,20 +30,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/data-list";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
-import { Select } from "@/components/ui/modal";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { AiActions } from "@/components/ai-actions";
 import type { AiAction } from "@/features/scaffold/screen-specs";
-import { errMsg, useList, useRefresh, type Row } from "@/lib/use-resource";
+import { errMsg, useList, type Row } from "@/lib/use-resource";
 import { cell, money } from "@/lib/format";
 import { StatusPill } from "@/components/ui/pill";
 import { Chips } from "@/components/ui/chips";
 import { Segmented } from "@/components/ui/segmented";
 import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
-import { DropdownMenu, DropdownItem } from "@/components/ui/dropdown-menu";
-import { OpportunityForm, WinModal } from "./opportunity-forms";
-import { useFocusOpen } from "@/lib/use-focus-row";
 
 /* ═══════════════════════════════ OPPORTUNITIES ═══════════════════════════════ */
 
@@ -102,11 +97,9 @@ const pct = (v: number | null | undefined) =>
   v === null || v === undefined ? "—" : `${v}%`;
 
 export function OpportunitiesPage() {
-  const reload = useRefresh();
   const { rows: stages, error: stErr } = useList("/opportunities/stages");
   const { rows: leads } = useList("/leads");
   const { rows: clients } = useList("/clients");
-  const { rows: entities } = useList("/entities");
 
   const [view, setView] = React.useState<"board" | "list">("board");
   const [sourceFilter, setSourceFilter] = React.useState("");
@@ -114,19 +107,9 @@ export function OpportunitiesPage() {
   const [opps, setOpps] = React.useState<Row[] | null>(null);
   const [metrics, setMetrics] = React.useState<Metrics | null>(null);
   const [oppErr, setOppErr] = React.useState<string | null>(null);
-  const [formOpen, setFormOpen] = React.useState(false);
-  const [editing, setEditing] = React.useState<Row | null>(null);
-  const [winning, setWinning] = React.useState<Row | null>(null);
-  const [rowBusy, setRowBusy] = React.useState<string | null>(null);
-  const [rowError, setRowError] = React.useState<string | null>(null);
-  const [dragId, setDragId] = React.useState<string | null>(null);
-  const [dragOver, setDragOver] = React.useState<string | null>(null);
-  // `?focus=<opportunity_id>` — a lead 360's deal rows land on THAT deal. A
-  // deal's own view on this page is its dialog, so that is what opens.
-  useFocusOpen(opps, (o) => String(o.opportunity_id), (o) => {
-    setEditing(o);
-    setFormOpen(true);
-  });
+  // Read only since the Sales lean revamp (PR 2): every opportunity became a
+  // request (14512), and a deal moves and is won on its request. The Leads
+  // board of PR 3 replaces this screen.
 
   /** The filters the list, the KPI row and the CSV export all share. */
   const query = React.useCallback(() => {
@@ -175,12 +158,6 @@ export function OpportunitiesPage() {
     void load();
   }, [load]);
 
-  /** Refetch this screen's own state AND every cached tenant query. */
-  const refreshAll = React.useCallback(() => {
-    void load();
-    reload();
-  }, [load, reload]);
-
   const clientName = React.useMemo(
     () =>
       new Map(
@@ -204,30 +181,6 @@ export function OpportunitiesPage() {
     return "—";
   }
 
-  async function act(id: string, fn: () => Promise<unknown>) {
-    setRowBusy(id);
-    setRowError(null);
-    try {
-      await fn();
-      refreshAll();
-    } catch (e) {
-      setRowError(errMsg(e));
-    } finally {
-      setRowBusy(null);
-    }
-  }
-  const move = (id: string, stageId: string) =>
-    act(id, () =>
-      tenant(`/opportunities/${id}/move`, {
-        method: "POST",
-        body: { pipeline_stage_id: stageId },
-      }),
-    );
-  const lose = (id: string) =>
-    act(id, () =>
-      tenant(`/opportunities/${id}/lose`, { method: "POST", body: {} }),
-    );
-
   function exportCsv() {
     const qs = query().toString();
     const today = new Date().toISOString().slice(0, 10);
@@ -235,17 +188,6 @@ export function OpportunitiesPage() {
       `/opportunities/export.csv${qs ? `?${qs}` : ""}`,
       `sales_pipeline_${today}.csv`,
     );
-  }
-
-  function onDrop(stageId: string) {
-    setDragOver(null);
-    const id = dragId;
-    setDragId(null);
-    if (!id) return;
-    const opp = (opps || []).find((o) => String(o.opportunity_id) === id);
-    if (!opp || String(opp.status) !== "OPEN") return;
-    if (String(opp.pipeline_stage_id) === stageId) return;
-    move(id, stageId);
   }
 
   const loading = stages === null || opps === null;
@@ -293,7 +235,7 @@ export function OpportunitiesPage() {
       <PageHeader
         eyebrow={<HubCrumb area="Sales & CRM" to="/sales" />}
         title={tr("Opportunities")}
-        description="The sales pipeline — drag deals across stages; value × probability is the weighted forecast."
+        description="The pipeline as it stood before deals moved onto their requests, read only. Value × probability is the weighted forecast."
         action={
           <div className="flex items-center gap-3">
             <Segmented
@@ -311,14 +253,6 @@ export function OpportunitiesPage() {
               disabled={!(opps || []).length}
             >
               Export CSV
-            </Button>
-            <Button
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-            >
-              New opportunity
             </Button>
           </div>
         }
@@ -378,12 +312,6 @@ export function OpportunitiesPage() {
         />
       </div>
 
-      {rowError && (
-        <div className="mb-3">
-          <ErrorState message={rowError} />
-        </div>
-      )}
-
       {err ? (
         <ErrorState message={err} />
       ) : loading ? (
@@ -412,19 +340,9 @@ export function OpportunitiesPage() {
             const won = s.is_won === true;
             const lost = s.is_lost === true;
             return (
-              // Drop target for the pointer gesture. Every card carries a
-              // "Move" menu that performs the same `move()` server-side, so the
-              // board has a complete keyboard path and this is enhancement only.
-              // eslint-disable-next-line jsx-a11y/no-static-element-interactions
               <div
                 key={sid}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(sid);
-                }}
-                onDragLeave={() => setDragOver((d) => (d === sid ? null : d))}
-                onDrop={() => onDrop(sid)}
-                className={`flex w-72 shrink-0 flex-col rounded-xl border bg-muted/20 transition-colors ${dragOver === sid ? "border-primary/60 bg-primary/5" : ""}`}
+                className="flex w-72 shrink-0 flex-col rounded-xl border bg-muted/20"
               >
                 <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
                   <div className="flex items-center gap-2">
@@ -452,26 +370,16 @@ export function OpportunitiesPage() {
                 <div className="flex min-h-[8rem] flex-1 flex-col gap-2 p-2">
                   {cards.length === 0 ? (
                     <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-                      Drop deals here
+                      No deals
                     </p>
                   ) : (
                     cards.map((o) => {
                       const id = String(o.opportunity_id);
                       const settled = String(o.status) !== "OPEN";
                       return (
-                        // `draggable` is a pointer-only gesture. The "Move" menu
-                        // below is its keyboard equivalent — same `move()` call,
-                        // reachable by Tab + Enter + arrows. Without it the board
-                        // was operable by mouse alone, which for the CRM's primary
-                        // screen meant the pipeline could not be worked at all
-                        // without one.
-                        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
                         <div
                           key={id}
-                          draggable={!settled}
-                          onDragStart={() => setDragId(id)}
-                          onDragEnd={() => setDragId(null)}
-                          className={`lux-card p-3 ${settled ? "" : "cursor-grab active:cursor-grabbing"} ${rowBusy === id ? "opacity-50" : ""}`}
+                          className="lux-card p-3"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium text-foreground">
@@ -499,72 +407,9 @@ export function OpportunitiesPage() {
                           </p>
                           {settled ? (
                             <p className="mt-2 text-[11px] text-muted-foreground">
-                              Settled — {cell(o.status)}
+                              {cell(o.status)}
                             </p>
-                          ) : (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2 text-xs"
-                                disabled={rowBusy === id}
-                                onClick={() => setWinning(o)}
-                              >
-                                Win
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2 text-xs"
-                                disabled={rowBusy === id}
-                                onClick={() => lose(id)}
-                              >
-                                Lose
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2 text-xs"
-                                onClick={() => {
-                                  setEditing(o);
-                                  setFormOpen(true);
-                                }}
-                              >
-                                Edit
-                              </Button>
-                              {/* The keyboard path across the pipeline. Named per
-                                  card so a screen-reader user hears which deal is
-                                  being moved, not six identical "Move" buttons. */}
-                              <DropdownMenu
-                                label={`Move ${cell(o.name)} to stage`}
-                                trigger={
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 px-2 text-xs"
-                                    disabled={rowBusy === id}
-                                  >
-                                    Move
-                                  </Button>
-                                }
-                              >
-                                {(stages || [])
-                                  .filter(
-                                    (t) => String(t.pipeline_stage_id) !== sid,
-                                  )
-                                  .map((t) => (
-                                    <DropdownItem
-                                      key={String(t.pipeline_stage_id)}
-                                      onSelect={() =>
-                                        move(id, String(t.pipeline_stage_id))
-                                      }
-                                    >
-                                      {cell(t.name)}
-                                    </DropdownItem>
-                                  ))}
-                              </DropdownMenu>
-                            </div>
-                          )}
+                          ) : null}
                         </div>
                       );
                     })
@@ -606,7 +451,7 @@ export function OpportunitiesPage() {
               </div>
               <p className="px-3 pt-2 text-[11px] text-muted-foreground">
                 These deals carry no pipeline stage, or one this tenant no
-                longer has. Use Move to put them on the board.
+                longer has.
               </p>
               <div className="flex-1 space-y-2 p-2">
                 {unplaced.map((o) => {
@@ -622,36 +467,6 @@ export function OpportunitiesPage() {
                       <p className="mt-1 text-xs font-semibold text-foreground">
                         {money(o.estimated_value, o.currency)}
                       </p>
-                      <div className="mt-2">
-                        {/* The same control the placed cards carry, named per
-                            deal so a screen-reader user hears which one is
-                            being moved. No `currentId` to exclude — that is
-                            the whole problem with this deal. */}
-                        <DropdownMenu
-                          label={`Move ${cell(o.name)} to stage`}
-                          trigger={
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2 text-xs"
-                              disabled={rowBusy === id}
-                            >
-                              Move to a stage
-                            </Button>
-                          }
-                        >
-                          {(stages || []).map((t) => (
-                            <DropdownItem
-                              key={String(t.pipeline_stage_id)}
-                              onSelect={() =>
-                                move(id, String(t.pipeline_stage_id))
-                              }
-                            >
-                              {cell(t.name)}
-                            </DropdownItem>
-                          ))}
-                        </DropdownMenu>
-                      </div>
                     </div>
                   );
                 })}
@@ -665,12 +480,11 @@ export function OpportunitiesPage() {
           {(opps || []).length === 0 ? (
             <EmptyState
               title="No opportunities yet"
-              hint="Create the first opportunity, or convert a qualified lead."
+              hint="Deals are requests now, on the Leads screen."
             />
           ) : (
             (opps || []).map((o) => {
               const id = String(o.opportunity_id);
-              const settled = String(o.status) !== "OPEN";
               return (
                 <div
                   key={id}
@@ -697,51 +511,6 @@ export function OpportunitiesPage() {
                   <span className="text-sm font-semibold text-foreground">
                     {money(o.estimated_value, o.currency)}
                   </span>
-                  {!settled && (
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={String(o.pipeline_stage_id ?? "")}
-                        onChange={(e) => move(id, e.target.value)}
-                        className="h-8 w-40 text-xs"
-                        disabled={rowBusy === id}
-                      >
-                        {(stages || []).map((s) => (
-                          <option
-                            key={String(s.pipeline_stage_id)}
-                            value={String(s.pipeline_stage_id)}
-                          >
-                            {cell(s.name)}
-                          </option>
-                        ))}
-                      </Select>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={rowBusy === id}
-                        onClick={() => setWinning(o)}
-                      >
-                        Win
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={rowBusy === id}
-                        onClick={() => lose(id)}
-                      >
-                        Lose
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setEditing(o);
-                          setFormOpen(true);
-                        }}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  )}
                 </div>
               );
             })
@@ -751,21 +520,6 @@ export function OpportunitiesPage() {
 
       <AiActions actions={OPP_AI} />
 
-      <OpportunityForm
-        open={formOpen}
-        editing={editing}
-        stages={stages}
-        leads={leads}
-        clients={clients}
-        onClose={() => setFormOpen(false)}
-        onSaved={refreshAll}
-      />
-      <WinModal
-        opp={winning}
-        entities={entities}
-        onClose={() => setWinning(null)}
-        onDone={refreshAll}
-      />
     </section>
   );
 }

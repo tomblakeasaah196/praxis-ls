@@ -144,13 +144,13 @@ describe("buildPipelineWonDrill", () => {
   it("counts this month's settled wins only", () => {
     const d = buildPipelineWonDrill(
       [
-        { opportunity_id: "o1", name: "Won now", status: "WON", estimated_value: 70000, settled_at: new Date().toISOString() },
-        { opportunity_id: "o2", name: "Won long ago", status: "WON", estimated_value: 5, settled_at: iso(70) },
-        { opportunity_id: "o3", name: "Still open", status: "OPEN", estimated_value: 999, settled_at: null },
+        { quote_request_id: "q1", title: "Won now", stage: "WON", estimated_value: 70000, settled_at: new Date().toISOString() },
+        { quote_request_id: "q2", title: "Won long ago", stage: "WON", estimated_value: 5, settled_at: iso(70) },
+        { quote_request_id: "q3", title: "Still open", stage: "QUOTED", estimated_value: 999, settled_at: null },
       ],
       "XAF",
     );
-    expect(d.meta[0]).toEqual({ label: "Opportunities", value: "1" });
+    expect(d.meta[0]).toEqual({ label: "Requests", value: "1" });
     expect(d.rows[0].cells[0]).toBe("Won now");
   });
 });
@@ -158,9 +158,9 @@ describe("buildPipelineWonDrill", () => {
 describe("buildQuoteRequestsDrill", () => {
   it("lists what the client is still waiting on, longest wait first", () => {
     const d = buildQuoteRequestsDrill([
-      { quote_request_id: "q1", public_ref: "QR-1", status: "RECEIVED", requester_company: "Alpha", created_at: iso(9) },
-      { quote_request_id: "q2", public_ref: "QR-2", status: "UNDER_REVIEW", requester_company: "Beta", created_at: iso(20) },
-      { quote_request_id: "q3", public_ref: "QR-3", status: "QUOTED", requester_company: "Gamma", created_at: iso(30) },
+      { quote_request_id: "q1", public_ref: "QR-1", stage: "NEW", requester_company: "Alpha", created_at: iso(9) },
+      { quote_request_id: "q2", public_ref: "QR-2", stage: "CONTACTED", requester_company: "Beta", created_at: iso(20) },
+      { quote_request_id: "q3", public_ref: "QR-3", stage: "QUOTED", requester_company: "Gamma", created_at: iso(30) },
     ]);
     expect(d.meta[0].value).toBe("2");
     expect(d.rows.map((r) => r.cells[0])).toEqual(["QR-2", "QR-1"]);

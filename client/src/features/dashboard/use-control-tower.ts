@@ -398,7 +398,8 @@ export function useKpiDrilldown(
   const cashRequests = useListPaged<Row>(is("cash_requests_awaiting") ? "/cash-requests" : null, { pageSize: REVENUE_SCAN });
   const marginSims = useListPaged<Row>(is("margin_closed") ? "/margin-simulations" : null, { pageSize: REVENUE_SCAN });
   const dsoInvoices = useListPaged<Row>(is("dso") ? "/final-invoices" : null, { pageSize: REVENUE_SCAN });
-  const opportunities = useListPaged<Row>(is("pipeline_won") ? "/opportunities" : null, { pageSize: REVENUE_SCAN });
+  // The deal is its request since the Sales lean revamp (PR 2): won requests.
+  const opportunities = useListPaged<Row>(is("pipeline_won") ? "/quote-requests" : null, { pageSize: REVENUE_SCAN, stage: "WON", sort: "settled_at" });
   const quoteRequests = useListPaged<Row>(is("quote_requests_open") ? "/quote-requests" : null, { pageSize: REVENUE_SCAN });
   const purchaseOrders = useListPaged<Row>(is("pos_in_flight") ? "/purchase-orders" : null, { pageSize: REVENUE_SCAN });
   const purchaseRequests = useListPaged<Row>(is("purchase_requests") ? "/purchase-requests" : null, { pageSize: REVENUE_SCAN });

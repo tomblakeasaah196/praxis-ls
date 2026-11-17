@@ -45,7 +45,7 @@ import { errMsg } from "@/lib/use-resource";
 import { AiActions } from "@/components/ai-actions";
 import type { AiAction } from "@/features/scaffold/screen-specs";
 import { Link } from "react-router-dom";
-import { QuoteRequestForm, ConvertToOpportunityModal } from "./quote-request-forms";
+import { QuoteRequestForm } from "./quote-request-forms";
 import { CHANNELS, channelLabel, serviceNameOf } from "@/lib/quote-request-api";
 import { IntakeDossier } from "./sales-360";
 
@@ -80,9 +80,9 @@ const QUOTE_REQUEST_AI: AiAction[] = [
     describe: "Read the request's status, attachments and history, and suggest the next concrete action (REQUEST_INFO / MOVE_TO_QUOTED / CLOSE_NO_ACTION).",
   },
   {
-    label: "Convert to opportunity",
+    label: "Mark won",
     kind: "write",
-    describe: "Create a pipeline opportunity from a QUOTED request (human-confirmed before the convert runs).",
+    describe: "Win a request: the client is made and the operations file opens (human-confirmed before it runs).",
   },
 ];
 
@@ -124,7 +124,6 @@ export function QuoteRequestsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<any | null>(null);
-  const [converting, setConverting] = React.useState<any | null>(null);
   /** The request whose 360 fills the right-hand pane. */
   const [selId, setSelId] = React.useState<string | null>(null);
 
@@ -345,11 +344,6 @@ export function QuoteRequestsPage() {
         editing={editing}
         onClose={() => setFormOpen(false)}
         onSaved={reload}
-      />
-      <ConvertToOpportunityModal
-        request={converting}
-        onClose={() => setConverting(null)}
-        onDone={reload}
       />
 
       <AiActions actions={QUOTE_REQUEST_AI} />
