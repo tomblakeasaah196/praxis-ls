@@ -722,7 +722,7 @@ title §7 gives it. In §9, tick PR <N> and add one line to the log: date, what 
 ## 9. Checklist and log
 
 - [x] PR 1 · Remove Campaigns and Partnerships & Vendors
-- [ ] PR 2 · One company row, the request carries the deal
+- [x] PR 2 · One company row, the request carries the deal
 - [ ] PR 3 · The Lead 360 screens
 - [ ] PR 4 · Quotations absorb Proposals
 - [ ] PR 5 · Company Profile
@@ -733,3 +733,4 @@ title §7 gives it. In §9, tick PR <N> and add one line to the log: date, what 
 |---|---|---|
 | 17/11/2026 | plan | Audit, eleven owner decisions, this plan. Nothing built yet. |
 | 17/11/2026 | PR 1 | Campaigns (MOD-22), Partnerships & Vendors, the website newsletter and the Inbound intake signpost removed; migration 14500, seeds 9026 and 9160; old URLs redirect. MOD-22 retired; MOD-23 and MOD-24 stay until PR 7. Next: PR 2 and PR 5 in parallel. |
+| 17/11/2026 | PR 2 | Company row (OPEN/ARCHIVED, next step as a workspace task, duplicate check, capture, Done, Archive/Reopen, Make Client, paged list, 360 with Activity/Requests/Quotations), request as the deal (stage machine, Lost reasons, Mark Won, auto moves), one win function + `quotation.accepted:win-request` (replaces `opportunity-won-open-dossier`), website/portal/enquiry find-or-create, meetings on the calendar, `sales.default_owner`, gap 11, KPIs, AI, search; migrations 14510 to 14516. Opportunity writes retired, its screen read only. No CHECK or FK on the existing tables (13791 rule): the vocabularies are held by the services. Left for PR 3: the Settings field for the default sales owner, `?done=` and `?request=` deep links, redirects and `entity-route` for old opportunity links. |
