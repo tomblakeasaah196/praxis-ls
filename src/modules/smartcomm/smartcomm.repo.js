@@ -18,8 +18,8 @@ const getChannel = (client, id) => getById(client, "comms_group", "group_id", id
  *  the honest floor under the dot (guide §4.11 — the dot is the socket, and
  *  when the socket is gone this column says when they were last here). */
 const PARTNER_SQL =
-  "partner.user_id AS partner_user_id, partner.avatar_ref AS partner_avatar_ref, " +
-  "partner.last_seen_at AS partner_last_seen_at";
+  "partner.user_id AS partner_user_id, partner.full_name AS partner_name, " +
+  "partner.avatar_ref AS partner_avatar_ref, partner.last_seen_at AS partner_last_seen_at";
 /** One lateral join per DIRECT row, not three correlated subqueries (calls
  *  audit D9). A group channel gets no partner (the WHERE is on g.kind). */
 /** "Hide my last seen" (PR-6, audit G4) is a live preference: honoured here. */
@@ -27,7 +27,7 @@ const HIDDEN_LAST_SEEN =
   "EXISTS (SELECT 1 FROM live.user_preference hp WHERE hp.user_id = pm.user_id " +
   "  AND hp.section = 'calls' AND hp.key = 'hide_last_seen' AND hp.value = 'true'::jsonb)";
 const PARTNER_JOIN =
-  "LEFT JOIN LATERAL (SELECT u.user_id, u.avatar_ref, " +
+  "LEFT JOIN LATERAL (SELECT u.user_id, u.full_name, u.avatar_ref, " +
   "  CASE WHEN " + HIDDEN_LAST_SEEN + " THEN NULL ELSE p.last_seen_at END AS last_seen_at " +
   "  FROM comms_member pm JOIN app_user u ON u.user_id = pm.user_id " +
   "  LEFT JOIN comms_user_presence p ON p.user_id = pm.user_id " +
@@ -62,24 +62,32 @@ async function listChannelsForUser(client, userId, q = {}) {
   );
   return rows;
 }
-async function getChannelEnriched(client, id) {
+/**
+ * One channel, with what its header needs. `viewerId` is who is LOOKING.
+ *
+ * A DIRECT conversation has no name of its own: to each of the two people it
+ * is the OTHER one. `comms_group.name` holds what the person who started it
+ * saw, so the person who was messaged read their own name on the conversation
+ * (and on the call it started), and the photo beside it was whichever member
+ * the database returned first. The partner is therefore resolved here against
+ * the viewer, by the same join the channel list uses, and the client shows
+ * `partner_name` for a DIRECT channel.
+ */
+async function getChannelEnriched(client, id, viewerId = null) {
   const g = await getChannel(client, id);
   if (!g) return null;
   const [{ members }] = (await client.query("SELECT COUNT(*)::int AS members FROM comms_member WHERE group_id = $1", [id])).rows;
   const [{ messages }] = (await client.query("SELECT COUNT(*)::int AS messages FROM comms_message WHERE group_id = $1 AND deleted_at IS NULL", [id])).rows;
   const last = (await client.query("SELECT * FROM comms_message WHERE group_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1", [id])).rows[0] || null;
-  // Same partner-avatar computation as listChannelsForUser, so the thread
-  // header shows the photo too. DIRECT channels have exactly two members, so
-  // any member other than the (unknown here) viewer is the partner.
-  let partner_avatar_ref = null;
-  if (g.kind === "DIRECT") {
-    const { rows: [partner] } = await client.query(
-      "SELECT u.avatar_ref FROM comms_member pm JOIN app_user u ON u.user_id = pm.user_id WHERE pm.group_id = $1 LIMIT 1",
-      [id],
+  let partner = { partner_user_id: null, partner_name: null, partner_avatar_ref: null, partner_last_seen_at: null };
+  if (g.kind === "DIRECT" && viewerId) {
+    const { rows } = await client.query(
+      "SELECT " + PARTNER_SQL + " FROM comms_group g " + PARTNER_JOIN + "WHERE g.group_id = $2",
+      [viewerId, id],
     );
-    partner_avatar_ref = partner?.avatar_ref ?? null;
+    if (rows[0]) partner = rows[0];
   }
-  return { ...g, member_count: members, message_count: messages, last_message: last, partner_avatar_ref };
+  return { ...g, member_count: members, message_count: messages, last_message: last, ...partner };
 }
 async function findDirectChannel(client, userA, userB) {
   const { rows } = await client.query(

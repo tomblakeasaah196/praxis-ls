@@ -150,6 +150,30 @@ describe("the chat page is a list and a conversation", () => {
     expect(await screen.findByText("7 members")).toBeInTheDocument();
   });
 
+  it("A DIRECT CONVERSATION IS NAMED AFTER THE OTHER PERSON, in the list and in the header", async () => {
+    // The stored name is what the person who STARTED the conversation saw. The
+    // one who was messaged read their own name on it, with the other person's
+    // name on every bubble underneath.
+    fixture.channel = {
+      group_id: "one", name: "JBS Praxis", kind: "DIRECT", unread: 0,
+      partner_user_id: "them", partner_name: "Joel Efala",
+    };
+    render(chat());
+    await screen.findByText("Message composer");
+    expect(screen.getAllByText("Joel Efala").length).toBeGreaterThan(1); // the row AND the header
+    expect(screen.queryByText("JBS Praxis")).not.toBeInTheDocument();
+  });
+
+  it("a group, and a direct conversation the server did not name the partner of, keep their stored name", async () => {
+    fixture.channel = { group_id: "one", name: "Ops Task Force", kind: "DEPARTMENT", unread: 0, partner_name: "Nobody" };
+    const { unmount } = render(chat());
+    expect((await screen.findAllByText("Ops Task Force")).length).toBeGreaterThan(1);
+    unmount();
+    fixture.channel = { group_id: "one", name: "Joel Efala", kind: "DIRECT", unread: 0 };
+    render(chat());
+    expect((await screen.findAllByText("Joel Efala")).length).toBeGreaterThan(1);
+  });
+
   it("THE LIST IS SEARCH AND NEW: no filter pills, no appearance control", async () => {
     render(chat());
     await screen.findByText("Message composer");

@@ -39,6 +39,7 @@ import { useCallCapabilities } from "./call/call-capabilities";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useBranding } from "@/app/branding/branding-context";
 import * as api from "@/lib/smartcomm-api";
+import { channelTitle } from "./channel-title";
 import { getCommsSocket, useCommsChannel } from "@/lib/comms-socket";
 import { useOnline, lastSeenText } from "./presence";
 import { dial, useCall } from "./call/call-session";
@@ -330,7 +331,7 @@ function ChannelRow({
       )}
     >
       <Avatar
-        name={c.name}
+        name={channelTitle(c)}
         src={c.kind === "DIRECT" ? c.partner_avatar_ref : null}
       />
       <span className="min-w-0 flex-1">
@@ -352,7 +353,7 @@ function ChannelRow({
                 aria-hidden
               />
             )}
-            <span className="truncate">{c.name}</span>
+            <span className="truncate">{channelTitle(c)}</span>
             {c.is_pinned && (
               <span className="shrink-0 text-primary-ink">
                 <PinIcon />
@@ -501,7 +502,7 @@ export function TeamChatPage() {
   }, []);
   const filtered = all.filter((c) => {
     if (q.trim()) {
-      const hay = `${c.name} ${channelPreview(c)}`.toLowerCase();
+      const hay = `${channelTitle(c)} ${channelPreview(c)}`.toLowerCase();
       if (!hay.includes(q.trim().toLowerCase())) return false;
     }
     return true;
@@ -838,7 +839,7 @@ function Thread({
           ←
         </button>
         <Avatar
-          name={ch.data?.name}
+          name={channelTitle(ch.data)}
           src={ch.data?.kind === "DIRECT" ? ch.data?.partner_avatar_ref : null}
           size="sm"
         />
@@ -847,7 +848,7 @@ function Thread({
             the one line a person reads to know whom they are talking to. */}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">
-            {ch.data?.name || "Conversation"}
+            {channelTitle(ch.data) || "Conversation"}
           </div>
           {ch.data?.kind === "DIRECT" && ch.data.partner_user_id && (
             <PartnerPresence
@@ -874,7 +875,7 @@ function Thread({
             aria-label={tr("Start a voice call")}
             title={tr("Start a voice call")}
             onClick={() => {
-              if (ch.data) void dial(ch.data.group_id, ch.data.name);
+              if (ch.data) void dial(ch.data.group_id, channelTitle(ch.data));
             }}
           >
             <PhoneIcon width={18} height={18} />
