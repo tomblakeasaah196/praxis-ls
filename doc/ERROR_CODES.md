@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (713)
+## All codes (715)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -38,7 +38,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ACTIVATION_REQUIREMENTS_MISSING` | 422 | 1× | — |
 | `ADVANCE_NOT_CLEARED` | 422 | 2× | — |
 | `AI_ACTION_FORBIDDEN` | 403 | 1× | — |
-| `AI_UNAVAILABLE` | 403, 503 | 7× | — |
+| `AI_UNAVAILABLE` | 403, 503 | 6× | — |
 | `ALLOCATION_EXCEEDS` | 422 | 1× | — |
 | `ALREADY_ACKNOWLEDGED` | 409 | 1× | — |
 | `ALREADY_ACTED` | 422 | 1× | — |
@@ -64,9 +64,10 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ALREADY_RECONCILED` | 409 | 1× | — |
 | `ALREADY_REQUESTED` | 409 | 1× | — |
 | `ALREADY_RESTORED` | 409 | 1× | — |
+| `ALREADY_RETIRED` | 422 | 1× | — |
 | `ALREADY_REVERSED` | 409 | 1× | — |
 | `ALREADY_REVIEWED` | 409 | 3× | — |
-| `ALREADY_REVOKED` | 409 | 2× | — |
+| `ALREADY_REVOKED` | 409, 422 | 3× | — |
 | `ALREADY_SENT` | 409 | 2× | — |
 | `ALREADY_SETTLED` | 409 | 3× | — |
 | `ALREADY_SIGNED` | 409 | 1× | — |
@@ -96,7 +97,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_DOC_TYPE` | 422 | 3× | — |
 | `BAD_FEE_ACCOUNT` | 422 | 1× | — |
 | `BAD_FILE` | 400, 422 | 17× | — |
-| `BAD_FILE_TYPE` | 422 | 11× | — |
+| `BAD_FILE_TYPE` | 422 | 12× | — |
 | `BAD_FONT` | 422 | 3× | — |
 | `BAD_HEADERS` | 422 | 1× | — |
 | `BAD_HOST` | 400 | 3× | — |
@@ -228,7 +229,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `EMPTY_ARTICLE` | 422 | 1× | — |
 | `EMPTY_AUDIO` | 422 | 4× | — |
 | `EMPTY_DRAFT` | 422 | 2× | — |
-| `EMPTY_FILE` | 422 | 3× | — |
+| `EMPTY_FILE` | 422 | 4× | — |
 | `EMPTY_IMAGE` | 422 | 1× | — |
 | `EMPTY_MESSAGE` | 422 | 3× | — |
 | `EMPTY_PAGE` | 422 | 1× | — |
@@ -252,7 +253,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `FIELD_NOT_WRITABLE` | — | 2× | — |
 | `FILES_TOO_LARGE` | 413 | 1× | — |
 | `FILE_REQUIRED` | 422 | 4× | — |
-| `FILE_TOO_LARGE` | 413 | 5× | — |
+| `FILE_TOO_LARGE` | 413 | 6× | — |
 | `FIXED_PARITY` | 422 | 3× | — |
 | `FORBIDDEN` | 403 | 7× | `PERMISSION_DENIED` |
 | `FULLY_DISBURSED` | 422 | 1× | — |
@@ -293,7 +294,6 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `INVALID_CURRENT_PASSWORD` | 403 | 2× | — |
 | `INVALID_DATE` | 422 | 1× | — |
 | `INVALID_DAYS` | 422 | 1× | — |
-| `INVALID_EXTRACTION` | 422 | 1× | — |
 | `INVALID_FIELD` | — | 1× | — |
 | `INVALID_INVITE` | 400 | 1× | — |
 | `INVALID_MARGIN` | 100, 422 | 2× | — |
@@ -362,8 +362,10 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NAME_REQUIRED` | 422 | 3× | — |
 | `NEEDS_MAPPING` | 409 | 1× | — |
 | `NEGATIVE_STOCK` | 422 | 1× | — |
+| `NOTHING_PUBLISHED` | 422 | 1× | — |
 | `NOTHING_TO_BILL` | 422 | 1× | — |
 | `NOTHING_TO_DISPATCH` | 409 | 1× | — |
+| `NOTHING_TO_PUBLISH` | 422 | 1× | — |
 | `NOTHING_TO_REVIEW` | 409 | 1× | — |
 | `NOTHING_TO_SUMMARISE` | 422 | 1× | — |
 | `NOTHING_TO_UNDO` | 409 | 1× | — |
@@ -389,7 +391,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 757× | — |
+| `NOT_FOUND` | 404, 422 | 765× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -723,7 +725,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_INACTIVE` | 401 | 5× | — |
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 400, 422 | 291× | — |
+| `VALIDATION_ERROR` | 400, 422 | 297× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |

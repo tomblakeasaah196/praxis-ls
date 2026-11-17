@@ -1,12 +1,12 @@
 {
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
-  "modules_mounted": 141,
-  "route_count": 1865,
+  "modules_mounted": 142,
+  "route_count": 1880,
   "tiers": {
-    "public": 73,
+    "public": 75,
     "self-scoped": 117,
-    "gated": 1675
+    "gated": 1688
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -142,6 +142,12 @@
       "tier": "gated"
     },
     "DELETE /api/tenant/clients/:id/registrations/:childId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/company-profile/draft/cover": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -1618,6 +1624,48 @@
       "tier": "gated"
     },
     "GET /api/tenant/company-profile/": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/company-profile/logos": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/company-profile/pdf": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/company-profile/preview": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/company-profile/shares": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/company-profile/shares/:id/opens": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/company-profile/versions": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/company-profile/versions/:id/diff": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -3981,6 +4029,18 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/public/company-profile/:token": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/company-profile/:token/pdf": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
     "GET /api/tenant/public/corridors/": {
       "auth": false,
       "rbac": false,
@@ -5769,6 +5829,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "PATCH /api/tenant/company-profile/draft/sections/:key": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "PATCH /api/tenant/contracts/:id": {
       "auth": true,
       "rbac": true,
@@ -7311,13 +7377,43 @@
       "validated": false,
       "tier": "gated"
     },
-    "POST /api/tenant/company-profile/extract": {
+    "POST /api/tenant/company-profile/draft/cover": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/company-profile/logos": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/company-profile/logos/:id/retire": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/company-profile/publish": {
       "auth": true,
       "rbac": true,
       "validated": false,
       "tier": "gated"
     },
     "POST /api/tenant/company-profile/refresh": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/company-profile/shares": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/company-profile/shares/:id/revoke": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -10948,12 +11044,6 @@
       "tier": "gated"
     },
     "PUT /api/tenant/clients/:id/public-reference-consent": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "PUT /api/tenant/company-profile/": {
       "auth": true,
       "rbac": true,
       "validated": false,
