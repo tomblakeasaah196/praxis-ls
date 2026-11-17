@@ -6,5 +6,9 @@ module.exports = {
   CONVERTED: "quote_request.converted",
   ATTACHMENT_ADDED: "quote_request.attachment_added",
   ATTACHMENT_REMOVED: "quote_request.attachment_removed",
+  // The deal (14511, lean revamp PR 2): a click on the stage bar, a win, a loss.
+  STAGE_MOVED: "quote_request.stage_moved",
+  WON: "quote_request.won",
+  LOST: "quote_request.lost",
   transition: (status) => "quote_request." + String(status).toLowerCase(),
 };

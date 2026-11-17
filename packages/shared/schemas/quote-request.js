@@ -93,10 +93,14 @@ const DOCUMENT_KINDS = [
 
 /**
  * Whether a request may be tied to a client, or moved to another one. Not once
- * it is converted or closed: the opportunity it became, and the history the
- * client read in their portal, belong to the client it had then.
+ * it is won or lost (or, in the intake vocabulary before the revamp, converted
+ * or closed): the file it opened, and the history the client read in their
+ * portal, belong to the client it had then. Takes a stage or a status.
  */
-const canRelink = (status) => !TERMINAL.includes(String(status || ""));
+const canRelink = (stageOrStatus) => {
+  const v = String(stageOrStatus || "");
+  return !TERMINAL.includes(v) && v !== "WON" && v !== "LOST";
+};
 
 const text = (max) => z.string().trim().max(max).optional();
 /** An email box a form may leave empty: `""` reads as "not given". */

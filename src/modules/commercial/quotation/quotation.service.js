@@ -11,8 +11,11 @@
  *     services at the tenant's target margin, own costs not billed but kept as
  *     the floor), open a DRAFT, and keep the workings as a linked margin
  *     simulation the pricer is never walked through.
- *   · THE REQUEST IT ANSWERS — `quote_request_id`, set through the opportunity
- *     the request became or picked by staff; the portal's request page reads it.
+ *   · THE REQUEST IT ANSWERS — `quote_request_id`, picked by staff (or found
+ *     through an opportunity from before the lean revamp, whose request 14512
+ *     made); the portal's request page reads it. Since the revamp it is the one
+ *     link: sending the quotation moves the request to Quoted, and accepting it
+ *     wins the request (`quotation.accepted:win-request`).
  *   · THE CLIENT'S ANSWER — `accept` takes who at the client accepted, and
  *     `decline` records their reason (portal_quotation.service drives both,
  *     through the signature programme exactly as proposals do — G4).
@@ -140,6 +143,14 @@ async function transition(client, { id, to, entityId = null, actor = {} }) {
     if (to === "REJECTED" || to === "EXPIRED") { fields.answered_at = new Date(); if (to === "REJECTED") fields.answered_via = "STAFF"; }
     const row = await repo.update(client, id, fields);
     if (to === "SENT") await documents.capture(client, { entityRef: ref(id), docType: "QUOTATION", status: "VERIFIED" });
+    // Sending a quotation moves the request it answers to Quoted, never
+    // backwards (lean revamp §3.2). Required lazily: the request service is a
+    // Sales module and this one is Commercial.
+    if (to === "SENT" && row.quote_request_id) {
+      await require("../../sales/quote_request/quote_request.service").moveStage(client, {
+        id: row.quote_request_id, stage: "QUOTED", actor, auto: true,
+      });
+    }
     // The client rides in the payload: a SENT quotation reaches the client's
     // portal (notify-portal, topic PROPOSALS) as a proposal does.
     await emitEvent(client, {
@@ -330,7 +341,7 @@ async function buildPreview(client, costingId) {
     workings: priced.totals,
     unclassified: link.unclassified,
     quote_requests: requests.map((r) => ({
-      quote_request_id: r.quote_request_id, public_ref: r.public_ref, status: r.status, created_at: r.created_at,
+      quote_request_id: r.quote_request_id, public_ref: r.public_ref, status: r.status, stage: r.stage, title: r.title, created_at: r.created_at,
       service_name_en: r.service_name_en || null, service_name_fr: r.service_name_fr || null, answered: r.answered === true,
     })),
     suggested_quote_request_id: suggested ? suggested.quote_request_id : null,
@@ -394,7 +405,9 @@ async function get(client, id) {
   q.lines = lines;
   // The request it answers, the costing it was priced from and the workings
   // behind its prices — each a link on the quotation's screen.
-  q.quote_request = request ? { quote_request_id: request.quote_request_id, public_ref: request.public_ref, status: request.status } : null;
+  q.quote_request = request
+    ? { quote_request_id: request.quote_request_id, public_ref: request.public_ref, status: request.status, stage: request.stage, title: request.title, lead_id: request.lead_id }
+    : null;
   q.costing = costing;
   q.workings = workings;
   return q;

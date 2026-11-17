@@ -383,24 +383,34 @@ async function findOrCreateForIntake(client, { requester = {}, clientId = null, 
 }
 
 /**
- * The next step an arrival owes: "Answer website request" within four working
- * hours, unless the row already has one that is due sooner. Called by the
- * request service once the request exists, in the same transaction.
+ * Put a dated step on an open row unless the one it has is due sooner, which
+ * stays (the step it had stays on its owner's desk either way). For a website
+ * or portal arrival, and for an enquiry raised as a lead.
  */
-async function stepForArrival(client, { leadId, channel, actor = {} }) {
+async function ensureStepBy(client, { leadId, action, dueAt, assignedTo = null, actor = {} }) {
   const row = await repo.get(client, leadId);
   if (!row || row.status !== "OPEN") return null;
-  const due = await answerBy(client);
   const live = await nextSteps.current(client, row.next_step_task_id);
-  if (live && live.due_at && new Date(live.due_at) <= new Date(due)) return live;
-  if (!row.owner_user_id && !actor.user_id) {
-    logger.error({ leadId }, "[lead] a request arrived for a row nobody can own: no default owner, CEO or sales editor");
+  if (live && live.due_at && new Date(live.due_at) <= new Date(dueAt)) return live;
+  if (!assignedTo && !row.owner_user_id && !actor.user_id) {
+    logger.error({ leadId }, "[lead] a step is owed on a row nobody can own: no default owner, CEO or sales editor");
     return null;
   }
   return pointAt(client, {
     lead: row,
-    step: { action: ANSWER_REQUEST[channel] || "Answer request", due_at: due },
+    step: { action, due_at: dueAt, assigned_to: assignedTo || null },
     actor: { user_id: actor.user_id || null },
+  });
+}
+
+/**
+ * The next step an arrival owes: "Answer website request" within four working
+ * hours (§3.2). Called by the request service once the request exists, in the
+ * same transaction.
+ */
+async function stepForArrival(client, { leadId, channel, actor = {} }) {
+  return ensureStepBy(client, {
+    leadId, action: ANSWER_REQUEST[channel] || "Answer request", dueAt: await answerBy(client), actor,
   });
 }
 
@@ -655,7 +665,7 @@ async function makeClient(client, { id, clientData = {}, actor = {}, strict = tr
 }
 
 module.exports = {
-  capture, update, get, list, duplicates, clientRow, findOrCreateForIntake, stepForArrival,
+  capture, update, get, list, duplicates, clientRow, findOrCreateForIntake, stepForArrival, ensureStepBy,
   logActivity, setNextStep, completeNextStep, archive, reopen, makeClient, defaultOwner,
   answerBy, endOfToday, COMPANY_FIELDS, ANSWER_REQUEST,
 };

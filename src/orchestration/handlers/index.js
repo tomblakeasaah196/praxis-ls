@@ -13,7 +13,7 @@ const dossierMilestones = require("./dossier-created-instantiate-milestones");
 const advanceMilestone = require("./advance-milestone-on-op-event");
 
 // ── Sales → Operations ──
-register(require("./opportunity-won-open-dossier"));            // opportunity.won → open dossier
+register(require("./quotation-accepted-win-request"));          // quotation.accepted → request won, client made, file opened
 register(dossierMilestones);                                    // dossier.created → stamp milestone template
 register({ eventKey: "dossier.updated", handlerKey: "dossier.updated:instantiate-milestones", feature: null, run: dossierMilestones.run }); // late service_type
 
@@ -78,9 +78,8 @@ for (const handler of require("./invalidate-mail-context").handlers) register(ha
 //    split off the payroll run would be an accounting fiction.
 //  Commercial documents are deliberate human steps, so they stay operator-driven:
 //   • proposal.accepted → quotation — opt-in `accept({createQuotation})` (pricing is a decision).
-//   • quotation.accepted → invoice  — opt-in `accept({convert})`; the dossier's DRAFT invoice
-//       is already produced by costing.approved (one-draft-per-dossier).
+//   • quotation.accepted → invoice  — opt-in `accept({convert})`; the invoice stays a finance
+//       step. (quotation.accepted → request WON + file opened IS wired, above.)
 //   • purchase_request.approved → PO — the buyer selects supplier/terms when raising the PO.
-//   • lead.converted → opportunity   — already handled in-service by lead conversion.
 
 module.exports = {};

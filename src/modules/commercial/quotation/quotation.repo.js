@@ -65,14 +65,14 @@ async function quoteRequestForOpportunity(client, opportunityId) {
 async function quoteRequestHead(client, id) {
   if (!id) return null;
   const { rows } = await client.query(
-    "SELECT quote_request_id, public_ref, status, client_id, service_type_id, created_at FROM quote_request WHERE quote_request_id = $1",
+    "SELECT quote_request_id, public_ref, status, stage, title, lead_id, client_id, service_type_id, created_at FROM quote_request WHERE quote_request_id = $1",
     [id],
   );
   return rows[0] || null;
 }
 
 /**
- * The client's requests a quotation could answer — every one not closed,
+ * The client's requests a quotation could answer — every one still open,
  * newest first, each with whether a quotation already answers it. The pricer
  * picks; `suggested` in the service is the one whose service matches the
  * file's and which nothing answers yet.
@@ -80,13 +80,13 @@ async function quoteRequestHead(client, id) {
 async function openQuoteRequests(client, clientId) {
   if (!clientId) return [];
   const { rows } = await client.query(
-    `SELECT qr.quote_request_id, qr.public_ref, qr.status, qr.service_type_id, qr.created_at,
+    `SELECT qr.quote_request_id, qr.public_ref, qr.status, qr.stage, qr.title, qr.service_type_id, qr.created_at,
             COALESCE(st.name_en, st.name_fr) AS service_name_en, COALESCE(st.name_fr, st.name_en) AS service_name_fr,
             EXISTS (SELECT 1 FROM quotation q WHERE q.quote_request_id = qr.quote_request_id
                      AND q.status IN ('DRAFT','SENT','ACCEPTED','CONVERTED')) AS answered
        FROM quote_request qr
        LEFT JOIN service_type st ON st.service_type_id = qr.service_type_id
-      WHERE qr.client_id = $1 AND qr.status <> 'CLOSED_NO_ACTION'
+      WHERE qr.client_id = $1 AND qr.stage NOT IN ('WON', 'LOST')
       ORDER BY qr.created_at DESC LIMIT 20`,
     [clientId],
   );
