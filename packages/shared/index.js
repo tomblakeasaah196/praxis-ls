@@ -40,6 +40,7 @@ const incoterms = require("./data/incoterms");
 const serviceScope = require("./rules/service-scope");
 const emailDomain = require("./rules/email-domain");
 const quoteRequest = require("./schemas/quote-request");
+const lead = require("./schemas/lead");
 const quotation = require("./schemas/quotation");
 const search = require("./schemas/search");
 
@@ -199,6 +200,11 @@ exports.emailDomain = emailDomain;
 // Quote request payloads for all three doors — the desk, the portal and the
 // public website — so "a valid request" is one definition (meeting 6, PR 2).
 exports.quoteRequest = quoteRequest;
+// The company row of Sales & CRM (lean revamp, PR 2): capture with its one
+// required contact way and dated next step, the duplicate check's query, the
+// Done write, Archive and Make Client. The capture form and the API parse with
+// the same shapes (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md §3.2).
+exports.lead = lead;
 // Quotations (meeting 6, PR 4): "Create quotation" on a costing, the per-
 // document family order, Settings › Commercial's target margin, and a client
 // declining in the portal. Shared because the costing sheet must offer the

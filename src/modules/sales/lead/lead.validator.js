@@ -1,99 +1,31 @@
 "use strict";
-const { z } = require("zod");
+/**
+ * Lead (MOD-20) — the API's adapter onto the shared shapes.
+ *
+ * Every rule lives in `@praxis/shared` schemas/lead.js, which the capture form
+ * validates with too: "a lead the form accepts" and "a lead this route
+ * accepts" are one definition (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md §6). This
+ * file only turns a parse failure into the 422 the rest of the API answers with.
+ */
+const { lead } = require("@praxis/shared");
 const { AppError } = require("../../../utils/errors");
 
-/**
- * Lead payloads. The F6 hardening adds country/address/NIU/RCCM (the fields
- * Finance re-keyed by hand on every legacy conversion), intake_channel, and
- * the two conversion hints (client_type_hint, payment_terms_days). The
- * convert payload now carries a structured `client` object — staff fill it
- * in the convert drawer, and the service passes it through to
- * clientMaster.create with no silent defaults.
- */
-const INTAKE_CHANNEL = ["MANUAL", "WEBSITE", "REFERRAL", "CAMPAIGN"];
-const CLIENT_TYPE = ["SHIPPER", "CONSIGNEE", "BOTH", "CARRIER", "AGENT"];
-
 const schemas = {
-  create: z.object({
-    entity_id: z.string().guid().optional().nullable(),
-    company_name: z.string().min(1),
-    contact_name: z.string().optional(),
-    email: z.string().email().optional(),
-    phone: z.string().optional(),
-    country: z.string().optional(),
-    address: z.string().optional(),
-    niu: z.string().optional(),
-    rccm: z.string().optional(),
-    source: z.enum(INTAKE_CHANNEL).optional(),
-    intake_channel: z.enum(INTAKE_CHANNEL).optional(),
-    service_interest: z.string().optional(),
-    client_type_hint: z.enum(CLIENT_TYPE).optional().nullable(),
-    payment_terms_days: z.number().int().min(0).max(365).optional().nullable(),
-    owner_user_id: z.string().guid().optional().nullable(),
-    details: z.record(z.string(), z.any()).optional(),
-  }),
-
-  update: z.object({
-    entity_id: z.string().guid().optional().nullable(),
-    company_name: z.string().optional(),
-    contact_name: z.string().optional(),
-    email: z.string().email().optional(),
-    phone: z.string().optional(),
-    country: z.string().optional(),
-    address: z.string().optional(),
-    niu: z.string().optional(),
-    rccm: z.string().optional(),
-    source: z.enum(INTAKE_CHANNEL).optional(),
-    intake_channel: z.enum(INTAKE_CHANNEL).optional(),
-    service_interest: z.string().optional(),
-    client_type_hint: z.enum(CLIENT_TYPE).optional().nullable(),
-    payment_terms_days: z.number().int().min(0).max(365).optional().nullable(),
-    owner_user_id: z.string().guid().optional().nullable(),
-  }),
-
-  transition: z.object({ to: z.enum(["CONTACTED", "QUALIFIED", "LOST"]) }),
-
-  /**
-   * Convert payload — the F6 fix for the legacy's silent defaults.
-   * `client` carries every field the staff member enters in the convert
-   * drawer. `client_type` and `payment_terms_days` are explicit and
-   * required when not already hinted on the lead. The service no longer
-   * hard-codes 'BOTH' / 30 days.
-   */
-  convert: z.object({
-    client: z.object({
-      entity_id: z.string().guid().optional().nullable(),
-      name: z.string().min(1).optional(),
-      legal_name: z.string().optional(),
-      contact_name: z.string().optional(),
-      country_code: z.string().length(2).optional(),
-      email: z.string().email().optional(),
-      phone: z.string().optional(),
-      address: z.string().optional(),
-      client_type: z.enum(CLIENT_TYPE),
-      payment_terms_days: z.number().int().min(0).max(365),
-      niu: z.string().optional(),
-      rccm: z.string().optional(),
-    }),
-  }),
-
+  create: lead.capture,
+  update: lead.update,
+  activity: lead.activity,
+  nextStep: lead.nextStep,
+  done: lead.done,
+  archive: lead.archive,
+  reopen: lead.reopen,
+  makeClient: lead.makeClient,
+  duplicates: lead.duplicatesQuery,
+  list: lead.listQuery,
   // AI-facing variants carry lead_id in the payload (REST gets it from the URL).
-  // `lead_id` resolves to a list_leads picker in the copilot form.
-  aiTransition: z.object({ lead_id: z.string().guid(), to: z.enum(["CONTACTED", "QUALIFIED", "LOST"]) }),
-  aiConvert: z.object({ lead_id: z.string().guid(), client: z.object({
-    entity_id: z.string().guid().optional().nullable(),
-    name: z.string().min(1).optional(),
-    legal_name: z.string().optional(),
-    contact_name: z.string().optional(),
-    country_code: z.string().length(2).optional(),
-    email: z.string().email().optional(),
-    phone: z.string().optional(),
-    address: z.string().optional(),
-    client_type: z.enum(CLIENT_TYPE),
-    payment_terms_days: z.number().int().min(0).max(365),
-    niu: z.string().optional(),
-    rccm: z.string().optional(),
-  }) }),
+  aiActivity: lead.aiActivity,
+  aiNextStep: lead.aiNextStep,
+  aiArchive: lead.aiArchive,
+  aiMakeClient: lead.aiMakeClient,
 };
 
 const mw = (k) => (req, _res, next) => {
@@ -102,4 +34,27 @@ const mw = (k) => (req, _res, next) => {
   req.body = p.data;
   return next();
 };
-module.exports = { create: mw("create"), update: mw("update"), transition: mw("transition"), convert: mw("convert"), schemas, INTAKE_CHANNEL, CLIENT_TYPE };
+
+/** The same, for a GET's query string — parsed into `req.validatedQuery`. */
+const mwQuery = (k) => (req, _res, next) => {
+  const p = schemas[k].safeParse(req.query);
+  if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid query", 422, p.error.flatten().fieldErrors));
+  req.validatedQuery = p.data;
+  return next();
+};
+
+module.exports = {
+  create: mw("create"),
+  update: mw("update"),
+  activity: mw("activity"),
+  nextStep: mw("nextStep"),
+  done: mw("done"),
+  archive: mw("archive"),
+  reopen: mw("reopen"),
+  makeClient: mw("makeClient"),
+  duplicates: mwQuery("duplicates"),
+  list: mwQuery("list"),
+  schemas,
+  CLIENT_TYPE: lead.CLIENT_TYPES,
+  SOURCES: lead.SOURCES,
+};

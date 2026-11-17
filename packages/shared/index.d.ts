@@ -1361,7 +1361,13 @@ export type StaffQuoteRequest = {
   additional_notes?: string;
   incoterm?: string;
   owner_user_id?: string | null;
+  title?: string;
+  estimated_value?: number | null;
+  currency?: string | null;
 };
+
+export type QuoteRequestStage = "NEW" | "CONTACTED" | "MEETING" | "QUOTED" | "WON" | "LOST";
+export type LostReason = "PRICE" | "TIMING" | "COMPETITOR" | "NO_RESPONSE" | "OTHER";
 
 export declare namespace quoteRequest {
   const STATUSES: ReadonlyArray<QuoteRequestStatus>;
@@ -1375,9 +1381,21 @@ export declare namespace quoteRequest {
   const PORTAL_DOCUMENTS_MAX: number;
   /** False once a request is converted or closed — it keeps the client it had. */
   function canRelink(status: string | null | undefined): boolean;
-  const staffCreate: z.ZodType<StaffQuoteRequest & { incoterm: string }, unknown>;
+  /** The deal's stage (14511): fixed, Won only through a win. */
+  const STAGES: ReadonlyArray<QuoteRequestStage>;
+  const OPEN_STAGES: ReadonlyArray<QuoteRequestStage>;
+  /** The stages a click on the bar may move to (Lost asks why). */
+  const MOVABLE_STAGES: ReadonlyArray<Exclude<QuoteRequestStage, "WON">>;
+  const LOST_REASONS: ReadonlyArray<LostReason>;
+  /** The channels whose wizards ask for an Incoterm, so one is owed. */
+  const INCOTERM_REQUIRED_CHANNELS: ReadonlyArray<QuoteIntakeChannel>;
+  const staffCreate: z.ZodType<StaffQuoteRequest, unknown>;
   const staffUpdate: z.ZodType<StaffQuoteRequest, unknown>;
   const transition: z.ZodType<{ to: QuoteRequestStatus }, unknown>;
+  const moveStage: z.ZodType<
+    { stage: Exclude<QuoteRequestStage, "WON">; lost_reason_code?: LostReason; lost_reason?: string | null }, unknown
+  >;
+  const markWon: z.ZodType<{ entity_id?: string | null }, unknown>;
   const fromChat: z.ZodType<
     { chat_attachment_id: string; document_kind?: QuoteDocumentKind | null }, unknown
   >;
@@ -1385,15 +1403,78 @@ export declare namespace quoteRequest {
   // The remaining shapes (convert, attachment, the AI variants, publicQuote,
   // portalCreate, portalDocumentUpload) are read by the API only; typed loosely
   // here on purpose so the client cannot mistake them for its own forms.
-  const convert: z.ZodTypeAny;
   const attachment: z.ZodTypeAny;
-  const aiTransition: z.ZodTypeAny;
-  const aiConvert: z.ZodTypeAny;
+  const aiMoveStage: z.ZodTypeAny;
+  const aiMarkWon: z.ZodTypeAny;
   const aiLinkClient: z.ZodTypeAny;
   const aiFileFromChat: z.ZodTypeAny;
   const publicQuote: z.ZodTypeAny;
   const portalCreate: z.ZodTypeAny;
   const portalDocumentUpload: z.ZodTypeAny;
+}
+
+export type LeadSource = "MANUAL" | "WEBSITE" | "PORTAL" | "EMAIL" | "REFERRAL";
+export type LeadClientType = "SHIPPER" | "CONSIGNEE" | "BOTH" | "CARRIER" | "AGENT";
+export type LeadActivityKind = "CALL" | "EMAIL" | "WHATSAPP" | "VISIT" | "NOTE";
+
+/** A next step: what to do and when (an ISO day, or a day and a time). */
+export type LeadNextStep = { action: string; due_at: string; assigned_to?: string | null };
+
+export type LeadCompany = {
+  company_name: string;
+  contact_name?: string;
+  email?: string;
+  phone?: string;
+  country?: string;
+  address?: string;
+  niu?: string;
+  rccm?: string;
+  source?: LeadSource;
+  service_interest?: string;
+  owner_user_id?: string | null;
+  entity_id?: string | null;
+  client_type_hint?: LeadClientType | null;
+  payment_terms_days?: number | null;
+};
+
+export type LeadCapture = LeadCompany & {
+  service_type_id?: string | null;
+  next_step: LeadNextStep;
+  details?: Record<string, unknown>;
+};
+
+export type LeadActivity = {
+  kind: LeadActivityKind;
+  body: string;
+  occurred_at?: string;
+  quote_request_id?: string | null;
+};
+
+export declare namespace lead {
+  const STATUSES: ReadonlyArray<"OPEN" | "ARCHIVED">;
+  const SOURCES: ReadonlyArray<LeadSource>;
+  const CLIENT_TYPES: ReadonlyArray<LeadClientType>;
+  const ACTIVITY_KINDS: ReadonlyArray<LeadActivityKind>;
+  /** The list's chips; My Next Steps ("mine") is the default. */
+  const VIEWS: ReadonlyArray<"mine" | "open" | "prospects" | "clients" | "archived">;
+  const DUE: ReadonlyArray<"today" | "overdue">;
+  /** "Call back": the next step a capture proposes when nothing is changed. */
+  const DEFAULT_NEXT_STEP_ACTION: string;
+  const nextStep: z.ZodType<LeadNextStep, unknown>;
+  const capture: z.ZodType<LeadCapture, unknown>;
+  const update: z.ZodType<Partial<LeadCompany>, unknown>;
+  const duplicatesQuery: z.ZodType<{ company_name?: string; email?: string; phone?: string; exclude_id?: string }, unknown>;
+  const activity: z.ZodType<LeadActivity, unknown>;
+  const done: z.ZodType<{ task_id?: string; activity: LeadActivity; next_step: LeadNextStep | null }, unknown>;
+  const archive: z.ZodType<{ reason: string; reason_code?: LostReason }, unknown>;
+  const reopen: z.ZodType<{ next_step: LeadNextStep }, unknown>;
+  // Read by the API only; typed loosely so a form does not mistake them for its own.
+  const listQuery: z.ZodTypeAny;
+  const makeClient: z.ZodTypeAny;
+  const aiActivity: z.ZodTypeAny;
+  const aiNextStep: z.ZodTypeAny;
+  const aiArchive: z.ZodTypeAny;
+  const aiMakeClient: z.ZodTypeAny;
 }
 
 export type QuotationFromCosting = {

@@ -2,27 +2,27 @@
 const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
-const { requireTransitionPermission, requireLifecyclePermissionOnPatch } = require("../../../shared/http/transition-permission");
 const controller = require("./lead.controller");
 const validator = require("./lead.validator");
 const MODULE = "MOD-20";
-/**
- * API F-21. This lifecycle was gated by ONE flat permission for every target
- * state, so advancing a record and ending it required the same grant — and an
- * administrator reading the permission matrix could not tell which was which.
- * Advancing is `edit`; a decision that ends the record, or that is irreversible
- * outside the system, is `approve`. Anything not listed falls back to `approve`
- * so a state added later fails closed.
- */
-const TRANSITION_ACTION = {
-  CONTACTED: "edit",
-  QUALIFIED: "edit",
-  LOST: "approve",
-};
 
+/**
+ * Leads (MOD-20): the company row (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md §3.2).
+ *
+ * Working a company is `edit`: logging what happened, setting and completing
+ * its next step, reopening it, making it a client. ARCHIVING it is `approve`,
+ * the grant the funnel's LOST always took (API F-21): it ends the record and
+ * loses every request still open on it.
+ *
+ * The lead's own five-step lifecycle and its `/transition` route are gone with
+ * it (§4.1); a deal's stage is its request's (`/quote-requests/:id/stage`).
+ */
 const router = express.Router();
 router.use(authMiddleware);
-router.get("/", requirePermission(MODULE, "view"), controller.list);
+router.get("/", requirePermission(MODULE, "view"), validator.list, controller.list);
+// Declared before `/:id` so neither is read as an id.
+router.get("/duplicates", requirePermission(MODULE, "view"), validator.duplicates, controller.duplicates);
+router.post("/clients/:clientId/row", requirePermission(MODULE, "edit"), controller.clientRow);
 // The 360° dossier, kept next to the read it extends. `view` is the right gate:
 // it aggregates records the caller can already open one screen at a time, and
 // the only privileged thing on it — money — is gated separately in the
@@ -30,13 +30,11 @@ router.get("/", requirePermission(MODULE, "view"), controller.list);
 router.get("/:id/360", requirePermission(MODULE, "view"), controller.dossier);
 router.get("/:id", requirePermission(MODULE, "view"), controller.get);
 router.post("/", requirePermission(MODULE, "create"), validator.create, controller.create);
-// API F-17: `update: create.partial()` makes the lifecycle field patchable, so
-// PATCH was a second, cheaper route to the same state change. It now meets the
-// SAME gate as the endpoint above when — and only when — the body carries it.
-router.patch("/:id", requirePermission(MODULE, "edit"), validator.update,
-  requireLifecyclePermissionOnPatch(MODULE, TRANSITION_ACTION, { field: "status" }), controller.update);
-// Validator FIRST, so the target state is checked against the enum before it
-// selects its own gate.
-router.post("/:id/transition", validator.transition, requireTransitionPermission(MODULE, TRANSITION_ACTION), controller.transition);
-router.post("/:id/convert", requirePermission(MODULE, "edit"), validator.convert, controller.convert);
+router.patch("/:id", requirePermission(MODULE, "edit"), validator.update, controller.update);
+router.post("/:id/activities", requirePermission(MODULE, "edit"), validator.activity, controller.logActivity);
+router.put("/:id/next-step", requirePermission(MODULE, "edit"), validator.nextStep, controller.setNextStep);
+router.post("/:id/next-step/done", requirePermission(MODULE, "edit"), validator.done, controller.done);
+router.post("/:id/archive", requirePermission(MODULE, "approve"), validator.archive, controller.archive);
+router.post("/:id/reopen", requirePermission(MODULE, "edit"), validator.reopen, controller.reopen);
+router.post("/:id/make-client", requirePermission(MODULE, "edit"), validator.makeClient, controller.makeClient);
 module.exports = { basePath: "/leads", feature: null, router };

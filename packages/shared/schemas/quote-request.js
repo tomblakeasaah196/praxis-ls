@@ -44,11 +44,27 @@ const STATUSES = [
 const TERMINAL = ["CONVERTED_TO_OPPORTUNITY", "CLOSED_NO_ACTION"];
 
 /**
+ * The deal's stage (14511, owner decision D3). Fixed, never configurable: New,
+ * Contacted, Meeting, Quoted, then Won or Lost. Won comes from an accepted
+ * quotation or Mark Won, never from a click on the bar, because a win opens the
+ * operations file.
+ */
+const STAGES = ["NEW", "CONTACTED", "MEETING", "QUOTED", "WON", "LOST"];
+/** The stages a request is still being worked in. */
+const OPEN_STAGES = ["NEW", "CONTACTED", "MEETING", "QUOTED"];
+/** The stages a person may click on the bar (Lost asks why). */
+const MOVABLE_STAGES = ["NEW", "CONTACTED", "MEETING", "QUOTED", "LOST"];
+/** Why a deal was lost (§3.2). */
+const LOST_REASONS = ["PRICE", "TIMING", "COMPETITOR", "NO_RESPONSE", "OTHER"];
+/** The two channels whose wizards ask for an Incoterm, so one is owed. */
+const INCOTERM_REQUIRED_CHANNELS = ["WEBSITE", "PORTAL"];
+
+/**
  * Where a request came from. PORTAL since 10705; EMAIL for a request keyed in
  * from a mail thread (14310 moved this list from a CHECK constraint into this
- * shape — see that migration for why).
+ * shape — see that migration for why). CAMPAIGN left with Campaigns (14512).
  */
-const INTAKE_CHANNELS = ["MANUAL", "WEBSITE", "PORTAL", "EMAIL", "REFERRAL", "CAMPAIGN"];
+const INTAKE_CHANNELS = ["MANUAL", "WEBSITE", "PORTAL", "EMAIL", "REFERRAL"];
 
 /** How long the goods stay — the CHECK on quote_request (0683). */
 const WAREHOUSE_DURATIONS = [
@@ -132,6 +148,11 @@ const staffFields = {
   additional_notes: text(5000),
   incoterm: incoterm.optional(),
   owner_user_id: z.string().guid().optional().nullable(),
+  // 14511 — the deal the request carries: what it is called when it was typed
+  // by hand, and what it is worth.
+  title: text(255),
+  estimated_value: z.number().nonnegative().max(1e15).optional().nullable(),
+  currency: z.string().trim().length(3).transform((v) => v.toUpperCase()).optional().nullable(),
   // origin_place_id / destination_place_id / attachment_doc_id (and 14220's
   // collection_place_id / delivery_place_id) are deliberately NOT here. They
   // are written by the intake paths that earn them — the coordinates come from
@@ -140,20 +161,41 @@ const staffFields = {
   // hang any document in the vault off any quote request: the shape of an IDOR.
 };
 
-/** Capture a request at the desk. `incoterm` is required (the legacy drawer's mark). */
-const staffCreate = z.object({ ...staffFields, incoterm });
+/**
+ * Capture a request at the desk. A request typed by hand from a phone call may
+ * not know its Incoterm yet (14511); one arriving through a wizard that asks
+ * for it (the website, the portal) owes one.
+ */
+const staffCreate = z.object({ ...staffFields }).superRefine((v, ctx) => {
+  if (INCOTERM_REQUIRED_CHANNELS.includes(v.intake_channel) && !v.incoterm) {
+    ctx.addIssue({ code: "custom", path: ["incoterm"], message: "Required" });
+  }
+});
 /** Edit one. Every field optional; the service refuses a terminal request. */
 const staffUpdate = z.object({ ...staffFields });
 
 const transition = z.object({ to: z.enum(STATUSES) });
 
-const opportunity = z.object({
-  name: z.string().min(1),
-  estimated_value: z.number().nonnegative().optional().nullable(),
-  currency: z.string().length(3).optional(),
-  owner_user_id: z.string().guid().optional().nullable(),
-});
-const convert = z.object({ opportunity });
+/** A lost deal says why: one of five reasons, and a line. */
+const lostReason = {
+  lost_reason_code: z.enum(LOST_REASONS).optional(),
+  lost_reason: z.string().trim().max(500).optional().nullable(),
+};
+const requireReasonWhenLost = (v, ctx) => {
+  if (v.stage === "LOST" && !v.lost_reason_code) {
+    ctx.addIssue({ code: "custom", path: ["lost_reason_code"], message: "Say why it was lost" });
+  }
+};
+
+/** Click a stage on the bar. Won is not here: it goes through Mark Won. */
+const moveStage = z.object({ stage: z.enum(MOVABLE_STAGES), ...lostReason }).strict().superRefine(requireReasonWhenLost);
+
+/**
+ * Mark Won by hand (§3.2): the same win an accepted quotation makes. The
+ * entity is only asked for when the tenant has several and the request names
+ * none: it decides whose counter numbers the operations file.
+ */
+const markWon = z.object({ entity_id: z.string().guid().optional().nullable() }).strict();
 
 /**
  * A staff upload. `file` is a base64 data URL; the vault sniffs the bytes and
@@ -178,8 +220,8 @@ const clientMatchQuery = z.object({ email: z.string().trim().email().max(255) })
 
 /* ── the AI (each carries the request id in its payload) ─────────────────── */
 
-const aiTransition = z.object({ quote_request_id: z.string().guid(), to: z.enum(STATUSES) });
-const aiConvert = z.object({ quote_request_id: z.string().guid(), opportunity });
+const aiMoveStage = z.object({ quote_request_id: z.string().guid(), stage: z.enum(MOVABLE_STAGES), ...lostReason }).strict().superRefine(requireReasonWhenLost);
+const aiMarkWon = z.object({ quote_request_id: z.string().guid(), entity_id: z.string().guid().optional().nullable() }).strict();
 const aiLinkClient = z.object({ quote_request_id: z.string().guid(), client_id: z.string().guid() });
 const aiFileFromChat = z.object({
   quote_request_id: z.string().guid(),
@@ -319,6 +361,11 @@ const portalDocumentUpload = z.object({ document_kind: z.enum(DOCUMENT_KINDS).op
 module.exports = {
   STATUSES,
   TERMINAL,
+  STAGES,
+  OPEN_STAGES,
+  MOVABLE_STAGES,
+  LOST_REASONS,
+  INCOTERM_REQUIRED_CHANNELS,
   INTAKE_CHANNELS,
   WAREHOUSE_DURATIONS,
   DOCUMENT_KINDS,
@@ -330,12 +377,13 @@ module.exports = {
   staffCreate,
   staffUpdate,
   transition,
-  convert,
+  moveStage,
+  markWon,
   attachment,
   fromChat,
   clientMatchQuery,
-  aiTransition,
-  aiConvert,
+  aiMoveStage,
+  aiMarkWon,
   aiLinkClient,
   aiFileFromChat,
   publicQuote,
