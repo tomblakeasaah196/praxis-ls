@@ -62,6 +62,8 @@ import {
   toPayload,
   type LineDraft,
 } from "./cash-request-model";
+import { useCan, useCanMove } from "@/lib/route-access";
+import { transitionActions } from "@praxis/shared";
 
 /* ── The budget banner ─────────────────────────────────────────────────────── */
 
@@ -424,6 +426,11 @@ export function CashRequest360({
 }) {
   const res = useResource(() => api.getCashRequest(id), [id]);
   const cr = res.data;
+  // Four people act on one request: the requester (`edit`), finance
+  // (`validate`), a manager (`approve`) and the cashier (`disburse`). Each is
+  // offered only their own step. The map is the one the route mounts.
+  const can = useCan("MOD-49");
+  const mayMove = useCanMove("MOD-49", transitionActions.cashRequestTransition);
 
   const [lines, setLines] = React.useState<LineDraft[] | null>(null);
   const [dirty, setDirty] = React.useState(false);
@@ -572,35 +579,42 @@ export function CashRequest360({
           <Button onClick={save} loading={busy} disabled={!dirty}>
             {tr("Save")}
           </Button>
-          <Button variant="outline" loading={busy} onClick={submit}>
-            {tr("Submit")}
-          </Button>
+          {mayMove("SUBMITTED") && (
+            <Button variant="outline" loading={busy} onClick={submit}>
+              {tr("Submit")}
+            </Button>
+          )}
         </>
       )}
       {cr.status === "SUBMITTED" && (
         <>
-          <Button
-            loading={busy}
-            onClick={() =>
-              act(
-                () => api.transitionCashRequest(id, "VALIDATED"),
-                tr("Validated"),
-              )
-            }
-          >
-            {tr("Validate")}
-          </Button>
-          <Button
-            variant="outline"
-            loading={busy}
-            onClick={() => setReasonFor("REJECT")}
-          >
-            {tr("Reject")}
-          </Button>
+          {mayMove("VALIDATED") && (
+            <Button
+              loading={busy}
+              onClick={() =>
+                act(
+                  () => api.transitionCashRequest(id, "VALIDATED"),
+                  tr("Validated"),
+                )
+              }
+            >
+              {tr("Validate")}
+            </Button>
+          )}
+          {mayMove("REJECTED") && (
+            <Button
+              variant="outline"
+              loading={busy}
+              onClick={() => setReasonFor("REJECT")}
+            >
+              {tr("Reject")}
+            </Button>
+          )}
         </>
       )}
       {cr.status === "VALIDATED" && (
         <>
+          {mayMove("APPROVED") && (
           <Button
             loading={busy}
             onClick={async () => {
@@ -628,16 +642,19 @@ export function CashRequest360({
           >
             {tr("Approve")}
           </Button>
-          <Button
-            variant="outline"
-            loading={busy}
-            onClick={() => setReasonFor("REJECT")}
-          >
-            {tr("Reject")}
-          </Button>
+          )}
+          {mayMove("REJECTED") && (
+            <Button
+              variant="outline"
+              loading={busy}
+              onClick={() => setReasonFor("REJECT")}
+            >
+              {tr("Reject")}
+            </Button>
+          )}
         </>
       )}
-      {cr.status === "REJECTED" && (
+      {cr.status === "REJECTED" && mayMove("DRAFT") && (
         <Button
           variant="outline"
           loading={busy}
@@ -648,7 +665,8 @@ export function CashRequest360({
           {tr("Reopen and correct")}
         </Button>
       )}
-      {cr.status === "PARTIALLY_DISBURSED" && (
+      {/* Settling short is a decision: POST /:id/close-balance asks `approve`. */}
+      {cr.status === "PARTIALLY_DISBURSED" && can("approve") && (
         <Button
           variant="outline"
           loading={busy}

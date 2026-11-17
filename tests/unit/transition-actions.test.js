@@ -116,6 +116,8 @@ describe("the routes mount the shared map, not a copy", () => {
       "client/src/features/hr/trainings.tsx": "trainingStatus",
       "client/src/features/operations/operation-files.tsx": "operationsFileTransition",
       "client/src/features/operations/file-360.tsx": "operationsFileTransition",
+      "client/src/features/costing/cash-request-actions.tsx": "cashRequestTransition",
+      "client/src/features/costing/cash-request-360.tsx": "cashRequestTransition",
     };
     for (const [file, map] of Object.entries(SCREENS))
       expect(read(file)).toContain(`transitionActions.${map}`);
