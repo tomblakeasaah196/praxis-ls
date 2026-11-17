@@ -531,6 +531,14 @@ const CASES = {
       "sub", "empty", "lanesSub", "files",
     ],
   },
+  "site.profile": {
+    LABEL: [
+      "title", "download", "print", "langSwitch", "version",
+    ],
+    PROSE: [
+      "unavailable", "unavailableHint",
+    ],
+  },
   "site.proposals": {
     LABEL: [
       "title", "client", "route", "lines", "download", "print",

@@ -85,6 +85,11 @@ const FEATURE_DICTS = [
     file: path.join(SRC, "features/verify/verify-copy.ts"),
     mount: "site.verify",
   },
+  {
+    // The shared Company Profile page's furniture, read only by a link holder.
+    file: path.join(SRC, "features/profile/profile-copy.ts"),
+    mount: "site.profile",
+  },
 ];
 
 /** True for any file that IS copy rather than a component that contains copy.
