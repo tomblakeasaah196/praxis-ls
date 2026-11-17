@@ -143,10 +143,22 @@ describe("a person's own account page needs no module grant", () => {
     expect(canOpenRoute(finance, "/security/my-security?highlight=passkey")).toBe(true);
   });
 
+  it("EVERYONE MAY OPEN THEIR OWN NOTIFICATIONS, whatever their role", () => {
+    // The bell is on every screen and its "View All" goes here. The page was
+    // registered under Security & Access, so it refused everyone who is not an
+    // administrator a list of their own notifications.
+    expect(canOpenRoute(finance, "/notifications")).toBe(true);
+    expect(canOpenRoute(user([]), "/notifications")).toBe(true);
+  });
+
   it("still refuses the rest of Security & Access", () => {
     expect(canOpenRoute(finance, "/security/users")).toBe(false);
     expect(canOpenRoute(finance, "/security/roles")).toBe(false);
     expect(canOpenRoute(finance, "/security")).toBe(false);
+    // And the pages that sit beside Notifications in the ribbon and ARE
+    // administration: their APIs require the module.
+    expect(canOpenRoute(finance, "/workflows")).toBe(false);
+    expect(canOpenRoute(finance, "/approvals")).toBe(false);
   });
 });
 
