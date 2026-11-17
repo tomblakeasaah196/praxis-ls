@@ -2283,13 +2283,12 @@ export function PartyDossier({
       )}
 
       {/* The client's portal conversations — General and one per shipment —
-          answered from here as from the Client inbox (client portal PR 3). */}
-      {tab === "Messages" && isClient && (
-        <div className="grid gap-3">
-          <AccountManagerCard clientId={partyId} />
-          <ClientChatPanel clientId={partyId} />
-        </div>
-      )}
+          answered from here as from the Client inbox (client portal PR 3), and
+          looking the same: Chat's bubbles and message box, the conversations
+          as tabs. The account manager card that stood above the messages is
+          behind the panel's info button, as it is in the inbox (17 Nov 2026);
+          the Overview tab still shows it in the open. */}
+      {tab === "Messages" && isClient && <ClientChatPanel clientId={partyId} />}
 
       {tab === "Operations" && (
         <div className="space-y-3">
