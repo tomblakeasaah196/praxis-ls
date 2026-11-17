@@ -560,6 +560,10 @@ export function MailboxesTab({
           rowKey={(m) => m.email_connection_id}
           empty={{
             title: tr("No mailboxes yet"),
+            // Without a hint the list prints its own "No records returned.",
+            // which is the developer default and says nothing to an
+            // administrator looking at a company with no mail set up.
+            hint: tr("Team addresses are set up here."), // @prose:keep an empty state says what to do next; without it the list prints its developer default
             action: canCreate ? <Button onClick={() => setChoosing(null)}>{tr("New Shared Mailbox")}</Button> : undefined,
           }}
         />

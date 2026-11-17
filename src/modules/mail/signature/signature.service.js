@@ -757,7 +757,26 @@ async function updateTemplate(client, id, fields, actor = {}) {
   if (fields.is_active === false && before.is_system) {
     throw new AppError("SYSTEM_TEMPLATE", "A seeded template can be edited but not deactivated or deleted.", 422);
   }
-  const row = await repo.updateTemplate(client, id, fields);
+  let row;
+  if (fields.is_default === true && !before.is_default) {
+    /* Choosing the company layout. Not a field update: the previous default
+     * has to be cleared in the same transaction (see `setCompanyDefault`), and
+     * the company's motto goes with the company, not with the layout it
+     * happened to be typed on. Without the carry-over, switching layout would
+     * silently drop the motto from every signature. */
+    const previous = await repo.defaultTemplate(client, {});
+    await repo.setCompanyDefault(client, id);
+    const carried = {};
+    for (const k of ["copy_en", "copy_fr"]) {
+      const motto = previous && previous[k] && previous[k].motto;
+      if (motto) carried[k] = { ...(before[k] || {}), motto };
+    }
+    // eslint-disable-next-line no-unused-vars -- taken out: the swap above owns them
+    const { is_default, scope_kind, scope_value, ...rest } = fields;
+    row = await repo.updateTemplate(client, id, { ...carried, ...rest });
+  } else {
+    row = await repo.updateTemplate(client, id, fields);
+  }
   await repo.deleteAllCached(client);
   await emitEvent(client, {
     eventTypeKey: events.TEMPLATE_CHANGED, moduleKey: events.ADMIN_MODULE,

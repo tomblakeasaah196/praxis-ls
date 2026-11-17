@@ -36,7 +36,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Modal, Select } from "@/components/ui/modal";
-import { ErrorState } from "@/components/ui/states";
+import { ErrorState, LoadingRow } from "@/components/ui/states";
 import { Pill } from "@/components/ui/pill";
 import { Panel } from "@/components/ui/panel";
 import { ChevronIcon } from "@/components/ui/icons";
@@ -187,7 +187,11 @@ export function SendPointsSection() {
   return (
     <Panel title={tr("Sending Addresses")}>
       {points.error && <ErrorState message={points.error} />}
+      {/* An empty bordered box is not a state. While the list is on its way
+          it says so; with nothing to list it draws nothing. */}
+      {points.loading && !points.data && <LoadingRow />}
 
+      {groups.length > 0 && (
       <ul className="divide-y divide-border rounded-lg border border-border">
         {groups.map((g) => {
           const all = rows.filter((r) => r.group_key === g);
@@ -254,6 +258,7 @@ export function SendPointsSection() {
           );
         })}
       </ul>
+      )}
 
       {editing && (
         <BindModal
