@@ -302,6 +302,32 @@ display label, so retitling the navigation silently dropped five areas onto one
 glyph in an icons-only rail, with nothing failing at the type level. Full detail
 in **`doc/FRONTEND_GUIDE.md` §3.18**.
 
+## The seventh frontend rule: offer only what the reader can open
+
+**A link, button, card or tab into a module is drawn only for a role that holds
+it. Use `<AccessLink>` or `useCanOpenRoute()`.**
+
+Enforced by `scripts/check-access-links.mjs` (`npm run check:access` from
+`client/`), in `npm run ci` and CI. It fails a literal link from one area into
+another that does not ask first.
+
+The server is the security boundary: every API route checks the grant and a
+refusal carries no data. This rule is about not offering what will be refused.
+The navigation asked already. An audit on 17 Nov 2026 found the links INSIDE
+screens did not: 67 of them, each ending for the wrong role on "… is not part of
+your access", and the tenant's instruction was to hide what a person cannot use.
+
+| You have | Use |
+| --- | --- |
+| a link | `<AccessLink to>` from `@/components/ui/access-link`: draws nothing when denied |
+| a link whose words are data (a reference, a name, a number) | `<AccessLink whenDenied="text">`: the words stay, the link goes |
+| a button, a `navigate()`, a list of cards | `useCanOpenRoute()` from `@/lib/route-access` |
+
+`<HubCrumb>` and `<TabbedHub>` ask for themselves. While access is unknown,
+everything is offered: a link that vanishes and returns is worse than one frame
+of over-offering. A deliberate exception takes `// @access:open <reason>`.
+Full detail, and what the gate cannot see, in **`doc/FRONTEND_GUIDE.md` §3.19**.
+
 ## Before you write frontend code
 
 `doc/FRONTEND_GUIDE.md` is **the** frontend document — CI fails if it names a
@@ -317,6 +343,7 @@ npm run check:palette   # no raw palette colours — they break white-labelling
 npm run check:contrast  # every text-on-surface token pair clears WCAG AA
 npm run check:docs      # the frontend guide is not lying
 npm run check:motion    # motion budget
+npm run check:access    # a link into another area asks before it is offered
 npm run check:prose     # supporting text is behind the ⓘ, and chrome is Title Case
                         # --fix-titles retitles and moves the dictionary keys
                         # --update-baseline after a sweep, so the ratchet holds

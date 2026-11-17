@@ -28,7 +28,7 @@
  * being acted on, so it is the one that shows without being asked.
  */
 import * as React from "react";
-import { Link } from "react-router-dom";
+import { AccessLink } from "@/components/ui/access-link";
 import { cn } from "@/lib/cn";
 import { Markdown } from "@/components/markdown";
 import { ActionForm } from "@/components/action-form";
@@ -444,9 +444,12 @@ function GroundingFooter({ sources }: { sources: AiSource[] }) {
               <span className="truncate">{s.label}</span>
             </a>
           ) : (
-            <Link
+            <AccessLink
               key={s.href}
               to={s.href}
+              // The source is named either way; it opens only for someone who
+              // can open that screen.
+              whenDenied="text"
               className={cn(
                 "inline-flex max-w-[15rem] items-center gap-1 rounded-md border px-1.5 py-0.5 text-micro transition-colors hover:border-primary hover:text-primary-ink",
                 s.kind === "report"
@@ -456,7 +459,7 @@ function GroundingFooter({ sources }: { sources: AiSource[] }) {
             >
               <SourceIcon width={11} height={11} className="shrink-0" />
               <span className="truncate">{s.label}</span>
-            </Link>
+            </AccessLink>
           ),
         )}
       </div>

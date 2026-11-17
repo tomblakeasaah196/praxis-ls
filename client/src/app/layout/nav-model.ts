@@ -1,12 +1,13 @@
 /**
  * The grouped nav map — data, not markup.
  *
- * WHAT STILL READS THIS, now that the ribbon exists. Two surfaces that are
- * deliberately NOT permission-filtered chrome: the ⌘K command palette, and the
- * `< md` hamburger drawer. Both are complete indexes of the product's areas
- * rather than a view of one user's access, and both are grouped by AREA (the
- * sixteen headings below), not by the six workflow verbs the ribbon partitions
- * on. The ribbon's own map is `areas.ts` + `GET /permissions/mine`.
+ * WHAT STILL READS THIS, now that the ribbon exists. Two surfaces: the ⌘K
+ * command palette and the `< md` hamburger drawer. Both are grouped by AREA
+ * (the sixteen headings below), not by the six workflow verbs the ribbon
+ * partitions on, and both filter this list through `canOpenRoute` before they
+ * draw it, so a person is offered only what their role can open. This file is
+ * the full index; it is never drawn as it stands. The ribbon's own map is
+ * `areas.ts` + `GET /permissions/mine`.
  *
  * The tiered `TOPBAR` table that used to live here went with the menubar it
  * described — the ribbon's second row reveals progressively by its own table

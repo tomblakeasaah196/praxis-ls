@@ -39,6 +39,7 @@ import { TabList, TabsRoot, TabsContent } from "@/components/ui/tabs";
 import type { HubTab } from "@/app/layout/areas";
 import { buildRibbon } from "@/app/layout/ribbon-model";
 import { useShell } from "@/app/layout/shell-context";
+import { useCanOpenRoute } from "@/lib/route-access";
 
 export type { HubTab };
 
@@ -102,6 +103,26 @@ export function TabbedHub({
   const { t } = useTranslation();
   const { section } = useParams();
   const navigate = useNavigate();
+  /* ONLY THE TABS THIS PERSON CAN OPEN.
+   *
+   * A hub opens for anyone who holds ANY of its sections (route-access.ts), so
+   * a payroll officer may open /hr. The strip used to draw every section
+   * anyway, the bare hub address rendered the first one whatever its module,
+   * and an `inPlace` hub (Warehouse, Fleet) switched tabs without changing the
+   * address, so the route gate never looked again and the tab mounted and
+   * failed. Filtering here closes all three: the strip, the default tab and
+   * the in-place switch all read this list.
+   *
+   * While access is unresolved `canOpen` answers yes to everything, so the hub
+   * never flashes empty. If the list ever came out empty the gate would
+   * already have refused the hub; the fallback keeps the array non-empty for
+   * the indexing below rather than for any case a person can reach. */
+  const canOpen = useCanOpenRoute();
+  const allTabs = tabs;
+  tabs = React.useMemo(() => {
+    const open = allTabs.filter((x) => canOpen(`${basePath}/${x.key}`));
+    return open.length ? open : allTabs;
+  }, [allTabs, basePath, canOpen]);
   // `inPlace` swaps tab content in local state without touching the route, so the
   // hub stays on one page (no URL change / scroll reset). Routed hubs keep their
   // deep-linkable `<basePath>/:section` behaviour (the default).
@@ -171,13 +192,18 @@ export function TabbedHub({
 /** Breadcrumb "Hub › <area>". Hub links to the Control Tower; when `to` is given
  *  the area is a link back to its own hub (e.g. Finance → /finance). */
 export function HubCrumb({ area, to }: { area: string; to?: string }) {
+  // The area's name is always shown: it says where this screen sits. It is a
+  // LINK only for someone who can open that area, because a breadcrumb is the
+  // one cross-area link every page carries (a Quotations screen lives under
+  // Sales, and a costing officer can read the first without the second).
+  const canOpen = useCanOpenRoute();
   return (
     <span className="micro">
       <Link to="/" className="transition-colors hover:text-primary-ink">
         Hub
       </Link>{" "}
       ›{" "}
-      {to ? (
+      {to && canOpen(to) ? (
         <Link to={to} className="transition-colors hover:text-primary-ink">
           {area}
         </Link>

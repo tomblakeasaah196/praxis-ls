@@ -29,6 +29,7 @@
  * two thirds and "Recent activity" one third, side by side; "Cash to account
  * for" runs full width last. Smaller screens stack everything.
  */
+import { AccessLink } from "@/components/ui/access-link";
 import * as React from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { pageShell } from "@/lib/layout";
@@ -130,12 +131,12 @@ export function TodayPage() {
             title="Awaiting Me"
             className="min-w-0"
             action={
-              <Link
+              <AccessLink
                 to="/approvals"
                 className="text-sm text-muted-foreground transition-colors hover:text-primary-ink"
               >
                 Open queue →
-              </Link>
+              </AccessLink>
             }
           >
             {approvalsQ.isLoading ? (
@@ -316,12 +317,12 @@ export function TodayPage() {
           }
           className="mt-4"
           action={
-            <Link
+            <AccessLink
               to="/costing/reconciliation"
               className="text-sm text-muted-foreground transition-colors hover:text-primary-ink"
             >
               Open sheets →
-            </Link>
+            </AccessLink>
           }
         >
           {owedQ.isLoading ? (

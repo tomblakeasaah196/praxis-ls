@@ -10,6 +10,7 @@
  * bridge (Hard Rule 2). Bank numbers arrive already masked from the API for a
  * caller without finance visibility (gate 14); this view never unmasks them.
  */
+import { useCanOpenRoute } from "@/lib/route-access";
 import * as React from "react";
 import { tr, tv } from "@/lib/i18n";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -503,6 +504,10 @@ function DeepLink({
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
+  // The number is a fact about the row and is always shown. It opens its
+  // record only for someone who can open that module.
+  const canOpen = useCanOpenRoute();
+  if (!canOpen(route)) return <>{children}</>;
   return (
     <button
       type="button"

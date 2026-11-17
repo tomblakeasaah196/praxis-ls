@@ -104,6 +104,7 @@ const GATES = [
   { group: "frontend", name: "Motion budget", cmd: npm("run", "check:motion", "--prefix", "client") },
   { group: "frontend", name: "Raw-palette gate", cmd: npm("run", "check:palette", "--prefix", "client") },
   { group: "frontend", name: "Prose budget and Title Case", cmd: npm("run", "check:prose", "--prefix", "client") },
+  { group: "frontend", name: "Links ask before they are offered", cmd: npm("run", "check:access", "--prefix", "client") },
   { group: "frontend", name: "Test (vitest)", cmd: npm("run", "test", "--if-present", "--prefix", "client") },
   // Typecheck lives here: `npm run build` is `tsc -b && vite build`, and tsc is
   // the only thing in the whole pipeline that reads the client's types. Vitest

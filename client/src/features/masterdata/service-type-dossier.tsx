@@ -29,6 +29,8 @@
  * row from `?focus=<id>` (party-360.tsx:41 documents the convention). Money
  * rendering trusts `money.masked` from the server — never re-computed here.
  */
+import { AccessLink } from "@/components/ui/access-link";
+import { useCanOpenRoute } from "@/lib/route-access";
 import * as React from "react";
 import { tr } from "@/lib/i18n";
 import { useNavigate } from "react-router-dom";
@@ -109,6 +111,10 @@ function DeepLink({
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
+  // The reference is a fact about the row and is always shown. It opens its
+  // record only for someone who can open that module.
+  const canOpen = useCanOpenRoute();
+  if (!canOpen(href)) return <>{children}</>;
   return (
     <button
       type="button"
@@ -373,6 +379,7 @@ function MilestonesTab({
   onRenamed: () => void;
 }) {
   const navigate = useNavigate();
+  const canOpen = useCanOpenRoute();
   const owners = useMilestoneOwners();
   const toast = useToast();
   /**
@@ -404,13 +411,15 @@ function MilestonesTab({
           A new version applies to future files only.
         </p>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate("/operations/milestones")}
-          >
-            Open in Milestones
-          </Button>
+          {canOpen("/operations/milestones") && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate("/operations/milestones")}
+            >
+              Open in Milestones
+            </Button>
+          )}
           {/* The stages say WHAT happens; the policy says how the schedule
               behaves when reality does not cooperate. They belong together. */}
           <Button size="sm" variant="outline" onClick={onEditPolicy}>
@@ -1054,9 +1063,12 @@ function AutomationTab({ st }: { st: api.ServiceType }) {
           Anyone who can manage operations files can manage service types.
         </p>
         <p className="mt-2">
-          <DeepLink href="/security/permissions">
+          <AccessLink
+            to="/security/permissions"
+            className="text-primary-ink underline underline-offset-2 hover:opacity-80"
+          >
             Open permission matrix →
-          </DeepLink>
+          </AccessLink>
         </p>
       </div>
       <p className="micro">

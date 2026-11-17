@@ -10,6 +10,7 @@
  * `<h1>` lives here, and it is the page's only one (audit F13: ~116 of 117 pages
  * had none at all).
  */
+import { useCanOpenRoute } from "@/lib/route-access";
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function TowerHero({
   isTest: boolean;
 }) {
   const navigate = useNavigate();
+  const canOpen = useCanOpenRoute();
   // Computed once per mount: an operator who leaves the tower open across noon
   // does not need the greeting to change under them, and re-rendering on a timer
   // would be motion for its own sake.
@@ -67,13 +69,20 @@ export function TowerHero({
         </p>
       </div>
 
+      {/* Each button only for someone who can open where it goes. Both were
+          drawn for every role, so a warehouse clerk's first screen offered
+          "New invoice" and answered with a refusal. */}
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => navigate("/operations/files")}>
-          New operations file
-        </Button>
-        <Button variant="outline" onClick={() => navigate("/finance/invoices")}>
-          New invoice
-        </Button>
+        {canOpen("/operations/files") && (
+          <Button onClick={() => navigate("/operations/files")}>
+            New operations file
+          </Button>
+        )}
+        {canOpen("/finance/invoices") && (
+          <Button variant="outline" onClick={() => navigate("/finance/invoices")}>
+            New invoice
+          </Button>
+        )}
       </div>
     </header>
   );

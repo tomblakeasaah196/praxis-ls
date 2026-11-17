@@ -7,7 +7,7 @@
  * sheet on a phone. A draft waiting for the caller carries a badge; that badge,
  * not a push, is how a draft made by the daily sweep is found (audit A4).
  */
-import { Link } from "react-router-dom";
+import { AccessLink } from "@/components/ui/access-link";
 import { tr } from "@/lib/i18n";
 import { dateTimeFmt } from "@/lib/format";
 import { ListPage } from "@/components/list-page";
@@ -67,9 +67,9 @@ export function CallsListPage() {
       title={tr("Calls")}
       description={tr("Your calls, newest first. Open one to review its summary and transcript.")}
       action={
-        <Link to="/settings/calls" className="text-sm text-primary-ink hover:underline">
+        <AccessLink to="/settings/calls" className="text-sm text-primary-ink hover:underline">
           {tr("Call settings")}
-        </Link>
+        </AccessLink>
       }
       columns={columns}
       rows={rows}

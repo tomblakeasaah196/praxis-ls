@@ -109,21 +109,38 @@ import { LockIcon, XIcon } from "@/components/ui/icons";
 import { ActionErrorBanner } from "@/components/action-error-banner";
 import { AccessBanner } from "@/app/layout/access-banner";
 import { RouteAccessGate } from "@/app/layout/route-access-gate";
+import { useCanOpenRoute } from "@/lib/route-access";
 import { useAiEnabled } from "@/components/ai-actions";
 import { cn } from "@/lib/cn";
 
-/** The grouped nav, minus AI-only destinations when AI is off for the tenant.
- *  AI Control is a no-op surface without AI provisioned, so it's hidden (and any
- *  group left empty is dropped). */
+/**
+ * The grouped nav the phone drawer draws: only what this person can open.
+ *
+ * It used to be the whole product, on purpose ("a complete index of the
+ * product's areas rather than a view of one user's access"). On a phone that
+ * meant a warehouse clerk scrolled past Finance, HR and Security to reach the
+ * one area they have, and every other row ended in a refusal. The tenant's
+ * instruction on 17 Nov 2026 was to hide what a person cannot use, and the
+ * drawer was the last piece of navigation that did not.
+ *
+ * AI Control is also dropped when AI is off for the tenant: it is a no-op
+ * surface without AI provisioned. Any group left empty is dropped with it.
+ * While access is unresolved `canOpen` answers yes, so the drawer never opens
+ * empty on a first sign-in.
+ */
 function useVisibleNav(): NavGroup[] {
   const aiEnabled = useAiEnabled();
-  return React.useMemo(() => {
-    if (aiEnabled) return NAV;
-    return NAV.map((g) => ({
-      ...g,
-      items: g.items.filter((it) => it.to !== "/ai-control"),
-    })).filter((g) => g.items.length > 0);
-  }, [aiEnabled]);
+  const canOpen = useCanOpenRoute();
+  return React.useMemo(
+    () =>
+      NAV.map((g) => ({
+        ...g,
+        items: g.items.filter(
+          (it) => (aiEnabled || it.to !== "/ai-control") && canOpen(it.to),
+        ),
+      })).filter((g) => g.items.length > 0),
+    [aiEnabled, canOpen],
+  );
 }
 
 /** Initials from a name or email local-part. */

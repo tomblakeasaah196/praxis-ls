@@ -11,7 +11,7 @@
  * decoration. Facts that are zero are omitted rather than rendered as "0
  * awaiting approval": a briefing lists what needs doing, not what does not.
  */
-import { Link } from "react-router-dom";
+import { AccessLink } from "@/components/ui/access-link";
 import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
 
@@ -85,15 +85,18 @@ export function Briefing({
           <ul className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1.5">
             {facts.map((f) => (
               <li key={f.to}>
-                <Link
+                {/* The count is a fact about the day and is always shown. It
+                    is a link only for someone who can open where it leads. */}
+                <AccessLink
                   to={f.to}
+                  whenDenied="text"
                   className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
                   <span className="num font-semibold text-foreground">
                     {f.n}
                   </span>{" "}
                   {f.n === 1 ? f.one : f.many}
-                </Link>
+                </AccessLink>
               </li>
             ))}
           </ul>

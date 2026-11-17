@@ -52,6 +52,7 @@
  * disagree the first time either was edited, with the wizard reporting 100% on
  * a record the generator then rejects.
  */
+import { useCanOpenRoute } from "@/lib/route-access";
 import * as React from "react";
 import { tr } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
@@ -882,7 +883,11 @@ function DocumentsStep({
   scanProgress,
   scanDone,
   onScanChanged,
+  canProvision,
 }: {
+  /** Whether this person may open Security → Users, which is where "provision
+   *  a login" takes them. Someone in HR without it is not offered the step. */
+  canProvision: boolean;
   docs: DraftDoc[];
   setDocs: (rows: DraftDoc[]) => void;
   /** Every scan in this step goes up inside ONE create-employee request, so
@@ -1037,6 +1042,7 @@ function DocumentsStep({
           invite — provisioning is the next thing that happens to a new hire,
           and making it a separate errand on a separate screen is how people
           end up with a staff record and no way to sign in. */}
+      {canProvision && (
       <fieldset className="space-y-3 rounded-lg border p-4">
         <legend className="px-1 text-sm font-medium text-foreground">
           {tr("System access")}
@@ -1066,6 +1072,7 @@ function DocumentsStep({
           }
         />
       </fieldset>
+      )}
 
       {missing.length > 0 && (
         <Callout
@@ -1123,6 +1130,10 @@ export function EmployeeWizard({
     })),
   );
   const [provision, setProvision] = React.useState(true);
+  // Provisioning hands over to Security → Users. An HR officer whose role does
+  // not include it used to be offered the checkbox, ticked by default, and was
+  // then sent to "Security & Access is not part of your access" on saving.
+  const canProvision = useCanOpenRoute()("/security/users");
   // Identity is pinned to LIVE whatever the LIVE/TEST toggle says, so a sandbox
   // employee has nothing in the live schema to hang a login on.
   const inSandbox = tokenStore.getEnv() !== "live";
@@ -1207,7 +1218,7 @@ export function EmployeeWizard({
         setScanProgress(100);
         setScanDone(true);
       }
-      onSaved(created, provision && Boolean(payload.email) && !inSandbox);
+      onSaved(created, canProvision && provision && Boolean(payload.email) && !inSandbox);
       onClose();
     } catch (err) {
       setError(errMsg(err));
@@ -1294,6 +1305,7 @@ export function EmployeeWizard({
             provision={provision}
             setProvision={setProvision}
             inSandbox={inSandbox}
+            canProvision={canProvision}
             hasEmail={Boolean(payload.email)}
             missing={ready.missing}
             isDriver={f.is_driver}

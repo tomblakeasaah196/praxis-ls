@@ -22,8 +22,8 @@
  * from that template at once. The footer says so in words rather than leaving it
  * to be discovered from someone else's mail.
  */
+import { AccessLink } from "@/components/ui/access-link";
 import * as React from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
 import { Callout } from "@/components/ui/callout";
@@ -171,9 +171,9 @@ export function AccentRoles({
           {tr(
             "Choose which of your brand colours paints each part of the card. The colours themselves stay in Appearance, so changing one there moves it everywhere at once.",
           )}{" "}
-          <Link className="underline" to="/settings/appearance">
+          <AccessLink className="underline" to="/settings/appearance">
             {tr("Open Appearance")}
-          </Link>
+          </AccessLink>
         </p>
       </div>
 

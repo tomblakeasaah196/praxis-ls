@@ -26,6 +26,7 @@
  * be linked to from an email. Neither copy can drift from the other.
  */
 
+import { AccessLink } from "@/components/ui/access-link";
 import * as React from "react";
 import { tr } from "@/lib/i18n";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -652,11 +653,11 @@ export function LeadDossier({
         actions={
           <ActionBar busy={busy} error={actionError}>
             {d.client ? (
-              <Link to={`/master/clients?focus=${encodeURIComponent(d.client.client_id)}`}>
+              <AccessLink to={`/master/clients?focus=${encodeURIComponent(d.client.client_id)}`}>
                 <Button size="sm" variant="outline">
                   Open client
                 </Button>
-              </Link>
+              </AccessLink>
             ) : null}
             {!terminal && !d.client ? (
               <Button size="sm" onClick={() => setConverting(true)}>
@@ -1153,7 +1154,7 @@ export function IntakeDossier({
                 ].filter(Boolean).join(" · ")
               : cell(q.service_category as string),
           },
-          { label: tr("Client"), value: q.client_id ? <Link className="text-primary-ink hover:underline" to={`/master/clients?focus=${encodeURIComponent(String(q.client_id))}`}>{cell(q.client_name as string)}</Link> : tr("Not tied to a client") },
+          { label: tr("Client"), value: q.client_id ? <AccessLink whenDenied="text" className="text-primary-ink hover:underline" to={`/master/clients?focus=${encodeURIComponent(String(q.client_id))}`}>{cell(q.client_name as string)}</AccessLink> : tr("Not tied to a client") },
           { label: tr("Incoterm"), value: incotermLabel(q.incoterm as string) },
           { label: tr("Owner"), value: q.owner_name ? cell(q.owner_name as string) : tr("Unassigned — Start review takes it") },
           /* Who logged it. A portal request has no staff author: it reads

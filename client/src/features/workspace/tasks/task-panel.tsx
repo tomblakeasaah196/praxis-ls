@@ -18,6 +18,7 @@
  * one click here rather than an edit form. The count in the header (`3/5`) is
  * the progress read; the checkboxes are the write.
  */
+import { useCanOpenRoute } from "@/lib/route-access";
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { Panel } from "@/components/ui/panel";
@@ -115,6 +116,7 @@ export function TaskPanel({
   onOpenChild?: (taskId: string) => void;
 }) {
   const navigate = useNavigate();
+  const canOpen = useCanOpenRoute();
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const q = useTask(taskId, audience);
@@ -298,14 +300,16 @@ export function TaskPanel({
                   ))}
                 </ul>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => navigate(`/operations/files/${task.dossier_id}?tab=tasks`)}
-              >
-                Open the file
-              </Button>
+              {canOpen("/operations/files") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => navigate(`/operations/files/${task.dossier_id}?tab=tasks`)}
+                >
+                  Open the file
+                </Button>
+              )}
             </div>
           )}
 

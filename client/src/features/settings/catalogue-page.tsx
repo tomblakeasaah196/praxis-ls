@@ -7,10 +7,10 @@
  * BE: `GET /catalogue/modules` (read-only, gated **MOD-67 / IAM view**) — there is
  * no write surface, by design. Built on the shared DataList/PageHeader scaffold.
  */
+import { AccessLink } from "@/components/ui/access-link";
 import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import * as React from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataList, PageHeader, type Column } from "@/components/data-list";
@@ -96,9 +96,9 @@ export function ModuleCataloguePage() {
         title="Module Catalogue"
         description="Every MOD-xx the platform knows about: the same list that backs the permission matrix. Read-only."
         action={
-          <Link to="/security/permissions">
+          <AccessLink to="/security/permissions">
             <Button variant="outline">Permission matrix</Button>
-          </Link>
+          </AccessLink>
         }
       />
 

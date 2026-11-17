@@ -23,8 +23,9 @@
  * know. Submit, validate, approve. If a carrier bills you three weeks later,
  * request an unlock, add the line, and the approver sees exactly what moved.
  */
+import { AccessLink } from "@/components/ui/access-link";
 import * as React from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Record360Page, Record360Header } from "@/components/record-360";
 import { Dialog } from "@/components/ui/dialog";
 import { RecordSheet } from "@/components/ui/record-sheet";
@@ -1002,13 +1003,14 @@ export function CostingSheet360({
         }
         subtitle={
           file ? (
-            <Link
+            <AccessLink
               className="underline-offset-2 hover:underline"
+              whenDenied="text"
               to={`/operations/files/${file.dossier_id}`}
             >
               {file.ref}
               {file.client_name ? ` · ${file.client_name}` : ""}
-            </Link>
+            </AccessLink>
           ) : undefined
         }
         meta={[

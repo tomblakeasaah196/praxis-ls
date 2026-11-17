@@ -13,6 +13,7 @@
  *
  * Shared primitives from components/ui/*; AI panel gated globally.
  */
+import { AccessLink } from "@/components/ui/access-link";
 import { pageShell } from "@/lib/layout";
 import { tr, tv } from "@/lib/i18n";
 import * as React from "react";
@@ -541,9 +542,9 @@ export function PortalAccessPage() {
                 title={tr("No client has portal users yet")}
                 hint={tr("Open a client and use its Portal tab to invite their contact.")}
                 action={
-                  <Link to="/master/clients" className="text-sm font-medium text-primary-ink hover:underline">
+                  <AccessLink to="/master/clients" className="text-sm font-medium text-primary-ink hover:underline">
                     {tr("Go to Clients")}
-                  </Link>
+                  </AccessLink>
                 }
               />
             ) : (

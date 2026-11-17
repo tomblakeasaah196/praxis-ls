@@ -60,6 +60,22 @@ if (dirty && !process.argv.includes("--allow-dirty")) {
  */
 const CASES = [
   {
+    name: "access (a link into another area that does not ask)",
+    defect: "audit 17 Nov 2026 — a link a role cannot open, offered anyway",
+    cmd: ["npm", ["run", "check:access"]],
+    file: "src/features/finance/proformas.tsx",
+    from: '            <AccessLink\n              to="/sales/quotations"',
+    to: '            <a\n              href="/sales/quotations"',
+  },
+  {
+    name: "access (a button that navigates without asking)",
+    defect: "audit 17 Nov 2026 — New invoice on the Control Tower, for every role",
+    cmd: ["npm", ["run", "check:access"]],
+    file: "src/features/dashboard/components/tower-hero.tsx",
+    from: '{canOpen("/finance/invoices") && (',
+    to: "{true && (",
+  },
+  {
     name: "contrast",
     defect: "F13 — a status ink that fails AA on its own pill ground",
     cmd: ["npm", ["run", "check:contrast"]],

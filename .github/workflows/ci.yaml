@@ -1232,6 +1232,17 @@ jobs:
         if: matrix.app == 'client'
         run: npm run check:prose --prefix client
 
+      - name: Links ask before they are offered
+        # Access audit, 17 Nov 2026. The ribbon, the rail, the palette and the
+        # Settings cards asked `canOpenRoute` before offering a destination;
+        # the links INSIDE screens did not. 67 of them led a role without the
+        # target module to "... is not part of your access". The tenant's
+        # instruction was to hide what a person cannot use. This fails a
+        # literal link into another area that does not ask first;
+        # FRONTEND_GUIDE.md 3.19 has the three ways to ask.
+        if: matrix.app == 'client'
+        run: npm run check:access --prefix client
+
       - name: Test
         # The client had zero tests until Phase 1 PR2 (audit F15) while the
         # backend carried ~50 suites — on a frontend that drives journal entries,
