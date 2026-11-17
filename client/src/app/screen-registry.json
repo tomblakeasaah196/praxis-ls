@@ -960,7 +960,7 @@
       "title": "Journals",
       "route": "/finance/journals",
       "area": "finance",
-      "module_key": "MOD-05",
+      "module_key": "MOD-55",
       "purpose": "General ledger journal entries (balanced-or-rejected, reversal-not-edit).",
       "actions": [
         "list_journal_entries",
@@ -1041,7 +1041,7 @@
       "title": "Receivables",
       "route": "/finance/receivables",
       "area": "finance",
-      "module_key": "MOD-56",
+      "module_key": "MOD-52",
       "purpose": "Smart receivables ledger — open items, ageing, reminders, and the payments clients report from their portal.",
       "actions": [
         "list_receipts",
@@ -1096,7 +1096,7 @@
       "title": "Chart of Accounts",
       "route": "/finance/chart-of-accounts",
       "area": "finance",
-      "module_key": "MOD-58",
+      "module_key": "MOD-06",
       "purpose": "SYSCOHADA/OHADA chart of accounts — hierarchical, is_postable / requires_analytic.",
       "actions": [
         "list_accounts",
@@ -1111,7 +1111,7 @@
       "title": "Proforma & Advances",
       "route": "/finance/proformas",
       "area": "finance",
-      "module_key": "MOD-52",
+      "module_key": "MOD-50",
       "purpose": "Proforma and advance-payment invoices — advance posts to 4191, not revenue.",
       "actions": [
         "get_advance",
