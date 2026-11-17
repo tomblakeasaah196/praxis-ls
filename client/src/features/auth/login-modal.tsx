@@ -18,7 +18,14 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
   const from = (location.state as { from?: string } | null)?.from || "/";
   const titleId = React.useId();
 
-  const go = React.useCallback(() => navigate(from, { replace: true }), [navigate, from]);
+  /* `restored`: this navigation is the app putting somebody back where a
+     session on this device last was, not the person choosing to go there. The
+     session that left that address may not have been THEIRS (see
+     `RouteAccessGate`), so the gate needs to be able to tell the two apart. */
+  const go = React.useCallback(
+    () => navigate(from, { replace: true, state: { restored: true } }),
+    [navigate, from],
+  );
 
   // Escape closes, like every dialog. Read through a ref so the listener is
   // bound once.

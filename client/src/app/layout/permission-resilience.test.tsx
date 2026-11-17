@@ -38,7 +38,7 @@ import {
 import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { NavAccess } from "@/lib/nav-access";
 import type { ShellPrefs } from "@/lib/preferences";
@@ -591,6 +591,76 @@ describe("a direct URL into a module you cannot see", () => {
 });
 
 /* ── the placeholder in isolation ──────────────────────────────────────────── */
+
+/* ── 5b. a refusal nobody asked for ────────────────────────────────────────── */
+
+/**
+ * Signing in puts a person back at the address the LAST session on that device
+ * was at. That session may have been somebody else's: an administrator sets a
+ * colleague up on Security → Users, and the colleague's first screen of the
+ * product was "Security & Access is not part of your access" (tenant report,
+ * 17 Nov 2026). The mark `state.restored` is what tells that arrival from a
+ * link the person chose to follow.
+ */
+describe("being put back somewhere you may not open", () => {
+  /** The gate as the shell mounts it: fed the live pathname, around the route. */
+  function Gated() {
+    const location = useLocation();
+    return (
+      <RouteAccessGate pathname={location.pathname}>
+        <Routes>
+          <Route path="/" element={<p>my own home</p>} />
+          <Route path="/finance/invoices" element={<p>the finance ledger</p>} />
+        </Routes>
+      </RouteAccessGate>
+    );
+  }
+  const arriveAt = (entry: { pathname: string; state?: unknown }) =>
+    render(
+      <TooltipProvider>
+        <MemoryRouter initialEntries={[entry]}>
+          <ShellProvider>
+            <Gated />
+          </ShellProvider>
+        </MemoryRouter>
+      </TooltipProvider>,
+    );
+
+  /** Somebody who has a home (the dashboard) and a warehouse, and no Finance. */
+  const OPERATIONS = grant({
+    monitor: ["MOD-00A"],
+    fulfill: ["MOD-33", "MOD-34"],
+  });
+
+  it("SENDS THEM HOME, WITH NO REFUSAL, when sign-in restored an address that is not theirs", async () => {
+    server.current = OPERATIONS; // no MOD-51
+    arriveAt({ pathname: "/finance/invoices", state: { restored: true } });
+
+    expect(await screen.findByText("my own home")).toBeInTheDocument();
+    expect(screen.queryByText(/is not part of your access/i)).not.toBeInTheDocument();
+    // And the screen behind the grant never mounted on the way through.
+    expect(screen.queryByText("the finance ledger")).not.toBeInTheDocument();
+  });
+
+  it("still puts them back where they were when the address IS theirs", async () => {
+    // The restore is the feature: a session that expired mid-task should come
+    // back to the task. Only the refusal is what goes.
+    server.current = grant({ transact: ["MOD-51"] });
+    arriveAt({ pathname: "/finance/invoices", state: { restored: true } });
+    expect(await screen.findByText("the finance ledger")).toBeInTheDocument();
+  });
+
+  it("A LINK THEY FOLLOWED STILL GETS THE PAGE that explains and offers the request", async () => {
+    // No mark: the person asked for this address. Sending them home silently
+    // would hide the one screen that says what it is and how to get it.
+    server.current = WAREHOUSE;
+    arriveAt({ pathname: "/finance/invoices" });
+    expect(
+      await screen.findByRole("heading", { level: 1 }),
+    ).toHaveTextContent(/Finance is not part of your access/i);
+    expect(screen.queryByText("my own home")).not.toBeInTheDocument();
+  });
+});
 
 describe("RibbonSkeleton", () => {
   it("announces nothing — the content column owns the one loading region", () => {
