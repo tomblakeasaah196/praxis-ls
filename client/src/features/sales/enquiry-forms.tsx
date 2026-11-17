@@ -9,7 +9,7 @@
  *   - Classify and annotate      -> PATCH   (never touches status)
  *   - Reply                      -> POST /respond  (sends the email; the
  *                                  enquiry becomes RESPONDED only if it lands)
- *   - Route into the funnel      -> POST /triage   (raises a lead; does NOT
+ *   - Raise Lead                 -> POST /triage   (finds or makes the company row, with a next step; does NOT
  *                                  mark it answered)
  *
  * OPENING THE DRAWER MARKS IT READ. The legacy does this too, and it is what
@@ -30,7 +30,6 @@ import { tenant } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Modal, Field, Select } from "@/components/ui/modal";
 import { ErrorState } from "@/components/ui/states";
 import { StatusPill } from "@/components/ui/pill";
@@ -38,6 +37,9 @@ import { cell, dateFmt } from "@/lib/format";
 import { errMsg, type Row } from "@/lib/use-resource";
 import { useCan, useCanMove } from "@/lib/route-access";
 import { transitionActions } from "@praxis/shared";
+import { AccessLink } from "@/components/ui/access-link";
+import { Callout } from "@/components/ui/callout";
+import { useDuplicateCheck } from "./lead-capture";
 
 const ENQUIRY_TYPES = ["GENERAL_ENQUIRY", "PARTNERSHIP", "CAREERS", "MEDIA"];
 
@@ -105,7 +107,6 @@ export function ManageEnquiryModal({
   const [notes, setNotes] = React.useState("");
   const [reply, setReply] = React.useState("");
   const [subject, setSubject] = React.useState("");
-  const [toLead, setToLead] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -129,7 +130,6 @@ export function ManageEnquiryModal({
     setError(null);
     setNotice(null);
     setReply("");
-    setToLead(false);
     void load();
     // Mark read on open. Fire-and-forget by design — see the header. The list
     // is refreshed by whichever real action follows, or on close.
@@ -147,6 +147,17 @@ export function ManageEnquiryModal({
   const closed = status === "CLOSED";
   const responses = Array.isArray(detail?.responses) ? (detail!.responses as Row[]) : [];
   const alreadyLead = !!detail?.lead_id;
+  // Raise Lead runs the capture's duplicate check (§3.3): the enquiry lands on
+  // the company already on file, and the desk says which before the click.
+  const dupes = useDuplicateCheck(
+    {
+      company_name: detail?.company_name ? String(detail.company_name) : "",
+      email: detail?.email ? String(detail.email) : "",
+      phone: detail?.phone ? String(detail.phone) : "",
+    },
+    !!enquiry && !!detail && !alreadyLead,
+  );
+  const match = dupes[0] || null;
 
   /** Returns whether the action succeeded — callers must not discard the
    *  operator's typing on a failure. */
@@ -190,8 +201,8 @@ export function ManageEnquiryModal({
   const triage = () =>
     run(
       "triage",
-      () => tenant(`/intake/enquiries/${id}/triage`, { method: "POST", body: { to_lead: toLead } }),
-      "Routed.",
+      () => tenant(`/intake/enquiries/${id}/triage`, { method: "POST", body: { to_lead: true } }),
+      tr("Lead raised. The next step is on your desk."),
     );
 
   const move = (to: string, ok: string) =>
@@ -356,28 +367,24 @@ export function ManageEnquiryModal({
         {/* Triage. Deliberately below the reply: routing an enquiry is not
             answering it, and the layout should not suggest otherwise. */}
         <div className="rounded-lg border p-3">
-          <p className="mb-1 text-sm font-semibold text-foreground">Route into the funnel</p>
-          <p className="mb-3 text-xs text-muted-foreground">
-            This does not mark the enquiry answered — the person still needs a reply.
-          </p>
-          <div className="space-y-2">
-            <Checkbox
-              checked={alreadyLead || toLead}
-              disabled={alreadyLead || closed}
-              onCheckedChange={(v) => setToLead(v === true)}
-              label={alreadyLead ? "Lead already raised" : "Raise a lead"}
-            />
-          </div>
-          {mayEdit && (
-            <Button
-              className="mt-3"
-              variant="outline"
-              loading={busy === "triage"}
-              disabled={closed || !toLead || alreadyLead}
-              onClick={triage}
-            >
-              Route
-            </Button>
+          <p className="mb-2 text-sm font-semibold text-foreground">{tr("Raise Lead")}</p>
+          {alreadyLead ? (
+            <AccessLink to={`/sales/leads/${String(detail?.lead_id)}`} className="text-sm text-primary-ink hover:underline">
+              {tr("Open Lead")}
+            </AccessLink>
+          ) : (
+            <>
+              {match ? (
+                <Callout tone="info" title={`${tr("Already here")}: ${match.company_name}`} className="mb-2">
+                  {match.is_client ? tr("Client") : tr("Prospect")}
+                </Callout>
+              ) : null}
+              {mayEdit ? (
+                <Button variant="outline" loading={busy === "triage"} disabled={closed} onClick={triage}>
+                  {match ? tr("Attach to This Company") : tr("Raise Lead")}
+                </Button>
+              ) : null}
+            </>
           )}
         </div>
       </div>

@@ -30,7 +30,12 @@ module.exports = {
     const out = await req.tenantDb((c) =>
       service.list(c, req.validatedQuery || req.query, { userId: actor(req).user_id, canSeeFinancials: canSee }),
     );
-    res.json({ data: out.rows, total: out.total, tiles: out.tiles, limit: out.limit, offset: out.offset });
+    // `meta` carries the same page and tiles in the envelope the client's paged
+    // fetch reads (api-client apiPaged), which unwraps `data` and keeps `meta`.
+    res.json({
+      data: out.rows, total: out.total, tiles: out.tiles, limit: out.limit, offset: out.offset,
+      meta: { total: out.total, limit: out.limit, offset: out.offset, has_more: out.offset + out.rows.length < out.total, tiles: out.tiles },
+    });
   }),
 
   /** "Already here?" while the capture form is typed. */

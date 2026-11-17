@@ -61,6 +61,8 @@ import { OperationsFilePicker } from "@/components/operations/file-picker";
 import { BOARD_COLUMNS, TASK_PRIORITIES, TASK_STATUSES } from "../api";
 import type { Audience, Task, TaskPriority, TaskSort, TaskStatus } from "../api";
 import { useMoveTask, useTaskListPaged } from "../hooks";
+import { leadDoneUrl } from "../lead-step";
+import { useNavigate } from "react-router-dom";
 import { PRIORITY_LABEL, PRIORITY_TONE, STATUS_LABEL, STATUS_TONE } from "../labels";
 import { describeRule } from "../repeat";
 
@@ -118,6 +120,7 @@ export function TaskList({
 }) {
   const toast = useToast();
   const move = useMoveTask();
+  const navigate = useNavigate();
   const ownSearch = search === undefined;
   const [ownQ, setOwnQ] = React.useState("");
   const q = (ownSearch ? ownQ : search).trim();
@@ -150,6 +153,12 @@ export function TaskList({
   const to = Math.min(offset + PAGE, total);
 
   async function moveTo(task: Task, next: TaskStatus) {
+    // A lead's step is completed on the lead (lead-step.ts).
+    const done = leadDoneUrl(task, next);
+    if (done) {
+      navigate(done);
+      return;
+    }
     try {
       // The reach the rows were listed at travels with the move, exactly as it
       // does from the board (B-03). Without it the server re-reads the task as

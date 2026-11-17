@@ -168,6 +168,8 @@ import { dateFmt } from "@/lib/format";
 import { BOARD_COLUMNS } from "../api";
 import type { Audience, BoardColumn, BoardCompleteness, Task, TaskBoard, TaskStatus } from "../api";
 import { useMoveTask } from "../hooks";
+import { leadDoneUrl } from "../lead-step";
+import { useNavigate } from "react-router-dom";
 import { COLUMN_LABEL, PRIORITY_LABEL, PRIORITY_TONE, STATUS_LABEL } from "../labels";
 import { describeRule } from "../repeat";
 
@@ -265,6 +267,7 @@ export function TaskBoard({
   onClearQuery?: () => void;
 }) {
   const move = useMoveTask();
+  const navigate = useNavigate();
   const toast = useToast();
   const [activeId, setActiveId] = React.useState<string | null>(null);
 
@@ -293,6 +296,12 @@ export function TaskBoard({
     const over = e.over?.id ? String(e.over.id) : null;
     const task = findTask(board, String(e.active.id));
     if (!task || !over || over === task.status) return;
+    // A lead's step is completed on the lead (lead-step.ts).
+    const done = leadDoneUrl(task, over);
+    if (done) {
+      navigate(done);
+      return;
+    }
     try {
       await move.mutateAsync({ id: task.task_id, status: over as TaskStatus, audience });
     } catch (err) {
@@ -335,6 +344,11 @@ export function TaskBoard({
             selectedId={selectedId}
             onOpen={onOpen}
             onMove={async (id, status) => {
+              const done = leadDoneUrl(findTask(board, id), status);
+              if (done) {
+                navigate(done);
+                return;
+              }
               try {
                 await move.mutateAsync({ id, status, audience });
               } catch (err) {

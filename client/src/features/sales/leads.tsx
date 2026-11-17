@@ -1,279 +1,265 @@
 /**
- * Sales & CRM — Leads.
+ * Sales & CRM › Leads: one row per company (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md
+ * §3.2, owner decisions D2, D3, D4).
  *
- * Split out of `features/sales/pages.tsx` (2,596 lines) in Phase 4, audit F7.
+ * Desktop first (D1): a split pane, the list on the left and the company's 360
+ * on the right; on a phone the record opens in a sheet over the list. A
+ * List | Board toggle swaps the list for the board of requests (desktop only).
  *
- * The "Inbound intake" tab that used to sit here was a signpost to the enquiry
- * desk and the partnership register; the register was removed in the Sales lean
- * revamp (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md, D10), so the signpost went too.
- * `/sales/inbound-intake` redirects to the enquiry desk.
+ * THE LIST IS PAGED AND FILTERED ON THE SERVER (gap 10). A chip (My Next Steps
+ * by default), a tile (Due Today, Overdue, Open Value, each also a filter) and
+ * a search (company, contact, email, phone, or a request's reference) go to
+ * `GET /leads`, which answers one page, its total and the three tiles over the
+ * same set, so a tile never disagrees with the rows under it.
  */
-
-import { pageShell } from "@/lib/layout";
-import { IndexRow } from "@/components/ui/index-row";
-import { tr } from "@/lib/i18n";
 import * as React from "react";
-import { Button } from "@/components/ui/button";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { pageShell } from "@/lib/layout";
+import { tr } from "@/lib/i18n";
+import { cn } from "@/lib/cn";
+import { useResource } from "@/lib/use-resource";
+import { money, moneyCompact, num } from "@/lib/format";
+import { useCan } from "@/lib/route-access";
+import { isDesktopNow, useIsDesktop } from "@/lib/use-media-query";
 import { PageHeader } from "@/components/data-list";
 import { HubCrumb, HubTabs } from "@/components/tabbed-hub";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Chips } from "@/components/ui/chips";
+import { Segmented } from "@/components/ui/segmented";
+import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
+import { SplitPane } from "@/components/ui/split-pane";
+import { IndexRow } from "@/components/ui/index-row";
+import { Avatar } from "@/components/ui/avatar";
+import { Pill } from "@/components/ui/pill";
+import { Pagination } from "@/components/ui/pagination";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { AiActions } from "@/components/ai-actions";
 import type { AiAction } from "@/features/scaffold/screen-specs";
-import { useList, useRefresh, type Row } from "@/lib/use-resource";
-import { cell, num } from "@/lib/format";
-import { StatusPill } from "@/components/ui/pill";
-import { Chips } from "@/components/ui/chips";
-import { SplitPane } from "@/components/ui/split-pane";
-import { isDesktopNow, useIsDesktop } from "@/lib/use-media-query";
-import { KpiRow, KpiTile } from "@/components/ui/kpi-tile";
-import { Avatar } from "@/components/ui/avatar";
-import { Link } from "react-router-dom";
-import { LeadForm } from "./lead-forms";
-import { LeadDossier } from "./sales-360";
-
-/* ═══════════════════════════════════ LEADS ═══════════════════════════════════ */
+import { listLeads, VIEW_LABEL, type LeadListQuery, type LeadRow, type LeadView } from "@/lib/lead-api";
+import { lead as leadShape } from "@shared";
+import { CaptureLeadDialog } from "./lead-capture";
+import { DueDate, LeadRecordView } from "./lead-360";
+import { LeadsBoard } from "./leads-board";
 
 const LEADS_AI: AiAction[] = [
-  {
-    label: "Triage inbound enquiry",
-    kind: "assist",
-    describe:
-      "Triage an enquiry into a qualified lead (optionally converting it).",
-  },
-  {
-    label: "Suggest next action",
-    kind: "assist",
-    describe:
-      "Suggest the next best action for a stale lead based on its history.",
-  },
-  {
-    label: "Draft outreach",
-    kind: "write",
-    describe:
-      "Draft a first-contact email for a new lead (human-confirmed before send).",
-  },
+  { label: "Suggest next action", kind: "assist", describe: "Suggest the next best step for a company that has gone quiet, from its history." },
+  { label: "Draft outreach", kind: "write", describe: "Draft a first-contact email for a new company (human-confirmed before send)." },
 ];
 
-// A lead is OPEN or ARCHIVED since the lean revamp (PR 2): where a deal
-// stands is its request's stage, which the Leads screens of PR 3 show.
-const LEAD_FILTERS = [
-  { value: "", label: "All leads" },
-  { value: "OPEN", label: "Open" },
-  { value: "ARCHIVED", label: "Archived" },
-];
+const PAGE = 50;
+const VIEWS = leadShape.VIEWS as readonly LeadView[];
+const VIEW_OPTIONS = VIEWS.map((v) => ({ value: v, label: tr(VIEW_LABEL[v]) }));
+type Mode = "list" | "board";
 
-/**
- * The lead register — an index on the left, the full 360 on the right.
- *
- * This is Master data → Clients (`masterdata/client-360.tsx`), deliberately: a
- * `SplitPane` whose left column is a searchable list of names and states, and
- * whose right column is the record's whole dossier. It replaced a card list —
- * one `lux-card` per lead with the fields stacked inside it — which could not
- * be scanned down a column and made you leave the page to learn anything.
- *
- * The lifecycle buttons that were on each card now live in the dossier header
- * (see `ActionBar` in sales-360.tsx), which is where the client 360 keeps
- * Activate / Block / → Supplier. An index row says who and what state; the
- * decision to qualify or lose a lead is made with the discovery notes and the
- * proposal history in front of you, and those are on the right-hand side.
- */
-function LeadsTab() {
-  const reload = useRefresh();
-  const { rows, error } = useList("/leads");
-  const [filter, setFilter] = React.useState("");
-  const [search, setSearch] = React.useState("");
-  const [formOpen, setFormOpen] = React.useState(false);
-  const [editing, setEditing] = React.useState<Row | null>(null);
-  const [selId, setSelId] = React.useState<string | null>(null);
-
-  const filtered = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (rows || []).filter((r) => {
-      if (filter && String(r.status) !== filter) return false;
-      if (!q) return true;
-      return [r.company_name, r.contact_name, r.email].some((v) =>
-        String(v ?? "")
-          .toLowerCase()
-          .includes(q),
-      );
-    });
-  }, [rows, filter, search]);
-
-  /**
-   * The tiles PARTITION the register: one per funnel state, plus a total, and
-   * they add up. Same discipline as the quote-request tiles — a counter that
-   * does not account for every row is the F6 defect wearing a new hat.
-   */
-  const tiles = React.useMemo(() => {
-    const all = rows || [];
-    const open = all.filter((r) => String(r.status || "OPEN") === "OPEN");
-    return {
-      TOTAL: all.length,
-      PROSPECTS: open.filter((r) => !r.client_id).length,
-      CLIENTS: open.filter((r) => !!r.client_id).length,
-      ARCHIVED: all.length - open.length,
-    };
-  }, [rows]);
-
-  // Select the first lead once the list arrives, so the right-hand pane is
-  // never an empty frame on a register that has rows — same as client-360.
-  // A desktop only: on a phone the lead opens as a full-screen sheet over the
-  // list (SplitPane onClose), and opening one unasked covers the list.
+/** Search as you type, sent once the typing pauses. */
+function useDebounced(value: string, ms = 300) {
+  const [out, setOut] = React.useState(value);
   React.useEffect(() => {
-    if (!selId && filtered.length && isDesktopNow())
-      setSelId(String(filtered[0].lead_id));
-  }, [filtered, selId]);
-  const isDesktop = useIsDesktop();
+    const h = window.setTimeout(() => setOut(value), ms);
+    return () => window.clearTimeout(h);
+  }, [value, ms]);
+  return out;
+}
 
-  const selected =
-    (rows || []).find((r) => String(r.lead_id) === selId) || null;
-
+function LeadIndexRow({ r, selected, onOpen, moneyVisible }: { r: LeadRow; selected: boolean; onOpen: () => void; moneyVisible: boolean }) {
+  const value = moneyVisible && Number(r.open_value || 0) > 0 ? moneyCompact(Number(r.open_value), r.open_currency || "XAF") : null;
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Chips
-          label="Filter leads by status"
-          value={filter}
-          options={LEAD_FILTERS}
-          onChange={setFilter}
-        />
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          Capture lead
-        </Button>
-      </div>
-
-      <KpiRow>
-        <KpiTile label={tr("Leads")} value={num(tiles.TOTAL)} />
-        <KpiTile label={tr("Prospects")} value={num(tiles.PROSPECTS)} />
-        <KpiTile label={tr("Clients")} value={num(tiles.CLIENTS)} />
-        <KpiTile label={tr("Archived")} value={num(tiles.ARCHIVED)} />
-      </KpiRow>
-
-      {error ? (
-        <ErrorState message={error} />
-      ) : (
-        <SplitPane
-          storageKey="sales.leads"
-          label="Lead list width"
-          defaultSize={260}
-          min={200}
-          max={480}
-          activeKind={tr("Lead")}
-          active={!!selected}
-          onClose={() => setSelId(null)}
-          sheetTitle={selected ? String(selected.company_name || "") : null}
-        >
-          <div className="space-y-2">
-            <Input
-              placeholder="Search lead…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <div className="space-y-1 rounded-lg border p-1 lg:max-h-[70vh] lg:overflow-auto">
-              {rows === null ? (
-                <LoadingRow label="Loading leads…" />
-              ) : filtered.length === 0 ? (
-                <div className="px-3 py-4 micro">
-                  {rows.length ? "No leads match." : "No leads yet."}
-                </div>
-              ) : (
-                filtered.map((r) => {
-                  const id = String(r.lead_id);
-                  return (
-                    <IndexRow
-                      key={id}
-                      selected={id === selId}
-                      onClick={() => setSelId(id)}
-                      className="items-center justify-between gap-2"
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <Avatar name={String(r.company_name || "?")} />
-                        <span className="truncate font-medium">
-                          {cell(r.company_name)}
-                        </span>
-                      </span>
-                      <StatusPill status={String(r.status || "OPEN")} />
-                    </IndexRow>
-                  );
-                })
-              )}
-            </div>
-          </div>
-          {selected ? (
-            <div className="space-y-3">
-              {/* A way out of the split pane into a page. On a phone the lead
-                  is already full screen, in a sheet, so there is nowhere
-                  further to go. */}
-              {isDesktop && (
-                <div className="flex justify-end">
-                  <Link
-                    to={`/sales/leads/${selId}`}
-                    className="micro hover:underline"
-                  >
-                    Open as a page ↗
-                  </Link>
-                </div>
-              )}
-              <LeadDossier
-                leadId={String(selected.lead_id)}
-                // The name and state are already in the row that was clicked,
-                // so the dossier can draw its own header before the request
-                // lands — no blank frame, and no identity that changes under
-                // the reader. See DossierSkeleton.
-                placeholder={{
-                  title: String(selected.company_name || ""),
-                  status: String(selected.status || "OPEN"),
-                }}
-                onEdit={() => {
-                  setEditing(selected);
-                  setFormOpen(true);
-                }}
-                onChanged={reload}
-              />
-            </div>
+    <IndexRow selected={selected} onClick={onOpen} className="items-center gap-2">
+      <Avatar name={r.company_name || "?"} />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate font-medium">{r.company_name}</span>
+          <Pill tone={r.is_client ? "ok" : "blue"} className="shrink-0">
+            {r.is_client ? tr("Client") : tr("Prospect")}
+          </Pill>
+        </span>
+        <span className="flex min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+          {r.status === "ARCHIVED" ? (
+            <span>{tr("Archived")}</span>
+          ) : r.next_step_due_at ? (
+            <span className="min-w-0 truncate">
+              <DueDate at={r.next_step_due_at} /> {r.next_step_action ? `· ${r.next_step_action}` : ""}
+            </span>
           ) : (
-            <EmptyState
-              title={rows && rows.length ? "No lead selected" : "No leads yet"}
-              hint={
-                rows && rows.length
-                  ? "Choose a lead from the list."
-                  : "Capture your first lead, or triage an inbound enquiry into one."
-              }
-            />
+            <span>{tr("No next step")}</span>
           )}
-        </SplitPane>
-      )}
-
-      <LeadForm
-        open={formOpen}
-        editing={editing}
-        onClose={() => setFormOpen(false)}
-        onSaved={reload}
-      />
-    </div>
+          {value ? <span className="num shrink-0">{value}</span> : null}
+        </span>
+      </span>
+    </IndexRow>
   );
 }
 
-/* ─────────────────────────────────── Leads page ─────────────────────────────────── */
-
 export function LeadsPage() {
+  const can = useCan("MOD-20");
+  const navigate = useNavigate();
+  const isDesktop = useIsDesktop();
+  const [params, setParams] = useSearchParams();
+  const mode: Mode = params.get("view") === "board" && isDesktop ? "board" : "list";
+  const [view, setView] = React.useState<LeadView>("mine");
+  const [due, setDue] = React.useState<"" | "today" | "overdue">("");
+  const [hasValue, setHasValue] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+  const [page, setPage] = React.useState(0);
+  const [selId, setSelId] = React.useState<string | null>(null);
+  const [capture, setCapture] = React.useState(false);
+  const q = useDebounced(search);
+
+  // A new filter starts at the first page.
+  React.useEffect(() => setPage(0), [view, due, hasValue, q]);
+
+  const query: LeadListQuery = { view, due, has_value: hasValue, q, limit: PAGE, offset: page * PAGE };
+  const res = useResource(() => listLeads(query), [view, due, hasValue, q, page]);
+  const rows = res.data?.rows ?? null;
+  const tiles = res.data?.tiles ?? null;
+  const moneyVisible = Boolean(tiles?.money_visible);
+
+  // Open the first company once the list arrives, on a desktop, so the right
+  // pane is never an empty frame. On a phone the record is a sheet, and opening
+  // one unasked would cover the list.
+  React.useEffect(() => {
+    if (!selId && rows && rows.length && isDesktopNow()) setSelId(rows[0].lead_id);
+  }, [rows, selId]);
+
+  const setMode = (m: Mode) =>
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (m === "board") p.set("view", "board");
+        else p.delete("view");
+        return p;
+      },
+      { replace: true },
+    );
+
+  const selected = rows?.find((r) => r.lead_id === selId) || null;
+  const filtered = view !== "mine" || !!due || hasValue || !!q;
+
   return (
     <section className={pageShell.wide}>
       <PageHeader
         eyebrow={<HubCrumb area="Sales & CRM" to="/sales" />}
-        title="Leads & Intake"
-        description="The top of the sales funnel — capture and qualify leads, and triage inbound enquiries into them."
+        title={tr("Leads")}
+        description={tr("One row per company. Every open company has a dated next step.")}
+        action={can("create") && <Button onClick={() => setCapture(true)}>{tr("Capture Lead")}</Button>}
       />
       <HubTabs />
 
-      <LeadsTab />
+      <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <Chips label={tr("Filter companies")} value={view} options={VIEW_OPTIONS} onChange={(v) => setView(v as LeadView)} />
+        <div className="flex items-center gap-2">
+          <Input
+            aria-label={tr("Search companies")}
+            placeholder={tr("Company, contact, phone or reference")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="lg:w-72"
+          />
+          {isDesktop ? (
+            <Segmented
+              label={tr("View")}
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "list", label: tr("List") },
+                { value: "board", label: tr("Board") },
+              ]}
+            />
+          ) : null}
+        </div>
+      </div>
 
+      <KpiRow>
+        <KpiTile
+          label={tr("Due Today")}
+          value={num(tiles?.due_today ?? 0)}
+          tone={due === "today" ? "warn" : "accent"}
+          onClick={() => setDue(due === "today" ? "" : "today")}
+        />
+        <KpiTile
+          label={tr("Overdue")}
+          value={num(tiles?.overdue ?? 0)}
+          tone={due === "overdue" || (tiles?.overdue ?? 0) > 0 ? "bad" : "accent"}
+          onClick={() => setDue(due === "overdue" ? "" : "overdue")}
+        />
+        {moneyVisible ? (
+          <KpiTile
+            label={tr("Open Value")}
+            value={tiles?.open_value != null ? money(tiles.open_value, tiles.open_currency || "XAF") : "—"}
+            tone={hasValue ? "ok" : "accent"}
+            onClick={() => setHasValue(!hasValue)}
+          />
+        ) : null}
+      </KpiRow>
+
+      <div className="mt-4">
+        {mode === "board" ? (
+          <LeadsBoard q={q} moneyVisible={moneyVisible} />
+        ) : res.error ? (
+          <ErrorState message={res.error} />
+        ) : (
+          <SplitPane
+            storageKey="sales.leads"
+            label={tr("Company list width")}
+            defaultSize={320}
+            min={240}
+            max={520}
+            activeKind={tr("Company")}
+            active={!!selected}
+            onClose={() => setSelId(null)}
+            sheetTitle={selected ? selected.company_name : null}
+          >
+            <div className="space-y-2">
+              <div className={cn("space-y-1 rounded-lg border p-1", "lg:max-h-[70vh] lg:overflow-auto")}>
+                {rows === null ? (
+                  <LoadingRow label={tr("Loading…")} />
+                ) : rows.length === 0 ? (
+                  <EmptyState
+                    title={filtered ? tr("No companies match") : tr("Nothing due on your desk")}
+                    action={
+                      filtered ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setView("open");
+                            setDue("");
+                            setHasValue(false);
+                            setSearch("");
+                          }}
+                        >
+                          {tr("Show All Open")}
+                        </Button>
+                      ) : can("create") ? (
+                        <Button onClick={() => setCapture(true)}>{tr("Capture Lead")}</Button>
+                      ) : undefined
+                    }
+                  />
+                ) : (
+                  rows.map((r) => (
+                    <LeadIndexRow key={r.lead_id} r={r} selected={r.lead_id === selId} onOpen={() => setSelId(r.lead_id)} moneyVisible={moneyVisible} />
+                  ))
+                )}
+              </div>
+              <Pagination page={page} pageSize={PAGE} total={res.data?.total} onPageChange={setPage} />
+            </div>
+            {selected ? (
+              <LeadRecordView key={selected.lead_id} leadId={selected.lead_id} placeholder={{ title: selected.company_name }} onChanged={res.reload} />
+            ) : (
+              <EmptyState title={rows && rows.length ? tr("Choose a company") : tr("No company open")} />
+            )}
+          </SplitPane>
+        )}
+      </div>
+
+      <CaptureLeadDialog
+        open={capture}
+        onClose={() => setCapture(false)}
+        onOpenLead={(id) => {
+          res.reload();
+          navigate(`/sales/leads/${id}`);
+        }}
+      />
       <AiActions actions={LEADS_AI} />
     </section>
   );

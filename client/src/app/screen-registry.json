@@ -508,18 +508,6 @@
       "title_fr": "Clés API et secrets"
     },
     {
-      "id": "settings_pipeline_stages",
-      "title": "Pipeline Stages",
-      "route": "/settings/pipeline-stages",
-      "area": "settings",
-      "module_key": "MOD-24",
-      "purpose": "CRM opportunity pipeline stages (read-only).",
-      "actions": [
-        "list_pipeline_stages"
-      ],
-      "title_fr": "Étapes du pipeline"
-    },
-    {
       "id": "fleet_vehicles",
       "title": "Vehicles",
       "route": "/fleet/vehicles",
@@ -1500,11 +1488,11 @@
     },
     {
       "id": "sales_leads",
-      "title": "Leads & Intake",
+      "title": "Leads",
       "route": "/sales/leads",
       "area": "sales",
       "module_key": "MOD-20",
-      "purpose": "One row per company, Prospect or Client, each with a dated next step: capture with a duplicate check, log what happened, set and complete the next step, archive, make a client.",
+      "purpose": "One row per company, Prospect or Client, each with a dated next step (red when overdue, amber when due today). Chips: My Next Steps, All Open, Prospects, Clients, Archived; tiles Due Today, Overdue and Open Value are also filters; search finds a company by its name, contact, email, phone or a request's reference. A List | Board toggle shows the requests by stage (New, Contacted, Meeting, Quoted, Won, Lost) and a card is dragged to move its stage. Capture Lead asks for a company and one way to reach it, checks for duplicates as you type, and sets the first next step. Each request is also the deal; Quote Requests, Opportunities and Meetings folded into this screen in the lean revamp.",
       "actions": [
         "list_leads",
         "get_lead",
@@ -1514,44 +1502,7 @@
         "log_lead_activity",
         "set_lead_next_step",
         "archive_lead",
-        "make_lead_client"
-      ],
-      "title_fr": "Prospects & réception"
-    },
-    {
-      "id": "sales_lead_dossier",
-      "title": "Lead 360",
-      "route": "/sales/leads/:leadId",
-      "area": "sales",
-      "module_key": "MOD-20",
-      "purpose": "Full dossier for a single lead — Overview, Meetings (with the F1 discovery sections and their capture state), Quote requests, Proposals, Opportunities, Enquiries triaged in, and the audit history. The join F6 made necessary: the funnel, the intake lifecycle and the pipeline stage live on three different rows, so this is the one place that shows a company's whole story. Money is gated on finance visibility. Its reads are declared on the registers above; this screen adds no manifest action of its own.",
-      "actions": [],
-      "title_fr": "Prospect 360"
-    },
-    {
-      "id": "sales_enquiries",
-      "title": "Contact Enquiries",
-      "route": "/sales/enquiries",
-      "area": "sales",
-      "module_key": "MOD-25",
-      "purpose": "Contact-form enquiry desk (MOD-25). 5 KPI tiles (TOTAL / NEW / READ / RESPONDED / CLOSED) partition the result set under every filter — the legacy's four omit READ, so opened-but-unanswered messages are counted in the total and shown in no tile. Replying sends the email through the tenant's SUPPORT identity and only marks the enquiry RESPONDED if it lands; every attempt, including failures, is kept. Triage raises a lead and/or a partnership request without touching the correspondence status.",
-      "actions": [
-        "list_enquiries",
-        "get_enquiry",
-        "transition_enquiry",
-        "respond_to_enquiry",
-        "triage_enquiry"
-      ],
-      "title_fr": "Demandes de contact"
-    },
-    {
-      "id": "sales_quote_requests",
-      "title": "Quote Requests",
-      "route": "/sales/quote-requests",
-      "area": "sales",
-      "module_key": "MOD-20",
-      "purpose": "The requests, each of which is also the deal: its stage (New, Contacted, Meeting, Quoted, Won, Lost), value and Lost reason. Winning one, by an accepted quotation or Mark Won, makes the client and opens the operations file. KPI tiles of the intake status partition the result set under every filter.",
-      "actions": [
+        "make_lead_client",
         "list_quote_requests",
         "get_quote_request",
         "create_quote_request",
@@ -1561,19 +1512,53 @@
         "list_quote_request_services",
         "suggest_quote_request_client",
         "link_quote_request_client",
-        "file_chat_document_on_quote_request"
+        "file_chat_document_on_quote_request",
+        "list_meetings",
+        "get_meeting",
+        "schedule_meeting",
+        "add_meeting_note",
+        "get_meeting_discovery",
+        "get_lead_discovery",
+        "save_meeting_discovery_section",
+        "list_opportunities",
+        "pipeline_board",
+        "pipeline_metrics",
+        "get_opportunity",
+        "list_pipeline_stages"
       ],
-      "title_fr": "Demandes de devis"
+      "title_fr": "Prospects"
     },
     {
-      "id": "sales_quote_request_dossier",
-      "title": "Intake 360",
-      "route": "/sales/quote-requests/:quoteRequestId",
+      "id": "sales_lead_dossier",
+      "title": "Lead 360",
+      "route": "/sales/leads/:leadId",
       "area": "sales",
       "module_key": "MOD-20",
-      "purpose": "Full dossier for a single quote request — Overview, the full logistics Scope, Attachments from the vault, Proposals reached through the lead, and the audit history, plus the opportunity it converted into. 'Is it converted' is read from converted_opportunity_id, never from the status value. Its reads are declared on the register above; this screen adds no manifest action of its own.",
+      "purpose": "One company: who it is and how to reach it, its Next Step card with Done (what happened and what is next, in one write), New Request, Log Activity, Schedule Meeting and New Quotation (clients). Four tabs: Activity (activities, meetings, mail threads, quotations sent, viewed and answered, stage moves, Company Profile shares and opens), Requests (each with its stage bar, Lost reasons and Mark Won, opened as a sheet with ?request=), Quotations, and Details. ?done=<task_id> opens Done from My Workspace. Money is gated on finance visibility. Its reads are declared on Leads; this screen adds no manifest action of its own.",
       "actions": [],
-      "title_fr": "Demande de devis 360"
+      "title_fr": "Prospect 360",
+      "synonyms": [
+        "company",
+        "prospect",
+        "piste",
+        "fiche"
+      ]
+    },
+    {
+      "id": "sales_enquiries",
+      "title": "General Enquiries",
+      "route": "/sales/enquiries",
+      "area": "sales",
+      "module_key": "MOD-25",
+      "purpose": "Contact-form enquiry desk (MOD-25). 5 KPI tiles (TOTAL / NEW / READ / RESPONDED / CLOSED) partition the result set under every filter — the legacy's four omit READ, so opened-but-unanswered messages are counted in the total and shown in no tile. Replying sends the email through the tenant's SUPPORT identity and only marks the enquiry RESPONDED if it lands; every attempt, including failures, is kept. Raise Lead runs the duplicate check and attaches the enquiry to the company already on file, or makes one, with a next step for the person who raised it; Partnership stays an enquiry type.",
+      "actions": [
+        "list_enquiries",
+        "get_enquiry",
+        "transition_enquiry",
+        "respond_to_enquiry",
+        "triage_enquiry"
+      ],
+      "title_fr": "Demandes générales"
     },
     {
       "id": "sales_company_profile",
@@ -1594,21 +1579,6 @@
         "présentation de l'entreprise",
         "about us"
       ]
-    },
-    {
-      "id": "sales_opportunities",
-      "title": "Opportunities",
-      "route": "/sales/opportunities",
-      "area": "sales",
-      "module_key": "MOD-24",
-      "purpose": "The opportunities as they stood before the Sales lean revamp, read only: every one became a request (14512), and a deal moves and is won on its request. Kanban by stage, KPI strip and CSV export.",
-      "actions": [
-        "list_opportunities",
-        "pipeline_board",
-        "pipeline_metrics",
-        "get_opportunity"
-      ],
-      "title_fr": "Opportunités"
     },
     {
       "id": "sales_proposals",
@@ -1651,24 +1621,6 @@
         "cotation",
         "offres"
       ]
-    },
-    {
-      "id": "sales_meetings",
-      "title": "Meetings",
-      "route": "/sales/meetings",
-      "area": "sales",
-      "module_key": "MOD-21",
-      "purpose": "Client meetings, structured client discovery, and their outcomes.",
-      "actions": [
-        "list_meetings",
-        "get_meeting",
-        "schedule_meeting",
-        "add_meeting_note",
-        "get_meeting_discovery",
-        "get_lead_discovery",
-        "save_meeting_discovery_section"
-      ],
-      "title_fr": "Réunions"
     },
     {
       "id": "sales_success_stories",
@@ -2730,6 +2682,36 @@
       "route": "/settings/email-signatures",
       "to": "/comms/setup",
       "why": "Email signatures folded into Comms Setup (2026-11-16); the query string is kept."
+    },
+    {
+      "route": "/sales/quote-requests",
+      "to": "/sales/leads",
+      "why": "Quote Requests, Opportunities and Meetings folded into Leads in the Sales lean revamp (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md §5.6)."
+    },
+    {
+      "route": "/sales/meetings",
+      "to": "/sales/leads",
+      "why": "Meetings are scheduled from a company's 360 and read from its Activity (lean revamp §5.6)."
+    },
+    {
+      "route": "/sales/opportunities",
+      "to": "/sales/leads",
+      "why": "The board is a toggle on the Leads list (?view=board); the request carries the deal (lean revamp §5.6)."
+    },
+    {
+      "route": "/sales/quote-requests/:quoteRequestId",
+      "to": "/sales/leads",
+      "why": "An old request link resolves the request and opens /sales/leads/<lead>?request=<id> (lean revamp §5.6)."
+    },
+    {
+      "route": "/sales/opportunities/:opportunityId",
+      "to": "/sales/leads",
+      "why": "An old opportunity link opens the request it became (14512 converted_opportunity_id) on its company row (lean revamp §5.6)."
+    },
+    {
+      "route": "/settings/pipeline-stages",
+      "to": "/sales/leads",
+      "why": "Stages are fixed since the lean revamp (D3); the board is on the Leads list."
     }
   ],
   "section_hubs": [
@@ -3507,6 +3489,65 @@
       "title_fr": "Signatures",
       "record_types": [
         "delivery_note"
+      ]
+    },
+    {
+      "id": "lead_360_activity",
+      "source": "client/src/features/sales/lead-360.tsx",
+      "value": "Activity",
+      "title": "Activity",
+      "title_fr": "Activité",
+      "record_types": [
+        "lead"
+      ],
+      "synonyms": [
+        "timeline",
+        "historique",
+        "journal"
+      ]
+    },
+    {
+      "id": "lead_360_requests",
+      "source": "client/src/features/sales/lead-360.tsx",
+      "value": "Requests",
+      "title": "Requests",
+      "title_fr": "Demandes",
+      "record_types": [
+        "lead"
+      ],
+      "synonyms": [
+        "demandes de devis",
+        "deals",
+        "affaires"
+      ]
+    },
+    {
+      "id": "lead_360_quotations",
+      "source": "client/src/features/sales/lead-360.tsx",
+      "value": "Quotations",
+      "title": "Quotations",
+      "title_fr": "Devis",
+      "record_types": [
+        "lead"
+      ],
+      "synonyms": [
+        "devis",
+        "cotations"
+      ]
+    },
+    {
+      "id": "lead_360_details",
+      "source": "client/src/features/sales/lead-360.tsx",
+      "value": "Details",
+      "title": "Details",
+      "title_fr": "Détails",
+      "record_types": [
+        "lead"
+      ],
+      "synonyms": [
+        "kyc",
+        "coordonnées",
+        "fiche"
       ]
     }
   ]

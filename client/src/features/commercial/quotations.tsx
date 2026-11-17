@@ -30,6 +30,7 @@ import { Chips } from "@/components/ui/chips";
 import { QuotationForm } from "./quotation-forms";
 import { QuotationDetail } from "./quotation-detail";
 import { useCan } from "@/lib/route-access";
+import { useSearchParams } from "react-router-dom";
 
 const QUOTATION_AI: AiAction[] = [
   {
@@ -73,6 +74,27 @@ export function QuotationsPage() {
   const [formOpen, setFormOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Row | null>(null);
   const { record: detail, open: openDetail, close: closeDetail } = useRecordParam(rows, (r) => String(r.quotation_id));
+  // New Quotation from Leads (lean revamp PR 3): `?new=1&client=&request=`
+  // opens the form seeded with the client and the request it answers, and the
+  // parameters are dropped so Back and a refresh do not open it again.
+  const [params, setParams] = useSearchParams();
+  const [seed, setSeed] = React.useState<{ client_id: string | null; quote_request_id: string | null } | null>(null);
+  React.useEffect(() => {
+    if (params.get("new") !== "1") return;
+    setSeed({ client_id: params.get("client"), quote_request_id: params.get("request") });
+    setEditing(null);
+    setFormOpen(true);
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.delete("new");
+        p.delete("client");
+        p.delete("request");
+        return p;
+      },
+      { replace: true },
+    );
+  }, [params, setParams]);
 
   const clientName = React.useMemo(
     () =>
@@ -101,6 +123,7 @@ export function QuotationsPage() {
             <Button
               onClick={() => {
                 setEditing(null);
+                setSeed(null);
                 setFormOpen(true);
               }}
             >
@@ -187,6 +210,7 @@ export function QuotationsPage() {
         entities={entities}
         clients={clients}
         opportunities={opportunities}
+        initial={seed}
         onClose={() => setFormOpen(false)}
         onSaved={reload}
       />

@@ -66,6 +66,8 @@ export type QuoteRequestInitial = {
   client_id?: string | null;
   client_name?: string | null;
   intake_channel?: string | null;
+  /** The company row the request sits on (Leads › New Request). */
+  lead_id?: string | null;
 };
 
 /**
@@ -128,6 +130,10 @@ export function QuoteRequestForm({
   const [cargo, setCargo] = React.useState("");
   // "To be determined", never a silent FOB (meeting 6, item 2.3).
   const [incoterm, setIncoterm] = React.useState("TBD");
+  // 14511: the deal the request carries, what it is called and what it is worth.
+  const [title, setTitle] = React.useState("");
+  const [value, setValue] = React.useState("");
+  const [currency, setCurrency] = React.useState("XAF");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string[] | undefined>>({});
@@ -156,6 +162,9 @@ export function QuoteRequestForm({
     setProjectCargo(Boolean(editing?.project_cargo_flag));
     setCargo(seed(editing?.cargo_description, initial?.cargo_description));
     setIncoterm(editing?.incoterm ? String(editing.incoterm) : "TBD");
+    setTitle(editing?.title ? String(editing.title) : "");
+    setValue(editing?.estimated_value != null ? String(editing.estimated_value) : "");
+    setCurrency(editing?.currency ? String(editing.currency) : "XAF");
     setError(null);
     setErrors({});
     setMatch(null);
@@ -230,6 +239,10 @@ export function QuoteRequestForm({
       project_cargo_flag: projectCargo,
       cargo_description: cargo || undefined,
       incoterm,
+      title: title.trim() || undefined,
+      estimated_value: value.trim() === "" ? (editing?.estimated_value != null ? null : undefined) : Number(value),
+      currency: value.trim() === "" ? undefined : currency.trim() || undefined,
+      ...(!editing && initial?.lead_id ? { lead_id: initial.lead_id } : {}),
     };
     // The API's own shape (@shared quoteRequest), so a field it refuses is
     // named here rather than learned from a 422 after Save.
@@ -336,6 +349,17 @@ export function QuoteRequestForm({
             ) : null}
           </Field>
         </div>
+        <div className="sm:col-span-2">
+          <Field label={tr("Title")} error={fieldError(errors, "title")}>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} />
+          </Field>
+        </div>
+        <Field label={tr("Estimated Value")} error={fieldError(errors, "estimated_value")}>
+          <Input type="number" inputMode="decimal" min={0} step="0.01" value={value} onChange={(e) => setValue(e.target.value)} />
+        </Field>
+        <Field label={tr("Currency")} error={fieldError(errors, "currency")}>
+          <Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={3} />
+        </Field>
         <Field label={tr("Requester Name")}>
           <Input value={requesterName} onChange={(e) => setRequesterName(e.target.value)} />
         </Field>

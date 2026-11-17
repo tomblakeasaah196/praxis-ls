@@ -65,7 +65,13 @@
  */
 const DETAIL = {
   lead: { prefix: "/sales/leads/" },
+  // A request opens on its company row (lean revamp, §5.6): the client route
+  // resolves the request to `/sales/leads/<lead>?request=<id>`. An opportunity
+  // became a request (14512 set `converted_opportunity_id` on every one), and
+  // its route resolves the same way, so an old notification still opens the
+  // deal it was about rather than the Leads list.
   quote_request: { prefix: "/sales/quote-requests/" },
+  opportunity: { prefix: "/sales/opportunities/" },
   dossier: { prefix: "/operations/files/" },
   transit_order: { prefix: "/operations/transit-orders/" },
   delivery_note: { prefix: "/operations/delivery-notes/" },
@@ -126,7 +132,6 @@ const SECTION = {
   tax_declaration: "/finance/tax",
   asset: "/finance/assets",
   // Sales & CRM
-  opportunity: "/sales/opportunities",
   proposal: "/sales/proposals",
   contact_enquiry: "/sales/enquiries",
   // One profile per tenant: its versions and share links all live on its screen.
