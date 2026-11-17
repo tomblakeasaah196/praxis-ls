@@ -96,6 +96,8 @@ BullMQ `mail-sync-scheduler` (repeat, `MAIL_SYNC_INTERVAL_MS`, default 60s) fans
 5. Emit `email.received` (`event_log`) per new message.
 6. Advance cursor; record per-connection errors without aborting siblings.
 
+**The sync brake (`sync-brake.js`, 17 Nov 2026).** A mailbox that has failed three times in a row is no longer polled every minute. A refused sign-in is left alone until a person fixes it (saving the password, Test or Sync Now); any other failure is retried after 5, 15, 60, 180 and then 360 minutes. Only the schedule is braked: manual actions always try at once, and a success clears the count. The reason is the mail host, not tidiness: a poll of an IMAP mailbox is a sign-in, hosts running CSF/LFD block an ADDRESS after ten refused sign-ins in an hour, and one wrong password on one mailbox had this server blocked for eight days (no system email, no sync, every tenant). The brake reads `consecutive_failures`, `last_failure_at` and `last_failure_reason`, so a failure must be stored in words that say what it was: `failureText` in `mail.service.js` passes IMAP errors through `describeImapFailure` for that. The IDLE worker follows the same rule on its reconnects.
+
 Phase 2 push providers use webhooks + renewal (Graph ≈3d, Gmail ≈7d) and delta cursors.
 
 ---
