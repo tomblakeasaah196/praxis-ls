@@ -111,15 +111,34 @@ describe("the canonical format", () => {
   it("embeds no year, no date and no identifier from the record", () => {
     const year = String(new Date().getUTCFullYear());
     const uuid = crypto.randomUUID().replace(/-/g, "").toUpperCase();
+    /*
+     * COUNTED, NOT FORBIDDEN.
+     *
+     * This asserted `expect(core).not.toContain(year)` on each of 300 draws.
+     * The core is twelve characters from an alphabet that includes 0, 2 and 6,
+     * so a core spells the year by pure chance about once in 116 000 draws:
+     * roughly one run in 400 failed on a reference like "WM020264H8MT", which
+     * embeds nothing and was generated correctly. It did, on 17 Nov 2026, on a
+     * branch that had not touched this code.
+     *
+     * The property is that the core is not DERIVED from the year. A core that
+     * were would carry it on every draw, so the test is whether it shows up
+     * far more often than chance allows. Three in 300 is already a thousand
+     * times the chance rate, and a derived core would score 300.
+     */
+    let withYear = 0;
     for (let i = 0; i < 300; i += 1) {
       const core = parseOperationReference(ref()).core;
-      expect(core).not.toContain(year);
+      if (core.includes(year)) withYear += 1;
       // Any six consecutive characters of the entity/dossier uuid would be a
-      // giveaway that the core was derived from it rather than generated.
+      // giveaway that the core was derived from it rather than generated. Six
+      // matching characters by chance is about one run in twenty thousand, so
+      // this one stays exact.
       for (let j = 0; j + 6 <= uuid.length; j += 1) {
         expect(core).not.toContain(uuid.slice(j, j + 6));
       }
     }
+    expect(withYear).toBeLessThan(3);
   });
 
   it("does not form a sequence — the whole point of replacing SLAS-OPS-2026-0142", () => {
