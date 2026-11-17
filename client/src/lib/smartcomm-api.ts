@@ -186,6 +186,9 @@ export type Channel = {
   last_message?: CommMessage | null;
   /** The other member's user id — DIRECT channels only. The dial target key. */
   partner_user_id?: string | null;
+  /** The other member's name — DIRECT channels only. What the conversation is
+   *  called for the person looking at it (features/comms/channel-title.ts). */
+  partner_name?: string | null;
   /** The other member's uploaded profile photo (/media URL) — DIRECT channels only. */
   partner_avatar_ref?: string | null;
   /** The other member's last presence beat — DIRECT channels only. Render
