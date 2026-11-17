@@ -82,7 +82,12 @@ async function main() {
 
   const shutdown = async () => {
     stopping = true;
-    for (const imap of idlers.values()) { try { await imap.logout(); } catch { /* noop */ } }
+    for (const imap of idlers.values()) {
+      try { await imap.logout(); } catch {
+        /* @silent:teardown the worker is shutting down: a connection that is
+           already closed, or will not say goodbye, is being dropped either way. */
+      }
+    }
     await closeRedis();
     process.exit(0);
   };
