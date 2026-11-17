@@ -124,8 +124,6 @@ export const AREAS: Area[] = [
       { key: "quotations", label: "Quotations" },
       { key: "company-profile", label: "Company Profile" },
       { key: "meetings", label: "Meetings" },
-      { key: "campaigns", label: "Campaigns" },
-      { key: "partnerships", label: "Partnerships" },
       { key: "success-stories", label: "Success Stories" },
     ],
   },

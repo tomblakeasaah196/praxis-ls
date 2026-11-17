@@ -9,8 +9,7 @@ const MODULE = "MOD-25";
 
 /**
  * Inbound intake routes — the contact enquiry desk (F9,
- * doc/SALES_CRM_FEATURES.md), plus the partnership endpoints F10 is moving into
- * its own module.
+ * doc/SALES_CRM_FEATURES.md), shown as General Enquiries.
  *
  * PER-STATE RBAC. Reading, answering and closing an enquiry are all `edit`, and
  * this is a deliberate departure from the F6 pattern where the state that ENDS
@@ -48,22 +47,6 @@ router.post("/enquiries/:id/transition", validator.transition, requireTransition
 router.post("/enquiries/:id/respond", requirePermission(MODULE, "edit"), validator.respond, controller.respond);
 router.post("/enquiries/:id/triage", requirePermission(MODULE, "edit"), validator.triage, controller.triage);
 
-/* ─── partnership requests ────────────────────────────────────────────────
- *
- * MOVED in F10 to src/modules/sales/partnership_request/ (basePath
- * /partnership-requests). F9 left these here marked "F10 territory"; this is
- * F10 collecting them.
- *
- * They could not stay: migration 0688 replaces the table's status vocabulary
- * with the legacy API's own NEW / IN_REVIEW / APPROVED / REJECTED, so the
- * `review` validator below — REVIEWING / ACCEPTED / DECLINED — now writes
- * values the CHECK constraint refuses. An endpoint that 23514s on every call
- * is not a back-compatible alias.
- *
- * Triage still raises a partnership request: it does it through
- * partnership_request.repo, above, which is the F10 register.
- */
-
 // MOVED 2026-08-04 — audit API F-6. This mounted on "/inbound", the same
 // basePath as wms/inbound. Two unrelated products shared one namespace and only
 // worked because their path sets happened to be disjoint and sales was
@@ -74,8 +57,8 @@ router.post("/enquiries/:id/triage", requirePermission(MODULE, "edit"), validato
 // on the same prefix, and the two enforced different permission modules
 // (MOD-25 here, MOD-33 there) on one URL space.
 //
-// BREAKING: /api/tenant/inbound/{enquiries,partnerships}* are now
-//           /api/tenant/intake/{enquiries,partnerships}*
+// BREAKING: /api/tenant/inbound/enquiries* is now
+//           /api/tenant/intake/enquiries*
 // Client updated in the same commit (client/src/features/sales/pages.tsx).
 // WMS keeps /inbound, which is the one that matches its module name.
 //

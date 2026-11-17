@@ -721,7 +721,7 @@ title §7 gives it. In §9, tick PR <N> and add one line to the log: date, what 
 
 ## 9. Checklist and log
 
-- [ ] PR 1 · Remove Campaigns and Partnerships & Vendors
+- [x] PR 1 · Remove Campaigns and Partnerships & Vendors
 - [ ] PR 2 · One company row, the request carries the deal
 - [ ] PR 3 · The Lead 360 screens
 - [ ] PR 4 · Quotations absorb Proposals
@@ -732,3 +732,4 @@ title §7 gives it. In §9, tick PR <N> and add one line to the log: date, what 
 | Date | PR | What was done · what is left |
 |---|---|---|
 | 17/11/2026 | plan | Audit, eleven owner decisions, this plan. Nothing built yet. |
+| 17/11/2026 | PR 1 | Campaigns (MOD-22), Partnerships & Vendors, the website newsletter and the Inbound intake signpost removed; migration 14500, seeds 9026 and 9160; old URLs redirect. MOD-22 retired; MOD-23 and MOD-24 stay until PR 7. Next: PR 2 and PR 5 in parallel. |

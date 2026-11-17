@@ -9,7 +9,7 @@ const actor = (req) => req.user || { user_id: null };
 const EXPORT_COLUMNS = [
   "created_at", "status", "enquiry_type", "name", "company_name",
   "email", "phone", "subject", "message", "internal_notes",
-  "responded_at", "lead_id", "partnership_request_id", "source",
+  "responded_at", "lead_id", "source",
 ];
 
 /**
@@ -75,7 +75,6 @@ module.exports = {
     res.json({ data: await req.tenantDb((c) => service.triageEnquiry(c, {
       id: req.params.id,
       toLead: b.to_lead === true,
-      toPartnership: b.to_partnership === true,
       close: b.close === true,
       actor: actor(req),
     })) });
@@ -114,7 +113,5 @@ module.exports = {
     // French names as UTF-8 instead of Latin-1.
     res.send("﻿" + lines.join("\r\n"));
   }),
-
-  /* ─── partnership requests (F10 territory — unchanged) ──────────────────── */
 
 };

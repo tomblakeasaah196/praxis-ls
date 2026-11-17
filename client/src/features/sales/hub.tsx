@@ -1,5 +1,5 @@
 /** Sales & CRM — one hub, deep-linkable tabs (old /sales/<screen> paths resolve
- *  as sections). Leads keeps its own internal intake tab. */
+ *  as sections). */
 import { TabbedHub } from "@/components/tabbed-hub";
 import { hubTabs } from "@/app/layout/areas";
 import { LeadsPage } from "./leads";
@@ -10,8 +10,6 @@ import { ProposalsPage } from "./proposals";
 import { QuotationsPage } from "@/features/commercial/quotations";
 import { CompanyProfilePage } from "./company-profile";
 import { MeetingsPage } from "./meetings";
-import { CampaignsPage } from "./campaigns";
-import { PartnershipsPage } from "./partnerships";
 import { SuccessStoriesPage } from "./success-stories";
 
 export function SalesHub() {
@@ -28,8 +26,6 @@ export function SalesHub() {
         quotations: QuotationsPage,
         "company-profile": CompanyProfilePage,
         meetings: MeetingsPage,
-        campaigns: CampaignsPage,
-        partnerships: PartnershipsPage,
         "success-stories": SuccessStoriesPage,
       })}
     />

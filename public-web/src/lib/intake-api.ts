@@ -102,8 +102,6 @@ export type ContactEnquiry = Trap & {
   enquiry_type?: "GENERAL_ENQUIRY" | "PARTNERSHIP" | "CAREERS" | "MEDIA";
 };
 
-export type NewsletterSignup = Trap & { email: string; name?: string };
-
 /**
  * The body an intake endpoint receives: the form's fields and when it was
  * started, with the empties dropped. Shared with `quote-intake.ts`, whose
@@ -142,12 +140,6 @@ export const contactEnquiries = {
   path: "/public/intake/contact-enquiries" as const,
   send: (body: ContactEnquiry, startedAt?: number) =>
     submit("/public/intake/contact-enquiries", body, startedAt),
-};
-
-export const newsletter = {
-  path: "/public/intake/newsletter" as const,
-  send: (body: NewsletterSignup, startedAt?: number) =>
-    submit("/public/intake/newsletter", body, startedAt),
 };
 
 /**

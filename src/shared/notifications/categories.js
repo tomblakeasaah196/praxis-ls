@@ -95,13 +95,13 @@ const DOMAIN_TO_CATEGORY = {
   task: "tasks",
 
   // sales & CRM
-  client: "sales", lead: "sales", campaign: "sales", contact_enquiry: "sales",
+  client: "sales", lead: "sales", contact_enquiry: "sales",
   quote: "sales", sales: "sales", commercial: "sales",
   // Client portal (14150): paperwork a client sent is operations work; a payment
   // claim is finance work.
   client_request: "operations", payment_proof: "finance",
-  opportunity: "sales", proposal: "sales", quotation: "sales", meeting: "sales", partnership_request: "sales",
-  newsletter: "sales", success_story: "sales",
+  opportunity: "sales", proposal: "sales", quotation: "sales", meeting: "sales",
+  success_story: "sales",
 
   // compliance & documents
   compliance_flag: "compliance", document: "compliance", document_vault: "compliance", vault: "compliance",

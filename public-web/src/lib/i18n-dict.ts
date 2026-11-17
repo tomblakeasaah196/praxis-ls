@@ -635,15 +635,6 @@ export const en = {
       verify: "Authenticate our documents",
       privacy: "Privacy",
       terms: "Terms of service",
-      newsletter:
-        "One occasional note on routes, capacity and customs changes. No marketing.",
-      newsletterCta: "Subscribe",
-      sending: "Sending…",
-      newsletterEmail: "Email address",
-      newsletterOk: "You're on the list.",
-      newsletterLimited:
-        "Too many sign-ups from this connection. Please try again in an hour.",
-      newsletterErr: "That address did not work. Please try again.",
       /* §9.5. `social` names the nav landmark; `socialOn` is the accessible
          name of one link, because a row of seven links all called "Social" is
          a row a screen-reader user cannot navigate. */
@@ -1372,15 +1363,6 @@ export const fr = {
       verify: "Authentifier nos documents",
       privacy: "Confidentialité",
       terms: "Conditions d’utilisation",
-      newsletter:
-        "Une note occasionnelle sur les routes, la capacité et les changements douaniers. Pas de marketing.",
-      newsletterCta: "S’abonner",
-      sending: "Envoi…",
-      newsletterEmail: "Adresse de courriel",
-      newsletterOk: "Vous êtes inscrit.",
-      newsletterLimited:
-        "Trop d’inscriptions depuis cette connexion. Réessayez dans une heure.",
-      newsletterErr: "Cette adresse n’a pas fonctionné. Veuillez réessayer.",
       social: "Réseaux sociaux",
       socialOn: "{{platform}}, dans un nouvel onglet",
       credentials: "Agréments :",

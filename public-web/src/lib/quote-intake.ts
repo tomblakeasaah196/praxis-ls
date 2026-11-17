@@ -4,8 +4,8 @@
  *
  * ── WHY THIS IS NOT IN `api.ts` OR `intake-api.ts` ────────────────────────
  *
- * Both are on the first-paint path: the footer's newsletter form imports
- * `intake-api.ts`, and everything imports `api.ts`. An XMLHttpRequest wrapper
+ * Both are shared: every intake form imports `intake-api.ts`, and everything
+ * imports `api.ts`. An XMLHttpRequest wrapper
  * that only the quote wizard ever calls would be downloaded by every visitor
  * to every page — the cost `check-bundle.mjs` exists to refuse. Only the quote
  * wizard imports this file, so it travels in the quote chunk.

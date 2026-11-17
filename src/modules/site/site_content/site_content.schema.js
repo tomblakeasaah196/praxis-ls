@@ -197,7 +197,10 @@ const BLOCKS = {
     intro: biOpt(TEXT_MAX),
     // Which public_intake form to render. The block never defines fields — the
     // endpoint's Zod schema is the contract and this only chooses between them.
-    form: z.enum(["CONTACT", "QUOTE", "PARTNERSHIP", "NEWSLETTER"]),
+    // PARTNERSHIP and NEWSLETTER went with their endpoints in the Sales lean
+    // revamp (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md, D10); a partnership offer is
+    // a CONTACT enquiry of type PARTNERSHIP.
+    form: z.enum(["CONTACT", "QUOTE"]),
   }).strict(),
 
   contact_block: z.object({

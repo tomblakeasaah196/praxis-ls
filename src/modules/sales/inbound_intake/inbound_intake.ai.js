@@ -50,11 +50,11 @@ module.exports = {
     },
     {
       key: "triage_enquiry",
-      service: (c, p, actor) => service.triageEnquiry(c, { id: p.contact_enquiry_id, toLead: p.to_lead === true, toPartnership: p.to_partnership === true, close: p.close === true, actor }),
+      service: (c, p, actor) => service.triageEnquiry(c, { id: p.contact_enquiry_id, toLead: p.to_lead === true, close: p.close === true, actor }),
       schema: validator.schemas.aiTriage,
       permission: { module: "MOD-25", action: "edit" },
       confirm: true,
-      describe: "Route an enquiry into the funnel: raise a lead, and/or raise a partnership request (which also classifies it as PARTNERSHIP). Triage does not mark the enquiry answered.",
+      describe: "Route an enquiry into the funnel by raising a lead from it. Triage does not mark the enquiry answered.",
     },
   ],
 };
