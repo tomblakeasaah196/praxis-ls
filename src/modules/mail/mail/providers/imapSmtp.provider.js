@@ -28,6 +28,7 @@
 const crypto = require("crypto");
 const { baseCapabilities } = require("./provider.interface");
 const { config } = require("../../../../config/env");
+const { smtpTimeouts } = require("../../../../shared/mail/smtp-timeouts");
 
 const SENT_MAILBOX_CANDIDATES = ["Sent", "Sent Items", "Sent Mail", "INBOX.Sent"];
 
@@ -128,6 +129,9 @@ class ImapSmtpProvider {
       port: c.smtp_port || 587,
       secure: c.smtp_secure === true || c.smtp_port === 465,
       auth: this._smtpAuth(),
+      // A send to a server that has stopped answering fails in seconds with a
+      // named error, not after nodemailer's two-minute default.
+      ...smtpTimeouts("send"),
       // Same HELO rule as the system mailer — see config/env MAIL_HELO_NAME. A
       // user's mail leaves through this transport, so a loopback greeting here
       // costs the TENANT's reputation, not ours.
