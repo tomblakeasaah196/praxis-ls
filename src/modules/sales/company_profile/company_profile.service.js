@@ -96,6 +96,7 @@ async function editor(c) {
   const services = await repo.publishedServices(c);
   const stories = await repo.publishedStories(c);
   const logos = await repo.listLogos(c);
+  const contact = await repo.contactFacts(c);
   const current = draft || live;
   const sections = current ? await repo.sections(c, current.version_id) : [];
   const derived = await repo.getSingleton(c);
@@ -113,6 +114,10 @@ async function editor(c) {
     }),
     completeness: presentation.completeness(sections),
     cover_url: mediaUrl(cover),
+    contact: contact ? {
+      legal_name: contact.legal_name, trading_name: contact.trading_name || null, address: contact.address || null,
+      phone: contact.phone || null, email: contact.email || null, website: contact.website || null,
+    } : null,
     choices: {
       services: services.map((s) => ({
         id: s.service_type_id, name_en: s.name_en, name_fr: s.name_fr,
