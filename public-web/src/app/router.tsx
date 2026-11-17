@@ -112,6 +112,12 @@ const Proposal = lazy(
   () => import("@/features/proposals/proposal-page"),
   "ProposalPage",
 );
+/* The shared Company Profile: a document for one recipient, reached by a token,
+   like the proposal above and just as rarely visited from any given entry. */
+const Profile = lazy(
+  () => import("@/features/profile/profile-page"),
+  "ProfilePage",
+);
 const Careers = lazy(
   () => import("@/features/careers/careers-page"),
   "CareersPage",
@@ -295,6 +301,7 @@ export function AppRouter() {
         <Route path={p("/portfolio")} element={<PortfolioIndex />} />
         <Route path={p("/portfolio/:slug")} element={<PortfolioStory />} />
         <Route path={p("/proposals/:token")} element={<Proposal />} />
+        <Route path={p("/profile/:token")} element={<Profile />} />
         <Route path={p("/insights")} element={<Insights />} />
         <Route path={p("/insights/:slug")} element={<Insight />} />
         <Route path={p("/careers")} element={<Careers />} />

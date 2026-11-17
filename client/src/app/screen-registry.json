@@ -1575,12 +1575,20 @@
       "title": "Company Profile",
       "route": "/sales/company-profile",
       "area": "sales",
-      "module_key": "MOD-23",
-      "purpose": "Tenant-owned declared and SQL-derived fact sheet used to ground proposals and case studies.",
+      "module_key": "MOD-26",
+      "purpose": "The tenant's company profile: nine fixed sections written in English and French, versions with publish and history, a branded PDF, and tracked share links per recipient or lead. Capacity figures come from the tenant's own data; case stories from published Success Stories.",
       "actions": [
         "get_company_profile"
       ],
-      "title_fr": "Profil d'entreprise"
+      "title_fr": "Profil d'entreprise",
+      "synonyms": [
+        "plaquette",
+        "plaquette commerciale",
+        "brochure",
+        "company brochure",
+        "présentation de l'entreprise",
+        "about us"
+      ]
     },
     {
       "id": "sales_opportunities",

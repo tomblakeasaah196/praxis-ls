@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1865 |
-| Modules mounted | 141 |
+| Routes | 1880 |
+| Modules mounted | 142 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1865 mounted routes, grouped by path prefix.
+All 1880 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -542,9 +542,22 @@ All 1865 mounted routes, grouped by path prefix.
 | Method | Path | Body validated |
 |---|---|---|
 | GET | `/api/tenant/company-profile/` | — |
-| PUT | `/api/tenant/company-profile/` | — |
-| POST | `/api/tenant/company-profile/extract` | — |
+| DELETE | `/api/tenant/company-profile/draft/cover` | — |
+| POST | `/api/tenant/company-profile/draft/cover` | — |
+| PATCH | `/api/tenant/company-profile/draft/sections/:key` | — |
+| GET | `/api/tenant/company-profile/logos` | — |
+| POST | `/api/tenant/company-profile/logos` | — |
+| POST | `/api/tenant/company-profile/logos/:id/retire` | — |
+| GET | `/api/tenant/company-profile/pdf` | — |
+| GET | `/api/tenant/company-profile/preview` | — |
+| POST | `/api/tenant/company-profile/publish` | — |
 | POST | `/api/tenant/company-profile/refresh` | — |
+| GET | `/api/tenant/company-profile/shares` | — |
+| POST | `/api/tenant/company-profile/shares` | — |
+| GET | `/api/tenant/company-profile/shares/:id/opens` | — |
+| POST | `/api/tenant/company-profile/shares/:id/revoke` | — |
+| GET | `/api/tenant/company-profile/versions` | — |
+| GET | `/api/tenant/company-profile/versions/:id/diff` | — |
 
 ### `tenant/compliance`
 
@@ -1741,6 +1754,8 @@ All 1865 mounted routes, grouped by path prefix.
 
 | Method | Path | Body validated |
 |---|---|---|
+| GET | `/api/tenant/public/company-profile/:token` | — |
+| GET | `/api/tenant/public/company-profile/:token/pdf` | — |
 | GET | `/api/tenant/public/corridors/` | — |
 | GET | `/api/tenant/public/insights/` | — |
 | GET | `/api/tenant/public/insights/:slug` | — |

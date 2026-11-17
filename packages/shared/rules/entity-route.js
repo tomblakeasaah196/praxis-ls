@@ -129,6 +129,11 @@ const SECTION = {
   opportunity: "/sales/opportunities",
   proposal: "/sales/proposals",
   contact_enquiry: "/sales/enquiries",
+  // One profile per tenant: its versions and share links all live on its screen.
+  company_profile: "/sales/company-profile",
+  company_profile_version: "/sales/company-profile",
+  company_profile_share: "/sales/company-profile",
+  company_profile_logo: "/sales/company-profile",
   // Procurement
   purchase_request: "/procurement/purchase-requests",
   purchase_order: "/procurement/purchase-orders",

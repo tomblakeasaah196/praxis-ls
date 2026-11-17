@@ -89,6 +89,12 @@ const FEATURE_DICTS = [
     file: path.join(WEB_SRC, "features", "verify", "verify-copy.ts"),
     mount: "verify",
   },
+  {
+    // The shared Company Profile page (Sales lean revamp, PR 5): a few keys
+    // of page furniture only a link holder reads.
+    file: path.join(WEB_SRC, "features", "profile", "profile-copy.ts"),
+    mount: "profile",
+  },
 ];
 const ROUTER = path.join(WEB_SRC, "app", "router.tsx");
 const OUT = path.join(ROOT, "packages", "shared", "data", "site-copy.generated.js");
@@ -209,6 +215,7 @@ const SECTION_LABELS = {
   track: "Tracking widget",
   trackPage: "Tracking page",
   proposals: "Proposals",
+  profile: "Company profile",
   notFound: "Page not found",
   crash: "Error screen",
 };

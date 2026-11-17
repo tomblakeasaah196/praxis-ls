@@ -552,6 +552,7 @@ function robots(origin, servesPublic, base, host) {
     // needed protecting stay open. That is the failure this file is otherwise
     // full of guards against.
     "Disallow: " + paths.joinBase(base, "/proposals/"),
+    "Disallow: " + paths.joinBase(base, "/profile/"),
     "Disallow: /portal/",
     "",
     "Sitemap: " + origin + "/sitemap.xml",
