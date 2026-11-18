@@ -39,7 +39,7 @@ const repo = require("./quotation.repo");
 const rules = require("./quotation.rules");
 const events = require("./quotation.events");
 const quotationSections = require("./quotation.sections");
-const { emitEvent, audit } = require("../../../shared/events/emit");
+const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emit");
 const { atomically } = require("../../../shared/db/tx");
 const { AppError } = require("../../../utils/errors");
 const { logger } = require("../../../config/logger");
@@ -147,7 +147,7 @@ async function send(client, { id, input, actor = {}, origin = null, env = "live"
       sent_to: input.to,
       sent_cc: input.cc && input.cc.length ? input.cc : null,
       sent_subject: input.subject,
-      ...(firstSend ? {} : { sent_at: new Date(), sent_by: actor.user_id || null }),
+      ...(firstSend ? {} : { sent_at: new Date(), sent_by: await resolveActorId(client, actor.user_id) }),
     });
     const minted = await mint(client, q);
     if (firstSend) {

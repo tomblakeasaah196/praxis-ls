@@ -35,7 +35,7 @@ const finalInvoice = require("../../finance/final_invoice/final_invoice.service"
 const numbering = require("../../../services/documents/numbering.service");
 const documents = require("../../../services/documents/document.service");
 const { getRule } = require("../../../shared/config/settings");
-const { emitEvent, audit } = require("../../../shared/events/emit");
+const { emitEvent, audit, resolveActorId } = require("../../../shared/events/emit");
 const { atomically } = require("../../../shared/db/tx");
 const { AppError } = require("../../../utils/errors");
 
@@ -251,7 +251,9 @@ async function ensureRequest(client, row, actor = {}) {
  */
 async function issue(client, { before, entityId = null, actor = {} }) {
   assertParty(before);
-  const fields = { status: "SENT", sent_at: new Date(), sent_by: actor.user_id || null };
+  // sent_by is a plain uuid, resolved like every actor write (DATA 2.4): a
+  // sandbox send by a live-only user stores nobody rather than a dangling id.
+  const fields = { status: "SENT", sent_at: new Date(), sent_by: await resolveActorId(client, actor.user_id) };
   if (!before.doc_number) {
     const eid = entityId || before.entity_id;
     if (!eid) throw new AppError("ENTITY_REQUIRED", "entity_id required to number the quotation", 422);

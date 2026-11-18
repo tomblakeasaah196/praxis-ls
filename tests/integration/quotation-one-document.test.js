@@ -73,6 +73,22 @@ d("Sales lean revamp PR 4: quotations absorb proposals (real Postgres)", () => {
   });
 
   afterAll(async () => {
+    // Leave the outbox as this suite found it. Every send, view and answer here
+    // raises events, and a suite that later drains "the oldest 200"
+    // (orchestration-import-freight) must not find several hundred of ours
+    // ahead of its own. Draining is exactly what the scheduled job does.
+    if (pool) {
+      const dispatcher = require("../../src/orchestration/dispatcher");
+      const c = await connect();
+      try {
+        for (let i = 0; i < 25; i += 1) {
+          const out = await dispatcher.dispatchPending(c, { limit: 200 });
+          if (!out.scanned || out.scanned < 200) break;
+        }
+      } finally {
+        c.release();
+      }
+    }
     jest.restoreAllMocks();
     if (pool) await pool.end();
   });

@@ -12,7 +12,8 @@
 const express = require("express");
 const { quotation: shared } = require("@praxis/shared");
 const { makeLimiter } = require("../../../shared/http/rate-limit");
-const { asyncHandler, AppError } = require("../../../utils/errors");
+const { asyncHandler } = require("../../../utils/errors");
+const { body } = require("../../../shared/http/validate");
 const s = require("./quotation_public.service");
 
 const router = express.Router();
@@ -34,12 +35,6 @@ const lang = (req) => {
   return v === "FR" || v === "EN" ? v : null;
 };
 const tenantName = (req) => (req.tenant && req.tenant.name) || "";
-const body = (schema) => (req, _res, next) => {
-  const p = schema.safeParse(req.body || {});
-  if (!p.success) return next(new AppError("VALIDATION_ERROR", "Invalid body", 422, p.error.flatten().fieldErrors));
-  req.body = p.data;
-  return next();
-};
 const live = (req, fn) => req.tenantDbIn("live", fn);
 
 router.get("/:token", limit, asyncHandler(async (req, res) => {
@@ -60,15 +55,14 @@ router.post("/:token/accept/resend", answerLimit, body(shared.revise), asyncHand
   res.json({ data: await live(req, (c) => s.resendCode(c, { token: req.params.token, lang: lang(req) || "EN", tenantName: tenantName(req) })) });
 }));
 
+/** The code and the mark, as signature_public.complete takes them. */
+const completion = (req) => ({
+  token: req.params.token, code: req.body.code, presetCode: req.body.preset_code, fullName: req.body.full_name, role: req.body.role || null,
+  markImageB64: req.body.mark_image_b64 || null, ip: req.ip, userAgent: req.get("user-agent") || null, lang: lang(req) || "EN",
+  origin: `${req.protocol}://${req.get("host")}`,
+});
 router.post("/:token/accept/complete", answerLimit, body(shared.linkAcceptComplete), asyncHandler(async (req, res) => {
-  const b = req.body;
-  res.json({
-    data: await live(req, (c) => s.completeAccept(c, {
-      token: req.params.token, code: b.code, presetCode: b.preset_code, fullName: b.full_name, role: b.role || null,
-      markImageB64: b.mark_image_b64 || null, ip: req.ip, userAgent: req.get("user-agent") || null, lang: lang(req) || "EN",
-      origin: `${req.protocol}://${req.get("host")}`,
-    })),
-  });
+  res.json({ data: await live(req, (c) => s.completeAccept(c, completion(req))) });
 }));
 
 router.post("/:token/accept", answerLimit, body(shared.linkAcceptConfirm), asyncHandler(async (req, res) => {

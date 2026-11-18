@@ -19,13 +19,13 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | Alias | Prefer | Raised |
 |---|---|---|
 | `BAD_AMOUNT` | `INVALID_AMOUNT` | 16× |
-| `BAD_STATE` | `BAD_STATUS` | 37× |
+| `BAD_STATE` | `BAD_STATUS` | 39× |
 | `EMPLOYEE_NOT_FOUND` | `NOT_FOUND` | 3× |
 | `FORBIDDEN` | `PERMISSION_DENIED` | 7× |
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (723)
+## All codes (733)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -135,7 +135,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_SECTION` | — | 1× | — |
 | `BAD_SIGNATURE` | 422 | 1× | — |
 | `BAD_SNAPSHOT_TARGET` | 500 | 1× | — |
-| `BAD_STATE` | 400, 409, 422 | 37× | `BAD_STATUS` |
+| `BAD_STATE` | 400, 409, 422 | 39× | `BAD_STATUS` |
 | `BAD_STATUS` | 422 | 6× | — |
 | `BAD_STEP` | 422 | 1× | — |
 | `BAD_STORAGE_BUFFER` | 400 | 2× | — |
@@ -243,10 +243,10 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ENTITLEMENT_EXCEEDED` | — | 1× | — |
 | `ENTITY_MISMATCH` | 422 | 1× | — |
 | `ENTITY_NOT_IN_IDENTITY_SCHEMA` | — | 1× | — |
-| `ENTITY_REQUIRED` | 422 | 11× | — |
+| `ENTITY_REQUIRED` | 422 | 9× | — |
 | `ENTRY_NOT_ON_ACCOUNT` | 400 | 1× | — |
 | `ENVELOPE_IN_FLIGHT` | 409 | 1× | — |
-| `ESIGN_UNAVAILABLE` | 409 | 1× | — |
+| `ESIGN_UNAVAILABLE` | 409 | 2× | — |
 | `EVENT_FORBIDDEN` | 403 | 1× | — |
 | `EVERY_LINE_NEEDS_BUDGET` | — | 1× | — |
 | `EXISTS` | 409 | 3× | — |
@@ -330,7 +330,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `LEAD_ARCHIVED` | 409 | 2× | — |
 | `LEAD_EXISTS` | 409 | 1× | — |
 | `LEAD_MERGED` | 409 | 1× | — |
-| `LEAD_NOT_FOUND` | 422 | 1× | — |
+| `LEAD_NOT_FOUND` | 422 | 2× | — |
 | `LEAVE_OVERLAP` | 409 | 2× | — |
 | `LEDGER_LINE_ALREADY_MATCHED` | 409 | 2× | — |
 | `LIMIT_REACHED` | 422 | 1× | — |
@@ -338,7 +338,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `LINE_HAS_CLAIMS` | — | 1× | — |
 | `LINE_REQUIRED` | 422 | 1× | — |
 | `LOCATION_REQUIRED` | — | 1× | — |
-| `LOCKED` | 422 | 35× | — |
+| `LOCKED` | 422 | 34× | — |
 | `LOCKED_NOT_DEFAULT` | — | 1× | — |
 | `LOGIN_THROTTLED` | 429 | 1× | — |
 | `LOW_MARGIN_JUSTIFICATION_REQUIRED` | 422 | 1× | — |
@@ -398,7 +398,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 766× | — |
+| `NOT_FOUND` | 404, 422 | 768× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -409,7 +409,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_PRICED_BY_QUOTATION` | — | 1× | — |
 | `NOT_PUBLISHED` | 422 | 1× | — |
 | `NOT_QUERIED` | 422 | 1× | — |
-| `NOT_READY` | 409 | 4× | — |
+| `NOT_READY` | 409 | 3× | — |
 | `NOT_RELEASED` | 422 | 1× | — |
 | `NOT_REPRINTABLE` | 409 | 1× | — |
 | `NOT_REVERSIBLE` | 422 | 1× | — |
@@ -475,7 +475,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NO_REPLY_ADDRESS` | 422 | 1× | — |
 | `NO_REVENUE_ACCOUNT` | 422 | 1× | — |
 | `NO_SCHEDULE` | 422 | 1× | — |
-| `NO_SENDER` | 409 | 2× | — |
+| `NO_SENDER` | 409 | 1× | — |
 | `NO_SERVICE_TYPE` | — | 1× | — |
 | `NO_SIGNATORIES` | 422 | 1× | — |
 | `NO_SIGNED_COPY` | 422 | 2× | — |
@@ -552,14 +552,14 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `PREFIX_IN_USE` | 422 | 1× | — |
 | `PREFIX_TAKEN` | 422 | 1× | — |
 | `PRESET_NOT_ALLOWED` | 422 | 3× | — |
+| `PRICING_ALWAYS_ON` | 422 | 1× | — |
 | `PRIMARY_DEACTIVATION_BLOCKED` | 422 | 1× | — |
 | `PRINT_CODE_EXHAUSTED` | 500 | 1× | — |
 | `PRIVILEGED_TARGET` | 403 | 1× | — |
 | `PROFILE_ENTITY_MISMATCH` | 422 | 1× | — |
 | `PROFILE_SOURCE_KIND_MISMATCH` | 422 | 1× | — |
 | `PROOF_REQUIRED` | 422 | 1× | — |
-| `PROPOSAL_ANSWERED` | 409 | 1× | — |
-| `PROPOSAL_EXPIRED` | 409 | 1× | — |
+| `PROPOSAL_RETIRED` | — | 1× | — |
 | `PROTECTED` | 422 | 1× | — |
 | `PROTECTED_ROLE` | 409 | 1× | — |
 | `PROVIDER_NOT_ENABLED` | — | 1× | — |
@@ -573,8 +573,12 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `QES_PROVIDER_ERROR` | 502 | 2× | — |
 | `QES_PROVIDER_UNSUPPORTED` | 422 | 1× | — |
 | `QUEUE_UNAVAILABLE` | 503 | 1× | — |
-| `QUOTATION_ANSWERED` | 409 | 1× | — |
-| `QUOTATION_EXPIRED` | 409 | 1× | — |
+| `QUOTATION_ANSWERED` | 409 | 3× | — |
+| `QUOTATION_EXPIRED` | 409 | 3× | — |
+| `QUOTATION_MAIL_FAILED` | — | 1× | — |
+| `QUOTATION_PARTY_MISMATCH` | 422 | 1× | — |
+| `QUOTATION_PARTY_REQUIRED` | 422 | 1× | — |
+| `QUOTATION_SUPERSEDED` | 409 | 3× | — |
 | `QUOTE_REQUEST_NOT_FOUND` | 422 | 1× | — |
 | `QUOTE_REQUEST_OTHER_CLIENT` | 422 | 1× | — |
 | `RATE_LIMITED` | 429 | 1× | — |
@@ -611,6 +615,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `RESULT_SET_TOO_LARGE` | 500 | 1× | — |
 | `RETIRED_FIELD` | 422 | 1× | — |
 | `REVIEWS_INCOMPLETE` | 422 | 1× | — |
+| `REVISION_OPEN` | 409 | 1× | — |
 | `REWARD_LOCKED` | 409 | 1× | — |
 | `ROLE_ESCALATION` | — | 1× | — |
 | `ROLE_IN_USE` | 409 | 1× | — |
@@ -630,6 +635,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SCOPE_CYCLE` | 422 | 2× | — |
 | `SCOPE_FORBIDDEN` | 403 | 1× | — |
 | `SCORING_UNAVAILABLE` | 502 | 1× | — |
+| `SECTION_AUTOMATIC` | 422 | 2× | — |
 | `SELF_APPROVAL` | 403 | 2× | — |
 | `SELF_APPROVE` | 422 | 1× | — |
 | `SELF_DELETE` | 409 | 1× | — |
@@ -641,6 +647,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SENDER_NOT_AUTHORIZED` | 422 | 2× | — |
 | `SEND_RATE_LIMIT` | — | 2× | — |
 | `SERVICE_TYPE_INVALID` | 422 | 1× | — |
+| `SERVICE_TYPE_NOT_FOUND` | 422 | 1× | — |
 | `SESSION_EXPIRED` | 401 | 3× | — |
 | `SESSION_REVOKED` | 401 | 8× | — |
 | `SETUP_REQUIRED` | 400 | 1× | — |
@@ -667,6 +674,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `STEPUP_REQUIRED` | 403 | 1× | — |
 | `STEP_EXISTS` | 409 | 1× | — |
 | `STORAGE_LIMIT` | 413 | 1× | — |
+| `STORY_NOT_PUBLISHED` | 422 | 1× | — |
 | `SUBMISSION_BLOCKED` | 422 | 1× | — |
 | `SUMMARY_ALREADY_SENT` | 409 | 2× | — |
 | `SUMMARY_DISCARDED` | 409 | 1× | — |
@@ -682,6 +690,8 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SYSTEM_TYPE` | 422 | 2× | — |
 | `TARIFF_GAP` | 422 | 1× | — |
 | `TAX_CODE_UNMAPPED` | 422 | 1× | — |
+| `TEMPLATE_IS_DEFAULT` | 409 | 2× | — |
+| `TEMPLATE_NOT_FOUND` | 422 | 1× | — |
 | `TEMPLATE_NOT_PUBLISHED` | 409 | 1× | — |
 | `TENANT_MISMATCH` | 400 | 1× | — |
 | `TENANT_NOT_FOUND` | 404 | 1× | — |
@@ -733,7 +743,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_INACTIVE` | 401 | 5× | — |
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 400, 422 | 302× | — |
+| `VALIDATION_ERROR` | 400, 422 | 306× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |

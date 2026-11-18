@@ -52,7 +52,7 @@ const visible = (h) => h.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<!--[\
 const html = (output, language = "en") => registry.get("QUOTATION").build(record(output), cfg(language), entity, null);
 
 /** Every money figure on the page, in order of appearance. */
-const figures = (h) => (h.match(/\d[\d   ]*(?:,\d+)? XAF/g) || []).map((s) => s.replace(/\s/g, ""));
+const figures = (h) => (h.match(/\d[\d\u202f\u00a0 ]*(?:,\d+)? XAF/g) || []).map((s) => s.replace(/\s/g, ""));
 const pricingBlock = (h) => h.slice(h.indexOf('class="q-pricing"'), h.indexOf("</table>", h.indexOf('class="totals"')));
 
 describe("Full Proposal and Commercial Extract print the same numbers", () => {
