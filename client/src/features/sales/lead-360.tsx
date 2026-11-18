@@ -504,6 +504,24 @@ export function LeadRecordView({
 
   const d = res.data;
   const requestId = params.get("request");
+  // Memoised: the request form resets whenever its seed changes, so a new
+  // object on every render would wipe what is being typed.
+  const lead0 = d?.lead;
+  const requestSeed = React.useMemo(
+    () =>
+      lead0
+        ? {
+            lead_id: lead0.lead_id,
+            client_id: lead0.client_id || null,
+            client_name: lead0.client_name || null,
+            requester_company: lead0.company_name,
+            requester_name: lead0.contact_name || null,
+            requester_email: lead0.email || null,
+            requester_phone: lead0.phone || null,
+          }
+        : null,
+    [lead0],
+  );
 
   const reload = React.useCallback(() => {
     res.reload();
@@ -665,15 +683,7 @@ export function LeadRecordView({
       <QuoteRequestForm
         open={dialog === "request"}
         editing={null}
-        initial={{
-          lead_id: l.lead_id,
-          client_id: l.client_id || null,
-          client_name: l.client_name || null,
-          requester_company: l.company_name,
-          requester_name: l.contact_name || null,
-          requester_email: l.email || null,
-          requester_phone: l.phone || null,
-        }}
+        initial={requestSeed}
         onClose={close}
         onSaved={(id) => {
           reload();

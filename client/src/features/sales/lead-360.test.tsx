@@ -16,7 +16,6 @@
  *                opportunity link resolves to the request on its company; a
  *                lead's step completed in My Workspace goes to the lead.
  */
-import * as React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { axe } from "jest-axe";
