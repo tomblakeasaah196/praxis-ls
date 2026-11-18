@@ -173,7 +173,7 @@ export function QuoteRequestForm({
   const list = services.data || [];
   const service = list.find((x) => x.service_type_id === serviceTypeId) || null;
   // A request converted or closed keeps the client it had (shared rule).
-  const relinkable = quoteRequest.canRelink(editing ? String(editing.stage || editing.status || "") : "NEW");
+  const relinkable = quoteRequest.canRelink(editing ? String(editing.stage || "") : "NEW");
 
   /**
    * The client a requester's address belongs to (owner decision Q5): an exact

@@ -202,6 +202,19 @@ const OpportunityLinkPage = lazyNamed(
   () => import("@/features/sales/old-links"),
   "OpportunityLinkPage",
 );
+const ProposalLinkPage = lazyNamed(
+  () => import("@/features/sales/old-links"),
+  "ProposalLinkPage",
+);
+// The quotation editor and the templates screen (lean revamp PR 6, §3.4, §3.5).
+const QuotationEditorPage = lazyNamed(
+  () => import("@/features/commercial/quotation-editor"),
+  "QuotationEditorPage",
+);
+const QuotationTemplatesPage = lazyNamed(
+  () => import("@/features/commercial/quotation-templates"),
+  "QuotationTemplatesPage",
+);
 // Mail conversion landings (§7.7) — one module, so the six share a chunk.
 const LeadNewPage = lazyNamed(
   () => import("@/features/comms/inbox/work/convert-pages"),
@@ -750,6 +763,27 @@ export function App() {
               <Route
                 path="sales/opportunities/:opportunityId"
                 element={<OpportunityLinkPage />}
+              />
+              {/* Proposals merged into Quotations (lean revamp PR 6, §5.6): the
+                  tab's address opens Quotations, and a proposal's own link opens
+                  the quotation 14542 made of it. */}
+              <Route
+                path="sales/proposals"
+                element={<Navigate to="/sales/quotations" replace />}
+              />
+              <Route
+                path="sales/proposals/:proposalId"
+                element={<ProposalLinkPage />}
+              />
+              {/* The editor (§3.4) and the one templates screen (§3.5). The
+                  static "templates" outranks the id by specificity. */}
+              <Route
+                path="sales/quotations/templates"
+                element={<QuotationTemplatesPage />}
+              />
+              <Route
+                path="sales/quotations/:quotationId"
+                element={<QuotationEditorPage />}
               />
               {/* Mail conversion landings (§7.7) — see the note above the task
               one. Ranked above the dossier params by specificity. */}

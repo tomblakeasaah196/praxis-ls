@@ -24,6 +24,7 @@ const schemas = {
   // "Create quotation" on a costing (G1) — the shared definition.
   fromCosting: shared.fromCosting,
   send: shared.send,
+  decline: shared.decline,
   share: shared.share,
   revise: shared.revise,
   revoke: z.object({}).strict(),
@@ -37,6 +38,7 @@ const schemas = {
   aiConvert: z.object({ quotation_id: z.string().guid() }),
   aiSend: shared.send.extend({ quotation_id: z.string().guid() }),
   aiRevise: z.object({ quotation_id: z.string().guid() }),
+  aiDecline: shared.decline.extend({ quotation_id: z.string().guid() }),
   aiDraftSections: shared.draftSections.extend({ quotation_id: z.string().guid() }),
   aiUpdateSections: z.object({ quotation_id: z.string().guid(), sections: shared.sections, default_output: z.enum(shared.OUTPUTS).optional(), language: z.enum(shared.LANGUAGES).optional(), title: z.string().trim().max(200).nullable().optional() }).strict(),
   // AI-facing: the costing in the payload (REST uses the URL).
@@ -57,6 +59,6 @@ const renderQuery = (req, _res, next) => {
 };
 module.exports = {
   create: mw("create"), update: mw("update"), transition: mw("transition"), accept: mw("accept"), convert: mw("convert"), fromCosting: mw("fromCosting"),
-  send: mw("send"), share: mw("share"), revise: mw("revise"), revoke: mw("revoke"), draftSections: mw("draftSections"),
+  send: mw("send"), decline: mw("decline"), share: mw("share"), revise: mw("revise"), revoke: mw("revoke"), draftSections: mw("draftSections"),
   template: mw("template"), templatePatch: mw("templatePatch"), costingParam, renderQuery, schemas,
 };

@@ -1529,7 +1529,7 @@ export declare namespace quotation {
   const fromCosting: z.ZodType<QuotationFromCosting, unknown>;
   const targetMargin: z.ZodType<number, unknown>;
   const commercialSettings: z.ZodType<{ target_margin_percent: number }, unknown>;
-  // Read by the API's portal routes only.
+  /** A client's no: the portal, the link and staff Record Decline. */
   const decline: z.ZodTypeAny;
   /** The section library, in its fixed print order (lean revamp §3.4). */
   const SECTION_KEYS: ReadonlyArray<QuotationSectionKey>;

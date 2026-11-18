@@ -15,7 +15,7 @@ import { tr } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { errMsg, useResource } from "@/lib/use-resource";
 import { money, dateFmt, cell } from "@/lib/format";
-import { useCan, useCanOpenRoute } from "@/lib/route-access";
+import { useCan } from "@/lib/route-access";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ import {
   type QuotationRow,
 } from "@/lib/lead-api";
 import { AttachmentsPanel, QuoteRequestForm } from "./quote-request-forms";
-import { newQuotationPath } from "./new-quotation";
+import { useStartQuotation } from "./new-quotation";
 
 /* ═══════════════════════════════ the bar ════════════════════════════════ */
 
@@ -248,7 +248,8 @@ export function RequestSheet({
   onChanged: () => void;
 }) {
   const can = useCan("MOD-20");
-  const canOpen = useCanOpenRoute();
+  const canQuote = useCan("MOD-27");
+  const quote = useStartQuotation();
   const toast = useToast();
   const res = useResource<RequestRow | null>(
     () => (requestId ? (fetchRequest(requestId) as Promise<RequestRow>) : Promise.resolve(null)),
@@ -313,7 +314,6 @@ export function RequestSheet({
   const service = r ? serviceNameOf({ name_en: r.service_name_en as string, name_fr: r.service_name_fr as string }) || cell(r.service_category) : "";
   const value = r?.estimated_value != null && r.estimated_value !== "" ? money(r.estimated_value, r.currency || "XAF") : "—";
   const route = r ? [r.origin_location, r.destination_location].filter(Boolean).join(" → ") : "";
-  const quoteTo = r && lead.client_id ? newQuotationPath(lead.client_id, r.quote_request_id) : null;
 
   return (
     <Dialog
@@ -341,10 +341,11 @@ export function RequestSheet({
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            {quoteTo && !settled && canOpen("/sales/quotations") ? (
-              <AccessLink to={quoteTo} className="btn-primary inline-flex h-9 items-center rounded-lg px-3 text-[13px] no-underline">
+            {/* Prefilled from this request, for a client or a prospect (PR 6). */}
+            {r && !settled && canQuote("create") ? (
+              <Button size="sm" loading={quote.busy} onClick={() => void quote.start({ leadId: lead.lead_id, clientId: lead.client_id || null, requestId: r.quote_request_id })}>
                 {tr("New Quotation")}
-              </AccessLink>
+              </Button>
             ) : null}
             {!settled && can("approve") ? (
               <Button variant="outline" size="sm" onClick={() => void won()} loading={busy}>

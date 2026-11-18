@@ -28,6 +28,8 @@ router.post("/templates", requirePermission(MODULE, "edit"), validator.template,
 router.get("/templates/:templateId", requirePermission(MODULE, "view"), controller.template);
 router.patch("/templates/:templateId", requirePermission(MODULE, "edit"), validator.templatePatch, controller.updateTemplate);
 router.get("/templates/:templateId/preview", requirePermission(MODULE, "view"), validator.renderQuery, controller.previewTemplate);
+// The reasons a client declines for, in both languages (the same list the link offers).
+router.get("/decline-reasons", requirePermission(MODULE, "view"), controller.declineReasons);
 router.get("/:id", requirePermission(MODULE, "view"), controller.get);
 // The one render: preview (HTML) and the PDF, as Full or Extract, EN or FR.
 router.get("/:id/preview", requirePermission(MODULE, "view"), validator.renderQuery, controller.preview);
@@ -41,6 +43,8 @@ const TRANSITION_ACTION = transitionActions.quotationTransition;
 
 router.post("/:id/transition", validator.transition, requireTransitionPermission(MODULE, TRANSITION_ACTION), controller.transition);
 router.post("/:id/accept", requirePermission(MODULE, "approve"), validator.accept, controller.accept);
+// Decline with a reason, recorded by staff: the grant the REJECTED step takes.
+router.post("/:id/decline", requirePermission(MODULE, TRANSITION_ACTION.REJECTED), validator.decline, controller.decline);
 // Send (§3.4) is sending your own quotation out: the grant the SENT step takes.
 router.post("/:id/send", requirePermission(MODULE, TRANSITION_ACTION.SENT), validator.send, controller.send);
 router.post("/:id/share", requirePermission(MODULE, "edit"), validator.share, controller.share);

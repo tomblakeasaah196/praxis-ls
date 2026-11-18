@@ -328,30 +328,6 @@ export const SPECS: ScreenSpec[] = [
     ],
   },
   {
-    path: "sales/proposals",
-    area: "Sales & CRM",
-    title: "Proposals",
-    purpose:
-      "Formal proposals with an AI-drafted narrative + line items; always human-reviewed before send.",
-    module: "sales/proposal",
-    status: "ready",
-    columns: ["Ref", "Client", "Status", "Value", "Created"],
-    actions: ["Draft with AI", "Send", "Accept"],
-    ai: [
-      {
-        label: "Draft proposal",
-        kind: "assist",
-        describe: "Draft a proposal (AI-assisted; human review before send).",
-      },
-      {
-        label: "Send / accept proposal",
-        kind: "write",
-        describe:
-          "Review/send/reject, or accept a sent proposal (optionally create a quotation).",
-      },
-    ],
-  },
-  {
     path: "sales/meetings",
     area: "Sales & CRM",
     title: "Meetings",

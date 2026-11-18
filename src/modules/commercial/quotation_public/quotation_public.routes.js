@@ -3,11 +3,17 @@
  * The public quotation link (lean revamp §3.4 "The link"): read, download,
  * accept on the signature programme, decline.
  *
- * PUBLIC ROUTES ARE PINNED TO LIVE, as every anonymous route is: a visitor
- * does not choose the tenant environment through X-Praxis-Env (see
- * sales/proposal_public for the incident behind the rule). Every route is
- * rate-limited; the answering routes far tighter than the read, and keyed on
- * the token, so one link cannot be hammered from many addresses.
+ * PUBLIC ROUTES ARE PINNED TO LIVE, as every anonymous route is. These
+ * endpoints are reachable with no session, so the caller is an anonymous
+ * visitor. `req.tenantDb` resolves the environment from the `X-Praxis-Env`
+ * header, which means that visitor chose it: sending `X-Praxis-Env: sandbox`
+ * made a website submission land in the tenant's SANDBOX schema (verified on
+ * the old public proposal link, which this module replaced) and made sandbox
+ * rows publicly readable. `req.tenantDbIn("live", …)` is the same mechanism
+ * the careers module uses for exactly this reason
+ * (src/middleware/tenant-context.js). Every route is rate-limited; the
+ * answering routes far tighter than the read, and keyed on the token, so one
+ * link cannot be hammered from many addresses.
  */
 const express = require("express");
 const { quotation: shared } = require("@praxis/shared");

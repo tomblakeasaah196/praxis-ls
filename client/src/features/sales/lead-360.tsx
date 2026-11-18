@@ -67,7 +67,8 @@ import {
 import { RequestSheet } from "./request-sheet";
 import { MeetingDialog } from "./meeting-dialog";
 import { QuoteRequestForm } from "./quote-request-forms";
-import { newQuotationPath } from "./new-quotation";
+import { useStartQuotation } from "./new-quotation";
+import { quotationHref } from "@/lib/quotation-api";
 import { CLIENT_TYPE_LABEL } from "./lead-capture";
 
 /** The four tabs (§3.2). Their values are the `?tab=` a link can carry. */
@@ -248,7 +249,7 @@ function ActivityTab({
   }
   function href(i: ActivityItem): string | null {
     if (i.type === "mail") return `/comms/mail?thread=${encodeURIComponent(i.ref.id)}`;
-    if (i.type === "quotation") return `/sales/quotations?focus=${encodeURIComponent(i.ref.id)}`;
+    if (i.type === "quotation") return quotationHref(i.ref.id);
     if (i.type === "profile_share") return "/sales/company-profile";
     return null;
   }
@@ -400,7 +401,7 @@ function QuotationsTab({ d }: { d: LeadDossier }) {
           {d.quotations.map((q) => (
             <TR key={q.quotation_id}>
               <TD className="num font-medium">
-                <AccessLink to={`/sales/quotations?focus=${q.quotation_id}`} whenDenied="text" className="hover:underline">
+                <AccessLink to={quotationHref(q.quotation_id)} whenDenied="text" className="hover:underline">
                   {q.doc_number || tr("Draft")}
                 </AccessLink>
               </TD>
@@ -497,6 +498,7 @@ export function LeadRecordView({
   const can = useCan("MOD-20");
   const canMeet = useCan("MOD-21");
   const canQuote = useCan("MOD-27");
+  const quote = useStartQuotation();
   const [dialog, setDialog] = React.useState<Dialogs>(null);
   const [doneTask, setDoneTask] = React.useState<string | null>(null);
   const [meetingId, setMeetingId] = React.useState<string | null>(null);
@@ -565,7 +567,6 @@ export function LeadRecordView({
   const archived = l.status === "ARCHIVED";
   const canEdit = can("edit");
   const openCount = d.requests.filter((r) => r.stage !== "WON" && r.stage !== "LOST").length;
-  const quoteTo = l.client_id ? newQuotationPath(l.client_id) : null;
   const close = () => {
     setDialog(null);
     setDoneTask(null);
@@ -611,10 +612,11 @@ export function LeadRecordView({
                 {tr("Schedule Meeting")}
               </Button>
             ) : null}
-            {quoteTo && !archived && canQuote("create") ? (
-              <AccessLink to={quoteTo} className="btn-primary inline-flex h-9 items-center rounded-lg px-3 text-[13px] no-underline">
+            {/* A client or a prospect (PR 6): the draft opens in the editor. */}
+            {!archived && canQuote("create") ? (
+              <Button size="sm" loading={quote.busy} onClick={() => void quote.start({ leadId: l.lead_id, clientId: l.client_id || null })}>
                 {tr("New Quotation")}
-              </AccessLink>
+              </Button>
             ) : null}
             {canEdit ? (
               <MoreMenu label={tr("Company Actions")}>

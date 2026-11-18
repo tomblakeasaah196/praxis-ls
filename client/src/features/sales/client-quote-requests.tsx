@@ -5,21 +5,29 @@
  * with the client already filled in and the requester taken from the contact
  * picked beside the button.
  *
- * A row opens the request's own 360 (`/sales/quote-requests/:id`): that is
- * where it is worked, so this tab stays a list and never a second editor.
+ * A row opens the request on its company row (`/sales/leads/<lead>?request=`):
+ * that is where it is worked, so this tab stays a list and never a second
+ * editor. The request's stage is shown, never the retired intake status.
  */
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { tr } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Select as NativeSelect } from "@/components/ui/modal";
-import { Pill, statusTone } from "@/components/ui/pill";
+import { Pill } from "@/components/ui/pill";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { MiniTable, Th, Td } from "@/features/masterdata/mini-table";
 import { useResource } from "@/lib/use-resource";
-import { dateFmt, enumLabel } from "@/lib/format";
+import { dateFmt } from "@/lib/format";
+import { stageLabel } from "@/lib/lead-api";
 import { clientQuoteRequests, serviceNameOf } from "@/lib/quote-request-api";
 import { QuoteRequestForm } from "./quote-request-forms";
+import { requestHref } from "./old-links";
+
+/** The request's stage as a pill: open stages neutral, the two ends coloured. */
+const STAGE_TONE: Record<string, "mute" | "blue" | "ok" | "warn"> = {
+  NEW: "blue", CONTACTED: "mute", MEETING: "mute", QUOTED: "blue", WON: "ok", LOST: "warn",
+};
 
 type Contact = { contact_id: string; name: string; email?: string | null; phone?: string | null; is_primary?: boolean; is_active?: boolean };
 
@@ -103,7 +111,7 @@ export function ClientQuoteRequestsTab({
               <Th>{tr("Reference")}</Th>
               <Th>{tr("Service")}</Th>
               <Th>{tr("Requester")}</Th>
-              <Th>{tr("Status")}</Th>
+              <Th>{tr("Stage")}</Th>
               <Th>{tr("Received")}</Th>
             </>
           }
@@ -114,14 +122,14 @@ export function ClientQuoteRequestsTab({
             return (
               <tr key={id}>
                 <Td>
-                  <Link to={`/sales/quote-requests/${encodeURIComponent(id)}`} className="font-mono text-primary-ink underline underline-offset-2 hover:opacity-80">
+                  <Link to={requestHref(r.lead_id ? String(r.lead_id) : null, id)} className="font-mono text-primary-ink underline underline-offset-2 hover:opacity-80">
                     {String(r.public_ref || id.slice(0, 8))}
                   </Link>
                 </Td>
                 <Td>{service || String(r.service_category || "—")}</Td>
                 <Td>{String(r.requester_name || "—")}</Td>
                 <Td>
-                  <Pill tone={statusTone(String(r.status || ""))}>{tr(enumLabel(String(r.status || "")))}</Pill>
+                  <Pill tone={STAGE_TONE[String(r.stage || "")] || "mute"}>{stageLabel(String(r.stage || ""))}</Pill>
                 </Td>
                 <Td>{dateFmt(r.created_at as string | null)}</Td>
               </tr>

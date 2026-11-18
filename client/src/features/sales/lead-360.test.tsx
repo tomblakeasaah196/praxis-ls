@@ -58,7 +58,7 @@ import { RequestSheet, StageBar } from "./request-sheet";
 import { LeadRecordView } from "./lead-360";
 import { OpportunityLinkPage, RequestLinkPage } from "./old-links";
 import { leadDoneUrl } from "@/features/workspace/lead-step";
-import { newQuotationPath } from "./new-quotation";
+import { seedBody } from "./new-quotation";
 import type { LeadDossier, LeadRecord } from "@/lib/lead-api";
 
 const LEAD: LeadRecord = {
@@ -287,8 +287,9 @@ describe("deep links", () => {
     expect(leadDoneUrl({ task_id: "t9", entity_type: "dossier", entity_id: "d1" }, "DONE")).toBeNull();
   });
 
-  it("New Quotation opens today's create flow with the client and the request", () => {
-    expect(newQuotationPath("c1", "q1")).toBe("/sales/quotations?new=1&client=c1&request=q1");
+  it("New Quotation makes a draft for a prospect too, from the company row and the request", () => {
+    expect(seedBody({ leadId: "l1", requestId: "q1" })).toEqual({ lead_id: "l1", client_id: null, quote_request_id: "q1" });
+    expect(seedBody({ leadId: "l1", clientId: "c1" })).toEqual({ lead_id: "l1", client_id: "c1", quote_request_id: null });
   });
 });
 

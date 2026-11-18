@@ -53,7 +53,6 @@ import { ServiceTypesPage } from "./masterdata/service-types";
 import { LeadsPage } from "./sales/leads";
 import { LeadRecordPage, LeadRecordView } from "./sales/lead-360";
 import { LeadsBoard } from "./sales/leads-board";
-import { ProposalsPage } from "./sales/proposals";
 import { SuccessStoriesPage } from "./sales/success-stories";
 import { UsersPage } from "./security/users";
 import { RolesPage } from "./security/roles";
@@ -65,6 +64,8 @@ import { ComplianceFlagsPage } from "./vault/compliance-flags";
 import { DocumentsPage } from "./vault/documents";
 import { SignaturesPage } from "./vault/signatures";
 import { QuotationsPage } from "./commercial/quotations";
+import { QuotationEditorPage } from "./commercial/quotation-editor";
+import { QuotationTemplatesPage } from "./commercial/quotation-templates";
 import { CommercialSettingsPage } from "./settings/commercial-settings";
 import { MarginSimulationsPage } from "./commercial/margin-simulations";
 import { ExtraChargeSimulationsPage } from "./commercial/extra-charge-simulations";
@@ -376,6 +377,56 @@ const LEAD_ROWS = [
   },
 ];
 
+const QUOTATION_ID = "0f0e0d0c-0b0a-4908-8706-050403020100";
+const QUOTATION_SECTIONS = ["cover", "about_us", "needs", "solution", "scope", "pricing", "terms", "case_stories", "next_steps"].map((k) => ({
+  section_key: k,
+  enabled: true,
+  body_en: k === "solution" ? "Door to door, every week." : null,
+  body_fr: null,
+  story_ids: [],
+}));
+const QUOTATION = {
+  quotation_id: QUOTATION_ID,
+  doc_number: "QT-2026-001",
+  title: "Douala to N'Djamena",
+  status: "DRAFT",
+  version: 1,
+  client_id: null,
+  client_name: null,
+  lead_name: "Cimencam",
+  lead: { lead_id: "l1", company_name: "Cimencam", client_id: null },
+  entity_id: "e1",
+  currency: "XAF",
+  quote_model: "HT_ON_TOP",
+  language: "BILINGUAL",
+  languages: ["EN", "FR"],
+  default_output: "FULL",
+  template_id: "t1",
+  total_ht: 1_000_000,
+  total_ttc: 1_192_500,
+  margin_percent: null,
+  own_cost_total: null,
+  valid_until: "2026-12-31",
+  lines: [{ quotation_line_id: "ql1", dictionary_item_id: null, label: "Road haulage", qty: 1, unit_price: 1_000_000, is_disbursement: false, tax_code_id: null }],
+  sections: QUOTATION_SECTIONS,
+  quote_request: { quote_request_id: "r1", public_ref: "SQ-2026-0042", stage: "QUOTED", title: null, lead_id: "l1" },
+  costing: null,
+  workings: null,
+  views: [],
+  open_revision_id: null,
+  share_active: false,
+};
+const QUOTATION_TEMPLATES = [
+  {
+    template_id: "t1",
+    name: "Standard",
+    service_type_ids: [],
+    is_default: true,
+    active: true,
+    sections: Object.fromEntries(QUOTATION_SECTIONS.map((s) => [s.section_key, { enabled: true }])),
+  },
+];
+
 const LEAD_DOSSIER = {
   lead: {
     lead_id: "l1",
@@ -644,40 +695,50 @@ const AREAS: Area[] = [
       // they portal outside the container this register scans, so their axe
       // checks are in features/sales/lead-360.test.tsx, against the document.
       {
-        name: "Proposals",
-        render: () => <ProposalsPage />,
-        routes: {
-          "/proposals": [
-            {
-              proposal_id: "pr1",
-              title: "Corridor proposal",
-              status: "DRAFT",
-              total: 3_000_000,
-            },
-          ],
-          "/leads": [],
-          "/clients": CLIENTS,
-          "/opportunities": [],
-        },
-      },
-      {
-        // Sales & CRM since meeting 6 (G6): Quote requests → Proposals → Quotations.
+        // Sales & CRM since meeting 6 (G6); one document since the lean revamp.
         name: "Quotations",
         render: () => <QuotationsPage />,
         routes: {
           "/quotations": [
             {
               quotation_id: "q1",
-              ref: "QT-2026-001",
-              client_id: "c1",
-              status: "DRAFT",
-              total: 8_000_000,
+              doc_number: "QT-2026-001",
+              client_name: "Cimencam",
+              quote_request_ref: "SQ-2026-0042",
+              status: "SENT",
+              currency: "XAF",
+              total_ttc: 8_000_000,
+              valid_until: "2026-12-31",
+              viewed_at: "2026-11-18T09:00:00Z",
+              version: 1,
             },
           ],
-          "/clients": CLIENTS,
-          "/entities": ENTITIES,
-          "/opportunities": [],
         },
+        populatedProof: /QT-2026-001/,
+      },
+      {
+        // The editor on its own page (§3.4): the number is the h1.
+        name: "Quotation editor",
+        render: () => <QuotationEditorPage />,
+        path: `/sales/quotations/${QUOTATION_ID}`,
+        pattern: "/sales/quotations/:quotationId",
+        routes: {
+          [`/quotations/${QUOTATION_ID}/preview`]: { html: "<p>Preview</p>", language: "EN", output: "FULL" },
+          [`/quotations/${QUOTATION_ID}`]: QUOTATION,
+          "/quotations/templates": QUOTATION_TEMPLATES,
+          "/settings/commercial/quotation": { value: { target_margin_percent: 20 } },
+        },
+        populatedProof: /QT-2026-001/,
+        states: ["loading", "error", "populated"],
+      },
+      {
+        name: "Quotation templates",
+        render: () => <QuotationTemplatesPage />,
+        routes: {
+          "/quotations/templates": QUOTATION_TEMPLATES,
+          "/quote-requests/services": [],
+        },
+        populatedProof: /Standard/,
       },
       {
         name: "Success stories",

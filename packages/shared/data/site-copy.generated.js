@@ -2,14 +2,14 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * The site copy catalogue: every `site.*` string a tenant may override.
- * 585 keys in 27 sections.
+ * 629 keys in 27 sections.
  * Source: public-web/src/lib/i18n-dict.ts
  * Regenerate with: node scripts/gen/gen-site-copy-catalogue.js
  *
  * SITE_COPY_ENTRIES rows are [key, section, label, en, fr].
  */
 
-exports.SITE_COPY_SECTIONS = [{"key":"about","label":"About page","pages":["About"]},{"key":"announce","label":"Announcements band","pages":["Home"]},{"key":"careers","label":"Careers","pages":["Careers"]},{"key":"chrome","label":"Site chrome","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"contact","label":"Contact","pages":["Home","Contact"]},{"key":"corridor","label":"Corridor set piece","pages":["Home"]},{"key":"crash","label":"Error screen","pages":["Every page"]},{"key":"esg","label":"About — ESG pillars","pages":["About","Services"]},{"key":"footer","label":"Footer","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"hero","label":"Hero and shared calls to action","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Proposals","Profile","Careers","Contact","Client portal","Page not found"]},{"key":"how","label":"How it works","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"insights","label":"Insights","pages":["Insights"]},{"key":"nav","label":"Header navigation","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"notFound","label":"Page not found","pages":["Page not found"]},{"key":"portalBand","label":"Client portal band","pages":["Home"]},{"key":"portfolioPage","label":"Our work (case notes)","pages":["Our work"]},{"key":"preview","label":"Shipment preview","pages":["Home"]},{"key":"profile","label":"Company profile","pages":["Profile"]},{"key":"proof","label":"Proof and lanes","pages":["Home","Our work"]},{"key":"proposals","label":"Proposals","pages":["Proposals"]},{"key":"quote","label":"Quote request","pages":["Home","Services","Our work","Quote","Careers","Contact","Client portal"]},{"key":"quoteSteps","label":"Quote Steps","pages":["Services","Quote","Client portal"]},{"key":"services","label":"Services — band and cards","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"servicesPage","label":"Services page","pages":["Home","Services","Our work"]},{"key":"track","label":"Tracking widget","pages":["Home","Track","Page not found"]},{"key":"trackPage","label":"Tracking page","pages":["Track"]},{"key":"verify","label":"Verify","pages":["Verify"]}];
+exports.SITE_COPY_SECTIONS = [{"key":"about","label":"About page","pages":["About"]},{"key":"announce","label":"Announcements band","pages":["Home"]},{"key":"careers","label":"Careers","pages":["Careers"]},{"key":"chrome","label":"Site chrome","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"contact","label":"Contact","pages":["Home","Contact"]},{"key":"corridor","label":"Corridor set piece","pages":["Home"]},{"key":"crash","label":"Error screen","pages":["Every page"]},{"key":"esg","label":"About — ESG pillars","pages":["About","Services"]},{"key":"footer","label":"Footer","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"hero","label":"Hero and shared calls to action","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Quotation","Profile","Careers","Contact","Client portal","Page not found"]},{"key":"how","label":"How it works","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"insights","label":"Insights","pages":["Insights"]},{"key":"nav","label":"Header navigation","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"notFound","label":"Page not found","pages":["Page not found"]},{"key":"portalBand","label":"Client portal band","pages":["Home"]},{"key":"portfolioPage","label":"Our work (case notes)","pages":["Our work"]},{"key":"preview","label":"Shipment preview","pages":["Home"]},{"key":"profile","label":"Company profile","pages":["Profile"]},{"key":"proof","label":"Proof and lanes","pages":["Home","Our work"]},{"key":"quotation","label":"Quotation","pages":["Quotation"]},{"key":"quote","label":"Quote request","pages":["Home","Services","Our work","Quote","Careers","Contact","Client portal"]},{"key":"quoteSteps","label":"Quote Steps","pages":["Services","Quote","Client portal"]},{"key":"services","label":"Services — band and cards","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"servicesPage","label":"Services page","pages":["Home","Services","Our work"]},{"key":"track","label":"Tracking widget","pages":["Home","Track","Page not found"]},{"key":"trackPage","label":"Tracking page","pages":["Track"]},{"key":"verify","label":"Verify","pages":["Verify"]}];
 
 exports.SITE_COPY_ENTRIES = [
   ["site.about.carriersLead","about","Carriers Lead","Carriers and networks we book capacity with. Their marks are theirs; we show them with permission.","Les transporteurs et réseaux auprès desquels nous réservons de la capacité. Leurs marques leur appartiennent ; nous les affichons avec leur accord."],
@@ -320,15 +320,59 @@ exports.SITE_COPY_ENTRIES = [
   ["site.proof.stripLabel","proof","Strip Label","Key figures","Chiffres clés"],
   ["site.proof.sub","proof","Sub","Published case notes from operations we have run.","Notes de cas publiées sur des opérations que nous avons menées."],
   ["site.proof.title","proof","Title","Work we can show you","Ce que nous pouvons vous montrer"],
-  ["site.proposals.client","proposals","Client","Prepared for","Établie pour"],
-  ["site.proposals.download","proposals","Download","Download PDF","Télécharger le PDF"],
-  ["site.proposals.expireNote","proposals","Expire Note","This page is the same document as the PDF — including the figures, which we do not re-format here.","Cette page est le même document que le PDF — y compris les chiffres, que nous ne reformatons pas ici."],
-  ["site.proposals.lines","proposals","Lines","Costs","Coûts"],
-  ["site.proposals.print","proposals","Print","Print","Imprimer"],
-  ["site.proposals.route","proposals","Route","Route","Trajet"],
-  ["site.proposals.title","proposals","Title","Proposal","Proposition"],
-  ["site.proposals.unavailable","proposals","Unavailable","This proposal link is no longer valid.","Ce lien de proposition n’est plus valide."],
-  ["site.proposals.unavailableHint","proposals","Unavailable Hint","Shared proposals expire. Ask your contact to send a fresh link.","Les propositions partagées expirent. Demandez à votre contact un nouveau lien."],
+  ["site.quotation.accept","quotation","Accept","Accept","Accepter"],
+  ["site.quotation.accepted","quotation","Accepted","Accepted. Thank you, the team will be in touch.","Accepté. Merci, l’équipe va vous recontacter."],
+  ["site.quotation.agree","quotation","Agree","Signing accepts this quotation and its terms.","Signer vaut acceptation de ce devis et de ses conditions."],
+  ["site.quotation.answer","quotation","Answer","Your Answer","Votre réponse"],
+  ["site.quotation.answeredAlready","quotation","Answered Already","This quotation has already been answered.","Ce devis a déjà reçu une réponse."],
+  ["site.quotation.back","quotation","Back","Back","Retour"],
+  ["site.quotation.cancel","quotation","Cancel","Cancel","Annuler"],
+  ["site.quotation.card.DRAWN","quotation","Card · DRAWN","Draw my signature","Dessiner ma signature"],
+  ["site.quotation.card.STAMP","quotation","Card · STAMP","Stamp with my name","Cachet à mon nom"],
+  ["site.quotation.clear","quotation","Clear","Clear","Effacer"],
+  ["site.quotation.codeLabel","quotation","Code Label","Signing code","Code de signature"],
+  ["site.quotation.codeSent","quotation","Code Sent","We sent a 6-digit code to {{email}}.","Nous avons envoyé un code à 6 chiffres à {{email}}."],
+  ["site.quotation.confirm","quotation","Confirm","Accept the Quotation","Accepter le devis"],
+  ["site.quotation.confirmBody","quotation","Confirm Body","Your acceptance is recorded with your name and the time, and the team is told at once.","Votre acceptation est enregistrée avec votre nom et l’heure, et l’équipe est prévenue aussitôt."],
+  ["site.quotation.decline","quotation","Decline","Decline","Refuser"],
+  ["site.quotation.declineNote","quotation","Decline Note","Anything to add? (optional)","Autre chose à ajouter ? (facultatif)"],
+  ["site.quotation.declineSend","quotation","Decline Send","Decline the Quotation","Refuser le devis"],
+  ["site.quotation.declineTitle","quotation","Decline Title","Why are you declining?","Pourquoi refusez-vous ?"],
+  ["site.quotation.declined","quotation","Declined","Declined. The team will be in touch.","Refusé. L’équipe va vous recontacter."],
+  ["site.quotation.digit","quotation","Digit","Digit {{n}}","Chiffre {{n}}"],
+  ["site.quotation.document","quotation","Document","Quotation document","Document du devis"],
+  ["site.quotation.download","quotation","Download","Download PDF","Télécharger le PDF"],
+  ["site.quotation.draw","quotation","Draw","Sign here","Signez ici"],
+  ["site.quotation.expired","quotation","Expired","This quotation is no longer valid. Ask your contact for an updated one.","Ce devis n’est plus valable. Demandez-en un nouveau à votre contact."],
+  ["site.quotation.failed","quotation","Failed","That did not go through. Try again in a moment.","Cela n’a pas abouti. Réessayez dans un instant."],
+  ["site.quotation.how","quotation","How","How do you want to sign?","Comment voulez-vous signer ?"],
+  ["site.quotation.langSwitch","quotation","Lang Switch","Language","Langue"],
+  ["site.quotation.name","quotation","Name","Your name","Votre nom"],
+  ["site.quotation.next","quotation","Next","Next","Suivant"],
+  ["site.quotation.otp.OTP_COOLDOWN","quotation","Otp · OTP COOLDOWN","Too many codes sent. Wait a while, then try again.","Trop de codes envoyés. Patientez un moment, puis réessayez."],
+  ["site.quotation.otp.OTP_EXHAUSTED","quotation","Otp · OTP EXHAUSTED","Too many wrong codes. Send a new one.","Trop de codes erronés. Demandez-en un nouveau."],
+  ["site.quotation.otp.OTP_EXPIRED","quotation","Otp · OTP EXPIRED","That code has expired. Send a new one.","Ce code a expiré. Demandez-en un nouveau."],
+  ["site.quotation.otp.OTP_INVALID","quotation","Otp · OTP INVALID","That code isn’t right. Check the email and try again.","Ce code est incorrect. Vérifiez l’e-mail et réessayez."],
+  ["site.quotation.otp.OTP_NOT_ISSUED","quotation","Otp · OTP NOT ISSUED","Ask for a code first.","Demandez d’abord un code."],
+  ["site.quotation.otp.OTP_REQUIRED","quotation","Otp · OTP REQUIRED","Enter the code we emailed you first.","Saisissez d’abord le code reçu par e-mail."],
+  ["site.quotation.resend","quotation","Resend","Send a New Code","Renvoyer un code"],
+  ["site.quotation.resent","quotation","Resent","A new code is on its way.","Un nouveau code est en route."],
+  ["site.quotation.role","quotation","Role","Your role (optional)","Votre fonction (facultatif)"],
+  ["site.quotation.rolePlaceholder","quotation","Role Placeholder","Finance Manager","Directrice financière"],
+  ["site.quotation.sendCode","quotation","Send Code","Send Me a Code","M’envoyer un code"],
+  ["site.quotation.sign","quotation","Sign","Sign and Accept","Signer et accepter"],
+  ["site.quotation.signedBy","quotation","Signed By","Signed by {{name}}","Signé par {{name}}"],
+  ["site.quotation.status.ACCEPTED","quotation","Status · ACCEPTED","Accepted","Accepté"],
+  ["site.quotation.status.CONVERTED","quotation","Status · CONVERTED","Accepted","Accepté"],
+  ["site.quotation.status.EXPIRED","quotation","Status · EXPIRED","No longer valid","Plus valable"],
+  ["site.quotation.status.REJECTED","quotation","Status · REJECTED","Declined","Refusé"],
+  ["site.quotation.status.SENT","quotation","Status · SENT","Waiting for your answer","En attente de votre réponse"],
+  ["site.quotation.title","quotation","Title","Quotation","Devis"],
+  ["site.quotation.unavailable","quotation","Unavailable","This link is no longer valid.","Ce lien n’est plus valide."],
+  ["site.quotation.unavailableHint","quotation","Unavailable Hint","Ask your contact for an updated one.","Demandez-en un nouveau à votre contact."],
+  ["site.quotation.validUntil","quotation","Valid Until","Valid until {{date}}","Valable jusqu’au {{date}}"],
+  ["site.quotation.verify","quotation","Verify","Verification code","Code de vérification"],
+  ["site.quotation.version","quotation","Version","Version {{n}}","Version {{n}}"],
   ["site.quote.attachment","quote","Attachment","Attach a document (optional)","Joindre un document (facultatif)"],
   ["site.quote.attachmentHint","quote","Attachment Hint","A packing list, a proforma invoice or a photo. PDF, PNG or JPEG, up to 8 MB.","Une liste de colisage, une facture proforma ou une photo. PDF, PNG ou JPEG, jusqu’à 8 Mo."],
   ["site.quote.bandCta","quote","Band Cta","Start a quote","Demander un devis"],

@@ -6,12 +6,27 @@ const document = require("./quotation.document");
 const generator = require("./quotation.generator");
 const repo = require("./quotation.repo");
 const { asyncHandler, AppError } = require("../../../utils/errors");
+const { canSeeFinancials } = require("../../master/_shared/confidential");
+const { page } = require("../../../shared/db/query-helpers");
 const actor = (req) => req.user || { user_id: null };
 /** The host a link falls back to when the tenant has no public site on file. */
 const originOf = (req) => `${req.protocol}://${req.get("host")}`;
 const envOf = (req) => req.env || "live";
 module.exports = {
-  list: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.list(c, req.query)) })),
+  // One page, its total and whether totals are shown (§3.4: the total is money-gated).
+  list: asyncHandler(async (req, res) => {
+    const canSee = await canSeeFinancials(req);
+    const out = await req.tenantDb((c) => service.listPage(c, req.query, { canSeeFinancials: canSee }));
+    const { limit, offset } = page(req.query);
+    res.json({
+      data: out.rows, total: out.total,
+      meta: { total: out.total, limit, offset, has_more: offset + out.rows.length < out.total, money_visible: out.money_visible },
+    });
+  }),
+  declineReasons: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.declineReasons(c)) })),
+  decline: asyncHandler(async (req, res) => res.json({
+    data: await req.tenantDb((c) => service.declineByStaff(c, { id: req.params.id, reasonCode: req.body.reason_code, note: req.body.note || null, actor: actor(req) })),
+  })),
   get: asyncHandler(async (req, res) => { const r = await req.tenantDb((c) => service.get(c, req.params.id)); if (!r) throw new AppError("NOT_FOUND", "Quotation not found", 404); res.json({ data: r }); }),
   create: asyncHandler(async (req, res) => res.status(201).json({ data: await req.tenantDb((c) => service.createDraft(c, { data: req.body, actor: actor(req) })) })),
   update: asyncHandler(async (req, res) => { const b = req.body; res.json({ data: await req.tenantDb((c) => service.updateDraft(c, { id: req.params.id, patch: b, lines: b.lines || null, actor: actor(req) })) }); }),
