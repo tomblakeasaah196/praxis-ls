@@ -288,20 +288,16 @@ const schemas = {
     })
     .refine(pinBoth, { message: "A location needs both latitude and longitude", path: ["lat"] }),
   staffChatRead: z.object({ client_id: z.string().guid(), thread: chatThread }),
-  // A proposal in the portal. Declining takes a reason from the signing
-  // programme's DECLINE list; free text is appended to a reason, never instead
-  // of one (signature_public.validator.js, the same rule).
-  proposalDecline: z
-    .object({ reason_code: z.string().min(1).max(64), note: z.string().trim().max(400).optional() })
-    .strict(),
-  // A commercial quotation, declined in the portal (meeting 6, G4) — the
-  // shared definition (`@praxis/shared` quotation.decline).
+  // A commercial quotation, declined in the portal (meeting 6, G4): a reason
+  // from the signing programme's DECLINE list, free text appended to a reason
+  // and never instead of one; the shared definition (`@praxis/shared`
+  // quotation.decline).
   quotationDecline: require("@praxis/shared").quotation.decline,
   // Signing — the public signing page's shape exactly, and like it STRICT with
   // no email field: the address a code goes to is the one on file, never one
   // the signer supplies (guide §6.3). The name and role are the signer's own
   // DECLARED identity; the mark is capped at 200 KB (§6.6).
-  proposalSignComplete: z
+  offerSignComplete: z
     .object({
       code: z.string().regex(/^[0-9]{6}$/, "A signing code is six digits"),
       preset_code: z.enum(["STAMP", "DRAWN"]),
@@ -368,7 +364,7 @@ module.exports = {
   inviteDefaults: mw("inviteDefaults"), onboardingStepCreate: mw("onboardingStepCreate"),
   onboardingStepUpdate: mw("onboardingStepUpdate"), onboardingStepMove: mw("onboardingStepMove"),
   chatSend: mw("chatSend"), chatRead: mw("chatRead"), staffChatSend: mw("staffChatSend"), staffChatRead: mw("staffChatRead"),
-  proposalDecline: mw("proposalDecline"), proposalSignComplete: mw("proposalSignComplete"), quoteFill: mw("quoteFill"),
+  offerSignComplete: mw("offerSignComplete"), quoteFill: mw("quoteFill"),
   quotationDecline: mw("quotationDecline"),
   notifySettings: mw("notifySettings"), pushSubscribe: mw("pushSubscribe"), pushUnsubscribe: mw("pushUnsubscribe"),
   places: mwQuery("places"),

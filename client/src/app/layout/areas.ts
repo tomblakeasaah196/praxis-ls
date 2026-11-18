@@ -115,14 +115,13 @@ export const AREAS: Area[] = [
       // The lean revamp (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md §3.1): five tabs.
       // Quote Requests, Opportunities and Meetings folded into Leads (a request
       // is the deal, a meeting is scheduled from the company); their old
-      // addresses redirect (app.tsx). Proposals stays until PR 6 merges it
-      // into Quotations.
+      // addresses redirect (app.tsx). Proposals merged into Quotations in
+      // PR 6; /sales/proposals redirects there.
       { key: "leads", label: "Leads" },
       { key: "quotations", label: "Quotations" },
       { key: "enquiries", label: "General Enquiries" },
       { key: "success-stories", label: "Success Stories" },
       { key: "company-profile", label: "Company Profile" },
-      { key: "proposals", label: "Proposals" },
     ],
   },
   {

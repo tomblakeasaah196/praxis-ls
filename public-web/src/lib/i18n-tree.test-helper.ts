@@ -15,6 +15,10 @@ import {
   en as profileEn,
   fr as profileFr,
 } from "@/features/profile/profile-copy";
+import {
+  en as quotationEn,
+  fr as quotationFr,
+} from "@/features/quotation/quotation-copy";
 
 /**
  * The whole translation tree as it exists AT RUNTIME — for tests only.
@@ -47,12 +51,12 @@ import {
  */
 export const en = {
   ...baseEn,
-  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, profile: profileEn },
+  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, profile: profileEn, quotation: quotationEn },
   portal: { ...baseEn.portal, ...portalEn },
 };
 
 export const fr = {
   ...baseFr,
-  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, profile: profileFr },
+  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, profile: profileFr, quotation: quotationFr },
   portal: { ...baseFr.portal, ...portalFr },
 };

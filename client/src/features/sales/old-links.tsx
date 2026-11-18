@@ -9,7 +9,10 @@
  *                               `converted_opportunity_id` on each), so the
  *                               link opens that request the same way
  *
- * Both resolve with one read and replace themselves in the history, so Back
+ *   /sales/proposals/:id        every proposal became a quotation (14542 set
+ *                               `source_proposal_id` on each): its editor
+ *
+ * All resolve with one read and replace themselves in the history, so Back
  * does not bounce through them.
  */
 import { Navigate, useParams, useSearchParams } from "react-router-dom";
@@ -18,6 +21,7 @@ import { useResource } from "@/lib/use-resource";
 import { pageShell } from "@/lib/layout";
 import { ErrorState, LoadingRow } from "@/components/ui/states";
 import { fetchRequest, requestForOpportunity } from "@/lib/lead-api";
+import { listQuotations, quotationHref } from "@/lib/quotation-api";
 
 /** Where a request opens: its company's 360 with the request sheet on top. */
 export function requestHref(leadId: string | null | undefined, requestId: string, keep?: URLSearchParams): string {
@@ -58,4 +62,20 @@ export function RequestLinkPage() {
 export function OpportunityLinkPage() {
   const { opportunityId = "" } = useParams();
   return <Resolving kind="opportunity" id={opportunityId} />;
+}
+
+/** An old proposal link: the quotation it became, else the Quotations list. */
+export function ProposalLinkPage() {
+  const { proposalId = "" } = useParams();
+  const res = useResource(() => listQuotations({ source_proposal_id: proposalId }), [proposalId]);
+  if (res.error) {
+    return (
+      <section className={pageShell.reading}>
+        <ErrorState message={res.error} />
+      </section>
+    );
+  }
+  if (res.loading) return <LoadingRow label={tr("Opening…")} />;
+  const row = (res.data || [])[0];
+  return <Navigate to={row ? quotationHref(row.quotation_id) : "/sales/quotations"} replace />;
 }

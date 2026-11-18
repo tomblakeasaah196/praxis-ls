@@ -95,6 +95,12 @@ const FEATURE_DICTS = [
     file: path.join(WEB_SRC, "features", "profile", "profile-copy.ts"),
     mount: "profile",
   },
+  {
+    // The public quotation link `/q/<token>` (Sales lean revamp, PR 6): the
+    // page furniture and the two answers, read only by a link holder.
+    file: path.join(WEB_SRC, "features", "quotation", "quotation-copy.ts"),
+    mount: "quotation",
+  },
 ];
 const ROUTER = path.join(WEB_SRC, "app", "router.tsx");
 const OUT = path.join(ROOT, "packages", "shared", "data", "site-copy.generated.js");
@@ -214,7 +220,7 @@ const SECTION_LABELS = {
   quote: "Quote request",
   track: "Tracking widget",
   trackPage: "Tracking page",
-  proposals: "Proposals",
+  quotation: "Quotation",
   profile: "Company profile",
   notFound: "Page not found",
   crash: "Error screen",
@@ -252,7 +258,7 @@ const PAGE_NAMES = {
   contact: "Contact",
   tracking: "Track",
   quote: "Quote",
-  proposals: "Proposals",
+  quotation: "Quotation",
   "not-found": "Page not found",
   portal: "Client portal",
 };

@@ -2,7 +2,8 @@
 /**
  * PUBLIC ROUTES ARE PINNED TO LIVE, as every anonymous route is: a visitor does
  * not choose the tenant environment through X-Praxis-Env (see
- * proposal_public.routes.js for the incident behind the rule).
+ * commercial/quotation_public/quotation_public.routes.js for the incident
+ * behind the rule).
  */
 const express = require("express");
 const { makeLimiter } = require("../../../shared/http/rate-limit");

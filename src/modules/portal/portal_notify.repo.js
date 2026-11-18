@@ -287,24 +287,13 @@ async function proofs(client, { clientId, ids }) {
   return rows;
 }
 
-/** Quotations still waiting on the client (meeting 6, PR 4) — as for proposals. */
+/** Quotations still waiting on the client (meeting 6, PR 4): an answered one is no longer news. */
 async function quotations(client, { clientId, ids }) {
   if (!ids || !ids.length) return [];
   const { rows } = await client.query(
     `SELECT quotation_id, doc_number
        FROM quotation
       WHERE client_id = $1 AND quotation_id = ANY($2::uuid[]) AND status = 'SENT'`,
-    [clientId, ids],
-  );
-  return rows;
-}
-
-/** Proposals still waiting on the client — an answered one is no longer news. */
-async function proposals(client, { clientId, ids }) {
-  const { rows } = await client.query(
-    `SELECT proposal_id, doc_number, title
-       FROM proposal
-      WHERE client_id = $1 AND proposal_id = ANY($2::uuid[]) AND status = 'SENT'`,
     [clientId, ids],
   );
   return rows;
@@ -327,13 +316,14 @@ async function stages(client, { clientId, ids }) {
 
 /**
  * The client's quote requests made in the portal, with the event each outbox
- * row was about — an acknowledgement and a status move are different lines.
+ * row was about — an acknowledgement and a stage move are different lines.
+ * Read by `stage` (lean revamp §4.2), never the retiring `status`.
  * PORTAL only: the outbox writer already refuses anything else, and this read
  * says so again.
  */
 async function quoteRequests(client, { clientId, ids }) {
   const { rows } = await client.query(
-    `SELECT quote_request_id, public_ref, status, created_at
+    `SELECT quote_request_id, public_ref, stage, created_at
        FROM quote_request
       WHERE client_id = $1 AND quote_request_id = ANY($2::uuid[]) AND intake_channel = 'PORTAL'`,
     [clientId, ids],
@@ -465,5 +455,5 @@ module.exports = {
   audience, clientProfile,
   waiting, markDone, staleGroups,
   claim, release, recentlyTold, sweep,
-  unreadReplies, requests, invoices, proofs, proposals, quotations, stages,
+  unreadReplies, requests, invoices, proofs, quotations, stages,
 };

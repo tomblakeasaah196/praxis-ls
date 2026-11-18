@@ -217,6 +217,32 @@ describe("a message about a quotation", () => {
     const page = await chat.messages(client, { clientId: "c1", me: ME, scope: "ALL", thread: "general" });
     expect(page.messages[0].reference).toEqual({ kind: "quotation", id: QUOTE, label: "QT-2026-0004" });
   });
+
+  // Lean revamp PR 6: Proposals are gone from the portal. A question asked
+  // about a proposal before reads as the quotation it became (14542), and an
+  // old proposal reference is stored as that quotation.
+  const PROPOSAL = "55555555-5555-4555-8555-555555555555";
+  it("reads an old proposal question as the quotation it became", async () => {
+    mockRepo.messages = async () => [
+      { message_id: "m8", direction: "CLIENT", body: "About this one", created_at: "2026-09-02T09:00:00Z", ref_entity: `proposal:${PROPOSAL}`, ref_label: "QT-2026-0002", ref_quotation_id: QUOTE, attachments: [] },
+      { message_id: "m7", direction: "CLIENT", body: "Orphan", created_at: "2026-09-01T09:00:00Z", ref_entity: `proposal:${PROPOSAL}`, ref_label: null, ref_quotation_id: null, attachments: [] },
+    ];
+    const page = await chat.messages(client, { clientId: "c1", me: ME, scope: "ALL", thread: "general" });
+    const byId = Object.fromEntries(page.messages.map((m) => [m.message_id, m.reference]));
+    expect(byId.m8).toEqual({ kind: "quotation", id: QUOTE, label: "QT-2026-0002" });
+    expect(byId.m7).toBeNull();
+  });
+
+  it("stores an old proposal reference as the quotation it became, never reading the proposal table", async () => {
+    const sqls = [];
+    const db = { query: jest.fn(async (sql) => {
+      sqls.push(sql);
+      return /source_proposal_id/.test(sql) ? { rows: [{ quotation_id: QUOTE }] } : { rows: [{ name: "Acme Trading" }] };
+    }) };
+    await chat.send(db, { clientId: "c1", me: ME, scope: "ALL", thread: "general", body: "Still valid?", ref: `proposal:${PROPOSAL}` });
+    expect(inserted.messages[0]).toMatchObject({ refEntity: `quotation:${QUOTE}` });
+    expect(sqls.some((q) => /FROM proposal\b/.test(q))).toBe(false);
+  });
 });
 
 describe("voice notes", () => {

@@ -367,7 +367,12 @@ async function createClientQuote(client, { clientId, data, user = {} }) {
 /** The services the portal's quote wizard offers: every ACTIVE one, with its card, flow and Incoterms. */
 const clientQuoteServices = (client) => quoteRequest.quoteServices(client, { publishedOnly: false });
 
-/** One request as its client reads it — scope, documents, timeline, the proposal that answered it. */
+/**
+ * One request as its client reads it: scope, documents, where it stands (its
+ * STAGE and the stages it reached, lean revamp §4.2) and the quotation that
+ * answered it. The request view owns the shape; the portal never reads the
+ * retiring `status`.
+ */
 const clientQuoteRequest = (client, { clientId, id }) => quoteRequest.clientView(client, { clientId, id });
 
 // ── Portal data views (scoped, delegated) ──

@@ -1,7 +1,7 @@
 /** Quotation repository (MOD-27). Header + lines. All SQL lives here. */
 "use strict";
 const { clientHeadingJoin, CLIENT_HEADING_COLUMNS } = require("../../master/financial_dictionary/client-heading.sql");
-const { insertOne, getById, page, updateOne } = require("../../../shared/db/query-helpers");
+const { insertOne, getById, page, updateOne, TOTAL_COL, splitTotal } = require("../../../shared/db/query-helpers");
 
 const insert = (client, data) => insertOne(client, "quotation", data);
 const get = (client, id) => getById(client, "quotation", "quotation_id", id);
@@ -37,12 +37,21 @@ async function list(client, q = {}) {
   if (q.costing_id) { params.push(q.costing_id); wh.push("q.costing_id = $" + params.length); }
   if (q.quote_request_id) { params.push(q.quote_request_id); wh.push("q.quote_request_id = $" + params.length); }
   if (q.lead_id) { params.push(q.lead_id); wh.push("q.lead_id = $" + params.length); }
+  // An old proposal link (§5.6): the quotation 14542 made of it.
+  if (q.source_proposal_id) { params.push(q.source_proposal_id); wh.push("q.source_proposal_id = $" + params.length); }
+  // The Quotations list's search (§3.4): the number, the company, the request's reference or title.
+  if (q.q && String(q.q).trim()) {
+    params.push(`%${String(q.q).trim().slice(0, 120)}%`);
+    const n = "$" + params.length;
+    wh.push(`(q.doc_number ILIKE ${n} OR q.title ILIKE ${n} OR qr.public_ref ILIKE ${n} OR qr.title ILIKE ${n}
+             OR cm.name ILIKE ${n} OR cm.legal_name ILIKE ${n} OR l.company_name ILIKE ${n})`);
+  }
   const where = wh.length ? "WHERE " + wh.join(" AND ") : "";
   // The request's reference and the client's (or the prospect's) name ride along so the list and
   // the Client 360 can say what each offer answers without a second read.
   const { rows } = await client.query(
-    `SELECT q.*, qr.public_ref AS quote_request_ref,
-            COALESCE(cm.name, cm.legal_name, l.company_name) AS client_name, l.company_name AS lead_name
+    `SELECT q.*, qr.public_ref AS quote_request_ref, qr.title AS quote_request_title,
+            COALESCE(cm.name, cm.legal_name, l.company_name) AS client_name, l.company_name AS lead_name, ${TOTAL_COL}
        FROM quotation q
        LEFT JOIN quote_request qr ON qr.quote_request_id = q.quote_request_id
        LEFT JOIN client_master cm ON cm.client_id = q.client_id
@@ -50,7 +59,7 @@ async function list(client, q = {}) {
        ${where} ORDER BY q.created_at DESC LIMIT $1 OFFSET $2`,
     params,
   );
-  return rows;
+  return splitTotal(rows);
 }
 
 /* ── the request this quotation answers (meeting 6, PR 4) ──────────────────── */
@@ -68,7 +77,7 @@ async function quoteRequestForOpportunity(client, opportunityId) {
 async function quoteRequestHead(client, id) {
   if (!id) return null;
   const { rows } = await client.query(
-    "SELECT quote_request_id, public_ref, status, stage, title, lead_id, client_id, service_type_id, created_at FROM quote_request WHERE quote_request_id = $1",
+    "SELECT quote_request_id, public_ref, stage, title, lead_id, client_id, service_type_id, created_at FROM quote_request WHERE quote_request_id = $1",
     [id],
   );
   return rows[0] || null;
@@ -83,7 +92,7 @@ async function quoteRequestHead(client, id) {
 async function openQuoteRequests(client, clientId) {
   if (!clientId) return [];
   const { rows } = await client.query(
-    `SELECT qr.quote_request_id, qr.public_ref, qr.status, qr.stage, qr.title, qr.service_type_id, qr.created_at,
+    `SELECT qr.quote_request_id, qr.public_ref, qr.stage, qr.title, qr.service_type_id, qr.created_at,
             COALESCE(st.name_en, st.name_fr) AS service_name_en, COALESCE(st.name_fr, st.name_en) AS service_name_fr,
             EXISTS (SELECT 1 FROM quotation q WHERE q.quote_request_id = qr.quote_request_id
                      AND q.status IN ('DRAFT','SENT','ACCEPTED','CONVERTED')) AS answered

@@ -1534,7 +1534,7 @@
       "route": "/sales/leads/:leadId",
       "area": "sales",
       "module_key": "MOD-20",
-      "purpose": "One company: who it is and how to reach it, its Next Step card with Done (what happened and what is next, in one write), New Request, Log Activity, Schedule Meeting and New Quotation (clients). Four tabs: Activity (activities, meetings, mail threads, quotations sent, viewed and answered, stage moves, Company Profile shares and opens), Requests (each with its stage bar, Lost reasons and Mark Won, opened as a sheet with ?request=), Quotations, and Details. ?done=<task_id> opens Done from My Workspace. Money is gated on finance visibility. Its reads are declared on Leads; this screen adds no manifest action of its own.",
+      "purpose": "One company: who it is and how to reach it, its Next Step card with Done (what happened and what is next, in one write), New Request, Log Activity, Schedule Meeting and New Quotation (clients and prospects). Four tabs: Activity (activities, meetings, mail threads, quotations sent, viewed and answered, stage moves, Company Profile shares and opens), Requests (each with its stage bar, Lost reasons and Mark Won, opened as a sheet with ?request=), Quotations, and Details. ?done=<task_id> opens Done from My Workspace. Money is gated on finance visibility. Its reads are declared on Leads; this screen adds no manifest action of its own.",
       "actions": [],
       "title_fr": "Prospect 360",
       "synonyms": [
@@ -1581,16 +1581,6 @@
       ]
     },
     {
-      "id": "sales_proposals",
-      "title": "Proposals",
-      "route": "/sales/proposals",
-      "area": "sales",
-      "module_key": "MOD-23",
-      "purpose": "Proposals from before the lean revamp, read only: each became a quotation (14542), which is where they are answered, sent and revised.",
-      "actions": [],
-      "title_fr": "Propositions"
-    },
-    {
       "id": "sales_quotations",
       "title": "Quotations",
       "route": "/sales/quotations",
@@ -1609,13 +1599,45 @@
         "draft_quotation_sections",
         "update_quotation_sections",
         "send_quotation",
-        "revise_quotation"
+        "revise_quotation",
+        "decline_quotation",
+        "list_quotation_decline_reasons"
       ],
       "title_fr": "Devis",
       "synonyms": [
         "devis",
         "cotation",
         "offres"
+      ]
+    },
+    {
+      "id": "sales_quotation_editor",
+      "title": "Quotation",
+      "route": "/sales/quotations/:quotationId",
+      "area": "sales",
+      "module_key": "MOD-27",
+      "purpose": "One quotation on one page: the Full Proposal or Commercial Extract switch, the language (EN, FR or both), the template and Send in the top bar; the price lines (dictionary items, débours, tax codes, the target-margin warning, import from costing) and the sections with their switches and EN and FR words on the left; the live preview, the same render the link and the PDF show, on the right. Draft With AI for Your Needs and Our Solution. Revise, copy or revoke the link, the views, Record Acceptance and decline with a reason. Its reads and writes are declared on Quotations.",
+      "actions": [],
+      "title_fr": "Devis",
+      "synonyms": [
+        "devis",
+        "proposition commerciale",
+        "offre"
+      ]
+    },
+    {
+      "id": "sales_quotation_templates",
+      "title": "Quotation Templates",
+      "route": "/sales/quotations/templates",
+      "area": "sales",
+      "module_key": "MOD-27",
+      "purpose": "The leanest template builder: each template's name, service types and the default star, the fixed sections each switched on or off for a Full Proposal, the words of Our Solution, Scope of Services and Terms in English and French, and a preview with sample data. No reordering, custom sections, merge fields, images or colours.",
+      "actions": [],
+      "title_fr": "Modèles de devis",
+      "synonyms": [
+        "modèle de devis",
+        "gabarit",
+        "template"
       ]
     },
     {
@@ -2703,6 +2725,16 @@
       "route": "/sales/opportunities/:opportunityId",
       "to": "/sales/leads",
       "why": "An old opportunity link opens the request it became (14512 converted_opportunity_id) on its company row (lean revamp §5.6)."
+    },
+    {
+      "route": "/sales/proposals",
+      "to": "/sales/quotations",
+      "why": "Proposals merged into Quotations in the Sales lean revamp (D6, guide §5.6)."
+    },
+    {
+      "route": "/sales/proposals/:proposalId",
+      "to": "/sales/quotations",
+      "why": "An old proposal link opens the quotation 14542 made of it (quotation.source_proposal_id), else the list."
     },
     {
       "route": "/settings/pipeline-stages",

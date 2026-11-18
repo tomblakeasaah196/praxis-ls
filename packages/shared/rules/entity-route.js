@@ -72,6 +72,12 @@ const DETAIL = {
   // deal it was about rather than the Leads list.
   quote_request: { prefix: "/sales/quote-requests/" },
   opportunity: { prefix: "/sales/opportunities/" },
+  // A proposal became a quotation (14542 set `source_proposal_id` on each);
+  // the app's /sales/proposals/:id resolves it and opens that quotation's
+  // editor, so a notification written before the merge still opens it.
+  proposal: { prefix: "/sales/proposals/" },
+  // A quotation opens in its editor (lean revamp PR 6, §3.4).
+  quotation: { prefix: "/sales/quotations/" },
   dossier: { prefix: "/operations/files/" },
   transit_order: { prefix: "/operations/transit-orders/" },
   delivery_note: { prefix: "/operations/delivery-notes/" },
@@ -92,10 +98,6 @@ const DETAIL = {
   // state because the task/event opens in a panel ON that section. The client
   // still accepts the legacy `?tab=` form through its compatibility adapter so
   // notifications written before this route change remain useful.
-  // A commercial quotation opens focused in Sales & CRM › Quotations (meeting
-  // 6, G6 — it moved there from Commercial; `?focus=` is the register's
-  // useRecordParam, which opens its detail and drops the parameter).
-  quotation: { path: "/sales/quotations", query: "focus" },
   task: { path: "/workspace/tasks", query: "task" },
   calendar_event: { path: "/workspace/calendar", query: "event" },
 };
@@ -132,7 +134,6 @@ const SECTION = {
   tax_declaration: "/finance/tax",
   asset: "/finance/assets",
   // Sales & CRM
-  proposal: "/sales/proposals",
   contact_enquiry: "/sales/enquiries",
   // One profile per tenant: its versions and share links all live on its screen.
   company_profile: "/sales/company-profile",

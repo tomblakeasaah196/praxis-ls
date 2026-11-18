@@ -46,13 +46,11 @@ const NOTIFIABLE = {
   "contact_enquiry.created": { action: "view", title: "New enquiry" },
   "opportunity.won": { action: "view", title: "Opportunity won" },
   "opportunity.lost": { action: "view", title: "Opportunity lost" },
-  "proposal.accepted": { action: "view", title: "Proposal accepted" },
-  // A client said no in the portal (client portal PR 2) — with a reason sales
-  // can act on, and HIGH because a declined offer is usually a call to make.
-  "proposal.declined_by_client": { action: "view", title: "A client declined a proposal", priority: "HIGH" },
   // Commercial quotations (meeting 6, PR 4, G4): accepted — signed in the
-  // portal, or recorded by the team — and declined with a reason. The client's
-  // own people are told first (notify-client-team); this is the module's.
+  // portal, or recorded by the team — and declined with a reason, HIGH because
+  // a declined offer is usually a call to make. The client's own people are
+  // told first (notify-client-team); this is the module's. (Proposals became
+  // quotations in 14542 and raise no events of their own any more.)
   "quotation.accepted": { action: "view", title: "Quotation accepted" },
   "quotation.declined_by_client": { action: "view", title: "A client declined a quotation", priority: "HIGH" },
 

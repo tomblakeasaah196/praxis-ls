@@ -175,22 +175,3 @@ describe("the covering mail", () => {
   });
 });
 
-describe("proposals are read only now", () => {
-  const proposalService = require("../../src/modules/sales/proposal/proposal.service");
-  const client = { query: jest.fn(async () => ({ rows: [{ quotation_id: "q-9" }] })) };
-
-  test.each([
-    ["createDraft", () => proposalService.createDraft(client, { data: {} })],
-    ["updateDraft", () => proposalService.updateDraft(client, { id: "p1" })],
-    ["transition", () => proposalService.transition(client, { id: "p1", to: "SENT" })],
-    ["accept", () => proposalService.accept(client, { id: "p1" })],
-    ["share", () => proposalService.share(client, { id: "p1" })],
-    ["generate", () => proposalService.generate(client, { proposalId: "p1" })],
-  ])("%s is refused with 410 and the quotation it became", async (_name, call) => {
-    await expect(call()).rejects.toMatchObject({ code: "PROPOSAL_RETIRED", status: 410 });
-  });
-
-  test("the refusal names the migrated quotation", async () => {
-    await expect(proposalService.accept(client, { id: "p1" })).rejects.toMatchObject({ details: { quotation_id: "q-9" } });
-  });
-});

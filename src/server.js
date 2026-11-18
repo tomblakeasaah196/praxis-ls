@@ -600,7 +600,7 @@ function buildApp() {
   // `index: false` on the static handler keeps /public resolving to the SPA
   // route rather than to a dist/index.html the browser would otherwise fetch
   // directly, and the fallback sendFile is what makes a forwarded
-  // /public/proposals/<token> load at all — a 404 on a deep link is a broken
+  // /public/q/<token> load at all — a 404 on a deep link is a broken
   // sales document, not a missing page.
   const publicWebDir = path.resolve(__dirname, "../public-web/dist");
   //

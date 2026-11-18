@@ -86,7 +86,8 @@ describe("the routes mount the shared map, not a copy", () => {
 
   it("finds the lifecycle routes it is meant to be reading", () => {
     // A walk that silently found nothing would pass every assertion below.
-    expect(FILES.length).toBeGreaterThanOrEqual(20);
+    // 19 since the proposal routes went (Sales lean revamp PR 6).
+    expect(FILES.length).toBeGreaterThanOrEqual(19);
   });
 
   it.each(FILES)("%s", (_file, src) => {
@@ -141,8 +142,7 @@ describe("the routes mount the shared map, not a copy", () => {
       "client/src/features/costing/costing-sheet-360.tsx": "costingTransition",
       "client/src/features/operations/transit-order-360.tsx": "transitOrderTransition",
       "client/src/features/operations/delivery-note-360.tsx": "deliveryNoteTransition",
-      "client/src/features/sales/proposal-detail.tsx": "proposalTransition",
-      "client/src/features/commercial/quotation-detail.tsx": "quotationTransition",
+      "client/src/features/commercial/quotation-editor.tsx": "quotationTransition",
       "client/src/features/sales/enquiry-forms.tsx": "inboundIntakeTransition",
     };
     for (const [file, map] of Object.entries(SCREENS))

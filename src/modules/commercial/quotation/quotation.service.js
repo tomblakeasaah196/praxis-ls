@@ -434,7 +434,7 @@ async function convert(client, { id, actor = {} }) {
  * SENT → REJECTED, the reason kept on the row, and the team told with it —
  * "declined" alone is not something sales can act on.
  */
-async function decline(client, { id, reasonCode, reason, by = null, via = "PORTAL" }) {
+async function decline(client, { id, reasonCode, reason, by = null, via = "PORTAL", actor = {} }) {
   const before = await repo.get(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Quotation not found", 404);
   assertTransition(before.status, "REJECTED");
@@ -449,10 +449,10 @@ async function decline(client, { id, reasonCode, reason, by = null, via = "PORTA
       decline_reason: reason ? String(reason).slice(0, 600) : null,
     });
     await emitEvent(client, {
-      eventTypeKey: events.DECLINED_BY_CLIENT, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: null,
+      eventTypeKey: events.DECLINED_BY_CLIENT, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null,
       payload: { client_id: before.client_id || null, lead_id: before.lead_id || null, doc_number: before.doc_number || null, reason_code: reasonCode || null, reason: reason || null, via: viaOf(via), ...(by ? { by } : {}) },
     });
-    await audit(client, { actorUserId: null, action: events.DECLINED_BY_CLIENT, moduleKey: events.MODULE, entityRef: ref(id), after: { reason_code: reasonCode, reason, by, via: viaOf(via) } });
+    await audit(client, { actorUserId: actor.user_id || null, action: events.DECLINED_BY_CLIENT, moduleKey: events.MODULE, entityRef: ref(id), after: { reason_code: reasonCode, reason, by, via: viaOf(via) } });
     return strip(row);
   });
 }
@@ -524,7 +524,7 @@ async function buildPreview(client, costingId) {
     workings: priced.totals,
     unclassified: link.unclassified,
     quote_requests: requests.map((r) => ({
-      quote_request_id: r.quote_request_id, public_ref: r.public_ref, status: r.status, stage: r.stage, title: r.title, created_at: r.created_at,
+      quote_request_id: r.quote_request_id, public_ref: r.public_ref, stage: r.stage, title: r.title, created_at: r.created_at,
       service_name_en: r.service_name_en || null, service_name_fr: r.service_name_fr || null, answered: r.answered === true,
     })),
     suggested_quote_request_id: suggested ? suggested.quote_request_id : null,
@@ -601,7 +601,7 @@ async function get(client, id) {
   // The request it answers, the costing it was priced from and the workings
   // behind its prices — each a link on the quotation's screen.
   q.quote_request = request
-    ? { quote_request_id: request.quote_request_id, public_ref: request.public_ref, status: request.status, stage: request.stage, title: request.title, lead_id: request.lead_id }
+    ? { quote_request_id: request.quote_request_id, public_ref: request.public_ref, stage: request.stage, title: request.title, lead_id: request.lead_id }
     : null;
   q.costing = costing;
   q.workings = workings;
@@ -612,8 +612,41 @@ async function get(client, id) {
   q.languages = rules.languagesOf(q);
   return q;
 }
-const list = async (client, q) => (await repo.list(client, q)).map(strip);
+const list = async (client, q) => (await repo.list(client, q)).rows.map(strip);
+
+/**
+ * The Quotations list (lean revamp §3.4): one page, its total, and the totals
+ * gated on finance visibility as the Leads list gates its value: without it a
+ * total is null, never zero.
+ */
+async function listPage(client, q = {}, { canSeeFinancials = false } = {}) {
+  const { rows, total } = await repo.list(client, q);
+  const money = (v) => (canSeeFinancials ? v : null);
+  return {
+    rows: rows.map((r) => {
+      const row = strip(r);
+      return { ...row, total_ht: money(row.total_ht), total_ttc: money(row.total_ttc) };
+    }),
+    total,
+    money_visible: canSeeFinancials,
+  };
+}
+
+/** Decline recorded by staff (§3.4 "Decline with a reason"): the reason from the same list the link offers. */
+async function declineByStaff(client, { id, reasonCode, note = null, actor = {} }) {
+  const { chosenReason } = require("../../portal/portal_signing");
+  const chosen = await chosenReason(client, reasonCode);
+  const reason = `${chosen.label_en}${note ? `: ${String(note).slice(0, 400)}` : ""}`;
+  return decline(client, { id, reasonCode, reason, by: null, via: "STAFF", actor });
+}
+
+/** The DECLINE reasons, in both languages, for the staff dialog. */
+async function declineReasons(client) {
+  const rows = await require("../../../services/signatures/presets").reasons(client, { kind: "DECLINE" });
+  return rows.map((r) => ({ reason_code: r.reason_code, label_en: r.label_en, label_fr: r.label_fr }));
+}
+
 module.exports = {
-  createDraft, updateDraft, transition, accept, convert, decline, fromCostingPreview, createFromCosting, get, list,
+  createDraft, updateDraft, transition, accept, convert, decline, declineByStaff, declineReasons, fromCostingPreview, createFromCosting, get, list, listPage,
   targetMargin, resolveQuoteRequest, issue, ensureRequest, strip, requestFull,
 };

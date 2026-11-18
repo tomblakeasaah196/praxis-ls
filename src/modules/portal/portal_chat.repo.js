@@ -111,7 +111,10 @@ async function messages(client, { clientId, dossierId, before = null, limit = 40
               m.location_lat, m.location_lng, m.location_label, m.ref_entity,
               -- What the message is about (meeting 6, G3): the offer's number,
               -- read live so a quotation numbered after the question still says so.
+              -- A question asked about a proposal before the lean revamp reads
+              -- as the quotation it became (14542, source_proposal_id).
               COALESCE(rq.doc_number, rp.doc_number) AS ref_label,
+              rp.quotation_id AS ref_quotation_id,
               u.full_name AS author_name, d.ref AS dossier_ref,
               mi.milestone_instance_id, mi.label AS milestone_label, mi.label_en AS milestone_label_en,
               COALESCE((
@@ -129,8 +132,8 @@ async function messages(client, { clientId, dossierId, before = null, limit = 40
                ${clientView ? "AND mi.is_client_visible" : ""}
          LEFT JOIN quotation rq
                 ON m.ref_entity LIKE 'quotation:%' AND rq.quotation_id::text = substring(m.ref_entity from 11)
-         LEFT JOIN proposal rp
-                ON m.ref_entity LIKE 'proposal:%' AND rp.proposal_id::text = substring(m.ref_entity from 10)
+         LEFT JOIN quotation rp
+                ON m.ref_entity LIKE 'proposal:%' AND rp.source_proposal_id::text = substring(m.ref_entity from 10)
         WHERE m.client_id = $1 AND ${thread}
           AND ($2::timestamptz IS NULL OR m.created_at < $2::timestamptz)
         ORDER BY m.created_at DESC

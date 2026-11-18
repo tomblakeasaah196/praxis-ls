@@ -45,8 +45,8 @@ const read = (rel: string) => readFileSync(join(SRC, rel), "utf8");
  * entrance is a different kind on purpose.
  */
 const DOCUMENT_HEADER: Record<string, string> = {
-  "features/proposals/proposal-page.tsx":
-    "a priced document addressed to one recipient, reached by a token and often printed. Its own comment argues the case: the badge pill and the accent word are marketing grammar, and colouring half of somebody's proposal title is a liberty a quote does not get to take.",
+  "features/quotation/quotation-page.tsx":
+    "a priced document addressed to one recipient, reached by a token, answered and often printed. The server's one render is the document, the same HTML the PDF prints, so its own number and title are the entrance; a marketing plate, a badge pill or an accent word above it would be the site advertising over a quotation somebody is deciding whether to sign.",
   "features/profile/profile-page.tsx":
     "the tenant's Company Profile, shared by a token with one recipient and printed beside the PDF rendered from the same object. It is the tenant presenting itself to a buyer who asked for it, so its own cover photograph and name are the entrance; a marketing plate above them would be the site advertising over a document the recipient is reading.",
   "features/insights/insight-page.tsx":

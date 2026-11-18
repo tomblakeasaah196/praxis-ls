@@ -54,7 +54,7 @@ module.exports = {
   // `text`, not the default uuid: `:code` is a 12-character Crockford string.
   // Declaring it stops the loader's id-param convention from asserting a uuid
   // shape on a credential that is deliberately not one (same as
-  // proposal_public, whose `:token` is a signed string).
+  // quotation_public, whose `:token` is a random string).
   idParam: "text",
   router,
 };

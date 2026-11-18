@@ -390,15 +390,19 @@ describe("the client's view", () => {
 
   test("scope, documents and a timeline — no owner, no notes", async () => {
     repo.get.mockResolvedValue({
-      quote_request_id: QR, client_id: CLIENT, status: "UNDER_REVIEW", service_type_id: SEA, public_ref: "SQ-2026-0007",
+      quote_request_id: QR, client_id: CLIENT, status: "UNDER_REVIEW", stage: "CONTACTED", service_type_id: SEA, public_ref: "SQ-2026-0007",
       owner_user_id: AM, internal_notes: "margin is thin", created_at: "2026-09-01T08:00:00Z", updated_at: "2026-09-02T08:00:00Z",
     });
     repo.listAttachments.mockResolvedValue([{ id: "att-1", original_name: "invoice.pdf", document_kind: "COMMERCIAL_INVOICE", kind: "PRIMARY", created_at: "x" }]);
-    repo.lifecycle.mockResolvedValue([{ action: "quote_request.created", at: "2026-09-01T08:00:00Z" }]);
+    repo.lifecycle.mockResolvedValue([{ action: "quote_request.created", stage: null, at: "2026-09-01T08:00:00Z" }]);
     const v = await service.clientView(client, { clientId: CLIENT, id: QR });
     expect(v.service).toMatchObject({ service_type_id: SEA, card: "SEA", flow: "IMPORT" });
     expect(v.documents).toEqual([{ id: "att-1", name: "invoice.pdf", document_kind: "COMMERCIAL_INVOICE", kind: "PRIMARY", created_at: "x" }]);
-    expect(v.timeline.map((t) => t.status)).toEqual(["RECEIVED", "UNDER_REVIEW"]);
+    // The request's STAGE, never the retired intake status (lean revamp PR 6).
+    expect(v.stage).toBe("CONTACTED");
+    expect(v).not.toHaveProperty("status");
+    expect(v).not.toHaveProperty("proposal");
+    expect(v.timeline).toEqual([{ stage: "NEW", at: "2026-09-01T08:00:00Z" }, { stage: "CONTACTED", at: "2026-09-02T08:00:00Z" }]);
     expect(v).not.toHaveProperty("owner_user_id");
     expect(v).not.toHaveProperty("internal_notes");
     expect(v.quotation).toBeNull();
@@ -407,7 +411,7 @@ describe("the client's view", () => {
   // Meeting 6, PR 4 — the place PR 2 left: the quotation that answers it.
   test("shows the quotation that answers it", async () => {
     repo.get.mockResolvedValue({
-      quote_request_id: QR, client_id: CLIENT, status: "CONVERTED_TO_OPPORTUNITY", service_type_id: SEA, public_ref: "SQ-2026-0003",
+      quote_request_id: QR, client_id: CLIENT, status: "CONVERTED_TO_OPPORTUNITY", stage: "WON", service_type_id: SEA, public_ref: "SQ-2026-0003",
       created_at: "2026-09-29T08:00:00Z", updated_at: "2026-10-01T08:00:00Z",
     });
     repo.listAttachments.mockResolvedValue([]);
@@ -418,5 +422,25 @@ describe("the client's view", () => {
     const v = await service.clientView(client, { clientId: CLIENT, id: QR });
     expect(repo.answeringQuotation).toHaveBeenCalledWith(client, { quoteRequestId: QR, clientId: CLIENT });
     expect(v.quotation).toEqual({ quotation_id: "q-1", doc_number: "QT-2026-0004", status: "SENT", currency: "XAF", total: 986625, created_at: "2026-10-01" });
+  });
+
+  test("the timeline reads stages from the trail, old intake moves included, each drawn once", () => {
+    const row = { stage: "LOST", created_at: "t0", updated_at: "t9", settled_at: "t8" };
+    const trail = [
+      { action: "quote_request.created", stage: "NEW", at: "t1" },
+      // Before the revamp: an intake transition, with no stage in its row.
+      { action: "quote_request.under_review", stage: null, at: "t2" },
+      { action: "quote_request.clarification_required", stage: null, at: "t3" },
+      { action: "quote_request.converted_to_opportunity", stage: null, at: "t4" },
+      { action: "quote_request.stage_moved", stage: "MEETING", at: "t5" },
+      { action: "quote_request.lost", stage: "LOST", at: "t6" },
+    ];
+    expect(service.stageTimeline(row, trail)).toEqual([
+      { stage: "NEW", at: "t1" }, { stage: "CONTACTED", at: "t2" }, { stage: "MEETING", at: "t5" }, { stage: "LOST", at: "t6" },
+    ]);
+    // A request older than its trail: a beginning and a now.
+    expect(service.stageTimeline({ stage: "WON", created_at: "t0", settled_at: "t8", updated_at: "t9" }, [])).toEqual([
+      { stage: "NEW", at: "t0" }, { stage: "WON", at: "t8" },
+    ]);
   });
 });

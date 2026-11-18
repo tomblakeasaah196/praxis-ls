@@ -2,7 +2,7 @@
  * Draft With AI (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md §3.4, §5.4): Your Needs and
  * Our Solution, in English and French, from the client's own words in
  * discovery and the PUBLISHED Company Profile. Moved here from
- * `sales/proposal/proposal.generator.js` with the proposal.
+ * the proposal generator when proposals became quotations.
  *
  * ── GROUNDED, OR NOT WRITTEN ───────────────────────────────────────────────
  *

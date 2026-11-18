@@ -171,7 +171,15 @@ const SETTING_RE = /\bfont_(?:display|body|mono)\s*[:=]\s*["'`]([^"'`]+)["'`]/g;
 const violations = [];
 
 for (const file of files) {
-  const raw = readFileSync(path.join(ROOT, file), "utf8");
+  // A tracked file deleted in the working tree has nothing left to scan;
+  // `git ls-files` still names it until the deletion is committed.
+  let raw;
+  try {
+    raw = readFileSync(path.join(ROOT, file), "utf8");
+  } catch (err) {
+    if (err.code === "ENOENT") continue;
+    throw err;
+  }
   const text = stripComments(raw, file);
 
   for (const re of [STACK_RE, JS_STACK_RE, EXCEL_RE, CSS_TOKEN_RE, SETTING_RE]) {

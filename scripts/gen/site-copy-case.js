@@ -116,7 +116,7 @@ const CASES = {
       "open", "title", "send", "emptyTitle", "team", "thisShipment", "untag",
       "general", "shipment", "all", "newAbout", "pickShipment", "noShipments", "you",
       "unread", "earlier", "newMessages", "aboutStage", "removeStage", "attach",
-      "aboutQuotation", "aboutProposal", "removeAbout",
+      "aboutQuotation", "removeAbout",
       "takePhoto", "photosFiles", "location", "locationLabel", "sendLocation",
       "openMap", "record", "recording", "sendVoice", "deleteVoice", "play", "pause",
       "viewPhoto", "photo", "downloadOriginal", "kind.IMAGE", "kind.FILE",
@@ -179,6 +179,19 @@ const CASES = {
       "label",
     ],
   },
+  "portal.answer": {
+    LABEL: [
+      "validUntil", "accept", "acceptSign", "decline", "declineTitle", "declineNote",
+      "awaitingCount", "review", "sign.step1", "sign.step2", "sign.codeLabel",
+      "sign.resend", "sign.how", "sign.card.STAMP", "sign.card.DRAWN", "sign.name",
+      "sign.role", "sign.draw", "sign.clear", "sign.aboutTitle", "sign.submit",
+      "sign.signedBy", "sign.verify",
+    ],
+    PROSE: [
+      "acceptBody", "sign.sending", "sign.sentTo", "sign.resent", "sign.rolePlaceholder",
+      "sign.about",
+    ],
+  },
   "portal.noAccess": {
     LABEL: [
       "title",
@@ -201,7 +214,7 @@ const CASES = {
   },
   "portal.offer": {
     LABEL: [
-      "tab.all", "tab.quotations", "tab.proposals", "none", "quotation", "answers",
+      "none", "quotation", "answers",
       "status.SENT", "status.ACCEPTED", "status.REJECTED", "status.EXPIRED",
       "status.CONVERTED", "switchRequests", "switchQuotations", "back", "details",
       "service", "route", "incoterm", "validUntil", "paymentTerms", "onReceipt",
@@ -246,21 +259,6 @@ const CASES = {
       "unavailable", "failed",
     ],
   },
-  "portal.prop": {
-    LABEL: [
-      "proposal", "status.SENT", "status.ACCEPTED", "status.REJECTED", "expired",
-      "validUntil", "total", "pricing", "accept", "acceptSign", "decline",
-      "acceptTitle", "declineTitle", "declineNote", "declineSend", "awaitingCount",
-      "review", "sign.step1", "sign.step2", "sign.codeLabel", "sign.resend",
-      "sign.how", "sign.card.STAMP", "sign.card.DRAWN", "sign.name", "sign.role",
-      "sign.draw", "sign.clear", "sign.aboutTitle", "sign.submit", "sign.signedBy",
-      "sign.verify",
-    ],
-    PROSE: [
-      "acceptBody", "accepted", "declined", "sign.sending", "sign.sentTo",
-      "sign.resent", "sign.rolePlaceholder", "sign.agree", "sign.about",
-    ],
-  },
   "portal.quote": {
     LABEL: [
       "request", "new", "none", "step1", "step2", "step3", "from", "to",
@@ -268,8 +266,8 @@ const CASES = {
       "route.collection", "route.collectionAdd", "route.delivery",
       "route.deliveryAdd", "route.doorToDoor", "route.withCollection",
       "route.withDelivery", "incoterm", "notSure", "what", "weight", "send",
-      "status.RECEIVED", "status.UNDER_REVIEW", "status.CLARIFICATION_REQUIRED",
-      "status.QUOTED", "status.CONVERTED_TO_OPPORTUNITY", "status.CLOSED_NO_ACTION",
+      "stage.NEW", "stage.CONTACTED", "stage.MEETING", "stage.QUOTED", "stage.WON",
+      "stage.LOST",
       "stepStorage", "stepDocs", "detail.title", "detail.loading", "detail.scope",
       "detail.weight", "detail.documents", "detail.document", "detail.progress",
       "detail.answer",
@@ -539,12 +537,20 @@ const CASES = {
       "unavailable", "unavailableHint",
     ],
   },
-  "site.proposals": {
+  "site.quotation": {
     LABEL: [
-      "title", "client", "route", "lines", "download", "print",
+      "title", "document", "download", "langSwitch", "version", "validUntil",
+      "status.SENT", "status.ACCEPTED", "status.CONVERTED", "status.REJECTED",
+      "status.EXPIRED", "answer", "accept", "decline", "cancel", "back", "next",
+      "name", "role", "sendCode", "codeLabel", "digit", "resend", "how",
+      "card.STAMP", "card.DRAWN", "draw", "clear", "sign", "confirm",
+      "declineTitle", "declineNote", "declineSend", "signedBy", "verify",
     ],
     PROSE: [
-      "expireNote", "unavailable", "unavailableHint",
+      "rolePlaceholder", "codeSent", "resent", "agree", "confirmBody", "accepted",
+      "declined", "failed", "answeredAlready", "expired", "otp.OTP_INVALID",
+      "otp.OTP_EXPIRED", "otp.OTP_EXHAUSTED", "otp.OTP_NOT_ISSUED", "otp.OTP_COOLDOWN",
+      "otp.OTP_REQUIRED", "unavailable", "unavailableHint",
     ],
   },
   "site.quote": {

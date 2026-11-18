@@ -65,7 +65,7 @@ module.exports = {
   createClientQuote: asyncHandler(async (req, res) => res.status(201).json({ data: await req.tenantDb((c) => service.createClientQuote(c, { clientId: clientId(req), data: req.body, user: req.portal.user || {} })) })),
   /** The services the quote wizard offers — every active one, with its card, flow and Incoterms. */
   clientQuoteServices: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientQuoteServices(c)) })),
-  /** One request: scope, documents, status timeline, the proposal that answered it. */
+  /** One request: scope, documents, stage timeline, the quotation that answered it. */
   clientQuoteRequest: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.clientQuoteRequest(c, { clientId: clientId(req), id: req.params.id })) })),
   /**
    * A document uploaded BEFORE the request is sent (multipart, one file): it

@@ -90,6 +90,11 @@ const FEATURE_DICTS = [
     file: path.join(SRC, "features/profile/profile-copy.ts"),
     mount: "site.profile",
   },
+  {
+    // The public quotation link `/q/<token>`, read only by a link holder.
+    file: path.join(SRC, "features/quotation/quotation-copy.ts"),
+    mount: "site.quotation",
+  },
 ];
 
 /** True for any file that IS copy rather than a component that contains copy.

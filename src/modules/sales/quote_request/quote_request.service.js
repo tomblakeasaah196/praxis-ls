@@ -64,8 +64,9 @@
  *    (`lead.findOrCreateForIntake`). A website or portal arrival puts "Answer
  *    website request" on the owner's desk.
  *
- * 9. `status` IS KEPT IN STEP WITH `stage` until PR 7 drops it, so the
- *    register before PR 3 keeps reading the truth (rules.statusForStage).
+ * 9. `status` IS KEPT IN STEP WITH `stage` until PR 7 drops it
+ *    (rules.statusForStage). It is written, never read: every list, filter,
+ *    tile and timeline reads the stage (lean revamp PR 6).
  */
 "use strict";
 const repo = require("./quote_request.repo");
@@ -733,17 +734,39 @@ async function quoteServices(client, { publishedOnly = false } = {}) {
   return rows.map(quoteServiceCard);
 }
 
-/** Status from the audit action that recorded it. */
-const STATUS_OF_ACTION = {
-  "quote_request.created": "RECEIVED",
-  "quote_request.converted": "CONVERTED_TO_OPPORTUNITY",
-};
-const statusOfAction = (action) =>
-  STATUS_OF_ACTION[action] || String(action).replace(/^quote_request\./, "").toUpperCase();
+/**
+ * The stage an audit action records: the stage it names (a move, the created
+ * row), the win or the loss, or for a request older than the lean revamp the
+ * stage its intake transition meant (rules.STAGE_FOR_STATUS). A conversion to
+ * an opportunity names no stage and is not drawn.
+ */
+function stageOfAction(e) {
+  if (e.action === "quote_request.won") return "WON";
+  if (e.action === "quote_request.lost") return "LOST";
+  if (e.stage && rules.STAGES.includes(e.stage)) return e.stage;
+  if (e.action === "quote_request.created") return "NEW";
+  return rules.STAGE_FOR_STATUS[String(e.action).replace(/^quote_request\./, "").toUpperCase()] || null;
+}
+
+/**
+ * The stages a request went through, oldest first, from its audit trail. A
+ * request older than its trail still has a beginning (NEW) and a now (its
+ * stage); a stage repeated by consecutive entries is drawn once.
+ */
+function stageTimeline(row, events_ = []) {
+  const timeline = [];
+  for (const e of events_) {
+    const stage = stageOfAction(e);
+    if (stage && (!timeline.length || timeline[timeline.length - 1].stage !== stage)) timeline.push({ stage, at: e.at });
+  }
+  if (!timeline.length || timeline[0].stage !== "NEW") timeline.unshift({ stage: "NEW", at: row.created_at });
+  if (row.stage && timeline[timeline.length - 1].stage !== row.stage) timeline.push({ stage: row.stage, at: row.settled_at || row.updated_at });
+  return timeline;
+}
 
 /**
  * One request as its client reads it (meeting 6, item 2.9): the scope as sent,
- * its documents, its status as a timeline, and the proposal that answered it.
+ * its documents, its stage as a timeline, and the quotation that answered it.
  * Scoped to the client — another company's request is a 404, not a 403. The
  * owner, the internal notes and the audit actors stay with the team.
  */
@@ -755,18 +778,11 @@ async function clientView(client, { clientId, id }) {
     repo.listAttachments(client, id),
     repo.lifecycle(client, id),
   ]);
-  // A request older than its audit trail still has a beginning and a now.
-  let timeline = events_.map((e) => ({ status: statusOfAction(e.action), at: e.at }));
-  if (!timeline.length || timeline[0].status !== "RECEIVED") timeline = [{ status: "RECEIVED", at: row.created_at }, ...timeline];
-  if (timeline[timeline.length - 1].status !== row.status) timeline.push({ status: row.status, at: row.updated_at });
-  const proposal = row.converted_opportunity_id
-    ? await repo.answeringProposal(client, { opportunityId: row.converted_opportunity_id, clientId })
-    : null;
+  const timeline = stageTimeline(row, events_);
   const quotation = await repo.answeringQuotation(client, { quoteRequestId: row.quote_request_id, clientId });
   return {
     quote_request_id: row.quote_request_id,
     public_ref: row.public_ref,
-    status: row.status,
     stage: row.stage,
     created_at: row.created_at,
     service: st ? quoteServiceCard(st) : null,
@@ -786,9 +802,8 @@ async function clientView(client, { clientId, id }) {
       id: d.id, name: d.original_name, document_kind: d.document_kind, kind: d.kind, created_at: d.created_at,
     })),
     timeline,
-    proposal,
-    // The Commercial quotation that answered the request (meeting 6, PR 4),
-    // beside the proposal: linked by quotation.quote_request_id.
+    // The quotation that answered the request (meeting 6, PR 4), linked by
+    // quotation.quote_request_id. Every proposal became one (14542).
     quotation: quotation
       ? {
           quotation_id: quotation.quotation_id,
@@ -818,8 +833,8 @@ const get = (client, id) => repo.get(client, id);
 /**
  * List + the KPI tiles.
  *
- * The fold lives in `rules.kpiFrom`, which derives one tile per status from the
- * status list itself, and `assertPartitions` proves the tiles add up to TOTAL
+ * The fold lives in `rules.kpiFrom`, which derives one tile per stage from the
+ * stage list itself, and `assertPartitions` proves the tiles add up to TOTAL
  * before the response leaves. The previous version hand-listed four tiles while
  * the CHECK constraint allowed six, so every CLARIFICATION_REQUIRED and
  * CLOSED_NO_ACTION row was counted into TOTAL and shown in no tile — the
@@ -838,7 +853,7 @@ const listForExport = (client, q = {}) => repo.listForExport(client, q, EXPORT_C
 module.exports = {
   create, update, transition, moveStage, markLost, markWon,
   uploadAttachment, removeAttachment, listAttachments, fileFromChat,
-  clientMatch, quoteServices, quoteServiceCard,
+  clientMatch, quoteServices, quoteServiceCard, stageTimeline,
   stageClientDocument, addClientDocument, sweepStagedDocuments, clientView, clientDocument,
   get, list, listForExport,
   resolveEntityId, resolveService, assertIncotermOffered, linkDocuments,

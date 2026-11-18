@@ -29,7 +29,7 @@ import { OpenInBrowserBar } from "@/components/site/open-in-browser-bar";
  *
  * The heaviest screens here are also the least-visited from any given entry
  * point: a tracking visitor never downloads the portal's terminal tables, a
- * portal user never downloads the careers form or the PDF-bearing proposal
+ * portal user never downloads the careers form or the PDF-bearing quotation
  * document. One shared entry chunk would make every one of them pay for all of
  * them — and the audience this app serves is a phone on a metered connection in
  * Douala, which is the reason `package.json` exists separately from `client/` at
@@ -40,8 +40,8 @@ import { OpenInBrowserBar } from "@/components/site/open-in-browser-bar";
  *
  * Rule inherited from the ERP's own landing behaviour: the bare root may redirect
  * (there is no other sensible thing to put there), a deep link never does. A
- * forwarded `/public/proposals/xyz?lang=FR` must land on exactly that page in
- * that language, or the shared link the sales team sent is wrong.
+ * forwarded `/public/q/xyz?lang=FR` must land on exactly that page in that
+ * language, or the shared link the sales team sent is wrong.
  *
  * ── AND ON A HOST THE SITE OWNS, `/` DOES NOT REDIRECT EITHER ──────────────
  *
@@ -108,12 +108,15 @@ const Insight = lazy(
   () => import("@/features/insights/insight-page"),
   "InsightPage",
 );
-const Proposal = lazy(
-  () => import("@/features/proposals/proposal-page"),
-  "ProposalPage",
+/* The public quotation link (lean revamp §3.4): a priced document for one
+   recipient, reached by a token. It replaced the proposal page; the proposal
+   URLs below redirect here. */
+const Quotation = lazy(
+  () => import("@/features/quotation/quotation-page"),
+  "QuotationPage",
 );
 /* The shared Company Profile: a document for one recipient, reached by a token,
-   like the proposal above and just as rarely visited from any given entry. */
+   like the quotation above and just as rarely visited from any given entry. */
 const Profile = lazy(
   () => import("@/features/profile/profile-page"),
   "ProfilePage",
@@ -168,6 +171,16 @@ function LegacyParam({ to }: { to: string }) {
     .map(encodeURIComponent)
     .join("/");
   return <Navigate to={under(to, rest)} replace />;
+}
+
+/** `/proposal/:token`, `/proposals/:token` → `/q/:token`, the query string
+ *  kept. Every proposal became a quotation and its token came with it (14542),
+ *  so the link the sales team sent opens the same offer, and `?lang=FR` on it
+ *  still means the French one. */
+function LegacyToken({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  const { token = "" } = useParams();
+  return <Navigate to={`${under(to, encodeURIComponent(token))}${search}${hash}`} replace />;
 }
 
 /** `/client-portal/anything/deeper?x=1` → `/portal/anything/deeper?x=1`.
@@ -300,7 +313,8 @@ export function AppRouter() {
         <Route path={p("/services/:slug")} element={<ServiceDetail />} />
         <Route path={p("/portfolio")} element={<PortfolioIndex />} />
         <Route path={p("/portfolio/:slug")} element={<PortfolioStory />} />
-        <Route path={p("/proposals/:token")} element={<Proposal />} />
+        <Route path={p("/q/:token")} element={<Quotation />} />
+        <Route path={p("/proposals/:token")} element={<LegacyToken to={p("/q")} />} />
         <Route path={p("/profile/:token")} element={<Profile />} />
         <Route path={p("/insights")} element={<Insights />} />
         <Route path={p("/insights/:slug")} element={<Insight />} />
@@ -352,7 +366,7 @@ export function AppRouter() {
             />
             <Route
               path="/proposals/:token"
-              element={<LegacyParam to={p("/proposals")} />}
+              element={<LegacyToken to={p("/q")} />}
             />
             <Route
               path="/careers"
@@ -375,7 +389,7 @@ export function AppRouter() {
         <Route path="/tracking" element={<LegacyQuery to={p("/track")} />} />
         <Route
           path="/proposal/:token"
-          element={<LegacyParam to={p("/proposals")} />}
+          element={<LegacyToken to={p("/q")} />}
         />
         <Route path="/client-portal/*" element={<LegacySplat to="/portal" />} />
         {/* The ORIGINAL prefix, kept for good.

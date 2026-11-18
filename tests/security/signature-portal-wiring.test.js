@@ -86,10 +86,11 @@ describe("§5.8 criterion 7 — the public route pins the env from the printed U
   });
 
   test("the precedent it follows still carries a pin, not a header lookup", () => {
-    // If proposal_public ever loses this, the reasoning that justifies it here
-    // has moved and somebody should notice.
-    const proposal = read(path.join(SRC, "modules/sales/proposal_public/proposal_public.routes.js"));
-    expect(proposal).toMatch(/tenantDbIn\("live"/);
+    // If quotation_public (which replaced proposal_public, lean revamp PR 6)
+    // ever loses this, the reasoning that justifies it here has moved and
+    // somebody should notice.
+    const precedent = read(path.join(SRC, "modules/commercial/quotation_public/quotation_public.routes.js"));
+    expect(precedent).toMatch(/tenantDbIn\("live"/);
   });
 });
 

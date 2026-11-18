@@ -108,7 +108,8 @@ const RAIL_BUTTON =
  * quotation" on (meeting 6, G3) — as a chip that opens it.
  */
 function ReferenceChip({ r }: { r: Reference }) {
-  const href = r.kind === "quotation" ? quotationHref(r.id) : `/sales/proposals?focus=${encodeURIComponent(r.id)}`;
+  // A proposal from before the merge opens the quotation it became (/sales/proposals/:id resolves it).
+  const href = r.kind === "quotation" ? quotationHref(r.id) : `/sales/proposals/${encodeURIComponent(r.id)}`;
   const label = r.label || (r.kind === "quotation" ? tr("Quotation") : tr("Proposal"));
   return (
     <p className="mb-1">

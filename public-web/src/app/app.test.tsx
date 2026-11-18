@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from "react-router-dom";
 import { BrandingProvider } from "@/app/branding";
 import { AppErrorBoundary } from "@/app/error-boundary";
 import { AppRouter } from "@/app/router";
+import i18n from "@/lib/i18n";
 // The runtime tree — see i18n-tree.test-helper.ts.
 import { en } from "@/lib/i18n-tree.test-helper";
 
@@ -100,9 +101,11 @@ const ROUTES: Case[] = [
     h1: "max",
   },
   { path: "/public/careers", shows: "site.careers.title", h1: 1 },
+  // A quotation link that is unknown, revoked or expired is one 404 and one
+  // calm page (fetch is stubbed to 404 here).
   {
-    path: "/public/proposals/00000000-0000-4000-8000-000000000000",
-    shows: "site.proposals.unavailable",
+    path: "/public/q/00000000-0000-4000-8000-000000000000",
+    shows: "site.quotation.unavailable",
     h1: "max",
   },
   {
@@ -159,9 +162,12 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllGlobals();
   document.documentElement.classList.remove("dark");
+  // A shared link's `?lang=FR` switches the site's language (the quotation
+  // page follows the link it was sent as); the next case starts in English.
+  await i18n.changeLanguage("en");
 });
 
 describe("every route mounts and shows its own copy", () => {
@@ -288,7 +294,12 @@ describe("legacy paths redirect to the new prefixes and keep their payload", () 
     ["/tracking?ref=PRX-4711", "/public/track?ref=PRX-4711"],
     ["/portfolio", "/public/portfolio"],
     ["/portfolio/agate-textiles", "/public/portfolio/agate-textiles"],
-    ["/proposal/tok123", "/public/proposals/tok123"],
+    // Lean revamp PR 6: every proposal link opens its quotation at /q/<token>,
+    // in the language it was sent in.
+    ["/proposal/tok123", "/public/q/tok123"],
+    ["/proposal/tok123?lang=FR", "/public/q/tok123?lang=FR"],
+    ["/proposals/tok123", "/public/q/tok123"],
+    ["/public/proposals/tok123?lang=FR", "/public/q/tok123?lang=FR"],
     ["/careers", "/public/careers"],
     ["/careers/eng-2026", "/public/careers/eng-2026"],
     ["/client-portal", "/portal/login"],

@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1902 |
-| Modules mounted | 143 |
+| Routes | 1885 |
+| Modules mounted | 141 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1902 mounted routes, grouped by path prefix.
+All 1885 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1627,14 +1627,6 @@ All 1902 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/portal/client/payment-proofs` | — |
 | GET | `/api/tenant/portal/client/payment-proofs/:id/file` | — |
 | GET | `/api/tenant/portal/client/places` | — |
-| GET | `/api/tenant/portal/client/proposals` | — |
-| GET | `/api/tenant/portal/client/proposals/:id` | — |
-| POST | `/api/tenant/portal/client/proposals/:id/accept` | — |
-| POST | `/api/tenant/portal/client/proposals/:id/decline` | — |
-| GET | `/api/tenant/portal/client/proposals/:id/pdf` | — |
-| POST | `/api/tenant/portal/client/proposals/:id/sign` | — |
-| POST | `/api/tenant/portal/client/proposals/:id/sign/complete` | — |
-| POST | `/api/tenant/portal/client/proposals/:id/sign/resend` | — |
 | POST | `/api/tenant/portal/client/push/subscribe` | — |
 | POST | `/api/tenant/portal/client/push/test` | — |
 | POST | `/api/tenant/portal/client/push/unsubscribe` | — |
@@ -1737,20 +1729,6 @@ All 1902 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/proformas/advances/:id` | — |
 | POST | `/api/tenant/proformas/pay` | — |
 
-### `tenant/proposals`
-
-| Method | Path | Body validated |
-|---|---|---|
-| GET | `/api/tenant/proposals/` | — |
-| POST | `/api/tenant/proposals/` | — |
-| GET | `/api/tenant/proposals/:id` | — |
-| PATCH | `/api/tenant/proposals/:id` | — |
-| POST | `/api/tenant/proposals/:id/accept` | — |
-| POST | `/api/tenant/proposals/:id/generate` | — |
-| POST | `/api/tenant/proposals/:id/share` | — |
-| POST | `/api/tenant/proposals/:id/share/revoke` | — |
-| POST | `/api/tenant/proposals/:id/transition` | — |
-
 ### `tenant/public`
 
 | Method | Path | Body validated |
@@ -1767,8 +1745,6 @@ All 1902 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/public/portfolio/` | — |
 | GET | `/api/tenant/public/portfolio/:slug` | — |
 | GET | `/api/tenant/public/portfolio/media/:id` | — |
-| GET | `/api/tenant/public/proposals/:token` | — |
-| GET | `/api/tenant/public/proposals/:token/pdf` | — |
 | POST | `/api/tenant/public/qes/:provider/webhook` | — |
 | GET | `/api/tenant/public/quotations/:token` | — |
 | POST | `/api/tenant/public/quotations/:token/accept` | — |
@@ -1845,6 +1821,7 @@ All 1902 mounted routes, grouped by path prefix.
 | PATCH | `/api/tenant/quotations/:id` | — |
 | POST | `/api/tenant/quotations/:id/accept` | — |
 | POST | `/api/tenant/quotations/:id/convert` | — |
+| POST | `/api/tenant/quotations/:id/decline` | — |
 | POST | `/api/tenant/quotations/:id/draft-sections` | — |
 | GET | `/api/tenant/quotations/:id/pdf` | — |
 | GET | `/api/tenant/quotations/:id/preview` | — |
@@ -1854,6 +1831,7 @@ All 1902 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/quotations/:id/share/revoke` | — |
 | POST | `/api/tenant/quotations/:id/transition` | — |
 | GET | `/api/tenant/quotations/:id/views` | — |
+| GET | `/api/tenant/quotations/decline-reasons` | — |
 | GET | `/api/tenant/quotations/from-costing/:costingId` | — |
 | POST | `/api/tenant/quotations/from-costing/:costingId` | — |
 | GET | `/api/tenant/quotations/templates` | — |

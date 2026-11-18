@@ -124,19 +124,21 @@ async function defaultEntityId(client) {
 /**
  * ONE WHERE builder, used by the list, the total, the KPI and the export.
  *
- * `includeStatus` is the only difference between them. Four hand-copied WHERE
+ * `includeStage` is the only difference between them. Four hand-copied WHERE
  * clauses is how the list and its own summary drift apart, which is the defect
  * class this feature is correcting — so they are built from one function and
  * the divergence is a single boolean.
+ *
+ * There is no `status` filter: the request's lifecycle is its stage (lean
+ * revamp PR 2), and `status` is only written in step until PR 7 drops it.
  */
-function buildWhere(q = {}, { includeStatus = true } = {}) {
+function buildWhere(q = {}, { includeStage = true } = {}) {
   const wh = [];
   const params = [];
   // Qualified with `q.` because the list joins service_type and client_master,
   // both of which have a created_at — an unqualified one is "ambiguous".
-  if (includeStatus && q.status) { params.push(q.status); wh.push("q.status = $" + params.length); }
   // 14511 — the deal's stage, and the company row it sits on.
-  if (q.stage) { params.push(q.stage); wh.push("q.stage = $" + params.length); }
+  if (includeStage && q.stage) { params.push(q.stage); wh.push("q.stage = $" + params.length); }
   if (q.lead_id) { params.push(q.lead_id); wh.push("q.lead_id = $" + params.length); }
   // An old opportunity link resolves to the request it became (14512 set
   // `converted_opportunity_id` on every one), so a notification still opens.
@@ -166,7 +168,7 @@ function buildWhere(q = {}, { includeStatus = true } = {}) {
   return { where: wh.length ? "WHERE " + wh.join(" AND ") : "", params };
 }
 
-const SORTABLE = ["created_at", "public_ref", "status", "stage", "requester_name", "settled_at"];
+const SORTABLE = ["created_at", "public_ref", "stage", "requester_name", "settled_at"];
 const orderBy = (q = {}) =>
   `ORDER BY q.${SORTABLE.includes(q.sort) ? q.sort : "created_at"} ${q.dir === "asc" ? "ASC" : "DESC"}`;
 
@@ -186,10 +188,10 @@ const LIST_COLUMNS = `q.*, st.name_en AS service_name_en, st.name_fr AS service_
 /**
  * List + total + the KPI GROUP BY.
  *
- * The KPI drops the STATUS filter and keeps every other one, so a user looking
- * at status=QUOTED still sees the whole summary rather than one tile equal to
+ * The KPI drops the STAGE filter and keeps every other one, so a user looking
+ * at stage=QUOTED still sees the whole summary rather than one tile equal to
  * the total and the rest at zero (which is a tautology, not data). It groups by
- * status with no hand-written list of which statuses count — the fold in
+ * stage with no hand-written list of which stages count — the fold in
  * `rules.kpiFrom` owns that, and it is proven to partition.
  */
 async function list(client, q = {}) {
@@ -203,9 +205,9 @@ async function list(client, q = {}) {
 
   const { rows: totalRows } = await client.query(`SELECT COUNT(*)::int AS c FROM ${TABLE} q ${where}`, params);
 
-  const kpiQ = buildWhere(q, { includeStatus: false });
+  const kpiQ = buildWhere(q, { includeStage: false });
   const { rows: kpiRows } = await client.query(
-    `SELECT q.status, COUNT(*)::int AS c FROM ${TABLE} q ${kpiQ.where} GROUP BY q.status`,
+    `SELECT q.stage, COUNT(*)::int AS c FROM ${TABLE} q ${kpiQ.where} GROUP BY q.stage`,
     kpiQ.params,
   );
 
@@ -481,39 +483,23 @@ async function chatAttachment(client, attachmentId) {
 /* ─── the client's view (the portal) ──────────────────────────────────────── */
 
 /**
- * The lifecycle as the request's own audit trail records it — created, each
- * transition, converted. Oldest first: it is drawn as a timeline. Only the
- * action and the time leave; who did it and what changed stay with the team.
+ * The lifecycle as the request's own audit trail records it: created, each
+ * stage move, the win or the loss, and (for a request older than the lean
+ * revamp) the intake transitions it went through then. Oldest first: it is
+ * drawn as a timeline. Only the action, the stage it reached and the time
+ * leave; who did it and what else changed stay with the team.
  */
 async function lifecycle(client, quoteRequestId) {
   const { rows } = await client.query(
-    `SELECT action, created_at AS at
+    `SELECT action, after_json->>'stage' AS stage, created_at AS at
        FROM immutable_ledger
       WHERE entity_ref = $1
-        AND (action = 'quote_request.created' OR action = 'quote_request.converted'
-             OR action = ANY($2::text[]))
+        AND action = ANY($2::text[])
       ORDER BY created_at ASC, ledger_id ASC
       LIMIT 50`,
     ["quote_request:" + quoteRequestId, LIFECYCLE_ACTIONS],
   );
   return rows;
-}
-/**
- * The proposal that answered a request, as its client may see it: reached
- * through the opportunity the request became (a request has no proposal link of
- * its own), the client's own, and only once it has been sent. Newest first.
- */
-async function answeringProposal(client, { opportunityId, clientId }) {
-  const { rows } = await client.query(
-    `SELECT p.proposal_id, p.doc_number, p.title, p.status, p.currency, p.created_at
-       FROM proposal p
-      WHERE p.opportunity_id = $1 AND p.client_id = $2
-        AND p.status IN ('SENT', 'ACCEPTED', 'REJECTED')
-      ORDER BY p.created_at DESC
-      LIMIT 1`,
-    [opportunityId, clientId],
-  );
-  return rows[0] || null;
 }
 
 /**
@@ -535,6 +521,12 @@ async function answeringQuotation(client, { quoteRequestId, clientId }) {
 }
 
 const LIFECYCLE_ACTIONS = [
+  "quote_request.created",
+  "quote_request.stage_moved",
+  "quote_request.won",
+  "quote_request.lost",
+  // The intake transitions before the lean revamp, read as the stage they
+  // mean (quote_request.service stageOfAction).
   "quote_request.under_review",
   "quote_request.clarification_required",
   "quote_request.quoted",
@@ -547,6 +539,6 @@ module.exports = {
   addAttachment, listAttachments, getAttachment, removeAttachment, demotePrimary,
   attachmentByVault, hasPrimary, refileVault,
   serviceTypeById, quoteServices, clientForLink, clientCandidates,
-  stagedDocuments, abandonedStaged, archiveAbandonedStaged, chatAttachment, lifecycle, answeringProposal, answeringQuotation,
+  stagedDocuments, abandonedStaged, archiveAbandonedStaged, chatAttachment, lifecycle, answeringQuotation,
   buildWhere, WRITABLE, STAGED_REF,
 };

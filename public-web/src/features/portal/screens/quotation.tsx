@@ -13,9 +13,9 @@
  *     this quotation", which opens the chat with the quotation as a chip the
  *     team sees in the Client inbox, linking to it.
  *
- * Accepting is the proposal's flow, sheet for sheet (proposals.tsx SignSheet
- * and DeclineSheet against this document's endpoints): an emailed code bound to
- * the document's hash, then a stamp or a drawn mark. The plain confirmed
+ * Accepting is the sheets in offer-answer.tsx against this document's
+ * endpoints: an emailed code bound to the document's hash, then a stamp or a
+ * drawn mark. The plain confirmed
  * "Accept" appears only where the tenant has not switched e-signature on.
  * Turning an accepted quotation into an invoice stays the team's decision.
  */
@@ -38,7 +38,7 @@ import { cn } from "@/lib/cn";
 import { usePageChrome, useOpenChat, useSummary } from "../shell/portal-shell";
 import { IconDisc, Pill, ErrorCard, Shimmer, SkeletonCards, useLoad, useToast, errorText, Busy, ConfirmSheet } from "../ui/kit";
 import { QuoteIcon, CheckCircleIcon, DownloadIcon, CheckIcon, ChatIcon, ChevronLeftIcon, ArrowRightIcon, CloseIcon } from "../ui/icons";
-import { SignSheet, DeclineSheet, SignedCard, type OfferAnswerApi } from "./proposals";
+import { SignSheet, DeclineSheet, SignedCard, type OfferAnswerApi } from "./offer-answer";
 import { OFFER_TONE } from "./offers";
 
 const QUOTATION_ANSWER: OfferAnswerApi = {
@@ -135,7 +135,7 @@ export function QuotationPage() {
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-1.5">
           <Pill tone={tone}>{t(`portal.offer.status.${q.status}`, { defaultValue: q.status })}</Pill>
-          {open && q.valid_until ? <Pill plain>{t("portal.prop.validUntil", { date: dateFmt(q.valid_until) })}</Pill> : null}
+          {open && q.valid_until ? <Pill plain>{t("portal.answer.validUntil", { date: dateFmt(q.valid_until) })}</Pill> : null}
           {q.request?.public_ref ? (
             <Pill plain>
               {t("portal.offer.answers")} <span className="pt-mono">{q.request.public_ref}</span>
@@ -169,7 +169,7 @@ export function QuotationPage() {
       <div className={cn("grid gap-2", open ? "grid-cols-[auto_1fr] sm:grid-cols-[auto_auto_1fr]" : "sm:grid-cols-2")}>
         {open ? (
           <button type="button" className="pt-btn pt-btn-ghost" onClick={() => setDeclining(true)}>
-            {t("portal.prop.decline")}
+            {t("portal.answer.decline")}
           </button>
         ) : null}
         <button type="button" className={cn("pt-btn pt-btn-outline", open && "max-sm:order-last max-sm:col-span-2")} onClick={() => void pdf()} disabled={downloading}>
@@ -181,7 +181,7 @@ export function QuotationPage() {
         {open ? (
           <button type="button" className="pt-btn pt-btn-primary" onClick={() => (d.signing.available ? setSigning(true) : setConfirming(true))}>
             <CheckIcon size={20} />
-            {d.signing.available ? t("portal.prop.acceptSign") : t("portal.prop.accept")}
+            {d.signing.available ? t("portal.answer.acceptSign") : t("portal.answer.accept")}
           </button>
         ) : (
           <button type="button" className="pt-btn pt-btn-soft" onClick={ask}>
@@ -262,8 +262,8 @@ export function QuotationPage() {
       <ConfirmSheet
         open={confirming}
         title={t("portal.offer.acceptTitle")}
-        body={t("portal.prop.acceptBody")}
-        confirmLabel={t("portal.prop.accept")}
+        body={t("portal.answer.acceptBody")}
+        confirmLabel={t("portal.answer.accept")}
         busy={accepting}
         onConfirm={() => void acceptPlain()}
         onClose={() => setConfirming(false)}

@@ -63,7 +63,7 @@ const {
 // mail-sending endpoints a stranger can hit, and sharing one budget would let a
 // flood of code requests lock out a real password reset from the same office.
 const codeLimiter = makeLimiter({ name: "portal-code", max: 8 });
-// Signing a proposal emails a code (the signature programme's OTP, which caps
+// Signing a quotation emails a code (the signature programme's OTP, which caps
 // its own resends too); the AI fill spends the tenant's AI budget.
 const signLimiter = makeLimiter({ name: "portal-sign", max: 12 });
 const fillLimiter = makeLimiter({ name: "portal-quote-fill", max: 20 });
@@ -208,22 +208,10 @@ router.post("/client/quote-requests/fill", portalAuth("CLIENT"), fillLimiter, v.
 // own past places, and — when they ask — a worldwide search for an address.
 // Never another client's door (portal_places.service).
 router.get("/client/places", portalAuth("CLIENT"), placesLimiter, worldBudget, v.places, pc.places);
-// Proposals the tenant sent this client: read, download, decline, accept. On
-// a tenant that offers a digital signature card for proposals, accepting IS
-// signing — an emailed code, then a stamp or a drawn mark, through the
-// signature programme (portal_proposal.service); the three sign routes share
-// the signing OTP's limiter budget.
-router.get("/client/proposals", portalAuth("CLIENT"), OPS, pc.proposals);
-router.get("/client/proposals/:id", portalAuth("CLIENT"), OPS, pc.proposal);
-router.get("/client/proposals/:id/pdf", portalAuth("CLIENT"), OPS, pc.proposalPdf);
-router.post("/client/proposals/:id/decline", portalAuth("CLIENT"), OPS, v.proposalDecline, pc.proposalDecline);
-router.post("/client/proposals/:id/accept", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.proposalAccept);
-router.post("/client/proposals/:id/sign", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.proposalSignStart);
-router.post("/client/proposals/:id/sign/resend", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.proposalSignResend);
-router.post("/client/proposals/:id/sign/complete", portalAuth("CLIENT"), OPS, signLimiter, v.proposalSignComplete, pc.proposalSignComplete);
-// Commercial quotations (meeting 6, PR 4 — G3/G4): the same shape as
-// proposals, and the same signing: on a tenant that offers a digital card,
-// accepting IS signing, through the signature programme (portal_signing.js).
+// Commercial quotations (meeting 6, PR 4 — G3/G4), every offer the client was
+// sent since the lean revamp folded proposals in: on a tenant that offers a
+// digital card, accepting IS signing, through the signature programme
+// (portal_signing.js).
 // The sign routes share the signing OTP's limiter budget.
 router.get("/client/quotations", portalAuth("CLIENT"), OPS, pc.quotations);
 router.get("/client/quotations/:id", portalAuth("CLIENT"), OPS, pc.quotation);
@@ -232,7 +220,7 @@ router.post("/client/quotations/:id/decline", portalAuth("CLIENT"), OPS, v.quota
 router.post("/client/quotations/:id/accept", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.quotationAccept);
 router.post("/client/quotations/:id/sign", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.quotationSignStart);
 router.post("/client/quotations/:id/sign/resend", portalAuth("CLIENT"), OPS, signLimiter, v.empty, pc.quotationSignResend);
-router.post("/client/quotations/:id/sign/complete", portalAuth("CLIENT"), OPS, signLimiter, v.proposalSignComplete, pc.quotationSignComplete);
+router.post("/client/quotations/:id/sign/complete", portalAuth("CLIENT"), OPS, signLimiter, v.offerSignComplete, pc.quotationSignComplete);
 // Notifications (14180): what this person is told by email and on their phone,
 // and the devices they allowed it on. Self-service — a person's own switches
 // and their own devices, never a colleague's. The test sends a real push to the

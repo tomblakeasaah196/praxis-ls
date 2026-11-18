@@ -6,10 +6,29 @@ import { useTranslation } from "react-i18next";
  * whole code — or the phone offering it from the email (autocomplete
  * "one-time-code") — fills every box at once.
  *
- * One component for both emailed codes the portal asks for: signing in, and
- * signing a proposal.
+ * One component for every emailed code the client is asked for: signing in to
+ * the portal, signing a quotation there, and accepting one on its public link
+ * (`/q/<token>`, features/quotation). The link page is not in the portal's
+ * chunk, so it passes its own words (`digitLabel`) and the site's field look
+ * (`className`, `inputClassName`) instead of the portal's `pt-otp`.
  */
-export function CodeInput({ value, onChange, disabled, label }: { value: string; onChange: (v: string) => void; disabled?: boolean; label?: string }) {
+export function CodeInput({
+  value,
+  onChange,
+  disabled,
+  label,
+  digitLabel,
+  className = "pt-otp mt-6",
+  inputClassName,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  label?: string;
+  digitLabel?: (n: number) => string;
+  className?: string;
+  inputClassName?: string;
+}) {
   const { t } = useTranslation();
   const refs = React.useRef<(HTMLInputElement | null)[]>([]);
   const digits = value.padEnd(6, " ").slice(0, 6).split("");
@@ -27,7 +46,7 @@ export function CodeInput({ value, onChange, disabled, label }: { value: string;
   };
 
   return (
-    <div className="pt-otp mt-6" role="group" aria-label={label || t("portal.signin.codeLabel")}>
+    <div className={className} role="group" aria-label={label || t("portal.signin.codeLabel")}>
       {digits.map((d, i) => (
         <input
           key={i}
@@ -36,7 +55,8 @@ export function CodeInput({ value, onChange, disabled, label }: { value: string;
           }}
           inputMode="numeric"
           autoComplete={i === 0 ? "one-time-code" : "off"}
-          aria-label={t("portal.signin.digit", { n: i + 1 })}
+          aria-label={digitLabel ? digitLabel(i + 1) : t("portal.signin.digit", { n: i + 1 })}
+          className={inputClassName}
           maxLength={i === 0 ? 6 : 1}
           disabled={disabled}
           value={d.trim()}
