@@ -1,6 +1,5 @@
 /**
- * Quotes — asking for a price, seeing where each request stands, and
- * answering the proposals the team sends back.
+ * Quotes: asking for a price, and seeing where each request stands.
  *
  * Asking is a sheet of short steps, one decision per screen (meeting 6, PR 2):
  *
@@ -27,13 +26,13 @@
  *   · "Like PRX-…" — one of their shipments on the move, as the starting point.
  *
  * A sent request opens (a sheet on a phone, a panel on a desktop) with its
- * scope, its documents and "Add a document", its status as a timeline, and the
- * proposal or quotation that answered it (quote-request-detail.tsx, item 2.9).
+ * scope, its documents and "Add a document", its stage as a timeline, and the
+ * quotation that answered it (quote-request-detail.tsx, item 2.9). Where a
+ * request stands is its STAGE (lean revamp §4.2), in the client's words.
  *
  * MEETING 6, PR 4 (item 4.2, agreed in the meeting): this is the "Requests for
- * Quotation" line of the menu, and the offers — commercial quotations and
- * proposals — are the "Quotations" line beside it (offers.tsx). The proposals
- * tab that used to appear here once a proposal existed moved there.
+ * Quotation" line of the menu, and the offers (quotations, every offer since
+ * the lean revamp) are the "Quotations" line beside it (offers.tsx).
  * `/portal/quotes` still works: portal-app redirects it to whichever of the
  * two its link meant.
  */
@@ -71,7 +70,7 @@ import { PlaceField, EMPTY_PLACE, placeValue, typedValue, pinExact, type PlaceVa
 import { relDayTitle } from "../lib/when";
 import { parseAmount } from "../lib/numbers";
 import { ModeIcon } from "./shipment-parts";
-import { QuoteRequestSheet, STATUS_TONE } from "./quote-request-detail";
+import { QuoteRequestSheet, STAGE_TONE, stageKey } from "./quote-request-detail";
 import { QuotesSwitch } from "./quotes-switch";
 // The shared quote steps' copy lives outside the entry dictionary; see
 // quote-steps-i18n.ts. Imported for the side effect.
@@ -179,10 +178,6 @@ export function RequestsPage() {
         id={request}
         onClose={() => setRequest(null)}
         onChanged={list.reload}
-        onOpenProposal={(id) => {
-          setRequest(null);
-          navigate(`/portal/quotations?proposal=${encodeURIComponent(id)}`);
-        }}
         onOpenQuotation={(id) => {
           setRequest(null);
           navigate(`/portal/quotations/${encodeURIComponent(id)}`);
@@ -207,7 +202,7 @@ function RequestsList({ list, onNew, onOpen }: { list: Load<PortalQuoteRequest[]
           <div className="pt-card pt-rows overflow-hidden">
             {list.data.map((q) => (
               <button key={q.quote_request_id} type="button" className="pt-row text-left" onClick={() => onOpen(q)}>
-                <IconDisc tone={STATUS_TONE[q.status] || "brand"}>
+                <IconDisc tone={STAGE_TONE[q.stage] || "brand"}>
                   <ModeIcon mode={cardOf(q)} />
                 </IconDisc>
                 <span className="min-w-0 flex-1">
@@ -224,7 +219,7 @@ function RequestsList({ list, onNew, onOpen }: { list: Load<PortalQuoteRequest[]
                     <span className="mt-0.5 block truncate text-sm text-muted-foreground">{q.warehouse_location}</span>
                   ) : null}
                   <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <Pill tone={STATUS_TONE[q.status] || "mute"}>{t(`portal.quote.status.${q.status}`, { defaultValue: q.status })}</Pill>
+                    <Pill tone={STAGE_TONE[q.stage] || "mute"}>{t(stageKey(q.stage))}</Pill>
                     {q.public_ref ? (
                       <Pill plain>
                         <span className="pt-mono">{q.public_ref}</span>

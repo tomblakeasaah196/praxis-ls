@@ -33,8 +33,8 @@ router.use(authMiddleware);
 
 router.get("/", requirePermission(MODULE, "view"), controller.list);
 router.get("/export.csv", requirePermission(MODULE, "view"), controller.exportCsv);
-// The tile vocabulary the register renders, so the screen does not keep its
-// own copy of the status list and drift from the one the API partitions on.
+// The tile vocabulary (one per stage), so a screen does not keep its own copy
+// of the stage list and drift from the one the API partitions on.
 router.get("/tiles", requirePermission(MODULE, "view"), controller.tiles);
 // Which client a requester's address belongs to (meeting 6, owner decision
 // Q5) — the form's and the email conversion's one-tap suggestion. Declared

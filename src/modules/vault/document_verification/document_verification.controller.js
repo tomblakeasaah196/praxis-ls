@@ -29,7 +29,7 @@ module.exports = {
    * one too. The `test_environment: true` marker the service adds to the
    * response is what tells the page to say so.
    *
-   * proposal_public.routes.js carries the same pin for the same reason, and
+   * quotation_public.routes.js carries the same pin for the same reason, and
    * §5.8 criterion 7 is the test.
    */
   resolve: asyncHandler(async (req, res) => {

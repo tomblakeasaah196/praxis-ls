@@ -311,7 +311,7 @@ export function Bubble({
           <p className="pt-chat-stage">
             <QuoteIcon size={12} />
             <span className="truncate">
-              {t(m.reference.kind === "quotation" ? "portal.chat.aboutQuotation" : "portal.chat.aboutProposal", { ref: m.reference.label || "" })}
+              {t("portal.chat.aboutQuotation", { ref: m.reference.label || "" })}
             </span>
           </p>
         ) : null}

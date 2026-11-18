@@ -1,5 +1,7 @@
 /**
- * The drawn-signature pad, for accepting a proposal in the portal.
+ * The drawn-signature pad, for accepting a quotation in the portal and on its
+ * public link (`/q/<token>`, which passes its own words and the site's look:
+ * `clearLabel` and the class names).
  *
  * The same pad as the ERP's public signing page (`client/src/features/public/
  * signature-pad.tsx`, doc/SIGNATURE_ENGINEERING_GUIDE.md §6.6), in the
@@ -20,7 +22,21 @@ const EXPORT_WIDTH = 600;
 /** Printed ink. A theme token would make a dark-mode signature white on paper. */
 const INK = "#111827";
 
-export function SignaturePad({ onChange, label }: { onChange: (dataUrl: string | null) => void; label: string }) {
+export function SignaturePad({
+  onChange,
+  label,
+  clearLabel,
+  padClassName = "pt-sign-pad",
+  clearClassName = "pt-btn pt-btn-ghost pt-btn-sm mt-1",
+  lineClassName = "pt-sign-line",
+}: {
+  onChange: (dataUrl: string | null) => void;
+  label: string;
+  clearLabel?: string;
+  padClassName?: string;
+  clearClassName?: string;
+  lineClassName?: string;
+}) {
   const { t } = useTranslation();
   const ref = React.useRef<HTMLCanvasElement | null>(null);
   const drawing = React.useRef(false);
@@ -87,7 +103,7 @@ export function SignaturePad({ onChange, label }: { onChange: (dataUrl: string |
 
   return (
     <div>
-      <div className="pt-sign-pad">
+      <div className={padClassName}>
         <canvas
           ref={ref}
           className="block h-40 w-full touch-none"
@@ -98,10 +114,10 @@ export function SignaturePad({ onChange, label }: { onChange: (dataUrl: string |
           aria-label={label}
           role="img"
         />
-        <span className="pt-sign-line" aria-hidden="true" />
+        <span className={lineClassName} aria-hidden="true" />
       </div>
-      <button type="button" className="pt-btn pt-btn-ghost pt-btn-sm mt-1" onClick={clear}>
-        {t("portal.prop.sign.clear")}
+      <button type="button" className={clearClassName} onClick={clear}>
+        {clearLabel || t("portal.answer.sign.clear")}
       </button>
     </div>
   );

@@ -212,7 +212,7 @@ export function Composer({
           <span className="pt-pill max-w-full" data-tone="brand" data-plain>
             <QuoteIcon size={14} />
             <span className="truncate">
-              {t(about.kind === "quotation" ? "portal.chat.aboutQuotation" : "portal.chat.aboutProposal", { ref: about.label || "" })}
+              {t("portal.chat.aboutQuotation", { ref: about.label || "" })}
             </span>
             {onClearAbout ? (
               <button type="button" className="-mr-1 grid h-5 w-5 shrink-0 place-items-center rounded-full" aria-label={t("portal.chat.removeAbout")} onClick={onClearAbout}>

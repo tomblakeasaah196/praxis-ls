@@ -223,7 +223,7 @@ describe("declining", () => {
   it("takes a reason from the list, and the quotation keeps it", async () => {
     await expect(service.decline(client, { clientId: "c1", quotationId: ID, me: ME, reasonCode: "WHATEVER" })).rejects.toMatchObject({ code: "UNKNOWN_DECLINE_REASON" });
     await service.decline(client, { clientId: "c1", quotationId: ID, me: ME, reasonCode: "PRICE", note: "Too high for Q4" });
-    expect(mockCalls).toContainEqual(["decline", ID, "PRICE", "The price — Too high for Q4"]);
+    expect(mockCalls).toContainEqual(["decline", ID, "PRICE", "The price: Too high for Q4"]);
   });
 
   it("an answered quotation cannot be answered again", async () => {

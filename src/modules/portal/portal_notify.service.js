@@ -3,7 +3,7 @@
  *
  * WHAT THE OWNER ASKED FOR: clients told by email and on their phone when
  * something is waiting for them — the team replied, a document is needed, an
- * invoice or a proposal arrived, a shipment reached a stage — so the portal is
+ * invoice or a quotation arrived, a shipment reached a stage — so the portal is
  * a place that calls them back, not one they have to remember to visit.
  *
  * TWO HALVES:
@@ -14,13 +14,13 @@
  *   · `deliver`, run by the `portal-notify-deliver` job over the rows
  *     `shared/notifications/notify-portal.js` wrote in the transaction of the
  *     change: it reads what is still true about each (a request already
- *     answered, a proposal already accepted is no longer news), decides who at
+ *     answered, a quotation already accepted is no longer news), decides who at
  *     the client may hear about it, and sends one push and one email per person
  *     for the whole batch.
  *
  * WHO: the people with an effective CLIENT grant at this client, who have used
  * the portal at least once — and, per topic, only those whose access shows it:
- * shipments, documents and proposals are the OPERATIONS side, invoices and
+ * shipments, documents and quotations are the OPERATIONS side, invoices and
  * payments the BILLING side, the General conversation everybody (the same split
  * as the portal's own tabs).
  *
@@ -58,7 +58,23 @@ const MODULE = "MOD-67";
 const TOPICS = ["MESSAGES", "REQUESTS", "QUOTES", "BILLING", "PROPOSALS", "SHIPMENTS"];
 
 /** Events that are worth a tap on a phone and not an email (B3: "push only for UNDER_REVIEW"). */
-const PUSH_ONLY = new Set(["quote_request.under_review"]);
+const PUSH_ONLY = new Set(["quote_request.under_review", "quote_request.stage_moved"]);
+
+/**
+ * A quote request is told to its client by its STAGE (lean revamp §4.2), in
+ * the client's words: NEW reads "received", CONTACTED and MEETING "being
+ * reviewed", QUOTED "your quotation is ready", WON "accepted", LOST "closed".
+ * The legacy status events still fired while `status` is kept in step name
+ * the stage they move to; a stage move, a win and a loss read the row's.
+ */
+const QUOTE_WORDS = { NEW: "received", CONTACTED: "review", MEETING: "review", QUOTED: "quoted", WON: "won", LOST: "lost" };
+const EVENT_STAGE = {
+  "quote_request.created": "NEW",
+  "quote_request.under_review": "CONTACTED",
+  "quote_request.clarification_required": "CONTACTED",
+  "quote_request.quoted": "QUOTED",
+};
+const stageOfEvent = (event, row) => EVENT_STAGE[event] || (row && row.stage) || "CONTACTED";
 
 /**
  * A person with no row gets these. Shipment stages are worth a tap on a phone
@@ -227,8 +243,9 @@ const COPY = {
       subject: (n, t) => (n === 1 ? `${t}: your quote request` : `${t}: ${n} quote request updates`),
       received: (ref) => `We received your request ${ref}. We will come back to you shortly.`,
       review: (ref) => `We are reviewing your request ${ref}`,
-      clarify: (ref) => `Your request ${ref} needs a clarification from you`,
       quoted: (ref) => `Your quotation for ${ref} is ready`,
+      won: (ref) => `You accepted our quotation for ${ref}. Thank you.`,
+      lost: (ref) => `Your request ${ref} is closed`,
       pushMany: (n) => `${n} quote request updates`,
       cta: "Open my quote requests",
     },
@@ -240,21 +257,10 @@ const COPY = {
       linked: "Files too large to attach — open them in your portal:",
       cta: "Open your portal",
     },
-    proposals: {
-      subject: (n, t) => (n === 1 ? `${t} sent you a proposal` : `${t} sent you ${n} proposals`),
-      line: (doc, title) => `Proposal ${doc || ""}${title ? `: ${title}` : ""}`.replace(/\s+:/, ":"),
-      pushMany: (n) => `${n} new proposals`,
-      cta: "Review",
-    },
     quotations: {
       subject: (n, t) => (n === 1 ? `${t} sent you a quotation` : `${t} sent you ${n} quotations`),
       line: (doc) => `Quotation ${doc || ""}`.trim(),
       pushMany: (n) => `${n} new quotations`,
-      cta: "Review",
-    },
-    offers: {
-      subject: (n, t) => `${t} sent you ${n} offers`,
-      pushMany: (n) => `${n} new offers`,
       cta: "Review",
     },
     shipments: {
@@ -298,8 +304,9 @@ const COPY = {
       subject: (n, t) => (n === 1 ? `${t}${NNBSP}: votre demande de devis` : `${t}${NNBSP}: ${n} mises à jour de vos demandes de devis`),
       received: (ref) => `Nous avons bien reçu votre demande ${ref}. Nous revenons vers vous rapidement.`,
       review: (ref) => `Nous étudions votre demande ${ref}`,
-      clarify: (ref) => `Votre demande ${ref} nécessite une précision de votre part`,
       quoted: (ref) => `Votre cotation pour ${ref} est prête`,
+      won: (ref) => `Vous avez accepté notre cotation pour ${ref}. Merci.`,
+      lost: (ref) => `Votre demande ${ref} est clôturée`,
       pushMany: (n) => `${n} mises à jour de vos demandes de devis`,
       cta: "Ouvrir mes demandes de devis",
     },
@@ -311,21 +318,10 @@ const COPY = {
       linked: `Fichiers trop volumineux pour être joints — ouvrez-les dans votre portail${NNBSP}:`,
       cta: "Ouvrir votre portail",
     },
-    proposals: {
-      subject: (n, t) => (n === 1 ? `${t} vous a envoyé une proposition` : `${t} vous a envoyé ${n} propositions`),
-      line: (doc, title) => `Proposition ${doc || ""}${title ? `${NNBSP}: ${title}` : ""}`.replace(/\s+(\u202f:)/, "$1"),
-      pushMany: (n) => `${n} nouvelles propositions`,
-      cta: "Voir",
-    },
     quotations: {
       subject: (n, t) => (n === 1 ? `${t} vous a envoyé un devis` : `${t} vous a envoyé ${n} devis`),
       line: (doc) => `Devis ${doc || ""}`.trim(),
       pushMany: (n) => `${n} nouveaux devis`,
-      cta: "Voir",
-    },
-    offers: {
-      subject: (n, t) => `${t} vous a envoyé ${n} offres`,
-      pushMany: (n) => `${n} nouvelles offres`,
       cta: "Voir",
     },
     shipments: {
@@ -460,40 +456,26 @@ async function resolve(c, { clientId, topic, rows }) {
       seen.add(key);
       entries.push({ event: r.event_key, row: byId.get(id) });
     }
-    const WORDS = {
-      "quote_request.created": "received",
-      "quote_request.under_review": "review",
-      "quote_request.clarification_required": "clarify",
-      "quote_request.quoted": "quoted",
-    };
     return {
       count: entries.length,
-      lines: (lang) => entries.map(({ event, row }) => COPY[lang].quotes[WORDS[event] || "review"](row.public_ref || "")),
+      lines: (lang) => entries.map(({ event, row }) => COPY[lang].quotes[QUOTE_WORDS[stageOfEvent(event, row)] || "review"](row.public_ref || "")),
       push: (lang, lines) => (entries.length === 1 ? lines[0] : COPY[lang].quotes.pushMany(entries.length)),
       path: () => "/portal/requests",
     };
   }
 
   if (topic === "PROPOSALS") {
-    const found = await repo.proposals(c, { clientId, ids: idsOf(["proposal"]) });
-    // Commercial quotations ride the same switch (meeting 6, PR 4) and open
-    // on their own page in the portal's Quotations.
+    // The offers switch: commercial quotations (meeting 6, PR 4), which since
+    // the lean revamp are every offer a client is sent. Each opens on its own
+    // page in the portal's Quotations.
     const quotes = await repo.quotations(c, { clientId, ids: idsOf(["quotation"]) });
-    const count = found.length + quotes.length;
-    const copyKey = quotes.length && found.length ? "offers" : quotes.length ? "quotations" : "proposals";
+    const count = quotes.length;
     return {
       count,
-      copyKey,
-      lines: (lang) => [
-        ...quotes.map((q) => COPY[lang].quotations.line(q.doc_number)),
-        ...found.map((p) => COPY[lang].proposals.line(p.doc_number, p.title)),
-      ],
-      push: (lang, lines) => (count === 1 ? lines[0] : COPY[lang][copyKey].pushMany(count)),
-      path: () => {
-        if (count === 1 && quotes.length) return `/portal/quotations/${quotes[0].quotation_id}`;
-        if (count === 1) return `/portal/quotations?proposal=${found[0].proposal_id}`;
-        return quotes.length && !found.length ? "/portal/quotations?tab=quotations" : found.length && !quotes.length ? "/portal/quotations?tab=proposals" : "/portal/quotations";
-      },
+      copyKey: "quotations",
+      lines: (lang) => quotes.map((q) => COPY[lang].quotations.line(q.doc_number)),
+      push: (lang, lines) => (count === 1 ? lines[0] : COPY[lang].quotations.pushMany(count)),
+      path: () => (count === 1 ? `/portal/quotations/${quotes[0].quotation_id}` : "/portal/quotations"),
     };
   }
 
@@ -659,7 +641,7 @@ async function messageFor(c, { person, topic, thread, batch, lang, ctx, clientId
   }
   if (!batch.count) return null;
   const all = batch.lines(lang);
-  // A batch may name its own copy (PROPOSALS: quotations, proposals or both).
+  // A batch may name its own copy (PROPOSALS reads as quotations).
   const key = batch.copyKey || topic.toLowerCase();
   return {
     heading: w[key].subject(all.length, ctx.name),
@@ -1016,7 +998,7 @@ async function messageDelivery(c, { clientId, thread, messages = [] }) {
 }
 
 module.exports = {
-  emailTeamMessage, recipientsFor, messageDelivery, emailHtml, emailText, context, sendable, PUSH_ONLY,
+  emailTeamMessage, recipientsFor, messageDelivery, emailHtml, emailText, context, sendable, PUSH_ONLY, QUOTE_WORDS, stageOfEvent,
   settings, saveSettings, devices, subscribe, unsubscribe, rememberLanguage, test,
   deliver, staffReach,
   sees, topicsFor, TOPICS, DEFAULTS, COPY,

@@ -64,7 +64,7 @@ module.exports = {
   basePath: "/public/sign",
   feature: "signatures.external",
   // `text`, not the default uuid: the token is base64url, deliberately not an
-  // internal identifier. Same declaration proposal_public makes.
+  // internal identifier. Same declaration quotation_public makes.
   idParam: "text",
   router,
 };

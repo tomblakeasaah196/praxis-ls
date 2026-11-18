@@ -77,7 +77,6 @@ for (const handler of require("./invalidate-mail-context").handlers) register(ha
 //    attributed per-job from fleet_dispatch above (PRD §6.7/§1093) — a blanket
 //    split off the payroll run would be an accounting fiction.
 //  Commercial documents are deliberate human steps, so they stay operator-driven:
-//   • proposal.accepted → quotation — opt-in `accept({createQuotation})` (pricing is a decision).
 //   • quotation.accepted → invoice  — opt-in `accept({convert})`; the invoice stays a finance
 //       step. (quotation.accepted → request WON + file opened IS wired, above.)
 //   • purchase_request.approved → PO — the buyer selects supplier/terms when raising the PO.

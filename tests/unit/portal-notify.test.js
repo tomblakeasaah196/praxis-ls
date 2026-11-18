@@ -288,7 +288,6 @@ function deliveryDb({ people, waiting, unread = {}, told = false, claim = () => 
     invoices: async () => [{ invoice_id: INV, doc_number: "FA-2026-0012", currency: "XAF", total_ttc: "1250000", payment_due_on: "2026-10-30", documents: 3 }],
     proofs: async () => [],
     requests: async () => [],
-    proposals: async () => [],
     quotations: async (c, { ids }) => (ids.includes(QUOTE) ? [{ quotation_id: QUOTE, doc_number: "QT-2026-0004" }] : []),
     stages: async () => [],
     manuallySent: async () => new Set(),
@@ -418,8 +417,9 @@ describe("everything else, batched", () => {
     expect(marked).toEqual([]);
   });
 
-  // Meeting 6, PR 4: a commercial quotation reaches the client exactly as a
-  // proposal does — same switch — and opens on its own page in the portal.
+  // Meeting 6, PR 4: a commercial quotation reaches the client on the offers
+  // switch, and opens on its own page in the portal. Since the lean revamp it
+  // is the only offer there is.
   test("a sent quotation is pushed, and opens its page in Quotations", async () => {
     const { marked } = deliveryDb({
       people: [MARIE],
@@ -431,10 +431,10 @@ describe("everything else, batched", () => {
     expect(marked).toEqual([["push", [21]]]);
   });
 
-  test("nothing still true, nothing sent: an answered proposal is no longer news", async () => {
+  test("nothing still true, nothing sent: an answered quotation is no longer news", async () => {
     const { marked } = deliveryDb({
       people: [MARIE],
-      waiting: { push: [{ outbox_id: 20, event_key: "proposal.sent", item_ref: `proposal:${INV}` }] },
+      waiting: { push: [{ outbox_id: 20, event_key: "quotation.sent", item_ref: `quotation:${INV}` }] },
     });
     await notify.deliver(null, { tenant: TENANT, clientId: CLIENT, topic: "PROPOSALS", thread: null, stage: "push" });
     expect(mockPushes).toEqual([]);
@@ -495,7 +495,7 @@ describe("a quote request made in the portal (B3)", () => {
       { outbox_id: 33, event_key: "quote_request.quoted", item_ref: `quote_request:${QR}` },
     ];
     const { marked } = deliveryDb({ people: [MARIE], waiting: { push: rows, email: rows } });
-    mockDb.quoteRequests = async () => [{ quote_request_id: QR, public_ref: "SQ-2026-0003", status: "QUOTED" }];
+    mockDb.quoteRequests = async () => [{ quote_request_id: QR, public_ref: "SQ-2026-0003", stage: "QUOTED" }];
     await notify.deliver(null, { tenant: TENANT, clientId: CLIENT, topic: "QUOTES", thread: null, stage: "both" });
     expect(mockEmails).toHaveLength(1);
     expect(mockEmails[0].text).toContain("We received your request SQ-2026-0003");
@@ -507,10 +507,59 @@ describe("a quote request made in the portal (B3)", () => {
     expect(marked).toEqual([["push", [31, 32, 33]], ["email", [31, 32, 33]]]);
   });
 
+  // Lean revamp PR 6: a request is told by its STAGE, never the retiring status.
+  // The first move out of New is a push only, as "under review" was.
+  test("a stage move is a push only, never an email", async () => {
+    const rows = [{ outbox_id: 52, event_key: "quote_request.stage_moved", item_ref: `quote_request:${QR}` }];
+    deliveryDb({ people: [MARIE], waiting: { push: rows, email: rows } });
+    mockDb.quoteRequests = async () => [{ quote_request_id: QR, public_ref: "SQ-2026-0003", stage: "CONTACTED" }];
+    await notify.deliver(null, { tenant: TENANT, clientId: CLIENT, topic: "QUOTES", thread: null, stage: "both" });
+    expect(mockEmails).toHaveLength(0);
+    expect(mockPushes).toHaveLength(1);
+    expect(mockPushes[0].body).toContain("We are reviewing your request SQ-2026-0003");
+  });
+
+  test("the producer tells only the first move out of New, so a move is never told twice", () => {
+    const spec = producer.EVENTS["quote_request.stage_moved"];
+    expect(spec.when({ from: "NEW", to: "CONTACTED" })).toBe(true);
+    expect(spec.when({ from: "NEW", to: "MEETING" })).toBe(true);
+    expect(spec.when({ from: "CONTACTED", to: "QUOTED" })).toBe(false);
+    expect(spec.when({ from: "MEETING", to: "LOST" })).toBe(false);
+  });
+
+  test("a win and a loss read the request's stage in the client's words", async () => {
+    const cases = [
+      ["QUOTED", "Your quotation for SQ-2026-0003 is ready"],
+      ["WON", "You accepted our quotation for SQ-2026-0003. Thank you."],
+      ["LOST", "Your request SQ-2026-0003 is closed"],
+    ];
+    for (const [stage, words] of cases) {
+      mockEmails.length = 0;
+      const ev = stage === "WON" ? "quote_request.won" : stage === "LOST" ? "quote_request.lost" : "quote_request.quoted";
+      const rows = [{ outbox_id: 51, event_key: ev, item_ref: `quote_request:${QR}` }];
+      deliveryDb({ people: [MARIE], waiting: { email: rows } });
+      mockDb.quoteRequests = async () => [{ quote_request_id: QR, public_ref: "SQ-2026-0003", stage }];
+      await notify.deliver(null, { tenant: TENANT, clientId: CLIENT, topic: "QUOTES", thread: null, stage: "email" });
+      expect(mockEmails).toHaveLength(1);
+      expect(mockEmails[0].text).toContain(words);
+    }
+  });
+
+  test("each stage has its words, in English and French", () => {
+    expect(notify.QUOTE_WORDS).toEqual({ NEW: "received", CONTACTED: "review", MEETING: "review", QUOTED: "quoted", WON: "won", LOST: "lost" });
+    for (const lang of ["en", "fr"]) {
+      for (const w of new Set(Object.values(notify.QUOTE_WORDS))) expect(typeof notify.COPY[lang].quotes[w]).toBe("function");
+    }
+    // The legacy status events name the stage they move to.
+    expect(notify.stageOfEvent("quote_request.created", { stage: "QUOTED" })).toBe("NEW");
+    expect(notify.stageOfEvent("quote_request.clarification_required", null)).toBe("CONTACTED");
+    expect(notify.stageOfEvent("quote_request.stage_moved", { stage: "MEETING" })).toBe("MEETING");
+  });
+
   test("only UNDER_REVIEW waiting on email: nothing is emailed, the row is still handled", async () => {
     const rows = [{ outbox_id: 41, event_key: "quote_request.under_review", item_ref: `quote_request:${QR}` }];
     const { marked } = deliveryDb({ people: [MARIE], waiting: { email: rows } });
-    mockDb.quoteRequests = async () => [{ quote_request_id: QR, public_ref: "SQ-2026-0003", status: "UNDER_REVIEW" }];
+    mockDb.quoteRequests = async () => [{ quote_request_id: QR, public_ref: "SQ-2026-0003", stage: "CONTACTED" }];
     await notify.deliver(null, { tenant: TENANT, clientId: CLIENT, topic: "QUOTES", thread: null, stage: "email" });
     expect(mockEmails).toEqual([]);
     expect(marked).toEqual([["email", [41]]]);

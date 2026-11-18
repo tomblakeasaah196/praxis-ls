@@ -123,52 +123,57 @@ describe("public reference", () => {
 /* ── 2. The KPI tiles must partition the set. ────────────────────────────── */
 
 describe("KPI tiles", () => {
-  test("every status has a tile — the set is derived, not hand-listed", () => {
-    for (const s of rules.STATUSES) expect(rules.KPI_TILES).toContain(s);
+  // Since the Sales lean revamp (PR 6) the tiles are the request's STAGES:
+  // `status` is written in step until PR 7 drops it, and read by nothing.
+  test("every stage has a tile — the set is derived, not hand-listed", () => {
+    for (const s of rules.STAGES) expect(rules.KPI_TILES).toContain(s);
     expect(rules.KPI_TILES).toContain("TOTAL");
+    for (const s of rules.STATUSES.filter((x) => !rules.STAGES.includes(x))) expect(rules.KPI_TILES).not.toContain(s);
   });
 
-  test("CLARIFICATION_REQUIRED and CLOSED_NO_ACTION are counted — the two the first pass dropped", () => {
+  test("the settled stages are counted beside the open ones", () => {
     const kpi = rules.kpiFrom([
-      { status: "RECEIVED", c: 3 },
-      { status: "CLARIFICATION_REQUIRED", c: 2 },
-      { status: "CLOSED_NO_ACTION", c: 4 },
+      { stage: "NEW", c: 3 },
+      { stage: "WON", c: 2 },
+      { stage: "LOST", c: 4 },
     ]);
-    expect(kpi.CLARIFICATION_REQUIRED).toBe(2);
-    expect(kpi.CLOSED_NO_ACTION).toBe(4);
+    expect(kpi.WON).toBe(2);
+    expect(kpi.LOST).toBe(4);
     expect(kpi.TOTAL).toBe(9);
   });
 
-  test("the tiles sum to TOTAL for every status the CHECK constraint allows", () => {
-    const kpi = rules.kpiFrom(rules.STATUSES.map((s, i) => ({ status: s, c: i + 1 })));
+  test("the tiles sum to TOTAL for every stage", () => {
+    const kpi = rules.kpiFrom(rules.STAGES.map((s, i) => ({ stage: s, c: i + 1 })));
     expect(rules.assertPartitions(kpi)).toBe(true);
-    const sum = rules.STATUSES.reduce((n, s) => n + kpi[s], 0);
+    const sum = rules.STAGES.reduce((n, s) => n + kpi[s], 0);
     expect(sum).toBe(kpi.TOTAL);
   });
 
-  test("an unrecognised status surfaces as OTHER rather than unbalancing the tiles", () => {
-    const kpi = rules.kpiFrom([{ status: "RECEIVED", c: 1 }, { status: "LEGACY_JUNK", c: 5 }]);
+  test("an unrecognised stage surfaces as OTHER rather than unbalancing the tiles", () => {
+    const kpi = rules.kpiFrom([{ stage: "NEW", c: 1 }, { stage: "LEGACY_JUNK", c: 5 }]);
     expect(kpi.OTHER).toBe(5);
     expect(rules.assertPartitions(kpi)).toBe(true);
   });
 
   test("the service refuses to answer with tiles that do not add up", async () => {
-    repo.list.mockResolvedValue({ rows: [], total: 0, kpiRows: [{ status: "RECEIVED", c: 2 }], limit: 50, offset: 0 });
-    const spy = jest.spyOn(rules, "kpiFrom").mockReturnValue({ TOTAL: 9, RECEIVED: 2 });
+    repo.list.mockResolvedValue({ rows: [], total: 0, kpiRows: [{ stage: "NEW", c: 2 }], limit: 50, offset: 0 });
+    const spy = jest.spyOn(rules, "kpiFrom").mockReturnValue({ TOTAL: 9, NEW: 2 });
     await expect(service.list(client, {})).rejects.toMatchObject({ code: "KPI_NOT_PARTITIONED" });
     spy.mockRestore();
   });
 
-  test("the KPI query keeps every filter EXCEPT status", () => {
+  test("the KPI query keeps every filter EXCEPT stage, and status is no filter at all", () => {
     // The repo is mocked for the service tests, so assert on the real builder —
     // one WHERE function serves the list, the total, the KPI and the export, and
-    // `includeStatus` is the only thing that differs between them.
+    // `includeStage` is the only thing that differs between them.
     const real = jest.requireActual("../../src/modules/sales/quote_request/quote_request.repo");
-    const listed = real.buildWhere({ status: "QUOTED", intake_channel: "WEBSITE" });
-    const kpiOnly = real.buildWhere({ status: "QUOTED", intake_channel: "WEBSITE" }, { includeStatus: false });
-    expect(listed.where).toContain("status =");
-    expect(kpiOnly.where).not.toContain("status =");
+    const listed = real.buildWhere({ stage: "QUOTED", intake_channel: "WEBSITE" });
+    const kpiOnly = real.buildWhere({ stage: "QUOTED", intake_channel: "WEBSITE" }, { includeStage: false });
+    expect(listed.where).toContain("q.stage =");
+    expect(kpiOnly.where).not.toContain("stage =");
     expect(kpiOnly.where).toContain("intake_channel =");
+    // The old intake vocabulary filters nothing (lean revamp PR 6).
+    expect(real.buildWhere({ status: "QUOTED" }).where).toBe("");
   });
 
   test("an old opportunity link finds the request it became, and a bad id finds nothing", () => {

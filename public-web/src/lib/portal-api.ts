@@ -327,9 +327,7 @@ export type PortalHome = {
   scope: Scope;
   /** What the team wrote since I last looked (14170) — the chat button's badge. */
   chat?: { unread: number } | null;
-  /** Proposals waiting for this client's answer. */
-  proposals?: { pending_count: number } | null;
-  /** Commercial quotations waiting for this client's answer (meeting 6, PR 4). */
+  /** Quotations waiting for this client's answer (meeting 6, PR 4): every offer since the lean revamp. */
   quotations?: { pending_count: number } | null;
   shipments: { active_count: number; items: ShipmentCard[] } | null;
   requests: { open_count: number; in_review_count: number; items: ClientRequest[] } | null;
@@ -650,7 +648,8 @@ export type ChatMessage = {
   location: { lat: number; lng: number; label: string | null } | null;
   attachments: ChatAttachment[];
 };
-export type ChatReference = { kind: "quotation" | "proposal"; id: string; label: string | null };
+/** The offer a message is about. An old proposal reference reads as the quotation it became. */
+export type ChatReference = { kind: "quotation"; id: string; label: string | null };
 export type ChatPage = { thread: string; dossier_ref: string | null; has_more: boolean; messages: ChatMessage[] };
 export type ChatSend = {
   thread: string;
@@ -660,7 +659,7 @@ export type ChatSend = {
   width?: number | null;
   height?: number | null;
   duration_ms?: number | null;
-  /** `quotation:<id>` / `proposal:<id>` — the offer this message asks about. */
+  /** `quotation:<id>`: the offer this message asks about. */
   about?: string | null;
 };
 
@@ -773,10 +772,13 @@ export type PortalPlacePick = { geo_place_id: string } | { provider_place_id: st
 
 // ── Client: quote requests ─────────────────────────────────────────────────
 
+/** A quote request's stage (lean revamp §4.2); the portal never reads the retiring `status`. */
+export type QuoteStage = "NEW" | "CONTACTED" | "MEETING" | "QUOTED" | "WON" | "LOST";
+
 export type PortalQuoteRequest = {
   quote_request_id: string;
   public_ref: string | null;
-  status: string;
+  stage: QuoteStage;
   service_category: string | null;
   service_type: string | null;
   /** The service type the request named (meeting 6, PR 2) — null on a request
@@ -839,7 +841,7 @@ export const portalCreateQuote = (data: {
 export type PortalQuoteDetail = {
   quote_request_id: string;
   public_ref: string | null;
-  status: string;
+  stage: QuoteStage;
   created_at: string;
   service: QuoteService | null;
   service_category: string | null;
@@ -855,11 +857,9 @@ export type PortalQuoteDetail = {
   cargo_description: string | null;
   requester_name: string | null;
   documents: { id: string; name: string | null; document_kind: DocumentKind | null; kind: string; created_at: string }[];
-  /** The status as it moved, oldest first. */
-  timeline: { status: string; at: string }[];
-  /** The proposal that answered the request, once one has been sent. */
-  proposal: { proposal_id: string; doc_number: string | null; title: string; status: string; currency: string | null; created_at: string } | null;
-  /** The Commercial quotation that answered it (meeting 6, PR 4). */
+  /** The stages it reached, oldest first. */
+  timeline: { stage: QuoteStage; at: string }[];
+  /** The quotation that answered it (meeting 6, PR 4; every offer since the lean revamp). */
   quotation: { quotation_id: string; doc_number: string | null; status: QuotationStatus; currency: string; total: number; created_at: string } | null;
 };
 export const portalQuoteRequest = (id: string) => portalApi<PortalQuoteDetail>(`/client/quote-requests/${encodeURIComponent(id)}`);
@@ -899,21 +899,9 @@ export type QuoteFill = {
 export const portalQuoteFill = (text: string) =>
   portalApi<QuoteFill>("/client/quote-requests/fill", { method: "POST", body: { text } });
 
-// ── Client: proposals — read, download, decline, accept by e-signature ──────
+// ── Client: answering an offer (signature, signing code, decline reasons) ───
 
-export type ProposalStatus = "SENT" | "ACCEPTED" | "REJECTED";
-export type ProposalSummary = {
-  proposal_id: string;
-  doc_number: string | null;
-  title: string;
-  status: ProposalStatus;
-  currency: string;
-  total: number;
-  route: string | null;
-  sent_on: string;
-  valid_until: string | null;
-};
-export type ProposalSignature = {
+export type OfferSignature = {
   signer_name: string;
   signer_role: string | null;
   signed_at: string;
@@ -922,23 +910,7 @@ export type ProposalSignature = {
   verify_code: string | null;
 };
 export type SignCard = { preset_code: "STAMP" | "DRAWN"; label: string; blurb: string | null };
-export type ProposalDetail = {
-  proposal: Omit<ProposalSummary, "route" | "sent_on">;
-  /** The same model the vaulted PDF is rendered from — never re-formatted here. */
-  presentation: {
-    language: "EN" | "FR";
-    title: string;
-    document_number: string;
-    client_name: string;
-    route: string;
-    labels: { service: string; quantity: string; unit: string; total: string };
-    sections: { key: string; title: string; body: string }[];
-    lines: { label: string; quantity: number; unit_price_display: string; total_display: string }[];
-  };
-  signature: ProposalSignature | null;
-  signing: { available: boolean; cards: SignCard[] };
-  decline_reasons: { reason_code: string; label: string }[];
-};
+export type DeclineReason = { reason_code: string; label: string };
 export type SigningStart = {
   signer: { full_name: string; email_masked: string };
   cards: SignCard[];
@@ -955,31 +927,6 @@ export type SigningCode = {
 };
 
 const pid = (id: string) => encodeURIComponent(id);
-export const portalProposals = () => portalApi<ProposalSummary[]>("/client/proposals");
-export const portalProposal = (id: string, lang: string) => portalApi<ProposalDetail>(`/client/proposals/${pid(id)}?${langQ(lang)}`);
-export const portalProposalPdf = (id: string, filename: string, lang: string) =>
-  portalDownload(`/client/proposals/${pid(id)}/pdf?${langQ(lang)}`, filename);
-export const portalProposalDecline = (id: string, reasonCode: string, note?: string) =>
-  portalApi<{ declined: boolean }>(`/client/proposals/${pid(id)}/decline`, {
-    method: "POST",
-    body: note ? { reason_code: reasonCode, note } : { reason_code: reasonCode },
-  });
-/** Only where the tenant offers no e-signature — elsewhere accepting IS signing. */
-export const portalProposalAccept = (id: string) =>
-  portalApi<{ accepted: boolean; signature: ProposalSignature | null }>(`/client/proposals/${pid(id)}/accept`, { method: "POST", body: {} });
-export const portalProposalSignStart = (id: string, lang: string) =>
-  portalApi<SigningStart>(`/client/proposals/${pid(id)}/sign?${langQ(lang)}`, { method: "POST", body: {} });
-export const portalProposalSignResend = (id: string, lang: string) =>
-  portalApi<{ otp: SigningStart["otp"] }>(`/client/proposals/${pid(id)}/sign/resend?${langQ(lang)}`, { method: "POST", body: {} });
-export const portalProposalSignComplete = (
-  id: string,
-  lang: string,
-  body: { code: string; preset_code: "STAMP" | "DRAWN"; full_name?: string; party_role?: string; mark_image_b64?: string },
-) =>
-  portalApi<{ accepted: boolean; signature: ProposalSignature | null }>(`/client/proposals/${pid(id)}/sign/complete?${langQ(lang)}`, {
-    method: "POST",
-    body,
-  });
 
 // ── Client: commercial quotations (meeting 6, PR 4 — G3/G4) ─────────────────
 
@@ -1012,9 +959,9 @@ export type QuotationDetail = {
     decline_reason: string | null;
     answered_at: string | null;
   };
-  signature: ProposalSignature | null;
+  signature: OfferSignature | null;
   signing: { available: boolean; cards: SignCard[] };
-  decline_reasons: { reason_code: string; label: string }[];
+  decline_reasons: DeclineReason[];
 };
 
 export const portalQuotations = (lang: string) => portalApi<QuotationCard[]>(`/client/quotations?${langQ(lang)}`);
@@ -1028,7 +975,7 @@ export const portalQuotationDecline = (id: string, reasonCode: string, note?: st
   });
 /** Only where the tenant offers no e-signature — elsewhere accepting IS signing. */
 export const portalQuotationAccept = (id: string) =>
-  portalApi<{ accepted: boolean; signature: ProposalSignature | null }>(`/client/quotations/${pid(id)}/accept`, { method: "POST", body: {} });
+  portalApi<{ accepted: boolean; signature: OfferSignature | null }>(`/client/quotations/${pid(id)}/accept`, { method: "POST", body: {} });
 export const portalQuotationSignStart = (id: string, lang: string) =>
   portalApi<SigningStart>(`/client/quotations/${pid(id)}/sign?${langQ(lang)}`, { method: "POST", body: {} });
 export const portalQuotationSignResend = (id: string, lang: string) =>
@@ -1038,7 +985,7 @@ export const portalQuotationSignComplete = (
   lang: string,
   body: { code: string; preset_code: "STAMP" | "DRAWN"; full_name?: string; party_role?: string; mark_image_b64?: string },
 ) =>
-  portalApi<{ accepted: boolean; signature: ProposalSignature | null }>(`/client/quotations/${pid(id)}/sign/complete?${langQ(lang)}`, {
+  portalApi<{ accepted: boolean; signature: OfferSignature | null }>(`/client/quotations/${pid(id)}/sign/complete?${langQ(lang)}`, {
     method: "POST",
     body,
   });

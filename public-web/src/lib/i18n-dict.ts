@@ -601,19 +601,6 @@ export const en = {
         },
       ],
     },
-    proposals: {
-      title: "Proposal",
-      client: "Prepared for",
-      route: "Route",
-      lines: "Costs",
-      expireNote:
-        "This page is the same document as the PDF — including the figures, which we do not re-format here.",
-      unavailable: "This proposal link is no longer valid.",
-      unavailableHint:
-        "Shared proposals expire. Ask your contact to send a fresh link.",
-      download: "Download PDF",
-      print: "Print",
-    },
     footer: {
       company: "Company",
       services: "Services",
@@ -1332,19 +1319,6 @@ export const fr = {
           d: "Si vous êtes déjà client, le portail est plus rapide pour tout ce qui concerne un envoi en cours.",
         },
       ],
-    },
-    proposals: {
-      title: "Proposition",
-      client: "Établie pour",
-      route: "Trajet",
-      lines: "Coûts",
-      expireNote:
-        "Cette page est le même document que le PDF — y compris les chiffres, que nous ne reformatons pas ici.",
-      unavailable: "Ce lien de proposition n’est plus valide.",
-      unavailableHint:
-        "Les propositions partagées expirent. Demandez à votre contact un nouveau lien.",
-      download: "Télécharger le PDF",
-      print: "Imprimer",
     },
     footer: {
       company: "Société",

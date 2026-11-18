@@ -15,11 +15,10 @@ import { useSummary } from "../shell/portal-shell";
 
 export type QuotesSide = "requests" | "quotations";
 
-/** Offers waiting for this client's answer: quotations and proposals. */
+/** Offers waiting for this client's answer: every one is a quotation. */
 export function useWaitingOffers(): number {
   const summary = useSummary();
-  const s = summary?.data;
-  return (s?.quotations?.pending_count || 0) + (s?.proposals?.pending_count || 0);
+  return summary?.data?.quotations?.pending_count || 0;
 }
 
 export function QuotesSwitch({ value }: { value: QuotesSide }) {

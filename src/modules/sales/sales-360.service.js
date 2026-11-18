@@ -438,7 +438,7 @@ async function leadDossier(c, { leadId, canSeeFinancials = false, user = null })
 
   const quote_requests = await rowsOf(
     c,
-    `SELECT quote_request_id, public_ref, status, intake_channel, service_category,
+    `SELECT quote_request_id, public_ref, stage, intake_channel, service_category,
             incoterm, origin_location, destination_location, estimated_weight,
             project_cargo_flag, converted_opportunity_id, created_at
        FROM quote_request

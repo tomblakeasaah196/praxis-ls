@@ -8,7 +8,7 @@ const actor = (req) => req.user || { user_id: null };
 
 /** The export's columns, in the order an operator expects to read them. */
 const EXPORT_COLUMNS = [
-  "public_ref", "stage", "status", "lead_company_name", "title", "estimated_value", "currency", "intake_channel", "service_category", "service_type", "hinterland_direction",
+  "public_ref", "stage", "lead_company_name", "title", "estimated_value", "currency", "intake_channel", "service_category", "service_type", "hinterland_direction",
   // The client the request is for (14310), by name — an id means nothing in Excel.
   "client_name",
   // The route in the order the cargo travels it: door, port, port, door (14220).
@@ -95,9 +95,9 @@ module.exports = {
     res.json({ data: await req.tenantDb((c) => service.markWon(c, { id: req.params.id, entityId: req.body.entity_id || null, actor: actor(req) })) }),
   ),
 
-  /** The tile vocabulary, so the register does not hard-code its own copy. */
+  /** The tile vocabulary (one per stage), so a screen does not hard-code its own copy. */
   tiles: asyncHandler(async (_req, res) =>
-    res.json({ data: { keys: rules.KPI_TILES, labels: rules.TILE_LABELS, statuses: rules.STATUSES } }),
+    res.json({ data: { keys: rules.KPI_TILES, labels: rules.TILE_LABELS, stages: rules.STAGES } }),
   ),
 
   listAttachments: asyncHandler(async (req, res) =>

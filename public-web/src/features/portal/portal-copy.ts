@@ -284,7 +284,6 @@ export const en = {
     aboutStage: "About: {{stage}}",
     removeStage: "Not about this step",
     aboutQuotation: "About quotation {{ref}}",
-    aboutProposal: "About proposal {{ref}}",
     removeAbout: "Not about this offer",
     attach: "Attach",
     takePhoto: "Take a photo",
@@ -595,13 +594,14 @@ export const en = {
     weight: "Approx. weight (optional)",
     send: "Send request",
     sent: "Request sent — we’ll come back with a price",
-    status: {
-      RECEIVED: "Received",
-      UNDER_REVIEW: "Being priced",
-      CLARIFICATION_REQUIRED: "Needs detail",
+    // A request's STAGE, in the client's words (lean revamp §4.2).
+    stage: {
+      NEW: "Received",
+      CONTACTED: "Under review",
+      MEETING: "Under review",
       QUOTED: "Quoted",
-      CONVERTED_TO_OPPORTUNITY: "In progress",
-      CLOSED_NO_ACTION: "Closed",
+      WON: "Accepted",
+      LOST: "Closed",
     },
   },
   // The place picker (ui/place-picker.tsx): a port, an airport, a town or a door.
@@ -637,27 +637,14 @@ export const en = {
       OTHER: "Place",
     },
   },
-  prop: {
-    proposal: "Proposal",
-    status: {
-      SENT: "Waiting for your answer",
-      ACCEPTED: "Accepted",
-      REJECTED: "Declined",
-    },
-    expired: "No longer valid",
+  answer: {
     validUntil: "Valid until {{date}}",
-    total: "Total",
-    pricing: "Pricing",
     accept: "Accept",
     acceptSign: "Accept and sign",
     decline: "Decline",
-    acceptTitle: "Accept this proposal?",
     acceptBody: "Your acceptance is recorded with your name and the time, and the team is told at once.",
-    accepted: "Accepted — thank you. The team will be in touch.",
-    declined: "Declined — the team will be in touch.",
     declineTitle: "Why are you declining?",
     declineNote: "Anything to add? (optional)",
-    declineSend: "Decline the proposal",
     awaitingCount: "Waiting: {{count}}",
     review: "Review",
     sign: {
@@ -678,7 +665,6 @@ export const en = {
       rolePlaceholder: "Finance Manager",
       draw: "Sign here",
       clear: "Clear",
-      agree: "Signing accepts this proposal and its terms.",
       aboutTitle: "About this signature",
       about:
         "Your email is confirmed by the code; your name and role are as you typed them. Both go on the signature certificate, which anyone holding the document can verify with its code.",
@@ -689,12 +675,7 @@ export const en = {
   },
   // Quotations — every offer sent to the client, and one opened (meeting 6, PR 4).
   offer: {
-    sub: "Every offer we sent you — those waiting for your answer first.",
-    tab: {
-      all: "All",
-      quotations: "Quotations",
-      proposals: "Proposals",
-    },
+    sub: "Every offer we sent you, those waiting for your answer first.",
     none: "No offers yet",
     noneHint: "When we price a request, the offer appears here.",
     quotation: "Quotation",
@@ -827,7 +808,7 @@ export const en = {
       REQUESTS: "Documents we need",
       QUOTES: "Your quote requests",
       BILLING: "Invoices and payments",
-      PROPOSALS: "Proposals",
+      PROPOSALS: "Quotations",
       SHIPMENTS: "Shipment steps",
     },
     saved: "Saved",
@@ -1158,7 +1139,6 @@ export const fr = {
     aboutStage: "Au sujet de : {{stage}}",
     removeStage: "Sans lien avec cette étape",
     aboutQuotation: "Au sujet du devis {{ref}}",
-    aboutProposal: "Au sujet de la proposition {{ref}}",
     removeAbout: "Sans lien avec cette offre",
     attach: "Joindre",
     takePhoto: "Prendre une photo",
@@ -1466,13 +1446,13 @@ export const fr = {
     weight: "Poids approximatif (facultatif)",
     send: "Envoyer la demande",
     sent: "Demande envoyée — nous revenons vers vous avec un prix",
-    status: {
-      RECEIVED: "Reçue",
-      UNDER_REVIEW: "En cours de chiffrage",
-      CLARIFICATION_REQUIRED: "Précisions requises",
+    stage: {
+      NEW: "Reçue",
+      CONTACTED: "En cours d’étude",
+      MEETING: "En cours d’étude",
       QUOTED: "Chiffrée",
-      CONVERTED_TO_OPPORTUNITY: "En cours",
-      CLOSED_NO_ACTION: "Clôturée",
+      WON: "Acceptée",
+      LOST: "Clôturée",
     },
   },
   place: {
@@ -1507,28 +1487,15 @@ export const fr = {
       OTHER: "Lieu",
     },
   },
-  prop: {
-    proposal: "Proposition",
-    status: {
-      SENT: "En attente de votre réponse",
-      ACCEPTED: "Acceptée",
-      REJECTED: "Refusée",
-    },
-    expired: "Plus valable",
+  answer: {
     validUntil: "Valable jusqu’au {{date}}",
-    total: "Total",
-    pricing: "Tarification",
     accept: "Accepter",
     acceptSign: "Accepter et signer",
     decline: "Refuser",
-    acceptTitle: "Accepter cette proposition ?",
     acceptBody:
       "Votre acceptation est enregistrée avec votre nom et l’heure, et l’équipe est prévenue aussitôt.",
-    accepted: "Acceptée — merci. L’équipe va vous recontacter.",
-    declined: "Refusée — l’équipe va vous recontacter.",
     declineTitle: "Pourquoi refusez-vous ?",
     declineNote: "Autre chose à ajouter ? (facultatif)",
-    declineSend: "Refuser la proposition",
     awaitingCount: "En attente : {{count}}",
     review: "Voir",
     sign: {
@@ -1549,7 +1516,6 @@ export const fr = {
       rolePlaceholder: "Directrice financière",
       draw: "Signez ici",
       clear: "Effacer",
-      agree: "Signer vaut acceptation de cette proposition et de ses conditions.",
       aboutTitle: "À propos de cette signature",
       about:
         "Votre e-mail est confirmé par le code ; votre nom et votre fonction sont tels que vous les avez saisis. Les deux figurent sur le certificat de signature, que tout détenteur du document peut vérifier avec son code.",
@@ -1559,12 +1525,7 @@ export const fr = {
     },
   },
   offer: {
-    sub: "Chaque offre que nous vous avons envoyée — celles qui attendent votre réponse d’abord.",
-    tab: {
-      all: "Toutes",
-      quotations: "Devis",
-      proposals: "Propositions",
-    },
+    sub: "Chaque offre que nous vous avons envoyée, celles qui attendent votre réponse d’abord.",
     none: "Aucune offre pour l’instant",
     noneHint: "Quand nous chiffrons une demande, l’offre apparaît ici.",
     quotation: "Devis",
@@ -1697,7 +1658,7 @@ export const fr = {
       REQUESTS: "Documents demandés",
       QUOTES: "Vos demandes de devis",
       BILLING: "Factures et paiements",
-      PROPOSALS: "Propositions",
+      PROPOSALS: "Devis",
       SHIPMENTS: "Étapes d’expédition",
     },
     saved: "Enregistré",

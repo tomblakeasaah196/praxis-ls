@@ -1,15 +1,18 @@
 /**
  * One quote request, as its client reads it (tenant review, meeting 6, item
- * 2.9): what they asked for, the documents it carries — with "Add a document"
- * at any time (owner decision Q4) — where it stands as a timeline, and the
- * proposal that answered it, reached through the request's opportunity.
+ * 2.9): what they asked for, the documents it carries, with "Add a document"
+ * at any time (owner decision Q4), where it stands as a timeline, and the
+ * quotation that answered it.
  *
- * A sheet on a phone and a wide panel on a desktop (`Sheet wide`), the same
- * arrangement as a proposal. The owner, the internal notes and who moved it
- * stay with the team: the server sends the status and the day, nothing else.
+ * A sheet on a phone and a wide panel on a desktop (`Sheet wide`). The owner,
+ * the internal notes and who moved it stay with the team: the server sends
+ * the stage and the day, nothing else.
  *
- * Meeting 6, PR 4: the Commercial QUOTATION that answered a request sits beside
- * the proposal in `Answer` below, and opens its own page in Quotations.
+ * WHERE IT STANDS IS ITS STAGE (lean revamp §4.2), never the retiring
+ * `status`, in the client's words: NEW "Received"; CONTACTED and MEETING
+ * "Under review" (a meeting is the team's business, not a step the client
+ * waits on); QUOTED "Quoted"; WON "Accepted"; LOST "Closed". Consecutive
+ * stages that read the same are drawn once.
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -18,6 +21,7 @@ import {
   portalDownloadQuoteDocument,
   portalQuoteRequest,
   type PortalQuoteDetail,
+  type QuoteStage,
 } from "@/lib/portal-api";
 import { money, num } from "@/lib/format";
 import { getLang } from "@/lib/i18n";
@@ -33,15 +37,30 @@ import type { Tone } from "../ui/kit";
 // quote-steps-i18n.ts. Imported for the side effect.
 import "@/components/quote/quote-steps-i18n";
 
-/** A request's status as a colour — the list and the detail read the same. */
-export const STATUS_TONE: Record<string, Tone> = {
-  RECEIVED: "info",
-  UNDER_REVIEW: "brand",
-  CLARIFICATION_REQUIRED: "warn",
+/** A request's stage as a colour: the list and the detail read the same. */
+export const STAGE_TONE: Record<QuoteStage, Tone> = {
+  NEW: "info",
+  CONTACTED: "brand",
+  MEETING: "brand",
   QUOTED: "ok",
-  CONVERTED_TO_OPPORTUNITY: "ok",
-  CLOSED_NO_ACTION: "mute",
+  WON: "ok",
+  LOST: "mute",
 };
+
+/** The dictionary key a stage reads as. An unknown value reads as Received. */
+export const stageKey = (stage: string) => `portal.quote.stage.${stage in STAGE_TONE ? stage : "NEW"}`;
+
+/** The timeline in the client's words: consecutive stages that read the same
+ *  (CONTACTED then MEETING, both "Under review") are drawn once. */
+export function stageSteps(timeline: PortalQuoteDetail["timeline"], say: (key: string) => string) {
+  const out: { label: string; at: string }[] = [];
+  for (const e of timeline) {
+    const label = say(stageKey(e.stage));
+    if (out.length && out[out.length - 1].label === label) continue;
+    out.push({ label, at: e.at });
+  }
+  return out;
+}
 
 const DOCS_MAX = 10;
 const DOC_MAX_BYTES = 10 * 1024 * 1024;
@@ -50,13 +69,11 @@ export function QuoteRequestSheet({
   id,
   onClose,
   onChanged,
-  onOpenProposal,
   onOpenQuotation,
 }: {
   id: string | null;
   onClose: () => void;
   onChanged: () => void;
-  onOpenProposal: (proposalId: string) => void;
   onOpenQuotation: (quotationId: string) => void;
 }) {
   const { t } = useTranslation();
@@ -73,7 +90,6 @@ export function QuoteRequestSheet({
             detail.reload();
             onChanged();
           }}
-          onOpenProposal={onOpenProposal}
           onOpenQuotation={onOpenQuotation}
         />
       ) : null}
@@ -84,12 +100,10 @@ export function QuoteRequestSheet({
 function Detail({
   d,
   onChanged,
-  onOpenProposal,
   onOpenQuotation,
 }: {
   d: PortalQuoteDetail;
   onChanged: () => void;
-  onOpenProposal: (id: string) => void;
   onOpenQuotation: (id: string) => void;
 }) {
   const { t } = useTranslation();
@@ -123,6 +137,7 @@ function Detail({
 
   const svc = d.service;
   const route = d.origin_location || d.destination_location;
+  const steps = stageSteps(d.timeline || [], (k) => t(k));
 
   async function download(attId: string, name: string | null) {
     try {
@@ -135,7 +150,7 @@ function Detail({
   return (
     <div className="grid gap-5">
       <div className="flex flex-wrap items-center gap-2">
-        <Pill tone={STATUS_TONE[d.status] || "mute"}>{t(`portal.quote.status.${d.status}`, { defaultValue: d.status })}</Pill>
+        <Pill tone={STAGE_TONE[d.stage] || "mute"}>{t(stageKey(d.stage))}</Pill>
         {d.public_ref ? (
           <Pill plain>
             <span className="pt-mono">{d.public_ref}</span>
@@ -231,14 +246,14 @@ function Detail({
       <section className="grid gap-2">
         <h3 className="pt-label !mb-0">{t("portal.quote.detail.progress")}</h3>
         <ol className="grid gap-2">
-          {d.timeline.map((e, i) => (
-            <li key={`${e.status}-${i}`} className="flex items-center gap-3 text-sm">
+          {steps.map((e, i) => (
+            <li key={`${e.label}-${i}`} className="flex items-center gap-3 text-sm">
               <span
                 aria-hidden="true"
-                className={i === d.timeline.length - 1 ? "h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--primary)]" : "h-2.5 w-2.5 shrink-0 rounded-full border border-[var(--pt-line-strong)]"}
+                className={i === steps.length - 1 ? "h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--primary)]" : "h-2.5 w-2.5 shrink-0 rounded-full border border-[var(--pt-line-strong)]"}
               />
-              <span className={i === d.timeline.length - 1 ? "font-semibold text-foreground" : "text-muted-foreground"}>
-                {t(`portal.quote.status.${e.status}`, { defaultValue: e.status })}
+              <span className={i === steps.length - 1 ? "font-semibold text-foreground" : "text-muted-foreground"}>
+                {e.label}
               </span>
               <span className="ml-auto text-xs text-muted-foreground">{dayLabel(e.at)}</span>
             </li>
@@ -246,25 +261,13 @@ function Detail({
         </ol>
       </section>
 
-      <Answer d={d} onOpenProposal={onOpenProposal} onOpenQuotation={onOpenQuotation} />
+      <Answer d={d} onOpenQuotation={onOpenQuotation} />
     </div>
   );
 }
 
-/**
- * The team's answer to the request: the Commercial QUOTATION linked to it
- * (meeting 6, PR 4), and the PROPOSAL reached through the request's
- * opportunity — either, both, or "waiting".
- */
-function Answer({
-  d,
-  onOpenProposal,
-  onOpenQuotation,
-}: {
-  d: PortalQuoteDetail;
-  onOpenProposal: (id: string) => void;
-  onOpenQuotation: (id: string) => void;
-}) {
+/** The team's answer to the request: the quotation linked to it, or "waiting". */
+function Answer({ d, onOpenQuotation }: { d: PortalQuoteDetail; onOpenQuotation: (id: string) => void }) {
   const { t } = useTranslation();
   const q = d.quotation;
   return (
@@ -283,20 +286,7 @@ function Answer({
           </span>
           <ChevronRightIcon size={18} className="text-muted-foreground" />
         </button>
-      ) : null}
-      {d.proposal ? (
-        <button type="button" className="pt-card pt-card-press flex items-center gap-3 p-4 text-left" onClick={() => onOpenProposal(d.proposal!.proposal_id)}>
-          <QuoteIcon size={22} className="text-primary-ink" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[0.95rem] font-semibold text-foreground">{d.proposal.title}</span>
-            <span className="block text-xs text-muted-foreground">
-              {d.proposal.doc_number ? `${d.proposal.doc_number} · ` : ""}
-              {t(`portal.prop.status.${d.proposal.status}`, { defaultValue: d.proposal.status })}
-            </span>
-          </span>
-          <ChevronRightIcon size={18} className="text-muted-foreground" />
-        </button>
-      ) : q ? null : (
+      ) : (
         <p className="text-sm text-muted-foreground">{t("portal.quote.detail.waiting")}</p>
       )}
     </section>

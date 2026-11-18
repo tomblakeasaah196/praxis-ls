@@ -32,10 +32,6 @@ const PUBLIC_BY_DESIGN = new Map([
     "Public job adverts + applications. Callers have no accounts by definition.",
   ],
   [
-    "sales/proposal_public",
-    "Expiring proposal links are intentionally readable by prospects without accounts; every route is limited and every refusal is a uniform 404.",
-  ],
-  [
     "commercial/quotation_public",
     "The public quotation link /q/<token> (lean revamp §3.4): a prospect with no account accepting on the link IS the feature (D7). The token is 32 random bytes stored only as a sha256; every refusal is a uniform 404; every route is pinned to live and rate-limited, the answering routes keyed on the token; acceptance runs through the signature programme with the address the quotation was sent to as the counterparty.",
   ],

@@ -74,9 +74,9 @@ const EVENTS = {
   "invoice_bundle.published": { topic: "BILLING" },
   "payment_proof.confirmed": { topic: "BILLING" },
   "payment_proof.rejected": { topic: "BILLING" },
-  "proposal.sent": { topic: "PROPOSALS", client: "proposal" },
-  // A commercial quotation reaches the client exactly as a proposal does
+  // A commercial quotation reaches the client under the topic proposals had
   // (meeting 6, PR 4): same switch, same window, its own line in the email.
+  // Proposals became quotations (14542) and are never sent any more.
   "quotation.sent": { topic: "PROPOSALS", client: "quotation" },
   /*
    * A quote request the client made IN THE PORTAL (tenant review 29 Sep 2026,
@@ -88,9 +88,17 @@ const EVENTS = {
    * sender drops it from the email (portal_notify.service PUSH_ONLY).
    */
   "quote_request.created": { topic: "QUOTES", client: "quote_request" },
-  "quote_request.under_review": { topic: "QUOTES", client: "quote_request" },
-  "quote_request.clarification_required": { topic: "QUOTES", client: "quote_request" },
-  "quote_request.quoted": { topic: "QUOTES", client: "quote_request" },
+  // Since the lean revamp a request moves by STAGE (§4.2), and the stage bar
+  // emits only `stage_moved`. Its first move out of New is what "under review"
+  // used to say, and it stays a push. A move to Quoted is told by the
+  // quotation's own `quotation.sent`; Won and Lost were never told and are not.
+  // The old intake events are no longer mapped: the legacy /transition route
+  // emits `stage_moved` too, so mapping both would tell the client twice.
+  "quote_request.stage_moved": {
+    topic: "QUOTES",
+    client: "quote_request",
+    when: (p) => p && p.from === "NEW" && (p.to === "CONTACTED" || p.to === "MEETING"),
+  },
   "milestone.advanced": {
     topic: "SHIPMENTS",
     when: (p) => p.to === "DONE" && UUID.test(String(p.milestone_instance_id || "")),
@@ -105,7 +113,6 @@ const CLIENT_OF = {
     "SELECT client_id FROM invoice WHERE invoice_id = $1 AND type = 'FINAL'",
     (ref) => idOf(ref),
   ],
-  proposal: ["SELECT client_id FROM proposal WHERE proposal_id = $1", (ref) => idOf(ref)],
   quotation: ["SELECT client_id FROM quotation WHERE quotation_id = $1", (ref) => idOf(ref)],
   // A PORTAL request only — see the EVENTS note on quote requests.
   quote_request: [

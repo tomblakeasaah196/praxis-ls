@@ -215,3 +215,36 @@ describe("the sitemap covers every route the site's own nav offers", () => {
     }
   });
 });
+
+/* ── the public quotation link (lean revamp PR 6, guide §3.4) ─────────── */
+
+describe("a quotation link's preview", () => {
+  const svc = require("../../src/modules/commercial/quotation_public/quotation_public.service");
+  const routeFor = (rel) => head.ROUTES.find((r) => r.test.test(rel));
+
+  afterEach(() => jest.restoreAllMocks());
+
+  test("/q/<token> is described from `peek`, which records no open", async () => {
+    const peek = jest.spyOn(svc, "peek").mockResolvedValue({ title: "Tiles, Shanghai to Douala", doc_number: "QT-2026-0004", summary: null });
+    const open = jest.spyOn(svc, "open");
+    const r = routeFor("/q/tok%20123");
+    expect(r).toBeTruthy();
+    const [, token] = r.test.exec("/q/tok%20123");
+    const page = r.shape(await r.load({}, token));
+    expect(peek).toHaveBeenCalledWith({}, "tok 123");
+    expect(open).not.toHaveBeenCalled();
+    expect(page.title).toBe("Tiles, Shanghai to Douala");
+  });
+
+  test("an old /proposals/<token> link unfurls as the quotation it became", async () => {
+    jest.spyOn(svc, "peek").mockResolvedValue({ title: null, doc_number: "QT-2026-0004", summary: null });
+    const r = routeFor("/proposals/old-token");
+    const [, token] = r.test.exec("/proposals/old-token");
+    expect(r.shape(await r.load({}, token)).title).toBe("QT-2026-0004");
+  });
+
+  test("robots keeps quotation links out of the index on this host's base", () => {
+    expect(head.robots("https://smartls.cm", true, "/public")).toContain("Disallow: /public/q/");
+    expect(head.robots("https://smartls.cm", true, "/")).toContain("Disallow: /q/");
+  });
+});

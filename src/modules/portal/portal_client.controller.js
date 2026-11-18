@@ -11,7 +11,6 @@
 const service = require("./portal_client.service");
 const bundles = require("./invoice_bundle.service");
 const chat = require("./portal_chat.service");
-const proposals = require("./portal_proposal.service");
 const quotations = require("./portal_quotation.service");
 const quoteFill = require("./portal_quote_fill.service");
 const places = require("./portal_places.service");
@@ -442,65 +441,9 @@ module.exports = {
       })));
   }),
 
-  // Proposals: read, download, decline, accept — with an e-signature where the
-  // tenant offers one (portal_proposal.service).
-  proposals: asyncHandler(async (req, res) => {
-    res.json({ data: await req.tenantDb((c) => proposals.list(c, { clientId: clientId(req) })) });
-  }),
-  proposal: asyncHandler(async (req, res) => {
-    res.json({
-      data: await req.tenantDb((c) =>
-        proposals.get(c, { clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), lang: langOf(req) })),
-    });
-  }),
-  proposalPdf: asyncHandler(async (req, res) => {
-    sendFile(res, await req.tenantDb((c) => proposals.pdf(c, { clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), lang: langOf(req) })));
-  }),
-  proposalDecline: asyncHandler(async (req, res) => {
-    res.json({
-      data: await req.tenantDb((c) =>
-        proposals.decline(c, {
-          clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req),
-          reasonCode: req.body.reason_code, note: req.body.note || null, lang: langOf(req),
-        })),
-    });
-  }),
-  proposalAccept: asyncHandler(async (req, res) => {
-    res.json({
-      data: await req.tenantDb((c) =>
-        proposals.accept(c, { clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req), ip: ipOf(req), lang: langOf(req) })),
-    });
-  }),
-  proposalSignStart: asyncHandler(async (req, res) => {
-    res.json({
-      data: await req.tenantDb((c) =>
-        proposals.startSigning(c, {
-          clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req),
-          grantId: req.portal.grant && req.portal.grant.portal_access_id, lang: langOf(req), tenantName: tenantNameOf(req),
-        })),
-    });
-  }),
-  proposalSignResend: asyncHandler(async (req, res) => {
-    res.json({
-      data: await req.tenantDb((c) =>
-        proposals.resendCode(c, { clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req), lang: langOf(req), tenantName: tenantNameOf(req) })),
-    });
-  }),
-  proposalSignComplete: asyncHandler(async (req, res) => {
-    const b = req.body;
-    res.json({
-      data: await req.tenantDb((c) =>
-        proposals.completeSigning(c, {
-          clientId: clientId(req), proposalId: uuidOf(req.params.id, "id"), me: signerOf(req),
-          code: b.code, presetCode: b.preset_code, fullName: b.full_name || null, partyRole: b.party_role || null,
-          markImageB64: b.mark_image_b64 || null, ip: ipOf(req), userAgent: uaOf(req), lang: langOf(req),
-          origin: originOf(req), slug: slugOf(req),
-        })),
-    });
-  }),
-  // Commercial quotations (meeting 6, PR 4 — G3/G4): read, download, decline,
-  // accept — by e-signature where the tenant offers one, through the same
-  // signing kit proposals use (portal_quotation.service).
+  // Commercial quotations (meeting 6, PR 4 — G3/G4; every offer since the lean
+  // revamp): read, download, decline, accept — by e-signature where the tenant
+  // offers one, through the signing kit (portal_quotation.service).
   quotations: asyncHandler(async (req, res) => {
     res.json({ data: await req.tenantDb((c) => quotations.list(c, { clientId: clientId(req), lang: langOf(req) })) });
   }),

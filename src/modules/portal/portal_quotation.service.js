@@ -281,7 +281,7 @@ async function decline(c, { clientId, quotationId, me, reasonCode, note = null, 
   assertOpen(row);
   const chosen = await chosenReason(c, reasonCode);
   await kit().declineOpen(c, { id: quotationId, me, reasonCode, note, lang: langOf(lang) });
-  const reason = `${langOf(lang) === "fr" ? chosen.label_fr : chosen.label_en}${note ? ` — ${String(note).slice(0, 400)}` : ""}`;
+  const reason = `${langOf(lang) === "fr" ? chosen.label_fr : chosen.label_en}${note ? `: ${String(note).slice(0, 400)}` : ""}`;
   await quotationService.decline(c, { id: quotationId, reasonCode, reason, by: { name: me.full_name || null, email: me.email || null } });
   return { declined: true };
 }

@@ -154,17 +154,25 @@ function messageView(row, { me = null, lang = "en" } = {}) {
 
 const REF_RE = /^(quotation|proposal):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
+/**
+ * The offer a message is about. Every offer is a quotation since the lean
+ * revamp: a message stored against a proposal before it reads as the
+ * quotation that proposal became (14542), so its chip opens that page.
+ */
 function refView(row) {
   const m = REF_RE.exec(String(row.ref_entity || ""));
   if (!m) return null;
-  return { kind: m[1].toLowerCase(), id: m[2].toLowerCase(), label: row.ref_label || null };
+  if (m[1].toLowerCase() === "proposal") {
+    return row.ref_quotation_id ? { kind: "quotation", id: String(row.ref_quotation_id).toLowerCase(), label: row.ref_label || null } : null;
+  }
+  return { kind: "quotation", id: m[2].toLowerCase(), label: row.ref_label || null };
 }
 
 /**
- * A reference a client may attach: an offer of THEIR OWN that they can see —
- * a quotation that is not a draft, a proposal that has been sent. Anything
- * else is refused rather than stored, so the team's chip can never point at
- * another company's document.
+ * A reference a client may attach: a quotation of THEIR OWN that they can see
+ * (not a draft). An old proposal reference (an app still holding one) is
+ * stored as the quotation it became. Anything else is refused rather than
+ * stored, so the team's chip can never point at another company's document.
  */
 async function checkedRef(c, { clientId, ref }) {
   if (!ref) return null;
@@ -174,9 +182,9 @@ async function checkedRef(c, { clientId, ref }) {
   const id = m[2].toLowerCase();
   const { rows } = kind === "quotation"
     ? await c.query("SELECT 1 FROM quotation WHERE quotation_id = $1 AND client_id = $2 AND status <> 'DRAFT'", [id, clientId])
-    : await c.query("SELECT 1 FROM proposal WHERE proposal_id = $1 AND client_id = $2 AND status IN ('SENT', 'ACCEPTED', 'REJECTED')", [id, clientId]);
+    : await c.query("SELECT quotation_id FROM quotation WHERE source_proposal_id = $1 AND client_id = $2 AND status <> 'DRAFT'", [id, clientId]);
   if (!rows.length) throw new AppError("BAD_REFERENCE", "That document is not one of yours", 422);
-  return `${kind}:${id}`;
+  return `quotation:${kind === "quotation" ? id : String(rows[0].quotation_id).toLowerCase()}`;
 }
 
 /* ── client ─────────────────────────────────────────────────────────────── */

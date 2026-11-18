@@ -161,8 +161,8 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const s = summary.data;
   const needed = s?.requests?.open_count || 0;
   const overdue = s?.billing?.overdue_count || 0;
-  // Offers waiting for an answer: commercial quotations and proposals alike.
-  const waitingOffers = (s?.quotations?.pending_count || 0) + (s?.proposals?.pending_count || 0);
+  // Offers waiting for an answer: every one is a quotation.
+  const waitingOffers = s?.quotations?.pending_count || 0;
   const chatUnread = useChatUnread(isClient, s?.chat?.unread ?? null);
 
   const nav: NavItem[] = isClient

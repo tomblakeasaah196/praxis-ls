@@ -16,7 +16,7 @@ const { originForSlug } = require("../../../services/signatures/verify-link");
  * nowhere the tenant will ever look. The environment a request runs in is a
  * signed-in user's choice, not the internet's.
  *
- * proposal_public.routes.js and the verification portal carry the same pin for
+ * quotation_public.routes.js and the verification portal carry the same pin for
  * the same reason.
  */
 const live = (req, fn) => req.tenantDbIn("live", fn);

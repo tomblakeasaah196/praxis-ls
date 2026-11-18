@@ -337,7 +337,7 @@ async function insertClientMessage(client, { clientId, dossierId = null, directi
 
 async function clientQuoteRequests(client, clientId) {
   const { rows } = await client.query(
-    `SELECT q.quote_request_id, q.public_ref, q.status, q.service_category, q.service_type,
+    `SELECT q.quote_request_id, q.public_ref, q.stage, q.service_category, q.service_type,
             q.service_type_id, q.hinterland_direction,
             st.name_en AS service_name_en, st.name_fr AS service_name_fr,
             st.transport_mode AS service_mode, st.key AS service_key, st.territory AS service_territory,

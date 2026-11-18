@@ -213,13 +213,13 @@ d("Sales lean revamp PR 4: quotations absorb proposals (real Postgres)", () => {
     });
 
     test("the old share link resolves to the migrated quotation", async () => {
-      const publicProposal = require("../../src/modules/sales/proposal_public/proposal_public.service");
-      const out = await publicProposal.get(c, TOKEN, "FR");
-      expect(out.presentation).toMatchObject({ document_number: `PROP-${t}-S`, language: "FR" });
-      expect(out.presentation.lines).toHaveLength(2);
-      // Our Solution was written in English only: the French reader gets it
-      // rather than nothing.
-      expect(out.presentation.sections.map((x) => x.key)).toEqual(["needs", "solution", "scope", "terms"]);
+      // The proposal page is gone (PR 6): public-web sends /proposal/<token>
+      // to /q/<token>, which reads the quotation the token was carried onto.
+      const link = require("../../src/modules/commercial/quotation_public/quotation_public.service");
+      const [q] = await migrated(P.SENT);
+      const row = await link.resolve(c, TOKEN);
+      expect(row.quotation_id).toBe(q.quotation_id);
+      expect(await link.peek(c, TOKEN)).toMatchObject({ doc_number: `PROP-${t}-S` });
     });
   });
 

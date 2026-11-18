@@ -50,7 +50,7 @@ describe("F13 public quote intake accepts an entity", () => {
 describe("public routes are pinned to the live schema", () => {
   const files = [
     "src/modules/sales/portfolio_public/portfolio_public.routes.js",
-    "src/modules/sales/proposal_public/proposal_public.routes.js",
+    "src/modules/commercial/quotation_public/quotation_public.routes.js",
     "src/modules/sales/public_intake/public_intake.routes.js",
     "src/modules/operations/tracking_public/tracking_public.routes.js",
   ];

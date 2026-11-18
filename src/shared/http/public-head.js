@@ -343,8 +343,10 @@ const ROUTES = [
           },
   },
   {
-    // Proposal links from before the revamp open their migrated quotation
-    // (14542 carried the tokens), read the same way, recording nothing.
+    // Proposal links from before the revamp: the app redirects them to
+    // `/q/<token>`, but a chat app unfurling the old URL runs no script, so
+    // the head describes the quotation it became (14542 carried the tokens),
+    // read the same way, recording nothing.
     test: /^\/proposals\/([^/]+)\/?$/,
     load: (client, token) =>
       require("../../modules/commercial/quotation_public/quotation_public.service").peek(
@@ -356,7 +358,7 @@ const ROUTES = [
         ? null
         : {
             title: doc.title || doc.doc_number || null,
-            description: summarise(doc.summary || doc.intro),
+            description: summarise(doc.summary),
           },
   },
   {
@@ -692,6 +694,7 @@ function makeHtmlSender(publicWebDir) {
 
 module.exports = {
   SITEMAP_ROUTES,
+  ROUTES,
   makeHtmlSender,
   robots,
   sitemap,

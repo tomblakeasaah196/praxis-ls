@@ -105,15 +105,16 @@ function SignedIn() {
 /**
  * `/portal/quotes` was one page with a Requests and a Proposals tab (meeting
  * 6, PR 4 split it into "Requests for Quotation" and "Quotations"). Every
- * link already sent — the proposal email's `?proposal=`, a request's
- * `?request=`, a bookmark — keeps landing where it meant to.
+ * link already sent keeps landing where it meant to: the proposal email's
+ * `?proposal=` on Quotations (every proposal became a quotation, lean revamp
+ * §3.8), a request's `?request=` and a bookmark on Requests.
  */
 function OldQuotes() {
   const { search } = useLocation();
   const params = new URLSearchParams(search);
   const offers = params.has("proposal") || params.get("tab") === "proposals";
-  if (params.get("tab")) params.delete("tab");
-  if (offers) params.set("tab", "proposals");
+  params.delete("tab");
+  if (offers) params.delete("proposal");
   const rest = params.toString();
   return <Navigate to={`${offers ? "/portal/quotations" : "/portal/requests"}${rest ? `?${rest}` : ""}`} replace />;
 }

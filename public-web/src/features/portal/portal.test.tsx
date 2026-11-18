@@ -9,7 +9,7 @@ import { PortalError } from "@/lib/portal-api";
 import { PortalApp } from "./portal-app";
 import { parseAmount } from "./lib/numbers";
 import { errorText } from "./ui/kit";
-import { en } from "./portal-copy";
+import { en, fr } from "./portal-copy";
 import { en as siteDict } from "@/lib/i18n-dict";
 import { en as steps } from "@/components/quote/quote-steps-copy";
 
@@ -568,49 +568,6 @@ describe("notifications", () => {
   });
 });
 
-describe("a proposal", () => {
-  const P = "77777777-7777-4777-8777-777777777777";
-  const SUMMARY = {
-    proposal_id: P, doc_number: "PRP-2026-0004", title: "Door-to-door, Shanghai to Douala", status: "SENT",
-    currency: "XAF", total: 4850000, route: "Shanghai → Douala", sent_on: "2026-09-20", valid_until: "2099-12-31",
-  };
-  const DETAIL = {
-    proposal: { proposal_id: P, doc_number: "PRP-2026-0004", title: SUMMARY.title, status: "SENT", currency: "XAF", total: 4850000, valid_until: "2099-12-31" },
-    presentation: {
-      language: "EN", title: SUMMARY.title, document_number: "PRP-2026-0004", client_name: "Acme Trading", route: "Shanghai → Douala",
-      labels: { service: "Service", quantity: "Qty", unit: "Unit", total: "Total" },
-      sections: [], lines: [{ label: "Sea freight 1×40HC", quantity: 1, unit_price_display: "4 850 000", total_display: "4 850 000" }],
-    },
-    signature: null,
-    signing: { available: true, cards: [{ preset_code: "STAMP", label: "Stamp", blurb: null }] },
-    decline_reasons: [{ reason_code: "PRICE", label: "The price" }, { reason_code: "TIMING", label: "The timing" }],
-  };
-
-  it("opens from its link and is declined with a reason the team can act on", async () => {
-    const declined: unknown[] = [];
-    stubApi(true, {
-      "/portal/client/quote-requests": () => [200, { data: [] }],
-      "/portal/client/proposals": () => [200, { data: [SUMMARY] }],
-      [`/portal/client/proposals/${P}`]: () => [200, { data: DETAIL }],
-      [`/portal/client/proposals/${P}/decline`]: (init?: RequestInit) => {
-        declined.push(JSON.parse(String(init?.body)));
-        return [200, { data: { declined: true } }];
-      },
-    });
-    sessionStorage.setItem("praxis.portal.token", "tok");
-    const { findByText, findByRole, getByRole } = await mount(`/portal/quotes?proposal=${P}`);
-    await findByText("Sea freight 1×40HC");
-    // Accepting is signing on a tenant that offers a signature card.
-    expect(getByRole("button", { name: en.prop.acceptSign })).toBeTruthy();
-    fireEvent.click(getByRole("button", { name: en.prop.decline }));
-    const send = await findByRole("button", { name: en.prop.declineSend });
-    expect((send as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(await findByRole("button", { name: "The price" }));
-    fireEvent.click(send);
-    await waitFor(() => expect(declined).toEqual([{ reason_code: "PRICE" }]));
-  });
-});
-
 // Each case walks a whole sheet — several debounced searches end to end — so
 // the per-test ceiling is raised to match SLOW below.
 describe("the quote sheet's route", { timeout: 20000 }, () => {
@@ -685,7 +642,6 @@ describe("the quote sheet's route", { timeout: 20000 }, () => {
       },
       "/portal/client/quote-services": () => [200, { data: SERVICES }],
       "/portal/client/quote-requests/documents": () => [201, { data: { doc_id: "00000000-0000-4000-8000-0000000000d1", name: "invoice.pdf" } }],
-      "/portal/client/proposals": () => [200, { data: [] }],
       "/portal/client/places": placesRoute(asked),
       ...extra,
     });
@@ -886,7 +842,7 @@ describe("a request, opened (meeting 6, item 2.9)", { timeout: 20000 }, () => {
   const DETAIL = {
     quote_request_id: "q-1",
     public_ref: "SQ-2026-0003",
-    status: "CONVERTED_TO_OPPORTUNITY",
+    stage: "MEETING",
     created_at: "2026-09-29T08:00:00Z",
     service: { service_type_id: "s-sea-imp", name_en: "Sea Freight Import", name_fr: "Fret Maritime Import", card: "SEA", flow: "IMPORT", enquiry_shape: "ROUTE", incoterms: [] },
     service_category: "Sea Freight Import",
@@ -902,32 +858,79 @@ describe("a request, opened (meeting 6, item 2.9)", { timeout: 20000 }, () => {
     cargo_description: "Ceramic tiles",
     requester_name: "Elisha Godwin",
     documents: [{ id: "att-1", name: "invoice.pdf", document_kind: "COMMERCIAL_INVOICE", kind: "PRIMARY", created_at: "2026-09-29T08:00:00Z" }],
+    // CONTACTED then MEETING both read "Under review": drawn once.
     timeline: [
-      { status: "RECEIVED", at: "2026-09-29T08:00:00Z" },
-      { status: "UNDER_REVIEW", at: "2026-09-29T09:00:00Z" },
-      { status: "CONVERTED_TO_OPPORTUNITY", at: "2026-09-30T09:00:00Z" },
+      { stage: "NEW", at: "2026-09-29T08:00:00Z" },
+      { stage: "CONTACTED", at: "2026-09-29T09:00:00Z" },
+      { stage: "MEETING", at: "2026-09-30T09:00:00Z" },
     ],
-    proposal: { proposal_id: "p-1", doc_number: "PRO-2026-0001", title: "Tiles, Shanghai to Douala", status: "SENT", currency: "XAF", created_at: "2026-09-30T09:00:00Z" },
-    quotation: null,
+    quotation: { quotation_id: "88888888-8888-4888-8888-888888888888", doc_number: "QUO-2026-0007", status: "SENT", currency: "XAF", total: 1100000, created_at: "2026-09-30T09:00:00Z" },
   };
 
-  it("shows the scope, the documents, the timeline and the proposal that answered it", async () => {
+  it("shows the scope, the documents, the stage as a timeline and the quotation that answered it", async () => {
     stubApi(true, {
       "/portal/client/quote-requests": () => [200, { data: [] }],
       "/portal/client/quote-requests/q-1": () => [200, { data: DETAIL }],
-      "/portal/client/proposals": () => [200, { data: [] }],
     });
     sessionStorage.setItem("praxis.portal.token", "tok");
-    const { findByText, getByText } = await mount("/portal/quotes?request=q-1");
+    const { findByText, getByText, getAllByText, container } = await mount("/portal/quotes?request=q-1");
     await findByText("Sea Freight Import");
     getByText("Shanghai");
     getByText("invoice.pdf");
     getByText(en.quote.detail.toBeDetermined);
-    getByText(en.quote.status.UNDER_REVIEW);
-    getByText("Tiles, Shanghai to Douala");
+    // The pill and the timeline's last step: Under review, never a status word.
+    expect(getAllByText(en.quote.stage.MEETING).length).toBeGreaterThan(0);
+    const steps_ = [...container.querySelectorAll("ol li")].map((li) => li.textContent || "");
+    expect(steps_).toHaveLength(2);
+    expect(steps_[0]).toContain(en.quote.stage.NEW);
+    expect(steps_[1]).toContain(en.quote.stage.CONTACTED);
+    getByText(/QUO-2026-0007/);
     getByText(steps.docsAdd);
   });
 });
+
+describe("a request's stage, in the client's words (lean revamp PR 6)", { timeout: 20000 }, () => {
+  it("maps each stage to its words, in English and French", () => {
+    expect(en.quote.stage).toEqual({
+      NEW: "Received",
+      CONTACTED: "Under review",
+      MEETING: "Under review",
+      QUOTED: "Quoted",
+      WON: "Accepted",
+      LOST: "Closed",
+    });
+    expect(fr.quote.stage).toEqual({
+      NEW: "Reçue",
+      CONTACTED: "En cours d’étude",
+      MEETING: "En cours d’étude",
+      QUOTED: "Chiffrée",
+      WON: "Acceptée",
+      LOST: "Clôturée",
+    });
+  });
+
+  it("lists each request under its stage, never its status", async () => {
+    const ROW = (stage: string, ref: string) => ({
+      quote_request_id: `q-${ref}`, public_ref: ref, stage, service_category: "Sea Freight Import", service_type: null, service_type_id: null,
+      service: null, hinterland_direction: null, origin_location: "Shanghai", destination_location: "Douala", collection_location: null,
+      delivery_location: null, origin_place: null, destination_place: null, collection_place: null, delivery_place: null,
+      warehouse_location: null, warehouse_duration: null, incoterm: "FOB", estimated_weight: null, cargo_description: null,
+      documents: 0, created_at: "2026-09-29T08:00:00Z",
+    });
+    const stages = ["NEW", "CONTACTED", "MEETING", "QUOTED", "WON", "LOST"] as const;
+    stubApi(true, { "/portal/client/quote-requests": () => [200, { data: stages.map((x, i) => ROW(x, `SQ-${i}`)) }] });
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { findByText, container } = await mount("/portal/requests");
+    await findByText("SQ-0");
+    const rows = [...container.querySelectorAll("main .pt-row")].map((n) => n.textContent || "");
+    stages.forEach((stage, i) => {
+      const row = rows.find((r) => r.includes(`SQ-${i}`)) || "";
+      expect(row).toContain(en.quote.stage[stage]);
+    });
+  });
+});
+
+
 
 describe("quotations (meeting 6, PR 4)", { timeout: 20000 }, () => {
   const Q = "88888888-8888-4888-8888-888888888888";
@@ -938,10 +941,6 @@ describe("quotations (meeting 6, PR 4)", { timeout: 20000 }, () => {
     sent_on: "2026-09-25T09:00:00Z", request: { quote_request_id: "q-1", public_ref: "SQ-2026-0003" }, dossier_ref: null,
   };
   const OLD = { ...CARD, quotation_id: "99999999-9999-4999-8999-999999999999", doc_number: "QUO-2026-0001", status: "ACCEPTED", waiting: false, sent_on: "2026-09-27T09:00:00Z", request: null };
-  const PROPOSAL = {
-    proposal_id: P, doc_number: "PRP-2026-0004", title: "Door-to-door, Shanghai to Douala", status: "ACCEPTED",
-    currency: "XAF", total: 4850000, route: "Shanghai → Douala", sent_on: "2026-09-20", valid_until: "2099-12-31",
-  };
   const DETAIL = {
     quotation: {
       ...CARD,
@@ -965,9 +964,8 @@ describe("quotations (meeting 6, PR 4)", { timeout: 20000 }, () => {
     otp: { sent_to: "m***@acme.cm", expires_at: "2099-01-01T00:00:00Z", attempts_remaining: 5, resends_remaining: 3, cooldown_until: null, verified_at: null },
   };
   const offerRoutes = (extra: typeof routes = {}) => ({
-    "/portal/client/home": () => [200, { data: { ...HOME, quotations: { pending_count: 1 }, proposals: { pending_count: 0 } } }] as [number, Json],
+    "/portal/client/home": () => [200, { data: { ...HOME, quotations: { pending_count: 1 } } }] as [number, Json],
     "/portal/client/quotations": () => [200, { data: [OLD, CARD] }] as [number, Json],
-    "/portal/client/proposals": () => [200, { data: [PROPOSAL] }] as [number, Json],
     [`/portal/client/quotations/${Q}`]: () => [200, { data: DETAIL }] as [number, Json],
     ...extra,
   });
@@ -985,26 +983,46 @@ describe("quotations (meeting 6, PR 4)", { timeout: 20000 }, () => {
     within(bar).getByRole("link", { name: new RegExp(en.nav.quotes) });
   });
 
-  it("lists quotations and proposals as cards, waiting first, with All / Quotations / Proposals", async () => {
+  it("lists quotations only, as cards, waiting first, and asks for no proposals", async () => {
     stubApi(true, offerRoutes());
     sessionStorage.setItem("praxis.portal.token", "tok");
-    const { findByText, getByRole, queryByText, container } = await mount("/portal/quotations");
+    const { findByText, container, queryByRole } = await mount("/portal/quotations");
     await findByText("QUO-2026-0007");
-    await findByText("PRP-2026-0004");
+    await findByText("QUO-2026-0001");
     const cards = [...container.querySelectorAll("main .pt-card-press")].map((n) => n.textContent || "");
+    expect(cards).toHaveLength(2);
     // The one waiting for an answer comes first, even though it is older.
     expect(cards[0]).toContain("QUO-2026-0007");
     expect(cards[0]).toContain("SQ-2026-0003");
     expect(cards[0]).toContain(en.offer.status.SENT);
-    fireEvent.click(getByRole("button", { name: new RegExp(`^${en.offer.tab.proposals}`) }));
-    await waitFor(() => expect(queryByText("QUO-2026-0007")).toBeNull());
-    expect(queryByText("PRP-2026-0004")).not.toBeNull();
+    // No tabs any more: there is one kind of offer.
+    expect(queryByRole("group", { name: en.nav.quotations })).toBeNull();
+    expect(calls.some((c) => c.includes("/proposals"))).toBe(false);
   });
 
   it("keeps /portal/quotes working: a proposal link lands on Quotations, anything else on Requests", async () => {
     stubApi(true, { ...offerRoutes(), "/portal/client/quote-requests": () => [200, { data: [] }] });
     sessionStorage.setItem("praxis.portal.token", "tok");
     const { getByTestId } = await mount("/portal/quotes");
+    await waitFor(() => expect(getByTestId("loc").textContent).toBe("/portal/requests"));
+  });
+
+  it("lands an old proposal link on Quotations, the parameter dropped", async () => {
+    stubApi(true, offerRoutes());
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { getByTestId, findByText } = await mount(`/portal/quotes?proposal=${P}`);
+    await findByText("QUO-2026-0007");
+    await waitFor(() => expect(getByTestId("loc").textContent).toBe("/portal/quotations"));
+    expect(calls.some((c) => c.includes("/proposals"))).toBe(false);
+  });
+
+  it("keeps the phone's Quotes switch, counting what waits", async () => {
+    stubApi(true, offerRoutes());
+    sessionStorage.setItem("praxis.portal.token", "tok");
+    const { findByRole, getByTestId } = await mount("/portal/quotations");
+    const toRequests = await findByRole("button", { name: en.offer.switchRequests });
+    await waitFor(async () => expect((await findByRole("button", { name: new RegExp(`^${en.offer.switchQuotations}`) })).textContent).toContain("1"));
+    fireEvent.click(toRequests);
     await waitFor(() => expect(getByTestId("loc").textContent).toBe("/portal/requests"));
   });
 
@@ -1041,15 +1059,14 @@ describe("quotations (meeting 6, PR 4)", { timeout: 20000 }, () => {
     sessionStorage.setItem("praxis.portal.token", "tok");
     const { findByText, findByRole, getByRole, getByLabelText } = await mount(`/portal/quotations/${Q}`);
     await findByText("Port charges");
-    fireEvent.click(getByRole("button", { name: en.prop.acceptSign }));
-    await findByText(en.prop.sign.sentTo.replace("{{email}}", "m***@acme.cm"));
+    fireEvent.click(getByRole("button", { name: en.answer.acceptSign }));
+    await findByText(en.answer.sign.sentTo.replace("{{email}}", "m***@acme.cm"));
     expect(calls).toContain(`POST /portal/client/quotations/${Q}/sign`);
-    expect(calls).not.toContain(`POST /portal/client/proposals/${Q}/sign`);
     fireEvent.change(getByLabelText(en.signin.digit.replace("{{n}}", "1")), { target: { value: "123456" } });
     fireEvent.click(getByRole("button", { name: en.common.next }));
-    // Signing a quotation says it accepts THIS quotation, not "this proposal".
+    // Signing a quotation says it accepts THIS quotation.
     await findByText(en.offer.signAgree);
-    fireEvent.click(await findByRole("button", { name: en.prop.sign.submit }));
+    fireEvent.click(await findByRole("button", { name: en.answer.sign.submit }));
     await waitFor(() => expect(completed).toHaveLength(1));
     expect(completed[0]).toMatchObject({ code: "123456", preset_code: "STAMP", full_name: "Marie Nguema" });
   });

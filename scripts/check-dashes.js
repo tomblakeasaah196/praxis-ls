@@ -177,7 +177,11 @@ function emptyValueGlyph(text) {
 
 const hits = {};
 for (const f of files()) {
-  const lines = readFileSync(join(repoRoot, f), "utf8").split("\n");
+  /* A tracked file deleted in the working tree (a PR mid-way through removing
+     a screen) has no copy left to read; `git ls-files` still names it. */
+  const src = readIfPresent(join(repoRoot, f));
+  if (src === null) continue;
+  const lines = src.split("\n");
   /* Whether this line is inside a /* ... *\/ block.
    *
    * Comments are out of scope by decision, and the old test for one was
