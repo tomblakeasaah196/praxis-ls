@@ -112,19 +112,17 @@ export const AREAS: Area[] = [
     label: "Sales & CRM",
     basePath: "/sales",
     sections: [
-      { key: "leads", label: "Leads & Intake" },
-      { key: "enquiries", label: "Contact Enquiries" },
-      { key: "quote-requests", label: "Quote Requests" },
-      { key: "opportunities", label: "Opportunities" },
-      { key: "proposals", label: "Proposals" },
-      // Meeting 6, G6: Quotations sits after Proposals — Quote requests →
-      // Proposals → Quotations, the order the work flows. It lived under
-      // Commercial, where nobody in the meeting could find it;
-      // `/commercial/quotations` redirects here (app.tsx).
+      // The lean revamp (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md §3.1): five tabs.
+      // Quote Requests, Opportunities and Meetings folded into Leads (a request
+      // is the deal, a meeting is scheduled from the company); their old
+      // addresses redirect (app.tsx). Proposals stays until PR 6 merges it
+      // into Quotations.
+      { key: "leads", label: "Leads" },
       { key: "quotations", label: "Quotations" },
-      { key: "company-profile", label: "Company Profile" },
-      { key: "meetings", label: "Meetings" },
+      { key: "enquiries", label: "General Enquiries" },
       { key: "success-stories", label: "Success Stories" },
+      { key: "company-profile", label: "Company Profile" },
+      { key: "proposals", label: "Proposals" },
     ],
   },
   {
@@ -332,7 +330,6 @@ export const AREAS: Area[] = [
       // features/settings/settings-hub.tsx). Dropping it here too keeps the
       // ribbon row and the card grid telling the same story — the route and
       // its screen are untouched and still open directly.
-      { key: "pipeline-stages", label: "Pipeline Stages" },
       { key: "scheduled-reports", label: "Scheduled Reports" },
       { key: "api-keys", label: "API Keys" },
       { key: "catalogue", label: "Module Catalogue" },

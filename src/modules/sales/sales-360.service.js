@@ -246,7 +246,7 @@ async function leadRequests(c, leadId, canSee) {
 async function leadQuotations(c, lead, canSee) {
   const rows = await rowsOf(
     c,
-    `SELECT qt.quotation_id, qt.doc_number, qt.status, qt.currency, qt.total_ttc, qt.valid_until,
+    `SELECT qt.quotation_id, qt.doc_number, qt.status, qt.currency, qt.total_ttc, qt.valid_until, qt.costing_id,
             qt.sent_at, qt.viewed_at, qt.answered_at, qt.created_at,
             qt.quote_request_id, q.public_ref AS request_ref, q.title AS request_title
        FROM quotation qt
@@ -271,8 +271,9 @@ async function leadQuotations(c, lead, canSee) {
  * The Activity tab: ONE timeline, read where each thing lives (§4.3), newest
  * first. Activities logged on the row; meetings; mail threads bound to it that
  * the caller may read (mail's own visibility rule, never a second copy); the
- * quotations' sends, opens and answers; the requests' stage moves, wins and
- * losses from the audit ledger.
+ * quotations' sends, opens and answers; the Company Profile shares sent to it
+ * and their opens; the requests' stage moves, wins and losses from the audit
+ * ledger.
  */
 async function leadActivity(c, lead, { user = null, quotations = [] } = {}) {
   const leadId = lead.lead_id;
@@ -338,6 +339,49 @@ async function leadActivity(c, lead, { user = null, quotations = [] } = {}) {
     if (q.viewed_at) items.push({ ...head, at: q.viewed_at, kind: "VIEWED" });
     if (q.answered_at && ["ACCEPTED", "REJECTED", "CONVERTED"].includes(q.status)) {
       items.push({ ...head, at: q.answered_at, kind: q.status === "REJECTED" ? "DECLINED" : "ACCEPTED" });
+    }
+  }
+
+  // Company Profile shares sent for this company, and every open of one (PR 6
+  // handed this to PR 3): who it went to, when, and when it was read. The
+  // share stores `lead_id`; the opens are its children.
+  const shares = await rowsOf(
+    c,
+    `SELECT s.share_id, s.recipient_name, s.recipient_email, s.language, s.created_at, s.revoked_at,
+            u.full_name AS author_name
+       FROM company_profile_share s
+       LEFT JOIN app_user u ON u.user_id = s.created_by
+      WHERE s.lead_id = $1
+      ORDER BY s.created_at DESC
+      LIMIT $2`,
+    [leadId, LIMIT],
+  );
+  if (shares.length) {
+    const opens = await rowsOf(
+      c,
+      `SELECT o.open_id, o.share_id, o.kind, o.opened_at
+         FROM company_profile_share_open o
+        WHERE o.share_id = ANY($1)
+        ORDER BY o.opened_at DESC
+        LIMIT $2`,
+      [shares.map((s) => s.share_id), TIMELINE_LIMIT],
+    );
+    const byId = new Map(shares.map((s) => [s.share_id, s]));
+    for (const s of shares) {
+      items.push({
+        type: "profile_share", at: s.created_at, kind: "SHARED",
+        title: s.recipient_name || s.recipient_email || null, body: s.recipient_email || null,
+        author_name: s.author_name || null, revoked: Boolean(s.revoked_at),
+        ref: { type: "company_profile_share", id: s.share_id },
+      });
+    }
+    for (const o of opens) {
+      const s = byId.get(o.share_id) || {};
+      items.push({
+        type: "profile_share", at: o.opened_at, kind: o.kind === "DOWNLOAD" ? "DOWNLOADED" : "OPENED",
+        title: s.recipient_name || s.recipient_email || null, body: null,
+        ref: { type: "company_profile_share", id: o.share_id },
+      });
     }
   }
 

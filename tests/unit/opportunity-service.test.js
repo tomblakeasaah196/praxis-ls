@@ -64,17 +64,8 @@ describe("the opportunity is read only", () => {
   });
 });
 
-describe("Kanban pagination", () => {
-  test("the board follows every 200-row page instead of silently truncating", () => {
-    const fs = require("fs");
-    const path = require("path");
-    const source = fs.readFileSync(path.join(__dirname, "../../client/src/features/sales/opportunities.tsx"), "utf8");
-    expect(source).toContain("for (let offset = 0; ; offset += pageSize)");
-    expect(source).toContain('pageQuery.set("offset", String(offset))');
-    expect(source).toContain("if (rows.length < pageSize) return all");
-    expect(source).not.toContain('tenant<Row[]>(`/opportunities?limit=200');
-  });
-});
+// The Opportunities board screen went with the Sales lean revamp, PR 3: the
+// Leads board shows requests (client/src/features/sales/leads-board.tsx).
 
 describe("metrics", () => {
   test("both win rates come back named, off one aggregate query", async () => {

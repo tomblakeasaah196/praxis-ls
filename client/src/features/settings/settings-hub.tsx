@@ -122,7 +122,7 @@ const SECTIONS: Section[] = [
         // Meeting 6, G1: the margin "Create quotation" prices services at.
         to: "/settings/commercial",
         label: "Commercial",
-        desc: "Target margin for quotations priced from a costing",
+        desc: "Target margin for quotations, and the default sales owner",
         icon: "money",
       },
       {
@@ -146,12 +146,6 @@ const SECTIONS: Section[] = [
         to: "/settings/custom-fields",
         label: "Custom Fields",
         desc: "Per-entity field definitions",
-        icon: "ops",
-      },
-      {
-        to: "/settings/pipeline-stages",
-        label: "Pipeline Stages",
-        desc: "CRM, delivery, PO & production stages",
         icon: "ops",
       },
       {

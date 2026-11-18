@@ -21,6 +21,7 @@
 import { useCanOpenRoute } from "@/lib/route-access";
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
+import { leadDoneUrl } from "../lead-step";
 import { Panel } from "@/components/ui/panel";
 import { Pill } from "@/components/ui/pill";
 import { Button } from "@/components/ui/button";
@@ -345,8 +346,11 @@ export function TaskPanel({
                 value={task.status}
                 aria-label="Status"
                 options={STATUS_OPTIONS}
-                onValueChange={(v) =>
-                  void move
+                onValueChange={(v) => {
+                  // A lead's step is completed on the lead (lead-step.ts).
+                  const done = leadDoneUrl(task, v);
+                  if (done) return navigate(done);
+                  return void move
                     .mutateAsync({
                       id: task.task_id,
                       status: v as typeof task.status,
@@ -355,8 +359,8 @@ export function TaskPanel({
                     // A refused move (a blocked task being marked done) must
                     // leave the picker where it was, which it does: the value
                     // is the server's task, and nothing local was changed.
-                    .catch((err) => toast.error(errMsg(err)))
-                }
+                    .catch((err) => toast.error(errMsg(err)));
+                }}
               />
             </dd>
 

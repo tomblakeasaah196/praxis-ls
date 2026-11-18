@@ -58,7 +58,7 @@ const ENTRIES = [
     badgeKey: null,
     tone: "blue",
     icon: "proforma",
-    drillTo: "/sales/quote-requests",
+    drillTo: "/sales/leads?view=board",
     sensitive_field: null,
   },
   {

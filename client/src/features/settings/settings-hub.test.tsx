@@ -160,7 +160,7 @@ describe("the settings hub offers only the editors you can open", () => {
       expect(screen.queryByText(label)).toBeNull();
     // Their neighbours in the same sections are untouched.
     expect(screen.getByText("Bank Accounts")).toBeInTheDocument();
-    expect(screen.getByText("Pipeline Stages")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled Reports")).toBeInTheDocument();
   });
 
   it("is axe-clean once filtered", async () => {

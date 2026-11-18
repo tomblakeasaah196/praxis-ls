@@ -72,6 +72,8 @@ export const TYPE_LABEL: Record<string, { en: string; fr: string; one: string; o
   file: { en: "Operations files", fr: "Dossiers", one: "file", oneFr: "dossier", route: "/operations/files" },
   transit_order: { en: "Transit orders", fr: "Ordres de transit", one: "transit order", oneFr: "ordre de transit", route: "/operations/transit-orders" },
   delivery_note: { en: "Delivery notes", fr: "Bons de livraison", one: "delivery note", oneFr: "bon de livraison", route: "/operations/delivery-notes" },
+  // The Lead 360's four tabs (lean revamp PR 3): one company row.
+  lead: { en: "Leads", fr: "Prospects", one: "company", oneFr: "société", route: "/sales/leads" },
 };
 
 const AREA_LABEL = new Map<string, string>(AREAS.map((a) => [a.key, a.label]));

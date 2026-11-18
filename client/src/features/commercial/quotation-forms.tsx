@@ -73,11 +73,14 @@ export function QuotationForm({
   entities,
   clients,
   opportunities,
+  initial,
   onClose,
   onSaved,
 }: {
   open: boolean;
   editing: Row | null;
+  /** Seed for a NEW quotation: the client and the request it answers (Leads › New Quotation). */
+  initial?: { client_id?: string | null; quote_request_id?: string | null } | null;
   entities: Row[] | null;
   clients: Row[] | null;
   opportunities: Row[] | null;
@@ -117,7 +120,7 @@ export function QuotationForm({
   React.useEffect(() => {
     if (!open) return;
     setEntityId(editing?.entity_id ? String(editing.entity_id) : "");
-    setClientId(editing?.client_id ? String(editing.client_id) : "");
+    setClientId(editing?.client_id ? String(editing.client_id) : !editing && initial?.client_id ? initial.client_id : "");
     setOpportunityId(
       editing?.opportunity_id ? String(editing.opportunity_id) : "",
     );
@@ -131,7 +134,9 @@ export function QuotationForm({
     setMarginPercent(
       editing?.margin_percent != null ? String(editing.margin_percent) : "",
     );
-    setQuoteRequestId(editing?.quote_request_id ? String(editing.quote_request_id) : "");
+    setQuoteRequestId(
+      editing?.quote_request_id ? String(editing.quote_request_id) : !editing && initial?.quote_request_id ? initial.quote_request_id : "",
+    );
     setFamilyOrder(
       Array.isArray(editing?.family_order) && (editing?.family_order as unknown[]).length
         ? (editing?.family_order as string[])
@@ -157,6 +162,7 @@ export function QuotationForm({
         : [blankLine()],
     );
     setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing]);
 
   /**

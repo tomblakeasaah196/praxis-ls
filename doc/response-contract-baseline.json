@@ -19,7 +19,8 @@
     "record_types": "Not an API field: client/src/lib/search-index.ts reads it from client/src/app/screen-registry.json tabs[] (meeting 6, PR 4 — G5), a static file the client imports. The scanner attributes it to the nearest exported type.",
     "tax_codes": "tax_jurisdiction.service.get attaches it to the row it returns (`jur.tax_codes = ...`, `jur.unmapped_codes = ...`) rather than selecting it, so the scanner — which reads `SELECT ... AS alias` — cannot see it. Both ARE sent, and the jurisdiction 360 is built on them: meeting 7 (01:25:15) needed the unmapped codes on screen the moment the jurisdiction opens. Previously invisible to this gate because the type was an inline intersection; naming it is what surfaced it.",
     "unmapped_codes": "tax_jurisdiction.service.get attaches it to the row it returns (`jur.tax_codes = ...`, `jur.unmapped_codes = ...`) rather than selecting it, so the scanner — which reads `SELECT ... AS alias` — cannot see it. Both ARE sent, and the jurisdiction 360 is built on them: meeting 7 (01:25:15) needed the unmapped codes on screen the moment the jurisdiction opens. Previously invisible to this gate because the type was an inline intersection; naming it is what surfaced it.",
-    "image_trust": "Computed per reader, not selected: image-trust.service.annotate stamps { trusted, reason } on each message of GET /mail/threads/:id from the caller's email_image_trust rows, master-data parties and own domains, so no column or literal key emits it."
+    "image_trust": "Computed per reader, not selected: image-trust.service.annotate stamps { trusted, reason } on each message of GET /mail/threads/:id from the caller's email_image_trust rows, master-data parties and own domains, so no column or literal key emits it.",
+    "has_value": "A query parameter, not a response field: LeadListQuery (client/src/lib/lead-api.ts) is what the Leads list sends to GET /leads, and lead.listQuery in @praxis/shared reads it as the Open Value tile's filter."
   },
   "tables": [
     "ageing",
@@ -69,6 +70,7 @@
     "gl_parity",
     "hard_block_reason",
     "hard_blocked_at",
+    "has_value",
     "header_note_fr",
     "holiday_date",
     "identity_from",
