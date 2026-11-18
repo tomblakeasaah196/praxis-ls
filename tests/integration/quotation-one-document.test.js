@@ -179,10 +179,16 @@ d("Sales lean revamp PR 4: quotations absorb proposals (real Postgres)", () => {
       expect(Number(q.total_ttc)).toBe(1000000);
       expect(q.sent_at).toBeTruthy();
       expect(q.valid_until).toBeTruthy();
-      const { rows: lines } = await c.query("SELECT label, qty, unit_price, is_disbursement, tax_code_id FROM quotation_line WHERE quotation_id = $1 ORDER BY line_no", [q.quotation_id]);
-      expect(lines.map((l) => [l.label, Number(l.qty), Number(l.unit_price), l.is_disbursement, l.tax_code_id])).toEqual([
+      // Numbered in the order a proposal always listed its lines (by
+      // proposal_line_id, a random uuid), so the set is asserted, and that the
+      // numbering is that order, never which label comes first.
+      const { rows: lines } = await c.query("SELECT label, qty, unit_price, is_disbursement, tax_code_id, line_no FROM quotation_line WHERE quotation_id = $1 ORDER BY line_no", [q.quotation_id]);
+      expect(lines.map((l) => [l.label, Number(l.qty), Number(l.unit_price), l.is_disbursement, l.tax_code_id]).sort()).toEqual([
         ["Freight", 2, 450000, false, null], ["Handling", 1, 100000, false, null],
       ]);
+      expect(lines.map((l) => l.line_no)).toEqual([1, 2]);
+      const { rows: order } = await c.query("SELECT label FROM proposal_line WHERE proposal_id = $1 ORDER BY proposal_line_id", [P.SENT]);
+      expect(lines.map((l) => l.label)).toEqual(order.map((l) => l.label));
       const [accepted] = await migrated(P.ACCEPTED);
       expect(accepted.client_id).toBe(CLIENT);
       expect(accepted.answered_at).toBeTruthy();
