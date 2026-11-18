@@ -74,7 +74,7 @@ export const KPI_ROUTE: Record<string, string> = {
   margin_closed: "/commercial/margin-simulation",
   dso: "/finance/receivables",
   pipeline_won: "/sales/leads?view=board",
-  quote_requests_open: "/sales/quote-requests",
+  quote_requests_open: "/sales/leads?view=board",
   pos_in_flight: "/procurement/purchase-orders",
   purchase_requests: "/procurement/purchase-requests",
 };

@@ -1,9 +1,10 @@
 /**
  * Leads & intake — the write surfaces.
  *
- * Split out of `features/sales/leads.tsx` in Phase 4 (audit F7: no file over
- * 400 lines). The modals that mutate the funnel: create/edit a lead and
- * convert one into a client.
+ * The lead form the mail conversion landing (`/sales/leads/new`) opens with an
+ * email's details filled in. The Leads screens capture through
+ * `lead-capture.tsx` and edit, make a client and archive from the 360
+ * (`lead-dialogs.tsx`), lean revamp PR 3.
  *
  * TriageModal was removed by F9. The enquiry desk is its own screen now
  * (features/sales/enquiries.tsx), and its Manage drawer owns triage. Leaving it here would
@@ -199,100 +200,6 @@ export function LeadForm({
           </Button>
           <Button onClick={submit} loading={busy} disabled={!canSubmit}>
             {editing ? "Save changes" : "Capture lead"}
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-export function ConvertModal({
-  lead,
-  onClose,
-  onDone,
-}: {
-  lead: Row | null;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const open = !!lead;
-  const [legalName, setLegalName] = React.useState("");
-  const [email, setEmail] = React.useState("");
-  const [phone, setPhone] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!lead) return;
-    setLegalName(lead.company_name ? String(lead.company_name) : "");
-    setEmail(lead.email ? String(lead.email) : "");
-    setPhone(lead.phone ? String(lead.phone) : "");
-    setError(null);
-  }, [lead]);
-
-  async function submit() {
-    if (!lead) return;
-    setBusy(true);
-    setError(null);
-    const client: Record<string, unknown> = {
-      legal_name: legalName.trim() || undefined,
-      email: email.trim() || undefined,
-      phone: phone.trim() || undefined,
-    };
-    try {
-      await tenant(`/leads/${String(lead.lead_id)}/make-client`, {
-        method: "POST",
-        body: { client },
-      });
-      onDone();
-      onClose();
-    } catch (e) {
-      setError(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Convert to client"
-      description="Promote this qualified lead into the client master and link it back(→)."
-    >
-      <div className="space-y-4">
-        <div className="grid gap-4">
-          <Field label={tr("Legal Name")} required>
-            <Input
-              value={legalName}
-              onChange={(e) => setLegalName(e.target.value)}
-              placeholder="Acme Logistics SARL"
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={tr("Email")}>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </Field>
-            <Field label={tr("Phone")}>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </Field>
-          </div>
-        </div>
-        {error && <ErrorState message={error} />}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            onClick={submit}
-            loading={busy}
-            disabled={!legalName.trim() || busy}
-          >
-            Convert to client
           </Button>
         </div>
       </div>

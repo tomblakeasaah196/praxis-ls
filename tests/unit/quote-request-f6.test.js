@@ -170,6 +170,18 @@ describe("KPI tiles", () => {
     expect(kpiOnly.where).not.toContain("status =");
     expect(kpiOnly.where).toContain("intake_channel =");
   });
+
+  test("an old opportunity link finds the request it became, and a bad id finds nothing", () => {
+    // PR 3: /sales/opportunities/:id resolves through ?converted_opportunity_id=
+    // (14512 set it on every request an opportunity became).
+    const real = jest.requireActual("../../src/modules/sales/quote_request/quote_request.repo");
+    const id = "11111111-2222-4333-8444-555555555555";
+    const hit = real.buildWhere({ converted_opportunity_id: id });
+    expect(hit.where).toContain("q.converted_opportunity_id = $1");
+    expect(hit.params).toEqual([id]);
+    // Not a uuid: no filter rather than a 22P02 from Postgres.
+    expect(real.buildWhere({ converted_opportunity_id: "x'; drop" }).params).toEqual([]);
+  });
 });
 
 /* ── 3. The request is the deal (lean revamp PR 2): its stage. ───────────── */

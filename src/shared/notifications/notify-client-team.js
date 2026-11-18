@@ -144,7 +144,9 @@ async function quoteRequestCreated(client, { entityRef, actorUserId }) {
   if (!q) return [];
   const accountManager = require("../../modules/master/client_master/account_manager.service");
   const ref = q.public_ref || "a new quote request";
-  const url = `/sales/quote-requests?focus=${q.quote_request_id}`;
+  // The request opens on its company row (lean revamp PR 3): the resolver at
+  // /sales/quote-requests/:id finds the row and opens the request sheet.
+  const url = `/sales/quote-requests/${q.quote_request_id}`;
   const notMe = (ids) => ids.filter((u) => !(actorUserId && u === actorUserId));
 
   if (q.client_id) {

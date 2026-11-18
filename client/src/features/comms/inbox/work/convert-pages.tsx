@@ -126,7 +126,7 @@ export function LeadNewPage() {
 
 export function QuoteRequestNewPage() {
   const seed = useMailSeed();
-  const { close, saved } = useConvertSave("quote_request", seed.threadId, "/sales/quote-requests");
+  const { close, saved } = useConvertSave("quote_request", seed.threadId, "/sales/leads");
   // From an email, the request arrived BY email — the channel says so (meeting
   // 6, item 2.6), and the form suggests the client the sender's address
   // belongs to (never by a public webmail domain), one tap to link.

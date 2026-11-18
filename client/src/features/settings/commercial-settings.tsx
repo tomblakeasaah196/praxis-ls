@@ -28,6 +28,7 @@ import { Callout } from "@/components/ui/callout";
 import { ErrorState } from "@/components/ui/states";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { DefaultSalesOwnerPanel } from "./sales-owner-setting";
 
 type QuotationSettings = { target_margin_percent: number };
 
@@ -113,6 +114,9 @@ export function CommercialSettingsPage() {
           </div>
         </Panel>
       ) : null}
+      <div className="mt-4">
+        <DefaultSalesOwnerPanel />
+      </div>
     </section>
   );
 }

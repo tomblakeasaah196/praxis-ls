@@ -188,14 +188,19 @@ const FinanceHub = lazyNamed(
   "FinanceHub",
 );
 const SalesHub = lazyNamed(() => import("@/features/sales/hub"), "SalesHub");
-// Lead 360 and Intake 360 — one module, so the two dossiers share a chunk.
-const LeadDossierPage = lazyNamed(
-  () => import("@/features/sales/sales-360"),
-  "LeadDossierPage",
+// The Lead 360 on its own page (lean revamp PR 3), and the two resolvers that
+// keep old request and opportunity links opening the request on its company.
+const LeadRecordPage = lazyNamed(
+  () => import("@/features/sales/lead-360"),
+  "LeadRecordPage",
 );
-const IntakeDossierPage = lazyNamed(
-  () => import("@/features/sales/sales-360"),
-  "IntakeDossierPage",
+const RequestLinkPage = lazyNamed(
+  () => import("@/features/sales/old-links"),
+  "RequestLinkPage",
+);
+const OpportunityLinkPage = lazyNamed(
+  () => import("@/features/sales/old-links"),
+  "OpportunityLinkPage",
 );
 // Mail conversion landings (§7.7) — one module, so the six share a chunk.
 const LeadNewPage = lazyNamed(
@@ -395,10 +400,6 @@ const ScheduledReportsPage = lazyNamed(
 const ApiKeysPage = lazyNamed(
   () => import("@/features/settings/api-keys"),
   "ApiKeysPage",
-);
-const PipelineStagesPage = lazyNamed(
-  () => import("@/features/settings/pipeline-stages"),
-  "PipelineStagesPage",
 );
 const NumberingPage = lazyNamed(
   () => import("@/features/settings/numbering"),
@@ -718,6 +719,22 @@ export function App() {
                 path="sales/partnerships"
                 element={<Navigate to="/sales/leads" replace />}
               />
+              {/* Quote Requests, Opportunities and Meetings folded into Leads
+                  (lean revamp PR 3, guide §5.6): a request is the deal and opens
+                  on its company row, a meeting is scheduled from the company.
+                  The board is a toggle on the Leads list. */}
+              <Route
+                path="sales/quote-requests"
+                element={<Navigate to="/sales/leads" replace />}
+              />
+              <Route
+                path="sales/meetings"
+                element={<Navigate to="/sales/leads" replace />}
+              />
+              <Route
+                path="sales/opportunities"
+                element={<Navigate to="/sales/leads?view=board" replace />}
+              />
               {/* The two front-of-funnel 360s get their own routes for the same
             reason the entity and treasury dossiers have theirs: a dossier gets
             pasted into an email, and "open Sales, then Leads, then find Tema
@@ -725,10 +742,14 @@ export function App() {
             router ranks by specificity, so the two-segment paths win either
             way. The same components are embedded in the registers, so the two
             surfaces cannot drift. */}
-              <Route path="sales/leads/:leadId" element={<LeadDossierPage />} />
+              <Route path="sales/leads/:leadId" element={<LeadRecordPage />} />
               <Route
                 path="sales/quote-requests/:quoteRequestId"
-                element={<IntakeDossierPage />}
+                element={<RequestLinkPage />}
+              />
+              <Route
+                path="sales/opportunities/:opportunityId"
+                element={<OpportunityLinkPage />}
               />
               {/* Mail conversion landings (§7.7) — see the note above the task
               one. Ranked above the dossier params by specificity. */}
@@ -891,9 +912,11 @@ export function App() {
                 path="settings/custom-fields"
                 element={<CustomFieldsPage />}
               />
+              {/* Pipeline Stages left with the fixed stages (lean revamp,
+                  D3): New, Contacted, Meeting, Quoted, Won, Lost. */}
               <Route
                 path="settings/pipeline-stages"
-                element={<PipelineStagesPage />}
+                element={<Navigate to="/sales/leads?view=board" replace />}
               />
               <Route
                 path="settings/scheduled-reports"

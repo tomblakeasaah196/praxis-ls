@@ -138,6 +138,9 @@ function buildWhere(q = {}, { includeStatus = true } = {}) {
   // 14511 — the deal's stage, and the company row it sits on.
   if (q.stage) { params.push(q.stage); wh.push("q.stage = $" + params.length); }
   if (q.lead_id) { params.push(q.lead_id); wh.push("q.lead_id = $" + params.length); }
+  // An old opportunity link resolves to the request it became (14512 set
+  // `converted_opportunity_id` on every one), so a notification still opens.
+  if (q.converted_opportunity_id && /^[0-9a-f-]{36}$/i.test(String(q.converted_opportunity_id))) { params.push(q.converted_opportunity_id); wh.push("q.converted_opportunity_id = $" + params.length); }
   if (q.intake_channel) { params.push(q.intake_channel); wh.push("q.intake_channel = $" + params.length); }
   if (q.service_category) { params.push(q.service_category); wh.push("q.service_category = $" + params.length); }
   if (q.service_type_id) { params.push(q.service_type_id); wh.push("q.service_type_id = $" + params.length); }
