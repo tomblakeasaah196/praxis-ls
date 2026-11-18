@@ -90,7 +90,7 @@ function Column({
       className={cn("flex min-w-0 flex-col gap-2 rounded-lg border p-2", isOver && "border-primary", collapsed ? "w-40 shrink-0" : "flex-1")}
     >
       <header className="flex items-center justify-between gap-2 px-1">
-        <h3 className="text-sm font-semibold text-foreground">{stageLabel(stage)}</h3>
+        <h2 className="text-sm font-semibold text-foreground">{stageLabel(stage)}</h2>
         {onToggle ? (
           <Button variant="ghost" size="sm" onClick={onToggle} aria-expanded={!collapsed}>
             <span className="num">{data?.total ?? 0}</span>

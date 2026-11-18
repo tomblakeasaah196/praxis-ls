@@ -212,6 +212,33 @@ describe("leadDossier", () => {
     expect(d.counts).toEqual({ activity: 3, requests: 0, quotations: 0 });
   });
 
+  test("Company Profile shares and their opens land on the Activity (PR 3, from PR 6)", async () => {
+    const c = clientOf([
+      [/FROM lead l/, [LEAD_ROW]],
+      [/FROM company_profile_share s/, [{ share_id: "S1", recipient_name: "Ada", recipient_email: "ada@tema.example", created_at: "2026-11-10T09:00:00Z", author_name: "Awa" }]],
+      [/FROM company_profile_share_open o/, [
+        { open_id: "O2", share_id: "S1", kind: "DOWNLOAD", opened_at: "2026-11-12T09:00:00Z" },
+        { open_id: "O1", share_id: "S1", kind: "VIEW", opened_at: "2026-11-11T09:00:00Z" },
+      ]],
+    ]);
+    const d = await svc.leadDossier(c, { leadId: "L1" });
+    expect(d.activity.map((i) => [i.type, i.kind])).toEqual([
+      ["profile_share", "DOWNLOADED"],
+      ["profile_share", "OPENED"],
+      ["profile_share", "SHARED"],
+    ]);
+    expect(d.activity[2]).toMatchObject({ title: "Ada", author_name: "Awa", ref: { type: "company_profile_share", id: "S1" } });
+    const shares = c.calls.find((x) => /FROM company_profile_share s/.test(x.sql));
+    expect(shares.params[0]).toBe("L1");
+    expect(c.calls.find((x) => /company_profile_share_open/.test(x.sql)).params[0]).toEqual(["S1"]);
+  });
+
+  test("no share, no second query for opens", async () => {
+    const c = clientOf([[/FROM lead l/, [LEAD_ROW]]]);
+    await svc.leadDossier(c, { leadId: "L1" });
+    expect(c.calls.some((x) => /company_profile_share_open/.test(x.sql))).toBe(false);
+  });
+
   test("bound mail threads go through mail's visibility rule for the caller", async () => {
     const c = clientOf([[/FROM lead l/, [LEAD_ROW]]]);
     await svc.leadDossier(c, { leadId: "L1", user: { user_id: "U1" } });

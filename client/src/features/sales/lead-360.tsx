@@ -168,18 +168,18 @@ function NextStepCard({
 
 /* ═══════════════════════════════ Activity ═══════════════════════════════ */
 
-const SHARE_KIND: Record<string, string> = {
+const SHARE_SAYS: Record<string, string> = {
   SHARED: "Company Profile shared",
   OPENED: "Company Profile opened",
   DOWNLOADED: "Company Profile downloaded",
 };
-const QUOTE_KIND: Record<string, string> = {
+const QUOTE_SAYS: Record<string, string> = {
   SENT: "Quotation sent",
   VIEWED: "Quotation viewed",
   ACCEPTED: "Quotation accepted",
   DECLINED: "Quotation declined",
 };
-const STAGE_KIND: Record<string, string> = {
+const STAGE_SAYS: Record<string, string> = {
   CREATED: "Request received",
   STAGE_MOVED: "Moved to",
   WON: "Won",
@@ -196,12 +196,12 @@ export function activityHeadline(i: ActivityItem): string {
     case "mail":
       return `${tr("Mail")}: ${cell(i.title)}`;
     case "quotation":
-      return `${tr(QUOTE_KIND[String(i.kind)] || "Quotation")} ${cell(i.title)}`;
+      return `${tr(QUOTE_SAYS[String(i.kind)] || "Quotation")} ${cell(i.title)}`;
     case "profile_share":
-      return `${tr(SHARE_KIND[String(i.kind)] || "Company Profile")}${i.title ? `: ${i.title}` : ""}`;
+      return `${tr(SHARE_SAYS[String(i.kind)] || "Company Profile")}${i.title ? `: ${i.title}` : ""}`;
     case "stage":
       if (i.kind === "STAGE_MOVED") return `${tr("Moved to")} ${stageLabel(i.title)}`;
-      return tr(STAGE_KIND[String(i.kind)] || "Request");
+      return tr(STAGE_SAYS[String(i.kind)] || "Request");
     default:
       return cell(i.title);
   }

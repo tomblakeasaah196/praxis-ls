@@ -259,7 +259,7 @@ export function LogActivityDialog({
       <div className="space-y-4">
         <Segmented label={tr("Kind")} value={kind} options={KIND_OPTIONS} onChange={setKind} />
         <Field label={tr("What Happened")} required>
-          <Input value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} autoFocus />
+          <Input value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr("When")}>
@@ -492,7 +492,8 @@ export function MakeClientDialog({ open, lead, onClose, onSaved }: { open: boole
     setTerms(lead.payment_terms_days != null ? String(lead.payment_terms_days) : "");
     setEntityId(lead.entity_id || null);
     setError(null);
-  }, [open, lead]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, lead.lead_id]);
 
   async function save() {
     const parsed = leadShape.makeClient.safeParse({
@@ -599,7 +600,10 @@ export function ScheduleMeetingDialog({
     setRequestId(initialRequestId || "");
     setAttendees(user?.user_id ? [{ id: user.user_id, name: user.display_name || user.email || tr("Me") }] : []);
     setError(null);
-  }, [open, lead, initialRequestId, user]);
+    // Keyed on the user's id, not the object: a new object for the same person
+    // must not reset what is being typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, lead.lead_id, initialRequestId, user?.user_id]);
 
   async function save() {
     if (!subject.trim() || !when) return;
@@ -743,7 +747,8 @@ export function EditLeadDialog({ open, lead, onClose, onSaved }: { open: boolean
     setEntityId(lead.entity_id || null);
     setErrors({});
     setError(null);
-  }, [open, lead]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, lead.lead_id]);
 
   async function save() {
     const patch: Record<string, unknown> = {};

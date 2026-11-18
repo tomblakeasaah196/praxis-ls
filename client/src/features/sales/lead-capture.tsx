@@ -267,7 +267,7 @@ export function CaptureLeadDialog({
         {hit ? <AlreadyHere hit={hit} busy={opening} onOpen={() => void openExisting(hit)} /> : null}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr("Company or Person")} required error={err("company_name")} className="sm:col-span-2">
-            <Input value={company} onChange={(e) => setCompany(e.target.value)} autoFocus />
+            <Input value={company} onChange={(e) => setCompany(e.target.value)} />
           </Field>
           <Field label={tr("Phone or Email")} required error={err("phone") || err("email")}>
             <Input value={reach} onChange={(e) => setReach(e.target.value)} placeholder="+237 6XX XXX XXX" />

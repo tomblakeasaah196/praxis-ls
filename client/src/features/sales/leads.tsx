@@ -246,7 +246,7 @@ export function LeadsPage() {
             {selected ? (
               <LeadRecordView key={selected.lead_id} leadId={selected.lead_id} placeholder={{ title: selected.company_name }} onChanged={res.reload} />
             ) : (
-              <EmptyState title={rows && rows.length ? tr("Choose a company") : tr("No company open")} />
+              <EmptyState title={rows && rows.length ? tr("Pick a company from the list.") : tr("No company open")} />
             )}
           </SplitPane>
         )}

@@ -51,8 +51,8 @@ import { OfficeExpensesPage } from "./finance/office-expenses";
 import { OperationsFilesPage } from "./operations/operation-files";
 import { ServiceTypesPage } from "./masterdata/service-types";
 import { LeadsPage } from "./sales/leads";
-import { MeetingsPage } from "./sales/meetings";
-import { OpportunitiesPage } from "./sales/opportunities";
+import { LeadRecordPage, LeadRecordView } from "./sales/lead-360";
+import { LeadsBoard } from "./sales/leads-board";
 import { ProposalsPage } from "./sales/proposals";
 import { SuccessStoriesPage } from "./sales/success-stories";
 import { UsersPage } from "./security/users";
@@ -87,7 +87,6 @@ import { BankAccountsPage } from "./settings/bank-accounts";
 import { PaymentGatewaysPage } from "./settings/payment-gateways";
 import { ScheduledReportsPage } from "./settings/scheduled-reports";
 import { ApiKeysPage } from "./settings/api-keys";
-import { PipelineStagesPage } from "./settings/pipeline-stages";
 import { CustomFieldsPage } from "./settings/custom-fields";
 import { CommsSetupPage } from "./comms/setup/index";
 import { CallsPage } from "./settings/calls-page";
@@ -359,6 +358,70 @@ const USERS = [
   },
 ];
 
+/* ── Leads (lean revamp PR 3) ─────────────────────────────────────────── */
+
+const LEAD_ROWS = [
+  {
+    lead_id: "l1",
+    company_name: "Cimencam",
+    contact_name: "Paul M.",
+    status: "OPEN",
+    is_client: false,
+    owner_name: "Awa N.",
+    next_step_action: "Call back",
+    next_step_due_at: "2026-07-03T08:00:00Z",
+    next_step_overdue: true,
+    open_value: 4_500_000,
+    open_currency: "XAF",
+  },
+];
+
+const LEAD_DOSSIER = {
+  lead: {
+    lead_id: "l1",
+    company_name: "Cimencam",
+    contact_name: "Paul M.",
+    email: "paul@cimencam.cm",
+    phone: "+237 699 000 000",
+    status: "OPEN",
+    is_client: false,
+    client_id: null,
+    owner_name: "Awa N.",
+    created_at: "2026-07-01T09:00:00Z",
+  },
+  next_step: { task_id: "t1", action: "Call back", due_at: "2026-07-03T08:00:00Z", overdue: true },
+  next_step_required: true,
+  counts: { activity: 2, requests: 1, quotations: 0 },
+  activity: [
+    { type: "activity", at: "2026-07-02T10:00:00Z", kind: "CALL", body: "Wants a rate to Bangui", author_name: "Awa N.", ref: { type: "lead_activity", id: "a1" } },
+    { type: "profile_share", at: "2026-07-02T11:00:00Z", kind: "OPENED", title: "Paul M.", ref: { type: "company_profile_share", id: "s1" } },
+  ],
+  requests: [
+    {
+      quote_request_id: "q1",
+      public_ref: "SQ-2026-0042",
+      title: "Cement to Bangui",
+      stage: "CONTACTED",
+      intake_channel: "WEBSITE",
+      origin_location: "Douala",
+      destination_location: "Bangui",
+      estimated_value: 4_500_000,
+      currency: "XAF",
+    },
+  ],
+  quotations: [],
+  kpis: { money_visible: true },
+  client: null,
+};
+
+const BOARD_CARD = {
+  quote_request_id: "q1",
+  lead_id: "l1",
+  lead_company_name: "Cimencam",
+  public_ref: "SQ-2026-0042",
+  stage: "NEW",
+};
+
 type ScreenCase = {
   name: string;
   render: () => React.ReactElement;
@@ -534,57 +597,52 @@ const AREAS: Area[] = [
         name: "Leads",
         render: () => <LeadsPage />,
         routes: {
-          "/leads": [
-            {
-              lead_id: "l1",
-              company_name: "Cimencam",
-              contact_name: "Paul M.",
-              status: "NEW",
-              source: "WEBSITE",
-              created_at: "2026-07-02",
-            },
-          ],
-          "/intake": [],
+          "/leads": LEAD_ROWS,
+          "/leads/l1/360": LEAD_DOSSIER,
         },
       },
       {
-        name: "Meetings",
-        render: () => <MeetingsPage />,
-        routes: {
-          "/meetings": [
-            {
-              meeting_id: "m1",
-              subject: "Kick-off",
-              scheduled_at: "2026-07-10T09:00:00Z",
-              status: "SCHEDULED",
-            },
-          ],
-          "/leads": [],
-          "/clients": CLIENTS,
-        },
+        // The record on its own page: the company's name is the h1.
+        name: "Lead 360",
+        render: () => <LeadRecordPage />,
+        path: "/sales/leads/l1",
+        pattern: "/sales/leads/:leadId",
+        routes: { "/leads/l1/360": LEAD_DOSSIER },
+        populatedProof: /Cimencam/,
+        // A dossier that arrives empty is not a shape the 360 route returns
+        // (a missing company is a 404, the error state), so there is no empty.
+        states: ["loading", "error", "populated"],
       },
       {
-        name: "Opportunities",
-        render: () => <OpportunitiesPage />,
-        routes: {
-          "/opportunities/stages": [
-            { pipeline_stage_id: "p1", name: "Qualified", sort_order: 1 },
-          ],
-          "/opportunities": [
-            {
-              opportunity_id: "op1",
-              name: "Douala corridor",
-              pipeline_stage_id: "p1",
-              status: "OPEN",
-              estimated_value: 12_000_000,
-              probability: 40,
-            },
-          ],
-          "/leads": [],
-          "/clients": CLIENTS,
-          "/entities": ENTITIES,
-        },
+        name: "Lead 360, Requests tab",
+        render: () => (
+          <>
+            <h1>Lead</h1>
+            <LeadRecordView leadId="l1" />
+          </>
+        ),
+        path: "/sales/leads/l1?tab=Requests",
+        routes: { "/leads/l1/360": LEAD_DOSSIER },
+        populatedProof: /SQ-2026-0042/,
+        states: ["loading", "error", "populated"],
       },
+      {
+        name: "Leads board",
+        render: () => (
+          <>
+            <h1>Board</h1>
+            <LeadsBoard q="" moneyVisible />
+          </>
+        ),
+        routes: { "/quote-requests": { rows: [BOARD_CARD], total: 1 } },
+        populatedProof: /Cimencam/,
+        // Every column reads the same fixture; an object, not rows, so the
+        // empty-state guard below does not apply.
+        states: ["loading", "error", "populated"],
+      },
+      // The request sheet, Capture Lead, Done and Schedule Meeting are dialogs:
+      // they portal outside the container this register scans, so their axe
+      // checks are in features/sales/lead-360.test.tsx, against the document.
       {
         name: "Proposals",
         render: () => <ProposalsPage />,
@@ -1620,15 +1678,6 @@ const AREAS: Area[] = [
         routes: {
           "/settings/integration_secret": [
             { key: "exchangerate", last4: "9f2a" },
-          ],
-        },
-      },
-      {
-        name: "Pipeline stages",
-        render: () => <PipelineStagesPage />,
-        routes: {
-          "/opportunities/stages": [
-            { pipeline_stage_id: "p1", name: "Qualified", sort_order: 1 },
           ],
         },
       },
