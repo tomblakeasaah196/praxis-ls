@@ -87,4 +87,51 @@ function build({ proposal, lines = [], narratives = [], client = null, language 
   };
 }
 
-module.exports = { build, selectedLanguage, sectionTitle, TEXT };
+/**
+ * The same presentation, read from the QUOTATION a proposal became (14542).
+ *
+ * Until PR 6 replaces them, the public proposal page and the portal's
+ * Proposals screen read this shape. Proposals are quotations now, so the shape
+ * is built from the quotation: its lines, its written sections in the reader's
+ * language, the same figures the quotation's PDF prints.
+ */
+const QUOTATION_SECTION_TITLE = {
+  EN: { needs: "Your Needs", solution: "Our Solution", scope: "Scope of Services", terms: "Terms", case_stories: "Case Stories" },
+  FR: { needs: "Vos besoins", solution: "Notre solution", scope: "Périmètre des prestations", terms: "Conditions", case_stories: "Références" },
+};
+function fromQuotation({ quotation, lines = [], sections = [], partyName = "", language = "EN" }) {
+  const lang = language === "FR" ? "FR" : "EN";
+  const locale = lang === "FR" ? "fr-FR" : "en-GB";
+  const currency = quotation.currency || "XAF";
+  const money = (value) => new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(Number(value) || 0);
+  const labels = TEXT[lang];
+  const pick = (s) => (lang === "FR" ? s.body_fr || s.body_en : s.body_en || s.body_fr) || "";
+  return {
+    language: lang,
+    locale,
+    currency,
+    title: quotation.title || "",
+    document_number: quotation.doc_number || "",
+    client_name: partyName || "",
+    origin: "",
+    destination: "",
+    route: "",
+    labels: { service: labels.service, quantity: labels.quantity, unit: labels.unit, total: labels.total },
+    sections: sections
+      .filter((s) => s.enabled !== false && QUOTATION_SECTION_TITLE[lang][s.section_key] && pick(s))
+      .map((s) => ({ key: s.section_key, title: QUOTATION_SECTION_TITLE[lang][s.section_key], body: pick(s) })),
+    lines: lines.map((row) => {
+      const total = (Number(row.qty) || 0) * (Number(row.unit_price) || 0);
+      return {
+        label: row.label || "",
+        quantity: Number(row.qty) || 0,
+        unit_price: Number(row.unit_price) || 0,
+        total,
+        unit_price_display: money(row.unit_price),
+        total_display: money(total),
+      };
+    }),
+  };
+}
+
+module.exports = { build, selectedLanguage, sectionTitle, TEXT, fromQuotation };

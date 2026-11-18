@@ -106,7 +106,10 @@ function signingKit({ docType, refOf, senderOf }) {
   }
 
   /** Open (or reuse) the signing request and email the code. */
-  async function start(c, { row, id, me, grantId = null, lang = "en", tenantName = "" }) {
+  // `sourceRef` names where the counterparty's address is on file when it is
+  // not a portal grant: the public quotation link passes the address the
+  // quotation was SENT to (`quotation_sent_to:<id>`), which staff typed on Send.
+  async function start(c, { row, id, me, grantId = null, lang = "en", tenantName = "", sourceRef = null }) {
     const cards = await digitalCards(c, langOf(lang));
     if (!cards.length) throw new AppError("ESIGN_UNAVAILABLE", "Online signing is not available for this document", 409);
 
@@ -127,7 +130,7 @@ function signingKit({ docType, refOf, senderOf }) {
           party_kind: "COUNTERPARTY",
           source: "ON_FILE",
           // The address is on file because the tenant invited it to the portal.
-          source_ref: grantId ? `portal_access:${grantId}` : `portal_user:${me.portal_user_id}`,
+          source_ref: sourceRef || (grantId ? `portal_access:${grantId}` : `portal_user:${me.portal_user_id}`),
           full_name: me.full_name || me.email,
           party_role: null,
           email: me.email,

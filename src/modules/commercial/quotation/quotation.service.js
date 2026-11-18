@@ -322,6 +322,20 @@ async function transition(client, { id, to, entityId = null, actor = {} }) {
  * portal (G4) — not an app user, so it is stored beside the row, never as an
  * actor id; `via` says which.
  */
+/** The row, locked for the rest of the transaction. */
+async function lockFor(client, id) {
+  const { rows } = await client.query("SELECT * FROM quotation WHERE quotation_id = $1 FOR UPDATE", [id]);
+  if (!rows[0]) throw new AppError("NOT_FOUND", "Quotation not found", 404);
+  return rows[0];
+}
+
+/** Answered by someone else while this answer waited for the lock: a 409, as the portal says it. */
+function assertStillOpen(locked, before) {
+  if (locked.status !== before.status) {
+    throw new AppError("QUOTATION_ANSWERED", "This quotation has already been answered", 409, { status: locked.status });
+  }
+}
+
 const ANSWERED_VIA = ["PORTAL", "LINK", "STAFF"];
 const viaOf = (via) => (ANSWERED_VIA.includes(via) ? via : "STAFF");
 
@@ -331,8 +345,13 @@ async function accept(client, { id, convert: convertNow = false, actor = {}, by 
   assertTransition(before.status, "ACCEPTED");
   if (before.superseded_at) throw new AppError("QUOTATION_SUPERSEDED", "A newer version of this quotation has been sent", 409);
   return atomically(client, async () => {
+    // Locked and read again: two answers at once (a double click, a retried
+    // request, the link and the portal together) make ONE acceptance and one
+    // `quotation.accepted`; the second finds it answered.
+    const locked = await lockFor(client, id);
+    assertStillOpen(locked, before);
     // A prospect's quotation always answers a request, so its yes wins one (D7).
-    const linked = await ensureRequest(client, before, actor);
+    const linked = await ensureRequest(client, locked, actor);
     await repo.update(client, id, {
       status: "ACCEPTED", answered_at: new Date(), answered_via: viaOf(via),
       answered_by_name: by && by.name ? String(by.name).slice(0, 200) : null,
@@ -418,6 +437,8 @@ async function decline(client, { id, reasonCode, reason, by = null, via = "PORTA
   if (!before) throw new AppError("NOT_FOUND", "Quotation not found", 404);
   assertTransition(before.status, "REJECTED");
   return atomically(client, async () => {
+    const locked = await lockFor(client, id);
+    assertStillOpen(locked, before);
     const row = await repo.update(client, id, {
       status: "REJECTED", answered_at: new Date(), answered_via: viaOf(via),
       answered_by_name: by && by.name ? String(by.name).slice(0, 200) : null,

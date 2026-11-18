@@ -186,7 +186,7 @@ const linkAcceptComplete = z
     preset_code: z.enum(["STAMP", "DRAWN"]),
     full_name: z.string().trim().min(2, "Enter your full name.").max(200),
     role: z.string().trim().max(120).nullable().optional(),
-    mark_image: z.string().max(400000).nullable().optional(),
+    mark_image_b64: z.string().max(400000).nullable().optional(),
   })
   .strict();
 

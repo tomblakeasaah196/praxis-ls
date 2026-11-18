@@ -32,9 +32,9 @@ SELECT 'Standard', '{}', true, true, jsonb_build_object(
   'pricing',      jsonb_build_object('enabled', true),
   'terms',        jsonb_build_object('enabled', true,
     'body_en', 'Prices are valid until the date shown on this quotation. Disbursements are re-invoiced at cost on presentation of receipts. '
-            || 'Rates depend on the cargo details provided; a change to them may change the price.',
+            || 'Rates depend on the cargo details provided, and a change to them may change the price.',
     'body_fr', 'Les prix sont valables jusqu''à la date indiquée sur ce devis. Les débours sont refacturés au coût réel sur présentation des justificatifs. '
-            || 'Les tarifs dépendent des informations fournies sur la marchandise ; toute modification peut entraîner une révision du prix.'),
+            || 'Les tarifs dépendent des informations fournies sur la marchandise, et toute modification peut entraîner une révision du prix.'),
   'case_stories', jsonb_build_object('enabled', true),
   'next_steps',   jsonb_build_object('enabled', true)
 )

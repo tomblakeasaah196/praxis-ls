@@ -78,20 +78,26 @@ describe("G2 leg 2 — sandbox renders are watermarked", () => {
 });
 
 describe("G2 leg 3 — AI generators take the mock path in sandbox", () => {
-  it("proposal generation returns the manual/mock path with no provider in sandbox", async () => {
-    const generator = require("../../src/modules/sales/proposal/proposal.generator");
-    // The generator's sandbox branch does not call the model at all — it
-    // saves the manual draft and reports provider "mock". Pinning that means
-    // a future refactor cannot silently route sandbox through the live model.
-    // (The full generation flow is covered by proposal-f4-generation.test.js;
-    // here we pin the sandbox contract via the exported manual path.)
-    const { manualNarratives } = generator;
-    const out = manualNarratives({
-      client_operations: "ops",
-      pain_points: "pain",
-      proposed_strategy: "strategy",
-    });
-    expect(Array.isArray(out)).toBe(true);
-    expect(out.length).toBeGreaterThan(0);
+  it("Draft With AI on a quotation writes the discovery prefill and calls no provider in sandbox", async () => {
+    // Moved from the proposal generator with the proposal (lean revamp PR 4).
+    // The sandbox branch must never reach the model: pinning it here means a
+    // refactor cannot silently route TEST through the live provider.
+    jest.resetModules();
+    jest.doMock("../../src/modules/commercial/quotation/quotation.repo", () => ({
+      get: jest.fn().mockResolvedValue({ quotation_id: "q1", status: "DRAFT", lead_id: null, client_id: null }),
+      listSections: jest.fn().mockResolvedValue([]),
+      upsertSection: jest.fn().mockResolvedValue(undefined),
+    }));
+    const llm = { chat: jest.fn() };
+    jest.doMock("../../src/services/ai/llm.service", () => llm);
+    jest.doMock("../../src/shared/events/emit", () => ({ audit: jest.fn(), emitEvent: jest.fn() }));
+    const generator = require("../../src/modules/commercial/quotation/quotation.generator");
+    const client = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const out = await generator.draft(client, { quotationId: "q1", input: { client_operations: "ops", proposed_strategy: "plan" }, env: "sandbox" });
+    expect(out).toMatchObject({ manual_required: true, provider: "mock", sandbox: true });
+    expect(llm.chat).not.toHaveBeenCalled();
+    jest.dontMock("../../src/modules/commercial/quotation/quotation.repo");
+    jest.dontMock("../../src/services/ai/llm.service");
+    jest.dontMock("../../src/shared/events/emit");
   });
 });

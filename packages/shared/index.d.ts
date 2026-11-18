@@ -1555,7 +1555,7 @@ export declare namespace quotation {
   const share: z.ZodType<{ expires_on?: string | null }, unknown>;
   const recordAcceptance: z.ZodType<{ convert?: boolean; by_name?: string | null; by_email?: string | null }, unknown>;
   const linkAcceptStart: z.ZodType<{ full_name: string; role?: string | null }, unknown>;
-  const linkAcceptComplete: z.ZodType<{ code: string; preset_code: "STAMP" | "DRAWN"; full_name: string; role?: string | null; mark_image?: string | null }, unknown>;
+  const linkAcceptComplete: z.ZodType<{ code: string; preset_code: "STAMP" | "DRAWN"; full_name: string; role?: string | null; mark_image_b64?: string | null }, unknown>;
   const linkAcceptConfirm: z.ZodType<{ full_name: string; role?: string | null }, unknown>;
   const draftSections: z.ZodTypeAny;
 }
