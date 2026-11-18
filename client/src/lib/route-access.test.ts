@@ -50,8 +50,8 @@ describe("moduleForPath", () => {
     // `/finance` and `/finance/journals` are both registered and gate different
     // modules. Matching the shorter one first would hand every Finance screen
     // the hub's grant.
-    expect(moduleForPath("/finance/journals")).toBe("MOD-05");
-    expect(moduleForPath("/finance/journals/new")).toBe("MOD-05");
+    expect(moduleForPath("/finance/journals")).toBe("MOD-55");
+    expect(moduleForPath("/finance/journals/new")).toBe("MOD-55");
   });
 
   it("matches `/` exactly and never as a prefix", () => {
@@ -102,7 +102,7 @@ describe("a hub landing page is gated by its sections, not by one module", () =>
     // A user with only Journals must still reach Finance — the ribbon already
     // shows them that tab, and a hub they cannot open with a section they can
     // read is a contradiction the user experiences as a bug.
-    expect(canOpenRoute(user(["MOD-05"]), "/finance")).toBe(true);
+    expect(canOpenRoute(user(["MOD-55"]), "/finance")).toBe(true);
   });
 
   it("refuses the hub for a user who holds none", () => {
@@ -111,9 +111,9 @@ describe("a hub landing page is gated by its sections, not by one module", () =>
 
   it("still gates the sections individually", () => {
     // Reaching the hub is not reaching everything in it.
-    expect(canOpenRoute(user(["MOD-05"]), "/finance")).toBe(true);
-    expect(canOpenRoute(user(["MOD-05"]), "/finance/invoices")).toBe(false);
-    expect(canOpenRoute(user(["MOD-05"]), "/finance/journals")).toBe(true);
+    expect(canOpenRoute(user(["MOD-55"]), "/finance")).toBe(true);
+    expect(canOpenRoute(user(["MOD-55"]), "/finance/invoices")).toBe(false);
+    expect(canOpenRoute(user(["MOD-55"]), "/finance/journals")).toBe(true);
   });
 
   it("applies to every hub, not just the one that was noticed", () => {
@@ -159,6 +159,33 @@ describe("a person's own account page needs no module grant", () => {
     // administration: their APIs require the module.
     expect(canOpenRoute(finance, "/workflows")).toBe(false);
     expect(canOpenRoute(finance, "/approvals")).toBe(false);
+  });
+});
+
+/**
+ * A SCREEN IS GATED BY THE MODULE ITS OWN API IS GUARDED WITH.
+ *
+ * Four Finance screens were registered under a neighbour's key: Journals under
+ * the Financial Dictionary's, Receivables under the General Ledger's, the Chart
+ * of Accounts under Profit and Loss's and Proformas under Receivables'. Nothing
+ * failed. A role granted Journal Entries was not shown Journals, and a role
+ * granted the Financial Dictionary was shown a Journals tab whose list the API
+ * refused. Found on 17 Nov 2026 by comparing each screen's key with the module
+ * its read actions are guarded with.
+ */
+describe("the four Finance screens are gated by their own module", () => {
+  it.each([
+    ["/finance/journals", "MOD-55"],
+    ["/finance/receivables", "MOD-52"],
+    ["/finance/chart-of-accounts", "MOD-06"],
+    ["/finance/proformas", "MOD-50"],
+  ])("%s is %s", (route, module) => {
+    expect(moduleForPath(route)).toBe(module);
+  });
+
+  it("a Journal Entries grant opens Journals, and a Financial Dictionary grant does not", () => {
+    expect(canOpenRoute(user(["MOD-55"]), "/finance/journals")).toBe(true);
+    expect(canOpenRoute(user(["MOD-05"]), "/finance/journals")).toBe(false);
   });
 });
 

@@ -68,10 +68,12 @@ const ALL = grant({
     "MOD-46",
     "MOD-47",
     "MOD-49",
+    "MOD-50",
     "MOD-51",
     "MOD-52",
     "MOD-53",
     "MOD-54",
+    "MOD-55",
     "MOD-56",
     "MOD-58",
     "MOD-59",
@@ -94,6 +96,7 @@ const ALL = grant({
     "MOD-03",
     "MOD-04",
     "MOD-05",
+    "MOD-06",
     "MOD-07",
     "MOD-08",
     "MOD-09",
@@ -160,14 +163,18 @@ describe("an area lands under exactly one verb", () => {
     expect(placement().monitor).not.toContain("vault");
   });
 
-  /** Finance keeps its Tax center (MOD-07) and Journals (MOD-05) even though
-   *  both are `configure` modules — an area shows everything you can read once
-   *  it is placed, or a hub would open missing two of its ten tabs. */
+  /** Finance keeps its Tax center (MOD-07) and its Chart of Accounts (MOD-06)
+   *  even though both are `configure` modules — an area shows everything you
+   *  can read once it is placed, or a hub would open missing two of its tabs.
+   *  (Journals used to be the second example here. It was registered under the
+   *  Financial Dictionary's key by mistake; under its own, MOD-55, it is a
+   *  `transact` module like the rest of Finance.) */
   it("keeps a section whose own module sits under a different verb", () => {
     const finance = buildRibbon(ALL)
       .find((f) => f.key === "transact")!
       .areas.find((a) => a.area.key === "finance")!;
     expect(finance.sections.map((s) => s.key)).toContain("tax");
+    expect(finance.sections.map((s) => s.key)).toContain("chart-of-accounts");
     expect(finance.sections.map((s) => s.key)).toContain("journals");
   });
 
