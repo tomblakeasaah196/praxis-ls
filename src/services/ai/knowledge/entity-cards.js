@@ -94,8 +94,9 @@ const BUILDERS = [
   },
   {
     key: "quotation",
-    sql: `SELECT q.quotation_id, q.doc_number, q.status, q.total_ttc, c.name AS client
+    sql: `SELECT q.quotation_id, q.doc_number, q.status, q.total_ttc, COALESCE(c.name, l.company_name) AS client
             FROM quotation q LEFT JOIN client_master c ON c.client_id = q.client_id
+            LEFT JOIN lead l ON l.lead_id = q.lead_id
            ORDER BY q.created_at DESC LIMIT $1`,
     card: (r) => ({
       ref: `quotation:${r.doc_number || r.quotation_id}`,
@@ -420,18 +421,8 @@ const BUILDERS = [
     }),
   },
   // ── Sales ──
-  {
-    key: "proposal",
-    sql: `SELECT p.proposal_id, p.doc_number, p.status, p.total_ttc, c.name AS client
-            FROM proposal p LEFT JOIN client_master c ON c.client_id = p.client_id
-           ORDER BY p.created_at DESC LIMIT $1`,
-    card: (r) => ({
-      ref: `proposal:${r.doc_number || r.proposal_id}`,
-      title: `Proposal ${r.doc_number || "draft"}`,
-      confidentiality: "normal",
-      text: `Proposal ${r.doc_number || "draft"} for ${r.client || "?"} — status ${r.status}, total ${r.total_ttc || 0} XAF.`,
-    }),
-  },
+  // The proposal card went with the proposal (lean revamp PR 4): every proposal
+  // is a quotation now (14542), carded above under `quotation`.
   // ── Master data ──
   {
     key: "chart_of_accounts",

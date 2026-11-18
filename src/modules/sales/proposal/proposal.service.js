@@ -1,173 +1,71 @@
 /**
- * Proposal generator (MOD-23). AI-assisted draft (lines + narrative sections),
- * human review before send. Lifecycle DRAFT→IN_REVIEW→SENT→ACCEPTED/REJECTED;
- * numbered + captured on send; accepting can spin a quotation from its lines.
- * All SQL is in the repo.
+ * Proposals (MOD-23), retired into quotations (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md
+ * §4.6, §5.1; owner decision D6: one document, called Quotation).
+ *
+ * 14542 carried every proposal into the quotation it is: its lines, its
+ * narratives as sections, its share link. From this release a proposal is
+ * READ ONLY:
+ *
+ *   list, get     still answer, from the proposal tables (which PR 7 drops), so
+ *                 the Proposals tab keeps showing what was there until PR 6
+ *                 removes it; each row names the quotation it became
+ *   every write   refused with 410 PROPOSAL_RETIRED, naming that quotation, so
+ *                 nothing is written to a record that has a newer copy, and no
+ *                 new proposal is made. A new offer is a quotation.
+ *
+ * The portal's Proposals screen and the public proposal link read the
+ * migrated quotation (portal_proposal.service, proposal_public.service).
  */
 "use strict";
 const repo = require("./proposal.repo");
-const events = require("./proposal.events");
-const { assertTransition, totalHt } = require("./proposal.rules");
-const numbering = require("../../../services/documents/numbering.service");
-const { emitEvent, audit } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
-const crypto = require("crypto");
-const { config } = require("../../../config/env");
-const pdf = require("../../../services/pdf.service");
-const vault = require("../../vault/document_vault/document_vault.service");
-const proposalDocument = require("./proposal.document");
-const proposalPresentation = require("./proposal.presentation");
-const ref = (id) => "proposal:" + id;
-const languageRef = (id, language) => `${ref(id)}:lang:${language}`;
-const HEADER_FIELDS = [
-  "lead_id", "client_id", "opportunity_id", "title", "language", "currency",
-  "service_category", "incoterm", "origin_location", "destination_location",
-  "cargo_description", "estimated_weight", "project_cargo_flag",
-  "customs_clearance_target", "transit_time_target", "free_days_demurrage",
-  "payment_conditions", "validity_days", "converted_client_id",
-];
-const headerFields = (data) => Object.fromEntries(
-  HEADER_FIELDS.filter((key) => data[key] !== undefined).map((key) => [key, data[key]]),
-);
 
-async function replaceChildren(client, id, lines, narratives) {
-  if (Array.isArray(lines)) {
-    await repo.deleteLines(client, id);
-    for (const l of lines) {   await repo.insertLine(client, { proposal_id: id, dictionary_item_id: l.dictionary_item_id || null, label: l.label || "Line", qty: l.qty || 1, unit_price: l.unit_price || 0 }); }
-  }
-  if (Array.isArray(narratives)) {
-    await repo.deleteNarratives(client, id);
-    for (let i = 0; i < narratives.length; i += 1) { const n = narratives[i];   await repo.insertNarrative(client, { proposal_id: id, section: n.section, language: n.language || "EN", body: n.body || "", sort_order: n.sort_order ?? i, raw_client_operations: n.raw_client_operations || null, raw_pain_points: n.raw_pain_points || null, raw_proposed_strategy: n.raw_proposed_strategy || null, raw_tone: n.raw_tone || null }); }
-  }
-}
-async function createDraft(client, { data, actor = {} }) {
-  await client.query("BEGIN");
-  try {
-    const p = await repo.insert(client, { ...headerFields(data), status: "DRAFT", ai_generated: false });
-    await replaceChildren(client, p.proposal_id, data.lines || [], data.narratives || []);
-    await audit(client, { actorUserId: actor.user_id || null, action: events.CREATED, moduleKey: events.MODULE, entityRef: ref(p.proposal_id), after: p });
-    await client.query("COMMIT");
-    return get(client, p.proposal_id);
-  } catch (err) { await client.query("ROLLBACK"); throw err; }
-}
-async function updateDraft(client, { id, patch = {}, lines = null, narratives = null, actor = {} }) {
-  const before = await repo.get(client, id);
-  if (!before) throw new AppError("NOT_FOUND", "Proposal not found", 404);
-  if (before.status !== "DRAFT") throw new AppError("LOCKED", "Only a DRAFT proposal can be edited", 422);
-  await client.query("BEGIN");
-  try {
-    const fields = {};
-    Object.assign(fields, headerFields(patch));
-    if (Object.keys(fields).length) await repo.update(client, id, fields);
-    await replaceChildren(client, id, lines, narratives);
-    const after = await get(client, id);
-    await audit(client, { actorUserId: actor.user_id || null, action: "proposal.updated", moduleKey: events.MODULE, entityRef: ref(id), before, after });
-    await client.query("COMMIT");
-    return after;
-  } catch (err) { await client.query("ROLLBACK"); throw err; }
-}
-async function transition(client, { id, to, entityId = null, actor = {} }) {
-  const before = await repo.get(client, id);
-  if (!before) throw new AppError("NOT_FOUND", "Proposal not found", 404);
-  assertTransition(before.status, to);
-  await client.query("BEGIN");
-  try {
-    const fields = { status: to };
-    if (to === "SENT" && !before.doc_number) {
-      if (!entityId) throw new AppError("ENTITY_REQUIRED", "entity_id required to number the proposal", 422);
-      const { number } = await numbering.allocate(client, { moduleKey: events.MODULE, entityId, date: new Date().toISOString().slice(0, 10) });
-      fields.doc_number = number;
-    }
-    if (to === "IN_REVIEW") fields.reviewed_by = actor.user_id || null;
-    const row = await repo.update(client, id, fields);
-    if (to === "SENT") {
-      const full = await get(client, id);
-      const clientRow = full.client_id
-        ? (await client.query("SELECT name, legal_name FROM client_master WHERE client_id=$1", [full.client_id])).rows[0]
-        : null;
-      const languages = full.language === "BILINGUAL" ? ["EN", "FR"] : [full.language || "EN"];
-      // G2 — sandbox renders carry a TEST SANDBOX watermark (PRD §5.5 [RULE]).
-      const sandbox = client && client[Symbol.for("praxis.conn.env")] === "sandbox";
-      const watermark = sandbox
-        ? '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;opacity:.16;font-size:64px;font-weight:800;color:#172033;pointer-events:none;transform:rotate(-24deg)">TEST SANDBOX</div>'
-        : "";
-      for (const language of languages) {
-        const presentation = proposalPresentation.build({
-          proposal: { ...full, ...fields }, lines: full.lines,
-          narratives: full.narratives, client: clientRow, language,
-        });
-        await pdf.renderAndStore(client, {
-          html: proposalDocument.html({ presentation }).replace(
-            "</body>",
-            `${watermark}</body>`,
-          ),
-          key: `proposals/${id}-${language.toLowerCase()}.pdf`,
-          entityRef: languageRef(id, language),
-          docType: "PROPOSAL",
-        });
-      }
-      const defaultLanguage = full.language === "FR" ? "FR" : "EN";
-      const captured = await vault.getByRef(client, languageRef(id, defaultLanguage));
-      if (captured) await repo.update(client, id, { pdf_vault_id: captured.doc_id });
-    }
-    await emitEvent(client, { eventTypeKey: events.transition(to), moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null });
-    await audit(client, { actorUserId: actor.user_id || null, action: events.transition(to), moduleKey: events.MODULE, entityRef: ref(id), after: row });
-    await client.query("COMMIT");
-    return row;
-  } catch (err) { await client.query("ROLLBACK"); throw err; }
-}
-/** Accept a SENT proposal; optionally create a quotation from its lines. */
-// `by` is the person at the client who accepted it in their portal ({ name,
-// email }); staff acceptances leave it out and are named by `actor`.
-async function accept(client, { id, createQuotation = false, entityId = null, actor = {}, by = null }) {
-  const before = await repo.get(client, id);
-  if (!before) throw new AppError("NOT_FOUND", "Proposal not found", 404);
-  assertTransition(before.status, "ACCEPTED");
-  await client.query("BEGIN");
-  try {
-    const row = await repo.update(client, id, { status: "ACCEPTED" });
-    let quotationId = null;
-    if (createQuotation) {
-      if (!entityId) throw new AppError("ENTITY_REQUIRED", "entity_id required to create a quotation", 422);
-      const lines = await repo.listLines(client, id);
-      const { number } = await numbering.allocate(client, { moduleKey: "MOD-27", entityId, date: new Date().toISOString().slice(0, 10) });
-      quotationId = await repo.createQuotation(client, { proposal: before, entityId, totalHt: totalHt(lines), docNumber: number });
-      await repo.update(client, id, { converted_quote_id: quotationId });
-    }
-    await emitEvent(client, {
-      eventTypeKey: events.ACCEPTED, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null,
-      ...(by ? { payload: { by } } : {}),
-    });
-    await audit(client, { actorUserId: actor.user_id || null, action: events.ACCEPTED, moduleKey: events.MODULE, entityRef: ref(id), after: { quotation_id: quotationId } });
-    await client.query("COMMIT");
-    return { proposal: row, quotation_id: quotationId };
-  } catch (err) { await client.query("ROLLBACK"); throw err; }
+/** The quotation 14542 made from a proposal (or the one it was already converted into). */
+async function quotationOf(client, proposalId) {
+  if (!proposalId) return null;
+  const { rows } = await client.query("SELECT quotation_id FROM quotation WHERE source_proposal_id = $1 LIMIT 1", [proposalId]);
+  return rows[0] ? rows[0].quotation_id : null;
 }
 
-/**
- * Mint a share token: 32 random bytes plus an HMAC over them.
- *
- * The secret is `JWT_ACCESS_SECRET`. It was `config.JWT_SECRET`, which is not a
- * key this repo's env schema defines (src/config/env.js declares only
- * JWT_ACCESS_SECRET and JWT_REFRESH_SECRET), so it resolved to `undefined` and
- * `createHmac` threw `TypeError: The "key" argument must be of type string…` on
- * EVERY call — `POST /proposals/:id/share` answered 500 in every environment
- * and no proposal could be shared at all. src/middleware/auth.js carries a note
- * about the same mistake being fixed there; this is the second occurrence.
- *
- * The unit suite did not catch it because tests/unit/proposal-f5-sharing.test.js
- * only exercises `resolve()` (the read side) — see the minting test added
- * alongside this fix.
- */
-function signedToken(){const raw=crypto.randomBytes(32).toString("base64url");const sig=crypto.createHmac("sha256",config.JWT_ACCESS_SECRET).update(raw).digest("base64url");return `${raw}.${sig}`;}
-async function share(client,{id,expiresInDays=30,actor={}}){const before=await repo.get(client,id);if(!before)throw new AppError("NOT_FOUND","Proposal not found",404);if(before.status!=="SENT")throw new AppError("NOT_SENT","Only a sent proposal can be shared",422);const token=signedToken();const expires=new Date(Date.now()+expiresInDays*86400000);await repo.update(client,id,{share_token_hash:crypto.createHash("sha256").update(token).digest("hex"),share_expires_at:expires,share_revoked_at:null});await audit(client,{actorUserId:actor.user_id||null,action:"proposal.shared",moduleKey:events.MODULE,entityRef:ref(id),after:{expires_at:expires}});return{token,expires_at:expires,path:`/public/proposals/${encodeURIComponent(token)}`};}
-async function revokeShare(client,{id,actor={}}){const before=await repo.get(client,id);if(!before)throw new AppError("NOT_FOUND","Proposal not found",404);const row=await repo.update(client,id,{share_revoked_at:new Date()});await audit(client,{actorUserId:actor.user_id||null,action:"proposal.share_revoked",moduleKey:events.MODULE,entityRef:ref(id),after:{share_revoked_at:row.share_revoked_at}});return row;}
+/** The one refusal every proposal write gets. */
+async function retired(client, id = null) {
+  const quotationId = id ? await quotationOf(client, id) : null;
+  throw new AppError(
+    "PROPOSAL_RETIRED",
+    "Proposals are now quotations. Open the quotation instead, or create a new quotation.",
+    410,
+    { quotation_id: quotationId, open: quotationId ? `/sales/quotations?focus=${quotationId}` : "/sales/quotations" },
+  );
+}
+
+const createDraft = (client) => retired(client);
+const updateDraft = (client, { id }) => retired(client, id);
+const transition = (client, { id }) => retired(client, id);
+const accept = (client, { id }) => retired(client, id);
+const share = (client, { id }) => retired(client, id);
+const revokeShare = (client, { id }) => retired(client, id);
+const generate = (client, { proposalId }) => retired(client, proposalId);
+
 async function get(client, id) {
   const p = await repo.get(client, id);
   if (!p) return null;
-  p.lines = await repo.listLines(client, id);
-  p.narratives = await repo.listNarratives(client, id);
-  return p;
+  const { share_token_hash: _hash, ...row } = p;
+  row.lines = await repo.listLines(client, id);
+  row.narratives = await repo.listNarratives(client, id);
+  row.quotation_id = await quotationOf(client, id);
+  row.retired = true;
+  return row;
 }
-const list = (client, q) => repo.list(client, q);
-module.exports = { createDraft, updateDraft, transition, accept, share, revokeShare, get, list, signedToken };
+
+async function list(client, q) {
+  const rows = await repo.list(client, q);
+  if (!rows.length) return rows;
+  const { rows: links } = await client.query(
+    "SELECT source_proposal_id, quotation_id FROM quotation WHERE source_proposal_id = ANY($1::uuid[])",
+    [rows.map((r) => r.proposal_id)],
+  );
+  const byProposal = new Map(links.map((l) => [l.source_proposal_id, l.quotation_id]));
+  return rows.map(({ share_token_hash: _hash, ...r }) => ({ ...r, quotation_id: byProposal.get(r.proposal_id) || null, retired: true }));
+}
+
+module.exports = { createDraft, updateDraft, transition, accept, share, revokeShare, generate, get, list, quotationOf };

@@ -1586,16 +1586,8 @@
       "route": "/sales/proposals",
       "area": "sales",
       "module_key": "MOD-23",
-      "purpose": "Generated client proposals.",
-      "actions": [
-        "list_proposals",
-        "get_proposal",
-        "draft_proposal",
-        "generate_proposal",
-        "share_proposal",
-        "transition_proposal",
-        "accept_proposal"
-      ],
+      "purpose": "Proposals from before the lean revamp, read only: each became a quotation (14542), which is where they are answered, sent and revised.",
+      "actions": [],
       "title_fr": "Propositions"
     },
     {
@@ -1604,7 +1596,7 @@
       "route": "/sales/quotations",
       "area": "sales",
       "module_key": "MOD-27",
-      "purpose": "Client quotations: draft (by hand or straight from a costing), send to the portal, accept or e-signed acceptance, convert to an invoice draft. Sales & CRM since meeting 6 (G6) — /commercial/quotations redirects here.",
+      "purpose": "Client and prospect quotations, the one priced document: draft (by hand or straight from a costing), sections from a template, printed as a Full Proposal or a Commercial Extract in English or French, sent by email with a tracked link, accepted on the link or in the portal by e-signature, revised, converted to an invoice draft. Sales & CRM since meeting 6 (G6) — /commercial/quotations redirects here.",
       "actions": [
         "list_quotations",
         "get_quotation",
@@ -1613,7 +1605,11 @@
         "accept_quotation",
         "preview_quotation_from_costing",
         "draft_quotation_from_costing",
-        "convert_quotation"
+        "convert_quotation",
+        "draft_quotation_sections",
+        "update_quotation_sections",
+        "send_quotation",
+        "revise_quotation"
       ],
       "title_fr": "Devis",
       "synonyms": [

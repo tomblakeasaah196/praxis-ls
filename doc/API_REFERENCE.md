@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1882 |
-| Modules mounted | 142 |
+| Routes | 1902 |
+| Modules mounted | 143 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1882 mounted routes, grouped by path prefix.
+All 1902 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1770,6 +1770,13 @@ All 1882 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/public/proposals/:token` | — |
 | GET | `/api/tenant/public/proposals/:token/pdf` | — |
 | POST | `/api/tenant/public/qes/:provider/webhook` | — |
+| GET | `/api/tenant/public/quotations/:token` | — |
+| POST | `/api/tenant/public/quotations/:token/accept` | — |
+| POST | `/api/tenant/public/quotations/:token/accept/complete` | — |
+| POST | `/api/tenant/public/quotations/:token/accept/resend` | — |
+| POST | `/api/tenant/public/quotations/:token/accept/start` | — |
+| POST | `/api/tenant/public/quotations/:token/decline` | — |
+| GET | `/api/tenant/public/quotations/:token/pdf` | — |
 | GET | `/api/tenant/public/secure/:token` | — |
 | GET | `/api/tenant/public/secure/:token/download` | — |
 | GET | `/api/tenant/public/services/` | — |
@@ -1838,9 +1845,22 @@ All 1882 mounted routes, grouped by path prefix.
 | PATCH | `/api/tenant/quotations/:id` | — |
 | POST | `/api/tenant/quotations/:id/accept` | — |
 | POST | `/api/tenant/quotations/:id/convert` | — |
+| POST | `/api/tenant/quotations/:id/draft-sections` | — |
+| GET | `/api/tenant/quotations/:id/pdf` | — |
+| GET | `/api/tenant/quotations/:id/preview` | — |
+| POST | `/api/tenant/quotations/:id/revise` | — |
+| POST | `/api/tenant/quotations/:id/send` | — |
+| POST | `/api/tenant/quotations/:id/share` | — |
+| POST | `/api/tenant/quotations/:id/share/revoke` | — |
 | POST | `/api/tenant/quotations/:id/transition` | — |
+| GET | `/api/tenant/quotations/:id/views` | — |
 | GET | `/api/tenant/quotations/from-costing/:costingId` | — |
 | POST | `/api/tenant/quotations/from-costing/:costingId` | — |
+| GET | `/api/tenant/quotations/templates` | — |
+| POST | `/api/tenant/quotations/templates` | — |
+| GET | `/api/tenant/quotations/templates/:templateId` | — |
+| PATCH | `/api/tenant/quotations/templates/:templateId` | — |
+| GET | `/api/tenant/quotations/templates/:templateId/preview` | — |
 
 ### `tenant/quote-requests`
 

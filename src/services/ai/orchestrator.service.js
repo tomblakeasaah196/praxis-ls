@@ -893,8 +893,8 @@ const SYSTEM_RULES =
   "reply. Never end your turn with only a statement of intent like 'let me do that now' or 'one moment' and then " +
   "stop — if you say you will do it, do it in the same response. The user must never have to ask you to proceed " +
   "with an action you already announced. " +
-  "For a status change, move ONE valid step along the lifecycle described in the action (e.g. a DRAFT proposal goes " +
-  "to IN_REVIEW before SENT); never skip states — if unsure of the current state, read it first." +
+  "For a status change, move ONE valid step along the lifecycle described in the action (e.g. a DRAFT quotation goes " +
+  "to SENT before it can be ACCEPTED); never skip states — if unsure of the current state, read it first." +
   "LANGUAGE RULES — these are absolute: " +
   "• NEVER show snake_case field names (say 'payment terms' not 'payment_terms_days'). " +
   "• NEVER show UUIDs, internal IDs, or database column names. " +

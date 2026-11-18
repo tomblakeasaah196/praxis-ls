@@ -1,10 +1,11 @@
+// ai:none Proposals became quotations (14542) and are read only; the AI drafts, sends and records acceptance on quotations (commercial/quotation/quotation.ai.js).
+// search:none Proposals became quotations (14542); quotation.search.js finds them, so a second result for the same offer would only mislead.
 "use strict";
 const service = require("./proposal.service");
-const generator = require("./proposal.generator");
 const { asyncHandler, AppError } = require("../../../utils/errors");
 const actor = (req) => req.user || { user_id: null };
 module.exports = {
-  generate: asyncHandler(async(req,res)=>res.json({data:await req.tenantDb(c=>generator.generate(c,{proposalId:req.params.id,input:req.body,actor:actor(req),env:req.env||"live"}))})),
+  generate: asyncHandler(async(req,res)=>res.json({data:await req.tenantDb(c=>service.generate(c,{proposalId:req.params.id}))})),
   share: asyncHandler(async (req,res)=>res.json({data:await req.tenantDb(c=>service.share(c,{id:req.params.id,expiresInDays:req.body.expires_in_days||30,actor:actor(req)}))})),
   revokeShare: asyncHandler(async (req,res)=>res.json({data:await req.tenantDb(c=>service.revokeShare(c,{id:req.params.id,actor:actor(req)}))})),
   list: asyncHandler(async (req, res) => res.json({ data: await req.tenantDb((c) => service.list(c, req.query)) })),

@@ -226,7 +226,7 @@ function transportFrom(cfg) {
  * so nothing throws, and treating "did not throw" as "delivered" is exactly how
  * a suppressed message came to be reported as sent.
  */
-async function send(client, { to, subject, html, text, from, replyTo, attachments = null, purpose = "NOTIFICATIONS", moduleKey = null, entityRef = null, documentVaultId = null, sendPoint = null, entityId = null, actorUserId = null, tenantSlug = null, signature = "auto", language = null, partyLanguage = null }, tx = null) {
+async function send(client, { to, cc = null, subject, html, text, from, replyTo, attachments = null, purpose = "NOTIFICATIONS", moduleKey = null, entityRef = null, documentVaultId = null, sendPoint = null, entityId = null, actorUserId = null, tenantSlug = null, signature = "auto", language = null, partyLanguage = null }, tx = null) {
   if (!to) throw new Error("email: 'to' is required");
 
   // G2 — sandbox must not send real client emails (PRD §5.5 [RULE]). The env
@@ -305,6 +305,8 @@ async function send(client, { to, subject, html, text, from, replyTo, attachment
   }
   const payload = {
     from: useOverride ? from : cfg.from, replyTo: replyTo || cfg.reply_to || undefined, to, subject, html, text,
+    // Copies (a quotation's Send, lean revamp §3.4). Absent unless asked for.
+    ...(cc && (!Array.isArray(cc) || cc.length) ? { cc } : {}),
     messageId: origin.generateMessageId(useOverride ? from : cfg.from),
     headers: originHeaders,
     ...(attachments && attachments.length ? { attachments } : {}),

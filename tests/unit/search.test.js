@@ -206,7 +206,9 @@ describe("the providers", () => {
 
   it("cover every record type the owner named (G5)", () => {
     const types = new Set(providers.map((p) => p.type));
-    for (const t of ["client", "supplier", "contact", "file", "quote_request", "proposal", "quotation", "costing", "invoice", "proforma", "receipt", "purchase_order", "employee", "treasury_account", "dictionary_item", "service_type", "document"]) {
+    // "proposal" left the list with the lean revamp (PR 4): every proposal is a
+    // quotation now (14542), found by the quotation provider.
+    for (const t of ["client", "supplier", "contact", "file", "quote_request", "quotation", "costing", "invoice", "proforma", "receipt", "purchase_order", "employee", "treasury_account", "dictionary_item", "service_type", "document"]) {
       expect(types.has(t)).toBe(true);
     }
   });

@@ -12,6 +12,7 @@ const k = require("./kit");
 const { groupLines } = require("./client-headings");
 const costingDocument = require("./costing-document");
 const companyProfileDocument = require("./company-profile-document");
+const quotationDocument = require("./quotation-document");
 
 const has = (v) => v !== undefined && v !== null;
 
@@ -183,21 +184,12 @@ const TEMPLATES = {
     docType: "QUOTATION",
     title: { fr: "Devis", en: "Quotation" },
     module: "commercial/quotation",
-    fields: ["accept / e-sign CTA"],
-    build: lineDoc({
-      // Printed by client heading × nature (14130, meeting 5): the client reads
-      // "Customs Formalities", not the six lines the costing breaks it into.
-      grouped: true,
-      title: { fr: "Devis", en: "Quotation" },
-      partyLabel: { fr: "À l'attention de", en: "Prepared for" },
-      meta: (d) => [[{ fr: "Date", en: "Date" }, k.dateFmt(d.date)], [{ fr: "Valable jusqu'au", en: "Valid until" }, k.dateFmt(d.valid_until)]],
-      totalsRows: (d, ccy, cfg) => [
-        [{ fr: "Total HT", en: "Subtotal" }, k.money(d.totals.service_ht, ccy, cfg)],
-        [vatLabel(d.lines), k.money(d.totals.vat_total, ccy, cfg)],
-        [{ fr: "Total TTC", en: "Total" }, k.money(d.totals.total_ttc, ccy, cfg), { grand: true }],
-      ],
-    }),
-    sampleData: { number: "DEV-2026-0042", date: "2026-07-27", valid_until: "2026-08-27", party: sampleParty, lines: sampleLines, totals: sampleTotals, currency: "XAF" },
+    fields: ["Full Proposal or Commercial Extract", "accept / e-sign CTA"],
+    // One template, two outputs (lean revamp §5.7): the sections it prints
+    // change with the switch, the priced lines and totals never do. Printed by
+    // client heading × nature (14130), as the invoice is.
+    build: (data, cfg, entity, verify) => quotationDocument.build(data, cfg, entity, verify),
+    sampleData: quotationDocument.sampleData,
   },
 
   CREDIT_NOTE: {

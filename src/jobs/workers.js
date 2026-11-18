@@ -177,6 +177,8 @@ const PROCESSORS = [
   { name: "milestone-sla-scheduler", concurrency: 1, handler: require("./handlers/milestone-sla-scheduler") },
   { name: "company-profile-refresh", concurrency: 1, handler: require("./handlers/company-profile-refresh") },
   { name: "company-profile-refresh-scheduler", concurrency: 1, handler: require("./handlers/company-profile-refresh-scheduler") },
+  { name: "quotation-expiry", concurrency: 1, handler: require("./handlers/quotation-expiry") },
+  { name: "quotation-expiry-scheduler", concurrency: 1, handler: require("./handlers/quotation-expiry-scheduler") },
   // Monthly leave accrual (MOD-15, 0696). concurrency 1 per queue: two passes
   // over one tenant would race on the same (employee, type, month) rows —
   // harmless thanks to the unique index, but they would fight over it rather
@@ -1034,6 +1036,12 @@ async function scheduleRecurring() {
     repeat: { pattern: "15 2 * * *", tz: "UTC" }, removeOnComplete: true, removeOnFail: 50,
   });
   logger.info("nightly company-profile refresh registered");
+  // A sent quotation past its last valid day becomes EXPIRED (lean revamp PR 4).
+  // 00:20 UTC: after the day has ended everywhere the corridor works.
+  await enqueue("quotation-expiry-scheduler", "tick", {}, {
+    repeat: { pattern: "20 0 * * *", tz: "UTC" }, removeOnComplete: true, removeOnFail: 50,
+  });
+  logger.info("nightly quotation expiry registered");
   // Milestone SLA scan (MOD-31). Wall-clock cron for the same reason as FX: the
   // whole point is landing at the start and the end of a working day, and an
   // interval-based repeat drifts off that after every restart. Empty

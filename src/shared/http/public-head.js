@@ -326,9 +326,28 @@ function articleLd(a, origin, branding, canonical) {
 
 const ROUTES = [
   {
+    // The public quotation (lean revamp §3.4). `peek` records no open: a link
+    // preview fetched by a chat app is not the client reading the offer.
+    test: /^\/q\/([^/]+)\/?$/,
+    load: (client, token) =>
+      require("../../modules/commercial/quotation_public/quotation_public.service").peek(
+        client,
+        decodeURIComponent(token),
+      ),
+    shape: (doc) =>
+      !doc
+        ? null
+        : {
+            title: doc.title || doc.doc_number || null,
+            description: summarise(doc.summary),
+          },
+  },
+  {
+    // Proposal links from before the revamp open their migrated quotation
+    // (14542 carried the tokens), read the same way, recording nothing.
     test: /^\/proposals\/([^/]+)\/?$/,
     load: (client, token) =>
-      require("../../modules/sales/proposal_public/proposal_public.service").get(
+      require("../../modules/commercial/quotation_public/quotation_public.service").peek(
         client,
         decodeURIComponent(token),
       ),
@@ -553,6 +572,7 @@ function robots(origin, servesPublic, base, host) {
     // full of guards against.
     "Disallow: " + paths.joinBase(base, "/proposals/"),
     "Disallow: " + paths.joinBase(base, "/profile/"),
+    "Disallow: " + paths.joinBase(base, "/q/"),
     "Disallow: /portal/",
     "",
     "Sitemap: " + origin + "/sitemap.xml",

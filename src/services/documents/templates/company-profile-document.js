@@ -143,4 +143,6 @@ const sampleData = {
   ],
 };
 
-module.exports = { build, sampleData };
+// RENDER is read by the quotation's About Us pages (quotation-document.js), so a
+// section prints the same way in the profile and in a Full Proposal.
+module.exports = { build, sampleData, RENDER };

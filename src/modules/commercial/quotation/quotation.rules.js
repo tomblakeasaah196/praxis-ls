@@ -61,4 +61,117 @@ function normaliseFamilyOrder(order) {
   return out;
 }
 
-module.exports = { NEXT, assertTransition, computeTotals, COSTING_QUOTABLE, normaliseFamilyOrder };
+/* ── one document (lean revamp, PR 4) ──────────────────────────────────────
+ *
+ * The vocabularies the quotation table cannot hold as a CHECK (14540, the
+ * 13791 rule), from the one definition both sides read.
+ */
+const shared = require("@praxis/shared").quotation;
+const { SECTION_KEYS, EXTRACT_SECTIONS, TEXT_SECTIONS, TEMPLATE_TEXT_SECTIONS, ALWAYS_ON, LANGUAGES, OUTPUTS } = shared;
+
+function assertLanguage(v) {
+  if (v !== undefined && v !== null && !LANGUAGES.includes(v)) {
+    throw new AppError("VALIDATION_ERROR", "Language is EN, FR or BILINGUAL", 422, { language: [`one of ${LANGUAGES.join(", ")}`] });
+  }
+}
+function assertOutput(v) {
+  if (v !== undefined && v !== null && !OUTPUTS.includes(v)) {
+    throw new AppError("VALIDATION_ERROR", "Output is FULL or EXTRACT", 422, { default_output: [`one of ${OUTPUTS.join(", ")}`] });
+  }
+}
+
+/** A quotation is for a client or a prospect's company row; never for nobody. */
+function assertParty({ client_id: clientId, lead_id: leadId }) {
+  if (!clientId && !leadId) {
+    throw new AppError("QUOTATION_PARTY_REQUIRED", "Say which client or prospect this quotation is for", 422, {
+      client_id: ["a client or a prospect (lead_id) is required"],
+    });
+  }
+}
+
+/**
+ * The languages a reader may switch between: a bilingual quotation offers
+ * both, a single-language one only its own. A sheet is always ONE language
+ * (template.service resolveDocLanguage, the owner's rule): "both" means both
+ * are on offer, never a slash on every label.
+ */
+function languagesOf(row) {
+  const own = String((row && row.language) || "").toUpperCase();
+  if (own === "EN" || own === "FR") return [own];
+  return ["EN", "FR"];
+}
+
+/** The one language a render comes out in: the one asked for when it is on offer, else the first. */
+function pickLanguage(row, requested) {
+  const offered = languagesOf(row);
+  const asked = String(requested || "").toUpperCase().slice(0, 2);
+  return offered.includes(asked) ? asked : offered[0];
+}
+
+/**
+ * Which sections print, in the library's order: the Full Proposal prints what
+ * is switched on; the Commercial Extract prints the letterhead cover, Pricing,
+ * Terms and Next Steps. Pricing always. The switch never touches a number:
+ * the lines and totals are read once, whatever this returns.
+ */
+function printedKeys(output, rows = []) {
+  const byKey = new Map((rows || []).map((r) => [r.section_key, r]));
+  const allowed = output === "EXTRACT" ? EXTRACT_SECTIONS : SECTION_KEYS;
+  return SECTION_KEYS.filter((k) => {
+    if (!allowed.includes(k)) return false;
+    if (ALWAYS_ON.includes(k)) return true;
+    const r = byKey.get(k);
+    // A quotation from before sections existed (or one migrated from a
+    // proposal) carries only the sections that had words: the automatic ones
+    // print, the written ones only when present.
+    if (!r) return k === "cover" || k === "next_steps" || k === "terms";
+    return r.enabled !== false;
+  });
+}
+
+/**
+ * The public link is open: sent, not revoked, not past its own expiry, and the
+ * offer itself still valid (valid_until is the last day it can be accepted).
+ * Answered quotations (accepted, declined) stay READABLE on the link; only the
+ * answering needs `answerable`.
+ */
+const isoDay = (d) => (d ? (d instanceof Date ? d.toISOString() : String(d)).slice(0, 10) : null);
+function linkState(row, now = new Date()) {
+  if (!row || !row.share_token_hash) return "CLOSED";
+  if (row.share_revoked_at) return "REVOKED";
+  if (row.share_expires_at && new Date(row.share_expires_at) <= now) return "EXPIRED";
+  if (!["SENT", "ACCEPTED", "REJECTED", "CONVERTED", "EXPIRED"].includes(row.status)) return "CLOSED";
+  return "OPEN";
+}
+function answerable(row, now = new Date()) {
+  if (!row || row.status !== "SENT") return false;
+  const until = isoDay(row.valid_until);
+  return !(until && until < now.toISOString().slice(0, 10));
+}
+
+/** When the link stops opening: the end of the offer's last valid day, or 30 days with no date. */
+function shareExpiry(validUntil, now = new Date()) {
+  const day = isoDay(validUntil);
+  if (day) return new Date(`${day}T23:59:59.999Z`);
+  return new Date(now.getTime() + 30 * 86_400_000);
+}
+
+/** Three working days from a date (Saturday and Sunday skipped), at 09:00 UTC. */
+function workingDaysFrom(from, days = 3) {
+  const d = new Date(from);
+  let left = days;
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const wd = d.getUTCDay();
+    if (wd !== 0 && wd !== 6) left -= 1;
+  }
+  d.setUTCHours(9, 0, 0, 0);
+  return d;
+}
+
+module.exports = {
+  NEXT, assertTransition, computeTotals, COSTING_QUOTABLE, normaliseFamilyOrder,
+  SECTION_KEYS, EXTRACT_SECTIONS, TEXT_SECTIONS, TEMPLATE_TEXT_SECTIONS, ALWAYS_ON, LANGUAGES, OUTPUTS,
+  assertLanguage, assertOutput, assertParty, languagesOf, pickLanguage, printedKeys, linkState, answerable,
+  shareExpiry, workingDaysFrom, isoDay,
+};

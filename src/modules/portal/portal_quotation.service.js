@@ -300,4 +300,4 @@ async function forRequest(c, { clientId, quoteRequestId, lang = "en" }) {
   return rows.map((r) => cardOf(r, lang));
 }
 
-module.exports = { list, get, pdf, startSigning, resendCode, completeSigning, accept, decline, pendingCount, forRequest, VISIBLE, shownStatus };
+module.exports = { list, get, pdf, startSigning, resendCode, completeSigning, accept, decline, pendingCount, forRequest, VISIBLE, shownStatus, sender };
