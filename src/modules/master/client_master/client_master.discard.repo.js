@@ -10,7 +10,7 @@
  *   removeAll(id) the delete itself, inside the caller's transaction.
  *
  * WHAT COUNTS AS HISTORY. The register names operations files, invoices,
- * receipts, journal lines, quote requests, proposals, quotations and portal
+ * receipts, journal lines, quote requests, quotations and portal
  * activity. Every other business record that points at a client is counted
  * too (advances, CRM, warehouse, signatures, change requests, documents filed
  * against it elsewhere, a client merged into it): a delete that had to guess
@@ -32,10 +32,9 @@ const HISTORY_LABELS = {
   advances: "advances",
   journal_lines: "journal lines",
   quote_requests: "quote requests",
-  proposals: "proposals",
   quotations: "quotations",
   portal_activity: "portal activity",
-  crm: "leads, opportunities or meetings",
+  crm: "leads or meetings",
   warehouse: "warehouse stock or orders",
   signatures: "signatures",
   change_requests: "change requests",
@@ -65,7 +64,6 @@ async function history(c, clientId) {
        (SELECT count(*) FROM journal_line jl, cm
          WHERE jl.account_code IN (cm.coa_aux_account, cm.coa_advance_account))::int AS journal_lines,
        (SELECT count(*) FROM quote_request WHERE client_id = $1)::int AS quote_requests,
-       (SELECT count(*) FROM proposal WHERE client_id = $1 OR converted_client_id = $1)::int AS proposals,
        (SELECT count(*) FROM quotation WHERE client_id = $1)::int AS quotations,
        ((SELECT count(*) FROM client_message WHERE client_id = $1)
         + (SELECT count(*) FROM client_request WHERE client_id = $1)
@@ -75,7 +73,6 @@ async function history(c, clientId) {
              JOIN portal_user pu ON pu.portal_user_id = ps.portal_user_id
             WHERE lower(pu.email) IN (SELECT email FROM granted)))::int AS portal_activity,
        ((SELECT count(*) FROM lead WHERE client_id = $1)
-        + (SELECT count(*) FROM opportunity WHERE client_id = $1)
         + (SELECT count(*) FROM meeting WHERE client_id = $1))::int AS crm,
        ((SELECT count(*) FROM outbound_order WHERE client_id = $1)
         + (SELECT count(*) FROM inventory_item WHERE owner_client_id = $1))::int AS warehouse,

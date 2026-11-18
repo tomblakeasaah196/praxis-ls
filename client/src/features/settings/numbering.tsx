@@ -211,7 +211,6 @@ const DOC_NUMBER_MODULES: {
       { key: "MOD-50", label: "Proforma / Customer Advance" },
       { key: "MOD-52", label: "Payment Receipt" },
       { key: "MOD-27", label: "Quotation" },
-      { key: "MOD-23", label: "Proposal" },
       { key: "MOD-60", label: "Purchase Order" },
       { key: "MOD-62", label: "Purchase Request" },
       { key: "MOD-61", label: "Supplier Invoice" },

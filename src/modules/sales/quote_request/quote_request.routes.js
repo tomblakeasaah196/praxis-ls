@@ -2,7 +2,7 @@
 const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
 const { requirePermission } = require("../../../middleware/rbac");
-const { requireTransitionPermission, requireLifecyclePermissionOnPatch } = require("../../../shared/http/transition-permission");
+const { requireTransitionPermission } = require("../../../shared/http/transition-permission");
 // The maps below live in @praxis/shared so the screens offer exactly the buttons
 // these routes accept (rules/transition-actions.js).
 const { transitionActions } = require("@praxis/shared");
@@ -11,15 +11,16 @@ const validator = require("./quote_request.validator");
 const MODULE = "MOD-20";
 
 /**
- * Quote request routes (MOD-20-intake) — the logistics-scope intake register
- * (F6, doc/SALES_CRM_FEATURES.md).
+ * Quote request routes (MOD-20) — the request, which since the Sales lean
+ * revamp is also the deal (doc/SALES_CRM_LEAN_REVAMP_GUIDE.md §3.2).
  *
- * Per-state RBAC: advancing through the intake funnel is `edit`; the
- * decision that ENDS the record (CONVERTED / CLOSED) is `approve`. Anything
- * unmapped falls back to `approve` so a state added later fails closed —
- * the same pattern lead.routes.js uses.
+ * The old intake transitions (`POST /:id/transition`, RECEIVED to
+ * CLOSED_NO_ACTION) went in PR 7 with the `status` column they moved; the
+ * stage bar below is the request's only lifecycle.
+ *
+ * Per-stage RBAC. Anything unmapped falls back to `approve` so a stage added
+ * later fails closed, the same pattern lead.routes.js uses.
  */
-const TRANSITION_ACTION = transitionActions.quoteRequestTransition;
 
 /**
  * The deal's stage bar (lean revamp PR 2): a working stage is `edit`; LOST ends
@@ -43,15 +44,13 @@ router.get("/client-match", requirePermission(MODULE, "view"), validator.clientM
 // The services a request can name — the desk's picker, each with its card,
 // flow and Incoterms (14300).
 router.get("/services", requirePermission(MODULE, "view"), controller.services);
-// The 360° dossier — the request's full logistics scope, its attachments, the
-// lead it came from and the opportunity it became, in one call. Same gate as
-// the plain read; money is gated separately on finance visibility.
+// The 360° dossier — the request's full logistics scope, its attachments and
+// the lead it sits on, in one call. Same gate as the plain read; money is gated
+// separately on finance visibility.
 router.get("/:id/360", requirePermission(MODULE, "view"), controller.dossier);
 router.get("/:id", requirePermission(MODULE, "view"), controller.get);
 router.post("/", requirePermission(MODULE, "create"), validator.create, controller.create);
-router.patch("/:id", requirePermission(MODULE, "edit"), validator.update,
-  requireLifecyclePermissionOnPatch(MODULE, TRANSITION_ACTION, { field: "status" }), controller.update);
-router.post("/:id/transition", validator.transition, requireTransitionPermission(MODULE, TRANSITION_ACTION), controller.transition);
+router.patch("/:id", requirePermission(MODULE, "edit"), validator.update, controller.update);
 router.post("/:id/stage", validator.moveStage, requireTransitionPermission(MODULE, STAGE_ACTION, { field: "stage" }), controller.moveStage);
 router.post("/:id/mark-won", requirePermission(MODULE, "approve"), validator.markWon, controller.markWon);
 

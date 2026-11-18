@@ -46,7 +46,6 @@ const SCHEMES = {
   "MOD-30":    { prefix: "TO",   label: "Transit order" },
   "MOD-32":    { prefix: "DN",   label: "Delivery note" },
   "MOD-27":    { prefix: "QUO",  label: "Quotation" },
-  "MOD-23":    { prefix: "PRP",  label: "Proposal" },
   "MOD-50":    { prefix: "PRF",  label: "Proforma / customer advance" },
   "MOD-51":    { prefix: "INV",  label: "Final invoice" },
   "MOD-51-CN": { prefix: "CN",   label: "Credit note (own sequence, shares MOD-51 perms)" },

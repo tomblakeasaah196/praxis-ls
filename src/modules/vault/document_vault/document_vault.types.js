@@ -37,7 +37,13 @@ const DOC_TYPES = {
   CREDIT_NOTE:           { label: "Credit note",              module: "finance/credit_note",           moduleKey: "MOD-51" },
   PAYMENT_RECEIPT:       { label: "Payment receipt",          module: "finance/smart_receivables",     moduleKey: "MOD-52" },
   QUOTATION:             { label: "Quotation",                module: "commercial/quotation",          moduleKey: "MOD-27" },
-  PROPOSAL:              { label: "Proposal",                 module: "sales/proposal",                moduleKey: "MOD-23" },
+  /*
+   * Proposals became quotations in the Sales lean revamp (14542) and MOD-23
+   * was retired (PR 7). The type stays so a proposal PDF filed or signed
+   * before then still renders and verifies, under the quotation's module: a
+   * retired MOD-23 would leave it readable by nobody.
+   */
+  PROPOSAL:              { label: "Proposal",                 module: "sales/proposal",                moduleKey: "MOD-27" },
   PURCHASE_ORDER:        { label: "Purchase order",           module: "procurement/purchase_order",    moduleKey: "MOD-60" },
   PURCHASE_REQUEST:      { label: "Purchase request",         module: "procurement/purchase_request",  moduleKey: "MOD-62" },
   SUPPLIER_INVOICE:      { label: "Supplier invoice",         module: "procurement/supplier_invoice",  moduleKey: "MOD-61" },

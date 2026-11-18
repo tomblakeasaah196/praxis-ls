@@ -19,7 +19,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | Alias | Prefer | Raised |
 |---|---|---|
 | `BAD_AMOUNT` | `INVALID_AMOUNT` | 16× |
-| `BAD_STATE` | `BAD_STATUS` | 38× |
+| `BAD_STATE` | `BAD_STATUS` | 37× |
 | `EMPLOYEE_NOT_FOUND` | `NOT_FOUND` | 3× |
 | `FORBIDDEN` | `PERMISSION_DENIED` | 7× |
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
@@ -135,7 +135,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_SECTION` | — | 1× | — |
 | `BAD_SIGNATURE` | 422 | 1× | — |
 | `BAD_SNAPSHOT_TARGET` | 500 | 1× | — |
-| `BAD_STATE` | 400, 409, 422 | 38× | `BAD_STATUS` |
+| `BAD_STATE` | 400, 409, 422 | 37× | `BAD_STATUS` |
 | `BAD_STATUS` | 422 | 6× | — |
 | `BAD_STEP` | 422 | 1× | — |
 | `BAD_STORAGE_BUFFER` | 400 | 2× | — |
@@ -338,7 +338,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `LINE_HAS_CLAIMS` | — | 1× | — |
 | `LINE_REQUIRED` | 422 | 1× | — |
 | `LOCATION_REQUIRED` | — | 1× | — |
-| `LOCKED` | 422 | 34× | — |
+| `LOCKED` | 422 | 33× | — |
 | `LOCKED_NOT_DEFAULT` | — | 1× | — |
 | `LOGIN_THROTTLED` | 429 | 1× | — |
 | `LOW_MARGIN_JUSTIFICATION_REQUIRED` | 422 | 1× | — |
@@ -398,7 +398,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 766× | — |
+| `NOT_FOUND` | 404, 422 | 763× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -606,7 +606,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `RELATED_IS_SELF` | 422 | 1× | — |
 | `REPORTING_CYCLE` | 422 | 2× | — |
 | `REQUEST_CLOSED` | 409 | 4× | — |
-| `REQUEST_SETTLED` | 409 | 4× | — |
+| `REQUEST_SETTLED` | 409 | 3× | — |
 | `REQUIRED_FIELDS_MISSING` | — | 1× | — |
 | `RERUN_LIMIT` | 409 | 1× | — |
 | `RESERVED_HOST` | 409 | 1× | — |

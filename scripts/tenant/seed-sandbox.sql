@@ -78,16 +78,12 @@ DECLARE
   -- service types + milestone template
   v_st_sea uuid; v_st_air uuid; v_st_transit uuid;
   v_mt uuid; v_mt_air uuid; v_mt_transit uuid;
-  -- pipeline stages (looked up from 9030)
-  v_ps_new uuid; v_ps_qual uuid; v_ps_prop uuid; v_ps_neg uuid; v_ps_won uuid; v_ps_lost uuid;
   -- dossiers
   v_do1 uuid; v_do2 uuid; v_do3 uuid; v_do4 uuid; v_do5 uuid;
   -- leads
   v_ld1 uuid; v_ld2 uuid; v_ld3 uuid; v_ld4 uuid;
-  -- opportunities
-  v_op1 uuid; v_op2 uuid; v_op3 uuid; v_op4 uuid;
-  -- proposals
-  v_pp1 uuid; v_pp2 uuid;
+  -- requests (each one is also the deal: its stage and value)
+  v_rq1 uuid; v_rq2 uuid;
   -- meetings
   v_mtg1 uuid;
   -- quotations / costings
@@ -115,12 +111,6 @@ BEGIN
   -- Lookups into the config seeds -------------------------------------------
   SELECT tax_code_id INTO v_tc_std  FROM tax_code WHERE code='TVA_STD'    ORDER BY effective_from DESC LIMIT 1;
   SELECT tax_code_id INTO v_tc_zero FROM tax_code WHERE code='TVA_EXPORT' ORDER BY effective_from DESC LIMIT 1;
-  SELECT pipeline_stage_id INTO v_ps_new  FROM pipeline_stage WHERE code='NEW';
-  SELECT pipeline_stage_id INTO v_ps_qual FROM pipeline_stage WHERE code='QUALIFIED';
-  SELECT pipeline_stage_id INTO v_ps_prop FROM pipeline_stage WHERE code='PROPOSAL';
-  SELECT pipeline_stage_id INTO v_ps_neg  FROM pipeline_stage WHERE code='NEGOTIATION';
-  SELECT pipeline_stage_id INTO v_ps_won  FROM pipeline_stage WHERE code='WON';
-  SELECT pipeline_stage_id INTO v_ps_lost FROM pipeline_stage WHERE code='LOST';
 
   -- ==========================================================================
   -- 1. MASTER DATA
@@ -521,25 +511,13 @@ BEGIN
   INSERT INTO meeting (subject,lead_id,scheduled_at) VALUES ('Découverte besoins fret — SABC',v_ld1,now()+interval '2 days') RETURNING meeting_id INTO v_mtg1;
   INSERT INTO meeting_note (meeting_id,body,is_minutes) VALUES (v_mtg1,'Client importe ~40 conteneurs/an depuis Anvers. Sensible aux délais de dédouanement.',true);
 
-  INSERT INTO opportunity (name,lead_id,client_id,dossier_id,pipeline_stage_id,estimated_value,probability,status)
-    VALUES ('SABC — contrat cadre fret maritime',v_ld1,v_cl1,v_do1,v_ps_neg,72000000,60,'OPEN') RETURNING opportunity_id INTO v_op1;
-  INSERT INTO opportunity (name,client_id,pipeline_stage_id,estimated_value,probability,status)
-    VALUES ('Dangote — transit ciment',v_cl2,v_ps_prop,45000000,45,'OPEN') RETURNING opportunity_id INTO v_op2;
-  INSERT INTO opportunity (name,lead_id,pipeline_stage_id,estimated_value,probability,status)
-    VALUES ('Chococam — dédouanement récurrent',v_ld2,v_ps_qual,18000000,30,'OPEN') RETURNING opportunity_id INTO v_op3;
-  INSERT INTO opportunity (name,client_id,dossier_id,pipeline_stage_id,estimated_value,status)
-    VALUES ('CIMENCAM — fret aérien pièces',v_cl4,v_do4,v_ps_won,12000000,'WON') RETURNING opportunity_id INTO v_op4;
-
-  INSERT INTO proposal (doc_number,lead_id,client_id,opportunity_id,title,status,ai_generated)
-    VALUES ('SBX-PRP-0001',v_ld1,v_cl1,v_op1,'Proposition cadre fret maritime — SABC','SENT',true) RETURNING proposal_id INTO v_pp1;
-  INSERT INTO proposal_line (proposal_id,dictionary_item_id,label,qty,unit_price) VALUES
-    (v_pp1,v_di_freight,'Fret maritime 40ft x 40',40,2400000),
-    (v_pp1,v_di_transit,'Commission de transit',40,350000);
-  INSERT INTO proposal_narrative (proposal_id,section,body,sort_order) VALUES
-    (v_pp1,'executive_summary','SmartLS propose une solution intégrée de fret maritime et dédouanement pour SABC.',0),
-    (v_pp1,'scope','Enlèvement Anvers, transport maritime, dédouanement IM4, livraison Douala.',1);
-  INSERT INTO proposal (doc_number,client_id,opportunity_id,title,status)
-    VALUES ('SBX-PRP-0002',v_cl2,v_op2,'Transit ciment Dangote — offre','IN_REVIEW') RETURNING proposal_id INTO v_pp2;
+  -- The deal lives on the request since the Sales lean revamp (D3): its stage
+  -- and value, on the company row it belongs to. Opportunities, proposals and
+  -- pipeline stages were retired in PR 7.
+  INSERT INTO quote_request (lead_id,client_id,entity_id,intake_channel,title,stage,estimated_value,currency,service_category,incoterm)
+    VALUES (v_ld1,v_cl1,v_ent1,'MANUAL','SABC, contrat cadre fret maritime','QUOTED',72000000,'XAF','Sea freight import','FOB') RETURNING quote_request_id INTO v_rq1;
+  INSERT INTO quote_request (lead_id,entity_id,intake_channel,title,stage,estimated_value,currency,service_category)
+    VALUES (v_ld2,v_ent1,'MANUAL','Chococam, dédouanement récurrent','CONTACTED',18000000,'XAF','Customs clearance') RETURNING quote_request_id INTO v_rq2;
 
   INSERT INTO success_story (title,dossier_id,summary,is_published,ai_generated)
     VALUES ('Dédouanement express pour Dangote',v_do2,'Réduction du délai de dédouanement de 30%.',true,true);
@@ -565,8 +543,8 @@ BEGIN
     (v_do1,v_di_customs,'Débours douane',8500000),
     (v_do1,v_di_freight,'Fret',80000000);
 
-  INSERT INTO quotation (doc_number,entity_id,client_id,dossier_id,costing_id,opportunity_id,margin_percent,total_ht,total_ttc,status,valid_until)
-    VALUES ('SBX-QUO-0001',v_ent1,v_cl1,v_do1,v_co1,v_op1,18.5,94800000,112318500,'SENT',CURRENT_DATE+20) RETURNING quotation_id INTO v_q1;
+  INSERT INTO quotation (doc_number,entity_id,client_id,dossier_id,costing_id,quote_request_id,margin_percent,total_ht,total_ttc,status,valid_until)
+    VALUES ('SBX-QUO-0001',v_ent1,v_cl1,v_do1,v_co1,v_rq1,18.5,94800000,112318500,'SENT',CURRENT_DATE+20) RETURNING quotation_id INTO v_q1;
   INSERT INTO quotation_line (quotation_id,dictionary_item_id,label,qty,unit_price,is_disbursement,tax_code_id,line_no) VALUES
     (v_q1,v_di_freight,'Fret maritime 40ft',40,2400000,true,NULL,1),
     (v_q1,v_di_transit,'Commission de transit',40,350000,false,v_tc_std,2),

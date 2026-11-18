@@ -83,7 +83,6 @@ function insert(client, data) {
     attachment_doc_id: blankToNull(data.attachment_doc_id),
     // Nullable since 14511: a phone request may not know one yet.
     incoterm: blankToNull(data.incoterm),
-    status: "RECEIVED",
     stage: "NEW",
     title: blankToNull(data.title),
     estimated_value: data.estimated_value ?? null,
@@ -130,7 +129,7 @@ async function defaultEntityId(client) {
  * the divergence is a single boolean.
  *
  * There is no `status` filter: the request's lifecycle is its stage (lean
- * revamp PR 2), and `status` is only written in step until PR 7 drops it.
+ * revamp PR 2), and the old intake `status` column was dropped in 14593.
  */
 function buildWhere(q = {}, { includeStage = true } = {}) {
   const wh = [];

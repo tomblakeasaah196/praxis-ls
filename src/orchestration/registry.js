@@ -6,7 +6,7 @@
  * src/orchestration/handlers/index.js, and it joins the flow.
  *
  * Handler shape: { eventKey, handlerKey, feature?, run(client, event) }
- *   - eventKey   : event_type_key to subscribe to (e.g. "opportunity.won")
+ *   - eventKey   : event_type_key to subscribe to (e.g. "quotation.accepted")
  *   - handlerKey : stable unique id (for logs / dedupe of re-require)
  *   - feature    : optional feature_state key; handler is skipped when off
  *   - run        : async (client, event) — MUST be idempotent (A2), since

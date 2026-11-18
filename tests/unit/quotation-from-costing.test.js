@@ -231,14 +231,14 @@ describe("createFromCosting — one click", () => {
   });
 
   it("links the one open request of this client for this service", async () => {
-    const req = { quote_request_id: UUID(50), public_ref: "SQ-2026-0003", status: "UNDER_REVIEW", service_type_id: UUID(5), created_at: "2026-09-29", answered: false };
+    const req = { quote_request_id: UUID(50), public_ref: "SQ-2026-0003", stage: "CONTACTED", service_type_id: UUID(5), created_at: "2026-09-29", answered: false };
     const db = fakeDb({ requests: [req] });
     await quotation.createFromCosting(db, { costingId: UUID(1), actor });
     expect(db.store.quotation[0].quote_request_id).toBe(UUID(50));
   });
 
   it("links none when the pricer says none", async () => {
-    const req = { quote_request_id: UUID(50), public_ref: "SQ-2026-0003", status: "UNDER_REVIEW", service_type_id: UUID(5), created_at: "2026-09-29", answered: false };
+    const req = { quote_request_id: UUID(50), public_ref: "SQ-2026-0003", stage: "CONTACTED", service_type_id: UUID(5), created_at: "2026-09-29", answered: false };
     const db = fakeDb({ requests: [req] });
     await quotation.createFromCosting(db, { costingId: UUID(1), quoteRequestId: null, actor });
     expect(db.store.quotation[0].quote_request_id).toBeNull();

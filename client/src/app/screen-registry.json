@@ -1519,12 +1519,7 @@
         "add_meeting_note",
         "get_meeting_discovery",
         "get_lead_discovery",
-        "save_meeting_discovery_section",
-        "list_opportunities",
-        "pipeline_board",
-        "pipeline_metrics",
-        "get_opportunity",
-        "list_pipeline_stages"
+        "save_meeting_discovery_section"
       ],
       "title_fr": "Prospects"
     },

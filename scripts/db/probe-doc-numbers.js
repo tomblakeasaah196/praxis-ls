@@ -32,10 +32,13 @@ const { config } = require("../../src/config/env");
 const args = process.argv.slice(2);
 const SLUG = (args.find((a) => a.startsWith("--slug=")) || "").split("=")[1] || null;
 
-/** Must match the tables indexed in 0498. */
+/**
+ * Must match the tables indexed in 0498, less `proposal`, which the Sales lean
+ * revamp dropped in 14591 (every proposal became a quotation).
+ */
 const TABLES = [
   "invoice", "delivery_note", "costing", "purchase_request", "purchase_order",
-  "supplier_invoice", "cash_request", "quotation", "proposal",
+  "supplier_invoice", "cash_request", "quotation",
 ];
 
 async function probeTenant(slug) {

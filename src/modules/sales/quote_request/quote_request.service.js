@@ -64,9 +64,9 @@
  *    (`lead.findOrCreateForIntake`). A website or portal arrival puts "Answer
  *    website request" on the owner's desk.
  *
- * 9. `status` IS KEPT IN STEP WITH `stage` until PR 7 drops it
- *    (rules.statusForStage). It is written, never read: every list, filter,
- *    tile and timeline reads the stage (lean revamp PR 6).
+ * 9. THE STAGE IS THE ONLY LIFECYCLE. The intake `status` that was kept in
+ *    step with it, and the old `/transition` route that moved it, went in PR 7
+ *    (migration 14593).
  */
 "use strict";
 const repo = require("./quote_request.repo");
@@ -380,38 +380,6 @@ async function update(client, { id, patch = {}, actor = {} }) {
 }
 
 /**
- * An intake transition from the register before PR 3 (`/transition`). It still
- * moves `status` through the guard it always had, and now moves the deal's
- * stage with it (rules.STAGE_FOR_STATUS), forward only: "Start review" on a
- * request already at Meeting does not drag it back to Contacted.
- */
-async function transition(client, { id, to, actor = {} }) {
-  const before = await repo.get(client, id);
-  if (!before) throw new AppError("NOT_FOUND", "Quote request not found", 404);
-  if (rules.isSettled(before.stage)) throw new AppError("REQUEST_SETTLED", "This request is already " + before.stage.toLowerCase(), 409);
-  rules.assertTransition(before.status, to);
-  const fields = { status: to };
-  const stage = rules.STAGE_FOR_STATUS[to];
-  if (stage === "LOST") {
-    Object.assign(fields, { stage, lost_reason_code: "NO_RESPONSE", lost_reason: "No response", settled_at: new Date().toISOString() });
-  } else if (stage && rules.STAGE_RANK[stage] > rules.STAGE_RANK[before.stage]) {
-    fields.stage = stage;
-  }
-  // "Start review" makes the reviewer the owner of a request nobody owns yet —
-  // a prospect's, which no account manager was there to take (auditor default).
-  if (to === "UNDER_REVIEW" && !before.owner_user_id && actor.user_id) fields.owner_user_id = actor.user_id;
-  return atomically(client, async () => {
-    const row = await repo.update(client, id, fields);
-    await emitEvent(client, { eventTypeKey: events.transition(to), moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null });
-    if (fields.stage && fields.stage !== before.stage) {
-      await emitEvent(client, { eventTypeKey: fields.stage === "LOST" ? events.LOST : events.STAGE_MOVED, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null, payload: { from: before.stage, to: fields.stage, lead_id: before.lead_id } });
-    }
-    await audit(client, { actorUserId: actor.user_id || null, action: events.transition(to), moduleKey: events.MODULE, entityRef: ref(id), before, after: row });
-    return row;
-  });
-}
-
-/**
  * Move the deal on the stage bar (§3.2). Any open stage to any other; Lost asks
  * why; nothing leaves Won or Lost; Won is a win's. `auto` is the system's own
  * move (a meeting scheduled on the request, a quotation sent for it): it only
@@ -427,7 +395,7 @@ async function moveStage(client, { id, stage, lostReasonCode = null, lostReason 
     if (stage === "LOST") return markLost(client, { id, reasonCode: lostReasonCode, reason: lostReason, actor });
     rules.assertMovable(before.stage, stage);
     if (stage === before.stage) return before;
-    const row = await repo.update(client, id, { stage, status: rules.statusForStage(stage, before.status) });
+    const row = await repo.update(client, id, { stage });
     await emitEvent(client, { eventTypeKey: events.STAGE_MOVED, moduleKey: events.MODULE, entityRef: ref(id), actorUserId: actor.user_id || null, payload: { from: before.stage, to: stage, lead_id: before.lead_id, auto } });
     await audit(client, { actorUserId: actor.user_id || null, action: events.STAGE_MOVED, moduleKey: events.MODULE, entityRef: ref(id), before: { stage: before.stage }, after: { stage, auto } });
     return row;
@@ -447,7 +415,6 @@ async function markLost(client, { id, reasonCode, reason = null, actor = {}, via
     if (rules.isSettled(before.stage)) throw new AppError("REQUEST_SETTLED", "This request is already " + before.stage.toLowerCase(), 409);
     const row = await repo.update(client, id, {
       stage: "LOST",
-      status: rules.statusForStage("LOST", before.status),
       lost_reason_code: reasonCode,
       lost_reason: reason ? String(reason).slice(0, 500) : null,
       settled_at: new Date().toISOString(),
@@ -735,17 +702,31 @@ async function quoteServices(client, { publishedOnly = false } = {}) {
 }
 
 /**
+ * The stage an intake transition from before the lean revamp means, for
+ * READING an audit row written then. The ledger is append-only, so a request
+ * older than the revamp still has `quote_request.under_review` and its kin in
+ * its trail, and its client's timeline still draws them. Nothing writes these
+ * actions any more (the `/transition` route went in PR 7); this is history, not
+ * a vocabulary. A conversion to an opportunity names no stage and is not drawn.
+ */
+const HISTORIC_TRANSITION_STAGE = Object.freeze({
+  UNDER_REVIEW: "CONTACTED",
+  CLARIFICATION_REQUIRED: "CONTACTED",
+  QUOTED: "QUOTED",
+  CLOSED_NO_ACTION: "LOST",
+});
+
+/**
  * The stage an audit action records: the stage it names (a move, the created
  * row), the win or the loss, or for a request older than the lean revamp the
- * stage its intake transition meant (rules.STAGE_FOR_STATUS). A conversion to
- * an opportunity names no stage and is not drawn.
+ * stage its intake transition meant.
  */
 function stageOfAction(e) {
   if (e.action === "quote_request.won") return "WON";
   if (e.action === "quote_request.lost") return "LOST";
   if (e.stage && rules.STAGES.includes(e.stage)) return e.stage;
   if (e.action === "quote_request.created") return "NEW";
-  return rules.STAGE_FOR_STATUS[String(e.action).replace(/^quote_request\./, "").toUpperCase()] || null;
+  return HISTORIC_TRANSITION_STAGE[String(e.action).replace(/^quote_request\./, "").toUpperCase()] || null;
 }
 
 /**
@@ -851,7 +832,7 @@ async function list(client, q = {}) {
 const listForExport = (client, q = {}) => repo.listForExport(client, q, EXPORT_CAP);
 
 module.exports = {
-  create, update, transition, moveStage, markLost, markWon,
+  create, update, moveStage, markLost, markWon,
   uploadAttachment, removeAttachment, listAttachments, fileFromChat,
   clientMatch, quoteServices, quoteServiceCard, stageTimeline,
   stageClientDocument, addClientDocument, sweepStagedDocuments, clientView, clientDocument,

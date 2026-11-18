@@ -289,45 +289,6 @@ export const SPECS: ScreenSpec[] = [
     ],
   },
   {
-    path: "sales/opportunities",
-    area: "Sales & CRM",
-    title: "Opportunities",
-    purpose:
-      "The CRM pipeline — a Kanban board of open opportunities by stage, with weighted value forecasting.",
-    module: "MOD-24",
-    status: "ready",
-    tabs: [
-      {
-        label: "Pipeline board",
-        columns: ["Stage", "Opportunities", "Value", "Weighted value"],
-        actions: ["New opportunity"],
-      },
-      {
-        label: "List",
-        columns: ["Name", "Client", "Stage", "Value", "Probability", "Owner"],
-        actions: ["Move stage", "Win", "Lose"],
-      },
-    ],
-    ai: [
-      {
-        label: "Pipeline board",
-        kind: "read",
-        describe: "Stage counts + weighted value for the open pipeline.",
-      },
-      {
-        label: "Create / move opportunity",
-        kind: "write",
-        describe: "Create an opportunity or move it to another stage.",
-      },
-      {
-        label: "Win / lose",
-        kind: "write",
-        describe:
-          "Mark an opportunity won (optionally open an operations file) or lost.",
-      },
-    ],
-  },
-  {
     path: "sales/meetings",
     area: "Sales & CRM",
     title: "Meetings",

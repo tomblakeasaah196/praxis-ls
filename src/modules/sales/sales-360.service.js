@@ -8,33 +8,32 @@
  * figure defaults to 0, every collection to [].
  *
  * ── WHY THESE TWO NEEDED ONE ────────────────────────────────────────────────
- * F6 split what the legacy overloaded into one column across three rows: the
- * lead carries the commercial funnel, the quote request carries the intake
- * lifecycle, the opportunity carries the pipeline stage. That split is correct
- * and it is the whole point of the feature — but it left a salesperson with
- * three registers and no single place that answers "what is going on with this
- * company". The meetings are on a fourth screen, the proposals on a fifth. This
- * is the join the split made necessary.
+ * F6 split what the legacy overloaded into one column across three rows (lead,
+ * quote request, opportunity), which left a salesperson with three registers
+ * and no single place that answers "what is going on with this company". The
+ * Sales lean revamp folded the opportunity into the request (D3) and the
+ * proposal into the quotation (D6); this is the join that answers it, one
+ * company row with its requests, quotations, meetings and activity.
  *
  * ── ONE CLIENT, SEQUENTIAL QUERIES ──────────────────────────────────────────
  * Every query here runs on the SAME pg client, which cannot execute two at
  * once, so these are sequential by nature — the same note treasury-360 carries.
  * Each collection is capped (LIMIT 25, timeline 50); a lead with more than 25
- * proposals is a data problem, not a rendering one.
+ * requests is a data problem, not a rendering one.
  *
  * ── MONEY IS GATED ──────────────────────────────────────────────────────────
- * Proposal totals and opportunity value are money, so they follow the masters'
+ * Request value and quotation totals are money, so they follow the masters'
  * rule rather than inventing a second one: `canSeeFinancials` (a read grant on
  * Treasury, MOD-09; the CEO sees all) decides, and without it the figures are
  * `null` and `money_visible` is false. Null, not zero — "you may not see this"
  * and "this is worth nothing" are different facts, and a tile showing 0 for the
- * first is a lie. The counts are never gated: how many proposals exist is not
+ * first is a lie. The counts are never gated: how many requests exist is not
  * confidential.
  *
  * NOTE ON RULE 1 (doc/SALES_CRM_FEATURES.md). Nothing here reaches a model, but
  * the same discipline applies: no cost or margin column is named in any query
- * below. Proposal value is a SUM over `proposal_line.qty * unit_price` — the
- * sell side, the number already printed on the client's own proposal.
+ * below. A quotation's total is its sell-side `total_ttc`, the number already
+ * printed on the client's own quotation.
  */
 "use strict";
 
@@ -61,7 +60,7 @@ const money = (value, canSee) => (canSee ? Number(value || 0) : null);
  * UPDATE and DELETE, so this is real history rather than a mutable log — the
  * same source treasury-360's timeline reads.
  *
- * Scoped to THIS record's own ref. A lead's meetings, proposals and opportunity
+ * Scoped to THIS record's own ref. A lead's meetings, requests and quotations
  * each write their own audit rows under their own refs, and folding them in
  * here would produce a feed where "status changed to SENT" is ambiguous about
  * which thing changed. Each of those rows deep-links to its own record, which
@@ -127,69 +126,11 @@ async function leadMeetings(c, leadId) {
 }
 
 /**
- * Proposals for this lead, with their line total.
- *
- * `proposal` carries no total column — the number is the sum of its lines, and
- * `proposal.rules.totalHt` is the one place that arithmetic is written for the
- * accept path. The SQL below is the same expression; the alternative is loading
- * every line of every proposal to add them up in JavaScript for an index.
+ * The KPI block. Counts always; money only when the caller may see it. The
+ * deal's figures (open requests, won requests, open value) are added by
+ * `leadDossier` from the requests themselves, where the stage lives.
  */
-async function leadProposals(c, leadId, canSee) {
-  const rows = await rowsOf(
-    c,
-    `SELECT p.proposal_id, p.doc_number, p.title, p.status, p.language, p.currency,
-            p.ai_generated, p.created_at, p.viewed_at, p.downloaded_at,
-            (p.share_expires_at IS NOT NULL
-             AND p.share_revoked_at IS NULL
-             AND p.share_expires_at > now()) AS share_live,
-            COALESCE((SELECT SUM(l.qty * l.unit_price) FROM proposal_line l
-                       WHERE l.proposal_id = p.proposal_id), 0) AS total
-       FROM proposal p
-      WHERE p.lead_id = $1
-      ORDER BY p.created_at DESC
-      LIMIT $2`,
-    [leadId, LIMIT],
-  );
-  return rows.map((r) => ({ ...r, total: money(r.total, canSee) }));
-}
-
-async function leadOpportunities(c, leadId, canSee) {
-  const rows = await rowsOf(
-    c,
-    `SELECT o.opportunity_id, o.name, o.status, o.estimated_value, o.currency,
-            o.probability, o.probability_is_manual, o.source, o.scope_summary,
-            o.settled_at, o.created_at,
-            s.code AS stage_code, s.name AS stage_name, s.sort_order AS stage_sort
-       FROM opportunity o
-       LEFT JOIN pipeline_stage s ON s.pipeline_stage_id = o.pipeline_stage_id
-      WHERE o.lead_id = $1
-      ORDER BY o.created_at DESC
-      LIMIT $2`,
-    [leadId, LIMIT],
-  );
-  return rows.map((r) => ({
-    ...r,
-    // pg returns numeric as a string. The board already coerces
-    // (`opportunity.repo` does `Number(r.default_probability)`), and a client
-    // that receives "10.00" here and 10 there ends up with two formatters.
-    probability: r.probability === null || r.probability === undefined ? null : Number(r.probability),
-    estimated_value: money(r.estimated_value, canSee),
-    weighted_value: canSee
-      ? Math.round(((Number(r.estimated_value || 0) * Number(r.probability || 0)) / 100) * 100) / 100
-      : null,
-  }));
-}
-
-/**
- * The KPI block. Counts always; money only when the caller may see it.
- *
- * `open_pipeline_value` sums OPEN opportunities only — a won deal has left the
- * pipeline and a lost one never was in it, and adding either makes the figure
- * disagree with the board (`opportunity.repo` filters the same way).
- */
-function leadKpis({ meetings, proposals, opportunities, quoteRequests, enquiries, canSee }) {
-  const open = opportunities.filter((o) => o.status === "OPEN");
-  const sum = (list, key) => list.reduce((n, x) => n + Number(x[key] || 0), 0);
+function leadKpis({ meetings, quoteRequests, enquiries, canSee }) {
   return {
     meetings: meetings.length,
     discovery_sections_captured: meetings.reduce(
@@ -197,17 +138,7 @@ function leadKpis({ meetings, proposals, opportunities, quoteRequests, enquiries
       0,
     ),
     quote_requests: quoteRequests.length,
-    proposals: proposals.length,
-    proposals_sent: proposals.filter((p) => p.status === "SENT").length,
-    proposals_accepted: proposals.filter((p) => p.status === "ACCEPTED").length,
     enquiries: enquiries.length,
-    opportunities: opportunities.length,
-    open_opportunities: open.length,
-    won_opportunities: opportunities.filter((o) => o.status === "WON").length,
-    lost_opportunities: opportunities.filter((o) => o.status === "LOST").length,
-    open_pipeline_value: canSee ? sum(open, "estimated_value") : null,
-    weighted_pipeline_value: canSee ? sum(open, "weighted_value") : null,
-    proposals_value: canSee ? sum(proposals, "total") : null,
     money_visible: canSee,
   };
 }
@@ -433,14 +364,12 @@ async function leadDossier(c, { leadId, canSeeFinancials = false, user = null })
   const activity = await leadActivity(c, lead, { user, quotations });
 
   const meetings = await leadMeetings(c, leadId);
-  const proposals = await leadProposals(c, leadId, canSeeFinancials);
-  const opportunities = await leadOpportunities(c, leadId, canSeeFinancials);
 
   const quote_requests = await rowsOf(
     c,
     `SELECT quote_request_id, public_ref, stage, intake_channel, service_category,
             incoterm, origin_location, destination_location, estimated_weight,
-            project_cargo_flag, converted_opportunity_id, created_at
+            project_cargo_flag, created_at
        FROM quote_request
       WHERE lead_id = $1
       ORDER BY created_at DESC
@@ -461,13 +390,11 @@ async function leadDossier(c, { leadId, canSeeFinancials = false, user = null })
 
   const openRequests = requests.filter((r) => !["WON", "LOST"].includes(r.stage));
   const kpisBase = leadKpis({
-      meetings,
-      proposals,
-      opportunities,
-      quoteRequests: quote_requests,
-      enquiries,
-      canSee: canSeeFinancials,
-    });
+    meetings,
+    quoteRequests: quote_requests,
+    enquiries,
+    canSee: canSeeFinancials,
+  });
   return {
     lead: { ...lead, is_client: Boolean(lead.client_id) },
     next_step: row ? row.next_step : null,
@@ -485,8 +412,6 @@ async function leadDossier(c, { leadId, canSeeFinancials = false, user = null })
     },
     meetings,
     quote_requests,
-    proposals,
-    opportunities,
     enquiries,
     // The converted client, when there is one. A thin card, not a second party
     // dossier: the client has its own 360 and this deep-links to it.
@@ -552,59 +477,25 @@ async function intakeDossier(c, { quoteRequestId, canSeeFinancials = false }) {
 
   const attachments = await intakeAttachments(c, quoteRequestId);
 
-  /**
-   * The opportunity this request became, if any.
-   *
-   * Read through `converted_opportunity_id` and NOT through the status value.
-   * 0683 is explicit that the FK is the truth and the status is descriptive —
-   * the legacy computed "is converted" two different ways and got two different
-   * answers on the same row, greying it out in the list while the drawer still
-   * offered Convert. One way here, and it is the id.
-   */
-  const converted = request.converted_opportunity_id
-    ? (
-        await c.query(
-          `SELECT o.opportunity_id, o.name, o.status, o.estimated_value, o.currency,
-                  o.probability, s.code AS stage_code, s.name AS stage_name
-             FROM opportunity o
-             LEFT JOIN pipeline_stage s ON s.pipeline_stage_id = o.pipeline_stage_id
-            WHERE o.opportunity_id = $1`,
-          [request.converted_opportunity_id],
-        )
-      ).rows[0] || null
-    : null;
-
-  // Proposals reached through the lead, when this request came from one. A
-  // quote request has no direct proposal link; the lead is the join.
-  const proposals = request.lead_id
-    ? await leadProposals(c, request.lead_id, canSeeFinancials)
-    : [];
-
   return {
     request,
     kpis: {
       attachments: attachments.length,
       has_primary_attachment: attachments.some((a) => a.kind === "PRIMARY"),
-      proposals: proposals.length,
-      is_converted: Boolean(request.converted_opportunity_id),
-      // Days the request has been open, or how long it took to convert. The
+      // Days the request has been open, or how long it took to settle. The
       // register's oldest-first sort answers "what is going stale"; this
       // answers it for one row.
       age_days: Math.max(
         0,
         Math.floor(
-          (new Date(request.converted_at || Date.now()).getTime() -
+          (new Date(request.settled_at || Date.now()).getTime() -
             new Date(request.created_at).getTime()) /
             86400000,
         ),
       ),
-      converted_value: converted ? money(converted.estimated_value, canSeeFinancials) : null,
       money_visible: canSeeFinancials,
     },
     attachments,
-    converted_opportunity: converted
-      ? { ...converted, estimated_value: money(converted.estimated_value, canSeeFinancials) }
-      : null,
     lead: request.lead_id
       ? {
           lead_id: request.lead_id,
@@ -612,7 +503,6 @@ async function intakeDossier(c, { quoteRequestId, canSeeFinancials = false }) {
           status: request.lead_status,
         }
       : null,
-    proposals,
     timeline: await timeline(c, "quote_request:" + quoteRequestId),
   };
 }
@@ -626,8 +516,6 @@ module.exports = {
   // Exported for tests and for reuse by the intake dossier.
   leadKpis,
   leadMeetings,
-  leadProposals,
-  leadOpportunities,
   intakeAttachments,
   timeline,
   money,

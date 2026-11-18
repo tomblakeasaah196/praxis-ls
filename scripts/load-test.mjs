@@ -37,7 +37,7 @@ const ENDPOINTS = [
   ["GET", "/api/tenant/notifications/unread-count"],
   ["GET", "/api/tenant/dashboard/kpis"],
   ["GET", "/api/tenant/operations/files"],
-  ["GET", "/api/tenant/sales/opportunities"],
+  ["GET", "/api/tenant/sales/leads"],
   ["GET", "/api/tenant/finance/invoices"],
   ["GET", "/api/tenant/hr/employees"],
 ];

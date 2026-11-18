@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1885 |
-| Modules mounted | 141 |
+| Routes | 1878 |
+| Modules mounted | 140 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1885 mounted routes, grouped by path prefix.
+All 1878 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -1481,17 +1481,6 @@ All 1885 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/operations/:id/transition` | — |
 | POST | `/api/tenant/operations/drafts` | — |
 
-### `tenant/opportunities`
-
-| Method | Path | Body validated |
-|---|---|---|
-| GET | `/api/tenant/opportunities/` | — |
-| GET | `/api/tenant/opportunities/:id` | — |
-| GET | `/api/tenant/opportunities/board` | — |
-| GET | `/api/tenant/opportunities/export.csv` | — |
-| GET | `/api/tenant/opportunities/metrics` | — |
-| GET | `/api/tenant/opportunities/stages` | — |
-
 ### `tenant/outbound`
 
 | Method | Path | Body validated |
@@ -1855,7 +1844,6 @@ All 1885 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/quote-requests/:id/attachments/from-chat` | — |
 | POST | `/api/tenant/quote-requests/:id/mark-won` | — |
 | POST | `/api/tenant/quote-requests/:id/stage` | — |
-| POST | `/api/tenant/quote-requests/:id/transition` | — |
 | GET | `/api/tenant/quote-requests/client-match` | — |
 | GET | `/api/tenant/quote-requests/export.csv` | — |
 | GET | `/api/tenant/quote-requests/services` | — |

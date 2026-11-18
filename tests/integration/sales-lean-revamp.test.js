@@ -9,7 +9,9 @@
  *   1. THE BACKFILL on a fixture carrying every old status. CI provisions a
  *      tenant from nothing, where 14510-14515 move no rows, so this rebuilds the
  *      eve of the revamp inside a transaction it never commits (the same trick
- *      as mail-model-backfill.test.js): the old constraints out of the way, a
+ *      as mail-model-backfill.test.js): the tables and columns PR 7 dropped
+ *      since put back (helpers/retired-sales-shapes.js), the old constraints
+ *      out of the way, a
  *      row in every lead status, every intake status, an opportunity WON, LOST
  *      and OPEN with and without a quotation, a client with two leads,
  *      opportunities no request points at, website requests from one address.
@@ -37,6 +39,7 @@ const hasDb = !!process.env.DATABASE_URL && !!process.env.TEST_ENTITY_ID;
 const d = hasDb ? describe : describe.skip;
 
 const MIGRATIONS = path.resolve(__dirname, "..", "..", "migrations", "tenant");
+const { restoreRetiredSalesShapes } = require("./helpers/retired-sales-shapes");
 const sqlOf = (name) => fs.readFileSync(path.join(MIGRATIONS, name), "utf8");
 
 /** A fresh uuid, so a re-run on the same database never collides. */
@@ -118,7 +121,11 @@ d("Sales lean revamp PR 2 (real Postgres)", () => {
       c = await connect();
       await c.query("BEGIN");
 
-      // ── the eve of the revamp: what 14510-14512 add or enforce, out of the way
+      // ── the eve of the revamp: the opportunity, the intake status and the
+      // proposal, which PR 7 dropped since (the helper rebuilds them from the
+      // migrations that made them, inside this transaction)…
+      await restoreRetiredSalesShapes(c);
+      // …and what 14510-14512 add or enforce, out of the way
       await c.query("DROP INDEX IF EXISTS ux_lead_client");
       await c.query("ALTER TABLE quote_request ALTER COLUMN lead_id DROP NOT NULL");
 

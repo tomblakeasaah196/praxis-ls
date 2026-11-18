@@ -1130,9 +1130,7 @@ export declare namespace transitionActions {
   const vacancyStatus: Map;
   const contractStatus: Map;
   const trainingStatus: Map;
-  const quoteRequestTransition: Map;
   const quoteRequestStage: Map;
-  const proposalTransition: Map;
   const inboundIntakeTransition: Map;
   const quotationTransition: Map;
   const operationsFileTransition: Map;
@@ -1349,13 +1347,6 @@ export declare namespace emailDomain {
  * Quote request payloads for the desk, the portal and the public website.
  * See schemas/quote-request.js.
  */
-export type QuoteRequestStatus =
-  | "RECEIVED"
-  | "UNDER_REVIEW"
-  | "CLARIFICATION_REQUIRED"
-  | "QUOTED"
-  | "CONVERTED_TO_OPPORTUNITY"
-  | "CLOSED_NO_ACTION";
 export type QuoteIntakeChannel = "MANUAL" | "WEBSITE" | "PORTAL" | "EMAIL" | "REFERRAL" | "CAMPAIGN";
 export type WarehouseDuration =
   | "LESS_THAN_7_DAYS"
@@ -1406,8 +1397,6 @@ export type QuoteRequestStage = "NEW" | "CONTACTED" | "MEETING" | "QUOTED" | "WO
 export type LostReason = "PRICE" | "TIMING" | "COMPETITOR" | "NO_RESPONSE" | "OTHER";
 
 export declare namespace quoteRequest {
-  const STATUSES: ReadonlyArray<QuoteRequestStatus>;
-  const TERMINAL: ReadonlyArray<QuoteRequestStatus>;
   const INTAKE_CHANNELS: ReadonlyArray<QuoteIntakeChannel>;
   const WAREHOUSE_DURATIONS: ReadonlyArray<WarehouseDuration>;
   const DOCUMENT_KINDS: ReadonlyArray<QuoteDocumentKind>;
@@ -1415,8 +1404,8 @@ export declare namespace quoteRequest {
   const PUBLIC_DOCUMENT_MAX_BYTES: number;
   const PUBLIC_DOCUMENTS_TOTAL_BYTES: number;
   const PORTAL_DOCUMENTS_MAX: number;
-  /** False once a request is converted or closed — it keeps the client it had. */
-  function canRelink(status: string | null | undefined): boolean;
+  /** False once a request is won or lost: it keeps the client it had. */
+  function canRelink(stage: string | null | undefined): boolean;
   /** The deal's stage (14511): fixed, Won only through a win. */
   const STAGES: ReadonlyArray<QuoteRequestStage>;
   const OPEN_STAGES: ReadonlyArray<QuoteRequestStage>;
@@ -1427,7 +1416,6 @@ export declare namespace quoteRequest {
   const INCOTERM_REQUIRED_CHANNELS: ReadonlyArray<QuoteIntakeChannel>;
   const staffCreate: z.ZodType<StaffQuoteRequest, unknown>;
   const staffUpdate: z.ZodType<StaffQuoteRequest, unknown>;
-  const transition: z.ZodType<{ to: QuoteRequestStatus }, unknown>;
   const moveStage: z.ZodType<
     { stage: Exclude<QuoteRequestStage, "WON">; lost_reason_code?: LostReason; lost_reason?: string | null }, unknown
   >;

@@ -1,6 +1,6 @@
 {
   "note": "References already broken when check-query-columns landed. Fix and remove; do not add.",
-  "generated_against_tables": 294,
+  "generated_against_tables": 455,
   "grandfathered": [
     {
       "file": "src/services/ai/knowledge/entity-cards.js",
@@ -118,12 +118,6 @@
     },
     {
       "file": "src/services/ai/knowledge/entity-cards.js",
-      "ref": "grn.doc_number",
-      "table": "goods_received_note",
-      "column": "doc_number"
-    },
-    {
-      "file": "src/services/ai/knowledge/entity-cards.js",
       "ref": "grn.goods_received_note_id",
       "table": "goods_received_note",
       "column": "goods_received_note_id"
@@ -187,24 +181,6 @@
       "ref": "je.total_debit",
       "table": "journal_entry",
       "column": "total_debit"
-    },
-    {
-      "file": "src/services/ai/knowledge/entity-cards.js",
-      "ref": "o.expected_value",
-      "table": "opportunity",
-      "column": "expected_value"
-    },
-    {
-      "file": "src/services/ai/knowledge/entity-cards.js",
-      "ref": "o.title",
-      "table": "opportunity",
-      "column": "title"
-    },
-    {
-      "file": "src/services/ai/knowledge/entity-cards.js",
-      "ref": "p.total_ttc",
-      "table": "proposal",
-      "column": "total_ttc"
     },
     {
       "file": "src/services/ai/knowledge/entity-cards.js",

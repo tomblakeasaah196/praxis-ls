@@ -4,10 +4,8 @@
  *
  * 1. `quote_request.stage` is the request's lifecycle, and since the Sales
  *    lean revamp (PR 2) the deal's: NEW, CONTACTED, MEETING, QUOTED, then WON
- *    or LOST. Every READ goes through it. `status` is the intake vocabulary
- *    from before the revamp; the service still writes it in step with the
- *    stage (statusForStage below) until PR 7 drops the column, and nothing
- *    reads it (lean revamp PR 6).
+ *    or LOST. The intake `status` from before the revamp was dropped in 14593
+ *    (PR 7); the stage is the only lifecycle there is.
  *
  * 2. THE TILES PARTITION THE SET. Every stage belongs to exactly one tile, and
  *    the tiles sum to TOTAL — under every filter combination, with no row left
@@ -24,40 +22,10 @@
 const { quoteRequest } = require("@praxis/shared");
 const { AppError } = require("../../../utils/errors");
 
-/**
- * The status list and the terminal set are `@praxis/shared`'s since meeting 6
- * (PR 2) — the staff form greys the client picker on a terminal request from
- * the same list this module refuses the edit with.
- */
-const STATUSES = [...quoteRequest.STATUSES];
-
-/** States from which nothing may be edited, attached or detached any more. */
-const TERMINAL = [...quoteRequest.TERMINAL];
-
-const NEXT = {
-  RECEIVED: ["UNDER_REVIEW", "CLARIFICATION_REQUIRED", "CLOSED_NO_ACTION"],
-  UNDER_REVIEW: ["QUOTED", "CLARIFICATION_REQUIRED", "CLOSED_NO_ACTION"],
-  CLARIFICATION_REQUIRED: ["UNDER_REVIEW", "CLOSED_NO_ACTION"],
-  QUOTED: ["CONVERTED_TO_OPPORTUNITY", "CLOSED_NO_ACTION"],
-  CONVERTED_TO_OPPORTUNITY: [],
-  CLOSED_NO_ACTION: [],
-};
-
-function assertTransition(from, to) {
-  if (!NEXT[from] || !NEXT[from].includes(to)) {
-    throw new AppError("BAD_STATE", `Cannot move quote request ${from} -> ${to}`, 422);
-  }
-  return true;
-}
-
-const isTerminal = (status) => TERMINAL.includes(status);
-
 /* ── the deal's stage (14511, doc/SALES_CRM_LEAN_REVAMP_GUIDE.md §3.2, §4.2) ─
  *
- * Since the lean revamp the request carries the deal: NEW, CONTACTED, MEETING,
- * QUOTED, then WON or LOST. `status` above is the intake vocabulary the screens
- * before the revamp read; until PR 7 drops it, it is kept in step with the
- * stage by the two maps below, so the old register keeps telling the truth.
+ * The stages are `@praxis/shared`'s, so the stage bar offers exactly the moves
+ * this module accepts: NEW, CONTACTED, MEETING, QUOTED, then WON or LOST.
  */
 const STAGES = [...quoteRequest.STAGES];
 const OPEN_STAGES = [...quoteRequest.OPEN_STAGES];
@@ -66,30 +34,6 @@ const isSettled = (stage) => SETTLED_STAGES.includes(stage);
 
 /** How far along a stage is, so an automatic move never goes backwards. */
 const STAGE_RANK = { NEW: 0, CONTACTED: 1, MEETING: 2, QUOTED: 3, WON: 4, LOST: 4 };
-
-/** The intake status a stage reads as on the old register. */
-function statusForStage(stage, current = null) {
-  switch (stage) {
-    case "NEW": return "RECEIVED";
-    case "CONTACTED":
-    case "MEETING":
-      // Waiting on the client for an answer is still being worked.
-      return current === "CLARIFICATION_REQUIRED" ? current : "UNDER_REVIEW";
-    case "QUOTED": return "QUOTED";
-    case "WON": return "CONVERTED_TO_OPPORTUNITY";
-    case "LOST": return "CLOSED_NO_ACTION";
-    default: return current;
-  }
-}
-
-/** The stage an old intake transition means (the register before PR 3 still sends them). */
-const STAGE_FOR_STATUS = {
-  RECEIVED: "NEW",
-  UNDER_REVIEW: "CONTACTED",
-  CLARIFICATION_REQUIRED: "CONTACTED",
-  QUOTED: "QUOTED",
-  CLOSED_NO_ACTION: "LOST",
-};
 
 /**
  * May a person move a request from `from` to `to` on the stage bar? Any open
@@ -165,7 +109,6 @@ function assertPartitions(kpi) {
 }
 
 module.exports = {
-  STATUSES, TERMINAL, NEXT, assertTransition, isTerminal,
-  STAGES, OPEN_STAGES, SETTLED_STAGES, STAGE_RANK, STAGE_FOR_STATUS, isSettled, statusForStage, assertMovable,
+  STAGES, OPEN_STAGES, SETTLED_STAGES, STAGE_RANK, isSettled, assertMovable,
   KPI_TILES, TILE_LABELS, emptyKpi, kpiFrom, assertPartitions,
 };

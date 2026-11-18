@@ -76,9 +76,6 @@ const COUNTERPARTY_SQL = new Map(Object.entries({
   QUOTATION:
     "SELECT cm.client_id AS party_id, cm.name AS party_name, cm.email AS party_email, cm.preferred_language AS party_language "
     + "FROM quotation q JOIN client_master cm ON cm.client_id = q.client_id WHERE q.quotation_id = $1",
-  PROPOSAL:
-    "SELECT cm.client_id AS party_id, cm.name AS party_name, cm.email AS party_email, cm.preferred_language AS party_language "
-    + "FROM proposal p JOIN client_master cm ON cm.client_id = p.client_id WHERE p.proposal_id = $1",
 }));
 
 /** The record id inside an entity_ref (`transit_order:<uuid>`). */

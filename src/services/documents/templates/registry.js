@@ -234,33 +234,6 @@ const TEMPLATES = {
     sampleData: { number: "REC-2026-0021", date: "2026-07-27", method: "Virement / Bank transfer", amount: 1607900, invoice_ref: "FCT-2026-0001", party: sampleParty, currency: "XAF" },
   },
 
-  PROPOSAL: {
-    docType: "PROPOSAL",
-    title: { fr: "Proposition", en: "Proposal" },
-    module: "sales/proposal",
-    fields: ["cover image", "sections"],
-    build: (data, cfg, entity, verify) => {
-      const ccy = data.currency || cfg.base_currency || "XAF";
-      const secs = (data.sections || []).map((s) => k.section({ fr: s.title, en: s.title }, `<div class="box">${k.esc(s.body).replace(/\n/g, "<br>")}</div>`, cfg)).join("");
-      const body = [
-        k.standardHead(entity, cfg, { title: { fr: "Proposition commerciale", en: "Proposal" }, number: data.number, meta: [[{ fr: "Date", en: "Date" }, k.dateFmt(data.date)], [{ fr: "Client", en: "Client" }, data.party && data.party.name]] }),
-        `<h1 style="margin-top:18px">${k.esc(data.headline || "")}</h1>`,
-        secs,
-        data.lines && data.lines.length ? k.section({ fr: "Tarification", en: "Pricing" }, k.lineTable(LINE_COLS, fmtLines(data.lines, ccy, cfg), cfg), cfg) : "",
-        data.totals ? k.totals([[{ fr: "Total TTC", en: "Total" }, k.money(data.totals.total_ttc, ccy, cfg), { grand: true }]], cfg) : "",
-        k.termsBlock(cfg),
-        k.signatureBlock(cfg),
-        k.standardFoot(entity, cfg, verify),
-      ].join("");
-      return k.shell("Proposal " + (data.number || ""), body, cfg);
-    },
-    sampleData: {
-      number: "PROP-2026-0009", date: "2026-07-27", headline: "Solution logistique de bout en bout", party: sampleParty,
-      sections: [{ title: "Contexte / Context", body: "Gestion intégrée du transit maritime, dédouanement et livraison finale." }, { title: "Approche / Approach", body: "Une équipe dédiée, un suivi temps réel, et une facturation transparente." }],
-      lines: sampleLines, totals: sampleTotals, currency: "XAF",
-    },
-  },
-
   /* ── Phase 2 — operations & procurement ──────────────────────────────────── */
   /**
    * BON DE COMMANDE — the supplier-facing PO, rebuilt to the legacy print
